@@ -8,7 +8,7 @@ from collections import defaultdict
 
 def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
+    key = st.secrets["supabase"]["service_role_key"]
     return create_client(url, key)
 
 def get_today():
