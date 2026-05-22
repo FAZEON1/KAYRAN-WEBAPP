@@ -6,6 +6,26 @@ import streamlit as st
 from datetime import datetime
 
 # ─────────────────────────────────────────────────────────────────────
+# YETKİ TANIMLARI — Hangi kullanıcı hangi uygulamaya erişebilir
+# Yeni kullanıcı eklemek/çıkarmak için bu set'leri düzenle
+# ─────────────────────────────────────────────────────────────────────
+KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
+KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
+
+
+def kullanici_yetkileri(kullanici):
+    """
+    Verilen kullanıcının hangi uygulamalara erişimi var?
+    Returns: dict {'kayranacc': True/False, 'kayranpm': True/False}
+    """
+    k = (kullanici or "").lower().strip()
+    return {
+        "kayranacc": k in KAYRANACC_KULLANICILAR,
+        "kayranpm":  k in KAYRANPM_KULLANICILAR,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Sayfa ayarları (yalnızca bir kere, portal'da)
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -147,44 +167,80 @@ def uygulama_secici():
     </div>
     """, unsafe_allow_html=True)
 
-    # Uygulama kartları
-    col1, col2 = st.columns(2)
+    # Kullanıcı yetkilerini hesapla
+    yetkiler = kullanici_yetkileri(aktif_kullanici)
+    erisilebilir_uygulamalar = []
+    if yetkiler["kayranacc"]:
+        erisilebilir_uygulamalar.append("kayranacc")
+    if yetkiler["kayranpm"]:
+        erisilebilir_uygulamalar.append("kayranpm")
 
-    with col1:
+    # Hiçbir uygulamaya erişimi yoksa uyarı göster
+    if not erisilebilir_uygulamalar:
         st.markdown("""
-        <div style="background:linear-gradient(135deg, #1E40AF 0%, #3730A3 100%);
-                    border-radius:20px; padding:32px 28px; color:white;
-                    box-shadow: 0 12px 32px rgba(30, 64, 175, 0.25);
-                    min-height:220px;">
-            <div style="font-size:48px; margin-bottom:12px;">💳</div>
-            <div style="font-size:22px; font-weight:800; letter-spacing:1px; margin-bottom:8px;">KAYRANACC</div>
-            <div style="font-size:12px; color:#C7D2FE; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:14px;">Ödeme Takip Sistemi</div>
-            <div style="font-size:13px; line-height:1.6; color:#E0E7FF; opacity:0.95;">
-                Haftalık ödemeler · Banka bakiyeleri · Çek takibi · Nakit akış · Toplam aktifler
+        <div style="background:#FEF2F2; border:1px solid #FCA5A5; border-left:4px solid #DC2626;
+                    border-radius:12px; padding:24px; margin:40px auto; max-width:600px; text-align:center;">
+            <div style="font-size:32px; margin-bottom:12px;">🔒</div>
+            <div style="font-size:16px; font-weight:700; color:#991B1B; margin-bottom:8px;">
+                Erişim Yetkiniz Yok
+            </div>
+            <div style="font-size:13px; color:#7F1D1D;">
+                Sistem yöneticisi sizin için henüz herhangi bir uygulamaya erişim tanımlamamış.<br>
+                Lütfen yöneticinizle iletişime geçin.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("→ KAYRANACC'yi Aç", key="acc_aç", type="primary", use_container_width=True):
-            st.session_state.aktif_uygulama = "kayranacc"
-            st.rerun()
+        return
 
-    with col2:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
-                    border-radius:20px; padding:32px 28px; color:white;
-                    box-shadow: 0 12px 32px rgba(21, 101, 192, 0.25);
-                    min-height:220px;">
-            <div style="font-size:48px; margin-bottom:12px;">📦</div>
-            <div style="font-size:22px; font-weight:800; letter-spacing:1px; margin-bottom:8px;">KAYRANPM</div>
-            <div style="font-size:12px; color:#BBDEFB; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:14px;">Ürün & Stok Yönetimi</div>
-            <div style="font-size:13px; line-height:1.6; color:#E1F5FE; opacity:0.95;">
-                Ürün dashboard · Stok takibi · Sipariş önerisi · Kampanya · Satın alma geçmişi
+    # Uygulama kartları - sadece yetkili olanlar gösterilir
+    # 1 yetki varsa tam genişlik, 2 yetki varsa yan yana
+    if len(erisilebilir_uygulamalar) == 2:
+        col1, col2 = st.columns(2)
+        kayranacc_col = col1
+        kayranpm_col = col2
+    elif len(erisilebilir_uygulamalar) == 1:
+        # Tek uygulama varsa ortada büyük kart
+        col_left, col_main, col_right = st.columns([1, 2, 1])
+        kayranacc_col = col_main if "kayranacc" in erisilebilir_uygulamalar else None
+        kayranpm_col = col_main if "kayranpm" in erisilebilir_uygulamalar else None
+
+    if yetkiler["kayranacc"] and kayranacc_col:
+        with kayranacc_col:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg, #1E40AF 0%, #3730A3 100%);
+                        border-radius:20px; padding:32px 28px; color:white;
+                        box-shadow: 0 12px 32px rgba(30, 64, 175, 0.25);
+                        min-height:220px;">
+                <div style="font-size:48px; margin-bottom:12px;">💳</div>
+                <div style="font-size:22px; font-weight:800; letter-spacing:1px; margin-bottom:8px;">KAYRANACC</div>
+                <div style="font-size:12px; color:#C7D2FE; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:14px;">Ödeme Takip Sistemi</div>
+                <div style="font-size:13px; line-height:1.6; color:#E0E7FF; opacity:0.95;">
+                    Haftalık ödemeler · Banka bakiyeleri · Çek takibi · Nakit akış · Toplam aktifler
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("→ KAYRANPM'yi Aç", key="pm_aç", type="primary", use_container_width=True):
-            st.session_state.aktif_uygulama = "kayranpm"
-            st.rerun()
+            """, unsafe_allow_html=True)
+            if st.button("→ KAYRANACC'yi Aç", key="acc_aç", type="primary", use_container_width=True):
+                st.session_state.aktif_uygulama = "kayranacc"
+                st.rerun()
+
+    if yetkiler["kayranpm"] and kayranpm_col:
+        with kayranpm_col:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+                        border-radius:20px; padding:32px 28px; color:white;
+                        box-shadow: 0 12px 32px rgba(21, 101, 192, 0.25);
+                        min-height:220px;">
+                <div style="font-size:48px; margin-bottom:12px;">📦</div>
+                <div style="font-size:22px; font-weight:800; letter-spacing:1px; margin-bottom:8px;">KAYRANPM</div>
+                <div style="font-size:12px; color:#BBDEFB; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:14px;">Ürün & Stok Yönetimi</div>
+                <div style="font-size:13px; line-height:1.6; color:#E1F5FE; opacity:0.95;">
+                    Ürün dashboard · Stok takibi · Sipariş önerisi · Kampanya · Satın alma geçmişi
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("→ KAYRANPM'yi Aç", key="pm_aç", type="primary", use_container_width=True):
+                st.session_state.aktif_uygulama = "kayranpm"
+                st.rerun()
 
     # Footer
     st.markdown("""
@@ -225,6 +281,21 @@ def main():
 
     # Aktif uygulamayı çalıştır
     aktif = st.session_state.aktif_uygulama
+
+    # ─── GÜVENLİK: Yetki kontrolü (URL hile için) ───
+    yetkiler = kullanici_yetkileri(st.session_state.aktif_kullanici)
+    if aktif == "kayranacc" and not yetkiler["kayranacc"]:
+        st.error("🔒 KAYRANACC uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = None
+        if st.button("← Portal'a Dön"):
+            st.rerun()
+        return
+    if aktif == "kayranpm" and not yetkiler["kayranpm"]:
+        st.error("🔒 KAYRANPM uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = None
+        if st.button("← Portal'a Dön"):
+            st.rerun()
+        return
 
     # Portal'a Dön butonunu sidebar'ın en üstüne ekle
     portal_dön_butonu()
