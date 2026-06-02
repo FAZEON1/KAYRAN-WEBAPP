@@ -6,10 +6,22 @@ from supabase import create_client, Client
 from datetime import date
 from collections import defaultdict
 
+
+@st.cache_resource
 def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["service_role_key"]
+    key = st.secrets["supabase"]["key"]
     return create_client(url, key)
+
+
+def _cache_temizle():
+    """Tüm @st.cache_data önbelleklerini temizler.
+    Her yazma (ekle/sil/güncelle) işleminden sonra çağrılır."""
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+
 
 def get_today():
     return date.today().isoformat()
@@ -47,6 +59,7 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
     sb.table("stok_yas").upsert(
         {"sku": sku, "ilk_gorulen_tarih": bugun}, on_conflict="sku"
     ).execute()
+    _cache_temizle()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
@@ -71,6 +84,7 @@ def get_all_dashboard_data():
         gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)
     return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_urun_detay(sku):
     return _row(get_client().table("urunler").select("*").eq("sku", sku).execute())
 
@@ -79,6 +93,7 @@ def sil_urun(sku):
     for tablo in ["urunler", "firma_stok", "satin_alma_gecmisi",
                   "yoldaki_urunler", "stok_yas", "siparis_onerileri"]:
         sb.table(tablo).delete().eq("sku", sku).execute()
+        _cache_temizle()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_sku_listesi():
@@ -93,6 +108,7 @@ def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis):
         "haftalik_satis": int(haftalik_satis or 0),
         "yukleme_tarihi": get_today(),
     }, on_conflict="firma,sku,yukleme_tarihi").execute()
+    _cache_temizle()
 
 # ── YOLDAKI ─────────────────────────────────────────────────────────
 
@@ -104,6 +120,7 @@ def upsert_yoldaki_urun(sku, urun_adi, yoldaki_miktar, tahmini_varis_tarihi, yol
         "yoldaki_tedarikci": yoldaki_tedarikci or "",
         "yukleme_tarihi": get_today(),
     }, on_conflict="sku").execute()
+    _cache_temizle()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_yoldaki_urunler():
@@ -123,6 +140,7 @@ def ekle_satin_alma(sku, urun_adi, tedarikci, tarih, adet, alis_fiyati, maliyet_
         "notlar": notlar or "", "kayit_tarihi": get_today(),
     }).execute()
     st.cache_data.clear()
+    _cache_temizle()
 
 def guncelle_satin_alma(kayit_id, tedarikci, tarih, adet, alis_fiyati, maliyet_yuzdesi, notlar=""):
     toplam_birim = float(alis_fiyati or 0) * (1 + float(maliyet_yuzdesi or 0) / 100)
@@ -133,10 +151,12 @@ def guncelle_satin_alma(kayit_id, tedarikci, tarih, adet, alis_fiyati, maliyet_y
         "toplam_maliyet": toplam_birim * int(adet),
         "notlar": notlar or "",
     }).eq("id", kayit_id).execute()
+    _cache_temizle()
 
 def sil_satin_alma(kayit_id):
     get_client().table("satin_alma_gecmisi").delete().eq("id", kayit_id).execute()
     st.cache_data.clear()
+    _cache_temizle()
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_satin_alma_gecmisi(sku=None):
@@ -146,6 +166,7 @@ def get_satin_alma_gecmisi(sku=None):
         q = q.eq("sku", sku)
     return _rows(q.execute())
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_satin_alma_ozet(sku=None):
     sb = get_client()
     if sku:
@@ -188,6 +209,7 @@ def ekle_siparis_onerisi(firma, sku, urun_adi, miktar):
         "oneri_miktari": int(miktar or 0),
         "durum": "bekliyor", "olusturma_tarihi": get_today(),
     }).execute()
+    _cache_temizle()
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_siparis_onerileri():
@@ -197,11 +219,13 @@ def onayla_siparis(kayit_id):
     get_client().table("siparis_onerileri").update(
         {"durum": "onaylandi", "onay_tarihi": get_today()}
     ).eq("id", kayit_id).execute()
+    _cache_temizle()
 
 def reddet_siparis(kayit_id):
     get_client().table("siparis_onerileri").update(
         {"durum": "reddedildi", "onay_tarihi": get_today()}
     ).eq("id", kayit_id).execute()
+    _cache_temizle()
 
 # ── KAMPANYALAR ─────────────────────────────────────────────────────
 
@@ -213,6 +237,7 @@ def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar=""):
         "olusturma_tarihi": get_today(),
     }).execute()
     return r.data[0]["id"] if r.data else None
+    _cache_temizle()
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_kampanyalar(durum=None):
@@ -222,6 +247,7 @@ def get_kampanyalar(durum=None):
         q = q.eq("durum", durum)
     return _rows(q.execute())
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_kampanya(kampanya_id):
     return _row(get_client().table("kampanyalar").select("*").eq("id", kampanya_id).execute())
 
@@ -231,15 +257,18 @@ def guncelle_kampanya(kampanya_id, kampanya_adi, firma, baslangic, bitis, notlar
         "baslangic_tarihi": str(baslangic), "bitis_tarihi": str(bitis),
         "notlar": notlar or "",
     }).eq("id", kampanya_id).execute()
+    _cache_temizle()
 
 def kapat_kampanya(kampanya_id):
     get_client().table("kampanyalar").update({"durum": "kapali"}).eq("id", kampanya_id).execute()
     st.cache_data.clear()
+    _cache_temizle()
 
 def sil_kampanya(kampanya_id):
     sb = get_client()
     sb.table("kampanya_urunler").delete().eq("kampanya_id", kampanya_id).execute()
     sb.table("kampanyalar").delete().eq("id", kampanya_id).execute()
+    _cache_temizle()
 
 def ekle_kampanya_urun(kampanya_id, sku, urun_adi, pacal_maliyet, satis_fiyati,
                        birim_firma_destek, birim_ek_destek, notlar=""):
@@ -251,6 +280,7 @@ def ekle_kampanya_urun(kampanya_id, sku, urun_adi, pacal_maliyet, satis_fiyati,
         "birim_ek_destek": float(birim_ek_destek or 0),
         "satilan_adet": 0, "notlar": notlar or "",
     }).execute()
+    _cache_temizle()
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_kampanya_urunler(kampanya_id):
@@ -265,12 +295,15 @@ def guncelle_kampanya_urun(urun_id, satis_fiyati, birim_firma_destek, birim_ek_d
         "notlar": notlar or "",
     }).eq("id", urun_id).execute()
     st.cache_data.clear()
+    _cache_temizle()
 
 def sil_kampanya_urun(urun_id):
     get_client().table("kampanya_urunler").delete().eq("id", urun_id).execute()
+    _cache_temizle()
 
 # ── BİLDİRİM ────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_bildirim_ayarlari_db():
     rows = _rows(get_client().table("bildirim_ayarlari").select("*").limit(1).execute())
     return rows[0] if rows else {}
@@ -284,15 +317,18 @@ def kaydet_bildirim_ayarlari_db(email, smtp_server, smtp_port, smtp_user, smtp_p
         sb.table("bildirim_ayarlari").update(data).eq("id", mevcut[0]["id"]).execute()
     else:
         sb.table("bildirim_ayarlari").insert(data).execute()
+        _cache_temizle()
 
 # ── ANALİTİK ────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_gecmis_satis_firma_bazli(sku, firma):
     rows = _rows(get_client().table("firma_stok").select("haftalik_satis, yukleme_tarihi")
                 .eq("sku", sku).eq("firma", firma)
                 .order("yukleme_tarihi", desc=True).limit(8).execute())
     return [r.get("haftalik_satis", 0) or 0 for r in rows]
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_tum_gecmis_satislar():
     rows = _rows(get_client().table("firma_stok").select("sku, haftalik_satis, yukleme_tarihi").order("yukleme_tarihi").execute())
     result = defaultdict(list)
@@ -300,12 +336,14 @@ def get_tum_gecmis_satislar():
         result[r["sku"]].append(r.get("haftalik_satis", 0) or 0)
     return dict(result)
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_muadil_oneriler(sku, kategori, marka, fiyat):
     return []
 
 def get_connection():
     return None
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_gecmis_satis_tum_firmalar(sku):
     """Bir SKU için tüm firmaların geçmiş satış verilerini döndürür"""
     rows = _rows(get_client().table("firma_stok")
