@@ -13,6 +13,17 @@ def get_client() -> Client:
     return create_client(url, key)
 
 
+# ── Cache yardımcısı ────────────────────────────────────────────────
+# Veri değişince cache'i temizlemek için
+def _cache_temizle():
+    """Tüm @st.cache_data önbelleklerini temizler.
+    Her yazma (ekle/sil/güncelle) işleminden sonra çağrılır."""
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+
+
 def initialize_db():
     pass
 
@@ -20,12 +31,14 @@ def initialize_db():
 # ════════════════════════════════════════════════════════════════════
 # HAFTALAR
 # ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=30, show_spinner=False)
 def get_tum_haftalar():
     sb = get_client()
     res = sb.table("haftalar").select("*").order("id", desc=True).execute()
     return res.data or []
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_aktif_hafta():
     sb = get_client()
     res = sb.table("haftalar").select("*").eq("aktif", 1).limit(1).execute()
@@ -41,29 +54,34 @@ def hafta_ekle(hafta_adi):
         "aktif": 0
     }).execute()
     return res.data[0]["id"] if res.data else None
+    _cache_temizle()
 
 
 def hafta_aktif_yap(hafta_id):
     sb = get_client()
     sb.table("haftalar").update({"aktif": 0}).neq("id", 0).execute()
     sb.table("haftalar").update({"aktif": 1}).eq("id", hafta_id).execute()
+    _cache_temizle()
 
 
 def hafta_sil(hafta_id):
     sb = get_client()
     sb.table("odemeler").delete().eq("hafta_id", hafta_id).execute()
     sb.table("haftalar").delete().eq("id", hafta_id).execute()
+    _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
 # ODEMELER
 # ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=30, show_spinner=False)
 def get_hafta_odemeler(hafta_id):
     sb = get_client()
     res = sb.table("odemeler").select("*").eq("hafta_id", hafta_id).order("vade").execute()
     return res.data or []
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_aktif_odemeler():
     hafta = get_aktif_hafta()
     if not hafta:
@@ -72,6 +90,7 @@ def get_aktif_odemeler():
     return odemeler, hafta
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_hafta_ozet(hafta_id):
     odemeler = get_hafta_odemeler(hafta_id)
     return {
@@ -146,6 +165,7 @@ def odeme_ekle_bulk(hafta_id, odemeler):
     BATCH = 25
     for i in range(0, len(rows), BATCH):
         sb.table("odemeler").insert(rows[i:i+BATCH]).execute()
+        _cache_temizle()
 
 
 def odeme_ekle_manuel(hafta_id, firma, aciklama, cari_banka, vade, tutar_tl, tutar_usd, kategori):
@@ -162,6 +182,7 @@ def odeme_ekle_manuel(hafta_id, firma, aciklama, cari_banka, vade, tutar_tl, tut
         "manuel": 1,
         "durum": "bekliyor",
     }).execute()
+    _cache_temizle()
 
 
 def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
@@ -249,11 +270,13 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     except Exception:
         # Banka güncellemesi başarısız olsa bile ödeme durumu güncellemiş olur
         pass
+        _cache_temizle()
 
 
 def odeme_sil(odeme_id):
     sb = get_client()
     sb.table("odemeler").delete().eq("id", odeme_id).execute()
+    _cache_temizle()
 
 
 def odeme_vade_guncelle(odeme_id, yeni_vade):
@@ -264,8 +287,10 @@ def odeme_vade_guncelle(odeme_id, yeni_vade):
         sb.table("odemeler").update({"vade": vade_str}).eq("id", odeme_id).execute()
     except Exception:
         pass
+        _cache_temizle()
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_ertelenen_odemeler():
     """
     Ertelenmiş ödemeleri döndürür. İki yöntem dener:
@@ -307,6 +332,7 @@ def odeme_tutar_guncelle(odeme_id, tutar_tl=None, tutar_usd=None):
         "tutar_usd": float(tutar_usd) if tutar_usd and float(tutar_usd) > 0 else None,
     }
     sb.table("odemeler").update(update_data).eq("id", odeme_id).execute()
+    _cache_temizle()
 
 
 def odeme_kategori_guncelle(odeme_id, yeni_kategori):
@@ -317,11 +343,13 @@ def odeme_kategori_guncelle(odeme_id, yeni_kategori):
         return True
     except Exception:
         return False
+        _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
 # BANKALAR
 # ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=30, show_spinner=False)
 def get_bankalar():
     sb = get_client()
     res = sb.table("bankalar").select("*").order("id").execute()
@@ -336,6 +364,7 @@ def banka_ekle(hesap_adi, bakiye, para_birimi):
         "para_birimi": para_birimi,
         "bakiye": float(bakiye) if bakiye is not None else 0,
     }).execute()
+    _cache_temizle()
 
 
 def banka_guncelle(banka_id, hesap_adi, bakiye, para_birimi):
@@ -346,16 +375,19 @@ def banka_guncelle(banka_id, hesap_adi, bakiye, para_birimi):
         "bakiye": float(bakiye) if bakiye is not None else 0,
         "para_birimi": para_birimi,
     }).eq("id", banka_id).execute()
+    _cache_temizle()
 
 
 def banka_sil(banka_id):
     sb = get_client()
     sb.table("bankalar").delete().eq("id", banka_id).execute()
+    _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
 # CEKLER
 # ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=30, show_spinner=False)
 def get_cekler(para_birimi="TL"):
     sb = get_client()
     res = sb.table("cekler").select("*").eq("para_birimi", para_birimi).order("vade").execute()
@@ -374,12 +406,14 @@ def cek_sil_hepsi(para_birimi=None):
         sb.table("cekler").delete().eq("para_birimi", para_birimi).execute()
     else:
         sb.table("cekler").delete().neq("id", 0).execute()
+        _cache_temizle()
 
 
 def cek_sil(cek_id):
     """Tek bir çeki siler."""
     sb = get_client()
     sb.table("cekler").delete().eq("id", cek_id).execute()
+    _cache_temizle()
 
 
 def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
@@ -424,11 +458,13 @@ def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
     BATCH = 25
     for i in range(0, len(rows), BATCH):
         sb.table("cekler").insert(rows[i:i+BATCH]).execute()
+        _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
 # VİRMANLAR (Bankalar Arası Para Transferi)
 # ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=30, show_spinner=False)
 def get_virmanlar(limit=50):
     """Son virmanları döndürür (yenisiyle eskisine göre sıralı)."""
     sb = get_client()
@@ -521,6 +557,7 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
         pass
 
     return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
+    _cache_temizle()
 
 
 def virman_geri_al(virman_id):
@@ -561,6 +598,7 @@ def virman_geri_al(virman_id):
         return True, "✅ Virman geri alındı"
     except Exception as e:
         return False, f"Geri alma hatası: {e}"
+        _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -592,8 +630,10 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
         return True
     except Exception:
         return False
+        _cache_temizle()
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def aktif_excel_oku(kullanici, dosya_tipi):
     """
     Paylaşımlı Excel verisini okur (kullanici parametresi göz ardı edilir).
@@ -623,6 +663,7 @@ def aktif_excel_oku(kullanici, dosya_tipi):
         return None
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def aktif_excel_meta_oku(dosya_tipi):
     """
     Excel meta bilgisi okur: son_yukleyen, yukleme_zamani
@@ -666,6 +707,7 @@ def aktif_excel_sil(kullanici, dosya_tipi=None):
         return True
     except Exception:
         return False
+        _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -689,8 +731,10 @@ def aktif_manuel_ekle(kullanici, aciklama, tutar, para_birimi="USD", tip="ekle")
         return True
     except Exception:
         return False
+        _cache_temizle()
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def aktif_manuel_listele(kullanici=None):
     """
     TÜM manuel kalemleri döndürür (paylaşımlı).
@@ -712,8 +756,10 @@ def aktif_manuel_sil(kalem_id):
         return True
     except Exception:
         return False
+        _cache_temizle()
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def get_cek_toplamlari():
     """
     Sistemdeki TAHSİL EDİLMEMİŞ (henüz nakde çevrilmemiş) çeklerin
