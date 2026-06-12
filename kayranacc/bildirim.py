@@ -5,6 +5,8 @@ Vade yaklaşan ve gecikmiş ödemeleri email ile bildirir.
 import smtplib
 import ssl
 import streamlit as st
+# Türkiye saat dilimi için ortak yardımcılar
+from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date, timedelta
@@ -37,7 +39,7 @@ def vade_durumu(vade_str):
         return "normal"
     try:
         v = pd.to_datetime(vade_str).date()
-        today = date.today()
+        today = tr_today()
         if v < today:
             return "gecmis"
         elif v == today:
@@ -129,7 +131,7 @@ def vade_bildirimi_olustur(odemeler, hafta_adi, kur=38.5):
     if toplam_uyari == 0:
         return None, None  # Gönderilecek bir şey yok
 
-    today_str = date.today().strftime("%d.%m.%Y")
+    today_str = tr_now().strftime("%d.%m.%Y")
 
     def odeme_satiri(o, badge_renk, badge_txt):
         tl_str  = f"₺{fmt(o['tutar_tl'])}"  if o.get("tutar_tl")  else ""
@@ -213,7 +215,7 @@ def ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi, kur=38.5):
     odendi_tl  = sum(o.get("tutar_tl")  or 0 for o in odemeler if o.get("durum") == "odendi")
     kalan_tl   = tl_toplam - odendi_tl
     odendi_cnt = sum(1 for o in odemeler if o.get("durum") == "odendi")
-    today_str  = date.today().strftime("%d.%m.%Y")
+    today_str  = tr_now().strftime("%d.%m.%Y")
 
     banka_html = ""
     for b in (bankalar or []):
