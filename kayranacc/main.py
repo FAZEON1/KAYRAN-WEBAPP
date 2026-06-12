@@ -7,6 +7,8 @@ Kullanım:
     run()
 """
 import streamlit as st
+# Türkiye saat dilimi için ortak yardımcılar
+from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -42,7 +44,7 @@ def run():
     initialize_db()
 
     # ── Cache kontrol meta etiketleri ────────────────────────────────────
-    APP_VERSION = datetime.now().strftime("%Y%m%d%H%M")
+    APP_VERSION = tr_now().strftime("%Y%m%d%H%M")
     st.markdown(f"""
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
@@ -752,11 +754,11 @@ def run():
     
     
     def today_iso():
-        return date.today().isoformat()
+        return tr_today_iso()
     
     
     def tomorrow_iso():
-        return (date.today() + timedelta(days=1)).isoformat()
+        return (tr_today() + timedelta(days=1)).isoformat()
     
     
     def kayit_erteleme(odeme, eski_vade, yeni_vade):
@@ -787,14 +789,14 @@ def run():
                 "orijinal_vade": eski_str,
                 "son_vade": yeni_str,
                 "sayi": 1,
-                "son_tarih": date.today().isoformat(),
+                "son_tarih": tr_today_iso(),
             }
         else:
             # Tekrar erteleme — sayıyı artır, son_vade'yi güncelle
             kayit = st.session_state.ertelemeler[odeme_id]
             kayit["son_vade"] = yeni_str
             kayit["sayi"] = kayit.get("sayi", 1) + 1
-            kayit["son_tarih"] = date.today().isoformat()
+            kayit["son_tarih"] = tr_today_iso()
             # Tutar/firma değişmiş olabilir, güncelle
             kayit["firma"] = odeme.get("firma", kayit.get("firma", ""))
             kayit["aciklama"] = odeme.get("aciklama", kayit.get("aciklama", ""))
@@ -885,7 +887,7 @@ def run():
             return "normal"
         try:
             v = pd.to_datetime(vade_str).date()
-            today = date.today()
+            today = tr_today()
             if v < today:
                 return "gecmis"
             elif v == today:
@@ -1034,7 +1036,7 @@ def run():
             else:
                 st.error("❌ Bağlanamadı, manuel girin.")
     
-        st.markdown(f"<small>🕐 {datetime.now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
+        st.markdown(f"<small>🕐 {tr_now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
     
         st.markdown("---")
     
@@ -1397,7 +1399,7 @@ def run():
                 with col1:
                     firma = st.text_input("Firma / Kişi Adı *")
                     aciklama = st.text_input("Açıklama")
-                    vade = st.date_input("Vade Tarihi *", value=date.today())
+                    vade = st.date_input("Vade Tarihi *", value=tr_today())
                 with col2:
                     kategori = st.selectbox("Kategori", list(KATEGORILER.keys()),
                                             format_func=lambda k: KATEGORILER[k]["label"])
@@ -1696,7 +1698,7 @@ def run():
                     # ─── Vade Öteleme (sadece bekleyenler için) ───
                     if not is_odendi:
                         # Güvenli vade parse
-                        mevcut_vade = date.today()
+                        mevcut_vade = tr_today()
                         if o.get("vade"):
                             try:
                                 parsed = pd.to_datetime(o.get("vade"))
@@ -1769,7 +1771,7 @@ def run():
             st.download_button(
                 "📥 Excel İndir",
                 data=excel_buf,
-                file_name=f"odeme_listesi_{date.today()}.xlsx",
+                file_name=f"odeme_listesi_{tr_today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
@@ -2547,7 +2549,7 @@ def run():
                 st.download_button(
                     label="📥 Excel Raporu İndir",
                     data=excel_buf,
-                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{date.today()}.xlsx",
+                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary",
                     use_container_width=True,
@@ -2564,7 +2566,7 @@ def run():
                 st.download_button(
                     label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
                     data=html_bytes,
-                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{date.today()}.html",
+                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
                     mime="text/html",
                     type="primary",
                     use_container_width=True,
@@ -2593,7 +2595,7 @@ def run():
                 st.download_button(
                     label="📥 Nakit Akış Excel İndir",
                     data=nakit_buf,
-                    file_name=f"KAYRANACC_NakitAkis_{date.today()}.xlsx",
+                    file_name=f"KAYRANACC_NakitAkis_{tr_today()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary",
                     use_container_width=True,
@@ -2667,9 +2669,9 @@ def run():
                 if not konu:
                     st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
                 else:
-                    bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == date.today().isoformat())
-                    yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (date.today() + timedelta(days=1)).isoformat())
-                    gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < date.today().isoformat() and (o.get("vade") or "")[:10])
+                    bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
+                    yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
+                    gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
     
                     if gecmis_cnt:
                         st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
@@ -3653,7 +3655,7 @@ def run():
                                 "tutar": float(yeni_tutar),
                                 "para_birimi": yeni_pb,
                                 "tip": yeni_tip,
-                                "olusturuldu": str(date.today()),
+                                "olusturuldu": str(tr_today()),
                             })
                             st.warning("⚠️ Supabase'e kaydedilemedi (tablo yok), oturum belleğine kaydedildi.")
                         else:
