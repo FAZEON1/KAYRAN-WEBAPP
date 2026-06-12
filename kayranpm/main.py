@@ -7,6 +7,8 @@ Kullanım:
     run()
 """
 import streamlit as st
+# Türkiye saat dilimi için ortak yardımcılar
+from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -328,7 +330,7 @@ def run():
         ], label_visibility="collapsed")
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
-            <div style="color:#263238; font-size:10px;">🕐 {datetime.now().strftime('%d.%m.%Y  %H:%M')}</div>
+            <div style="color:#263238; font-size:10px;">🕐 {tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -1454,7 +1456,7 @@ def run():
                 with fc1:
                     tedarikci = st.text_input("Tedarikçi *",
                         help=f"Önceki: {', '.join(onceki[:4])}" if onceki else "")
-                    satin_alma_tarihi = st.date_input("Tarih *", value=date.today())
+                    satin_alma_tarihi = st.date_input("Tarih *", value=tr_today())
                     notlar = st.text_area("Notlar")
                 with fc2:
                     adet = st.number_input("Adet *", min_value=1, value=100, step=1)
@@ -1486,7 +1488,7 @@ def run():
             sablon_data = {
                 "SKU": [secilen_sku, ""],
                 "Tedarikçi": ["MASTER", ""],
-                "Tarih": [str(date.today()), ""],
+                "Tarih": [str(tr_today()), ""],
                 "Adet": [100, ""],
                 "FOB Price ($)": [0.0, ""],
                 "Cost %": [0.0, ""],
@@ -1524,7 +1526,7 @@ def run():
                             try:
                                 r_sku = str(row.get("SKU", secilen_sku)).strip() or secilen_sku
                                 r_ted = str(row.get("Tedarikçi", "")).strip()
-                                r_tarih = str(row.get("Tarih", str(date.today()))).strip()[:10]
+                                r_tarih = str(row.get("Tarih", str(tr_today()))).strip()[:10]
                                 r_adet = int(row.get("Adet", 0) or 0)
                                 r_fob = float(row.get("FOB Price ($)", 0) or 0)
                                 r_cost = float(row.get("Cost %", 0) or 0)
@@ -1562,7 +1564,7 @@ def run():
         # Kampanya destek ortalamalarını çek
         try:
             destek_map = get_kampanya_destek_ortalamalari()
-        except:
+        except Exception:
             destek_map = {}
     
         for u in urun_data:
@@ -1690,7 +1692,7 @@ def run():
                 else:
                     filtre_urunler = urun_data_f
                 sku_filtre_options = ["Tüm Ürünler"] + [f"{u['sku']} — {u['urun_adi']}" for u in filtre_urunler]
-            except:
+            except Exception:
                 sku_filtre_options = ["Tüm Ürünler"]
             sku_filtre = st.selectbox("Ürün", sku_filtre_options, key="sg_sku", label_visibility="collapsed")
         with fc3:
@@ -1819,7 +1821,7 @@ def run():
             urun_data_k = tum_urunler_listesi()
             urun_dict_k = {u["sku"]: u for u in urun_data_k}
             sku_listesi_k = {f"{u['sku']} — {u['urun_adi']}": u['sku'] for u in urun_data_k}
-        except:
+        except Exception:
             urun_data_k = []
             urun_dict_k = {}
             sku_listesi_k = {}
@@ -1839,8 +1841,8 @@ def run():
                         k_adi = st.text_input("Kampanya Adı *", placeholder="örn: Hepsiburada Mart Kampanyası")
                         k_firma = st.selectbox("Firma *", FIRMA_LISTESI_K)
                     with kf2:
-                        k_bas = st.date_input("Başlangıç Tarihi *", value=date.today())
-                        k_bit = st.date_input("Bitiş Tarihi *", value=date.today())
+                        k_bas = st.date_input("Başlangıç Tarihi *", value=tr_today())
+                        k_bit = st.date_input("Bitiş Tarihi *", value=tr_today())
                     k_not = st.text_area("Notlar", placeholder="Kampanya hakkında notlar...")
                     if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
                         if not k_adi.strip():
@@ -1891,8 +1893,8 @@ def run():
                                     index=FIRMA_LISTESI_K.index(kamp["firma"]) if kamp["firma"] in FIRMA_LISTESI_K else 0,
                                     key=f"dk_firma_{kid}")
                             with dk2:
-                                dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else date.today(), key=f"dk_bas_{kid}")
-                                dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else date.today(), key=f"dk_bit_{kid}")
+                                dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}")
+                                dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}")
                             dk_not = st.text_area("Notlar", value=kamp.get("notlar","") or "", key=f"dk_not_{kid}")
                             dc1_k, dc2_k, dc3_k = st.columns(3)
                             with dc1_k:
@@ -2160,7 +2162,7 @@ def run():
                                     v = float(str(nk).replace("$","").replace(",",""))
                                     if v > 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:700"
                                     elif v < 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                                except: pass
+                                except Exception: pass
                             if "⭐ Paçal ($)" in cols:
                                 styles[cols.index("⭐ Paçal ($)")] = "background-color:#1a3a00; color:#FFD54F; font-weight:700"
                             if "Toplam Net Kar ($)" in cols:
@@ -2168,7 +2170,7 @@ def run():
                                     v = float(str(row.get("Toplam Net Kar ($)","0")).replace("$","").replace(",",""))
                                     if v > 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:800"
                                     elif v < 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:800"
-                                except: pass
+                                except Exception: pass
                             return styles
     
                         st.dataframe(df_ku.drop(columns=["ID"]).style.apply(ku_rengi, axis=1),
@@ -2604,7 +2606,7 @@ def run():
                         st.download_button(
                             "⬇️ Excel İndir",
                             f.read(),
-                            f"Stok_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                            f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             use_container_width=True,
                         )
@@ -2626,7 +2628,7 @@ def run():
                         st.download_button(
                             "⬇️ PDF İndir",
                             f.read(),
-                            f"Stok_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                            f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf",
                             mime="application/pdf",
                             use_container_width=True,
                         )
