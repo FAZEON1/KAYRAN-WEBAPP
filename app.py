@@ -568,6 +568,41 @@ def portal_dön_butonu():
         st.markdown('<hr style="margin:8px 0; border-color:rgba(255,255,255,0.1)">', unsafe_allow_html=True)
 
 
+def _global_hata_kart(uygulama_adi, hata):
+    """Bir uygulama crash ettiğinde gösterilen profesyonel hata kartı."""
+    import traceback
+    st.markdown(
+        '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-left:4px solid #DC2626;'
+        'border-radius:12px;padding:24px 28px;margin:30px auto;max-width:700px">'
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        '<span style="font-size:32px">⚠️</span>'
+        f'<b style="color:#991B1B;font-size:18px">{uygulama_adi} Uygulamasında Bir Sorun Oluştu</b>'
+        '</div>'
+        '<div style="color:#7F1D1D;font-size:14px;line-height:1.6;margin-bottom:14px">'
+        'Üzgünüz, beklenmedik bir hata oluştu. Verileriniz güvende — sadece bu işlem tamamlanamadı. '
+        'Sayfayı yenileyin veya birkaç dakika sonra tekrar deneyin.'
+        '</div>'
+        '<div style="background:#FFFFFF;border:1px solid #FCA5A5;border-radius:8px;padding:12px 16px;'
+        'font-family:monospace;font-size:12px;color:#991B1B;margin-bottom:14px;overflow-x:auto">'
+        f'<b>Hata:</b> {type(hata).__name__}: {str(hata)[:300]}'
+        '</div>'
+        '<div style="font-size:12px;color:#991B1B">'
+        '💡 <b>Ne yapabilirim?</b> Tarayıcı önbelleğini temizle (Ctrl+F5) · '
+        'Portal\'a dön ve tekrar gir · Sorun devam ederse yöneticiye bildir'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # Teknik detay - sadece geliştiriciler için expander içinde
+    with st.expander("🔧 Teknik Detay"):
+        st.code(traceback.format_exc(), language="python")
+
+    if st.button("🏠 Portal'a Dön", key="hata_portal_don", type="primary"):
+        st.session_state.aktif_uygulama = None
+        st.rerun()
+
+
 def main():
     if not st.session_state.giris_yapildi:
         giris_ekrani()
@@ -595,17 +630,24 @@ def main():
 
     portal_dön_butonu()
 
-    if aktif == "kayranacc":
-        from kayranacc.main import run as kayranacc_run
-        kayranacc_run()
-    elif aktif == "kayranpm":
-        from kayranpm.main import run as kayranpm_run
-        kayranpm_run()
-    else:
-        st.error(f"Bilinmeyen uygulama: {aktif}")
-        if st.button("← Portal'a Dön"):
-            st.session_state.aktif_uygulama = None
-            st.rerun()
+    # ─── GLOBAL ERROR HANDLER ───
+    # Alt uygulama crash ederse tüm portal'ı çökertmesin, kullanıcıya güzel mesaj göster
+    try:
+        if aktif == "kayranacc":
+            from kayranacc.main import run as kayranacc_run
+            kayranacc_run()
+        elif aktif == "kayranpm":
+            from kayranpm.main import run as kayranpm_run
+            kayranpm_run()
+        else:
+            st.error(f"Bilinmeyen uygulama: {aktif}")
+            if st.button("← Portal'a Dön"):
+                st.session_state.aktif_uygulama = None
+                st.rerun()
+    except Exception as hata:
+        # Uygulama adını güzel formatla
+        ad = "KAYRANACC" if aktif == "kayranacc" else ("KAYRANPM" if aktif == "kayranpm" else aktif)
+        _global_hata_kart(ad, hata)
 
 
 if __name__ == "__main__":
