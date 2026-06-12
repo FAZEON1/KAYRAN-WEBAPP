@@ -390,12 +390,64 @@ def run():
         margin: 20px 0 !important;
     }
     
-    /* ── SUCCESS / ERROR / WARNING ── */
+    /* ── SUCCESS / ERROR / WARNING / INFO ── */
+    /* Streamlit'in default st.alert renkleri dark tema'da okunmuyor. Burada manuel ayarlıyoruz. */
     div[data-testid="stAlert"] {
         border-radius: 10px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 13px !important;
         font-weight: 500 !important;
+        padding: 12px 16px !important;
+        border: 1px solid transparent !important;
+    }
+    
+    /* Warning (sarı) - okunaklı koyu zemin + açık sarı yazı */
+    div[data-testid="stAlert"][data-baseweb="notification"] [data-testid="stAlertContentWarning"],
+    div[data-testid="stAlertContentWarning"],
+    div[data-testid="stAlert"] div[role="alert"]:has(svg[fill*="warning"]),
+    div.stAlert:has([data-testid="stAlertContentWarning"]) {
+        background: #FEF3C7 !important;
+        color: #78350F !important;
+        border-color: #FCD34D !important;
+    }
+    
+    /* Error (kırmızı) */
+    div[data-testid="stAlertContentError"],
+    div.stAlert:has([data-testid="stAlertContentError"]) {
+        background: #FEE2E2 !important;
+        color: #7F1D1D !important;
+        border-color: #FCA5A5 !important;
+    }
+    
+    /* Info (mavi) */
+    div[data-testid="stAlertContentInfo"],
+    div.stAlert:has([data-testid="stAlertContentInfo"]) {
+        background: #DBEAFE !important;
+        color: #1E3A8A !important;
+        border-color: #93C5FD !important;
+    }
+    
+    /* Success (yeşil) */
+    div[data-testid="stAlertContentSuccess"],
+    div.stAlert:has([data-testid="stAlertContentSuccess"]) {
+        background: #D1FAE5 !important;
+        color: #064E3B !important;
+        border-color: #6EE7B7 !important;
+    }
+    
+    /* Tüm alert içindeki text - parent'tan inherit etsin */
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span,
+    div[data-testid="stAlert"] strong,
+    div[data-testid="stAlert"] div {
+        color: inherit !important;
+    }
+    
+    /* Alert içindeki bold yazıları daha koyu yap */
+    div[data-testid="stAlert"] strong,
+    div[data-testid="stAlert"] b {
+        font-weight: 700 !important;
+        color: inherit !important;
     }
     
     /* ── SPINNER ── */
@@ -504,7 +556,6 @@ def run():
     .stTabs [data-baseweb="tab"] span { color: #64748B !important; }
     .stTabs [aria-selected="true"] span { color: #1E40AF !important; }
     /* Info / success / warning / error kutuları */
-    div[data-testid="stAlert"] p { color: inherit !important; }
     /* DataFrame içi */
     .stDataFrame * { color: #0F172A !important; }
     /* Expander */
