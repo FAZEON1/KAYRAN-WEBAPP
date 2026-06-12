@@ -4,6 +4,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
 from .database import get_connection
+from shared.utils import tr_today, tr_now, tr_today_iso
 
 def get_bildirim_ayarlari():
     conn = get_connection()
@@ -59,7 +60,7 @@ def guncelle_son_gonderim():
     conn = get_connection()
     c = conn.cursor()
     c.execute("UPDATE bildirim_ayarlari SET son_gonderim=? WHERE id=1",
-              (datetime.now().strftime("%Y-%m-%d %H:%M"),))
+              (tr_now().strftime("%Y-%m-%d %H:%M"),))
     conn.commit()
     conn.close()
 
@@ -104,7 +105,7 @@ def email_gonder(veri):
         <div style="max-width:900px;margin:0 auto">
           <div style="background:#1F4E79;color:white;padding:20px;border-radius:8px 8px 0 0">
             <h1 style="margin:0;font-size:20px">📦 Stok Yönetimi — Günlük Sipariş Özeti</h1>
-            <p style="margin:4px 0 0;opacity:0.8;font-size:13px">{datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
+            <p style="margin:4px 0 0;opacity:0.8;font-size:13px">{tr_now().strftime('%d.%m.%Y %H:%M')}</p>
           </div>
 
           <div style="background:#f8f8f8;padding:16px;display:flex;gap:16px;flex-wrap:wrap">
@@ -148,7 +149,7 @@ def email_gonder(veri):
         """
 
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"📦 Stok Sipariş Özeti — {len(acil)} ACİL ürün | {datetime.now().strftime('%d.%m.%Y')}"
+        msg["Subject"] = f"📦 Stok Sipariş Özeti — {len(acil)} ACİL ürün | {tr_now().strftime('%d.%m.%Y')}"
         msg["From"] = ayarlar["smtp_user"]
         msg["To"] = ayarlar["email"]
         msg.attach(MIMEText(html, "html", "utf-8"))
