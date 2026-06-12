@@ -2,6 +2,8 @@
 KAYRANPM — Veritabanı Katmanı (Supabase PostgreSQL)
 """
 import streamlit as st
+# Türkiye saat dilimi için ortak yardımcılar
+from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from supabase import create_client, Client
 from datetime import date
 from collections import defaultdict
@@ -24,7 +26,7 @@ def _cache_temizle():
 
 
 def get_today():
-    return date.today().isoformat()
+    return tr_today_iso()
 
 def initialize_db():
     pass
