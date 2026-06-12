@@ -48,6 +48,52 @@ def run():
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         background: #070D1A !important;
     }
+
+    /* ── ALERT BOX'LARI (warning/error/info/success) ─────────────────── */
+    /* Streamlit'in default renkleri dark tema'da okunmuyor. Manuel override. */
+    div[data-testid="stAlert"] {
+        border-radius: 10px !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        padding: 12px 16px !important;
+        border: 1px solid transparent !important;
+    }
+    div[data-testid="stAlertContentWarning"],
+    div.stAlert:has([data-testid="stAlertContentWarning"]) {
+        background: #FEF3C7 !important;
+        color: #78350F !important;
+        border-color: #FCD34D !important;
+    }
+    div[data-testid="stAlertContentError"],
+    div.stAlert:has([data-testid="stAlertContentError"]) {
+        background: #FEE2E2 !important;
+        color: #7F1D1D !important;
+        border-color: #FCA5A5 !important;
+    }
+    div[data-testid="stAlertContentInfo"],
+    div.stAlert:has([data-testid="stAlertContentInfo"]) {
+        background: #DBEAFE !important;
+        color: #1E3A8A !important;
+        border-color: #93C5FD !important;
+    }
+    div[data-testid="stAlertContentSuccess"],
+    div.stAlert:has([data-testid="stAlertContentSuccess"]) {
+        background: #D1FAE5 !important;
+        color: #064E3B !important;
+        border-color: #6EE7B7 !important;
+    }
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] span,
+    div[data-testid="stAlert"] strong,
+    div[data-testid="stAlert"] div {
+        color: inherit !important;
+    }
+    div[data-testid="stAlert"] strong,
+    div[data-testid="stAlert"] b {
+        font-weight: 700 !important;
+        color: inherit !important;
+    }
     
     /* ── METRIC KARTLARI ─────────────────────────────────────────────────── */
     [data-testid="metric-container"] {
@@ -2716,4 +2762,3 @@ def run():
             st.dataframe(df_ozet.style.apply(ozet_rengi, axis=1), use_container_width=True, height=400)
         except Exception as e:
             st.error(f"Veri yüklenemedi: {e}")
-    
