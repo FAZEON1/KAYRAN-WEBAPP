@@ -5,6 +5,7 @@ PDF ve Excel rapor üretimi
 from io import BytesIO
 from datetime import datetime, date
 import pandas as pd
+from shared.utils import tr_today, tr_now, tr_today_iso
 
 
 KATEGORILER = {
@@ -86,7 +87,7 @@ def haftalik_excel_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
         cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=True)
         cell.border = border
 
-    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    now_str = tr_now().strftime("%d.%m.%Y %H:%M")
 
     # ═══════════════════════════════════════════════
     # SAYFA 1 — ÖZET
@@ -307,7 +308,7 @@ def haftalik_html_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
     """
     from collections import defaultdict
 
-    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    now_str = tr_now().strftime("%d.%m.%Y %H:%M")
 
     tl_toplam  = sum(o.get("tutar_tl")  or 0 for o in odemeler)
     usd_toplam = sum(o.get("tutar_usd") or 0 for o in odemeler)
@@ -337,7 +338,7 @@ def haftalik_html_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
         by_day[day].append(o)
 
     tablo_rows = ""
-    today = date.today().isoformat()
+    today = tr_today_iso()
 
     KAT_RENKLER = {
         "cek":   "#dc2626", "kredi": "#ea580c", "kart":  "#d97706",
