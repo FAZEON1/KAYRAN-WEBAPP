@@ -9,6 +9,7 @@ from reportlab.lib.units import cm
 from datetime import datetime
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
+from shared.utils import tr_today, tr_now, tr_today_iso
 
 RENKLER = {
     "kirmizi": "FFCCCC",
@@ -172,7 +173,7 @@ def pdf_rapor_olustur(kayit_yolu):
         
         story = []
         story.append(Paragraph("Ürün Yönetimi - Stok Takip Raporu", baslik_style))
-        story.append(Paragraph(f"Oluşturulma Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}", styles['Normal']))
+        story.append(Paragraph(f"Oluşturulma Tarihi: {tr_now().strftime('%d.%m.%Y %H:%M')}", styles['Normal']))
         story.append(Spacer(1, 0.5*cm))
         
         # Ana tablo başlıkları
