@@ -1,6 +1,8 @@
 import os
 import math
 import streamlit as st
+# Türkiye saat dilimi için ortak yardımcılar
+from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from supabase import create_client, Client
 from datetime import date
 
@@ -47,7 +49,7 @@ def get_aktif_hafta():
 
 def hafta_ekle(hafta_adi):
     sb = get_client()
-    today = date.today().strftime("%d.%m.%Y")
+    today = tr_now().strftime("%d.%m.%Y")
     res = sb.table("haftalar").insert({
         "hafta_adi": hafta_adi,
         "yuklendi_tarih": today,
@@ -195,7 +197,7 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     Sadece otomatik banka bakiye düşme/iade özelliği kapalı olur.
     """
     sb = get_client()
-    today = date.today().isoformat() if durum == "odendi" else None
+    today = tr_today_iso() if durum == "odendi" else None
 
     # Önce mevcut ödeme bilgisini al
     try:
@@ -550,7 +552,7 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
             "hedef_tutar": hedef_tutar,
             "kur_kullanilan": float(kur_kullanilan) if kur_kullanilan else None,
             "aciklama": aciklama,
-            "tarih": date.today().isoformat(),
+            "tarih": tr_today_iso(),
         }).execute()
     except Exception:
         # virmanlar tablosu yoksa virman yine yapıldı, sadece kayıt tutulmadı
@@ -624,7 +626,7 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
             "veri_json": json.dumps({
                 "veri": veri_json,
                 "son_yukleyen": kullanici,
-                "yukleme_zamani": str(__import__("datetime").datetime.now()),
+                "yukleme_zamani": str(__import__("datetime").tr_now()),
             }),
         }).execute()
         return True
