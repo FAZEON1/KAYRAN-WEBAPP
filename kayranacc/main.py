@@ -1801,7 +1801,7 @@ def run():
                     kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
                     is_odendi = o["durum"] == "odendi"
     
-                    col1, col2, col3, col4, col5 = st.columns([0.3, 3, 2, 2, 2])
+                    col1, col2, col3, col4, col5 = st.columns([0.2, 3.5, 1.5, 3, 1.8])
     
                     with col1:
                         st.markdown(
@@ -1826,40 +1826,34 @@ def run():
                         )
     
                     with col4:
-                        col4a, col4b, col4c = st.columns([4, 1, 1])
-                        with col4a:
-                            if o.get("tutar_tl"):
-                                st.markdown(f'<b style="color:#6EE7B7;font-size:14px">₺{fmt(o["tutar_tl"])}</b>', unsafe_allow_html=True)
-                            elif o.get("tutar_usd"):
-                                st.markdown(f'<b style="color:#93C5FD;font-size:14px">${fmt(o["tutar_usd"])}</b>', unsafe_allow_html=True)
-                        with col4b:
-                            if not is_odendi:
-                                # Tutar düzenleme toggle
+                        if o.get("tutar_tl"):
+                            tutar_disp = f'<div style="font-weight:700;color:#6EE7B7;font-size:13px;white-space:nowrap;font-family:monospace">₺{"{"}fmt(o["tutar_tl"]){"}"}</div>'
+                        elif o.get("tutar_usd"):
+                            tutar_disp = f'<div style="font-weight:700;color:#93C5FD;font-size:13px;white-space:nowrap;font-family:monospace">${"{"}fmt(o["tutar_usd"]){"}"}</div>'
+                        else:
+                            tutar_disp = '<div style="color:#64748B;font-size:12px">—</div>'
+                        st.markdown(tutar_disp, unsafe_allow_html=True)
+                        if not is_odendi:
+                            c4b, c4c = st.columns(2)
+                            with c4b:
                                 edit_key = f"edit_tutar_toggle_{o['id']}"
-                                if st.session_state.get(edit_key, False):
-                                    if st.button("❌", key=f"close_edit_{o['id']}", help="Düzenlemeyi kapat"):
-                                        st.session_state[edit_key] = False
-                                        st.rerun()
-                                else:
-                                    if st.button("✏️", key=f"open_edit_{o['id']}", help="Tutar / kategoriyi düzenle"):
-                                        st.session_state[edit_key] = True
-                                        st.rerun()
-                        with col4c:
-                            if not is_odendi:
-                                # Silme onay sistemi
+                                btn_lbl = "❌ Kapat" if st.session_state.get(edit_key, False) else "✏️ Duzenle"
+                                if st.button(btn_lbl, key=f"open_edit_{o['id']}", use_container_width=True):
+                                    st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                                    st.rerun()
+                            with c4c:
                                 sil_key = f"sil_onay_{o['id']}"
                                 if st.session_state.get(sil_key, False):
-                                    # Onay aşaması: ✔️ tıkla = sil, başka yere tık = iptal
-                                    if st.button("✔️", key=f"sil_confirm_{o['id']}", help="EVET, KALICI OLARAK SİL", type="primary"):
+                                    if st.button("✔️ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True):
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
-                                        st.toast(f"🗑️ '{o.get('firma','')[:30]}' silindi", icon="✅")
+                                        st.toast(f"️ '{"{"}o.get('firma','')[:30]{"}"}' silindi", icon="✅")
                                         st.rerun()
                                 else:
-                                    if st.button("🗑️", key=f"sil_btn_{o['id']}", help="Bu ödemeyi sil"):
+                                    if st.button("️ Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
                                         st.session_state[sil_key] = True
                                         st.rerun()
-    
+                    
                     with col5:
                         if is_odendi:
                             if st.button(f"↩ Geri Al", key=f"geri_{o['id']}"):
