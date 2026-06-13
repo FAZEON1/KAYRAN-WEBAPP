@@ -1,5 +1,5 @@
 """
-rapor.py — KAYRANACC Raporlama Modülü
+rapor.py — KAYRAN Raporlama Modülü
 PDF ve Excel rapor üretimi
 """
 from io import BytesIO
@@ -98,7 +98,7 @@ def haftalik_excel_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
 
     # Başlık
     ws1.merge_cells("A1:F1")
-    ws1["A1"] = f"💳 KAYRANACC — {hafta_adi}"
+    ws1["A1"] = f"💳 KAYRAN — {hafta_adi}"
     ws1["A1"].font = Font(bold=True, size=16, color="FFFFFF")
     ws1["A1"].fill = PatternFill("solid", fgColor=NAVY)
     ws1["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -403,7 +403,7 @@ def haftalik_html_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>{hafta_adi} — KAYRANACC Rapor</title>
+<title>{hafta_adi} — KAYRAN Rapor</title>
 <style>
   * {{ box-sizing:border-box; margin:0; padding:0 }}
   body {{ font-family:'Segoe UI',Arial,sans-serif; background:#f4f5f7; color:#111; font-size:13px; padding:28px }}
@@ -431,7 +431,7 @@ def haftalik_html_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
 <body>
 
 <div class="header">
-  <h1>💳 KAYRANACC — {hafta_adi}</h1>
+  <h1>💳 KAYRAN — {hafta_adi}</h1>
   <p>Rapor tarihi: {now_str} · USD/TL Kur: {kur}</p>
 </div>
 
@@ -477,7 +477,7 @@ def haftalik_html_raporu(odemeler, hafta_adi, bankalar=None, kur=38.5):
 </table>
 
 <div style="text-align:center;margin-top:24px;font-size:10px;color:#9ca3af">
-  KAYRANACC · {now_str}
+  KAYRAN · {now_str}
 </div>
 
 <script>
