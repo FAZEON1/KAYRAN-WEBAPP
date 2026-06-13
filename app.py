@@ -1038,14 +1038,6 @@ def anasayfa():
                         unsafe_allow_html=True
                     )
 
-        # Doğrudan e-posta adresi (her zaman görünür)
-        st.markdown(
-            f'<div style="text-align:center;margin-top:10px;color:#64748B;font-size:11px">'
-            f'veya doğrudan: <a href="mailto:{TALEP_ALICI}" style="color:#A5B4FC;text-decoration:none;font-weight:600">{TALEP_ALICI}</a>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
     # ─── ALT BİLGİ ŞERİDİ ───
     st.markdown(
         '<div style="margin:48px 0 0;padding:24px 0;border-top:1px solid rgba(255,255,255,0.06);animation:fadeUp 1.1s ease-out">'
