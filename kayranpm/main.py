@@ -338,11 +338,11 @@ def run():
     
     # ── Sidebar navigasyon ───────────────────────────────────────────────
     with st.sidebar:
+        st.markdown('<script>var sidebarEl=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(sidebarEl)sidebarEl.scrollTop=0;</script>', unsafe_allow_html=True)
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
         st.markdown(f"""
-        <div style="padding:20px 4px 16px; text-align:center;">
+        <div style="padding:6px 4px 8px; text-align:center;">
             <div style="font-size:26px; margin-bottom:4px;">📦</div>
-            <div style="font-size:15px; font-weight:800; color:#ECEFF1; letter-spacing:2px;">KAYRAN</div>
             <div style="font-size:9px; color:#37474F; letter-spacing:1.5px; margin-top:2px; text-transform:uppercase;">Ürün Yönetim Sistemi</div>
             <div style="height:1px; background:linear-gradient(90deg,transparent,rgba(21,101,192,0.6),transparent); margin-top:14px;"></div>
         </div>
