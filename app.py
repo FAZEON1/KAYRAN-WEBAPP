@@ -922,9 +922,9 @@ def anasayfa():
     # FAZEON Kartı — Siyah + Beyaz minimalist, Gaming
     with col2:
         st.markdown(
-            '<div style="position:relative;background:linear-gradient(135deg,#000000 0%,#0a0a0a 100%);'
-            'border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
-            'min-height:280px;animation:fadeUp 1s ease-out;box-shadow:0 10px 40px rgba(0,0,0,0.5)">'
+            '<div style="position:relative;background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
+            'border:1px solid rgba(139,92,246,0.25);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
+            'min-height:280px;animation:fadeUp 1s ease-out;box-shadow:0 10px 50px rgba(99,102,241,0.2),0 2px 0 rgba(139,92,246,0.3) inset">'
             # White accent çizgi
             '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#FFFFFF,transparent)"></div>'
             # Decorative tech grid
@@ -936,7 +936,7 @@ def anasayfa():
             # Slogan
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
             '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">Are You Ready to <span style="font-style:italic;font-weight:300">Faze</span> the World?</div>'
-            '<div style="font-size:11px;color:#94A3B8;letter-spacing:1px;font-weight:600;text-transform:uppercase">Gaming · Monitors · Cases · Coolers</div>'
+            '<div style="font-size:11px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Gaming · Monitors · Cases · Coolers</div>'
             '</div>'
             # Açıklama
             '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
@@ -944,16 +944,18 @@ def anasayfa():
             '</div>'
             # Ürün kategorileri
             '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;position:relative;z-index:2">'
-            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">📺 Monitors</span>'
-            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">📦 Cases</span>'
-            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">❄️ Coolers</span>'
-            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">🖱️ Mouse Pads</span>'
+            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">📺 Monitors</span>'
+            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">📦 Cases</span>'
+            '<span style="font-size:10px;color:#BAE6FD;background:rgba(56,189,248,0.1);padding:4px 10px;border-radius:6px;border:1px solid rgba(56,189,248,0.2);font-weight:600;letter-spacing:0.3px">❄️ Coolers</span>'
+            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">🖱️ Mouse Pads</span>'
             '</div>'
             # Web sitesi link
             '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" '
-            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(255,255,255,0.06);'
-            'border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#FFFFFF;text-decoration:none;'
-            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2">'
+            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;'
+            'background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));'
+            'border:1px solid rgba(139,92,246,0.4);border-radius:10px;color:#C4B5FD;text-decoration:none;'
+            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2;'
+            'box-shadow:0 4px 15px rgba(99,102,241,0.15)">'
             '<span>🌐 fazeon.com</span>'
             '<span style="font-size:14px">→</span>'
             '</a>'
