@@ -1626,7 +1626,7 @@ def run():
         bankalar = get_bankalar()
     
         # Manuel ödeme ekleme formu
-        with st.expander("➕ Manuel Ödeme Ekle"):
+        with st.expander("➕ Manuel Ödeme Ekle", key="exp_manuel_odeme"):
             with st.form("manuel_form"):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1668,14 +1668,14 @@ def run():
         gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
         bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
         if gecmis_alarm:
-            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=True):
+            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=st.session_state.get("exp_gecikmiş", True), key="exp_gecikmiş"):
                 rows_html = "".join(
                     f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                     for o, _ in gecmis_alarm
                 )
                 st.markdown(rows_html, unsafe_allow_html=True)
         if bugun_alarm:
-            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=True):
+            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=st.session_state.get("exp_bugun_vadeli", True), key="exp_bugun_vadeli"):
                 rows_html = "".join(
                     f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                     for o, _ in bugun_alarm
