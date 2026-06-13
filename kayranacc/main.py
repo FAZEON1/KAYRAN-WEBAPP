@@ -2039,7 +2039,7 @@ def run():
                     banka_html = (
                         f'<div style="background:#131C35;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:12px">'
                         f'<div style="font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{b["hesap_adi"]}</div>'
-                        f'<div style="font-size:28px;font-weight:700;color:#0F1117;font-family:monospace">{sym}{fmt(b["bakiye"])}<span style="font-size:12px;color:#9CA3AF;margin-left:4px">{b["para_birimi"]}</span></div>'
+                        f'<div style="font-size:28px;font-weight:700;color:#E2E8F0;font-family:monospace;white-space:nowrap;display:flex;align-items:baseline;gap:3px">{sym}{fmt(b["bakiye"])}<span style="font-size:11px;color:#94A3B8;white-space:nowrap">{b["para_birimi"]}</span></div>'
                         f'<div style="font-size:12px;color:#6B7280;margin-top:8px">{net_str}</div>'
                         '</div>'
                     )
@@ -2829,7 +2829,7 @@ def run():
                     aktif_badge = '<br><span style="background:#2563EB;color:white;font-size:9px;padding:1px 6px;border-radius:3px">AKTİF</span>' if is_aktif else ''
                     recent_html = (
                         f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 14px;margin-bottom:10px;min-height:100px">'
-                        f'<div style="font-size:12px;font-weight:700;color:#0F1117;line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
+                        f'<div style="font-size:12px;font-weight:700;color:#E2E8F0;line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
                         f'<div style="font-size:10px;color:#9CA3AF;margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
                         f'<div style="font-size:11px"><span style="color:#6EE7B7">₺{fmt(ozet["tl_toplam"])}</span></div>'
                         f'<div style="font-size:10px;color:#9CA3AF">{h["yuklendi_tarih"]}</div>'
