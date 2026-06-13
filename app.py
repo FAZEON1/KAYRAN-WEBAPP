@@ -1114,7 +1114,7 @@ def kayrantsw_yakinda():
         '</h1>'
         # Alt açıklama
         '<p style="color:#94A3B8;font-size:15px;margin-top:18px;max-width:480px;line-height:1.7;font-weight:400">'
-        'KAYRANTS&amp;W üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
+        'Depo & Teknik Servis üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
         'Gelişmelerden haberdar olmak için takipte kalın.'
         '</p>'
         # Dekoratif çizgi
