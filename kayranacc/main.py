@@ -859,7 +859,13 @@ def run():
         color: #E2E8F0 !important;
         background: rgba(255,255,255,0.08) !important;
     }
-    </style>
+    
+    /* ── HTML TABLE IN stMarkdown (dark theme) ── */
+    .stMarkdown table { border-collapse: collapse !important; width: 100% !important; }
+    .stMarkdown table td { color: #CBD5E1 !important; background: transparent !important; }
+    .stMarkdown table th { color: #94A3B8 !important; background: #131C35 !important; }
+    .stMarkdown table tr:nth-child(even) td { background: rgba(255,255,255,0.03) !important; }
+</style>
     """, unsafe_allow_html=True)
     
 
@@ -2208,12 +2214,12 @@ def run():
             else:
                 nakit_rows_html += (
                     f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{"#F8FAFC" if idx_r%2 else "#FFFFFF"}''">'
-                    f'<td style="padding:9px 14px;{tarih_style}border-bottom:1px solid #F1F5F9;">{row["Tarih"]}</td>'
-                    f'<td style="padding:9px 14px;{num_style}color:#10B981;border-bottom:1px solid #F1F5F9;">{fmt_tl(gun_tl_v)}</td>'
-                    f'<td style="padding:9px 14px;{num_style}color:#3B82F6;border-bottom:1px solid #F1F5F9;">{fmt_usd(gun_usd_v)}</td>'
-                    f'<td style="padding:9px 14px;{num_style}color:#059669;border-bottom:1px solid #F1F5F9;">{fmt_tl(kum_tl_v)}</td>'
-                    f'<td style="padding:9px 14px;{num_style}color:#2563EB;border-bottom:1px solid #F1F5F9;">{fmt_usd(kum_usd_v)}</td>'
-                    f'<td style="padding:9px 14px;font-family:monospace;font-size:12px;text-align:right;font-weight:600;color:{kalan_color};border-bottom:1px solid #F1F5F9;">{fmt_tl(kalan_v)}</td>'
+                    f'<td style="padding:9px 14px;{tarih_style}border-bottom:1px solid rgba(255,255,255,0.1);">{row["Tarih"]}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#10B981;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(gun_tl_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#3B82F6;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(gun_usd_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#059669;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(kum_tl_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#2563EB;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(kum_usd_v)}</td>'
+                    f'<td style="padding:9px 14px;font-family:monospace;font-size:12px;text-align:right;font-weight:600;color:{kalan_color};border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(kalan_v)}</td>'
                     '</tr>'
                 )
         nakit_tablo_html = (
@@ -2443,10 +2449,10 @@ def run():
                     ref_color = "#059669"
                 elif ri % 2 == 0:
                     row_bg = "background:#131C35;"
-                    ref_color = "#0F172A"
+                    ref_color = "#CBD5E1"
                 else:
                     row_bg = "background:#151F38;"
-                    ref_color = "#0F172A"
+                    ref_color = "#CBD5E1"
                 meblag_v = row.get(f"Meblağ ({sym})", 0) or 0
                 odenen_v = row.get(f"Ödenen ({sym})", 0) or 0
                 kalan_color = "#10B981" if kalan_v <= 0 else "#EF4444"
@@ -2462,14 +2468,14 @@ def run():
                 num_s = "font-family:monospace;font-size:12px;text-align:right;"
                 cek_rows_html += (
                     f'<tr style="{row_bg}">'
-                    f'<td style="padding:9px 12px;font-size:11px;font-weight:600;color:{ref_color};border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Ref No","")}</td>'
-                    f'<td style="padding:9px 12px;{num_s}color:#64748B;border-bottom:1px solid #F1F5F9;">{row.get("Cek No","") or row.get("Çek No","")}</td>'
-                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Tarih","")}</td>'
-                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Vade Tarihi","")}</td>'
-                    f'<td style="padding:9px 12px;{num_s}color:#CBD5E1;font-weight:600;border-bottom:1px solid #F1F5F9;">{fmt_para(meblag_v)}</td>'
-                    f'<td style="padding:9px 12px;{num_s}color:#059669;border-bottom:1px solid #F1F5F9;">{fmt_para(odenen_v)}</td>'
-                    f'<td style="padding:9px 12px;{num_s}color:{kalan_color};font-weight:600;border-bottom:1px solid #F1F5F9;">{fmt_para(kalan_v)}</td>'
-                    f'<td style="padding:9px 12px;text-align:center;border-bottom:1px solid #F1F5F9;">{pos_badge}</td>'
+                    f'<td style="padding:9px 12px;font-size:11px;font-weight:600;color:{ref_color};border-bottom:1px solid rgba(255,255,255,0.1);white-space:nowrap;">{row.get("Ref No","")}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);">{row.get("Cek No","") or row.get("Çek No","")}</td>'
+                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);white-space:nowrap;">{row.get("Tarih","")}</td>'
+                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);white-space:nowrap;">{row.get("Vade Tarihi","")}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#CBD5E1;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(meblag_v)}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#059669;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(odenen_v)}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:{kalan_color};font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(kalan_v)}</td>'
+                    f'<td style="padding:9px 12px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);">{pos_badge}</td>'
                     '</tr>'
                 )
             cur_label = "USD ($)" if is_usd else "TL (₺)"
@@ -2582,7 +2588,7 @@ def run():
             banka_v = str(row2.get("Ödendiği Banka") or "-")
             tarih_v = str(row2.get("Ödendi Tarihi") or "-")
             od_rows_html += (
-                f'<tr style="background:{bg};border-bottom:1px solid #F1F5F9;">' +
+                f'<tr style="background:{bg};border-bottom:1px solid rgba(255,255,255,0.1);">' +
                 f'<td style="padding:10px 14px;color:#CBD5E1;font-size:12px;font-weight:600;">{firma_v}</td>' +
                 f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{aciklama_v}</td>' +
                 f'<td style="padding:10px 10px;text-align:center;"><span style="background:#EEF2FF;color:#6366F1;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
