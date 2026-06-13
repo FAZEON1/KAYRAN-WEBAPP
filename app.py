@@ -12,6 +12,11 @@ Mimari:
 import streamlit as st
 from datetime import datetime
 import traceback
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.utils import formataddr
+from urllib.parse import quote
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -30,6 +35,57 @@ def kullanici_yetkileri(kullanici):
         "kayranacc": k in KAYRANACC_KULLANICILAR,
         "kayranpm":  k in KAYRANPM_KULLANICILAR,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# TALEP / GERİ BİLDİRİM — Mail gönderimi
+# ─────────────────────────────────────────────────────────────────────
+TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
+
+
+def talep_gonder(gonderen_ad, konu, mesaj):
+    """Talebi SMTP ile sabit alıcıya (TALEP_ALICI) gönderir.
+    SMTP bilgileri: st.secrets['bildirim'] (smtp_host/port/user/pass).
+    Döner: (basarili: bool, kod: str). 'smtp_yok' = SMTP yapılandırılmamış."""
+    try:
+        b = st.secrets.get("bildirim", {})
+    except Exception:
+        b = {}
+    smtp_host = b.get("smtp_host", "smtp.gmail.com")
+    smtp_port = int(b.get("smtp_port", 587))
+    smtp_user = b.get("smtp_user", "")
+    smtp_pass = b.get("smtp_pass", "")
+
+    if not smtp_user or not smtp_pass:
+        return False, "smtp_yok"
+
+    html = (
+        "<div style='font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#0f172a;line-height:1.6'>"
+        "<h2 style='color:#4338CA;margin:0 0 12px'>📨 KAYRAN Workspace — Yeni Talep / Geri Bildirim</h2>"
+        f"<p style='margin:4px 0'><b>Gönderen:</b> {gonderen_ad}</p>"
+        f"<p style='margin:4px 0'><b>Konu:</b> {konu}</p>"
+        "<hr style='border:none;border-top:1px solid #e2e8f0;margin:12px 0'>"
+        f"<div style='white-space:pre-wrap'>{mesaj}</div>"
+        "<hr style='border:none;border-top:1px solid #e2e8f0;margin:12px 0'>"
+        "<p style='color:#64748b;font-size:12px'>Bu mesaj KAYRAN Workspace ana sayfasındaki talep formundan gönderildi.</p>"
+        "</div>"
+    )
+    try:
+        msg = MIMEText(html, "html", "utf-8")
+        msg["Subject"] = f"[KAYRAN Talep] {konu}"
+        msg["From"] = formataddr(("KAYRAN Workspace", smtp_user))
+        msg["To"] = TALEP_ALICI
+        msg["Reply-To"] = smtp_user
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=12) as server:
+            server.starttls(context=context)
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [TALEP_ALICI], msg.as_string())
+        return True, "ok"
+    except smtplib.SMTPAuthenticationError:
+        return False, "❌ SMTP kimlik doğrulama hatası (kullanıcı adı/şifre)."
+    except Exception as e:
+        return False, f"❌ Gönderim hatası: {type(e).__name__}: {str(e)[:200]}"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -826,10 +882,6 @@ def anasayfa():
             # Header
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
             f'{G5F_LOGO_SVG}'
-            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.4);border-radius:12px">'
-            '<div style="width:5px;height:5px;border-radius:50%;background:#E88420;box-shadow:0 0 8px #E88420"></div>'
-            '<span style="color:#FED7AA;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Ana Şirket</span>'
-            '</div>'
             '</div>'
             # Başlık
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
@@ -880,10 +932,6 @@ def anasayfa():
             # Header
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
             f'{FAZEON_LOGO_SVG}'
-            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:12px">'
-            '<div style="width:5px;height:5px;border-radius:50%;background:#FFFFFF;box-shadow:0 0 8px rgba(255,255,255,0.6)"></div>'
-            '<span style="color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Kendi Marka</span>'
-            '</div>'
             '</div>'
             # Slogan
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
@@ -909,6 +957,91 @@ def anasayfa():
             '<span>🌐 fazeon.com</span>'
             '<span style="font-size:14px">→</span>'
             '</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+    # ─── TALEP / GERİ BİLDİRİM PLATFORMU ───
+    st.markdown(
+        '<div style="margin:52px 0 18px;animation:fadeUp 1.05s ease-out">'
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+        '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Destek</div>'
+        '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+        '</div>'
+        '<h2 style="font-family:Manrope,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
+        '💬 Talep &amp; Geri Bildirim</h2>'
+        '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
+        'Uygulamalarla ilgili geliştirme, optimizasyon veya yeni özellik taleplerinizi doğrudan ekibimize iletin'
+        '</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # Form alanları için koyu temaya uygun stil
+    st.markdown(
+        '<style>'
+        '[data-testid="stTextInput"] label,[data-testid="stTextArea"] label{'
+        'color:#CBD5E1 !important;font-weight:600 !important;font-size:12px !important;'
+        'letter-spacing:.5px !important;text-transform:uppercase !important;}'
+        '[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea{'
+        'background:rgba(255,255,255,0.04) !important;border:1px solid rgba(255,255,255,0.12) !important;'
+        'color:#FFFFFF !important;border-radius:12px !important;}'
+        '[data-testid="stTextInput"] input::placeholder,[data-testid="stTextArea"] textarea::placeholder{'
+        'color:#64748B !important;}'
+        '[data-testid="stTextInput"] input:focus,[data-testid="stTextArea"] textarea:focus{'
+        'border-color:#8B5CF6 !important;box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
+        '.stFormSubmitButton > button,[data-testid="stFormSubmitButton"] button{'
+        'background:linear-gradient(135deg,#6366F1,#8B5CF6) !important;color:#fff !important;'
+        'border:none !important;border-radius:12px !important;font-weight:600 !important;'
+        'box-shadow:0 4px 20px rgba(99,102,241,0.35) !important;}'
+        '</style>',
+        unsafe_allow_html=True
+    )
+
+    col_tl, col_tc, col_tr = st.columns([1, 2, 1])
+    with col_tc:
+        with st.form("talep_form", clear_on_submit=True):
+            konu = st.text_input("Konu", placeholder="Örn. KAYRANACC'a toplu Excel dışa aktarma")
+            mesaj = st.text_area(
+                "Mesajınız",
+                placeholder="Talebinizi, önerinizi veya karşılaştığınız sorunu detaylıca yazın...",
+                height=150
+            )
+            gonder = st.form_submit_button("📨  Talebi Gönder", type="primary", use_container_width=True)
+
+        if gonder:
+            if not mesaj or not mesaj.strip():
+                st.warning("⚠️ Lütfen mesaj alanını doldurun.")
+            else:
+                konu_son = (konu or "").strip() or "Konusuz Talep"
+                with st.spinner("Talebiniz gönderiliyor..."):
+                    ok, sonuc = talep_gonder(aktif_kullanici.capitalize(), konu_son, mesaj.strip())
+                if ok:
+                    st.success("✅ Talebiniz başarıyla iletildi. Teşekkürler!")
+                else:
+                    # SMTP yoksa veya hata olursa: mailto yedeği
+                    govde = f"Gönderen: {aktif_kullanici.capitalize()}\nKonu: {konu_son}\n\n{mesaj.strip()}"
+                    mailto = (
+                        f"mailto:{TALEP_ALICI}"
+                        f"?subject={quote('[KAYRAN Talep] ' + konu_son)}"
+                        f"&body={quote(govde)}"
+                    )
+                    if sonuc == "smtp_yok":
+                        st.info("ℹ️ Otomatik gönderim yapılandırılmamış. Aşağıdaki butonla kendi e-posta uygulamanızdan iletebilirsiniz.")
+                    else:
+                        st.error(sonuc)
+                    st.markdown(
+                        f'<a href="{mailto}" style="display:inline-block;margin-top:6px;padding:10px 18px;'
+                        'background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;text-decoration:none;'
+                        'border-radius:10px;font-weight:600;font-size:13px">📧 E-posta ile Gönder</a>',
+                        unsafe_allow_html=True
+                    )
+
+        # Doğrudan e-posta adresi (her zaman görünür)
+        st.markdown(
+            f'<div style="text-align:center;margin-top:10px;color:#64748B;font-size:11px">'
+            f'veya doğrudan: <a href="mailto:{TALEP_ALICI}" style="color:#A5B4FC;text-decoration:none;font-weight:600">{TALEP_ALICI}</a>'
             '</div>',
             unsafe_allow_html=True
         )
