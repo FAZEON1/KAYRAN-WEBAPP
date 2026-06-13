@@ -55,18 +55,18 @@ def run():
     # ── CSS ──────────────────────────────────────────────────────────────
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     
     /* ── GLOBAL ── */
     *, *::before, *::after { box-sizing: border-box; }
     
     html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
         -webkit-font-smoothing: antialiased;
     }
     
     .main {
-        background: linear-gradient(135deg, #F0F4FF 0%, #F8FAFF 50%, #EFF6FF 100%);
+        background: linear-gradient(135deg, #FAFBFF 0%, #FFFFFF 50%, #F8F9FF 100%);
         min-height: 100vh;
     }
     
@@ -86,7 +86,7 @@ def run():
     }
     section[data-testid="stSidebar"] * {
         color: #E2E8F0 !important;
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
     }
     section[data-testid="stSidebar"] .stRadio > label {
         color: #94A3B8 !important;
@@ -177,7 +177,7 @@ def run():
     .stButton > button,
     [data-testid="stButton"] button,
     [data-testid="stBaseButton-secondary"] {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
         border-radius: 10px !important;
@@ -230,7 +230,7 @@ def run():
     /* ── INPUT ALANLARI (sidebar hariç) ── */
     .stTextInput input, .stNumberInput input, .stSelectbox select,
     .stDateInput input, .stTextArea textarea {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         border-radius: 10px !important;
         border: 1.5px solid #E2E8F0 !important;
         font-size: 13px !important;
@@ -286,7 +286,7 @@ def run():
     /* ── EXPANDER ── */
     /* Eski sürüm sınıfı (geriye dönük uyumluluk için kalsın) */
     .streamlit-expanderHeader {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
         color: #334155 !important;
@@ -309,7 +309,7 @@ def run():
         background: white !important;
     }
     [data-testid="stExpander"] summary {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
         background: white !important;
@@ -355,7 +355,7 @@ def run():
     }
     .stTabs [data-baseweb="tab"] {
         border-radius: 10px !important;
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
         color: #64748B !important;
@@ -370,7 +370,7 @@ def run():
     
     /* ── BAŞLIKLAR ── */
     .baslik {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-size: 28px !important;
         font-weight: 800 !important;
         color: #0F172A !important;
@@ -460,7 +460,7 @@ def run():
     /* Streamlit'in default st.alert renkleri dark tema'da okunmuyor. Burada manuel ayarlıyoruz. */
     div[data-testid="stAlert"] {
         border-radius: 10px !important;
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-size: 13px !important;
         font-weight: 500 !important;
         padding: 12px 16px !important;
@@ -545,14 +545,14 @@ def run():
     
     /* ── DOWNLOAD BUTON ── */
     .stDownloadButton button {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 600 !important;
         border-radius: 10px !important;
     }
     
     /* ── MARKDOWN ── */
     .stMarkdown p {
-        font-family: 'Inter', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-size: 14px !important;
         color: #334155 !important;
         line-height: 1.6 !important;
@@ -1421,7 +1421,7 @@ def run():
                                               for lab in kat_data.keys()]],
                         line=dict(color="white", width=2),
                     ),
-                    textfont=dict(family="Inter, sans-serif", size=13, color="white"),
+                    textfont=dict(family="Manrope, sans-serif", size=13, color="white"),
                     textposition="inside",
                     textinfo="percent",
                     insidetextorientation="radial",
@@ -1432,7 +1432,7 @@ def run():
                     paper_bgcolor="white", plot_bgcolor="white",
                     showlegend=True,
                     legend=dict(
-                        font=dict(family="Inter, sans-serif", size=12, color="#0F172A"),
+                        font=dict(family="Manrope, sans-serif", size=12, color="#0F172A"),
                         orientation="v",
                         yanchor="middle", y=0.5,
                         xanchor="left", x=1.02,
@@ -1440,7 +1440,7 @@ def run():
                         bordercolor="rgba(0,0,0,0)",
                         itemsizing="constant",
                     ),
-                    font=dict(family="Inter, sans-serif", color="#0F172A"),
+                    font=dict(family="Manrope, sans-serif", color="#0F172A"),
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
@@ -1458,7 +1458,7 @@ def run():
                     colors=["#22C55E", "#F59E0B"],
                     line=dict(color="white", width=2),
                 ),
-                textfont=dict(family="Inter, sans-serif", size=13, color="white"),
+                textfont=dict(family="Manrope, sans-serif", size=13, color="white"),
                 textposition="inside",
                 textinfo="percent",
                 hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
@@ -1471,10 +1471,10 @@ def run():
             fig2.update_layout(
                 height=340, margin=dict(t=10, b=10, l=10, r=120),
                 paper_bgcolor="white", plot_bgcolor="white",
-                font=dict(family="Inter, sans-serif", color="#0F172A"),
+                font=dict(family="Manrope, sans-serif", color="#0F172A"),
                 showlegend=True,
                 legend=dict(
-                    font=dict(family="Inter, sans-serif", size=12, color="#0F172A"),
+                    font=dict(family="Manrope, sans-serif", size=12, color="#0F172A"),
                     orientation="v",
                     yanchor="middle", y=0.5,
                     xanchor="left", x=1.02,
@@ -1568,7 +1568,7 @@ def run():
             html = f'''
             <style>
               .takvim-tablo-wrap {{ overflow-x:auto; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,0.08); }}
-              .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Inter','Manrope',sans-serif; }}
+              .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Manrope','Manrope',sans-serif; }}
               .takvim-tablo thead tr {{ background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%); }}
               .takvim-tablo thead th {{ padding:11px 14px; color:#CBD5E1; font-size:11px; font-weight:700;
                 letter-spacing:1px; text-transform:uppercase; border:none; white-space:nowrap; }}
@@ -2251,19 +2251,19 @@ def run():
             fig.update_layout(
                 title=dict(
                     text="<b>Günlük Ödeme ve Kalan Bakiye</b>",
-                    font=dict(family="Inter, sans-serif", size=15, color="#0F172A"),
+                    font=dict(family="Manrope, sans-serif", size=15, color="#0F172A"),
                     x=0.01, xanchor="left",
                 ),
                 xaxis=dict(
-                    title=dict(text="Tarih", font=dict(family="Inter, sans-serif", size=12, color="#475569")),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color="#334155"),
+                    title=dict(text="Tarih", font=dict(family="Manrope, sans-serif", size=12, color="#475569")),
+                    tickfont=dict(family="Manrope, sans-serif", size=11, color="#334155"),
                     gridcolor="#F1F5F9",
                     linecolor="#CBD5E1",
                     showline=True,
                 ),
                 yaxis=dict(
-                    title=dict(text="Ödeme TL (₺)", font=dict(family="Inter, sans-serif", size=12, color="#2563EB")),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color="#334155"),
+                    title=dict(text="Ödeme TL (₺)", font=dict(family="Manrope, sans-serif", size=12, color="#2563EB")),
+                    tickfont=dict(family="Manrope, sans-serif", size=11, color="#334155"),
                     gridcolor="#F1F5F9",
                     linecolor="#CBD5E1",
                     showline=True,
@@ -2271,8 +2271,8 @@ def run():
                     zerolinecolor="#CBD5E1",
                 ),
                 yaxis2=dict(
-                    title=dict(text="Kalan Bakiye (₺)", font=dict(family="Inter, sans-serif", size=12, color="#059669")),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color="#334155"),
+                    title=dict(text="Kalan Bakiye (₺)", font=dict(family="Manrope, sans-serif", size=12, color="#059669")),
+                    tickfont=dict(family="Manrope, sans-serif", size=11, color="#334155"),
                     overlaying="y",
                     side="right",
                     showgrid=False,
@@ -2281,9 +2281,9 @@ def run():
                 ),
                 height=420, plot_bgcolor="white", paper_bgcolor="white",
                 hovermode="x unified",
-                font=dict(family="Inter, sans-serif", color="#0F172A"),
+                font=dict(family="Manrope, sans-serif", color="#0F172A"),
                 legend=dict(
-                    font=dict(family="Inter, sans-serif", size=12, color="#0F172A"),
+                    font=dict(family="Manrope, sans-serif", size=12, color="#0F172A"),
                     orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     bgcolor="rgba(255,255,255,0)",
                 ),
@@ -2589,7 +2589,7 @@ def run():
 
         od_header = (
             '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
-            '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
+            '<table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:13px;">' +
             '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">' +
             '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
             '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
