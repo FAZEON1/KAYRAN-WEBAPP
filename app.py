@@ -157,6 +157,51 @@ def login_css():
         letter-spacing: 0.5px !important;
         text-transform: uppercase !important;
     }
+
+    /* ── STREAMLIT TOOLBAR FIX (sağ üstteki Deploy, menü vb. butonlar) ── */
+    /* Default rengi koyu gri (#313143) — koyu zeminde okunmaz, beyaza çeviriyoruz */
+    header[data-testid="stHeader"] *,
+    .stAppToolbar *,
+    .stAppDeployButton *,
+    .stMainMenu *,
+    [data-testid="stToolbar"] * {
+        color: rgba(255,255,255,0.65) !important;
+    }
+    header[data-testid="stHeader"] button:hover,
+    .stAppToolbar button:hover,
+    .stAppDeployButton button:hover {
+        color: #FFFFFF !important;
+        background: rgba(255,255,255,0.06) !important;
+    }
+    header[data-testid="stHeader"] svg,
+    .stAppToolbar svg,
+    .stMainMenu svg {
+        fill: rgba(255,255,255,0.65) !important;
+    }
+    /* Material Icons ligature fix */
+    button[data-testid="stBaseButton-headerNoPadding"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),
+    [data-testid="stSidebarCollapsedControl"] span:not(.material-symbols-rounded):not(.material-symbols-outlined) {
+        font-size: 0 !important;
+    }
+    button[data-testid="stBaseButton-headerNoPadding"] svg,
+    [data-testid="stSidebarCollapsedControl"] svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+
+    /* ── SCROLLBAR — koyu tema ── */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.15);
+        border-radius: 6px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.25);
+        background-clip: padding-box;
+    }
     </style>
 
     <div class="kayran-bg"></div>
@@ -239,6 +284,74 @@ def portal_css():
     section[data-testid="stSidebar"] hr {
         border-color: rgba(255,255,255,0.06) !important;
         margin: 12px 0 !important;
+    }
+
+    /* ── STREAMLIT TOOLBAR (sağ üstteki Deploy, Share, kebab menü) ── */
+    header[data-testid="stHeader"] *,
+    .stAppToolbar *,
+    .stAppDeployButton *,
+    .stMainMenu *,
+    [data-testid="stToolbar"] * {
+        color: rgba(255,255,255,0.65) !important;
+    }
+    header[data-testid="stHeader"] button:hover,
+    .stAppToolbar button:hover,
+    .stAppDeployButton button:hover {
+        color: #FFFFFF !important;
+        background: rgba(255,255,255,0.06) !important;
+    }
+    header[data-testid="stHeader"] svg,
+    .stAppToolbar svg,
+    .stMainMenu svg {
+        fill: rgba(255,255,255,0.65) !important;
+    }
+    /* Sidebar collapse butonu (hamburger) — beyaz arka planda beyazdı, koyu yapıyoruz */
+    [data-testid="stSidebarCollapsedControl"],
+    button[aria-label*="Close"],
+    button[aria-label*="Open"],
+    [data-testid="stBaseButton-headerNoPadding"] {
+        background: rgba(255,255,255,0.05) !important;
+        color: rgba(255,255,255,0.8) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] span {
+        color: rgba(255,255,255,0.8) !important;
+        fill: rgba(255,255,255,0.8) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"]:hover,
+    [data-testid="stBaseButton-headerNoPadding"]:hover {
+        background: rgba(255,255,255,0.1) !important;
+    }
+    /* Material Icons ligature fix - text gözükmesin */
+    button[data-testid="stBaseButton-headerNoPadding"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),
+    [data-testid="stSidebarCollapsedControl"] span:not(.material-symbols-rounded):not(.material-symbols-outlined) {
+        font-size: 0 !important;
+    }
+    button[data-testid="stBaseButton-headerNoPadding"] svg,
+    [data-testid="stSidebarCollapsedControl"] svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+
+    /* ── SCROLLBAR koyu tema ── */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.15);
+        border-radius: 6px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.25);
+        background-clip: padding-box;
+    }
+
+    /* ── TOOLTIP & POPOVER ── */
+    [role="tooltip"], .stTooltipIcon, [data-baseweb="tooltip"] {
+        background: #1B2436 !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
     }
 
     /* Ana içerik alanı */
@@ -379,6 +492,106 @@ def portal_sidebar(kompakt=False):
     aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
     ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
+
+    # ─── Sidebar koyu tema (alt uygulama açıkken bile çalışır) ───
+    # Bu CSS, alt uygulama (KAYRANACC/PM) kendi açık temasını uygulasa bile
+    # sidebar bizim koyu navigasyonumuzla tutarlı kalsın diye lazım
+    st.markdown(
+        '<style>'
+        # Sidebar zemin
+        'section[data-testid="stSidebar"]{'
+        'background:linear-gradient(180deg,#0d1230 0%,#0a0e27 100%) !important;'
+        'border-right:1px solid rgba(255,255,255,0.06) !important;'
+        '}'
+        # Sidebar yazı renkleri (tüm text, label, p, span, div, h1-h6)
+        'section[data-testid="stSidebar"] *{'
+        'color:#CBD5E1 !important;'
+        '}'
+        # Sidebar markdown başlıkları
+        'section[data-testid="stSidebar"] h1,'
+        'section[data-testid="stSidebar"] h2,'
+        'section[data-testid="stSidebar"] h3,'
+        'section[data-testid="stSidebar"] strong{'
+        'color:#FFFFFF !important;'
+        '}'
+        # Sidebar butonları
+        'section[data-testid="stSidebar"] .stButton > button{'
+        'background:transparent !important;'
+        'color:#CBD5E1 !important;'
+        'border:1px solid transparent !important;'
+        'border-radius:10px !important;'
+        'padding:10px 14px !important;'
+        'text-align:left !important;'
+        'font-size:13px !important;'
+        'font-weight:500 !important;'
+        'box-shadow:none !important;'
+        'transition:all 0.2s !important;'
+        'margin-bottom:4px !important;'
+        'justify-content:flex-start !important;'
+        'width:100% !important;'
+        '}'
+        'section[data-testid="stSidebar"] .stButton > button:hover{'
+        'background:rgba(99,102,241,0.1) !important;'
+        'color:#FFFFFF !important;'
+        'transform:none !important;'
+        'border-color:rgba(99,102,241,0.2) !important;'
+        '}'
+        # Aktif buton (mor highlight, beyaz yazı)
+        'section[data-testid="stSidebar"] .stButton > button[kind="primary"]{'
+        'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.15)) !important;'
+        'color:#FFFFFF !important;'
+        'border:1px solid rgba(99,102,241,0.4) !important;'
+        '}'
+        # Disabled (kilitli) butonlar
+        'section[data-testid="stSidebar"] .stButton > button:disabled{'
+        'background:transparent !important;'
+        'color:#475569 !important;'
+        'cursor:not-allowed !important;'
+        '}'
+        # Streamlit'in default radio/selectbox renkleri (alt uygulama içinde)
+        'section[data-testid="stSidebar"] [data-testid="stRadio"] label,'
+        'section[data-testid="stSidebar"] [data-testid="stRadio"] p{'
+        'color:#CBD5E1 !important;'
+        '}'
+        # Sidebar collapse arrow + buton
+        'button[data-testid="stBaseButton-headerNoPadding"],'
+        '[data-testid="stSidebarCollapsedControl"]{'
+        'background:rgba(255,255,255,0.05) !important;'
+        '}'
+        'button[data-testid="stBaseButton-headerNoPadding"] *,'
+        '[data-testid="stSidebarCollapsedControl"] *{'
+        'color:rgba(255,255,255,0.7) !important;'
+        'fill:rgba(255,255,255,0.7) !important;'
+        '}'
+        # Material Icons ligature fix - "keyboard_double_arrow_left" gibi yazılar gözükmesin
+        'button[data-testid="stBaseButton-headerNoPadding"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),'
+        '[data-testid="stSidebarCollapsedControl"] span:not(.material-symbols-rounded):not(.material-symbols-outlined){'
+        'font-size:0 !important;'  # Eğer Material Icons font yüklenmemişse text gözükmesin
+        '}'
+        'button[data-testid="stBaseButton-headerNoPadding"] svg,'
+        '[data-testid="stSidebarCollapsedControl"] svg{'
+        'font-size:initial !important;'
+        'width:18px !important;'
+        'height:18px !important;'
+        '}'
+        # Header toolbar (Deploy, Share)
+        'header[data-testid="stHeader"] *,'
+        '.stAppToolbar *,'
+        '.stAppDeployButton *{'
+        'color:rgba(255,255,255,0.65) !important;'
+        '}'
+        'header[data-testid="stHeader"] svg,'
+        '.stAppToolbar svg{'
+        'fill:rgba(255,255,255,0.65) !important;'
+        '}'
+        # Scrollbar
+        '::-webkit-scrollbar{width:10px;height:10px;}'
+        '::-webkit-scrollbar-track{background:rgba(255,255,255,0.02);}'
+        '::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:6px;}'
+        '::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}'
+        '</style>',
+        unsafe_allow_html=True
+    )
 
     with st.sidebar:
         # Logo + KAYRAN başlığı (her zaman)
@@ -602,15 +815,15 @@ def anasayfa():
             # Header
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
             f'{G5F_LOGO_SVG}'
-            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(232,132,32,0.15);border:1px solid rgba(232,132,32,0.3);border-radius:12px">'
+            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.4);border-radius:12px">'
             '<div style="width:5px;height:5px;border-radius:50%;background:#E88420;box-shadow:0 0 8px #E88420"></div>'
-            '<span style="color:#FBA94B;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Ana Şirket</span>'
+            '<span style="color:#FED7AA;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Ana Şirket</span>'
             '</div>'
             '</div>'
             # Başlık
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
             '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">G5F Teknoloji</div>'
-            '<div style="font-size:11px;color:#FBA94B;letter-spacing:1px;font-weight:600;text-transform:uppercase">Distribütör · Teknoloji Çözümleri</div>'
+            '<div style="font-size:11px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Distribütör · Teknoloji Çözümleri</div>'
             '</div>'
             # Açıklama
             '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
@@ -619,22 +832,22 @@ def anasayfa():
             # Mini istatistikler
             '<div style="display:flex;gap:20px;margin-bottom:20px;position:relative;z-index:2">'
             '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">4+</div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">4+</div>'
             '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Marka</div>'
             '</div>'
             '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">100%</div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">100%</div>'
             '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Memnuniyet</div>'
             '</div>'
             '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">7/24</div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">7/24</div>'
             '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Destek</div>'
             '</div>'
             '</div>'
-            # Web sitesi link
+            # Web sitesi link — koyu zemin + açık turuncu yazı, kontrast yüksek
             '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" '
-            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(232,132,32,0.12);'
-            'border:1px solid rgba(232,132,32,0.35);border-radius:10px;color:#FBA94B;text-decoration:none;'
+            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(0,0,0,0.4);'
+            'border:1px solid rgba(232,132,32,0.5);border-radius:10px;color:#FFEDD5;text-decoration:none;'
             'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2">'
             '<span>🌐 g5fteknoloji.com</span>'
             '<span style="font-size:14px">→</span>'
