@@ -2417,9 +2417,73 @@ def run():
                     return ["background-color:#DBEAFE;color:#1E40AF"] * len(row)
                 return [""] * len(row)
     
-            goster = [k for k in rows[0].keys() if k != "_vd"]
-            styled = df[goster + ["_vd"]].style.apply(renk, axis=1).hide(axis="columns", subset=["_vd"])
-            st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
+            # --- Firma Cekleri HTML Tablosu ---
+            is_usd = (cur == "USD")
+            sym_prefix = "$" if is_usd else "₺"
+            def fmt_para(v):
+                if v is None or v == 0: return "-"
+                return f"{sym_prefix} {v:,.0f}"
+            cek_rows_html = ""
+            for ri, row in enumerate(rows):
+                vd_raw = row.get("_vd", "")
+                pozisyon = str(row.get("Son Pozisyon", "")).lower()
+                kalan_v = row.get(f"Kalan ({sym})", 0) or 0
+                if "gecmis" in pozisyon or ("odendi" not in pozisyon and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
+                    row_bg = "background:#FFF5F5;"
+                    ref_color = "#DC2626"
+                elif "odendi" in pozisyon:
+                    row_bg = "background:#F0FDF4;" if ri % 2 == 0 else "background:#ECFDF5;"
+                    ref_color = "#059669"
+                elif ri % 2 == 0:
+                    row_bg = "background:#FFFFFF;"
+                    ref_color = "#0F172A"
+                else:
+                    row_bg = "background:#F8FAFC;"
+                    ref_color = "#0F172A"
+                meblag_v = row.get(f"Meblağ ({sym})", 0) or 0
+                odenen_v = row.get(f"Ödenen ({sym})", 0) or 0
+                kalan_color = "#10B981" if kalan_v <= 0 else "#EF4444"
+                pos_badge = ""
+                if "odendi" in pozisyon:
+                    pos_badge = '<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
+                elif "bekliyor" in pozisyon:
+                    pos_badge = '<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;">⏳ BEKLİYOR</span>'
+                elif "gecmis" in pozisyon:
+                    pos_badge = '<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;">⚠ GECİKMİŞ</span>'
+                else:
+                    pos_badge = f'<span style="background:#E2E8F0;color:#475569;font-size:10px;padding:2px 8px;border-radius:10px;">{row.get("Son Pozisyon","")}</span>'
+                num_s = "font-family:monospace;font-size:12px;text-align:right;"
+                cek_rows_html += (
+                    f'<tr style="{row_bg}">'
+                    f'<td style="padding:9px 12px;font-size:11px;font-weight:600;color:{ref_color};border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Ref No","")}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#475569;border-bottom:1px solid #F1F5F9;">{row.get("Cek No","") or row.get("Çek No","")}</td>'
+                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Tarih","")}</td>'
+                    f'<td style="padding:9px 12px;font-size:12px;color:#64748B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">{row.get("Vade Tarihi","")}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#1E293B;font-weight:600;border-bottom:1px solid #F1F5F9;">{fmt_para(meblag_v)}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:#059669;border-bottom:1px solid #F1F5F9;">{fmt_para(odenen_v)}</td>'
+                    f'<td style="padding:9px 12px;{num_s}color:{kalan_color};font-weight:600;border-bottom:1px solid #F1F5F9;">{fmt_para(kalan_v)}</td>'
+                    f'<td style="padding:9px 12px;text-align:center;border-bottom:1px solid #F1F5F9;">{pos_badge}</td>'
+                    '</tr>'
+                )
+            cur_label = "USD ($)" if is_usd else "TL (₺)"
+            cek_html = (
+                '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
+                '<div style="overflow-x:auto;">'
+                '<table style="width:100%;border-collapse:collapse;">'
+                '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">'
+                '<th style="padding:11px 12px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ref No</th>'
+                '<th style="padding:11px 12px;text-align:right;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Çek No</th>'
+                '<th style="padding:11px 12px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
+                '<th style="padding:11px 12px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>'
+                f'<th style="padding:11px 12px;text-align:right;color:#60A5FA;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Meblağ {cur_label}</th>'
+                f'<th style="padding:11px 12px;text-align:right;color:#34D399;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödenen {cur_label}</th>'
+                f'<th style="padding:11px 12px;text-align:right;color:#F59E0B;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kalan {cur_label}</th>'
+                '<th style="padding:11px 12px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Durum</th>'
+                '</tr></thead><tbody>'
+                + cek_rows_html +
+                '</tbody></table></div></div>'
+            )
+            st.markdown(cek_html, unsafe_allow_html=True)
     
         tab1, tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
         with tab1:
