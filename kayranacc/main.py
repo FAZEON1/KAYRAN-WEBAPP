@@ -63,10 +63,16 @@ def run():
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         -webkit-font-smoothing: antialiased;
+        background: #0A0F1E !important;
+        color: #E2E8F0 !important;
     }
     
-    .main {
-        background: linear-gradient(135deg, #0A0F1E 0%, #0F1629 50%, #0A0F1E 100%);
+    .main,
+    [data-testid="stApp"],
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    .stApp {
+        background: linear-gradient(135deg, #0A0F1E 0%, #0F1629 50%, #0A0F1E 100%) !important;
         min-height: 100vh;
     }
     
@@ -429,7 +435,7 @@ def run():
         box-shadow: 0 1px 4px rgba(34,197,94,0.1);
     }
     .alarm-box {
-        background: linear-gradient(135deg, #2D0A0F, #FFE4E6);
+        background: linear-gradient(135deg, #2D0A0F, #3D1515);
         border-left: 4px solid #EF4444;
         padding: 12px 18px;
         border-radius: 0 10px 10px 0;
