@@ -9,7 +9,7 @@ Mimari:
   Yetkisiz uygulamalar gri + 🔒 görünür, tıklanamaz
   Hamburger ile sidebar açılır-kapanır
 """
-import streamlit as sthh
+import streamlit as st
 from datetime import datetime
 import traceback
 import smtplib
