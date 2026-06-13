@@ -138,8 +138,9 @@ def run():
         color: #60A5FA !important;
     }
     
-    /* ── METRİK KARTLARI ── */
-    [data-testid="metric-container"] {
+    /* ── METRİK KARTLARI ── (eski: metric-container, yeni: stMetric) */
+    [data-testid="metric-container"],
+    [data-testid="stMetric"] {
         background: white !important;
         border-radius: 14px !important;
         padding: 20px 22px !important;
@@ -147,18 +148,21 @@ def run():
         box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04) !important;
         transition: transform .2s, box-shadow .2s !important;
     }
-    [data-testid="metric-container"]:hover {
+    [data-testid="metric-container"]:hover,
+    [data-testid="stMetric"]:hover {
         transform: translateY(-2px) !important;
         box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
     }
-    [data-testid="metric-container"] [data-testid="stMetricLabel"] {
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] * {
         font-size: 11px !important;
         font-weight: 700 !important;
         letter-spacing: .6px !important;
         text-transform: uppercase !important;
         color: #64748B !important;
     }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] {
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] * {
         font-family: 'JetBrains Mono', monospace !important;
         font-size: 24px !important;
         font-weight: 700 !important;
@@ -167,34 +171,60 @@ def run():
     }
     
     /* ── BUTONLAR ── */
-    .stButton > button {
+    /* Tüm butonlar: beyaz zemin, koyu yazı (eski seçici güncel sürümde
+       ikon butonlarda tutmuyordu, siyah çıkıyorlardı). Sidebar kendi
+       daha spesifik kuralıyla bunu eziyor, dokunulmaz. */
+    .stButton > button,
+    [data-testid="stButton"] button,
+    [data-testid="stBaseButton-secondary"] {
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
         border-radius: 10px !important;
-        padding: 10px 20px !important;
+        padding: 8px 16px !important;
         transition: all .2s !important;
         letter-spacing: .1px !important;
+        background: #FFFFFF !important;
+        border: 1.5px solid #E2E8F0 !important;
+        color: #334155 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
     }
-    .stButton > button[kind="primary"] {
+    .stButton > button:hover,
+    [data-testid="stButton"] button:hover,
+    [data-testid="stBaseButton-secondary"]:hover {
+        border-color: #94A3B8 !important;
+        background: #F8FAFC !important;
+        color: #0F172A !important;
+    }
+    /* Primary (mavi) butonlar — her yerde geçerli */
+    .stButton > button[kind="primary"],
+    [data-testid="stButton"] button[kind="primary"],
+    [data-testid="stBaseButton-primary"] {
         background: linear-gradient(135deg, #2563EB, #1D4ED8) !important;
         border: none !important;
         box-shadow: 0 2px 8px rgba(37,99,235,0.3) !important;
-        color: white !important;
+        color: #FFFFFF !important;
     }
-    .stButton > button[kind="primary"]:hover {
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="stButton"] button[kind="primary"]:hover,
+    [data-testid="stBaseButton-primary"]:hover {
         background: linear-gradient(135deg, #1D4ED8, #1E40AF) !important;
         box-shadow: 0 4px 16px rgba(37,99,235,0.4) !important;
         transform: translateY(-1px) !important;
+        color: #FFFFFF !important;
     }
-    .stButton > button[kind="secondary"] {
-        background: white !important;
+    /* Popover / Vadeyi Ötele gibi açılır buton tetikleyicileri */
+    [data-testid="stPopover"] button {
+        background: #FFFFFF !important;
         border: 1.5px solid #E2E8F0 !important;
-        color: #475569 !important;
+        color: #334155 !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
     }
-    .stButton > button[kind="secondary"]:hover {
-        border-color: #CBD5E1 !important;
+    [data-testid="stPopover"] button:hover {
+        border-color: #94A3B8 !important;
         background: #F8FAFC !important;
+        color: #0F172A !important;
     }
     
     /* ── INPUT ALANLARI (sidebar hariç) ── */
@@ -254,6 +284,7 @@ def run():
     }
     
     /* ── EXPANDER ── */
+    /* Eski sürüm sınıfı (geriye dönük uyumluluk için kalsın) */
     .streamlit-expanderHeader {
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
@@ -270,6 +301,41 @@ def run():
         border-top: none !important;
         border-radius: 0 0 12px 12px !important;
         padding: 16px !important;
+    }
+    /* Yeni sürüm: [data-testid="stExpander"] + <summary> yapısı */
+    [data-testid="stExpander"] details {
+        border: 1.5px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        background: white !important;
+    }
+    [data-testid="stExpander"] summary {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        background: white !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+    }
+    /* Başlık yazısı — açık zeminde kayboluyordu, koyu yap */
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] summary div,
+    [data-testid="stExpander"] summary label {
+        color: #334155 !important;
+    }
+    /* +/- aç-kapa ikonu görünür olsun */
+    [data-testid="stExpander"] summary svg,
+    [data-testid="stExpanderToggleIcon"] {
+        color: #6366F1 !important;
+        fill: currentColor !important;
+        opacity: 1 !important;
+    }
+    /* Expander içeriği */
+    [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+        background: #FAFBFF !important;
+        border-radius: 0 0 12px 12px !important;
+        padding: 8px !important;
     }
     
     /* ── DATAFRAME ── */
@@ -752,7 +818,29 @@ def run():
     }
     
     /* ── CHECKBOX ── */
-    [data-testid="stCheckbox"] span { color: #0F172A !important; }
+    /* ── CHECKBOX ── (etiket okunur + kutu açık zeminli, siyah çıkmasın) */
+    [data-testid="stCheckbox"] label,
+    [data-testid="stCheckbox"] label p,
+    [data-testid="stCheckbox"] label div,
+    [data-testid="stCheckbox"] label span,
+    [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] {
+        color: #334155 !important;
+    }
+    /* Kutucuğun kendisi: beyaz zemin, belirgin kenarlık */
+    [data-testid="stCheckbox"] [data-baseweb="checkbox"] span[aria-hidden="true"],
+    [data-testid="stCheckbox"] [role="checkbox"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #94A3B8 !important;
+        border-radius: 5px !important;
+    }
+    /* İşaretliyken mavi dolgu, beyaz tik */
+    [data-testid="stCheckbox"] [aria-checked="true"] span[aria-hidden="true"],
+    [data-testid="stCheckbox"] [role="checkbox"][aria-checked="true"] {
+        background-color: #2563EB !important;
+        border-color: #2563EB !important;
+        color: #FFFFFF !important;
+    }
+    [data-testid="stCheckbox"] [aria-checked="true"] svg { fill: #FFFFFF !important; }
     
     /* ── SIDEBAR HARİÇ TUT ── */
     section[data-testid="stSidebar"] p,
@@ -1625,7 +1713,7 @@ def run():
                     with col2:
                         opacity = "opacity:0.4;" if is_odendi else ""
                         st.markdown(
-                            f'<div style="{opacity}"><b style="font-size:13px">{o["firma"]}</b><br>'
+                            f'<div style="{opacity}"><b style="font-size:13px;color:#0F172A">{o["firma"]}</b><br>'
                             f'<small style="color:#6b7280">{o.get("aciklama") or ""}</small></div>',
                             unsafe_allow_html=True
                         )
