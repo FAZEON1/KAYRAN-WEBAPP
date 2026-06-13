@@ -1,5 +1,5 @@
 """
-bildirim.py — KAYRANACC Email Bildirim Modülü
+bildirim.py — KAYRAN Email Bildirim Modülü
 Vade yaklaşan ve gecikmiş ödemeleri email ile bildirir.
 """
 import smtplib
@@ -180,7 +180,7 @@ def vade_bildirimi_olustur(odemeler, hafta_adi, kur=38.5):
         satirlar = "".join(odeme_satiri(o, "#2563EB", "YARIN") for o in yarin)
         yarin_blok = _tablo_blok("📅 Yarın Vadeli", satirlar, "#DBEAFE", "#1E40AF")
 
-    konu = f"💳 KAYRANACC — {toplam_uyari} Ödeme Uyarısı ({today_str})"
+    konu = f"💳 KAYRAN — {toplam_uyari} Ödeme Uyarısı ({today_str})"
 
     html = f"""<!DOCTYPE html>
 <html lang="tr">
@@ -191,7 +191,7 @@ def vade_bildirimi_olustur(odemeler, hafta_adi, kur=38.5):
 
   <!-- Başlık -->
   <div style="background:linear-gradient(135deg,#0B1437,#162050);padding:24px 28px;color:#fff">
-    <div style="font-size:22px;font-weight:800;margin-bottom:4px">💳 KAYRANACC</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:4px">💳 KAYRAN</div>
     <div style="font-size:13px;opacity:0.7">Ödeme Takip Sistemi · {today_str}</div>
   </div>
 
@@ -212,7 +212,7 @@ def vade_bildirimi_olustur(odemeler, hafta_adi, kur=38.5):
   <!-- Footer -->
   <div style="padding:16px 28px;background:#F9FAFB;border-top:1px solid #E5E7EB;
               text-align:center;font-size:11px;color:#9CA3AF">
-    Bu email KAYRANACC Ödeme Takip Sistemi tarafından otomatik gönderilmiştir.
+    Bu email KAYRAN Ödeme Takip Sistemi tarafından otomatik gönderilmiştir.
   </div>
 </div>
 </body>
@@ -242,7 +242,7 @@ def ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi, kur=38.5):
           <td style="padding:8px 14px;text-align:center;color:#6b7280">{b['para_birimi']}</td>
         </tr>"""
 
-    konu = f"💳 KAYRANACC — Haftalık Özet: {hafta_adi} ({today_str})"
+    konu = f"💳 KAYRAN — Haftalık Özet: {hafta_adi} ({today_str})"
 
     html = f"""<!DOCTYPE html>
 <html lang="tr">
@@ -252,7 +252,7 @@ def ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi, kur=38.5):
             overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)">
 
   <div style="background:linear-gradient(135deg,#0B1437,#162050);padding:24px 28px;color:#fff">
-    <div style="font-size:22px;font-weight:800;margin-bottom:4px">💳 KAYRANACC</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:4px">💳 KAYRAN</div>
     <div style="font-size:13px;opacity:0.7">Haftalık Özet · {today_str}</div>
   </div>
 
@@ -276,7 +276,7 @@ def ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi, kur=38.5):
 
   <div style="padding:14px 28px;background:#F9FAFB;border-top:1px solid #E5E7EB;
               text-align:center;font-size:11px;color:#9CA3AF">
-    KAYRANACC · {today_str}
+    KAYRAN · {today_str}
   </div>
 </div>
 </body>
