@@ -1,5 +1,5 @@
 """
-KAYRANPM — Veritabanı Katmanı (Supabase PostgreSQL)
+KAYRAN — Veritabanı Katmanı (Supabase PostgreSQL)
 """
 import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
