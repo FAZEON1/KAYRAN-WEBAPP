@@ -1664,17 +1664,25 @@ def run():
             st.info("Veri yok. Veri Yükleme sekmesinden Excel yükleyin veya manuel ödeme ekleyin.")
             st.stop()
     
-        # Alarmlar
-        for o in odemeler:
-            vd = vade_durumu(o.get("vade"))
-            if o["durum"] == "bekliyor" and vd in ("bugun", "gecmis"):
-                renk = "#2D0A0A" if vd == "gecmis" else "#2D200A"
-                emoji = "🚨" if vd == "gecmis" else "⚠️"
-                etiket = "GECİKMİŞ" if vd == "gecmis" else "BUGÜN"
-                tl_str = f"₺{fmt(o['tutar_tl'])}" if o.get("tutar_tl") else f"${fmt(o['tutar_usd'])}"
-                st.markdown(f'<div class="alarm-box">{emoji} <b>{etiket}</b> — {o["firma"]} — {tl_str}</div>', unsafe_allow_html=True)
-    
-        # Özet
+        # Alarmlar — Collapsible Expander
+        gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
+        bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
+        if gecmis_alarm:
+            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=True):
+                rows_html = "".join(
+                    f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                    for o, _ in gecmis_alarm
+                )
+                st.markdown(rows_html, unsafe_allow_html=True)
+        if bugun_alarm:
+            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=True):
+                rows_html = "".join(
+                    f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                    for o, _ in bugun_alarm
+                )
+                st.markdown(rows_html, unsafe_allow_html=True)
+
+       # Özet
         tl_toplam = sum(o.get("tutar_tl") or 0 for o in odemeler)
         usd_toplam = sum(o.get("tutar_usd") or 0 for o in odemeler)
         odendi_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "odendi")
