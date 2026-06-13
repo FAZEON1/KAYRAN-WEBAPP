@@ -659,6 +659,17 @@ def portal_sidebar(kompakt=False):
                 help="Bu uygulamaya erişim yetkiniz yok"
             )
 
+        # KAYRANTS&W — Yakında (herkese açık, tıklayınca "Yakında" sayfası)
+        if st.button(
+            "🚧  KAYRANTS&W",
+            key="nav_kayrantsw",
+            type="primary" if aktif_sayfa == "kayrantsw" else "secondary",
+            use_container_width=True,
+            help="Çok yakında sizlerle"
+        ):
+            st.session_state.aktif_uygulama = "kayrantsw"
+            st.rerun()
+
         # Ayırıcı çizgi
         st.markdown(
             '<div style="height:1px;background:rgba(255,255,255,0.06);margin:14px 0 14px"></div>',
@@ -667,7 +678,7 @@ def portal_sidebar(kompakt=False):
 
         # Alt uygulama açıksa: o uygulamanın sidebar içeriği BURADAN sonra yüklenir
         # Ana sayfadaysak: HESAP bölümü
-        if aktif_sayfa == "anasayfa":
+        if aktif_sayfa in ("anasayfa", "kayrantsw"):
             # Kullanıcı + Çıkış (sadece ana sayfada)
             st.markdown(
                 '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 10px;padding-left:6px">HESAP</div>',
@@ -949,6 +960,52 @@ def anasayfa():
 
 
 # ─────────────────────────────────────────────────────────────────────
+# 3.5) KAYRANTS&W — YAKINDA SİZLERLE
+# ─────────────────────────────────────────────────────────────────────
+def kayrantsw_yakinda():
+    """KAYRANTS&W modülü için 'Yakında Sizlerle' bilgilendirme sayfası."""
+    st.markdown(portal_css(), unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        'text-align:center;padding:48px 20px 24px;animation:fadeUp 0.6s ease-out">'
+        # İkon rozeti
+        '<div style="width:96px;height:96px;border-radius:24px;'
+        'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(236,72,153,0.2));'
+        'border:1px solid rgba(139,92,246,0.35);display:flex;align-items:center;justify-content:center;'
+        'font-size:46px;margin-bottom:28px;box-shadow:0 10px 40px rgba(99,102,241,0.25)">🚧</div>'
+        # Uygulama adı rozeti
+        '<div style="display:inline-block;padding:6px 16px;background:rgba(99,102,241,0.12);'
+        'border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:20px">'
+        '<span style="color:#A5B4FC;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
+        '</div>'
+        # Başlık
+        '<h1 style="font-family:Manrope,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;'
+        'letter-spacing:1px;margin:0;line-height:1.1">'
+        '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);'
+        '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
+        '</h1>'
+        # Alt açıklama
+        '<p style="color:#94A3B8;font-size:15px;margin-top:18px;max-width:480px;line-height:1.7;font-weight:400">'
+        'KAYRANTS&amp;W üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
+        'Gelişmelerden haberdar olmak için takipte kalın.'
+        '</p>'
+        # Dekoratif çizgi
+        '<div style="width:80px;height:3px;margin:28px auto 0;'
+        'background:linear-gradient(90deg,#6366F1,#A78BFA,#EC4899);border-radius:2px"></div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # Ana sayfaya dön butonu (ortalı)
+    col_l, col_c, col_r = st.columns([1, 1.2, 1])
+    with col_c:
+        if st.button("🏠  Ana Sayfaya Dön", key="tsw_ana_don", use_container_width=True):
+            st.session_state.aktif_uygulama = "anasayfa"
+            st.rerun()
+
+
+# ─────────────────────────────────────────────────────────────────────
 # 4) GLOBAL HATA KARTI
 # ─────────────────────────────────────────────────────────────────────
 def _global_hata_kart(uygulama_adi, hata):
@@ -1014,6 +1071,8 @@ def main():
         elif aktif == "kayranpm":
             from kayranpm.main import run as kayranpm_run
             kayranpm_run()
+        elif aktif == "kayrantsw":
+            kayrantsw_yakinda()
         else:
             st.error(f"Bilinmeyen sayfa: {aktif}")
             st.session_state.aktif_uygulama = "anasayfa"
