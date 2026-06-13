@@ -488,8 +488,17 @@ def portal_sidebar(kompakt=False):
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3) ANA SAYFA (Welcome Dashboard)
+# 3) ANA SAYFA — Kurumsal Dashboard
 # ─────────────────────────────────────────────────────────────────────
+
+# G5F Logo SVG (kart üzerinde — beyaz G/F + turuncu 5)
+# Orijinal logo koyu lacivert + turuncu, ancak koyu kart üzerinde G/F beyaz olmalı
+G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
+
+# Fazeon Logo SVG (beyaz, minimalist)
+FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Manrope, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
+
+
 def anasayfa():
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
@@ -502,14 +511,15 @@ def anasayfa():
             unsafe_allow_html=True
         )
 
-    # Hoşgeldin başlığı
+    # Saate göre selamlama
     saat = datetime.now().hour
     if saat < 12: selamlama = "Günaydın"
     elif saat < 18: selamlama = "İyi günler"
     else: selamlama = "İyi akşamlar"
 
+    # ─── HERO BÖLÜMÜ ───
     st.markdown(
-        '<div style="margin-bottom:36px;animation:fadeUp 0.6s ease-out">'
+        '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
         '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
         '</div>'
@@ -524,12 +534,12 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
-    # Yetki istatistikleri
+    # ─── ÜST İSTATİSTİK KARTLARI ───
     erisilebilir = sum(1 for v in yetkiler.values() if v)
     toplam_uygulama = len(yetkiler)
 
     st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px;animation:fadeUp 0.7s ease-out">'
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:48px;animation:fadeUp 0.7s ease-out">'
         f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(99,102,241,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
         '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Erişim</div>'
         f'<div style="display:flex;align-items:baseline;gap:6px">'
@@ -549,145 +559,176 @@ def anasayfa():
         f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(236,72,153,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
         '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Versiyon</div>'
         '<div style="display:flex;align-items:baseline;gap:6px">'
-        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v1.1</span>'
+        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v1.2</span>'
         '<span style="color:#64748B;font-size:12px">.0</span>'
         '</div>'
-        '<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">🎨 Sidebar nav</div>'
+        '<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">🏢 Kurumsal sürüm</div>'
         '</div>'
         '</div>',
         unsafe_allow_html=True
     )
 
-    # Uygulama erişim kartları
+    # ─── KURUMSAL BÖLÜMÜ BAŞLIĞI ───
     st.markdown(
-        '<div style="margin:40px 0 16px;animation:fadeUp 0.8s ease-out">'
-        '<div style="font-size:11px;color:#64748B;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:14px">Uygulamalar</div>'
+        '<div style="margin:8px 0 24px;animation:fadeUp 0.8s ease-out">'
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+        '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Kurumsal</div>'
+        '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+        '</div>'
+        '<h2 style="font-family:Manrope,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
+        'Bir <span style="background:linear-gradient(90deg,#E88420,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800">G5F Teknoloji</span> projesi'
+        '</h2>'
+        '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
+        'Teknoloji ve operasyon çözümlerini bir araya getiriyoruz'
+        '</p>'
         '</div>',
         unsafe_allow_html=True
     )
 
+    # ─── 2 BRAND KARTI: G5F + FAZEON ───
     col1, col2 = st.columns(2, gap="medium")
 
-    # KAYRANACC
+    # G5F Kartı — Kurumsal koyu lacivert + turuncu
     with col1:
-        if yetkiler["kayranacc"]:
-            st.markdown(
-                '<div style="position:relative;background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(59,130,246,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:28px 26px 20px;overflow:hidden;min-height:200px;animation:fadeUp 0.9s ease-out">'
-                '<div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(99,102,241,0.4),transparent 70%);border-radius:50%;pointer-events:none"></div>'
-                '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.35);border-radius:12px;margin-bottom:16px;position:relative;z-index:2">'
-                '<div style="width:5px;height:5px;border-radius:50%;background:#A5B4FC"></div>'
-                '<span style="color:#C7D2FE;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Finans</span>'
-                '</div>'
-                '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;position:relative;z-index:2">'
-                '<div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(99,102,241,0.4)">'
-                '<span style="font-size:26px">💳</span>'
-                '</div>'
-                '<div>'
-                '<div style="font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:0.3px;line-height:1.1">KAYRANACC</div>'
-                '<div style="font-size:11px;color:#A5B4FC;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;margin-top:3px">Ödeme Takip Sistemi</div>'
-                '</div>'
-                '</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;position:relative;z-index:2">'
-                'Haftalık ödemeler · Banka bakiyeleri · Çek takibi · Nakit akış · Toplam aktifler'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-            if st.button("→ KAYRANACC'yi Aç", key="acc_aç_home", use_container_width=True):
-                st.session_state.aktif_uygulama = "kayranacc"
-                st.rerun()
-        else:
-            st.markdown(
-                '<div style="position:relative;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px 26px 20px;min-height:200px;opacity:0.6;animation:fadeUp 0.9s ease-out">'
-                '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(100,116,139,0.15);border:1px solid rgba(100,116,139,0.2);border-radius:12px;margin-bottom:16px">'
-                '<span style="color:#94A3B8;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔒 Kilitli</span>'
-                '</div>'
-                '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
-                '<div style="width:52px;height:52px;border-radius:14px;background:rgba(100,116,139,0.15);border:1px solid rgba(100,116,139,0.2);display:flex;align-items:center;justify-content:center">'
-                '<span style="font-size:26px;filter:grayscale(1)">💳</span>'
-                '</div>'
-                '<div>'
-                '<div style="font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:#64748B;letter-spacing:0.3px;line-height:1.1">KAYRANACC</div>'
-                '<div style="font-size:11px;color:#475569;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;margin-top:3px">Ödeme Takip Sistemi</div>'
-                '</div>'
-                '</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#475569">'
-                'Bu uygulamaya erişim yetkiniz yok. Yetki için yöneticinizle iletişime geçin.'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            '<div style="position:relative;background:linear-gradient(135deg,#1B2436 0%,#0F172A 100%);'
+            'border:1px solid rgba(232,132,32,0.2);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
+            'min-height:280px;animation:fadeUp 0.9s ease-out;box-shadow:0 10px 40px rgba(0,0,0,0.3)">'
+            # Turuncu accent çizgi
+            '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#E88420,#F59E0B,#E88420)"></div>'
+            # Decorative glow
+            '<div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(232,132,32,0.15),transparent 70%);border-radius:50%;pointer-events:none"></div>'
+            # Header
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
+            f'{G5F_LOGO_SVG}'
+            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(232,132,32,0.15);border:1px solid rgba(232,132,32,0.3);border-radius:12px">'
+            '<div style="width:5px;height:5px;border-radius:50%;background:#E88420;box-shadow:0 0 8px #E88420"></div>'
+            '<span style="color:#FBA94B;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Ana Şirket</span>'
+            '</div>'
+            '</div>'
+            # Başlık
+            '<div style="margin-bottom:16px;position:relative;z-index:2">'
+            '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">G5F Teknoloji</div>'
+            '<div style="font-size:11px;color:#FBA94B;letter-spacing:1px;font-weight:600;text-transform:uppercase">Distribütör · Teknoloji Çözümleri</div>'
+            '</div>'
+            # Açıklama
+            '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
+            'Yılların deneyimi ve uzmanlığıyla yüksek kaliteli teknoloji ürünlerini, hızlı tedarik ve güvenilir hizmet anlayışıyla sunan distribütör.'
+            '</div>'
+            # Mini istatistikler
+            '<div style="display:flex;gap:20px;margin-bottom:20px;position:relative;z-index:2">'
+            '<div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">4+</div>'
+            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Marka</div>'
+            '</div>'
+            '<div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">100%</div>'
+            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Memnuniyet</div>'
+            '</div>'
+            '<div>'
+            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FBA94B">7/24</div>'
+            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Destek</div>'
+            '</div>'
+            '</div>'
+            # Web sitesi link
+            '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" '
+            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(232,132,32,0.12);'
+            'border:1px solid rgba(232,132,32,0.35);border-radius:10px;color:#FBA94B;text-decoration:none;'
+            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2">'
+            '<span>🌐 g5fteknoloji.com</span>'
+            '<span style="font-size:14px">→</span>'
+            '</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-    # KAYRANPM
+    # FAZEON Kartı — Siyah + Beyaz minimalist, Gaming
     with col2:
-        if yetkiler["kayranpm"]:
-            st.markdown(
-                '<div style="position:relative;background:linear-gradient(135deg,rgba(236,72,153,0.12),rgba(244,114,182,0.06));border:1px solid rgba(236,72,153,0.25);border-radius:20px;padding:28px 26px 20px;overflow:hidden;min-height:200px;animation:fadeUp 1s ease-out">'
-                '<div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(236,72,153,0.4),transparent 70%);border-radius:50%;pointer-events:none"></div>'
-                '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(236,72,153,0.2);border:1px solid rgba(236,72,153,0.35);border-radius:12px;margin-bottom:16px;position:relative;z-index:2">'
-                '<div style="width:5px;height:5px;border-radius:50%;background:#F9A8D4"></div>'
-                '<span style="color:#FBCFE8;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Operasyon</span>'
-                '</div>'
-                '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;position:relative;z-index:2">'
-                '<div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#EC4899,#F472B6);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(236,72,153,0.4)">'
-                '<span style="font-size:26px">📦</span>'
-                '</div>'
-                '<div>'
-                '<div style="font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:0.3px;line-height:1.1">KAYRANPM</div>'
-                '<div style="font-size:11px;color:#F9A8D4;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;margin-top:3px">Ürün & Stok Yönetimi</div>'
-                '</div>'
-                '</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;position:relative;z-index:2">'
-                'Ürün dashboard · Stok takibi · Sipariş önerisi · Kampanya · Satın alma'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-            if st.button("→ KAYRANPM'yi Aç", key="pm_aç_home", use_container_width=True):
-                st.session_state.aktif_uygulama = "kayranpm"
-                st.rerun()
-        else:
-            st.markdown(
-                '<div style="position:relative;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px 26px 20px;min-height:200px;opacity:0.6;animation:fadeUp 1s ease-out">'
-                '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(100,116,139,0.15);border:1px solid rgba(100,116,139,0.2);border-radius:12px;margin-bottom:16px">'
-                '<span style="color:#94A3B8;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔒 Kilitli</span>'
-                '</div>'
-                '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
-                '<div style="width:52px;height:52px;border-radius:14px;background:rgba(100,116,139,0.15);border:1px solid rgba(100,116,139,0.2);display:flex;align-items:center;justify-content:center">'
-                '<span style="font-size:26px;filter:grayscale(1)">📦</span>'
-                '</div>'
-                '<div>'
-                '<div style="font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:#64748B;letter-spacing:0.3px;line-height:1.1">KAYRANPM</div>'
-                '<div style="font-size:11px;color:#475569;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;margin-top:3px">Ürün & Stok Yönetimi</div>'
-                '</div>'
-                '</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#475569">'
-                'Bu uygulamaya erişim yetkiniz yok. Yetki için yöneticinizle iletişime geçin.'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            '<div style="position:relative;background:linear-gradient(135deg,#000000 0%,#0a0a0a 100%);'
+            'border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
+            'min-height:280px;animation:fadeUp 1s ease-out;box-shadow:0 10px 40px rgba(0,0,0,0.5)">'
+            # White accent çizgi
+            '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#FFFFFF,transparent)"></div>'
+            # Decorative tech grid
+            '<div style="position:absolute;top:0;right:0;width:200px;height:200px;background-image:linear-gradient(45deg,transparent 49%,rgba(255,255,255,0.04) 50%,transparent 51%),linear-gradient(-45deg,transparent 49%,rgba(255,255,255,0.04) 50%,transparent 51%);background-size:20px 20px;opacity:0.6;pointer-events:none"></div>'
+            # Header
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
+            f'{FAZEON_LOGO_SVG}'
+            '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:12px">'
+            '<div style="width:5px;height:5px;border-radius:50%;background:#FFFFFF;box-shadow:0 0 8px rgba(255,255,255,0.6)"></div>'
+            '<span style="color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Kendi Marka</span>'
+            '</div>'
+            '</div>'
+            # Slogan
+            '<div style="margin-bottom:16px;position:relative;z-index:2">'
+            '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">Are You Ready to <span style="font-style:italic;font-weight:300">Faze</span> the World?</div>'
+            '<div style="font-size:11px;color:#94A3B8;letter-spacing:1px;font-weight:600;text-transform:uppercase">Gaming · Monitors · Cases · Coolers</div>'
+            '</div>'
+            # Açıklama
+            '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
+            'Yüksek performanslı oyuncu monitörleri, özelleştirilebilir PC kasaları ve verimli soğutma sistemleriyle teknolojinin yeni yüzü.'
+            '</div>'
+            # Ürün kategorileri
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;position:relative;z-index:2">'
+            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">📺 Monitors</span>'
+            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">📦 Cases</span>'
+            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">❄️ Coolers</span>'
+            '<span style="font-size:10px;color:#E2E8F0;background:rgba(255,255,255,0.06);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-weight:500;letter-spacing:0.3px">🖱️ Mouse Pads</span>'
+            '</div>'
+            # Web sitesi link
+            '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" '
+            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(255,255,255,0.06);'
+            'border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:#FFFFFF;text-decoration:none;'
+            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2">'
+            '<span>🌐 fazeon.com</span>'
+            '<span style="font-size:14px">→</span>'
+            '</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-    # İpuçları paneli
+    # ─── ALT BİLGİ ŞERİDİ ───
     st.markdown(
-        '<div style="margin:50px 0 16px;animation:fadeUp 1.1s ease-out">'
-        '<div style="font-size:11px;color:#64748B;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:14px">İpuçları</div>'
+        '<div style="margin:48px 0 0;padding:24px 0;border-top:1px solid rgba(255,255,255,0.06);animation:fadeUp 1.1s ease-out">'
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:center">'
+        # Hızlı erişim
+        '<div>'
+        '<div style="font-size:24px;margin-bottom:8px">⚡</div>'
+        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Hızlı Erişim</div>'
+        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Sol menüden tek tıkla uygulamalarınıza ulaşın</div>'
         '</div>'
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;animation:fadeUp 1.2s ease-out;margin-bottom:40px">'
-        '<div style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px">'
-        '<div style="font-size:18px;margin-bottom:6px">⌨️</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Hızlı Geçiş</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Sol menüden istediğin uygulamaya direkt geçebilirsin</div>'
+        # Güvenli
+        '<div>'
+        '<div style="font-size:24px;margin-bottom:8px">🔐</div>'
+        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Kurumsal Güvenlik</div>'
+        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Şifreli bağlantı, yetki bazlı erişim kontrolü</div>'
         '</div>'
-        '<div style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px">'
-        '<div style="font-size:18px;margin-bottom:6px">🔒</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Güvenli Ortam</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Verilerin şifreli — sadece yetkili kullanıcılar görür</div>'
+        # Bulut
+        '<div>'
+        '<div style="font-size:24px;margin-bottom:8px">☁️</div>'
+        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Bulut Senkronizasyon</div>'
+        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Tüm verileriniz gerçek zamanlı korunur</div>'
         '</div>'
-        '<div style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px">'
-        '<div style="font-size:18px;margin-bottom:6px">☁️</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Bulut Senkronu</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Verilerin gerçek zamanlı senkronize edilir</div>'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # ─── COPYRIGHT ───
+    yil = datetime.now().year
+    st.markdown(
+        f'<div style="margin:32px 0 20px;text-align:center;animation:fadeUp 1.2s ease-out">'
+        '<div style="display:inline-flex;align-items:center;gap:14px;padding:8px 18px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:30px">'
+        '<div style="display:flex;align-items:center;gap:6px">'
+        '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 8px #10B981"></div>'
+        '<span style="color:#10B981;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Sistem Aktif</span>'
+        '</div>'
+        '<span style="color:#475569;font-size:10px">•</span>'
+        f'<span style="color:#64748B;font-size:11px;font-family:JetBrains Mono,monospace">KAYRAN v1.2.0</span>'
+        '<span style="color:#475569;font-size:10px">•</span>'
+        f'<span style="color:#64748B;font-size:11px;font-weight:500">© {yil} G5F Teknoloji</span>'
         '</div>'
         '</div>',
         unsafe_allow_html=True
