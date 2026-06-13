@@ -650,6 +650,10 @@ def portal_sidebar(kompakt=False):
     )
 
     with st.sidebar:
+        st.markdown(
+        '<script>window.parent.document.querySelector("[data-testid=stSidebar]>div:first-child")&&(window.parent.document.querySelector("[data-testid=stSidebar]>div:first-child").scrollTop=0);<\/script>',
+        unsafe_allow_html=True
+    )
         # Logo + KAYRAN başlığı (her zaman)
         st.markdown(
             '<div style="display:flex;align-items:center;gap:12px;padding:4px 0 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:14px">'
