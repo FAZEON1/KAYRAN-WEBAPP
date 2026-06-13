@@ -680,7 +680,7 @@ def portal_sidebar(kompakt=False):
         # KAYRANACC
         if yetkiler["kayranacc"]:
             if st.button(
-                "💳  KAYRANACC",
+                "💳 Muhasebe & Finans",
                 key="nav_kayranacc",
                 type="primary" if aktif_sayfa == "kayranacc" else "secondary",
                 use_container_width=True
@@ -689,7 +689,7 @@ def portal_sidebar(kompakt=False):
                 st.rerun()
         else:
             st.button(
-                "🔒  KAYRANACC",
+                "🔒 Muhasebe & Finans",
                 key="nav_kayranacc_disabled",
                 disabled=True,
                 use_container_width=True,
@@ -699,7 +699,7 @@ def portal_sidebar(kompakt=False):
         # KAYRANPM
         if yetkiler["kayranpm"]:
             if st.button(
-                "📦  KAYRANPM",
+                "📦 İthalat & Ürün Yönetimi",
                 key="nav_kayranpm",
                 type="primary" if aktif_sayfa == "kayranpm" else "secondary",
                 use_container_width=True
@@ -708,7 +708,7 @@ def portal_sidebar(kompakt=False):
                 st.rerun()
         else:
             st.button(
-                "🔒  KAYRANPM",
+                "🔒 İthalat & Ürün Yönetimi",
                 key="nav_kayranpm_disabled",
                 disabled=True,
                 use_container_width=True,
@@ -717,7 +717,7 @@ def portal_sidebar(kompakt=False):
 
         # KAYRANTS&W — Yakında (herkese açık, tıklayınca "Yakında" sayfası)
         if st.button(
-            "🚧  KAYRANTS&W",
+            "🚧 Depo & Teknik Servis",
             key="nav_kayrantsw",
             type="primary" if aktif_sayfa == "kayrantsw" else "secondary",
             use_container_width=True,
@@ -759,7 +759,7 @@ def portal_sidebar(kompakt=False):
         else:
             # Alt uygulama içindeyken: küçük "Sayfalar" başlığı
             # (KAYRANACC/PM kendi st.radio'larıyla buraya ekleyecek)
-            uyg_adi = "KAYRANACC" if aktif_sayfa == "kayranacc" else "KAYRANPM"
+            uyg_adi = "Muhasebe & Finans" if aktif_sayfa == "kayranacc" else "İthalat & Ürün Yönetimi"
             uyg_renk = "#A5B4FC" if aktif_sayfa == "kayranacc" else "#F9A8D4"
             st.markdown(
                 f'<div style="font-size:10px;color:{uyg_renk};letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">📂 {uyg_adi} SAYFALARI</div>',
@@ -1180,11 +1180,11 @@ def main():
 
     # Yetki kontrolü
     if aktif == "kayranacc" and not yetkiler["kayranacc"]:
-        st.error("🔒 KAYRANACC uygulamasına erişim yetkiniz yok.")
+        st.error("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
         return
     if aktif == "kayranpm" and not yetkiler["kayranpm"]:
-        st.error("🔒 KAYRANPM uygulamasına erişim yetkiniz yok.")
+        st.error("🔒 İthalat & Ürün Yönetimi uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
         return
 
