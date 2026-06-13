@@ -34,6 +34,21 @@ def fmt_tarih(s):
         return str(s)
 
 
+
+def mask_email(email):
+    """E-posta adresini gizler: kayran117@hotmail.com → k•••••••@h•••••••.com"""
+    if not email:
+        return "—"
+    try:
+        user, domain = email.split("@", 1)
+        dom_parts = domain.split(".", 1)
+        masked_user = user[0] + "•" * (len(user) - 1) if len(user) > 1 else "•"
+        masked_dom  = dom_parts[0][0] + "•" * (len(dom_parts[0]) - 1) if len(dom_parts[0]) > 1 else "•"
+        suffix = "." + dom_parts[1] if len(dom_parts) > 1 else ""
+        return f"{masked_user}@{masked_dom}{suffix}"
+    except Exception:
+        return "•" * len(email)
+
 def vade_durumu(vade_str):
     if not vade_str:
         return "normal"

@@ -33,7 +33,7 @@ from .excel_islemler import (
     export_excel, create_sample_excel
 )
 from .rapor import haftalik_excel_raporu, haftalik_html_raporu, nakit_akis_excel
-from .bildirim import (
+from .bildirim import (mask_email,
     get_bildirim_ayarlari, email_gonder, baglanti_test,
     vade_bildirimi_olustur, ozet_bildirimi_olustur,
 )
@@ -2853,7 +2853,7 @@ def run():
         with col1:
             st.markdown("**Mevcut Konfigürasyon**")
             if ayarlar.get("smtp_user"):
-                st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {ayarlar["smtp_user"]}<br>📧 Alıcı: {ayarlar["alici_email"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
     
@@ -2899,7 +2899,7 @@ def run():
                         st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
     
                     st.markdown(f"**Konu:** `{konu}`")
-                    st.markdown(f"**Alıcı:** `{ayarlar['alici_email']}`")
+                    st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
                     with st.expander("👁️ Email Önizleme"):
                         st.components.v1.html(html_icerik, height=400, scrolling=True)
@@ -2915,7 +2915,7 @@ def run():
             with tab2:
                 konu_ozet, html_ozet = ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi)
                 st.markdown(f"**Konu:** `{konu_ozet}`")
-                st.markdown(f"**Alıcı:** `{ayarlar['alici_email']}`")
+                st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
                 with st.expander("👁️ Email Önizleme"):
                     st.components.v1.html(html_ozet, height=400, scrolling=True)
