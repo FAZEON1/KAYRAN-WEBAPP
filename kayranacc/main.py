@@ -492,55 +492,57 @@ def run():
         line-height: 1.6 !important;
     }
     
-    /* ── STREAMLIT HEADER — İkonlar net görünsün ── */
-    header[data-testid="stHeader"] {
+    /* ── STREAMLIT ÜST BAR (HEADER) — yüksek kontrast, net ikonlar ── */
+    header[data-testid="stHeader"],
+    [data-testid="stHeader"] {
         background: #FFFFFF !important;
         backdrop-filter: blur(10px) !important;
         border-bottom: 1px solid #E2E8F0 !important;
-        height: 3rem !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
     }
-    header[data-testid="stHeader"] * {
-        color: #0F172A !important;
-        fill: #0F172A !important;
+    /* Metin ve linkler koyu olsun (fill'i ZORLA dayatma — ikonları bozuyordu) */
+    [data-testid="stHeader"] span,
+    [data-testid="stHeader"] a,
+    [data-testid="stHeader"] p,
+    [data-testid="stToolbar"] span,
+    [data-testid="stToolbarActions"] span {
+        color: #1E293B !important;
         opacity: 1 !important;
     }
-    header[data-testid="stHeader"] button {
+    /* Buton zemini şeffaf, yazı koyu */
+    [data-testid="stHeader"] button,
+    [data-testid="stToolbar"] button,
+    [data-testid="stToolbarActions"] button,
+    [data-testid="stMainMenu"] button {
         background: transparent !important;
-        color: #334155 !important;
+        color: #1E293B !important;
         border: 1px solid transparent !important;
         border-radius: 8px !important;
-        padding: 6px 12px !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
-        transition: all .15s !important;
+        opacity: 1 !important;
     }
-    header[data-testid="stHeader"] button:hover {
+    [data-testid="stHeader"] button:hover,
+    [data-testid="stToolbar"] button:hover {
         background: #F1F5F9 !important;
         border-color: #CBD5E1 !important;
         color: #0F172A !important;
     }
-    header[data-testid="stHeader"] svg {
-        color: #334155 !important;
-        fill: #334155 !important;
-        width: 18px !important;
-        height: 18px !important;
+    /* İkonlar: yalnızca SVG'yi currentColor ile boya — arka plan şekillerini doldurma */
+    [data-testid="stHeader"] svg,
+    [data-testid="stToolbar"] svg,
+    [data-testid="stToolbarActions"] svg,
+    [data-testid="stMainMenu"] svg {
+        color: #1E293B !important;
+        fill: currentColor !important;
         opacity: 1 !important;
     }
-    header[data-testid="stHeader"] a {
-        color: #334155 !important;
-    }
-    /* Share butonu özellikle */
-    header[data-testid="stHeader"] [data-testid="stBaseButton-header"] {
+    /* Share / deploy butonu — net çerçeveli, okunur */
+    [data-testid="stHeader"] [data-testid="stBaseButton-header"],
+    [data-testid="stHeader"] [data-testid="stBaseButton-headerNoPadding"] {
         color: #0F172A !important;
         background: #F8FAFC !important;
         border: 1px solid #E2E8F0 !important;
-    }
-    /* Menü (3 nokta) ikonu */
-    [data-testid="stToolbarActions"] * {
-        color: #334155 !important;
-        fill: #334155 !important;
-        opacity: 1 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
     }
     
     /* ── DARK MODE OVERRIDE — TÜM YAZILARI ZORLA DÜZELT ── */
