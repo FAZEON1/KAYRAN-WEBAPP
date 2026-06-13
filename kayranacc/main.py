@@ -861,9 +861,11 @@ def run():
     }
     
     /* ── HTML TABLE IN stMarkdown (dark theme) ── */
-    .stMarkdown table { border-collapse: collapse !important; width: 100% !important; }
-    .stMarkdown table td { color: #CBD5E1 !important; background: transparent !important; }
-    .stMarkdown table th { color: #94A3B8 !important; background: #131C35 !important; }
+    .stMarkdown table { border-collapse: collapse !important; width: 100% !important; background: #0F1629 !important; }
+    .stMarkdown table tr { background: #131C35 !important; }
+    .stMarkdown table tr:nth-child(odd) { background: #0F1629 !important; }
+    .stMarkdown table td { color: #CBD5E1 !important; }
+    .stMarkdown table th { color: #94A3B8 !important; background: #0A0F1E !important; }
     .stMarkdown table tr:nth-child(even) td { background: rgba(255,255,255,0.03) !important; }
 </style>
     """, unsafe_allow_html=True)
