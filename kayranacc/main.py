@@ -1520,7 +1520,84 @@ def run():
             })
     
         df_tablo = pd.DataFrame(tablo_rows)
-        st.dataframe(df_tablo, use_container_width=True, hide_index=True, height=280)
+
+        # ── Profesyonel HTML tablo (siyah bg yerine modern tasarım) ──
+        def render_takvim_tablosu(df):
+            if df.empty:
+                st.info("Veri yok.")
+                return
+
+            # Renk kodlaması: Durum sütununa göre satır rengi
+            def row_bg(durum):
+                if "GECİKMİŞ" in str(durum):
+                    return "rgba(239,68,68,0.08)"   # kırmızı tonu
+                elif "BUGÜN" in str(durum):
+                    return "rgba(245,158,11,0.10)"  # turuncu tonu
+                elif "YARIN" in str(durum):
+                    return "rgba(59,130,246,0.08)"  # mavi tonu
+                return "transparent"
+
+            def durum_badge(durum):
+                if "GECİKMİŞ" in str(durum):
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(239,68,68,0.12);color:#EF4444;border:1px solid rgba(239,68,68,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">🚨 GECİKMİŞ</span>'''
+                elif "BUGÜN" in str(durum):
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(245,158,11,0.12);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">⏰ BUGÜN</span>'''
+                elif "YARIN" in str(durum):
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(59,130,246,0.12);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">📅 YARIN</span>'''
+                return f'''<span style="color:#94A3B8;font-size:11px">—</span>'''
+
+            rows_html = ""
+            for i, row in df.iterrows():
+                bg = row_bg(row.get("Durum", ""))
+                durum_html = durum_badge(row.get("Durum", ""))
+                bekliyor_val = row.get("Bekliyor", 0)
+                bekliyor_color = "#EF4444" if bekliyor_val and bekliyor_val > 0 else "#10B981"
+                odendi_val = row.get("Ödendi", 0)
+                rows_html += f'''
+                <tr style="background:{bg};border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.15s">
+                  <td style="padding:10px 14px;font-weight:600;color:#1E293B;font-size:13px">{row.get("Gün","")}</td>
+                  <td style="padding:10px 14px;color:#475569;font-size:12px;font-family:'JetBrains Mono',monospace">{row.get("Tarih","")}</td>
+                  <td style="padding:10px 14px;text-align:center;color:#64748B;font-size:13px;font-weight:600">{row.get("Ödeme Sayısı","")}</td>
+                  <td style="padding:10px 14px;text-align:center;color:#10B981;font-weight:700;font-size:13px">{odendi_val}</td>
+                  <td style="padding:10px 14px;text-align:center;color:{bekliyor_color};font-weight:700;font-size:13px">{bekliyor_val}</td>
+                  <td style="padding:10px 14px;text-align:right;color:#0F172A;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar TL (₺)","")}</td>
+                  <td style="padding:10px 14px;text-align:right;color:#0F172A;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar USD ($)","")}</td>
+                  <td style="padding:10px 14px;text-align:center">{durum_html}</td>
+                </tr>'''
+
+            html = f'''
+            <style>
+              .takvim-tablo-wrap {{ overflow-x:auto; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,0.08); }}
+              .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Inter','Manrope',sans-serif; }}
+              .takvim-tablo thead tr {{ background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%); }}
+              .takvim-tablo thead th {{ padding:11px 14px; color:#CBD5E1; font-size:11px; font-weight:700;
+                letter-spacing:1px; text-transform:uppercase; border:none; white-space:nowrap; }}
+              .takvim-tablo thead th:first-child {{ border-radius:14px 0 0 0; }}
+              .takvim-tablo thead th:last-child {{ border-radius:0 14px 0 0; text-align:center; }}
+              .takvim-tablo thead th:nth-child(3),
+              .takvim-tablo thead th:nth-child(4),
+              .takvim-tablo thead th:nth-child(5) {{ text-align:center; }}
+              .takvim-tablo thead th:nth-child(6),
+              .takvim-tablo thead th:nth-child(7) {{ text-align:right; }}
+              .takvim-tablo tbody {{ background:white; }}
+              .takvim-tablo tbody tr:hover {{ background:rgba(99,102,241,0.04) !important; }}
+              .takvim-tablo tbody tr:last-child td:first-child {{ border-radius:0 0 0 14px; }}
+              .takvim-tablo tbody tr:last-child td:last-child {{ border-radius:0 0 14px 0; }}
+            </style>
+            <div class="takvim-tablo-wrap">
+              <table class="takvim-tablo">
+                <thead>
+                  <tr>
+                    <th>Gün</th><th>Tarih</th><th>Ödeme</th><th>Ödendi</th>
+                    <th>Bekliyor</th><th>Tutar TL (₺)</th><th>Tutar USD ($)</th><th>Durum</th>
+                  </tr>
+                </thead>
+                <tbody>{rows_html}</tbody>
+              </table>
+            </div>'''
+            st.markdown(html, unsafe_allow_html=True)
+
+        render_takvim_tablosu(df_tablo)
     
     
     # ════════════════════════════════════════════════════════════════════
