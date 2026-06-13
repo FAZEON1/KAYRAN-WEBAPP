@@ -1042,12 +1042,13 @@ def run():
     
     # ── SIDEBAR ──────────────────────────────────────────────────────────
     with st.sidebar:
+        st.markdown('<script>var s=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(s)s.scrollTop=0;</script>', unsafe_allow_html=True)
         st.markdown("""
         <div style="
             background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(99,102,241,0.1));
             border: 1px solid rgba(59,130,246,0.2);
             border-radius: 14px;
-            padding: 18px 16px;
+            padding: 6px 16px;
             margin-bottom: 16px;
             text-align: center;
         ">
