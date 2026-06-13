@@ -9,7 +9,7 @@ Mimari:
   Yetkisiz uygulamalar gri + 🔒 görünür, tıklanamaz
   Hamburger ile sidebar açılır-kapanır
 """
-import streamlit as st
+import streamlit as sthh
 from datetime import datetime
 import traceback
 import smtplib
@@ -111,9 +111,9 @@ if "aktif_uygulama" not in st.session_state:
 # ─────────────────────────────────────────────────────────────────────
 # KURUMSAL KIMLIK
 # ─────────────────────────────────────────────────────────────────────
-KAYRAN_LOGO_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgS" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4F46E5"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#kgS)"/><polygon points="9,8 15,8 15,19 24,8 32,8 21,21 32,32 24,32 15,21 15,32 9,32" fill="white"/></svg>'
+KAYRAN_LOGO_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgS" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5B5EF4"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#kgS)"/><polygon points="9,8 15,8 15,19 24,8 32,8 21,21 32,32 24,32 15,21 15,32 9,32" fill="white"/></svg>'
 
-KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgB" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4F46E5"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#kgB)"/><polygon points="14,13 24,13 24,30 38,13 51,13 34,34 51,51 38,51 24,34 24,51 14,51" fill="white"/></svg>'
+KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgB" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5B5EF4"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#kgB)"/><polygon points="14,13 24,13 24,30 38,13 51,13 34,34 51,51 38,51 24,34 24,51 14,51" fill="white"/></svg>'
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -122,11 +122,11 @@ KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" x
 def login_css():
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     .stApp {
-        background: #0a0e27 !important;
-        font-family: 'Manrope', -apple-system, sans-serif !important;
+        background: #080C20 !important;
+        font-family: 'Inter', -apple-system, sans-serif !important;
     }
     [data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
     section[data-testid="stSidebar"] { display: none !important; }
@@ -138,7 +138,7 @@ def login_css():
     .kayran-bg {
         position: fixed; top: 0; left: 0;
         width: 100vw; height: 100vh; z-index: -1;
-        background: #0a0e27; overflow: hidden;
+        background: #080C20; overflow: hidden;
     }
     .kayran-bg::before, .kayran-bg::after {
         content: ''; position: absolute;
@@ -178,9 +178,9 @@ def login_css():
 
     .stButton > button, .stFormSubmitButton > button,
     button[kind="primaryFormSubmit"] {
-        background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%) !important;
+        background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%) !important;
         color: white !important;
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 14px !important;
         border: none !important;
@@ -199,7 +199,7 @@ def login_css():
         border: 1px solid rgba(255,255,255,0.1) !important;
         border-radius: 12px !important;
         color: white !important;
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
         padding: 12px 16px !important;
     }
     .stTextInput > div > div > input:focus {
@@ -268,11 +268,11 @@ def portal_css():
     """Ana sayfa + sidebar CSS (alt uygulamalar yüklenmedikçe geçerli)"""
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     .stApp {
-        background: #0a0e27 !important;
-        font-family: 'Manrope', -apple-system, sans-serif !important;
+        background: #080C20 !important;
+        font-family: 'Inter', -apple-system, sans-serif !important;
     }
     [data-testid="stHeader"] { background: transparent !important; }
     .stDeployButton { display: none !important; }
@@ -281,7 +281,7 @@ def portal_css():
 
     /* ── STREAMLIT SIDEBAR — Custom KAYRAN Stil ── */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1230 0%, #0a0e27 100%) !important;
+        background: linear-gradient(180deg, #0D1235 0%, #080C20 100%) !important;
         border-right: 1px solid rgba(255,255,255,0.06) !important;
         padding-top: 0 !important;
     }
@@ -304,7 +304,7 @@ def portal_css():
         text-align: left !important;
         font-size: 13px !important;
         font-weight: 500 !important;
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
         box-shadow: none !important;
         transition: all 0.2s !important;
         margin-bottom: 4px !important;
@@ -449,9 +449,9 @@ def portal_css():
 
     /* ── Genel buton stili (ana içerik alanı) ── */
     .main .stButton > button {
-        background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%) !important;
+        background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%) !important;
         color: white !important;
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 14px !important;
         border: none !important;
@@ -489,8 +489,8 @@ def giris_ekrani():
             '<div style="display:flex;justify-content:center;margin-bottom:24px">'
             f'{KAYRAN_LOGO_BIG}'
             '</div>'
-            '<div style="font-family:Manrope,sans-serif;font-size:42px;font-weight:800;color:#FFFFFF;letter-spacing:6px;line-height:1">KAYRAN</div>'
-            '<div style="font-size:11px;color:#64748B;letter-spacing:4px;text-transform:uppercase;margin-top:10px;font-weight:600">Şirket Yönetim Sistemi</div>'
+            '<div style="font-family:Inter,sans-serif;font-size:52px;font-weight:800;color:#FFFFFF;letter-spacing:6px;line-height:1">KAYRAN</div>'
+            '<div style="font-size:12px;color:#94A3B8;letter-spacing:4px;text-transform:uppercase;margin-top:10px;font-weight:600">Şirket Yönetim Sistemi</div>'
             '<div style="width:60px;height:2px;margin:18px auto 0;background:linear-gradient(90deg,#6366F1,#A78BFA,#EC4899);border-radius:2px"></div>'
             '</div>',
             unsafe_allow_html=True
@@ -550,13 +550,13 @@ def portal_sidebar(kompakt=False):
     ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
 
     # ─── Sidebar koyu tema (alt uygulama açıkken bile çalışır) ───
-    # Bu CSS, alt uygulama (KAYRANACC/PM) kendi açık temasını uygulasa bile
+    # Bu CSS, alt uygulama (KAYRAN) kendi açık temasını uygulasa bile
     # sidebar bizim koyu navigasyonumuzla tutarlı kalsın diye lazım
     st.markdown(
         '<style>'
         # Sidebar zemin
         'section[data-testid="stSidebar"]{'
-        'background:linear-gradient(180deg,#0d1230 0%,#0a0e27 100%) !important;'
+        'background:linear-gradient(180deg,#0D1235 0%,#080C20 100%) !important;'
         'border-right:1px solid rgba(255,255,255,0.06) !important;'
         '}'
         # Sidebar yazı renkleri (tüm text, label, p, span, div, h1-h6)
@@ -655,8 +655,8 @@ def portal_sidebar(kompakt=False):
             '<div style="display:flex;align-items:center;gap:12px;padding:4px 0 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:14px">'
             f'{KAYRAN_LOGO_SVG}'
             '<div>'
-            '<div style="font-family:Manrope,sans-serif;font-size:18px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1">KAYRAN</div>'
-            '<div style="font-size:9px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;font-weight:600">Workspace</div>'
+            '<div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1">KAYRAN</div>'
+            '<div style="font-size:10px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;font-weight:600">Workspace</div>'
             '</div>'
             '</div>',
             unsafe_allow_html=True
@@ -677,7 +677,7 @@ def portal_sidebar(kompakt=False):
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
-        # KAYRANACC
+        # KAYRAN
         if yetkiler["kayranacc"]:
             if st.button(
                 "💳 Muhasebe & Finans",
@@ -696,7 +696,7 @@ def portal_sidebar(kompakt=False):
                 help="Bu uygulamaya erişim yetkiniz yok"
             )
 
-        # KAYRANPM
+        # KAYRAN
         if yetkiler["kayranpm"]:
             if st.button(
                 "📦 İthalat & Ürün Yönetimi",
@@ -758,7 +758,7 @@ def portal_sidebar(kompakt=False):
                 st.rerun()
         else:
             # Alt uygulama içindeyken: küçük "Sayfalar" başlığı
-            # (KAYRANACC/PM kendi st.radio'larıyla buraya ekleyecek)
+            # (KAYRAN kendi st.radio'larıyla buraya ekleyecek)
             uyg_adi = "Muhasebe & Finans" if aktif_sayfa == "kayranacc" else "İthalat & Ürün Yönetimi"
             uyg_renk = "#A5B4FC" if aktif_sayfa == "kayranacc" else "#F9A8D4"
             st.markdown(
@@ -773,10 +773,10 @@ def portal_sidebar(kompakt=False):
 
 # G5F Logo SVG (kart üzerinde — beyaz G/F + turuncu 5)
 # Orijinal logo koyu lacivert + turuncu, ancak koyu kart üzerinde G/F beyaz olmalı
-G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Manrope, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
+G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
 
 # Fazeon Logo SVG (beyaz, minimalist)
-FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Manrope, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
+FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
 
 
 def anasayfa():
@@ -803,7 +803,7 @@ def anasayfa():
         '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
         '</div>'
-        f'<h1 style="font-family:Manrope,sans-serif;font-size:38px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
+        f'<h1 style="font-family:Inter,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
         f'{selamlama}, '
         f'<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
         '</h1>'
@@ -856,7 +856,7 @@ def anasayfa():
         '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Kurumsal</div>'
         '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
         '</div>'
-        '<h2 style="font-family:Manrope,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
+        '<h2 style="font-family:Inter,sans-serif;font-size:28px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
         'Bir <span style="background:linear-gradient(90deg,#E88420,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800">G5F Teknoloji</span> projesi'
         '</h2>'
         '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
@@ -885,7 +885,7 @@ def anasayfa():
             '</div>'
             # Başlık
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
-            '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">G5F Teknoloji</div>'
+            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">G5F Teknoloji</div>'
             '<div style="font-size:11px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Distribütör · Teknoloji Çözümleri</div>'
             '</div>'
             # Açıklama
@@ -935,7 +935,7 @@ def anasayfa():
             '</div>'
             # Slogan
             '<div style="margin-bottom:16px;position:relative;z-index:2">'
-            '<div style="font-family:Manrope,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">Are You Ready to <span style="font-style:italic;font-weight:300">Faze</span> the World?</div>'
+            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">Are You Ready to <span style="font-style:italic;font-weight:300">Faze</span> the World?</div>'
             '<div style="font-size:11px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Gaming · Monitors · Cases · Coolers</div>'
             '</div>'
             # Açıklama
@@ -971,7 +971,7 @@ def anasayfa():
         '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Destek</div>'
         '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
         '</div>'
-        '<h2 style="font-family:Manrope,sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
+        '<h2 style="font-family:Inter,sans-serif;font-size:28px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
         '💬 Talep &amp; Geri Bildirim</h2>'
         '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
         'Uygulamalarla ilgili geliştirme, optimizasyon veya yeni özellik taleplerinizi doğrudan ekibimize iletin'
@@ -1004,7 +1004,7 @@ def anasayfa():
     col_tl, col_tc, col_tr = st.columns([1, 2, 1])
     with col_tc:
         with st.form("talep_form", clear_on_submit=True):
-            konu = st.text_input("Konu", placeholder="Örn. KAYRANACC'a toplu Excel dışa aktarma")
+            konu = st.text_input("Konu", placeholder="Örn. KAYRAN'a toplu Excel dışa aktarma")
             mesaj = st.text_area(
                 "Mesajınız",
                 placeholder="Talebinizi, önerinizi veya karşılaştığınız sorunu detaylıca yazın...",
@@ -1107,7 +1107,7 @@ def kayrantsw_yakinda():
         '<span style="color:#A5B4FC;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
         '</div>'
         # Başlık
-        '<h1 style="font-family:Manrope,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;'
+        '<h1 style="font-family:Inter,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;'
         'letter-spacing:1px;margin:0;line-height:1.1">'
         '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);'
         '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
@@ -1206,7 +1206,7 @@ def main():
             if st.button("← Ana Sayfaya Dön"):
                 st.rerun()
     except Exception as hata:
-        ad = "KAYRANACC" if aktif == "kayranacc" else ("KAYRANPM" if aktif == "kayranpm" else aktif)
+        ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
 
 
