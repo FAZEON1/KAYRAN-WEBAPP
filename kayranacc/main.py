@@ -2031,6 +2031,24 @@ def run():
                         '</div>'
                     )
                     st.markdown(banka_html, unsafe_allow_html=True)
+        # === TOPLAM BAKIYE OZETI ===
+        if bankalar:
+            toplam_tl_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
+            toplam_usd_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
+            toplam_eur_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
+            toplam_tl_esde = toplam_tl_hesap + toplam_usd_hesap * kur + toplam_eur_hesap * kur * 1.08
+            toplam_html = (
+                '<div style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:18px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
+                '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">🏦</span>'
+                '<span style="font-size:14px;font-weight:700;color:#E2E8F0">TOPLAM BAKİYE</span></div>'
+                '<div style="display:flex;gap:24px;flex-wrap:wrap">'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Toplam TL</div><div style="font-size:20px;font-weight:800;color:#34D399;font-family:monospace">₺{toplam_tl_hesap:,.2f}</div></div>'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">Toplam USD</div><div style="font-size:20px;font-weight:800;color:#60A5FA;font-family:monospace">${toplam_usd_hesap:,.2f}</div></div>'
+                f'<div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:20px"><div style="font-size:11px;color:#94A3B8;margin-bottom:2px">TL Eşdeğeri</div><div style="font-size:18px;font-weight:700;color:#A78BFA;font-family:monospace">₺{toplam_tl_esde:,.0f}</div></div>'
+                '</div></div>'
+            )
+            st.markdown(toplam_html, unsafe_allow_html=True)
+
         else:
             st.info("Henüz banka hesabı eklenmemiş.")
     
