@@ -2160,10 +2160,71 @@ def run():
                         else "background-color:#FEE2E2;color:#7F1D1D;font-weight:700"] * len(row)
             return ["background-color:#FEF2F2;color:#991B1B" if k < 0 else ""] * len(row)
     
-        goster = ["Tarih", "Günlük TL (₺)", "Günlük USD ($)", "Kümülatif TL (₺)", "Kümülatif USD ($)", "TL Bakiye Kalan (₺)"]
-        styled = df_nakit[goster + ["_kalan"]].style.apply(nakit_rengi, axis=1)
-        styled = styled.hide(axis="columns", subset=["_kalan"])
-        st.dataframe(styled, use_container_width=True, hide_index=True)
+        # --- Nakit Akis HTML Tablosu ---
+        def fmt_tl(v):
+            if v is None or (isinstance(v, float) and v == 0.0): return "-"
+            return f"₺ {v:,.0f}"
+        def fmt_usd(v):
+            if v is None or (isinstance(v, float) and v == 0.0): return "-"
+            return f"$ {v:,.0f}"
+        nakit_rows_html = ""
+        for idx_r, row in enumerate(tablo_rows):
+            is_toplam = row["Tarih"] == "TOPLAM"
+            kalan_v = row.get("_kalan") or 0
+            if is_toplam:
+                row_bg = "background:#1E293B;"
+                tarih_style = "font-weight:700;color:#E2E8F0;font-size:12px;"
+            elif idx_r % 2 == 0:
+                row_bg = "background:#FFFFFF;"
+                tarih_style = "color:#1E293B;font-size:12px;"
+            else:
+                row_bg = "background:#F8FAFC;"
+                tarih_style = "color:#1E293B;font-size:12px;"
+            kalan_color = "#10B981" if kalan_v >= 0 else "#EF4444"
+            gun_tl_v = row.get("Günlük TL (₺)") or 0
+            gun_usd_v = row.get("Günlük USD ($)") or 0
+            kum_tl_v = row.get("Kümülatif TL (₺)") or 0
+            kum_usd_v = row.get("Kümülatif USD ($)") or 0
+            num_style = "font-family:monospace;font-size:12px;text-align:right;"
+            num_style_top = "font-family:monospace;font-size:12px;text-align:right;font-weight:700;color:#94A3B8;"
+            if is_toplam:
+                nakit_rows_html += (
+                    f'<tr style="{row_bg}border-top:2px solid #334155;">'
+                    f'<td style="padding:10px 14px;{tarih_style}border-bottom:1px solid #334155;">Σ TOPLAM</td>'
+                    f'<td style="padding:10px 14px;{num_style_top}border-bottom:1px solid #334155;">{fmt_tl(gun_tl_v)}</td>'
+                    f'<td style="padding:10px 14px;{num_style_top}border-bottom:1px solid #334155;">{fmt_usd(gun_usd_v)}</td>'
+                    f'<td style="padding:10px 14px;{num_style_top}border-bottom:1px solid #334155;">{fmt_tl(kum_tl_v)}</td>'
+                    f'<td style="padding:10px 14px;{num_style_top}border-bottom:1px solid #334155;">{fmt_usd(kum_usd_v)}</td>'
+                    f'<td style="padding:10px 14px;font-family:monospace;font-size:12px;text-align:right;font-weight:700;color:{kalan_color};border-bottom:1px solid #334155;">{fmt_tl(kalan_v)}</td>'
+                    '</tr>'
+                )
+            else:
+                nakit_rows_html += (
+                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#EFF6FF''" onmouseout="this.style.background=''{"#F8FAFC" if idx_r%2 else "#FFFFFF"}''">'
+                    f'<td style="padding:9px 14px;{tarih_style}border-bottom:1px solid #F1F5F9;">{row["Tarih"]}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#10B981;border-bottom:1px solid #F1F5F9;">{fmt_tl(gun_tl_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#3B82F6;border-bottom:1px solid #F1F5F9;">{fmt_usd(gun_usd_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#059669;border-bottom:1px solid #F1F5F9;">{fmt_tl(kum_tl_v)}</td>'
+                    f'<td style="padding:9px 14px;{num_style}color:#2563EB;border-bottom:1px solid #F1F5F9;">{fmt_usd(kum_usd_v)}</td>'
+                    f'<td style="padding:9px 14px;font-family:monospace;font-size:12px;text-align:right;font-weight:600;color:{kalan_color};border-bottom:1px solid #F1F5F9;">{fmt_tl(kalan_v)}</td>'
+                    '</tr>'
+                )
+        nakit_tablo_html = (
+            '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
+            '<div style="overflow-x:auto;">'
+            '<table style="width:100%;border-collapse:collapse;background:#fff;">'
+            '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">'
+            '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
+            '<th style="padding:12px 14px;text-align:right;color:#34D399;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük TL</th>'
+            '<th style="padding:12px 14px;text-align:right;color:#60A5FA;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük USD</th>'
+            '<th style="padding:12px 14px;text-align:right;color:#6EE7B7;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. TL</th>'
+            '<th style="padding:12px 14px;text-align:right;color:#93C5FD;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. USD</th>'
+            '<th style="padding:12px 14px;text-align:right;color:#F59E0B;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">TL Bakiye</th>'
+            '</tr></thead><tbody>'
+            + nakit_rows_html +
+            '</tbody></table></div></div>'
+        )
+        st.markdown(nakit_tablo_html, unsafe_allow_html=True)
     
         # Grafik
         df_grafik = pd.DataFrame([r for r in tablo_rows if r["Tarih"] != "TOPLAM"])
