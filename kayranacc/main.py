@@ -2549,8 +2549,61 @@ def run():
                 "ID": o["id"],
             })
     
-        df = pd.DataFrame(rows)
-        st.dataframe(df.drop(columns=["ID"]), use_container_width=True, hide_index=True, height=400)
+        # === ODENENLER HTML TABLO ===
+        def fmt_para_od(val):
+            if val is None or val == "" or (val != val):
+                return "-"
+            try:
+                v = float(val)
+                if v == 0:
+                    return "-"
+                return f"{v:,.0f}".replace(",", ".")
+            except:
+                return str(val) if val else "-"
+
+        od_rows_html = ""
+        for idx2, row2 in enumerate(rows):
+            bg = "#FFFFFF" if idx2 % 2 == 0 else "#F8FAFC"
+            firma_v = str(row2.get("Firma") or "-")
+            aciklama_v = str(row2.get("Açıklama") or "")
+            kategori_v = str(row2.get("Kategori") or "-")
+            vade_v = str(row2.get("Vade") or "-")
+            tutar_tl_r = fmt_para_od(row2.get("Tutar TL (₺)"))
+            tutar_usd_r = fmt_para_od(row2.get("Tutar USD ($)"))
+            tl_str = f"₺ {tutar_tl_r}" if tutar_tl_r != "-" else "-"
+            usd_str = f"$ {tutar_usd_r}" if tutar_usd_r != "-" else "-"
+            banka_v = str(row2.get("Ödendiği Banka") or "-")
+            tarih_v = str(row2.get("Ödendi Tarihi") or "-")
+            od_rows_html += (
+                f'<tr style="background:{bg};border-bottom:1px solid #F1F5F9;">' +
+                f'<td style="padding:10px 14px;color:#1E293B;font-size:12px;font-weight:600;">{firma_v}</td>' +
+                f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{aciklama_v}</td>' +
+                f'<td style="padding:10px 10px;text-align:center;"><span style="background:#EEF2FF;color:#6366F1;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
+                f'<td style="padding:10px 10px;text-align:center;color:#475569;font-size:12px;">{vade_v}</td>' +
+                f'<td style="padding:10px 10px;text-align:right;color:#16A34A;font-size:12px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
+                f'<td style="padding:10px 10px;text-align:right;color:#2563EB;font-size:12px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
+                f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{banka_v}</td>' +
+                f'<td style="padding:10px 10px;text-align:center;color:#475569;font-size:12px;">{tarih_v}</td>' +
+                '</tr>' + "\n"
+            )
+
+        od_header = (
+            '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
+            '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
+            '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">' +
+            '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
+            '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
+            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kategori</th>' +
+            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>' +
+            '<th style="padding:12px 10px;text-align:right;color:#86EFAC;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
+            '<th style="padding:12px 10px;text-align:right;color:#93C5FD;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
+            '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendiği Banka</th>' +
+            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendi Tarihi</th>' +
+            '</tr></thead><tbody>' + "\n"
+        )
+        od_footer = '</tbody></table></div>' + "\n"
+        od_tablo_html = od_header + od_rows_html + od_footer
+        st.markdown(od_tablo_html, unsafe_allow_html=True)
     
         st.markdown("---")
         st.markdown("**Geri almak istediğin ödeme:**")
