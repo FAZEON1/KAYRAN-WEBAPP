@@ -1,5 +1,5 @@
 """
-KAYRANACC — Ödeme Takip Sistemi
+Muhasebe & Finans — Ödeme Takip Sistemi
 Modüler olarak KAYRAN portal içinden çağrılır.
 
 Kullanım:
@@ -40,7 +40,7 @@ from .bildirim import (mask_email,
 
 
 def run():
-    """KAYRANACC ana çalıştırıcı. Portal tarafından çağrılır."""
+    """Muhasebe & Finans ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
 
     # ── Cache kontrol meta etiketleri ────────────────────────────────────
@@ -1052,7 +1052,7 @@ def run():
             text-align: center;
         ">
             <div style="font-size:28px;margin-bottom:6px;">💳</div>
-            <div style="font-size:18px;font-weight:800;color:#F1F5F9;letter-spacing:-0.5px;">KAYRANACC</div>
+            <div style="font-size:18px;font-weight:800;color:#F1F5F9;letter-spacing:-0.5px;">Muhasebe & Finans</div>
             <div style="font-size:11px;color:#64748B;font-weight:500;margin-top:2px;letter-spacing:.5px;">ÖDEME TAKİP SİSTEMİ</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1218,7 +1218,7 @@ def run():
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════
     if sayfa == "📊 Dashboard":
-        st.markdown('<div class="baslik">📊 KAYRANACC — Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik">📊 Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Haftalık ödeme durumu ve finansal özet</div>', unsafe_allow_html=True)
     
         kur = get_kur()
@@ -1237,13 +1237,13 @@ def run():
     
         if gecmis_alarmlar:
             isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-            st.error(f"🚨 **GECİKMİŞ ÖDEME!** {len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}")
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#FFF8F8;border:1px solid #FED7D7;border-left:4px solid #E53E3E;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#E53E3E;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#C53030;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:#742A2A;font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
         if bugun_alarmlar:
             isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-            st.warning(f"⚠️ **BUGÜN VADELİ:** {len(bugun_alarmlar)} ödeme — {isimler}")
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#FFFDF0;border:1px solid #F6E05E;border-left:4px solid #D69E2E;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#D69E2E;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#B7791F;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#744210;font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
         if yarin_alarmlar:
             isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-            st.info(f"📅 **YARIN VADELİ:** {len(yarin_alarmlar)} ödeme — {isimler}")
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#F7FAFF;border:1px solid #BEE3F8;border-left:4px solid #3182CE;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#3182CE;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">i</span></div><div><span style="font-size:11px;font-weight:700;color:#2B6CB0;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#2A4365;font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
     
         # Özet metrikler
         tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
@@ -2963,7 +2963,7 @@ def run():
                 st.download_button(
                     label="📥 Excel Raporu İndir",
                     data=excel_buf,
-                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
+                    file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary",
                     use_container_width=True,
@@ -2980,7 +2980,7 @@ def run():
                 st.download_button(
                     label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
                     data=html_bytes,
-                    file_name=f"KAYRANACC_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
+                    file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
                     mime="text/html",
                     type="primary",
                     use_container_width=True,
@@ -3009,7 +3009,7 @@ def run():
                 st.download_button(
                     label="📥 Nakit Akış Excel İndir",
                     data=nakit_buf,
-                    file_name=f"KAYRANACC_NakitAkis_{tr_today()}.xlsx",
+                    file_name=f"MuhasebeFin_NakitAkis_{tr_today()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary",
                     use_container_width=True,
