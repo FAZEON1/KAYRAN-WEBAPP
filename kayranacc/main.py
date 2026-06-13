@@ -190,17 +190,17 @@ def run():
         padding: 8px 16px !important;
         transition: all .2s !important;
         letter-spacing: .1px !important;
-        background: #FFFFFF !important;
-        border: 1.5px solid #E2E8F0 !important;
-        color: #CBD5E1 !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+        background: #1A2744 !important;
+        border: 1.5px solid #2D4070 !important;
+        color: #94A3B8 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
     }
     .stButton > button:hover,
     [data-testid="stButton"] button:hover,
     [data-testid="stBaseButton-secondary"]:hover {
         border-color: #94A3B8 !important;
-        background: #151F38 !important;
-        color: #E2E8F0 !important;
+        background: #243358 !important;
+        color: #CBD5E1 !important;
     }
     /* Primary (mavi) butonlar — her yerde geçerli */
     .stButton > button[kind="primary"],
@@ -1827,30 +1827,33 @@ def run():
     
                     with col4:
                         if o.get("tutar_tl"):
-                            tutar_disp = f'<div style="font-weight:700;color:#6EE7B7;font-size:13px;white-space:nowrap;font-family:monospace">₺{"{"}fmt(o["tutar_tl"]){"}"}</div>'
+                            tutar_disp = f'<b style="color:#6EE7B7;font-size:14px;white-space:nowrap;font-family:monospace">₺{fmt(o["tutar_tl"])}</b>'
                         elif o.get("tutar_usd"):
-                            tutar_disp = f'<div style="font-weight:700;color:#93C5FD;font-size:13px;white-space:nowrap;font-family:monospace">${"{"}fmt(o["tutar_usd"]){"}"}</div>'
+                            tutar_disp = f'<b style="color:#93C5FD;font-size:14px;white-space:nowrap;font-family:monospace">${fmt(o["tutar_usd"])}</b>'
                         else:
-                            tutar_disp = '<div style="color:#64748B;font-size:12px">—</div>'
+                            tutar_disp = '<b style="color:#64748B;font-size:13px">—</b>'
                         st.markdown(tutar_disp, unsafe_allow_html=True)
                         if not is_odendi:
                             c4b, c4c = st.columns(2)
                             with c4b:
                                 edit_key = f"edit_tutar_toggle_{o['id']}"
-                                btn_lbl = "❌ Kapat" if st.session_state.get(edit_key, False) else "✏️ Duzenle"
-                                if st.button(btn_lbl, key=f"open_edit_{o['id']}", use_container_width=True):
-                                    st.session_state[edit_key] = not st.session_state.get(edit_key, False)
-                                    st.rerun()
+                                if st.session_state.get(edit_key, False):
+                                    if st.button("Kapat", key=f"open_edit_{o['id']}", use_container_width=True):
+                                        st.session_state[edit_key] = False
+                                        st.rerun()
+                                else:
+                                    if st.button("Duzenle", key=f"open_edit_{o['id']}", use_container_width=True):
+                                        st.session_state[edit_key] = True
+                                        st.rerun()
                             with c4c:
                                 sil_key = f"sil_onay_{o['id']}"
                                 if st.session_state.get(sil_key, False):
-                                    if st.button("✔️ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True):
+                                    if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True):
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
-                                        st.toast(f"️ '{"{"}o.get('firma','')[:30]{"}"}' silindi", icon="✅")
                                         st.rerun()
                                 else:
-                                    if st.button("️ Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
+                                    if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
                                         st.session_state[sil_key] = True
                                         st.rerun()
                     
