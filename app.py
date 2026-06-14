@@ -1148,6 +1148,26 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
+    # ─────────────────────────────────────────────────────────────────────
+    # GELEN TALEPLER (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown("### 📬 Gelen Talepler")
+        try:
+            from kayranpm.database import get_talepler
+            talepler = get_talepler()
+        except Exception:
+            talepler = []
+        if not talepler:
+            st.info("Henüz talep yok.")
+        else:
+            for t in talepler:
+                durum_renk = {"bekliyor": "🟡", "inceleniyor": "🔵", "tamamlandi": "🟢"}.get(t.get("durum",""), "⚪")
+                with st.expander(f"{durum_renk} {t.get('konu','—')}  ·  {t.get('gonderen','?')}  ·  {str(t.get('olusturma_tarihi',''))[:16]}"):
+                    st.write(t.get("mesaj",""))
+                    st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
