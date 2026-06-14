@@ -385,3 +385,24 @@ def get_kampanya_destek_ortalamalari():
             }
     return result
 
+
+
+# ── TALEPLER ────────────────────────────────────────────────────────
+
+def ekle_talep(gonderen, konu, mesaj):
+    """Kullanicinin talebini talepler tablosuna kaydeder."""
+    try:
+        get_client().table("talepler").insert({
+            "gonderen": gonderen or "",
+            "konu": konu or "",
+            "mesaj": mesaj or "",
+            "durum": "bekliyor",
+        }).execute()
+        return True
+    except Exception as e:
+        return False
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_talepler():
+    """Tum talepleri tarihe gore sirali getirir."""
+    return _rows(get_client().table("talepler").select("*").order("olusturma_tarihi", desc=True).execute())
