@@ -760,7 +760,7 @@ def portal_sidebar(kompakt=False):
         '::-webkit-scrollbar-track{background:rgba(255,255,255,0.02);}'
         '::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:6px;}'
         '::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}'
-</style>',
+        '</style>',
         unsafe_allow_html=True
     )
 
