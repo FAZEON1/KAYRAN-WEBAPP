@@ -260,36 +260,6 @@ def login_css():
         background-clip: padding-box;
     }
     
-/* ── MOBİL UYUM — Login ── */
-@media (max-width: 768px) {
-  /* Login sayfasi iki sutunu alt alta yiğ */
-  [data-testid="stHorizontalBlock"] {
-    flex-direction: column !important;
-  }
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    width: 100% !important;
-    flex: none !important;
-    min-width: unset !important;
-  }
-  /* Sol marka paneli gizle, sadece login formu goster */
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-    display: none !important;
-  }
-  /* Login kart padding kisalt */
-  .main .block-container {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-    padding-top: 1.5rem !important;
-  }
-  /* Kayran baslik fontu */
-  div[style*="font-size:clamp(28px,5vw,42px)"] {
-    font-size: 32px !important;
-  }
-  /* Input font - iOS zoom engelleme */
-  input, textarea {
-    font-size: 16px !important;
-  }
-}
 </style>
 
     <div class="kayran-bg"></div>
