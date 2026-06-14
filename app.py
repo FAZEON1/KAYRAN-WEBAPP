@@ -491,7 +491,7 @@ def giris_ekrani():
 </style>""",
         unsafe_allow_html=True
     )
-        if DUYURU_AKTIF:
+    if DUYURU_AKTIF:
         st.markdown(f'<div class="duyuru-band">{DUYURU_METNI}</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
