@@ -1167,7 +1167,7 @@ def sifre_degistir():
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔑 Güvenlik</span>'
         '</div>'
         '<h1 style="font-family:Inter,sans-serif;font-size:36px;font-weight:800;color:#FFFFFF;margin:0">Şifremi Değiştir</h1>'
-        '<p style="color:#94A3B8;font-size:14px;margin-top:8px">Yeni şifren Supabase'de güvenli şekilde saklanır — Streamlit Secrets'tan bağımsızdır.</p>'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:8px">Yeni şifren Supabase'de güvenli şekilde saklanır &mdash; Streamlit Secrets'tan bağımsızdır.</p>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -1242,7 +1242,7 @@ def sifre_degistir():
             '<div style="color:#A5B4FC;font-size:11px;font-weight:600;margin-bottom:4px">💡 Bilgi</div>'
             '<div style="color:#94A3B8;font-size:11px;line-height:1.6">'
             'Yeni şifren Supabase'de güvenli hash olarak saklanır. '
-            'Sadece sen değiştirebilirsin — yönetici dahil kimse eski şifreni göremez.'
+            'Sadece sen değiştirebilirsin &mdash; yönetici dahil kimse eski şifreni göremez.'
             '</div>'
             '</div>',
             unsafe_allow_html=True
