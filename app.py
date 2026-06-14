@@ -261,7 +261,6 @@ def login_css():
     }
     
     </style>
-
     <div class="kayran-bg"></div>
     """
 
@@ -500,7 +499,6 @@ def portal_css():
   }
 }
     </style>
-
     <div class="anasayfa-bg-blob1"></div>
     <div class="anasayfa-bg-blob2"></div>
     """
