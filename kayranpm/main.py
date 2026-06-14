@@ -39,10 +39,10 @@ from .bildirim import (get_bildirim_ayarlari, kaydet_bildirim_ayarlari, email_go
 def run():
     """KAYRAN ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
-        if st.sidebar.button("⚡ Toplu FAZEON Urun Yukle", key="seed_fazeon_btn"):
-                        with st.spinner("Yukleniyor..."):
-                                        b, h = seed_fazeon_products()
-                                                        st.sidebar.success(f"{b} urun yuklendi!" + (f" {h} hata" if h else ""))                                                                
+    if st.sidebar.button("⚡ Toplu FAZEON Urun Yukle", key="seed_fazeon_btn"):
+        with st.spinner("Yukleniyor..."):
+            b, h = seed_fazeon_products()
+            st.sidebar.success(f"{b} urun yuklendi!" + (f" {h} hata" if h else ""))
     st.markdown("""
     <style>
     /* ── GLOBAL ─────────────────────────────────────────────────────────── */
