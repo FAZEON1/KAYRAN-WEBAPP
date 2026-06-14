@@ -113,34 +113,34 @@ def _gecmis_odemeler(kisi, pfx):
         with c1: st.markdown('<div class="prim-hist-val" style="color:#E2E8F0;font-weight:600">'+str(row.get('donem',''))+'</div>', unsafe_allow_html=True)
         with c2: st.markdown('<div class="prim-hist-val" style="color:#10B981;font-weight:700">'+ _tl(row.get('toplam_prim',0))+'</div>', unsafe_allow_html=True)
         with c3: st.markdown('<div class="prim-hist-val" style="color:#94A3B8">'+str(row.get('odeme_tarihi',''))+'</div>', unsafe_allow_html=True)
-        with c4: st.markdown('<div class="prim-hist-val" style="color:#64748B">'+(row.get('notlar','') or '\u2014')+'</div>', unsafe_allow_html=True)
+        with c4: st.markdown('<div class="prim-hist-val" style="color:#64748B">'+(row.get('notlar','') or '—')+'</div>', unsafe_allow_html=True)
         with c5:
-            if st.button('\u270f\ufe0f', key=pfx+'_ed_'+str(rid), help='Düzenle'):
+            if st.button('✏️', key=pfx+'_ed_'+str(rid), help='Düzenle'):
                 st.session_state[ek] = rid; st.rerun()
         with c6:
-            if st.button('\U0001f5d1\ufe0f', key=pfx+'_dl_'+str(rid), help='Sil'): sil_id = rid
+            if st.button('🗑️', key=pfx+'_dl_'+str(rid), help='Sil'): sil_id = rid
         st.markdown('<div style="height:1px;background:rgba(255,255,255,0.04)"></div>', unsafe_allow_html=True)
     if sil_id: prim_sil(sil_id); st.rerun()
     if st.session_state[ek] is not None:
         erow = next((r for r in gecmis if r.get('id')==st.session_state[ek]), None)
         if erow:
             st.markdown('<div class="prim-edit-box">', unsafe_allow_html=True)
-            st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#A5B4FC;margin-bottom:12px">KAYDI D\u00dcZENLE</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#A5B4FC;margin-bottom:12px">KAYDI DÜZENLE</div>', unsafe_allow_html=True)
             e1,e2,e3,e4 = st.columns([1.5,1.5,1.5,2])
-            with e1: e_d = st.text_input('D\u00f6nem', value=erow.get('donem',''), key=pfx+'_ed')
+            with e1: e_d = st.text_input('Dönem', value=erow.get('donem',''), key=pfx+'_ed')
             with e2: e_p = st.number_input('Prim (TL)', min_value=0.0, value=float(erow.get('toplam_prim',0)), step=100.0, format='%.0f', key=pfx+'_ep')
             with e3:
                 try: td = date.fromisoformat(str(erow.get('odeme_tarihi', date.today())))
                 except: td = date.today()
-                e_t = st.date_input('\u00d6deme Tarihi', value=td, key=pfx+'_et')
+                e_t = st.date_input('Ödeme Tarihi', value=td, key=pfx+'_et')
             with e4: e_n = st.text_input('Not', value=erow.get('notlar',''), key=pfx+'_en')
             b1,b2,_ = st.columns([1,1,4])
             with b1:
-                if st.button('\u2705 Kaydet', key=pfx+'_esv', type='primary'):
+                if st.button('✅ Kaydet', key=pfx+'_esv', type='primary'):
                     if prim_guncelle(st.session_state[ek], e_d, e_p, e_t, e_n):
                         st.session_state[ek] = None; st.rerun()
             with b2:
-                if st.button('\u274c \u0130ptal', key=pfx+'_ecl'):
+                if st.button('❌ İptal', key=pfx+'_ecl'):
                     st.session_state[ek] = None; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         else: st.session_state[ek] = None
@@ -240,7 +240,7 @@ def _prim_gokhan():
     with op2: gy_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='gy_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        if st.button('U0001f4be Ödemeyi Kaydet', key='gy_save', type='primary', use_container_width=True):
+        if st.button('💾 Ödemeyi Kaydet', key='gy_save', type='primary', use_container_width=True):
             if toplam_prim > 0 and donem:
                 if prim_kaydet('gokhan_yavuz', donem, toplam_prim, gy_odt, gy_not):
                     st.success('✅ '+donem+' dönemi '+_tl(toplam_prim)+' prim ödemesi kaydedildi.')
@@ -316,7 +316,7 @@ def _prim_ayhan():
     with op2: ay_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='ay_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        if st.button('U0001f4be Ödemeyi Kaydet', key='ay_save', type='primary', use_container_width=True):
+        if st.button('💾 Ödemeyi Kaydet', key='ay_save', type='primary', use_container_width=True):
             if tot_tl > 0 and ay_d:
                 if prim_kaydet('ayhan_eroglu', ay_d, tot_tl, ay_odt, ay_not):
                     st.success('✅ '+ay_d+' dönemi '+_tl(tot_tl)+' prim ödemesi kaydedildi.')
@@ -399,7 +399,7 @@ def _urun_karlilik():
             else: st.warning('Alış ve satış fiyatı girilmeli.')
     if st.session_state.uk_liste:
         h1,h2,h3,h4,h5,h6,h7,h8 = st.columns([2,1.2,1.2,1.2,1.2,1.2,1.2,0.6])
-        for col,bas in zip([h1,h2,h3,h4,h5,h6,h7,h8],['Ürün','Alış ($)','Maliyet ($)','Satış ($)','Kar ($)','Marj (%)','\u0130nd. Kar ($)','']):
+        for col,bas in zip([h1,h2,h3,h4,h5,h6,h7,h8],['Ürün','Alış ($)','Maliyet ($)','Satış ($)','Kar ($)','Marj (%)','İnd. Kar ($)','']):
             with col: st.markdown('<div class="pm-label">'+bas+'</div>', unsafe_allow_html=True)
         silinecek = None
         for u in st.session_state.uk_liste:
@@ -417,7 +417,7 @@ def _urun_karlilik():
                     st.markdown('<div style="font-family:Inter,sans-serif;color:'+ri+';font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['kar_ind'])+'</div>', unsafe_allow_html=True)
                 else: st.markdown('<div style="color:#475569;font-size:12px;padding:8px 0">—</div>', unsafe_allow_html=True)
             with u8:
-                if st.button('\u2715', key='uk_sil_'+str(u['id']), help='Sil'): silinecek = u['id']
+                if st.button('✕', key='uk_sil_'+str(u['id']), help='Sil'): silinecek = u['id']
             st.markdown('<div style="height:1px;background:rgba(255,255,255,0.04)"></div>', unsafe_allow_html=True)
         if silinecek: st.session_state.uk_liste=[x for x in st.session_state.uk_liste if x['id']!=silinecek]; st.rerun()
         if st.button('Listeyi Temizle', key='uk_temizle'): st.session_state.uk_liste=[]; st.rerun()
@@ -477,10 +477,10 @@ def run():
         if st.button('Kırılma Noktası', key='tab_b', type=('primary' if st.session_state.hm_sekme=='breakeven' else 'secondary'), use_container_width=True):
             st.session_state.hm_sekme='breakeven'; st.rerun()
     with t3:
-        if st.button('U0001f4b0 Gökhan Prim', key='tab_gy', type=('primary' if st.session_state.hm_sekme=='prim_gokhan' else 'secondary'), use_container_width=True):
+        if st.button('💰 Gökhan Prim', key='tab_gy', type=('primary' if st.session_state.hm_sekme=='prim_gokhan' else 'secondary'), use_container_width=True):
             st.session_state.hm_sekme='prim_gokhan'; st.rerun()
     with t4:
-        if st.button('U0001f4b0 Ayhan Prim', key='tab_ay', type=('primary' if st.session_state.hm_sekme=='prim_ayhan' else 'secondary'), use_container_width=True):
+        if st.button('💰 Ayhan Prim', key='tab_ay', type=('primary' if st.session_state.hm_sekme=='prim_ayhan' else 'secondary'), use_container_width=True):
             st.session_state.hm_sekme='prim_ayhan'; st.rerun()
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
     if st.session_state.hm_sekme == 'karlilik': _urun_karlilik()
