@@ -384,3 +384,231 @@ def get_kampanya_destek_ortalamalari():
                 "kampanya_sayisi": len(kayitlar),
             }
     return result
+
+
+# ── FAZEON ÜRÜN SEED DATA ───────────────────────────────────────────
+
+FAZEON_URUNLER = [
+        {
+                    "sku": "8684779421376",
+                    "urun_adi": "FAZEON X27F180QP 27\" 180Hz 0.5ms FAST IPS 2K QHD HDMI*2 + DP*2 PIVOT RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 90.0,
+                    "cost_price": 95.60,
+                    "son_maliyet_katsayisi": 1.0622,
+        },
+        {
+                    "sku": "8684779421390",
+                    "urun_adi": "FAZEON X27F240P 27\" 240Hz 0.5ms FAST IPS FHD HDMI*2 + DP*1 PIVOT RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 87.0,
+                    "cost_price": 92.41,
+                    "son_maliyet_katsayisi": 1.0622,
+        },
+        {
+                    "sku": "8684779421383",
+                    "urun_adi": "FAZEON X24F240P 24\" 240Hz 0.5ms FAST IPS FHD HDMI*1 + DP*1 PIVOT GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 70.0,
+                    "cost_price": 74.35,
+                    "son_maliyet_katsayisi": 1.0622,
+        },
+        {
+                    "sku": "8684779421413",
+                    "urun_adi": "FAZEON X25F240PW 25\" 240Hz 0.5ms FAST IPS FHD HDMI*1 + DP*1 PIVOT RGB GAMING MONITOR",
+                    "marka": "VLINK",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 76.0,
+                    "cost_price": 78.93,
+                    "son_maliyet_katsayisi": 1.0386,
+        },
+        {
+                    "sku": "8684779421420",
+                    "urun_adi": "FAZEON X27F165QW 27\" 150Hz 0.5ms FAST IPS 2K QHD HDMI*1 + DP*1 HAS GAMING MONITOR",
+                    "marka": "VLINK",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 79.0,
+                    "cost_price": 82.24,
+                    "son_maliyet_katsayisi": 1.0410,
+        },
+        {
+                    "sku": "8684779421437",
+                    "urun_adi": "FAZEON X27F166QB 27\" 150Hz 0.5ms FAST IPS 2K QHD HDMI*1 + DP*1 HAS GAMING MONITOR",
+                    "marka": "VLINK",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 78.0,
+                    "cost_price": 81.20,
+                    "son_maliyet_katsayisi": 1.0410,
+        },
+        {
+                    "sku": "8684779421444",
+                    "urun_adi": "FAZEON X27F167H 27\" 165Hz 0.5ms FAST IPS FHD HDMI*1 + DP*1 HAS GAMING MONITOR",
+                    "marka": "VLINK",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 60.0,
+                    "cost_price": 62.32,
+                    "son_maliyet_katsayisi": 1.0386,
+        },
+        {
+                    "sku": "8684779421505",
+                    "urun_adi": "FAZEON X27F241QP 27\" 240Hz 0.5ms FAST IPS 2K QHD HDMI*2 + DP*1 PIVOT RGB GAMING MONITOR",
+                    "marka": "PERFECT",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 134.0,
+                    "cost_price": 159.29,
+                    "son_maliyet_katsayisi": 1.1887,
+        },
+        {
+                    "sku": "8684779421512",
+                    "urun_adi": "FAZEON X27F330UDP 27\" LG NANO IPS 165Hz 0.3ms 4K UHD 330Hz FHD Dual Mode PIVOT RGB GAMING MONITOR",
+                    "marka": "PERFECT",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 178.0,
+                    "cost_price": 211.59,
+                    "son_maliyet_katsayisi": 1.1887,
+        },
+        {
+                    "sku": "8684779421598",
+                    "urun_adi": "FAZEON X27F250S 27\" 240Hz 0.5ms FAST VA FHD HDMI*1 + DP*1+USB*1 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 80.0,
+                    "cost_price": 86.70,
+                    "son_maliyet_katsayisi": 1.0837,
+        },
+        {
+                    "sku": "8684779421581",
+                    "urun_adi": "FAZEON X27F120QP 27\" 120Hz 0.5ms LG FAST IPS 2K QHD HDMI*1 +DP*1+USB*1 PIVOT GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 72.0,
+                    "cost_price": 78.03,
+                    "son_maliyet_katsayisi": 1.0837,
+        },
+        {
+                    "sku": "8684779421925",
+                    "urun_adi": "FAZEON X27F241S 27\" 240Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1+USB*1 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 79.50,
+                    "cost_price": 86.66,
+                    "son_maliyet_katsayisi": 1.0900,
+        },
+        {
+                    "sku": "8684779421918",
+                    "urun_adi": "FAZEON X24F241S 24\" 240Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1+USB*1 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 64.0,
+                    "cost_price": 0.0,
+                    "son_maliyet_katsayisi": 0.0,
+        },
+        {
+                    "sku": "8684779421932",
+                    "urun_adi": "FAZEON X32F240S 32\" 240Hz 0.5ms FAST VA FHD HDMI*1 +DP*1+USB*1 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 99.0,
+                    "cost_price": 107.91,
+                    "son_maliyet_katsayisi": 1.0900,
+        },
+        {
+                    "sku": "8684779421956",
+                    "urun_adi": "FAZEON X34F180QP 34\" 180Hz 0.5ms FAST VA WQHD HDMI*2+DP*1+USB*1 RGB HAS GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 128.0,
+                    "cost_price": 139.52,
+                    "son_maliyet_katsayisi": 1.0900,
+        },
+        {
+                    "sku": "8684779421949",
+                    "urun_adi": "FAZEON X49F165DQP 49\" 165Hz 0.5ms FAST VA 5K DOUBLE QHD HDMI*2+DP+Type-c PD65W HAS GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 289.0,
+                    "cost_price": 0.0,
+                    "son_maliyet_katsayisi": 0.0,
+        },
+        {
+                    "sku": "8684779421963",
+                    "urun_adi": "FAZEON X27F181QS 27\" 180Hz 0.5ms FAST IPS 2K QHD HDMI*2 + DP*2 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 82.0,
+                    "cost_price": 89.38,
+                    "son_maliyet_katsayisi": 1.0900,
+        },
+        {
+                    "sku": "8684779421970",
+                    "urun_adi": "FAZEON X27F201S 27\" 200Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1+USB*1 RGB GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 68.0,
+                    "cost_price": 0.0,
+                    "son_maliyet_katsayisi": 0.0,
+        },
+        {
+                    "sku": "8684779421994",
+                    "urun_adi": "FAZEON X24F167S 24\" 165Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1 GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 48.0,
+                    "cost_price": 0.0,
+                    "son_maliyet_katsayisi": 0.0,
+        },
+        {
+                    "sku": "8684779421987",
+                    "urun_adi": "FAZEON X27F168S 27\" 165Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1 GAMING MONITOR",
+                    "marka": "MASTER",
+                    "kategori": "Monitor",
+                    "alis_fiyati": 60.0,
+                    "cost_price": 0.0,
+                    "son_maliyet_katsayisi": 0.0,
+        },
+]
+
+
+def seed_fazeon_products():
+        """FAZEON marka ürün listesini Supabase'e toplu olarak yükler.
+            Mevcut ürünlerin üzerine yazar (upsert). Güvenle tekrar çalıştırılabilir."""
+        sb = get_client()
+        bugun = get_today()
+        basarili = 0
+        hatali = 0
+        for u in FAZEON_URUNLER:
+                    try:
+                                    mevcut = _row(sb.table("urunler").select("ilk_giris_tarihi").eq("sku", u["sku"]).execute())
+                                    ilk_tarih = mevcut["ilk_giris_tarihi"] if mevcut and mevcut.get("ilk_giris_tarihi") else bugun
+                                    # cost_price varsa onu alis_fiyati olarak kullan (gerçek maliyet)
+                                    gercek_maliyet = u["cost_price"] if u["cost_price"] > 0 else u["alis_fiyati"]
+                        sb.table("urunler").upsert({
+                            "sku": u["sku"],
+                            "urun_adi": u["urun_adi"],
+                            "kategori": u.get("kategori", "Monitor"),
+                            "marka": u.get("marka", ""),
+                            "satis_fiyati": 0.0,
+                            "alis_fiyati": gercek_maliyet,
+                            "hedef_kar_marji": 0.0,
+                            "ozellikler": f"FOB: ${u['alis_fiyati']} | Maliyet Katsayısı: {u['son_maliyet_katsayisi']} | Cost Price: ${u['cost_price']}",
+                            "bizim_stok": 0,
+                            "trendyol_stok": 0,
+                            "ilk_giris_tarihi": ilk_tarih,
+                            "guncelleme_tarihi": bugun,
+                        }, on_conflict="sku").execute()
+                        sb.table("stok_yas").upsert(
+                            {"sku": u["sku"], "ilk_gorulen_tarih": bugun}, on_conflict="sku"
+                        ).execute()
+                        basarili += 1
+except Exception as e:
+            hatali += 1
+    _cache_temizle()
+    return basarili, hatali
+
+
+def get_fazeon_urunler_listesi():
+        """Sabit FAZEON_URUNLER listesini döndürür (seed data)."""
+        return FAZEON_URUNLER
