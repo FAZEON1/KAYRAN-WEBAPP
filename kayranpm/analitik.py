@@ -1,5 +1,8 @@
 from datetime import datetime, date
 import streamlit as st
+import logging
+
+_log = logging.getLogger(__name__)
 from .database import (get_all_dashboard_data, get_muadil_oneriler,
                       ekle_siparis_onerisi, get_yoldaki_urunler,
                       get_tum_gecmis_satislar, get_gecmis_satis_firma_bazli,
@@ -259,6 +262,8 @@ def kar_marji_hesapla(satis_fiyati, alis_fiyati, toplam_maliyet=None):
         return marj, kar_tl, "zarar", "kirmizi"
 
 
+
+@st.cache_data(ttl=120, show_spinner=False)
 def kar_marji_analizi():
     """Tüm ürünler için kar marjı analizi — satın alma geçmişinden gerçek maliyet kullanır"""
     sb = get_client()
@@ -534,6 +539,8 @@ def tum_urunler_listesi():
     return sonuclar
 
 
+
+@st.cache_data(ttl=60, show_spinner=False)
 def siparis_onerisi_listesi():
     """135 günden az stok kalan ürünleri otomatik listeler"""
     veri = dashboard_hesapla()
