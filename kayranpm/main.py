@@ -1303,6 +1303,10 @@ def run():
                 with fc3:
                     m_satis = st.number_input("Satış Fiyatı ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
                     m_alis = st.number_input("Alış Fiyatı / FOB ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+                    m_maliyet_yuzdesi = st.number_input("% Masraf (navlun+gümrük)", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.2f", help="Navlun, gümrük vb. tüm masrafların toplamı")
+                    if m_alis > 0 and m_maliyet_yuzdesi > 0:
+                        _cost_prev = m_alis * (1 + m_maliyet_yuzdesi / 100)
+                        st.info(f"Hesaplanan Maliyet: **${_cost_prev:.2f}** (FOB ${m_alis:.2f} × {1+m_maliyet_yuzdesi/100:.4f})")
     
                 st.markdown("**Stok & Hedef**")
                 fs1, fs2, fs3 = st.columns(3)
@@ -1323,13 +1327,22 @@ def run():
                     st.error("SKU zorunludur.")
                 elif not m_urun_adi.strip():
                     st.error("Ürün Adı zorunludur.")
-                else:
-                    from database import upsert_urun, upsert_yoldaki_urun
+                    from database import upsert_urun, upsert_yoldaki_urun, ekle_satin_alma
                     from excel_islemler import normalize_sku
                     sku_temiz = normalize_sku(m_sku.strip())
+                    _katsayi = 1 + m_maliyet_yuzdesi / 100
+                    _cost_price = round(m_alis * _katsayi, 2) if m_alis > 0 else 0.0
+                    _ozellik_str = m_ozellikler.strip()
+                    if m_maliyet_yuzdesi > 0:
+                        _ozellik_str = (f"Masraf: %{m_maliyet_yuzdesi:.2f} | " + _ozellik_str).strip(" | ")
                     upsert_urun(sku_temiz, m_urun_adi.strip(), m_kategori.strip(),
-                               m_marka.strip(), m_satis, m_alis, m_hedef_kar,
-                               m_ozellikler.strip(), m_stok, 0)
+                               m_marka.strip(), m_satis, _cost_price, m_hedef_kar,
+                               _ozellik_str, m_stok, 0)
+                    if m_maliyet_yuzdesi > 0 and m_alis > 0:
+                        from datetime import date
+                        ekle_satin_alma(sku_temiz, m_urun_adi.strip(), "Manuel Giriş",
+                                        date.today(), m_stok if m_stok > 0 else 1,
+                                        m_alis, m_maliyet_yuzdesi, _ozellik_str)
                     if m_yoldaki > 0 or m_varis:
                         upsert_yoldaki_urun(sku_temiz, m_urun_adi.strip(), m_yoldaki,
                                            str(m_varis) if m_varis else "", m_tedarikci.strip())
