@@ -1092,29 +1092,14 @@ def anasayfa():
                 st.warning("⚠️ Lütfen mesaj alanını doldurun.")
             else:
                 konu_son = (konu or "").strip() or "Konusuz Talep"
-                with st.spinner("Talebiniz gönderiliyor..."):
-                    ok, sonuc = talep_gonder(aktif_kullanici.capitalize(), konu_son, mesaj.strip())
+                with st.spinner("Talebiniz kaydediliyor..."):
+                    from kayranpm.database import ekle_talep, get_talepler
+                    ok = ekle_talep(aktif_kullanici.capitalize(), konu_son, mesaj.strip())
                 if ok:
-                    st.success("✅ Talebiniz başarıyla iletildi. Teşekkürler!")
+                    st.cache_data.clear()
+                    st.success("✅ Talebiniz kaydedildi. Teşekkürler!")
                 else:
-                    # SMTP yoksa veya hata olursa: mailto yedeği
-                    govde = f"Gönderen: {aktif_kullanici.capitalize()}\nKonu: {konu_son}\n\n{mesaj.strip()}"
-                    mailto = (
-                        f"mailto:{TALEP_ALICI}"
-                        f"?subject={quote('[KAYRAN Talep] ' + konu_son)}"
-                        f"&body={quote(govde)}"
-                    )
-                    if sonuc == "smtp_yok":
-                        st.info("ℹ️ Otomatik gönderim yapılandırılmamış. Aşağıdaki butonla kendi e-posta uygulamanızdan iletebilirsiniz.")
-                    else:
-                        st.error(sonuc)
-                    st.markdown(
-                        f'<a href="{mailto}" style="display:inline-block;margin-top:6px;padding:10px 18px;'
-                        'background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;text-decoration:none;'
-                        'border-radius:10px;font-weight:600;font-size:13px">📧 E-posta ile Gönder</a>',
-                        unsafe_allow_html=True
-                    )
-
+                    st.error("❌ Talep kaydedilemedi. Lütfen tekrar deneyin.")
     # ─── ALT BİLGİ ŞERİDİ ───
     st.markdown(
         '<div style="margin:48px 0 0;padding:24px 0;border-top:1px solid rgba(255,255,255,0.06);animation:fadeUp 1.1s ease-out">'
