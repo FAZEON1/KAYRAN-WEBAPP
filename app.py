@@ -863,8 +863,10 @@ def portal_sidebar(kompakt=False):
         else:
             # Alt uygulama içindeyken: küçük "Sayfalar" başlığı
             # (KAYRAN kendi st.radio'larıyla buraya ekleyecek)
-            uyg_adi = "Muhasebe & Finans" if aktif_sayfa == "kayranacc" else "İthalat & Ürün Yönetimi"
-            uyg_renk = "#A5B4FC" if aktif_sayfa == "kayranacc" else "#F9A8D4"
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "İthalat & Ürün Yönetimi", "hesap_makinesi": "Hesap Makinesi"}
+    uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
+            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "hesap_makinesi": "#FCD34D"}
+    uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             st.markdown(
                 f'<div style="font-size:10px;color:{uyg_renk};letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">📂 {uyg_adi} SAYFALARI</div>',
                 unsafe_allow_html=True
