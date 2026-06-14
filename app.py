@@ -499,7 +499,7 @@ def portal_css():
   }
   }
 }
-</style>
+    </style>
 
     <div class="anasayfa-bg-blob1"></div>
     <div class="anasayfa-bg-blob2"></div>
