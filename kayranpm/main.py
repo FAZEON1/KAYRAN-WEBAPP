@@ -30,8 +30,7 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       guncelle_kampanya_urun, sil_kampanya_urun,
                       sil_urun, get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
-                      get_kampanya_destek_ortalamalari,
-                                              seed_fazeon_products)
+                      get_kampanya_destek_ortalamalari)
 from .analitik import dashboard_hesapla, genel_analiz_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes)
@@ -41,10 +40,6 @@ from .bildirim import (get_bildirim_ayarlari, kaydet_bildirim_ayarlari, email_go
 def run():
     """KAYRAN ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
-    if st.sidebar.button("⚡ Toplu FAZEON Urun Yukle", key="seed_fazeon_btn"):
-        with st.spinner("Yukleniyor..."):
-            b, h = seed_fazeon_products()
-            st.sidebar.success(f"{b} urun yuklendi!" + (f" {h} hata" if h else ""))
     st.markdown("""
     <style>
     /* ── GLOBAL ─────────────────────────────────────────────────────────── */
