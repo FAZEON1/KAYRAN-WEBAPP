@@ -25,6 +25,7 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 # ─────────────────────────────────────────────────────────────────────
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
 KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
+HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -35,6 +36,7 @@ def kullanici_yetkileri(kullanici):
     return {
         "kayranacc": k in KAYRANACC_KULLANICILAR,
         "kayranpm":  k in KAYRANPM_KULLANICILAR,
+        "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
     }
 
 
@@ -796,6 +798,17 @@ def portal_sidebar(kompakt=False):
                 use_container_width=True,
                 help="Bu uygulamaya erişim yetkiniz yok"
             )
+    # HESAP MAKİNESİ — Sadece ibrahim'e görünür
+    if yetkiler["hesap_makinesi"]:
+        if st.button(
+            "🧮 Hesap Makinesi",
+            key="nav_hesap_makinesi",
+            type="primary" if aktif_sayfa == "hesap_makinesi" else "secondary",
+            use_container_width=True
+        ):
+            st.session_state.aktif_uygulama = "hesap_makinesi"
+            st.rerun()
+
 
         # KAYRANTS&W — Yakında (herkese açık, tıklayınca "Yakında" sayfası)
         if st.button(
@@ -816,7 +829,7 @@ def portal_sidebar(kompakt=False):
 
         # Alt uygulama açıksa: o uygulamanın sidebar içeriği BURADAN sonra yüklenir
         # Ana sayfadaysak: HESAP bölümü
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi"):
             # Kullanıcı + Çıkış (sadece ana sayfada)
             st.markdown(
                 '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 10px;padding-left:6px">HESAP</div>',
@@ -1383,6 +1396,9 @@ def main():
         elif aktif == "kayranpm":
             from kayranpm.main import run as kayranpm_run
             kayranpm_run()
+        elif aktif == "hesap_makinesi":
+            from hesap_makinesi.main import run as hesap_makinesi_run
+            hesap_makinesi_run()
         elif aktif == "kayrantsw":
             kayrantsw_yakinda()
         elif aktif == "sifre_degistir":
