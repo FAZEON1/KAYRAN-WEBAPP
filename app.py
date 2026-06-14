@@ -259,7 +259,38 @@ def login_css():
         background: rgba(255,255,255,0.25);
         background-clip: padding-box;
     }
-    </style>
+    
+/* ── MOBİL UYUM — Login ── */
+@media (max-width: 768px) {
+  /* Login sayfasi iki sutunu alt alta yiğ */
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
+  }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    width: 100% !important;
+    flex: none !important;
+    min-width: unset !important;
+  }
+  /* Sol marka paneli gizle, sadece login formu goster */
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+    display: none !important;
+  }
+  /* Login kart padding kisalt */
+  .main .block-container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 1.5rem !important;
+  }
+  /* Kayran baslik fontu */
+  div[style*="font-size:clamp(28px,5vw,42px)"] {
+    font-size: 32px !important;
+  }
+  /* Input font - iOS zoom engelleme */
+  input, textarea {
+    font-size: 16px !important;
+  }
+}
+</style>
 
     <div class="kayran-bg"></div>
     """
@@ -465,7 +496,30 @@ def portal_css():
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 28px rgba(139,92,246,0.5) !important;
     }
-    </style>
+    
+/* ── MOBİL UYUM — Portal ── */
+@media (max-width: 768px) {
+  .main .block-container {
+    padding-top: 1rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  /* Ana sayfa hero */
+  h1[style*="font-size"] {
+    font-size: clamp(22px, 5vw, 36px) !important;
+  }
+  /* Brand kartlar (st.columns) */
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    min-width: 280px !important;
+    width: 100% !important;
+  }
+  /* Form input boyutlari */
+  [data-testid="stTextInput"] input,
+  [data-testid="stTextArea"] textarea {
+    font-size: 16px !important; /* iOS zoom engellemek icin */
+  }
+}
+</style>
 
     <div class="anasayfa-bg-blob1"></div>
     <div class="anasayfa-bg-blob2"></div>
@@ -696,7 +750,24 @@ def portal_sidebar(kompakt=False):
         '::-webkit-scrollbar-track{background:rgba(255,255,255,0.02);}'
         '::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:6px;}'
         '::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}'
-        '</style>',
+        '
+/* ── MOBİL UYUM — Sidebar ── */
+@media (max-width: 768px) {
+  section[data-testid="stSidebar"] {
+    width: 85vw !important;
+    min-width: unset !important;
+  }
+  section[data-testid="stSidebar"] .block-container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  [data-testid="stSidebarCollapsedControl"],
+  button[data-testid="stBaseButton-headerNoPadding"] {
+    display: flex !important;
+    visibility: visible !important;
+  }
+}
+</style>',
         unsafe_allow_html=True
     )
 
@@ -867,7 +938,7 @@ def anasayfa():
         '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
         '</div>'
-        f'<h1 style="font-family:Inter,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
+        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
         f'{selamlama}, '
         f'<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
         '</h1>'
@@ -883,7 +954,7 @@ def anasayfa():
     toplam_uygulama = len(yetkiler)
 
     st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:48px;animation:fadeUp 0.7s ease-out">'
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:48px;animation:fadeUp 0.7s ease-out">'
         f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(99,102,241,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
         '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Erişim</div>'
         f'<div style="display:flex;align-items:baseline;gap:6px">'
@@ -1106,7 +1177,7 @@ def anasayfa():
     # ─── ALT BİLGİ ŞERİDİ ───
     st.markdown(
         '<div style="margin:48px 0 0;padding:24px 0;border-top:1px solid rgba(255,255,255,0.06);animation:fadeUp 1.1s ease-out">'
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;text-align:center">'
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;text-align:center">'
         # Hızlı erişim
         '<div>'
         '<div style="font-size:24px;margin-bottom:8px">⚡</div>'
@@ -1165,7 +1236,7 @@ def sifre_degistir():
         '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔑 Güvenlik</span>'
         '</div>'
-        '<h1 style="font-family:Inter,sans-serif;font-size:36px;font-weight:800;color:#FFFFFF;margin:0">Şifremi Değiştir</h1>'
+        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,36px);font-weight:800;color:#FFFFFF;margin:0">Şifremi Değiştir</h1>'
         '<p style="color:#94A3B8;font-size:14px;margin-top:8px">Yeni şifren Supabase&#39;de güvenli şekilde saklanır &mdash; Streamlit Secrets&#39;tan bağımsızdır.</p>'
         '</div>',
         unsafe_allow_html=True
