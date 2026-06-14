@@ -38,54 +38,54 @@ def kullanici_yetkileri(kullanici):
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE PRESENCE — Supabase aktif_oturumlar tablosu
 # ─────────────────────────────────────────────────────────────────────
+
 def _get_supabase_client():
     try:
-            from supabase import create_client
-                    url = st.secrets["supabase"]["url"]
-                            key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
-                                    return create_client(url, key)
-                                        except Exception:
-                                                return None
-
-                                                def presence_kayit_et(kullanici_adi: str):
-                                                    """Kullaniciyi online olarak Supabase'e kaydet."""
-                                                        try:
-                                                                sb = _get_supabase_client()
-                                                                        if not sb:
-                                                                                    return
-                                                                                            now = datetime.now(timezone.utc).isoformat()
-                                                                                                    sb.table("aktif_oturumlar").upsert(
-                                                                                                                {"kullanici_adi": kullanici_adi, "son_aktif": now},
-                                                                                                                            on_conflict="kullanici_adi"
-                                                                                                                                    ).execute()
-                                                                                                                                        except Exception:
-                                                                                                                                                pass
-
-                                                                                                                                                def presence_sil(kullanici_adi: str):
-                                                                                                                                                    """Kullaniciyi online listesinden cikar."""
-                                                                                                                                                        try:
-                                                                                                                                                                sb = _get_supabase_client()
-                                                                                                                                                                        if not sb:
-                                                                                                                                                                                    return
-                                                                                                                                                                                            sb.table("aktif_oturumlar").delete().eq("kullanici_adi", kullanici_adi).execute()
-                                                                                                                                                                                                except Exception:
-                                                                                                                                                                                                        pass
-
-                                                                                                                                                                                                        def online_kullanicilar_getir():
-                                                                                                                                                                                                            """Son 10 dakika icinde aktif olan kullanicilari getir."""
-                                                                                                                                                                                                                try:
-                                                                                                                                                                                                                        sb = _get_supabase_client()
-                                                                                                                                                                                                                                if not sb:
-                                                                                                                                                                                                                                            return []
-                                                                                                                                                                                                                                                    from datetime import timedelta
-                                                                                                                                                                                                                                                            sinir = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
-                                                                                                                                                                                                                                                                    res = sb.table("aktif_oturumlar").select("kullanici_adi, son_aktif").gte("son_aktif", sinir).execute()
-                                                                                                                                                                                                                                                                            return res.data or []
-                                                                                                                                                                                                                                                                                except Exception:
-                                                                                                                                                                                                                                                                                        return []
+        from supabase import create_client
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
+        return create_client(url, key)
+    except Exception:
+        return None
 
 
-# ─────────────────────────────────────────────────────────────────────
+def presence_kayit_et(kullanici_adi: str):
+    try:
+        sb = _get_supabase_client()
+        if not sb:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        sb.table("aktif_oturumlar").upsert(
+            {"kullanici_adi": kullanici_adi, "son_aktif": now},
+            on_conflict="kullanici_adi"
+        ).execute()
+    except Exception:
+        pass
+
+
+def presence_sil(kullanici_adi: str):
+    try:
+        sb = _get_supabase_client()
+        if not sb:
+            return
+        sb.table("aktif_oturumlar").delete().eq("kullanici_adi", kullanici_adi).execute()
+    except Exception:
+        pass
+
+
+def online_kullanicilar_getir():
+    try:
+        sb = _get_supabase_client()
+        if not sb:
+            return []
+        from datetime import timedelta
+        sinir = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        res = sb.table("aktif_oturumlar").select("kullanici_adi, son_aktif").gte("son_aktif", sinir).execute()
+        return res.data or []
+    except Exception:
+        return []
+
+
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
 TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
