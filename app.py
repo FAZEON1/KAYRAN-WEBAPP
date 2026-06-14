@@ -540,12 +540,26 @@ def giris_ekrani():
             '<div style="color:#64748B;font-size:11px;margin-top:2px">Kullanıcıya özel panel, güvenli oturum yönetimi</div></div>'
             '</div>'
             '</div>'
+'<div style="display:flex;align-items:center;gap:14px">'
+'<div style="width:38px;height:38px;border-radius:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🧮</div>'
+'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Hesap Makinesi</div>'
+'<div style="color:#64748B;font-size:11px;margin-top:2px">Urun karlilik analizi, kirilma noktasi hesaplama</div></div>'
+'</div>'
+'<div style="display:flex;align-items:center;gap:14px">'
+'<div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🚧</div>'
+'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Depo &amp; Teknik Servis</div>'
+'<div style="color:#64748B;font-size:11px;margin-top:2px">Stok yonetimi, teknik servis takibi - yakinda</div></div>'
+'</div>'
             # Alt bilgi
             '<div style="display:flex;align-items:center;gap:10px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">'
             '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 8px #10B981"></div>'
             '<span style="color:#64748B;font-size:11px;font-weight:500">Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; <b style="color:#94A3B8">Fazeon</b> projesi</span>'
             '</div>'
-            '</div>',
+            '</div>'
+'<div style="display:flex;align-items:center;gap:10px;padding-top:10px;margin-top:6px">'
+'<div style="width:6px;height:6px;border-radius:50%;background:#6366F1;box-shadow:0 0 8px #6366F1"></div>'
+'<span style="color:#64748B;font-size:11px;font-weight:500">Ibrahim Kayran tarafindan gelistirildi</span>'
+'</div>',
             unsafe_allow_html=True
         )
 
@@ -729,7 +743,7 @@ input, textarea, select { font-size: 16px !important; }
         )
 
         if st.button(
-            "Ana Sayfa",
+            "🏠 Ana Sayfa",
             key="nav_anasayfa",
             type="primary" if aktif_sayfa == "anasayfa" else "secondary",
             use_container_width=True
@@ -739,7 +753,7 @@ input, textarea, select { font-size: 16px !important; }
 
         if yetkiler["kayranacc"]:
             if st.button(
-                "Muhasebe & Finans",
+                "💳 Muhasebe & Finans",
                 key="nav_kayranacc",
                 type="primary" if aktif_sayfa == "kayranacc" else "secondary",
                 use_container_width=True
@@ -748,7 +762,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.rerun()
         else:
             st.button(
-                "Muhasebe & Finans",
+                "🔒 Muhasebe & Finans",
                 key="nav_kayranacc_disabled",
                 disabled=True,
                 use_container_width=True,
@@ -757,7 +771,7 @@ input, textarea, select { font-size: 16px !important; }
 
         if yetkiler["kayranpm"]:
             if st.button(
-                "Ithalat & Urun Yonetimi",
+                "📦 Ithalat & Urun Yonetimi",
                 key="nav_kayranpm",
                 type="primary" if aktif_sayfa == "kayranpm" else "secondary",
                 use_container_width=True
@@ -766,7 +780,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.rerun()
         else:
             st.button(
-                "Ithalat & Urun Yonetimi",
+                "🔒 Ithalat & Urun Yonetimi",
                 key="nav_kayranpm_disabled",
                 disabled=True,
                 use_container_width=True,
@@ -775,7 +789,7 @@ input, textarea, select { font-size: 16px !important; }
 
         if yetkiler["hesap_makinesi"]:
             if st.button(
-                "Hesap Makinesi",
+                "🧮 Hesap Makinesi",
                 key="nav_hesap_makinesi",
                 type="primary" if aktif_sayfa == "hesap_makinesi" else "secondary",
                 use_container_width=True
@@ -784,7 +798,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.rerun()
 
         if st.button(
-            "Depo & Teknik Servis",
+            "🚧 Depo & Teknik Servis",
             key="nav_kayrantsw",
             type="primary" if aktif_sayfa == "kayrantsw" else "secondary",
             use_container_width=True,
@@ -815,7 +829,7 @@ input, textarea, select { font-size: 16px !important; }
             )
 
             if st.button(
-                "Sifremi Degistir",
+                "🔑 Sifremi Degistir",
                 key="nav_sifre_degistir",
                 type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
                 use_container_width=True
@@ -823,7 +837,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "sifre_degistir"
                 st.rerun()
 
-            if st.button("Cikis Yap", key="nav_cikis", use_container_width=True):
+            if st.button("🚪 Cikis Yap", key="nav_cikis", use_container_width=True):
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
                 st.session_state.aktif_uygulama = "anasayfa"
@@ -840,6 +854,8 @@ input, textarea, select { font-size: 16px !important; }
 
 
 def anasayfa():
+    G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
+    FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
 
@@ -1140,6 +1156,9 @@ def anasayfa():
         '<span style="color:#475569;font-size:10px">•</span>'
         f'<span style="color:#64748B;font-size:11px;font-weight:500">© {yil} G5F Teknoloji</span>'
         '</div>'
+        '</div>'
+        '<div style="margin-top:8px;text-align:center">'
+        '<span style="color:#475569;font-size:10px">Ibrahim Kayran tarafindan gelistirildi</span>'
         '</div>',
         unsafe_allow_html=True
     )
