@@ -17,7 +17,7 @@ import ssl
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from urllib.parse import quote
-from shared.auth import kullanici_dogrula
+from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, sifre_hash_uret, supabase_sifre_kaydet
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -577,7 +577,7 @@ def giris_ekrani():
                 if not kullanicilar:
                     st.warning("⚠️ Kullanıcı ayarları yapılandırılmamış.")
                     return
-                if kullanici_dogrula(kullanici, sifre, kullanicilar):
+                if kullanici_dogrula_v2(kullanici, sifre, kullanicilar):
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
                     st.session_state.aktif_uygulama = "anasayfa"
@@ -789,7 +789,7 @@ def portal_sidebar(kompakt=False):
 
         # Alt uygulama açıksa: o uygulamanın sidebar içeriği BURADAN sonra yüklenir
         # Ana sayfadaysak: HESAP bölümü
-        if aktif_sayfa in ("anasayfa", "kayrantsw"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir"):
             # Kullanıcı + Çıkış (sadece ana sayfada)
             st.markdown(
                 '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 10px;padding-left:6px">HESAP</div>',
@@ -805,6 +805,15 @@ def portal_sidebar(kompakt=False):
                 f'</div>',
                 unsafe_allow_html=True
             )
+
+                    if st.button(
+            "🔑 Şifremi Değiştir",
+            key="nav_sifre_degistir",
+            type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
+            use_container_width=True
+        ):
+            st.session_state.aktif_uygulama = "sifre_degistir"
+            st.rerun()
 
             if st.button("🚪  Çıkış Yap", key="nav_cikis", use_container_width=True):
                 st.session_state.giris_yapildi = False
@@ -1144,6 +1153,101 @@ def anasayfa():
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
 # ─────────────────────────────────────────────────────────────────────
+def sifre_degistir():
+    """Kullanıcının kendi şifresini değiştirebileceği sayfa."""
+    aktif_kullanici = st.session_state.get("aktif_kullanici", "")
+    ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
+
+    st.markdown(portal_css(), unsafe_allow_html=True)
+
+    # ─── BAŞLIK ───────────────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
+        '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
+        '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔑 Güvenlik</span>'
+        '</div>'
+        '<h1 style="font-family:Inter,sans-serif;font-size:36px;font-weight:800;color:#FFFFFF;margin:0">Şifremi Değiştir</h1>'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:8px">Yeni şifren Supabase'de güvenli şekilde saklanır — Streamlit Secrets'tan bağımsızdır.</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # ─── FORM CSS ─────────────────────────────────────────────────────────────
+    st.markdown(
+        '<style>'
+        '[data-testid="stTextInput"] label{color:#CBD5E1 !important;font-weight:600 !important;'
+        'font-size:12px !important;letter-spacing:.5px !important;text-transform:uppercase !important;}'
+        '[data-testid="stTextInput"] input{background:rgba(255,255,255,0.04) !important;'
+        'border:1px solid rgba(255,255,255,0.12) !important;color:#FFFFFF !important;border-radius:12px !important;}'
+        '[data-testid="stTextInput"] input:focus{border-color:#8B5CF6 !important;'
+        'box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
+        '.stFormSubmitButton>button{background:linear-gradient(135deg,#6366F1,#8B5CF6) !important;'
+        'color:#fff !important;border:none !important;border-radius:12px !important;'
+        'font-weight:600 !important;box-shadow:0 4px 20px rgba(99,102,241,0.35) !important;}'
+        '</style>',
+        unsafe_allow_html=True
+    )
+
+    # ─── FORM ─────────────────────────────────────────────────────────────────
+    col_l, col_c, col_r = st.columns([1, 1.4, 1])
+    with col_c:
+        st.markdown(
+            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);'
+            'border-radius:20px;padding:32px 28px;">'
+            f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;'
+            f'padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06)">'
+            f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366F1,#8B5CF6);'
+            f'display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:14px">{ilk_harf}</div>'
+            f'<div><div style="color:#FFFFFF;font-weight:600;font-size:14px">{aktif_kullanici.capitalize()}</div>'
+            f'<div style="color:#64748B;font-size:11px">Şifre değiştirme</div></div>'
+            f'</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        with st.form("sifre_degistir_form", clear_on_submit=True):
+            mevcut = st.text_input("Mevcut Şifre", type="password", placeholder="Mevcut şifrenizi girin")
+            yeni   = st.text_input("Yeni Şifre",   type="password", placeholder="En az 6 karakter")
+            tekrar = st.text_input("Yeni Şifre (Tekrar)", type="password", placeholder="Yeni şifreyi tekrar girin")
+            kaydet = st.form_submit_button("🔑 Şifreyi Güncelle", type="primary", use_container_width=True)
+
+        if kaydet:
+            # Validasyonlar
+            if not mevcut or not yeni or not tekrar:
+                st.error("❌ Tüm alanları doldurun.")
+            elif len(yeni) < 6:
+                st.error("❌ Yeni şifre en az 6 karakter olmalı.")
+            elif yeni != tekrar:
+                st.error("❌ Yeni şifreler eşleşmiyor.")
+            else:
+                # Mevcut şifreyi doğrula (Supabase öncelikli)
+                try:
+                    kullanicilar = st.secrets.get("kullanicilar", {})
+                    from shared.auth import kullanici_dogrula_v2, sifre_hash_uret, supabase_sifre_kaydet
+                    if not kullanici_dogrula_v2(aktif_kullanici, mevcut, kullanicilar):
+                        st.error("❌ Mevcut şifreniz hatalı.")
+                    else:
+                        yeni_hash = sifre_hash_uret(yeni)
+                        if supabase_sifre_kaydet(aktif_kullanici, yeni_hash):
+                            st.success("✅ Şifreniz başarıyla güncellendi! Bir sonraki girişte yeni şifreniz geçerli olacak.")
+                            st.balloons()
+                        else:
+                            st.error("❌ Şifre kaydedilemedi. Lütfen tekrar deneyin veya yöneticiye bildirin.")
+                except Exception as e:
+                    st.error(f"❌ Bir hata oluştu: {e}")
+
+        st.markdown(
+            '<div style="margin-top:16px;padding:12px 16px;background:rgba(99,102,241,0.08);'
+            'border:1px solid rgba(99,102,241,0.2);border-radius:10px">'
+            '<div style="color:#A5B4FC;font-size:11px;font-weight:600;margin-bottom:4px">💡 Bilgi</div>'
+            '<div style="color:#94A3B8;font-size:11px;line-height:1.6">'
+            'Yeni şifren Supabase'de güvenli hash olarak saklanır. '
+            'Sadece sen değiştirebilirsin — yönetici dahil kimse eski şifreni göremez.'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
 def kayrantsw_yakinda():
     """KAYRANTS&W modülü için 'Yakında Sizlerle' bilgilendirme sayfası."""
     st.markdown(portal_css(), unsafe_allow_html=True)
@@ -1255,6 +1359,8 @@ def main():
             kayranpm_run()
         elif aktif == "kayrantsw":
             kayrantsw_yakinda()
+        elif aktif == "sifre_degistir":
+            sifre_degistir()
         else:
             st.error(f"Bilinmeyen sayfa: {aktif}")
             st.session_state.aktif_uygulama = "anasayfa"
