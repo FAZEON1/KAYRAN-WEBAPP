@@ -573,42 +573,41 @@ FAZEON_URUNLER = [
 
 
 def seed_fazeon_products():
-        """FAZEON marka ürün listesini Supabase'e toplu olarak yükler.
-            Mevcut ürünlerin üzerine yazar (upsert). Güvenle tekrar çalıştırılabilir."""
-        sb = get_client()
-        bugun = get_today()
-        basarili = 0
-        hatali = 0
-        for u in FAZEON_URUNLER:
-                    try:
-                                    mevcut = _row(sb.table("urunler").select("ilk_giris_tarihi").eq("sku", u["sku"]).execute())
-                                    ilk_tarih = mevcut["ilk_giris_tarihi"] if mevcut and mevcut.get("ilk_giris_tarihi") else bugun
-                                    # cost_price varsa onu alis_fiyati olarak kullan (gerçek maliyet)
-                                    gercek_maliyet = u["cost_price"] if u["cost_price"] > 0 else u["alis_fiyati"]
-                        sb.table("urunler").upsert({
-                            "sku": u["sku"],
-                            "urun_adi": u["urun_adi"],
-                            "kategori": u.get("kategori", "Monitor"),
-                            "marka": u.get("marka", ""),
-                            "satis_fiyati": 0.0,
-                            "alis_fiyati": gercek_maliyet,
-                            "hedef_kar_marji": 0.0,
-                            "ozellikler": f"FOB: ${u['alis_fiyati']} | Maliyet Katsayısı: {u['son_maliyet_katsayisi']} | Cost Price: ${u['cost_price']}",
-                            "bizim_stok": 0,
-                            "trendyol_stok": 0,
-                            "ilk_giris_tarihi": ilk_tarih,
-                            "guncelleme_tarihi": bugun,
-                        }, on_conflict="sku").execute()
-                        sb.table("stok_yas").upsert(
-                            {"sku": u["sku"], "ilk_gorulen_tarih": bugun}, on_conflict="sku"
-                        ).execute()
-                        basarili += 1
-except Exception as e:
+    """FAZEON marka urun listesini Supabase'e toplu olarak yukler.
+    Mevcut urunlerin uzerine yazar (upsert). Guvenle tekrar calistirilabilir."""
+    sb = get_client()
+    bugun = get_today()
+    basarili = 0
+    hatali = 0
+    for u in FAZEON_URUNLER:
+        try:
+            mevcut = _row(sb.table("urunler").select("ilk_giris_tarihi").eq("sku", u["sku"]).execute())
+            ilk_tarih = mevcut["ilk_giris_tarihi"] if mevcut and mevcut.get("ilk_giris_tarihi") else bugun
+            gercek_maliyet = u["cost_price"] if u["cost_price"] > 0 else u["alis_fiyati"]
+            sb.table("urunler").upsert({
+                "sku": u["sku"],
+                "urun_adi": u["urun_adi"],
+                "kategori": u.get("kategori", "Monitor"),
+                "marka": u.get("marka", ""),
+                "satis_fiyati": 0.0,
+                "alis_fiyati": gercek_maliyet,
+                "hedef_kar_marji": 0.0,
+                "ozellikler": f"FOB: undefined | Katsayi: {u['son_maliyet_katsayisi']} | Cost: undefined",
+                "bizim_stok": 0,
+                "trendyol_stok": 0,
+                "ilk_giris_tarihi": ilk_tarih,
+                "guncelleme_tarihi": bugun,
+            }, on_conflict="sku").execute()
+            sb.table("stok_yas").upsert(
+                {"sku": u["sku"], "ilk_gorulen_tarih": bugun}, on_conflict="sku"
+            ).execute()
+            basarili += 1
+        except Exception as e:
             hatali += 1
     _cache_temizle()
     return basarili, hatali
 
 
 def get_fazeon_urunler_listesi():
-        """Sabit FAZEON_URUNLER listesini döndürür (seed data)."""
-        return FAZEON_URUNLER
+    """Sabit FAZEON_URUNLER listesini dondurur (seed data)."""
+    return FAZEON_URUNLER
