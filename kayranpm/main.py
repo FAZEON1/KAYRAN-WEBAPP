@@ -46,7 +46,7 @@ def run():
     
     html, body, .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        background: #070D1A !important;
+        background: #0A0F1E !important;
     }
 
     /* ── ALERT BOX'LARI (warning/error/info/success) ─────────────────── */
@@ -61,20 +61,20 @@ def run():
     }
     div[data-testid="stAlertContentWarning"],
     div.stAlert:has([data-testid="stAlertContentWarning"]) {
-        background: #FEF3C7 !important;
-        color: #78350F !important;
+        background: #1F1A08 !important;
+        color: #FCD34D !important;
         border-color: #FCD34D !important;
     }
     div[data-testid="stAlertContentError"],
     div.stAlert:has([data-testid="stAlertContentError"]) {
-        background: #FEE2E2 !important;
-        color: #7F1D1D !important;
+        background: #1F0808 !important;
+        color: #FCA5A5 !important;
         border-color: #FCA5A5 !important;
     }
     div[data-testid="stAlertContentInfo"],
     div.stAlert:has([data-testid="stAlertContentInfo"]) {
-        background: #DBEAFE !important;
-        color: #1E3A8A !important;
+        background: #0E1A3A !important;
+        color: #60A5FA !important;
         border-color: #93C5FD !important;
     }
     div[data-testid="stAlertContentSuccess"],
