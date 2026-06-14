@@ -17,6 +17,7 @@ import ssl
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from urllib.parse import quote
+from shared.auth import kullanici_dogrula
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -576,7 +577,7 @@ def giris_ekrani():
                 if not kullanicilar:
                     st.warning("⚠️ Kullanıcı ayarları yapılandırılmamış.")
                     return
-                if kullanici in kullanicilar and kullanicilar[kullanici] == sifre:
+                if kullanici_dogrula(kullanici, sifre, kullanicilar):
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
                     st.session_state.aktif_uygulama = "anasayfa"
