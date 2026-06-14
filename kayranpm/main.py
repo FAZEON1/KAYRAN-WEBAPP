@@ -7,6 +7,8 @@ Kullanım:
     run()
 """
 import streamlit as st
+import logging
+_log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 import pandas as pd
@@ -404,8 +406,11 @@ def run():
     
         # Veri yükle
         try:
+            if yenile:
+                st.cache_data.clear()
             veri = dashboard_hesapla()
         except Exception as e:
+            _log.error("Dashboard veri hatası: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
             st.stop()
     
@@ -835,6 +840,7 @@ def run():
         try:
             veri = dashboard_hesapla()
         except Exception as e:
+            _log.error("Hata: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
             st.stop()
     
@@ -1063,6 +1069,7 @@ def run():
         try:
             analiz = genel_analiz_hesapla()
         except Exception as e:
+            _log.error("Hata: %s", e)
             st.error(f"Analiz yüklenemedi: {e}")
             st.stop()
     
@@ -1339,6 +1346,7 @@ def run():
         try:
             urun_data = tum_urunler_listesi()
         except Exception as e:
+            _log.error("Hata: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
             st.stop()
     
@@ -1605,6 +1613,7 @@ def run():
                             st.warning(f"⚠️ {hatali} kayıt atlandı: {' | '.join(hatalar[:3])}")
                         st.rerun()
                 except Exception as e:
+                    _log.error("Hata: %s", e)
                     st.error(f"Dosya okunamadı: {e}")
     
         st.markdown("---")
@@ -1614,7 +1623,8 @@ def run():
         # Kampanya destek ortalamalarını çek
         try:
             destek_map = get_kampanya_destek_ortalamalari()
-        except Exception:
+        except Exception as _e:
+            _log.debug("Sessiz hata (fallback): %s", _e)
             destek_map = {}
     
         for u in urun_data:
@@ -2212,7 +2222,7 @@ def run():
                                     v = float(str(nk).replace("$","").replace(",",""))
                                     if v > 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:700"
                                     elif v < 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                                except Exception: pass
+                                except Exception as _e: _log.warning("Sessiz hata: %s", _e)
                             if "⭐ Paçal ($)" in cols:
                                 styles[cols.index("⭐ Paçal ($)")] = "background-color:#1a3a00; color:#FFD54F; font-weight:700"
                             if "Toplam Net Kar ($)" in cols:
@@ -2220,7 +2230,7 @@ def run():
                                     v = float(str(row.get("Toplam Net Kar ($)","0")).replace("$","").replace(",",""))
                                     if v > 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:800"
                                     elif v < 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:800"
-                                except Exception: pass
+                                except Exception as _e: _log.warning("Sessiz hata: %s", _e)
                             return styles
     
                         st.dataframe(df_ku.drop(columns=["ID"]).style.apply(ku_rengi, axis=1),
@@ -2378,6 +2388,7 @@ def run():
             urun_data = tum_urunler_listesi()
             urun_dict = {u["sku"]: u for u in urun_data}
         except Exception as e:
+            _log.error("Hata: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
             st.stop()
     
@@ -2627,6 +2638,7 @@ def run():
                         st.rerun()
     
         except Exception as e:
+            _log.warning("Hata: %s", e)
             st.warning(f"Geçmiş yüklemeler yüklenemedi: {e}")
     
     
@@ -2765,4 +2777,5 @@ def run():
     
             st.dataframe(df_ozet.style.apply(ozet_rengi, axis=1), use_container_width=True, height=400)
         except Exception as e:
+            _log.error("Hata: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
