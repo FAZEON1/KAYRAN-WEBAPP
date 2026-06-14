@@ -806,7 +806,7 @@ def portal_sidebar(kompakt=False):
                 unsafe_allow_html=True
             )
 
-                    if st.button(
+        if st.button(
             "🔑 Şifremi Değiştir",
             key="nav_sifre_degistir",
             type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
@@ -815,11 +815,11 @@ def portal_sidebar(kompakt=False):
             st.session_state.aktif_uygulama = "sifre_degistir"
             st.rerun()
 
-            if st.button("🚪  Çıkış Yap", key="nav_cikis", use_container_width=True):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.session_state.aktif_uygulama = "anasayfa"
-                st.rerun()
+        if st.button("🚪  Çıkış Yap", key="nav_cikis", use_container_width=True):
+            st.session_state.giris_yapildi = False
+            st.session_state.aktif_kullanici = ""
+            st.session_state.aktif_uygulama = "anasayfa"
+            st.rerun()
         else:
             # Alt uygulama içindeyken: küçük "Sayfalar" başlığı
             # (KAYRAN kendi st.radio'larıyla buraya ekleyecek)
