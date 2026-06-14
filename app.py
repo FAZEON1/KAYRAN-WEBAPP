@@ -260,7 +260,7 @@ def login_css():
         background-clip: padding-box;
     }
     
-</style>
+    </style>
 
     <div class="kayran-bg"></div>
     """
