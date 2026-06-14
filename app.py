@@ -605,52 +605,39 @@ def giris_ekrani():
 
 
 def portal_sidebar(kompakt=False):
-    """Streamlit'in resmi sidebar'ına KAYRAN'ın navigasyonunu çizer.
-
-    Args:
-        kompakt: True ise alt uygulama içindeyken sadece üst bar (Ana Sayfa + uygulamalar)
-                 False ise tam navigasyon (hesap kartı + çıkış dahil)
-    """
+    """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
     ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
 
-    # ─── Sidebar koyu tema (alt uygulama açıkken bile çalışır) ───
-    # Bu CSS, alt uygulama (KAYRAN) kendi açık temasını uygulasa bile
-    # sidebar bizim koyu navigasyonumuzla tutarlı kalsın diye lazım
-        # ─── Mobile responsive CSS (ayrı çağrı — Streamlit parser uyumlu) ───
     st.markdown(
         """<style>
 @media (max-width: 768px) {
-    section[data-testid="stSidebar"] { width: 85vw !important; min-width: 0 !important; }
-    .main .block-container { padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+section[data-testid="stSidebar"] { width: 85vw !important; min-width: 0 !important; }
+.main .block-container { padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
 }
 @media (max-width: 480px) {
-    input, textarea, select { font-size: 16px !important; }
+input, textarea, select { font-size: 16px !important; }
 }
 </style>""",
         unsafe_allow_html=True
     )
     st.markdown(
         '<style>'
-        # Sidebar zemin
         'section[data-testid="stSidebar"]{'
         'background:linear-gradient(180deg,#0D1235 0%,#080C20 100%) !important;'
         'border-right:1px solid rgba(255,255,255,0.06) !important;'
         '}'
-        # Sidebar yazı renkleri (tüm text, label, p, span, div, h1-h6)
         'section[data-testid="stSidebar"] *{'
         'color:#CBD5E1 !important;'
         '}'
-        # Sidebar markdown başlıkları
         'section[data-testid="stSidebar"] h1,'
         'section[data-testid="stSidebar"] h2,'
         'section[data-testid="stSidebar"] h3,'
         'section[data-testid="stSidebar"] strong{'
         'color:#FFFFFF !important;'
         '}'
-        # Sidebar butonları
         'section[data-testid="stSidebar"] .stButton > button{'
         'background:transparent !important;'
         'color:#CBD5E1 !important;'
@@ -672,24 +659,20 @@ def portal_sidebar(kompakt=False):
         'transform:none !important;'
         'border-color:rgba(99,102,241,0.2) !important;'
         '}'
-        # Aktif buton (mor highlight, beyaz yazı)
         'section[data-testid="stSidebar"] .stButton > button[kind="primary"]{'
         'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.15)) !important;'
         'color:#FFFFFF !important;'
         'border:1px solid rgba(99,102,241,0.4) !important;'
         '}'
-        # Disabled (kilitli) butonlar
         'section[data-testid="stSidebar"] .stButton > button:disabled{'
         'background:transparent !important;'
         'color:#475569 !important;'
         'cursor:not-allowed !important;'
         '}'
-        # Streamlit'in default radio/selectbox renkleri (alt uygulama içinde)
         'section[data-testid="stSidebar"] [data-testid="stRadio"] label,'
         'section[data-testid="stSidebar"] [data-testid="stRadio"] p{'
         'color:#CBD5E1 !important;'
         '}'
-        # Sidebar collapse arrow + buton
         'button[data-testid="stBaseButton-headerNoPadding"],'
         '[data-testid="stSidebarCollapsedControl"]{'
         'background:rgba(255,255,255,0.05) !important;'
@@ -699,10 +682,9 @@ def portal_sidebar(kompakt=False):
         'color:rgba(255,255,255,0.7) !important;'
         'fill:rgba(255,255,255,0.7) !important;'
         '}'
-        # Material Icons ligature fix - "keyboard_double_arrow_left" gibi yazılar gözükmesin
         'button[data-testid="stBaseButton-headerNoPadding"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),'
         '[data-testid="stSidebarCollapsedControl"] span:not(.material-symbols-rounded):not(.material-symbols-outlined){'
-        'font-size:0 !important;'  # Eğer Material Icons font yüklenmemişse text gözükmesin
+        'font-size:0 !important;'
         '}'
         'button[data-testid="stBaseButton-headerNoPadding"] svg,'
         '[data-testid="stSidebarCollapsedControl"] svg{'
@@ -710,7 +692,6 @@ def portal_sidebar(kompakt=False):
         'width:18px !important;'
         'height:18px !important;'
         '}'
-        # Header toolbar (Deploy, Share)
         'header[data-testid="stHeader"] *,'
         '.stAppToolbar *,'
         '.stAppDeployButton *{'
@@ -720,7 +701,6 @@ def portal_sidebar(kompakt=False):
         '.stAppToolbar svg{'
         'fill:rgba(255,255,255,0.65) !important;'
         '}'
-        # Scrollbar
         '::-webkit-scrollbar{width:10px;height:10px;}'
         '::-webkit-scrollbar-track{background:rgba(255,255,255,0.02);}'
         '::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:6px;}'
@@ -730,14 +710,10 @@ def portal_sidebar(kompakt=False):
     )
 
     with st.sidebar:
-        st.markdown(
-        '<script>window.parent.document.querySelector("[data-testid=stSidebar]>div:first-child")&&(window.parent.document.querySelector("[data-testid=stSidebar]>div:first-child").scrollTop=0);<\/script>',
-        unsafe_allow_html=True
-    )
-        # Logo + KAYRAN başlığı (her zaman)
+        # Logo + KAYRAN basligi
         st.markdown(
             '<div style="display:flex;align-items:center;gap:12px;padding:4px 0 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:14px">'
-            f'{KAYRAN_LOGO_SVG}'
+            + KAYRAN_LOGO_SVG +
             '<div>'
             '<div style="font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1">KAYRAN</div>'
             '<div style="font-size:10px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;font-weight:600">Workspace</div>'
@@ -746,14 +722,14 @@ def portal_sidebar(kompakt=False):
             unsafe_allow_html=True
         )
 
-        # NAVIGASYON grubu — daima görünür
+        # NAVIGASYON grubu
         st.markdown(
-            '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">NAVİGASYON</div>',
+            '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">NAViGASYON</div>',
             unsafe_allow_html=True
         )
 
         if st.button(
-            "🏠  Ana Sayfa",
+            "Ana Sayfa",
             key="nav_anasayfa",
             type="primary" if aktif_sayfa == "anasayfa" else "secondary",
             use_container_width=True
@@ -761,10 +737,9 @@ def portal_sidebar(kompakt=False):
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
-        # KAYRAN
         if yetkiler["kayranacc"]:
             if st.button(
-                "💳 Muhasebe & Finans",
+                "Muhasebe & Finans",
                 key="nav_kayranacc",
                 type="primary" if aktif_sayfa == "kayranacc" else "secondary",
                 use_container_width=True
@@ -773,17 +748,16 @@ def portal_sidebar(kompakt=False):
                 st.rerun()
         else:
             st.button(
-                "🔒 Muhasebe & Finans",
+                "Muhasebe & Finans",
                 key="nav_kayranacc_disabled",
                 disabled=True,
                 use_container_width=True,
-                help="Bu uygulamaya erişim yetkiniz yok"
+                help="Bu uygulamaya erisim yetkiniz yok"
             )
 
-        # KAYRAN
         if yetkiler["kayranpm"]:
             if st.button(
-                "📦 İthalat & Ürün Yönetimi",
+                "Ithalat & Urun Yonetimi",
                 key="nav_kayranpm",
                 type="primary" if aktif_sayfa == "kayranpm" else "secondary",
                 use_container_width=True
@@ -792,97 +766,77 @@ def portal_sidebar(kompakt=False):
                 st.rerun()
         else:
             st.button(
-                "🔒 İthalat & Ürün Yönetimi",
+                "Ithalat & Urun Yonetimi",
                 key="nav_kayranpm_disabled",
                 disabled=True,
                 use_container_width=True,
-                help="Bu uygulamaya erişim yetkiniz yok"
+                help="Bu uygulamaya erisim yetkiniz yok"
             )
-    # HESAP MAKİNESİ — Sadece ibrahim'e görünür
-    if yetkiler["hesap_makinesi"]:
-        if st.button(
-            "🧮 Hesap Makinesi",
-            key="nav_hesap_makinesi",
-            type="primary" if aktif_sayfa == "hesap_makinesi" else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.aktif_uygulama = "hesap_makinesi"
-            st.rerun()
 
+        if yetkiler["hesap_makinesi"]:
+            if st.button(
+                "Hesap Makinesi",
+                key="nav_hesap_makinesi",
+                type="primary" if aktif_sayfa == "hesap_makinesi" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "hesap_makinesi"
+                st.rerun()
 
-        # KAYRANTS&W — Yakında (herkese açık, tıklayınca "Yakında" sayfası)
         if st.button(
-            "🚧 Depo & Teknik Servis",
+            "Depo & Teknik Servis",
             key="nav_kayrantsw",
             type="primary" if aktif_sayfa == "kayrantsw" else "secondary",
             use_container_width=True,
-            help="Çok yakında sizlerle"
+            help="Cok yakinda sizlerle"
         ):
             st.session_state.aktif_uygulama = "kayrantsw"
             st.rerun()
 
-        # Ayırıcı çizgi
         st.markdown(
             '<div style="height:1px;background:rgba(255,255,255,0.06);margin:14px 0 14px"></div>',
             unsafe_allow_html=True
         )
 
-        # Alt uygulama açıksa: o uygulamanın sidebar içeriği BURADAN sonra yüklenir
-        # Ana sayfadaysak: HESAP bölümü
         if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi"):
-            # Kullanıcı + Çıkış (sadece ana sayfada)
             st.markdown(
                 '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 10px;padding-left:6px">HESAP</div>',
                 unsafe_allow_html=True
             )
             st.markdown(
-                f'<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:8px">'
-                f'<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px">{ilk_harf}</div>'
-                f'<div style="overflow:hidden">'
-                f'<div style="color:#94A3B8;font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1">Oturum</div>'
-                f'<div style="color:#FFFFFF;font-weight:600;font-size:12px;margin-top:2px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{aktif_kullanici.capitalize()}</div>'
-                f'</div>'
-                f'</div>',
+                '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:8px">'
+                '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px">' + ilk_harf + '</div>'
+                '<div style="overflow:hidden">'
+                '<div style="color:#94A3B8;font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1">Oturum</div>'
+                '<div style="color:#FFFFFF;font-weight:600;font-size:12px;margin-top:2px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + aktif_kullanici.capitalize() + '</div>'
+                '</div>'
+                '</div>',
                 unsafe_allow_html=True
             )
 
-        if st.button(
-            "🔑 Şifremi Değiştir",
-            key="nav_sifre_degistir",
-            type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.aktif_uygulama = "sifre_degistir"
-            st.rerun()
+            if st.button(
+                "Sifremi Degistir",
+                key="nav_sifre_degistir",
+                type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "sifre_degistir"
+                st.rerun()
 
-        if st.button("🚪  Çıkış Yap", key="nav_cikis", use_container_width=True):
-            st.session_state.giris_yapildi = False
-            st.session_state.aktif_kullanici = ""
-            st.session_state.aktif_uygulama = "anasayfa"
-            st.rerun()
+            if st.button("Cikis Yap", key="nav_cikis", use_container_width=True):
+                st.session_state.giris_yapildi = False
+                st.session_state.aktif_kullanici = ""
+                st.session_state.aktif_uygulama = "anasayfa"
+                st.rerun()
         else:
-            # Alt uygulama içindeyken: küçük "Sayfalar" başlığı
-            # (KAYRAN kendi st.radio'larıyla buraya ekleyecek)
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "İthalat & Ürün Yönetimi", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ithalat & Urun Yonetimi", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
             uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             st.markdown(
-                f'<div style="font-size:10px;color:{uyg_renk};letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">📂 {uyg_adi} SAYFALARI</div>',
+                '<div style="font-size:10px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px"> ' + uyg_adi + ' SAYFALARI</div>',
                 unsafe_allow_html=True
             )
-
-
-# ─────────────────────────────────────────────────────────────────────
-# 3) ANA SAYFA — Kurumsal Dashboard
-# ─────────────────────────────────────────────────────────────────────
-
-# G5F Logo SVG (kart üzerinde — beyaz G/F + turuncu 5)
-# Orijinal logo koyu lacivert + turuncu, ancak koyu kart üzerinde G/F beyaz olmalı
-G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
-
-# Fazeon Logo SVG (beyaz, minimalist)
-FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
 
 
 def anasayfa():
