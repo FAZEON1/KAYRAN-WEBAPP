@@ -466,38 +466,6 @@ def portal_css():
         box-shadow: 0 8px 28px rgba(139,92,246,0.5) !important;
     }
     
-/* ── MOBİL UYUM — Portal ── */
-@media (max-width: 768px) {
-  .main .block-container {
-    padding-top: 1rem !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-  }
-  /* Ana sayfa hero */
-  h1[style*="font-size"] {
-    font-size: clamp(22px, 5vw, 36px) !important;
-  }
-  /* Brand kartlar (st.columns) */
-  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    min-width: 280px !important;
-    width: 100% !important;
-  }
-  /* Form input boyutlari */
-  [data-testid="stTextInput"] input,
-  [data-testid="stTextArea"] textarea {
-    font-size: 16px !important; /* iOS zoom engellemek icin */
-  /* Sidebar mobil genislik */
-  section[data-testid="stSidebar"] {
-    width: 85vw !important;
-    min-width: unset !important;
-  }
-  [data-testid="stSidebarCollapsedControl"],
-  button[data-testid="stBaseButton-headerNoPadding"] {
-    display: flex !important;
-    visibility: visible !important;
-  }
-  }
-}
     </style>
     <div class="anasayfa-bg-blob1"></div>
     <div class="anasayfa-bg-blob2"></div>
