@@ -128,3 +128,83 @@ def hash_guncelleme_gerekli_mi(hash_str: str, hedef: int = _ITERATIONS) -> bool:
         return int(hash_str.split(":")[2].split("$")[0]) < hedef
     except Exception:
         return True
+
+
+# ─ Supabase Şifre Yönetimi ──────────────────────────────────────────────────────────────
+
+def _get_supabase():
+    """Supabase client'ı döner. İmport hatası olursa None döner."""
+    try:
+        import streamlit as st
+        from supabase import create_client
+        url = st.secrets["supabase"]["url"]
+        # Şifre değişikliği için anon key yeterli (RLS ile korunur)
+        # service_role_key varsa onu kullan, yoksa anon key
+        key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
+        return create_client(url, key)
+    except Exception:
+        return None
+
+
+def supabase_sifre_oku(kullanici_adi: str):
+    """
+    Supabase kullanici_sifreler tablosundan hash'i okur.
+    Tablo yoksa veya kayıt yoksa None döner.
+    """
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return None
+        res = sb.table("kullanici_sifreler").select("sifre_hash").eq("kullanici_adi", kullanici_adi).limit(1).execute()
+        if res.data:
+            return res.data[0]["sifre_hash"]
+        return None
+    except Exception:
+        return None
+
+
+def supabase_sifre_kaydet(kullanici_adi: str, yeni_hash: str) -> bool:
+    """
+    Supabase kullanici_sifreler tablosuna hash yazar (upsert).
+    Başarılıysa True, hata olursa False döner.
+    """
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        import datetime as _dt
+        sb.table("kullanici_sifreler").upsert({
+            "kullanici_adi": kullanici_adi,
+            "sifre_hash": yeni_hash,
+            "guncelleme_tarihi": _dt.datetime.utcnow().isoformat(),
+        }, on_conflict="kullanici_adi").execute()
+        return True
+    except Exception:
+        return False
+
+
+def kullanici_dogrula_v2(kullanici_adi: str, sifre_duz: str, kullanicilar: dict) -> bool:
+    """
+    Gelişmiş doğrulama: önce Supabase'e bakar, yoksa Secrets'a düşer.
+
+    Öncelik sırası:
+      1. Supabase kullanici_sifreler tablosu (kullanıcı kendi şifresini değiştirmişse)
+      2. Secrets [kullanicilar] bölümü (varsayılan / fallback)
+
+    Args:
+        kullanici_adi : Giriş formundan gelen kullanıcı adı
+        sifre_duz     : Giriş formundan gelen şifre
+        kullanicilar  : st.secrets["kullanicilar"] dict'i
+    """
+    # Kullanıcı secrets'ta tanımlı mı? (yoksa hiç kabul etme)
+    if kullanici_adi not in kullanicilar:
+        sifre_dogrula(sifre_duz, sifre_hash_uret("__dummy__"))  # timing koruması
+        return False
+
+    # 1) Supabase'de özel şifre var mı?
+    supabase_hash = supabase_sifre_oku(kullanici_adi)
+    if supabase_hash:
+        return sifre_dogrula(sifre_duz, supabase_hash)
+
+    # 2) Secrets'taki hash ile doğrula (fallback)
+    return sifre_dogrula(sifre_duz, kullanicilar[kullanici_adi])
