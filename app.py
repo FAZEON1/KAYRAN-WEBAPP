@@ -878,9 +878,53 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
-    # ─── ÜST İSTATİSTİK KARTLARI ───
+    # ─── ÜST İSTATİSTİK KARTLARI (CANLI VERİ) ───
     erisilebilir = sum(1 for v in yetkiler.values() if v)
     toplam_uygulama = len(yetkiler)
+
+    # Kayranacc yetkisi varsa canli veri cek
+    _gecikmiş_say = 0
+    _bekleyen_tl = 0.0
+    _bekleyen_adet = 0
+    _hafta_adi = ""
+    _veri_tamam = False
+    if yetkiler.get("kayranacc"):
+        try:
+            from kayranacc.database import get_aktif_hafta, get_hafta_odemeler
+            from shared.utils import tr_today
+            _hafta = get_aktif_hafta()
+            if _hafta:
+                _hafta_adi = _hafta.get("hafta_adi", "")
+                _odemeler = get_hafta_odemeler(_hafta["id"])
+                _bugun = tr_today()
+                for _o in _odemeler:
+                    if _o.get("durum") == "bekliyor":
+                        _bekleyen_tl += float(_o.get("tutar_tl") or 0)
+                        _bekleyen_adet += 1
+                        _vade_str = _o.get("vade") or ""
+                        if _vade_str:
+                            try:
+                                from datetime import date as _date
+                                _vd = _date.fromisoformat(_vade_str[:10])
+                                if _vd < _bugun:
+                                    _gecikmiş_say += 1
+                            except Exception:
+                                pass
+                _veri_tamam = True
+        except Exception:
+            pass
+
+    # Kart renk ve icerik hesapla
+    _kart2_renk = "rgba(239,68,68,0.2)" if _gecikmiş_say > 0 else "rgba(16,185,129,0.2)"
+    _kart2_border = "rgba(239,68,68,0.3)" if _gecikmiş_say > 0 else "rgba(16,185,129,0.3)"
+    _kart2_metin_renk = "#FCA5A5" if _gecikmiş_say > 0 else "#6EE7B7"
+    _kart2_ikon = "⚠️" if _gecikmiş_say > 0 else "✅"
+    _kart2_alt = (f"⚠️ {_gecikmiş_say} ödeme vadesi geçmiş!" if _gecikmiş_say > 0 else "✔ Tüm ödemeler güncel") if _veri_tamam else "⊟ Kayranacc yetkisi gerekli"
+
+    _bekleyen_tl_fmt = f"₺{_bekleyen_tl:,.0f}".replace(",", ".") if _bekleyen_tl > 0 else "₺0"
+    _kart3_alt = (f"⏳ {_bekleyen_adet} ödeme bekliyor" + (f" — {_hafta_adi}" if _hafta_adi else "")) if _veri_tamam else "⊟ Kayranacc yetkisi gerekli"
+    _kart3_renk = "rgba(236,72,153,0.15)" if _veri_tamam else "rgba(255,255,255,0.03)"
+    _kart3_border = "rgba(236,72,153,0.25)" if _veri_tamam else "rgba(255,255,255,0.08)"
 
     st.markdown(
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:48px;animation:fadeUp 0.7s ease-out">'
@@ -892,26 +936,23 @@ def anasayfa():
         '</div>'
         '<div style="color:#A5B4FC;font-size:11px;font-weight:500;margin-top:6px">⚡ Yetkili olduğun uygulamalar</div>'
         '</div>'
-        '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
-        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Sistem</div>'
-        '<div style="display:flex;align-items:center;gap:8px;margin-top:2px">'
-        '<div style="width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 12px #10B981"></div>'
-        '<span style="color:#FFFFFF;font-size:18px;font-weight:700">Çevrimiçi</span>'
+        f'<div style="background:{_kart2_renk};border:1px solid {_kart2_border};border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
+        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Gecikmiş Ödeme</div>'
+        f'<div style="display:flex;align-items:baseline;gap:6px">'
+        f'<span style="color:#FFFFFF;font-size:32px;font-weight:800;font-family:JetBrains Mono,monospace">{_gecikmiş_say}</span>'
         '</div>'
-        '<div style="color:#6EE7B7;font-size:11px;font-weight:500;margin-top:6px">✓ Tüm servisler aktif</div>'
+        f'<div style="color:{_kart2_metin_renk};font-size:11px;font-weight:500;margin-top:6px">{_kart2_alt}</div>'
         '</div>'
-        f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(236,72,153,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
-        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Versiyon</div>'
-        '<div style="display:flex;align-items:baseline;gap:6px">'
-        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v1.2</span>'
-        '<span style="color:#64748B;font-size:12px">.0</span>'
+        f'<div style="background:{_kart3_renk};border:1px solid {_kart3_border};border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
+        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Bekleyen TL</div>'
+        f'<div style="display:flex;align-items:baseline;gap:6px">'
+        f'<span style="color:#FFFFFF;font-size:24px;font-weight:800;font-family:JetBrains Mono,monospace">{_bekleyen_tl_fmt}</span>'
         '</div>'
-        '<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">🏢 Kurumsal sürüm</div>'
+        f'<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">{_kart3_alt}</div>'
         '</div>'
         '</div>',
         unsafe_allow_html=True
     )
-
     # ─── KURUMSAL BÖLÜMÜ BAŞLIĞI ───
     st.markdown(
         '<div style="margin:8px 0 24px;animation:fadeUp 0.8s ease-out">'
