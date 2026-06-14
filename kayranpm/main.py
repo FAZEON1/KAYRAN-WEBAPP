@@ -705,7 +705,7 @@ def run():
                             if st.button("📦 Sipariş Önerisi Ekle", key=f"btn_{urun['sku']}_{fd['firma']}"):
                                 ekle_siparis_onerisi(fd["firma"], urun["sku"], urun["urun_adi"], miktar)
                                 st.cache_data.clear()
-                                st.success("Sipariş önerisi oluşturuldu!")
+                                st.toast("Sipariş önerisi oluşturuldu!")
                                 st.rerun()
     
             # ── DASHBOARD GRAFİKLERİ ──────────────────────────────────────
@@ -1339,7 +1339,7 @@ def run():
                         upsert_yoldaki_urun(sku_temiz, m_urun_adi.strip(), m_yoldaki,
                                            str(m_varis) if m_varis else "", m_tedarikci.strip())
                     st.cache_data.clear()
-                    st.success(f"✅ **{sku_temiz}** — {m_urun_adi.strip()} eklendi!")
+                    st.toast(f"✅ **{sku_temiz}** — {m_urun_adi.strip()} eklendi!")
                     st.rerun()
     
         # Ürün verilerini yükle
@@ -1497,7 +1497,7 @@ def run():
                 if st.button("Sil", key="sil_btn_tu"):
                     sil_satin_alma(int(silme_id))
                     st.cache_data.clear()
-                    st.success(f"#{silme_id} silindi.")
+                    st.toast(f"#{silme_id} silindi.")
                     st.rerun()
     
         # Yeni Satın Alma Ekle
@@ -1725,7 +1725,7 @@ def run():
                     if st.button("🗑️ Sil", type="primary", use_container_width=True, disabled=not onay):
                         sil_urun(sil_sku)
                         st.cache_data.clear()
-                        st.success(f"✅ {sil_sku} silindi.")
+                        st.toast(f"✅ {sil_sku} silindi.")
                         st.rerun()
     
     
@@ -1839,7 +1839,7 @@ def run():
                 )
                 degisen += 1
             st.cache_data.clear()
-            st.success(f"✅ {degisen} kayıt güncellendi!")
+            st.toast(f"✅ {degisen} kayıt güncellendi!")
             st.rerun()
     
         # Silme
@@ -1849,7 +1849,7 @@ def run():
             if st.button("🗑️ Sil", key="sg_sil_btn", type="secondary"):
                 sil_satin_alma(sil_options[sil_secim])
                 st.cache_data.clear()
-                st.success("Kayıt silindi.")
+                st.toast("Kayıt silindi.")
                 st.rerun()
     
         # Tedarikçi bazında özet grafik
@@ -1910,7 +1910,7 @@ def run():
                         else:
                             yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip())
                             st.cache_data.clear()
-                            st.success(f"✅ '{k_adi}' kampanyası oluşturuldu! (ID: {yeni_id})")
+                            st.toast(f"✅ '{k_adi}' kampanyası oluşturuldu! (ID: {yeni_id})")
                             st.rerun()
     
             # Aktif kampanyaları listele
@@ -1961,7 +1961,7 @@ def run():
                                 if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
                                     guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not)
                                     st.cache_data.clear()
-                                    st.success("✅ Kampanya güncellendi!")
+                                    st.toast("✅ Kampanya güncellendi!")
                                     st.rerun()
                             with dc2_k:
                                 kapat_flag = st.form_submit_button("🔒 Kampanyayı Kapat", use_container_width=True)
@@ -2013,7 +2013,7 @@ def run():
                                         kapat_kampanya(kid)
                                         st.session_state.pop(f"kapat_onay_{kid}", None)
                                         st.cache_data.clear()
-                                        st.success("🔒 Kampanya kapatıldı ve satış adetleri kaydedildi!")
+                                        st.toast("🔒 Kampanya kapatıldı ve satış adetleri kaydedildi!")
                                         st.rerun()
                                 with kk2:
                                     if st.form_submit_button("İptal", use_container_width=True):
@@ -2090,7 +2090,7 @@ def run():
                                         if st.form_submit_button("💾 Güncelle", use_container_width=True, type="primary"):
                                             guncelle_kampanya_urun(ku_id, ug_satis, ug_fd, ug_ed, ug_satilan, ku.get("notlar",""))
                                             st.cache_data.clear()
-                                            st.success(f"✅ Güncellendi!")
+                                            st.toast(f"✅ Güncellendi!")
                                             st.rerun()
     
                     # Ürün ekleme formu
@@ -2152,7 +2152,7 @@ def run():
                                             pacal,
                                             u_satis, u_firma_destek, u_ek_destek, u_not
                                         )
-                                        st.success("✅ Ürün eklendi!")
+                                        st.toast("✅ Ürün eklendi!")
                                         st.rerun()
     
                     # Kampanya ürünleri tablosu
@@ -2271,7 +2271,7 @@ def run():
                                     if st.form_submit_button("💾 Güncelle", type="primary", use_container_width=True):
                                         guncelle_kampanya_urun(g_id, g_satis, g_fd, g_ed, g_satilan, g_not)
                                         st.cache_data.clear()
-                                        st.success("Güncellendi!")
+                                        st.toast("Güncellendi!")
                                         st.rerun()
                                 with gf_c2:
                                     if st.form_submit_button("🗑️ Ürünü Sil", use_container_width=True):
@@ -2484,7 +2484,7 @@ def run():
                         from database import ekle_siparis_onerisi
                         ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
                         st.cache_data.clear()
-                        st.success(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
+                        st.toast(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
                         st.rerun()
     
         # Onaylanan/Bekleyen geçmiş
@@ -2521,7 +2521,7 @@ def run():
                 if st.button("✅ Onayla", key="onayla_btn", use_container_width=True):
                     from database import onayla_siparis
                     onayla_siparis(int(onayla_id))
-                    st.success("Onaylandı!")
+                    st.toast("Onaylandı!")
                     st.rerun()
             with col_o2:
                 reddet_id = st.number_input("Reddedilecek ID", min_value=1, step=1, key="reddet_id")
@@ -2634,7 +2634,7 @@ def run():
                     sil_tarih = st.selectbox("Silinecek Tarih", sorted(tarih_firma.keys(), reverse=True), key="vy_sil_tarih")
                     if st.button("🗑️ Bu Tarihin Verisini Sil", type="secondary", key="vy_sil_btn"):
                         sb_vy.table("firma_stok").delete().eq("yukleme_tarihi", sil_tarih).execute()
-                        st.success(f"✅ {sil_tarih} tarihli firma stok verisi silindi.")
+                        st.toast(f"✅ {sil_tarih} tarihli firma stok verisi silindi.")
                         st.rerun()
     
         except Exception as e:
