@@ -10,7 +10,7 @@ Mimari:
   Hamburger ile sidebar açılır-kapanır
 """
 import streamlit as st
-from datetime import datetime, timezone
+from datetime import datetime
 import traceback
 import smtplib
 import ssl
@@ -23,6 +23,8 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 # ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
+KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
+KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 
 DUYURU_AKTIF = False
@@ -32,60 +34,13 @@ DUYURU_METNI = ""
 def kullanici_yetkileri(kullanici):
     k = (kullanici or "").lower().strip()
     return {
+        "kayranacc": k in KAYRANACC_KULLANICILAR,
+        "kayranpm":  k in KAYRANPM_KULLANICILAR,
         "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
     }
 
+
 # ─────────────────────────────────────────────────────────────────────
-# ONLINE PRESENCE — Supabase aktif_oturumlar tablosu
-# ─────────────────────────────────────────────────────────────────────
-
-def _get_supabase_client():
-    try:
-        from supabase import create_client
-        url = st.secrets["supabase"]["url"]
-        key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
-        return create_client(url, key)
-    except Exception:
-        return None
-
-
-def presence_kayit_et(kullanici_adi: str):
-    try:
-        sb = _get_supabase_client()
-        if not sb:
-            return
-        now = datetime.now(timezone.utc).isoformat()
-        sb.table("aktif_oturumlar").upsert(
-            {"kullanici_adi": kullanici_adi, "son_aktif": now},
-            on_conflict="kullanici_adi"
-        ).execute()
-    except Exception:
-        pass
-
-
-def presence_sil(kullanici_adi: str):
-    try:
-        sb = _get_supabase_client()
-        if not sb:
-            return
-        sb.table("aktif_oturumlar").delete().eq("kullanici_adi", kullanici_adi).execute()
-    except Exception:
-        pass
-
-
-def online_kullanicilar_getir():
-    try:
-        sb = _get_supabase_client()
-        if not sb:
-            return []
-        from datetime import timedelta
-        sinir = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
-        res = sb.table("aktif_oturumlar").select("kullanici_adi, son_aktif").gte("son_aktif", sinir).execute()
-        return res.data or []
-    except Exception:
-        return []
-
-
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
 TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
@@ -852,6 +807,42 @@ input, textarea, select { font-size: 16px !important; }
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
+        if yetkiler["kayranacc"]:
+            if st.button(
+                "💳 Muhasebe & Finans",
+                key="nav_kayranacc",
+                type="primary" if aktif_sayfa == "kayranacc" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "kayranacc"
+                st.rerun()
+        else:
+            st.button(
+                "🔒 Muhasebe & Finans",
+                key="nav_kayranacc_disabled",
+                disabled=True,
+                use_container_width=True,
+                help="Bu uygulamaya erisim yetkiniz yok"
+            )
+
+        if yetkiler["kayranpm"]:
+            if st.button(
+                "📦 Ithalat & Urun Yonetimi",
+                key="nav_kayranpm",
+                type="primary" if aktif_sayfa == "kayranpm" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "kayranpm"
+                st.rerun()
+        else:
+            st.button(
+                "🔒 Ithalat & Urun Yonetimi",
+                key="nav_kayranpm_disabled",
+                disabled=True,
+                use_container_width=True,
+                help="Bu uygulamaya erisim yetkiniz yok"
+            )
+
         if yetkiler["hesap_makinesi"]:
             if st.button(
                 "🧮 Hesap Makinesi",
@@ -1422,10 +1413,25 @@ def main():
     yetkiler = kullanici_yetkileri(st.session_state.aktif_kullanici)
 
     # Yetki kontrolü
+    if aktif == "kayranacc" and not yetkiler["kayranacc"]:
+        st.error("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
+    if aktif == "kayranpm" and not yetkiler["kayranpm"]:
+        st.error("🔒 İthalat & Ürün Yönetimi uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
+
     # Sayfa dispatch
     try:
         if aktif == "anasayfa":
             anasayfa()
+        elif aktif == "kayranacc":
+            from kayranacc.main import run as kayranacc_run
+            kayranacc_run()
+        elif aktif == "kayranpm":
+            from kayranpm.main import run as kayranpm_run
+            kayranpm_run()
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
@@ -1439,7 +1445,7 @@ def main():
             if st.button("← Ana Sayfaya Dön"):
                 st.rerun()
     except Exception as hata:
-        ad = aktif.capitalize()
+        ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
 
 
