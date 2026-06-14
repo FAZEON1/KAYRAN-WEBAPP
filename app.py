@@ -517,6 +517,16 @@ def portal_css():
   [data-testid="stTextInput"] input,
   [data-testid="stTextArea"] textarea {
     font-size: 16px !important; /* iOS zoom engellemek icin */
+  /* Sidebar mobil genislik */
+  section[data-testid="stSidebar"] {
+    width: 85vw !important;
+    min-width: unset !important;
+  }
+  [data-testid="stSidebarCollapsedControl"],
+  button[data-testid="stBaseButton-headerNoPadding"] {
+    display: flex !important;
+    visibility: visible !important;
+  }
   }
 }
 </style>
@@ -750,23 +760,6 @@ def portal_sidebar(kompakt=False):
         '::-webkit-scrollbar-track{background:rgba(255,255,255,0.02);}'
         '::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:6px;}'
         '::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.25);}'
-        '
-/* ── MOBİL UYUM — Sidebar ── */
-@media (max-width: 768px) {
-  section[data-testid="stSidebar"] {
-    width: 85vw !important;
-    min-width: unset !important;
-  }
-  section[data-testid="stSidebar"] .block-container {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-  [data-testid="stSidebarCollapsedControl"],
-  button[data-testid="stBaseButton-headerNoPadding"] {
-    display: flex !important;
-    visibility: visible !important;
-  }
-}
 </style>',
         unsafe_allow_html=True
     )
