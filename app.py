@@ -26,8 +26,8 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
 KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
 
-DUYURU_AKTIF = True
-DUYURU_METNI = "✨ Yeni: Sidebar navigasyon ve ana sayfa eklendi"
+DUYURU_AKTIF = False
+DUYURU_METNI = ""
 
 
 def kullanici_yetkileri(kullanici):
@@ -477,7 +477,21 @@ def portal_css():
 # ─────────────────────────────────────────────────────────────────────
 def giris_ekrani():
     st.markdown(login_css(), unsafe_allow_html=True)
-    if DUYURU_AKTIF:
+    # ─── Login mobil: sol panel gizle ───
+    st.markdown(
+        """<style>
+@media (max-width: 768px) {
+    .main .block-container { padding-top: 1rem !important; }
+}
+@media (max-width: 640px) {
+    [data-testid="column"]:first-child { display: none !important; }
+    [data-testid="column"]:last-child { flex: 1 1 100% !important; max-width: 100% !important; }
+    input { font-size: 16px !important; }
+}
+</style>""",
+        unsafe_allow_html=True
+    )
+        if DUYURU_AKTIF:
         st.markdown(f'<div class="duyuru-band">{DUYURU_METNI}</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
@@ -603,6 +617,19 @@ def portal_sidebar(kompakt=False):
     # ─── Sidebar koyu tema (alt uygulama açıkken bile çalışır) ───
     # Bu CSS, alt uygulama (KAYRAN) kendi açık temasını uygulasa bile
     # sidebar bizim koyu navigasyonumuzla tutarlı kalsın diye lazım
+        # ─── Mobile responsive CSS (ayrı çağrı — Streamlit parser uyumlu) ───
+    st.markdown(
+        """<style>
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] { width: 85vw !important; min-width: 0 !important; }
+    .main .block-container { padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+@media (max-width: 480px) {
+    input, textarea, select { font-size: 16px !important; }
+}
+</style>""",
+        unsafe_allow_html=True
+    )
     st.markdown(
         '<style>'
         # Sidebar zemin
@@ -903,7 +930,7 @@ def anasayfa():
         f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(236,72,153,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
         '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Versiyon</div>'
         '<div style="display:flex;align-items:baseline;gap:6px">'
-        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v1.2</span>'
+        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v2.0</span>'
         '<span style="color:#64748B;font-size:12px">.0</span>'
         '</div>'
         '<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">🏢 Kurumsal sürüm</div>'
@@ -1140,7 +1167,7 @@ def anasayfa():
         '<span style="color:#10B981;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Sistem Aktif</span>'
         '</div>'
         '<span style="color:#475569;font-size:10px">•</span>'
-        f'<span style="color:#64748B;font-size:11px;font-family:JetBrains Mono,monospace">KAYRAN v1.2.0</span>'
+        f'<span style="color:#64748B;font-size:11px;font-family:JetBrains Mono,monospace">KAYRAN v2.0.0</span>'
         '<span style="color:#475569;font-size:10px">•</span>'
         f'<span style="color:#64748B;font-size:11px;font-weight:500">© {yil} G5F Teknoloji</span>'
         '</div>'
@@ -1265,7 +1292,7 @@ def kayrantsw_yakinda():
         '<span style="color:#A5B4FC;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
         '</div>'
         # Başlık
-        '<h1 style="font-family:Inter,sans-serif;font-size:44px;font-weight:800;color:#FFFFFF;'
+        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:800;color:#FFFFFF;'
         'letter-spacing:1px;margin:0;line-height:1.1">'
         '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);'
         '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
