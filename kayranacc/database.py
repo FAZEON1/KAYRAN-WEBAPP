@@ -33,14 +33,14 @@ def initialize_db():
 # ════════════════════════════════════════════════════════════════════
 # HAFTALAR
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_tum_haftalar():
     sb = get_client()
     res = sb.table("haftalar").select("*").order("id", desc=True).execute()
     return res.data or []
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_aktif_hafta():
     sb = get_client()
     res = sb.table("haftalar").select("*").eq("aktif", 1).limit(1).execute()
@@ -76,14 +76,14 @@ def hafta_sil(hafta_id):
 # ════════════════════════════════════════════════════════════════════
 # ODEMELER
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_hafta_odemeler(hafta_id):
     sb = get_client()
     res = sb.table("odemeler").select("*").eq("hafta_id", hafta_id).order("vade").execute()
     return res.data or []
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_aktif_odemeler():
     hafta = get_aktif_hafta()
     if not hafta:
@@ -92,7 +92,7 @@ def get_aktif_odemeler():
     return odemeler, hafta
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_hafta_ozet(hafta_id):
     odemeler = get_hafta_odemeler(hafta_id)
     return {
@@ -292,7 +292,7 @@ def odeme_vade_guncelle(odeme_id, yeni_vade):
         _cache_temizle()
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_ertelenen_odemeler():
     """
     Ertelenmiş ödemeleri döndürür. İki yöntem dener:
@@ -351,7 +351,7 @@ def odeme_kategori_guncelle(odeme_id, yeni_kategori):
 # ════════════════════════════════════════════════════════════════════
 # BANKALAR
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_bankalar():
     sb = get_client()
     res = sb.table("bankalar").select("*").order("id").execute()
@@ -389,7 +389,7 @@ def banka_sil(banka_id):
 # ════════════════════════════════════════════════════════════════════
 # CEKLER
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_cekler(para_birimi="TL"):
     sb = get_client()
     res = sb.table("cekler").select("*").eq("para_birimi", para_birimi).order("vade").execute()
@@ -466,7 +466,7 @@ def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
 # ════════════════════════════════════════════════════════════════════
 # VİRMANLAR (Bankalar Arası Para Transferi)
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_virmanlar(limit=50):
     """Son virmanları döndürür (yenisiyle eskisine göre sıralı)."""
     sb = get_client()
@@ -635,7 +635,7 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
         _cache_temizle()
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def aktif_excel_oku(kullanici, dosya_tipi):
     """
     Paylaşımlı Excel verisini okur (kullanici parametresi göz ardı edilir).
@@ -665,7 +665,7 @@ def aktif_excel_oku(kullanici, dosya_tipi):
         return None
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def aktif_excel_meta_oku(dosya_tipi):
     """
     Excel meta bilgisi okur: son_yukleyen, yukleme_zamani
@@ -736,7 +736,7 @@ def aktif_manuel_ekle(kullanici, aciklama, tutar, para_birimi="USD", tip="ekle")
         _cache_temizle()
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def aktif_manuel_listele(kullanici=None):
     """
     TÜM manuel kalemleri döndürür (paylaşımlı).
@@ -761,7 +761,7 @@ def aktif_manuel_sil(kalem_id):
         _cache_temizle()
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_cek_toplamlari():
     """
     Sistemdeki TAHSİL EDİLMEMİŞ (henüz nakde çevrilmemiş) çeklerin
