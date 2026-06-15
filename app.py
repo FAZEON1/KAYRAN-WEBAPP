@@ -1067,6 +1067,40 @@ def anasayfa():
     elif saat < 18: selamlama = "İyi günler"
     else: selamlama = "İyi akşamlar"
 
+    # ─────────────────────────────────────────────────────────────────────
+    # KULLANICIYA BİLDİRİM — EN ÜSTTE (ibrahim dışı herkes)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() != "ibrahim":
+        _bildirimler = get_okunmamis_bildirimler(aktif_kullanici)
+        if _bildirimler:
+            _bil_html = (
+                '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08));'
+                'border:1px solid rgba(99,102,241,0.3);border-radius:16px;'
+                'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.4s ease-out">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+                f'<div style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.25);'
+                f'display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔔</div>'
+                f'<span style="color:#A5B4FC;font-size:13px;font-weight:700">'
+                f'{len(_bildirimler)} yeni bildirim</span>'
+                f'</div>'
+            )
+            for _b in _bildirimler:
+                _bil_html += (
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
+                    f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
+                    f'<div style="color:#64748B;font-size:10px;margin-top:6px;display:flex;align-items:center;gap:6px">'
+                    f'<span style="width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block"></span>'
+                    f'Ibrahim · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
+                    f'</div>'
+                    f'</div>'
+                )
+            _bil_html += '</div>'
+            st.markdown(_bil_html, unsafe_allow_html=True)
+            if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn", use_container_width=False):
+                tumunu_okundu_isaretle(aktif_kullanici)
+                st.rerun()
+
     # ─── HERO BÖLÜMÜ ───
     st.markdown(
         '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
@@ -1439,29 +1473,6 @@ def anasayfa():
                 )
             sg_html += '</div></div>'
             st.markdown(sg_html, unsafe_allow_html=True)
-
-    # ─────────────────────────────────────────────────────────────────────
-    # KULLANICIYA BİLDİRİM GÖSTER (ibrahim dışı herkes)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() != "ibrahim":
-        bildirimler = get_okunmamis_bildirimler(aktif_kullanici)
-        if bildirimler:
-            _bil_html = (
-                f'<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:14px;padding:18px 22px;margin-bottom:20px">'
-                f'<div style="font-size:12px;font-weight:700;color:#A5B4FC;margin-bottom:10px">🔔 {len(bildirimler)} yeni bildirim</div>'
-            )
-            for _b in bildirimler:
-                _bil_html += (
-                    f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px">'
-                    f'<div style="color:#FFFFFF;font-size:13px;line-height:1.5">{_b.get("mesaj","")}</div>'
-                    f'<div style="color:#64748B;font-size:10px;margin-top:4px">Ibrahim · {str(_b.get("olusturma_tarihi",""))[:16]}</div>'
-                    f'</div>'
-                )
-            _bil_html += '</div>'
-            st.markdown(_bil_html, unsafe_allow_html=True)
-            if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn"):
-                tumunu_okundu_isaretle(aktif_kullanici)
-                st.rerun()
 
     # ─────────────────────────────────────────────────────────────────────
     # GELEN TALEPLER (sadece ibrahim görür)
