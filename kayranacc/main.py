@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import requests
 import os
-from datetime import datetime, date, timedeltah
+from datetime import datetime, date, timedeltahh
 from io import BytesIO
 
 from .database import (
@@ -1145,7 +1145,7 @@ def run():
     
         # Yetkili olmayan kullanıcılar için kısıtlı sayfaları menüden çıkar
         if aktif_kullanici_lower not in YETKILI_KULLANICILAR_TOPLAM_AKTIFLER:
-             gosterilen_sayfalar = [s for s in tum_sayfalar if s not in KISITLI_SAYFALAR]
+            gosterilen_sayfalar = [s for s in tum_sayfalar if s not in KISITLI_SAYFALAR]
         else:
             gosterilen_sayfalar = tum_sayfalar
     
