@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import requests
 import os
-from datetime import datetime, date, timedeltahhh
+from datetime import datetime, date, timedelta
 from io import BytesIO
 
 from .database import (
