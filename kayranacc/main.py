@@ -1865,7 +1865,7 @@ def run():
                         else:
                             banka_options = {f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
                             banka_options = {"— Seçiniz —": None} | banka_options
-                            sec_banka = st.selectbox("", list(banka_options.keys()),
+                            sec_banka = st.selectbox("Banka Seç", list(banka_options.keys()),
                                                      key=f"banka_{o['id']}", label_visibility="collapsed")
                             if st.button(f"✅ Ödendi", key=f"od_{o['id']}", type="primary"):
                                 banka_id = banka_options.get(sec_banka)
