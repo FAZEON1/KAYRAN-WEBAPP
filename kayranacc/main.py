@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import requests
 import os
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedeltah
 from io import BytesIO
 
 from .database import (
@@ -1173,7 +1173,7 @@ def run():
             st.session_state.kur_bildirim_gosterildi = True
     
         yeni_kur = st.number_input(
-                    "USD/TL Kur",
+            "USD/TL Kur",
             value=float(mevcut_kur),
             step=0.01,
             min_value=1.0,
