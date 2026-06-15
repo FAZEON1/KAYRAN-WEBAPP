@@ -2863,13 +2863,13 @@ def run():
     
         with col1:
             st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
-            odeme_file = st.file_uploader("", type=["xlsx", "xls"], key="odeme_upload")
+                        odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
             if odeme_file:
                 st.success(f"✅ {odeme_file.name} seçildi")
     
         with col2:
             st.markdown("**2. Firma Çekleri Dökümü (XLSX) — Opsiyonel**")
-            cek_file = st.file_uploader("", type=["xlsx", "xls"], key="cek_upload")
+                        cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
             if cek_file:
                 st.success(f"✅ {cek_file.name} seçildi")
     
