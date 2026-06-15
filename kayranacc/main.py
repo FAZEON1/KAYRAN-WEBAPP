@@ -2868,7 +2868,7 @@ def run():
     
         with col2:
             st.markdown("**2. Firma Çekleri Dökümü (XLSX) — Opsiyonel**")
-                        cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
+            cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
             if cek_file:
                 st.success(f"✅ {cek_file.name} seçildi")
     
