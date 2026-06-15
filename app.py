@@ -17,7 +17,7 @@ import ssl
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from urllib.parse import quote
-from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, sifre_hash_uret, supabase_sifre_kaydet
+from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, sifre_hash_uret, supabase_sifre_kaydet, _get_supabase
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -44,6 +44,39 @@ def kullanici_yetkileri(kullanici):
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
 TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
+
+# ─────────────────────────────────────────────────────────────────────
+# ONLINE KULLANICI TAKİP
+# ─────────────────────────────────────────────────────────────────────
+def online_durum_guncelle(kullanici_adi: str):
+    """Kullanıcının son aktivite zamanını Supabase'e kaydeder."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb:
+            return
+        sb.table("kullanici_durum").upsert({
+            "kullanici_adi": kullanici_adi,
+            "son_aktivite": _dt.datetime.utcnow().isoformat(),
+        }, on_conflict="kullanici_adi").execute()
+    except Exception:
+        pass
+
+def get_online_kullanicilar():
+    """Son 5 dakika içinde aktif olan kullanıcıların listesini döner."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb:
+            return []
+        bitis = _dt.datetime.utcnow()
+        baslangic = bitis - _dt.timedelta(minutes=5)
+        res = sb.table("kullanici_durum").select("kullanici_adi, son_aktivite").gte("son_aktivite", baslangic.isoformat()).execute()
+        return res.data if res.data else []
+    except Exception:
+        return []
+
+
 
 
 def talep_gonder(gonderen_ad, konu, mesaj):
@@ -1205,6 +1238,65 @@ def anasayfa():
     )
 
     # ─────────────────────────────────────────────────────────────────────
+    # ONLİNE KULLANICILAR (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown(
+            '<div style="margin:0 0 20px;animation:fadeUp 0.95s ease-out">'
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Aktif Kullanıcılar</div>'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        online_listesi = get_online_kullanicilar()
+        if not online_listesi:
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px 24px;text-align:center">'
+                '<span style="color:#64748B;font-size:13px">Şu an aktif kullanıcı yok.</span>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            import datetime as _dt
+            simdi = _dt.datetime.utcnow()
+            cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:8px">'
+            for u in online_listesi:
+                k_adi = u.get("kullanici_adi", "?")
+                son_akt = u.get("son_aktivite", "")
+                try:
+                    son_dt = _dt.datetime.fromisoformat(son_akt.replace("Z",""))
+                    fark_sn = int((simdi - son_dt).total_seconds())
+                    if fark_sn < 60:
+                        zaman_str = f"{fark_sn}sn önce"
+                    else:
+                        zaman_str = f"{fark_sn // 60}dk önce"
+                except Exception:
+                    zaman_str = "az önce"
+                ilk = k_adi[0].upper() if k_adi else "?"
+                cards_html += (
+                    f'<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px">'
+                    f'<div style="position:relative;flex-shrink:0">'
+                    f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:15px">{ilk}</div>'
+                    f'<div style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#10B981;border:2px solid #080C20;box-shadow:0 0 6px #10B981"></div>'
+                    f'</div>'
+                    f'<div style="overflow:hidden">'
+                    f'<div style="color:#FFFFFF;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
+                    f'<div style="color:#6EE7B7;font-size:10px;font-weight:500;margin-top:2px">● {zaman_str}</div>'
+                    f'</div>'
+                    f'</div>'
+                )
+            cards_html += '</div>'
+            st.markdown(
+                f'<div style="margin-bottom:8px"><span style="color:#6EE7B7;font-size:12px;font-weight:600">{len(online_listesi)} kullanıcı aktif (son 5 dk)</span></div>'
+                + cards_html,
+                unsafe_allow_html=True
+            )
+
+    # ─────────────────────────────────────────────────────────────────────
     # GELEN TALEPLER (sadece ibrahim görür)
     # ─────────────────────────────────────────────────────────────────────
     if aktif_kullanici.lower() == "ibrahim":
@@ -1408,6 +1500,9 @@ def main():
 
     # Sidebar her zaman görünür (login sonrası)
     portal_sidebar()
+
+    # Aktif kullanıcının online durumunu güncelle
+    online_durum_guncelle(st.session_state.aktif_kullanici)
 
     aktif = st.session_state.aktif_uygulama
     yetkiler = kullanici_yetkileri(st.session_state.aktif_kullanici)
