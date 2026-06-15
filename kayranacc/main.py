@@ -1173,7 +1173,7 @@ def run():
             st.session_state.kur_bildirim_gosterildi = True
     
         yeni_kur = st.number_input(
-            "",
+            "USD/TL Kur"
             value=float(mevcut_kur),
             step=0.01,
             min_value=1.0,
