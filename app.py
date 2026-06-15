@@ -181,6 +181,79 @@ def get_tum_bildirimler_ibrahim():
 
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# GÖREV ATAMA VE TAKİP SİSTEMİ
+# ─────────────────────────────────────────────────────────────────────
+def gorev_ata(atanan: str, baslik: str, aciklama: str, oncelik: str, bitis_tarihi):
+    """Ibrahim tarafindan kullaniciya gorev atar."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        row = {
+            "atayan": "ibrahim",
+            "atanan": atanan,
+            "baslik": baslik,
+            "aciklama": aciklama or "",
+            "oncelik": oncelik,
+            "durum": "bekliyor",
+        }
+        if bitis_tarihi:
+            row["bitis_tarihi"] = str(bitis_tarihi)
+        sb.table("gorevler").insert(row).execute()
+        return True
+    except Exception:
+        return False
+
+def get_kullanici_gorevleri(kullanici_adi: str):
+    """Kullanicinin aktif (tamamlanmamis) gorevlerini getirir."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return []
+        res = sb.table("gorevler").select("*").eq("atanan", kullanici_adi).neq("durum", "tamamlandi").order("olusturma_tarihi", desc=True).execute()
+        return res.data if res.data else []
+    except Exception:
+        return []
+
+def get_tum_gorevler_ibrahim():
+    """Ibrahim icin tum gorevleri getirir."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return []
+        res = sb.table("gorevler").select("*").order("olusturma_tarihi", desc=True).limit(200).execute()
+        return res.data if res.data else []
+    except Exception:
+        return []
+
+def gorev_durum_guncelle(gorev_id: int, yeni_durum: str):
+    """Kullanicinin gorev durumunu gunceller."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb:
+            return False
+        row = {"durum": yeni_durum, "guncelleme_tarihi": _dt.datetime.utcnow().isoformat()}
+        if yeni_durum == "tamamlandi":
+            row["tamamlanma_tarihi"] = _dt.datetime.utcnow().isoformat()
+        sb.table("gorevler").update(row).eq("id", gorev_id).execute()
+        return True
+    except Exception:
+        return False
+
+def gorev_sil(gorev_id: int):
+    """Ibrahim gorev siler."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        sb.table("gorevler").delete().eq("id", gorev_id).execute()
+        return True
+    except Exception:
+        return False
+
 def talep_gonder(gonderen_ad, konu, mesaj):
     """Talebi SMTP ile sabit alıcıya (TALEP_ALICI) gönderir.
     SMTP bilgileri: st.secrets['bildirim'] (smtp_host/port/user/pass).
@@ -1101,6 +1174,82 @@ def anasayfa():
                 tumunu_okundu_isaretle(aktif_kullanici)
                 st.rerun()
 
+
+    # ─────────────────────────────────────────────────────────────────────
+    # KULLANICIYA GÖREV KUTUSU — EN ÜSTTE (ibrahim dışı herkes)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() != "ibrahim":
+        _gorevler = get_kullanici_gorevleri(aktif_kullanici)
+        if _gorevler:
+            import datetime as _gdt
+            _bugun = _gdt.date.today()
+            _gorev_html = (
+                '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(239,68,68,0.07));'
+                'border:1px solid rgba(245,158,11,0.3);border-radius:16px;'
+                'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.45s ease-out">'
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+                '<div style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,0.2);'
+                'display:flex;align-items:center;justify-content:center;font-size:14px">📋</div>'
+                f'<span style="color:#FCD34D;font-size:13px;font-weight:700">'
+                f'{len(_gorevler)} bekleyen görevin var</span>'
+                '</div>'
+            )
+            for _g in _gorevler:
+                _g_id = _g.get("id")
+                _g_baslik = _g.get("baslik", "")
+                _g_aciklama = _g.get("aciklama", "")
+                _g_durum = _g.get("durum", "bekliyor")
+                _g_oncelik = _g.get("oncelik", "normal")
+                _g_bitis = _g.get("bitis_tarihi")
+                # Gecikme kontrolü
+                _gecikti = False
+                _gecikme_str = ""
+                if _g_bitis:
+                    try:
+                        _bitis_dt = _gdt.date.fromisoformat(str(_g_bitis)[:10])
+                        _fark_gun = (_bugun - _bitis_dt).days
+                        if _fark_gun > 0:
+                            _gecikti = True
+                            _gecikme_str = f"{_fark_gun}g gecikmiş"
+                    except Exception:
+                        pass
+                # Renk kodları
+                _oncelik_renk = {"yuksek": "#EF4444", "normal": "#F59E0B", "dusuk": "#6EE7B7"}.get(_g_oncelik, "#94A3B8")
+                _durum_renk = {"bekliyor": "#F59E0B", "devam_ediyor": "#60A5FA", "tamamlandi": "#10B981"}.get(_g_durum, "#94A3B8")
+                _durum_etiket = {"bekliyor": "⏳ Bekliyor", "devam_ediyor": "🔄 Devam Ediyor", "tamamlandi": "✅ Tamamlandı"}.get(_g_durum, _g_durum)
+                _border_renk = "#EF4444" if _gecikti else "rgba(255,255,255,0.08)"
+                _gorev_html += (
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid {_border_renk};'
+                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
+                    f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+                    f'<div style="flex:1">'
+                    f'<div style="color:#FFFFFF;font-size:13px;font-weight:600;margin-bottom:3px">{_g_baslik}</div>'
+                )
+                if _g_aciklama:
+                    _gorev_html += f'<div style="color:#94A3B8;font-size:11px;margin-bottom:5px;line-height:1.5">{_g_aciklama[:120]}{"..." if len(_g_aciklama)>120 else ""}</div>'
+                _gorev_html += (
+                    f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+                    f'<span style="font-size:10px;color:{_durum_renk};font-weight:600">{_durum_etiket}</span>'
+                    f'<span style="font-size:10px;color:#475569">·</span>'
+                    f'<span style="font-size:10px;color:{_oncelik_renk}">● {_g_oncelik.capitalize()} öncelik</span>'
+                )
+                if _g_bitis:
+                    _gorev_html += f'<span style="font-size:10px;color:#475569">·</span><span style="font-size:10px;color:{"#EF4444" if _gecikti else "#64748B"}">📅 {str(_g_bitis)[:10]}{(" — 🔴 " + _gecikme_str) if _gecikti else ""}</span>'
+                _gorev_html += '</div></div></div></div>'
+            _gorev_html += '</div>'
+            st.markdown(_gorev_html, unsafe_allow_html=True)
+            # Durum güncelleme select
+            _gorev_secenekler = {f"[{_g.get('durum','?')}] {_g.get('baslik','')} (#{_g.get('id')})": _g.get("id") for _g in _gorevler}
+            _sec_gorev = st.selectbox("Görev Durumunu Güncelle:", list(_gorev_secenekler.keys()), key="gorev_sec")
+            _yeni_durum_sec = st.selectbox("Yeni Durum:", ["bekliyor", "devam_ediyor", "tamamlandi"], key="gorev_durum_sec")
+            if st.button("💾 Durumu Güncelle", key="gorev_durum_btn"):
+                _gid = _gorev_secenekler[_sec_gorev]
+                if gorev_durum_guncelle(_gid, _yeni_durum_sec):
+                    st.success("✅ Görev durumu güncellendi!")
+                    st.rerun()
+                else:
+                    st.error("❌ Güncellenemedi.")
+
     # ─── HERO BÖLÜMÜ ───
     st.markdown(
         '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
@@ -1560,6 +1709,165 @@ def anasayfa():
                     else:
                         st.error("❌ Bildirim gönderilemedi.")
 
+
+
+    # ─────────────────────────────────────────────────────────────────────
+    # GÖREV ATAMA PANELİ + KANBAN (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Görev Yönetimi</div>'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        # Görev Atama Formu
+        _tum_kul2 = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
+        with st.expander("➕ Yeni Görev Ata", expanded=False):
+            with st.form("gorev_ata_form", clear_on_submit=True):
+                _g_col1, _g_col2 = st.columns(2)
+                with _g_col1:
+                    _g_atanan = st.selectbox("Kişi", [k.capitalize() for k in _tum_kul2], key="g_atanan")
+                    _g_oncelik = st.selectbox("Öncelik", ["normal", "yuksek", "dusuk"], key="g_oncelik")
+                with _g_col2:
+                    _g_baslik = st.text_input("Görev Başlığı", placeholder="Örn: Fatura listesini güncelle", key="g_baslik")
+                    _g_bitis = st.date_input("Bitiş Tarihi (opsiyonel)", value=None, key="g_bitis")
+                _g_aciklama = st.text_area("Açıklama (opsiyonel)", placeholder="Görev detayları...", height=70, key="g_aciklama")
+                _g_ata_btn = st.form_submit_button("📋 Görevi Ata", type="primary", use_container_width=False)
+                if _g_ata_btn:
+                    if not _g_baslik or not _g_baslik.strip():
+                        st.warning("⚠️ Görev başlığı boş olamaz.")
+                    else:
+                        _ok3 = gorev_ata(_g_atanan.lower(), _g_baslik.strip(), _g_aciklama.strip(), _g_oncelik, _g_bitis)
+                        if _ok3:
+                            # Aynı anda bildirim de gönder
+                            bildirim_gonder(_g_atanan.lower(), f"📋 Yeni görev atandı: {_g_baslik.strip()}")
+                            st.success(f"✅ Görev {_g_atanan} kişisine atandı ve bildirim gönderildi!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Görev atanamadı.")
+
+        # Kanban Panosu — tüm görevler
+        import datetime as _kdt
+        _bugun_k = _kdt.date.today()
+        _tum_gorevler = get_tum_gorevler_ibrahim()
+        if _tum_gorevler:
+            # Gruplara ayır
+            _bekliyor_listesi = [g for g in _tum_gorevler if g.get("durum") == "bekliyor"]
+            _devam_listesi = [g for g in _tum_gorevler if g.get("durum") == "devam_ediyor"]
+            _tamam_listesi = [g for g in _tum_gorevler if g.get("durum") == "tamamlandi"]
+
+            # Özet sayaçlar
+            _toplam = len(_tum_gorevler)
+            _geciken = sum(1 for g in _tum_gorevler if g.get("bitis_tarihi") and g.get("durum") != "tamamlandi" and (_kdt.date.today() - _kdt.date.fromisoformat(str(g["bitis_tarihi"])[:10])).days > 0)
+            st.markdown(
+                f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+                f'<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
+                f'<span style="font-size:18px;font-weight:700;color:#FCD34D">{len(_bekliyor_listesi)}</span>'
+                f'<span style="font-size:11px;color:#94A3B8">Bekliyor</span>'
+                f'</div>'
+                f'<div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
+                f'<span style="font-size:18px;font-weight:700;color:#93C5FD">{len(_devam_listesi)}</span>'
+                f'<span style="font-size:11px;color:#94A3B8">Devam Ediyor</span>'
+                f'</div>'
+                f'<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
+                f'<span style="font-size:18px;font-weight:700;color:#6EE7B7">{len(_tamam_listesi)}</span>'
+                f'<span style="font-size:11px;color:#94A3B8">Tamamlandı</span>'
+                f'</div>'
+                + (f'<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
+                   f'<span style="font-size:18px;font-weight:700;color:#FCA5A5">{_geciken}</span>'
+                   f'<span style="font-size:11px;color:#FCA5A5">🔴 Geciken</span>'
+                   f'</div>' if _geciken > 0 else '')
+                + '</div>',
+                unsafe_allow_html=True
+            )
+
+            # Kanban: 3 kolon
+            _kb1, _kb2, _kb3 = st.columns(3, gap="small")
+
+            def _gorev_kart_html(g, bugun):
+                _gb = g.get("bitis_tarihi")
+                _gecikti_k = False
+                _gecikme_k = ""
+                if _gb and g.get("durum") != "tamamlandi":
+                    try:
+                        _bd = _kdt.date.fromisoformat(str(_gb)[:10])
+                        _fk = (bugun - _bd).days
+                        if _fk > 0:
+                            _gecikti_k = True
+                            _gecikme_k = f"{_fk}g gecikmiş"
+                    except Exception:
+                        pass
+                _op = g.get("oncelik", "normal")
+                _ork = {"yuksek": "#EF4444", "normal": "#F59E0B", "dusuk": "#10B981"}.get(_op, "#94A3B8")
+                _bor = "#EF4444" if _gecikti_k else "rgba(255,255,255,0.06)"
+                _html = (
+                    f'<div style="background:rgba(255,255,255,0.03);border:1px solid {_bor};'
+                    f'border-radius:10px;padding:12px;margin-bottom:8px">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+                    f'<div style="color:#E2E8F0;font-size:12px;font-weight:600;line-height:1.4;flex:1">{g.get("baslik","")}</div>'
+                    f'<div style="width:8px;height:8px;border-radius:50%;background:{_ork};flex-shrink:0;margin-left:8px;margin-top:3px"></div>'
+                    f'</div>'
+                )
+                if g.get("aciklama"):
+                    _html += f'<div style="color:#64748B;font-size:10px;margin-bottom:5px;line-height:1.5">{str(g.get("aciklama",""))[:80]}</div>'
+                _html += f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+                _html += f'<span style="font-size:10px;color:#A78BFA;font-weight:600">{g.get("atanan","?").capitalize()}</span>'
+                if _gb:
+                    _html += f'<span style="font-size:10px;color:#475569">·</span>'
+                    _html += f'<span style="font-size:10px;color:{"#EF4444" if _gecikti_k else "#64748B"}">📅 {str(_gb)[:10]}{(" 🔴 "+_gecikme_k) if _gecikti_k else ""}</span>'
+                _html += '</div></div>'
+                return _html
+
+            with _kb1:
+                st.markdown(
+                    '<div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:12px">'
+                    '<div style="color:#FCD34D;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">⏳ Bekliyor</div>',
+                    unsafe_allow_html=True
+                )
+                if _bekliyor_listesi:
+                    for _gk in _bekliyor_listesi[:10]:
+                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Bekleyen görev yok</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with _kb2:
+                st.markdown(
+                    '<div style="background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.15);border-radius:12px;padding:12px">'
+                    '<div style="color:#93C5FD;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">🔄 Devam Ediyor</div>',
+                    unsafe_allow_html=True
+                )
+                if _devam_listesi:
+                    for _gk in _devam_listesi[:10]:
+                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Devam eden görev yok</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with _kb3:
+                st.markdown(
+                    '<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:12px">'
+                    '<div style="color:#6EE7B7;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">✅ Tamamlandı</div>',
+                    unsafe_allow_html=True
+                )
+                if _tamam_listesi:
+                    for _gk in _tamam_listesi[:10]:
+                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Tamamlanan görev yok</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        else:
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px 24px;text-align:center">'
+                '<span style="color:#64748B;font-size:13px">Henüz atanmış görev yok. Yukarıdan yeni görev ekleyebilirsin.</span>'
+                '</div>',
+                unsafe_allow_html=True
+            )
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
