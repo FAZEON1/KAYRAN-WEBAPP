@@ -1145,11 +1145,11 @@ def run():
     
         # Yetkili olmayan kullanıcılar için kısıtlı sayfaları menüden çıkar
         if aktif_kullanici_lower not in YETKILI_KULLANICILAR_TOPLAM_AKTIFLER:
-            gosterilen_sayfalar = [s for s in tum_sayfalar if s not in KISITLI_SAYFALAR]
+             = [s for s in tum_sayfalar if s not in KISITLI_SAYFALAR]
         else:
             gosterilen_sayfalar = tum_sayfalar
     
-        sayfa = st.radio("", gosterilen_sayfalar, label_visibility="collapsed")
+        sayfa = st.radio("Sayfa", gosterilen_sayfalar, label_visibility="collapsed")
     
         st.markdown("---")
     
