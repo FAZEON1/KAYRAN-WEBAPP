@@ -76,6 +76,108 @@ def get_online_kullanicilar():
     except Exception:
         return []
 
+# ─────────────────────────────────────────────────────────────────────
+# DUYURU YÖNETİMİ — Supabase'den oku / yaz
+# ─────────────────────────────────────────────────────────────────────
+def get_duyuru():
+    """sistem_ayarlari tablosundan duyuru aktif/metin bilgisini döner."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False, ""
+        res = sb.table("sistem_ayarlari").select("anahtar, deger").in_("anahtar", ["duyuru_aktif", "duyuru_metni"]).execute()
+        d = {r["anahtar"]: r["deger"] for r in (res.data or [])}
+        aktif = d.get("duyuru_aktif", "false") == "true"
+        metni = d.get("duyuru_metni", "")
+        return aktif, metni
+    except Exception:
+        return False, ""
+
+def set_duyuru(aktif: bool, metni: str):
+    """sistem_ayarlari tablosuna duyuru durumu yazar."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb:
+            return False
+        now = _dt.datetime.utcnow().isoformat()
+        sb.table("sistem_ayarlari").upsert({"anahtar": "duyuru_aktif", "deger": "true" if aktif else "false", "guncelleme_tarihi": now}, on_conflict="anahtar").execute()
+        sb.table("sistem_ayarlari").upsert({"anahtar": "duyuru_metni", "deger": metni, "guncelleme_tarihi": now}, on_conflict="anahtar").execute()
+        return True
+    except Exception:
+        return False
+
+# ─────────────────────────────────────────────────────────────────────
+# BİLDİRİM SİSTEMİ — Gönder / Oku / Okundu işaretle
+# ─────────────────────────────────────────────────────────────────────
+def bildirim_gonder(alici: str, mesaj: str):
+    """Ibrahim'den belirtilen alıcıya bildirim gönderir."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        sb.table("bildirimler").insert({"gonderen": "ibrahim", "alici": alici, "mesaj": mesaj, "okundu": False}).execute()
+        return True
+    except Exception:
+        return False
+
+def bildirim_gonder_herkese(mesaj: str, kullanici_listesi: list):
+    """Tüm kullanıcılara aynı mesajı gönderir (ibrahim hariç)."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        rows = [{"gonderen": "ibrahim", "alici": k, "mesaj": mesaj, "okundu": False} for k in kullanici_listesi if k.lower() != "ibrahim"]
+        if rows:
+            sb.table("bildirimler").insert(rows).execute()
+        return True
+    except Exception:
+        return False
+
+def get_okunmamis_bildirimler(kullanici_adi: str):
+    """Kullanıcının okunmamış bildirimlerini döner."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return []
+        res = sb.table("bildirimler").select("*").eq("alici", kullanici_adi).eq("okundu", False).order("olusturma_tarihi", desc=True).execute()
+        return res.data if res.data else []
+    except Exception:
+        return []
+
+def bildirim_okundu_isaretle(bildirim_id: int):
+    """Bildirimi okundu olarak işaretle."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return
+        sb.table("bildirimler").update({"okundu": True}).eq("id", bildirim_id).execute()
+    except Exception:
+        pass
+
+def tumunu_okundu_isaretle(kullanici_adi: str):
+    """Kullanıcının tüm bildirimlerini okundu yap."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return
+        sb.table("bildirimler").update({"okundu": True}).eq("alici", kullanici_adi).eq("okundu", False).execute()
+    except Exception:
+        pass
+
+def get_tum_bildirimler_ibrahim():
+    """Ibrahim'in gönderdiği tüm bildirimleri döner."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return []
+        res = sb.table("bildirimler").select("*").order("olusturma_tarihi", desc=True).limit(100).execute()
+        return res.data if res.data else []
+    except Exception:
+        return []
+
+
+
 
 
 
@@ -526,8 +628,9 @@ def giris_ekrani():
 </style>""",
         unsafe_allow_html=True
     )
-    if DUYURU_AKTIF:
-        st.markdown(f'<div class="duyuru-band">{DUYURU_METNI}</div>', unsafe_allow_html=True)
+    _duyuru_aktif2, _duyuru_metni2 = get_duyuru()
+    if _duyuru_aktif2 and _duyuru_metni2:
+        st.markdown(f'<div class="duyuru-band">{_duyuru_metni2}</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
 
@@ -950,9 +1053,11 @@ def anasayfa():
 
     st.markdown(portal_css(), unsafe_allow_html=True)
 
-    if DUYURU_AKTIF:
+    # Duyuruyu Supabase'den dinamik oku
+    _duyuru_aktif, _duyuru_metni = get_duyuru()
+    if _duyuru_aktif and _duyuru_metni:
         st.markdown(
-            f'<div style="background:linear-gradient(90deg,rgba(59,130,246,0.12),rgba(139,92,246,0.12),rgba(236,72,153,0.12));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:10px 16px;text-align:center;color:#A5B4FC;font-size:12px;font-weight:500;margin-bottom:24px;animation:fadeUp 0.5s ease-out">{DUYURU_METNI}</div>',
+            f'<div style="background:linear-gradient(90deg,rgba(59,130,246,0.12),rgba(139,92,246,0.12),rgba(236,72,153,0.12));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:10px 16px;text-align:center;color:#A5B4FC;font-size:12px;font-weight:500;margin-bottom:24px;animation:fadeUp 0.5s ease-out">{_duyuru_metni}</div>',
             unsafe_allow_html=True
         )
 
@@ -1252,7 +1357,18 @@ def anasayfa():
             '</div>',
             unsafe_allow_html=True
         )
+        # Son giriş zamanı da ek olarak göster (tüm kullanıcılar, son 24 saat)
         online_listesi = get_online_kullanicilar()
+        # Son giriş bilgisi için tüm kullanıcıları al (son 24 saat)
+        try:
+            import datetime as _dt2
+            sb2 = _get_supabase()
+            _son_giris_map = {}
+            if sb2:
+                _sg_res = sb2.table("kullanici_durum").select("kullanici_adi, son_aktivite").execute()
+                _son_giris_map = {r["kullanici_adi"]: r["son_aktivite"] for r in (_sg_res.data or [])}
+        except Exception:
+            _son_giris_map = {}
         if not online_listesi:
             st.markdown(
                 '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px 24px;text-align:center">'
@@ -1295,6 +1411,57 @@ def anasayfa():
                 + cards_html,
                 unsafe_allow_html=True
             )
+        # Son giriş tablosu — tüm kullanıcılar
+        if _son_giris_map:
+            import datetime as _dt3
+            _simdi3 = _dt3.datetime.utcnow()
+            sg_html = '<div style="margin-top:16px"><div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px;padding-left:2px">Son Giriş Zamanları</div>'
+            sg_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">'
+            for _kg, _sa in sorted(_son_giris_map.items()):
+                try:
+                    _sdt = _dt3.datetime.fromisoformat(_sa.replace("Z",""))
+                    _fark = int((_simdi3 - _sdt).total_seconds())
+                    if _fark < 60: _zs = f"{_fark}sn önce"
+                    elif _fark < 3600: _zs = f"{_fark//60}dk önce"
+                    elif _fark < 86400: _zs = f"{_fark//3600}sa önce"
+                    else: _zs = f"{_fark//86400}g önce"
+                except Exception:
+                    _zs = "bilinmiyor"
+                _online_su = any(u.get("kullanici_adi") == _kg for u in online_listesi)
+                _renk = "#10B981" if _online_su else "#64748B"
+                _bg = "rgba(16,185,129,0.06)" if _online_su else "rgba(255,255,255,0.02)"
+                _border = "rgba(16,185,129,0.15)" if _online_su else "rgba(255,255,255,0.06)"
+                sg_html += (
+                    f'<div style="background:{_bg};border:1px solid {_border};border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">'
+                    f'<span style="color:#E2E8F0;font-size:12px;font-weight:600">{_kg.capitalize()}</span>'
+                    f'<span style="color:{_renk};font-size:10px;font-weight:500">{_zs}</span>'
+                    f'</div>'
+                )
+            sg_html += '</div></div>'
+            st.markdown(sg_html, unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # KULLANICIYA BİLDİRİM GÖSTER (ibrahim dışı herkes)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() != "ibrahim":
+        bildirimler = get_okunmamis_bildirimler(aktif_kullanici)
+        if bildirimler:
+            _bil_html = (
+                f'<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:14px;padding:18px 22px;margin-bottom:20px">'
+                f'<div style="font-size:12px;font-weight:700;color:#A5B4FC;margin-bottom:10px">🔔 {len(bildirimler)} yeni bildirim</div>'
+            )
+            for _b in bildirimler:
+                _bil_html += (
+                    f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px">'
+                    f'<div style="color:#FFFFFF;font-size:13px;line-height:1.5">{_b.get("mesaj","")}</div>'
+                    f'<div style="color:#64748B;font-size:10px;margin-top:4px">Ibrahim · {str(_b.get("olusturma_tarihi",""))[:16]}</div>'
+                    f'</div>'
+                )
+            _bil_html += '</div>'
+            st.markdown(_bil_html, unsafe_allow_html=True)
+            if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn"):
+                tumunu_okundu_isaretle(aktif_kullanici)
+                st.rerun()
 
     # ─────────────────────────────────────────────────────────────────────
     # GELEN TALEPLER (sadece ibrahim görür)
@@ -1312,9 +1479,75 @@ def anasayfa():
         else:
             for t in talepler:
                 durum_renk = {"bekliyor": "🟡", "inceleniyor": "🔵", "tamamlandi": "🟢"}.get(t.get("durum",""), "⚪")
-                with st.expander(f"{durum_renk} {t.get('konu','—')}  ·  {t.get('gonderen','?')}  ·  {str(t.get('olusturma_tarihi',''))[:16]}"):
+                with st.expander(f"{durum_renk} {t.get('konu','—')} · {t.get('gonderen','?')} · {str(t.get('olusturma_tarihi',''))[:16]}"):
                     st.write(t.get("mesaj",""))
                     st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # DUYURU YÖNETİMİ PANELİ (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Sistem Duyurusu</div>'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        _mevcut_aktif, _mevcut_metni = get_duyuru()
+        _durum_etiketi = "🟢 Aktif" if _mevcut_aktif else "🔴 Kapalı"
+        st.markdown(
+            f'<div style="color:#94A3B8;font-size:12px;margin-bottom:12px">'
+            f'Mevcut durum: <b style="color:#E2E8F0">{_durum_etiketi}</b>'
+            f'{(" — " + _mevcut_metni[:60] + ("..." if len(_mevcut_metni)>60 else "")) if _mevcut_metni else ""}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        with st.form("duyuru_form", clear_on_submit=False):
+            _yeni_aktif = st.checkbox("Duyuruyu Aktifleştir", value=bool(_mevcut_aktif))
+            _yeni_metni = st.text_input("Duyuru Metni", value=_mevcut_metni, placeholder="Örn: Sistem bugün 18:00-19:00 arası bakımda olacak.")
+            _duyuru_kaydet = st.form_submit_button("💾 Duyuruyu Kaydet", type="primary", use_container_width=False)
+            if _duyuru_kaydet:
+                if set_duyuru(_yeni_aktif, _yeni_metni or ""):
+                    st.success("✅ Duyuru kaydedildi! Sayfa yenileniyor...")
+                    st.rerun()
+                else:
+                    st.error("❌ Kayıt başarısız.")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # BİLDİRİM GÖNDERME PANELİ (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
+            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Bildirim Gönder</div>'
+            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        _tum_kullanicilar = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
+        with st.form("bildirim_form", clear_on_submit=True):
+            _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
+            _bildirim_mesaj = st.text_area("Mesaj", placeholder="Kullanıcılara göndermek istediğin mesajı yaz...", height=100)
+            _bildirim_gonder_btn = st.form_submit_button("📢 Bildirimi Gönder", type="primary", use_container_width=False)
+            if _bildirim_gonder_btn:
+                if not _bildirim_mesaj or not _bildirim_mesaj.strip():
+                    st.warning("⚠️ Mesaj boş olamaz.")
+                else:
+                    if _alici_sec == "Herkese Gönder":
+                        _ok2 = bildirim_gonder_herkese(_bildirim_mesaj.strip(), list(_tum_kullanicilar))
+                        _alici_str = "herkese"
+                    else:
+                        _ok2 = bildirim_gonder(_alici_sec.lower(), _bildirim_mesaj.strip())
+                        _alici_str = _alici_sec + " kişisine"
+                    if _ok2:
+                        st.success(f"✅ Bildirim {_alici_str} gönderildi!")
+                    else:
+                        st.error("❌ Bildirim gönderilemedi.")
 
 
 # ─────────────────────────────────────────────────────────────────────
