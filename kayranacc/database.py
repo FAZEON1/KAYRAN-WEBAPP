@@ -626,7 +626,7 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
             "veri_json": json.dumps({
                 "veri": veri_json,
                 "son_yukleyen": kullanici,
-                "yukleme_zamani": str(__import__("datetime").tr_now()),
+                "yukleme_zamani": str(tr_now()),
             }),
         }).execute()
         return True
