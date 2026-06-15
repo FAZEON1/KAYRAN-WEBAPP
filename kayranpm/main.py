@@ -363,7 +363,7 @@ def run():
                 st.rerun()
     
         st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
-        sayfa = st.radio("", [
+                sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
             "🔍  Ürün Detay",
             "📈  Genel Analiz",
