@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import requests
 import os
-from datetime import datetime, date, timedeltahh
+from datetime import datetime, date, timedeltahhh
 from io import BytesIO
 
 from .database import (
@@ -2862,7 +2862,7 @@ def run():
     
         with col1:
             st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
-                        odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
+            odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
             if odeme_file:
                 st.success(f"✅ {odeme_file.name} seçildi")
     
