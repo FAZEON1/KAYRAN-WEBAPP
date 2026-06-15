@@ -962,7 +962,7 @@ def run():
     
     def get_kur():
         """
-        USD/TL kurunu döndürür.
+        USD/TL Kurunu döndürür.
         İlk çağrıda (session başladığında) otomatik olarak API'den günceli çeker.
         Başarısız olursa 38.50 fallback kullanır.
         Bir kez çekildikten sonra session boyunca aynı değeri kullanır (manuel güncellenirse değişir).
@@ -1172,7 +1172,7 @@ def run():
             )
             st.session_state.kur_bildirim_gosterildi = True
     
-        yeni_kur = st.number_input(
+        yeni_kur = st.number_input("USD/TL Kur",
             "USD/TL Kur",
             value=float(mevcut_kur),
             step=0.01,
