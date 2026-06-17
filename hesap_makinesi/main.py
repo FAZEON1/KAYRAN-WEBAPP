@@ -259,11 +259,11 @@ def _prim_ayhan():
     st.markdown(
         '<div style="font-family:Inter,sans-serif;margin-bottom:20px">'
         '<div style="font-size:18px;font-weight:800;color:#FFFFFF;margin-bottom:4px">PRİM HESAPLAMA — AYHAN EROĞLU</div>'
-        '<div style="font-size:12px;color:#64748B">Prim = Satılan adet × adet başı USD prim × USD/TL kuru</div>'
+        '<div style="font-size:12px;color:#64748B">Mon/Kasa/SSD: Ciro × Oran % | E.Kartı: Adet × 1 USD × Kur</div>'
         '</div>',
         unsafe_allow_html=True)
 
-    # Birim primler - 5 esit sutun, label kisaltildi
+    # Birim prim oranlari (Mon/Kasa/SSD ciro bazli, E.Karti adet bazli)
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">BİRİM PRİM ORANLARI & KUR</div>', unsafe_allow_html=True)
     b1,b2,b3,b4,b5 = st.columns(5)
@@ -276,7 +276,7 @@ def _prim_ayhan():
 
     # Satis adetleri - 5 esit sutun
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">SATIŞ ADETLERİ</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">GİRİŞ DEĞERLERİ</div>', unsafe_allow_html=True)
     a1,a2,a3 = st.columns(3)
     with a1: ay_d = st.text_input('Dönem', value='Q1 2026', key='ay_d')
     with a2: toplam_ciro = st.number_input('Toplam Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_ciro')
