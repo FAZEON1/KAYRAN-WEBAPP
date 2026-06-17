@@ -95,7 +95,6 @@ def prim_listele(kisi):
         res = sb.table('prim_gecmis').select('*').eq('kisi', kisi).order('odeme_tarihi', desc=True).execute()
         return res.data or []
     except Exception: return []
-
 def _gecmis_odemeler(kisi, pfx):
     gecmis = prim_listele(kisi)
     ek = pfx + '_eid'
@@ -187,19 +186,15 @@ def _prim_gokhan():
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
         st.markdown('<div style="font-family:Inter,sans-serif;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px"><div class="pm-label">SOĞ Çarpan</div><div style="font-size:20px;font-weight:800;color:'+s_renk+'">{:.2f}x</div></div>'.format(sog_carpan), unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # ─ Hesaplama: ciro tutarına göre ağırlık (DÜZELTİLDİ)
+    # ─ Hesaplama: ciro tutarina gore agirlik
     kasa_ciro_tl = kasa_ciro_usd * usd_kur
     sog_ciro_tl = sog_ciro_usd * usd_kur
     toplam_ciro_usd = kasa_ciro_usd + sog_ciro_usd
     toplam_ciro_tl = toplam_ciro_usd * usd_kur
     baz_hakdis = baz_kat * aylik_maas
-    # Ciro payları gerçek tutara göre (Excel ile aynı)
     kp = (kasa_ciro_usd / toplam_ciro_usd) if toplam_ciro_usd > 0 else 0.5
     sp = (sog_ciro_usd / toplam_ciro_usd) if toplam_ciro_usd > 0 else 0.5
-    # Ağırlıklı çarpan = Σ(çarpan × ciro_payı)
     agirlikli_carpan = (kasa_carpan * kp) + (sog_carpan * sp)
-    # Ciro bonus = (ağırlıklı çarpan - 1) × baz hakediş
     ciro_bonus = max(0.0, agirlikli_carpan - 1.0) * baz_hakdis
     toplam_prim = baz_hakdis + ciro_bonus
     kp_pct = kp * 100
@@ -263,7 +258,6 @@ def _prim_ayhan():
         '</div>',
         unsafe_allow_html=True)
 
-    # Birim prim oranlari (Mon/Kasa/SSD ciro bazli, E.Karti adet bazli)
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">BİRİM PRİM ORANLARI & KUR</div>', unsafe_allow_html=True)
     b1,b2,b3,b4,b5 = st.columns(5)
@@ -274,25 +268,25 @@ def _prim_ayhan():
     with b5: kur = st.number_input('USD/TL Kuru', min_value=1.0, value=38.0, step=0.5, format='%.2f', key='ay_kur')
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Satis adetleri - 5 esit sutun
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">GİRİŞ DEĞERLERİ</div>', unsafe_allow_html=True)
-    a1,a2,a3 = st.columns(3)
+    a1,a2 = st.columns([1,3])
     with a1: ay_d = st.text_input('Dönem', value='Q1 2026', key='ay_d')
-    with a2: toplam_ciro = st.number_input('Toplam Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_ciro')
-    with a3: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
-
-
+    with a2: pass
+    r1c,r2c,r3c,r4c = st.columns(4)
+    with r1c: mon_ciro = st.number_input('Monitör Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_mon_ciro')
+    with r2c: kasa_ciro = st.number_input('Kasa Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_kasa_ciro')
+    with r3c: ssd_ciro = st.number_input('SSD&RAM Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_ssd_ciro')
+    with r4c: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
     st.markdown('</div>', unsafe_allow_html=True)
 
-    mon_usd = toplam_ciro * (mon_b / 100.0)
-    kas_usd = toplam_ciro * (kasa_b / 100.0)
+    mon_usd = mon_ciro * (mon_b / 100.0)
+    kas_usd = kasa_ciro * (kasa_b / 100.0)
     ek_usd = ek_a * ek_b
-    ssd_usd = toplam_ciro * (ssd_b / 100.0)
+    ssd_usd = ssd_ciro * (ssd_b / 100.0)
     tot_usd = mon_usd + kas_usd + ek_usd + ssd_usd
     tot_tl = tot_usd * kur
-
-    # Sonuc - 6 kart, esit genislik, hepsi ayni satirda
+    # Sonuc - 6 kart
     st.markdown('<div class="prim-result-wrap">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#6EE7B7;margin-bottom:18px">HESAPLAMA SONUCU</div>', unsafe_allow_html=True)
     r1,r2,r3,r4,r5,r6 = st.columns([1,1,1,1,1.2,1.2])
@@ -326,7 +320,7 @@ def _prim_ayhan():
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">GEÇMİŞ PRİM ÖDEMELERİ</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">GEÇMİŞ PRİM ÖDEME LERİ</div>', unsafe_allow_html=True)
     _gecmis_odemeler('ayhan_eroglu', 'ay')
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -371,8 +365,8 @@ def _urun_karlilik():
         st.markdown('<div style="font-family:Inter,sans-serif;color:#475569;font-size:13px;padding:16px 0">Alış ve satış fiyatını girerek sonucu görün.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="hm-sep"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:6px">Toplu Karşılaştırma</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;color:#64748B;font-size:12px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip karşılaştır.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:6px">Toplu Kıyaslama</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;color:#64748B;font-size:12px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip kıyasla.</div>', unsafe_allow_html=True)
     if 'uk_liste' not in st.session_state: st.session_state.uk_liste = []
     if 'uk_sayac' not in st.session_state: st.session_state.uk_sayac = 0
     with st.expander('+ Ürün Ekle', expanded=(len(st.session_state.uk_liste)==0)):
@@ -452,14 +446,14 @@ def _breakeven():
                 st.markdown('<div style="font-family:Inter,sans-serif;font-size:18px;font-weight:700;color:#10B981">Hedef Aşıldı &nbsp;<span style="font-size:13px;color:#6EE7B7">+$'+'{:,.0f}'.format(fazla)+' fazla</span></div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div class="pm-label">Kalan Ciro</div><div style="font-family:Inter,sans-serif;font-size:20px;font-weight:700;color:#F59E0B">$'+'{:,.0f}'.format(kalan)+'</div>', unsafe_allow_html=True)
-            if ort_fiyat > 0:
-                st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#C4B5FD">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#64748B;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
-            gun_map={'Günlük':1,'Haftalık':7,'Aylık':30,'Yıllık':365}
-            if kalan > 0:
-                gd = kalan / gun_map.get(periyot,30)
-                st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                st.markdown('<div class="pm-label">Hedefe Ulaşmak İçin</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#FCD34D">$'+'{:,.0f}'.format(gd)+'/gün</div>', unsafe_allow_html=True)
+                if ort_fiyat > 0:
+                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#C4B5FD">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#64748B;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
+                gun_map={'Günlük':1,'Haftalık':7,'Aylık':30,'Yıllık':365}
+                if kalan > 0:
+                    gd = kalan / gun_map.get(periyot,30)
+                    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="pm-label">Hedefe Ulaşmak İçin</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#FCD34D">$'+'{:,.0f}'.format(gd)+'/gün</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="font-family:Inter,sans-serif;color:#475569;font-size:13px;padding:20px 0">Gider ve marj girerek kırılma noktasını hesaplayın.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
