@@ -16,7 +16,6 @@ import requests
 import os
 from datetime import datetime, date, timedelta
 from io import BytesIO
-h
 from .database import (
     initialize_db, get_tum_haftalar, get_aktif_hafta,
     hafta_ekle, hafta_aktif_yap, hafta_sil,
@@ -1905,7 +1904,7 @@ def run():
                         with col_kat:
                             # Kategori seçimi
                             kat_keys = list(KATEGORILER.keys())
-                            mevcut_kat = o.get("kategori") or "diger"h
+                            mevcut_kat = o.get("kategori") or "diger"
                             try:
                                 kat_idx = kat_keys.index(mevcut_kat)
                             except ValueError:
