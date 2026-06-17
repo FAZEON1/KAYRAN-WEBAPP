@@ -15,7 +15,7 @@ def get_client() -> Client:
     return create_client(url, key)
 
 
-# ── Cache yardımcısı ────────────────────────────────────────────────
+# ── Cache yardımcısı ────────────────────────────────────────────────h
 # Veri değişince cache'i temizlemek için
 def _cache_temizle():
     """Tüm @st.cache_data önbelleklerini temizler.
@@ -342,6 +342,18 @@ def odeme_kategori_guncelle(odeme_id, yeni_kategori):
     sb = get_client()
     try:
         sb.table("odemeler").update({"kategori": yeni_kategori}).eq("id", odeme_id).execute()
+        return True
+    except Exception:
+        _cache_temizle()
+        return False
+
+def odeme_aciklama_guncelle(odeme_id, yeni_aciklama):
+    """Ödemenin açıklama alanını günceller."""
+    sb = get_client()
+    try:
+        aciklama_val = str(yeni_aciklama).strip() if yeni_aciklama else None
+        sb.table("odemeler").update({"aciklama": aciklama_val}).eq("id", odeme_id).execute()
+        _cache_temizle()
         return True
     except Exception:
         _cache_temizle()
