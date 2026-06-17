@@ -1529,6 +1529,8 @@ def run():
                 "Bekliyor": len(gun_odemeler) - gun_odendi,
                 "Tutar TL (₺)": f"₺{fmt(gun_tl)}" if gun_tl else "-",
                 "Tutar USD ($)": f"${fmt(gun_usd)}" if gun_usd else "-",
+                "Firma": ", ".join(sorted(set(o.get("firma") or "-" for o in gun_odemeler))),
+                "Açıklama": " | ".join(o.get("aciklama") or "-" for o in gun_odemeler),
                 "Durum": "⏰ BUGÜN" if vd == "bugun" else ("📅 YARIN" if vd == "yarin" else ("🚨 GECİKMİŞ" if vd == "gecmis" else "—")),
             })
     
@@ -1575,6 +1577,8 @@ def run():
                   <td style="padding:10px 14px;text-align:center;color:{bekliyor_color};font-weight:700;font-size:13px">{bekliyor_val}</td>
                   <td style="padding:10px 14px;text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar TL (₺)","")}</td>
                   <td style="padding:10px 14px;text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar USD ($)","")}</td>
+                  <td style="padding:10px 14px;text-align:center">{row.get("Firma","")}</td>
+                  <td style="padding:10px 14px;color:#94A3B8;font-size:12px">{row.get("Açıklama","")}</td>
                   <td style="padding:10px 14px;text-align:center">{durum_html}</td>
                 </tr>'''
 
@@ -1602,7 +1606,7 @@ def run():
                 <thead>
                   <tr>
                     <th>Gün</th><th>Tarih</th><th>Ödeme</th><th>Ödendi</th>
-                    <th>Bekliyor</th><th>Tutar TL (₺)</th><th>Tutar USD ($)</th><th>Durum</th>
+                    <th>Bekliyor</th><th>Tutar TL (₺)</th><th>Tutar USD ($)</th><th>Firma</th><th>Açıklama</th><th>Durum</th>
                   </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
