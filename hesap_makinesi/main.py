@@ -270,7 +270,7 @@ def _prim_ayhan():
     with b1: mon_b = st.number_input('Monitör ($/adet)', min_value=0.0, value=0.50, step=0.01, format='%.2f', key='ay_mb')
     with b2: kasa_b = st.number_input('Kasa ($/adet)', min_value=0.0, value=0.50, step=0.01, format='%.2f', key='ay_kb')
     with b3: ek_b = st.number_input('E.Kartı ($/adet)', min_value=0.0, value=1.00, step=0.01, format='%.2f', key='ay_ek')
-    with b4: ssd_b = st.number_input('SSD&RAM ($/adet)', min_value=0.0, value=0.50, step=0.01, format='%.2f', key='ay_sb')
+    with b4: ssd_b = st.number_input('SSD Oran (%)', min_value=0.0, value=0.5, step=0.01, format='%.2f', key='ay_sb')
     with b5: kur = st.number_input('USD/TL Kuru', min_value=1.0, value=38.0, step=0.5, format='%.2f', key='ay_kur')
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -282,13 +282,13 @@ def _prim_ayhan():
     with a2: mon_a = st.number_input('Monitör Adet', min_value=0, value=0, step=1, key='ay_ma')
     with a3: kas_a = st.number_input('Kasa Adet', min_value=0, value=0, step=1, key='ay_ka')
     with a4: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
-    with a5: ss_a = st.number_input('SSD&RAM Adet', min_value=0, value=0, step=1, key='ay_sa')
+    with a5: ss_a = st.number_input('SSD Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_sa')
     st.markdown('</div>', unsafe_allow_html=True)
 
     mon_usd = mon_a * mon_b
     kas_usd = kas_a * kasa_b
     ek_usd = ek_a * ek_b
-    ssd_usd = ss_a * ssd_b
+    ssd_usd = ss_a * (ssd_b / 100.0)
     tot_usd = mon_usd + kas_usd + ek_usd + ssd_usd
     tot_tl = tot_usd * kur
 
