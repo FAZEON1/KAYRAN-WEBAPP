@@ -2059,7 +2059,7 @@ def run():
                     else:
                         net_str = ""
     
-                    Tutar / Kategori Revize = (
+                    banka_html = (
                         f'<div style="background:#131C35;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:12px">'
                         f'<div style="font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{b["hesap_adi"]}</div>'
                         f'<div style="font-size:28px;font-weight:700;color:#E2E8F0;font-family:monospace;white-space:nowrap;display:flex;align-items:baseline;gap:3px">{sym}{fmt(b["bakiye"])}<span style="font-size:11px;color:#94A3B8;white-space:nowrap">{b["para_birimi"]}</span></div>'
