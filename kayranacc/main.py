@@ -16,12 +16,12 @@ import requests
 import os
 from datetime import datetime, date, timedelta
 from io import BytesIO
-
+h
 from .database import (
     initialize_db, get_tum_haftalar, get_aktif_hafta,
     hafta_ekle, hafta_aktif_yap, hafta_sil,
     get_hafta_odemeler, odeme_ekle_bulk, odeme_ekle_manuel,
-    odeme_durum_guncelle, odeme_sil, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, get_hafta_ozet,
+        odeme_durum_guncelle, odeme_sil, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle, get_hafta_ozet,
     get_bankalar, banka_ekle, banka_guncelle, banka_sil,
     get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi,
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
@@ -1858,6 +1858,10 @@ def run():
                     
                     with col5:
                         if is_odendi:
+                                                    b_id_col5 = o.get("banka_id")
+                                                    banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+                                                    banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
+                                                    st.markdown(f'<div style="font-size:10px;color:#94A3B8;font-weight:600;margin-bottom:2px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
                             if st.button(f"↩ Geri Al", key=f"geri_{o['id']}"):
                                 odeme_durum_guncelle(o["id"], "bekliyor", kur=kur)
                                 st.rerun()
@@ -1876,10 +1880,10 @@ def run():
                         st.markdown(
                             '<div style="background:#2D200A;border:1px solid #FCD34D;'
                             'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
-                            '<b style="color:#FDE68A;font-size:12px">💰 Tutar / Kategori Revize</b>',
+                                                        '<b style="color:#FDE68A;font-size:12px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
                             unsafe_allow_html=True
                         )
-                        col_tl, col_usd, col_kat, col_kaydet = st.columns([2, 2, 2, 1])
+                                                col_tl, col_usd, col_tarih, col_kat, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
                         with col_tl:
                             yeni_tl = st.number_input(
                                 "TL (₺)",
@@ -1913,7 +1917,19 @@ def run():
                                 format_func=lambda k: KATEGORILER.get(k, {}).get("label", k),
                                 key=f"edit_kat_{o['id']}"
                             )
-                        with col_kaydet:
+                                                    with col_tarih:                        
+                                                        mevcut_vade_dt = None
+                                                                                    if o.get("vade"):
+                                                                                                                            try:
+                                                                                                                                        parsed_dt = pd.to_datetime(o.get("vade"))
+                                                                                                                                        if pd.notna(parsed_dt):
+                                                                                                                                            mevcut_vade_dt = parsed_dt.date()
+                                                                                        except Exception:
+                                                                                                                                        pass
+                                                                                                                                yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}")
+                                                                                    with col_aciklama:
+                                                                                                                    yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_aciklama_{o['id']}")
+                                                                                                                with col_kaydet:
                             st.markdown("<br>", unsafe_allow_html=True)
                             if st.button("💾 Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True):
                                 if yeni_tl <= 0 and yeni_usd <= 0:
@@ -1927,8 +1943,12 @@ def run():
                                     # Kategori değiştiyse onu da güncelle
                                     if yeni_kat != mevcut_kat:
                                         odeme_kategori_guncelle(o["id"], yeni_kat)
-                                    st.session_state[f"edit_tutar_toggle_{o['id']}"] = False
-                                    st.success(f"✅ Güncellendi")
+                                                                                                                                        # Vade güncelle                                    # Vade güncelle
+                                                                                                                                        if yeni_tarih and str(yeni_tarih) != str(o.get("vade", ""))[:10]:
+                                                                                                                                            odeme_vade_guncelle(o["id"], str(yeni_tarih))
+                                                                                                                                        # Açıklama güncelle
+                                                                                                                if yeni_aciklama.strip() != (o.get("aciklama") or "").strip():
+                                                                            odeme_aciklama_guncelle(o["id"], yeni_aciklama.strip())
                                     st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -2042,7 +2062,7 @@ def run():
                     else:
                         net_str = ""
     
-                    banka_html = (
+                    Tutar / Kategori Revize = (
                         f'<div style="background:#131C35;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:12px">'
                         f'<div style="font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{b["hesap_adi"]}</div>'
                         f'<div style="font-size:28px;font-weight:700;color:#E2E8F0;font-family:monospace;white-space:nowrap;display:flex;align-items:baseline;gap:3px">{sym}{fmt(b["bakiye"])}<span style="font-size:11px;color:#94A3B8;white-space:nowrap">{b["para_birimi"]}</span></div>'
