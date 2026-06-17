@@ -1883,7 +1883,7 @@ def run():
                                                         '<b style="color:#FDE68A;font-size:12px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
                             unsafe_allow_html=True
                         )
-                                                                        col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
+                        col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
                         with col_tl:
                             yeni_tl = st.number_input(
                                 "TL (₺)",
