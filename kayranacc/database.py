@@ -9,7 +9,7 @@ from datetime import date
 
 # ── Supabase bağlantısı — cache ile tek seferlik oluştur ─────────────
 @st.cache_resource
-def get_client() -> Client:
+def get_client() -> Client:h
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["service_role_key"]
     return create_client(url, key)
@@ -17,7 +17,7 @@ def get_client() -> Client:
 
 # ── Cache yardımcısı ────────────────────────────────────────────────
 # Veri değişince cache'i temizlemek için
-def _cache_temizle():h
+def _cache_temizle():
     """Tüm @st.cache_data önbelleklerini temizler.
     Her yazma (ekle/sil/güncelle) işleminden sonra çağrılır."""
     try:
@@ -551,8 +551,8 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
         # virmanlar tablosu yoksa virman yine yapıldı, sadece kayıt tutulmadı
         pass
 
-    return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
     _cache_temizle()
+    return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
 
 
 def virman_geri_al(virman_id):
@@ -590,10 +590,10 @@ def virman_geri_al(virman_id):
 
         # Virman kaydını sil
         sb.table("virmanlar").delete().eq("id", virman_id).execute()
+        _cache_temizle()
         return True, "✅ Virman geri alındı"
     except Exception as e:
         return False, f"Geri alma hatası: {e}"
-        _cache_temizle()
 
 
 # ════════════════════════════════════════════════════════════════════
