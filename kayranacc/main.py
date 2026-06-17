@@ -1858,10 +1858,10 @@ def run():
                     
                     with col5:
                         if is_odendi:
-                                                    b_id_col5 = o.get("banka_id")
-                                                    banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
-                                                    banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
-                                                    st.markdown(f'<div style="font-size:10px;color:#94A3B8;font-weight:600;margin-bottom:2px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
+                            b_id_col5 = o.get("banka_id")
+                            banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+                            banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
+                            st.markdown(f'<div style="font-size:10px;color:#94A3B8;font-weight:600;margin-bottom:2px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
                             if st.button(f"↩ Geri Al", key=f"geri_{o['id']}"):
                                 odeme_durum_guncelle(o["id"], "bekliyor", kur=kur)
                                 st.rerun()
