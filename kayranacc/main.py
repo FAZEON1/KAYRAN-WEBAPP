@@ -1851,7 +1851,7 @@ def run():
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
                                         st.rerun()
-  col_tl, col_usd, col_kat, col_kaydet = st.columns([2, 2, 2, 1])                              else:
+                        else:
                                     if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
                                         st.session_state[sil_key] = True
                                         st.rerun()
