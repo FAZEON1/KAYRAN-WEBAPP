@@ -55,7 +55,7 @@ def hafta_ekle(hafta_adi):
         "yuklendi_tarih": today,
         "aktif": 0
     }).execute()
-hafta_id = res.data[0]["id"] if res.data else None
+    hafta_id = res.data[0]["id"] if res.data else None
     _cache_temizle()
     return hafta_id
 
