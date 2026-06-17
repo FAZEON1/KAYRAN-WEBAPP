@@ -337,8 +337,8 @@ def odeme_kategori_guncelle(odeme_id, yeni_kategori):
         sb.table("odemeler").update({"kategori": yeni_kategori}).eq("id", odeme_id).execute()
         return True
     except Exception:
-        return False
         _cache_temizle()
+        return False
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -624,8 +624,8 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
         }).execute()
         return True
     except Exception:
-        return False
         _cache_temizle()
+        return False
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -701,8 +701,8 @@ def aktif_excel_sil(kullanici, dosya_tipi=None):
             pass
         return True
     except Exception:
-        return False
         _cache_temizle()
+        return False
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -725,8 +725,8 @@ def aktif_manuel_ekle(kullanici, aciklama, tutar, para_birimi="USD", tip="ekle")
         }).execute()
         return True
     except Exception:
-        return False
         _cache_temizle()
+        return False
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -750,8 +750,8 @@ def aktif_manuel_sil(kalem_id):
         sb.table("aktif_manuel_kalemler").delete().eq("id", kalem_id).execute()
         return True
     except Exception:
-        return False
         _cache_temizle()
+        return False
 
 
 @st.cache_data(ttl=300, show_spinner=False)
