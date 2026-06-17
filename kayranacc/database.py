@@ -9,7 +9,7 @@ from datetime import date
 
 # ── Supabase bağlantısı — cache ile tek seferlik oluştur ─────────────
 @st.cache_resource
-def get_client() -> Client:h
+def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["service_role_key"]
     return create_client(url, key)
