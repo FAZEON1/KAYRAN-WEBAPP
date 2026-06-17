@@ -267,10 +267,10 @@ def _prim_ayhan():
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">BİRİM PRİM ORANLARI & KUR</div>', unsafe_allow_html=True)
     b1,b2,b3,b4,b5 = st.columns(5)
-    with b1: mon_b = st.number_input('Monitör ($/adet)', min_value=0.0, value=0.50, step=0.01, format='%.2f', key='ay_mb')
-    with b2: kasa_b = st.number_input('Kasa ($/adet)', min_value=0.0, value=0.50, step=0.01, format='%.2f', key='ay_kb')
+    with b1: mon_b = st.number_input('Mon. Oran (%)', min_value=0.0, value=0.05, step=0.01, format='%.2f', key='ay_mb')
+    with b2: kasa_b = st.number_input('Kasa Oran (%)', min_value=0.0, value=1.0, step=0.01, format='%.2f', key='ay_kb')
     with b3: ek_b = st.number_input('E.Kartı ($/adet)', min_value=0.0, value=1.00, step=0.01, format='%.2f', key='ay_ek')
-    with b4: ssd_b = st.number_input('SSD Oran (%)', min_value=0.0, value=0.5, step=0.01, format='%.2f', key='ay_sb')
+    with b4: ssd_b = st.number_input('SSD Oran (%)', min_value=0.0, value=0.05, step=0.01, format='%.2f', key='ay_sb')
     with b5: kur = st.number_input('USD/TL Kuru', min_value=1.0, value=38.0, step=0.5, format='%.2f', key='ay_kur')
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -279,14 +279,14 @@ def _prim_ayhan():
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">SATIŞ ADETLERİ</div>', unsafe_allow_html=True)
     a1,a2,a3,a4,a5 = st.columns(5)
     with a1: ay_d = st.text_input('Dönem', value='Q1 2026', key='ay_d')
-    with a2: mon_a = st.number_input('Monitör Adet', min_value=0, value=0, step=1, key='ay_ma')
-    with a3: kas_a = st.number_input('Kasa Adet', min_value=0, value=0, step=1, key='ay_ka')
+    with a2: mon_a = st.number_input('Mon. Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_ma')
+    with a3: kas_a = st.number_input('Kasa Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_ka')
     with a4: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
     with a5: ss_a = st.number_input('SSD Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_sa')
     st.markdown('</div>', unsafe_allow_html=True)
 
-    mon_usd = mon_a * mon_b
-    kas_usd = kas_a * kasa_b
+    mon_usd = mon_a * (mon_b / 100.0)
+    kas_usd = kas_a * (kasa_b / 100.0)
     ek_usd = ek_a * ek_b
     ssd_usd = ss_a * (ssd_b / 100.0)
     tot_usd = mon_usd + kas_usd + ek_usd + ssd_usd
