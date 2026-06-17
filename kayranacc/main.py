@@ -1124,7 +1124,7 @@ def run():
         # ─── Sayfa listesi (kullanıcıya göre dinamik) ───
         aktif_kullanici_lower = st.session_state.get("aktif_kullanici", "").lower().strip()
         # Toplam Aktifler sayfasına yetkili kullanıcılar (yeni eklemek için bu set'e ekle)
-        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman"}
+        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman", "pamuk"}
         KISITLI_SAYFALAR = ["💰 Toplam Aktifler"]
     
         tum_sayfalar = [
