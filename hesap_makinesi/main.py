@@ -277,18 +277,18 @@ def _prim_ayhan():
     # Satis adetleri - 5 esit sutun
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:14px">SATIŞ ADETLERİ</div>', unsafe_allow_html=True)
-    a1,a2,a3,a4,a5 = st.columns(5)
+    a1,a2,a3 = st.columns(3)
     with a1: ay_d = st.text_input('Dönem', value='Q1 2026', key='ay_d')
-    with a2: mon_a = st.number_input('Mon. Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_ma')
-    with a3: kas_a = st.number_input('Kasa Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_ka')
-    with a4: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
-    with a5: ss_a = st.number_input('SSD Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='ay_sa')
+    with a2: toplam_ciro = st.number_input('Toplam Ciro (USD)', min_value=0.0, value=0.0, step=1000.0, format='%.0f', key='ay_ciro')
+    with a3: ek_a = st.number_input('E.Kartı Adet', min_value=0, value=0, step=1, key='ay_ea')
+
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-    mon_usd = mon_a * (mon_b / 100.0)
-    kas_usd = kas_a * (kasa_b / 100.0)
+    mon_usd = toplam_ciro * (mon_b / 100.0)
+    kas_usd = toplam_ciro * (kasa_b / 100.0)
     ek_usd = ek_a * ek_b
-    ssd_usd = ss_a * (ssd_b / 100.0)
+    ssd_usd = toplam_ciro * (ssd_b / 100.0)
     tot_usd = mon_usd + kas_usd + ek_usd + ssd_usd
     tot_tl = tot_usd * kur
 
