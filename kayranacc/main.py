@@ -1883,7 +1883,7 @@ def run():
                                                         '<b style="color:#FDE68A;font-size:12px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
                             unsafe_allow_html=True
                         )
-                                                                        col_tl, col_usd, col_kat, col_kaydet = st.columns([2, 2, 2, 1])
+                                                                        col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
                         with col_tl:
                             yeni_tl = st.number_input(
                                 "TL (₺)",
@@ -1905,7 +1905,7 @@ def run():
                         with col_kat:
                             # Kategori seçimi
                             kat_keys = list(KATEGORILER.keys())
-                            mevcut_kat = o.get("kategori") or "diger"
+                            mevcut_kat = o.get("kategori") or "diger"h
                             try:
                                 kat_idx = kat_keys.index(mevcut_kat)
                             except ValueError:
@@ -1917,19 +1917,19 @@ def run():
                                 format_func=lambda k: KATEGORILER.get(k, {}).get("label", k),
                                 key=f"edit_kat_{o['id']}"
                             )
-                                                    with col_tarih:
-                                                                                    mevcut_vade_dt = None
-                                                                                    if o.get("vade"):
-                                                                                                                        try:
-                                                                                                                                                                parsed_dt = pd.to_datetime(o.get("vade"))
-                                                                                                                                                                if pd.notna(parsed_dt):
-                                                                                                                                                                                                            mevcut_vade_dt = parsed_dt.date()
-                                                                                                                                                                                                    except Exception:
-                                                                                                                                                                                                                                            pass
-                                                                                                                                                                                                                                    yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}")
-                                                                                                                with col_aciklama:
-                                                                                                                                                yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_aciklama_{o['id']}")
-                                                                                                                with col_kaydet:
+                        with col_tarih:
+                            mevcut_vade_dt = None
+                            if o.get("vade"):
+                                try:
+                                    parsed_dt = pd.to_datetime(o.get("vade"))
+                                    if pd.notna(parsed_dt):
+                                        mevcut_vade_dt = parsed_dt.date()
+                                except Exception:
+                                    pass
+                            yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}")
+                        with col_aciklama:
+                            yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_acik_{o['id']}")
+                        with col_kaydet:
                             st.markdown("<br>", unsafe_allow_html=True)
                             if st.button("💾 Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True):
                                 if yeni_tl <= 0 and yeni_usd <= 0:
@@ -1943,12 +1943,12 @@ def run():
                                     # Kategori değiştiyse onu da güncelle
                                     if yeni_kat != mevcut_kat:
                                         odeme_kategori_guncelle(o["id"], yeni_kat)
-                                                                                                                                        # Vade güncelle
-                                                    if yeni_tarih and str(yeni_tarih) != str(o.get("vade", ""))[:10]:
-                                                                                                odeme_vade_guncelle(o["id"], str(yeni_tarih))
-                                                                                            # Açıklama güncelle
-                                                    if yeni_aciklama.strip() != (o.get("aciklama") or "").strip():
-                                                                                                odeme_aciklama_guncelle(o["id"], yeni_aciklama.strip())
+                                    # Vade güncelle
+                                    if yeni_tarih and str(yeni_tarih) != str(o.get("vade", ""))[:10]:
+                                        odeme_vade_guncelle(o["id"], str(yeni_tarih))
+                                    # Açıklama güncelle
+                                    if yeni_aciklama.strip() != (o.get("aciklama") or "").strip():
+                                        odeme_aciklama_guncelle(o["id"], yeni_aciklama.strip())
     
                     # ─── Vade Öteleme (sadece bekleyenler için) ───
                     if not is_odendi:
