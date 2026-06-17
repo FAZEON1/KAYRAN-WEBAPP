@@ -1851,7 +1851,7 @@ def run():
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
                                         st.rerun()
-                                else:
+  col_tl, col_usd, col_kat, col_kaydet = st.columns([2, 2, 2, 1])                              else:
                                     if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
                                         st.session_state[sil_key] = True
                                         st.rerun()
@@ -1883,7 +1883,7 @@ def run():
                                                         '<b style="color:#FDE68A;font-size:12px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
                             unsafe_allow_html=True
                         )
-                                                col_tl, col_usd, col_tarih, col_kat, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
+                                                                        col_tl, col_usd, col_kat, col_kaydet = st.columns([2, 2, 2, 1])
                         with col_tl:
                             yeni_tl = st.number_input(
                                 "TL (₺)",
@@ -1916,6 +1916,7 @@ def run():
                                 index=kat_idx,
                                 format_func=lambda k: KATEGORILER.get(k, {}).get("label", k),
                                 key=f"edit_kat_{o['id']}"
+                            )
                                                     with col_tarih:
                                                                                     mevcut_vade_dt = None
                                                                                     if o.get("vade"):
