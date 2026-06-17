@@ -55,9 +55,8 @@ def hafta_ekle(hafta_adi):
         "yuklendi_tarih": today,
         "aktif": 0
     }).execute()
-    hafta_id = res.data[0]["id"] if res.data else None
     _cache_temizle()
-    return hafta_id
+    return res.data[0]["id"] if res.data else None
 
 
 def hafta_aktif_yap(hafta_id):
@@ -213,16 +212,24 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     onceki_banka_id = odeme.get("banka_id")
     onceki_durum = odeme.get("durum")
 
-            # ─── Ödeme kaydını güncelle ───
-        update_data = {
+    # ─── Ödeme kaydını güncelle (banka_id ayrı deneyelim) ───
+    update_data = {
         "durum": durum,
         "odendi_tarih": today,
-                "banka_id": banka_id if durum == "odendi" else None,
     }
     try:
         sb.table("odemeler").update(update_data).eq("id", odeme_id).execute()
     except Exception:
         return
+
+    # ─── banka_id kolonunu ayrı güncelle (varsa) ───
+    banka_id_kolonu_var = True
+    if durum == "odendi" and banka_id:
+        try:
+            sb.table("odemeler").update({"banka_id": banka_id}).eq("id", odeme_id).execute()
+        except Exception:
+            banka_id_kolonu_var = False  # kolon yok, ama ödeme durumu güncellendi
+
     # ─── Banka bakiyesi güncelleme (opsiyonel) ───
     try:
         tutar_tl = float(odeme.get("tutar_tl") or 0)
@@ -590,9 +597,9 @@ def virman_geri_al(virman_id):
 
         # Virman kaydını sil
         sb.table("virmanlar").delete().eq("id", virman_id).execute()
-        _cache_temizle()
         return True, "✅ Virman geri alındı"
     except Exception as e:
+        _cache_temizle()
         return False, f"Geri alma hatası: {e}"
 
 
@@ -619,7 +626,7 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
             "veri_json": json.dumps({
                 "veri": veri_json,
                 "son_yukleyen": kullanici,
-                "yukleme_zamani": str(tr_now()),
+                "yukleme_zamani": str(__import__("datetime").tr_now()),
             }),
         }).execute()
         return True
