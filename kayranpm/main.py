@@ -34,7 +34,6 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
 from .analitik import dashboard_hesapla, genel_analiz_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes)
-from .bildirim import (get_bildirim_ayarlari, kaydet_bildirim_ayarlari, email_gonder)
 
 
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
@@ -468,7 +467,6 @@ def run():
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
             "📂  Veri Yükleme",
-            "🔔  Bildirim Ayarları",
         ], label_visibility="collapsed")
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
@@ -2689,6 +2687,47 @@ def run():
                     reddet_siparis(int(reddet_id))
                     st.warning("Reddedildi.")
                     st.rerun()
+
+        st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📋 Sipariş Takvimi Özeti</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:10px">Tüm ürünlerin sipariş durumu — 135 gün üretim süresi baz alınarak hesaplanmıştır.</div>', unsafe_allow_html=True)
+    
+        try:
+            veri = dashboard_hesapla()
+            # Ürün başına tek satır (firma tekrarı olmasın)
+            sku_goruldu = set()
+            ozetler = []
+            for u in veri:
+                if u["sku"] not in sku_goruldu:
+                    sku_goruldu.add(u["sku"])
+                    ozetler.append(u)
+    
+            durum_sirasi = {"acil": 0, "yaklasıyor": 1, "planlama": 2, "normal": 3, "veri_yok": 4}
+            ozetler.sort(key=lambda x: durum_sirasi.get(x.get("siparis_durum","veri_yok"), 4))
+    
+            df_ozet = pd.DataFrame([{
+                "SKU": u["sku"],
+                "Ürün Adı": u["urun_adi"],
+                "Bizim Stok": u["bizim_stok"],
+                "Hft. Satış": u.get("toplam_haftalik_satis", 0),
+                "Stok Biter (Gün)": u.get("stok_bitis_gun", "-") or "-",
+                "Sipariş Son Gün": u.get("siparis_son_gun", "-") or "-",
+                "Durum": u.get("siparis_mesaj", "—"),
+            } for u in ozetler])
+    
+            def ozet_rengi(row):
+                durum = row.get("Durum","")
+                if "ACİL" in str(durum): return ["background-color:#FFCCCC"]*len(row)
+                if "🟠" in str(durum): return ["background-color:#FFE0B2"]*len(row)
+                if "🟡" in str(durum): return ["background-color:#FFF9C4"]*len(row)
+                if "🟢" in str(durum): return ["background-color:#E8F5E9"]*len(row)
+                return [""]*len(row)
+    
+            st.dataframe(df_ozet.style.apply(ozet_rengi, axis=1), use_container_width=True, height=400)
+        except Exception as e:
+            _log.error("Hata: %s", e)
+            st.error(f"Veri yüklenemedi: {e}")
+
     
     
     elif sayfa == "📂  Veri Yükleme":
@@ -2837,88 +2876,3 @@ def run():
         except Exception as e:
             _log.warning("Hata: %s", e)
             st.warning(f"Geçmiş yüklemeler yüklenemedi: {e}")
-    
-    
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 9) BİLDİRİM AYARLARI
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🔔  Bildirim Ayarları":
-        st.markdown('<div class="baslik">🔔 Bildirim Ayarları</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Günlük e-posta bildirimi için SMTP ayarlarını yapın</div>', unsafe_allow_html=True)
-    
-        mevcut = get_bildirim_ayarlari()
-    
-        with st.expander("📧 E-posta Ayarları", expanded=True):
-            st.caption("Gmail kullanıyorsanız: smtp_host=smtp.gmail.com, port=587, uygulama şifresi gereklidir.")
-    
-            col1, col2 = st.columns(2)
-            with col1:
-                email = st.text_input("Bildirim Gönderilecek E-posta", value=mevcut.get("email","") if mevcut else "")
-                smtp_host = st.text_input("SMTP Host", value=mevcut.get("smtp_host","smtp.gmail.com") if mevcut else "smtp.gmail.com")
-                smtp_port = st.number_input("SMTP Port", value=int(mevcut.get("smtp_port",587)) if mevcut else 587)
-            with col2:
-                smtp_user = st.text_input("SMTP Kullanıcı (Gönderen E-posta)", value=mevcut.get("smtp_user","") if mevcut else "")
-                smtp_pass = st.text_input("SMTP Şifre / Uygulama Şifresi", type="password", value=mevcut.get("smtp_pass","") if mevcut else "")
-                aktif = st.checkbox("Günlük bildirimleri aktif et", value=bool(mevcut.get("aktif",0)) if mevcut else False)
-    
-            if mevcut and mevcut.get("son_gonderim"):
-                st.info(f"Son gönderim: {mevcut['son_gonderim']}")
-    
-            col_a, col_b = st.columns(2)
-            with col_a:
-                if st.button("💾 Ayarları Kaydet", type="primary", use_container_width=True):
-                    if email and smtp_user and smtp_pass:
-                        kaydet_bildirim_ayarlari(email, smtp_host, smtp_port, smtp_user, smtp_pass, int(aktif))
-                        st.success("Ayarlar kaydedildi!")
-                    else:
-                        st.error("E-posta, kullanıcı adı ve şifre zorunludur.")
-            with col_b:
-                if st.button("📧 Test E-postası Gönder", use_container_width=True):
-                    veri = dashboard_hesapla()
-                    ok, msg = email_gonder(veri)
-                    if ok:
-                        st.success(msg)
-                    else:
-                        st.error(msg)
-    
-        st.markdown("---")
-        st.subheader("📋 Sipariş Takvimi Özeti")
-        st.caption("Tüm ürünlerin sipariş durumu — 135 gün üretim süresi baz alınarak hesaplanmıştır.")
-    
-        try:
-            veri = dashboard_hesapla()
-            # Ürün başına tek satır (firma tekrarı olmasın)
-            sku_goruldu = set()
-            ozetler = []
-            for u in veri:
-                if u["sku"] not in sku_goruldu:
-                    sku_goruldu.add(u["sku"])
-                    ozetler.append(u)
-    
-            durum_sirasi = {"acil": 0, "yaklasıyor": 1, "planlama": 2, "normal": 3, "veri_yok": 4}
-            ozetler.sort(key=lambda x: durum_sirasi.get(x.get("siparis_durum","veri_yok"), 4))
-    
-            df_ozet = pd.DataFrame([{
-                "SKU": u["sku"],
-                "Ürün Adı": u["urun_adi"],
-                "Bizim Stok": u["bizim_stok"],
-                "Hft. Satış": u.get("toplam_haftalik_satis", 0),
-                "Stok Biter (Gün)": u.get("stok_bitis_gun", "-") or "-",
-                "Sipariş Son Gün": u.get("siparis_son_gun", "-") or "-",
-                "Durum": u.get("siparis_mesaj", "—"),
-            } for u in ozetler])
-    
-            def ozet_rengi(row):
-                durum = row.get("Durum","")
-                if "ACİL" in str(durum): return ["background-color:#FFCCCC"]*len(row)
-                if "🟠" in str(durum): return ["background-color:#FFE0B2"]*len(row)
-                if "🟡" in str(durum): return ["background-color:#FFF9C4"]*len(row)
-                if "🟢" in str(durum): return ["background-color:#E8F5E9"]*len(row)
-                return [""]*len(row)
-    
-            st.dataframe(df_ozet.style.apply(ozet_rengi, axis=1), use_container_width=True, height=400)
-        except Exception as e:
-            _log.error("Hata: %s", e)
-            st.error(f"Veri yüklenemedi: {e}")
