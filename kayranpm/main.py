@@ -1339,7 +1339,6 @@ def run():
                                m_marka.strip(), m_satis, _cost_price, m_hedef_kar,
                                _ozellik_str, m_stok, 0)
                     if m_maliyet_yuzdesi > 0 and m_alis > 0:
-                        from datetime import date
                         ekle_satin_alma(sku_temiz, m_urun_adi.strip(), "Manuel Giriş",
                                         date.today(), m_stok if m_stok > 0 else 1,
                                         m_alis, m_maliyet_yuzdesi, _ozellik_str)
