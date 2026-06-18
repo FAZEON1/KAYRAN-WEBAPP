@@ -1413,13 +1413,13 @@ def run():
         secilen = next(u for u in urun_data if u["sku"] == secilen_sku)
         firma_st = secilen.get("firma_stoklari", {})
     
-        # ── Stok Dağılımı Kartı ─────────────────────────────────────────
-        st.markdown(f'''<div style="display:flex;align-items:center;gap:14px;margin:6px 0 2px;">
-<div style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(59,130,246,0.15));border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📦</div>
-<div style="min-width:0;">
-<div style="font-family:Manrope,Inter,sans-serif;font-size:19px;font-weight:700;color:#F1F5F9;line-height:1.25;letter-spacing:-0.2px;">{secilen["urun_adi"]}</div>
-<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 9px;border-radius:6px;background:rgba(148,163,184,0.12);color:#94A3B8;font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
-</div></div>''', unsafe_allow_html=True)
+        # ── Ürün Başlığı (modern kart) ──
+        st.markdown(f"""<div style="display:flex;align-items:center;gap:16px;padding:15px 18px;margin:4px 0 14px;background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(59,130,246,0.04));border:1px solid rgba(99,102,241,0.18);border-radius:16px;">
+ <div style="width:48px;height:48px;border-radius:13px;flex-shrink:0;background:linear-gradient(135deg,#6366F1,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 18px rgba(99,102,241,0.35);">📦</div>
+ <div style="min-width:0;">
+ <div style="font-family:'Manrope','Inter',sans-serif;font-size:18px;font-weight:800;color:#F8FAFC;line-height:1.3;letter-spacing:-0.3px;">{secilen["urun_adi"]}</div>
+ <div style="margin-top:7px;"><span style="display:inline-block;padding:3px 11px;border-radius:7px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);color:#A5B4FC;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
+ </div></div>""", unsafe_allow_html=True)
     
         bizim_stok = secilen.get("bizim_stok", 0)
         toplam_firma = secilen.get("toplam_firma_stok", 0)
@@ -2693,16 +2693,15 @@ def run():
     
         # Şablon indir
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
-            st.write("Aşağıdaki butona tıklayarak örnek şablonu indirin, doldurun ve yükleyin.")
+            st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:6px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
             sablon_bytes = create_sample_excel_bytes()
             st.download_button("📥 Şablonu İndir", sablon_bytes, "SABLON_STOK_TAKIP.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     
         st.markdown("---")
     
-        st.subheader("📤 G5F STOK — Haftalık Veri Yükleme")
-        st.caption("""Tek Excel dosyasında tüm sekmeler: 
-        **G5F STOK** (bizim depo) | **ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER** (firma stokları) | **YOLDAKI** (yoldaki ürünler)""")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 G5F Stok · Haftalık Veri Yükleme</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında tüm sekmeler: <b style="color:#CBD5E1">G5F STOK</b> (bizim depo) · <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b> (firma stokları) · <b style="color:#CBD5E1">YOLDAKI</b> (yoldaki ürünler)</div>', unsafe_allow_html=True)
     
         dosya = st.file_uploader("Excel Dosyasını Seç", type=["xlsx","xls"], key="tek_dosya")
         if dosya:
@@ -2734,17 +2733,21 @@ def run():
                         st.warning(f"**{baslik}:** {mesaj}")
     
         st.markdown("---")
-        st.markdown("""
-        **📋 Excel Sekme Yapısı:**
-        | Sekme | İçerik | Kolonlar |
-        |-------|--------|----------|
-        | G5F STOK | Bizim depo stoğumuz + yoldaki bilgiler | SKU, Ürün Adı, Kategori, Marka, Satış Fiyatı ($), Alış Fiyatı ($), Hedef Kar Marjı (%), Bizim Stok, **Yoldaki Miktar**, **Tahmini Varış Tarihi**, **Yoldaki Tedarikçi** |
-        | ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER | Firma stokları | SKU, Ürün Adı, Stok Miktarı, Haftalık Satış |
-        """)
+        st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 10px">📋 Excel Sekme Yapısı</div>', unsafe_allow_html=True)
+        st.markdown("""<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
+ <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
+ <div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">G5F STOK <span style="color:#64748B;font-weight:500">· bizim depo + yoldaki</span></div>
+ <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Alış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
+ </div>
+ <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
+ <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· firma stokları</span></div>
+ <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Stok Miktarı · Haftalık Satış</div>
+ </div>
+ </div>""", unsafe_allow_html=True)
     
         st.markdown("---")
-        st.subheader("📅 Geçmiş Yüklemeler")
-        st.caption("Hangi tarihlerde veri yüklendiğini görün ve gerekirse silin.")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:8px">Hangi tarihlerde veri yüklendiğini gör, gerekirse sil.</div>', unsafe_allow_html=True)
     
         try:
             sb_vy = get_client()
