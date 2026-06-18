@@ -1653,26 +1653,18 @@ def run():
         # Tüm ürünler özet tablosu
         st.markdown("#### 📊 Tüm Ürünler Özet")
         rows_oz = []
-        # Kampanya destek ortalamalarını çek
-        try:
-            destek_map = get_kampanya_destek_ortalamalari()
-        except Exception as _e:
-            _log.debug("Sessiz hata (fallback): %s", _e)
-            destek_map = {}
-    
         for u in urun_data:
             fs = u.get("firma_stoklari", {})
             satis = u.get('satis_fiyati') or 0
             fcp = u.get('final_cost_price') or 0
-            destek_bilgi = destek_map.get(u["sku"], {})
-            ort_destek = destek_bilgi.get("ort_toplam_destek", 0)
-            kamp_sayisi = destek_bilgi.get("kampanya_sayisi", 0)
-            net_kar = (satis - fcp - ort_destek) if (satis > 0 and fcp > 0) else None
+            fob = u.get('fob_price', u.get('son_fob', 0)) or 0
+            maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
+            net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
+            net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
             rows_oz.append({
                 "SKU": u["sku"],
                 "Ürün Adı": u.get("urun_adi", ""),
                 "Kategori": u.get("kategori", ""),
-                "Satış ($)": float(satis or 0),
                 "G5F Depo": int(u.get("bizim_stok", 0) or 0),
                 "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
                 "HB": int(fs.get("HB", 0) or 0),
@@ -1680,10 +1672,12 @@ def run():
                 "MONDAY": int(fs.get("MONDAY", 0) or 0),
                 "KANAL": int(fs.get("KANAL", 0) or 0),
                 "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
-                "FOB ($)": float(u.get('fob_price', u.get('son_fob', 0)) or 0),
+                "FOB ($)": float(fob or 0),
+                "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
                 "Final Cost ($)": float(fcp or 0),
+                "Satış ($)": float(satis or 0),
+                "Net Marj (%)": float(net_marj) if net_marj is not None else None,
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
-                "Kamp.": int(kamp_sayisi or 0),
             })
         df_oz = pd.DataFrame(rows_oz)
         if df_oz.empty:
@@ -1699,6 +1693,11 @@ def run():
                     return f"{int(v):,}" if v not in (None, "") else "0"
                 except Exception:
                     return "0"
+            def _fmt_pct(v):
+                try:
+                    return f"%{float(v):.1f}" if v not in (None, "") else "—"
+                except Exception:
+                    return "—"
             def _stok_cls(v):
                 try:
                     return "c-num" if (v and int(v) > 0) else "c-muted"
@@ -1719,18 +1718,30 @@ def run():
                     nk_cls, nk_txt = "c-neg", f"${nk:,.2f}"
                 else:
                     nk_cls, nk_txt = "c-num", f"${nk:,.2f}"
+                nm = r.get("Net Marj (%)")
+                if nm is None:
+                    nm_cls, nm_txt = "c-muted", "—"
+                elif nm > 0:
+                    nm_cls, nm_txt = "c-pos", f"%{nm:.1f}"
+                elif nm < 0:
+                    nm_cls, nm_txt = "c-neg", f"%{nm:.1f}"
+                else:
+                    nm_cls, nm_txt = "c-num", f"%{nm:.1f}"
                 tot = r.get("Toplam") or 0
                 tot_cls = "c-tot" if tot else "c-muted"
                 fcp = r.get("Final Cost ($)") or 0
                 fcp_cls = "c-fcp" if fcp else "c-muted"
+                fob_v = r.get("FOB ($)") or 0
+                fob_cls = "c-num" if fob_v else "c-muted"
                 satis = r.get("Satış ($)") or 0
                 satis_cls = "c-money" if satis else "c-muted"
+                mal = r.get("Maliyet %")
+                mal_cls = "c-mal" if (mal is not None) else "c-muted"
                 satir_html += (
                     "<tr>"
                     f'<td class="c-sku">{r.get("SKU","")}</td>'
                     f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
                     f'<td class="c-kat">{r.get("Kategori","")}</td>'
-                    f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
                     f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
                     f'<td class="{_stok_cls(r.get("ITOPYA"))}">{_fmt_int(r.get("ITOPYA"))}</td>'
                     f'<td class="{_stok_cls(r.get("HB"))}">{_fmt_int(r.get("HB"))}</td>'
@@ -1738,8 +1749,11 @@ def run():
                     f'<td class="{_stok_cls(r.get("MONDAY"))}">{_fmt_int(r.get("MONDAY"))}</td>'
                     f'<td class="{_stok_cls(r.get("KANAL"))}">{_fmt_int(r.get("KANAL"))}</td>'
                     f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
-                    f'<td class="c-dim">{_fmt_para(r.get("FOB ($)"))}</td>'
+                    f'<td class="{fob_cls}">{_fmt_para(fob_v)}</td>'
+                    f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
                     f'<td class="{fcp_cls}">{_fmt_para(fcp)}</td>'
+                    f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
+                    f'<td class="{nm_cls}">{nm_txt}</td>'
                     f'<td class="{nk_cls}">{nk_txt}</td>'
                     "</tr>"
                 )
@@ -1760,6 +1774,7 @@ def run():
                 ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
                 ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                 ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
+                ".c-mal{text-align:right;color:#C4B5FD;font-family:'JetBrains Mono',monospace}"
                 ".c-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
                 ".c-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
                 ".c-fcp{text-align:right;color:#FBBF24;font-weight:600;font-family:'JetBrains Mono',monospace}"
@@ -1769,14 +1784,14 @@ def run():
             )
             thead = (
                 '<div class="urun-wrap"><table class="urun-tbl"><thead><tr>'
-                "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th><th>Satış</th><th>G5F</th>"
-                "<th>ITOPYA</th><th>HB</th><th>VATAN</th><th>MONDAY</th><th>KANAL</th>"
-                "<th>Toplam</th><th>FOB</th><th>⭐ Final Cost</th><th>💰 Net Kar</th>"
+                "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th>"
+                "<th>G5F</th><th>ITOPYA</th><th>HB</th><th>VATAN</th><th>MONDAY</th><th>KANAL</th><th>Toplam</th>"
+                "<th>FOB</th><th>Maliyet %</th><th>⭐ Final Cost</th><th>Satış</th>"
+                "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
                 "</tr></thead><tbody>"
             )
             st.html(css + thead + satir_html + "</tbody></table></div>")
-            if destek_map:
-                st.caption(f"💡 Net Kar = Satış − Final Cost − Ortalama Kampanya Desteği. Kampanya verisi olan {len(destek_map)} ürün için hesaplandı.")
+            st.caption("💡 Maliyet % = (Final Cost / FOB − 1) × 100  ·  Net Kâr $ = Satış − Final Cost  ·  Net Marj % = Net Kâr / Satış × 100")
 
             st.markdown("##### ✏️ Ürün Düzenle")
             st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
