@@ -96,18 +96,32 @@ def run():
         color: inherit !important;
     }
     
-    /* ── METRIC KARTLARI ─────────────────────────────────────────────────── */
-    [data-testid="metric-container"] {
+    /* ── METRIC KARTLARI (özet barlar) ── eski 'metric-container' + yeni 'stMetric' */
+    [data-testid="metric-container"],
+    [data-testid="stMetric"] {
         background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
-        border-radius: 12px;
-        padding: 18px 20px;
+        border-radius: 14px;
+        padding: 16px 18px;
         border: 1px solid rgba(255,255,255,0.10);
         transition: border-color 0.2s;
+        min-width: 0;
+        overflow: hidden;
     }
-    [data-testid="metric-container"]:hover { border-color: rgba(66,165,245,0.4); }
-    [data-testid="metric-container"] label { color: #78909C !important; font-size:12px !important; font-weight:600 !important; letter-spacing:0.5px; text-transform:uppercase; }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] { color: #ECEFF1 !important; font-weight: 800 !important; font-size:28px !important; }
-    [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size:12px !important; }
+    [data-testid="metric-container"]:hover,
+    [data-testid="stMetric"]:hover { border-color: rgba(66,165,245,0.4); }
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] * {
+        color: #78909C !important; font-size:11.5px !important; font-weight:700 !important;
+        letter-spacing:0.5px; text-transform:uppercase;
+        white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
+    }
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] * {
+        color: #ECEFF1 !important; font-weight: 800 !important; font-size:24px !important;
+        white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
+        line-height:1.15 !important;
+    }
+    [data-testid="stMetricDelta"] { font-size:12px !important; }
     
     /* ── BAŞLIK STİLLERİ ─────────────────────────────────────────────────── */
     .baslik {
@@ -1327,7 +1341,7 @@ def run():
                     st.error("SKU zorunludur.")
                 elif not m_urun_adi.strip():
                     st.error("Ürün Adı zorunludur.")
-                    from database import upsert_urun, upsert_yoldaki_urun, ekle_satin_alma
+                    from .database import upsert_urun, upsert_yoldaki_urun, ekle_satin_alma
                     from excel_islemler import normalize_sku
                     sku_temiz = normalize_sku(m_sku.strip())
                     _katsayi = 1 + m_maliyet_yuzdesi / 100
@@ -2265,7 +2279,7 @@ def run():
                                 u_bilgi_c = urun_dict_k.get(ku["sku"], {})
                                 pacal_guncel = u_bilgi_c.get("final_cost_price", 0)
                                 if pacal_guncel > 0:
-                                    from database import get_connection as _gc_k
+                                    from .database import get_connection as _gc_k
                                     _conn_k = _gc_k(); _c_k = _conn_k.cursor()
                                     _c_k.execute("UPDATE kampanya_urunler SET pacal_maliyet=? WHERE id=?",
                                                 (pacal_guncel, ku["id"]))
@@ -2303,30 +2317,69 @@ def run():
                                 "Notlar": ku.get("notlar","") or "",
                             })
     
-                        df_ku = pd.DataFrame(rows_ku)
-    
-                        def ku_rengi(row):
-                            styles = [""] * len(row)
-                            cols = list(row.index)
-                            nk = row.get("Net Kar/Adet ($)","")
-                            if "Net Kar/Adet ($)" in cols:
-                                try:
-                                    v = float(str(nk).replace("$","").replace(",",""))
-                                    if v > 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:700"
-                                    elif v < 0: styles[cols.index("Net Kar/Adet ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                                except Exception as _e: _log.warning("Sessiz hata: %s", _e)
-                            if "⭐ Paçal ($)" in cols:
-                                styles[cols.index("⭐ Paçal ($)")] = "background-color:#1a3a00; color:#FFD54F; font-weight:700"
-                            if "Toplam Net Kar ($)" in cols:
-                                try:
-                                    v = float(str(row.get("Toplam Net Kar ($)","0")).replace("$","").replace(",",""))
-                                    if v > 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#1B5E20; color:#A5D6A7; font-weight:800"
-                                    elif v < 0: styles[cols.index("Toplam Net Kar ($)")] = "background-color:#7F0000; color:#FFCDD2; font-weight:800"
-                                except Exception as _e: _log.warning("Sessiz hata: %s", _e)
-                            return styles
-    
-                        st.dataframe(df_ku.drop(columns=["ID"]).style.apply(ku_rengi, axis=1),
-                                     use_container_width=True, height=280, hide_index=True)
+                        def _pf(x):
+                            try:
+                                return float(str(x).replace("$", "").replace("%", "").replace(",", "").strip())
+                            except Exception:
+                                return 0.0
+                        k_rows = ""
+                        for rk in rows_ku:
+                            urun = str(rk.get("Ürün", "") or "")
+                            urun_k = urun if len(urun) <= 40 else urun[:39] + "…"
+                            urun_t = urun.replace(chr(34), "&quot;")
+                            nkb = _pf(rk.get("Net Kar/Adet ($)"))
+                            nkb_cls = "kc-pos" if nkb > 0 else ("kc-neg" if nkb < 0 else "kc-num")
+                            tnk = _pf(rk.get("Toplam Net Kar ($)"))
+                            tnk_cls = "kc-pos" if tnk > 0 else ("kc-neg" if tnk < 0 else "kc-num")
+                            notlar = str(rk.get("Notlar", "") or "")
+                            notlar_k = notlar if len(notlar) <= 24 else notlar[:23] + "…"
+                            notlar_t = notlar.replace(chr(34), "&quot;")
+                            k_rows += (
+                                "<tr>"
+                                f'<td class="kc-sku">{rk.get("SKU","")}</td>'
+                                f'<td class="kc-name" title="{urun_t}">{urun_k}</td>'
+                                f'<td class="kc-gold">{rk.get("⭐ Paçal ($)","")}</td>'
+                                f'<td class="kc-money">{rk.get("Satış ($)","")}</td>'
+                                f'<td class="kc-dim">{rk.get("Firma Destek ($)","")}</td>'
+                                f'<td class="kc-dim">{rk.get("Ek Destek ($)","")}</td>'
+                                f'<td class="{nkb_cls}">{rk.get("Net Kar/Adet ($)","")}</td>'
+                                f'<td class="kc-dim">{rk.get("Net Marj (%)","")}</td>'
+                                f'<td class="kc-num">{rk.get("Satılan Adet","")}</td>'
+                                f'<td class="kc-dim">{rk.get("Toplam Destek ($)","")}</td>'
+                                f'<td class="{tnk_cls}">{rk.get("Toplam Net Kar ($)","")}</td>'
+                                f'<td class="kc-note" title="{notlar_t}">{notlar_k}</td>'
+                                "</tr>"
+                            )
+                        k_css = (
+                            "<style>"
+                            ".kw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
+                            ".kt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+                            ".kt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+                            ".kt thead th{padding:9px 11px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+                            ".kt thead th:nth-child(1),.kt thead th:nth-child(2),.kt thead th:last-child{text-align:left}"
+                            ".kt tbody{background:#131C35}"
+                            ".kt td{padding:8px 11px;font-size:11.5px}"
+                            ".kt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+                            ".kt tbody tr:hover{background:rgba(99,102,241,0.06)}"
+                            ".kc-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
+                            ".kc-name{color:#CBD5E1;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                            ".kc-note{color:#78909C;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}"
+                            ".kc-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                            ".kc-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
+                            ".kc-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
+                            ".kc-gold{text-align:right;background:rgba(245,158,11,0.12);color:#FFD54F;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            ".kc-pos{text-align:right;background:rgba(34,197,94,0.12);color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            ".kc-neg{text-align:right;background:rgba(239,68,68,0.12);color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            "</style>"
+                        )
+                        k_head = (
+                            '<div class="kw"><table class="kt"><thead><tr>'
+                            "<th>SKU</th><th>Ürün</th><th>⭐ Paçal</th><th>Satış</th><th>Firma Destek</th>"
+                            "<th>Ek Destek</th><th>Net Kar/Adet</th><th>Net Marj</th><th>Satılan</th>"
+                            "<th>Toplam Destek</th><th>Toplam Net Kar</th><th>Notlar</th>"
+                            "</tr></thead><tbody>"
+                        )
+                        st.html(k_css + k_head + k_rows + "</tbody></table></div>")
     
                         # Kampanya özet metrikleri
                         sm1, sm2, sm3, sm4 = st.columns(4)
@@ -2573,7 +2626,7 @@ def run():
                         key=f"sp_miktar_{sku}", label_visibility="collapsed")
                 with col_s3:
                     if st.button("📦 Sipariş Önerisi Ekle", key=f"sp_btn_{sku}", use_container_width=True):
-                        from database import ekle_siparis_onerisi
+                        from .database import ekle_siparis_onerisi
                         ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
                         st.cache_data.clear()
                         st.toast(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
@@ -2582,7 +2635,7 @@ def run():
         # Onaylanan/Bekleyen geçmiş
         st.markdown("---")
         st.markdown("#### 📋 Sipariş Önerisi Geçmişi")
-        from database import get_siparis_onerileri
+        from .database import get_siparis_onerileri
         onceki = get_siparis_onerileri()
         if onceki:
             rows_sp = []
@@ -2611,14 +2664,14 @@ def run():
             with col_o1:
                 onayla_id = st.number_input("Onaylanacak ID", min_value=1, step=1, key="onayla_id")
                 if st.button("✅ Onayla", key="onayla_btn", use_container_width=True):
-                    from database import onayla_siparis
+                    from .database import onayla_siparis
                     onayla_siparis(int(onayla_id))
                     st.toast("Onaylandı!")
                     st.rerun()
             with col_o2:
                 reddet_id = st.number_input("Reddedilecek ID", min_value=1, step=1, key="reddet_id")
                 if st.button("❌ Reddet", key="reddet_btn", use_container_width=True):
-                    from database import reddet_siparis
+                    from .database import reddet_siparis
                     reddet_siparis(int(reddet_id))
                     st.warning("Reddedildi.")
                     st.rerun()
