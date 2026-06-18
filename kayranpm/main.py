@@ -1395,10 +1395,11 @@ def run():
         st.markdown("---")
     
         # SKU arama + ürün seçimi
+        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 7px;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
         col_ara, col_sec = st.columns([1, 2])
         with col_ara:
-            sku_ara = st.text_input("🔍 SKU ile Ara", placeholder="SKU kodunu yaz...",
-                                    help="SKU kodunu yazarak hızlıca filtrele")
+            sku_ara = st.text_input("Ara", placeholder="SKU veya ürün adı yaz...",
+                                    label_visibility="collapsed")
         with col_sec:
             if sku_ara:
                 filtrelenmis = [u for u in urun_data
@@ -1420,7 +1421,12 @@ def run():
         firma_st = secilen.get("firma_stoklari", {})
     
         # ── Stok Dağılımı Kartı ─────────────────────────────────────────
-        st.markdown(f"### 📦 {secilen['urun_adi']} <span style='color:#90A4AE; font-size:14px;'>({secilen['sku']})</span>", unsafe_allow_html=True)
+        st.markdown(f'''<div style="display:flex;align-items:center;gap:14px;margin:6px 0 2px;">
+<div style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(59,130,246,0.15));border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📦</div>
+<div style="min-width:0;">
+<div style="font-family:Manrope,Inter,sans-serif;font-size:19px;font-weight:700;color:#F1F5F9;line-height:1.25;letter-spacing:-0.2px;">{secilen["urun_adi"]}</div>
+<div style="margin-top:4px;"><span style="display:inline-block;padding:2px 9px;border-radius:6px;background:rgba(148,163,184,0.12);color:#94A3B8;font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
+</div></div>''', unsafe_allow_html=True)
     
         bizim_stok = secilen.get("bizim_stok", 0)
         toplam_firma = secilen.get("toplam_firma_stok", 0)
@@ -1479,7 +1485,7 @@ def run():
             )
     
         # Satın Alma Geçmişi — bu ürün için
-        st.markdown(f"#### 📋 Satın Alma Geçmişi — {secilen['urun_adi']}")
+        st.markdown('<div style="font-size:15px;font-weight:700;color:#E2E8F0;margin:8px 0 2px;">📋 Satın Alma Geçmişi</div>', unsafe_allow_html=True)
     
         if not secilen["kayitlar"]:
             st.info("Bu ürün için henüz satın alma kaydı yok. Aşağıdan ekleyebilirsiniz.")
@@ -1529,7 +1535,7 @@ def run():
     
         # Yeni Satın Alma Ekle
         st.markdown("---")
-        st.markdown(f"#### ➕ Yeni Satın Alma Ekle — {secilen['urun_adi']}")
+        st.markdown('<div style="font-size:15px;font-weight:700;color:#E2E8F0;margin:8px 0 2px;">➕ Yeni Satın Alma Ekle</div>', unsafe_allow_html=True)
     
         # Manuel veya Excel seçimi
         ekle_tab1, ekle_tab2 = st.tabs(["📝 Manuel Giriş", "📊 Excel ile Toplu Yükle"])
