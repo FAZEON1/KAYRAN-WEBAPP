@@ -554,7 +554,7 @@ def _model_sorgu():
     with c_ara:
         ara = st.text_input("Ara", placeholder="SKU ara...", label_visibility="collapsed", key="ith_ms_ara")
     with c_sec:
-        secenek = [s for s in skular if ara.upper() in s.upper()] if ara else skular
+        secenek = [s for s in skular if s.upper().startswith(ara.upper())] if ara else skular
         if not secenek:
             st.warning("Eşleşen SKU yok.")
             return
