@@ -1612,7 +1612,7 @@ def run():
                 <tbody>{rows_html}</tbody>
               </table>
             </div>'''
-            st.markdown(html, unsafe_allow_html=True)
+            st.html(html)
 
         render_takvim_tablosu(df_tablo)
     
