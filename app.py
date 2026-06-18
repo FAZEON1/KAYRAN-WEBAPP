@@ -79,6 +79,85 @@ def get_online_kullanicilar():
         return []
 
 # ─────────────────────────────────────────────────────────────────────
+# GÜNLÜK GİRİŞ / SERİ / LİDERLİK
+# ─────────────────────────────────────────────────────────────────────
+def _gunluk_giris_seri(tarih_set):
+    """Bugün veya dün ile biten ardışık gün serisi."""
+    import datetime as _dt
+    if not tarih_set:
+        return 0
+    bugun = _dt.date.today()
+    if bugun in tarih_set:
+        cur = bugun
+    elif (bugun - _dt.timedelta(days=1)) in tarih_set:
+        cur = bugun - _dt.timedelta(days=1)
+    else:
+        return 0
+    seri = 0
+    while cur in tarih_set:
+        seri += 1
+        cur = cur - _dt.timedelta(days=1)
+    return seri
+
+def gunluk_giris_yap(kullanici_adi):
+    """Bugün için giriş kaydı ekler (zaten varsa False)."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb or not kullanici_adi:
+            return False
+        bugun = _dt.date.today().isoformat()
+        mevcut = sb.table("gunluk_giris").select("id").eq("kullanici_adi", kullanici_adi).eq("tarih", bugun).limit(1).execute()
+        if mevcut.data:
+            return False
+        sb.table("gunluk_giris").insert({"kullanici_adi": kullanici_adi, "tarih": bugun}).execute()
+        return True
+    except Exception:
+        return False
+
+def get_giris_durum(kullanici_adi):
+    """{bugun, seri, toplam} döner."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb or not kullanici_adi:
+            return {"bugun": False, "seri": 0, "toplam": 0}
+        res = sb.table("gunluk_giris").select("tarih").eq("kullanici_adi", kullanici_adi).execute()
+        tset = set()
+        for r in (res.data or []):
+            try:
+                tset.add(_dt.date.fromisoformat(str(r["tarih"])[:10]))
+            except Exception:
+                pass
+        return {"bugun": _dt.date.today() in tset, "seri": _gunluk_giris_seri(tset), "toplam": len(tset)}
+    except Exception:
+        return {"bugun": False, "seri": 0, "toplam": 0}
+
+def get_giris_liderlik(limit=8):
+    """Tüm kullanıcılar: seri + toplam, seriye göre azalan."""
+    try:
+        import datetime as _dt
+        sb = _get_supabase()
+        if not sb:
+            return []
+        res = sb.table("gunluk_giris").select("kullanici_adi, tarih").execute()
+        per = {}
+        for r in (res.data or []):
+            k = r.get("kullanici_adi")
+            if not k:
+                continue
+            try:
+                d = _dt.date.fromisoformat(str(r["tarih"])[:10])
+            except Exception:
+                continue
+            per.setdefault(k, set()).add(d)
+        lider = [{"kullanici": k, "seri": _gunluk_giris_seri(v), "toplam": len(v)} for k, v in per.items()]
+        lider.sort(key=lambda x: (x["seri"], x["toplam"]), reverse=True)
+        return lider[:limit]
+    except Exception:
+        return []
+
+# ─────────────────────────────────────────────────────────────────────
 # DUYURU YÖNETİMİ — Supabase'den oku / yaz
 # ─────────────────────────────────────────────────────────────────────
 def get_duyuru():
@@ -1287,6 +1366,61 @@ def anasayfa():
         '</div>',
         unsafe_allow_html=True
     )
+
+    # ─────────────────────────────────────────────────────────────────────
+    # GÜNLÜK GİRİŞ & SERİ & LİDERLİK
+    # ─────────────────────────────────────────────────────────────────────
+    _gd = get_giris_durum(aktif_kullanici)
+    _bugun_g, _seri, _toplam = _gd["bugun"], _gd["seri"], _gd["toplam"]
+    _alev = "🔥" if _seri > 0 else "🧊"
+    _seri_renk = "#FB923C" if _seri > 0 else "#64748B"
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,rgba(251,146,60,0.10),rgba(239,68,68,0.05));border:1px solid rgba(251,146,60,0.22);border-radius:16px;padding:18px 22px;margin-bottom:14px;animation:fadeUp 0.6s ease-out">'
+        '<div style="display:flex;align-items:center;gap:18px">'
+        f'<div style="font-size:40px;line-height:1">{_alev}</div>'
+        '<div>'
+        f'<div style="color:{_seri_renk};font-size:28px;font-weight:800;line-height:1">{_seri}<span style="font-size:14px;color:#94A3B8;font-weight:600;margin-left:6px">günlük seri</span></div>'
+        f'<div style="color:#94A3B8;font-size:12px;margin-top:5px">Toplam {_toplam} gün giriş · {"Bugün tamam ✓" if _bugun_g else "Bugün henüz giriş yok"}</div>'
+        '</div></div></div>',
+        unsafe_allow_html=True
+    )
+    if not _bugun_g:
+        if st.button("🔥 Bugün Giriş Yap", key="gunluk_giris_btn", type="primary", use_container_width=True):
+            if gunluk_giris_yap(aktif_kullanici):
+                st.session_state["_giris_kutla"] = True
+            st.rerun()
+    else:
+        st.markdown('<div style="color:#4ADE80;font-size:12px;font-weight:600;margin:-2px 0 14px 2px">✅ Bugünkü girişini yaptın — seriyi sürdürmek için yarın tekrar gel!</div>', unsafe_allow_html=True)
+    if st.session_state.pop("_giris_kutla", False):
+        st.balloons()
+        st.toast("🔥 Seri devam ediyor! Bugünkü girişin kaydedildi.")
+
+    _lider = get_giris_liderlik(8)
+    if _lider:
+        _madalya = {0: "🥇", 1: "🥈", 2: "🥉"}
+        _satir = ""
+        for _i, _u in enumerate(_lider):
+            _benmi = (_u["kullanici"] or "").lower() == (aktif_kullanici or "").lower()
+            _ikon = _madalya.get(_i, f'<span style="color:#64748B;font-size:12px;font-weight:700">{_i+1}</span>')
+            _bg = "rgba(99,102,241,0.12)" if _benmi else "transparent"
+            _ad_renk = "#A5B4FC" if _benmi else "#E2E8F0"
+            _ad = (_u["kullanici"] or "").capitalize() + (" (sen)" if _benmi else "")
+            _kalin = "700" if _benmi else "500"
+            _satir += (
+                f'<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:9px;background:{_bg}">'
+                f'<div style="width:22px;text-align:center">{_ikon}</div>'
+                f'<div style="flex:1;color:{_ad_renk};font-size:13px;font-weight:{_kalin}">{_ad}</div>'
+                f'<div style="color:#FB923C;font-size:13px;font-weight:700">🔥 {_u["seri"]}</div>'
+                f'<div style="color:#64748B;font-size:11px;width:62px;text-align:right">{_u["toplam"]} gün</div>'
+                f'</div>'
+            )
+        st.markdown(
+            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px 6px 10px;margin-bottom:32px;animation:fadeUp 0.7s ease-out">'
+            '<div style="color:#94A3B8;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0 14px 8px">🏆 Giriş Liderliği</div>'
+            + _satir +
+            '</div>',
+            unsafe_allow_html=True
+        )
 
     # ─── ÜST İSTATİSTİK KARTLARI ───
     erisilebilir = sum(1 for v in yetkiler.values() if v)
