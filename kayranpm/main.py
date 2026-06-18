@@ -139,43 +139,45 @@ def run():
         font-family: 'Inter', sans-serif !important;
         font-size: 13px !important;
         font-weight: 500 !important;
-        padding: 12px 16px !important;
+        padding: 0 !important;
         border: 1px solid transparent !important;
+        box-shadow: none !important;
     }
-    div[data-testid="stAlertContentWarning"],
+    div[data-testid^="stAlertContent"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 11px 15px !important;
+        color: #E2E8F0 !important;
+    }
     div.stAlert:has([data-testid="stAlertContentWarning"]) {
-        background: #1F1A08 !important;
-        color: #FCD34D !important;
-        border-color: #FCD34D !important;
+        background: rgba(245,158,11,0.07) !important;
+        border: 1px solid rgba(245,158,11,0.20) !important;
+        border-left: 3px solid rgba(245,158,11,0.60) !important;
     }
-    div[data-testid="stAlertContentError"],
     div.stAlert:has([data-testid="stAlertContentError"]) {
-        background: #1F0808 !important;
-        color: #FCA5A5 !important;
-        border-color: #FCA5A5 !important;
+        background: rgba(239,68,68,0.07) !important;
+        border: 1px solid rgba(239,68,68,0.20) !important;
+        border-left: 3px solid rgba(239,68,68,0.60) !important;
     }
-    div[data-testid="stAlertContentInfo"],
     div.stAlert:has([data-testid="stAlertContentInfo"]) {
-        background: #0E1A3A !important;
-        color: #60A5FA !important;
-        border-color: #93C5FD !important;
+        background: rgba(59,130,246,0.06) !important;
+        border: 1px solid rgba(59,130,246,0.20) !important;
+        border-left: 3px solid rgba(59,130,246,0.55) !important;
     }
-    div[data-testid="stAlertContentSuccess"],
     div.stAlert:has([data-testid="stAlertContentSuccess"]) {
-        background: #D1FAE5 !important;
-        color: #064E3B !important;
-        border-color: #6EE7B7 !important;
+        background: rgba(34,197,94,0.06) !important;
+        border: 1px solid rgba(34,197,94,0.20) !important;
+        border-left: 3px solid rgba(34,197,94,0.50) !important;
     }
     div[data-testid="stAlert"] p,
     div[data-testid="stAlert"] span,
     div[data-testid="stAlert"] strong,
     div[data-testid="stAlert"] div {
-        color: inherit !important;
+        color: #E2E8F0 !important;
     }
     div[data-testid="stAlert"] strong,
     div[data-testid="stAlert"] b {
         font-weight: 700 !important;
-        color: inherit !important;
     }
     
     /* ── METRIC KARTLARI (özet barlar) ── eski 'metric-container' + yeni 'stMetric' */
