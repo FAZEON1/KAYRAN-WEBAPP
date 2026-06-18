@@ -1756,15 +1756,16 @@ def anasayfa():
             sg_html = '<div style="margin-top:16px"><div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px;padding-left:2px">Son Giriş Zamanları</div>'
             sg_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">'
             for _kg, _sa in sorted(_son_giris_map.items()):
+                _zs = "—"
                 try:
-                    _sdt = _dt3.datetime.fromisoformat(_sa.replace("Z",""))
-                    _fark = int((_simdi3 - _sdt).total_seconds())
-                    if _fark < 60: _zs = f"{_fark}sn önce"
-                    elif _fark < 3600: _zs = f"{_fark//60}dk önce"
-                    elif _fark < 86400: _zs = f"{_fark//3600}sa önce"
-                    else: _zs = f"{_fark//86400}g önce"
+                    _raw = str(_sa).replace("Z", "+00:00")
+                    _sdt = _dt3.datetime.fromisoformat(_raw)
+                    if _sdt.tzinfo is not None:
+                        _sdt = _sdt.astimezone(_dt3.timezone.utc).replace(tzinfo=None)
+                    _ist = _sdt + _dt3.timedelta(hours=3)  # UTC → İstanbul
+                    _zs = _ist.strftime("%d.%m.%Y %H:%M")
                 except Exception:
-                    _zs = "bilinmiyor"
+                    _zs = "—"
                 _online_su = any(u.get("kullanici_adi") == _kg for u in online_listesi)
                 _renk = "#10B981" if _online_su else "#64748B"
                 _bg = "rgba(16,185,129,0.06)" if _online_su else "rgba(255,255,255,0.02)"
@@ -1772,7 +1773,7 @@ def anasayfa():
                 sg_html += (
                     f'<div style="background:{_bg};border:1px solid {_border};border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">'
                     f'<span style="color:#E2E8F0;font-size:12px;font-weight:600">{_kg.capitalize()}</span>'
-                    f'<span style="color:{_renk};font-size:10px;font-weight:500">{_zs}</span>'
+                    f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:JetBrains Mono,monospace;white-space:nowrap">{_zs}</span>'
                     f'</div>'
                 )
             sg_html += '</div></div>'
