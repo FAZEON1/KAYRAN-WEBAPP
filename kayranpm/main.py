@@ -2688,46 +2688,6 @@ def run():
                     st.warning("Reddedildi.")
                     st.rerun()
 
-        st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📋 Sipariş Takvimi Özeti</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:10px">Tüm ürünlerin sipariş durumu — 135 gün üretim süresi baz alınarak hesaplanmıştır.</div>', unsafe_allow_html=True)
-    
-        try:
-            veri = dashboard_hesapla()
-            # Ürün başına tek satır (firma tekrarı olmasın)
-            sku_goruldu = set()
-            ozetler = []
-            for u in veri:
-                if u["sku"] not in sku_goruldu:
-                    sku_goruldu.add(u["sku"])
-                    ozetler.append(u)
-    
-            durum_sirasi = {"acil": 0, "yaklasıyor": 1, "planlama": 2, "normal": 3, "veri_yok": 4}
-            ozetler.sort(key=lambda x: durum_sirasi.get(x.get("siparis_durum","veri_yok"), 4))
-    
-            df_ozet = pd.DataFrame([{
-                "SKU": u["sku"],
-                "Ürün Adı": u["urun_adi"],
-                "Bizim Stok": u["bizim_stok"],
-                "Hft. Satış": u.get("toplam_haftalik_satis", 0),
-                "Stok Biter (Gün)": u.get("stok_bitis_gun", "-") or "-",
-                "Sipariş Son Gün": u.get("siparis_son_gun", "-") or "-",
-                "Durum": u.get("siparis_mesaj", "—"),
-            } for u in ozetler])
-    
-            def ozet_rengi(row):
-                durum = row.get("Durum","")
-                if "ACİL" in str(durum): return ["background-color:#FFCCCC"]*len(row)
-                if "🟠" in str(durum): return ["background-color:#FFE0B2"]*len(row)
-                if "🟡" in str(durum): return ["background-color:#FFF9C4"]*len(row)
-                if "🟢" in str(durum): return ["background-color:#E8F5E9"]*len(row)
-                return [""]*len(row)
-    
-            st.dataframe(df_ozet.style.apply(ozet_rengi, axis=1), use_container_width=True, height=400)
-        except Exception as e:
-            _log.error("Hata: %s", e)
-            st.error(f"Veri yüklenemedi: {e}")
-
     
     
     elif sayfa == "📂  Veri Yükleme":
