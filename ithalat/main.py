@@ -99,15 +99,17 @@ def _form_css():
         }
         .main [data-baseweb="select"] > div:hover { border-color: rgba(139,92,246,0.4) !important; }
 
-        /* ── Number input +/- adımlayıcılar ── */
-        .main [data-testid="stNumberInput"] button {
-            background: rgba(255,255,255,0.05) !important;
-            border: 1px solid rgba(255,255,255,0.10) !important;
-            color: #94A3B8 !important;
-        }
-        .main [data-testid="stNumberInput"] button:hover {
-            background: rgba(139,92,246,0.18) !important;
-            color: #FFFFFF !important;
+        /* ── Number input: adımlayıcıları gizle, temiz alan ── */
+        .main [data-testid="stNumberInput"] button { display: none !important; }
+        .main [data-testid="stNumberInput"] input { text-align: right !important; }
+
+        /* ── Özel ürün tablosu başlık hücreleri ── */
+        .ith-th {
+            background: linear-gradient(135deg,#1E293B,#0F172A);
+            color: #CBD5E1; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+            text-transform: uppercase; padding: 9px 12px; border-radius: 8px;
+            font-family: Inter, sans-serif; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
         }
 
         /* ── Kart kapsayıcılar (st.container border=True) ── */
@@ -375,18 +377,28 @@ def _yeni_ithalat():
 
         with st.container(border=True):
             _alt_baslik("📦 Ürün Kalemleri · SKU = Ürün Yönetimi'ndeki model no")
-            bos = pd.DataFrame([{"sku": "", "urun_adi": "", "adet": 0, "birim_fob": 0.0} for _ in range(3)])
-            duzen = st.data_editor(
-                bos, num_rows="dynamic", use_container_width=True, key="m_kalemler",
-                column_config={
-                    "sku": st.column_config.TextColumn("SKU / Model No"),
-                    "urun_adi": st.column_config.TextColumn("Ürün Adı (boşsa otomatik)"),
-                    "adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
-                    "birim_fob": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
-                },
-            )
+            st.session_state.setdefault("m_satir_n", 5)
+            n_satir = st.session_state.m_satir_n
 
-        _kalemler = [r for r in duzen.to_dict("records") if (str(r.get("sku") or "")).strip()]
+            hcols = st.columns([2, 3, 1.2, 1.5])
+            for hc, ht in zip(hcols, ["SKU / Model No", "Ürün Adı (boşsa otomatik)", "Adet", "Birim FOB"]):
+                hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
+
+            _kalemler = []
+            for i in range(n_satir):
+                rc = st.columns([2, 3, 1.2, 1.5])
+                _sku = rc[0].text_input("sku", key=f"m_sku_{i}", label_visibility="collapsed", placeholder="SKU")
+                _ad = rc[1].text_input("ad", key=f"m_ad_{i}", label_visibility="collapsed", placeholder="otomatik gelir")
+                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed", min_value=0, step=1, value=0)
+                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed", min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                if str(_sku).strip():
+                    _kalemler.append({"sku": str(_sku).strip(), "urun_adi": str(_ad).strip(),
+                                      "adet": _adet, "birim_fob": _fob})
+
+            ec1, _ec2 = st.columns([1.6, 5])
+            if ec1.button("➕ Satır ekle", key="m_satir_ekle", use_container_width=True):
+                st.session_state.m_satir_n = n_satir + 1
+                st.rerun()
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
         _masraf = navlun + gumruk + sigorta + nakliye + diger
         _yuzde = (_masraf / _mal * 100) if _mal > 0 else 0
@@ -420,6 +432,14 @@ def _yeni_ithalat():
                                      navlun, gumruk, sigorta, nakliye, diger, "", _kalemler)
                 (st.success if ok else st.error)(msg)
                 if ok:
+                    # Formu temizle
+                    for i in range(st.session_state.get("m_satir_n", 5)):
+                        for p in ("m_sku_", "m_ad_", "m_adet_", "m_fob_"):
+                            st.session_state.pop(p + str(i), None)
+                    for k in ("m_dosya_no", "m_ted", "m_ulke",
+                              "m_navlun", "m_gumruk", "m_sigorta", "m_nakliye", "m_diger"):
+                        st.session_state.pop(k, None)
+                    st.session_state.m_satir_n = 5
                     st.rerun()
 
     # ── Excel ──
