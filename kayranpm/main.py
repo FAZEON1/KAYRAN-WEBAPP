@@ -487,25 +487,26 @@ def run():
         st.markdown('<div class="alt-baslik">Stok durumu · Satış performansı · Uyarılar</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
-        # Filtreler
-        col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
-        with col_f1:
-            filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
-        with col_f2:
-            arama = st.text_input("🔍 SKU veya ürün adı ara...", "")
-        with col_f3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            yenile = st.button("🔄 Yenile", use_container_width=True)
-    
-        # Veri yükle
+        # Veri yükle (seçici için SKU listesi gerekli)
         try:
-            if yenile:
-                st.cache_data.clear()
             veri = dashboard_hesapla()
         except Exception as e:
             _log.error("Dashboard veri hatası: %s", e)
             st.error(f"Veri yüklenemedi: {e}")
             st.stop()
+
+        # Filtreler
+        col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
+        with col_f1:
+            filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
+        with col_f2:
+            _sku_secenek = ["Tüm Ürünler"] + sorted({u["sku"] for u in veri})
+            arama_sku = st.selectbox("🔍 Ürün (SKU) — yazarak ara", _sku_secenek, key="dash_sku")
+        with col_f3:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 Yenile", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
     
         # Filtrele
         gosterilecek = []
@@ -518,9 +519,9 @@ def run():
                 hedef = filtre_firma.replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")
                 firmali_satirlar = [fd for fd in firmali_satirlar if hedef in fd["firma"].replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")]
     
-            # Arama filtresi
-            if arama:
-                if arama.lower() not in urun["sku"].lower() and arama.lower() not in urun["urun_adi"].lower():
+            # Ürün (SKU) filtresi
+            if arama_sku and arama_sku != "Tüm Ürünler":
+                if urun["sku"] != arama_sku:
                     continue
     
             if firmali_satirlar:
