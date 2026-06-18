@@ -1411,10 +1411,10 @@ def run():
         st.markdown("---")
     
         # SKU arama + ürün seçimi
-        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 7px;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-        col_ara, col_sec = st.columns([1, 2])
+        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
+        _sl_tu, col_ara, col_sec, _sr_tu = st.columns([1.5, 1.1, 1.4, 1.5])
         with col_ara:
-            sku_ara = st.text_input("Ara", placeholder="SKU veya ürün adı yaz...",
+            sku_ara = st.text_input("Ara", placeholder="SKU ara...",
                                     label_visibility="collapsed")
         with col_sec:
             if sku_ara:
@@ -1428,7 +1428,7 @@ def run():
                 st.warning(f"'{sku_ara}' ile eşleşen ürün bulunamadı.")
                 st.stop()
     
-            sku_secenekler = {f"{u['sku']} — {u['urun_adi']}": u['sku'] for u in filtrelenmis}
+            sku_secenekler = {u['sku']: u['sku'] for u in filtrelenmis}
             secim = st.selectbox("Ürün Seç", list(sku_secenekler.keys()),
                                  label_visibility="collapsed")
     
