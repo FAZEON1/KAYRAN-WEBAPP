@@ -948,9 +948,10 @@ def run():
         sku_listesi = {f"{u['sku']} — {u['urun_adi']}": u['sku'] for u in veri}
     
         # SKU/ürün adı arama
+        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 7px;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
         ara_col, sec_col = st.columns([1, 2])
         with ara_col:
-            arama_ud = st.text_input("🔍 SKU veya ürün adı ara", placeholder="Yazmaya başla...", key="ud_ara")
+            arama_ud = st.text_input("Ara", placeholder="SKU veya ürün adı yaz...", label_visibility="collapsed", key="ud_ara")
         with sec_col:
             if arama_ud:
                 filtre = {k: v for k, v in sku_listesi.items()
@@ -978,17 +979,23 @@ def run():
         c4.metric("📅 Stok Biter", stok_bitis_str)
         c5.metric("📦 Sipariş Önerisi", f"{urun.get('oneri_miktar',0)} adet")
     
-        # Sipariş durumu banner
+        # Sipariş durumu banner (yumuşak, tek katman)
         siparis_durum = urun.get("siparis_durum", "veri_yok")
         siparis_mesaj = urun.get("siparis_mesaj", "")
-        if siparis_durum == "acil":
-            st.error(f"🚨 {siparis_mesaj} | {urun.get('oneri_mesaj','')}")
-        elif siparis_durum == "yaklasıyor":
-            st.warning(f"⚠️ {siparis_mesaj} | {urun.get('oneri_mesaj','')}")
-        elif siparis_durum == "planlama":
-            st.info(f"📋 {siparis_mesaj}")
-        else:
-            st.success(f"✅ {siparis_mesaj}")
+        _oneri_mesaj = urun.get("oneri_mesaj", "")
+        _durum_stil = {
+            "acil":       ("rgba(239,68,68,0.07)", "rgba(239,68,68,0.55)", "🚨", "#F87171"),
+            "yaklasıyor": ("rgba(245,158,11,0.07)", "rgba(245,158,11,0.5)", "⚠️", "#FBBF24"),
+            "planlama":   ("rgba(59,130,246,0.07)", "rgba(59,130,246,0.5)", "📋", "#93C5FD"),
+            "veri_yok":   ("rgba(34,197,94,0.06)", "rgba(34,197,94,0.45)", "✅", "#4ADE80"),
+        }
+        _bg, _brd, _ik, _tc = _durum_stil.get(siparis_durum, _durum_stil["veri_yok"])
+        _detay = f' <span style="color:#94A3B8;font-weight:400;">· {_oneri_mesaj}</span>' if _oneri_mesaj else ""
+        st.markdown(
+            f'<div style="background:{_bg};border-left:3px solid {_brd};border-radius:8px;padding:11px 15px;margin:6px 0;font-size:13px;">'
+            f'<span style="color:{_tc};font-weight:700;">{_ik} {siparis_mesaj}</span>{_detay}</div>',
+            unsafe_allow_html=True
+        )
     
         st.markdown("---")
     
@@ -1850,8 +1857,8 @@ def run():
                 ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
                 ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
                 ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                ".urun-tbl thead th{padding:9px 7px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}"
-                ".urun-tbl thead th:nth-child(1),.urun-tbl thead th:nth-child(2),.urun-tbl thead th:nth-child(3){text-align:left}"
+                ".urun-tbl thead th{padding:8px 6px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
+                ".urun-tbl thead th.l{text-align:left}"
                 ".urun-tbl tbody{background:#131C35}"
                 ".urun-tbl td{padding:7px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                 ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
@@ -1874,16 +1881,16 @@ def run():
             thead = (
                 '<div class="urun-wrap"><table class="urun-tbl">'
                 '<colgroup>'
-                '<col style="width:8%"><col style="width:20%"><col style="width:7%">'
-                '<col style="width:6%"><col style="width:12%"><col style="width:6%">'
-                '<col style="width:7%"><col style="width:6%"><col style="width:8%">'
-                '<col style="width:7%"><col style="width:6%"><col style="width:9%">'
+                '<col style="width:7%"><col style="width:18%"><col style="width:7%">'
+                '<col style="width:6%"><col style="width:12%"><col style="width:7%">'
+                '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
+                '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
                 '</colgroup>'
                 '<thead><tr>'
-                "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th>"
-                '<th>G5F</th><th style="text-align:left">Kanal</th><th>Toplam</th>'
-                "<th>FOB</th><th>Mal %</th><th>⭐ Final</th><th>Satış</th>"
-                "<th>Marj %</th><th>💰 Net Kâr</th>"
+                '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
+                '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
+                "<th>FOB</th><th>Maliyet %</th><th>⭐ Final Cost</th><th>Satış</th>"
+                "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
                 "</tr></thead><tbody>"
             )
             st.html(css + thead + satir_html + "</tbody></table></div>")
