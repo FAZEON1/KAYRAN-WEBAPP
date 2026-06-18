@@ -925,25 +925,13 @@ def run():
     
         sku_listesi = {u['sku']: u['sku'] for u in veri}
     
-        # SKU/ürün adı arama
+        # Aranabilir ürün seçici (kutuya yazarak ara, seç) — sadece SKU
         st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-        _sl_ud, ara_col, sec_col, _sr_ud = st.columns([1.5, 1.1, 1.4, 1.5])
-        with ara_col:
-            arama_ud = st.text_input("Ara", placeholder="SKU ara...", label_visibility="collapsed", key="ud_ara")
+        _sl_ud, sec_col, _sr_ud = st.columns([1.6, 2.0, 1.6])
         with sec_col:
-            if arama_ud:
-                _q = arama_ud.lower()
-                _eslesen = {u["sku"] for u in veri
-                            if u["sku"].lower().startswith(_q) or _q in (u.get("urun_adi") or "").lower()}
-                filtre = {k: v for k, v in sku_listesi.items() if v in _eslesen}
-            else:
-                filtre = sku_listesi
-            if not filtre:
-                st.warning("Eşleşen ürün bulunamadı.")
-                st.stop()
-            secim = st.selectbox("Ürün Seç", list(filtre.keys()), label_visibility="collapsed")
+            secim = st.selectbox("Ürün Seç", list(sku_listesi.keys()), label_visibility="collapsed", key="ud_sku")
     
-        secilen_sku = filtre[secim]
+        secilen_sku = sku_listesi[secim]
         urun = next(u for u in veri if u["sku"] == secilen_sku)
     
         st.markdown("---")
@@ -1414,25 +1402,11 @@ def run():
     
         # SKU arama + ürün seçimi
         st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-        _sl_tu, col_ara, col_sec, _sr_tu = st.columns([1.5, 1.1, 1.4, 1.5])
-        with col_ara:
-            sku_ara = st.text_input("Ara", placeholder="SKU ara...",
-                                    label_visibility="collapsed")
+        _sl_tu, col_sec, _sr_tu = st.columns([1.6, 2.0, 1.6])
         with col_sec:
-            if sku_ara:
-                filtrelenmis = [u for u in urun_data
-                                if u["sku"].upper().startswith(sku_ara.upper())
-                                or sku_ara.lower() in u["urun_adi"].lower()]
-            else:
-                filtrelenmis = urun_data
-    
-            if not filtrelenmis:
-                st.warning(f"'{sku_ara}' ile eşleşen ürün bulunamadı.")
-                st.stop()
-    
-            sku_secenekler = {u['sku']: u['sku'] for u in filtrelenmis}
+            sku_secenekler = {u['sku']: u['sku'] for u in urun_data}
             secim = st.selectbox("Ürün Seç", list(sku_secenekler.keys()),
-                                 label_visibility="collapsed")
+                                 label_visibility="collapsed", key="tu_sku")
     
         secilen_sku = sku_secenekler[secim]
         secilen = next(u for u in urun_data if u["sku"] == secilen_sku)
