@@ -934,7 +934,7 @@ def run():
             if arama_ud:
                 _q = arama_ud.lower()
                 _eslesen = {u["sku"] for u in veri
-                            if _q in u["sku"].lower() or _q in (u.get("urun_adi") or "").lower()}
+                            if u["sku"].lower().startswith(_q) or _q in (u.get("urun_adi") or "").lower()}
                 filtre = {k: v for k, v in sku_listesi.items() if v in _eslesen}
             else:
                 filtre = sku_listesi
@@ -1421,7 +1421,7 @@ def run():
         with col_sec:
             if sku_ara:
                 filtrelenmis = [u for u in urun_data
-                                if sku_ara.upper() in u["sku"].upper()
+                                if u["sku"].upper().startswith(sku_ara.upper())
                                 or sku_ara.lower() in u["urun_adi"].lower()]
             else:
                 filtrelenmis = urun_data
@@ -1702,7 +1702,7 @@ def run():
                 # SKU arama ile filtrele
                 sil_ara = st.text_input("SKU veya ürün adı ile ara", placeholder="Aramak için yaz...", key="sil_ara")
                 if sil_ara:
-                    filtrelenmis_sil = [u for u in tum_sku if sil_ara.upper() in u["sku"].upper() or sil_ara.lower() in (u.get("urun_adi","") or "").lower()]
+                    filtrelenmis_sil = [u for u in tum_sku if u["sku"].upper().startswith(sil_ara.upper()) or sil_ara.lower() in (u.get("urun_adi","") or "").lower()]
                 else:
                     filtrelenmis_sil = tum_sku
     
@@ -1865,7 +1865,7 @@ def run():
             try:
                 urun_data_f = tum_urunler_listesi()
                 if sku_ara_sg:
-                    filtre_urunler = [u for u in urun_data_f if sku_ara_sg.upper() in u["sku"].upper() or sku_ara_sg.lower() in u["urun_adi"].lower()]
+                    filtre_urunler = [u for u in urun_data_f if u["sku"].upper().startswith(sku_ara_sg.upper()) or sku_ara_sg.lower() in u["urun_adi"].lower()]
                 else:
                     filtre_urunler = urun_data_f
                 sku_filtre_options = ["Tüm Ürünler"] + [f"{u['sku']} — {u['urun_adi']}" for u in filtre_urunler]
