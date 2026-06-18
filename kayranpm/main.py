@@ -1752,66 +1752,38 @@ def run():
             if destek_map:
                 st.caption(f"💡 Net Kar = Satış − Final Cost − Ortalama Kampanya Desteği. Kampanya verisi olan {len(destek_map)} ürün için hesaplandı.")
 
-            with st.expander("✏️ Bu listeyi düzenle  (Ürün Adı · Kategori · Satış · G5F Depo)"):
-                st.caption("Hücreye çift tıklayıp değiştirin, ardından **Değişiklikleri Kaydet**'e basın.")
-                df_edit = df_oz[["SKU", "Ürün Adı", "Kategori", "Satış ($)", "G5F Depo"]].copy()
-                edited = st.data_editor(
-                    df_edit, use_container_width=True, height=360, hide_index=True,
-                    disabled=["SKU"], key="urun_editor",
-                    column_config={
-                        "SKU": st.column_config.TextColumn("SKU", width="small"),
-                        "Ürün Adı": st.column_config.TextColumn("Ürün Adı", width="large"),
-                        "Kategori": st.column_config.TextColumn("Kategori", width="small"),
-                        "Satış ($)": st.column_config.NumberColumn("Satış ($)", format="$%.2f", width="small"),
-                        "G5F Depo": st.column_config.NumberColumn("G5F Depo", format="%d", width="small"),
-                    },
-                )
-                if st.button("💾 Değişiklikleri Kaydet", type="primary", key="urun_editor_kaydet"):
-                    from .database import upsert_urun as _upsert_urun
-                    def _f(x):
+            st.markdown("##### ✏️ Ürün Düzenle")
+            st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
+            _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
+            if _sec_list:
+                _sec_label = st.selectbox("Düzenlenecek ürün", list(_sec_list.keys()), key="urun_duzen_sec")
+                _sec_sku = _sec_list[_sec_label]
+                _u = next((x for x in urun_data if x["sku"] == _sec_sku), {})
+                with st.form("urun_duzen_form"):
+                    fc1, fc2, fc3, fc4 = st.columns([3, 1.5, 1.2, 1])
+                    with fc1:
+                        d_ad = st.text_input("Ürün Adı", value=_u.get("urun_adi", "") or "")
+                    with fc2:
+                        d_kat = st.text_input("Kategori", value=_u.get("kategori", "") or "")
+                    with fc3:
+                        d_satis = st.number_input("Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f")
+                    with fc4:
+                        d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
+                    if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
+                        from .database import upsert_urun as _upsert_urun
                         try:
-                            return float(x) if pd.notna(x) else 0.0
-                        except Exception:
-                            return 0.0
-                    def _i(x):
-                        try:
-                            return int(x) if pd.notna(x) else 0
-                        except Exception:
-                            return 0
-                    orijinal = {r["SKU"]: r for r in rows_oz}
-                    urun_map = {u["sku"]: u for u in urun_data}
-                    degisen = 0
-                    hatalar = []
-                    for _, er in edited.iterrows():
-                        sku = er["SKU"]
-                        o = orijinal.get(sku)
-                        if not o:
-                            continue
-                        if (str(er["Ürün Adı"]).strip() != str(o["Ürün Adı"]).strip()
-                                or str(er["Kategori"]).strip() != str(o["Kategori"]).strip()
-                                or _f(er["Satış ($)"]) != _f(o["Satış ($)"])
-                                or _i(er["G5F Depo"]) != _i(o["G5F Depo"])):
-                            u = urun_map.get(sku, {})
-                            try:
-                                _upsert_urun(
-                                    sku, str(er["Ürün Adı"]).strip(), str(er["Kategori"]).strip(),
-                                    u.get("marka", "") or "", _f(er["Satış ($)"]),
-                                    _f(u.get("alis_fiyati", 0)), _f(u.get("hedef_kar_marji", 0)),
-                                    u.get("ozellikler", "") or "", _i(er["G5F Depo"]),
-                                    _i(u.get("trendyol_stok", 0)),
-                                )
-                                degisen += 1
-                            except Exception as _e:
-                                hatalar.append(f"{sku}: {_e}")
-                    st.cache_data.clear()
-                    if degisen:
-                        st.success(f"✅ {degisen} ürün güncellendi.")
-                    if hatalar:
-                        st.error("Bazı kayıtlar güncellenemedi: " + " | ".join(hatalar[:3]))
-                    if not degisen and not hatalar:
-                        st.info("Değişiklik yapılmadı.")
-                    if degisen:
-                        st.rerun()
+                            _upsert_urun(
+                                _sec_sku, d_ad.strip(), d_kat.strip(),
+                                _u.get("marka", "") or "", float(d_satis or 0),
+                                float(_u.get("alis_fiyati", 0) or 0), float(_u.get("hedef_kar_marji", 0) or 0),
+                                _u.get("ozellikler", "") or "", int(d_stok or 0),
+                                int(_u.get("trendyol_stok", 0) or 0),
+                            )
+                            st.cache_data.clear()
+                            st.success(f"✅ {_sec_sku} güncellendi.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Kaydedilemedi: {_e}")
     
         # ── Ürün Silme ────────────────────────────────────────────────
         st.markdown("---")
