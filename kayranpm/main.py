@@ -463,14 +463,11 @@ def run():
         st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
         sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
-            "🔍  Ürün Detay",
-            "📈  Genel Analiz",
             "📋  Tüm Ürünler",
             "🛒  Satın Alma Geçmişi",
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
             "📂  Veri Yükleme",
-            "📄  Raporlar",
             "🔔  Bildirim Ayarları",
         ], label_visibility="collapsed")
         st.markdown(f"""
@@ -828,7 +825,7 @@ def run():
                     )
                     fig_dag.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", font_color="#CFD8DC", title_font_color="#90CAF9", legend=dict(font=dict(color="#90A4AE")), margin=dict(t=40,b=0,l=0,r=0))
                     fig_dag.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_dag, use_container_width=True)
+                    st.plotly_chart(fig_dag, use_container_width=True, key="dash_fig_dag")
                 else:
                     st.info("Stok dağılımı için veri yok.")
     
@@ -856,7 +853,7 @@ def run():
                     fig_sip.update_traces(textposition='outside', marker_line_color='rgba(0,0,0,0.2)', marker_line_width=1)
                     fig_sip.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(7,13,26,0.8)",
                                           showlegend=False, margin=dict(t=40,b=0,l=0,r=0))
-                    st.plotly_chart(fig_sip, use_container_width=True)
+                    st.plotly_chart(fig_sip, use_container_width=True, key="dash_fig_sip")
     
             gcol3, gcol4 = st.columns(2)
     
@@ -882,7 +879,7 @@ def run():
                     fig_top.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(7,13,26,0.8)",
                                           showlegend=True, margin=dict(t=40,b=0,l=0,r=0),
                                           legend_title="Trend")
-                    st.plotly_chart(fig_top, use_container_width=True)
+                    st.plotly_chart(fig_top, use_container_width=True, key="dash_fig_top")
     
             # ── GRAFİK 4: Stok Yaşı Dağılımı ──
             with gcol4:
@@ -909,238 +906,10 @@ def run():
                     )
                     fig_yas.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", font_color="#CFD8DC", title_font_color="#90CAF9", legend=dict(font=dict(color="#90A4AE")), margin=dict(t=40,b=0,l=0,r=0))
                     fig_yas.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_yas, use_container_width=True)
+                    st.plotly_chart(fig_yas, use_container_width=True, key="dash_fig_yas")
     
-    # ════════════════════════════════════════════════════════════════════
-    # 2) ÜRÜN DETAY
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🔍  Ürün Detay":
-        st.markdown('<div class="baslik">🔍 Ürün Detay</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Satış analizi · Trend · Sipariş takvimi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
-        # Ürün seçimi
-        try:
-            veri = dashboard_hesapla()
-        except Exception as e:
-            _log.error("Hata: %s", e)
-            st.error(f"Veri yüklenemedi: {e}")
-            st.stop()
-    
-        if not veri:
-            st.info("Önce 'Veri Yükleme' sekmesinden veri yükleyin.")
-            st.stop()
-    
-        sku_listesi = {u['sku']: u['sku'] for u in veri}
-    
-        # Aranabilir ürün seçici (kutuya yazarak ara, seç) — sadece SKU
-        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-        _sl_ud, sec_col, _sr_ud = st.columns([1.6, 2.0, 1.6])
-        with sec_col:
-            secim = st.selectbox("Ürün Seç", list(sku_listesi.keys()), label_visibility="collapsed", key="ud_sku")
-    
-        secilen_sku = sku_listesi[secim]
-        urun = next(u for u in veri if u["sku"] == secilen_sku)
-    
-        st.markdown("---")
-    
-        # Üst bilgi kartları
-        c1, c2, c3, c4, c5 = st.columns(5)
-        toplam_stok_ud = urun.get("toplam_stok", urun.get("bizim_stok", 0))
-        c1.metric("📦 Toplam Stok", toplam_stok_ud)
-        c2.metric("📊 Ort. Hft. Satış", round(urun.get("ortalama_haftalik_satis", 0)))
-        c3.metric("⚡ Risk Skoru", f"{urun.get('risk_skor',0)}/100")
-        stok_bitis = urun.get('stok_bitis_gun')
-        stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Satış verisi yok"
-        c4.metric("📅 Stok Biter", stok_bitis_str)
-        c5.metric("📦 Sipariş Önerisi", f"{urun.get('oneri_miktar',0)} adet")
-    
-        # Sipariş durumu banner (yumuşak, tek katman)
-        siparis_durum = urun.get("siparis_durum", "veri_yok")
-        siparis_mesaj = urun.get("siparis_mesaj", "")
-        _oneri_mesaj = urun.get("oneri_mesaj", "")
-        _durum_stil = {
-            "acil":       ("rgba(239,68,68,0.07)", "rgba(239,68,68,0.55)", "🚨", "#F87171"),
-            "yaklasıyor": ("rgba(245,158,11,0.07)", "rgba(245,158,11,0.5)", "⚠️", "#FBBF24"),
-            "planlama":   ("rgba(59,130,246,0.07)", "rgba(59,130,246,0.5)", "📋", "#93C5FD"),
-            "veri_yok":   ("rgba(34,197,94,0.06)", "rgba(34,197,94,0.45)", "✅", "#4ADE80"),
-        }
-        _bg, _brd, _ik, _tc = _durum_stil.get(siparis_durum, _durum_stil["veri_yok"])
-        _detay = f' <span style="color:#94A3B8;font-weight:400;">· {_oneri_mesaj}</span>' if _oneri_mesaj else ""
-        st.markdown(
-            f'<div style="background:{_bg};border-left:3px solid {_brd};border-radius:8px;padding:11px 15px;margin:6px 0;font-size:13px;">'
-            f'<span style="color:{_tc};font-weight:700;">{_ik} {siparis_mesaj}</span>{_detay}</div>',
-            unsafe_allow_html=True
-        )
-    
-        st.markdown("---")
-    
-        # Geçmiş satış verileri
-        gecmis_raw = get_gecmis_satis_tum_firmalar(secilen_sku)
-    
-        if not gecmis_raw:
-            st.info("Bu ürün için henüz geçmiş satış verisi bulunmuyor. Haftalık veri yükledikçe grafikler oluşacak.")
-        else:
-            df_gecmis = pd.DataFrame(gecmis_raw)
-            tarihler = sorted(df_gecmis["yukleme_tarihi"].unique())
-            firmalar = sorted(df_gecmis["firma"].unique())
-    
-            # TAB 1: Toplam satış trendi
-            # TAB 2: Firma bazında satış
-            # TAB 3: Stok seviyeleri
-            gtab1, gtab2, gtab3 = st.tabs(["📈 Satış Trendi", "🏪 Firma Bazlı", "📦 Stok Seviyeleri"])
-    
-            with gtab1:
-                # Haftalık toplam satış
-                toplam_df = df_gecmis.groupby("yukleme_tarihi")["haftalik_satis"].sum().reset_index()
-                toplam_df.columns = ["Tarih", "Toplam Satış"]
-                toplam_df = toplam_df.sort_values("Tarih")
-    
-                fig = go.Figure()
-    
-                # Satış çizgisi
-                fig.add_trace(go.Scatter(
-                    x=toplam_df["Tarih"],
-                    y=toplam_df["Toplam Satış"],
-                    mode="lines+markers",
-                    name="Haftalık Satış",
-                    line=dict(color="#42A5F5", width=2.5),
-                    marker=dict(size=8),
-                ))
-    
-                # 4 haftalık ortalama çizgisi
-                if len(toplam_df) >= 2:
-                    ort = toplam_df["Toplam Satış"].mean()
-                    fig.add_hline(
-                        y=ort,
-                        line_dash="dash",
-                        line_color="#FF6F00",
-                        annotation_text=f"4 Hft Ort: {ort:.1f}",
-                        annotation_position="right"
-                    )
-    
-                # Trend yönü rengi
-                trend_yon = urun.get("trend_yon", "stabil")
-                trend_renk = {"yukseliyor": "#2E7D32", "dusuyor": "#C62828", "stabil": "#F57C00"}.get(trend_yon, "#666")
-    
-                fig.update_layout(
-                    title=dict(text=f"Haftalık Toplam Satış Trendi — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
-                    xaxis_title="Hafta", xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"),
-                    yaxis_title="Satış Adedi", yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"),
-                    font=dict(color="#CFD8DC"),
-                    height=380,
-                    plot_bgcolor="rgba(255,255,255,0.03)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                    showlegend=True,
-                    annotations=[dict(
-                        x=0.01, y=0.97, xref="paper", yref="paper",
-                        text=f"Trend: {urun.get('trend_mesaji','—')}",
-                        showarrow=False,
-                        font=dict(size=13, color="#CFD8DC"),
-                        bgcolor="rgba(7,13,26,0.9)",
-                        bordercolor=trend_renk,
-                        borderwidth=1,
-                        borderpad=4,
-                    )]
-                )
-                st.plotly_chart(fig, use_container_width=True)
-    
-                # Haftalık tablo
-                with st.expander("📋 Haftalık Satış Tablosu"):
-                    st.dataframe(toplam_df.sort_values("Tarih", ascending=False), use_container_width=True)
-    
-            with gtab2:
-                # Firma bazında satış karşılaştırması
-                fig2 = go.Figure()
-    
-                renkler = {
-                    "ITOPYA": "#1F4E79",
-                    "HB": "#FF6F00",
-                    "VATAN": "#2E7D32",
-                    "MONDAY": "#7B1FA2",
-                    "KANAL": "#C62828",
-                    "DIGER": "#546E7A",
-                }
-    
-                for firma in firmalar:
-                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
-                    if firma_df["haftalik_satis"].sum() == 0:
-                        continue
-                    fig2.add_trace(go.Bar(
-                        x=firma_df["yukleme_tarihi"],
-                        y=firma_df["haftalik_satis"],
-                        name=firma,
-                        marker_color=renkler.get(firma, "#888"),
-                    ))
-    
-                fig2.update_layout(
-                    title=dict(text=f"Firma Bazında Haftalık Satış — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
-                    xaxis_title="Hafta", yaxis_title="Satış Adedi",
-                    barmode="group", height=380,
-                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                )
-                st.plotly_chart(fig2, use_container_width=True)
-    
-                # Firma performans özeti
-                st.markdown("**Firma Performans Özeti (Toplam Satış)**")
-                firma_ozet = df_gecmis.groupby("firma")["haftalik_satis"].agg(["sum","mean"]).reset_index()
-                firma_ozet.columns = ["Firma", "Toplam Satış", "Ort. Haftalık"]
-                firma_ozet = firma_ozet.sort_values("Toplam Satış", ascending=False)
-                firma_ozet["Ort. Haftalık"] = firma_ozet["Ort. Haftalık"].round(1)
-                st.dataframe(firma_ozet, use_container_width=True, hide_index=True)
-    
-            with gtab3:
-                # Bizim stok + firma stok seviyeleri
-                fig3 = go.Figure()
-    
-                # Bizim stok (depo)
-                bizim_stok_df = df_gecmis.groupby("yukleme_tarihi")["stok_miktari"].sum().reset_index()
-                bizim_stok_df = bizim_stok_df.sort_values("yukleme_tarihi")
-    
-                for firma in firmalar:
-                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
-                    if firma_df["stok_miktari"].sum() == 0:
-                        continue
-                    fig3.add_trace(go.Scatter(
-                        x=firma_df["yukleme_tarihi"],
-                        y=firma_df["stok_miktari"],
-                        mode="lines+markers",
-                        name=f"{firma} Stok",
-                        line=dict(color=renkler.get(firma, "#888"), width=2),
-                        marker=dict(size=6),
-                    ))
-    
-                fig3.update_layout(
-                    title=dict(text=f"Firma Stok Seviyeleri — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
-                    xaxis_title="Hafta", yaxis_title="Stok Adedi",
-                    height=380,
-                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                )
-                st.plotly_chart(fig3, use_container_width=True)
-    
-        st.markdown("---")
-    
-        # Yoldaki durum
-        st.subheader("🚢 Yoldaki Ürün Durumu")
-        yol_renk = urun.get("yol_renk", "yok")
-        if yol_renk == "yesil":
-            st.success(f"🟢 {urun.get('yol_miktar',0)} adet yolda | {urun.get('yol_mesaj','')}")
-        elif yol_renk == "sari":
-            st.warning(f"🟡 {urun.get('yol_miktar',0)} adet yolda | {urun.get('yol_mesaj','')}")
-        elif yol_renk == "kirmizi":
-            st.error(f"🔴 {urun.get('yol_mesaj','')}")
-        else:
-            st.info("Yolda ürün kaydı bulunmuyor.")
-    
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 3) GENEL ANALİZ
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📈  Genel Analiz":
+
+        st.markdown('---')
         st.markdown('<div class="baslik">📈 Genel Analiz</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Sipariş önceliklendirme · Ölü stok · Kategori & Marka</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
@@ -1269,7 +1038,7 @@ def run():
                         font_color="white", title_font_color="#90CAF9",
                         coloraxis_colorbar=dict(tickfont=dict(color="white"), title=dict(text="Risk", font=dict(color="white")))
                     )
-                    st.plotly_chart(fig_kat, use_container_width=True)
+                    st.plotly_chart(fig_kat, use_container_width=True, key="dash_fig_kat")
     
         # TAB 4 ─────────────────────────────────────────────────────────
         with atab4:
@@ -1312,9 +1081,10 @@ def run():
                             legend=dict(font=dict(color="white")),
                         )
                         fig_marka.update_traces(textfont_color="white")
-                        st.plotly_chart(fig_marka, use_container_width=True)
+                        st.plotly_chart(fig_marka, use_container_width=True, key="dash_fig_marka")
     
     
+
     # ════════════════════════════════════════════════════════════════════
     # 4) KAR MARJI ANALİZİ
     # ════════════════════════════════════════════════════════════════════
@@ -1485,6 +1255,204 @@ def run():
             )
     
         st.markdown("---")
+
+        # Detayli Gorunum (satis trendi - siparis - yoldaki)
+        try:
+            _veri_detay = dashboard_hesapla()
+            urun = next((u for u in _veri_detay if u["sku"] == secilen_sku), secilen)
+        except Exception:
+            urun = secilen
+        # Üst bilgi kartları
+        c1, c2, c3, c4, c5 = st.columns(5)
+        toplam_stok_ud = urun.get("toplam_stok", urun.get("bizim_stok", 0))
+        c1.metric("📦 Toplam Stok", toplam_stok_ud)
+        c2.metric("📊 Ort. Hft. Satış", round(urun.get("ortalama_haftalik_satis", 0)))
+        c3.metric("⚡ Risk Skoru", f"{urun.get('risk_skor',0)}/100")
+        stok_bitis = urun.get('stok_bitis_gun')
+        stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Satış verisi yok"
+        c4.metric("📅 Stok Biter", stok_bitis_str)
+        c5.metric("📦 Sipariş Önerisi", f"{urun.get('oneri_miktar',0)} adet")
+    
+        # Sipariş durumu banner (yumuşak, tek katman)
+        siparis_durum = urun.get("siparis_durum", "veri_yok")
+        siparis_mesaj = urun.get("siparis_mesaj", "")
+        _oneri_mesaj = urun.get("oneri_mesaj", "")
+        _durum_stil = {
+            "acil":       ("rgba(239,68,68,0.07)", "rgba(239,68,68,0.55)", "🚨", "#F87171"),
+            "yaklasıyor": ("rgba(245,158,11,0.07)", "rgba(245,158,11,0.5)", "⚠️", "#FBBF24"),
+            "planlama":   ("rgba(59,130,246,0.07)", "rgba(59,130,246,0.5)", "📋", "#93C5FD"),
+            "veri_yok":   ("rgba(34,197,94,0.06)", "rgba(34,197,94,0.45)", "✅", "#4ADE80"),
+        }
+        _bg, _brd, _ik, _tc = _durum_stil.get(siparis_durum, _durum_stil["veri_yok"])
+        _detay = f' <span style="color:#94A3B8;font-weight:400;">· {_oneri_mesaj}</span>' if _oneri_mesaj else ""
+        st.markdown(
+            f'<div style="background:{_bg};border-left:3px solid {_brd};border-radius:8px;padding:11px 15px;margin:6px 0;font-size:13px;">'
+            f'<span style="color:{_tc};font-weight:700;">{_ik} {siparis_mesaj}</span>{_detay}</div>',
+            unsafe_allow_html=True
+        )
+    
+        st.markdown("---")
+    
+        # Geçmiş satış verileri
+        gecmis_raw = get_gecmis_satis_tum_firmalar(secilen_sku)
+    
+        if not gecmis_raw:
+            st.info("Bu ürün için henüz geçmiş satış verisi bulunmuyor. Haftalık veri yükledikçe grafikler oluşacak.")
+        else:
+            df_gecmis = pd.DataFrame(gecmis_raw)
+            tarihler = sorted(df_gecmis["yukleme_tarihi"].unique())
+            firmalar = sorted(df_gecmis["firma"].unique())
+    
+            # TAB 1: Toplam satış trendi
+            # TAB 2: Firma bazında satış
+            # TAB 3: Stok seviyeleri
+            gtab1, gtab2, gtab3 = st.tabs(["📈 Satış Trendi", "🏪 Firma Bazlı", "📦 Stok Seviyeleri"])
+    
+            with gtab1:
+                # Haftalık toplam satış
+                toplam_df = df_gecmis.groupby("yukleme_tarihi")["haftalik_satis"].sum().reset_index()
+                toplam_df.columns = ["Tarih", "Toplam Satış"]
+                toplam_df = toplam_df.sort_values("Tarih")
+    
+                fig = go.Figure()
+    
+                # Satış çizgisi
+                fig.add_trace(go.Scatter(
+                    x=toplam_df["Tarih"],
+                    y=toplam_df["Toplam Satış"],
+                    mode="lines+markers",
+                    name="Haftalık Satış",
+                    line=dict(color="#42A5F5", width=2.5),
+                    marker=dict(size=8),
+                ))
+    
+                # 4 haftalık ortalama çizgisi
+                if len(toplam_df) >= 2:
+                    ort = toplam_df["Toplam Satış"].mean()
+                    fig.add_hline(
+                        y=ort,
+                        line_dash="dash",
+                        line_color="#FF6F00",
+                        annotation_text=f"4 Hft Ort: {ort:.1f}",
+                        annotation_position="right"
+                    )
+    
+                # Trend yönü rengi
+                trend_yon = urun.get("trend_yon", "stabil")
+                trend_renk = {"yukseliyor": "#2E7D32", "dusuyor": "#C62828", "stabil": "#F57C00"}.get(trend_yon, "#666")
+    
+                fig.update_layout(
+                    title=dict(text=f"Haftalık Toplam Satış Trendi — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
+                    xaxis_title="Hafta", xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"),
+                    yaxis_title="Satış Adedi", yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"),
+                    font=dict(color="#CFD8DC"),
+                    height=380,
+                    plot_bgcolor="rgba(255,255,255,0.03)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    hovermode="x unified",
+                    showlegend=True,
+                    annotations=[dict(
+                        x=0.01, y=0.97, xref="paper", yref="paper",
+                        text=f"Trend: {urun.get('trend_mesaji','—')}",
+                        showarrow=False,
+                        font=dict(size=13, color="#CFD8DC"),
+                        bgcolor="rgba(7,13,26,0.9)",
+                        bordercolor=trend_renk,
+                        borderwidth=1,
+                        borderpad=4,
+                    )]
+                )
+                st.plotly_chart(fig, use_container_width=True, key="tu_detay_fig")
+    
+                # Haftalık tablo
+                with st.expander("📋 Haftalık Satış Tablosu"):
+                    st.dataframe(toplam_df.sort_values("Tarih", ascending=False), use_container_width=True)
+    
+            with gtab2:
+                # Firma bazında satış karşılaştırması
+                fig2 = go.Figure()
+    
+                renkler = {
+                    "ITOPYA": "#1F4E79",
+                    "HB": "#FF6F00",
+                    "VATAN": "#2E7D32",
+                    "MONDAY": "#7B1FA2",
+                    "KANAL": "#C62828",
+                    "DIGER": "#546E7A",
+                }
+    
+                for firma in firmalar:
+                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
+                    if firma_df["haftalik_satis"].sum() == 0:
+                        continue
+                    fig2.add_trace(go.Bar(
+                        x=firma_df["yukleme_tarihi"],
+                        y=firma_df["haftalik_satis"],
+                        name=firma,
+                        marker_color=renkler.get(firma, "#888"),
+                    ))
+    
+                fig2.update_layout(
+                    title=dict(text=f"Firma Bazında Haftalık Satış — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
+                    xaxis_title="Hafta", yaxis_title="Satış Adedi",
+                    barmode="group", height=380,
+                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
+                    hovermode="x unified",
+                )
+                st.plotly_chart(fig2, use_container_width=True, key="tu_detay_fig2")
+    
+                # Firma performans özeti
+                st.markdown("**Firma Performans Özeti (Toplam Satış)**")
+                firma_ozet = df_gecmis.groupby("firma")["haftalik_satis"].agg(["sum","mean"]).reset_index()
+                firma_ozet.columns = ["Firma", "Toplam Satış", "Ort. Haftalık"]
+                firma_ozet = firma_ozet.sort_values("Toplam Satış", ascending=False)
+                firma_ozet["Ort. Haftalık"] = firma_ozet["Ort. Haftalık"].round(1)
+                st.dataframe(firma_ozet, use_container_width=True, hide_index=True)
+    
+            with gtab3:
+                # Bizim stok + firma stok seviyeleri
+                fig3 = go.Figure()
+    
+                # Bizim stok (depo)
+                bizim_stok_df = df_gecmis.groupby("yukleme_tarihi")["stok_miktari"].sum().reset_index()
+                bizim_stok_df = bizim_stok_df.sort_values("yukleme_tarihi")
+    
+                for firma in firmalar:
+                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
+                    if firma_df["stok_miktari"].sum() == 0:
+                        continue
+                    fig3.add_trace(go.Scatter(
+                        x=firma_df["yukleme_tarihi"],
+                        y=firma_df["stok_miktari"],
+                        mode="lines+markers",
+                        name=f"{firma} Stok",
+                        line=dict(color=renkler.get(firma, "#888"), width=2),
+                        marker=dict(size=6),
+                    ))
+    
+                fig3.update_layout(
+                    title=dict(text=f"Firma Stok Seviyeleri — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
+                    xaxis_title="Hafta", yaxis_title="Stok Adedi",
+                    height=380,
+                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
+                    hovermode="x unified",
+                )
+                st.plotly_chart(fig3, use_container_width=True, key="tu_detay_fig3")
+    
+        st.markdown("---")
+    
+        # Yoldaki durum
+        st.subheader("🚢 Yoldaki Ürün Durumu")
+        yol_renk = urun.get("yol_renk", "yok")
+        if yol_renk == "yesil":
+            st.success(f"🟢 {urun.get('yol_miktar',0)} adet yolda | {urun.get('yol_mesaj','')}")
+        elif yol_renk == "sari":
+            st.warning(f"🟡 {urun.get('yol_miktar',0)} adet yolda | {urun.get('yol_mesaj','')}")
+        elif yol_renk == "kirmizi":
+            st.error(f"🔴 {urun.get('yol_mesaj','')}")
+        else:
+            st.info("Yolda ürün kaydı bulunmuyor.")
+
         # Tüm ürünler özet tablosu
         st.markdown("#### 📊 Tüm Ürünler Özet")
         _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
@@ -2737,6 +2705,41 @@ def run():
     
         st.markdown("---")
     
+        # Disa Aktar (eski Raporlar)
+        with st.expander("📤 Dışa Aktar — Excel / PDF Rapor", expanded=False):
+            _de1, _de2 = st.columns(2)
+            with _de1:
+                st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
+                if st.button("📊 Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor"):
+                    from rapor import excel_rapor_olustur
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
+                        _tmp_path = _tmp.name
+                    _ok, _msg = excel_rapor_olustur(_tmp_path)
+                    if _ok:
+                        with open(_tmp_path, "rb") as _f:
+                            st.download_button("⬇️ Excel İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="vy_excel_dl")
+                        os.unlink(_tmp_path)
+                    else:
+                        st.error(_msg)
+            with _de2:
+                st.markdown('<div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
+                if st.button("📑 PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor"):
+                    from rapor import pdf_rapor_olustur
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
+                        _tmp_path = _tmp.name
+                    _ok, _msg = pdf_rapor_olustur(_tmp_path)
+                    if _ok:
+                        with open(_tmp_path, "rb") as _f:
+                            st.download_button("⬇️ PDF İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", use_container_width=True, key="vy_pdf_dl")
+                        os.unlink(_tmp_path)
+                    else:
+                        st.error(_msg)
+
+        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 G5F Stok · Haftalık Veri Yükleme</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında tüm sekmeler: <b style="color:#CBD5E1">G5F STOK</b> (bizim depo) · <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b> (firma stokları) · <b style="color:#CBD5E1">YOLDAKI</b> (yoldaki ürünler)</div>', unsafe_allow_html=True)
     
@@ -2837,60 +2840,6 @@ def run():
     
     
     
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 8) RAPORLAR
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📄  Raporlar":
-        st.markdown('<div class="baslik">📄 Raporlar</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Excel & PDF rapor oluştur · İndir</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
-        col1, col2 = st.columns(2)
-    
-        with col1:
-            st.subheader("📊 Excel Raporu")
-            st.write("Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli, tam detaylı.")
-            if st.button("📊 Excel Raporu Oluştur", use_container_width=True, type="primary"):
-                from rapor import excel_rapor_olustur
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-                    tmp_path = tmp.name
-                basari, mesaj = excel_rapor_olustur(tmp_path)
-                if basari:
-                    with open(tmp_path, "rb") as f:
-                        st.download_button(
-                            "⬇️ Excel İndir",
-                            f.read(),
-                            f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                        )
-                    os.unlink(tmp_path)
-                else:
-                    st.error(mesaj)
-    
-        with col2:
-            st.subheader("📑 PDF Raporu")
-            st.write("A4 yatay formatta yazdırmaya hazır özet rapor.")
-            if st.button("📑 PDF Raporu Oluştur", use_container_width=True):
-                from rapor import pdf_rapor_olustur
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                    tmp_path = tmp.name
-                basari, mesaj = pdf_rapor_olustur(tmp_path)
-                if basari:
-                    with open(tmp_path, "rb") as f:
-                        st.download_button(
-                            "⬇️ PDF İndir",
-                            f.read(),
-                            f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                        )
-                    os.unlink(tmp_path)
-                else:
-                    st.error(mesaj)
     
     # ════════════════════════════════════════════════════════════════════
     # 9) BİLDİRİM AYARLARI
