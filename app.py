@@ -1642,7 +1642,7 @@ def anasayfa():
                 with st.expander(f"{durum_renk} {t.get('konu','—')} · {t.get('gonderen','?')} · {str(t.get('olusturma_tarihi',''))[:16]}"):
                     st.write(t.get("mesaj",""))
                     st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
-                  if t.get("cevap"):
+                                      if t.get("cevap"):
                     st.info(f"Cevap: {t.get('cevap')}")
                     talep_id = t.get("id")
                     yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
