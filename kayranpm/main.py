@@ -704,16 +704,24 @@ def run():
             if uyari_listesi:
                 st.markdown("### 🚨 Aksiyon Gerektiren Ürünler")
                 for urun, fd in uyari_listesi:
-                    with st.container():
-                        st.markdown(f'<div class="uyari-box">⚠️ <b>{urun["urun_adi"]}</b> — {fd["firma"]} stoğu azalmış (Firma stok: {fd["stok"]} | Bizim stok: {urun["bizim_stok"]})</div>', unsafe_allow_html=True)
-                        col1, col2 = st.columns([3,1])
-                        with col2:
-                            miktar = st.number_input("Miktar", min_value=1, value=10, key=f"sp_{urun['sku']}_{fd['firma']}")
-                            if st.button("📦 Sipariş Önerisi Ekle", key=f"btn_{urun['sku']}_{fd['firma']}"):
-                                ekle_siparis_onerisi(fd["firma"], urun["sku"], urun["urun_adi"], miktar)
-                                st.cache_data.clear()
-                                st.toast("Sipariş önerisi oluşturuldu!")
-                                st.rerun()
+                    c1, c2, c3 = st.columns([6, 1.3, 1.7])
+                    with c1:
+                        st.markdown(
+                            f'<div class="uyari-box" style="margin:0;padding:9px 13px;font-size:12.5px;">'
+                            f'⚠️ <b>{urun["urun_adi"]}</b> — {fd["firma"]} azaldı '
+                            f'(Firma: {fd["stok"]} | Bizim: {urun["bizim_stok"]})</div>',
+                            unsafe_allow_html=True
+                        )
+                    with c2:
+                        miktar = st.number_input("Miktar", min_value=1, value=10,
+                                                 key=f"sp_{urun['sku']}_{fd['firma']}",
+                                                 label_visibility="collapsed")
+                    with c3:
+                        if st.button("📦 Sipariş Ekle", key=f"btn_{urun['sku']}_{fd['firma']}", use_container_width=True):
+                            ekle_siparis_onerisi(fd["firma"], urun["sku"], urun["urun_adi"], miktar)
+                            st.cache_data.clear()
+                            st.toast("Sipariş önerisi oluşturuldu!")
+                            st.rerun()
     
             # ── DASHBOARD GRAFİKLERİ ──────────────────────────────────────
             st.markdown("---")
