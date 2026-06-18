@@ -1644,21 +1644,21 @@ def anasayfa():
                     st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
                   if t.get("cevap"):
                     st.info(f"Cevap: {t.get('cevap')}")
-                  talep_id = t.get("id")
-              yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
-          durum_sec = st.selectbox("Durum", ["bekliyor","inceleniyor","tamamlandi"], index=["bekliyor","inceleniyor","tamamlandi"].index(t.get("durum","bekliyor")) if t.get("durum","bekliyor") in ["bekliyor","inceleniyor","tamamlandi"] else 0, key=f"durum_{talep_id}", label_visibility="collapsed")
-      if st.button("Cevapla", key=f"btn_{talep_id}"):
-        try:
-          from kayranpm.database import guncelle_talep_cevap
-          ok = guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
-          if ok:
-            st.success("Cevap kaydedildi!")
-            st.cache_data.clear()
-            st.rerun()
-          else:
-            st.error("Kaydedilemedi.")
-        except Exception as _e:
-          st.error(f"Hata: {_e}")
+                    talep_id = t.get("id")
+                    yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
+                      durum_sec = st.selectbox("Durum", ["bekliyor","inceleniyor","tamamlandi"], index=["bekliyor","inceleniyor","tamamlandi"].index(t.get("durum","bekliyor")) if t.get("durum","bekliyor") in ["bekliyor","inceleniyor","tamamlandi"] else 0, key=f"durum_{talep_id}", label_visibility="collapsed")
+                    if st.button("Cevapla", key=f"btn_{talep_id}"):
+                        try:
+                            from kayranpm.database import guncelle_talep_cevap
+                            ok = guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
+                            if ok:
+                                st.success("Cevap kaydedildi!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error("Kaydedilemedi.")
+                        except Exception as _e:
+                            st.error(f"Hata: {_e}")
 
     # ─────────────────────────────────────────────────────────────────────
     # DUYURU YÖNETİMİ PANELİ (sadece ibrahim görür)
