@@ -46,6 +46,110 @@ def _baslik(ikon, ad, alt):
     )
 
 
+def _alt_baslik(t):
+    st.markdown(
+        f'<div style="font-size:11px;font-weight:700;color:#A5B4FC;letter-spacing:1.2px;'
+        f'text-transform:uppercase;margin:2px 0 12px;display:flex;align-items:center;gap:8px">'
+        f'<span style="width:5px;height:14px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>'
+        f'{t}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _form_css():
+    """İthalat sayfalarındaki Streamlit girdilerini modern KAYRAN temasına çeker."""
+    st.markdown(
+        """
+        <style>
+        /* ── Girdi kutuları (text / number / date) ── */
+        .main [data-testid="stTextInput"] input,
+        .main [data-testid="stNumberInput"] input,
+        .main [data-testid="stDateInput"] input {
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.10) !important;
+            border-radius: 11px !important;
+            color: #E2E8F0 !important;
+            font-size: 13px !important;
+            padding: 11px 14px !important;
+            transition: border-color .2s, box-shadow .2s !important;
+        }
+        .main [data-testid="stTextInput"] input:focus,
+        .main [data-testid="stNumberInput"] input:focus,
+        .main [data-testid="stDateInput"] input:focus {
+            border-color: #8B5CF6 !important;
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.15) !important;
+        }
+        .main [data-testid="stTextInput"] input::placeholder { color: #475569 !important; }
+
+        /* ── Etiketler ── */
+        .main [data-testid="stWidgetLabel"] p {
+            color: #94A3B8 !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            letter-spacing: .5px !important;
+            text-transform: uppercase !important;
+        }
+
+        /* ── Selectbox (döviz) ── */
+        .main [data-baseweb="select"] > div {
+            background: rgba(255,255,255,0.04) !important;
+            border: 1px solid rgba(255,255,255,0.10) !important;
+            border-radius: 11px !important;
+            color: #E2E8F0 !important;
+        }
+        .main [data-baseweb="select"] > div:hover { border-color: rgba(139,92,246,0.4) !important; }
+
+        /* ── Number input +/- adımlayıcılar ── */
+        .main [data-testid="stNumberInput"] button {
+            background: rgba(255,255,255,0.05) !important;
+            border: 1px solid rgba(255,255,255,0.10) !important;
+            color: #94A3B8 !important;
+        }
+        .main [data-testid="stNumberInput"] button:hover {
+            background: rgba(139,92,246,0.18) !important;
+            color: #FFFFFF !important;
+        }
+
+        /* ── Kart kapsayıcılar (st.container border=True) ── */
+        .main [data-testid="stVerticalBlockBorderWrapper"] {
+            background: rgba(255,255,255,0.02) !important;
+            border: 1px solid rgba(255,255,255,0.07) !important;
+            border-radius: 16px !important;
+        }
+
+        /* ── Veri editörü / tablolar ── */
+        .main [data-testid="stDataFrame"],
+        .main [data-testid="stDataEditor"] {
+            border-radius: 12px !important;
+            overflow: hidden !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+        }
+
+        /* ── Sekmeler ── */
+        .main [data-baseweb="tab-list"] { gap: 6px !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; }
+        .main [data-baseweb="tab"] {
+            background: rgba(255,255,255,0.03) !important;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 8px 16px !important;
+            color: #94A3B8 !important;
+        }
+        .main [data-baseweb="tab"][aria-selected="true"] {
+            background: rgba(99,102,241,0.15) !important;
+            color: #C4B5FD !important;
+        }
+
+        /* ── Dosya yükleyici ── */
+        .main [data-testid="stFileUploaderDropzone"] {
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px dashed rgba(139,92,246,0.35) !important;
+            border-radius: 12px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
     """DataFrame'i KAYRAN renkli HTML tablosunda çizer (salt-okunur)."""
     para = set(para or []); yuzde = set(yuzde or []); sol = set(sol or []); kisalt = kisalt or {}
@@ -247,48 +351,63 @@ def _yeni_ithalat():
 
     # ── Manuel ──
     with sekme1:
-        st.markdown("**Dosya bilgileri**")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            dosya_no = st.text_input("Dosya / Sipariş No", key="m_dosya_no", placeholder="ITH-2025-001")
-            doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
-        with c2:
-            tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
-            kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.01, key="m_kur")
-        with c3:
-            tedarikci = st.text_input("Tedarikçi", key="m_ted")
-            mense = st.text_input("Menşe Ülke", key="m_ulke")
+        with st.container(border=True):
+            _alt_baslik("📄 Dosya Bilgileri")
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                dosya_no = st.text_input("Dosya / Sipariş No", key="m_dosya_no", placeholder="ITH-2025-001")
+                doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
+            with c2:
+                tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
+                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.01, key="m_kur")
+            with c3:
+                tedarikci = st.text_input("Tedarikçi", key="m_ted")
+                mense = st.text_input("Menşe Ülke", key="m_ulke")
 
-        st.markdown("**Masraf kalemleri** (dosya para birimi cinsinden)")
-        m1, m2, m3, m4, m5 = st.columns(5)
-        navlun = m1.number_input("Navlun", min_value=0.0, value=0.0, step=1.0, key="m_navlun")
-        gumruk = m2.number_input("Gümrük", min_value=0.0, value=0.0, step=1.0, key="m_gumruk")
-        sigorta = m3.number_input("Sigorta", min_value=0.0, value=0.0, step=1.0, key="m_sigorta")
-        nakliye = m4.number_input("Nakliye", min_value=0.0, value=0.0, step=1.0, key="m_nakliye")
-        diger = m5.number_input("Diğer", min_value=0.0, value=0.0, step=1.0, key="m_diger")
+        with st.container(border=True):
+            _alt_baslik("💸 Masraf Kalemleri · dosya para birimi cinsinden")
+            m1, m2, m3, m4, m5 = st.columns(5)
+            navlun = m1.number_input("Navlun", min_value=0.0, value=0.0, step=1.0, key="m_navlun")
+            gumruk = m2.number_input("Gümrük", min_value=0.0, value=0.0, step=1.0, key="m_gumruk")
+            sigorta = m3.number_input("Sigorta", min_value=0.0, value=0.0, step=1.0, key="m_sigorta")
+            nakliye = m4.number_input("Nakliye", min_value=0.0, value=0.0, step=1.0, key="m_nakliye")
+            diger = m5.number_input("Diğer", min_value=0.0, value=0.0, step=1.0, key="m_diger")
 
-        st.markdown("**Ürün kalemleri** — SKU = Ürün Yönetimi'ndeki model no")
-        bos = pd.DataFrame([{"sku": "", "urun_adi": "", "adet": 0, "birim_fob": 0.0} for _ in range(3)])
-        duzen = st.data_editor(
-            bos, num_rows="dynamic", use_container_width=True, key="m_kalemler",
-            column_config={
-                "sku": st.column_config.TextColumn("SKU / Model No"),
-                "urun_adi": st.column_config.TextColumn("Ürün Adı (boşsa otomatik)"),
-                "adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
-                "birim_fob": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
-            },
-        )
+        with st.container(border=True):
+            _alt_baslik("📦 Ürün Kalemleri · SKU = Ürün Yönetimi'ndeki model no")
+            bos = pd.DataFrame([{"sku": "", "urun_adi": "", "adet": 0, "birim_fob": 0.0} for _ in range(3)])
+            duzen = st.data_editor(
+                bos, num_rows="dynamic", use_container_width=True, key="m_kalemler",
+                column_config={
+                    "sku": st.column_config.TextColumn("SKU / Model No"),
+                    "urun_adi": st.column_config.TextColumn("Ürün Adı (boşsa otomatik)"),
+                    "adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
+                    "birim_fob": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
+                },
+            )
 
         _kalemler = [r for r in duzen.to_dict("records") if (str(r.get("sku") or "")).strip()]
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
         _masraf = navlun + gumruk + sigorta + nakliye + diger
         _yuzde = (_masraf / _mal * 100) if _mal > 0 else 0
-        st.caption(
-            f"Önizleme → Mal bedeli: **{_mal:,.2f} {doviz}** · Toplam masraf: **{_masraf:,.2f} {doviz}** · "
-            f"Binen maliyet: **%{_yuzde:.2f}**"
+
+        # Canlı özet çipleri
+        st.markdown(
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px">'
+            '<div style="flex:1;min-width:140px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:11px 16px">'
+            '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Mal Bedeli (FOB)</div>'
+            f'<div style="font-size:16px;font-weight:700;color:#E2E8F0;font-family:\'JetBrains Mono\',monospace">{_mal:,.2f} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            '<div style="flex:1;min-width:140px;background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:11px 16px">'
+            '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Masraf</div>'
+            f'<div style="font-size:16px;font-weight:700;color:#FB923C;font-family:\'JetBrains Mono\',monospace">{_masraf:,.2f} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            '<div style="flex:1;min-width:140px;background:rgba(74,222,128,0.10);border:1px solid rgba(74,222,128,0.25);border-radius:12px;padding:11px 16px">'
+            '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Binen % Maliyet</div>'
+            f'<div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:\'JetBrains Mono\',monospace">%{_yuzde:.2f}</div></div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
 
-        if st.button("💾 Dosyayı Kaydet", type="primary", key="m_kaydet"):
+        if st.button("💾 Dosyayı Kaydet", type="primary", key="m_kaydet", use_container_width=True):
             if not dosya_no.strip():
                 st.warning("Dosya / Sipariş No zorunlu.")
             elif not _kalemler:
@@ -461,6 +580,7 @@ def run():
         "</style>",
         unsafe_allow_html=True,
     )
+    _form_css()
 
     with st.sidebar:
         st.markdown(
