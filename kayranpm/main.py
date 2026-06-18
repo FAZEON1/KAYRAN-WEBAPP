@@ -598,94 +598,92 @@ def run():
             df = pd.DataFrame(satirlar)
     
             def renk_uygula(df_goster):
-                def satir_rengi(row):
-                    styles = [""] * len(row)
-                    cols = list(row.index)
-                    # Koyu arka plan için yüksek kontrastlı renkler
-                    sp_renk = {
-                        "acil":      "background-color:#7F0000; color:#FFCDD2; font-weight:700",
-                        "yaklasıyor":"background-color:#BF360C; color:#FFE0B2; font-weight:600",
-                        "planlama":  "background-color:#827717; color:#FFF176; font-weight:600",
-                        "normal":    "background-color:#1B5E20; color:#A5D6A7; font-weight:600",
-                        "veri_yok":  "background-color:#37474F; color:#CFD8DC",
-                    }
-                    if "📋 Sipariş Takvimi" in cols:
-                        r = sp_renk.get(row.get("Sipariş Durum",""),"")
-                        if r: styles[cols.index("📋 Sipariş Takvimi")] = r
-    
-                    yas_renk = {
-                        "kirmizi": "background-color:#7F0000; color:#FFCDD2; font-weight:700",
-                        "turuncu": "background-color:#BF360C; color:#FFE0B2; font-weight:600",
-                        "sari":    "background-color:#827717; color:#FFF176",
-                        "yesil":   "background-color:#1B5E20; color:#A5D6A7",
-                        "yok":     "",
-                    }
-                    if "Stok Yaşı" in cols:
-                        r = yas_renk.get(row.get("Stok Renk",""),"")
-                        if r: styles[cols.index("Stok Yaşı")] = r
-    
-                    trend_renk = {
-                        "yukseliyor": "background-color:#1B5E20; color:#A5D6A7; font-weight:600",
-                        "dusuyor":    "background-color:#7F0000; color:#FFCDD2; font-weight:600",
-                        "stabil":     "background-color:#827717; color:#FFF176",
-                        "yetersiz_veri": "background-color:#37474F; color:#CFD8DC",
-                    }
-                    if "Satış Trendi" in cols:
-                        r = trend_renk.get(row.get("Trend Yön",""),"")
-                        if r: styles[cols.index("Satış Trendi")] = r
-    
-                    if "⚡ Risk Skoru" in cols:
-                        skor = row.get("⚡ Risk Skoru", 0)
-                        if skor >= 70:   styles[cols.index("⚡ Risk Skoru")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                        elif skor >= 45: styles[cols.index("⚡ Risk Skoru")] = "background-color:#BF360C; color:#FFE0B2; font-weight:600"
-                        elif skor >= 25: styles[cols.index("⚡ Risk Skoru")] = "background-color:#827717; color:#FFF176"
-                        else:            styles[cols.index("⚡ Risk Skoru")] = "background-color:#1B5E20; color:#A5D6A7"
-    
-                    if "🪦 Stok Durumu" in cols:
-                        d = row.get("Ölü Durum","normal")
-                        if d == "olu":   styles[cols.index("🪦 Stok Durumu")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                        elif d == "yavas": styles[cols.index("🪦 Stok Durumu")] = "background-color:#BF360C; color:#FFE0B2"
-    
-                    perf_renk = {
-                        "Çok İyi":  "background-color:#1B5E20; color:#A5D6A7; font-weight:600",
-                        "İyi":      "background-color:#827717; color:#FFF176",
-                        "Düşük":    "background-color:#7F0000; color:#FFCDD2",
-                        "veri yok": "background-color:#37474F; color:#CFD8DC",
-                    }
-                    if "Performans" in cols:
-                        r = perf_renk.get(row.get("Performans",""),"")
-                        if r: styles[cols.index("Performans")] = r
-    
-                    yol_renk_map = {
-                        "yesil":   "background-color:#1B5E20; color:#A5D6A7; font-weight:600",
-                        "sari":    "background-color:#827717; color:#FFF176",
-                        "kirmizi": "background-color:#7F0000; color:#FFCDD2; font-weight:700",
-                        "yok":     "",
-                    }
-                    if "Yoldaki Durum" in cols:
-                        r = yol_renk_map.get(row.get("Yol Renk",""),"")
-                        if r: styles[cols.index("Yoldaki Durum")] = r
-    
-                    if "Uyarı" in cols and row.get("Uyarı",""):
-                        if "SİPARİŞ" in str(row.get("Uyarı","")):
-                            styles[cols.index("Uyarı")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                    return styles
-    
-                # Daha temiz ve okunabilir kolon sırası
-                goster = [
-                    "SKU", "Ürün Adı", "Kategori",
-                    "Toplam Stok", "Bizim Stok",
-                    "Firma", "Firma Stok", "Ort. Hft. Satış",
-                    "Satış Trendi", "Stok Yaşı",
-                    "📋 Sipariş Takvimi", "📦 Önerilen Sipariş",
-                    "⚡ Risk Skoru", "Yoldaki Durum",
-                ]
-                gizli = [k for k in ["Stok Renk","Yol Renk","Sipariş Durum","Trend Yön","Risk Etiketi","Ölü Durum"] if k in df_goster.columns]
-                # Sadece mevcut kolonları göster
-                goster_mevcut = [g for g in goster if g in df_goster.columns]
-                styled = df_goster[goster_mevcut + gizli].style.apply(satir_rengi, axis=1)
-                styled = styled.hide(axis="columns", subset=gizli)
-                st.dataframe(styled, use_container_width=True, height=500)
+                if df_goster is None or df_goster.empty:
+                    st.info("Gösterilecek veri yok.")
+                    return
+                sp_map  = {"acil":"d-red","yaklasıyor":"d-org","planlama":"d-yel","normal":"d-grn","veri_yok":"d-dim"}
+                yas_map = {"kirmizi":"d-red","turuncu":"d-org","sari":"d-yel","yesil":"d-grn","yok":"d-dim"}
+                tr_map  = {"yukseliyor":"d-grn","dusuyor":"d-red","stabil":"d-yel","yetersiz_veri":"d-dim"}
+                yol_map = {"yesil":"d-grn","sari":"d-yel","kirmizi":"d-red","yok":"d-dim"}
+                def _cd(v, m):
+                    return m.get(str(v), "d-dim")
+                def _risk_cls(s):
+                    try:
+                        s = float(s)
+                    except Exception:
+                        return "d-dim"
+                    if s >= 70: return "d-red"
+                    if s >= 45: return "d-org"
+                    if s >= 25: return "d-yel"
+                    return "d-grn"
+
+                rows_html = ""
+                for _, row in df_goster.iterrows():
+                    ad = str(row.get("Ürün Adı", "") or "")
+                    ad_k = ad if len(ad) <= 44 else ad[:43] + "…"
+                    ad_t = ad.replace(chr(34), "&quot;")
+                    yol = str(row.get("Yoldaki Durum", "") or "")
+                    yol_k = yol if len(yol) <= 26 else yol[:25] + "…"
+                    yol_t = yol.replace(chr(34), "&quot;")
+                    sip = str(row.get("📋 Sipariş Takvimi", "") or "")
+                    sip_k = sip if len(sip) <= 26 else sip[:25] + "…"
+                    sip_t = sip.replace(chr(34), "&quot;")
+                    risk = row.get("⚡ Risk Skoru", 0)
+                    rows_html += (
+                        "<tr>"
+                        f'<td class="d-sku">{row.get("SKU","")}</td>'
+                        f'<td class="d-name" title="{ad_t}">{ad_k}</td>'
+                        f'<td class="d-kat">{row.get("Kategori","")}</td>'
+                        f'<td class="d-tot">{row.get("Toplam Stok","")}</td>'
+                        f'<td class="d-num">{row.get("Bizim Stok","")}</td>'
+                        f'<td class="d-firma">{row.get("Firma","")}</td>'
+                        f'<td class="d-num">{row.get("Firma Stok","")}</td>'
+                        f'<td class="d-num">{row.get("Ort. Hft. Satış","")}</td>'
+                        f'<td class="d-st {_cd(row.get("Trend Yön",""), tr_map)}">{row.get("Satış Trendi","")}</td>'
+                        f'<td class="d-st {_cd(row.get("Stok Renk",""), yas_map)}">{row.get("Stok Yaşı","")}</td>'
+                        f'<td class="d-st {_cd(row.get("Sipariş Durum",""), sp_map)}" title="{sip_t}">{sip_k}</td>'
+                        f'<td class="d-st">{row.get("📦 Önerilen Sipariş","")}</td>'
+                        f'<td class="d-num {_risk_cls(risk)}">{risk}</td>'
+                        f'<td class="d-st {_cd(row.get("Yol Renk",""), yol_map)}" title="{yol_t}">{yol_k}</td>'
+                        "</tr>"
+                    )
+                css = (
+                    "<style>"
+                    ".dw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:2px 0}"
+                    ".dt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+                    ".dt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+                    ".dt thead th{padding:10px 11px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+                    ".dt thead th.l{text-align:left}"
+                    ".dt tbody{background:#131C35}"
+                    ".dt td{padding:8px 11px;font-size:11.5px}"
+                    ".dt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+                    ".dt tbody tr:hover{background:rgba(99,102,241,0.06)}"
+                    ".d-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
+                    ".d-name{color:#CBD5E1;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                    ".d-kat{color:#94A3B8;font-size:11px}"
+                    ".d-firma{color:#CBD5E1;font-size:11px;white-space:nowrap}"
+                    ".d-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                    ".d-tot{text-align:right;color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".d-st{text-align:left;color:#CBD5E1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}"
+                    ".d-red{color:#F87171 !important;font-weight:600}"
+                    ".d-org{color:#FB923C !important;font-weight:600}"
+                    ".d-yel{color:#FCD34D !important;font-weight:600}"
+                    ".d-grn{color:#4ADE80 !important;font-weight:600}"
+                    ".d-dim{color:#64748B !important}"
+                    "</style>"
+                )
+                head = (
+                    '<div class="dw"><table class="dt"><thead><tr>'
+                    '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
+                    "<th>Toplam</th><th>Bizim</th>"
+                    '<th class="l">Firma</th><th>Firma Stok</th><th>Ort. Hft.</th>'
+                    '<th class="l">Satış Trendi</th><th class="l">Stok Yaşı</th>'
+                    '<th class="l">📋 Sipariş Takvimi</th><th class="l">📦 Önerilen</th>'
+                    "<th>⚡ Risk</th>"
+                    '<th class="l">Yoldaki Durum</th>'
+                    "</tr></thead><tbody>"
+                )
+                st.html(css + head + rows_html + "</tbody></table></div>")
     
             tab1, tab2, tab3, tab4 = st.tabs(["⚡ En Riskli","📈 En Çok Satan","📉 En Az Satan","🕐 Stok Yaşına Göre"])
             with tab1:
