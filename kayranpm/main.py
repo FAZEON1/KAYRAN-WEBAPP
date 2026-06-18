@@ -496,13 +496,16 @@ def run():
             st.stop()
 
         # Filtreler
-        col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
+        _kat_list_d = sorted({(u.get("kategori") or "").strip() for u in veri if (u.get("kategori") or "").strip()})
+        col_f1, col_f2, col_f3, col_f4 = st.columns([1.5, 1.5, 1.8, 0.9])
         with col_f1:
             filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
         with col_f2:
+            filtre_kat = st.selectbox("Kategori", ["Tüm Kategoriler"] + _kat_list_d, key="dash_kat")
+        with col_f3:
             _sku_secenek = ["Tüm Ürünler"] + sorted({u["sku"] for u in veri})
             arama_sku = st.selectbox("🔍 Ürün (SKU) — yazarak ara", _sku_secenek, key="dash_sku")
-        with col_f3:
+        with col_f4:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🔄 Yenile", use_container_width=True):
                 st.cache_data.clear()
@@ -523,6 +526,10 @@ def run():
             if arama_sku and arama_sku != "Tüm Ürünler":
                 if urun["sku"] != arama_sku:
                     continue
+
+            # Kategori filtresi
+            if filtre_kat != "Tüm Kategoriler" and (urun.get("kategori") or "").strip() != filtre_kat:
+                continue
     
             if firmali_satirlar:
                 # Firmada stok var — her firma için ayrı satır
@@ -1480,6 +1487,18 @@ def run():
         st.markdown("---")
         # Tüm ürünler özet tablosu
         st.markdown("#### 📊 Tüm Ürünler Özet")
+        _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
+        _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
+        _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.3, 1.3, 1.7, 1.1])
+        with _ozf1:
+            f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
+        with _ozf2:
+            f_mar_oz = st.selectbox("Marka", ["Tümü"] + _mar_oz, key="oz_mar")
+        with _ozf3:
+            f_sira_oz = st.selectbox("Sırala", ["Stok Yaşı (gün)", "Net Kâr ($)", "Net Marj (%)", "Maliyet %", "Toplam Stok", "Satış ($)", "FOB ($)", "Risk Skoru", "SKU (A-Z)"], key="oz_sira")
+        with _ozf4:
+            f_yon_oz = st.selectbox("Yön", ["Azalan", "Artan"], key="oz_yon")
+        _sira_map_oz = {"Stok Yaşı (gün)": "_stok_yas", "Net Kâr ($)": "Net Kar ($)", "Net Marj (%)": "Net Marj (%)", "Maliyet %": "Maliyet %", "Toplam Stok": "Toplam", "Satış ($)": "Satış ($)", "FOB ($)": "FOB ($)", "Risk Skoru": "_risk", "SKU (A-Z)": "SKU"}
         rows_oz = []
         for u in urun_data:
             fs = u.get("firma_stoklari", {})
@@ -1493,6 +1512,9 @@ def run():
                 "SKU": u["sku"],
                 "Ürün Adı": u.get("urun_adi", ""),
                 "Kategori": u.get("kategori", ""),
+                "Marka": u.get("marka", ""),
+                "_stok_yas": int(u.get("stok_gun", 0) or 0),
+                "_risk": float(u.get("risk_skor", 0) or 0),
                 "G5F Depo": int(u.get("bizim_stok", 0) or 0),
                 "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
                 "HB": int(fs.get("HB", 0) or 0),
@@ -1507,6 +1529,21 @@ def run():
                 "Net Marj (%)": float(net_marj) if net_marj is not None else None,
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
             })
+        # Filtre + sıralama uygula
+        if f_kat_oz != "Tümü":
+            rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
+        if f_mar_oz != "Tümü":
+            rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
+        _sk_oz = _sira_map_oz.get(f_sira_oz, "_stok_yas")
+        _rev_oz = (f_yon_oz == "Azalan")
+        if _sk_oz == "SKU":
+            rows_oz.sort(key=lambda r: str(r.get("SKU") or "").lower(), reverse=_rev_oz)
+        else:
+            _dolu = [r for r in rows_oz if r.get(_sk_oz) not in (None, "")]
+            _bos = [r for r in rows_oz if r.get(_sk_oz) in (None, "")]
+            _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
+            rows_oz = _dolu + _bos
+
         df_oz = pd.DataFrame(rows_oz)
         if df_oz.empty:
             st.info("Henüz ürün yok.")
