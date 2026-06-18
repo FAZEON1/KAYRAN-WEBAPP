@@ -1848,12 +1848,12 @@ def run():
             css = (
                 "<style>"
                 ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
-                ".urun-tbl{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+                ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
                 ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                ".urun-tbl thead th{padding:11px 12px;color:#CBD5E1;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;text-align:right;position:sticky;top:0}"
+                ".urun-tbl thead th{padding:9px 7px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}"
                 ".urun-tbl thead th:nth-child(1),.urun-tbl thead th:nth-child(2),.urun-tbl thead th:nth-child(3){text-align:left}"
                 ".urun-tbl tbody{background:#131C35}"
-                ".urun-tbl td{padding:9px 12px;font-size:12px}"
+                ".urun-tbl td{padding:7px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                 ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
                 ".urun-tbl tbody tr:hover{background:rgba(99,102,241,0.06)}"
                 ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
@@ -1872,11 +1872,18 @@ def run():
                 "</style>"
             )
             thead = (
-                '<div class="urun-wrap"><table class="urun-tbl"><thead><tr>'
+                '<div class="urun-wrap"><table class="urun-tbl">'
+                '<colgroup>'
+                '<col style="width:8%"><col style="width:20%"><col style="width:7%">'
+                '<col style="width:6%"><col style="width:12%"><col style="width:6%">'
+                '<col style="width:7%"><col style="width:6%"><col style="width:8%">'
+                '<col style="width:7%"><col style="width:6%"><col style="width:9%">'
+                '</colgroup>'
+                '<thead><tr>'
                 "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th>"
-                '<th>G5F</th><th style="text-align:left">Kanal Stok</th><th>Toplam</th>'
-                "<th>FOB</th><th>Maliyet %</th><th>⭐ Final Cost</th><th>Satış</th>"
-                "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
+                '<th>G5F</th><th style="text-align:left">Kanal</th><th>Toplam</th>'
+                "<th>FOB</th><th>Mal %</th><th>⭐ Final</th><th>Satış</th>"
+                "<th>Marj %</th><th>💰 Net Kâr</th>"
                 "</tr></thead><tbody>"
             )
             st.html(css + thead + satir_html + "</tbody></table></div>")
