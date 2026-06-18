@@ -1548,7 +1548,7 @@ def run():
                     return "rgba(239,68,68,0.08)"   # kırmızı tonu
                 elif "BUGÜN" in str(durum):
                     return "rgba(245,158,11,0.10)"  # turuncu tonu
-                elif "YARIN" in str(durum):
+                elif "YARIN" in str(durum):h
                     return "rgba(59,130,246,0.08)"  # mavi tonu
                 return "transparent"
 
@@ -1612,7 +1612,7 @@ def run():
                 <tbody>{rows_html}</tbody>
               </table>
             </div>'''
-            st.markdown(html, unsafe_allow_html=True)
+            import textwrap; st.markdown(textwrap.dedent(html), unsafe_allow_html=True)
 
         render_takvim_tablosu(df_tablo)
     
