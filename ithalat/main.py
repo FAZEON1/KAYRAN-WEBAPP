@@ -17,14 +17,6 @@ from .database import (
 )
 
 
-def _sku_autofill(i, katalog_upper):
-    """SKU yazılınca ürün adını Ürün Yönetimi kataloğundan otomatik doldurur."""
-    sku = (st.session_state.get(f"m_sku_{i}") or "").strip().upper()
-    ad = katalog_upper.get(sku)
-    if ad:
-        st.session_state[f"m_ad_{i}"] = ad
-
-
 # ─────────────────────────────────────────────────────────────────────
 # Yardımcılar
 # ─────────────────────────────────────────────────────────────────────
@@ -390,29 +382,34 @@ def _yeni_ithalat():
                     )
 
         with st.container(border=True):
-            _alt_baslik("📦 Ürün Kalemleri · SKU = Ürün Yönetimi'ndeki model no")
-            katalog_upper = {str(k).upper(): v for k, v in katalog.items()}
+            _alt_baslik("📦 Ürün Kalemleri · katalogdan ürün seç")
             st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
 
-            hcols = st.columns([2, 3, 1.2, 1.5])
-            for hc, ht in zip(hcols, ["SKU / Model No", "Ürün Adı (otomatik)", "Adet", "Birim FOB"]):
+            # Aranabilir seçici: kutuya kod/isim yazınca eşleşenler listelenir, seçince ad otomatik gelir
+            secenek_map = {f"{sku} — {ad}" if ad else sku: sku for sku, ad in sorted(katalog.items())}
+            BOS = "— ürün seç (yazarak ara) —"
+            secenek_labels = [BOS] + list(secenek_map.keys())
+
+            if not katalog:
+                st.warning("Katalog boş görünüyor. Önce Ürün Yönetimi'nde ürün ekleyin; ithalat kalemleri mevcut SKU'lardan seçilir.")
+
+            hcols = st.columns([4, 1.2, 1.5])
+            for hc, ht in zip(hcols, ["Ürün  ·  SKU — Ad", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             _kalemler = []
             for i in range(n_satir):
-                rc = st.columns([2, 3, 1.2, 1.5])
-                _sku = rc[0].text_input("sku", key=f"m_sku_{i}", label_visibility="collapsed",
-                                        placeholder="SKU", on_change=_sku_autofill,
-                                        args=(i, katalog_upper))
-                _ad = rc[1].text_input("ad", key=f"m_ad_{i}", label_visibility="collapsed",
-                                       placeholder="SKU yazınca otomatik dolar")
-                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
+                rc = st.columns([4, 1.2, 1.5])
+                _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}",
+                                       label_visibility="collapsed")
+                _adet = rc[1].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
                                            min_value=0, step=1, value=0)
-                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
+                _fob = rc[2].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
                                           min_value=0.0, step=0.01, value=0.0, format="%.2f")
-                if str(_sku).strip():
-                    _kalemler.append({"sku": str(_sku).strip(), "urun_adi": str(_ad).strip(),
+                if _sel and _sel != BOS:
+                    _sku = secenek_map[_sel]
+                    _kalemler.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
                                       "adet": _adet, "birim_fob": _fob})
 
             ec1, _ec2 = st.columns([1.6, 5])
@@ -454,7 +451,7 @@ def _yeni_ithalat():
                 if ok:
                     # Formu temizle
                     for i in range(st.session_state.get("m_satir_n", 5)):
-                        for p in ("m_sku_", "m_ad_", "m_adet_", "m_fob_"):
+                        for p in ("m_urun_", "m_adet_", "m_fob_"):
                             st.session_state.pop(p + str(i), None)
                     for slug, _lbl in MASRAF_TANIM:
                         st.session_state.pop(f"m_mas_{slug}", None)
