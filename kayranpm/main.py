@@ -783,30 +783,6 @@ def run():
                 st.caption("En eski stok yaşına sahip ürünler önce")
                 renk_uygula(df.drop_duplicates("SKU").sort_values("Stok Yaşı", ascending=False))
     
-                    # Sipariş uyarıları
-            uyari_listesi = [(u, fd) for u, fd in gosterilecek if fd["siparis_uyarisi"]]
-            if uyari_listesi:
-                st.markdown("### 🚨 Aksiyon Gerektiren Ürünler")
-                for urun, fd in uyari_listesi:
-                    c1, c2, c3 = st.columns([6, 1.3, 1.7])
-                    with c1:
-                        st.markdown(
-                            f'<div class="uyari-box" style="margin:0;padding:9px 13px;font-size:12.5px;">'
-                            f'⚠️ <b>{urun["urun_adi"]}</b> — {fd["firma"]} azaldı '
-                            f'(Firma: {fd["stok"]} | Bizim: {urun["bizim_stok"]})</div>',
-                            unsafe_allow_html=True
-                        )
-                    with c2:
-                        miktar = st.number_input("Miktar", min_value=1, value=10,
-                                                 key=f"sp_{urun['sku']}_{fd['firma']}",
-                                                 label_visibility="collapsed")
-                    with c3:
-                        if st.button("📦 Sipariş Ekle", key=f"btn_{urun['sku']}_{fd['firma']}", use_container_width=True):
-                            ekle_siparis_onerisi(fd["firma"], urun["sku"], urun["urun_adi"], miktar)
-                            st.cache_data.clear()
-                            st.toast("Sipariş önerisi oluşturuldu!")
-                            st.rerun()
-    
             # ── DASHBOARD GRAFİKLERİ ──────────────────────────────────────
             st.markdown("---")
             st.markdown("### 📊 Stok & Satış Grafikleri")
@@ -1200,65 +1176,11 @@ def run():
     
         st.markdown("---")
     
-        atab1, atab2, atab3, atab4 = st.tabs([
-            "🎯 Öncelikli Sipariş",
+        atab2, atab3, atab4 = st.tabs([
             "🪦 Ölü & Yavaş Stok",
             "📂 Kategori Analizi",
             "🏷️ Marka Analizi",
         ])
-    
-        # TAB 1 ─────────────────────────────────────────────────────────
-        with atab1:
-            siparis_listesi = analiz["siparis_listesi"]
-            if not siparis_listesi:
-                st.markdown('<div class="basari-box">✅ Tüm ürünlerde yeterli stok var, sipariş gerekmüyor.</div>', unsafe_allow_html=True)
-            else:
-                rows = []
-                for u in siparis_listesi:
-                    durum = u.get("siparis_durum","")
-                    rows.append({
-                        "SKU": u["sku"],
-                        "Ürün Adı": u["urun_adi"],
-                        "Kategori": u.get("kategori",""),
-                        "Bizim Stok": u["bizim_stok"],
-                        "Ort. Hft. Satış": round(u.get("ortalama_haftalik_satis", 0)),
-                        "Stok Biter (Gün)": u.get("stok_bitis_gun", "-"),
-                        "Sipariş Durumu": u.get("siparis_mesaj",""),
-                        "Önerilen Miktar": u.get("oneri_miktar", 0),
-                        "Trend": u.get("trend_mesaji",""),
-                        "Risk Skoru": u.get("risk_skor", 0),
-                        "_durum": durum,
-                    })
-    
-                df_sp = pd.DataFrame(rows)
-    
-                DARK_RENKLER = {
-                    "acil":      "background-color:#7F0000; color:#FFCDD2; font-weight:700",
-                    "yaklasıyor":"background-color:#BF360C; color:#FFE0B2; font-weight:600",
-                    "planlama":  "background-color:#827717; color:#FFF176",
-                    "normal":    "background-color:#1B5E20; color:#A5D6A7",
-                }
-    
-                def sp_rengi(row):
-                    durum = row.get("_durum","")
-                    stil = DARK_RENKLER.get(durum, "")
-                    return [stil for _ in row]
-    
-                goster = ["SKU","Ürün Adı","Kategori","Bizim Stok","Ort. Hft. Satış",
-                          "Stok Biter (Gün)","Sipariş Durumu","Önerilen Miktar","Trend","Risk Skoru"]
-                render_renkli_tablo(
-                    df_sp[goster + ["_durum"]],
-                    kisalt={"Ürün Adı": 42},
-                    satir_durum=("_durum", {"acil": "rk-red", "yaklasıyor": "rk-org", "planlama": "rk-yel", "normal": "rk-grn"}),
-                    gizle=["_durum"],
-                )
-    
-                st.markdown(f"""
-                <div class="info-box">
-                📋 <b>{len(siparis_listesi)} ürün</b> için sipariş önerilmektedir.
-                Toplam önerilen: <b>{sum(u.get("oneri_miktar",0) for u in siparis_listesi):,} adet</b>
-                </div>
-                """, unsafe_allow_html=True)
     
         # TAB 2 ─────────────────────────────────────────────────────────
         with atab2:
