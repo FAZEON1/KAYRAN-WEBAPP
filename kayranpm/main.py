@@ -1663,87 +1663,156 @@ def run():
         if df_oz.empty:
             st.info("Henüz ürün yok.")
         else:
-            duzenlenebilir = ["Ürün Adı", "Kategori", "Satış ($)", "G5F Depo"]
-            kilitli = [c for c in df_oz.columns if c not in duzenlenebilir]
-            st.caption("✏️ **Ürün Adı, Kategori, Satış ve G5F Depo** hücrelerine çift tıklayıp düzenleyebilirsiniz. Diğer sütunlar otomatik hesaplanır. Düzenledikten sonra **Kaydet**'e basın.")
-            edited = st.data_editor(
-                df_oz,
-                use_container_width=True,
-                height=460,
-                hide_index=True,
-                disabled=kilitli,
-                key="urun_editor",
-                column_config={
-                    "SKU": st.column_config.TextColumn("SKU", width="small", help="Değiştirilemez"),
-                    "Ürün Adı": st.column_config.TextColumn("Ürün Adı", width="large"),
-                    "Kategori": st.column_config.TextColumn("Kategori", width="small"),
-                    "Satış ($)": st.column_config.NumberColumn("Satış ($)", format="$%.2f", width="small"),
-                    "G5F Depo": st.column_config.NumberColumn("G5F Depo", format="%d", width="small"),
-                    "ITOPYA": st.column_config.NumberColumn("ITOPYA", format="%d", width="small"),
-                    "HB": st.column_config.NumberColumn("HB", format="%d", width="small"),
-                    "VATAN": st.column_config.NumberColumn("VATAN", format="%d", width="small"),
-                    "MONDAY": st.column_config.NumberColumn("MONDAY", format="%d", width="small"),
-                    "KANAL": st.column_config.NumberColumn("KANAL", format="%d", width="small"),
-                    "Toplam": st.column_config.NumberColumn("Toplam", format="%d", width="small"),
-                    "FOB ($)": st.column_config.NumberColumn("FOB ($)", format="$%.2f", width="small"),
-                    "Final Cost ($)": st.column_config.NumberColumn("⭐ Final Cost ($)", format="$%.2f", width="small"),
-                    "Net Kar ($)": st.column_config.NumberColumn("💰 Net Kar ($)", format="$%.2f", width="small"),
-                    "Kamp.": st.column_config.NumberColumn("Kamp.", format="%d", width="small"),
-                },
+            def _fmt_para(v):
+                try:
+                    return f"${float(v):,.2f}" if v not in (None, "") and float(v) != 0 else "—"
+                except Exception:
+                    return "—"
+            def _fmt_int(v):
+                try:
+                    return f"{int(v):,}" if v not in (None, "") else "0"
+                except Exception:
+                    return "0"
+
+            satir_html = ""
+            for r in rows_oz:
+                ad = str(r.get("Ürün Adı", "") or "")
+                ad_kisa = ad if len(ad) <= 46 else ad[:45] + "…"
+                ad_title = ad.replace(chr(34), "&quot;")
+                nk = r.get("Net Kar ($)")
+                if nk is None:
+                    nk_cls, nk_txt = "c-muted", "—"
+                elif nk > 0:
+                    nk_cls, nk_txt = "c-pos", f"${nk:,.2f}"
+                elif nk < 0:
+                    nk_cls, nk_txt = "c-neg", f"${nk:,.2f}"
+                else:
+                    nk_cls, nk_txt = "c-num", f"${nk:,.2f}"
+                tot = r.get("Toplam") or 0
+                tot_cls = "c-tot" if tot else "c-muted"
+                fcp = r.get("Final Cost ($)") or 0
+                satir_html += (
+                    "<tr>"
+                    f'<td class="c-sku">{r.get("SKU","")}</td>'
+                    f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
+                    f'<td class="c-kat">{r.get("Kategori","")}</td>'
+                    f'<td class="c-money">{_fmt_para(r.get("Satış ($)"))}</td>'
+                    f'<td class="c-num">{_fmt_int(r.get("G5F Depo"))}</td>'
+                    f'<td class="c-dim">{_fmt_int(r.get("ITOPYA"))}</td>'
+                    f'<td class="c-dim">{_fmt_int(r.get("HB"))}</td>'
+                    f'<td class="c-dim">{_fmt_int(r.get("VATAN"))}</td>'
+                    f'<td class="c-dim">{_fmt_int(r.get("MONDAY"))}</td>'
+                    f'<td class="c-dim">{_fmt_int(r.get("KANAL"))}</td>'
+                    f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
+                    f'<td class="c-dim">{_fmt_para(r.get("FOB ($)"))}</td>'
+                    f'<td class="c-fcp">{_fmt_para(fcp)}</td>'
+                    f'<td class="{nk_cls}">{nk_txt}</td>'
+                    "</tr>"
+                )
+            css = (
+                "<style>"
+                ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
+                ".urun-tbl{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+                ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+                ".urun-tbl thead th{padding:11px 12px;color:#CBD5E1;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+                ".urun-tbl thead th:nth-child(1),.urun-tbl thead th:nth-child(2),.urun-tbl thead th:nth-child(3){text-align:left}"
+                ".urun-tbl tbody{background:#131C35}"
+                ".urun-tbl td{padding:9px 12px;font-size:12px}"
+                ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+                ".urun-tbl tbody tr:hover{background:rgba(99,102,241,0.06)}"
+                ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
+                ".c-name{color:#CBD5E1;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                ".c-kat{color:#94A3B8;font-size:11px}"
+                ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
+                ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace}"
+                ".c-pos{text-align:right;background:rgba(34,197,94,0.12);color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-neg{text-align:right;background:rgba(239,68,68,0.12);color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-fcp{text-align:right;background:rgba(245,158,11,0.12);color:#FBBF24;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-tot{text-align:right;background:rgba(59,130,246,0.12);color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-muted{text-align:right;color:#64748B;font-family:'JetBrains Mono',monospace}"
+                "</style>"
             )
-            if st.button("💾 Değişiklikleri Kaydet", type="primary", key="urun_editor_kaydet"):
-                from database import upsert_urun as _upsert_urun
-                def _f(x):
-                    try:
-                        return float(x) if pd.notna(x) else 0.0
-                    except Exception:
-                        return 0.0
-                def _i(x):
-                    try:
-                        return int(x) if pd.notna(x) else 0
-                    except Exception:
-                        return 0
-                orijinal = {r["SKU"]: r for r in rows_oz}
-                urun_map = {u["sku"]: u for u in urun_data}
-                degisen = 0
-                hatalar = []
-                for _, er in edited.iterrows():
-                    sku = er["SKU"]
-                    o = orijinal.get(sku)
-                    if not o:
-                        continue
-                    if (str(er["Ürün Adı"]).strip() != str(o["Ürün Adı"]).strip()
-                            or str(er["Kategori"]).strip() != str(o["Kategori"]).strip()
-                            or _f(er["Satış ($)"]) != _f(o["Satış ($)"])
-                            or _i(er["G5F Depo"]) != _i(o["G5F Depo"])):
-                        u = urun_map.get(sku, {})
+            thead = (
+                '<div class="urun-wrap"><table class="urun-tbl"><thead><tr>'
+                "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th><th>Satış</th><th>G5F</th>"
+                "<th>ITOPYA</th><th>HB</th><th>VATAN</th><th>MONDAY</th><th>KANAL</th>"
+                "<th>Toplam</th><th>FOB</th><th>⭐ Final Cost</th><th>💰 Net Kar</th>"
+                "</tr></thead><tbody>"
+            )
+            st.html(css + thead + satir_html + "</tbody></table></div>")
+            if destek_map:
+                st.caption(f"💡 Net Kar = Satış − Final Cost − Ortalama Kampanya Desteği. Kampanya verisi olan {len(destek_map)} ürün için hesaplandı.")
+
+            with st.expander("✏️ Ürün Bilgilerini Düzenle  (Ürün Adı · Kategori · Satış · G5F Depo)"):
+                st.caption("Hücreye çift tıklayıp değeri değiştirin, ardından **Değişiklikleri Kaydet**'e basın.")
+                df_edit = df_oz[["SKU", "Ürün Adı", "Kategori", "Satış ($)", "G5F Depo"]].copy()
+                edited = st.data_editor(
+                    df_edit,
+                    use_container_width=True,
+                    height=380,
+                    hide_index=True,
+                    disabled=["SKU"],
+                    key="urun_editor",
+                    column_config={
+                        "SKU": st.column_config.TextColumn("SKU", width="small", help="Değiştirilemez"),
+                        "Ürün Adı": st.column_config.TextColumn("Ürün Adı", width="large"),
+                        "Kategori": st.column_config.TextColumn("Kategori", width="small"),
+                        "Satış ($)": st.column_config.NumberColumn("Satış ($)", format="$%.2f", width="small"),
+                        "G5F Depo": st.column_config.NumberColumn("G5F Depo", format="%d", width="small"),
+                    },
+                )
+                if st.button("💾 Değişiklikleri Kaydet", type="primary", key="urun_editor_kaydet"):
+                    from .database import upsert_urun as _upsert_urun
+                    def _f(x):
                         try:
-                            _upsert_urun(
-                                sku,
-                                str(er["Ürün Adı"]).strip(),
-                                str(er["Kategori"]).strip(),
-                                u.get("marka", "") or "",
-                                _f(er["Satış ($)"]),
-                                _f(u.get("alis_fiyati", 0)),
-                                _f(u.get("hedef_kar_marji", 0)),
-                                u.get("ozellikler", "") or "",
-                                _i(er["G5F Depo"]),
-                                _i(u.get("trendyol_stok", 0)),
-                            )
-                            degisen += 1
-                        except Exception as _e:
-                            hatalar.append(f"{sku}: {_e}")
-                st.cache_data.clear()
-                if degisen:
-                    st.success(f"✅ {degisen} ürün güncellendi.")
-                if hatalar:
-                    st.error("Bazı kayıtlar güncellenemedi: " + " | ".join(hatalar[:3]))
-                if not degisen and not hatalar:
-                    st.info("Değişiklik yapılmadı.")
-                if degisen:
-                    st.rerun()
-        if destek_map:
-            st.caption(f"💡 Net Kar = Satış − Final Cost − Ortalama Kampanya Desteği. Kampanya verisi olan {len(destek_map)} ürün için hesaplandı.")
+                            return float(x) if pd.notna(x) else 0.0
+                        except Exception:
+                            return 0.0
+                    def _i(x):
+                        try:
+                            return int(x) if pd.notna(x) else 0
+                        except Exception:
+                            return 0
+                    orijinal = {r["SKU"]: r for r in rows_oz}
+                    urun_map = {u["sku"]: u for u in urun_data}
+                    degisen = 0
+                    hatalar = []
+                    for _, er in edited.iterrows():
+                        sku = er["SKU"]
+                        o = orijinal.get(sku)
+                        if not o:
+                            continue
+                        if (str(er["Ürün Adı"]).strip() != str(o["Ürün Adı"]).strip()
+                                or str(er["Kategori"]).strip() != str(o["Kategori"]).strip()
+                                or _f(er["Satış ($)"]) != _f(o["Satış ($)"])
+                                or _i(er["G5F Depo"]) != _i(o["G5F Depo"])):
+                            u = urun_map.get(sku, {})
+                            try:
+                                _upsert_urun(
+                                    sku,
+                                    str(er["Ürün Adı"]).strip(),
+                                    str(er["Kategori"]).strip(),
+                                    u.get("marka", "") or "",
+                                    _f(er["Satış ($)"]),
+                                    _f(u.get("alis_fiyati", 0)),
+                                    _f(u.get("hedef_kar_marji", 0)),
+                                    u.get("ozellikler", "") or "",
+                                    _i(er["G5F Depo"]),
+                                    _i(u.get("trendyol_stok", 0)),
+                                )
+                                degisen += 1
+                            except Exception as _e:
+                                hatalar.append(f"{sku}: {_e}")
+                    st.cache_data.clear()
+                    if degisen:
+                        st.success(f"✅ {degisen} ürün güncellendi.")
+                    if hatalar:
+                        st.error("Bazı kayıtlar güncellenemedi: " + " | ".join(hatalar[:3]))
+                    if not degisen and not hatalar:
+                        st.info("Değişiklik yapılmadı.")
+                    if degisen:
+                        st.rerun()
     
         # ── Ürün Silme ────────────────────────────────────────────────
         st.markdown("---")
