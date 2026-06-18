@@ -1654,15 +1654,22 @@ def anasayfa():
                     if st.button("💾 Kaydet", key=f"kaydet_{talep_id}", type="primary"):
                         try:
                             from kayranpm.database import guncelle_talep_cevap
-                            ok = guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
-                            if ok:
-                                st.success("Cevap kaydedildi!")
-                                st.cache_data.clear()
-                                st.rerun()
-                            else:
-                                st.error("Kaydedilemedi.")
+                            guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
+                            # Cevabı, talebi gönderen kişiye bildirim olarak ilet
+                            _gonderen = (t.get("gonderen") or "").strip()
+                            if _gonderen and yeni_cevap.strip():
+                                try:
+                                    bildirim_gonder(
+                                        _gonderen.lower(),
+                                        f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {yeni_cevap.strip()}"
+                                    )
+                                except Exception:
+                                    pass
+                            st.success("✅ Cevap kaydedildi ve gönderene iletildi.")
+                            st.cache_data.clear()
+                            st.rerun()
                         except Exception as _e:
-                            st.error(f"Hata: {_e}")
+                            st.error(f"Kaydedilemedi: {_e}")
 
     # ─────────────────────────────────────────────────────────────────────
     # DUYURU YÖNETİMİ PANELİ (sadece ibrahim görür)
