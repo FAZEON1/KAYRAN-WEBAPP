@@ -386,8 +386,8 @@ def _yeni_ithalat():
             st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
 
-            # Aranabilir seçici: kutuya kod/isim yazınca eşleşenler listelenir, seçince ad otomatik gelir
-            secenek_map = {f"{sku} — {ad}" if ad else sku: sku for sku, ad in sorted(katalog.items())}
+            # Aranabilir seçici: kutuya kod yazınca eşleşen SKU'lar listelenir, seçince ad otomatik gelir
+            secenek_map = {sku: sku for sku in sorted(katalog.keys())}
             BOS = "— ürün seç (yazarak ara) —"
             secenek_labels = [BOS] + list(secenek_map.keys())
 
@@ -395,7 +395,7 @@ def _yeni_ithalat():
                 st.warning("Katalog boş görünüyor. Önce Ürün Yönetimi'nde ürün ekleyin; ithalat kalemleri mevcut SKU'lardan seçilir.")
 
             hcols = st.columns([4, 1.2, 1.5])
-            for hc, ht in zip(hcols, ["Ürün  ·  SKU — Ad", "Adet", "Birim FOB"]):
+            for hc, ht in zip(hcols, ["Ürün  ·  SKU", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             _kalemler = []
