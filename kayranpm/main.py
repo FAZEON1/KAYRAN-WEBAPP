@@ -1151,6 +1151,39 @@ def run():
                     st.toast(f"✅ **{sku_temiz}** — {m_urun_adi.strip()} eklendi!")
                     st.rerun()
     
+        with st.expander("🗑️ Ürün Sil", expanded=False):
+            st.caption("Seçilen ürünü ve tüm ilgili kayıtlarını (firma stok, satın alma geçmişi, sipariş önerileri) siler. Bu işlem geri alınamaz.")
+    
+            tum_sku = get_tum_sku_listesi()
+            if tum_sku:
+                sil_col1, sil_col2 = st.columns([3, 1])
+                with sil_col1:
+                    # SKU arama ile filtrele
+                    sil_ara = st.text_input("SKU veya ürün adı ile ara", placeholder="Aramak için yaz...", key="sil_ara")
+                    if sil_ara:
+                        filtrelenmis_sil = [u for u in tum_sku if u["sku"].upper().startswith(sil_ara.upper()) or sil_ara.lower() in (u.get("urun_adi","") or "").lower()]
+                    else:
+                        filtrelenmis_sil = tum_sku
+    
+                    sil_secenekler = {f"{u['sku']} — {(u.get('urun_adi') or '')[:50]}": u["sku"] for u in filtrelenmis_sil}
+                    if sil_secenekler:
+                        sil_secim = st.selectbox("Silinecek Ürün", list(sil_secenekler.keys()), key="sil_secim")
+                        sil_sku = sil_secenekler[sil_secim]
+                    else:
+                        st.info("Eşleşen ürün bulunamadı.")
+                        sil_sku = None
+    
+                with sil_col2:
+                    st.markdown("<br><br>", unsafe_allow_html=True)
+                    if sil_sku:
+                        # Onay mekanizması
+                        onay = st.checkbox(f"Silmeyi onaylıyorum", key="sil_onay")
+                        if st.button("🗑️ Sil", type="primary", use_container_width=True, disabled=not onay):
+                            sil_urun(sil_sku)
+                            st.cache_data.clear()
+                            st.toast(f"✅ {sil_sku} silindi.")
+                            st.rerun()
+
         # Ürün verilerini yükle
         try:
             urun_data = tum_urunler_listesi()
@@ -1291,93 +1324,6 @@ def run():
     
         st.markdown("---")
     
-        # Geçmiş satış verileri
-        gecmis_raw = get_gecmis_satis_tum_firmalar(secilen_sku)
-    
-        if not gecmis_raw:
-            st.info("Bu ürün için henüz geçmiş satış verisi bulunmuyor. Haftalık veri yükledikçe grafikler oluşacak.")
-        else:
-            df_gecmis = pd.DataFrame(gecmis_raw)
-            tarihler = sorted(df_gecmis["yukleme_tarihi"].unique())
-            firmalar = sorted(df_gecmis["firma"].unique())
-    
-            # TAB 1: Toplam satış trendi
-            # TAB 2: Firma bazında satış
-            # TAB 3: Stok seviyeleri
-            gtab2, gtab3 = st.tabs(["🏪 Firma Bazlı", "📦 Stok Seviyeleri"])
-    
-            with gtab2:
-                # Firma bazında satış karşılaştırması
-                fig2 = go.Figure()
-    
-                renkler = {
-                    "ITOPYA": "#1F4E79",
-                    "HB": "#FF6F00",
-                    "VATAN": "#2E7D32",
-                    "MONDAY": "#7B1FA2",
-                    "KANAL": "#C62828",
-                    "DIGER": "#546E7A",
-                }
-    
-                for firma in firmalar:
-                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
-                    if firma_df["haftalik_satis"].sum() == 0:
-                        continue
-                    fig2.add_trace(go.Bar(
-                        x=firma_df["yukleme_tarihi"],
-                        y=firma_df["haftalik_satis"],
-                        name=firma,
-                        marker_color=renkler.get(firma, "#888"),
-                    ))
-    
-                fig2.update_layout(
-                    title=dict(text=f"Firma Bazında Haftalık Satış — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
-                    xaxis_title="Hafta", yaxis_title="Satış Adedi",
-                    barmode="group", height=380,
-                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                )
-                st.plotly_chart(fig2, use_container_width=True, key="tu_detay_fig2")
-    
-                # Firma performans özeti
-                st.markdown("**Firma Performans Özeti (Toplam Satış)**")
-                firma_ozet = df_gecmis.groupby("firma")["haftalik_satis"].agg(["sum","mean"]).reset_index()
-                firma_ozet.columns = ["Firma", "Toplam Satış", "Ort. Haftalık"]
-                firma_ozet = firma_ozet.sort_values("Toplam Satış", ascending=False)
-                firma_ozet["Ort. Haftalık"] = firma_ozet["Ort. Haftalık"].round(1)
-                st.dataframe(firma_ozet, use_container_width=True, hide_index=True)
-    
-            with gtab3:
-                # Bizim stok + firma stok seviyeleri
-                fig3 = go.Figure()
-    
-                # Bizim stok (depo)
-                bizim_stok_df = df_gecmis.groupby("yukleme_tarihi")["stok_miktari"].sum().reset_index()
-                bizim_stok_df = bizim_stok_df.sort_values("yukleme_tarihi")
-    
-                for firma in firmalar:
-                    firma_df = df_gecmis[df_gecmis["firma"] == firma].sort_values("yukleme_tarihi")
-                    if firma_df["stok_miktari"].sum() == 0:
-                        continue
-                    fig3.add_trace(go.Scatter(
-                        x=firma_df["yukleme_tarihi"],
-                        y=firma_df["stok_miktari"],
-                        mode="lines+markers",
-                        name=f"{firma} Stok",
-                        line=dict(color=renkler.get(firma, "#888"), width=2),
-                        marker=dict(size=6),
-                    ))
-    
-                fig3.update_layout(
-                    title=dict(text=f"Firma Stok Seviyeleri — {urun['urun_adi']}", font=dict(size=15, color="#90CAF9")),
-                    xaxis_title="Hafta", yaxis_title="Stok Adedi",
-                    height=380,
-                    font=dict(color="#CFD8DC"), xaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(color="#546E7A", gridcolor="rgba(255,255,255,0.05)"), legend=dict(font=dict(color="#90A4AE")), plot_bgcolor="rgba(255,255,255,0.03)", paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                )
-                st.plotly_chart(fig3, use_container_width=True, key="tu_detay_fig3")
-    
-
         # Tüm ürünler özet tablosu
         st.markdown("#### 📊 Tüm Ürünler Özet")
         _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
@@ -1595,41 +1541,8 @@ def run():
                             except Exception as _e:
                                 st.error(f"Kaydedilemedi: {_e}")
     
-        # ── Ürün Silme ────────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("#### 🗑️ Ürün Sil")
-        st.caption("Seçilen ürünü ve tüm ilgili kayıtlarını (firma stok, satın alma geçmişi, sipariş önerileri) siler. Bu işlem geri alınamaz.")
     
-        tum_sku = get_tum_sku_listesi()
-        if tum_sku:
-            sil_col1, sil_col2 = st.columns([3, 1])
-            with sil_col1:
-                # SKU arama ile filtrele
-                sil_ara = st.text_input("SKU veya ürün adı ile ara", placeholder="Aramak için yaz...", key="sil_ara")
-                if sil_ara:
-                    filtrelenmis_sil = [u for u in tum_sku if u["sku"].upper().startswith(sil_ara.upper()) or sil_ara.lower() in (u.get("urun_adi","") or "").lower()]
-                else:
-                    filtrelenmis_sil = tum_sku
     
-                sil_secenekler = {f"{u['sku']} — {(u.get('urun_adi') or '')[:50]}": u["sku"] for u in filtrelenmis_sil}
-                if sil_secenekler:
-                    sil_secim = st.selectbox("Silinecek Ürün", list(sil_secenekler.keys()), key="sil_secim")
-                    sil_sku = sil_secenekler[sil_secim]
-                else:
-                    st.info("Eşleşen ürün bulunamadı.")
-                    sil_sku = None
-    
-            with sil_col2:
-                st.markdown("<br><br>", unsafe_allow_html=True)
-                if sil_sku:
-                    # Onay mekanizması
-                    onay = st.checkbox(f"Silmeyi onaylıyorum", key="sil_onay")
-                    if st.button("🗑️ Sil", type="primary", use_container_width=True, disabled=not onay):
-                        sil_urun(sil_sku)
-                        st.cache_data.clear()
-                        st.toast(f"✅ {sil_sku} silindi.")
-                        st.rerun()
-
         st.markdown("---")
         st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 6px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#0EA5E9);display:inline-block"></span>🚢 Yoldaki Ürün Durumu</div>', unsafe_allow_html=True)
         _yr = urun.get("yol_renk", "yok")
@@ -1638,8 +1551,8 @@ def run():
         _yol_map = {"yesil": ("rgba(34,197,94,0.10)", "#4ADE80", "🟢", f"{_ymik} adet yolda · {_ymsg}"), "sari": ("rgba(245,158,11,0.10)", "#FBBF24", "🟡", f"{_ymik} adet yolda · {_ymsg}"), "kirmizi": ("rgba(239,68,68,0.10)", "#F87171", "🔴", _ymsg)}
         _yb, _yc, _yi, _yt = _yol_map.get(_yr, ("rgba(148,163,184,0.08)", "#94A3B8", "⚪", "Yolda ürün kaydı bulunmuyor."))
         st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:7px 12px;font-size:12px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
-    
-    
+
+
     elif sayfa == "🛒  Satın Alma Geçmişi":
         st.markdown('<div class="baslik">🛒 Satın Alma Geçmişi</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Tedarikçi · FOB Price · Cost Price · Paçal hesabı</div>', unsafe_allow_html=True)
