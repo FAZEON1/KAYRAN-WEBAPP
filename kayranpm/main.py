@@ -37,6 +37,88 @@ from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
 from .bildirim import (get_bildirim_ayarlari, kaydet_bildirim_ayarlari, email_gonder)
 
 
+def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
+                        kisalt=None, gizle=None, satir_durum=None):
+    """Bir DataFrame'i KAYRAN renkli HTML tablo temasinda (salt-okunur) cizer."""
+    para = set(para or []); yuzde = set(yuzde or []); kar = set(kar or [])
+    sol = set(sol or []); kisalt = kisalt or {}; gizle = set(gizle or [])
+    if df is None or len(df) == 0:
+        st.info("Gosterilecek veri yok.")
+        return
+    durum_kolon, durum_harita = (satir_durum or (None, {}))
+    kolonlar = [c for c in df.columns if c not in gizle]
+
+    def _isnum(c):
+        try:
+            return pd.api.types.is_numeric_dtype(df[c])
+        except Exception:
+            return False
+
+    def _sag(c):
+        return (c in para or c in yuzde or _isnum(c)) and c not in sol
+
+    def _fmt(c, v):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return "\u2014"
+        try:
+            if c in para:
+                return f"${float(v):,.2f}"
+            if c in yuzde:
+                return f"%{float(v):.1f}"
+            if _isnum(c):
+                fv = float(v)
+                return f"{int(fv):,}" if fv == int(fv) else f"{fv:,.2f}"
+        except Exception:
+            pass
+        s = str(v)
+        mx = kisalt.get(c)
+        return (s[:mx-1] + "\u2026") if (mx and len(s) > mx) else s
+
+    rows_html = ""
+    for _, row in df.iterrows():
+        drenk = durum_harita.get(str(row.get(durum_kolon, "")), "") if durum_kolon else ""
+        tds = ""
+        for c in kolonlar:
+            v = row[c]
+            base = "rk-num" if _sag(c) else "rk-txt"
+            cls = base
+            if c in kar:
+                try:
+                    fv = float(v)
+                    cls = "rk-pos" if fv > 0 else ("rk-neg" if fv < 0 else "rk-num")
+                except Exception:
+                    cls = "rk-num"
+            elif drenk:
+                cls = base + " " + drenk
+            full = str(v)
+            mx = kisalt.get(c)
+            ttl = f' title="{full.replace(chr(34), "&quot;")}"' if (mx and len(full) > mx) else ""
+            tds += f'<td class="{cls}"{ttl}>{_fmt(c, v)}</td>'
+        rows_html += f"<tr>{tds}</tr>"
+
+    ths = "".join(f'<th class="{"" if _sag(c) else "l"}">{c}</th>' for c in kolonlar)
+    css = (
+        "<style>"
+        ".rkw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
+        ".rkt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+        ".rkt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+        ".rkt thead th{padding:10px 12px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+        ".rkt thead th.l{text-align:left}"
+        ".rkt tbody{background:#131C35}"
+        ".rkt td{padding:8px 12px;font-size:11.5px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+        ".rkt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+        ".rkt tbody tr:hover{background:rgba(99,102,241,0.06)}"
+        ".rk-txt{text-align:left;color:#CBD5E1}"
+        ".rk-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+        ".rk-pos{text-align:right;color:#4ADE80 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
+        ".rk-neg{text-align:right;color:#F87171 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
+        ".rk-red{color:#F87171 !important;font-weight:600}.rk-org{color:#FB923C !important;font-weight:600}"
+        ".rk-yel{color:#FCD34D !important;font-weight:600}.rk-grn{color:#4ADE80 !important;font-weight:600}.rk-dim{color:#64748B !important}"
+        "</style>"
+    )
+    st.html(css + f'<div class="rkw"><table class="rkt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
+
+
 def run():
     """KAYRAN ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
@@ -1155,9 +1237,12 @@ def run():
     
                 goster = ["SKU","Ürün Adı","Kategori","Bizim Stok","Ort. Hft. Satış",
                           "Stok Biter (Gün)","Sipariş Durumu","Önerilen Miktar","Trend","Risk Skoru"]
-                styled = df_sp[goster+["_durum"]].style.apply(sp_rengi, axis=1)
-                styled = styled.hide(axis="columns", subset=["_durum"])
-                st.dataframe(styled, use_container_width=True, height=450, hide_index=True)
+                render_renkli_tablo(
+                    df_sp[goster + ["_durum"]],
+                    kisalt={"Ürün Adı": 42},
+                    satir_durum=("_durum", {"acil": "rk-red", "yaklasıyor": "rk-org", "planlama": "rk-yel", "normal": "rk-grn"}),
+                    gizle=["_durum"],
+                )
     
                 st.markdown(f"""
                 <div class="info-box">
@@ -2684,8 +2769,12 @@ def run():
                 if d == "reddedildi":  return ["background-color:#7F0000; color:#FFCDD2"]*len(row)
                 return ["background-color:#827717; color:#FFF176"]*len(row)
     
-            styled_sp = df_sp.style.apply(sp_rengi, axis=1)
-            st.dataframe(styled_sp, use_container_width=True, height=300, hide_index=True)
+            render_renkli_tablo(
+                df_sp,
+                kisalt={"Ürün": 42},
+                satir_durum=("Durum", {"onaylandi": "rk-grn", "reddedildi": "rk-red", "bekliyor": "rk-yel"}),
+                gizle=["ID"],
+            )
     
             col_o1, col_o2 = st.columns(2)
             with col_o1:
@@ -2798,7 +2887,7 @@ def run():
                     })
     
                 df_vy = pd.DataFrame(rows_vy)
-                st.dataframe(df_vy, use_container_width=True, hide_index=True)
+                render_renkli_tablo(df_vy, sol=["Firmalar"], kisalt={"Firmalar": 60})
     
                 # Tarih seçip sil
                 with st.expander("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil"):
