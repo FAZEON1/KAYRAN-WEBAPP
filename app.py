@@ -1098,7 +1098,7 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "ithalat"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi"):
             st.markdown(
                 '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 10px;padding-left:6px">HESAP</div>',
                 unsafe_allow_html=True
@@ -1129,9 +1129,9 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "anasayfa"
                 st.rerun()
         else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ithalat & Urun Yonetimi", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
-            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "hesap_makinesi": "#FCD34D"}
+            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "ithalat": "#7DD3FC", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             st.markdown(
                 '<div style="font-size:10px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px"> ' + uyg_adi + ' SAYFALARI</div>',
@@ -2062,44 +2062,6 @@ def kayrantsw_yakinda():
 # ─────────────────────────────────────────────────────────────────────
 # 4) GLOBAL HATA KARTI
 # ─────────────────────────────────────────────────────────────────────
-def ithalat_sayfa():
-    """Ithalat modulu - ayri navigasyon. Sadece ibrahim erisebilir. Icerik sonra detaylandirilacak."""
-    st.markdown(portal_css(), unsafe_allow_html=True)
-
-    st.markdown(
-        '<div style="margin-bottom:28px;animation:fadeUp 0.6s ease-out">'
-        '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:16px">'
-        '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🚢 İthalat</span>'
-        '</div>'
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,40px);font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">İthalat Yönetimi</h1>'
-        '<p style="color:#94A3B8;font-size:14px;margin-top:8px;font-weight:400">İthalat süreçleri, gümrük, navlun ve maliyet takibi — yapı kuruluyor.</p>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(236,72,153,0.06));'
-        'border:1px solid rgba(99,102,241,0.25);border-radius:18px;padding:36px 32px;text-align:center;animation:fadeUp 0.7s ease-out">'
-        '<div style="width:84px;height:84px;border-radius:22px;margin:0 auto 22px;'
-        'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(236,72,153,0.2));'
-        'border:1px solid rgba(139,92,246,0.35);display:flex;align-items:center;justify-content:center;font-size:40px">🚢</div>'
-        '<div style="color:#FFFFFF;font-size:20px;font-weight:700;margin-bottom:10px">İthalat modülü hazırlanıyor</div>'
-        '<div style="color:#94A3B8;font-size:13px;line-height:1.7;max-width:520px;margin:0 auto">'
-        'Bu bölüm ayrı bir navigasyon olarak oluşturuldu ve şu an yalnızca senin erişimine açık. '
-        'Birlikte adım adım içeriğini (ithalat kayıtları, gümrük/navlun maliyetleri, döviz, tedarikçi süreçleri) tasarlayacağız.'
-        '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown('<div style="height:18px"></div>', unsafe_allow_html=True)
-    col_l, col_c, col_r = st.columns([1, 1.2, 1])
-    with col_c:
-        if st.button("🏠  Ana Sayfaya Dön", key="ithalat_ana_don", use_container_width=True):
-            st.session_state.aktif_uygulama = "anasayfa"
-            st.rerun()
-
-
 def _global_hata_kart(uygulama_adi, hata):
     st.markdown(
         '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-left:4px solid #DC2626;border-radius:12px;padding:24px 28px;margin:30px auto;max-width:700px">'
@@ -2171,7 +2133,8 @@ def main():
             from kayranpm.main import run as kayranpm_run
             kayranpm_run()
         elif aktif == "ithalat":
-            ithalat_sayfa()
+            from ithalat.main import run as ithalat_run
+            ithalat_run()
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
