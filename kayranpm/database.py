@@ -406,3 +406,15 @@ def ekle_talep(gonderen, konu, mesaj):
 def get_talepler():
     """Tum talepleri tarihe gore sirali getirir."""
     return _rows(get_client().table("talepler").select("*").order("olusturma_tarihi", desc=True).execute())
+
+def guncelle_talep_cevap(talep_id, cevap, yeni_durum="tamamlandi"):
+        """Talebin cevap alanini ve durumunu gunceller."""
+        try:
+                    get_client().table("talepler").update({
+                                    "cevap": cevap or "",
+                                    "durum": yeni_durum,
+                    }).eq("id", talep_id).execute()
+                    _cache_temizle()
+                    return True
+except Exception as e:
+        return False
