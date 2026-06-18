@@ -1822,17 +1822,20 @@ def run():
                 satis_cls = "c-money" if satis else "c-muted"
                 mal = r.get("Maliyet %")
                 mal_cls = "c-mal" if (mal is not None) else "c-muted"
+                _kanallar = []
+                for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN")):
+                    _kv = r.get(_kn) or 0
+                    if _kv:
+                        _kanallar.append(f"{_kl}:{int(_kv)}")
+                kanal_str = " · ".join(_kanallar) if _kanallar else "—"
+                kanal_title = kanal_str.replace(chr(34), "&quot;")
                 satir_html += (
                     "<tr>"
                     f'<td class="c-sku">{r.get("SKU","")}</td>'
                     f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
                     f'<td class="c-kat">{r.get("Kategori","")}</td>'
                     f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
-                    f'<td class="{_stok_cls(r.get("ITOPYA"))}">{_fmt_int(r.get("ITOPYA"))}</td>'
-                    f'<td class="{_stok_cls(r.get("HB"))}">{_fmt_int(r.get("HB"))}</td>'
-                    f'<td class="{_stok_cls(r.get("VATAN"))}">{_fmt_int(r.get("VATAN"))}</td>'
-                    f'<td class="{_stok_cls(r.get("MONDAY"))}">{_fmt_int(r.get("MONDAY"))}</td>'
-                    f'<td class="{_stok_cls(r.get("KANAL"))}">{_fmt_int(r.get("KANAL"))}</td>'
+                    f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
                     f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
                     f'<td class="{fob_cls}">{_fmt_para(fob_v)}</td>'
                     f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
@@ -1856,6 +1859,7 @@ def run():
                 ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
                 ".c-name{color:#CBD5E1;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                 ".c-kat{color:#94A3B8;font-size:11px}"
+                ".c-kanal{text-align:left;color:#94A3B8;font-family:'JetBrains Mono',monospace;font-size:11px;max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                 ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
                 ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                 ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
@@ -1870,7 +1874,7 @@ def run():
             thead = (
                 '<div class="urun-wrap"><table class="urun-tbl"><thead><tr>'
                 "<th>SKU</th><th>Ürün Adı</th><th>Kategori</th>"
-                "<th>G5F</th><th>ITOPYA</th><th>HB</th><th>VATAN</th><th>MONDAY</th><th>KANAL</th><th>Toplam</th>"
+                '<th>G5F</th><th style="text-align:left">Kanal Stok</th><th>Toplam</th>'
                 "<th>FOB</th><th>Maliyet %</th><th>⭐ Final Cost</th><th>Satış</th>"
                 "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
                 "</tr></thead><tbody>"
@@ -2675,74 +2679,45 @@ def run():
             fcp = ud.get("final_cost_price", 0)
             satis = ud.get("satis_fiyati", 0)
     
-            # Stoku olan firmaları bul
+            # Stoku olan firmaları (kompakt)
             firma_detay = urun.get("firma_detay", [])
-            firmalar_str = ""
-            if firma_detay:
-                firma_bilgiler = []
-                for fd in firma_detay:
-                    if fd.get("stok", 0) > 0:
-                        firma_bilgiler.append(
-                            f'<span style="background:rgba(255,255,255,0.15); padding:2px 8px; '
-                            f'border-radius:6px; margin-right:4px; font-size:12px;">'
-                            f'🏪 {fd["firma"]}: {fd["stok"]} adet</span>'
-                        )
-                if firma_bilgiler:
-                    firmalar_str = f'<div style="margin-top:6px;">{"".join(firma_bilgiler)}</div>'
-    
-            # Renk ve ikon
+            firma_kisa = " · ".join(f'{fd["firma"]}:{fd["stok"]}' for fd in firma_detay if fd.get("stok", 0) > 0)
+
             if durum == "acil":
-                renk_kodu = "#7F0000"
-                ikon = "🔴"
-                border_renk = "#FF5252"
+                brd, ik, dt = "rgba(239,68,68,0.6)", "🔴", "rgba(239,68,68,0.07)"
             elif durum == "yaklasıyor":
-                renk_kodu = "#BF360C"
-                ikon = "🟠"
-                border_renk = "#FF6E40"
+                brd, ik, dt = "rgba(245,158,11,0.6)", "🟠", "rgba(245,158,11,0.06)"
             else:
-                renk_kodu = "#827717"
-                ikon = "🟡"
-                border_renk = "#FFD600"
-    
-            with st.container():
-                st.markdown(f"""
-                <div style="background:{renk_kodu}22; border-left:5px solid {border_renk};
-                            border-radius:8px; padding:14px 18px; margin:8px 0;">
-                  <div style="font-size:16px; font-weight:700; color:#FFFFFF;">
-                    {ikon} {urun['urun_adi']} <span style="color:#B0BEC5; font-size:13px;">({sku})</span>
-                  </div>
-                  <div style="color:#CFD8DC; font-size:13px; margin-top:6px;">
-                    📅 {mesaj} &nbsp;|&nbsp;
-                    📦 G5F Depo: <b>{urun['bizim_stok']} adet</b> &nbsp;|&nbsp;
-                    📊 Hft. satış: <b>{urun.get('ortalama_haftalik_satis',0):.1f} adet</b>
-                  </div>
-                  {firmalar_str}
-                  <div style="color:#FFD54F; font-size:13px; margin-top:4px; font-weight:600;">
-                    💡 {oneri_mesaj}
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-                # FCP + satis bilgisi ayrı olarak göster
-                if fcp > 0:
-                    st.markdown(
-                        f'<div style="color:#80CBC4; font-size:12px; margin-top:2px; margin-bottom:6px;">'
-                        f'💵 Final Cost Price: ${fcp:,.2f} | Satış: ${satis:,.2f}</div>',
-                        unsafe_allow_html=True
-                    )
-    
-                col_s1, col_s2, col_s3 = st.columns([2,1,1])
-                with col_s2:
-                    miktar = st.number_input("Sipariş Miktarı",
-                        min_value=1, value=max(oneri, 1),
-                        key=f"sp_miktar_{sku}", label_visibility="collapsed")
-                with col_s3:
-                    if st.button("📦 Sipariş Önerisi Ekle", key=f"sp_btn_{sku}", use_container_width=True):
-                        from .database import ekle_siparis_onerisi
-                        ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
-                        st.cache_data.clear()
-                        st.toast(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
-                        st.rerun()
+                brd, ik, dt = "rgba(234,179,8,0.55)", "🟡", "rgba(234,179,8,0.06)"
+
+            alt = [f'📅 {mesaj}', f'G5F: {urun["bizim_stok"]}', f'Hft: {urun.get("ortalama_haftalik_satis",0):.1f}']
+            if firma_kisa:
+                alt.append(firma_kisa)
+            if fcp > 0:
+                alt.append(f'💵 ${fcp:,.0f}→${satis:,.0f}')
+            alt_str = "  ·  ".join(alt)
+
+            c1, c2, c3 = st.columns([6, 1.2, 1.7])
+            with c1:
+                st.markdown(
+                    f'<div style="background:{dt};border-left:3px solid {brd};border-radius:8px;padding:8px 13px;">'
+                    f'<div style="font-size:13px;font-weight:600;color:#E2E8F0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                    f'{ik} {urun["urun_adi"]} <span style="color:#94A3B8;font-size:11px;font-family:monospace;">{sku}</span></div>'
+                    f'<div style="font-size:11px;color:#94A3B8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                    f'{alt_str}  ·  <span style="color:#FBBF24;font-weight:600;">💡 {oneri} adet</span></div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with c2:
+                miktar = st.number_input("Miktar", min_value=1, value=max(oneri, 1),
+                                         key=f"sp_miktar_{sku}", label_visibility="collapsed")
+            with c3:
+                if st.button("📦 Sipariş Ekle", key=f"sp_btn_{sku}", use_container_width=True):
+                    from .database import ekle_siparis_onerisi
+                    ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
+                    st.cache_data.clear()
+                    st.toast(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
+                    st.rerun()
     
         # Onaylanan/Bekleyen geçmiş
         st.markdown("---")
