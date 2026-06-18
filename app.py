@@ -1645,6 +1645,13 @@ def anasayfa():
                                       
                     talep_id = t.get("id")
                     yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
+
+                    _durum_secenekler = ["bekliyor", "inceleniyor", "tamamlandi"]
+                    _mevcut_durum = t.get("durum", "bekliyor")
+                    _durum_idx = _durum_secenekler.index(_mevcut_durum) if _mevcut_durum in _durum_secenekler else 0
+                    durum_sec = st.selectbox("Durum", _durum_secenekler, index=_durum_idx, key=f"durum_{talep_id}")
+
+                    if st.button("💾 Kaydet", key=f"kaydet_{talep_id}", type="primary"):
                         try:
                             from kayranpm.database import guncelle_talep_cevap
                             ok = guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
