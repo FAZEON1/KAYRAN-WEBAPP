@@ -475,19 +475,19 @@ def run():
                 ad_kisalt = (ad[:60] + '...') if len(ad) > 60 else ad
                 acil_items_list.append(
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'padding:8px 12px;margin:4px 0;border-radius:6px;background:rgba(255,255,255,0.08);">'
-                    f'<span style="color:#FFCDD2;font-weight:600;font-size:13px;">⚡ {ad_kisalt}</span>'
+                    f'padding:8px 12px;margin:4px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
+                    f'<span style="color:#E2E8F0;font-weight:600;font-size:13px;">⚡ {ad_kisalt}</span>'
                     f'<div style="display:flex;gap:16px;flex-shrink:0;margin-left:12px;">'
-                    f'<span style="color:#EF9A9A;font-size:12px;">📦 {toplam:,} adet</span>'
-                    f'<span style="color:#FF8A80;font-size:12px;font-weight:700;">{gun} günde biter</span>'
+                    f'<span style="color:#94A3B8;font-size:12px;">📦 {toplam:,} adet</span>'
+                    f'<span style="color:#F87171;font-size:12px;font-weight:700;">{gun} günde biter</span>'
                     f'</div></div>'
                 )
             acil_items = "".join(acil_items_list)
             st.markdown(
-                f'<div style="background:#7F0000;border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid #FF5252;">'
+                f'<div style="background:rgba(239,68,68,0.07);border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid rgba(239,68,68,0.22);border-left:3px solid rgba(239,68,68,0.6);">'
                 f'<div style="display:flex;align-items:center;margin-bottom:12px;">'
-                f'<span style="font-size:18px;font-weight:800;color:#FFCDD2;">🚨 ACİL SİPARİŞ GEREKİYOR!</span>'
-                f'<span style="background:#FF5252;color:white;padding:2px 10px;border-radius:20px;'
+                f'<span style="font-size:16px;font-weight:800;color:#F87171;">🚨 ACİL SİPARİŞ GEREKİYOR!</span>'
+                f'<span style="background:rgba(239,68,68,0.18);color:#FCA5A5;padding:2px 10px;border-radius:20px;'
                 f'font-size:13px;font-weight:700;margin-left:12px;">{len(acil_urunler)} ürün</span>'
                 f'</div>{acil_items}</div>',
                 unsafe_allow_html=True
@@ -501,18 +501,18 @@ def run():
                 ad_kisalt = (ad[:55] + '...') if len(ad) > 55 else ad
                 yak_items_list.append(
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'padding:6px 12px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.06);">'
-                    f'<span style="color:#FFE0B2;font-size:13px;">📌 {ad_kisalt}</span>'
-                    f'<span style="color:#FFCC02;font-size:12px;font-weight:600;flex-shrink:0;margin-left:12px;">'
+                    f'padding:6px 12px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
+                    f'<span style="color:#E2E8F0;font-size:13px;">📌 {ad_kisalt}</span>'
+                    f'<span style="color:#FBBF24;font-size:12px;font-weight:600;flex-shrink:0;margin-left:12px;">'
                     f'{gun}g içinde sipariş</span></div>'
                 )
             yak_items = "".join(yak_items_list)
-            kalan = f'<span style="color:#FFB74D;font-size:12px;"> + {len(yaklasan_urunler)-5} ürün daha</span>' if len(yaklasan_urunler) > 5 else ""
+            kalan = f'<span style="color:#FBBF24;font-size:12px;"> + {len(yaklasan_urunler)-5} ürün daha</span>' if len(yaklasan_urunler) > 5 else ""
             st.markdown(
-                f'<div style="background:#BF360C;border-radius:12px;padding:14px 20px;margin:8px 0;border:1px solid #FF6E40;">'
+                f'<div style="background:rgba(245,158,11,0.06);border-radius:12px;padding:14px 20px;margin:8px 0;border:1px solid rgba(245,158,11,0.22);border-left:3px solid rgba(245,158,11,0.6);">'
                 f'<div style="display:flex;align-items:center;margin-bottom:10px;">'
-                f'<span style="font-size:15px;font-weight:700;color:#FFE0B2;">⚠️ 30 Gün İçinde Sipariş Verilmeli</span>'
-                f'<span style="background:#FF6E40;color:white;padding:2px 8px;border-radius:20px;'
+                f'<span style="font-size:14px;font-weight:700;color:#FBBF24;">⚠️ 30 Gün İçinde Sipariş Verilmeli</span>'
+                f'<span style="background:rgba(245,158,11,0.16);color:#FCD34D;padding:2px 8px;border-radius:20px;'
                 f'font-size:12px;font-weight:700;margin-left:10px;">{len(yaklasan_urunler)} ürün</span>{kalan}'
                 f'</div>{yak_items}</div>',
                 unsafe_allow_html=True
