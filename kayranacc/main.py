@@ -1568,6 +1568,11 @@ def run():
                 bekliyor_val = row.get("Bekliyor", 0)
                 bekliyor_color = "#EF4444" if bekliyor_val and bekliyor_val > 0 else "#10B981"
                 odendi_val = row.get("Ödendi", 0)
+                _kisalt = lambda s, n=42: (str(s or "")[:n-1] + "…") if len(str(s or "")) > n else str(s or "")
+                firma_disp = _kisalt(row.get("Firma",""))
+                acik_disp = _kisalt(row.get("Açıklama",""))
+                firma_title = str(row.get("Firma","") or "").replace(chr(34), "&quot;")
+                acik_title = str(row.get("Açıklama","") or "").replace(chr(34), "&quot;")
                 rows_html += f'''
                 <tr style="background:{bg};border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.15s">
                   <td style="padding:10px 14px;font-weight:600;color:#CBD5E1;font-size:13px">{row.get("Gün","")}</td>
@@ -1577,8 +1582,8 @@ def run():
                   <td style="padding:10px 14px;text-align:center;color:{bekliyor_color};font-weight:700;font-size:13px">{bekliyor_val}</td>
                   <td style="padding:10px 14px;text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar TL (₺)","")}</td>
                   <td style="padding:10px 14px;text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600">{row.get("Tutar USD ($)","")}</td>
-                  <td style="padding:10px 14px;text-align:center">{row.get("Firma","")}</td>
-                  <td style="padding:10px 14px;color:#94A3B8;font-size:12px">{row.get("Açıklama","")}</td>
+                  <td class="cell-firma" title="{firma_title}">{firma_disp}</td>
+                  <td class="cell-acik" title="{acik_title}">{acik_disp}</td>
                   <td style="padding:10px 14px;text-align:center">{durum_html}</td>
                 </tr>'''
 
@@ -1586,6 +1591,9 @@ def run():
             <style>
               .takvim-tablo-wrap {{ overflow-x:auto; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,0.08); }}
               .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Inter','Inter',sans-serif; }}
+              .takvim-tablo .cell-firma, .takvim-tablo .cell-acik {{ text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; padding:10px 14px; }}
+              .takvim-tablo .cell-firma {{ color:#CBD5E1; font-size:12px; font-weight:600; }}
+              .takvim-tablo .cell-acik {{ color:#94A3B8; font-size:12px; }}
               .takvim-tablo thead tr {{ background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%); }}
               .takvim-tablo thead th {{ padding:11px 14px; color:#CBD5E1; font-size:11px; font-weight:700;
                 letter-spacing:1px; text-transform:uppercase; border:none; white-space:nowrap; }}
