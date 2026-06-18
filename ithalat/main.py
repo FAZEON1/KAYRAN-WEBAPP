@@ -13,8 +13,16 @@ from collections import defaultdict
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, sil_dosya, dosya_hesapla,
+    ekle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu,
 )
+
+
+def _sku_autofill(i, katalog_upper):
+    """SKU yazılınca ürün adını Ürün Yönetimi kataloğundan otomatik doldurur."""
+    sku = (st.session_state.get(f"m_sku_{i}") or "").strip().upper()
+    ad = katalog_upper.get(sku)
+    if ad:
+        st.session_state[f"m_ad_{i}"] = ad
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -215,17 +223,20 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
 
 
 def _excel_sablon_bytes():
-    """Örnek satırlı boş Excel şablonu üretir."""
-    ornek = pd.DataFrame([
-        {"dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
-         "mense_ulke": "Cin", "doviz": "USD", "kur": 34.50,
-         "navlun": 1200, "gumruk": 800, "sigorta": 150, "nakliye": 400, "diger": 100,
-         "sku": "X27F165QW", "urun_adi": "27 inch Monitor", "adet": 100, "birim_fob": 85.00},
-        {"dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
-         "mense_ulke": "Cin", "doviz": "USD", "kur": 34.50,
-         "navlun": 1200, "gumruk": 800, "sigorta": 150, "nakliye": 400, "diger": 100,
-         "sku": "CASE-MID-01", "urun_adi": "Mid Tower Kasa", "adet": 50, "birim_fob": 40.00},
-    ])
+    """Örnek satırlı boş Excel şablonu üretir (tüm masraf kalemleri kolon olarak)."""
+    temel = {
+        "dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
+        "mense_ulke": "Cin", "doviz": "USD", "kur": 34.50,
+    }
+    masraf_ornek = {
+        "navlun": 1200, "mal_sigortasi": 150, "damga_vergisi": 80, "banka_komisyonu": 60,
+        "liman_ardiye": 200, "gumruk_musavirligi": 300, "antrepo_beyannamesi": 50,
+        "liman_depo_nakliye": 400, "antrepo_ardiye": 120, "yolluk": 90,
+        "demuraj": 0, "tahliye_depolama_tasima": 250, "igv": 0, "diger": 100,
+    }
+    satir1 = {**temel, **masraf_ornek, "sku": "X27F165QW", "urun_adi": "27 inch Monitor", "adet": 100, "birim_fob": 85.00}
+    satir2 = {**temel, **masraf_ornek, "sku": "CASE-MID-01", "urun_adi": "Mid Tower Kasa", "adet": 50, "birim_fob": 40.00}
+    ornek = pd.DataFrame([satir1, satir2])
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         ornek.to_excel(w, index=False, sheet_name="ithalat")
@@ -303,15 +314,15 @@ def _gecmis_ithalatlar():
     d, kal, h = hesap_map[did]
 
     _masraf_karti(d, h)
-    st.caption(
-        "Masraf kalemleri → "
-        + " · ".join(
-            f"{ad}: {float(d.get(k, 0) or 0):,.0f}"
-            for ad, k in [("Navlun", "navlun"), ("Gümrük", "gumruk"), ("Sigorta", "sigorta"),
-                          ("Nakliye", "nakliye"), ("Diğer", "diger")]
+    _dokum = masraf_dokumu(d)
+    if _dokum:
+        st.caption(
+            "Masraf kalemleri → "
+            + " · ".join(f"{ad}: {tutar:,.0f}" for ad, tutar in _dokum)
+            + f" · Kur: {float(d.get('kur', 1) or 1):,.2f}"
         )
-        + f" · Kur: {float(d.get('kur', 1) or 1):,.2f}"
-    )
+    else:
+        st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.2f}")
 
     y = h["maliyet_yuzde"] / 100
     krows = []
@@ -368,29 +379,38 @@ def _yeni_ithalat():
 
         with st.container(border=True):
             _alt_baslik("💸 Masraf Kalemleri · dosya para birimi cinsinden")
-            m1, m2, m3, m4, m5 = st.columns(5)
-            navlun = m1.number_input("Navlun", min_value=0.0, value=0.0, step=1.0, key="m_navlun")
-            gumruk = m2.number_input("Gümrük", min_value=0.0, value=0.0, step=1.0, key="m_gumruk")
-            sigorta = m3.number_input("Sigorta", min_value=0.0, value=0.0, step=1.0, key="m_sigorta")
-            nakliye = m4.number_input("Nakliye", min_value=0.0, value=0.0, step=1.0, key="m_nakliye")
-            diger = m5.number_input("Diğer", min_value=0.0, value=0.0, step=1.0, key="m_diger")
+            masraflar = {}
+            PER = 4
+            for basla in range(0, len(MASRAF_TANIM), PER):
+                grup = MASRAF_TANIM[basla:basla + PER]
+                cols = st.columns(PER)
+                for j, (slug, label) in enumerate(grup):
+                    masraflar[slug] = cols[j].number_input(
+                        label, min_value=0.0, value=0.0, step=1.0, key=f"m_mas_{slug}"
+                    )
 
         with st.container(border=True):
             _alt_baslik("📦 Ürün Kalemleri · SKU = Ürün Yönetimi'ndeki model no")
+            katalog_upper = {str(k).upper(): v for k, v in katalog.items()}
             st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
 
             hcols = st.columns([2, 3, 1.2, 1.5])
-            for hc, ht in zip(hcols, ["SKU / Model No", "Ürün Adı (boşsa otomatik)", "Adet", "Birim FOB"]):
+            for hc, ht in zip(hcols, ["SKU / Model No", "Ürün Adı (otomatik)", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             _kalemler = []
             for i in range(n_satir):
                 rc = st.columns([2, 3, 1.2, 1.5])
-                _sku = rc[0].text_input("sku", key=f"m_sku_{i}", label_visibility="collapsed", placeholder="SKU")
-                _ad = rc[1].text_input("ad", key=f"m_ad_{i}", label_visibility="collapsed", placeholder="otomatik gelir")
-                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed", min_value=0, step=1, value=0)
-                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed", min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                _sku = rc[0].text_input("sku", key=f"m_sku_{i}", label_visibility="collapsed",
+                                        placeholder="SKU", on_change=_sku_autofill,
+                                        args=(i, katalog_upper))
+                _ad = rc[1].text_input("ad", key=f"m_ad_{i}", label_visibility="collapsed",
+                                       placeholder="SKU yazınca otomatik dolar")
+                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
+                                           min_value=0, step=1, value=0)
+                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
+                                          min_value=0.0, step=0.01, value=0.0, format="%.2f")
                 if str(_sku).strip():
                     _kalemler.append({"sku": str(_sku).strip(), "urun_adi": str(_ad).strip(),
                                       "adet": _adet, "birim_fob": _fob})
@@ -400,7 +420,7 @@ def _yeni_ithalat():
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
-        _masraf = navlun + gumruk + sigorta + nakliye + diger
+        _masraf = sum(float(v or 0) for v in masraflar.values())
         _yuzde = (_masraf / _mal * 100) if _mal > 0 else 0
 
         # Canlı özet çipleri
@@ -429,15 +449,16 @@ def _yeni_ithalat():
                     if not (str(r.get("urun_adi") or "")).strip():
                         r["urun_adi"] = katalog.get((str(r.get("sku") or "")).strip(), "")
                 ok, msg = ekle_dosya(dosya_no.strip(), tarih, tedarikci, mense, doviz, kur,
-                                     navlun, gumruk, sigorta, nakliye, diger, "", _kalemler)
+                                     masraflar, "", _kalemler)
                 (st.success if ok else st.error)(msg)
                 if ok:
                     # Formu temizle
                     for i in range(st.session_state.get("m_satir_n", 5)):
                         for p in ("m_sku_", "m_ad_", "m_adet_", "m_fob_"):
                             st.session_state.pop(p + str(i), None)
-                    for k in ("m_dosya_no", "m_ted", "m_ulke",
-                              "m_navlun", "m_gumruk", "m_sigorta", "m_nakliye", "m_diger"):
+                    for slug, _lbl in MASRAF_TANIM:
+                        st.session_state.pop(f"m_mas_{slug}", None)
+                    for k in ("m_dosya_no", "m_ted", "m_ulke"):
                         st.session_state.pop(k, None)
                     st.session_state.m_satir_n = 5
                     st.rerun()
@@ -446,7 +467,8 @@ def _yeni_ithalat():
     with sekme2:
         st.markdown(
             "Şablonu indir, doldur ve yükle. Aynı **`dosya_no`** satırları tek ithalat dosyası olarak gruplanır; "
-            "masraf alanları (navlun, gümrük, …) o dosyanın satırlarında aynı tekrar edilmeli (ya da yalnızca ilk satırda dolu)."
+            "masraf kolonları (navlun, mal_sigortasi, damga_vergisi, … diger) o dosyanın satırlarında aynı tekrar edilmeli "
+            "(ya da yalnızca ilk satırda dolu). Boş bıraktığın masraf 0 sayılır."
         )
         st.download_button(
             "⬇️ Excel şablonu indir", data=_excel_sablon_bytes(),
@@ -467,12 +489,12 @@ def _yeni_ithalat():
             if eksik:
                 st.error(f"Şu kolonlar eksik: {', '.join(sorted(eksik))}")
                 return
-            for col in ["tarih", "tedarikci", "mense_ulke", "doviz", "kur",
-                        "navlun", "gumruk", "sigorta", "nakliye", "diger"]:
+            masraf_slugs = [s for s, _ in MASRAF_TANIM]
+            basliklar = ["tarih", "tedarikci", "mense_ulke", "doviz", "kur"] + masraf_slugs
+            for col in basliklar:
                 if col not in df.columns:
                     df[col] = None
-            ffill_cols = ["dosya_no", "tarih", "tedarikci", "mense_ulke", "doviz", "kur",
-                          "navlun", "gumruk", "sigorta", "nakliye", "diger"]
+            ffill_cols = ["dosya_no"] + basliklar
             df[ffill_cols] = df[ffill_cols].ffill()
 
             st.markdown("**Önizleme**")
@@ -496,12 +518,12 @@ def _yeni_ithalat():
                             "adet": _sf(r.get("adet")),
                             "birim_fob": _sf(r.get("birim_fob")),
                         })
+                    masraflar = {s: _sf(ilk.get(s)) for s in masraf_slugs if _sf(ilk.get(s)) != 0}
                     ok, msg = ekle_dosya(
                         str(dno).strip(), _sd(ilk.get("tarih")),
                         str(ilk.get("tedarikci", "") or ""), str(ilk.get("mense_ulke", "") or ""),
                         str(ilk.get("doviz", "USD") or "USD"), _sf(ilk.get("kur"), 1),
-                        _sf(ilk.get("navlun")), _sf(ilk.get("gumruk")), _sf(ilk.get("sigorta")),
-                        _sf(ilk.get("nakliye")), _sf(ilk.get("diger")), "", kalemler,
+                        masraflar, "", kalemler,
                     )
                     if ok:
                         basari += 1

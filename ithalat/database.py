@@ -2,19 +2,38 @@
 KAYRAN — İthalat Veritabanı Katmanı (Supabase PostgreSQL)
 
 Tablolar:
-  ithalat_dosyalari  (parti/sipariş başlığı + masraf kalemleri)
+  ithalat_dosyalari  (parti/sipariş başlığı; masraflar JSONB içinde {slug: tutar})
   ithalat_kalemleri  (ürün satırları; sku = urunler.sku ile eşleşir)
 
-Maliyet mantığı (kullanıcı kararı):
+Maliyet mantığı:
   • Dosya % maliyeti  = toplam_masraf / mal_bedeli(FOB) * 100
   • Masraf dağıtımı   = satır tutarına (FOB) orantılı
-    → tutara orantılı dağıtımda her satırın % maliyeti = dosya %'sine eşittir.
   • final_birim_maliyet = birim_fob * (1 + dosya_yuzde/100)
-Tüm tutarlar dosyanın para biriminde tutulur; kur yalnızca TL karşılığı içindir.
 """
 import streamlit as st
 from supabase import create_client, Client
-from collections import defaultdict
+
+
+# Masraf kalemleri — (slug, görünen ad). Liste değişebilir; masraflar JSONB'de saklanır.
+MASRAF_TANIM = [
+    ("navlun",                 "Navlun"),
+    ("mal_sigortasi",          "Mal Sigortası"),
+    ("damga_vergisi",          "Damga Vergisi"),
+    ("banka_komisyonu",        "Banka Komisyonu"),
+    ("liman_ardiye",           "Liman Ardiye"),
+    ("gumruk_musavirligi",     "Gümrük Müşavirliği"),
+    ("antrepo_beyannamesi",    "Antrepo Beyannamesi"),
+    ("liman_depo_nakliye",     "Liman - Depo Nakliye"),
+    ("antrepo_ardiye",         "Antrepo Ardiye"),
+    ("yolluk",                 "Yolluk"),
+    ("demuraj",                "Demuraj"),
+    ("tahliye_depolama_tasima","Tahliye-Depolama+Taşıma"),
+    ("igv",                    "İGV"),
+    ("diger",                  "Diğer"),
+]
+MASRAF_ETIKET = dict(MASRAF_TANIM)
+# Eski sürüm (5 sabit kolon) — geriye dönük okuma için
+_ESKI_MASRAF = ["navlun", "gumruk", "sigorta", "nakliye", "diger"]
 
 
 @st.cache_resource
@@ -28,6 +47,15 @@ def _rows(resp):
     return resp.data if resp.data else []
 
 
+def _f(v, d=0.0):
+    try:
+        if v is None:
+            return float(d)
+        return float(v)
+    except Exception:
+        return float(d)
+
+
 def _temizle():
     try:
         st.cache_data.clear()
@@ -35,17 +63,40 @@ def _temizle():
         pass
 
 
-# Masraf kalemleri (dosya seviyesinde)
-MASRAF_KOLONLARI = ["navlun", "gumruk", "sigorta", "nakliye", "diger"]
+def _masraf_dict(dosya):
+    """Dosyanın masraflarını {slug: tutar} olarak döner (yeni JSONB ya da eski kolonlar)."""
+    dosya = dosya or {}
+    m = dosya.get("masraflar")
+    if isinstance(m, str):
+        import json
+        try:
+            m = json.loads(m)
+        except Exception:
+            m = {}
+    if isinstance(m, dict) and m:
+        return {k: _f(v) for k, v in m.items()}
+    # Geriye dönük: eski sabit kolonlar
+    return {k: _f(dosya.get(k, 0)) for k in _ESKI_MASRAF if _f(dosya.get(k, 0)) != 0}
+
+
+def masraf_dokumu(dosya):
+    """Sıfırdan farklı masrafları [(görünen_ad, tutar)] olarak döner (tanım sırasında)."""
+    m = _masraf_dict(dosya)
+    sirali = [(MASRAF_ETIKET.get(s, s), m[s]) for s, _ in MASRAF_TANIM if m.get(s)]
+    # tanımda olmayan slug'lar (eski) varsa sona ekle
+    bilinen = {s for s, _ in MASRAF_TANIM}
+    for k, v in m.items():
+        if k not in bilinen and v:
+            sirali.append((k, v))
+    return sirali
 
 
 def dosya_hesapla(dosya, kalemler):
-    """Bir dosya + kalemleri için türetilmiş değerler.
-    Döner: dict(mal_bedeli, toplam_masraf, maliyet_yuzde, kalem_sayisi, toplam_adet)."""
-    mal_bedeli = sum(float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0) for k in kalemler)
-    toplam_masraf = sum(float((dosya or {}).get(m, 0) or 0) for m in MASRAF_KOLONLARI)
+    """Türetilmiş değerler: mal_bedeli, toplam_masraf, maliyet_yuzde, kalem_sayisi, toplam_adet."""
+    mal_bedeli = sum(_f(k.get("adet")) * _f(k.get("birim_fob")) for k in kalemler)
+    toplam_masraf = sum(v for _, v in masraf_dokumu(dosya))
     yuzde = (toplam_masraf / mal_bedeli * 100) if mal_bedeli > 0 else 0.0
-    toplam_adet = sum(float(k.get("adet", 0) or 0) for k in kalemler)
+    toplam_adet = sum(_f(k.get("adet")) for k in kalemler)
     return {
         "mal_bedeli": mal_bedeli,
         "toplam_masraf": toplam_masraf,
@@ -88,7 +139,6 @@ def get_kalemler(dosya_id):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_tum_kalemler():
-    """Tüm kalemler (model sorgusu için)."""
     try:
         sb = _get_client()
         return _rows(sb.table("ithalat_kalemleri").select("*").execute())
@@ -97,19 +147,19 @@ def get_tum_kalemler():
 
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
-               navlun, gumruk, sigorta, nakliye, diger, notlar, kalemler):
+               masraflar, notlar, kalemler):
     """Bir ithalat dosyası + kalemlerini ekler.
-    kalemler: list[dict(sku, urun_adi, adet, birim_fob)].
+    masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
+    kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
     Döner: (ok: bool, mesaj: str)."""
     sb = _get_client()
     try:
+        temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
         d = _rows(sb.table("ithalat_dosyalari").insert({
             "dosya_no": str(dosya_no), "tarih": str(tarih) if tarih else None,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
-            "doviz": doviz or "USD", "kur": float(kur or 1),
-            "navlun": float(navlun or 0), "gumruk": float(gumruk or 0),
-            "sigorta": float(sigorta or 0), "nakliye": float(nakliye or 0),
-            "diger": float(diger or 0), "notlar": notlar or "",
+            "doviz": doviz or "USD", "kur": _f(kur, 1),
+            "masraflar": temiz_masraf, "notlar": notlar or "",
         }).execute())
         if not d:
             return False, "Dosya eklenemedi (boş yanıt)."
@@ -120,11 +170,9 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             if not sku or sku.lower() == "nan":
                 continue
             rows.append({
-                "dosya_id": dosya_id,
-                "sku": sku,
+                "dosya_id": dosya_id, "sku": sku,
                 "urun_adi": (str(k.get("urun_adi") or "")).strip(),
-                "adet": float(k.get("adet", 0) or 0),
-                "birim_fob": float(k.get("birim_fob", 0) or 0),
+                "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
             })
         if rows:
             sb.table("ithalat_kalemleri").insert(rows).execute()
@@ -135,7 +183,6 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 
 def sil_dosya(dosya_id):
-    """Dosyayı ve tüm kalemlerini siler."""
     sb = _get_client()
     try:
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
