@@ -2154,6 +2154,54 @@ def run():
             if not aktif_kampanyalar:
                 st.info("Aktif kampanya yok. Yukarıdan yeni kampanya oluşturabilirsiniz.")
             else:
+                # ── KAMPANYA PANOSU (üstte hızlı özet) ──
+                _bugun = tr_today()
+                _pano = []
+                for _k in aktif_kampanyalar:
+                    _ku = get_kampanya_urunler(_k["id"])
+                    _sat = 0
+                    _net = 0.0
+                    for _x in _ku:
+                        _p = _x.get("pacal_maliyet") or 0
+                        _s = _x.get("satis_fiyati") or 0
+                        _fd = _x.get("birim_firma_destek") or 0
+                        _ed = _x.get("birim_ek_destek") or 0
+                        _ad = _x.get("satilan_adet") or 0
+                        if _s > 0 and _p > 0:
+                            _net += ((_s - _p) - (_fd + _ed)) * _ad
+                        _sat += _ad
+                    try:
+                        _bit = date.fromisoformat(_k["bitis_tarihi"]) if _k.get("bitis_tarihi") else None
+                        _kalan = (_bit - _bugun).days if _bit else None
+                    except Exception:
+                        _kalan = None
+                    if _kalan is None:
+                        _kalan_txt = "—"
+                    elif _kalan < 0:
+                        _kalan_txt = f"🔴 {abs(_kalan)}g geçti"
+                    elif _kalan < 7:
+                        _kalan_txt = f"🔴 {_kalan}g kaldı"
+                    elif _kalan < 30:
+                        _kalan_txt = f"🟠 {_kalan}g kaldı"
+                    else:
+                        _kalan_txt = f"🟢 {_kalan}g kaldı"
+                    _pano.append({
+                        "Kampanya": _k["kampanya_adi"],
+                        "Firma": _k["firma"],
+                        "Kalan": _kalan_txt,
+                        "Ürün": len(_ku),
+                        "Satılan": _sat,
+                        "Net Kâr ($)": round(_net, 2),
+                    })
+                st.markdown('<div style="font-size:13px;font-weight:700;color:#E2E8F0;margin:4px 0 6px;">📊 Kampanya Panosu — tüm aktif kampanyalar tek bakışta</div>', unsafe_allow_html=True)
+                render_renkli_tablo(
+                    pd.DataFrame(_pano),
+                    para=["Net Kâr ($)"],
+                    kar=["Net Kâr ($)"],
+                    sol=["Kampanya", "Firma", "Kalan"],
+                    kisalt={"Kampanya": 32},
+                )
+                st.markdown("---")
                 for kamp in aktif_kampanyalar:
                     kid = kamp["id"]
                     k_urunler = get_kampanya_urunler(kid)
