@@ -1748,10 +1748,10 @@ def run():
                 ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
                 ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                 ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                ".c-pos{text-align:right;background:rgba(34,197,94,0.12);color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-neg{text-align:right;background:rgba(239,68,68,0.12);color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-fcp{text-align:right;background:rgba(245,158,11,0.12);color:#FBBF24;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-tot{text-align:right;background:rgba(59,130,246,0.12);color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                ".c-fcp{text-align:right;color:#FBBF24;font-weight:600;font-family:'JetBrains Mono',monospace}"
+                ".c-tot{text-align:right;color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
                 ".c-muted{text-align:right;color:#475569;font-family:'JetBrains Mono',monospace}"
                 "</style>"
             )
@@ -2367,9 +2367,9 @@ def run():
                             ".kc-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
                             ".kc-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                             ".kc-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                            ".kc-gold{text-align:right;background:rgba(245,158,11,0.12);color:#FFD54F;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                            ".kc-pos{text-align:right;background:rgba(34,197,94,0.12);color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                            ".kc-neg{text-align:right;background:rgba(239,68,68,0.12);color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            ".kc-gold{text-align:right;color:#FFD54F;font-weight:600;font-family:'JetBrains Mono',monospace}"
+                            ".kc-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            ".kc-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
                             "</style>"
                         )
                         k_head = (
