@@ -923,17 +923,19 @@ def run():
             st.info("Önce 'Veri Yükleme' sekmesinden veri yükleyin.")
             st.stop()
     
-        sku_listesi = {f"{u['sku']} — {u['urun_adi']}": u['sku'] for u in veri}
+        sku_listesi = {u['sku']: u['sku'] for u in veri}
     
         # SKU/ürün adı arama
-        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 7px;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-        ara_col, sec_col = st.columns([1, 2])
+        st.markdown('<div style="font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:2px 0 6px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
+        _sl_ud, ara_col, sec_col, _sr_ud = st.columns([1.5, 1.1, 1.4, 1.5])
         with ara_col:
-            arama_ud = st.text_input("Ara", placeholder="SKU veya ürün adı yaz...", label_visibility="collapsed", key="ud_ara")
+            arama_ud = st.text_input("Ara", placeholder="SKU ara...", label_visibility="collapsed", key="ud_ara")
         with sec_col:
             if arama_ud:
-                filtre = {k: v for k, v in sku_listesi.items()
-                          if arama_ud.upper() in v.upper() or arama_ud.lower() in k.lower()}
+                _q = arama_ud.lower()
+                _eslesen = {u["sku"] for u in veri
+                            if _q in u["sku"].lower() or _q in (u.get("urun_adi") or "").lower()}
+                filtre = {k: v for k, v in sku_listesi.items() if v in _eslesen}
             else:
                 filtre = sku_listesi
             if not filtre:
