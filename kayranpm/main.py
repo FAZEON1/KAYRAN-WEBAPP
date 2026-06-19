@@ -26,7 +26,7 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       get_satin_alma_gecmisi, get_tum_tedarikciler,
                       ekle_kampanya, get_kampanyalar, get_kampanya,
                       guncelle_kampanya, kapat_kampanya, sil_kampanya,
-                      ekle_kampanya_urun, get_kampanya_urunler,
+                      ekle_kampanya_urun, get_kampanya_urunler, get_tum_kampanya_urunler,
                       guncelle_kampanya_urun, sil_kampanya_urun,
                       sil_urun, get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
@@ -1852,6 +1852,11 @@ def run():
             return [k for k in liste if str(k.get("firma", "")).strip().upper() == _kt_firma]
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+
+        # Tüm kampanya ürünleri TEK sorguda (N+1 önleme)
+        _ku_map = {}
+        for _r in get_tum_kampanya_urunler():
+            _ku_map.setdefault(_r["kampanya_id"], []).append(_r)
     
         # ─────────────────────────────────────────────────────────────────
         # TAB 1: AKTİF KAMPANYALAR
@@ -1886,7 +1891,7 @@ def run():
                 _bugun = tr_today()
                 _pano = []
                 for _k in aktif_kampanyalar:
-                    _ku = get_kampanya_urunler(_k["id"])
+                    _ku = _ku_map.get(_k["id"], [])
                     _sat = 0
                     _net = 0.0
                     for _x in _ku:
@@ -1940,7 +1945,7 @@ def run():
                     st.caption("👆 Yukarıdan bir kampanyaya tıklayınca detayları burada açılır.")
                 for kamp in [_kk for _kk in aktif_kampanyalar if _kk["id"] == _kamp_secili_id]:
                     kid = kamp["id"]
-                    k_urunler = get_kampanya_urunler(kid)
+                    k_urunler = _ku_map.get(kid, [])
     
                     # Kampanya başlık kartı
                     st.markdown(f"""
@@ -2353,7 +2358,7 @@ def run():
             else:
                 for kamp in gecmis:
                     kid = kamp["id"]
-                    k_urunler = get_kampanya_urunler(kid)
+                    k_urunler = _ku_map.get(kid, [])
     
                     # Özet hesaplar
                     toplam_net = sum(

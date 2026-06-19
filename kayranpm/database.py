@@ -288,6 +288,11 @@ def ekle_kampanya_urun(kampanya_id, sku, urun_adi, pacal_maliyet, satis_fiyati,
 def get_kampanya_urunler(kampanya_id):
     return _rows(get_client().table("kampanya_urunler").select("*").eq("kampanya_id", kampanya_id).order("id").execute())
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_tum_kampanya_urunler():
+    """Tüm kampanya ürünlerini TEK sorguda döndürür (N+1 önleme)."""
+    return _rows(get_client().table("kampanya_urunler").select("*").order("id").execute())
+
 def guncelle_kampanya_urun(urun_id, satis_fiyati, birim_firma_destek, birim_ek_destek, satilan_adet, notlar=""):
     get_client().table("kampanya_urunler").update({
         "satis_fiyati": float(satis_fiyati or 0),
