@@ -1834,13 +1834,29 @@ def run():
             urun_dict_k = {}
             sku_listesi_k = {}
     
-        # ── Sekmeler ─────────────────────────────────────────────────────
-        ktab1, ktab2 = st.tabs(["📢 Aktif Kampanyalar", "📁 Geçmiş Kampanyalar"])
+        # ── Durum + Müşteri filtresi (alt alta) ──────────────────────────
+        _kt_durum = st.radio("Durum", ["📢 Aktif Kampanyalar", "📁 Geçmiş Kampanyalar"],
+                             horizontal=True, key="kt_durum")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
+                    'margin:10px 0 2px">👥 MÜŞTERİLERİMİZ (filtre)</div>', unsafe_allow_html=True)
+        _kt_firma = st.radio("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"],
+                             horizontal=True, key="kt_firma", label_visibility="collapsed")
+        st.caption("Bir müşteriye tıklayınca o müşterinin kampanya panosu gelir.")
+
+        def _kt_firma_filtre(liste):
+            if _kt_firma == "Tümü":
+                return liste
+            _ana = {"HB", "VATAN", "ITOPYA"}
+            if _kt_firma == "DİĞER":
+                return [k for k in liste if str(k.get("firma", "")).strip().upper() not in _ana]
+            return [k for k in liste if str(k.get("firma", "")).strip().upper() == _kt_firma]
+
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     
         # ─────────────────────────────────────────────────────────────────
         # TAB 1: AKTİF KAMPANYALAR
         # ─────────────────────────────────────────────────────────────────
-        with ktab1:
+        if _kt_durum == "📢 Aktif Kampanyalar":
             # Yeni kampanya oluştur
             with st.expander("➕ Yeni Kampanya Oluştur", expanded=False):
                 with st.form("yeni_kampanya_form", clear_on_submit=True):
@@ -1862,7 +1878,7 @@ def run():
                             st.rerun()
     
             # Aktif kampanyaları listele
-            aktif_kampanyalar = get_kampanyalar(durum="aktif")
+            aktif_kampanyalar = _kt_firma_filtre(get_kampanyalar(durum="aktif"))
             if not aktif_kampanyalar:
                 st.info("Aktif kampanya yok. Yukarıdan yeni kampanya oluşturabilirsiniz.")
             else:
@@ -2330,8 +2346,8 @@ def run():
         # ─────────────────────────────────────────────────────────────────
         # TAB 2: GEÇMİŞ KAMPANYALAR
         # ─────────────────────────────────────────────────────────────────
-        with ktab2:
-            gecmis = get_kampanyalar(durum="kapali")
+        if _kt_durum == "📁 Geçmiş Kampanyalar":
+            gecmis = _kt_firma_filtre(get_kampanyalar(durum="kapali"))
             if not gecmis:
                 st.info("Henüz kapatılmış kampanya yok.")
             else:
