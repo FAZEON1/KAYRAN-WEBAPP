@@ -272,7 +272,7 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     except Exception:
         # Banka güncellemesi başarısız olsa bile ödeme durumu güncellemiş olur
         pass
-        _cache_temizle()
+    _cache_temizle()
 
 
 def odeme_sil(odeme_id):
