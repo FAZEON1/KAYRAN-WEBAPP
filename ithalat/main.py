@@ -215,23 +215,24 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
 
 
 def _excel_sablon_bytes():
-    """Örnek satırlı boş Excel şablonu üretir (tüm masraf kalemleri kolon olarak)."""
-    temel = {
-        "pi_no": "PI-2025-001", "dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
-        "mense_ulke": "Cin", "doviz": "USD", "kur": 34.50,
-    }
-    masraf_ornek = {
-        "navlun": 1200, "mal_sigortasi": 150, "damga_vergisi": 80, "banka_komisyonu": 60,
-        "liman_ardiye": 200, "gumruk_musavirligi": 300, "antrepo_beyannamesi": 50,
-        "liman_depo_nakliye": 400, "antrepo_ardiye": 120, "yolluk": 90,
-        "demuraj": 0, "tahliye_depolama_tasima": 250, "igv": 0, "diger": 100,
-    }
-    satir1 = {**temel, **masraf_ornek, "sku": "X27F165QW", "urun_adi": "27 inch Monitor", "adet": 100, "birim_fob": 85.00}
-    satir2 = {**temel, **masraf_ornek, "sku": "CASE-MID-01", "urun_adi": "Mid Tower Kasa", "adet": 50, "birim_fob": 40.00}
-    ornek = pd.DataFrame([satir1, satir2])
+    """Satın Alım Raporu formatında örnek şablon (sistemden çekilen yapıyla aynı başlıklar)."""
+    kolonlar = ["Sipariş Tarihi", "Sipariş no", "Belge no", "Belge tarihi", "Sipariş cinsi",
+                "Teslim tarihi", "Teslim türü", "Cari hesap kodu", "Cari hesap adı", "Stok kodu",
+                "Stok ismi", "Depo", "Miktar", "Birim", "Birim Fiyat", "Toplam iskonto", "Net fiyat",
+                "Döviz", "Tutar", "Tamamlanan miktar", "Kalan miktar", "Öd.Pl", "Onay durumu",
+                "Açık/Kapalı", "Durum"]
+    s1 = ["2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
+          "FOB", "320.50.001", "ABC DISPLAY CO., LTD", "X27F165QW",
+          "27 inch Gaming Monitor", "Merkez depo", 100, "Adet", 85, 0, 85, "USD", 8500, 100, 0,
+          "PEŞİN", "Onaylandı", "Açık", "Açık"]
+    s2 = ["2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
+          "FOB", "320.50.001", "ABC DISPLAY CO., LTD", "CASE-MID-01",
+          "Mid Tower Kasa", "Merkez depo", 50, "Adet", 40, 0, 40, "USD", 2000, 50, 0,
+          "PEŞİN", "Onaylandı", "Açık", "Açık"]
+    ornek = pd.DataFrame([s1, s2], columns=kolonlar)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
-        ornek.to_excel(w, index=False, sheet_name="ithalat")
+        ornek.to_excel(w, index=False, sheet_name="Sheet")
     return buf.getvalue()
 
 
@@ -513,74 +514,109 @@ def _yeni_ithalat():
     # ── Excel ──
     with sekme2:
         st.markdown(
-            "Şablonu indir, doldur ve yükle. Aynı **`dosya_no`** satırları tek ithalat dosyası olarak gruplanır; "
-            "masraf kolonları (navlun, mal_sigortasi, damga_vergisi, … diger) o dosyanın satırlarında aynı tekrar edilmeli "
-            "(ya da yalnızca ilk satırda dolu). Boş bıraktığın masraf 0 sayılır."
+            "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
+            "Aynı **Sipariş no** satırları tek ithalat dosyası olur. Eşleme: "
+            "**Belge no → PI No**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
+            "**Miktar → adet**, **Net fiyat** (yoksa **Birim Fiyat**) **→ birim FOB**, **Döviz**. "
+            "Masraf bu aşamada girilmez — dosya **⏳ masraf bekliyor** olarak düşer; masrafları sonra "
+            "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı / bedelsiz satırlar otomatik atlanır.)"
         )
         st.download_button(
-            "⬇️ Excel şablonu indir", data=_excel_sablon_bytes(),
-            file_name="ithalat_sablon.xlsx",
+            "⬇️ Örnek şablonu indir", data=_excel_sablon_bytes(),
+            file_name="ithalat_satin_alim_sablon.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="ith_sablon_dl",
         )
-        up = st.file_uploader("Doldurulmuş Excel'i yükle", type=["xlsx", "xls"], key="ith_excel_up")
+        up = st.file_uploader("Satın Alım Raporu Excel'ini yükle", type=["xlsx", "xls"], key="ith_excel_up")
         if up is not None:
             try:
                 df = pd.read_excel(up)
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
                 return
-            df.columns = [str(c).strip().lower() for c in df.columns]
-            gerekli = {"dosya_no", "sku", "adet", "birim_fob"}
-            eksik = gerekli - set(df.columns)
+
+            def _norm(h):
+                h = str(h).strip().lower().replace("i̇", "i")
+                for a, b in (("ı", "i"), ("ş", "s"), ("ğ", "g"), ("ü", "u"), ("ö", "o"), ("ç", "c")):
+                    h = h.replace(a, b)
+                return h
+
+            eslesme = {
+                "siparis tarihi": "tarih", "siparis no": "dosya_no", "belge no": "pi_no",
+                "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
+                "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
+                "doviz": "doviz",
+            }
+            kol = {}
+            for c in df.columns:
+                alan = eslesme.get(_norm(c))
+                if alan and alan not in kol:
+                    kol[alan] = c
+
+            eksik = [a for a in ("dosya_no", "sku", "adet") if a not in kol]
+            if "net_fiyat" not in kol and "birim_fiyat" not in kol:
+                eksik.append("net fiyat / birim fiyat")
             if eksik:
-                st.error(f"Şu kolonlar eksik: {', '.join(sorted(eksik))}")
+                st.error("Şu sütunlar bulunamadı: " + ", ".join(eksik) +
+                         ". Beklenen başlıklar: Sipariş no, Belge no, Cari hesap adı, Stok kodu, "
+                         "Stok ismi, Miktar, Net fiyat (veya Birim Fiyat), Döviz.")
                 return
-            masraf_slugs = [s for s, _ in MASRAF_TANIM]
-            basliklar = ["pi_no", "tarih", "tedarikci", "mense_ulke", "doviz", "kur"] + masraf_slugs
-            for col in basliklar:
-                if col not in df.columns:
-                    df[col] = None
-            ffill_cols = ["dosya_no"] + basliklar
-            df[ffill_cols] = df[ffill_cols].ffill()
 
             st.markdown("**Önizleme**")
-            st.dataframe(df, use_container_width=True, height=240)
-            gruplar = list(df.groupby("dosya_no"))
-            st.caption(f"{len(gruplar)} ithalat dosyası bulundu.")
+            st.dataframe(df.head(30), use_container_width=True, height=240)
+
+            mevcut_dosyalar = {str(d.get("dosya_no", "")).strip() for d in get_dosyalar()}
+            gruplar = list(df.groupby(df[kol["dosya_no"]].astype(str)))
+            st.caption(f"{len(gruplar)} sipariş (dosya) bulundu.")
 
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
-                basari, hata, mesajlar = 0, 0, []
+                basari, atlanan, sifir, hata, mesajlar = 0, 0, 0, 0, []
                 for dno, g in gruplar:
+                    dno_s = str(dno).strip()
+                    if not dno_s or dno_s.lower() == "nan":
+                        continue
+                    if dno_s in mevcut_dosyalar:
+                        atlanan += 1
+                        mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
+                        continue
                     ilk = g.iloc[0]
                     kalemler = []
                     for _, r in g.iterrows():
-                        sku = str(r.get("sku", "") or "").strip()
+                        sku = str(r.get(kol["sku"], "") or "").strip()
                         if not sku or sku.lower() == "nan":
                             continue
-                        ad = str(r.get("urun_adi", "") or "").strip()
-                        kalemler.append({
-                            "sku": sku,
-                            "urun_adi": ad or katalog.get(sku, ""),
-                            "adet": _sf(r.get("adet")),
-                            "birim_fob": _sf(r.get("birim_fob")),
-                        })
-                    masraflar = {s: _sf(ilk.get(s)) for s in masraf_slugs if _sf(ilk.get(s)) != 0}
-                    ok, msg = ekle_dosya(
-                        str(dno).strip(), _sd(ilk.get("tarih")),
-                        str(ilk.get("tedarikci", "") or ""), str(ilk.get("mense_ulke", "") or ""),
-                        str(ilk.get("doviz", "USD") or "USD"), _sf(ilk.get("kur"), 1),
-                        masraflar, "", kalemler, pi_no=str(ilk.get("pi_no", "") or ""),
-                    )
+                        adet = _sf(r.get(kol["adet"]))
+                        fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
+                        if fob <= 0 and "birim_fiyat" in kol:
+                            fob = _sf(r.get(kol["birim_fiyat"]))
+                        if adet <= 0 or fob <= 0:
+                            sifir += 1
+                            continue
+                        ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
+                        kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
+                                         "adet": adet, "birim_fob": fob})
+                    if not kalemler:
+                        atlanan += 1
+                        mesajlar.append(f"{dno_s}: geçerli (fiyatlı) kalem yok, atlandı.")
+                        continue
+                    pi_no = str(ilk.get(kol["pi_no"], "") or "").strip() if "pi_no" in kol else ""
+                    tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
+                    ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
+                    dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
+                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, "", kalemler, pi_no=pi_no)
                     if ok:
                         basari += 1
                     else:
                         hata += 1
-                        mesajlar.append(f"{dno}: {msg}")
+                        mesajlar.append(f"{dno_s}: {msg}")
                 if basari:
-                    st.success(f"✅ {basari} dosya içe aktarıldı.")
+                    st.success(f"✅ {basari} dosya içe aktarıldı (⏳ masraf bekliyor).")
+                if sifir:
+                    st.info(f"ℹ️ {sifir} satır 0 fiyat/0 adet olduğu için atlandı (bedelsiz/yedek satırlar).")
+                if atlanan:
+                    st.warning("Atlananlar:\n" + "\n".join(m for m in mesajlar if "atlandı" in m))
                 if hata:
-                    st.error("Hatalı dosyalar:\n" + "\n".join(mesajlar))
+                    st.error("Hatalı dosyalar:\n" + "\n".join(m for m in mesajlar if "atlandı" not in m))
                 if basari:
                     st.rerun()
 
