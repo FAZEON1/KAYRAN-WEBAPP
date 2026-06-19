@@ -24,9 +24,9 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
-KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
+KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal"}
+ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -65,14 +65,14 @@ def online_durum_guncelle(kullanici_adi: str):
         pass
 
 def get_online_kullanicilar():
-    """Son 5 dakika içinde aktif olan kullanıcıların listesini döner."""
+    """Son 180 dakika (3 saat) içinde aktif olan kullanıcıların listesini döner."""
     try:
         import datetime as _dt
         sb = _get_supabase()
         if not sb:
             return []
         bitis = _dt.datetime.utcnow()
-        baslangic = bitis - _dt.timedelta(minutes=5)
+        baslangic = bitis - _dt.timedelta(minutes=180)
         res = sb.table("kullanici_durum").select("kullanici_adi, son_aktivite").gte("son_aktivite", baslangic.isoformat()).execute()
         return res.data if res.data else []
     except Exception:
