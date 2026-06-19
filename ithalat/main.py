@@ -265,10 +265,14 @@ def _gecmis_ithalatlar():
         return
 
     katalog = get_urun_katalog()
+    # Performans: tüm kalemleri TEK sorguda çek, bellekte dosyaya göre grupla (N+1 sorgu önlenir)
+    _kalem_by_dosya = {}
+    for _k in get_tum_kalemler():
+        _kalem_by_dosya.setdefault(_k.get("dosya_id"), []).append(_k)
     hesap_map = {}
     satirlar = []
     for d in dosyalar:
-        kal = get_kalemler(d["id"])
+        kal = _kalem_by_dosya.get(d["id"], [])
         h = dosya_hesapla(d, kal)
         hesap_map[d["id"]] = (d, kal, h)
         satirlar.append({
@@ -294,7 +298,28 @@ def _gecmis_ithalatlar():
     c3.metric("Toplam Masraf", f"{toplam_masraf:,.0f}")
     c4.metric("Ort. % Maliyet", f"%{ort_yuzde:.1f}")
 
-    _tablo(pd.DataFrame(satirlar),
+    # 🔍 Arama / filtre (Dosya No · PI No · Tedarikçi)
+    _ara = st.text_input("🔍 Ara — Dosya No · PI No · Tedarikçi", key="ith_gecmis_ara",
+                         placeholder="örn. PIFAZ, SAS-44, LCCGAME...").strip().lower()
+
+    def _esl_d(d):
+        if not _ara:
+            return True
+        return _ara in (str(d.get("dosya_no", "")) + " " + str(d.get("pi_no", "")) + " " +
+                        str(d.get("tedarikci", ""))).lower()
+
+    dosyalar_goster = [d for d in dosyalar if _esl_d(d)]
+    satirlar_goster = [s for s in satirlar
+                       if (not _ara) or _ara in (str(s.get("Dosya No", "")) + " " +
+                                                 str(s.get("PI No", "")) + " " +
+                                                 str(s.get("Tedarikçi", ""))).lower()]
+    st.caption(f"{len(dosyalar_goster)} / {len(dosyalar)} dosya gösteriliyor")
+
+    if not satirlar_goster:
+        st.info("Aramayla eşleşen dosya yok.")
+        return
+
+    _tablo(pd.DataFrame(satirlar_goster),
            para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
            sol=["PI No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
 
@@ -302,7 +327,7 @@ def _gecmis_ithalatlar():
 
     secenekler = {
         f'{d.get("dosya_no","")} — {str(d.get("tarih",""))[:10]} · {d.get("tedarikci","")}': d["id"]
-        for d in dosyalar
+        for d in dosyalar_goster
     }
     sec = st.selectbox("Dosya detayını gör", list(secenekler.keys()), key="ith_dosya_sec")
     did = secenekler[sec]
