@@ -1241,11 +1241,27 @@ def anasayfa():
     else: selamlama = "İyi akşamlar"
 
     # ─────────────────────────────────────────────────────────────────────
-    # KULLANICIYA BİLDİRİM — EN ÜSTTE (ibrahim dışı herkes)
+    # KULLANICIYA BİLDİRİM — zorunlu popup + üst şerit (herkes, ibrahim dahil)
     # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() != "ibrahim":
-        _bildirimler = get_okunmamis_bildirimler(aktif_kullanici)
-        if _bildirimler:
+    _bildirimler = get_okunmamis_bildirimler(aktif_kullanici)
+    _dlg = getattr(st, "dialog", None) or getattr(st, "experimental_dialog", None)
+    if _bildirimler and _dlg:
+        @_dlg("🔔 Yeni Bildirimler")
+        def _zorunlu_bildirim_modal():
+            st.markdown(f"**{len(_bildirimler)} okunmamış bildirimin var — lütfen oku:**")
+            for _bm in _bildirimler:
+                _gnd = str(_bm.get("gonderen") or "Sistem").capitalize()
+                st.markdown(
+                    '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin:8px 0">'
+                    f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_bm.get("mesaj","")}</div>'
+                    f'<div style="color:#64748B;font-size:10px;margin-top:6px">{_gnd} · {str(_bm.get("olusturma_tarihi",""))[:16].replace("T"," ")}</div>'
+                    '</div>', unsafe_allow_html=True)
+            if st.button("✓ Okudum, kapat", type="primary", use_container_width=True, key="_modal_okundu_btn"):
+                tumunu_okundu_isaretle(aktif_kullanici)
+                st.rerun()
+        _zorunlu_bildirim_modal()
+    if _bildirimler:
+        if True:
             _bil_html = (
                 '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08));'
                 'border:1px solid rgba(99,102,241,0.3);border-radius:16px;'
@@ -1264,7 +1280,7 @@ def anasayfa():
                     f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
                     f'<div style="color:#64748B;font-size:10px;margin-top:6px;display:flex;align-items:center;gap:6px">'
                     f'<span style="width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block"></span>'
-                    f'Ibrahim · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
+                    f'{str(_b.get("gonderen") or "Sistem").capitalize()} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
                     f'</div>'
                     f'</div>'
                 )
@@ -1629,6 +1645,11 @@ def anasayfa():
                     ok = ekle_talep(aktif_kullanici.capitalize(), konu_son, mesaj.strip())
                 if ok:
                     st.cache_data.clear()
+                    if aktif_kullanici.lower() != "ibrahim":
+                        try:
+                            bildirim_gonder("ibrahim", f"📨 Yeni talep — {konu_son} · {aktif_kullanici.capitalize()}")
+                        except Exception:
+                            pass
                     st.success("✅ Talebiniz kaydedildi. Teşekkürler!")
                 else:
                     st.error("❌ Talep kaydedilemedi. Lütfen tekrar deneyin.")
@@ -1908,32 +1929,6 @@ def anasayfa():
             '</div>',
             unsafe_allow_html=True
         )
-        # Görev Atama Formu
-        _tum_kul2 = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
-        with st.expander("➕ Yeni Görev Ata", expanded=False):
-            with st.form("gorev_ata_form", clear_on_submit=True):
-                _g_col1, _g_col2 = st.columns(2)
-                with _g_col1:
-                    _g_atanan = st.selectbox("Kişi", [k.capitalize() for k in _tum_kul2], key="g_atanan")
-                    _g_oncelik = st.selectbox("Öncelik", ["normal", "yuksek", "dusuk"], key="g_oncelik")
-                with _g_col2:
-                    _g_baslik = st.text_input("Görev Başlığı", placeholder="Örn: Fatura listesini güncelle", key="g_baslik")
-                    _g_bitis = st.date_input("Bitiş Tarihi (opsiyonel)", value=None, key="g_bitis")
-                _g_aciklama = st.text_area("Açıklama (opsiyonel)", placeholder="Görev detayları...", height=70, key="g_aciklama")
-                _g_ata_btn = st.form_submit_button("📋 Görevi Ata", type="primary", use_container_width=False)
-                if _g_ata_btn:
-                    if not _g_baslik or not _g_baslik.strip():
-                        st.warning("⚠️ Görev başlığı boş olamaz.")
-                    else:
-                        _ok3 = gorev_ata(_g_atanan.lower(), _g_baslik.strip(), _g_aciklama.strip(), _g_oncelik, _g_bitis)
-                        if _ok3:
-                            # Aynı anda bildirim de gönder
-                            bildirim_gonder(_g_atanan.lower(), f"📋 Yeni görev atandı: {_g_baslik.strip()}")
-                            st.success(f"✅ Görev {_g_atanan} kişisine atandı ve bildirim gönderildi!")
-                            st.rerun()
-                        else:
-                            st.error("❌ Görev atanamadı.")
-
         # Kanban Panosu — tüm görevler
         import datetime as _kdt
         _bugun_k = _kdt.date.today()
