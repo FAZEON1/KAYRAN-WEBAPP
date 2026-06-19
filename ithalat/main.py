@@ -521,7 +521,7 @@ def _yeni_ithalat():
             "**Miktar → adet**, **Net fiyat** (yoksa **Birim Fiyat**) **→ birim FOB**, **Döviz**. "
             "İçindeki **Sipariş no(lar)** dosya notuna eklenir. "
             "Masraf bu aşamada girilmez — dosya **⏳ masraf bekliyor** olarak düşer; masrafları sonra "
-            "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı / bedelsiz satırlar otomatik atlanır.)"
+            "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı/bedelsiz satırlar atlanmaz; adetleri paçala dahil edilir, maliyet toplam tutara bölünür.)"
         )
         st.download_button(
             "⬇️ Örnek şablonu indir", data=_excel_sablon_bytes(),
@@ -584,7 +584,7 @@ def _yeni_ithalat():
             st.caption(f"{len(gruplar)} belge (ithalat dosyası) bulundu.")
 
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
-                basari, atlanan, sifir, hata, mesajlar = 0, 0, 0, 0, []
+                basari, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, []
                 for dno, g in gruplar:
                     dno_s = str(dno).strip()
                     if not dno_s or dno_s.lower() == "nan":
@@ -600,18 +600,25 @@ def _yeni_ithalat():
                         if not sku or sku.lower() == "nan":
                             continue
                         adet = _sf(r.get(kol["adet"]))
+                        if adet <= 0:
+                            continue
                         fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
                         if fob <= 0 and "birim_fiyat" in kol:
                             fob = _sf(r.get(kol["birim_fiyat"]))
-                        if adet <= 0 or fob <= 0:
-                            sifir += 1
-                            continue
+                        # 0 fiyatlı (bedelsiz/yedek) satırı ATLAMA: adeti paçala dahil et,
+                        # maliyet toplam tutara bölünerek düşer (ör. 707 adet, 700'ü fiyatlı).
+                        if fob <= 0:
+                            bedelsiz += 1
                         ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
                         kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
                                          "adet": adet, "birim_fob": fob})
                     if not kalemler:
                         atlanan += 1
-                        mesajlar.append(f"{dno_s}: geçerli (fiyatlı) kalem yok, atlandı.")
+                        mesajlar.append(f"{dno_s}: kalem yok, atlandı.")
+                        continue
+                    if sum(k["adet"] * k["birim_fob"] for k in kalemler) <= 0:
+                        atlanan += 1
+                        mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
                         continue
                     belge_no = str(ilk.get(kol["pi_no"], "") or "").strip() if "pi_no" in kol else ""
                     if not belge_no or belge_no.lower() == "nan":
@@ -633,8 +640,8 @@ def _yeni_ithalat():
                         mesajlar.append(f"{dno_s}: {msg}")
                 if basari:
                     st.success(f"✅ {basari} dosya içe aktarıldı (⏳ masraf bekliyor).")
-                if sifir:
-                    st.info(f"ℹ️ {sifir} satır 0 fiyat/0 adet olduğu için atlandı (bedelsiz/yedek satırlar).")
+                if bedelsiz:
+                    st.info(f"ℹ️ {bedelsiz} satır 0 fiyatlı (bedelsiz/yedek) — adetleri paçala dahil edildi, birim maliyet toplam tutara göre düştü.")
                 if atlanan:
                     st.warning("Atlananlar:\n" + "\n".join(m for m in mesajlar if "atlandı" in m))
                 if hata:
