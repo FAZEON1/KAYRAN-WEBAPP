@@ -1456,6 +1456,14 @@ def anasayfa():
     # ─────────────────────────────────────────────────────────────────────
     # GÜNLÜK GİRİŞ & SERİ & LİDERLİK
     # ─────────────────────────────────────────────────────────────────────
+    # Programa girince günlük giriş OTOMATİK kaydedilir (ekstra tıklama gerekmez)
+    import datetime as _dtg
+    _bugun_str = _dtg.date.today().isoformat()
+    if st.session_state.get("_giris_kayit_gun") != _bugun_str:
+        if gunluk_giris_yap(aktif_kullanici):
+            st.session_state["_giris_kutla"] = True
+        st.session_state["_giris_kayit_gun"] = _bugun_str
+
     _gd = get_giris_durum(aktif_kullanici)
     _bugun_g, _seri, _toplam = _gd["bugun"], _gd["seri"], _gd["toplam"]
     _alev = "🔥" if _seri > 0 else "🧊"
@@ -1470,13 +1478,7 @@ def anasayfa():
         '</div></div></div>',
         unsafe_allow_html=True
     )
-    if not _bugun_g:
-        if st.button("🔥 Bugün Giriş Yap", key="gunluk_giris_btn", type="primary", use_container_width=True):
-            if gunluk_giris_yap(aktif_kullanici):
-                st.session_state["_giris_kutla"] = True
-            st.rerun()
-    else:
-        st.markdown('<div style="color:#4ADE80;font-size:12px;font-weight:600;margin:-2px 0 14px 2px">✅ Bugünkü girişini yaptın — seriyi sürdürmek için yarın tekrar gel!</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#4ADE80;font-size:12px;font-weight:600;margin:-2px 0 14px 2px">✅ Bugünkü girişin otomatik kaydedildi — seriyi sürdürmek için yarın tekrar gir!</div>', unsafe_allow_html=True)
     if st.session_state.pop("_giris_kutla", False):
         st.balloons()
         st.toast("🔥 Seri devam ediyor! Bugünkü girişin kaydedildi.")
