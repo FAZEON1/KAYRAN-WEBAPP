@@ -240,7 +240,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
-                   masraflar, notlar, kalemler):
+                   masraflar, notlar, kalemler, ithalat_takip_no=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -251,6 +251,7 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
+            "ithalat_takip_no": ithalat_takip_no or "",
         }).eq("id", dosya_id).execute()
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
         rows = []

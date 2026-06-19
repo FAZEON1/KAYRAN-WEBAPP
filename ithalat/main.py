@@ -277,6 +277,7 @@ def _gecmis_ithalatlar():
         hesap_map[d["id"]] = (d, kal, h)
         satirlar.append({
             "PI No": d.get("pi_no", "") or "",
+            "Takip No": d.get("ithalat_takip_no", "") or "",
             "Dosya No": d.get("dosya_no", ""),
             "Tarih": str(d.get("tarih", ""))[:10],
             "Tedarikçi": d.get("tedarikci", ""),
@@ -306,12 +307,13 @@ def _gecmis_ithalatlar():
         if not _ara:
             return True
         return _ara in (str(d.get("dosya_no", "")) + " " + str(d.get("pi_no", "")) + " " +
-                        str(d.get("tedarikci", ""))).lower()
+                        str(d.get("ithalat_takip_no", "")) + " " + str(d.get("tedarikci", ""))).lower()
 
     dosyalar_goster = [d for d in dosyalar if _esl_d(d)]
     satirlar_goster = [s for s in satirlar
                        if (not _ara) or _ara in (str(s.get("Dosya No", "")) + " " +
                                                  str(s.get("PI No", "")) + " " +
+                                                 str(s.get("Takip No", "")) + " " +
                                                  str(s.get("Tedarikçi", ""))).lower()]
     st.caption(f"{len(dosyalar_goster)} / {len(dosyalar)} dosya gösteriliyor")
 
@@ -321,7 +323,7 @@ def _gecmis_ithalatlar():
 
     _tablo(pd.DataFrame(satirlar_goster),
            para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
-           sol=["PI No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
+           sol=["PI No", "Takip No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
 
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
@@ -333,7 +335,7 @@ def _gecmis_ithalatlar():
     did = secenekler[sec]
     d, kal, h = hesap_map[did]
 
-    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">PI No: <b style="color:#E2E8F0">{d.get("pi_no","") or "—"}</b> · Dosya: <b style="color:#E2E8F0">{d.get("dosya_no","")}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">PI No: <b style="color:#E2E8F0">{d.get("pi_no","") or "—"}</b> · Dosya: <b style="color:#E2E8F0">{d.get("dosya_no","")}</b> · Takip: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
@@ -381,6 +383,8 @@ def _gecmis_ithalatlar():
             _dv = str(d.get("doviz", "USD") or "USD")
             e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
             e_kur = ec3.number_input("Kur", min_value=0.0, value=float(d.get("kur", 1) or 1), step=0.01)
+            e_takip = ec3.text_input("İthalat Takip No", value=str(d.get("ithalat_takip_no", "") or ""),
+                                     help="Masrafı giren kişinin kendi takibi için")
             try:
                 _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
             except Exception:
@@ -426,7 +430,8 @@ def _gecmis_ithalatlar():
                     _yeni_kal.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
                                       "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
                 ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
-                                         e_doviz, e_kur, e_masraf, e_not, _yeni_kal)
+                                         e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
+                                         ithalat_takip_no=e_takip.strip())
                 (st.success if ok else st.error)(msg)
                 if ok:
                     st.rerun()
