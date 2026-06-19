@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Firma bazlı Referans No (sellout / marketing destek) atama ve takip modülü.
+"""Firma bazlı Referans No + Havuz Bütçe (sellout / marketing destek) modülü.
 
 Ref no formatı:  FZ<KOD>RF<YIL><SIRA:03d>   ör. FZVTNRF2025001
-- KOD     : firmanın ref kısaltması (VATAN→VTN, HB→HB, İTOPYA→İT)
-- YIL     : atama yılı (yıl değişse de SIRA sıfırlanmaz, sürekli artar)
-- SIRA    : firma içinde sürekli artan sayaç (NUMARA)
+
+Havuz Bütçe mantığı:
+  - TÜR = "BÜTÇE"  → önden verilen bütçe (GİRİŞ +)
+  - Diğer türler   → sellout / destek harcaması (HARCAMA −)
+  - Kalan havuz    = toplam giriş − toplam harcama
 """
 import re
 import pandas as pd
@@ -20,9 +22,18 @@ DURUM_ETIKET = {
     "iptal": "🚫 İptal",
 }
 
+# Havuz bütçe türleri (BÜTÇE = giriş; diğerleri = harcama)
+BUTCE_TURLER = ["BÜTÇE", "KAMPANYA", "REBATE", "STOK KORUMA", "KREDİ KARTI",
+                "BİRLİKTE SATIŞ", "BEDELSİZ ÜRÜN", "MARKETING", "PAZARLAMA"]
+GIRIS_TURLER = {"BÜTÇE"}
+
 
 def _yil():
     return datetime.now().year
+
+
+def _yon_belirle(tur):
+    return "giris" if str(tur).strip().upper() in {t.upper() for t in GIRIS_TURLER} else "harcama"
 
 
 def ref_uret(kod, yil, sira):
@@ -30,14 +41,22 @@ def ref_uret(kod, yil, sira):
 
 
 def _parse_ref(ref):
-    """FZVTNRF2025001 → (kod='VTN', yil=2025, sira=1). Eşleşmezse (None, None, None)."""
     m = re.match(r"^FZ(.+?)RF(\d{4})(\d+)$", str(ref).strip())
     if not m:
         return None, None, None
     return m.group(1), int(m.group(2)), int(m.group(3))
 
 
-# ── DB ──────────────────────────────────────────────────────────────
+def _f(v, d=0.0):
+    try:
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return d
+        return float(str(v).replace(",", "").replace("$", "").strip())
+    except Exception:
+        return d
+
+
+# ── FİRMA DB ────────────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_firmalar():
     try:
@@ -59,6 +78,7 @@ def firma_ekle(adi, kodu):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+# ── REF NO DB ───────────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_refler(firma_id):
     try:
@@ -151,10 +171,122 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
 
-# ── UI ──────────────────────────────────────────────────────────────
+# ── HAVUZ BÜTÇE DB ──────────────────────────────────────────────────
+@st.cache_data(ttl=30, show_spinner=False)
+def get_butce(firma_id):
+    try:
+        sb = get_client()
+        return _rows(sb.table("ref_butce").select("*")
+                     .eq("firma_id", firma_id).order("fatura_tarih").execute())
+    except Exception:
+        return []
+
+
+def butce_ekle(firma_id, tur, aciklama, tutar, doviz, fatura_no, fatura_tarih,
+               ref_no, kisi, yon=None, marka="FAZEON"):
+    try:
+        sb = get_client()
+        sb.table("ref_butce").insert({
+            "firma_id": firma_id, "tur": tur or "", "yon": yon or _yon_belirle(tur),
+            "aciklama": aciklama or "", "marka": marka or "", "tutar": _f(tutar),
+            "doviz": doviz or "USD", "fatura_no": fatura_no or "",
+            "fatura_tarih": str(fatura_tarih) if fatura_tarih else None,
+            "ref_no": ref_no or "", "kisi": kisi or "",
+        }).execute()
+        _cache_temizle()
+        return True, "✅ Kayıt eklendi."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def butce_guncelle(rid, tur, aciklama, tutar, fatura_no, fatura_tarih, ref_no, kisi, yon=None):
+    try:
+        sb = get_client()
+        sb.table("ref_butce").update({
+            "tur": tur or "", "yon": yon or _yon_belirle(tur),
+            "aciklama": aciklama or "", "tutar": _f(tutar),
+            "fatura_no": fatura_no or "",
+            "fatura_tarih": str(fatura_tarih) if fatura_tarih else None,
+            "ref_no": ref_no or "", "kisi": kisi or "",
+        }).eq("id", rid).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def butce_sil(rid):
+    try:
+        sb = get_client()
+        sb.table("ref_butce").delete().eq("id", rid).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def butce_temizle(firma_id):
+    try:
+        sb = get_client()
+        sb.table("ref_butce").delete().eq("firma_id", firma_id).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def butce_excel_ice_aktar(firma_id, df):
+    """ITOPYA_HAVUZ_BÜTÇE formatı (konuma göre):
+    TÜR|MARKA|AÇIKLAMA|HAKEDİŞ BÜTÇE|TUTAR|DÖVİZ|FATURA NO|FATURA TARİH|FİRMA|REF NO|AÇIKLAMA(kişi)"""
+    try:
+        sb = get_client()
+        rows = []
+        for _, r in df.iterrows():
+            v = list(r.values)
+
+            def g(i):
+                return v[i] if i < len(v) else None
+
+            tur = str(g(0) or "").strip()
+            if not tur or tur.lower() == "nan":
+                continue
+            marka = str(g(1) or "").strip()
+            aciklama = str(g(2) or "").strip()
+            tutar = _f(g(3))                       # HAKEDİŞ BÜTÇE = tutar
+            doviz = str(g(5) or "USD").strip() or "USD"
+            fatura_no = str(g(6) or "").strip()
+            ft = g(7)
+            if isinstance(ft, (datetime, date)):
+                fatura_tarih = ft.strftime("%Y-%m-%d")
+            else:
+                s = str(ft or "").strip()
+                fatura_tarih = s[:10] if s and s.lower() != "nan" else None
+            ref_no = str(g(9) or "").strip()
+            kisi = str(g(10) or "").strip()
+            if kisi.lower() == "nan":
+                kisi = ""
+            rows.append({
+                "firma_id": firma_id, "tur": tur, "yon": _yon_belirle(tur),
+                "aciklama": (aciklama if aciklama.lower() != "nan" else ""),
+                "marka": (marka if marka.lower() != "nan" else ""),
+                "tutar": tutar, "doviz": doviz, "fatura_no": fatura_no,
+                "fatura_tarih": fatura_tarih, "ref_no": ref_no, "kisi": kisi,
+            })
+        if rows:
+            for i in range(0, len(rows), 200):
+                sb.table("ref_butce").insert(rows[i:i + 200]).execute()
+        _cache_temizle()
+        return True, f"✅ {len(rows)} bütçe kaydı içe aktarıldı.", len(rows)
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
+
+
+# ════════════════════════════════════════════════════════════════════
+# UI
+# ════════════════════════════════════════════════════════════════════
 def render():
     st.markdown('<div class="baslik">🔖 Ref No Takibi</div>', unsafe_allow_html=True)
-    st.markdown('<div class="alt-baslik">Firma bazlı sellout / marketing destek referans no atama ve takip</div>',
+    st.markdown('<div class="alt-baslik">Firma bazlı ref no atama + havuz bütçe takibi</div>',
                 unsafe_allow_html=True)
 
     firmalar = get_firmalar()
@@ -181,8 +313,16 @@ def render():
     fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
     sec_label = st.selectbox("Firma seç", list(fmap.keys()), key="ref_firma_sec")
     firma = fmap[sec_label]
-    fid, fkod = firma["id"], firma["firma_kodu"]
 
+    tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
+    with tab1:
+        _render_refler(firma["id"], firma["firma_kodu"])
+    with tab2:
+        _render_butce(firma["id"], firma)
+
+
+# ── SEKME 1: REF NO'LAR ─────────────────────────────────────────────
+def _render_refler(fid, fkod):
     refler = get_refler(fid)
     _bekleyen = sum(1 for r in refler if r.get("durum") == "beklemede")
     _paylasilan = sum(1 for r in refler if r.get("durum") == "paylasildi")
@@ -191,7 +331,6 @@ def render():
     m2.metric("⏳ Beklemede", _bekleyen)
     m3.metric("✅ Paylaşılan", _paylasilan)
 
-    # ── Yeni ref ata (otomatik no) ──
     _siradaki = _sonraki_sira(fid)
     _onizleme = ref_uret(fkod, _yil(), _siradaki)
     st.markdown(
@@ -211,7 +350,6 @@ def render():
             if ok:
                 st.rerun()
 
-    # ── Excel'den içe aktar ──
     with st.expander("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)"):
         up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
         if up is not None:
@@ -229,7 +367,6 @@ def render():
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
 
-    # ── Geçmiş refler: görüntüle + düzenle ──
     st.markdown("#### 📋 Geçmiş Ref No'lar")
     if not refler:
         st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'den içe aktarabilirsiniz.")
@@ -242,11 +379,8 @@ def render():
     st.caption(f"{len(goster)} / {len(refler)} kayıt gösteriliyor")
 
     df_ed = pd.DataFrame([{
-        "id": r["id"],
-        "No": int(r.get("sira_no") or 0),
-        "Ref No": r.get("ref_no", "") or "",
-        "Açıklama": r.get("aciklama", "") or "",
-        "Durum": r.get("durum", "beklemede") or "beklemede",
+        "id": r["id"], "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
+        "Açıklama": r.get("aciklama", "") or "", "Durum": r.get("durum", "beklemede") or "beklemede",
         "Tarih": str(r.get("tarih") or ""),
     } for r in goster])
 
@@ -271,12 +405,172 @@ def render():
             n_ack = str(row.get("Açıklama", "") or "")
             n_dur = str(row.get("Durum", "beklemede"))
             n_tar = (str(row.get("Tarih", "") or "").strip() or None)
-            if (n_ack != (o.get("aciklama", "") or "") or
-                    n_dur != (o.get("durum") or "") or
+            if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
                     (n_tar or "") != (str(o.get("tarih") or ""))):
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay)
                 degisen += 1
         st.success(f"✅ {degisen} kayıt güncellendi." if degisen else "Değişiklik yok.")
         if degisen:
+            st.rerun()
+
+
+# ── SEKME 2: HAVUZ BÜTÇE ────────────────────────────────────────────
+def _render_butce(fid, firma):
+    kayitlar = get_butce(fid)
+    giris = sum(_f(r.get("tutar")) for r in kayitlar if r.get("yon") == "giris")
+    harcama = sum(_f(r.get("tutar")) for r in kayitlar if r.get("yon") != "giris")
+    kalan = giris - harcama
+
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.10));'
+        'border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:16px 20px;margin:4px 0 14px;'
+        'display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px">'
+        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Toplam Bütçe (giriş)</div>'
+        f'<div style="color:#34D399;font-size:24px;font-weight:800">${giris:,.2f}</div></div>'
+        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Toplam Harcama</div>'
+        f'<div style="color:#F87171;font-size:24px;font-weight:800">${harcama:,.2f}</div></div>'
+        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Kalan Havuz</div>'
+        f'<div style="color:#A5B4FC;font-size:24px;font-weight:800">${kalan:,.2f}</div></div>'
+        '</div>', unsafe_allow_html=True)
+
+    # ── Yeni kayıt ekle ──
+    with st.expander("➕ Yeni Bütçe / Harcama Kaydı Ekle"):
+        ref_secenek = [""] + [r.get("ref_no", "") for r in get_refler(fid)]
+        with st.form(f"butce_ekle_{fid}", clear_on_submit=True):
+            b1, b2, b3 = st.columns(3)
+            b_tur = b1.selectbox("Tür", BUTCE_TURLER, index=0,
+                                 help="BÜTÇE = giriş (+), diğerleri = harcama (−)")
+            b_tutar = b2.number_input("Tutar", min_value=0.0, value=0.0, step=100.0)
+            b_doviz = b3.selectbox("Döviz", ["USD", "EUR", "TL"], index=0)
+            b_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ FAZEON SELLOUT")
+            b4, b5, b6 = st.columns(3)
+            b_fno = b4.text_input("Fatura No", placeholder="örn. UYSD-8459")
+            b_ftar = b5.date_input("Fatura Tarihi", value=date.today())
+            b_ref = b6.selectbox("Ref No", ref_secenek, index=0)
+            b_kisi = st.text_input("Kişi / Sorumlu", placeholder="örn. DERYA MOLLAOĞLU")
+            if st.form_submit_button("➕ Kaydı Ekle", type="primary", use_container_width=True):
+                ok, msg = butce_ekle(fid, b_tur, b_ack.strip(), b_tutar, b_doviz,
+                                     b_fno.strip(), b_ftar, b_ref, b_kisi.strip())
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+
+    # ── Excel içe aktar ──
+    with st.expander("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)"):
+        st.caption("Sütunlar: TÜR · MARKA · AÇIKLAMA · HAKEDİŞ BÜTÇE · TUTAR · DÖVİZ · FATURA NO · FATURA TARİH · FİRMA · REF NO · AÇIKLAMA(kişi)")
+        upb = st.file_uploader("Havuz bütçe Excel'i", type=["xlsx", "xls"], key=f"butce_up_{fid}")
+        temizle = st.checkbox("Önce mevcut bütçe kayıtlarını sil (güncel listeyi baştan yükle)",
+                              key=f"butce_temizle_{fid}")
+        if upb is not None:
+            try:
+                df_b = pd.read_excel(upb)
+                st.dataframe(df_b.head(15), use_container_width=True, height=200)
+                if st.button("📥 İçe Aktar", type="primary", key=f"butce_imp_{fid}"):
+                    if temizle:
+                        butce_temizle(fid)
+                    ok, msg, _n = butce_excel_ice_aktar(fid, df_b)
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Excel okunamadı: {e}")
+
+    if not kayitlar:
+        st.info("Bu firma için henüz havuz bütçe kaydı yok. Yukarıdan ekleyebilir veya Excel'den içe aktarabilirsiniz.")
+        return
+
+    # ── Tür bazlı özet ──
+    from collections import defaultdict
+    tur_top = defaultdict(float)
+    for r in kayitlar:
+        tur_top[r.get("tur", "?")] += _f(r.get("tutar"))
+    ozet_df = pd.DataFrame(
+        [{"Tür": t, "Toplam ($)": round(v, 2),
+          "Yön": "Giriş" if _yon_belirle(t) == "giris" else "Harcama"}
+         for t, v in sorted(tur_top.items(), key=lambda x: -x[1])])
+    st.markdown("##### 📊 Tür Bazlı Özet")
+    st.dataframe(ozet_df, use_container_width=True, hide_index=True,
+                 height=min(40 + 35 * len(ozet_df), 320))
+
+    # ── Ref bazlı özet (giriş / harcama / kalan) ──
+    ref_g = defaultdict(float)
+    ref_h = defaultdict(float)
+    for r in kayitlar:
+        ref = r.get("ref_no", "") or "(boş)"
+        if r.get("yon") == "giris":
+            ref_g[ref] += _f(r.get("tutar"))
+        else:
+            ref_h[ref] += _f(r.get("tutar"))
+    tum_ref = sorted(set(ref_g) | set(ref_h))
+    ref_df = pd.DataFrame([{
+        "Ref No": ref, "Bütçe ($)": round(ref_g.get(ref, 0), 2),
+        "Harcama ($)": round(ref_h.get(ref, 0), 2),
+        "Kalan ($)": round(ref_g.get(ref, 0) - ref_h.get(ref, 0), 2),
+    } for ref in tum_ref])
+    st.markdown("##### 🧾 Ref / Fatura Bazlı Özet")
+    st.dataframe(ref_df, use_container_width=True, hide_index=True,
+                 height=min(40 + 35 * len(ref_df), 320))
+
+    # ── Hareket defteri (düzenlenebilir) ──
+    st.markdown("##### 📋 Hareket Defteri (düzenle / sil)")
+    ara = st.text_input("🔍 Ara (açıklama / fatura / ref / kişi)", key=f"butce_ara_{fid}").strip().lower()
+
+    def _eslesir(r):
+        if not ara:
+            return True
+        return ara in (str(r.get("aciklama", "")) + " " + str(r.get("fatura_no", "")) + " " +
+                       str(r.get("ref_no", "")) + " " + str(r.get("kisi", "")) + " " +
+                       str(r.get("tur", ""))).lower()
+
+    goster = [r for r in kayitlar if _eslesir(r)]
+    st.caption(f"{len(goster)} / {len(kayitlar)} kayıt")
+
+    df_b = pd.DataFrame([{
+        "id": r["id"], "Sil?": False, "Tür": r.get("tur", "") or "",
+        "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
+        "Fatura No": r.get("fatura_no", "") or "", "Tarih": str(r.get("fatura_tarih") or ""),
+        "Ref No": r.get("ref_no", "") or "", "Kişi": r.get("kisi", "") or "",
+    } for r in goster])
+
+    edited = st.data_editor(
+        df_b, use_container_width=True, hide_index=True, num_rows="fixed",
+        key=f"butce_editor_{fid}_{ara}",
+        column_config={
+            "id": None,
+            "Sil?": st.column_config.CheckboxColumn("Sil?", width="small"),
+            "Tür": st.column_config.TextColumn("Tür", help="BÜTÇE = giriş; diğerleri harcama"),
+            "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
+            "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.2f"),
+            "Fatura No": st.column_config.TextColumn("Fatura No"),
+            "Tarih": st.column_config.TextColumn("Tarih (YYYY-AA-GG)"),
+            "Ref No": st.column_config.TextColumn("Ref No"),
+            "Kişi": st.column_config.TextColumn("Kişi"),
+        },
+    )
+    if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"butce_save_{fid}"):
+        orijinal = {r["id"]: r for r in goster}
+        silinen = degisen = 0
+        for _, row in edited.iterrows():
+            rid = row["id"]
+            if bool(row.get("Sil?")):
+                if butce_sil(rid):
+                    silinen += 1
+                continue
+            o = orijinal.get(rid, {})
+            n_tur = str(row.get("Tür", "") or "")
+            n_ack = str(row.get("Açıklama", "") or "")
+            n_tut = _f(row.get("Tutar"))
+            n_fno = str(row.get("Fatura No", "") or "")
+            n_tar = (str(row.get("Tarih", "") or "").strip() or None)
+            n_ref = str(row.get("Ref No", "") or "")
+            n_kisi = str(row.get("Kişi", "") or "")
+            if (n_tur != (o.get("tur", "") or "") or n_ack != (o.get("aciklama", "") or "") or
+                    abs(n_tut - _f(o.get("tutar"))) > 0.001 or n_fno != (o.get("fatura_no", "") or "") or
+                    (n_tar or "") != (str(o.get("fatura_tarih") or "")) or
+                    n_ref != (o.get("ref_no", "") or "") or n_kisi != (o.get("kisi", "") or "")):
+                butce_guncelle(rid, n_tur, n_ack, n_tut, n_fno, n_tar, n_ref, n_kisi)
+                degisen += 1
+        st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
+        if degisen or silinen:
             st.rerun()
