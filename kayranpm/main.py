@@ -466,6 +466,7 @@ def run():
             "🛒  Satın Alma Geçmişi",
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
+            "🔖  Ref No Takibi",
             "📂  Veri Yükleme",
         ], label_visibility="collapsed")
         st.markdown(f"""
@@ -2550,6 +2551,10 @@ def run():
 
     
     
+    elif sayfa == "🔖  Ref No Takibi":
+        from .ref_no import render as _ref_render
+        _ref_render()
+
     elif sayfa == "📂  Veri Yükleme":
         st.markdown('<div class="baslik">📂 Veri Yükleme</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet</div>', unsafe_allow_html=True)
