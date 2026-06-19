@@ -493,43 +493,8 @@ def _render_butce(fid, firma):
         st.info("Bu firma için henüz havuz bütçe kaydı yok. Yukarıdan ekleyebilir veya Excel'den içe aktarabilirsiniz.")
         return
 
-    # ── Tür bazlı özet ──
-    from collections import defaultdict
-    tur_top = defaultdict(float)
-    for r in kayitlar:
-        if r.get("yon") != "giris":
-            tur_top[r.get("tur", "?")] += _f(r.get("tutar"))
-    ozet_df = pd.DataFrame(
-        [{"Harcama Türü": t, "Toplam ($)": round(v, 2)}
-         for t, v in sorted(tur_top.items(), key=lambda x: -x[1])])
-    st.markdown("##### 📊 Harcama Dağılımı (tür bazlı)")
-    if len(ozet_df):
-        st.dataframe(ozet_df, use_container_width=True, hide_index=True,
-                     height=min(40 + 35 * len(ozet_df), 320))
-    else:
-        st.caption("Henüz harcama kaydı yok.")
-
-    # ── Ref bazlı özet (giriş / harcama / kalan) ──
-    ref_g = defaultdict(float)
-    ref_h = defaultdict(float)
-    for r in kayitlar:
-        ref = r.get("ref_no", "") or "(boş)"
-        if r.get("yon") == "giris":
-            ref_g[ref] += _f(r.get("tutar"))
-        else:
-            ref_h[ref] += _f(r.get("tutar"))
-    tum_ref = sorted(set(ref_g) | set(ref_h))
-    ref_df = pd.DataFrame([{
-        "Ref No": ref, "Bütçe ($)": round(ref_g.get(ref, 0), 2),
-        "Harcama ($)": round(ref_h.get(ref, 0), 2),
-        "Kalan ($)": round(ref_g.get(ref, 0) - ref_h.get(ref, 0), 2),
-    } for ref in tum_ref])
-    st.markdown("##### 🧾 Ref / Fatura Bazlı Özet")
-    st.dataframe(ref_df, use_container_width=True, hide_index=True,
-                 height=min(40 + 35 * len(ref_df), 320))
-
     # ── Hareket defteri (düzenlenebilir) ──
-    st.markdown("##### 📋 Hareket Defteri (düzenle / sil)")
+    st.markdown("##### 📋 Destek Kayıtları (düzenle / sil)")
     ara = st.text_input("🔍 Ara (açıklama / fatura / ref / kişi)", key=f"butce_ara_{fid}").strip().lower()
 
     def _eslesir(r):
