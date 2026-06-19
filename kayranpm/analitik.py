@@ -236,6 +236,15 @@ def risk_skoru_hesapla(bizim_stok, ortalama_haftalik_satis, stok_gun, siparis_so
         return skor, "🟢 Düşük Risk"
 
 
+def _ithalat_maliyet_map():
+    """İthalat modülünden SKU bazlı paçal maliyet haritası (güvenli)."""
+    try:
+        from ithalat.database import get_sku_maliyet_ozet
+        return get_sku_maliyet_ozet() or {}
+    except Exception:
+        return {}
+
+
 def kar_marji_hesapla(satis_fiyati, alis_fiyati, toplam_maliyet=None):
     """
     Kar marjını ve durumunu hesaplar.
@@ -270,6 +279,7 @@ def kar_marji_analizi():
     urunler = sb.table("urunler").select("*").order("urun_adi").execute().data or []
 
     sonuclar = []
+    _ith_map = _ithalat_maliyet_map()
     for u in urunler:
         satis = u.get("satis_fiyati") or u.get("fiyat") or 0
         alis = u.get("alis_fiyati") or 0
@@ -477,30 +487,21 @@ def tum_urunler_listesi():
         toplam_firma_stok = sum(firma_stoklari.values())
         toplam_stok = bizim_stok + toplam_firma_stok
 
-        # FINAL COST PRICE (paçal)
-        toplam_maliyet_x_adet = 0
-        toplam_adet = 0
-        for k in kayitlar:
-            fob = k.get("alis_fiyati") or k.get("birim_alis_fiyati") or 0
-            mal_yuzde = k.get("maliyet_yuzdesi") or 0
-            adet = k.get("adet") or 0
-            cost_price = fob * (1 + mal_yuzde / 100)
-            toplam_maliyet_x_adet += cost_price * adet
-            toplam_adet += adet
-
-        final_cost_price = (toplam_maliyet_x_adet / toplam_adet) if toplam_adet > 0 else 0
-
-        # En son alış bilgileri
-        if kayitlar:
-            son_k = kayitlar[0]
-            fob_price = son_k.get("alis_fiyati") or son_k.get("birim_alis_fiyati") or 0
-            mal_yuzde = son_k.get("maliyet_yuzdesi") or 0
+        # FINAL COST PRICE — İthalat paçal (adet-ağırlıklı landed maliyet)
+        _ith = _ith_map.get(sku)
+        if _ith and _ith.get("toplam_adet", 0) > 0:
+            fob_price = _ith["pacal_fob"]
+            final_cost_price = _ith["pacal_final"]
+            toplam_adet = _ith["toplam_adet"]
+            ithalat_dosya_sayisi = _ith.get("dosya_sayisi", 0)
         else:
-            fob_price = u.get("alis_fiyati") or 0
-            mal_yuzde = 0
-
-        cost = fob_price * (mal_yuzde / 100)
-        cost_price = fob_price + cost
+            fob_price = 0
+            final_cost_price = 0
+            toplam_adet = 0
+            ithalat_dosya_sayisi = 0
+        mal_yuzde = ((final_cost_price / fob_price - 1) * 100) if fob_price > 0 else 0
+        cost = final_cost_price - fob_price
+        cost_price = final_cost_price
         stok_degeri_fcp = bizim_stok * final_cost_price
         stok_degeri_satis = bizim_stok * satis_fiyati
 
@@ -524,6 +525,7 @@ def tum_urunler_listesi():
             "hedef_marj": hedef_marj,
             "final_cost_price": final_cost_price,
             "fob_price": fob_price,
+            "ithalat_dosya_sayisi": ithalat_dosya_sayisi,
             "cost": cost,
             "cost_price": cost_price,
             "mal_yuzde": mal_yuzde,
@@ -648,6 +650,7 @@ def dashboard_hesapla():
             stok_yas_map[sku] = v or ""
 
     dashboard_satirlar = []
+    _ith_map = _ithalat_maliyet_map()
 
     for urun in urunler:
         sku = urun["sku"]
@@ -739,7 +742,8 @@ def dashboard_hesapla():
 
         # Kar marjı
         satis_f = urun.get("satis_fiyati") or urun.get("fiyat") or 0
-        alis_f = urun.get("alis_fiyati") or 0
+        _ith = _ith_map.get(sku)
+        alis_f = _ith["pacal_final"] if (_ith and _ith.get("toplam_adet", 0) > 0) else 0
         kar_marji, kar_tl, kar_durum, kar_renk = kar_marji_hesapla(satis_f, alis_f)
 
         # Ölü stok tespiti
@@ -755,6 +759,10 @@ def dashboard_hesapla():
             "urun_adi": urun_adi,
             "kategori": kategori,
             "marka": urun.get("marka", ""),
+            "alis_fiyati": alis_f,
+            "ithalat_fob": (_ith["pacal_fob"] if _ith else 0),
+            "ithalat_final": alis_f,
+            "ithalat_dosya_sayisi": (_ith.get("dosya_sayisi", 0) if _ith else 0),
             "bizim_stok": bizim_stok,
             "toplam_stok": toplam_stok,
             "toplam_firma_stok": toplam_firma_stok,

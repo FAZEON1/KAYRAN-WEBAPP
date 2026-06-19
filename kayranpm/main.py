@@ -1266,6 +1266,7 @@ def run():
         cost = secilen.get("cost") or secilen.get("son_cost") or 0
         cost_price = secilen.get("cost_price") or secilen.get("son_cost_price") or 0
         fcp = secilen.get("final_cost_price") or 0
+        ithalat_dosya = secilen.get("ithalat_dosya_sayisi", 0) or 0
         satis = secilen.get("satis_fiyati") or 0
         mal_y = secilen.get("mal_yuzde") or secilen.get("son_mal_yuzde") or 0
     
@@ -1274,16 +1275,18 @@ def run():
             kar_html = f'<div style="background:#1B3A2A; border-radius:8px; padding:12px; text-align:center;"><div style="color:#81C784; font-size:11px; margin-bottom:4px;">KAR</div><div style="color:#A5D6A7; font-size:18px; font-weight:700;">${satis-fcp:,.2f} (%{((satis-fcp)/satis*100):.1f})</div></div>' if (satis > 0 and fcp > 0) else ""
             st.markdown(
                 f'<div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.1)">'
-                f'<div style="color:#90CAF9; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px;">FİYAT ANALİZİ</div>'
+                f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="color:#90CAF9; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">FİYAT ANALİZİ</div><div style="color:#A5D6A7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>'
                 f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">'
                 f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">FOB PRICE</div><div style="color:#FFFFFF; font-size:18px; font-weight:700;">${fob:,.2f}</div></div>'
                 f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">COST (%{mal_y:.1f})</div><div style="color:#FFA726; font-size:18px; font-weight:700;">${cost:,.2f}</div></div>'
                 f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">COST PRICE</div><div style="color:#FFFFFF; font-size:18px; font-weight:700;">${cost_price:,.2f}</div></div>'
-                f'<div style="background:#1a3a00; border-radius:8px; padding:12px; text-align:center; border:1px solid #FFD54F;"><div style="color:#FFD54F; font-size:11px; font-weight:700; margin-bottom:4px;">⭐ FINAL COST PRICE</div><div style="color:#FFD54F; font-size:22px; font-weight:800;">${fcp:,.2f}</div><div style="color:#A5D6A7; font-size:10px;">Paçal maliyet</div></div>'
+                f'<div style="background:#1a3a00; border-radius:8px; padding:12px; text-align:center; border:1px solid #FFD54F;"><div style="color:#FFD54F; font-size:11px; font-weight:700; margin-bottom:4px;">⭐ FINAL COST PRICE</div><div style="color:#FFD54F; font-size:22px; font-weight:800;">${fcp:,.2f}</div><div style="color:#A5D6A7; font-size:10px;">Paçal maliyet · İthalat</div></div>'
                 f'{satis_html}{kar_html}'
                 f'</div></div>',
                 unsafe_allow_html=True
             )
+        else:
+            st.markdown('<div style="background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:12px;padding:16px;text-align:center;color:#94A3B8;font-size:12px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
     
         st.markdown("---")
 
@@ -1501,12 +1504,12 @@ def run():
                 '<thead><tr>'
                 '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
                 '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
-                "<th>FOB</th><th>Maliyet %</th><th>⭐ Final Cost</th><th>Satış</th>"
+                "<th>FOB</th><th>Maliyet %</th><th>⭐ Paçal Maliyet</th><th>Satış</th>"
                 "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
                 "</tr></thead><tbody>"
             )
             st.html(css + thead + satir_html + "</tbody></table></div>")
-            st.caption("💡 Maliyet % = (Final Cost / FOB − 1) × 100  ·  Net Kâr $ = Satış − Final Cost  ·  Net Marj % = Net Kâr / Satış × 100")
+            st.caption("💡 Tüm maliyetler İthalat verisinden (paçal) · Maliyet % = (Paçal / FOB − 1) × 100 · Net Kâr $ = Satış − Paçal · Net Marj % = Net Kâr / Satış × 100")
 
             with st.expander("✏️ Ürün Düzenle", expanded=False):
                 st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
