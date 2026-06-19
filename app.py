@@ -1290,6 +1290,76 @@ def anasayfa():
                 tumunu_okundu_isaretle(aktif_kullanici)
                 st.rerun()
 
+    # ── Otomatik bildirim izleyici: yeni talep/bildirim gelince sayfa kendiliğinden yenilenir ──
+    _frag = getattr(st, "fragment", None)
+    if _frag:
+        @_frag(run_every="15s")
+        def _bildirim_izleyici():
+            try:
+                _yeni_say = len(get_okunmamis_bildirimler(aktif_kullanici))
+            except Exception:
+                return
+            _eski = st.session_state.get("_bildirim_say_izle")
+            st.session_state["_bildirim_say_izle"] = _yeni_say
+            if _eski is not None and _yeni_say > _eski:
+                try:
+                    st.cache_data.clear()
+                except Exception:
+                    pass
+                try:
+                    st.rerun(scope="app")
+                except TypeError:
+                    st.rerun()
+        _bildirim_izleyici()
+
+    # ─────────────────────────────────────────────────────────────────────
+    # GELEN TALEPLER (sadece ibrahim görür)
+    # ─────────────────────────────────────────────────────────────────────
+    if aktif_kullanici.lower() == "ibrahim":
+        st.markdown("---")
+        st.markdown("### 📬 Gelen Talepler")
+        try:
+            from kayranpm.database import get_talepler
+            talepler = get_talepler()
+        except Exception:
+            talepler = []
+        if not talepler:
+            st.info("Henüz talep yok.")
+        else:
+            for t in talepler:
+                durum_renk = {"bekliyor": "🟡", "inceleniyor": "🔵", "tamamlandi": "🟢"}.get(t.get("durum",""), "⚪")
+                with st.expander(f"{durum_renk} {t.get('konu','—')} · {t.get('gonderen','?')} · {str(t.get('olusturma_tarihi',''))[:16]}"):
+                    st.write(t.get("mesaj",""))
+                    st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
+                                      
+                    talep_id = t.get("id")
+                    yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
+
+                    _durum_secenekler = ["bekliyor", "inceleniyor", "tamamlandi"]
+                    _mevcut_durum = t.get("durum", "bekliyor")
+                    _durum_idx = _durum_secenekler.index(_mevcut_durum) if _mevcut_durum in _durum_secenekler else 0
+                    durum_sec = st.selectbox("Durum", _durum_secenekler, index=_durum_idx, key=f"durum_{talep_id}")
+
+                    if st.button("💾 Kaydet", key=f"kaydet_{talep_id}", type="primary"):
+                        try:
+                            from kayranpm.database import guncelle_talep_cevap
+                            guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
+                            # Cevabı, talebi gönderen kişiye bildirim olarak ilet
+                            _gonderen = (t.get("gonderen") or "").strip()
+                            if _gonderen and yeni_cevap.strip():
+                                try:
+                                    bildirim_gonder(
+                                        _gonderen.lower(),
+                                        f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {yeni_cevap.strip()}"
+                                    )
+                                except Exception:
+                                    pass
+                            st.success("✅ Cevap kaydedildi ve gönderene iletildi.")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Kaydedilemedi: {_e}")
+
 
     # ─────────────────────────────────────────────────────────────────────
     # KULLANICIYA GÖREV KUTUSU — EN ÜSTTE (ibrahim dışı herkes)
@@ -1800,53 +1870,6 @@ def anasayfa():
             sg_html += '</div></div>'
             st.markdown(sg_html, unsafe_allow_html=True)
 
-    # ─────────────────────────────────────────────────────────────────────
-    # GELEN TALEPLER (sadece ibrahim görür)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() == "ibrahim":
-        st.markdown("---")
-        st.markdown("### 📬 Gelen Talepler")
-        try:
-            from kayranpm.database import get_talepler
-            talepler = get_talepler()
-        except Exception:
-            talepler = []
-        if not talepler:
-            st.info("Henüz talep yok.")
-        else:
-            for t in talepler:
-                durum_renk = {"bekliyor": "🟡", "inceleniyor": "🔵", "tamamlandi": "🟢"}.get(t.get("durum",""), "⚪")
-                with st.expander(f"{durum_renk} {t.get('konu','—')} · {t.get('gonderen','?')} · {str(t.get('olusturma_tarihi',''))[:16]}"):
-                    st.write(t.get("mesaj",""))
-                    st.caption(f"Durum: **{t.get('durum','bekliyor')}**")
-                                      
-                    talep_id = t.get("id")
-                    yeni_cevap = st.text_area("Cevabinizi yazin", value=t.get("cevap",""), key=f"cevap_{talep_id}", height=80, label_visibility="collapsed", placeholder="Cevabinizi buraya yazin...")
-
-                    _durum_secenekler = ["bekliyor", "inceleniyor", "tamamlandi"]
-                    _mevcut_durum = t.get("durum", "bekliyor")
-                    _durum_idx = _durum_secenekler.index(_mevcut_durum) if _mevcut_durum in _durum_secenekler else 0
-                    durum_sec = st.selectbox("Durum", _durum_secenekler, index=_durum_idx, key=f"durum_{talep_id}")
-
-                    if st.button("💾 Kaydet", key=f"kaydet_{talep_id}", type="primary"):
-                        try:
-                            from kayranpm.database import guncelle_talep_cevap
-                            guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
-                            # Cevabı, talebi gönderen kişiye bildirim olarak ilet
-                            _gonderen = (t.get("gonderen") or "").strip()
-                            if _gonderen and yeni_cevap.strip():
-                                try:
-                                    bildirim_gonder(
-                                        _gonderen.lower(),
-                                        f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {yeni_cevap.strip()}"
-                                    )
-                                except Exception:
-                                    pass
-                            st.success("✅ Cevap kaydedildi ve gönderene iletildi.")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as _e:
-                            st.error(f"Kaydedilemedi: {_e}")
 
     # ─────────────────────────────────────────────────────────────────────
     # DUYURU YÖNETİMİ PANELİ (sadece ibrahim görür)
