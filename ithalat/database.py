@@ -146,6 +146,63 @@ def get_tum_kalemler():
         return []
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def get_sku_maliyet_ozet():
+    """
+    Her SKU için ithalat verisinden PAÇAL (adet-ağırlıklı ortalama) maliyet.
+    Dönen: {sku: {pacal_fob, pacal_final, toplam_adet, dosya_sayisi}}
+      • dosya_yuzde = toplam_masraf / FOB * 100  (dosya bazında)
+      • birim landed = birim_fob * (1 + dosya_yuzde/100)
+      • paçal = tüm partilerdeki landed/fob değerlerinin adet-ağırlıklı ortalaması
+    Not: Tüm tutarların aynı para biriminde (USD) olduğu varsayılır.
+    """
+    try:
+        dosyalar = get_dosyalar()
+        kalemler = get_tum_kalemler()
+        if not kalemler:
+            return {}
+        # Kalemleri dosyaya göre grupla
+        by_dosya = {}
+        for k in kalemler:
+            by_dosya.setdefault(k.get("dosya_id"), []).append(k)
+        # Her dosyanın masraf yüzdesi
+        dosya_map = {d.get("id"): d for d in dosyalar}
+        dosya_yuzde = {}
+        for did, ks in by_dosya.items():
+            dosya_yuzde[did] = dosya_hesapla(dosya_map.get(did, {}), ks).get("maliyet_yuzde", 0.0)
+        # SKU bazında ağırlıklı topla
+        agg = {}
+        for k in kalemler:
+            sku = (str(k.get("sku") or "")).strip()
+            if not sku:
+                continue
+            adet = _f(k.get("adet"))
+            fob = _f(k.get("birim_fob"))
+            if adet <= 0:
+                continue
+            yuzde = dosya_yuzde.get(k.get("dosya_id"), 0.0)
+            final = fob * (1 + yuzde / 100.0)
+            a = agg.setdefault(sku, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0, "dosyalar": set()})
+            a["fob_x"] += fob * adet
+            a["final_x"] += final * adet
+            a["adet"] += adet
+            a["dosyalar"].add(k.get("dosya_id"))
+        sonuc = {}
+        for sku, a in agg.items():
+            ad = a["adet"]
+            if ad <= 0:
+                continue
+            sonuc[sku] = {
+                "pacal_fob": a["fob_x"] / ad,
+                "pacal_final": a["final_x"] / ad,
+                "toplam_adet": ad,
+                "dosya_sayisi": len(a["dosyalar"]),
+            }
+        return sonuc
+    except Exception:
+        return {}
+
+
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler):
     """Bir ithalat dosyası + kalemlerini ekler.
