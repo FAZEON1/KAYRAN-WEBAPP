@@ -1216,6 +1216,8 @@ input, textarea, select { font-size: 16px !important; }
                 '<div style="font-size:10px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px"> ' + uyg_adi + ' SAYFALARI</div>',
                 unsafe_allow_html=True
             )
+            # Modüle tıklayınca soldaki menünün kayacağı hedef
+            st.markdown('<div id="kayran-submenu-anchor"></div>', unsafe_allow_html=True)
 
 
 def anasayfa():
@@ -2263,6 +2265,12 @@ def main():
     aktif = st.session_state.aktif_uygulama
     yetkiler = kullanici_yetkileri(st.session_state.aktif_kullanici)
 
+    # Modül değişince soldaki menüyü ilgili alt menüye (SAYFALARI) kaydır
+    if st.session_state.get("_nav_onceki") != aktif:
+        if aktif in ("kayranacc", "kayranpm", "ithalat", "hesap_makinesi"):
+            st.session_state["_sidebar_kaydir"] = True
+        st.session_state["_nav_onceki"] = aktif
+
     # Yetki kontrolü
     if aktif == "kayranacc" and not yetkiler["kayranacc"]:
         st.error("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
@@ -2305,6 +2313,21 @@ def main():
     except Exception as hata:
         ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
+
+    # Modül değiştiyse soldaki menüyü ilgili "SAYFALARI" alt menüsüne kaydır
+    if st.session_state.pop("_sidebar_kaydir", False):
+        import streamlit.components.v1 as _components
+        _components.html(
+            "<script>"
+            "(function(){function go(n){try{"
+            "var d=window.parent.document;"
+            "var a=d.querySelector('#kayran-submenu-anchor');"
+            "if(a){a.scrollIntoView({behavior:'smooth',block:'start'});}"
+            "else if(n>0){setTimeout(function(){go(n-1);},120);}"
+            "}catch(e){}}go(20);})();"
+            "</script>",
+            height=0,
+        )
 
 
 if __name__ == "__main__":
