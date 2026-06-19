@@ -515,9 +515,11 @@ def _yeni_ithalat():
     with sekme2:
         st.markdown(
             "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
-            "Aynı **Sipariş no** satırları tek ithalat dosyası olur. Eşleme: "
-            "**Belge no → PI No**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
+            "Aynı **Belge no** satırları tek ithalat dosyası olur — **bir belgede birden çok sipariş olabilir** "
+            "ve masraf bu dosyaya (Belge no) göre maliyetlenir. Eşleme: "
+            "**Belge no → Dosya / PI**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
             "**Miktar → adet**, **Net fiyat** (yoksa **Birim Fiyat**) **→ birim FOB**, **Döviz**. "
+            "İçindeki **Sipariş no(lar)** dosya notuna eklenir. "
             "Masraf bu aşamada girilmez — dosya **⏳ masraf bekliyor** olarak düşer; masrafları sonra "
             "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı / bedelsiz satırlar otomatik atlanır.)"
         )
@@ -553,21 +555,33 @@ def _yeni_ithalat():
                 if alan and alan not in kol:
                     kol[alan] = c
 
-            eksik = [a for a in ("dosya_no", "sku", "adet") if a not in kol]
+            eksik = [a for a in ("sku", "adet") if a not in kol]
+            if "pi_no" not in kol and "dosya_no" not in kol:
+                eksik.append("belge no / sipariş no")
             if "net_fiyat" not in kol and "birim_fiyat" not in kol:
                 eksik.append("net fiyat / birim fiyat")
             if eksik:
                 st.error("Şu sütunlar bulunamadı: " + ", ".join(eksik) +
-                         ". Beklenen başlıklar: Sipariş no, Belge no, Cari hesap adı, Stok kodu, "
+                         ". Beklenen başlıklar: Belge no, Sipariş no, Cari hesap adı, Stok kodu, "
                          "Stok ismi, Miktar, Net fiyat (veya Birim Fiyat), Döviz.")
                 return
 
             st.markdown("**Önizleme**")
             st.dataframe(df.head(30), use_container_width=True, height=240)
 
+            # Gruplama anahtarı: BELGE NO (yoksa Sipariş no). Bir belge = bir ithalat dosyası.
+            _belge_col = kol.get("pi_no")
+            _sip_col = kol.get("dosya_no")
+            def _grup_key(r):
+                b = str(r.get(_belge_col, "") or "").strip() if _belge_col else ""
+                if b and b.lower() != "nan":
+                    return b
+                return str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
+            df = df.copy()
+            df["_grup"] = df.apply(_grup_key, axis=1)
             mevcut_dosyalar = {str(d.get("dosya_no", "")).strip() for d in get_dosyalar()}
-            gruplar = list(df.groupby(df[kol["dosya_no"]].astype(str)))
-            st.caption(f"{len(gruplar)} sipariş (dosya) bulundu.")
+            gruplar = list(df.groupby("_grup"))
+            st.caption(f"{len(gruplar)} belge (ithalat dosyası) bulundu.")
 
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
                 basari, atlanan, sifir, hata, mesajlar = 0, 0, 0, 0, []
@@ -599,11 +613,19 @@ def _yeni_ithalat():
                         atlanan += 1
                         mesajlar.append(f"{dno_s}: geçerli (fiyatlı) kalem yok, atlandı.")
                         continue
-                    pi_no = str(ilk.get(kol["pi_no"], "") or "").strip() if "pi_no" in kol else ""
+                    belge_no = str(ilk.get(kol["pi_no"], "") or "").strip() if "pi_no" in kol else ""
+                    if not belge_no or belge_no.lower() == "nan":
+                        belge_no = dno_s
+                    if "dosya_no" in kol:
+                        _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
+                                        if str(x).strip() and str(x).strip().lower() != "nan"})
+                    else:
+                        _sips = []
+                    notlar = ("Sipariş(ler): " + ", ".join(_sips)) if _sips else ""
                     tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
-                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, "", kalemler, pi_no=pi_no)
+                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler, pi_no=belge_no)
                     if ok:
                         basari += 1
                     else:
