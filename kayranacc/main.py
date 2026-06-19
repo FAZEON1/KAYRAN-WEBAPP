@@ -3999,6 +3999,19 @@ def run():
             except (TypeError, ValueError):
                 pass
     
+        # ─── EERA HAVUZ BÜTÇE (Ürün Yönetimi → Ref No Takibi) ───
+        try:
+            from kayranpm.ref_no import (get_firmalar as _rf_firmalar,
+                                         get_butce as _rf_butce, _f as _rf_f)
+            havuz_butce_usd = 0.0
+            for _hf in (_rf_firmalar() or []):
+                _hk = _rf_butce(_hf["id"]) or []
+                _hg = sum(_rf_f(x.get("tutar")) for x in _hk if x.get("yon") == "giris")
+                _hh = sum(_rf_f(x.get("tutar")) for x in _hk if x.get("yon") != "giris")
+                havuz_butce_usd += (_hg - _hh)
+        except Exception:
+            havuz_butce_usd = 0.0
+
         # TOPLAM AKTİFLER
         toplam_aktif = (
             stok_marjli
@@ -4006,6 +4019,7 @@ def run():
             + banka_usd_eqv
             + toplam_alacak_usd
             + manuel_ekle_toplam
+            + havuz_butce_usd
             - usd_borc
             - tl_borc_usd
             - eur_borc_usd
@@ -4045,6 +4059,7 @@ def run():
         detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #3B82F6;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">📦 G5F Stok Değeri (KDV dahil)</div><div style="font-size:11px;color:#64748B;margin-top:2px">Ham stok: ${fmt(usd_stok)} × 1.20 (KDV)</div></div><div style="font-size:18px;font-weight:700;color:#1D4ED8;font-family:monospace">+${fmt(stok_marjli)}</div></div>'
         detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #8B5CF6;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🚢 İthalat Ödenmiş Tutar (Yoldaki/Gümrükteki Mal)</div><div style="font-size:11px;color:#64748B;margin-top:2px">İthalat Excel\'inden Ödenen / USD toplamı</div></div><div style="font-size:18px;font-weight:700;color:#6D28D9;font-family:monospace">+${fmt(odenen_ithalat)}</div></div>'
         detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #F59E0B;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🏦 Banka Hesapları (USD eşdeğeri)</div><div style="font-size:11px;color:#64748B;margin-top:2px">USD: ${fmt(banka_usd)} + TL: ₺{fmt(banka_tl)} ÷ {kur}</div></div><div style="font-size:18px;font-weight:700;color:#B45309;font-family:monospace">+${fmt(banka_usd_eqv)}</div></div>'
+        detay_html += f'<div style="background:#10182F;border:1px solid rgba(99,102,241,0.4);border-left:4px solid #6366F1;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🔖 EERA HAVUZ BÜTÇE</div><div style="font-size:11px;color:#64748B;margin-top:2px">Ref No Takibi · kalan havuz bütçe (USD)</div></div><div style="font-size:18px;font-weight:700;color:#A5B4FC;font-family:monospace">+${fmt(havuz_butce_usd)}</div></div>'
         # Cari Alacaklar kartı (POZİTİF - eklenir)
         if usd_alacak or tl_alacak or eur_alacak:
             detay_html += f'<div style="background:#0A2D15;border:1px solid #A7F3D0;border-left:4px solid #16A34A;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#86EFAC">💚 Cari Alacaklar (size borçlular)</div><div style="font-size:11px;color:#15803D;margin-top:2px">{alacak_detay_str}</div></div><div style="font-size:18px;font-weight:700;color:#15803D;font-family:monospace;margin-left:14px">+${fmt(toplam_alacak_usd)}</div></div>'
