@@ -26,7 +26,7 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
 KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim"}
+ITHALAT_KULLANICILAR = {"ibrahim", "kemal"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
