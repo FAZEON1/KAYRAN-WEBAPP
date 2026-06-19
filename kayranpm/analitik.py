@@ -472,6 +472,7 @@ def tum_urunler_listesi():
         kayit_map[s].append(k)
 
     sonuclar = []
+    _ith_map = _ithalat_maliyet_map()
     for u in urunler:
         sku = u["sku"]
         satis_fiyati = u.get("satis_fiyati") or u.get("fiyat") or 0
