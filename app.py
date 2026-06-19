@@ -24,9 +24,9 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
-KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan"}
+KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan"}
+ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
