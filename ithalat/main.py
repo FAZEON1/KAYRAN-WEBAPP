@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
 )
 
 
@@ -217,7 +217,7 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
 def _excel_sablon_bytes():
     """Örnek satırlı boş Excel şablonu üretir (tüm masraf kalemleri kolon olarak)."""
     temel = {
-        "dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
+        "pi_no": "PI-2025-001", "dosya_no": "ITH-2025-001", "tarih": "2025-01-15", "tedarikci": "ABC Co.",
         "mense_ulke": "Cin", "doviz": "USD", "kur": 34.50,
     }
     masraf_ornek = {
@@ -271,6 +271,7 @@ def _gecmis_ithalatlar():
         h = dosya_hesapla(d, kal)
         hesap_map[d["id"]] = (d, kal, h)
         satirlar.append({
+            "PI No": d.get("pi_no", "") or "",
             "Dosya No": d.get("dosya_no", ""),
             "Tarih": str(d.get("tarih", ""))[:10],
             "Tedarikçi": d.get("tedarikci", ""),
@@ -280,6 +281,7 @@ def _gecmis_ithalatlar():
             "Toplam Masraf": h["toplam_masraf"],
             "% Maliyet": h["maliyet_yuzde"],
             "Kalem": h["kalem_sayisi"],
+            "Durum": "✅ Tamam" if h["toplam_masraf"] > 0 else "⏳ Bekliyor",
         })
 
     toplam_mal = sum(s["Mal Bedeli"] for s in satirlar)
@@ -293,7 +295,7 @@ def _gecmis_ithalatlar():
 
     _tablo(pd.DataFrame(satirlar),
            para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
-           sol=["Dosya No", "Tedarikçi", "Ülke", "Döviz"])
+           sol=["PI No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
 
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
@@ -305,6 +307,10 @@ def _gecmis_ithalatlar():
     did = secenekler[sec]
     d, kal, h = hesap_map[did]
 
+    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">PI No: <b style="color:#E2E8F0">{d.get("pi_no","") or "—"}</b> · Dosya: <b style="color:#E2E8F0">{d.get("dosya_no","")}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
+    _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
+    _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
+    st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
     _masraf_karti(d, h)
     _dokum = masraf_dokumu(d)
     if _dokum:
@@ -336,6 +342,69 @@ def _gecmis_ithalatlar():
            para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
            yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
 
+    # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
+    with st.expander("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB"):
+        with st.form(f"ith_edit_{did}"):
+            _alt_baslik("📄 Dosya Bilgileri")
+            ec1, ec2, ec3 = st.columns(3)
+            e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
+            e_dno = ec1.text_input("Dosya No", value=str(d.get("dosya_no", "") or ""))
+            e_ted = ec2.text_input("Tedarikçi", value=str(d.get("tedarikci", "") or ""))
+            e_mense = ec2.text_input("Menşe Ülke", value=str(d.get("mense_ulke", "") or ""))
+            _dv_list = ["USD", "EUR", "CNY", "TL"]
+            _dv = str(d.get("doviz", "USD") or "USD")
+            e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
+            e_kur = ec3.number_input("Kur", min_value=0.0, value=float(d.get("kur", 1) or 1), step=0.01)
+            try:
+                _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
+            except Exception:
+                _td = date.today()
+            e_tarih = ec1.date_input("Tarih", value=_td)
+            e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
+
+            _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
+            _kdf = pd.DataFrame([
+                {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0), "Birim FOB": float(k.get("birim_fob", 0) or 0)}
+                for k in kal
+            ])
+            if _kdf.empty:
+                _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0}])
+            _sku_secenek = sorted(set(katalog.keys()) | {str(k.get("sku", "")) for k in kal if k.get("sku")})
+            e_kdf = st.data_editor(
+                _kdf, num_rows="dynamic", use_container_width=True, key=f"ith_edit_kal_{did}",
+                column_config={
+                    "SKU": st.column_config.SelectboxColumn("SKU", options=_sku_secenek, required=False),
+                    "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
+                    "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
+                },
+            )
+
+            _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde")
+            _md = _masraf_dict(d)
+            e_masraf = {}
+            for _b in range(0, len(MASRAF_TANIM), 4):
+                _grup = MASRAF_TANIM[_b:_b + 4]
+                _cols = st.columns(4)
+                for _j, (_slug, _label) in enumerate(_grup):
+                    e_masraf[_slug] = _cols[_j].number_input(
+                        _label, min_value=0.0, value=float(_md.get(_slug, 0) or 0), step=1.0,
+                        key=f"ith_edit_mas_{did}_{_slug}"
+                    )
+
+            if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
+                _yeni_kal = []
+                for _, _r in e_kdf.iterrows():
+                    _sku = str(_r.get("SKU", "") or "").strip()
+                    if not _sku:
+                        continue
+                    _yeni_kal.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
+                                      "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
+                ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
+                                         e_doviz, e_kur, e_masraf, e_not, _yeni_kal)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+
     with st.expander("🗑️ Bu dosyayı sil"):
         st.warning("Bu işlem dosyayı ve tüm kalemlerini kalıcı olarak siler.")
         if st.button("Evet, sil", key="ith_sil_btn"):
@@ -360,26 +429,15 @@ def _yeni_ithalat():
             _alt_baslik("📄 Dosya Bilgileri")
             c1, c2, c3 = st.columns(3)
             with c1:
+                pi_no = st.text_input("PI No", key="m_pi_no", placeholder="PI-2025-001")
                 dosya_no = st.text_input("Dosya / Sipariş No", key="m_dosya_no", placeholder="ITH-2025-001")
-                doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
             with c2:
-                tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
-                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.01, key="m_kur")
-            with c3:
                 tedarikci = st.text_input("Tedarikçi", key="m_ted")
                 mense = st.text_input("Menşe Ülke", key="m_ulke")
-
-        with st.container(border=True):
-            _alt_baslik("💸 Masraf Kalemleri · dosya para birimi cinsinden")
-            masraflar = {}
-            PER = 4
-            for basla in range(0, len(MASRAF_TANIM), PER):
-                grup = MASRAF_TANIM[basla:basla + PER]
-                cols = st.columns(PER)
-                for j, (slug, label) in enumerate(grup):
-                    masraflar[slug] = cols[j].number_input(
-                        label, min_value=0.0, value=0.0, step=1.0, key=f"m_mas_{slug}"
-                    )
+            with c3:
+                tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
+                doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
+                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.01, key="m_kur")
 
         with st.container(border=True):
             _alt_baslik("📦 Ürün Kalemleri · katalogdan ürün seç")
@@ -417,21 +475,15 @@ def _yeni_ithalat():
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
-        _masraf = sum(float(v or 0) for v in masraflar.values())
-        _yuzde = (_masraf / _mal * 100) if _mal > 0 else 0
 
-        # Canlı özet çipleri
+        # Canlı özet — sadece Mal Bedeli (masraf 2. aşamada girilir)
         st.markdown(
             '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px">'
             '<div style="flex:1;min-width:140px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:11px 16px">'
             '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Mal Bedeli (FOB)</div>'
-            f'<div style="font-size:16px;font-weight:700;color:#E2E8F0;font-family:\'JetBrains Mono\',monospace">{_mal:,.2f} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
-            '<div style="flex:1;min-width:140px;background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:11px 16px">'
-            '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Masraf</div>'
-            f'<div style="font-size:16px;font-weight:700;color:#FB923C;font-family:\'JetBrains Mono\',monospace">{_masraf:,.2f} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
-            '<div style="flex:1;min-width:140px;background:rgba(74,222,128,0.10);border:1px solid rgba(74,222,128,0.25);border-radius:12px;padding:11px 16px">'
-            '<div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Binen % Maliyet</div>'
-            f'<div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:\'JetBrains Mono\',monospace">%{_yuzde:.2f}</div></div>'
+            f'<div style="font-size:16px;font-weight:700;color:#E2E8F0;font-family:monospace">{_mal:,.2f} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            '<div style="flex:2;min-width:220px;background:rgba(251,146,60,0.08);border:1px dashed rgba(251,146,60,0.30);border-radius:12px;padding:11px 16px;display:flex;align-items:center">'
+            '<div style="font-size:11px;color:#FB923C;line-height:1.5">⏳ Masraf kalemleri 2. aşamada girilecek (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal, masraf girilince otomatik oluşur.</div></div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -446,16 +498,14 @@ def _yeni_ithalat():
                     if not (str(r.get("urun_adi") or "")).strip():
                         r["urun_adi"] = katalog.get((str(r.get("sku") or "")).strip(), "")
                 ok, msg = ekle_dosya(dosya_no.strip(), tarih, tedarikci, mense, doviz, kur,
-                                     masraflar, "", _kalemler)
+                                     {}, "", _kalemler, pi_no=pi_no.strip())
                 (st.success if ok else st.error)(msg)
                 if ok:
                     # Formu temizle
                     for i in range(st.session_state.get("m_satir_n", 5)):
                         for p in ("m_urun_", "m_adet_", "m_fob_"):
                             st.session_state.pop(p + str(i), None)
-                    for slug, _lbl in MASRAF_TANIM:
-                        st.session_state.pop(f"m_mas_{slug}", None)
-                    for k in ("m_dosya_no", "m_ted", "m_ulke"):
+                    for k in ("m_pi_no", "m_dosya_no", "m_ted", "m_ulke"):
                         st.session_state.pop(k, None)
                     st.session_state.m_satir_n = 5
                     st.rerun()
@@ -487,7 +537,7 @@ def _yeni_ithalat():
                 st.error(f"Şu kolonlar eksik: {', '.join(sorted(eksik))}")
                 return
             masraf_slugs = [s for s, _ in MASRAF_TANIM]
-            basliklar = ["tarih", "tedarikci", "mense_ulke", "doviz", "kur"] + masraf_slugs
+            basliklar = ["pi_no", "tarih", "tedarikci", "mense_ulke", "doviz", "kur"] + masraf_slugs
             for col in basliklar:
                 if col not in df.columns:
                     df[col] = None
@@ -520,7 +570,7 @@ def _yeni_ithalat():
                         str(dno).strip(), _sd(ilk.get("tarih")),
                         str(ilk.get("tedarikci", "") or ""), str(ilk.get("mense_ulke", "") or ""),
                         str(ilk.get("doviz", "USD") or "USD"), _sf(ilk.get("kur"), 1),
-                        masraflar, "", kalemler,
+                        masraflar, "", kalemler, pi_no=str(ilk.get("pi_no", "") or ""),
                     )
                     if ok:
                         basari += 1

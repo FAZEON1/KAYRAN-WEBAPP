@@ -204,7 +204,7 @@ def get_sku_maliyet_ozet():
 
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
-               masraflar, notlar, kalemler):
+               masraflar, notlar, kalemler, pi_no=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
@@ -213,7 +213,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
     try:
         temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
         d = _rows(sb.table("ithalat_dosyalari").insert({
-            "dosya_no": str(dosya_no), "tarih": str(tarih) if tarih else None,
+            "dosya_no": str(dosya_no), "pi_no": pi_no or "", "tarih": str(tarih) if tarih else None,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
@@ -235,6 +235,38 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             sb.table("ithalat_kalemleri").insert(rows).execute()
         _temizle()
         return True, f"✅ '{dosya_no}' dosyası {len(rows)} kalem ile eklendi."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
+
+
+def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
+                   masraflar, notlar, kalemler):
+    """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
+    sb = _get_client()
+    try:
+        temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
+        sb.table("ithalat_dosyalari").update({
+            "dosya_no": str(dosya_no), "pi_no": pi_no or "",
+            "tarih": str(tarih) if tarih else None,
+            "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
+            "doviz": doviz or "USD", "kur": _f(kur, 1),
+            "masraflar": temiz_masraf, "notlar": notlar or "",
+        }).eq("id", dosya_id).execute()
+        sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
+        rows = []
+        for k in (kalemler or []):
+            sku = (str(k.get("sku") or "")).strip()
+            if not sku or sku.lower() == "nan":
+                continue
+            rows.append({
+                "dosya_id": dosya_id, "sku": sku,
+                "urun_adi": (str(k.get("urun_adi") or "")).strip(),
+                "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
+            })
+        if rows:
+            sb.table("ithalat_kalemleri").insert(rows).execute()
+        _temizle()
+        return True, f"✅ Dosya güncellendi ({len(rows)} kalem)."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
 
