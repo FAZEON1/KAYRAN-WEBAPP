@@ -36,6 +36,16 @@ def _yon_belirle(tur):
     return "giris" if str(tur).strip().upper() in {t.upper() for t in GIRIS_TURLER} else "harcama"
 
 
+def _import_yon(tur, kisi, tutar):
+    """Excel içe aktarımında yön tahmini: gerçek havuz depozitosu =
+    TÜR=BÜTÇE + kişi yok (SIFIRLANDI/boş) + tutar >= 50.000. Diğer her şey harcama."""
+    k = str(kisi or "").strip().lower()
+    kisi_yok = (k == "" or k == "nan" or "sifirland" in k or "sıfırland" in k)
+    if str(tur).strip().upper() == "BÜTÇE" and kisi_yok and abs(_f(tutar)) >= 50000:
+        return "giris"
+    return "harcama"
+
+
 def ref_uret(kod, yil, sira):
     return f"FZ{kod}RF{yil}{int(sira):03d}"
 
@@ -266,7 +276,7 @@ def butce_excel_ice_aktar(firma_id, df):
             if kisi.lower() == "nan":
                 kisi = ""
             rows.append({
-                "firma_id": firma_id, "tur": tur, "yon": _yon_belirle(tur),
+                "firma_id": firma_id, "tur": tur, "yon": _import_yon(tur, kisi, tutar),
                 "aciklama": (aciklama if aciklama.lower() != "nan" else ""),
                 "marka": (marka if marka.lower() != "nan" else ""),
                 "tutar": tutar, "doviz": doviz, "fatura_no": fatura_no,
@@ -438,11 +448,14 @@ def _render_butce(fid, firma):
     with st.expander("➕ Yeni Bütçe / Harcama Kaydı Ekle"):
         ref_secenek = [""] + [r.get("ref_no", "") for r in get_refler(fid)]
         with st.form(f"butce_ekle_{fid}", clear_on_submit=True):
-            b1, b2, b3 = st.columns(3)
+            b1, b2, b3, b3b = st.columns([1.3, 1.1, 1, 0.9])
             b_tur = b1.selectbox("Tür", BUTCE_TURLER, index=0,
-                                 help="BÜTÇE = giriş (+), diğerleri = harcama (−)")
-            b_tutar = b2.number_input("Tutar", min_value=0.0, value=0.0, step=100.0)
-            b_doviz = b3.selectbox("Döviz", ["USD", "EUR", "TL"], index=0)
+                                 help="BÜTÇE genelde giriş; sağdaki Yön ile kesinleştir")
+            b_yon = b2.selectbox("Yön", ["harcama", "giris"],
+                                 format_func=lambda y: "Giriş (+)" if y == "giris" else "Harcama (−)",
+                                 help="Önden verilen bütçe = Giriş; sellout/destek = Harcama")
+            b_tutar = b3.number_input("Tutar", min_value=0.0, value=0.0, step=100.0)
+            b_doviz = b3b.selectbox("Döviz", ["USD", "EUR", "TL"], index=0)
             b_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ FAZEON SELLOUT")
             b4, b5, b6 = st.columns(3)
             b_fno = b4.text_input("Fatura No", placeholder="örn. UYSD-8459")
@@ -451,7 +464,7 @@ def _render_butce(fid, firma):
             b_kisi = st.text_input("Kişi / Sorumlu", placeholder="örn. DERYA MOLLAOĞLU")
             if st.form_submit_button("➕ Kaydı Ekle", type="primary", use_container_width=True):
                 ok, msg = butce_ekle(fid, b_tur, b_ack.strip(), b_tutar, b_doviz,
-                                     b_fno.strip(), b_ftar, b_ref, b_kisi.strip())
+                                     b_fno.strip(), b_ftar, b_ref, b_kisi.strip(), yon=b_yon)
                 (st.success if ok else st.error)(msg)
                 if ok:
                     st.rerun()
@@ -484,14 +497,17 @@ def _render_butce(fid, firma):
     from collections import defaultdict
     tur_top = defaultdict(float)
     for r in kayitlar:
-        tur_top[r.get("tur", "?")] += _f(r.get("tutar"))
+        if r.get("yon") != "giris":
+            tur_top[r.get("tur", "?")] += _f(r.get("tutar"))
     ozet_df = pd.DataFrame(
-        [{"Tür": t, "Toplam ($)": round(v, 2),
-          "Yön": "Giriş" if _yon_belirle(t) == "giris" else "Harcama"}
+        [{"Harcama Türü": t, "Toplam ($)": round(v, 2)}
          for t, v in sorted(tur_top.items(), key=lambda x: -x[1])])
-    st.markdown("##### 📊 Tür Bazlı Özet")
-    st.dataframe(ozet_df, use_container_width=True, hide_index=True,
-                 height=min(40 + 35 * len(ozet_df), 320))
+    st.markdown("##### 📊 Harcama Dağılımı (tür bazlı)")
+    if len(ozet_df):
+        st.dataframe(ozet_df, use_container_width=True, hide_index=True,
+                     height=min(40 + 35 * len(ozet_df), 320))
+    else:
+        st.caption("Henüz harcama kaydı yok.")
 
     # ── Ref bazlı özet (giriş / harcama / kalan) ──
     ref_g = defaultdict(float)
@@ -528,6 +544,7 @@ def _render_butce(fid, firma):
 
     df_b = pd.DataFrame([{
         "id": r["id"], "Sil?": False, "Tür": r.get("tur", "") or "",
+        "Yön": r.get("yon", "harcama") or "harcama",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Fatura No": r.get("fatura_no", "") or "", "Tarih": str(r.get("fatura_tarih") or ""),
         "Ref No": r.get("ref_no", "") or "", "Kişi": r.get("kisi", "") or "",
@@ -539,7 +556,10 @@ def _render_butce(fid, firma):
         column_config={
             "id": None,
             "Sil?": st.column_config.CheckboxColumn("Sil?", width="small"),
-            "Tür": st.column_config.TextColumn("Tür", help="BÜTÇE = giriş; diğerleri harcama"),
+            "Tür": st.column_config.TextColumn("Tür"),
+            "Yön": st.column_config.SelectboxColumn("Yön", options=["giris", "harcama"],
+                                                    required=True, width="small",
+                                                    help="giris = bütçe girişi (+), harcama = destek (−)"),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.2f"),
             "Fatura No": st.column_config.TextColumn("Fatura No"),
@@ -559,17 +579,19 @@ def _render_butce(fid, firma):
                 continue
             o = orijinal.get(rid, {})
             n_tur = str(row.get("Tür", "") or "")
+            n_yon = str(row.get("Yön", "harcama") or "harcama")
             n_ack = str(row.get("Açıklama", "") or "")
             n_tut = _f(row.get("Tutar"))
             n_fno = str(row.get("Fatura No", "") or "")
             n_tar = (str(row.get("Tarih", "") or "").strip() or None)
             n_ref = str(row.get("Ref No", "") or "")
             n_kisi = str(row.get("Kişi", "") or "")
-            if (n_tur != (o.get("tur", "") or "") or n_ack != (o.get("aciklama", "") or "") or
+            if (n_tur != (o.get("tur", "") or "") or n_yon != (o.get("yon", "") or "") or
+                    n_ack != (o.get("aciklama", "") or "") or
                     abs(n_tut - _f(o.get("tutar"))) > 0.001 or n_fno != (o.get("fatura_no", "") or "") or
                     (n_tar or "") != (str(o.get("fatura_tarih") or "")) or
                     n_ref != (o.get("ref_no", "") or "") or n_kisi != (o.get("kisi", "") or "")):
-                butce_guncelle(rid, n_tur, n_ack, n_tut, n_fno, n_tar, n_ref, n_kisi)
+                butce_guncelle(rid, n_tur, n_ack, n_tut, n_fno, n_tar, n_ref, n_kisi, yon=n_yon)
                 degisen += 1
         st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
