@@ -1913,7 +1913,15 @@ def run():
                     kisalt={"Kampanya": 32},
                 )
                 st.markdown("---")
-                for kamp in aktif_kampanyalar:
+                st.markdown('<div style="font-size:12px;color:#94A3B8;margin:2px 0 8px">👇 Detayını görmek için kampanyaya tıkla</div>', unsafe_allow_html=True)
+                _kamp_btn_cols = st.columns(3)
+                for _bi, _bk in enumerate(aktif_kampanyalar):
+                    if _kamp_btn_cols[_bi % 3].button(f"📢 {_bk['kampanya_adi']}", key=f"kamp_detay_btn_{_bk['id']}", use_container_width=True):
+                        st.session_state["_kamp_detay_sec"] = _bk["id"]
+                _kamp_secili_id = st.session_state.get("_kamp_detay_sec")
+                if not (_kamp_secili_id and any(_kk["id"] == _kamp_secili_id for _kk in aktif_kampanyalar)):
+                    st.caption("👆 Yukarıdan bir kampanyaya tıklayınca detayları burada açılır.")
+                for kamp in [_kk for _kk in aktif_kampanyalar if _kk["id"] == _kamp_secili_id]:
                     kid = kamp["id"]
                     k_urunler = get_kampanya_urunler(kid)
     
