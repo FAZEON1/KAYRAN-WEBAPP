@@ -1331,8 +1331,9 @@ def run():
         for u in urun_data:
             fs = u.get("firma_stoklari", {})
             satis = u.get('satis_fiyati') or 0
-            fcp = u.get('final_cost_price') or 0
-            fob = u.get('fob_price', u.get('son_fob', 0)) or 0
+            ith_var = (u.get("ithalat_dosya_sayisi", 0) or 0) > 0
+            fcp = (u.get('final_cost_price') or 0) if ith_var else 0
+            fob = (u.get('fob_price') or 0) if ith_var else 0
             maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
             net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
             net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
@@ -1350,9 +1351,9 @@ def run():
                 "MONDAY": int(fs.get("MONDAY", 0) or 0),
                 "KANAL": int(fs.get("KANAL", 0) or 0),
                 "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
-                "FOB ($)": float(fob or 0),
+                "FOB ($)": (float(fob) if ith_var else None),
                 "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
-                "Final Cost ($)": float(fcp or 0),
+                "Final Cost ($)": (float(fcp) if ith_var else None),
                 "Satış ($)": float(satis or 0),
                 "Net Marj (%)": float(net_marj) if net_marj is not None else None,
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
@@ -1422,9 +1423,11 @@ def run():
                     nm_cls, nm_txt = "c-num", f"%{nm:.1f}"
                 tot = r.get("Toplam") or 0
                 tot_cls = "c-tot" if tot else "c-muted"
-                fcp = r.get("Final Cost ($)") or 0
+                fcp_raw = r.get("Final Cost ($)")
+                fcp = fcp_raw or 0
                 fcp_cls = "c-fcp" if fcp else "c-muted"
-                fob_v = r.get("FOB ($)") or 0
+                fob_raw = r.get("FOB ($)")
+                fob_v = fob_raw or 0
                 fob_cls = "c-num" if fob_v else "c-muted"
                 satis = r.get("Satış ($)") or 0
                 satis_cls = "c-money" if satis else "c-muted"
@@ -1445,9 +1448,9 @@ def run():
                     f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
                     f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
                     f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
-                    f'<td class="{fob_cls}">{_fmt_para(fob_v)}</td>'
+                    f'<td class="{fob_cls}">{_fmt_para(fob_v) if fob_raw is not None else "—"}</td>'
                     f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
-                    f'<td class="{fcp_cls}">{_fmt_para(fcp)}</td>'
+                    f'<td class="{fcp_cls}">{_fmt_para(fcp) if fcp_raw is not None else "—"}</td>'
                     f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
                     f'<td class="{nm_cls}">{nm_txt}</td>'
                     f'<td class="{nk_cls}">{nk_txt}</td>'
