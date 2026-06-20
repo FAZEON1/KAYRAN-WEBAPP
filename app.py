@@ -23,10 +23,11 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 # ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
-KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut"}
-KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut"}
+KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar"}
+KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut"}
+ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar"}
+TEKNIKSERVIS_KULLANICILAR = {"ibrahim"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -39,6 +40,7 @@ def kullanici_yetkileri(kullanici):
         "kayranpm":  k in KAYRANPM_KULLANICILAR,
         "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
         "ithalat": k in ITHALAT_KULLANICILAR,
+        "teknikservis": k in TEKNIKSERVIS_KULLANICILAR,
     }
 
 
@@ -1152,6 +1154,25 @@ input, textarea, select { font-size: 16px !important; }
                 help="Bu uygulamaya erisim yetkiniz yok"
             )
 
+        # Teknik Servis
+        if yetkiler["teknikservis"]:
+            if st.button(
+                "🛠️ Teknik Servis",
+                key="nav_teknikservis",
+                type="primary" if aktif_sayfa == "teknikservis" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "teknikservis"
+                st.rerun()
+        else:
+            st.button(
+                "🔒 Teknik Servis",
+                key="nav_teknikservis_disabled",
+                disabled=True,
+                use_container_width=True,
+                help="Bu uygulamaya erisim yetkiniz yok"
+            )
+
         if yetkiler["hesap_makinesi"]:
             if st.button(
                 "🧮 Hesap Makinesi",
@@ -1208,9 +1229,9 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "anasayfa"
                 st.rerun()
         else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
-            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "ithalat": "#7DD3FC", "hesap_makinesi": "#FCD34D"}
+            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             st.markdown(
                 '<div style="font-size:10px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px"> ' + uyg_adi + ' SAYFALARI</div>',
@@ -2267,7 +2288,7 @@ def main():
 
     # Modül değişince soldaki menüyü ilgili alt menüye (SAYFALARI) kaydır
     if st.session_state.get("_nav_onceki") != aktif:
-        if aktif in ("kayranacc", "kayranpm", "ithalat", "hesap_makinesi"):
+        if aktif in ("kayranacc", "kayranpm", "ithalat", "teknikservis", "hesap_makinesi"):
             st.session_state["_sidebar_kaydir"] = True
         st.session_state["_nav_onceki"] = aktif
 
@@ -2284,6 +2305,10 @@ def main():
         st.error("🔒 İthalat uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
         return
+    if aktif == "teknikservis" and not yetkiler["teknikservis"]:
+        st.error("🔒 Teknik Servis uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
 
     # Sayfa dispatch
     try:
@@ -2298,6 +2323,9 @@ def main():
         elif aktif == "ithalat":
             from ithalat.main import run as ithalat_run
             ithalat_run()
+        elif aktif == "teknikservis":
+            from teknikservis.main import run as teknikservis_run
+            teknikservis_run()
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
