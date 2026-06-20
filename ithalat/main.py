@@ -321,9 +321,10 @@ def _gecmis_ithalatlar():
         st.info("Aramayla eşleşen dosya yok.")
         return
 
-    _tablo(pd.DataFrame(satirlar_goster),
-           para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
-           sol=["PI No", "Takip No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
+    with st.expander(f"📋 Tüm geçmiş dosyaları göster ({len(dosyalar_goster)} dosya)", expanded=False):
+        _tablo(pd.DataFrame(satirlar_goster),
+               para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
+               sol=["PI No", "Takip No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
 
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
