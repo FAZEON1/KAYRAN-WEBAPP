@@ -60,7 +60,6 @@ def excel_yukle_ana_stok(dosya_yolu):
             "KATEGORI": ["KATEGORI", "CATEGORY"],
             "MARKA": ["MARKA", "BRAND"],
             "SATIS_FIYATI": ["SATIS FIYATI ($)", "SATIS FIYATI", "FIYAT", "PRICE"],
-            "ALIS_FIYATI": ["ALIS FIYATI ($)", "ALIS FIYATI", "MALIYET", "COST"],
             "HEDEF_KAR": ["HEDEF KAR MARJI (%)", "HEDEF KAR MARJI", "HEDEF KAR", "KAR MARJI", "MARGIN"],
             "BIZIM_STOK": ["BIZIM STOK", "DEPO STOK", "STOK", "G5F STOK"],
             "YOLDAKI_MIKTAR": ["YOLDAKI MIKTAR", "YOL MIKTAR", "YOLDA"],
@@ -93,7 +92,6 @@ def excel_yukle_ana_stok(dosya_yolu):
                 marka = str(row.get(kolon_map.get("MARKA", ""), "")).strip() if "MARKA" in kolon_map else ""
                 ozellikler = str(row.get(kolon_map.get("OZELLIKLER", ""), "")).strip() if "OZELLIKLER" in kolon_map else ""
                 satis_fiyati = safe_float(row.get(kolon_map.get("SATIS_FIYATI", ""), 0))
-                alis_fiyati = safe_float(row.get(kolon_map.get("ALIS_FIYATI", ""), 0))
                 hedef_kar = safe_float(row.get(kolon_map.get("HEDEF_KAR", ""), 0))
                 bizim_stok = safe_int(row.get(kolon_map.get("BIZIM_STOK", ""), 0))
                 yoldaki_miktar = safe_int(row.get(kolon_map.get("YOLDAKI_MIKTAR", ""), 0))
@@ -102,7 +100,7 @@ def excel_yukle_ana_stok(dosya_yolu):
                 kategori = safe_str(row.get(kolon_map.get("KATEGORI", ""), ""))
                 marka = safe_str(row.get(kolon_map.get("MARKA", ""), ""))
 
-                upsert_urun(sku, urun_adi, kategori, marka, satis_fiyati, alis_fiyati, hedef_kar, "", bizim_stok, 0)
+                upsert_urun(sku, urun_adi, kategori, marka, satis_fiyati, 0, hedef_kar, "", bizim_stok, 0)
 
                 # Yoldaki veriyi de kaydet
                 if yoldaki_miktar > 0 or varis_tarihi:
@@ -269,7 +267,7 @@ def create_sample_excel_bytes():
 
     ws1 = wb.active
     ws1.title = "G5F STOK"
-    basliklar = ["SKU", "Ürün Adı", "Kategori", "Marka", "Satış Fiyatı ($)", "Alış Fiyatı ($)", "Hedef Kar Marjı (%)", "Bizim Stok", "Yoldaki Miktar", "Tahmini Varış Tarihi", "Yoldaki Tedarikçi"]
+    basliklar = ["SKU", "Ürün Adı", "Kategori", "Marka", "Satış Fiyatı ($)", "Hedef Kar Marjı (%)", "Bizim Stok", "Yoldaki Miktar", "Tahmini Varış Tarihi", "Yoldaki Tedarikçi"]
     for i, b in enumerate(basliklar, 1):
         cell = ws1.cell(row=1, column=i, value=b)
         cell.font = Font(bold=True, color="FFFFFF")
@@ -277,9 +275,9 @@ def create_sample_excel_bytes():
         cell.alignment = Alignment(horizontal="center")
 
     for row in [
-        ["SKU001", "Samsung Galaxy S24", "Telefon", "Samsung", 980, 620, 30, 50, 100, "2026-05-15", "ABC Elektronik"],
-        ["SKU002", "iPhone 15", "Telefon", "Apple", 1500, 1050, 25, 20, 0, "", ""],
-        ["SKU003", "Xiaomi Redmi Note 13", "Telefon", "Xiaomi", 340, 210, 35, 80, 50, "2026-06-01", "XYZ İthalat"],
+        ["SKU001", "Samsung Galaxy S24", "Telefon", "Samsung", 980, 30, 50, 100, "2026-05-15", "ABC Elektronik"],
+        ["SKU002", "iPhone 15", "Telefon", "Apple", 1500, 25, 20, 0, "", ""],
+        ["SKU003", "Xiaomi Redmi Note 13", "Telefon", "Xiaomi", 340, 35, 80, 50, "2026-06-01", "XYZ İthalat"],
     ]:
         ws1.append(row)
     for col in ws1.columns:
@@ -324,7 +322,7 @@ def create_sample_excel():
     # Ana Stok sekmesi
     ws1 = wb.active
     ws1.title = "G5F STOK"
-    basliklar = ["SKU", "Ürün Adı", "Kategori", "Marka", "Satış Fiyatı ($)", "Alış Fiyatı ($)", "Hedef Kar Marjı (%)", "Bizim Stok", "Yoldaki Miktar", "Tahmini Varış Tarihi", "Yoldaki Tedarikçi"]
+    basliklar = ["SKU", "Ürün Adı", "Kategori", "Marka", "Satış Fiyatı ($)", "Hedef Kar Marjı (%)", "Bizim Stok", "Yoldaki Miktar", "Tahmini Varış Tarihi", "Yoldaki Tedarikçi"]
     for i, b in enumerate(basliklar, 1):
         cell = ws1.cell(row=1, column=i, value=b)
         cell.font = Font(bold=True, color="FFFFFF")
@@ -332,9 +330,9 @@ def create_sample_excel():
         cell.alignment = Alignment(horizontal="center")
 
     ornek_veri = [
-        ["SKU001", "Samsung Galaxy S24", "Telefon", "Samsung", 980, 620, 30, 50, 100, "2026-05-15", "ABC Elektronik"],
-        ["SKU002", "iPhone 15", "Telefon", "Apple", 1500, 1050, 25, 20, 0, "", ""],
-        ["SKU003", "Xiaomi Redmi Note 13", "Telefon", "Xiaomi", 340, 210, 35, 80, 50, "2026-06-01", "XYZ İthalat"],
+        ["SKU001", "Samsung Galaxy S24", "Telefon", "Samsung", 980, 30, 50, 100, "2026-05-15", "ABC Elektronik"],
+        ["SKU002", "iPhone 15", "Telefon", "Apple", 1500, 25, 20, 0, "", ""],
+        ["SKU003", "Xiaomi Redmi Note 13", "Telefon", "Xiaomi", 340, 35, 80, 50, "2026-06-01", "XYZ İthalat"],
     ]
     for row in ornek_veri:
         ws1.append(row)

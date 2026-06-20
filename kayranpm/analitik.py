@@ -6,7 +6,7 @@ _log = logging.getLogger(__name__)
 from .database import (get_all_dashboard_data, get_muadil_oneriler,
                       ekle_siparis_onerisi, get_yoldaki_urunler,
                       get_tum_gecmis_satislar, get_gecmis_satis_firma_bazli,
-                      get_satin_alma_ozet, get_client)
+                      get_client)
 
 FIRMA_LISTESI = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
 
@@ -273,70 +273,6 @@ def kar_marji_hesapla(satis_fiyati, alis_fiyati, toplam_maliyet=None):
 
 
 @st.cache_data(ttl=120, show_spinner=False)
-def kar_marji_analizi():
-    """Tüm ürünler için kar marjı analizi — satın alma geçmişinden gerçek maliyet kullanır"""
-    sb = get_client()
-    urunler = sb.table("urunler").select("*").order("urun_adi").execute().data or []
-
-    sonuclar = []
-    _ith_map = _ithalat_maliyet_map()
-    for u in urunler:
-        satis = u.get("satis_fiyati") or u.get("fiyat") or 0
-        alis = u.get("alis_fiyati") or 0
-        hedef = u.get("hedef_kar_marji") or 0
-
-        # Satın alma geçmişinden ortalama maliyet
-        sa_ozet = get_satin_alma_ozet(u["sku"])
-        gercek_maliyet = None
-        siparis_sayisi = 0
-        toplam_adet = 0
-        son_satin_alma = "—"
-        if sa_ozet and sa_ozet.get("ort_maliyet") and sa_ozet["ort_maliyet"] > 0:
-            gercek_maliyet = sa_ozet["ort_maliyet"]
-            siparis_sayisi = sa_ozet.get("siparis_sayisi", 0) or 0
-            toplam_adet = sa_ozet.get("toplam_adet", 0) or 0
-            son_satin_alma = sa_ozet.get("son_satin_alma") or "—"
-
-        kullanilas_maliyet = gercek_maliyet or alis or 0
-        marj, kar_tl, durum, renk = kar_marji_hesapla(satis, alis, gercek_maliyet)
-
-        hedef_durum = "yok"
-        if marj is not None and hedef > 0:
-            fark = marj - hedef
-            hedef_durum = "hedef_ustu" if fark >= 0 else ("hedefe_yakin" if fark >= -5 else "hedefin_altinda")
-
-        bizim_stok = u.get("bizim_stok", 0) or 0
-        stok_degeri_satis = bizim_stok * satis
-        stok_degeri_maliyet = bizim_stok * kullanilas_maliyet
-        potansiyel_kar = stok_degeri_satis - stok_degeri_maliyet
-
-        sonuclar.append({
-            "sku": u["sku"],
-            "urun_adi": u["urun_adi"],
-            "kategori": u.get("kategori", ""),
-            "marka": u.get("marka", ""),
-            "satis_fiyati": satis,
-            "alis_fiyati": alis,
-            "gercek_maliyet": gercek_maliyet,
-            "kullanilas_maliyet": kullanilas_maliyet,
-            "hedef_kar_marji": hedef,
-            "kar_marji": marj,
-            "kar_tl": kar_tl,
-            "kar_marji_durum": durum,
-            "kar_marji_renk": renk,
-            "hedef_durum": hedef_durum,
-            "bizim_stok": bizim_stok,
-            "stok_degeri_satis": stok_degeri_satis,
-            "stok_degeri_maliyet": stok_degeri_maliyet,
-            "potansiyel_kar": potansiyel_kar,
-            "siparis_sayisi": siparis_sayisi,
-            "toplam_alinan_adet": toplam_adet,
-            "son_satin_alma": son_satin_alma,
-        })
-
-    return sonuclar
-
-
 def olu_stok_tespiti(sku, bizim_stok, gecmis_satislar, stok_gun):
     """
     Ölü stok tespiti yapar.
@@ -462,14 +398,7 @@ def tum_urunler_listesi():
             tarih_map[key] = r["yukleme_tarihi"]
             firma_stok_map[key] = r["stok_miktari"] or 0
 
-    # Tüm satın alma geçmişini tek sorguda al
-    tum_kayitlar = sb.table("satin_alma_gecmisi").select("*").order("satin_alma_tarihi", desc=True).execute().data or []
-    kayit_map = {}  # sku -> [kayitlar]
-    for k in tum_kayitlar:
-        s = k["sku"]
-        if s not in kayit_map:
-            kayit_map[s] = []
-        kayit_map[s].append(k)
+    kayit_map = {}  # satın-alma geçmişi İthalat'a taşındı
 
     sonuclar = []
     _ith_map = _ithalat_maliyet_map()

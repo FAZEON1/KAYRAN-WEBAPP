@@ -22,8 +22,6 @@ from io import BytesIO
 from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       get_siparis_onerileri, ekle_siparis_onerisi,
                       get_gecmis_satis_firma_bazli, get_urun_detay,
-                      ekle_satin_alma, guncelle_satin_alma, sil_satin_alma,
-                      get_satin_alma_gecmisi, get_tum_tedarikciler,
                       ekle_kampanya, get_kampanyalar, get_kampanya,
                       guncelle_kampanya, kapat_kampanya, sil_kampanya,
                       ekle_kampanya_urun, get_kampanya_urunler, get_tum_kampanya_urunler,
@@ -463,7 +461,6 @@ def run():
         sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
             "📋  Tüm Ürünler",
-            "🛒  Satın Alma Geçmişi",
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
             "🔖  Ref No Takibi",
@@ -1105,11 +1102,6 @@ def run():
                     m_marka = st.text_input("Marka", placeholder="örn: FAZEON")
                 with fc3:
                     m_satis = st.number_input("Satış Fiyatı ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-                    m_alis = st.number_input("Alış Fiyatı / FOB ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-                    m_maliyet_yuzdesi = st.number_input("% Masraf (navlun+gümrük)", min_value=0.0, max_value=100.0, value=0.0, step=0.1, format="%.2f", help="Navlun, gümrük vb. tüm masrafların toplamı")
-                    if m_alis > 0 and m_maliyet_yuzdesi > 0:
-                        _cost_prev = m_alis * (1 + m_maliyet_yuzdesi / 100)
-                        st.info(f"Hesaplanan Maliyet: **${_cost_prev:.2f}** (FOB ${m_alis:.2f} × {1+m_maliyet_yuzdesi/100:.4f})")
     
                 st.markdown("**Stok & Hedef**")
                 fs1, fs2, fs3 = st.columns(3)
@@ -1130,21 +1122,14 @@ def run():
                     st.error("SKU zorunludur.")
                 elif not m_urun_adi.strip():
                     st.error("Ürün Adı zorunludur.")
-                    from .database import upsert_urun, upsert_yoldaki_urun, ekle_satin_alma
+                    from .database import upsert_urun, upsert_yoldaki_urun
                     from excel_islemler import normalize_sku
                     sku_temiz = normalize_sku(m_sku.strip())
-                    _katsayi = 1 + m_maliyet_yuzdesi / 100
-                    _cost_price = round(m_alis * _katsayi, 2) if m_alis > 0 else 0.0
+                    _cost_price = 0.0
                     _ozellik_str = m_ozellikler.strip()
-                    if m_maliyet_yuzdesi > 0:
-                        _ozellik_str = (f"Masraf: %{m_maliyet_yuzdesi:.2f} | " + _ozellik_str).strip(" | ")
                     upsert_urun(sku_temiz, m_urun_adi.strip(), m_kategori.strip(),
                                m_marka.strip(), m_satis, _cost_price, m_hedef_kar,
                                _ozellik_str, m_stok, 0)
-                    if m_maliyet_yuzdesi > 0 and m_alis > 0:
-                        ekle_satin_alma(sku_temiz, m_urun_adi.strip(), "Manuel Giriş",
-                                        date.today(), m_stok if m_stok > 0 else 1,
-                                        m_alis, m_maliyet_yuzdesi, _ozellik_str)
                     if m_yoldaki > 0 or m_varis:
                         upsert_yoldaki_urun(sku_temiz, m_urun_adi.strip(), m_yoldaki,
                                            str(m_varis) if m_varis else "", m_tedarikci.strip())
@@ -1557,266 +1542,6 @@ def run():
         st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:7px 12px;font-size:12px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
 
 
-    elif sayfa == "🛒  Satın Alma Geçmişi":
-        st.markdown('<div class="baslik">🛒 Satın Alma Geçmişi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Tedarikçi · FOB Price · Cost Price · Paçal hesabı</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
-        with st.expander("➕ Yeni Satın Alma Ekle", expanded=False):
-            _urunler_sa = tum_urunler_listesi()
-            _sa_map = {f'{u["sku"]} — {u.get("urun_adi","")}': u for u in _urunler_sa}
-            _sa_label = st.selectbox("Ürün *", list(_sa_map.keys()) or ["—"], key="sa_ekle_urun")
-            _sa_urun = _sa_map.get(_sa_label, {})
-            _sa_sku = _sa_urun.get("sku", "")
-            _sa_urun_adi = _sa_urun.get("urun_adi", "")
-    
-            # Manuel veya Excel seçimi
-            ekle_tab1, ekle_tab2 = st.tabs(["📝 Manuel Giriş", "📊 Excel ile Toplu Yükle"])
-    
-            with ekle_tab1:
-                onceki = get_tum_tedarikciler()
-                with st.form("tu_satin_alma_form", clear_on_submit=True):
-                    fc1, fc2 = st.columns(2)
-                    with fc1:
-                        tedarikci = st.text_input("Tedarikçi *",
-                            help=f"Önceki: {', '.join(onceki[:4])}" if onceki else "")
-                        satin_alma_tarihi = st.date_input("Tarih *", value=tr_today())
-                        notlar = st.text_area("Notlar")
-                    with fc2:
-                        adet = st.number_input("Adet *", min_value=1, value=100, step=1)
-                        fob_price = st.number_input("FOB Price ($) *", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-                        maliyet_yuzdesi = st.number_input("Ek Maliyet (%)", min_value=0.0, max_value=200.0, value=0.0, step=0.5, format="%.1f",
-                            help="Nakliye+gümrük+diğer masrafların FOB'a oranı")
-                        if fob_price > 0:
-                            cost = fob_price * maliyet_yuzdesi / 100
-                            cp = fob_price + cost
-                            st.markdown(f'<div class="info-box" style="font-size:12px">FOB: ${fob_price:.2f} + Cost: ${cost:.2f} = <b>Cost Price: ${cp:.2f}</b><br>Toplam: ${cp * adet:,.0f}</div>', unsafe_allow_html=True)
-                    submitted = st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True)
-    
-                if submitted:
-                    if not tedarikci.strip(): st.error("Tedarikçi zorunludur.")
-                    elif fob_price <= 0: st.error("FOB Price girilmesi zorunludur.")
-                    else:
-                        ekle_satin_alma(_sa_sku, _sa_urun_adi, tedarikci.strip(),
-                                        str(satin_alma_tarihi), adet, fob_price, maliyet_yuzdesi, notlar.strip())
-                        cp = fob_price * (1 + maliyet_yuzdesi/100)
-                        st.success(f"✅ Kaydedildi! Cost Price: ${cp:.2f}/adet")
-                        st.cache_data.clear()
-                        st.rerun()
-    
-            with ekle_tab2:
-                # Şablon indir
-                st.caption("Şablonu indirip doldurun, ardından yükleyin.")
-    
-                import io
-                sablon_data = {
-                    "SKU": [_sa_sku, ""],
-                    "Tedarikçi": ["MASTER", ""],
-                    "Tarih": [str(tr_today()), ""],
-                    "Adet": [100, ""],
-                    "FOB Price ($)": [0.0, ""],
-                    "Cost %": [0.0, ""],
-                    "Notlar": ["", ""],
-                }
-                df_sablon = pd.DataFrame(sablon_data)
-                sablon_buf = io.BytesIO()
-                with pd.ExcelWriter(sablon_buf, engine="openpyxl") as writer:
-                    df_sablon.to_excel(writer, index=False, sheet_name="Satın Alma")
-                sablon_buf.seek(0)
-                st.download_button(
-                    "📥 Excel Şablonunu İndir",
-                    sablon_buf,
-                    "satin_alma_sablon.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-    
-                st.markdown("---")
-                excel_file = st.file_uploader("Excel Dosyası Yükle", type=["xlsx","xls"], key="tu_sa_excel")
-                if excel_file:
-                    try:
-                        df_yukle = pd.read_excel(excel_file)
-                        # Kolon normalize
-                        df_yukle.columns = [str(c).strip() for c in df_yukle.columns]
-    
-                        # Önizleme
-                        st.markdown("**📋 Önizleme:**")
-                        st.dataframe(df_yukle, use_container_width=True, hide_index=True)
-    
-                        if st.button("⬆️ Tümünü Yükle", type="primary", key="tu_sa_yukle"):
-                            basarili = 0
-                            hatali = 0
-                            hatalar = []
-                            for _, row in df_yukle.iterrows():
-                                try:
-                                    r_sku = str(row.get("SKU", _sa_sku)).strip() or _sa_sku
-                                    r_ted = str(row.get("Tedarikçi", "")).strip()
-                                    r_tarih = str(row.get("Tarih", str(tr_today()))).strip()[:10]
-                                    r_adet = int(row.get("Adet", 0) or 0)
-                                    r_fob = float(row.get("FOB Price ($)", 0) or 0)
-                                    r_cost = float(row.get("Cost %", 0) or 0)
-                                    r_not = str(row.get("Notlar", "") or "").strip()
-    
-                                    if not r_sku or r_sku == "nan": continue
-                                    if r_fob <= 0: 
-                                        hatalar.append(f"{r_sku}: FOB Price sıfır")
-                                        hatali += 1
-                                        continue
-    
-                                    # Ürün adını bul
-                                    r_urun = next((u["urun_adi"] for u in urun_data if u["sku"] == r_sku), r_sku)
-    
-                                    ekle_satin_alma(r_sku, r_urun, r_ted, r_tarih,
-                                                   r_adet, r_fob, r_cost, r_not)
-                                    basarili += 1
-                                except Exception as e:
-                                    hatali += 1
-                                    hatalar.append(str(e))
-    
-                            st.cache_data.clear()
-                            if basarili > 0:
-                                st.success(f"✅ {basarili} kayıt başarıyla yüklendi!")
-                            if hatali > 0:
-                                st.warning(f"⚠️ {hatali} kayıt atlandı: {' | '.join(hatalar[:3])}")
-                            st.rerun()
-                    except Exception as e:
-                        _log.error("Hata: %s", e)
-                        st.error(f"Dosya okunamadı: {e}")
-        st.markdown("---")
-        tum_kayitlar = get_satin_alma_gecmisi()
-    
-        if not tum_kayitlar:
-            st.info("Henüz satın alma kaydı yok. Yukarıdaki '➕ Yeni Satın Alma Ekle' bölümünden ekleyebilirsiniz.")
-            st.stop()
-    
-        # Filtreler
-        fc1, fc2, fc3, fc4 = st.columns([1, 2, 2, 1])
-        with fc1:
-            sku_ara_sg = st.text_input("🔍 SKU Ara", placeholder="SKU yaz...", key="sg_sku_ara")
-        with fc2:
-            try:
-                urun_data_f = tum_urunler_listesi()
-                if sku_ara_sg:
-                    filtre_urunler = [u for u in urun_data_f if u["sku"].upper().startswith(sku_ara_sg.upper()) or sku_ara_sg.lower() in u["urun_adi"].lower()]
-                else:
-                    filtre_urunler = urun_data_f
-                sku_filtre_options = ["Tüm Ürünler"] + [f"{u['sku']} — {u['urun_adi']}" for u in filtre_urunler]
-            except Exception:
-                sku_filtre_options = ["Tüm Ürünler"]
-            sku_filtre = st.selectbox("Ürün", sku_filtre_options, key="sg_sku", label_visibility="collapsed")
-        with fc3:
-            ted_filtre = st.text_input("Tedarikçi Ara", placeholder="Tedarikçi adı...", key="sg_ted")
-        with fc4:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄", use_container_width=True, key="sg_yenile"):
-                st.rerun()
-    
-        # Filtrele
-        kayitlar = tum_kayitlar
-        if sku_filtre != "Tüm Ürünler":
-            filtre_sku = sku_filtre.split(" — ")[0]
-            kayitlar = [k for k in kayitlar if k["sku"] == filtre_sku]
-        if ted_filtre:
-            kayitlar = [k for k in kayitlar if ted_filtre.lower() in (k.get("tedarikci","") or "").lower()]
-    
-        # Özet metrikler
-        tm1, tm2, tm3, tm4 = st.columns(4)
-        tm1.metric("📋 Toplam Kayıt", len(kayitlar))
-        tm2.metric("📦 Toplam Adet", f"{sum(k.get('adet',0) for k in kayitlar):,}")
-        toplam_fob_tutar = sum((k.get('alis_fiyati') or k.get('birim_alis_fiyati') or 0) * (k.get('adet') or 0) for k in kayitlar)
-        toplam_cp_tutar = sum(k.get('toplam_maliyet') or 0 for k in kayitlar)
-        tm3.metric("💵 Toplam FOB Tutar", f"${toplam_fob_tutar:,.0f}")
-        tm4.metric("💰 Toplam Cost Tutar", f"${toplam_cp_tutar:,.0f}")
-    
-        st.markdown("---")
-    
-        # Düzenlenebilir tablo
-        rows_sg = []
-        for k in kayitlar:
-            fob = k.get("alis_fiyati") or k.get("birim_alis_fiyati") or 0
-            mal_y = k.get("maliyet_yuzdesi") or 0
-            rows_sg.append({
-                "ID": k["id"],
-                "Tarih": k.get("satin_alma_tarihi",""),
-                "SKU": k["sku"],
-                "Ürün Adı": k.get("urun_adi",""),
-                "Tedarikçi": k.get("tedarikci","") or "",
-                "Adet": int(k.get("adet",0) or 0),
-                "FOB ($)": float(fob),
-                "Cost %": float(mal_y),
-                "Notlar": k.get("notlar","") or "",
-            })
-    
-        df_sg = pd.DataFrame(rows_sg)
-    
-        st.caption("✏️ Hücreye tıklayarak düzenle, ardından **Değişiklikleri Kaydet** butonuna bas.")
-    
-        edited_df = st.data_editor(
-            df_sg.drop(columns=["ID"]),
-            use_container_width=True,
-            hide_index=True,
-            height=400,
-            column_config={
-                "Tarih": st.column_config.TextColumn("Tarih", help="YYYY-MM-DD formatında"),
-                "SKU": st.column_config.TextColumn("SKU", disabled=True),
-                "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True),
-                "Tedarikçi": st.column_config.TextColumn("Tedarikçi"),
-                "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
-                "FOB ($)": st.column_config.NumberColumn("FOB ($)", min_value=0.0, format="$%.2f"),
-                "Cost %": st.column_config.NumberColumn("Cost %", min_value=0.0, max_value=100.0, format="%.1f%%"),
-                "Notlar": st.column_config.TextColumn("Notlar"),
-            },
-            key="sg_editor"
-        )
-    
-        if st.button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=False, key="sg_kaydet"):
-            degisen = 0
-            for i, (orig, edit) in enumerate(zip(rows_sg, edited_df.to_dict("records"))):
-                kayit_id = orig["ID"]
-                # Tarih string'e çevir
-                tarih_val = str(edit.get("Tarih", orig["Tarih"]))
-                if tarih_val == "None" or tarih_val == "nan":
-                    tarih_val = orig["Tarih"]
-                guncelle_satin_alma(
-                    kayit_id,
-                    edit.get("Tedarikçi", orig["Tedarikçi"]),
-                    tarih_val,
-                    int(edit.get("Adet", orig["Adet"]) or 0),
-                    float(edit.get("FOB ($)", orig["FOB ($)"]) or 0),
-                    float(edit.get("Cost %", orig["Cost %"]) or 0),
-                    edit.get("Notlar", orig["Notlar"]) or ""
-                )
-                degisen += 1
-            st.cache_data.clear()
-            st.toast(f"✅ {degisen} kayıt güncellendi!")
-            st.rerun()
-    
-        # Silme
-        with st.expander("🗑️ Kayıt Sil"):
-            sil_options = {f"#{k['id']} | {k.get('satin_alma_tarihi','')} | {k['sku']} | {k.get('adet',0)} adet": k['id'] for k in kayitlar}
-            sil_secim = st.selectbox("Silinecek Kayıt", list(sil_options.keys()), key="sg_sil_sec")
-            if st.button("🗑️ Sil", key="sg_sil_btn", type="secondary"):
-                sil_satin_alma(sil_options[sil_secim])
-                st.cache_data.clear()
-                st.toast("Kayıt silindi.")
-                st.rerun()
-    
-        # Tedarikçi bazında özet grafik
-        if len(kayitlar) > 1:
-            ted_tutar = {}
-            for k in kayitlar:
-                t = k.get("tedarikci","Diğer") or "Diğer"
-                fob = k.get("alis_fiyati") or k.get("birim_alis_fiyati") or 0
-                mal_y = k.get("maliyet_yuzdesi") or 0
-                cp = fob * (1 + mal_y/100)
-                ted_tutar[t] = ted_tutar.get(t,0) + cp * (k.get("adet") or 0)
-            df_ted = pd.DataFrame([{"Tedarikçi":k,"Tutar ($)":v} for k,v in ted_tutar.items()])
-            fig_ted = px.pie(df_ted, names="Tedarikçi", values="Tutar ($)",
-                             title="Tedarikçi Bazında Cost Tutar Dağılımı",
-                             height=300, color_discrete_sequence=["#42A5F5","#66BB6A","#FFA726","#EF5350","#AB47BC","#26C6DA","#D4E157","#FF7043"])
-            fig_ted.update_layout(paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_ted, use_container_width=True)
-    
-    
     elif sayfa == "🎯  Kampanya Takip":
         st.markdown('<div class="baslik">🎯 Kampanya Takip</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Firma desteği · Net kar · Kampanya performansı</div>', unsafe_allow_html=True)
@@ -2662,7 +2387,7 @@ def run():
         st.markdown("""<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
  <div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">G5F STOK <span style="color:#64748B;font-weight:500">· bizim depo + yoldaki</span></div>
- <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Alış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
+ <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
  </div>
  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
  <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· firma stokları</span></div>
