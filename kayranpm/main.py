@@ -782,19 +782,20 @@ def run():
                 )
                 st.html(css + head + rows_html + "</tbody></table></div>")
     
-            tab1, tab2, tab3, tab4 = st.tabs(["⚡ En Riskli","📈 En Çok Satan","📉 En Az Satan","🕐 Stok Yaşına Göre"])
-            with tab1:
-                st.caption("Risk skoru en yüksek ürünler önce")
-                renk_uygula(df.drop_duplicates("SKU").sort_values("⚡ Risk Skoru", ascending=False))
-            with tab2:
-                st.caption("4 haftalık ortalamaya göre en çok satan ürünler")
-                renk_uygula(df.drop_duplicates("SKU").sort_values("Ort. Hft. Satış", ascending=False))
-            with tab3:
-                st.caption("En az satan / yavaş hareket eden ürünler")
-                renk_uygula(df.drop_duplicates("SKU").sort_values("Ort. Hft. Satış", ascending=True))
-            with tab4:
-                st.caption("En eski stok yaşına sahip ürünler önce")
-                renk_uygula(df.drop_duplicates("SKU").sort_values("Stok Yaşı", ascending=False))
+            with st.expander("⚡ Risk & Satış Analiz Tablosu (En Riskli · En Çok/Az Satan · Stok Yaşı)", expanded=False):
+                tab1, tab2, tab3, tab4 = st.tabs(["⚡ En Riskli","📈 En Çok Satan","📉 En Az Satan","🕐 Stok Yaşına Göre"])
+                with tab1:
+                    st.caption("Risk skoru en yüksek ürünler önce")
+                    renk_uygula(df.drop_duplicates("SKU").sort_values("⚡ Risk Skoru", ascending=False))
+                with tab2:
+                    st.caption("4 haftalık ortalamaya göre en çok satan ürünler")
+                    renk_uygula(df.drop_duplicates("SKU").sort_values("Ort. Hft. Satış", ascending=False))
+                with tab3:
+                    st.caption("En az satan / yavaş hareket eden ürünler")
+                    renk_uygula(df.drop_duplicates("SKU").sort_values("Ort. Hft. Satış", ascending=True))
+                with tab4:
+                    st.caption("En eski stok yaşına sahip ürünler önce")
+                    renk_uygula(df.drop_duplicates("SKU").sort_values("Stok Yaşı", ascending=False))
     
             # ── DASHBOARD GRAFİKLERİ ──────────────────────────────────────
             st.markdown("---")
