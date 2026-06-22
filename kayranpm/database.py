@@ -178,6 +178,27 @@ def toplu_kategori_marka_kaydet(sku_data):
     return ok, hata
 
 
+def toplu_satis_kaydet(sku_data):
+    """{sku: {"satis_fiyati": float, "hedef_kar_marji": float}} ile satış fiyatı / hedef marjı
+    toplu günceller. Sadece sözlükte bulunan alanlar yazılır. (guncellenen, hata) döner."""
+    ok, hata = 0, 0
+    sb = get_client()
+    for sku, d in (sku_data or {}).items():
+        try:
+            upd = {}
+            if "satis_fiyati" in d:
+                upd["satis_fiyati"] = float(d.get("satis_fiyati") or 0)
+            if "hedef_kar_marji" in d:
+                upd["hedef_kar_marji"] = float(d.get("hedef_kar_marji") or 0)
+            if upd:
+                sb.table("urunler").update(upd).eq("sku", str(sku)).execute()
+                ok += 1
+        except Exception:
+            hata += 1
+    _cache_temizle()
+    return ok, hata
+
+
 def _kat_norm(s):
     """Karşılaştırma için kategori adını normalize eder (büyük/küçük + Türkçe harf farkını yok sayar)."""
     s = str(s or "").strip().lower().replace("i̇", "i")
@@ -320,7 +341,8 @@ def senkronize_urunler_ithalattan(sil_eski=True):
     eklendi, hata, hatalar = 0, 0, []
     for sku in eklenecek:
         try:
-            upsert_urun(sku, ith.get(sku, {}).get("urun_adi", ""))
+            _ad = ith.get(sku, {}).get("urun_adi", "") or ""
+            upsert_urun(sku, _ad, kategori_oner(_ad), marka_oner(_ad))
             eklendi += 1
         except Exception as e:
             hata += 1
@@ -351,9 +373,11 @@ def ithalat_eksikleri_ekle():
         bugun = get_today()
         rows, stok_yas_rows = [], []
         for sku in eklenecek:
+            _ad = ith.get(sku, {}).get("urun_adi", "") or ""
             rows.append({
-                "sku": sku, "urun_adi": ith.get(sku, {}).get("urun_adi", "") or "",
-                "kategori": "", "marka": "", "satis_fiyati": 0.0, "alis_fiyati": 0.0,
+                "sku": sku, "urun_adi": _ad,
+                "kategori": kategori_oner(_ad), "marka": marka_oner(_ad),
+                "satis_fiyati": 0.0, "alis_fiyati": 0.0,
                 "hedef_kar_marji": 0.0, "ozellikler": "", "bizim_stok": 0,
                 "trendyol_stok": 0, "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun,
             })

@@ -26,7 +26,7 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       guncelle_kampanya, kapat_kampanya, sil_kampanya,
                       ekle_kampanya_urun, get_kampanya_urunler, get_tum_kampanya_urunler,
                       guncelle_kampanya_urun, sil_kampanya_urun,
-                      sil_urun, get_tum_sku_listesi, get_client,
+                      get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
                       get_kampanya_destek_ortalamalari)
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
@@ -929,39 +929,6 @@ def run():
         st.markdown('<div class="alt-baslik">FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
-        with st.expander("🗑️ Ürün Sil", expanded=False):
-            st.caption("Seçilen ürünü ve tüm ilgili kayıtlarını (firma stok, yoldaki, stok yaşı, sipariş önerileri) siler. Bu işlem geri alınamaz.")
-    
-            tum_sku = get_tum_sku_listesi()
-            if tum_sku:
-                sil_col1, sil_col2 = st.columns([3, 1])
-                with sil_col1:
-                    # SKU arama ile filtrele
-                    sil_ara = st.text_input("SKU veya ürün adı ile ara", placeholder="Aramak için yaz...", key="sil_ara")
-                    if sil_ara:
-                        filtrelenmis_sil = [u for u in tum_sku if u["sku"].upper().startswith(sil_ara.upper()) or sil_ara.lower() in (u.get("urun_adi","") or "").lower()]
-                    else:
-                        filtrelenmis_sil = tum_sku
-    
-                    sil_secenekler = {f"{u['sku']} — {(u.get('urun_adi') or '')[:50]}": u["sku"] for u in filtrelenmis_sil}
-                    if sil_secenekler:
-                        sil_secim = st.selectbox("Silinecek Ürün", list(sil_secenekler.keys()), key="sil_secim")
-                        sil_sku = sil_secenekler[sil_secim]
-                    else:
-                        st.info("Eşleşen ürün bulunamadı.")
-                        sil_sku = None
-    
-                with sil_col2:
-                    st.markdown("<br><br>", unsafe_allow_html=True)
-                    if sil_sku:
-                        # Onay mekanizması
-                        onay = st.checkbox(f"Silmeyi onaylıyorum", key="sil_onay")
-                        if st.button("🗑️ Sil", type="primary", use_container_width=True, disabled=not onay):
-                            sil_urun(sil_sku)
-                            st.cache_data.clear()
-                            st.toast(f"✅ {sil_sku} silindi.")
-                            st.rerun()
-
         # Ürün verilerini yükle
         try:
             urun_data = tum_urunler_listesi()
@@ -984,7 +951,26 @@ def run():
         m2.metric("🏭 Toplam Stok (Tüm Kanallar)", f"{toplam_genel_stok:,} adet")
         m3.metric("💰 Depo Stok Değeri (Cost)", f"${toplam_stok_degeri:,.0f}")
         m4.metric("💵 Depo Stok Değeri (Satış)", f"${toplam_satis_degeri:,.0f}")
-    
+
+        # 🩺 Veri sağlığı (tek satır · eksik alanlar)
+        _eksik_kat = sum(1 for u in urun_data if not (u.get("kategori") or "").strip())
+        _eksik_mar = sum(1 for u in urun_data if not (u.get("marka") or "").strip())
+        _eksik_fiy = sum(1 for u in urun_data if not (u.get("satis_fiyati") or 0))
+        _eksik_mal = sum(1 for u in urun_data if not (u.get("final_cost_price") or 0))
+        _sg = []
+        if _eksik_kat: _sg.append(f'<span style="color:#FBBF24">⚠ {_eksik_kat} kategorisiz</span>')
+        if _eksik_mar: _sg.append(f'<span style="color:#FBBF24">⚠ {_eksik_mar} markasız</span>')
+        if _eksik_fiy: _sg.append(f'<span style="color:#F87171">⚠ {_eksik_fiy} satış fiyatsız</span>')
+        if _eksik_mal: _sg.append(f'<span style="color:#94A3B8">{_eksik_mal} İthalat maliyeti yok</span>')
+        if _sg:
+            st.markdown('<div style="font-size:12px;color:#94A3B8;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> '
+                        + '  ·  '.join(_sg)
+                        + ' <span style="color:#64748B">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
+                        unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="font-size:12px;color:#34D399;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
+                        unsafe_allow_html=True)
+
         st.markdown("---")
     
         # SKU arama + ürün seçimi
@@ -2280,6 +2266,79 @@ def run():
                     st.session_state.pop("_kat_oneri", None)
                     st.session_state.pop("_marka_oneri", None)
                     st.toast(f"✅ {_okk} ürün kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
+                    st.rerun()
+
+        # 💲 Toplu Satış Fiyatı & Marj
+        with st.expander("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", expanded=False):
+            from .database import get_client as _gc_s, toplu_satis_kaydet as _satis_kaydet
+            try:
+                from ithalat.database import get_sku_maliyet_ozet as _ith_maliyet
+                _pacal_map = _ith_maliyet() or {}
+            except Exception:
+                _pacal_map = {}
+            try:
+                _ur_s = (_gc_s().table("urunler").select("sku, urun_adi, satis_fiyati, hedef_kar_marji")
+                         .order("urun_adi").execute().data) or []
+            except Exception as _e_s:
+                _ur_s = []
+                st.warning(f"Ürünler okunamadı: {_e_s}")
+            if not _ur_s:
+                st.info("Henüz ürün yok.")
+            else:
+                _fiyatsiz = sum(1 for u in _ur_s if not (u.get("satis_fiyati") or 0))
+                st.caption(f"Toplam {len(_ur_s)} ürün · satış fiyatı girilmemiş {_fiyatsiz}. "
+                           "Hedef marjı gir → 🪄 Öner ile paçaldan satış fiyatı hesapla → düzelt → 💾 Kaydet.")
+                _sc1, _sc2, _sc3 = st.columns([1, 1, 1])
+                _hedef_marj = _sc1.number_input("Hedef marj (%)", min_value=0.0, max_value=500.0,
+                                                value=25.0, step=5.0, key="satis_marj")
+                _sadece_fiyatsiz = _sc2.checkbox("Sadece fiyatsız ürünler", value=False, key="satis_sadece")
+                if _sc3.button("🪄 Marj'dan Satış Öner", use_container_width=True, key="satis_oner"):
+                    _on = {}
+                    for u in _ur_s:
+                        _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
+                        if _p > 0:
+                            _on[u["sku"]] = round(_p * (1 + _hedef_marj / 100.0), 2)
+                    st.session_state["_satis_oneri"] = _on
+                    st.session_state["_satis_oneri_v"] = st.session_state.get("_satis_oneri_v", 0) + 1
+                    st.toast(f"🪄 {len(_on)} ürün için satış fiyatı önerildi (marj %{_hedef_marj:.0f})", icon="🪄")
+                    st.rerun()
+                _son = st.session_state.get("_satis_oneri", {})
+                st.caption("💡 Satış ($) hücresini elle de değiştirebilirsin. Paçal = İthalat maliyeti · "
+                           "Marj % satışı değiştirince kaydederken yeniden hesaplanır.")
+                _liste_s = [u for u in _ur_s if not (u.get("satis_fiyati") or 0)] if _sadece_fiyatsiz else _ur_s
+                _rows_s = []
+                for u in _liste_s:
+                    _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
+                    _satis = _son.get(u["sku"]) if u["sku"] in _son else (u.get("satis_fiyati") or 0)
+                    _marj = ((_satis / _p - 1) * 100) if (_p > 0 and _satis) else 0.0
+                    _rows_s.append({
+                        "SKU": u["sku"], "Ürün Adı": u.get("urun_adi", ""),
+                        "Paçal ($)": round(_p, 2), "Satış ($)": round(float(_satis or 0), 2),
+                        "Marj %": round(_marj, 1),
+                    })
+                _df_s = pd.DataFrame(_rows_s)
+                _ed_s_key = f"satis_editor_{int(_sadece_fiyatsiz)}_{st.session_state.get('_satis_oneri_v', 0)}"
+                _edited_s = st.data_editor(
+                    _df_s, use_container_width=True, height=420, hide_index=True, key=_ed_s_key,
+                    column_config={
+                        "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
+                        "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
+                        "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="$%.2f"),
+                        "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=1.0, format="$%.2f"),
+                        "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="%.1f%%"),
+                    },
+                )
+                if st.button("💾 Satış Fiyatlarını Kaydet", type="primary", key="satis_kaydet_btn"):
+                    _map_s = {}
+                    for _, r in _edited_s.iterrows():
+                        _satis_v = float(r.get("Satış ($)") or 0)
+                        _p = float(r.get("Paçal ($)") or 0)
+                        _marj_v = ((_satis_v / _p - 1) * 100) if (_p > 0 and _satis_v) else 0.0
+                        _map_s[str(r["SKU"])] = {"satis_fiyati": _satis_v, "hedef_kar_marji": round(_marj_v, 1)}
+                    with st.spinner("Kaydediliyor..."):
+                        _oks, _hts = _satis_kaydet(_map_s)
+                    st.session_state.pop("_satis_oneri", None)
+                    st.toast(f"✅ {_oks} ürün fiyatı kaydedildi" + (f" · {_hts} hata" if _hts else ""), icon="✅")
                     st.rerun()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
