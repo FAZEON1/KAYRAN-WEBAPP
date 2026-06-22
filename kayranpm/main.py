@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
+from shared.utils import metrik_satiri, metric_css
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -564,11 +565,12 @@ def run():
         uyari_sayisi = sum(1 for u, fd in gosterilecek if fd.get("siparis_uyarisi"))
         kritik_sayisi = sum(1 for u in veri if u.get("stok_renk") == "kirmizi")
     
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("📦 Toplam Ürün", toplam_sku)
-        m2.metric("🔴 Acil Sipariş", len(acil_urunler))
-        m3.metric("🟠 Yaklaşıyor", len(yaklasan_urunler))
-        m4.metric("🟡 Planlama", len(planlama_urunler))
+        metrik_satiri([
+            {"label": "📦 Toplam Ürün", "value": f"{toplam_sku:,}", "renk": "#818CF8"},
+            {"label": "🔴 Acil Sipariş", "value": f"{len(acil_urunler):,}", "renk": "#F87171"},
+            {"label": "🟠 Yaklaşıyor", "value": f"{len(yaklasan_urunler):,}", "renk": "#FB923C"},
+            {"label": "🟡 Planlama", "value": f"{len(planlama_urunler):,}", "renk": "#FBBF24"},
+        ])
     
         # ACİL SİPARİŞ BANNER — şık tasarım
         if acil_urunler:
@@ -929,11 +931,12 @@ def run():
         toplam_satis_degeri = sum(u.get("stok_degeri_satis", 0) for u in urun_data)
         toplam_genel_stok = sum(u.get("toplam_stok", u.get("bizim_stok", 0)) for u in urun_data)
     
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("📦 Toplam Ürün", len(urun_data))
-        m2.metric("🏭 Toplam Stok (Tüm Kanallar)", f"{toplam_genel_stok:,} adet")
-        m3.metric("💰 Depo Stok Değeri (Cost)", f"${toplam_stok_degeri:,.0f}")
-        m4.metric("💵 Depo Stok Değeri (Satış)", f"${toplam_satis_degeri:,.0f}")
+        metrik_satiri([
+            {"label": "📦 Toplam Ürün", "value": f"{len(urun_data):,}", "renk": "#818CF8"},
+            {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{toplam_genel_stok:,} adet", "renk": "#22D3EE"},
+            {"label": "💰 Depo Stok Değeri (Cost)", "value": f"${toplam_stok_degeri:,.0f}", "renk": "#FB923C"},
+            {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${toplam_satis_degeri:,.0f}", "renk": "#34D399"},
+        ])
 
         # 🩺 Veri sağlığı (tek satır · eksik alanlar)
         _eksik_kat = sum(1 for u in urun_data if not (u.get("kategori") or "").strip())
@@ -1018,33 +1021,30 @@ def run():
         mal_y = secilen.get("mal_yuzde") or secilen.get("son_mal_yuzde") or 0
     
         if fob > 0 or fcp > 0:
-            satis_html = f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">SATIŞ FİYATI</div><div style="color:#29B6F6; font-size:18px; font-weight:700;">${satis:,.2f}</div></div>' if satis > 0 else ""
-            if satis > 0 and fcp > 0:
-                _kar = satis - fcp
-                _marj = (_kar / satis * 100) if satis else 0
-                if _kar >= 0:
-                    kar_html = (f'<div style="background:#1B3A2A; border-radius:8px; padding:12px; text-align:center;">'
-                                f'<div style="color:#81C784; font-size:11px; margin-bottom:4px;">KAR</div>'
-                                f'<div style="color:#A5D6A7; font-size:18px; font-weight:700;">${_kar:,.2f} (%{_marj:.1f})</div></div>')
-                else:
-                    kar_html = (f'<div style="background:#3A1B1B; border-radius:8px; padding:12px; text-align:center; border:1px solid rgba(239,68,68,0.55);">'
-                                f'<div style="color:#FCA5A5; font-size:11px; font-weight:700; margin-bottom:4px;">⚠️ ZARAR</div>'
-                                f'<div style="color:#F87171; font-size:18px; font-weight:800;">${_kar:,.2f} (%{_marj:.1f})</div>'
-                                f'<div style="color:#FCA5A5; font-size:10px;">Satış, paçal maliyetin altında</div></div>')
-            else:
-                kar_html = ""
+            _fiyat_cards = [
+                {"label": "FOB PRICE", "value": f"${fob:,.2f}", "renk": "#60A5FA"},
+                {"label": f"COST (%{mal_y:.1f})", "value": f"${cost:,.2f}", "renk": "#FB923C"},
+                {"label": "COST PRICE", "value": f"${cost_price:,.2f}", "renk": "#A78BFA"},
+                {"label": "⭐ FINAL COST PRICE", "value": f"${fcp:,.2f}", "renk": "#FBBF24",
+                 "alt": "Paçal maliyet · İthalat"},
+            ]
+            if satis > 0:
+                _fiyat_cards.append({"label": "SATIŞ FİYATI", "value": f"${satis:,.2f}", "renk": "#22D3EE"})
+                if fcp > 0:
+                    _kar = satis - fcp
+                    _marj = (_kar / satis * 100) if satis else 0
+                    if _kar >= 0:
+                        _fiyat_cards.append({"label": "KÂR", "value": f"${_kar:,.2f}",
+                                             "renk": "#34D399", "alt": f"Marj %{_marj:.1f}"})
+                    else:
+                        _fiyat_cards.append({"label": "⚠️ ZARAR", "value": f"${_kar:,.2f}",
+                                             "renk": "#F87171", "alt": "Satış, paçal maliyetin altında"})
             st.markdown(
-                f'<div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.1)">'
-                f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="color:#90CAF9; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">FİYAT ANALİZİ</div><div style="color:#A5D6A7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>'
-                f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px;">'
-                f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">FOB PRICE</div><div style="color:#FFFFFF; font-size:18px; font-weight:700;">${fob:,.2f}</div></div>'
-                f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">COST (%{mal_y:.1f})</div><div style="color:#FFA726; font-size:18px; font-weight:700;">${cost:,.2f}</div></div>'
-                f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">COST PRICE</div><div style="color:#FFFFFF; font-size:18px; font-weight:700;">${cost_price:,.2f}</div></div>'
-                f'<div style="background:#1a3a00; border-radius:8px; padding:12px; text-align:center; border:1px solid #FFD54F;"><div style="color:#FFD54F; font-size:11px; font-weight:700; margin-bottom:4px;">⭐ FINAL COST PRICE</div><div style="color:#FFD54F; font-size:22px; font-weight:800;">${fcp:,.2f}</div><div style="color:#A5D6A7; font-size:10px;">Paçal maliyet · İthalat</div></div>'
-                f'{satis_html}{kar_html}'
-                f'</div></div>',
-                unsafe_allow_html=True
-            )
+                f'<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px">'
+                f'<div style="color:#90CAF9;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">FİYAT ANALİZİ</div>'
+                f'<div style="color:#A5D6A7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>',
+                unsafe_allow_html=True)
+            metrik_satiri(_fiyat_cards)
         else:
             st.markdown('<div style="background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:12px;padding:16px;text-align:center;color:#94A3B8;font-size:12px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
     
@@ -1059,13 +1059,17 @@ def run():
         # Üst bilgi kartları
         c1, c2, c3, c4, c5 = st.columns(5)
         toplam_stok_ud = urun.get("toplam_stok", urun.get("bizim_stok", 0))
-        c1.metric("📦 Toplam Stok", toplam_stok_ud)
-        c2.metric("📊 Ort. Hft. Satış", round(urun.get("ortalama_haftalik_satis", 0)))
-        c3.metric("⚡ Risk Skoru", f"{urun.get('risk_skor',0)}/100")
         stok_bitis = urun.get('stok_bitis_gun')
         stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Veri yok"
-        c4.metric("📅 Stok Biter", stok_bitis_str)
-        c5.metric("📦 Sipariş Önerisi", f"{urun.get('oneri_miktar',0)} adet")
+        _risk = urun.get('risk_skor', 0) or 0
+        _risk_renk = "#F87171" if _risk >= 70 else ("#FBBF24" if _risk >= 40 else "#34D399")
+        metrik_satiri([
+            {"label": "📦 Toplam Stok", "value": f"{toplam_stok_ud:,}", "renk": "#818CF8"},
+            {"label": "📊 Ort. Hft. Satış", "value": f"{round(urun.get('ortalama_haftalik_satis', 0)):,}", "renk": "#22D3EE"},
+            {"label": "⚡ Risk Skoru", "value": f"{_risk}/100", "renk": _risk_renk},
+            {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": "#A78BFA"},
+            {"label": "📦 Sipariş Önerisi", "value": f"{urun.get('oneri_miktar',0)} adet", "renk": "#FB923C"},
+        ])
     
         # Sipariş durumu banner (yumuşak, tek katman)
         siparis_durum = urun.get("siparis_durum", "veri_yok")
@@ -1833,13 +1837,14 @@ def run():
                         st.html(k_css + k_head + k_rows + "</tbody></table></div>")
     
                         # Kampanya özet metrikleri
-                        sm1, sm2, sm3, sm4 = st.columns(4)
-                        sm1.metric("📦 Toplam Satılan", f"{toplam_satilan:,} adet")
-                        sm2.metric("💸 Toplam Destek Verilen", f"${toplam_destek_verilen:,.0f}")
-                        sm3.metric("📈 Toplam Net Kar", f"${toplam_net_kar:,.0f}",
-                                   delta="Kârlı" if toplam_net_kar > 0 else "Zararlı",
-                                   delta_color="normal" if toplam_net_kar > 0 else "inverse")
-                        sm4.metric("🏪 Firma", kamp["firma"])
+                        metrik_satiri([
+                            {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
+                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_destek_verilen:,.0f}", "renk": "#FB923C"},
+                            {"label": "📈 Toplam Net Kar", "value": f"${toplam_net_kar:,.0f}",
+                             "renk": "#34D399" if toplam_net_kar > 0 else "#F87171",
+                             "alt": "Kârlı" if toplam_net_kar > 0 else "Zararlı"},
+                            {"label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA"},
+                        ])
     
                         # Ürün düzenleme
                         with st.expander("✏️ Ürün Bilgilerini Güncelle"):
@@ -2016,11 +2021,12 @@ def run():
         yaklasan = [u for u in siparis_listesi if u.get("siparis_durum") == "yaklasıyor"]
         planlama = [u for u in siparis_listesi if u.get("siparis_durum") == "planlama"]
     
-        m1, m2, m3 = st.columns(3)
-        m1.metric("🔴 ACİL", len(acil))
-        m2.metric("🟠 Yaklaşıyor (30 gün)", len(yaklasan))
-        m3.metric("🟡 Planlama (60 gün)", len(planlama))
-    
+        metrik_satiri([
+            {"label": "🔴 ACİL", "value": f"{len(acil):,}", "renk": "#F87171"},
+            {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{len(yaklasan):,}", "renk": "#FB923C"},
+            {"label": "🟡 Planlama (60 gün)", "value": f"{len(planlama):,}", "renk": "#FBBF24"},
+        ])
+
         st.markdown("---")
     
         for urun in siparis_listesi:
@@ -2142,10 +2148,11 @@ def run():
                 st.info("İthalat'ta henüz ürün yok. Önce **İthalat → Yeni İthalat → 📑 Excel ile Toplu**'dan veri aktarın; sonra burada senkronize edebilirsiniz. (Güvenlik için İthalat boşken silme yapılmaz.)")
             else:
                 st.caption(f"📊 Şu an üründe **{len(_mvmap)}** model · İthalat'ta **{len(_ithoz)}** distinct SKU var.")
-                _sc1, _sc2, _sc3 = st.columns(3)
-                _sc1.metric("İthalat'tan eklenecek", len(_ekl))
-                _sc2.metric("Silinecek eski model", len(_sil))
-                _sc3.metric("Korunacak (ortak)", len(_kor))
+                metrik_satiri([
+                    {"label": "İthalat'tan eklenecek", "value": f"{len(_ekl):,}", "renk": "#34D399"},
+                    {"label": "Silinecek eski model", "value": f"{len(_sil):,}", "renk": "#F87171"},
+                    {"label": "Korunacak (ortak)", "value": f"{len(_kor):,}", "renk": "#818CF8"},
+                ])
                 if _sil:
                     with st.expander(f"🗑️ Silinecek {len(_sil)} eski model (İthalat'ta yok)", expanded=False):
                         st.dataframe(pd.DataFrame([{"SKU": s, "Ürün Adı": _mvmap.get(s, "")} for s in _sil]),
