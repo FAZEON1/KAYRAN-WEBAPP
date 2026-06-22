@@ -415,20 +415,8 @@ def _gecmis_ithalatlar():
         "% Maliyet": f"%{s['% Maliyet']:.1f}", "Kalem": s["Kalem"], "Durum": s["Durum"],
     } for s in satirlar_goster])
     _evt = st.dataframe(
-        _df_show, use_container_width=True, hide_index=True, height=420,
+        _df_show, hide_index=True, height=420,
         on_select="rerun", selection_mode="single-row", key="ith_gecmis_df",
-        column_config={
-            "Belge No": st.column_config.TextColumn("Belge No", width="large"),
-            "Takip No": st.column_config.TextColumn("Takip No", width="small"),
-            "Tarih": st.column_config.TextColumn("Tarih", width="small"),
-            "Tedarikçi": st.column_config.TextColumn("Tedarikçi", width="large"),
-            "Döviz": st.column_config.TextColumn("Döviz", width="small"),
-            "Mal Bedeli": st.column_config.TextColumn("Mal Bedeli", width="small"),
-            "Masraf": st.column_config.TextColumn("Masraf", width="small"),
-            "% Maliyet": st.column_config.TextColumn("% Maliyet", width="small"),
-            "Kalem": st.column_config.TextColumn("Kalem", width="small"),
-            "Durum": st.column_config.TextColumn("Durum", width="small"),
-        },
     )
     st.caption("👆 Detay, masraf dökümü ve düzenleme için bir **satıra tıkla**. · Sütun başlığına tıklayarak da sıralayabilirsin.")
 
