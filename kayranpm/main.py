@@ -1946,11 +1946,11 @@ def run():
                                 u_bilgi_c = urun_dict_k.get(ku["sku"], {})
                                 pacal_guncel = u_bilgi_c.get("final_cost_price", 0)
                                 if pacal_guncel > 0:
-                                    from .database import get_connection as _gc_k
-                                    _conn_k = _gc_k(); _c_k = _conn_k.cursor()
-                                    _c_k.execute("UPDATE kampanya_urunler SET pacal_maliyet=? WHERE id=?",
-                                                (pacal_guncel, ku["id"]))
-                                    _conn_k.commit(); _conn_k.close()
+                                    try:
+                                        get_client().table("kampanya_urunler").update(
+                                            {"pacal_maliyet": pacal_guncel}).eq("id", ku["id"]).execute()
+                                    except Exception:
+                                        pass
                                     pacal = pacal_guncel
     
                             satis = ku.get("satis_fiyati") or 0
