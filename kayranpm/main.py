@@ -2421,35 +2421,22 @@ def run():
                 if st.session_state.get("_kat_std_ozet"):
                     st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
                 _oneri = st.session_state.get("_kat_oneri", {})
-                st.session_state.setdefault("_kat_ozel", [])
-                _yk1, _yk2 = st.columns([3, 1])
-                _yeni_kat = _yk1.text_input("➕ Yeni / özel kategori adı (none olanları elle adlandır)",
-                                            key="kat_yeni_ad",
-                                            placeholder="örn. Araç Kamerası, Adaptör, Kablo, Mouse Pad...")
-                if _yk2.button("➕ Listeye Ekle", use_container_width=True, key="kat_yeni_ekle"):
-                    _yk = (_yeni_kat or "").strip()
-                    if _yk and _yk not in st.session_state["_kat_ozel"]:
-                        st.session_state["_kat_ozel"].append(_yk)
-                        st.toast(f"'{_yk}' kategori listesine eklendi — açılır menüden seçebilirsin", icon="➕")
-                        st.rerun()
-                if st.session_state["_kat_ozel"]:
-                    st.caption("➕ Eklenen özel kategoriler: " + " · ".join(st.session_state["_kat_ozel"]))
+                st.caption("💡 **Kategori hücresine tıklayıp istediğini yazabilirsin** (örn. SARF, Diğer, Adaptör, Ekran Kartı). "
+                           "🪄 Otomatik Öner bilinenleri doldurur; üzerine kendi adını yazabilirsin.")
                 _liste = [u for u in _ur_kat if not (u.get("kategori") or "").strip()] if _sadece_bos else _ur_kat
                 _df_kat = pd.DataFrame([{
                     "SKU": u["sku"],
                     "Ürün Adı": u.get("urun_adi", ""),
                     "Kategori": (_oneri.get(u["sku"]) or (u.get("kategori") or "")),
                 } for u in _liste])
-                _kat_secenek = sorted(set(_KAT_LISTE) | set(st.session_state.get("_kat_ozel", []))
-                                      | {(u.get("kategori") or "").strip()
-                                         for u in _ur_kat if (u.get("kategori") or "").strip()})
                 _ed_key = f"kat_editor_{int(_sadece_bos)}_{st.session_state.get('_kat_oneri_v', 0)}"
                 _edited_kat = st.data_editor(
                     _df_kat, use_container_width=True, height=430, hide_index=True, key=_ed_key,
                     column_config={
                         "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                         "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
-                        "Kategori": st.column_config.SelectboxColumn("Kategori", options=_kat_secenek, required=False),
+                        "Kategori": st.column_config.TextColumn(
+                            "Kategori", help="İstediğin kategori adını serbestçe yaz (SARF, Diğer, Ekran Kartı...)"),
                     },
                 )
                 if st.button("💾 Kategorileri Kaydet", type="primary", key="kat_kaydet_btn"):

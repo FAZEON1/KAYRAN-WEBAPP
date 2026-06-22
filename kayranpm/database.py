@@ -68,16 +68,20 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
 # Öneri kuralları: (kategori, anahtar kelime regex). Sıra önemli — ilk eşleşen kazanır.
 import re as _re
 KATEGORI_KURALLAR = [
-    ("Araç Kamerası", r"MIVUE|DASHCAM|ARAÇ\s*İÇİ|ARAC ICI|G-SENSOR|STARVIS"),
-    ("Monitör",       r"MONITOR|MONİTÖR|\bIPS\b|\bVA\b|\d+\s*HZ|HDMI|\bDP\b|GAMING MONITOR"),
-    ("CPU Soğutucu",  r"İŞLEMCİ|ISLEMCI|\bCPU\b"),
-    ("Kule Soğutucu", r"KULE"),
-    ("Sıvı Soğutma",  r"\bAIO\b|SIVI|LIQUID|WATER COOL|RADYATÖR|RADYATOR"),
-    ("Fan",           r"\bFAN\b|FANI|RGB FAN"),
-    ("Güç Kaynağı",   r"\bPSU\b|POWER SUPPLY|GÜÇ KAYNA|GUC KAYNA"),
-    ("Kasa",          r"KASA|\bCASE\b|\bATX\b|MESH|\bMID\s*TOWER\b"),
-    ("Klavye/Mouse",  r"KLAVYE|MOUSE|\bFARE\b|KEYBOARD"),
-    ("Kulaklık",      r"KULAKLIK|HEADSET|EARBUD"),
+    ("Araç Kamerası",   r"MIVUE|DASHCAM|ARAÇ\s*İÇİ|ARAC ICI|G-SENSOR|STARVIS"),
+    ("Ekran Kartı",     r"EKRAN KARTI|GEFORCE|RADEON|\bRTX\b|\bGTX\b|GDDR"),
+    ("Ekran Koruyucu",  r"EKRAN KORUYUCU|HYDROGEL|TEMPERED|CAM KORUYUCU|NANO CAM"),
+    ("Monitör",         r"MONITOR|MONİTÖR|GAMING MONITOR|\bIPS\b|\bVA\b|\d+\s*HZ|\bHDMI\b"),
+    ("CPU Soğutucu",    r"İŞLEMCİ|ISLEMCI|\bCPU\b"),
+    ("Kule Soğutucu",   r"KULE"),
+    ("Sıvı Soğutma",    r"\bAIO\b|SIVI|LIQUID|WATER COOL|RADYATÖR|RADYATOR"),
+    ("Fan",             r"\bFAN\b|FANI|RGB FAN"),
+    ("Güç Kaynağı",     r"\bPSU\b|POWER SUPPLY|GÜÇ KAYNA|GUC KAYNA"),
+    ("Kasa",            r"KASA|\bCASE\b|\bATX\b|MESH|\bMID\s*TOWER\b"),
+    ("Kablo/Konnektör", r"KONNEKTÖR|KONNEKTOR|\bKABLO\b|\bSATA\b|ADAPTÖR|ADAPTOR|5V3PIN"),
+    ("El Aleti",        r"TORNAVIDA|ALET SET|ŞARJLI HASSAS|HASSAS TORNAVIDA"),
+    ("Klavye/Mouse",    r"KLAVYE|MOUSE|\bFARE\b|KEYBOARD"),
+    ("Kulaklık",        r"KULAKLIK|HEADSET|EARBUD"),
 ]
 KATEGORI_LISTE = [k for k, _ in KATEGORI_KURALLAR]
 
