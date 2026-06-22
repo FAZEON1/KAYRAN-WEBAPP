@@ -318,14 +318,7 @@ def run():
         border-right: 1px solid rgba(255,255,255,0.06) !important;
     }
     section[data-testid="stSidebar"] * { color: #CFD8DC !important; }
-    section[data-testid="stSidebar"] .stRadio label {
-        color: #90A4AE !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        padding: 4px 0 !important;
-        transition: color 0.15s;
-    }
-    section[data-testid="stSidebar"] .stRadio label:hover { color: #ECEFF1 !important; }
+    /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stButton button {
         background: linear-gradient(135deg,#1A3A5C,#1565C0) !important;
         color: #ECEFF1 !important;
