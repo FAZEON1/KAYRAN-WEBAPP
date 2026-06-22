@@ -774,8 +774,16 @@ def _yeni_ithalat():
                     mevcut_kayit = _dosya_map.get(dno_s)
                     if mevcut_kayit:
                         if not _guncelle:
-                            atlanan += 1
-                            mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
+                            # "Sadece yenileri ekle": mevcut dosya atlanır AMA takip no'su
+                            # boşsa Excel'deki takip no ile doldurulur (kalem/masraf değişmez).
+                            _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
+                            if takip_no and not _mt:
+                                set_dosya_takip_no(mevcut_kayit["id"], takip_no)
+                                guncellenen += 1
+                                mesajlar.append(f"{dno_s}: zaten kayıtlı — boş takip no dolduruldu ({takip_no}).")
+                            else:
+                                atlanan += 1
+                                mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
                             continue
                         # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile
                         eski_masraf = _masraf_dict(mevcut_kayit)
