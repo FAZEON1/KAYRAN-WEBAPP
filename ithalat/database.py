@@ -204,7 +204,7 @@ def get_sku_maliyet_ozet():
 
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
-               masraflar, notlar, kalemler, pi_no=""):
+               masraflar, notlar, kalemler, pi_no="", ithalat_takip_no=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
@@ -217,6 +217,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
+            "ithalat_takip_no": ithalat_takip_no or "",
         }).execute())
         if not d:
             return False, "Dosya eklenemedi (boş yanıt)."

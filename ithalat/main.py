@@ -216,16 +216,16 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
 
 def _excel_sablon_bytes():
     """Satın Alım Raporu formatında örnek şablon (sistemden çekilen yapıyla aynı başlıklar)."""
-    kolonlar = ["Sipariş Tarihi", "Sipariş no", "Belge no", "Belge tarihi", "Sipariş cinsi",
+    kolonlar = ["İthalat Takip No", "Sipariş Tarihi", "Sipariş no", "Belge no", "Belge tarihi", "Sipariş cinsi",
                 "Teslim tarihi", "Teslim türü", "Cari hesap kodu", "Cari hesap adı", "Stok kodu",
                 "Stok ismi", "Depo", "Miktar", "Birim", "Birim Fiyat", "Toplam iskonto", "Net fiyat",
                 "Döviz", "Tutar", "Tamamlanan miktar", "Kalan miktar", "Öd.Pl", "Onay durumu",
                 "Açık/Kapalı", "Durum"]
-    s1 = ["2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
+    s1 = ["2025-1", "2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
           "FOB", "320.50.001", "ABC DISPLAY CO., LTD", "X27F165QW",
           "27 inch Gaming Monitor", "Merkez depo", 100, "Adet", 85, 0, 85, "USD", 8500, 100, 0,
           "PEŞİN", "Onaylandı", "Açık", "Açık"]
-    s2 = ["2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
+    s2 = ["2025-1", "2025-01-15", "SAS-1", "PI-2025-001", "2025-01-15", "Dış Ticaret siparişi", "2025-04-20",
           "FOB", "320.50.001", "ABC DISPLAY CO., LTD", "CASE-MID-01",
           "Mid Tower Kasa", "Merkez depo", 50, "Adet", 40, 0, 40, "USD", 2000, 50, 0,
           "PEŞİN", "Onaylandı", "Açık", "Açık"]
@@ -546,11 +546,11 @@ def _yeni_ithalat():
     with sekme2:
         st.markdown(
             "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
-            "Aynı **Belge no** satırları tek ithalat dosyası olur — **bir belgede birden çok sipariş olabilir** "
-            "ve masraf bu dosyaya (Belge no) göre maliyetlenir. Eşleme: "
-            "**Belge no → Dosya / PI**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
+            "Aynı **İthalat Takip No** satırları tek ithalat dosyası olur — **siparişler İthalat Takip No'ya göre dosyalanır** "
+            "(takip no yoksa Belge no'ya göre). Bir takip no altında birden çok belge/sipariş olabilir; masraf bu dosyaya göre maliyetlenir. Eşleme: "
+            "**İthalat Takip No → dosya**, **Belge no → PI**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
             "**Miktar → adet**, **Net fiyat** (yoksa **Birim Fiyat**) **→ birim FOB**, **Döviz**. "
-            "İçindeki **Sipariş no(lar)** dosya notuna eklenir. "
+            "İçindeki **Sipariş / Belge no(lar)** dosya notuna eklenir. "
             "Masraf bu aşamada girilmez — dosya **⏳ masraf bekliyor** olarak düşer; masrafları sonra "
             "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı/bedelsiz satırlar atlanmaz; adetleri paçala dahil edilir, maliyet toplam tutara bölünür.)"
         )
@@ -575,6 +575,7 @@ def _yeni_ithalat():
                 return h
 
             eslesme = {
+                "ithalat takip no": "takip_no",
                 "siparis tarihi": "tarih", "siparis no": "dosya_no", "belge no": "pi_no",
                 "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
                 "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
@@ -600,19 +601,30 @@ def _yeni_ithalat():
             st.markdown("**Önizleme**")
             st.dataframe(df.head(30), use_container_width=True, height=240)
 
-            # Gruplama anahtarı: BELGE NO (yoksa Sipariş no). Bir belge = bir ithalat dosyası.
+            # Gruplama anahtarı: İTHALAT TAKİP NO (yoksa Belge no, yoksa Sipariş no).
+            # Bir takip no = bir ithalat dosyası; siparişler takip no'ya göre dosyalanır.
+            _takip_col = kol.get("takip_no")
             _belge_col = kol.get("pi_no")
             _sip_col = kol.get("dosya_no")
             def _grup_key(r):
+                t = str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
+                if t and t.lower() != "nan":
+                    return t
                 b = str(r.get(_belge_col, "") or "").strip() if _belge_col else ""
                 if b and b.lower() != "nan":
                     return b
                 return str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
             df = df.copy()
             df["_grup"] = df.apply(_grup_key, axis=1)
-            mevcut_dosyalar = {str(d.get("dosya_no", "")).strip() for d in get_dosyalar()}
+            _dosyalar = get_dosyalar()
+            _mevcut_dosya_no = {str(d.get("dosya_no", "")).strip() for d in _dosyalar}
+            _mevcut_takip = {str(d.get("ithalat_takip_no", "")).strip() for d in _dosyalar
+                             if str(d.get("ithalat_takip_no", "")).strip()}
+            mevcut_dosyalar = _mevcut_dosya_no | _mevcut_takip
             gruplar = list(df.groupby("_grup"))
-            st.caption(f"{len(gruplar)} belge (ithalat dosyası) bulundu.")
+            _grup_ad = "takip no" if _takip_col else "belge"
+            st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — siparişler "
+                       f"{'İthalat Takip No' if _takip_col else 'belge no'}'ya göre dosyalanacak.")
 
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
                 basari, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, []
@@ -651,19 +663,33 @@ def _yeni_ithalat():
                         atlanan += 1
                         mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
                         continue
-                    belge_no = str(ilk.get(kol["pi_no"], "") or "").strip() if "pi_no" in kol else ""
-                    if not belge_no or belge_no.lower() == "nan":
-                        belge_no = dno_s
+                    # Belge no(lar) — bir takip no altında birden çok belge olabilir
+                    if "pi_no" in kol:
+                        _belgeler = sorted({str(x).strip() for x in g[kol["pi_no"]].tolist()
+                                            if str(x).strip() and str(x).strip().lower() != "nan"})
+                    else:
+                        _belgeler = []
+                    belge_no = _belgeler[0] if _belgeler else dno_s
                     if "dosya_no" in kol:
                         _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
                                         if str(x).strip() and str(x).strip().lower() != "nan"})
                     else:
                         _sips = []
-                    notlar = ("Sipariş(ler): " + ", ".join(_sips)) if _sips else ""
+                    _not_parts = []
+                    if _sips:
+                        _not_parts.append("Sipariş(ler): " + ", ".join(_sips))
+                    if len(_belgeler) > 1:
+                        _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
+                    notlar = " · ".join(_not_parts)
+                    # İthalat takip no (varsa) — dosya bununla dosyalanır; boşsa boş kalır
+                    takip_no = str(ilk.get(kol["takip_no"], "") or "").strip() if "takip_no" in kol else ""
+                    if takip_no.lower() == "nan":
+                        takip_no = ""
                     tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
-                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler, pi_no=belge_no)
+                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
+                                         pi_no=belge_no, ithalat_takip_no=takip_no)
                     if ok:
                         basari += 1
                     else:
