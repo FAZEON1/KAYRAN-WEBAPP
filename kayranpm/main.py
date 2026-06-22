@@ -2318,6 +2318,7 @@ def run():
             if not _ithoz:
                 st.info("İthalat'ta henüz ürün yok. Önce **İthalat → Yeni İthalat → 📑 Excel ile Toplu**'dan veri aktarın; sonra burada senkronize edebilirsiniz. (Güvenlik için İthalat boşken silme yapılmaz.)")
             else:
+                st.caption(f"📊 Şu an üründe **{len(_mvmap)}** model · İthalat'ta **{len(_ithoz)}** distinct SKU var.")
                 _sc1, _sc2, _sc3 = st.columns(3)
                 _sc1.metric("İthalat'tan eklenecek", len(_ekl))
                 _sc2.metric("Silinecek eski model", len(_sil))
@@ -2336,6 +2337,8 @@ def run():
                         with st.spinner("Senkronize ediliyor..."):
                             _r = senkronize_urunler_ithalattan(sil_eski=_sil_eski)
                         st.success(f"✅ {_r['eklendi']} ürün eklendi · {_r['silindi']} eski model silindi · {_r['korundu']} korundu.")
+                        if _r.get("hata"):
+                            st.error(f"⚠ {_r['hata']} ürün eklenemedi. Örnek: " + " | ".join(_r.get("hatalar", [])))
                         st.rerun()
                 else:
                     st.caption("Ürünler İthalat ile zaten eşit. ✅")

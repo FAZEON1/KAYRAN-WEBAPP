@@ -143,15 +143,17 @@ def senkronize_urunler_ithalattan(sil_eski=True):
     - İthalat'ta olup üründe olmayanları EKLER (urun_adi İthalat'tan, diğer alanlar boş/0).
     - sil_eski=True ise üründe olup İthalat'ta olmayanları SİLER (eski modeller).
     - Ortak SKU'lar dokunulmaz (satış/stok/hedef korunur).
-    Döner: dict(eklendi, silindi, korundu, eklenenler, silinenler)."""
+    Döner: dict(eklendi, silindi, korundu, hata, eklenenler, silinenler, hatalar)."""
     eklenecek, silinecek, korunan, ith, _ = ithalat_senkron_onizleme()
-    eklendi = 0
+    eklendi, hata, hatalar = 0, 0, []
     for sku in eklenecek:
         try:
             upsert_urun(sku, ith.get(sku, {}).get("urun_adi", ""))
             eklendi += 1
-        except Exception:
-            pass
+        except Exception as e:
+            hata += 1
+            if len(hatalar) < 5:
+                hatalar.append(f"{sku}: {type(e).__name__}: {str(e)[:80]}")
     silindi = 0
     if sil_eski:
         for sku in silinecek:
@@ -162,7 +164,8 @@ def senkronize_urunler_ithalattan(sil_eski=True):
                 pass
     _cache_temizle()
     return {"eklendi": eklendi, "silindi": silindi, "korundu": len(korunan),
-            "eklenenler": sorted(eklenecek), "silinenler": sorted(silinecek)}
+            "hata": hata, "eklenenler": sorted(eklenecek), "silinenler": sorted(silinecek),
+            "hatalar": hatalar}
 
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
