@@ -55,6 +55,28 @@ def _baslik(ikon, ad, alt):
     )
 
 
+def _metrik_satiri(cards):
+    """Kompakt, renkli metric kartları satırı. cards = [{'label','value','renk','help'?}]."""
+    cells = ""
+    for c in cards:
+        renk = c.get("renk", "#A5B4FC")
+        ttl = f' title="{c["help"]}"' if c.get("help") else ""
+        ipucu = ' <span style="color:#64748B;font-size:11px">ⓘ</span>' if c.get("help") else ""
+        cells += (
+            f'<div{ttl} style="flex:1;min-width:128px;background:rgba(255,255,255,0.022);'
+            f'border:1px solid rgba(255,255,255,0.06);border-left:3px solid {renk};'
+            f'border-radius:13px;padding:10px 14px">'
+            f'<div style="color:#8B97A8;font-size:9.5px;font-weight:700;letter-spacing:.6px;'
+            f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
+            f'<div style="color:{renk};font-size:19px;font-weight:800;margin-top:2px;'
+            f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
+            f'</div>'
+        )
+    st.markdown(f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px">{cells}</div>',
+                unsafe_allow_html=True)
+
+
 def _alt_baslik(t):
     st.markdown(
         f'<div style="font-size:11px;font-weight:700;color:#A5B4FC;letter-spacing:1.2px;'
@@ -323,11 +345,12 @@ def _gecmis_ithalatlar():
     toplam_mal = sum(s["Mal Bedeli"] for s in satirlar)
     toplam_masraf = sum(s["Toplam Masraf"] for s in satirlar)
     ort_yuzde = (toplam_masraf / toplam_mal * 100) if toplam_mal > 0 else 0
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Dosya Sayısı", len(dosyalar))
-    c2.metric("Toplam Mal Bedeli", f"${toplam_mal:,.0f}")
-    c3.metric("Toplam Masraf", f"${toplam_masraf:,.0f}")
-    c4.metric("Ort. % Maliyet", f"%{ort_yuzde:.1f}")
+    _metrik_satiri([
+        {"label": "Dosya Sayısı", "value": f"{len(dosyalar):,}", "renk": "#818CF8"},
+        {"label": "Toplam Mal Bedeli", "value": f"${toplam_mal:,.0f}", "renk": "#34D399"},
+        {"label": "Toplam Masraf", "value": f"${toplam_masraf:,.0f}", "renk": "#FB923C"},
+        {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.1f}", "renk": "#A78BFA"},
+    ])
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
@@ -940,14 +963,18 @@ def _model_sorgu():
     _pw_adet = sum(a for a, _ in _pw)
     pacal_ort = (sum(a * f for a, f in _pw) / _pw_adet) if _pw_adet > 0 else None
     _dv = (satirlar[0]["Döviz"] if satirlar else "") or ""
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Toplam Alım Adedi", f"{toplam_adet:,.0f}")
-    c2.metric("Sipariş Sayısı", f"{len(satirlar)}")
-    c3.metric("Ort. Birim FOB", f"${(sum(fobs)/len(fobs)):,.2f}" if fobs else "—")
-    c4.metric("Min – Maks FOB", f"${min(fobs):,.0f} – ${max(fobs):,.0f}" if fobs else "—")
-    c5.metric("⭐ Paçal Birim Maliyet", f"${pacal_ort:,.2f}" if pacal_ort else "—",
-              help="Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
-                   "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir.")
+    _ort_fob = f"${(sum(fobs)/len(fobs)):,.2f}" if fobs else "—"
+    _mnmx = f"${min(fobs):,.0f} – ${max(fobs):,.0f}" if fobs else "—"
+    _pacal = f"${pacal_ort:,.2f}" if pacal_ort else "—"
+    _metrik_satiri([
+        {"label": "Toplam Alım Adedi", "value": f"{toplam_adet:,.0f}", "renk": "#22D3EE"},
+        {"label": "Sipariş Sayısı", "value": f"{len(satirlar):,}", "renk": "#818CF8"},
+        {"label": "Ort. Birim FOB", "value": _ort_fob, "renk": "#60A5FA"},
+        {"label": "Min – Maks FOB", "value": _mnmx, "renk": "#FBBF24"},
+        {"label": "⭐ Paçal Birim Maliyet", "value": _pacal, "renk": "#FCD34D",
+         "help": "Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
+                 "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir."},
+    ])
 
     _tablo(df, para=["Birim FOB", "Final Birim Maliyet"], yuzde=["% Maliyet"],
            sol=["Belge No", "Tedarikçi", "Döviz"])
