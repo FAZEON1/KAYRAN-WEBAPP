@@ -1372,6 +1372,7 @@ def run():
                 "Net Marj (%)": float(net_marj) if net_marj is not None else None,
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
             })
+        _toplam_oz = len(rows_oz)
         # Filtre + sıralama uygula
         if f_ara_oz and f_ara_oz.strip():
             _q = f_ara_oz.strip().lower()
@@ -1391,6 +1392,7 @@ def run():
             _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
             rows_oz = _dolu + _bos
 
+        st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor")
         df_oz = pd.DataFrame(rows_oz)
         if df_oz.empty:
             st.info("Henüz ürün yok.")
