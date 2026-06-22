@@ -63,6 +63,56 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
     ).execute()
     _cache_temizle()
 
+
+# ── Kategori yönetimi ──────────────────────────────────────────────
+# Öneri kuralları: (kategori, anahtar kelime regex). Sıra önemli — ilk eşleşen kazanır.
+import re as _re
+KATEGORI_KURALLAR = [
+    ("Araç Kamerası", r"MIVUE|DASHCAM|ARAÇ\s*İÇİ|ARAC ICI|G-SENSOR|STARVIS"),
+    ("Monitör",       r"MONITOR|MONİTÖR|\bIPS\b|\bVA\b|\d+\s*HZ|HDMI|\bDP\b|GAMING MONITOR"),
+    ("CPU Soğutucu",  r"İŞLEMCİ|ISLEMCI|\bCPU\b"),
+    ("Kule Soğutucu", r"KULE"),
+    ("Sıvı Soğutma",  r"\bAIO\b|SIVI|LIQUID|WATER COOL|RADYATÖR|RADYATOR"),
+    ("Fan",           r"\bFAN\b|FANI|RGB FAN"),
+    ("Güç Kaynağı",   r"\bPSU\b|POWER SUPPLY|GÜÇ KAYNA|GUC KAYNA"),
+    ("Kasa",          r"KASA|\bCASE\b|\bATX\b|MESH|\bMID\s*TOWER\b"),
+    ("Klavye/Mouse",  r"KLAVYE|MOUSE|\bFARE\b|KEYBOARD"),
+    ("Kulaklık",      r"KULAKLIK|HEADSET|EARBUD"),
+]
+KATEGORI_LISTE = [k for k, _ in KATEGORI_KURALLAR]
+
+
+def kategori_oner(urun_adi):
+    """Ürün adından kategori önerir; eşleşme yoksa boş döner."""
+    ad = str(urun_adi or "").upper()
+    for kat, pat in KATEGORI_KURALLAR:
+        if _re.search(pat, ad):
+            return kat
+    return ""
+
+
+def set_kategori(sku, kategori):
+    """Tek bir ürünün kategorisini günceller."""
+    try:
+        get_client().table("urunler").update({"kategori": kategori or ""}).eq("sku", str(sku)).execute()
+        return True
+    except Exception:
+        return False
+
+
+def toplu_kategori_kaydet(sku_kategori):
+    """{sku: kategori} sözlüğüyle toplu günceller. (guncellenen_sayisi, hata_sayisi) döner."""
+    ok, hata = 0, 0
+    sb = get_client()
+    for sku, kat in (sku_kategori or {}).items():
+        try:
+            sb.table("urunler").update({"kategori": (kat or "").strip()}).eq("sku", str(sku)).execute()
+            ok += 1
+        except Exception:
+            hata += 1
+    _cache_temizle()
+    return ok, hata
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()

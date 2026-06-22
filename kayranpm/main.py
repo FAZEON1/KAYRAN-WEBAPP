@@ -2380,8 +2380,59 @@ def run():
             st.warning(f"İthalat senkron hazırlanamadı: {type(_e).__name__}: {_e}")
 
         st.markdown("---")
-    
-        # Şablon indir
+
+        # 🏷️ Toplu Kategorilendirme
+        with st.expander("🏷️ Toplu Kategorilendirme — ürünleri tek tabloda kategorile", expanded=False):
+            from .database import (get_client as _gc_kat, kategori_oner as _kat_oner,
+                                   toplu_kategori_kaydet as _kat_kaydet, KATEGORI_LISTE as _KAT_LISTE)
+            try:
+                _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori")
+                           .order("urun_adi").execute().data) or []
+            except Exception as _e_kat:
+                _ur_kat = []
+                st.warning(f"Ürünler okunamadı: {type(_e_kat).__name__}: {_e_kat}")
+            if not _ur_kat:
+                st.info("Henüz ürün yok.")
+            else:
+                _bos_sayi = sum(1 for u in _ur_kat if not (u.get("kategori") or "").strip())
+                st.caption(f"Toplam {len(_ur_kat)} ürün · kategorisiz {_bos_sayi}. "
+                           "Önce 🪄 Otomatik Öner'e bas, sonra kalanları elle seç, 💾 Kaydet.")
+                _kc1, _kc2 = st.columns([1, 1])
+                _sadece_bos = _kc1.checkbox("Sadece kategorisiz ürünler", value=True, key="kat_sadece_bos")
+                if _kc2.button("🪄 Otomatik Öner (ürün adından)", use_container_width=True, key="kat_oto"):
+                    _on = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
+                           if _kat_oner(u.get("urun_adi", ""))}
+                    st.session_state["_kat_oneri"] = _on
+                    st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
+                    st.toast(f"{len(_on)} ürün için kategori önerildi", icon="🪄")
+                    st.rerun()
+                _oneri = st.session_state.get("_kat_oneri", {})
+                _liste = [u for u in _ur_kat if not (u.get("kategori") or "").strip()] if _sadece_bos else _ur_kat
+                _df_kat = pd.DataFrame([{
+                    "SKU": u["sku"],
+                    "Ürün Adı": u.get("urun_adi", ""),
+                    "Kategori": (_oneri.get(u["sku"]) or (u.get("kategori") or "")),
+                } for u in _liste])
+                _kat_secenek = sorted(set(_KAT_LISTE) | {(u.get("kategori") or "").strip()
+                                                         for u in _ur_kat if (u.get("kategori") or "").strip()})
+                _ed_key = f"kat_editor_{int(_sadece_bos)}_{st.session_state.get('_kat_oneri_v', 0)}"
+                _edited_kat = st.data_editor(
+                    _df_kat, use_container_width=True, height=430, hide_index=True, key=_ed_key,
+                    column_config={
+                        "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
+                        "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
+                        "Kategori": st.column_config.SelectboxColumn("Kategori", options=_kat_secenek, required=False),
+                    },
+                )
+                if st.button("💾 Kategorileri Kaydet", type="primary", key="kat_kaydet_btn"):
+                    _map_kat = {str(r["SKU"]): str(r.get("Kategori", "") or "").strip()
+                                for _, r in _edited_kat.iterrows()}
+                    with st.spinner("Kaydediliyor..."):
+                        _okk, _htk = _kat_kaydet(_map_kat)
+                    st.session_state.pop("_kat_oneri", None)
+                    st.toast(f"✅ {_okk} ürün kategorisi kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
+                    st.rerun()
+
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
             st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:6px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
             sablon_bytes = create_sample_excel_bytes()
