@@ -617,24 +617,36 @@ def _yeni_ithalat():
             df = df.copy()
             df["_grup"] = df.apply(_grup_key, axis=1)
             _dosyalar = get_dosyalar()
-            _mevcut_dosya_no = {str(d.get("dosya_no", "")).strip() for d in _dosyalar}
-            _mevcut_takip = {str(d.get("ithalat_takip_no", "")).strip() for d in _dosyalar
-                             if str(d.get("ithalat_takip_no", "")).strip()}
-            mevcut_dosyalar = _mevcut_dosya_no | _mevcut_takip
+            # Mevcut dosya haritası: takip no VEYA dosya no ile bul
+            _dosya_map = {}
+            for _d in _dosyalar:
+                _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
+                _dn = str(_d.get("dosya_no", "") or "").strip()
+                if _tk:
+                    _dosya_map.setdefault(_tk, _d)
+                if _dn:
+                    _dosya_map.setdefault(_dn, _d)
             gruplar = list(df.groupby("_grup"))
             _grup_ad = "takip no" if _takip_col else "belge"
             st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — siparişler "
                        f"{'İthalat Takip No' if _takip_col else 'belge no'}'ya göre dosyalanacak.")
 
+            guncelle_mod = st.radio(
+                "Sistemde zaten olan takip no'lar için:",
+                ["Sadece yenileri ekle (mevcut atlanır)",
+                 "Güncelle — Excel'i sisteme uygula (kalemleri yenile · masrafları KORU)"],
+                key="ith_excel_mod",
+            )
+            _guncelle = guncelle_mod.startswith("Güncelle")
+            if _guncelle:
+                st.caption("⚠ Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
+                           "Daha önce elle girdiğin **masraflar korunur** (silinmez).")
+
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
-                basari, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, []
+                basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
                 for dno, g in gruplar:
                     dno_s = str(dno).strip()
                     if not dno_s or dno_s.lower() == "nan":
-                        continue
-                    if dno_s in mevcut_dosyalar:
-                        atlanan += 1
-                        mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
                         continue
                     ilk = g.iloc[0]
                     kalemler = []
@@ -688,22 +700,44 @@ def _yeni_ithalat():
                     tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
-                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
-                                         pi_no=belge_no, ithalat_takip_no=takip_no)
-                    if ok:
-                        basari += 1
+
+                    mevcut_kayit = _dosya_map.get(dno_s) or (_dosya_map.get(takip_no) if takip_no else None)
+                    if mevcut_kayit:
+                        if not _guncelle:
+                            atlanan += 1
+                            mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
+                            continue
+                        # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile
+                        eski_masraf = _masraf_dict(mevcut_kayit)
+                        eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
+                        ok, msg = guncelle_dosya(
+                            mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
+                            dov, eski_kur, eski_masraf, notlar, kalemler,
+                            ithalat_takip_no=takip_no)
+                        if ok:
+                            guncellenen += 1
+                        else:
+                            hata += 1
+                            mesajlar.append(f"{dno_s}: {msg}")
                     else:
-                        hata += 1
-                        mesajlar.append(f"{dno_s}: {msg}")
+                        ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
+                                             pi_no=belge_no, ithalat_takip_no=takip_no)
+                        if ok:
+                            basari += 1
+                        else:
+                            hata += 1
+                            mesajlar.append(f"{dno_s}: {msg}")
                 if basari:
-                    st.success(f"✅ {basari} dosya içe aktarıldı (⏳ masraf bekliyor).")
+                    st.success(f"✅ {basari} yeni dosya içe aktarıldı (⏳ masraf bekliyor).")
+                if guncellenen:
+                    st.success(f"🔄 {guncellenen} mevcut dosya güncellendi (kalemler yenilendi, masraflar korundu).")
                 if bedelsiz:
                     st.info(f"ℹ️ {bedelsiz} satır 0 fiyatlı (bedelsiz/yedek) — adetleri paçala dahil edildi, birim maliyet toplam tutara göre düştü.")
                 if atlanan:
                     st.warning("Atlananlar:\n" + "\n".join(m for m in mesajlar if "atlandı" in m))
                 if hata:
                     st.error("Hatalı dosyalar:\n" + "\n".join(m for m in mesajlar if "atlandı" not in m))
-                if basari:
+                if basari or guncellenen:
                     st.rerun()
 
 
