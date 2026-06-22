@@ -225,3 +225,63 @@ def sidebar_kullanici(kullanici: str) -> str:
         f'<div style="font-size:13px;color:#F1F5F9;font-weight:700">{kullanici.capitalize()}</div></div>'
         '</div>'
     )
+
+
+# ════════════════════════════════════════════════════════════════════
+# ORTAK METRİK KARTLARI (tüm programda tek tip — renkli sol şeritli kart)
+# ════════════════════════════════════════════════════════════════════
+KART_PALET = ["#818CF8", "#34D399", "#FB923C", "#A78BFA", "#22D3EE", "#FBBF24", "#F472B6"]
+
+
+def metrik_satiri(cards):
+    """Renkli, sol şeritli metric kart satırı (sidebar/İthalat temasıyla birebir).
+    cards = [{'label','value','renk'?,'alt'?,'help'?}]. renk verilmezse paletten döner."""
+    cells = ""
+    for i, c in enumerate(cards):
+        renk = c.get("renk") or KART_PALET[i % len(KART_PALET)]
+        ttl = f' title="{c["help"]}"' if c.get("help") else ""
+        ipucu = ' <span style="color:#64748B;font-size:11px">ⓘ</span>' if c.get("help") else ""
+        alt = c.get("alt", "")
+        alt_html = (f'<div style="color:#7C8AA0;font-size:10px;margin-top:3px;'
+                    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{alt}</div>') if alt else ""
+        cells += (
+            f'<div{ttl} style="flex:1;min-width:128px;background:rgba(255,255,255,0.022);'
+            f'border:1px solid rgba(255,255,255,0.06);border-left:3px solid {renk};'
+            f'border-radius:13px;padding:11px 15px">'
+            f'<div style="color:#8B97A8;font-size:9.5px;font-weight:700;letter-spacing:.6px;'
+            f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
+            f'<div style="color:{renk};font-size:20px;font-weight:800;margin-top:2px;'
+            f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
+            f'{alt_html}</div>'
+        )
+    st.markdown(f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 14px">{cells}</div>',
+                unsafe_allow_html=True)
+
+
+def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
+    """Tek bir kartı satır olarak çizer (metrik_satiri kısayolu)."""
+    metrik_satiri([{"label": label, "value": value, "renk": renk, "alt": alt, "help": help}])
+
+
+def metric_css(renk="#818CF8") -> str:
+    """Geriye kalan st.metric öğelerini de aynı koyu kart görünümüne sokan global CSS."""
+    return f"""
+    <style>
+    div[data-testid="stMetric"]{{
+        background:rgba(255,255,255,0.022) !important;
+        border:1px solid rgba(255,255,255,0.06) !important;
+        border-left:3px solid {renk} !important;
+        border-radius:13px !important;
+        padding:11px 15px !important;
+    }}
+    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"]{{
+        color:#8B97A8 !important; font-size:9.5px !important; font-weight:700 !important;
+        letter-spacing:.6px !important; text-transform:uppercase !important;
+    }}
+    div[data-testid="stMetricValue"]{{
+        color:#F1F5F9 !important; font-size:20px !important; font-weight:800 !important;
+        font-variant-numeric:tabular-nums; line-height:1.2 !important;
+    }}
+    </style>
+    """
