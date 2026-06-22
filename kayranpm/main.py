@@ -502,15 +502,12 @@ def run():
 
         # Filtreler
         _kat_list_d = sorted({(u.get("kategori") or "").strip() for u in veri if (u.get("kategori") or "").strip()})
-        col_f1, col_f2, col_f3, col_f4 = st.columns([1.5, 1.5, 1.8, 0.9])
+        col_f1, col_f2, col_f3 = st.columns([1.6, 1.6, 0.9])
         with col_f1:
             filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
         with col_f2:
             filtre_kat = st.selectbox("Kategori", ["Tüm Kategoriler"] + _kat_list_d, key="dash_kat")
         with col_f3:
-            _sku_secenek = ["Tüm Ürünler"] + sorted({u["sku"] for u in veri})
-            arama_sku = st.selectbox("🔍 Ürün (SKU) — yazarak ara", _sku_secenek, key="dash_sku")
-        with col_f4:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🔄 Yenile", use_container_width=True):
                 st.cache_data.clear()
@@ -527,11 +524,6 @@ def run():
                 hedef = filtre_firma.replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")
                 firmali_satirlar = [fd for fd in firmali_satirlar if hedef in fd["firma"].replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")]
     
-            # Ürün (SKU) filtresi
-            if arama_sku and arama_sku != "Tüm Ürünler":
-                if urun["sku"] != arama_sku:
-                    continue
-
             # Kategori filtresi
             if filtre_kat != "Tüm Kategoriler" and (urun.get("kategori") or "").strip() != filtre_kat:
                 continue
@@ -920,9 +912,8 @@ def run():
 
         st.markdown('---')
         st.markdown('<div class="baslik">📈 Genel Analiz</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Sipariş önceliklendirme · Ölü stok · Kategori & Marka</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Sipariş önceliklendirme · Ölü stok · Kategori & Marka analizi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         try:
             analiz = genel_analiz_hesapla()
