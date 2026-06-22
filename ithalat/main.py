@@ -10,6 +10,7 @@ from datetime import date
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
@@ -999,23 +1000,10 @@ def run():
     _form_css()
 
     with st.sidebar:
-        st.markdown(
-            '<div style="padding:6px 4px 8px;text-align:center">'
-            '<div style="font-size:26px;margin-bottom:4px">🚢</div>'
-            '<div style="font-size:9px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase">İthalat Yönetimi</div>'
-            '<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.6),transparent);margin-top:14px"></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(sidebar_stil(), unsafe_allow_html=True)
+        st.markdown(sidebar_baslik("🚢", "İthalat", "İthalat Yönetimi"), unsafe_allow_html=True)
         if aktif_kullanici:
-            st.markdown(
-                '<div style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);'
-                'border-radius:10px;padding:10px 14px;margin-bottom:10px">'
-                '<div style="color:#64748B;font-size:10px;font-weight:600;letter-spacing:0.5px;margin-bottom:2px">OTURUM AÇIK</div>'
-                f'<div style="color:#A5B4FC;font-weight:700;font-size:13px">👤 {aktif_kullanici.capitalize()}</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
             if st.button("Çıkış Yap", use_container_width=True, key="ith_cikis"):
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
