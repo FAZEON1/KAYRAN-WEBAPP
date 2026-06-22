@@ -129,7 +129,7 @@ def _form_css():
             letter-spacing: .5px !important; text-transform: uppercase !important;
         }
         div[data-testid="stMetricValue"] {
-            color: #F1F5F9 !important; font-size: 24px !important; font-weight: 700 !important;
+            color: #F1F5F9 !important; font-size: 22px !important; font-weight: 700 !important;
             font-variant-numeric: tabular-nums; line-height: 1.2 !important; margin-top: 3px;
             white-space: normal !important; word-break: break-word;
         }
@@ -366,19 +366,50 @@ def _gecmis_ithalatlar():
         st.info("Aramayla eşleşen dosya yok.")
         return
 
-    with st.expander(f"📋 Tüm geçmiş dosyaları göster ({len(dosyalar_goster)} dosya)", expanded=False):
-        _tablo(pd.DataFrame(satirlar_goster),
-               para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
-               sol=["Belge No", "Takip No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
+    # ── Sıralama + tıklanabilir tablo (satıra tıkla → detay) ──
+    _sort = st.selectbox("Sırala", [
+        "Tarih (yeni → eski)", "Tarih (eski → yeni)", "Mal Bedeli (çok → az)",
+        "Toplam Masraf (çok → az)", "% Maliyet (çok → az)", "Tedarikçi (A → Z)", "Belge No (A → Z)",
+    ], key="ith_sort")
+    _sk = {
+        "Tarih (yeni → eski)":     (lambda p: p[1]["Tarih"], True),
+        "Tarih (eski → yeni)":     (lambda p: p[1]["Tarih"], False),
+        "Mal Bedeli (çok → az)":   (lambda p: p[1]["Mal Bedeli"], True),
+        "Toplam Masraf (çok → az)": (lambda p: p[1]["Toplam Masraf"], True),
+        "% Maliyet (çok → az)":    (lambda p: p[1]["% Maliyet"], True),
+        "Tedarikçi (A → Z)":       (lambda p: (p[1]["Tedarikçi"] or "").lower(), False),
+        "Belge No (A → Z)":        (lambda p: (p[1]["Belge No"] or "").lower(), False),
+    }[_sort]
+    _pairs_sorted = sorted(_pairs, key=_sk[0], reverse=_sk[1])
+    dosyalar_goster = [d for d, s in _pairs_sorted]
+    satirlar_goster = [s for d, s in _pairs_sorted]
 
-    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+    _df_show = pd.DataFrame([{
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—", "Tarih": s["Tarih"],
+        "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
+        "Mal Bedeli": f"${s['Mal Bedeli']:,.0f}", "Masraf": f"${s['Toplam Masraf']:,.0f}",
+        "% Maliyet": f"%{s['% Maliyet']:.1f}", "Kalem": s["Kalem"], "Durum": s["Durum"],
+    } for s in satirlar_goster])
+    _evt = st.dataframe(
+        _df_show, use_container_width=True, hide_index=True, height=420,
+        on_select="rerun", selection_mode="single-row", key="ith_gecmis_df",
+        column_config={
+            "Belge No": st.column_config.TextColumn("Belge No", width="medium"),
+            "Tedarikçi": st.column_config.TextColumn("Tedarikçi", width="large"),
+            "Mal Bedeli": st.column_config.TextColumn("Mal Bedeli"),
+            "Masraf": st.column_config.TextColumn("Masraf"),
+        },
+    )
+    st.caption("👆 Detay, masraf dökümü ve düzenleme için bir **satıra tıkla**. · Sütun başlığına tıklayarak da sıralayabilirsin.")
 
-    secenekler = {
-        f'{d.get("dosya_no","")} — {str(d.get("tarih",""))[:10]} · {d.get("tedarikci","")}': d["id"]
-        for d in dosyalar_goster
-    }
-    sec = st.selectbox("Dosya detayını gör", list(secenekler.keys()), key="ith_dosya_sec")
-    did = secenekler[sec]
+    try:
+        _sel = list(_evt.selection.rows)
+    except Exception:
+        _sel = []
+    if not _sel:
+        st.info("Yukarıdaki tablodan bir dosya seç (satıra tıkla) — detayları, masrafları ve düzenleme burada açılır.")
+        return
+    did = dosyalar_goster[_sel[0]]["id"]
     d, kal, h = hesap_map[did]
 
     st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
@@ -912,9 +943,9 @@ def _model_sorgu():
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Toplam Alım Adedi", f"{toplam_adet:,.0f}")
     c2.metric("Sipariş Sayısı", f"{len(satirlar)}")
-    c3.metric("Ort. Birim FOB", f"{(sum(fobs)/len(fobs)):,.2f}" if fobs else "—")
-    c4.metric("Min – Maks FOB", f"{min(fobs):,.2f} – {max(fobs):,.2f}" if fobs else "—")
-    c5.metric("⭐ Paçal Birim Maliyet", f"{pacal_ort:,.2f}" if pacal_ort else "—",
+    c3.metric("Ort. Birim FOB", f"${(sum(fobs)/len(fobs)):,.2f}" if fobs else "—")
+    c4.metric("Min – Maks FOB", f"${min(fobs):,.0f} – ${max(fobs):,.0f}" if fobs else "—")
+    c5.metric("⭐ Paçal Birim Maliyet", f"${pacal_ort:,.2f}" if pacal_ort else "—",
               help="Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
                    "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir.")
 
