@@ -11,6 +11,7 @@ import logging
 _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -481,22 +482,11 @@ def run():
     with st.sidebar:
         st.markdown('<script>var sidebarEl=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(sidebarEl)sidebarEl.scrollTop=0;</script>', unsafe_allow_html=True)
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-        st.markdown(f"""
-        <div style="padding:6px 4px 8px; text-align:center;">
-            <div style="font-size:26px; margin-bottom:4px;">📦</div>
-            <div style="font-size:9px; color:#37474F; letter-spacing:1.5px; margin-top:2px; text-transform:uppercase;">Ürün Yönetim Sistemi</div>
-            <div style="height:1px; background:linear-gradient(90deg,transparent,rgba(21,101,192,0.6),transparent); margin-top:14px;"></div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(sidebar_stil(), unsafe_allow_html=True)
+        st.markdown(sidebar_baslik("📦", "Ürün Yönetimi", "Stok Sistemi"), unsafe_allow_html=True)
+
         if aktif_kullanici:
-            st.markdown(f"""
-            <div style="background:rgba(21,101,192,0.15); border:1px solid rgba(21,101,192,0.25);
-                        border-radius:10px; padding:10px 14px; margin-bottom:10px;">
-              <div style="color:#546E7A; font-size:10px; font-weight:600; letter-spacing:0.5px; margin-bottom:2px;">OTURUM AÇIK</div>
-              <div style="color:#90CAF9; font-weight:700; font-size:13px;">👤 {aktif_kullanici}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
             if st.button("Çıkış Yap", use_container_width=True):
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
