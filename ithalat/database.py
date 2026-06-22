@@ -282,3 +282,14 @@ def sil_dosya(dosya_id):
         return True
     except Exception:
         return False
+
+
+def set_dosya_takip_no(dosya_id, takip_no):
+    """Bir dosyanın İthalat Takip No'sunu günceller (toplu eşleştirme için)."""
+    try:
+        _get_client().table("ithalat_dosyalari").update(
+            {"ithalat_takip_no": takip_no or ""}).eq("id", dosya_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False

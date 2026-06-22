@@ -14,6 +14,7 @@ from collections import defaultdict
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
+    set_dosya_takip_no,
 )
 
 
@@ -645,6 +646,55 @@ def _yeni_ithalat():
             _grup_ad = "takip no" if _takip_col else "belge"
             st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — siparişler "
                        f"{'İthalat Takip No' if _takip_col else 'belge no'}'ya göre dosyalanacak.")
+
+            # 🔗 Mevcut dosyalara Excel'den Takip No ata/eşle (eski/boş kayıtlar için)
+            if _takip_col:
+                with st.expander("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)"):
+                    st.caption("Excel'de aynı İthalat Takip No birden çok belge/sipariş içerir. "
+                               "Bu araç, sistemdeki dosyalara — Belge No (PI) veya Sipariş No eşleşmesine göre — "
+                               "Excel'deki takip no'yu atar. Mevcut içe aktarma akışını değiştirmez.")
+                    _ust = st.checkbox("Dolu olan takip no'ları da güncelle (üzerine yaz)", key="ith_takip_ust")
+                    # Excel'den eşleme haritaları
+                    _belge_takip, _sip_takip = {}, {}
+                    for _, _r in df.iterrows():
+                        _t = str(_r.get(_takip_col, "") or "").strip()
+                        if not _t or _t.lower() == "nan":
+                            continue
+                        if _belge_col:
+                            _b = str(_r.get(_belge_col, "") or "").strip()
+                            if _b and _b.lower() != "nan":
+                                _belge_takip.setdefault(_b, _t)
+                        if _sip_col:
+                            _s = str(_r.get(_sip_col, "") or "").strip()
+                            if _s and _s.lower() != "nan":
+                                _sip_takip.setdefault(_s, _t)
+                    # Aday dosyalar
+                    _adaylar = []
+                    for _d in _dosyalar:
+                        _mevcut_t = str(_d.get("ithalat_takip_no", "") or "").strip()
+                        if _mevcut_t and not _ust:
+                            continue
+                        _pi = str(_d.get("pi_no", "") or "").strip()
+                        _dn = str(_d.get("dosya_no", "") or "").strip()
+                        _yeni_t = (_belge_takip.get(_pi) or _belge_takip.get(_dn)
+                                   or _sip_takip.get(_dn))
+                        if _yeni_t and _yeni_t != _mevcut_t:
+                            _adaylar.append((_d["id"], _dn or _pi, _mevcut_t or "—", _yeni_t))
+                    st.caption(f"Eşleşen / atanacak dosya: {len(_adaylar)}")
+                    if _adaylar:
+                        st.dataframe(
+                            pd.DataFrame([{"Dosya": a[1], "Eski Takip": a[2], "Atanacak Takip No": a[3]}
+                                         for a in _adaylar]),
+                            use_container_width=True, height=220, hide_index=True)
+                        if st.button("🔗 Takip No'ları Ata", type="primary", key="ith_takip_ata"):
+                            _n = 0
+                            for _id, _, _, _t in _adaylar:
+                                if set_dosya_takip_no(_id, _t):
+                                    _n += 1
+                            st.success(f"✅ {_n} dosyaya takip no atandı.")
+                            st.rerun()
+                    else:
+                        st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
 
             guncelle_mod = st.radio(
                 "Sistemde zaten olan takip no'lar için:",
