@@ -14,6 +14,7 @@ import streamlit as st
 from datetime import date, datetime
 
 from .database import get_client, _rows, _cache_temizle
+from shared.utils import metrik_satiri
 
 DURUMLAR = ["beklemede", "paylasildi", "iptal"]
 DURUM_ETIKET = {
@@ -342,10 +343,11 @@ def _render_refler(fid, fkod):
     refler = get_refler(fid)
     _bekleyen = sum(1 for r in refler if r.get("durum") == "beklemede")
     _paylasilan = sum(1 for r in refler if r.get("durum") == "paylasildi")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Toplam Ref", len(refler))
-    m2.metric("⏳ Beklemede", _bekleyen)
-    m3.metric("✅ Paylaşılan", _paylasilan)
+    metrik_satiri([
+        {"label": "Toplam Ref", "value": f"{len(refler):,}", "renk": "#818CF8"},
+        {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
+        {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
+    ])
 
     _siradaki = _sonraki_sira(fid)
     _onizleme = ref_uret(fkod, _yil(), _siradaki)
@@ -438,17 +440,11 @@ def _render_butce(fid, firma):
     harcama = sum(_f(r.get("tutar")) for r in kayitlar if r.get("yon") != "giris")
     kalan = giris - harcama
 
-    st.markdown(
-        '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.10));'
-        'border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:16px 20px;margin:4px 0 14px;'
-        'display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px">'
-        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Toplam Bütçe (giriş)</div>'
-        f'<div style="color:#34D399;font-size:24px;font-weight:800">${giris:,.2f}</div></div>'
-        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Toplam Harcama</div>'
-        f'<div style="color:#F87171;font-size:24px;font-weight:800">${harcama:,.2f}</div></div>'
-        f'<div><div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:1px">Kalan Havuz</div>'
-        f'<div style="color:#A5B4FC;font-size:24px;font-weight:800">${kalan:,.2f}</div></div>'
-        '</div>', unsafe_allow_html=True)
+    metrik_satiri([
+        {"label": "Toplam Bütçe (giriş)", "value": f"${giris:,.2f}", "renk": "#34D399"},
+        {"label": "Toplam Harcama", "value": f"${harcama:,.2f}", "renk": "#F87171"},
+        {"label": "Kalan Havuz", "value": f"${kalan:,.2f}", "renk": "#A5B4FC"},
+    ])
 
     # ── Yeni kayıt ekle ──
     with st.expander("➕ Yeni Bütçe / Harcama Kaydı Ekle"):
