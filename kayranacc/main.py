@@ -1958,29 +1958,27 @@ def run():
         bekleyen_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "bekliyor")
         bekleyen_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "bekliyor")
     
-        # Hesap kartları
+        # Hesap kartları — kompakt, ortak tema (para birimine göre renkli sol şerit)
         if bankalar:
-            cols = st.columns(min(len(bankalar), 3))
-            for i, b in enumerate(bankalar):
+            _renk_pb = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
+            _banka_cards = []
+            for b in bankalar:
                 sym = "$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺")
-                with cols[i % 3]:
-                    if b["para_birimi"] == "TL":
-                        net = b["bakiye"] - bekleyen_tl - (bekleyen_usd * kur)
-                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ₺{fmt(net)}"
-                    elif b["para_birimi"] == "USD":
-                        net = b["bakiye"] - bekleyen_usd
-                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ${fmt(net)}"
-                    else:
-                        net_str = ""
-    
-                    banka_html = (
-                        f'<div style="background:#131C35;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:12px">'
-                        f'<div style="font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">{b["hesap_adi"]}</div>'
-                        f'<div style="font-size:28px;font-weight:700;color:#E2E8F0;font-family:monospace;white-space:nowrap;display:flex;align-items:baseline;gap:3px">{sym}{fmt(b["bakiye"])}<span style="font-size:11px;color:#94A3B8;white-space:nowrap">{b["para_birimi"]}</span></div>'
-                        f'<div style="font-size:12px;color:#6B7280;margin-top:8px">{net_str}</div>'
-                        '</div>'
-                    )
-                    st.markdown(banka_html, unsafe_allow_html=True)
+                if b["para_birimi"] == "TL":
+                    net = b["bakiye"] - bekleyen_tl - (bekleyen_usd * kur)
+                    net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ₺{fmt(net)}"
+                elif b["para_birimi"] == "USD":
+                    net = b["bakiye"] - bekleyen_usd
+                    net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ${fmt(net)}"
+                else:
+                    net_str = ""
+                _banka_cards.append({
+                    "label": b["hesap_adi"],
+                    "value": f"{sym}{fmt(b['bakiye'])}",
+                    "renk": _renk_pb.get(b["para_birimi"], "#818CF8"),
+                    "alt": net_str,
+                })
+            metrik_satiri(_banka_cards)
         # === TOPLAM BAKIYE OZETI ===
         if bankalar:
             toplam_tl_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
