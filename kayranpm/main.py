@@ -1252,9 +1252,9 @@ def run():
         )
     
         # Fiyat ve karlılık kartı
-        fob = secilen.get("fob_price") or secilen.get("son_fob") or 0
-        cost = secilen.get("cost") or secilen.get("son_cost") or 0
-        cost_price = secilen.get("cost_price") or secilen.get("son_cost_price") or 0
+        fob = secilen.get("fob_price") or 0
+        cost = secilen.get("cost") or 0
+        cost_price = secilen.get("cost_price") or 0
         fcp = secilen.get("final_cost_price") or 0
         ithalat_dosya = secilen.get("ithalat_dosya_sayisi", 0) or 0
         satis = secilen.get("satis_fiyati") or 0
@@ -1262,7 +1262,20 @@ def run():
     
         if fob > 0 or fcp > 0:
             satis_html = f'<div style="background:#1a2a3a; border-radius:8px; padding:12px; text-align:center;"><div style="color:#90A4AE; font-size:11px; margin-bottom:4px;">SATIŞ FİYATI</div><div style="color:#29B6F6; font-size:18px; font-weight:700;">${satis:,.2f}</div></div>' if satis > 0 else ""
-            kar_html = f'<div style="background:#1B3A2A; border-radius:8px; padding:12px; text-align:center;"><div style="color:#81C784; font-size:11px; margin-bottom:4px;">KAR</div><div style="color:#A5D6A7; font-size:18px; font-weight:700;">${satis-fcp:,.2f} (%{((satis-fcp)/satis*100):.1f})</div></div>' if (satis > 0 and fcp > 0) else ""
+            if satis > 0 and fcp > 0:
+                _kar = satis - fcp
+                _marj = (_kar / satis * 100) if satis else 0
+                if _kar >= 0:
+                    kar_html = (f'<div style="background:#1B3A2A; border-radius:8px; padding:12px; text-align:center;">'
+                                f'<div style="color:#81C784; font-size:11px; margin-bottom:4px;">KAR</div>'
+                                f'<div style="color:#A5D6A7; font-size:18px; font-weight:700;">${_kar:,.2f} (%{_marj:.1f})</div></div>')
+                else:
+                    kar_html = (f'<div style="background:#3A1B1B; border-radius:8px; padding:12px; text-align:center; border:1px solid rgba(239,68,68,0.55);">'
+                                f'<div style="color:#FCA5A5; font-size:11px; font-weight:700; margin-bottom:4px;">⚠️ ZARAR</div>'
+                                f'<div style="color:#F87171; font-size:18px; font-weight:800;">${_kar:,.2f} (%{_marj:.1f})</div>'
+                                f'<div style="color:#FCA5A5; font-size:10px;">Satış, paçal maliyetin altında</div></div>')
+            else:
+                kar_html = ""
             st.markdown(
                 f'<div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.1)">'
                 f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="color:#90CAF9; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">FİYAT ANALİZİ</div><div style="color:#A5D6A7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>'
@@ -1339,6 +1352,7 @@ def run():
             f_sira_oz = st.selectbox("Sırala", ["Stok Yaşı (gün)", "Net Kâr ($)", "Net Marj (%)", "Maliyet %", "Toplam Stok", "Satış ($)", "FOB ($)", "Risk Skoru", "SKU (A-Z)"], key="oz_sira")
         with _ozf4:
             f_yon_oz = st.selectbox("Yön", ["Azalan", "Artan"], key="oz_yon")
+        _sadece_zarar = st.checkbox("⚠️ Sadece zararına satılanlar (satış < paçal maliyet)", value=False, key="oz_zarar")
         _sira_map_oz = {"Stok Yaşı (gün)": "_stok_yas", "Net Kâr ($)": "Net Kar ($)", "Net Marj (%)": "Net Marj (%)", "Maliyet %": "Maliyet %", "Toplam Stok": "Toplam", "Satış ($)": "Satış ($)", "FOB ($)": "FOB ($)", "Risk Skoru": "_risk", "SKU (A-Z)": "SKU"}
         rows_oz = []
         for u in urun_data:
@@ -1372,6 +1386,8 @@ def run():
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
             })
         _toplam_oz = len(rows_oz)
+        _zarar_say = sum(1 for r in rows_oz
+                         if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0)
         # Filtre + sıralama uygula
         if f_ara_oz and f_ara_oz != "Tümü":
             _sel_sku = f_ara_oz.split(" — ")[0].strip()
@@ -1380,6 +1396,9 @@ def run():
             rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
         if f_mar_oz != "Tümü":
             rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
+        if _sadece_zarar:
+            rows_oz = [r for r in rows_oz
+                       if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0]
         _sk_oz = _sira_map_oz.get(f_sira_oz, "_stok_yas")
         _rev_oz = (f_yon_oz == "Azalan")
         if _sk_oz == "SKU":
@@ -1390,7 +1409,8 @@ def run():
             _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
             rows_oz = _dolu + _bos
 
-        st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor")
+        st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor"
+                   + (f"  ·  ⚠️ {_zarar_say} ürün zararına satılıyor (satış < paçal)" if _zarar_say else ""))
         df_oz = pd.DataFrame(rows_oz)
         if df_oz.empty:
             st.info("Henüz ürün yok.")
@@ -1458,8 +1478,10 @@ def run():
                         _kanallar.append(f"{_kl}:{int(_kv)}")
                 kanal_str = " · ".join(_kanallar) if _kanallar else "—"
                 kanal_title = kanal_str.replace(chr(34), "&quot;")
+                _loss = (nk is not None and nk < 0)
+                _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #EF4444"' if _loss else ""
                 satir_html += (
-                    "<tr>"
+                    f"<tr{_tr_attr}>"
                     f'<td class="c-sku">{r.get("SKU","")}</td>'
                     f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
                     f'<td class="c-kat">{r.get("Kategori","")}</td>'
@@ -2196,10 +2218,29 @@ def run():
     
     
     elif sayfa == "📦  Sipariş Önerisi":
+        from .database import get_uretim_suresi, set_uretim_suresi
+        _esik = get_uretim_suresi()
         st.markdown('<div class="baslik">📦 Sipariş Önerisi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">135 günden az stok kalan ürünler · Otomatik öneri</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="alt-baslik">{_esik} günden az stok kalan ürünler · Otomatik öneri</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
+
+        with st.expander(f"⚙️ Sipariş eşiği (üretim/tedarik süresi) — şu an {_esik} gün", expanded=False):
+            st.caption("Stok bu kadar günde biteceği zaman 'sipariş ver' uyarısı çıkar. "
+                       "Üretim/tedarik sürenize göre ayarlayın (varsayılan 135 gün).")
+            _e1, _e2 = st.columns([2, 1])
+            _yeni_esik = _e1.number_input("Eşik (gün)", min_value=1, max_value=730, value=int(_esik),
+                                          step=5, key="uretim_suresi_input")
+            _e2.markdown("<br>", unsafe_allow_html=True)
+            if _e2.button("💾 Kaydet", use_container_width=True, key="uretim_suresi_kaydet"):
+                if set_uretim_suresi(int(_yeni_esik)):
+                    st.cache_data.clear()
+                    st.toast(f"✅ Sipariş eşiği {int(_yeni_esik)} güne ayarlandı", icon="✅")
+                    st.rerun()
+                else:
+                    st.error("Kaydedilemedi. 'pm_ayarlar' tablosu eksik olabilir — Supabase'de şu SQL'i çalıştırın:")
+                    st.code("create table if not exists pm_ayarlar (anahtar text primary key, deger text);\n"
+                            "alter table pm_ayarlar disable row level security;", language="sql")
+
         try:
             siparis_listesi = siparis_onerisi_listesi()
             urun_data = tum_urunler_listesi()
@@ -2210,7 +2251,7 @@ def run():
             st.stop()
     
         if not siparis_listesi:
-            st.success("✅ Tüm ürünlerde 135 günden fazla stok var, sipariş gerekmüyor!")
+            st.success(f"✅ Tüm ürünlerde {_esik} günden fazla stok var, sipariş gerekmiyor!")
             st.stop()
     
         # Özet

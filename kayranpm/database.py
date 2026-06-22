@@ -149,6 +149,32 @@ def kategori_standartlastir():
     _cache_temizle()
     return len(sku_yeni), degisim
 
+
+# ── Ayarlar (sipariş eşiği) ─────────────────────────────────────────
+@st.cache_data(ttl=300, show_spinner=False)
+def get_uretim_suresi():
+    """Sipariş eşiği = üretim/tedarik süresi (gün). pm_ayarlar tablosu yoksa varsayılan 135."""
+    try:
+        rows = _rows(get_client().table("pm_ayarlar").select("deger")
+                     .eq("anahtar", "uretim_suresi_gun").limit(1).execute())
+        if rows and str(rows[0].get("deger") or "").strip():
+            return max(1, int(float(rows[0]["deger"])))
+    except Exception:
+        pass
+    return 135
+
+
+def set_uretim_suresi(gun):
+    """Sipariş eşiğini kaydeder. Tablo yoksa False döner (varsayılan 135 kullanılmaya devam eder)."""
+    try:
+        get_client().table("pm_ayarlar").upsert(
+            {"anahtar": "uretim_suresi_gun", "deger": str(int(gun))},
+            on_conflict="anahtar").execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()
@@ -178,7 +204,7 @@ def get_urun_detay(sku):
 
 def sil_urun(sku):
     sb = get_client()
-    for tablo in ["urunler", "firma_stok", "satin_alma_gecmisi",
+    for tablo in ["urunler", "firma_stok",
                   "yoldaki_urunler", "stok_yas", "siparis_onerileri"]:
         sb.table(tablo).delete().eq("sku", sku).execute()
         _cache_temizle()
@@ -418,20 +444,7 @@ def sil_kampanya_urun(urun_id):
 # ── BİLDİRİM ────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
-def get_bildirim_ayarlari_db():
-    rows = _rows(get_client().table("bildirim_ayarlari").select("*").limit(1).execute())
-    return rows[0] if rows else {}
 
-def kaydet_bildirim_ayarlari_db(email, smtp_server, smtp_port, smtp_user, smtp_password, aktif):
-    sb = get_client()
-    mevcut = _rows(sb.table("bildirim_ayarlari").select("id").limit(1).execute())
-    data = {"email": email, "smtp_server": smtp_server, "smtp_port": int(smtp_port or 587),
-            "smtp_user": smtp_user, "smtp_password": smtp_password, "aktif": aktif}
-    if mevcut:
-        sb.table("bildirim_ayarlari").update(data).eq("id", mevcut[0]["id"]).execute()
-    else:
-        sb.table("bildirim_ayarlari").insert(data).execute()
-        _cache_temizle()
 
 # ── ANALİTİK ────────────────────────────────────────────────────────
 
@@ -449,13 +462,6 @@ def get_tum_gecmis_satislar():
     for r in rows:
         result[r["sku"]].append(r.get("haftalik_satis", 0) or 0)
     return dict(result)
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_muadil_oneriler(sku, kategori, marka, fiyat):
-    return []
-
-def get_connection():
-    return None
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_gecmis_satis_tum_firmalar(sku):

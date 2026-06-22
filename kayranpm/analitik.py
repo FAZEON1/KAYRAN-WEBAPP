@@ -3,10 +3,10 @@ import streamlit as st
 import logging
 
 _log = logging.getLogger(__name__)
-from .database import (get_all_dashboard_data, get_muadil_oneriler,
+from .database import (get_all_dashboard_data,
                       ekle_siparis_onerisi, get_yoldaki_urunler,
                       get_tum_gecmis_satislar, get_gecmis_satis_firma_bazli,
-                      get_client)
+                      get_client, get_uretim_suresi)
 
 FIRMA_LISTESI = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
 
@@ -157,12 +157,12 @@ def trend_hesapla(gecmis_satislar):
         return "stabil", yuzde, ortalama, f"➡️ Stabil (%{yuzde:+.0f})"
 
 
-def siparis_miktari_oneri(bizim_stok, ortalama_haftalik_satis, trend_yon, trend_yuzdesi, yoldaki_miktar=0):
+def siparis_miktari_oneri(bizim_stok, ortalama_haftalik_satis, trend_yon, trend_yuzdesi, yoldaki_miktar=0, uretim_suresi=None):
     """
     Sipariş verilmesi gereken miktarı hesaplar.
 
     Mantık:
-    - Hedef: 135 gün (4.5 ay) + güvenlik tamponu (30 gün) = 165 günlük stok
+    - Hedef: üretim süresi (varsayılan 135 gün) + güvenlik tamponu (30 gün)
     - Mevcut stok + yoldaki stok çıkarılır
     - Trend düşüyorsa miktar azaltılır, yüksekse artırılır
     - Sonuç 0'ın altına düşemez
@@ -170,7 +170,8 @@ def siparis_miktari_oneri(bizim_stok, ortalama_haftalik_satis, trend_yon, trend_
     if not ortalama_haftalik_satis or ortalama_haftalik_satis == 0:
         return 0, "Satış verisi yok, öneri yapılamıyor"
 
-    hedef_gun = 165  # 135 gün üretim + 30 gün tampon
+    _us = uretim_suresi if uretim_suresi is not None else get_uretim_suresi()
+    hedef_gun = _us + 30  # üretim süresi + 30 gün tampon
     gunluk_satis = ortalama_haftalik_satis / 7
     hedef_stok = hedef_gun * gunluk_satis
 
@@ -488,48 +489,14 @@ def siparis_onerisi_listesi():
     return sonuc
 
 
-
-    """
-    Bizim stok + toplam satış hızına göre ne zaman sipariş verilmesi gerektiğini hesaplar.
-    Üretim süresi: 135 gün (4.5 ay)
-
-    Mantık:
-      - Mevcut stok kaç günde biter? → stok_bitis_gun
-      - Sipariş vermek için son gün = stok_bitis_gun - 135
-      - Eğer bu değer <= 0 ise → ACİL SİPARİŞ VER
-      - Eğer bu değer > 0 ise → X gün içinde sipariş ver
-
-    Durum etiketleri:
-      🔴 ACİL  : sipariş son günü geçmiş veya bugün
-      🟠 YAKLAŞIYOR : 0-30 gün içinde sipariş verilmeli
-      🟡 PLANLAMA   : 30-60 gün içinde
-      🟢 NORMAL     : 60+ gün sonra
-      ⚪ VERİ YOK   : satış verisi yok
-    """
-    if not toplam_haftalik_satis or toplam_haftalik_satis == 0:
-        return None, None, "veri_yok", "⚪ Satış verisi yok"
-
-    gunluk_satis = toplam_haftalik_satis / 7
-    stok_bitis_gun = int(bizim_stok / gunluk_satis) if gunluk_satis > 0 else 0
-    siparis_son_gun = stok_bitis_gun - URETIM_SURESI_GUN
-
-    if siparis_son_gun <= 0:
-        return stok_bitis_gun, siparis_son_gun, "acil", f"ACİL — {stok_bitis_gun}g'de biter"
-    elif siparis_son_gun <= 30:
-        return stok_bitis_gun, siparis_son_gun, "yaklasıyor", f"🟠 {siparis_son_gun} gün içinde sipariş ver"
-    elif siparis_son_gun <= 60:
-        return stok_bitis_gun, siparis_son_gun, "planlama", f"🟡 {siparis_son_gun} gün içinde sipariş ver"
-    else:
-        return stok_bitis_gun, siparis_son_gun, "normal", f"🟢 {siparis_son_gun} gün sonra sipariş ver"
-
-
-def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis):
-    """135 gün üretim süresi baz alınarak sipariş takvimi hesaplar."""
+def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis, uretim_suresi=None):
+    """Üretim/tedarik süresi (varsayılan 135 gün) baz alınarak sipariş takvimi hesaplar."""
     if not toplam_haftalik_satis or toplam_haftalik_satis == 0:
         return None, None, "veri_yok", "Satış verisi yok"
+    _us = uretim_suresi if uretim_suresi is not None else get_uretim_suresi()
     gunluk_satis = toplam_haftalik_satis / 7
     stok_bitis_gun = int(bizim_stok / gunluk_satis) if gunluk_satis > 0 else 0
-    siparis_son_gun = stok_bitis_gun - URETIM_SURESI_GUN
+    siparis_son_gun = stok_bitis_gun - _us
     if siparis_son_gun <= 0:
         return stok_bitis_gun, siparis_son_gun, "acil", f"ACİL — {stok_bitis_gun}g'de biter"
     elif siparis_son_gun <= 30:
@@ -559,13 +526,11 @@ def siparis_uyarisi_kontrol(sku, firma, firma_data, bizim_stok):
     esik = (haftalik_satis * 2) if haftalik_satis > 0 else 5
     return firma_stok <= esik
 
-def muadil_bul(sku):
-    return []
-
 @st.cache_data(ttl=300, show_spinner=False)
 def dashboard_hesapla():
     """Tüm dashboard verilerini hesaplar ve döndürür"""
     urunler, firma_data, stok_yaslar, yoldaki_data, gecmis_satislar_raw = get_all_dashboard_data()
+    _us = get_uretim_suresi()  # sipariş eşiği (gün) — bir kez oku, tüm ürünlere uygula
     # gecmis_satislar_raw: {sku: [satis1, satis2, ...]} — trend_hesapla formatına çevir
     gecmis_satislar = {}
     for sku, satislar in gecmis_satislar_raw.items():
@@ -655,13 +620,13 @@ def dashboard_hesapla():
 
         # Sipariş takvimi — TOPLAM STOK baz alınır
         stok_bitis_gun, siparis_son_gun, siparis_durum, siparis_mesaj = siparis_takvimi_hesapla(
-            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis
+            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us
         )
 
         # Sipariş miktarı önerisi — TOPLAM STOK baz alınır
         oneri_miktar, oneri_mesaj = siparis_miktari_oneri(
             toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis,
-            trend_yon, trend_yuzdesi, yoldaki_miktar
+            trend_yon, trend_yuzdesi, yoldaki_miktar, _us
         )
 
         # Risk skoru — TOPLAM STOK baz alınır
