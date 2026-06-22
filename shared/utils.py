@@ -136,3 +136,84 @@ def vade_durumu(vade_str: str) -> str:
         return "normal"
     except Exception:
         return "bilinmiyor"
+
+
+# ════════════════════════════════════════════════════════════════════
+# ORTAK SIDEBAR (tüm modüllerde aynı modern navigasyon)
+# ════════════════════════════════════════════════════════════════════
+def sidebar_stil() -> str:
+    """st.radio tabanlı sidebar navigasyonunu modern 'nav pill'lere çevirir. Tüm modüllerde ortak."""
+    return """
+    <style>
+    section[data-testid="stSidebar"] div[role="radiogroup"]{
+        display:flex; flex-direction:column; gap:6px;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label{
+        background:rgba(255,255,255,0.025);
+        border:1px solid rgba(255,255,255,0.06);
+        border-radius:12px;
+        padding:11px 14px !important;
+        margin:0 !important;
+        cursor:pointer;
+        transition:background .15s ease, border-color .15s ease;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover{
+        background:rgba(99,102,241,0.10);
+        border-color:rgba(99,102,241,0.35);
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child{
+        display:none !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked){
+        background:linear-gradient(135deg, rgba(99,102,241,0.28), rgba(167,139,250,0.16));
+        border-color:rgba(139,92,246,0.6);
+        box-shadow:0 2px 14px rgba(99,102,241,0.22);
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label p{
+        font-size:14px !important; font-weight:600 !important; color:#CBD5E1 !important; letter-spacing:.2px;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) p{
+        color:#FFFFFF !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stButton"] button{
+        border-radius:11px !important; font-weight:600 !important;
+    }
+    </style>
+    """
+
+
+def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
+    """Modern sidebar başlığı: gradyan rozet + gradyan başlık. Tüm modüllerde ortak."""
+    alt_html = (
+        f'<div style="font-size:10px;color:#64748B;font-weight:600;letter-spacing:1px;'
+        f'text-transform:uppercase;margin-top:3px">{alt}</div>'
+    ) if alt else ""
+    return (
+        '<div style="text-align:center;padding:4px 4px 6px">'
+        '<div style="width:52px;height:52px;border-radius:15px;margin:0 auto 8px;'
+        'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
+        f'justify-content:center;font-size:26px;box-shadow:0 8px 22px rgba(99,102,241,0.4)">{ikon}</div>'
+        '<div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.4px;'
+        'background:linear-gradient(90deg,#C7D2FE,#A78BFA,#67E8F9);-webkit-background-clip:text;'
+        f'background-clip:text;-webkit-text-fill-color:transparent;display:inline-block">{ad}</div>'
+        f'{alt_html}'
+        '<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.5),transparent);margin-top:12px"></div>'
+        '</div>'
+    )
+
+
+def sidebar_kullanici(kullanici: str) -> str:
+    """Modern 'oturum açık' kartı (HTML). Çıkış butonu modülde st.button ile eklenir."""
+    if not kullanici:
+        return ""
+    bas = kullanici[0].upper()
+    return (
+        '<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);'
+        'border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:9px 12px;margin-bottom:10px">'
+        '<div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;'
+        'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
+        f'justify-content:center;font-size:14px;font-weight:700;color:#fff">{bas}</div>'
+        '<div><div style="font-size:10px;color:#64748B;font-weight:600;letter-spacing:.5px">OTURUM AÇIK</div>'
+        f'<div style="font-size:13px;color:#F1F5F9;font-weight:700">{kullanici.capitalize()}</div></div>'
+        '</div>'
+    )
