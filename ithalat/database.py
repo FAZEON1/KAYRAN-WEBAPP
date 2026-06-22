@@ -212,13 +212,19 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
     sb = _get_client()
     try:
         temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
-        d = _rows(sb.table("ithalat_dosyalari").insert({
+        _payload = {
             "dosya_no": str(dosya_no), "pi_no": pi_no or "", "tarih": str(tarih) if tarih else None,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
-        }).execute())
+        }
+        try:
+            d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
+        except Exception:
+            # ithalat_takip_no kolonu yoksa o alan olmadan tekrar dene
+            _payload.pop("ithalat_takip_no", None)
+            d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
         if not d:
             return False, "Dosya eklenemedi (boş yanıt)."
         dosya_id = d[0]["id"]
@@ -246,14 +252,21 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
     sb = _get_client()
     try:
         temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
-        sb.table("ithalat_dosyalari").update({
+        _payload = {
             "dosya_no": str(dosya_no), "pi_no": pi_no or "",
             "tarih": str(tarih) if tarih else None,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
-        }).eq("id", dosya_id).execute()
+        }
+        try:
+            sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
+        except Exception:
+            # ithalat_takip_no kolonu tabloda yoksa o alan olmadan tekrar dene
+            # (masraf ve diğer bilgiler yine kaydedilsin).
+            _payload.pop("ithalat_takip_no", None)
+            sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
         rows = []
         for k in (kalemler or []):

@@ -445,12 +445,15 @@ def _gecmis_ithalatlar():
                         continue
                     _yeni_kal.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
                                       "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
-                ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
-                                         e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
-                                         ithalat_takip_no=e_takip.strip())
-                (st.success if ok else st.error)(msg)
+                with st.spinner("💾 Kaydediliyor..."):
+                    ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
+                                             e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
+                                             ithalat_takip_no=e_takip.strip())
                 if ok:
+                    st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
+                else:
+                    st.error(msg)
 
     with st.expander("🗑️ Bu dosyayı sil"):
         st.warning("Bu işlem dosyayı ve tüm kalemlerini kalıcı olarak siler.")
