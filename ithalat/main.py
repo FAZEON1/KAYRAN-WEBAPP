@@ -39,9 +39,17 @@ def _sd(v):
 def _baslik(ikon, ad, alt):
     st.markdown(
         f'<div style="margin:2px 0 18px">'
-        f'<div style="font-family:Inter,sans-serif;font-size:24px;font-weight:800;color:#FFFFFF;letter-spacing:-0.3px">{ikon} {ad}</div>'
-        f'<div style="color:#94A3B8;font-size:13px;margin-top:4px">{alt}</div>'
-        f'<div style="height:1px;background:linear-gradient(90deg,rgba(99,102,241,0.4),transparent);margin-top:12px"></div>'
+        f'<div style="display:flex;align-items:center;gap:13px">'
+        f'<div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;'
+        f'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
+        f'justify-content:center;font-size:21px;box-shadow:0 6px 18px rgba(99,102,241,0.38)">{ikon}</div>'
+        f'<div><div style="font-family:Inter,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.3px;'
+        f'background:linear-gradient(90deg,#C7D2FE 0%,#A78BFA 45%,#67E8F9 100%);'
+        f'-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;'
+        f'display:inline-block">{ad}</div>'
+        f'<div style="color:#94A3B8;font-size:13px;margin-top:2px">{alt}</div></div>'
+        f'</div>'
+        f'<div style="height:1px;background:linear-gradient(90deg,rgba(99,102,241,0.45),rgba(167,139,250,0.2),transparent);margin-top:14px"></div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -103,6 +111,28 @@ def _form_css():
         /* ── Number input: adımlayıcıları gizle, temiz alan ── */
         .main [data-testid="stNumberInput"] button { display: none !important; }
         .main [data-testid="stNumberInput"] input { text-align: right !important; }
+
+        /* ── Metric kartları (modern · sade) ── */
+        div[data-testid="stMetric"] {
+            background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px;
+            padding: 15px 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+            transition: border-color .15s ease;
+        }
+        div[data-testid="stMetric"]:hover { border-color: rgba(139,92,246,0.32); }
+        div[data-testid="stMetricLabel"],
+        div[data-testid="stMetricLabel"] p,
+        div[data-testid="stMetricLabel"] div {
+            color: #94A3B8 !important; font-size: 11px !important; font-weight: 600 !important;
+            letter-spacing: .5px !important; text-transform: uppercase !important;
+        }
+        div[data-testid="stMetricValue"] {
+            color: #F1F5F9 !important; font-size: 24px !important; font-weight: 700 !important;
+            font-variant-numeric: tabular-nums; line-height: 1.2 !important; margin-top: 3px;
+            white-space: normal !important; word-break: break-word;
+        }
 
         /* ── Özel ürün tablosu başlık hücreleri ── */
         .ith-th {
@@ -295,8 +325,8 @@ def _gecmis_ithalatlar():
     ort_yuzde = (toplam_masraf / toplam_mal * 100) if toplam_mal > 0 else 0
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Dosya Sayısı", len(dosyalar))
-    c2.metric("Toplam Mal Bedeli", f"{toplam_mal:,.0f}")
-    c3.metric("Toplam Masraf", f"{toplam_masraf:,.0f}")
+    c2.metric("Toplam Mal Bedeli", f"${toplam_mal:,.0f}")
+    c3.metric("Toplam Masraf", f"${toplam_masraf:,.0f}")
     c4.metric("Ort. % Maliyet", f"%{ort_yuzde:.1f}")
 
     # 🔍 Filtreler (başlık bazlı) + arama
@@ -834,15 +864,9 @@ def _model_sorgu():
         return
 
     skular = sorted({k.get("sku", "") for k in tum_kalem if k.get("sku")})
-    _sl, c_ara, c_sec, _sr = st.columns([1.5, 1.1, 1.4, 1.5])
-    with c_ara:
-        ara = st.text_input("Ara", placeholder="SKU ara...", label_visibility="collapsed", key="ith_ms_ara")
+    _sl, c_sec, _sr = st.columns([1.5, 2.2, 1.5])
     with c_sec:
-        secenek = [s for s in skular if s.upper().startswith(ara.upper())] if ara else skular
-        if not secenek:
-            st.warning("Eşleşen SKU yok.")
-            return
-        sku = st.selectbox("SKU", secenek, label_visibility="collapsed", key="ith_ms_sku")
+        sku = st.selectbox("SKU", skular, label_visibility="collapsed", key="ith_ms_sku")
 
     dosyalar = {d["id"]: d for d in get_dosyalar()}
     kalem_by_dosya = defaultdict(list)
