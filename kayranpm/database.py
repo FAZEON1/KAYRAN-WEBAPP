@@ -38,6 +38,21 @@ def _row(response):
     d = response.data
     return d[0] if d else None
 
+def _hepsi(table, secim="*", order_col=None, desc=False):
+    """Supabase 1000 satır limitini aşarak bir tablodaki TÜM satırları sayfalayarak çeker."""
+    sb = get_client()
+    rows, start = [], 0
+    while True:
+        q = sb.table(table).select(secim)
+        if order_col:
+            q = q.order(order_col, desc=desc)
+        chunk = _rows(q.range(start, start + 999).execute())
+        rows.extend(chunk)
+        if len(chunk) < 1000:
+            break
+        start += 1000
+    return rows
+
 # ── ÜRÜNLER ─────────────────────────────────────────────────────────
 
 def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
@@ -237,7 +252,7 @@ def get_all_dashboard_data():
             firma_data[firma] = {}
     stok_yas_data = {r["sku"]: r for r in _rows(sb.table("stok_yas").select("*").execute())}
     yoldaki_data = {r["sku"]: r for r in _rows(sb.table("yoldaki_urunler").select("*").execute())}
-    tum_firma_rows = _rows(sb.table("firma_stok").select("*").order("yukleme_tarihi").execute())
+    tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
     gecmis_satislar = defaultdict(list)
     for row in tum_firma_rows:
         gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)
@@ -502,7 +517,7 @@ def get_gecmis_satis_firma_bazli(sku, firma):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_gecmis_satislar():
-    rows = _rows(get_client().table("firma_stok").select("sku, haftalik_satis, yukleme_tarihi").order("yukleme_tarihi").execute())
+    rows = _hepsi("firma_stok", "sku, haftalik_satis, yukleme_tarihi", "yukleme_tarihi")
     result = defaultdict(list)
     for r in rows:
         result[r["sku"]].append(r.get("haftalik_satis", 0) or 0)
