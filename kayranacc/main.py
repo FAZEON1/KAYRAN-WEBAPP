@@ -3821,20 +3821,23 @@ def run():
                 except Exception:
                     st.session_state.aktif_stok_data = None
             stok_file = st.file_uploader("Stok Excel", type=["xls", "xlsx"], key="aktif_stok_upload", label_visibility="collapsed")
-            if stok_file:
-                try:
-                    parsed = parse_stok_excel(stok_file.read())
-                    st.session_state.aktif_stok_data = parsed
-                    # Supabase'e kaydet (tablo yoksa hata vermeden geç)
+            if stok_file is not None:
+                _fid = f"{stok_file.name}:{getattr(stok_file, 'size', 0)}"
+                if st.session_state.get("_stok_islenen_fid") != _fid:
+                    st.session_state["_stok_islenen_fid"] = _fid
                     try:
-                        usd_stok_v, pazar_dict = parsed
-                        aktif_excel_kaydet(aktif_kul, "stok", [float(usd_stok_v), pazar_dict])
-                    except Exception:
-                        pass
-                    st.success(f"✅ {stok_file.name}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Hata: {type(e).__name__}: {e}")
+                        parsed = parse_stok_excel(stok_file.read())
+                        st.session_state.aktif_stok_data = parsed
+                        # Supabase'e kaydet (tablo yoksa hata vermeden geç)
+                        try:
+                            usd_stok_v, pazar_dict = parsed
+                            aktif_excel_kaydet(aktif_kul, "stok", [float(usd_stok_v), pazar_dict])
+                        except Exception:
+                            pass
+                        st.success(f"✅ {stok_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
     
         with col2:
             st.markdown("**2️⃣ İthalat Ödeme Takip**")
@@ -3846,18 +3849,21 @@ def run():
                 except Exception:
                     st.session_state.aktif_ithalat_data = None
             ithalat_file = st.file_uploader("İthalat Excel", type=["xls", "xlsx"], key="aktif_ithalat_upload", label_visibility="collapsed")
-            if ithalat_file:
-                try:
-                    parsed = parse_ithalat_excel(ithalat_file.read())
-                    st.session_state.aktif_ithalat_data = parsed
+            if ithalat_file is not None:
+                _fid = f"{ithalat_file.name}:{getattr(ithalat_file, 'size', 0)}"
+                if st.session_state.get("_ithalat_islenen_fid") != _fid:
+                    st.session_state["_ithalat_islenen_fid"] = _fid
                     try:
-                        aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
-                    except Exception:
-                        pass
-                    st.success(f"✅ {ithalat_file.name}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Hata: {type(e).__name__}: {e}")
+                        parsed = parse_ithalat_excel(ithalat_file.read())
+                        st.session_state.aktif_ithalat_data = parsed
+                        try:
+                            aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
+                        except Exception:
+                            pass
+                        st.success(f"✅ {ithalat_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
     
         with col3:
             st.markdown("**3️⃣ Cari Alacaklar Listesi**")
@@ -3877,18 +3883,21 @@ def run():
                 except Exception:
                     st.session_state.aktif_cari_data = None
             cari_file = st.file_uploader("Cari Excel", type=["xls", "xlsx"], key="aktif_cari_upload", label_visibility="collapsed")
-            if cari_file:
-                try:
-                    parsed = parse_cari_excel(cari_file.read())
-                    st.session_state.aktif_cari_data = parsed
+            if cari_file is not None:
+                _fid = f"{cari_file.name}:{getattr(cari_file, 'size', 0)}"
+                if st.session_state.get("_cari_islenen_fid") != _fid:
+                    st.session_state["_cari_islenen_fid"] = _fid
                     try:
-                        aktif_excel_kaydet(aktif_kul, "cari", parsed)
-                    except Exception:
-                        pass
-                    st.success(f"✅ {cari_file.name}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Hata: {type(e).__name__}: {e}")
+                        parsed = parse_cari_excel(cari_file.read())
+                        st.session_state.aktif_cari_data = parsed
+                        try:
+                            aktif_excel_kaydet(aktif_kul, "cari", parsed)
+                        except Exception:
+                            pass
+                        st.success(f"✅ {cari_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
     
         st.markdown("---")
     
