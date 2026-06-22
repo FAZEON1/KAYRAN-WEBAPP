@@ -880,11 +880,19 @@ def _model_sorgu():
 
     toplam_adet = sum(s["Adet"] for s in satirlar)
     fobs = [s["Birim FOB"] for s in satirlar if s["Birim FOB"] > 0]
-    c1, c2, c3, c4 = st.columns(4)
+    # Adet ağırlıklı ortalama paçal (yerine konmuş) birim maliyet
+    _pw = [(s["Adet"], s["Final Birim Maliyet"]) for s in satirlar if s["Adet"] > 0 and s["Birim FOB"] > 0]
+    _pw_adet = sum(a for a, _ in _pw)
+    pacal_ort = (sum(a * f for a, f in _pw) / _pw_adet) if _pw_adet > 0 else None
+    _dv = (satirlar[0]["Döviz"] if satirlar else "") or ""
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Toplam Alım Adedi", f"{toplam_adet:,.0f}")
     c2.metric("Sipariş Sayısı", f"{len(satirlar)}")
     c3.metric("Ort. Birim FOB", f"{(sum(fobs)/len(fobs)):,.2f}" if fobs else "—")
     c4.metric("Min – Maks FOB", f"{min(fobs):,.2f} – {max(fobs):,.2f}" if fobs else "—")
+    c5.metric("⭐ Paçal Birim Maliyet", f"{pacal_ort:,.2f}" if pacal_ort else "—",
+              help="Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
+                   "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir.")
 
     _tablo(df, para=["Birim FOB", "Final Birim Maliyet"], yuzde=["% Maliyet"],
            sol=["Belge No", "Tedarikçi", "Döviz"])
