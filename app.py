@@ -873,11 +873,6 @@ def giris_ekrani():
 '<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Hesap Makinesi</div>'
 '<div style="color:#64748B;font-size:11px;margin-top:2px">Urun karlilik analizi, kirilma noktasi hesaplama</div></div>'
 '</div>'
-'<div style="display:flex;align-items:center;gap:14px">'
-'<div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🚧</div>'
-'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Depo &amp; Teknik Servis</div>'
-'<div style="color:#64748B;font-size:11px;margin-top:2px">Stok yonetimi, teknik servis takibi - yakinda</div></div>'
-'</div>'
             # Alt bilgi
             '<div style="display:flex;align-items:center;gap:10px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">'
             '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 8px #10B981"></div>'
@@ -1155,13 +1150,13 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "kayranacc"
                 st.rerun()
         else:
-            st.button(
-                "🔒 Muhasebe & Finans",
-                key="nav_kayranacc_disabled",
-                disabled=True,
-                use_container_width=True,
-                help="Bu uygulamaya erisim yetkiniz yok"
-            )
+            if st.button(
+                "💳 Muhasebe & Finans",
+                key="nav_kayranacc_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ Muhasebe & Finans için erişim yetkiniz yok.", icon="🔒")
 
         if yetkiler["kayranpm"]:
             if st.button(
@@ -1173,13 +1168,13 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "kayranpm"
                 st.rerun()
         else:
-            st.button(
-                "🔒 Urun Yonetimi",
-                key="nav_kayranpm_disabled",
-                disabled=True,
-                use_container_width=True,
-                help="Bu uygulamaya erisim yetkiniz yok"
-            )
+            if st.button(
+                "📦 Urun Yonetimi",
+                key="nav_kayranpm_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ Ürün Yönetimi için erişim yetkiniz yok.", icon="🔒")
 
         # Ithalat — herkese gorunur, sadece yetkili (ibrahim) girebilir
         if yetkiler["ithalat"]:
@@ -1192,13 +1187,13 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "ithalat"
                 st.rerun()
         else:
-            st.button(
-                "🔒 Ithalat",
-                key="nav_ithalat_disabled",
-                disabled=True,
-                use_container_width=True,
-                help="Bu uygulamaya erisim yetkiniz yok"
-            )
+            if st.button(
+                "🚢 Ithalat",
+                key="nav_ithalat_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ İthalat için erişim yetkiniz yok.", icon="🔒")
 
         # Teknik Servis
         if yetkiler["teknikservis"]:
@@ -1211,13 +1206,13 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "teknikservis"
                 st.rerun()
         else:
-            st.button(
-                "🔒 Teknik Servis",
-                key="nav_teknikservis_disabled",
-                disabled=True,
-                use_container_width=True,
-                help="Bu uygulamaya erisim yetkiniz yok"
-            )
+            if st.button(
+                "🛠️ Teknik Servis",
+                key="nav_teknikservis_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ Teknik Servis için erişim yetkiniz yok.", icon="🔒")
 
         if yetkiler["hesap_makinesi"]:
             if st.button(
@@ -1228,16 +1223,6 @@ input, textarea, select { font-size: 16px !important; }
             ):
                 st.session_state.aktif_uygulama = "hesap_makinesi"
                 st.rerun()
-
-        if st.button(
-            "🚧 Depo & Teknik Servis",
-            key="nav_kayrantsw",
-            type="primary" if aktif_sayfa == "kayrantsw" else "secondary",
-            use_container_width=True,
-            help="Cok yakinda sizlerle"
-        ):
-            st.session_state.aktif_uygulama = "kayrantsw"
-            st.rerun()
 
         st.markdown(
             '<div style="height:1px;background:rgba(255,255,255,0.06);margin:14px 0 14px"></div>',
