@@ -1331,8 +1331,15 @@ def run():
         _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
         _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
         _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
+        _sku_ad_map_oz = {}
+        for _uu in urun_data:
+            _ss = str(_uu.get("sku", "") or "").strip()
+            if _ss and _ss not in _sku_ad_map_oz:
+                _sku_ad_map_oz[_ss] = _uu.get("urun_adi", "") or ""
+        _sku_secenek_oz = ["Tümü"] + [f"{s} — {a}" if a else s for s, a in sorted(_sku_ad_map_oz.items())]
         with _ozf0:
-            f_ara_oz = st.text_input("🔍 SKU / Ürün Ara", key="oz_ara", placeholder="SKU veya ürün adı")
+            f_ara_oz = st.selectbox(f"🔍 SKU / Ürün ({len(_sku_ad_map_oz)} model · yazarak ara)",
+                                    _sku_secenek_oz, key="oz_ara")
         with _ozf1:
             f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
         with _ozf2:
@@ -1375,10 +1382,9 @@ def run():
             })
         _toplam_oz = len(rows_oz)
         # Filtre + sıralama uygula
-        if f_ara_oz and f_ara_oz.strip():
-            _q = f_ara_oz.strip().lower()
-            rows_oz = [r for r in rows_oz
-                       if _q in (str(r.get("SKU") or "") + " " + str(r.get("Ürün Adı") or "")).lower()]
+        if f_ara_oz and f_ara_oz != "Tümü":
+            _sel_sku = f_ara_oz.split(" — ")[0].strip()
+            rows_oz = [r for r in rows_oz if str(r.get("SKU") or "").strip() == _sel_sku]
         if f_kat_oz != "Tümü":
             rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
         if f_mar_oz != "Tümü":
