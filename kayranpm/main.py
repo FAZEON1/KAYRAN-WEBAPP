@@ -1167,247 +1167,247 @@ def run():
         st.markdown("---")
     
         # Tüm ürünler özet tablosu
-        st.markdown("#### 📊 Tüm Ürünler Özet")
-        _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
-        _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
-        _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
-        _sku_ad_map_oz = {}
-        for _uu in urun_data:
-            _ss = str(_uu.get("sku", "") or "").strip()
-            if _ss and _ss not in _sku_ad_map_oz:
-                _sku_ad_map_oz[_ss] = _uu.get("urun_adi", "") or ""
-        _sku_secenek_oz = ["Tümü"] + [f"{s} — {a}" if a else s for s, a in sorted(_sku_ad_map_oz.items())]
-        with _ozf0:
-            f_ara_oz = st.selectbox(f"🔍 SKU / Ürün ({len(_sku_ad_map_oz)} model · yazarak ara)",
-                                    _sku_secenek_oz, key="oz_ara")
-        with _ozf1:
-            f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
-        with _ozf2:
-            f_mar_oz = st.selectbox("Marka", ["Tümü"] + _mar_oz, key="oz_mar")
-        with _ozf3:
-            f_sira_oz = st.selectbox("Sırala", ["Stok Yaşı (gün)", "Net Kâr ($)", "Net Marj (%)", "Maliyet %", "Toplam Stok", "Satış ($)", "FOB ($)", "Risk Skoru", "SKU (A-Z)"], key="oz_sira")
-        with _ozf4:
-            f_yon_oz = st.selectbox("Yön", ["Azalan", "Artan"], key="oz_yon")
-        _sadece_zarar = st.checkbox("⚠️ Sadece zararına satılanlar (satış < paçal maliyet)", value=False, key="oz_zarar")
-        _sira_map_oz = {"Stok Yaşı (gün)": "_stok_yas", "Net Kâr ($)": "Net Kar ($)", "Net Marj (%)": "Net Marj (%)", "Maliyet %": "Maliyet %", "Toplam Stok": "Toplam", "Satış ($)": "Satış ($)", "FOB ($)": "FOB ($)", "Risk Skoru": "_risk", "SKU (A-Z)": "SKU"}
-        rows_oz = []
-        for u in urun_data:
-            fs = u.get("firma_stoklari", {})
-            satis = u.get('satis_fiyati') or 0
-            ith_var = (u.get("ithalat_dosya_sayisi", 0) or 0) > 0
-            fcp = (u.get('final_cost_price') or 0) if ith_var else 0
-            fob = (u.get('fob_price') or 0) if ith_var else 0
-            maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
-            net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
-            net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
-            rows_oz.append({
-                "SKU": u["sku"],
-                "Ürün Adı": u.get("urun_adi", ""),
-                "Kategori": u.get("kategori", ""),
-                "Marka": u.get("marka", ""),
-                "_stok_yas": int(u.get("stok_gun", 0) or 0),
-                "_risk": float(u.get("risk_skor", 0) or 0),
-                "G5F Depo": int(u.get("bizim_stok", 0) or 0),
-                "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
-                "HB": int(fs.get("HB", 0) or 0),
-                "VATAN": int(fs.get("VATAN", 0) or 0),
-                "MONDAY": int(fs.get("MONDAY", 0) or 0),
-                "KANAL": int(fs.get("KANAL", 0) or 0),
-                "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
-                "FOB ($)": (float(fob) if ith_var else None),
-                "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
-                "Final Cost ($)": (float(fcp) if ith_var else None),
-                "Satış ($)": float(satis or 0),
-                "Net Marj (%)": float(net_marj) if net_marj is not None else None,
-                "Net Kar ($)": float(net_kar) if net_kar is not None else None,
-            })
-        _toplam_oz = len(rows_oz)
-        _zarar_say = sum(1 for r in rows_oz
-                         if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0)
-        # Filtre + sıralama uygula
-        if f_ara_oz and f_ara_oz != "Tümü":
-            _sel_sku = f_ara_oz.split(" — ")[0].strip()
-            rows_oz = [r for r in rows_oz if str(r.get("SKU") or "").strip() == _sel_sku]
-        if f_kat_oz != "Tümü":
-            rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
-        if f_mar_oz != "Tümü":
-            rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
-        if _sadece_zarar:
-            rows_oz = [r for r in rows_oz
-                       if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0]
-        _sk_oz = _sira_map_oz.get(f_sira_oz, "_stok_yas")
-        _rev_oz = (f_yon_oz == "Azalan")
-        if _sk_oz == "SKU":
-            rows_oz.sort(key=lambda r: str(r.get("SKU") or "").lower(), reverse=_rev_oz)
-        else:
-            _dolu = [r for r in rows_oz if r.get(_sk_oz) not in (None, "")]
-            _bos = [r for r in rows_oz if r.get(_sk_oz) in (None, "")]
-            _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
-            rows_oz = _dolu + _bos
+        with st.expander("📊 Tüm Ürünler Özet — filtrele, sırala, incele", expanded=False):
+            _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
+            _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
+            _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
+            _sku_ad_map_oz = {}
+            for _uu in urun_data:
+                _ss = str(_uu.get("sku", "") or "").strip()
+                if _ss and _ss not in _sku_ad_map_oz:
+                    _sku_ad_map_oz[_ss] = _uu.get("urun_adi", "") or ""
+            _sku_secenek_oz = ["Tümü"] + [f"{s} — {a}" if a else s for s, a in sorted(_sku_ad_map_oz.items())]
+            with _ozf0:
+                f_ara_oz = st.selectbox(f"🔍 SKU / Ürün ({len(_sku_ad_map_oz)} model · yazarak ara)",
+                                        _sku_secenek_oz, key="oz_ara")
+            with _ozf1:
+                f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
+            with _ozf2:
+                f_mar_oz = st.selectbox("Marka", ["Tümü"] + _mar_oz, key="oz_mar")
+            with _ozf3:
+                f_sira_oz = st.selectbox("Sırala", ["Stok Yaşı (gün)", "Net Kâr ($)", "Net Marj (%)", "Maliyet %", "Toplam Stok", "Satış ($)", "FOB ($)", "Risk Skoru", "SKU (A-Z)"], key="oz_sira")
+            with _ozf4:
+                f_yon_oz = st.selectbox("Yön", ["Azalan", "Artan"], key="oz_yon")
+            _sadece_zarar = st.checkbox("⚠️ Sadece zararına satılanlar (satış < paçal maliyet)", value=False, key="oz_zarar")
+            _sira_map_oz = {"Stok Yaşı (gün)": "_stok_yas", "Net Kâr ($)": "Net Kar ($)", "Net Marj (%)": "Net Marj (%)", "Maliyet %": "Maliyet %", "Toplam Stok": "Toplam", "Satış ($)": "Satış ($)", "FOB ($)": "FOB ($)", "Risk Skoru": "_risk", "SKU (A-Z)": "SKU"}
+            rows_oz = []
+            for u in urun_data:
+                fs = u.get("firma_stoklari", {})
+                satis = u.get('satis_fiyati') or 0
+                ith_var = (u.get("ithalat_dosya_sayisi", 0) or 0) > 0
+                fcp = (u.get('final_cost_price') or 0) if ith_var else 0
+                fob = (u.get('fob_price') or 0) if ith_var else 0
+                maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
+                net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
+                net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
+                rows_oz.append({
+                    "SKU": u["sku"],
+                    "Ürün Adı": u.get("urun_adi", ""),
+                    "Kategori": u.get("kategori", ""),
+                    "Marka": u.get("marka", ""),
+                    "_stok_yas": int(u.get("stok_gun", 0) or 0),
+                    "_risk": float(u.get("risk_skor", 0) or 0),
+                    "G5F Depo": int(u.get("bizim_stok", 0) or 0),
+                    "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
+                    "HB": int(fs.get("HB", 0) or 0),
+                    "VATAN": int(fs.get("VATAN", 0) or 0),
+                    "MONDAY": int(fs.get("MONDAY", 0) or 0),
+                    "KANAL": int(fs.get("KANAL", 0) or 0),
+                    "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
+                    "FOB ($)": (float(fob) if ith_var else None),
+                    "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
+                    "Final Cost ($)": (float(fcp) if ith_var else None),
+                    "Satış ($)": float(satis or 0),
+                    "Net Marj (%)": float(net_marj) if net_marj is not None else None,
+                    "Net Kar ($)": float(net_kar) if net_kar is not None else None,
+                })
+            _toplam_oz = len(rows_oz)
+            _zarar_say = sum(1 for r in rows_oz
+                             if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0)
+            # Filtre + sıralama uygula
+            if f_ara_oz and f_ara_oz != "Tümü":
+                _sel_sku = f_ara_oz.split(" — ")[0].strip()
+                rows_oz = [r for r in rows_oz if str(r.get("SKU") or "").strip() == _sel_sku]
+            if f_kat_oz != "Tümü":
+                rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
+            if f_mar_oz != "Tümü":
+                rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
+            if _sadece_zarar:
+                rows_oz = [r for r in rows_oz
+                           if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0]
+            _sk_oz = _sira_map_oz.get(f_sira_oz, "_stok_yas")
+            _rev_oz = (f_yon_oz == "Azalan")
+            if _sk_oz == "SKU":
+                rows_oz.sort(key=lambda r: str(r.get("SKU") or "").lower(), reverse=_rev_oz)
+            else:
+                _dolu = [r for r in rows_oz if r.get(_sk_oz) not in (None, "")]
+                _bos = [r for r in rows_oz if r.get(_sk_oz) in (None, "")]
+                _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
+                rows_oz = _dolu + _bos
 
-        st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor"
-                   + (f"  ·  ⚠️ {_zarar_say} ürün zararına satılıyor (satış < paçal)" if _zarar_say else ""))
-        df_oz = pd.DataFrame(rows_oz)
-        if df_oz.empty:
-            st.info("Henüz ürün yok.")
-        else:
-            def _fmt_para(v):
-                try:
-                    return f"${float(v):,.2f}" if v not in (None, "") and float(v) != 0 else "—"
-                except Exception:
-                    return "—"
-            def _fmt_int(v):
-                try:
-                    return f"{int(v):,}" if v not in (None, "") else "0"
-                except Exception:
-                    return "0"
-            def _fmt_pct(v):
-                try:
-                    return f"%{float(v):.1f}" if v not in (None, "") else "—"
-                except Exception:
-                    return "—"
-            def _stok_cls(v):
-                try:
-                    return "c-num" if (v and int(v) > 0) else "c-muted"
-                except Exception:
-                    return "c-muted"
+            st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor"
+                       + (f"  ·  ⚠️ {_zarar_say} ürün zararına satılıyor (satış < paçal)" if _zarar_say else ""))
+            df_oz = pd.DataFrame(rows_oz)
+            if df_oz.empty:
+                st.info("Henüz ürün yok.")
+            else:
+                def _fmt_para(v):
+                    try:
+                        return f"${float(v):,.2f}" if v not in (None, "") and float(v) != 0 else "—"
+                    except Exception:
+                        return "—"
+                def _fmt_int(v):
+                    try:
+                        return f"{int(v):,}" if v not in (None, "") else "0"
+                    except Exception:
+                        return "0"
+                def _fmt_pct(v):
+                    try:
+                        return f"%{float(v):.1f}" if v not in (None, "") else "—"
+                    except Exception:
+                        return "—"
+                def _stok_cls(v):
+                    try:
+                        return "c-num" if (v and int(v) > 0) else "c-muted"
+                    except Exception:
+                        return "c-muted"
 
-            satir_html = ""
-            for r in rows_oz:
-                ad = str(r.get("Ürün Adı", "") or "")
-                ad_kisa = ad if len(ad) <= 46 else ad[:45] + "…"
-                ad_title = ad.replace(chr(34), "&quot;")
-                nk = r.get("Net Kar ($)")
-                if nk is None:
-                    nk_cls, nk_txt = "c-muted", "—"
-                elif nk > 0:
-                    nk_cls, nk_txt = "c-pos", f"${nk:,.2f}"
-                elif nk < 0:
-                    nk_cls, nk_txt = "c-neg", f"${nk:,.2f}"
-                else:
-                    nk_cls, nk_txt = "c-num", f"${nk:,.2f}"
-                nm = r.get("Net Marj (%)")
-                if nm is None:
-                    nm_cls, nm_txt = "c-muted", "—"
-                elif nm > 0:
-                    nm_cls, nm_txt = "c-pos", f"%{nm:.1f}"
-                elif nm < 0:
-                    nm_cls, nm_txt = "c-neg", f"%{nm:.1f}"
-                else:
-                    nm_cls, nm_txt = "c-num", f"%{nm:.1f}"
-                tot = r.get("Toplam") or 0
-                tot_cls = "c-tot" if tot else "c-muted"
-                fcp_raw = r.get("Final Cost ($)")
-                fcp = fcp_raw or 0
-                fcp_cls = "c-fcp" if fcp else "c-muted"
-                fob_raw = r.get("FOB ($)")
-                fob_v = fob_raw or 0
-                fob_cls = "c-num" if fob_v else "c-muted"
-                satis = r.get("Satış ($)") or 0
-                satis_cls = "c-money" if satis else "c-muted"
-                mal = r.get("Maliyet %")
-                mal_cls = "c-mal" if (mal is not None) else "c-muted"
-                _kanallar = []
-                for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN")):
-                    _kv = r.get(_kn) or 0
-                    if _kv:
-                        _kanallar.append(f"{_kl}:{int(_kv)}")
-                kanal_str = " · ".join(_kanallar) if _kanallar else "—"
-                kanal_title = kanal_str.replace(chr(34), "&quot;")
-                _loss = (nk is not None and nk < 0)
-                _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #EF4444"' if _loss else ""
-                satir_html += (
-                    f"<tr{_tr_attr}>"
-                    f'<td class="c-sku">{r.get("SKU","")}</td>'
-                    f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
-                    f'<td class="c-kat">{r.get("Kategori","")}</td>'
-                    f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
-                    f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
-                    f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
-                    f'<td class="{fob_cls}">{_fmt_para(fob_v) if fob_raw is not None else "—"}</td>'
-                    f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
-                    f'<td class="{fcp_cls}">{_fmt_para(fcp) if fcp_raw is not None else "—"}</td>'
-                    f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
-                    f'<td class="{nm_cls}">{nm_txt}</td>'
-                    f'<td class="{nk_cls}">{nk_txt}</td>'
-                    "</tr>"
+                satir_html = ""
+                for r in rows_oz:
+                    ad = str(r.get("Ürün Adı", "") or "")
+                    ad_kisa = ad if len(ad) <= 46 else ad[:45] + "…"
+                    ad_title = ad.replace(chr(34), "&quot;")
+                    nk = r.get("Net Kar ($)")
+                    if nk is None:
+                        nk_cls, nk_txt = "c-muted", "—"
+                    elif nk > 0:
+                        nk_cls, nk_txt = "c-pos", f"${nk:,.2f}"
+                    elif nk < 0:
+                        nk_cls, nk_txt = "c-neg", f"${nk:,.2f}"
+                    else:
+                        nk_cls, nk_txt = "c-num", f"${nk:,.2f}"
+                    nm = r.get("Net Marj (%)")
+                    if nm is None:
+                        nm_cls, nm_txt = "c-muted", "—"
+                    elif nm > 0:
+                        nm_cls, nm_txt = "c-pos", f"%{nm:.1f}"
+                    elif nm < 0:
+                        nm_cls, nm_txt = "c-neg", f"%{nm:.1f}"
+                    else:
+                        nm_cls, nm_txt = "c-num", f"%{nm:.1f}"
+                    tot = r.get("Toplam") or 0
+                    tot_cls = "c-tot" if tot else "c-muted"
+                    fcp_raw = r.get("Final Cost ($)")
+                    fcp = fcp_raw or 0
+                    fcp_cls = "c-fcp" if fcp else "c-muted"
+                    fob_raw = r.get("FOB ($)")
+                    fob_v = fob_raw or 0
+                    fob_cls = "c-num" if fob_v else "c-muted"
+                    satis = r.get("Satış ($)") or 0
+                    satis_cls = "c-money" if satis else "c-muted"
+                    mal = r.get("Maliyet %")
+                    mal_cls = "c-mal" if (mal is not None) else "c-muted"
+                    _kanallar = []
+                    for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN")):
+                        _kv = r.get(_kn) or 0
+                        if _kv:
+                            _kanallar.append(f"{_kl}:{int(_kv)}")
+                    kanal_str = " · ".join(_kanallar) if _kanallar else "—"
+                    kanal_title = kanal_str.replace(chr(34), "&quot;")
+                    _loss = (nk is not None and nk < 0)
+                    _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #EF4444"' if _loss else ""
+                    satir_html += (
+                        f"<tr{_tr_attr}>"
+                        f'<td class="c-sku">{r.get("SKU","")}</td>'
+                        f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
+                        f'<td class="c-kat">{r.get("Kategori","")}</td>'
+                        f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
+                        f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
+                        f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
+                        f'<td class="{fob_cls}">{_fmt_para(fob_v) if fob_raw is not None else "—"}</td>'
+                        f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
+                        f'<td class="{fcp_cls}">{_fmt_para(fcp) if fcp_raw is not None else "—"}</td>'
+                        f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
+                        f'<td class="{nm_cls}">{nm_txt}</td>'
+                        f'<td class="{nk_cls}">{nk_txt}</td>'
+                        "</tr>"
+                    )
+                css = (
+                    "<style>"
+                    ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
+                    ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
+                    ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+                    ".urun-tbl thead th{padding:8px 6px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
+                    ".urun-tbl thead th.l{text-align:left}"
+                    ".urun-tbl tbody{background:#131C35}"
+                    ".urun-tbl td{padding:7px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                    ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+                    ".urun-tbl tbody tr:hover{background:rgba(99,102,241,0.06)}"
+                    ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
+                    ".c-name{color:#CBD5E1;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                    ".c-kat{color:#94A3B8;font-size:11px}"
+                    ".c-kanal{text-align:left;color:#94A3B8;font-family:'JetBrains Mono',monospace;font-size:11px;max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                    ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                    ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
+                    ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
+                    ".c-mal{text-align:right;color:#C4B5FD;font-family:'JetBrains Mono',monospace}"
+                    ".c-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".c-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".c-fcp{text-align:right;color:#FBBF24;font-weight:600;font-family:'JetBrains Mono',monospace}"
+                    ".c-tot{text-align:right;color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".c-muted{text-align:right;color:#475569;font-family:'JetBrains Mono',monospace}"
+                    "</style>"
                 )
-            css = (
-                "<style>"
-                ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
-                ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
-                ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                ".urun-tbl thead th{padding:8px 6px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
-                ".urun-tbl thead th.l{text-align:left}"
-                ".urun-tbl tbody{background:#131C35}"
-                ".urun-tbl td{padding:7px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
-                ".urun-tbl tbody tr:hover{background:rgba(99,102,241,0.06)}"
-                ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                ".c-name{color:#CBD5E1;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                ".c-kat{color:#94A3B8;font-size:11px}"
-                ".c-kanal{text-align:left;color:#94A3B8;font-family:'JetBrains Mono',monospace;font-size:11px;max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
-                ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
-                ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                ".c-mal{text-align:right;color:#C4B5FD;font-family:'JetBrains Mono',monospace}"
-                ".c-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-fcp{text-align:right;color:#FBBF24;font-weight:600;font-family:'JetBrains Mono',monospace}"
-                ".c-tot{text-align:right;color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                ".c-muted{text-align:right;color:#475569;font-family:'JetBrains Mono',monospace}"
-                "</style>"
-            )
-            thead = (
-                '<div class="urun-wrap"><table class="urun-tbl">'
-                '<colgroup>'
-                '<col style="width:7%"><col style="width:18%"><col style="width:7%">'
-                '<col style="width:6%"><col style="width:12%"><col style="width:7%">'
-                '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
-                '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
-                '</colgroup>'
-                '<thead><tr>'
-                '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
-                '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
-                "<th>FOB</th><th>Maliyet %</th><th>⭐ Paçal Maliyet</th><th>Satış</th>"
-                "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
-                "</tr></thead><tbody>"
-            )
-            st.html(css + thead + satir_html + "</tbody></table></div>")
+                thead = (
+                    '<div class="urun-wrap"><table class="urun-tbl">'
+                    '<colgroup>'
+                    '<col style="width:7%"><col style="width:18%"><col style="width:7%">'
+                    '<col style="width:6%"><col style="width:12%"><col style="width:7%">'
+                    '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
+                    '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
+                    '</colgroup>'
+                    '<thead><tr>'
+                    '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
+                    '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
+                    "<th>FOB</th><th>Maliyet %</th><th>⭐ Paçal Maliyet</th><th>Satış</th>"
+                    "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
+                    "</tr></thead><tbody>"
+                )
+                st.html(css + thead + satir_html + "</tbody></table></div>")
             st.caption("💡 Tüm maliyetler İthalat verisinden (paçal) · Maliyet % = (Paçal / FOB − 1) × 100 · Net Kâr $ = Satış − Paçal · Net Marj % = Net Kâr / Satış × 100")
 
-            with st.expander("✏️ Ürün Düzenle", expanded=False):
-                st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
-                _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
-                if _sec_list:
-                    _sec_label = st.selectbox("Düzenlenecek ürün", list(_sec_list.keys()), key="urun_duzen_sec")
-                    _sec_sku = _sec_list[_sec_label]
-                    _u = next((x for x in urun_data if x["sku"] == _sec_sku), {})
-                    with st.form("urun_duzen_form"):
-                        fc1, fc2, fc3, fc4 = st.columns([3, 1.5, 1.2, 1])
-                        with fc1:
-                            d_ad = st.text_input("Ürün Adı", value=_u.get("urun_adi", "") or "")
-                        with fc2:
-                            d_kat = st.text_input("Kategori", value=_u.get("kategori", "") or "")
-                        with fc3:
-                            d_satis = st.number_input("Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f")
-                        with fc4:
-                            d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
-                        if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
-                            from .database import upsert_urun as _upsert_urun
-                            try:
-                                _upsert_urun(
-                                    _sec_sku, d_ad.strip(), d_kat.strip(),
-                                    _u.get("marka", "") or "", float(d_satis or 0),
-                                    float(_u.get("alis_fiyati", 0) or 0), float(_u.get("hedef_kar_marji", 0) or 0),
-                                    _u.get("ozellikler", "") or "", int(d_stok or 0),
-                                    int(_u.get("trendyol_stok", 0) or 0),
-                                )
-                                st.cache_data.clear()
-                                st.success(f"✅ {_sec_sku} güncellendi.")
-                                st.rerun()
-                            except Exception as _e:
-                                st.error(f"Kaydedilemedi: {_e}")
+        with st.expander("✏️ Ürün Düzenle", expanded=False):
+            st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
+            _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
+            if _sec_list:
+                _sec_label = st.selectbox("Düzenlenecek ürün", list(_sec_list.keys()), key="urun_duzen_sec")
+                _sec_sku = _sec_list[_sec_label]
+                _u = next((x for x in urun_data if x["sku"] == _sec_sku), {})
+                with st.form("urun_duzen_form"):
+                    fc1, fc2, fc3, fc4 = st.columns([3, 1.5, 1.2, 1])
+                    with fc1:
+                        d_ad = st.text_input("Ürün Adı", value=_u.get("urun_adi", "") or "")
+                    with fc2:
+                        d_kat = st.text_input("Kategori", value=_u.get("kategori", "") or "")
+                    with fc3:
+                        d_satis = st.number_input("Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f")
+                    with fc4:
+                        d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
+                    if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
+                        from .database import upsert_urun as _upsert_urun
+                        try:
+                            _upsert_urun(
+                                _sec_sku, d_ad.strip(), d_kat.strip(),
+                                _u.get("marka", "") or "", float(d_satis or 0),
+                                float(_u.get("alis_fiyati", 0) or 0), float(_u.get("hedef_kar_marji", 0) or 0),
+                                _u.get("ozellikler", "") or "", int(d_stok or 0),
+                                int(_u.get("trendyol_stok", 0) or 0),
+                            )
+                            st.cache_data.clear()
+                            st.success(f"✅ {_sec_sku} güncellendi.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Kaydedilemedi: {_e}")
     
     
     
