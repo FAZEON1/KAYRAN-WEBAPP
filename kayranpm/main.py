@@ -1329,7 +1329,9 @@ def run():
         st.markdown("#### 📊 Tüm Ürünler Özet")
         _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
         _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
-        _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.3, 1.3, 1.7, 1.1])
+        _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
+        with _ozf0:
+            f_ara_oz = st.text_input("🔍 SKU / Ürün Ara", key="oz_ara", placeholder="SKU veya ürün adı")
         with _ozf1:
             f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
         with _ozf2:
@@ -1371,6 +1373,10 @@ def run():
                 "Net Kar ($)": float(net_kar) if net_kar is not None else None,
             })
         # Filtre + sıralama uygula
+        if f_ara_oz and f_ara_oz.strip():
+            _q = f_ara_oz.strip().lower()
+            rows_oz = [r for r in rows_oz
+                       if _q in (str(r.get("SKU") or "") + " " + str(r.get("Ürün Adı") or "")).lower()]
         if f_kat_oz != "Tümü":
             rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
         if f_mar_oz != "Tümü":
