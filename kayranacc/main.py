@@ -3725,7 +3725,10 @@ def run():
         gercek_kullanici = (st.session_state.get("aktif_kullanici") or "ibrahim").lower().strip()
         aktif_kul = "ortak"  # Paylaşımlı veri anahtarı
     
-        if "aktif_excel_yuklendi" not in st.session_state:
+        # Paylaşımlı veri HER render'da DB'den okunur — böylece başka bir kullanıcı
+        # (pamuk vb.) yüklediğinde diğer oturumlar da anında en güncel veriyi görür.
+        # (Tek seferlik session cache KULLANILMAZ; aksi halde başkasının yüklemesi yansımaz.)
+        if True:
             # İlk açılış — Supabase'den önceki kayıtları çek (tablo yoksa None döner, sorun değil)
             # MIGRATION: "ortak" boşsa "ibrahim"den oku ve "ortak"a kopyala (eski veriler için)
             try:

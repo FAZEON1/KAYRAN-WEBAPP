@@ -677,7 +677,7 @@ def aktif_excel_oku(kullanici, dosya_tipi):
         return None
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=15, show_spinner=False)
 def aktif_excel_meta_oku(dosya_tipi):
     """
     Excel meta bilgisi okur: son_yukleyen, yukleme_zamani
@@ -748,7 +748,7 @@ def aktif_manuel_ekle(kullanici, aciklama, tutar, para_birimi="USD", tip="ekle")
         return False
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=15, show_spinner=False)
 def aktif_manuel_listele(kullanici=None):
     """
     TÜM manuel kalemleri döndürür (paylaşımlı).
