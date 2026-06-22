@@ -1637,6 +1637,11 @@ def run():
             else:
                 # ── KAMPANYA PANOSU (üstte hızlı özet) ──
                 _bugun = tr_today()
+                def _dmy(x):
+                    try:
+                        return date.fromisoformat(str(x)[:10]).strftime("%d.%m.%y")
+                    except Exception:
+                        return str(x or "")[:10]
                 _pano = []
                 for _k in aktif_kampanyalar:
                     _ku = _ku_map.get(_k["id"], [])
@@ -1669,6 +1674,7 @@ def run():
                     _pano.append({
                         "Kampanya": _k["kampanya_adi"],
                         "Firma": _k["firma"],
+                        "Tarih": f'{_dmy(_k.get("baslangic_tarihi"))} → {_dmy(_k.get("bitis_tarihi"))}',
                         "Kalan": _kalan_txt,
                         "Ürün": len(_ku),
                         "Satılan": _sat,
@@ -1679,14 +1685,15 @@ def run():
                     pd.DataFrame(_pano),
                     para=["Net Kâr ($)"],
                     kar=["Net Kâr ($)"],
-                    sol=["Kampanya", "Firma", "Kalan"],
+                    sol=["Kampanya", "Firma", "Tarih", "Kalan"],
                     kisalt={"Kampanya": 32},
                 )
                 st.markdown("---")
                 st.markdown('<div style="font-size:12px;color:#94A3B8;margin:2px 0 8px">👇 Detayını görmek için kampanyaya tıkla</div>', unsafe_allow_html=True)
                 _kamp_btn_cols = st.columns(3)
                 for _bi, _bk in enumerate(aktif_kampanyalar):
-                    if _kamp_btn_cols[_bi % 3].button(f"📢 {_bk['kampanya_adi']}", key=f"kamp_detay_btn_{_bk['id']}", use_container_width=True):
+                    _btn_lbl = f"📢 {_bk['kampanya_adi']}  ·  {_dmy(_bk.get('baslangic_tarihi'))} → {_dmy(_bk.get('bitis_tarihi'))}"
+                    if _kamp_btn_cols[_bi % 3].button(_btn_lbl, key=f"kamp_detay_btn_{_bk['id']}", use_container_width=True):
                         st.session_state["_kamp_detay_sec"] = _bk["id"]
                 _kamp_secili_id = st.session_state.get("_kamp_detay_sec")
                 if not (_kamp_secili_id and any(_kk["id"] == _kamp_secili_id for _kk in aktif_kampanyalar)):
