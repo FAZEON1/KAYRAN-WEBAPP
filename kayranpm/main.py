@@ -2308,6 +2308,41 @@ def run():
         st.markdown('<div class="baslik">📂 Veri Yükleme</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
+
+        # ── İthalat'tan Ürün Senkronizasyonu ──
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#7DD3FC;letter-spacing:1px;text-transform:uppercase;margin:4px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#0EA5E9,#7DD3FC);display:inline-block"></span>🚢 Ürünleri İthalat\'tan Senkronize Et</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:10px">Ürün listesi İthalat\'tan çekilir: İthalat\'taki her SKU ürün olur, İthalat\'ta olmayan <b style="color:#CBD5E1">eski modeller silinir</b>. Ortak ürünlerin satış/stok/hedef bilgisi korunur.</div>', unsafe_allow_html=True)
+        try:
+            from .database import ithalat_senkron_onizleme, senkronize_urunler_ithalattan
+            _ekl, _sil, _kor, _ithoz, _mvmap = ithalat_senkron_onizleme()
+            if not _ithoz:
+                st.info("İthalat'ta henüz ürün yok. Önce **İthalat → Yeni İthalat → 📑 Excel ile Toplu**'dan veri aktarın; sonra burada senkronize edebilirsiniz. (Güvenlik için İthalat boşken silme yapılmaz.)")
+            else:
+                _sc1, _sc2, _sc3 = st.columns(3)
+                _sc1.metric("İthalat'tan eklenecek", len(_ekl))
+                _sc2.metric("Silinecek eski model", len(_sil))
+                _sc3.metric("Korunacak (ortak)", len(_kor))
+                if _sil:
+                    with st.expander(f"🗑️ Silinecek {len(_sil)} eski model (İthalat'ta yok)", expanded=False):
+                        st.dataframe(pd.DataFrame([{"SKU": s, "Ürün Adı": _mvmap.get(s, "")} for s in _sil]),
+                                     use_container_width=True, height=220, hide_index=True)
+                if _ekl:
+                    with st.expander(f"➕ Eklenecek {len(_ekl)} yeni ürün (İthalat'tan)", expanded=False):
+                        st.dataframe(pd.DataFrame([{"SKU": s, "Ürün Adı": _ithoz.get(s, {}).get("urun_adi", "")} for s in _ekl]),
+                                     use_container_width=True, height=220, hide_index=True)
+                _sil_eski = st.checkbox("Eski modelleri (İthalat'ta olmayan) sil", value=True, key="vy_sync_sil")
+                if _ekl or _sil:
+                    if st.button("🔄 Senkronize Et", type="primary", key="vy_sync_btn"):
+                        with st.spinner("Senkronize ediliyor..."):
+                            _r = senkronize_urunler_ithalattan(sil_eski=_sil_eski)
+                        st.success(f"✅ {_r['eklendi']} ürün eklendi · {_r['silindi']} eski model silindi · {_r['korundu']} korundu.")
+                        st.rerun()
+                else:
+                    st.caption("Ürünler İthalat ile zaten eşit. ✅")
+        except Exception as _e:
+            st.warning(f"İthalat senkron hazırlanamadı: {type(_e).__name__}: {_e}")
+
+        st.markdown("---")
     
         # Şablon indir
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):

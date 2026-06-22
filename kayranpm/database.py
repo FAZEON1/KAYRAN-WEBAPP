@@ -101,6 +101,69 @@ def sil_urun(sku):
 def get_tum_sku_listesi():
     return _rows(get_client().table("urunler").select("sku, urun_adi").order("sku").execute())
 
+
+# ── İTHALAT SENKRONİZASYONU ─────────────────────────────────────────
+def ithalat_sku_ozet():
+    """İthalat'taki distinct SKU'lar → {sku: {'urun_adi':..., 'adet':...}}."""
+    try:
+        from ithalat.database import get_tum_kalemler
+        kalemler = get_tum_kalemler()
+    except Exception:
+        return {}
+    out = {}
+    for k in (kalemler or []):
+        sku = str(k.get("sku") or "").strip()
+        if not sku or sku.lower() == "nan":
+            continue
+        if sku not in out:
+            out[sku] = {"urun_adi": str(k.get("urun_adi") or "").strip(), "adet": 0.0}
+        try:
+            out[sku]["adet"] += float(k.get("adet") or 0)
+        except Exception:
+            pass
+        if not out[sku]["urun_adi"] and k.get("urun_adi"):
+            out[sku]["urun_adi"] = str(k.get("urun_adi")).strip()
+    return out
+
+
+def ithalat_senkron_onizleme():
+    """Senkron öncesi fark: (eklenecek_set, silinecek_set, korunan_set, ith_ozet, mevcut_map)."""
+    ith = ithalat_sku_ozet()
+    ith_skus = set(ith.keys())
+    mevcut = get_tum_sku_listesi()
+    mevcut_map = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
+                  for u in mevcut if str(u.get("sku") or "").strip()}
+    mevcut_skus = set(mevcut_map.keys())
+    return (ith_skus - mevcut_skus, mevcut_skus - ith_skus,
+            ith_skus & mevcut_skus, ith, mevcut_map)
+
+
+def senkronize_urunler_ithalattan(sil_eski=True):
+    """urunler tablosunu İthalat SKU'larına eşitler.
+    - İthalat'ta olup üründe olmayanları EKLER (urun_adi İthalat'tan, diğer alanlar boş/0).
+    - sil_eski=True ise üründe olup İthalat'ta olmayanları SİLER (eski modeller).
+    - Ortak SKU'lar dokunulmaz (satış/stok/hedef korunur).
+    Döner: dict(eklendi, silindi, korundu, eklenenler, silinenler)."""
+    eklenecek, silinecek, korunan, ith, _ = ithalat_senkron_onizleme()
+    eklendi = 0
+    for sku in eklenecek:
+        try:
+            upsert_urun(sku, ith.get(sku, {}).get("urun_adi", ""))
+            eklendi += 1
+        except Exception:
+            pass
+    silindi = 0
+    if sil_eski:
+        for sku in silinecek:
+            try:
+                sil_urun(sku)
+                silindi += 1
+            except Exception:
+                pass
+    _cache_temizle()
+    return {"eklendi": eklendi, "silindi": silindi, "korundu": len(korunan),
+            "eklenenler": sorted(eklenecek), "silinenler": sorted(silinecek)}
+
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
 def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis):
