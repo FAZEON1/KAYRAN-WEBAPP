@@ -126,6 +126,29 @@ def urun_getir(stok_kodu):
         return None
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def ithalat_model_listesi():
+    """İthalat kalemlerindeki tüm modeller (stok kodu → ürün adı). Mal Kabül seçim listesi için."""
+    try:
+        from ithalat.database import get_tum_kalemler, get_urun_katalog
+        ozet = {}
+        for k in (get_tum_kalemler() or []):
+            s = str(k.get("sku", "") or "").strip()
+            if not s:
+                continue
+            ad = str(k.get("urun_adi", "") or "").strip()
+            if s not in ozet or (not ozet[s] and ad):
+                ozet[s] = ad
+        if not ozet:  # İthalat kalemi yoksa ürün kataloğuna düş
+            for s, a in (get_urun_katalog() or {}).items():
+                s = str(s or "").strip()
+                if s:
+                    ozet[s] = str(a or "").strip()
+        return sorted(ozet.items(), key=lambda x: x[0])
+    except Exception:
+        return []
+
+
 # ── DB: kayıtlar ─────────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_kayitlar(arayuz=None, depolu=None):

@@ -8,7 +8,7 @@ from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
     DEPOLAR, FIRMA_ONERILER,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
-    kayit_guncelle, urun_getir, is_gunu_farki, sla_renk,
+    kayit_guncelle, urun_getir, is_gunu_farki, sla_renk, ithalat_model_listesi,
 )
 
 
@@ -71,6 +71,22 @@ def _mal_kabul():
     arayuz = "teknik" if "Teknik" in arayuz_lbl else "iade"
 
     # Stok kodu eşleştirme (form dışı — Ürün Yönetimi'nden otomatik çekme)
+    # 📦 İthalat'tan model seç (tüm modeller) — seçince stok kodu + stok adı dolar
+    _modeller = ithalat_model_listesi()
+    if _modeller:
+        _opts = ["— İthalat'tan model seç —"] + [(f"{s} — {a}" if a else s) for s, a in _modeller]
+        _sec_model = st.selectbox(f"📦 İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
+                                  _opts, key="mk_model_sec")
+        if _sec_model != _opts[0] and st.session_state.get("_mk_model_son") != _sec_model:
+            st.session_state["_mk_model_son"] = _sec_model
+            _sku_sel = _sec_model.split(" — ")[0].strip()
+            st.session_state["mk_sk"] = _sku_sel
+            for _s, _a in _modeller:
+                if _s == _sku_sel and _a:
+                    st.session_state["mk_stok_adi"] = _a
+                    break
+            st.rerun()
+
     es1, es2 = st.columns([3, 1])
     with es1:
         sk = st.text_input("Stok Kodu *", key="mk_sk", placeholder="EAN okut veya stok kodu yaz")
