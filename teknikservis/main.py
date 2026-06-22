@@ -3,6 +3,7 @@
 from datetime import datetime, date
 
 import streamlit as st
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
@@ -457,23 +458,10 @@ def run():
     )
 
     with st.sidebar:
-        st.markdown(
-            '<div style="padding:6px 4px 8px;text-align:center">'
-            '<div style="font-size:26px;margin-bottom:4px">🛠️</div>'
-            '<div style="font-size:9px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase">Teknik Servis</div>'
-            '<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(244,114,182,0.6),transparent);margin-top:14px"></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(sidebar_stil(), unsafe_allow_html=True)
+        st.markdown(sidebar_baslik("🛠️", "Teknik Servis", "Servis & İade"), unsafe_allow_html=True)
         if aktif_kullanici:
-            st.markdown(
-                '<div style="background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.25);'
-                'border-radius:10px;padding:10px 14px;margin-bottom:10px">'
-                '<div style="color:#64748B;font-size:10px;font-weight:600;letter-spacing:0.5px;margin-bottom:2px">OTURUM AÇIK</div>'
-                f'<div style="color:#FDA4AF;font-weight:700;font-size:13px">👤 {aktif_kullanici.capitalize()}</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
             if st.button("Çıkış Yap", use_container_width=True, key="ts_cikis"):
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
