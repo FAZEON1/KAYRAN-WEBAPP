@@ -929,56 +929,8 @@ def run():
         st.markdown('<div class="alt-baslik">FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
-        # ── YENİ ÜRÜN EKLE ──────────────────────────────────────────────
-        with st.expander("➕ Yeni Ürün Ekle", expanded=False):
-            with st.form("manuel_urun_form", clear_on_submit=True):
-                st.markdown("**Temel Bilgiler**")
-                fc1, fc2, fc3 = st.columns(3)
-                with fc1:
-                    m_sku = st.text_input("SKU *", placeholder="örn: X24F165S")
-                    m_kategori = st.text_input("Kategori", placeholder="örn: MONİTÖR")
-                with fc2:
-                    m_urun_adi = st.text_input("Ürün Adı *", placeholder="Tam ürün adı")
-                    m_marka = st.text_input("Marka", placeholder="örn: FAZEON")
-                with fc3:
-                    m_satis = st.number_input("Satış Fiyatı ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-    
-                st.markdown("**Stok & Hedef**")
-                fs1, fs2, fs3 = st.columns(3)
-                with fs1:
-                    m_stok = st.number_input("Bizim Stok (adet)", min_value=0, value=0, step=1)
-                    m_hedef_kar = st.number_input("Hedef Kar Marjı (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.5, format="%.1f")
-                with fs2:
-                    m_yoldaki = st.number_input("Yoldaki Miktar (adet)", min_value=0, value=0, step=1)
-                    m_varis = st.date_input("Tahmini Varış Tarihi", value=None)
-                with fs3:
-                    m_tedarikci = st.text_input("Yoldaki Tedarikçi", placeholder="örn: ABC Elektronik")
-                    m_ozellikler = st.text_area("Özellikler / Notlar", placeholder="Opsiyonel notlar", height=68)
-    
-                kaydet_btn = st.form_submit_button("💾 Ürünü Kaydet", type="primary", use_container_width=True)
-    
-            if kaydet_btn:
-                if not m_sku.strip():
-                    st.error("SKU zorunludur.")
-                elif not m_urun_adi.strip():
-                    st.error("Ürün Adı zorunludur.")
-                    from .database import upsert_urun, upsert_yoldaki_urun
-                    from excel_islemler import normalize_sku
-                    sku_temiz = normalize_sku(m_sku.strip())
-                    _cost_price = 0.0
-                    _ozellik_str = m_ozellikler.strip()
-                    upsert_urun(sku_temiz, m_urun_adi.strip(), m_kategori.strip(),
-                               m_marka.strip(), m_satis, _cost_price, m_hedef_kar,
-                               _ozellik_str, m_stok, 0)
-                    if m_yoldaki > 0 or m_varis:
-                        upsert_yoldaki_urun(sku_temiz, m_urun_adi.strip(), m_yoldaki,
-                                           str(m_varis) if m_varis else "", m_tedarikci.strip())
-                    st.cache_data.clear()
-                    st.toast(f"✅ **{sku_temiz}** — {m_urun_adi.strip()} eklendi!")
-                    st.rerun()
-    
         with st.expander("🗑️ Ürün Sil", expanded=False):
-            st.caption("Seçilen ürünü ve tüm ilgili kayıtlarını (firma stok, satın alma geçmişi, sipariş önerileri) siler. Bu işlem geri alınamaz.")
+            st.caption("Seçilen ürünü ve tüm ilgili kayıtlarını (firma stok, yoldaki, stok yaşı, sipariş önerileri) siler. Bu işlem geri alınamaz.")
     
             tum_sku = get_tum_sku_listesi()
             if tum_sku:
