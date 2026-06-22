@@ -119,6 +119,18 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
 def run():
     """KAYRAN ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
+
+    # İthalat'taki tüm modeller Ürün Yönetimi'ne otomatik yansısın (oturumda bir kez · ekleme-only, silme yok)
+    if not st.session_state.get("_ith_autosync"):
+        try:
+            from .database import ithalat_eksikleri_ekle
+            _yeni = ithalat_eksikleri_ekle()
+            if _yeni:
+                st.toast(f"🚢 İthalat'tan {_yeni} model ürünlere eklendi")
+        except Exception:
+            pass
+        st.session_state["_ith_autosync"] = True
+
     st.markdown("""
     <style>
     /* ── GLOBAL ─────────────────────────────────────────────────────────── */

@@ -167,6 +167,35 @@ def senkronize_urunler_ithalattan(sil_eski=True):
             "hata": hata, "eklenenler": sorted(eklenecek), "silinenler": sorted(silinecek),
             "hatalar": hatalar}
 
+
+def ithalat_eksikleri_ekle():
+    """İthalat'ta olup üründe olmayan SKU'ları TEK upsert ile ekler (hızlı · silme YOK).
+    Otomatik senkron için kullanılır. Döner: eklenen sayısı."""
+    try:
+        eklenecek, _sil, _kor, ith, _ = ithalat_senkron_onizleme()
+        if not eklenecek:
+            return 0
+        sb = get_client()
+        bugun = get_today()
+        rows, stok_yas_rows = [], []
+        for sku in eklenecek:
+            rows.append({
+                "sku": sku, "urun_adi": ith.get(sku, {}).get("urun_adi", "") or "",
+                "kategori": "", "marka": "", "satis_fiyati": 0.0, "alis_fiyati": 0.0,
+                "hedef_kar_marji": 0.0, "ozellikler": "", "bizim_stok": 0,
+                "trendyol_stok": 0, "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun,
+            })
+            stok_yas_rows.append({"sku": sku, "ilk_gorulen_tarih": bugun})
+        sb.table("urunler").upsert(rows, on_conflict="sku").execute()
+        try:
+            sb.table("stok_yas").upsert(stok_yas_rows, on_conflict="sku").execute()
+        except Exception:
+            pass
+        _cache_temizle()
+        return len(rows)
+    except Exception:
+        return 0
+
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
 def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis):
