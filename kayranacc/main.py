@@ -3541,7 +3541,7 @@ def run():
     elif sayfa == "💰 Toplam Aktifler":
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
-        YETKILI_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman"}
+        YETKILI_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman", "pamuk"}
         if aktif_kul not in YETKILI_TOPLAM_AKTIFLER:
             st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
             st.stop()
