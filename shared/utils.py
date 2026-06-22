@@ -142,46 +142,50 @@ def vade_durumu(vade_str: str) -> str:
 # ORTAK SIDEBAR (tüm modüllerde aynı modern navigasyon)
 # ════════════════════════════════════════════════════════════════════
 def sidebar_stil() -> str:
-    """st.radio tabanlı sidebar navigasyonunu modern 'nav pill'lere çevirir. Tüm modüllerde ortak."""
-    return """
+    """st.radio sidebar navigasyonunu, metric kartlarıyla BİREBİR aynı görünüme çevirir.
+    Renkli sol şerit + renkli kalın yazı + koyu kart + yuvarlak köşe. Tüm modüllerde ortak."""
+    SB = 'section[data-testid="stSidebar"] div[role="radiogroup"]'
+    # Metric kartlarındaki palet (7'li, döngüsel)
+    _palet = ["#818CF8", "#34D399", "#FB923C", "#A78BFA", "#22D3EE", "#FBBF24", "#F472B6"]
+    _renk_kurallari = ""
+    for i, renk in enumerate(_palet, start=1):
+        _renk_kurallari += (
+            f'{SB} > label:nth-of-type(7n+{i}){{border-left-color:{renk} !important;}}'
+            f'{SB} > label:nth-of-type(7n+{i}) p{{color:{renk} !important;}}'
+            f'{SB} > label:nth-of-type(7n+{i}):has(input:checked){{'
+            f'background:linear-gradient(135deg,{renk}2E,{renk}14) !important;'
+            f'border-color:{renk}99 !important;box-shadow:0 2px 14px {renk}33 !important;}}'
+        )
+    return f"""
     <style>
-    section[data-testid="stSidebar"] div[role="radiogroup"]{
-        display:flex; flex-direction:column; gap:6px;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label{
-        background:rgba(255,255,255,0.025);
-        border:1px solid rgba(255,255,255,0.06);
-        border-radius:12px;
-        padding:11px 14px !important;
+    {SB}{{ display:flex; flex-direction:column; gap:8px; }}
+    {SB} > label{{
+        background:rgba(255,255,255,0.022) !important;
+        border:1px solid rgba(255,255,255,0.06) !important;
+        border-left:3px solid #818CF8 !important;
+        border-radius:13px !important;
+        padding:10px 14px !important;
         margin:0 !important;
-        cursor:pointer;
-        transition:background .15s ease, border-color .15s ease;
         width:100% !important;
         box-sizing:border-box !important;
         display:flex !important;
         align-items:center !important;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover{
-        background:rgba(99,102,241,0.10);
-        border-color:rgba(99,102,241,0.35);
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child{
-        display:none !important;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked){
-        background:linear-gradient(135deg, rgba(99,102,241,0.28), rgba(167,139,250,0.16));
-        border-color:rgba(139,92,246,0.6);
-        box-shadow:0 2px 14px rgba(99,102,241,0.22);
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label p{
-        font-size:14px !important; font-weight:600 !important; color:#CBD5E1 !important; letter-spacing:.2px;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) p{
-        color:#FFFFFF !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stButton"] button{
-        border-radius:11px !important; font-weight:600 !important;
-    }
+        cursor:pointer;
+        transition:background .15s ease, border-color .15s ease, transform .1s ease;
+    }}
+    {SB} > label:hover{{ background:rgba(255,255,255,0.05) !important; transform:translateX(1px); }}
+    {SB} > label > div:first-child{{ display:none !important; }}
+    {SB} label p{{
+        font-family:Inter,sans-serif !important;
+        font-size:15px !important;
+        font-weight:800 !important;
+        letter-spacing:-0.2px !important;
+        font-variant-numeric:tabular-nums;
+    }}
+    {_renk_kurallari}
+    section[data-testid="stSidebar"] [data-testid="stButton"] button{{
+        border-radius:13px !important; font-weight:700 !important;
+    }}
     </style>
     """
 
