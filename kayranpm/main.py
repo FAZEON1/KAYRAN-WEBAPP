@@ -983,33 +983,18 @@ def run():
         toplam_firma = secilen.get("toplam_firma_stok", 0)
         toplam = secilen.get("toplam_stok", bizim_stok + toplam_firma)
     
-        # Stok kartları — sadece stoku > 0 olan firmalar
-        firma_cards_list = []
+        # Stok kartları — ortak tema (renkli sol şeritli kart)
+        _stok_cards = [{"label": "G5F DEPO", "value": f"{bizim_stok:,}", "alt": "adet", "renk": "#60A5FA"}]
         for firma, adet in firma_st.items():
             if adet > 0:
-                firma_cards_list.append(
-                    f'<div style="background:rgba(27,90,42,0.3); border:1px solid rgba(102,187,106,0.2); border-radius:8px; padding:12px; text-align:center;">'
-                    f'<div style="color:#81C784; font-size:10px; font-weight:600; margin-bottom:4px; letter-spacing:0.5px;">{firma}</div>'
-                    f'<div style="color:#ECEFF1; font-size:22px; font-weight:800;">{adet:,}</div>'
-                    f'<div style="color:#546E7A; font-size:10px;">adet</div>'
-                    f'</div>'
-                )
-        firma_cards = "".join(firma_cards_list)
+                _stok_cards.append({"label": firma, "value": f"{adet:,}", "alt": "adet"})
         st.markdown(
-            f'<div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08)">'
-            f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">'
-            f'<span style="color:#78909C; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
-            f'<span style="color:#FFD54F; font-size:18px; font-weight:800;">{toplam:,} adet</span>'
-            f'</div>'
-            f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:8px;">'
-            f'<div style="background:rgba(21,101,192,0.25); border:1px solid rgba(21,101,192,0.3); border-radius:8px; padding:12px; text-align:center;">'
-            f'<div style="color:#90CAF9; font-size:10px; font-weight:600; margin-bottom:4px; letter-spacing:0.5px;">G5F DEPO</div>'
-            f'<div style="color:#ECEFF1; font-size:22px; font-weight:800;">{bizim_stok:,}</div>'
-            f'<div style="color:#546E7A; font-size:10px;">adet</div></div>'
-            f'{firma_cards}'
-            f'</div></div>',
-            unsafe_allow_html=True
-        )
+            f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
+            f'<span style="color:#8B97A8; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
+            f'<span style="color:#FBBF24; font-size:18px; font-weight:800;">{toplam:,} adet</span>'
+            f'</div>',
+            unsafe_allow_html=True)
+        metrik_satiri(_stok_cards)
     
         # Fiyat ve karlılık kartı
         fob = secilen.get("fob_price") or 0
