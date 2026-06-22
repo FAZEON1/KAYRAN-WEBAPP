@@ -156,6 +156,10 @@ def sidebar_stil() -> str:
         margin:0 !important;
         cursor:pointer;
         transition:background .15s ease, border-color .15s ease;
+        width:100% !important;
+        box-sizing:border-box !important;
+        display:flex !important;
+        align-items:center !important;
     }
     section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover{
         background:rgba(99,102,241,0.10);
