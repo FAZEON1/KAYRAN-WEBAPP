@@ -3871,9 +3871,22 @@ def run():
                 try:
                     cari = st.session_state.aktif_cari_data
                     if isinstance(cari, dict) and "borc" in cari:
-                        b_usd = float(cari.get("borc", {}).get("usd") or 0)
-                        a_usd = float(cari.get("alacak", {}).get("usd") or 0)
-                        st.success(f"✅ Borç ${b_usd:,.0f} | Alacak ${a_usd:,.0f}")
+                        _b = cari.get("borc", {}) or {}
+                        _a = cari.get("alacak", {}) or {}
+
+                        def _usd_kar(d):
+                            return (float(d.get("usd") or 0)
+                                    + (float(d.get("tl") or 0) / kur if kur > 0 else 0)
+                                    + float(d.get("eur") or 0) * 1.10)
+                        b_tot = _usd_kar(_b)
+                        a_tot = _usd_kar(_a)
+                        st.success(f"✅ Borç ${b_tot:,.0f} | Alacak ${a_tot:,.0f}")
+                        st.caption(
+                            f"Borç → USD {float(_b.get('usd') or 0):,.0f} · "
+                            f"TL {float(_b.get('tl') or 0):,.0f} · EUR {float(_b.get('eur') or 0):,.0f}")
+                        st.caption(
+                            f"Alacak → USD {float(_a.get('usd') or 0):,.0f} · "
+                            f"TL {float(_a.get('tl') or 0):,.0f} · EUR {float(_a.get('eur') or 0):,.0f}")
                     elif isinstance(cari, (tuple, list)) and len(cari) == 3:
                         st.success(f"✅ ${float(cari[0]):,.0f} USD borç (eski format)")
                     else:
