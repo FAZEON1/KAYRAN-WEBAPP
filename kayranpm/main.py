@@ -141,6 +141,39 @@ def run():
         background: #0A0F1E !important;
     }
 
+    /* ── METRIC KARTLARI (modern · sade · profesyonel) ───────────────── */
+    div[data-testid="stMetric"] {
+        background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 16px;
+        padding: 15px 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+        transition: border-color .15s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        border-color: rgba(99,102,241,0.32);
+    }
+    div[data-testid="stMetricLabel"],
+    div[data-testid="stMetricLabel"] p,
+    div[data-testid="stMetricLabel"] div {
+        color: #94A3B8 !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        letter-spacing: .5px !important;
+        text-transform: uppercase !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #F1F5F9 !important;
+        font-size: 25px !important;
+        font-weight: 700 !important;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.22 !important;
+        margin-top: 3px;
+        white-space: normal !important;
+        word-break: break-word;
+    }
+    div[data-testid="stMetricDelta"] { font-size: 12px !important; }
+
     /* ── ALERT BOX'LARI (warning/error/info/success) ─────────────────── */
     /* Streamlit'in default renkleri dark tema'da okunmuyor. Manuel override. */
     div[data-testid="stAlert"] {
@@ -1306,7 +1339,7 @@ def run():
         c2.metric("📊 Ort. Hft. Satış", round(urun.get("ortalama_haftalik_satis", 0)))
         c3.metric("⚡ Risk Skoru", f"{urun.get('risk_skor',0)}/100")
         stok_bitis = urun.get('stok_bitis_gun')
-        stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Satış verisi yok"
+        stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Veri yok"
         c4.metric("📅 Stok Biter", stok_bitis_str)
         c5.metric("📦 Sipariş Önerisi", f"{urun.get('oneri_miktar',0)} adet")
     
@@ -2413,13 +2446,14 @@ def run():
 
         st.markdown("---")
 
-        # 🏷️ Toplu Kategorilendirme
-        with st.expander("🏷️ Toplu Kategorilendirme — ürünleri tek tabloda kategorile", expanded=False):
+        # 🏷️ Toplu Kategori & Marka
+        with st.expander("🏷️ Toplu Kategori & Marka — ürünleri tek tabloda etiketle", expanded=False):
             from .database import (get_client as _gc_kat, kategori_oner as _kat_oner,
-                                   toplu_kategori_kaydet as _kat_kaydet, KATEGORI_LISTE as _KAT_LISTE,
+                                   marka_oner as _marka_oner,
+                                   toplu_kategori_marka_kaydet as _km_kaydet,
                                    kategori_standartlastir as _kat_std)
             try:
-                _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori")
+                _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori, marka")
                            .order("urun_adi").execute().data) or []
             except Exception as _e_kat:
                 _ur_kat = []
@@ -2427,39 +2461,48 @@ def run():
             if not _ur_kat:
                 st.info("Henüz ürün yok.")
             else:
-                _bos_sayi = sum(1 for u in _ur_kat if not (u.get("kategori") or "").strip())
-                st.caption(f"Toplam {len(_ur_kat)} ürün · kategorisiz {_bos_sayi}. "
-                           "Önce 🪄 Otomatik Öner'e bas, sonra kalanları elle seç, 💾 Kaydet.")
+                _kbos = sum(1 for u in _ur_kat if not (u.get("kategori") or "").strip())
+                _mbos = sum(1 for u in _ur_kat if not (u.get("marka") or "").strip())
+                st.caption(f"Toplam {len(_ur_kat)} ürün · kategorisiz {_kbos} · markasız {_mbos}. "
+                           "Önce 🪄 Otomatik Öner'e bas, kalanları elle yaz, 💾 Kaydet.")
                 _kc1, _kc2, _kc3 = st.columns([1, 1, 1])
-                _sadece_bos = _kc1.checkbox("Sadece kategorisiz ürünler", value=True, key="kat_sadece_bos")
-                if _kc2.button("🪄 Otomatik Öner (ürün adından)", use_container_width=True, key="kat_oto"):
-                    _on = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
-                           if _kat_oner(u.get("urun_adi", ""))}
-                    st.session_state["_kat_oneri"] = _on
+                _sadece_bos = _kc1.checkbox("Sadece eksik olanlar (kategori/marka boş)", value=True, key="kat_sadece_bos")
+                if _kc2.button("🪄 Otomatik Öner (kategori + marka)", use_container_width=True, key="kat_oto"):
+                    _onk = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
+                            if _kat_oner(u.get("urun_adi", ""))}
+                    _onm = {u["sku"]: _marka_oner(u.get("urun_adi", "")) for u in _ur_kat
+                            if _marka_oner(u.get("urun_adi", ""))}
+                    st.session_state["_kat_oneri"] = _onk
+                    st.session_state["_marka_oneri"] = _onm
                     st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
-                    st.toast(f"{len(_on)} ürün için kategori önerildi", icon="🪄")
+                    st.toast(f"🪄 {len(_onk)} kategori · {len(_onm)} marka önerildi", icon="🪄")
                     st.rerun()
-                if _kc3.button("🔀 Standartlaştır / Birleştir", use_container_width=True, key="kat_std_btn",
+                if _kc3.button("🔀 Kategori Standartlaştır", use_container_width=True, key="kat_std_btn",
                                help="Aynı kategorinin farklı yazımlarını birleştirir (ör. MONİTÖR → Monitör)."):
                     with st.spinner("Birleştiriliyor..."):
                         _ds, _hrt = _kat_std()
                     if _ds:
-                        _ozet = " · ".join(f"{e}→{y}" for e, y in list(_hrt.items())[:6])
+                        st.session_state["_kat_std_ozet"] = " · ".join(f"{e}→{y}" for e, y in list(_hrt.items())[:6])
                         st.toast(f"🔀 {_ds} ürün standart yazıma çevrildi", icon="🔀")
-                        st.session_state["_kat_std_ozet"] = _ozet
                     else:
                         st.session_state["_kat_std_ozet"] = "Zaten standart — birleştirilecek bir şey yok."
                     st.rerun()
                 if st.session_state.get("_kat_std_ozet"):
                     st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
-                _oneri = st.session_state.get("_kat_oneri", {})
-                st.caption("💡 **Kategori hücresine tıklayıp istediğini yazabilirsin** (örn. SARF, Diğer, Adaptör, Ekran Kartı). "
-                           "🪄 Otomatik Öner bilinenleri doldurur; üzerine kendi adını yazabilirsin.")
-                _liste = [u for u in _ur_kat if not (u.get("kategori") or "").strip()] if _sadece_bos else _ur_kat
+                _onk = st.session_state.get("_kat_oneri", {})
+                _onm = st.session_state.get("_marka_oneri", {})
+                st.caption("💡 **Kategori ve Marka hücrelerine tıklayıp serbestçe yazabilirsin.** "
+                           "🪄 Otomatik Öner bilinenleri doldurur; üzerine kendi değerini yazabilirsin.")
+                if _sadece_bos:
+                    _liste = [u for u in _ur_kat
+                              if not (u.get("kategori") or "").strip() or not (u.get("marka") or "").strip()]
+                else:
+                    _liste = _ur_kat
                 _df_kat = pd.DataFrame([{
                     "SKU": u["sku"],
                     "Ürün Adı": u.get("urun_adi", ""),
-                    "Kategori": (_oneri.get(u["sku"]) or (u.get("kategori") or "")),
+                    "Kategori": (_onk.get(u["sku"]) or (u.get("kategori") or "")),
+                    "Marka": (_onm.get(u["sku"]) or (u.get("marka") or "")),
                 } for u in _liste])
                 _ed_key = f"kat_editor_{int(_sadece_bos)}_{st.session_state.get('_kat_oneri_v', 0)}"
                 _edited_kat = st.data_editor(
@@ -2468,16 +2511,20 @@ def run():
                         "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                         "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
                         "Kategori": st.column_config.TextColumn(
-                            "Kategori", help="İstediğin kategori adını serbestçe yaz (SARF, Diğer, Ekran Kartı...)"),
+                            "Kategori", help="Serbest yaz (SARF, Diğer, Ekran Kartı...)"),
+                        "Marka": st.column_config.TextColumn(
+                            "Marka", help="Serbest yaz (FAZEON, INNO3D, Mio...)"),
                     },
                 )
-                if st.button("💾 Kategorileri Kaydet", type="primary", key="kat_kaydet_btn"):
-                    _map_kat = {str(r["SKU"]): str(r.get("Kategori", "") or "").strip()
-                                for _, r in _edited_kat.iterrows()}
+                if st.button("💾 Kategori & Marka Kaydet", type="primary", key="kat_kaydet_btn"):
+                    _map = {str(r["SKU"]): {"kategori": str(r.get("Kategori", "") or "").strip(),
+                                            "marka": str(r.get("Marka", "") or "").strip()}
+                            for _, r in _edited_kat.iterrows()}
                     with st.spinner("Kaydediliyor..."):
-                        _okk, _htk = _kat_kaydet(_map_kat)
+                        _okk, _htk = _km_kaydet(_map)
                     st.session_state.pop("_kat_oneri", None)
-                    st.toast(f"✅ {_okk} ürün kategorisi kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
+                    st.session_state.pop("_marka_oneri", None)
+                    st.toast(f"✅ {_okk} ürün kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
                     st.rerun()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):

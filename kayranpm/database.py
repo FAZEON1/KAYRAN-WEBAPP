@@ -118,6 +118,51 @@ def toplu_kategori_kaydet(sku_kategori):
     return ok, hata
 
 
+# ── Marka önerisi ──────────────────────────────────────────────────
+MARKA_KURALLAR = [
+    ("FAZEON",    r"\bFAZEON\b"),
+    ("INNO3D",    r"\bINNO ?3D\b"),
+    ("EXCAVATOR", r"\bEXCAVATOR\b"),
+    ("Mio",       r"\bMIO\b|MIVUE"),
+]
+
+
+def marka_oner(urun_adi):
+    """Ürün adından marka önerir. Bilinen markalar + ilk kelime tahmini."""
+    ad = str(urun_adi or "").upper()
+    for marka, pat in MARKA_KURALLAR:
+        if _re.search(pat, ad):
+            return marka
+    # Fallback: ilk kelime (markalar genelde başta yazılır)
+    parcalar = str(urun_adi or "").strip().split()
+    if parcalar:
+        ilk = parcalar[0].strip()
+        if len(ilk) >= 2 and any(c.isalpha() for c in ilk):
+            return ilk.upper()
+    return ""
+
+
+def toplu_kategori_marka_kaydet(sku_data):
+    """{sku: {"kategori": ..., "marka": ...}} ile kategori ve/veya markayı toplu günceller.
+    Sadece sözlükte bulunan alanlar yazılır. (guncellenen, hata) döner."""
+    ok, hata = 0, 0
+    sb = get_client()
+    for sku, d in (sku_data or {}).items():
+        try:
+            upd = {}
+            if "kategori" in d:
+                upd["kategori"] = (d.get("kategori") or "").strip()
+            if "marka" in d:
+                upd["marka"] = (d.get("marka") or "").strip()
+            if upd:
+                sb.table("urunler").update(upd).eq("sku", str(sku)).execute()
+                ok += 1
+        except Exception:
+            hata += 1
+    _cache_temizle()
+    return ok, hata
+
+
 def _kat_norm(s):
     """Karşılaştırma için kategori adını normalize eder (büyük/küçük + Türkçe harf farkını yok sayar)."""
     s = str(s or "").strip().lower().replace("i̇", "i")
