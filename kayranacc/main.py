@@ -3643,6 +3643,16 @@ def run():
             unsafe_allow_html=True
         )
     
+        st.markdown(
+            '<style>'
+            '[data-testid="stFileUploaderDropzone"]{padding:10px 16px !important;min-height:0 !important;}'
+            '[data-testid="stFileUploaderDropzone"] button{padding:5px 16px !important;}'
+            '[data-testid="stFileUploaderDropzoneInstructions"] span{font-size:11px !important;}'
+            '[data-testid="stFileUploaderDropzoneInstructions"] small{font-size:10px !important;}'
+            '</style>',
+            unsafe_allow_html=True
+        )
+
         col1, col2, col3 = st.columns(3)
     
         # Meta bilgileri al
@@ -3669,9 +3679,8 @@ def run():
             if st.session_state.aktif_stok_data:
                 try:
                     usd_v, pzr = st.session_state.aktif_stok_data
-                    st.success(f"✅ ${float(usd_v):,.0f}")
-                    if stok_meta:
-                        st.caption(_meta_str(stok_meta))
+                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${float(usd_v):,.0f}",
+                                    "renk": "#34D399", "alt": _meta_str(stok_meta)}])
                 except Exception:
                     st.session_state.aktif_stok_data = None
             stok_file = st.file_uploader("Stok Excel", type=["xls", "xlsx"], key="aktif_stok_upload", label_visibility="collapsed")
@@ -3697,9 +3706,8 @@ def run():
             st.markdown("**2️⃣ İthalat Ödeme Takip**")
             if st.session_state.aktif_ithalat_data:
                 try:
-                    st.success(f"✅ ${float(st.session_state.aktif_ithalat_data):,.0f}")
-                    if ithalat_meta:
-                        st.caption(_meta_str(ithalat_meta))
+                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${float(st.session_state.aktif_ithalat_data):,.0f}",
+                                    "renk": "#34D399", "alt": _meta_str(ithalat_meta)}])
                 except Exception:
                     st.session_state.aktif_ithalat_data = None
             ithalat_file = st.file_uploader("İthalat Excel", type=["xls", "xlsx"], key="aktif_ithalat_upload", label_visibility="collapsed")
@@ -3734,15 +3742,15 @@ def run():
                                     + float(d.get("eur") or 0) * 1.10)
                         b_tot = _usd_kar(_b)
                         a_tot = _usd_kar(_a)
-                        st.success(f"✅ Borç ${b_tot:,.0f} | Alacak ${a_tot:,.0f}")
-                        st.caption(
-                            f"Borç → USD {float(_b.get('usd') or 0):,.0f} · "
-                            f"TL {float(_b.get('tl') or 0):,.0f} · EUR {float(_b.get('eur') or 0):,.0f}")
-                        st.caption(
-                            f"Alacak → USD {float(_a.get('usd') or 0):,.0f} · "
-                            f"TL {float(_a.get('tl') or 0):,.0f} · EUR {float(_a.get('eur') or 0):,.0f}")
+                        metrik_satiri([
+                            {"label": "Borç", "value": f"${b_tot:,.0f}", "renk": "#F87171",
+                             "alt": f"USD {float(_b.get('usd') or 0):,.0f} · TL {float(_b.get('tl') or 0):,.0f} · EUR {float(_b.get('eur') or 0):,.0f}"},
+                            {"label": "Alacak", "value": f"${a_tot:,.0f}", "renk": "#34D399",
+                             "alt": f"USD {float(_a.get('usd') or 0):,.0f} · TL {float(_a.get('tl') or 0):,.0f} · EUR {float(_a.get('eur') or 0):,.0f}"},
+                        ])
                     elif isinstance(cari, (tuple, list)) and len(cari) == 3:
-                        st.success(f"✅ ${float(cari[0]):,.0f} USD borç (eski format)")
+                        metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${float(cari[0]):,.0f}",
+                                        "renk": "#34D399", "alt": "USD borç"}])
                     else:
                         st.session_state.aktif_cari_data = None
                     if cari_meta:
