@@ -277,9 +277,8 @@ def _gecmis_ithalatlar():
         h = dosya_hesapla(d, kal)
         hesap_map[d["id"]] = (d, kal, h)
         satirlar.append({
-            "PI No": d.get("pi_no", "") or "",
+            "Belge No": d.get("pi_no", "") or d.get("dosya_no", "") or "",
             "Takip No": d.get("ithalat_takip_no", "") or "",
-            "Dosya No": d.get("dosya_no", ""),
             "Tarih": str(d.get("tarih", ""))[:10],
             "Tedarikçi": d.get("tedarikci", ""),
             "Ülke": d.get("mense_ulke", ""),
@@ -308,11 +307,11 @@ def _gecmis_ithalatlar():
     f_durum = _fc2.selectbox("Durum", ["Tümü", "✅ Tamam", "⏳ Bekliyor"], key="ith_f_durum")
     f_doviz = _fc3.selectbox("Döviz", ["Tümü"] + _dovizler, key="ith_f_doviz")
     f_takip = _fc4.selectbox("Takip No", ["Tümü", "Var", "Yok"], key="ith_f_takip")
-    _ara = st.text_input("🔍 Ara — Dosya No · PI No · Takip No · Tedarikçi", key="ith_gecmis_ara",
-                         placeholder="örn. PIFAZ, SAS-44, 2025-16, LCCGAME...").strip().lower()
+    _ara = st.text_input("🔍 Ara — Belge No · Takip No · Tedarikçi", key="ith_gecmis_ara",
+                         placeholder="örn. PIFAZ, PI0624G5F02, 2025-16, LCCGAME...").strip().lower()
 
     def _gecer(s):
-        if _ara and _ara not in (str(s.get("Dosya No", "")) + " " + str(s.get("PI No", "")) + " " +
+        if _ara and _ara not in (str(s.get("Belge No", "")) + " " +
                                  str(s.get("Takip No", "")) + " " + str(s.get("Tedarikçi", ""))).lower():
             return False
         if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
@@ -340,7 +339,7 @@ def _gecmis_ithalatlar():
     with st.expander(f"📋 Tüm geçmiş dosyaları göster ({len(dosyalar_goster)} dosya)", expanded=False):
         _tablo(pd.DataFrame(satirlar_goster),
                para=["Mal Bedeli", "Toplam Masraf"], yuzde=["% Maliyet"],
-               sol=["PI No", "Takip No", "Dosya No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
+               sol=["Belge No", "Takip No", "Tedarikçi", "Ülke", "Döviz", "Durum"])
 
     st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
@@ -352,7 +351,7 @@ def _gecmis_ithalatlar():
     did = secenekler[sec]
     d, kal, h = hesap_map[did]
 
-    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">PI No: <b style="color:#E2E8F0">{d.get("pi_no","") or "—"}</b> · Dosya: <b style="color:#E2E8F0">{d.get("dosya_no","")}</b> · Takip: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
@@ -617,35 +616,39 @@ def _yeni_ithalat():
             st.markdown("**Önizleme**")
             st.dataframe(df.head(30), use_container_width=True, height=240)
 
-            # Gruplama anahtarı: İTHALAT TAKİP NO (yoksa Belge no, yoksa Sipariş no).
-            # Bir takip no = bir ithalat dosyası; siparişler takip no'ya göre dosyalanır.
+            # Gruplama anahtarı: BELGE NO (yoksa Sipariş no, yoksa Takip no).
+            # Bir belge no = bir ithalat dosyası; her dosya kendi İthalat Takip No'su ile etiketlenir.
+            # (Aynı takip no farklı belgelerde olabilir; her belge ayrı satır kalır.)
             _takip_col = kol.get("takip_no")
             _belge_col = kol.get("pi_no")
             _sip_col = kol.get("dosya_no")
             def _grup_key(r):
-                t = str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
-                if t and t.lower() != "nan":
-                    return t
                 b = str(r.get(_belge_col, "") or "").strip() if _belge_col else ""
                 if b and b.lower() != "nan":
                     return b
-                return str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
+                s = str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
+                if s and s.lower() != "nan":
+                    return s
+                return str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
             df = df.copy()
             df["_grup"] = df.apply(_grup_key, axis=1)
             _dosyalar = get_dosyalar()
-            # Mevcut dosya haritası: takip no VEYA dosya no ile bul
+            # Mevcut dosya haritası: belge/dosya no VEYA takip no ile bul
             _dosya_map = {}
             for _d in _dosyalar:
                 _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
                 _dn = str(_d.get("dosya_no", "") or "").strip()
-                if _tk:
-                    _dosya_map.setdefault(_tk, _d)
+                _pn = str(_d.get("pi_no", "") or "").strip()
                 if _dn:
                     _dosya_map.setdefault(_dn, _d)
+                if _pn:
+                    _dosya_map.setdefault(_pn, _d)
+                if _tk:
+                    _dosya_map.setdefault(_tk, _d)
             gruplar = list(df.groupby("_grup"))
-            _grup_ad = "takip no" if _takip_col else "belge"
-            st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — siparişler "
-                       f"{'İthalat Takip No' if _takip_col else 'belge no'}'ya göre dosyalanacak.")
+            _grup_ad = "belge" if _belge_col else "kayıt"
+            st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — her belge ayrı dosya olur "
+                       f"ve Excel'deki İthalat Takip No'su ile etiketlenir.")
 
             # 🔗 Mevcut dosyalara Excel'den Takip No ata/eşle (eski/boş kayıtlar için)
             if _takip_col:
@@ -766,7 +769,9 @@ def _yeni_ithalat():
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
 
-                    mevcut_kayit = _dosya_map.get(dno_s) or (_dosya_map.get(takip_no) if takip_no else None)
+                    # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
+                    # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
+                    mevcut_kayit = _dosya_map.get(dno_s)
                     if mevcut_kayit:
                         if not _guncelle:
                             atlanan += 1
@@ -845,7 +850,7 @@ def _model_sorgu():
         bf = float(k.get("birim_fob", 0) or 0)
         adet = float(k.get("adet", 0) or 0)
         satirlar.append({
-            "Dosya No": d.get("dosya_no", ""),
+            "Belge No": d.get("pi_no", "") or d.get("dosya_no", "") or "",
             "Tarih": str(d.get("tarih", ""))[:10],
             "Tedarikçi": d.get("tedarikci", ""),
             "Döviz": d.get("doviz", ""),
@@ -871,7 +876,7 @@ def _model_sorgu():
     c4.metric("Min – Maks FOB", f"{min(fobs):,.2f} – {max(fobs):,.2f}" if fobs else "—")
 
     _tablo(df, para=["Birim FOB", "Final Birim Maliyet"], yuzde=["% Maliyet"],
-           sol=["Dosya No", "Tedarikçi", "Döviz"])
+           sol=["Belge No", "Tedarikçi", "Döviz"])
 
 
 # ─────────────────────────────────────────────────────────────────────
