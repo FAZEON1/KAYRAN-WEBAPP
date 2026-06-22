@@ -1909,18 +1909,18 @@ def run():
                           <span style="background:#37474F; color:#CFD8DC; padding:2px 8px; border-radius:8px; font-size:11px; margin-left:4px;">● KAPALI</span>
                           <div style="color:#78909C; font-size:12px; margin-top:4px;">{kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}</div>
                         </div>
-                        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                          <div style="text-align:center; background:#1a2a3a; padding:8px 14px; border-radius:8px;">
-                            <div style="color:#90A4AE; font-size:10px;">SATILAN</div>
-                            <div style="color:#FFFFFF; font-size:16px; font-weight:700;">{toplam_satilan:,} adet</div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                          <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #818CF8; border-radius:10px; padding:7px 13px;">
+                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">SATILAN</div>
+                            <div style="color:#C7D2FE; font-size:16px; font-weight:800;">{toplam_satilan:,} adet</div>
                           </div>
-                          <div style="text-align:center; background:#1a2a3a; padding:8px 14px; border-radius:8px;">
-                            <div style="color:#90A4AE; font-size:10px;">TOPLAM DESTEK</div>
-                            <div style="color:#FFA726; font-size:16px; font-weight:700;">${toplam_destek:,.0f}</div>
+                          <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #FB923C; border-radius:10px; padding:7px 13px;">
+                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">TOPLAM DESTEK</div>
+                            <div style="color:#FB923C; font-size:16px; font-weight:800;">${toplam_destek:,.0f}</div>
                           </div>
-                          <div style="text-align:center; background:{net_bg}; padding:8px 14px; border-radius:8px;">
-                            <div style="color:{net_renk}; font-size:10px; opacity:0.8;">NET KAR</div>
-                            <div style="color:{net_renk}; font-size:16px; font-weight:800;">${toplam_net:,.0f}</div>
+                          <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid {'#34D399' if toplam_net >= 0 else '#F87171'}; border-radius:10px; padding:7px 13px;">
+                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">NET KAR</div>
+                            <div style="color:{'#34D399' if toplam_net >= 0 else '#F87171'}; font-size:16px; font-weight:800;">${toplam_net:,.0f}</div>
                           </div>
                         </div>
                       </div>
