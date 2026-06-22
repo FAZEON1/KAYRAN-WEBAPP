@@ -113,6 +113,38 @@ def toplu_kategori_kaydet(sku_kategori):
     _cache_temizle()
     return ok, hata
 
+
+def _kat_norm(s):
+    """Karşılaştırma için kategori adını normalize eder (büyük/küçük + Türkçe harf farkını yok sayar)."""
+    s = str(s or "").strip().lower().replace("i̇", "i")
+    for a, b in (("ı", "i"), ("ş", "s"), ("ğ", "g"), ("ü", "u"), ("ö", "o"), ("ç", "c")):
+        s = s.replace(a, b)
+    return s
+
+
+def kategori_standartlastir():
+    """Aynı kategorinin farklı yazımlarını (ör. MONİTÖR / Monitör) tek standart biçimde birleştirir.
+    Bilinen kategoriler KATEGORI_LISTE'deki yazıma çevrilir. (degisen_urun, {eski: yeni}) döner."""
+    sb = get_client()
+    rows = sb.table("urunler").select("sku, kategori").execute().data or []
+    canon = {_kat_norm(k): k for k in KATEGORI_LISTE}
+    sku_yeni, degisim = {}, {}
+    for r in rows:
+        eski = (r.get("kategori") or "").strip()
+        if not eski:
+            continue
+        yeni = canon.get(_kat_norm(eski), eski)  # bilinen listede varsa standart yazım, yoksa olduğu gibi
+        if yeni != eski:
+            sku_yeni[r["sku"]] = yeni
+            degisim[eski] = yeni
+    for sku, yeni in sku_yeni.items():
+        try:
+            sb.table("urunler").update({"kategori": yeni}).eq("sku", str(sku)).execute()
+        except Exception:
+            pass
+    _cache_temizle()
+    return len(sku_yeni), degisim
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()

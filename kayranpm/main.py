@@ -2384,7 +2384,8 @@ def run():
         # 🏷️ Toplu Kategorilendirme
         with st.expander("🏷️ Toplu Kategorilendirme — ürünleri tek tabloda kategorile", expanded=False):
             from .database import (get_client as _gc_kat, kategori_oner as _kat_oner,
-                                   toplu_kategori_kaydet as _kat_kaydet, KATEGORI_LISTE as _KAT_LISTE)
+                                   toplu_kategori_kaydet as _kat_kaydet, KATEGORI_LISTE as _KAT_LISTE,
+                                   kategori_standartlastir as _kat_std)
             try:
                 _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori")
                            .order("urun_adi").execute().data) or []
@@ -2397,7 +2398,7 @@ def run():
                 _bos_sayi = sum(1 for u in _ur_kat if not (u.get("kategori") or "").strip())
                 st.caption(f"Toplam {len(_ur_kat)} ürün · kategorisiz {_bos_sayi}. "
                            "Önce 🪄 Otomatik Öner'e bas, sonra kalanları elle seç, 💾 Kaydet.")
-                _kc1, _kc2 = st.columns([1, 1])
+                _kc1, _kc2, _kc3 = st.columns([1, 1, 1])
                 _sadece_bos = _kc1.checkbox("Sadece kategorisiz ürünler", value=True, key="kat_sadece_bos")
                 if _kc2.button("🪄 Otomatik Öner (ürün adından)", use_container_width=True, key="kat_oto"):
                     _on = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
@@ -2406,15 +2407,42 @@ def run():
                     st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
                     st.toast(f"{len(_on)} ürün için kategori önerildi", icon="🪄")
                     st.rerun()
+                if _kc3.button("🔀 Standartlaştır / Birleştir", use_container_width=True, key="kat_std_btn",
+                               help="Aynı kategorinin farklı yazımlarını birleştirir (ör. MONİTÖR → Monitör)."):
+                    with st.spinner("Birleştiriliyor..."):
+                        _ds, _hrt = _kat_std()
+                    if _ds:
+                        _ozet = " · ".join(f"{e}→{y}" for e, y in list(_hrt.items())[:6])
+                        st.toast(f"🔀 {_ds} ürün standart yazıma çevrildi", icon="🔀")
+                        st.session_state["_kat_std_ozet"] = _ozet
+                    else:
+                        st.session_state["_kat_std_ozet"] = "Zaten standart — birleştirilecek bir şey yok."
+                    st.rerun()
+                if st.session_state.get("_kat_std_ozet"):
+                    st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
                 _oneri = st.session_state.get("_kat_oneri", {})
+                st.session_state.setdefault("_kat_ozel", [])
+                _yk1, _yk2 = st.columns([3, 1])
+                _yeni_kat = _yk1.text_input("➕ Yeni / özel kategori adı (none olanları elle adlandır)",
+                                            key="kat_yeni_ad",
+                                            placeholder="örn. Araç Kamerası, Adaptör, Kablo, Mouse Pad...")
+                if _yk2.button("➕ Listeye Ekle", use_container_width=True, key="kat_yeni_ekle"):
+                    _yk = (_yeni_kat or "").strip()
+                    if _yk and _yk not in st.session_state["_kat_ozel"]:
+                        st.session_state["_kat_ozel"].append(_yk)
+                        st.toast(f"'{_yk}' kategori listesine eklendi — açılır menüden seçebilirsin", icon="➕")
+                        st.rerun()
+                if st.session_state["_kat_ozel"]:
+                    st.caption("➕ Eklenen özel kategoriler: " + " · ".join(st.session_state["_kat_ozel"]))
                 _liste = [u for u in _ur_kat if not (u.get("kategori") or "").strip()] if _sadece_bos else _ur_kat
                 _df_kat = pd.DataFrame([{
                     "SKU": u["sku"],
                     "Ürün Adı": u.get("urun_adi", ""),
                     "Kategori": (_oneri.get(u["sku"]) or (u.get("kategori") or "")),
                 } for u in _liste])
-                _kat_secenek = sorted(set(_KAT_LISTE) | {(u.get("kategori") or "").strip()
-                                                         for u in _ur_kat if (u.get("kategori") or "").strip()})
+                _kat_secenek = sorted(set(_KAT_LISTE) | set(st.session_state.get("_kat_ozel", []))
+                                      | {(u.get("kategori") or "").strip()
+                                         for u in _ur_kat if (u.get("kategori") or "").strip()})
                 _ed_key = f"kat_editor_{int(_sadece_bos)}_{st.session_state.get('_kat_oneri_v', 0)}"
                 _edited_kat = st.data_editor(
                     _df_kat, use_container_width=True, height=430, hide_index=True, key=_ed_key,
