@@ -94,27 +94,7 @@ def run():
         color: #E2E8F0 !important;
         font-family: 'Inter', sans-serif !important;
     }
-    section[data-testid="stSidebar"] .stRadio > label {
-        color: #94A3B8 !important;
-        font-size: 11px !important;
-        font-weight: 600 !important;
-        letter-spacing: .8px !important;
-        text-transform: uppercase !important;
-    }
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
-        color: #CBD5E1 !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        text-transform: none !important;
-        letter-spacing: normal !important;
-        padding: 6px 8px !important;
-        border-radius: 8px !important;
-        transition: all .15s !important;
-    }
-    section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
-        background: rgba(255,255,255,0.07) !important;
-        color: #F1F5F9 !important;
-    }
+    /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stNumberInput input {
         background: rgba(255,255,255,0.08) !important;
         border: 1px solid rgba(255,255,255,0.12) !important;
