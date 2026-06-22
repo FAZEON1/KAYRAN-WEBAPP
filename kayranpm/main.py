@@ -29,7 +29,7 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       sil_urun, get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
                       get_kampanya_destek_ortalamalari)
-from .analitik import dashboard_hesapla, genel_analiz_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
+from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes)
 
@@ -824,302 +824,105 @@ def run():
     
             # ── DASHBOARD GRAFİKLERİ ──────────────────────────────────────
             st.markdown("---")
-            st.markdown("### 📊 Stok & Satış Grafikleri")
-    
+            st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:16px 0 10px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>Grafikler</div>', unsafe_allow_html=True)
+
             # Ürün başına tek satır (firma tekrarı olmadan)
             sku_tek = {}
             for u, fd in gosterilecek:
                 if u["sku"] not in sku_tek:
                     sku_tek[u["sku"]] = u
-    
             urun_listesi_tek = list(sku_tek.values())
-    
+
+            _PALET = ["#6366F1", "#22D3EE", "#34D399", "#FBBF24", "#F472B6", "#A78BFA", "#60A5FA", "#FB923C"]
+
+            def _grafik_stil(fig, baslik, legend=False):
+                fig.update_layout(
+                    title=dict(text=baslik, font=dict(size=13, color="#E2E8F0", family="Inter"), x=0.01, xanchor="left", y=0.97),
+                    height=300, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="Inter", color="#CBD5E1", size=12),
+                    margin=dict(t=46, b=10, l=10, r=10), showlegend=legend,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.16, x=0, font=dict(size=10.5, color="#94A3B8"), title=""),
+                )
+                fig.update_xaxes(showgrid=False, zeroline=False, color="#94A3B8")
+                fig.update_yaxes(showgrid=False, zeroline=False, color="#94A3B8")
+                return fig
+
             gcol1, gcol2 = st.columns(2)
-    
-            # ── GRAFİK 1: Toplam Stok Dağılımı (Firma Bazlı) ──
+
+            # ── Stok dağılımı (kanal) ──
             with gcol1:
-                # Tüm firmalardaki toplam stok
                 firma_stok_toplam = {}
                 for u in urun_listesi_tek:
                     y = u.get("yayilim", {})
-                    for firma in ["ITOPYA","HB","VATAN","MONDAY","KANAL","DIGER"]:
+                    for firma in ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]:
                         firma_stok_toplam[firma] = firma_stok_toplam.get(firma, 0) + y.get(firma, 0)
                 firma_stok_toplam["G5F DEPO"] = sum(u["bizim_stok"] for u in urun_listesi_tek)
-    
-                df_dag = pd.DataFrame([
-                    {"Kanal": k, "Stok": v}
-                    for k, v in firma_stok_toplam.items() if v > 0
-                ])
+                df_dag = pd.DataFrame([{"Kanal": k, "Stok": v} for k, v in firma_stok_toplam.items() if v > 0])
                 if not df_dag.empty:
-                    fig_dag = px.pie(
-                        df_dag, names="Kanal", values="Stok",
-                        title="📦 Toplam Stok Dağılımı (Kanal Bazında)",
-                        color_discrete_sequence=["#42A5F5","#66BB6A","#FFA726","#EF5350","#AB47BC","#26C6DA","#D4E157","#FF7043"],
-                        hole=0.35,
-                    )
-                    fig_dag.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", font_color="#CFD8DC", title_font_color="#90CAF9", legend=dict(font=dict(color="#90A4AE")), margin=dict(t=40,b=0,l=0,r=0))
-                    fig_dag.update_traces(textposition='inside', textinfo='percent+label')
+                    fig_dag = px.pie(df_dag, names="Kanal", values="Stok", hole=0.62, color_discrete_sequence=_PALET)
+                    fig_dag.update_traces(textposition="inside", textinfo="percent",
+                                          insidetextfont=dict(color="white", size=11),
+                                          marker=dict(line=dict(color="#0A0F1E", width=2)))
+                    _grafik_stil(fig_dag, "Stok Dağılımı · Kanal", legend=True)
                     st.plotly_chart(fig_dag, use_container_width=True, key="dash_fig_dag")
                 else:
                     st.info("Stok dağılımı için veri yok.")
-    
-            # ── GRAFİK 2: Sipariş Takvimi Özeti ──
+
+            # ── Sipariş durumu ──
             with gcol2:
-                durum_sayisi = {"🔴 ACİL": 0, "🟠 Yaklaşıyor": 0, "🟡 Planlama": 0, "🟢 Normal": 0, "⚪ Veri Yok": 0}
-                durum_map = {"acil": "🔴 ACİL", "yaklasıyor": "🟠 Yaklaşıyor", "planlama": "🟡 Planlama", "normal": "🟢 Normal", "veri_yok": "⚪ Veri Yok"}
+                durum_sayisi = {"Acil": 0, "Yaklaşıyor": 0, "Planlama": 0, "Normal": 0, "Veri Yok": 0}
+                durum_map = {"acil": "Acil", "yaklasıyor": "Yaklaşıyor", "planlama": "Planlama", "normal": "Normal", "veri_yok": "Veri Yok"}
                 for u in urun_listesi_tek:
-                    etiket = durum_map.get(u.get("siparis_durum", "veri_yok"), "⚪ Veri Yok")
-                    durum_sayisi[etiket] += 1
-    
-                df_sip = pd.DataFrame([{"Durum": k, "Ürün Sayısı": v} for k, v in durum_sayisi.items() if v > 0])
+                    durum_sayisi[durum_map.get(u.get("siparis_durum", "veri_yok"), "Veri Yok")] += 1
+                df_sip = pd.DataFrame([{"Durum": k, "Adet": v} for k, v in durum_sayisi.items() if v > 0])
                 if not df_sip.empty:
-                    renk_map = {
-                        "🔴 ACİL": "#FFCCCC", "🟠 Yaklaşıyor": "#FFE0B2",
-                        "🟡 Planlama": "#FFF9C4", "🟢 Normal": "#C8E6C9", "⚪ Veri Yok": "#F0F0F0"
-                    }
-                    fig_sip = px.bar(
-                        df_sip, x="Durum", y="Ürün Sayısı",
-                        title="📋 Sipariş Takvimi Özeti",
-                        color="Durum",
-                        color_discrete_map=renk_map,
-                        text="Ürün Sayısı",
-                    )
-                    fig_sip.update_traces(textposition='outside', marker_line_color='rgba(0,0,0,0.2)', marker_line_width=1)
-                    fig_sip.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(7,13,26,0.8)",
-                                          showlegend=False, margin=dict(t=40,b=0,l=0,r=0))
+                    _drenk = {"Acil": "#EF4444", "Yaklaşıyor": "#F59E0B", "Planlama": "#FCD34D", "Normal": "#34D399", "Veri Yok": "#64748B"}
+                    fig_sip = px.bar(df_sip, x="Durum", y="Adet", color="Durum", color_discrete_map=_drenk, text="Adet")
+                    fig_sip.update_traces(textposition="outside", textfont=dict(color="#CBD5E1"), marker_line_width=0, width=0.62)
+                    _grafik_stil(fig_sip, "Sipariş Durumu")
                     st.plotly_chart(fig_sip, use_container_width=True, key="dash_fig_sip")
-    
+
             gcol3, gcol4 = st.columns(2)
-    
-            # ── GRAFİK 3: Satış Trendi (Top 5 ürün) ──
+
+            # ── En çok satan 5 ──
             with gcol3:
-                top5 = sorted(urun_listesi_tek, key=lambda x: x.get("ortalama_haftalik_satis", 0), reverse=True)[:5]
+                top5 = [u for u in sorted(urun_listesi_tek, key=lambda x: x.get("ortalama_haftalik_satis", 0), reverse=True)[:5]
+                        if u.get("ortalama_haftalik_satis", 0) > 0]
                 if top5:
                     df_top = pd.DataFrame([{
-                        "Ürün": u["urun_adi"][:18] + ("..." if len(u["urun_adi"]) > 18 else ""),
-                        "Ort. Hft. Satış": u.get("ortalama_haftalik_satis", 0),
-                        "Trend": u.get("trend_yon", "stabil")
-                    } for u in top5])
-                    trend_renk = {"yukseliyor": "#2E7D32", "dusuyor": "#C62828", "stabil": "#F57C00", "yetersiz_veri": "#9E9E9E"}
-                    fig_top = px.bar(
-                        df_top, x="Ort. Hft. Satış", y="Ürün",
-                        title="📈 En Çok Satan 5 Ürün",
-                        orientation="h",
-                        color="Trend",
-                        color_discrete_map=trend_renk,
-                        text="Ort. Hft. Satış",
-                    )
-                    fig_top.update_traces(textposition='outside')
-                    fig_top.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(7,13,26,0.8)",
-                                          showlegend=True, margin=dict(t=40,b=0,l=0,r=0),
-                                          legend_title="Trend")
+                        "Ürün": (u["urun_adi"][:20] + "…") if len(u["urun_adi"]) > 20 else u["urun_adi"],
+                        "Satış": round(u.get("ortalama_haftalik_satis", 0), 1),
+                    } for u in top5][::-1])
+                    fig_top = px.bar(df_top, x="Satış", y="Ürün", orientation="h", text="Satış")
+                    fig_top.update_traces(textposition="outside", textfont=dict(color="#CBD5E1"),
+                                          marker=dict(color="#6366F1"), width=0.62)
+                    _grafik_stil(fig_top, "En Çok Satan 5 · Hft. Ort.")
                     st.plotly_chart(fig_top, use_container_width=True, key="dash_fig_top")
-    
-            # ── GRAFİK 4: Stok Yaşı Dağılımı ──
+                else:
+                    st.info("Satış verisi yok.")
+
+            # ── Stok yaşı ──
             with gcol4:
-                yas_gruplari = {"🟢 0-30 Gün": 0, "🟡 30-60 Gün": 0, "🟠 60-90 Gün": 0, "🔴 90+ Gün": 0}
+                yas = {"0-30 gün": 0, "30-60 gün": 0, "60-90 gün": 0, "90+ gün": 0}
                 for u in urun_listesi_tek:
                     g = u.get("stok_gun", 0)
-                    if g < 30: yas_gruplari["🟢 0-30 Gün"] += 1
-                    elif g < 60: yas_gruplari["🟡 30-60 Gün"] += 1
-                    elif g < 90: yas_gruplari["🟠 60-90 Gün"] += 1
-                    else: yas_gruplari["🔴 90+ Gün"] += 1
-    
-                df_yas = pd.DataFrame([{"Stok Yaşı": k, "Ürün Sayısı": v} for k, v in yas_gruplari.items() if v > 0])
+                    if g < 30: yas["0-30 gün"] += 1
+                    elif g < 60: yas["30-60 gün"] += 1
+                    elif g < 90: yas["60-90 gün"] += 1
+                    else: yas["90+ gün"] += 1
+                df_yas = pd.DataFrame([{"Yaş": k, "Adet": v} for k, v in yas.items() if v > 0])
                 if not df_yas.empty:
-                    renk_yas = {
-                        "🟢 0-30 Gün": "#C8E6C9", "🟡 30-60 Gün": "#FFF9C4",
-                        "🟠 60-90 Gün": "#FFE0B2", "🔴 90+ Gün": "#FFCCCC"
-                    }
-                    fig_yas = px.pie(
-                        df_yas, names="Stok Yaşı", values="Ürün Sayısı",
-                        title="🕐 Stok Yaşı Dağılımı",
-                        color="Stok Yaşı",
-                        color_discrete_map=renk_yas,
-                        hole=0.35,
-                    )
-                    fig_yas.update_layout(height=340, paper_bgcolor="rgba(0,0,0,0)", font_color="#CFD8DC", title_font_color="#90CAF9", legend=dict(font=dict(color="#90A4AE")), margin=dict(t=40,b=0,l=0,r=0))
-                    fig_yas.update_traces(textposition='inside', textinfo='percent+label')
+                    _yrenk = {"0-30 gün": "#34D399", "30-60 gün": "#FCD34D", "60-90 gün": "#F59E0B", "90+ gün": "#EF4444"}
+                    fig_yas = px.pie(df_yas, names="Yaş", values="Adet", hole=0.62, color="Yaş", color_discrete_map=_yrenk)
+                    fig_yas.update_traces(textposition="inside", textinfo="percent",
+                                          insidetextfont=dict(color="white", size=11),
+                                          marker=dict(line=dict(color="#0A0F1E", width=2)))
+                    _grafik_stil(fig_yas, "Stok Yaşı", legend=True)
                     st.plotly_chart(fig_yas, use_container_width=True, key="dash_fig_yas")
     
 
-        st.markdown('---')
-        st.markdown('<div class="baslik">📈 Genel Analiz</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Sipariş önceliklendirme · Ölü stok · Kategori & Marka analizi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
-        try:
-            analiz = genel_analiz_hesapla()
-        except Exception as e:
-            _log.error("Hata: %s", e)
-            st.error(f"Analiz yüklenemedi: {e}")
-            st.stop()
-    
-        urunler = analiz["urunler"]
-        if not urunler:
-            st.info("Veri bulunamadı. Lütfen önce veri yükleyin.")
-            st.stop()
-    
-        # Özet kartlar
-        toplam_urun = len(urunler)
-        acil_sayisi = sum(1 for u in urunler if u.get("siparis_durum") == "acil")
-        olu_sayisi = sum(1 for u in urunler if u.get("olu_stok_durum") == "olu")
-        yavas_sayisi = sum(1 for u in urunler if u.get("olu_stok_durum") == "yavas")
-        toplam_siparis_oneri = sum(u.get("oneri_miktar", 0) for u in urunler)
-    
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("📦 Toplam Ürün", toplam_urun)
-        m2.metric("🚨 Acil Sipariş", acil_sayisi)
-        m3.metric("🪦 Ölü Stok", olu_sayisi)
-        m4.metric("🐢 Yavaş Satan", yavas_sayisi)
-        m5.metric("📋 Toplam Öneri", f"{toplam_siparis_oneri:,} adet")
-    
-        st.markdown("---")
-    
-        atab2, atab3, atab4 = st.tabs([
-            "🪦 Ölü & Yavaş Stok",
-            "📂 Kategori Analizi",
-            "🏷️ Marka Analizi",
-        ])
-    
-        # TAB 2 ─────────────────────────────────────────────────────────
-        with atab2:
-            olu_urunler = [u for u in urunler if u.get("olu_stok_durum") in ("olu","yavas")]
-            if not olu_urunler:
-                st.markdown('<div class="basari-box">✅ Ölü veya yavaş hareket eden stok tespit edilmedi.</div>', unsafe_allow_html=True)
-            else:
-                rows_olu = []
-                for u in olu_urunler:
-                    rows_olu.append({
-                        "SKU": u["sku"],
-                        "Ürün Adı": u["urun_adi"],
-                        "Kategori": u.get("kategori",""),
-                        "Marka": u.get("marka",""),
-                        "Bizim Stok": u["bizim_stok"],
-                        "Ort. Hft. Satış": round(u.get("ortalama_haftalik_satis",0),1),
-                        "Stok Yaşı (Gün)": u.get("stok_gun",0),
-                        "Durum": u.get("olu_stok_mesaj",""),
-                        "_olu": u.get("olu_stok_durum",""),
-                    })
-    
-                df_olu = pd.DataFrame(rows_olu)
-    
-                def olu_rengi(row):
-                    d = row.get("_olu","")
-                    cols = list(row.index)
-                    if "_olu" in cols:
-                        idx = cols.index("_olu")
-                    if d == "olu":
-                        return ["background-color:#7F0000; color:#FFCDD2; font-weight:700" for _ in row]
-                    if d == "yavas":
-                        return ["background-color:#BF360C; color:#FFE0B2; font-weight:600" for _ in row]
-                    return ["" for _ in row]
-    
-                goster_olu = ["SKU","Ürün Adı","Kategori","Marka","Bizim Stok","Ort. Hft. Satış","Stok Yaşı (Gün)","Durum"]
-                styled_olu = df_olu[goster_olu+["_olu"]].style.apply(olu_rengi, axis=1)
-                styled_olu = styled_olu.hide(axis="columns", subset=["_olu"])
-                st.dataframe(styled_olu, use_container_width=True, height=400, hide_index=True)
-    
-                st.markdown("""
-                <div class="uyari-box">
-                💡 <b>Öneri:</b> Ölü stok ürünler için indirim kampanyası veya paket satış değerlendirilebilir.
-                </div>
-                """, unsafe_allow_html=True)
-    
-        # TAB 3 ─────────────────────────────────────────────────────────
-        with atab3:
-            kategori_ozet = analiz["kategori_ozet"]
-            if not kategori_ozet:
-                st.info("Kategori verisi bulunamadı.")
-            else:
-                df_kat = pd.DataFrame([{
-                    "Kategori": k,
-                    "Ürün Sayısı": v["urun_sayisi"],
-                    "Toplam Stok": v["toplam_stok"],
-                    "Ort. Hft. Satış": round(v["toplam_satis"],1),
-                    "Acil Sipariş": v["acil_sayisi"],
-                    "Ölü/Yavaş": v["olu_sayisi"],
-                    "Ort. Risk": v["ort_risk"],
-                } for k, v in kategori_ozet.items()]).sort_values("Ort. Risk", ascending=False)
-    
-                def kat_rengi(row):
-                    styles = [""] * len(row)
-                    cols = list(row.index)
-                    if "Acil Sipariş" in cols and row.get("Acil Sipariş",0) > 0:
-                        styles[cols.index("Acil Sipariş")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                    if "Ort. Risk" in cols:
-                        r = row.get("Ort. Risk",0)
-                        if r >= 70: styles[cols.index("Ort. Risk")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                        elif r >= 45: styles[cols.index("Ort. Risk")] = "background-color:#BF360C; color:#FFE0B2"
-                        elif r >= 25: styles[cols.index("Ort. Risk")] = "background-color:#827717; color:#FFF176"
-                        else: styles[cols.index("Ort. Risk")] = "background-color:#1B5E20; color:#A5D6A7"
-                    return styles
-    
-                st.dataframe(df_kat.style.apply(kat_rengi, axis=1), use_container_width=True, hide_index=True)
-    
-                if len(df_kat) > 1:
-                    fig_kat = px.bar(
-                        df_kat, x="Kategori", y="Ort. Hft. Satış",
-                        title="Kategori Bazında Haftalık Satış",
-                        color="Ort. Risk",
-                        color_continuous_scale=[[0,"#1B5E20"],[0.4,"#827717"],[0.7,"#BF360C"],[1,"#7F0000"]],
-                        height=350, text="Ort. Hft. Satış",
-                    )
-                    fig_kat.update_traces(textposition="outside", textfont_color="white")
-                    fig_kat.update_layout(
-                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                        font_color="white", title_font_color="#90CAF9",
-                        coloraxis_colorbar=dict(tickfont=dict(color="white"), title=dict(text="Risk", font=dict(color="white")))
-                    )
-                    st.plotly_chart(fig_kat, use_container_width=True, key="dash_fig_kat")
-    
-        # TAB 4 ─────────────────────────────────────────────────────────
-        with atab4:
-            marka_ozet = analiz["marka_ozet"]
-            if not marka_ozet:
-                st.info("Marka verisi bulunamadı.")
-            else:
-                df_marka = pd.DataFrame([{
-                    "Marka": m,
-                    "Ürün Sayısı": v["urun_sayisi"],
-                    "Ort. Hft. Satış": round(v["toplam_satis"],1),
-                    "Acil Sipariş": v["acil_sayisi"],
-                } for m, v in marka_ozet.items()]).sort_values("Ort. Hft. Satış", ascending=False)
-    
-                def marka_rengi(row):
-                    styles = [""] * len(row)
-                    cols = list(row.index)
-                    if "Acil Sipariş" in cols and row.get("Acil Sipariş",0) > 0:
-                        styles[cols.index("Acil Sipariş")] = "background-color:#7F0000; color:#FFCDD2; font-weight:700"
-                    if "Ort. Hft. Satış" in cols:
-                        styles[cols.index("Ort. Hft. Satış")] = "background-color:#0D2744; color:#90CAF9; font-weight:600"
-                    return styles
-    
-                col_m1, col_m2 = st.columns([1, 1])
-                with col_m1:
-                    st.dataframe(df_marka.style.apply(marka_rengi, axis=1),
-                                 use_container_width=True, hide_index=True)
-                with col_m2:
-                    if len(df_marka) > 1:
-                        fig_marka = px.pie(
-                            df_marka, names="Marka", values="Ort. Hft. Satış",
-                            title="Marka Bazında Satış Dağılımı",
-                            height=350,
-                            color_discrete_sequence=["#42A5F5","#66BB6A","#FFA726","#EF5350","#AB47BC","#26C6DA","#D4E157"],
-                        )
-                        fig_marka.update_layout(
-                            paper_bgcolor="rgba(0,0,0,0)",
-                            font_color="white",
-                            title_font_color="#90CAF9",
-                            legend=dict(font=dict(color="white")),
-                        )
-                        fig_marka.update_traces(textfont_color="white")
-                        st.plotly_chart(fig_marka, use_container_width=True, key="dash_fig_marka")
-    
-    
-
     # ════════════════════════════════════════════════════════════════════
-    # 4) KAR MARJI ANALİZİ
+    # TÜM ÜRÜNLER
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📋  Tüm Ürünler":
         st.markdown('<div class="baslik">📋 Tüm Ürünler</div>', unsafe_allow_html=True)
