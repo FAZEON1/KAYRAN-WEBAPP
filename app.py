@@ -394,10 +394,46 @@ st.set_page_config(
 
 
 # Session state defaults
+def _oturum_secret():
+    try:
+        return str(st.secrets["supabase"]["key"])
+    except Exception:
+        return "kayran-oturum-varsayilan-anahtar"
+
+
+def _oturum_token(kullanici):
+    import hmac, hashlib
+    return hmac.new(_oturum_secret().encode(),
+                    (kullanici or "").lower().strip().encode(),
+                    hashlib.sha256).hexdigest()[:32]
+
+
+def _oturum_dogrula(kullanici, token):
+    import hmac
+    if not kullanici or not token:
+        return False
+    try:
+        return hmac.compare_digest(_oturum_token(kullanici), str(token))
+    except Exception:
+        return False
+
+
 if "giris_yapildi" not in st.session_state:
     st.session_state.giris_yapildi = False
 if "aktif_kullanici" not in st.session_state:
     st.session_state.aktif_kullanici = ""
+
+# Tarayıcı yenilendiğinde (yeni oturum) girişi URL'deki güvenli token'dan geri yükle
+# → otomatik çıkışı önler. Token = HMAC(kullanıcı, sunucu_secret); başkası için taklit edilemez.
+if not st.session_state.giris_yapildi:
+    try:
+        _qu = st.query_params.get("u", "")
+        _qt = st.query_params.get("t", "")
+        if _qu and _oturum_dogrula(_qu, _qt):
+            st.session_state.giris_yapildi = True
+            st.session_state.aktif_kullanici = _qu
+    except Exception:
+        pass
 if "aktif_uygulama" not in st.session_state:
     st.session_state.aktif_uygulama = "anasayfa"  # default: ana sayfa
 
@@ -903,6 +939,11 @@ def giris_ekrani():
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
                     st.session_state.aktif_uygulama = "anasayfa"
+                    try:
+                        st.query_params["u"] = kullanici
+                        st.query_params["t"] = _oturum_token(kullanici)
+                    except Exception:
+                        pass
                     st.rerun()
                 else:
                     st.error("❌ Kullanıcı adı veya şifre hatalı.")
@@ -1227,6 +1268,10 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
                 st.session_state.aktif_uygulama = "anasayfa"
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    pass
                 st.rerun()
         else:
             uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "hesap_makinesi": "Hesap Makinesi"}
