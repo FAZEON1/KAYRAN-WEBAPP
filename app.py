@@ -1443,61 +1443,60 @@ def anasayfa():
     )
 
     # ─────────────────────────────────────────────────────────────────────
-    # GÜNLÜK GİRİŞ & SERİ & LİDERLİK
+    # GÜNLÜK GİRİŞ & SERİ & LİDERLİK — tek kapalı panel
     # ─────────────────────────────────────────────────────────────────────
-    # Programa girince günlük giriş OTOMATİK kaydedilir (ekstra tıklama gerekmez)
+    # Giriş kaydı + kutlama panelin DIŞINDA; panel kapalı olsa da her açılışta çalışır
     import datetime as _dtg
     _bugun_str = _dtg.date.today().isoformat()
     if st.session_state.get("_giris_kayit_gun") != _bugun_str:
         if gunluk_giris_yap(aktif_kullanici):
             st.session_state["_giris_kutla"] = True
         st.session_state["_giris_kayit_gun"] = _bugun_str
+    if st.session_state.pop("_giris_kutla", False):
+        st.balloons()
+        st.toast("🔥 Seri devam ediyor! Bugünkü girişin kaydedildi.")
 
     _gd = get_giris_durum(aktif_kullanici)
     _bugun_g, _seri, _toplam = _gd["bugun"], _gd["seri"], _gd["toplam"]
     _alev = "🔥" if _seri > 0 else "🧊"
     _seri_renk = "#FB923C" if _seri > 0 else "#64748B"
-    st.markdown(
-        '<div style="background:linear-gradient(135deg,rgba(251,146,60,0.10),rgba(239,68,68,0.05));border:1px solid rgba(251,146,60,0.22);border-radius:16px;padding:18px 22px;margin-bottom:14px;animation:fadeUp 0.6s ease-out">'
-        '<div style="display:flex;align-items:center;gap:18px">'
-        f'<div style="font-size:40px;line-height:1">{_alev}</div>'
-        '<div>'
-        f'<div style="color:{_seri_renk};font-size:28px;font-weight:800;line-height:1">{_seri}<span style="font-size:14px;color:#94A3B8;font-weight:600;margin-left:6px">günlük seri</span></div>'
-        f'<div style="color:#94A3B8;font-size:12px;margin-top:5px">Toplam {_toplam} gün giriş · {"Bugün tamam ✓" if _bugun_g else "Bugün henüz giriş yok"}</div>'
-        '</div></div></div>',
-        unsafe_allow_html=True
-    )
-    st.markdown('<div style="color:#4ADE80;font-size:12px;font-weight:600;margin:-2px 0 14px 2px">✅ Bugünkü girişin otomatik kaydedildi — seriyi sürdürmek için yarın tekrar gir!</div>', unsafe_allow_html=True)
-    if st.session_state.pop("_giris_kutla", False):
-        st.balloons()
-        st.toast("🔥 Seri devam ediyor! Bugünkü girişin kaydedildi.")
-
-    _lider = get_giris_liderlik(8)
-    if _lider:
-        _madalya = {0: "🥇", 1: "🥈", 2: "🥉"}
-        _satir = ""
-        for _i, _u in enumerate(_lider):
-            _benmi = (_u["kullanici"] or "").lower() == (aktif_kullanici or "").lower()
-            _ikon = _madalya.get(_i, f'<span style="color:#64748B;font-size:12px;font-weight:700">{_i+1}</span>')
-            _bg = "rgba(99,102,241,0.12)" if _benmi else "transparent"
-            _ad_renk = "#A5B4FC" if _benmi else "#E2E8F0"
-            _ad = (_u["kullanici"] or "").capitalize() + (" (sen)" if _benmi else "")
-            _kalin = "700" if _benmi else "500"
-            _satir += (
-                f'<div style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:9px;background:{_bg}">'
-                f'<div style="width:22px;text-align:center">{_ikon}</div>'
-                f'<div style="flex:1;color:{_ad_renk};font-size:13px;font-weight:{_kalin}">{_ad}</div>'
-                f'<div style="color:#FB923C;font-size:13px;font-weight:700">🔥 {_u["seri"]}</div>'
-                f'<div style="color:#64748B;font-size:11px;width:62px;text-align:right">{_u["toplam"]} gün</div>'
-                f'</div>'
-            )
+    with st.expander(f"{_alev} Giriş serin: {_seri} gün · toplam {_toplam} gün · {'bugün tamam ✓' if _bugun_g else 'bugün henüz yok'}", expanded=False):
         st.markdown(
-            '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px 6px 10px;margin-bottom:32px;animation:fadeUp 0.7s ease-out">'
-            '<div style="color:#94A3B8;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0 14px 8px">🏆 Giriş Liderliği</div>'
-            + _satir +
-            '</div>',
+            '<div style="background:linear-gradient(135deg,rgba(251,146,60,0.10),rgba(239,68,68,0.05));border:1px solid rgba(251,146,60,0.22);border-radius:14px;padding:16px 20px;margin-bottom:12px">'
+            '<div style="display:flex;align-items:center;gap:18px">'
+            f'<div style="font-size:36px;line-height:1">{_alev}</div>'
+            '<div>'
+            f'<div style="color:{_seri_renk};font-size:26px;font-weight:800;line-height:1">{_seri}<span style="font-size:13px;color:#94A3B8;font-weight:600;margin-left:6px">günlük seri</span></div>'
+            f'<div style="color:#94A3B8;font-size:12px;margin-top:5px">Toplam {_toplam} gün giriş · {"Bugün tamam ✓" if _bugun_g else "Bugün henüz giriş yok"} · girişin otomatik kaydedilir</div>'
+            '</div></div></div>',
             unsafe_allow_html=True
         )
+        _lider = get_giris_liderlik(8)
+        if _lider:
+            _madalya = {0: "🥇", 1: "🥈", 2: "🥉"}
+            _satir = ""
+            for _i, _u in enumerate(_lider):
+                _benmi = (_u["kullanici"] or "").lower() == (aktif_kullanici or "").lower()
+                _ikon = _madalya.get(_i, f'<span style="color:#64748B;font-size:12px;font-weight:700">{_i+1}</span>')
+                _bg = "rgba(99,102,241,0.12)" if _benmi else "transparent"
+                _ad_renk = "#A5B4FC" if _benmi else "#E2E8F0"
+                _ad = (_u["kullanici"] or "").capitalize() + (" (sen)" if _benmi else "")
+                _kalin = "700" if _benmi else "500"
+                _satir += (
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:7px 14px;border-radius:9px;background:{_bg}">'
+                    f'<div style="width:22px;text-align:center">{_ikon}</div>'
+                    f'<div style="flex:1;color:{_ad_renk};font-size:13px;font-weight:{_kalin}">{_ad}</div>'
+                    f'<div style="color:#FB923C;font-size:13px;font-weight:700">🔥 {_u["seri"]}</div>'
+                    f'<div style="color:#64748B;font-size:11px;width:62px;text-align:right">{_u["toplam"]} gün</div>'
+                    f'</div>'
+                )
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:12px 6px 8px">'
+                '<div style="color:#94A3B8;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0 14px 8px">🏆 Giriş Liderliği</div>'
+                + _satir +
+                '</div>',
+                unsafe_allow_html=True
+            )
 
     # ─── ÜST İSTATİSTİK KARTLARI ───
     erisilebilir = sum(1 for v in yetkiler.values() if v)
@@ -1582,120 +1581,33 @@ def anasayfa():
                         except Exception as _e:
                             st.error(f"Kaydedilemedi: {_e}")
 
-    # ─── KURUMSAL BÖLÜMÜ BAŞLIĞI ───
-    st.markdown(
-        '<div style="margin:8px 0 24px;animation:fadeUp 0.8s ease-out">'
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
-        '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-        '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Kurumsal</div>'
-        '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
-        '</div>'
-        '<h2 style="font-family:Inter,sans-serif;font-size:28px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
-        'Bir <span style="background:linear-gradient(90deg,#E88420,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800">G5F Teknoloji</span> projesi'
-        '</h2>'
-        '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
-        'Teknoloji ve operasyon çözümlerini bir araya getiriyoruz'
-        '</p>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # ─── 2 BRAND KARTI: G5F + FAZEON ───
-    col1, col2 = st.columns(2, gap="medium")
-
-    # G5F Kartı — Kurumsal koyu lacivert + turuncu
-    with col1:
-        st.markdown(
-            '<div style="position:relative;background:linear-gradient(135deg,#1B2436 0%,#0F172A 100%);'
-            'border:1px solid rgba(232,132,32,0.2);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
-            'min-height:280px;animation:fadeUp 0.9s ease-out;box-shadow:0 10px 40px rgba(0,0,0,0.3)">'
-            # Turuncu accent çizgi
-            '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#E88420,#F59E0B,#E88420)"></div>'
-            # Decorative glow
-            '<div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(232,132,32,0.15),transparent 70%);border-radius:50%;pointer-events:none"></div>'
-            # Header
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
-            f'{G5F_LOGO_SVG}'
-            '</div>'
-            # Başlık
-            '<div style="margin-bottom:16px;position:relative;z-index:2">'
-            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">G5F Teknoloji</div>'
-            '<div style="font-size:11px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Distribütör · Teknoloji Çözümleri</div>'
-            '</div>'
-            # Açıklama
-            '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
-            'Yılların deneyimi ve uzmanlığıyla yüksek kaliteli teknoloji ürünlerini, hızlı tedarik ve güvenilir hizmet anlayışıyla sunan distribütör.'
-            '</div>'
-            # Mini istatistikler
-            '<div style="display:flex;gap:20px;margin-bottom:20px;position:relative;z-index:2">'
-            '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">4+</div>'
-            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Marka</div>'
-            '</div>'
-            '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">100%</div>'
-            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Memnuniyet</div>'
-            '</div>'
-            '<div>'
-            '<div style="font-family:JetBrains Mono,monospace;font-size:18px;font-weight:700;color:#FED7AA">7/24</div>'
-            '<div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;font-weight:600">Destek</div>'
-            '</div>'
-            '</div>'
-            # Web sitesi link — koyu zemin + açık turuncu yazı, kontrast yüksek
-            '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" '
-            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(0,0,0,0.4);'
-            'border:1px solid rgba(232,132,32,0.5);border-radius:10px;color:#FFEDD5;text-decoration:none;'
-            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2">'
-            '<span>🌐 g5fteknoloji.com</span>'
-            '<span style="font-size:14px">→</span>'
-            '</a>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-    # FAZEON Kartı — Siyah + Beyaz minimalist, Gaming
-    with col2:
-        st.markdown(
-            '<div style="position:relative;background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
-            'border:1px solid rgba(139,92,246,0.25);border-radius:20px;padding:32px 28px 24px;overflow:hidden;'
-            'min-height:280px;animation:fadeUp 1s ease-out;box-shadow:0 10px 50px rgba(99,102,241,0.2),0 2px 0 rgba(139,92,246,0.3) inset">'
-            # White accent çizgi
-            '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#FFFFFF,transparent)"></div>'
-            # Decorative tech grid
-            '<div style="position:absolute;top:0;right:0;width:200px;height:200px;background-image:linear-gradient(45deg,transparent 49%,rgba(255,255,255,0.04) 50%,transparent 51%),linear-gradient(-45deg,transparent 49%,rgba(255,255,255,0.04) 50%,transparent 51%);background-size:20px 20px;opacity:0.6;pointer-events:none"></div>'
-            # Header
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:2">'
-            f'{FAZEON_LOGO_SVG}'
-            '</div>'
-            # Slogan
-            '<div style="margin-bottom:16px;position:relative;z-index:2">'
-            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;letter-spacing:-0.2px;line-height:1.2;margin-bottom:6px">Are You Ready to <span style="font-style:italic;font-weight:300">Faze</span> the World?</div>'
-            '<div style="font-size:11px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase">Gaming · Monitors · Cases · Coolers</div>'
-            '</div>'
-            # Açıklama
-            '<div style="font-size:13px;line-height:1.7;color:#CBD5E1;margin-bottom:20px;position:relative;z-index:2">'
-            'Yüksek performanslı oyuncu monitörleri, özelleştirilebilir PC kasaları ve verimli soğutma sistemleriyle teknolojinin yeni yüzü.'
-            '</div>'
-            # Ürün kategorileri
-            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;position:relative;z-index:2">'
-            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">📺 Monitors</span>'
-            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">📦 Cases</span>'
-            '<span style="font-size:10px;color:#BAE6FD;background:rgba(56,189,248,0.1);padding:4px 10px;border-radius:6px;border:1px solid rgba(56,189,248,0.2);font-weight:600;letter-spacing:0.3px">❄️ Coolers</span>'
-            '<span style="font-size:10px;color:#C4B5FD;background:rgba(139,92,246,0.12);padding:4px 10px;border-radius:6px;border:1px solid rgba(139,92,246,0.25);font-weight:600;letter-spacing:0.3px">🖱️ Mouse Pads</span>'
-            '</div>'
-            # Web sitesi link
-            '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" '
-            'style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;'
-            'background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));'
-            'border:1px solid rgba(139,92,246,0.4);border-radius:10px;color:#C4B5FD;text-decoration:none;'
-            'font-size:12px;font-weight:600;letter-spacing:0.3px;transition:all 0.25s;position:relative;z-index:2;'
-            'box-shadow:0 4px 15px rgba(99,102,241,0.15)">'
-            '<span>🌐 fazeon.com</span>'
-            '<span style="font-size:14px">→</span>'
-            '</a>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+    # ─── KURUMSAL — G5F & FAZEON (kapalı panel, kompakt) ───
+    with st.expander("🏢 Kurumsal · G5F Teknoloji & Fazeon", expanded=False):
+        _bk1, _bk2 = st.columns(2, gap="medium")
+        with _bk1:
+            st.markdown(
+                '<div style="background:linear-gradient(135deg,#1B2436 0%,#0F172A 100%);'
+                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid #E88420;border-radius:14px;padding:18px 20px;overflow:hidden">'
+                f'<div style="margin-bottom:8px">{G5F_LOGO_SVG}</div>'
+                '<div style="font-size:16px;font-weight:800;color:#FFFFFF;margin-bottom:2px">G5F Teknoloji</div>'
+                '<div style="font-size:10px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Distribütör · Teknoloji Çözümleri</div>'
+                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:12px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
+                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:#FFEDD5;text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+        with _bk2:
+            st.markdown(
+                '<div style="background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
+                'border:1px solid rgba(139,92,246,0.25);border-left:3px solid #A78BFA;border-radius:14px;padding:18px 20px;overflow:hidden">'
+                f'<div style="margin-bottom:8px">{FAZEON_LOGO_SVG}</div>'
+                '<div style="font-size:16px;font-weight:800;color:#FFFFFF;margin-bottom:2px">Fazeon</div>'
+                '<div style="font-size:10px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Gaming · Monitors · Cases · Coolers</div>'
+                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:12px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
+                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(139,92,246,0.4);border-radius:9px;color:#C4B5FD;text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
+                '</div>',
+                unsafe_allow_html=True
+            )
 
     # ─── TALEP / GERİ BİLDİRİM PLATFORMU ───
     st.markdown(
@@ -1764,29 +1676,10 @@ def anasayfa():
                     st.success("✅ Talebiniz kaydedildi. Teşekkürler!")
                 else:
                     st.error("❌ Talep kaydedilemedi. Lütfen tekrar deneyin.")
-    # ─── ALT BİLGİ ŞERİDİ ───
+    # ─── ALT BİLGİ ŞERİDİ (sade tek satır) ───
     st.markdown(
-        '<div style="margin:48px 0 0;padding:24px 0;border-top:1px solid rgba(255,255,255,0.06);animation:fadeUp 1.1s ease-out">'
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;text-align:center">'
-        # Hızlı erişim
-        '<div>'
-        '<div style="font-size:24px;margin-bottom:8px">⚡</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Hızlı Erişim</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Sol menüden tek tıkla uygulamalarınıza ulaşın</div>'
-        '</div>'
-        # Güvenli
-        '<div>'
-        '<div style="font-size:24px;margin-bottom:8px">🔐</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Kurumsal Güvenlik</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Şifreli bağlantı, yetki bazlı erişim kontrolü</div>'
-        '</div>'
-        # Bulut
-        '<div>'
-        '<div style="font-size:24px;margin-bottom:8px">☁️</div>'
-        '<div style="color:#E2E8F0;font-size:13px;font-weight:600;margin-bottom:4px">Bulut Senkronizasyon</div>'
-        '<div style="color:#94A3B8;font-size:11px;line-height:1.5">Tüm verileriniz gerçek zamanlı korunur</div>'
-        '</div>'
-        '</div>'
+        '<div style="margin:40px 0 0;padding:16px 0;border-top:1px solid rgba(255,255,255,0.06);text-align:center;color:#64748B;font-size:11px;line-height:1.9;animation:fadeUp 1.1s ease-out">'
+        '⚡ Sol menüden tek tıkla erişim &nbsp;·&nbsp; 🔐 Yetki bazlı güvenli oturum &nbsp;·&nbsp; ☁️ Gerçek zamanlı bulut senkronizasyonu'
         '</div>',
         unsafe_allow_html=True
     )
