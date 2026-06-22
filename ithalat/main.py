@@ -299,23 +299,38 @@ def _gecmis_ithalatlar():
     c3.metric("Toplam Masraf", f"{toplam_masraf:,.0f}")
     c4.metric("Ort. % Maliyet", f"%{ort_yuzde:.1f}")
 
-    # 🔍 Arama / filtre (Dosya No · PI No · Tedarikçi)
-    _ara = st.text_input("🔍 Ara — Dosya No · PI No · Tedarikçi", key="ith_gecmis_ara",
-                         placeholder="örn. PIFAZ, SAS-44, LCCGAME...").strip().lower()
+    # 🔍 Filtreler (başlık bazlı) + arama
+    _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
+    _dovizler = sorted({s["Döviz"] for s in satirlar if s["Döviz"]})
+    _fc1, _fc2, _fc3, _fc4 = st.columns(4)
+    f_ted = _fc1.selectbox("Tedarikçi", ["Tümü"] + _tedarikciler, key="ith_f_ted")
+    f_durum = _fc2.selectbox("Durum", ["Tümü", "✅ Tamam", "⏳ Bekliyor"], key="ith_f_durum")
+    f_doviz = _fc3.selectbox("Döviz", ["Tümü"] + _dovizler, key="ith_f_doviz")
+    f_takip = _fc4.selectbox("Takip No", ["Tümü", "Var", "Yok"], key="ith_f_takip")
+    _ara = st.text_input("🔍 Ara — Dosya No · PI No · Takip No · Tedarikçi", key="ith_gecmis_ara",
+                         placeholder="örn. PIFAZ, SAS-44, 2025-16, LCCGAME...").strip().lower()
 
-    def _esl_d(d):
-        if not _ara:
-            return True
-        return _ara in (str(d.get("dosya_no", "")) + " " + str(d.get("pi_no", "")) + " " +
-                        str(d.get("ithalat_takip_no", "")) + " " + str(d.get("tedarikci", ""))).lower()
+    def _gecer(s):
+        if _ara and _ara not in (str(s.get("Dosya No", "")) + " " + str(s.get("PI No", "")) + " " +
+                                 str(s.get("Takip No", "")) + " " + str(s.get("Tedarikçi", ""))).lower():
+            return False
+        if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
+            return False
+        if f_durum != "Tümü" and s.get("Durum", "") != f_durum:
+            return False
+        if f_doviz != "Tümü" and s.get("Döviz", "") != f_doviz:
+            return False
+        _tk = str(s.get("Takip No", "") or "").strip()
+        if f_takip == "Var" and not _tk:
+            return False
+        if f_takip == "Yok" and _tk:
+            return False
+        return True
 
-    dosyalar_goster = [d for d in dosyalar if _esl_d(d)]
-    satirlar_goster = [s for s in satirlar
-                       if (not _ara) or _ara in (str(s.get("Dosya No", "")) + " " +
-                                                 str(s.get("PI No", "")) + " " +
-                                                 str(s.get("Takip No", "")) + " " +
-                                                 str(s.get("Tedarikçi", ""))).lower()]
-    st.caption(f"{len(dosyalar_goster)} / {len(dosyalar)} dosya gösteriliyor")
+    _pairs = [(d, s) for d, s in zip(dosyalar, satirlar) if _gecer(s)]
+    dosyalar_goster = [d for d, s in _pairs]
+    satirlar_goster = [s for d, s in _pairs]
+    st.caption(f"{len(satirlar_goster)} / {len(dosyalar)} dosya gösteriliyor")
 
     if not satirlar_goster:
         st.info("Aramayla eşleşen dosya yok.")
