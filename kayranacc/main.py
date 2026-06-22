@@ -9,6 +9,7 @@ Kullanım:
 import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -1056,47 +1057,12 @@ def run():
     # ── SIDEBAR ──────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown('<script>var s=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(s)s.scrollTop=0;</script>', unsafe_allow_html=True)
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(99,102,241,0.1));
-            border: 1px solid rgba(59,130,246,0.2);
-            border-radius: 14px;
-            padding: 6px 16px;
-            margin-bottom: 16px;
-            text-align: center;
-        ">
-            <div style="font-size:28px;margin-bottom:6px;">💳</div>
-            <div style="font-size:18px;font-weight:800;color:#F1F5F9;letter-spacing:-0.5px;">Muhasebe & Finans</div>
-            <div style="font-size:11px;color:#64748B;font-weight:500;margin-top:2px;letter-spacing:.5px;">ÖDEME TAKİP SİSTEMİ</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(sidebar_stil(), unsafe_allow_html=True)
+        st.markdown(sidebar_baslik("💳", "Muhasebe & Finans", "Ödeme Takip Sistemi"), unsafe_allow_html=True)
+
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
         if aktif_kullanici:
-            st.markdown(f"""
-            <div style="
-                background: rgba(255,255,255,0.06);
-                border: 1px solid rgba(255,255,255,0.1);
-                border-radius: 10px;
-                padding: 10px 14px;
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            ">
-                <div style="
-                    width:32px;height:32px;
-                    background:linear-gradient(135deg,#3B82F6,#6366F1);
-                    border-radius:50%;
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:14px;font-weight:700;color:white;flex-shrink:0;
-                ">{aktif_kullanici[0].upper()}</div>
-                <div>
-                    <div style="font-size:11px;color:#64748B;font-weight:500;">Giriş yapan</div>
-                    <div style="font-size:13px;color:#F1F5F9;font-weight:700;">{aktif_kullanici}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
             if st.button("🚪 Çıkış Yap", use_container_width=True):
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
