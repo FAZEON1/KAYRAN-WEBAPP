@@ -123,7 +123,15 @@ def get_urun_katalog():
 def get_dosyalar():
     try:
         sb = _get_client()
-        return _rows(sb.table("ithalat_dosyalari").select("*").order("tarih", desc=True).execute())
+        rows, start = [], 0
+        while True:
+            chunk = _rows(sb.table("ithalat_dosyalari").select("*")
+                          .order("tarih", desc=True).range(start, start + 999).execute())
+            rows.extend(chunk)
+            if len(chunk) < 1000:
+                break
+            start += 1000
+        return rows
     except Exception:
         return []
 
@@ -141,7 +149,15 @@ def get_kalemler(dosya_id):
 def get_tum_kalemler():
     try:
         sb = _get_client()
-        return _rows(sb.table("ithalat_kalemleri").select("*").execute())
+        rows, start = [], 0
+        while True:
+            chunk = _rows(sb.table("ithalat_kalemleri").select("*")
+                          .range(start, start + 999).execute())
+            rows.extend(chunk)
+            if len(chunk) < 1000:
+                break
+            start += 1000
+        return rows
     except Exception:
         return []
 
