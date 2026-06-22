@@ -1599,14 +1599,14 @@ def run():
         gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
         bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
         if gecmis_alarm:
-            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=st.session_state.get("exp_gecikmiş", True), key="exp_gecikmiş"):
+            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=st.session_state.get("exp_gecikmiş", False), key="exp_gecikmiş"):
                 rows_html = "".join(
                     f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                     for o, _ in gecmis_alarm
                 )
                 st.markdown(rows_html, unsafe_allow_html=True)
         if bugun_alarm:
-            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=st.session_state.get("exp_bugun_vadeli", True), key="exp_bugun_vadeli"):
+            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=st.session_state.get("exp_bugun_vadeli", False), key="exp_bugun_vadeli"):
                 rows_html = "".join(
                     f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                     for o, _ in bugun_alarm
@@ -1707,7 +1707,7 @@ def run():
             elif vd == "gecmis":
                 etiket = " 🔴 GECİKMİŞ"
     
-            with st.expander(f"**{gun_adi}{etiket}** — {tarih_str}  |  {'₺' + fmt(gun_tl) if gun_tl else ''}  {'$' + fmt(gun_usd) if gun_usd else ''}  ({len(gun_odemeler)} ödeme)", expanded=(vd in ("bugun", "yarin", "gecmis"))):
+            with st.expander(f"**{gun_adi}{etiket}** — {tarih_str}  |  {'₺' + fmt(gun_tl) if gun_tl else ''}  {'$' + fmt(gun_usd) if gun_usd else ''}  ({len(gun_odemeler)} ödeme)", expanded=False):
                 for o in gun_odemeler:
                     kat = o.get("kategori") or "diger"
                     kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
