@@ -10,6 +10,7 @@ import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
+from shared.utils import metrik_satiri, metric_css
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -1236,25 +1237,26 @@ def run():
     
         st.markdown(f"""
         <style>
-        .kart-grid {{ display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:8px }}
+        .kart-grid {{ display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px }}
         .kart {{
-            background:#151F38;
-            border-radius:12px;
-            padding:18px 16px 14px;
-            border:1px solid rgba(255,255,255,0.12);
-            border-top:3px solid #CBD5E1;
-            text-align:center;
+            flex:1;min-width:128px;
+            background:rgba(255,255,255,0.022);
+            border-radius:13px;
+            padding:11px 15px;
+            border:1px solid rgba(255,255,255,0.06);
+            border-top:3px solid #818CF8;
+            text-align:left;
         }}
         .kart-label {{
-            font-size:10px;font-weight:700;letter-spacing:1px;
-            text-transform:uppercase;color:#64748B;margin-bottom:10px;
+            font-size:9.5px;font-weight:700;letter-spacing:.6px;
+            text-transform:uppercase;color:#8B97A8;margin-bottom:2px;
         }}
         .kart-deger {{
-            font-size:21px;font-weight:700;
-            font-family:'JetBrains Mono','Courier New',monospace;
-            letter-spacing:-0.5px;line-height:1.1;color:#E2E8F0;
+            font-size:20px;font-weight:800;
+            font-variant-numeric:tabular-nums;
+            letter-spacing:-0.3px;line-height:1.2;color:#F1F5F9;
         }}
-        .kart-alt {{ font-size:11px;margin-top:7px;color:#94A3B8;font-weight:500 }}
+        .kart-alt {{ font-size:10px;margin-top:3px;color:#7C8AA0;font-weight:500 }}
         .section-mini-title {{
             font-size:11px;font-weight:700;letter-spacing:1px;
             text-transform:uppercase;color:#64748B;margin:16px 0 10px;
@@ -1266,13 +1268,13 @@ def run():
     
           <div class="kart" style="border-top-color:#3B82F6">
             <div class="kart-label">Toplam TL</div>
-            <div class="kart-deger" style="color:#1D4ED8">₺{fmt(tl_toplam)}</div>
+            <div class="kart-deger" style="color:#60A5FA">₺{fmt(tl_toplam)}</div>
             <div class="kart-alt">Ödendi: ₺{fmt(odendi_tl)}</div>
           </div>
     
           <div class="kart" style="border-top-color:#8B5CF6">
             <div class="kart-label">Toplam USD</div>
-            <div class="kart-deger" style="color:#6D28D9">${fmt(usd_toplam)}</div>
+            <div class="kart-deger" style="color:#A78BFA">${fmt(usd_toplam)}</div>
             <div class="kart-alt">≈ ₺{fmt(usd_toplam * kur)}</div>
           </div>
     
@@ -1291,28 +1293,24 @@ def run():
             <div class="kart-alt">Ödenmesi gereken</div>
           </div>
     
-          <div class="kart" style="background:{'#0A2D15' if hafta_sonu_tl >= 0 else '#FEF2F2'};
-                                    border-color:{'#BBF7D0' if hafta_sonu_tl >= 0 else '#FECACA'};
-                                    border-top-color:{'#16A34A' if hafta_sonu_tl >= 0 else '#DC2626'}">
-            <div class="kart-label" style="color:{'#86EFAC' if hafta_sonu_tl >= 0 else '#FCA5A5'}">
-              {nakit_emoji} {nakit_label}
-            </div>
-            <div class="kart-deger" style="color:{'#15803D' if hafta_sonu_tl >= 0 else '#B91C1C'}">
+          <div class="kart" style="border-top-color:{'#34D399' if hafta_sonu_tl >= 0 else '#F87171'}">
+            <div class="kart-label">{nakit_emoji} {nakit_label}</div>
+            <div class="kart-deger" style="color:{'#34D399' if hafta_sonu_tl >= 0 else '#F87171'}">
               ₺{fmt(abs(hafta_sonu_tl))}
             </div>
-            <div class="kart-alt" style="color:{'#16A34A' if hafta_sonu_tl >= 0 else '#DC2626'}">{nakit_alt}</div>
+            <div class="kart-alt">{nakit_alt}</div>
           </div>
     
         </div>
     
         <div class="section-mini-title">Bugünün bekleyen ödemeleri</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">
-          <div class="kart" style="border-top-color:#F59E0B;background:#2D200A;border-color:#FDE68A">
+          <div class="kart" style="border-top-color:#FBBF24">
             <div class="kart-label" style="color:#FDE68A">Bugün Kalan TL</div>
             <div class="kart-deger" style="color:#FCD34D">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
             <div class="kart-alt" style="color:#B45309">Ödenmemiş TL</div>
           </div>
-          <div class="kart" style="border-top-color:#D97706;background:#2D200A;border-color:#FDE68A">
+          <div class="kart" style="border-top-color:#FB923C">
             <div class="kart-label" style="color:#FDE68A">Bugün Kalan USD</div>
             <div class="kart-deger" style="color:#FCD34D">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
             <div class="kart-alt" style="color:#B45309">Ödenmemiş USD</div>
@@ -1324,36 +1322,13 @@ def run():
         banka_eur = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
         toplam_varlik_tl = banka_tl + (banka_usd * kur)
         toplam_varlik_usd = banka_usd + (banka_tl / kur if kur > 0 else 0)
-        varlik_html = (
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">'
-            # Kart 1: TL Varlık
-            '<div style="background:#F0F9FF;border-radius:12px;padding:16px 18px;border:1px solid #BAE6FD;border-top:3px solid #0284C7;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0369A1;margin-bottom:8px">Toplam TL Varlık</div>'
-            f'<div style="font-size:20px;font-weight:700;color:#075985;font-family:monospace">₺{fmt(banka_tl)}</div>'
-            '<div style="font-size:11px;margin-top:6px;color:#0369A1">Tüm TL hesaplar</div>'
-            '</div>'
-            # Kart 2: USD Varlık
-            '<div style="background:#0A2D15;border-radius:12px;padding:16px 18px;border:1px solid #BBF7D0;border-top:3px solid #16A34A;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#86EFAC;margin-bottom:8px">Toplam USD Varlık</div>'
-            f'<div style="font-size:20px;font-weight:700;color:#15803D;font-family:monospace">${fmt(banka_usd)}</div>'
-            f'<div style="font-size:11px;margin-top:6px;color:#16A34A">≈ ₺{fmt(banka_usd * kur)}</div>'
-            '</div>'
-            # Kart 3: Toplam Varlık (TL cinsinden)
-            '<div style="background:#FDF4FF;border-radius:12px;padding:16px 18px;border:1px solid #E9D5FF;border-top:3px solid #9333EA;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7E22CE;margin-bottom:8px">Toplam Varlık (TL)</div>'
-            f'<div style="font-size:20px;font-weight:700;color:#6B21A8;font-family:monospace">₺{fmt(toplam_varlik_tl)}</div>'
-            f'<div style="font-size:11px;margin-top:6px;color:#9333EA;font-family:monospace">≈ ${fmt(toplam_varlik_usd)}</div>'
-            '</div>'
-            # Kart 4: Toplam Varlık (USD cinsinden)
-            '<div style="background:#FFF7ED;border-radius:12px;padding:16px 18px;border:1px solid #FED7AA;border-top:3px solid #EA580C;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#C2410C;margin-bottom:8px">Toplam Varlık (USD)</div>'
-            f'<div style="font-size:20px;font-weight:700;color:#9A3412;font-family:monospace">${fmt(toplam_varlik_usd)}</div>'
-            f'<div style="font-size:11px;margin-top:6px;color:#EA580C;font-family:monospace">≈ ₺{fmt(toplam_varlik_tl)}</div>'
-            '</div>'
-            '</div>'
-        )
         st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:10px">Toplam Varlıklar</div>', unsafe_allow_html=True)
-        st.markdown(varlik_html, unsafe_allow_html=True)
+        metrik_satiri([
+            {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": "#60A5FA", "alt": "Tüm TL hesaplar"},
+            {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": "#34D399", "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
+            {"label": "Toplam Varlık (TL)", "value": f"₺{fmt(toplam_varlik_tl)}", "renk": "#A78BFA", "alt": f"≈ ${fmt(toplam_varlik_usd)}"},
+            {"label": "Toplam Varlık (USD)", "value": f"${fmt(toplam_varlik_usd)}", "renk": "#FB923C", "alt": f"≈ ₺{fmt(toplam_varlik_tl)}"},
+        ])
     
         st.markdown("---")
     
@@ -1647,31 +1622,12 @@ def run():
         kalan_tl = tl_toplam - odendi_tl
         ilerleme = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
     
-        kart_html = (
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">'
-            '<div style="background:#151F38;border-radius:12px;padding:18px 16px 14px;border:1px solid rgba(255,255,255,0.12);border-top:3px solid #3B82F6;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:10px">Toplam TL</div>'
-            f'<div style="font-size:22px;font-weight:700;color:#1D4ED8;font-family:monospace;letter-spacing:-0.5px">₺{fmt(tl_toplam)}</div>'
-            f'<div style="font-size:11px;margin-top:7px;color:#94A3B8">Ödendi: ₺{fmt(odendi_tl)}</div>'
-            '</div>'
-            '<div style="background:#151F38;border-radius:12px;padding:18px 16px 14px;border:1px solid rgba(255,255,255,0.12);border-top:3px solid #8B5CF6;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:10px">Toplam USD</div>'
-            f'<div style="font-size:22px;font-weight:700;color:#6D28D9;font-family:monospace;letter-spacing:-0.5px">${fmt(usd_toplam)}</div>'
-            f'<div style="font-size:11px;margin-top:7px;color:#94A3B8">Ödendi: ${fmt(odendi_usd)}</div>'
-            '</div>'
-            '<div style="background:#151F38;border-radius:12px;padding:18px 16px 14px;border:1px solid rgba(255,255,255,0.12);border-top:3px solid #10B981;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:10px">İlerleme</div>'
-            f'<div style="font-size:22px;font-weight:700;color:#6EE7B7;font-family:monospace">{odendi_cnt} <span style="font-size:14px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>'
-            '<div style="background:#E2E8F0;border-radius:4px;height:5px;margin-top:8px;overflow:hidden">'
-            f'<div style="background:#10B981;height:100%;width:{ilerleme}%"></div>'
-            '</div></div>'
-            '<div style="background:#2D200A;border-radius:12px;padding:18px 16px 14px;border:1px solid #FDE68A;border-top:3px solid #F59E0B;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#FDE68A;margin-bottom:10px">Kalan TL</div>'
-            f'<div style="font-size:22px;font-weight:700;color:#FCD34D;font-family:monospace;letter-spacing:-0.5px">₺{fmt(kalan_tl)}</div>'
-            '<div style="font-size:11px;margin-top:7px;color:#B45309">Ödenmesi gereken</div>'
-            '</div></div>'
-        )
-        st.markdown(kart_html, unsafe_allow_html=True)
+        metrik_satiri([
+            {"label": "Toplam TL", "value": f"₺{fmt(tl_toplam)}", "renk": "#60A5FA", "alt": f"Ödendi: ₺{fmt(odendi_tl)}"},
+            {"label": "Toplam USD", "value": f"${fmt(usd_toplam)}", "renk": "#A78BFA", "alt": f"Ödendi: ${fmt(odendi_usd)}"},
+            {"label": "İlerleme", "value": f"{odendi_cnt}/{len(odemeler)}", "renk": "#34D399", "alt": f"%{ilerleme} tamamlandı"},
+            {"label": "Kalan TL", "value": f"₺{fmt(kalan_tl)}", "renk": "#FBBF24", "alt": "Ödenmesi gereken"},
+        ])
     
         st.markdown("---")
     
@@ -2348,26 +2304,11 @@ def run():
                         toplam_kalan += max(0, gercek_kalan)
                     bekleyen_cnt += 1
     
-            ozet_html = (
-                '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'
-                '<div style="background:#151F38;border-radius:12px;padding:16px 18px;border:1px solid rgba(255,255,255,0.12);border-top:3px solid #3B82F6;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:8px">Toplam Meblağ</div>'
-                f'<div style="font-size:22px;font-weight:700;color:#1D4ED8;font-family:monospace">{sym}{fmt(toplam_meblagh)}</div>'
-                f'<div style="font-size:11px;margin-top:5px;color:#94A3B8">{len(cekler)} çek (tümü)</div>'
-                '</div>'
-                '<div style="background:#0A2D15;border-radius:12px;padding:16px 18px;border:1px solid #BBF7D0;border-top:3px solid #16A34A;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#86EFAC;margin-bottom:8px">Toplam Ödenen</div>'
-                f'<div style="font-size:22px;font-weight:700;color:#15803D;font-family:monospace">{sym}{fmt(toplam_odenen)}</div>'
-                f'<div style="font-size:11px;margin-top:5px;color:#16A34A">{odendi_cnt} adet ödendi</div>'
-                '</div>'
-                '<div style="background:#2D200A;border-radius:12px;padding:16px 18px;border:1px solid #FDE68A;border-top:3px solid #F59E0B;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#FDE68A;margin-bottom:8px">Toplam Kalan</div>'
-                f'<div style="font-size:22px;font-weight:700;color:#FCD34D;font-family:monospace">{sym}{fmt(toplam_kalan)}</div>'
-                f'<div style="font-size:11px;margin-top:5px;color:#B45309">{bekleyen_cnt} bekleyen/ciro</div>'
-                '</div>'
-                '</div>'
-            )
-            st.markdown(ozet_html, unsafe_allow_html=True)
+            metrik_satiri([
+                {"label": "Toplam Meblağ", "value": f"{sym}{fmt(toplam_meblagh)}", "renk": "#60A5FA", "alt": f"{len(cekler)} çek (tümü)"},
+                {"label": "Toplam Ödenen", "value": f"{sym}{fmt(toplam_odenen)}", "renk": "#34D399", "alt": f"{odendi_cnt} adet ödendi"},
+                {"label": "Toplam Kalan", "value": f"{sym}{fmt(toplam_kalan)}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekleyen/ciro"},
+            ])
     
         def cek_tablo(cekler, cur):
             if not cekler:
@@ -2502,23 +2443,11 @@ def run():
         tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
         usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
     
-        od_html = (
-            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">'
-            '<div style="background:#0A2D15;border-radius:12px;padding:18px 16px 14px;border:1px solid #BBF7D0;border-top:3px solid #16A34A;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#86EFAC;margin-bottom:10px">Ödenen TL</div>'
-            f'<div style="font-size:26px;font-weight:700;color:#15803D;font-family:monospace;letter-spacing:-0.5px">₺{fmt(tl_top)}</div>'
-            '</div>'
-            '<div style="background:#0E1A3A;border-radius:12px;padding:18px 16px 14px;border:1px solid #BFDBFE;border-top:3px solid #3B82F6;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#93C5FD;margin-bottom:10px">Ödenen USD</div>'
-            f'<div style="font-size:26px;font-weight:700;color:#1D4ED8;font-family:monospace;letter-spacing:-0.5px">${fmt(usd_top)}</div>'
-            '</div>'
-            '<div style="background:#151F38;border-radius:12px;padding:18px 16px 14px;border:1px solid rgba(255,255,255,0.12);border-top:3px solid #64748B;text-align:center">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:10px">Ödeme Adedi</div>'
-            f'<div style="font-size:26px;font-weight:700;color:#E2E8F0;font-family:monospace">{len(odenenler)}</div>'
-            '<div style="font-size:11px;margin-top:7px;color:#94A3B8">tamamlanan ödeme</div>'
-            '</div></div>'
-        )
-        st.markdown(od_html, unsafe_allow_html=True)
+        metrik_satiri([
+            {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": "#34D399"},
+            {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#60A5FA"},
+            {"label": "Ödeme Adedi", "value": f"{len(odenenler):,}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
+        ])
     
         # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
         bankalar = get_bankalar()
@@ -2940,16 +2869,14 @@ def run():
             st.markdown("**Özet + Günlük Detay + Kategori Analizi** üç sayfalı Excel dosyası.")
             st.markdown("")
     
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
-                st.metric("Toplam TL", f"₺{fmt(tl_top)}")
-            with col2:
-                usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
-                st.metric("Toplam USD", f"${fmt(usd_top)}")
-            with col3:
-                odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
-                st.metric("Ödendi", f"{odendi}/{len(odemeler)}")
+            tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
+            usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
+            odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
+            metrik_satiri([
+                {"label": "Toplam TL", "value": f"₺{fmt(tl_top)}", "renk": "#818CF8"},
+                {"label": "Toplam USD", "value": f"${fmt(usd_top)}", "renk": "#34D399"},
+                {"label": "Ödendi", "value": f"{odendi}/{len(odemeler)}", "renk": "#FBBF24"},
+            ])
     
             st.markdown("")
             try:
@@ -3358,29 +3285,12 @@ def run():
             toplam_erteleme = sum(int(o.get("ertelendi_sayisi") or 0) for o in ertelenenler)
             bekleyen_cnt = sum(1 for o in ertelenenler if o["durum"] == "bekliyor")
     
-            ozet_html = (
-                '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">'
-                '<div style="background:#2D200A;border-radius:12px;padding:16px 18px;border:1px solid #FDE68A;border-top:3px solid #F59E0B;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#FDE68A;margin-bottom:8px">Ertelenen Adet</div>'
-                f'<div style="font-size:26px;font-weight:700;color:#FCD34D;font-family:monospace">{len(ertelenenler)}</div>'
-                f'<div style="font-size:11px;margin-top:5px;color:#B45309">{bekleyen_cnt} bekliyor</div>'
-                '</div>'
-                '<div style="background:#2D0A0A;border-radius:12px;padding:16px 18px;border:1px solid #FCA5A5;border-top:3px solid #DC2626;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#FCA5A5;margin-bottom:8px">Toplam Erteleme</div>'
-                f'<div style="font-size:26px;font-weight:700;color:#FCA5A5;font-family:monospace">{toplam_erteleme}</div>'
-                '<div style="font-size:11px;margin-top:5px;color:#B91C1C">kez ötelendi</div>'
-                '</div>'
-                '<div style="background:#F0F9FF;border-radius:12px;padding:16px 18px;border:1px solid #BAE6FD;border-top:3px solid #0284C7;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#0369A1;margin-bottom:8px">Toplam TL</div>'
-                f'<div style="font-size:26px;font-weight:700;color:#075985;font-family:monospace">₺{fmt(toplam_tl)}</div>'
-                '</div>'
-                '<div style="background:#FDF4FF;border-radius:12px;padding:16px 18px;border:1px solid #E9D5FF;border-top:3px solid #9333EA;text-align:center">'
-                '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7E22CE;margin-bottom:8px">Toplam USD</div>'
-                f'<div style="font-size:26px;font-weight:700;color:#6B21A8;font-family:monospace">${fmt(toplam_usd)}</div>'
-                '</div>'
-                '</div>'
-            )
-            st.markdown(ozet_html, unsafe_allow_html=True)
+            metrik_satiri([
+                {"label": "Ertelenen Adet", "value": f"{len(ertelenenler):,}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekliyor"},
+                {"label": "Toplam Erteleme", "value": f"{toplam_erteleme:,}", "renk": "#F87171", "alt": "kez ötelendi"},
+                {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": "#60A5FA"},
+                {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": "#A78BFA"},
+            ])
     
             # Filtre
             col_f1, col_f2 = st.columns([3, 1])
