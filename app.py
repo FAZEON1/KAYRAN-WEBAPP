@@ -832,97 +832,75 @@ def giris_ekrani():
     with col_l:
         st.markdown(
             '<div style="padding:20px 24px 20px 8px;animation:fadeUp 0.6s ease-out">'
-            # Logo + başlık
-            '<div style="display:flex;align-items:center;gap:16px;margin-bottom:36px">'
+            '<div style="display:flex;align-items:center;gap:16px;margin-bottom:30px">'
             f'{KAYRAN_LOGO_BIG}'
             '<div>'
             '<div style="font-family:Inter,sans-serif;font-size:42px;font-weight:900;color:#FFFFFF;letter-spacing:5px;line-height:1">KAYRAN</div>'
             '<div style="font-size:11px;color:#94A3B8;letter-spacing:3px;text-transform:uppercase;font-weight:600;margin-top:4px">Workspace</div>'
             '</div>'
             '</div>'
-            # Tagline
-            '<div style="margin-bottom:32px">'
-            '<h2 style="font-family:Inter,sans-serif;font-size:28px;font-weight:700;color:#FFFFFF;line-height:1.3;margin:0 0 12px">'
-            'Şirket Operasyonlarını<br>'
-            '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Tek Çatı Altında</span>'
+            '<div style="margin-bottom:28px">'
+            '<h2 style="font-family:Inter,sans-serif;font-size:26px;font-weight:700;color:#FFFFFF;line-height:1.3;margin:0 0 10px">'
+            'Şirket Operasyonları '
+            '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Tek Çatı Altında</span>'
             '</h2>'
-            '<p style="color:#94A3B8;font-size:14px;line-height:1.7;margin:0">'
-            'Muhasebe, finans, ithalat ve ürün yönetimini entegre bir platformda yönetin.'
+            '<p style="color:#94A3B8;font-size:14px;line-height:1.6;margin:0">'
+            'Muhasebe, finans, ithalat ve ürün yönetimini tek platformda yönetin.'
             '</p>'
             '</div>'
-            # Özellik listesi
-            '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:36px">'
-            '<div style="display:flex;align-items:center;gap:14px">'
-            '<div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">💳</div>'
-            '<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Muhasebe & Finans</div>'
-            '<div style="color:#64748B;font-size:11px;margin-top:2px">Haftalık ödeme takibi, banka bakiyeleri, nakit akış</div></div>'
-            '</div>'
-            '<div style="display:flex;align-items:center;gap:14px">'
-            '<div style="width:38px;height:38px;border-radius:10px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">📦</div>'
-            '<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">İthalat & Ürün Yönetimi</div>'
-            '<div style="color:#64748B;font-size:11px;margin-top:2px">Stok takibi, sipariş yönetimi, tedarik zinciri</div></div>'
-            '</div>'
-            '<div style="display:flex;align-items:center;gap:14px">'
-            '<div style="width:38px;height:38px;border-radius:10px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🔐</div>'
-            '<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Yetki Bazlı Erişim</div>'
-            '<div style="color:#64748B;font-size:11px;margin-top:2px">Kullanıcıya özel panel, güvenli oturum yönetimi</div></div>'
-            '</div>'
-            '</div>'
-'<div style="display:flex;align-items:center;gap:14px">'
-'<div style="width:38px;height:38px;border-radius:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">🧮</div>'
-'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">Hesap Makinesi</div>'
-'<div style="color:#64748B;font-size:11px;margin-top:2px">Urun karlilik analizi, kirilma noktasi hesaplama</div></div>'
-'</div>'
-            # Alt bilgi
-            '<div style="display:flex;align-items:center;gap:10px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06)">'
+            '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:26px">'
+            + "".join(
+                '<div style="display:flex;align-items:center;gap:14px">'
+                f'<div style="width:38px;height:38px;border-radius:10px;background:{_bg};border:1px solid {_bd};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">{_ik}</div>'
+                f'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">{_ad}</div>'
+                f'<div style="color:#64748B;font-size:11px;margin-top:2px">{_alt}</div></div>'
+                '</div>'
+                for _ik, _bg, _bd, _ad, _alt in [
+                    ("💳", "rgba(99,102,241,0.15)", "rgba(99,102,241,0.25)", "Muhasebe & Finans", "Haftalık ödeme takibi, banka bakiyeleri, nakit akış"),
+                    ("📦", "rgba(236,72,153,0.12)", "rgba(236,72,153,0.22)", "İthalat & Ürün Yönetimi", "Stok takibi, sipariş yönetimi, tedarik zinciri"),
+                    ("🧮", "rgba(16,185,129,0.12)", "rgba(16,185,129,0.22)", "Hesap Makinesi", "Ürün kârlılık analizi, kırılma noktası hesaplama"),
+                    ("🔐", "rgba(245,158,11,0.12)", "rgba(245,158,11,0.22)", "Yetki Bazlı Erişim", "Kullanıcıya özel panel, güvenli oturum yönetimi"),
+                ]
+            )
+            + '</div>'
+            '<div style="display:flex;align-items:center;gap:10px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.06)">'
             '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 8px #10B981"></div>'
-            '<span style="color:#64748B;font-size:11px;font-weight:500">Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; <b style="color:#94A3B8">Fazeon</b> projesi</span>'
+            '<span style="color:#64748B;font-size:11px;font-weight:500">Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; <b style="color:#94A3B8">Fazeon</b> projesi · İbrahim Kayran tarafından geliştirildi</span>'
             '</div>'
-            '</div>'
-'<div style="display:flex;align-items:center;gap:10px;padding-top:10px;margin-top:6px">'
-'<div style="width:6px;height:6px;border-radius:50%;background:#6366F1;box-shadow:0 0 8px #6366F1"></div>'
-'<span style="color:#64748B;font-size:11px;font-weight:500">Ibrahim Kayran tarafindan gelistirildi</span>'
-'</div>',
+            '</div>',
             unsafe_allow_html=True
         )
 
     # ── SAĞ PANEL: Login Kartı ──
     with col_r:
-        st.markdown(
-            '<div style="animation:fadeUp 0.7s ease-out">'
-            # Login kartı
-            '<div style="background:rgba(255,255,255,0.03);backdrop-filter:blur(24px);'
-            'border:1px solid rgba(255,255,255,0.09);border-radius:24px;'
-            'padding:36px 32px;box-shadow:0 32px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.03) inset">'
-            # Kart başlık
-            '<div style="text-align:center;margin-bottom:30px">'
-            '<div style="width:48px;height:48px;border-radius:14px;'
-            'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2));'
-            'border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;'
-            'justify-content:center;font-size:20px;margin:0 auto 16px">🔐</div>'
-            '<div style="color:#FFFFFF;font-size:20px;font-weight:700;margin-bottom:6px">Hesabınıza Giriş Yapın</div>'
-            '<div style="color:#64748B;font-size:12px">Yetkili personel için özel erişim</div>'
-            '</div>'
-            '</div></div>',
-            unsafe_allow_html=True
-        )
-        with st.form("giris_form", clear_on_submit=False):
-            kullanici = st.text_input("Kullanıcı Adı", placeholder="kullanici_adi", key="login_user")
-            sifre = st.text_input("Şifre", type="password", placeholder="••••••••••••", key="login_pass")
-            st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-            giris_btn = st.form_submit_button("Giriş Yap  →", type="primary", use_container_width=True)
-
-        st.markdown(
-            '<div style="margin-top:16px;text-align:center">'
-            '<div style="display:flex;align-items:center;justify-content:center;gap:8px">'
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-            '<path d="M12 2L2 7v10c0 5.25 3.75 10.15 10 11.25C18.25 27.15 22 22.25 22 17V7L12 2z" fill="rgba(16,185,129,0.8)"/>'
-            '</svg>'
-            '<span style="color:#64748B;font-size:11px">256-bit SSL şifrelemeli güvenli bağlantı</span>'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        with st.container(border=True):
+            st.markdown(
+                '<div style="text-align:center;margin-bottom:18px">'
+                '<div style="width:48px;height:48px;border-radius:14px;'
+                'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2));'
+                'border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;'
+                'justify-content:center;font-size:20px;margin:0 auto 14px">🔐</div>'
+                '<div style="color:#FFFFFF;font-size:20px;font-weight:700;margin-bottom:6px">Hesabınıza Giriş Yapın</div>'
+                '<div style="color:#64748B;font-size:12px">Yetkili personel için özel erişim</div>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+            with st.form("giris_form", clear_on_submit=False):
+                kullanici = st.text_input("Kullanıcı Adı", placeholder="kullanici_adi", key="login_user")
+                sifre = st.text_input("Şifre", type="password", placeholder="••••••••••••", key="login_pass")
+                st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+                giris_btn = st.form_submit_button("Giriş Yap  →", type="primary", use_container_width=True)
+            st.markdown(
+                '<div style="margin-top:14px;text-align:center">'
+                '<div style="display:flex;align-items:center;justify-content:center;gap:8px">'
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+                '<path d="M12 2L2 7v10c0 5.25 3.75 10.15 10 11.25C18.25 27.15 22 22.25 22 17V7L12 2z" fill="rgba(16,185,129,0.8)"/>'
+                '</svg>'
+                '<span style="color:#64748B;font-size:11px">256-bit SSL şifrelemeli güvenli bağlantı</span>'
+                '</div>'
+                '</div>',
+                unsafe_allow_html=True
+            )
 
         if giris_btn:
             try:
