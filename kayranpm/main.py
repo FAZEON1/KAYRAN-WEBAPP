@@ -1001,17 +1001,25 @@ def run():
         cost = secilen.get("cost") or 0
         cost_price = secilen.get("cost_price") or 0
         fcp = secilen.get("final_cost_price") or 0
+        son_fob = secilen.get("son_fob") or 0
+        son_fcp = secilen.get("son_final") or 0
+        son_tarih = secilen.get("son_tarih") or ""
         ithalat_dosya = secilen.get("ithalat_dosya_sayisi", 0) or 0
         satis = secilen.get("satis_fiyati") or 0
         mal_y = secilen.get("mal_yuzde") or secilen.get("son_mal_yuzde") or 0
     
         if fob > 0 or fcp > 0:
+            _son_alt = f"En yeni dosya · {son_tarih}" if son_tarih else "En yeni ithalat dosyası"
             _fiyat_cards = [
-                {"label": "FOB PRICE", "value": f"${fob:,.2f}", "renk": "#60A5FA"},
+                {"label": "PAÇAL FOB", "value": f"${fob:,.2f}", "renk": "#60A5FA",
+                 "alt": "Adet-ağırlıklı ortalama"},
+                {"label": "SON FOB", "value": f"${son_fob:,.2f}" if son_fob else "—", "renk": "#38BDF8",
+                 "alt": _son_alt},
                 {"label": f"COST (%{mal_y:.1f})", "value": f"${cost:,.2f}", "renk": "#FB923C"},
-                {"label": "COST PRICE", "value": f"${cost_price:,.2f}", "renk": "#A78BFA"},
-                {"label": "⭐ FINAL COST PRICE", "value": f"${fcp:,.2f}", "renk": "#FBBF24",
-                 "alt": "Paçal maliyet · İthalat"},
+                {"label": "⭐ PAÇAL MALİYET", "value": f"${fcp:,.2f}", "renk": "#FBBF24",
+                 "alt": "Landed · İthalat"},
+                {"label": "SON MALİYET", "value": f"${son_fcp:,.2f}" if son_fcp else "—", "renk": "#FCD34D",
+                 "alt": _son_alt},
             ]
             if satis > 0:
                 _fiyat_cards.append({"label": "SATIŞ FİYATI", "value": f"${satis:,.2f}", "renk": "#22D3EE"})
@@ -1020,7 +1028,7 @@ def run():
                     _marj = (_kar / satis * 100) if satis else 0
                     if _kar >= 0:
                         _fiyat_cards.append({"label": "KÂR", "value": f"${_kar:,.2f}",
-                                             "renk": "#34D399", "alt": f"Marj %{_marj:.1f}"})
+                                             "renk": "#34D399", "alt": f"Marj %{_marj:.1f} · paçala göre"})
                     else:
                         _fiyat_cards.append({"label": "⚠️ ZARAR", "value": f"${_kar:,.2f}",
                                              "renk": "#F87171", "alt": "Satış, paçal maliyetin altında"})
@@ -1032,7 +1040,22 @@ def run():
             metrik_satiri(_fiyat_cards)
         else:
             st.markdown('<div style="background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:12px;padding:16px;text-align:center;color:#94A3B8;font-size:12px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
-    
+
+        # EOL rozeti
+        if secilen.get("eol"):
+            st.markdown(
+                '<div style="background:rgba(248,113,113,0.10);border:1px solid rgba(248,113,113,0.35);'
+                'border-radius:10px;padding:9px 14px;margin:4px 0 10px;color:#F87171;font-size:12.5px;font-weight:700">'
+                '⛔ EOL — Bu ürün üretimi/satışı sonlandı olarak işaretli; sipariş önerisine girmez.</div>',
+                unsafe_allow_html=True)
+
+        # Müşteri bazlı satış fiyat listesi
+        _fl = secilen.get("satis_fiyat_listesi") or {}
+        if _fl:
+            st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:6px 0 6px">🏷️ Müşteri Bazlı Satış Fiyatları</div>', unsafe_allow_html=True)
+            metrik_satiri([{"label": _m, "value": f"${_v:,.2f}", "renk": "#22D3EE"}
+                           for _m, _v in _fl.items()])
+
         st.markdown("---")
 
         # Detayli Gorunum (satis trendi - siparis - yoldaki)
@@ -1107,6 +1130,8 @@ def run():
                 ith_var = (u.get("ithalat_dosya_sayisi", 0) or 0) > 0
                 fcp = (u.get('final_cost_price') or 0) if ith_var else 0
                 fob = (u.get('fob_price') or 0) if ith_var else 0
+                son_fob = (u.get('son_fob') or 0) if ith_var else 0
+                son_fcp = (u.get('son_final') or 0) if ith_var else 0
                 maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
                 net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
                 net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
@@ -1126,8 +1151,10 @@ def run():
                     "KANAL": int(fs.get("KANAL", 0) or 0),
                     "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
                     "FOB ($)": (float(fob) if ith_var else None),
+                    "Son FOB ($)": (float(son_fob) if (ith_var and son_fob) else None),
                     "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
                     "Final Cost ($)": (float(fcp) if ith_var else None),
+                    "Son Maliyet ($)": (float(son_fcp) if (ith_var and son_fcp) else None),
                     "Satış ($)": float(satis or 0),
                     "Net Marj (%)": float(net_marj) if net_marj is not None else None,
                     "Net Kar ($)": float(net_kar) if net_kar is not None else None,
@@ -1214,6 +1241,12 @@ def run():
                     fob_raw = r.get("FOB ($)")
                     fob_v = fob_raw or 0
                     fob_cls = "c-num" if fob_v else "c-muted"
+                    son_fob_raw = r.get("Son FOB ($)")
+                    son_fob_v = son_fob_raw or 0
+                    son_fob_cls = "c-num" if son_fob_v else "c-muted"
+                    son_fcp_raw = r.get("Son Maliyet ($)")
+                    son_fcp_v = son_fcp_raw or 0
+                    son_fcp_cls = "c-fcp" if son_fcp_v else "c-muted"
                     satis = r.get("Satış ($)") or 0
                     satis_cls = "c-money" if satis else "c-muted"
                     mal = r.get("Maliyet %")
@@ -1246,8 +1279,10 @@ def run():
                         f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
                         f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
                         f'<td class="{fob_cls}">{_fmt_para(fob_v) if fob_raw is not None else "—"}</td>'
+                        f'<td class="{son_fob_cls}">{_fmt_para(son_fob_v) if son_fob_raw is not None else "—"}</td>'
                         f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
                         f'<td class="{fcp_cls}">{_fmt_para(fcp) if fcp_raw is not None else "—"}</td>'
+                        f'<td class="{son_fcp_cls}">{_fmt_para(son_fcp_v) if son_fcp_raw is not None else "—"}</td>'
                         f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
                         f'<td class="{nm_cls}">{nm_txt}</td>'
                         f'<td class="{nk_cls}">{nk_txt}</td>'
@@ -1282,21 +1317,23 @@ def run():
                 thead = (
                     '<div class="urun-wrap"><table class="urun-tbl">'
                     '<colgroup>'
-                    '<col style="width:7%"><col style="width:14%"><col style="width:7%"><col style="width:6%">'
-                    '<col style="width:6%"><col style="width:11%"><col style="width:6%">'
-                    '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
-                    '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
+                    '<col style="width:6%"><col style="width:12%"><col style="width:6%"><col style="width:5%">'
+                    '<col style="width:5%"><col style="width:9%"><col style="width:5%">'
+                    '<col style="width:6%"><col style="width:6%"><col style="width:6%">'
+                    '<col style="width:7%"><col style="width:7%"><col style="width:6%">'
+                    '<col style="width:6%"><col style="width:6%">'
                     '</colgroup>'
                     '<thead><tr>'
                     '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
                     '<th>📅 Stok Yaşı</th>'
                     '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
-                    "<th>FOB</th><th>Maliyet %</th><th>⭐ Paçal Maliyet</th><th>Satış</th>"
+                    "<th>Paçal FOB</th><th>Son FOB</th><th>Maliyet %</th>"
+                    "<th>⭐ Paçal Maliyet</th><th>Son Maliyet</th><th>Satış</th>"
                     "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
                     "</tr></thead><tbody>"
                 )
                 st.html(css + thead + satir_html + "</tbody></table></div>")
-            st.caption("💡 Tüm maliyetler İthalat verisinden (paçal) · Maliyet % = (Paçal / FOB − 1) × 100 · Net Kâr $ = Satış − Paçal · Net Marj % = Net Kâr / Satış × 100")
+            st.caption("💡 FOB/Maliyet iki türlü: Paçal = adet-ağırlıklı ortalama (kâr/marj buna göre) · Son = en yeni ithalat dosyası · Net Kâr $ = Satış − Paçal Maliyet")
 
             # ── 📤 Rapor Al — Excel / PDF (ekrandaki filtreye göre) ──
             if rows_oz:
@@ -1353,11 +1390,43 @@ def run():
                     with fc2:
                         d_kat = st.text_input("Kategori", value=_u.get("kategori", "") or "")
                     with fc3:
-                        d_satis = st.number_input("Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f")
+                        d_satis = st.number_input("Genel Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f",
+                                                  help="Genel/liste fiyatı — kâr marjı ve dashboard bundan hesaplanır.")
                     with fc4:
                         d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
+
+                    # Müşteri bazlı satış fiyat listesi (ana müşteriler hazır + satır ekleyerek yeni müşteri)
+                    from .database import ANA_MUSTERILER as _ANA_MUST
+                    _mevcut_liste = _u.get("satis_fiyat_listesi") or {}
+                    _musteriler = list(_ANA_MUST) + [m for m in _mevcut_liste if m not in _ANA_MUST]
+                    _liste_df = pd.DataFrame(
+                        [{"Müşteri": m, "Fiyat ($)": float(_mevcut_liste.get(m, 0) or 0)} for m in _musteriler]
+                    )
+                    st.markdown("**🏷️ Satış Fiyat Listesi (müşteri bazlı)** — ana müşteriler hazır gelir; "
+                                "müşteriye özel fiyat gir. **Satır ekleyip** yeni müşteri de yazabilirsin (0 bıraktığın satır kaydedilmez).")
+                    _liste_edit = st.data_editor(
+                        _liste_df, num_rows="dynamic", use_container_width=True, key="urun_fiyat_liste",
+                        column_config={
+                            "Müşteri": st.column_config.TextColumn("Müşteri", required=False),
+                            "Fiyat ($)": st.column_config.NumberColumn("Fiyat ($)", min_value=0.0, step=1.0, format="%.2f"),
+                        },
+                    )
+                    d_eol = st.checkbox(
+                        "⛔ EOL — üretimi/satışı sonlandı (bu ürüne sipariş ÖNERİLMESİN)",
+                        value=bool(_u.get("eol")))
+
                     if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
                         from .database import upsert_urun as _upsert_urun
+                        # Fiyat listesini editörden topla
+                        _yeni_liste = {}
+                        try:
+                            for _, _r in _liste_edit.iterrows():
+                                _m = str(_r.get("Müşteri", "") or "").strip()
+                                _fy = float(_r.get("Fiyat ($)", 0) or 0)
+                                if _m and _fy != 0:
+                                    _yeni_liste[_m] = _fy
+                        except Exception:
+                            _yeni_liste = {}
                         try:
                             _upsert_urun(
                                 _sec_sku, d_ad.strip(), d_kat.strip(),
@@ -1365,6 +1434,7 @@ def run():
                                 float(_u.get("alis_fiyati", 0) or 0), float(_u.get("hedef_kar_marji", 0) or 0),
                                 _u.get("ozellikler", "") or "", int(d_stok or 0),
                                 int(_u.get("trendyol_stok", 0) or 0),
+                                satis_fiyat_listesi=_yeni_liste, eol=d_eol,
                             )
                             st.cache_data.clear()
                             st.success(f"✅ {_sec_sku} güncellendi.")
@@ -1744,6 +1814,7 @@ def run():
                                     u_sku = sku_listesi_k.get(u_secim, "")
                                     u_bilgi = urun_dict_k.get(u_sku, {})
                                     pacal = u_bilgi.get("final_cost_price", 0)
+                                    pacal_son = u_bilgi.get("son_final", 0) or 0
     
                                     # Top-down margin hesaplama yardımcısı
                                     if pacal > 0:
@@ -1774,7 +1845,7 @@ def run():
                                         net_marj = (net_kar_birim / u_satis * 100) if u_satis > 0 else 0  # Top-down: kar/satış
                                         st.markdown(f"""
                                         <div class="info-box" style="font-size:12px">
-                                        ⭐ Paçal: <b>${pacal:.2f}</b><br>
+                                        ⭐ Paçal: <b>${pacal:.2f}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${pacal_son:.2f}</b>' if pacal_son else ''}<br>
                                         💸 Toplam Destek: <b>${toplam_destek:.2f}</b><br>
                                         📈 Net Kar/Adet: <b>${net_kar_birim:.2f} (%{net_marj:.1f})</b>
                                         </div>
@@ -2377,11 +2448,13 @@ def run():
                 _rows_s = []
                 for u in _liste_s:
                     _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
+                    _ps = (_pacal_map.get(u["sku"], {}) or {}).get("son_final", 0) or 0
                     _satis = _son.get(u["sku"]) if u["sku"] in _son else (u.get("satis_fiyati") or 0)
                     _marj = ((_satis / _p - 1) * 100) if (_p > 0 and _satis) else 0.0
                     _rows_s.append({
                         "SKU": u["sku"], "Ürün Adı": u.get("urun_adi", ""),
-                        "Paçal ($)": round(_p, 2), "Satış ($)": round(float(_satis or 0), 2),
+                        "Paçal ($)": round(_p, 2), "Son ($)": round(_ps, 2),
+                        "Satış ($)": round(float(_satis or 0), 2),
                         "Marj %": round(_marj, 1),
                     })
                 _df_s = pd.DataFrame(_rows_s)
@@ -2392,6 +2465,7 @@ def run():
                         "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                         "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
                         "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="$%.2f"),
+                        "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="$%.2f", help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
                         "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=1.0, format="$%.2f"),
                         "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="%.1f%%"),
                     },

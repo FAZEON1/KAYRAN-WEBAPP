@@ -466,15 +466,22 @@ def tum_urunler_listesi():
             stok_gun, stok_renk = stok_yasi_hesapla(ilk_giris)
 
         # FINAL COST PRICE — İthalat paçal (adet-ağırlıklı landed maliyet)
+        # + SON FOB / SON MALİYET (en yeni ithalat dosyasından) — yalnızca gösterim için
         _ith = _ith_map.get(sku)
         if _ith and _ith.get("toplam_adet", 0) > 0:
             fob_price = _ith["pacal_fob"]
             final_cost_price = _ith["pacal_final"]
+            son_fob = _ith.get("son_fob", 0) or 0
+            son_final = _ith.get("son_final", 0) or 0
+            son_tarih = _ith.get("son_tarih", "") or ""
             toplam_adet = _ith["toplam_adet"]
             ithalat_dosya_sayisi = _ith.get("dosya_sayisi", 0)
         else:
             fob_price = 0
             final_cost_price = 0
+            son_fob = 0
+            son_final = 0
+            son_tarih = ""
             toplam_adet = 0
             ithalat_dosya_sayisi = 0
         mal_yuzde = ((final_cost_price / fob_price - 1) * 100) if fob_price > 0 else 0
@@ -506,6 +513,9 @@ def tum_urunler_listesi():
             "hedef_marj": hedef_marj,
             "final_cost_price": final_cost_price,
             "fob_price": fob_price,
+            "son_fob": son_fob,
+            "son_final": son_final,
+            "son_tarih": son_tarih,
             "ithalat_dosya_sayisi": ithalat_dosya_sayisi,
             "cost": cost,
             "cost_price": cost_price,
@@ -706,14 +716,27 @@ def dashboard_hesapla():
             sku, bizim_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, yoldaki_data
         )
 
+        # EOL (End of Life) — bu ürün için sipariş ÖNERİLMEZ
+        _eol = bool(urun.get("eol"))
+        if _eol:
+            oneri_miktar = 0
+            oneri_mesaj = "⛔ EOL — sipariş önerilmez"
+            siparis_durum = "eol"
+            siparis_mesaj = "⛔ EOL (üretimi/satışı sonlandı) — sipariş önerisi yapılmaz"
+
         dashboard_satirlar.append({
             "sku": sku,
+            "eol": _eol,
+            "satis_fiyat_listesi": urun.get("satis_fiyat_listesi") or {},
             "urun_adi": urun_adi,
             "kategori": kategori,
             "marka": urun.get("marka", ""),
             "alis_fiyati": alis_f,
             "ithalat_fob": (_ith["pacal_fob"] if _ith else 0),
             "ithalat_final": alis_f,
+            "ithalat_son_fob": (_ith.get("son_fob", 0) or 0 if _ith else 0),
+            "ithalat_son_final": (_ith.get("son_final", 0) or 0 if _ith else 0),
+            "ithalat_son_tarih": (_ith.get("son_tarih", "") or "" if _ith else ""),
             "ithalat_dosya_sayisi": (_ith.get("dosya_sayisi", 0) if _ith else 0),
             "bizim_stok": bizim_stok,
             "toplam_stok": toplam_stok,

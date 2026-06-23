@@ -55,14 +55,23 @@ def _hepsi(table, secim="*", order_col=None, desc=False):
 
 # ── ÜRÜNLER ─────────────────────────────────────────────────────────
 
+# Satış fiyat listesinde hazır gelen ana müşteriler (ekstra müşteri serbestçe eklenebilir)
+ANA_MUSTERILER = ["Vatan", "Hepsiburada", "İtopya", "Trendyol", "Teknosa"]
+
+
 def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
                 alis_fiyati=0.0, hedef_kar_marji=0.0, ozellikler="",
-                bizim_stok=0, trendyol_stok=0):
+                bizim_stok=0, trendyol_stok=0,
+                satis_fiyat_listesi=None, eol=None):
+    """Ürün ekler/günceller.
+    satis_fiyat_listesi: {musteri: fiyat} — müşteri bazlı fiyatlar (opsiyonel, None ise dokunulmaz).
+    eol: True/False — End of Life işareti (opsiyonel, None ise dokunulmaz). EOL ürünler sipariş önerisine girmez.
+    """
     sb = get_client()
     bugun = get_today()
     mevcut = _row(sb.table("urunler").select("ilk_giris_tarihi").eq("sku", sku).execute())
     ilk_tarih = mevcut["ilk_giris_tarihi"] if mevcut and mevcut.get("ilk_giris_tarihi") else bugun
-    sb.table("urunler").upsert({
+    _payload = {
         "sku": sku, "urun_adi": urun_adi, "kategori": kategori or "",
         "marka": marka or "", "satis_fiyati": float(satis_fiyati or 0),
         "alis_fiyati": float(alis_fiyati or 0),
@@ -72,7 +81,23 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
         "trendyol_stok": int(trendyol_stok or 0),
         "ilk_giris_tarihi": ilk_tarih,
         "guncelleme_tarihi": bugun,
-    }, on_conflict="sku").execute()
+    }
+    # Opsiyonel yeni kolonlar — sadece verildiyse yaz (None ise mevcut değer korunur)
+    if satis_fiyat_listesi is not None:
+        _payload["satis_fiyat_listesi"] = {
+            str(k).strip(): float(v or 0)
+            for k, v in (satis_fiyat_listesi or {}).items()
+            if str(k).strip() and float(v or 0) != 0
+        }
+    if eol is not None:
+        _payload["eol"] = bool(eol)
+    try:
+        sb.table("urunler").upsert(_payload, on_conflict="sku").execute()
+    except Exception:
+        # Yeni kolonlar (satis_fiyat_listesi/eol) tabloda yoksa onlarsız tekrar dene
+        for _opt in ("satis_fiyat_listesi", "eol"):
+            _payload.pop(_opt, None)
+        sb.table("urunler").upsert(_payload, on_conflict="sku").execute()
     sb.table("stok_yas").upsert(
         {"sku": sku, "ilk_gorulen_tarih": bugun}, on_conflict="sku"
     ).execute()
