@@ -494,6 +494,9 @@ def _gecmis_ithalatlar():
     # ── 2+ satır seçili → ORTAK MASRAF (FOB payına göre dağıt) ──
     if len(_sel) >= 2:
         _sec_dosyalar = [dosyalar_goster[i] for i in _sel]
+        # Seçili belge id'lerinden imza — masraf kutularının anahtarını seçime bağlar
+        # (farklı ithalat/takip seçilince kutular sıfırdan, 0 olarak gelir).
+        _sec_sig = "_".join(str(x) for x in sorted(_sd["id"] for _sd in _sec_dosyalar))
         _sec_bilgi, _sec_toplam_fob = [], 0.0
         for _sd in _sec_dosyalar:
             _skal = _kalem_by_dosya.get(_sd["id"], [])
@@ -563,7 +566,7 @@ def _gecmis_ithalatlar():
             for _j, (_slug, _label) in enumerate(_grup_m):
                 _ortak[_slug] = _cols[_j].number_input(
                     _label, min_value=0.0, value=0.0, step=1.0,
-                    key=f"ith_ortak_mas_{_slug}")
+                    key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
         _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
         if _girilen:
             _toplam_ortak = sum(_girilen.values())
