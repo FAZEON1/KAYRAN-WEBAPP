@@ -354,6 +354,66 @@ def _gecmis_ithalatlar():
         {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.1f}", "renk": "#A78BFA"},
     ])
 
+    # ── 🧹 Mükerrer Belge Temizliği (Belge No + Tarih + Tutar birebir aynı) ──
+    def _eklenme_anahtari(_d):
+        """En yeni eklenen kaydı belirlemek için sıralama anahtarı (created_at varsa onu, yoksa id)."""
+        for _c in ("created_at", "inserted_at", "olusturma_tarihi", "created"):
+            if _d.get(_c):
+                return (2, str(_d.get(_c)))
+        _id = _d.get("id")
+        try:
+            return (1, float(_id))
+        except Exception:
+            return (0, str(_id))
+
+    _dup_gruplari = {}
+    for _d in dosyalar:
+        _dd, _kk, _hh = hesap_map[_d["id"]]
+        _bno = (str(_dd.get("pi_no", "") or "").strip() or str(_dd.get("dosya_no", "") or "").strip())
+        if not _bno:
+            continue
+        _tar = str(_dd.get("tarih", "") or "")[:10]
+        _tutar = round(_hh["mal_bedeli"], 2)
+        _dup_gruplari.setdefault((_bno, _tar, _tutar), []).append(_d)
+    _mukerrer = {k: v for k, v in _dup_gruplari.items() if len(v) >= 2}
+    if _mukerrer:
+        _toplam_silinecek = sum(len(v) - 1 for v in _mukerrer.values())
+        with st.expander(f"🧹 Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt",
+                         expanded=True):
+            st.caption("**Belge No + Tarih + Mal Bedeli** birebir aynı olan kayıtlar mükerrer sayılır. "
+                       "Her gruptan **en son eklenen** tutulur, diğerleri silinir. "
+                       "Aşağıda hangisinin tutulacağını gör, onayla, sonra temizle.")
+            _rows_dup, _silinecek_ids = [], []
+            for (_bno, _tar, _tutar), _grp in sorted(_mukerrer.items(), key=lambda x: x[0][0]):
+                _grp_sirali = sorted(_grp, key=_eklenme_anahtari, reverse=True)  # en yeni başta
+                for _idx, _gd in enumerate(_grp_sirali):
+                    _dd, _kk, _hh = hesap_map[_gd["id"]]
+                    _kalan = (_idx == 0)
+                    if not _kalan:
+                        _silinecek_ids.append(_gd["id"])
+                    _rows_dup.append({
+                        "Belge No": _bno, "Tarih": _tar or "—",
+                        "Mal Bedeli": f"${_tutar:,.0f}",
+                        "Kalem": _hh["kalem_sayisi"],
+                        "Masraf": f"${_hh['toplam_masraf']:,.0f}",
+                        "Takip No": _dd.get("ithalat_takip_no", "") or "—",
+                        "Aşama": _dd.get("durum", "") or "—",
+                        "Kayıt": "✅ TUTULACAK" if _kalan else "🗑️ silinecek",
+                    })
+            st.dataframe(pd.DataFrame(_rows_dup), use_container_width=True,
+                         height=min(440, 70 + len(_rows_dup) * 36), hide_index=True)
+            _onay = st.checkbox(f"{_toplam_silinecek} fazla kaydı kalıcı olarak silmeyi onaylıyorum",
+                                key="ith_dup_onay")
+            if st.button(f"🧹 Mükerrerleri Temizle ({_toplam_silinecek} kayıt sil)",
+                         type="primary", disabled=not _onay, use_container_width=True, key="ith_dup_temizle"):
+                _n = 0
+                with st.spinner("🧹 Temizleniyor..."):
+                    for _iid in _silinecek_ids:
+                        if sil_dosya(_iid):
+                            _n += 1
+                st.success(f"✅ {_n} mükerrer kayıt silindi.")
+                st.rerun()
+
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
     _dovizler = sorted({s["Döviz"] for s in satirlar if s["Döviz"]})
