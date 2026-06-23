@@ -822,7 +822,8 @@ def _yeni_ithalat():
             with c3:
                 tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
                 doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
-                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.00001, format="%.5f", key="m_kur")
+                # Kur burada girilmez — masraf aşamasında (Geçmiş İthalatlar → ✏️ Düzenle) girilir.
+                kur = 1.0
 
             # Aşama (durum) çubuğu + tahmini varış
             dc1, dc2 = st.columns([2.4, 1])
