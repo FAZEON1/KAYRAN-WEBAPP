@@ -1210,6 +1210,101 @@ def _model_sorgu():
 # ─────────────────────────────────────────────────────────────────────
 # Çalıştırıcı
 # ─────────────────────────────────────────────────────────────────────
+def _masraf_detaylari():
+    _baslik("💸", "Masraf Detayları", "Tüm ithalatlarda girilmiş her masraf kalemi — belge · masraf türü · tutar")
+    dosyalar = get_dosyalar()
+    if not dosyalar:
+        st.info("Henüz ithalat kaydı yok.")
+        return
+    _kalem_by_dosya = {}
+    for _k in get_tum_kalemler():
+        _kalem_by_dosya.setdefault(_k.get("dosya_id"), []).append(_k)
+
+    satirlar = []
+    for d in dosyalar:
+        _kal = _kalem_by_dosya.get(d["id"], [])
+        _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _kal)
+        _bno = d.get("pi_no", "") or d.get("dosya_no", "") or "—"
+        _tk = (d.get("ithalat_takip_no", "") or "").strip() or "—"
+        _tar = str(d.get("tarih", "") or "")[:10]
+        _ted = d.get("tedarikci", "") or ""
+        _dov = d.get("doviz", "USD") or "USD"
+        for _label, _tutar in masraf_dokumu(d):
+            if _tutar:
+                satirlar.append({
+                    "Belge No": _bno, "Takip No": _tk, "Tarih": _tar,
+                    "Tedarikçi": _ted, "Masraf Türü": _label,
+                    "Tutar": float(_tutar), "Döviz": _dov,
+                    "% (belge)": (float(_tutar) / _mb * 100) if _mb > 0 else 0.0,
+                })
+    if not satirlar:
+        st.info("Henüz hiçbir ithalatta masraf girilmemiş. (Masraf, Geçmiş İthalatlar → belge düzenleme "
+                "veya çoklu seçim → ortak masraf ile girilir.)")
+        return
+
+    # Filtreler + arama
+    _turler = sorted({s["Masraf Türü"] for s in satirlar})
+    _takipler = sorted({s["Takip No"] for s in satirlar if s["Takip No"] != "—"})
+    fc1, fc2 = st.columns(2)
+    f_tur = fc1.selectbox("Masraf Türü", ["Tümü"] + _turler, key="md_f_tur")
+    f_tk = fc2.selectbox("Takip No", ["Tümü"] + _takipler, key="md_f_tk")
+    _ara = st.text_input("🔍 Ara — Belge No · Takip No · Tedarikçi · Masraf Türü", key="md_ara").strip().lower()
+
+    def _gecer(s):
+        if f_tur != "Tümü" and s["Masraf Türü"] != f_tur:
+            return False
+        if f_tk != "Tümü" and s["Takip No"] != f_tk:
+            return False
+        if _ara and _ara not in (s["Belge No"] + " " + s["Takip No"] + " " +
+                                 s["Tedarikçi"] + " " + s["Masraf Türü"]).lower():
+            return False
+        return True
+
+    _flt = [s for s in satirlar if _gecer(s)]
+    if not _flt:
+        st.info("Filtre/aramayla eşleşen masraf kalemi yok.")
+        return
+
+    _toplam = sum(s["Tutar"] for s in _flt)
+    _dovizler = {s["Döviz"] for s in _flt}
+    _dov_lbl = list(_dovizler)[0] if len(_dovizler) == 1 else "karışık"
+    _metrik_satiri([
+        {"label": "Masraf Kalemi", "value": f"{len(_flt):,}", "renk": "#818CF8"},
+        {"label": "Toplam Tutar", "value": f"{_toplam:,.2f} {_dov_lbl}", "renk": "#FB923C"},
+        {"label": "Belge Sayısı", "value": f"{len({s['Belge No'] for s in _flt}):,}", "renk": "#34D399"},
+        {"label": "Masraf Türü Sayısı", "value": f"{len({s['Masraf Türü'] for s in _flt}):,}", "renk": "#A78BFA"},
+    ])
+
+    # Masraf türüne göre toplam
+    _tur_ozet = {}
+    for s in _flt:
+        _tur_ozet[s["Masraf Türü"]] = _tur_ozet.get(s["Masraf Türü"], 0.0) + s["Tutar"]
+    with st.expander("📊 Masraf Türüne Göre Toplam", expanded=False):
+        st.dataframe(
+            pd.DataFrame([{"Masraf Türü": k, "Toplam": f"{v:,.2f}"}
+                          for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
+            hide_index=True, use_container_width=True)
+
+    # Ana liste
+    _flt_sirali = sorted(_flt, key=lambda x: (x["Belge No"], x["Masraf Türü"]))
+    _df = pd.DataFrame([{
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": s["Tarih"],
+        "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
+        "Tutar": f"{s['Tutar']:,.2f}", "Döviz": s["Döviz"], "% (belge)": f"%{s['% (belge)']:.1f}",
+    } for s in _flt_sirali])
+    st.dataframe(_df, hide_index=True, use_container_width=True, height=520)
+    st.caption(f"{len(_flt)} masraf kalemi · Toplam {_toplam:,.2f} {_dov_lbl}")
+
+    # CSV indir
+    _csv = pd.DataFrame([{
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": s["Tarih"],
+        "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
+        "Tutar": round(s["Tutar"], 2), "Döviz": s["Döviz"],
+    } for s in _flt_sirali]).to_csv(index=False).encode("utf-8-sig")
+    st.download_button("⬇️ CSV indir", _csv, "ithalat_masraf_detaylari.csv",
+                       mime="text/csv", use_container_width=True, key="md_csv")
+
+
 def run():
     """İthalat modülü ana çalıştırıcı (portal tarafından çağrılır)."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
@@ -1238,7 +1333,7 @@ def run():
         st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
         sayfa = st.radio(
             "Sayfa",
-            ["📋  Geçmiş İthalatlar", "➕  Yeni İthalat", "🔍  Model Sorgu"],
+            ["📋  Geçmiş İthalatlar", "➕  Yeni İthalat", "🔍  Model Sorgu", "💸  Masraf Detayları"],
             label_visibility="collapsed", key="ith_sayfa",
         )
 
@@ -1246,5 +1341,7 @@ def run():
         _gecmis_ithalatlar()
     elif sayfa == "➕  Yeni İthalat":
         _yeni_ithalat()
-    else:
+    elif sayfa == "🔍  Model Sorgu":
         _model_sorgu()
+    else:
+        _masraf_detaylari()
