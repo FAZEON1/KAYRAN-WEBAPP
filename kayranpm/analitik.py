@@ -28,6 +28,34 @@ def stok_yasi_hesapla(ilk_giris_tarihi_str):
     except:
         return 0, "yok"
 
+
+def fifo_stok_yasi(partiler, mevcut_stok):
+    """
+    FIFO kuralıyla stok yaşı: en eski satılır, geriye kalan en eski partinin
+    belge tarihinden bugüne geçen gün.
+    partiler: [{"tarih": "YYYY-MM-DD", "adet": float}, ...] (ESKİ→YENİ)
+    Döner: (gun, renk, anchor_tarih). Parti/stok yoksa (None, None, None).
+    """
+    if not partiler or not mevcut_stok or mevcut_stok <= 0:
+        return None, None, None
+    toplam = sum((p.get("adet") or 0) for p in partiler)
+    if toplam <= 0:
+        return None, None, None
+    # FIFO: en eskiden tüketilir → tüketilen adet kadar en eski partileri düş
+    tuketilen = max(0.0, toplam - mevcut_stok)
+    anchor = None
+    for p in partiler:
+        ad = p.get("adet") or 0
+        if tuketilen >= ad:
+            tuketilen -= ad
+            continue
+        anchor = p.get("tarih")  # elde kalan en eski parti
+        break
+    if anchor is None:  # veri uyuşmazlığı (mevcut > toplam ithalat) → en yeni parti
+        anchor = partiler[-1].get("tarih")
+    gun, renk = stok_yasi_hesapla(anchor)
+    return gun, renk, anchor
+
 def kac_gunluk_satis(bizim_stok, haftalik_satis):
     """Bizim stok ile kaç günlük satış yapılabileceğini hesaplar"""
     if not haftalik_satis or haftalik_satis == 0:
@@ -242,6 +270,15 @@ def _ithalat_maliyet_map():
     try:
         from ithalat.database import get_sku_maliyet_ozet
         return get_sku_maliyet_ozet() or {}
+    except Exception:
+        return {}
+
+
+def _ithalat_partiler_map():
+    """İthalat modülünden SKU bazlı FIFO parti haritası (güvenli)."""
+    try:
+        from ithalat.database import get_sku_ithalat_partileri
+        return get_sku_ithalat_partileri() or {}
     except Exception:
         return {}
 
@@ -546,6 +583,7 @@ def dashboard_hesapla():
 
     dashboard_satirlar = []
     _ith_map = _ithalat_maliyet_map()
+    _ith_partiler = _ithalat_partiler_map()
 
     for urun in urunler:
         sku = urun["sku"]
@@ -561,9 +599,15 @@ def dashboard_hesapla():
         )
         toplam_stok = bizim_stok + toplam_firma_stok
 
-        # Stok yaşı
-        ilk_tarih = stok_yas_map.get(sku) or urun.get("ilk_giris_tarihi", "")
-        stok_gun, stok_renk = stok_yasi_hesapla(ilk_tarih)
+        # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
+        # ithalat partisi yoksa eski yönteme (ilk görülen tarih) düşer
+        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(sku, []), bizim_stok)
+        if _fifo_gun is not None:
+            stok_gun, stok_renk = _fifo_gun, _fifo_renk
+            ilk_tarih = _fifo_anchor
+        else:
+            ilk_tarih = stok_yas_map.get(sku) or urun.get("ilk_giris_tarihi", "")
+            stok_gun, stok_renk = stok_yasi_hesapla(ilk_tarih)
 
         # Firma bazlı veriler
         firma_satirlari = []
