@@ -40,7 +40,9 @@ FIRMA_ONERILER = ["EERA", "MONDAY", "VATAN", "İTOPYA", "HB", "DİĞER"]
 @st.cache_resource
 def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
+    # service_role_key varsa onu kullan (RLS aşılır, kayranacc ile tutarlı); yoksa anon key.
+    # Streamlit sunucu tarafında çalışır → bu anahtar tarayıcıya gönderilmez.
+    key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
     return create_client(url, key)
 
 
