@@ -35,6 +35,11 @@ MASRAF_ETIKET = dict(MASRAF_TANIM)
 # Eski sürüm (5 sabit kolon) — geriye dönük okuma için
 _ESKI_MASRAF = ["navlun", "gumruk", "sigorta", "nakliye", "diger"]
 
+# İthalat aşama (durum) seçenekleri. İlk 4'ü "yolda" sayılır; "Teslim Alındı" depoya girmiştir.
+DURUM_SECENEKLER = ["Üretimde", "Yolda", "Gümrükte", "Antrepoda", "Teslim Alındı"]
+IN_TRANSIT_DURUMLAR = {"Üretimde", "Yolda", "Gümrükte", "Antrepoda"}
+VARSAYILAN_DURUM = "Yolda"
+
 
 @st.cache_resource
 def _get_client() -> Client:
@@ -165,11 +170,13 @@ def get_tum_kalemler():
 @st.cache_data(ttl=60, show_spinner=False)
 def get_sku_maliyet_ozet():
     """
-    Her SKU için ithalat verisinden PAÇAL (adet-ağırlıklı ortalama) maliyet.
-    Dönen: {sku: {pacal_fob, pacal_final, toplam_adet, dosya_sayisi}}
+    Her SKU için ithalat verisinden PAÇAL (adet-ağırlıklı ortalama) + SON (en yeni dosya) maliyet.
+    Dönen: {sku: {pacal_fob, pacal_final, son_fob, son_final, son_tarih, toplam_adet, dosya_sayisi}}
       • dosya_yuzde = toplam_masraf / FOB * 100  (dosya bazında)
       • birim landed = birim_fob * (1 + dosya_yuzde/100)
       • paçal = tüm partilerdeki landed/fob değerlerinin adet-ağırlıklı ortalaması
+      • son   = en yeni TARİHLİ dosyadaki landed/fob (aynı dosyada birden çok kalem varsa
+                o dosya içinde adet-ağırlıklı ortalama)
     Not: Tüm tutarların aynı para biriminde (USD) olduğu varsayılır.
     """
     try:
@@ -181,13 +188,16 @@ def get_sku_maliyet_ozet():
         by_dosya = {}
         for k in kalemler:
             by_dosya.setdefault(k.get("dosya_id"), []).append(k)
-        # Her dosyanın masraf yüzdesi
+        # Her dosyanın masraf yüzdesi + tarihi
         dosya_map = {d.get("id"): d for d in dosyalar}
         dosya_yuzde = {}
+        dosya_tarih = {}
         for did, ks in by_dosya.items():
             dosya_yuzde[did] = dosya_hesapla(dosya_map.get(did, {}), ks).get("maliyet_yuzde", 0.0)
-        # SKU bazında ağırlıklı topla
+            dosya_tarih[did] = str((dosya_map.get(did, {}) or {}).get("tarih") or "")[:10]
+        # SKU bazında ağırlıklı topla (paçal) + dosya kırılımı (son için)
         agg = {}
+        son_agg = {}  # {sku: {dosya_id: {"fob_x","final_x","adet"}}}
         for k in kalemler:
             sku = (str(k.get("sku") or "")).strip()
             if not sku:
@@ -196,21 +206,44 @@ def get_sku_maliyet_ozet():
             fob = _f(k.get("birim_fob"))
             if adet <= 0:
                 continue
-            yuzde = dosya_yuzde.get(k.get("dosya_id"), 0.0)
+            did = k.get("dosya_id")
+            yuzde = dosya_yuzde.get(did, 0.0)
             final = fob * (1 + yuzde / 100.0)
             a = agg.setdefault(sku, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0, "dosyalar": set()})
             a["fob_x"] += fob * adet
             a["final_x"] += final * adet
             a["adet"] += adet
-            a["dosyalar"].add(k.get("dosya_id"))
+            a["dosyalar"].add(did)
+            # Son için: SKU+dosya kırılımında ağırlıklı topla
+            sd = son_agg.setdefault(sku, {}).setdefault(did, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0})
+            sd["fob_x"] += fob * adet
+            sd["final_x"] += final * adet
+            sd["adet"] += adet
         sonuc = {}
         for sku, a in agg.items():
             ad = a["adet"]
             if ad <= 0:
                 continue
+            # SON: en yeni tarihli dosyayı seç (tarih boşsa en geriye düşer)
+            son_fob = son_final = 0.0
+            son_tarih = ""
+            best_did = best_tarih = None
+            for did in son_agg.get(sku, {}):
+                t = dosya_tarih.get(did, "") or ""
+                if best_tarih is None or t > best_tarih:
+                    best_tarih, best_did = t, did
+            if best_did is not None:
+                sd = son_agg[sku][best_did]
+                if sd["adet"] > 0:
+                    son_fob = sd["fob_x"] / sd["adet"]
+                    son_final = sd["final_x"] / sd["adet"]
+                    son_tarih = dosya_tarih.get(best_did, "")
             sonuc[sku] = {
                 "pacal_fob": a["fob_x"] / ad,
                 "pacal_final": a["final_x"] / ad,
+                "son_fob": son_fob,
+                "son_final": son_final,
+                "son_tarih": son_tarih,
                 "toplam_adet": ad,
                 "dosya_sayisi": len(a["dosyalar"]),
             }
@@ -247,10 +280,13 @@ def get_sku_ithalat_partileri():
 
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
-               masraflar, notlar, kalemler, pi_no="", ithalat_takip_no=""):
+               masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
+               durum="", tahmini_varis=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
+    durum:     "Üretimde"|"Yolda"|"Gümrükte"|"Antrepoda"|"Teslim Alındı"
+    tahmini_varis: "YYYY-MM-DD" (gecikme riski hesabı için)
     Döner: (ok: bool, mesaj: str)."""
     sb = _get_client()
     try:
@@ -261,12 +297,15 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
+            "durum": durum or "",
+            "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
         }
         try:
             d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
         except Exception:
-            # ithalat_takip_no kolonu yoksa o alan olmadan tekrar dene
-            _payload.pop("ithalat_takip_no", None)
+            # Yeni opsiyonel kolonlar (ithalat_takip_no/durum/tahmini_varis) tabloda yoksa onlarsız tekrar dene
+            for _opt in ("durum", "tahmini_varis", "ithalat_takip_no"):
+                _payload.pop(_opt, None)
             d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
         if not d:
             return False, "Dosya eklenemedi (boş yanıt)."
@@ -290,7 +329,8 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
-                   masraflar, notlar, kalemler, ithalat_takip_no=""):
+                   masraflar, notlar, kalemler, ithalat_takip_no="",
+                   durum="", tahmini_varis=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -302,13 +342,16 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
+            "durum": durum or "",
+            "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
         }
         try:
             sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
         except Exception:
-            # ithalat_takip_no kolonu tabloda yoksa o alan olmadan tekrar dene
+            # Yeni opsiyonel kolonlar tabloda yoksa onlarsız tekrar dene
             # (masraf ve diğer bilgiler yine kaydedilsin).
-            _payload.pop("ithalat_takip_no", None)
+            for _opt in ("durum", "tahmini_varis", "ithalat_takip_no"):
+                _payload.pop(_opt, None)
             sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
         rows = []
@@ -349,3 +392,104 @@ def set_dosya_takip_no(dosya_id, takip_no):
         return True
     except Exception:
         return False
+
+
+def dagit_ortak_masraf(dosya_ids, ortak_masraflar):
+    """Ortak masrafları (tek takip nolu birden çok belge) seçili dosyalara
+    FOB (mal bedeli) payına göre ORANSAL dağıtır ve kaydeder.
+
+    Args:
+        dosya_ids       : dağıtım yapılacak dosya id listesi
+        ortak_masraflar : {slug: grup_toplam_tutar}  — grubun TOPLAM ortak masrafı
+
+    Davranış:
+        • Her dosyanın payı = dosya_mal_bedeli / grup_toplam_mal_bedeli (FOB).
+        • Toplam FOB 0 ise eşit bölüştürülür.
+        • Yalnızca GİRİLEN (≠0) slug'lar dosyaya yazılır; diğer mevcut masraflar korunur.
+    Döner: (ok: bool, mesaj: str).
+    """
+    sb = _get_client()
+    try:
+        if not dosya_ids:
+            return False, "Dosya seçilmedi."
+        temiz = {k: _f(v) for k, v in (ortak_masraflar or {}).items() if _f(v) != 0}
+        if not temiz:
+            return False, "Dağıtılacak masraf tutarı girilmedi."
+        # Her dosyanın mal bedeli (FOB) — tek sorguda
+        kalemler = get_tum_kalemler()
+        fob_by_dosya = {}
+        for k in kalemler:
+            did = k.get("dosya_id")
+            if did in dosya_ids:
+                fob_by_dosya[did] = fob_by_dosya.get(did, 0.0) + _f(k.get("adet")) * _f(k.get("birim_fob"))
+        toplam_fob = sum(fob_by_dosya.get(d, 0.0) for d in dosya_ids)
+        dosya_map = {d["id"]: d for d in get_dosyalar() if d["id"] in dosya_ids}
+        n = len(dosya_ids)
+        guncellenen = 0
+        for did in dosya_ids:
+            d = dosya_map.get(did)
+            if not d:
+                continue
+            pay = (fob_by_dosya.get(did, 0.0) / toplam_fob) if toplam_fob > 0 else (1.0 / n)
+            mevcut = _masraf_dict(d)  # {slug: tutar} — mevcut masraflar korunur
+            for slug, toplam in temiz.items():
+                mevcut[slug] = round(toplam * pay, 2)
+            mevcut = {k: v for k, v in mevcut.items() if _f(v) != 0}
+            sb.table("ithalat_dosyalari").update({"masraflar": mevcut}).eq("id", did).execute()
+            guncellenen += 1
+        _temizle()
+        return True, f"✅ Ortak masraf {guncellenen} belgeye FOB payına göre dağıtıldı."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
+
+
+def get_ithalat_yolda_ozet():
+    """Yolda sayılan (Teslim Alınmamış) ithalat dosyalarının SKU bazında toplam miktarı
+    + en yakın tahmini varış tarihi.
+
+    Yolda sayılan durumlar: Üretimde / Yolda / Gümrükte / Antrepoda.
+    'Teslim Alındı' veya boş durum (eski kayıtlar) yolda SAYILMAZ.
+
+    Dönen: {sku: {"yoldaki_miktar": float, "varis_tarihi": "YYYY-MM-DD"|"", "durumlar": [..]}}
+    """
+    try:
+        dosyalar = get_dosyalar()
+        kalemler = get_tum_kalemler()
+        if not kalemler:
+            return {}
+        durum_map, varis_map = {}, {}
+        for d in dosyalar:
+            durum = str(d.get("durum", "") or "").strip()
+            if durum in IN_TRANSIT_DURUMLAR:
+                durum_map[d.get("id")] = durum
+                varis_map[d.get("id")] = str(d.get("tahmini_varis", "") or "")[:10]
+        if not durum_map:
+            return {}
+        agg = {}
+        for k in kalemler:
+            did = k.get("dosya_id")
+            if did not in durum_map:
+                continue
+            sku = str(k.get("sku") or "").strip()
+            if not sku:
+                continue
+            adet = _f(k.get("adet"))
+            if adet <= 0:
+                continue
+            a = agg.setdefault(sku, {"miktar": 0.0, "varis_set": set(), "durumlar": set()})
+            a["miktar"] += adet
+            a["durumlar"].add(durum_map[did])
+            v = varis_map.get(did, "")
+            if v:
+                a["varis_set"].add(v)
+        out = {}
+        for sku, a in agg.items():
+            varis = min(a["varis_set"]) if a["varis_set"] else ""  # en yakın tarih
+            out[sku] = {
+                "yoldaki_miktar": a["miktar"],
+                "varis_tarihi": varis,
+                "durumlar": sorted(a["durumlar"]),
+            }
+        return out
+    except Exception:
+        return {}

@@ -15,7 +15,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
-    set_dosya_takip_no,
+    set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
 )
 
 
@@ -340,6 +340,7 @@ def _gecmis_ithalatlar():
             "Toplam Masraf": h["toplam_masraf"],
             "% Maliyet": h["maliyet_yuzde"],
             "Kalem": h["kalem_sayisi"],
+            "Aşama": d.get("durum", "") or "—",
             "Durum": "✅ Tamam" if h["toplam_masraf"] > 0 else "⏳ Bekliyor",
         })
 
@@ -352,6 +353,76 @@ def _gecmis_ithalatlar():
         {"label": "Toplam Masraf", "value": f"${toplam_masraf:,.0f}", "renk": "#FB923C"},
         {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.1f}", "renk": "#A78BFA"},
     ])
+
+    # ── 🧾 Ortak Masraf Dağıt — Takip No bazlı (FOB payına göre oransal) ──
+    _takip_gruplari = {}
+    for _d in dosyalar:
+        _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
+        if _tk:
+            _takip_gruplari.setdefault(_tk, []).append(_d)
+    with st.expander("🧾 Ortak Masraf Dağıt — Takip No bazlı (FOB payına göre)", expanded=False):
+        st.caption("Aynı İthalat Takip No'lu birden çok belgeye tek seferde ortak masraf (örn. navlun) girin; "
+                   "her belgenin **mal bedeli (FOB) payına göre** oransal dağıtılır.")
+        if not _takip_gruplari:
+            st.info("Henüz takip nolu belge yok. Düzenleme ekranından dosyalara **İthalat Takip No** girince "
+                    "aynı numaralı belgeler burada gruplanır.")
+        else:
+            _tk_secenek = sorted(_takip_gruplari.keys())
+            _sec_tk = st.selectbox("Takip No seç", _tk_secenek, key="ith_ortak_tk")
+            _grup_dosyalar = _takip_gruplari.get(_sec_tk, [])
+            _grup_bilgi, _grup_toplam_fob = [], 0.0
+            for _gd in _grup_dosyalar:
+                _gkal = _kalem_by_dosya.get(_gd["id"], [])
+                _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _gkal)
+                _grup_toplam_fob += _mb
+                _grup_bilgi.append((_gd, _mb))
+            _dv0 = (_grup_dosyalar[0].get("doviz", "USD") or "USD") if _grup_dosyalar else "USD"
+            _dovizler_grup = {str(_gd.get("doviz", "USD") or "USD") for _gd in _grup_dosyalar}
+            st.markdown(
+                f'<div style="font-size:12.5px;color:#CBD5E1;margin:2px 0 8px">'
+                f'<b>{len(_grup_dosyalar)}</b> belge · Toplam Mal Bedeli (FOB): '
+                f'<b style="color:#34D399">{_grup_toplam_fob:,.2f} {_dv0}</b></div>',
+                unsafe_allow_html=True)
+            if len(_dovizler_grup) > 1:
+                st.warning(f"⚠️ Bu takip altında farklı para birimleri var ({', '.join(sorted(_dovizler_grup))}). "
+                           "Ortak masraf tek para biriminde girilmeli — dağıtım tutarları döviz farkı gözetmez.")
+            _pay_html = "<div style='font-size:12px;color:#94A3B8;margin:0 0 10px;line-height:1.7'>"
+            for _gd, _mb in _grup_bilgi:
+                _pay = (_mb / _grup_toplam_fob * 100) if _grup_toplam_fob > 0 else (100.0 / max(len(_grup_bilgi), 1))
+                _bno = _gd.get("pi_no", "") or _gd.get("dosya_no", "") or "—"
+                _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_mb:,.0f} {_dv0} "
+                              f"<span style='color:#A78BFA'>(pay %{_pay:.1f})</span><br>")
+            _pay_html += "</div>"
+            st.markdown(_pay_html, unsafe_allow_html=True)
+
+            st.markdown("**Ortak masraf tutarları** — grubun toplamı (dağıtılacak):")
+            _ortak = {}
+            for _b in range(0, len(MASRAF_TANIM), 4):
+                _grup_m = MASRAF_TANIM[_b:_b + 4]
+                _cols = st.columns(4)
+                for _j, (_slug, _label) in enumerate(_grup_m):
+                    _ortak[_slug] = _cols[_j].number_input(
+                        _label, min_value=0.0, value=0.0, step=1.0,
+                        key=f"ith_ortak_{_sec_tk}_{_slug}")
+            _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
+            if _girilen:
+                _toplam_ortak = sum(_girilen.values())
+                st.caption(f"Girilen toplam ortak masraf: **{_toplam_ortak:,.2f} {_dv0}** "
+                           f"→ {len(_grup_dosyalar)} belgeye FOB payına göre dağıtılacak. "
+                           "(Not: girilen masraf kalemleri ilgili belgelerde **üzerine yazılır**, "
+                           "diğer masraflar korunur.)")
+            if st.button("📊 Dağıt ve Kaydet", type="primary", use_container_width=True, key="ith_ortak_dagit"):
+                if not _girilen:
+                    st.warning("En az bir masraf tutarı gir.")
+                else:
+                    _ids = [_gd["id"] for _gd in _grup_dosyalar]
+                    with st.spinner("💾 Dağıtılıyor..."):
+                        _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen)
+                    if _ok_d:
+                        st.success(_msg_d)
+                        st.rerun()
+                    else:
+                        st.error(_msg_d)
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
@@ -412,7 +483,8 @@ def _gecmis_ithalatlar():
         "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—", "Tarih": s["Tarih"],
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${s['Mal Bedeli']:,.0f}", "Masraf": f"${s['Toplam Masraf']:,.0f}",
-        "% Maliyet": f"%{s['% Maliyet']:.1f}", "Kalem": s["Kalem"], "Durum": s["Durum"],
+        "% Maliyet": f"%{s['% Maliyet']:.1f}", "Kalem": s["Kalem"],
+        "Aşama": s["Aşama"], "Durum": s["Durum"],
     } for s in satirlar_goster])
     _evt = st.dataframe(
         _df_show, hide_index=True, height=420,
@@ -430,7 +502,7 @@ def _gecmis_ithalatlar():
     did = dosyalar_goster[_sel[0]]["id"]
     d, kal, h = hesap_map[did]
 
-    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + str(d.get("tahmini_varis",""))[:10] + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
@@ -440,10 +512,10 @@ def _gecmis_ithalatlar():
         st.caption(
             "Masraf kalemleri → "
             + " · ".join(f"{ad}: {tutar:,.0f}" for ad, tutar in _dokum)
-            + f" · Kur: {float(d.get('kur', 1) or 1):,.2f}"
+            + f" · Kur: {float(d.get('kur', 1) or 1):,.5f}"
         )
     else:
-        st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.2f}")
+        st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.5f}")
 
     y = h["maliyet_yuzde"] / 100
     krows = []
@@ -477,7 +549,7 @@ def _gecmis_ithalatlar():
             _dv_list = ["USD", "EUR", "CNY", "TL"]
             _dv = str(d.get("doviz", "USD") or "USD")
             e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
-            e_kur = ec3.number_input("Kur", min_value=0.0, value=float(d.get("kur", 1) or 1), step=0.01)
+            e_kur = ec3.number_input("Kur", min_value=0.0, value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f")
             e_takip = ec3.text_input("İthalat Takip No", value=str(d.get("ithalat_takip_no", "") or ""),
                                      help="Masrafı giren kişinin kendi takibi için")
             try:
@@ -486,6 +558,25 @@ def _gecmis_ithalatlar():
                 _td = date.today()
             e_tarih = ec1.date_input("Tarih", value=_td)
             e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
+
+            # Aşama (durum) + tahmini varış
+            _alt_baslik("🚚 Aşama / Durum · tahmini varış")
+            _cur_durum = str(d.get("durum", "") or "").strip()
+            _durum_idx = (DURUM_SECENEKLER.index(_cur_durum) if _cur_durum in DURUM_SECENEKLER
+                          else DURUM_SECENEKLER.index(VARSAYILAN_DURUM))
+            dcc1, dcc2 = st.columns([2.4, 1])
+            with dcc1:
+                e_durum = st.radio("durum_e", DURUM_SECENEKLER, index=_durum_idx,
+                                   horizontal=True, label_visibility="collapsed",
+                                   key=f"ith_edit_durum_{did}")
+            with dcc2:
+                try:
+                    _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
+                except Exception:
+                    _tv = date.today()
+                e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
+            st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
+                       "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
 
             _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
             _kdf = pd.DataFrame([
@@ -527,21 +618,14 @@ def _gecmis_ithalatlar():
                 with st.spinner("💾 Kaydediliyor..."):
                     ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
                                              e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
-                                             ithalat_takip_no=e_takip.strip())
+                                             ithalat_takip_no=e_takip.strip(),
+                                             durum=e_durum,
+                                             tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""))
                 if ok:
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
                 else:
                     st.error(msg)
-
-    with st.expander("🗑️ Bu dosyayı sil"):
-        st.warning("Bu işlem dosyayı ve tüm kalemlerini kalıcı olarak siler.")
-        if st.button("Evet, sil", key="ith_sil_btn"):
-            if sil_dosya(did):
-                st.success("Dosya silindi.")
-                st.rerun()
-            else:
-                st.error("Silinemedi.")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -566,7 +650,25 @@ def _yeni_ithalat():
             with c3:
                 tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
                 doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
-                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.01, key="m_kur")
+                kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0, value=1.0, step=0.00001, format="%.5f", key="m_kur")
+
+            # Aşama (durum) çubuğu + tahmini varış
+            dc1, dc2 = st.columns([2.4, 1])
+            with dc1:
+                st.markdown('<div class="ith-th" style="margin-bottom:4px">Aşama / Durum</div>', unsafe_allow_html=True)
+                durum = st.radio("durum", DURUM_SECENEKLER,
+                                 index=DURUM_SECENEKLER.index(VARSAYILAN_DURUM),
+                                 horizontal=True, label_visibility="collapsed", key="m_durum")
+            with dc2:
+                _yolda_mi = durum in IN_TRANSIT_DURUMLAR
+                tahmini_varis = st.date_input(
+                    "Tahmini Varış", value=date.today(), key="m_tahmini_varis",
+                    help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
+            if durum in IN_TRANSIT_DURUMLAR:
+                st.caption(f"📦 Bu dosya **'{durum}'** aşamasında → kalemleri Ürün Yönetimi'nde **yolda** görünecek "
+                           "ve sipariş önerisinde hesaba katılacak.")
+            else:
+                st.caption("✅ **Teslim Alındı** → yolda sayılmaz (depoya girmiş kabul edilir).")
 
         with st.container(border=True):
             _alt_baslik("📦 Ürün Kalemleri · katalogdan ürün seç")
@@ -627,7 +729,9 @@ def _yeni_ithalat():
                     if not (str(r.get("urun_adi") or "")).strip():
                         r["urun_adi"] = katalog.get((str(r.get("sku") or "")).strip(), "")
                 ok, msg = ekle_dosya(dosya_no.strip(), tarih, tedarikci, mense, doviz, kur,
-                                     {}, "", _kalemler, pi_no=pi_no.strip())
+                                     {}, "", _kalemler, pi_no=pi_no.strip(),
+                                     durum=durum,
+                                     tahmini_varis=(tahmini_varis if durum in IN_TRANSIT_DURUMLAR else ""))
                 (st.success if ok else st.error)(msg)
                 if ok:
                     # Formu temizle
@@ -957,18 +1061,33 @@ def _model_sorgu():
     _pw = [(s["Adet"], s["Final Birim Maliyet"]) for s in satirlar if s["Adet"] > 0 and s["Birim FOB"] > 0]
     _pw_adet = sum(a for a, _ in _pw)
     pacal_ort = (sum(a * f for a, f in _pw) / _pw_adet) if _pw_adet > 0 else None
+    # SON: en yeni TARİHLİ alımın FOB/maliyeti (aynı tarihte birden çok satır varsa adet-ağırlıklı)
+    son_fob_v = son_mal_v = None
+    son_tarih_v = ""
+    if satirlar:
+        _max_t = max((s["Tarih"] or "") for s in satirlar)
+        _son_rows = [s for s in satirlar if (s["Tarih"] or "") == _max_t and s["Adet"] > 0 and s["Birim FOB"] > 0]
+        _son_adet = sum(s["Adet"] for s in _son_rows)
+        if _son_adet > 0:
+            son_fob_v = sum(s["Adet"] * s["Birim FOB"] for s in _son_rows) / _son_adet
+            son_mal_v = sum(s["Adet"] * s["Final Birim Maliyet"] for s in _son_rows) / _son_adet
+            son_tarih_v = _max_t
     _dv = (satirlar[0]["Döviz"] if satirlar else "") or ""
     _ort_fob = f"${(sum(fobs)/len(fobs)):,.2f}" if fobs else "—"
-    _mnmx = f"${min(fobs):,.0f} – ${max(fobs):,.0f}" if fobs else "—"
     _pacal = f"${pacal_ort:,.2f}" if pacal_ort else "—"
+    _son_fob = f"${son_fob_v:,.2f}" if son_fob_v else "—"
+    _son_mal = f"${son_mal_v:,.2f}" if son_mal_v else "—"
+    _son_help = (f"En yeni tarihli ({son_tarih_v}) ithalat dosyasındaki değer."
+                 if son_tarih_v else "En yeni ithalat dosyasındaki değer.")
     _metrik_satiri([
         {"label": "Toplam Alım Adedi", "value": f"{toplam_adet:,.0f}", "renk": "#22D3EE"},
         {"label": "Sipariş Sayısı", "value": f"{len(satirlar):,}", "renk": "#818CF8"},
         {"label": "Ort. Birim FOB", "value": _ort_fob, "renk": "#60A5FA"},
-        {"label": "Min – Maks FOB", "value": _mnmx, "renk": "#FBBF24"},
+        {"label": "Son FOB", "value": _son_fob, "renk": "#38BDF8", "help": _son_help},
         {"label": "⭐ Paçal Birim Maliyet", "value": _pacal, "renk": "#FCD34D",
          "help": "Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
                  "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir."},
+        {"label": "Son Birim Maliyet", "value": _son_mal, "renk": "#FCD34D", "help": _son_help},
     ])
 
     _tablo(df, para=["Birim FOB", "Final Birim Maliyet"], yuzde=["% Maliyet"],
