@@ -540,56 +540,38 @@ def _gecmis_ithalatlar():
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
 
-        # 1) Mevcut masrafları tüm ithalata eşit %'ye yay (tek oran)
-        st.markdown("**1) Mevcut masrafları tüm ithalata eşit %'ye yay** — seçili belgelerin tüm masrafı "
-                    "toplanıp FOB payına göre yeniden dağıtılır; her belge **aynı orana** gelir.")
-        if st.button("🔁 Mevcut Masrafları Eşit %'ye Yay (FOB payına göre)",
-                     use_container_width=True, key="ith_yay_esit",
-                     disabled=(_sec_mevcut_masraf <= 0)):
-            _combined = {}
-            for _sd in _sec_dosyalar:
-                for _slug, _v in _masraf_dict(_sd).items():
-                    _combined[_slug] = _combined.get(_slug, 0.0) + float(_v or 0)
-            with st.spinner("🔁 Yayılıyor..."):
-                _ok_y, _msg_y = dagit_ortak_masraf([s["id"] for s in _sec_dosyalar], _combined)
-            if _ok_y:
-                st.success(f"✅ Tüm masraf eşit orana yayıldı — birleşik % {_birlesik_yuzde:.2f}.")
-                st.rerun()
-            else:
-                st.error(_msg_y)
+        # Seçili belgelerin MEVCUT masraf toplamı (slug bazında) — kutular bununla DOLU gelir
+        _sec_mevcut_kalem = {}
+        for _sd in _sec_dosyalar:
+            for _slug, _v in _masraf_dict(_sd).items():
+                _sec_mevcut_kalem[_slug] = _sec_mevcut_kalem.get(_slug, 0.0) + float(_v or 0)
 
-        st.divider()
-
-        # 2) Yeni ortak masraf ekle/güncelle
-        st.markdown("**2) Yeni ortak masraf ekle/güncelle** — seçili belgelerin TOPLAMI (FOB payına göre dağıtılır):")
+        st.markdown("**Ortak masraf — seçili belgelerin toplamı.** Kutular **girdiğin mevcut masraflarla dolu** gelir; "
+                    "bakıp kontrol edebilir, düzenleyip kaydedebilirsin.")
         _ortak = {}
         for _b in range(0, len(MASRAF_TANIM), 4):
             _grup_m = MASRAF_TANIM[_b:_b + 4]
             _cols = st.columns(4)
             for _j, (_slug, _label) in enumerate(_grup_m):
                 _ortak[_slug] = _cols[_j].number_input(
-                    _label, min_value=0.0, value=0.0, step=1.0,
+                    _label, min_value=0.0, value=float(_sec_mevcut_kalem.get(_slug, 0.0)), step=1.0,
                     key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
         _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
-        if _girilen:
-            _toplam_ortak = sum(_girilen.values())
-            # Dağıtım sonrası birleşik % (girilen slug'lar üzerine yazılır, diğerleri korunur)
-            _entered = set(_girilen.keys())
-            _korunan = sum(float(_v or 0) for _sd in _sec_dosyalar
-                           for _slug, _v in _masraf_dict(_sd).items() if _slug not in _entered)
-            _proj_masraf = _korunan + _toplam_ortak
-            _proj_yuzde = (_proj_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
-            st.caption(f"Girilen toplam: **{_toplam_ortak:,.2f} {_dv0}** → {len(_sec_dosyalar)} belgeye FOB payına "
-                       f"göre dağıtılacak. **Dağıtım sonrası birleşik % ≈ %{_proj_yuzde:.2f}** "
-                       "(her belge aynı orana gelir). Girilen kalemler üzerine yazılır, diğer masraflar korunur.")
-        if st.button("📊 Dağıt ve Kaydet", type="primary", use_container_width=True, key="ith_ortak_dagit_tablo"):
+        st.caption("ℹ️ **Kaydet**, girilen tutarları seçili belgelere FOB payına göre yazar (ortak masraf mantığı). "
+                   "Sadece bakmak istiyorsan kaydetme. **Tek bir belgenin masrafını birebir düzenlemek** için "
+                   "o belgeyi **tek başına seç** — düzenleme formunda o belgenin kendi değerleri çıkar.")
+        if st.button("💾 Kaydet (FOB payına göre dağıt)", type="primary",
+                     use_container_width=True, key="ith_ortak_dagit_tablo"):
             if not _girilen:
                 st.warning("En az bir masraf tutarı gir.")
             else:
                 _ids = [_sd["id"] for _sd in _sec_dosyalar]
-                with st.spinner("💾 Dağıtılıyor..."):
+                with st.spinner("💾 Kaydediliyor..."):
                     _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen)
                 if _ok_d:
+                    # Kutuları DB'den tazele (kaydedilen yeni değerler dolu gelsin)
+                    for _slug, _ in MASRAF_TANIM:
+                        st.session_state.pop(f"ith_ortak_mas_{_sec_sig}_{_slug}", None)
                     st.success(_msg_d)
                     st.rerun()
                 else:
