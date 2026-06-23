@@ -540,6 +540,39 @@ def _gecmis_ithalatlar():
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
 
+        # Masraf dengesiz mi? (biri dolu/biri boş veya %'ler farklı) → tek tıkla FOB payına göre dağıt
+        _doc_yuzdeler = []
+        for _sd, _mb in _sec_bilgi:
+            _dm = sum(float(_v or 0) for _v in _masraf_dict(_sd).values())
+            _doc_yuzdeler.append((_dm / _mb * 100) if _mb > 0 else 0.0)
+        _bos_belge_var = any(abs(_y) < 0.001 for _y in _doc_yuzdeler)
+        _dengesiz = (max(_doc_yuzdeler) - min(_doc_yuzdeler) > 0.1) if _doc_yuzdeler else False
+        if _sec_mevcut_masraf > 0 and (_bos_belge_var or _dengesiz):
+            st.markdown(
+                f'<div style="background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.32);'
+                f'border-radius:10px;padding:9px 14px;margin:0 0 8px;font-size:12.5px;color:#FDBA74">'
+                f'⚠️ Masraf belgelere eşit dağılmamış — bazı belgeler boş/%0. '
+                f'Aşağıdaki düğmeyle takibin <b>tüm masrafını</b> ({_sec_mevcut_masraf:,.0f} {_dv0}) '
+                f'belgelere <b>FOB payına göre</b> dağıtabilirsin: hepsi <b>%{_birlesik_yuzde:.2f}</b> olur, '
+                f'boş belgeler dolar ve hepsi <b>"Tamam"</b> görünür.</div>',
+                unsafe_allow_html=True)
+            if st.button("🔄 Takibin masrafını tüm belgelere FOB payına göre dağıt (boş belgeler dolsun)",
+                         use_container_width=True, key="ith_takip_dagit"):
+                _combined = {}
+                for _sd in _sec_dosyalar:
+                    for _slug, _v in _masraf_dict(_sd).items():
+                        _combined[_slug] = _combined.get(_slug, 0.0) + float(_v or 0)
+                with st.spinner("🔄 Dağıtılıyor..."):
+                    _ok_t, _msg_t = dagit_ortak_masraf([s["id"] for s in _sec_dosyalar], _combined)
+                if _ok_t:
+                    for _slug, _ in MASRAF_TANIM:
+                        st.session_state.pop(f"ith_ortak_mas_{_sec_sig}_{_slug}", None)
+                    st.success(f"✅ Masraf {len(_sec_dosyalar)} belgeye dağıtıldı — hepsi %{_birlesik_yuzde:.2f}.")
+                    st.rerun()
+                else:
+                    st.error(_msg_t)
+            st.divider()
+
         # Seçili belgelerin MEVCUT masraf toplamı (slug bazında) — kutular bununla DOLU gelir
         _sec_mevcut_kalem = {}
         for _sd in _sec_dosyalar:
