@@ -504,26 +504,58 @@ def _gecmis_ithalatlar():
         _dovizler_sec = {str(_sd.get("doviz", "USD") or "USD") for _sd in _sec_dosyalar}
         _takipler_sec = {str(_sd.get("ithalat_takip_no", "") or "").strip() for _sd in _sec_dosyalar if str(_sd.get("ithalat_takip_no", "") or "").strip()}
 
-        _alt_baslik(f"🧾 Ortak Masraf Dağıt — {len(_sec_dosyalar)} belge seçili")
-        st.markdown(
-            f'<div style="font-size:12.5px;color:#CBD5E1;margin:2px 0 8px">'
-            f'Seçili <b>{len(_sec_dosyalar)}</b> belge · Toplam Mal Bedeli (FOB): '
-            f'<b style="color:#34D399">{_sec_toplam_fob:,.2f} {_dv0}</b>'
-            + (f' · Takip No: <b style="color:#38BDF8">{", ".join(sorted(_takipler_sec))}</b>' if _takipler_sec else "")
-            + '</div>', unsafe_allow_html=True)
+        _alt_baslik(f"🧾 Ortak Masraf — {len(_sec_dosyalar)} belge seçili (tek ithalat gibi)")
+        # Birleşik mevcut masraf + birleşik % (o ithalatın tek oranı)
+        _sec_mevcut_masraf = 0.0
+        for _sd in _sec_dosyalar:
+            _sec_mevcut_masraf += sum(float(_v or 0) for _v in _masraf_dict(_sd).values())
+        _birlesik_yuzde = (_sec_mevcut_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
+        _metrik_satiri([
+            {"label": "Birleşik Mal Bedeli (FOB)", "value": f"{_sec_toplam_fob:,.0f} {_dv0}", "renk": "#34D399"},
+            {"label": "Birleşik Masraf", "value": f"{_sec_mevcut_masraf:,.0f} {_dv0}", "renk": "#FB923C"},
+            {"label": "⭐ Birleşik % Maliyet", "value": f"%{_birlesik_yuzde:.2f}", "renk": "#FCD34D",
+             "help": "Seçili tüm belgelerin TOPLAM masrafı / TOPLAM mal bedeli — o ithalatın tek ortalama oranı."},
+            {"label": "Belge Sayısı", "value": f"{len(_sec_dosyalar)}", "renk": "#818CF8"},
+        ])
+        if _takipler_sec:
+            st.caption("🔗 Takip No: " + ", ".join(sorted(_takipler_sec)))
         if len(_dovizler_sec) > 1:
             st.warning(f"⚠️ Seçili belgelerde farklı para birimleri var ({', '.join(sorted(_dovizler_sec))}). "
                        "Ortak masraf tek para biriminde girilmeli — dağıtım döviz farkı gözetmez.")
         _pay_html = "<div style='font-size:12px;color:#94A3B8;margin:0 0 10px;line-height:1.7'>"
         for _sd, _mb in _sec_bilgi:
             _pay = (_mb / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else (100.0 / max(len(_sec_bilgi), 1))
+            _doc_masraf = sum(float(_v or 0) for _v in _masraf_dict(_sd).values())
+            _doc_yuzde = (_doc_masraf / _mb * 100) if _mb > 0 else 0.0
             _bno = _sd.get("pi_no", "") or _sd.get("dosya_no", "") or "—"
             _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_mb:,.0f} {_dv0} "
-                          f"<span style='color:#A78BFA'>(pay %{_pay:.1f})</span><br>")
+                          f"<span style='color:#A78BFA'>(FOB pay %{_pay:.1f})</span> "
+                          f"<span style='color:#94A3B8'>· şu anki % {_doc_yuzde:.1f}</span><br>")
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
 
-        st.markdown("**Ortak masraf tutarları** — seçili belgelerin TOPLAMI (FOB payına göre dağıtılacak):")
+        # 1) Mevcut masrafları tüm ithalata eşit %'ye yay (tek oran)
+        st.markdown("**1) Mevcut masrafları tüm ithalata eşit %'ye yay** — seçili belgelerin tüm masrafı "
+                    "toplanıp FOB payına göre yeniden dağıtılır; her belge **aynı orana** gelir.")
+        if st.button("🔁 Mevcut Masrafları Eşit %'ye Yay (FOB payına göre)",
+                     use_container_width=True, key="ith_yay_esit",
+                     disabled=(_sec_mevcut_masraf <= 0)):
+            _combined = {}
+            for _sd in _sec_dosyalar:
+                for _slug, _v in _masraf_dict(_sd).items():
+                    _combined[_slug] = _combined.get(_slug, 0.0) + float(_v or 0)
+            with st.spinner("🔁 Yayılıyor..."):
+                _ok_y, _msg_y = dagit_ortak_masraf([s["id"] for s in _sec_dosyalar], _combined)
+            if _ok_y:
+                st.success(f"✅ Tüm masraf eşit orana yayıldı — birleşik % {_birlesik_yuzde:.2f}.")
+                st.rerun()
+            else:
+                st.error(_msg_y)
+
+        st.divider()
+
+        # 2) Yeni ortak masraf ekle/güncelle
+        st.markdown("**2) Yeni ortak masraf ekle/güncelle** — seçili belgelerin TOPLAMI (FOB payına göre dağıtılır):")
         _ortak = {}
         for _b in range(0, len(MASRAF_TANIM), 4):
             _grup_m = MASRAF_TANIM[_b:_b + 4]
@@ -535,9 +567,15 @@ def _gecmis_ithalatlar():
         _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
         if _girilen:
             _toplam_ortak = sum(_girilen.values())
-            st.caption(f"Girilen toplam ortak masraf: **{_toplam_ortak:,.2f} {_dv0}** → "
-                       f"{len(_sec_dosyalar)} belgeye FOB payına göre dağıtılacak. "
-                       "(Girilen masraf kalemleri ilgili belgelerde **üzerine yazılır**, diğer masraflar korunur.)")
+            # Dağıtım sonrası birleşik % (girilen slug'lar üzerine yazılır, diğerleri korunur)
+            _entered = set(_girilen.keys())
+            _korunan = sum(float(_v or 0) for _sd in _sec_dosyalar
+                           for _slug, _v in _masraf_dict(_sd).items() if _slug not in _entered)
+            _proj_masraf = _korunan + _toplam_ortak
+            _proj_yuzde = (_proj_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
+            st.caption(f"Girilen toplam: **{_toplam_ortak:,.2f} {_dv0}** → {len(_sec_dosyalar)} belgeye FOB payına "
+                       f"göre dağıtılacak. **Dağıtım sonrası birleşik % ≈ %{_proj_yuzde:.2f}** "
+                       "(her belge aynı orana gelir). Girilen kalemler üzerine yazılır, diğer masraflar korunur.")
         if st.button("📊 Dağıt ve Kaydet", type="primary", use_container_width=True, key="ith_ortak_dagit_tablo"):
             if not _girilen:
                 st.warning("En az bir masraf tutarı gir.")
@@ -560,6 +598,21 @@ def _gecmis_ithalatlar():
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
+    # Bu belge bir takip no'ya aitse → o ithalatın (takibin) BİRLEŞİK % maliyetini üstte göster
+    _bu_takip = str(d.get("ithalat_takip_no", "") or "").strip()
+    if _bu_takip:
+        _tk_dosyalar = [x for x in dosyalar if str(x.get("ithalat_takip_no", "") or "").strip() == _bu_takip]
+        if len(_tk_dosyalar) >= 2:
+            _tk_mal = sum(hesap_map[x["id"]][2]["mal_bedeli"] for x in _tk_dosyalar)
+            _tk_mas = sum(hesap_map[x["id"]][2]["toplam_masraf"] for x in _tk_dosyalar)
+            _tk_yuzde = (_tk_mas / _tk_mal * 100) if _tk_mal > 0 else 0.0
+            st.markdown(
+                f'<div style="background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.28);'
+                f'border-radius:10px;padding:9px 14px;margin:0 0 12px;font-size:12.5px;color:#FCD34D">'
+                f'🔗 Bu takip no\'ya (<b>{_bu_takip}</b>) ait <b>{len(_tk_dosyalar)}</b> belgenin '
+                f'<b>Birleşik % Maliyeti: %{_tk_yuzde:.2f}</b> '
+                f'<span style="color:#94A3B8">· toplam masraf {_tk_mas:,.0f} / toplam mal bedeli {_tk_mal:,.0f}</span></div>',
+                unsafe_allow_html=True)
     _masraf_karti(d, h)
     _dokum = masraf_dokumu(d)
     if _dokum:
