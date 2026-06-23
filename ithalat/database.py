@@ -97,15 +97,28 @@ def masraf_dokumu(dosya):
 
 
 def dosya_hesapla(dosya, kalemler):
-    """Türetilmiş değerler: mal_bedeli, toplam_masraf, maliyet_yuzde, kalem_sayisi, toplam_adet."""
-    mal_bedeli = sum(_f(k.get("adet")) * _f(k.get("birim_fob")) for k in kalemler)
+    """Türetilmiş değerler: mal_bedeli (brüt), indirim, net_mal_bedeli,
+    toplam_masraf, maliyet_yuzde (masraf / NET mal bedeli), kalem_sayisi, toplam_adet.
+
+    Fatura altı indirim: net_mal_bedeli = brüt − indirim. % maliyet ve SKU birim
+    maliyetleri NET üzerinden hesaplanır (indirim yoksa net = brüt, davranış değişmez).
+    """
+    mal_bedeli = sum(_f(k.get("adet")) * _f(k.get("birim_fob")) for k in kalemler)  # brüt FOB
+    indirim = _f((dosya or {}).get("fatura_indirim", 0))
+    if indirim < 0:
+        indirim = 0.0
+    if indirim > mal_bedeli:
+        indirim = mal_bedeli  # net negatif olmasın
+    net_mal_bedeli = mal_bedeli - indirim
     toplam_masraf = sum(v for _, v in masraf_dokumu(dosya))
-    yuzde = (toplam_masraf / mal_bedeli * 100) if mal_bedeli > 0 else 0.0
+    yuzde = (toplam_masraf / net_mal_bedeli * 100) if net_mal_bedeli > 0 else 0.0
     toplam_adet = sum(_f(k.get("adet")) for k in kalemler)
     return {
-        "mal_bedeli": mal_bedeli,
+        "mal_bedeli": mal_bedeli,          # brüt (indirimsiz)
+        "indirim": indirim,                # fatura altı indirim (tutar)
+        "net_mal_bedeli": net_mal_bedeli,  # brüt − indirim
         "toplam_masraf": toplam_masraf,
-        "maliyet_yuzde": yuzde,
+        "maliyet_yuzde": yuzde,            # masraf / NET mal bedeli
         "kalem_sayisi": len(kalemler),
         "toplam_adet": toplam_adet,
     }
@@ -188,12 +201,16 @@ def get_sku_maliyet_ozet():
         by_dosya = {}
         for k in kalemler:
             by_dosya.setdefault(k.get("dosya_id"), []).append(k)
-        # Her dosyanın masraf yüzdesi + tarihi
+        # Her dosyanın masraf yüzdesi (NET üzerinden) + indirim oranı + tarihi
         dosya_map = {d.get("id"): d for d in dosyalar}
         dosya_yuzde = {}
+        dosya_indirim_orani = {}  # indirim / brüt mal bedeli (0..1)
         dosya_tarih = {}
         for did, ks in by_dosya.items():
-            dosya_yuzde[did] = dosya_hesapla(dosya_map.get(did, {}), ks).get("maliyet_yuzde", 0.0)
+            _h = dosya_hesapla(dosya_map.get(did, {}), ks)
+            dosya_yuzde[did] = _h.get("maliyet_yuzde", 0.0)
+            _brut = _h.get("mal_bedeli", 0.0)
+            dosya_indirim_orani[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
             dosya_tarih[did] = str((dosya_map.get(did, {}) or {}).get("tarih") or "")[:10]
         # SKU bazında ağırlıklı topla (paçal) + dosya kırılımı (son için)
         agg = {}
@@ -203,7 +220,7 @@ def get_sku_maliyet_ozet():
             if not sku:
                 continue
             adet = _f(k.get("adet"))
-            fob = _f(k.get("birim_fob"))
+            fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim_orani.get(k.get("dosya_id"), 0.0))  # NET birim FOB
             if adet <= 0:
                 continue
             did = k.get("dosya_id")
@@ -281,12 +298,13 @@ def get_sku_ithalat_partileri():
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
-               durum="", tahmini_varis=""):
+               durum="", tahmini_varis="", fatura_indirim=0):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
     durum:     "Üretimde"|"Yolda"|"Gümrükte"|"Antrepoda"|"Teslim Alındı"
     tahmini_varis: "YYYY-MM-DD" (gecikme riski hesabı için)
+    fatura_indirim: fatura altı indirim tutarı (dosya para biriminde)
     Döner: (ok: bool, mesaj: str)."""
     sb = _get_client()
     try:
@@ -299,12 +317,13 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "ithalat_takip_no": ithalat_takip_no or "",
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
+            "fatura_indirim": _f(fatura_indirim, 0),
         }
         try:
             d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
         except Exception:
-            # Yeni opsiyonel kolonlar (ithalat_takip_no/durum/tahmini_varis) tabloda yoksa onlarsız tekrar dene
-            for _opt in ("durum", "tahmini_varis", "ithalat_takip_no"):
+            # Yeni opsiyonel kolonlar tabloda yoksa onlarsız tekrar dene
+            for _opt in ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no"):
                 _payload.pop(_opt, None)
             d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
         if not d:
@@ -330,7 +349,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   durum="", tahmini_varis=""):
+                   durum="", tahmini_varis="", fatura_indirim=0):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -344,13 +363,14 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "ithalat_takip_no": ithalat_takip_no or "",
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
+            "fatura_indirim": _f(fatura_indirim, 0),
         }
         try:
             sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
         except Exception:
             # Yeni opsiyonel kolonlar tabloda yoksa onlarsız tekrar dene
             # (masraf ve diğer bilgiler yine kaydedilsin).
-            for _opt in ("durum", "tahmini_varis", "ithalat_takip_no"):
+            for _opt in ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no"):
                 _payload.pop(_opt, None)
             sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
