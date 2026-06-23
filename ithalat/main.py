@@ -844,7 +844,7 @@ def _yeni_ithalat():
                 st.caption("✅ **Teslim Alındı** → yolda sayılmaz (depoya girmiş kabul edilir).")
 
         with st.container(border=True):
-            _alt_baslik("📦 Ürün Kalemleri · katalogdan ürün seç")
+            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU gir")
             st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
 
@@ -854,23 +854,30 @@ def _yeni_ithalat():
             secenek_labels = [BOS] + list(secenek_map.keys())
 
             if not katalog:
-                st.warning("Katalog boş görünüyor. Önce Ürün Yönetimi'nde ürün ekleyin; ithalat kalemleri mevcut SKU'lardan seçilir.")
+                st.info("Katalog boş — sorun değil, sağdaki **Manuel SKU** kutusuna kodu yazarak kalem ekleyebilirsin.")
 
-            hcols = st.columns([4, 1.2, 1.5])
-            for hc, ht in zip(hcols, ["Ürün  ·  SKU", "Adet", "Birim FOB"]):
+            hcols = st.columns([2.4, 1.6, 1, 1.3])
+            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "veya Manuel SKU", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             _kalemler = []
             for i in range(n_satir):
-                rc = st.columns([4, 1.2, 1.5])
+                rc = st.columns([2.4, 1.6, 1, 1.3])
                 _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}",
                                        label_visibility="collapsed")
-                _adet = rc[1].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
+                _msku = rc[1].text_input("msku", key=f"m_msku_{i}", label_visibility="collapsed",
+                                         placeholder="katalogda yoksa SKU yaz").strip()
+                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
                                            min_value=0, step=1, value=0)
-                _fob = rc[2].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
+                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
                                           min_value=0.0, step=0.01, value=0.0, format="%.2f")
-                if _sel and _sel != BOS:
+                # Manuel SKU öncelikli; boşsa katalogdan seçilen kullanılır
+                _sku = ""
+                if _msku:
+                    _sku = _msku
+                elif _sel and _sel != BOS:
                     _sku = secenek_map[_sel]
+                if _sku:
                     _kalemler.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
                                       "adet": _adet, "birim_fob": _fob})
 
@@ -931,7 +938,7 @@ def _yeni_ithalat():
                 if ok:
                     # Formu temizle
                     for i in range(st.session_state.get("m_satir_n", 5)):
-                        for p in ("m_urun_", "m_adet_", "m_fob_"):
+                        for p in ("m_urun_", "m_msku_", "m_adet_", "m_fob_"):
                             st.session_state.pop(p + str(i), None)
                     for k in ("m_pi_no", "m_dosya_no", "m_ted", "m_ulke", "m_indirim"):
                         st.session_state.pop(k, None)
