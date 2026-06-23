@@ -354,76 +354,6 @@ def _gecmis_ithalatlar():
         {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.1f}", "renk": "#A78BFA"},
     ])
 
-    # ── 🧾 Ortak Masraf Dağıt — Takip No bazlı (FOB payına göre oransal) ──
-    _takip_gruplari = {}
-    for _d in dosyalar:
-        _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
-        if _tk:
-            _takip_gruplari.setdefault(_tk, []).append(_d)
-    with st.expander("🧾 Ortak Masraf Dağıt — Takip No bazlı (FOB payına göre)", expanded=False):
-        st.caption("Aynı İthalat Takip No'lu birden çok belgeye tek seferde ortak masraf (örn. navlun) girin; "
-                   "her belgenin **mal bedeli (FOB) payına göre** oransal dağıtılır.")
-        if not _takip_gruplari:
-            st.info("Henüz takip nolu belge yok. Düzenleme ekranından dosyalara **İthalat Takip No** girince "
-                    "aynı numaralı belgeler burada gruplanır.")
-        else:
-            _tk_secenek = sorted(_takip_gruplari.keys())
-            _sec_tk = st.selectbox("Takip No seç", _tk_secenek, key="ith_ortak_tk")
-            _grup_dosyalar = _takip_gruplari.get(_sec_tk, [])
-            _grup_bilgi, _grup_toplam_fob = [], 0.0
-            for _gd in _grup_dosyalar:
-                _gkal = _kalem_by_dosya.get(_gd["id"], [])
-                _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _gkal)
-                _grup_toplam_fob += _mb
-                _grup_bilgi.append((_gd, _mb))
-            _dv0 = (_grup_dosyalar[0].get("doviz", "USD") or "USD") if _grup_dosyalar else "USD"
-            _dovizler_grup = {str(_gd.get("doviz", "USD") or "USD") for _gd in _grup_dosyalar}
-            st.markdown(
-                f'<div style="font-size:12.5px;color:#CBD5E1;margin:2px 0 8px">'
-                f'<b>{len(_grup_dosyalar)}</b> belge · Toplam Mal Bedeli (FOB): '
-                f'<b style="color:#34D399">{_grup_toplam_fob:,.2f} {_dv0}</b></div>',
-                unsafe_allow_html=True)
-            if len(_dovizler_grup) > 1:
-                st.warning(f"⚠️ Bu takip altında farklı para birimleri var ({', '.join(sorted(_dovizler_grup))}). "
-                           "Ortak masraf tek para biriminde girilmeli — dağıtım tutarları döviz farkı gözetmez.")
-            _pay_html = "<div style='font-size:12px;color:#94A3B8;margin:0 0 10px;line-height:1.7'>"
-            for _gd, _mb in _grup_bilgi:
-                _pay = (_mb / _grup_toplam_fob * 100) if _grup_toplam_fob > 0 else (100.0 / max(len(_grup_bilgi), 1))
-                _bno = _gd.get("pi_no", "") or _gd.get("dosya_no", "") or "—"
-                _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_mb:,.0f} {_dv0} "
-                              f"<span style='color:#A78BFA'>(pay %{_pay:.1f})</span><br>")
-            _pay_html += "</div>"
-            st.markdown(_pay_html, unsafe_allow_html=True)
-
-            st.markdown("**Ortak masraf tutarları** — grubun toplamı (dağıtılacak):")
-            _ortak = {}
-            for _b in range(0, len(MASRAF_TANIM), 4):
-                _grup_m = MASRAF_TANIM[_b:_b + 4]
-                _cols = st.columns(4)
-                for _j, (_slug, _label) in enumerate(_grup_m):
-                    _ortak[_slug] = _cols[_j].number_input(
-                        _label, min_value=0.0, value=0.0, step=1.0,
-                        key=f"ith_ortak_{_sec_tk}_{_slug}")
-            _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
-            if _girilen:
-                _toplam_ortak = sum(_girilen.values())
-                st.caption(f"Girilen toplam ortak masraf: **{_toplam_ortak:,.2f} {_dv0}** "
-                           f"→ {len(_grup_dosyalar)} belgeye FOB payına göre dağıtılacak. "
-                           "(Not: girilen masraf kalemleri ilgili belgelerde **üzerine yazılır**, "
-                           "diğer masraflar korunur.)")
-            if st.button("📊 Dağıt ve Kaydet", type="primary", use_container_width=True, key="ith_ortak_dagit"):
-                if not _girilen:
-                    st.warning("En az bir masraf tutarı gir.")
-                else:
-                    _ids = [_gd["id"] for _gd in _grup_dosyalar]
-                    with st.spinner("💾 Dağıtılıyor..."):
-                        _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen)
-                    if _ok_d:
-                        st.success(_msg_d)
-                        st.rerun()
-                    else:
-                        st.error(_msg_d)
-
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
     _dovizler = sorted({s["Döviz"] for s in satirlar if s["Döviz"]})
@@ -488,17 +418,81 @@ def _gecmis_ithalatlar():
     } for s in satirlar_goster])
     _evt = st.dataframe(
         _df_show, hide_index=True, height=420,
-        on_select="rerun", selection_mode="single-row", key="ith_gecmis_df",
+        on_select="rerun", selection_mode="multi-row", key="ith_gecmis_df",
     )
-    st.caption("👆 Detay, masraf dökümü ve düzenleme için bir **satıra tıkla**. · Sütun başlığına tıklayarak da sıralayabilirsin.")
+    st.caption("👆 **1 satır** seç → detay/masraf/düzenleme açılır.  ·  **2+ satır** seç (kutucuklarla) "
+               "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
 
     try:
         _sel = list(_evt.selection.rows)
     except Exception:
         _sel = []
     if not _sel:
-        st.info("Yukarıdaki tablodan bir dosya seç (satıra tıkla) — detayları, masrafları ve düzenleme burada açılır.")
+        st.info("Yukarıdaki tablodan dosya seç. **1 satır** → detay & düzenleme · **2+ satır** → ortak masraf dağıt.")
         return
+
+    # ── 2+ satır seçili → ORTAK MASRAF (FOB payına göre dağıt) ──
+    if len(_sel) >= 2:
+        _sec_dosyalar = [dosyalar_goster[i] for i in _sel]
+        _sec_bilgi, _sec_toplam_fob = [], 0.0
+        for _sd in _sec_dosyalar:
+            _skal = _kalem_by_dosya.get(_sd["id"], [])
+            _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _skal)
+            _sec_toplam_fob += _mb
+            _sec_bilgi.append((_sd, _mb))
+        _dv0 = (_sec_dosyalar[0].get("doviz", "USD") or "USD") if _sec_dosyalar else "USD"
+        _dovizler_sec = {str(_sd.get("doviz", "USD") or "USD") for _sd in _sec_dosyalar}
+        _takipler_sec = {str(_sd.get("ithalat_takip_no", "") or "").strip() for _sd in _sec_dosyalar if str(_sd.get("ithalat_takip_no", "") or "").strip()}
+
+        _alt_baslik(f"🧾 Ortak Masraf Dağıt — {len(_sec_dosyalar)} belge seçili")
+        st.markdown(
+            f'<div style="font-size:12.5px;color:#CBD5E1;margin:2px 0 8px">'
+            f'Seçili <b>{len(_sec_dosyalar)}</b> belge · Toplam Mal Bedeli (FOB): '
+            f'<b style="color:#34D399">{_sec_toplam_fob:,.2f} {_dv0}</b>'
+            + (f' · Takip No: <b style="color:#38BDF8">{", ".join(sorted(_takipler_sec))}</b>' if _takipler_sec else "")
+            + '</div>', unsafe_allow_html=True)
+        if len(_dovizler_sec) > 1:
+            st.warning(f"⚠️ Seçili belgelerde farklı para birimleri var ({', '.join(sorted(_dovizler_sec))}). "
+                       "Ortak masraf tek para biriminde girilmeli — dağıtım döviz farkı gözetmez.")
+        _pay_html = "<div style='font-size:12px;color:#94A3B8;margin:0 0 10px;line-height:1.7'>"
+        for _sd, _mb in _sec_bilgi:
+            _pay = (_mb / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else (100.0 / max(len(_sec_bilgi), 1))
+            _bno = _sd.get("pi_no", "") or _sd.get("dosya_no", "") or "—"
+            _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_mb:,.0f} {_dv0} "
+                          f"<span style='color:#A78BFA'>(pay %{_pay:.1f})</span><br>")
+        _pay_html += "</div>"
+        st.markdown(_pay_html, unsafe_allow_html=True)
+
+        st.markdown("**Ortak masraf tutarları** — seçili belgelerin TOPLAMI (FOB payına göre dağıtılacak):")
+        _ortak = {}
+        for _b in range(0, len(MASRAF_TANIM), 4):
+            _grup_m = MASRAF_TANIM[_b:_b + 4]
+            _cols = st.columns(4)
+            for _j, (_slug, _label) in enumerate(_grup_m):
+                _ortak[_slug] = _cols[_j].number_input(
+                    _label, min_value=0.0, value=0.0, step=1.0,
+                    key=f"ith_ortak_mas_{_slug}")
+        _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
+        if _girilen:
+            _toplam_ortak = sum(_girilen.values())
+            st.caption(f"Girilen toplam ortak masraf: **{_toplam_ortak:,.2f} {_dv0}** → "
+                       f"{len(_sec_dosyalar)} belgeye FOB payına göre dağıtılacak. "
+                       "(Girilen masraf kalemleri ilgili belgelerde **üzerine yazılır**, diğer masraflar korunur.)")
+        if st.button("📊 Dağıt ve Kaydet", type="primary", use_container_width=True, key="ith_ortak_dagit_tablo"):
+            if not _girilen:
+                st.warning("En az bir masraf tutarı gir.")
+            else:
+                _ids = [_sd["id"] for _sd in _sec_dosyalar]
+                with st.spinner("💾 Dağıtılıyor..."):
+                    _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen)
+                if _ok_d:
+                    st.success(_msg_d)
+                    st.rerun()
+                else:
+                    st.error(_msg_d)
+        return
+
+    # ── Tek satır seçili → detay & düzenleme ──
     did = dosyalar_goster[_sel[0]]["id"]
     d, kal, h = hesap_map[did]
 
