@@ -243,3 +243,169 @@ def pdf_rapor_olustur(kayit_yolu):
         return True, f"PDF raporu oluşturuldu: {kayit_yolu}"
     except Exception as e:
         return False, f"PDF raporu oluşturulamadı: {str(e)}"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# TÜM ÜRÜNLER ÖZET — filtrelenmiş liste raporu (Excel / PDF)
+# ══════════════════════════════════════════════════════════════════════
+TUM_URUN_KOLONLAR = [
+    ("SKU", "SKU"),
+    ("Ürün Adı", "Ürün Adı"),
+    ("Kategori", "Kategori"),
+    ("Marka", "Marka"),
+    ("Stok Yaşı (gün)", "_stok_yas"),
+    ("G5F Depo", "G5F Depo"),
+    ("Toplam Stok", "Toplam"),
+    ("FOB ($)", "FOB ($)"),
+    ("Maliyet %", "Maliyet %"),
+    ("Paçal Maliyet ($)", "Final Cost ($)"),
+    ("Satış ($)", "Satış ($)"),
+    ("Net Marj (%)", "Net Marj (%)"),
+    ("Net Kâr ($)", "Net Kar ($)"),
+]
+
+
+def tum_urunler_excel(rows, kayit_yolu, meta=""):
+    """Filtrelenmiş Tüm Ürünler özetini renkli Excel olarak yazar."""
+    try:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Tüm Ürünler"
+        ws["A1"] = "KAYRAN — Tüm Ürünler Özet Raporu"
+        ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
+        ws["A2"] = f"{meta}  ·  {tr_now().strftime('%d.%m.%Y %H:%M')}  ·  {len(rows)} ürün"
+        ws["A2"].font = Font(size=10, color="666666")
+
+        basliklar = [b for b, _ in TUM_URUN_KOLONLAR]
+        hdr_row = 4
+        head_fill = PatternFill("solid", start_color="1F4E79")
+        head_font = Font(bold=True, color="FFFFFF", size=10)
+        for ci, b in enumerate(basliklar, start=1):
+            c = ws.cell(row=hdr_row, column=ci, value=b)
+            c.fill = head_fill
+            c.font = head_font
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.border = thin_border()
+
+        para_kol = {"FOB ($)", "Paçal Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
+        pct_kol = {"Maliyet %", "Net Marj (%)"}
+        sayi_kol = {"G5F Depo", "Toplam Stok", "Stok Yaşı (gün)"}
+
+        for ri, r in enumerate(rows, start=hdr_row + 1):
+            stok_renk = r.get("_stok_renk", "yok")
+            for ci, (b, key) in enumerate(TUM_URUN_KOLONLAR, start=1):
+                v = r.get(key)
+                if v is None or v == "":
+                    val = ""
+                elif b in para_kol or b in pct_kol:
+                    val = float(v)
+                elif b in sayi_kol:
+                    val = int(v or 0)
+                else:
+                    val = v
+                c = ws.cell(row=ri, column=ci, value=val)
+                c.border = thin_border()
+                c.font = Font(size=10)
+                if b in para_kol:
+                    c.number_format = '$#,##0.00'
+                    c.alignment = Alignment(horizontal="right")
+                elif b in pct_kol:
+                    c.number_format = '0.0"%"'
+                    c.alignment = Alignment(horizontal="right")
+                elif b in ("G5F Depo", "Toplam Stok"):
+                    c.alignment = Alignment(horizontal="right")
+                if b == "Stok Yaşı (gün)":
+                    c.alignment = Alignment(horizontal="center")
+                    if stok_renk in RENKLER and stok_renk != "yok":
+                        c.fill = PatternFill("solid", start_color=RENKLER[stok_renk])
+                if b == "Net Kâr ($)" and isinstance(val, (int, float)) and val < 0:
+                    c.font = Font(size=10, color="C00000", bold=True)
+
+        for ci, w in enumerate([12, 40, 14, 12, 12, 9, 10, 11, 10, 14, 11, 11, 12], start=1):
+            ws.column_dimensions[get_column_letter(ci)].width = w
+        ws.freeze_panes = "A5"
+        wb.save(kayit_yolu)
+        return True, "ok"
+    except Exception as e:
+        return False, f"Excel oluşturulamadı: {str(e)}"
+
+
+def tum_urunler_pdf(rows, kayit_yolu, meta=""):
+    """Filtrelenmiş Tüm Ürünler özetini A4 yatay kompakt PDF olarak yazar."""
+    try:
+        doc = SimpleDocTemplate(kayit_yolu, pagesize=landscape(A4),
+                                leftMargin=1 * cm, rightMargin=1 * cm,
+                                topMargin=1 * cm, bottomMargin=1 * cm)
+        styles = getSampleStyleSheet()
+        h = ParagraphStyle("h", parent=styles["Title"], fontSize=15,
+                           textColor=colors.HexColor("#1F4E79"))
+        sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9,
+                             textColor=colors.HexColor("#666666"))
+        elements = [
+            Paragraph("KAYRAN — Tüm Ürünler Özet Raporu", h),
+            Paragraph(f"{meta} · {tr_now().strftime('%d.%m.%Y %H:%M')} · {len(rows)} ürün", sub),
+            Spacer(1, 0.3 * cm),
+        ]
+        pdf_kol = [
+            ("SKU", "SKU"), ("Ürün", "Ürün Adı"), ("Kat.", "Kategori"),
+            ("Yaş", "_stok_yas"), ("G5F", "G5F Depo"), ("Top.", "Toplam"),
+            ("FOB$", "FOB ($)"), ("Paçal$", "Final Cost ($)"), ("Satış$", "Satış ($)"),
+            ("Marj%", "Net Marj (%)"), ("Net Kâr$", "Net Kar ($)"),
+        ]
+        para_keys = {"FOB ($)", "Final Cost ($)", "Satış ($)", "Net Kar ($)"}
+        pct_keys = {"Net Marj (%)"}
+
+        def _f2(v, para=False, pct=False):
+            if v is None or v == "":
+                return "—"
+            try:
+                if para:
+                    return f"${float(v):,.0f}"
+                if pct:
+                    return f"%{float(v):.0f}"
+                return str(v)
+            except Exception:
+                return str(v)
+
+        data = [[k for k, _ in pdf_kol]]
+        for r in rows:
+            ad = str(r.get("Ürün Adı", "") or "")
+            satir = []
+            for k, key in pdf_kol:
+                v = r.get(key)
+                if key == "Ürün Adı":
+                    satir.append(ad if len(ad) <= 28 else ad[:27] + "…")
+                elif key in para_keys:
+                    satir.append(_f2(v, para=True))
+                elif key in pct_keys:
+                    satir.append(_f2(v, pct=True))
+                elif key == "_stok_yas":
+                    satir.append(f"{int(v or 0)}g" if r.get("_stok_renk", "yok") != "yok" else "—")
+                else:
+                    satir.append(_f2(v))
+            data.append(satir)
+
+        tbl = Table(data, repeatRows=1)
+        stil = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E79")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CCCCCC")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F6FA")]),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]
+        for i, r in enumerate(rows, start=1):
+            nk = r.get("Net Kar ($)")
+            if isinstance(nk, (int, float)) and nk < 0:
+                stil.append(("TEXTCOLOR", (len(pdf_kol) - 1, i), (len(pdf_kol) - 1, i),
+                             colors.HexColor("#C00000")))
+        tbl.setStyle(TableStyle(stil))
+        elements.append(tbl)
+        doc.build(elements)
+        return True, "ok"
+    except Exception as e:
+        return False, f"PDF oluşturulamadı: {str(e)}"

@@ -1298,6 +1298,47 @@ def run():
                 st.html(css + thead + satir_html + "</tbody></table></div>")
             st.caption("💡 Tüm maliyetler İthalat verisinden (paçal) · Maliyet % = (Paçal / FOB − 1) × 100 · Net Kâr $ = Satış − Paçal · Net Marj % = Net Kâr / Satış × 100")
 
+            # ── 📤 Rapor Al — Excel / PDF (ekrandaki filtreye göre) ──
+            if rows_oz:
+                _rapor_meta = (f"Kategori: {f_kat_oz} · Marka: {f_mar_oz} · "
+                               f"Sıra: {f_sira_oz} ({f_yon_oz})"
+                               + (" · Sadece zararına" if _sadece_zarar else ""))
+                with st.expander(f"📤 Rapor Al — Excel / PDF  ·  {len(rows_oz)} ürün (filtreye göre)", expanded=False):
+                    st.caption(f"Aktif filtre → {_rapor_meta}")
+                    _rr1, _rr2 = st.columns(2)
+                    with _rr1:
+                        if st.button("📊 Excel Oluştur", use_container_width=True, type="primary", key="oz_rapor_excel"):
+                            from rapor import tum_urunler_excel
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
+                                _tp = _tmp.name
+                            _ok, _msg = tum_urunler_excel(rows_oz, _tp, _rapor_meta)
+                            if _ok:
+                                with open(_tp, "rb") as _f:
+                                    st.download_button("⬇️ Excel İndir", _f.read(),
+                                        f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        use_container_width=True, key="oz_rapor_excel_dl")
+                                os.unlink(_tp)
+                            else:
+                                st.error(_msg)
+                    with _rr2:
+                        if st.button("📑 PDF Oluştur", use_container_width=True, key="oz_rapor_pdf"):
+                            from rapor import tum_urunler_pdf
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
+                                _tp = _tmp.name
+                            _ok, _msg = tum_urunler_pdf(rows_oz, _tp, _rapor_meta)
+                            if _ok:
+                                with open(_tp, "rb") as _f:
+                                    st.download_button("⬇️ PDF İndir", _f.read(),
+                                        f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.pdf",
+                                        mime="application/pdf",
+                                        use_container_width=True, key="oz_rapor_pdf_dl")
+                                os.unlink(_tp)
+                            else:
+                                st.error(_msg)
+
         with st.expander("✏️ Ürün Düzenle", expanded=False):
             st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
             _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
