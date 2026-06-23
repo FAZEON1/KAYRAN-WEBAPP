@@ -1116,6 +1116,7 @@ def run():
                     "Kategori": u.get("kategori", ""),
                     "Marka": u.get("marka", ""),
                     "_stok_yas": int(u.get("stok_gun", 0) or 0),
+                    "_stok_renk": u.get("stok_renk", "yok"),
                     "_risk": float(u.get("risk_skor", 0) or 0),
                     "G5F Depo": int(u.get("bizim_stok", 0) or 0),
                     "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
@@ -1226,11 +1227,21 @@ def run():
                     kanal_title = kanal_str.replace(chr(34), "&quot;")
                     _loss = (nk is not None and nk < 0)
                     _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #EF4444"' if _loss else ""
+                    _yas_v = r.get("_stok_yas")
+                    _yas_renk = r.get("_stok_renk", "yok")
+                    _yas_renk_map = {"yesil": "#4ADE80", "sari": "#FBBF24", "turuncu": "#FB923C", "kirmizi": "#F87171"}
+                    if _yas_renk in _yas_renk_map:
+                        _yas_col = _yas_renk_map[_yas_renk]
+                        _yas_txt = f"{int(_yas_v or 0)}g"
+                    else:
+                        _yas_col = "#475569"
+                        _yas_txt = "—"
                     satir_html += (
                         f"<tr{_tr_attr}>"
                         f'<td class="c-sku">{r.get("SKU","")}</td>'
                         f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
                         f'<td class="c-kat">{r.get("Kategori","")}</td>'
+                        f'<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:{_yas_col};font-weight:600">{_yas_txt}</td>'
                         f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
                         f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
                         f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
@@ -1271,13 +1282,14 @@ def run():
                 thead = (
                     '<div class="urun-wrap"><table class="urun-tbl">'
                     '<colgroup>'
-                    '<col style="width:7%"><col style="width:18%"><col style="width:7%">'
-                    '<col style="width:6%"><col style="width:12%"><col style="width:7%">'
+                    '<col style="width:7%"><col style="width:14%"><col style="width:7%"><col style="width:6%">'
+                    '<col style="width:6%"><col style="width:11%"><col style="width:6%">'
                     '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
                     '<col style="width:7%"><col style="width:7%"><col style="width:8%">'
                     '</colgroup>'
                     '<thead><tr>'
                     '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
+                    '<th>📅 Stok Yaşı</th>'
                     '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
                     "<th>FOB</th><th>Maliyet %</th><th>⭐ Paçal Maliyet</th><th>Satış</th>"
                     "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"

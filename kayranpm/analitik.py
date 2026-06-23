@@ -440,6 +440,7 @@ def tum_urunler_listesi():
 
     sonuclar = []
     _ith_map = _ithalat_maliyet_map()
+    _ith_partiler = _ithalat_partiler_map()
     for u in urunler:
         sku = u["sku"]
         satis_fiyati = u.get("satis_fiyati") or u.get("fiyat") or 0
@@ -454,6 +455,15 @@ def tum_urunler_listesi():
 
         toplam_firma_stok = sum(firma_stoklari.values())
         toplam_stok = bizim_stok + toplam_firma_stok
+
+        # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
+        # ithalat partisi yoksa ürünün ilk giriş tarihine düşer
+        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(sku, []), bizim_stok)
+        if _fifo_gun is not None:
+            stok_gun, stok_renk, ilk_giris = _fifo_gun, _fifo_renk, _fifo_anchor
+        else:
+            ilk_giris = u.get("ilk_giris_tarihi", "") or ""
+            stok_gun, stok_renk = stok_yasi_hesapla(ilk_giris)
 
         # FINAL COST PRICE — İthalat paçal (adet-ağırlıklı landed maliyet)
         _ith = _ith_map.get(sku)
@@ -489,6 +499,9 @@ def tum_urunler_listesi():
             "firma_stoklari": firma_stoklari,
             "toplam_firma_stok": toplam_firma_stok,
             "toplam_stok": toplam_stok,
+            "stok_gun": stok_gun,
+            "stok_renk": stok_renk,
+            "ilk_giris": ilk_giris,
             "satis_fiyati": satis_fiyati,
             "hedef_marj": hedef_marj,
             "final_cost_price": final_cost_price,
