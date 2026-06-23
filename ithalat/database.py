@@ -394,13 +394,14 @@ def set_dosya_takip_no(dosya_id, takip_no):
         return False
 
 
-def dagit_ortak_masraf(dosya_ids, ortak_masraflar):
+def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
     """Ortak masrafları (tek takip nolu birden çok belge) seçili dosyalara
     FOB (mal bedeli) payına göre ORANSAL dağıtır ve kaydeder.
 
     Args:
         dosya_ids       : dağıtım yapılacak dosya id listesi
         ortak_masraflar : {slug: grup_toplam_tutar}  — grubun TOPLAM ortak masrafı
+        kur             : verilirse seçili belgelerin 'kur' alanı da güncellenir (5 haneye kadar, yuvarlanmaz)
 
     Davranış:
         • Her dosyanın payı = dosya_mal_bedeli / grup_toplam_mal_bedeli (FOB).
@@ -413,7 +414,7 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar):
         if not dosya_ids:
             return False, "Dosya seçilmedi."
         temiz = {k: _f(v) for k, v in (ortak_masraflar or {}).items() if _f(v) != 0}
-        if not temiz:
+        if not temiz and kur is None:
             return False, "Dağıtılacak masraf tutarı girilmedi."
         # Her dosyanın mal bedeli (FOB) — tek sorguda
         kalemler = get_tum_kalemler()
@@ -430,15 +431,24 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar):
             d = dosya_map.get(did)
             if not d:
                 continue
-            pay = (fob_by_dosya.get(did, 0.0) / toplam_fob) if toplam_fob > 0 else (1.0 / n)
-            mevcut = _masraf_dict(d)  # {slug: tutar} — mevcut masraflar korunur
-            for slug, toplam in temiz.items():
-                mevcut[slug] = round(toplam * pay, 2)
-            mevcut = {k: v for k, v in mevcut.items() if _f(v) != 0}
-            sb.table("ithalat_dosyalari").update({"masraflar": mevcut}).eq("id", did).execute()
-            guncellenen += 1
+            _payload = {}
+            if temiz:
+                pay = (fob_by_dosya.get(did, 0.0) / toplam_fob) if toplam_fob > 0 else (1.0 / n)
+                mevcut = _masraf_dict(d)  # {slug: tutar} — mevcut masraflar korunur
+                for slug, toplam in temiz.items():
+                    mevcut[slug] = round(toplam * pay, 2)
+                mevcut = {k: v for k, v in mevcut.items() if _f(v) != 0}
+                _payload["masraflar"] = mevcut
+            if kur is not None:
+                _payload["kur"] = _f(kur, 1)
+            if _payload:
+                sb.table("ithalat_dosyalari").update(_payload).eq("id", did).execute()
+                guncellenen += 1
         _temizle()
-        return True, f"✅ Ortak masraf {guncellenen} belgeye FOB payına göre dağıtıldı."
+        _kur_not = f" · kur {_f(kur):.5f} kaydedildi" if kur is not None else ""
+        if temiz:
+            return True, f"✅ Ortak masraf {guncellenen} belgeye FOB payına göre dağıtıldı{_kur_not}."
+        return True, f"✅ {guncellenen} belgenin kuru güncellendi{_kur_not}."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
 

@@ -548,6 +548,23 @@ def _gecmis_ithalatlar():
 
         st.markdown("**Ortak masraf — seçili belgelerin toplamı.** Kutular **girdiğin mevcut masraflarla dolu** gelir; "
                     "bakıp kontrol edebilir, düzenleyip kaydedebilirsin.")
+
+        # Kur — seçili belgelerin ortak kuru (5 ondalık, yuvarlanmaz). Kaydedince belgelere yazılır.
+        _kurlar_sec = {round(float(_sd.get("kur", 1) or 1), 5) for _sd in _sec_dosyalar}
+        _kur_varsayilan = float(_sec_dosyalar[0].get("kur", 1) or 1) if _sec_dosyalar else 1.0
+        kc1, kc2 = st.columns([1, 3])
+        with kc1:
+            _ortak_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
+                                         value=_kur_varsayilan, step=0.00001, format="%.5f",
+                                         key=f"ith_ortak_kur_{_sec_sig}")
+        with kc2:
+            if len(_kurlar_sec) > 1:
+                st.caption("⚠️ Seçili belgelerin kuru farklı: " +
+                           ", ".join(f"{k:.5f}" for k in sorted(_kurlar_sec)) +
+                           " · Kaydedince hepsine yukarıdaki kur yazılır.")
+            else:
+                st.caption("Kaydedince seçili belgelerin kuru bu değere ayarlanır (0'dan sonra 5 haneye kadar, yuvarlanmaz).")
+
         _ortak = {}
         for _b in range(0, len(MASRAF_TANIM), 4):
             _grup_m = MASRAF_TANIM[_b:_b + 4]
@@ -557,25 +574,23 @@ def _gecmis_ithalatlar():
                     _label, min_value=0.0, value=float(_sec_mevcut_kalem.get(_slug, 0.0)), step=1.0,
                     key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
         _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
-        st.caption("ℹ️ **Kaydet**, girilen tutarları seçili belgelere FOB payına göre yazar (ortak masraf mantığı). "
+        st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre yazar ve **kuru** belgelere kaydeder. "
                    "Sadece bakmak istiyorsan kaydetme. **Tek bir belgenin masrafını birebir düzenlemek** için "
                    "o belgeyi **tek başına seç** — düzenleme formunda o belgenin kendi değerleri çıkar.")
-        if st.button("💾 Kaydet (FOB payına göre dağıt)", type="primary",
+        if st.button("💾 Kaydet (masraf FOB payına göre + kur)", type="primary",
                      use_container_width=True, key="ith_ortak_dagit_tablo"):
-            if not _girilen:
-                st.warning("En az bir masraf tutarı gir.")
+            _ids = [_sd["id"] for _sd in _sec_dosyalar]
+            with st.spinner("💾 Kaydediliyor..."):
+                _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen, kur=_ortak_kur)
+            if _ok_d:
+                # Kutuları DB'den tazele (kaydedilen yeni değerler dolu gelsin)
+                for _slug, _ in MASRAF_TANIM:
+                    st.session_state.pop(f"ith_ortak_mas_{_sec_sig}_{_slug}", None)
+                st.session_state.pop(f"ith_ortak_kur_{_sec_sig}", None)
+                st.success(_msg_d)
+                st.rerun()
             else:
-                _ids = [_sd["id"] for _sd in _sec_dosyalar]
-                with st.spinner("💾 Kaydediliyor..."):
-                    _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen)
-                if _ok_d:
-                    # Kutuları DB'den tazele (kaydedilen yeni değerler dolu gelsin)
-                    for _slug, _ in MASRAF_TANIM:
-                        st.session_state.pop(f"ith_ortak_mas_{_sec_sig}_{_slug}", None)
-                    st.success(_msg_d)
-                    st.rerun()
-                else:
-                    st.error(_msg_d)
+                st.error(_msg_d)
         return
 
     # ── Tek satır seçili → detay & düzenleme ──
