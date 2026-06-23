@@ -487,6 +487,9 @@ def _gecmis_ithalatlar():
         _sel = list(_evt.selection.rows)
     except Exception:
         _sel = []
+    # Güvenlik: liste değiştiyse (silme/filtre/dağıtım sonrası) eski seçim indeksleri
+    # mevcut listenin dışına taşabilir → IndexError'ı önlemek için geçerli aralığa filtrele.
+    _sel = [i for i in _sel if isinstance(i, int) and 0 <= i < len(dosyalar_goster)]
     if not _sel:
         st.info("Yukarıdaki tablodan dosya seç. **1 satır** → detay & düzenleme · **2+ satır** → ortak masraf dağıt.")
         return
