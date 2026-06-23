@@ -1308,7 +1308,7 @@ def run():
                     _rr1, _rr2 = st.columns(2)
                     with _rr1:
                         if st.button("📊 Excel Oluştur", use_container_width=True, type="primary", key="oz_rapor_excel"):
-                            from rapor import tum_urunler_excel
+                            from .rapor import tum_urunler_excel
                             import tempfile
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
                                 _tp = _tmp.name
@@ -1324,7 +1324,7 @@ def run():
                                 st.error(_msg)
                     with _rr2:
                         if st.button("📑 PDF Oluştur", use_container_width=True, key="oz_rapor_pdf"):
-                            from rapor import tum_urunler_pdf
+                            from .rapor import tum_urunler_pdf
                             import tempfile
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
                                 _tp = _tmp.name
@@ -2424,7 +2424,7 @@ def run():
                 st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
                 st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
                 if st.button("📊 Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor"):
-                    from rapor import excel_rapor_olustur
+                    from .rapor import excel_rapor_olustur
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
                         _tmp_path = _tmp.name
@@ -2439,7 +2439,7 @@ def run():
                 st.markdown('<div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
                 st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
                 if st.button("📑 PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor"):
-                    from rapor import pdf_rapor_olustur
+                    from .rapor import pdf_rapor_olustur
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
                         _tmp_path = _tmp.name
