@@ -1587,24 +1587,24 @@ def anasayfa():
         with _bk1:
             st.markdown(
                 '<div style="background:linear-gradient(135deg,#1B2436 0%,#0F172A 100%);'
-                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid #E88420;border-radius:14px;padding:18px 20px;overflow:hidden">'
-                f'<div style="margin-bottom:8px">{G5F_LOGO_SVG}</div>'
+                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid #E88420;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;min-height:200px">'
+                f'<div style="height:46px;display:flex;align-items:center;margin-bottom:6px">{G5F_LOGO_SVG}</div>'
                 '<div style="font-size:16px;font-weight:800;color:#FFFFFF;margin-bottom:2px">G5F Teknoloji</div>'
                 '<div style="font-size:10px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Distribütör · Teknoloji Çözümleri</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:12px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
-                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:#FFEDD5;text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
+                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:14px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
+                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:#FFEDD5;text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
                 '</div>',
                 unsafe_allow_html=True
             )
         with _bk2:
             st.markdown(
                 '<div style="background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
-                'border:1px solid rgba(139,92,246,0.25);border-left:3px solid #A78BFA;border-radius:14px;padding:18px 20px;overflow:hidden">'
-                f'<div style="margin-bottom:8px">{FAZEON_LOGO_SVG}</div>'
+                'border:1px solid rgba(139,92,246,0.25);border-left:3px solid #A78BFA;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;min-height:200px">'
+                f'<div style="height:46px;display:flex;align-items:center;margin-bottom:6px">{FAZEON_LOGO_SVG}</div>'
                 '<div style="font-size:16px;font-weight:800;color:#FFFFFF;margin-bottom:2px">Fazeon</div>'
                 '<div style="font-size:10px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Gaming · Monitors · Cases · Coolers</div>'
-                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:12px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
-                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(139,92,246,0.4);border-radius:9px;color:#C4B5FD;text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
+                '<div style="font-size:12px;line-height:1.6;color:#CBD5E1;margin-bottom:14px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
+                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(139,92,246,0.4);border-radius:9px;color:#C4B5FD;text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
                 '</div>',
                 unsafe_allow_html=True
             )
