@@ -230,7 +230,7 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
             if c in para:
                 return f"{float(v):,.2f}"
             if c in yuzde:
-                return f"%{float(v):.1f}"
+                return f"%{float(v):.2f}"
             if _isnum(c):
                 fv = float(v)
                 return f"{int(fv):,}" if fv == int(fv) else f"{fv:,.2f}"
@@ -351,7 +351,7 @@ def _gecmis_ithalatlar():
         {"label": "Dosya Sayısı", "value": f"{len(dosyalar):,}", "renk": "#818CF8"},
         {"label": "Toplam Mal Bedeli", "value": f"${toplam_mal:,.0f}", "renk": "#34D399"},
         {"label": "Toplam Masraf", "value": f"${toplam_masraf:,.0f}", "renk": "#FB923C"},
-        {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.1f}", "renk": "#A78BFA"},
+        {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.2f}", "renk": "#A78BFA"},
     ])
 
     # ── 🧹 Mükerrer Belge Temizliği (Belge No + Tarih + Tutar birebir aynı) ──
@@ -473,7 +473,7 @@ def _gecmis_ithalatlar():
         "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—", "Tarih": s["Tarih"],
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${s['Mal Bedeli']:,.0f}", "Masraf": f"${s['Toplam Masraf']:,.0f}",
-        "% Maliyet": f"%{s['% Maliyet']:.1f}", "Kalem": s["Kalem"],
+        "% Maliyet": f"%{s['% Maliyet']:.2f}", "Kalem": s["Kalem"],
         "Aşama": s["Aşama"], "Durum": s["Durum"],
     } for s in satirlar_goster])
     _evt = st.dataframe(
@@ -536,7 +536,7 @@ def _gecmis_ithalatlar():
             _bno = _sd.get("pi_no", "") or _sd.get("dosya_no", "") or "—"
             _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_mb:,.0f} {_dv0} "
                           f"<span style='color:#A78BFA'>(FOB pay %{_pay:.1f})</span> "
-                          f"<span style='color:#94A3B8'>· şu anki % {_doc_yuzde:.1f}</span><br>")
+                          f"<span style='color:#94A3B8'>· şu anki % {_doc_yuzde:.2f}</span><br>")
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
 
@@ -1320,7 +1320,7 @@ def _masraf_detaylari():
     _df = pd.DataFrame([{
         "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": s["Tarih"],
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
-        "Tutar": f"{s['Tutar']:,.2f}", "Döviz": s["Döviz"], "% (belge)": f"%{s['% (belge)']:.1f}",
+        "Tutar": f"{s['Tutar']:,.2f}", "Döviz": s["Döviz"], "% (belge)": f"%{s['% (belge)']:.2f}",
     } for s in _flt_sirali])
     st.dataframe(_df, hide_index=True, use_container_width=True, height=520)
     st.caption(f"{len(_flt)} masraf kalemi · Toplam {_toplam:,.2f} {_dov_lbl}")
