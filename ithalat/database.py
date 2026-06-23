@@ -219,6 +219,33 @@ def get_sku_maliyet_ozet():
         return {}
 
 
+def get_sku_ithalat_partileri():
+    """Her SKU için ithalat partileri (FIFO için), belge tarihine göre ESKİ→YENİ.
+    Dönen: {sku: [{"tarih": "YYYY-MM-DD", "adet": float}, ...]}
+    """
+    try:
+        dosyalar = get_dosyalar()
+        tarih_map = {d.get("id"): (str(d.get("tarih") or "")[:10]) for d in dosyalar}
+        kalemler = get_tum_kalemler()
+        agg = {}
+        for k in kalemler:
+            sku = (str(k.get("sku") or "")).strip()
+            if not sku:
+                continue
+            adet = _f(k.get("adet"))
+            if adet <= 0:
+                continue
+            tarih = tarih_map.get(k.get("dosya_id"), "")
+            if not tarih:
+                continue
+            agg.setdefault(sku, []).append({"tarih": tarih, "adet": adet})
+        for sku in agg:
+            agg[sku].sort(key=lambda x: x["tarih"])
+        return agg
+    except Exception:
+        return {}
+
+
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no=""):
     """Bir ithalat dosyası + kalemlerini ekler.
