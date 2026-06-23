@@ -273,6 +273,28 @@ def get_all_dashboard_data():
             firma_data[firma] = {}
     stok_yas_data = {r["sku"]: r for r in _rows(sb.table("stok_yas").select("*").execute())}
     yoldaki_data = {r["sku"]: r for r in _rows(sb.table("yoldaki_urunler").select("*").execute())}
+    # İthalat'tan gelen yolda (Üretimde/Yolda/Gümrükte/Antrepoda) miktarını mevcut elle veriye EKLE
+    try:
+        from ithalat.database import get_ithalat_yolda_ozet
+        _ith_yolda = get_ithalat_yolda_ozet() or {}
+    except Exception:
+        _ith_yolda = {}
+    for _sku, _iy in _ith_yolda.items():
+        _mev = yoldaki_data.get(_sku)
+        if _mev:
+            _mev["yoldaki_miktar"] = (_mev.get("yoldaki_miktar", 0) or 0) + _iy["yoldaki_miktar"]
+            if not (str(_mev.get("varis_tarihi", "") or "").strip()) and _iy.get("varis_tarihi"):
+                _mev["varis_tarihi"] = _iy["varis_tarihi"]
+            _mev["_ithalat_yolda"] = _iy["yoldaki_miktar"]
+            _mev["_ithalat_durumlar"] = _iy.get("durumlar", [])
+        else:
+            yoldaki_data[_sku] = {
+                "sku": _sku,
+                "yoldaki_miktar": _iy["yoldaki_miktar"],
+                "varis_tarihi": _iy.get("varis_tarihi", ""),
+                "_ithalat_yolda": _iy["yoldaki_miktar"],
+                "_ithalat_durumlar": _iy.get("durumlar", []),
+            }
     tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
     gecmis_satislar = defaultdict(list)
     for row in tum_firma_rows:
