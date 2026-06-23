@@ -1488,24 +1488,22 @@ def run():
                         "Satılan": _sat,
                         "Net Kâr ($)": round(_net, 2),
                     })
-                st.markdown('<div style="font-size:13px;font-weight:700;color:#E2E8F0;margin:4px 0 6px;">📊 Kampanya Panosu — tüm aktif kampanyalar tek bakışta</div>', unsafe_allow_html=True)
-                render_renkli_tablo(
+                st.markdown('<div style="font-size:13px;font-weight:700;color:#E2E8F0;margin:4px 0 6px;">📊 Kampanya Panosu — bir kampanyaya tıkla, detayı aşağıda açılsın</div>', unsafe_allow_html=True)
+                _pano_evt = st.dataframe(
                     pd.DataFrame(_pano),
-                    para=["Net Kâr ($)"],
-                    kar=["Net Kâr ($)"],
-                    sol=["Kampanya", "Firma", "Tarih", "Kalan"],
-                    kisalt={"Kampanya": 32},
+                    hide_index=True,
+                    use_container_width=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="kamp_pano_df",
+                    column_config={"Net Kâr ($)": st.column_config.NumberColumn(format="$%.2f")},
                 )
-                st.markdown("---")
-                st.markdown('<div style="font-size:12px;color:#94A3B8;margin:2px 0 8px">👇 Detayını görmek için kampanyaya tıkla</div>', unsafe_allow_html=True)
-                _kamp_btn_cols = st.columns(3)
-                for _bi, _bk in enumerate(aktif_kampanyalar):
-                    _btn_lbl = f"📢 {_bk['kampanya_adi']}  ·  {_dmy(_bk.get('baslangic_tarihi'))} → {_dmy(_bk.get('bitis_tarihi'))}"
-                    if _kamp_btn_cols[_bi % 3].button(_btn_lbl, key=f"kamp_detay_btn_{_bk['id']}", use_container_width=True):
-                        st.session_state["_kamp_detay_sec"] = _bk["id"]
+                _pano_sel = list(_pano_evt.selection.rows)
+                if _pano_sel:
+                    st.session_state["_kamp_detay_sec"] = aktif_kampanyalar[_pano_sel[0]]["id"]
                 _kamp_secili_id = st.session_state.get("_kamp_detay_sec")
                 if not (_kamp_secili_id and any(_kk["id"] == _kamp_secili_id for _kk in aktif_kampanyalar)):
-                    st.caption("👆 Yukarıdan bir kampanyaya tıklayınca detayları burada açılır.")
+                    st.caption("👆 Panodan bir kampanyaya tıklayınca detayları burada açılır.")
                 for kamp in [_kk for _kk in aktif_kampanyalar if _kk["id"] == _kamp_secili_id]:
                     kid = kamp["id"]
                     k_urunler = _ku_map.get(kid, [])
