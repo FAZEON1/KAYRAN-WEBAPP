@@ -1365,6 +1365,46 @@ def run():
                 return [k for k in liste if str(k.get("firma", "")).strip().upper() not in _ana]
             return [k for k in liste if str(k.get("firma", "")).strip().upper() == _kt_firma]
 
+        # ── Kategori filtresi ──
+        _kt_kat_list = sorted({(u.get("kategori") or "").strip() for u in urun_data_k if (u.get("kategori") or "").strip()})
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
+                    'margin:10px 0 2px">🏷️ KATEGORİ (filtre)</div>', unsafe_allow_html=True)
+        _kt_kat = st.selectbox("Kategori", ["Tümü"] + _kt_kat_list, key="kt_kat", label_visibility="collapsed")
+
+        # ── Dönem (yıl + çeyrek) + sıralama ──
+        _yil_set = set()
+        for _kk in get_kampanyalar():
+            _b = str(_kk.get("baslangic_tarihi") or "")[:4]
+            if _b.isdigit():
+                _yil_set.add(_b)
+        _yil_opts = ["Tümü"] + sorted(_yil_set, reverse=True)
+        _kf_a, _kf_b, _kf_c = st.columns(3)
+        with _kf_a:
+            _kt_yil = st.selectbox("Yıl", _yil_opts, key="kt_yil")
+        with _kf_b:
+            _kt_ceyrek = st.selectbox("Çeyrek", ["Tümü", "Q1", "Q2", "Q3", "Q4"], key="kt_ceyrek")
+        with _kf_c:
+            _kt_sira = st.selectbox("Sırala", ["Yeniden eskiye", "Eskiden yeniye"], key="kt_sira")
+
+        def _kt_ceyrek_of(tarih_str):
+            try:
+                _m = int(str(tarih_str)[5:7])
+                return f"Q{(_m - 1)//3 + 1}"
+            except Exception:
+                return ""
+
+        def _kt_uygula(liste):
+            """Firma + kategori + yıl + çeyrek filtresi, ardından tarihe göre sıralama."""
+            liste = _kt_firma_filtre(liste)
+            if _kt_kat != "Tümü":
+                liste = [k for k in liste if (k.get("kategori") or "").strip() == _kt_kat]
+            if _kt_yil != "Tümü":
+                liste = [k for k in liste if str(k.get("baslangic_tarihi") or "")[:4] == _kt_yil]
+            if _kt_ceyrek != "Tümü":
+                liste = [k for k in liste if _kt_ceyrek_of(k.get("baslangic_tarihi")) == _kt_ceyrek]
+            return sorted(liste, key=lambda k: str(k.get("baslangic_tarihi") or ""),
+                          reverse=(_kt_sira == "Yeniden eskiye"))
+
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
         # Tüm kampanya ürünleri TEK sorguda (N+1 önleme)
@@ -1383,6 +1423,7 @@ def run():
                     with kf1:
                         k_adi = st.text_input("Kampanya Adı *", placeholder="örn: Hepsiburada Mart Kampanyası")
                         k_firma = st.selectbox("Firma *", FIRMA_LISTESI_K)
+                        k_kat = st.selectbox("Kategori", ["(Genel / Karışık)"] + _kt_kat_list)
                     with kf2:
                         k_bas = st.date_input("Başlangıç Tarihi *", value=tr_today())
                         k_bit = st.date_input("Bitiş Tarihi *", value=tr_today())
@@ -1391,13 +1432,14 @@ def run():
                         if not k_adi.strip():
                             st.error("Kampanya adı zorunludur.")
                         else:
-                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip())
+                            _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
+                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val)
                             st.cache_data.clear()
                             st.toast(f"✅ '{k_adi}' kampanyası oluşturuldu! (ID: {yeni_id})")
                             st.rerun()
     
             # Aktif kampanyaları listele
-            aktif_kampanyalar = _kt_firma_filtre(get_kampanyalar(durum="aktif"))
+            aktif_kampanyalar = _kt_uygula(get_kampanyalar(durum="aktif"))
             if not aktif_kampanyalar:
                 st.info("Aktif kampanya yok. Yukarıdan yeni kampanya oluşturabilirsiniz.")
             else:
@@ -1874,7 +1916,7 @@ def run():
         # TAB 2: GEÇMİŞ KAMPANYALAR
         # ─────────────────────────────────────────────────────────────────
         if _kt_durum == "📁 Geçmiş Kampanyalar":
-            gecmis = _kt_firma_filtre(get_kampanyalar(durum="kapali"))
+            gecmis = _kt_uygula(get_kampanyalar(durum="kapali"))
             if not gecmis:
                 st.info("Henüz kapatılmış kampanya yok.")
             else:

@@ -448,11 +448,11 @@ def reddet_siparis(kayit_id):
 
 # ── KAMPANYALAR ─────────────────────────────────────────────────────
 
-def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar=""):
+def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar="", kategori=""):
     r = get_client().table("kampanyalar").insert({
         "kampanya_adi": kampanya_adi, "firma": firma,
         "baslangic_tarihi": str(baslangic), "bitis_tarihi": str(bitis),
-        "durum": "aktif", "notlar": notlar or "",
+        "durum": "aktif", "notlar": notlar or "", "kategori": kategori or "",
         "olusturma_tarihi": get_today(),
     }).execute()
     return r.data[0]["id"] if r.data else None
