@@ -361,6 +361,7 @@ def _gecmis_ithalatlar():
             "Kalem": h["kalem_sayisi"],
             "Aşama": d.get("durum", "") or "—",
             "Durum": "✅ Tamam" if h["toplam_masraf"] > 0 else "⏳ Bekliyor",
+            "_skus": " ".join(str(k.get("sku", "") or "") for k in kal).lower(),
         })
 
     toplam_mal = sum(s["Mal Bedeli"] for s in satirlar)
@@ -435,12 +436,12 @@ def _gecmis_ithalatlar():
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
-    _dovizler = sorted({s["Döviz"] for s in satirlar if s["Döviz"]})
-    _fc1, _fc2, _fc3, _fc4 = st.columns(4)
+    _fc1, _fc2, _fc3 = st.columns(3)
     f_ted = _fc1.selectbox("Tedarikçi", ["Tümü"] + _tedarikciler, key="ith_f_ted")
-    f_durum = _fc2.selectbox("Durum", ["Tümü", "✅ Tamam", "⏳ Bekliyor"], key="ith_f_durum")
-    f_doviz = _fc3.selectbox("Döviz", ["Tümü"] + _dovizler, key="ith_f_doviz")
-    f_takip = _fc4.selectbox("Takip No", ["Tümü", "Var", "Yok"], key="ith_f_takip")
+    f_takip = _fc2.text_input("Takip No", key="ith_f_takip",
+                              placeholder="takip no yaz...").strip().lower()
+    f_sku = _fc3.text_input("SKU Ara", key="ith_f_sku",
+                            placeholder="SKU yaz...").strip().lower()
     _ara = st.text_input("🔍 Ara — Belge No · Takip No · Tedarikçi", key="ith_gecmis_ara",
                          placeholder="örn. PIFAZ, PI0624G5F02, 2025-16, LCCGAME...").strip().lower()
 
@@ -450,14 +451,9 @@ def _gecmis_ithalatlar():
             return False
         if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
             return False
-        if f_durum != "Tümü" and s.get("Durum", "") != f_durum:
+        if f_takip and f_takip not in str(s.get("Takip No", "") or "").lower():
             return False
-        if f_doviz != "Tümü" and s.get("Döviz", "") != f_doviz:
-            return False
-        _tk = str(s.get("Takip No", "") or "").strip()
-        if f_takip == "Var" and not _tk:
-            return False
-        if f_takip == "Yok" and _tk:
+        if f_sku and f_sku not in s.get("_skus", ""):
             return False
         return True
 
