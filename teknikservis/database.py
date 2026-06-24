@@ -9,17 +9,25 @@ Form no:  G5F<5 hane>   ör. G5F00001
 SLA    :  mal kabül tarihinden bu yana geçen İŞ GÜNÜ; 21 iş günü hedefi,
           haftalık renk: yeşil → sarı → turuncu → kırmızı
 """
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 
 import streamlit as st
 from supabase import create_client, Client
+
+# İstanbul saati (UTC+3) — sunucu UTC olabilir; kayıt saatleri TR'ye sabitlenir
+TR_TZ = timezone(timedelta(hours=3))
+
+
+def _simdi():
+    """Şu anki İstanbul saati, ISO (saniye) — kayıt/işlem zaman damgaları için."""
+    return datetime.now(TR_TZ).isoformat(timespec="seconds")
 
 # ── Sabitler ─────────────────────────────────────────────────────────
 ARAYUZLER = ["teknik", "iade"]
 ARAYUZ_ETIKET = {"teknik": "🔧 Teknik Servis", "iade": "↩️ İade"}
 
 DURUMLAR = [
-    "mal kabül", "teknisyende", "tamir edildi", "NTF", "değişim",
+    "mal kabül", "teknisyende", "tamir edildi", "NTF", "ürün değişimi",
     "sorunsuz", "iade alındı", "gönderildi", "hurda",
     "satışa hazır", "satıldı",
 ]
@@ -28,13 +36,13 @@ BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı"}
 
 DURUM_RENK = {
     "mal kabül": "#38BDF8", "teknisyende": "#A78BFA", "tamir edildi": "#34D399",
-    "NTF": "#94A3B8", "değişim": "#FBBF24", "sorunsuz": "#34D399",
+    "NTF": "#94A3B8", "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
     "iade alındı": "#F472B6", "gönderildi": "#22D3EE", "hurda": "#F87171",
     "satışa hazır": "#A3E635", "satıldı": "#10B981",
 }
 
 DEPOLAR = ["teknik servis", "iade", "outlet", "ikinci el", "hurda", "merkez"]
-FIRMA_ONERILER = ["EERA", "MONDAY", "VATAN", "İTOPYA", "HB", "DİĞER"]
+FIRMA_ONERILER = ["EERA", "MONDAY", "VATAN", "İTOPYA", "HB", "ServisPoint", "DİĞER"]
 
 
 @st.cache_resource
@@ -85,7 +93,7 @@ def is_gunu_farki(baslangic, bitis=None):
     b = _parse_ts(baslangic)
     if not b:
         return 0
-    son = _parse_ts(bitis) or datetime.now()
+    son = _parse_ts(bitis) or datetime.now(TR_TZ).replace(tzinfo=None)
     if son < b:
         return 0
     gun = 0
@@ -195,7 +203,7 @@ def ekle_kayit(data, personel=""):
     try:
         sb = get_client()
         form_no = _sonraki_form_no()
-        simdi = datetime.now().isoformat(timespec="seconds")
+        simdi = _simdi()
         kayit = dict(data)
         kayit.update({
             "servis_form_no": form_no,
@@ -221,7 +229,7 @@ def durum_guncelle(kayit_id, yeni_durum, personel="", aciklama="", ekstra=None):
     """Durumu değiştirir, ts_gecmis'e satır ekler, opsiyonel ekstra alanları günceller."""
     try:
         sb = get_client()
-        simdi = datetime.now().isoformat(timespec="seconds")
+        simdi = _simdi()
         guncelle = {"mevcut_durum": yeni_durum}
         if ekstra:
             guncelle.update(ekstra)
