@@ -218,6 +218,19 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
 
+def ref_kayitlari_temizle(firma_id):
+    """Bir firmanın TÜM ref kayıtlarını siler (sıfırdan yükleme için). (ok, silinen_sayisi) döner."""
+    try:
+        sb = get_client()
+        mevcut = get_refler(firma_id)
+        n = len(mevcut)
+        sb.table("ref_kayitlari").delete().eq("firma_id", firma_id).execute()
+        _cache_temizle()
+        return True, n
+    except Exception:
+        return False, 0
+
+
 # ── HAVUZ BÜTÇE DB ──────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_butce(firma_id):
@@ -425,6 +438,21 @@ def _render_refler(fid, fkod):
                         st.rerun()
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
+
+        if refler:
+            st.markdown("---")
+            st.markdown(f"**🗑️ Sıfırdan yükle:** bu firmanın **{len(refler)}** ref kaydını tamamen siler. "
+                        "Sildikten sonra Excel'i yukarıdan yeniden içe aktarabilirsin. **Geri alınamaz.**")
+            _onay = st.checkbox("Evet, bu firmanın tüm ref kayıtlarını silmeyi onaylıyorum",
+                                key=f"ref_temizle_onay_{fid}")
+            if st.button("🗑️ Tüm ref kayıtlarını sil", key=f"ref_temizle_btn_{fid}",
+                         disabled=not _onay, use_container_width=True):
+                ok, n = ref_kayitlari_temizle(fid)
+                if ok:
+                    st.success(f"✅ {n} ref kaydı silindi. Artık Excel'i sıfırdan yükleyebilirsin.")
+                    st.rerun()
+                else:
+                    st.error("Silme başarısız.")
 
     st.markdown("#### 📋 Geçmiş Ref No'lar")
     if not refler:
