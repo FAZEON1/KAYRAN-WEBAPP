@@ -781,17 +781,18 @@ def _gecmis_ithalatlar():
                 help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
             _md = _masraf_dict(d)
             e_masraf = {}
-            for _b in range(0, len(MASRAF_TANIM), 4):
-                _grup = MASRAF_TANIM[_b:_b + 4]
-                _cols = st.columns(4)
-                for _j, (_slug, _label) in enumerate(_grup):
-                    _mv = float(_md.get(_slug, 0) or 0)
-                    e_masraf[_slug] = _cols[_j].number_input(
-                        _label, min_value=0.0,
-                        value=(_mv if _mv > 0 else None),
-                        step=1.0, format="%.2f", placeholder="0,00",
-                        key=f"ith_edit_mas_{did}_{_slug}"
-                    )
+            for _slug, _label in MASRAF_TANIM:
+                _lc, _ic, _bos = st.columns([1, 1.4, 1.6])
+                _lc.markdown(
+                    f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
+                    f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
+                _mv = float(_md.get(_slug, 0) or 0)
+                e_masraf[_slug] = _ic.number_input(
+                    _label, min_value=0.0,
+                    value=(_mv if _mv > 0 else None),
+                    step=1.0, format="%.2f", placeholder="0,00",
+                    label_visibility="collapsed", key=f"ith_edit_mas_{did}_{_slug}"
+                )
 
             if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
                 _yeni_kal = []
