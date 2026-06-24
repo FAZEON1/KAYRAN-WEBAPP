@@ -2219,6 +2219,13 @@ def main():
         st.session_state.aktif_uygulama = "anasayfa"
         return
 
+    # Global modern form-alanı stili (tüm modüllere uygulanır): +/- gizli, modern kutular
+    try:
+        from shared.utils import modern_input_stil
+        st.markdown(modern_input_stil(), unsafe_allow_html=True)
+    except Exception:
+        pass
+
     # Sayfa dispatch
     try:
         if aktif == "anasayfa":
