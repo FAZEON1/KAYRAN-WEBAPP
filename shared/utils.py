@@ -285,3 +285,77 @@ def metric_css(renk="#818CF8") -> str:
     }}
     </style>
     """
+
+
+def modern_input_stil() -> str:
+    """Tüm modüllerde ortak modern form alanları:
+      • number_input'taki +/- adım düğmelerini gizler,
+      • text/number/textarea/date input ve selectbox'lara modern görünüm verir
+        (yuvarlak köşe, yumuşak kenar, odakta parlama, rahat iç boşluk).
+    app.py'de modül dağıtımından hemen önce bir kez enjekte edilir → her sayfaya uygulanır.
+    """
+    return """
+    <style>
+    /* number_input +/- adım düğmelerini kaldır */
+    [data-testid="stNumberInputStepUp"],
+    [data-testid="stNumberInputStepDown"] { display:none !important; }
+    [data-testid="stNumberInput"] button { display:none !important; }
+
+    /* Görünür kutu = baseweb input/select sarmalayıcısı */
+    div[data-baseweb="input"],
+    div[data-baseweb="base-input"],
+    div[data-baseweb="select"] > div,
+    [data-testid="stTextArea"] textarea {
+        background: rgba(255,255,255,0.045) !important;
+        border: 1px solid rgba(148,163,184,0.22) !important;
+        border-radius: 11px !important;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease !important;
+        box-shadow: none !important;
+    }
+    div[data-baseweb="select"] > div { min-height: 44px !important; }
+
+    /* İç input — şeffaf, rahat boşluk, okunaklı */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background: transparent !important;
+        color: #E8EDF4 !important;
+        font-size: 13.5px !important;
+        padding: 11px 14px !important;
+        border: none !important;
+        font-variant-numeric: tabular-nums;
+    }
+    [data-testid="stTextArea"] textarea { padding: 12px 14px !important; }
+
+    /* Placeholder daha yumuşak */
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stNumberInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder { color: rgba(148,163,184,0.65) !important; }
+
+    /* Hover */
+    div[data-baseweb="input"]:hover,
+    div[data-baseweb="base-input"]:hover,
+    div[data-baseweb="select"] > div:hover,
+    [data-testid="stTextArea"] textarea:hover {
+        border-color: rgba(148,163,184,0.40) !important;
+        background: rgba(255,255,255,0.06) !important;
+    }
+    /* Odak — accent parlaması */
+    div[data-baseweb="input"]:focus-within,
+    div[data-baseweb="base-input"]:focus-within,
+    div[data-baseweb="select"]:focus-within > div,
+    [data-testid="stTextArea"] textarea:focus {
+        border-color: #6366F1 !important;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.20) !important;
+        background: rgba(99,102,241,0.06) !important;
+    }
+
+    /* BaseWeb'in kendi iç kenarlığını sıfırla (çift kenar olmasın) */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"] > div { border: none !important; background: transparent !important; }
+
+    /* Etiketler biraz daha okunur */
+    [data-testid="stWidgetLabel"] p { font-size: 12px !important; color: #AEB9C9 !important; font-weight: 600 !important; }
+    </style>
+    """
