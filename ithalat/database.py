@@ -17,18 +17,22 @@ from supabase import create_client, Client
 # Masraf kalemleri — (slug, görünen ad). Liste değişebilir; masraflar JSONB'de saklanır.
 MASRAF_TANIM = [
     ("navlun",                 "Navlun"),
-    ("mal_sigortasi",          "Mal Sigortası"),
+    ("mal_sigortasi",          "Sigorta"),
     ("damga_vergisi",          "Damga Vergisi"),
     ("banka_komisyonu",        "Banka Komisyonu"),
-    ("liman_ardiye",           "Liman Ardiye"),
+    ("liman_ardiye",           "Gümrük Ardiye"),
     ("gumruk_musavirligi",     "Gümrük Müşavirliği"),
-    ("antrepo_beyannamesi",    "Antrepo Beyannamesi"),
-    ("liman_depo_nakliye",     "Liman - Depo Nakliye"),
+    ("antrepo_beyannamesi",    "Antrepo Gümrük Müşavirliği"),
+    ("liman_depo_nakliye",     "Gümrük - Depo Nakliye"),
     ("antrepo_ardiye",         "Antrepo Ardiye"),
+    ("tahliye_depolama_tasima","Depo Tahliye-Depolama"),
+    ("gv",                     "GV"),
+    ("igv",                    "İGV"),
+    ("otv",                    "ÖTV"),
+    ("tse_tareks",             "TSE-Tareks"),
+    ("kbf",                    "KBF"),
     ("yolluk",                 "Yolluk"),
     ("demuraj",                "Demuraj"),
-    ("tahliye_depolama_tasima","Tahliye-Depolama+Taşıma"),
-    ("igv",                    "İGV"),
     ("diger",                  "Diğer"),
 ]
 MASRAF_ETIKET = dict(MASRAF_TANIM)

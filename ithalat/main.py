@@ -594,34 +594,50 @@ def _gecmis_ithalatlar():
             for _slug, _v in _masraf_dict(_sd).items():
                 _sec_mevcut_kalem[_slug] = _sec_mevcut_kalem.get(_slug, 0.0) + float(_v or 0)
 
-        st.markdown("**Ortak masraf — seçili belgelerin toplamı.** Kutular **girdiğin mevcut masraflarla dolu** gelir; "
-                    "bakıp kontrol edebilir, düzenleyip kaydedebilirsin.")
-
-        # Kur — seçili belgelerin ortak kuru (5 ondalık, yuvarlanmaz). Kaydedince belgelere yazılır.
-        _kurlar_sec = {round(float(_sd.get("kur", 1) or 1), 5) for _sd in _sec_dosyalar}
         _kur_varsayilan = float(_sec_dosyalar[0].get("kur", 1) or 1) if _sec_dosyalar else 1.0
-        kc1, kc2 = st.columns([1, 3])
-        with kc1:
+        _kurlar_sec = {round(float(_sd.get("kur", 1) or 1), 5) for _sd in _sec_dosyalar}
+
+        st.markdown("**Ortak masraf — seçili belgelerin toplamı.** Dolu kutular mevcut masrafı gösterir; "
+                    "boş kutuya **tıklayıp doğrudan yazabilirsin** (0,00 silmene gerek yok).")
+
+        _ana_sol, _ana_sag = st.columns([2.05, 1])
+        with _ana_sol:
+            _ortak = {}
+            for _slug, _label in MASRAF_TANIM:
+                _lc, _ic = st.columns([1, 1.15])
+                _lc.markdown(
+                    f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
+                    f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
+                _mevcut_v = _sec_mevcut_kalem.get(_slug, 0.0)
+                _ortak[_slug] = _ic.number_input(
+                    _label, min_value=0.0,
+                    value=(float(_mevcut_v) if _mevcut_v and _mevcut_v > 0 else None),
+                    step=1.0, format="%.2f", placeholder="0,00",
+                    label_visibility="collapsed", key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
+            _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
+
+        with _ana_sag:
             _ortak_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
                                          value=_kur_varsayilan, step=0.00001, format="%.5f",
                                          key=f"ith_ortak_kur_{_sec_sig}")
-        with kc2:
+            _toplam_girilen = sum(_girilen.values())
+            # Dağıtım sonrası birleşik % (girilen slug'lar üzerine yazılır, diğerleri korunur)
+            _korunan = sum(float(_v or 0) for _sd in _sec_dosyalar
+                           for _s2, _v in _masraf_dict(_sd).items() if _s2 not in _girilen)
+            _proj_masraf = _korunan + _toplam_girilen
+            _proj_yuzde = (_proj_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
+                'border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5">'
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Birleşik Mal Bedeli</div>'
+                f'<div style="font-size:15px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_sec_toplam_fob:,.2f} {_dv0}</div>'
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
+                f'<div style="font-size:15px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">{_toplam_girilen:,.2f} {_dv0}</div>'
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Dağıtım Sonrası % Maliyet</div>'
+                f'<div style="font-size:18px;font-weight:800;color:#FCD34D;font-family:monospace">%{_proj_yuzde:.2f}</div>'
+                '</div>', unsafe_allow_html=True)
             if len(_kurlar_sec) > 1:
-                st.caption("⚠️ Seçili belgelerin kuru farklı: " +
-                           ", ".join(f"{k:.5f}" for k in sorted(_kurlar_sec)) +
-                           " · Kaydedince hepsine yukarıdaki kur yazılır.")
-            else:
-                st.caption("Kaydedince seçili belgelerin kuru bu değere ayarlanır (0'dan sonra 5 haneye kadar, yuvarlanmaz).")
-
-        _ortak = {}
-        for _b in range(0, len(MASRAF_TANIM), 4):
-            _grup_m = MASRAF_TANIM[_b:_b + 4]
-            _cols = st.columns(4)
-            for _j, (_slug, _label) in enumerate(_grup_m):
-                _ortak[_slug] = _cols[_j].number_input(
-                    _label, min_value=0.0, value=float(_sec_mevcut_kalem.get(_slug, 0.0)), step=1.0,
-                    key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
-        _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
+                st.caption("⚠️ Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
         st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre yazar ve **kuru** belgelere kaydeder. "
                    "Sadece bakmak istiyorsan kaydetme. **Tek bir belgenin masrafını birebir düzenlemek** için "
                    "o belgeyi **tek başına seç** — düzenleme formunda o belgenin kendi değerleri çıkar.")
@@ -769,8 +785,11 @@ def _gecmis_ithalatlar():
                 _grup = MASRAF_TANIM[_b:_b + 4]
                 _cols = st.columns(4)
                 for _j, (_slug, _label) in enumerate(_grup):
+                    _mv = float(_md.get(_slug, 0) or 0)
                     e_masraf[_slug] = _cols[_j].number_input(
-                        _label, min_value=0.0, value=float(_md.get(_slug, 0) or 0), step=1.0,
+                        _label, min_value=0.0,
+                        value=(_mv if _mv > 0 else None),
+                        step=1.0, format="%.2f", placeholder="0,00",
                         key=f"ith_edit_mas_{did}_{_slug}"
                     )
 
