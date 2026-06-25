@@ -778,11 +778,12 @@ def _gecmis_ithalatlar():
 
             _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
             _kdf = pd.DataFrame([
-                {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0), "Birim FOB": float(k.get("birim_fob", 0) or 0)}
+                {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0),
+                 "Birim FOB": float(k.get("birim_fob", 0) or 0), "Sil": False}
                 for k in kal
             ])
             if _kdf.empty:
-                _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0}])
+                _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0, "Sil": False}])
             _sku_secenek = sorted(set(katalog.keys()) | {str(k.get("sku", "")) for k in kal if k.get("sku")})
             e_kdf = st.data_editor(
                 _kdf, num_rows="dynamic", use_container_width=True, key=f"ith_edit_kal_{did}",
@@ -790,8 +791,12 @@ def _gecmis_ithalatlar():
                     "SKU": st.column_config.SelectboxColumn("SKU", options=_sku_secenek, required=False),
                     "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
                     "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
+                    "Sil": st.column_config.CheckboxColumn(
+                        "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
                 },
             )
+            st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
+                       "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
 
             _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde")
             # Fatura altı indirim (tutar) — net mal bedeli + SKU maliyetleri buna göre düşer
@@ -818,6 +823,8 @@ def _gecmis_ithalatlar():
             if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
                 _yeni_kal = []
                 for _, _r in e_kdf.iterrows():
+                    if _r.get("Sil"):
+                        continue
                     _sku = str(_r.get("SKU", "") or "").strip()
                     if not _sku:
                         continue
