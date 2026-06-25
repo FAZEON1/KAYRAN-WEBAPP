@@ -379,3 +379,88 @@ def create_sample_excel():
     path = "/home/claude/stok_app/SABLON_STOK_TAKIP.xlsx"
     wb.save(path)
     return path
+
+
+def _firma_normalize(s):
+    """Türkçe karakterleri sadeleştirip büyük harfe çevirir (İTOPYA → ITOPYA)."""
+    return (str(s or "").strip().upper()
+            .replace("İ", "I").replace("Ğ", "G").replace("Ü", "U")
+            .replace("Ş", "S").replace("Ç", "C").replace("Ö", "O"))
+
+
+def excel_yukle_firma_birlesik(dosya_yolu):
+    """YENİ birleşik tek-sayfa firma stok+satış şablonunu yükler.
+    Beklenen sütunlar: FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI ·
+                       STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA
+    Her satır bir firma-SKU. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA AYRI saklanır.
+    Sadece firma satırları işlenir; GSF STOK / YOLDAKI bu sayfada beklenmez (atlanır)."""
+    try:
+        df = pd.read_excel(dosya_yolu, sheet_name=0)
+        df.columns = [tr_upper(c) for c in df.columns]
+
+        kolon_esleme = {
+            "FIRMA":        ["FIRMA ADI", "FIRMA", "MAGAZA", "FIRMA ADI "],
+            "SKU":          ["STOK KODU", "SKU", "KOD", "URUN KODU", "BARKOD"],
+            "URUN_ADI":     ["STOK ADI", "URUN ADI", "AD", "URUN"],
+            "KATEGORI":     ["KATEGORI", "CATEGORY"],
+            "MARKA":        ["MARKA", "BRAND"],
+            "STOK":         ["STOK", "STOK MIKTARI", "ONLINE STOK"],
+            "STOK_MAGAZA":  ["STOK-MAGAZA", "STOK MAGAZA", "MAGAZA STOK", "STOK_MAGAZA"],
+            "SATIS":        ["SATIS", "HAFTALIK SATIS", "SATIS ADEDI", "ONLINE SATIS"],
+            "SATIS_MAGAZA": ["SATIS-MAGAZA", "SATIS MAGAZA", "MAGAZA SATIS", "SATIS_MAGAZA"],
+        }
+        kolon_map = {}
+        for hedef, alternatifler in kolon_esleme.items():
+            for alt in alternatifler:
+                if tr_upper(alt) in df.columns:
+                    kolon_map[hedef] = tr_upper(alt)
+                    break
+
+        if "FIRMA" not in kolon_map:
+            return False, "❌ 'FİRMA ADI' kolonu bulunamadı."
+        if "SKU" not in kolon_map:
+            return False, "❌ 'STOK KODU' kolonu bulunamadı."
+
+        gecerli_firmalar = {f: f for f in FIRMA_LISTESI}  # normalize edilmiş hâlleri
+        basarili, atlanan = 0, 0
+        firma_sayac = {}
+        atlanan_firma = set()
+
+        for _, row in df.iterrows():
+            try:
+                firma_ham = safe_str(row.get(kolon_map["FIRMA"], ""))
+                sku = safe_str(row.get(kolon_map["SKU"], ""))
+                if not sku or sku.lower() == "nan" or not firma_ham:
+                    atlanan += 1
+                    continue
+                firma_n = _firma_normalize(firma_ham)
+                # GSF STOK / YOLDAKI bu sayfaya ait değil → atla
+                if firma_n in ("GSF STOK", "G5F STOK", "YOLDAKI", "YOLDAKİ", "BIZIM STOK", "DEPO"):
+                    atlanan += 1
+                    continue
+                firma = gecerli_firmalar.get(firma_n)
+                if not firma:
+                    atlanan += 1
+                    atlanan_firma.add(firma_ham)
+                    continue
+
+                urun_adi = safe_str(row.get(kolon_map.get("URUN_ADI", ""), ""))
+                stok = safe_int(row.get(kolon_map.get("STOK", ""), 0))
+                stok_magaza = safe_int(row.get(kolon_map.get("STOK_MAGAZA", ""), 0))
+                satis = safe_int(row.get(kolon_map.get("SATIS", ""), 0))
+                satis_magaza = safe_int(row.get(kolon_map.get("SATIS_MAGAZA", ""), 0))
+
+                upsert_firma_stok(firma, sku, urun_adi, stok, satis,
+                                  stok_magaza=stok_magaza, satis_magaza=satis_magaza)
+                firma_sayac[firma] = firma_sayac.get(firma, 0) + 1
+                basarili += 1
+            except Exception:
+                atlanan += 1
+
+        ozet = " · ".join(f"{f}: {n}" for f, n in firma_sayac.items()) or "kayıt yok"
+        uyari = ""
+        if atlanan_firma:
+            uyari = f" | ⚠️ Tanınmayan firma(lar) atlandı: {', '.join(sorted(atlanan_firma)[:5])}"
+        return True, f"✅ {basarili} firma-SKU yüklendi ({ozet}). {atlanan} satır atlandı.{uyari}"
+    except Exception as e:
+        return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"

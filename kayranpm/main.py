@@ -33,7 +33,8 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       get_kampanya_destek_ortalamalari)
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
-                            excel_yukle_yoldaki_urunler, create_sample_excel_bytes)
+                            excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
+                            excel_yukle_firma_birlesik)
 
 
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
@@ -2571,6 +2572,25 @@ def run():
  </div>
  </div>""", unsafe_allow_html=True)
     
+        st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#22D3EE);display:inline-block"></span>📊 Firma Stok + Satış · Birleşik Tek Sayfa</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Stok ve satışı birleştirdiğin <b style="color:#CBD5E1">tek sayfalı</b> dosya. Sütunlar: <b style="color:#CBD5E1">FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA</b>. Her satır bir firma-ürün. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA <b>ayrı</b> saklanır. (GSF STOK & YOLDAKI bu dosyada beklenmez — yukarıdaki çok-sekmeli dosyadan gelir.)</div>', unsafe_allow_html=True)
+
+        dosya_b = st.file_uploader("Birleşik Excel'i Seç", type=["xlsx", "xls"], key="firma_birlesik_dosya")
+        if dosya_b:
+            if st.button("⬆️ Firma Stok + Satış Yükle", type="primary", use_container_width=True, key="firma_birlesik_btn"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpb:
+                    tmpb.write(dosya_b.read())
+                    tmpb_path = tmpb.name
+                basari_b, mesaj_b = excel_yukle_firma_birlesik(tmpb_path)
+                os.unlink(tmpb_path)
+                st.cache_data.clear()
+                if basari_b:
+                    st.success(mesaj_b)
+                else:
+                    st.error(mesaj_b)
+
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:8px">Hangi tarihlerde veri yüklendiğini gör, gerekirse sil.</div>', unsafe_allow_html=True)

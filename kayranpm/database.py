@@ -442,13 +442,25 @@ def ithalat_eksikleri_ekle():
 
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
-def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis):
-    get_client().table("firma_stok").upsert({
+def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
+                      stok_magaza=0, satis_magaza=0):
+    _kayit = {
         "firma": firma, "sku": sku, "urun_adi": urun_adi or "",
         "stok_miktari": int(stok_miktari or 0),
         "haftalik_satis": int(haftalik_satis or 0),
+        "stok_magaza": int(stok_magaza or 0),
+        "satis_magaza": int(satis_magaza or 0),
         "yukleme_tarihi": get_today(),
-    }, on_conflict="firma,sku,yukleme_tarihi").execute()
+    }
+    try:
+        get_client().table("firma_stok").upsert(
+            _kayit, on_conflict="firma,sku,yukleme_tarihi").execute()
+    except Exception:
+        # stok_magaza / satis_magaza kolonları tabloda yoksa onlarsız tekrar dene
+        for _k in ("stok_magaza", "satis_magaza"):
+            _kayit.pop(_k, None)
+        get_client().table("firma_stok").upsert(
+            _kayit, on_conflict="firma,sku,yukleme_tarihi").execute()
     _cache_temizle()
 
 # ── YOLDAKI ─────────────────────────────────────────────────────────
