@@ -539,3 +539,13 @@ def get_ithalat_yolda_ozet():
         return out
     except Exception:
         return {}
+
+
+def get_tedarikciler():
+    """Mevcut ithalatlardaki benzersiz tedarikçi adları (alfabetik) — yeni ithalatta seçim için."""
+    try:
+        adlar = {str(d.get("tedarikci", "") or "").strip()
+                 for d in get_dosyalar() if str(d.get("tedarikci", "") or "").strip()}
+        return sorted(adlar, key=lambda x: x.lower())
+    except Exception:
+        return []

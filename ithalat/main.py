@@ -16,6 +16,7 @@ from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
+    get_tedarikciler,
 )
 
 
@@ -861,7 +862,16 @@ def _yeni_ithalat():
                 pi_no = st.text_input("PI No", key="m_pi_no", placeholder="PI-2025-001")
                 dosya_no = st.text_input("Dosya / Sipariş No", key="m_dosya_no", placeholder="ITH-2025-001")
             with c2:
-                tedarikci = st.text_input("Tedarikçi", key="m_ted")
+                _ted_gecmis = get_tedarikciler()
+                _ted_opts = ["— tedarikçi seç —"] + _ted_gecmis + ["➕ Yeni tedarikçi (elle yaz)"]
+                _ted_sec = st.selectbox("Tedarikçi (cari listesinden)", _ted_opts, key="m_ted_sec")
+                if _ted_sec == "➕ Yeni tedarikçi (elle yaz)":
+                    tedarikci = st.text_input("Yeni tedarikçi adı", key="m_ted_yeni",
+                                              placeholder="Tam ticari unvanı yaz").strip()
+                elif _ted_sec == "— tedarikçi seç —":
+                    tedarikci = ""
+                else:
+                    tedarikci = _ted_sec
                 mense = st.text_input("Menşe Ülke", key="m_ulke")
             with c3:
                 tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
@@ -984,7 +994,7 @@ def _yeni_ithalat():
                     for i in range(st.session_state.get("m_satir_n", 5)):
                         for p in ("m_urun_", "m_msku_", "m_adet_", "m_fob_"):
                             st.session_state.pop(p + str(i), None)
-                    for k in ("m_pi_no", "m_dosya_no", "m_ted", "m_ulke", "m_indirim"):
+                    for k in ("m_pi_no", "m_dosya_no", "m_ted_sec", "m_ted_yeni", "m_ulke", "m_indirim"):
                         st.session_state.pop(k, None)
                     st.session_state.m_satir_n = 5
                     st.rerun()
