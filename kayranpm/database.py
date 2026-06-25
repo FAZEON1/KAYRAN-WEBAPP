@@ -442,6 +442,42 @@ def ithalat_eksikleri_ekle():
 
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
+def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
+    """G5F (bizim depo) çok-depolu stok günceller.
+    bizim_stok = satılabilir depolar toplamı (sipariş önerisi bunu kullanır).
+    depo_kirilim = {depo_adi: miktar} — TÜM depolar (gösterim/genel toplam için).
+    Mevcut ürünün fiyat/kategori/marka/hedef kâr bilgilerine DOKUNMAZ."""
+    sb = get_client()
+    bugun = get_today()
+    mevcut = _row(sb.table("urunler").select("urun_adi, ilk_giris_tarihi").eq("sku", sku).execute())
+    if mevcut:
+        _payload = {"bizim_stok": int(bizim_stok_satilabilir or 0),
+                    "depo_kirilim": depo_kirilim or {}, "guncelleme_tarihi": bugun}
+        if not str(mevcut.get("urun_adi") or "").strip() and urun_adi:
+            _payload["urun_adi"] = urun_adi
+        try:
+            sb.table("urunler").update(_payload).eq("sku", sku).execute()
+        except Exception:
+            _payload.pop("depo_kirilim", None)
+            sb.table("urunler").update(_payload).eq("sku", sku).execute()
+    else:
+        _payload = {"sku": sku, "urun_adi": urun_adi or "", "kategori": "", "marka": "",
+                    "satis_fiyati": 0, "alis_fiyati": 0, "hedef_kar_marji": 0, "ozellikler": "",
+                    "bizim_stok": int(bizim_stok_satilabilir or 0), "trendyol_stok": 0,
+                    "depo_kirilim": depo_kirilim or {},
+                    "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun}
+        try:
+            sb.table("urunler").insert(_payload).execute()
+        except Exception:
+            _payload.pop("depo_kirilim", None)
+            sb.table("urunler").insert(_payload).execute()
+    try:
+        sb.table("stok_yas").upsert({"sku": sku, "ilk_gorulen_tarih": bugun}, on_conflict="sku").execute()
+    except Exception:
+        pass
+    _cache_temizle()
+
+
 def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
                       stok_magaza=0, satis_magaza=0):
     _kayit = {

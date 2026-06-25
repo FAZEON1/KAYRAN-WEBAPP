@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun
+from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok
 import math
 
 def safe_float(val, default=0.0):
@@ -462,5 +462,69 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         if atlanan_firma:
             uyari = f" | ⚠️ Tanınmayan firma(lar) atlandı: {', '.join(sorted(atlanan_firma)[:5])}"
         return True, f"✅ {basarili} firma-SKU yüklendi ({ozet}). {atlanan} satır atlandı.{uyari}"
+    except Exception as e:
+        return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
+
+
+# G5F depo kırılımı — "satılabilir ana stok" sayılan depolar (sipariş önerisi/analitik için)
+G5F_SATILABILIR_DEPOLAR = {"MERKEZ DEPO", "HAPPY LIFE"}
+
+
+def excel_yukle_g5f_depolar(dosya_yolu):
+    """G5F (bizim depo) çok-depolu stok şablonu.
+    Beklenen sütunlar: DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR
+    Her SKU için depo kırılımı saklanır (TÜM depolar). bizim_stok (analitik) =
+    satılabilir depolar (Merkez + Happy Life) toplamı. Fiyat/kategori/marka KORUNUR."""
+    try:
+        from collections import defaultdict
+        df = pd.read_excel(dosya_yolu, sheet_name=0)
+        df.columns = [tr_upper(c) for c in df.columns]
+        kolon_esleme = {
+            "DEPO":     ["DEPO ADI", "DEPO", "DEPO ISMI", "AMBAR", "DEPO ISMI "],
+            "SKU":      ["STOK KODU", "SKU", "KOD", "URUN KODU", "BARKOD"],
+            "URUN_ADI": ["STOK ISMI", "STOK ADI", "URUN ADI", "AD", "URUN"],
+            "MIKTAR":   ["MIKTAR", "ADET", "STOK", "STOK MIKTARI"],
+        }
+        kolon_map = {}
+        for hedef, alts in kolon_esleme.items():
+            for alt in alts:
+                if tr_upper(alt) in df.columns:
+                    kolon_map[hedef] = tr_upper(alt)
+                    break
+        if "SKU" not in kolon_map:
+            return False, "❌ 'STOK KODU' kolonu bulunamadı."
+        if "DEPO" not in kolon_map:
+            return False, "❌ 'DEPO ADI' kolonu bulunamadı."
+        if "MIKTAR" not in kolon_map:
+            return False, "❌ 'MİKTAR' kolonu bulunamadı."
+
+        kirilim = defaultdict(dict)   # sku -> {depo: miktar}
+        adlar = {}
+        depolar_set = set()
+        atlanan = 0
+        for _, row in df.iterrows():
+            sku = safe_str(row.get(kolon_map["SKU"], ""))
+            if not sku or sku.lower() == "nan":
+                atlanan += 1
+                continue
+            depo = safe_str(row.get(kolon_map["DEPO"], "")) or "Bilinmeyen"
+            mik = safe_int(row.get(kolon_map["MIKTAR"], 0))
+            kirilim[sku][depo] = kirilim[sku].get(depo, 0) + mik
+            depolar_set.add(depo)
+            if "URUN_ADI" in kolon_map and not adlar.get(sku):
+                adlar[sku] = safe_str(row.get(kolon_map["URUN_ADI"], ""))
+
+        basarili, toplam_adet = 0, 0
+        for sku, dd in kirilim.items():
+            satilabilir = sum(m for d, m in dd.items()
+                              if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
+            upsert_g5f_stok(sku, adlar.get(sku, ""), satilabilir, dd)
+            basarili += 1
+            toplam_adet += sum(dd.values())
+
+        depo_liste = ", ".join(sorted(depolar_set))
+        return True, (f"✅ {basarili} ürün yüklendi · {len(depolar_set)} depo "
+                      f"({depo_liste}) · toplam {toplam_adet:,} adet. "
+                      f"Sipariş önerisi 'bizim stok' = Merkez + Happy Life.")
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"

@@ -34,7 +34,7 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
-                            excel_yukle_firma_birlesik)
+                            excel_yukle_firma_birlesik, excel_yukle_g5f_depolar)
 
 
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
@@ -996,6 +996,25 @@ def run():
             f'</div>',
             unsafe_allow_html=True)
         metrik_satiri(_stok_cards)
+
+        # G5F depo kırılımı (tüm depolar) — bizim deponun depo bazlı dağılımı + genel toplam
+        _dk = secilen.get("depo_kirilim") or {}
+        if isinstance(_dk, dict) and _dk:
+            _dk_toplam = sum(int(v or 0) for v in _dk.values())
+            _chips = "".join(
+                f'<span style="display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,0.04);'
+                f'border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:5px 11px;font-size:12px;color:#CBD5E1">'
+                f'{_d} <b style="color:#93C5FD;font-family:monospace">{int(_v or 0):,}</b></span>'
+                for _d, _v in sorted(_dk.items(), key=lambda x: -int(x[1] or 0)))
+            st.markdown(
+                f'<div style="margin:2px 0 12px">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
+                f'<span style="color:#8B97A8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
+                f'<span style="color:#34D399;font-size:14px;font-weight:800;font-family:monospace">Tüm depolar: {_dk_toplam:,} adet</span></div>'
+                f'<div style="display:flex;flex-wrap:wrap;gap:7px">{_chips}</div>'
+                f'<div style="color:#64748B;font-size:10.5px;margin-top:7px">Sipariş önerisinde kullanılan stok '
+                f'(Merkez + Happy Life): <b style="color:#93C5FD">{bizim_stok:,}</b></div>'
+                f'</div>', unsafe_allow_html=True)
     
         # Fiyat ve karlılık kartı
         fob = secilen.get("fob_price") or 0
@@ -2572,6 +2591,25 @@ def run():
  </div>
  </div>""", unsafe_allow_html=True)
     
+        st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#CBD5E1">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#CBD5E1">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
+
+        dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
+        if dosya_g:
+            if st.button("⬆️ G5F Stok Yükle (Depo Kırılımlı)", type="primary", use_container_width=True, key="g5f_depo_btn"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpg:
+                    tmpg.write(dosya_g.read())
+                    tmpg_path = tmpg.name
+                basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
+                os.unlink(tmpg_path)
+                st.cache_data.clear()
+                if basari_g:
+                    st.success(mesaj_g)
+                else:
+                    st.error(mesaj_g)
+
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#22D3EE);display:inline-block"></span>📊 Firma Stok + Satış · Birleşik Tek Sayfa</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Stok ve satışı birleştirdiğin <b style="color:#CBD5E1">tek sayfalı</b> dosya. Sütunlar: <b style="color:#CBD5E1">FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA</b>. Her satır bir firma-ürün. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA <b>ayrı</b> saklanır. (GSF STOK & YOLDAKI bu dosyada beklenmez — yukarıdaki çok-sekmeli dosyadan gelir.)</div>', unsafe_allow_html=True)
