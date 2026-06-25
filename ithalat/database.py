@@ -301,6 +301,28 @@ def get_sku_ithalat_partileri():
         return {}
 
 
+# Tabloda sonradan eklenen, eksik olabilecek opsiyonel kolonlar
+_OPSIYONEL_KOLONLAR = ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no")
+
+
+def _yaz_graceful(islem, payload):
+    """islem(payload) çağırır; tabloda OLMAYAN bir opsiyonel kolon hatası gelirse
+    YALNIZCA hatada geçen o kolonu düşürüp tekrar dener (diğer opsiyonelleri korur).
+    Böylece bir kolon eksik diye fatura_indirim gibi diğer alanlar boşa düşmez."""
+    p = dict(payload)
+    for _ in range(len(_OPSIYONEL_KOLONLAR) + 1):
+        try:
+            return islem(p)
+        except Exception as e:
+            _msg = str(e).lower()
+            _dus = [k for k in _OPSIYONEL_KOLONLAR if k in p and k.lower() in _msg]
+            if not _dus:
+                raise
+            for k in _dus:
+                p.pop(k, None)
+    return islem(p)
+
+
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
                durum="", tahmini_varis="", fatura_indirim=0):
@@ -324,13 +346,8 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
         }
-        try:
-            d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
-        except Exception:
-            # Yeni opsiyonel kolonlar tabloda yoksa onlarsız tekrar dene
-            for _opt in ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no"):
-                _payload.pop(_opt, None)
-            d = _rows(sb.table("ithalat_dosyalari").insert(_payload).execute())
+        d = _rows(_yaz_graceful(
+            lambda p: sb.table("ithalat_dosyalari").insert(p).execute(), _payload))
         if not d:
             return False, "Dosya eklenemedi (boş yanıt)."
         dosya_id = d[0]["id"]
@@ -370,14 +387,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
         }
-        try:
-            sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
-        except Exception:
-            # Yeni opsiyonel kolonlar tabloda yoksa onlarsız tekrar dene
-            # (masraf ve diğer bilgiler yine kaydedilsin).
-            for _opt in ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no"):
-                _payload.pop(_opt, None)
-            sb.table("ithalat_dosyalari").update(_payload).eq("id", dosya_id).execute()
+        _yaz_graceful(
+            lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
         rows = []
         for k in (kalemler or []):
