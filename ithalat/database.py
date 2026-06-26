@@ -280,7 +280,9 @@ def get_sku_ithalat_partileri():
     """
     try:
         dosyalar = get_dosyalar()
-        tarih_map = {d.get("id"): (str(d.get("tarih") or "")[:10]) for d in dosyalar}
+        # Stok yaşı için parti tarihi = TESLİM tarihi (yoksa sipariş/belge tarihi)
+        tarih_map = {d.get("id"): (str(d.get("teslim_tarihi") or d.get("tarih") or "")[:10])
+                     for d in dosyalar}
         kalemler = get_tum_kalemler()
         agg = {}
         for k in kalemler:
@@ -302,7 +304,8 @@ def get_sku_ithalat_partileri():
 
 
 # Tabloda sonradan eklenen, eksik olabilecek opsiyonel kolonlar
-_OPSIYONEL_KOLONLAR = ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no")
+_OPSIYONEL_KOLONLAR = ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no",
+                       "teslim_tarihi", "teslim_deposu")
 
 
 def _yaz_graceful(islem, payload):
@@ -325,7 +328,7 @@ def _yaz_graceful(islem, payload):
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
-               durum="", tahmini_varis="", fatura_indirim=0):
+               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
@@ -345,6 +348,8 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
+            "teslim_tarihi": (str(teslim_tarihi)[:10] if teslim_tarihi else None),
+            "teslim_deposu": teslim_deposu or "",
         }
         d = _rows(_yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").insert(p).execute(), _payload))
@@ -371,7 +376,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   durum="", tahmini_varis="", fatura_indirim=0):
+                   durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -386,6 +391,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
+            "teslim_tarihi": (str(teslim_tarihi)[:10] if teslim_tarihi else None),
+            "teslim_deposu": teslim_deposu or "",
         }
         _yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
@@ -549,3 +556,53 @@ def get_tedarikciler():
         return sorted(adlar, key=lambda x: x.lower())
     except Exception:
         return []
+
+
+def set_dosya_teslim(dosya_id, teslim_tarihi=None, teslim_deposu=None):
+    """Bir dosyanın SADECE teslim tarihi ve/veya teslim deposunu günceller.
+    Diğer hiçbir alana dokunmaz. Verilmeyen (None) alan güncellenmez."""
+    sb = _get_client()
+    payload = {}
+    if teslim_tarihi is not None:
+        payload["teslim_tarihi"] = (str(teslim_tarihi)[:10] if teslim_tarihi else None)
+    if teslim_deposu is not None:
+        payload["teslim_deposu"] = teslim_deposu or ""
+    if not payload:
+        return False
+    try:
+        _yaz_graceful(lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), payload)
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
+def teslim_tarihleri_uygula(belge_map, takip_map):
+    """Satın alım raporundan gelen teslim tarihlerini mevcut dosyalara yazar.
+    SADECE teslim_tarihi alanı güncellenir; başka hiçbir veri değişmez.
+    Eşleştirme: önce dosya_no (Belge no), eşleşmezse ithalat_takip_no.
+    belge_map / takip_map: {ANAHTAR(upper,strip): 'YYYY-MM-DD'}
+    Döner: (guncellenen, eslesmeyen, atlanan_zaten_ayni)."""
+    sb = _get_client()
+    dosyalar = get_dosyalar()
+    guncellenen = eslesmeyen = ayni = 0
+    for d in dosyalar:
+        belge = str(d.get("dosya_no") or "").strip().upper()
+        takip = str(d.get("ithalat_takip_no") or "").strip().upper()
+        yeni = belge_map.get(belge) or takip_map.get(takip)
+        if not yeni:
+            eslesmeyen += 1
+            continue
+        mevcut = str(d.get("teslim_tarihi") or "")[:10]
+        if mevcut == yeni:
+            ayni += 1
+            continue
+        try:
+            _yaz_graceful(
+                lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", d["id"]).execute(),
+                {"teslim_tarihi": yeni})
+            guncellenen += 1
+        except Exception:
+            eslesmeyen += 1
+    _temizle()
+    return guncellenen, eslesmeyen, ayni

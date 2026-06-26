@@ -16,7 +16,7 @@ from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
-    get_tedarikciler,
+    get_tedarikciler, teslim_tarihleri_uygula,
 )
 
 
@@ -374,6 +374,7 @@ def _gecmis_ithalatlar():
             "Belge No": d.get("pi_no", "") or d.get("dosya_no", "") or "",
             "Takip No": d.get("ithalat_takip_no", "") or "",
             "Tarih": str(d.get("tarih", ""))[:10],
+            "Teslim Tarihi": str(d.get("teslim_tarihi", "") or "")[:10],
             "Tedarikçi": d.get("tedarikci", ""),
             "Ülke": d.get("mense_ulke", ""),
             "Döviz": d.get("doviz", ""),
@@ -490,12 +491,16 @@ def _gecmis_ithalatlar():
 
     # ── Sıralama + tıklanabilir tablo (satıra tıkla → detay) ──
     _sort = st.selectbox("Sırala", [
-        "Tarih (yeni → eski)", "Tarih (eski → yeni)", "Mal Bedeli (çok → az)",
+        "Sipariş Tarihi (yeni → eski)", "Sipariş Tarihi (eski → yeni)",
+        "Teslim Tarihi (yeni → eski)", "Teslim Tarihi (eski → yeni)",
+        "Mal Bedeli (çok → az)",
         "Toplam Masraf (çok → az)", "% Maliyet (çok → az)", "Tedarikçi (A → Z)", "Belge No (A → Z)",
     ], key="ith_sort")
     _sk = {
-        "Tarih (yeni → eski)":     (lambda p: p[1]["Tarih"], True),
-        "Tarih (eski → yeni)":     (lambda p: p[1]["Tarih"], False),
+        "Sipariş Tarihi (yeni → eski)": (lambda p: p[1]["Tarih"], True),
+        "Sipariş Tarihi (eski → yeni)": (lambda p: p[1]["Tarih"], False),
+        "Teslim Tarihi (yeni → eski)":  (lambda p: p[1]["Teslim Tarihi"] or "", True),
+        "Teslim Tarihi (eski → yeni)":  (lambda p: p[1]["Teslim Tarihi"] or "", False),
         "Mal Bedeli (çok → az)":   (lambda p: p[1]["Mal Bedeli"], True),
         "Toplam Masraf (çok → az)": (lambda p: p[1]["Toplam Masraf"], True),
         "% Maliyet (çok → az)":    (lambda p: p[1]["% Maliyet"], True),
@@ -507,7 +512,8 @@ def _gecmis_ithalatlar():
     satirlar_goster = [s for d, s in _pairs_sorted]
 
     _df_show = pd.DataFrame([{
-        "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—", "Tarih": s["Tarih"],
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—",
+        "Sipariş Tarihi": s["Tarih"], "Teslim Tarihi": s["Teslim Tarihi"] or "—",
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
         "% Maliyet": f"%{s['% Maliyet']:.2f}", "Kalem": s["Kalem"],
@@ -684,6 +690,15 @@ def _gecmis_ithalatlar():
     d, kal, h = hesap_map[did]
 
     st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + str(d.get("tahmini_varis",""))[:10] + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
+    _sip_t = str(d.get("tarih", "") or "")[:10] or "—"
+    _tes_t = str(d.get("teslim_tarihi", "") or "")[:10]
+    _tes_d = str(d.get("teslim_deposu", "") or "")
+    st.markdown(
+        f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">'
+        f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
+        + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#64748B">—</b>')
+        + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
+        + '</div>', unsafe_allow_html=True)
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
@@ -755,7 +770,7 @@ def _gecmis_ithalatlar():
                 _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
             except Exception:
                 _td = date.today()
-            e_tarih = ec1.date_input("Tarih", value=_td)
+            e_tarih = ec1.date_input("Sipariş Tarihi", value=_td)
             e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
 
             # Aşama (durum) + tahmini varış
@@ -776,6 +791,18 @@ def _gecmis_ithalatlar():
                 e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
             st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
                        "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
+
+            _alt_baslik("📦 Teslim — ürün depoya girdiğinde doldur (stok yaşı bu tarihten sayılır)")
+            tcc1, tcc2 = st.columns([1, 1.6])
+            try:
+                _tt = date.fromisoformat(str(d.get("teslim_tarihi", "") or "")[:10])
+            except Exception:
+                _tt = None
+            e_teslim_tarihi = tcc1.date_input("Teslim Tarihi", value=_tt, key=f"ith_edit_tt_{did}",
+                                              format="YYYY-MM-DD")
+            e_teslim_deposu = tcc2.text_input("Teslim Deposu", value=str(d.get("teslim_deposu", "") or ""),
+                                              key=f"ith_edit_td_{did}",
+                                              placeholder="örn. Merkez depo (sadece Teslim Alındı'da doldur)")
 
             _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
             _kdf = pd.DataFrame([
@@ -837,7 +864,9 @@ def _gecmis_ithalatlar():
                                              ithalat_takip_no=e_takip.strip(),
                                              durum=e_durum,
                                              tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
-                                             fatura_indirim=e_indirim)
+                                             fatura_indirim=e_indirim,
+                                             teslim_tarihi=(e_teslim_tarihi.isoformat() if e_teslim_tarihi else ""),
+                                             teslim_deposu=e_teslim_deposu.strip())
                 if ok:
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
@@ -874,7 +903,7 @@ def _yeni_ithalat():
                     tedarikci = _ted_sec
                 mense = st.text_input("Menşe Ülke", key="m_ulke")
             with c3:
-                tarih = st.date_input("Tarih", value=date.today(), key="m_tarih")
+                tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="m_tarih")
                 doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
                 # Kur burada girilmez — masraf aşamasında (Geçmiş İthalatlar → ✏️ Düzenle) girilir.
                 kur = 1.0
@@ -893,9 +922,16 @@ def _yeni_ithalat():
                     help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
             if durum in IN_TRANSIT_DURUMLAR:
                 st.caption(f"📦 Bu dosya **'{durum}'** aşamasında → kalemleri Ürün Yönetimi'nde **yolda** görünecek "
-                           "ve sipariş önerisinde hesaba katılacak.")
+                           "ve sipariş önerisinde hesaba katılacak. (Teslim Tarihi bu aşamada girilmez.)")
+                teslim_tarihi_m, teslim_deposu_m = "", ""
             else:
-                st.caption("✅ **Teslim Alındı** → yolda sayılmaz (depoya girmiş kabul edilir).")
+                st.caption("✅ **Teslim Alındı** → depoya girmiş kabul edilir. Teslim tarihini ve deposunu gir.")
+                _tcc1, _tcc2 = st.columns([1, 1.6])
+                _tt_m = _tcc1.date_input("Teslim Tarihi", value=date.today(), key="m_teslim_tarihi",
+                                         format="YYYY-MM-DD")
+                teslim_deposu_m = _tcc2.text_input("Teslim Deposu", key="m_teslim_deposu",
+                                                   placeholder="örn. Merkez depo")
+                teslim_tarihi_m = _tt_m.isoformat() if _tt_m else ""
 
         with st.container(border=True):
             _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU gir")
@@ -987,7 +1023,8 @@ def _yeni_ithalat():
                                      {}, "", _kalemler, pi_no=pi_no.strip(),
                                      durum=durum,
                                      tahmini_varis=(tahmini_varis if durum in IN_TRANSIT_DURUMLAR else ""),
-                                     fatura_indirim=m_indirim)
+                                     fatura_indirim=m_indirim,
+                                     teslim_tarihi=teslim_tarihi_m, teslim_deposu=teslim_deposu_m)
                 (st.success if ok else st.error)(msg)
                 if ok:
                     # Formu temizle
@@ -1001,6 +1038,60 @@ def _yeni_ithalat():
 
     # ── Excel ──
     with sekme2:
+        with st.expander("📅 Sadece Teslim Tarihi Güncelle (mevcut ithalatlara) — hiçbir veriyi değiştirmez", expanded=False):
+            st.markdown(
+                "Satın alım raporunu yükle; **yalnızca Teslim Tarihi** mevcut ithalatlara yazılır. "
+                "Eşleştirme: önce **Belge no**, eşleşmezse **İthalat Takip No**. "
+                "Başka hiçbir alan (masraf, kalem, fiyat, tarih) **değişmez**. Tekrar yüklenebilir.")
+            up_t = st.file_uploader("Satın Alım Raporu (.xls/.xlsx)", type=["xlsx", "xls"], key="ith_teslim_up")
+            if up_t is not None:
+                try:
+                    df_t = pd.read_excel(up_t)
+                    df_t.columns = [str(c).strip() for c in df_t.columns]
+
+                    def _bul(cands):
+                        for c in df_t.columns:
+                            cl = c.lower().replace("ı", "i").replace("İ", "i")
+                            for k in cands:
+                                if k in cl:
+                                    return c
+                        return None
+                    k_belge = _bul(["belge no", "belge"])
+                    k_takip = _bul(["thalat takip", "takip no", "takip"])
+                    k_teslim = _bul(["teslim tarih"])
+                    if not k_teslim or (not k_belge and not k_takip):
+                        st.error("Gerekli sütunlar bulunamadı: 'Teslim tarihi' ve ('Belge no' veya 'İthalat Takip No').")
+                    else:
+                        def _gun(v):
+                            try:
+                                return pd.to_datetime(v).date().isoformat()
+                            except Exception:
+                                s = str(v or "").strip()
+                                return s[:10] if s and s.lower() != "nan" else ""
+                        belge_map, takip_map = {}, {}
+                        for _, r in df_t.iterrows():
+                            td = _gun(r.get(k_teslim)) if k_teslim else ""
+                            if not td:
+                                continue
+                            if k_belge:
+                                b = str(r.get(k_belge) or "").strip().upper()
+                                if b and b != "NAN":
+                                    belge_map.setdefault(b, td)
+                            if k_takip:
+                                t = str(r.get(k_takip) or "").strip().upper()
+                                if t and t != "NAN":
+                                    takip_map.setdefault(t, td)
+                        st.caption(f"Rapordan {len(belge_map)} belge no · {len(takip_map)} takip no için teslim tarihi okundu.")
+                        if st.button("📅 Teslim Tarihlerini Uygula", type="primary", key="ith_teslim_uygula"):
+                            g, e, a = teslim_tarihleri_uygula(belge_map, takip_map)
+                            st.cache_data.clear()
+                            st.success(f"✅ {g} ithalata teslim tarihi yazıldı · {a} zaten günceldi · {e} eşleşmedi. "
+                                       "Başka hiçbir veri değişmedi.")
+                            if e:
+                                st.caption("Eşleşmeyenler: sistemdeki Belge no/Takip No, rapordakiyle birebir aynı değil olabilir.")
+                except Exception as e:
+                    st.error(f"Excel okunamadı: {e}")
+
         st.markdown(
             "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
             "Aynı **İthalat Takip No** satırları tek ithalat dosyası olur — **siparişler İthalat Takip No'ya göre dosyalanır** "
