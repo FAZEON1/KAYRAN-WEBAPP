@@ -305,7 +305,7 @@ def get_sku_ithalat_partileri():
 
 # Tabloda sonradan eklenen, eksik olabilecek opsiyonel kolonlar
 _OPSIYONEL_KOLONLAR = ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no",
-                       "teslim_tarihi", "teslim_deposu")
+                       "teslim_tarihi", "teslim_deposu", "teslim_sekli")
 
 
 def _yaz_graceful(islem, payload):
@@ -328,7 +328,7 @@ def _yaz_graceful(islem, payload):
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
-               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu=""):
+               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
@@ -350,6 +350,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "fatura_indirim": _f(fatura_indirim, 0),
             "teslim_tarihi": (str(teslim_tarihi)[:10] if teslim_tarihi else None),
             "teslim_deposu": teslim_deposu or "",
+            "teslim_sekli": teslim_sekli or "",
         }
         d = _rows(_yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").insert(p).execute(), _payload))
@@ -376,7 +377,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu=""):
+                   durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -393,6 +394,7 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "fatura_indirim": _f(fatura_indirim, 0),
             "teslim_tarihi": (str(teslim_tarihi)[:10] if teslim_tarihi else None),
             "teslim_deposu": teslim_deposu or "",
+            "teslim_sekli": teslim_sekli or "",
         }
         _yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
@@ -606,3 +608,53 @@ def teslim_tarihleri_uygula(belge_map, takip_map):
             eslesmeyen += 1
     _temizle()
     return guncellenen, eslesmeyen, ayni
+
+
+# ── Barkod (urunler.barkod — SKU bazlı global) ──
+@st.cache_data(ttl=120, show_spinner=False)
+def get_barkod_map():
+    """{sku: barkod} — urunler tablosundan."""
+    try:
+        rows = _rows(_get_client().table("urunler").select("sku, barkod").execute())
+        return {r["sku"]: (r.get("barkod") or "") for r in rows if r.get("sku")}
+    except Exception:
+        return {}
+
+
+def set_barkod(sku, barkod):
+    """Tek SKU'nun barkodunu urunler tablosuna yazar (varsa günceller, yoksa ekler)."""
+    sku = (str(sku) or "").strip()
+    if not sku:
+        return False
+    try:
+        _get_client().table("urunler").upsert(
+            {"sku": sku, "barkod": (str(barkod) or "").strip()}, on_conflict="sku").execute()
+        try:
+            get_barkod_map.clear()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+def barkod_toplu_yukle(eslesme):
+    """{sku: barkod} sözlüğünü urunler tablosuna toplu yazar (upsert on_conflict=sku).
+    Döner: (yazilan, hata)."""
+    rows = []
+    for sku, bk in (eslesme or {}).items():
+        sku = (str(sku) or "").strip()
+        if not sku:
+            continue
+        rows.append({"sku": sku, "barkod": (str(bk) or "").strip()})
+    if not rows:
+        return 0, "Geçerli satır yok."
+    try:
+        _get_client().table("urunler").upsert(rows, on_conflict="sku").execute()
+        try:
+            get_barkod_map.clear()
+        except Exception:
+            pass
+        return len(rows), ""
+    except Exception as e:
+        return 0, f"{type(e).__name__}: {str(e)[:160]}"

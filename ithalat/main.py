@@ -17,7 +17,14 @@ from .database import (
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
+    get_barkod_map, set_barkod, barkod_toplu_yukle,
 )
+
+
+# Teslim deposu seçenekleri (açılır liste)
+DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO"]
+# Teslim Şekli (Incoterm) seçenekleri
+INCOTERM_SECENEKLER = ["(Seçilmedi)", "FOB", "EXW", "CIF", "DAP", "DDP", "FCA", "CFR", "CPT", "CIP", "DPU"]
 
 
 def _tam(x, max_ond=6):
@@ -459,11 +466,12 @@ def _gecmis_ithalatlar():
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
-    _fc1, _fc2, _fc3 = st.columns(3)
+    _fc1, _fc2, _fc3, _fc4 = st.columns(4)
     f_ted = _fc1.selectbox("Tedarikçi", ["Tümü"] + _tedarikciler, key="ith_f_ted")
-    f_takip = _fc2.text_input("Takip No", key="ith_f_takip",
+    f_durum = _fc2.selectbox("Aşama / Durum", ["Tümü"] + DURUM_SECENEKLER, key="ith_f_durum")
+    f_takip = _fc3.text_input("Takip No", key="ith_f_takip",
                               placeholder="takip no yaz...").strip().lower()
-    f_sku = _fc3.text_input("SKU Ara", key="ith_f_sku",
+    f_sku = _fc4.text_input("SKU Ara", key="ith_f_sku",
                             placeholder="SKU yaz...").strip().lower()
     _ara = st.text_input("🔍 Ara — Belge No · Takip No · Tedarikçi", key="ith_gecmis_ara",
                          placeholder="örn. PIFAZ, PI0624G5F02, 2025-16, LCCGAME...").strip().lower()
@@ -473,6 +481,8 @@ def _gecmis_ithalatlar():
                                  str(s.get("Takip No", "")) + " " + str(s.get("Tedarikçi", ""))).lower():
             return False
         if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
+            return False
+        if f_durum != "Tümü" and (s.get("Aşama", "") or "—") != f_durum:
             return False
         if f_takip and f_takip not in str(s.get("Takip No", "") or "").lower():
             return False
@@ -698,6 +708,7 @@ def _gecmis_ithalatlar():
         f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
         + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#64748B">—</b>')
         + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
+        + (f' · 🚢 Teslim Şekli: <b style="color:#E2E8F0">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
         + '</div>', unsafe_allow_html=True)
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
@@ -759,7 +770,12 @@ def _gecmis_ithalatlar():
             e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
             e_dno = ec1.text_input("Dosya No", value=str(d.get("dosya_no", "") or ""))
             e_ted = ec2.text_input("Tedarikçi", value=str(d.get("tedarikci", "") or ""))
-            e_mense = ec2.text_input("Menşe Ülke", value=str(d.get("mense_ulke", "") or ""))
+            _inc_cur = str(d.get("teslim_sekli", "") or "")
+            _inc_opts = INCOTERM_SECENEKLER + ([_inc_cur] if _inc_cur and _inc_cur not in INCOTERM_SECENEKLER else [])
+            e_teslim_sekli = ec2.selectbox("Teslim Şekli (Incoterm)", _inc_opts,
+                index=_inc_opts.index(_inc_cur) if _inc_cur in _inc_opts else 0,
+                key=f"ith_edit_inc_{did}")
+            e_mense = ""
             _dv_list = ["USD", "EUR", "CNY", "TL"]
             _dv = str(d.get("doviz", "USD") or "USD")
             e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
@@ -800,9 +816,12 @@ def _gecmis_ithalatlar():
                 _tt = None
             e_teslim_tarihi = tcc1.date_input("Teslim Tarihi", value=_tt, key=f"ith_edit_tt_{did}",
                                               format="YYYY-MM-DD")
-            e_teslim_deposu = tcc2.text_input("Teslim Deposu", value=str(d.get("teslim_deposu", "") or ""),
-                                              key=f"ith_edit_td_{did}",
-                                              placeholder="örn. Merkez depo (sadece Teslim Alındı'da doldur)")
+            _td_cur = str(d.get("teslim_deposu", "") or "")
+            _td_opts = DEPO_SECENEKLER + ([_td_cur] if _td_cur and _td_cur not in DEPO_SECENEKLER else [])
+            _e_td_sec = tcc2.selectbox("Teslim Deposu", _td_opts,
+                index=_td_opts.index(_td_cur) if _td_cur in _td_opts else 0,
+                key=f"ith_edit_td_{did}")
+            e_teslim_deposu = "" if str(_e_td_sec).startswith("(") else _e_td_sec
 
             _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
             _kdf = pd.DataFrame([
@@ -866,7 +885,8 @@ def _gecmis_ithalatlar():
                                              tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
                                              fatura_indirim=e_indirim,
                                              teslim_tarihi=(e_teslim_tarihi.isoformat() if e_teslim_tarihi else ""),
-                                             teslim_deposu=e_teslim_deposu.strip())
+                                             teslim_deposu=e_teslim_deposu,
+                                             teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli))
                 if ok:
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
@@ -885,28 +905,31 @@ def _yeni_ithalat():
     # ── Manuel ──
     with sekme1:
         with st.container(border=True):
+            _fv = st.session_state.setdefault("m_form_ver", 0)
             _alt_baslik("📄 Dosya Bilgileri")
             c1, c2, c3 = st.columns(3)
             with c1:
-                pi_no = st.text_input("PI No", key="m_pi_no", placeholder="PI-2025-001")
-                dosya_no = st.text_input("Dosya / Sipariş No", key="m_dosya_no", placeholder="ITH-2025-001")
+                pi_no = st.text_input("PI No", key=f"m_pi_no_{_fv}", placeholder="PI-2025-001")
+                dosya_no = st.text_input("Dosya / Sipariş No", key=f"m_dosya_no_{_fv}", placeholder="ITH-2025-001")
             with c2:
                 _ted_gecmis = get_tedarikciler()
                 _ted_opts = ["— tedarikçi seç —"] + _ted_gecmis + ["➕ Yeni tedarikçi (elle yaz)"]
-                _ted_sec = st.selectbox("Tedarikçi (cari listesinden)", _ted_opts, key="m_ted_sec")
+                _ted_sec = st.selectbox("Tedarikçi (cari listesinden)", _ted_opts, key=f"m_ted_sec_{_fv}")
                 if _ted_sec == "➕ Yeni tedarikçi (elle yaz)":
-                    tedarikci = st.text_input("Yeni tedarikçi adı", key="m_ted_yeni",
+                    tedarikci = st.text_input("Yeni tedarikçi adı", key=f"m_ted_yeni_{_fv}",
                                               placeholder="Tam ticari unvanı yaz").strip()
                 elif _ted_sec == "— tedarikçi seç —":
                     tedarikci = ""
                 else:
                     tedarikci = _ted_sec
-                mense = st.text_input("Menşe Ülke", key="m_ulke")
+                teslim_sekli_m = st.selectbox("Teslim Şekli (Incoterm)", INCOTERM_SECENEKLER,
+                                              key=f"m_teslim_sekli_{_fv}")
             with c3:
-                tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="m_tarih")
-                doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key="m_doviz")
+                tarih = st.date_input("Sipariş Tarihi", value=date.today(), key=f"m_tarih_{_fv}")
+                doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key=f"m_doviz_{_fv}")
                 # Kur burada girilmez — masraf aşamasında (Geçmiş İthalatlar → ✏️ Düzenle) girilir.
                 kur = 1.0
+            mense = ""
 
             # Aşama (durum) çubuğu + tahmini varış
             dc1, dc2 = st.columns([2.4, 1])
@@ -914,11 +937,10 @@ def _yeni_ithalat():
                 st.markdown('<div class="ith-th" style="margin-bottom:4px">Aşama / Durum</div>', unsafe_allow_html=True)
                 durum = st.radio("durum", DURUM_SECENEKLER,
                                  index=DURUM_SECENEKLER.index(VARSAYILAN_DURUM),
-                                 horizontal=True, label_visibility="collapsed", key="m_durum")
+                                 horizontal=True, label_visibility="collapsed", key=f"m_durum_{_fv}")
             with dc2:
-                _yolda_mi = durum in IN_TRANSIT_DURUMLAR
                 tahmini_varis = st.date_input(
-                    "Tahmini Varış", value=date.today(), key="m_tahmini_varis",
+                    "Tahmini Varış", value=date.today(), key=f"m_tahmini_varis_{_fv}",
                     help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
             if durum in IN_TRANSIT_DURUMLAR:
                 st.caption(f"📦 Bu dosya **'{durum}'** aşamasında → kalemleri Ürün Yönetimi'nde **yolda** görünecek "
@@ -927,16 +949,17 @@ def _yeni_ithalat():
             else:
                 st.caption("✅ **Teslim Alındı** → depoya girmiş kabul edilir. Teslim tarihini ve deposunu gir.")
                 _tcc1, _tcc2 = st.columns([1, 1.6])
-                _tt_m = _tcc1.date_input("Teslim Tarihi", value=date.today(), key="m_teslim_tarihi",
+                _tt_m = _tcc1.date_input("Teslim Tarihi", value=date.today(), key=f"m_teslim_tarihi_{_fv}",
                                          format="YYYY-MM-DD")
-                teslim_deposu_m = _tcc2.text_input("Teslim Deposu", key="m_teslim_deposu",
-                                                   placeholder="örn. Merkez depo")
+                _td_sec_m = _tcc2.selectbox("Teslim Deposu", DEPO_SECENEKLER, key=f"m_teslim_deposu_{_fv}")
+                teslim_deposu_m = "" if str(_td_sec_m).startswith("(") else _td_sec_m
                 teslim_tarihi_m = _tt_m.isoformat() if _tt_m else ""
 
         with st.container(border=True):
-            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU gir")
+            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU / ürün adı / barkod gir")
             st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
+            _barkod_map = get_barkod_map()
 
             # Aranabilir seçici: kutuya kod yazınca eşleşen SKU'lar listelenir, seçince ad otomatik gelir
             secenek_map = {sku: sku for sku in sorted(katalog.keys())}
@@ -944,35 +967,38 @@ def _yeni_ithalat():
             secenek_labels = [BOS] + list(secenek_map.keys())
 
             if not katalog:
-                st.info("Katalog boş — sorun değil, sağdaki **Manuel SKU** kutusuna kodu yazarak kalem ekleyebilirsin.")
+                st.info("Katalog boş — sorun değil, **Manuel SKU** + **Ürün Adı** + **Barkod** kutularına yazarak yeni kalem ekleyebilirsin.")
 
-            hcols = st.columns([2.4, 1.6, 1, 1.3])
-            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "veya Manuel SKU", "Adet", "Birim FOB"]):
+            _oran = [1.9, 1.2, 1.7, 1.3, 0.8, 1.0]
+            hcols = st.columns(_oran)
+            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             _kalemler = []
             for i in range(n_satir):
-                rc = st.columns([2.4, 1.6, 1, 1.3])
-                _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}",
+                rc = st.columns(_oran)
+                _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}_{_fv}",
                                        label_visibility="collapsed")
-                _msku = rc[1].text_input("msku", key=f"m_msku_{i}", label_visibility="collapsed",
-                                         placeholder="katalogda yoksa SKU yaz").strip()
-                _adet = rc[2].number_input("adet", key=f"m_adet_{i}", label_visibility="collapsed",
-                                           min_value=0, step=1, value=0)
-                _fob = rc[3].number_input("fob", key=f"m_fob_{i}", label_visibility="collapsed",
-                                          min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                _msku = rc[1].text_input("msku", key=f"m_msku_{i}_{_fv}", label_visibility="collapsed",
+                                         placeholder="SKU yaz").strip()
                 # Manuel SKU öncelikli; boşsa katalogdan seçilen kullanılır
-                _sku = ""
-                if _msku:
-                    _sku = _msku
-                elif _sel and _sel != BOS:
-                    _sku = secenek_map[_sel]
+                _sku = _msku if _msku else (secenek_map[_sel] if (_sel and _sel != BOS) else "")
+                _uad = rc[2].text_input("uad", key=f"m_uad_{i}_{_fv}", label_visibility="collapsed",
+                                        placeholder=(katalog.get(_sku, "") or "ürün adı")).strip()
+                _bk = rc[3].text_input("bk", key=f"m_bk_{i}_{_fv}", label_visibility="collapsed",
+                                       placeholder=(_barkod_map.get(_sku, "") or "barkod")).strip()
+                _adet = rc[4].number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
+                                           min_value=0, step=1, value=0)
+                _fob = rc[5].number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
+                                          min_value=0.0, step=0.01, value=0.0, format="%.2f")
                 if _sku:
-                    _kalemler.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
+                    _kalemler.append({"sku": _sku,
+                                      "urun_adi": (_uad or katalog.get(_sku, "")),
+                                      "barkod": (_bk or _barkod_map.get(_sku, "")),
                                       "adet": _adet, "birim_fob": _fob})
 
             ec1, _ec2 = st.columns([1.6, 5])
-            if ec1.button("➕ Satır ekle", key="m_satir_ekle", use_container_width=True):
+            if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
@@ -982,7 +1008,7 @@ def _yeni_ithalat():
         with _ic1:
             m_indirim = st.number_input(
                 "Fatura Altı İndirim (tutar)", min_value=0.0, value=0.0, step=1.0,
-                format="%.2f", key="m_indirim",
+                format="%.2f", key=f"m_indirim_{_fv}",
                 help="Faturanın altına yazılan toplam indirim (opsiyonel). "
                      "Net mal bedeli = Brüt − İndirim; SKU birim maliyetleri de bu orana göre düşer.")
         with _ic2:
@@ -1010,7 +1036,7 @@ def _yeni_ithalat():
             unsafe_allow_html=True,
         )
 
-        if st.button("💾 Dosyayı Kaydet", type="primary", key="m_kaydet", use_container_width=True):
+        if st.button("💾 Dosyayı Kaydet", type="primary", key=f"m_kaydet_{_fv}", use_container_width=True):
             if not dosya_no.strip():
                 st.warning("Dosya / Sipariş No zorunlu.")
             elif not _kalemler:
@@ -1019,25 +1045,70 @@ def _yeni_ithalat():
                 for r in _kalemler:
                     if not (str(r.get("urun_adi") or "")).strip():
                         r["urun_adi"] = katalog.get((str(r.get("sku") or "")).strip(), "")
+                _teslim_sekli_val = "" if str(teslim_sekli_m).startswith("(") else teslim_sekli_m
                 ok, msg = ekle_dosya(dosya_no.strip(), tarih, tedarikci, mense, doviz, kur,
                                      {}, "", _kalemler, pi_no=pi_no.strip(),
                                      durum=durum,
                                      tahmini_varis=(tahmini_varis if durum in IN_TRANSIT_DURUMLAR else ""),
                                      fatura_indirim=m_indirim,
-                                     teslim_tarihi=teslim_tarihi_m, teslim_deposu=teslim_deposu_m)
+                                     teslim_tarihi=teslim_tarihi_m, teslim_deposu=teslim_deposu_m,
+                                     teslim_sekli=_teslim_sekli_val)
                 (st.success if ok else st.error)(msg)
                 if ok:
-                    # Formu temizle
-                    for i in range(st.session_state.get("m_satir_n", 5)):
-                        for p in ("m_urun_", "m_msku_", "m_adet_", "m_fob_"):
-                            st.session_state.pop(p + str(i), None)
-                    for k in ("m_pi_no", "m_dosya_no", "m_ted_sec", "m_ted_yeni", "m_ulke", "m_indirim"):
-                        st.session_state.pop(k, None)
+                    # Girilen barkodları urunler tablosuna yaz (SKU bazlı global)
+                    for r in _kalemler:
+                        _bk = (str(r.get("barkod") or "")).strip()
+                        if _bk and r.get("sku"):
+                            set_barkod(r["sku"], _bk)
+                    # Formu SIFIRLA: sürüm sayacını artır → tüm alanlar/kalemler temizlenir
+                    st.session_state["m_form_ver"] = _fv + 1
                     st.session_state.m_satir_n = 5
+                    st.cache_data.clear()
                     st.rerun()
 
     # ── Excel ──
     with sekme2:
+        with st.expander("🏷️ Barkod Eşleştir (Excel) — SKU + Barkod yükle (mevcut modellere)", expanded=False):
+            st.markdown(
+                "Excel sütunları: **SKU** + **Barkod**. Sistemdeki ürünlerin barkodları toplu yazılır "
+                "(SKU eşleşmesiyle). Sonra manuel ithalat girişinde barkodu sen verirsin.")
+            up_bk = st.file_uploader("Barkod Excel (.xlsx/.xls)", type=["xlsx", "xls"], key="ith_barkod_up")
+            if up_bk is not None:
+                try:
+                    df_bk = pd.read_excel(up_bk)
+                    df_bk.columns = [str(c).strip() for c in df_bk.columns]
+
+                    def _bk_bul(cands):
+                        for c in df_bk.columns:
+                            cl = c.lower().replace("ı", "i").replace("İ", "i")
+                            for k in cands:
+                                if k in cl:
+                                    return c
+                        return None
+                    k_sku = _bk_bul(["sku", "stok kodu", "stok kod", "kod"])
+                    k_bk = _bk_bul(["barkod", "barcode", "ean"])
+                    if not k_sku or not k_bk:
+                        st.error("Gerekli sütunlar bulunamadı: 'SKU' ve 'Barkod'.")
+                    else:
+                        eslesme = {}
+                        for _, r in df_bk.iterrows():
+                            s = str(r.get(k_sku) or "").strip()
+                            b = str(r.get(k_bk) or "").strip()
+                            if s and s.lower() != "nan" and b and b.lower() != "nan":
+                                eslesme[s] = b
+                        st.caption(f"Excel'den {len(eslesme)} SKU + barkod okundu.")
+                        st.dataframe(pd.DataFrame([{"SKU": s, "Barkod": b} for s, b in list(eslesme.items())[:8]]),
+                                     hide_index=True, use_container_width=True)
+                        if st.button("🏷️ Barkodları Kaydet", type="primary", key="ith_barkod_kaydet"):
+                            n, hata = barkod_toplu_yukle(eslesme)
+                            st.cache_data.clear()
+                            if n:
+                                st.success(f"✅ {n} ürünün barkodu güncellendi.")
+                            else:
+                                st.error(f"Yazılamadı: {hata}")
+                except Exception as e:
+                    st.error(f"Excel okunamadı: {e}")
+
         with st.expander("📅 Sadece Teslim Tarihi Güncelle (mevcut ithalatlara) — hiçbir veriyi değiştirmez", expanded=False):
             st.markdown(
                 "Satın alım raporunu yükle; **yalnızca Teslim Tarihi** mevcut ithalatlara yazılır. "
