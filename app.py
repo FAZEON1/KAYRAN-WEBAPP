@@ -1316,37 +1316,6 @@ def anasayfa():
                 tumunu_okundu_isaretle(aktif_kullanici)
                 st.rerun()
         _zorunlu_bildirim_modal()
-    if _bildirimler:
-        if True:
-            _bil_html = (
-                '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08));'
-                'border:1px solid rgba(99,102,241,0.3);border-radius:16px;'
-                'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.4s ease-out">'
-                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-                f'<div style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.25);'
-                f'display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔔</div>'
-                f'<span style="color:#A5B4FC;font-size:13px;font-weight:700">'
-                f'{len(_bildirimler)} yeni bildirim</span>'
-                f'</div>'
-            )
-            for _b in _bildirimler:
-                _bil_html += (
-                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
-                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
-                    f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
-                    f'<div style="color:#64748B;font-size:10px;margin-top:6px;display:flex;align-items:center;gap:6px">'
-                    f'<span style="width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block"></span>'
-                    f'{str(_b.get("gonderen") or "Sistem").capitalize()} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
-                    f'</div>'
-                    f'</div>'
-                )
-            _bil_html += '</div>'
-            st.markdown(_bil_html, unsafe_allow_html=True)
-            if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn", use_container_width=False):
-                tumunu_okundu_isaretle(aktif_kullanici)
-                st.rerun()
-
-    # ── Otomatik bildirim izleyici: yeni talep/bildirim gelince sayfa kendiliğinden yenilenir ──
     _frag = getattr(st, "fragment", None)
     if _frag:
         @_frag(run_every="15s")
@@ -1371,6 +1340,85 @@ def anasayfa():
     # (📬 Gelen Talepler — aşağıya, istatistik kartlarının altına taşındı ve kapalı panel yapıldı)
 
     # ─────────────────────────────────────────────────────────────────────
+    # ─── HERO BÖLÜMÜ ───
+    _gunler_tr = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+    _aylar_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
+                 "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+    _now_h = datetime.now()
+    _tarih_str = f"{_now_h.day} {_aylar_tr[_now_h.month-1]} {_now_h.year} · {_gunler_tr[_now_h.weekday()]}"
+    st.markdown(
+        '<div style="margin-bottom:26px;animation:fadeUp 0.6s ease-out">'
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
+        '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px">'
+        '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
+        '</div>'
+        f'<span style="color:#64748B;font-size:12px;font-weight:500">{_tarih_str}</span>'
+        '</div>'
+        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,40px);font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
+        f'{selamlama}, '
+        f'<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
+        '</h1>'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:6px;font-weight:400">'
+        'İşletmenin güncel durumu aşağıda. Bir modüle geçmek için kartına tıkla.'
+        '</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # ─────────────────────────────────────────────────────────────────────
+    # ─── İŞ KPI KARTLARI (gerçek veriden, yetkiye göre, güvenli) ───
+    erisilebilir = sum(1 for v in yetkiler.values() if v)
+    toplam_uygulama = len(yetkiler)
+
+    def _kpi_card(label, value, sub, accent):
+        return (f'<div style="background:rgba(255,255,255,0.03);border:1px solid {accent}33;border-radius:14px;'
+                f'padding:16px 18px;backdrop-filter:blur(10px)">'
+                f'<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{label}</div>'
+                f'<div style="color:#FFFFFF;font-size:24px;font-weight:800;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
+                f'<div style="color:{accent};font-size:11px;font-weight:500;margin-top:6px">{sub}</div></div>')
+
+    import datetime as _kdt
+    _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
+    _bugun_iso = _kdt.date.today().isoformat()
+    # Finansal rakamları (net kâr, ciro, marj) yalnızca yetkili görür — diğer personele gösterilmez
+    _finans_gor = (aktif_kullanici or "").lower() == "ibrahim"
+    kpi_html = [_kpi_card("Erişim", f"{erisilebilir}/{toplam_uygulama}", "⚡ Yetkili uygulama", "#A5B4FC")]
+
+    if _finans_gor:
+        try:
+            from satis.database import get_satislar, ozet_hesapla
+            _top, _, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun_iso))
+            _r = "#34D399" if _top["net_kar"] >= 0 else "#F87171"
+            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${_top['net_kar']:,.0f}",
+                                      f"Ciro ${_top['ciro']:,.0f} · %{_top['marj']:.1f}", _r))
+        except Exception:
+            pass
+    if yetkiler.get("ithalat"):
+        try:
+            from ithalat.database import get_dosyalar, IN_TRANSIT_DURUMLAR
+            _yol = sum(1 for d in get_dosyalar() if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
+            kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", "#38BDF8"))
+        except Exception:
+            pass
+    if yetkiler.get("teknikservis"):
+        try:
+            from teknikservis.database import get_kayitlar
+            kpi_html.append(_kpi_card("Teknik Servis", f"{len(get_kayitlar())}", "🛠️ Açık kayıt", "#A78BFA"))
+        except Exception:
+            pass
+    if yetkiler.get("kayranpm"):
+        try:
+            from kayranpm.database import get_kampanyalar
+            kpi_html.append(_kpi_card("Kampanya", f"{len(get_kampanyalar(durum='aktif'))}", "🎯 Aktif kampanya", "#F472B6"))
+        except Exception:
+            pass
+
+    st.markdown(
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:30px;animation:fadeUp 0.7s ease-out">'
+        + "".join(kpi_html) + '</div>',
+        unsafe_allow_html=True
+    )
+
     # KULLANICIYA GÖREV KUTUSU — EN ÜSTTE (ibrahim dışı herkes)
     # ─────────────────────────────────────────────────────────────────────
     if aktif_kullanici.lower() != "ibrahim":
@@ -1445,24 +1493,69 @@ def anasayfa():
                 else:
                     st.error("❌ Güncellenemedi.")
 
-    # ─── HERO BÖLÜMÜ ───
-    st.markdown(
-        '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
-        '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:18px">'
-        '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
-        '</div>'
-        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
-        f'{selamlama}, '
-        f'<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
-        '</h1>'
-        '<p style="color:#94A3B8;font-size:15px;margin-top:8px;font-weight:400">'
-        'KAYRAN Workspace\'e hoş geldin. Sol menüden uygulamana erişebilirsin.'
-        '</p>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+    if _bildirimler:
+        if True:
+            _bil_html = (
+                '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08));'
+                'border:1px solid rgba(99,102,241,0.3);border-radius:16px;'
+                'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.4s ease-out">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+                f'<div style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.25);'
+                f'display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔔</div>'
+                f'<span style="color:#A5B4FC;font-size:13px;font-weight:700">'
+                f'{len(_bildirimler)} yeni bildirim</span>'
+                f'</div>'
+            )
+            for _b in _bildirimler:
+                _bil_html += (
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
+                    f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
+                    f'<div style="color:#64748B;font-size:10px;margin-top:6px;display:flex;align-items:center;gap:6px">'
+                    f'<span style="width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block"></span>'
+                    f'{str(_b.get("gonderen") or "Sistem").capitalize()} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
+                    f'</div>'
+                    f'</div>'
+                )
+            _bil_html += '</div>'
+            st.markdown(_bil_html, unsafe_allow_html=True)
+            if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn", use_container_width=False):
+                tumunu_okundu_isaretle(aktif_kullanici)
+                st.rerun()
 
-    # ─────────────────────────────────────────────────────────────────────
+    # ── Otomatik bildirim izleyici: yeni talep/bildirim gelince sayfa kendiliğinden yenilenir ──
+    # ─── HIZLI ERİŞİM — tıklanabilir modül kartları ───
+    _mod_meta = [
+        ("kayranpm", "📦", "Ürün Yönetimi", "Stok · sipariş önerisi · kampanya · rapor"),
+        ("ithalat", "🚢", "İthalat", "Dosya · masraf · paçal maliyet · teslim"),
+        ("satis", "💰", "Satış", "Sipariş · kâr / P&L · kârlılık"),
+        ("kayranacc", "💵", "Muhasebe & Finans", "Ödeme · çek · banka · cari · aktifler"),
+        ("teknikservis", "🛠️", "Teknik Servis", "Servis · iade · değişim · depo"),
+        ("hesap_makinesi", "🧮", "Hesap Makinesi", "Hızlı hesaplama araçları"),
+    ]
+    _acik_mod = [m for m in _mod_meta if yetkiler.get(m[0])]
+    if _acik_mod:
+        st.markdown('<div style="color:#94A3B8;font-size:12px;font-weight:700;letter-spacing:1.5px;'
+                    'text-transform:uppercase;margin:2px 0 14px">⚡ Hızlı Erişim</div>', unsafe_allow_html=True)
+        for _ri in range(0, len(_acik_mod), 3):
+            _satir_mod = _acik_mod[_ri:_ri + 3]
+            _cols = st.columns(3)
+            for _ci, (_mk, _ic, _ad, _ds) in enumerate(_satir_mod):
+                with _cols[_ci]:
+                    with st.container(border=True):
+                        st.markdown(
+                            f'<div style="font-size:26px;line-height:1">{_ic}</div>'
+                            f'<div style="color:#F1F5F9;font-size:15px;font-weight:700;margin-top:6px">{_ad}</div>'
+                            f'<div style="color:#64748B;font-size:11px;margin:4px 0 10px;min-height:30px;line-height:1.4">{_ds}</div>',
+                            unsafe_allow_html=True)
+                        if st.button("Aç →", key=f"home_open_{_mk}", use_container_width=True):
+                            st.session_state.aktif_uygulama = _mk
+                            st.rerun()
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:18px 0 40px;color:#475569;font-size:11px">'
+            '<span style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 10px #10B981"></span>'
+            'Tüm servisler aktif · KAYRAN Workspace v2.0 Kurumsal sürüm'
+            '</div>', unsafe_allow_html=True)
     # GÜNLÜK GİRİŞ & SERİ & LİDERLİK — tek kapalı panel
     # ─────────────────────────────────────────────────────────────────────
     # Giriş kaydı + kutlama panelin DIŞINDA; panel kapalı olsa da her açılışta çalışır
@@ -1518,39 +1611,6 @@ def anasayfa():
                 unsafe_allow_html=True
             )
 
-    # ─── ÜST İSTATİSTİK KARTLARI ───
-    erisilebilir = sum(1 for v in yetkiler.values() if v)
-    toplam_uygulama = len(yetkiler)
-
-    st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:48px;animation:fadeUp 0.7s ease-out">'
-        f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(99,102,241,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
-        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Erişim</div>'
-        f'<div style="display:flex;align-items:baseline;gap:6px">'
-        f'<span style="color:#FFFFFF;font-size:32px;font-weight:800;font-family:JetBrains Mono,monospace">{erisilebilir}</span>'
-        f'<span style="color:#64748B;font-size:14px;font-weight:500">/ {toplam_uygulama} uygulama</span>'
-        '</div>'
-        '<div style="color:#A5B4FC;font-size:11px;font-weight:500;margin-top:6px">⚡ Yetkili olduğun uygulamalar</div>'
-        '</div>'
-        '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
-        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Sistem</div>'
-        '<div style="display:flex;align-items:center;gap:8px;margin-top:2px">'
-        '<div style="width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 12px #10B981"></div>'
-        '<span style="color:#FFFFFF;font-size:18px;font-weight:700">Çevrimiçi</span>'
-        '</div>'
-        '<div style="color:#6EE7B7;font-size:11px;font-weight:500;margin-top:6px">✓ Tüm servisler aktif</div>'
-        '</div>'
-        f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(236,72,153,0.15);border-radius:14px;padding:20px 22px;backdrop-filter:blur(10px)">'
-        '<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Versiyon</div>'
-        '<div style="display:flex;align-items:baseline;gap:6px">'
-        '<span style="color:#FFFFFF;font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace">v2.0</span>'
-        '<span style="color:#64748B;font-size:12px">.0</span>'
-        '</div>'
-        '<div style="color:#F9A8D4;font-size:11px;font-weight:500;margin-top:6px">🏢 Kurumsal sürüm</div>'
-        '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
     # ── 📬 Gelen Talepler (admin) — kapalı panel, sade liste ──
     if aktif_kullanici.lower() == "ibrahim":
         try:
@@ -1576,7 +1636,7 @@ def anasayfa():
                     talep_id = t.get("id")
                     _ct1, _ct2 = st.columns([3, 1])
                     with _ct1:
-                        yeni_cevap = st.text_area("Cevap", value=t.get("cevap", ""), key=f"cevap_{talep_id}", height=70,
+                        yeni_cevap = st.text_area("Cevap", value=(t.get("cevap") or ""), key=f"cevap_{talep_id}", height=70,
                                                   label_visibility="collapsed", placeholder="Cevabınızı yazın...")
                     with _ct2:
                         _mevcut_durum = t.get("durum", "bekliyor")
@@ -1587,12 +1647,13 @@ def anasayfa():
                     if _kaydet:
                         try:
                             from kayranpm.database import guncelle_talep_cevap
-                            guncelle_talep_cevap(talep_id, yeni_cevap, durum_sec)
+                            _cevap = (yeni_cevap or "").strip()
+                            guncelle_talep_cevap(talep_id, _cevap, durum_sec)
                             _gonderen = (t.get("gonderen") or "").strip()
-                            if _gonderen and yeni_cevap.strip():
+                            if _gonderen and _cevap:
                                 try:
                                     bildirim_gonder(_gonderen.lower(),
-                                                    f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {yeni_cevap.strip()}")
+                                                    f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {_cevap}")
                                 except Exception:
                                     pass
                             st.success("✅ Cevap kaydedildi ve gönderene iletildi.")
