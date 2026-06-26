@@ -1138,24 +1138,6 @@ input, textarea, select { font-size: 16px !important; }
             ):
                 st.toast("⛔ Muhasebe & Finans için erişim yetkiniz yok.", icon="🔒")
 
-        if yetkiler["kayranpm"]:
-            if st.button(
-                "📦 Urun Yonetimi",
-                key="nav_kayranpm",
-                type="primary" if aktif_sayfa == "kayranpm" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "kayranpm"
-                st.rerun()
-        else:
-            if st.button(
-                "📦 Urun Yonetimi",
-                key="nav_kayranpm_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ Ürün Yönetimi için erişim yetkiniz yok.", icon="🔒")
-
         # Ithalat — herkese gorunur, sadece yetkili (ibrahim) girebilir
         if yetkiler["ithalat"]:
             if st.button(
@@ -1175,24 +1157,23 @@ input, textarea, select { font-size: 16px !important; }
             ):
                 st.toast("⛔ İthalat için erişim yetkiniz yok.", icon="🔒")
 
-        # Teknik Servis
-        if yetkiler["teknikservis"]:
+        if yetkiler["kayranpm"]:
             if st.button(
-                "🛠️ Teknik Servis",
-                key="nav_teknikservis",
-                type="primary" if aktif_sayfa == "teknikservis" else "secondary",
+                "📦 Urun Yonetimi",
+                key="nav_kayranpm",
+                type="primary" if aktif_sayfa == "kayranpm" else "secondary",
                 use_container_width=True
             ):
-                st.session_state.aktif_uygulama = "teknikservis"
+                st.session_state.aktif_uygulama = "kayranpm"
                 st.rerun()
         else:
             if st.button(
-                "🛠️ Teknik Servis",
-                key="nav_teknikservis_dn",
+                "📦 Urun Yonetimi",
+                key="nav_kayranpm_dn",
                 type="secondary",
                 use_container_width=True
             ):
-                st.toast("⛔ Teknik Servis için erişim yetkiniz yok.", icon="🔒")
+                st.toast("⛔ Ürün Yönetimi için erişim yetkiniz yok.", icon="🔒")
 
         if yetkiler["satis"]:
             if st.button(
@@ -1211,6 +1192,25 @@ input, textarea, select { font-size: 16px !important; }
                 use_container_width=True
             ):
                 st.toast("⛔ Satış için erişim yetkiniz yok.", icon="🔒")
+
+        # Teknik Servis
+        if yetkiler["teknikservis"]:
+            if st.button(
+                "🛠️ Teknik Servis",
+                key="nav_teknikservis",
+                type="primary" if aktif_sayfa == "teknikservis" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "teknikservis"
+                st.rerun()
+        else:
+            if st.button(
+                "🛠️ Teknik Servis",
+                key="nav_teknikservis_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ Teknik Servis için erişim yetkiniz yok.", icon="🔒")
 
         if yetkiler["hesap_makinesi"]:
             if st.button(
