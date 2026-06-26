@@ -649,86 +649,66 @@ def run():
     
         st.markdown("---")
     
-        # ── GÜNCEL KAMPANYA ÖZETİ ──
-        st.markdown(
-            '<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;'
-            'margin:6px 0 12px;display:flex;align-items:center;gap:9px">'
-            '<span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>'
-            '🎯 Güncel Kampanyalar</div>',
-            unsafe_allow_html=True)
+        # ── GÜNCEL KAMPANYA ÖZETİ (kapalı panel + tablo) ──
         try:
             from .database import get_kampanyalar as _get_kmp
             _kmps = _get_kmp(durum="aktif") or []
         except Exception:
             _kmps = []
-        if not _kmps:
-            st.info("Şu an aktif kampanya yok. Kampanya eklemek için **Kampanyalar** sekmesini kullan.")
-        else:
-            import datetime as _kdt2
-            _bg = _kdt2.date.today()
+        import datetime as _kdt2
 
-            def _bts(k):
-                try:
-                    return _kdt2.date.fromisoformat(str(k.get("bitis_tarihi"))[:10])
-                except Exception:
-                    return _kdt2.date.max
+        def _bts(k):
+            try:
+                return _kdt2.date.fromisoformat(str(k.get("bitis_tarihi"))[:10])
+            except Exception:
+                return _kdt2.date.max
 
-            _tur_say = {}
-            for k in _kmps:
-                _t = (k.get("kampanya_turu") or "").strip() or "Belirsiz"
-                _tur_say[_t] = _tur_say.get(_t, 0) + 1
-            _dagilim = " · ".join(f"{v} {t}" for t, v in sorted(_tur_say.items(), key=lambda x: -x[1]))
-            _yakin = sum(1 for k in _kmps if _bts(k) != _kdt2.date.max and 0 <= (_bts(k) - _bg).days <= 7)
-            _ozet = f'<b style="color:#A5B4FC">{len(_kmps)} aktif kampanya</b>'
-            if _dagilim:
-                _ozet += f' · <span style="color:#94A3B8">{_dagilim}</span>'
-            if _yakin:
-                _ozet += f' · <span style="color:#FB923C">⏳ {_yakin} tanesi 7 gün içinde bitiyor</span>'
-            st.markdown(f'<div style="font-size:12px;margin-bottom:14px">{_ozet}</div>', unsafe_allow_html=True)
+        _bg = _kdt2.date.today()
+        with st.expander(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", expanded=False):
+            if not _kmps:
+                st.info("Şu an aktif kampanya yok. Kampanya eklemek için **Kampanya Takip** sayfasını kullan.")
+            else:
+                _tur_say = {}
+                for k in _kmps:
+                    _t = (k.get("kampanya_turu") or "").strip() or "Belirsiz"
+                    _tur_say[_t] = _tur_say.get(_t, 0) + 1
+                _dagilim = " · ".join(f"{v} {t}" for t, v in sorted(_tur_say.items(), key=lambda x: -x[1]))
+                _yakin = sum(1 for k in _kmps if _bts(k) != _kdt2.date.max and 0 <= (_bts(k) - _bg).days <= 7)
+                _ozet = f'<b style="color:#A5B4FC">{len(_kmps)} aktif kampanya</b>'
+                if _dagilim:
+                    _ozet += f' · <span style="color:#94A3B8">{_dagilim}</span>'
+                if _yakin:
+                    _ozet += f' · <span style="color:#FB923C">⏳ {_yakin} tanesi 7 gün içinde bitiyor</span>'
+                st.markdown(f'<div style="font-size:12px;margin-bottom:10px">{_ozet}</div>', unsafe_allow_html=True)
 
-            _TUR_RENK = {"Sellout": "#38BDF8", "Rebate": "#34D399", "Marketing": "#F472B6",
-                         "Spiff": "#FBBF24", "Belirsiz": "#94A3B8"}
-            _satir_html = '<div style="display:flex;flex-direction:column;gap:8px">'
-            for k in sorted(_kmps, key=_bts):
-                _ad = k.get("kampanya_adi", "—")
-                _firma = k.get("firma", "") or ""
-                _tur = (k.get("kampanya_turu") or "").strip()
-                _kat = k.get("kategori", "") or ""
-                _renk = _TUR_RENK.get(_tur or "Belirsiz", "#94A3B8")
-                _bt = _bts(k)
-                if _bt == _kdt2.date.max:
-                    _kalan_html = ''
-                else:
-                    _kalan = (_bt - _bg).days
-                    if _kalan < 0:
-                        _kalan_html = '<span style="color:#F87171;font-size:11px;font-weight:600">süresi doldu</span>'
-                    elif _kalan == 0:
-                        _kalan_html = '<span style="color:#FB923C;font-size:11px;font-weight:600">bugün bitiyor</span>'
-                    elif _kalan <= 7:
-                        _kalan_html = f'<span style="color:#FB923C;font-size:11px;font-weight:600">{_kalan} gün kaldı</span>'
+                _rows_k = []
+                for k in sorted(_kmps, key=_bts):
+                    _bt = _bts(k)
+                    if _bt == _kdt2.date.max:
+                        _kalan = ""
+                        _durum_k = "—"
                     else:
-                        _kalan_html = f'<span style="color:#94A3B8;font-size:11px;font-weight:600">{_kalan} gün kaldı</span>'
-                _tur_rozet = f'<span style="background:{_renk}22;color:{_renk};font-size:10px;font-weight:700;padding:2px 9px;border-radius:6px;white-space:nowrap">{_tur or "—"}</span>'
-                _spiff_rozet = ''
-                try:
-                    _sp = float(k.get("spiff_tl") or 0)
-                    if _sp:
-                        _spiff_rozet = f'<span style="background:rgba(251,191,36,0.12);color:#FBBF24;font-size:10px;font-weight:600;padding:2px 9px;border-radius:6px;white-space:nowrap">🎟️ Spiff ₺{_sp:,.0f}</span>'
-                except Exception:
-                    pass
-                _alt = (_firma + (" · " + _kat if _kat else "")) if _firma or _kat else ""
-                _satir_html += (
-                    '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);'
-                    'border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-                    f'{_tur_rozet}'
-                    f'<span style="color:#E2E8F0;font-size:13px;font-weight:600">{_ad}</span>'
-                    + (f'<span style="color:#64748B;font-size:11px">{_alt}</span>' if _alt else '')
-                    + f'<span style="margin-left:auto">{_kalan_html}</span>'
-                    + _spiff_rozet
-                    + '</div>'
-                )
-            _satir_html += '</div>'
-            st.markdown(_satir_html, unsafe_allow_html=True)
+                        _kg = (_bt - _bg).days
+                        _kalan = _kg
+                        _durum_k = ("Süresi doldu" if _kg < 0 else
+                                    "Bugün bitiyor" if _kg == 0 else
+                                    "Yakında bitiyor" if _kg <= 7 else "Aktif")
+                    try:
+                        _sp = float(k.get("spiff_tl") or 0)
+                    except Exception:
+                        _sp = 0.0
+                    _rows_k.append({
+                        "Kampanya": k.get("kampanya_adi", "—"),
+                        "Tür": (k.get("kampanya_turu") or "—"),
+                        "Firma": k.get("firma", "") or "",
+                        "Kategori": k.get("kategori", "") or "",
+                        "Başlangıç": str(k.get("baslangic_tarihi", "") or "")[:10],
+                        "Bitiş": str(k.get("bitis_tarihi", "") or "")[:10],
+                        "Kalan (gün)": _kalan,
+                        "Durum": _durum_k,
+                        "Spiff ₺": (f"{_sp:,.0f}" if _sp else ""),
+                    })
+                st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True)
 
     elif sayfa == "📋  Tüm Ürünler":
         st.markdown('<div class="baslik">📋 Tüm Ürünler</div>', unsafe_allow_html=True)
