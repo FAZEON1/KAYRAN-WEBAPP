@@ -544,15 +544,26 @@ def reddet_siparis(kayit_id):
 
 # ── KAMPANYALAR ─────────────────────────────────────────────────────
 
-def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar="", kategori=""):
-    r = get_client().table("kampanyalar").insert({
+def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar="", kategori="",
+                  kampanya_turu="", spiff_tl=0, spiff_kur=0, spiff_fatura=False):
+    sb = get_client()
+    payload = {
         "kampanya_adi": kampanya_adi, "firma": firma,
         "baslangic_tarihi": str(baslangic), "bitis_tarihi": str(bitis),
         "durum": "aktif", "notlar": notlar or "", "kategori": kategori or "",
+        "kampanya_turu": kampanya_turu or "",
+        "spiff_tl": float(spiff_tl or 0), "spiff_kur": float(spiff_kur or 0),
+        "spiff_fatura": bool(spiff_fatura),
         "olusturma_tarihi": get_today(),
-    }).execute()
-    return r.data[0]["id"] if r.data else None
+    }
+    try:
+        r = sb.table("kampanyalar").insert(payload).execute()
+    except Exception:
+        for _k in ("kampanya_turu", "spiff_tl", "spiff_kur", "spiff_fatura", "kategori"):
+            payload.pop(_k, None)
+        r = sb.table("kampanyalar").insert(payload).execute()
     _cache_temizle()
+    return r.data[0]["id"] if r.data else None
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_kampanyalar(durum=None):
@@ -566,12 +577,30 @@ def get_kampanyalar(durum=None):
 def get_kampanya(kampanya_id):
     return _row(get_client().table("kampanyalar").select("*").eq("id", kampanya_id).execute())
 
-def guncelle_kampanya(kampanya_id, kampanya_adi, firma, baslangic, bitis, notlar):
-    get_client().table("kampanyalar").update({
+def guncelle_kampanya(kampanya_id, kampanya_adi, firma, baslangic, bitis, notlar, kategori=None,
+                      kampanya_turu=None, spiff_tl=None, spiff_kur=None, spiff_fatura=None):
+    sb = get_client()
+    payload = {
         "kampanya_adi": kampanya_adi, "firma": firma,
         "baslangic_tarihi": str(baslangic), "bitis_tarihi": str(bitis),
         "notlar": notlar or "",
-    }).eq("id", kampanya_id).execute()
+    }
+    if kategori is not None:
+        payload["kategori"] = kategori
+    if kampanya_turu is not None:
+        payload["kampanya_turu"] = kampanya_turu
+    if spiff_tl is not None:
+        payload["spiff_tl"] = float(spiff_tl or 0)
+    if spiff_kur is not None:
+        payload["spiff_kur"] = float(spiff_kur or 0)
+    if spiff_fatura is not None:
+        payload["spiff_fatura"] = bool(spiff_fatura)
+    try:
+        sb.table("kampanyalar").update(payload).eq("id", kampanya_id).execute()
+    except Exception:
+        for _k in ("kategori", "kampanya_turu", "spiff_tl", "spiff_kur", "spiff_fatura"):
+            payload.pop(_k, None)
+        sb.table("kampanyalar").update(payload).eq("id", kampanya_id).execute()
     _cache_temizle()
 
 def kapat_kampanya(kampanya_id):

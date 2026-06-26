@@ -1480,6 +1480,7 @@ def run():
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         FIRMA_LISTESI_K = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"]
+        KAMPANYA_TURLERI = ["(Seçilmedi)", "Sellout", "Rebate", "Marketing", "Spiff"]
     
         # Ürün verisi (paçal maliyet için)
         try:
@@ -1570,13 +1571,26 @@ def run():
                     with kf2:
                         k_bas = st.date_input("Başlangıç Tarihi *", value=tr_today())
                         k_bit = st.date_input("Bitiş Tarihi *", value=tr_today())
+                        k_turu = st.selectbox("Kampanya Türü", KAMPANYA_TURLERI)
+                    st.markdown('<div style="color:#94A3B8;font-size:11px;font-weight:700;margin:6px 0 2px">🎟️ Spiff (sadece Spiff türü için doldur — TL net + tahmini kur → USD otomatik)</div>', unsafe_allow_html=True)
+                    ksp1, ksp2, ksp3 = st.columns([1.2, 1, 1])
+                    k_spiff_tl = ksp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
+                                                   value=None, placeholder="0", key="k_spiff_tl")
+                    k_spiff_kur = ksp2.number_input("Kur (₺/$ tahmini)", min_value=0.0, step=0.1, format="%.4f",
+                                                    value=None, placeholder="örn. 40", key="k_spiff_kur")
+                    k_spiff_fatura = ksp3.checkbox("Fatura geldi (kur kesin)", value=False, key="k_spiff_fatura")
+                    if k_spiff_tl and k_spiff_kur:
+                        st.caption(f"≈ ${(k_spiff_tl / k_spiff_kur):,.2f} USD spiff maliyeti {'(fatura/kesin)' if k_spiff_fatura else '(tahmini)'}")
                     k_not = st.text_area("Notlar", placeholder="Kampanya hakkında notlar...")
                     if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
                         if not k_adi.strip():
                             st.error("Kampanya adı zorunludur.")
                         else:
                             _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
-                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val)
+                            _k_turu_val = "" if str(k_turu).startswith("(") else k_turu
+                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val,
+                                                    kampanya_turu=_k_turu_val, spiff_tl=(k_spiff_tl or 0),
+                                                    spiff_kur=(k_spiff_kur or 0), spiff_fatura=k_spiff_fatura)
                             st.cache_data.clear()
                             st.toast(f"✅ '{k_adi}' kampanyası oluşturuldu! (ID: {yeni_id})")
                             st.rerun()
@@ -1681,14 +1695,41 @@ def run():
                                 dk_firma = st.selectbox("Firma", FIRMA_LISTESI_K,
                                     index=FIRMA_LISTESI_K.index(kamp["firma"]) if kamp["firma"] in FIRMA_LISTESI_K else 0,
                                     key=f"dk_firma_{kid}")
+                                _dk_kat_cur = (kamp.get("kategori") or "").strip()
+                                _dk_opts = ["(Genel / Karışık)"] + _kt_kat_list
+                                if _dk_kat_cur and _dk_kat_cur not in _dk_opts:
+                                    _dk_opts = ["(Genel / Karışık)", _dk_kat_cur] + _kt_kat_list
+                                dk_kat = st.selectbox("Kategori", _dk_opts,
+                                    index=_dk_opts.index(_dk_kat_cur) if _dk_kat_cur in _dk_opts else 0,
+                                    key=f"dk_kat_{kid}")
                             with dk2:
                                 dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}")
                                 dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}")
                             dk_not = st.text_area("Notlar", value=kamp.get("notlar","") or "", key=f"dk_not_{kid}")
+                            _dk_turu_cur = (kamp.get("kampanya_turu") or "").strip()
+                            _dk_turu_opts = KAMPANYA_TURLERI + ([_dk_turu_cur] if _dk_turu_cur and _dk_turu_cur not in KAMPANYA_TURLERI else [])
+                            dk_turu = st.selectbox("Kampanya Türü", _dk_turu_opts,
+                                index=_dk_turu_opts.index(_dk_turu_cur) if _dk_turu_cur in _dk_turu_opts else 0,
+                                key=f"dk_turu_{kid}")
+                            st.markdown('<div style="color:#94A3B8;font-size:11px;font-weight:700;margin:6px 0 2px">🎟️ Spiff — TL net + kur. Fatura gelince <b>kuru</b> güncelle, USD/kâr otomatik düzelir.</div>', unsafe_allow_html=True)
+                            dsp1, dsp2, dsp3 = st.columns([1.2, 1, 1])
+                            dk_spiff_tl = dsp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
+                                value=float(kamp.get("spiff_tl") or 0) or None, placeholder="0", key=f"dk_spiff_tl_{kid}")
+                            dk_spiff_kur = dsp2.number_input("Kur (₺/$)", min_value=0.0, step=0.1, format="%.4f",
+                                value=float(kamp.get("spiff_kur") or 0) or None, placeholder="örn. 40", key=f"dk_spiff_kur_{kid}")
+                            dk_spiff_fatura = dsp3.checkbox("Fatura geldi (kur kesin)",
+                                value=bool(kamp.get("spiff_fatura")), key=f"dk_spiff_fatura_{kid}")
+                            if dk_spiff_tl and dk_spiff_kur:
+                                st.caption(f"≈ ${(dk_spiff_tl / dk_spiff_kur):,.2f} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
                             dc1_k, dc2_k, dc3_k = st.columns(3)
                             with dc1_k:
                                 if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
-                                    guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not)
+                                    _dk_kat_val = "" if str(dk_kat).startswith("(") else dk_kat
+                                    _dk_turu_val = "" if str(dk_turu).startswith("(") else dk_turu
+                                    guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not,
+                                                      kategori=_dk_kat_val, kampanya_turu=_dk_turu_val,
+                                                      spiff_tl=(dk_spiff_tl or 0), spiff_kur=(dk_spiff_kur or 0),
+                                                      spiff_fatura=dk_spiff_fatura)
                                     st.cache_data.clear()
                                     st.toast("✅ Kampanya güncellendi!")
                                     st.rerun()
@@ -2005,15 +2046,31 @@ def run():
                         )
                         st.html(k_css + k_head + k_rows + "</tbody></table></div>")
     
-                        # Kampanya özet metrikleri
-                        metrik_satiri([
+                        # Kampanya özet metrikleri (+ Spiff kampanya maliyeti)
+                        _spiff_tl_p = float(kamp.get("spiff_tl") or 0)
+                        _spiff_kur_p = float(kamp.get("spiff_kur") or 0)
+                        _spiff_usd_p = (_spiff_tl_p / _spiff_kur_p) if _spiff_kur_p > 0 else 0.0
+                        _spiff_fat_p = bool(kamp.get("spiff_fatura"))
+                        _kamp_turu_p = (kamp.get("kampanya_turu") or "").strip()
+                        _net_final = toplam_net_kar - _spiff_usd_p
+                        _metrikler = [
                             {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
                             {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_destek_verilen:,.0f}", "renk": "#FB923C"},
-                            {"label": "📈 Toplam Net Kar", "value": f"${toplam_net_kar:,.0f}",
-                             "renk": "#34D399" if toplam_net_kar > 0 else "#F87171",
-                             "alt": "Kârlı" if toplam_net_kar > 0 else "Zararlı"},
-                            {"label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA"},
-                        ])
+                        ]
+                        if _spiff_usd_p > 0:
+                            _metrikler.append({
+                                "label": "🎟️ Spiff Maliyeti", "value": f"${_spiff_usd_p:,.0f}",
+                                "renk": "#FBBF24",
+                                "alt": f"₺{_spiff_tl_p:,.0f} @ {_spiff_kur_p:.2f} · {'fatura/kesin' if _spiff_fat_p else 'tahmini'}"})
+                        _metrikler.append({
+                            "label": "📈 Net Kar" + (" (Spiff sonrası)" if _spiff_usd_p > 0 else ""),
+                            "value": f"${_net_final:,.0f}",
+                            "renk": "#34D399" if _net_final > 0 else "#F87171",
+                            "alt": "Kârlı" if _net_final > 0 else "Zararlı"})
+                        _metrikler.append({
+                            "label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA",
+                            "alt": (f"Tür: {_kamp_turu_p}" if _kamp_turu_p else None)})
+                        metrik_satiri(_metrikler)
     
                         # Ürün düzenleme
                         with st.expander("✏️ Ürün Bilgilerini Güncelle"):
