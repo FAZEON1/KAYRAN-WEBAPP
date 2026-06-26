@@ -16,7 +16,7 @@ from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
-    get_tedarikciler, teslim_tarihleri_uygula,
+    get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
 )
 
 
@@ -1127,7 +1127,7 @@ def _yeni_ithalat():
                 "siparis tarihi": "tarih", "siparis no": "dosya_no", "belge no": "pi_no",
                 "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
                 "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
-                "doviz": "doviz",
+                "doviz": "doviz", "teslim tarihi": "teslim_tarihi",
             }
             kol = {}
             for c in df.columns:
@@ -1299,6 +1299,7 @@ def _yeni_ithalat():
                     if takip_no.lower() == "nan":
                         takip_no = ""
                     tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
+                    teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
 
@@ -1307,24 +1308,32 @@ def _yeni_ithalat():
                     mevcut_kayit = _dosya_map.get(dno_s)
                     if mevcut_kayit:
                         if not _guncelle:
-                            # "Sadece yenileri ekle": mevcut dosya atlanır AMA takip no'su
-                            # boşsa Excel'deki takip no ile doldurulur (kalem/masraf değişmez).
+                            # "Sadece yenileri ekle": mevcut dosya atlanır AMA boş alanlar
+                            # (takip no, teslim tarihi) Excel'den doldurulur — dolu olan ASLA değişmez.
                             _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
+                            _dolduruldu = []
                             if takip_no and not _mt:
                                 set_dosya_takip_no(mevcut_kayit["id"], takip_no)
+                                _dolduruldu.append(f"takip no {takip_no}")
+                            _mtes = str(mevcut_kayit.get("teslim_tarihi", "") or "").strip()
+                            if teslim and not _mtes:
+                                set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
+                                _dolduruldu.append(f"teslim {str(teslim)[:10]}")
+                            if _dolduruldu:
                                 guncellenen += 1
-                                mesajlar.append(f"{dno_s}: zaten kayıtlı — boş takip no dolduruldu ({takip_no}).")
+                                mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
                             else:
                                 atlanan += 1
                                 mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
                             continue
-                        # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile
+                        # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
                         eski_masraf = _masraf_dict(mevcut_kayit)
                         eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
                         ok, msg = guncelle_dosya(
                             mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
                             dov, eski_kur, eski_masraf, notlar, kalemler,
-                            ithalat_takip_no=takip_no)
+                            ithalat_takip_no=takip_no,
+                            teslim_tarihi=(str(teslim)[:10] if teslim else ""))
                         if ok:
                             guncellenen += 1
                         else:
@@ -1332,7 +1341,8 @@ def _yeni_ithalat():
                             mesajlar.append(f"{dno_s}: {msg}")
                     else:
                         ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
-                                             pi_no=belge_no, ithalat_takip_no=takip_no)
+                                             pi_no=belge_no, ithalat_takip_no=takip_no,
+                                             teslim_tarihi=(str(teslim)[:10] if teslim else ""))
                         if ok:
                             basari += 1
                         else:
