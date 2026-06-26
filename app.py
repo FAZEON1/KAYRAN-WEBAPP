@@ -10,7 +10,7 @@ Mimari:
   Hamburger ile sidebar açılır-kapanır
 """
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import smtplib
 import ssl
@@ -1290,8 +1290,9 @@ def anasayfa():
             unsafe_allow_html=True
         )
 
-    # Saate göre selamlama
-    saat = datetime.now().hour
+    # Saate göre selamlama — İstanbul saat dilimi (UTC+3)
+    _ist_now = datetime.utcnow() + timedelta(hours=3)
+    saat = _ist_now.hour
     if saat < 12: selamlama = "Günaydın"
     elif saat < 18: selamlama = "İyi günler"
     else: selamlama = "İyi akşamlar"
@@ -1344,10 +1345,11 @@ def anasayfa():
     _gunler_tr = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     _aylar_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
                  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
-    _now_h = datetime.now()
+    _now_h = _ist_now
     _tarih_str = f"{_now_h.day} {_aylar_tr[_now_h.month-1]} {_now_h.year} · {_gunler_tr[_now_h.weekday()]}"
     st.markdown(
         '<div style="margin-bottom:26px;animation:fadeUp 0.6s ease-out">'
+        '<div style="font-size:10px;color:#475569;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">⚡ İbrahim Kayran tarafından geliştirildi</div>'
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
         '<div style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
@@ -1385,7 +1387,7 @@ def anasayfa():
                 f'<div style="color:#FFFFFF;font-size:26px;font-weight:800;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
                 f'<div style="color:{accent};font-size:12px;font-weight:600;margin-top:6px">{alt}</div></div>')
 
-    _saat_str = datetime.now().strftime("%H:%M")
+    _saat_str = _ist_now.strftime("%H:%M")
     _gunluk_kartlar = [_g_card("Bugün", _saat_str, _tarih_str, "#A5B4FC", "📅")]
     if _dv.get("USD"):
         _usd_s = f"₺{_dv['USD']:.2f}".replace(".", ",")
@@ -1441,6 +1443,7 @@ def anasayfa():
     _bugun_iso = _kdt.date.today().isoformat()
     # Finansal rakamları (net kâr, ciro, marj) yalnızca yetkili görür — diğer personele gösterilmez
     _finans_gor = (aktif_kullanici or "").lower() == "ibrahim"
+    _rozet = {}
     kpi_html = [_kpi_card("Erişim", f"{erisilebilir}/{toplam_uygulama}", "⚡ Yetkili uygulama", "#A5B4FC")]
 
     if _finans_gor:
@@ -1457,18 +1460,26 @@ def anasayfa():
             from ithalat.database import get_dosyalar, IN_TRANSIT_DURUMLAR
             _yol = sum(1 for d in get_dosyalar() if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
             kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", "#38BDF8"))
+            if _yol:
+                _rozet["ithalat"] = f"{_yol} yolda"
         except Exception:
             pass
     if yetkiler.get("teknikservis"):
         try:
             from teknikservis.database import get_kayitlar
-            kpi_html.append(_kpi_card("Teknik Servis", f"{len(get_kayitlar())}", "🛠️ Açık kayıt", "#A78BFA"))
+            _ts_n = len(get_kayitlar())
+            kpi_html.append(_kpi_card("Teknik Servis", f"{_ts_n}", "🛠️ Açık kayıt", "#A78BFA"))
+            if _ts_n:
+                _rozet["teknikservis"] = f"{_ts_n} açık"
         except Exception:
             pass
     if yetkiler.get("kayranpm"):
         try:
             from kayranpm.database import get_kampanyalar
-            kpi_html.append(_kpi_card("Kampanya", f"{len(get_kampanyalar(durum='aktif'))}", "🎯 Aktif kampanya", "#F472B6"))
+            _kmp_n = len(get_kampanyalar(durum='aktif'))
+            kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "🎯 Aktif kampanya", "#F472B6"))
+            if _kmp_n:
+                _rozet["kayranpm"] = f"{_kmp_n} kampanya"
         except Exception:
             pass
 
@@ -1529,8 +1540,13 @@ def anasayfa():
             for _ci, (_mk, _ic, _ad, _ds) in enumerate(_satir_mod):
                 with _cols[_ci]:
                     with st.container(border=True):
+                        _rz = _rozet.get(_mk)
+                        _rz_html = (f'<span style="background:rgba(56,189,248,0.15);color:#7DD3FC;font-size:10px;'
+                                    f'font-weight:700;padding:3px 9px;border-radius:8px;white-space:nowrap">{_rz}</span>'
+                                    ) if _rz else ''
                         st.markdown(
-                            f'<div style="font-size:26px;line-height:1">{_ic}</div>'
+                            f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+                            f'<div style="font-size:26px;line-height:1">{_ic}</div>{_rz_html}</div>'
                             f'<div style="color:#F1F5F9;font-size:15px;font-weight:700;margin-top:6px">{_ad}</div>'
                             f'<div style="color:#64748B;font-size:11px;margin:4px 0 10px;min-height:30px;line-height:1.4">{_ds}</div>',
                             unsafe_allow_html=True)
@@ -1735,9 +1751,6 @@ def anasayfa():
         '<span style="color:#475569;font-size:10px">•</span>'
         f'<span style="color:#64748B;font-size:11px;font-weight:500">© {yil} G5F Teknoloji</span>'
         '</div>'
-        '</div>'
-        '<div style="margin-top:8px;text-align:center">'
-        '<span style="color:#475569;font-size:10px">Ibrahim Kayran tarafindan gelistirildi</span>'
         '</div>',
         unsafe_allow_html=True
     )
