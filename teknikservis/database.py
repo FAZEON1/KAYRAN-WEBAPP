@@ -315,9 +315,12 @@ def servis_formu_pdf(kayit, gecmis=None):
                             leftMargin=16 * mm, rightMargin=16 * mm,
                             title=f"{kayit.get('servis_form_no','')} {baslik}")
     styles = getSampleStyleSheet()
-    h_style = ParagraphStyle("h", parent=styles["Title"], fontSize=16, spaceAfter=2)
-    sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#666666"))
-    sec = ParagraphStyle("sec", parent=styles["Normal"], fontSize=10, textColor=colors.white,
+    from shared.utils import pdf_turkce_font, pdf_stilleri_turkcele
+    PDF_NORMAL, PDF_BOLD = pdf_turkce_font()
+    pdf_stilleri_turkcele(styles, PDF_NORMAL, PDF_BOLD)
+    h_style = ParagraphStyle("h", parent=styles["Title"], fontName=PDF_BOLD, fontSize=16, spaceAfter=2)
+    sub = ParagraphStyle("sub", parent=styles["Normal"], fontName=PDF_NORMAL, fontSize=9, textColor=colors.HexColor("#666666"))
+    sec = ParagraphStyle("sec", parent=styles["Normal"], fontName=PDF_BOLD, fontSize=10, textColor=colors.white,
                          backColor=colors.HexColor("#334155"), leftIndent=4, spaceBefore=8,
                          spaceAfter=2, leading=16)
     el = []
