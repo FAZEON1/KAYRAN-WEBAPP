@@ -3536,6 +3536,23 @@ def run():
                         pass
             return odenen
     
+        def _cari_isimleri_cikar(file_bytes):
+            """Cari Excel'inden Hesap adı (sütun 2) listesini çıkarır — Satış kanalları için."""
+            import pandas as pd
+            from io import BytesIO
+            try:
+                df = pd.read_excel(BytesIO(file_bytes), header=None)
+            except Exception:
+                return []
+            isimler = []
+            for i in range(1, len(df)):
+                ad = df.iloc[i, 2] if df.shape[1] > 2 else None
+                if pd.notna(ad):
+                    s = str(ad).strip()
+                    if s and s.lower() != "nan" and s not in isimler:
+                        isimler.append(s)
+            return isimler
+
         def parse_cari_excel(file_bytes):
             """
             Cari Excel'inden BORÇ ve ALACAK kalemlerini çıkarır.
@@ -3763,10 +3780,14 @@ def run():
                 if st.session_state.get("_cari_islenen_fid") != _fid:
                     st.session_state["_cari_islenen_fid"] = _fid
                     try:
-                        parsed = parse_cari_excel(cari_file.read())
+                        _cari_bytes = cari_file.read()
+                        parsed = parse_cari_excel(_cari_bytes)
                         st.session_state.aktif_cari_data = parsed
                         try:
                             aktif_excel_kaydet(aktif_kul, "cari", parsed)
+                            _isimler = _cari_isimleri_cikar(_cari_bytes)
+                            if _isimler:
+                                aktif_excel_kaydet(aktif_kul, "cari_isimler", _isimler)
                         except Exception:
                             pass
                         st.success(f"✅ {cari_file.name}")

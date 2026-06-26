@@ -847,3 +847,15 @@ def get_cek_toplamlari():
         return toplam_tl, toplam_usd, adet_tl, adet_usd
     except Exception:
         return 0.0, 0.0, 0, 0
+
+
+def get_cari_isimler():
+    """Muhasebe'ye yüklenen cari Excel'indeki 'Hesap adı' listesi (Satış kanal/firma seçimi için).
+    Liste yoksa boş döner."""
+    try:
+        v = aktif_excel_oku("ortak", "cari_isimler")
+        if isinstance(v, list):
+            return sorted({str(x).strip() for x in v if str(x).strip()}, key=lambda s: s.lower())
+    except Exception:
+        pass
+    return []
