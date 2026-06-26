@@ -1365,17 +1365,76 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
+    # ─── GÜNLÜK BİLGİ ŞERİDİ (döviz · altın · hava · günün sözü) ───
+    try:
+        from gunluk import (get_doviz, get_gram_altin, get_hava, get_gunun_sozu,
+                            get_yaklasan_tatil, get_mola_ipucu)
+        _dv = get_doviz()
+        _altin = get_gram_altin()
+        _hava = get_hava()
+        _soz = get_gunun_sozu()
+        _tatil = get_yaklasan_tatil()
+        _mola = get_mola_ipucu()
+    except Exception:
+        _dv, _altin, _hava, _soz, _tatil, _mola = {}, None, None, "", None, ""
+
+    def _g_card(ust, buyuk, alt, accent, ikon):
+        return (f'<div style="background:rgba(255,255,255,0.04);border:1px solid {accent}2e;border-radius:16px;'
+                f'padding:18px 20px;flex:1;min-width:150px">'
+                f'<div style="font-size:10px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{ikon} {ust}</div>'
+                f'<div style="color:#FFFFFF;font-size:26px;font-weight:800;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
+                f'<div style="color:{accent};font-size:12px;font-weight:600;margin-top:6px">{alt}</div></div>')
+
+    _saat_str = datetime.now().strftime("%H:%M")
+    _gunluk_kartlar = [_g_card("Bugün", _saat_str, _tarih_str, "#A5B4FC", "📅")]
+    if _dv.get("USD"):
+        _usd_s = f"₺{_dv['USD']:.2f}".replace(".", ",")
+        _eur_alt = (f"EUR ₺{_dv['EUR']:.2f}".replace(".", ",")) if _dv.get("EUR") else "USD/TRY"
+        _gunluk_kartlar.append(_g_card("Dolar", _usd_s, _eur_alt, "#34D399", "💱"))
+    if _altin:
+        _gunluk_kartlar.append(_g_card("Gram Altın", f"₺{_altin:,.0f}".replace(",", "."), "Anlık fiyat", "#FBBF24", "🥇"))
+    if _hava and _hava.get("sicaklik") is not None:
+        _gunluk_kartlar.append(_g_card("Hava", f"{_hava['sicaklik']}°",
+                                       f"{_hava['ikon']} {_hava['durum']} · {_hava['sehir']}", "#38BDF8", "🌤️"))
+    if _tatil:
+        _td = _tatil["tarih"]
+        _ttar = f"{_td.day} {_aylar_tr[_td.month-1][:3]}"
+        if _tatil["bugun"]:
+            _gunluk_kartlar.append(_g_card("Bugün Tatil", "🎉", _tatil["ad"], "#FB7185", "🗓️"))
+        else:
+            _gunluk_kartlar.append(_g_card("Yaklaşan Tatil", f"{_tatil['kalan_gun']} gün",
+                                           f"{_tatil['ad']} · {_ttar}", "#FB7185", "🗓️"))
+    st.markdown(
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;animation:fadeUp 0.6s ease-out">'
+        + "".join(_gunluk_kartlar) + '</div>', unsafe_allow_html=True)
+    if _soz:
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(168,85,247,0.06));'
+            'border:1px solid rgba(139,92,246,0.22);border-radius:14px;padding:13px 20px;margin-bottom:10px;'
+            'display:flex;align-items:center;gap:12px;animation:fadeUp 0.7s ease-out">'
+            '<span style="font-size:20px">💬</span>'
+            f'<span style="color:#CBD5E1;font-size:14px;font-style:italic;font-weight:500">{_soz}</span></div>',
+            unsafe_allow_html=True)
+    if _mola:
+        st.markdown(
+            '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);'
+            'border-radius:14px;padding:13px 20px;margin-bottom:28px;display:flex;align-items:center;gap:12px;'
+            'animation:fadeUp 0.75s ease-out">'
+            '<span style="font-size:20px">💧</span>'
+            f'<span style="color:#A7F3D0;font-size:14px;font-weight:600">{_mola}</span></div>',
+            unsafe_allow_html=True)
+
     # ─────────────────────────────────────────────────────────────────────
     # ─── İŞ KPI KARTLARI (gerçek veriden, yetkiye göre, güvenli) ───
     erisilebilir = sum(1 for v in yetkiler.values() if v)
     toplam_uygulama = len(yetkiler)
 
     def _kpi_card(label, value, sub, accent):
-        return (f'<div style="background:rgba(255,255,255,0.03);border:1px solid {accent}33;border-radius:14px;'
-                f'padding:16px 18px;backdrop-filter:blur(10px)">'
-                f'<div style="font-size:10px;color:#64748B;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{label}</div>'
-                f'<div style="color:#FFFFFF;font-size:24px;font-weight:800;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
-                f'<div style="color:{accent};font-size:11px;font-weight:500;margin-top:6px">{sub}</div></div>')
+        return (f'<div style="background:rgba(255,255,255,0.03);border:1px solid {accent}33;border-radius:12px;'
+                f'padding:12px 15px;backdrop-filter:blur(10px)">'
+                f'<div style="font-size:9px;color:#64748B;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;margin-bottom:6px">{label}</div>'
+                f'<div style="color:#FFFFFF;font-size:19px;font-weight:800;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
+                f'<div style="color:{accent};font-size:10px;font-weight:500;margin-top:5px">{sub}</div></div>')
 
     import datetime as _kdt
     _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
@@ -1414,7 +1473,8 @@ def anasayfa():
             pass
 
     st.markdown(
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:30px;animation:fadeUp 0.7s ease-out">'
+        '<div style="font-size:11px;color:#64748B;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 0 10px">📊 İş özeti</div>'
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px;margin-bottom:28px;animation:fadeUp 0.75s ease-out">'
         + "".join(kpi_html) + '</div>',
         unsafe_allow_html=True
     )
