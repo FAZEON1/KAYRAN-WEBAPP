@@ -730,6 +730,8 @@ def run():
             _satir_html += '</div>'
             st.markdown(_satir_html, unsafe_allow_html=True)
 
+    elif sayfa == "📋  Tüm Ürünler":
+        st.markdown('<div class="baslik">📋 Tüm Ürünler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
