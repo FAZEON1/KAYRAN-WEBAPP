@@ -28,6 +28,7 @@ KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "cag
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk"}
 TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya"}
+SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -41,6 +42,7 @@ def kullanici_yetkileri(kullanici):
         "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
         "ithalat": k in ITHALAT_KULLANICILAR,
         "teknikservis": k in TEKNIKSERVIS_KULLANICILAR,
+        "satis": k in SATIS_KULLANICILAR,
     }
 
 
@@ -1192,6 +1194,24 @@ input, textarea, select { font-size: 16px !important; }
             ):
                 st.toast("⛔ Teknik Servis için erişim yetkiniz yok.", icon="🔒")
 
+        if yetkiler["satis"]:
+            if st.button(
+                "💰 Satış",
+                key="nav_satis",
+                type="primary" if aktif_sayfa == "satis" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "satis"
+                st.rerun()
+        else:
+            if st.button(
+                "💰 Satış",
+                key="nav_satis_dn",
+                type="secondary",
+                use_container_width=True
+            ):
+                st.toast("⛔ Satış için erişim yetkiniz yok.", icon="🔒")
+
         if yetkiler["hesap_makinesi"]:
             if st.button(
                 "🧮 Hesap Makinesi",
@@ -1242,7 +1262,7 @@ input, textarea, select { font-size: 16px !important; }
                     pass
                 st.rerun()
         else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "satis": "Satis", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
             uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
@@ -2218,6 +2238,10 @@ def main():
         st.error("🔒 Teknik Servis uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
         return
+    if aktif == "satis" and not yetkiler["satis"]:
+        st.error("🔒 Satış uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
 
     # Global modern form-alanı stili (tüm modüllere uygulanır): +/- gizli, modern kutular
     try:
@@ -2242,6 +2266,9 @@ def main():
         elif aktif == "teknikservis":
             from teknikservis.main import run as teknikservis_run
             teknikservis_run()
+        elif aktif == "satis":
+            from satis.main import run as satis_run
+            satis_run()
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
