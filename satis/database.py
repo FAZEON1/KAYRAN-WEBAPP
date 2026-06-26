@@ -18,8 +18,21 @@ from supabase import create_client, Client
 
 TR_TZ = timezone(timedelta(hours=3))
 
-# Satış kanalları (firma/pazar). Gerektikçe genişletilebilir.
+# Satış kanalları (firma/pazar) — varsayılan; Muhasebe carileri varsa onlar kullanılır.
 KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "KANAL", "Trendyol", "Direkt", "DİGER"]
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def get_kanallar():
+    """Kanal/firma listesi: Muhasebe'deki cari isimleri (varsa); yoksa varsayılan KANALLAR."""
+    try:
+        from kayranacc.database import get_cari_isimler
+        cari = get_cari_isimler() or []
+        if cari:
+            return cari
+    except Exception:
+        pass
+    return KANALLAR
 
 
 def _get_client() -> Client:

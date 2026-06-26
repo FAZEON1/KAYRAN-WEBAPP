@@ -7,7 +7,7 @@ import streamlit as st
 
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from .database import (
-    KANALLAR, get_pacal_map, get_urunler, kampanya_destek_bul,
+    KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, get_satislar, sil_satis, guncelle_satis,
     satir_kar, ozet_hesapla,
 )
@@ -50,6 +50,7 @@ def run():
     st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
     sekme1, sekme2, sekme3 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L"])
+    _kanallar = get_kanallar()
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
     with sekme1:
@@ -64,7 +65,8 @@ def run():
             with st.container(border=True):
                 c1, c2, c3 = st.columns(3)
                 g_tarih = c1.date_input("Tarih", value=date.today(), key="s_tarih")
-                g_kanal = c2.selectbox("Kanal", KANALLAR, key="s_kanal")
+                g_kanal = c2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
+                                       help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
                 _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
                 _sec = c3.selectbox("Ürün (SKU)", _sku_opts, key="s_sku_sec")
                 g_sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
@@ -115,7 +117,7 @@ def run():
                         ("Maliyet", _usd(k["maliyet"]), "#FB923C"),
                         ("Destek", _usd(k["destek"]), "#A78BFA"),
                         ("Net Kâr", _usd(k["net_kar"]), _renk),
-                        ("Marj", f"%{k['marj']:.1f}", _renk),
+                        ("Net Kârlılık", f"%{k['marj']:.1f}", _renk),
                     ]) + '</div>', unsafe_allow_html=True)
 
                 if st.button("💾 Satışı Kaydet", type="primary", use_container_width=True, key="s_kaydet"):
@@ -142,7 +144,7 @@ def run():
         f1, f2, f3 = st.columns([1, 1, 1.3])
         _bas = f1.date_input("Başlangıç", value=date.today() - timedelta(days=30), key="l_bas")
         _bit = f2.date_input("Bitiş", value=date.today(), key="l_bit")
-        _kanal_f = f3.selectbox("Kanal", ["Tümü"] + KANALLAR, key="l_kanal")
+        _kanal_f = f3.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
 
         satislar = get_satislar(_bas, _bit)
         if _kanal_f != "Tümü":
