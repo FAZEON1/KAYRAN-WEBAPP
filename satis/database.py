@@ -118,20 +118,48 @@ def kampanya_destek_bul(sku, kanal, tarih):
 
 # ── Satış CRUD ──
 def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
-               birim_firma_destek=0, birim_ek_destek=0, kampanya_id=None, notlar=""):
+               birim_firma_destek=0, birim_ek_destek=0, kampanya_id=None, notlar="", siparis_no=""):
     try:
         _get_client().table("satislar").insert({
             "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": sku or "",
             "urun_adi": urun_adi or "", "adet": _i(adet),
             "birim_satis": _f(birim_satis), "birim_maliyet": _f(birim_maliyet),
             "birim_firma_destek": _f(birim_firma_destek), "birim_ek_destek": _f(birim_ek_destek),
-            "kampanya_id": kampanya_id, "notlar": notlar or "",
+            "kampanya_id": kampanya_id, "notlar": notlar or "", "siparis_no": siparis_no or "",
             "olusturma_tarihi": datetime.now(TR_TZ).isoformat(timespec="seconds"),
         }).execute()
         _temizle()
         return True, "✅ Satış kaydedildi."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
+    """Tek siparişte birden çok kalemi TEK seferde kaydeder (toplu insert).
+    kalemler: [{sku, urun_adi, adet, birim_satis, birim_maliyet,
+                birim_firma_destek, birim_ek_destek, kampanya_id}, ...]
+    Döner: (ok, mesaj, kalem_sayisi)."""
+    rows = []
+    zaman = datetime.now(TR_TZ).isoformat(timespec="seconds")
+    for k in (kalemler or []):
+        sku = str(k.get("sku") or "").strip()
+        if not sku or _i(k.get("adet")) <= 0:
+            continue
+        rows.append({
+            "tarih": str(tarih)[:10], "kanal": kanal or "", "siparis_no": siparis_no or "",
+            "sku": sku, "urun_adi": k.get("urun_adi") or "", "adet": _i(k.get("adet")),
+            "birim_satis": _f(k.get("birim_satis")), "birim_maliyet": _f(k.get("birim_maliyet")),
+            "birim_firma_destek": _f(k.get("birim_firma_destek")), "birim_ek_destek": _f(k.get("birim_ek_destek")),
+            "kampanya_id": k.get("kampanya_id"), "notlar": notlar or "", "olusturma_tarihi": zaman,
+        })
+    if not rows:
+        return False, "Geçerli kalem yok.", 0
+    try:
+        _get_client().table("satislar").insert(rows).execute()
+        _temizle()
+        return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.", len(rows)
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
 
 def guncelle_satis(satis_id, alanlar):
@@ -146,6 +174,16 @@ def guncelle_satis(satis_id, alanlar):
 def sil_satis(satis_id):
     try:
         _get_client().table("satislar").delete().eq("id", satis_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
+def sil_siparis(siparis_no):
+    """Bir sipariş numarasına ait tüm kalemleri siler."""
+    try:
+        _get_client().table("satislar").delete().eq("siparis_no", siparis_no).execute()
         _temizle()
         return True
     except Exception:
