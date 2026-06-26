@@ -1682,305 +1682,119 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
-    # ─────────────────────────────────────────────────────────────────────
-    # ONLİNE KULLANICILAR (sadece ibrahim görür)
-    # ─────────────────────────────────────────────────────────────────────
+    # ─── YÖNETİM (sadece ibrahim) — kompakt kapalı paneller ───
     if aktif_kullanici.lower() == "ibrahim":
         st.markdown("---")
         st.markdown(
-            '<div style="margin:0 0 20px;animation:fadeUp 0.95s ease-out">'
-            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Aktif Kullanıcılar</div>'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-        # Son giriş zamanı da ek olarak göster (tüm kullanıcılar, son 24 saat)
-        online_listesi = get_online_kullanicilar()
-        # Son giriş bilgisi için tüm kullanıcıları al (son 24 saat)
-        try:
-            import datetime as _dt2
-            sb2 = _get_supabase()
-            _son_giris_map = {}
-            if sb2:
-                _sg_res = sb2.table("kullanici_durum").select("kullanici_adi, son_aktivite").execute()
-                _son_giris_map = {r["kullanici_adi"]: r["son_aktivite"] for r in (_sg_res.data or [])}
-        except Exception:
-            _son_giris_map = {}
-        if not online_listesi:
-            st.markdown(
-                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px 24px;text-align:center">'
-                '<span style="color:#64748B;font-size:13px">Şu an aktif kullanıcı yok.</span>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            import datetime as _dt
-            simdi = _dt.datetime.utcnow()
-            cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:8px">'
-            for u in online_listesi:
-                k_adi = u.get("kullanici_adi", "?")
-                son_akt = u.get("son_aktivite", "")
-                try:
-                    son_dt = _dt.datetime.fromisoformat(son_akt.replace("Z",""))
-                    fark_sn = int((simdi - son_dt).total_seconds())
-                    if fark_sn < 60:
-                        zaman_str = f"{fark_sn}sn önce"
-                    else:
-                        zaman_str = f"{fark_sn // 60}dk önce"
-                except Exception:
-                    zaman_str = "az önce"
-                ilk = k_adi[0].upper() if k_adi else "?"
-                cards_html += (
-                    f'<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px">'
-                    f'<div style="position:relative;flex-shrink:0">'
-                    f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:15px">{ilk}</div>'
-                    f'<div style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#10B981;border:2px solid #080C20;box-shadow:0 0 6px #10B981"></div>'
-                    f'</div>'
-                    f'<div style="overflow:hidden">'
-                    f'<div style="color:#FFFFFF;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
-                    f'<div style="color:#6EE7B7;font-size:10px;font-weight:500;margin-top:2px">● {zaman_str}</div>'
-                    f'</div>'
-                    f'</div>'
-                )
-            cards_html += '</div>'
-            st.markdown(
-                f'<div style="margin-bottom:8px"><span style="color:#6EE7B7;font-size:12px;font-weight:600">{len(online_listesi)} kullanıcı aktif (son 5 dk)</span></div>'
-                + cards_html,
-                unsafe_allow_html=True
-            )
-        # Son giriş tablosu — tüm kullanıcılar
-        if _son_giris_map:
-            import datetime as _dt3
-            _simdi3 = _dt3.datetime.utcnow()
-            sg_html = '<div style="margin-top:16px"><div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px;padding-left:2px">Son Giriş Zamanları</div>'
-            sg_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">'
-            for _kg, _sa in sorted(_son_giris_map.items()):
-                _zs = "—"
-                try:
-                    _raw = str(_sa).replace("Z", "+00:00")
-                    _sdt = _dt3.datetime.fromisoformat(_raw)
-                    if _sdt.tzinfo is not None:
-                        _sdt = _sdt.astimezone(_dt3.timezone.utc).replace(tzinfo=None)
-                    _ist = _sdt + _dt3.timedelta(hours=3)  # UTC → İstanbul
-                    _zs = _ist.strftime("%d.%m.%Y %H:%M")
-                except Exception:
-                    _zs = "—"
-                _online_su = any(u.get("kullanici_adi") == _kg for u in online_listesi)
-                _renk = "#10B981" if _online_su else "#64748B"
-                _bg = "rgba(16,185,129,0.06)" if _online_su else "rgba(255,255,255,0.02)"
-                _border = "rgba(16,185,129,0.15)" if _online_su else "rgba(255,255,255,0.06)"
-                sg_html += (
-                    f'<div style="background:{_bg};border:1px solid {_border};border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">'
-                    f'<span style="color:#E2E8F0;font-size:12px;font-weight:600">{_kg.capitalize()}</span>'
-                    f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:JetBrains Mono,monospace;white-space:nowrap">{_zs}</span>'
-                    f'</div>'
-                )
-            sg_html += '</div></div>'
-            st.markdown(sg_html, unsafe_allow_html=True)
-
-
-    # ─────────────────────────────────────────────────────────────────────
-    # DUYURU YÖNETİMİ PANELİ (sadece ibrahim görür)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() == "ibrahim":
-        st.markdown("---")
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Sistem Duyurusu</div>'
+            '<div style="display:flex;align-items:center;gap:10px;margin:6px 0 12px">'
+            '<span style="font-size:12px;color:#64748B;letter-spacing:2px;text-transform:uppercase;font-weight:700">⚙️ Yönetim</span>'
             '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
             '</div>',
             unsafe_allow_html=True
         )
-        _mevcut_aktif, _mevcut_metni = get_duyuru()
-        _durum_etiketi = "🟢 Aktif" if _mevcut_aktif else "🔴 Kapalı"
-        st.markdown(
-            f'<div style="color:#94A3B8;font-size:12px;margin-bottom:12px">'
-            f'Mevcut durum: <b style="color:#E2E8F0">{_durum_etiketi}</b>'
-            f'{(" — " + _mevcut_metni[:60] + ("..." if len(_mevcut_metni)>60 else "")) if _mevcut_metni else ""}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-        with st.form("duyuru_form", clear_on_submit=False):
-            _yeni_aktif = st.checkbox("Duyuruyu Aktifleştir", value=bool(_mevcut_aktif))
-            _yeni_metni = st.text_input("Duyuru Metni", value=_mevcut_metni, placeholder="Örn: Sistem bugün 18:00-19:00 arası bakımda olacak.")
-            _duyuru_kaydet = st.form_submit_button("💾 Duyuruyu Kaydet", type="primary", use_container_width=False)
-            if _duyuru_kaydet:
-                if set_duyuru(_yeni_aktif, _yeni_metni or ""):
-                    st.success("✅ Duyuru kaydedildi! Sayfa yenileniyor...")
-                    st.rerun()
-                else:
-                    st.error("❌ Kayıt başarısız.")
 
-    # ─────────────────────────────────────────────────────────────────────
-    # BİLDİRİM GÖNDERME PANELİ (sadece ibrahim görür)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() == "ibrahim":
-        st.markdown("---")
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Bildirim Gönder</div>'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-        _tum_kullanicilar = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
-        with st.form("bildirim_form", clear_on_submit=True):
-            _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
-            _bildirim_mesaj = st.text_area("Mesaj", placeholder="Kullanıcılara göndermek istediğin mesajı yaz...", height=100)
-            _bildirim_gonder_btn = st.form_submit_button("📢 Bildirimi Gönder", type="primary", use_container_width=False)
-            if _bildirim_gonder_btn:
-                if not _bildirim_mesaj or not _bildirim_mesaj.strip():
-                    st.warning("⚠️ Mesaj boş olamaz.")
-                else:
-                    if _alici_sec == "Herkese Gönder":
-                        _ok2 = bildirim_gonder_herkese(_bildirim_mesaj.strip(), list(_tum_kullanicilar))
-                        _alici_str = "herkese"
-                    else:
-                        _ok2 = bildirim_gonder(_alici_sec.lower(), _bildirim_mesaj.strip())
-                        _alici_str = _alici_sec + " kişisine"
-                    if _ok2:
-                        st.success(f"✅ Bildirim {_alici_str} gönderildi!")
-                    else:
-                        st.error("❌ Bildirim gönderilemedi.")
-
-
-
-    # ─────────────────────────────────────────────────────────────────────
-    # GÖREV ATAMA PANELİ + KANBAN (sadece ibrahim görür)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() == "ibrahim":
-        st.markdown("---")
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-            '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Görev Yönetimi</div>'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-        # Kanban Panosu — tüm görevler
-        import datetime as _kdt
-        _bugun_k = _kdt.date.today()
-        _tum_gorevler = get_tum_gorevler_ibrahim()
-        if _tum_gorevler:
-            # Gruplara ayır
-            _bekliyor_listesi = [g for g in _tum_gorevler if g.get("durum") == "bekliyor"]
-            _devam_listesi = [g for g in _tum_gorevler if g.get("durum") == "devam_ediyor"]
-            _tamam_listesi = [g for g in _tum_gorevler if g.get("durum") == "tamamlandi"]
-
-            # Özet sayaçlar
-            _toplam = len(_tum_gorevler)
-            _geciken = sum(1 for g in _tum_gorevler if g.get("bitis_tarihi") and g.get("durum") != "tamamlandi" and (_kdt.date.today() - _kdt.date.fromisoformat(str(g["bitis_tarihi"])[:10])).days > 0)
-            st.markdown(
-                f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-                f'<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
-                f'<span style="font-size:18px;font-weight:700;color:#FCD34D">{len(_bekliyor_listesi)}</span>'
-                f'<span style="font-size:11px;color:#94A3B8">Bekliyor</span>'
-                f'</div>'
-                f'<div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
-                f'<span style="font-size:18px;font-weight:700;color:#93C5FD">{len(_devam_listesi)}</span>'
-                f'<span style="font-size:11px;color:#94A3B8">Devam Ediyor</span>'
-                f'</div>'
-                f'<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
-                f'<span style="font-size:18px;font-weight:700;color:#6EE7B7">{len(_tamam_listesi)}</span>'
-                f'<span style="font-size:11px;color:#94A3B8">Tamamlandı</span>'
-                f'</div>'
-                + (f'<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px">'
-                   f'<span style="font-size:18px;font-weight:700;color:#FCA5A5">{_geciken}</span>'
-                   f'<span style="font-size:11px;color:#FCA5A5">🔴 Geciken</span>'
-                   f'</div>' if _geciken > 0 else '')
-                + '</div>',
-                unsafe_allow_html=True
-            )
-
-            # Kanban: 3 kolon
-            _kb1, _kb2, _kb3 = st.columns(3, gap="small")
-
-            def _gorev_kart_html(g, bugun):
-                _gb = g.get("bitis_tarihi")
-                _gecikti_k = False
-                _gecikme_k = ""
-                if _gb and g.get("durum") != "tamamlandi":
+        # 1) Aktif kullanıcılar & son giriş zamanları
+        with st.expander("👥 Aktif kullanıcılar & son giriş zamanları", expanded=False):
+            online_listesi = get_online_kullanicilar()
+            try:
+                import datetime as _dt2
+                sb2 = _get_supabase()
+                _son_giris_map = {}
+                if sb2:
+                    _sg_res = sb2.table("kullanici_durum").select("kullanici_adi, son_aktivite").execute()
+                    _son_giris_map = {r["kullanici_adi"]: r["son_aktivite"] for r in (_sg_res.data or [])}
+            except Exception:
+                _son_giris_map = {}
+            if not online_listesi:
+                st.caption("Şu an aktif kullanıcı yok.")
+            else:
+                import datetime as _dt
+                simdi = _dt.datetime.utcnow()
+                cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:4px">'
+                for u in online_listesi:
+                    k_adi = u.get("kullanici_adi", "?")
+                    son_akt = u.get("son_aktivite", "")
                     try:
-                        _bd = _kdt.date.fromisoformat(str(_gb)[:10])
-                        _fk = (bugun - _bd).days
-                        if _fk > 0:
-                            _gecikti_k = True
-                            _gecikme_k = f"{_fk}g gecikmiş"
+                        son_dt = _dt.datetime.fromisoformat(son_akt.replace("Z", ""))
+                        fark_sn = int((simdi - son_dt).total_seconds())
+                        zaman_str = f"{fark_sn}sn önce" if fark_sn < 60 else f"{fark_sn // 60}dk önce"
                     except Exception:
-                        pass
-                _op = g.get("oncelik", "normal")
-                _ork = {"yuksek": "#EF4444", "normal": "#F59E0B", "dusuk": "#10B981"}.get(_op, "#94A3B8")
-                _bor = "#EF4444" if _gecikti_k else "rgba(255,255,255,0.06)"
-                _html = (
-                    f'<div style="background:rgba(255,255,255,0.03);border:1px solid {_bor};'
-                    f'border-radius:10px;padding:12px;margin-bottom:8px">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
-                    f'<div style="color:#E2E8F0;font-size:12px;font-weight:600;line-height:1.4;flex:1">{g.get("baslik","")}</div>'
-                    f'<div style="width:8px;height:8px;border-radius:50%;background:{_ork};flex-shrink:0;margin-left:8px;margin-top:3px"></div>'
-                    f'</div>'
-                )
-                if g.get("aciklama"):
-                    _html += f'<div style="color:#64748B;font-size:10px;margin-bottom:5px;line-height:1.5">{str(g.get("aciklama",""))[:80]}</div>'
-                _html += f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-                _html += f'<span style="font-size:10px;color:#A78BFA;font-weight:600">{g.get("atanan","?").capitalize()}</span>'
-                if _gb:
-                    _html += f'<span style="font-size:10px;color:#475569">·</span>'
-                    _html += f'<span style="font-size:10px;color:{"#EF4444" if _gecikti_k else "#64748B"}">📅 {str(_gb)[:10]}{(" 🔴 "+_gecikme_k) if _gecikti_k else ""}</span>'
-                _html += '</div></div>'
-                return _html
-
-            with _kb1:
+                        zaman_str = "az önce"
+                    ilk = k_adi[0].upper() if k_adi else "?"
+                    cards_html += (
+                        f'<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:9px">'
+                        f'<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px;flex-shrink:0">{ilk}</div>'
+                        f'<div style="overflow:hidden"><div style="color:#FFFFFF;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
+                        f'<div style="color:#6EE7B7;font-size:10px;font-weight:500">● {zaman_str}</div></div></div>'
+                    )
+                cards_html += '</div>'
                 st.markdown(
-                    '<div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:12px">'
-                    '<div style="color:#FCD34D;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">⏳ Bekliyor</div>',
-                    unsafe_allow_html=True
-                )
-                if _bekliyor_listesi:
-                    for _gk in _bekliyor_listesi[:10]:
-                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Bekleyen görev yok</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    f'<div style="margin-bottom:6px"><span style="color:#6EE7B7;font-size:12px;font-weight:600">{len(online_listesi)} kullanıcı aktif (son 5 dk)</span></div>'
+                    + cards_html, unsafe_allow_html=True)
+            if _son_giris_map:
+                import datetime as _dt3
+                sg_html = '<div style="margin-top:12px"><div style="font-size:10px;color:#64748B;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:8px">Son giriş zamanları</div>'
+                sg_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">'
+                for _kg, _sa in sorted(_son_giris_map.items()):
+                    _zs = "—"
+                    try:
+                        _raw = str(_sa).replace("Z", "+00:00")
+                        _sdt = _dt3.datetime.fromisoformat(_raw)
+                        if _sdt.tzinfo is not None:
+                            _sdt = _sdt.astimezone(_dt3.timezone.utc).replace(tzinfo=None)
+                        _ist = _sdt + _dt3.timedelta(hours=3)
+                        _zs = _ist.strftime("%d.%m.%Y %H:%M")
+                    except Exception:
+                        _zs = "—"
+                    _online_su = any(u.get("kullanici_adi") == _kg for u in online_listesi)
+                    _renk = "#10B981" if _online_su else "#64748B"
+                    _bg = "rgba(16,185,129,0.06)" if _online_su else "rgba(255,255,255,0.02)"
+                    _border = "rgba(16,185,129,0.15)" if _online_su else "rgba(255,255,255,0.06)"
+                    sg_html += (
+                        f'<div style="background:{_bg};border:1px solid {_border};border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">'
+                        f'<span style="color:#E2E8F0;font-size:12px;font-weight:600">{_kg.capitalize()}</span>'
+                        f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:JetBrains Mono,monospace;white-space:nowrap">{_zs}</span></div>'
+                    )
+                sg_html += '</div></div>'
+                st.markdown(sg_html, unsafe_allow_html=True)
 
-            with _kb2:
-                st.markdown(
-                    '<div style="background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.15);border-radius:12px;padding:12px">'
-                    '<div style="color:#93C5FD;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">🔄 Devam Ediyor</div>',
-                    unsafe_allow_html=True
-                )
-                if _devam_listesi:
-                    for _gk in _devam_listesi[:10]:
-                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Devam eden görev yok</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+        # 2) Sistem duyurusu
+        with st.expander("📢 Sistem duyurusu", expanded=False):
+            _mevcut_aktif, _mevcut_metni = get_duyuru()
+            _durum_etiketi = "🟢 Aktif" if _mevcut_aktif else "🔴 Kapalı"
+            st.caption(f"Durum: {_durum_etiketi}" + ((" — " + _mevcut_metni[:60] + ("..." if len(_mevcut_metni) > 60 else "")) if _mevcut_metni else ""))
+            with st.form("duyuru_form", clear_on_submit=False):
+                _yeni_aktif = st.checkbox("Duyuruyu aktifleştir", value=bool(_mevcut_aktif))
+                _yeni_metni = st.text_input("Duyuru metni", value=_mevcut_metni, placeholder="Örn: Sistem bugün 18:00-19:00 arası bakımda.")
+                _duyuru_kaydet = st.form_submit_button("💾 Kaydet", type="primary")
+                if _duyuru_kaydet:
+                    if set_duyuru(_yeni_aktif, _yeni_metni or ""):
+                        st.success("✅ Duyuru kaydedildi.")
+                        st.rerun()
+                    else:
+                        st.error("❌ Kayıt başarısız.")
 
-            with _kb3:
-                st.markdown(
-                    '<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:12px">'
-                    '<div style="color:#6EE7B7;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">✅ Tamamlandı</div>',
-                    unsafe_allow_html=True
-                )
-                if _tamam_listesi:
-                    for _gk in _tamam_listesi[:10]:
-                        st.markdown(_gorev_kart_html(_gk, _bugun_k), unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="color:#475569;font-size:11px;text-align:center;padding:16px">Tamamlanan görev yok</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        else:
-            st.markdown(
-                '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px 24px;text-align:center">'
-                '<span style="color:#64748B;font-size:13px">Henüz atanmış görev yok. Yukarıdan yeni görev ekleyebilirsin.</span>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+        # 3) Bildirim gönder
+        with st.expander("🔔 Bildirim gönder", expanded=False):
+            _tum_kullanicilar = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
+            with st.form("bildirim_form", clear_on_submit=True):
+                _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
+                _bildirim_mesaj = st.text_area("Mesaj", placeholder="Kullanıcılara göndermek istediğin mesajı yaz...", height=90)
+                _bildirim_gonder_btn = st.form_submit_button("📢 Gönder", type="primary")
+                if _bildirim_gonder_btn:
+                    if not _bildirim_mesaj or not _bildirim_mesaj.strip():
+                        st.warning("⚠️ Mesaj boş olamaz.")
+                    else:
+                        if _alici_sec == "Herkese Gönder":
+                            _ok2 = bildirim_gonder_herkese(_bildirim_mesaj.strip(), list(_tum_kullanicilar))
+                            _alici_str = "herkese"
+                        else:
+                            _ok2 = bildirim_gonder(_alici_sec.lower(), _bildirim_mesaj.strip())
+                            _alici_str = _alici_sec + " kişisine"
+                        if _ok2:
+                            st.success(f"✅ Bildirim {_alici_str} gönderildi!")
+                        else:
+                            st.error("❌ Bildirim gönderilemedi.")
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
