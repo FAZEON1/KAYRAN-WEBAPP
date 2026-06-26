@@ -359,3 +359,61 @@ def modern_input_stil() -> str:
     [data-testid="stWidgetLabel"] p { font-size: 12px !important; color: #AEB9C9 !important; font-weight: 600 !important; }
     </style>
     """
+
+
+# ─────────────────────────── PDF Türkçe Font ───────────────────────────
+_PDF_FONT_KAYITLI = {"normal": None, "bold": None}
+
+
+def pdf_turkce_font():
+    """reportlab için Türkçe (ş, ğ, İ, ı, ç, ö, ü) destekli font kaydeder.
+    Döner: (normal_font_adi, bold_font_adi). Kayıt başarısızsa Helvetica'ya düşer.
+    Bir kez kaydeder, sonraki çağrılarda hazır adları döndürür."""
+    if _PDF_FONT_KAYITLI["normal"]:
+        return _PDF_FONT_KAYITLI["normal"], _PDF_FONT_KAYITLI["bold"]
+    import os
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+
+    burada = os.path.dirname(os.path.abspath(__file__))
+    adaylar_normal = [
+        os.path.join(burada, "fonts", "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    adaylar_bold = [
+        os.path.join(burada, "fonts", "DejaVuSans-Bold.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    yol_n = next((p for p in adaylar_normal if os.path.exists(p)), None)
+    yol_b = next((p for p in adaylar_bold if os.path.exists(p)), None)
+    try:
+        if yol_n:
+            pdfmetrics.registerFont(TTFont("DejaVuSans", yol_n))
+            if yol_b:
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", yol_b))
+            else:
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", yol_n))
+            registerFontFamily("DejaVuSans", normal="DejaVuSans", bold="DejaVuSans-Bold",
+                               italic="DejaVuSans", boldItalic="DejaVuSans-Bold")
+            _PDF_FONT_KAYITLI["normal"] = "DejaVuSans"
+            _PDF_FONT_KAYITLI["bold"] = "DejaVuSans-Bold"
+            return "DejaVuSans", "DejaVuSans-Bold"
+    except Exception:
+        pass
+    _PDF_FONT_KAYITLI["normal"] = "Helvetica"
+    _PDF_FONT_KAYITLI["bold"] = "Helvetica-Bold"
+    return "Helvetica", "Helvetica-Bold"
+
+
+def pdf_stilleri_turkcele(styles, normal=None, bold=None):
+    """getSampleStyleSheet() ile gelen tüm stillerin fontunu Türkçe fonta çevirir."""
+    if normal is None:
+        normal, bold = pdf_turkce_font()
+    for ad in list(styles.byName.keys()):
+        try:
+            st_obj = styles[ad]
+            st_obj.fontName = bold if ("Bold" in (st_obj.fontName or "") or "Heading" in ad or "Title" in ad) else normal
+        except Exception:
+            pass
+    return styles
