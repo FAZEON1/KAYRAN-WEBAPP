@@ -9,7 +9,7 @@ from reportlab.lib.units import cm
 from datetime import datetime
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
-from shared.utils import tr_today, tr_now, tr_today_iso
+from shared.utils import tr_today, tr_now, tr_today_iso, pdf_turkce_font, pdf_stilleri_turkcele
 
 RENKLER = {
     "kirmizi": "FFCCCC",
@@ -168,8 +168,10 @@ def pdf_rapor_olustur(kayit_yolu):
         )
         
         styles = getSampleStyleSheet()
-        baslik_style = ParagraphStyle('baslik', parent=styles['Title'], fontSize=16, spaceAfter=12, textColor=colors.HexColor('#1F4E79'))
-        alt_baslik_style = ParagraphStyle('altbaslik', parent=styles['Heading2'], fontSize=11, spaceAfter=6, textColor=colors.HexColor('#2E7D32'))
+        PDF_NORMAL, PDF_BOLD = pdf_turkce_font()
+        pdf_stilleri_turkcele(styles, PDF_NORMAL, PDF_BOLD)
+        baslik_style = ParagraphStyle('baslik', parent=styles['Title'], fontName=PDF_BOLD, fontSize=16, spaceAfter=12, textColor=colors.HexColor('#1F4E79'))
+        alt_baslik_style = ParagraphStyle('altbaslik', parent=styles['Heading2'], fontName=PDF_BOLD, fontSize=11, spaceAfter=6, textColor=colors.HexColor('#2E7D32'))
         
         story = []
         story.append(Paragraph("Ürün Yönetimi - Stok Takip Raporu", baslik_style))
@@ -228,7 +230,8 @@ def pdf_rapor_olustur(kayit_yolu):
         tablo_stil = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E79')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), PDF_BOLD),
+            ('FONTNAME', (0, 1), (-1, -1), PDF_NORMAL),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
@@ -256,9 +259,11 @@ TUM_URUN_KOLONLAR = [
     ("Stok Yaşı (gün)", "_stok_yas"),
     ("G5F Depo", "G5F Depo"),
     ("Toplam Stok", "Toplam"),
-    ("FOB ($)", "FOB ($)"),
+    ("Paçal FOB ($)", "FOB ($)"),
+    ("Son FOB ($)", "Son FOB ($)"),
     ("Maliyet %", "Maliyet %"),
     ("Paçal Maliyet ($)", "Final Cost ($)"),
+    ("Son Maliyet ($)", "Son Maliyet ($)"),
     ("Satış ($)", "Satış ($)"),
     ("Net Marj (%)", "Net Marj (%)"),
     ("Net Kâr ($)", "Net Kar ($)"),
@@ -287,7 +292,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
             c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             c.border = thin_border()
 
-        para_kol = {"FOB ($)", "Paçal Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
+        para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Son Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
         pct_kol = {"Maliyet %", "Net Marj (%)"}
         sayi_kol = {"G5F Depo", "Toplam Stok", "Stok Yaşı (gün)"}
 
@@ -321,7 +326,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 if b == "Net Kâr ($)" and isinstance(val, (int, float)) and val < 0:
                     c.font = Font(size=10, color="C00000", bold=True)
 
-        for ci, w in enumerate([12, 40, 14, 12, 12, 9, 10, 11, 10, 14, 11, 11, 12], start=1):
+        for ci, w in enumerate([12, 38, 13, 11, 11, 9, 9, 11, 11, 9, 13, 13, 10, 10, 11], start=1):
             ws.column_dimensions[get_column_letter(ci)].width = w
         ws.freeze_panes = "A5"
         wb.save(kayit_yolu)
@@ -337,9 +342,11 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
                                 leftMargin=1 * cm, rightMargin=1 * cm,
                                 topMargin=1 * cm, bottomMargin=1 * cm)
         styles = getSampleStyleSheet()
-        h = ParagraphStyle("h", parent=styles["Title"], fontSize=15,
+        PDF_NORMAL, PDF_BOLD = pdf_turkce_font()
+        pdf_stilleri_turkcele(styles, PDF_NORMAL, PDF_BOLD)
+        h = ParagraphStyle("h", parent=styles["Title"], fontName=PDF_BOLD, fontSize=15,
                            textColor=colors.HexColor("#1F4E79"))
-        sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9,
+        sub = ParagraphStyle("sub", parent=styles["Normal"], fontName=PDF_NORMAL, fontSize=9,
                              textColor=colors.HexColor("#666666"))
         elements = [
             Paragraph("KAYRAN — Tüm Ürünler Özet Raporu", h),
@@ -349,10 +356,12 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
         pdf_kol = [
             ("SKU", "SKU"), ("Ürün", "Ürün Adı"), ("Kat.", "Kategori"),
             ("Yaş", "_stok_yas"), ("G5F", "G5F Depo"), ("Top.", "Toplam"),
-            ("FOB$", "FOB ($)"), ("Paçal$", "Final Cost ($)"), ("Satış$", "Satış ($)"),
+            ("PaçFOB$", "FOB ($)"), ("SonFOB$", "Son FOB ($)"),
+            ("Paçal$", "Final Cost ($)"), ("SonMal$", "Son Maliyet ($)"),
+            ("Satış$", "Satış ($)"),
             ("Marj%", "Net Marj (%)"), ("Net Kâr$", "Net Kar ($)"),
         ]
-        para_keys = {"FOB ($)", "Final Cost ($)", "Satış ($)", "Net Kar ($)"}
+        para_keys = {"FOB ($)", "Son FOB ($)", "Final Cost ($)", "Son Maliyet ($)", "Satış ($)", "Net Kar ($)"}
         pct_keys = {"Net Marj (%)"}
 
         def _f2(v, para=False, pct=False):
@@ -390,7 +399,8 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E79")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, 0), PDF_BOLD),
+            ("FONTNAME", (0, 1), (-1, -1), PDF_NORMAL),
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CCCCCC")),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F6FA")]),
             ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
