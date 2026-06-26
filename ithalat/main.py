@@ -17,7 +17,7 @@ from .database import (
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
-    get_barkod_map, set_barkod, barkod_toplu_yukle,
+    get_barkod_map, set_barkod, barkod_toplu_yukle, sil_dosya,
 )
 
 
@@ -713,6 +713,29 @@ def _gecmis_ithalatlar():
     _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
     _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
     st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
+
+    # ── Yanlış / boş açılan ithalatı sil (onaylı) ──
+    _sok = f"ith_sil_onay_{did}"
+    _scc1, _scc2 = st.columns([3, 1])
+    with _scc2:
+        if st.button("🗑️ Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True):
+            st.session_state[_sok] = True
+    if st.session_state.get(_sok):
+        _ad_g = d.get("dosya_no", "") or d.get("pi_no", "") or "—"
+        st.warning(f"**{_ad_g}** ithalat dosyası ve tüm kalemleri kalıcı olarak silinecek. Emin misin?")
+        _del1, _del2 = st.columns(2)
+        if _del1.button("✅ Evet, sil", key=f"ith_sile_{did}", use_container_width=True, type="primary"):
+            if sil_dosya(did):
+                st.session_state.pop(_sok, None)
+                st.cache_data.clear()
+                st.success("✅ İthalat silindi.")
+                st.rerun()
+            else:
+                st.error("Silinemedi.")
+        if _del2.button("Vazgeç", key=f"ith_silv_{did}", use_container_width=True):
+            st.session_state.pop(_sok, None)
+            st.rerun()
+
     # Bu belge bir takip no'ya aitse → o ithalatın (takibin) BİRLEŞİK % maliyetini üstte göster
     _bu_takip = str(d.get("ithalat_takip_no", "") or "").strip()
     if _bu_takip:
