@@ -1419,80 +1419,6 @@ def anasayfa():
         unsafe_allow_html=True
     )
 
-    # KULLANICIYA GÖREV KUTUSU — EN ÜSTTE (ibrahim dışı herkes)
-    # ─────────────────────────────────────────────────────────────────────
-    if aktif_kullanici.lower() != "ibrahim":
-        _gorevler = get_kullanici_gorevleri(aktif_kullanici)
-        if _gorevler:
-            import datetime as _gdt
-            _bugun = _gdt.date.today()
-            _gorev_html = (
-                '<div style="background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(239,68,68,0.07));'
-                'border:1px solid rgba(245,158,11,0.3);border-radius:16px;'
-                'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.45s ease-out">'
-                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-                '<div style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,0.2);'
-                'display:flex;align-items:center;justify-content:center;font-size:14px">📋</div>'
-                f'<span style="color:#FCD34D;font-size:13px;font-weight:700">'
-                f'{len(_gorevler)} bekleyen görevin var</span>'
-                '</div>'
-            )
-            for _g in _gorevler:
-                _g_id = _g.get("id")
-                _g_baslik = _g.get("baslik", "")
-                _g_aciklama = _g.get("aciklama", "")
-                _g_durum = _g.get("durum", "bekliyor")
-                _g_oncelik = _g.get("oncelik", "normal")
-                _g_bitis = _g.get("bitis_tarihi")
-                # Gecikme kontrolü
-                _gecikti = False
-                _gecikme_str = ""
-                if _g_bitis:
-                    try:
-                        _bitis_dt = _gdt.date.fromisoformat(str(_g_bitis)[:10])
-                        _fark_gun = (_bugun - _bitis_dt).days
-                        if _fark_gun > 0:
-                            _gecikti = True
-                            _gecikme_str = f"{_fark_gun}g gecikmiş"
-                    except Exception:
-                        pass
-                # Renk kodları
-                _oncelik_renk = {"yuksek": "#EF4444", "normal": "#F59E0B", "dusuk": "#6EE7B7"}.get(_g_oncelik, "#94A3B8")
-                _durum_renk = {"bekliyor": "#F59E0B", "devam_ediyor": "#60A5FA", "tamamlandi": "#10B981"}.get(_g_durum, "#94A3B8")
-                _durum_etiket = {"bekliyor": "⏳ Bekliyor", "devam_ediyor": "🔄 Devam Ediyor", "tamamlandi": "✅ Tamamlandı"}.get(_g_durum, _g_durum)
-                _border_renk = "#EF4444" if _gecikti else "rgba(255,255,255,0.08)"
-                _gorev_html += (
-                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid {_border_renk};'
-                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
-                    f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-                    f'<div style="flex:1">'
-                    f'<div style="color:#FFFFFF;font-size:13px;font-weight:600;margin-bottom:3px">{_g_baslik}</div>'
-                )
-                if _g_aciklama:
-                    _gorev_html += f'<div style="color:#94A3B8;font-size:11px;margin-bottom:5px;line-height:1.5">{_g_aciklama[:120]}{"..." if len(_g_aciklama)>120 else ""}</div>'
-                _gorev_html += (
-                    f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-                    f'<span style="font-size:10px;color:{_durum_renk};font-weight:600">{_durum_etiket}</span>'
-                    f'<span style="font-size:10px;color:#475569">·</span>'
-                    f'<span style="font-size:10px;color:{_oncelik_renk}">● {_g_oncelik.capitalize()} öncelik</span>'
-                )
-                if _g_bitis:
-                    _gorev_html += f'<span style="font-size:10px;color:#475569">·</span><span style="font-size:10px;color:{"#EF4444" if _gecikti else "#64748B"}">📅 {str(_g_bitis)[:10]}{(" — 🔴 " + _gecikme_str) if _gecikti else ""}</span>'
-                _gorev_html += '</div></div></div></div>'
-            _gorev_html += '</div>'
-            st.markdown(_gorev_html, unsafe_allow_html=True)
-            # Durum güncelleme select
-            _gorev_secenekler = {f"[{_g.get('durum','?')}] {_g.get('baslik','')} (#{_g.get('id')})": _g.get("id") for _g in _gorevler}
-            _sec_gorev = st.selectbox("Görev Durumunu Güncelle:", list(_gorev_secenekler.keys()), key="gorev_sec")
-            _yeni_durum_sec = st.selectbox("Yeni Durum:", ["bekliyor", "devam_ediyor", "tamamlandi"], key="gorev_durum_sec")
-            if st.button("💾 Durumu Güncelle", key="gorev_durum_btn"):
-                _gid = _gorev_secenekler[_sec_gorev]
-                if gorev_durum_guncelle(_gid, _yeni_durum_sec):
-                    st.success("✅ Görev durumu güncellendi!")
-                    st.rerun()
-                else:
-                    st.error("❌ Güncellenemedi.")
-
     if _bildirimler:
         if True:
             _bil_html = (
@@ -1690,55 +1616,24 @@ def anasayfa():
                 unsafe_allow_html=True
             )
 
-    # ─── TALEP / GERİ BİLDİRİM PLATFORMU ───
-    st.markdown(
-        '<div style="margin:52px 0 18px;animation:fadeUp 1.05s ease-out">'
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
-        '<div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1))"></div>'
-        '<div style="font-size:11px;color:#64748B;letter-spacing:3px;text-transform:uppercase;font-weight:700">Destek</div>'
-        '<div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(255,255,255,0.1),transparent)"></div>'
-        '</div>'
-        '<h2 style="font-family:Inter,sans-serif;font-size:28px;font-weight:700;color:#FFFFFF;text-align:center;letter-spacing:-0.3px;margin:0">'
-        '💬 Talep &amp; Geri Bildirim</h2>'
-        '<p style="color:#94A3B8;font-size:13px;text-align:center;margin-top:8px;font-weight:400">'
-        'Uygulamalarla ilgili geliştirme, optimizasyon veya yeni özellik taleplerinizi doğrudan ekibimize iletin'
-        '</p>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # Form alanları için koyu temaya uygun stil
+    # ─── DESTEK · TALEP / GERİ BİLDİRİM (kompakt, kapalı panel) ───
     st.markdown(
         '<style>'
-        '[data-testid="stTextInput"] label,[data-testid="stTextArea"] label{'
-        'color:#CBD5E1 !important;font-weight:600 !important;font-size:12px !important;'
-        'letter-spacing:.5px !important;text-transform:uppercase !important;}'
         '[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea{'
         'background:rgba(255,255,255,0.04) !important;border:1px solid rgba(255,255,255,0.12) !important;'
-        'color:#FFFFFF !important;border-radius:12px !important;}'
-        '[data-testid="stTextInput"] input::placeholder,[data-testid="stTextArea"] textarea::placeholder{'
-        'color:#64748B !important;}'
+        'color:#FFFFFF !important;border-radius:10px !important;}'
+        '[data-testid="stTextInput"] input::placeholder,[data-testid="stTextArea"] textarea::placeholder{color:#64748B !important;}'
         '[data-testid="stTextInput"] input:focus,[data-testid="stTextArea"] textarea:focus{'
         'border-color:#8B5CF6 !important;box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
-        '.stFormSubmitButton > button,[data-testid="stFormSubmitButton"] button{'
-        'background:linear-gradient(135deg,#6366F1,#8B5CF6) !important;color:#fff !important;'
-        'border:none !important;border-radius:12px !important;font-weight:600 !important;'
-        'box-shadow:0 4px 20px rgba(99,102,241,0.35) !important;}'
         '</style>',
         unsafe_allow_html=True
     )
-
-    col_tl, col_tc, col_tr = st.columns([1, 2, 1])
-    with col_tc:
+    with st.expander("💬 Destek · Talep / geri bildirim gönder", expanded=False):
+        st.caption("Geliştirme, optimizasyon veya yeni özellik taleplerini doğrudan ekibe ilet.")
         with st.form("talep_form", clear_on_submit=True):
-            konu = st.text_input("Konu", placeholder="Örn. KAYRAN'a toplu Excel dışa aktarma")
-            mesaj = st.text_area(
-                "Mesajınız",
-                placeholder="Talebinizi, önerinizi veya karşılaştığınız sorunu detaylıca yazın...",
-                height=150
-            )
-            gonder = st.form_submit_button("📨  Talebi Gönder", type="primary", use_container_width=True)
-
+            konu = st.text_input("Konu", placeholder="Örn. toplu Excel dışa aktarma")
+            mesaj = st.text_area("Mesajınız", placeholder="Talebinizi, önerinizi veya sorunu detaylıca yazın...", height=110)
+            gonder = st.form_submit_button("📨 Talebi Gönder", type="primary", use_container_width=True)
         if gonder:
             if not mesaj or not mesaj.strip():
                 st.warning("⚠️ Lütfen mesaj alanını doldurun.")
@@ -1757,6 +1652,7 @@ def anasayfa():
                     st.success("✅ Talebiniz kaydedildi. Teşekkürler!")
                 else:
                     st.error("❌ Talep kaydedilemedi. Lütfen tekrar deneyin.")
+
     # ─── ALT BİLGİ ŞERİDİ (sade tek satır) ───
     st.markdown(
         '<div style="margin:40px 0 0;padding:16px 0;border-top:1px solid rgba(255,255,255,0.06);text-align:center;color:#64748B;font-size:11px;line-height:1.9;animation:fadeUp 1.1s ease-out">'
