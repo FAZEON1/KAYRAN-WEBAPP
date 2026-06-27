@@ -3963,9 +3963,12 @@ def run():
         if _snap_ok:
             st.success("✅ Veriler işlendi ve kaydedildi. Toplam aktif sonucu **Yönetim Panosu**'nda görüntülenir.")
         else:
+            _h = st.session_state.get("_son_ayar_hata", "") or _snap_hata
             st.error("⚠️ Veriler işlendi ama sonuç **kaydedilemedi** — bu yüzden Yönetim Panosu'na yansımıyor. "
-                     "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur. "
-                     + (f"Hata: {_snap_hata}" if _snap_hata else "Yöneticiyle paylaşılan SQL'i çalıştırın."))
+                     "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur.")
+            if _h:
+                st.code(_h, language="text")
+                st.caption("☝️ Bu hata mesajını yöneticine ilet — kesin çözüm için bu lazım.")
 
         # ─── Manuel Ekleme/Çıkarma ───
         st.markdown("---")

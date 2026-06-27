@@ -872,7 +872,11 @@ def set_ayar(anahtar, deger):
              "guncelleme_tarihi": tr_now_str()},
             on_conflict="anahtar").execute()
         return True
-    except Exception:
+    except Exception as e:
+        try:
+            st.session_state["_son_ayar_hata"] = f"{type(e).__name__}: {str(e)[:300]}"
+        except Exception:
+            pass
         return False
 
 
