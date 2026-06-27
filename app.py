@@ -437,7 +437,11 @@ if not st.session_state.giris_yapildi:
     except Exception:
         pass
 if "aktif_uygulama" not in st.session_state:
-    st.session_state.aktif_uygulama = "anasayfa"  # default: ana sayfa
+    # Sayfa yenilenince son sayfada kal (URL'deki 's' parametresinden geri yükle)
+    try:
+        st.session_state.aktif_uygulama = st.query_params.get("s") or "anasayfa"
+    except Exception:
+        st.session_state.aktif_uygulama = "anasayfa"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -930,6 +934,12 @@ def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
+    # Aktif sayfayı URL'ye yaz → tarayıcı yenilense de aynı sayfada kal
+    try:
+        if st.query_params.get("s") != aktif_sayfa:
+            st.query_params["s"] = aktif_sayfa
+    except Exception:
+        pass
     yetkiler = kullanici_yetkileri(aktif_kullanici)
     ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
 
