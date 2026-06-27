@@ -129,12 +129,19 @@ def run():
         _harcama = get_tum_butce_harcamalari(baslangic, bitis)
     except Exception:
         _harcama = []
+    # Tek kur kaynağı: önce muhasebenin kullandığı kur (manuel override dahil),
+    # muhasebe sayfası bu oturumda hiç açılmadıysa gunluk'tan güncel kur.
     _usdtry = 0.0
     try:
-        from gunluk import get_doviz
-        _usdtry = float(get_doviz().get("USD") or 0)
+        _usdtry = float(st.session_state.get("kur") or 0)
     except Exception:
         _usdtry = 0.0
+    if not _usdtry or _usdtry <= 1:
+        try:
+            from gunluk import get_doviz
+            _usdtry = float(get_doviz().get("USD") or 0)
+        except Exception:
+            _usdtry = 0.0
 
     _tur_usd = {}
     _tl_uyari = False
