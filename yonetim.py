@@ -53,61 +53,6 @@ def _read_excel_any(file):
     return pd.read_excel(file, engine=eng, header=None)
 
 
-def gelir_tablosu_parse(file):
-    """Resmi gelir tablosu (.xls/.xlsx) → kalem sözlüğü (cari dönem değerleri)."""
-    df = _read_excel_any(file)
-    sonuc = {}
-    HARITA = {
-        "net_satis":       ["C. NET SATIŞLAR", "NET SATIŞLAR"],
-        "cogs":            ["SATIŞLARIN MALİYETİ"],
-        "brut_kar":        ["BRÜT SATIŞ KARI"],
-        "faaliyet_gideri": ["E. FAALİYET GİDERLERİ", "FAALİYET GİDERLERİ"],
-        "pazarlama":       ["PAZARLAMA SAT"],
-        "genel_yonetim":   ["GENEL YÖNETİM GİD"],
-        "faaliyet_kari":   ["FAALİYET KARI"],
-        "finansman":       ["FİNANSMAN GİDER"],
-        "net_kar":         ["DÖNEM NET KARI"],
-    }
-    for _, row in df.iterrows():
-        ad = str(row.iloc[0]).strip()
-        cari = None
-        for c in range(len(row) - 1, 0, -1):
-            v = _num(row.iloc[c])
-            if v is not None:
-                cari = v
-                break
-        if cari is None:
-            continue
-        adU = ad.upper()
-        for key, kaliplar in HARITA.items():
-            if key in sonuc:
-                continue
-            if any(k in adU for k in kaliplar):
-                sonuc[key] = cari
-                break
-    return sonuc
-
-
-def mizan_amortisman_parse(file):
-    """Mizandan dönem amortisman & itfa gideri (760.06 + 770.06 ana grup bakiyeleri)."""
-    df = _read_excel_any(file)
-    amort = 0.0
-    for _, row in df.iterrows():
-        kod = str(row.iloc[0]).strip()
-        if kod in ("760.06", "770.06"):
-            # TL borç bakiye sütununu sağdan en yakın pozitif sayı olarak bul
-            v = None
-            for c in (4, 3, 5, 2):
-                if c < len(row):
-                    vv = _num(row.iloc[c])
-                    if vv:
-                        v = vv
-                        break
-            if v:
-                amort += abs(v)
-    return amort
-
-
 GIDER_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
                "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
