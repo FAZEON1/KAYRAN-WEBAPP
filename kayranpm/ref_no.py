@@ -89,6 +89,91 @@ def firma_ekle(adi, kodu):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+# ── CARİ EŞLEŞTİRME (firma adları muhasebe cari isimlerinden gelir) ───
+# rol → tespit anahtarları (ad/kod), cari ismi öneki, döviz tercihi
+FIRMA_ESLESME = {
+    "ITOPYA": {"tespit": ("ITOPYA", "ITP", "EERA"),     "onek": "EERA",     "doviz": None},
+    "HB":     {"tespit": ("HB", "D-MARKET", "DMARKET"), "onek": "D-MARKET", "doviz": None},
+    "VATAN":  {"tespit": ("VATAN", "VTN"),              "onek": "VATAN",    "doviz": "USD"},
+}
+
+
+def _firma_rol(f):
+    """Bir firmayı (ad/kod) eşleştirme rolüne bağlar: ITOPYA / HB / VATAN / None."""
+    ad = (f.get("firma_adi") or "").upper()
+    kod = (f.get("firma_kodu") or "").upper()
+    for rol, cfg in FIRMA_ESLESME.items():
+        for t in cfg["tespit"]:
+            if t == kod or t in ad:
+                return rol
+    return None
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cari_isimleri():
+    try:
+        from kayranacc.database import get_cari_isimler
+        return [str(c).strip() for c in (get_cari_isimler() or []) if str(c).strip()]
+    except Exception:
+        return []
+
+
+def _cari_esle(onek, doviz, cariler):
+    """Önek ile başlayan cari ismini bul; döviz verilmişse o dövizi içeren önceliklidir."""
+    ou = onek.strip().upper()
+    adaylar = [c for c in cariler if c.upper().startswith(ou)]
+    if not adaylar:
+        adaylar = [c for c in cariler if ou in c.upper()]
+    if not adaylar:
+        return None
+    if doviz:
+        tercih = [c for c in adaylar if doviz.upper() in c.upper()]
+        if tercih:
+            return tercih[0]
+    return adaylar[0]
+
+
+def _senkronize_firmalar():
+    """Firma adlarını muhasebe cari isimleriyle eşitler (kodlar değişmez) ve
+    HB'ye yanlış girilmiş havuz bütçeyi ITOPYA (EERA) firmasına taşır. İdempotent."""
+    cariler = _cari_isimleri()
+    if not cariler:
+        return
+    firmalar = get_firmalar()
+    if not firmalar:
+        return
+    sb = get_client()
+    degisti = False
+    itopya_id, hb_id = None, None
+    for f in firmalar:
+        rol = _firma_rol(f)
+        if not rol:
+            continue
+        if rol == "ITOPYA":
+            itopya_id = f["id"]
+        elif rol == "HB":
+            hb_id = f["id"]
+        cfg = FIRMA_ESLESME[rol]
+        yeni_ad = _cari_esle(cfg["onek"], cfg["doviz"], cariler)
+        if yeni_ad and yeni_ad != (f.get("firma_adi") or ""):
+            try:
+                sb.table("ref_firmalar").update({"firma_adi": yeni_ad}).eq("id", f["id"]).execute()
+                degisti = True
+            except Exception:
+                pass
+    # HB → ITOPYA havuz bütçe taşıma (yanlış girilmiş kayıtlar)
+    if itopya_id and hb_id and itopya_id != hb_id:
+        try:
+            hb_butce = _rows(sb.table("ref_butce").select("id").eq("firma_id", hb_id).execute())
+            if hb_butce:
+                sb.table("ref_butce").update({"firma_id": itopya_id}).eq("firma_id", hb_id).execute()
+                degisti = True
+        except Exception:
+            pass
+    if degisti:
+        _cache_temizle()
+
+
 # ── REF NO DB ───────────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_refler(firma_id):
@@ -306,17 +391,32 @@ def render():
     st.markdown('<div class="alt-baslik">Firma bazlı ref no atama + havuz bütçe takibi</div>',
                 unsafe_allow_html=True)
 
+    # Firma adlarını muhasebe cari isimleriyle eşitle + havuz bütçe düzelt (oturum başına bir kez)
+    if not st.session_state.get("_ref_senk"):
+        try:
+            _senkronize_firmalar()
+        except Exception:
+            pass
+        st.session_state["_ref_senk"] = True
+
     firmalar = get_firmalar()
 
     with st.expander("🏢 Yeni Firma Ekle"):
+        _cariler = sorted(set(_cari_isimleri()), key=lambda s: s.lower())
+        _mevcut = {(f.get("firma_adi") or "").strip().upper() for f in firmalar}
+        _secilebilir = [c for c in _cariler if c.upper() not in _mevcut]
         with st.form("ref_firma_ekle", clear_on_submit=True):
-            fc1, fc2 = st.columns(2)
-            yf_adi = fc1.text_input("Firma Adı", placeholder="örn. INCEHESAP")
-            yf_kod = fc2.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
-                                    help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
+            if _secilebilir:
+                fa = st.selectbox("Firma (cari listesinden)", ["— seç —"] + _secilebilir)
+                yf_adi = "" if fa == "— seç —" else fa
+            else:
+                yf_adi = st.text_input("Firma Adı", placeholder="örn. INCEHESAP")
+                st.caption("Cari listesi boş — Muhasebe → Cari yükleyince buradan seçebilirsin.")
+            yf_kod = st.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
+                                   help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
             if st.form_submit_button("➕ Firma Ekle", type="primary"):
                 if not yf_adi.strip() or not yf_kod.strip():
-                    st.warning("Firma adı ve kodu zorunlu.")
+                    st.warning("Firma (cari) ve ref kodu zorunlu.")
                 else:
                     ok, msg = firma_ekle(yf_adi, yf_kod)
                     (st.success if ok else st.error)(msg)
@@ -335,7 +435,11 @@ def render():
     with tab1:
         _render_refler(firma["id"], firma["firma_kodu"])
     with tab2:
-        _render_butce(firma["id"], firma)
+        if _firma_rol(firma) == "ITOPYA":
+            _render_butce(firma["id"], firma)
+        else:
+            st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur. "
+                    "Şu an başka cariye havuz bütçe verilmiyor.")
 
 
 # ── SEKME 1: REF NO'LAR ─────────────────────────────────────────────
