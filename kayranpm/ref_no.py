@@ -638,3 +638,29 @@ def _render_butce(fid, firma):
         st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
             st.rerun()
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def get_tum_butce_harcamalari(baslangic=None, bitis=None):
+    """TÜM firmaların havuz HARCAMA kayıtları (verilen destekler).
+    Bütçe girişleri (firma fonu) hariç tutulur. Dönem filtresi fatura_tarih'e göre.
+    Döner: [{tur, tutar, doviz, fatura_tarih, marka, firma_id}, ...]."""
+    try:
+        rows = _rows(get_client().table("ref_butce")
+                     .select("tur, yon, tutar, doviz, fatura_tarih, marka, firma_id").execute())
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        _yon = str(r.get("yon", "") or "").strip().lower()
+        if _yon in ("giris", "giriş"):
+            continue  # firma bütçe girişi — destek değil
+        if str(r.get("tur", "") or "").strip().upper() in ("BÜTÇE", "BUTCE"):
+            continue
+        ft = str(r.get("fatura_tarih", "") or "")[:10]
+        if baslangic and ft and ft < baslangic:
+            continue
+        if bitis and ft and ft > bitis:
+            continue
+        out.append(r)
+    return out
