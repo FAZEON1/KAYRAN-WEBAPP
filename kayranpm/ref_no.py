@@ -17,6 +17,7 @@ from .database import get_client, _rows, _cache_temizle
 from shared.utils import metrik_satiri
 
 DURUMLAR = ["beklemede", "paylasildi", "iptal"]
+DOVIZLER = ["USD", "TL", "EUR"]
 DURUM_ETIKET = {
     "beklemede": "⏳ Beklemede (paylaşılmadı)",
     "paylasildi": "✅ Paylaşıldı",
@@ -243,7 +244,7 @@ def _sonraki_sira(firma_id):
     return max((int(r.get("sira_no") or 0) for r in refler), default=0) + 1
 
 
-def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None):
+def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD"):
     try:
         sb = get_client()
         sira = _sonraki_sira(firma_id)
@@ -254,6 +255,7 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None):
             "aciklama": aciklama or "", "durum": durum, "yil": yil,
             "tarih": str(tarih) if tarih else None,
             "paylasim_tarihi": str(tarih) if (durum == "paylasildi" and tarih) else None,
+            "tutar": _f(tutar), "doviz": doviz or "USD",
         }).execute()
         _cache_temizle()
         return True, f"✅ {ref_no} atandı."
@@ -261,14 +263,19 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
-def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None):
+def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None):
     try:
         sb = get_client()
-        sb.table("ref_kayitlari").update({
+        _d = {
             "ref_no": ref_no, "aciklama": aciklama or "", "durum": durum,
             "tarih": str(tarih) if tarih else None,
             "paylasim_tarihi": str(paylasim_tarihi) if paylasim_tarihi else None,
-        }).eq("id", ref_id).execute()
+        }
+        if tutar is not None:
+            _d["tutar"] = _f(tutar)
+        if doviz is not None:
+            _d["doviz"] = doviz or "USD"
+        sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         _cache_temizle()
         return True
     except Exception:
@@ -291,6 +298,8 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
         c_no = _bul("numara")
         c_ref = _bul("ref")
         c_ack = _bul("açıklama", "aciklama", "aklama", "klama")
+        c_tutar = _bul("tutar", "tutarı", "miktar", "bedel", "amount")
+        c_doviz = _bul("döviz", "doviz", "para", "currency", "kur")
         if not c_ref:
             return False, "REF NUMARASI sütunu bulunamadı.", 0
         mevcut = {str(r.get("ref_no", "")).strip() for r in get_refler(firma_id)}
@@ -308,9 +317,14 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
             ack = str(r.get(c_ack, "") or "").strip() if c_ack else ""
             if ack.lower() == "nan":
                 ack = ""
+            tutar = _f(r.get(c_tutar)) if c_tutar is not None else 0.0
+            doviz = (str(r.get(c_doviz) or "").strip().upper() if c_doviz is not None else "") or "USD"
+            if doviz not in DOVIZLER:
+                doviz = "USD"
             rows.append({
                 "firma_id": firma_id, "sira_no": sira or 0, "ref_no": ref,
                 "aciklama": ack, "durum": varsayilan_durum, "yil": yil,
+                "tutar": tutar, "doviz": doviz,
             })
         if rows:
             sb.table("ref_kayitlari").insert(rows).execute()
@@ -496,6 +510,18 @@ def render():
 
 
 # ── SEKME 1: REF NO'LAR ─────────────────────────────────────────────
+def _tutar_ozet(refler):
+    """Ref no'ların toplam tutarını döviz bazlı özetler: '$5.000 · ₺120.000'."""
+    from collections import defaultdict
+    d = defaultdict(float)
+    for r in refler:
+        dv = (r.get("doviz") or "USD").strip().upper()
+        d[dv] += _f(r.get("tutar"))
+    sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
+    parcalar = [f"{sembol.get(k, k + ' ')}{v:,.0f}" for k, v in d.items() if v]
+    return " · ".join(parcalar) if parcalar else "—"
+
+
 def _render_refler(fid, fkod):
     refler = get_refler(fid)
     _bekleyen = sum(1 for r in refler if r.get("durum") == "beklemede")
@@ -504,6 +530,7 @@ def _render_refler(fid, fkod):
         {"label": "Toplam Ref", "value": f"{len(refler):,}", "renk": "#818CF8"},
         {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
         {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
+        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": "#A78BFA"},
     ])
 
     _siradaki = _sonraki_sira(fid)
@@ -515,12 +542,15 @@ def _render_refler(fid, fkod):
         unsafe_allow_html=True,
     )
     with st.form("ref_ekle_form", clear_on_submit=True):
-        rc1, rc2 = st.columns([3, 1.4])
-        yeni_ack = rc1.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT 5.000$")
-        yeni_durum = rc2.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
+        yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
+        rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
+        yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+        yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
+        yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
         yeni_tarih = st.date_input("Tarih", value=date.today())
         if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
-            ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih)
+            ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
+                               tutar=yeni_tutar, doviz=yeni_doviz)
             (st.success if ok else st.error)(msg)
             if ok:
                 st.rerun()
@@ -555,7 +585,9 @@ def _render_refler(fid, fkod):
 
     df_ed = pd.DataFrame([{
         "id": r["id"], "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
-        "Açıklama": r.get("aciklama", "") or "", "Durum": r.get("durum", "beklemede") or "beklemede",
+        "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
+        "Döviz": (r.get("doviz") or "USD"),
+        "Durum": r.get("durum", "beklemede") or "beklemede",
         "Tarih": str(r.get("tarih") or ""),
     } for r in goster])
 
@@ -567,6 +599,8 @@ def _render_refler(fid, fkod):
             "No": st.column_config.NumberColumn("No", disabled=True, width="small"),
             "Ref No": st.column_config.TextColumn("Ref No", disabled=True),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
+            "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
+            "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
             "Tarih": st.column_config.TextColumn("Tarih (YYYY-AA-GG)"),
         },
@@ -580,10 +614,14 @@ def _render_refler(fid, fkod):
             n_ack = str(row.get("Açıklama", "") or "")
             n_dur = str(row.get("Durum", "beklemede"))
             n_tar = (str(row.get("Tarih", "") or "").strip() or None)
+            n_tutar = _f(row.get("Tutar"))
+            n_doviz = str(row.get("Döviz", "USD") or "USD")
             if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
-                    (n_tar or "") != (str(o.get("tarih") or ""))):
+                    (n_tar or "") != (str(o.get("tarih") or "")) or
+                    n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD")):
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
-                ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay)
+                ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
+                             tutar=n_tutar, doviz=n_doviz)
                 degisen += 1
         st.success(f"✅ {degisen} kayıt güncellendi." if degisen else "Değişiklik yok.")
         if degisen:
