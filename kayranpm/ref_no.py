@@ -134,8 +134,10 @@ def _cari_esle(onek, doviz, cariler):
 
 
 def _senkronize_firmalar():
-    """Firma adlarını muhasebe cari isimleriyle eşitler (kodlar değişmez) ve
-    HB'ye yanlış girilmiş havuz bütçeyi ITOPYA (EERA) firmasına taşır. İdempotent."""
+    """Firma adlarını muhasebe cari isimleriyle eşitler (kodlar değişmez);
+    AYNI role ait mükerrer firmaları tek hedefte birleştirir (ref no + havuz
+    bütçe taşınır, boşalan firma silinir); HB'ye yanlış girilmiş havuz bütçeyi
+    ITOPYA (EERA) firmasına taşır. İdempotent — tekrar çalışınca bozulmaz."""
     cariler = _cari_isimleri()
     if not cariler:
         return
@@ -144,24 +146,59 @@ def _senkronize_firmalar():
         return
     sb = get_client()
     degisti = False
-    itopya_id, hb_id = None, None
+
+    def _kayit_say(fid):
+        try:
+            r = len(_rows(sb.table("ref_kayitlari").select("id").eq("firma_id", fid).execute()))
+            b = len(_rows(sb.table("ref_butce").select("id").eq("firma_id", fid).execute()))
+            return r + b
+        except Exception:
+            return 0
+
+    # Rol bazlı grupla
+    rol_gruplari = {}
     for f in firmalar:
         rol = _firma_rol(f)
-        if not rol:
-            continue
-        if rol == "ITOPYA":
-            itopya_id = f["id"]
-        elif rol == "HB":
-            hb_id = f["id"]
+        if rol:
+            rol_gruplari.setdefault(rol, []).append(f)
+
+    rol_hedef = {}  # rol → hedef firma id
+    for rol, flist in rol_gruplari.items():
         cfg = FIRMA_ESLESME[rol]
-        yeni_ad = _cari_esle(cfg["onek"], cfg["doviz"], cariler)
-        if yeni_ad and yeni_ad != (f.get("firma_adi") or ""):
+        hedef_ad = _cari_esle(cfg["onek"], cfg["doviz"], cariler)
+        # Hedef: adı cari ismine eşit olan; yoksa en çok kayıtlı olan; yoksa ilk
+        hedef = None
+        if hedef_ad:
+            hedef = next((f for f in flist
+                          if (f.get("firma_adi") or "").strip() == hedef_ad.strip()), None)
+        if hedef is None:
+            hedef = max(flist, key=lambda f: _kayit_say(f["id"]))
+        hedef_id = hedef["id"]
+        rol_hedef[rol] = hedef_id
+
+        # Hedef adını cari ismine güncelle
+        if hedef_ad and (hedef.get("firma_adi") or "") != hedef_ad:
             try:
-                sb.table("ref_firmalar").update({"firma_adi": yeni_ad}).eq("id", f["id"]).execute()
+                sb.table("ref_firmalar").update({"firma_adi": hedef_ad}).eq("id", hedef_id).execute()
                 degisti = True
             except Exception:
                 pass
+
+        # Mükerrer firmaları hedefe birleştir + sil (önce taşı, sonra sil)
+        for f in flist:
+            if f["id"] == hedef_id:
+                continue
+            try:
+                sb.table("ref_kayitlari").update({"firma_id": hedef_id}).eq("firma_id", f["id"]).execute()
+                sb.table("ref_butce").update({"firma_id": hedef_id}).eq("firma_id", f["id"]).execute()
+                sb.table("ref_firmalar").delete().eq("id", f["id"]).execute()
+                degisti = True
+            except Exception:
+                pass
+
     # HB → ITOPYA havuz bütçe taşıma (yanlış girilmiş kayıtlar)
+    itopya_id = rol_hedef.get("ITOPYA")
+    hb_id = rol_hedef.get("HB")
     if itopya_id and hb_id and itopya_id != hb_id:
         try:
             hb_butce = _rows(sb.table("ref_butce").select("id").eq("firma_id", hb_id).execute())
@@ -170,6 +207,7 @@ def _senkronize_firmalar():
                 degisti = True
         except Exception:
             pass
+
     if degisti:
         _cache_temizle()
 
@@ -392,12 +430,12 @@ def render():
                 unsafe_allow_html=True)
 
     # Firma adlarını muhasebe cari isimleriyle eşitle + havuz bütçe düzelt (oturum başına bir kez)
-    if not st.session_state.get("_ref_senk"):
+    if not st.session_state.get("_ref_senk2"):
         try:
             _senkronize_firmalar()
         except Exception:
             pass
-        st.session_state["_ref_senk"] = True
+        st.session_state["_ref_senk2"] = True
 
     firmalar = get_firmalar()
 
