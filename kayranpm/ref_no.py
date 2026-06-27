@@ -89,6 +89,34 @@ def firma_ekle(adi, kodu):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+def firma_sil(firma_id, kayitlari_da_sil=True):
+    """Firmayı (ve istenirse tüm ref no + havuz bütçe kayıtlarını) siler."""
+    try:
+        sb = get_client()
+        if kayitlari_da_sil:
+            sb.table("ref_kayitlari").delete().eq("firma_id", firma_id).execute()
+            sb.table("ref_butce").delete().eq("firma_id", firma_id).execute()
+        sb.table("ref_firmalar").delete().eq("id", firma_id).execute()
+        _cache_temizle()
+        return True, "✅ Firma ve kayıtları silindi."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def firma_birlestir(kaynak_id, hedef_id):
+    """Kaynak firmanın tüm ref no + havuz bütçe kayıtlarını hedef firmaya taşır,
+    sonra kaynak firmayı siler. (örn. HB kayıtlarını Itopya'ya aktarmak için)."""
+    try:
+        sb = get_client()
+        sb.table("ref_kayitlari").update({"firma_id": hedef_id}).eq("firma_id", kaynak_id).execute()
+        sb.table("ref_butce").update({"firma_id": hedef_id}).eq("firma_id", kaynak_id).execute()
+        sb.table("ref_firmalar").delete().eq("id", kaynak_id).execute()
+        _cache_temizle()
+        return True, "✅ Kayıtlar aktarıldı ve kaynak firma silindi."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
 # ── REF NO DB ───────────────────────────────────────────────────────
 @st.cache_data(ttl=30, show_spinner=False)
 def get_refler(firma_id):
@@ -358,16 +386,30 @@ def render():
     firmalar = get_firmalar()
 
     with st.expander("🏢 Yeni Firma Ekle"):
+        try:
+            from kayranacc.database import get_cari_isimler
+            _cariler = sorted({str(c).strip() for c in (get_cari_isimler() or []) if str(c).strip()})
+        except Exception:
+            _cariler = []
+        _mevcut_adlar = {f["firma_adi"].strip().upper() for f in firmalar}
+        _cariler = [c for c in _cariler if c.upper() not in _mevcut_adlar]
         with st.form("ref_firma_ekle", clear_on_submit=True):
-            fc1, fc2 = st.columns(2)
-            yf_adi = fc1.text_input("Firma Adı", placeholder="örn. INCEHESAP")
-            yf_kod = fc2.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
-                                    help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
+            if _cariler:
+                _opts = ["— Sistemden seç —"] + _cariler + ["✏️ Elle yaz"]
+                yf_sec = st.selectbox("Firma Adı (sistemdeki cari isimlerden)", _opts)
+                yf_elle = st.text_input("Elle firma adı ('Elle yaz' seçtiysen)", "")
+                yf_adi = yf_elle if yf_sec == "✏️ Elle yaz" else (yf_sec if yf_sec != "— Sistemden seç —" else "")
+            else:
+                yf_adi = st.text_input("Firma Adı", placeholder="örn. INCEHESAP")
+                st.caption("Cari isimleri yüklenince (Muhasebe → Cari) buradan otomatik seçebilirsin.")
+            yf_kod = st.text_input("Ref Kodu (boş bırakırsan otomatik)", placeholder="örn. INC",
+                                   help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
             if st.form_submit_button("➕ Firma Ekle", type="primary"):
-                if not yf_adi.strip() or not yf_kod.strip():
-                    st.warning("Firma adı ve kodu zorunlu.")
+                if not yf_adi.strip():
+                    st.warning("Firma adı zorunlu.")
                 else:
-                    ok, msg = firma_ekle(yf_adi, yf_kod)
+                    _kod = yf_kod.strip() or "".join(yf_adi.strip().split())[:3].upper()
+                    ok, msg = firma_ekle(yf_adi, _kod)
                     (st.success if ok else st.error)(msg)
                     if ok:
                         st.rerun()
@@ -377,8 +419,51 @@ def render():
         return
 
     fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
-    sec_label = st.selectbox("Firma seç", list(fmap.keys()), key="ref_firma_sec")
+    _TUMU = "🌐 Tüm Firmalar"
+    sec_label = st.selectbox("Firma seç", [_TUMU] + list(fmap.keys()), key="ref_firma_sec")
+
+    if sec_label == _TUMU:
+        _render_tumu(firmalar)
+        return
+
     firma = fmap[sec_label]
+
+    # ── Firma Yönetimi (birleştir / sil) ──
+    with st.expander("⚙️ Firma Yönetimi (birleştir / sil)"):
+        st.caption(f"Seçili firma: **{firma['firma_adi']}**")
+        _digerler = {f["firma_adi"]: f for f in firmalar if f["id"] != firma["id"]}
+        if _digerler:
+            mc1, mc2 = st.columns([3, 1])
+            _hedef = mc1.selectbox(
+                "Bu firmayı şununla BİRLEŞTİR (tüm ref no + havuz bütçe kayıtları hedefe taşınır, bu firma silinir)",
+                ["—"] + list(_digerler.keys()), key="ref_birlestir_hedef")
+            mc2.markdown("<br>", unsafe_allow_html=True)
+            if mc2.button("🔀 Birleştir", key="ref_birlestir_btn", use_container_width=True):
+                if _hedef == "—":
+                    st.warning("Hedef firma seç.")
+                else:
+                    ok, msg = firma_birlestir(firma["id"], _digerler[_hedef]["id"])
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        st.rerun()
+        st.markdown("---")
+        _sil_key = f"ref_firma_sil_onay_{firma['id']}"
+        if not st.session_state.get(_sil_key):
+            if st.button("🗑️ Bu firmayı sil (tüm kayıtlarıyla)", key=f"ref_sil_{firma['id']}"):
+                st.session_state[_sil_key] = True
+                st.rerun()
+        else:
+            st.error(f"**{firma['firma_adi']}** firması ve TÜM kayıtları silinecek. Emin misin?")
+            sc1, sc2 = st.columns(2)
+            if sc1.button("✅ Evet, sil", key=f"ref_sil_evet_{firma['id']}", type="primary"):
+                ok, msg = firma_sil(firma["id"])
+                st.session_state[_sil_key] = False
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+            if sc2.button("İptal", key=f"ref_sil_iptal_{firma['id']}"):
+                st.session_state[_sil_key] = False
+                st.rerun()
 
     tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
     with tab1:
@@ -664,3 +749,49 @@ def get_tum_butce_harcamalari(baslangic=None, bitis=None):
             continue
         out.append(r)
     return out
+
+
+# ── "TÜM FİRMALAR" BİRLEŞİK GÖRÜNÜM ─────────────────────────────────
+def _render_tumu(firmalar):
+    """Tüm firmaların ref no + havuz bütçe kayıtlarını birleşik (read-only) gösterir."""
+    import pandas as pd
+    tum_ref, tum_butce = [], []
+    for f in firmalar:
+        for r in (get_refler(f["id"]) or []):
+            tum_ref.append({
+                "Firma": f["firma_adi"],
+                "Ref No": r.get("ref_no", ""),
+                "Açıklama": (r.get("aciklama", "") or "")[:50],
+                "Tür": r.get("kategori", ""),
+                "Tutar": _f(r.get("tutar")),
+                "Döviz": r.get("doviz", ""),
+                "Durum": r.get("durum", ""),
+            })
+        for b in (get_butce(f["id"]) or []):
+            tum_butce.append({
+                "Firma": f["firma_adi"],
+                "Tür": b.get("tur", ""),
+                "Yön": b.get("yon", ""),
+                "Açıklama": (b.get("aciklama", "") or "")[:50],
+                "Tutar": _f(b.get("tutar")),
+                "Döviz": b.get("doviz", ""),
+                "Fatura Tarihi": (b.get("fatura_tarih", "") or "")[:10],
+            })
+
+    st.markdown("#### 🌐 Tüm Firmalar — Ref No'lar")
+    if tum_ref:
+        st.dataframe(pd.DataFrame(tum_ref), hide_index=True, use_container_width=True)
+        st.caption(f"Toplam {len(tum_ref)} ref no kaydı.")
+    else:
+        st.info("Henüz ref no kaydı yok.")
+
+    st.markdown("#### 🌐 Tüm Firmalar — Havuz Bütçe")
+    if tum_butce:
+        st.dataframe(pd.DataFrame(tum_butce), hide_index=True, use_container_width=True)
+        _giris = sum(b["Tutar"] for b in tum_butce if str(b["Yön"]).lower() in ("giris", "giriş"))
+        _harc = sum(b["Tutar"] for b in tum_butce if str(b["Yön"]).lower() not in ("giris", "giriş"))
+        st.caption(f"Toplam giriş: {_giris:,.0f} · Toplam harcama: {_harc:,.0f} (karışık dövizler dahildir, sadece özet).")
+    else:
+        st.info("Henüz havuz bütçe kaydı yok.")
+
+    st.info("ℹ️ Detaylı işlem (ekleme/düzenleme) için üstten tek bir firma seçin.")
