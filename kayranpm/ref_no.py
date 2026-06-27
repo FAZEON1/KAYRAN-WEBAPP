@@ -785,3 +785,29 @@ def get_tum_butce_harcamalari(baslangic, bitis):
             "firma_id": r.get("firma_id"),
         })
     return out
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def get_tum_ref_tutarlari(baslangic, bitis):
+    """Yönetim Panosu (P&L) için: TÜM firmaların ref no tutarları (tarih dönem
+    aralığında). Havuz bütçeden AYRI bir destek kalemidir. İptal edilenler hariç.
+    Döner [{tutar, doviz, tarih, firma_id}]. Arayüzde kullanılmaz."""
+    try:
+        sb = get_client()
+        rows = _rows(sb.table("ref_kayitlari").select("tutar,doviz,tarih,durum,firma_id")
+                     .gte("tarih", str(baslangic))
+                     .lte("tarih", str(bitis)).execute())
+    except Exception:
+        return []
+    out = []
+    for r in (rows or []):
+        t = _f(r.get("tutar"))
+        if t <= 0 or str(r.get("durum") or "").lower() == "iptal":
+            continue
+        out.append({
+            "tutar": t,
+            "doviz": (r.get("doviz") or "USD"),
+            "tarih": r.get("tarih") or "",
+            "firma_id": r.get("firma_id"),
+        })
+    return out
