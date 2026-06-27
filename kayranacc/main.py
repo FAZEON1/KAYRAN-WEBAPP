@@ -3939,9 +3939,11 @@ def run():
         # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
         # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
         # yalnızca Yönetim Panosu (P&L) navigasyonunda görüntülenir.
+        _snap_ok = False
+        _snap_hata = ""
         try:
             import datetime as _dt_acc
-            set_ayar("toplam_aktif_snapshot", {
+            _snap_ok = set_ayar("toplam_aktif_snapshot", {
                 "toplam": round(toplam_aktif, 2),
                 "kur": kur,
                 "tarih": str(_dt_acc.date.today()),
@@ -3955,9 +3957,15 @@ def run():
                 "manuel_cikar": round(manuel_cikar_toplam, 2),
                 "havuz": round(havuz_butce_usd, 2),
             })
-        except Exception:
-            pass
-        st.success("✅ Veriler işlendi ve kaydedildi. **Toplam aktif sonucu, yalnızca Yönetim Panosu'nda görüntülenir.**")
+        except Exception as _e:
+            _snap_ok = False
+            _snap_hata = str(_e)[:200]
+        if _snap_ok:
+            st.success("✅ Veriler işlendi ve kaydedildi. Toplam aktif sonucu **Yönetim Panosu**'nda görüntülenir.")
+        else:
+            st.error("⚠️ Veriler işlendi ama sonuç **kaydedilemedi** — bu yüzden Yönetim Panosu'na yansımıyor. "
+                     "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur. "
+                     + (f"Hata: {_snap_hata}" if _snap_hata else "Yöneticiyle paylaşılan SQL'i çalıştırın."))
 
         # ─── Manuel Ekleme/Çıkarma ───
         st.markdown("---")
