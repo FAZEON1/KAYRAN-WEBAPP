@@ -635,10 +635,27 @@ def _render_butce(fid, firma):
     harcama = sum(_f(r.get("tutar")) for r in kayitlar if r.get("yon") != "giris")
     kalan = giris - harcama
 
+    # Bu firmaya atanan ref no'ların toplamı (USD'ye çevrilmiş) — havuz kullanımını gösterir
+    _kur = 0.0
+    try:
+        _kur = float(st.session_state.get("kur") or 0)
+    except Exception:
+        _kur = 0.0
+    ref_usd = 0.0
+    for r in get_refler(fid):
+        if str(r.get("durum") or "").lower() == "iptal":
+            continue
+        t = _f(r.get("tutar"))
+        dv = (r.get("doviz") or "USD").strip().upper()
+        if dv in ("TL", "TRY", "₺", "TRL"):
+            t = (t / _kur) if _kur else 0.0
+        ref_usd += t
+
     metrik_satiri([
         {"label": "Toplam Bütçe (giriş)", "value": f"${giris:,.2f}", "renk": "#34D399"},
         {"label": "Toplam Harcama", "value": f"${harcama:,.2f}", "renk": "#F87171"},
         {"label": "Kalan Havuz", "value": f"${kalan:,.2f}", "renk": "#A5B4FC"},
+        {"label": "Atanan Ref No (USD)", "value": f"${ref_usd:,.2f}", "renk": "#A78BFA"},
     ])
 
     # ── Yeni kayıt ekle ──
