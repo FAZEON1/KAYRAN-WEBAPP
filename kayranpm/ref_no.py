@@ -98,13 +98,26 @@ FIRMA_ESLESME = {
 }
 
 
+def _norm(s):
+    """Türkçe karakterleri Latin'e indirger + BÜYÜK harf yapar.
+    İ/ı/I eşleşme sorununu çözer: _norm('İTOPYA') == 'ITOPYA'."""
+    s = str(s or "")
+    for a, b in (("İ", "I"), ("ı", "I"), ("Ş", "S"), ("ş", "S"),
+                 ("Ğ", "G"), ("ğ", "G"), ("Ü", "U"), ("ü", "U"),
+                 ("Ö", "O"), ("ö", "O"), ("Ç", "C"), ("ç", "C")):
+        s = s.replace(a, b)
+    return s.upper()
+
+
 def _firma_rol(f):
-    """Bir firmayı (ad/kod) eşleştirme rolüne bağlar: ITOPYA / HB / VATAN / None."""
-    ad = (f.get("firma_adi") or "").upper()
-    kod = (f.get("firma_kodu") or "").upper()
+    """Bir firmayı (ad/kod) eşleştirme rolüne bağlar: ITOPYA / HB / VATAN / None.
+    Türkçe karakterler normalize edilir (İTOPYA = ITOPYA, FZİTRF kodu = IT)."""
+    ad = _norm(f.get("firma_adi"))
+    kod = _norm(f.get("firma_kodu"))
     for rol, cfg in FIRMA_ESLESME.items():
         for t in cfg["tespit"]:
-            if t == kod or t in ad:
+            tn = _norm(t)
+            if tn == kod or tn in ad:
                 return rol
     return None
 
@@ -119,15 +132,17 @@ def _cari_isimleri():
 
 
 def _cari_esle(onek, doviz, cariler):
-    """Önek ile başlayan cari ismini bul; döviz verilmişse o dövizi içeren önceliklidir."""
-    ou = onek.strip().upper()
-    adaylar = [c for c in cariler if c.upper().startswith(ou)]
+    """Önek ile başlayan cari ismini bul; döviz verilmişse o dövizi içeren önceliklidir.
+    Türkçe karakterler normalize edilir."""
+    ou = _norm(onek)
+    adaylar = [c for c in cariler if _norm(c).startswith(ou)]
     if not adaylar:
-        adaylar = [c for c in cariler if ou in c.upper()]
+        adaylar = [c for c in cariler if ou in _norm(c)]
     if not adaylar:
         return None
     if doviz:
-        tercih = [c for c in adaylar if doviz.upper() in c.upper()]
+        dn = _norm(doviz)
+        tercih = [c for c in adaylar if dn in _norm(c)]
         if tercih:
             return tercih[0]
     return adaylar[0]
@@ -430,12 +445,12 @@ def render():
                 unsafe_allow_html=True)
 
     # Firma adlarını muhasebe cari isimleriyle eşitle + havuz bütçe düzelt (oturum başına bir kez)
-    if not st.session_state.get("_ref_senk2"):
+    if not st.session_state.get("_ref_senk3"):
         try:
             _senkronize_firmalar()
         except Exception:
             pass
-        st.session_state["_ref_senk2"] = True
+        st.session_state["_ref_senk3"] = True
 
     firmalar = get_firmalar()
 
