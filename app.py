@@ -1120,6 +1120,17 @@ input, textarea, select { font-size: 16px !important; }
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
+        # Yönetim Panosu (P&L) — finansal özet, sadece İbrahim
+        if aktif_kullanici.strip().lower() == "ibrahim":
+            if st.button(
+                "📊 Yönetim P&L",
+                key="nav_yonetim",
+                type="primary" if aktif_sayfa == "yonetim" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "yonetim"
+                st.rerun()
+
         if yetkiler["kayranacc"]:
             if st.button(
                 "💳 Muhasebe & Finans",
@@ -2113,6 +2124,9 @@ def main():
         elif aktif == "satis":
             from satis.main import run as satis_run
             satis_run()
+        elif aktif == "yonetim":
+            from yonetim import run as yonetim_run
+            yonetim_run()
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
