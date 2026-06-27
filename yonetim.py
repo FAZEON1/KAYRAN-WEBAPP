@@ -35,6 +35,79 @@ def _donem_tarih(yil, donem):
     return f"{yil}-01-01", f"{yil}-12-31"
 
 
+def _num(x):
+    """Sayıya çevir; nan/boş ise None."""
+    try:
+        f = float(x)
+        if f != f:  # nan
+            return None
+        return f
+    except Exception:
+        return None
+
+
+def _read_excel_any(file):
+    import pandas as pd
+    name = (getattr(file, "name", "") or "").lower()
+    eng = "xlrd" if name.endswith(".xls") else "openpyxl"
+    return pd.read_excel(file, engine=eng, header=None)
+
+
+def gelir_tablosu_parse(file):
+    """Resmi gelir tablosu (.xls/.xlsx) → kalem sözlüğü (cari dönem değerleri)."""
+    df = _read_excel_any(file)
+    sonuc = {}
+    HARITA = {
+        "net_satis":       ["C. NET SATIŞLAR", "NET SATIŞLAR"],
+        "cogs":            ["SATIŞLARIN MALİYETİ"],
+        "brut_kar":        ["BRÜT SATIŞ KARI"],
+        "faaliyet_gideri": ["E. FAALİYET GİDERLERİ", "FAALİYET GİDERLERİ"],
+        "pazarlama":       ["PAZARLAMA SAT"],
+        "genel_yonetim":   ["GENEL YÖNETİM GİD"],
+        "faaliyet_kari":   ["FAALİYET KARI"],
+        "finansman":       ["FİNANSMAN GİDER"],
+        "net_kar":         ["DÖNEM NET KARI"],
+    }
+    for _, row in df.iterrows():
+        ad = str(row.iloc[0]).strip()
+        cari = None
+        for c in range(len(row) - 1, 0, -1):
+            v = _num(row.iloc[c])
+            if v is not None:
+                cari = v
+                break
+        if cari is None:
+            continue
+        adU = ad.upper()
+        for key, kaliplar in HARITA.items():
+            if key in sonuc:
+                continue
+            if any(k in adU for k in kaliplar):
+                sonuc[key] = cari
+                break
+    return sonuc
+
+
+def mizan_amortisman_parse(file):
+    """Mizandan dönem amortisman & itfa gideri (760.06 + 770.06 ana grup bakiyeleri)."""
+    df = _read_excel_any(file)
+    amort = 0.0
+    for _, row in df.iterrows():
+        kod = str(row.iloc[0]).strip()
+        if kod in ("760.06", "770.06"):
+            # TL borç bakiye sütununu sağdan en yakın pozitif sayı olarak bul
+            v = None
+            for c in (4, 3, 5, 2):
+                if c < len(row):
+                    vv = _num(row.iloc[c])
+                    if vv:
+                        v = vv
+                        break
+            if v:
+                amort += abs(v)
+    return amort
+
+
 def _kart(baslik, deger, alt, renk):
     return (f'<div style="background:rgba(255,255,255,0.03);border:1px solid {renk}33;border-radius:14px;'
             f'padding:16px 18px;flex:1;min-width:148px">'
@@ -166,6 +239,71 @@ def run():
         st.dataframe(pd.DataFrame(_rk), hide_index=True, use_container_width=True)
         st.caption("Not: 'Satış Net Kâr' satış-içi birim destekleri yansıtır (operasyonel); "
                    "resmi dönem net kârı için üstteki havuz/ref no destekleri esastır.")
+
+    # ── FAVÖK (EBITDA) & Mali Sonuçlar (Gelir Tablosu + Mizan) ──
+    st.markdown("---")
+    st.markdown("### 📈 FAVÖK (EBITDA) & Mali Sonuçlar")
+    st.caption("Resmi gelir tablosu + mizan bazlı (çeyreklik) · FAVÖK = Faaliyet Kârı + Amortisman")
+    _mali_anahtar = f"mali_sonuc_{_yil}_{_donem}"
+    try:
+        from kayranacc.database import get_ayar as _get_ayar2, set_ayar as _set_ayar2
+    except Exception:
+        _get_ayar2 = _set_ayar2 = None
+    _mali = _get_ayar2(_mali_anahtar) if _get_ayar2 else None
+
+    with st.expander(f"📤 {_yil} {_donem} için Gelir Tablosu + Mizan yükle", expanded=(not _mali)):
+        _gt = st.file_uploader("Gelir Tablosu (.xls / .xlsx)", type=["xls", "xlsx"], key=f"gt_{_mali_anahtar}")
+        _mz = st.file_uploader("Mizan (.xls / .xlsx) — amortisman için", type=["xls", "xlsx"], key=f"mz_{_mali_anahtar}")
+        _kur_d = st.number_input("Dönem USD/TL kuru (USD karşılığı için)", min_value=0.0,
+                                 value=float(_usdtry or 0), step=0.1, format="%.2f",
+                                 key=f"kur_{_mali_anahtar}")
+        if st.button("İşle ve kaydet", key=f"mali_kaydet_{_mali_anahtar}", type="primary"):
+            if not _gt:
+                st.error("En azından Gelir Tablosu yükle.")
+            else:
+                try:
+                    _gtd = gelir_tablosu_parse(_gt)
+                    _amort = mizan_amortisman_parse(_mz) if _mz else 0.0
+                    _kayit = dict(_gtd)
+                    _kayit["amortisman"] = _amort
+                    _kayit["kur"] = _kur_d
+                    _kayit["tarih"] = str(dt.date.today())
+                    if _set_ayar2:
+                        _set_ayar2(_mali_anahtar, _kayit)
+                    _mali = _kayit
+                    st.success("✅ Mali sonuçlar işlendi ve kaydedildi.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Dosya işlenemedi: {e}")
+
+    if not _mali:
+        st.info("Bu dönem için gelir tablosu/mizan yüklenmedi. Yukarıdaki kutudan yükleyince "
+                "FAVÖK (EBITDA) marjı ve net kazanç burada görünür.")
+    else:
+        _ns = abs(float(_mali.get("net_satis") or 0))
+        _ebit = float(_mali.get("faaliyet_kari") or 0)
+        _amort = float(_mali.get("amortisman") or 0)
+        _ebitda = _ebit + _amort
+        _nk = float(_mali.get("net_kar") or 0)
+        _kur_m = float(_mali.get("kur") or 0) or _usdtry or 0
+        _ebitda_marj = (_ebitda / _ns * 100) if _ns else 0.0
+        _net_marj = (_nk / _ns * 100) if _ns else 0.0
+
+        def _ikili(tl):
+            _u = (tl / _kur_m) if _kur_m else 0
+            return f"₺{tl:,.0f} · ${_u:,.0f}"
+
+        _nkrenk = "#34D399" if _nk >= 0 else "#F87171"
+        st.markdown(
+            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 8px">'
+            + _kart("Net Satış", _ikili(_ns), "Gelir tablosu", "#A5B4FC")
+            + _kart("Faaliyet Kârı (EBIT)", _ikili(_ebit), f"EBIT marj {_pct(_ebit/_ns*100 if _ns else 0)}", "#38BDF8")
+            + _kart("Amortisman", _ikili(_amort), "Mizan 760.06+770.06", "#FBBF24")
+            + _kart("FAVÖK (EBITDA)", _ikili(_ebitda), f"FAVÖK marj {_pct(_ebitda_marj)}", "#34D399")
+            + _kart("Dönem Net Kârı", _ikili(_nk), f"Net marj {_pct(_net_marj)}", _nkrenk)
+            + '</div>', unsafe_allow_html=True)
+        st.caption(f"📅 Yüklenme: {_mali.get('tarih','')} · USD karşılıkları 1$={_kur_m:g}₺ kuruyla. "
+                   "FAVÖK = Faaliyet Kârı + Amortisman & İtfa.")
 
     # ── Toplam Aktifler (Muhasebe → snapshot, anlık) ──
     st.markdown("---")
