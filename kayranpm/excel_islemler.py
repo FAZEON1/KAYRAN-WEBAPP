@@ -84,7 +84,7 @@ def excel_yukle_ana_stok(dosya_yolu):
         hata_mesajlari = []
         for _, row in df.iterrows():
             try:
-                sku = str(row[kolon_map["SKU"]]).strip()
+                sku = normalize_sku(row[kolon_map["SKU"]])
                 if not sku or sku == "nan":
                     continue
                 urun_adi = str(row.get(kolon_map.get("URUN_ADI", ""), "")).strip()
@@ -238,7 +238,7 @@ def excel_yukle_yoldaki_urunler(dosya_yolu):
         basarili = 0
         for _, row in df.iterrows():
             try:
-                sku = str(row[kolon_map["SKU"]]).strip()
+                sku = normalize_sku(row[kolon_map["SKU"]])
                 if not sku or sku == "nan":
                     continue
                 urun_adi = str(row.get(kolon_map.get("URUN_ADI", ""), "")).strip() if "URUN_ADI" in kolon_map else ""
@@ -429,7 +429,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         for _, row in df.iterrows():
             try:
                 firma_ham = safe_str(row.get(kolon_map["FIRMA"], ""))
-                sku = safe_str(row.get(kolon_map["SKU"], ""))
+                sku = normalize_sku(row.get(kolon_map["SKU"], ""))
                 if not sku or sku.lower() == "nan" or not firma_ham:
                     atlanan += 1
                     continue
@@ -503,7 +503,7 @@ def excel_yukle_g5f_depolar(dosya_yolu):
         depolar_set = set()
         atlanan = 0
         for _, row in df.iterrows():
-            sku = safe_str(row.get(kolon_map["SKU"], ""))
+            sku = normalize_sku(row.get(kolon_map["SKU"], ""))
             if not sku or sku.lower() == "nan":
                 atlanan += 1
                 continue
