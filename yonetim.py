@@ -154,6 +154,28 @@ def run():
         _tur_usd[t] = _tur_usd.get(t, 0.0) + tutar
         toplam_destek += tutar
 
+    # Ref no tutarları — havuz bütçeden AYRI destek kalemi (toplama dahil)
+    try:
+        from kayranpm.ref_no import get_tum_ref_tutarlari
+        _ref_tutar = get_tum_ref_tutarlari(baslangic, bitis)
+    except Exception:
+        _ref_tutar = []
+    _ref_usd = 0.0
+    for r in _ref_tutar:
+        tutar = float(r.get("tutar") or 0)
+        dv = (r.get("doviz") or "USD").strip().upper()
+        if dv in ("TL", "TRY", "₺", "TRL"):
+            if _usdtry:
+                tutar = tutar / _usdtry
+                _tl_uyari = True
+            else:
+                _kur_eksik = True
+                continue
+        _ref_usd += tutar
+    if _ref_usd:
+        _tur_usd["Ref No"] = _tur_usd.get("Ref No", 0.0) + _ref_usd
+        toplam_destek += _ref_usd
+
     net_kar = brut - toplam_destek
     net_marj = (net_kar / ciro * 100) if ciro else 0.0
 
