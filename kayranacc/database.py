@@ -865,11 +865,15 @@ def get_cari_isimler():
 def set_ayar(anahtar, deger):
     """sistem_ayarlari tablosuna JSON değer yazar (anahtar bazlı upsert)."""
     import json as _json
+    from datetime import datetime as _dt, timedelta as _td
+    # guncelleme_tarihi: ISO format (YYYY-MM-DD HH:MM:SS) — Postgres timestamp ile uyumlu.
+    # Türkçe format (28.06.2026) timestamp kolonunda 'out of range' hatası verir.
+    _zaman = (_dt.utcnow() + _td(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
     try:
         get_client().table("sistem_ayarlari").upsert(
             {"anahtar": anahtar,
              "deger": _json.dumps(deger, ensure_ascii=False),
-             "guncelleme_tarihi": tr_now_str()},
+             "guncelleme_tarihi": _zaman},
             on_conflict="anahtar").execute()
         return True
     except Exception as e:
