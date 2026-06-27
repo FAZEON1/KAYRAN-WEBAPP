@@ -859,3 +859,31 @@ def get_cari_isimler():
     except Exception:
         pass
     return []
+
+
+# ── Sistem ayarı / snapshot (Yönetim panosu için) ──────────────────
+def set_ayar(anahtar, deger):
+    """sistem_ayarlari tablosuna JSON değer yazar (anahtar bazlı upsert)."""
+    import json as _json
+    try:
+        get_client().table("sistem_ayarlari").upsert(
+            {"anahtar": anahtar,
+             "deger": _json.dumps(deger, ensure_ascii=False),
+             "guncelleme_tarihi": tr_now_str()},
+            on_conflict="anahtar").execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_ayar(anahtar, varsayilan=None):
+    """sistem_ayarlari'ndan JSON değer okur."""
+    import json as _json
+    try:
+        res = get_client().table("sistem_ayarlari").select("deger").eq("anahtar", anahtar).execute()
+        rows = res.data or []
+        if not rows:
+            return varsayilan
+        return _json.loads(rows[0]["deger"])
+    except Exception:
+        return varsayilan

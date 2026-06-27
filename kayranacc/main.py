@@ -28,6 +28,7 @@ from .database import (
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
     aktif_excel_kaydet, aktif_excel_oku, aktif_excel_sil, aktif_excel_meta_oku,
     aktif_manuel_ekle, aktif_manuel_listele, aktif_manuel_sil, get_cek_toplamlari,
+    set_ayar, get_ayar,
 )
 from .excel_islemler import (
     excel_yukle_odeme_listesi, excel_yukle_cek_listesi,
@@ -3935,68 +3936,29 @@ def run():
             - manuel_cikar_toplam
         )
     
-        # ─── Sonuç Kartı ───
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#93C5FD,#3730A3,#7C3AED);border-radius:20px;padding:32px 28px;margin:8px 0 24px;text-align:center;box-shadow:0 12px 32px rgba(30,64,175,0.25)">
-            <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C7D2FE;margin-bottom:10px">💎 TOPLAM AKTİFLERİNİZ</div>
-            <div style="font-size:42px;font-weight:800;color:#FFFFFF;font-family:monospace;letter-spacing:-1.5px;line-height:1.1">${fmt(toplam_aktif)}</div>
-            <div style="font-size:13px;color:#A5B4FC;margin-top:10px;font-family:monospace">≈ ₺{fmt(toplam_aktif * kur)} (kur: {kur})</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-        # ─── Detay Breakdown ───
-        st.markdown("### 📊 Hesaplama Detayı")
-    
-        # Borç hesaplaması
-        borc_detay_arr = []
-        if usd_borc: borc_detay_arr.append(f"USD borç: ${usd_borc:,.0f}")
-        if tl_borc: borc_detay_arr.append(f"TL borç: ₺{tl_borc:,.0f} (${tl_borc_usd:,.0f})")
-        if eur_borc: borc_detay_arr.append(f"EUR borç: €{eur_borc:,.0f}")
-        toplam_borc_usd = usd_borc + tl_borc_usd + eur_borc_usd
-        borc_detay_str = " · ".join(borc_detay_arr) if borc_detay_arr else ""
-    
-        # Cari alacak detay
-        alacak_detay_arr = []
-        if usd_alacak: alacak_detay_arr.append(f"USD alacak: ${usd_alacak:,.0f}")
-        if tl_alacak: alacak_detay_arr.append(f"TL alacak: ₺{tl_alacak:,.0f} (${tl_alacak_usd:,.0f})")
-        if eur_alacak: alacak_detay_arr.append(f"EUR alacak: €{eur_alacak:,.0f}")
-        alacak_detay_str = " · ".join(alacak_detay_arr) if alacak_detay_arr else ""
-    
-        # HTML — tek satırlık inline div'ler, boş satır YOK
-        detay_html = '<div style="display:flex;flex-direction:column;gap:8px">'
-        detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #3B82F6;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">📦 G5F Stok Değeri (KDV dahil)</div><div style="font-size:11px;color:#64748B;margin-top:2px">Ham stok: ${fmt(usd_stok)} × 1.20 (KDV)</div></div><div style="font-size:18px;font-weight:700;color:#1D4ED8;font-family:monospace">+${fmt(stok_marjli)}</div></div>'
-        detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #8B5CF6;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🚢 İthalat Ödenmiş Tutar (Yoldaki/Gümrükteki Mal)</div><div style="font-size:11px;color:#64748B;margin-top:2px">İthalat Excel\'inden Ödenen / USD toplamı</div></div><div style="font-size:18px;font-weight:700;color:#6D28D9;font-family:monospace">+${fmt(odenen_ithalat)}</div></div>'
-        detay_html += f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:4px solid #F59E0B;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🏦 Banka Hesapları (USD eşdeğeri)</div><div style="font-size:11px;color:#64748B;margin-top:2px">USD: ${fmt(banka_usd)} + TL: ₺{fmt(banka_tl)} ÷ {kur}</div></div><div style="font-size:18px;font-weight:700;color:#B45309;font-family:monospace">+${fmt(banka_usd_eqv)}</div></div>'
-        detay_html += f'<div style="background:#10182F;border:1px solid rgba(99,102,241,0.4);border-left:4px solid #6366F1;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:700;color:#E2E8F0">🔖 EERA HAVUZ BÜTÇE</div><div style="font-size:11px;color:#64748B;margin-top:2px">Ref No Takibi · kalan havuz bütçe (USD)</div></div><div style="font-size:18px;font-weight:700;color:#A5B4FC;font-family:monospace">+${fmt(havuz_butce_usd)}</div></div>'
-        # Cari Alacaklar kartı (POZİTİF - eklenir)
-        if usd_alacak or tl_alacak or eur_alacak:
-            detay_html += f'<div style="background:#0A2D15;border:1px solid #A7F3D0;border-left:4px solid #16A34A;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#86EFAC">💚 Cari Alacaklar (size borçlular)</div><div style="font-size:11px;color:#15803D;margin-top:2px">{alacak_detay_str}</div></div><div style="font-size:18px;font-weight:700;color:#15803D;font-family:monospace;margin-left:14px">+${fmt(toplam_alacak_usd)}</div></div>'
-        if usd_borc or tl_borc or eur_borc:
-            detay_html += f'<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-left:4px solid #DC2626;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FCA5A5">⚠️ Cari Borçlar</div><div style="font-size:11px;color:#B91C1C;margin-top:2px">{borc_detay_str}</div></div><div style="font-size:18px;font-weight:700;color:#FCA5A5;font-family:monospace;margin-left:14px">-${fmt(toplam_borc_usd)}</div></div>'
-        # Çekler kartı
-        if cek_tl > 0 or cek_usd > 0:
-            cek_detay_arr = []
-            if cek_tl > 0:
-                cek_detay_arr.append(f"TL kalan: ₺{cek_tl:,.2f} ({cek_adet_tl} çek) → ${cek_tl_usd_eqv:,.2f}")
-            if cek_usd > 0:
-                cek_detay_arr.append(f"USD kalan: ${cek_usd:,.2f} ({cek_adet_usd} çek)")
-            cek_detay_str = " · ".join(cek_detay_arr)
-            detay_html += f'<div style="background:#2D200A;border:1px solid #FDE68A;border-left:4px solid #D97706;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FCD34D">📋 Sistemdeki Çekler (tahsil edilmemiş kalan)</div><div style="font-size:11px;color:#FDE68A;margin-top:2px">{cek_detay_str}</div></div><div style="font-size:18px;font-weight:700;color:#FCD34D;font-family:monospace;margin-left:14px">-${fmt(cek_toplam_usd)}</div></div>'
-        # Manuel eklemeler kartı
-        if manuel_ekle_toplam > 0:
-            ekle_kalemler = [k for k in manuel_kalemler if k.get("tip") == "ekle"]
-            ekle_detay = " · ".join([f"{k.get('aciklama','?')[:25]}: {('$' if (k.get('para_birimi') or 'USD').upper() == 'USD' else '₺')}{float(k.get('tutar') or 0):,.0f}" for k in ekle_kalemler[:3]])
-            if len(ekle_kalemler) > 3: ekle_detay += f" +{len(ekle_kalemler)-3} kalem"
-            detay_html += f'<div style="background:#ECFDF5;border:1px solid #A7F3D0;border-left:4px solid #059669;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#6EE7B7">➕ Manuel Eklemeler</div><div style="font-size:11px;color:#047857;margin-top:2px">{ekle_detay}</div></div><div style="font-size:18px;font-weight:700;color:#6EE7B7;font-family:monospace;margin-left:14px">+${fmt(manuel_ekle_toplam)}</div></div>'
-        # Manuel çıkarmalar kartı
-        if manuel_cikar_toplam > 0:
-            cikar_kalemler = [k for k in manuel_kalemler if k.get("tip") == "cikar"]
-            cikar_detay = " · ".join([f"{k.get('aciklama','?')[:25]}: {('$' if (k.get('para_birimi') or 'USD').upper() == 'USD' else '₺')}{float(k.get('tutar') or 0):,.0f}" for k in cikar_kalemler[:3]])
-            if len(cikar_kalemler) > 3: cikar_detay += f" +{len(cikar_kalemler)-3} kalem"
-            detay_html += f'<div style="background:#2D0A0A;border:1px solid #FCA5A5;border-left:4px solid #DC2626;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#FCA5A5">➖ Manuel Çıkarmalar</div><div style="font-size:11px;color:#B91C1C;margin-top:2px">{cikar_detay}</div></div><div style="font-size:18px;font-weight:700;color:#FCA5A5;font-family:monospace;margin-left:14px">-${fmt(manuel_cikar_toplam)}</div></div>'
-        detay_html += '</div>'
-        st.markdown(detay_html, unsafe_allow_html=True)
-    
+        # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
+        # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
+        # yalnızca Yönetim Panosu (P&L) navigasyonunda görüntülenir.
+        try:
+            import datetime as _dt_acc
+            set_ayar("toplam_aktif_snapshot", {
+                "toplam": round(toplam_aktif, 2),
+                "kur": kur,
+                "tarih": str(_dt_acc.date.today()),
+                "stok": round(stok_marjli, 2),
+                "ithalat": round(odenen_ithalat, 2),
+                "banka": round(banka_usd_eqv, 2),
+                "alacak": round(toplam_alacak_usd, 2),
+                "borc": round(usd_borc + tl_borc_usd + eur_borc_usd, 2),
+                "cek": round(cek_toplam_usd, 2),
+                "manuel_ekle": round(manuel_ekle_toplam, 2),
+                "manuel_cikar": round(manuel_cikar_toplam, 2),
+                "havuz": round(havuz_butce_usd, 2),
+            })
+        except Exception:
+            pass
+        st.success("✅ Veriler işlendi ve kaydedildi. **Toplam aktif sonucu, yalnızca Yönetim Panosu'nda görüntülenir.**")
+
         # ─── Manuel Ekleme/Çıkarma ───
         st.markdown("---")
         st.markdown("### ✏️ Manuel Ekleme / Çıkarma")
