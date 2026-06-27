@@ -166,3 +166,44 @@ def run():
         st.dataframe(pd.DataFrame(_rk), hide_index=True, use_container_width=True)
         st.caption("Not: 'Satış Net Kâr' satış-içi birim destekleri yansıtır (operasyonel); "
                    "resmi dönem net kârı için üstteki havuz/ref no destekleri esastır.")
+
+    # ── Toplam Aktifler (Muhasebe → snapshot, anlık) ──
+    st.markdown("---")
+    st.markdown("### 💎 Toplam Aktifler")
+    try:
+        from kayranacc.database import get_ayar
+        _snap = get_ayar("toplam_aktif_snapshot")
+    except Exception:
+        _snap = None
+    if not _snap:
+        st.info("Henüz toplam aktif verisi yok. Muhasebe & Finans → 'Toplam Aktifler' sayfasında "
+                "veriler işlendiğinde burada görünür.")
+    else:
+        _ta = float(_snap.get("toplam", 0) or 0)
+        _kur = float(_snap.get("kur", 0) or 0)
+        _tarih = _snap.get("tarih", "")
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,#93C5FD,#3730A3,#7C3AED);border-radius:18px;'
+            f'padding:26px 24px;text-align:center;margin:8px 0 12px;box-shadow:0 12px 32px rgba(30,64,175,0.25)">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C7D2FE;margin-bottom:8px">💎 TOPLAM AKTİFLERİNİZ</div>'
+            f'<div style="font-size:38px;font-weight:800;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${_ta:,.0f}</div>'
+            f'<div style="font-size:13px;color:#A5B4FC;margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{(_ta*_kur):,.0f} (kur: {_kur:g})</div>'
+            f'</div>', unsafe_allow_html=True)
+        st.caption(f"📅 Son güncelleme: {_tarih} · Muhasebe → 'Toplam Aktifler' sayfası her işlendiğinde otomatik yenilenir.")
+        import pandas as _pd_ta
+        _kalemler = [
+            ("📦 Stok değeri (×1.20)", _snap.get("stok", 0), "➕"),
+            ("🚢 İthalat (ödenen)", _snap.get("ithalat", 0), "➕"),
+            ("🏦 Banka (USD eşdeğeri)", _snap.get("banka", 0), "➕"),
+            ("📥 Cari alacak", _snap.get("alacak", 0), "➕"),
+            ("💰 Havuz bütçe (net)", _snap.get("havuz", 0), "➕"),
+            ("➕ Manuel ekleme", _snap.get("manuel_ekle", 0), "➕"),
+            ("📤 Cari borç", _snap.get("borc", 0), "➖"),
+            ("🧾 Çekler", _snap.get("cek", 0), "➖"),
+            ("➖ Manuel çıkarma", _snap.get("manuel_cikar", 0), "➖"),
+        ]
+        _rows_b = [{"Kalem": k, "Yön": y, "Tutar (USD)": f"${float(v or 0):,.0f}"}
+                   for k, v, y in _kalemler if float(v or 0)]
+        if _rows_b:
+            st.markdown("**Hesaplama detayı**")
+            st.dataframe(_pd_ta.DataFrame(_rows_b), hide_index=True, use_container_width=True)
