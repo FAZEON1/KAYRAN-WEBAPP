@@ -50,7 +50,8 @@ def _get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     # service_role_key varsa onu kullan (RLS aşılır, sunucuda kalır); yoksa anon key.
     key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    from shared.audit import wrap_client
+    return wrap_client(create_client(url, key), "İthalat")
 
 
 def _rows(resp):
@@ -274,6 +275,7 @@ def get_sku_maliyet_ozet():
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_sku_ithalat_partileri():
     """Her SKU için ithalat partileri (FIFO için), belge tarihine göre ESKİ→YENİ.
     Dönen: {sku: [{"tarih": "YYYY-MM-DD", "adet": float}, ...]}
@@ -498,6 +500,7 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_ithalat_yolda_ozet():
     """Yolda sayılan (Teslim Alınmamış) ithalat dosyalarının SKU bazında toplam miktarı
     + en yakın tahmini varış tarihi.
@@ -550,6 +553,7 @@ def get_ithalat_yolda_ozet():
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_tedarikciler():
     """Mevcut ithalatlardaki benzersiz tedarikçi adları (alfabetik) — yeni ithalatta seçim için."""
     try:
@@ -660,6 +664,7 @@ def barkod_toplu_yukle(eslesme):
         return 0, f"{type(e).__name__}: {str(e)[:160]}"
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_sku_alim_detay(sku):
     """Bir SKU'nun her ithalat alım partisi (yeni→eski). Stok Kartı için.
     Dönen: [{tarih, belge_no, tedarikci, ulke, doviz, adet, birim_fob, maliyet_yuzde, final_birim}]"""
