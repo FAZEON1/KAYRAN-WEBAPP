@@ -345,6 +345,11 @@ def run():
         st.caption(f"📅 Yüklenme: {_gider.get('tarih','')} · Tutarlar TL.")
 
     # ── Toplam Aktifler (Muhasebe → snapshot, anlık) ──
+    # ── Değişiklik Günlüğü (Audit Log) ──
+    st.markdown("---")
+    with st.expander("🗂️ Değişiklik Günlüğü (Audit Log)", expanded=False):
+        _audit_render()
+
     st.markdown("---")
     st.markdown("### 💎 Toplam Aktifler")
     try:
@@ -384,3 +389,38 @@ def run():
         if _rows_b:
             st.markdown("**Hesaplama detayı**")
             st.dataframe(_pd_ta.DataFrame(_rows_b), hide_index=True, use_container_width=True)
+
+
+def _audit_render():
+    """Değişiklik günlüğü (audit log) görüntüleme — Yönetim Panosu içinde."""
+    import pandas as pd
+    from shared.audit import get_loglar
+    c1, c2, c3 = st.columns(3)
+    _modul_f = c1.selectbox("Modül", ["(tümü)", "Muhasebe", "Ürün Yönetimi",
+                                       "İthalat", "Satış", "Teknik Servis"], key="audit_modul")
+    _islem_f = c2.selectbox("İşlem", ["(tümü)", "ekle", "güncelle", "sil", "ekle/güncelle"],
+                            key="audit_islem")
+    _limit = c3.selectbox("Kayıt sayısı", [100, 250, 500, 1000], index=2, key="audit_limit")
+    loglar = get_loglar(
+        limit=_limit,
+        modul=None if _modul_f == "(tümü)" else _modul_f,
+        islem=None if _islem_f == "(tümü)" else _islem_f,
+    )
+    if not loglar:
+        st.info("Henüz kayıt yok ya da audit_log tablosu oluşturulmadı (SQL'i çalıştırın).")
+        return
+    _kullanicilar = ["(tümü)"] + sorted({l.get("kullanici", "") for l in loglar if l.get("kullanici")})
+    _kul = st.selectbox("Kullanıcı", _kullanicilar, key="audit_kul")
+    if _kul != "(tümü)":
+        loglar = [l for l in loglar if l.get("kullanici") == _kul]
+    df = pd.DataFrame([{
+        "Zaman": l.get("zaman", ""),
+        "Kullanıcı": l.get("kullanici", ""),
+        "Modül": l.get("modul", ""),
+        "İşlem": l.get("islem", ""),
+        "Tablo": l.get("tablo", ""),
+        "Kayıt No": l.get("kayit_id", ""),
+        "Detay": l.get("detay", ""),
+    } for l in loglar])
+    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.caption(f"{len(loglar)} kayıt gösteriliyor (yeni→eski).")
