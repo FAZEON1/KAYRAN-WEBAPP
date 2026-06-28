@@ -895,3 +895,30 @@ def get_ayar(anahtar, varsayilan=None):
         return _json.loads(rows[0]["deger"])
     except Exception:
         return varsayilan
+
+
+# ── Günlük kur (tarihsel kur — Yönetim P&L için) ─────────────────────
+def kur_kaydet(tarih, kur):
+    """O günün USD/TL kurunu kur_gunluk tablosuna yazar (idempotent, günde 1 kayıt)."""
+    try:
+        if not kur or float(kur) <= 1:
+            return False
+        get_client().table("kur_gunluk").upsert(
+            {"tarih": str(tarih)[:10], "usd_try": float(kur)},
+            on_conflict="tarih").execute()
+        return True
+    except Exception:
+        return False
+
+
+def get_kur_araligi(baslangic, bitis):
+    """Dönem [baslangic, bitis] aralığındaki günlük kurları döndürür:
+    {'2026-06-28': 38.5, ...}. Tablo yoksa/boşsa {} döner."""
+    try:
+        res = get_client().table("kur_gunluk").select("tarih,usd_try") \
+            .gte("tarih", str(baslangic)[:10]).lte("tarih", str(bitis)[:10]).execute()
+        rows = res.data or []
+        return {str(r["tarih"])[:10]: float(r["usd_try"])
+                for r in rows if r.get("usd_try")}
+    except Exception:
+        return {}
