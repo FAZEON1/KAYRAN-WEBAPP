@@ -1199,13 +1199,13 @@ def run():
     
         if gecmis_alarmlar:
             isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#FFF8F8;border:1px solid #FED7D7;border-left:4px solid #E53E3E;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#E53E3E;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#C53030;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:#742A2A;font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-left:4px solid #F87171;border-radius:10px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#EF4444;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCA5A5;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:#FECACA;font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
         if bugun_alarmlar:
             isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#FFFDF0;border:1px solid #F6E05E;border-left:4px solid #D69E2E;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#D69E2E;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#B7791F;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#744210;font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-left:4px solid #FBBF24;border-radius:10px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCD34D;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#FDE68A;font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
         if yarin_alarmlar:
             isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:#F7FAFF;border:1px solid #BEE3F8;border-left:4px solid #3182CE;border-radius:8px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#3182CE;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">i</span></div><div><span style="font-size:11px;font-weight:700;color:#2B6CB0;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#2A4365;font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-left:4px solid #60A5FA;border-radius:10px;padding:13px 16px;margin-bottom:10px"><div style="width:18px;height:18px;min-width:18px;background:#3B82F6;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:10px;font-weight:800">i</span></div><div><span style="font-size:11px;font-weight:700;color:#93C5FD;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#BFDBFE;font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
     
         # Özet metrikler
         tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
@@ -1420,8 +1420,7 @@ def run():
             )
             st.plotly_chart(fig2, use_container_width=True)
     
-        # Günlük ödeme takvimi özeti
-        st.markdown("**📅 Günlük Ödeme Takvimi**")
+        # Günlük ödeme takvimi özeti (varsayılan kapalı — simge durumunda)
         from collections import defaultdict
         by_day = defaultdict(list)
         for o in odemeler:
@@ -1545,7 +1544,8 @@ def run():
             </div>'''
             st.html(html)
 
-        render_takvim_tablosu(df_tablo)
+        with st.expander("📅 Günlük Ödeme Takvimi", expanded=False):
+            render_takvim_tablosu(df_tablo)
     
     
     # ════════════════════════════════════════════════════════════════════
