@@ -394,6 +394,30 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Global mobil / dar ekran uyumu (yalnız <=640px; masaüstü etkilenmez) ──
+st.markdown(
+    """<style>
+@media (max-width: 640px) {
+  .main .block-container, .block-container {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+  [data-testid="stMetricValue"] { font-size: 1.05rem !important; }
+  [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p { font-size: 0.68rem !important; }
+  h1 { font-size: 1.35rem !important; }
+  h2 { font-size: 1.15rem !important; }
+  h3 { font-size: 1.02rem !important; }
+  h4 { font-size: 0.95rem !important; }
+  [data-testid="stDataFrame"] { font-size: 0.72rem !important; }
+  .stButton button, .stDownloadButton button { font-size: 0.85rem !important; }
+  [data-testid="stTabs"] button p { font-size: 0.8rem !important; }
+  /* Kart/kolon şeritleri taşarsa yatay kaydırma */
+  [data-testid="stHorizontalBlock"] { overflow-x: auto; }
+}
+</style>""",
+    unsafe_allow_html=True,
+)
+
 
 # Session state defaults
 def _oturum_secret():

@@ -350,6 +350,9 @@ def run():
     with st.expander("🗂️ Değişiklik Günlüğü (Audit Log)", expanded=False):
         _audit_render()
 
+    with st.expander("💾 Veri Yedekleme", expanded=False):
+        _yedek_render()
+
     st.markdown("---")
     st.markdown("### 💎 Toplam Aktifler")
     try:
@@ -424,3 +427,76 @@ def _audit_render():
     } for l in loglar])
     st.dataframe(df, hide_index=True, use_container_width=True)
     st.caption(f"{len(loglar)} kayıt gösteriliyor (yeni→eski).")
+
+
+# ── Veri Yedekleme ──────────────────────────────────────────────────
+# İş verisi yedeklenir. ŞİFRE ve oturum/geçici tablolar GÜVENLİK için hariç.
+YEDEK_TABLOLAR = [
+    "urunler", "firma_stok", "stok_yas", "yoldaki_urunler",
+    "kampanyalar", "kampanya_urunler",
+    "ref_kayitlari", "ref_butce", "ref_firmalar",
+    "ithalat_dosyalari", "ithalat_kalemleri",
+    "satislar",
+    "odemeler", "bankalar", "cekler", "virmanlar", "haftalar",
+    "ts_kayitlar", "ts_gecmis",
+    "siparis_onerileri", "talepler", "gorevler", "bildirimler",
+    "kur_gunluk", "sistem_ayarlari", "pm_ayarlar",
+    "gunluk_giris", "aktif_manuel_kalemler",
+]
+# Bilerek HARİÇ: kullanici_sifreler (şifre!), kullanici_durum (oturum),
+#                aktif_excel_verileri (geçici cache), audit_log (denetim logu)
+
+
+def _yedek_olustur():
+    """Tüm iş verisini tek çok-sayfalı Excel (BytesIO bytes) olarak döndürür.
+    Her tablo ayrı sayfa. Hata olan tablo boş sayfa olarak geçer."""
+    import io
+    import pandas as pd
+    from shared.audit import _raw_client
+    sb = _raw_client()
+    ozet = []
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        for tablo in YEDEK_TABLOLAR:
+            try:
+                rows = sb.table(tablo).select("*").execute().data or []
+            except Exception:
+                rows = []
+            df = pd.DataFrame(rows) if rows else pd.DataFrame()
+            # Excel sayfa adı en fazla 31 karakter
+            df.to_excel(w, sheet_name=tablo[:31], index=False)
+            ozet.append((tablo, len(rows)))
+    buf.seek(0)
+    return buf.getvalue(), ozet
+
+
+def _yedek_render():
+    from datetime import datetime, timedelta
+    st.caption("Tüm iş verisini tek bir Excel dosyasına indirir (her tablo ayrı sayfa). "
+               "Şifreler ve geçici/oturum verileri güvenlik gereği yedeğe DAHİL EDİLMEZ.")
+    if st.button("📦 Yedeği Hazırla", key="yedek_hazirla"):
+        with st.spinner("Tablolar toplanıyor…"):
+            try:
+                veri, ozet = _yedek_olustur()
+                _ts = (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d_%H-%M")
+                st.session_state["_yedek_data"] = veri
+                st.session_state["_yedek_ad"] = f"kayran_yedek_{_ts}.xlsx"
+                st.session_state["_yedek_ozet"] = ozet
+            except Exception as e:
+                st.error(f"Yedek hazırlanamadı: {e}")
+    if st.session_state.get("_yedek_data"):
+        _ozet = st.session_state.get("_yedek_ozet", [])
+        _toplam = sum(n for _, n in _ozet)
+        st.success(f"✅ Yedek hazır — {len(_ozet)} tablo, {_toplam:,} kayıt.")
+        st.download_button(
+            "💾 Excel'i İndir",
+            data=st.session_state["_yedek_data"],
+            file_name=st.session_state["_yedek_ad"],
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key="yedek_indir",
+        )
+        with st.expander("Tablo özeti", expanded=False):
+            import pandas as pd
+            st.dataframe(pd.DataFrame(_ozet, columns=["Tablo", "Kayıt"]),
+                         hide_index=True, use_container_width=True)
