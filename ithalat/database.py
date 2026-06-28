@@ -370,7 +370,15 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                 "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
             })
         if rows:
-            sb.table("ithalat_kalemleri").insert(rows).execute()
+            try:
+                sb.table("ithalat_kalemleri").insert(rows).execute()
+            except Exception as ke:
+                # TELAFİ: kalemler yazılamadı → kalemsiz "yetim" dosyayı geri al
+                try:
+                    sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
+                except Exception:
+                    pass
+                return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
         _temizle()
         return True, f"✅ '{dosya_no}' dosyası {len(rows)} kalem ile eklendi."
     except Exception as e:
@@ -398,6 +406,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "teslim_deposu": teslim_deposu or "",
             "teslim_sekli": teslim_sekli or "",
         }
+        # TELAFİ için eski kalemleri silmeden ÖNCE yedekle (yeni yazma başarısız olursa geri yüklenir)
+        _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
         _yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
         sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
@@ -412,7 +422,17 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
                 "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
             })
         if rows:
-            sb.table("ithalat_kalemleri").insert(rows).execute()
+            try:
+                sb.table("ithalat_kalemleri").insert(rows).execute()
+            except Exception as ke:
+                # TELAFİ: yeni kalemler yazılamadı → eski kalemleri geri yükle (veri kaybını önle)
+                try:
+                    if _eski_kalem:
+                        _geri = [{kk: vv for kk, vv in r.items() if kk != "id"} for r in _eski_kalem]
+                        sb.table("ithalat_kalemleri").insert(_geri).execute()
+                except Exception:
+                    pass
+                return False, f"❌ Kalemler güncellenemedi, eski kalemler geri yüklendi (kayıp olmadı): {str(ke)[:150]}"
         _temizle()
         return True, f"✅ Dosya güncellendi ({len(rows)} kalem)."
     except Exception as e:
