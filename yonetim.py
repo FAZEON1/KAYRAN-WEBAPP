@@ -24,6 +24,13 @@ def _pct(x):
 
 
 def _donem_tarih(yil, donem):
+    _aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+              "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+    if donem in _aylar:
+        ay = _aylar.index(donem) + 1
+        import calendar
+        son = calendar.monthrange(yil, ay)[1]
+        return f"{yil}-{ay:02d}-01", f"{yil}-{ay:02d}-{son:02d}"
     if donem == "Q1":
         return f"{yil}-01-01", f"{yil}-03-31"
     if donem == "Q2":
@@ -104,7 +111,13 @@ def run():
     with c1:
         _yil = st.selectbox("Yıl", list(range(_bugun.year + 1, _bugun.year - 4, -1)), index=1)
     with c2:
-        _donem = st.radio("Dönem", ["Q1", "Q2", "Q3", "Q4", "Tüm Yıl"], horizontal=True, index=4)
+        _gor = st.radio("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], horizontal=True, index=0)
+        if _gor == "Aylık":
+            _donem = st.selectbox("Ay", GIDER_AYLAR, index=min(_bugun.month - 1, 11))
+        elif _gor == "Çeyreklik":
+            _donem = st.radio("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], horizontal=True, index=0)
+        else:
+            _donem = "Tüm Yıl"
     baslangic, bitis = _donem_tarih(_yil, _donem)
     st.caption(f"📅 Seçili dönem: **{baslangic} → {bitis}**")
 
@@ -197,7 +210,35 @@ def run():
         _tur_usd["Ref No"] = _tur_usd.get("Ref No", 0.0) + _ref_usd
         toplam_destek += _ref_usd
 
-    net_kar = brut - toplam_destek
+    # ── İşletme giderleri (Aylık Gider Tablosu) → USD, net kâra dahil ──
+    gider_usd = 0.0
+    try:
+        from kayranacc.database import get_ayar as _gax
+        _gd = _gax(f"gider_tablosu_{_yil}")
+        if _gd and _gd.get("kat"):
+            _kk = _gd["kat"]
+
+            def _gv(k, i):
+                v = (_kk.get(k) or [0.0] * 12)
+                return float(((v + [0.0] * 12)[i]) or 0)
+
+            if _donem in GIDER_AYLAR:
+                _gi0 = GIDER_AYLAR.index(_donem)
+                _gi1 = _gi0 + 1
+            else:
+                _gi0, _gi1 = {"Q1": (0, 3), "Q2": (3, 6), "Q3": (6, 9),
+                              "Q4": (9, 12)}.get(_donem, (0, 12))
+            for _mi in range(_gi0, _gi1):
+                _ay_tl = _gv("Sabit", _mi) + _gv("Değişken", _mi) + _gv("Yarı Değişken", _mi)
+                if not _ay_tl:
+                    continue
+                _ay_kur = _kur_of(f"{_yil}-{_mi + 1:02d}-15") or _usdtry
+                if _ay_kur:
+                    gider_usd += _ay_tl / _ay_kur
+    except Exception:
+        pass
+
+    net_kar = brut - toplam_destek - gider_usd
     net_marj = (net_kar / ciro * 100) if ciro else 0.0
 
     # ── P&L kartları ──
@@ -208,6 +249,7 @@ def run():
         + _kart("COGS", _usd(cogs), "Ürün maliyeti", "#FBBF24")
         + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
         + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
+        + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
         + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
         + '</div>', unsafe_allow_html=True)
     if _tl_uyari:
@@ -221,7 +263,8 @@ def run():
         f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);'
         f'border-radius:12px;padding:12px 16px;margin-bottom:20px;font-family:JetBrains Mono,monospace;font-size:13px;color:#CBD5E1">'
         f'{_usd(ciro)} <span style="color:#64748B">ciro</span> &nbsp;−&nbsp; {_usd(cogs)} <span style="color:#64748B">cogs</span> '
-        f'&nbsp;−&nbsp; {_usd(toplam_destek)} <span style="color:#64748B">destek</span> &nbsp;=&nbsp; '
+        f'&nbsp;−&nbsp; {_usd(toplam_destek)} <span style="color:#64748B">destek</span> '
+        f'&nbsp;−&nbsp; {_usd(gider_usd)} <span style="color:#64748B">gider</span> &nbsp;=&nbsp; '
         f'<b style="color:{_nrenk}">{_usd(net_kar)} net kâr</b> &nbsp;·&nbsp; <span style="color:{_nrenk}">{_pct(net_marj)} marj</span>'
         f'</div>', unsafe_allow_html=True)
 
@@ -304,7 +347,11 @@ def run():
             v = _kat.get(k, [0.0] * 12) or [0.0] * 12
             return [float(x or 0) for x in (v + [0.0] * 12)[:12]]
 
-        _ay_aralik = {"Q1": (0, 3), "Q2": (3, 6), "Q3": (6, 9), "Q4": (9, 12)}.get(_donem, (0, 12))
+        if _donem in GIDER_AYLAR:
+            _gdx = GIDER_AYLAR.index(_donem)
+            _ay_aralik = (_gdx, _gdx + 1)
+        else:
+            _ay_aralik = {"Q1": (0, 3), "Q2": (3, 6), "Q3": (6, 9), "Q4": (9, 12)}.get(_donem, (0, 12))
         _i0, _i1 = _ay_aralik
         _sabit = sum(_g12("Sabit")[_i0:_i1])
         _degisken = sum(_g12("Değişken")[_i0:_i1])
