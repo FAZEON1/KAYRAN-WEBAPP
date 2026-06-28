@@ -56,7 +56,7 @@ def _tarih_kisa(v):
     s = str(v)
     try:
         dt = datetime.fromisoformat(s[:19])
-        return dt.strftime("%d.%m.%Y %H:%M")
+        return dt.strftime("%d-%m-%Y %H:%M")
     except Exception:
         return s[:16]
 
