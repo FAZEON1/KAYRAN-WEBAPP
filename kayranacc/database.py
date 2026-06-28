@@ -922,3 +922,14 @@ def get_kur_araligi(baslangic, bitis):
                 for r in rows if r.get("usd_try")}
     except Exception:
         return {}
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_tum_odemeler():
+    """Tüm haftalardaki tüm ödeme kayıtları — cari ekstre + vade yaşlandırma için.
+    Dönen kayıt kolonları: firma, aciklama, cari_banka, vade, tutar_tl, tutar_usd, kategori, durum, hafta_id."""
+    try:
+        res = get_client().table("odemeler").select("*").order("vade").execute()
+        return res.data or []
+    except Exception:
+        return []

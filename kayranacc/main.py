@@ -1084,6 +1084,7 @@ def run():
             "📋 Firma Çekleri",
             "✅ Ödenenler",
             "⏳ Ertelenen Ödemeler",
+            "🧾 Cari Ekstre",
             "🕐 Geçmiş",
             "📂 Veri Yükleme",
             "📄 Raporlar",
@@ -3393,6 +3394,10 @@ def run():
     # ════════════════════════════════════════════════════════════════════
     # 13) TOPLAM AKTİFLER
     # ════════════════════════════════════════════════════════════════════
+    elif sayfa == "🧾 Cari Ekstre":
+        from kayranacc.cari_ekstre import render as _cari_ekstre_render
+        _cari_ekstre_render()
+
     elif sayfa == "💰 Toplam Aktifler":
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
