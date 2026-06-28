@@ -699,6 +699,13 @@ def get_sku_alim_detay(sku):
                 "birim_fob": fob,
                 "maliyet_yuzde": yuzde,
                 "final_birim": fob * (1 + yuzde / 100.0),
+                "takip_no": d.get("ithalat_takip_no") or "",
+                "kur": _f(d.get("kur")),
+                "durum": d.get("durum") or "",
+                "siparis_tarih": str(d.get("tarih") or "")[:10],
+                "teslim_tarih": str(d.get("teslim_tarihi") or "")[:10],
+                "indirim_orani": dosya_indirim.get(did, 0.0),
+                "_dosya": d,
             })
         out.sort(key=lambda x: x["tarih"], reverse=True)
         return out
