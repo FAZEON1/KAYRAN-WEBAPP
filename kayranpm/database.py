@@ -4,6 +4,7 @@ KAYRAN — Veritabanı Katmanı (Supabase PostgreSQL)
 import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
+from shared.utils import tr_kucuk
 from supabase import create_client, Client
 from datetime import date
 from collections import defaultdict
@@ -74,7 +75,7 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
     mevcut = _row(sb.table("urunler").select("ilk_giris_tarihi").eq("sku", sku).execute())
     ilk_tarih = mevcut["ilk_giris_tarihi"] if mevcut and mevcut.get("ilk_giris_tarihi") else bugun
     _payload = {
-        "sku": sku, "urun_adi": urun_adi, "kategori": kategori or "",
+        "sku": sku, "urun_adi": urun_adi, "kategori": tr_kucuk(kategori),
         "marka": marka or "", "satis_fiyati": float(satis_fiyati or 0),
         "alis_fiyati": float(alis_fiyati or 0),
         "hedef_kar_marji": float(hedef_kar_marji or 0),
@@ -235,17 +236,17 @@ def _kat_norm(s):
 
 
 def kategori_standartlastir():
-    """Aynı kategorinin farklı yazımlarını (ör. MONİTÖR / Monitör) tek standart biçimde birleştirir.
-    Bilinen kategoriler KATEGORI_LISTE'deki yazıma çevrilir. (degisen_urun, {eski: yeni}) döner."""
+    """Tüm kategori yazımlarını tek biçime indirger: Türkçe-doğru KÜÇÜK HARF.
+    'KASA'/'Kasa' → 'kasa', 'MONİTÖR'/'Monitör' → 'monitör' (büyük/küçük farkı birleşir).
+    (degisen_urun_sayisi, {eski: yeni}) döner."""
     sb = get_client()
     rows = sb.table("urunler").select("sku, kategori").execute().data or []
-    canon = {_kat_norm(k): k for k in KATEGORI_LISTE}
     sku_yeni, degisim = {}, {}
     for r in rows:
         eski = (r.get("kategori") or "").strip()
         if not eski:
             continue
-        yeni = canon.get(_kat_norm(eski), eski)  # bilinen listede varsa standart yazım, yoksa olduğu gibi
+        yeni = tr_kucuk(eski)
         if yeni != eski:
             sku_yeni[r["sku"]] = yeni
             degisim[eski] = yeni
