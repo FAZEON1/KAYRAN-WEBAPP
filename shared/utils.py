@@ -32,6 +32,20 @@ def normalize_tr(s) -> str:
     return s.upper()
 
 
+def gun_ay_yil(d) -> str:
+    """Tarihi ekranda DD-MM-YYYY biçiminde gösterir. ISO string ('2026-06-28'),
+    date/datetime veya boş değer kabul eder. DB'ye yazarken KULLANILMAZ —
+    veritabanı her zaman ISO (YYYY-MM-DD) saklar; bu yalnızca görünüm içindir."""
+    if not d:
+        return ""
+    try:
+        if isinstance(d, (datetime, date)):
+            return d.strftime("%d-%m-%Y")
+        return date.fromisoformat(str(d)[:10]).strftime("%d-%m-%Y")
+    except Exception:
+        return str(d or "")
+
+
 def tr_now() -> datetime:
     """Türkiye saatine göre şu anki datetime."""
     return datetime.now(TURKIYE_TZ)
