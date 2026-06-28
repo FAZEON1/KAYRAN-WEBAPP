@@ -885,7 +885,7 @@ def run():
             return ""
         try:
             d = pd.to_datetime(s)
-            return d.strftime("%d %B %Y")
+            return d.strftime("%d-%m-%Y")
         except Exception:
             return str(s)
     
