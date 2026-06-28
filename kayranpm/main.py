@@ -11,6 +11,7 @@ import logging
 _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
+from shared.utils import tr_kucuk
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
 import pandas as pd
@@ -533,7 +534,7 @@ def run():
             st.stop()
 
         # Filtreler
-        _kat_list_d = sorted({(u.get("kategori") or "").strip() for u in veri if (u.get("kategori") or "").strip()})
+        _kat_list_d = sorted({tr_kucuk(u.get("kategori")) for u in veri if tr_kucuk(u.get("kategori"))})
         col_f1, col_f2, col_f3 = st.columns([1.6, 1.6, 0.9])
         with col_f1:
             filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
@@ -557,7 +558,7 @@ def run():
                 firmali_satirlar = [fd for fd in firmali_satirlar if hedef in fd["firma"].replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")]
     
             # Kategori filtresi
-            if filtre_kat != "Tüm Kategoriler" and (urun.get("kategori") or "").strip() != filtre_kat:
+            if filtre_kat != "Tüm Kategoriler" and tr_kucuk(urun.get("kategori")) != filtre_kat:
                 continue
     
             if firmali_satirlar:
@@ -935,7 +936,7 @@ def run():
     
         # Tüm ürünler özet tablosu
         with st.expander("📊 Tüm Ürünler Özet — filtrele, sırala, incele", expanded=False):
-            _kat_oz = sorted({(u.get("kategori") or "").strip() for u in urun_data if (u.get("kategori") or "").strip()})
+            _kat_oz = sorted({tr_kucuk(u.get("kategori")) for u in urun_data if tr_kucuk(u.get("kategori"))})
             _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
             _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
             _sku_ad_map_oz = {}
@@ -1001,7 +1002,7 @@ def run():
                 _sel_sku = f_ara_oz.split(" — ")[0].strip()
                 rows_oz = [r for r in rows_oz if str(r.get("SKU") or "").strip() == _sel_sku]
             if f_kat_oz != "Tümü":
-                rows_oz = [r for r in rows_oz if (r.get("Kategori") or "").strip() == f_kat_oz]
+                rows_oz = [r for r in rows_oz if tr_kucuk(r.get("Kategori")) == f_kat_oz]
             if f_mar_oz != "Tümü":
                 rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
             if _sadece_zarar:
@@ -1324,7 +1325,7 @@ def run():
             return [k for k in liste if str(k.get("firma", "")).strip().upper() == _kt_firma]
 
         # ── Kategori filtresi ──
-        _kt_kat_list = sorted({(u.get("kategori") or "").strip() for u in urun_data_k if (u.get("kategori") or "").strip()})
+        _kt_kat_list = sorted({tr_kucuk(u.get("kategori")) for u in urun_data_k if tr_kucuk(u.get("kategori"))})
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
                     'margin:10px 0 2px">🏷️ KATEGORİ (filtre)</div>', unsafe_allow_html=True)
         _kt_kat = st.selectbox("Kategori", ["Tümü"] + _kt_kat_list, key="kt_kat", label_visibility="collapsed")
@@ -1355,7 +1356,7 @@ def run():
             """Firma + kategori + yıl + çeyrek filtresi, ardından tarihe göre sıralama."""
             liste = _kt_firma_filtre(liste)
             if _kt_kat != "Tümü":
-                liste = [k for k in liste if (k.get("kategori") or "").strip() == _kt_kat]
+                liste = [k for k in liste if tr_kucuk(k.get("kategori")) == _kt_kat]
             if _kt_yil != "Tümü":
                 liste = [k for k in liste if str(k.get("baslangic_tarihi") or "")[:4] == _kt_yil]
             if _kt_ceyrek != "Tümü":
