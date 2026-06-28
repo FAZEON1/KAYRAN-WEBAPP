@@ -41,6 +41,55 @@ def _kart_satiri(kartlar):
                 + "".join(kartlar) + '</div>', unsafe_allow_html=True)
 
 
+def _alim_detay(a):
+    st.divider()
+    st.markdown(f"##### 📄 Alım Detayı — {a.get('belge_no') or '—'}")
+    st.markdown(
+        f"- **Sipariş Tarihi:** {gun_ay_yil(a.get('siparis_tarih')) or '—'}  ·  "
+        f"**Teslim:** {gun_ay_yil(a.get('teslim_tarih')) or '—'}\n"
+        f"- **Tedarikçi:** {a.get('tedarikci') or '—'} ({a.get('ulke') or '—'})  ·  "
+        f"**Takip No:** {a.get('takip_no') or '—'}\n"
+        f"- **Döviz / Kur:** {a.get('doviz')} / {_f(a.get('kur')):.2f}  ·  "
+        f"**Durum:** {a.get('durum') or '—'}"
+    )
+    _ind = _f(a.get("indirim_orani")) * 100
+    st.markdown(
+        f"**Bu kalem:** {_f(a.get('adet')):,.0f} adet × birim FOB {_usd(a.get('birim_fob'))}"
+        + (f" (indirim %{_ind:.1f})" if _ind else "")
+        + f"  →  final birim **{_usd(a.get('final_birim'))}** "
+        f"(masraf %{_f(a.get('maliyet_yuzde')):.1f})"
+    )
+    try:
+        from ithalat.database import masraf_dokumu
+        _md = masraf_dokumu(a.get("_dosya") or {})
+        if _md:
+            st.markdown("**Dosya Masraf Dökümü**")
+            st.dataframe(pd.DataFrame([{"Masraf": ad, "Tutar": _usd(t)} for ad, t in _md]),
+                         hide_index=True, use_container_width=True)
+    except Exception:
+        pass
+
+
+def _satis_detay(s, satir_kar):
+    st.divider()
+    k = satir_kar(s) if satir_kar else {}
+    st.markdown(f"##### 📄 Satış Detayı — {gun_ay_yil(s.get('tarih'))} · {s.get('kanal') or '—'}")
+    _destek = _f(s.get("birim_firma_destek")) + _f(s.get("birim_ek_destek"))
+    st.markdown(
+        f"- **Sipariş No:** {s.get('siparis_no') or '—'}\n"
+        f"- **Adet:** {_f(k.get('adet') or s.get('adet')):,.0f}  ·  "
+        f"**Birim Satış:** {_usd(s.get('birim_satis'))}  ·  "
+        f"**Birim Maliyet:** {_usd(s.get('birim_maliyet'))}\n"
+        f"- **Birim Destek:** {_usd(_destek)}  ·  "
+        f"**Ciro:** {_usd(k.get('ciro'))}  ·  "
+        f"**Net Kâr:** {_usd(k.get('net_kar'))} (marj %{_f(k.get('marj')):.1f})"
+    )
+    if s.get("kampanya_id"):
+        st.caption(f"🎯 Kampanya ID: {s.get('kampanya_id')}")
+    if s.get("notlar"):
+        st.caption(f"📝 Not: {s.get('notlar')}")
+
+
 @st.dialog("📦 Stok Kartı", width="large")
 def goster(sku):
     sku = str(sku or "").strip()
@@ -140,7 +189,11 @@ def goster(sku):
                 "% Maliyet": round(_f(a["maliyet_yuzde"]), 1),
                 "Final Birim": round(_f(a["final_birim"]), 2),
             } for a in alimlar])
-            st.dataframe(_df, hide_index=True, use_container_width=True)
+            _ev = st.dataframe(_df, hide_index=True, use_container_width=True,
+                               on_select="rerun", selection_mode="single-row", key="alim_tablo")
+            st.caption("👆 Detayını görmek için bir satıra tıkla.")
+            if _ev.selection.rows:
+                _alim_detay(alimlar[_ev.selection.rows[0]])
         else:
             st.info("Bu SKU için ithalat alım kaydı bulunamadı.")
 
@@ -183,7 +236,11 @@ def goster(sku):
             } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])])
             st.dataframe(_kdf, hide_index=True, use_container_width=True)
             st.markdown("**Satış Hareketleri**")
-            st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True)
+            _sev = st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True,
+                                on_select="rerun", selection_mode="single-row", key="satis_tablo")
+            st.caption("👆 Detayını görmek için bir satıra tıkla.")
+            if _sev.selection.rows:
+                _satis_detay(satislar[_sev.selection.rows[0]], satir_kar)
         else:
             st.info("Bu SKU için satış kaydı bulunamadı.")
 
