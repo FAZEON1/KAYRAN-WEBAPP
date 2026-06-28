@@ -2562,8 +2562,8 @@ def run():
                     ozet = get_hafta_ozet(h["id"])
                     is_aktif = h["id"] == aktif_id
     
-                    renk = "#0E1A3A" if is_aktif else "white"
-                    border = "2px solid #2563EB" if is_aktif else "1px solid #E2E8F0"
+                    renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
+                    border = "2px solid #2563EB" if is_aktif else "1px solid rgba(255,255,255,0.06)"
     
                     col1, col2 = st.columns([5, 1])
                     with col1:
