@@ -956,7 +956,12 @@ def giris_ekrani():
                 if not kullanicilar:
                     st.warning("⚠️ Kullanıcı ayarları yapılandırılmamış.")
                     return
-                if kullanici_dogrula_v2(kullanici, sifre, kullanicilar):
+                from shared.auth import giris_kontrol, giris_basarisiz, giris_basarili
+                _izin, _kalan = giris_kontrol(kullanici)
+                if not _izin:
+                    st.error(f"🔒 Çok fazla hatalı deneme. Lütfen {_kalan // 60} dk {_kalan % 60} sn sonra tekrar deneyin.")
+                elif kullanici_dogrula_v2(kullanici, sifre, kullanicilar):
+                    giris_basarili(kullanici)
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
                     st.session_state.aktif_uygulama = "anasayfa"
@@ -967,7 +972,14 @@ def giris_ekrani():
                         pass
                     st.rerun()
                 else:
-                    st.error("❌ Kullanıcı adı veya şifre hatalı.")
+                    _sayi, _kilit = giris_basarisiz(kullanici)
+                    _kalan_hak = max(0, 5 - _sayi)
+                    if _kilit > 0:
+                        st.error(f"🔒 Çok fazla hatalı deneme. Hesap {_kilit // 60} dakika kilitlendi.")
+                    elif _sayi >= 3:
+                        st.error(f"❌ Kullanıcı adı veya şifre hatalı. {_kalan_hak} deneme hakkınız kaldı.")
+                    else:
+                        st.error("❌ Kullanıcı adı veya şifre hatalı.")
             except Exception as e:
                 st.error(f"Giriş sistemi hatası: {e}")
 
