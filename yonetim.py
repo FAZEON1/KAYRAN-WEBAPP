@@ -143,6 +143,18 @@ def run():
         except Exception:
             _usdtry = 0.0
 
+    # Tarihsel kur: dönem içi günlük kurlar; kaydı olmayan tarihler için güncel kur.
+    _kur_map = {}
+    try:
+        from kayranacc.database import get_kur_araligi
+        _kur_map = get_kur_araligi(baslangic, bitis)
+    except Exception:
+        _kur_map = {}
+
+    def _kur_of(tarih):
+        k = _kur_map.get(str(tarih)[:10]) if tarih else None
+        return k or _usdtry
+
     _tur_usd = {}
     _tl_uyari = False
     _kur_eksik = False
@@ -152,8 +164,9 @@ def run():
         tutar = float(h.get("tutar") or 0)
         dv = (h.get("doviz") or "USD").strip().upper()
         if dv in ("TL", "TRY", "₺", "TRL"):
-            if _usdtry:
-                tutar = tutar / _usdtry
+            _k = _kur_of(h.get("fatura_tarih"))
+            if _k:
+                tutar = tutar / _k
                 _tl_uyari = True
             else:
                 _kur_eksik = True
@@ -172,8 +185,9 @@ def run():
         tutar = float(r.get("tutar") or 0)
         dv = (r.get("doviz") or "USD").strip().upper()
         if dv in ("TL", "TRY", "₺", "TRL"):
-            if _usdtry:
-                tutar = tutar / _usdtry
+            _k = _kur_of(r.get("tarih"))
+            if _k:
+                tutar = tutar / _k
                 _tl_uyari = True
             else:
                 _kur_eksik = True
@@ -196,8 +210,9 @@ def run():
         + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
         + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
         + '</div>', unsafe_allow_html=True)
-    if _tl_uyari and _usdtry:
-        st.caption(f"ℹ️ TL cinsi destekler güncel kurla (1$={_usdtry:.2f}₺) USD'ye çevrildi (yaklaşık).")
+    if _tl_uyari:
+        st.caption(f"ℹ️ TL cinsi destekler fatura tarihindeki günlük kurla USD'ye çevrildi; "
+                   f"kur kaydı olmayan tarihler için güncel kur (~{_usdtry:.2f}₺) kullanıldı.")
     if _kur_eksik:
         st.warning("⚠️ Güncel kur alınamadığı için TL cinsi destekler hesaba katılamadı.")
 

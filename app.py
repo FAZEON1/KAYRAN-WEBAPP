@@ -1393,6 +1393,14 @@ def anasayfa():
         from gunluk import (get_doviz, get_gram_altin, get_hava, get_gunun_sozu,
                             get_yaklasan_tatil, get_mola_ipucu)
         _dv = get_doviz()
+        # Tarihsel kur için: o günün USD/TL kurunu kaydet (idempotent, günde 1)
+        try:
+            if _dv.get("USD"):
+                from kayranacc.database import kur_kaydet
+                from shared.utils import tr_today
+                kur_kaydet(tr_today(), _dv["USD"])
+        except Exception:
+            pass
         _altin = get_gram_altin()
         _hava = get_hava()
         _soz = get_gunun_sozu()
