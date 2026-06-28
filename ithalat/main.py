@@ -10,7 +10,7 @@ from datetime import date
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
@@ -442,7 +442,7 @@ def _gecmis_ithalatlar():
                     if not _kalan:
                         _silinecek_ids.append(_gd["id"])
                     _rows_dup.append({
-                        "Belge No": _bno, "Tarih": _tar or "—",
+                        "Belge No": _bno, "Tarih": gun_ay_yil(_tar) or "—",
                         "Mal Bedeli": f"${_tam(_hh['mal_bedeli'])}",
                         "Kalem": _hh["kalem_sayisi"],
                         "Masraf": f"${_tam(_hh['toplam_masraf'])}",
@@ -523,7 +523,7 @@ def _gecmis_ithalatlar():
 
     _df_show = pd.DataFrame([{
         "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—",
-        "Sipariş Tarihi": s["Tarih"], "Teslim Tarihi": s["Teslim Tarihi"] or "—",
+        "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
         "% Maliyet": f"%{s['% Maliyet']:.2f}", "Kalem": s["Kalem"],
@@ -699,9 +699,9 @@ def _gecmis_ithalatlar():
     did = dosyalar_goster[_sel[0]]["id"]
     d, kal, h = hesap_map[did]
 
-    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + str(d.get("tahmini_varis",""))[:10] + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
-    _sip_t = str(d.get("tarih", "") or "")[:10] or "—"
-    _tes_t = str(d.get("teslim_tarihi", "") or "")[:10]
+    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
+    _sip_t = gun_ay_yil(d.get("tarih")) or "—"
+    _tes_t = gun_ay_yil(d.get("teslim_tarihi"))
     _tes_d = str(d.get("teslim_deposu", "") or "")
     st.markdown(
         f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">'
@@ -1501,6 +1501,8 @@ def _model_sorgu():
             "Final Birim Maliyet": bf * (1 + y / 100),
         })
     df = pd.DataFrame(satirlar).sort_values("Tarih", ascending=False)
+    if not df.empty:
+        df["Tarih"] = df["Tarih"].apply(gun_ay_yil)
 
     ad = katalog.get(sku, "")
     st.markdown(
@@ -1628,7 +1630,7 @@ def _masraf_detaylari():
     # Ana liste
     _flt_sirali = sorted(_flt, key=lambda x: (x["Belge No"], x["Masraf Türü"]))
     _df = pd.DataFrame([{
-        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": s["Tarih"],
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": gun_ay_yil(s["Tarih"]),
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
         "Tutar": f"{s['Tutar']:,.2f}", "Döviz": s["Döviz"], "% (belge)": f"%{s['% (belge)']:.2f}",
     } for s in _flt_sirali])
@@ -1637,7 +1639,7 @@ def _masraf_detaylari():
 
     # CSV indir
     _csv = pd.DataFrame([{
-        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": s["Tarih"],
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": gun_ay_yil(s["Tarih"]),
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
         "Tutar": round(s["Tutar"], 2), "Döviz": s["Döviz"],
     } for s in _flt_sirali]).to_csv(index=False).encode("utf-8-sig")
