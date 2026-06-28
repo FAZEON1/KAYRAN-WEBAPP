@@ -203,8 +203,8 @@ def run():
     }
     /* Popover / Vadeyi Ötele gibi açılır buton tetikleyicileri */
     [data-testid="stPopover"] button {
-        background: #FFFFFF !important;
-        border: 1.5px solid #E2E8F0 !important;
+        background: rgba(255,255,255,0.05) !important;
+        border: 1.5px solid rgba(255,255,255,0.12) !important;
         color: #CBD5E1 !important;
         border-radius: 10px !important;
         font-weight: 600 !important;
@@ -1283,7 +1283,7 @@ def run():
           <div class="kart" style="border-top-color:#10B981">
             <div class="kart-label">İlerleme</div>
             <div class="kart-deger" style="color:#6EE7B7">{odendi_cnt} <span style="font-size:14px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>
-            <div style="background:#E2E8F0;border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
+            <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
               <div style="background:#10B981;height:100%;width:{ilerleme_pct}%"></div>
             </div>
             <div class="kart-alt" style="margin-top:5px">%{ilerleme_pct} tamamlandı</div>
@@ -2150,7 +2150,7 @@ def run():
                 )
             else:
                 nakit_rows_html += (
-                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{"#F8FAFC" if idx_r%2 else "#FFFFFF"}''">'
+                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{"#131C35" if idx_r%2 else "#151F38"}''">'
                     f'<td style="padding:9px 14px;{tarih_style}border-bottom:1px solid rgba(255,255,255,0.1);">{row["Tarih"]}</td>'
                     f'<td style="padding:9px 14px;{num_style}color:#10B981;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(gun_tl_v)}</td>'
                     f'<td style="padding:9px 14px;{num_style}color:#3B82F6;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(gun_usd_v)}</td>'
@@ -2162,7 +2162,7 @@ def run():
         nakit_tablo_html = (
             '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
             '<div style="overflow-x:auto;">'
-            '<table style="width:100%;border-collapse:collapse;background:#fff;">'
+            '<table style="width:100%;border-collapse:collapse;background:transparent;">'
             '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">'
             '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
             '<th style="padding:12px 14px;text-align:right;color:#34D399;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük TL</th>'
@@ -2364,10 +2364,10 @@ def run():
                 pozisyon = str(row.get("Son Pozisyon", "")).lower()
                 kalan_v = row.get(f"Kalan ({sym})", 0) or 0
                 if "gecmis" in pozisyon or ("odendi" not in pozisyon and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
-                    row_bg = "background:#FFF5F5;"
+                    row_bg = "background:rgba(248,113,113,0.08);"
                     ref_color = "#DC2626"
                 elif "odendi" in pozisyon:
-                    row_bg = "background:#0A2D15;" if ri % 2 == 0 else "background:#ECFDF5;"
+                    row_bg = "background:#0A2D15;" if ri % 2 == 0 else "background:rgba(16,185,129,0.08);"
                     ref_color = "#059669"
                 elif ri % 2 == 0:
                     row_bg = "background:#131C35;"
@@ -2386,7 +2386,7 @@ def run():
                 elif "gecmis" in pozisyon:
                     pos_badge = '<span style="background:#2D0A0A;color:#FCA5A5;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;">⚠ GECİKMİŞ</span>'
                 else:
-                    pos_badge = f'<span style="background:#E2E8F0;color:#64748B;font-size:10px;padding:2px 8px;border-radius:10px;">{row.get("Son Pozisyon","")}</span>'
+                    pos_badge = f'<span style="background:rgba(255,255,255,0.08);color:#94A3B8;font-size:10px;padding:2px 8px;border-radius:10px;">{row.get("Son Pozisyon","")}</span>'
                 num_s = "font-family:monospace;font-size:12px;text-align:right;"
                 cek_rows_html += (
                     f'<tr style="{row_bg}">'
@@ -2501,7 +2501,7 @@ def run():
                 f'<tr style="background:{bg};border-bottom:1px solid rgba(255,255,255,0.1);">' +
                 f'<td style="padding:10px 14px;color:#CBD5E1;font-size:12px;font-weight:600;">{firma_v}</td>' +
                 f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{aciklama_v}</td>' +
-                f'<td style="padding:10px 10px;text-align:center;"><span style="background:#EEF2FF;color:#6366F1;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
+                f'<td style="padding:10px 10px;text-align:center;"><span style="background:rgba(99,102,241,0.15);color:#A5B4FC;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
                 f'<td style="padding:10px 10px;text-align:center;color:#64748B;font-size:12px;">{vade_v}</td>' +
                 f'<td style="padding:10px 10px;text-align:right;color:#16A34A;font-size:12px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
                 f'<td style="padding:10px 10px;text-align:right;color:#2563EB;font-size:12px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
@@ -2616,10 +2616,10 @@ def run():
                 with col_sil2:
                     toplam_meblagh = sum(c.get("meblagh") or 0 for c in cekler)
                     st.markdown(
-                        f'<div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:10px;'
-                        f'padding:10px 14px;"><span style="font-size:11px;font-weight:600;color:#0369A1;'
+                        f'<div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:10px;'
+                        f'padding:10px 14px;"><span style="font-size:11px;font-weight:600;color:#93C5FD;'
                         f'letter-spacing:.5px;text-transform:uppercase;">Toplam Meblağ</span><br>'
-                        f'<span style="font-size:18px;font-weight:700;color:#075985;font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
+                        f'<span style="font-size:18px;font-weight:700;color:#BFDBFE;font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
                         unsafe_allow_html=True
                     )
                 with col_sil3:
@@ -2734,8 +2734,8 @@ def run():
                 ozet = get_hafta_ozet(h["id"])
                 is_aktif = h["id"] == aktif_id
                 with cols[i % 4]:
-                    renk = "#0E1A3A" if is_aktif else "white"
-                    border = "2px solid #2563EB" if is_aktif else "1px solid #E5E7EB"
+                    renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
+                    border = "2px solid #2563EB" if is_aktif else "1px solid rgba(255,255,255,0.06)"
                     aktif_badge = '<br><span style="background:#2563EB;color:white;font-size:9px;padding:1px 6px;border-radius:3px">AKTİF</span>' if is_aktif else ''
                     recent_html = (
                         f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 14px;margin-bottom:10px;min-height:100px">'
@@ -3257,7 +3257,7 @@ def run():
     
         # Bilgi notu
         st.markdown("""
-        <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:8px 14px;margin:10px 0;font-size:11px;color:#075985">
+        <div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 14px;margin:10px 0;font-size:11px;color:#BFDBFE">
             ℹ️ Erteleme kayıtları bu oturumda tutulur. Tarayıcıyı kapatınca veya çıkış yapınca geçmiş silinir.
             Kalıcı kayıt için Supabase'e 3 kolon eklenmesi gerekir (opsiyonel).
         </div>
@@ -3266,9 +3266,9 @@ def run():
         if not ertelenenler:
             st.info("📭 Henüz ertelenmiş ödeme yok.")
             st.markdown("""
-            <div style="background:#F0F9FF;border:1px solid #BAE6FD;border-radius:10px;padding:14px 18px;margin-top:12px">
-                <div style="font-size:13px;color:#0369A1;font-weight:600;margin-bottom:6px">💡 Nasıl ertelerim?</div>
-                <div style="font-size:12px;color:#075985;line-height:1.5">
+            <div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:14px 18px;margin-top:12px">
+                <div style="font-size:13px;color:#93C5FD;font-weight:600;margin-bottom:6px">💡 Nasıl ertelerim?</div>
+                <div style="font-size:12px;color:#BFDBFE;line-height:1.5">
                     <b>"Bu Hafta"</b> sayfasında bir ödemenin altındaki <b>"📅 Vadeyi Ötele"</b> kutucuğunu işaretle, yeni tarih seç, <b>💾 Ötele</b>'ye bas. Ya da hızlı butonlardan <b>+1, +3, +7, +30 gün</b> kullan. Sonra bu sayfaya geri dön.
                 </div>
             </div>
