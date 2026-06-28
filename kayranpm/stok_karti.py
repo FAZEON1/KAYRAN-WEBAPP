@@ -150,7 +150,8 @@ def goster(sku):
         pass
     _adet_t = sum(_f(a["adet"]) for a in alimlar)
     pacal_final = (sum(_f(a["final_birim"]) * _f(a["adet"]) for a in alimlar) / _adet_t) if _adet_t else 0.0
-    son = alimlar[0] if alimlar else {}
+    son = next((a for a in alimlar if _f(a.get("birim_fob")) > 0), (alimlar[0] if alimlar else {}))
+    son_fob = _f(son.get("birim_fob"))
     son_final = _f(son.get("final_birim"))
     son_tarih = son.get("tarih", "") or ""
 
@@ -225,7 +226,7 @@ def goster(sku):
         if alimlar:
             _kart_satiri([
                 _kart("Toplam Alınan", f"{_adet_t:,.0f}", f"{len(alimlar)} parti", "#34D399"),
-                _kart("Son Alım Birim", _usd(son_final), gun_ay_yil(son_tarih), "#FBBF24"),
+                _kart("Son Alım FOB", _usd(son_fob), gun_ay_yil(son_tarih), "#FBBF24"),
                 _kart("Paçal (Final)", _usd(pacal_final), "tüm partiler", "#F87171"),
             ])
             # Maliyet trendi
