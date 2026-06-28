@@ -658,3 +658,49 @@ def barkod_toplu_yukle(eslesme):
         return len(rows), ""
     except Exception as e:
         return 0, f"{type(e).__name__}: {str(e)[:160]}"
+
+
+def get_sku_alim_detay(sku):
+    """Bir SKU'nun her ithalat alım partisi (yeni→eski). Stok Kartı için.
+    Dönen: [{tarih, belge_no, tedarikci, ulke, doviz, adet, birim_fob, maliyet_yuzde, final_birim}]"""
+    try:
+        sku = (str(sku) or "").strip()
+        if not sku:
+            return []
+        dosyalar = {d.get("id"): d for d in get_dosyalar()}
+        kalemler = get_tum_kalemler()
+        by_dosya = {}
+        for k in kalemler:
+            by_dosya.setdefault(k.get("dosya_id"), []).append(k)
+        dosya_yuzde, dosya_indirim = {}, {}
+        for did, ks in by_dosya.items():
+            _h = dosya_hesapla(dosyalar.get(did, {}), ks)
+            dosya_yuzde[did] = _h.get("maliyet_yuzde", 0.0)
+            _brut = _h.get("mal_bedeli", 0.0)
+            dosya_indirim[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
+        out = []
+        for k in kalemler:
+            if (str(k.get("sku") or "").strip()) != sku:
+                continue
+            adet = _f(k.get("adet"))
+            if adet <= 0:
+                continue
+            did = k.get("dosya_id")
+            d = dosyalar.get(did, {})
+            fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim.get(did, 0.0))
+            yuzde = dosya_yuzde.get(did, 0.0)
+            out.append({
+                "tarih": str(d.get("teslim_tarihi") or d.get("tarih") or "")[:10],
+                "belge_no": d.get("pi_no") or d.get("dosya_no") or "",
+                "tedarikci": d.get("tedarikci") or "",
+                "ulke": d.get("mense_ulke") or "",
+                "doviz": d.get("doviz") or "USD",
+                "adet": adet,
+                "birim_fob": fob,
+                "maliyet_yuzde": yuzde,
+                "final_birim": fob * (1 + yuzde / 100.0),
+            })
+        out.sort(key=lambda x: x["tarih"], reverse=True)
+        return out
+    except Exception:
+        return []
