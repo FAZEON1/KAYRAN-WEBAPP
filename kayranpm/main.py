@@ -496,6 +496,20 @@ def run():
             "🔖  Ref No Takibi",
             "📂  Veri Yükleme",
         ], label_visibility="collapsed")
+
+        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#90A4AE;font-size:11px;font-weight:600;'
+                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 4px">🗂️ Stok Kartı</div>',
+                    unsafe_allow_html=True)
+        _skl = get_tum_sku_listesi() or []
+        _opts = [f"{r['sku']} — {(r.get('urun_adi') or '')[:22]}" for r in _skl]
+        _ssec = st.selectbox("SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
+                             label_visibility="collapsed")
+        if st.button("📦 Stok Kartını Aç", use_container_width=True, key="stok_karti_btn"):
+            if _ssec and _ssec != "—":
+                from kayranpm.stok_karti import goster as _stok_goster
+                _stok_goster(_ssec.split(" — ")[0])
+
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
             <div style="color:#263238; font-size:10px;">🕐 {tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
