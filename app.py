@@ -2222,15 +2222,15 @@ def kayrantsw_yakinda():
 # ─────────────────────────────────────────────────────────────────────
 def _global_hata_kart(uygulama_adi, hata):
     st.markdown(
-        '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-left:4px solid #DC2626;border-radius:12px;padding:24px 28px;margin:30px auto;max-width:700px">'
+        '<div style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-left:4px solid #F87171;border-radius:12px;padding:24px 28px;margin:30px auto;max-width:700px">'
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'
         '<span style="font-size:32px">⚠️</span>'
-        f'<b style="color:#991B1B;font-size:18px">{uygulama_adi} Uygulamasında Bir Sorun Oluştu</b>'
+        f'<b style="color:#FCA5A5;font-size:18px">{uygulama_adi} Uygulamasında Bir Sorun Oluştu</b>'
         '</div>'
-        '<div style="color:#7F1D1D;font-size:14px;line-height:1.6;margin-bottom:14px">'
+        '<div style="color:#FECACA;font-size:14px;line-height:1.6;margin-bottom:14px">'
         'Üzgünüz, beklenmedik bir hata oluştu. Verileriniz güvende — sadece bu işlem tamamlanamadı.'
         '</div>'
-        '<div style="background:#FFFFFF;border:1px solid #FCA5A5;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:12px;color:#991B1B;margin-bottom:14px;overflow-x:auto">'
+        '<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(248,113,113,0.25);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:12px;color:#FCA5A5;margin-bottom:14px;overflow-x:auto">'
         f'<b>Hata:</b> {type(hata).__name__}: {str(hata)[:300]}'
         '</div>'
         '<div style="font-size:12px;color:#991B1B">'
