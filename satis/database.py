@@ -35,10 +35,12 @@ def get_kanallar():
     return KANALLAR
 
 
+@st.cache_resource
 def _get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    from shared.audit import wrap_client
+    return wrap_client(create_client(url, key), "Satış")
 
 
 def _rows(resp):
