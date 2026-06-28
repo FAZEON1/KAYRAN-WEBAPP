@@ -122,7 +122,7 @@ def goster(sku):
         st.warning("SKU seçilmedi.")
         return
 
-    from kayranpm.database import get_client, get_urun_detay, get_uretim_suresi
+    from kayranpm.database import get_client, get_urun_detay, get_uretim_suresi, canli_stok
     sb = get_client()
     urun = get_urun_detay(sku) or {}
 
@@ -168,7 +168,9 @@ def goster(sku):
         uretim_suresi = 135
 
     # ── Ortak hesaplar ──
-    toplam_stok = sum(_f(r.get("stok_miktari")) for r in firma_stok)
+    # Canlı (perpetual) stok: başlangıç snapshot + teslim alınan ithalat − satışlar
+    _cs = canli_stok(sku)
+    toplam_stok = _cs["canli"] if _cs.get("var") else sum(_f(r.get("stok_miktari")) for r in firma_stok)
     yolda_adet = sum(_f(r.get("yoldaki_miktar")) for r in yolda_rows)
     haftalik_statik = sum(_f(r.get("haftalik_satis")) for r in firma_stok)
     liste_fiyat = _f(urun.get("satis_fiyati"))
@@ -193,11 +195,25 @@ def goster(sku):
         _yeter = (f"~{toplam_stok / haftalik_gercek:.0f} hafta yeter"
                   if haftalik_gercek > 0 else "satış verisi yok")
         _kart_satiri([
-            _kart("Toplam Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"),
-            _kart("Stok Değeri", _usd(stok_degeri), "paçal × stok", "#38BDF8"),
+            _kart("Canlı Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"),
+            _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", "#38BDF8"),
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", "#F87171"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", "#A5B4FC"),
         ])
+        # Canlı stok hesabı — şeffaf döküm
+        if _cs.get("var"):
+            st.markdown(
+                f'<div style="background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.2);'
+                f'border-radius:10px;padding:9px 14px;margin:2px 0 12px;font-size:12.5px;color:#94A3B8">'
+                f'📦 Başlangıç <b style="color:#E2E8F0">{_cs["baz"]:,.0f}</b> '
+                f'<span style="color:#64748B">({gun_ay_yil(_cs["baz_tarih"]) or "—"})</span> '
+                f'&nbsp;+&nbsp; gelen ithalat <b style="color:#34D399">{_cs["giris"]:,.0f}</b> '
+                f'&nbsp;−&nbsp; satılan <b style="color:#F87171">{_cs["cikis"]:,.0f}</b> '
+                f'&nbsp;=&nbsp; <b style="color:#34D399">canlı stok {_cs["canli"]:,.0f}</b></div>',
+                unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
+                       "Şimdilik gösterilen değer ham snapshot.")
         # Yolda detay
         if yolda_adet > 0:
             _yd = []

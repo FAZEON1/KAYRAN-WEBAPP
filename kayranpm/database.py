@@ -14,7 +14,8 @@ def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     # service_role_key varsa onu kullan (RLS aşılır, sunucuda kalır); yoksa anon key.
     key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    from shared.audit import wrap_client
+    return wrap_client(create_client(url, key), "Ürün Yönetimi")
 
 
 def _cache_temizle():
@@ -742,3 +743,53 @@ def guncelle_talep_cevap(talep_id, cevap, yeni_durum="tamamlandi"):
     }).eq("id", talep_id).execute()
     _cache_temizle()
     return True
+
+
+def canli_stok(sku):
+    """Tam canlı (perpetual) stok hesabı — fiziksel kayıt DEĞİŞTİRİLMEZ, her çağrıda hesaplanır.
+        canlı = başlangıç snapshot + (baz tarihten sonra 'Teslim Alındı' ithalat) − (baz tarihten sonraki satış)
+    Bu yöntem satış silme/düzeltmeye dayanıklıdır (stok otomatik doğru kalır).
+    Dönen: {var, baz, baz_tarih, giris, cikis, canli}"""
+    sb = get_client()
+    sku_n = (sku or "").strip()
+    if not sku_n:
+        return {"var": False, "baz": 0, "baz_tarih": None, "giris": 0, "cikis": 0, "canli": 0}
+
+    # 1) Başlangıç: SKU'nun her firmadaki EN SON snapshot'ını topla
+    rows = _rows(sb.table("firma_stok").select("stok_miktari,yukleme_tarihi,firma")
+                 .eq("sku", sku_n).execute())
+    if not rows:
+        return {"var": False, "baz": 0, "baz_tarih": None, "giris": 0, "cikis": 0, "canli": 0}
+    firma_son = {}
+    for r in rows:
+        f = r.get("firma") or "—"
+        t = str(r.get("yukleme_tarihi") or "")[:10]
+        if (f not in firma_son) or (t > firma_son[f][0]):
+            firma_son[f] = (t, float(r.get("stok_miktari") or 0))
+    baz = sum(v[1] for v in firma_son.values())
+    baz_tarih = max((v[0] for v in firma_son.values()), default=None)
+
+    # 2) Giriş: baz tarihten SONRA "Teslim Alındı" olan ithalat adetleri
+    giris = 0.0
+    try:
+        from ithalat.database import get_sku_alim_detay
+        for p in (get_sku_alim_detay(sku_n) or []):
+            tt = str(p.get("teslim_tarih") or "")[:10]
+            if str(p.get("durum") or "").strip() == "Teslim Alındı" and baz_tarih and tt and tt > baz_tarih:
+                giris += float(p.get("adet") or 0)
+    except Exception:
+        pass
+
+    # 3) Çıkış: baz tarihten SONRAKİ satışlar
+    cikis = 0.0
+    try:
+        sat = _rows(sb.table("satislar").select("adet,tarih").eq("sku", sku_n).execute())
+        for s in sat:
+            st = str(s.get("tarih") or "")[:10]
+            if baz_tarih and st and st > baz_tarih:
+                cikis += float(s.get("adet") or 0)
+    except Exception:
+        pass
+
+    return {"var": True, "baz": baz, "baz_tarih": baz_tarih,
+            "giris": giris, "cikis": cikis, "canli": baz + giris - cikis}
