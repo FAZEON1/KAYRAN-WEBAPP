@@ -55,8 +55,11 @@ TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
 # ONLINE KULLANICI TAKİP
 # ─────────────────────────────────────────────────────────────────────
 def online_durum_guncelle(kullanici_adi: str):
-    """Kullanıcının son aktivite zamanını Supabase'e kaydeder."""
+    """Kullanıcının son aktivite zamanını Supabase'e kaydeder (en fazla 60 sn'de bir)."""
     try:
+        import time as _t
+        if _t.time() - st.session_state.get("_son_online_upsert", 0) < 60:
+            return
         import datetime as _dt
         sb = _get_supabase()
         if not sb:
@@ -65,6 +68,7 @@ def online_durum_guncelle(kullanici_adi: str):
             "kullanici_adi": kullanici_adi,
             "son_aktivite": _dt.datetime.utcnow().isoformat(),
         }, on_conflict="kullanici_adi").execute()
+        st.session_state["_son_online_upsert"] = _t.time()
     except Exception:
         pass
 
@@ -164,6 +168,7 @@ def get_giris_liderlik(limit=8):
 # ─────────────────────────────────────────────────────────────────────
 # DUYURU YÖNETİMİ — Supabase'den oku / yaz
 # ─────────────────────────────────────────────────────────────────────
+@st.cache_data(ttl=60, show_spinner=False)
 def get_duyuru():
     """sistem_ayarlari tablosundan duyuru aktif/metin bilgisini döner."""
     try:
@@ -188,6 +193,10 @@ def set_duyuru(aktif: bool, metni: str):
         now = _dt.datetime.utcnow().isoformat()
         sb.table("sistem_ayarlari").upsert({"anahtar": "duyuru_aktif", "deger": "true" if aktif else "false", "guncelleme_tarihi": now}, on_conflict="anahtar").execute()
         sb.table("sistem_ayarlari").upsert({"anahtar": "duyuru_metni", "deger": metni, "guncelleme_tarihi": now}, on_conflict="anahtar").execute()
+        try:
+            get_duyuru.clear()
+        except Exception:
+            pass
         return True
     except Exception:
         return False
@@ -219,6 +228,7 @@ def bildirim_gonder_herkese(mesaj: str, kullanici_listesi: list):
     except Exception:
         return False
 
+@st.cache_data(ttl=20, show_spinner=False)
 def get_okunmamis_bildirimler(kullanici_adi: str):
     """Kullanıcının okunmamış bildirimlerini döner."""
     try:
@@ -239,6 +249,10 @@ def bildirim_okundu_isaretle(bildirim_id: int):
         sb.table("bildirimler").update({"okundu": True}).eq("id", bildirim_id).execute()
     except Exception:
         pass
+    try:
+        get_okunmamis_bildirimler.clear()
+    except Exception:
+        pass
 
 def tumunu_okundu_isaretle(kullanici_adi: str):
     """Kullanıcının tüm bildirimlerini okundu yap."""
@@ -247,6 +261,10 @@ def tumunu_okundu_isaretle(kullanici_adi: str):
         if not sb:
             return
         sb.table("bildirimler").update({"okundu": True}).eq("alici", kullanici_adi).eq("okundu", False).execute()
+    except Exception:
+        pass
+    try:
+        get_okunmamis_bildirimler.clear()
     except Exception:
         pass
 
