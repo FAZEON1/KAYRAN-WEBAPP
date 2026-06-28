@@ -188,6 +188,33 @@ def goster(sku):
     st.caption(f"Marka: **{urun.get('marka') or '—'}**  ·  Kategori: **{urun.get('kategori') or '—'}**  "
                f"·  Barkod: **{urun.get('barkod') or '—'}**")
 
+    # ── Başka bir SKU / modele geç (modal içi arama) ──
+    with st.expander("🔍 Başka bir SKU / model ara ve aç"):
+        _q = st.text_input("Ara", key=f"stok_ara_{sku}",
+                            placeholder="SKU veya ürün adı yaz…",
+                            label_visibility="collapsed")
+        if _q and len(_q.strip()) >= 2:
+            try:
+                from kayranpm.database import get_tum_sku_listesi
+                from shared.utils import normalize_tr
+                _qn = normalize_tr(_q)
+                _tum = get_tum_sku_listesi() or []
+                _bulunan = [r for r in _tum
+                            if str(r.get("sku") or "") != sku and (
+                                _qn in normalize_tr(r.get("sku") or "") or
+                                _qn in normalize_tr(r.get("urun_adi") or ""))][:8]
+            except Exception:
+                _bulunan = []
+            if _bulunan:
+                for r in _bulunan:
+                    _ad = (r.get("urun_adi") or "")[:55]
+                    _lbl = f"{r['sku']} — {_ad}" if _ad else r["sku"]
+                    if st.button(_lbl, key=f"gec_{r['sku']}", use_container_width=True):
+                        st.session_state["_stok_gec_sku"] = r["sku"]
+                        st.rerun()
+            else:
+                st.caption("Eşleşen ürün bulunamadı.")
+
     t1, t2, t3, t4, t5 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz"])
 
     # ═══ ÖZET ═══

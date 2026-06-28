@@ -506,10 +506,16 @@ def run():
         _opts = [r["sku"] for r in _skl]
         _ssec = st.selectbox("SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
                              label_visibility="collapsed")
+        # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
+        _gec = st.session_state.pop("_stok_gec_sku", None)
+        if _gec:
+            st.session_state["_son_acilan_sku"] = _ssec  # selectbox otomatik açılışını tetikleme
+            from kayranpm.stok_karti import goster as _stok_goster
+            _stok_goster(_gec)
         # Kod yazıp Enter'a basınca (seçim değişince) stok kartı otomatik açılır.
         # Modal kapatılınca tekrar açılmasın diye son açılan SKU takip edilir;
         # aynı kartı tekrar açmak için farklı bir SKU seç ya da "—" yapıp geri seç.
-        if _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
+        elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_ssec)
