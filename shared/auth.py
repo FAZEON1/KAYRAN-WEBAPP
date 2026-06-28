@@ -208,3 +208,87 @@ def kullanici_dogrula_v2(kullanici_adi: str, sifre_duz: str, kullanicilar: dict)
 
     # 2) Secrets'taki hash ile doğrula (fallback)
     return sifre_dogrula(sifre_duz, kullanicilar[kullanici_adi])
+
+
+# ── Brute-force koruması (kalıcı, kullanıcı bazlı) ───────────────────
+# giris_denemeleri tablosu: kullanici_adi(PK), basarisiz_sayi, son_deneme, kilit_bitis
+_BF_ESIK = 5                                  # bu sayıdan itibaren kilit devreye girer
+_BF_CEZA_DK = {5: 1, 6: 2, 7: 5, 8: 10}       # hata sayısı → kilit (dk); üstü 15 dk
+
+
+def _bf_now():
+    import datetime as _dt
+    return _dt.datetime.utcnow()
+
+
+def _bf_parse(ts):
+    import datetime as _dt
+    try:
+        return _dt.datetime.fromisoformat(str(ts).replace("Z", "").split("+")[0].split(".")[0])
+    except Exception:
+        return None
+
+
+def giris_kontrol(kullanici_adi: str):
+    """Kilit durumunu kontrol eder. Dönen: (izin_var: bool, kalan_saniye: int).
+    Hata olursa engellemez (kullanıcıyı yanlışlıkla kilitlememek için)."""
+    try:
+        k = (kullanici_adi or "").lower().strip()
+        if not k:
+            return True, 0
+        sb = _get_supabase()
+        if not sb:
+            return True, 0
+        res = sb.table("giris_denemeleri").select("kilit_bitis").eq("kullanici_adi", k).limit(1).execute()
+        if res.data:
+            kb = res.data[0].get("kilit_bitis")
+            kbt = _bf_parse(kb) if kb else None
+            if kbt:
+                kalan = (kbt - _bf_now()).total_seconds()
+                if kalan > 0:
+                    return False, int(kalan)
+        return True, 0
+    except Exception:
+        return True, 0
+
+
+def giris_basarisiz(kullanici_adi: str):
+    """Başarısız deneme sayacını artırır, eşikte kilitler.
+    Dönen: (toplam_basarisiz, kilit_saniye)."""
+    try:
+        k = (kullanici_adi or "").lower().strip()
+        if not k:
+            return 0, 0
+        sb = _get_supabase()
+        if not sb:
+            return 0, 0
+        res = sb.table("giris_denemeleri").select("basarisiz_sayi").eq("kullanici_adi", k).limit(1).execute()
+        sayi = ((res.data[0].get("basarisiz_sayi") or 0) if res.data else 0) + 1
+        kayit = {"kullanici_adi": k, "basarisiz_sayi": sayi, "son_deneme": _bf_now().isoformat()}
+        kilit_saniye = 0
+        if sayi >= _BF_ESIK:
+            import datetime as _dt
+            dk = _BF_CEZA_DK.get(sayi, 15)
+            kilit_saniye = dk * 60
+            kayit["kilit_bitis"] = (_bf_now() + _dt.timedelta(minutes=dk)).isoformat()
+        sb.table("giris_denemeleri").upsert(kayit, on_conflict="kullanici_adi").execute()
+        return sayi, kilit_saniye
+    except Exception:
+        return 0, 0
+
+
+def giris_basarili(kullanici_adi: str):
+    """Başarılı giriş → sayacı ve kilidi sıfırlar."""
+    try:
+        k = (kullanici_adi or "").lower().strip()
+        if not k:
+            return
+        sb = _get_supabase()
+        if not sb:
+            return
+        sb.table("giris_denemeleri").upsert({
+            "kullanici_adi": k, "basarisiz_sayi": 0,
+            "kilit_bitis": None, "son_deneme": _bf_now().isoformat(),
+        }, on_conflict="kullanici_adi").execute()
+    except Exception:
+        pass
