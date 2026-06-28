@@ -17,6 +17,21 @@ import traceback
 TURKIYE_TZ = zoneinfo.ZoneInfo("Europe/Istanbul")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# METİN — Türkçe karakter normalizasyonu (string eşleştirme için)
+# ─────────────────────────────────────────────────────────────────────
+def normalize_tr(s) -> str:
+    """Türkçe karakterleri Latin karşılığına indirger ve BÜYÜK harfe çevirir.
+    İ/ı/I, Ş, Ğ, Ü, Ö, Ç kaynaklı eşleşme uyuşmazlıklarını önler:
+    normalize_tr('İTOPYA') == 'ITOPYA'. Firma/cari/sekme eşleştirmesinde kullanılır."""
+    s = str(s or "")
+    for a, b in (("İ", "I"), ("ı", "I"), ("Ş", "S"), ("ş", "S"),
+                 ("Ğ", "G"), ("ğ", "G"), ("Ü", "U"), ("ü", "U"),
+                 ("Ö", "O"), ("ö", "O"), ("Ç", "C"), ("ç", "C")):
+        s = s.replace(a, b)
+    return s.upper()
+
+
 def tr_now() -> datetime:
     """Türkiye saatine göre şu anki datetime."""
     return datetime.now(TURKIYE_TZ)
