@@ -582,7 +582,7 @@ def _render_refler(fid, fkod):
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz") or "USD"),
         "Durum": r.get("durum", "beklemede") or "beklemede",
-        "Tarih": str(r.get("tarih") or ""),
+        "Tarih": pd.to_datetime(r.get("tarih"), errors="coerce"),
     } for r in goster])
 
     edited = st.data_editor(
@@ -596,7 +596,7 @@ def _render_refler(fid, fkod):
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
-            "Tarih": st.column_config.TextColumn("Tarih (YYYY-AA-GG)"),
+            "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
         },
     )
     if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}"):
@@ -607,11 +607,12 @@ def _render_refler(fid, fkod):
             o = orijinal.get(rid, {})
             n_ack = str(row.get("Açıklama", "") or "")
             n_dur = str(row.get("Durum", "beklemede"))
-            n_tar = (str(row.get("Tarih", "") or "").strip() or None)
+            _tt = row.get("Tarih")
+            n_tar = (_tt.strftime("%Y-%m-%d") if (pd.notna(_tt) and hasattr(_tt, "strftime")) else None)
             n_tutar = _f(row.get("Tutar"))
             n_doviz = str(row.get("Döviz", "USD") or "USD")
             if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
-                    (n_tar or "") != (str(o.get("tarih") or "")) or
+                    (n_tar or "") != (str(o.get("tarih") or "")[:10]) or
                     n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD")):
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
@@ -717,7 +718,7 @@ def _render_butce(fid, firma):
         "id": r["id"], "Sil?": False, "Tür": r.get("tur", "") or "",
         "Yön": r.get("yon", "harcama") or "harcama",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
-        "Fatura No": r.get("fatura_no", "") or "", "Tarih": str(r.get("fatura_tarih") or ""),
+        "Fatura No": r.get("fatura_no", "") or "", "Tarih": pd.to_datetime(r.get("fatura_tarih"), errors="coerce"),
         "Ref No": r.get("ref_no", "") or "", "Kişi": r.get("kisi", "") or "",
     } for r in goster])
 
@@ -734,7 +735,7 @@ def _render_butce(fid, firma):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.2f"),
             "Fatura No": st.column_config.TextColumn("Fatura No"),
-            "Tarih": st.column_config.TextColumn("Tarih (YYYY-AA-GG)"),
+            "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
             "Ref No": st.column_config.TextColumn("Ref No"),
             "Kişi": st.column_config.TextColumn("Kişi"),
         },
@@ -754,13 +755,14 @@ def _render_butce(fid, firma):
             n_ack = str(row.get("Açıklama", "") or "")
             n_tut = _f(row.get("Tutar"))
             n_fno = str(row.get("Fatura No", "") or "")
-            n_tar = (str(row.get("Tarih", "") or "").strip() or None)
+            _tt = row.get("Tarih")
+            n_tar = (_tt.strftime("%Y-%m-%d") if (pd.notna(_tt) and hasattr(_tt, "strftime")) else None)
             n_ref = str(row.get("Ref No", "") or "")
             n_kisi = str(row.get("Kişi", "") or "")
             if (n_tur != (o.get("tur", "") or "") or n_yon != (o.get("yon", "") or "") or
                     n_ack != (o.get("aciklama", "") or "") or
                     abs(n_tut - _f(o.get("tutar"))) > 0.001 or n_fno != (o.get("fatura_no", "") or "") or
-                    (n_tar or "") != (str(o.get("fatura_tarih") or "")) or
+                    (n_tar or "") != (str(o.get("fatura_tarih") or "")[:10]) or
                     n_ref != (o.get("ref_no", "") or "") or n_kisi != (o.get("kisi", "") or "")):
                 butce_guncelle(rid, n_tur, n_ack, n_tut, n_fno, n_tar, n_ref, n_kisi, yon=n_yon)
                 degisen += 1

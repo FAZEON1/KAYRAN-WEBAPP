@@ -1404,7 +1404,7 @@ def run():
                 _bugun = tr_today()
                 def _dmy(x):
                     try:
-                        return date.fromisoformat(str(x)[:10]).strftime("%d.%m.%y")
+                        return date.fromisoformat(str(x)[:10]).strftime("%d-%m-%Y")
                     except Exception:
                         return str(x or "")[:10]
                 _pano = []
