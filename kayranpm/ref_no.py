@@ -14,7 +14,7 @@ import streamlit as st
 from datetime import date, datetime
 
 from .database import get_client, _rows, _cache_temizle
-from shared.utils import metrik_satiri
+from shared.utils import metrik_satiri, normalize_tr
 
 DURUMLAR = ["beklemede", "paylasildi", "iptal"]
 DOVIZLER = ["USD", "TL", "EUR"]
@@ -35,7 +35,7 @@ def _yil():
 
 
 def _yon_belirle(tur):
-    return "giris" if str(tur).strip().upper() in {t.upper() for t in GIRIS_TURLER} else "harcama"
+    return "giris" if _norm(tur) in {_norm(t) for t in GIRIS_TURLER} else "harcama"
 
 
 def _import_yon(tur, kisi, tutar):
@@ -43,7 +43,7 @@ def _import_yon(tur, kisi, tutar):
     TÜR=BÜTÇE + kişi yok (SIFIRLANDI/boş) + tutar >= 50.000. Diğer her şey harcama."""
     k = str(kisi or "").strip().lower()
     kisi_yok = (k == "" or k == "nan" or "sifirland" in k or "sıfırland" in k)
-    if str(tur).strip().upper() == "BÜTÇE" and kisi_yok and abs(_f(tutar)) >= 50000:
+    if _norm(tur) == _norm("BÜTÇE") and kisi_yok and abs(_f(tutar)) >= 50000:
         return "giris"
     return "harcama"
 
@@ -100,14 +100,8 @@ FIRMA_ESLESME = {
 
 
 def _norm(s):
-    """Türkçe karakterleri Latin'e indirger + BÜYÜK harf yapar.
-    İ/ı/I eşleşme sorununu çözer: _norm('İTOPYA') == 'ITOPYA'."""
-    s = str(s or "")
-    for a, b in (("İ", "I"), ("ı", "I"), ("Ş", "S"), ("ş", "S"),
-                 ("Ğ", "G"), ("ğ", "G"), ("Ü", "U"), ("ü", "U"),
-                 ("Ö", "O"), ("ö", "O"), ("Ç", "C"), ("ç", "C")):
-        s = s.replace(a, b)
-    return s.upper()
+    """Türkçe karakter normalizasyonu — merkezi shared.utils.normalize_tr'a delege eder."""
+    return normalize_tr(s)
 
 
 def _firma_rol(f):
@@ -470,8 +464,8 @@ def render():
 
     with st.expander("🏢 Yeni Firma Ekle"):
         _cariler = sorted(set(_cari_isimleri()), key=lambda s: s.lower())
-        _mevcut = {(f.get("firma_adi") or "").strip().upper() for f in firmalar}
-        _secilebilir = [c for c in _cariler if c.upper() not in _mevcut]
+        _mevcut = {_norm(f.get("firma_adi")) for f in firmalar}
+        _secilebilir = [c for c in _cariler if _norm(c) not in _mevcut]
         with st.form("ref_firma_ekle", clear_on_submit=True):
             if _secilebilir:
                 fa = st.selectbox("Firma (cari listesinden)", ["— seç —"] + _secilebilir)
@@ -790,8 +784,8 @@ def get_tum_butce_harcamalari(baslangic, bitis):
     out = []
     for r in (rows or []):
         yon = str(r.get("yon") or _yon_belirle(r.get("tur"))).strip().lower()
-        tur = str(r.get("tur") or "").strip().upper()
-        if yon in ("giris", "giriş") or tur == "BÜTÇE":
+        tur = _norm(r.get("tur"))
+        if yon in ("giris", "giriş") or tur == _norm("BÜTÇE"):
             continue
         out.append({
             "tur": r.get("tur") or "",

@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok
+from shared.utils import normalize_tr
 import math
 
 def safe_float(val, default=0.0):
@@ -131,10 +132,10 @@ def excel_yukle_firma_stoklari(dosya_yolu):
             # Sekme adı eşleştirme (DİĞER -> DIGER vb.)
             eslesen_sekme = None
             for sekme in xl.sheet_names:
-                if sekme.strip().upper().replace("İ", "I").replace("Ğ", "G").replace("Ü", "U").replace("Ş", "S").replace("Ç", "C").replace("Ö", "O") == firma.replace("İ", "I").replace("Ğ", "G").replace("Ü", "U").replace("Ş", "S").replace("Ç", "C").replace("Ö", "O"):
+                if normalize_tr(sekme) == normalize_tr(firma):
                     eslesen_sekme = sekme
                     break
-                if firma in sekme.strip().upper():
+                if normalize_tr(firma) in normalize_tr(sekme):
                     eslesen_sekme = sekme
                     break
             
