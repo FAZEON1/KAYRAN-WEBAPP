@@ -5,7 +5,7 @@ from datetime import date, timedelta, datetime
 import pandas as pd
 import streamlit as st
 
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
 from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
@@ -204,7 +204,7 @@ def run():
             for s in satislar:
                 k = satir_kar(s)
                 _rows_disp.append({
-                    "id": s.get("id"), "Tarih": str(s.get("tarih", ""))[:10],
+                    "id": s.get("id"), "Tarih": pd.to_datetime(s.get("tarih"), errors="coerce"),
                     "Sipariş No": s.get("siparis_no", "") or "—", "Kanal": s.get("kanal", ""),
                     "SKU": s.get("sku", ""), "Ürün": (s.get("urun_adi", "") or "")[:30],
                     "Adet": k["adet"], "B.Satış": _usd(s.get("birim_satis")),
@@ -213,13 +213,14 @@ def run():
                     "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{k['marj']:.1f}",
                 })
             st.dataframe(pd.DataFrame(_rows_disp), hide_index=True, use_container_width=True, height=380,
-                         column_config={"id": None})
+                         column_config={"id": None,
+                                        "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})
             with st.expander("🗑️ Sil — kalem veya sipariş"):
                 _ds1, _ds2 = st.columns(2)
                 with _ds1:
                     _sec_sil = st.selectbox(
                         "Tek kalem sil", satislar,
-                        format_func=lambda s: f"#{s.get('id')} · {str(s.get('tarih',''))[:10]} · {s.get('kanal','')} · {s.get('sku','')} · {s.get('adet')} ad.",
+                        format_func=lambda s: f"#{s.get('id')} · {gun_ay_yil(s.get('tarih'))} · {s.get('kanal','')} · {s.get('sku','')} · {s.get('adet')} ad.",
                         key="l_sil_sec")
                     if st.button("🗑️ Kalemi Sil", key="l_sil_btn"):
                         if sil_satis(_sec_sil["id"]):
