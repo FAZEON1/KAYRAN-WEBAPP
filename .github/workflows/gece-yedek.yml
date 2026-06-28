@@ -1,0 +1,35 @@
+name: Gece Yedeği
+
+on:
+  schedule:
+    # Her gün 02:00 UTC = 05:00 (Türkiye). Dakika Saat * * * (UTC)
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}        # "Run workflow" ile elle de tetiklenebilir (test için)
+
+jobs:
+  yedek:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıklar
+        run: pip install supabase pandas openpyxl
+
+      - name: Yedeği oluştur
+        run: python otonom/gece_yedek.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+      - name: Yedeği sakla (indirilebilir artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kayran-yedek
+          path: "*.xlsx"
+          retention-days: 90
