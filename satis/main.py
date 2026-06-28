@@ -172,16 +172,50 @@ def run():
                     if not gecerli:
                         st.warning("Kaydedilecek geçerli kalem yok (adet ve satış > 0 olmalı).")
                     else:
-                        sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
-                        ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
-                        if ok:
-                            st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd(top['net_kar'])}")
-                            st.session_state.satis_kalemler = []
-                            for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
-                                st.session_state.pop(_k, None)
-                            st.rerun()
+                        # ── Akıllı kontroller: geçersiz SKU engeller; stok/zarar/mükerrer uyarır ──
+                        from shared.dogrula import zararina_mi, gecerli_sku
+                        _engel, _uyari, _sku_adet = [], [], {}
+                        for k in gecerli:
+                            _sku_adet[k["sku"]] = _sku_adet.get(k["sku"], 0) + int(k.get("adet", 0))
+                            if not gecerli_sku(k["sku"], tum_sku):
+                                _engel.append(f"Geçersiz SKU: {k['sku']}")
+                            if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
+                                _uyari.append(f"Zararına satış: {k['sku']} "
+                                              f"(satış {_usd(k['birim_satis'])} < maliyet {_usd(k['birim_maliyet'])})")
+                        try:
+                            from kayranpm.database import canli_stok
+                            for _sk, _ad in _sku_adet.items():
+                                _cs = canli_stok(_sk)
+                                if _cs.get("var") and _ad > _cs["canli"]:
+                                    _uyari.append(f"Stok yetersiz: {_sk} "
+                                                  f"(canlı {_cs['canli']:.0f}, satılacak {_ad})")
+                        except Exception:
+                            pass
+                        try:
+                            from satis.database import siparis_no_var_mi
+                            if (g_sipno or "").strip() and siparis_no_var_mi(g_sipno):
+                                _uyari.append(f"Sipariş no '{(g_sipno or '').strip()}' daha önce kullanılmış.")
+                        except Exception:
+                            pass
+
+                        if _engel:
+                            for _e in _engel:
+                                st.error("⛔ " + _e)
+                            st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
                         else:
-                            st.error(msg)
+                            for _u in _uyari:
+                                st.warning("⚠️ " + _u)
+                            sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
+                            ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
+                            if ok:
+                                st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd(top['net_kar'])}")
+                                st.session_state.satis_kalemler = []
+                                for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
+                                    st.session_state.pop(_k, None)
+                                if not _uyari:
+                                    st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
+                            else:
+                                st.error(msg)
                 if b2.button("🧹 Temizle", use_container_width=True, key="s_temizle"):
                     st.session_state.satis_kalemler = []
                     st.rerun()

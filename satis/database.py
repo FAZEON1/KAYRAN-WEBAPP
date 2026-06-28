@@ -242,3 +242,15 @@ def ozet_hesapla(satislar):
         urun[su]["ciro"] += k["ciro"]; urun[su]["net_kar"] += k["net_kar"]; urun[su]["adet"] += k["adet"]
     top["marj"] = (top["net_kar"] / top["ciro"] * 100) if top["ciro"] > 0 else 0.0
     return top, kanal, urun
+
+
+def siparis_no_var_mi(sipno):
+    """Bu sipariş no daha önce kullanılmış mı (mükerrer kontrolü)."""
+    try:
+        s = (sipno or "").strip()
+        if not s:
+            return False
+        r = _get_client().table("satislar").select("id").eq("siparis_no", s).limit(1).execute()
+        return bool(r.data)
+    except Exception:
+        return False
