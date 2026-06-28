@@ -32,6 +32,14 @@ def normalize_tr(s) -> str:
     return s.upper()
 
 
+def tr_kucuk(s) -> str:
+    """Türkçe-doğru küçük harf çevrimi. İ→i, I→ı yapıp küçültür; Türkçe karakter KORUNUR.
+    Serbest metinleri (kategori vb.) tek biçime indirger:
+    'MONİTÖR'→'monitör', 'KASA'→'kasa', 'SOĞUTUCU'→'soğutucu', 'MicroSD Card'→'microsd card'."""
+    s = str(s or "").replace("İ", "i").replace("I", "ı")
+    return s.lower().strip()
+
+
 def gun_ay_yil(d) -> str:
     """Tarihi ekranda DD-MM-YYYY biçiminde gösterir. ISO string ('2026-06-28'),
     date/datetime veya boş değer kabul eder. DB'ye yazarken KULLANILMAZ —
