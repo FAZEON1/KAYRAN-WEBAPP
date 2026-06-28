@@ -1172,6 +1172,15 @@ input, textarea, select { font-size: 16px !important; }
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
+        if st.button(
+            "🔍 Arama",
+            key="nav_arama",
+            type="primary" if aktif_sayfa == "arama" else "secondary",
+            use_container_width=True
+        ):
+            st.session_state.aktif_uygulama = "arama"
+            st.rerun()
+
         # Yönetim Panosu (P&L) — finansal özet, sadece İbrahim
         if aktif_kullanici.strip().lower() == "ibrahim":
             if st.button(
@@ -1337,6 +1346,89 @@ input, textarea, select { font-size: 16px !important; }
             st.markdown('<div id="kayran-submenu-anchor"></div>', unsafe_allow_html=True)
 
 
+def _arama_kutusu(yer="anasayfa"):
+    """Global arama kutusu + gruplu sonuçlar (özet + git/stok kartı)."""
+    terim = st.text_input(
+        "🔍 Ara",
+        key=f"global_arama_{yer}",
+        placeholder="SKU, ürün, firma, sipariş no, seri no, tedarikçi…",
+        label_visibility="collapsed",
+    )
+    if not terim or len(terim.strip()) < 2:
+        if yer == "sayfa":
+            st.caption("En az 2 karakter yazın. Ürün (SKU/ad/barkod), cari, sipariş no, "
+                       "seri no, servis no ve tedarikçi aranır.")
+        return
+    from shared.arama import ara
+    sonuclar = ara(terim)
+    if not sonuclar:
+        st.info("Sonuç bulunamadı.")
+        return
+    _toplam = sum(len(v) for v in sonuclar.values())
+    st.caption(f"{_toplam} sonuç")
+
+    def _git(modul):
+        st.session_state.aktif_uygulama = modul
+        st.rerun()
+
+    # 📦 Ürünler — özet + Stok Kartı (modal)
+    if sonuclar.get("urunler"):
+        st.markdown(f"**📦 Ürünler ({len(sonuclar['urunler'])})**")
+        for u in sonuclar["urunler"]:
+            c1, c2 = st.columns([5, 1])
+            c1.markdown(f"`{u.get('sku','')}` — {u.get('urun_adi','') or '—'}  ·  "
+                        f"{u.get('marka','') or ''} · ₺{u.get('satis_fiyati') or 0}")
+            if c2.button("Stok Kartı", key=f"ara_u_{yer}_{u.get('sku')}", use_container_width=True):
+                try:
+                    from kayranpm.stok_karti import goster
+                    goster(u.get("sku"))
+                except Exception:
+                    _git("kayranpm")
+
+    # 🏢 Cariler → Muhasebe
+    if sonuclar.get("cariler"):
+        st.markdown(f"**🏢 Cariler ({len(sonuclar['cariler'])})**")
+        for f in sonuclar["cariler"]:
+            c1, c2 = st.columns([5, 1])
+            c1.markdown(f"{f.get('firma_adi','') or '—'}  ·  kod: {f.get('firma_kodu','') or '—'}")
+            if c2.button("→ Muhasebe", key=f"ara_c_{yer}_{f.get('id', f.get('firma_kodu'))}",
+                         use_container_width=True):
+                _git("kayranacc")
+
+    # 🧾 Satışlar → Satış
+    if sonuclar.get("satislar"):
+        st.markdown(f"**🧾 Satışlar ({len(sonuclar['satislar'])})**")
+        for s in sonuclar["satislar"]:
+            c1, c2 = st.columns([5, 1])
+            c1.markdown(f"{str(s.get('tarih',''))[:10]} · {s.get('kanal','') or '—'} · "
+                        f"`{s.get('sku','')}` · sipariş: {s.get('siparis_no','') or '—'} · "
+                        f"{s.get('adet',0)} ad")
+            if c2.button("→ Satış", key=f"ara_s_{yer}_{s.get('id')}", use_container_width=True):
+                _git("satis")
+
+    # 🚢 İthalat → İthalat
+    if sonuclar.get("ithalat"):
+        st.markdown(f"**🚢 İthalat ({len(sonuclar['ithalat'])})**")
+        for d in sonuclar["ithalat"]:
+            c1, c2 = st.columns([5, 1])
+            _belge = d.get("pi_no") or d.get("dosya_no") or d.get("ithalat_takip_no") or "—"
+            c1.markdown(f"{str(d.get('tarih',''))[:10]} · belge: {_belge} · "
+                        f"{d.get('tedarikci','') or '—'} · {d.get('mense_ulke','') or ''}")
+            if c2.button("→ İthalat", key=f"ara_i_{yer}_{d.get('id', _belge)}", use_container_width=True):
+                _git("ithalat")
+
+    # 🔧 Servis → Teknik Servis
+    if sonuclar.get("servis"):
+        st.markdown(f"**🔧 Teknik Servis ({len(sonuclar['servis'])})**")
+        for t in sonuclar["servis"]:
+            c1, c2 = st.columns([5, 1])
+            c1.markdown(f"servis: {t.get('servis_form_no','') or '—'} · seri: {t.get('seri_no','') or '—'} · "
+                        f"{t.get('stok_adi','') or t.get('sku','') or ''} · {t.get('musteri','') or ''}")
+            if c2.button("→ Servis", key=f"ara_t_{yer}_{t.get('kayit_id', t.get('servis_form_no'))}",
+                         use_container_width=True):
+                _git("teknikservis")
+
+
 def anasayfa():
     G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
     FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
@@ -1352,6 +1444,9 @@ def anasayfa():
             f'<div style="background:linear-gradient(90deg,rgba(59,130,246,0.12),rgba(139,92,246,0.12),rgba(236,72,153,0.12));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:10px 16px;text-align:center;color:#A5B4FC;font-size:12px;font-weight:500;margin-bottom:24px;animation:fadeUp 0.5s ease-out">{_duyuru_metni}</div>',
             unsafe_allow_html=True
         )
+
+    # Global arama kutusu
+    _arama_kutusu("anasayfa")
 
     # Saate göre selamlama — İstanbul saat dilimi (UTC+3)
     _ist_now = datetime.utcnow() + timedelta(hours=3)
@@ -2169,6 +2264,9 @@ def main():
     try:
         if aktif == "anasayfa":
             anasayfa()
+        elif aktif == "arama":
+            st.markdown("## 🔍 Arama")
+            _arama_kutusu("sayfa")
         elif aktif == "kayranacc":
             from kayranacc.main import run as kayranacc_run
             kayranacc_run()
