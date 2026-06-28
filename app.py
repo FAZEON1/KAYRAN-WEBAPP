@@ -1311,32 +1311,34 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        # ── Yeni sekmede aç: her modülü ayrı sekmede, oturum korunarak ──
-        with st.expander("↗ Yeni Sekmede Aç", expanded=False):
-            _u = aktif_kullanici
-            _t = _oturum_token(_u)
-            _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama")]
-            if _u.strip().lower() == "ibrahim":
-                _yeni_sekme.append(("📊 Yönetim P&L", "yonetim"))
-            if yetkiler.get("kayranacc"):
-                _yeni_sekme.append(("💰 Muhasebe", "kayranacc"))
-            if yetkiler.get("kayranpm"):
-                _yeni_sekme.append(("📦 Ürün Yönetimi", "kayranpm"))
-            if yetkiler.get("ithalat"):
-                _yeni_sekme.append(("🚢 İthalat", "ithalat"))
-            if yetkiler.get("satis"):
-                _yeni_sekme.append(("🛒 Satış", "satis"))
-            if yetkiler.get("teknikservis"):
-                _yeni_sekme.append(("🔧 Teknik Servis", "teknikservis"))
-            _lh = '<div style="display:flex;flex-direction:column;gap:6px">'
-            for _ad, _mod in _yeni_sekme:
-                _lh += (f'<a href="?u={_u}&t={_t}&s={_mod}" target="_blank" '
-                        f'style="display:block;padding:8px 12px;background:rgba(255,255,255,0.03);'
-                        f'border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:#A5B4FC;'
-                        f'text-decoration:none;font-size:13px;font-weight:500">{_ad} ↗</a>')
-            _lh += '</div>'
-            st.markdown(_lh, unsafe_allow_html=True)
-            st.caption("Her modül ayrı sekmede açılır; oturumun korunur. Böylece örn. Satış ve İthalat'ı aynı anda kullanabilirsin.")
+        # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
+        _u = aktif_kullanici
+        _t = _oturum_token(_u)
+        _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama")]
+        if _u.strip().lower() == "ibrahim":
+            _yeni_sekme.append(("📊 Yönetim P&L", "yonetim"))
+        if yetkiler.get("kayranacc"):
+            _yeni_sekme.append(("💰 Muhasebe", "kayranacc"))
+        if yetkiler.get("kayranpm"):
+            _yeni_sekme.append(("📦 Ürün Yönetimi", "kayranpm"))
+        if yetkiler.get("ithalat"):
+            _yeni_sekme.append(("🚢 İthalat", "ithalat"))
+        if yetkiler.get("satis"):
+            _yeni_sekme.append(("🛒 Satış", "satis"))
+        if yetkiler.get("teknikservis"):
+            _yeni_sekme.append(("🔧 Teknik Servis", "teknikservis"))
+        _lh = ('<details style="margin:2px 0 10px"><summary style="cursor:pointer;color:#94A3B8;'
+               'font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;'
+               'padding:6px;outline:none">↗ Yeni Sekmede Aç</summary>'
+               '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">')
+        for _ad, _mod in _yeni_sekme:
+            _lh += (f'<a href="?u={_u}&t={_t}&s={_mod}" target="_blank" '
+                    f'style="display:block;padding:8px 12px;background:rgba(255,255,255,0.03);'
+                    f'border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:#A5B4FC;'
+                    f'text-decoration:none;font-size:13px;font-weight:500">{_ad} ↗</a>')
+        _lh += ('</div><div style="color:#64748B;font-size:10.5px;margin-top:8px;padding:0 6px;'
+                'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
+        st.markdown(_lh, unsafe_allow_html=True)
 
         if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi"):
             st.markdown(
