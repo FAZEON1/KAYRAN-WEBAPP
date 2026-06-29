@@ -985,7 +985,7 @@ def giris_ekrani():
 
 
 def ust_navigasyon():
-    """Modüller arası geçiş — sayfanın üstünde yatay şerit (yetkiye göre)."""
+    """Modüller arası geçiş — sayfanın üstünde kompakt, modern yatay şerit (yetkiye göre)."""
     aktif = st.session_state.get("aktif_uygulama", "anasayfa")
     ak = st.session_state.get("aktif_kullanici", "")
     yet = kullanici_yetkileri(ak)
@@ -1004,21 +1004,41 @@ def ust_navigasyon():
         moduller.append(("🛠️ Teknik Servis", "teknikservis"))
     if yet.get("hesap_makinesi"):
         moduller.append(("🧮 Hesap Mak.", "hesap_makinesi"))
-    # Tek satırda çok sıkışmasın: 6'dan fazlaysa iki satıra böl
-    if len(moduller) > 6:
-        yarim = (len(moduller) + 1) // 2
-        gruplar = [moduller[:yarim], moduller[yarim:]]
-    else:
-        gruplar = [moduller]
-    for grup in gruplar:
-        cols = st.columns(len(grup))
-        for c, (ad, mod) in zip(cols, grup):
-            if c.button(ad, key=f"top_{mod}",
-                        type="primary" if aktif == mod else "secondary",
-                        use_container_width=True):
-                st.session_state.aktif_uygulama = mod
-                st.rerun()
-    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.08);margin:6px 0 16px"></div>',
+
+    st.markdown("""<style>
+    .st-key-ustnav [data-testid="stHorizontalBlock"]{gap:7px !important;margin-bottom:7px !important;}
+    .st-key-ustnav [data-testid="column"]{padding:0 !important;}
+    .st-key-ustnav button{
+        min-height:38px !important;height:38px !important;padding:0 10px !important;
+        border-radius:10px !important;font-size:13px !important;font-weight:600 !important;
+        letter-spacing:.2px !important;line-height:1 !important;white-space:nowrap !important;
+        border:1px solid rgba(255,255,255,0.07) !important;
+        background:rgba(255,255,255,0.025) !important;color:#CBD5E1 !important;
+        transition:background .15s ease,border-color .15s ease,color .15s ease !important;}
+    .st-key-ustnav button:hover{
+        border-color:rgba(129,140,248,0.55) !important;background:rgba(99,102,241,0.12) !important;
+        color:#FFFFFF !important;}
+    .st-key-ustnav button[kind="primary"]{
+        background:linear-gradient(135deg,#4F46E5,#7C3AED) !important;border-color:transparent !important;
+        color:#FFFFFF !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
+    .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#4338CA,#6D28D9) !important;}
+    </style>""", unsafe_allow_html=True)
+
+    with st.container(key="ustnav"):
+        if len(moduller) > 6:
+            yarim = (len(moduller) + 1) // 2
+            gruplar = [moduller[:yarim], moduller[yarim:]]
+        else:
+            gruplar = [moduller]
+        for gi, grup in enumerate(gruplar):
+            cols = st.columns(len(grup), gap="small")
+            for c, (ad, mod) in zip(cols, grup):
+                if c.button(ad, key=f"top_{mod}",
+                            type="primary" if aktif == mod else "secondary",
+                            use_container_width=True):
+                    st.session_state.aktif_uygulama = mod
+                    st.rerun()
+    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.07);margin:4px 0 18px"></div>',
                 unsafe_allow_html=True)
 
 
