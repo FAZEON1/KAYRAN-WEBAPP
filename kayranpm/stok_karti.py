@@ -139,6 +139,17 @@ def goster(sku):
     yas_rows = _sel("stok_yas")
     yolda_rows = _sel("yoldaki_urunler")
     satislar = _sel("satislar", order="tarih", desc=True)
+    if not satislar:
+        # Satış kaydı SKU'su farklı yazımda olabilir (büyük/küçük harf ya da 'Fazeon ' öneki).
+        # → esnek ara, normalize ile kesin doğrula (yanlış eşleşmeyi eler).
+        try:
+            from kayranpm.excel_islemler import normalize_sku as _nsku
+            _skn = _nsku(sku)
+            _cand = (sb.table("satislar").select("*").ilike("sku", f"%{sku}")
+                     .order("tarih", desc=True).execute().data or [])
+            satislar = [r for r in _cand if _nsku(r.get("sku", "")) == _skn]
+        except Exception:
+            pass
     kampanya_urun = _sel("kampanya_urunler")
 
     # Alımlar (ithalat) — paçal buradan hesaplanır (ayrı maliyet sorgusu yok = hızlı)
