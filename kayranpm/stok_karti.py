@@ -325,6 +325,7 @@ def goster(sku):
                 "Kanal/Firma": kn, "Adet": v["adet"],
                 "Ort. Birim": _usd(v["ciro"] / v["adet"]) if v["adet"] else _usd(0),
                 "Ciro": _usd(v["ciro"]), "Kâr": _usd(v["kar"]),
+                "Marj": f"%{(v['kar'] / v['ciro'] * 100) if v['ciro'] else 0:.1f}",
             } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])]),
                 hide_index=True, use_container_width=True)
             st.markdown("**Satış Hareketleri**")
