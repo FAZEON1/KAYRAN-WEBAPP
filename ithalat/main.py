@@ -17,7 +17,7 @@ from .database import (
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
-    get_barkod_map, set_barkod, barkod_toplu_yukle, sil_dosya,
+    get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
 )
 
 
@@ -946,6 +946,7 @@ def _yeni_ithalat():
                 else:
                     tedarikci = _ted_sec
                 teslim_sekli_m = st.selectbox("Teslim Şekli (Incoterm)", INCOTERM_SECENEKLER,
+                                              index=INCOTERM_SECENEKLER.index("FOB"),
                                               key=f"m_teslim_sekli_{_fv}")
             with c3:
                 tarih = st.date_input("Sipariş Tarihi", value=date.today(), key=f"m_tarih_{_fv}")
@@ -997,11 +998,18 @@ def _yeni_ithalat():
             for hc, ht in zip(hcols, ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
+            def _kalem_doldur(i):
+                _sv = st.session_state.get(f"m_urun_{i}_{_fv}")
+                if _sv and _sv != BOS:
+                    st.session_state[f"m_uad_{i}_{_fv}"] = katalog.get(_sv, "")
+                    st.session_state[f"m_bk_{i}_{_fv}"] = _barkod_map.get(_sv, "")
+
             _kalemler = []
             for i in range(n_satir):
                 rc = st.columns(_oran)
                 _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}_{_fv}",
-                                       label_visibility="collapsed")
+                                       label_visibility="collapsed",
+                                       on_change=_kalem_doldur, args=(i,))
                 _msku = rc[1].text_input("msku", key=f"m_msku_{i}_{_fv}", label_visibility="collapsed",
                                          placeholder="SKU yaz").strip()
                 # Manuel SKU öncelikli; boşsa katalogdan seçilen kullanılır
@@ -1091,11 +1099,12 @@ def _yeni_ithalat():
 
     # ── Excel ──
     with sekme2:
-        with st.expander("🏷️ Barkod Eşleştir (Excel) — SKU + Barkod yükle (mevcut modellere)", expanded=False):
+        with st.expander("🏷️ Ürün Bilgisi Yükle (Excel) — SKU + Stok Adı + Barkod", expanded=False):
             st.markdown(
-                "Excel sütunları: **SKU** + **Barkod**. Sistemdeki ürünlerin barkodları toplu yazılır "
-                "(SKU eşleşmesiyle). Sonra manuel ithalat girişinde barkodu sen verirsin.")
-            up_bk = st.file_uploader("Barkod Excel (.xlsx/.xls)", type=["xlsx", "xls"], key="ith_barkod_up")
+                "Excel sütunları: **SKU** + **Stok Adı** + **Barkod**. Bilgiler ürün kataloğuna toplu yazılır; "
+                "**tüm modüllerle** (İthalat, Satış, Ürün Yönetimi, Stok Kartı) senkron olur. "
+                "Boş bıraktığın hücreler mevcut değeri **bozmaz**.")
+            up_bk = st.file_uploader("Ürün Excel (.xlsx/.xls)", type=["xlsx", "xls"], key="ith_barkod_up")
             if up_bk is not None:
                 try:
                     df_bk = pd.read_excel(up_bk)
@@ -1108,25 +1117,34 @@ def _yeni_ithalat():
                                 if k in cl:
                                     return c
                         return None
-                    k_sku = _bk_bul(["sku", "stok kodu", "stok kod", "kod"])
+                    k_sku = _bk_bul(["sku", "stok kodu", "stok kod"])
+                    k_ad = _bk_bul(["stok adi", "stok ad", "stok ismi", "urun adi", "ürün ad",
+                                    "ürün ismi", "stok tanim", "tanim"])
                     k_bk = _bk_bul(["barkod", "barcode", "ean"])
-                    if not k_sku or not k_bk:
-                        st.error("Gerekli sütunlar bulunamadı: 'SKU' ve 'Barkod'.")
+                    if not k_sku:
+                        st.error("Gerekli sütun bulunamadı: 'SKU' / 'Stok Kodu'.")
                     else:
-                        eslesme = {}
+                        satirlar = []
                         for _, r in df_bk.iterrows():
                             s = str(r.get(k_sku) or "").strip()
-                            b = str(r.get(k_bk) or "").strip()
-                            if s and s.lower() != "nan" and b and b.lower() != "nan":
-                                eslesme[s] = b
-                        st.caption(f"Excel'den {len(eslesme)} SKU + barkod okundu.")
-                        st.dataframe(pd.DataFrame([{"SKU": s, "Barkod": b} for s, b in list(eslesme.items())[:8]]),
-                                     hide_index=True, use_container_width=True)
-                        if st.button("🏷️ Barkodları Kaydet", type="primary", key="ith_barkod_kaydet"):
-                            n, hata = barkod_toplu_yukle(eslesme)
+                            if not s or s.lower() == "nan":
+                                continue
+                            ad = (str(r.get(k_ad) or "").strip() if k_ad else "")
+                            b = (str(r.get(k_bk) or "").strip() if k_bk else "")
+                            if ad.lower() == "nan":
+                                ad = ""
+                            if b.lower() == "nan":
+                                b = ""
+                            satirlar.append({"sku": s, "urun_adi": ad, "barkod": b})
+                        st.caption(f"Excel'den {len(satirlar)} ürün okundu. "
+                                   f"(Stok Adı: {'✓ ' + k_ad if k_ad else '— yok'} · "
+                                   f"Barkod: {'✓ ' + k_bk if k_bk else '— yok'})")
+                        st.dataframe(pd.DataFrame(satirlar[:8]), hide_index=True, use_container_width=True)
+                        if st.button("💾 Ürün Bilgilerini Kaydet", type="primary", key="ith_barkod_kaydet"):
+                            n, hata = urun_bilgi_toplu_yukle(satirlar)
                             st.cache_data.clear()
                             if n:
-                                st.success(f"✅ {n} ürünün barkodu güncellendi.")
+                                st.success(f"✅ {n} ürün güncellendi (katalog + barkod). Tüm modüllerle senkron.")
                             else:
                                 st.error(f"Yazılamadı: {hata}")
                 except Exception as e:

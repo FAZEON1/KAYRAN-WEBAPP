@@ -662,6 +662,33 @@ def set_barkod(sku, barkod):
         return False
 
 
+def urun_bilgi_toplu_yukle(satirlar):
+    """[{sku, urun_adi, barkod}] → urunler tablosuna toplu upsert (on_conflict=sku).
+    Boş hücre mevcut değeri EZMEZ (katalog/barkod haritasından korunur). Döner: (yazilan, hata)."""
+    kat = get_urun_katalog() or {}
+    bkm = get_barkod_map() or {}
+    rows = []
+    for s in (satirlar or []):
+        sku = (str(s.get("sku") or "")).strip()
+        if not sku:
+            continue
+        ad = (str(s.get("urun_adi") or "")).strip() or kat.get(sku, "")
+        bk = (str(s.get("barkod") or "")).strip() or bkm.get(sku, "")
+        rows.append({"sku": sku, "urun_adi": ad, "barkod": bk})
+    if not rows:
+        return 0, "Geçerli satır yok."
+    try:
+        _get_client().table("urunler").upsert(rows, on_conflict="sku").execute()
+        for f in (get_barkod_map, get_urun_katalog):
+            try:
+                f.clear()
+            except Exception:
+                pass
+        return len(rows), ""
+    except Exception as e:
+        return 0, f"{type(e).__name__}: {str(e)[:160]}"
+
+
 def barkod_toplu_yukle(eslesme):
     """{sku: barkod} sözlüğünü urunler tablosuna toplu yazar (upsert on_conflict=sku).
     Döner: (yazilan, hata)."""
