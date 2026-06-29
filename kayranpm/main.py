@@ -1285,6 +1285,21 @@ def run():
                             st.rerun()
                         except Exception as _e:
                             st.error(f"Kaydedilemedi: {_e}")
+
+                # ── Yanlış girilen stok kartını sil ──
+                st.markdown("<div style='height:1px;background:rgba(255,255,255,0.06);margin:12px 0 8px'></div>",
+                            unsafe_allow_html=True)
+                _sil_onay = st.checkbox(f"⚠️ '{_sec_sku}' stok kartını kalıcı olarak sil", key="urun_sil_onay")
+                if st.button("🗑️ Stok Kartını Sil", key="urun_sil_btn",
+                             disabled=not _sil_onay, use_container_width=True):
+                    from .database import sil_urun as _sil_urun
+                    try:
+                        _sil_urun(_sec_sku)
+                        st.cache_data.clear()
+                        st.success(f"🗑️ {_sec_sku} stok kartı silindi.")
+                        st.rerun()
+                    except Exception as _e:
+                        st.error(f"Silinemedi: {_e}")
     
     
     
