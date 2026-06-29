@@ -2226,6 +2226,22 @@ def main():
     # Üst yatay modül navigasyonu (modüller arası hızlı geçiş)
     ust_navigasyon()
 
+    # Tarayıcı sekme başlığı = aktif modül (yeni sekmede hangi bölümde olduğun görünsün)
+    _sekme_basliklari = {
+        "anasayfa": "Ana Sayfa", "arama": "Arama", "yonetim": "Yönetim P&L",
+        "kayranacc": "Muhasebe", "ithalat": "İthalat", "kayranpm": "Ürün Yönetimi",
+        "satis": "Satış", "teknikservis": "Teknik Servis",
+        "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir",
+    }
+    try:
+        import streamlit.components.v1 as _comp
+        import json as _json
+        _tb = _sekme_basliklari.get(aktif, "Workspace")
+        _comp.html(f"<script>window.parent.document.title={_json.dumps(_tb + ' | KAYRAN')};</script>",
+                   height=0)
+    except Exception:
+        pass
+
     # Sayfa dispatch
     try:
         if aktif == "anasayfa":
