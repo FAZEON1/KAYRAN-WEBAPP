@@ -29,16 +29,16 @@ ARAYUZ_ETIKET = {"teknik": "🔧 Teknik Servis", "iade": "↩️ İade"}
 DURUMLAR = [
     "mal kabül", "teknisyende", "tamir edildi", "NTF", "ürün değişimi",
     "sorunsuz", "iade alındı", "gönderildi", "hurda",
-    "satışa hazır", "satıldı",
+    "satışa hazır", "satıldı", "iptal",
 ]
 # Tamamlanmış (aktif listeden çıkan) durumlar
-BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı"}
+BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı", "iptal"}
 
 DURUM_RENK = {
     "mal kabül": "#38BDF8", "teknisyende": "#A78BFA", "tamir edildi": "#34D399",
     "NTF": "#94A3B8", "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
     "iade alındı": "#F472B6", "gönderildi": "#22D3EE", "hurda": "#F87171",
-    "satışa hazır": "#A3E635", "satıldı": "#10B981",
+    "satışa hazır": "#A3E635", "satıldı": "#10B981", "iptal": "#FB7185",
 }
 
 DEPOLAR = ["teknik servis", "iade", "outlet", "ikinci el", "hurda", "merkez"]
@@ -55,7 +55,8 @@ def get_client() -> Client:
     # service_role_key varsa onu kullan (RLS aşılır, kayranacc ile tutarlı); yoksa anon key.
     # Streamlit sunucu tarafında çalışır → bu anahtar tarayıcıya gönderilmez.
     key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    from shared.audit import wrap_client
+    return wrap_client(create_client(url, key), "Teknik Servis")
 
 
 def _cache_temizle():
@@ -269,6 +270,19 @@ def kayit_guncelle(kayit_id, alanlar):
         return True
     except Exception:
         return False
+
+
+def sil_kayit(kayit_id):
+    """Teknik servis kaydını ve tüm durum geçmişini KALICI siler.
+    Hatalı / mükerrer kayıtları temizlemek için. Döner: (ok, hata)."""
+    try:
+        sb = get_client()
+        sb.table("ts_gecmis").delete().eq("kayit_id", kayit_id).execute()
+        sb.table("ts_kayitlar").delete().eq("id", kayit_id).execute()
+        _cache_temizle()
+        return True, ""
+    except Exception as e:
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
 @st.cache_data(ttl=30, show_spinner=False)

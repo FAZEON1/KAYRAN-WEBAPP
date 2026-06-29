@@ -11,7 +11,7 @@ from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
     DEPOLAR, FIRMA_ONERILER,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
-    kayit_guncelle, urun_getir, is_gunu_farki, sla_renk, ithalat_model_listesi,
+    kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
 )
 
@@ -461,6 +461,21 @@ def _kontrol_paneli(kayit):
                 st.rerun()
             else:
                 st.error("Transfer başarısız.")
+
+    with st.expander("🗑️ Hatalı / Mükerrer Kaydı Sil", expanded=False):
+        st.caption("Yanlışlıkla oluşmuş ya da mükerrer kayıtları kalıcı siler. Geri alınamaz; "
+                   "durum geçmişi de silinir. Gerçekten iptal edilen (ama kayıtta kalması gereken) "
+                   "servisler için bunun yerine yukarıdan durumu **iptal** yap.")
+        _sil_onay = st.checkbox(f"⚠️ '{_g(kayit, 'servis_form_no')}' kaydını kalıcı silmek istiyorum",
+                                key=f"ts_sil_onay_{kid}")
+        if st.button("🗑️ Kaydı Kalıcı Sil", disabled=not _sil_onay,
+                     use_container_width=True, key=f"ts_sil_btn_{kid}"):
+            ok, hata = sil_kayit(kid)
+            if ok:
+                st.success("🗑️ Kayıt silindi.")
+                st.rerun()
+            else:
+                st.error(f"Silinemedi: {hata}")
 
 
 # ── Depolar ──────────────────────────────────────────────────────────
