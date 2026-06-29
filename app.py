@@ -1023,17 +1023,26 @@ def ust_navigasyon():
         color:#FFFFFF !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
     .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#4338CA,#6D28D9) !important;}
 
-    /* Üstteki fazla boşluğu kıs: Streamlit başlık barını incelt + içerik üst boşluğu az */
-    [data-testid="stHeader"]{height:0 !important;min-height:0 !important;background:transparent !important;}
-    .block-container,[data-testid="stMainBlockContainer"]{padding-top:0.6rem !important;}
+    /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
+    /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */
+    header[data-testid="stHeader"]{display:none !important;height:0 !important;}
+    [data-testid="stToolbar"]{display:none !important;}
+    [data-testid="stDecoration"]{display:none !important;}
+    /* Ana içerik üst boşluğu ~0'a (yüksek spesifiklik ile Streamlit'in kendi padding'ini ez) */
+    .stApp [data-testid="stMainBlockContainer"],
+    .stApp .block-container,
+    section.main > div.block-container,
+    [data-testid="stAppViewBlockContainer"]{padding-top:0.4rem !important;}
     /* Üst navigasyon scroll'da yukarıda SABİT kalsın (gizlenmesin) */
     .st-key-ustnav{position:sticky !important;top:0 !important;z-index:99 !important;
-        background:#0F172A !important;padding:8px 0 6px !important;
+        background:#0F172A !important;padding:6px 0 6px !important;
         box-shadow:0 8px 16px -10px rgba(0,0,0,0.7) !important;}
-    /* Sol sidebar içeriğini yukarı çek + kompaktlaştır */
-    [data-testid="stSidebarUserContent"]{padding-top:1rem !important;}
-    section[data-testid="stSidebar"] .block-container{padding-top:1rem !important;}
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.55rem !important;}
+    /* Sol sidebar: üstteki collapse-header boşluğunu kaldır + içeriği yukarı çek */
+    [data-testid="stSidebarHeader"]{padding-top:0.4rem !important;padding-bottom:0 !important;
+        min-height:0 !important;height:auto !important;}
+    [data-testid="stSidebarUserContent"]{padding-top:0.4rem !important;}
+    section[data-testid="stSidebar"] .block-container{padding-top:0.6rem !important;}
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem !important;}
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
