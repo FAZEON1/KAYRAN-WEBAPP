@@ -118,6 +118,90 @@ def _parse_mikro_satislar(dosya):
     return satirlar, ozet, None
 
 
+def _siparis_excel_oku(dosya):
+    """Sipariş Excel'inin tüm sayfalarını okur, her birinin türünü algılar.
+    Döner: ([{sayfa, tur, df}], hata). tur ∈ {VATAN, İTOPYA, ?}."""
+    try:
+        xls = pd.ExcelFile(dosya)
+    except Exception as e:
+        return None, f"Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
+    sonuc = []
+    for sn in xls.sheet_names:
+        try:
+            df = pd.read_excel(xls, sheet_name=sn)
+            df.columns = [str(c).strip() for c in df.columns]
+        except Exception:
+            continue
+        kols = set(df.columns)
+        if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(kols):
+            tur = "VATAN"
+        elif {"STOKKODU", "SONALFIYAT", "MIKTAR"}.issubset(kols):
+            tur = "İTOPYA"
+        else:
+            tur = "?"
+        sonuc.append({"sayfa": sn, "tur": tur, "df": df})
+    return sonuc, None
+
+
+def _vatan_satirlar(df, kanal, urun_map):
+    """VATAN şablonu → satış kalemleri. Sipariş no + tarih Excel'den gelir."""
+    out = []
+    for _, r in df.iterrows():
+        sku = str(r.get("Stok Kodu") or "").strip()
+        if not sku or sku.lower() == "nan":
+            continue
+        try:
+            adet = int(float(r.get("Miktar") or 0))
+        except Exception:
+            adet = 0
+        if adet <= 0:
+            continue
+        try:
+            bf = float(r.get("Birim Fiyat") or 0)
+        except Exception:
+            bf = 0.0
+        d = _to_date(r.get("Sipariş Tarih"))
+        sno = str(r.get("Sipariş Numarası") or "").strip()
+        if sno.endswith(".0"):
+            sno = sno[:-2]
+        out.append({
+            "tarih": d.isoformat() if d else "",
+            "kanal": kanal, "sku": sku,
+            "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
+            "adet": adet, "birim_satis": bf,
+            "siparis_no": sno, "notlar": "",
+        })
+    return out
+
+
+def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
+    """İTOPYA şablonu → satış kalemleri. Her depo satırı AYRI kalem; tarih+sipariş no dışarıdan."""
+    out = []
+    for _, r in df.iterrows():
+        sku = str(r.get("STOKKODU") or "").strip()
+        if not sku or sku.lower() == "nan":
+            continue
+        try:
+            adet = int(float(r.get("MIKTAR") or 0))
+        except Exception:
+            adet = 0
+        if adet <= 0:
+            continue
+        try:
+            bf = float(r.get("SONALFIYAT") or 0)
+        except Exception:
+            bf = 0.0
+        depo = str(r.get("DEPOTANIM") or "").strip()
+        out.append({
+            "tarih": tarih_iso, "kanal": kanal, "sku": sku,
+            "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
+            "adet": adet, "birim_satis": bf,
+            "siparis_no": siparis_no,
+            "notlar": (f"Depo: {depo}" if depo and depo.lower() != "nan" else ""),
+        })
+    return out
+
+
 def run():
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
 
@@ -138,6 +222,12 @@ def run():
     st.markdown("## 💰 Satış & Kârlılık")
     st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
+    _ice_mesaj = st.session_state.pop("_ice_mesaj", None)
+    if _ice_mesaj:
+        st.success(_ice_mesaj)
+        st.caption("Kâr/P&L sekmesinde tarih aralığını **01.01.2025 – 31.12.2025** seçerek "
+                   "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
+
     sekme1, sekme2, sekme3, sekme4 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L", "📥 İçe Aktar"])
     _kanallar = get_kanallar()
 
@@ -153,6 +243,78 @@ def run():
         if not tum_sku:
             st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
         else:
+            # ── Excel ile toplu sipariş girişi (VATAN / İTOPYA) ──
+            with st.expander("📄 Excel ile Toplu Sipariş Girişi (VATAN / İTOPYA)"):
+                st.caption("VATAN veya İTOPYA sipariş şablonunu yükle. Maliyet paçaldan otomatik gelir, "
+                           "aynı sipariş no tekrar yüklenirse atlanır.")
+                _sg_dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)",
+                                             type=["xlsx", "xls"], key="sg_excel")
+                if _sg_dosya is not None:
+                    _sayfalar, _sg_hata = _siparis_excel_oku(_sg_dosya)
+                    if _sg_hata:
+                        st.error(_sg_hata)
+                    elif not _sayfalar:
+                        st.warning("Dosyada sayfa bulunamadı.")
+                    else:
+                        _tum_satir = []
+                        for _sf in _sayfalar:
+                            _tur, _df, _ad = _sf["tur"], _sf["df"], _sf["sayfa"]
+                            if _tur == "?":
+                                st.caption(f"⚠️ **{_ad}**: tanınmayan format, atlandı.")
+                                continue
+                            st.markdown(f"**{_ad}** — {_tur} formatı")
+                            _vk = 0
+                            for _ik, _kn in enumerate(_kanallar):
+                                _u = _kn.upper()
+                                if _tur == "VATAN" and "VATAN" in _u:
+                                    _vk = _ik
+                                    break
+                                if _tur == "İTOPYA" and ("EERA" in _u or "ITOPYA" in _u or "İTOPYA" in _u):
+                                    _vk = _ik
+                                    break
+                            _kanal = st.selectbox("Kanal (cari)", _kanallar,
+                                                  index=_vk if _kanallar else 0, key=f"sg_kanal_{_ad}")
+                            if _tur == "İTOPYA":
+                                _c1, _c2 = st.columns(2)
+                                _itarih = _c1.date_input("Sipariş Tarihi", value=date.today(),
+                                                         key=f"sg_tarih_{_ad}")
+                                _isno = _c2.text_input("Sipariş No", key=f"sg_sno_{_ad}",
+                                                       placeholder="örn. ITOPYA-2026-06-29").strip()
+                                _sat = _itopya_satirlar(_df, _kanal, _itarih.isoformat(), _isno, urun_map)
+                                if not _isno:
+                                    st.caption("⚠️ Bu sayfa için Sipariş No girilmeli (boşsa kaydedilmez).")
+                            else:
+                                _sat = _vatan_satirlar(_df, _kanal, urun_map)
+                            _adet = sum(s["adet"] for s in _sat)
+                            _ciro = sum(s["adet"] * s["birim_satis"] for s in _sat)
+                            st.caption(f"{len(_sat)} kalem • {_adet:,} adet • {_usd(_ciro)}")
+                            _tum_satir.extend(_sat)
+
+                        _gecerli = [s for s in _tum_satir if s.get("siparis_no") and s.get("tarih")]
+                        _eksik = len(_tum_satir) - len(_gecerli)
+                        if _eksik:
+                            st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                        if st.button("📥 Siparişleri Kaydet", type="primary",
+                                     use_container_width=True, key="sg_kaydet",
+                                     disabled=not _gecerli):
+                            _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=False)
+                            if _sonuc["hata"] and _sonuc["eklendi"] == 0:
+                                st.error(f"❌ {_sonuc['hata']}")
+                            else:
+                                _m = f"✅ {_sonuc['eklendi']:,} kalem kaydedildi."
+                                if _sonuc["atlandi"]:
+                                    _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
+                                if _sonuc["maliyetsiz"]:
+                                    _m += f" {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok (maliyet 0)."
+                                if _sonuc.get("hatali"):
+                                    _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
+                                st.session_state["_ice_mesaj"] = _m
+                                try:
+                                    st.cache_data.clear()
+                                except Exception:
+                                    pass
+                                st.rerun()
+
             # ── Sipariş başlığı ──
             with st.container(border=True):
                 st.markdown("##### 🧾 Sipariş Bilgileri")
@@ -484,9 +646,12 @@ def run():
                             _msg += f" {_sonuc['atlandi']:,} satır atlandı (zaten kayıtlı)."
                         if _sonuc["maliyetsiz"]:
                             _msg += f" {_sonuc['maliyetsiz']:,} satırda paçal maliyet yok (maliyet 0)."
-                        st.success(_msg)
                         if _sonuc.get("hatali"):
-                            st.warning(f"⚠️ {_sonuc['hatali']:,} satır yazılamadı. "
-                                       f"Örnek hata: {_sonuc.get('hata')}")
-                        st.caption("Kâr/P&L sekmesinde **tarih aralığını 01.01.2025 – 31.12.2025** "
-                                   "seçerek tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
+                            _msg += f" ⚠️ {_sonuc['hatali']:,} satır yazılamadı ({_sonuc.get('hata')})."
+                        # Tüm önbelleği temizle + sayfayı yenile ki P&L/Satışlar taze veriyi göstersin
+                        st.session_state["_ice_mesaj"] = _msg
+                        try:
+                            st.cache_data.clear()
+                        except Exception:
+                            pass
+                        st.rerun()
