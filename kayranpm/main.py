@@ -500,7 +500,7 @@ def run():
 
         st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#90A4AE;font-size:11px;font-weight:600;'
-                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 4px">🗂️ Stok Kartı</div>',
+                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 4px;margin-bottom:10px">🗂️ Stok Kartı</div>',
                     unsafe_allow_html=True)
         _skl = get_tum_sku_listesi() or []
         _opts = [r["sku"] for r in _skl]
