@@ -170,7 +170,17 @@ def goster(sku):
     # ── Ortak hesaplar ──
     # Canlı (perpetual) stok: başlangıç snapshot + teslim alınan ithalat − satışlar
     _cs = canli_stok(sku)
-    toplam_stok = _cs["canli"] if _cs.get("var") else sum(_f(r.get("stok_miktari")) for r in firma_stok)
+    # G5F bizim depo (kullanıcının yüklediği fiziksel depo sayımı) — depo kırılımı
+    _depo_kirilim = urun.get("depo_kirilim") if isinstance(urun.get("depo_kirilim"), dict) else {}
+    _g5f_toplam = sum(_f(v) for v in _depo_kirilim.values())
+    _g5f_satilabilir = _f(urun.get("bizim_stok"))
+    _firma_toplam = sum(_f(r.get("stok_miktari")) for r in firma_stok)
+    if _cs.get("var"):
+        toplam_stok = _cs["canli"]
+    elif _g5f_toplam > 0:
+        toplam_stok = _g5f_toplam
+    else:
+        toplam_stok = _firma_toplam
     yolda_adet = sum(_f(r.get("yoldaki_miktar")) for r in yolda_rows)
     haftalik_statik = sum(_f(r.get("haftalik_satis")) for r in firma_stok)
     liste_fiyat = _f(urun.get("satis_fiyati"))
@@ -238,8 +248,19 @@ def goster(sku):
                 f'&nbsp;=&nbsp; <b style="color:#34D399">canlı stok {_cs["canli"]:,.0f}</b></div>',
                 unsafe_allow_html=True)
         else:
-            st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
-                       "Şimdilik gösterilen değer ham snapshot.")
+            if _g5f_toplam > 0 or _depo_kirilim:
+                _kir = " · ".join(f"{d}: <b style='color:#E2E8F0'>{int(_f(m)):,}</b>"
+                                  for d, m in sorted(_depo_kirilim.items()) if _f(m) != 0)
+                st.markdown(
+                    f'<div style="background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.2);'
+                    f'border-radius:10px;padding:9px 14px;margin:2px 0 12px;font-size:12.5px;color:#94A3B8">'
+                    f'🏬 G5F depo sayımı — toplam <b style="color:#E2E8F0">{_g5f_toplam:,.0f}</b> '
+                    f'&nbsp;·&nbsp; satılabilir (Merkez + Happy Life) <b style="color:#34D399">{_g5f_satilabilir:,.0f}</b>'
+                    f'<br><span style="font-size:11.5px;color:#64748B">{_kir}</span></div>',
+                    unsafe_allow_html=True)
+            else:
+                st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
+                           "Şimdilik gösterilen değer ham snapshot.")
         # Yolda detay
         if yolda_adet > 0:
             _yd = []
