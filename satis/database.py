@@ -173,50 +173,96 @@ def get_mevcut_siparis_nolar():
         return set()
 
 
-def ice_aktar_satislar(satirlar, atla_mevcut=True, ilerleme=None):
+def sil_siparisler(siparis_nolar):
+    """Verilen sipariş numaralarına ait TÜM satış satırlarını siler (toplu)."""
+    nolar = [s for s in {str(x).strip() for x in (siparis_nolar or [])} if s]
+    if not nolar:
+        return 0, None
+    try:
+        cli = _get_client()
+        B = 100
+        for i in range(0, len(nolar), B):
+            cli.table("satislar").delete().in_("siparis_no", nolar[i:i + B]).execute()
+        _temizle()
+        return len(nolar), None
+    except Exception as e:
+        return 0, f"{type(e).__name__}: {str(e)[:160]}"
+
+
+def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=None):
     """Geçmiş satışları toplu içe aktarır (Excel/Mikro dökümünden).
 
     satirlar: [{tarih, kanal, sku, urun_adi, adet, birim_satis, siparis_no, notlar}, ...]
     Maliyet (birim_maliyet) güncel PAÇAL haritasından otomatik doldurulur.
-    atla_mevcut=True: zaten kayıtlı sipariş numaralarını atlar (tekrar yüklemede mükerrer olmaz).
-    Döner: {eklendi, atlandi, maliyetsiz, hata}.
+    temizle_once=True : dosyadaki fatura no'ları önce silinir (kısmi/bozuk kayıtları temizler), sonra eklenir.
+    atla_mevcut=True  : (temizle_once kapalıyken) zaten kayıtlı fatura no'larını atlar.
+    Her grup ayrı yazılır; biri patlarsa satır satır denenir, gerçekte eklenen sayılır.
+    Döner: {eklendi, atlandi, maliyetsiz, silinen_fatura, hatali, hata}.
     """
     pacal = get_pacal_map()
-    mevcut = get_mevcut_siparis_nolar() if atla_mevcut else set()
     zaman = datetime.now(TR_TZ).isoformat(timespec="seconds")
+
+    dosya_faturalar = {str(s.get("siparis_no") or "").strip()
+                       for s in (satirlar or []) if str(s.get("siparis_no") or "").strip()}
+
+    silinen = 0
+    if temizle_once and dosya_faturalar:
+        silinen, sil_hata = sil_siparisler(dosya_faturalar)
+        if sil_hata:
+            return {"eklendi": 0, "atlandi": 0, "maliyetsiz": 0, "silinen_fatura": 0,
+                    "hatali": 0, "hata": "Silme hatası: " + sil_hata}
+
+    mevcut = get_mevcut_siparis_nolar() if (atla_mevcut and not temizle_once) else set()
+
     rows, atlandi, maliyetsiz = [], 0, 0
     for s in (satirlar or []):
         sno = str(s.get("siparis_no") or "").strip()
-        if atla_mevcut and sno and sno in mevcut:
+        if atla_mevcut and not temizle_once and sno and sno in mevcut:
             atlandi += 1
             continue
         sku = str(s.get("sku") or "").strip()
         if not sku or _i(s.get("adet")) <= 0:
             continue
+        tarih = str(s.get("tarih") or "")[:10]
+        if not tarih:           # boş tarih insert'i patlatır → atla
+            continue
         bm = _f(pacal.get(sku, 0))
         if bm <= 0:
             maliyetsiz += 1
         rows.append({
-            "tarih": str(s.get("tarih"))[:10], "kanal": s.get("kanal") or "",
+            "tarih": tarih, "kanal": s.get("kanal") or "",
             "siparis_no": sno, "sku": sku, "urun_adi": s.get("urun_adi") or "",
             "adet": _i(s.get("adet")), "birim_satis": _f(s.get("birim_satis")),
             "birim_maliyet": bm, "birim_firma_destek": 0, "birim_ek_destek": 0,
             "kampanya_id": None, "notlar": s.get("notlar") or "", "olusturma_tarihi": zaman,
         })
     if not rows:
-        return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0, "hata": None}
-    try:
-        cli = _get_client()
-        B = 500
-        for i in range(0, len(rows), B):
-            cli.table("satislar").insert(rows[i:i + B]).execute()
-            if ilerleme:
-                ilerleme(min(i + B, len(rows)), len(rows))
-        _temizle()
-        return {"eklendi": len(rows), "atlandi": atlandi, "maliyetsiz": maliyetsiz, "hata": None}
-    except Exception as e:
-        return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
-                "hata": f"{type(e).__name__}: {str(e)[:160]}"}
+        return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0,
+                "silinen_fatura": silinen, "hatali": 0, "hata": None}
+
+    cli = _get_client()
+    B = 200
+    eklendi, hatali, ilk_hata = 0, 0, None
+    for i in range(0, len(rows), B):
+        chunk = rows[i:i + B]
+        try:
+            cli.table("satislar").insert(chunk).execute()
+            eklendi += len(chunk)
+        except Exception:
+            # Grup patladı → satır satır dene, sorunlu satırı izole et
+            for row in chunk:
+                try:
+                    cli.table("satislar").insert(row).execute()
+                    eklendi += 1
+                except Exception as e2:
+                    hatali += 1
+                    if ilk_hata is None:
+                        ilk_hata = f"{type(e2).__name__}: {str(e2)[:120]}"
+        if ilerleme:
+            ilerleme(min(i + B, len(rows)), len(rows))
+    _temizle()
+    return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
+            "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}
 
 
 def guncelle_satis(satis_id, alanlar):

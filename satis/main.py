@@ -451,8 +451,15 @@ def run():
                     st.dataframe(pd.DataFrame(_satirlar[:8]), hide_index=True,
                                  use_container_width=True)
 
-                _atla = st.checkbox("Zaten kayıtlı faturaları atla (mükerrer önleme)",
-                                    value=True, key="satis_ice_atla")
+                _mod = st.radio(
+                    "Yükleme modu",
+                    ["Bu dosyadaki faturaları sıfırla ve yeniden yükle (önerilen)",
+                     "Mevcut kayıtların üzerine ekle (zaten kayıtlı faturaları atla)"],
+                    key="satis_ice_mod")
+                _temizle_once = _mod.startswith("Bu dosyadaki")
+                if _temizle_once and _cakisan:
+                    st.caption(f"↻ Bu dosyadaki {len(_cakisan)} fatura önce silinip yeniden yazılacak "
+                               "(eksik/kısmi kalan kayıtlar temizlenir).")
                 if st.button("📥 İçe Aktar ve Kaydet", type="primary",
                              use_container_width=True, key="satis_ice_btn"):
                     _pb = st.progress(0.0, text="Kaydediliyor…")
@@ -464,15 +471,22 @@ def run():
                         except Exception:
                             pass
 
-                    _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=_atla, ilerleme=_ilerle)
+                    _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=True,
+                                                temizle_once=_temizle_once, ilerleme=_ilerle)
                     _pb.empty()
-                    if _sonuc["hata"]:
+                    if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                         st.error(f"❌ {_sonuc['hata']}")
                     else:
                         _msg = f"✅ {_sonuc['eklendi']:,} satış kaydedildi."
+                        if _sonuc.get("silinen_fatura"):
+                            _msg += f" {_sonuc['silinen_fatura']:,} eski fatura temizlendi."
                         if _sonuc["atlandi"]:
                             _msg += f" {_sonuc['atlandi']:,} satır atlandı (zaten kayıtlı)."
                         if _sonuc["maliyetsiz"]:
                             _msg += f" {_sonuc['maliyetsiz']:,} satırda paçal maliyet yok (maliyet 0)."
                         st.success(_msg)
-                        st.caption("Satışlar ve Kâr/P&L sekmelerinde görebilirsin.")
+                        if _sonuc.get("hatali"):
+                            st.warning(f"⚠️ {_sonuc['hatali']:,} satır yazılamadı. "
+                                       f"Örnek hata: {_sonuc.get('hata')}")
+                        st.caption("Kâr/P&L sekmesinde **tarih aralığını 01.01.2025 – 31.12.2025** "
+                                   "seçerek tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
