@@ -1022,6 +1022,18 @@ def ust_navigasyon():
         background:linear-gradient(135deg,#4F46E5,#7C3AED) !important;border-color:transparent !important;
         color:#FFFFFF !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
     .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#4338CA,#6D28D9) !important;}
+
+    /* Üstteki fazla boşluğu kıs: Streamlit başlık barını incelt + içerik üst boşluğu az */
+    [data-testid="stHeader"]{height:0 !important;min-height:0 !important;background:transparent !important;}
+    .block-container,[data-testid="stMainBlockContainer"]{padding-top:0.6rem !important;}
+    /* Üst navigasyon scroll'da yukarıda SABİT kalsın (gizlenmesin) */
+    .st-key-ustnav{position:sticky !important;top:0 !important;z-index:99 !important;
+        background:#0F172A !important;padding:8px 0 6px !important;
+        box-shadow:0 8px 16px -10px rgba(0,0,0,0.7) !important;}
+    /* Sol sidebar içeriğini yukarı çek + kompaktlaştır */
+    [data-testid="stSidebarUserContent"]{padding-top:1rem !important;}
+    section[data-testid="stSidebar"] .block-container{padding-top:1rem !important;}
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.55rem !important;}
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
