@@ -515,17 +515,35 @@ def excel_yukle_g5f_depolar(dosya_yolu):
             if "URUN_ADI" in kolon_map and not adlar.get(sku):
                 adlar[sku] = safe_str(row.get(kolon_map["URUN_ADI"], ""))
 
-        basarili, toplam_adet = 0, 0
+        # Mevcut ürünleri çek → SKU'yu büyük/küçük harf farkı GÖZETMEDEN eşleştir.
+        # (Excel 'Faze1' → normalize 'FAZE1'; sistemde 'Faze1' kayıtlıysa yine eşleşsin,
+        #  yeni mükerrer kayıt oluşmasın ve mevcut ürünün stoğu güncellensin.)
+        mevcut_sku_map = {}   # {NORMALIZE: gercek_sku}
+        try:
+            _mr = get_client().table("urunler").select("sku").execute().data or []
+            for _r in _mr:
+                _gs = str(_r.get("sku") or "").strip()
+                if _gs:
+                    mevcut_sku_map[normalize_sku(_gs)] = _gs
+        except Exception:
+            pass
+
+        basarili, toplam_adet, eslesen, yeni = 0, 0, 0, 0
         for sku, dd in kirilim.items():
+            gercek_sku = mevcut_sku_map.get(sku, sku)   # mevcut varsa onun yazımıyla güncelle
+            if sku in mevcut_sku_map:
+                eslesen += 1
+            else:
+                yeni += 1
             satilabilir = sum(m for d, m in dd.items()
                               if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
-            upsert_g5f_stok(sku, adlar.get(sku, ""), satilabilir, dd)
+            upsert_g5f_stok(gercek_sku, adlar.get(sku, ""), satilabilir, dd)
             basarili += 1
             toplam_adet += sum(dd.values())
 
         depo_liste = ", ".join(sorted(depolar_set))
-        return True, (f"✅ {basarili} ürün yüklendi · {len(depolar_set)} depo "
-                      f"({depo_liste}) · toplam {toplam_adet:,} adet. "
-                      f"Sipariş önerisi 'bizim stok' = Merkez + Happy Life.")
+        return True, (f"✅ {basarili} ürün yüklendi · {eslesen} mevcut güncellendi, {yeni} yeni eklendi · "
+                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {toplam_adet:,} adet. "
+                      f"'bizim stok' = Merkez + Happy Life.")
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
