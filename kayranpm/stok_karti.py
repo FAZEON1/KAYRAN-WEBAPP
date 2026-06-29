@@ -322,7 +322,9 @@ def goster(sku):
             ])
             st.markdown("**Kanal / Firma Kırılımı**")
             st.dataframe(pd.DataFrame([{
-                "Kanal/Firma": kn, "Adet": v["adet"], "Ciro": _usd(v["ciro"]), "Kâr": _usd(v["kar"]),
+                "Kanal/Firma": kn, "Adet": v["adet"],
+                "Ort. Birim": _usd(v["ciro"] / v["adet"]) if v["adet"] else _usd(0),
+                "Ciro": _usd(v["ciro"]), "Kâr": _usd(v["kar"]),
             } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])]),
                 hide_index=True, use_container_width=True)
             st.markdown("**Satış Hareketleri**")
