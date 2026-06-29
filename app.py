@@ -984,6 +984,44 @@ def giris_ekrani():
                 st.error(f"Giriş sistemi hatası: {e}")
 
 
+def ust_navigasyon():
+    """Modüller arası geçiş — sayfanın üstünde yatay şerit (yetkiye göre)."""
+    aktif = st.session_state.get("aktif_uygulama", "anasayfa")
+    ak = st.session_state.get("aktif_kullanici", "")
+    yet = kullanici_yetkileri(ak)
+    moduller = [("🏠 Ana Sayfa", "anasayfa"), ("🔍 Arama", "arama")]
+    if ak.strip().lower() == "ibrahim":
+        moduller.append(("📊 Yönetim", "yonetim"))
+    if yet.get("kayranacc"):
+        moduller.append(("💳 Muhasebe", "kayranacc"))
+    if yet.get("ithalat"):
+        moduller.append(("🚢 İthalat", "ithalat"))
+    if yet.get("kayranpm"):
+        moduller.append(("📦 Ürün Yön.", "kayranpm"))
+    if yet.get("satis"):
+        moduller.append(("💰 Satış", "satis"))
+    if yet.get("teknikservis"):
+        moduller.append(("🛠️ Teknik Servis", "teknikservis"))
+    if yet.get("hesap_makinesi"):
+        moduller.append(("🧮 Hesap Mak.", "hesap_makinesi"))
+    # Tek satırda çok sıkışmasın: 6'dan fazlaysa iki satıra böl
+    if len(moduller) > 6:
+        yarim = (len(moduller) + 1) // 2
+        gruplar = [moduller[:yarim], moduller[yarim:]]
+    else:
+        gruplar = [moduller]
+    for grup in gruplar:
+        cols = st.columns(len(grup))
+        for c, (ad, mod) in zip(cols, grup):
+            if c.button(ad, key=f"top_{mod}",
+                        type="primary" if aktif == mod else "secondary",
+                        use_container_width=True):
+                st.session_state.aktif_uygulama = mod
+                st.rerun()
+    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.08);margin:6px 0 16px"></div>',
+                unsafe_allow_html=True)
+
+
 def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
@@ -1169,142 +1207,6 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        # NAVIGASYON grubu
-        st.markdown(
-            '<div style="font-size:10px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px">NAViGASYON</div>',
-            unsafe_allow_html=True
-        )
-
-        if st.button(
-            "🏠 Ana Sayfa",
-            key="nav_anasayfa",
-            type="primary" if aktif_sayfa == "anasayfa" else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.aktif_uygulama = "anasayfa"
-            st.rerun()
-
-        if st.button(
-            "🔍 Arama",
-            key="nav_arama",
-            type="primary" if aktif_sayfa == "arama" else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.aktif_uygulama = "arama"
-            st.rerun()
-
-        # Yönetim Panosu (P&L) — finansal özet, sadece İbrahim
-        if aktif_kullanici.strip().lower() == "ibrahim":
-            if st.button(
-                "📊 Yönetim P&L",
-                key="nav_yonetim",
-                type="primary" if aktif_sayfa == "yonetim" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "yonetim"
-                st.rerun()
-
-        if yetkiler["kayranacc"]:
-            if st.button(
-                "💳 Muhasebe & Finans",
-                key="nav_kayranacc",
-                type="primary" if aktif_sayfa == "kayranacc" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "kayranacc"
-                st.rerun()
-        else:
-            if st.button(
-                "💳 Muhasebe & Finans",
-                key="nav_kayranacc_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ Muhasebe & Finans için erişim yetkiniz yok.", icon="🔒")
-
-        # Ithalat — herkese gorunur, sadece yetkili (ibrahim) girebilir
-        if yetkiler["ithalat"]:
-            if st.button(
-                "🚢 Ithalat",
-                key="nav_ithalat",
-                type="primary" if aktif_sayfa == "ithalat" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "ithalat"
-                st.rerun()
-        else:
-            if st.button(
-                "🚢 Ithalat",
-                key="nav_ithalat_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ İthalat için erişim yetkiniz yok.", icon="🔒")
-
-        if yetkiler["kayranpm"]:
-            if st.button(
-                "📦 Urun Yonetimi",
-                key="nav_kayranpm",
-                type="primary" if aktif_sayfa == "kayranpm" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "kayranpm"
-                st.rerun()
-        else:
-            if st.button(
-                "📦 Urun Yonetimi",
-                key="nav_kayranpm_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ Ürün Yönetimi için erişim yetkiniz yok.", icon="🔒")
-
-        if yetkiler["satis"]:
-            if st.button(
-                "💰 Satış",
-                key="nav_satis",
-                type="primary" if aktif_sayfa == "satis" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "satis"
-                st.rerun()
-        else:
-            if st.button(
-                "💰 Satış",
-                key="nav_satis_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ Satış için erişim yetkiniz yok.", icon="🔒")
-
-        # Teknik Servis
-        if yetkiler["teknikservis"]:
-            if st.button(
-                "🛠️ Teknik Servis",
-                key="nav_teknikservis",
-                type="primary" if aktif_sayfa == "teknikservis" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "teknikservis"
-                st.rerun()
-        else:
-            if st.button(
-                "🛠️ Teknik Servis",
-                key="nav_teknikservis_dn",
-                type="secondary",
-                use_container_width=True
-            ):
-                st.toast("⛔ Teknik Servis için erişim yetkiniz yok.", icon="🔒")
-
-        if yetkiler["hesap_makinesi"]:
-            if st.button(
-                "🧮 Hesap Makinesi",
-                key="nav_hesap_makinesi",
-                type="primary" if aktif_sayfa == "hesap_makinesi" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "hesap_makinesi"
-                st.rerun()
 
         st.markdown(
             '<div style="height:1px;background:rgba(255,255,255,0.06);margin:14px 0 14px"></div>',
@@ -2300,6 +2202,9 @@ def main():
         st.markdown(modern_input_stil(), unsafe_allow_html=True)
     except Exception:
         pass
+
+    # Üst yatay modül navigasyonu (modüller arası hızlı geçiş)
+    ust_navigasyon()
 
     # Sayfa dispatch
     try:
