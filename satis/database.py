@@ -165,10 +165,24 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
 
 
 def get_mevcut_siparis_nolar():
-    """satislar tablosundaki tüm benzersiz sipariş numaraları (mükerrer kontrolü için)."""
+    """satislar tablosundaki tüm benzersiz sipariş numaraları (mükerrer kontrolü için).
+    1000'erli sayfalarla TÜM kayıtlar taranır."""
     try:
-        rows = _rows(_get_client().table("satislar").select("siparis_no").execute())
-        return set(str(r.get("siparis_no") or "").strip() for r in rows if str(r.get("siparis_no") or "").strip())
+        cli = _get_client()
+        nolar, adim, bas = set(), 1000, 0
+        while True:
+            chunk = _rows(cli.table("satislar").select("siparis_no")
+                          .order("id", desc=True).range(bas, bas + adim - 1).execute())
+            if not chunk:
+                break
+            for r in chunk:
+                s = str(r.get("siparis_no") or "").strip()
+                if s:
+                    nolar.add(s)
+            if len(chunk) < adim:
+                break
+            bas += adim
+        return nolar
     except Exception:
         return set()
 
@@ -295,14 +309,27 @@ def sil_siparis(siparis_no):
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_satislar(baslangic=None, bitis=None):
-    """Tarih aralığına göre satışlar (yeni→eski). baslangic/bitis: 'YYYY-MM-DD' veya None."""
+    """Tarih aralığına göre satışlar (yeni→eski). baslangic/bitis: 'YYYY-MM-DD' veya None.
+    Supabase tek sorguda en fazla 1000 satır döndürür; bu yüzden 1000'erli sayfalarla
+    TÜM satırlar çekilir (binlerce geçmiş satış için şart)."""
     try:
-        q = _get_client().table("satislar").select("*")
-        if baslangic:
-            q = q.gte("tarih", str(baslangic)[:10])
-        if bitis:
-            q = q.lte("tarih", str(bitis)[:10])
-        return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
+        cli = _get_client()
+        tum, adim, bas = [], 1000, 0
+        while True:
+            q = cli.table("satislar").select("*")
+            if baslangic:
+                q = q.gte("tarih", str(baslangic)[:10])
+            if bitis:
+                q = q.lte("tarih", str(bitis)[:10])
+            q = q.order("tarih", desc=True).order("id", desc=True).range(bas, bas + adim - 1)
+            chunk = _rows(q.execute())
+            if not chunk:
+                break
+            tum.extend(chunk)
+            if len(chunk) < adim:
+                break
+            bas += adim
+        return tum
     except Exception:
         return []
 
