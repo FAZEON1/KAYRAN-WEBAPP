@@ -10,6 +10,7 @@ from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
     satir_kar, ozet_hesapla, TR_TZ,
+    ice_aktar_satislar, get_mevcut_siparis_nolar,
 )
 
 
@@ -27,6 +28,94 @@ def _kart(satirlar):
         f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">{l}</div>'
         f'<div style="font-size:17px;font-weight:800;color:{c};font-family:monospace">{v}</div></div>'
         for l, v, c in satirlar)
+
+
+def _to_date(v):
+    """Excel hücresinden tarih çıkar (seri numara veya tarih/metin)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    if isinstance(v, (int, float)):
+        try:
+            return (pd.Timestamp("1899-12-30") + pd.Timedelta(days=float(v))).date()
+        except Exception:
+            return None
+    try:
+        return pd.to_datetime(v, dayfirst=True).date()
+    except Exception:
+        return None
+
+
+def _parse_mikro_satislar(dosya):
+    """Mikro fatura dökümünü oku → (satirlar, ozet, hata).
+
+    Gerekli sütunlar: Fatura no, Tarih, Cari adı, Hesap kodu, Hesap ismi, Mik, Net Br.fy.
+    Toplam/footer satırları (Hesap kodu boş) otomatik elenir.
+    """
+    try:
+        df = pd.read_excel(dosya, sheet_name=0)
+    except Exception as e:
+        return [], {}, f"Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
+    df.columns = [str(c).strip() for c in df.columns]
+    gerekli = ["Fatura no", "Tarih", "Cari adı", "Hesap kodu", "Hesap ismi", "Mik", "Net Br.fy."]
+    eksik = [c for c in gerekli if c not in df.columns]
+    if eksik:
+        return [], {}, "Beklenen sütunlar bulunamadı: " + ", ".join(eksik)
+    has_belge = "Belge No" in df.columns
+    has_carik = "Cari kodu" in df.columns
+
+    satirlar = []
+    tarih_min = tarih_max = None
+    toplam_ciro = 0.0
+    fatura_set = set()
+    for _, r in df.iterrows():
+        hk = str(r.get("Hesap kodu") or "").strip()
+        if not hk or hk.lower() == "nan":
+            continue  # toplam/footer satırı
+        try:
+            adet = int(float(r.get("Mik") or 0))
+        except Exception:
+            adet = 0
+        if adet <= 0:
+            continue
+        try:
+            bf = float(r.get("Net Br.fy.") or 0)
+        except Exception:
+            bf = 0.0
+        d = _to_date(r.get("Tarih"))
+        sno = str(r.get("Fatura no") or "").strip()
+        cari = str(r.get("Cari adı") or "").strip()
+        belge = str(r.get("Belge No") or "").strip() if has_belge else ""
+        carik = str(r.get("Cari kodu") or "").strip() if has_carik else ""
+        not_parca = []
+        if belge and belge.lower() != "nan":
+            not_parca.append(f"Belge: {belge}")
+        if carik and carik.lower() != "nan":
+            not_parca.append(f"Cari kodu: {carik}")
+        satirlar.append({
+            "tarih": d.isoformat() if d else "",
+            "kanal": cari,
+            "sku": hk,
+            "urun_adi": str(r.get("Hesap ismi") or "").strip(),
+            "adet": adet,
+            "birim_satis": bf,
+            "siparis_no": sno,
+            "notlar": " · ".join(not_parca),
+        })
+        if sno:
+            fatura_set.add(sno)
+        toplam_ciro += adet * bf
+        if d:
+            tarih_min = d if tarih_min is None or d < tarih_min else tarih_min
+            tarih_max = d if tarih_max is None or d > tarih_max else tarih_max
+    ozet = {
+        "satir": len(satirlar),
+        "fatura": len(fatura_set),
+        "ciro": toplam_ciro,
+        "tarih_min": tarih_min,
+        "tarih_max": tarih_max,
+        "fatura_set": fatura_set,
+    }
+    return satirlar, ozet, None
 
 
 def run():
@@ -49,7 +138,7 @@ def run():
     st.markdown("## 💰 Satış & Kârlılık")
     st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
-    sekme1, sekme2, sekme3 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L"])
+    sekme1, sekme2, sekme3, sekme4 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L", "📥 İçe Aktar"])
     _kanallar = get_kanallar()
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
@@ -319,3 +408,71 @@ def run():
                 "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(v["net_kar"]),
                 "Marj": f"%{(v['net_kar']/v['ciro']*100) if v['ciro']>0 else 0:.1f}",
             } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
+
+    # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
+    with sekme4:
+        st.markdown("##### 📥 Geçmiş Satışları İçe Aktar")
+        st.caption("Mikro **fatura bazlı satış** dökümünü (.xls/.xlsx) yükle. "
+                   "Maliyet, sistemdeki güncel **paçal** maliyetten otomatik hesaplanır. "
+                   "Daha önce kaydedilmiş fatura numaraları atlanır (tekrar yüklemede mükerrer olmaz).")
+        _dosya = st.file_uploader("Fatura dökümü (.xls / .xlsx)", type=["xls", "xlsx"],
+                                  key="satis_ice_aktar")
+        if _dosya is not None:
+            _satirlar, _ozet, _hata = _parse_mikro_satislar(_dosya)
+            if _hata:
+                st.error(_hata)
+            elif not _satirlar:
+                st.warning("Dosyada geçerli satış satırı bulunamadı.")
+            else:
+                _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
+                       if _ozet["tarih_min"] else "—")
+                st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0">' + _kart([
+                    ("Satır", f"{_ozet['satir']:,}", "#93C5FD"),
+                    ("Fatura", f"{_ozet['fatura']:,}", "#A5B4FC"),
+                    ("Toplam Ciro", _usd(_ozet["ciro"]), "#34D399"),
+                    ("Tarih Aralığı", _ta, "#FBBF24"),
+                ]) + '</div>', unsafe_allow_html=True)
+
+                _mevcut = get_mevcut_siparis_nolar()
+                _cakisan = _ozet["fatura_set"] & _mevcut
+                if _cakisan:
+                    st.info(f"ℹ️ Bu dosyadaki **{len(_cakisan)}** fatura zaten sistemde kayıtlı. "
+                            "Varsayılan olarak atlanır (yalnızca yeni faturalar eklenir).")
+
+                _pacal = get_pacal_map()
+                _maliyetsiz_sku = sorted({s["sku"] for s in _satirlar
+                                          if float(_pacal.get(s["sku"], 0) or 0) <= 0})
+                if _maliyetsiz_sku:
+                    with st.expander(f"⚠️ Paçal maliyeti olmayan {len(_maliyetsiz_sku)} ürün "
+                                     "(bu satırlarda maliyet 0 → net kâr = ciro)"):
+                        st.caption(", ".join(_maliyetsiz_sku))
+
+                with st.expander("İlk satırları gör (önizleme)"):
+                    st.dataframe(pd.DataFrame(_satirlar[:8]), hide_index=True,
+                                 use_container_width=True)
+
+                _atla = st.checkbox("Zaten kayıtlı faturaları atla (mükerrer önleme)",
+                                    value=True, key="satis_ice_atla")
+                if st.button("📥 İçe Aktar ve Kaydet", type="primary",
+                             use_container_width=True, key="satis_ice_btn"):
+                    _pb = st.progress(0.0, text="Kaydediliyor…")
+
+                    def _ilerle(yapilan, toplam):
+                        try:
+                            _pb.progress(min(1.0, yapilan / toplam),
+                                         text=f"Kaydediliyor… {yapilan}/{toplam}")
+                        except Exception:
+                            pass
+
+                    _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=_atla, ilerleme=_ilerle)
+                    _pb.empty()
+                    if _sonuc["hata"]:
+                        st.error(f"❌ {_sonuc['hata']}")
+                    else:
+                        _msg = f"✅ {_sonuc['eklendi']:,} satış kaydedildi."
+                        if _sonuc["atlandi"]:
+                            _msg += f" {_sonuc['atlandi']:,} satır atlandı (zaten kayıtlı)."
+                        if _sonuc["maliyetsiz"]:
+                            _msg += f" {_sonuc['maliyetsiz']:,} satırda paçal maliyet yok (maliyet 0)."
+                        st.success(_msg)
+                        st.caption("Satışlar ve Kâr/P&L sekmelerinde görebilirsin.")

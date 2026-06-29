@@ -164,6 +164,61 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
 
+def get_mevcut_siparis_nolar():
+    """satislar tablosundaki tüm benzersiz sipariş numaraları (mükerrer kontrolü için)."""
+    try:
+        rows = _rows(_get_client().table("satislar").select("siparis_no").execute())
+        return set(str(r.get("siparis_no") or "").strip() for r in rows if str(r.get("siparis_no") or "").strip())
+    except Exception:
+        return set()
+
+
+def ice_aktar_satislar(satirlar, atla_mevcut=True, ilerleme=None):
+    """Geçmiş satışları toplu içe aktarır (Excel/Mikro dökümünden).
+
+    satirlar: [{tarih, kanal, sku, urun_adi, adet, birim_satis, siparis_no, notlar}, ...]
+    Maliyet (birim_maliyet) güncel PAÇAL haritasından otomatik doldurulur.
+    atla_mevcut=True: zaten kayıtlı sipariş numaralarını atlar (tekrar yüklemede mükerrer olmaz).
+    Döner: {eklendi, atlandi, maliyetsiz, hata}.
+    """
+    pacal = get_pacal_map()
+    mevcut = get_mevcut_siparis_nolar() if atla_mevcut else set()
+    zaman = datetime.now(TR_TZ).isoformat(timespec="seconds")
+    rows, atlandi, maliyetsiz = [], 0, 0
+    for s in (satirlar or []):
+        sno = str(s.get("siparis_no") or "").strip()
+        if atla_mevcut and sno and sno in mevcut:
+            atlandi += 1
+            continue
+        sku = str(s.get("sku") or "").strip()
+        if not sku or _i(s.get("adet")) <= 0:
+            continue
+        bm = _f(pacal.get(sku, 0))
+        if bm <= 0:
+            maliyetsiz += 1
+        rows.append({
+            "tarih": str(s.get("tarih"))[:10], "kanal": s.get("kanal") or "",
+            "siparis_no": sno, "sku": sku, "urun_adi": s.get("urun_adi") or "",
+            "adet": _i(s.get("adet")), "birim_satis": _f(s.get("birim_satis")),
+            "birim_maliyet": bm, "birim_firma_destek": 0, "birim_ek_destek": 0,
+            "kampanya_id": None, "notlar": s.get("notlar") or "", "olusturma_tarihi": zaman,
+        })
+    if not rows:
+        return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0, "hata": None}
+    try:
+        cli = _get_client()
+        B = 500
+        for i in range(0, len(rows), B):
+            cli.table("satislar").insert(rows[i:i + B]).execute()
+            if ilerleme:
+                ilerleme(min(i + B, len(rows)), len(rows))
+        _temizle()
+        return {"eklendi": len(rows), "atlandi": atlandi, "maliyetsiz": maliyetsiz, "hata": None}
+    except Exception as e:
+        return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
+                "hata": f"{type(e).__name__}: {str(e)[:160]}"}
+
+
 def guncelle_satis(satis_id, alanlar):
     try:
         _get_client().table("satislar").update(alanlar).eq("id", satis_id).execute()
