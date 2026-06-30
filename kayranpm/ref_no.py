@@ -143,6 +143,22 @@ def _cari_esle(onek, doviz, cariler):
     return adaylar[0]
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def firma_tam_cari_adi(kod):
+    """Firma stok kodunu (ITOPYA, HB, VATAN) muhasebedeki TAM cari adına çevirir.
+    Cari listesinde önekle (EERA / D-MARKET / VATAN) eşleşen tam adı bulur.
+    Eşleşme yoksa öneki, eşleme tanımı da yoksa kodu olduğu gibi döndürür."""
+    if not kod:
+        return ""
+    k = _norm(kod).strip()
+    cfg = FIRMA_ESLESME.get(k)
+    if not cfg:
+        return str(kod).strip()
+    cariler = _cari_isimleri()
+    tam = _cari_esle(cfg["onek"], cfg.get("doviz"), cariler) if cariler else None
+    return tam or cfg["onek"]
+
+
 def _senkronize_firmalar():
     """Firma adlarını muhasebe cari isimleriyle eşitler (kodlar değişmez);
     AYNI role ait mükerrer firmaları tek hedefte birleştirir (ref no + havuz
