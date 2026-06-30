@@ -61,8 +61,18 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None):
 
     if etiket:
         st.caption(etiket)
-    secim = st.radio("Dönem", ONAYARLAR, horizontal=True, index=idx,
-                     key=f"{key}_onayar", label_visibility="collapsed")
+    _css = """<style>
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"]{gap:7px;flex-wrap:wrap}
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"] label{background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.22);border-radius:999px;padding:4px 14px;margin:0;cursor:pointer;transition:all .15s}
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"] label:hover{border-color:#818CF8;background:rgba(99,102,241,0.12)}
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked){background:linear-gradient(135deg,#4F46E5,#7C3AED);border-color:#818CF8}
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p{color:#fff;font-weight:700}
+.st-key-htf_KEY div[data-testid="stRadio"] [role="radiogroup"] label>div:first-child{display:none}
+</style>""".replace("KEY", str(key))
+    st.markdown(_css, unsafe_allow_html=True)
+    with st.container(key=f"htf_{key}"):
+        secim = st.radio("Dönem", ONAYARLAR, horizontal=True, index=idx,
+                         key=f"{key}_onayar", label_visibility="collapsed")
 
     hesap = _aralik(secim, bugun, min_tarih)
     if hesap is not None:
