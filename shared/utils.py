@@ -32,6 +32,24 @@ def normalize_tr(s) -> str:
     return s.upper()
 
 
+# Firma stok kodu → gerçek/görünen ad. Veri/sorgu KODU korur (ITOPYA), bu yalnız GÖSTERİM içindir.
+# Kaynak: kayranpm/ref_no.py FIRMA_ESLESME ile aynı eşleme.
+FIRMA_GORUNEN_AD = {
+    "ITOPYA": "EERA",
+    "HB": "D-MARKET",
+    "VATAN": "VATAN",
+}
+
+
+def firma_gorunen_ad(kod) -> str:
+    """Firma stok kodunu (ITOPYA, HB...) gerçek adına çevirir (EERA, D-MARKET...).
+    Eşleme yoksa kodu olduğu gibi döndürür. Sadece ekranda gösterim için — veri/sorguda kod kullanılır."""
+    if not kod:
+        return ""
+    k = normalize_tr(kod).strip()
+    return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
+
+
 def tr_kucuk(s) -> str:
     """Türkçe-doğru küçük harf çevrimi. İ→i, I→ı yapıp küçültür; Türkçe karakter KORUNUR.
     Serbest metinleri (kategori vb.) tek biçime indirger:
