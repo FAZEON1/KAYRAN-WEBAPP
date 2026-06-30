@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
+from shared.tarih import hizli_tarih_araligi
 from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
@@ -473,10 +474,8 @@ def run():
 
     # ───────────────────────── SATIŞLAR ─────────────────────────
     with sekme2:
-        f1, f2, f3 = st.columns([1, 1, 1.3])
-        _bas = f1.date_input("Başlangıç", value=date.today() - timedelta(days=30), key="l_bas")
-        _bit = f2.date_input("Bitiş", value=date.today(), key="l_bit")
-        _kanal_f = f3.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
+        _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
+        _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
 
         satislar = get_satislar(_bas, _bit)
         if _kanal_f != "Tümü":
@@ -528,16 +527,7 @@ def run():
 
     # ───────────────────────── KÂR / P&L ─────────────────────────
     with sekme3:
-        p1, p2, p3 = st.columns([1, 1, 1.4])
-        _pbas = p1.date_input("Başlangıç", value=date.today() - timedelta(days=30), key="p_bas")
-        _pbit = p2.date_input("Bitiş", value=date.today(), key="p_bit")
-        _hizli = p3.selectbox("Hızlı", ["—", "Bugün", "Son 7 gün", "Bu ay"], key="p_hizli")
-        if _hizli == "Bugün":
-            _pbas = _pbit = date.today()
-        elif _hizli == "Son 7 gün":
-            _pbas, _pbit = date.today() - timedelta(days=6), date.today()
-        elif _hizli == "Bu ay":
-            _pbas, _pbit = date.today().replace(day=1), date.today()
+        _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
 
         satislar = get_satislar(_pbas, _pbit)
         if not satislar:
