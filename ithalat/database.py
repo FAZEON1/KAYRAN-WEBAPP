@@ -685,6 +685,17 @@ def set_dosya_teslim(dosya_id, teslim_tarihi=None, teslim_deposu=None):
         return False
 
 
+def set_dosya_durum(dosya_id, durum):
+    """Bir dosyanın SADECE aşama (durum) alanını günceller — teslim tarihi/deposu dahil
+    başka hiçbir alana dokunmaz. Toplu 'Teslim Alındı' işaretleme için."""
+    try:
+        _get_client().table("ithalat_dosyalari").update({"durum": durum or ""}).eq("id", dosya_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
 def teslim_tarihleri_uygula(belge_map, takip_map):
     """Satın alım raporundan gelen teslim tarihlerini mevcut dosyalara yazar.
     SADECE teslim_tarihi alanı güncellenir; başka hiçbir veri değişmez.

@@ -16,7 +16,7 @@ from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
-    get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
+    get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
 )
 
@@ -553,6 +553,24 @@ def _gecmis_ithalatlar():
     # ── 2+ satır seçili → ORTAK MASRAF (FOB payına göre dağıt) ──
     if len(_sel) >= 2:
         _sec_dosyalar = [dosyalar_goster[i] for i in _sel]
+
+        # ── Toplu aşama: seçilenleri 'Teslim Alındı' yap (teslim tarihine dokunmaz) ──
+        _bekleyen_teslim = [d for d in _sec_dosyalar
+                            if str(d.get("durum", "") or "").strip() != "Teslim Alındı"]
+        _tc1, _tc2 = st.columns([3, 1])
+        _tc1.caption(f"📦 Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
+                     "'Teslim Alındı' değil. Yalnızca aşama güncellenir; teslim tarihine dokunulmaz.")
+        if _tc2.button("📦 Teslim Alındı yap", use_container_width=True, key="ith_toplu_teslim",
+                       disabled=(len(_bekleyen_teslim) == 0)):
+            _ts_ok = 0
+            for _d in _bekleyen_teslim:
+                if set_dosya_durum(_d["id"], "Teslim Alındı"):
+                    _ts_ok += 1
+            st.cache_data.clear()
+            st.success(f"✅ {_ts_ok} belge 'Teslim Alındı' olarak işaretlendi.")
+            st.rerun()
+        st.markdown("---")
+
         # Seçili belge id'lerinden imza — masraf kutularının anahtarını seçime bağlar
         # (farklı ithalat/takip seçilince kutular sıfırdan, 0 olarak gelir).
         _sec_sig = "_".join(str(x) for x in sorted(_sd["id"] for _sd in _sec_dosyalar))
