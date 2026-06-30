@@ -31,7 +31,8 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       guncelle_kampanya_urun, sil_kampanya_urun,
                       get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
-                      get_kampanya_destek_ortalamalari)
+                      get_kampanya_destek_ortalamalari,
+                      get_firma_listesi, get_musteri_haftalik_satis)
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
@@ -492,6 +493,7 @@ def run():
         sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
             "📋  Tüm Ürünler",
+            "📈  Müşteri Satışları",
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
             "🔖  Ref No Takibi",
@@ -1312,6 +1314,41 @@ def run():
         _yb, _yc, _yi, _yt = _yol_map.get(_yr, ("rgba(148,163,184,0.08)", "#94A3B8", "⚪", "Yolda ürün kaydı bulunmuyor."))
         st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:7px 12px;font-size:12px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
 
+
+    elif sayfa == "📈  Müşteri Satışları":
+        from shared.tarih import hizli_tarih_araligi
+        st.markdown("### 📈 Müşteri Haftalık Satışları")
+        st.caption("Müşteri (firma) bazında haftalık satış geçmişi — müşteri · tarih aralığı · ürün/SKU ile filtrele.")
+        _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Son 90 gün")
+        _mc1, _mc2 = st.columns([1, 1.4])
+        _firmalar = ["Tümü"] + get_firma_listesi()
+        _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma")
+        _sku_ara = _mc2.text_input("Ürün / SKU ara", key="mhs_sku",
+                                   placeholder="SKU veya ürün adı ile filtrele…")
+        _rows = get_musteri_haftalik_satis(_bas, _bit, _f, _sku_ara)
+        if not _rows:
+            st.info("Bu filtrelerle haftalık satış kaydı bulunamadı.")
+        else:
+            _df = pd.DataFrame([{
+                "Tarih": str(r.get("yukleme_tarihi", ""))[:10],
+                "Müşteri": r.get("firma", ""),
+                "SKU": r.get("sku", ""),
+                "Ürün": (r.get("urun_adi", "") or "")[:45],
+                "Haftalık Satış": int(r.get("haftalik_satis", 0) or 0),
+                "Stok": int(r.get("stok_miktari", 0) or 0),
+            } for r in _rows])
+            _o1, _o2, _o3 = st.columns(3)
+            _o1.metric("Toplam Haftalık Satış", f"{int(_df['Haftalık Satış'].sum()):,}")
+            _o2.metric("Kayıt", f"{len(_df):,}")
+            _o3.metric("Müşteri Sayısı", int(_df["Müşteri"].nunique()))
+            with st.expander("📊 Müşteri bazında toplam satış", expanded=False):
+                _grp = (_df.groupby("Müşteri")["Haftalık Satış"].sum()
+                        .sort_values(ascending=False).reset_index())
+                st.dataframe(_grp, hide_index=True, use_container_width=True)
+            st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
+            st.download_button("⬇️ CSV indir",
+                               _df.to_csv(index=False).encode("utf-8-sig"),
+                               "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
 
     elif sayfa == "🎯  Kampanya Takip":
         st.markdown('<div class="baslik">🎯 Kampanya Takip</div>', unsafe_allow_html=True)

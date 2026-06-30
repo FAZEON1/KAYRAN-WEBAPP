@@ -480,6 +480,43 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
     _cache_temizle()
 
 
+def get_firma_listesi():
+    """firma_stok'taki benzersiz müşteri/firma adları (alfabetik)."""
+    rows = _hepsi("firma_stok", "firma", "yukleme_tarihi")
+    return sorted({(r.get("firma") or "").strip() for r in rows if (r.get("firma") or "").strip()})
+
+
+def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
+    """firma_stok'tan haftalık satış kayıtları — tarih aralığı + müşteri + SKU/ürün filtreli (sayfalı).
+    Döner: [{firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi}]."""
+    sb = get_client()
+    bas_s = str(bas)[:10] if bas else None
+    bit_s = str(bit)[:10] if bit else None
+    out, i, adim = [], 0, 1000
+    while True:
+        q = sb.table("firma_stok").select(
+            "firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi")
+        if bas_s:
+            q = q.gte("yukleme_tarihi", bas_s)
+        if bit_s:
+            q = q.lte("yukleme_tarihi", bit_s)
+        if firma and firma != "Tümü":
+            q = q.eq("firma", firma)
+        q = q.order("yukleme_tarihi", desc=True).range(i, i + adim - 1)
+        chunk = _rows(q.execute())
+        out.extend(chunk)
+        if len(chunk) < adim:
+            break
+        i += adim
+        if i > 60000:
+            break
+    if sku_ara and sku_ara.strip():
+        s = sku_ara.strip().lower()
+        out = [r for r in out
+               if s in str(r.get("sku", "")).lower() or s in str(r.get("urun_adi", "")).lower()]
+    return out
+
+
 def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
                       stok_magaza=0, satis_magaza=0):
     _kayit = {
