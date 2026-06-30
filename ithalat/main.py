@@ -22,7 +22,7 @@ from .database import (
 
 
 # Teslim deposu seçenekleri (açılır liste)
-DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO"]
+DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
 # Teslim Şekli (Incoterm) seçenekleri
 INCOTERM_SECENEKLER = ["(Seçilmedi)", "FOB", "EXW", "CIF", "DAP", "DDP", "FCA", "CFR", "CPT", "CIP", "DPU"]
 
