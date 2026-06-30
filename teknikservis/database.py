@@ -44,6 +44,17 @@ DURUM_RENK = {
 DEPOLAR = ["teknik servis", "iade", "outlet", "ikinci el", "hurda", "merkez"]
 FIRMA_ONERILER = ["EERA", "MONDAY", "VATAN", "İTOPYA", "HB", "ServisPoint", "DİĞER"]
 
+# Teknik servis / iade mal kabulünde kullanılan TAM cari unvanlar (profesyonel gösterim).
+# Listede olmayan firma, mal kabul ekranında elle yazılarak eklenebilir.
+TS_FIRMALAR = [
+    "VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI",
+    "D-MARKET ELEKTRONİK HİZMETLER VE TİCARET ANONİM ŞİRKETİ",
+    "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ",
+    "SERVİS NOKTASI TEKNOLOJİ ANONİM ŞİRKETİ",
+    "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ",
+    "DİĞER",
+]
+
 # Tabloda henüz olmayabilecek (sonradan eklenen) opsiyonel kolonlar — insert/update başarısız
 # olursa bunlar düşülüp tekrar denenir (graceful).
 _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama")

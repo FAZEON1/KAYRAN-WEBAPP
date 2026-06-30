@@ -9,7 +9,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
-    DEPOLAR, FIRMA_ONERILER,
+    DEPOLAR, FIRMA_ONERILER, TS_FIRMALAR,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
     kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
@@ -70,12 +70,24 @@ def _g(kayit, alan, bos="—"):
 def _mal_kabul():
     _baslik("📥", "Mal Kabül", "Servise/iadeye gelen ürünü kaydet · Servis No otomatik üretilir (G5F)")
 
-    arayuz_lbl = st.radio("Arayüz", ["🔧 Teknik Servis", "↩️ İade"],
-                          horizontal=True, key="mk_arayuz")
+    # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
+    st.markdown('<div style="font-size:14px;font-weight:800;color:#FBBF24;margin:6px 0 2px">'
+                '1️⃣ Önce işlem türünü seç</div>', unsafe_allow_html=True)
+    arayuz_lbl = st.radio("İşlem türü", ["🔧 Teknik Servis", "↩️ İade"],
+                          horizontal=True, key="mk_arayuz", label_visibility="collapsed")
     arayuz = "teknik" if "Teknik" in arayuz_lbl else "iade"
+    if arayuz == "teknik":
+        st.markdown('<div style="background:rgba(167,139,250,.15);border:1px solid #A78BFA;'
+                    'border-radius:8px;padding:7px 13px;margin:3px 0 12px;color:#C4B5FD;'
+                    'font-weight:700;font-size:13px">🔧 TEKNİK SERVİS kaydı oluşturuyorsun</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="background:rgba(244,114,182,.15);border:1px solid #F472B6;'
+                    'border-radius:8px;padding:7px 13px;margin:3px 0 12px;color:#F9A8D4;'
+                    'font-weight:700;font-size:13px">↩️ İADE kaydı oluşturuyorsun</div>',
+                    unsafe_allow_html=True)
 
-    # Stok kodu eşleştirme (form dışı — Ürün Yönetimi'nden otomatik çekme)
-    # 📦 İthalat'tan model seç (tüm modeller) — seçince stok kodu + stok adı dolar
+    # 📦 İthalat'tan model seç — seçince stok kodu + stok adı dolar
     _modeller = ithalat_model_listesi()
     if _modeller:
         _opts = ["— İthalat'tan model seç —"] + [(f"{s} — {a}" if a else s) for s, a in _modeller]
@@ -93,7 +105,7 @@ def _mal_kabul():
 
     es1, es2 = st.columns([3, 1])
     with es1:
-        sk = st.text_input("Stok Kodu *", key="mk_sk", placeholder="EAN okut veya stok kodu yaz")
+        sk = st.text_input("Stok Kodu *", key="mk_sk", placeholder="Stok kodu yaz")
     with es2:
         st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
         if st.button("🔍 Eşleştir", use_container_width=True, key="mk_eslestir"):
@@ -101,14 +113,13 @@ def _mal_kabul():
             if u and (u.get("stok_adi") or u.get("urun_grubu")):
                 st.session_state["mk_stok_adi"] = u.get("stok_adi", "")
                 st.session_state["mk_urun_grubu"] = u.get("urun_grubu", "")
-                st.session_state["mk_ean"] = u.get("ean", "")
                 st.toast("✅ Ürün Yönetimi'nden eşleşti")
             else:
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
             st.rerun()
 
     with st.form("mk_form", clear_on_submit=False):
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         stok_adi = c1.text_input("Stok Adı", value=st.session_state.get("mk_stok_adi", ""))
         _gruplar = ts_urun_gruplari()
         _pre_grup = st.session_state.get("mk_urun_grubu", "").strip()
@@ -117,23 +128,30 @@ def _mal_kabul():
             _grup_opts.insert(1, _pre_grup)
         _gidx = _grup_opts.index(_pre_grup) if _pre_grup in _grup_opts else 0
         urun_grubu_sec = c2.selectbox("Ürün Grubu", _grup_opts, index=_gidx, key="mk_grup_sec")
-        ean = c3.text_input("EAN (opsiyonel)", value=st.session_state.get("mk_ean", ""))
         urun_grubu_yeni = st.text_input("Ürün grubu listede yoksa yaz (yeni grup)",
                                         key="mk_grup_yeni", placeholder="örn. Monitör / Kasa / Klavye")
         urun_grubu = (urun_grubu_yeni.strip()
                       or (urun_grubu_sec if urun_grubu_sec != "— ürün grubu seç —" else "")).strip()
 
-        d1, d2, d3 = st.columns(3)
+        d1, d2 = st.columns(2)
         seri = d1.text_input("Seri No *")
-        firma = d2.selectbox("Firma Bilgisi", FIRMA_ONERILER)
-        sevk = d3.text_input("Sevk / Kargo Bilgisi", placeholder="UPS takip no / firma sevkiyat")
+        firma_sec = d2.selectbox("Firma (cari unvan)", TS_FIRMALAR, key="mk_firma_sec")
+        firma_yeni = st.text_input("Firma listede yoksa tam cari unvanı yaz (yeni firma)",
+                                   key="mk_firma_yeni", placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
+        firma = (firma_yeni.strip() or firma_sec).strip()
+
+        sv1, sv2 = st.columns(2)
+        sevk_yontemi = sv1.selectbox("Sevk / Teslim Şekli",
+                                     ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat"],
+                                     key="mk_sevk_y")
+        kargo_takip = sv2.text_input("Kargo Takip No (opsiyonel)", key="mk_kargo",
+                                     placeholder="kargo ile geldiyse takip no")
 
         ariza = st.text_input("Arıza *", placeholder="örn: güç kaynağı bozuk")
-        detay = st.text_area("Detay / Not", height=68, placeholder="örn: hiç açılmıyor")
 
-        _alt_baslik("Müşteri / Firma Bilgisi")
+        _alt_baslik("Mağaza / İletişim Bilgisi")
         m1, m2, m3 = st.columns(3)
-        m_adi = m1.text_input("Müşteri / Firma Adı", placeholder="örn: Vatan - Buyaka")
+        m_adi = m1.text_input("Mağaza Adı", placeholder="örn: Vatan - Buyaka")
         m_mail = m2.text_input("Mail")
         m_tel = m3.text_input("Telefon")
         m_adres = st.text_input("Adres")
@@ -149,12 +167,7 @@ def _mal_kabul():
         firma_servis_no = f1.text_input("Firma Servis Form No", placeholder="ör. 11MS0072257")
 
         _alt_baslik("Ön Kontrol")
-        i1, i2 = st.columns(2)
-        icerik = i1.text_input("İçerik Durumu", placeholder="tam / eksik — (monitör: hdmi, dp, adaptör...)")
-        fiziksel = i2.text_input("Fiziksel Durum", placeholder="hasarsız / çizik / tozlu / kullanılmış")
-
-        personel = st.text_input("Kayıt Yapan Personel",
-                                 value=st.session_state.get("aktif_kullanici", "").capitalize())
+        fiziksel = st.text_input("Fiziksel Durum", placeholder="hasarsız / çizik / tozlu / kullanılmış")
 
         kaydet = st.form_submit_button("✅ Kayıt Tamamla", type="primary", use_container_width=True)
 
@@ -174,19 +187,23 @@ def _mal_kabul():
         if (not fatura_mevcut) and not irsaliye.strip():
             st.error("Fatura yok işaretli — İrsaliye No zorunludur (faturasız kabulde irsaliye şart).")
             return
+        _sevk_txt = "" if str(sevk_yontemi).startswith("(") else sevk_yontemi
+        if kargo_takip.strip():
+            _sevk_txt = (f"{_sevk_txt} · Kargo No: {kargo_takip.strip()}").strip(" ·")
         data = {
-            "arayuz": arayuz, "stok_kodu": sk.strip(), "ean": ean.strip(),
+            "arayuz": arayuz, "stok_kodu": sk.strip(),
             "urun_grubu": urun_grubu, "stok_adi": stok_adi.strip(),
-            "seri_no": seri.strip(), "ariza": ariza.strip(), "detay": detay.strip(),
-            "firma_bilgisi": firma, "sevk_kargo_bilgisi": sevk.strip(),
+            "seri_no": seri.strip(), "ariza": ariza.strip(),
+            "firma_bilgisi": firma, "sevk_kargo_bilgisi": _sevk_txt,
             "musteri_adi": m_adi.strip(), "musteri_mail": m_mail.strip(),
             "musteri_tel": m_tel.strip(), "musteri_adres": m_adres.strip(),
             "fatura_no": fatura.strip(), "irsaliye_no": irsaliye.strip(),
             "fatura_mevcut": bool(fatura_mevcut),
             "firma_servis_form_no": firma_servis_no.strip(),
-            "icerik_durumu": icerik.strip(), "fiziksel_durum": fiziksel.strip(),
+            "fiziksel_durum": fiziksel.strip(),
         }
-        ok, msg, form_no = ekle_kayit(data, personel.strip())
+        _personel = st.session_state.get("aktif_kullanici", "") or ""
+        ok, msg, form_no = ekle_kayit(data, _personel)
         if ok:
             st.success(msg)
             for k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni"):
@@ -194,6 +211,7 @@ def _mal_kabul():
             st.balloons()
         else:
             st.error(msg)
+
 
 
 # ── Liste (Teknik Servis / İade) ─────────────────────────────────────
