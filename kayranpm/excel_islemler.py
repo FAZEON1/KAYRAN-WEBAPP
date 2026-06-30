@@ -389,6 +389,30 @@ def _firma_normalize(s):
             .replace("Ş", "S").replace("Ç", "C").replace("Ö", "O"))
 
 
+def _firma_coz(firma_ham):
+    """Excel'deki firma adını/kodunu standart koda çözer (ITOPYA/HB/VATAN/MONDAY/KANAL/DIGER).
+    Doğrudan kod, ref_no tespit anahtarları (HEPSİBURADA→HB, EERA→ITOPYA, D-MARKET→HB...)
+    ve önek üzerinden eşleştirir. Çözülemezse None döner."""
+    fn = _firma_normalize(firma_ham)
+    if not fn:
+        return None
+    if fn in FIRMA_LISTESI:
+        return fn
+    try:
+        from .ref_no import FIRMA_ESLESME
+        for rol, cfg in FIRMA_ESLESME.items():
+            for t in cfg.get("tespit", ()):
+                if _firma_normalize(t) == fn:
+                    return rol
+            if _firma_normalize(cfg.get("onek", "")) == fn:
+                return rol
+    except Exception:
+        pass
+    if fn in ("DIGER", "DIĞER"):
+        return "DIGER"
+    return None
+
+
 def excel_yukle_firma_birlesik(dosya_yolu):
     """YENİ birleşik tek-sayfa firma stok+satış şablonunu yükler.
     Beklenen sütunlar: FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI ·
@@ -439,7 +463,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
                 if firma_n in ("GSF STOK", "G5F STOK", "YOLDAKI", "YOLDAKİ", "BIZIM STOK", "DEPO"):
                     atlanan += 1
                     continue
-                firma = gecerli_firmalar.get(firma_n)
+                firma = _firma_coz(firma_ham)
                 if not firma:
                     atlanan += 1
                     atlanan_firma.add(firma_ham)

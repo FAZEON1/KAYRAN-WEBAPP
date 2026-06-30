@@ -94,7 +94,7 @@ def firma_ekle(adi, kodu):
 # rol → tespit anahtarları (ad/kod), cari ismi öneki, döviz tercihi
 FIRMA_ESLESME = {
     "ITOPYA": {"tespit": ("ITOPYA", "ITP", "EERA"),     "onek": "EERA",     "doviz": None},
-    "HB":     {"tespit": ("HB", "D-MARKET", "DMARKET"), "onek": "D-MARKET", "doviz": None},
+    "HB":     {"tespit": ("HB", "D-MARKET", "DMARKET", "HEPSIBURADA", "HEPSİBURADA"), "onek": "D-MARKET", "doviz": None},
     "VATAN":  {"tespit": ("VATAN", "VTN"),              "onek": "VATAN",    "doviz": "USD"},
 }
 

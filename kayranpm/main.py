@@ -1351,6 +1351,36 @@ def run():
                                _df.to_csv(index=False).encode("utf-8-sig"),
                                "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
 
+        st.markdown("---")
+        with st.expander("📤 Müşteri Satış / Stok Verisi Yükle", expanded=False):
+            st.caption("Firma adını tam yazabilirsin (HEPSİBURADA, EERA, D-MARKET…) — sistem otomatik tanır. "
+                       "Önerilen: birleşik tek sayfa. Eski çok-sekmeli dosya da desteklenir.")
+            st.markdown("**📊 Firma Stok + Satış · Birleşik Tek Sayfa**")
+            st.caption("Sütunlar: FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA")
+            _dosya_b = st.file_uploader("Birleşik Excel'i Seç", type=["xlsx", "xls"], key="mhs_birlesik_dosya")
+            if _dosya_b and st.button("⬆️ Firma Stok + Satış Yükle", type="primary", use_container_width=True, key="mhs_birlesik_btn"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb:
+                    _tb.write(_dosya_b.read())
+                    _tbp = _tb.name
+                _ok, _msg = excel_yukle_firma_birlesik(_tbp)
+                os.unlink(_tbp)
+                st.cache_data.clear()
+                (st.success if _ok else st.error)(_msg)
+            st.markdown("---")
+            st.markdown("**📥 Çok-Sekmeli Haftalık Dosya**")
+            st.caption("Her firma ayrı sekmede (ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER) · SKU · Ürün Adı · Stok · Haftalık Satış")
+            _dosya_h = st.file_uploader("Excel Dosyasını Seç", type=["xlsx", "xls"], key="mhs_haftalik_dosya")
+            if _dosya_h and st.button("⬆️ Tüm Veriyi Yükle", type="primary", use_container_width=True, key="mhs_haftalik_btn"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _th:
+                    _th.write(_dosya_h.read())
+                    _thp = _th.name
+                _ok2, _msg2 = excel_yukle_firma_stoklari(_thp)
+                os.unlink(_thp)
+                st.cache_data.clear()
+                (st.success if _ok2 else st.error)(_msg2)
+
     elif sayfa == "🎯  Kampanya Takip":
         st.markdown('<div class="baslik">🎯 Kampanya Takip</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Firma desteği · Net kar · Kampanya performansı</div>', unsafe_allow_html=True)
@@ -2482,45 +2512,6 @@ def run():
                         st.error(_msg)
 
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 Müşteri / Firma Stokları · Haftalık Yükleme</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında müşteri/firma stok sekmeleri: <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b>. <span style="color:#64748B">(G5F bizim depo stoğu aşağıdaki <b>Depo Kırılımlı</b> bölümden ayrı yüklenir.)</span></div>', unsafe_allow_html=True)
-    
-        dosya = st.file_uploader("Excel Dosyasını Seç", type=["xlsx","xls"], key="tek_dosya")
-        if dosya:
-            if st.button("⬆️ Tüm Veriyi Yükle", type="primary", use_container_width=True):
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-                    tmp.write(dosya.read())
-                    tmp_path = tmp.name
-    
-                sonuclar = []
-    
-                # Firma / müşteri stokları (G5F STOK artık ayrı 'Depo Kırılımlı' bölümden yüklenir;
-                # burada işlenmez ki ürün kataloğu ve depo stoğu bozulmasın).
-                basari2, mesaj2 = excel_yukle_firma_stoklari(tmp_path)
-                sonuclar.append(("Müşteri / Firma Stokları", basari2, mesaj2))
-    
-                os.unlink(tmp_path)
-    
-                # Cache temizle — yeni veri yüklendiğinde eski cache geçersiz
-                st.cache_data.clear()
-    
-                for baslik, basari, mesaj in sonuclar:
-                    if basari:
-                        st.success(f"**{baslik}:** {mesaj}")
-                    else:
-                        st.warning(f"**{baslik}:** {mesaj}")
-    
-        st.markdown("---")
-        st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 10px">📋 Excel Sekme Yapısı</div>', unsafe_allow_html=True)
-        st.markdown("""<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
- <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
- <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· müşteri / firma stokları</span></div>
- <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Stok Miktarı · Haftalık Satış</div>
- </div>
- </div>""", unsafe_allow_html=True)
-    
-        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#CBD5E1">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#CBD5E1">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
@@ -2538,25 +2529,6 @@ def run():
                     st.success(mesaj_g)
                 else:
                     st.error(mesaj_g)
-
-        st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#22D3EE);display:inline-block"></span>📊 Firma Stok + Satış · Birleşik Tek Sayfa</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Stok ve satışı birleştirdiğin <b style="color:#CBD5E1">tek sayfalı</b> dosya. Sütunlar: <b style="color:#CBD5E1">FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA</b>. Her satır bir firma-ürün. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA <b>ayrı</b> saklanır. (GSF STOK & YOLDAKI bu dosyada beklenmez — yukarıdaki çok-sekmeli dosyadan gelir.)</div>', unsafe_allow_html=True)
-
-        dosya_b = st.file_uploader("Birleşik Excel'i Seç", type=["xlsx", "xls"], key="firma_birlesik_dosya")
-        if dosya_b:
-            if st.button("⬆️ Firma Stok + Satış Yükle", type="primary", use_container_width=True, key="firma_birlesik_btn"):
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpb:
-                    tmpb.write(dosya_b.read())
-                    tmpb_path = tmpb.name
-                basari_b, mesaj_b = excel_yukle_firma_birlesik(tmpb_path)
-                os.unlink(tmpb_path)
-                st.cache_data.clear()
-                if basari_b:
-                    st.success(mesaj_b)
-                else:
-                    st.error(mesaj_b)
 
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
