@@ -233,6 +233,8 @@ def iade_excel_oku(dosya):
         sku = str(row.get(k_sku, "") or "").strip()
         if not sku or sku.lower() == "nan":
             continue
+        if "toplam" in sku.lower():           # cari ara/genel toplam satırı — ürün değil, mükerrer olur
+            continue
         smik, imik = row.get(k_smik), row.get(k_imik)
         if pd.isna(smik) and pd.isna(imik):
             firma = sku                       # cari/firma başlık satırı
