@@ -154,6 +154,18 @@ def goster(sku):
             pass
     kampanya_urun = _sel("kampanya_urunler")
 
+    # İadeler — SKU bazlı (satışlardaki esnek eşleşme kalıbıyla)
+    iadeler = _sel("iadeler", order="tarih", desc=True)
+    if not iadeler:
+        try:
+            from kayranpm.excel_islemler import normalize_sku as _nsku2
+            _skn2 = _nsku2(sku)
+            _cand2 = (sb.table("iadeler").select("*").ilike("sku", f"%{sku}")
+                      .order("tarih", desc=True).execute().data or [])
+            iadeler = [r for r in _cand2 if _nsku2(r.get("sku", "")) == _skn2]
+        except Exception:
+            pass
+
     # Alımlar (ithalat) — paçal buradan hesaplanır (ayrı maliyet sorgusu yok = hızlı)
     alimlar = []
     try:
@@ -237,7 +249,7 @@ def goster(sku):
         else:
             st.caption("Eşleşen ürün bulunamadı.")
 
-    t1, t2, t3, t4, t5 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz"])
+    t1, t2, t3, t4, t5, t6 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade"])
 
     # ═══ ÖZET ═══
     with t1:
@@ -469,6 +481,36 @@ def goster(sku):
                     "Ort. Birim FOB": round(v["fob_x"] / v["adet"], 2) if v["adet"] else 0,
                 } for t, v in sorted(_ted.items(), key=lambda x: (x[1]["fob_x"] / x[1]["adet"]) if x[1]["adet"] else 0)]),
                     hide_index=True, use_container_width=True)
+
+    with t6:
+        if not iadeler:
+            st.info("Bu ürün için iade kaydı yok.")
+        else:
+            _ia = sum(_f(r.get("iade_adet")) for r in iadeler)
+            _it = sum(_f(r.get("iade_net")) for r in iadeler)
+            _kart_satiri([
+                _kart("Toplam İade", f"{_ia:,.0f}", f"{len(iadeler)} kalem · stoğa döndü", "#FBBF24"),
+                _kart("İade Tutarı", _usd(_it), "müşteriye iade", "#FB923C"),
+                _kart("Tekrar Satılabilir", f"{_ia:,.0f} adet", "stoğa eklendi", "#34D399"),
+            ])
+            _fk = {}
+            for r in iadeler:
+                f = (r.get("kanal") or "").strip() or "(cari belirsiz)"
+                o = _fk.setdefault(f, {"adet": 0.0, "tutar": 0.0})
+                o["adet"] += _f(r.get("iade_adet")); o["tutar"] += _f(r.get("iade_net"))
+            if len(_fk) > 1:
+                st.markdown("**Cari / Firma Kırılımı**")
+                st.dataframe(pd.DataFrame([{
+                    "Cari / Firma": (f or "")[:40], "İade Adet": v["adet"], "İade Tutarı": _usd(v["tutar"]),
+                } for f, v in sorted(_fk.items(), key=lambda x: -x[1]["adet"])]),
+                    hide_index=True, use_container_width=True)
+            st.markdown("**İade Detayı**")
+            st.dataframe(pd.DataFrame([{
+                "Tarih": gun_ay_yil(r.get("tarih")), "Cari / Firma": (r.get("kanal") or "—")[:40],
+                "Adet": _f(r.get("iade_adet")), "İade Tutarı": _usd(_f(r.get("iade_net"))),
+            } for r in iadeler]), hide_index=True, use_container_width=True)
+            st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir; kâr/marj brüt satıştan "
+                       "hesaplanır, iade kârdan düşülmez.")
 
     st.divider()
     if st.button("Kapat", use_container_width=True):

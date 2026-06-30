@@ -844,13 +844,17 @@ def get_tum_ref_tutarlari(baslangic, bitis):
 
 # ════════════════════════════════════════════════════════════════════
 #  HAVUZ DESTEĞİ → KÂR/P&L ENTEGRASYONU
-#  Dönem (fatura_tarih) içindeki net havuz desteği (GİRİŞ − HARCAMA),
-#  firma ve rol (ITOPYA/HB/VATAN) bazında. Kâr/P&L gelir kalemi olarak kullanır.
+#  Sellout/marketing desteği bir GİDERdir: firmaya VERİLEN bütçe (GİRİŞ)
+#  verildiği dönemde marj/kârdan düşülür. Firmanın bu bütçeden yaptığı
+#  HARCAMA, yalnızca "ne kadar kullanıldı / ne kadar kaldı" takibidir;
+#  Kâr/P&L'ye tekrar yansıtılmaz (çift sayım olmaması için).
+#  → Kâr/P&L gideri = VERİLEN (giriş). Kalan = verilen − kullanılan.
 # ════════════════════════════════════════════════════════════════════
 def _havuz_hesapla(kayitlar, firmalar):
-    """SAF: ref_butce kayıt listesi + {firma_id: firma} → firma/rol bazlı net havuz.
-    Net = GİRİŞ − HARCAMA. Sadece USD kayıtlar toplanır (Kâr/P&L USD bazlı);
-    farklı dövizli kayıt sayısı 'atlanan_doviz' olarak döner."""
+    """SAF: ref_butce kayıt listesi + {firma_id: firma} → firma/rol bazlı havuz.
+    verilen = GİRİŞ toplamı (Kâr/P&L gideri), kullanilan = HARCAMA toplamı (takip),
+    kalan = verilen − kullanilan. Sadece USD kayıtlar; farklı dövizli kayıt sayısı
+    'atlanan_doviz'."""
     agg = {}
     atlanan_doviz = 0
     for k in kayitlar:
@@ -858,36 +862,41 @@ def _havuz_hesapla(kayitlar, firmalar):
             atlanan_doviz += 1
             continue
         fid = k.get("firma_id")
-        o = agg.setdefault(fid, {"giris": 0.0, "harcama": 0.0})
+        o = agg.setdefault(fid, {"verilen": 0.0, "kullanilan": 0.0})
         t = _f(k.get("tutar"))
         if _norm(k.get("yon")) == _norm("GİRİŞ"):
-            o["giris"] += t
+            o["verilen"] += t
         else:
-            o["harcama"] += t
-    firma_list, rol_net, toplam = [], {}, 0.0
+            o["kullanilan"] += t
+    firma_list, rol_verilen = [], {}
+    top_verilen = top_kullanilan = 0.0
     for fid, v in agg.items():
-        net = v["giris"] - v["harcama"]
+        kalan = v["verilen"] - v["kullanilan"]
         f = firmalar.get(fid) or {}
         rol = _firma_rol(f) if f else None
         firma_list.append({
             "firma": f.get("firma_adi") or "(bilinmeyen firma)",
             "kod": f.get("firma_kodu") or "", "rol": rol or "—",
-            "giris": v["giris"], "harcama": v["harcama"], "net": net,
+            "verilen": v["verilen"], "kullanilan": v["kullanilan"], "kalan": kalan,
         })
         if rol:
-            rol_net[rol] = rol_net.get(rol, 0.0) + net
-        toplam += net
-    firma_list.sort(key=lambda x: -x["net"])
-    return {"toplam": toplam, "firmalar": firma_list, "rol_net": rol_net,
-            "atlanan_doviz": atlanan_doviz}
+            rol_verilen[rol] = rol_verilen.get(rol, 0.0) + v["verilen"]
+        top_verilen += v["verilen"]
+        top_kullanilan += v["kullanilan"]
+    firma_list.sort(key=lambda x: -x["verilen"])
+    return {"verilen": top_verilen, "kullanilan": top_kullanilan,
+            "kalan": top_verilen - top_kullanilan, "firmalar": firma_list,
+            "rol_verilen": rol_verilen, "atlanan_doviz": atlanan_doviz}
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def havuz_destek_donem(bas, bit):
-    """Dönem (fatura_tarih ∈ [bas, bit]) içindeki net havuz desteğini döndürür.
-    Döner: {toplam, firmalar:[{firma,kod,rol,giris,harcama,net}], rol_net:{rol:net}, atlanan_doviz}.
-    fatura_tarih boş olan havuz kayıtları döneme dahil edilmez."""
-    bos = {"toplam": 0.0, "firmalar": [], "rol_net": {}, "atlanan_doviz": 0}
+    """Dönem (fatura_tarih ∈ [bas, bit]) içindeki havuz desteğini döndürür.
+    Döner: {verilen, kullanilan, kalan, firmalar:[{firma,kod,rol,verilen,kullanilan,kalan}],
+    rol_verilen:{rol:verilen}, atlanan_doviz}. Kâr/P&L gideri = 'verilen'.
+    fatura_tarih boş olan kayıtlar döneme dahil edilmez."""
+    bos = {"verilen": 0.0, "kullanilan": 0.0, "kalan": 0.0, "firmalar": [],
+           "rol_verilen": {}, "atlanan_doviz": 0}
     sb = get_client()
     if not sb:
         return bos
