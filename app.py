@@ -39,6 +39,7 @@ def kullanici_yetkileri(kullanici):
     return {
         "kayranacc": k in KAYRANACC_KULLANICILAR,
         "kayranpm":  k in KAYRANPM_KULLANICILAR,
+        "depo":      k in KAYRANPM_KULLANICILAR,
         "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
         "ithalat": k in ITHALAT_KULLANICILAR,
         "teknikservis": k in TEKNIKSERVIS_KULLANICILAR,
@@ -998,6 +999,8 @@ def ust_navigasyon():
         moduller.append(("🚢 İthalat", "ithalat"))
     if yet.get("kayranpm"):
         moduller.append(("📦 Ürün Yön.", "kayranpm"))
+    if yet.get("depo"):
+        moduller.append(("🏬 Depo", "depo"))
     if yet.get("satis"):
         moduller.append(("💰 Satış", "satis"))
     if yet.get("teknikservis"):
@@ -1327,9 +1330,9 @@ input, textarea, select { font-size: 16px !important; }
                     pass
                 st.rerun()
         else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "satis": "Satis", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "depo": "Depo Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "satis": "Satis", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
-            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
+            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "depo": "#6EE7B7", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             st.markdown(
                 '<div style="font-size:10px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:6px"> ' + uyg_adi + ' SAYFALARI</div>',
@@ -1683,6 +1686,7 @@ def anasayfa():
     # ─── HIZLI ERİŞİM — tıklanabilir modül kartları ───
     _mod_meta = [
         ("kayranpm", "📦", "Ürün Yönetimi", "Stok · sipariş önerisi · kampanya · rapor"),
+        ("depo", "🏬", "Depo", "Depo bazlı stok · depolar arası sevk"),
         ("ithalat", "🚢", "İthalat", "Dosya · masraf · paçal maliyet · teslim"),
         ("satis", "💰", "Satış", "Sipariş · kâr / P&L · kârlılık"),
         ("kayranacc", "💵", "Muhasebe & Finans", "Ödeme · çek · banka · cari · aktifler"),
@@ -2233,6 +2237,10 @@ def main():
         st.error("🔒 Ürün Yönetimi uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
         return
+    if aktif == "depo" and not yetkiler["depo"]:
+        st.error("🔒 Depo Yönetimi uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
     if aktif == "ithalat" and not yetkiler["ithalat"]:
         st.error("🔒 İthalat uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
@@ -2260,6 +2268,7 @@ def main():
     _sekme_basliklari = {
         "anasayfa": "Ana Sayfa", "arama": "Arama", "yonetim": "Yönetim P&L",
         "kayranacc": "Muhasebe", "ithalat": "İthalat", "kayranpm": "Ürün Yönetimi",
+        "depo": "Depo Yönetimi",
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir",
     }
@@ -2285,6 +2294,9 @@ def main():
         elif aktif == "kayranpm":
             from kayranpm.main import run as kayranpm_run
             kayranpm_run()
+        elif aktif == "depo":
+            from depo.main import run as depo_run
+            depo_run()
         elif aktif == "ithalat":
             from ithalat.main import run as ithalat_run
             ithalat_run()
