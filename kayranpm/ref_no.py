@@ -840,3 +840,65 @@ def get_tum_ref_tutarlari(baslangic, bitis):
             "firma_id": r.get("firma_id"),
         })
     return out
+
+
+# ════════════════════════════════════════════════════════════════════
+#  HAVUZ DESTEĞİ → KÂR/P&L ENTEGRASYONU
+#  Dönem (fatura_tarih) içindeki net havuz desteği (GİRİŞ − HARCAMA),
+#  firma ve rol (ITOPYA/HB/VATAN) bazında. Kâr/P&L gelir kalemi olarak kullanır.
+# ════════════════════════════════════════════════════════════════════
+def _havuz_hesapla(kayitlar, firmalar):
+    """SAF: ref_butce kayıt listesi + {firma_id: firma} → firma/rol bazlı net havuz.
+    Net = GİRİŞ − HARCAMA. Sadece USD kayıtlar toplanır (Kâr/P&L USD bazlı);
+    farklı dövizli kayıt sayısı 'atlanan_doviz' olarak döner."""
+    agg = {}
+    atlanan_doviz = 0
+    for k in kayitlar:
+        if _norm(k.get("doviz") or "USD") != _norm("USD"):
+            atlanan_doviz += 1
+            continue
+        fid = k.get("firma_id")
+        o = agg.setdefault(fid, {"giris": 0.0, "harcama": 0.0})
+        t = _f(k.get("tutar"))
+        if _norm(k.get("yon")) == _norm("GİRİŞ"):
+            o["giris"] += t
+        else:
+            o["harcama"] += t
+    firma_list, rol_net, toplam = [], {}, 0.0
+    for fid, v in agg.items():
+        net = v["giris"] - v["harcama"]
+        f = firmalar.get(fid) or {}
+        rol = _firma_rol(f) if f else None
+        firma_list.append({
+            "firma": f.get("firma_adi") or "(bilinmeyen firma)",
+            "kod": f.get("firma_kodu") or "", "rol": rol or "—",
+            "giris": v["giris"], "harcama": v["harcama"], "net": net,
+        })
+        if rol:
+            rol_net[rol] = rol_net.get(rol, 0.0) + net
+        toplam += net
+    firma_list.sort(key=lambda x: -x["net"])
+    return {"toplam": toplam, "firmalar": firma_list, "rol_net": rol_net,
+            "atlanan_doviz": atlanan_doviz}
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def havuz_destek_donem(bas, bit):
+    """Dönem (fatura_tarih ∈ [bas, bit]) içindeki net havuz desteğini döndürür.
+    Döner: {toplam, firmalar:[{firma,kod,rol,giris,harcama,net}], rol_net:{rol:net}, atlanan_doviz}.
+    fatura_tarih boş olan havuz kayıtları döneme dahil edilmez."""
+    bos = {"toplam": 0.0, "firmalar": [], "rol_net": {}, "atlanan_doviz": 0}
+    sb = get_client()
+    if not sb:
+        return bos
+    bas_s, bit_s = str(bas)[:10], str(bit)[:10]
+    try:
+        kayitlar = _rows(sb.table("ref_butce").select("*")
+                         .gte("fatura_tarih", bas_s).lte("fatura_tarih", bit_s).execute())
+    except Exception:
+        return bos
+    try:
+        firmalar = {f["id"]: f for f in get_firmalar()}
+    except Exception:
+        firmalar = {}
+    return _havuz_hesapla(kayitlar, firmalar)
