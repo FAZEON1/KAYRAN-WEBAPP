@@ -557,17 +557,28 @@ def _gecmis_ithalatlar():
         # ── Toplu aşama: seçilenleri 'Teslim Alındı' yap (teslim tarihine dokunmaz) ──
         _bekleyen_teslim = [d for d in _sec_dosyalar
                             if str(d.get("durum", "") or "").strip() != "Teslim Alındı"]
-        _tc1, _tc2 = st.columns([3, 1])
-        _tc1.caption(f"📦 Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
-                     "'Teslim Alındı' değil. Yalnızca aşama güncellenir; teslim tarihine dokunulmaz.")
+        st.caption(f"📦 Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
+                   "'Teslim Alındı' değil. Yalnızca aşama güncellenir; teslim tarihine dokunulmaz. "
+                   "Bir teslim deposu seçersen seçili belgelerin teslim deposuna da yazılır "
+                   "(boş bırakırsan depo değişmez).")
+        _tc1, _tc2 = st.columns([2, 1])
+        _toplu_depo = _tc1.selectbox("Teslim deposu (seçili belgelerin hepsine)", DEPO_SECENEKLER,
+                                     key="ith_toplu_depo")
+        _tc2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
         if _tc2.button("📦 Teslim Alındı yap", use_container_width=True, key="ith_toplu_teslim",
                        disabled=(len(_bekleyen_teslim) == 0)):
             _ts_ok = 0
+            _depo_sec = "" if str(_toplu_depo).startswith("(") else _toplu_depo
             for _d in _bekleyen_teslim:
                 if set_dosya_durum(_d["id"], "Teslim Alındı"):
                     _ts_ok += 1
+                    if _depo_sec:
+                        set_dosya_teslim(_d["id"], teslim_deposu=_depo_sec)
             st.cache_data.clear()
-            st.success(f"✅ {_ts_ok} belge 'Teslim Alındı' olarak işaretlendi.")
+            _msg = f"✅ {_ts_ok} belge 'Teslim Alındı' olarak işaretlendi."
+            if _depo_sec:
+                _msg += f" Teslim deposu: {_depo_sec}."
+            st.success(_msg)
             st.rerun()
         st.markdown("---")
 
