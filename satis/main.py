@@ -589,16 +589,31 @@ def run():
             st.info("Bu aralıkta satış yok.")
         else:
             top, kanal, urun = ozet_hesapla(satislar)
-            _renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
+            _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
+            _brut_renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
+            _net_renk = "#34D399" if _itop["net_kar"] > 0 else "#F87171"
+            _net_marj = (_itop["net_kar"] / _itop["net_ciro"] * 100) if _itop["net_ciro"] > 0 else 0.0
             st.markdown(
-                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px">' + _kart([
+                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
                     ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
                     ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
                     ("Destek", _usd(top["destek"]), "#A78BFA"),
-                    ("Net Kâr", _usd(top["net_kar"]), _renk),
-                    ("Marj", f"%{top['marj']:.1f}", _renk),
+                    ("Brüt Kâr", _usd(top["net_kar"]), _brut_renk),
+                    ("Marj", f"%{top['marj']:.1f}", _brut_renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
                 ]) + '</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">' + _kart([
+                    ("İade adedi", f"{_itop['i_adet']:,}", "#FB923C"),
+                    ("İade tutarı", _usd(_itop["i_tutar"]), "#FB923C"),
+                    ("İade kâr kaybı", _usd(_itop["i_kar"]), "#FB923C"),
+                    ("Net Ciro", _usd(_itop["net_ciro"]), "#93C5FD"),
+                    ("Net Kâr", _usd(_itop["net_kar"]), _net_renk),
+                    ("Net Marj", f"%{_net_marj:.1f}", _net_renk),
+                ]) + '</div>', unsafe_allow_html=True)
+            if _itop["i_adet"] > 0:
+                st.caption(f"↩️ Dönemde {_itop['i_adet']:,} adet iade düşüldü · Net = Satış − İade. "
+                           "(İade ayrıntısı: İade sayfası)")
 
             st.markdown("#### Kanal Kırılımı")
             _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
