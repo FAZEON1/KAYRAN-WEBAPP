@@ -592,8 +592,8 @@ def run():
             top, kanal, urun = ozet_hesapla(satislar)
             _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
             _hav = havuz_destek_donem(_pbas, _pbit)
-            _hav_top = _hav.get("toplam", 0.0)
-            _net_havuzlu = top["net_kar"] + _hav_top
+            _hav_verilen = _hav.get("verilen", 0.0)
+            _net_havuzlu = top["net_kar"] - _hav_verilen
             _renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
             st.markdown(
                 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
@@ -604,28 +604,29 @@ def run():
                     ("Marj", f"%{top['marj']:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
                 ]) + '</div>', unsafe_allow_html=True)
-            if abs(_hav_top) > 0.005:
+            if _hav_verilen > 0.005:
                 _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
                 _marj_h = (_net_havuzlu / top["ciro"] * 100) if top["ciro"] > 0 else 0.0
                 st.markdown(
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
-                        ("Havuz Desteği (net)", _usd(_hav_top), "#22D3EE"),
-                        ("Net Kâr (havuz dahil)", _usd(_net_havuzlu), _nh_renk),
-                        ("Marj (havuz dahil)", f"%{_marj_h:.1f}", _nh_renk),
+                        ("Havuz Desteği (gider)", _usd(_hav_verilen), "#FB7185"),
+                        ("Net Kâr (havuz sonrası)", _usd(_net_havuzlu), _nh_renk),
+                        ("Marj (havuz sonrası)", f"%{_marj_h:.1f}", _nh_renk),
                     ]) + '</div>', unsafe_allow_html=True)
-                _ek = f" · {_hav['atlanan_doviz']} adet farklı dövizli kayıt atlandı" if _hav.get("atlanan_doviz") else ""
-                st.caption(f"💧 Havuz desteği = Ref No havuz bütçesinin bu dönemdeki **net girişi** (giriş − harcama), "
-                           f"fatura tarihine göre eşleşir; net kâra gelir olarak eklenir.{_ek}")
+                _ek = f" · {_hav['atlanan_doviz']} farklı dövizli kayıt atlandı" if _hav.get("atlanan_doviz") else ""
+                st.caption("💧 Havuz desteği = bu dönemde firmalara **verilen** sellout/marketing bütçesi (Ref No "
+                           "havuz girişleri); verildiği an gider yazılır, net kârdan düşülür. Firmaların bu bütçeden "
+                           f"harcaması yalnızca **kalan** takibidir, kâra tekrar yansımaz.{_ek}")
                 with st.expander("💧 Havuz Desteği — firma kırılımı", expanded=False):
                     _hf = _hav.get("firmalar", [])
                     if not _hf:
                         st.caption("Bu dönemde havuz hareketi yok.")
                     else:
-                        st.caption(f"{len(_hf)} firma · rol = satış kanalı eşleşmesi (ITOPYA / HB / VATAN)")
+                        st.caption(f"{len(_hf)} firma · Verilen = gider (kâra düşer) · Kalan = verilen − kullanılan (takip, kâra girmez)")
                         st.dataframe(pd.DataFrame([{
                             "Firma": (f["firma"] or "")[:34], "Rol/Kanal": f["rol"],
-                            "Giriş": round(f["giris"], 2), "Harcama": round(f["harcama"], 2),
-                            "Net havuz": round(f["net"], 2),
+                            "Verilen (gider)": _usd(f["verilen"]), "Kullanılan": _usd(f["kullanilan"]),
+                            "Kalan havuz": _usd(f["kalan"]),
                         } for f in _hf]), use_container_width=True, hide_index=True)
             if _itop["i_adet"] > 0:
                 st.markdown(
@@ -872,7 +873,7 @@ def run():
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
                         "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
                         "Satış ciro": _usd(x["s_ciro"]), "İade tutar": _usd(x["i_tutar"]),
-                        "Net ciro": _usd(x["net_ciro"]), "Net kâr": _usd(x["net_kar"]),
+                        "Net ciro": _usd(x["net_ciro"]), "Satış kârı": _usd(x["s_kar"]),
                     } for x in _gor]), use_container_width=True, hide_index=True)
                 else:
                     _iadeler = get_iadeler(_ib, _ibit)
