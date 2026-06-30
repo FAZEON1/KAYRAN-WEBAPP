@@ -1033,9 +1033,18 @@ def ust_navigasyon():
     .stApp .block-container,
     section.main > div.block-container,
     [data-testid="stAppViewBlockContainer"]{padding-top:0.4rem !important;}
-    /* Üst navigasyon scroll'da yukarıda SABİT kalsın (gizlenmesin) */
-    .st-key-ustnav{position:sticky !important;top:0 !important;z-index:99 !important;
-        background:#0F172A !important;padding:6px 0 6px !important;
+    /* Üst navigasyon scroll'da yukarıda SABİT kalsın (gizlenmesin).
+       st.container ayrı/kısa bir bloğa sarıyor; sticky'yi tüm sayfayı saran ana içerik
+       bloğunun çocuğuna uygulayınca yapışacak alanı bulur. Ara katman overflow'u açık olmalı. */
+    [data-testid="stMainBlockContainer"]{overflow:visible !important;}
+    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"]{overflow:visible !important;}
+    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.st-key-ustnav),
+    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(> div > .st-key-ustnav),
+    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(.st-key-ustnav),
+    .st-key-ustnav{
+        position:sticky !important;top:0 !important;z-index:999 !important;
+        background:#0F172A !important;}
+    .st-key-ustnav{padding:6px 0 6px !important;
         box-shadow:0 8px 16px -10px rgba(0,0,0,0.7) !important;}
     /* Sol sidebar: üstteki collapse-header boşluğunu kaldır + içeriği yukarı çek */
     [data-testid="stSidebarHeader"]{padding-top:0.4rem !important;padding-bottom:0 !important;
