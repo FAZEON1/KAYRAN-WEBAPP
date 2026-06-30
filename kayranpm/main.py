@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import tr_kucuk
+from shared.utils import firma_gorunen_ad
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
 import pandas as pd
@@ -548,7 +549,7 @@ def run():
         _kat_list_d = sorted({tr_kucuk(u.get("kategori")) for u in veri if tr_kucuk(u.get("kategori"))})
         col_f1, col_f2, col_f3 = st.columns([1.6, 1.6, 0.9])
         with col_f1:
-            filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"])
+            filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"], format_func=firma_gorunen_ad)
         with col_f2:
             filtre_kat = st.selectbox("Kategori", ["Tüm Kategoriler"] + _kat_list_d, key="dash_kat")
         with col_f3:
@@ -1322,7 +1323,7 @@ def run():
         _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Son 90 gün")
         _mc1, _mc2 = st.columns([1, 1.4])
         _firmalar = ["Tümü"] + get_firma_listesi()
-        _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma")
+        _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma", format_func=firma_gorunen_ad)
         _sku_ara = _mc2.text_input("Ürün / SKU ara", key="mhs_sku",
                                    placeholder="SKU veya ürün adı ile filtrele…")
         _rows = get_musteri_haftalik_satis(_bas, _bit, _f, _sku_ara)
@@ -1331,7 +1332,7 @@ def run():
         else:
             _df = pd.DataFrame([{
                 "Tarih": str(r.get("yukleme_tarihi", ""))[:10],
-                "Müşteri": r.get("firma", ""),
+                "Müşteri": firma_gorunen_ad(r.get("firma", "")),
                 "SKU": r.get("sku", ""),
                 "Ürün": (r.get("urun_adi", "") or "")[:45],
                 "Haftalık Satış": int(r.get("haftalik_satis", 0) or 0),
@@ -1374,7 +1375,8 @@ def run():
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
                     'margin:10px 0 2px">👥 MÜŞTERİLERİMİZ (filtre)</div>', unsafe_allow_html=True)
         _kt_firma = st.radio("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"],
-                             horizontal=True, key="kt_firma", label_visibility="collapsed")
+                             horizontal=True, key="kt_firma", label_visibility="collapsed",
+                             format_func=firma_gorunen_ad)
         st.caption("Bir müşteriye tıklayınca o müşterinin kampanya panosu gelir.")
 
         def _kt_firma_filtre(liste):
@@ -1442,7 +1444,7 @@ def run():
                     kf1, kf2 = st.columns(2)
                     with kf1:
                         k_adi = st.text_input("Kampanya Adı *", placeholder="örn: Hepsiburada Mart Kampanyası")
-                        k_firma = st.selectbox("Firma *", FIRMA_LISTESI_K)
+                        k_firma = st.selectbox("Firma *", FIRMA_LISTESI_K, format_func=firma_gorunen_ad)
                         k_kat = st.selectbox("Kategori", ["(Genel / Karışık)"] + _kt_kat_list)
                     with kf2:
                         k_bas = st.date_input("Başlangıç Tarihi *", value=tr_today())
@@ -1570,6 +1572,7 @@ def run():
                                 dk_adi = st.text_input("Kampanya Adı", value=kamp["kampanya_adi"], key=f"dk_adi_{kid}")
                                 dk_firma = st.selectbox("Firma", FIRMA_LISTESI_K,
                                     index=FIRMA_LISTESI_K.index(kamp["firma"]) if kamp["firma"] in FIRMA_LISTESI_K else 0,
+                                    format_func=firma_gorunen_ad,
                                     key=f"dk_firma_{kid}")
                                 _dk_kat_cur = (kamp.get("kategori") or "").strip()
                                 _dk_opts = ["(Genel / Karışık)"] + _kt_kat_list

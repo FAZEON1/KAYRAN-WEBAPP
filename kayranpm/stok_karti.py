@@ -8,8 +8,10 @@ import pandas as pd
 from datetime import timedelta
 
 try:
-    from shared.utils import gun_ay_yil, tr_today
+    from shared.utils import gun_ay_yil, tr_today, firma_gorunen_ad
 except Exception:
+    def firma_gorunen_ad(k):
+        return str(k or "")
     def gun_ay_yil(d):
         return str(d or "")[:10]
     from datetime import date as _d
@@ -285,7 +287,7 @@ def goster(sku):
         if firma_stok:
             st.markdown("**Firma / Depo Stok Kırılımı**")
             st.dataframe(pd.DataFrame([{
-                "Firma/Depo": r.get("firma", ""),
+                "Firma/Depo": firma_gorunen_ad(r.get("firma", "")),
                 "Stok": _f(r.get("stok_miktari")),
                 "Haftalık Satış": _f(r.get("haftalik_satis")),
                 "Güncellenme": gun_ay_yil(r.get("yukleme_tarihi")),
