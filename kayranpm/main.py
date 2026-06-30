@@ -2442,8 +2442,8 @@ def run():
                         st.error(_msg)
 
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 G5F Stok · Haftalık Veri Yükleme</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında tüm sekmeler: <b style="color:#CBD5E1">G5F STOK</b> (bizim depo) · <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b> (firma stokları) · <b style="color:#CBD5E1">YOLDAKI</b> (yoldaki ürünler)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 Müşteri / Firma Stokları · Haftalık Yükleme</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında müşteri/firma stok sekmeleri: <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b>. <span style="color:#64748B">(G5F bizim depo stoğu aşağıdaki <b>Depo Kırılımlı</b> bölümden ayrı yüklenir.)</span></div>', unsafe_allow_html=True)
     
         dosya = st.file_uploader("Excel Dosyasını Seç", type=["xlsx","xls"], key="tek_dosya")
         if dosya:
@@ -2455,13 +2455,10 @@ def run():
     
                 sonuclar = []
     
-                # G5F STOK (ana stok + yoldaki)
-                basari, mesaj = excel_yukle_ana_stok(tmp_path)
-                sonuclar.append(("G5F STOK", basari, mesaj))
-    
-                # Firma stokları
+                # Firma / müşteri stokları (G5F STOK artık ayrı 'Depo Kırılımlı' bölümden yüklenir;
+                # burada işlenmez ki ürün kataloğu ve depo stoğu bozulmasın).
                 basari2, mesaj2 = excel_yukle_firma_stoklari(tmp_path)
-                sonuclar.append(("Firma Stokları", basari2, mesaj2))
+                sonuclar.append(("Müşteri / Firma Stokları", basari2, mesaj2))
     
                 os.unlink(tmp_path)
     
@@ -2478,11 +2475,7 @@ def run():
         st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 10px">📋 Excel Sekme Yapısı</div>', unsafe_allow_html=True)
         st.markdown("""<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
- <div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">G5F STOK <span style="color:#64748B;font-weight:500">· bizim depo + yoldaki</span></div>
- <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
- </div>
- <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
- <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· firma stokları</span></div>
+ <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· müşteri / firma stokları</span></div>
  <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Stok Miktarı · Haftalık Satış</div>
  </div>
  </div>""", unsafe_allow_html=True)
