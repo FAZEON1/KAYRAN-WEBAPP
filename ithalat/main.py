@@ -380,6 +380,7 @@ def _gecmis_ithalatlar():
         satirlar.append({
             "Belge No": d.get("pi_no", "") or d.get("dosya_no", "") or "",
             "Takip No": d.get("ithalat_takip_no", "") or "",
+            "SAS No": d.get("sas_no", "") or "",
             "Tarih": str(d.get("tarih", ""))[:10],
             "Teslim Tarihi": str(d.get("teslim_tarihi", "") or "")[:10],
             "Tedarikçi": d.get("tedarikci", ""),
@@ -473,12 +474,13 @@ def _gecmis_ithalatlar():
                               placeholder="takip no yaz...").strip().lower()
     f_sku = _fc4.text_input("SKU Ara", key="ith_f_sku",
                             placeholder="SKU yaz...").strip().lower()
-    _ara = st.text_input("🔍 Ara — Belge No · Takip No · Tedarikçi", key="ith_gecmis_ara",
-                         placeholder="örn. PIFAZ, PI0624G5F02, 2025-16, LCCGAME...").strip().lower()
+    _ara = st.text_input("🔍 Ara — Belge No · Takip No · SAS No · Tedarikçi", key="ith_gecmis_ara",
+                         placeholder="örn. PIFAZ, SAS-1, 2025-16, LCCGAME...").strip().lower()
 
     def _gecer(s):
         if _ara and _ara not in (str(s.get("Belge No", "")) + " " +
-                                 str(s.get("Takip No", "")) + " " + str(s.get("Tedarikçi", ""))).lower():
+                                 str(s.get("Takip No", "")) + " " + str(s.get("SAS No", "")) + " " +
+                                 str(s.get("Tedarikçi", ""))).lower():
             return False
         if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
             return False
@@ -523,6 +525,7 @@ def _gecmis_ithalatlar():
 
     _df_show = pd.DataFrame([{
         "Belge No": s["Belge No"], "Takip No": s["Takip No"] or "—",
+        "SAS No": s["SAS No"] or "—",
         "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
@@ -792,6 +795,7 @@ def _gecmis_ithalatlar():
             ec1, ec2, ec3 = st.columns(3)
             e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
             e_dno = ec1.text_input("Dosya No", value=str(d.get("dosya_no", "") or ""))
+            e_sas = ec1.text_input("SAS No", value=str(d.get("sas_no", "") or ""))
             e_ted = ec2.text_input("Tedarikçi", value=str(d.get("tedarikci", "") or ""))
             _inc_cur = str(d.get("teslim_sekli", "") or "")
             _inc_opts = INCOTERM_SECENEKLER + ([_inc_cur] if _inc_cur and _inc_cur not in INCOTERM_SECENEKLER else [])
@@ -909,7 +913,8 @@ def _gecmis_ithalatlar():
                                              fatura_indirim=e_indirim,
                                              teslim_tarihi=(e_teslim_tarihi.isoformat() if e_teslim_tarihi else ""),
                                              teslim_deposu=e_teslim_deposu,
-                                             teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli))
+                                             teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
+                                             sas_no=e_sas.strip())
                 if ok:
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
@@ -934,6 +939,7 @@ def _yeni_ithalat():
             with c1:
                 pi_no = st.text_input("PI No", key=f"m_pi_no_{_fv}", placeholder="PI-2025-001")
                 dosya_no = st.text_input("Dosya / Sipariş No", key=f"m_dosya_no_{_fv}", placeholder="ITH-2025-001")
+                sas_no = st.text_input("SAS No", key=f"m_sas_no_{_fv}", placeholder="SAS-1")
             with c2:
                 _ted_gecmis = get_tedarikciler()
                 _ted_opts = ["— tedarikçi seç —"] + _ted_gecmis + ["➕ Yeni tedarikçi (elle yaz)"]
@@ -1083,7 +1089,7 @@ def _yeni_ithalat():
                                      tahmini_varis=(tahmini_varis if durum in IN_TRANSIT_DURUMLAR else ""),
                                      fatura_indirim=m_indirim,
                                      teslim_tarihi=teslim_tarihi_m, teslim_deposu=teslim_deposu_m,
-                                     teslim_sekli=_teslim_sekli_val)
+                                     teslim_sekli=_teslim_sekli_val, sas_no=sas_no.strip())
                 (st.success if ok else st.error)(msg)
                 if ok:
                     # Girilen barkodları urunler tablosuna yaz (SKU bazlı global)
@@ -1445,7 +1451,8 @@ def _yeni_ithalat():
                             mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
                             dov, eski_kur, eski_masraf, notlar, kalemler,
                             ithalat_takip_no=takip_no,
-                            teslim_tarihi=(str(teslim)[:10] if teslim else ""))
+                            teslim_tarihi=(str(teslim)[:10] if teslim else ""),
+                            sas_no=str(mevcut_kayit.get("sas_no", "") or ""))
                         if ok:
                             guncellenen += 1
                         else:

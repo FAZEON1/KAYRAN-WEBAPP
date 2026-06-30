@@ -330,7 +330,7 @@ def _yaz_graceful(islem, payload):
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
-               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli=""):
+               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
@@ -347,6 +347,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
+            "sas_no": sas_no or "",
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
@@ -387,7 +388,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli=""):
+                   durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
@@ -399,6 +400,7 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
             "ithalat_takip_no": ithalat_takip_no or "",
+            "sas_no": sas_no or "",
             "durum": durum or "",
             "tahmini_varis": (str(tahmini_varis)[:10] if tahmini_varis else None),
             "fatura_indirim": _f(fatura_indirim, 0),
