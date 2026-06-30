@@ -12,6 +12,7 @@ from .database import (
     ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
     satir_kar, ozet_hesapla, TR_TZ,
     ice_aktar_satislar, get_mevcut_siparis_nolar,
+    satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
 )
 
 
@@ -560,6 +561,37 @@ def run():
                 "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(v["net_kar"]),
                 "Marj": f"%{(v['net_kar']/v['ciro']*100) if v['ciro']>0 else 0:.1f}",
             } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
+
+            st.markdown("---")
+            with st.expander("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", expanded=False):
+                st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
+                           "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
+                           "Mevcut DOĞRU maliyetlere dokunmaz — yalnız 0 olanları düzeltir.")
+                if st.button("🔍 Önizle — kaç satış düzelecek", key="mlyt_onizle_btn"):
+                    with st.spinner("Satışlar paçalla karşılaştırılıyor…"):
+                        st.session_state["_mlyt_onizle"] = satis_maliyet_tazele_onizle(sadece_sifir=True)
+                _mz = st.session_state.get("_mlyt_onizle")
+                if _mz is not None:
+                    if not _mz:
+                        st.success("Maliyeti 0 olup paçalı bilinen satış yok. Hâlâ %100 görünen SKU varsa, "
+                                   "o ürünün ithalatı sistemde yok ya da SKU yazımı ithalattakiyle hiç eşleşmiyor demektir.")
+                    else:
+                        _mdf = pd.DataFrame([{
+                            "SKU": x["sku"], "Ürün": (x["urun"] or "")[:34],
+                            "Satış satırı": x["satir"], "Adet": int(x["adet"]),
+                            "Yeni birim maliyet $": round(x["yeni_birim"], 2),
+                        } for x in _mz])
+                        st.dataframe(_mdf, hide_index=True, use_container_width=True, height=300)
+                        _tsatir = sum(x["satir"] for x in _mz)
+                        st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
+                                   "(0 → paçal). Geri alınamaz.")
+                        if st.button("✅ Onayla ve Maliyetleri Yaz", type="primary", use_container_width=True, key="mlyt_uygula_btn"):
+                            with st.spinner("Maliyetler yazılıyor…"):
+                                _okm, _msgm = satis_maliyet_tazele_uygula(sadece_sifir=True)
+                            st.cache_data.clear()
+                            st.session_state.pop("_mlyt_onizle", None)
+                            (st.success if _okm else st.error)(_msgm)
+                            st.rerun()
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     with sekme4:

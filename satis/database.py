@@ -341,6 +341,75 @@ def _temizle():
         pass
 
 
+def _normalize_sku_yerel(s):
+    """SKU'yu paçal eşleştirmesi için normalize eder ('Fazeon X24F165S' → 'X24F165S')."""
+    try:
+        from kayranpm.excel_islemler import normalize_sku
+        return normalize_sku(s)
+    except Exception:
+        s = str(s or "").strip()
+        for p in ("FAZEON ", "Fazeon ", "fazeon "):
+            if s.startswith(p):
+                s = s[len(p):]
+                break
+        return s.strip().upper()
+
+
+def satis_maliyet_tazele_onizle(sadece_sifir=True):
+    """satislar.birim_maliyet'i güncel paçal (normalize SKU eşleşmeli) ile karşılaştırır.
+    sadece_sifir=True → yalnız maliyeti 0/eksik olup paçalı bulunan satışlar.
+    HİÇBİR ŞEY YAZMAZ. Döner: list[{sku, urun, satir, adet, yeni_birim}] (SKU bazında özet)."""
+    pacal = get_pacal_map()
+    satislar = get_satislar()
+    sku_ozet = {}
+    for s in satislar:
+        nsku = _normalize_sku_yerel(s.get("sku"))
+        p = _f(pacal.get(nsku, 0))
+        if p <= 0:
+            continue
+        mevcut = _f(s.get("birim_maliyet"))
+        if sadece_sifir and mevcut > 0:
+            continue
+        if not sadece_sifir and abs(mevcut - p) < 0.005:
+            continue
+        o = sku_ozet.setdefault(nsku, {"urun": s.get("urun_adi", "") or "", "satir": 0, "adet": 0, "yeni_birim": p})
+        o["satir"] += 1
+        o["adet"] += _i(s.get("adet"))
+        o["yeni_birim"] = p
+    return [{"sku": k, **v} for k, v in sorted(sku_ozet.items())]
+
+
+def satis_maliyet_tazele_uygula(sadece_sifir=True):
+    """satislar.birim_maliyet'i normalize SKU ile eşleşen güncel paçaldan yeniden yazar.
+    sadece_sifir=True → yalnız maliyeti 0 olanlar (mevcut doğru maliyetlere dokunmaz).
+    Döner: (ok, mesaj)."""
+    sb = _get_client()
+    pacal = get_pacal_map()
+    satislar = get_satislar()
+    guncellenen = 0
+    sku_set = set()
+    for s in satislar:
+        nsku = _normalize_sku_yerel(s.get("sku"))
+        p = _f(pacal.get(nsku, 0))
+        if p <= 0:
+            continue
+        mevcut = _f(s.get("birim_maliyet"))
+        if sadece_sifir and mevcut > 0:
+            continue
+        if not sadece_sifir and abs(mevcut - p) < 0.005:
+            continue
+        try:
+            sb.table("satislar").update({"birim_maliyet": round(p, 4)}).eq("id", s["id"]).execute()
+            guncellenen += 1
+            sku_set.add(nsku)
+        except Exception:
+            pass
+    _temizle()
+    if not guncellenen:
+        return True, "Güncellenecek satış bulunamadı — maliyeti 0 olup paçalı bilinen satış yok."
+    return True, f"✅ {guncellenen} satış kaydının maliyeti paçaldan güncellendi ({len(sku_set)} farklı SKU)."
+
+
 # ── Kâr hesabı ──
 def satir_kar(s):
     """Tek satış satırı için kâr metrikleri (USD)."""
