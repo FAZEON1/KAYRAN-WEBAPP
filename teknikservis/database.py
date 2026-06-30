@@ -57,7 +57,8 @@ TS_FIRMALAR = [
 
 # Tabloda henüz olmayabilecek (sonradan eklenen) opsiyonel kolonlar — insert/update başarısız
 # olursa bunlar düşülüp tekrar denenir (graceful).
-_YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama")
+_YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama",
+                  "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo")
 
 
 @st.cache_resource

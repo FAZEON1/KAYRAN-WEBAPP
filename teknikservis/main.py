@@ -237,7 +237,7 @@ def _liste(arayuz):
     with fc2:
         fatura_f = st.selectbox("Fatura", ["Tümü", "✓ Mevcut", "✗ Yok"], key=f"ts_fatf_{arayuz}")
     with fc3:
-        ara = st.text_input("🔍 Ara — Servis No · Stok · Seri · İrsaliye · Firma · Müşteri",
+        ara = st.text_input("🔍 Ara — Servis No · Stok · Seri · Fatura · İrsaliye · Firma · Müşteri · Servis Formu",
                             key=f"ts_ara_{arayuz}")
 
     def _fm_of(k):
@@ -259,7 +259,8 @@ def _liste(arayuz):
         if ara:
             blob = " ".join(str(k.get(a, "") or "") for a in
                             ("servis_form_no", "stok_kodu", "stok_adi", "seri_no",
-                             "irsaliye_no", "firma_bilgisi", "musteri_adi")).lower()
+                             "fatura_no", "irsaliye_no", "firma_servis_form_no",
+                             "firma_bilgisi", "musteri_adi")).lower()
             if ara.lower() not in blob:
                 return False
         return True
@@ -382,7 +383,7 @@ def _kontrol_paneli(kayit):
 
         _alt_baslik("Müşteri / Firma")
         _satir("Firma Bilgisi", _g(kayit, "firma_bilgisi"))
-        _satir("Müşteri / Firma Adı", _g(kayit, "musteri_adi"))
+        _satir("Mağaza Adı", _g(kayit, "musteri_adi"))
         _satir("Mail", _g(kayit, "musteri_mail"))
         _satir("Telefon", _g(kayit, "musteri_tel"))
         _satir("Adres", _g(kayit, "musteri_adres"))
@@ -425,16 +426,37 @@ def _kontrol_paneli(kayit):
 
     # ── İşlemler ──
     with st.expander("⚙️ Durum Güncelle / İşlem Yap", expanded=False):
+        # Yeni durum form DIŞINDA — 'ürün değişimi' seçilince değişim alanları anında görünsün
+        mevcut = kayit.get("mevcut_durum", "mal kabül")
+        idx = DURUMLAR.index(mevcut) if mevcut in DURUMLAR else 0
+        yeni_durum = st.selectbox("Yeni Durum", DURUMLAR, index=idx, key=f"ts_yd_{kid}")
         with st.form(f"ts_durum_{kid}"):
-            u1, u2 = st.columns(2)
-            mevcut = kayit.get("mevcut_durum", "mal kabül")
-            idx = DURUMLAR.index(mevcut) if mevcut in DURUMLAR else 0
-            yeni_durum = u1.selectbox("Yeni Durum", DURUMLAR, index=idx)
-            personel = u2.text_input("İşlemi Yapan",
+            personel = st.text_input("İşlemi Yapan",
                                      value=st.session_state.get("aktif_kullanici", "").capitalize())
             yapilan = st.text_input("Yapılan İşlem / Açıklama",
                                     placeholder="örn: güç kaynağı değiştirildi")
             test = st.text_area("Test Süreci (opsiyonel)", height=60)
+
+            # 🔄 Ürün değişimi seçiliyse — değişim ürünü bilgileri
+            _dg = {}
+            if yeni_durum == "ürün değişimi":
+                st.markdown('<div style="color:#FBBF24;font-size:12px;font-weight:700;'
+                            'text-transform:uppercase;letter-spacing:.5px;margin:8px 0 2px">'
+                            '🔄 Değişim Yapılan Ürün</div>', unsafe_allow_html=True)
+                dg1, dg2 = st.columns(2)
+                _dg["degisim_stok_kodu"] = dg1.text_input("Stok Kodu", value=kayit.get("degisim_stok_kodu", "") or "",
+                                                          key=f"ts_dgsk_{kid}")
+                _dg["degisim_stok_adi"] = dg2.text_input("Stok Adı", value=kayit.get("degisim_stok_adi", "") or "",
+                                                         key=f"ts_dgsa_{kid}")
+                dg3, dg4 = st.columns(2)
+                _dg["degisim_seri_no"] = dg3.text_input("Seri No", value=kayit.get("degisim_seri_no", "") or "",
+                                                        key=f"ts_dgsn_{kid}")
+                _depo_opts = ["(Seçilmedi)"] + DEPOLAR
+                _cur_dp = kayit.get("degisim_depo") or ""
+                _dg_depo = dg4.selectbox("Depo", _depo_opts,
+                                         index=_depo_opts.index(_cur_dp) if _cur_dp in _depo_opts else 0,
+                                         key=f"ts_dgdp_{kid}")
+                _dg["degisim_depo"] = "" if str(_dg_depo).startswith("(") else _dg_depo
 
             st.markdown('<div style="color:#64748B;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:6px 0 2px">Ön Kontrol Bilgileri (güncellenebilir)</div>', unsafe_allow_html=True)
             k1, k2 = st.columns(2)
@@ -451,6 +473,8 @@ def _kontrol_paneli(kayit):
                     "fiziksel_durum": d_fiziksel.strip(),
                     "detay": d_detay.strip(),
                 }
+                for _dk, _dv in _dg.items():
+                    ekstra[_dk] = (_dv or "").strip() if isinstance(_dv, str) else _dv
                 if yapilan.strip():
                     ekstra["yapilan_islem"] = yapilan.strip()
                 if test.strip():
@@ -506,11 +530,16 @@ def _depolar():
 
     _gruplar = sorted({(k.get("urun_grubu") or "").strip() for k in kayitlar
                        if (k.get("urun_grubu") or "").strip()})
-    f1, f2, f3, f4 = st.columns([1.2, 1.2, 1, 1.8])
+    _firmalar = sorted({(k.get("firma_bilgisi") or "").strip() for k in kayitlar
+                        if (k.get("firma_bilgisi") or "").strip()})
+    f1, f2, f3, f4 = st.columns(4)
     depo_f = f1.selectbox("Depo filtresi", ["Tümü"] + DEPOLAR, key="depo_filtre")
     grup_f = f2.selectbox("Ürün grubu", ["Tümü"] + _gruplar, key="depo_grup_f")
-    fatura_f = f3.selectbox("Fatura", ["Tümü", "✓ Mevcut", "✗ Yok"], key="depo_fat_f")
-    ara = f4.text_input("🔍 Ara — Servis No · Stok · Seri", key="depo_ara")
+    firma_f = f3.selectbox("Firma", ["Tümü"] + _firmalar, key="depo_firma_f")
+    kaynak_f = f4.selectbox("Kaynak", ["Tümü", "🔧 Teknik Servis", "↩️ İade"], key="depo_kaynak_f")
+    g1, g2 = st.columns([1, 3])
+    fatura_f = g1.selectbox("Fatura", ["Tümü", "✓ Mevcut", "✗ Yok"], key="depo_fat_f")
+    ara = g2.text_input("🔍 Ara — Servis No · Stok · Seri · Firma", key="depo_ara")
 
     def _fm_of(k):
         v = k.get("fatura_mevcut")
@@ -521,13 +550,17 @@ def _depolar():
             return False
         if grup_f != "Tümü" and (k.get("urun_grubu") or "").strip() != grup_f:
             return False
+        if firma_f != "Tümü" and (k.get("firma_bilgisi") or "").strip() != firma_f:
+            return False
+        if kaynak_f != "Tümü" and ARAYUZ_ETIKET.get(k.get("arayuz", ""), "") != kaynak_f:
+            return False
         if fatura_f == "✓ Mevcut" and not _fm_of(k):
             return False
         if fatura_f == "✗ Yok" and _fm_of(k):
             return False
         if ara:
             blob = " ".join(str(k.get(a, "") or "") for a in
-                            ("servis_form_no", "stok_kodu", "stok_adi", "seri_no")).lower()
+                            ("servis_form_no", "stok_kodu", "stok_adi", "seri_no", "firma_bilgisi")).lower()
             if ara.lower() not in blob:
                 return False
         return True
@@ -540,6 +573,7 @@ def _depolar():
             "Servis No": k.get("servis_form_no", ""), "Stok Kodu": k.get("stok_kodu", ""),
             "Stok Adı": k.get("stok_adi", ""), "Ürün Grubu": k.get("urun_grubu", ""),
             "Seri No": k.get("seri_no", ""), "Firma": k.get("firma_bilgisi", ""),
+            "Kaynak": ARAYUZ_ETIKET.get(k.get("arayuz", ""), ""),
             "Depo": k.get("depo", ""), "Durum": k.get("mevcut_durum", ""),
             "Mal Kabül": _tarih_kisa(k.get("mal_kabul_tarihi")),
             "Fatura No": k.get("fatura_no", ""), "İrsaliye No": k.get("irsaliye_no", ""),
@@ -565,7 +599,7 @@ def _depolar():
                 st.markdown(
                     f'<div style="padding:6px 0"><span style="color:#FDA4AF;font-weight:700">{_g(k,"servis_form_no")}</span> · '
                     f'{_g(k,"stok_kodu")} · <span style="color:#94A3B8">{(_g(k,"stok_adi","")[:50])}</span><br>'
-                    f'<span style="color:#64748B;font-size:11px">Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo")}</span> '
+                    f'<span style="color:#64748B;font-size:11px">{ARAYUZ_ETIKET.get(k.get("arayuz",""),"")} · Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo")}</span> '
                     f'{_durum_chip(k.get("mevcut_durum",""))}</div>',
                     unsafe_allow_html=True)
             with c2:
