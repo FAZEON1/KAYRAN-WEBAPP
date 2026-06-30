@@ -270,6 +270,14 @@ def run():
                 st.session_state.aktif_uygulama = "anasayfa"
                 st.rerun()
 
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#90A4AE;font-size:11px;font-weight:600;'
+                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 6px">📑 Satış Sayfaları</div>',
+                    unsafe_allow_html=True)
+        _ssayfa = st.radio("Sayfa", ["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L",
+                                     "📥 İçe Aktar", "↩️ İade"],
+                           label_visibility="collapsed", key="satis_sayfa")
+
     st.markdown("## 💰 Satış & Kârlılık")
     st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
@@ -279,11 +287,10 @@ def run():
         st.caption("Kâr/P&L sekmesinde tarih aralığını **01.01.2025 – 31.12.2025** seçerek "
                    "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
 
-    sekme1, sekme2, sekme3, sekme4, sekme5 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L", "📥 İçe Aktar", "↩️ İade"])
     _kanallar = get_kanallar()
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
-    with sekme1:
+    if _ssayfa == "🧾 Satış Girişi":
         pacal = get_pacal_map()
         urunler = get_urunler()
         urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
@@ -523,7 +530,7 @@ def run():
                     st.rerun()
 
     # ───────────────────────── SATIŞLAR ─────────────────────────
-    with sekme2:
+    elif _ssayfa == "📋 Satışlar":
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
         _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
 
@@ -576,7 +583,7 @@ def run():
                         st.caption("Sipariş no'lu kayıt yok.")
 
     # ───────────────────────── KÂR / P&L ─────────────────────────
-    with sekme3:
+    elif _ssayfa == "📊 Kâr / P&L":
         _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
 
         satislar = get_satislar(_pbas, _pbit)
@@ -643,7 +650,7 @@ def run():
                             st.rerun()
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
-    with sekme4:
+    elif _ssayfa == "📥 İçe Aktar":
         st.markdown("##### 📥 Geçmiş Satışları İçe Aktar")
         st.caption("Mikro **fatura bazlı satış** dökümünü (.xls/.xlsx) yükle. "
                    "Maliyet, sistemdeki güncel **paçal** maliyetten otomatik hesaplanır. "
@@ -728,11 +735,10 @@ def run():
                         st.rerun()
 
     # ───────────────────────── İADE ─────────────────────────
-    with sekme5:
+    elif _ssayfa == "↩️ İade":
         st.markdown("##### ↩️ İade Yönetimi")
         st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
                    "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
-        from shared.tarih import hizli_tarih_araligi
 
         with st.expander("➕ Manuel İade Girişi", expanded=False):
             ig1, ig2, ig3 = st.columns(3)
@@ -789,7 +795,7 @@ def run():
                             st.rerun()
 
         st.markdown("---")
-        _ib, _ibit = hizli_tarih_araligi("iade_ozet", etiket="Özet dönemi")
+        _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
         _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
         if not _satirlar:
             st.info("Bu dönemde satış/iade kaydı yok.")
