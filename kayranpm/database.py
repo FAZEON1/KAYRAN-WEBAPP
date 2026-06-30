@@ -486,6 +486,100 @@ def get_firma_listesi():
     return sorted({(r.get("firma") or "").strip() for r in rows if (r.get("firma") or "").strip()})
 
 
+# ── SKU TEMİZLEME · 'Fazeon' önekli kodları öneksiz kodla birleştir ──────────
+_SKU_TABLOLARI = ["urunler", "satislar", "firma_stok", "kampanya_urunler",
+                  "yoldaki_urunler", "stok_yas", "ithalat_kalemleri", "siparis_onerileri"]
+
+
+def _fazeon_hedef(sku):
+    """SKU 'Fazeon ' (her büyük/küçük varyant) ile başlıyorsa öneksiz + BÜYÜK harf hedefi döndürür.
+    Değilse None. Örn: 'Fazeon X24F165S' → 'X24F165S'."""
+    s = str(sku or "").strip()
+    for p in ("FAZEON ", "Fazeon ", "fazeon "):
+        if s.startswith(p) and len(s) > len(p):
+            return s[len(p):].strip().upper()
+    return None
+
+
+def sku_fazeon_temizle_onizle():
+    """Tüm tablolardaki 'Fazeon ' önekli SKU'ları, öneksiz hedeflerini, çakışmaları
+    (hedef kod zaten var mı → birleşecek) ve etkilenen kayıt sayılarını döndürür.
+    HİÇBİR ŞEY YAZMAZ — güvenli önizleme. Döner: list[{eski, yeni, catisma, toplam_kayit, tablolar}]."""
+    try:
+        urun_skular = {str(r.get("sku") or "").strip() for r in _hepsi("urunler", "sku", "sku")}
+    except Exception:
+        urun_skular = set()
+
+    bulgular = {}  # eski_sku → {yeni, tablolar:{tablo:adet}}
+    for tablo in _SKU_TABLOLARI:
+        try:
+            rows = _hepsi(tablo, "sku", "sku")
+        except Exception:
+            continue
+        for r in rows:
+            esku = str(r.get("sku") or "").strip()
+            hedef = _fazeon_hedef(esku)
+            if not hedef:
+                continue
+            b = bulgular.setdefault(esku, {"yeni": hedef, "tablolar": {}})
+            b["tablolar"][tablo] = b["tablolar"].get(tablo, 0) + 1
+
+    out = []
+    for esku, b in sorted(bulgular.items()):
+        out.append({
+            "eski": esku, "yeni": b["yeni"],
+            "catisma": (b["yeni"] in urun_skular),
+            "tablolar": b["tablolar"],
+            "toplam_kayit": sum(b["tablolar"].values()),
+        })
+    return out
+
+
+def sku_fazeon_temizle_uygula():
+    """'Fazeon ' önekli SKU'ları öneksiz hedeflerine taşır:
+    - urunler DIŞI tablolar: sku alanı UPDATE (eski → yeni).
+    - urunler: hedef kod zaten varsa kaynak (Fazeon) kayıt SİLİNİR (hedef korunur); yoksa yeniden adlandırılır.
+    Geri alınamaz. Döner: (ok, mesaj)."""
+    sb = get_client()
+    onizle = sku_fazeon_temizle_onizle()
+    if not onizle:
+        return True, "Temizlenecek 'Fazeon' önekli SKU bulunamadı — sistem zaten temiz."
+    try:
+        urun_skular = {str(r.get("sku") or "").strip() for r in _hepsi("urunler", "sku", "sku")}
+    except Exception:
+        urun_skular = set()
+
+    guncellenen_kayit = rename = birlesti = 0
+    hatalar = []
+    for it in onizle:
+        esku, yeni = it["eski"], it["yeni"]
+        for tablo in _SKU_TABLOLARI:
+            if tablo == "urunler":
+                continue
+            try:
+                sb.table(tablo).update({"sku": yeni}).eq("sku", esku).execute()
+                guncellenen_kayit += it["tablolar"].get(tablo, 0)
+            except Exception as e:
+                hatalar.append(f"{tablo}/{esku}: {str(e)[:50]}")
+        try:
+            if yeni in urun_skular and yeni != esku:
+                sb.table("urunler").delete().eq("sku", esku).execute()
+                birlesti += 1
+            else:
+                sb.table("urunler").update({"sku": yeni}).eq("sku", esku).execute()
+                urun_skular.add(yeni)
+                rename += 1
+        except Exception as e:
+            hatalar.append(f"urunler/{esku}: {str(e)[:50]}")
+    _cache_temizle()
+
+    mesaj = (f"✅ {len(onizle)} 'Fazeon' SKU temizlendi — {rename} yeniden adlandırıldı, "
+             f"{birlesti} mevcut kodla birleştirildi. Diğer tablolarda ~{guncellenen_kayit} kayıt güncellendi.")
+    if hatalar:
+        mesaj += f" | ⚠️ {len(hatalar)} sorun: " + "; ".join(hatalar[:3])
+    return True, mesaj
+
+
 def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
     """firma_stok'tan haftalık satış kayıtları — tarih aralığı + müşteri + SKU/ürün filtreli (sayfalı).
     Döner: [{firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi}]."""

@@ -33,7 +33,8 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
                       get_kampanya_destek_ortalamalari,
-                      get_firma_listesi, get_musteri_haftalik_satis)
+                      get_firma_listesi, get_musteri_haftalik_satis,
+                      sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
@@ -2274,6 +2275,34 @@ def run():
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
         # ── İthalat'tan Ürün Senkronizasyonu ──
+        with st.expander("🧹 SKU Bakımı — 'Fazeon' önekli kodları birleştir", expanded=False):
+            st.caption("Başında 'Fazeon ' olan SKU'ları öneksiz koda taşır (örn. 'Fazeon X24F165S' → 'X24F165S'). "
+                       "Öneksiz kod zaten varsa BİRLEŞTİRİR: satış · stok · kampanya · ithalat kalemleri o koda aktarılır, "
+                       "mükerrer ürün kartı silinir. Önce önizle, sonra uygula. İşlem geri alınamaz.")
+            if st.button("🔍 Önizle (neyin değişeceğini göster)", key="sku_tmz_onizle_btn"):
+                with st.spinner("Tüm tablolar taranıyor…"):
+                    st.session_state["_sku_tmz_onizle"] = sku_fazeon_temizle_onizle()
+            _oz = st.session_state.get("_sku_tmz_onizle")
+            if _oz is not None:
+                if not _oz:
+                    st.success("Temizlenecek 'Fazeon' önekli SKU yok — sistem zaten temiz.")
+                else:
+                    _df_tmz = pd.DataFrame([{
+                        "Eski SKU": x["eski"], "→ Yeni SKU": x["yeni"],
+                        "Durum": "🔗 Birleşecek (kod zaten var)" if x["catisma"] else "✏️ Yeniden adlandırılacak",
+                        "Etkilenen kayıt": x["toplam_kayit"],
+                    } for x in _oz])
+                    st.dataframe(_df_tmz, hide_index=True, use_container_width=True, height=320)
+                    st.warning(f"⚠️ {len(_oz)} SKU değişecek. Bu işlem geri alınamaz — gece yedeğinin güncel olduğundan emin ol.")
+                    if st.button("✅ Onayla ve Uygula", type="primary", use_container_width=True, key="sku_tmz_uygula_btn"):
+                        with st.spinner("SKU'lar birleştiriliyor…"):
+                            _okt, _msgt = sku_fazeon_temizle_uygula()
+                        st.cache_data.clear()
+                        st.session_state.pop("_sku_tmz_onizle", None)
+                        (st.success if _okt else st.error)(_msgt)
+                        st.rerun()
+
+        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#7DD3FC;letter-spacing:1px;text-transform:uppercase;margin:4px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#0EA5E9,#7DD3FC);display:inline-block"></span>🚢 Ürünleri İthalat\'tan Senkronize Et</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:10px">Ürün listesi İthalat\'tan çekilir: İthalat\'taki her SKU ürün olur, İthalat\'ta olmayan <b style="color:#CBD5E1">eski modeller silinir</b>. Ortak ürünlerin satış/stok/hedef bilgisi korunur.</div>', unsafe_allow_html=True)
         try:
