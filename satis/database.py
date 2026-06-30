@@ -339,6 +339,10 @@ def _temizle():
         get_satislar.clear()
     except Exception:
         pass
+    try:
+        get_iadeler.clear()
+    except Exception:
+        pass
 
 
 def _normalize_sku_yerel(s):
@@ -381,33 +385,35 @@ def satis_maliyet_tazele_onizle(sadece_sifir=True):
 
 def satis_maliyet_tazele_uygula(sadece_sifir=True):
     """satislar.birim_maliyet'i normalize SKU ile eşleşen güncel paçaldan yeniden yazar.
+    HAM SKU bazında TOPLU update yapar (her benzersiz SKU için tek istek) — binlerce satır
+    için satır-satır yerine saniyeler sürer.
     sadece_sifir=True → yalnız maliyeti 0 olanlar (mevcut doğru maliyetlere dokunmaz).
     Döner: (ok, mesaj)."""
     sb = _get_client()
     pacal = get_pacal_map()
     satislar = get_satislar()
-    guncellenen = 0
-    sku_set = set()
+    # Benzersiz HAM SKU → paçal (normalize ile eşleştir). Aynı SKU'nun tüm satırları aynı maliyeti alır.
+    ham_pacal = {}
     for s in satislar:
-        nsku = _normalize_sku_yerel(s.get("sku"))
-        p = _f(pacal.get(nsku, 0))
+        ham = str(s.get("sku") or "")
+        if ham and ham not in ham_pacal:
+            ham_pacal[ham] = _f(pacal.get(_normalize_sku_yerel(ham), 0))
+    guncellenen_sku = 0
+    for ham, p in ham_pacal.items():
         if p <= 0:
             continue
-        mevcut = _f(s.get("birim_maliyet"))
-        if sadece_sifir and mevcut > 0:
-            continue
-        if not sadece_sifir and abs(mevcut - p) < 0.005:
-            continue
         try:
-            sb.table("satislar").update({"birim_maliyet": round(p, 4)}).eq("id", s["id"]).execute()
-            guncellenen += 1
-            sku_set.add(nsku)
+            q = sb.table("satislar").update({"birim_maliyet": round(p, 4)}).eq("sku", ham)
+            if sadece_sifir:
+                q = q.lte("birim_maliyet", 0)   # yalnız maliyeti 0 olan satırlar
+            q.execute()
+            guncellenen_sku += 1
         except Exception:
             pass
     _temizle()
-    if not guncellenen:
-        return True, "Güncellenecek satış bulunamadı — maliyeti 0 olup paçalı bilinen satış yok."
-    return True, f"✅ {guncellenen} satış kaydının maliyeti paçaldan güncellendi ({len(sku_set)} farklı SKU)."
+    if not guncellenen_sku:
+        return True, "Güncellenecek satış bulunamadı — maliyeti 0 olup paçalı bilinen SKU yok."
+    return True, f"✅ {guncellenen_sku} SKU'nun maliyeti paçaldan toplu güncellendi (maliyeti 0 olan satışlar)."
 
 
 # ── Kâr hesabı ──
@@ -451,3 +457,141 @@ def siparis_no_var_mi(sipno):
         return bool(r.data)
     except Exception:
         return False
+
+
+# ── İADELER · satışı bozmadan ayrı tutulur; rapor Satış / İade / Net ─────────
+def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
+              iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0):
+    try:
+        _get_client().table("iadeler").insert({
+            "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": (sku or "").strip(),
+            "urun_adi": urun_adi or "", "iade_adet": _i(iade_adet),
+            "iade_brut": _f(iade_brut), "iade_iskonto": _f(iade_iskonto),
+            "iade_masraf": _f(iade_masraf), "iade_net": _f(iade_net),
+        }).execute()
+        _temizle()
+        return True, "✅ İade kaydedildi"
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}"
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_iadeler(baslangic=None, bitis=None):
+    try:
+        cli = _get_client()
+        tum, adim, bas = [], 1000, 0
+        while True:
+            q = cli.table("iadeler").select("*")
+            if baslangic:
+                q = q.gte("tarih", str(baslangic)[:10])
+            if bitis:
+                q = q.lte("tarih", str(bitis)[:10])
+            q = q.order("tarih", desc=True).order("id", desc=True).range(bas, bas + adim - 1)
+            chunk = _rows(q.execute())
+            if not chunk:
+                break
+            tum.extend(chunk)
+            if len(chunk) < adim:
+                break
+            bas += adim
+        return tum
+    except Exception:
+        return []
+
+
+def sil_iade(iade_id):
+    try:
+        _get_client().table("iadeler").delete().eq("id", iade_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
+def guncelle_iade(iade_id, alanlar):
+    try:
+        _get_client().table("iadeler").update(alanlar).eq("id", iade_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
+def ice_aktar_iadeler(satirlar, tarih, temizle_once=False):
+    """satirlar: [{sku, urun_adi, kanal, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net}].
+    tarih: dönem tarihi (hepsine yazılır). temizle_once: aynı tarihli iadeleri önce siler.
+    Döner: {eklendi, atlandi}."""
+    try:
+        cli = _get_client()
+        if temizle_once and tarih:
+            cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
+        rows, atlandi = [], 0
+        for s in satirlar:
+            sku = str(s.get("sku") or "").strip()
+            adet = _i(s.get("iade_adet"))
+            if not sku or adet <= 0:
+                atlandi += 1
+                continue
+            rows.append({
+                "tarih": str(tarih)[:10], "kanal": s.get("kanal") or "",
+                "sku": sku, "urun_adi": s.get("urun_adi") or "",
+                "iade_adet": adet, "iade_brut": _f(s.get("iade_brut")),
+                "iade_iskonto": _f(s.get("iade_iskonto")), "iade_masraf": _f(s.get("iade_masraf")),
+                "iade_net": _f(s.get("iade_net")),
+            })
+        eklendi = 0
+        for i in range(0, len(rows), 500):
+            chunk = rows[i:i + 500]
+            cli.table("iadeler").insert(chunk).execute()
+            eklendi += len(chunk)
+        _temizle()
+        return {"eklendi": eklendi, "atlandi": atlandi}
+    except Exception as e:
+        return {"eklendi": 0, "atlandi": 0, "hata": f"{type(e).__name__}: {str(e)[:140]}"}
+
+
+def iade_satis_net_ozet(baslangic=None, bitis=None):
+    """SKU bazında Satış / İade / Net özeti. İade kârı paçal maliyetinden hesaplanır.
+    Döner: (satirlar:list, toplam:dict)."""
+    pacal = get_pacal_map()
+    sat = {}
+    for s in get_satislar(baslangic, bitis):
+        sku = str(s.get("sku") or "").strip()
+        if not sku:
+            continue
+        k = satir_kar(s)
+        o = sat.setdefault(sku, {"urun_adi": s.get("urun_adi", "") or "",
+                                 "s_adet": 0, "s_ciro": 0.0, "s_kar": 0.0})
+        o["s_adet"] += k["adet"]; o["s_ciro"] += k["ciro"]; o["s_kar"] += k["net_kar"]
+        if not o["urun_adi"]:
+            o["urun_adi"] = s.get("urun_adi", "") or ""
+    iad = {}
+    for r in get_iadeler(baslangic, bitis):
+        sku = str(r.get("sku") or "").strip()
+        if not sku:
+            continue
+        adet = _i(r.get("iade_adet"))
+        net = _f(r.get("iade_net"))
+        pc = pacal.get(_normalize_sku_yerel(sku), 0.0)
+        o = iad.setdefault(sku, {"urun_adi": r.get("urun_adi", "") or "",
+                                 "i_adet": 0, "i_tutar": 0.0, "i_maliyet": 0.0})
+        o["i_adet"] += adet; o["i_tutar"] += net; o["i_maliyet"] += adet * pc
+        if not o["urun_adi"]:
+            o["urun_adi"] = r.get("urun_adi", "") or ""
+    satirlar = []
+    for sku in (set(sat) | set(iad)):
+        s = sat.get(sku, {}); i = iad.get(sku, {})
+        s_adet = s.get("s_adet", 0); s_ciro = s.get("s_ciro", 0.0); s_kar = s.get("s_kar", 0.0)
+        i_adet = i.get("i_adet", 0); i_tutar = i.get("i_tutar", 0.0)
+        i_kar = i_tutar - i.get("i_maliyet", 0.0)
+        satirlar.append({
+            "sku": sku, "urun_adi": s.get("urun_adi") or i.get("urun_adi") or "",
+            "s_adet": s_adet, "s_ciro": s_ciro, "s_kar": s_kar,
+            "i_adet": i_adet, "i_tutar": i_tutar, "i_kar": i_kar,
+            "net_adet": s_adet - i_adet, "net_ciro": s_ciro - i_tutar, "net_kar": s_kar - i_kar,
+        })
+    satirlar.sort(key=lambda x: -x["i_adet"])
+    toplam = {kk: sum(x[kk] for x in satirlar) for kk in
+              ("s_adet", "s_ciro", "s_kar", "i_adet", "i_tutar", "i_kar",
+               "net_adet", "net_ciro", "net_kar")}
+    return satirlar, toplam

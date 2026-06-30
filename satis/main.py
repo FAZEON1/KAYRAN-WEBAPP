@@ -13,6 +13,7 @@ from .database import (
     satir_kar, ozet_hesapla, TR_TZ,
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
+    ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet,
 )
 
 
@@ -204,6 +205,54 @@ def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
     return out
 
 
+def iade_excel_oku(dosya):
+    """İade Excel'inden SADECE iade kalemlerini ayıklar (cari başlık satırlarını atlar,
+    iade adedi 0 olanları almaz; satış kolonlarına dokunmaz). Döner: (satirlar, hata)."""
+    df = pd.read_excel(dosya, sheet_name=0)
+    df.columns = [str(c).strip() for c in df.columns]
+
+    def _bul(*adlar):
+        for a in adlar:
+            for c in df.columns:
+                if str(c).strip().lower() == a.lower():
+                    return c
+        return None
+
+    k_sku = _bul("Stok kodu", "SKU")
+    k_ad = _bul("Stok ismi", "Stok adı", "Ürün adı")
+    k_smik = _bul("Satış miktarı")
+    k_imik = _bul("İade miktar", "İade miktarı")
+    k_ibrut = _bul("İade brüt tutar", "İade brüt")
+    k_iisk = _bul("İade iskonto")
+    k_imas = _bul("İade masraf")
+    k_inet = _bul("İade net", "İade net tutar")
+    if not k_sku or not k_imik:
+        return [], "'Stok kodu' veya 'İade miktar' kolonu bulunamadı."
+    out, firma = [], ""
+    for _, row in df.iterrows():
+        sku = str(row.get(k_sku, "") or "").strip()
+        if not sku or sku.lower() == "nan":
+            continue
+        smik, imik = row.get(k_smik), row.get(k_imik)
+        if pd.isna(smik) and pd.isna(imik):
+            firma = sku                       # cari/firma başlık satırı
+            continue
+        adet = 0 if pd.isna(imik) else int(imik)
+        if adet <= 0:
+            continue                          # iadesi olmayan ürün
+
+        def _say(k):
+            return 0.0 if (k is None or pd.isna(row.get(k))) else float(row.get(k))
+
+        out.append({
+            "sku": sku, "urun_adi": str(row.get(k_ad, "") or "").strip(),
+            "kanal": firma, "iade_adet": adet,
+            "iade_brut": _say(k_ibrut), "iade_iskonto": _say(k_iisk),
+            "iade_masraf": _say(k_imas), "iade_net": _say(k_inet),
+        })
+    return out, ""
+
+
 def run():
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
 
@@ -230,7 +279,7 @@ def run():
         st.caption("Kâr/P&L sekmesinde tarih aralığını **01.01.2025 – 31.12.2025** seçerek "
                    "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
 
-    sekme1, sekme2, sekme3, sekme4 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L", "📥 İçe Aktar"])
+    sekme1, sekme2, sekme3, sekme4, sekme5 = st.tabs(["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L", "📥 İçe Aktar", "↩️ İade"])
     _kanallar = get_kanallar()
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
@@ -677,3 +726,114 @@ def run():
                         except Exception:
                             pass
                         st.rerun()
+
+    # ───────────────────────── İADE ─────────────────────────
+    with sekme5:
+        st.markdown("##### ↩️ İade Yönetimi")
+        st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
+                   "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
+        from shared.tarih import hizli_tarih_araligi
+
+        with st.expander("➕ Manuel İade Girişi", expanded=False):
+            ig1, ig2, ig3 = st.columns(3)
+            _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih")
+            _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
+            _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
+            ig4, ig5, ig6 = st.columns(3)
+            _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")
+            _i_adet = ig5.number_input("İade adet", min_value=1, step=1, value=1, key="iade_adet_g")
+            _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.2f", key="iade_net_g")
+            if st.button("💾 İadeyi Kaydet", type="primary", key="iade_kaydet"):
+                if not _i_sku.strip():
+                    st.error("SKU zorunludur.")
+                else:
+                    _k = "" if str(_i_kanal).startswith("(") else _i_kanal
+                    _ok, _msg = ekle_iade(str(_i_tarih)[:10], _k, _i_sku.strip(), _i_ad.strip(),
+                                          int(_i_adet), iade_net=float(_i_net))
+                    (st.success if _ok else st.error)(_msg)
+                    if _ok:
+                        st.cache_data.clear()
+                        st.rerun()
+
+        with st.expander("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", expanded=False):
+            st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
+                       "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
+            _ie_dosya = st.file_uploader("İade Excel'i (.xls / .xlsx)", type=["xls", "xlsx"], key="iade_excel")
+            _ie_tarih = st.date_input("Bu rapor hangi döneme işlensin? (iade tarihi)", key="iade_excel_tarih")
+            _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
+                                      value=True, key="iade_excel_temizle")
+            if _ie_dosya is not None:
+                try:
+                    _ie_satir, _ie_hata = iade_excel_oku(_ie_dosya)
+                except Exception as e:
+                    _ie_satir, _ie_hata = [], f"{type(e).__name__}: {e}"
+                if _ie_hata:
+                    st.error(f"Okunamadı: {_ie_hata}")
+                elif not _ie_satir:
+                    st.warning("Dosyada iadesi olan satır bulunamadı.")
+                else:
+                    _tadet = sum(x["iade_adet"] for x in _ie_satir)
+                    _tnet = sum(x["iade_net"] for x in _ie_satir)
+                    st.success(f"{len(_ie_satir)} iade kalemi · {_tadet:,} adet · {_usd(_tnet)} bulundu.")
+                    st.dataframe(pd.DataFrame([{
+                        "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
+                        "İade Net": round(x["iade_net"], 2), "Cari": (x["kanal"] or "")[:30],
+                    } for x in _ie_satir[:200]]), use_container_width=True, hide_index=True)
+                    if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn"):
+                        _r = ice_aktar_iadeler(_ie_satir, str(_ie_tarih)[:10], temizle_once=_ie_temizle)
+                        if _r.get("hata"):
+                            st.error(f"Hata: {_r['hata']}")
+                        else:
+                            st.success(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
+                            st.cache_data.clear()
+                            st.rerun()
+
+        st.markdown("---")
+        _ib, _ibit = hizli_tarih_araligi("iade_ozet", etiket="Özet dönemi")
+        _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
+        if not _satirlar:
+            st.info("Bu dönemde satış/iade kaydı yok.")
+        else:
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Satış adedi", f"{_top['s_adet']:,}")
+            m2.metric("İade adedi", f"{_top['i_adet']:,}")
+            m3.metric("Net adet", f"{_top['net_adet']:,}")
+            n1, n2, n3 = st.columns(3)
+            n1.metric("Satış cirosu", _usd(_top["s_ciro"]))
+            n2.metric("İade tutarı", _usd(_top["i_tutar"]))
+            n3.metric("Net ciro", _usd(_top["net_ciro"]))
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Satış kârı", _usd(_top["s_kar"]))
+            k2.metric("İade kâr kaybı", _usd(_top["i_kar"]))
+            k3.metric("Net kâr", _usd(_top["net_kar"]))
+
+            with st.expander("📊 SKU bazında Satış / İade / Net", expanded=True):
+                _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
+                _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
+                st.caption(f"{len(_gor)} ürün")
+                st.dataframe(pd.DataFrame([{
+                    "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
+                    "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
+                    "Satış ciro": round(x["s_ciro"], 2), "İade tutar": round(x["i_tutar"], 2),
+                    "Net ciro": round(x["net_ciro"], 2), "Net kâr": round(x["net_kar"], 2),
+                } for x in _gor]), use_container_width=True, hide_index=True)
+
+        with st.expander("🗂️ İade Kayıtları (sil)", expanded=False):
+            _kayitlar = get_iadeler(_ib, _ibit)
+            if not _kayitlar:
+                st.caption("Kayıt yok.")
+            else:
+                st.caption(f"{len(_kayitlar)} iade kaydı")
+                st.dataframe(pd.DataFrame([{
+                    "Tarih": (r.get("tarih") or "")[:10], "SKU": r.get("sku", ""),
+                    "Ürün": (r.get("urun_adi") or "")[:34], "Adet": r.get("iade_adet", 0),
+                    "İade Net": r.get("iade_net", 0), "Kanal": (r.get("kanal") or "")[:24],
+                } for r in _kayitlar]), use_container_width=True, hide_index=True)
+                _sil_id = st.number_input("Silinecek iade ID", min_value=0, step=1, value=0, key="iade_sil_id")
+                if st.button("🗑 İadeyi Sil", key="iade_sil_btn") and _sil_id > 0:
+                    if sil_iade(int(_sil_id)):
+                        st.success("Silindi.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Silinemedi.")
