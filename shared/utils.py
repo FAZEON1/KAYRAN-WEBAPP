@@ -42,10 +42,19 @@ FIRMA_GORUNEN_AD = {
 
 
 def firma_gorunen_ad(kod) -> str:
-    """Firma stok kodunu (ITOPYA, HB...) gerçek adına çevirir (EERA, D-MARKET...).
-    Eşleme yoksa kodu olduğu gibi döndürür. Sadece ekranda gösterim için — veri/sorguda kod kullanılır."""
+    """Firma stok kodunu (ITOPYA, HB...) muhasebedeki TAM cari adına çevirir.
+    Önce ref_no.firma_tam_cari_adi ile cari listesinden tam adı bulur; ulaşılamazsa
+    kısa öneke (EERA / D-MARKET...) düşer; o da yoksa kodu olduğu gibi gösterir.
+    Sadece ekranda gösterim için — veri/sorguda firma kodu kullanılır."""
     if not kod:
         return ""
+    try:
+        from kayranpm.ref_no import firma_tam_cari_adi
+        ad = firma_tam_cari_adi(kod)
+        if ad:
+            return ad
+    except Exception:
+        pass
     k = normalize_tr(kod).strip()
     return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
 
