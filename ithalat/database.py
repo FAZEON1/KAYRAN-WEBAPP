@@ -463,6 +463,86 @@ def set_dosya_takip_no(dosya_id, takip_no):
         return False
 
 
+def sas_no_excel_eslesti(dosya_yolu):
+    """Mikro satın alma raporundan SAS no'larını okuyup sistemdeki ithalat dosyalarına eşleştirir.
+    Eşleştirme anahtarı: 'Belge no' (= pi_no) — birebir; yedek olarak 'Dosya no'.
+    Sistemdeki kayıtların sas_no alanını günceller. Veri (kalemler) değişmez.
+    Döner: (ok, mesaj)."""
+    import pandas as pd
+    sb = _get_client()
+    try:
+        df = pd.read_excel(dosya_yolu, sheet_name=0)
+    except Exception as e:
+        return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
+
+    def _col(adaylar):
+        low = {str(c).strip().lower(): c for c in df.columns}
+        for a in adaylar:
+            if a.lower() in low:
+                return low[a.lower()]
+        return None
+    c_belge = _col(["belge no", "belgeno", "belge_no"])
+    c_sas = _col(["sipariş no", "siparis no", "sipariş_no", "sas no", "sas"])
+    if not c_belge or not c_sas:
+        return False, "❌ Excel'de 'Belge no' ve 'Sipariş no' (SAS) sütunları bulunamadı."
+
+    def _nk(s):  # eşleştirme anahtarı normalize (boşluk/harf duyarsız)
+        return str(s or "").strip().upper().replace(" ", "")
+
+    def _nsas(s):
+        s = str(s or "").strip()
+        if not s or s.lower() == "nan":
+            return ""
+        if s[:3].lower() == "sas":   # sas-33 → SAS-33 (prefiks tutarlı)
+            s = "SAS" + s[3:]
+        return s
+
+    harita = {}  # normalize belge no → SAS no
+    for _, r in df.iterrows():
+        b = _nk(r.get(c_belge))
+        s = _nsas(r.get(c_sas))
+        if b and b != "NAN" and s:
+            harita.setdefault(b, s)
+    if not harita:
+        return False, "❌ Excel'de eşleştirilecek (Belge no → SAS) verisi bulunamadı."
+
+    try:
+        dosyalar = _rows(sb.table("ithalat_dosyalari").select("id, pi_no, dosya_no, sas_no").execute())
+    except Exception as e:
+        return False, f"❌ İthalat dosyaları okunamadı: {str(e)[:120]}"
+
+    guncellenen = zaten = 0
+    eslesen_sas = set()
+    eslesmeyen_dosya = []
+    for d in dosyalar:
+        sas = harita.get(_nk(d.get("pi_no"))) or harita.get(_nk(d.get("dosya_no")))
+        if not sas:
+            eslesmeyen_dosya.append(str(d.get("pi_no") or d.get("dosya_no") or d.get("id")))
+            continue
+        eslesen_sas.add(sas)
+        if str(d.get("sas_no") or "").strip() == sas:
+            zaten += 1
+        else:
+            try:
+                sb.table("ithalat_dosyalari").update({"sas_no": sas}).eq("id", d["id"]).execute()
+                guncellenen += 1
+            except Exception:
+                pass
+    _temizle()
+
+    eslesmeyen_sas = sorted(set(harita.values()) - eslesen_sas)
+    mesaj = f"✅ {guncellenen} dosyaya SAS No yazıldı"
+    if zaten:
+        mesaj += f", {zaten} zaten doğruydu"
+    mesaj += f". (Excel'de {len(harita)} benzersiz SAS)"
+    if eslesmeyen_sas:
+        mesaj += (f" | ⚠️ Belge no'su sistemde bulunamayan {len(eslesmeyen_sas)} SAS: "
+                  + ", ".join(eslesmeyen_sas[:15]) + ("…" if len(eslesmeyen_sas) > 15 else ""))
+    if eslesmeyen_dosya:
+        mesaj += f" | ℹ️ SAS eşleşmeyen {len(eslesmeyen_dosya)} sistem dosyası (Excel'de belge no yok)."
+    return True, mesaj
+
+
 def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
     """Ortak masrafları (tek takip nolu birden çok belge) seçili dosyalara
     FOB (mal bedeli) payına göre ORANSAL dağıtır ve kaydeder.

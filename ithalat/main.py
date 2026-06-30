@@ -5,6 +5,7 @@ KAYRAN — İthalat Modülü
   🔍 Model Sorgu       : SKU yaz → geçmiş tüm alımlar (firma/adet/fiyat/dosya % maliyeti/final maliyet)
 """
 import io
+import os
 from datetime import date
 
 import streamlit as st
@@ -16,6 +17,7 @@ from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
+    sas_no_excel_eslesti,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim,
     get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
 )
@@ -464,6 +466,28 @@ def _gecmis_ithalatlar():
                             _n += 1
                 st.success(f"✅ {_n} mükerrer kayıt silindi.")
                 st.rerun()
+
+    with st.expander("🔢 SAS No Toplu Eşleştir — Mikro satın alma raporundan", expanded=False):
+        st.caption("Mikro satın alma raporunu yükle (Belge no · Sipariş no sütunları). Sistem **Belge No (PI No)** "
+                   "eşleşmesiyle her ithalata SAS No'sunu yazar. Mevcut kalem/masraf verisine dokunmaz, yalnız SAS No alanını doldurur.")
+        _sas_dosya = st.file_uploader("Satın Alma Raporu (.xls / .xlsx)", type=["xls", "xlsx"], key="ith_sas_esle_dosya")
+        if _sas_dosya and st.button("🔢 SAS No'ları Eşleştir ve Yaz", type="primary", use_container_width=True, key="ith_sas_esle_btn"):
+            import tempfile
+            _suf = ".xls" if _sas_dosya.name.lower().endswith(".xls") else ".xlsx"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=_suf) as _ts:
+                _ts.write(_sas_dosya.read())
+                _tsp = _ts.name
+            _ok, _msg = sas_no_excel_eslesti(_tsp)
+            try:
+                os.unlink(_tsp)
+            except Exception:
+                pass
+            st.cache_data.clear()
+            if _ok:
+                st.success(_msg)
+                st.rerun()
+            else:
+                st.error(_msg)
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
