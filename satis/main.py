@@ -7,6 +7,7 @@ import streamlit as st
 
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
 from shared.tarih import hizli_tarih_araligi
+from kayranpm.ref_no import havuz_destek_donem
 from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
@@ -590,30 +591,51 @@ def run():
         else:
             top, kanal, urun = ozet_hesapla(satislar)
             _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
-            _brut_renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
-            _net_renk = "#34D399" if _itop["net_kar"] > 0 else "#F87171"
-            _net_marj = (_itop["net_kar"] / _itop["net_ciro"] * 100) if _itop["net_ciro"] > 0 else 0.0
+            _hav = havuz_destek_donem(_pbas, _pbit)
+            _hav_top = _hav.get("toplam", 0.0)
+            _net_havuzlu = top["net_kar"] + _hav_top
+            _renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
             st.markdown(
                 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
                     ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
                     ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
                     ("Destek", _usd(top["destek"]), "#A78BFA"),
-                    ("Brüt Kâr", _usd(top["net_kar"]), _brut_renk),
-                    ("Marj", f"%{top['marj']:.1f}", _brut_renk),
+                    ("Satış Kârı", _usd(top["net_kar"]), _renk),
+                    ("Marj", f"%{top['marj']:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
                 ]) + '</div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px">' + _kart([
-                    ("İade adedi", f"{_itop['i_adet']:,}", "#FB923C"),
-                    ("İade tutarı", _usd(_itop["i_tutar"]), "#FB923C"),
-                    ("İade kâr kaybı", _usd(_itop["i_kar"]), "#FB923C"),
-                    ("Net Ciro", _usd(_itop["net_ciro"]), "#93C5FD"),
-                    ("Net Kâr", _usd(_itop["net_kar"]), _net_renk),
-                    ("Net Marj", f"%{_net_marj:.1f}", _net_renk),
-                ]) + '</div>', unsafe_allow_html=True)
+            if abs(_hav_top) > 0.005:
+                _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
+                _marj_h = (_net_havuzlu / top["ciro"] * 100) if top["ciro"] > 0 else 0.0
+                st.markdown(
+                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                        ("Havuz Desteği (net)", _usd(_hav_top), "#22D3EE"),
+                        ("Net Kâr (havuz dahil)", _usd(_net_havuzlu), _nh_renk),
+                        ("Marj (havuz dahil)", f"%{_marj_h:.1f}", _nh_renk),
+                    ]) + '</div>', unsafe_allow_html=True)
+                _ek = f" · {_hav['atlanan_doviz']} adet farklı dövizli kayıt atlandı" if _hav.get("atlanan_doviz") else ""
+                st.caption(f"💧 Havuz desteği = Ref No havuz bütçesinin bu dönemdeki **net girişi** (giriş − harcama), "
+                           f"fatura tarihine göre eşleşir; net kâra gelir olarak eklenir.{_ek}")
+                with st.expander("💧 Havuz Desteği — firma kırılımı", expanded=False):
+                    _hf = _hav.get("firmalar", [])
+                    if not _hf:
+                        st.caption("Bu dönemde havuz hareketi yok.")
+                    else:
+                        st.caption(f"{len(_hf)} firma · rol = satış kanalı eşleşmesi (ITOPYA / HB / VATAN)")
+                        st.dataframe(pd.DataFrame([{
+                            "Firma": (f["firma"] or "")[:34], "Rol/Kanal": f["rol"],
+                            "Giriş": round(f["giris"], 2), "Harcama": round(f["harcama"], 2),
+                            "Net havuz": round(f["net"], 2),
+                        } for f in _hf]), use_container_width=True, hide_index=True)
             if _itop["i_adet"] > 0:
-                st.caption(f"↩️ Dönemde {_itop['i_adet']:,} adet iade düşüldü · Net = Satış − İade. "
-                           "(İade ayrıntısı: İade sayfası)")
+                st.markdown(
+                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                        ("İade adedi (stoğa döndü)", f"{_itop['i_adet']:,}", "#FBBF24"),
+                        ("İade tutarı", _usd(_itop["i_tutar"]), "#FBBF24"),
+                        ("İade sonrası net adet", f"{_itop['net_adet']:,}", "#93C5FD"),
+                    ]) + '</div>', unsafe_allow_html=True)
+                st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir; **kâr ve marj brüt satıştan "
+                           "hesaplanır, iade düşülmez.** (Ayrıntı: İade sayfası)")
 
             st.markdown("#### Kanal Kırılımı")
             _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
@@ -822,18 +844,21 @@ def run():
         if not _satirlar:
             st.info("Bu dönemde satış/iade kaydı yok.")
         else:
-            _nk_renk = "#34D399" if _top["net_kar"] > 0 else "#F87171"
-            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px">' + _kart([
+            _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
+            _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
+            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 6px">' + _kart([
                 ("Satış adedi", f"{_top['s_adet']:,}", "#93C5FD"),
-                ("İade adedi", f"{_top['i_adet']:,}", "#FB923C"),
-                ("Net adet", f"{_top['net_adet']:,}", "#34D399"),
+                ("İade adedi", f"{_top['i_adet']:,}", "#FBBF24"),
+                ("Net adet (müşteride)", f"{_top['net_adet']:,}", "#34D399"),
                 ("Satış cirosu", _usd(_top["s_ciro"]), "#CBD5E1"),
-                ("İade tutarı", _usd(_top["i_tutar"]), "#FB923C"),
+                ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), "#FBBF24"),
                 ("Net ciro", _usd(_top["net_ciro"]), "#34D399"),
                 ("Satış kârı", _usd(_top["s_kar"]), "#A78BFA"),
-                ("İade kâr kaybı", _usd(_top["i_kar"]), "#FB923C"),
-                ("Net kâr", _usd(_top["net_kar"]), _nk_renk),
+                ("Satış marjı", f"%{_mr:.1f}", "#A78BFA"),
+                ("İade oranı", f"%{_ior:.1f}", "#FBBF24"),
             ]) + '</div>', unsafe_allow_html=True)
+            st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "
+                       "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")
 
             with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
                 _kirilim = st.radio("Kırılım",
