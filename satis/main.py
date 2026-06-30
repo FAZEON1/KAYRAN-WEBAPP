@@ -835,16 +835,45 @@ def run():
                 ("Net kâr", _usd(_top["net_kar"]), _nk_renk),
             ]) + '</div>', unsafe_allow_html=True)
 
-            with st.expander("📊 SKU bazında Satış / İade / Net", expanded=True):
-                _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
-                _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
-                st.caption(f"{len(_gor)} ürün")
-                st.dataframe(pd.DataFrame([{
-                    "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
-                    "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
-                    "Satış ciro": round(x["s_ciro"], 2), "İade tutar": round(x["i_tutar"], 2),
-                    "Net ciro": round(x["net_ciro"], 2), "Net kâr": round(x["net_kar"], 2),
-                } for x in _gor]), use_container_width=True, hide_index=True)
+            with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
+                _kirilim = st.radio("Kırılım",
+                                    ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"],
+                                    horizontal=True, key="iade_kirilim")
+                if _kirilim == "🏷️ SKU bazlı (net)":
+                    _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
+                    _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
+                    st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
+                    st.dataframe(pd.DataFrame([{
+                        "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
+                        "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
+                        "Satış ciro": round(x["s_ciro"], 2), "İade tutar": round(x["i_tutar"], 2),
+                        "Net ciro": round(x["net_ciro"], 2), "Net kâr": round(x["net_kar"], 2),
+                    } for x in _gor]), use_container_width=True, hide_index=True)
+                else:
+                    _iadeler = get_iadeler(_ib, _ibit)
+                    if not _iadeler:
+                        st.info("Bu dönemde iade kaydı yok.")
+                    elif _kirilim == "🏢 Firma bazlı":
+                        _fb = {}
+                        for r in _iadeler:
+                            f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
+                            o = _fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
+                            o["adet"] += int(r.get("iade_adet") or 0)
+                            o["tutar"] += float(r.get("iade_net") or 0)
+                            o["sku"].add(r.get("sku"))
+                        _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
+                                         "İade tutarı": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"])}
+                                        for f, v in _fb.items()], key=lambda x: -x["İade adet"])
+                        st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
+                        st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+                    else:  # SKU + Firma
+                        _rows = sorted([{
+                            "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
+                            "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
+                            "İade tutarı": round(float(r.get("iade_net") or 0), 2),
+                        } for r in _iadeler], key=lambda x: -x["İade adet"])
+                        st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
+                        st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
 
         with st.expander("🗂️ İade Kayıtları (sil)", expanded=False):
             _kayitlar = get_iadeler(_ib, _ibit)
