@@ -580,6 +580,29 @@ def _gecmis_ithalatlar():
                 _msg += f" Teslim deposu: {_depo_sec}."
             st.success(_msg)
             st.rerun()
+
+        # ── Toplu İthalat Takip No ata (seçili belgelerin hepsine) ──
+        _mevcut_takipler = sorted({str(_d.get("ithalat_takip_no", "") or "").strip()
+                                   for _d in _sec_dosyalar if str(_d.get("ithalat_takip_no", "") or "").strip()})
+        _takip_durum = ("Mevcut: " + ", ".join(_mevcut_takipler)) if _mevcut_takipler else "Seçili belgelerde takip no yok."
+        st.caption(f"🔗 Seçili {len(_sec_dosyalar)} belgeye ortak **İthalat Takip No** ata (hepsine birden yazılır). {_takip_durum}")
+        _kc1, _kc2 = st.columns([2, 1])
+        _onceki_takip = _mevcut_takipler[0] if len(_mevcut_takipler) == 1 else ""
+        _toplu_takip = _kc1.text_input("İthalat Takip No (seçili belgelerin hepsine)",
+                                       value=_onceki_takip, key="ith_toplu_takip",
+                                       placeholder="örn. 2025-26")
+        _kc2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+        if _kc2.button("🔗 Takip No Ata", use_container_width=True, key="ith_toplu_takip_btn"):
+            _tk_ok = 0
+            for _d in _sec_dosyalar:
+                if set_dosya_takip_no(_d["id"], _toplu_takip.strip()):
+                    _tk_ok += 1
+            st.cache_data.clear()
+            if _toplu_takip.strip():
+                st.success(f"✅ {_tk_ok} belgeye '{_toplu_takip.strip()}' takip no'su atandı.")
+            else:
+                st.success(f"✅ {_tk_ok} belgenin takip no'su temizlendi.")
+            st.rerun()
         st.markdown("---")
 
         # Seçili belge id'lerinden imza — masraf kutularının anahtarını seçime bağlar
@@ -825,6 +848,55 @@ def _gecmis_ithalatlar():
 
     # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
     with st.expander("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB"):
+        # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
+        _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
+        _md = _masraf_dict(d)
+        _brut_mb = sum(float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0) for k in kal)
+        _cur_dv = str(d.get("doviz", "USD") or "USD")
+        _cs, _cr = st.columns([2.05, 1])
+        with _cs:
+            e_indirim = st.number_input(
+                "Fatura Altı İndirim (tutar)", min_value=0.0,
+                value=float(d.get("fatura_indirim", 0) or 0), step=1.0, format="%.2f",
+                key=f"ith_edit_indirim_{did}",
+                help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
+            e_masraf = {}
+            for _slug, _label in MASRAF_TANIM:
+                _lc, _ic = st.columns([1, 1.4])
+                _lc.markdown(
+                    f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
+                    f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
+                _mv = float(_md.get(_slug, 0) or 0)
+                e_masraf[_slug] = _ic.number_input(
+                    _label, min_value=0.0, value=(_mv if _mv > 0 else None),
+                    step=1.0, format="%.2f", placeholder="0,00",
+                    label_visibility="collapsed", key=f"ith_edit_mas_{did}_{_slug}")
+        with _cr:
+            e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
+                                    value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f",
+                                    key=f"ith_edit_kur_{did}")
+            _ind_v = float(e_indirim or 0)
+            _net_mb = max(_brut_mb - _ind_v, 0.0)
+            _mas_v = sum(float(_v or 0) for _v in e_masraf.values())
+            _yuzde_v = (_mas_v / _net_mb * 100) if _net_mb > 0 else 0.0
+            _ind_row = (
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura İndirim</div>'
+                f'<div style="font-size:13px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">−{_tam(_ind_v)} {_cur_dv}</div>'
+            ) if _ind_v > 0 else ""
+            st.markdown(
+                '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
+                'border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5">'
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
+                f'<div style="font-size:15px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_tam(_net_mb)} {_cur_dv}</div>'
+                + _ind_row +
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
+                f'<div style="font-size:15px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
+                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
+                f'<div style="font-size:18px;font-weight:800;color:#FCD34D;font-family:monospace">%{_yuzde_v:.2f}</div>'
+                '</div>', unsafe_allow_html=True)
+        st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
+                   "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
+        st.markdown("---")
         with st.form(f"ith_edit_{did}"):
             _alt_baslik("📄 Dosya Bilgileri")
             ec1, ec2, ec3 = st.columns(3)
@@ -841,7 +913,6 @@ def _gecmis_ithalatlar():
             _dv_list = ["USD", "EUR", "CNY", "TL"]
             _dv = str(d.get("doviz", "USD") or "USD")
             e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
-            e_kur = ec3.number_input("Kur", min_value=0.0, value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f")
             e_takip = ec3.text_input("İthalat Takip No", value=str(d.get("ithalat_takip_no", "") or ""),
                                      help="Masrafı giren kişinin kendi takibi için")
             try:
@@ -907,27 +978,7 @@ def _gecmis_ithalatlar():
             st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
                        "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
 
-            _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde")
-            # Fatura altı indirim (tutar) — net mal bedeli + SKU maliyetleri buna göre düşer
-            e_indirim = st.number_input(
-                "Fatura Altı İndirim (tutar)", min_value=0.0,
-                value=float(d.get("fatura_indirim", 0) or 0), step=1.0, format="%.2f",
-                key=f"ith_edit_indirim_{did}",
-                help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
-            _md = _masraf_dict(d)
-            e_masraf = {}
-            for _slug, _label in MASRAF_TANIM:
-                _lc, _ic, _bos = st.columns([1, 1.4, 1.6])
-                _lc.markdown(
-                    f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
-                    f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
-                _mv = float(_md.get(_slug, 0) or 0)
-                e_masraf[_slug] = _ic.number_input(
-                    _label, min_value=0.0,
-                    value=(_mv if _mv > 0 else None),
-                    step=1.0, format="%.2f", placeholder="0,00",
-                    label_visibility="collapsed", key=f"ith_edit_mas_{did}_{_slug}"
-                )
+            st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
             if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
                 _yeni_kal = []
