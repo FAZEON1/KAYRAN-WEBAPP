@@ -827,7 +827,7 @@ def run():
                     st.success(f"{len(_ie_satir)} iade kalemi · {_tadet:,} adet · {_usd(_tnet)} bulundu.")
                     st.dataframe(pd.DataFrame([{
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
-                        "İade Net": round(x["iade_net"], 2), "Cari": (x["kanal"] or "")[:30],
+                        "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
                     } for x in _ie_satir[:200]]), use_container_width=True, hide_index=True)
                     if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn"):
                         _r = ice_aktar_iadeler(_ie_satir, str(_ie_tarih)[:10], temizle_once=_ie_temizle)
@@ -863,7 +863,7 @@ def run():
             with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
                 _kirilim = st.radio("Kırılım",
                                     ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"],
-                                    horizontal=True, key="iade_kirilim")
+                                    horizontal=True, index=2, key="iade_kirilim")
                 if _kirilim == "🏷️ SKU bazlı (net)":
                     _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
                     _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
@@ -871,8 +871,8 @@ def run():
                     st.dataframe(pd.DataFrame([{
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
                         "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
-                        "Satış ciro": round(x["s_ciro"], 2), "İade tutar": round(x["i_tutar"], 2),
-                        "Net ciro": round(x["net_ciro"], 2), "Net kâr": round(x["net_kar"], 2),
+                        "Satış ciro": _usd(x["s_ciro"]), "İade tutar": _usd(x["i_tutar"]),
+                        "Net ciro": _usd(x["net_ciro"]), "Net kâr": _usd(x["net_kar"]),
                     } for x in _gor]), use_container_width=True, hide_index=True)
                 else:
                     _iadeler = get_iadeler(_ib, _ibit)
@@ -887,15 +887,18 @@ def run():
                             o["tutar"] += float(r.get("iade_net") or 0)
                             o["sku"].add(r.get("sku"))
                         _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
-                                         "İade tutarı": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"])}
+                                         "İade tutarı": _usd(v["tutar"]), "SKU çeşidi": len(v["sku"]),
+                                         "_t": v["tutar"]}
                                         for f, v in _fb.items()], key=lambda x: -x["İade adet"])
+                        for _r in _rows:
+                            _r.pop("_t", None)
                         st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
                         st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
                     else:  # SKU + Firma
                         _rows = sorted([{
                             "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
                             "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
-                            "İade tutarı": round(float(r.get("iade_net") or 0), 2),
+                            "İade tutarı": _usd(float(r.get("iade_net") or 0)),
                         } for r in _iadeler], key=lambda x: -x["İade adet"])
                         st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
                         st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
@@ -909,7 +912,7 @@ def run():
                 st.dataframe(pd.DataFrame([{
                     "Tarih": (r.get("tarih") or "")[:10], "SKU": r.get("sku", ""),
                     "Ürün": (r.get("urun_adi") or "")[:34], "Adet": r.get("iade_adet", 0),
-                    "İade Net": r.get("iade_net", 0), "Kanal": (r.get("kanal") or "")[:24],
+                    "İade Net": _usd(r.get("iade_net", 0)), "Kanal": (r.get("kanal") or "")[:24],
                 } for r in _kayitlar]), use_container_width=True, hide_index=True)
                 _sil_id = st.number_input("Silinecek iade ID", min_value=0, step=1, value=0, key="iade_sil_id")
                 if st.button("🗑 İadeyi Sil", key="iade_sil_btn") and _sil_id > 0:
