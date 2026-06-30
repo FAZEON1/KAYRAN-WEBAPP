@@ -925,3 +925,134 @@ def canli_stok(sku):
 
     return {"var": True, "baz": baz, "baz_tarih": baz_tarih,
             "giris": giris, "cikis": cikis, "canli": baz + giris - cikis}
+
+
+# ── DEPO YÖNETİMİ · depo bazlı stok + depolar arası sevk ─────────────────────
+# bizim_stok = satılabilir depoların (Merkez + Happy Life) toplamı; sevk sonrası
+# yeniden hesaplanır. depo_kirilim {depo: adet} canlı güncellenir.
+_SATILABILIR_DEPOLAR = {"MERKEZ DEPO", "HAPPY LIFE"}
+
+
+def _depo_norm(s):
+    return (str(s or "").strip().upper()
+            .replace("İ", "I").replace("Ş", "S").replace("Ğ", "G")
+            .replace("Ü", "U").replace("Ö", "O").replace("Ç", "C"))
+
+
+def _bizim_stok_hesapla(depo_kirilim):
+    """Satılabilir depoların (Merkez + Happy Life) toplamı."""
+    return int(sum(int(m or 0) for d, m in (depo_kirilim or {}).items()
+                   if _depo_norm(d) in _SATILABILIR_DEPOLAR))
+
+
+def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
+    """SAF hesap: kaynak depodan hedefe 'adet' taşır. Yazmaz.
+    Döner: (yeni_kirilim | None, hata_mesaji)."""
+    dk = dict(depo_kirilim or {})
+    adet = int(adet or 0)
+    if adet <= 0:
+        return None, "Adet 0'dan büyük olmalı."
+    if not str(kaynak).strip() or not str(hedef).strip():
+        return None, "Kaynak ve hedef depo seçilmeli."
+    if kaynak == hedef:
+        return None, "Kaynak ve hedef depo aynı olamaz."
+    mevcut = int(dk.get(kaynak, 0) or 0)
+    if mevcut < adet:
+        return None, f"Yetersiz stok: '{kaynak}' deposunda {mevcut} adet var, {adet} taşınamaz."
+    dk[kaynak] = mevcut - adet
+    dk[hedef] = int(dk.get(hedef, 0) or 0) + adet
+    return dk, ""
+
+
+def get_depo_listesi():
+    """Tüm ürünlerin depo_kirilim'inde geçen benzersiz depo adları (alfabetik)."""
+    depolar = set()
+    for u in _hepsi("urunler", "depo_kirilim"):
+        dk = u.get("depo_kirilim") or {}
+        if isinstance(dk, dict):
+            for d in dk.keys():
+                if str(d).strip():
+                    depolar.add(str(d).strip())
+    return sorted(depolar)
+
+
+def get_depo_ozet():
+    """Her depo için {depo, cesit, toplam_adet, satilabilir} (adet>0 olanlar)."""
+    sayac = {}
+    for u in _hepsi("urunler", "depo_kirilim"):
+        dk = u.get("depo_kirilim") or {}
+        if not isinstance(dk, dict):
+            continue
+        for d, m in dk.items():
+            m = int(m or 0)
+            if m <= 0:
+                continue
+            d = str(d).strip()
+            sayac.setdefault(d, [0, 0])
+            sayac[d][0] += 1
+            sayac[d][1] += m
+    return [{"depo": d, "cesit": v[0], "toplam_adet": v[1],
+             "satilabilir": _depo_norm(d) in _SATILABILIR_DEPOLAR}
+            for d, v in sorted(sayac.items())]
+
+
+def get_depo_stok(depo):
+    """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı."""
+    out = []
+    for u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
+        dk = u.get("depo_kirilim") or {}
+        if not isinstance(dk, dict):
+            continue
+        m = int(dk.get(depo, 0) or 0)
+        if m > 0:
+            out.append({"sku": u.get("sku", ""), "urun_adi": u.get("urun_adi", ""), "adet": m})
+    return sorted(out, key=lambda x: -x["adet"])
+
+
+def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici=""):
+    """Depolar arası sevk: kaynak→hedef 'adet' taşır, bizim_stok'u yeniden
+    hesaplar, kalıcı yazar, geçmişe + audit'e ekler. Döner: (ok, mesaj)."""
+    try:
+        sb = get_client()
+        u = _row(sb.table("urunler").select("sku, urun_adi, depo_kirilim").eq("sku", sku).execute())
+        if not u:
+            return False, f"❌ Ürün bulunamadı: {sku}"
+        dk = u.get("depo_kirilim") or {}
+        if not isinstance(dk, dict):
+            return False, "❌ Bu ürünün depo kırılımı yok (önce G5F stok yükleyin)."
+        yeni_dk, hata = _sevk_uygula(dk, kaynak_depo, hedef_depo, adet)
+        if hata:
+            return False, f"❌ {hata}"
+        sb.table("urunler").update({
+            "depo_kirilim": yeni_dk,
+            "bizim_stok": _bizim_stok_hesapla(yeni_dk),
+            "guncelleme_tarihi": get_today(),
+        }).eq("sku", sku).execute()
+        try:
+            sb.table("depo_sevk_log").insert({
+                "sku": sku, "urun_adi": u.get("urun_adi", ""),
+                "kaynak_depo": kaynak_depo, "hedef_depo": hedef_depo,
+                "adet": int(adet), "kullanici": kullanici or "", "tarih": tr_now_str(),
+            }).execute()
+        except Exception:
+            pass
+        try:
+            from shared.audit import log_yaz
+            log_yaz("depo_sevk", "urunler", sku,
+                    f"{adet} adet {kaynak_depo} → {hedef_depo}", "kayranpm")
+        except Exception:
+            pass
+        _cache_temizle()
+        return True, f"✅ {adet} adet '{sku}': {kaynak_depo} → {hedef_depo}"
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def get_depo_sevk_gecmisi(limit=50):
+    """Son sevkler (depo_sevk_log). Tablo yoksa boş liste döner."""
+    try:
+        r = (get_client().table("depo_sevk_log").select("*")
+             .order("id", desc=True).limit(limit).execute())
+        return _rows(r)
+    except Exception:
+        return []
