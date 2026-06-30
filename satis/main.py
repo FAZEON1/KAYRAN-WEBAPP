@@ -271,9 +271,6 @@ def run():
                 st.rerun()
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#90A4AE;font-size:11px;font-weight:600;'
-                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 6px">📑 Satış Sayfaları</div>',
-                    unsafe_allow_html=True)
         _ssayfa = st.radio("Sayfa", ["🧾 Satış Girişi", "📋 Satışlar", "📊 Kâr / P&L",
                                      "📥 İçe Aktar", "↩️ İade"],
                            label_visibility="collapsed", key="satis_sayfa")
@@ -765,7 +762,16 @@ def run():
             st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
                        "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
             _ie_dosya = st.file_uploader("İade Excel'i (.xls / .xlsx)", type=["xls", "xlsx"], key="iade_excel")
-            _ie_tarih = st.date_input("Bu rapor hangi döneme işlensin? (iade tarihi)", key="iade_excel_tarih")
+            _ie_aralik = st.date_input("Bu rapor hangi dönemi kapsıyor? (başlangıç – bitiş)",
+                                       value=(date.today(), date.today()), key="iade_excel_tarih")
+            if isinstance(_ie_aralik, (list, tuple)) and len(_ie_aralik) == 2:
+                _ie_bas, _ie_bit = _ie_aralik
+            elif isinstance(_ie_aralik, (list, tuple)) and _ie_aralik:
+                _ie_bas = _ie_bit = _ie_aralik[0]
+            else:
+                _ie_bas = _ie_bit = _ie_aralik
+            _ie_tarih = _ie_bit
+            st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
             _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
                                       value=True, key="iade_excel_temizle")
             if _ie_dosya is not None:
