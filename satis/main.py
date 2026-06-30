@@ -275,7 +275,6 @@ def run():
                                      "📥 İçe Aktar", "↩️ İade"],
                            label_visibility="collapsed", key="satis_sayfa")
 
-    st.markdown("## 💰 Satış & Kârlılık")
     st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
     _ice_mesaj = st.session_state.pop("_ice_mesaj", None)
@@ -806,18 +805,18 @@ def run():
         if not _satirlar:
             st.info("Bu dönemde satış/iade kaydı yok.")
         else:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Satış adedi", f"{_top['s_adet']:,}")
-            m2.metric("İade adedi", f"{_top['i_adet']:,}")
-            m3.metric("Net adet", f"{_top['net_adet']:,}")
-            n1, n2, n3 = st.columns(3)
-            n1.metric("Satış cirosu", _usd(_top["s_ciro"]))
-            n2.metric("İade tutarı", _usd(_top["i_tutar"]))
-            n3.metric("Net ciro", _usd(_top["net_ciro"]))
-            k1, k2, k3 = st.columns(3)
-            k1.metric("Satış kârı", _usd(_top["s_kar"]))
-            k2.metric("İade kâr kaybı", _usd(_top["i_kar"]))
-            k3.metric("Net kâr", _usd(_top["net_kar"]))
+            _nk_renk = "#34D399" if _top["net_kar"] > 0 else "#F87171"
+            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px">' + _kart([
+                ("Satış adedi", f"{_top['s_adet']:,}", "#93C5FD"),
+                ("İade adedi", f"{_top['i_adet']:,}", "#FB923C"),
+                ("Net adet", f"{_top['net_adet']:,}", "#34D399"),
+                ("Satış cirosu", _usd(_top["s_ciro"]), "#CBD5E1"),
+                ("İade tutarı", _usd(_top["i_tutar"]), "#FB923C"),
+                ("Net ciro", _usd(_top["net_ciro"]), "#34D399"),
+                ("Satış kârı", _usd(_top["s_kar"]), "#A78BFA"),
+                ("İade kâr kaybı", _usd(_top["i_kar"]), "#FB923C"),
+                ("Net kâr", _usd(_top["net_kar"]), _nk_renk),
+            ]) + '</div>', unsafe_allow_html=True)
 
             with st.expander("📊 SKU bazında Satış / İade / Net", expanded=True):
                 _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
