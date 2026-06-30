@@ -587,8 +587,14 @@ def _gecmis_ithalatlar():
         _sec_sig = "_".join(str(x) for x in sorted(_sd["id"] for _sd in _sec_dosyalar))
         _sec_bilgi, _sec_toplam_fob = [], 0.0
         for _sd in _sec_dosyalar:
-            _skal = _kalem_by_dosya.get(_sd["id"], [])
-            _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _skal)
+            # NET mal bedeli (fatura altı indirim düşülmüş) — tek dosya / liste görünümüyle tutarlı.
+            # Aksi halde birden çok belge seçilince indirim devre dışı kalır.
+            _hh = hesap_map.get(_sd["id"])
+            if _hh:
+                _mb = float(_hh[2].get("net_mal_bedeli", 0.0) or 0.0)
+            else:
+                _skal = _kalem_by_dosya.get(_sd["id"], [])
+                _mb = sum(float(_k.get("adet", 0) or 0) * float(_k.get("birim_fob", 0) or 0) for _k in _skal)
             _sec_toplam_fob += _mb
             _sec_bilgi.append((_sd, _mb))
         _dv0 = (_sec_dosyalar[0].get("doviz", "USD") or "USD") if _sec_dosyalar else "USD"

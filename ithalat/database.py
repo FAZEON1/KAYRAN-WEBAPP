@@ -567,13 +567,24 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
             return False, "Dağıtılacak masraf tutarı girilmedi."
         # Her dosyanın mal bedeli (FOB) — tek sorguda
         kalemler = get_tum_kalemler()
-        fob_by_dosya = {}
+        brut_by_dosya = {}
         for k in kalemler:
             did = k.get("dosya_id")
             if did in dosya_ids:
-                fob_by_dosya[did] = fob_by_dosya.get(did, 0.0) + _f(k.get("adet")) * _f(k.get("birim_fob"))
-        toplam_fob = sum(fob_by_dosya.get(d, 0.0) for d in dosya_ids)
+                brut_by_dosya[did] = brut_by_dosya.get(did, 0.0) + _f(k.get("adet")) * _f(k.get("birim_fob"))
         dosya_map = {d["id"]: d for d in get_dosyalar() if d["id"] in dosya_ids}
+        # Pay = NET FOB (fatura altı indirim düşülmüş). Tek dosya maliyet mantığıyla
+        # tutarlı: indirimli belge ortak masraftan daha az pay alır, indirim devre dışı kalmaz.
+        fob_by_dosya = {}
+        for did in dosya_ids:
+            _brut = brut_by_dosya.get(did, 0.0)
+            _ind = _f((dosya_map.get(did) or {}).get("fatura_indirim", 0))
+            if _ind < 0:
+                _ind = 0.0
+            if _ind > _brut:
+                _ind = _brut
+            fob_by_dosya[did] = _brut - _ind
+        toplam_fob = sum(fob_by_dosya.get(d, 0.0) for d in dosya_ids)
         n = len(dosya_ids)
         guncellenen = 0
         for did in dosya_ids:
