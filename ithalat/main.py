@@ -903,6 +903,8 @@ def _gecmis_ithalatlar():
                 '</div>', unsafe_allow_html=True)
         st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
                    "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
+        st.caption("🧹 **Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
+                   "artık geri gelmez. *(bu satırı görüyorsan güncel sürüm yüklüdür)*")
         st.markdown("---")
         with st.form(f"ith_edit_{did}"):
             _alt_baslik("📄 Dosya Bilgileri")
