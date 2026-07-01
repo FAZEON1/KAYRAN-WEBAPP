@@ -1536,8 +1536,56 @@ def run():
                     return _s.lower()
 
                 _tbuf = BytesIO()
-                with pd.ExcelWriter(_tbuf, engine="openpyxl") as _w:
-                    pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
+                # Açılır liste kaynakları
+                try:
+                    from satis.database import get_kanallar as _get_cariler
+                    _cariler = [c for c in (_get_cariler() or []) if str(c).strip()]
+                except Exception:
+                    _cariler = []
+                _markalar = sorted({(u.get("marka") or "").strip() for u in urun_data_k
+                                    if (u.get("marka") or "").strip()})
+                _turler = [t for t in KAMPANYA_TURLERI if not str(t).startswith("(")]
+                _katlar = list(_kt_kat_list)
+                try:
+                    import openpyxl
+                    from openpyxl.worksheet.datavalidation import DataValidation
+                    _wb = openpyxl.Workbook()
+                    _ws = _wb.active
+                    _ws.title = "Kampanya"
+                    _ws.append(_KMP_TAM_KOL)
+                    _lst = _wb.create_sheet("LISTELER")
+
+                    def _lst_yaz(_ci, _bas, _veri):
+                        _lst.cell(row=1, column=_ci, value=_bas)
+                        for _i, _v in enumerate(_veri, start=2):
+                            _lst.cell(row=_i, column=_ci, value=str(_v))
+                        return len(_veri)
+                    _nf = _lst_yaz(1, "FIRMA", _cariler)
+                    _nk = _lst_yaz(2, "KATEGORI", _katlar)
+                    _nm = _lst_yaz(3, "MARKA", _markalar)
+                    _nt = _lst_yaz(4, "TUR", _turler)
+                    _lst.sheet_state = "hidden"
+
+                    def _ekle_dv(_kol, _lcol, _n):
+                        if _n <= 0:
+                            return
+                        _dv = DataValidation(type="list",
+                                             formula1=f"=LISTELER!${_lcol}$2:${_lcol}${_n + 1}",
+                                             allow_blank=True)
+                        _dv.add(f"{_kol}2:{_kol}2000")
+                        _ws.add_data_validation(_dv)
+                    _ekle_dv("A", "A", _nf)   # FİRMA ADI
+                    _ekle_dv("B", "B", _nk)   # KATEGORİ
+                    _ekle_dv("C", "C", _nm)   # MARKA
+                    _ekle_dv("M", "D", _nt)   # KAMPANYA TÜRÜ
+                    _wb.save(_tbuf)
+                except Exception:
+                    # Açılır liste kurulamazsa düz şablona düş
+                    _tbuf = BytesIO()
+                    with pd.ExcelWriter(_tbuf, engine="openpyxl") as _w:
+                        pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
+                st.caption(f"⬇️ Şablonda Firma Adı ({len(_cariler)}) · Kategori ({len(_katlar)}) · "
+                           f"Marka ({len(_markalar)}) · Kampanya Türü açılır listeden seçilir.")
                 st.download_button("⬇️ Kampanya şablonu indir", _tbuf.getvalue(),
                                    "KAMPANYA_OLUSTUR_SABLONU.xlsx",
                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
