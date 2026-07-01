@@ -1085,9 +1085,9 @@ def _yeni_ithalat():
             if not katalog:
                 st.info("Katalog boş — sorun değil, **Manuel SKU** + **Ürün Adı** + **Barkod** kutularına yazarak yeni kalem ekleyebilirsin.")
 
-            _oran = [1.9, 1.2, 1.7, 1.3, 0.8, 1.0]
+            _oran = [1.8, 1.15, 1.6, 1.25, 0.75, 0.95, 0.5]
             hcols = st.columns(_oran)
-            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB"]):
+            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB", "🗑"]):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             def _kalem_doldur(i):
@@ -1114,6 +1114,11 @@ def _yeni_ithalat():
                                            min_value=0, step=1, value=0)
                 _fob = rc[5].number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
                                           min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                if rc[6].button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
+                    for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
+                                f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}"):
+                        st.session_state.pop(_rk, None)
+                    st.rerun()
                 if _sku:
                     _kalemler.append({"sku": _sku,
                                       "urun_adi": (_uad or katalog.get(_sku, "")),
@@ -1124,6 +1129,8 @@ def _yeni_ithalat():
             if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
+            _ec2.caption("🗑 Yanlış girdiğin satırı boşaltmak için satırın sağındaki çöp kutusuna bas "
+                         "(SKU boş olan satırlar zaten kaydedilmez).")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
 
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
