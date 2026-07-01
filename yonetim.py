@@ -132,6 +132,20 @@ def run():
         cogs = float(top.get("maliyet", 0.0) or 0.0)
     except Exception as e:
         st.warning(f"Satış verisi okunamadı: {e}")
+
+    # ── İadeler (net kâra dahil) — iade tutarı ciroyu, iade maliyeti COGS'u düşer ──
+    iade_tutar = iade_maliyet = 0.0
+    try:
+        from satis.database import iade_satis_net_ozet
+        _isat, _itop = iade_satis_net_ozet(baslangic, bitis)
+        iade_tutar = float(_itop.get("i_tutar", 0.0) or 0.0)
+        iade_maliyet = iade_tutar - float(_itop.get("i_kar", 0.0) or 0.0)
+    except Exception:
+        pass
+
+    ciro_brut, cogs_brut = ciro, cogs
+    ciro = ciro_brut - iade_tutar          # net satış (iade sonrası)
+    cogs = cogs_brut - iade_maliyet        # net maliyet (iade edilen ürün maliyeti geri düşülür)
     brut = ciro - cogs
     brut_marj = (brut / ciro * 100) if ciro else 0.0
 
@@ -243,15 +257,19 @@ def run():
 
     # ── P&L kartları ──
     _nrenk = "#34D399" if net_kar >= 0 else "#F87171"
-    st.markdown(
-        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px">'
-        + _kart("Ciro", _usd(ciro), "Toplam satış", "#A5B4FC")
-        + _kart("COGS", _usd(cogs), "Ürün maliyeti", "#FBBF24")
-        + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
-        + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
-        + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
-        + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
-        + '</div>', unsafe_allow_html=True)
+    _iade_alt = (f"Net · brüt {_usd(ciro_brut)}" if iade_tutar > 0 else "Toplam satış")
+    _cogs_alt = ("Ürün maliyeti (iade düşülmüş)" if iade_tutar > 0 else "Ürün maliyeti")
+    _kartlar = ('<div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px">'
+                + _kart("Ciro", _usd(ciro), _iade_alt, "#A5B4FC"))
+    if iade_tutar > 0:
+        _kartlar += _kart("İadeler", _usd(iade_tutar), "İade edilen (ciro−)", "#F472B6")
+    _kartlar += (_kart("COGS", _usd(cogs), _cogs_alt, "#FBBF24")
+                 + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
+                 + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
+                 + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
+                 + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
+                 + '</div>')
+    st.markdown(_kartlar, unsafe_allow_html=True)
     if _tl_uyari:
         st.caption(f"ℹ️ TL cinsi destekler fatura tarihindeki günlük kurla USD'ye çevrildi; "
                    f"kur kaydı olmayan tarihler için güncel kur (~{_usdtry:.2f}₺) kullanıldı.")
@@ -259,10 +277,14 @@ def run():
         st.warning("⚠️ Güncel kur alınamadığı için TL cinsi destekler hesaba katılamadı.")
 
     # ── Net kâr açıklama satırı (P&L akışı) ──
+    _iade_not = (f'{_usd(ciro_brut)} <span style="color:#64748B">brüt ciro</span> &nbsp;−&nbsp; '
+                 f'{_usd(iade_tutar)} <span style="color:#64748B">iade</span> &nbsp;=&nbsp; '
+                 if iade_tutar > 0 else "")
     st.markdown(
         f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);'
         f'border-radius:12px;padding:12px 16px;margin-bottom:20px;font-family:JetBrains Mono,monospace;font-size:13px;color:#CBD5E1">'
-        f'{_usd(ciro)} <span style="color:#64748B">ciro</span> &nbsp;−&nbsp; {_usd(cogs)} <span style="color:#64748B">cogs</span> '
+        f'{_iade_not}'
+        f'{_usd(ciro)} <span style="color:#64748B">{"net ciro" if iade_tutar > 0 else "ciro"}</span> &nbsp;−&nbsp; {_usd(cogs)} <span style="color:#64748B">cogs</span> '
         f'&nbsp;−&nbsp; {_usd(toplam_destek)} <span style="color:#64748B">destek</span> '
         f'&nbsp;−&nbsp; {_usd(gider_usd)} <span style="color:#64748B">gider</span> &nbsp;=&nbsp; '
         f'<b style="color:{_nrenk}">{_usd(net_kar)} net kâr</b> &nbsp;·&nbsp; <span style="color:{_nrenk}">{_pct(net_marj)} marj</span>'
