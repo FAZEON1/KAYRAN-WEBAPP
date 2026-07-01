@@ -1009,21 +1009,31 @@ def get_tum_butce_harcamalari(baslangic, bitis):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_tum_ref_tutarlari(baslangic, bitis):
-    """Yönetim Panosu (P&L) için: TÜM firmaların ref no tutarları (tarih dönem
-    aralığında). Havuz bütçeden AYRI bir destek kalemidir. İptal edilenler hariç.
-    Döner [{tutar, doviz, tarih, firma_id}]. Arayüzde kullanılmaz."""
+    """Yönetim Panosu (P&L) için: TÜM firmaların ref no tutarları. Havuz bütçeden AYRI
+    destek kalemidir. İptal edilenler hariç. Tarihi OLAN ref'ler tarihe göre; tarihi
+    OLMAYAN ref'ler (Excel'den gelenlerde tarih boştur) YIL bazında (dönem o yılın tamamını
+    kapsıyorsa) dahil edilir. Döner [{tutar, doviz, tarih, firma_id}]."""
     try:
         sb = get_client()
-        rows = _rows(sb.table("ref_kayitlari").select("tutar,doviz,tarih,durum,firma_id")
-                     .gte("tarih", str(baslangic))
-                     .lte("tarih", str(bitis)).execute())
+        rows = _rows(sb.table("ref_kayitlari")
+                     .select("tutar,doviz,tarih,durum,yil,firma_id").execute())
     except Exception:
         return []
+    _b, _e = str(baslangic)[:10], str(bitis)[:10]
     out = []
     for r in (rows or []):
         t = _f(r.get("tutar"))
         if t <= 0 or str(r.get("durum") or "").lower() == "iptal":
             continue
+        _tar = str(r.get("tarih") or "").strip()
+        if _tar and _tar.lower() != "none":
+            if not (_b <= _tar[:10] <= _e):
+                continue
+        else:
+            # Tarihsiz ref → yıl bazlı: yalnızca dönem o yılın TAMAMINI kapsıyorsa dahil et
+            _y = str(r.get("yil") or "").strip()
+            if not _y or not (_b <= f"{_y}-01-01" and _e >= f"{_y}-12-31"):
+                continue
         out.append({
             "tutar": t,
             "doviz": (r.get("doviz") or "USD"),
