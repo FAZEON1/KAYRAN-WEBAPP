@@ -1494,15 +1494,29 @@ def run():
                     if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
                         if not k_adi.strip():
                             st.error("Kampanya adı zorunludur.")
+                        elif str(k_bit) < str(k_bas):
+                            st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
                         else:
                             _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
                             _k_turu_val = "" if str(k_turu).startswith("(") else k_turu
-                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val,
-                                                    kampanya_turu=_k_turu_val, spiff_tl=(k_spiff_tl or 0),
-                                                    spiff_kur=(k_spiff_kur or 0), spiff_fatura=k_spiff_fatura)
-                            st.cache_data.clear()
-                            st.toast(f"✅ '{k_adi}' kampanyası oluşturuldu! (ID: {yeni_id})")
-                            st.rerun()
+                            _hata = None
+                            yeni_id = None
+                            try:
+                                yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val,
+                                                        kampanya_turu=_k_turu_val, spiff_tl=(k_spiff_tl or 0),
+                                                        spiff_kur=(k_spiff_kur or 0), spiff_fatura=k_spiff_fatura)
+                            except Exception as _e:
+                                _hata = str(_e)
+                            if yeni_id:
+                                st.cache_data.clear()
+                                st.success(f"✅ '{k_adi.strip()}' kampanyası oluşturuldu (ID: {yeni_id}).")
+                                st.rerun()
+                            elif _hata:
+                                st.error(f"Kampanya oluşturulamadı — kayıt hatası: {_hata}")
+                            else:
+                                st.error("Kampanya kaydedilemedi — veritabanı kayıt döndürmedi "
+                                         "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu). "
+                                         "Bu mesajı bana iletirsen nedenini bulabilirim.")
     
             # Aktif kampanyaları listele
             aktif_kampanyalar = _kt_uygula(get_kampanyalar(durum="aktif"))

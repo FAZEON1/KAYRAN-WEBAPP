@@ -786,6 +786,35 @@ def _render_butce(fid, firma):
         if degisen or silinen:
             st.rerun()
 
+    # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
+    st.markdown("---")
+    with st.expander("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil"):
+        st.caption("⚠️ Silme geri alınamaz. Önce yukarıdaki arama ile daralt → 'görünenleri sil' yalnızca "
+                   "filtrelenen kayıtları siler; ya da bu firmanın tüm havuz bütçe kayıtlarını temizle.")
+        _bs1, _bs2 = st.columns(2)
+        with _bs1:
+            if st.button(f"🗑 Aramada görünen {len(goster)} kaydı sil",
+                         use_container_width=True, key=f"butce_bulk_goster_{fid}",
+                         disabled=(len(goster) == 0)):
+                _sil = 0
+                for _r in goster:
+                    if butce_sil(_r["id"]):
+                        _sil += 1
+                st.cache_data.clear()
+                st.success(f"✅ {_sil} kayıt silindi.")
+                st.rerun()
+        with _bs2:
+            _onay = st.checkbox(f"Onaylıyorum — bu firmanın TÜM ({len(kayitlar)}) kaydını sil",
+                                key=f"butce_temizle_onay_{fid}")
+            if st.button("🗑 Tümünü Sil", type="primary", use_container_width=True,
+                         key=f"butce_temizle_btn_{fid}", disabled=not _onay):
+                if butce_temizle(fid):
+                    st.cache_data.clear()
+                    st.success("✅ Bu firmanın tüm bütçe kayıtları silindi.")
+                    st.rerun()
+                else:
+                    st.error("Silme başarısız oldu.")
+
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_tum_butce_harcamalari(baslangic, bitis):
