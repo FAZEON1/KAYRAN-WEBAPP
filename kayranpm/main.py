@@ -1658,9 +1658,35 @@ def run():
                                 _tur_idx = _ti
                                 break
 
+                        # Firma: şablondaki TAM cari adını FIRMA_LISTESI_K koduna (HB/VATAN/ITOPYA...) eşle.
+                        # Kampanya 'firma' alanı KOD saklar; ekranda firma_gorunen_ad ile tam ad gösterilir.
+                        def _firma_koda(_ad):
+                            _adn = _knrm(_ad)
+                            if not _adn:
+                                return ""
+                            for _c in FIRMA_LISTESI_K:
+                                try:
+                                    _tam = _knrm(firma_gorunen_ad(_c))
+                                except Exception:
+                                    _tam = ""
+                                if _tam and (_tam == _adn or _tam in _adn or _adn in _tam):
+                                    return _c
+                            for _anahtar, _c in (("d-market", "HB"), ("dmarket", "HB"), ("hepsiburada", "HB"),
+                                                 ("eera", "ITOPYA"), ("itopya", "ITOPYA"),
+                                                 ("vatan", "VATAN"), ("monday", "MONDAY")):
+                                if _anahtar in _adn:
+                                    return _c
+                            return ""
+                        _fk = _firma_koda(_xl_firma)
+                        _firma_idx = FIRMA_LISTESI_K.index(_fk) if _fk in FIRMA_LISTESI_K else 0
                         _of1, _of2 = st.columns(2)
                         _o_ad = _of1.text_input("Kampanya Adı *", value=_xl_ad, key="kmp_o_ad")
-                        _o_firma = _of2.text_input("Firma * (dosyadan)", value=_xl_firma, key="kmp_o_firma")
+                        _o_firma = _of2.selectbox("Firma *", FIRMA_LISTESI_K, index=_firma_idx,
+                                                  format_func=firma_gorunen_ad, key="kmp_o_firma")
+                        if _xl_firma:
+                            st.caption(f"🏢 Dosyadaki firma: **{_xl_firma[:44]}** → "
+                                       + (f"**{_o_firma}** koduyla eşlendi." if _fk
+                                          else "otomatik eşlenemedi — yukarıdan doğru firmayı seç."))
                         _of3, _of4, _of5 = st.columns(3)
                         _o_turu = _of3.selectbox("Kampanya Türü", KAMPANYA_TURLERI, index=_tur_idx, key="kmp_o_turu")
                         _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas")
