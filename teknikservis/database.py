@@ -27,7 +27,7 @@ ARAYUZLER = ["teknik", "iade"]
 ARAYUZ_ETIKET = {"teknik": "🔧 Teknik Servis", "iade": "↩️ İade"}
 
 DURUMLAR = [
-    "mal kabül", "teknisyende", "tamir edildi", "NTF", "ürün değişimi",
+    "mal kabül", "teknisyende", "tamir edildi", "ürün değişimi",
     "sorunsuz", "iade alındı", "gönderildi", "hurda",
     "satışa hazır", "satıldı", "iptal",
 ]
@@ -36,7 +36,7 @@ BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı", "iptal"}
 
 DURUM_RENK = {
     "mal kabül": "#38BDF8", "teknisyende": "#A78BFA", "tamir edildi": "#34D399",
-    "NTF": "#94A3B8", "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
+    "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
     "iade alındı": "#F472B6", "gönderildi": "#22D3EE", "hurda": "#F87171",
     "satışa hazır": "#A3E635", "satıldı": "#10B981", "iptal": "#FB7185",
 }

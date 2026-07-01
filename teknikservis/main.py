@@ -118,6 +118,12 @@ def _mal_kabul():
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
             st.rerun()
 
+    # Sevk / Teslim Şekli — form DIŞINDA (Kargo seçilince Kargo Takip No görünsün)
+    sevk_yontemi = st.selectbox(
+        "Sevk / Teslim Şekli",
+        ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat", "Kargo"],
+        key="mk_sevk_y")
+
     with st.form("mk_form", clear_on_submit=False):
         c1, c2 = st.columns(2)
         stok_adi = c1.text_input("Stok Adı", value=st.session_state.get("mk_stok_adi", ""))
@@ -140,18 +146,17 @@ def _mal_kabul():
                                    key="mk_firma_yeni", placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
         firma = (firma_yeni.strip() or firma_sec).strip()
 
-        sv1, sv2 = st.columns(2)
-        sevk_yontemi = sv1.selectbox("Sevk / Teslim Şekli",
-                                     ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat"],
-                                     key="mk_sevk_y")
-        kargo_takip = sv2.text_input("Kargo Takip No (opsiyonel)", key="mk_kargo",
-                                     placeholder="kargo ile geldiyse takip no")
+        # Kargo Takip No — yalnızca "Kargo" seçilirse görünür
+        kargo_takip = ""
+        if str(st.session_state.get("mk_sevk_y", "")) == "Kargo":
+            kargo_takip = st.text_input("Kargo Takip No", key="mk_kargo",
+                                        placeholder="kargo takip numarası")
 
         ariza = st.text_input("Arıza *", placeholder="örn: güç kaynağı bozuk")
 
-        _alt_baslik("Mağaza / İletişim Bilgisi")
+        _alt_baslik("Müşteri / Mağaza İletişim Bilgisi")
         m1, m2, m3 = st.columns(3)
-        m_adi = m1.text_input("Mağaza Adı", placeholder="örn: Vatan - Buyaka")
+        m_adi = m1.text_input("Müşteri / Mağaza Adı", placeholder="örn: Vatan - Buyaka / son kullanıcı adı")
         m_mail = m2.text_input("Mail")
         m_tel = m3.text_input("Telefon")
         m_adres = st.text_input("Adres")
@@ -430,12 +435,25 @@ def _kontrol_paneli(kayit):
         mevcut = kayit.get("mevcut_durum", "mal kabül")
         idx = DURUMLAR.index(mevcut) if mevcut in DURUMLAR else 0
         yeni_durum = st.selectbox("Yeni Durum", DURUMLAR, index=idx, key=f"ts_yd_{kid}")
+        # "gönderildi" seçilince Sevk/Teslim Şekli (form DIŞINDA → Kargo seçilince takip no görünür)
+        _ts_sevk = None
+        if yeni_durum == "gönderildi":
+            _ts_sevk = st.selectbox(
+                "Sevk / Teslim Şekli",
+                ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat", "Kargo"],
+                key=f"ts_sevk_{kid}")
         with st.form(f"ts_durum_{kid}"):
-            personel = st.text_input("İşlemi Yapan",
-                                     value=st.session_state.get("aktif_kullanici", "").capitalize())
+            # İşlemi yapan gösterilmez; oturumdaki kullanıcı otomatik kaydedilir
+            personel = st.session_state.get("aktif_kullanici", "") or ""
             yapilan = st.text_input("Yapılan İşlem / Açıklama",
                                     placeholder="örn: güç kaynağı değiştirildi")
             test = st.text_area("Test Süreci (opsiyonel)", height=60)
+
+            # "gönderildi" + Kargo → Kargo Takip No
+            _ts_kargo = ""
+            if yeni_durum == "gönderildi" and str(st.session_state.get(f"ts_sevk_{kid}", "")) == "Kargo":
+                _ts_kargo = st.text_input("Kargo Takip No", key=f"ts_kargo_{kid}",
+                                          placeholder="kargo takip numarası")
 
             # 🔄 Ürün değişimi seçiliyse — değişim ürünü bilgileri
             _dg = {}
@@ -479,6 +497,12 @@ def _kontrol_paneli(kayit):
                     ekstra["yapilan_islem"] = yapilan.strip()
                 if test.strip():
                     ekstra["test_sureci"] = test.strip()
+                if yeni_durum == "gönderildi":
+                    _sv = "" if (not _ts_sevk or str(_ts_sevk).startswith("(")) else _ts_sevk
+                    if _ts_kargo.strip():
+                        _sv = (f"{_sv} · Kargo No: {_ts_kargo.strip()}").strip(" ·")
+                    if _sv:
+                        ekstra["sevk_kargo_bilgisi"] = _sv
                 if durum_guncelle(kid, yeni_durum, personel.strip(), yapilan.strip(), ekstra):
                     st.success(f"✅ Durum güncellendi: {yeni_durum}")
                     st.rerun()
