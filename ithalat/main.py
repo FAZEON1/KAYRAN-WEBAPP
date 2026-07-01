@@ -1314,6 +1314,43 @@ def _yeni_ithalat():
                 except Exception as e:
                     st.error(f"Excel okunamadı: {e}")
 
+        # ── Tek seferlik düzeltme: notlardaki SAS No'yu SAS No alanına taşı ──
+        with st.expander("🩹 Notlardaki SAS No'yu SAS No alanına taşı (mevcut kayıtlar) — hiçbir veriyi bozmaz"):
+            st.caption("Eski içe aktarmalarda SAS numarası dosya **Notlar**'ına 'Sipariş(ler): ...' olarak yazılmıştı. "
+                       "Bu düğme, SAS No alanı **boş** olan dosyalarda notlardaki SAS'ı bulup SAS No alanına taşır. "
+                       "Başka hiçbir alana (masraf, kalem, fiyat, Incoterm) dokunmaz.")
+
+            def _sas_notdan(_note):
+                _n = str(_note or "")
+                _a = "Sipariş(ler):"
+                if _a not in _n:
+                    return ""
+                _p = _n.split(_a, 1)[1]
+                _p = _p.split(" · ", 1)[0]
+                return _p.strip()
+
+            _adaylar = []
+            for _d in get_dosyalar():
+                if str(_d.get("sas_no", "") or "").strip():
+                    continue
+                _s = _sas_notdan(_d.get("notlar"))
+                if _s:
+                    _adaylar.append((_d["id"], _d.get("pi_no") or _d.get("dosya_no") or _d["id"], _s))
+            st.caption(f"SAS No'su boş ve notunda SAS bulunan **{len(_adaylar)}** dosya var.")
+            if _adaylar:
+                st.dataframe(
+                    pd.DataFrame([{"Belge/Dosya": b, "Taşınacak SAS No": s} for _, b, s in _adaylar]).head(50),
+                    use_container_width=True, height=220)
+                if st.button(f"🩹 {len(_adaylar)} dosyada SAS No'yu notlardan taşı", type="primary",
+                             key="ith_sas_notdan_btn"):
+                    _ok = 0
+                    for _id, _b, _s in _adaylar:
+                        if set_dosya_sas(_id, _s):
+                            _ok += 1
+                    st.cache_data.clear()
+                    st.success(f"✅ {_ok} dosyanın SAS No'su notlardan taşındı.")
+                    st.rerun()
+
         st.markdown(
             "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
             "Aynı **İthalat Takip No** satırları tek ithalat dosyası olur — **siparişler İthalat Takip No'ya göre dosyalanır** "
