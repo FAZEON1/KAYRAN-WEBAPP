@@ -388,16 +388,24 @@ def servis_formu_pdf(kayit, gecmis=None):
         ("Telefon", _v("musteri_tel")), ("Mail", _v("musteri_mail")),
         ("Adres", _v("musteri_adres")), ("Sevk / Kargo", _v("sevk_kargo_bilgisi")),
     ]))
+    if any(kayit.get(a) for a in ("degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo")):
+        el.append(Paragraph("DEĞİŞİM ÜRÜNÜ (yeni verilen)", sec))
+        el.append(_tablo([
+            ("Stok Kodu", _v("degisim_stok_kodu")), ("Stok Adı", _v("degisim_stok_adi")),
+            ("Seri No", _v("degisim_seri_no")), ("Depo", _v("degisim_depo")),
+        ]))
     el.append(Paragraph("BELGE", sec))
     el.append(_tablo([
         ("Fatura No", _v("fatura_no")), ("İrsaliye No", _v("irsaliye_no")),
         ("Firma Servis Form No", _v("firma_servis_form_no")),
     ]))
 
-    if gecmis:
+    _gec_goster = [h for h in (gecmis or [])
+                   if "deposuna transfer" not in str(h.get("aciklama", "") or "").lower()]
+    if _gec_goster:
         el.append(Paragraph("İŞLEM GEÇMİŞİ", sec))
         gsat = [("Tarih", "Durum / Açıklama / Personel")]
-        for h in gecmis:
+        for h in _gec_goster:
             t = str(h.get("tarih", "") or "")[:16].replace("T", " ")
             d = f"{h.get('durum','')} — {h.get('aciklama','') or ''} ({h.get('personel','') or '—'})"
             gsat.append((t, d))

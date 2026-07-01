@@ -442,6 +442,22 @@ def _kontrol_paneli(kayit):
                 "Sevk / Teslim Şekli",
                 ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat", "Kargo"],
                 key=f"ts_sevk_{kid}")
+        # "ürün değişimi" seçilince → İthalat'tan yeni ürün seç (form DIŞINDA; seçince stok kodu+adı dolar)
+        if yeni_durum == "ürün değişimi":
+            _dmods = ithalat_model_listesi()
+            if _dmods:
+                _dopts = ["— İthalat'tan yeni ürün seç —"] + [(f"{s} — {a}" if a else s) for s, a in _dmods]
+                _dsec = st.selectbox(f"🔄 Değişim ürününü ithalattan seç ({len(_dmods)} model · yazarak ara)",
+                                     _dopts, key=f"ts_dgmodel_{kid}")
+                if _dsec != _dopts[0] and st.session_state.get(f"_ts_dgmodel_son_{kid}") != _dsec:
+                    st.session_state[f"_ts_dgmodel_son_{kid}"] = _dsec
+                    _dsku = _dsec.split(" — ")[0].strip()
+                    st.session_state[f"ts_dgsk_{kid}"] = _dsku
+                    for _s, _a in _dmods:
+                        if _s == _dsku and _a:
+                            st.session_state[f"ts_dgsa_{kid}"] = _a
+                            break
+                    st.rerun()
         with st.form(f"ts_durum_{kid}"):
             # İşlemi yapan gösterilmez; oturumdaki kullanıcı otomatik kaydedilir
             personel = st.session_state.get("aktif_kullanici", "") or ""
@@ -462,10 +478,10 @@ def _kontrol_paneli(kayit):
                             'text-transform:uppercase;letter-spacing:.5px;margin:8px 0 2px">'
                             '🔄 Değişim Yapılan Ürün</div>', unsafe_allow_html=True)
                 dg1, dg2 = st.columns(2)
-                _dg["degisim_stok_kodu"] = dg1.text_input("Stok Kodu", value=kayit.get("degisim_stok_kodu", "") or "",
-                                                          key=f"ts_dgsk_{kid}")
-                _dg["degisim_stok_adi"] = dg2.text_input("Stok Adı", value=kayit.get("degisim_stok_adi", "") or "",
-                                                         key=f"ts_dgsa_{kid}")
+                st.session_state.setdefault(f"ts_dgsk_{kid}", kayit.get("degisim_stok_kodu", "") or "")
+                _dg["degisim_stok_kodu"] = dg1.text_input("Stok Kodu", key=f"ts_dgsk_{kid}")
+                st.session_state.setdefault(f"ts_dgsa_{kid}", kayit.get("degisim_stok_adi", "") or "")
+                _dg["degisim_stok_adi"] = dg2.text_input("Stok Adı", key=f"ts_dgsa_{kid}")
                 dg3, dg4 = st.columns(2)
                 _dg["degisim_seri_no"] = dg3.text_input("Seri No", value=kayit.get("degisim_seri_no", "") or "",
                                                         key=f"ts_dgsn_{kid}")
