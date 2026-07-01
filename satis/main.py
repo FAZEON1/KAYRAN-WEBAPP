@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Satış & Kârlılık modülü — arayüz (USD bazlı, tek tek işlem girişi)."""
 from datetime import date, timedelta, datetime
+import io
 
 import pandas as pd
 import streamlit as st
@@ -300,77 +301,114 @@ def run():
         if not tum_sku:
             st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
         else:
-            # ── Excel ile toplu sipariş girişi (VATAN / İTOPYA) ──
-            with st.expander("📄 Excel ile Toplu Sipariş Girişi (VATAN / İTOPYA)"):
-                st.caption("VATAN veya İTOPYA sipariş şablonunu yükle. Maliyet paçaldan otomatik gelir, "
-                           "aynı sipariş no tekrar yüklenirse atlanır.")
-                _sg_dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)",
-                                             type=["xlsx", "xls"], key="sg_excel")
-                if _sg_dosya is not None:
-                    _sayfalar, _sg_hata = _siparis_excel_oku(_sg_dosya)
-                    if _sg_hata:
-                        st.error(_sg_hata)
-                    elif not _sayfalar:
-                        st.warning("Dosyada sayfa bulunamadı.")
-                    else:
-                        _tum_satir = []
-                        for _sf in _sayfalar:
-                            _tur, _df, _ad = _sf["tur"], _sf["df"], _sf["sayfa"]
-                            if _tur == "?":
-                                st.caption(f"⚠️ **{_ad}**: tanınmayan format, atlandı.")
-                                continue
-                            st.markdown(f"**{_ad}** — {_tur} formatı")
-                            _vk = 0
-                            for _ik, _kn in enumerate(_kanallar):
-                                _u = _kn.upper()
-                                if _tur == "VATAN" and "VATAN" in _u:
-                                    _vk = _ik
-                                    break
-                                if _tur == "İTOPYA" and ("EERA" in _u or "ITOPYA" in _u or "İTOPYA" in _u):
-                                    _vk = _ik
-                                    break
-                            _kanal = st.selectbox("Kanal (cari)", _kanallar,
-                                                  index=_vk if _kanallar else 0, key=f"sg_kanal_{_ad}")
-                            if _tur == "İTOPYA":
-                                _c1, _c2 = st.columns(2)
-                                _itarih = _c1.date_input("Sipariş Tarihi", value=date.today(),
-                                                         key=f"sg_tarih_{_ad}")
-                                _isno = _c2.text_input("Sipariş No", key=f"sg_sno_{_ad}",
-                                                       placeholder="örn. ITOPYA-2026-06-29").strip()
-                                _sat = _itopya_satirlar(_df, _kanal, _itarih.isoformat(), _isno, urun_map)
-                                if not _isno:
-                                    st.caption("⚠️ Bu sayfa için Sipariş No girilmeli (boşsa kaydedilmez).")
-                            else:
-                                _sat = _vatan_satirlar(_df, _kanal, urun_map)
-                            _adet = sum(s["adet"] for s in _sat)
-                            _ciro = sum(s["adet"] * s["birim_satis"] for s in _sat)
-                            st.caption(f"{len(_sat)} kalem • {_adet:,} adet • {_usd(_ciro)}")
-                            _tum_satir.extend(_sat)
+            # ── Excel ile toplu sipariş girişi — 3 ayrı upload: VATAN · EERA · DİĞER ──
+            _EERA_KOL = ["TARİH", "DEPOTANIM", "STOKKODU", "SONALFIYAT", "MIKTAR"]
+            _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar"]
+            _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-                        _gecerli = [s for s in _tum_satir if s.get("siparis_no") and s.get("tarih")]
-                        _eksik = len(_tum_satir) - len(_gecerli)
-                        if _eksik:
-                            st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
-                        if st.button("📥 Siparişleri Kaydet", type="primary",
-                                     use_container_width=True, key="sg_kaydet",
-                                     disabled=not _gecerli):
-                            _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=False)
-                            if _sonuc["hata"] and _sonuc["eklendi"] == 0:
-                                st.error(f"❌ {_sonuc['hata']}")
-                            else:
-                                _m = f"✅ {_sonuc['eklendi']:,} kalem kaydedildi."
-                                if _sonuc["atlandi"]:
-                                    _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
-                                if _sonuc["maliyetsiz"]:
-                                    _m += f" {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok (maliyet 0)."
-                                if _sonuc.get("hatali"):
-                                    _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
-                                st.session_state["_ice_mesaj"] = _m
-                                try:
-                                    st.cache_data.clear()
-                                except Exception:
-                                    pass
-                                st.rerun()
+            def _sg_sablon_bytes(_kolonlar, _sheet):
+                _b = io.BytesIO()
+                with pd.ExcelWriter(_b, engine="openpyxl") as _w:
+                    pd.DataFrame(columns=_kolonlar).to_excel(_w, index=False, sheet_name=_sheet)
+                return _b.getvalue()
+
+            def _sg_kaydet(_gecerli):
+                _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=False)
+                if _sonuc["hata"] and _sonuc["eklendi"] == 0:
+                    st.error(f"❌ {_sonuc['hata']}")
+                else:
+                    _m = f"✅ {_sonuc['eklendi']:,} kalem kaydedildi."
+                    if _sonuc["atlandi"]:
+                        _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
+                    if _sonuc["maliyetsiz"]:
+                        _m += f" {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok (maliyet 0)."
+                    if _sonuc.get("hatali"):
+                        _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
+                    st.session_state["_ice_mesaj"] = _m
+                    try:
+                        st.cache_data.clear()
+                    except Exception:
+                        pass
+                    st.rerun()
+
+            def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir):
+                """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown."""
+                with st.expander(_baslik):
+                    st.download_button("⬇️ Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
+                                       f"SIPARIS_SABLON_{_key.upper()}.xlsx", mime=_XLSX_MIME,
+                                       key=f"sg_sablon_{_key}")
+                    _knl = _sabit_kanal
+                    if _kanal_secilebilir:
+                        _knl = st.selectbox("Firma / Kanal (cari)", _kanallar,
+                                            index=0 if _kanallar else 0, key=f"sg_kanal_{_key}")
+                    _c1, _c2 = st.columns(2)
+                    _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}")
+                    _sno = _c2.text_input("Sipariş No", key=f"sg_sno_{_key}",
+                                          placeholder="örn. 2026-06-30").strip()
+                    _dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"],
+                                              key=f"sg_up_{_key}")
+                    if _dosya is not None:
+                        _sayfalar, _hata = _siparis_excel_oku(_dosya)
+                        if _hata:
+                            st.error(_hata)
+                            return
+                        _tum = []
+                        for _sf in (_sayfalar or []):
+                            _df = _sf["df"]
+                            if {"STOKKODU", "SONALFIYAT", "MIKTAR"}.issubset(set(_df.columns)):
+                                _tum.extend(_itopya_satirlar(_df, _knl, _tar.isoformat(), _sno, urun_map))
+                        if not _tum:
+                            st.warning("Uygun satır bulunamadı (STOKKODU · SONALFIYAT · MIKTAR sütunları gerekli).")
+                            return
+                        _adet = sum(s["adet"] for s in _tum)
+                        _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+                        st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_knl}**")
+                        if not _sno:
+                            st.caption("⚠️ Sipariş No gir (boşsa kaydedilmez).")
+                        _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+                        if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
+                                     key=f"sg_kaydet_{_key}", disabled=not _gecerli):
+                            _sg_kaydet(_gecerli)
+
+            # 1) VATAN
+            with st.expander("📄 VATAN — Excel ile Toplu Sipariş"):
+                st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
+                                   "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
+                st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
+                _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
+                if _dv is not None:
+                    _sayfalar, _hata = _siparis_excel_oku(_dv)
+                    if _hata:
+                        st.error(_hata)
+                    else:
+                        _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
+                        _tum = []
+                        for _sf in (_sayfalar or []):
+                            _df = _sf["df"]
+                            if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
+                                _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
+                        if not _tum:
+                            st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
+                        else:
+                            _adet = sum(s["adet"] for s in _tum)
+                            _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+                            st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
+                            _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+                            _eksik = len(_tum) - len(_gecerli)
+                            if _eksik:
+                                st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                            if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
+                                         key="sg_kaydet_vatan", disabled=not _gecerli):
+                                _sg_kaydet(_gecerli)
+
+            # 2) EERA (İTOPYA) — kanal sabit
+            _eera_knl = next((k for k in _kanallar
+                              if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "İTOPYA")
+            _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False)
+
+            # 3) DİĞER — firma/kanal kullanıcı seçer
+            _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
+                            "diger", (_kanallar[0] if _kanallar else "DİGER"), True)
 
             # ── Sipariş başlığı ──
             with st.container(border=True):
