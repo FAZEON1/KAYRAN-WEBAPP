@@ -647,6 +647,31 @@ def run():
             _hav = havuz_destek_donem(_pbas, _pbit)
             _hav_verilen = _hav.get("verilen", 0.0)
             _net_havuzlu = _net_kar - _hav_verilen
+            # Ref No destekleri (dönem/firma bazlı) — Yönetim Panosu ile AYNI kaynak
+            _ref_usd = 0.0
+            try:
+                from kayranpm.ref_no import get_tum_ref_tutarlari
+                _usdtry_s = 0.0
+                try:
+                    _usdtry_s = float(st.session_state.get("kur") or 0)
+                except Exception:
+                    _usdtry_s = 0.0
+                if not _usdtry_s or _usdtry_s <= 1:
+                    try:
+                        from gunluk import get_doviz
+                        _usdtry_s = float(get_doviz().get("USD") or 0)
+                    except Exception:
+                        _usdtry_s = 0.0
+                for _rr in (get_tum_ref_tutarlari(_pbas, _pbit) or []):
+                    _rt = float(_rr.get("tutar") or 0)
+                    _rdv = (_rr.get("doviz") or "USD").strip().upper()
+                    if _rdv in ("TL", "TRY", "₺", "TRL"):
+                        if _usdtry_s and _usdtry_s > 1:
+                            _ref_usd += _rt / _usdtry_s
+                    else:
+                        _ref_usd += _rt
+            except Exception:
+                _ref_usd = 0.0
             _renk = "#34D399" if _net_kar > 0 else "#F87171"
             st.markdown(
                 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
@@ -682,6 +707,19 @@ def run():
                             "Verilen (gider)": _usd(f["verilen"]), "Kullanılan": _usd(f["kullanilan"]),
                             "Kalan havuz": _usd(f["kalan"]),
                         } for f in _hf]), use_container_width=True, hide_index=True)
+            if _ref_usd > 0.005:
+                _net_ds = _net_havuzlu - _ref_usd
+                _nd_renk = "#34D399" if _net_ds > 0 else "#F87171"
+                _marj_ds = (_net_ds / _net_ciro * 100) if _net_ciro > 0 else 0.0
+                st.markdown(
+                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                        ("Ref No Desteği (dönem)", _usd(_ref_usd), "#FB7185"),
+                        ("Net Kâr (destek sonrası)", _usd(_net_ds), _nd_renk),
+                        ("Marj (destek sonrası)", f"%{_marj_ds:.1f}", _nd_renk),
+                    ]) + '</div>', unsafe_allow_html=True)
+                st.caption("🏷️ Ref No destekleri firma/dönem bazlıdır (Ürün Yön. → Ref No Takibi); "
+                           "TL olanlar güncel kurla USD'ye çevrildi. Net kârdan düşülür — Yönetim Panosu ile aynı "
+                           "kaynak. Not: tarihsiz ref'ler yalnızca **yıllık** dönemde sayılır.")
             if _itop["i_adet"] > 0:
                 st.markdown(
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
@@ -864,6 +902,46 @@ def run():
                     if _ok:
                         st.cache_data.clear()
                         st.rerun()
+
+        with st.expander("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", expanded=False):
+            st.caption("Aslında satış olmayan (ör. tedarikçiden alınıp geri iade edilen) ama yanlışlıkla satış "
+                       "girilmiş kalemler için: seçtiğin kanalın **her satışına eşit bir iade** kaydı oluşturur; "
+                       "böylece o kanalın net cirosu ve kârı **sıfırlanır** (satış kaydı listede kalır, iade onu netler). "
+                       "⚠️ Bir kez çalıştır — tekrar çalıştırırsan mükerrer iade oluşur.")
+            _cev_satislar = get_satislar()
+            _kanal_sat = {}
+            for _s in (_cev_satislar or []):
+                _kn = (_s.get("kanal") or "").strip() or "—"
+                _kk = satir_kar(_s)
+                _o = _kanal_sat.setdefault(_kn, {"n": 0, "ciro": 0.0, "sat": []})
+                _o["n"] += 1
+                _o["ciro"] += _kk["ciro"]
+                _o["sat"].append((_s, _kk))
+            _cev_kanal = st.selectbox("Kanal (bu kanalın satışları iadeye çevrilecek)",
+                                      ["(Seç)"] + sorted(_kanal_sat.keys()), key="cev_kanal")
+            if _cev_kanal and not str(_cev_kanal).startswith("("):
+                _grp = _kanal_sat[_cev_kanal]
+                _mev_iade = sum(1 for _r in (get_iadeler() or [])
+                                if str(_r.get("kanal", "")).strip() == _cev_kanal)
+                st.info(f"**{_cev_kanal}** → {_grp['n']} satış · toplam ciro {_usd(_grp['ciro'])}. "
+                        f"Her satış için eşit iade oluşturulacak (net → ~0)."
+                        + (f"  ⚠️ Bu kanalda zaten {_mev_iade} iade kaydı var — tekrar çevirirsen mükerrer olur."
+                           if _mev_iade else ""))
+                _cev_onay = st.checkbox("Onaylıyorum — bu kanalın satışlarını iadeye çevir", key="cev_onay")
+                if st.button("🔄 İadeye Çevir", type="primary", disabled=not _cev_onay, key="cev_btn"):
+                    _cn = 0
+                    for _s, _kk in _grp["sat"]:
+                        _adet = int(_kk["adet"]) if _kk["adet"] else 0
+                        if _adet <= 0:
+                            continue
+                        _ok, _ = ekle_iade(str(_s.get("tarih", ""))[:10], _cev_kanal,
+                                           _s.get("sku", "") or "", _s.get("urun_adi", "") or "",
+                                           _adet, iade_net=_kk["ciro"])
+                        if _ok:
+                            _cn += 1
+                    st.cache_data.clear()
+                    st.success(f"✅ {_cn} satış için iade oluşturuldu. '{_cev_kanal}' kanalı net ciro/kârda ~0'a indi.")
+                    st.rerun()
 
         with st.expander("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", expanded=False):
             st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
