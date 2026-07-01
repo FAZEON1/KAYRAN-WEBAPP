@@ -463,6 +463,28 @@ def set_dosya_takip_no(dosya_id, takip_no):
         return False
 
 
+def set_dosya_sas(dosya_id, sas_no):
+    """Bir dosyanın SAS No'sunu günceller (kalemlere/masrafa dokunmaz)."""
+    try:
+        _get_client().table("ithalat_dosyalari").update(
+            {"sas_no": sas_no or ""}).eq("id", dosya_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
+def set_dosya_teslim_sekli(dosya_id, teslim_sekli):
+    """Bir dosyanın Teslim Şekli (Incoterm) alanını günceller (kalemlere/masrafa dokunmaz)."""
+    try:
+        _get_client().table("ithalat_dosyalari").update(
+            {"teslim_sekli": teslim_sekli or ""}).eq("id", dosya_id).execute()
+        _temizle()
+        return True
+    except Exception:
+        return False
+
+
 def sas_no_excel_eslesti(dosya_yolu):
     """Mikro satın alma raporundan SAS no'larını okuyup sistemdeki ithalat dosyalarına eşleştirir.
     Eşleştirme anahtarı: 'Belge no' (= pi_no) — birebir; yedek olarak 'Dosya no'.

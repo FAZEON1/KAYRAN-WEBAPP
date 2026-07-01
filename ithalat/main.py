@@ -17,6 +17,7 @@ from .database import (
     ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
+    set_dosya_sas, set_dosya_teslim_sekli,
     get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
 )
 
@@ -933,11 +934,16 @@ def _gecmis_ithalatlar():
                                    horizontal=True, label_visibility="collapsed",
                                    key=f"ith_edit_durum_{did}")
             with dcc2:
-                try:
-                    _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
-                except Exception:
-                    _tv = date.today()
-                e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
+                if e_durum in IN_TRANSIT_DURUMLAR:
+                    try:
+                        _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
+                    except Exception:
+                        _tv = date.today()
+                    e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
+                else:
+                    e_tahmini_varis = None
+                    st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
+                    st.caption("✅ Teslim alındı — tahmini varış gerekmez.")
             st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
                        "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
 
@@ -1055,9 +1061,14 @@ def _yeni_ithalat():
                                  index=DURUM_SECENEKLER.index(VARSAYILAN_DURUM),
                                  horizontal=True, label_visibility="collapsed", key=f"m_durum_{_fv}")
             with dc2:
-                tahmini_varis = st.date_input(
-                    "Tahmini Varış", value=date.today(), key=f"m_tahmini_varis_{_fv}",
-                    help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
+                if durum in IN_TRANSIT_DURUMLAR:
+                    tahmini_varis = st.date_input(
+                        "Tahmini Varış", value=date.today(), key=f"m_tahmini_varis_{_fv}",
+                        help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
+                else:
+                    tahmini_varis = None
+                    st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
+                    st.caption("✅ Teslim aşaması — tahmini varış gerekmez.")
             if durum in IN_TRANSIT_DURUMLAR:
                 st.caption(f"📦 Bu dosya **'{durum}'** aşamasında → kalemleri Ürün Yönetimi'nde **yolda** görünecek "
                            "ve sipariş önerisinde hesaba katılacak. (Teslim Tarihi bu aşamada girilmez.)")
@@ -1446,7 +1457,7 @@ def _yeni_ithalat():
 
             guncelle_mod = st.radio(
                 "Sistemde zaten olan takip no'lar için:",
-                ["Sadece yenileri ekle (mevcut atlanır)",
+                ["Sadece yenileri ekle (mevcut atlanır · boş SAS/Incoterm/takip/teslim doldurulur)",
                  "Güncelle — Excel'i sisteme uygula (kalemleri yenile · masrafları KORU)"],
                 key="ith_excel_mod",
             )
@@ -1454,6 +1465,10 @@ def _yeni_ithalat():
             if _guncelle:
                 st.caption("⚠ Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
                            "Daha önce elle girdiğin **masraflar korunur** (silinmez).")
+            else:
+                st.caption("ℹ Sadece yenileri ekle: mevcut dosyaların ürün/adet/FOB'una **dokunulmaz**. "
+                           "Yalnızca **boş** olan SAS No, Incoterm, takip no ve teslim tarihi Excel'den doldurulur. "
+                           "→ Sadece eksik SAS No / Incoterm'i tamamlamak için aynı Excel'i bu modda tekrar yükle.")
 
             if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
                 basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
@@ -1538,6 +1553,14 @@ def _yeni_ithalat():
                             if teslim and not _mtes:
                                 set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
                                 _dolduruldu.append(f"teslim {str(teslim)[:10]}")
+                            _msas = str(mevcut_kayit.get("sas_no", "") or "").strip()
+                            if sas_no_val and not _msas:
+                                set_dosya_sas(mevcut_kayit["id"], sas_no_val)
+                                _dolduruldu.append(f"SAS {sas_no_val}")
+                            _minc = str(mevcut_kayit.get("teslim_sekli", "") or "").strip()
+                            if teslim_sekli_val and not _minc:
+                                set_dosya_teslim_sekli(mevcut_kayit["id"], teslim_sekli_val)
+                                _dolduruldu.append(f"Incoterm {teslim_sekli_val}")
                             if _dolduruldu:
                                 guncellenen += 1
                                 mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
