@@ -343,8 +343,9 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
         if not c_ref:
             return False, "REF NUMARASI sütunu bulunamadı.", 0
         mevcut_map = {str(r.get("ref_no", "")).strip(): r for r in get_refler(firma_id)}
-        rows = []
-        guncellenen = 0
+        # 1) Excel satırlarını ref_no bazında BİRLEŞTİR (aynı ref birden çok satırda olabilir →
+        #    tutar toplanır, açıklamalar birleştirilir). Böylece (firma_id, ref_no) benzersiz kısıtı ihlal olmaz.
+        _agg = {}
         for _, r in df.iterrows():
             ref = str(r.get(c_ref, "") or "").strip()
             if not ref or ref.lower() == "nan":
@@ -362,29 +363,50 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
             doviz = (str(r.get(c_doviz) or "").strip().upper() if c_doviz is not None else "") or "USD"
             if doviz not in DOVIZLER:
                 doviz = "USD"
+            o = _agg.get(ref)
+            if o is None:
+                o = {"sira": sira or 0, "yil": yil, "ack": [], "tutar": 0.0, "doviz": doviz}
+                _agg[ref] = o
+            o["tutar"] += tutar
+            if ack and ack not in o["ack"]:
+                o["ack"].append(ack)
+
+        # 2) Ekle / güncelle — satır satır (dayanıklı; bir mükerrer tüm aktarımı bozmaz)
+        eklenen = guncellenen = atlanan = hatali = 0
+        for ref, o in _agg.items():
+            _ack = " · ".join(o["ack"])[:500]
             if ref in mevcut_map:
                 if guncelle_mevcut:
-                    _upd = {"tutar": tutar, "doviz": doviz}
-                    if ack:
-                        _upd["aciklama"] = ack
+                    _upd = {"tutar": o["tutar"], "doviz": o["doviz"]}
+                    if _ack:
+                        _upd["aciklama"] = _ack
                     try:
                         sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
                         guncellenen += 1
                     except Exception:
-                        pass
+                        hatali += 1
+                else:
+                    atlanan += 1
                 continue
-            rows.append({
-                "firma_id": firma_id, "sira_no": sira or 0, "ref_no": ref,
-                "aciklama": ack, "durum": varsayilan_durum, "yil": yil,
-                "tutar": tutar, "doviz": doviz,
-            })
-        if rows:
-            sb.table("ref_kayitlari").insert(rows).execute()
+            try:
+                sb.table("ref_kayitlari").insert({
+                    "firma_id": firma_id, "sira_no": o["sira"], "ref_no": ref,
+                    "aciklama": _ack, "durum": varsayilan_durum, "yil": o["yil"],
+                    "tutar": o["tutar"], "doviz": o["doviz"],
+                }).execute()
+                eklenen += 1
+            except Exception:
+                hatali += 1
         _cache_temizle()
-        _msg = f"✅ {len(rows)} yeni ref eklendi"
+        _msg = f"✅ {eklenen} yeni ref eklendi"
         if guncelle_mevcut:
-            _msg += f", {guncellenen} mevcut ref güncellendi (döviz/tutar)"
-        return True, _msg + ".", len(rows) + guncellenen
+            _msg += f", {guncellenen} güncellendi"
+        if atlanan:
+            _msg += f", {atlanan} mevcut atlandı (güncelleme kapalı)"
+        if hatali:
+            _msg += f", ⚠️ {hatali} yazılamadı"
+        _msg += f". Aynı ref no'lu satırlar tek kayıtta toplandı ({len(_agg)} benzersiz ref)."
+        return True, _msg, eklenen + guncellenen
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
