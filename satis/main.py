@@ -312,8 +312,8 @@ def run():
                     pd.DataFrame(columns=_kolonlar).to_excel(_w, index=False, sheet_name=_sheet)
                 return _b.getvalue()
 
-            def _sg_kaydet(_gecerli):
-                _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=False)
+            def _sg_kaydet(_gecerli, _temizle=False):
+                _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
                 if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                     st.error(f"❌ {_sonuc['hata']}")
                 else:
@@ -366,9 +366,14 @@ def run():
                         if not _sno:
                             st.caption("⚠️ Sipariş No gir (boşsa kaydedilmez).")
                         _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+                        _uz = st.checkbox(
+                            "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                            key=f"sg_uz_{_key}",
+                            help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
+                                 "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
                         if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
-                            _sg_kaydet(_gecerli)
+                            _sg_kaydet(_gecerli, _uz)
 
             # 1) VATAN
             with st.expander("📄 VATAN — Excel ile Toplu Sipariş"):
@@ -397,13 +402,17 @@ def run():
                             _eksik = len(_tum) - len(_gecerli)
                             if _eksik:
                                 st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                            _uzv = st.checkbox(
+                                "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                                key="sg_uz_vatan",
+                                help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
                             if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                          key="sg_kaydet_vatan", disabled=not _gecerli):
-                                _sg_kaydet(_gecerli)
+                                _sg_kaydet(_gecerli, _uzv)
 
             # 2) EERA (İTOPYA) — kanal sabit
             _eera_knl = next((k for k in _kanallar
-                              if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "İTOPYA")
+                              if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
             _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False)
 
             # 3) DİĞER — firma/kanal kullanıcı seçer
