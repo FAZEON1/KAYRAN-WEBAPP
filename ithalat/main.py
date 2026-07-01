@@ -708,12 +708,13 @@ def _gecmis_ithalatlar():
                 _lc.markdown(
                     f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
                     f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
-                _mevcut_v = _sec_mevcut_kalem.get(_slug, 0.0)
+                _mevcut_v = float(_sec_mevcut_kalem.get(_slug, 0.0) or 0)
+                _ok2 = f"ith_ortak_mas_{_sec_sig}_{_slug}"
+                st.session_state.setdefault(_ok2, (_mevcut_v if _mevcut_v > 0 else None))
                 _ortak[_slug] = _ic.number_input(
-                    _label, min_value=0.0,
-                    value=(float(_mevcut_v) if _mevcut_v and _mevcut_v > 0 else None),
+                    _label, min_value=0.0, value=None,
                     step=1.0, format="%.2f", placeholder="0,00",
-                    label_visibility="collapsed", key=f"ith_ortak_mas_{_sec_sig}_{_slug}")
+                    label_visibility="collapsed", key=_ok2)
             _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
 
         with _ana_sag:
