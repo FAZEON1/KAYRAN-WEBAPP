@@ -187,6 +187,31 @@ def get_mevcut_siparis_nolar():
         return set()
 
 
+def get_mevcut_satis_anahtarlari():
+    """Mevcut satışların (kanal | sipariş no | sku) bileşik anahtar kümesi.
+    Mükerrer kontrolünü kanal bazlı yapar → aynı sipariş no farklı kanalda çakışmaz."""
+    try:
+        cli = _get_client()
+        anahtarlar, adim, bas = set(), 1000, 0
+        while True:
+            chunk = _rows(cli.table("satislar").select("kanal,siparis_no,sku")
+                          .order("id", desc=True).range(bas, bas + adim - 1).execute())
+            if not chunk:
+                break
+            for r in chunk:
+                _sno = str(r.get("siparis_no") or "").strip()
+                _sku = str(r.get("sku") or "").strip().upper()
+                if _sno and _sku:
+                    _knl = str(r.get("kanal") or "").strip()
+                    anahtarlar.add(f"{_knl}|{_sno}|{_sku}")
+            if len(chunk) < adim:
+                break
+            bas += adim
+        return anahtarlar
+    except Exception:
+        return set()
+
+
 def sil_siparisler(siparis_nolar):
     """Verilen sipariş numaralarına ait TÜM satış satırlarını siler (toplu)."""
     nolar = [s for s in {str(x).strip() for x in (siparis_nolar or [])} if s]
@@ -226,15 +251,17 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
             return {"eklendi": 0, "atlandi": 0, "maliyetsiz": 0, "silinen_fatura": 0,
                     "hatali": 0, "hata": "Silme hatası: " + sil_hata}
 
-    mevcut = get_mevcut_siparis_nolar() if (atla_mevcut and not temizle_once) else set()
+    mevcut = get_mevcut_satis_anahtarlari() if (atla_mevcut and not temizle_once) else set()
 
     rows, atlandi, maliyetsiz = [], 0, 0
     for s in (satirlar or []):
         sno = str(s.get("siparis_no") or "").strip()
-        if atla_mevcut and not temizle_once and sno and sno in mevcut:
-            atlandi += 1
-            continue
         sku = str(s.get("sku") or "").strip()
+        if atla_mevcut and not temizle_once and sno and sku:
+            _anahtar = f"{str(s.get('kanal') or '').strip()}|{sno}|{sku.upper()}"
+            if _anahtar in mevcut:
+                atlandi += 1
+                continue
         if not sku or _i(s.get("adet")) <= 0:
             continue
         tarih = str(s.get("tarih") or "")[:10]
