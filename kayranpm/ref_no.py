@@ -312,8 +312,9 @@ def ref_temizle(firma_id):
         return False
 
 
-def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
-    """NUMARA / REF NUMARASI / AÇIKLAMA başlıklı df'i içe aktarır (mükerrer ref atlanır)."""
+def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut=False):
+    """NUMARA / REF NUMARASI / AÇIKLAMA / TUTAR / DOVİZ başlıklı df'i içe aktarır.
+    guncelle_mevcut=True → mevcut ref'ler atlanmaz, döviz/tutar/açıklaması güncellenir."""
     try:
         sb = get_client()
 
@@ -341,11 +342,12 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
         c_doviz = _bul("döviz", "doviz", "para", "currency", "kur")
         if not c_ref:
             return False, "REF NUMARASI sütunu bulunamadı.", 0
-        mevcut = {str(r.get("ref_no", "")).strip() for r in get_refler(firma_id)}
+        mevcut_map = {str(r.get("ref_no", "")).strip(): r for r in get_refler(firma_id)}
         rows = []
+        guncellenen = 0
         for _, r in df.iterrows():
             ref = str(r.get(c_ref, "") or "").strip()
-            if not ref or ref.lower() == "nan" or ref in mevcut:
+            if not ref or ref.lower() == "nan":
                 continue
             kod, yil, sira = _parse_ref(ref)
             if c_no is not None:
@@ -360,6 +362,17 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
             doviz = (str(r.get(c_doviz) or "").strip().upper() if c_doviz is not None else "") or "USD"
             if doviz not in DOVIZLER:
                 doviz = "USD"
+            if ref in mevcut_map:
+                if guncelle_mevcut:
+                    _upd = {"tutar": tutar, "doviz": doviz}
+                    if ack:
+                        _upd["aciklama"] = ack
+                    try:
+                        sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
+                        guncellenen += 1
+                    except Exception:
+                        pass
+                continue
             rows.append({
                 "firma_id": firma_id, "sira_no": sira or 0, "ref_no": ref,
                 "aciklama": ack, "durum": varsayilan_durum, "yil": yil,
@@ -368,7 +381,10 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
         if rows:
             sb.table("ref_kayitlari").insert(rows).execute()
         _cache_temizle()
-        return True, f"✅ {len(rows)} ref içe aktarıldı.", len(rows)
+        _msg = f"✅ {len(rows)} yeni ref eklendi"
+        if guncelle_mevcut:
+            _msg += f", {guncellenen} mevcut ref güncellendi (döviz/tutar)"
+        return True, _msg + ".", len(rows) + guncellenen
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
@@ -603,8 +619,13 @@ def _render_refler(fid, fkod):
                 imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
                                          format_func=lambda d: DURUM_ETIKET[d], index=1,
                                          key=f"ref_imp_durum_{fid}")
+                imp_guncelle = st.checkbox(
+                    "🔁 Mevcut ref'leri de güncelle (döviz/tutar/açıklamayı düzelt)",
+                    key=f"ref_imp_guncelle_{fid}",
+                    help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
+                         "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
                 if st.button("📥 İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}"):
-                    ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum)
+                    ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
                     (st.success if ok else st.error)(msg)
                     if ok:
                         st.rerun()
