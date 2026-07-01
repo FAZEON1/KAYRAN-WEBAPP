@@ -622,3 +622,18 @@ def iade_satis_net_ozet(baslangic=None, bitis=None):
               ("s_adet", "s_ciro", "s_kar", "i_adet", "i_tutar", "i_kar",
                "net_adet", "net_ciro", "net_kar")}
     return satirlar, toplam
+
+
+def iade_kanal_ozet(baslangic=None, bitis=None):
+    """Kanal bazında iade toplamı: {kanal: {"i_tutar": ..., "i_kar": ...}} (net marj için)."""
+    pacal = get_pacal_map()
+    out = {}
+    for r in get_iadeler(baslangic, bitis):
+        kn = (str(r.get("kanal") or "").strip() or "—")
+        adet = _i(r.get("iade_adet"))
+        net = _f(r.get("iade_net"))
+        pc = pacal.get(_normalize_sku_yerel(str(r.get("sku") or "").strip()), 0.0)
+        o = out.setdefault(kn, {"i_tutar": 0.0, "i_kar": 0.0})
+        o["i_tutar"] += net
+        o["i_kar"] += net - adet * pc
+    return out

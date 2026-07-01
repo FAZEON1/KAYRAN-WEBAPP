@@ -15,7 +15,7 @@ from .database import (
     satir_kar, ozet_hesapla, TR_TZ,
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
-    ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet,
+    ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
 )
 
 
@@ -638,22 +638,29 @@ def run():
         else:
             top, kanal, urun = ozet_hesapla(satislar)
             _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
+            _ikan = iade_kanal_ozet(_pbas, _pbit)
+            _sku_iade = {r["sku"]: r for r in _isat}
+            # Net (iade sonrası) ciro/kâr/marj — marj hep net ciro üzerinden
+            _net_ciro = top["ciro"] - _itop["i_tutar"]
+            _net_kar = top["net_kar"] - _itop["i_kar"]
+            _net_marj = (_net_kar / _net_ciro * 100) if _net_ciro > 0 else 0.0
             _hav = havuz_destek_donem(_pbas, _pbit)
             _hav_verilen = _hav.get("verilen", 0.0)
-            _net_havuzlu = top["net_kar"] - _hav_verilen
-            _renk = "#34D399" if top["net_kar"] > 0 else "#F87171"
+            _net_havuzlu = _net_kar - _hav_verilen
+            _renk = "#34D399" if _net_kar > 0 else "#F87171"
             st.markdown(
                 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
                     ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
+                    ("İadeler", _usd(_itop["i_tutar"]), "#F472B6"),
                     ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
                     ("Destek", _usd(top["destek"]), "#A78BFA"),
-                    ("Satış Kârı", _usd(top["net_kar"]), _renk),
-                    ("Marj", f"%{top['marj']:.1f}", _renk),
+                    ("Net Kâr", _usd(_net_kar), _renk),
+                    ("Marj (iade sonrası)", f"%{_net_marj:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
                 ]) + '</div>', unsafe_allow_html=True)
             if _hav_verilen > 0.005:
                 _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
-                _marj_h = (_net_havuzlu / top["ciro"] * 100) if top["ciro"] > 0 else 0.0
+                _marj_h = (_net_havuzlu / _net_ciro * 100) if _net_ciro > 0 else 0.0
                 st.markdown(
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
                         ("Havuz Desteği (gider)", _usd(_hav_verilen), "#FB7185"),
@@ -682,23 +689,37 @@ def run():
                         ("İade tutarı", _usd(_itop["i_tutar"]), "#FBBF24"),
                         ("İade sonrası net adet", f"{_itop['net_adet']:,}", "#93C5FD"),
                     ]) + '</div>', unsafe_allow_html=True)
-                st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir; **kâr ve marj brüt satıştan "
-                           "hesaplanır, iade düşülmez.** (Ayrıntı: İade sayfası)")
+                st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir. "
+                           "**Kâr ve marj artık iade sonrası net ciro üzerinden hesaplanır** (ciro − iade). "
+                           "(Ayrıntı: İade sayfası)")
 
             st.markdown("#### Kanal Kırılımı")
             _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
+
+            def _kn_net(kn, v):
+                _ik = _ikan.get(kn, {})
+                _nc = v["ciro"] - _ik.get("i_tutar", 0.0)
+                _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
+                return _nc, _nk, ((_nk / _nc * 100) if _nc > 0 else 0.0)
             st.dataframe(pd.DataFrame([{
                 "Kanal": kn, "Adet": int(v["adet"]), "Ciro": _usd(v["ciro"]),
-                "Net Kâr": _usd(v["net_kar"]),
-                "Marj": f"%{(v['net_kar']/v['ciro']*100) if v['ciro']>0 else 0:.1f}",
+                "Net Kâr": _usd(_kn_net(kn, v)[1]),
+                "Marj": f"%{_kn_net(kn, v)[2]:.1f}",
             } for kn, v in _kr]), hide_index=True, use_container_width=True)
 
             st.markdown("#### Ürün Kırılımı (net kâra göre)")
             _ur = sorted(urun.items(), key=lambda x: -x[1]["net_kar"])
+
+            def _su_net(su, v):
+                _si = _sku_iade.get(su)
+                if _si:
+                    return _si["net_ciro"], _si["net_kar"], (
+                        (_si["net_kar"] / _si["net_ciro"] * 100) if _si["net_ciro"] > 0 else 0.0)
+                return v["ciro"], v["net_kar"], ((v["net_kar"] / v["ciro"] * 100) if v["ciro"] > 0 else 0.0)
             st.dataframe(pd.DataFrame([{
                 "SKU": su, "Ürün": (v["urun_adi"] or "")[:36], "Adet": int(v["adet"]),
-                "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(v["net_kar"]),
-                "Marj": f"%{(v['net_kar']/v['ciro']*100) if v['ciro']>0 else 0:.1f}",
+                "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(_su_net(su, v)[1]),
+                "Marj": f"%{_su_net(su, v)[2]:.1f}",
             } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
 
             st.markdown("---")
