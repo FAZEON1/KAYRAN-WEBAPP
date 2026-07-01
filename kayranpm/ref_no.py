@@ -292,6 +292,26 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
         return False
 
 
+def ref_sil(ref_id):
+    """Tek bir ref no kaydını siler."""
+    try:
+        get_client().table("ref_kayitlari").delete().eq("id", ref_id).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def ref_temizle(firma_id):
+    """Bir firmanın TÜM ref no kayıtlarını siler (toplu)."""
+    try:
+        get_client().table("ref_kayitlari").delete().eq("firma_id", firma_id).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
 def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
     """NUMARA / REF NUMARASI / AÇIKLAMA başlıklı df'i içe aktarır (mükerrer ref atlanır)."""
     try:
@@ -594,7 +614,7 @@ def _render_refler(fid, fkod):
     st.caption(f"{len(goster)} / {len(refler)} kayıt gösteriliyor")
 
     df_ed = pd.DataFrame([{
-        "id": r["id"], "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
+        "id": r["id"], "Sil?": False, "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz") or "USD"),
         "Durum": r.get("durum", "beklemede") or "beklemede",
@@ -606,6 +626,8 @@ def _render_refler(fid, fkod):
         key=f"ref_editor_{fid}_{f_durum}",
         column_config={
             "id": None,
+            "Sil?": st.column_config.CheckboxColumn("Sil?", width="small",
+                                                    help="İşaretle → Kaydet'e basınca bu kayıt silinir"),
             "No": st.column_config.NumberColumn("No", disabled=True, width="small"),
             "Ref No": st.column_config.TextColumn("Ref No", disabled=True),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
@@ -617,9 +639,13 @@ def _render_refler(fid, fkod):
     )
     if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}"):
         orijinal = {r["id"]: r for r in goster}
-        degisen = 0
+        degisen = silinen = 0
         for _, row in edited.iterrows():
             rid = row["id"]
+            if bool(row.get("Sil?")):
+                if ref_sil(rid):
+                    silinen += 1
+                continue
             o = orijinal.get(rid, {})
             n_ack = str(row.get("Açıklama", "") or "")
             n_dur = str(row.get("Durum", "beklemede"))
@@ -634,9 +660,38 @@ def _render_refler(fid, fkod):
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
                              tutar=n_tutar, doviz=n_doviz)
                 degisen += 1
-        st.success(f"✅ {degisen} kayıt güncellendi." if degisen else "Değişiklik yok.")
-        if degisen:
+        st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
+        if degisen or silinen:
             st.rerun()
+
+    # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
+    st.markdown("---")
+    with st.expander("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil"):
+        st.caption("⚠️ Silme geri alınamaz. 'Görünenleri sil' yalnızca yukarıdaki durum filtresine uyan "
+                   "kayıtları siler; ya da bu firmanın tüm ref no kayıtlarını temizle. "
+                   "(Tek tek silmek için tablodaki 'Sil?' kutusunu işaretleyip Kaydet'e de basabilirsin.)")
+        _rs1, _rs2 = st.columns(2)
+        with _rs1:
+            if st.button(f"🗑 Görünen {len(goster)} kaydı sil", use_container_width=True,
+                         key=f"ref_bulk_goster_{fid}", disabled=(len(goster) == 0)):
+                _sil = 0
+                for _r in goster:
+                    if ref_sil(_r["id"]):
+                        _sil += 1
+                st.cache_data.clear()
+                st.success(f"✅ {_sil} kayıt silindi.")
+                st.rerun()
+        with _rs2:
+            _onay = st.checkbox(f"Onaylıyorum — bu firmanın TÜM ({len(refler)}) ref no'sunu sil",
+                                key=f"ref_temizle_onay_{fid}")
+            if st.button("🗑 Tümünü Sil", type="primary", use_container_width=True,
+                         key=f"ref_temizle_btn_{fid}", disabled=not _onay):
+                if ref_temizle(fid):
+                    st.cache_data.clear()
+                    st.success("✅ Bu firmanın tüm ref no kayıtları silindi.")
+                    st.rerun()
+                else:
+                    st.error("Silme başarısız oldu.")
 
 
 # ── SEKME 2: HAVUZ BÜTÇE ────────────────────────────────────────────
