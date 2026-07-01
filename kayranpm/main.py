@@ -1787,6 +1787,49 @@ def run():
                                             st.toast(f"✅ Güncellendi!")
                                             st.rerun()
     
+                    # ── Kampanyayı kopyala (ürünler + destekler ile YENİ kampanya) ──
+                    with st.expander(f"📋 Kampanyayı Kopyala — {kamp['kampanya_adi']}"):
+                        st.caption("Bu kampanyanın TÜM ürünlerini birim firma desteği ve ek desteğiyle birlikte "
+                                   "yeni bir kampanyaya kopyalar (satılan adetler sıfırlanır). Kopyaladıktan sonra "
+                                   "yeni kampanyayı seçip ad/tarihi düzenler, gerekirse ek destekleri güncellersin.")
+                        _kop_c1, _kop_c2 = st.columns([2, 1])
+                        _kop_ad = _kop_c1.text_input("Yeni kampanya adı",
+                                                     value=f"{kamp['kampanya_adi']} (KOPYA)", key=f"kop_ad_{kid}")
+                        _kop_c2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+                        if _kop_c2.button("📋 Kopyala ve Oluştur", type="primary",
+                                          use_container_width=True, key=f"kop_btn_{kid}"):
+                            _kop_hata, _yeni_id = None, None
+                            try:
+                                _yeni_id = ekle_kampanya(
+                                    (_kop_ad.strip() or f"{kamp['kampanya_adi']} (KOPYA)"),
+                                    kamp.get("firma", ""), kamp.get("baslangic_tarihi"), kamp.get("bitis_tarihi"),
+                                    kamp.get("notlar", "") or "", kamp.get("kategori", "") or "",
+                                    kampanya_turu=(kamp.get("kampanya_turu", "") or ""),
+                                    spiff_tl=(kamp.get("spiff_tl") or 0), spiff_kur=(kamp.get("spiff_kur") or 0),
+                                    spiff_fatura=bool(kamp.get("spiff_fatura")))
+                            except Exception as _e:
+                                _kop_hata = str(_e)
+                            if _yeni_id:
+                                _kn = 0
+                                for _ku in get_kampanya_urunler(kid):
+                                    try:
+                                        ekle_kampanya_urun(
+                                            _yeni_id, _ku.get("sku", ""), _ku.get("urun_adi", ""),
+                                            _ku.get("pacal_maliyet", 0), _ku.get("satis_fiyati", 0),
+                                            _ku.get("birim_firma_destek", 0), _ku.get("birim_ek_destek", 0),
+                                            _ku.get("notlar", "") or "")
+                                        _kn += 1
+                                    except Exception:
+                                        pass
+                                st.cache_data.clear()
+                                st.success(f"✅ Kampanya kopyalandı — {_kn} ürün taşındı. "
+                                           f"Yeni kampanya: '{_kop_ad.strip()}'. Listeden seçip düzenleyebilirsin.")
+                                st.rerun()
+                            elif _kop_hata:
+                                st.error(f"Kopyalama başarısız — {_kop_hata}")
+                            else:
+                                st.error("Kopyalama başarısız — yeni kampanya oluşturulamadı (tablo izni/kolon olabilir).")
+
                     # Ürün ekleme formu
                     with st.expander(f"➕ Ürün Ekle — {kamp['kampanya_adi']}"):
                         if not sku_listesi_k:
@@ -1850,6 +1893,70 @@ def run():
                                         st.toast("✅ Ürün eklendi!")
                                         st.rerun()
     
+                    # ── Excel ile toplu ürün ekle + şablon indir ──
+                    with st.expander(f"📥 Excel ile Toplu Ürün Ekle / Şablon — {kamp['kampanya_adi']}"):
+                        _KMP_SABLON_KOL = ["FİRMA ADI", "KATEGORİ", "MARKA", "STOK KODU", "STOK ADI", "BARKOD",
+                                           "STOK", "FİYAT", "REBATE", "SELLOUT", "NET FİYAT", "KAMPANYA ADI"]
+                        st.caption("Sütun → alan eşlemesi:  **STOK KODU → SKU · STOK ADI → Ürün · FİYAT → Satış · "
+                                   "SELLOUT → Birim Firma Desteği · REBATE → Birim Ek Destek**.  Paçal, SKU ile "
+                                   "sistemdeki ürün kaydından otomatik gelir; ürünler bu açık kampanyaya eklenir.")
+                        _sbuf = BytesIO()
+                        with pd.ExcelWriter(_sbuf, engine="openpyxl") as _w:
+                            pd.DataFrame(columns=_KMP_SABLON_KOL).to_excel(_w, index=False, sheet_name="Sayfa1")
+                        st.download_button("⬇️ Boş Şablonu İndir", _sbuf.getvalue(),
+                                           "KAMPANYA_TAKIP_SABLONU.xlsx",
+                                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                           use_container_width=True, key=f"kmp_sablon_dl_{kid}")
+                        _kup = st.file_uploader("Doldurulmuş şablonu yükle", type=["xlsx", "xls"],
+                                                key=f"kmp_urun_up_{kid}")
+                        if _kup is not None:
+                            try:
+                                _df_up = pd.read_excel(_kup)
+                                _df_up.columns = [str(c).strip().upper() for c in _df_up.columns]
+                                st.dataframe(_df_up.head(15), use_container_width=True, height=220)
+
+                                def _gv(row, *adlar):
+                                    for a in adlar:
+                                        if a in row and pd.notna(row[a]):
+                                            return row[a]
+                                    return None
+
+                                def _num(v):
+                                    try:
+                                        if v is None or (isinstance(v, float) and pd.isna(v)):
+                                            return 0.0
+                                        return float(str(v).replace(",", ".").replace(" ", ""))
+                                    except Exception:
+                                        return 0.0
+
+                                if st.button(f"📥 {len(_df_up)} satırı bu kampanyaya ekle", type="primary",
+                                             use_container_width=True, key=f"kmp_urun_imp_{kid}"):
+                                    _ek = _atla = 0
+                                    for _, _r in _df_up.iterrows():
+                                        _sku = str(_gv(_r, "STOK KODU", "SKU") or "").strip()
+                                        if not _sku or _sku.lower() == "nan":
+                                            _atla += 1
+                                            continue
+                                        _uad = str(_gv(_r, "STOK ADI", "ÜRÜN ADI", "ÜRÜN") or "").strip()
+                                        _bilgi = urun_dict_k.get(_sku, {})
+                                        if not _uad:
+                                            _uad = _bilgi.get("urun_adi", _sku)
+                                        _pacal = _bilgi.get("final_cost_price", 0) or 0
+                                        _satis = _num(_gv(_r, "FİYAT", "SATIŞ", "SATIS"))
+                                        _fd = _num(_gv(_r, "SELLOUT", "FİRMA DESTEK", "FIRMA DESTEK"))
+                                        _ed = _num(_gv(_r, "REBATE", "EK DESTEK"))
+                                        try:
+                                            ekle_kampanya_urun(kid, _sku, _uad, _pacal, _satis, _fd, _ed, "")
+                                            _ek += 1
+                                        except Exception:
+                                            _atla += 1
+                                    st.cache_data.clear()
+                                    st.success(f"✅ {_ek} ürün eklendi." +
+                                               (f" {_atla} satır atlandı (SKU boş/hatalı)." if _atla else ""))
+                                    st.rerun()
+                            except Exception as _e:
+                                st.error(f"Excel okunamadı: {_e}")
+
                     # Kampanya ürünleri tablosu
                     if k_urunler:
                         st.markdown(f"**Kampanya Ürünleri ({len(k_urunler)} ürün)**")
