@@ -1030,9 +1030,11 @@ def get_tum_ref_tutarlari(baslangic, bitis):
             if not (_b <= _tar[:10] <= _e):
                 continue
         else:
-            # Tarihsiz ref → yıl bazlı: yalnızca dönem o yılın TAMAMINI kapsıyorsa dahil et
+            # Tarihsiz ref → yıl bazlı: dönem o yılın BAŞINA ulaşıyorsa dahil et.
+            # Kapsar: "Yıllık", "Bu yıl / yıl başından bugüne (YTD)", "Tümü".
+            # Kapsamaz: "Bu ay", çeyreklik, "Son 30/90 gün" (bunlar yıl ortasında başlar).
             _y = str(r.get("yil") or "").strip()
-            if not _y or not (_b <= f"{_y}-01-01" and _e >= f"{_y}-12-31"):
+            if not _y or not (_b <= f"{_y}-01-01" <= _e):
                 continue
         out.append({
             "tutar": t,
