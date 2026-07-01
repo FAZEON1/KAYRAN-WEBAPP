@@ -1339,6 +1339,7 @@ def _yeni_ithalat():
                 "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
                 "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
                 "doviz": "doviz", "teslim tarihi": "teslim_tarihi",
+                "teslim turu": "teslim_sekli", "teslim sekli": "teslim_sekli", "incoterm": "teslim_sekli",
             }
             kol = {}
             for c in df.columns:
@@ -1499,9 +1500,9 @@ def _yeni_ithalat():
                                         if str(x).strip() and str(x).strip().lower() != "nan"})
                     else:
                         _sips = []
+                    # SAS No — Satın Alım Raporu'nda "Sipariş no" kolonu SAS numarasını taşır
+                    sas_no_val = ", ".join(_sips) if _sips else ""
                     _not_parts = []
-                    if _sips:
-                        _not_parts.append("Sipariş(ler): " + ", ".join(_sips))
                     if len(_belgeler) > 1:
                         _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
                     notlar = " · ".join(_not_parts)
@@ -1513,6 +1514,13 @@ def _yeni_ithalat():
                     teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
                     ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
                     dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
+                    # Teslim türü (Incoterm) — Excel'den; INCOTERM listesine uydur
+                    teslim_sekli_val = ""
+                    if "teslim_sekli" in kol:
+                        _ts_raw = str(ilk.get(kol["teslim_sekli"], "") or "").strip()
+                        if _ts_raw and _ts_raw.lower() != "nan":
+                            _ts_up = _ts_raw.upper()
+                            teslim_sekli_val = _ts_up if _ts_up in INCOTERM_SECENEKLER else _ts_raw
 
                     # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
                     # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
@@ -1545,7 +1553,8 @@ def _yeni_ithalat():
                             dov, eski_kur, eski_masraf, notlar, kalemler,
                             ithalat_takip_no=takip_no,
                             teslim_tarihi=(str(teslim)[:10] if teslim else ""),
-                            sas_no=str(mevcut_kayit.get("sas_no", "") or ""))
+                            teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
+                            sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
                         if ok:
                             guncellenen += 1
                         else:
@@ -1554,7 +1563,8 @@ def _yeni_ithalat():
                     else:
                         ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
                                              pi_no=belge_no, ithalat_takip_no=takip_no,
-                                             teslim_tarihi=(str(teslim)[:10] if teslim else ""))
+                                             teslim_tarihi=(str(teslim)[:10] if teslim else ""),
+                                             teslim_sekli=teslim_sekli_val, sas_no=sas_no_val)
                         if ok:
                             basari += 1
                         else:
