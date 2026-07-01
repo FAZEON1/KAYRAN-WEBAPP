@@ -118,6 +118,25 @@ def _mal_kabul():
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
             st.rerun()
 
+    # 🏬 Mağaza seç (Vatan) — form DIŞINDA; seçince ad/telefon/adres dolar
+    from .magazalar import magaza_listesi
+    _mgz = magaza_listesi("VATAN")
+    if _mgz:
+        _mopts = ["— Mağaza seç (Vatan) —"] + [m["ad"] for m in _mgz]
+        _msec = st.selectbox(f"🏬 Mağaza seç ({len(_mgz)} Vatan mağazası · yazarak ara)",
+                             _mopts, key="mk_mgz_sec")
+        if _msec != _mopts[0] and st.session_state.get("_mk_mgz_son") != _msec:
+            st.session_state["_mk_mgz_son"] = _msec
+            for _m in _mgz:
+                if _m["ad"] == _msec:
+                    st.session_state["mk_m_adi"] = _m["ad"]
+                    st.session_state["mk_m_tel"] = _m.get("tel", "")
+                    _adr = _m.get("adres", "")
+                    _yer = " / ".join([x for x in (_m.get("ilce", ""), _m.get("sehir", "")) if x])
+                    st.session_state["mk_m_adres"] = (f"{_adr} — {_yer}".strip(" —") if _yer else _adr)
+                    break
+            st.rerun()
+
     # Sevk / Teslim Şekli — form DIŞINDA (Kargo seçilince Kargo Takip No görünsün)
     sevk_yontemi = st.selectbox(
         "Sevk / Teslim Şekli",
@@ -156,10 +175,11 @@ def _mal_kabul():
 
         _alt_baslik("Müşteri / Mağaza İletişim Bilgisi")
         m1, m2, m3 = st.columns(3)
-        m_adi = m1.text_input("Müşteri / Mağaza Adı", placeholder="örn: Vatan - Buyaka / son kullanıcı adı")
-        m_mail = m2.text_input("Mail")
-        m_tel = m3.text_input("Telefon")
-        m_adres = st.text_input("Adres")
+        m_adi = m1.text_input("Müşteri / Mağaza Adı", key="mk_m_adi",
+                              placeholder="örn: Vatan - Buyaka / son kullanıcı adı")
+        m_mail = m2.text_input("Mail", key="mk_m_mail")
+        m_tel = m3.text_input("Telefon", key="mk_m_tel")
+        m_adres = st.text_input("Adres", key="mk_m_adres")
 
         _alt_baslik("Belge — fatura veya irsaliye ile kabul")
         fbz = st.columns([1.3, 3])
@@ -579,7 +599,8 @@ def _depolar():
     kaynak_f = f4.selectbox("Kaynak", ["Tümü", "🔧 Teknik Servis", "↩️ İade"], key="depo_kaynak_f")
     g1, g2 = st.columns([1, 3])
     fatura_f = g1.selectbox("Fatura", ["Tümü", "✓ Mevcut", "✗ Yok"], key="depo_fat_f")
-    ara = g2.text_input("🔍 Ara — Servis No · Stok · Seri · Firma", key="depo_ara")
+    ara = g2.text_input("🔍 Ara — Servis No · Stok · Seri · Firma · Fatura · İrsaliye · Firma Servis No",
+                        key="depo_ara")
 
     def _fm_of(k):
         v = k.get("fatura_mevcut")
@@ -600,7 +621,8 @@ def _depolar():
             return False
         if ara:
             blob = " ".join(str(k.get(a, "") or "") for a in
-                            ("servis_form_no", "stok_kodu", "stok_adi", "seri_no", "firma_bilgisi")).lower()
+                            ("servis_form_no", "stok_kodu", "stok_adi", "seri_no", "firma_bilgisi",
+                             "fatura_no", "irsaliye_no", "firma_servis_form_no")).lower()
             if ara.lower() not in blob:
                 return False
         return True
@@ -684,6 +706,7 @@ def _depolar():
                         f'<b>Müşteri:</b> {_g(k,"musteri_adi")}<br>'
                         f'<b>Fatura No:</b> {_g(k,"fatura_no")}<br>'
                         f'<b>İrsaliye No:</b> {_g(k,"irsaliye_no")}<br>'
+                        f'<b>Firma Servis Form No:</b> {_g(k,"firma_servis_form_no")}<br>'
                         f'<b>Depo Açıklaması:</b> {_g(k,"depo_aciklama")}</div>', unsafe_allow_html=True)
                 _gec = get_gecmis(kid)
                 if _gec:
