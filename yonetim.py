@@ -260,15 +260,14 @@ def run():
     _iade_alt = (f"Net · brüt {_usd(ciro_brut)}" if iade_tutar > 0 else "Toplam satış")
     _cogs_alt = ("Ürün maliyeti (iade düşülmüş)" if iade_tutar > 0 else "Ürün maliyeti")
     _kartlar = ('<div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px">'
-                + _kart("Ciro", _usd(ciro), _iade_alt, "#A5B4FC"))
-    if iade_tutar > 0:
-        _kartlar += _kart("İadeler", _usd(iade_tutar), "İade edilen (ciro−)", "#F472B6")
-    _kartlar += (_kart("COGS", _usd(cogs), _cogs_alt, "#FBBF24")
-                 + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
-                 + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
-                 + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
-                 + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
-                 + '</div>')
+                + _kart("Ciro", _usd(ciro), _iade_alt, "#A5B4FC")
+                + _kart("İadeler", _usd(iade_tutar), "İade edilen (ciro−)", "#F472B6")
+                + _kart("COGS", _usd(cogs), _cogs_alt, "#FBBF24")
+                + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
+                + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
+                + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
+                + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
+                + '</div>')
     st.markdown(_kartlar, unsafe_allow_html=True)
     if _tl_uyari:
         st.caption(f"ℹ️ TL cinsi destekler fatura tarihindeki günlük kurla USD'ye çevrildi; "
