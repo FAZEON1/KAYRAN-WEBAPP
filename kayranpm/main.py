@@ -1521,11 +1521,20 @@ def run():
             # ── Excel şablonundan YENİ kampanya oluştur + ürünleri ekle (tek dosya) ──
             with st.expander("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", expanded=False):
                 _KMP_TAM_KOL = ["FİRMA ADI", "KATEGORİ", "MARKA", "STOK KODU", "STOK ADI", "BARKOD",
-                                "STOK", "FİYAT", "REBATE", "SELLOUT", "NET FİYAT", "KAMPANYA ADI"]
-                st.caption("Tek şablonla YENİ kampanya oluşturur ve ürünleri ekler. Firma adı Excel'de olsa da "
-                           "doğru eşleşme için firmayı aşağıdan **sen seçersin**. Eşleme: KAMPANYA ADI→ad · "
-                           "STOK KODU→SKU · STOK ADI→ürün · FİYAT→satış · SELLOUT→firma desteği · REBATE→ek destek "
-                           "(paçal SKU'dan otomatik).")
+                                "FİYAT", "REBATE", "SELLOUT", "EK SELLOUT", "NET FİYAT", "KAMPANYA ADI",
+                                "KAMPANYA TÜRÜ", "BAŞLANGIÇ TARİHİ", "BİTİŞ TARİHİ"]
+                st.caption("Tek şablonla YENİ kampanya oluşturur + ürünleri ekler. **Firma · Kampanya Türü · "
+                           "Başlangıç/Bitiş Tarihi · Ek Sellout dahil tüm bilgiler dosyadan otomatik gelir.** "
+                           "Eşleme: FİYAT→satış · SELLOUT→firma desteği · EK SELLOUT→ek destek (paçal SKU'dan otomatik).")
+
+                def _knrm(_s):
+                    _s = str(_s).strip()
+                    for _a, _b in (("İ", "i"), ("I", "i"), ("ı", "i"), ("Ş", "s"), ("ş", "s"),
+                                   ("Ğ", "g"), ("ğ", "g"), ("Ü", "u"), ("ü", "u"),
+                                   ("Ö", "o"), ("ö", "o"), ("Ç", "c"), ("ç", "c")):
+                        _s = _s.replace(_a, _b)
+                    return _s.lower()
+
                 _tbuf = BytesIO()
                 with pd.ExcelWriter(_tbuf, engine="openpyxl") as _w:
                     pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
@@ -1538,13 +1547,23 @@ def run():
                 if _kfile is not None:
                     try:
                         _kdf = pd.read_excel(_kfile)
-                        _kdf.columns = [str(c).strip().upper() for c in _kdf.columns]
-                        st.dataframe(_kdf.head(15), use_container_width=True, height=200)
+                        _kolmap = {_knrm(c): c for c in _kdf.columns}
 
-                        def _kgv(_row, *_adlar):
-                            for _a in _adlar:
-                                if _a in _row and pd.notna(_row[_a]):
-                                    return _row[_a]
+                        def _col(*_names):
+                            _ns = [_knrm(n) for n in _names]
+                            for _n in _ns:  # önce tam eşleşme (fiyat vs net fiyat, sellout vs ek sellout)
+                                if _n in _kolmap:
+                                    return _kolmap[_n]
+                            for _n in _ns:  # sonra alt-dizge
+                                for _k, _actual in _kolmap.items():
+                                    if _n in _k:
+                                        return _actual
+                            return None
+
+                        def _gv(_row, *_names):
+                            _c = _col(*_names)
+                            if _c is not None and _c in _row and pd.notna(_row[_c]):
+                                return _row[_c]
                             return None
 
                         def _knum(_v):
@@ -1555,64 +1574,78 @@ def run():
                             except Exception:
                                 return 0.0
 
-                        _xl_ad = _xl_firma = _xl_kat = ""
+                        def _tarih(_v):
+                            try:
+                                if _v is None or (isinstance(_v, float) and pd.isna(_v)):
+                                    return None
+                                _t = pd.to_datetime(_v, errors="coerce", dayfirst=True)
+                                return _t.date() if pd.notna(_t) else None
+                            except Exception:
+                                return None
+
+                        st.dataframe(_kdf.head(15), use_container_width=True, height=200)
+
+                        _xl_ad = _xl_firma = _xl_kat = _xl_tur = ""
+                        _xl_bas = _xl_bit = None
                         for _, _r in _kdf.iterrows():
-                            if not _xl_ad:
-                                _v = _kgv(_r, "KAMPANYA ADI"); _xl_ad = str(_v).strip() if _v is not None else ""
-                            if not _xl_firma:
-                                _v = _kgv(_r, "FİRMA ADI", "FIRMA ADI"); _xl_firma = str(_v).strip() if _v is not None else ""
-                            if not _xl_kat:
-                                _v = _kgv(_r, "KATEGORİ", "KATEGORI"); _xl_kat = str(_v).strip() if _v is not None else ""
-                            if _xl_ad and _xl_firma and _xl_kat:
+                            _xl_ad = _xl_ad or str(_gv(_r, "kampanya adi") or "").strip()
+                            _xl_firma = _xl_firma or str(_gv(_r, "firma adi", "firma") or "").strip()
+                            _xl_kat = _xl_kat or str(_gv(_r, "kategori") or "").strip()
+                            _xl_tur = _xl_tur or str(_gv(_r, "kampanya turu", "tur") or "").strip()
+                            _xl_bas = _xl_bas or _tarih(_gv(_r, "baslangic"))
+                            _xl_bit = _xl_bit or _tarih(_gv(_r, "bitis"))
+                            if _xl_ad and _xl_firma and _xl_tur and _xl_bas and _xl_bit:
                                 break
 
-                        _firma_idx = 0
-                        _xu = _xl_firma.upper()
-                        for _i2, _fk in enumerate(FIRMA_LISTESI_K):
-                            if _xu and (_fk.upper() in _xu or _xu.startswith(_fk.upper())):
-                                _firma_idx = _i2
+                        # Kategori: mevcut bir kategoriyle yalnızca harf farkı varsa onu kullan (KASA/kasa mükerrerini önle)
+                        _kat_final = _xl_kat
+                        for _ek in _kt_kat_list:
+                            if _ek.strip().lower() == _xl_kat.lower():
+                                _kat_final = _ek
+                                break
+
+                        _tur_idx = 0
+                        for _ti, _t in enumerate(KAMPANYA_TURLERI):
+                            if _t.lower() == _xl_tur.lower():
+                                _tur_idx = _ti
                                 break
 
                         _of1, _of2 = st.columns(2)
-                        _o_ad = _of1.text_input("Kampanya Adı *", value=(_xl_ad or ""), key="kmp_o_ad")
-                        _o_firma = _of2.selectbox("Firma *", FIRMA_LISTESI_K, index=_firma_idx,
-                                                  format_func=firma_gorunen_ad, key="kmp_o_firma")
-                        _of3, _of4 = st.columns(2)
-                        _o_bas = _of3.date_input("Başlangıç Tarihi *", value=tr_today(), key="kmp_o_bas")
-                        _o_bit = _of4.date_input("Bitiş Tarihi *", value=tr_today(), key="kmp_o_bit")
-                        _o_kat_opts = ["(Genel / Karışık)"] + _kt_kat_list
-                        if _xl_kat and _xl_kat not in _o_kat_opts:
-                            _o_kat_opts = ["(Genel / Karışık)", _xl_kat] + _kt_kat_list
-                        _o_kat = st.selectbox("Kategori", _o_kat_opts,
-                                              index=(_o_kat_opts.index(_xl_kat) if _xl_kat in _o_kat_opts else 0),
-                                              key="kmp_o_kat")
-                        _o_turu = st.selectbox("Kampanya Türü", KAMPANYA_TURLERI, key="kmp_o_turu")
+                        _o_ad = _of1.text_input("Kampanya Adı *", value=_xl_ad, key="kmp_o_ad")
+                        _o_firma = _of2.text_input("Firma * (dosyadan)", value=_xl_firma, key="kmp_o_firma")
+                        _of3, _of4, _of5 = st.columns(3)
+                        _o_turu = _of3.selectbox("Kampanya Türü", KAMPANYA_TURLERI, index=_tur_idx, key="kmp_o_turu")
+                        _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas")
+                        _o_bit = _of5.date_input("Bitiş Tarihi *", value=(_xl_bit or tr_today()), key="kmp_o_bit")
+                        st.caption(f"🏷️ Kategori (dosyadan): **{_kat_final or '—'}**"
+                                   + ("" if (not _kat_final or _kat_final == _xl_kat)
+                                      else f"  · mevcut '{_kat_final}' ile eşleştirildi (yeni mükerrer açılmadı)"))
 
                         _urun_satir = []
                         for _, _r in _kdf.iterrows():
-                            _sku = str(_kgv(_r, "STOK KODU", "SKU") or "").strip()
+                            _sku = str(_gv(_r, "stok kodu", "sku") or "").strip()
                             if not _sku or _sku.lower() == "nan":
                                 continue
                             _bilgi = urun_dict_k.get(_sku, {})
-                            _uad = (str(_kgv(_r, "STOK ADI", "ÜRÜN ADI", "ÜRÜN") or "").strip()
+                            _uad = (str(_gv(_r, "stok adi", "urun adi", "urun") or "").strip()
                                     or _bilgi.get("urun_adi", _sku))
                             _urun_satir.append({
                                 "sku": _sku, "urun_adi": _uad,
                                 "pacal": _bilgi.get("final_cost_price", 0) or 0,
-                                "satis": _knum(_kgv(_r, "FİYAT", "SATIŞ", "SATIS")),
-                                "fd": _knum(_kgv(_r, "SELLOUT", "FİRMA DESTEK", "FIRMA DESTEK")),
-                                "ed": _knum(_kgv(_r, "REBATE", "EK DESTEK")),
+                                "satis": _knum(_gv(_r, "fiyat", "satis")),
+                                "fd": _knum(_gv(_r, "sellout")),
+                                "ed": _knum(_gv(_r, "ek sellout")),
                             })
                         st.caption(f"Şablonda **{len(_urun_satir)}** geçerli ürün satırı bulundu.")
 
                         if st.button("🚀 Şablondan Kampanya Oluştur ve Ürünleri Ekle", type="primary",
                                      use_container_width=True, key="kmp_o_olustur",
-                                     disabled=(not _o_ad.strip() or not _urun_satir)):
+                                     disabled=(not _o_ad.strip() or not _o_firma.strip() or not _urun_satir)):
                             _ohata, _oyid = None, None
                             try:
                                 _oyid = ekle_kampanya(
-                                    _o_ad.strip(), _o_firma, str(_o_bas), str(_o_bit), "",
-                                    ("" if str(_o_kat).startswith("(") else _o_kat),
+                                    _o_ad.strip(), _o_firma.strip(), str(_o_bas), str(_o_bit), "",
+                                    _kat_final,
                                     kampanya_turu=("" if str(_o_turu).startswith("(") else _o_turu))
                             except Exception as _e:
                                 _ohata = str(_e)
@@ -1626,7 +1659,8 @@ def run():
                                     except Exception:
                                         pass
                                 st.cache_data.clear()
-                                st.success(f"✅ '{_o_ad.strip()}' kampanyası oluşturuldu ve {_on} ürün eklendi.")
+                                st.success(f"✅ '{_o_ad.strip()}' kampanyası oluşturuldu ve {_on} ürün eklendi "
+                                           f"(Firma: {_o_firma.strip()} · Tür: {_o_turu} · {_o_bas}→{_o_bit}).")
                                 st.rerun()
                             elif _ohata:
                                 st.error(f"Kampanya oluşturulamadı — {_ohata}")
