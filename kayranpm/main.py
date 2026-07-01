@@ -2081,6 +2081,7 @@ def run():
                         # Özet hesaplar
                         toplam_net_kar = 0
                         toplam_destek_verilen = 0
+                        toplam_ek_destek_verilen = 0  # yalnızca ek destek (firma desteği hariç) — "Toplam Destek Verilen" göstergesi için
                         toplam_satilan = 0
     
                         rows_ku = []
@@ -2112,6 +2113,7 @@ def run():
     
                             toplam_net_kar += toplam_net_urun
                             toplam_destek_verilen += toplam_destek_urun
+                            toplam_ek_destek_verilen += (ed * satilan)
                             toplam_satilan += satilan
     
                             rows_ku.append({
@@ -2203,7 +2205,8 @@ def run():
                         _net_final = toplam_net_kar - _spiff_usd_p
                         _metrikler = [
                             {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
-                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_destek_verilen:,.0f}", "renk": "#FB923C"},
+                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_ek_destek_verilen:,.0f}",
+                             "renk": "#FB923C", "alt": "yalnızca ek destek"},
                         ]
                         if _spiff_usd_p > 0:
                             _metrikler.append({
