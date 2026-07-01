@@ -856,10 +856,13 @@ def _gecmis_ithalatlar():
         _cur_dv = str(d.get("doviz", "USD") or "USD")
         _cs, _cr = st.columns([2.05, 1])
         with _cs:
+            _ik = f"ith_edit_indirim_{did}"
+            _iv0 = float(d.get("fatura_indirim", 0) or 0)
+            st.session_state.setdefault(_ik, (_iv0 if _iv0 > 0 else None))
             e_indirim = st.number_input(
                 "Fatura Altı İndirim (tutar)", min_value=0.0,
-                value=float(d.get("fatura_indirim", 0) or 0), step=1.0, format="%.2f",
-                key=f"ith_edit_indirim_{did}",
+                value=None, step=1.0, format="%.2f",
+                key=_ik,
                 help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
             e_masraf = {}
             for _slug, _label in MASRAF_TANIM:
@@ -868,10 +871,12 @@ def _gecmis_ithalatlar():
                     f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
                     f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
                 _mv = float(_md.get(_slug, 0) or 0)
+                _mk = f"ith_edit_mas_{did}_{_slug}"
+                st.session_state.setdefault(_mk, (_mv if _mv > 0 else None))
                 e_masraf[_slug] = _ic.number_input(
-                    _label, min_value=0.0, value=(_mv if _mv > 0 else None),
+                    _label, min_value=0.0, value=None,
                     step=1.0, format="%.2f", placeholder="0,00",
-                    label_visibility="collapsed", key=f"ith_edit_mas_{did}_{_slug}")
+                    label_visibility="collapsed", key=_mk)
         with _cr:
             e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
                                     value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f",
@@ -1008,6 +1013,10 @@ def _gecmis_ithalatlar():
                                              teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
                                              sas_no=e_sas.strip())
                 if ok:
+                    for _sk in [k for k in list(st.session_state.keys())
+                                if k in (f"ith_edit_indirim_{did}", f"ith_edit_kur_{did}")
+                                or k.startswith(f"ith_edit_mas_{did}_")]:
+                        st.session_state.pop(_sk, None)
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
                 else:
