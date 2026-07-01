@@ -251,6 +251,37 @@ def sidebar_stil() -> str:
         border-radius:13px !important; font-weight:700 !important;
     }}
     </style>
+    <style>
+    /* ── ANA İÇERİK radyoları → modern segmented / pill (tüm modüllerde ortak).
+       Sidebar radyoları YUKARIDAKİ daha spesifik kurallarla korunur, etkilenmez. ── */
+    div[role="radiogroup"]{{ gap:8px !important; align-items:center; }}
+    div[role="radiogroup"] > label{{
+        background:rgba(255,255,255,0.035) !important;
+        border:1px solid rgba(148,163,184,0.18) !important;
+        border-radius:11px !important;
+        padding:8px 18px !important;
+        margin:0 !important;
+        cursor:pointer;
+        transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+    }}
+    div[role="radiogroup"] > label:hover{{
+        background:rgba(129,140,248,0.10) !important;
+        border-color:rgba(129,140,248,0.55) !important;
+        transform:translateY(-1px);
+    }}
+    /* varsayılan radyo dairesini gizle → temiz pill */
+    div[role="radiogroup"] > label > div:first-child{{ display:none !important; }}
+    div[role="radiogroup"] > label:has(input:checked){{
+        background:linear-gradient(135deg,#6366F1,#818CF8) !important;
+        border-color:#818CF8 !important;
+        box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;
+    }}
+    div[role="radiogroup"] label p{{
+        font-family:Inter,sans-serif !important; font-weight:600 !important;
+        letter-spacing:-0.1px !important; font-size:14px !important;
+    }}
+    div[role="radiogroup"] > label:has(input:checked) p{{ color:#FFFFFF !important; font-weight:700 !important; }}
+    </style>
     """
 
 
