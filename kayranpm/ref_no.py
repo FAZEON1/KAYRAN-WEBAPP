@@ -316,12 +316,21 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi"):
     """NUMARA / REF NUMARASI / AÇIKLAMA başlıklı df'i içe aktarır (mükerrer ref atlanır)."""
     try:
         sb = get_client()
-        kol = {str(c).strip().lower(): c for c in df.columns}
+
+        def _nrm(s):
+            s = str(s).strip()
+            for a, b in (("İ", "i"), ("I", "i"), ("ı", "i"), ("Ş", "s"), ("ş", "s"),
+                         ("Ğ", "g"), ("ğ", "g"), ("Ü", "u"), ("ü", "u"),
+                         ("Ö", "o"), ("ö", "o"), ("Ç", "c"), ("ç", "c")):
+                s = s.replace(a, b)
+            return s.lower()
+        kol = {_nrm(c): c for c in df.columns}
 
         def _bul(*adlar):
             for a in adlar:
+                _a = _nrm(a)
                 for k, v in kol.items():
-                    if a in k:
+                    if _a in k:
                         return v
             return None
 
