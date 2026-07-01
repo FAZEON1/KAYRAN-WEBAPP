@@ -571,8 +571,12 @@ def render():
         st.info("Henüz firma yok. Yukarıdan 'Yeni Firma Ekle' ile başlayın (örn. VATAN / kod: VTN).")
         return
 
+    _TUMU = "🌐 Tümü (tüm firmalar · birleşik liste)"
     fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
-    sec_label = st.selectbox("Firma seç", list(fmap.keys()), key="ref_firma_sec")
+    sec_label = st.selectbox("Firma seç", [_TUMU] + list(fmap.keys()), key="ref_firma_sec")
+    if sec_label == _TUMU:
+        _render_tumu(firmalar)
+        return
     firma = fmap[sec_label]
 
     tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
@@ -584,6 +588,57 @@ def render():
         else:
             st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur. "
                     "Şu an başka cariye havuz bütçe verilmiyor.")
+
+
+def _render_tumu(firmalar):
+    """Tüm firmaların ref no'larını firma sütunuyla birleşik, aramalı/filtreli gösterir (salt-okunur)."""
+    def _trl(s):
+        return str(s or "").replace("İ", "i").replace("I", "ı").lower()
+    _hepsi = []
+    for f in firmalar:
+        _fad = f.get("firma_adi", "") or ""
+        for r in get_refler(f["id"]):
+            _r = dict(r)
+            _r["_firma"] = _fad
+            _hepsi.append(_r)
+    _bekleyen = sum(1 for r in _hepsi if r.get("durum") == "beklemede")
+    _paylasilan = sum(1 for r in _hepsi if r.get("durum") == "paylasildi")
+    metrik_satiri([
+        {"label": "Toplam Ref (tüm firmalar)", "value": f"{len(_hepsi):,}", "renk": "#818CF8"},
+        {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
+        {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
+        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(_hepsi), "renk": "#A78BFA"},
+    ])
+    _c1, _c2 = st.columns([1, 2])
+    durum_f = _c1.selectbox("Durum filtresi", ["Tümü"] + DURUMLAR,
+                            format_func=lambda d: DURUM_ETIKET.get(d, d) if d != "Tümü" else d,
+                            key="ref_tumu_durum")
+    ara = _c2.text_input("🔍 Ara — Firma · Ref No · Açıklama · Tutar", key="ref_tumu_ara")
+    _aral = _trl(ara)
+
+    def _uy(r):
+        if durum_f != "Tümü" and r.get("durum") != durum_f:
+            return False
+        if _aral:
+            blob = _trl(f"{r.get('_firma','')} {r.get('ref_no','')} {r.get('aciklama','')} "
+                        f"{r.get('tutar','')} {r.get('doviz','')} {r.get('yil','')}")
+            if _aral not in blob:
+                return False
+        return True
+    goster = [r for r in _hepsi if _uy(r)]
+    st.caption(f"{len(goster)} / {len(_hepsi)} kayıt gösteriliyor · birleşik (tüm firmalar)")
+    import pandas as pd
+    st.dataframe(pd.DataFrame([{
+        "Firma": (r.get("_firma", "") or "")[:32],
+        "Ref No": r.get("ref_no", "") or "",
+        "Açıklama": r.get("aciklama", "") or "",
+        "Durum": DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "")),
+        "Tutar": _f(r.get("tutar")),
+        "Döviz": (r.get("doviz", "") or "USD"),
+        "Yıl": r.get("yil", "") or "",
+    } for r in goster]), hide_index=True, use_container_width=True, height=460)
+    st.caption("ℹ️ Birleşik görünüm salt-okunurdur. Ekleme · Excel içe aktarma · düzenleme · silme · bütçe için "
+               "yukarıdan **tek bir firma** seç.")
 
 
 # ── SEKME 1: REF NO'LAR ─────────────────────────────────────────────
