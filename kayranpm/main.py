@@ -1518,6 +1518,123 @@ def run():
                                          "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu). "
                                          "Bu mesajı bana iletirsen nedenini bulabilirim.")
     
+            # ── Excel şablonundan YENİ kampanya oluştur + ürünleri ekle (tek dosya) ──
+            with st.expander("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", expanded=False):
+                _KMP_TAM_KOL = ["FİRMA ADI", "KATEGORİ", "MARKA", "STOK KODU", "STOK ADI", "BARKOD",
+                                "STOK", "FİYAT", "REBATE", "SELLOUT", "NET FİYAT", "KAMPANYA ADI"]
+                st.caption("Tek şablonla YENİ kampanya oluşturur ve ürünleri ekler. Firma adı Excel'de olsa da "
+                           "doğru eşleşme için firmayı aşağıdan **sen seçersin**. Eşleme: KAMPANYA ADI→ad · "
+                           "STOK KODU→SKU · STOK ADI→ürün · FİYAT→satış · SELLOUT→firma desteği · REBATE→ek destek "
+                           "(paçal SKU'dan otomatik).")
+                _tbuf = BytesIO()
+                with pd.ExcelWriter(_tbuf, engine="openpyxl") as _w:
+                    pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
+                st.download_button("⬇️ Kampanya şablonu indir", _tbuf.getvalue(),
+                                   "KAMPANYA_OLUSTUR_SABLONU.xlsx",
+                                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                   key="kmp_olustur_sablon_dl")
+                _kfile = st.file_uploader("Doldurulmuş kampanya şablonu", type=["xlsx", "xls"],
+                                          key="kmp_olustur_up")
+                if _kfile is not None:
+                    try:
+                        _kdf = pd.read_excel(_kfile)
+                        _kdf.columns = [str(c).strip().upper() for c in _kdf.columns]
+                        st.dataframe(_kdf.head(15), use_container_width=True, height=200)
+
+                        def _kgv(_row, *_adlar):
+                            for _a in _adlar:
+                                if _a in _row and pd.notna(_row[_a]):
+                                    return _row[_a]
+                            return None
+
+                        def _knum(_v):
+                            try:
+                                if _v is None or (isinstance(_v, float) and pd.isna(_v)):
+                                    return 0.0
+                                return float(str(_v).replace(",", ".").replace(" ", ""))
+                            except Exception:
+                                return 0.0
+
+                        _xl_ad = _xl_firma = _xl_kat = ""
+                        for _, _r in _kdf.iterrows():
+                            if not _xl_ad:
+                                _v = _kgv(_r, "KAMPANYA ADI"); _xl_ad = str(_v).strip() if _v is not None else ""
+                            if not _xl_firma:
+                                _v = _kgv(_r, "FİRMA ADI", "FIRMA ADI"); _xl_firma = str(_v).strip() if _v is not None else ""
+                            if not _xl_kat:
+                                _v = _kgv(_r, "KATEGORİ", "KATEGORI"); _xl_kat = str(_v).strip() if _v is not None else ""
+                            if _xl_ad and _xl_firma and _xl_kat:
+                                break
+
+                        _firma_idx = 0
+                        _xu = _xl_firma.upper()
+                        for _i2, _fk in enumerate(FIRMA_LISTESI_K):
+                            if _xu and (_fk.upper() in _xu or _xu.startswith(_fk.upper())):
+                                _firma_idx = _i2
+                                break
+
+                        _of1, _of2 = st.columns(2)
+                        _o_ad = _of1.text_input("Kampanya Adı *", value=(_xl_ad or ""), key="kmp_o_ad")
+                        _o_firma = _of2.selectbox("Firma *", FIRMA_LISTESI_K, index=_firma_idx,
+                                                  format_func=firma_gorunen_ad, key="kmp_o_firma")
+                        _of3, _of4 = st.columns(2)
+                        _o_bas = _of3.date_input("Başlangıç Tarihi *", value=tr_today(), key="kmp_o_bas")
+                        _o_bit = _of4.date_input("Bitiş Tarihi *", value=tr_today(), key="kmp_o_bit")
+                        _o_kat_opts = ["(Genel / Karışık)"] + _kt_kat_list
+                        if _xl_kat and _xl_kat not in _o_kat_opts:
+                            _o_kat_opts = ["(Genel / Karışık)", _xl_kat] + _kt_kat_list
+                        _o_kat = st.selectbox("Kategori", _o_kat_opts,
+                                              index=(_o_kat_opts.index(_xl_kat) if _xl_kat in _o_kat_opts else 0),
+                                              key="kmp_o_kat")
+                        _o_turu = st.selectbox("Kampanya Türü", KAMPANYA_TURLERI, key="kmp_o_turu")
+
+                        _urun_satir = []
+                        for _, _r in _kdf.iterrows():
+                            _sku = str(_kgv(_r, "STOK KODU", "SKU") or "").strip()
+                            if not _sku or _sku.lower() == "nan":
+                                continue
+                            _bilgi = urun_dict_k.get(_sku, {})
+                            _uad = (str(_kgv(_r, "STOK ADI", "ÜRÜN ADI", "ÜRÜN") or "").strip()
+                                    or _bilgi.get("urun_adi", _sku))
+                            _urun_satir.append({
+                                "sku": _sku, "urun_adi": _uad,
+                                "pacal": _bilgi.get("final_cost_price", 0) or 0,
+                                "satis": _knum(_kgv(_r, "FİYAT", "SATIŞ", "SATIS")),
+                                "fd": _knum(_kgv(_r, "SELLOUT", "FİRMA DESTEK", "FIRMA DESTEK")),
+                                "ed": _knum(_kgv(_r, "REBATE", "EK DESTEK")),
+                            })
+                        st.caption(f"Şablonda **{len(_urun_satir)}** geçerli ürün satırı bulundu.")
+
+                        if st.button("🚀 Şablondan Kampanya Oluştur ve Ürünleri Ekle", type="primary",
+                                     use_container_width=True, key="kmp_o_olustur",
+                                     disabled=(not _o_ad.strip() or not _urun_satir)):
+                            _ohata, _oyid = None, None
+                            try:
+                                _oyid = ekle_kampanya(
+                                    _o_ad.strip(), _o_firma, str(_o_bas), str(_o_bit), "",
+                                    ("" if str(_o_kat).startswith("(") else _o_kat),
+                                    kampanya_turu=("" if str(_o_turu).startswith("(") else _o_turu))
+                            except Exception as _e:
+                                _ohata = str(_e)
+                            if _oyid:
+                                _on = 0
+                                for _u in _urun_satir:
+                                    try:
+                                        ekle_kampanya_urun(_oyid, _u["sku"], _u["urun_adi"], _u["pacal"],
+                                                           _u["satis"], _u["fd"], _u["ed"], "")
+                                        _on += 1
+                                    except Exception:
+                                        pass
+                                st.cache_data.clear()
+                                st.success(f"✅ '{_o_ad.strip()}' kampanyası oluşturuldu ve {_on} ürün eklendi.")
+                                st.rerun()
+                            elif _ohata:
+                                st.error(f"Kampanya oluşturulamadı — {_ohata}")
+                            else:
+                                st.error("Kampanya oluşturulamadı (tablo izni/kolon olabilir).")
+                    except Exception as _e:
+                        st.error(f"Excel okunamadı: {_e}")
+
             # Aktif kampanyaları listele
             aktif_kampanyalar = _kt_uygula(get_kampanyalar(durum="aktif"))
             if not aktif_kampanyalar:
