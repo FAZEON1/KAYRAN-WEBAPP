@@ -565,7 +565,10 @@ def _gecmis_ithalatlar():
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
         "% Maliyet": f"%{s['% Maliyet']:.2f}", "Kalem": s["Kalem"],
-        "Aşama": s["Aşama"], "Durum": s["Durum"],
+        "Aşama": s["Aşama"],
+        "Teslim Şekli": s.get("Teslim Şekli", "—"),
+        "Teslim Deposu": s.get("Teslim Deposu", "—"),
+        "Durum": s["Durum"],
     } for s in satirlar_goster])
     _evt = st.dataframe(
         _df_show, hide_index=True, height=420,
