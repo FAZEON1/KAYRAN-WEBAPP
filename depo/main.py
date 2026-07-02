@@ -1,26 +1,53 @@
-"""Depo Yönetimi modülü — depo bazlı stok + depolar arası sevk (canlı adet)."""
+"""Depo Yönetimi modülü — sidebar sayfaları: Depo Stok · Depolar Arası Sevk ·
+Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
 import streamlit as st
 import pandas as pd
+from datetime import date
 
 from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok,
-                               depo_sevk, get_depo_sevk_gecmisi)
+                               depo_sevk, get_depo_sevk_gecmisi, get_client)
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 
-def run():
-    st.markdown('<div style="font-size:26px;font-weight:800;color:#E2E8F0;margin:2px 0 2px">'
-                '🏬 Depo Yönetimi</div>', unsafe_allow_html=True)
-    st.markdown('<div style="color:#94A3B8;font-size:13px;margin-bottom:6px">'
-                'Depo bazlı stok · depolar arası sevk · canlı adet revizyonu</div>', unsafe_allow_html=True)
+def _baslik(t, alt):
+    st.markdown(f'<div style="font-size:26px;font-weight:800;color:#E2E8F0;margin:2px 0 2px">{t}</div>',
+                unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#94A3B8;font-size:13px;margin-bottom:6px">{alt}</div>',
+                unsafe_allow_html=True)
     st.markdown('<div style="height:1px;background:linear-gradient(90deg,#6366F1,transparent);'
                 'margin:6px 0 16px"></div>', unsafe_allow_html=True)
 
+
+def run():
+    with st.sidebar:
+        st.markdown(sidebar_stil(), unsafe_allow_html=True)
+        st.markdown(sidebar_baslik("🏬", "Depo", "Depo Yönetimi"), unsafe_allow_html=True)
+        _kull = st.session_state.get("aktif_kullanici", "")
+        if _kull:
+            st.markdown(sidebar_kullanici(_kull), unsafe_allow_html=True)
+        _dsayfa = st.radio("Sayfa", ["🏬 Depo Stok", "🚚 Depolar Arası Sevk",
+                                     "📦 Bekleyen Sevk Takibi", "🔎 SKU Hareketleri"],
+                           label_visibility="collapsed", key="depo_sayfa")
+
+    if _dsayfa == "🏬 Depo Stok":
+        _sayfa_stok()
+    elif _dsayfa == "🚚 Depolar Arası Sevk":
+        _sayfa_sevk()
+    elif _dsayfa == "📦 Bekleyen Sevk Takibi":
+        _sayfa_bekleyen()
+    else:
+        _sayfa_sku()
+
+
+# ═════════════════════════ 🏬 DEPO STOK ═════════════════════════
+def _sayfa_stok():
+    _baslik("🏬 Depo Stok", "Depo bazlı stok · özet kartlar · depo içeriği")
     _ozet = get_depo_ozet()
     if not _ozet:
         st.info("Henüz depo bazlı stok yok. **Ürün Yönetimi → Veri Yükleme → G5F Stok "
                 "(Depo Kırılımlı)** Excel'ini yükleyince depolar burada görünür.")
         return
 
-    # Özet kartlar
     _kart_html = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px">'
     for _o in _ozet:
         _rb = "#34D399" if _o["satilabilir"] else "#94A3B8"
@@ -40,7 +67,26 @@ def run():
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size:14px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
-                '🚚 Depolar Arası Sevk</div>', unsafe_allow_html=True)
+                '📋 Depo içeriği — bir deponun tüm ürünleri</div>', unsafe_allow_html=True)
+    _depolar = get_depo_listesi()
+    _di_depo = st.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
+    _di_urunler = get_depo_stok(_di_depo) if _di_depo else []
+    if _di_urunler:
+        _df = pd.DataFrame([{"SKU": u["sku"], "Ürün": u["urun_adi"], "Adet": u["adet"]}
+                           for u in _di_urunler])
+        st.caption(f"{len(_di_urunler)} çeşit · {sum(u['adet'] for u in _di_urunler):,} adet")
+        st.dataframe(_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("Bu depoda stoklu ürün yok.")
+
+
+# ═════════════════════ 🚚 DEPOLAR ARASI SEVK ═════════════════════
+def _sayfa_sevk():
+    _baslik("🚚 Depolar Arası Sevk", "Kaynak → hedef sevk · sevk tarihi & belge no · son sevkler")
+    _ozet = get_depo_ozet()
+    if not _ozet:
+        st.info("Henüz depo bazlı stok yok. Önce **Ürün Yönetimi → G5F Stok** Excel'ini yükle.")
+        return
     st.caption("Bir kaynak ve hedef depo seç, ürünleri tek tek listeye ekle, sonra hepsini "
                "tek seferde sevk et. Aynı sevkte birden çok model taşıyabilirsin.")
     _depolar = get_depo_listesi()
@@ -111,9 +157,8 @@ def run():
         _toplam = sum(s["adet"] for s in _sepet)
         st.caption(f"{len(_sepet)} kalem · toplam {_toplam} adet · {_kaynak} → {_hedef or '(hedef seçilmedi)'}")
 
-        from datetime import date as _date
         sv1, sv2 = st.columns(2)
-        _sevk_tarih = sv1.date_input("Sevk Tarihi", value=_date.today(), key="dpo_sevk_tarih")
+        _sevk_tarih = sv1.date_input("Sevk Tarihi", value=date.today(), key="dpo_sevk_tarih")
         _belge_no = sv2.text_input("Belge Numarası", key="dpo_belge_no",
                                    placeholder="irsaliye / fatura / belge no")
 
@@ -144,44 +189,31 @@ def run():
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    with st.expander("📋 Depo içeriği — bir deponun tüm ürünleri", expanded=False):
-        _di_depo = st.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
-        _di_urunler = get_depo_stok(_di_depo) if _di_depo else []
-        if _di_urunler:
-            _df = pd.DataFrame([{"SKU": u["sku"], "Ürün": u["urun_adi"], "Adet": u["adet"]}
-                               for u in _di_urunler])
-            st.caption(f"{len(_di_urunler)} çeşit · {sum(u['adet'] for u in _di_urunler):,} adet")
-            st.dataframe(_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("Bu depoda stoklu ürün yok.")
+    st.markdown('<div style="font-size:14px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
+                '🕓 Son sevkler</div>', unsafe_allow_html=True)
+    _gec = get_depo_sevk_gecmisi(50)
+    if _gec:
+        _gdf = pd.DataFrame([{
+            "Tarih": (g.get("tarih") or "")[:16], "Sevk Tarihi": (g.get("sevk_tarihi") or "")[:10],
+            "Belge No": g.get("belge_no", "") or "", "SKU": g.get("sku", ""),
+            "Ürün": g.get("urun_adi", ""), "Kaynak": g.get("kaynak_depo", ""),
+            "Hedef": g.get("hedef_depo", ""), "Adet": g.get("adet", ""),
+            "Kullanıcı": g.get("kullanici", ""),
+        } for g in _gec])
+        st.dataframe(_gdf, use_container_width=True, hide_index=True)
+    else:
+        st.caption("Henüz sevk kaydı yok (veya 'depo_sevk_log' tablosu henüz oluşturulmamış).")
 
-    with st.expander("🕓 Son sevkler", expanded=False):
-        _gec = get_depo_sevk_gecmisi(50)
-        if _gec:
-            _gdf = pd.DataFrame([{
-                "Tarih": (g.get("tarih") or "")[:16], "Sevk Tarihi": (g.get("sevk_tarihi") or "")[:10],
-                "Belge No": g.get("belge_no", "") or "", "SKU": g.get("sku", ""),
-                "Ürün": g.get("urun_adi", ""), "Kaynak": g.get("kaynak_depo", ""),
-                "Hedef": g.get("hedef_depo", ""), "Adet": g.get("adet", ""),
-                "Kullanıcı": g.get("kullanici", ""),
-            } for g in _gec])
-            st.dataframe(_gdf, use_container_width=True, hide_index=True)
-        else:
-            st.caption("Henüz sevk kaydı yok (veya 'depo_sevk_log' tablosu henüz oluşturulmamış).")
 
-    # ═════════════════ 📦 BEKLEYEN SEVK TAKİBİ (bağımsız · manuel) ═════════════════
-    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:14px;font-weight:800;color:#FBBF24;margin:4px 0 8px">'
-                '📦 Bekleyen Sevk Takibi (faturalandı · sevk bekliyor)</div>', unsafe_allow_html=True)
-    st.caption("Diğer depo hareketlerinden **bağımsız, manuel** takip: bir firmaya faturalanan toplam adet "
-               "üzerinden yapılan her sevki düşerek **depoda bekleyen** miktarı izler. "
-               "Örn: 100 adet faturalandı, 10 sevk edildi → 90 bekliyor.")
-
-    from kayranpm.database import get_client as _mt_client
+# ═══════════════ 📦 BEKLEYEN SEVK TAKİBİ (bağımsız · manuel) ═══════════════
+def _sayfa_bekleyen():
+    _baslik("📦 Bekleyen Sevk Takibi", "Faturalandı · sevk bekliyor — diğer depo hareketlerinden bağımsız, manuel")
+    st.caption("Bir firmaya faturalanan toplam adet üzerinden yapılan her sevki düşerek "
+               "**depoda bekleyen** miktarı izler. Örn: 100 adet faturalandı, 10 sevk edildi → 90 bekliyor.")
 
     def _mt_rows():
         try:
-            r = _mt_client().table("depo_manuel_takip").select("*").order("id", desc=True).execute()
+            r = get_client().table("depo_manuel_takip").select("*").order("id", desc=True).execute()
             return r.data or []
         except Exception:
             return None  # tablo yok
@@ -197,145 +229,151 @@ def run():
                 "  hareketler jsonb default '[]'::jsonb,\n"
                 "  notlar text default '',\n"
                 "  olusturma timestamp default now()\n);", language="sql")
-    else:
-        with st.expander("➕ Yeni takip kaydı (firma · ürün · faturalanan adet)", expanded=not _mt):
-            y1, y2 = st.columns(2)
-            _mt_firma = y1.text_input("Firma", key="mt_firma", placeholder="örn. AYKON / VATAN ...")
-            _mt_sku = y2.text_input("SKU / Ürün Kodu", key="mt_sku", placeholder="örn. F1M650BBM")
-            y3, y4 = st.columns(2)
-            _mt_uad = y3.text_input("Ürün Adı (ops.)", key="mt_uad")
-            _mt_fadet = y4.number_input("Faturalanan Adet", min_value=1, value=1, step=1, key="mt_fadet")
-            _mt_not = st.text_input("Not (ops.)", key="mt_not", placeholder="fatura no / açıklama")
-            if st.button("➕ Takibe Ekle", type="primary", key="mt_ekle",
-                         disabled=not (_mt_firma.strip() and _mt_sku.strip())):
-                try:
-                    _mt_client().table("depo_manuel_takip").insert({
-                        "firma": _mt_firma.strip(), "sku": _mt_sku.strip(),
-                        "urun_adi": _mt_uad.strip(), "fatura_adet": int(_mt_fadet),
-                        "sevk_edilen": 0, "hareketler": [], "notlar": _mt_not.strip(),
-                    }).execute()
-                    st.success("✅ Takip kaydı oluşturuldu.")
-                    st.rerun()
-                except Exception as _e:
-                    st.error(f"Kaydedilemedi: {_e}")
+        return
 
-        if _mt:
-            _firmalar_mt = sorted({(r.get("firma") or "").strip() for r in _mt if (r.get("firma") or "").strip()})
-            _mt_ff = st.selectbox("Firma filtresi", ["Tümü"] + _firmalar_mt, key="mt_ff")
-            _mt_g = [r for r in _mt if _mt_ff == "Tümü" or (r.get("firma") or "").strip() == _mt_ff]
-            _mt_df = pd.DataFrame([{
-                "Firma": r.get("firma", ""), "SKU": r.get("sku", ""),
-                "Ürün": (r.get("urun_adi") or "")[:30],
-                "Faturalanan": int(r.get("fatura_adet") or 0),
-                "Sevk Edilen": int(r.get("sevk_edilen") or 0),
-                "🔶 Bekleyen": int(r.get("fatura_adet") or 0) - int(r.get("sevk_edilen") or 0),
-                "Not": (r.get("notlar") or "")[:30],
-            } for r in _mt_g])
-            if not _mt_df.empty:
-                _mt_df.loc[len(_mt_df)] = ["🧮 TOPLAM", "", f"{len(_mt_g)} kayıt",
-                                           int(_mt_df["Faturalanan"].sum()),
-                                           int(_mt_df["Sevk Edilen"].sum()),
-                                           int(_mt_df["🔶 Bekleyen"].sum()), ""]
-            st.dataframe(_mt_df, use_container_width=True, hide_index=True)
-
-            with st.expander("🚚 Sevk düş (bekleyenden düşüm) / kayıt yönetimi", expanded=False):
-                _mt_sec = st.selectbox(
-                    "Kayıt", _mt_g,
-                    format_func=lambda r: (f"{r.get('firma','')} · {r.get('sku','')} · "
-                                           f"bekleyen {int(r.get('fatura_adet') or 0) - int(r.get('sevk_edilen') or 0)}"),
-                    key="mt_sec")
-                if _mt_sec:
-                    _kalan = int(_mt_sec.get("fatura_adet") or 0) - int(_mt_sec.get("sevk_edilen") or 0)
-                    d1, d2, d3 = st.columns(3)
-                    from datetime import date as _date2
-                    _d_adet = d1.number_input(f"Sevk adedi (bekleyen {_kalan})", min_value=1,
-                                              max_value=max(1, _kalan), value=1, step=1, key="mt_d_adet")
-                    _d_tarih = d2.date_input("Sevk tarihi", value=_date2.today(), key="mt_d_tarih")
-                    _d_belge = d3.text_input("Belge no (ops.)", key="mt_d_belge")
-                    b1, b2 = st.columns(2)
-                    if b1.button("🚚 Düşümü Kaydet", type="primary", key="mt_dus",
-                                 disabled=_kalan <= 0):
-                        try:
-                            _hrk = list(_mt_sec.get("hareketler") or [])
-                            _hrk.append({"tarih": str(_d_tarih), "adet": int(_d_adet),
-                                         "belge_no": _d_belge.strip(),
-                                         "kullanici": st.session_state.get("aktif_kullanici", "")})
-                            _mt_client().table("depo_manuel_takip").update({
-                                "sevk_edilen": int(_mt_sec.get("sevk_edilen") or 0) + int(_d_adet),
-                                "hareketler": _hrk,
-                            }).eq("id", _mt_sec.get("id")).execute()
-                            st.success(f"✅ {int(_d_adet)} adet düşüldü.")
-                            st.rerun()
-                        except Exception as _e:
-                            st.error(f"Düşüm kaydedilemedi: {_e}")
-                    if b2.button("🗑 Kaydı Sil", key="mt_sil"):
-                        try:
-                            _mt_client().table("depo_manuel_takip").delete().eq("id", _mt_sec.get("id")).execute()
-                            st.success("Kayıt silindi.")
-                            st.rerun()
-                        except Exception as _e:
-                            st.error(f"Silinemedi: {_e}")
-                    _hrk = _mt_sec.get("hareketler") or []
-                    if _hrk:
-                        st.caption("Sevk hareketleri:")
-                        st.dataframe(pd.DataFrame([{
-                            "Tarih": h.get("tarih", ""), "Adet": h.get("adet", ""),
-                            "Belge No": h.get("belge_no", ""), "Kullanıcı": h.get("kullanici", ""),
-                        } for h in _hrk]), use_container_width=True, hide_index=True)
-
-    # ═════════════════ 🔎 SKU HAREKETLERİ (adet bazlı · tutar yok) ═════════════════
-    st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-    with st.expander("🔎 SKU Hareketleri — ithalat · satış · iade (yalnız adet/tarih, tutar YOK)", expanded=False):
-        _sh_sku = st.text_input("SKU", key="sh_sku", placeholder="örn. X24F182S").strip()
-        if _sh_sku:
-            _shu = _sh_sku.upper()
-            c1, c2, c3 = st.columns(3)
-            # İthalat (adet · tarih)
+    with st.expander("➕ Yeni takip kaydı (firma · ürün · faturalanan adet)", expanded=not _mt):
+        y1, y2 = st.columns(2)
+        _mt_firma = y1.text_input("Firma", key="mt_firma", placeholder="örn. AYKON / VATAN ...")
+        _mt_sku = y2.text_input("SKU / Ürün Kodu", key="mt_sku", placeholder="örn. F1M650BBM")
+        y3, y4 = st.columns(2)
+        _mt_uad = y3.text_input("Ürün Adı (ops.)", key="mt_uad")
+        _mt_fadet = y4.number_input("Faturalanan Adet", min_value=1, value=1, step=1, key="mt_fadet")
+        _mt_not = st.text_input("Not (ops.)", key="mt_not", placeholder="fatura no / açıklama")
+        if st.button("➕ Takibe Ekle", type="primary", key="mt_ekle",
+                     disabled=not (_mt_firma.strip() and _mt_sku.strip())):
             try:
-                from ithalat.database import get_sku_ithalat_partileri
-                _part = get_sku_ithalat_partileri().get(_shu, []) or \
-                    get_sku_ithalat_partileri().get(_sh_sku, [])
-            except Exception:
-                _part = []
-            with c1:
-                st.markdown("**🚢 İthalat**")
-                if _part:
-                    st.dataframe(pd.DataFrame([
-                        {"Tarih": p.get("tarih", ""), "Adet": int(p.get("adet") or 0)} for p in _part]
-                        + [{"Tarih": "🧮 TOPLAM", "Adet": int(sum(p.get("adet") or 0 for p in _part))}]),
-                        use_container_width=True, hide_index=True)
-                else:
-                    st.caption("İthalat kaydı yok.")
-            # Satış (adet · tarih · firma)
+                get_client().table("depo_manuel_takip").insert({
+                    "firma": _mt_firma.strip(), "sku": _mt_sku.strip(),
+                    "urun_adi": _mt_uad.strip(), "fatura_adet": int(_mt_fadet),
+                    "sevk_edilen": 0, "hareketler": [], "notlar": _mt_not.strip(),
+                }).execute()
+                st.success("✅ Takip kaydı oluşturuldu.")
+                st.rerun()
+            except Exception as _e:
+                st.error(f"Kaydedilemedi: {_e}")
+
+    if not _mt:
+        st.info("Henüz takip kaydı yok — yukarıdan ilk kaydı oluştur.")
+        return
+
+    _firmalar_mt = sorted({(r.get("firma") or "").strip() for r in _mt if (r.get("firma") or "").strip()})
+    _mt_ff = st.selectbox("Firma filtresi", ["Tümü"] + _firmalar_mt, key="mt_ff")
+    _mt_g = [r for r in _mt if _mt_ff == "Tümü" or (r.get("firma") or "").strip() == _mt_ff]
+    _mt_df = pd.DataFrame([{
+        "Firma": r.get("firma", ""), "SKU": r.get("sku", ""),
+        "Ürün": (r.get("urun_adi") or "")[:30],
+        "Faturalanan": int(r.get("fatura_adet") or 0),
+        "Sevk Edilen": int(r.get("sevk_edilen") or 0),
+        "🔶 Bekleyen": int(r.get("fatura_adet") or 0) - int(r.get("sevk_edilen") or 0),
+        "Not": (r.get("notlar") or "")[:30],
+    } for r in _mt_g])
+    if not _mt_df.empty:
+        _mt_df.loc[len(_mt_df)] = ["🧮 TOPLAM", "", f"{len(_mt_g)} kayıt",
+                                   int(_mt_df["Faturalanan"].sum()),
+                                   int(_mt_df["Sevk Edilen"].sum()),
+                                   int(_mt_df["🔶 Bekleyen"].sum()), ""]
+    st.dataframe(_mt_df, use_container_width=True, hide_index=True)
+
+    st.markdown('<div style="font-size:14px;font-weight:800;color:#A5B4FC;margin:10px 0 8px">'
+                '🚚 Sevk düş (bekleyenden düşüm) / kayıt yönetimi</div>', unsafe_allow_html=True)
+    _mt_sec = st.selectbox(
+        "Kayıt", _mt_g,
+        format_func=lambda r: (f"{r.get('firma','')} · {r.get('sku','')} · "
+                               f"bekleyen {int(r.get('fatura_adet') or 0) - int(r.get('sevk_edilen') or 0)}"),
+        key="mt_sec")
+    if _mt_sec:
+        _kalan = int(_mt_sec.get("fatura_adet") or 0) - int(_mt_sec.get("sevk_edilen") or 0)
+        d1, d2, d3 = st.columns(3)
+        _d_adet = d1.number_input(f"Sevk adedi (bekleyen {_kalan})", min_value=1,
+                                  max_value=max(1, _kalan), value=1, step=1, key="mt_d_adet")
+        _d_tarih = d2.date_input("Sevk tarihi", value=date.today(), key="mt_d_tarih")
+        _d_belge = d3.text_input("Belge no (ops.)", key="mt_d_belge")
+        b1, b2 = st.columns(2)
+        if b1.button("🚚 Düşümü Kaydet", type="primary", key="mt_dus", disabled=_kalan <= 0):
             try:
-                from satis.database import get_satislar, get_iadeler
-                _sat = [s for s in (get_satislar() or [])
-                        if str(s.get("sku") or "").strip().upper() == _shu]
-                _iad = [r for r in (get_iadeler() or [])
-                        if str(r.get("sku") or "").strip().upper() == _shu]
-            except Exception:
-                _sat, _iad = [], []
-            with c2:
-                st.markdown("**💰 Satış**")
-                if _sat:
-                    st.dataframe(pd.DataFrame([{
-                        "Tarih": str(s.get("tarih") or "")[:10],
-                        "Firma": (s.get("kanal") or "")[:26],
-                        "Adet": int(s.get("adet") or 0),
-                    } for s in _sat] + [{"Tarih": "🧮 TOPLAM", "Firma": f"{len(_sat)} kayıt",
-                                         "Adet": int(sum(int(s.get('adet') or 0) for s in _sat))}]),
-                        use_container_width=True, hide_index=True, height=280)
-                else:
-                    st.caption("Satış kaydı yok.")
-            with c3:
-                st.markdown("**↩️ İade**")
-                if _iad:
-                    st.dataframe(pd.DataFrame([{
-                        "Tarih": str(r.get("tarih") or "")[:10],
-                        "Firma": (r.get("kanal") or "")[:26],
-                        "Adet": int(r.get("iade_adet") or 0),
-                    } for r in _iad] + [{"Tarih": "🧮 TOPLAM", "Firma": f"{len(_iad)} kayıt",
-                                         "Adet": int(sum(int(r.get('iade_adet') or 0) for r in _iad))}]),
-                        use_container_width=True, hide_index=True, height=280)
-                else:
-                    st.caption("İade kaydı yok.")
+                _hrk = list(_mt_sec.get("hareketler") or [])
+                _hrk.append({"tarih": str(_d_tarih), "adet": int(_d_adet),
+                             "belge_no": _d_belge.strip(),
+                             "kullanici": st.session_state.get("aktif_kullanici", "")})
+                get_client().table("depo_manuel_takip").update({
+                    "sevk_edilen": int(_mt_sec.get("sevk_edilen") or 0) + int(_d_adet),
+                    "hareketler": _hrk,
+                }).eq("id", _mt_sec.get("id")).execute()
+                st.success(f"✅ {int(_d_adet)} adet düşüldü.")
+                st.rerun()
+            except Exception as _e:
+                st.error(f"Düşüm kaydedilemedi: {_e}")
+        if b2.button("🗑 Kaydı Sil", key="mt_sil"):
+            try:
+                get_client().table("depo_manuel_takip").delete().eq("id", _mt_sec.get("id")).execute()
+                st.success("Kayıt silindi.")
+                st.rerun()
+            except Exception as _e:
+                st.error(f"Silinemedi: {_e}")
+        _hrk = _mt_sec.get("hareketler") or []
+        if _hrk:
+            st.caption("Sevk hareketleri:")
+            st.dataframe(pd.DataFrame([{
+                "Tarih": h.get("tarih", ""), "Adet": h.get("adet", ""),
+                "Belge No": h.get("belge_no", ""), "Kullanıcı": h.get("kullanici", ""),
+            } for h in _hrk]), use_container_width=True, hide_index=True)
+
+
+# ═══════════════ 🔎 SKU HAREKETLERİ (adet bazlı · tutar yok) ═══════════════
+def _sayfa_sku():
+    _baslik("🔎 SKU Hareketleri", "İthalat · satış · iade — yalnız adet/tarih/firma (tutar YOK)")
+    _sh_sku = st.text_input("SKU", key="sh_sku", placeholder="örn. X24F182S").strip()
+    if not _sh_sku:
+        st.info("Bir SKU yaz — ithalat, satış ve iade hareketleri adet bazlı listelenecek.")
+        return
+    _shu = _sh_sku.upper()
+    c1, c2, c3 = st.columns(3)
+    # İthalat (adet · tarih)
+    try:
+        from ithalat.database import get_sku_ithalat_partileri
+        _tum_part = get_sku_ithalat_partileri()
+        _part = _tum_part.get(_shu, []) or _tum_part.get(_sh_sku, [])
+    except Exception:
+        _part = []
+    with c1:
+        st.markdown("**🚢 İthalat**")
+        if _part:
+            st.dataframe(pd.DataFrame([
+                {"Tarih": p.get("tarih", ""), "Adet": int(p.get("adet") or 0)} for p in _part]
+                + [{"Tarih": "🧮 TOPLAM", "Adet": int(sum(p.get("adet") or 0 for p in _part))}]),
+                use_container_width=True, hide_index=True)
+        else:
+            st.caption("İthalat kaydı yok.")
+    # Satış / İade (adet · tarih · firma)
+    try:
+        from satis.database import get_satislar, get_iadeler
+        _sat = [s for s in (get_satislar() or [])
+                if str(s.get("sku") or "").strip().upper() == _shu]
+        _iad = [r for r in (get_iadeler() or [])
+                if str(r.get("sku") or "").strip().upper() == _shu]
+    except Exception:
+        _sat, _iad = [], []
+    with c2:
+        st.markdown("**💰 Satış**")
+        if _sat:
+            st.dataframe(pd.DataFrame([{
+                "Tarih": str(s.get("tarih") or "")[:10],
+                "Firma": (s.get("kanal") or "")[:26],
+                "Adet": int(s.get("adet") or 0),
+            } for s in _sat] + [{"Tarih": "🧮 TOPLAM", "Firma": f"{len(_sat)} kayıt",
+                                 "Adet": int(sum(int(s.get('adet') or 0) for s in _sat))}]),
+                use_container_width=True, hide_index=True, height=300)
+        else:
+            st.caption("Satış kaydı yok.")
+    with c3:
+        st.markdown("**↩️ İade**")
+        if _iad:
+            st.dataframe(pd.DataFrame([{
+                "Tarih": str(r.get("tarih") or "")[:10],
+                "Firma": (r.get("kanal") or "")[:26],
+                "Adet": int(r.get("iade_adet") or 0),
+            } for r in _iad] + [{"Tarih": "🧮 TOPLAM", "Firma": f"{len(_iad)} kayıt",
+                                 "Adet": int(sum(int(r.get('iade_adet') or 0) for r in _iad))}]),
+                use_container_width=True, hide_index=True, height=300)
+        else:
+            st.caption("İade kaydı yok.")
