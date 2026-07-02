@@ -613,6 +613,23 @@ def run():
                     "Destek": _usd(_bd) if _bd else "—",
                     "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{k['marj']:.1f}",
                 })
+            # 📊 ÖZET KARTLARI — filtre (tarih + kanal) sonrası toplamlar
+            _t_ns = _t_ciro - _t_destek
+            _t_marj_k = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
+            _t_renk = "#34D399" if _t_kar > 0 else "#F87171"
+            _oz_kart = [
+                ("Kayıt", f"{len(satislar):,}", "#93C5FD"),
+                ("Adet", f"{_t_adet:,}", "#93C5FD"),
+                ("Ciro", _usd(_t_ciro), "#CBD5E1"),
+                ("Maliyet (COGS)", _usd(_t_maliyet), "#FB923C"),
+            ]
+            if _t_destek > 0.005:
+                _oz_kart.append(("Destek", _usd(_t_destek), "#A78BFA"))
+            _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
+                         ("Marj", f"%{_t_marj_k:.1f}", _t_renk)]
+            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px">'
+                        + _kart(_oz_kart) + '</div>', unsafe_allow_html=True)
+
             # 🧮 ALT TOPLAM satırı — sayısal kolonların toplamı
             _t_ns = _t_ciro - _t_destek
             _t_marj = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
@@ -662,10 +679,49 @@ def run():
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
+            # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
+            from satis.database import get_sku_kategori as _gsk
+            _pkatmap = _gsk()
+            _pf1, _pf2 = st.columns(2)
+            _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
+                                  if (s.get("kanal") or "").strip()})
+            _p_kanal_f = _pf1.selectbox("🏢 Firma (Kanal)", ["Tümü"] + _p_kanallar, key="pnl_kanal")
+            _p_katlar = sorted({(_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip()
+                                for s in satislar} - {""})
+            _p_kat_f = _pf2.selectbox("🏷️ Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
+            _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
+            if _p_kanal_f != "Tümü":
+                satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
+            if _p_kat_f != "Tümü":
+                satislar = [s for s in satislar
+                            if (_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip() == _p_kat_f]
+            if not satislar:
+                st.info("Bu filtrede satış yok.")
+                st.stop()
+
             top, kanal, urun = ozet_hesapla(satislar)
             _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
             _ikan = iade_kanal_ozet(_pbas, _pbit)
             _sku_iade = {r["sku"]: r for r in _isat}
+            if _p_filtreli:
+                # İade toplamlarını da aynı filtreyle hesapla (kanal + kategori)
+                _pacal_p = get_pacal_map()
+                _fi_tutar = _fi_kar = 0.0
+                for _ir in (get_iadeler(_pbas, _pbit) or []):
+                    _ikn = (_ir.get("kanal") or "").strip()
+                    _isku = str(_ir.get("sku") or "").strip()
+                    if _p_kanal_f != "Tümü" and _ikn != _p_kanal_f:
+                        continue
+                    if _p_kat_f != "Tümü" and (_pkatmap.get(_isku, "") or "").strip() != _p_kat_f:
+                        continue
+                    _inet = float(_ir.get("iade_net") or 0)
+                    _iadet = int(_ir.get("iade_adet") or 0)
+                    _fi_tutar += _inet
+                    _fi_kar += _inet - _iadet * _pacal_p.get(_isku.upper(), _pacal_p.get(_isku, 0.0))
+                _itop = dict(_itop)
+                _itop["i_tutar"], _itop["i_kar"] = _fi_tutar, _fi_kar
+                st.caption(f"🔎 Filtre: **{_p_kanal_f}** · **{_p_kat_f}** — tüm kartlar ve kırılımlar bu filtreye göredir. "
+                           "(Havuz/Ref No dönem destekleri firma-geneli olduğundan filtreli görünümde gizlenir.)")
             # Net (iade sonrası) ciro/kâr/marj — marj = kâr / (ciro − destek − iade)
             _net_ciro = top["ciro"] - _itop["i_tutar"]
             _net_kar = top["net_kar"] - _itop["i_kar"]
@@ -715,7 +771,7 @@ def run():
                     ("Marj (iade sonrası)", f"%{_net_marj:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
                 ]) + '</div>', unsafe_allow_html=True)
-            if _hav_verilen > 0.005:
+            if _hav_verilen > 0.005 and not _p_filtreli:
                 _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
                 _marj_h = (_net_havuzlu / _net_satis * 100) if _net_satis > 0 else 0.0
                 st.markdown(
@@ -739,7 +795,7 @@ def run():
                             "Verilen (gider)": _usd(f["verilen"]), "Kullanılan": _usd(f["kullanilan"]),
                             "Kalan havuz": _usd(f["kalan"]),
                         } for f in _hf]), use_container_width=True, hide_index=True)
-            if _ref_usd > 0.005:
+            if _ref_usd > 0.005 and not _p_filtreli:
                 _net_ds = _net_havuzlu - _ref_usd
                 _nd_renk = "#34D399" if _net_ds > 0 else "#F87171"
                 _marj_ds = (_net_ds / _net_satis * 100) if _net_satis > 0 else 0.0
