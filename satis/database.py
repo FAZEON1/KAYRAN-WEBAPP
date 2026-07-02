@@ -455,19 +455,22 @@ def satis_maliyet_tazele_uygula(sadece_sifir=True):
 
 # ── Kâr hesabı ──
 def satir_kar(s):
-    """Tek satış satırı için kâr metrikleri (USD)."""
+    """Tek satış satırı için kâr metrikleri (USD).
+    Marj yöntemi: destekler satış fiyatından düşülür → net satış.
+    marj = (net satış − maliyet) / net satış  [örn. 1 − 5,10/(12−3) = %43,3]"""
     adet = _i(s.get("adet"))
     ciro = adet * _f(s.get("birim_satis"))
     maliyet = adet * _f(s.get("birim_maliyet"))
     destek = adet * (_f(s.get("birim_firma_destek")) + _f(s.get("birim_ek_destek")))
-    net = ciro - maliyet - destek
-    marj = (net / ciro * 100) if ciro > 0 else 0.0
+    net_satis = ciro - destek
+    net = net_satis - maliyet
+    marj = (net / net_satis * 100) if net_satis > 0 else 0.0
     return {"adet": adet, "ciro": ciro, "maliyet": maliyet, "destek": destek,
-            "net_kar": net, "marj": marj}
+            "net_satis": net_satis, "net_kar": net, "marj": marj}
 
 
 def ozet_hesapla(satislar):
-    """Liste için toplam P&L + kanal/SKU kırılımı."""
+    """Liste için toplam P&L + kanal/SKU kırılımı. Marj = net kâr / (ciro − destek)."""
     top = {"ciro": 0.0, "maliyet": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0}
     kanal, urun = {}, {}
     for s in satislar:
@@ -475,12 +478,16 @@ def ozet_hesapla(satislar):
         for f in ("ciro", "maliyet", "destek", "net_kar", "adet"):
             top[f] += k[f]
         kn = s.get("kanal", "") or "—"
-        kanal.setdefault(kn, {"ciro": 0.0, "net_kar": 0.0, "adet": 0})
-        kanal[kn]["ciro"] += k["ciro"]; kanal[kn]["net_kar"] += k["net_kar"]; kanal[kn]["adet"] += k["adet"]
+        kanal.setdefault(kn, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
+        kanal[kn]["ciro"] += k["ciro"]; kanal[kn]["destek"] += k["destek"]
+        kanal[kn]["net_kar"] += k["net_kar"]; kanal[kn]["adet"] += k["adet"]
         su = s.get("sku", "") or "—"
-        urun.setdefault(su, {"urun_adi": s.get("urun_adi", ""), "ciro": 0.0, "net_kar": 0.0, "adet": 0})
-        urun[su]["ciro"] += k["ciro"]; urun[su]["net_kar"] += k["net_kar"]; urun[su]["adet"] += k["adet"]
-    top["marj"] = (top["net_kar"] / top["ciro"] * 100) if top["ciro"] > 0 else 0.0
+        urun.setdefault(su, {"urun_adi": s.get("urun_adi", ""), "ciro": 0.0, "destek": 0.0,
+                             "net_kar": 0.0, "adet": 0})
+        urun[su]["ciro"] += k["ciro"]; urun[su]["destek"] += k["destek"]
+        urun[su]["net_kar"] += k["net_kar"]; urun[su]["adet"] += k["adet"]
+    _ns = top["ciro"] - top["destek"]
+    top["marj"] = (top["net_kar"] / _ns * 100) if _ns > 0 else 0.0
     return top, kanal, urun
 
 
