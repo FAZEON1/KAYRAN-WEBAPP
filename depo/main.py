@@ -322,9 +322,21 @@ def _sayfa_bekleyen():
 # ═══════════════ 🔎 SKU HAREKETLERİ (adet bazlı · tutar yok) ═══════════════
 def _sayfa_sku():
     _baslik("🔎 SKU Hareketleri", "İthalat · satış · iade — yalnız adet/tarih/firma (tutar YOK)")
-    _sh_sku = st.text_input("SKU", key="sh_sku", placeholder="örn. X24F182S").strip()
+    # SKU listesi İTHALAT'tan gelir (ithalat kalemlerindeki tüm modeller)
+    try:
+        from teknikservis.database import ithalat_model_listesi
+        _mods = ithalat_model_listesi()
+    except Exception:
+        _mods = []
+    if _mods:
+        _opts = ["— SKU seç —"] + [(f"{s} — {a[:40]}" if a else s) for s, a in _mods]
+        _sec = st.selectbox(f"SKU ({len(_mods)} model · ithalattan · yazarak ara)",
+                            _opts, key="sh_sku_sec")
+        _sh_sku = "" if _sec == _opts[0] else _sec.split(" — ")[0].strip()
+    else:
+        _sh_sku = st.text_input("SKU", key="sh_sku", placeholder="örn. X24F182S").strip()
     if not _sh_sku:
-        st.info("Bir SKU yaz — ithalat, satış ve iade hareketleri adet bazlı listelenecek.")
+        st.info("İthalattaki modellerden bir SKU seç — ithalat, satış ve iade hareketleri adet bazlı listelenecek.")
         return
     _shu = _sh_sku.upper()
     c1, c2, c3 = st.columns(3)
