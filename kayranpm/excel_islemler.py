@@ -468,6 +468,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         gecerli_firmalar = {f: f for f in FIRMA_LISTESI}  # normalize edilmiş hâlleri
         basarili, atlanan = 0, 0
         firma_sayac = {}
+        _firma_satir = {}
         atlanan_firma = set()
 
         _agg = {}  # (firma, sku) → {urun_adi, stok, stok_magaza, satis, satis_magaza}
@@ -513,6 +514,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
                     satis_magaza = safe_int(row.get(kolon_map.get("SATIS_MAGAZA", ""), 0))
 
                 _k = (firma, sku)
+                _firma_satir[firma] = _firma_satir.get(firma, 0) + 1
                 _o = _agg.get(_k)
                 if _o is None:
                     _agg[_k] = {"urun_adi": urun_adi, "stok": stok_ana, "stok_magaza": stok_magaza,
@@ -536,7 +538,10 @@ def excel_yukle_firma_birlesik(dosya_yolu):
             except Exception:
                 atlanan += 1
 
-        ozet = " · ".join(f"{f}: {n}" for f, n in firma_sayac.items()) or "kayıt yok"
+        ozet = " · ".join(
+            (f"{f}: {n} SKU ({_firma_satir.get(f, n)} satırdan)"
+             if _firma_satir.get(f, n) != n else f"{f}: {n} SKU")
+            for f, n in firma_sayac.items()) or "kayıt yok"
         uyari = ""
         if atlanan_firma:
             uyari = f" | ⚠️ Tanınmayan firma(lar) atlandı: {', '.join(sorted(atlanan_firma)[:5])}"
