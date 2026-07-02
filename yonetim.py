@@ -43,12 +43,31 @@ def _donem_tarih(yil, donem):
 
 
 def _num(x):
-    """Sayıya çevir; nan/boş ise None."""
+    """Sayıya çevir; nan/boş ise None. '1.234,56' · '₺12.500' · '12 500' gibi
+    Türkçe biçimli METİN sayıları da çevirir."""
     try:
         f = float(x)
         if f != f:  # nan
             return None
         return f
+    except Exception:
+        pass
+    try:
+        s = str(x).strip().replace("₺", "").replace("TL", "").replace("\u00a0", " ").replace(" ", "")
+        if not s or s.lower() == "nan":
+            return None
+        if "," in s and "." in s:      # 1.234,56 → 1234.56
+            s = s.replace(".", "").replace(",", ".")
+        elif "," in s:                 # 1234,56 → 1234.56
+            s = s.replace(",", ".")
+        elif s.count(".") > 1:         # 1.234.567 → 1234567
+            s = s.replace(".", "")
+        elif "." in s:                 # tek nokta: 12.500 (TR binlik) → 12500; 12.5 → 12.5
+            _tam, _kus = s.rsplit(".", 1)
+            if len(_kus) == 3 and _kus.isdigit() and _tam.replace("-", "").isdigit():
+                s = s.replace(".", "")
+        f = float(s)
+        return None if f != f else f
     except Exception:
         return None
 
@@ -66,32 +85,86 @@ GIDER_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
 
 def gider_tablosu_parse(file):
     """Doldurulmuş aylık gider taslağı → (kategori_aylik, kalem_detay).
-    kategori_aylik: {"Sabit":[12], "Değişken":[12], "Yarı Değişken":[12]}
-    kalem_detay: [(kategori, kalem_adı, [12 aylık]), ...]"""
-    df = _read_excel_any(file)
-    kat = {"Sabit": [0.0] * 12, "Değişken": [0.0] * 12, "Yarı Değişken": [0.0] * 12}
-    detay = []
-    kategori = None
-    for _, row in df.iterrows():
-        a = str(row.iloc[0]).strip() if len(row) > 0 else ""
-        b = str(row.iloc[1]).strip() if len(row) > 1 else ""
-        aU = a.upper()
-        if aU and "GİDER" in aU:
-            if "SABİT" in aU or "SABIT" in aU:
-                kategori = "Sabit"
-            elif "YARI" in aU:
-                kategori = "Yarı Değişken"
-            elif "DEĞİŞKEN" in aU or "DEGISKEN" in aU:
-                kategori = "Değişken"
+    Ay kolonları BAŞLIK SATIRINDAN dinamik bulunur (kolon eklenmiş/kaymışsa da çalışır);
+    başlık bulunamazsa eski sabit düzen (C..N) kullanılır. Veri içeren İLK sayfa işlenir."""
+    import pandas as pd
+    name = (getattr(file, "name", "") or "").lower()
+    eng = "xlrd" if name.endswith(".xls") else "openpyxl"
+    try:
+        _sheets = pd.read_excel(file, engine=eng, header=None, sheet_name=None)
+    except Exception:
+        try:
+            file.seek(0)
+        except Exception:
+            pass
+        _sheets = {"0": pd.read_excel(file, engine=eng, header=None)}
+
+    def _tr_up(s):
+        return str(s).strip().replace("i", "İ").replace("ı", "I").upper()
+
+    _AY_NORM = {_tr_up(a): a for a in GIDER_AYLAR}
+
+    def _parse_df(df):
+        kat = {"Sabit": [0.0] * 12, "Değişken": [0.0] * 12, "Yarı Değişken": [0.0] * 12}
+        detay = []
+        # 1) Başlık satırını bul: en az 3 ay adı içeren satır → {ay: kolon} haritası
+        ay_kolon, kat_kolon, kalem_kolon, hdr_idx = {}, 0, 1, None
+        for ridx in range(min(len(df), 15)):
+            _hits = {}
+            for cidx in range(len(df.columns)):
+                _v = _tr_up(df.iat[ridx, cidx])
+                if _v in _AY_NORM:
+                    _hits[_AY_NORM[_v]] = cidx
+            if len(_hits) >= 3:
+                ay_kolon, hdr_idx = _hits, ridx
+                for cidx in range(len(df.columns)):
+                    _v = _tr_up(df.iat[ridx, cidx])
+                    if "KATEGORİ" in _v or "KATEGORI" in _v:
+                        kat_kolon = cidx
+                    elif "KALEM" in _v:
+                        kalem_kolon = cidx
+                break
+        if not ay_kolon:  # eski sabit düzen: C..N = Ocak..Aralık
+            ay_kolon = {a: 2 + i for i, a in enumerate(GIDER_AYLAR)}
+
+        kategori = None
+        for ridx in range(((hdr_idx + 1) if hdr_idx is not None else 0), len(df)):
+            row = df.iloc[ridx]
+            a = str(row.iloc[kat_kolon]).strip() if len(row) > kat_kolon else ""
+            b = str(row.iloc[kalem_kolon]).strip() if len(row) > kalem_kolon else ""
+            aU = _tr_up(a)
+            if aU and aU != "NAN" and "GİDER" in aU:
+                if "SABİT" in aU or "SABIT" in aU:
+                    kategori = "Sabit"
+                elif "YARI" in aU:
+                    kategori = "Yarı Değişken"
+                elif "DEĞİŞKEN" in aU or "DEGISKEN" in aU:
+                    kategori = "Değişken"
+                continue
+            if not b or b.lower() == "nan" or "TOPLAM" in _tr_up(b) or not kategori:
+                continue
+            aylik = []
+            for _ay in GIDER_AYLAR:
+                _c = ay_kolon.get(_ay)
+                _v = _num(row.iloc[_c]) if (_c is not None and _c < len(row)) else None
+                aylik.append(_v or 0.0)
+            if any(aylik):
+                detay.append((kategori, b, aylik))
+                for i in range(12):
+                    kat[kategori][i] += aylik[i]
+        return kat, detay
+
+    _en_iyi = None
+    for _sn, _df in _sheets.items():
+        try:
+            kat, detay = _parse_df(_df)
+        except Exception:
             continue
-        if not b or b == "nan" or "TOPLAM" in b.upper() or not kategori:
-            continue
-        aylik = [(_num(row.iloc[c]) or 0.0) if c < len(row) else 0.0 for c in range(2, 14)]
-        if any(aylik):
-            detay.append((kategori, b, aylik))
-            for i in range(12):
-                kat[kategori][i] += aylik[i]
-    return kat, detay
+        if detay:
+            return kat, detay
+        if _en_iyi is None:
+            _en_iyi = (kat, detay)
+    return _en_iyi or ({"Sabit": [0.0] * 12, "Değişken": [0.0] * 12, "Yarı Değişken": [0.0] * 12}, [])
 
 
 def _kart(baslik, deger, alt, renk):
@@ -349,12 +422,21 @@ def run():
             else:
                 try:
                     _katp, _detayp = gider_tablosu_parse(_gf)
-                    _kayit = {"kat": _katp, "detay": _detayp, "tarih": str(dt.date.today())}
-                    if _sa3:
-                        _sa3(_gider_anahtar, _kayit)
-                    _gider = _kayit
-                    st.success("✅ Gider tablosu işlendi ve kaydedildi.")
-                    st.rerun()
+                    _yillik_top = sum(sum(v) for v in _katp.values())
+                    if not _detayp or _yillik_top <= 0:
+                        st.warning("⚠️ Dosya açıldı ama **hiç gider değeri okunamadı** — kayıt YAPILMADI. "
+                                   "Kontrol et: (1) tutarlar ay kolonlarına (Ocak…Aralık) girilmiş mi, "
+                                   "(2) hücreler sayı mı (formül sonucu da olur), "
+                                   "(3) veriler dosyanın İLK sayfasında/aynı düzende mi. "
+                                   "Dosyayı bana atarsan tam nedenini bulurum.")
+                    else:
+                        _kayit = {"kat": _katp, "detay": _detayp, "tarih": str(dt.date.today())}
+                        if _sa3:
+                            _sa3(_gider_anahtar, _kayit)
+                        _gider = _kayit
+                        st.success(f"✅ Gider tablosu işlendi: **{len(_detayp)} kalem** · "
+                                   f"yıllık toplam **₺{_yillik_top:,.0f}** kaydedildi.")
+                        st.rerun()
                 except Exception as e:
                     st.error(f"Dosya işlenemedi: {e}")
 
