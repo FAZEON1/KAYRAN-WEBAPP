@@ -923,8 +923,20 @@ def canli_stok(sku):
     except Exception:
         pass
 
+    # 4) İade: baz tarihten SONRAKİ iadeler stoğa GERİ döner (net çıkış = satış − iade)
+    iade_geri = 0.0
+    try:
+        iad = _rows(sb.table("iadeler").select("iade_adet,tarih").eq("sku", sku_n).execute())
+        for r in iad:
+            it = str(r.get("tarih") or "")[:10]
+            if baz_tarih and it and it > baz_tarih:
+                iade_geri += float(r.get("iade_adet") or 0)
+    except Exception:
+        pass
+
     return {"var": True, "baz": baz, "baz_tarih": baz_tarih,
-            "giris": giris, "cikis": cikis, "canli": baz + giris - cikis}
+            "giris": giris, "cikis": cikis, "iade": iade_geri,
+            "canli": baz + giris - cikis + iade_geri}
 
 
 # ── DEPO YÖNETİMİ · depo bazlı stok + depolar arası sevk ─────────────────────
