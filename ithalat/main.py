@@ -363,6 +363,37 @@ def _masraf_karti(d, h):
 def _gecmis_ithalatlar():
     _baslik("📋", "Geçmiş İthalatlar", "Dosya başı toplam masraf ve FOB üzerine binen % maliyet")
     dosyalar = get_dosyalar()
+
+    # ── ⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları — hızlı depo atama ──
+    _depo_eksik = [d for d in (dosyalar or [])
+                   if str(d.get("durum", "") or "").strip() == "Teslim Alındı"
+                   and not str(d.get("teslim_deposu", "") or "").strip()]
+    if _depo_eksik:
+        with st.expander(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata",
+                         expanded=True):
+            st.caption("Bu dosyalar **Teslim Alındı** ama teslim deposu boş. Aşağıdan seç, depoyu ata.")
+            st.dataframe(pd.DataFrame([{
+                "Belge No": d.get("dosya_no", ""), "Tarih": str(d.get("tarih", ""))[:10],
+                "Tedarikçi": d.get("tedarikci", ""), "Teslim Tarihi": str(d.get("teslim_tarihi", "") or "")[:10],
+            } for d in _depo_eksik]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_depo_eksik), 240))
+            _de1, _de2, _de3 = st.columns([2, 1.4, 1])
+            _de_sec = _de1.multiselect(
+                "Dosya(lar)", _depo_eksik,
+                format_func=lambda d: f"{d.get('dosya_no','')} · {d.get('tedarikci','')}",
+                default=_depo_eksik, key="ith_depoeksik_sec")
+            _de_depo = _de2.selectbox("Atanacak depo", DEPO_SECENEKLER, key="ith_depoeksik_depo")
+            _de3.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            _de_depo_val = "" if str(_de_depo).startswith("(") else _de_depo
+            if _de3.button("📦 Depoyu Ata", type="primary", use_container_width=True,
+                           key="ith_depoeksik_btn", disabled=(not _de_sec or not _de_depo_val)):
+                _de_ok = 0
+                for _d in _de_sec:
+                    if set_dosya_teslim(_d["id"], teslim_deposu=_de_depo_val):
+                        _de_ok += 1
+                st.cache_data.clear()
+                st.success(f"✅ {_de_ok} dosyaya '{_de_depo_val}' teslim deposu atandı.")
+                st.rerun()
     if not dosyalar:
         st.info("Henüz ithalat kaydı yok. '➕ Yeni İthalat' sayfasından ekleyebilirsin.")
         return
@@ -560,16 +591,16 @@ def _gecmis_ithalatlar():
                             if str(d.get("durum", "") or "").strip() != "Teslim Alındı"]
         st.caption(f"📦 Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
                    "'Teslim Alındı' değil. Yalnızca aşama güncellenir; teslim tarihine dokunulmaz. "
-                   "Bir teslim deposu seçersen seçili belgelerin teslim deposuna da yazılır "
-                   "(boş bırakırsan depo değişmez).")
+                   "**Teslim deposu seçimi zorunludur** — deposuz hiçbir dosya 'Teslim Alındı' yapılamaz.")
         _tc1, _tc2 = st.columns([2, 1])
-        _toplu_depo = _tc1.selectbox("Teslim deposu (seçili belgelerin hepsine)", DEPO_SECENEKLER,
+        _toplu_depo = _tc1.selectbox("Teslim deposu (seçili belgelerin hepsine) *", DEPO_SECENEKLER,
                                      key="ith_toplu_depo")
         _tc2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+        _toplu_depo_val = "" if str(_toplu_depo).startswith("(") else _toplu_depo
         if _tc2.button("📦 Teslim Alındı yap", use_container_width=True, key="ith_toplu_teslim",
-                       disabled=(len(_bekleyen_teslim) == 0)):
+                       disabled=(len(_bekleyen_teslim) == 0 or not _toplu_depo_val)):
             _ts_ok = 0
-            _depo_sec = "" if str(_toplu_depo).startswith("(") else _toplu_depo
+            _depo_sec = _toplu_depo_val
             for _d in _bekleyen_teslim:
                 if set_dosya_durum(_d["id"], "Teslim Alındı"):
                     _ts_ok += 1
@@ -1018,18 +1049,19 @@ def _gecmis_ithalatlar():
                        "hem dosyaya kalem olarak eklenir hem de **yeni stok kartı** (SKU + ürün adı + barkod) açılır. "
                        "Boş bırakılan satırlar yok sayılır.")
             _manuel_yeni = []
+            _mver = st.session_state.setdefault(f"ith_edit_mver_{did}", 0)
             for _mi in range(2):
                 _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([1.2, 2, 1.2, 0.8, 1])
-                _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}",
+                _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}_{_mver}",
                                         placeholder="örn. RMA-CE01", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}",
+                _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}_{_mver}",
                                        placeholder="örn. Sertifikasyon Bedeli", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _mbk = _mc3.text_input("Barkod (ops.)", key=f"ith_edit_mbk_{did}_{_mi}",
+                _mbk = _mc3.text_input("Barkod (ops.)", key=f"ith_edit_mbk_{did}_{_mi}_{_mver}",
                                        placeholder="barkod", label_visibility=("visible" if _mi == 0 else "collapsed"))
                 _madet = _mc4.number_input("Adet", min_value=0, value=0, step=1,
-                                           key=f"ith_edit_madet_{did}_{_mi}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                                           key=f"ith_edit_madet_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
                 _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
-                                          key=f"ith_edit_mfob_{did}_{_mi}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                                          key=f"ith_edit_mfob_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
                 if _msku.strip() and _madet > 0:
                     _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
                                          "barkod": _mbk.strip(), "adet": float(_madet),
@@ -1038,6 +1070,9 @@ def _gecmis_ithalatlar():
             st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
             if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
+                if e_durum == "Teslim Alındı" and not (e_teslim_deposu or "").strip():
+                    st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
+                    st.stop()
                 _kal_ad = {str(k.get("sku", "")).strip(): (k.get("urun_adi") or "") for k in kal}
                 _yeni_kal = []
                 for _, _r in e_kdf.iterrows():
@@ -1064,6 +1099,7 @@ def _gecmis_ithalatlar():
                                              teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
                                              sas_no=e_sas.strip())
                 if ok:
+                    st.session_state[f"ith_edit_mver_{did}"] = _mver + 1  # 🆕 manuel SKU alanlarını temizle
                     if _manuel_yeni:
                         try:
                             _n, _hata = urun_bilgi_toplu_yukle(
@@ -1256,6 +1292,8 @@ def _yeni_ithalat():
                 st.warning("Dosya / Sipariş No zorunlu.")
             elif not _kalemler:
                 st.warning("En az bir ürün kalemi (SKU + adet) girin.")
+            elif durum == "Teslim Alındı" and not (teslim_deposu_m or "").strip():
+                st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
             else:
                 for r in _kalemler:
                     if not (str(r.get("urun_adi") or "")).strip():
