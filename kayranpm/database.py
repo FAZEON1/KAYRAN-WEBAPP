@@ -1080,3 +1080,52 @@ def get_depo_sevk_gecmisi(limit=50):
         return _rows(r)
     except Exception:
         return []
+
+
+# ═══════════ MODEL B — HAREKET BAZLI STOK ÇEKİRDEĞİ ═══════════
+def stok_hareket_coklu(hareketler, depo=None):
+    """MODEL B: {sku: delta} hareketlerini urunler.depo_kirilim'e uygular.
+    delta + → giriş, − → çıkış. depo verilmezse 'MERKEZ DEPO'.
+    Ürün kartı olmayan SKU atlanır (liste döner). Döner: (uygulanan, atlanan)."""
+    depo = (depo or "").strip() or "MERKEZ DEPO"
+    uygulanan, atlanan = 0, []
+    try:
+        sb = get_client()
+    except Exception:
+        return 0, list(hareketler or {})
+    for sku, delta in (hareketler or {}).items():
+        sku = str(sku or "").strip()
+        try:
+            delta = float(delta or 0)
+        except Exception:
+            delta = 0
+        if not sku or delta == 0:
+            continue
+        try:
+            u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku).execute())
+            if not u and sku != sku.upper():
+                u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
+            if not u:
+                atlanan.append(sku)
+                continue
+            dk = u.get("depo_kirilim") or {}
+            if not isinstance(dk, dict):
+                dk = {}
+            dk[depo] = float(dk.get(depo, 0) or 0) + delta
+            if abs(dk[depo]) < 1e-9:
+                dk[depo] = 0
+            sb.table("urunler").update({
+                "depo_kirilim": dk,
+                "bizim_stok": _bizim_stok_hesapla(dk),
+                "guncelleme_tarihi": get_today(),
+            }).eq("sku", u["sku"]).execute()
+            uygulanan += 1
+        except Exception:
+            atlanan.append(sku)
+    _cache_temizle()
+    return uygulanan, atlanan
+
+
+def stok_hareket(sku, delta, depo=None):
+    """Tek SKU için hareket (bkz. stok_hareket_coklu)."""
+    return stok_hareket_coklu({sku: delta}, depo)

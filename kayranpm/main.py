@@ -2886,6 +2886,10 @@ def run():
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#CBD5E1">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#CBD5E1">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
         dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
+        st.warning("📌 **Hareket bazlı stok (Model B) aktif:** İthalat teslimi, satış ve iadeler depo stoğunu "
+                   "otomatik günceller. Bu G5F yüklemesi artık **SAYIM / DÜZELTMEDİR** — canlı takip edilen stoğu "
+                   "Excel'deki değerlere **eşitler** (üzerine yazar). Yalnızca fiziksel sayım sonrası ya da "
+                   "düzeltme amacıyla yükle.")
         if dosya_g:
             if st.button("⬆️ G5F Stok Yükle (Depo Kırılımlı)", type="primary", use_container_width=True, key="g5f_depo_btn"):
                 import tempfile
