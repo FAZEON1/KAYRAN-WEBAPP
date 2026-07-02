@@ -90,6 +90,36 @@ def _masraf_dict(dosya):
     return {k: _f(dosya.get(k, 0)) for k in _ESKI_MASRAF if _f(dosya.get(k, 0)) != 0}
 
 
+def masraf_sifirla(dosya_id, sluglar):
+    """Seçilen masraf kalemlerini dosyadan KESİN siler (JSONB'den çıkarır).
+    Kutu boşaltma davranışından bağımsız, doğrudan veritabanı işlemi. Döner (ok, mesaj)."""
+    try:
+        sb = _get_client()
+        _dl = _rows(sb.table("ithalat_dosyalari").select("id, masraflar").eq("id", dosya_id).execute())
+        d = _dl[0] if _dl else None
+        if not d:
+            return False, "Dosya bulunamadı."
+        m = _masraf_dict(d)
+        _silinen = [s for s in (sluglar or []) if s in m]
+        for s in _silinen:
+            m.pop(s, None)
+        yeni = {k: v for k, v in m.items() if _f(v) != 0}
+        guncel = {"masraflar": yeni}
+        # eski sabit kolonlar da varsa sıfırla (geriye dönük kayıtlar)
+        for s in _silinen:
+            if s in _ESKI_MASRAF:
+                guncel[s] = 0
+        try:
+            sb.table("ithalat_dosyalari").update(guncel).eq("id", dosya_id).execute()
+        except Exception:
+            sb.table("ithalat_dosyalari").update({"masraflar": yeni}).eq("id", dosya_id).execute()
+        _temizle()
+        _etk = ", ".join(MASRAF_ETIKET.get(s, s) for s in _silinen) or "—"
+        return True, f"🧹 Sıfırlandı: {_etk}"
+    except Exception as e:
+        return False, f"Hata: {type(e).__name__}: {str(e)[:140]}"
+
+
 def masraf_dokumu(dosya):
     """Sıfırdan farklı masrafları [(görünen_ad, tutar)] olarak döner (tanım sırasında)."""
     m = _masraf_dict(dosya)

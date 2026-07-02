@@ -14,7 +14,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, masraf_dokumu, _masraf_dict,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
@@ -905,6 +905,27 @@ def _gecmis_ithalatlar():
                    "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
         st.caption("🧹 **Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
                    "artık geri gelmez. *(bu satırı görüyorsan güncel sürüm yüklüdür)*")
+        _md_dolu = {s: v for s, v in _masraf_dict(d).items() if v}
+        if _md_dolu:
+            with st.expander("🧹 Masraf Kalemi Sıfırla (kesin silme — kutu boşaltmadan)", expanded=False):
+                st.caption("Kutu boşaltma çalışmazsa buradan sil: kalemi seç → düğmeye bas. "
+                           "Doğrudan veritabanından silinir, geri gelmez.")
+                _ms_sec = st.multiselect(
+                    "Sıfırlanacak masraf kalem(ler)i",
+                    list(_md_dolu.keys()),
+                    format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {_md_dolu[s]:,.2f}",
+                    key=f"ith_ms_sifirla_{did}")
+                if st.button("🧹 Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
+                             disabled=not _ms_sec):
+                    _ok2, _msg2 = masraf_sifirla(did, _ms_sec)
+                    if _ok2:
+                        for _sk in [k for k in list(st.session_state.keys())
+                                    if k.startswith(f"ith_edit_mas_{did}_")]:
+                            st.session_state.pop(_sk, None)
+                        st.success(_msg2)
+                        st.rerun()
+                    else:
+                        st.error(_msg2)
         st.markdown("---")
         with st.form(f"ith_edit_{did}"):
             _alt_baslik("📄 Dosya Bilgileri")
