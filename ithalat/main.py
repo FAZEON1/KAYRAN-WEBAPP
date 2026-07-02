@@ -992,9 +992,32 @@ def _gecmis_ithalatlar():
             st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
                        "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
 
+            _alt_baslik("🆕 Yeni Stok Kartı ile Satır Ekle · katalogda olmayan ürün")
+            st.caption("Katalogda olmayan bir ürünü bu dosyaya eklemek için doldur — Kaydet'e basınca "
+                       "hem dosyaya kalem olarak eklenir hem de **yeni stok kartı** (SKU + ürün adı + barkod) açılır. "
+                       "Boş bırakılan satırlar yok sayılır.")
+            _manuel_yeni = []
+            for _mi in range(2):
+                _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([1.2, 2, 1.2, 0.8, 1])
+                _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}",
+                                        placeholder="örn. RMA-CE01", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}",
+                                       placeholder="örn. Sertifikasyon Bedeli", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                _mbk = _mc3.text_input("Barkod (ops.)", key=f"ith_edit_mbk_{did}_{_mi}",
+                                       placeholder="barkod", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                _madet = _mc4.number_input("Adet", min_value=0, value=0, step=1,
+                                           key=f"ith_edit_madet_{did}_{_mi}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                          key=f"ith_edit_mfob_{did}_{_mi}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                if _msku.strip() and _madet > 0:
+                    _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
+                                         "barkod": _mbk.strip(), "adet": float(_madet),
+                                         "birim_fob": float(_mfob)})
+
             st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
             if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
+                _kal_ad = {str(k.get("sku", "")).strip(): (k.get("urun_adi") or "") for k in kal}
                 _yeni_kal = []
                 for _, _r in e_kdf.iterrows():
                     if _r.get("Sil"):
@@ -1002,8 +1025,12 @@ def _gecmis_ithalatlar():
                     _sku = str(_r.get("SKU", "") or "").strip()
                     if not _sku:
                         continue
-                    _yeni_kal.append({"sku": _sku, "urun_adi": katalog.get(_sku, ""),
+                    _yeni_kal.append({"sku": _sku,
+                                      "urun_adi": (katalog.get(_sku, "") or _kal_ad.get(_sku, "")),
                                       "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
+                for _m in _manuel_yeni:  # yeni stok kartlı satırlar
+                    _yeni_kal.append({"sku": _m["sku"], "urun_adi": _m["urun_adi"],
+                                      "adet": _m["adet"], "birim_fob": _m["birim_fob"]})
                 with st.spinner("💾 Kaydediliyor..."):
                     ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
                                              e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
@@ -1016,9 +1043,23 @@ def _gecmis_ithalatlar():
                                              teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
                                              sas_no=e_sas.strip())
                 if ok:
+                    if _manuel_yeni:
+                        try:
+                            _n, _hata = urun_bilgi_toplu_yukle(
+                                [{"sku": m["sku"], "urun_adi": m["urun_adi"], "barkod": m["barkod"]}
+                                 for m in _manuel_yeni])
+                            if _n:
+                                st.toast(f"🆕 {_n} yeni stok kartı açıldı", icon="🆕")
+                        except Exception:
+                            pass
                     for _sk in [k for k in list(st.session_state.keys())
                                 if k in (f"ith_edit_indirim_{did}", f"ith_edit_kur_{did}")
-                                or k.startswith(f"ith_edit_mas_{did}_")]:
+                                or k.startswith(f"ith_edit_mas_{did}_")
+                                or k.startswith(f"ith_edit_msku_{did}_")
+                                or k.startswith(f"ith_edit_mad_{did}_")
+                                or k.startswith(f"ith_edit_mbk_{did}_")
+                                or k.startswith(f"ith_edit_madet_{did}_")
+                                or k.startswith(f"ith_edit_mfob_{did}_")]:
                         st.session_state.pop(_sk, None)
                     st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
                     st.rerun()
