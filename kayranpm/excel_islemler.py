@@ -633,3 +633,157 @@ def excel_yukle_g5f_depolar(dosya_yolu):
                       f"'bizim stok' = Merkez + Happy Life.")
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
+
+
+# ═══════════ HAFTALIK STOK+SATIŞ — firma başına 2 sekme, PORTAL formatları ═══════════
+_HSS_FIRMA_TOKEN = [("ITOPYA", "ITOPYA"), ("EERA", "ITOPYA"),
+                    ("VATAN", "VATAN"),
+                    ("HEPSIBURADA", "HB"), ("HEPSİBURADA", "HB"), ("HB", "HB"),
+                    ("MONDAY", "MONDAY"), ("KANAL", "KANAL"), ("DIGER", "DIGER"), ("DİĞER", "DIGER")]
+
+
+def _hss_kolon(df, *adaylar):
+    """Başlık adaylarından ilk eşleşen kolonu döndürür (Türkçe-İ uyumlu, boşluk esnek)."""
+    def _n(s):
+        s = tr_upper(str(s)).replace(" ", "").replace("_", "").replace("-", "")
+        return s
+    kolmap = {_n(c): c for c in df.columns}
+    for a in adaylar:
+        _a = _n(a)
+        if _a in kolmap:
+            return kolmap[_a]
+    for a in adaylar:
+        _a = _n(a)
+        for k, v in kolmap.items():
+            if _a in k:
+                return v
+    return None
+
+
+def excel_yukle_haftalik_stok_satis(dosya_yolu):
+    """Firma başına AYRI 'X STOK' + 'X SATIŞ' sekmeleri olan haftalık dosyayı yükler.
+    Her firmanın PORTAL formatı desteklenir (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu...).
+    Satışlar SKU ile stok satırlarının yanına bağlanır → firma_stok'a tek özet yazılır.
+    KATEGORİ dosyadan BEKLENMEZ (boş/yok → hata vermez) — kategori bizim ürün kartından gelir."""
+    try:
+        sheets = pd.read_excel(dosya_yolu, sheet_name=None)
+    except Exception as e:
+        return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:140]}"
+
+    def _sayfa_firma(ad):
+        _u = tr_upper(str(ad))
+        for tok, kod in _HSS_FIRMA_TOKEN:
+            if tr_upper(tok) in _u:
+                return kod
+        return None
+
+    # firma → {"stok": df, "satis": df}
+    gruplar = {}
+    for ad, df in (sheets or {}).items():
+        kod = _sayfa_firma(ad)
+        if not kod:
+            continue
+        _u = tr_upper(str(ad))
+        tur = "satis" if ("SATIS" in _u.replace("Ş", "S") or "SATIŞ" in _u) else \
+              ("stok" if "STOK" in _u else None)
+        if tur:
+            gruplar.setdefault(kod, {})[tur] = df
+
+    if not gruplar:
+        return False, ("❌ Firma sekmesi bulunamadı. Sekme adları 'VATAN STOK', 'VATAN SATIŞ' "
+                       "gibi FİRMA + STOK/SATIŞ içermeli.")
+
+    _SKU_ADAY = ("STOKKODU", "STOK KODU", "SKU", "MALZEME", "ÜRÜN KODU", "URUN KODU", "KOD")
+    _AD_ADAY = ("STOKADI", "STOK ADI", "SKU ADI", "ÜRÜN ADI", "URUN ADI", "TANIM", "AD")
+    _STOK_ADAY = ("ADET", "STOK", "DEPO MIKTAR", "MİKTAR", "MIKTAR")
+    _SATIS_ADAY = ("MIKTAR", "MİKTAR", "ADET", "SIPARIŞ MIKTARI", "SİPARİŞ MİKTARI", "SATIŞ MIKTAR", "SATIS MIKTAR")
+    _KANAL_ADAY = ("MAĞAZA", "MAGAZA", "DEPO")
+
+    def _mgz_mi(ad):
+        _u = tr_upper(str(ad))
+        return any(k in _u for k in ("MAGAZA", "MAĞAZA", "TESHIR", "TEŞHIR", "PAZARLAMA", "SHOWROOM"))
+
+    def _online_mi(ad):
+        _u = tr_upper(str(ad)).strip()
+        return (not _u or _u in ("0", "NAN", "GENEL")
+                or "INTERNET" in _u or "İNTERNET" in _u or "ONLINE" in _u
+                or "E-TICARET" in _u or "ETICARET" in _u)
+
+    firma_ozet, atlanan_sayfa = {}, []
+    basarili = 0
+    for kod, g in gruplar.items():
+        agg = {}  # sku → {ad, stok, stok_magaza, satis, satis_magaza}
+
+        # ── STOK sekmesi ──
+        sdf = g.get("stok")
+        if sdf is not None and len(sdf):
+            c_sku = _hss_kolon(sdf, *_SKU_ADAY)
+            c_ad = _hss_kolon(sdf, *_AD_ADAY)
+            c_adet = _hss_kolon(sdf, *_STOK_ADAY)
+            c_depo = _hss_kolon(sdf, "DEPO")
+            if c_sku is None or c_adet is None:
+                atlanan_sayfa.append(f"{kod} STOK (SKU/adet kolonu yok)")
+            else:
+                for _, r in sdf.iterrows():
+                    sku = normalize_sku(r.get(c_sku, ""))
+                    if not sku or sku.lower() == "nan":
+                        continue
+                    adet = safe_int(r.get(c_adet, 0))
+                    o = agg.setdefault(sku, {"ad": "", "stok": 0, "stok_magaza": 0,
+                                             "satis": 0, "satis_magaza": 0})
+                    if c_ad is not None and not o["ad"]:
+                        o["ad"] = safe_str(r.get(c_ad, ""))
+                    if c_depo is not None and _mgz_mi(r.get(c_depo, "")):
+                        o["stok_magaza"] += adet
+                    else:
+                        o["stok"] += adet
+
+        # ── SATIŞ sekmesi → SKU ile stokun yanına bağlanır ──
+        vdf = g.get("satis")
+        if vdf is not None and len(vdf):
+            c_sku = _hss_kolon(vdf, *_SKU_ADAY)
+            c_ad = _hss_kolon(vdf, *_AD_ADAY)
+            c_adet = _hss_kolon(vdf, *_SATIS_ADAY)
+            c_kanal = _hss_kolon(vdf, *_KANAL_ADAY)
+            if c_sku is None or c_adet is None:
+                atlanan_sayfa.append(f"{kod} SATIŞ (SKU/adet kolonu yok)")
+            else:
+                for _, r in vdf.iterrows():
+                    sku = normalize_sku(r.get(c_sku, ""))
+                    if not sku or sku.lower() == "nan":
+                        continue
+                    adet = safe_int(r.get(c_adet, 0))
+                    o = agg.setdefault(sku, {"ad": "", "stok": 0, "stok_magaza": 0,
+                                             "satis": 0, "satis_magaza": 0})
+                    if c_ad is not None and not o["ad"]:
+                        o["ad"] = safe_str(r.get(c_ad, ""))
+                    if c_kanal is not None and not _online_mi(r.get(c_kanal, "")):
+                        o["satis_magaza"] += adet
+                    else:
+                        o["satis"] += adet
+
+        # ── Özet yaz (kategori bizim ürün kartından gelir; dosyadan beklenmez) ──
+        _n_sku, _t_stok, _t_satis = 0, 0, 0
+        for sku, o in agg.items():
+            try:
+                upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
+                                  stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"])
+                _n_sku += 1
+                _t_stok += o["stok"] + o["stok_magaza"]
+                _t_satis += o["satis"] + o["satis_magaza"]
+                basarili += 1
+            except Exception:
+                pass
+        if _n_sku:
+            firma_ozet[kod] = (_n_sku, _t_stok, _t_satis)
+
+    if not basarili:
+        return False, ("❌ Hiç kayıt yazılamadı. Sekmelerde veri var mı ve SKU/adet kolonları dolu mu kontrol et."
+                       + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
+    ozet = " · ".join(f"{k}: {n} SKU (stok {s:,} / satış {v:,})"
+                      for k, (n, s, v) in firma_ozet.items())
+    msg = f"✅ Haftalık stok+satış yüklendi → {ozet}."
+    if atlanan_sayfa:
+        msg += f" ⚠️ Atlanan sekme: {', '.join(atlanan_sayfa)}."
+    msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)."
+    return True, msg

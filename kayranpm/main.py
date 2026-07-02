@@ -38,7 +38,8 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
-                            excel_yukle_firma_birlesik, excel_yukle_g5f_depolar)
+                            excel_yukle_firma_birlesik, excel_yukle_g5f_depolar,
+                            excel_yukle_haftalik_stok_satis)
 
 
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
@@ -1368,6 +1369,24 @@ def run():
                 os.unlink(_tbp)
                 st.cache_data.clear()
                 (st.success if _ok else st.error)(_msg)
+            st.markdown("---")
+            st.markdown("**📅 Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
+            st.caption("Sekmeler: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` · "
+                       "`HEPSİBURADA STOK/SATIŞ` · `MONDAY STOK/SATIŞ`. Her firmanın **kendi portal başlıkları** "
+                       "olduğu gibi kalır (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu…). Satışlar SKU ile stokun yanına "
+                       "bağlanıp tek özet oluşturulur. **Kategori dosyada gerekmez** — bizim ürün kartından eşlenir; "
+                       "boş bırakılan kategori kolonları hata vermez.")
+            _dosya_hss = st.file_uploader("Haftalık STOK+SATIŞ Excel'i Seç", type=["xlsx", "xls"], key="mhs_hss_dosya")
+            if _dosya_hss and st.button("⬆️ Haftalık STOK+SATIŞ Yükle", type="primary",
+                                        use_container_width=True, key="mhs_hss_btn"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb2:
+                    _tb2.write(_dosya_hss.read())
+                    _tbp2 = _tb2.name
+                _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
+                os.unlink(_tbp2)
+                st.cache_data.clear()
+                (st.success if _ok2 else st.error)(_msg2)
             st.markdown("---")
             st.markdown("**📥 Çok-Sekmeli Haftalık Dosya**")
             st.caption("Her firma ayrı sekmede (ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER) · SKU · Ürün Adı · Stok · Haftalık Satış")
