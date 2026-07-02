@@ -589,6 +589,8 @@ def run():
         else:
             from satis.database import get_sku_kategori
             _katmap = get_sku_kategori()
+            _admap = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
+                      for u in (get_urunler() or [])}
             _rows_disp = []
             _t_adet = 0
             _t_ciro = _t_kar = _t_maliyet = _t_destek = 0.0
@@ -604,7 +606,7 @@ def run():
                 _rows_disp.append({
                     "id": s.get("id"), "Tarih": pd.to_datetime(s.get("tarih"), errors="coerce"),
                     "Sipariş No": s.get("siparis_no", "") or "—", "Kanal": s.get("kanal", ""),
-                    "SKU": _sku, "Ürün": (s.get("urun_adi", "") or "")[:30],
+                    "SKU": _sku, "Ürün": ((s.get("urun_adi", "") or "") or _admap.get(_sku.strip(), ""))[:30],
                     "Kategori": (_katmap.get(_sku.strip(), "") or "—"),
                     "Adet": k["adet"], "B.Satış": _usd(s.get("birim_satis")),
                     "B.Maliyet": _usd(s.get("birim_maliyet")),
@@ -777,6 +779,8 @@ def run():
             } for kn, v in _kr]), hide_index=True, use_container_width=True)
 
             st.markdown("#### Ürün Kırılımı (net kâra göre)")
+            _padmap = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
+                       for u in (get_urunler() or [])}
             _ur = sorted(urun.items(), key=lambda x: -x[1]["net_kar"])
 
             def _su_net(su, v):
@@ -789,7 +793,7 @@ def run():
                 _ns = v["ciro"] - _d
                 return v["ciro"], v["net_kar"], ((v["net_kar"] / _ns * 100) if _ns > 0 else 0.0)
             st.dataframe(pd.DataFrame([{
-                "SKU": su, "Ürün": (v["urun_adi"] or "")[:36], "Adet": int(v["adet"]),
+                "SKU": su, "Ürün": ((v["urun_adi"] or "") or _padmap.get(str(su).strip(), ""))[:36], "Adet": int(v["adet"]),
                 "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(_su_net(su, v)[1]),
                 "Marj": f"%{_su_net(su, v)[2]:.1f}",
             } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
