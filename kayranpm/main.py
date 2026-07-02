@@ -2212,10 +2212,12 @@ def run():
                             fd = ku.get("birim_firma_destek") or 0
                             ed = ku.get("birim_ek_destek") or 0
                             satilan = ku.get("satilan_adet") or 0
-                            toplam_destek_birim = fd + ed
-                            # Top-down margin: kar/satış (gross margin)
+                            # SEÇENEK A: Firma desteği BİZİM maliyetimiz değildir (firmanın katkısı).
+                            # Net kâr ve toplam destek yalnızca EK DESTEK üzerinden hesaplanır;
+                            # Firma Destek kolonu bilgi amaçlı gösterilmeye devam eder.
+                            toplam_destek_birim = ed
                             net_kar_birim = (satis - pacal) - toplam_destek_birim if satis > 0 and pacal > 0 else 0
-                            net_marj = (net_kar_birim / satis * 100) if satis > 0 else 0  # Top-down gross margin
+                            net_marj = (net_kar_birim / satis * 100) if satis > 0 else 0
                             toplam_destek_urun = toplam_destek_birim * satilan
                             toplam_net_urun = net_kar_birim * satilan
     
