@@ -423,6 +423,9 @@ def _gecmis_ithalatlar():
             "% Maliyet": h["maliyet_yuzde"],
             "Kalem": h["kalem_sayisi"],
             "Aşama": d.get("durum", "") or "—",
+            "Teslim Şekli": d.get("teslim_sekli", "") or "—",
+            "Teslim Deposu": ((d.get("teslim_deposu", "") or "").strip()
+                              or ("⚠️ SEÇİLMEDİ" if str(d.get("durum", "") or "").strip() == "Teslim Alındı" else "—")),
             "Durum": "✅ Tamam" if h["toplam_masraf"] > 0 else "⏳ Bekliyor",
             "_skus": " ".join(str(k.get("sku", "") or "") for k in kal).lower(),
         })
