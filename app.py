@@ -1294,6 +1294,8 @@ input, textarea, select { font-size: 16px !important; }
             _yeni_sekme.append(("💰 Muhasebe", "kayranacc"))
         if yetkiler.get("kayranpm"):
             _yeni_sekme.append(("📦 Ürün Yönetimi", "kayranpm"))
+        if yetkiler.get("depo"):
+            _yeni_sekme.append(("🏬 Depo", "depo"))
         if yetkiler.get("ithalat"):
             _yeni_sekme.append(("🚢 İthalat", "ithalat"))
         if yetkiler.get("satis"):
