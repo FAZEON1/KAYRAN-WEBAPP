@@ -410,6 +410,10 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                 except Exception:
                     pass
                 return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
+        if str(durum or "").strip() == "Teslim Alındı":
+            _dosya_stok_uygula(dosya_id, +1,
+                               kalem_agg=_dosya_kalem_agg(kalemler),
+                               depo=teslim_deposu)
         _temizle()
         return True, f"✅ '{dosya_no}' dosyası {len(rows)} kalem ile eklendi."
     except Exception as e:
@@ -422,6 +426,17 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
     try:
+        # MODEL B: geçiş tespiti için eski durum/depoyu ve bayrağı oku
+        try:
+            _md = _rows(sb.table("ithalat_dosyalari")
+                        .select("durum, teslim_deposu, stok_islendi").eq("id", dosya_id).execute())
+        except Exception:
+            _md = _rows(sb.table("ithalat_dosyalari")
+                        .select("durum, teslim_deposu").eq("id", dosya_id).execute())
+        _md = _md[0] if _md else {}
+        _eskiT = str(_md.get("durum") or "").strip() == "Teslim Alındı"
+        _eski_islendi = _md.get("stok_islendi", None)
+        _eski_depo = (_md.get("teslim_deposu") or "").strip()
         temiz_masraf = {k: _f(v) for k, v in (masraflar or {}).items() if _f(v) != 0}
         _payload = {
             "dosya_no": str(dosya_no), "pi_no": pi_no or "",
@@ -465,6 +480,23 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
                 except Exception:
                     pass
                 return False, f"❌ Kalemler güncellenemedi, eski kalemler geri yüklendi (kayıp olmadı): {str(ke)[:150]}"
+        # ── MODEL B stok geçişleri ──
+        _yeniT = str(durum or "").strip() == "Teslim Alındı"
+        _yeni_agg = _dosya_kalem_agg(kalemler)
+        _eski_agg = _dosya_kalem_agg(_eski_kalem)
+        if not _eskiT and _yeniT:
+            _dosya_stok_uygula(dosya_id, +1, kalem_agg=_yeni_agg, depo=teslim_deposu)
+        elif _eskiT and not _yeniT and _eski_islendi is True:
+            _dosya_stok_uygula(dosya_id, -1, kalem_agg=_eski_agg, depo=_eski_depo)
+        elif _eskiT and _yeniT and _eski_islendi is True:
+            _delta = {}
+            for _s in set(_yeni_agg) | set(_eski_agg):
+                _d = _yeni_agg.get(_s, 0) - _eski_agg.get(_s, 0)
+                if _d:
+                    _delta[_s] = _d
+            if _delta:
+                _dosya_stok_uygula(dosya_id, +1, kalem_agg=_delta,
+                                   depo=(teslim_deposu or _eski_depo))
         _temizle()
         return True, f"✅ Dosya güncellendi ({len(rows)} kalem)."
     except Exception as e:
@@ -749,10 +781,18 @@ def set_dosya_teslim(dosya_id, teslim_tarihi=None, teslim_deposu=None):
 
 
 def set_dosya_durum(dosya_id, durum):
-    """Bir dosyanın SADECE aşama (durum) alanını günceller — teslim tarihi/deposu dahil
-    başka hiçbir alana dokunmaz. Toplu 'Teslim Alındı' işaretleme için."""
+    """Bir dosyanın SADECE aşama (durum) alanını günceller.
+    MODEL B: 'Teslim Alındı'ya geçişte kalemler depoya EKLENİR; geri alınırsa ÇIKARILIR."""
     try:
-        _get_client().table("ithalat_dosyalari").update({"durum": durum or ""}).eq("id", dosya_id).execute()
+        sb = _get_client()
+        _rowsx = _rows(sb.table("ithalat_dosyalari").select("durum").eq("id", dosya_id).execute())
+        _eski = str((_rowsx[0].get("durum") if _rowsx else "") or "").strip()
+        _yeni = str(durum or "").strip()
+        sb.table("ithalat_dosyalari").update({"durum": _yeni}).eq("id", dosya_id).execute()
+        if _eski != "Teslim Alındı" and _yeni == "Teslim Alındı":
+            _dosya_stok_uygula(dosya_id, +1)
+        elif _eski == "Teslim Alındı" and _yeni != "Teslim Alındı":
+            _dosya_stok_uygula(dosya_id, -1)
         _temizle()
         return True
     except Exception:
@@ -919,3 +959,48 @@ def get_sku_alim_detay(sku):
         return out
     except Exception:
         return []
+
+
+# ═══════════ MODEL B — Teslim Alındı ⇄ depo stoğu ═══════════
+def _dosya_kalem_agg(kalemler):
+    agg = {}
+    for k in (kalemler or []):
+        sku = str(k.get("sku") or "").strip()
+        adet = _f(k.get("adet"))
+        if sku and adet:
+            agg[sku] = agg.get(sku, 0) + adet
+    return agg
+
+
+def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
+    """MODEL B: dosya kalemlerini depoya işler (yon=+1) / geri çeker (yon=-1).
+    stok_islendi bayrağıyla çift işleme önlenir (kolon yoksa sessiz devam)."""
+    try:
+        sb = _get_client()
+        try:
+            rows = _rows(sb.table("ithalat_dosyalari")
+                         .select("id, teslim_deposu, stok_islendi").eq("id", dosya_id).execute())
+        except Exception:
+            rows = _rows(sb.table("ithalat_dosyalari")
+                         .select("id, teslim_deposu").eq("id", dosya_id).execute())
+        d = rows[0] if rows else None
+        if not d:
+            return
+        islendi = d.get("stok_islendi", None)
+        if kalem_agg is None:
+            if yon > 0 and islendi is True:
+                return  # zaten işlenmiş
+            if yon < 0 and islendi is not True:
+                return  # hiç işlenmemişi geri çekme (eski/legacy dosyalar)
+            kalem_agg = _dosya_kalem_agg(get_kalemler(dosya_id))
+        if not kalem_agg:
+            return
+        _depo = (depo or d.get("teslim_deposu") or "").strip() or "MERKEZ DEPO"
+        from kayranpm.database import stok_hareket_coklu
+        stok_hareket_coklu({s: yon * a for s, a in kalem_agg.items()}, _depo)
+        try:
+            sb.table("ithalat_dosyalari").update({"stok_islendi": (yon > 0)}).eq("id", dosya_id).execute()
+        except Exception:
+            pass  # kolon henüz eklenmemişse bayraksız devam
+    except Exception:
+        pass
