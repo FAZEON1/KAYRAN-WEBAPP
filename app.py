@@ -29,6 +29,7 @@ HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk"}
 TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya"}
 SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar", "samet"}
+YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -991,7 +992,7 @@ def ust_navigasyon():
     ak = st.session_state.get("aktif_kullanici", "")
     yet = kullanici_yetkileri(ak)
     moduller = [("🏠 Ana Sayfa", "anasayfa"), ("🔍 Arama", "arama")]
-    if ak.strip().lower() == "ibrahim":
+    if ak.strip().lower() in YONETIM_KULLANICILAR:
         moduller.append(("📊 Yönetim", "yonetim"))
     if yet.get("kayranacc"):
         moduller.append(("💳 Muhasebe", "kayranacc"))
@@ -1287,7 +1288,7 @@ input, textarea, select { font-size: 16px !important; }
         _u = aktif_kullanici
         _t = _oturum_token(_u)
         _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama")]
-        if _u.strip().lower() == "ibrahim":
+        if _u.strip().lower() in YONETIM_KULLANICILAR:
             _yeni_sekme.append(("📊 Yönetim P&L", "yonetim"))
         if yetkiler.get("kayranacc"):
             _yeni_sekme.append(("💰 Muhasebe", "kayranacc"))
@@ -2324,8 +2325,11 @@ def main():
             from satis.main import run as satis_run
             satis_run()
         elif aktif == "yonetim":
-            from yonetim import run as yonetim_run
-            yonetim_run()
+            if (st.session_state.get("aktif_kullanici", "") or "").strip().lower() in YONETIM_KULLANICILAR:
+                from yonetim import run as yonetim_run
+                yonetim_run()
+            else:
+                st.error("Bu sayfaya erişim yetkiniz yok.")
         elif aktif == "hesap_makinesi":
             from hesap_makinesi.main import run as hesap_makinesi_run
             hesap_makinesi_run()
