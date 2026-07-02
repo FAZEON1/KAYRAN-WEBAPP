@@ -698,12 +698,17 @@ def run():
             except Exception:
                 _ref_usd = 0.0
             _renk = "#34D399" if _net_kar > 0 else "#F87171"
+            _ozet_kartlar = [
+                ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
+                ("İadeler", _usd(_itop["i_tutar"]), "#F472B6"),
+                ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
+            ]
+            # "Destek" kartı yalnızca satır bazlı (kampanyalı satış) destek varsa gösterilir;
+            # dönem destekleri zaten aşağıdaki "Ref No Desteği" kartında.
+            if top["destek"] > 0.005:
+                _ozet_kartlar.append(("Destek (satır bazlı)", _usd(top["destek"]), "#A78BFA"))
             st.markdown(
-                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
-                    ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
-                    ("İadeler", _usd(_itop["i_tutar"]), "#F472B6"),
-                    ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
-                    ("Destek", _usd(top["destek"]), "#A78BFA"),
+                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart(_ozet_kartlar + [
                     ("Net Kâr", _usd(_net_kar), _renk),
                     ("Marj (iade sonrası)", f"%{_net_marj:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
