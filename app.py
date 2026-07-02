@@ -28,7 +28,7 @@ KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "cag
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk"}
 TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya"}
-SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
+SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar", "samet"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
