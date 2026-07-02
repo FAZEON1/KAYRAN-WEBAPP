@@ -587,18 +587,41 @@ def run():
         if not satislar:
             st.info("Bu aralıkta satış kaydı yok.")
         else:
+            from satis.database import get_sku_kategori
+            _katmap = get_sku_kategori()
             _rows_disp = []
+            _t_adet = 0
+            _t_ciro = _t_kar = _t_maliyet = _t_destek = 0.0
             for s in satislar:
                 k = satir_kar(s)
+                _sku = s.get("sku", "") or ""
+                _bd = (s.get("birim_firma_destek") or 0) + (s.get("birim_ek_destek") or 0)
+                _t_adet += int(k["adet"] or 0)
+                _t_ciro += k["ciro"]
+                _t_kar += k["net_kar"]
+                _t_maliyet += float(s.get("birim_maliyet") or 0) * int(k["adet"] or 0)
+                _t_destek += float(_bd or 0) * int(k["adet"] or 0)
                 _rows_disp.append({
                     "id": s.get("id"), "Tarih": pd.to_datetime(s.get("tarih"), errors="coerce"),
                     "Sipariş No": s.get("siparis_no", "") or "—", "Kanal": s.get("kanal", ""),
-                    "SKU": s.get("sku", ""), "Ürün": (s.get("urun_adi", "") or "")[:30],
+                    "SKU": _sku, "Ürün": (s.get("urun_adi", "") or "")[:30],
+                    "Kategori": (_katmap.get(_sku.strip(), "") or "—"),
                     "Adet": k["adet"], "B.Satış": _usd(s.get("birim_satis")),
                     "B.Maliyet": _usd(s.get("birim_maliyet")),
-                    "Destek": _usd((s.get("birim_firma_destek") or 0) + (s.get("birim_ek_destek") or 0)) if (s.get("birim_firma_destek") or s.get("birim_ek_destek")) else "—",
+                    "Destek": _usd(_bd) if _bd else "—",
                     "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{k['marj']:.1f}",
                 })
+            # 🧮 ALT TOPLAM satırı — sayısal kolonların toplamı
+            _t_marj = (_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0.0
+            _rows_disp.append({
+                "id": None, "Tarih": pd.NaT,
+                "Sipariş No": "", "Kanal": "🧮 TOPLAM",
+                "SKU": "", "Ürün": f"{len(satislar)} kalem", "Kategori": "",
+                "Adet": _t_adet, "B.Satış": "",
+                "B.Maliyet": _usd(_t_maliyet) if _t_maliyet else "",
+                "Destek": _usd(_t_destek) if _t_destek > 0.005 else "",
+                "Ciro": _usd(_t_ciro), "Net Kâr": _usd(_t_kar), "Marj": f"%{_t_marj:.1f}",
+            })
             st.dataframe(pd.DataFrame(_rows_disp), hide_index=True, use_container_width=True, height=380,
                          column_config={"id": None,
                                         "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})

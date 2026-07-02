@@ -95,6 +95,16 @@ def get_urunler():
         return []
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_sku_kategori():
+    """{SKU: kategori} haritası (satış listesinde Kategori kolonu için)."""
+    try:
+        rows = _rows(_get_client().table("urunler").select("sku, kategori").execute())
+        return {str(r.get("sku") or "").strip(): (r.get("kategori") or "") for r in rows}
+    except Exception:
+        return {}
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def kampanya_destek_bul(sku, kanal, tarih):
     """Verilen SKU + kanal + tarih için aktif kampanyadaki destekleri döndürür.
