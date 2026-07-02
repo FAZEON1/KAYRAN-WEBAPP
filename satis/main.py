@@ -324,6 +324,26 @@ def run():
                         _m += f" {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok (maliyet 0)."
                     if _sonuc.get("hatali"):
                         _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
+                    # 📦 Stok aşımı UYARISI (engellemez): kaydedilen SKU'larda canlı stok kontrolü
+                    if _sonuc["eklendi"] > 0:
+                        try:
+                            from kayranpm.database import canli_stok
+                            _sku_top = {}
+                            for _g in _gecerli:
+                                _sk2 = str(_g.get("sku") or "").strip()
+                                if _sk2:
+                                    _sku_top[_sk2] = _sku_top.get(_sk2, 0) + int(_g.get("adet") or 0)
+                            _asim = []
+                            for _sk2, _ad2 in list(_sku_top.items())[:60]:
+                                _cs2 = canli_stok(_sk2)
+                                if _cs2.get("var") and _cs2["canli"] < 0:
+                                    _asim.append(f"{_sk2} (canlı {_cs2['canli']:.0f})")
+                            if _asim:
+                                _m += (" · 📦 Stok uyarısı — canlı stok eksiye düştü: "
+                                       + ", ".join(_asim[:8])
+                                       + (" …" if len(_asim) > 8 else ""))
+                        except Exception:
+                            pass
                     st.session_state["_ice_mesaj"] = _m
                     try:
                         st.cache_data.clear()
