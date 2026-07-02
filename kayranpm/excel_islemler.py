@@ -446,11 +446,31 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         if "SKU" not in kolon_map:
             return False, "❌ 'STOK KODU' kolonu bulunamadı."
 
+        # MAĞAZA kolonları SAYI mı METİN mi? (yeni raporlarda mağaza ADI geliyor:
+        # 'ACB Depo', 'AirPort Magaza'... → satırlar SKU bazında TOPLANMALI, ezilmemeli)
+        def _metin_mi(kol_adi):
+            if kol_adi not in kolon_map:
+                return False
+            _v = df[kolon_map[kol_adi]].dropna()
+            if _v.empty:
+                return False
+            _say = 0
+            for x in _v.head(30):
+                try:
+                    float(str(x).replace(",", "."))
+                except Exception:
+                    _say += 1
+            return _say >= max(1, int(len(_v.head(30)) * 0.5))
+        _stok_mgz_metin = _metin_mi("STOK_MAGAZA")
+        _satis_mgz_metin = _metin_mi("SATIS_MAGAZA")
+        _kirilim_modu = _stok_mgz_metin or _satis_mgz_metin
+
         gecerli_firmalar = {f: f for f in FIRMA_LISTESI}  # normalize edilmiş hâlleri
         basarili, atlanan = 0, 0
         firma_sayac = {}
         atlanan_firma = set()
 
+        _agg = {}  # (firma, sku) → {urun_adi, stok, stok_magaza, satis, satis_magaza}
         for _, row in df.iterrows():
             try:
                 firma_ham = safe_str(row.get(kolon_map["FIRMA"], ""))
@@ -459,7 +479,6 @@ def excel_yukle_firma_birlesik(dosya_yolu):
                     atlanan += 1
                     continue
                 firma_n = _firma_normalize(firma_ham)
-                # GSF STOK / YOLDAKI bu sayfaya ait değil → atla
                 if firma_n in ("GSF STOK", "G5F STOK", "YOLDAKI", "YOLDAKİ", "BIZIM STOK", "DEPO"):
                     atlanan += 1
                     continue
@@ -471,12 +490,47 @@ def excel_yukle_firma_birlesik(dosya_yolu):
 
                 urun_adi = safe_str(row.get(kolon_map.get("URUN_ADI", ""), ""))
                 stok = safe_int(row.get(kolon_map.get("STOK", ""), 0))
-                stok_magaza = safe_int(row.get(kolon_map.get("STOK_MAGAZA", ""), 0))
                 satis = safe_int(row.get(kolon_map.get("SATIS", ""), 0))
-                satis_magaza = safe_int(row.get(kolon_map.get("SATIS_MAGAZA", ""), 0))
 
-                upsert_firma_stok(firma, sku, urun_adi, stok, satis,
-                                  stok_magaza=stok_magaza, satis_magaza=satis_magaza)
+                if _kirilim_modu:
+                    # Satır = tek mağazanın kırılımı → TOPLA. Mağaza ADI'na göre ayır:
+                    #   stok: adı MAGAZA/TESHIR/PAZARLAMA içeren → mağaza stoku; diğerleri (Depo/Internet/Servis) → merkez stok
+                    #   satış: kanal İNTERNET/ONLINE → online satış; diğer (mağaza adı) → mağaza satışı
+                    _smgz_ad = tr_upper(safe_str(row.get(kolon_map.get("STOK_MAGAZA", ""), "")))
+                    _vmgz_ad = tr_upper(safe_str(row.get(kolon_map.get("SATIS_MAGAZA", ""), "")))
+                    _stok_mgz_mi = any(k in _smgz_ad for k in ("MAGAZA", "TESHIR", "PAZARLAMA", "SHOWROOM"))
+                    _satis_online_mi = (not _vmgz_ad or _vmgz_ad in ("0", "NAN", "GENEL")
+                                        or "INTERNET" in _vmgz_ad or "ONLINE" in _vmgz_ad
+                                        or "E-TICARET" in _vmgz_ad or "ETICARET" in _vmgz_ad)
+                    stok_ana = 0 if _stok_mgz_mi else stok
+                    stok_magaza = stok if _stok_mgz_mi else 0
+                    satis_ana = satis if _satis_online_mi else 0
+                    satis_magaza = 0 if _satis_online_mi else satis
+                else:
+                    stok_ana = stok
+                    stok_magaza = safe_int(row.get(kolon_map.get("STOK_MAGAZA", ""), 0))
+                    satis_ana = satis
+                    satis_magaza = safe_int(row.get(kolon_map.get("SATIS_MAGAZA", ""), 0))
+
+                _k = (firma, sku)
+                _o = _agg.get(_k)
+                if _o is None:
+                    _agg[_k] = {"urun_adi": urun_adi, "stok": stok_ana, "stok_magaza": stok_magaza,
+                                "satis": satis_ana, "satis_magaza": satis_magaza}
+                else:
+                    _o["stok"] += stok_ana
+                    _o["stok_magaza"] += stok_magaza
+                    _o["satis"] += satis_ana
+                    _o["satis_magaza"] += satis_magaza
+                    if urun_adi and not _o["urun_adi"]:
+                        _o["urun_adi"] = urun_adi
+            except Exception:
+                atlanan += 1
+
+        for (firma, sku), _o in _agg.items():
+            try:
+                upsert_firma_stok(firma, sku, _o["urun_adi"], _o["stok"], _o["satis"],
+                                  stok_magaza=_o["stok_magaza"], satis_magaza=_o["satis_magaza"])
                 firma_sayac[firma] = firma_sayac.get(firma, 0) + 1
                 basarili += 1
             except Exception:
@@ -486,7 +540,10 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         uyari = ""
         if atlanan_firma:
             uyari = f" | ⚠️ Tanınmayan firma(lar) atlandı: {', '.join(sorted(atlanan_firma)[:5])}"
-        return True, f"✅ {basarili} firma-SKU yüklendi ({ozet}). {atlanan} satır atlandı.{uyari}"
+        _mod_not = (" | 📊 Mağaza kırılımlı format algılandı: aynı SKU'nun satırları TOPLANDI "
+                    "(stok: mağaza/merkez ayrımı mağaza adından; satış: İnternet=online, diğerleri mağaza)."
+                    if _kirilim_modu else "")
+        return True, f"✅ {basarili} firma-SKU yüklendi ({ozet}). {atlanan} satır atlandı.{uyari}{_mod_not}"
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
 
