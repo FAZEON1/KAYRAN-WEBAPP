@@ -1450,11 +1450,15 @@ def run():
             if _b.isdigit():
                 _yil_set.add(_b)
         _yil_opts = ["Tümü"] + sorted(_yil_set, reverse=True)
-        _kf_a, _kf_b, _kf_c = st.columns(3)
+        _kf_a, _kf_b, _kf_ay, _kf_c = st.columns(4)
+        _KT_AYLAR = ["Tümü", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+                     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
         with _kf_a:
             _kt_yil = st.selectbox("Yıl", _yil_opts, key="kt_yil")
         with _kf_b:
             _kt_ceyrek = st.selectbox("Çeyrek", ["Tümü", "Q1", "Q2", "Q3", "Q4"], key="kt_ceyrek")
+        with _kf_ay:
+            _kt_ay = st.selectbox("Ay", _KT_AYLAR, key="kt_ay")
         with _kf_c:
             _kt_sira = st.selectbox("Sırala", ["Yeniden eskiye", "Eskiden yeniye"], key="kt_sira")
 
@@ -1465,8 +1469,14 @@ def run():
             except Exception:
                 return ""
 
+        def _kt_ay_of(tarih_str):
+            try:
+                return int(str(tarih_str)[5:7])
+            except Exception:
+                return 0
+
         def _kt_uygula(liste):
-            """Firma + kategori + yıl + çeyrek filtresi, ardından tarihe göre sıralama."""
+            """Firma + kategori + yıl + çeyrek + ay filtresi, ardından tarihe göre sıralama."""
             liste = _kt_firma_filtre(liste)
             if _kt_kat != "Tümü":
                 liste = [k for k in liste if tr_kucuk(k.get("kategori")) == _kt_kat]
@@ -1474,6 +1484,9 @@ def run():
                 liste = [k for k in liste if str(k.get("baslangic_tarihi") or "")[:4] == _kt_yil]
             if _kt_ceyrek != "Tümü":
                 liste = [k for k in liste if _kt_ceyrek_of(k.get("baslangic_tarihi")) == _kt_ceyrek]
+            if _kt_ay != "Tümü":
+                _ay_no = _KT_AYLAR.index(_kt_ay)
+                liste = [k for k in liste if _kt_ay_of(k.get("baslangic_tarihi")) == _ay_no]
             return sorted(liste, key=lambda k: str(k.get("baslangic_tarihi") or ""),
                           reverse=(_kt_sira == "Yeniden eskiye"))
 
