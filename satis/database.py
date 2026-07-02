@@ -146,6 +146,30 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+def _stok_uygula(hareketler, yon=1, kaynak=""):
+    """MODEL B: satış (−) / iade (+) hareketlerini MERKEZ DEPO stoğuna uygular.
+    hareketler: {sku: adet}. Hata durumunda sessiz geçer (satış kaydını asla bozmaz)."""
+    try:
+        _h = {k: yon * float(v or 0) for k, v in (hareketler or {}).items()
+              if k and float(v or 0)}
+        if not _h:
+            return
+        from kayranpm.database import stok_hareket_coklu
+        stok_hareket_coklu(_h, None)
+    except Exception:
+        pass
+
+
+def _satis_agg(rows, adet_alan="adet"):
+    agg = {}
+    for r in (rows or []):
+        sku = str(r.get("sku") or "").strip()
+        adet = _i(r.get(adet_alan))
+        if sku and adet:
+            agg[sku] = agg.get(sku, 0) + adet
+    return agg
+
+
 def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
     """Tek siparişte birden çok kalemi TEK seferde kaydeder (toplu insert).
     kalemler: [{sku, urun_adi, adet, birim_satis, birim_maliyet,
@@ -168,6 +192,7 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
         return False, "Geçerli kalem yok.", 0
     try:
         _get_client().table("satislar").insert(rows).execute()
+        _stok_uygula(_satis_agg(rows), -1, "satis")   # MODEL B: satış depodan düşer
         _temizle()
         return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.", len(rows)
     except Exception as e:
@@ -230,8 +255,19 @@ def sil_siparisler(siparis_nolar):
     try:
         cli = _get_client()
         B = 100
+        _geri = {}
         for i in range(0, len(nolar), B):
-            cli.table("satislar").delete().in_("siparis_no", nolar[i:i + B]).execute()
+            _parca = nolar[i:i + B]
+            try:  # MODEL B: silinecek satırların stok karşılığını topla
+                for _r in _rows(cli.table("satislar").select("sku,adet")
+                                .in_("siparis_no", _parca).execute()):
+                    _s = str(_r.get("sku") or "").strip()
+                    if _s:
+                        _geri[_s] = _geri.get(_s, 0) + _i(_r.get("adet"))
+            except Exception:
+                pass
+            cli.table("satislar").delete().in_("siparis_no", _parca).execute()
+        _stok_uygula(_geri, +1, "satis_sil")   # MODEL B: silinen satış depoya geri döner
         _temizle()
         return len(nolar), None
     except Exception as e:
@@ -294,23 +330,27 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     cli = _get_client()
     B = 200
     eklendi, hatali, ilk_hata = 0, 0, None
+    _ins_rows = []   # MODEL B: gerçekten eklenen satırlar (stok düşümü için)
     for i in range(0, len(rows), B):
         chunk = rows[i:i + B]
         try:
             cli.table("satislar").insert(chunk).execute()
             eklendi += len(chunk)
+            _ins_rows.extend(chunk)
         except Exception:
             # Grup patladı → satır satır dene, sorunlu satırı izole et
             for row in chunk:
                 try:
                     cli.table("satislar").insert(row).execute()
                     eklendi += 1
+                    _ins_rows.append(row)
                 except Exception as e2:
                     hatali += 1
                     if ilk_hata is None:
                         ilk_hata = f"{type(e2).__name__}: {str(e2)[:120]}"
         if ilerleme:
             ilerleme(min(i + B, len(rows)), len(rows))
+    _stok_uygula(_satis_agg(_ins_rows), -1, "satis_import")   # MODEL B
     _temizle()
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
             "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}
@@ -327,7 +367,11 @@ def guncelle_satis(satis_id, alanlar):
 
 def sil_satis(satis_id):
     try:
-        _get_client().table("satislar").delete().eq("id", satis_id).execute()
+        cli = _get_client()
+        _r = _rows(cli.table("satislar").select("sku,adet").eq("id", satis_id).execute())
+        cli.table("satislar").delete().eq("id", satis_id).execute()
+        if _r:
+            _stok_uygula(_satis_agg(_r), +1, "satis_sil")   # MODEL B
         _temizle()
         return True
     except Exception:
@@ -513,6 +557,7 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
             "iade_brut": _f(iade_brut), "iade_iskonto": _f(iade_iskonto),
             "iade_masraf": _f(iade_masraf), "iade_net": _f(iade_net),
         }).execute()
+        _stok_uygula({(sku or "").strip(): _i(iade_adet)}, +1, "iade")   # MODEL B: iade stoğa döner
         _temizle()
         return True, "✅ İade kaydedildi"
     except Exception as e:
@@ -545,12 +590,15 @@ def get_iadeler(baslangic=None, bitis=None):
 
 def sil_iade(iade_id):
     try:
-        _get_client().table("iadeler").delete().eq("id", iade_id).execute()
+        cli = _get_client()
+        _r = _rows(cli.table("iadeler").select("sku,iade_adet").eq("id", iade_id).execute())
+        cli.table("iadeler").delete().eq("id", iade_id).execute()
+        if _r:
+            _stok_uygula(_satis_agg(_r, "iade_adet"), -1, "iade_sil")   # MODEL B
         _temizle()
         return True
     except Exception:
         return False
-
 
 def guncelle_iade(iade_id, alanlar):
     try:
@@ -568,6 +616,12 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False):
     try:
         cli = _get_client()
         if temizle_once and tarih:
+            try:  # MODEL B: silinecek iadelerin stok karşılığını geri çek
+                _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet")
+                                .eq("tarih", str(tarih)[:10]).execute())
+                _stok_uygula(_satis_agg(_eski_i, "iade_adet"), -1, "iade_temizle")
+            except Exception:
+                pass
             cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
         rows, atlandi = [], 0
         for s in satirlar:
@@ -588,6 +642,7 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False):
             chunk = rows[i:i + 500]
             cli.table("iadeler").insert(chunk).execute()
             eklendi += len(chunk)
+        _stok_uygula(_satis_agg(rows[:eklendi], "iade_adet"), +1, "iade_import")   # MODEL B
         _temizle()
         return {"eklendi": eklendi, "atlandi": atlandi}
     except Exception as e:
