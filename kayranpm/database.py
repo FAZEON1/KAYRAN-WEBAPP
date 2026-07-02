@@ -1009,9 +1009,10 @@ def get_depo_stok(depo):
     return sorted(out, key=lambda x: -x["adet"])
 
 
-def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici=""):
+def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici="", sevk_tarihi="", belge_no=""):
     """Depolar arası sevk: kaynak→hedef 'adet' taşır, bizim_stok'u yeniden
-    hesaplar, kalıcı yazar, geçmişe + audit'e ekler. Döner: (ok, mesaj)."""
+    hesaplar, kalıcı yazar, geçmişe + audit'e ekler. Döner: (ok, mesaj).
+    sevk_tarihi/belge_no: sevk loguna yazılır (kolonlar yoksa otomatik atlanır)."""
     try:
         sb = get_client()
         u = _row(sb.table("urunler").select("sku, urun_adi, depo_kirilim").eq("sku", sku).execute())
@@ -1028,18 +1029,29 @@ def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici=""):
             "bizim_stok": _bizim_stok_hesapla(yeni_dk),
             "guncelleme_tarihi": get_today(),
         }).eq("sku", sku).execute()
+        _log = {
+            "sku": sku, "urun_adi": u.get("urun_adi", ""),
+            "kaynak_depo": kaynak_depo, "hedef_depo": hedef_depo,
+            "adet": int(adet), "kullanici": kullanici or "", "tarih": tr_now_str(),
+        }
         try:
-            sb.table("depo_sevk_log").insert({
-                "sku": sku, "urun_adi": u.get("urun_adi", ""),
-                "kaynak_depo": kaynak_depo, "hedef_depo": hedef_depo,
-                "adet": int(adet), "kullanici": kullanici or "", "tarih": tr_now_str(),
-            }).execute()
+            _log2 = dict(_log)
+            if str(sevk_tarihi or "").strip():
+                _log2["sevk_tarihi"] = str(sevk_tarihi)[:10]
+            if str(belge_no or "").strip():
+                _log2["belge_no"] = str(belge_no).strip()[:60]
+            try:
+                sb.table("depo_sevk_log").insert(_log2).execute()
+            except Exception:
+                # sevk_tarihi/belge_no kolonları tabloda yoksa temel logla devam et
+                sb.table("depo_sevk_log").insert(_log).execute()
         except Exception:
             pass
         try:
             from shared.audit import log_yaz
+            _ek = (f" · belge:{belge_no}" if str(belge_no or "").strip() else "")
             log_yaz("depo_sevk", "urunler", sku,
-                    f"{adet} adet {kaynak_depo} → {hedef_depo}", "kayranpm")
+                    f"{adet} adet {kaynak_depo} → {hedef_depo}{_ek}", "kayranpm")
         except Exception:
             pass
         _cache_temizle()
