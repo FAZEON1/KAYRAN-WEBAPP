@@ -281,6 +281,92 @@ def odeme_sil(odeme_id):
     _cache_temizle()
 
 
+def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
+    """KISMİ ödeme: ödenen kısım için 'odendi' durumunda YENİ bir kayıt açılır,
+    orijinal kayıttan bu tutar düşülür (kalan bekliyor olarak devam eder).
+    Kısmi tutar mevcudu karşılıyorsa kayıt komple 'odendi' yapılır.
+    Banka seçildiyse ödenen kısım bankadan düşülür. Döner (ok, mesaj)."""
+    sb = get_client()
+    try:
+        res = sb.table("odemeler").select("*").eq("id", odeme_id).execute()
+        if not res.data:
+            return False, "Ödeme bulunamadı."
+        o = res.data[0]
+    except Exception as e:
+        return False, f"Okunamadı: {e}"
+    mev_tl = float(o.get("tutar_tl") or 0)
+    mev_usd = float(o.get("tutar_usd") or 0)
+    kismi_tl = max(0.0, min(float(kismi_tl or 0), mev_tl))
+    kismi_usd = max(0.0, min(float(kismi_usd or 0), mev_usd))
+    if kismi_tl <= 0 and kismi_usd <= 0:
+        return False, "Kısmi tutar girilmedi."
+    kalan_tl = round(mev_tl - kismi_tl, 2)
+    kalan_usd = round(mev_usd - kismi_usd, 2)
+
+    # Tamamı ödeniyorsa → normal 'odendi' akışı (banka düşümü orada yapılır)
+    if kalan_tl <= 0.005 and kalan_usd <= 0.005:
+        odeme_durum_guncelle(odeme_id, "odendi", banka_id, kur)
+        return True, "Tutarın tamamı girildi — kayıt ödendi olarak işaretlendi."
+
+    # 1) Ödenen kısım için yeni 'odendi' kaydı
+    yeni = {
+        "hafta_id": o.get("hafta_id"),
+        "firma": o.get("firma") or "",
+        "aciklama": ((o.get("aciklama") or "").strip() + " · 💸 kısmi ödeme").strip(" ·"),
+        "cari_banka": o.get("cari_banka") or "",
+        "vade": o.get("vade"),
+        "tutar_tl": (kismi_tl if kismi_tl > 0 else None),
+        "tutar_usd": (kismi_usd if kismi_usd > 0 else None),
+        "kategori": o.get("kategori") or "diger",
+        "manuel": int(o.get("manuel") or 0),
+        "durum": "odendi",
+        "odendi_tarih": tr_today_iso(),
+    }
+    try:
+        ins = sb.table("odemeler").insert(yeni).execute()
+        yeni_id = (ins.data or [{}])[0].get("id")
+    except Exception as e:
+        return False, f"Kısmi kayıt açılamadı: {e}"
+    if banka_id and yeni_id:
+        try:
+            sb.table("odemeler").update({"banka_id": banka_id}).eq("id", yeni_id).execute()
+        except Exception:
+            pass
+
+    # 2) Orijinal kayıttan düş (kalan bekliyor)
+    try:
+        sb.table("odemeler").update({
+            "tutar_tl": (kalan_tl if kalan_tl > 0 else None),
+            "tutar_usd": (kalan_usd if kalan_usd > 0 else None),
+        }).eq("id", odeme_id).execute()
+    except Exception as e:
+        return False, f"Kalan güncellenemedi: {e}"
+
+    # 3) Banka bakiyesinden ödenen kısmı düş
+    if banka_id:
+        try:
+            kur_val = float(kur) if kur and float(kur) > 0 else 1.0
+            br = sb.table("bankalar").select("*").eq("id", banka_id).execute()
+            if br.data:
+                banka = br.data[0]
+                yeni_bakiye = float(banka["bakiye"])
+                if banka["para_birimi"] == "TL":
+                    yeni_bakiye -= kismi_tl + (kismi_usd * kur_val)
+                elif banka["para_birimi"] == "USD":
+                    yeni_bakiye -= kismi_usd + (kismi_tl / kur_val)
+                else:
+                    yeni_bakiye -= kismi_tl
+                sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+        except Exception:
+            pass
+    _cache_temizle()
+    _p = " + ".join(([f"₺{kismi_tl:,.2f}"] if kismi_tl > 0 else [])
+                    + ([f"${kismi_usd:,.2f}"] if kismi_usd > 0 else []))
+    _k = " + ".join(([f"₺{kalan_tl:,.2f}"] if kalan_tl > 0 else [])
+                    + ([f"${kalan_usd:,.2f}"] if kalan_usd > 0 else []))
+    return True, f"💸 {_p} ödendi · kalan {_k} bekliyor."
+
+
 def odeme_vade_guncelle(odeme_id, yeni_vade):
     """Sadece vadeyi günceller. Erteleme tracking app.py'de session_state ile yapılır."""
     sb = get_client()

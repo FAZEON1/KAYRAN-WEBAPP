@@ -22,7 +22,7 @@ from .database import (
     initialize_db, get_tum_haftalar, get_aktif_hafta,
     hafta_ekle, hafta_aktif_yap, hafta_sil,
     get_hafta_odemeler, odeme_ekle_bulk, odeme_ekle_manuel,
-        odeme_durum_guncelle, odeme_sil, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle, get_hafta_ozet,
+        odeme_durum_guncelle, odeme_sil, odeme_kismi_ode, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle, get_hafta_ozet,
     get_bankalar, banka_ekle, banka_guncelle, banka_sil,
     get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi,
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
@@ -1747,6 +1747,7 @@ def run():
                         else:
                             tutar_disp = '<b style="color:#64748B;font-size:13px">—</b>'
                         st.markdown(tutar_disp, unsafe_allow_html=True)
+                        sil_key = f"sil_onay_{o['id']}"
                         if not is_odendi:
                             c4b, c4c = st.columns(2)
                             with c4b:
@@ -1760,16 +1761,28 @@ def run():
                                         st.session_state[edit_key] = True
                                         st.rerun()
                             with c4c:
-                                sil_key = f"sil_onay_{o['id']}"
                                 if st.session_state.get(sil_key, False):
-                                    if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True):
+                                    if st.button("❗ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
+                                                 help="Kaydı kalıcı siler"):
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
                                         st.rerun()
-                        else:
-                                    if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
+                                else:
+                                    if st.button("🗑 Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
                                         st.session_state[sil_key] = True
                                         st.rerun()
+                        else:
+                            # Ödenmiş kayıt için de silme (iki adımlı onay)
+                            if st.session_state.get(sil_key, False):
+                                if st.button("❗ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
+                                             help="Ödenmiş kaydı kalıcı siler (banka bakiyesi geri YÜKLENMEZ)"):
+                                    odeme_sil(o["id"])
+                                    st.session_state[sil_key] = False
+                                    st.rerun()
+                            else:
+                                if st.button("🗑 Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
+                                    st.session_state[sil_key] = True
+                                    st.rerun()
                     
                     with col5:
                         if is_odendi:
@@ -1785,10 +1798,56 @@ def run():
                             banka_options = {"— Seçiniz —": None} | banka_options
                             sec_banka = st.selectbox("Banka Seç", list(banka_options.keys()),
                                                      key=f"banka_{o['id']}", label_visibility="collapsed")
-                            if st.button(f"✅ Ödendi", key=f"od_{o['id']}", type="primary"):
-                                banka_id = banka_options.get(sec_banka)
-                                odeme_durum_guncelle(o["id"], "odendi", banka_id, kur)
-                                st.rerun()
+                            c5a, c5b = st.columns([1.3, 1])
+                            with c5a:
+                                if st.button(f"✅ Ödendi", key=f"od_{o['id']}", type="primary", use_container_width=True):
+                                    banka_id = banka_options.get(sec_banka)
+                                    odeme_durum_guncelle(o["id"], "odendi", banka_id, kur)
+                                    st.rerun()
+                            with c5b:
+                                _kk = f"kismi_toggle_{o['id']}"
+                                if st.button("💸 Kısmi", key=f"kismi_btn_{o['id']}", use_container_width=True,
+                                             help="Tutarın bir kısmını öde — kalan bekliyor olarak devam eder"):
+                                    st.session_state[_kk] = not st.session_state.get(_kk, False)
+                                    st.rerun()
+
+                    # ─── 💸 KISMİ ÖDEME paneli (bekleyenler için) ───
+                    if not is_odendi and st.session_state.get(f"kismi_toggle_{o['id']}", False):
+                        st.markdown(
+                            '<div style="background:#0A2D1E;border:1px solid #34D399;'
+                            'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
+                            '<b style="color:#6EE7B7;font-size:12px">💸 Kısmi Ödeme — ödenen kısım ayrı '
+                            '"ödendi" kaydı olur, kalan bekler</b>',
+                            unsafe_allow_html=True)
+                        kp1, kp2, kp3 = st.columns([2, 2, 1.3])
+                        _mev_tl = float(o.get("tutar_tl") or 0)
+                        _mev_usd = float(o.get("tutar_usd") or 0)
+                        _ks_tl = kp1.number_input(f"Ödenen TL (mevcut ₺{fmt(_mev_tl)})",
+                                                  min_value=0.0, max_value=max(0.0, _mev_tl),
+                                                  value=0.0, step=100.0, format="%.2f",
+                                                  key=f"kismi_tl_{o['id']}",
+                                                  disabled=_mev_tl <= 0)
+                        _ks_usd = kp2.number_input(f"Ödenen USD (mevcut ${fmt(_mev_usd)})",
+                                                   min_value=0.0, max_value=max(0.0, _mev_usd),
+                                                   value=0.0, step=100.0, format="%.2f",
+                                                   key=f"kismi_usd_{o['id']}",
+                                                   disabled=_mev_usd <= 0)
+                        with kp3:
+                            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+                            if st.button("💸 Kısmi Öde", key=f"kismi_kaydet_{o['id']}", type="primary",
+                                         use_container_width=True, disabled=(_ks_tl <= 0 and _ks_usd <= 0)):
+                                _bid = ({f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
+                                        .get(st.session_state.get(f"banka_{o['id']}", ""), None))
+                                _ok_k, _msg_k = odeme_kismi_ode(o["id"], _ks_tl, _ks_usd, _bid, kur)
+                                if _ok_k:
+                                    st.session_state[f"kismi_toggle_{o['id']}"] = False
+                                    st.success(_msg_k)
+                                    st.rerun()
+                                else:
+                                    st.error(_msg_k)
+                        st.caption("Banka düşümü için yukarıdaki **Banka Seç** kutusundan banka seç "
+                                   "(seçmezsen bakiye düşülmez). Girilen tutar mevcut tutarı aşamaz.")
+                        st.markdown('</div>', unsafe_allow_html=True)
     
                     # ─── Tutar + Kategori Revize Etme (sadece bekleyenler için) ───
                     if not is_odendi and st.session_state.get(f"edit_tutar_toggle_{o['id']}", False):
