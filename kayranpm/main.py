@@ -2212,12 +2212,13 @@ def run():
                             fd = ku.get("birim_firma_destek") or 0
                             ed = ku.get("birim_ek_destek") or 0
                             satilan = ku.get("satilan_adet") or 0
-                            # SEÇENEK A: Firma desteği BİZİM maliyetimiz değildir (firmanın katkısı).
-                            # Net kâr ve toplam destek yalnızca EK DESTEK üzerinden hesaplanır;
-                            # Firma Destek kolonu bilgi amaçlı gösterilmeye devam eder.
-                            toplam_destek_birim = ed
-                            net_kar_birim = (satis - pacal) - toplam_destek_birim if satis > 0 and pacal > 0 else 0
-                            net_marj = (net_kar_birim / satis * 100) if satis > 0 else 0
+                            # YÖNTEM: destekler satış fiyatından düşülür → NET SATIŞ.
+                            # Net Kâr/Adet = (satış − destekler) − paçal
+                            # Net Marj     = Net Kâr / (satış − destekler)   [örn. 1 − 5,10/(12−3) = %43,3]
+                            toplam_destek_birim = fd + ed
+                            net_satis_birim = satis - toplam_destek_birim
+                            net_kar_birim = net_satis_birim - pacal if satis > 0 and pacal > 0 else 0
+                            net_marj = (net_kar_birim / net_satis_birim * 100) if net_satis_birim > 0 else 0
                             toplam_destek_urun = toplam_destek_birim * satilan
                             toplam_net_urun = net_kar_birim * satilan
     
