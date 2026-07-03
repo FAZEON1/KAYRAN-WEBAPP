@@ -72,7 +72,8 @@ def _sayfa_stok():
     _di_depo = st.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
     _di_urunler = get_depo_stok(_di_depo) if _di_depo else []
     if _di_urunler:
-        _df = pd.DataFrame([{"SKU": u["sku"], "Ürün": u["urun_adi"], "Adet": u["adet"]}
+        from shared.utils import tr_buyuk as _tb
+        _df = pd.DataFrame([{"SKU": _tb(u["sku"]), "Ürün": _tb(u["urun_adi"]), "Adet": u["adet"]}
                            for u in _di_urunler])
         st.caption(f"{len(_di_urunler)} çeşit · {sum(u['adet'] for u in _di_urunler):,} adet")
         st.dataframe(_df, use_container_width=True, hide_index=True)
@@ -112,7 +113,8 @@ def _sayfa_sevk():
         st.info("Bu depoda stoklu ürün yok.")
 
     if _kaynak_urunler:
-        _urun_opts = {f'{u["sku"]} — {(u["urun_adi"] or "")[:30]} ({u["adet"]} adet)': u
+        from shared.utils import tr_buyuk as _tb
+        _urun_opts = {f'{_tb(u["sku"])} — {_tb((u["urun_adi"] or "")[:30])} ({u["adet"]} adet)': u
                       for u in _kaynak_urunler}
         ec1, ec2, ec3 = st.columns([2.4, 1, 1])
         _sec_lbl = ec1.selectbox(f"Ürün ({len(_kaynak_urunler)} stoklu)",
@@ -331,7 +333,8 @@ def _sayfa_sku():
     except Exception:
         _mods = []
     if _mods:
-        _opts = ["— SKU seç —"] + [(f"{s} — {a[:40]}" if a else s) for s, a in _mods]
+        from shared.utils import tr_buyuk as _tb
+        _opts = ["— SKU seç —"] + [(f"{_tb(s)} — {_tb(a[:40])}" if a else _tb(s)) for s, a in _mods]
         _sec = st.selectbox(f"SKU ({len(_mods)} model · ithalattan · yazarak ara)",
                             _opts, key="sh_sku_sec")
         _sh_sku = "" if _sec == _opts[0] else _sec.split(" — ")[0].strip()
