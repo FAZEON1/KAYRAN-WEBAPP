@@ -59,6 +59,32 @@ def firma_gorunen_ad(kod) -> str:
     return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
 
 
+def tr_baslik(s) -> str:
+    """'Her Kelime Baş Harfi Büyük' (Title Case), Türkçe karakterleri koruyarak.
+    Marka/model kısaltmalarını bozmamak için standart büyük/küçük kullanılır
+    (I→I, i→i korunur; yalnızca İ/ı gibi Türkçe'ye özgü noktalı harfler doğru eşlenir).
+    'MIO MIVUE 802' → 'Mio Mivue 802', 'FAZEON SOĞUTUCU' → 'Fazeon Soğutucu',
+    'AGI 1TB SSD' → 'Agi 1TB SSD' (tamamı büyük kısa kelimeler korunur)."""
+    def _kelime(w):
+        if not w:
+            return w
+        # Rakam İÇEREN model kodları (935W, C595WD, 1TB, X24) olduğu gibi korunur
+        if any(c.isdigit() for c in w):
+            return w
+        # İlk harf büyük (İ/ı doğru), kalanı küçük (marka bozulmasın diye I→ı yapılmaz)
+        ilk = w[0]
+        if ilk == "i":
+            ilk = "İ"
+        elif ilk == "ı":
+            ilk = "I"
+        else:
+            ilk = ilk.upper()
+        kalan = w[1:].lower().replace("i̇", "i")
+        return ilk + kalan
+    s = str(s or "").strip()
+    return " ".join(_kelime(w) for w in s.split(" "))
+
+
 def tr_kucuk(s) -> str:
     """Türkçe-doğru küçük harf çevrimi. İ→i, I→ı yapıp küçültür; Türkçe karakter KORUNUR.
     Serbest metinleri (kategori vb.) tek biçime indirger:
