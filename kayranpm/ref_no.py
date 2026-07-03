@@ -385,6 +385,7 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
         c_doviz = _bul("döviz", "doviz", "para", "currency", "kur")
         c_ay = _bul("ay")
         c_yil = _bul("yıl", "yil")
+        c_kat = _bul("kategori", "kategorı")
         if not c_ref:
             return False, "REF NUMARASI sütunu bulunamadı.", 0
         mevcut_map = {str(r.get("ref_no", "")).strip(): r for r in get_refler(firma_id)}
@@ -421,12 +422,15 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
             o = _agg.get(ref)
             if o is None:
                 o = {"sira": sira or 0, "yil": yil, "ack": [], "tutar": 0.0, "doviz": doviz,
-                     "aylik": {}}
+                     "aylik": {}, "kat": []}
                 _agg[ref] = o
             o["tutar"] += tutar
             if _yln and _ayn and tutar:
                 _ak = f"{_yln}-{_ayn:02d}"
                 o["aylik"][_ak] = o["aylik"].get(_ak, 0.0) + tutar
+            _katv = (str(r.get(c_kat) or "").strip() if c_kat is not None else "")
+            if _katv and _katv.lower() != "nan" and _katv not in o["kat"]:
+                o["kat"].append(_katv)
             if ack and ack not in o["ack"]:
                 o["ack"].append(ack)
 
@@ -434,6 +438,7 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
         eklenen = guncellenen = atlanan = hatali = 0
         for ref, o in _agg.items():
             _ack = " · ".join(o["ack"])[:500]
+            _kat_str = " · ".join(o.get("kat") or [])[:200]
             if ref in mevcut_map:
                 if guncelle_mevcut:
                     _upd = {"tutar": o["tutar"], "doviz": o["doviz"], "yil": o["yil"]}
@@ -441,16 +446,21 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
                         _upd["aciklama"] = _ack
                     if o.get("aylik"):
                         _upd["aylik"] = o["aylik"]
-                    try:
-                        sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
-                        guncellenen += 1
-                    except Exception:
-                        _upd.pop("aylik", None)  # aylik kolonu yoksa onsuz dene
+                    if _kat_str:
+                        _upd["kategori"] = _kat_str
+                    _yazildi = False
+                    for _drop in (None, "aylik", "kategori"):
+                        if _drop:
+                            _upd.pop(_drop, None)  # kolon yoksa onsuz dene
                         try:
                             sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
                             guncellenen += 1
+                            _yazildi = True
+                            break
                         except Exception:
-                            hatali += 1
+                            continue
+                    if not _yazildi:
+                        hatali += 1
                 else:
                     atlanan += 1
                 continue
@@ -461,16 +471,21 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
             }
             if o.get("aylik"):
                 _ins["aylik"] = o["aylik"]
-            try:
-                sb.table("ref_kayitlari").insert(_ins).execute()
-                eklenen += 1
-            except Exception:
-                _ins.pop("aylik", None)  # aylik kolonu yoksa onsuz dene
+            if _kat_str:
+                _ins["kategori"] = _kat_str
+            _yazildi = False
+            for _drop in (None, "aylik", "kategori"):
+                if _drop:
+                    _ins.pop(_drop, None)  # kolon yoksa onsuz dene
                 try:
                     sb.table("ref_kayitlari").insert(_ins).execute()
                     eklenen += 1
+                    _yazildi = True
+                    break
                 except Exception:
-                    hatali += 1
+                    continue
+            if not _yazildi:
+                hatali += 1
         _cache_temizle()
         _msg = f"✅ {eklenen} yeni ref eklendi"
         if guncelle_mevcut:
@@ -683,19 +698,40 @@ def _render_tumu(firmalar):
         {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
         {"label": "💰 Toplam Tutar", "value": _tutar_ozet(_hepsi), "renk": "#A78BFA"},
     ])
-    _c1, _c2 = st.columns([1, 2])
-    durum_f = _c1.selectbox("Durum filtresi", ["Tümü"] + DURUMLAR,
-                            format_func=lambda d: DURUM_ETIKET.get(d, d) if d != "Tümü" else d,
-                            key="ref_tumu_durum")
-    ara = _c2.text_input("🔍 Ara — Firma · Ref No · Açıklama · Tutar", key="ref_tumu_ara")
+    _tf1, _tf2, _tf3, _tf4, _tf5 = st.columns(5)
+    _t_firmalar = sorted({(r.get("_firma") or "").strip() for r in _hepsi if (r.get("_firma") or "").strip()})
+    firma_f = _tf1.selectbox("Firma", ["Tümü"] + _t_firmalar, key="ref_tumu_firma")
+    durum_f = _tf2.selectbox("Durum", ["Tümü"] + DURUMLAR,
+                             format_func=lambda d: DURUM_ETIKET.get(d, d) if d != "Tümü" else d,
+                             key="ref_tumu_durum")
+    _t_katlar = sorted({p.strip() for r in _hepsi
+                        for p in str(r.get("kategori") or "").split("·") if p.strip()})
+    kat_f = _tf3.selectbox("Kategori", ["Tümü"] + _t_katlar, key="ref_tumu_kat")
+    _t_yillar = sorted({p.strip() for r in _hepsi
+                        for p in _aylik_ozet(r)[1].split("·") if p.strip() and p.strip() != "—"})
+    yil_f = _tf4.selectbox("Yıl", ["Tümü"] + _t_yillar, key="ref_tumu_yil")
+    _t_ayset = {p.strip() for r in _hepsi
+                for p in _aylik_ozet(r)[0].split("·") if p.strip() and p.strip() != "—"}
+    ay_f = _tf5.selectbox("Ay", ["Tümü"] + [a for a in _AY_AD.values() if a in _t_ayset],
+                          key="ref_tumu_ay")
+    ara = st.text_input("🔍 Ara — Firma · Ref No · Açıklama · Kategori · Tutar", key="ref_tumu_ara")
     _aral = _trl(ara)
 
     def _uy(r):
+        if firma_f != "Tümü" and (r.get("_firma") or "").strip() != firma_f:
+            return False
         if durum_f != "Tümü" and r.get("durum") != durum_f:
+            return False
+        if kat_f != "Tümü" and kat_f not in str(r.get("kategori") or ""):
+            return False
+        _ays, _yls = _aylik_ozet(r)
+        if yil_f != "Tümü" and yil_f not in _yls:
+            return False
+        if ay_f != "Tümü" and ay_f not in _ays:
             return False
         if _aral:
             blob = _trl(f"{r.get('_firma','')} {r.get('ref_no','')} {r.get('aciklama','')} "
-                        f"{r.get('tutar','')} {r.get('doviz','')} {r.get('yil','')}")
+                        f"{r.get('kategori','')} {r.get('tutar','')} {r.get('doviz','')} {r.get('yil','')}")
             if _aral not in blob:
                 return False
         return True
@@ -709,6 +745,7 @@ def _render_tumu(firmalar):
         "Durum": DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "")),
         "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz", "") or "USD"),
+        "Kategori": (r.get("kategori") or "") or "—",
         "Ay": _aylik_ozet(r)[0],
         "Yıl": _aylik_ozet(r)[1],
     } for r in goster]), hide_index=True, use_container_width=True, height=460)
@@ -789,19 +826,42 @@ def _render_refler(fid, fkod):
         st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'den içe aktarabilirsiniz.")
         return
 
-    f_durum = st.selectbox("Durum filtresi", ["Tümü"] + DURUMLAR,
-                           format_func=lambda d: ("Tümü" if d == "Tümü" else DURUM_ETIKET[d]),
-                           key=f"ref_durum_f_{fid}")
-    goster = refler if f_durum == "Tümü" else [r for r in refler if r.get("durum") == f_durum]
+    _ff1, _ff2, _ff3, _ff4 = st.columns(4)
+    f_durum = _ff1.selectbox("Durum filtresi", ["Tümü"] + DURUMLAR,
+                             format_func=lambda d: ("Tümü" if d == "Tümü" else DURUM_ETIKET[d]),
+                             key=f"ref_durum_f_{fid}")
+    _katlar = sorted({p.strip() for r in refler
+                      for p in str(r.get("kategori") or "").split("·") if p.strip()})
+    f_kat = _ff2.selectbox("Kategori", ["Tümü"] + _katlar, key=f"ref_kat_f_{fid}")
+    _yillar = sorted({p.strip() for r in refler
+                      for p in _aylik_ozet(r)[1].split("·") if p.strip() and p.strip() != "—"})
+    f_yil = _ff3.selectbox("Yıl", ["Tümü"] + _yillar, key=f"ref_yil_f_{fid}")
+    _ay_set = {p.strip() for r in refler
+               for p in _aylik_ozet(r)[0].split("·") if p.strip() and p.strip() != "—"}
+    _aylar_sirali = [a for a in _AY_AD.values() if a in _ay_set]
+    f_ay = _ff4.selectbox("Ay", ["Tümü"] + _aylar_sirali, key=f"ref_ay_f_{fid}")
+
+    def _ref_uygun(r):
+        if f_durum != "Tümü" and r.get("durum") != f_durum:
+            return False
+        if f_kat != "Tümü" and f_kat not in str(r.get("kategori") or ""):
+            return False
+        _ays, _yls = _aylik_ozet(r)
+        if f_yil != "Tümü" and f_yil not in _yls:
+            return False
+        if f_ay != "Tümü" and f_ay not in _ays:
+            return False
+        return True
+    goster = [r for r in refler if _ref_uygun(r)]
     st.caption(f"{len(goster)} / {len(refler)} kayıt gösteriliyor")
 
     df_ed = pd.DataFrame([{
         "id": r["id"], "Sil?": False, "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz") or "USD"),
+        "Kategori": (r.get("kategori") or "") or "—",
         "Ay": _aylik_ozet(r)[0], "Yıl": _aylik_ozet(r)[1],
         "Durum": r.get("durum", "beklemede") or "beklemede",
-        "Tarih": pd.to_datetime(r.get("tarih"), errors="coerce"),
     } for r in goster])
 
     edited = st.data_editor(
@@ -816,13 +876,15 @@ def _render_refler(fid, fkod):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
+            "Kategori": st.column_config.TextColumn("Kategori", disabled=True,
+                                                    help="Excel'deki KATEGORİ kolonundan gelir; aynı ref'te birden "
+                                                         "çok kategori varsa birlikte görünür."),
             "Ay": st.column_config.TextColumn("Ay", disabled=True,
                                               help="Excel'deki AY/YIL kolonlarından gelir; birden çok aya "
                                                    "yayılan ref'lerde aylar birlikte görünür. Değiştirmek için "
                                                    "Excel'i 'Mevcut ref'leri de güncelle' ile yeniden yükle."),
             "Yıl": st.column_config.TextColumn("Yıl", disabled=True, width="small"),
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
-            "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
         },
     )
     if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}"):
@@ -837,12 +899,10 @@ def _render_refler(fid, fkod):
             o = orijinal.get(rid, {})
             n_ack = str(row.get("Açıklama", "") or "")
             n_dur = str(row.get("Durum", "beklemede"))
-            _tt = row.get("Tarih")
-            n_tar = (_tt.strftime("%Y-%m-%d") if (pd.notna(_tt) and hasattr(_tt, "strftime")) else None)
+            n_tar = (str(o.get("tarih") or "")[:10] or None)  # Tarih kolonu kaldırıldı; mevcut değer korunur
             n_tutar = _f(row.get("Tutar"))
             n_doviz = str(row.get("Döviz", "USD") or "USD")
             if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
-                    (n_tar or "") != (str(o.get("tarih") or "")[:10]) or
                     n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD")):
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
