@@ -827,7 +827,8 @@ def run():
                     ]) + '</div>', unsafe_allow_html=True)
                 st.caption("🏷️ Ref No destekleri firma/dönem bazlıdır (Ürün Yön. → Ref No Takibi); "
                            "TL olanlar güncel kurla USD'ye çevrildi. Net kârdan düşülür — Yönetim Panosu ile aynı "
-                           "kaynak. Not: tarihsiz ref'ler yalnızca **yıllık** dönemde sayılır.")
+                           "kaynak. Not: AY+YIL girilmiş ref'ler ilgili aya düşer; yalnız yıl girilenler "
+                           "yıllık/çeyreklik dönemde sayılır.")
             if _itop["i_adet"] > 0:
                 st.markdown(
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
