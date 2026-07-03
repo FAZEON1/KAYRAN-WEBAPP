@@ -16,6 +16,46 @@ from .database import (
 )
 
 
+# İçerik durumu / Eksik içerik için seçilebilir standart seçenekler (madde 4-5).
+# Kullanıcı bunlardan seçebilir + serbestçe yenisini yazabilir (multiselect accept_new_options).
+ICERIK_SECENEKLER = [
+    "Tam / eksiksiz", "Kutulu", "Kutusuz", "Adaptör", "Güç kablosu", "HDMI kablo",
+    "DisplayPort kablo", "USB kablo", "Ayak / Stand", "Vida / Montaj aparatı",
+    "Kumanda", "Kullanım kılavuzu", "Fatura / İrsaliye", "Poşet / Köpük",
+]
+EKSIK_ICERIK_SECENEKLER = [
+    "Adaptör yok", "Güç kablosu yok", "HDMI kablo yok", "DisplayPort kablo yok",
+    "USB kablo yok", "Ayak / Stand yok", "Vida / Montaj aparatı yok", "Kumanda yok",
+    "Kutu yok", "Kullanım kılavuzu yok", "Poşet / Köpük yok", "Aksesuar eksik",
+]
+
+
+def _coklu_deger(kayit_deger):
+    """DB'deki ' · ' ile ayrılmış metni multiselect default listesine çevirir."""
+    s = str(kayit_deger or "").strip()
+    if not s:
+        return []
+    return [p.strip() for p in s.split("·") if p.strip()]
+
+
+def _icerik_multiselect(st_col, etiket, secenekler, kayit_deger, key):
+    """Seçilebilir + serbest metin girilebilir içerik alanı. ' · ' ile birleşik string döner."""
+    _mevcut = _coklu_deger(kayit_deger)
+    _opts = list(dict.fromkeys(secenekler + _mevcut))  # mevcut özel değerler de listede görünsün
+    try:
+        _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key,
+                                  accept_new_options=True,
+                                  help="Listeden seç ya da yaz + Enter ile yeni ekle.")
+    except TypeError:
+        # Eski Streamlit: accept_new_options yoksa serbest metni ayrı kutudan al
+        _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key)
+        _ek = st_col.text_input(f"{etiket} — listede yoksa yaz", key=f"{key}_yeni",
+                                placeholder="virgülle birden çok: hdmi, adaptör")
+        if _ek.strip():
+            _sec = list(_sec) + [x.strip() for x in _ek.split(",") if x.strip()]
+    return " · ".join(dict.fromkeys(_sec))
+
+
 # ── Başlık yardımcıları (portal teması) ──────────────────────────────
 def _baslik(ikon, ad, alt):
     st.markdown(
@@ -415,6 +455,8 @@ def _kontrol_paneli(kayit):
         _satir("Ürün Grubu", _g(kayit, "urun_grubu"))
         _satir("EAN", _g(kayit, "ean"))
         _satir("İçerik Durumu", _g(kayit, "icerik_durumu"))
+        if (_g(kayit, "eksik_icerik") or "").strip():
+            _satir("⚠️ Eksik İçerik", _g(kayit, "eksik_icerik"))
         _satir("Fiziksel Durum", _g(kayit, "fiziksel_durum"))
 
         _alt_baslik("Arıza / İşlem")
@@ -531,16 +573,22 @@ def _kontrol_paneli(kayit):
 
             st.markdown('<div style="color:#64748B;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:6px 0 2px">Ön Kontrol Bilgileri (güncellenebilir)</div>', unsafe_allow_html=True)
             k1, k2 = st.columns(2)
-            d_icerik = k1.text_input("İçerik Durumu", value=kayit.get("icerik_durumu", "") or "",
-                                     key=f"ts_ic_{kid}", placeholder="tam / eksik — (hdmi, dp, adaptör...)")
+            d_icerik = _icerik_multiselect(
+                k1, "İçerik Durumu", ICERIK_SECENEKLER,
+                kayit.get("icerik_durumu", ""), key=f"ts_ic_{kid}")
             d_fiziksel = k2.text_input("Fiziksel Durum", value=kayit.get("fiziksel_durum", "") or "",
                                        key=f"ts_fz_{kid}", placeholder="hasarsız / çizik / tozlu")
+            # Eksik İçerik — YALNIZ durum güncelle ekranında görünür (madde 5)
+            d_eksik = _icerik_multiselect(
+                st, "⚠️ Eksik İçerik", EKSIK_ICERIK_SECENEKLER,
+                kayit.get("eksik_icerik", ""), key=f"ts_eksik_{kid}")
             d_detay = st.text_area("Detay / Not", value=kayit.get("detay", "") or "",
                                    key=f"ts_dt_{kid}", height=68)
 
             if st.form_submit_button("💾 Durumu Güncelle", type="primary", use_container_width=True):
                 ekstra = {
                     "icerik_durumu": d_icerik.strip(),
+                    "eksik_icerik": d_eksik.strip(),
                     "fiziksel_durum": d_fiziksel.strip(),
                     "detay": d_detay.strip(),
                 }
