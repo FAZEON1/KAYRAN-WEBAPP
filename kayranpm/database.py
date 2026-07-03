@@ -288,6 +288,10 @@ def set_uretim_suresi(gun):
 def get_all_dashboard_data():
     sb = get_client()
     urunler = _rows(sb.table("urunler").select("*").order("urun_adi").execute())
+    from shared.utils import tr_buyuk as _tb_ad
+    for _u in urunler:
+        if _u.get("urun_adi"):
+            _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
     firma_listesi = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
     firma_data = {}
     for firma in firma_listesi:
@@ -331,7 +335,11 @@ def get_all_dashboard_data():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_urun_detay(sku):
-    return _row(get_client().table("urunler").select("*").eq("sku", sku).execute())
+    _u = _row(get_client().table("urunler").select("*").eq("sku", sku).execute())
+    if _u and _u.get("urun_adi"):
+        from shared.utils import tr_buyuk as _tb_ad
+        _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: BÜYÜK harf
+    return _u
 
 def sil_urun(sku):
     sb = get_client()
@@ -342,7 +350,12 @@ def sil_urun(sku):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_sku_listesi():
-    return _rows(get_client().table("urunler").select("sku, urun_adi").order("sku").execute())
+    _rws = _rows(get_client().table("urunler").select("sku, urun_adi").order("sku").execute())
+    from shared.utils import tr_buyuk as _tb_ad
+    for _r in _rws:
+        if _r.get("urun_adi"):
+            _r["urun_adi"] = _tb_ad(_r["urun_adi"])
+    return _rws
 
 
 # ── İTHALAT SENKRONİZASYONU ─────────────────────────────────────────
