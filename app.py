@@ -2285,39 +2285,28 @@ def main():
             st.session_state["_sidebar_kaydir"] = True
         st.session_state["_nav_onceki"] = aktif
 
-    # Yetki kontrolü
+    # Yetki kontrolü — yetkisizse anasayfaya DÖN + rerun (üst menü kaybolmasın)
+    def _yetki_reddi(_mesaj):
+        st.session_state["_yetki_uyari"] = _mesaj
+        st.session_state.aktif_uygulama = "anasayfa"
+        st.rerun()
+
     if aktif == "yonetim" and (st.session_state.get("aktif_kullanici", "") or "").strip().lower() not in YONETIM_KULLANICILAR:
-        st.error("🔒 Yönetim Panosu'na erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Yönetim Panosu'na erişim yetkiniz yok.")
     if aktif == "hesap_makinesi" and not yetkiler["hesap_makinesi"]:
-        st.error("🔒 Hesap Makinesi uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Hesap Makinesi uygulamasına erişim yetkiniz yok.")
     if aktif == "kayranacc" and not yetkiler["kayranacc"]:
-        st.error("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
     if aktif == "kayranpm" and not yetkiler["kayranpm"]:
-        st.error("🔒 Ürün Yönetimi uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Ürün Yönetimi uygulamasına erişim yetkiniz yok.")
     if aktif == "depo" and not yetkiler["depo"]:
-        st.error("🔒 Depo Yönetimi uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Depo Yönetimi uygulamasına erişim yetkiniz yok.")
     if aktif == "ithalat" and not yetkiler["ithalat"]:
-        st.error("🔒 İthalat uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 İthalat uygulamasına erişim yetkiniz yok.")
     if aktif == "teknikservis" and not yetkiler["teknikservis"]:
-        st.error("🔒 Teknik Servis uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Teknik Servis uygulamasına erişim yetkiniz yok.")
     if aktif == "satis" and not yetkiler["satis"]:
-        st.error("🔒 Satış uygulamasına erişim yetkiniz yok.")
-        st.session_state.aktif_uygulama = "anasayfa"
-        return
+        _yetki_reddi("🔒 Satış uygulamasına erişim yetkiniz yok.")
 
     # Global modern form-alanı stili (tüm modüllere uygulanır): +/- gizli, modern kutular
     try:
@@ -2349,6 +2338,9 @@ def main():
     # Sayfa dispatch
     try:
         if aktif == "anasayfa":
+            _uyari = st.session_state.pop("_yetki_uyari", None)
+            if _uyari:
+                st.error(_uyari + " Ana sayfaya yönlendirildiniz.")
             anasayfa()
         elif aktif == "arama":
             st.markdown("## 🔍 Arama")
