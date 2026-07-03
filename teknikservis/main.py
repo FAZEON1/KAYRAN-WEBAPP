@@ -11,7 +11,7 @@ from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
     DEPOLAR, FIRMA_ONERILER, TS_FIRMALAR,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
-    kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, ithalat_model_listesi,
+    kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
 )
 
@@ -84,7 +84,7 @@ def _durum_chip(durum):
 
 def _sla_chip(kayit):
     bitmis = kayit.get("mevcut_durum") in BITMIS_DURUMLAR
-    g = is_gunu_farki(kayit.get("mal_kabul_tarihi"))
+    g = sla_is_gunu(kayit)
     renk, txt = sla_renk(g, bitmis)
     return (f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};'
             f'border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">{txt}</span>')
@@ -392,7 +392,7 @@ def _kontrol_paneli(kayit):
     kid = kayit["id"]
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     bitmis = kayit.get("mevcut_durum") in BITMIS_DURUMLAR
-    g = is_gunu_farki(kayit.get("mal_kabul_tarihi"))
+    g = sla_is_gunu(kayit)
     renk, sla_txt = sla_renk(g, bitmis)
 
     # Üst kart

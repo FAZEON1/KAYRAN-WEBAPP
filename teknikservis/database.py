@@ -32,7 +32,7 @@ DURUMLAR = [
     "satışa hazır", "satıldı", "iptal",
 ]
 # Tamamlanmış (aktif listeden çıkan) durumlar
-BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı", "iptal"}
+BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı", "iptal", "satışa hazır", "sorunsuz"}
 
 DURUM_RENK = {
     "mal kabül": "#38BDF8", "teknisyende": "#A78BFA", "tamir edildi": "#34D399",
@@ -121,6 +121,32 @@ def is_gunu_farki(baslangic, bitis=None):
         if d.weekday() < 5:
             gun += 1
     return gun
+
+
+def sla_bitis_tarihi(kayit_id, mevcut_durum):
+    """Kayıt bitmiş bir duruma geçtiyse, o duruma İLK geçildiği tarihi (ts_gecmis'ten) döndürür.
+    Böylece SLA, işlem tarihinde DONAR — 'satışa hazır' olunca kayıt tarihinden değil, gerçek
+    hazır olduğu günden hesaplanır. Bitmemişse None (SLA bugüne kadar işler)."""
+    if str(mevcut_durum or "") not in BITMIS_DURUMLAR:
+        return None
+    try:
+        rows = _rows(get_client().table("ts_gecmis").select("durum, tarih")
+                     .eq("kayit_id", kayit_id).order("tarih").execute())
+    except Exception:
+        return None
+    for r in rows:
+        if str(r.get("durum") or "") == str(mevcut_durum):
+            return r.get("tarih")  # bu bitiş durumuna İLK geçiş tarihi
+    return None
+
+
+def sla_is_gunu(kayit):
+    """Kaydın SLA iş günü sayısı. Bitmemişse mal kabulden BUGÜNE; bitmişse mal kabulden
+    ilgili bitiş durumuna GEÇİŞ tarihine kadar (depo hareketindeki gerçek tarih)."""
+    _bas = kayit.get("mal_kabul_tarihi")
+    _durum = kayit.get("mevcut_durum")
+    _bitis = sla_bitis_tarihi(kayit.get("id"), _durum) if kayit.get("id") else None
+    return is_gunu_farki(_bas, _bitis)
 
 
 def sla_renk(is_gunu, bitmis=False):
