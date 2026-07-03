@@ -377,26 +377,41 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
             _ack = " · ".join(o["ack"])[:500]
             if ref in mevcut_map:
                 if guncelle_mevcut:
-                    _upd = {"tutar": o["tutar"], "doviz": o["doviz"]}
+                    _upd = {"tutar": o["tutar"], "doviz": o["doviz"], "yil": o["yil"]}
                     if _ack:
                         _upd["aciklama"] = _ack
+                    if o.get("aylik"):
+                        _upd["aylik"] = o["aylik"]
                     try:
                         sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
                         guncellenen += 1
                     except Exception:
-                        hatali += 1
+                        _upd.pop("aylik", None)  # aylik kolonu yoksa onsuz dene
+                        try:
+                            sb.table("ref_kayitlari").update(_upd).eq("id", mevcut_map[ref].get("id")).execute()
+                            guncellenen += 1
+                        except Exception:
+                            hatali += 1
                 else:
                     atlanan += 1
                 continue
+            _ins = {
+                "firma_id": firma_id, "sira_no": o["sira"], "ref_no": ref,
+                "aciklama": _ack, "durum": varsayilan_durum, "yil": o["yil"],
+                "tutar": o["tutar"], "doviz": o["doviz"],
+            }
+            if o.get("aylik"):
+                _ins["aylik"] = o["aylik"]
             try:
-                sb.table("ref_kayitlari").insert({
-                    "firma_id": firma_id, "sira_no": o["sira"], "ref_no": ref,
-                    "aciklama": _ack, "durum": varsayilan_durum, "yil": o["yil"],
-                    "tutar": o["tutar"], "doviz": o["doviz"],
-                }).execute()
+                sb.table("ref_kayitlari").insert(_ins).execute()
                 eklenen += 1
             except Exception:
-                hatali += 1
+                _ins.pop("aylik", None)  # aylik kolonu yoksa onsuz dene
+                try:
+                    sb.table("ref_kayitlari").insert(_ins).execute()
+                    eklenen += 1
+                except Exception:
+                    hatali += 1
         _cache_temizle()
         _msg = f"✅ {eklenen} yeni ref eklendi"
         if guncelle_mevcut:
@@ -1009,39 +1024,67 @@ def get_tum_butce_harcamalari(baslangic, bitis):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_tum_ref_tutarlari(baslangic, bitis):
-    """Yönetim Panosu (P&L) için: TÜM firmaların ref no tutarları. Havuz bütçeden AYRI
-    destek kalemidir. İptal edilenler hariç. Tarihi OLAN ref'ler tarihe göre; tarihi
-    OLMAYAN ref'ler (Excel'den gelenlerde tarih boştur) YIL bazında (dönem o yılın tamamını
-    kapsıyorsa) dahil edilir. Döner [{tutar, doviz, tarih, firma_id}]."""
+    """Yönetim/Satış P&L için: TÜM firmaların ref no tutarları (havuz bütçeden AYRI destek).
+    İptal edilenler hariç. Öncelik sırası:
+      1) 'aylik' JSONB ({"YYYY-MM": tutar}) varsa → ay bazında, dönemle KESİŞEN aylar dahil
+         (aylık/çeyreklik/yıllık hepsinde doğru döner).
+      2) yoksa 'tarih' varsa → tarih dönem içindeyse.
+      3) o da yoksa 'yil' → dönem o yılın başına ulaşıyorsa (YTD/yıllık/tümü)."""
     try:
         sb = get_client()
-        rows = _rows(sb.table("ref_kayitlari")
-                     .select("tutar,doviz,tarih,durum,yil,firma_id").execute())
+        try:
+            rows = _rows(sb.table("ref_kayitlari")
+                         .select("tutar,doviz,tarih,durum,yil,firma_id,aylik").execute())
+        except Exception:  # 'aylik' kolonu henüz yoksa
+            rows = _rows(sb.table("ref_kayitlari")
+                         .select("tutar,doviz,tarih,durum,yil,firma_id").execute())
     except Exception:
         return []
     _b, _e = str(baslangic)[:10], str(bitis)[:10]
+
+    def _ay_kesisiyor(yyyymm):
+        # o ayın [ilk, son] günü ile [_b, _e] kesişiyor mu
+        try:
+            y, m = yyyymm.split("-")[:2]
+            ilk = f"{int(y):04d}-{int(m):02d}-01"
+            son = f"{int(y):04d}-{int(m):02d}-28"  # 28 yeterli (aralık kontrolü için)
+        except Exception:
+            return False
+        return not (son < _b or ilk > _e)
+
     out = []
     for r in (rows or []):
+        if str(r.get("durum") or "").lower() == "iptal":
+            continue
+        _doviz = (r.get("doviz") or "USD")
+        _fid = r.get("firma_id")
+        _aylik = r.get("aylik") or {}
+        if isinstance(_aylik, str):
+            try:
+                import json
+                _aylik = json.loads(_aylik)
+            except Exception:
+                _aylik = {}
+        if isinstance(_aylik, dict) and _aylik:
+            # 1) Aylık kırılım — dönemle kesişen ayların tutarları
+            for _ay, _tt in _aylik.items():
+                _tt = _f(_tt)
+                if _tt > 0 and _ay_kesisiyor(str(_ay)):
+                    out.append({"tutar": _tt, "doviz": _doviz,
+                                "tarih": f"{_ay}-01", "firma_id": _fid})
+            continue
         t = _f(r.get("tutar"))
-        if t <= 0 or str(r.get("durum") or "").lower() == "iptal":
+        if t <= 0:
             continue
         _tar = str(r.get("tarih") or "").strip()
         if _tar and _tar.lower() != "none":
             if not (_b <= _tar[:10] <= _e):
                 continue
         else:
-            # Tarihsiz ref → yıl bazlı: dönem o yılın BAŞINA ulaşıyorsa dahil et.
-            # Kapsar: "Yıllık", "Bu yıl / yıl başından bugüne (YTD)", "Tümü".
-            # Kapsamaz: "Bu ay", çeyreklik, "Son 30/90 gün" (bunlar yıl ortasında başlar).
             _y = str(r.get("yil") or "").strip()
             if not _y or not (_b <= f"{_y}-01-01" <= _e):
                 continue
-        out.append({
-            "tutar": t,
-            "doviz": (r.get("doviz") or "USD"),
-            "tarih": r.get("tarih") or "",
-            "firma_id": r.get("firma_id"),
-        })
+        out.append({"tutar": t, "doviz": _doviz, "tarih": r.get("tarih") or "", "firma_id": _fid})
     return out
 
 
