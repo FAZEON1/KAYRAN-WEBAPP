@@ -2741,24 +2741,25 @@ def run():
                    "tamamlanır, SKU **BÜYÜK harfe** sabitlenir. Güvenli: yalnız harf farkı olan kartları birleştirir.")
         try:
             from .database import mukerrer_sku_bul, mukerrer_sku_birlestir
-            _muk = mukerrer_sku_bul()
+            _muk_sku = [g for g in mukerrer_sku_bul(ada_gore=True) if g["tur"] == "sku"]
+            _muk_ad = [g for g in mukerrer_sku_bul(ada_gore=True) if g["tur"] == "ad"]
         except Exception as _e:
-            _muk = []
+            _muk_sku, _muk_ad = [], []
             st.caption(f"Kontrol yapılamadı: {type(_e).__name__}")
-        if not _muk:
-            st.success("✅ Mükerrer SKU yok — tüm kartlar tekil.")
+
+        # A) SKU harf farkı — güvenli, otomatik birleştirilebilir
+        if not _muk_sku:
+            st.success("✅ SKU harf farkıyla mükerrer kart yok.")
         else:
-            st.warning(f"⚠️ {len(_muk)} SKU birden çok kartla açılmış:")
+            st.warning(f"⚠️ {len(_muk_sku)} SKU harf farkıyla iki kez açılmış:")
             st.dataframe(pd.DataFrame([{
                 "SKU (birleşecek)": g["kanonik"],
-                "Kart sayısı": len(g["kartlar"]),
                 "Yazımlar": " · ".join(str(k.get("sku")) for k in g["kartlar"]),
-                "Toplam stok (birleşince)": int(sum(
-                    sum(int(v or 0) for v in (k.get("depo_kirilim") or {}).values())
-                    for k in g["kartlar"])),
-            } for g in _muk]), hide_index=True, use_container_width=True,
-                height=min(38 + 35 * len(_muk), 320))
-            if st.button("🔗 Tüm mükerrer SKU'ları birleştir", type="primary",
+                "Toplam stok": int(sum(sum(int(v or 0) for v in (k.get("depo_kirilim") or {}).values())
+                                       for k in g["kartlar"])),
+            } for g in _muk_sku]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_muk_sku), 260))
+            if st.button("🔗 SKU harf-farkı mükerrerlerini birleştir", type="primary",
                          use_container_width=True, key="muk_sku_btn"):
                 with st.spinner("Birleştiriliyor…"):
                     _bir, _sil, _msgs = mukerrer_sku_birlestir()
@@ -2768,6 +2769,24 @@ def run():
                 for _m in _msgs:
                     (st.error if _m.startswith("❌") else st.caption)(_m)
                 st.rerun()
+
+        # B) Aynı ürün adı, FARKLI SKU — otomatik birleştirilmez (hangi SKU doğru sen bilirsin)
+        if _muk_ad:
+            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+            st.warning(f"⚠️ Aynı ürün adı **farklı SKU** ile {len(_muk_ad)} kez açılmış "
+                       "(örn. 'Mio MiVue 802' iki farklı stok koduyla). Bunlar **otomatik birleştirilmez** — "
+                       "çünkü hangi SKU'nun doğru olduğuna senin karar vermen gerekir (satışlar/ithalat "
+                       "o SKU'ya bağlı olabilir).")
+            st.dataframe(pd.DataFrame([{
+                "Ürün Adı": g["kanonik"],
+                "Kartlar (SKU · stok)": " || ".join(
+                    f"{k.get('sku')} ({int(sum(int(v or 0) for v in (k.get('depo_kirilim') or {}).values()))})"
+                    for k in g["kartlar"]),
+            } for g in _muk_ad]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_muk_ad), 320))
+            st.caption("Düzeltmek için: doğru SKU'yu belirle → yanlış kartın stoğunu (varsa) Depolar arası "
+                       "sevk/düzeltme ile doğru SKU'ya taşı → yanlış kartı Ürün Yön.'den sil. "
+                       "İstersen bana hangi SKU'ların doğru olduğunu yaz, güvenli birleştirme aracını ona göre yapayım.")
 
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#F472B6,#A78BFA);display:inline-block"></span>📇 Stok Kartları · Eksik Kartları Aç / Barkod & Kategori Tamamla</div>', unsafe_allow_html=True)

@@ -1225,22 +1225,50 @@ def stok_hareket(sku, delta, depo=None):
 
 
 # ═══════════ MÜKERRER SKU BİRLEŞTİRME (büyük/küçük harf farkı) ═══════════
-def mukerrer_sku_bul():
-    """Sadece büyük/küçük harf farkıyla mükerrer olan ürün kartlarını bulur.
-    Döner: [{"kanonik": "MIO123", "kartlar": [{sku, urun_adi, bizim_stok, depo_kirilim, ...}, ...]}]
-    (yalnız 2+ karta sahip gruplar)."""
-    gruplar = {}
+def _ad_norm(s):
+    """Ürün adını karşılaştırma için sadeleştirir: boşluk/harf/Türkçe farkını yok sayar."""
+    s = _depo_norm(s)  # büyük harf + Türkçe sadeleştirme
+    return " ".join(s.split())  # çoklu boşlukları teke indir
+
+
+def mukerrer_sku_bul(ada_gore=False):
+    """Mükerrer ürün kartlarını bulur.
+    ada_gore=False: yalnız SKU'nun büyük/küçük harf farkı ('Mio1' vs 'MIO1').
+    ada_gore=True : ek olarak ÜRÜN ADI aynı olan farklı SKU'ları da grup sayar
+                    ('Mio MiVue 802' / 'MIO MIVUE 802' gibi).
+    Döner: [{"kanonik", "kartlar":[...], "tur": "sku"|"ad"}]."""
+    kartlar_all = []
     for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, barkod, fiyat, pacal_maliyet, "
                               "hedef_kar, bizim_stok, depo_kirilim"):
-        sku = str(u.get("sku") or "").strip()
-        if not sku:
-            continue
-        gruplar.setdefault(sku.upper(), []).append(u)
-    out = []
-    for anahtar, kartlar in gruplar.items():
+        if str(u.get("sku") or "").strip():
+            kartlar_all.append(u)
+
+    out, kullanildi = [], set()
+
+    # 1) SKU harf-farkı grupları
+    by_sku = {}
+    for u in kartlar_all:
+        by_sku.setdefault(str(u["sku"]).strip().upper(), []).append(u)
+    for anahtar, kartlar in by_sku.items():
         if len(kartlar) > 1:
-            out.append({"kanonik": anahtar, "kartlar": kartlar})
-    return sorted(out, key=lambda g: g["kanonik"])
+            out.append({"kanonik": anahtar, "kartlar": kartlar, "tur": "sku"})
+            for k in kartlar:
+                kullanildi.add(str(k["sku"]))
+
+    # 2) (opsiyonel) Ürün adı aynı, SKU farklı grupları
+    if ada_gore:
+        by_ad = {}
+        for u in kartlar_all:
+            if str(u["sku"]) in kullanildi:
+                continue
+            ad = _ad_norm(u.get("urun_adi"))
+            if ad:
+                by_ad.setdefault(ad, []).append(u)
+        for ad, kartlar in by_ad.items():
+            if len(kartlar) > 1:
+                out.append({"kanonik": (kartlar[0].get("urun_adi") or ad),
+                            "kartlar": kartlar, "tur": "ad"})
+    return sorted(out, key=lambda g: str(g["kanonik"]))
 
 
 def _kart_dolu_skor(k):
