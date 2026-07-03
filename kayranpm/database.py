@@ -1059,17 +1059,25 @@ def get_depo_stok(depo):
     TESLİM ALINMIŞ ithalat dosyası varsa, teslim adedi de dahil edilir (böylece satın
     alınıp teslim edilen modeller depo_kirilim güncel olmasa bile sevk listesinde çıkar)."""
     depo = depo_kanonik(depo)
-    stok = {}   # sku -> adet
-    adlar = {}  # sku -> urun_adi
+    stok = {}   # sku_norm -> adet
+    adlar = {}  # sku_norm -> urun_adi
+    goster = {} # sku_norm -> ekranda gösterilecek SKU (ilk görülen yazım, BÜYÜK)
+
+    def _skun(s):
+        return " ".join(str(s or "").strip().upper().split())  # BÜYÜK + tek boşluk
+
     for u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
         sku = str(u.get("sku") or "").strip()
         if not sku:
             continue
-        adlar[sku] = u.get("urun_adi", "") or ""
+        key = _skun(sku)
+        goster.setdefault(key, key)
+        if not adlar.get(key):
+            adlar[key] = u.get("urun_adi", "") or ""
         dk = _kirilim_kanonik(u.get("depo_kirilim") or {})
         m = int(dk.get(depo, 0) or 0)
         if m != 0:
-            stok[sku] = m
+            stok[key] = stok.get(key, 0) + m
 
     # depo_kirilim'i olan SKU'lar dışında, bu depoya teslim edilmiş ithalat kalemlerini ekle
     try:
@@ -1087,15 +1095,17 @@ def get_depo_stok(depo):
                     adet = 0
                 if not sku or adet <= 0:
                     continue
+                key = _skun(sku)
                 # depo_kirilim'de zaten varsa ONU kullan (çift sayma); yoksa teslimden ekle
-                if sku not in stok:
-                    stok[sku] = stok.get(sku, 0) + adet
-                    if not adlar.get(sku):
-                        adlar[sku] = str(k.get("urun_adi") or "")
+                if key not in stok:
+                    goster.setdefault(key, key)
+                    stok[key] = stok.get(key, 0) + adet
+                    if not adlar.get(key):
+                        adlar[key] = str(k.get("urun_adi") or "")
     except Exception:
         pass
 
-    out = [{"sku": s, "urun_adi": adlar.get(s, ""), "adet": a}
+    out = [{"sku": goster.get(s, s), "urun_adi": adlar.get(s, ""), "adet": a}
            for s, a in stok.items() if a > 0]
     return sorted(out, key=lambda x: -x["adet"])
 
@@ -1107,6 +1117,14 @@ def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici="", sevk_tarihi="", 
     try:
         sb = get_client()
         u = _row(sb.table("urunler").select("sku, urun_adi, depo_kirilim").eq("sku", sku).execute())
+        if not u:
+            # Harf/boşluk farkıyla eşleşen kartı bul (liste normalize SKU gösteriyor)
+            _hedef = " ".join(str(sku or "").strip().upper().split())
+            for _u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
+                if " ".join(str(_u.get("sku") or "").strip().upper().split()) == _hedef:
+                    u = _u
+                    sku = _u.get("sku")  # gerçek yazımla devam et
+                    break
         if not u:
             return False, f"❌ Ürün bulunamadı: {sku}"
         dk = u.get("depo_kirilim") or {}
