@@ -89,6 +89,35 @@ def _sayfa_sevk():
         return
     st.caption("Bir kaynak ve hedef depo seç, ürünleri tek tek listeye ekle, sonra hepsini "
                "tek seferde sevk et. Aynı sevkte birden çok model taşıyabilirsin.")
+
+    # 📦 Stoğa işlenmemiş teslim dosyası varsa en üstte uyar + tek tıkla işle
+    try:
+        from ithalat.database import teslim_stok_bekleyenler, teslim_stok_isle
+        _bek0 = teslim_stok_bekleyenler()
+    except Exception:
+        _bek0 = []
+    if _bek0:
+        _tk0 = sum(b["kalem_sayisi"] for b in _bek0)
+        with st.expander(f"⚠️ {len(_bek0)} teslim dosyasının stoğu henüz işlenmemiş "
+                         f"({_tk0} kalem) — depoda görünmüyorlar. Tıkla ve düzelt.", expanded=True):
+            st.caption("Bu dosyalar 'Teslim Alındı' ama (çoğunlukla Model B öncesi teslim edildikleri için) "
+                       "depo stoğuna hiç eklenmemiş. Aşağıdaki düğme hepsinin kalemlerini **teslim edildikleri "
+                       "depoya** ekler — sonra sevk listesinde çıkarlar. Güvenli: her dosya yalnız bir kez işlenir.")
+            st.dataframe(pd.DataFrame([{
+                "Belge No": b["dosya_no"], "Teslim Deposu": b["teslim_deposu"] or "⚠️ boş",
+                "Kalem": b["kalem_sayisi"], "Toplam Adet": b["toplam_adet"],
+            } for b in _bek0]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_bek0), 320))
+            if st.button("✅ Tüm bekleyen teslimlerin stoğunu işle", type="primary",
+                         key="dpo_teslim_isle_ust", use_container_width=True):
+                _is, _ek, _atl = teslim_stok_isle()
+                st.cache_data.clear()
+                _m = f"✅ {_is} dosya işlendi, {_ek} kalem depo stoğuna eklendi."
+                if _atl:
+                    _m += (" ⚠️ Atlananlar (teslim deposu boş — İthalat'tan depo ata): "
+                           + ", ".join(_atl[:8]) + (" …" if len(_atl) > 8 else ""))
+                st.success(_m)
+                st.rerun()
     _depolar = get_depo_listesi()
     sc1, sc2 = st.columns(2)
     _kaynak = sc1.selectbox("Kaynak depo", _depolar, key="dpo_kaynak")
@@ -138,11 +167,38 @@ def _sayfa_sevk():
                                    "(örn. HAPPY LIFE) seç — o zaman listede çıkar.")
                     else:
                         st.warning("⚠️ Kart var ama **hiçbir depoda stok yok** (tüm depolar 0). "
-                                   "İthalat teslimi stoğu eklememiş olabilir: İthalat → ilgili dosya → "
-                                   "Düzenle → durumu bir başka aşamaya alıp tekrar **Teslim Alındı** yap "
-                                   "(teslim deposu **seçili** olmalı) — stok o an işlenir. "
-                                   "Not: Model B'den önce teslim edilmiş eski dosyalar stoğa işlenmez; "
-                                   "onları bu yöntemle yeniden tetikleyebilirsin.")
+                                   "Büyük olasılıkla bu ürünün ithalat dosyası **Model B'den önce** teslim "
+                                   "alınmış; o yüzden stok işlenmemiş. Aşağıdaki düğme bunu **otomatik düzeltir** — "
+                                   "senin bir şey yapmana gerek yok.")
+                        try:
+                            from ithalat.database import teslim_stok_bekleyenler, teslim_stok_isle
+                            _bek = teslim_stok_bekleyenler()
+                        except Exception:
+                            _bek = []
+                        if _bek:
+                            _tkalem = sum(b["kalem_sayisi"] for b in _bek)
+                            st.info(f"📦 Stoğa işlenmemiş **{len(_bek)} teslim dosyası** bulundu "
+                                    f"(toplam {_tkalem} kalem). Bunları şimdi işleyebilirim.")
+                            with st.expander("Hangi dosyalar? (detay)"):
+                                st.dataframe(pd.DataFrame([{
+                                    "Belge No": b["dosya_no"], "Teslim Deposu": b["teslim_deposu"] or "⚠️ boş",
+                                    "Kalem": b["kalem_sayisi"], "Toplam Adet": b["toplam_adet"],
+                                } for b in _bek]), hide_index=True, use_container_width=True,
+                                    height=min(38 + 35 * len(_bek), 320))
+                            if st.button("✅ Bekleyen teslimlerin stoğunu şimdi işle", type="primary",
+                                         key="dpo_teslim_isle", use_container_width=True):
+                                _is, _ek, _atl = teslim_stok_isle()
+                                st.cache_data.clear()
+                                _m = f"✅ {_is} dosya işlendi, {_ek} kalem depo stoğuna eklendi."
+                                if _atl:
+                                    _m += (" ⚠️ Atlananlar (teslim deposu boş — İthalat'tan depo ata): "
+                                           + ", ".join(_atl[:8]) + (" …" if len(_atl) > 8 else ""))
+                                st.success(_m)
+                                st.rerun()
+                        else:
+                            st.caption("Şu an işlenmeyi bekleyen teslim dosyası görünmüyor. "
+                                       "Bu ürün için İthalat → dosya → Düzenle'den durumu başka aşamaya "
+                                       "alıp tekrar **Teslim Alındı** yapman (teslim deposu seçili) stoğu tetikler.")
             except Exception as _e:
                 st.error(f"Sorgulanamadı: {type(_e).__name__}: {str(_e)[:120]}")
 
