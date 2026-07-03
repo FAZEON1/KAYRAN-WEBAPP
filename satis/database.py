@@ -90,6 +90,13 @@ def get_urunler():
     try:
         rows = _rows(_get_client().table("urunler")
                      .select("sku, urun_adi, satis_fiyati, satis_fiyat_listesi").execute())
+        try:
+            from shared.utils import tr_buyuk as _tb_ad
+            for _r in rows:
+                if _r.get("urun_adi"):
+                    _r["urun_adi"] = _tb_ad(_r["urun_adi"])
+        except Exception:
+            pass
         return rows
     except Exception:
         return []
