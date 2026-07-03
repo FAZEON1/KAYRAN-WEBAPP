@@ -2739,16 +2739,19 @@ def run():
         st.caption("Aynı ürünün büyük/küçük harf farkıyla iki kez açılmış kartlarını (örn. 'Mio123' + 'MIO123') "
                    "tek karta birleştirir: depo stokları **toplanır** (kayıp olmaz), boş alanlar dolu karttan "
                    "tamamlanır, SKU **BÜYÜK harfe** sabitlenir. Güvenli: yalnız harf farkı olan kartları birleştirir.")
+        _muk_hata = None
         try:
             from .database import mukerrer_sku_bul, mukerrer_sku_birlestir
-            _muk_sku = [g for g in mukerrer_sku_bul(ada_gore=True) if g["tur"] == "sku"]
-            _muk_ad = [g for g in mukerrer_sku_bul(ada_gore=True) if g["tur"] == "ad"]
+            _muk_hepsi = mukerrer_sku_bul(ada_gore=True)
+            _muk_sku = [g for g in _muk_hepsi if g["tur"] == "sku"]
+            _muk_ad = [g for g in _muk_hepsi if g["tur"] == "ad"]
         except Exception as _e:
-            _muk_sku, _muk_ad = [], []
-            st.caption(f"Kontrol yapılamadı: {type(_e).__name__}")
+            _muk_sku, _muk_ad, _muk_hata = [], [], f"{type(_e).__name__}: {str(_e)[:160]}"
 
-        # A) SKU harf farkı — güvenli, otomatik birleştirilebilir
-        if not _muk_sku:
+        if _muk_hata:
+            st.error(f"⚠️ Mükerrer kontrolü yapılamadı: {_muk_hata}. "
+                     "Bu genelde bir kolonun tabloda olmamasından olur — bana bu mesajı iletirsen düzeltirim.")
+        elif not _muk_sku:
             st.success("✅ SKU harf farkıyla mükerrer kart yok.")
         else:
             st.warning(f"⚠️ {len(_muk_sku)} SKU harf farkıyla iki kez açılmış:")

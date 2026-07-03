@@ -1238,8 +1238,8 @@ def mukerrer_sku_bul(ada_gore=False):
                     ('Mio MiVue 802' / 'MIO MIVUE 802' gibi).
     Döner: [{"kanonik", "kartlar":[...], "tur": "sku"|"ad"}]."""
     kartlar_all = []
-    for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, barkod, fiyat, pacal_maliyet, "
-                              "hedef_kar, bizim_stok, depo_kirilim"):
+    for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, barkod, satis_fiyati, "
+                              "pacal_maliyet, hedef_kar_marji, bizim_stok, depo_kirilim"):
         if str(u.get("sku") or "").strip():
             kartlar_all.append(u)
 
@@ -1277,7 +1277,7 @@ def _kart_dolu_skor(k):
     for alan in ("urun_adi", "kategori", "marka", "barkod"):
         if str(k.get(alan) or "").strip():
             s += 1
-    for alan in ("fiyat", "pacal_maliyet", "hedef_kar", "bizim_stok"):
+    for alan in ("satis_fiyati", "pacal_maliyet", "hedef_kar_marji", "bizim_stok"):
         try:
             if float(k.get(alan) or 0) != 0:
                 s += 1
@@ -1319,7 +1319,7 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
                 if not str(ana.get(alan) or "").strip() and str(d.get(alan) or "").strip():
                     payload[alan] = d.get(alan)
                     ana[alan] = d.get(alan)
-            for alan in ("fiyat", "pacal_maliyet", "hedef_kar"):
+            for alan in ("satis_fiyati", "pacal_maliyet", "hedef_kar_marji"):
                 try:
                     if float(ana.get(alan) or 0) == 0 and float(d.get(alan) or 0) != 0:
                         payload[alan] = d.get(alan)
@@ -1344,15 +1344,16 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
                     silinen += 1
                 # Ana kartı büyük SKU ile yeniden yaz (eski küçük kaydı sil, yeni ekle)
                 _ana_full = {k: ana.get(k) for k in ("urun_adi", "kategori", "marka", "barkod",
-                                                     "fiyat", "pacal_maliyet", "hedef_kar",
-                                                     "ilk_giris_tarihi") if ana.get(k) is not None}
+                                                     "satis_fiyati", "pacal_maliyet", "hedef_kar_marji",
+                                                     "alis_fiyati", "hedef_depo", "ilk_giris_tarihi")
+                             if ana.get(k) is not None}
                 _ana_full.update(payload)
                 _ana_full["sku"] = hedef_sku
                 sb.table("urunler").delete().eq("sku", ana.get("sku")).execute()
                 try:
                     sb.table("urunler").insert(_ana_full).execute()
                 except Exception:
-                    _ana_full.pop("hedef_kar", None)
+                    _ana_full.pop("hedef_kar_marji", None)
                     sb.table("urunler").insert(_ana_full).execute()
             else:
                 # Ana SKU zaten büyük — sadece güncelle + diğerlerini sil
