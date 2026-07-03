@@ -1419,15 +1419,30 @@ def run():
             urun_dict_k = {}
             sku_listesi_k = {}
     
-        # ── Durum + Müşteri filtresi (alt alta) ──────────────────────────
+        # ── Durum sekmesi (üstte, sekme gibi) ──────────────────────────
         _kt_durum = st.radio("Durum", ["📢 Aktif Kampanyalar", "📁 Geçmiş Kampanyalar"],
-                             horizontal=True, key="kt_durum")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
-                    'margin:10px 0 2px">👥 MÜŞTERİLERİMİZ (filtre)</div>', unsafe_allow_html=True)
-        _kt_firma = st.radio("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"],
-                             horizontal=True, key="kt_firma", label_visibility="collapsed",
-                             format_func=firma_gorunen_ad)
-        st.caption("Bir müşteriye tıklayınca o müşterinin kampanya panosu gelir.")
+                             horizontal=True, key="kt_durum", label_visibility="collapsed")
+
+        # ── Filtreler tek kompakt panelde (kapalı başlar → özet + giriş üste çıkar) ──
+        _kt_kat_list = sorted({tr_kucuk(u.get("kategori")) for u in urun_data_k if tr_kucuk(u.get("kategori"))})
+        _yil_set = set()
+        for _kk in get_kampanyalar():
+            _b = str(_kk.get("baslangic_tarihi") or "")[:4]
+            if _b.isdigit():
+                _yil_set.add(_b)
+        _yil_opts = ["Tümü"] + sorted(_yil_set, reverse=True)
+        _KT_AYLAR = ["Tümü", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+                     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+        with st.expander("🔍 Filtrele — Müşteri · Kategori · Dönem", expanded=False):
+            _kt_firma = st.radio("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"],
+                                 horizontal=True, key="kt_firma",
+                                 format_func=firma_gorunen_ad)
+            _fk1, _fk2, _fk3, _fk4, _fk5 = st.columns(5)
+            _kt_kat = _fk1.selectbox("Kategori", ["Tümü"] + _kt_kat_list, key="kt_kat")
+            _kt_yil = _fk2.selectbox("Yıl", _yil_opts, key="kt_yil")
+            _kt_ceyrek = _fk3.selectbox("Çeyrek", ["Tümü", "Q1", "Q2", "Q3", "Q4"], key="kt_ceyrek")
+            _kt_ay = _fk4.selectbox("Ay", _KT_AYLAR, key="kt_ay")
+            _kt_sira = _fk5.selectbox("Sırala", ["Yeniden eskiye", "Eskiden yeniye"], key="kt_sira")
 
         def _kt_firma_filtre(liste):
             if _kt_firma == "Tümü":
@@ -1436,31 +1451,6 @@ def run():
             if _kt_firma == "DİĞER":
                 return [k for k in liste if str(k.get("firma", "")).strip().upper() not in _ana]
             return [k for k in liste if str(k.get("firma", "")).strip().upper() == _kt_firma]
-
-        # ── Kategori filtresi ──
-        _kt_kat_list = sorted({tr_kucuk(u.get("kategori")) for u in urun_data_k if tr_kucuk(u.get("kategori"))})
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:0.5px;'
-                    'margin:10px 0 2px">🏷️ KATEGORİ (filtre)</div>', unsafe_allow_html=True)
-        _kt_kat = st.selectbox("Kategori", ["Tümü"] + _kt_kat_list, key="kt_kat", label_visibility="collapsed")
-
-        # ── Dönem (yıl + çeyrek) + sıralama ──
-        _yil_set = set()
-        for _kk in get_kampanyalar():
-            _b = str(_kk.get("baslangic_tarihi") or "")[:4]
-            if _b.isdigit():
-                _yil_set.add(_b)
-        _yil_opts = ["Tümü"] + sorted(_yil_set, reverse=True)
-        _kf_a, _kf_b, _kf_ay, _kf_c = st.columns(4)
-        _KT_AYLAR = ["Tümü", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-                     "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
-        with _kf_a:
-            _kt_yil = st.selectbox("Yıl", _yil_opts, key="kt_yil")
-        with _kf_b:
-            _kt_ceyrek = st.selectbox("Çeyrek", ["Tümü", "Q1", "Q2", "Q3", "Q4"], key="kt_ceyrek")
-        with _kf_ay:
-            _kt_ay = st.selectbox("Ay", _KT_AYLAR, key="kt_ay")
-        with _kf_c:
-            _kt_sira = st.selectbox("Sırala", ["Yeniden eskiye", "Eskiden yeniye"], key="kt_sira")
 
         def _kt_ceyrek_of(tarih_str):
             try:
@@ -1489,6 +1479,7 @@ def run():
                 liste = [k for k in liste if _kt_ay_of(k.get("baslangic_tarihi")) == _ay_no]
             return sorted(liste, key=lambda k: str(k.get("baslangic_tarihi") or ""),
                           reverse=(_kt_sira == "Yeniden eskiye"))
+
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
