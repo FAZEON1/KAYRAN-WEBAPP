@@ -18,6 +18,49 @@ from shared.utils import metrik_satiri, normalize_tr
 
 DURUMLAR = ["beklemede", "paylasildi", "iptal"]
 DOVIZLER = ["USD", "TL", "EUR"]
+
+# Türkçe ay adı → ay numarası (İ/I uyumlu)
+_AY_NO = {"OCAK": 1, "SUBAT": 2, "MART": 3, "NISAN": 4, "MAYIS": 5, "HAZIRAN": 6,
+          "TEMMUZ": 7, "AGUSTOS": 8, "EYLUL": 9, "EKIM": 10, "KASIM": 11, "ARALIK": 12}
+_AY_AD = {1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
+          7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"}
+
+
+def _ay_no(ad):
+    s = str(ad or "").strip()
+    for a, b in (("İ", "I"), ("ı", "I"), ("Ş", "S"), ("ş", "S"), ("Ğ", "G"), ("ğ", "G"),
+                 ("Ü", "U"), ("ü", "U"), ("Ö", "O"), ("ö", "O"), ("Ç", "C"), ("ç", "C")):
+        s = s.replace(a, b)
+    s = s.upper()
+    if s.isdigit() and 1 <= int(s) <= 12:
+        return int(s)
+    return _AY_NO.get(s, 0)
+
+
+def _aylik_ozet(r):
+    """Ref kaydının aylık kırılımından (Ay, Yıl) görüntü metinleri üretir.
+    Örn. aylik={"2025-03":x,"2025-04":y} → ("MART · NİSAN", "2025")."""
+    a = r.get("aylik") or {}
+    if isinstance(a, str):
+        try:
+            import json
+            a = json.loads(a)
+        except Exception:
+            a = {}
+    aylar, yillar = [], []
+    if isinstance(a, dict):
+        for k in sorted(a.keys()):
+            try:
+                y, m = str(k).split("-")[:2]
+                _ad = _AY_AD.get(int(m), "")
+                if _ad and _ad not in aylar:
+                    aylar.append(_ad)
+                if y not in yillar:
+                    yillar.append(y)
+            except Exception:
+                continue
+    _yil = " · ".join(yillar) if yillar else str(r.get("yil") or "")
+    return (" · ".join(aylar) if aylar else "—"), (_yil or "—")
 DURUM_ETIKET = {
     "beklemede": "⏳ Beklemede (paylaşılmadı)",
     "paylasildi": "✅ Paylaşıldı",
@@ -340,6 +383,8 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
         c_ack = _bul("açıklama", "aciklama", "aklama", "klama")
         c_tutar = _bul("tutar", "tutarı", "miktar", "bedel", "amount")
         c_doviz = _bul("döviz", "doviz", "para", "currency", "kur")
+        c_ay = _bul("ay")
+        c_yil = _bul("yıl", "yil")
         if not c_ref:
             return False, "REF NUMARASI sütunu bulunamadı.", 0
         mevcut_map = {str(r.get("ref_no", "")).strip(): r for r in get_refler(firma_id)}
@@ -363,11 +408,25 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
             doviz = (str(r.get(c_doviz) or "").strip().upper() if c_doviz is not None else "") or "USD"
             if doviz not in DOVIZLER:
                 doviz = "USD"
+            # AY + YIL → aylık kırılım anahtarı (YYYY-MM); yoksa yalnız yıllık sayılır
+            _ayn = _ay_no(r.get(c_ay)) if c_ay is not None else 0
+            _yln = 0
+            if c_yil is not None:
+                try:
+                    _yln = int(float(r.get(c_yil)))
+                except Exception:
+                    _yln = 0
+            if _yln:
+                yil = _yln
             o = _agg.get(ref)
             if o is None:
-                o = {"sira": sira or 0, "yil": yil, "ack": [], "tutar": 0.0, "doviz": doviz}
+                o = {"sira": sira or 0, "yil": yil, "ack": [], "tutar": 0.0, "doviz": doviz,
+                     "aylik": {}}
                 _agg[ref] = o
             o["tutar"] += tutar
+            if _yln and _ayn and tutar:
+                _ak = f"{_yln}-{_ayn:02d}"
+                o["aylik"][_ak] = o["aylik"].get(_ak, 0.0) + tutar
             if ack and ack not in o["ack"]:
                 o["ack"].append(ack)
 
@@ -650,7 +709,8 @@ def _render_tumu(firmalar):
         "Durum": DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "")),
         "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz", "") or "USD"),
-        "Yıl": r.get("yil", "") or "",
+        "Ay": _aylik_ozet(r)[0],
+        "Yıl": _aylik_ozet(r)[1],
     } for r in goster]), hide_index=True, use_container_width=True, height=460)
     st.caption("ℹ️ Birleşik görünüm salt-okunurdur. Ekleme · Excel içe aktarma · düzenleme · silme · bütçe için "
                "yukarıdan **tek bir firma** seç.")
@@ -739,6 +799,7 @@ def _render_refler(fid, fkod):
         "id": r["id"], "Sil?": False, "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz") or "USD"),
+        "Ay": _aylik_ozet(r)[0], "Yıl": _aylik_ozet(r)[1],
         "Durum": r.get("durum", "beklemede") or "beklemede",
         "Tarih": pd.to_datetime(r.get("tarih"), errors="coerce"),
     } for r in goster])
@@ -755,6 +816,11 @@ def _render_refler(fid, fkod):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
+            "Ay": st.column_config.TextColumn("Ay", disabled=True,
+                                              help="Excel'deki AY/YIL kolonlarından gelir; birden çok aya "
+                                                   "yayılan ref'lerde aylar birlikte görünür. Değiştirmek için "
+                                                   "Excel'i 'Mevcut ref'leri de güncelle' ile yeniden yükle."),
+            "Yıl": st.column_config.TextColumn("Yıl", disabled=True, width="small"),
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
             "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
         },
