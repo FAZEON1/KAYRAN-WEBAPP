@@ -70,6 +70,11 @@ def _g(kayit, alan, bos="—"):
 def _mal_kabul():
     _baslik("📥", "Mal Kabül", "Servise/iadeye gelen ürünü kaydet · Servis No otomatik üretilir (G5F)")
 
+    # Bir önceki kaydın başarı mesajı (rerun sonrası kaybolmasın)
+    _son_ok = st.session_state.pop("_mk_kayit_ok", None)
+    if _son_ok:
+        st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır (form temizlendi).")
+
     # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
     st.markdown('<div style="font-size:14px;font-weight:800;color:#FBBF24;margin:6px 0 2px">'
                 '1️⃣ Önce işlem türünü seç</div>', unsafe_allow_html=True)
@@ -238,9 +243,14 @@ def _mal_kabul():
         ok, msg, form_no = ekle_kayit(data, _personel)
         if ok:
             st.success(msg)
-            for k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni"):
+            # Bir sonraki kayda temiz başla — tüm form alanlarını sıfırla (madde 3: mükerrer kayıt önlenir)
+            for k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
+                      "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
+                      "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni"):
                 st.session_state.pop(k, None)
+            st.session_state["_mk_kayit_ok"] = form_no or msg
             st.balloons()
+            st.rerun()
         else:
             st.error(msg)
 
@@ -566,7 +576,9 @@ def _kontrol_paneli(kayit):
             if durum_guncelle(kid, yeni, st.session_state.get("aktif_kullanici", ""),
                               f"{depo} deposuna transfer" + (f" — {depo_aciklama.strip()}" if depo_aciklama.strip() else ""),
                               {"depo": depo, "depo_aciklama": depo_aciklama.strip()}):
-                st.success(f"✅ {depo} deposuna aktarıldı")
+                # Transfer sonrası Depolar sekmesine geç (madde 3)
+                st.session_state["ts_sayfa"] = "📦  Depolar"
+                st.session_state["_ts_depo_bilgi"] = f"✅ {depo} deposuna aktarıldı — Depolar sekmesine yönlendirildin."
                 st.rerun()
             else:
                 st.error("Transfer başarısız.")
@@ -590,6 +602,9 @@ def _kontrol_paneli(kayit):
 # ── Depolar ──────────────────────────────────────────────────────────
 def _depolar():
     _baslik("📦", "Depolar", "İşlemi biten ürünler · outlet / 2.el / hurda / merkez · satışa hazır → satıldı")
+    _depo_bilgi = st.session_state.pop("_ts_depo_bilgi", None)
+    if _depo_bilgi:
+        st.success(_depo_bilgi)
     kayitlar = get_kayitlar(depolu=True)
     if not kayitlar:
         st.info("Henüz depoya aktarılmış ürün yok. Bir kaydın Kontrol Paneli'nden **Depoya Transfer** yapabilirsin.")
