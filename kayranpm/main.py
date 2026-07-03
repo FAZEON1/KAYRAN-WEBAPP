@@ -1496,13 +1496,40 @@ def run():
         _ku_map = {}
         for _r in get_tum_kampanya_urunler():
             _ku_map.setdefault(_r["kampanya_id"], []).append(_r)
-    
+
+        # ── 📊 ÖZET KART ŞERİDİ (tek bakışta, scroll'suz) ──
+        _tum_kmp = _kt_uygula(get_kampanyalar())
+        _s_toplam = len(_tum_kmp)
+        _bugun_iso = str(tr_today())
+        _s_aktif = sum(1 for k in _tum_kmp
+                       if str(k.get("baslangic_tarihi") or "") <= _bugun_iso <= str(k.get("bitis_tarihi") or "9999"))
+        _s_destek = 0.0
+        _s_net = 0.0
+        for _k in _tum_kmp:
+            for _x in _ku_map.get(_k.get("id"), []):
+                _s = float(_x.get("satis_fiyati") or 0)
+                _fd = float(_x.get("birim_firma_destek") or 0)
+                _ed = float(_x.get("birim_ek_destek") or 0)
+                _ad = int(_x.get("satilan_adet") or 0)
+                _p = float((urun_dict_k.get(_x.get("sku"), {}) or {}).get("pacal_maliyet") or 0)
+                _s_destek += (_fd + _ed) * _ad
+                if _s > 0 and _p > 0:
+                    _s_net += ((_s - _p) - (_fd + _ed)) * _ad
+        metrik_satiri([
+            {"label": "🎯 Toplam Kampanya", "value": f"{_s_toplam:,}", "renk": "#818CF8"},
+            {"label": "📢 Aktif (bugün)", "value": f"{_s_aktif:,}", "renk": "#34D399"},
+            {"label": "💰 Toplam Destek", "value": f"${_s_destek:,.0f}", "renk": "#FBBF24"},
+            {"label": "📈 Net Kâr", "value": f"${_s_net:,.0f}",
+             "renk": "#34D399" if _s_net >= 0 else "#F87171"},
+        ])
+        st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+
         # ─────────────────────────────────────────────────────────────────
         # TAB 1: AKTİF KAMPANYALAR
         # ─────────────────────────────────────────────────────────────────
         if _kt_durum == "📢 Aktif Kampanyalar":
-            # Yeni kampanya oluştur
-            with st.expander("➕ Yeni Kampanya Oluştur", expanded=False):
+            # Yeni kampanya oluştur — üstte AÇIK (scroll'a gerek kalmadan hemen giriş)
+            with st.expander("➕ Yeni Kampanya Oluştur", expanded=True):
                 with st.form("yeni_kampanya_form", clear_on_submit=True):
                     kf1, kf2 = st.columns(2)
                     with kf1:
