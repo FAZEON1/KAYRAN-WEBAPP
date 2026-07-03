@@ -804,7 +804,9 @@ def _render_refler(fid, fkod):
         if up is not None:
             try:
                 df_imp = pd.read_excel(up)
-                st.dataframe(df_imp.head(20), use_container_width=True, height=200)
+                st.caption(f"📄 Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
+                st.dataframe(df_imp, hide_index=True, use_container_width=True,
+                             height=min(38 + 35 * len(df_imp), 460))
                 imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
                                          format_func=lambda d: DURUM_ETIKET[d], index=1,
                                          key=f"ref_imp_durum_{fid}")
@@ -866,6 +868,7 @@ def _render_refler(fid, fkod):
 
     edited = st.data_editor(
         df_ed, use_container_width=True, hide_index=True, num_rows="fixed",
+        height=min(38 + 35 * max(len(df_ed), 1), 900),
         key=f"ref_editor_{fid}_{f_durum}",
         column_config={
             "id": None,
