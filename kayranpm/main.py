@@ -2735,6 +2735,41 @@ def run():
 
         st.markdown("---")
         st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#FBBF24,#F472B6);display:inline-block"></span>🔗 Mükerrer SKU Birleştir (büyük/küçük harf)</div>', unsafe_allow_html=True)
+        st.caption("Aynı ürünün büyük/küçük harf farkıyla iki kez açılmış kartlarını (örn. 'Mio123' + 'MIO123') "
+                   "tek karta birleştirir: depo stokları **toplanır** (kayıp olmaz), boş alanlar dolu karttan "
+                   "tamamlanır, SKU **BÜYÜK harfe** sabitlenir. Güvenli: yalnız harf farkı olan kartları birleştirir.")
+        try:
+            from .database import mukerrer_sku_bul, mukerrer_sku_birlestir
+            _muk = mukerrer_sku_bul()
+        except Exception as _e:
+            _muk = []
+            st.caption(f"Kontrol yapılamadı: {type(_e).__name__}")
+        if not _muk:
+            st.success("✅ Mükerrer SKU yok — tüm kartlar tekil.")
+        else:
+            st.warning(f"⚠️ {len(_muk)} SKU birden çok kartla açılmış:")
+            st.dataframe(pd.DataFrame([{
+                "SKU (birleşecek)": g["kanonik"],
+                "Kart sayısı": len(g["kartlar"]),
+                "Yazımlar": " · ".join(str(k.get("sku")) for k in g["kartlar"]),
+                "Toplam stok (birleşince)": int(sum(
+                    sum(int(v or 0) for v in (k.get("depo_kirilim") or {}).values())
+                    for k in g["kartlar"])),
+            } for g in _muk]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_muk), 320))
+            if st.button("🔗 Tüm mükerrer SKU'ları birleştir", type="primary",
+                         use_container_width=True, key="muk_sku_btn"):
+                with st.spinner("Birleştiriliyor…"):
+                    _bir, _sil, _msgs = mukerrer_sku_birlestir()
+                st.cache_data.clear()
+                if _bir:
+                    st.success(f"✅ {_bir} SKU birleştirildi, {_sil} fazla kart silindi.")
+                for _m in _msgs:
+                    (st.error if _m.startswith("❌") else st.caption)(_m)
+                st.rerun()
+
+        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#F472B6,#A78BFA);display:inline-block"></span>📇 Stok Kartları · Eksik Kartları Aç / Barkod & Kategori Tamamla</div>', unsafe_allow_html=True)
         st.caption("Sütunlar: **MARKA · STOK KODU · STOK ADI · BARKOD · KATEGORİ**. "
                    "Sistemde olmayan SKU'lar **yeni kart** olarak açılır (barkod boş olabilir). "

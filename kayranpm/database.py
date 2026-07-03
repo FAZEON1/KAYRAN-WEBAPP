@@ -1222,3 +1222,120 @@ def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None):
 def stok_hareket(sku, delta, depo=None):
     """Tek SKU için hareket (bkz. stok_hareket_coklu)."""
     return stok_hareket_coklu({sku: delta}, depo)
+
+
+# ═══════════ MÜKERRER SKU BİRLEŞTİRME (büyük/küçük harf farkı) ═══════════
+def mukerrer_sku_bul():
+    """Sadece büyük/küçük harf farkıyla mükerrer olan ürün kartlarını bulur.
+    Döner: [{"kanonik": "MIO123", "kartlar": [{sku, urun_adi, bizim_stok, depo_kirilim, ...}, ...]}]
+    (yalnız 2+ karta sahip gruplar)."""
+    gruplar = {}
+    for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, barkod, fiyat, pacal_maliyet, "
+                              "hedef_kar, bizim_stok, depo_kirilim"):
+        sku = str(u.get("sku") or "").strip()
+        if not sku:
+            continue
+        gruplar.setdefault(sku.upper(), []).append(u)
+    out = []
+    for anahtar, kartlar in gruplar.items():
+        if len(kartlar) > 1:
+            out.append({"kanonik": anahtar, "kartlar": kartlar})
+    return sorted(out, key=lambda g: g["kanonik"])
+
+
+def _kart_dolu_skor(k):
+    """Bir kartın 'ne kadar dolu' olduğunu puanlar (birleştirmede ana kartı seçmek için)."""
+    s = 0
+    for alan in ("urun_adi", "kategori", "marka", "barkod"):
+        if str(k.get(alan) or "").strip():
+            s += 1
+    for alan in ("fiyat", "pacal_maliyet", "hedef_kar", "bizim_stok"):
+        try:
+            if float(k.get(alan) or 0) != 0:
+                s += 1
+        except Exception:
+            pass
+    dk = k.get("depo_kirilim") or {}
+    if isinstance(dk, dict):
+        s += sum(1 for v in dk.values() if int(v or 0) != 0)
+    return s
+
+
+def mukerrer_sku_birlestir(kanonik_uppercase=None):
+    """Büyük/küçük harf farkıyla mükerrer kartları TEK karta birleştirir.
+    - Ana kart: en dolu olan (fiyat/kategori/depo_kirilim vb.). SKU'su BÜYÜK harfe çevrilir.
+    - depo_kirilim'ler kanonikleştirilip TOPLANIR (stok kaybı olmaz).
+    - Boş alanlar diğer karttan tamamlanır; dolu alanlara dokunulmaz.
+    - Fazla kart(lar) silinir.
+    kanonik_uppercase verilirse yalnız o grup; yoksa TÜM mükerrer gruplar işlenir.
+    Döner: (birlesen_grup, silinen_kart, mesajlar[list])."""
+    sb = get_client()
+    gruplar = mukerrer_sku_bul()
+    if kanonik_uppercase:
+        gruplar = [g for g in gruplar if g["kanonik"] == str(kanonik_uppercase).upper()]
+    birlesen, silinen, mesajlar = 0, 0, []
+    for g in gruplar:
+        kartlar = sorted(g["kartlar"], key=_kart_dolu_skor, reverse=True)
+        ana = kartlar[0]
+        digerleri = kartlar[1:]
+        hedef_sku = str(ana.get("sku") or "").strip().upper()
+
+        # depo_kirilim'leri kanonikleştirip TOPLA
+        birlesik_dk = _kirilim_kanonik(ana.get("depo_kirilim") or {})
+        payload = {}
+        for d in digerleri:
+            for k2, v2 in _kirilim_kanonik(d.get("depo_kirilim") or {}).items():
+                birlesik_dk[k2] = birlesik_dk.get(k2, 0) + int(v2 or 0)
+            # Ana kartta boş olan alanları diğerinden doldur
+            for alan in ("urun_adi", "kategori", "marka", "barkod"):
+                if not str(ana.get(alan) or "").strip() and str(d.get(alan) or "").strip():
+                    payload[alan] = d.get(alan)
+                    ana[alan] = d.get(alan)
+            for alan in ("fiyat", "pacal_maliyet", "hedef_kar"):
+                try:
+                    if float(ana.get(alan) or 0) == 0 and float(d.get(alan) or 0) != 0:
+                        payload[alan] = d.get(alan)
+                        ana[alan] = d.get(alan)
+                except Exception:
+                    pass
+
+        payload["depo_kirilim"] = birlesik_dk
+        payload["bizim_stok"] = _bizim_stok_hesapla(birlesik_dk)
+        payload["guncelleme_tarihi"] = get_today()
+
+        # Ana kartın SKU'su küçük harfliyse BÜYÜK'e taşı (kanonik). Supabase PK sku ise:
+        try:
+            if str(ana.get("sku")) != hedef_sku:
+                # Önce diğerlerini sil (çakışma olmasın), sonra ana kartı BÜYÜK SKU'ya çevir
+                for d in digerleri:
+                    if str(d.get("sku")).upper() == hedef_sku and str(d.get("sku")) != hedef_sku:
+                        continue  # aynı upper — birazdan silinecek
+                # Diğer kartları sil
+                for d in digerleri:
+                    sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
+                    silinen += 1
+                # Ana kartı büyük SKU ile yeniden yaz (eski küçük kaydı sil, yeni ekle)
+                _ana_full = {k: ana.get(k) for k in ("urun_adi", "kategori", "marka", "barkod",
+                                                     "fiyat", "pacal_maliyet", "hedef_kar",
+                                                     "ilk_giris_tarihi") if ana.get(k) is not None}
+                _ana_full.update(payload)
+                _ana_full["sku"] = hedef_sku
+                sb.table("urunler").delete().eq("sku", ana.get("sku")).execute()
+                try:
+                    sb.table("urunler").insert(_ana_full).execute()
+                except Exception:
+                    _ana_full.pop("hedef_kar", None)
+                    sb.table("urunler").insert(_ana_full).execute()
+            else:
+                # Ana SKU zaten büyük — sadece güncelle + diğerlerini sil
+                sb.table("urunler").update(payload).eq("sku", ana.get("sku")).execute()
+                for d in digerleri:
+                    sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
+                    silinen += 1
+            birlesen += 1
+            _tekil = int(sum(birlesik_dk.values()))
+            mesajlar.append(f"✅ {hedef_sku}: {len(kartlar)} kart → 1 (toplam depo stoğu {_tekil})")
+        except Exception as e:
+            mesajlar.append(f"❌ {hedef_sku}: birleştirilemedi — {type(e).__name__}: {str(e)[:90]}")
+    _cache_temizle()
+    return birlesen, silinen, mesajlar
