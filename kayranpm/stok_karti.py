@@ -261,20 +261,36 @@ def goster(sku):
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", "#F87171"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", "#A5B4FC"),
         ])
-        # Canlı stok hesabı — şeffaf döküm
-        if _cs.get("var"):
+        # Canlı stoğun depo bazlı dağılımı (başlangıç formülü yerine)
+        _dagilim = _depo_kirilim if isinstance(_depo_kirilim, dict) else {}
+        _dagilim_dolu = {d: _f(m) for d, m in _dagilim.items() if _f(m) != 0}
+        if _dagilim_dolu:
+            _dag_toplam = sum(_dagilim_dolu.values())
+            _chips = "".join(
+                f'<span style="display:inline-flex;gap:6px;align-items:center;'
+                f'background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.22);'
+                f'border-radius:8px;padding:5px 12px;font-size:12.5px;color:#CBD5E1;margin:3px 6px 3px 0">'
+                f'<span style="color:#94A3B8">{str(d).upper()}</span>'
+                f'<b style="color:#E2E8F0">{int(m):,}</b></span>'
+                for d, m in sorted(_dagilim_dolu.items(), key=lambda x: -x[1]))
             st.markdown(
-                f'<div style="background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.2);'
+                f'<div style="background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.18);'
+                f'border-radius:10px;padding:11px 14px;margin:2px 0 12px">'
+                f'<div style="font-size:11px;font-weight:700;color:#7DD3FC;text-transform:uppercase;'
+                f'letter-spacing:1px;margin-bottom:8px">📍 Stok Hangi Depolarda '
+                f'<span style="color:#64748B;font-weight:600">· toplam {_dag_toplam:,.0f} adet</span></div>'
+                f'<div style="display:flex;flex-wrap:wrap">{_chips}</div></div>',
+                unsafe_allow_html=True)
+        elif _cs.get("var"):
+            st.markdown(
+                f'<div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.18);'
                 f'border-radius:10px;padding:9px 14px;margin:2px 0 12px;font-size:12.5px;color:#94A3B8">'
-                f'📦 Başlangıç <b style="color:#E2E8F0">{_cs["baz"]:,.0f}</b> '
-                f'<span style="color:#64748B">({gun_ay_yil(_cs["baz_tarih"]) or "—"})</span> '
-                f'&nbsp;+&nbsp; gelen ithalat <b style="color:#34D399">{_cs["giris"]:,.0f}</b> '
-                f'&nbsp;−&nbsp; satılan <b style="color:#F87171">{_cs["cikis"]:,.0f}</b> '
-                f'&nbsp;=&nbsp; <b style="color:#34D399">canlı stok {_cs["canli"]:,.0f}</b></div>',
+                f'📍 Canlı stok <b style="color:#34D399">{_cs["canli"]:,.0f}</b> — '
+                f'henüz depo bazlı kırılım yok (G5F stok yüklenince depolara göre dağılım burada görünür).</div>',
                 unsafe_allow_html=True)
         else:
             if _g5f_toplam > 0 or _depo_kirilim:
-                _kir = " · ".join(f"{d}: <b style='color:#E2E8F0'>{int(_f(m)):,}</b>"
+                _kir = " · ".join(f"{str(d).upper()}: <b style='color:#E2E8F0'>{int(_f(m)):,}</b>"
                                   for d, m in sorted(_depo_kirilim.items()) if _f(m) != 0)
                 st.markdown(
                     f'<div style="background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.2);'
