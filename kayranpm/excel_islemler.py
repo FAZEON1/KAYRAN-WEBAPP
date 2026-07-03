@@ -787,3 +787,141 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         msg += f" ⚠️ Atlanan sekme: {', '.join(atlanan_sayfa)}."
     msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)."
     return True, msg
+
+
+# ═══════════ STOK KARTLARI (TAM LİSTE) — kart aç · barkod tamamla · kategori eşitle ═══════════
+def excel_yukle_stok_kartlari(dosya_yolu):
+    """MARKA · STOK KODU · STOK ADI · BARKOD · KATEGORİ kolonlu tam kart listesi.
+    Kurallar (bütünlük bozulmaz, mükerrer oluşmaz):
+      • Yeni SKU → kart açılır (ad+kategori+marka+barkod).
+      • Mevcut SKU → yalnız HEDEFLİ alanlar güncellenir (fiyat/stok/paçala DOKUNULMAZ):
+          - barkod: karttaki boşsa dosyadakiyle doldurulur
+          - kategori: dosyadakinden farklıysa eşitlenir (SSD&RAM → ssd / ram ayrımı böyle yapılır)
+          - marka / ürün adı: karttaki boşsa doldurulur
+    Kategoriler programın standardında (Türkçe küçük harf) yazılır; dosyadaki yeni
+    kategoriler (örn. mouse pad) otomatik oluşur."""
+    from .database import tr_kucuk
+    try:
+        df = pd.read_excel(dosya_yolu)
+    except Exception as e:
+        return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:140]}"
+
+    def _n(s):
+        return tr_upper(str(s)).replace(" ", "").replace("_", "")
+    kol = {_n(c): c for c in df.columns}
+
+    def _bul(*adlar):
+        for a in adlar:
+            if _n(a) in kol:
+                return kol[_n(a)]
+        for a in adlar:
+            for k, v in kol.items():
+                if _n(a) in k:
+                    return v
+        return None
+    c_sku = _bul("STOK KODU", "SKU", "KOD")
+    c_ad = _bul("STOK ADI", "ÜRÜN ADI", "AD")
+    c_bar = _bul("BARKOD")
+    c_kat = _bul("KATEGORİ", "KATEGORI")
+    c_mar = _bul("MARKA")
+    if c_sku is None:
+        return False, "❌ 'STOK KODU' kolonu bulunamadı."
+
+    def _bar_str(v):
+        s = safe_str(v)
+        if not s:
+            return ""
+        try:  # 4718009611191.0 → 4718009611191
+            f = float(s.replace(",", "."))
+            if f == int(f):
+                return str(int(f))
+        except Exception:
+            pass
+        return s
+
+    def _kn(s):
+        s = str(s or "").strip().lower()
+        for a, b in (("i̇", "i"), ("ı", "i"), ("ş", "s"), ("ğ", "g"),
+                     ("ü", "u"), ("ö", "o"), ("ç", "c")):
+            s = s.replace(a, b)
+        return s
+
+    try:
+        sb = get_client()
+        mevcutlar = {}
+        _bas = 0
+        while True:
+            r = sb.table("urunler").select("sku, urun_adi, kategori, marka, barkod") \
+                  .range(_bas, _bas + 999).execute()
+            _chunk = r.data or []
+            for u in _chunk:
+                mevcutlar[str(u.get("sku") or "").strip()] = u
+            if len(_chunk) < 1000:
+                break
+            _bas += 1000
+    except Exception as e:
+        return False, f"❌ Ürünler okunamadı: {type(e).__name__}: {str(e)[:120]}"
+
+    yeni = barkod_eklendi = kategori_esitlendi = alan_dolduruldu = ayni = hatali = 0
+    kat_degisim = {}
+    for _, r in df.iterrows():
+        sku = normalize_sku(r.get(c_sku, ""))
+        if not sku or sku.lower() == "nan":
+            continue
+        ad = safe_str(r.get(c_ad, "")) if c_ad is not None else ""
+        bar = _bar_str(r.get(c_bar)) if c_bar is not None else ""
+        kat = tr_kucuk(safe_str(r.get(c_kat, ""))) if c_kat is not None else ""
+        mar = safe_str(r.get(c_mar, "")) if c_mar is not None else ""
+
+        u = mevcutlar.get(sku)
+        try:
+            if u is None:
+                upsert_urun(sku, ad, kategori=kat, marka=mar)
+                if bar:
+                    sb.table("urunler").update({"barkod": bar}).eq("sku", sku).execute()
+                yeni += 1
+                continue
+            _upd = {}
+            if bar and not safe_str(u.get("barkod")):
+                _upd["barkod"] = bar
+                barkod_eklendi += 1
+            _eski_kat = safe_str(u.get("kategori"))
+            if kat and _kn(kat) != _kn(_eski_kat):
+                _upd["kategori"] = kat
+                kategori_esitlendi += 1
+                kat_degisim[f"{_eski_kat or '(boş)'} → {kat}"] = \
+                    kat_degisim.get(f"{_eski_kat or '(boş)'} → {kat}", 0) + 1
+            if mar and not safe_str(u.get("marka")):
+                _upd["marka"] = mar
+                alan_dolduruldu += 1
+            if ad and not safe_str(u.get("urun_adi")):
+                _upd["urun_adi"] = ad
+                alan_dolduruldu += 1
+            if _upd:
+                sb.table("urunler").update(_upd).eq("sku", sku).execute()
+            else:
+                ayni += 1
+        except Exception:
+            hatali += 1
+
+    try:
+        from .database import _cache_temizle
+        _cache_temizle()
+    except Exception:
+        pass
+
+    _dosya_skular = {normalize_sku(r.get(c_sku, "")) for _, r in df.iterrows()}
+    _dosyada_olmayan = [s for s in mevcutlar if s and s not in _dosya_skular]
+    msg = (f"✅ Stok kartları işlendi: 🆕 {yeni} yeni kart · 🏷️ {barkod_eklendi} karta barkod eklendi · "
+           f"📂 {kategori_esitlendi} kartın kategorisi eşitlendi · ✏️ {alan_dolduruldu} boş alan dolduruldu · "
+           f"{ayni} kart zaten günceldi.")
+    if kat_degisim:
+        _ozet = " | ".join(f"{k}: {v}" for k, v in sorted(kat_degisim.items())[:8])
+        msg += f" Kategori değişimleri → {_ozet}."
+    if hatali:
+        msg += f" ⚠️ {hatali} satır yazılamadı."
+    if _dosyada_olmayan:
+        msg += (f" ℹ️ Programda olup dosyada OLMAYAN {len(_dosyada_olmayan)} kart var "
+                f"(dokunulmadı): {', '.join(sorted(_dosyada_olmayan)[:6])}"
+                + (" …" if len(_dosyada_olmayan) > 6 else ""))
+    return True, msg

@@ -39,7 +39,7 @@ from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_li
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
                             excel_yukle_firma_birlesik, excel_yukle_g5f_depolar,
-                            excel_yukle_haftalik_stok_satis)
+                            excel_yukle_haftalik_stok_satis, excel_yukle_stok_kartlari)
 
 
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
@@ -2880,6 +2880,25 @@ def run():
                         os.unlink(_tmp_path)
                     else:
                         st.error(_msg)
+
+        st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#F472B6,#A78BFA);display:inline-block"></span>📇 Stok Kartları · Tam Liste (kart aç · barkod tamamla · kategori eşitle)</div>', unsafe_allow_html=True)
+        st.caption("Sütunlar: **MARKA · STOK KODU · STOK ADI · BARKOD · KATEGORİ**. "
+                   "Yeni SKU'lar kart olarak açılır; **mevcut kartlarda yalnız barkodu boş olanlara barkod yazılır**, "
+                   "kategori dosyayla eşitlenir (SSD&RAM → ssd/ram ayrımı dahil), boş marka/ad doldurulur — "
+                   "**fiyat · paçal · stok alanlarına asla dokunulmaz.** Dosyadaki yeni kategoriler (örn. mouse pad) "
+                   "otomatik oluşur. Aynı dosyayı tekrar yüklemek mükerrer oluşturmaz.")
+        dosya_sk = st.file_uploader("Stok Kartları Excel'ini Seç", type=["xlsx", "xls"], key="sk_dosya")
+        if dosya_sk and st.button("⬆️ Stok Kartlarını Yükle", type="primary",
+                                  use_container_width=True, key="sk_btn"):
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tsk:
+                _tsk.write(dosya_sk.read())
+                _tskp = _tsk.name
+            _ok_sk, _msg_sk = excel_yukle_stok_kartlari(_tskp)
+            os.unlink(_tskp)
+            st.cache_data.clear()
+            (st.success if _ok_sk else st.error)(_msg_sk)
 
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
