@@ -2734,6 +2734,25 @@ def run():
                         st.error(_msg)
 
         st.markdown("---")
+        st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#F472B6,#A78BFA);display:inline-block"></span>📇 Stok Kartları · Eksik Kartları Aç / Barkod & Kategori Tamamla</div>', unsafe_allow_html=True)
+        st.caption("Sütunlar: **MARKA · STOK KODU · STOK ADI · BARKOD · KATEGORİ**. "
+                   "Sistemde olmayan SKU'lar **yeni kart** olarak açılır (barkod boş olabilir). "
+                   "Mevcut kartlarda yalnız **boş barkod doldurulur**, kategori/marka/ad eşitlenir — "
+                   "**fiyat · paçal · stok alanlarına dokunulmaz.** Aynı dosyayı tekrar yüklemek mükerrer oluşturmaz.")
+        dosya_sk = st.file_uploader("Stok Kartları Excel'ini Seç", type=["xlsx", "xls"], key="sk_dosya")
+        if dosya_sk and st.button("⬆️ Stok Kartlarını Yükle / Aç", type="primary",
+                                  use_container_width=True, key="sk_btn"):
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tsk:
+                _tsk.write(dosya_sk.read())
+                _tskp = _tsk.name
+            _ok_sk, _msg_sk = excel_yukle_stok_kartlari(_tskp)
+            os.unlink(_tskp)
+            st.cache_data.clear()
+            (st.success if _ok_sk else st.error)(_msg_sk)
+
+        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
         st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#CBD5E1">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#CBD5E1">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
