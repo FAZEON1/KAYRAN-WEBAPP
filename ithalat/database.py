@@ -1004,3 +1004,46 @@ def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
             pass  # kolon henüz eklenmemişse bayraksız devam
     except Exception:
         pass
+
+
+def teslim_stok_bekleyenler():
+    """MODEL B öncesi 'Teslim Alındı' olup stoğa İŞLENMEMİŞ dosyaları listeler.
+    Döner: [{id, dosya_no, teslim_deposu, kalem_sayisi, toplam_adet}]."""
+    out = []
+    for d in (get_dosyalar() or []):
+        if str(d.get("durum") or "").strip() != "Teslim Alındı":
+            continue
+        if d.get("stok_islendi") is True:
+            continue  # zaten işlenmiş
+        _agg = _dosya_kalem_agg(get_kalemler(d["id"]))
+        if not _agg:
+            continue
+        out.append({
+            "id": d["id"], "dosya_no": d.get("dosya_no", ""),
+            "teslim_deposu": (d.get("teslim_deposu") or "").strip(),
+            "kalem_sayisi": len(_agg), "toplam_adet": int(sum(_agg.values())),
+        })
+    return out
+
+
+def teslim_stok_isle(dosya_idler=None):
+    """Seçili (veya tüm bekleyen) 'Teslim Alındı' dosyalarının kalemlerini depoya İŞLER.
+    stok_islendi bayrağıyla çift-işleme korumalıdır. Teslim deposu boşsa dosya ATLANIR.
+    Döner: (islenen_dosya, eklenen_kalem, atlanan[list])."""
+    bekleyen = teslim_stok_bekleyenler()
+    if dosya_idler is not None:
+        _set = set(dosya_idler)
+        bekleyen = [b for b in bekleyen if b["id"] in _set]
+    islenen, eklenen, atlanan = 0, 0, []
+    for b in bekleyen:
+        if not b["teslim_deposu"]:
+            atlanan.append(f"{b['dosya_no']} (teslim deposu boş)")
+            continue
+        _agg = _dosya_kalem_agg(get_kalemler(b["id"]))
+        if not _agg:
+            atlanan.append(f"{b['dosya_no']} (kalem yok)")
+            continue
+        _dosya_stok_uygula(b["id"], +1, kalem_agg=_agg, depo=b["teslim_deposu"])
+        islenen += 1
+        eklenen += len(_agg)
+    return islenen, eklenen, atlanan
