@@ -1006,17 +1006,40 @@ def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
         pass
 
 
-def teslim_stok_bekleyenler():
-    """MODEL B öncesi 'Teslim Alındı' olup stoğa İŞLENMEMİŞ dosyaları listeler.
-    Döner: [{id, dosya_no, teslim_deposu, kalem_sayisi, toplam_adet}]."""
+def teslim_stok_bekleyenler(gercek_stok_kontrol=True):
+    """'Teslim Alındı' olup stoğa İŞLENMEMİŞ dosyaları listeler.
+    gercek_stok_kontrol=True: stok_islendi bayrağı True olsa BİLE, kalemlerin
+    hiçbiri teslim deposunda görünmüyorsa 'işlenmemiş' sayar (yarım kalan/başarısız
+    önceki işlemleri de yakalar). Döner: [{id, dosya_no, teslim_deposu, kalem_sayisi, toplam_adet}]."""
     out = []
+    _depo_stok_cache = {}
+
+    def _depoda_var_mi(depo, skular):
+        depo = (depo or "").strip()
+        if not depo:
+            return False
+        if depo not in _depo_stok_cache:
+            try:
+                from kayranpm.database import get_depo_stok
+                _depo_stok_cache[depo] = {str(x.get("sku") or "").strip().upper()
+                                          for x in (get_depo_stok(depo) or [])}
+            except Exception:
+                _depo_stok_cache[depo] = set()
+        _set = _depo_stok_cache[depo]
+        return any(str(s).strip().upper() in _set for s in skular)
+
     for d in (get_dosyalar() or []):
         if str(d.get("durum") or "").strip() != "Teslim Alındı":
             continue
-        if d.get("stok_islendi") is True:
-            continue  # zaten işlenmiş
         _agg = _dosya_kalem_agg(get_kalemler(d["id"]))
         if not _agg:
+            continue
+        _islendi = d.get("stok_islendi") is True
+        if _islendi and gercek_stok_kontrol:
+            # Bayrak True ama stok gerçekten var mı? Yoksa yine bekleyen say.
+            if _depoda_var_mi(d.get("teslim_deposu"), _agg.keys()):
+                continue  # gerçekten stokta → tamam
+        elif _islendi:
             continue
         out.append({
             "id": d["id"], "dosya_no": d.get("dosya_no", ""),
@@ -1028,22 +1051,43 @@ def teslim_stok_bekleyenler():
 
 def teslim_stok_isle(dosya_idler=None):
     """Seçili (veya tüm bekleyen) 'Teslim Alındı' dosyalarının kalemlerini depoya İŞLER.
-    stok_islendi bayrağıyla çift-işleme korumalıdır. Teslim deposu boşsa dosya ATLANIR.
-    Döner: (islenen_dosya, eklenen_kalem, atlanan[list])."""
+    Doğrudan stok_hareket_coklu çağırır; gerçek sonucu (uygulanan/atlanan SKU) raporlar.
+    Döner: (islenen_dosya, eklenen_kalem, mesajlar[list])."""
+    from kayranpm.database import stok_hareket_coklu
     bekleyen = teslim_stok_bekleyenler()
     if dosya_idler is not None:
         _set = set(dosya_idler)
         bekleyen = [b for b in bekleyen if b["id"] in _set]
-    islenen, eklenen, atlanan = 0, 0, []
+    islenen, eklenen, mesajlar = 0, 0, []
+    sb = _get_client()
     for b in bekleyen:
-        if not b["teslim_deposu"]:
-            atlanan.append(f"{b['dosya_no']} (teslim deposu boş)")
+        _depo = (b.get("teslim_deposu") or "").strip()
+        if not _depo:
+            mesajlar.append(f"⏭️ {b['dosya_no']}: teslim deposu boş — atlandı")
             continue
         _agg = _dosya_kalem_agg(get_kalemler(b["id"]))
         if not _agg:
-            atlanan.append(f"{b['dosya_no']} (kalem yok)")
+            mesajlar.append(f"⏭️ {b['dosya_no']}: kalem yok — atlandı")
             continue
-        _dosya_stok_uygula(b["id"], +1, kalem_agg=_agg, depo=b["teslim_deposu"])
-        islenen += 1
-        eklenen += len(_agg)
-    return islenen, eklenen, atlanan
+        try:
+            uyg, atl = stok_hareket_coklu({s: a for s, a in _agg.items()}, _depo)
+        except Exception as e:
+            mesajlar.append(f"❌ {b['dosya_no']}: {type(e).__name__}: {str(e)[:80]}")
+            continue
+        # Bayrağı yalnız GERÇEKTEN uygulanan varsa yaz (yoksa yeniden denenebilsin)
+        if uyg := uyg:
+            try:
+                sb.table("ithalat_dosyalari").update({"stok_islendi": True}).eq("id", b["id"]).execute()
+            except Exception:
+                pass  # bayrak kolonu yoksa sorun değil; stok yine de işlendi
+            islenen += 1
+            eklenen += uyg
+        if atl:
+            mesajlar.append(f"⚠️ {b['dosya_no']}: kartı olmayan {len(atl)} SKU atlandı "
+                            f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — "
+                            f"bu SKU'lar için önce ürün kartı açılmalı")
+    try:
+        _temizle()
+    except Exception:
+        pass
+    return islenen, eklenen, mesajlar
