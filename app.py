@@ -27,8 +27,9 @@ KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz
 KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
 ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk"}
-TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya"}
-SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar", "samet"}
+TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet"}
+SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
+DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet"}
 YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar"}
 
 DUYURU_AKTIF = False
@@ -40,7 +41,7 @@ def kullanici_yetkileri(kullanici):
     return {
         "kayranacc": k in KAYRANACC_KULLANICILAR,
         "kayranpm":  k in KAYRANPM_KULLANICILAR,
-        "depo":      k in KAYRANPM_KULLANICILAR,
+        "depo":      k in DEPO_KULLANICILAR,
         "hesap_makinesi": k in HESAP_MAKINESI_KULLANICILAR,
         "ithalat": k in ITHALAT_KULLANICILAR,
         "teknikservis": k in TEKNIKSERVIS_KULLANICILAR,
@@ -447,6 +448,50 @@ def _oturum_secret():
         return "kayran-oturum-varsayilan-anahtar"
 
 
+@st.cache_resource
+def _oturum_store():
+    """Sunucu tarafı oturum deposu: {token: {"u", "cihaz", "ts"}}.
+    Rastgele token URL'de taşınır ama YALNIZCA aynı tarayıcıda (cihaz imzası) geçerlidir
+    → link paylaşımıyla oturum devri İMKÂNSIZ."""
+    return {}
+
+
+def _cihaz_imzasi():
+    """Tarayıcıya özgü imza (Streamlit'in _xsrf çerezi). Link başka tarayıcıda
+    açıldığında imza tutmaz → oturum reddedilir."""
+    try:
+        import hashlib
+        _ck = dict(st.context.cookies or {})
+        _v = _ck.get("_xsrf") or _ck.get("_streamlit_xsrf") or ""
+        if not _v:
+            _v = str(dict(st.context.headers or {}).get("User-Agent", ""))
+        return hashlib.sha256(str(_v).encode()).hexdigest()[:24] if _v else ""
+    except Exception:
+        return ""
+
+
+def _oturum_ac(kullanici):
+    """Girişte rastgele oturum token'ı üretir, cihaza bağlar, URL'ye yalnız token yazar."""
+    import secrets as _sec
+    import time as _t
+    tok = _sec.token_urlsafe(24)
+    _oturum_store()[tok] = {"u": kullanici, "cihaz": _cihaz_imzasi(), "ts": _t.time()}
+    try:
+        st.query_params.clear()
+        st.query_params["t"] = tok
+    except Exception:
+        pass
+
+
+def _oturum_kapat():
+    try:
+        tok = st.query_params.get("t", "")
+        if tok:
+            _oturum_store().pop(tok, None)
+    except Exception:
+        pass
+
+
 def _oturum_token(kullanici):
     import hmac, hashlib
     return hmac.new(_oturum_secret().encode(),
@@ -473,11 +518,25 @@ if "aktif_kullanici" not in st.session_state:
 # → otomatik çıkışı önler. Token = HMAC(kullanıcı, sunucu_secret); başkası için taklit edilemez.
 if not st.session_state.giris_yapildi:
     try:
-        _qu = st.query_params.get("u", "")
-        _qt = st.query_params.get("t", "")
-        if _qu and _oturum_dogrula(_qu, _qt):
-            st.session_state.giris_yapildi = True
-            st.session_state.aktif_kullanici = _qu
+        import time as _t
+        if st.query_params.get("u", ""):
+            # ESKİ format (u+deterministik t): güvensiz — paylaşılan tüm eski linkler geçersiz.
+            st.query_params.clear()
+        else:
+            _qt = st.query_params.get("t", "")
+            _rec = _oturum_store().get(_qt) if _qt else None
+            if _rec and (_t.time() - _rec.get("ts", 0) < 7 * 86400):
+                _imza = _cihaz_imzasi()
+                if _rec.get("cihaz") and _imza and _rec["cihaz"] == _imza:
+                    st.session_state.giris_yapildi = True
+                    st.session_state.aktif_kullanici = _rec["u"]
+                    _rec["ts"] = _t.time()  # kaydır: aktif kullanım süreyi tazeler
+                else:
+                    # Farklı tarayıcı/cihaz → token'ı yak (link paylaşımı girişimi)
+                    _oturum_store().pop(_qt, None)
+                    st.query_params.clear()
+            elif _qt:
+                st.query_params.clear()
     except Exception:
         pass
 if "aktif_uygulama" not in st.session_state:
@@ -967,11 +1026,7 @@ def giris_ekrani():
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
                     st.session_state.aktif_uygulama = "anasayfa"
-                    try:
-                        st.query_params["u"] = kullanici
-                        st.query_params["t"] = _oturum_token(kullanici)
-                    except Exception:
-                        pass
+                    _oturum_ac(kullanici)
                     st.rerun()
                 else:
                     _sayi, _kilit = giris_basarisiz(kullanici)
@@ -991,23 +1046,13 @@ def ust_navigasyon():
     aktif = st.session_state.get("aktif_uygulama", "anasayfa")
     ak = st.session_state.get("aktif_kullanici", "")
     yet = kullanici_yetkileri(ak)
-    moduller = [("🏠 Ana Sayfa", "anasayfa"), ("🔍 Arama", "arama")]
-    if ak.strip().lower() in YONETIM_KULLANICILAR:
-        moduller.append(("📊 Yönetim", "yonetim"))
-    if yet.get("kayranacc"):
-        moduller.append(("💳 Muhasebe", "kayranacc"))
-    if yet.get("ithalat"):
-        moduller.append(("🚢 İthalat", "ithalat"))
-    if yet.get("kayranpm"):
-        moduller.append(("📦 Ürün Yön.", "kayranpm"))
-    if yet.get("depo"):
-        moduller.append(("🏬 Depo", "depo"))
-    if yet.get("satis"):
-        moduller.append(("💰 Satış", "satis"))
-    if yet.get("teknikservis"):
-        moduller.append(("🛠️ Teknik Servis", "teknikservis"))
-    if yet.get("hesap_makinesi"):
-        moduller.append(("🧮 Hesap Mak.", "hesap_makinesi"))
+    # Herkes TÜM modülleri görür; yetkisi olmayan tıklarsa yönlendirmede
+    # "🔒 ... erişim yetkiniz yok" uyarısı alır (dispatch guard'ları).
+    moduller = [("🏠 Ana Sayfa", "anasayfa"), ("🔍 Arama", "arama"),
+                ("📊 Yönetim", "yonetim"), ("💳 Muhasebe", "kayranacc"),
+                ("🚢 İthalat", "ithalat"), ("📦 Ürün Yön.", "kayranpm"),
+                ("🏬 Depo", "depo"), ("💰 Satış", "satis"),
+                ("🛠️ Teknik Servis", "teknikservis"), ("🧮 Hesap Mak.", "hesap_makinesi")]
 
     st.markdown("""<style>
     .st-key-ustnav [data-testid="stHorizontalBlock"]{gap:7px !important;margin-bottom:7px !important;}
@@ -1287,21 +1332,12 @@ input, textarea, select { font-size: 16px !important; }
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
         _u = aktif_kullanici
         _t = _oturum_token(_u)
-        _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama")]
-        if _u.strip().lower() in YONETIM_KULLANICILAR:
-            _yeni_sekme.append(("📊 Yönetim P&L", "yonetim"))
-        if yetkiler.get("kayranacc"):
-            _yeni_sekme.append(("💰 Muhasebe", "kayranacc"))
-        if yetkiler.get("kayranpm"):
-            _yeni_sekme.append(("📦 Ürün Yönetimi", "kayranpm"))
-        if yetkiler.get("depo"):
-            _yeni_sekme.append(("🏬 Depo", "depo"))
-        if yetkiler.get("ithalat"):
-            _yeni_sekme.append(("🚢 İthalat", "ithalat"))
-        if yetkiler.get("satis"):
-            _yeni_sekme.append(("🛒 Satış", "satis"))
-        if yetkiler.get("teknikservis"):
-            _yeni_sekme.append(("🔧 Teknik Servis", "teknikservis"))
+        # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
+        _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
+                       ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
+                       ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
+                       ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
+                       ("🔧 Teknik Servis", "teknikservis")]
         _lh = ('<details style="margin:2px 0 10px"><summary style="cursor:pointer;color:#94A3B8;'
                'font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;'
                'padding:6px;outline:none">↗ Yeni Sekmede Aç</summary>'
@@ -1341,6 +1377,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.rerun()
 
             if st.button("🚪 Cikis Yap", key="nav_cikis", use_container_width=True):
+                _oturum_kapat()
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
                 st.session_state.aktif_uygulama = "anasayfa"
@@ -2249,6 +2286,14 @@ def main():
         st.session_state["_nav_onceki"] = aktif
 
     # Yetki kontrolü
+    if aktif == "yonetim" and (st.session_state.get("aktif_kullanici", "") or "").strip().lower() not in YONETIM_KULLANICILAR:
+        st.error("🔒 Yönetim Panosu'na erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
+    if aktif == "hesap_makinesi" and not yetkiler["hesap_makinesi"]:
+        st.error("🔒 Hesap Makinesi uygulamasına erişim yetkiniz yok.")
+        st.session_state.aktif_uygulama = "anasayfa"
+        return
     if aktif == "kayranacc" and not yetkiler["kayranacc"]:
         st.error("🔒 Muhasebe & Finans uygulamasına erişim yetkiniz yok.")
         st.session_state.aktif_uygulama = "anasayfa"
