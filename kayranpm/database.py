@@ -1009,15 +1009,50 @@ def get_depo_ozet():
 
 
 def get_depo_stok(depo):
-    """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı."""
-    out = []
+    """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı.
+    Kaynak: ürün kartındaki depo_kirilim. Eğer bir ürünün kırılımı boşsa ama o depoya
+    TESLİM ALINMIŞ ithalat dosyası varsa, teslim adedi de dahil edilir (böylece satın
+    alınıp teslim edilen modeller depo_kirilim güncel olmasa bile sevk listesinde çıkar)."""
+    depo = (depo or "").strip()
+    stok = {}   # sku -> adet
+    adlar = {}  # sku -> urun_adi
     for u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
-        dk = u.get("depo_kirilim") or {}
-        if not isinstance(dk, dict):
+        sku = str(u.get("sku") or "").strip()
+        if not sku:
             continue
-        m = int(dk.get(depo, 0) or 0)
-        if m > 0:
-            out.append({"sku": u.get("sku", ""), "urun_adi": u.get("urun_adi", ""), "adet": m})
+        adlar[sku] = u.get("urun_adi", "") or ""
+        dk = u.get("depo_kirilim") or {}
+        if isinstance(dk, dict):
+            m = int(dk.get(depo, 0) or 0)
+            if m != 0:
+                stok[sku] = m
+
+    # depo_kirilim'i olan SKU'lar dışında, bu depoya teslim edilmiş ithalat kalemlerini ekle
+    try:
+        from ithalat.database import get_dosyalar as _ith_dosyalar, get_kalemler as _ith_kalemler
+        for d in (_ith_dosyalar() or []):
+            if str(d.get("durum") or "").strip() != "Teslim Alındı":
+                continue
+            if (d.get("teslim_deposu") or "").strip() != depo:
+                continue
+            for k in (_ith_kalemler(d["id"]) or []):
+                sku = str(k.get("sku") or "").strip()
+                try:
+                    adet = int(float(k.get("adet") or 0))
+                except Exception:
+                    adet = 0
+                if not sku or adet <= 0:
+                    continue
+                # depo_kirilim'de zaten varsa ONU kullan (çift sayma); yoksa teslimden ekle
+                if sku not in stok:
+                    stok[sku] = stok.get(sku, 0) + adet
+                    if not adlar.get(sku):
+                        adlar[sku] = str(k.get("urun_adi") or "")
+    except Exception:
+        pass
+
+    out = [{"sku": s, "urun_adi": adlar.get(s, ""), "adet": a}
+           for s, a in stok.items() if a > 0]
     return sorted(out, key=lambda x: -x["adet"])
 
 
@@ -1083,11 +1118,13 @@ def get_depo_sevk_gecmisi(limit=50):
 
 
 # ═══════════ MODEL B — HAREKET BAZLI STOK ÇEKİRDEĞİ ═══════════
-def stok_hareket_coklu(hareketler, depo=None):
+def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None):
     """MODEL B: {sku: delta} hareketlerini urunler.depo_kirilim'e uygular.
     delta + → giriş, − → çıkış. depo verilmezse 'MERKEZ DEPO'.
-    Ürün kartı olmayan SKU atlanır (liste döner). Döner: (uygulanan, atlanan)."""
+    kart_ac=True: ürün kartı olmayan SKU için otomatik boş kart açılır (adı kart_adlar[sku]).
+    Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan)."""
     depo = (depo or "").strip() or "MERKEZ DEPO"
+    kart_adlar = kart_adlar or {}
     uygulanan, atlanan = 0, []
     try:
         sb = get_client()
@@ -1106,8 +1143,20 @@ def stok_hareket_coklu(hareketler, depo=None):
             if not u and sku != sku.upper():
                 u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
             if not u:
-                atlanan.append(sku)
-                continue
+                if kart_ac:
+                    # Otomatik boş kart aç (fiyat/paçal 0, sadece stok tutulur)
+                    try:
+                        sb.table("urunler").insert({
+                            "sku": sku, "urun_adi": (kart_adlar.get(sku) or "")[:200],
+                            "depo_kirilim": {}, "bizim_stok": 0,
+                        }).execute()
+                        u = {"sku": sku, "depo_kirilim": {}}
+                    except Exception:
+                        atlanan.append(sku)
+                        continue
+                else:
+                    atlanan.append(sku)
+                    continue
             dk = u.get("depo_kirilim") or {}
             if not isinstance(dk, dict):
                 dk = {}
