@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok
+from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik
 from shared.utils import normalize_tr
 import math
 
@@ -594,7 +594,7 @@ def excel_yukle_g5f_depolar(dosya_yolu):
             if not sku or sku.lower() == "nan":
                 atlanan += 1
                 continue
-            depo = safe_str(row.get(kolon_map["DEPO"], "")) or "Bilinmeyen"
+            depo = depo_kanonik(safe_str(row.get(kolon_map["DEPO"], "")) or "Bilinmeyen")
             mik = safe_int(row.get(kolon_map["MIKTAR"], 0))
             kirilim[sku][depo] = kirilim[sku].get(depo, 0) + mik
             depolar_set.add(depo)

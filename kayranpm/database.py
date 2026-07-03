@@ -951,6 +951,41 @@ def _depo_norm(s):
             .replace("Ü", "U").replace("Ö", "O").replace("Ç", "C"))
 
 
+# Bilinen depoların KANONİK yazımı — her yazım varyasyonu buraya toplanır.
+# (normalize edilmiş anahtar → ekranda görünecek standart ad)
+_DEPO_KANONIK = {
+    "MERKEZ DEPO": "MERKEZ DEPO", "MERKEZDEPO": "MERKEZ DEPO", "MERKEZ": "MERKEZ DEPO",
+    "HAPPY LIFE": "HAPPY LIFE", "HAPPYLIFE": "HAPPY LIFE", "HAPPY": "HAPPY LIFE",
+    "ASEL DEPO": "ASEL DEPO", "ASELDEPO": "ASEL DEPO", "ASEL": "ASEL DEPO",
+    "TEKNIK DEPO": "TEKNİK DEPO", "TEKNIKDEPO": "TEKNİK DEPO", "TEKNIK": "TEKNİK DEPO",
+}
+
+
+def depo_kanonik(s):
+    """Depo adını standart yazıma çevirir: 'happy life' / 'HAPPYLIFE' / 'Happy Life' → 'HAPPY LIFE'.
+    Bilinmeyen depolar boşluk sadeleştirilip BÜYÜK harfe çevrilerek döner (yine tutarlı olur)."""
+    n = _depo_norm(s)
+    n = " ".join(n.split())  # çoklu boşlukları teke indir
+    if n in _DEPO_KANONIK:
+        return _DEPO_KANONIK[n]
+    n2 = n.replace(" ", "")
+    if n2 in _DEPO_KANONIK:
+        return _DEPO_KANONIK[n2]
+    return n  # bilinmeyen depo: en azından BÜYÜK/tek-boşluk normalize
+
+
+def _kirilim_kanonik(depo_kirilim):
+    """Bir depo_kirilim sözlüğündeki tüm depo adlarını kanonikleştirir, aynı depoları TOPLAR."""
+    out = {}
+    for d, m in (depo_kirilim or {}).items():
+        k = depo_kanonik(d)
+        try:
+            out[k] = out.get(k, 0) + int(float(m or 0))
+        except Exception:
+            out[k] = out.get(k, 0)
+    return out
+
+
 def _bizim_stok_hesapla(depo_kirilim):
     """Satılabilir depoların (Merkez + Happy Life) toplamı."""
     return int(sum(int(m or 0) for d, m in (depo_kirilim or {}).items()
@@ -959,8 +994,11 @@ def _bizim_stok_hesapla(depo_kirilim):
 
 def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
     """SAF hesap: kaynak depodan hedefe 'adet' taşır. Yazmaz.
+    Kaynak/hedef ve kırılım kanonikleştirilir (yazım farkı sorun olmaz).
     Döner: (yeni_kirilim | None, hata_mesaji)."""
-    dk = dict(depo_kirilim or {})
+    dk = _kirilim_kanonik(depo_kirilim or {})
+    kaynak = depo_kanonik(kaynak)
+    hedef = depo_kanonik(hedef)
     adet = int(adet or 0)
     if adet <= 0:
         return None, "Adet 0'dan büyük olmalı."
@@ -977,29 +1015,36 @@ def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
 
 
 def get_depo_listesi():
-    """Tüm ürünlerin depo_kirilim'inde geçen benzersiz depo adları (alfabetik)."""
+    """Tüm ürünlerin depo_kirilim'inde geçen benzersiz KANONİK depo adları (alfabetik).
+    Ayrıca teslim alınmış ithalat dosyalarının teslim depolarını da dahil eder."""
     depolar = set()
     for u in _hepsi("urunler", "depo_kirilim"):
         dk = u.get("depo_kirilim") or {}
         if isinstance(dk, dict):
             for d in dk.keys():
                 if str(d).strip():
-                    depolar.add(str(d).strip())
+                    depolar.add(depo_kanonik(d))
+    try:
+        from ithalat.database import get_dosyalar as _ith_dosyalar
+        for d in (_ith_dosyalar() or []):
+            if str(d.get("durum") or "").strip() == "Teslim Alındı":
+                _td = (d.get("teslim_deposu") or "").strip()
+                if _td:
+                    depolar.add(depo_kanonik(_td))
+    except Exception:
+        pass
     return sorted(depolar)
 
 
 def get_depo_ozet():
-    """Her depo için {depo, cesit, toplam_adet, satilabilir} (adet>0 olanlar)."""
+    """Her depo için {depo, cesit, toplam_adet, satilabilir} (adet>0 olanlar), KANONİK adlarla."""
     sayac = {}
     for u in _hepsi("urunler", "depo_kirilim"):
-        dk = u.get("depo_kirilim") or {}
-        if not isinstance(dk, dict):
-            continue
+        dk = _kirilim_kanonik(u.get("depo_kirilim") or {})
         for d, m in dk.items():
             m = int(m or 0)
             if m <= 0:
                 continue
-            d = str(d).strip()
             sayac.setdefault(d, [0, 0])
             sayac[d][0] += 1
             sayac[d][1] += m
@@ -1013,7 +1058,7 @@ def get_depo_stok(depo):
     Kaynak: ürün kartındaki depo_kirilim. Eğer bir ürünün kırılımı boşsa ama o depoya
     TESLİM ALINMIŞ ithalat dosyası varsa, teslim adedi de dahil edilir (böylece satın
     alınıp teslim edilen modeller depo_kirilim güncel olmasa bile sevk listesinde çıkar)."""
-    depo = (depo or "").strip()
+    depo = depo_kanonik(depo)
     stok = {}   # sku -> adet
     adlar = {}  # sku -> urun_adi
     for u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
@@ -1021,11 +1066,10 @@ def get_depo_stok(depo):
         if not sku:
             continue
         adlar[sku] = u.get("urun_adi", "") or ""
-        dk = u.get("depo_kirilim") or {}
-        if isinstance(dk, dict):
-            m = int(dk.get(depo, 0) or 0)
-            if m != 0:
-                stok[sku] = m
+        dk = _kirilim_kanonik(u.get("depo_kirilim") or {})
+        m = int(dk.get(depo, 0) or 0)
+        if m != 0:
+            stok[sku] = m
 
     # depo_kirilim'i olan SKU'lar dışında, bu depoya teslim edilmiş ithalat kalemlerini ekle
     try:
@@ -1033,7 +1077,7 @@ def get_depo_stok(depo):
         for d in (_ith_dosyalar() or []):
             if str(d.get("durum") or "").strip() != "Teslim Alındı":
                 continue
-            if (d.get("teslim_deposu") or "").strip() != depo:
+            if depo_kanonik(d.get("teslim_deposu") or "") != depo:
                 continue
             for k in (_ith_kalemler(d["id"]) or []):
                 sku = str(k.get("sku") or "").strip()
@@ -1123,7 +1167,7 @@ def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None):
     delta + → giriş, − → çıkış. depo verilmezse 'MERKEZ DEPO'.
     kart_ac=True: ürün kartı olmayan SKU için otomatik boş kart açılır (adı kart_adlar[sku]).
     Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan)."""
-    depo = (depo or "").strip() or "MERKEZ DEPO"
+    depo = depo_kanonik((depo or "").strip() or "MERKEZ DEPO")
     kart_adlar = kart_adlar or {}
     uygulanan, atlanan = 0, []
     try:
