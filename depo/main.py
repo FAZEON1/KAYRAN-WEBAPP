@@ -109,7 +109,44 @@ def _sayfa_sevk():
     _kaynak_urunler = get_depo_stok(_kaynak) if _kaynak else []
     if not _kaynak_urunler:
         st.info("Bu depoda stoklu ürün yok.")
-    else:
+
+    # 🔎 "SKU neden listede yok?" teşhis aracı
+    with st.expander("🔎 Bir SKU sevk listesinde çıkmıyor mu? — nedenini gör"):
+        _tsku = st.text_input("SKU yaz (örn. X24F182S)", key="dpo_teshis_sku").strip()
+        if _tsku:
+            try:
+                _u = get_client().table("urunler").select("sku, urun_adi, depo_kirilim, bizim_stok") \
+                    .eq("sku", _tsku).execute().data
+                if not _u and _tsku != _tsku.upper():
+                    _u = get_client().table("urunler").select("sku, urun_adi, depo_kirilim, bizim_stok") \
+                        .eq("sku", _tsku.upper()).execute().data
+                if not _u:
+                    st.error(f"❌ **{_tsku}** için ürün kartı YOK. İthalat teslimi bu SKU'yu stoğa "
+                             "işleyememiş demektir (kartsız SKU'lar atlanır). Ürün Yön.'de bu SKU için "
+                             "kart aç (ya da G5F/stok kartı yükle), sonra ithalat dosyasını Düzenle'den "
+                             "'Teslim Alındı'yı kaydet — stok o an işlenir.")
+                else:
+                    _dk = _u[0].get("depo_kirilim") or {}
+                    if not isinstance(_dk, dict):
+                        _dk = {}
+                    _dolu = {k: v for k, v in _dk.items() if int(v or 0) != 0}
+                    st.write(f"**{_u[0].get('sku')}** — {_u[0].get('urun_adi','')}")
+                    if _dolu:
+                        st.success("📦 Depo kırılımı: " + " · ".join(f"**{k}**: {int(v)}"
+                                                                     for k, v in _dolu.items()))
+                        st.caption("Sevk için, yukarıda **Kaynak depo**yu bu ürünün stoğu olan depoyla "
+                                   "(örn. HAPPY LIFE) seç — o zaman listede çıkar.")
+                    else:
+                        st.warning("⚠️ Kart var ama **hiçbir depoda stok yok** (tüm depolar 0). "
+                                   "İthalat teslimi stoğu eklememiş olabilir: İthalat → ilgili dosya → "
+                                   "Düzenle → durumu bir başka aşamaya alıp tekrar **Teslim Alındı** yap "
+                                   "(teslim deposu **seçili** olmalı) — stok o an işlenir. "
+                                   "Not: Model B'den önce teslim edilmiş eski dosyalar stoğa işlenmez; "
+                                   "onları bu yöntemle yeniden tetikleyebilirsin.")
+            except Exception as _e:
+                st.error(f"Sorgulanamadı: {type(_e).__name__}: {str(_e)[:120]}")
+
+    if _kaynak_urunler:
         _urun_opts = {f'{u["sku"]} — {(u["urun_adi"] or "")[:30]} ({u["adet"]} adet)': u
                       for u in _kaynak_urunler}
         ec1, ec2, ec3 = st.columns([2.4, 1, 1])
