@@ -118,12 +118,21 @@ def _mal_kabul():
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
             st.rerun()
 
-    # 🏬 Mağaza seç (Vatan) — form DIŞINDA; seçince ad/telefon/adres dolar
-    from .magazalar import magaza_listesi
-    _mgz = magaza_listesi("VATAN")
+    # 🏢 Firma cari — form DIŞINDA (değişince mağaza listesi anında filtrelensin, madde 6)
+    _fc1, _fc2 = st.columns(2)
+    firma_sec = _fc1.selectbox("Firma (cari unvan)", TS_FIRMALAR, key="mk_firma_sec")
+    firma_yeni = _fc2.text_input("Firma listede yoksa tam cari unvanı yaz (yeni firma)",
+                                 key="mk_firma_yeni", placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
+
+    # 🏬 Mağaza seç — firma cari'ye göre; mağaza seçilince firma cari OTOMATİK atanır (madde 6)
+    from .magazalar import magaza_listesi, magaza_cari, _cari_grup
+    _cur_firma = st.session_state.get("mk_firma_sec", "")
+    _grup = _cari_grup(_cur_firma)  # seçili cariye ait mağaza grubu (yoksa None → tüm mağazalar)
+    _mgz = magaza_listesi(_grup) if _grup else magaza_listesi()
     if _mgz:
-        _mopts = ["— Mağaza seç (Vatan) —"] + [m["ad"] for m in _mgz]
-        _msec = st.selectbox(f"🏬 Mağaza seç ({len(_mgz)} Vatan mağazası · yazarak ara)",
+        _grup_ad = _grup if _grup else "tüm firmalar"
+        _mopts = [f"— Mağaza seç ({_grup_ad}) —"] + [m["ad"] for m in _mgz]
+        _msec = st.selectbox(f"🏬 Mağaza seç ({len(_mgz)} mağaza · yazarak ara)",
                              _mopts, key="mk_mgz_sec")
         if _msec != _mopts[0] and st.session_state.get("_mk_mgz_son") != _msec:
             st.session_state["_mk_mgz_son"] = _msec
@@ -131,9 +140,15 @@ def _mal_kabul():
                 if _m["ad"] == _msec:
                     st.session_state["mk_m_adi"] = _m["ad"]
                     st.session_state["mk_m_tel"] = _m.get("tel", "")
+                    if _m.get("mail"):
+                        st.session_state["mk_m_mail"] = _m.get("mail", "")
                     _adr = _m.get("adres", "")
                     _yer = " / ".join([x for x in (_m.get("ilce", ""), _m.get("sehir", "")) if x])
                     st.session_state["mk_m_adres"] = (f"{_adr} — {_yer}".strip(" —") if _yer else _adr)
+                    # Mağaza → firma cari OTOMATİK set (madde 6)
+                    _oto_cari = magaza_cari(_m["ad"])
+                    if _oto_cari and _oto_cari in TS_FIRMALAR:
+                        st.session_state["mk_firma_sec"] = _oto_cari
                     break
             st.rerun()
 
@@ -158,12 +173,9 @@ def _mal_kabul():
         urun_grubu = (urun_grubu_yeni.strip()
                       or (urun_grubu_sec if urun_grubu_sec != "— ürün grubu seç —" else "")).strip()
 
-        d1, d2 = st.columns(2)
-        seri = d1.text_input("Seri No *")
-        firma_sec = d2.selectbox("Firma (cari unvan)", TS_FIRMALAR, key="mk_firma_sec")
-        firma_yeni = st.text_input("Firma listede yoksa tam cari unvanı yaz (yeni firma)",
-                                   key="mk_firma_yeni", placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
-        firma = (firma_yeni.strip() or firma_sec).strip()
+        seri = st.text_input("Seri No *")
+        firma = (st.session_state.get("mk_firma_yeni", "").strip()
+                 or st.session_state.get("mk_firma_sec", "")).strip()
 
         # Kargo Takip No — yalnızca "Kargo" seçilirse görünür
         kargo_takip = ""
@@ -184,8 +196,9 @@ def _mal_kabul():
         _alt_baslik("Belge — fatura veya irsaliye ile kabul")
         fbz = st.columns([1.3, 3])
         fatura_mevcut = fbz[0].checkbox("Fatura mevcut", value=True, key="mk_fat_mevcut")
-        fbz[1].caption("İşaretliyse **Fatura No** zorunlu. İşaretli değilse (ServisPoint gibi geç faturalı) "
-                       "**İrsaliye No** zorunlu, ürün işleme alınır; fatura kesilince sonradan ✓'e çevrilir.")
+        fbz[1].caption("Fatura No / İrsaliye No **opsiyoneldir** — ürün belge beklemeden işleme alınır. "
+                       "Fatura sonradan kesilince Muhasebe ya da Teknik Servis, kaydı **Düzenle**'den "
+                       "girip ✓'e çevirebilir.")
         f1, f2 = st.columns(2)
         fatura = f1.text_input("Fatura No")
         irsaliye = f2.text_input("İrsaliye No")
@@ -205,12 +218,6 @@ def _mal_kabul():
             return
         if not ariza.strip():
             st.error("Arıza alanı zorunludur.")
-            return
-        if fatura_mevcut and not fatura.strip():
-            st.error("Fatura mevcut işaretli — Fatura No zorunludur.")
-            return
-        if (not fatura_mevcut) and not irsaliye.strip():
-            st.error("Fatura yok işaretli — İrsaliye No zorunludur (faturasız kabulde irsaliye şart).")
             return
         _sevk_txt = "" if str(sevk_yontemi).startswith("(") else sevk_yontemi
         if kargo_takip.strip():

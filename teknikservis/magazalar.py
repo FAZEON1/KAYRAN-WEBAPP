@@ -3,6 +3,16 @@
 Yeni firma mağazaları eklemek için MAGAZALAR sözlüğüne yeni anahtar ekleyin."""
 
 MAGAZALAR = {
+    "EERA": [
+        {"ad": "İSTANBUL ACIBADEM MAĞAZASI", "sehir": "İSTANBUL", "ilce": "Kadıköy", "tel": "0850 259 2696", "adres": "Hasanpaşa Mahallesi, Lavanta Sokak, Etap İş Merkezi D Blok No: 22, Kadıköy/İstanbul", "mail": "acibademmh@itopya.com"},
+        {"ad": "İSTANBUL BEYLİKDÜZÜ MAĞAZASI", "sehir": "İSTANBUL", "ilce": "Beylikdüzü", "tel": "0850 259 2696", "adres": "Barış Mahallesi, Belediye Caddesi, Ginza Lavinya No: 30/A5, Beylikdüzü/İstanbul", "mail": "beylikduzumh@itopya.com"},
+        {"ad": "ANKARA SÖĞÜTÖZÜ MAĞAZASI", "sehir": "ANKARA", "ilce": "Çankaya", "tel": "0850 259 2696", "adres": "Söğütözü Mahallesi, 2176. Sokak, No: 7B Çankaya/Ankara", "mail": "ankaramh@itopya.com"},
+        {"ad": "İSTANBUL KARTAL DEPO", "sehir": "İSTANBUL", "ilce": "Kartal", "tel": "0850 259 2696", "adres": "Esentepe Mahallesi, Cevizli D100 Yanyolu, Kartal/İstanbul", "mail": "kartalmh@itopya.com"},
+        {"ad": "İSTANBUL AIRPORT AVM MAĞAZASI", "sehir": "İSTANBUL", "ilce": "Bakırköy", "tel": "0850 259 2696", "adres": "Ataköy 7-8-9-10, Kısım, Çoban Çeşme E-5 Yanyol Caddesi, Airport AVM Kat:2, 34158 Bakırköy/İstanbul", "mail": "airportmh@itopya.com"},
+    ],
+    "MONDAY": [
+        {"ad": "Monday/Teknoklik", "sehir": "İSTANBUL", "ilce": "Ümraniye", "tel": "0850 259 8818", "adres": "Yukarı Dudullu, Necip Fazıl Blv. Keyap Sitesi D:44-59, 34775 Ümraniye/İstanbul", "mail": "teknik@mondaybilisim.com"},
+    ],
     "VATAN": [
         {"ad": "VATAN BİLG.  ADANA 01 AVM", "sehir": "ADANA", "ilce": "SEYHAN", "tel": "0322 5043180", "adres": "AHMET REMZİ YÜREĞİR MAHALLESİ, TURHAN CEMAL BERİKER BULVARI NO:162"},
         {"ad": "VATAN BİLG.  ADANA BULVAR", "sehir": "ADANA", "ilce": "ÇUKUROVA", "tel": "0322 2120106", "adres": "GÜZELYALI MAHALLESİ, TURGUT ÖZAL BULVARI, BAYRAM BAKIRCI APARTMANI, NO:1 01332"},
@@ -177,3 +187,33 @@ def magaza_listesi(firma=None):
     for _f, _lst in MAGAZALAR.items():
         _hepsi.extend(_lst)
     return _hepsi
+
+
+# Mağaza grubu (MAGAZALAR anahtarı) → tam cari unvan (TS_FIRMALAR ile birebir).
+GRUP_CARI = {
+    "EERA": "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ",
+    "MONDAY": "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ",
+    "VATAN": "VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI",
+}
+
+
+def _cari_grup(cari):
+    """Tam cari unvandan mağaza grubunu (MAGAZALAR anahtarı) bulur. Bulunamazsa None."""
+    _c = str(cari or "").strip().upper()
+    for _g, _u in GRUP_CARI.items():
+        if _c == _u.upper():
+            return _g
+    # Gevşek eşleşme (ilk kelime): EERA…/MONDAY…/VATAN…
+    for _g in GRUP_CARI:
+        if _c.startswith(_g):
+            return _g
+    return None
+
+
+def magaza_cari(magaza_adi):
+    """Bir mağaza adının hangi cari unvana ait olduğunu döndürür (mağaza→firma otomatik seçimi için)."""
+    for _g, _lst in MAGAZALAR.items():
+        for _m in _lst:
+            if _m.get("ad") == magaza_adi:
+                return GRUP_CARI.get(_g, "")
+    return ""
