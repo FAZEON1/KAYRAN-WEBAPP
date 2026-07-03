@@ -2615,6 +2615,45 @@ def run():
         st.markdown('<div class="alt-baslik">Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
+        # 🧹 Kategori Standartlaştır — mükerrer (Kasa/kasa) kategorileri birleştir
+        with st.expander("🧹 Kategori Standartlaştır — mükerrer kategorileri birleştir (Kasa/kasa → kasa)",
+                         expanded=False):
+            st.caption("Kategoriler büyük/küçük harf farkından iki kez görünüyorsa ('Kasa' ve 'kasa'), "
+                       "bu araç hepsini **tek biçime (küçük harf)** indirger ve birleştirir. "
+                       "Yalnız kategori yazımını düzeltir; fiyat/stok/paçal gibi hiçbir veriye dokunmaz. "
+                       "Güvenle tekrar tekrar çalıştırılabilir.")
+            try:
+                from .database import get_client as _gc_kd
+                _kdrows = _gc_kd().table("urunler").select("kategori").execute().data or []
+                from shared.utils import tr_kucuk as _trk
+                _kgrup = {}
+                for _r in _kdrows:
+                    _k = (_r.get("kategori") or "").strip()
+                    if _k:
+                        _std = _trk(_k)
+                        _kgrup.setdefault(_std, set()).add(_k)
+                _mukerrer = {s: v for s, v in _kgrup.items() if len(v) > 1}
+                if _mukerrer:
+                    st.warning("⚠️ Mükerrer kategoriler bulundu: "
+                               + " · ".join(f"**{s}** ← ({', '.join(sorted(v))})"
+                                            for s, v in sorted(_mukerrer.items())))
+                else:
+                    st.success("✅ Şu an mükerrer kategori yok (hepsi tek biçimde).")
+            except Exception as _e:
+                st.caption(f"Ön kontrol yapılamadı: {type(_e).__name__}")
+            if st.button("🧹 Kategorileri Standartlaştır", type="primary", key="kat_std_btn",
+                         use_container_width=True):
+                from .database import kategori_standartlastir
+                _n, _deg = kategori_standartlastir()
+                st.cache_data.clear()
+                if _n:
+                    _ozet = " · ".join(f"{e} → {y}" for e, y in list(_deg.items())[:12])
+                    st.success(f"✅ {_n} ürünün kategorisi standartlaştırıldı. Değişimler: {_ozet}"
+                               + (" …" if len(_deg) > 12 else ""))
+                else:
+                    st.info("Değişiklik gerekmedi — kategoriler zaten standart.")
+                st.rerun()
+
         # 💲 Toplu Satış Fiyatı & Marj
         with st.expander("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", expanded=False):
             from .database import get_client as _gc_s, toplu_satis_kaydet as _satis_kaydet
