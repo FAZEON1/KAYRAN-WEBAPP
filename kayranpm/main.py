@@ -2792,11 +2792,12 @@ def run():
                        "İstersen bana hangi SKU'ların doğru olduğunu yaz, güvenli birleştirme aracını ona göre yapayım.")
 
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#38BDF8);display:inline-block"></span>🔤 Ürün Adlarını Küçük Harfe Çevir</div>', unsafe_allow_html=True)
-        st.caption("Tüm stok kartı isimlerini Türkçe-doğru küçük harfe indirir (İ→i, I→ı): "
-                   "'FAZEON X24 MONİTÖR' → 'fazeon x24 monitör'. Yalnız ürün adına dokunur; "
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#38BDF8);display:inline-block"></span>🔤 Ürün Adlarını Düzenle (Her Kelime Baş Harfi Büyük)</div>', unsafe_allow_html=True)
+        st.caption("Tüm stok kartı isimlerini tek biçime getirir: 'MIO MIVUE 802' → 'Mio Mivue 802', "
+                   "'FAZEON X24 MONİTÖR' → 'Fazeon X24 Monitör'. Türkçe karakter korunur, "
+                   "rakamlı model kodları (935W, C595WD) olduğu gibi kalır. Yalnız ürün adına dokunur; "
                    "SKU/fiyat/stok/kategori değişmez. Güvenle tekrar çalıştırılabilir.")
-        if st.button("🔤 Tüm Ürün Adlarını Küçük Harf Yap", type="primary",
+        if st.button("🔤 Tüm Ürün Adlarını Düzelt", type="primary",
                      use_container_width=True, key="urun_ad_kucuk_btn"):
             try:
                 from .database import urun_adlari_kucuk_harf

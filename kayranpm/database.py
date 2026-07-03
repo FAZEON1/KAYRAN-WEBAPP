@@ -1371,9 +1371,11 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
 
 
 def urun_adlari_kucuk_harf():
-    """Tüm ürün kartlarının adını Türkçe-doğru küçük harfe çevirir (İ→i, I→ı).
-    SKU/fiyat/stok gibi alanlara dokunmaz; yalnız 'urun_adi'. Zaten küçükse atlar.
+    """Tüm ürün kartlarının adını 'Her Kelime Baş Harfi Büyük' (Title Case) biçimine getirir.
+    Türkçe karakter korunur, rakamlı model kodları (935W, X24) olduğu gibi kalır.
+    SKU/fiyat/stok gibi alanlara dokunmaz; yalnız 'urun_adi'. Zaten uygunsa atlar.
     Döner: (degisen_sayisi, ornekler[list])."""
+    from shared.utils import tr_baslik
     sb = get_client()
     degisen, ornekler = 0, []
     for u in _hepsi("urunler", "sku, urun_adi"):
@@ -1381,7 +1383,7 @@ def urun_adlari_kucuk_harf():
         ad = str(u.get("urun_adi") or "")
         if not sku or not ad.strip():
             continue
-        yeni = tr_kucuk(ad)
+        yeni = tr_baslik(ad)
         if yeni != ad:
             try:
                 sb.table("urunler").update({"urun_adi": yeni}).eq("sku", sku).execute()
