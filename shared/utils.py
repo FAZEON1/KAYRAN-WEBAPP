@@ -59,6 +59,15 @@ def firma_gorunen_ad(kod) -> str:
     return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
 
 
+def tr_buyuk(s) -> str:
+    """BÜYÜK harf — İngilizce tarzı (i→I, noktasız). Marka/model isimleri için uygundur.
+    Türkçe'ye özgü harfler doğru büyür (ç→Ç, ğ→Ğ, ş→Ş, ö→Ö, ü→Ü, İ→İ).
+    'Mio Mivue 802' → 'MIO MIVUE 802', 'Fazeon Soğutucu' → 'FAZEON SOĞUTUCU'."""
+    # Önce Türkçe küçük 'i̇' bileşenini sadeleştir, sonra standart upper (i→I noktasız)
+    s = str(s or "").replace("İ", "I").replace("i̇", "I")
+    return s.upper().strip()
+
+
 def tr_baslik(s) -> str:
     """'Her Kelime Baş Harfi Büyük' (Title Case), Türkçe karakterleri koruyarak.
     Marka/model kısaltmalarını bozmamak için standart büyük/küçük kullanılır
