@@ -2792,6 +2792,28 @@ def run():
                        "İstersen bana hangi SKU'ların doğru olduğunu yaz, güvenli birleştirme aracını ona göre yapayım.")
 
         st.markdown("---")
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#38BDF8);display:inline-block"></span>🔤 Ürün Adlarını Küçük Harfe Çevir</div>', unsafe_allow_html=True)
+        st.caption("Tüm stok kartı isimlerini Türkçe-doğru küçük harfe indirir (İ→i, I→ı): "
+                   "'FAZEON X24 MONİTÖR' → 'fazeon x24 monitör'. Yalnız ürün adına dokunur; "
+                   "SKU/fiyat/stok/kategori değişmez. Güvenle tekrar çalıştırılabilir.")
+        if st.button("🔤 Tüm Ürün Adlarını Küçük Harf Yap", type="primary",
+                     use_container_width=True, key="urun_ad_kucuk_btn"):
+            try:
+                from .database import urun_adlari_kucuk_harf
+                with st.spinner("Ürün adları güncelleniyor…"):
+                    _d, _ornek = urun_adlari_kucuk_harf()
+                st.cache_data.clear()
+                if _d:
+                    st.success(f"✅ {_d} ürün adı küçük harfe çevrildi.")
+                    for _o in _ornek:
+                        st.caption(_o)
+                else:
+                    st.info("Değişiklik gerekmedi — tüm ürün adları zaten küçük harf.")
+            except Exception as _e:
+                st.error(f"İşlem yapılamadı: {type(_e).__name__}: {str(_e)[:140]}")
+            st.rerun()
+
+        st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#F472B6,#A78BFA);display:inline-block"></span>📇 Stok Kartları · Eksik Kartları Aç / Barkod & Kategori Tamamla</div>', unsafe_allow_html=True)
         st.caption("Sütunlar: **MARKA · STOK KODU · STOK ADI · BARKOD · KATEGORİ**. "
                    "Sistemde olmayan SKU'lar **yeni kart** olarak açılır (barkod boş olabilir). "

@@ -1368,3 +1368,27 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
             mesajlar.append(f"❌ {hedef_sku}: birleştirilemedi — {type(e).__name__}: {str(e)[:90]}")
     _cache_temizle()
     return birlesen, silinen, mesajlar
+
+
+def urun_adlari_kucuk_harf():
+    """Tüm ürün kartlarının adını Türkçe-doğru küçük harfe çevirir (İ→i, I→ı).
+    SKU/fiyat/stok gibi alanlara dokunmaz; yalnız 'urun_adi'. Zaten küçükse atlar.
+    Döner: (degisen_sayisi, ornekler[list])."""
+    sb = get_client()
+    degisen, ornekler = 0, []
+    for u in _hepsi("urunler", "sku, urun_adi"):
+        sku = str(u.get("sku") or "").strip()
+        ad = str(u.get("urun_adi") or "")
+        if not sku or not ad.strip():
+            continue
+        yeni = tr_kucuk(ad)
+        if yeni != ad:
+            try:
+                sb.table("urunler").update({"urun_adi": yeni}).eq("sku", sku).execute()
+                degisen += 1
+                if len(ornekler) < 6:
+                    ornekler.append(f"{ad} → {yeni}")
+            except Exception:
+                pass
+    _cache_temizle()
+    return degisen, ornekler
