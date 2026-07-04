@@ -420,6 +420,13 @@ def tum_urunler_listesi():
     """Tüm ürünlerin stok, fiyat ve FINAL COST PRICE hesabını döndürür."""
     sb = get_client()
     urunler = sb.table("urunler").select("*").order("urun_adi").execute().data or []
+    try:
+        from shared.utils import tr_buyuk as _tb_ad
+        for _u in urunler:
+            if _u.get("urun_adi"):
+                _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
+    except Exception:
+        pass
 
     FIRMALAR = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
 
