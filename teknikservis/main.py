@@ -540,7 +540,8 @@ def _kontrol_paneli(kayit):
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
 
     # ── İşlemler ──
-    with st.expander("⚙️ Durum Güncelle / İşlem Yap", expanded=False):
+    @st.dialog("⚙️ Durum Güncelle / İşlem Yap", width="large")
+    def _dlg_ts_durum():
         # Yeni durum form DIŞINDA — 'ürün değişimi' seçilince değişim alanları anında görünsün
         mevcut = kayit.get("mevcut_durum", "mal kabül")
         idx = DURUMLAR.index(mevcut) if mevcut in DURUMLAR else 0
@@ -640,8 +641,11 @@ def _kontrol_paneli(kayit):
                     st.rerun()
                 else:
                     st.error("Güncelleme başarısız.")
+    if st.button("⚙️ Durum Güncelle / İşlem Yap", key="btn_ts_durum", use_container_width=True):
+        _dlg_ts_durum()
 
-    with st.expander("📦 Depoya Transfer (işlem bitti)", expanded=False):
+    @st.dialog("📦 Depoya Transfer (işlem bitti)", width="large")
+    def _dlg_ts_transfer():
         st.caption("İşlemi biten ürünü ilgili depoya aktar. Aktif arayüzden düşmez, Depolar sekmesinde görünür.")
         depo = st.selectbox("Hedef Depo", DEPOLAR, key=f"ts_depo_{kid}")
         depo_aciklama = st.text_input("Ürün Son Durumu / Açıklama (rapor için)",
@@ -661,8 +665,11 @@ def _kontrol_paneli(kayit):
                 st.rerun()
             else:
                 st.error("Transfer başarısız.")
+    if st.button("📦 Depoya Transfer (işlem bitti)", key="btn_ts_transfer", use_container_width=True):
+        _dlg_ts_transfer()
 
-    with st.expander("🗑️ Hatalı / Mükerrer Kaydı Sil", expanded=False):
+    @st.dialog("🗑️ Hatalı / Mükerrer Kaydı Sil", width="large")
+    def _dlg_ts_sil():
         st.caption("Yanlışlıkla oluşmuş ya da mükerrer kayıtları kalıcı siler. Geri alınamaz; "
                    "durum geçmişi de silinir. Gerçekten iptal edilen (ama kayıtta kalması gereken) "
                    "servisler için bunun yerine yukarıdan durumu **iptal** yap.")
@@ -676,6 +683,8 @@ def _kontrol_paneli(kayit):
                 st.rerun()
             else:
                 st.error(f"Silinemedi: {hata}")
+    if st.button("🗑️ Hatalı / Mükerrer Kaydı Sil", key="btn_ts_sil", use_container_width=True):
+        _dlg_ts_sil()
 
 
 # ── Depolar ──────────────────────────────────────────────────────────
