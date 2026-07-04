@@ -1199,8 +1199,8 @@ def _yeni_ithalat():
                 teslim_tarihi_m = _tt_m.isoformat() if _tt_m else ""
 
         with st.container(border=True):
-            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da SKU/ad/barkod yaz")
-            st.session_state.setdefault("m_satir_n", 3)
+            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU / ürün adı / barkod gir")
+            st.session_state.setdefault("m_satir_n", 5)
             n_satir = st.session_state.m_satir_n
             _barkod_map = get_barkod_map()
 
@@ -1256,7 +1256,8 @@ def _yeni_ithalat():
             if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
-            _ec2.caption("🗑 ile satırı boşalt · SKU boş satırlar kaydedilmez.")
+            _ec2.caption("🗑 Yanlış girdiğin satırı boşaltmak için satırın sağındaki çöp kutusuna bas "
+                         "(SKU boş olan satırlar zaten kaydedilmez).")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
 
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
@@ -1326,158 +1327,6 @@ def _yeni_ithalat():
 
     # ── Excel ──
     with sekme2:
-        with st.expander("🏷️ Ürün Bilgisi Yükle (Excel) — SKU + Stok Adı + Barkod", expanded=False):
-            st.markdown(
-                "Excel sütunları: **SKU** + **Stok Adı** + **Barkod**. Bilgiler ürün kataloğuna toplu yazılır; "
-                "**tüm modüllerle** (İthalat, Satış, Ürün Yönetimi, Stok Kartı) senkron olur. "
-                "Boş bıraktığın hücreler mevcut değeri **bozmaz**.")
-            up_bk = st.file_uploader("Ürün Excel (.xlsx/.xls)", type=["xlsx", "xls"], key="ith_barkod_up")
-            if up_bk is not None:
-                try:
-                    df_bk = pd.read_excel(up_bk)
-                    df_bk.columns = [str(c).strip() for c in df_bk.columns]
-
-                    def _bk_bul(cands):
-                        for c in df_bk.columns:
-                            cl = c.lower().replace("ı", "i").replace("İ", "i")
-                            for k in cands:
-                                if k in cl:
-                                    return c
-                        return None
-                    k_sku = _bk_bul(["sku", "stok kodu", "stok kod"])
-                    k_ad = _bk_bul(["stok adi", "stok ad", "stok ismi", "urun adi", "ürün ad",
-                                    "ürün ismi", "stok tanim", "tanim"])
-                    k_bk = _bk_bul(["barkod", "barcode", "ean"])
-                    if not k_sku:
-                        st.error("Gerekli sütun bulunamadı: 'SKU' / 'Stok Kodu'.")
-                    else:
-                        satirlar = []
-                        for _, r in df_bk.iterrows():
-                            s = str(r.get(k_sku) or "").strip()
-                            if not s or s.lower() == "nan":
-                                continue
-                            ad = (str(r.get(k_ad) or "").strip() if k_ad else "")
-                            b = (str(r.get(k_bk) or "").strip() if k_bk else "")
-                            if ad.lower() == "nan":
-                                ad = ""
-                            if b.lower() == "nan":
-                                b = ""
-                            satirlar.append({"sku": s, "urun_adi": ad, "barkod": b})
-                        st.caption(f"Excel'den {len(satirlar)} ürün okundu. "
-                                   f"(Stok Adı: {'✓ ' + k_ad if k_ad else '— yok'} · "
-                                   f"Barkod: {'✓ ' + k_bk if k_bk else '— yok'})")
-                        st.dataframe(pd.DataFrame(satirlar[:8]), hide_index=True, use_container_width=True)
-                        if st.button("💾 Ürün Bilgilerini Kaydet", type="primary", key="ith_barkod_kaydet"):
-                            n, hata = urun_bilgi_toplu_yukle(satirlar)
-                            st.cache_data.clear()
-                            if n:
-                                st.success(f"✅ {n} ürün güncellendi (katalog + barkod). Tüm modüllerle senkron.")
-                            else:
-                                st.error(f"Yazılamadı: {hata}")
-                except Exception as e:
-                    st.error(f"Excel okunamadı: {e}")
-
-        with st.expander("📅 Sadece Teslim Tarihi Güncelle (mevcut ithalatlara) — hiçbir veriyi değiştirmez", expanded=False):
-            st.markdown(
-                "Satın alım raporunu yükle; **yalnızca Teslim Tarihi** mevcut ithalatlara yazılır. "
-                "Eşleştirme: önce **Belge no**, eşleşmezse **İthalat Takip No**. "
-                "Başka hiçbir alan (masraf, kalem, fiyat, tarih) **değişmez**. Tekrar yüklenebilir.")
-            up_t = st.file_uploader("Satın Alım Raporu (.xls/.xlsx)", type=["xlsx", "xls"], key="ith_teslim_up")
-            if up_t is not None:
-                try:
-                    df_t = pd.read_excel(up_t)
-                    df_t.columns = [str(c).strip() for c in df_t.columns]
-
-                    def _bul(cands):
-                        for c in df_t.columns:
-                            cl = c.lower().replace("ı", "i").replace("İ", "i")
-                            for k in cands:
-                                if k in cl:
-                                    return c
-                        return None
-                    k_belge = _bul(["belge no", "belge"])
-                    k_takip = _bul(["thalat takip", "takip no", "takip"])
-                    k_teslim = _bul(["teslim tarih"])
-                    if not k_teslim or (not k_belge and not k_takip):
-                        st.error("Gerekli sütunlar bulunamadı: 'Teslim tarihi' ve ('Belge no' veya 'İthalat Takip No').")
-                    else:
-                        def _gun(v):
-                            try:
-                                return pd.to_datetime(v).date().isoformat()
-                            except Exception:
-                                s = str(v or "").strip()
-                                return s[:10] if s and s.lower() != "nan" else ""
-                        belge_map, takip_map = {}, {}
-                        for _, r in df_t.iterrows():
-                            td = _gun(r.get(k_teslim)) if k_teslim else ""
-                            if not td:
-                                continue
-                            if k_belge:
-                                b = str(r.get(k_belge) or "").strip().upper()
-                                if b and b != "NAN":
-                                    belge_map.setdefault(b, td)
-                            if k_takip:
-                                t = str(r.get(k_takip) or "").strip().upper()
-                                if t and t != "NAN":
-                                    takip_map.setdefault(t, td)
-                        st.caption(f"Rapordan {len(belge_map)} belge no · {len(takip_map)} takip no için teslim tarihi okundu.")
-                        if st.button("📅 Teslim Tarihlerini Uygula", type="primary", key="ith_teslim_uygula"):
-                            g, e, a = teslim_tarihleri_uygula(belge_map, takip_map)
-                            st.cache_data.clear()
-                            st.success(f"✅ {g} ithalata teslim tarihi yazıldı · {a} zaten günceldi · {e} eşleşmedi. "
-                                       "Başka hiçbir veri değişmedi.")
-                            if e:
-                                st.caption("Eşleşmeyenler: sistemdeki Belge no/Takip No, rapordakiyle birebir aynı değil olabilir.")
-                except Exception as e:
-                    st.error(f"Excel okunamadı: {e}")
-
-        # ── Tek seferlik düzeltme: notlardaki SAS No'yu SAS No alanına taşı ──
-        with st.expander("🩹 Notlardaki SAS No'yu SAS No alanına taşı (mevcut kayıtlar) — hiçbir veriyi bozmaz"):
-            st.caption("Eski içe aktarmalarda SAS numarası dosya **Notlar**'ına 'Sipariş(ler): ...' olarak yazılmıştı. "
-                       "Bu düğme, SAS No alanı **boş** olan dosyalarda notlardaki SAS'ı bulup SAS No alanına taşır. "
-                       "Başka hiçbir alana (masraf, kalem, fiyat, Incoterm) dokunmaz.")
-
-            def _sas_notdan(_note):
-                _n = str(_note or "")
-                _a = "Sipariş(ler):"
-                if _a not in _n:
-                    return ""
-                _p = _n.split(_a, 1)[1]
-                _p = _p.split(" · ", 1)[0]
-                return _p.strip()
-
-            _adaylar = []
-            for _d in get_dosyalar():
-                if str(_d.get("sas_no", "") or "").strip():
-                    continue
-                _s = _sas_notdan(_d.get("notlar"))
-                if _s:
-                    _adaylar.append((_d["id"], _d.get("pi_no") or _d.get("dosya_no") or _d["id"], _s))
-            st.caption(f"SAS No'su boş ve notunda SAS bulunan **{len(_adaylar)}** dosya var.")
-            if _adaylar:
-                st.dataframe(
-                    pd.DataFrame([{"Belge/Dosya": b, "Taşınacak SAS No": s} for _, b, s in _adaylar]).head(50),
-                    use_container_width=True, height=220)
-                if st.button(f"🩹 {len(_adaylar)} dosyada SAS No'yu notlardan taşı", type="primary",
-                             key="ith_sas_notdan_btn"):
-                    _ok = 0
-                    for _id, _b, _s in _adaylar:
-                        if set_dosya_sas(_id, _s):
-                            _ok += 1
-                    st.cache_data.clear()
-                    st.success(f"✅ {_ok} dosyanın SAS No'su notlardan taşındı.")
-                    st.rerun()
-
-        st.markdown(
-            "Sisteminizden aldığınız **Satın Alım Raporu** Excel'ini (.xls/.xlsx) doğrudan yükleyin. "
-            "Aynı **İthalat Takip No** satırları tek ithalat dosyası olur — **siparişler İthalat Takip No'ya göre dosyalanır** "
-            "(takip no yoksa Belge no'ya göre). Bir takip no altında birden çok belge/sipariş olabilir; masraf bu dosyaya göre maliyetlenir. Eşleme: "
-            "**İthalat Takip No → dosya**, **Belge no → PI**, **Cari hesap adı → Tedarikçi**, **Stok kodu/ismi → ürün**, "
-            "**Miktar → adet**, **Net fiyat** (yoksa **Birim Fiyat**) **→ birim FOB**, **Döviz**. "
-            "İçindeki **Sipariş / Belge no(lar)** dosya notuna eklenir. "
-            "Masraf bu aşamada girilmez — dosya **⏳ masraf bekliyor** olarak düşer; masrafları sonra "
-            "**Geçmiş İthalatlar → ✏️ Düzenle**'den girersiniz. (0 fiyatlı/bedelsiz satırlar atlanmaz; adetleri paçala dahil edilir, maliyet toplam tutara bölünür.)"
-        )
         st.download_button(
             "⬇️ Örnek şablonu indir", data=_excel_sablon_bytes(),
             file_name="ithalat_satin_alim_sablon.xlsx",
