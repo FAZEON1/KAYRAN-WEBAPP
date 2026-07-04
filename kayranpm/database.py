@@ -1425,3 +1425,22 @@ def urun_adlari_kucuk_harf():
                 pass
     _cache_temizle()
     return degisen, ornekler
+
+
+def get_sku_depo_dagilim(sku):
+    """Bir SKU'nun hangi depolarda kaç adet olduğunu döndürür (kanonik depo adlarıyla).
+    Döner: {depo_adi: adet} — yalnız adet>0 olanlar. Satışta depo seçimi için kullanılır."""
+    try:
+        sb = get_client()
+        u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku).execute())
+        if not u:
+            # harf/boşluk farkıyla eşleşen kartı bul
+            _hedef = " ".join(str(sku or "").strip().upper().split())
+            for _u in _hepsi("urunler", "sku, depo_kirilim"):
+                if " ".join(str(_u.get("sku") or "").strip().upper().split()) == _hedef:
+                    u = _u
+                    break
+        dk = _kirilim_kanonik((u or {}).get("depo_kirilim") or {})
+        return {d: int(m) for d, m in dk.items() if int(m or 0) > 0}
+    except Exception:
+        return {}
