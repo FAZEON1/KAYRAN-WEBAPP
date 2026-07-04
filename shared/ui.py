@@ -356,6 +356,35 @@ def patron_verisi_topla():
     except Exception:
         pass
 
+    # ── Kritik değişiklikler (son 24 saat audit log) ──
+    try:
+        from shared.audit import get_loglar
+        _bugun = _dt.date.today()
+        _dun = (_bugun - _dt.timedelta(days=1)).isoformat()
+        _loglar = get_loglar(limit=200, baslangic=_dun) or []
+        _kritik = []
+        for l in _loglar:
+            _islem = str(l.get("islem", "")).lower()
+            _tablo = str(l.get("tablo", "")).lower()
+            _detay = str(l.get("detay", ""))
+            _onemli = (
+                "sil" in _islem or
+                ("yükle" in _islem or "import" in _islem or "toplu" in _islem) or
+                (_tablo in ("odemeler", "satislar", "cekler", "bankalar") and "güncelle" in _islem)
+            )
+            if _onemli:
+                _kritik.append({
+                    "zaman": str(l.get("zaman", ""))[:16],
+                    "kullanici": (l.get("kullanici", "") or "?").capitalize(),
+                    "islem": l.get("islem", ""),
+                    "modul": l.get("modul", "") or l.get("tablo", ""),
+                    "detay": _detay[:60],
+                })
+        v["kritik_sayi"] = len(_kritik)
+        v["kritik_liste"] = _kritik[:8]
+    except Exception:
+        pass
+
     return v
 
 
@@ -463,6 +492,20 @@ def patron_panosu_html(v):
                       f'font-size:12px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
                       + " &nbsp;·&nbsp; ".join(_hata_parca) + '</div>')
 
+    # ── Kritik değişiklikler şeridi (son 24 saat) ──
+    _kritik_html = ""
+    if v.get("kritik_liste"):
+        _kr_ic = "".join(
+            pencere_satiri(
+                f'<span style="color:{RENK["metin"]};font-size:11.5px;font-weight:600">'
+                f'{k["kullanici"]} · <span style="color:{RENK["soluk"]}">{k["islem"]} '
+                f'· {k["modul"]}</span></span>',
+                f'<span style="color:{RENK["silik"]};font-size:10.5px">{k["zaman"]}</span>')
+            for k in v["kritik_liste"])
+        _kritik_html = pencere_grid(
+            pencere("🔔 SON 24 SAAT — KRİTİK İŞLEMLER", RENK["cyan"], _kr_ic,
+                    rozet=f"{v.get('kritik_sayi', 0)} işlem", yukseklik=170))
+
     return (
         '<div style="margin:0 0 22px">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
@@ -474,5 +517,6 @@ def patron_panosu_html(v):
         + pencere_grid(_p1, _p2)
         + pencere_grid(_p3, _p4)
         + _hata_html
+        + _kritik_html
         + '</div>'
     )
