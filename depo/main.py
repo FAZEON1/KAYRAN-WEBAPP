@@ -42,6 +42,42 @@ def run():
 # ═════════════════════════ 🏬 DEPO STOK ═════════════════════════
 def _sayfa_stok():
     _baslik("🏬 Depo Stok", "Depo bazlı stok · özet kartlar · depo içeriği")
+    # 📦 Stoğa işlenmemiş teslim dosyası varsa en üstte uyar + tek tıkla işle
+    try:
+        from ithalat.database import teslim_stok_bekleyenler, teslim_stok_isle
+        _bek0 = teslim_stok_bekleyenler()
+    except Exception:
+        _bek0 = []
+    if _bek0:
+        _tk0 = sum(b["kalem_sayisi"] for b in _bek0)
+        with st.expander(f"⚠️ {len(_bek0)} teslim dosyasının stoğu henüz işlenmemiş "
+                         f"({_tk0} kalem) — depoda görünmüyorlar. Tıkla ve düzelt.", expanded=True):
+            st.caption("Bu dosyalar 'Teslim Alındı' ama (çoğunlukla Model B öncesi teslim edildikleri için) "
+                       "depo stoğuna hiç eklenmemiş. Aşağıdaki düğme hepsinin kalemlerini **teslim edildikleri "
+                       "depoya** ekler — sonra sevk listesinde çıkarlar. Güvenli: her dosya yalnız bir kez işlenir.")
+            st.dataframe(pd.DataFrame([{
+                "Belge No": b["dosya_no"], "Teslim Deposu": b["teslim_deposu"] or "⚠️ boş",
+                "Kalem": b["kalem_sayisi"], "Toplam Adet": b["toplam_adet"],
+            } for b in _bek0]), hide_index=True, use_container_width=True,
+                height=min(38 + 35 * len(_bek0), 320))
+            if st.button("✅ Tüm bekleyen teslimlerin stoğunu işle", type="primary",
+                         key="dpo_teslim_isle_ust", use_container_width=True):
+                _is, _ek, _mesajlar = teslim_stok_isle()
+                st.cache_data.clear()
+                if _is:
+                    st.success(f"✅ {_is} dosya işlendi, {_ek} kalem depo stoğuna eklendi.")
+                else:
+                    st.warning("Hiç kalem işlenemedi — nedenler aşağıda:")
+                for _msg in _mesajlar:
+                    if _msg.startswith("❌"):
+                        st.error(_msg)
+                    elif _msg.startswith("⚠️"):
+                        st.warning(_msg)
+                    else:
+                        st.caption(_msg)
+                if _is:
+                    st.rerun()
+
     _ozet = get_depo_ozet()
     if not _ozet:
         st.info("Henüz depo bazlı stok yok. **Ürün Yönetimi → Veri Yükleme → G5F Stok "
