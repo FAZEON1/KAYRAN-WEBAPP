@@ -415,6 +415,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
+from shared.ui import islem_gosterge_css
+st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
+
 # ── Global mobil / dar ekran uyumu (yalnız <=640px; masaüstü etkilenmez) ──
 st.markdown(
     """<style>
