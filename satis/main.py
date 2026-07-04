@@ -453,15 +453,21 @@ def run():
                 # ── Sipariş başlığı ──
                 with st.container(border=True):
                     st.markdown("##### 🧾 Sipariş Bilgileri")
-                    h1, h2, h3 = st.columns([1, 1.4, 1])
-                    def _s_tarih_secildi():
-                        # Tarih seçilince takvim popover'ı kapansın (rerun); dialog açık kalsın
-                        st.session_state["_ms_dialog_ac"] = True
-                    g_tarih = h1.date_input("Tarih", value=date.today(), key="s_tarih",
-                                            on_change=_s_tarih_secildi)
+                    h2, h3 = st.columns([1.6, 1])
                     g_kanal = h2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
                                            help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
                     g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
+                    # Tarih: varsayılan BUGÜN (takvim gizli). Farklı tarih gerekiyorsa kutucukla aç.
+                    def _s_tarih_dgs():
+                        st.session_state["_ms_dialog_ac"] = True
+                    _tarih_degistir = st.checkbox("📅 Tarihi değiştir (varsayılan: bugün)",
+                                                  value=False, key="s_tarih_degistir",
+                                                  on_change=_s_tarih_dgs)
+                    if _tarih_degistir:
+                        g_tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="s_tarih")
+                    else:
+                        g_tarih = date.today()
+                        st.caption(f"📅 Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
                     g_not = st.text_input("Sipariş notu (ops.)", key="s_not")
 
                 # ── Kalem ekle ──
