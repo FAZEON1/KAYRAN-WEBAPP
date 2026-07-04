@@ -164,14 +164,22 @@ def _mal_kabul():
             st.rerun()
 
     # 🏢 Firma cari — form DIŞINDA (değişince mağaza listesi anında filtrelensin, madde 6)
+    from .magazalar import magaza_listesi, magaza_cari, _cari_grup
+    # Mağaza seçiminden gelen otomatik cari (rerun sonrası index olarak uygulanır — session_state
+    # widget'ı çizildikten SONRA değiştirilemeyeceği için index yöntemi kullanılır)
+    _hedef_cari = st.session_state.pop("_mk_firma_hedef", None)
+    _fi = 0
+    if _hedef_cari and _hedef_cari in TS_FIRMALAR:
+        _fi = TS_FIRMALAR.index(_hedef_cari)
+    elif st.session_state.get("mk_firma_sec") in TS_FIRMALAR:
+        _fi = TS_FIRMALAR.index(st.session_state["mk_firma_sec"])
     _fc1, _fc2 = st.columns(2)
-    firma_sec = _fc1.selectbox("Firma (cari unvan)", TS_FIRMALAR, key="mk_firma_sec")
+    firma_sec = _fc1.selectbox("Firma (cari unvan)", TS_FIRMALAR, index=_fi, key="mk_firma_sec")
     firma_yeni = _fc2.text_input("Firma listede yoksa tam cari unvanı yaz (yeni firma)",
                                  key="mk_firma_yeni", placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
 
     # 🏬 Mağaza seç — firma cari'ye göre; mağaza seçilince firma cari OTOMATİK atanır (madde 6)
-    from .magazalar import magaza_listesi, magaza_cari, _cari_grup
-    _cur_firma = st.session_state.get("mk_firma_sec", "")
+    _cur_firma = firma_sec or ""
     _grup = _cari_grup(_cur_firma)  # seçili cariye ait mağaza grubu (yoksa None → tüm mağazalar)
     _mgz = magaza_listesi(_grup) if _grup else magaza_listesi()
     if _mgz:
@@ -190,10 +198,10 @@ def _mal_kabul():
                     _adr = _m.get("adres", "")
                     _yer = " / ".join([x for x in (_m.get("ilce", ""), _m.get("sehir", "")) if x])
                     st.session_state["mk_m_adres"] = (f"{_adr} — {_yer}".strip(" —") if _yer else _adr)
-                    # Mağaza → firma cari OTOMATİK set (madde 6)
+                    # Mağaza → firma cari OTOMATİK set: widget key'e DEĞİL, hedef key'e yaz + rerun
                     _oto_cari = magaza_cari(_m["ad"])
                     if _oto_cari and _oto_cari in TS_FIRMALAR:
-                        st.session_state["mk_firma_sec"] = _oto_cari
+                        st.session_state["_mk_firma_hedef"] = _oto_cari
                     break
             st.rerun()
 
@@ -286,7 +294,7 @@ def _mal_kabul():
             # Bir sonraki kayda temiz başla — tüm form alanlarını sıfırla (madde 3: mükerrer kayıt önlenir)
             for k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
                       "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
-                      "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni"):
+                      "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef"):
                 st.session_state.pop(k, None)
             st.session_state["_mk_kayit_ok"] = form_no or msg
             st.balloons()
