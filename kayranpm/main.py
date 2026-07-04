@@ -1489,92 +1489,74 @@ def run():
             _ku_map.setdefault(_r["kampanya_id"], []).append(_r)
 
         # ─────────────────────────────────────────────────────────────────
-        # TAB 1: AKTİF KAMPANYALAR — sol: özet+liste · sağ: giriş kutusu (kompakt)
+        # TAB 1: AKTİF KAMPANYALAR — üstte özet + yatay kompakt giriş + tam genişlik liste
         # ─────────────────────────────────────────────────────────────────
         if _kt_durum == "📢 Aktif Kampanyalar":
-            _ana_sol, _ana_sag = st.columns([2.2, 1], gap="large")
+            # 📊 Özet kartlar (tam genişlik, üstte)
+            _tum_kmp = _kt_uygula(get_kampanyalar())
+            _s_toplam = len(_tum_kmp)
+            _bugun_iso = str(tr_today())
+            _s_aktif = sum(1 for k in _tum_kmp
+                           if str(k.get("baslangic_tarihi") or "") <= _bugun_iso <= str(k.get("bitis_tarihi") or "9999"))
+            _s_destek = 0.0
+            _s_net = 0.0
+            for _k in _tum_kmp:
+                for _x in _ku_map.get(_k.get("id"), []):
+                    _s = float(_x.get("satis_fiyati") or 0)
+                    _fd = float(_x.get("birim_firma_destek") or 0)
+                    _ed = float(_x.get("birim_ek_destek") or 0)
+                    _ad = int(_x.get("satilan_adet") or 0)
+                    _p = float((urun_dict_k.get(_x.get("sku"), {}) or {}).get("pacal_maliyet") or 0)
+                    _s_destek += (_fd + _ed) * _ad
+                    if _s > 0 and _p > 0:
+                        _s_net += ((_s - _p) - (_fd + _ed)) * _ad
+            metrik_satiri([
+                {"label": "🎯 Toplam", "value": f"{_s_toplam:,}", "renk": "#818CF8"},
+                {"label": "📢 Aktif", "value": f"{_s_aktif:,}", "renk": "#34D399"},
+                {"label": "💰 Destek", "value": f"${_s_destek:,.0f}", "renk": "#FBBF24"},
+                {"label": "📈 Net Kâr", "value": f"${_s_net:,.0f}",
+                 "renk": "#34D399" if _s_net >= 0 else "#F87171"},
+            ])
 
-            # ═══ SAĞ PANEL: Yeni kampanya giriş kutusu (sabit, scroll'suz erişim) ═══
-            with _ana_sag:
-                st.markdown(
-                    '<div style="background:linear-gradient(135deg,rgba(124,58,237,0.12),rgba(59,130,246,0.06));'
-                    'border:1px solid rgba(124,58,237,0.28);border-radius:14px;padding:14px 16px 4px;margin-bottom:6px">'
-                    '<div style="font-size:14px;font-weight:800;color:#C4B5FD;margin-bottom:2px">➕ Yeni Kampanya</div>'
-                    '<div style="font-size:11px;color:#94A3B8">Hızlı giriş — detaylar sonra düzenlenebilir</div></div>',
-                    unsafe_allow_html=True)
-                with st.form("yeni_kampanya_form", clear_on_submit=True):
-                    k_adi = st.text_input("Kampanya Adı *", placeholder="örn: HB Mart Kampanyası")
-                    k_firma = st.selectbox("Firma *", ["(Seçilmedi)"] + FIRMA_LISTESI_K,
-                                           format_func=lambda f: f if str(f).startswith("(") else firma_gorunen_ad(f))
-                    k_kat = st.selectbox("Kategori", ["(Genel / Karışık)"] + _kt_kat_list)
-                    k_bas = st.date_input("Başlangıç *", value=tr_today())
-                    k_bit = st.date_input("Bitiş *", value=tr_today())
-                    k_turu = st.selectbox("Tür", KAMPANYA_TURLERI)
-                    with st.expander("🎟️ Spiff (opsiyonel)", expanded=False):
-                        k_spiff_tl = st.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
-                                                     value=None, placeholder="0", key="k_spiff_tl")
-                        k_spiff_kur = st.number_input("Kur (₺/$)", min_value=0.0, step=0.1, format="%.4f",
-                                                      value=None, placeholder="örn. 40", key="k_spiff_kur")
-                        k_spiff_fatura = st.checkbox("Fatura geldi (kur kesin)", value=False, key="k_spiff_fatura")
-                        if k_spiff_tl and k_spiff_kur:
-                            st.caption(f"≈ ${(k_spiff_tl / k_spiff_kur):,.2f} USD spiff")
-                    k_not = st.text_area("Notlar", placeholder="opsiyonel...", height=68)
-                    if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
-                        if not k_adi.strip():
-                            st.error("Kampanya adı zorunludur.")
-                        elif str(k_firma).startswith("("):
-                            st.error("Firma seçimi zorunludur.")
-                        elif str(k_bit) < str(k_bas):
-                            st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+            # ➕ Yeni kampanya — YATAY kompakt tek satır (Mali Takip mantığı, az yer kaplar)
+            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+            with st.form("yeni_kampanya_form", clear_on_submit=True):
+                _yf1, _yf2, _yf3, _yf4, _yf5, _yf6 = st.columns([2, 1.6, 1.3, 1.1, 1.1, 1.2])
+                k_adi = _yf1.text_input("Kampanya Adı *", placeholder="örn: HB Mart", label_visibility="collapsed")
+                k_firma = _yf2.selectbox("Firma *", ["(Firma seç)"] + FIRMA_LISTESI_K, label_visibility="collapsed",
+                                         format_func=lambda f: f if str(f).startswith("(") else firma_gorunen_ad(f))
+                k_kat = _yf3.selectbox("Kategori", ["(Genel)"] + _kt_kat_list, label_visibility="collapsed")
+                k_bas = _yf4.date_input("Başlangıç *", value=tr_today(), label_visibility="collapsed")
+                k_bit = _yf5.date_input("Bitiş *", value=tr_today(), label_visibility="collapsed")
+                _submit_kmp = _yf6.form_submit_button("🚀 Oluştur", type="primary", use_container_width=True)
+                st.caption("Kampanya Adı · Firma · Kategori · Başlangıç · Bitiş — soldan sağa. "
+                           "Tür/Spiff/Notlar oluşturduktan sonra kampanya detayından eklenir.")
+                if _submit_kmp:
+                    if not k_adi.strip():
+                        st.error("Kampanya adı zorunludur.")
+                    elif str(k_firma).startswith("("):
+                        st.error("Firma seçimi zorunludur.")
+                    elif str(k_bit) < str(k_bas):
+                        st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
+                    else:
+                        _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
+                        _hata = None
+                        yeni_id = None
+                        try:
+                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), "", _k_kat_val,
+                                                    kampanya_turu="", spiff_tl=0, spiff_kur=0, spiff_fatura=False)
+                        except Exception as _e:
+                            _hata = str(_e)
+                        if yeni_id:
+                            st.cache_data.clear()
+                            st.success(f"✅ '{k_adi.strip()}' oluşturuldu (ID: {yeni_id}).")
+                            st.rerun()
+                        elif _hata:
+                            st.error(f"Kampanya oluşturulamadı — kayıt hatası: {_hata}")
                         else:
-                            _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
-                            _k_turu_val = "" if str(k_turu).startswith("(") else k_turu
-                            _hata = None
-                            yeni_id = None
-                            try:
-                                yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), k_not.strip(), _k_kat_val,
-                                                        kampanya_turu=_k_turu_val, spiff_tl=(k_spiff_tl or 0),
-                                                        spiff_kur=(k_spiff_kur or 0), spiff_fatura=k_spiff_fatura)
-                            except Exception as _e:
-                                _hata = str(_e)
-                            if yeni_id:
-                                st.cache_data.clear()
-                                st.success(f"✅ '{k_adi.strip()}' oluşturuldu (ID: {yeni_id}).")
-                                st.rerun()
-                            elif _hata:
-                                st.error(f"Kampanya oluşturulamadı — kayıt hatası: {_hata}")
-                            else:
-                                st.error("Kampanya kaydedilemedi — veritabanı kayıt döndürmedi "
-                                         "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu).")
-
-            # ═══ SOL PANEL: özet kartlar + kampanya listesi ═══
-            with _ana_sol:
-                # 📊 Özet kartlar
-                _tum_kmp = _kt_uygula(get_kampanyalar())
-                _s_toplam = len(_tum_kmp)
-                _bugun_iso = str(tr_today())
-                _s_aktif = sum(1 for k in _tum_kmp
-                               if str(k.get("baslangic_tarihi") or "") <= _bugun_iso <= str(k.get("bitis_tarihi") or "9999"))
-                _s_destek = 0.0
-                _s_net = 0.0
-                for _k in _tum_kmp:
-                    for _x in _ku_map.get(_k.get("id"), []):
-                        _s = float(_x.get("satis_fiyati") or 0)
-                        _fd = float(_x.get("birim_firma_destek") or 0)
-                        _ed = float(_x.get("birim_ek_destek") or 0)
-                        _ad = int(_x.get("satilan_adet") or 0)
-                        _p = float((urun_dict_k.get(_x.get("sku"), {}) or {}).get("pacal_maliyet") or 0)
-                        _s_destek += (_fd + _ed) * _ad
-                        if _s > 0 and _p > 0:
-                            _s_net += ((_s - _p) - (_fd + _ed)) * _ad
-                metrik_satiri([
-                    {"label": "🎯 Toplam", "value": f"{_s_toplam:,}", "renk": "#818CF8"},
-                    {"label": "📢 Aktif", "value": f"{_s_aktif:,}", "renk": "#34D399"},
-                    {"label": "💰 Destek", "value": f"${_s_destek:,.0f}", "renk": "#FBBF24"},
-                    {"label": "📈 Net Kâr", "value": f"${_s_net:,.0f}",
-                     "renk": "#34D399" if _s_net >= 0 else "#F87171"},
-                ])
-                st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+                            st.error("Kampanya kaydedilemedi — veritabanı kayıt döndürmedi "
+                                     "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu).")
+            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     
             # ── Excel şablonundan YENİ kampanya oluştur + ürünleri ekle (tek dosya) ──
             with st.expander("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", expanded=False):
