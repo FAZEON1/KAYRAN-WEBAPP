@@ -82,6 +82,116 @@ def _read_excel_any(file):
 GIDER_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
                "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
+# ═════════════════════════════════════════════════════════════════════
+# AY KAPANIŞ RAPORU — tek fonksiyonda dönem P&L + kanal + ürün + kıyas
+# ═════════════════════════════════════════════════════════════════════
+def ay_pnl_hesapla(yil, ay_idx):
+    """Bir ayın tam P&L'ini hesaplar (Yönetim Panosu ile aynı mantık, saf veri).
+    ay_idx: 0-11. Döner: dict (ciro, cogs, brut, destek, gider, net_kar, marj,
+    kanal[], urun[], iade_tutar). Hata olan blok 0 kalır, asla patlamaz."""
+    import calendar as _cal
+    _son = _cal.monthrange(yil, ay_idx + 1)[1]
+    bas = f"{yil}-{ay_idx+1:02d}-01"
+    bit = f"{yil}-{ay_idx+1:02d}-{_son:02d}"
+
+    r = {"yil": yil, "ay": GIDER_AYLAR[ay_idx], "bas": bas, "bit": bit,
+         "ciro": 0.0, "cogs": 0.0, "brut": 0.0, "destek": 0.0, "gider": 0.0,
+         "net_kar": 0.0, "marj": 0.0, "iade_tutar": 0.0,
+         "kanal": [], "urun_top": [], "urun_zarar": []}
+
+    # Satış P&L
+    kanal = {}
+    urun = {}
+    try:
+        from satis.database import get_satislar, ozet_hesapla, iade_satis_net_ozet
+        _sat = get_satislar(bas, bit)
+        _top, kanal, urun = ozet_hesapla(_sat)
+        r["ciro"] = float(_top.get("ciro", 0) or 0)
+        r["cogs"] = float(_top.get("maliyet", 0) or 0)
+        try:
+            _isat, _itop = iade_satis_net_ozet(bas, bit)
+            r["iade_tutar"] = float(_itop.get("i_tutar", 0) or 0)
+            _iade_maliyet = r["iade_tutar"] - float(_itop.get("i_kar", 0) or 0)
+            r["ciro"] -= r["iade_tutar"]
+            r["cogs"] -= _iade_maliyet
+        except Exception:
+            pass
+    except Exception:
+        pass
+    r["brut"] = r["ciro"] - r["cogs"]
+
+    # Kur
+    _usdtry = 0.0
+    try:
+        from gunluk import get_doviz
+        _usdtry = float(get_doviz().get("USD") or 0)
+    except Exception:
+        pass
+    _kur_map = {}
+    try:
+        from kayranacc.database import get_kur_araligi
+        _kur_map = get_kur_araligi(bas, bit)
+    except Exception:
+        pass
+    def _kur_of(t):
+        return _kur_map.get(str(t)[:10]) if t else None
+
+    # Destekler (havuz + ref no)
+    destek = 0.0
+    try:
+        from kayranpm.ref_no import get_tum_butce_harcamalari, get_tum_ref_tutarlari
+        for h in (get_tum_butce_harcamalari(bas, bit) or []):
+            _t = float(h.get("tutar") or 0)
+            if (h.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
+                _k = _kur_of(h.get("fatura_tarih")) or _usdtry
+                _t = (_t / _k) if _k else 0
+            destek += _t
+        for rf in (get_tum_ref_tutarlari(bas, bit) or []):
+            _t = float(rf.get("tutar") or 0)
+            if (rf.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
+                _k = _kur_of(rf.get("tarih")) or _usdtry
+                _t = (_t / _k) if _k else 0
+            destek += _t
+    except Exception:
+        pass
+    r["destek"] = destek
+
+    # İşletme gideri (aylık gider tablosu → USD)
+    gider = 0.0
+    try:
+        from kayranacc.database import get_ayar
+        _gd = get_ayar(f"gider_tablosu_{yil}")
+        if _gd and _gd.get("kat"):
+            _kk = _gd["kat"]
+            _ay_tl = sum(float(((_kk.get(_k) or [0.0]*12 + [0.0]*12)[ay_idx]) or 0)
+                         for _k in ("Sabit", "Değişken", "Yarı Değişken"))
+            _ay_kur = _kur_of(f"{yil}-{ay_idx+1:02d}-15") or _usdtry
+            if _ay_kur:
+                gider = _ay_tl / _ay_kur
+    except Exception:
+        pass
+    r["gider"] = gider
+
+    r["net_kar"] = r["brut"] - r["destek"] - r["gider"]
+    r["marj"] = (r["net_kar"] / r["ciro"] * 100) if r["ciro"] else 0.0
+
+    # Kanal kırılımı (ciro azalan)
+    r["kanal"] = sorted(
+        [{"kanal": kn, "ciro": v.get("ciro", 0), "adet": int(v.get("adet", 0)),
+          "net_kar": v.get("net_kar", 0),
+          "marj": (v.get("net_kar", 0) / v.get("ciro", 1) * 100) if v.get("ciro") else 0}
+         for kn, v in kanal.items()],
+        key=lambda x: -x["ciro"])[:12]
+
+    # En kârlı / en zararlı ürünler
+    _ur = [{"sku": su, "urun": (v.get("urun_adi") or su)[:34], "adet": int(v.get("adet", 0)),
+            "ciro": v.get("ciro", 0), "net_kar": v.get("net_kar", 0)}
+           for su, v in urun.items()]
+    r["urun_top"] = sorted(_ur, key=lambda x: -x["net_kar"])[:8]
+    r["urun_zarar"] = [u for u in sorted(_ur, key=lambda x: x["net_kar"])[:8] if u["net_kar"] < 0]
+    return r
+
+
 
 def gider_tablosu_parse(file):
     """Doldurulmuş aylık gider taslağı → (kategori_aylik, kalem_detay).
@@ -542,14 +652,122 @@ def run():
     def _dlg_yedek():
         _yedek_render()
 
-    b1, b2, b3, b4 = st.columns(4)
-    if b1.button(f"📤 Gider Tablosu Yükle ({_yil})", key="btn_yon_gider", use_container_width=True):
+    @st.dialog("📄 Ay Kapanış Raporu", width="large")
+    def _dlg_ay_rapor():
+        from shared.ui import RENK
+        _bugun = dt.date.today()
+        _c1, _c2 = st.columns(2)
+        _ryil = _c1.selectbox("Yıl", list(range(_bugun.year, _bugun.year - 4, -1)), key="ayrap_yil")
+        _ray = _c2.selectbox("Ay", GIDER_AYLAR,
+                             index=max(0, _bugun.month - 2), key="ayrap_ay")
+        _ai = GIDER_AYLAR.index(_ray)
+        with st.spinner(f"{_ray} {_ryil} kapanışı hesaplanıyor…"):
+            _r = ay_pnl_hesapla(_ryil, _ai)
+            # Önceki ay kıyas
+            _pai = _ai - 1
+            _pyil = _ryil
+            if _pai < 0:
+                _pai = 11
+                _pyil = _ryil - 1
+            _rp = ay_pnl_hesapla(_pyil, _pai)
+
+        def _delta(now, prev, tersi=False):
+            if not prev:
+                return ""
+            _d = (now - prev) / abs(prev) * 100
+            _ok = "▲" if _d >= 0 else "▼"
+            _iyi = (_d >= 0) if not tersi else (_d < 0)
+            _c = RENK["yesil"] if _iyi else RENK["kirmizi"]
+            return f'<span style="color:{_c};font-size:11px;font-weight:700"> {_ok}%{abs(_d):.0f}</span>'
+
+        _nr = RENK["yesil"] if _r["net_kar"] >= 0 else RENK["kirmizi"]
+        # Başlık + 4 büyük metrik (önceki aya kıyaslı)
+        st.markdown(
+            f'<div style="font-size:16px;font-weight:800;color:{RENK["metin"]};margin-bottom:2px">'
+            f'{_r["ay"]} {_r["yil"]} — Kapanış</div>'
+            f'<div style="color:{RENK["silik"]};font-size:11.5px;margin-bottom:10px">'
+            f'{_r["bas"]} → {_r["bit"]} · önceki ay ({_rp["ay"]}) ile kıyaslı · tüm tutarlar USD</div>'
+            f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+            + "".join(
+                f'<div style="flex:1;min-width:130px;text-align:center;padding:12px 8px;'
+                f'background:rgba(255,255,255,0.02);border:1px solid {c}30;border-radius:12px">'
+                f'<div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
+                f'text-transform:uppercase;font-weight:700;margin-bottom:5px">{lbl}</div>'
+                f'<div style="color:{c};font-size:20px;font-weight:800;'
+                f'font-family:JetBrains Mono,monospace">{val}{dl}</div></div>'
+                for lbl, val, c, dl in [
+                    ("Ciro", _usd(_r["ciro"]), RENK["mor2"], _delta(_r["ciro"], _rp["ciro"])),
+                    ("COGS", _usd(_r["cogs"]), RENK["amber"], _delta(_r["cogs"], _rp["cogs"], tersi=True)),
+                    ("Net Kâr", _usd(_r["net_kar"]), _nr, _delta(_r["net_kar"], _rp["net_kar"])),
+                    ("Marj", f'%{_r["marj"]:.1f}', _nr, ""),
+                ])
+            + '</div>', unsafe_allow_html=True)
+
+        # P&L akış satırı
+        st.markdown(
+            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+            f'border-radius:10px;padding:10px 14px;margin-bottom:14px;font-family:JetBrains Mono,monospace;'
+            f'font-size:12.5px;color:#CBD5E1">'
+            f'{_usd(_r["ciro"])} <span style="color:#64748B">ciro</span> − '
+            f'{_usd(_r["cogs"])} <span style="color:#64748B">cogs</span> − '
+            f'{_usd(_r["destek"])} <span style="color:#64748B">destek</span> − '
+            f'{_usd(_r["gider"])} <span style="color:#64748B">gider</span> = '
+            f'<b style="color:{_nr}">{_usd(_r["net_kar"])} net kâr</b></div>',
+            unsafe_allow_html=True)
+
+        import pandas as _pd
+        if _r["kanal"]:
+            st.markdown("**🛒 Kanal Kırılımı**")
+            st.dataframe(_pd.DataFrame([{
+                "Kanal": k["kanal"], "Adet": k["adet"], "Ciro": _usd(k["ciro"]),
+                "Net Kâr": _usd(k["net_kar"]), "Marj": f'%{k["marj"]:.1f}',
+            } for k in _r["kanal"]]), hide_index=True, use_container_width=True,
+                height=min(300, 40 + 35 * len(_r["kanal"])))
+
+        _cc1, _cc2 = st.columns(2)
+        if _r["urun_top"]:
+            with _cc1:
+                st.markdown("**🏆 En Kârlı Ürünler**")
+                st.dataframe(_pd.DataFrame([{
+                    "Ürün": u["urun"], "Adet": u["adet"], "Net Kâr": _usd(u["net_kar"]),
+                } for u in _r["urun_top"]]), hide_index=True, use_container_width=True,
+                    height=min(260, 40 + 35 * len(_r["urun_top"])))
+        if _r["urun_zarar"]:
+            with _cc2:
+                st.markdown("**📉 Zarardaki Ürünler**")
+                st.dataframe(_pd.DataFrame([{
+                    "Ürün": u["urun"], "Adet": u["adet"], "Net Kâr": _usd(u["net_kar"]),
+                } for u in _r["urun_zarar"]]), hide_index=True, use_container_width=True,
+                    height=min(260, 40 + 35 * len(_r["urun_zarar"])))
+
+        # İndirilebilir özet (metin)
+        _txt = (f"{_r['ay']} {_r['yil']} KAPANIŞ ÖZETİ\n"
+                f"{'='*40}\n"
+                f"Dönem: {_r['bas']} → {_r['bit']}\n\n"
+                f"Ciro       : {_usd(_r['ciro'])}\n"
+                f"COGS       : {_usd(_r['cogs'])}\n"
+                f"Brüt Kâr   : {_usd(_r['brut'])}\n"
+                f"Destekler  : {_usd(_r['destek'])}\n"
+                f"Giderler   : {_usd(_r['gider'])}\n"
+                f"NET KÂR    : {_usd(_r['net_kar'])}  (marj %{_r['marj']:.1f})\n\n"
+                f"KANAL KIRILIMI\n" +
+                "\n".join(f"  {k['kanal'][:30]:30s} {_usd(k['ciro']):>12s}  "
+                          f"NK {_usd(k['net_kar']):>10s}  %{k['marj']:.1f}"
+                          for k in _r["kanal"]))
+        st.download_button("⬇️ Özeti indir (.txt)", _txt.encode("utf-8"),
+                           f"kapanis_{_r['yil']}_{_ai+1:02d}.txt", "text/plain",
+                           use_container_width=True, key="ayrap_dl")
+
+    _bt = st.columns(5)
+    if _bt[0].button(f"📤 Gider Yükle ({_yil})", key="btn_yon_gider", use_container_width=True):
         _dlg_gider_yukle()
-    if b2.button("📅 Aylık Gider Dağılımı", key="btn_yon_aylik", use_container_width=True):
+    if _bt[1].button("📅 Aylık Gider", key="btn_yon_aylik", use_container_width=True):
         _dlg_gider_aylik()
-    if b3.button("🗂️ Değişiklik Günlüğü", key="btn_yon_audit", use_container_width=True):
+    if _bt[2].button("📄 Ay Kapanış Raporu", key="btn_yon_ayrapor", use_container_width=True):
+        _dlg_ay_rapor()
+    if _bt[3].button("🗂️ Değişiklik Günlüğü", key="btn_yon_audit", use_container_width=True):
         _dlg_audit()
-    if b4.button("💾 Veri Yedekleme", key="btn_yon_yedek", use_container_width=True):
+    if _bt[4].button("💾 Yedekleme", key="btn_yon_yedek", use_container_width=True):
         _dlg_yedek()
 
 
