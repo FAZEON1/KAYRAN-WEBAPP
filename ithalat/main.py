@@ -876,9 +876,8 @@ def _gecmis_ithalatlar():
                para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
                yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
 
-        # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
-        @st.dialog("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", width="large")
-        def _dlg_dosya_duzen():
+        # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) — aynı pencere içinde açılır ──
+        def _dosya_duzen_govde():
             # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
             _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
             _md = _masraf_dict(d)
@@ -1120,8 +1119,10 @@ def _gecmis_ithalatlar():
                         st.rerun()
                     else:
                         st.error(msg)
-        if st.button("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key="btn_ith_duzen", use_container_width=True):
-            _dlg_dosya_duzen()
+        st.markdown("---")
+        _duzen_key = f"ith_duzen_ac_{did}"
+        if st.toggle("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key=_duzen_key):
+            _dosya_duzen_govde()
 
 
     # ─────────────────────────────────────────────────────────────────────
