@@ -634,11 +634,13 @@ def render():
 
     firmalar = get_firmalar()
 
-    with st.expander("🏢 Yeni Firma Ekle"):
+    # 🏢 Yeni Firma Ekle — AÇILIR PENCERE
+    @st.dialog("🏢 Yeni Firma Ekle", width="large")
+    def _firma_ekle_dialog():
         _cariler = sorted(set(_cari_isimleri()), key=lambda s: s.lower())
         _mevcut = {_norm(f.get("firma_adi")) for f in firmalar}
         _secilebilir = [c for c in _cariler if _norm(c) not in _mevcut]
-        with st.form("ref_firma_ekle", clear_on_submit=True):
+        with st.form("ref_firma_ekle", clear_on_submit=False):
             if _secilebilir:
                 fa = st.selectbox("Firma (cari listesinden)", ["— seç —"] + _secilebilir)
                 yf_adi = "" if fa == "— seç —" else fa
@@ -647,14 +649,21 @@ def render():
                 st.caption("Cari listesi boş — Muhasebe → Cari yükleyince buradan seçebilirsin.")
             yf_kod = st.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
                                    help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
-            if st.form_submit_button("➕ Firma Ekle", type="primary"):
+            if st.form_submit_button("➕ Firma Ekle", type="primary", use_container_width=True):
                 if not yf_adi.strip() or not yf_kod.strip():
                     st.warning("Firma (cari) ve ref kodu zorunlu.")
                 else:
                     ok, msg = firma_ekle(yf_adi, yf_kod)
-                    (st.success if ok else st.error)(msg)
                     if ok:
+                        st.success(msg)
                         st.rerun()
+                    else:
+                        st.error(msg)
+
+    _ff1, _ff2 = st.columns([1, 4])
+    if _ff1.button("🏢 Yeni Firma Ekle", type="primary", use_container_width=True, key="ref_firma_ac_btn"):
+        _firma_ekle_dialog()
+    _ff2.caption("Yeni firma eklemek için butona bas — açılır pencerede firma ve ref kodunu gir.")
 
     if not firmalar:
         st.info("Henüz firma yok. Yukarıdan 'Yeni Firma Ekle' ile başlayın (örn. VATAN / kod: VTN).")
@@ -785,37 +794,19 @@ def _render_refler(fid, fkod):
         f'Sıradaki otomatik ref no: <b style="color:#A5B4FC;font-family:monospace;font-size:15px">{_onizleme}</b></div>',
         unsafe_allow_html=True,
     )
-
-    # ➕ Yeni Ref No — AÇILIR PENCERE (ana ekran uzamaz)
-    @st.dialog("➕ Yeni Ref No Ata", width="large")
-    def _ref_ekle_dialog():
-        st.caption(f"Sıradaki ref no: **{_onizleme}** — bu firmaya otomatik atanır.")
-        with st.form("ref_ekle_form", clear_on_submit=False):
-            yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
-            rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
-            yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
-            yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
-            yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
-            # Tarih: varsayılan BUGÜN (takvim gizli). Değiştirmek istersen kutucukla aç.
-            _rt_dgs = st.checkbox("📅 Tarihi değiştir (varsayılan: bugün)", value=False, key=f"ref_tar_dgs_{fid}")
-            if _rt_dgs:
-                yeni_tarih = st.date_input("Tarih", value=date.today())
-            else:
-                yeni_tarih = date.today()
-                st.caption(f"📅 Tarih: **{yeni_tarih.strftime('%d.%m.%Y')}** (bugün)")
-            if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
-                ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
-                                   tutar=yeni_tutar, doviz=yeni_doviz)
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-
-    _rf1, _rf2 = st.columns([1, 4])
-    if _rf1.button("➕ Yeni Ref No", type="primary", use_container_width=True, key=f"ref_ac_btn_{fid}"):
-        _ref_ekle_dialog()
-    _rf2.caption("Yeni ref no atamak için butona bas — açılır pencerede doldur.")
+    with st.form("ref_ekle_form", clear_on_submit=True):
+        yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
+        rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
+        yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+        yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
+        yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
+        yeni_tarih = st.date_input("Tarih", value=date.today())
+        if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
+            ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
+                               tutar=yeni_tutar, doviz=yeni_doviz)
+            (st.success if ok else st.error)(msg)
+            if ok:
+                st.rerun()
 
     with st.expander("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)"):
         up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
