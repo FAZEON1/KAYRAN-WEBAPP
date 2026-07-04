@@ -970,6 +970,7 @@ def run():
                            "(Ayrıntı: İade sayfası)")
 
             st.markdown("#### Kanal Kırılımı")
+            st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
             _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
 
             def _kn_net(kn, v):
@@ -978,31 +979,77 @@ def run():
                 _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
                 _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
                 return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
-            st.dataframe(pd.DataFrame([{
+            _kanal_evt = st.dataframe(pd.DataFrame([{
                 "Kanal": kn, "Adet": int(v["adet"]), "Ciro": _usd(v["ciro"]),
                 "Net Kâr": _usd(_kn_net(kn, v)[1]),
                 "Marj": f"%{_kn_net(kn, v)[2]:.1f}",
-            } for kn, v in _kr]), hide_index=True, use_container_width=True)
+            } for kn, v in _kr]), hide_index=True, use_container_width=True,
+                on_select="rerun", selection_mode="single-row", key="pnl_kanal_df")
 
-            st.markdown("#### Ürün Kırılımı (net kâra göre)")
-            _padmap = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
-                       for u in (get_urunler() or [])}
-            _ur = sorted(urun.items(), key=lambda x: -x[1]["net_kar"])
+            @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
+            def _dlg_firma_gecmis(_fkn):
+                st.markdown(f'<div style="font-size:15px;font-weight:800;color:#E2E8F0;'
+                            f'margin-bottom:2px">{_fkn}</div>', unsafe_allow_html=True)
+                st.caption(f"Dönem: {_pbas} → {_pbit}")
+                _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
+                if not _fsat:
+                    st.info("Bu dönemde kayıt yok.")
+                    return
+                # Sipariş bazlı grupla
+                _sipler = {}
+                for s in _fsat:
+                    k = satir_kar(s)
+                    _sno = (s.get("siparis_no") or "").strip() or "—"
+                    g = _sipler.setdefault(_sno, {"tarih": str(s.get("tarih") or "")[:10],
+                                                  "kalem": 0, "adet": 0, "ciro": 0.0, "kar": 0.0})
+                    g["kalem"] += 1
+                    g["adet"] += int(k["adet"] or 0)
+                    g["ciro"] += k["ciro"]
+                    g["kar"] += k["net_kar"]
+                    if str(s.get("tarih") or "")[:10] > g["tarih"]:
+                        g["tarih"] = str(s.get("tarih") or "")[:10]
+                _t_adet = sum(g["adet"] for g in _sipler.values())
+                _t_ciro = sum(g["ciro"] for g in _sipler.values())
+                _t_kar = sum(g["kar"] for g in _sipler.values())
+                st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 10px">'
+                            + _kart([
+                                ("Sipariş", f"{len(_sipler):,}", "#93C5FD"),
+                                ("Adet", f"{_t_adet:,}", "#93C5FD"),
+                                ("Ciro", _usd(_t_ciro), "#CBD5E1"),
+                                ("Net Kâr", _usd(_t_kar),
+                                 "#34D399" if _t_kar >= 0 else "#F87171"),
+                            ]) + '</div>', unsafe_allow_html=True)
+                st.markdown("**📦 Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
+                _sdf = pd.DataFrame([{
+                    "Tarih": g["tarih"], "Sipariş No": sno, "Kalem": g["kalem"],
+                    "Adet": g["adet"], "Ciro": _usd(g["ciro"]), "Net Kâr": _usd(g["kar"]),
+                } for sno, g in sorted(_sipler.items(),
+                                       key=lambda x: x[1]["tarih"], reverse=True)])
+                st.dataframe(_sdf, hide_index=True, use_container_width=True,
+                             height=min(320, 40 + 35 * len(_sdf)))
+                _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + list(_sdf["Sipariş No"]),
+                                        key="pnl_firma_sip")
+                if _sec_sip != "(seç)":
+                    _kdf = pd.DataFrame([{
+                        "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
+                        "Ürün": (s.get("urun_adi", "") or "")[:38],
+                        "Adet": int(satir_kar(s)["adet"] or 0),
+                        "B.Satış": _usd(s.get("birim_satis")),
+                        "B.Maliyet": _usd(s.get("birim_maliyet")),
+                        "Ciro": _usd(satir_kar(s)["ciro"]),
+                        "Net Kâr": _usd(satir_kar(s)["net_kar"]),
+                    } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip])
+                    st.dataframe(_kdf, hide_index=True, use_container_width=True,
+                                 height=min(300, 40 + 35 * len(_kdf)))
 
-            def _su_net(su, v):
-                _si = _sku_iade.get(su)
-                _d = v.get("destek", 0.0)
-                if _si:
-                    _ns = _si["net_ciro"] - _d
-                    return _si["net_ciro"], _si["net_kar"], (
-                        (_si["net_kar"] / _ns * 100) if _ns > 0 else 0.0)
-                _ns = v["ciro"] - _d
-                return v["ciro"], v["net_kar"], ((v["net_kar"] / _ns * 100) if _ns > 0 else 0.0)
-            st.dataframe(pd.DataFrame([{
-                "SKU": su, "Ürün": ((v["urun_adi"] or "") or _padmap.get(str(su).strip(), ""))[:36], "Adet": int(v["adet"]),
-                "Ciro": _usd(v["ciro"]), "Net Kâr": _usd(_su_net(su, v)[1]),
-                "Marj": f"%{_su_net(su, v)[2]:.1f}",
-            } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
+            _psel = list(_kanal_evt.selection.rows)
+            if _psel:
+                _sec_kn = _kr[_psel[0]][0]
+                if st.session_state.get("_pnl_firma_sec") != _sec_kn:
+                    st.session_state["_pnl_firma_sec"] = _sec_kn
+                    _dlg_firma_gecmis(_sec_kn)
+                else:
+                    st.session_state.pop("_pnl_firma_sec", None)
 
             st.markdown("---")
             @st.dialog("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", width="large")
