@@ -1027,6 +1027,7 @@ def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
     return dk, ""
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_depo_listesi():
     """Tüm ürünlerin depo_kirilim'inde geçen benzersiz KANONİK depo adları (alfabetik).
     Ayrıca teslim alınmış ithalat dosyalarının teslim depolarını da dahil eder."""
@@ -1049,6 +1050,7 @@ def get_depo_listesi():
     return sorted(depolar)
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_depo_ozet():
     """Her depo için {depo, cesit, toplam_adet, satilabilir} (adet>0 olanlar), KANONİK adlarla."""
     sayac = {}
@@ -1066,6 +1068,7 @@ def get_depo_ozet():
             for d, v in sorted(sayac.items())]
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_depo_stok(depo):
     """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı.
     TEK kaynak: ürün kartındaki depo_kirilim (Stok Kartı ile birebir aynı)."""
@@ -1159,6 +1162,7 @@ def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici="", sevk_tarihi="", 
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_depo_sevk_gecmisi(limit=50):
     """Son sevkler (depo_sevk_log). Tablo yoksa boş liste döner."""
     try:
