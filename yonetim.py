@@ -184,7 +184,7 @@ def run():
     with c1:
         _yil = st.selectbox("Yıl", list(range(_bugun.year + 1, _bugun.year - 4, -1)), index=1)
     with c2:
-        _gor = st.radio("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], horizontal=True, index=0)
+        _gor = st.radio("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], horizontal=True, index=2)
         if _gor == "Aylık":
             _donem = st.selectbox("Ay", GIDER_AYLAR, index=min(_bugun.month - 1, 11))
         elif _gor == "Çeyreklik":
