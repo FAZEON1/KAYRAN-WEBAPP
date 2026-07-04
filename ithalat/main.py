@@ -369,8 +369,8 @@ def _gecmis_ithalatlar():
                    if str(d.get("durum", "") or "").strip() == "Teslim Alındı"
                    and not str(d.get("teslim_deposu", "") or "").strip()]
     if _depo_eksik:
-        with st.expander(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata",
-                         expanded=True):
+        @st.dialog(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", width="large")
+        def _dlg_depo_ata():
             st.caption("Bu dosyalar **Teslim Alındı** ama teslim deposu boş. Aşağıdan seç, depoyu ata.")
             st.dataframe(pd.DataFrame([{
                 "Belge No": d.get("dosya_no", ""), "Tarih": str(d.get("tarih", ""))[:10],
@@ -394,6 +394,8 @@ def _gecmis_ithalatlar():
                 st.cache_data.clear()
                 st.success(f"✅ {_de_ok} dosyaya '{_de_depo_val}' teslim deposu atandı.")
                 st.rerun()
+        if st.button(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", key="btn_ith_depoata", use_container_width=True):
+            _dlg_depo_ata()
     if not dosyalar:
         st.info("Henüz ithalat kaydı yok. '➕ Yeni İthalat' sayfasından ekleyebilirsin.")
         return
@@ -464,8 +466,8 @@ def _gecmis_ithalatlar():
     _mukerrer = {k: v for k, v in _dup_gruplari.items() if len(v) >= 2}
     if _mukerrer:
         _toplam_silinecek = sum(len(v) - 1 for v in _mukerrer.values())
-        with st.expander(f"🧹 Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt",
-                         expanded=True):
+        @st.dialog(f"🧹 Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt", width="large")
+        def _dlg_mukerrer():
             st.caption("**Belge No + Tarih + Mal Bedeli** birebir aynı olan kayıtlar mükerrer sayılır. "
                        "Her gruptan **en son eklenen** tutulur, diğerleri silinir. "
                        "Aşağıda hangisinin tutulacağını gör, onayla, sonra temizle.")
@@ -499,6 +501,8 @@ def _gecmis_ithalatlar():
                             _n += 1
                 st.success(f"✅ {_n} mükerrer kayıt silindi.")
                 st.rerun()
+        if st.button(f"🧹 Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt", key="btn_ith_muker", use_container_width=True):
+            _dlg_mukerrer()
 
     # 🔍 Filtreler (başlık bazlı) + arama
     _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
@@ -886,7 +890,8 @@ def _gecmis_ithalatlar():
            yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
 
     # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
-    with st.expander("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB"):
+    @st.dialog("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", width="large")
+    def _dlg_dosya_duzen():
         # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
         _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
         _md = _masraf_dict(d)
@@ -1128,6 +1133,8 @@ def _gecmis_ithalatlar():
                     st.rerun()
                 else:
                     st.error(msg)
+    if st.button("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key="btn_ith_duzen", use_container_width=True):
+        _dlg_dosya_duzen()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1411,7 +1418,8 @@ def _yeni_ithalat():
 
             # 🔗 Mevcut dosyalara Excel'den Takip No ata/eşle (eski/boş kayıtlar için)
             if _takip_col:
-                with st.expander("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)"):
+                @st.dialog("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", width="large")
+                def _dlg_takip_ata():
                     st.caption("Excel'de aynı İthalat Takip No birden çok belge/sipariş içerir. "
                                "Bu araç, sistemdeki dosyalara — Belge No (PI) veya Sipariş No eşleşmesine göre — "
                                "Excel'deki takip no'yu atar. Mevcut içe aktarma akışını değiştirmez.")
@@ -1457,6 +1465,8 @@ def _yeni_ithalat():
                             st.rerun()
                     else:
                         st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
+                if st.button("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", key="btn_ith_takip", use_container_width=True):
+                    _dlg_takip_ata()
 
             guncelle_mod = st.radio(
                 "Sistemde zaten olan takip no'lar için:",
@@ -1775,11 +1785,14 @@ def _masraf_detaylari():
     _tur_ozet = {}
     for s in _flt:
         _tur_ozet[s["Masraf Türü"]] = _tur_ozet.get(s["Masraf Türü"], 0.0) + s["Tutar"]
-    with st.expander("📊 Masraf Türüne Göre Toplam", expanded=False):
+    @st.dialog("📊 Masraf Türüne Göre Toplam", width="large")
+    def _dlg_masraf_top():
         st.dataframe(
             pd.DataFrame([{"Masraf Türü": k, "Toplam": _tam(v)}
                           for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
             hide_index=True, use_container_width=True)
+    if st.button("📊 Masraf Türüne Göre Toplam", key="btn_ith_masraf", use_container_width=True):
+        _dlg_masraf_top()
 
     # Ana liste
     _flt_sirali = sorted(_flt, key=lambda x: (x["Belge No"], x["Masraf Türü"]))
