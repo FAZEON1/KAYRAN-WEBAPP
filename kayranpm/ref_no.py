@@ -785,19 +785,37 @@ def _render_refler(fid, fkod):
         f'Sıradaki otomatik ref no: <b style="color:#A5B4FC;font-family:monospace;font-size:15px">{_onizleme}</b></div>',
         unsafe_allow_html=True,
     )
-    with st.form("ref_ekle_form", clear_on_submit=True):
-        yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
-        rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
-        yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
-        yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
-        yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
-        yeni_tarih = st.date_input("Tarih", value=date.today())
-        if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
-            ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
-                               tutar=yeni_tutar, doviz=yeni_doviz)
-            (st.success if ok else st.error)(msg)
-            if ok:
-                st.rerun()
+
+    # ➕ Yeni Ref No — AÇILIR PENCERE (ana ekran uzamaz)
+    @st.dialog("➕ Yeni Ref No Ata", width="large")
+    def _ref_ekle_dialog():
+        st.caption(f"Sıradaki ref no: **{_onizleme}** — bu firmaya otomatik atanır.")
+        with st.form("ref_ekle_form", clear_on_submit=False):
+            yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
+            rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
+            yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+            yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
+            yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
+            # Tarih: varsayılan BUGÜN (takvim gizli). Değiştirmek istersen kutucukla aç.
+            _rt_dgs = st.checkbox("📅 Tarihi değiştir (varsayılan: bugün)", value=False, key=f"ref_tar_dgs_{fid}")
+            if _rt_dgs:
+                yeni_tarih = st.date_input("Tarih", value=date.today())
+            else:
+                yeni_tarih = date.today()
+                st.caption(f"📅 Tarih: **{yeni_tarih.strftime('%d.%m.%Y')}** (bugün)")
+            if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
+                ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
+                                   tutar=yeni_tutar, doviz=yeni_doviz)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    _rf1, _rf2 = st.columns([1, 4])
+    if _rf1.button("➕ Yeni Ref No", type="primary", use_container_width=True, key=f"ref_ac_btn_{fid}"):
+        _ref_ekle_dialog()
+    _rf2.caption("Yeni ref no atamak için butona bas — açılır pencerede doldur.")
 
     with st.expander("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)"):
         up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
