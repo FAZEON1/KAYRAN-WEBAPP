@@ -167,3 +167,43 @@ div[data-testid="stStatusWidget"]::after{
 div[data-testid="stStatusWidget"] > *{display:none !important;}
 div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
 </style>"""
+
+
+def genel_tema_css() -> str:
+    """Uygulama geneli görsel cila — app.py'de bir kez basılır.
+    • Dialog başlıkları: zarif, kompakt, tutarlı
+    • st.dataframe kapsayıcısı: kart hissi (yuvarlak köşe + ince çerçeve)
+    • Sekme ve caption rafinesi
+    Tablo İÇİ font/renk/grid çizgileri .streamlit/config.toml temasından gelir
+    (canvas tabanlı olduğu için CSS ile değil tema ile yönetilir)."""
+    return """<style>
+/* ── Dialog başlıkları ── */
+div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
+div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
+  font-family:Inter,sans-serif !important;
+  font-size:17px !important; font-weight:800 !important;
+  letter-spacing:-0.2px !important; color:#E2E8F0 !important;
+  padding-bottom:2px !important;
+}
+div[data-testid="stDialog"] > div:first-child{
+  border:1px solid rgba(129,140,248,0.22) !important;
+  border-radius:18px !important;
+  box-shadow:0 24px 64px rgba(0,0,0,0.55) !important;
+}
+/* ── Tablolar: kapsayıcıya kart hissi ── */
+div[data-testid="stDataFrame"]{
+  border-radius:12px !important;
+  overflow:hidden !important;
+  border:1px solid rgba(148,163,184,0.10) !important;
+}
+/* ── Sekmeler: alt çizgi yerine yumuşak aktif dolgu ── */
+button[data-baseweb="tab"]{
+  font-family:Inter,sans-serif !important; font-weight:600 !important;
+  border-radius:9px 9px 0 0 !important;
+}
+button[data-baseweb="tab"][aria-selected="true"]{
+  background:rgba(99,102,241,0.10) !important;
+}
+/* ── Caption'lar biraz daha okunur ── */
+div[data-testid="stCaptionContainer"] p{ color:#8B98B8 !important; }
+</style>"""
