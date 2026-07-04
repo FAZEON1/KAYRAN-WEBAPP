@@ -76,6 +76,7 @@ def _sayfa_stok():
                     else:
                         st.caption(_msg)
                 if _is:
+                    st.cache_data.clear()
                     st.rerun()
 
     _ozet = get_depo_ozet()
@@ -175,6 +176,7 @@ def _sayfa_sevk():
                     _sepet.append({"sku": _sec_urun["sku"],
                                    "urun_adi": _sec_urun["urun_adi"],
                                    "adet": int(_adet)})
+                st.cache_data.clear()
                 st.rerun()
             else:
                 st.warning("Bu üründen eklenebilecek kalan adet yok.")
@@ -193,6 +195,7 @@ def _sayfa_sevk():
                          f'{_s["adet"]} adet</div>', unsafe_allow_html=True)
             if rc3.button("🗑", key=f"dpo_sil_{_i}", help="Listeden çıkar"):
                 _sepet.pop(_i)
+                st.cache_data.clear()
                 st.rerun()
         _toplam = sum(s["adet"] for s in _sepet)
         st.caption(f"{len(_sepet)} kalem · toplam {_toplam} adet · {_kaynak} → {_hedef or '(hedef seçilmedi)'}")
@@ -205,6 +208,7 @@ def _sayfa_sevk():
         bc1, bc2 = st.columns([1, 1.4])
         if bc1.button("🗑 Listeyi temizle", use_container_width=True, key="dpo_temizle"):
             st.session_state["dpo_sepet"] = []
+            st.cache_data.clear()
             st.rerun()
         if bc2.button("🚚 Tümünü Sevk Et", type="primary", use_container_width=True, key="dpo_sevk_hepsi"):
             if not _hedef:
@@ -224,6 +228,7 @@ def _sayfa_sevk():
                 if _hatalar:
                     st.error("Bazı kalemler sevk edilemedi:\n" + "\n".join(_hatalar))
                 st.session_state["dpo_sepet"] = []
+                st.cache_data.clear()
                 st.rerun()
     else:
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
@@ -288,6 +293,7 @@ def _sayfa_bekleyen():
                     "sevk_edilen": 0, "hareketler": [], "notlar": _mt_not.strip(),
                 }).execute()
                 st.success("✅ Takip kaydı oluşturuldu.")
+                st.cache_data.clear()
                 st.rerun()
             except Exception as _e:
                 st.error(f"Kaydedilemedi: {_e}")
@@ -340,6 +346,7 @@ def _sayfa_bekleyen():
                     "hareketler": _hrk,
                 }).eq("id", _mt_sec.get("id")).execute()
                 st.success(f"✅ {int(_d_adet)} adet düşüldü.")
+                st.cache_data.clear()
                 st.rerun()
             except Exception as _e:
                 st.error(f"Düşüm kaydedilemedi: {_e}")
@@ -347,6 +354,7 @@ def _sayfa_bekleyen():
             try:
                 get_client().table("depo_manuel_takip").delete().eq("id", _mt_sec.get("id")).execute()
                 st.success("Kayıt silindi.")
+                st.cache_data.clear()
                 st.rerun()
             except Exception as _e:
                 st.error(f"Silinemedi: {_e}")
