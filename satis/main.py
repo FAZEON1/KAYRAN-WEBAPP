@@ -454,7 +454,11 @@ def run():
                 with st.container(border=True):
                     st.markdown("##### 🧾 Sipariş Bilgileri")
                     h1, h2, h3 = st.columns([1, 1.4, 1])
-                    g_tarih = h1.date_input("Tarih", value=date.today(), key="s_tarih")
+                    def _s_tarih_secildi():
+                        # Tarih seçilince takvim popover'ı kapansın (rerun); dialog açık kalsın
+                        st.session_state["_ms_dialog_ac"] = True
+                    g_tarih = h1.date_input("Tarih", value=date.today(), key="s_tarih",
+                                            on_change=_s_tarih_secildi)
                     g_kanal = h2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
                                            help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
                     g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
