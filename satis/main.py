@@ -448,6 +448,8 @@ def run():
 
             @st.dialog("✍️ Manuel Satış Girişi", width="large")
             def _satis_manuel_dialog():
+                # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
+                kalemler = st.session_state.setdefault("satis_kalemler", [])
                 # ── Sipariş başlığı ──
                 with st.container(border=True):
                     st.markdown("##### 🧾 Sipariş Bilgileri")
