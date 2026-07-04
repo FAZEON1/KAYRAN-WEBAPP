@@ -323,13 +323,30 @@ def patron_verisi_topla():
 
     # ── Hatalı veri: %100 marjlı (maliyetsiz) satış + eksi stok ──
     try:
-        from satis.database import get_satislar
+        from satis.database import get_satislar, get_pacal_map
+        import re as _re2
+        def _nsku(x):
+            return _re2.sub(r"[^A-Z0-9]", "", str(x or "").upper())
+        _pacal = {}
+        try:
+            for _k, _pv in (get_pacal_map() or {}).items():
+                _pacal[_nsku(_k)] = _pv
+        except Exception:
+            _pacal = {}
         _bugun = _dt.date.today()
         _yil_ilk = _bugun.replace(month=1, day=1).isoformat()
         _sat = get_satislar(_yil_ilk, _bugun.isoformat()) or []
-        v["maliyetsiz_satis"] = sum(1 for s in _sat
-                                    if float(s.get("birim_maliyet") or 0) <= 0
-                                    and int(s.get("adet") or 0) > 0)
+        _mz_onarilir = 0   # maliyet 0 AMA paçalı biliniyor → tek tıkla düzelir
+        _mz_ithalatsiz = 0  # maliyet 0 VE paçalı yok → ithalat/eşleşme sorunu
+        for s in _sat:
+            if float(s.get("birim_maliyet") or 0) <= 0 and int(s.get("adet") or 0) > 0:
+                if float(_pacal.get(_nsku(s.get("sku")), 0) or 0) > 0:
+                    _mz_onarilir += 1
+                else:
+                    _mz_ithalatsiz += 1
+        v["maliyetsiz_satis"] = _mz_onarilir + _mz_ithalatsiz
+        v["maliyetsiz_onarilir"] = _mz_onarilir
+        v["maliyetsiz_ithalatsiz"] = _mz_ithalatsiz
     except Exception:
         pass
     try:
@@ -430,9 +447,12 @@ def patron_panosu_html(v):
 
     # ── Hatalı veri şeridi ──
     _hata_parca = []
-    if v.get("maliyetsiz_satis"):
-        _hata_parca.append(f'<span style="color:{RENK["amber2"]}">💰 {v["maliyetsiz_satis"]:,} '
-                           f'maliyetsiz satış (%100 marj)</span>')
+    if v.get("maliyetsiz_onarilir"):
+        _hata_parca.append(f'<span style="color:{RENK["amber2"]}">🔧 {v["maliyetsiz_onarilir"]:,} '
+                           f'satış tek tıkla onarılır (Kâr/P&L → Maliyeti 0 düzelt)</span>')
+    if v.get("maliyetsiz_ithalatsiz"):
+        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">🚫 {v["maliyetsiz_ithalatsiz"]:,} '
+                           f'satış ithalatsız/eşleşmiyor (%100 marj — ithalat gir ya da SKU düzelt)</span>')
     if v.get("eksi_stok"):
         _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">📉 {v["eksi_stok"]:,} '
                            f'ürün eksi stokta</span>')
