@@ -743,3 +743,19 @@ def iade_kanal_ozet(baslangic=None, bitis=None):
         o["i_tutar"] += net
         o["i_kar"] += net - adet * pc
     return out
+
+
+def get_satislar_kanal_ara(q):
+    """TARİH FİLTRESİZ satış arama — kanal/müşteri adında geçen kayıtları döner.
+    Tarihi NULL/bozuk olduğu için normal listede görünmeyen 'hayalet' kayıtları
+    da yakalar. Döner: ham satış satırları (en fazla 500)."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return []
+    try:
+        sb = get_client()
+        rows = (sb.table("satislar").select("*")
+                .ilike("kanal", f"%{q}%").limit(500).execute().data) or []
+        return rows
+    except Exception:
+        return []

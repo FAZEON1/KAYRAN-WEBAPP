@@ -745,6 +745,42 @@ def run():
                                         "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})
             @st.dialog("🗑️ Sil — kalem veya sipariş", width="large")
             def _dlg_satis_sil():
+                # ── 🔎 Hayalet kayıt avcısı: TARİH FİLTRESİZ kanal araması ──
+                with st.container():
+                    st.markdown("**🔎 Tarih filtresiz ara** — tarihi boş/bozuk olduğu için "
+                                "listede görünmeyen kayıtları da bulur")
+                    _hq = st.text_input("Kanal / müşteri adı", key="l_hayalet_q",
+                                        placeholder="örn. AYKON")
+                    if _hq and len(_hq.strip()) >= 2:
+                        from satis.database import get_satislar_kanal_ara
+                        _hrows = get_satislar_kanal_ara(_hq)
+                        if not _hrows:
+                            st.caption("Eşleşen kayıt yok.")
+                        else:
+                            _hdf = pd.DataFrame([{
+                                "id": r.get("id"),
+                                "Tarih": str(r.get("tarih") or "⚠️ BOŞ"),
+                                "Kanal": r.get("kanal", ""), "SKU": r.get("sku", ""),
+                                "Adet": r.get("adet", 0),
+                                "B.Satış": r.get("birim_satis", 0),
+                                "Sipariş": r.get("siparis_no", "") or "—",
+                            } for r in _hrows])
+                            st.dataframe(_hdf, hide_index=True, use_container_width=True,
+                                         height=min(280, 40 + 35 * len(_hdf)))
+                            _hsec = st.multiselect(
+                                "Silinecek kayıt id'leri",
+                                [r.get("id") for r in _hrows],
+                                key="l_hayalet_sec")
+                            if _hsec and st.button(f"🗑️ Seçili {len(_hsec)} kaydı sil",
+                                                   type="primary", key="l_hayalet_sil"):
+                                _hok = 0
+                                for _hid in _hsec:
+                                    if sil_satis(_hid):
+                                        _hok += 1
+                                st.cache_data.clear()
+                                st.success(f"✅ {_hok} kayıt silindi.")
+                                st.rerun()
+                    st.markdown("---")
                 _ds1, _ds2 = st.columns(2)
                 with _ds1:
                     _sec_sil = st.selectbox(
