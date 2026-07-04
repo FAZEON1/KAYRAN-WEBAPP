@@ -1870,512 +1870,532 @@ def run():
                 )
                 _pano_sel = list(_pano_evt.selection.rows)
                 if _pano_sel:
-                    st.session_state["_kamp_detay_sec"] = aktif_kampanyalar[_pano_sel[0]]["id"]
+                    _yeni_sec = aktif_kampanyalar[_pano_sel[0]]["id"]
+                    # Yalnızca farklı bir kampanya seçilince dialog'u yeniden aç
+                    if st.session_state.get("_kamp_detay_sec") != _yeni_sec:
+                        st.session_state["_kamp_detay_sec"] = _yeni_sec
+                        st.session_state["_kamp_detay_ac"] = True
                 _kamp_secili_id = st.session_state.get("_kamp_detay_sec")
                 if not (_kamp_secili_id and any(_kk["id"] == _kamp_secili_id for _kk in aktif_kampanyalar)):
-                    st.caption("👆 Panodan bir kampanyaya tıklayınca detayları burada açılır.")
-                for kamp in [_kk for _kk in aktif_kampanyalar if _kk["id"] == _kamp_secili_id]:
-                    kid = kamp["id"]
-                    k_urunler = _ku_map.get(kid, [])
-    
-                    # Kampanya başlık kartı
-                    st.markdown(f"""
-                    <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:16px 20px;
-                                margin:12px 0 8px; border-left:5px solid #42A5F5;">
-                      <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                          <span style="color:#90CAF9; font-size:18px; font-weight:800;">📢 {kamp["kampanya_adi"]}</span>
-                          <span style="background:#1F4E79; color:#90CAF9; padding:2px 10px; border-radius:10px;
-                                      font-size:12px; margin-left:10px; font-weight:600;">{kamp["firma"]}</span>
-                          <span style="background:#1B5E20; color:#A5D6A7; padding:2px 10px; border-radius:10px;
-                                      font-size:12px; margin-left:6px;">● AKTİF</span>
+                    st.caption("👆 Panodan bir kampanyaya tıklayınca detayı açılır pencerede görünür.")
+                _kamp_list = [_kk for _kk in aktif_kampanyalar if _kk['id'] == _kamp_secili_id]
+                if _kamp_list:
+                    @st.dialog("📢 Kampanya Detayı", width="large")
+                    def _kampanya_detay_dialog():
+                        kamp = _kamp_list[0]
+                        kid = kamp['id']
+                        k_urunler = _ku_map.get(kid, [])
+                        # Kampanya başlık kartı
+                        st.markdown(f"""
+                        <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:16px 20px;
+                                    margin:12px 0 8px; border-left:5px solid #42A5F5;">
+                          <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                              <span style="color:#90CAF9; font-size:18px; font-weight:800;">📢 {kamp["kampanya_adi"]}</span>
+                              <span style="background:#1F4E79; color:#90CAF9; padding:2px 10px; border-radius:10px;
+                                          font-size:12px; margin-left:10px; font-weight:600;">{kamp["firma"]}</span>
+                              <span style="background:#1B5E20; color:#A5D6A7; padding:2px 10px; border-radius:10px;
+                                          font-size:12px; margin-left:6px;">● AKTİF</span>
+                            </div>
+                            <span style="color:#90A4AE; font-size:12px;">
+                              {kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}
+                            </span>
+                          </div>
                         </div>
-                        <span style="color:#90A4AE; font-size:12px;">
-                          {kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}
-                        </span>
-                      </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
     
-                    # Kampanya düzenleme
-                    with st.expander(f"✏️ Kampanya Bilgilerini Düzenle — {kamp['kampanya_adi']}"):
-                        # ── Kampanya Genel Bilgileri ──
-                        st.markdown("**📋 Kampanya Bilgileri**")
-                        with st.form(f"duzenle_kamp_{kid}"):
-                            dk1, dk2 = st.columns(2)
-                            with dk1:
-                                dk_adi = st.text_input("Kampanya Adı", value=kamp["kampanya_adi"], key=f"dk_adi_{kid}")
-                                dk_firma = st.selectbox("Firma", FIRMA_LISTESI_K,
-                                    index=FIRMA_LISTESI_K.index(kamp["firma"]) if kamp["firma"] in FIRMA_LISTESI_K else 0,
-                                    format_func=firma_gorunen_ad,
-                                    key=f"dk_firma_{kid}")
-                                _dk_kat_cur = (kamp.get("kategori") or "").strip()
-                                _dk_opts = ["(Genel / Karışık)"] + _kt_kat_list
-                                if _dk_kat_cur and _dk_kat_cur not in _dk_opts:
-                                    _dk_opts = ["(Genel / Karışık)", _dk_kat_cur] + _kt_kat_list
-                                dk_kat = st.selectbox("Kategori", _dk_opts,
-                                    index=_dk_opts.index(_dk_kat_cur) if _dk_kat_cur in _dk_opts else 0,
-                                    key=f"dk_kat_{kid}")
-                            with dk2:
-                                dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}")
-                                dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}")
-                            dk_not = st.text_area("Notlar", value=kamp.get("notlar","") or "", key=f"dk_not_{kid}")
-                            _dk_turu_cur = (kamp.get("kampanya_turu") or "").strip()
-                            _dk_turu_opts = KAMPANYA_TURLERI + ([_dk_turu_cur] if _dk_turu_cur and _dk_turu_cur not in KAMPANYA_TURLERI else [])
-                            dk_turu = st.selectbox("Kampanya Türü", _dk_turu_opts,
-                                index=_dk_turu_opts.index(_dk_turu_cur) if _dk_turu_cur in _dk_turu_opts else 0,
-                                key=f"dk_turu_{kid}")
-                            st.markdown('<div style="color:#94A3B8;font-size:11px;font-weight:700;margin:6px 0 2px">🎟️ Spiff — TL net + kur. Fatura gelince <b>kuru</b> güncelle, USD/kâr otomatik düzelir.</div>', unsafe_allow_html=True)
-                            dsp1, dsp2, dsp3 = st.columns([1.2, 1, 1])
-                            dk_spiff_tl = dsp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
-                                value=float(kamp.get("spiff_tl") or 0) or None, placeholder="0", key=f"dk_spiff_tl_{kid}")
-                            dk_spiff_kur = dsp2.number_input("Kur (₺/$)", min_value=0.0, step=0.1, format="%.4f",
-                                value=float(kamp.get("spiff_kur") or 0) or None, placeholder="örn. 40", key=f"dk_spiff_kur_{kid}")
-                            dk_spiff_fatura = dsp3.checkbox("Fatura geldi (kur kesin)",
-                                value=bool(kamp.get("spiff_fatura")), key=f"dk_spiff_fatura_{kid}")
-                            if dk_spiff_tl and dk_spiff_kur:
-                                st.caption(f"≈ ${(dk_spiff_tl / dk_spiff_kur):,.2f} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
-                            dc1_k, dc2_k, dc3_k = st.columns(3)
-                            with dc1_k:
-                                if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
-                                    _dk_kat_val = "" if str(dk_kat).startswith("(") else dk_kat
-                                    _dk_turu_val = "" if str(dk_turu).startswith("(") else dk_turu
-                                    guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not,
-                                                      kategori=_dk_kat_val, kampanya_turu=_dk_turu_val,
-                                                      spiff_tl=(dk_spiff_tl or 0), spiff_kur=(dk_spiff_kur or 0),
-                                                      spiff_fatura=dk_spiff_fatura)
-                                    st.cache_data.clear()
-                                    st.toast("✅ Kampanya güncellendi!")
-                                    st.rerun()
-                            with dc2_k:
-                                kapat_flag = st.form_submit_button("🔒 Kampanyayı Kapat", use_container_width=True)
-                            with dc3_k:
-                                if st.form_submit_button("🗑️ Kampanyayı Sil", use_container_width=True):
-                                    sil_kampanya(kid)
-                                    st.cache_data.clear()
-                                    st.warning("Kampanya silindi.")
-                                    st.rerun()
-    
-                        # Kampanya kapat — adet sor (kapat_flag form içinden geliyor, güvenli)
-                        if locals().get('kapat_flag', False):
-                            st.session_state[f"kapat_onay_{kid}"] = True
-    
-                        if st.session_state.get(f"kapat_onay_{kid}"):
-                            st.markdown("---")
-                            st.markdown("**🔒 Kampanyayı Kapat — Satış Adetlerini Gir**")
-                            st.caption("Kampanya kapanmadan önce her ürün için satılan adeti girin.")
-                            with st.form(f"kapat_form_{kid}", clear_on_submit=True):
-                                adet_girisleri = {}
-                                for ku in k_urunler:
-                                    kf1, kf2, kf3 = st.columns([2, 2, 1])
-                                    with kf1:
-                                        st.markdown(f'<span style="color:#90CAF9; font-size:13px; font-weight:600;">{ku["sku"]}</span>'
-                                                   f'<span style="color:#546E7A; font-size:11px;"> — {ku.get("urun_adi","")[:40]}</span>',
-                                                   unsafe_allow_html=True)
-                                    with kf2:
-                                        adet_girisleri[ku["id"]] = st.number_input(
-                                            "Satılan Adet",
-                                            value=int(ku.get("satilan_adet",0) or 0),
-                                            min_value=0, step=1,
-                                            key=f"kapat_adet_{kid}_{ku['id']}",
-                                            label_visibility="collapsed"
-                                        )
-                                    with kf3:
-                                        st.markdown(f'<span style="color:#78909C; font-size:11px;">mevcut: {ku.get("satilan_adet",0)}</span>', unsafe_allow_html=True)
-    
-                                kk1, kk2 = st.columns(2)
-                                with kk1:
-                                    if st.form_submit_button("✅ Kaydet ve Kapat", type="primary", use_container_width=True):
-                                        for ku_id_k, adet_k in adet_girisleri.items():
-                                            ku_bilgi = next((x for x in k_urunler if x["id"] == ku_id_k), {})
-                                            guncelle_kampanya_urun(ku_id_k,
-                                                ku_bilgi.get("satis_fiyati",0),
-                                                ku_bilgi.get("birim_firma_destek",0),
-                                                ku_bilgi.get("birim_ek_destek",0),
-                                                adet_k,
-                                                ku_bilgi.get("notlar",""))
-                                        kapat_kampanya(kid)
-                                        st.session_state.pop(f"kapat_onay_{kid}", None)
+                        # Kampanya düzenleme
+                        with st.expander(f"✏️ Kampanya Bilgilerini Düzenle — {kamp['kampanya_adi']}"):
+                            # ── Kampanya Genel Bilgileri ──
+                            st.markdown("**📋 Kampanya Bilgileri**")
+                            with st.form(f"duzenle_kamp_{kid}"):
+                                dk1, dk2 = st.columns(2)
+                                with dk1:
+                                    dk_adi = st.text_input("Kampanya Adı", value=kamp["kampanya_adi"], key=f"dk_adi_{kid}")
+                                    dk_firma = st.selectbox("Firma", FIRMA_LISTESI_K,
+                                        index=FIRMA_LISTESI_K.index(kamp["firma"]) if kamp["firma"] in FIRMA_LISTESI_K else 0,
+                                        format_func=firma_gorunen_ad,
+                                        key=f"dk_firma_{kid}")
+                                    _dk_kat_cur = (kamp.get("kategori") or "").strip()
+                                    _dk_opts = ["(Genel / Karışık)"] + _kt_kat_list
+                                    if _dk_kat_cur and _dk_kat_cur not in _dk_opts:
+                                        _dk_opts = ["(Genel / Karışık)", _dk_kat_cur] + _kt_kat_list
+                                    dk_kat = st.selectbox("Kategori", _dk_opts,
+                                        index=_dk_opts.index(_dk_kat_cur) if _dk_kat_cur in _dk_opts else 0,
+                                        key=f"dk_kat_{kid}")
+                                with dk2:
+                                    dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}")
+                                    dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}")
+                                dk_not = st.text_area("Notlar", value=kamp.get("notlar","") or "", key=f"dk_not_{kid}")
+                                _dk_turu_cur = (kamp.get("kampanya_turu") or "").strip()
+                                _dk_turu_opts = KAMPANYA_TURLERI + ([_dk_turu_cur] if _dk_turu_cur and _dk_turu_cur not in KAMPANYA_TURLERI else [])
+                                dk_turu = st.selectbox("Kampanya Türü", _dk_turu_opts,
+                                    index=_dk_turu_opts.index(_dk_turu_cur) if _dk_turu_cur in _dk_turu_opts else 0,
+                                    key=f"dk_turu_{kid}")
+                                st.markdown('<div style="color:#94A3B8;font-size:11px;font-weight:700;margin:6px 0 2px">🎟️ Spiff — TL net + kur. Fatura gelince <b>kuru</b> güncelle, USD/kâr otomatik düzelir.</div>', unsafe_allow_html=True)
+                                dsp1, dsp2, dsp3 = st.columns([1.2, 1, 1])
+                                dk_spiff_tl = dsp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
+                                    value=float(kamp.get("spiff_tl") or 0) or None, placeholder="0", key=f"dk_spiff_tl_{kid}")
+                                dk_spiff_kur = dsp2.number_input("Kur (₺/$)", min_value=0.0, step=0.1, format="%.4f",
+                                    value=float(kamp.get("spiff_kur") or 0) or None, placeholder="örn. 40", key=f"dk_spiff_kur_{kid}")
+                                dk_spiff_fatura = dsp3.checkbox("Fatura geldi (kur kesin)",
+                                    value=bool(kamp.get("spiff_fatura")), key=f"dk_spiff_fatura_{kid}")
+                                if dk_spiff_tl and dk_spiff_kur:
+                                    st.caption(f"≈ ${(dk_spiff_tl / dk_spiff_kur):,.2f} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
+                                dc1_k, dc2_k, dc3_k = st.columns(3)
+                                with dc1_k:
+                                    if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
+                                        _dk_kat_val = "" if str(dk_kat).startswith("(") else dk_kat
+                                        _dk_turu_val = "" if str(dk_turu).startswith("(") else dk_turu
+                                        guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not,
+                                                          kategori=_dk_kat_val, kampanya_turu=_dk_turu_val,
+                                                          spiff_tl=(dk_spiff_tl or 0), spiff_kur=(dk_spiff_kur or 0),
+                                                          spiff_fatura=dk_spiff_fatura)
                                         st.cache_data.clear()
-                                        st.toast("🔒 Kampanya kapatıldı ve satış adetleri kaydedildi!")
+                                        st.toast("✅ Kampanya güncellendi!")
+                                        st.session_state['_kamp_detay_ac'] = True
                                         st.rerun()
-                                with kk2:
-                                    if st.form_submit_button("İptal", use_container_width=True):
-                                        st.session_state.pop(f"kapat_onay_{kid}", None)
+                                with dc2_k:
+                                    kapat_flag = st.form_submit_button("🔒 Kampanyayı Kapat", use_container_width=True)
+                                with dc3_k:
+                                    if st.form_submit_button("🗑️ Kampanyayı Sil", use_container_width=True):
+                                        sil_kampanya(kid)
+                                        st.cache_data.clear()
+                                        st.warning("Kampanya silindi.")
+                                        st.session_state.pop("_kamp_detay_sec", None)
+                                        st.session_state["_kamp_detay_ac"] = False
                                         st.rerun()
     
-                        # ── Ürün Bazında Düzenleme ──
-                        if k_urunler:
-                            st.markdown("---")
-                            st.markdown("**🛍️ Ürün Bilgilerini Düzenle**")
-                            st.caption("Her ürün için SKU, satış fiyatı, birim destek ve satılan adeti ayrı ayrı düzenleyebilirsiniz.")
+                            # Kampanya kapat — adet sor (kapat_flag form içinden geliyor, güvenli)
+                            if locals().get('kapat_flag', False):
+                                st.session_state[f"kapat_onay_{kid}"] = True
     
-                            for ku in k_urunler:
-                                ku_id = ku["id"]
-                                pacal_ku = ku.get("pacal_maliyet") or 0
-                                # Paçal 0 ise güncel değer
-                                if pacal_ku == 0:
-                                    pacal_ku = urun_dict_k.get(ku["sku"], {}).get("final_cost_price", 0)
+                            if st.session_state.get(f"kapat_onay_{kid}"):
+                                st.markdown("---")
+                                st.markdown("**🔒 Kampanyayı Kapat — Satış Adetlerini Gir**")
+                                st.caption("Kampanya kapanmadan önce her ürün için satılan adeti girin.")
+                                with st.form(f"kapat_form_{kid}", clear_on_submit=True):
+                                    adet_girisleri = {}
+                                    for ku in k_urunler:
+                                        kf1, kf2, kf3 = st.columns([2, 2, 1])
+                                        with kf1:
+                                            st.markdown(f'<span style="color:#90CAF9; font-size:13px; font-weight:600;">{ku["sku"]}</span>'
+                                                       f'<span style="color:#546E7A; font-size:11px;"> — {ku.get("urun_adi","")[:40]}</span>',
+                                                       unsafe_allow_html=True)
+                                        with kf2:
+                                            adet_girisleri[ku["id"]] = st.number_input(
+                                                "Satılan Adet",
+                                                value=int(ku.get("satilan_adet",0) or 0),
+                                                min_value=0, step=1,
+                                                key=f"kapat_adet_{kid}_{ku['id']}",
+                                                label_visibility="collapsed"
+                                            )
+                                        with kf3:
+                                            st.markdown(f'<span style="color:#78909C; font-size:11px;">mevcut: {ku.get("satilan_adet",0)}</span>', unsafe_allow_html=True)
     
-                                with st.form(f"urun_gun_{kid}_{ku_id}", clear_on_submit=False):
-                                    st.markdown(f'<div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 14px; margin-bottom:6px;">'
-                                                f'<span style="color:#90CAF9; font-weight:700; font-size:13px;">📦 {ku.get("urun_adi","")}</span>'
-                                                f'<span style="color:#546E7A; font-size:11px; margin-left:8px;">SKU: {ku["sku"]}</span>'
-                                                f'</div>', unsafe_allow_html=True)
-    
-                                    ug1, ug2, ug3, ug4 = st.columns(4)
-                                    with ug1:
-                                        ug_satis = st.number_input(
-                                            "Müşteriye Fiyat ($)",
-                                            value=float(ku.get("satis_fiyati", 0) or 0),
-                                            step=0.01, format="%.2f",
-                                            key=f"ug_s_{kid}_{ku_id}"
-                                        )
-                                    with ug2:
-                                        ug_fd = st.number_input(
-                                            "Birim Firma Desteği ($)",
-                                            value=float(ku.get("birim_firma_destek", 0) or 0),
-                                            step=0.01, format="%.2f",
-                                            key=f"ug_fd_{kid}_{ku_id}"
-                                        )
-                                    with ug3:
-                                        ug_ed = st.number_input(
-                                            "Birim Ek Destek ($)",
-                                            value=float(ku.get("birim_ek_destek", 0) or 0),
-                                            step=0.01, format="%.2f",
-                                            key=f"ug_ed_{kid}_{ku_id}"
-                                        )
-                                    with ug4:
-                                        ug_satilan = st.number_input(
-                                            "Satılan Adet",
-                                            value=int(ku.get("satilan_adet", 0) or 0),
-                                            min_value=0, step=1,
-                                            key=f"ug_sa_{kid}_{ku_id}"
-                                        )
-    
-                                    # Canlı hesap göster
-                                    if pacal_ku > 0 and ug_satis > 0:
-                                        toplam_destek = ug_fd + ug_ed
-                                        net_kar = (ug_satis - pacal_ku) - toplam_destek
-                                        net_marj = (net_kar / ug_satis * 100) if ug_satis > 0 else 0
-                                        toplam_net = net_kar * ug_satilan
-                                        renk = "#A5D6A7" if net_kar >= 0 else "#FFCDD2"
-                                        st.markdown(
-                                            f'<div class="info-box" style="font-size:12px; margin:4px 0;">'
-                                            f'⭐ Paçal: <b>${pacal_ku:.2f}</b> &nbsp;|&nbsp; '
-                                            f'Net Kar/Adet: <span style="color:{renk}; font-weight:700;">${net_kar:.2f} (%{net_marj:.1f})</span> &nbsp;|&nbsp; '
-                                            f'Toplam Net: <span style="color:{renk}; font-weight:700;">${toplam_net:.0f}</span>'
-                                            f'</div>',
-                                            unsafe_allow_html=True
-                                        )
-    
-                                    ub1, ub2 = st.columns([3, 1])
-                                    with ub2:
-                                        if st.form_submit_button("💾 Güncelle", use_container_width=True, type="primary"):
-                                            guncelle_kampanya_urun(ku_id, ug_satis, ug_fd, ug_ed, ug_satilan, ku.get("notlar",""))
+                                    kk1, kk2 = st.columns(2)
+                                    with kk1:
+                                        if st.form_submit_button("✅ Kaydet ve Kapat", type="primary", use_container_width=True):
+                                            for ku_id_k, adet_k in adet_girisleri.items():
+                                                ku_bilgi = next((x for x in k_urunler if x["id"] == ku_id_k), {})
+                                                guncelle_kampanya_urun(ku_id_k,
+                                                    ku_bilgi.get("satis_fiyati",0),
+                                                    ku_bilgi.get("birim_firma_destek",0),
+                                                    ku_bilgi.get("birim_ek_destek",0),
+                                                    adet_k,
+                                                    ku_bilgi.get("notlar",""))
+                                            kapat_kampanya(kid)
+                                            st.session_state.pop(f"kapat_onay_{kid}", None)
                                             st.cache_data.clear()
-                                            st.toast(f"✅ Güncellendi!")
+                                            st.toast("🔒 Kampanya kapatıldı ve satış adetleri kaydedildi!")
+                                            st.session_state.pop("_kamp_detay_sec", None)
+                                            st.session_state["_kamp_detay_ac"] = False
+                                            st.rerun()
+                                    with kk2:
+                                        if st.form_submit_button("İptal", use_container_width=True):
+                                            st.session_state.pop(f"kapat_onay_{kid}", None)
+                                            st.session_state['_kamp_detay_ac'] = True
                                             st.rerun()
     
-                    # ── Kampanyayı kopyala (ürünler + destekler ile YENİ kampanya) ──
-                    with st.expander(f"📋 Kampanyayı Kopyala — {kamp['kampanya_adi']}"):
-                        st.caption("Bu kampanyanın TÜM ürünlerini birim firma desteği ve ek desteğiyle birlikte "
-                                   "yeni bir kampanyaya kopyalar (satılan adetler sıfırlanır). Kopyaladıktan sonra "
-                                   "yeni kampanyayı seçip ad/tarihi düzenler, gerekirse ek destekleri güncellersin.")
-                        _kop_c1, _kop_c2 = st.columns([2, 1])
-                        _kop_ad = _kop_c1.text_input("Yeni kampanya adı",
-                                                     value=f"{kamp['kampanya_adi']} (KOPYA)", key=f"kop_ad_{kid}")
-                        _kop_c2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                        if _kop_c2.button("📋 Kopyala ve Oluştur", type="primary",
-                                          use_container_width=True, key=f"kop_btn_{kid}"):
-                            _kop_hata, _yeni_id = None, None
-                            try:
-                                _yeni_id = ekle_kampanya(
-                                    (_kop_ad.strip() or f"{kamp['kampanya_adi']} (KOPYA)"),
-                                    kamp.get("firma", ""), kamp.get("baslangic_tarihi"), kamp.get("bitis_tarihi"),
-                                    kamp.get("notlar", "") or "", kamp.get("kategori", "") or "",
-                                    kampanya_turu=(kamp.get("kampanya_turu", "") or ""),
-                                    spiff_tl=(kamp.get("spiff_tl") or 0), spiff_kur=(kamp.get("spiff_kur") or 0),
-                                    spiff_fatura=bool(kamp.get("spiff_fatura")))
-                            except Exception as _e:
-                                _kop_hata = str(_e)
-                            if _yeni_id:
-                                _kn = 0
-                                for _ku in get_kampanya_urunler(kid):
-                                    try:
-                                        ekle_kampanya_urun(
-                                            _yeni_id, _ku.get("sku", ""), _ku.get("urun_adi", ""),
-                                            _ku.get("pacal_maliyet", 0), _ku.get("satis_fiyati", 0),
-                                            _ku.get("birim_firma_destek", 0), _ku.get("birim_ek_destek", 0),
-                                            _ku.get("notlar", "") or "")
-                                        _kn += 1
-                                    except Exception:
-                                        pass
-                                st.cache_data.clear()
-                                st.success(f"✅ Kampanya kopyalandı — {_kn} ürün taşındı. "
-                                           f"Yeni kampanya: '{_kop_ad.strip()}'. Listeden seçip düzenleyebilirsin.")
-                                st.rerun()
-                            elif _kop_hata:
-                                st.error(f"Kopyalama başarısız — {_kop_hata}")
+                            # ── Ürün Bazında Düzenleme ──
+                            if k_urunler:
+                                st.markdown("---")
+                                st.markdown("**🛍️ Ürün Bilgilerini Düzenle**")
+                                st.caption("Her ürün için SKU, satış fiyatı, birim destek ve satılan adeti ayrı ayrı düzenleyebilirsiniz.")
+    
+                                for ku in k_urunler:
+                                    ku_id = ku["id"]
+                                    pacal_ku = ku.get("pacal_maliyet") or 0
+                                    # Paçal 0 ise güncel değer
+                                    if pacal_ku == 0:
+                                        pacal_ku = urun_dict_k.get(ku["sku"], {}).get("final_cost_price", 0)
+    
+                                    with st.form(f"urun_gun_{kid}_{ku_id}", clear_on_submit=False):
+                                        st.markdown(f'<div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 14px; margin-bottom:6px;">'
+                                                    f'<span style="color:#90CAF9; font-weight:700; font-size:13px;">📦 {ku.get("urun_adi","")}</span>'
+                                                    f'<span style="color:#546E7A; font-size:11px; margin-left:8px;">SKU: {ku["sku"]}</span>'
+                                                    f'</div>', unsafe_allow_html=True)
+    
+                                        ug1, ug2, ug3, ug4 = st.columns(4)
+                                        with ug1:
+                                            ug_satis = st.number_input(
+                                                "Müşteriye Fiyat ($)",
+                                                value=float(ku.get("satis_fiyati", 0) or 0),
+                                                step=0.01, format="%.2f",
+                                                key=f"ug_s_{kid}_{ku_id}"
+                                            )
+                                        with ug2:
+                                            ug_fd = st.number_input(
+                                                "Birim Firma Desteği ($)",
+                                                value=float(ku.get("birim_firma_destek", 0) or 0),
+                                                step=0.01, format="%.2f",
+                                                key=f"ug_fd_{kid}_{ku_id}"
+                                            )
+                                        with ug3:
+                                            ug_ed = st.number_input(
+                                                "Birim Ek Destek ($)",
+                                                value=float(ku.get("birim_ek_destek", 0) or 0),
+                                                step=0.01, format="%.2f",
+                                                key=f"ug_ed_{kid}_{ku_id}"
+                                            )
+                                        with ug4:
+                                            ug_satilan = st.number_input(
+                                                "Satılan Adet",
+                                                value=int(ku.get("satilan_adet", 0) or 0),
+                                                min_value=0, step=1,
+                                                key=f"ug_sa_{kid}_{ku_id}"
+                                            )
+    
+                                        # Canlı hesap göster
+                                        if pacal_ku > 0 and ug_satis > 0:
+                                            toplam_destek = ug_fd + ug_ed
+                                            net_kar = (ug_satis - pacal_ku) - toplam_destek
+                                            net_marj = (net_kar / ug_satis * 100) if ug_satis > 0 else 0
+                                            toplam_net = net_kar * ug_satilan
+                                            renk = "#A5D6A7" if net_kar >= 0 else "#FFCDD2"
+                                            st.markdown(
+                                                f'<div class="info-box" style="font-size:12px; margin:4px 0;">'
+                                                f'⭐ Paçal: <b>${pacal_ku:.2f}</b> &nbsp;|&nbsp; '
+                                                f'Net Kar/Adet: <span style="color:{renk}; font-weight:700;">${net_kar:.2f} (%{net_marj:.1f})</span> &nbsp;|&nbsp; '
+                                                f'Toplam Net: <span style="color:{renk}; font-weight:700;">${toplam_net:.0f}</span>'
+                                                f'</div>',
+                                                unsafe_allow_html=True
+                                            )
+    
+                                        ub1, ub2 = st.columns([3, 1])
+                                        with ub2:
+                                            if st.form_submit_button("💾 Güncelle", use_container_width=True, type="primary"):
+                                                guncelle_kampanya_urun(ku_id, ug_satis, ug_fd, ug_ed, ug_satilan, ku.get("notlar",""))
+                                                st.cache_data.clear()
+                                                st.toast(f"✅ Güncellendi!")
+                                                st.session_state['_kamp_detay_ac'] = True
+                                                st.rerun()
+    
+                        # ── Kampanyayı kopyala (ürünler + destekler ile YENİ kampanya) ──
+                        with st.expander(f"📋 Kampanyayı Kopyala — {kamp['kampanya_adi']}"):
+                            st.caption("Bu kampanyanın TÜM ürünlerini birim firma desteği ve ek desteğiyle birlikte "
+                                       "yeni bir kampanyaya kopyalar (satılan adetler sıfırlanır). Kopyaladıktan sonra "
+                                       "yeni kampanyayı seçip ad/tarihi düzenler, gerekirse ek destekleri güncellersin.")
+                            _kop_c1, _kop_c2 = st.columns([2, 1])
+                            _kop_ad = _kop_c1.text_input("Yeni kampanya adı",
+                                                         value=f"{kamp['kampanya_adi']} (KOPYA)", key=f"kop_ad_{kid}")
+                            _kop_c2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+                            if _kop_c2.button("📋 Kopyala ve Oluştur", type="primary",
+                                              use_container_width=True, key=f"kop_btn_{kid}"):
+                                _kop_hata, _yeni_id = None, None
+                                try:
+                                    _yeni_id = ekle_kampanya(
+                                        (_kop_ad.strip() or f"{kamp['kampanya_adi']} (KOPYA)"),
+                                        kamp.get("firma", ""), kamp.get("baslangic_tarihi"), kamp.get("bitis_tarihi"),
+                                        kamp.get("notlar", "") or "", kamp.get("kategori", "") or "",
+                                        kampanya_turu=(kamp.get("kampanya_turu", "") or ""),
+                                        spiff_tl=(kamp.get("spiff_tl") or 0), spiff_kur=(kamp.get("spiff_kur") or 0),
+                                        spiff_fatura=bool(kamp.get("spiff_fatura")))
+                                except Exception as _e:
+                                    _kop_hata = str(_e)
+                                if _yeni_id:
+                                    _kn = 0
+                                    for _ku in get_kampanya_urunler(kid):
+                                        try:
+                                            ekle_kampanya_urun(
+                                                _yeni_id, _ku.get("sku", ""), _ku.get("urun_adi", ""),
+                                                _ku.get("pacal_maliyet", 0), _ku.get("satis_fiyati", 0),
+                                                _ku.get("birim_firma_destek", 0), _ku.get("birim_ek_destek", 0),
+                                                _ku.get("notlar", "") or "")
+                                            _kn += 1
+                                        except Exception:
+                                            pass
+                                    st.cache_data.clear()
+                                    st.success(f"✅ Kampanya kopyalandı — {_kn} ürün taşındı. "
+                                               f"Yeni kampanya: '{_kop_ad.strip()}'. Listeden seçip düzenleyebilirsin.")
+                                    st.session_state['_kamp_detay_ac'] = True
+                                    st.rerun()
+                                elif _kop_hata:
+                                    st.error(f"Kopyalama başarısız — {_kop_hata}")
+                                else:
+                                    st.error("Kopyalama başarısız — yeni kampanya oluşturulamadı (tablo izni/kolon olabilir).")
+
+                        # Ürün ekleme formu
+                        with st.expander(f"➕ Ürün Ekle — {kamp['kampanya_adi']}"):
+                            if not sku_listesi_k:
+                                st.warning("Önce 'Veri Yükleme' sekmesinden ürün yükleyin.")
                             else:
-                                st.error("Kopyalama başarısız — yeni kampanya oluşturulamadı (tablo izni/kolon olabilir).")
+                                with st.form(f"urun_ekle_{kid}", clear_on_submit=True):
+                                    uf1, uf2 = st.columns(2)
+                                    with uf1:
+                                        u_secim = st.selectbox("Ürün *", list(sku_listesi_k.keys()), key=f"u_sec_{kid}")
+                                        u_sku = sku_listesi_k.get(u_secim, "")
+                                        u_bilgi = urun_dict_k.get(u_sku, {})
+                                        pacal = u_bilgi.get("final_cost_price", 0)
+                                        pacal_son = u_bilgi.get("son_final", 0) or 0
+    
+                                        # Top-down margin hesaplama yardımcısı
+                                        if pacal > 0:
+                                            hedef_marj_giris = st.number_input(
+                                                "Hedef Net Marj % (opsiyonel)",
+                                                min_value=0.0, max_value=99.0, value=0.0, step=0.5, format="%.1f",
+                                                help="Top-down hesap: Satış = Paçal / (1 - marj%). Örn: %20 → $100 paçal → $125 satış",
+                                                key=f"u_marj_{kid}"
+                                            )
+                                            if hedef_marj_giris > 0:
+                                                onerilen_satis = pacal / (1 - hedef_marj_giris / 100)
+                                                st.markdown(f"""<div class="info-box" style="font-size:12px">
+                                                💡 %{hedef_marj_giris:.1f} marj için önerilen satış: <b>${onerilen_satis:.2f}</b>
+                                                </div>""", unsafe_allow_html=True)
+    
+                                        u_satis = st.number_input("Satış Fiyatı ($) *", min_value=0.0, value=0.0, step=0.01, format="%.2f", key=f"u_satis_{kid}")
+                                        u_not = st.text_area("Notlar", key=f"u_not_{kid}")
+                                    with uf2:
+                                        u_firma_destek = st.number_input("Birim Firma Desteği ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                            help="Firma tarafından ürün başına verilen destek tutarı", key=f"u_fd_{kid}")
+                                        u_ek_destek = st.number_input("Birim Ek Destek ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                            help="Ek destek tutarı (ürün başına)", key=f"u_ed_{kid}")
+    
+                                        # Seçilen ürünün paçal maliyetini göster
+                                        if pacal > 0:
+                                            toplam_destek = u_firma_destek + u_ek_destek
+                                            net_kar_birim = (u_satis - pacal) - toplam_destek if u_satis > 0 else 0
+                                            net_marj = (net_kar_birim / u_satis * 100) if u_satis > 0 else 0  # Top-down: kar/satış
+                                            st.markdown(f"""
+                                            <div class="info-box" style="font-size:12px">
+                                            ⭐ Paçal: <b>${pacal:.2f}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${pacal_son:.2f}</b>' if pacal_son else ''}<br>
+                                            💸 Toplam Destek: <b>${toplam_destek:.2f}</b><br>
+                                            📈 Net Kar/Adet: <b>${net_kar_birim:.2f} (%{net_marj:.1f})</b>
+                                            </div>
+                                            """, unsafe_allow_html=True)
+                                        else:
+                                            st.info(f"⭐ Paçal: Henüz satın alma kaydı yok")
+    
+                                    if st.form_submit_button("➕ Ürünü Kampanyaya Ekle", type="primary", use_container_width=True):
+                                        if not u_secim or u_satis <= 0:
+                                            st.error("Ürün ve satış fiyatı zorunludur.")
+                                        else:
+                                            ekle_kampanya_urun(
+                                                kid, u_sku, u_bilgi.get("urun_adi", u_sku),
+                                                pacal,
+                                                u_satis, u_firma_destek, u_ek_destek, u_not
+                                            )
+                                            st.toast("✅ Ürün eklendi!")
+                                            st.session_state['_kamp_detay_ac'] = True
+                                            st.rerun()
+    
+                        # ── Excel ile toplu ürün ekle + şablon indir ──
 
-                    # Ürün ekleme formu
-                    with st.expander(f"➕ Ürün Ekle — {kamp['kampanya_adi']}"):
-                        if not sku_listesi_k:
-                            st.warning("Önce 'Veri Yükleme' sekmesinden ürün yükleyin.")
-                        else:
-                            with st.form(f"urun_ekle_{kid}", clear_on_submit=True):
-                                uf1, uf2 = st.columns(2)
-                                with uf1:
-                                    u_secim = st.selectbox("Ürün *", list(sku_listesi_k.keys()), key=f"u_sec_{kid}")
-                                    u_sku = sku_listesi_k.get(u_secim, "")
-                                    u_bilgi = urun_dict_k.get(u_sku, {})
-                                    pacal = u_bilgi.get("final_cost_price", 0)
-                                    pacal_son = u_bilgi.get("son_final", 0) or 0
+                        # Kampanya ürünleri tablosu
+                        if k_urunler:
+                            st.markdown(f"**Kampanya Ürünleri ({len(k_urunler)} ürün)**")
     
-                                    # Top-down margin hesaplama yardımcısı
-                                    if pacal > 0:
-                                        hedef_marj_giris = st.number_input(
-                                            "Hedef Net Marj % (opsiyonel)",
-                                            min_value=0.0, max_value=99.0, value=0.0, step=0.5, format="%.1f",
-                                            help="Top-down hesap: Satış = Paçal / (1 - marj%). Örn: %20 → $100 paçal → $125 satış",
-                                            key=f"u_marj_{kid}"
-                                        )
-                                        if hedef_marj_giris > 0:
-                                            onerilen_satis = pacal / (1 - hedef_marj_giris / 100)
-                                            st.markdown(f"""<div class="info-box" style="font-size:12px">
-                                            💡 %{hedef_marj_giris:.1f} marj için önerilen satış: <b>${onerilen_satis:.2f}</b>
-                                            </div>""", unsafe_allow_html=True)
+                            # Özet hesaplar
+                            toplam_net_kar = 0
+                            toplam_destek_verilen = 0
+                            toplam_ek_destek_verilen = 0  # yalnızca ek destek (firma desteği hariç) — "Toplam Destek Verilen" göstergesi için
+                            toplam_satilan = 0
     
-                                    u_satis = st.number_input("Satış Fiyatı ($) *", min_value=0.0, value=0.0, step=0.01, format="%.2f", key=f"u_satis_{kid}")
-                                    u_not = st.text_area("Notlar", key=f"u_not_{kid}")
-                                with uf2:
-                                    u_firma_destek = st.number_input("Birim Firma Desteği ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
-                                        help="Firma tarafından ürün başına verilen destek tutarı", key=f"u_fd_{kid}")
-                                    u_ek_destek = st.number_input("Birim Ek Destek ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
-                                        help="Ek destek tutarı (ürün başına)", key=f"u_ed_{kid}")
+                            rows_ku = []
+                            for ku in k_urunler:
+                                pacal = ku.get("pacal_maliyet") or 0
     
-                                    # Seçilen ürünün paçal maliyetini göster
-                                    if pacal > 0:
-                                        toplam_destek = u_firma_destek + u_ek_destek
-                                        net_kar_birim = (u_satis - pacal) - toplam_destek if u_satis > 0 else 0
-                                        net_marj = (net_kar_birim / u_satis * 100) if u_satis > 0 else 0  # Top-down: kar/satış
-                                        st.markdown(f"""
-                                        <div class="info-box" style="font-size:12px">
-                                        ⭐ Paçal: <b>${pacal:.2f}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${pacal_son:.2f}</b>' if pacal_son else ''}<br>
-                                        💸 Toplam Destek: <b>${toplam_destek:.2f}</b><br>
-                                        📈 Net Kar/Adet: <b>${net_kar_birim:.2f} (%{net_marj:.1f})</b>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                    else:
-                                        st.info(f"⭐ Paçal: Henüz satın alma kaydı yok")
+                                # Paçal 0 ise güncel değeri çek ve güncelle
+                                if pacal == 0:
+                                    u_bilgi_c = urun_dict_k.get(ku["sku"], {})
+                                    pacal_guncel = u_bilgi_c.get("final_cost_price", 0)
+                                    if pacal_guncel > 0:
+                                        try:
+                                            get_client().table("kampanya_urunler").update(
+                                                {"pacal_maliyet": pacal_guncel}).eq("id", ku["id"]).execute()
+                                        except Exception:
+                                            pass
+                                        pacal = pacal_guncel
     
-                                if st.form_submit_button("➕ Ürünü Kampanyaya Ekle", type="primary", use_container_width=True):
-                                    if not u_secim or u_satis <= 0:
-                                        st.error("Ürün ve satış fiyatı zorunludur.")
-                                    else:
-                                        ekle_kampanya_urun(
-                                            kid, u_sku, u_bilgi.get("urun_adi", u_sku),
-                                            pacal,
-                                            u_satis, u_firma_destek, u_ek_destek, u_not
-                                        )
-                                        st.toast("✅ Ürün eklendi!")
-                                        st.rerun()
+                                satis = ku.get("satis_fiyati") or 0
+                                fd = ku.get("birim_firma_destek") or 0
+                                ed = ku.get("birim_ek_destek") or 0
+                                satilan = ku.get("satilan_adet") or 0
+                                # YÖNTEM: destekler satış fiyatından düşülür → NET SATIŞ.
+                                # Net Kâr/Adet = (satış − destekler) − paçal
+                                # Net Marj     = Net Kâr / (satış − destekler)   [örn. 1 − 5,10/(12−3) = %43,3]
+                                toplam_destek_birim = fd + ed
+                                net_satis_birim = satis - toplam_destek_birim
+                                net_kar_birim = net_satis_birim - pacal if satis > 0 and pacal > 0 else 0
+                                net_marj = (net_kar_birim / net_satis_birim * 100) if net_satis_birim > 0 else 0
+                                toplam_destek_urun = toplam_destek_birim * satilan
+                                toplam_net_urun = net_kar_birim * satilan
     
-                    # ── Excel ile toplu ürün ekle + şablon indir ──
-
-                    # Kampanya ürünleri tablosu
-                    if k_urunler:
-                        st.markdown(f"**Kampanya Ürünleri ({len(k_urunler)} ürün)**")
+                                toplam_net_kar += toplam_net_urun
+                                toplam_destek_verilen += toplam_destek_urun
+                                toplam_ek_destek_verilen += (ed * satilan)
+                                toplam_satilan += satilan
     
-                        # Özet hesaplar
-                        toplam_net_kar = 0
-                        toplam_destek_verilen = 0
-                        toplam_ek_destek_verilen = 0  # yalnızca ek destek (firma desteği hariç) — "Toplam Destek Verilen" göstergesi için
-                        toplam_satilan = 0
+                                rows_ku.append({
+                                    "ID": ku["id"],
+                                    "SKU": ku["sku"],
+                                    "Ürün": ku.get("urun_adi",""),
+                                    "⭐ Paçal ($)": f"${pacal:.2f}" if pacal else "—",
+                                    "Satış ($)": f"${satis:.2f}",
+                                    "Firma Destek ($)": f"${fd:.2f}",
+                                    "Ek Destek ($)": f"${ed:.2f}",
+                                    "Net Kar/Adet ($)": f"${net_kar_birim:.2f}",
+                                    "Net Marj (%)": f"%{net_marj:.1f}",
+                                    "Satılan Adet": satilan,
+                                    "Toplam Destek ($)": f"${toplam_destek_urun:.0f}",
+                                    "Toplam Net Kar ($)": f"${toplam_net_urun:.0f}",
+                                    "Notlar": ku.get("notlar","") or "",
+                                })
     
-                        rows_ku = []
-                        for ku in k_urunler:
-                            pacal = ku.get("pacal_maliyet") or 0
-    
-                            # Paçal 0 ise güncel değeri çek ve güncelle
-                            if pacal == 0:
-                                u_bilgi_c = urun_dict_k.get(ku["sku"], {})
-                                pacal_guncel = u_bilgi_c.get("final_cost_price", 0)
-                                if pacal_guncel > 0:
-                                    try:
-                                        get_client().table("kampanya_urunler").update(
-                                            {"pacal_maliyet": pacal_guncel}).eq("id", ku["id"]).execute()
-                                    except Exception:
-                                        pass
-                                    pacal = pacal_guncel
-    
-                            satis = ku.get("satis_fiyati") or 0
-                            fd = ku.get("birim_firma_destek") or 0
-                            ed = ku.get("birim_ek_destek") or 0
-                            satilan = ku.get("satilan_adet") or 0
-                            # YÖNTEM: destekler satış fiyatından düşülür → NET SATIŞ.
-                            # Net Kâr/Adet = (satış − destekler) − paçal
-                            # Net Marj     = Net Kâr / (satış − destekler)   [örn. 1 − 5,10/(12−3) = %43,3]
-                            toplam_destek_birim = fd + ed
-                            net_satis_birim = satis - toplam_destek_birim
-                            net_kar_birim = net_satis_birim - pacal if satis > 0 and pacal > 0 else 0
-                            net_marj = (net_kar_birim / net_satis_birim * 100) if net_satis_birim > 0 else 0
-                            toplam_destek_urun = toplam_destek_birim * satilan
-                            toplam_net_urun = net_kar_birim * satilan
-    
-                            toplam_net_kar += toplam_net_urun
-                            toplam_destek_verilen += toplam_destek_urun
-                            toplam_ek_destek_verilen += (ed * satilan)
-                            toplam_satilan += satilan
-    
-                            rows_ku.append({
-                                "ID": ku["id"],
-                                "SKU": ku["sku"],
-                                "Ürün": ku.get("urun_adi",""),
-                                "⭐ Paçal ($)": f"${pacal:.2f}" if pacal else "—",
-                                "Satış ($)": f"${satis:.2f}",
-                                "Firma Destek ($)": f"${fd:.2f}",
-                                "Ek Destek ($)": f"${ed:.2f}",
-                                "Net Kar/Adet ($)": f"${net_kar_birim:.2f}",
-                                "Net Marj (%)": f"%{net_marj:.1f}",
-                                "Satılan Adet": satilan,
-                                "Toplam Destek ($)": f"${toplam_destek_urun:.0f}",
-                                "Toplam Net Kar ($)": f"${toplam_net_urun:.0f}",
-                                "Notlar": ku.get("notlar","") or "",
-                            })
-    
-                        def _pf(x):
-                            try:
-                                return float(str(x).replace("$", "").replace("%", "").replace(",", "").strip())
-                            except Exception:
-                                return 0.0
-                        k_rows = ""
-                        for rk in rows_ku:
-                            urun = str(rk.get("Ürün", "") or "")
-                            urun_k = urun if len(urun) <= 40 else urun[:39] + "…"
-                            urun_t = urun.replace(chr(34), "&quot;")
-                            nkb = _pf(rk.get("Net Kar/Adet ($)"))
-                            nkb_cls = "kc-pos" if nkb > 0 else ("kc-neg" if nkb < 0 else "kc-num")
-                            tnk = _pf(rk.get("Toplam Net Kar ($)"))
-                            tnk_cls = "kc-pos" if tnk > 0 else ("kc-neg" if tnk < 0 else "kc-num")
-                            notlar = str(rk.get("Notlar", "") or "")
-                            notlar_k = notlar if len(notlar) <= 24 else notlar[:23] + "…"
-                            notlar_t = notlar.replace(chr(34), "&quot;")
-                            k_rows += (
-                                "<tr>"
-                                f'<td class="kc-sku">{rk.get("SKU","")}</td>'
-                                f'<td class="kc-name" title="{urun_t}">{urun_k}</td>'
-                                f'<td class="kc-gold">{rk.get("⭐ Paçal ($)","")}</td>'
-                                f'<td class="kc-money">{rk.get("Satış ($)","")}</td>'
-                                f'<td class="kc-dim">{rk.get("Firma Destek ($)","")}</td>'
-                                f'<td class="kc-dim">{rk.get("Ek Destek ($)","")}</td>'
-                                f'<td class="{nkb_cls}">{rk.get("Net Kar/Adet ($)","")}</td>'
-                                f'<td class="kc-dim">{rk.get("Net Marj (%)","")}</td>'
-                                f'<td class="kc-num">{rk.get("Satılan Adet","")}</td>'
-                                f'<td class="kc-dim">{rk.get("Toplam Destek ($)","")}</td>'
-                                f'<td class="{tnk_cls}">{rk.get("Toplam Net Kar ($)","")}</td>'
-                                f'<td class="kc-note" title="{notlar_t}">{notlar_k}</td>'
-                                "</tr>"
+                            def _pf(x):
+                                try:
+                                    return float(str(x).replace("$", "").replace("%", "").replace(",", "").strip())
+                                except Exception:
+                                    return 0.0
+                            k_rows = ""
+                            for rk in rows_ku:
+                                urun = str(rk.get("Ürün", "") or "")
+                                urun_k = urun if len(urun) <= 40 else urun[:39] + "…"
+                                urun_t = urun.replace(chr(34), "&quot;")
+                                nkb = _pf(rk.get("Net Kar/Adet ($)"))
+                                nkb_cls = "kc-pos" if nkb > 0 else ("kc-neg" if nkb < 0 else "kc-num")
+                                tnk = _pf(rk.get("Toplam Net Kar ($)"))
+                                tnk_cls = "kc-pos" if tnk > 0 else ("kc-neg" if tnk < 0 else "kc-num")
+                                notlar = str(rk.get("Notlar", "") or "")
+                                notlar_k = notlar if len(notlar) <= 24 else notlar[:23] + "…"
+                                notlar_t = notlar.replace(chr(34), "&quot;")
+                                k_rows += (
+                                    "<tr>"
+                                    f'<td class="kc-sku">{rk.get("SKU","")}</td>'
+                                    f'<td class="kc-name" title="{urun_t}">{urun_k}</td>'
+                                    f'<td class="kc-gold">{rk.get("⭐ Paçal ($)","")}</td>'
+                                    f'<td class="kc-money">{rk.get("Satış ($)","")}</td>'
+                                    f'<td class="kc-dim">{rk.get("Firma Destek ($)","")}</td>'
+                                    f'<td class="kc-dim">{rk.get("Ek Destek ($)","")}</td>'
+                                    f'<td class="{nkb_cls}">{rk.get("Net Kar/Adet ($)","")}</td>'
+                                    f'<td class="kc-dim">{rk.get("Net Marj (%)","")}</td>'
+                                    f'<td class="kc-num">{rk.get("Satılan Adet","")}</td>'
+                                    f'<td class="kc-dim">{rk.get("Toplam Destek ($)","")}</td>'
+                                    f'<td class="{tnk_cls}">{rk.get("Toplam Net Kar ($)","")}</td>'
+                                    f'<td class="kc-note" title="{notlar_t}">{notlar_k}</td>'
+                                    "</tr>"
+                                )
+                            k_css = (
+                                "<style>"
+                                ".kw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
+                                ".kt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
+                                ".kt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
+                                ".kt thead th{padding:9px 11px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+                                ".kt thead th:nth-child(1),.kt thead th:nth-child(2),.kt thead th:last-child{text-align:left}"
+                                ".kt tbody{background:#131C35}"
+                                ".kt td{padding:8px 11px;font-size:11.5px}"
+                                ".kt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
+                                ".kt tbody tr:hover{background:rgba(99,102,241,0.06)}"
+                                ".kc-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
+                                ".kc-name{color:#CBD5E1;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                                ".kc-note{color:#78909C;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}"
+                                ".kc-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                                ".kc-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
+                                ".kc-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
+                                ".kc-gold{text-align:right;color:#FFD54F;font-weight:600;font-family:'JetBrains Mono',monospace}"
+                                ".kc-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                                ".kc-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                                "</style>"
                             )
-                        k_css = (
-                            "<style>"
-                            ".kw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
-                            ".kt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-                            ".kt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                            ".kt thead th{padding:9px 11px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
-                            ".kt thead th:nth-child(1),.kt thead th:nth-child(2),.kt thead th:last-child{text-align:left}"
-                            ".kt tbody{background:#131C35}"
-                            ".kt td{padding:8px 11px;font-size:11.5px}"
-                            ".kt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
-                            ".kt tbody tr:hover{background:rgba(99,102,241,0.06)}"
-                            ".kc-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                            ".kc-name{color:#CBD5E1;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                            ".kc-note{color:#78909C;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}"
-                            ".kc-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
-                            ".kc-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
-                            ".kc-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                            ".kc-gold{text-align:right;color:#FFD54F;font-weight:600;font-family:'JetBrains Mono',monospace}"
-                            ".kc-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                            ".kc-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
-                            "</style>"
-                        )
-                        k_head = (
-                            '<div class="kw"><table class="kt"><thead><tr>'
-                            "<th>SKU</th><th>Ürün</th><th>⭐ Paçal</th><th>Satış</th><th>Firma Destek</th>"
-                            "<th>Ek Destek</th><th>Net Kar/Adet</th><th>Net Marj</th><th>Satılan</th>"
-                            "<th>Toplam Destek</th><th>Toplam Net Kar</th><th>Notlar</th>"
-                            "</tr></thead><tbody>"
-                        )
-                        st.html(k_css + k_head + k_rows + "</tbody></table></div>")
+                            k_head = (
+                                '<div class="kw"><table class="kt"><thead><tr>'
+                                "<th>SKU</th><th>Ürün</th><th>⭐ Paçal</th><th>Satış</th><th>Firma Destek</th>"
+                                "<th>Ek Destek</th><th>Net Kar/Adet</th><th>Net Marj</th><th>Satılan</th>"
+                                "<th>Toplam Destek</th><th>Toplam Net Kar</th><th>Notlar</th>"
+                                "</tr></thead><tbody>"
+                            )
+                            st.html(k_css + k_head + k_rows + "</tbody></table></div>")
     
-                        # Kampanya özet metrikleri (+ Spiff kampanya maliyeti)
-                        _spiff_tl_p = float(kamp.get("spiff_tl") or 0)
-                        _spiff_kur_p = float(kamp.get("spiff_kur") or 0)
-                        _spiff_usd_p = (_spiff_tl_p / _spiff_kur_p) if _spiff_kur_p > 0 else 0.0
-                        _spiff_fat_p = bool(kamp.get("spiff_fatura"))
-                        _kamp_turu_p = (kamp.get("kampanya_turu") or "").strip()
-                        _net_final = toplam_net_kar - _spiff_usd_p
-                        _metrikler = [
-                            {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
-                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_ek_destek_verilen:,.0f}",
-                             "renk": "#FB923C", "alt": "yalnızca ek destek"},
-                        ]
-                        if _spiff_usd_p > 0:
+                            # Kampanya özet metrikleri (+ Spiff kampanya maliyeti)
+                            _spiff_tl_p = float(kamp.get("spiff_tl") or 0)
+                            _spiff_kur_p = float(kamp.get("spiff_kur") or 0)
+                            _spiff_usd_p = (_spiff_tl_p / _spiff_kur_p) if _spiff_kur_p > 0 else 0.0
+                            _spiff_fat_p = bool(kamp.get("spiff_fatura"))
+                            _kamp_turu_p = (kamp.get("kampanya_turu") or "").strip()
+                            _net_final = toplam_net_kar - _spiff_usd_p
+                            _metrikler = [
+                                {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
+                                {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_ek_destek_verilen:,.0f}",
+                                 "renk": "#FB923C", "alt": "yalnızca ek destek"},
+                            ]
+                            if _spiff_usd_p > 0:
+                                _metrikler.append({
+                                    "label": "🎟️ Spiff Maliyeti", "value": f"${_spiff_usd_p:,.0f}",
+                                    "renk": "#FBBF24",
+                                    "alt": f"₺{_spiff_tl_p:,.0f} @ {_spiff_kur_p:.2f} · {'fatura/kesin' if _spiff_fat_p else 'tahmini'}"})
                             _metrikler.append({
-                                "label": "🎟️ Spiff Maliyeti", "value": f"${_spiff_usd_p:,.0f}",
-                                "renk": "#FBBF24",
-                                "alt": f"₺{_spiff_tl_p:,.0f} @ {_spiff_kur_p:.2f} · {'fatura/kesin' if _spiff_fat_p else 'tahmini'}"})
-                        _metrikler.append({
-                            "label": "📈 Net Kar" + (" (Spiff sonrası)" if _spiff_usd_p > 0 else ""),
-                            "value": f"${_net_final:,.0f}",
-                            "renk": "#34D399" if _net_final > 0 else "#F87171",
-                            "alt": "Kârlı" if _net_final > 0 else "Zararlı"})
-                        _metrikler.append({
-                            "label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA",
-                            "alt": (f"Tür: {_kamp_turu_p}" if _kamp_turu_p else None)})
-                        metrik_satiri(_metrikler)
+                                "label": "📈 Net Kar" + (" (Spiff sonrası)" if _spiff_usd_p > 0 else ""),
+                                "value": f"${_net_final:,.0f}",
+                                "renk": "#34D399" if _net_final > 0 else "#F87171",
+                                "alt": "Kârlı" if _net_final > 0 else "Zararlı"})
+                            _metrikler.append({
+                                "label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA",
+                                "alt": (f"Tür: {_kamp_turu_p}" if _kamp_turu_p else None)})
+                            metrik_satiri(_metrikler)
     
-                        # Ürün düzenleme
-                        with st.expander("✏️ Ürün Bilgilerini Güncelle"):
-                            st.caption("Satılan adet, fiyat veya destek tutarlarını güncelleyebilirsiniz.")
-                            guncelle_id = st.selectbox(
-                                "Güncellenecek Ürün",
-                                [f"ID:{r['ID']} — {r['Ürün']}" for r in rows_ku],
-                                key=f"gun_sec_{kid}"
-                            )
-                            g_id = int(guncelle_id.split(":")[1].split(" ")[0])
-                            g_urun = next(ku for ku in k_urunler if ku["id"] == g_id)
+                            # Ürün düzenleme
+                            with st.expander("✏️ Ürün Bilgilerini Güncelle"):
+                                st.caption("Satılan adet, fiyat veya destek tutarlarını güncelleyebilirsiniz.")
+                                guncelle_id = st.selectbox(
+                                    "Güncellenecek Ürün",
+                                    [f"ID:{r['ID']} — {r['Ürün']}" for r in rows_ku],
+                                    key=f"gun_sec_{kid}"
+                                )
+                                g_id = int(guncelle_id.split(":")[1].split(" ")[0])
+                                g_urun = next(ku for ku in k_urunler if ku["id"] == g_id)
     
-                            with st.form(f"gun_form_{kid}_{g_id}"):
-                                gf1, gf2 = st.columns(2)
-                                with gf1:
-                                    g_satis = st.number_input("Satış Fiyatı ($)", value=float(g_urun.get("satis_fiyati",0) or 0), step=0.01, format="%.2f", key=f"g_s_{kid}_{g_id}")
-                                    g_fd = st.number_input("Birim Firma Desteği ($)", value=float(g_urun.get("birim_firma_destek",0) or 0), step=0.01, format="%.2f", key=f"g_fd_{kid}_{g_id}")
-                                with gf2:
-                                    g_ed = st.number_input("Birim Ek Destek ($)", value=float(g_urun.get("birim_ek_destek",0) or 0), step=0.01, format="%.2f", key=f"g_ed_{kid}_{g_id}")
-                                    g_satilan = st.number_input("Satılan Adet", value=int(g_urun.get("satilan_adet",0) or 0), min_value=0, step=1, key=f"g_sa_{kid}_{g_id}")
-                                g_not = st.text_area("Notlar", value=g_urun.get("notlar","") or "", key=f"g_not_{kid}_{g_id}")
+                                with st.form(f"gun_form_{kid}_{g_id}"):
+                                    gf1, gf2 = st.columns(2)
+                                    with gf1:
+                                        g_satis = st.number_input("Satış Fiyatı ($)", value=float(g_urun.get("satis_fiyati",0) or 0), step=0.01, format="%.2f", key=f"g_s_{kid}_{g_id}")
+                                        g_fd = st.number_input("Birim Firma Desteği ($)", value=float(g_urun.get("birim_firma_destek",0) or 0), step=0.01, format="%.2f", key=f"g_fd_{kid}_{g_id}")
+                                    with gf2:
+                                        g_ed = st.number_input("Birim Ek Destek ($)", value=float(g_urun.get("birim_ek_destek",0) or 0), step=0.01, format="%.2f", key=f"g_ed_{kid}_{g_id}")
+                                        g_satilan = st.number_input("Satılan Adet", value=int(g_urun.get("satilan_adet",0) or 0), min_value=0, step=1, key=f"g_sa_{kid}_{g_id}")
+                                    g_not = st.text_area("Notlar", value=g_urun.get("notlar","") or "", key=f"g_not_{kid}_{g_id}")
     
-                                gf_c1, gf_c2 = st.columns(2)
-                                with gf_c1:
-                                    if st.form_submit_button("💾 Güncelle", type="primary", use_container_width=True):
-                                        guncelle_kampanya_urun(g_id, g_satis, g_fd, g_ed, g_satilan, g_not)
-                                        st.cache_data.clear()
-                                        st.toast("Güncellendi!")
-                                        st.rerun()
-                                with gf_c2:
-                                    if st.form_submit_button("🗑️ Ürünü Sil", use_container_width=True):
-                                        sil_kampanya_urun(g_id)
-                                        st.cache_data.clear()
-                                        st.warning("Ürün kaldırıldı.")
-                                        st.rerun()
-                    else:
-                        st.info("Bu kampanyaya henüz ürün eklenmemiş.")
+                                    gf_c1, gf_c2 = st.columns(2)
+                                    with gf_c1:
+                                        if st.form_submit_button("💾 Güncelle", type="primary", use_container_width=True):
+                                            guncelle_kampanya_urun(g_id, g_satis, g_fd, g_ed, g_satilan, g_not)
+                                            st.cache_data.clear()
+                                            st.toast("Güncellendi!")
+                                            st.session_state['_kamp_detay_ac'] = True
+                                            st.rerun()
+                                    with gf_c2:
+                                        if st.form_submit_button("🗑️ Ürünü Sil", use_container_width=True):
+                                            sil_kampanya_urun(g_id)
+                                            st.cache_data.clear()
+                                            st.warning("Ürün kaldırıldı.")
+                                            st.session_state['_kamp_detay_ac'] = True
+                                            st.rerun()
+                        else:
+                            st.info("Bu kampanyaya henüz ürün eklenmemiş.")
     
-                    st.markdown("---")
+                        st.markdown("---")
     
+                    if st.session_state.pop("_kamp_detay_ac", False):
+                        _kampanya_detay_dialog()
         # ─────────────────────────────────────────────────────────────────
         # TAB 2: GEÇMİŞ KAMPANYALAR
         # ─────────────────────────────────────────────────────────────────
