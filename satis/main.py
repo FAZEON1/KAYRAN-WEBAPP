@@ -1086,8 +1086,11 @@ def run():
                 _mz = st.session_state.get("_mlyt_onizle")
                 if _mz is not None:
                     if not _mz:
-                        st.success("Maliyeti 0 olup paçalı bilinen satış yok. Hâlâ %100 görünen SKU varsa, "
-                                   "o ürünün ithalatı sistemde yok ya da SKU yazımı ithalattakiyle hiç eşleşmiyor demektir.")
+                        st.info("ℹ️ **Tek tıkla onarılabilir satış yok** — maliyeti 0 olan satışların "
+                                "paçalı sistemde bilinmiyor. Yani kalan **%100 marjlı satışların ithalatı "
+                                "sistemde yok ya da SKU yazımı ithalattakiyle eşleşmiyor.** Çözüm: o ürünlerin "
+                                "**İthalat dosyasını gir** (paçal oluşsun) ya da **SKU yazımını düzelt**, sonra "
+                                "bu aracı tekrar çalıştır. (Patron Panosu'ndaki 'ithalatsız' sayısı bunlardır.)")
                     else:
                         _mdf = pd.DataFrame([{
                             "SKU": x["sku"], "Ürün": (x["urun"] or "")[:34],
