@@ -324,7 +324,8 @@ def run():
                     if _sonuc["atlandi"]:
                         _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
                     if _sonuc["maliyetsiz"]:
-                        _m += f" {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok (maliyet 0)."
+                        _m += (f" ⚠️ {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok → maliyet 0 "
+                               "(bu ürünler %100 marj görünür; ithalatı girip 'Kâr/P&L → Maliyeti 0 düzelt' ile onar).")
                     if _sonuc.get("hatali"):
                         _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
                     # 📦 Stok aşımı UYARISI (engellemez): kaydedilen SKU'larda canlı stok kontrolü
@@ -1150,6 +1151,37 @@ def run():
                     st.dataframe(pd.DataFrame(_satirlar[:8]), hide_index=True,
                                  use_container_width=True)
 
+                # ── 🩺 VERİ SAĞLIĞI ÖNİZLEME — kaydetmeden önce sorunlu satırları göster ──
+                from satis.database import ice_aktar_onizle as _ic_onizle
+                _sag = _ic_onizle(_satirlar)
+                _sorunlu = _sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"] + _sag["skusuz"]
+                if _sorunlu == 0:
+                    st.success(f"🩺 Veri sağlığı: ✓ {_sag['toplam']:,} satırın tamamı temiz.")
+                else:
+                    _uyari = []
+                    if _sag["tarihsiz"]:
+                        _uyari.append(f"📅 **{_sag['tarihsiz']:,}** satırda tarih yok → **kaydedilmeyecek** "
+                                      "(hayalet kayda dönüşmesin diye)")
+                    if _sag["maliyetsiz"]:
+                        _uyari.append(f"💰 **{_sag['maliyetsiz']:,}** satırda paçal maliyet yok → maliyet 0 "
+                                      "yazılır (**%100 marj** görünür); ithalatı girince 'Maliyeti 0 düzelt' ile onarılır")
+                    if _sag["adetsiz"]:
+                        _uyari.append(f"🔢 **{_sag['adetsiz']:,}** satırda adet 0/eksik → kaydedilmeyecek")
+                    if _sag["skusuz"]:
+                        _uyari.append(f"🏷️ **{_sag['skusuz']:,}** satırda SKU yok → kaydedilmeyecek")
+                    st.warning(f"🩺 **Veri sağlığı — {_sag['temiz']:,}/{_sag['toplam']:,} satır temiz.** "
+                               "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
+                    if _sag["tarihsiz_ornek"]:
+                        st.caption("📅 Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
+                    if _sag["maliyetsiz_ornek"]:
+                        st.caption("💰 Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
+
+                _onay = True
+                if _sorunlu > 0:
+                    _onay = st.checkbox(
+                        f"⚠️ Yukarıdaki {_sorunlu:,} sorunlu satırı gördüm — yine de temiz satırları içe aktar",
+                        key="satis_ice_onay")
+
                 _mod = st.radio(
                     "Yükleme modu",
                     ["Bu dosyadaki faturaları sıfırla ve yeniden yükle (önerilen)",
@@ -1160,7 +1192,7 @@ def run():
                     st.caption(f"↻ Bu dosyadaki {len(_cakisan)} fatura önce silinip yeniden yazılacak "
                                "(eksik/kısmi kalan kayıtlar temizlenir).")
                 if st.button("📥 İçe Aktar ve Kaydet", type="primary",
-                             use_container_width=True, key="satis_ice_btn"):
+                             use_container_width=True, key="satis_ice_btn", disabled=not _onay):
                     _pb = st.progress(0.0, text="Kaydediliyor…")
 
                     def _ilerle(yapilan, toplam):

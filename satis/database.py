@@ -308,6 +308,43 @@ def sil_siparisler(siparis_nolar):
         return 0, f"{type(e).__name__}: {str(e)[:160]}"
 
 
+def ice_aktar_onizle(satirlar):
+    """İçe aktarmadan ÖNCE veri sağlığını çıkarır — hiçbir şey yazmaz.
+    Girdi satırlarını tarar, sorunlu olanları kategoriler.
+    Döner: {toplam, temiz, tarihsiz, maliyetsiz, adetsiz, skusuz,
+            tarihsiz_ornek, maliyetsiz_ornek}."""
+    try:
+        pacal = get_pacal_map()
+    except Exception:
+        pacal = {}
+    toplam = tarihsiz = maliyetsiz = adetsiz = skusuz = temiz = 0
+    tarihsiz_ornek, maliyetsiz_ornek = [], []
+    for s in (satirlar or []):
+        toplam += 1
+        sku = str(s.get("sku") or "").strip()
+        adet = _i(s.get("adet"))
+        tarih = str(s.get("tarih") or "")[:10]
+        bm = _f(pacal.get(sku, 0)) if sku else 0
+        _sorun = False
+        if not sku:
+            skusuz += 1; _sorun = True
+        if adet <= 0:
+            adetsiz += 1; _sorun = True
+        if not tarih:
+            tarihsiz += 1; _sorun = True
+            if len(tarihsiz_ornek) < 5:
+                tarihsiz_ornek.append(f"{sku or '—'} · {s.get('kanal') or '—'} · {adet} adet")
+        if sku and bm <= 0:
+            maliyetsiz += 1
+            if len(maliyetsiz_ornek) < 5:
+                maliyetsiz_ornek.append(f"{sku} · {s.get('kanal') or '—'} · {adet} adet")
+        if not _sorun:
+            temiz += 1
+    return {"toplam": toplam, "temiz": temiz, "tarihsiz": tarihsiz,
+            "maliyetsiz": maliyetsiz, "adetsiz": adetsiz, "skusuz": skusuz,
+            "tarihsiz_ornek": tarihsiz_ornek, "maliyetsiz_ornek": maliyetsiz_ornek}
+
+
 def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=None):
     """Geçmiş satışları toplu içe aktarır (Excel/Mikro dökümünden).
 
