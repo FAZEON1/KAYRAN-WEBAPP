@@ -50,6 +50,7 @@ def _renk(kar):
 def _tl(val): return '{:,.0f} TL'.format(val)
 def _usd(val): return '${:,.0f}'.format(val)
 
+@st.cache_resource(show_spinner=False)
 def _get_supabase():
     try:
         from supabase import create_client
