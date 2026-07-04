@@ -4,3 +4,23 @@ primaryColor = "#6366F1"
 backgroundColor = "#080C20"
 secondaryBackgroundColor = "#0F1730"
 textColor = "#E2E8F0"
+
+# ── Tipografi — tüm arayüz + tablolar (canvas) Inter ile ──
+font = "Inter, sans-serif"
+headingFont = "Inter, sans-serif"
+codeFont = "JetBrains Mono, monospace"
+
+# ── Yumuşak köşeler ve silik çerçeveler — sert beyaz çizgiler biter ──
+baseRadius = "12px"
+borderColor = "#232B47"
+
+# ── Tablolar (st.dataframe): silik grid + zeminle uyumlu başlık bandı ──
+dataframeBorderColor = "#1C2440"
+dataframeHeaderBackgroundColor = "#111A38"
+
+# Inter değişken fontunu yükle (resmî host) — tablo canvas'ı da bunu kullanır
+[[theme.fontFaces]]
+family = "Inter"
+url = "https://rsms.me/inter/font-files/InterVariable.woff2"
+weight = "100 900"
+style = "normal"
