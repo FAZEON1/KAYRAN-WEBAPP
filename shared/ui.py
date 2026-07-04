@@ -223,3 +223,236 @@ button[data-baseweb="tab"][aria-selected="true"]{
 /* ── Caption'lar biraz daha okunur ── */
 div[data-testid="stCaptionContainer"] p{ color:#8B98B8 !important; }
 </style>"""
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PATRON PANOSU — sabah kokpiti (yalnız yetkili kullanıcıya render edilir)
+# ─────────────────────────────────────────────────────────────────────
+def patron_verisi_topla():
+    """Tüm modüllerden sabah kokpiti verisini HATAYA DAYANIKLI toplar.
+    Her blok kendi try/except'inde — biri patlasa panel yine açılır.
+    Döner: dict (aşağıdaki anahtarlar; eksik olan None kalır)."""
+    import datetime as _dt
+    v = {}
+
+    # ── İş nabzı: bu ay ciro/kâr/marj ──
+    try:
+        from satis.database import get_satislar, ozet_hesapla, iade_satis_net_ozet
+        _bugun = _dt.date.today()
+        _ay_ilk = _bugun.replace(day=1).isoformat()
+        _top, _kanal, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun.isoformat()))
+        v["ay_ciro"] = float(_top.get("ciro", 0) or 0)
+        v["ay_kar"] = float(_top.get("net_kar", 0) or 0)
+        v["ay_marj"] = float(_top.get("marj", 0) or 0)
+    except Exception:
+        pass
+
+    # ── Toplam aktifler (muhasebe snapshot) ──
+    try:
+        from kayranacc.database import get_ayar
+        _snap = get_ayar("toplam_aktif_snapshot")
+        if _snap:
+            v["toplam_aktif"] = float(_snap.get("toplam", 0) or 0)
+            v["toplam_aktif_tarih"] = str(_snap.get("tarih", ""))[:10]
+    except Exception:
+        pass
+
+    # ── Acil sipariş + kritik stoklar (ürün yönetimi) ──
+    try:
+        from kayranpm.analitik import dashboard_hesapla
+        _veri = dashboard_hesapla() or []
+        _acil = [u for u in _veri if u.get("siparis_durum") == "acil"]
+        v["acil_sayi"] = len(_acil)
+        v["acil_liste"] = [{"ad": (u.get("urun_adi") or u.get("sku") or "—")[:40],
+                            "gun": u.get("stok_bitis_gun", "?"),
+                            "stok": u.get("toplam_stok", u.get("bizim_stok", 0))}
+                           for u in _acil[:6]]
+        _yak = [u for u in _veri if u.get("siparis_durum") == "yaklasıyor"]
+        v["yaklasan_sayi"] = len(_yak)
+    except Exception:
+        pass
+
+    # ── Bugün vadeli + gecikmiş ödemeler (muhasebe) ──
+    try:
+        from kayranacc.database import get_aktif_odemeler
+        from shared.utils import vade_durumu
+        _odm, _ = get_aktif_odemeler()
+        _bek = [o for o in (_odm or []) if o.get("durum") == "bekliyor"]
+        v["odeme_bugun"] = sum(1 for o in _bek if vade_durumu(o.get("vade")) == "bugun")
+        v["odeme_gecikmis"] = sum(1 for o in _bek if vade_durumu(o.get("vade")) == "gecmis")
+        _bugvad = [o for o in _bek if vade_durumu(o.get("vade")) in ("bugun", "gecmis")]
+        v["odeme_liste"] = [{"firma": o.get("firma", "—"),
+                             "durum": vade_durumu(o.get("vade")),
+                             "tl": float(o.get("tutar_tl") or 0),
+                             "usd": float(o.get("tutar_usd") or 0)} for o in _bugvad[:6]]
+    except Exception:
+        pass
+
+    # ── Gümrükte/yolda ithalatlar ──
+    try:
+        from ithalat.database import get_dosyalar, IN_TRANSIT_DURUMLAR
+        _dos = get_dosyalar() or []
+        _yolda = [d for d in _dos if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR]
+        v["ithalat_yolda"] = len(_yolda)
+        _durum_say = {}
+        for d in _yolda:
+            _du = str(d.get("durum", "")).strip()
+            _durum_say[_du] = _durum_say.get(_du, 0) + 1
+        v["ithalat_durum"] = _durum_say
+    except Exception:
+        pass
+
+    # ── Teknik servis: SLA aşan (21 iş günü) açık işler ──
+    try:
+        from teknikservis.database import get_kayitlar, is_gunu_farki, BITMIS_DURUMLAR
+        _tsk = get_kayitlar() or []
+        _acik_ts = [k for k in _tsk if str(k.get("durum", "")) not in BITMIS_DURUMLAR]
+        _sla_asan = []
+        for k in _acik_ts:
+            try:
+                _g = is_gunu_farki(k.get("mal_kabul_tarihi") or k.get("kayit_tarihi"))
+                if _g is not None and _g > 21:
+                    _sla_asan.append({"no": k.get("servis_no", "—"),
+                                      "firma": (k.get("firma", "") or "—")[:24], "gun": _g})
+            except Exception:
+                continue
+        v["ts_acik"] = len(_acik_ts)
+        v["ts_sla_asan"] = sorted(_sla_asan, key=lambda x: -x["gun"])[:6]
+    except Exception:
+        pass
+
+    # ── Hatalı veri: %100 marjlı (maliyetsiz) satış + eksi stok ──
+    try:
+        from satis.database import get_satislar
+        _bugun = _dt.date.today()
+        _yil_ilk = _bugun.replace(month=1, day=1).isoformat()
+        _sat = get_satislar(_yil_ilk, _bugun.isoformat()) or []
+        v["maliyetsiz_satis"] = sum(1 for s in _sat
+                                    if float(s.get("birim_maliyet") or 0) <= 0
+                                    and int(s.get("adet") or 0) > 0)
+    except Exception:
+        pass
+    try:
+        from kayranpm.analitik import dashboard_hesapla
+        _veri = v.get("_dash_cache") or (dashboard_hesapla() or [])
+        v["eksi_stok"] = sum(1 for u in _veri if float(u.get("toplam_stok", 0) or 0) < 0)
+    except Exception:
+        pass
+
+    return v
+
+
+def patron_panosu_html(v):
+    """patron_verisi_topla çıktısını kompakt kokpit HTML'ine çevirir.
+    st.markdown(..., unsafe_allow_html=True) ile basılır."""
+    def _fmt(x):
+        try:
+            return f"{float(x):,.0f}"
+        except Exception:
+            return "0"
+
+    # ── Üst şerit: iş nabzı (4 metrik) ──
+    _nabiz = []
+    if "ay_ciro" in v:
+        _kr = RENK["yesil"] if v.get("ay_kar", 0) >= 0 else RENK["kirmizi"]
+        _nabiz.append(("BU AY CİRO", f"${_fmt(v['ay_ciro'])}", RENK["mor2"]))
+        _nabiz.append(("BU AY NET KÂR", f"${_fmt(v['ay_kar'])}", _kr))
+        _nabiz.append(("MARJ", f"%{v.get('ay_marj', 0):.1f}", _kr))
+    if "toplam_aktif" in v:
+        _nabiz.append(("TOPLAM AKTİF", f"${_fmt(v['toplam_aktif'])}", RENK["cyan"]))
+    _nabiz_html = "".join(
+        f'<div style="flex:1;min-width:120px;text-align:center;padding:10px 8px;'
+        f'background:rgba(255,255,255,0.02);border:1px solid {c}30;border-radius:12px">'
+        f'<div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
+        f'<div style="color:{c};font-size:19px;font-weight:800;'
+        f'font-family:JetBrains Mono,monospace">{val}</div></div>'
+        for lbl, val, c in _nabiz)
+
+    def _pencere(baslik, renk, ic, rozet=""):
+        return pencere(baslik, renk, ic, rozet=rozet, yukseklik=190)
+
+    def _satir(sol, sag_html):
+        return pencere_satiri(
+            f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:600">{sol}</span>',
+            sag_html)
+
+    # ── Pencere 1: Acil sipariş ──
+    if v.get("acil_liste"):
+        _ic = "".join(_satir(
+            f'⚡ {a["ad"]}',
+            f'<span style="color:{RENK["soluk"]};font-size:11px">📦 {_fmt(a["stok"])}</span>'
+            f'<span style="color:{RENK["kirmizi"]};font-size:11.5px;font-weight:700">{a["gun"]}g</span>')
+            for a in v["acil_liste"])
+        _p1 = _pencere("🔴 ACİL SİPARİŞ", RENK["kirmizi"], _ic,
+                       rozet=f"{v.get('acil_sayi', 0)} ürün")
+    else:
+        _p1 = _pencere("🔴 ACİL SİPARİŞ", RENK["kirmizi"],
+                       bos_durum("Acil sipariş gereken ürün yok"), rozet="0")
+
+    # ── Pencere 2: Ödemeler ──
+    if v.get("odeme_liste"):
+        _ic = "".join(_satir(
+            ("🚨 " if o["durum"] == "gecmis" else "⚠️ ") + o["firma"],
+            f'<span style="color:{RENK["amber"] if o["durum"]=="bugun" else RENK["kirmizi"]};'
+            f'font-size:11.5px;font-weight:700">'
+            f'{("₺"+_fmt(o["tl"])) if o["tl"] else ("$"+_fmt(o["usd"]))}</span>')
+            for o in v["odeme_liste"])
+        _rz = f"{v.get('odeme_gecikmis',0)} geç · {v.get('odeme_bugun',0)} bugün"
+        _p2 = _pencere("💳 VADELİ ÖDEMELER", RENK["amber"], _ic, rozet=_rz)
+    else:
+        _p2 = _pencere("💳 VADELİ ÖDEMELER", RENK["amber"],
+                       bos_durum("Bugün/gecikmiş ödeme yok"), rozet="0")
+
+    # ── Pencere 3: İthalat ──
+    if v.get("ithalat_durum"):
+        _ic = "".join(_satir(
+            f'🚢 {du}',
+            f'<span style="color:{RENK["mavi"]};font-size:12px;font-weight:700">{n}</span>')
+            for du, n in sorted(v["ithalat_durum"].items(), key=lambda x: -x[1]))
+        _p3 = _pencere("🚢 YOLDA İTHALAT", RENK["mavi"], _ic,
+                       rozet=f"{v.get('ithalat_yolda', 0)} dosya")
+    else:
+        _p3 = _pencere("🚢 YOLDA İTHALAT", RENK["mavi"],
+                       bos_durum("Yolda/gümrükte dosya yok"), rozet="0")
+
+    # ── Pencere 4: Teknik servis SLA ──
+    if v.get("ts_sla_asan"):
+        _ic = "".join(_satir(
+            f'🔧 {t["firma"]} · {t["no"]}',
+            f'<span style="color:{RENK["kirmizi"]};font-size:11.5px;font-weight:700">{t["gun"]}g</span>')
+            for t in v["ts_sla_asan"])
+        _p4 = _pencere("🔧 SLA AŞAN SERVİS", RENK["pembe"], _ic,
+                       rozet=f"{len(v['ts_sla_asan'])} iş")
+    else:
+        _p4 = _pencere("🔧 SLA AŞAN SERVİS", RENK["pembe"],
+                       bos_durum("21 iş gününü aşan servis yok"), rozet="0")
+
+    # ── Hatalı veri şeridi ──
+    _hata_parca = []
+    if v.get("maliyetsiz_satis"):
+        _hata_parca.append(f'<span style="color:{RENK["amber2"]}">💰 {v["maliyetsiz_satis"]:,} '
+                           f'maliyetsiz satış (%100 marj)</span>')
+    if v.get("eksi_stok"):
+        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">📉 {v["eksi_stok"]:,} '
+                           f'ürün eksi stokta</span>')
+    _hata_html = ""
+    if _hata_parca:
+        _hata_html = (f'<div style="background:rgba(248,113,113,0.06);border:1px solid '
+                      f'{RENK["kirmizi"]}30;border-radius:10px;padding:8px 14px;margin:4px 0 0;'
+                      f'font-size:12px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
+                      + " &nbsp;·&nbsp; ".join(_hata_parca) + '</div>')
+
+    return (
+        '<div style="margin:0 0 22px">'
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+        f'<span style="font-size:19px;font-weight:800;color:{RENK["metin"]}">👑 Patron Panosu</span>'
+        f'<span style="color:{RENK["silik"]};font-size:11.5px">yalnızca sana özel · sabah kokpiti</span>'
+        '</div>'
+        + (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
+           if _nabiz_html else "")
+        + pencere_grid(_p1, _p2)
+        + pencere_grid(_p3, _p4)
+        + _hata_html
+        + '</div>'
+    )
