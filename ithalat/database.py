@@ -1006,6 +1006,7 @@ def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
         pass
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def teslim_stok_bekleyenler(gercek_stok_kontrol=True):
     """'Teslim Alındı' olup stoğa İŞLENMEMİŞ dosyaları listeler.
     gercek_stok_kontrol=True: stok_islendi bayrağı True olsa BİLE, kalemlerin
@@ -1028,10 +1029,19 @@ def teslim_stok_bekleyenler(gercek_stok_kontrol=True):
         _set = _depo_stok_cache[depo]
         return any(str(s).strip().upper() in _set for s in skular)
 
+    # Tüm kalemleri TEK sorguda çek, dosya_id'ye göre grupla (N+1 sorgusu yerine)
+    _kalem_map = {}
+    try:
+        for _k in (get_tum_kalemler() or []):
+            _kalem_map.setdefault(_k.get("dosya_id"), []).append(_k)
+    except Exception:
+        _kalem_map = None
     for d in (get_dosyalar() or []):
         if str(d.get("durum") or "").strip() != "Teslim Alındı":
             continue
-        _agg = _dosya_kalem_agg(get_kalemler(d["id"]))
+        _kalemler_d = (_kalem_map.get(d["id"], []) if _kalem_map is not None
+                       else get_kalemler(d["id"]))
+        _agg = _dosya_kalem_agg(_kalemler_d)
         if not _agg:
             continue
         _islendi = d.get("stok_islendi") is True
