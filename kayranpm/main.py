@@ -2779,7 +2779,8 @@ def run():
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpg:
                     tmpg.write(dosya_g.read())
                     tmpg_path = tmpg.name
-                basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
+                with st.spinner("🏬 G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"):
+                    basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
                 os.unlink(tmpg_path)
                 st.cache_data.clear()
                 if basari_g:
