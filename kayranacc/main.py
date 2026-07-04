@@ -3510,13 +3510,6 @@ def run():
     
         st.markdown('<div class="baslik">💰 Toplam Aktifler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div style="background:#0E1A3A;border:1px solid #BFDBFE;border-radius:8px;padding:8px 14px;margin:8px 0;font-size:11px;color:#93C5FD;">'
-            '👥 <b>Paylaşımlı sayfa</b> — Bu sayfadaki Excel verileri ve manuel kalemler tüm yetkili kullanıcılar (ibrahim, cem) tarafından paylaşılır. '
-            'Biri güncellediğinde diğeri de en güncel halini görür.'
-            '</div>',
-            unsafe_allow_html=True
-        )
     
         kur = get_kur()
     
@@ -3758,15 +3751,7 @@ def run():
                 st.session_state.aktif_cari_data = None
             st.session_state.aktif_excel_yuklendi = True
     
-        # ─── Excel yükleme bölümü ───
-        st.markdown("### 📤 Excel Dosyalarını Yükle")
-        st.markdown(
-            '<div style="background:#0E1A3A;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#60A5FA">'
-            '💡 Yüklediğiniz Excel verileri <b>paylaşımlıdır</b> — yetkili tüm kullanıcılar (İbrahim, Cem) aynı veriyi görür. '
-            'Son yükleyen kullanıcının verisi geçerlidir. Sayfayı yenileseniz veya çıkış yapsanız bile silinmez.'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        # ─── Excel yükleme bölümü — kompakt: durum kartları + pencereden yükleme ───
     
         st.markdown(
             '<style>'
@@ -3808,24 +3793,6 @@ def run():
                                     "renk": "#34D399", "alt": _meta_str(stok_meta)}])
                 except Exception:
                     st.session_state.aktif_stok_data = None
-            stok_file = st.file_uploader("Stok Excel", type=["xls", "xlsx"], key="aktif_stok_upload", label_visibility="collapsed")
-            if stok_file is not None:
-                _fid = f"{stok_file.name}:{getattr(stok_file, 'size', 0)}"
-                if st.session_state.get("_stok_islenen_fid") != _fid:
-                    st.session_state["_stok_islenen_fid"] = _fid
-                    try:
-                        parsed = parse_stok_excel(stok_file.read())
-                        st.session_state.aktif_stok_data = parsed
-                        # Supabase'e kaydet (tablo yoksa hata vermeden geç)
-                        try:
-                            usd_stok_v, pazar_dict = parsed
-                            aktif_excel_kaydet(aktif_kul, "stok", [float(usd_stok_v), pazar_dict])
-                        except Exception:
-                            pass
-                        st.success(f"✅ {stok_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
     
         with col2:
             st.markdown("**2️⃣ İthalat Ödeme Takip**")
@@ -3835,22 +3802,6 @@ def run():
                                     "renk": "#34D399", "alt": _meta_str(ithalat_meta)}])
                 except Exception:
                     st.session_state.aktif_ithalat_data = None
-            ithalat_file = st.file_uploader("İthalat Excel", type=["xls", "xlsx"], key="aktif_ithalat_upload", label_visibility="collapsed")
-            if ithalat_file is not None:
-                _fid = f"{ithalat_file.name}:{getattr(ithalat_file, 'size', 0)}"
-                if st.session_state.get("_ithalat_islenen_fid") != _fid:
-                    st.session_state["_ithalat_islenen_fid"] = _fid
-                    try:
-                        parsed = parse_ithalat_excel(ithalat_file.read())
-                        st.session_state.aktif_ithalat_data = parsed
-                        try:
-                            aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
-                        except Exception:
-                            pass
-                        st.success(f"✅ {ithalat_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
     
         with col3:
             st.markdown("**3️⃣ Cari Alacaklar Listesi**")
@@ -3882,6 +3833,48 @@ def run():
                         st.caption(_meta_str(cari_meta))
                 except Exception:
                     st.session_state.aktif_cari_data = None
+    
+
+        @st.dialog("📤 Excel Dosyalarını Yükle", width="large")
+        def _dlg_aktif_excel():
+            st.caption("Stok Değeri · İthalat Ödeme Takip · Cari Alacaklar — yükleme bitince pencere kapanır, kartlar güncellenir.")
+            st.markdown("**1️⃣ Stok Değeri Raporu**")
+            stok_file = st.file_uploader("Stok Excel", type=["xls", "xlsx"], key="aktif_stok_upload", label_visibility="collapsed")
+            if stok_file is not None:
+                _fid = f"{stok_file.name}:{getattr(stok_file, 'size', 0)}"
+                if st.session_state.get("_stok_islenen_fid") != _fid:
+                    st.session_state["_stok_islenen_fid"] = _fid
+                    try:
+                        parsed = parse_stok_excel(stok_file.read())
+                        st.session_state.aktif_stok_data = parsed
+                        # Supabase'e kaydet (tablo yoksa hata vermeden geç)
+                        try:
+                            usd_stok_v, pazar_dict = parsed
+                            aktif_excel_kaydet(aktif_kul, "stok", [float(usd_stok_v), pazar_dict])
+                        except Exception:
+                            pass
+                        st.success(f"✅ {stok_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
+            st.markdown("**2️⃣ İthalat Ödeme Takip**")
+            ithalat_file = st.file_uploader("İthalat Excel", type=["xls", "xlsx"], key="aktif_ithalat_upload", label_visibility="collapsed")
+            if ithalat_file is not None:
+                _fid = f"{ithalat_file.name}:{getattr(ithalat_file, 'size', 0)}"
+                if st.session_state.get("_ithalat_islenen_fid") != _fid:
+                    st.session_state["_ithalat_islenen_fid"] = _fid
+                    try:
+                        parsed = parse_ithalat_excel(ithalat_file.read())
+                        st.session_state.aktif_ithalat_data = parsed
+                        try:
+                            aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
+                        except Exception:
+                            pass
+                        st.success(f"✅ {ithalat_file.name}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
+            st.markdown("**3️⃣ Cari Alacaklar Listesi**")
             cari_file = st.file_uploader("Cari Excel", type=["xls", "xlsx"], key="aktif_cari_upload", label_visibility="collapsed")
             if cari_file is not None:
                 _fid = f"{cari_file.name}:{getattr(cari_file, 'size', 0)}"
@@ -3902,7 +3895,9 @@ def run():
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Hata: {type(e).__name__}: {e}")
-    
+        if st.button("📤 Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True):
+            _dlg_aktif_excel()
+
         st.markdown("---")
     
         # ─── Hesaplama ───
