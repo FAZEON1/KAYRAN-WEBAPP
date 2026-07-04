@@ -627,9 +627,29 @@ def excel_yukle_g5f_depolar(dosya_yolu):
             basarili += 1
             toplam_adet += sum(dd.values())
 
+        # ── BİREBİR SENKRON: Excel'de OLMAYAN ürünlerin eski kırılımını sıfırla ──
+        # Böylece sistemdeki depo stoğu, yüklenen dosyanın birebir aynısı olur;
+        # sonraki ithalat teslimleri (Model B) bu temiz tabanın ÜZERİNE işlemeye devam eder.
+        sifirlanan = 0
+        try:
+            _tum = get_client().table("urunler").select("sku, depo_kirilim").execute().data or []
+            for _r in _tum:
+                _gs = str(_r.get("sku") or "").strip()
+                _dk = _r.get("depo_kirilim") or {}
+                if not _gs or not isinstance(_dk, dict) or not any(safe_int(v) for v in _dk.values()):
+                    continue
+                if normalize_sku(_gs) not in kirilim:
+                    get_client().table("urunler").update(
+                        {"depo_kirilim": {}, "bizim_stok": 0}).eq("sku", _gs).execute()
+                    sifirlanan += 1
+        except Exception:
+            pass
+
         depo_liste = ", ".join(sorted(depolar_set))
+        _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"
+                if sifirlanan else "")
         return True, (f"✅ {basarili} ürün yüklendi · {eslesen} mevcut güncellendi, {yeni} yeni eklendi · "
-                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {toplam_adet:,} adet. "
+                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {toplam_adet:,} adet{_sfr}. "
                       f"'bizim stok' = Merkez + Happy Life.")
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
