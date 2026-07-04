@@ -2348,7 +2348,8 @@ def main():
                 st.error(_uyari + " Ana sayfaya yönlendirildiniz.")
             anasayfa()
         elif aktif == "arama":
-            st.markdown("## 🔍 Arama")
+            from shared.ui import sayfa_baslik as _sb_ara
+            st.markdown(_sb_ara("🔍", "Arama", "Tüm modüllerde ara — sonuç kartına tıkla, ilgili modüle git"), unsafe_allow_html=True)
             _arama_kutusu("sayfa")
         elif aktif == "kayranacc":
             from kayranacc.main import run as kayranacc_run
