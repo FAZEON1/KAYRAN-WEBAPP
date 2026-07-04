@@ -153,6 +153,30 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+def _stok_uygula_depolu(depo_map, yon=-1):
+    """MODEL B: satış (−) hareketlerini SEÇİLEN depodan düşer.
+    depo_map: [(sku, adet, depo), ...]. Depoya göre gruplar, her depo için ayrı uygular.
+    Hata durumunda sessiz geçer (satış kaydını asla bozmaz)."""
+    try:
+        from kayranpm.database import stok_hareket_coklu
+        # depoya göre grupla: {depo: {sku: toplam_adet}}
+        gruplar = {}
+        for sku, adet, depo in (depo_map or []):
+            sku = str(sku or "").strip()
+            adet = float(adet or 0)
+            depo = str(depo or "MERKEZ DEPO").strip() or "MERKEZ DEPO"
+            if not sku or not adet:
+                continue
+            gruplar.setdefault(depo, {})
+            gruplar[depo][sku] = gruplar[depo].get(sku, 0) + adet
+        for depo, hareketler in gruplar.items():
+            _h = {k: yon * v for k, v in hareketler.items() if v}
+            if _h:
+                stok_hareket_coklu(_h, depo)
+    except Exception:
+        pass
+
+
 def _stok_uygula(hareketler, yon=1, kaynak=""):
     """MODEL B: satış (−) / iade (+) hareketlerini MERKEZ DEPO stoğuna uygular.
     hareketler: {sku: adet}. Hata durumunda sessiz geçer (satış kaydını asla bozmaz)."""
@@ -183,11 +207,13 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
                 birim_firma_destek, birim_ek_destek, kampanya_id}, ...]
     Döner: (ok, mesaj, kalem_sayisi)."""
     rows = []
+    _depo_map = []  # [(sku, adet, depo)] — depoya göre stok düşürme için
     zaman = datetime.now(TR_TZ).isoformat(timespec="seconds")
     for k in (kalemler or []):
         sku = str(k.get("sku") or "").strip()
         if not sku or _i(k.get("adet")) <= 0:
             continue
+        _depo = str(k.get("depo") or "MERKEZ DEPO").strip() or "MERKEZ DEPO"
         rows.append({
             "tarih": str(tarih)[:10], "kanal": kanal or "", "siparis_no": siparis_no or "",
             "sku": sku, "urun_adi": k.get("urun_adi") or "", "adet": _i(k.get("adet")),
@@ -195,11 +221,12 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
             "birim_firma_destek": _f(k.get("birim_firma_destek")), "birim_ek_destek": _f(k.get("birim_ek_destek")),
             "kampanya_id": k.get("kampanya_id"), "notlar": notlar or "", "olusturma_tarihi": zaman,
         })
+        _depo_map.append((sku, _i(k.get("adet")), _depo))
     if not rows:
         return False, "Geçerli kalem yok.", 0
     try:
         _get_client().table("satislar").insert(rows).execute()
-        _stok_uygula(_satis_agg(rows), -1, "satis")   # MODEL B: satış depodan düşer
+        _stok_uygula_depolu(_depo_map, -1)   # MODEL B: satış SEÇİLEN depodan düşer
         _temizle()
         return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.", len(rows)
     except Exception as e:

@@ -464,8 +464,7 @@ def run():
                 with st.container(border=True):
                     st.markdown("##### ➕ Ürün Kalemi Ekle")
                     _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
-                    a1, a2, a3, a4 = st.columns([2.6, 0.9, 1.1, 1.1])
-                    _sec = a1.selectbox("Ürün (SKU ara)", _sku_opts, key="s_sku_sec", label_visibility="collapsed",
+                    _sec = st.selectbox("Ürün (SKU ara)", _sku_opts, key="s_sku_sec",
                                         placeholder="SKU / ürün ara")
                     _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
                     _urun = urun_map.get(_sku, {})
@@ -475,13 +474,33 @@ def run():
                         _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
                     else:
                         _oneri = float(_urun.get("satis_fiyati") or 0)
-                    _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet", label_visibility="collapsed")
+                    # 📦 Bu SKU hangi depolarda? — çıkış deposu seçimi
+                    try:
+                        from kayranpm.database import get_sku_depo_dagilim
+                        _sku_depolar = get_sku_depo_dagilim(_sku) if _sku else {}
+                    except Exception:
+                        _sku_depolar = {}
+                    if _sku_depolar:
+                        _depo_opts = [f"{d} ({m} adet)" for d, m in
+                                      sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                        _depo_keys = [d for d, m in sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                    else:
+                        _depo_opts = ["MERKEZ DEPO (stok bilgisi yok)"]
+                        _depo_keys = ["MERKEZ DEPO"]
+                    a1, a2, a3, a4 = st.columns([2.2, 0.9, 1.1, 1.1])
+                    _depo_sec_lbl = a1.selectbox("📦 Çıkış Deposu", _depo_opts, key="s_depo_sec")
+                    _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
+                    _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
                     _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.01, format="%.2f",
                                             value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
-                                            key="s_bsat", label_visibility="collapsed")
+                                            key="s_bsat")
+                    a4.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
                     if a4.button("➕ Ekle", use_container_width=True, key="s_ekle"):
                         if not _bsat or _bsat <= 0:
                             st.warning("Birim satış fiyatı gir.")
+                        elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
+                            st.warning(f"⚠️ '{_depo_sec}' deposunda {_sku_depolar.get(_depo_sec, 0)} adet var, "
+                                       f"{int(_adet)} adet çıkış yapılamaz. Adeti azalt veya başka depo seç.")
                         else:
                             _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
                             kalemler.append({
@@ -489,13 +508,14 @@ def run():
                                 "adet": int(_adet), "birim_satis": float(_bsat),
                                 "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
                                 "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
+                                "depo": _depo_sec,
                             })
                             st.session_state.satis_kalemler = kalemler
                             st.session_state["_ms_dialog_ac"] = True
                             st.rerun()
-                    _ipucu = []
-                    _ipucu.append(f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt")
-                    a3.caption(_ipucu[0])
+                    _ipucu = f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt"
+                    st.caption(_ipucu + (f" · 📦 {_sku} toplam {sum(_sku_depolar.values())} adet "
+                                         f"({len(_sku_depolar)} depoda)" if _sku_depolar else ""))
 
                 # ── Sepet (kalemler) ──
                 if not kalemler:
@@ -503,7 +523,8 @@ def run():
                 else:
                     st.markdown("##### 🛒 Sipariş Kalemleri — düzenle / sil")
                     _df = pd.DataFrame([{
-                        "Sil": False, "SKU": k["sku"], "Ürün": (k["urun_adi"] or "")[:30],
+                        "Sil": False, "SKU": k["sku"], "Ürün": (k["urun_adi"] or "")[:26],
+                        "Depo": k.get("depo", "MERKEZ DEPO"),
                         "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
                         "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
                         "Ek Destek$": float(k["birim_ek_destek"]),
@@ -515,6 +536,7 @@ def run():
                             "Sil": st.column_config.CheckboxColumn("🗑", width="small"),
                             "SKU": st.column_config.TextColumn("SKU", disabled=True),
                             "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
+                            "Depo": st.column_config.TextColumn("📦 Depo", disabled=True),
                             "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
                             "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.2f"),
                             "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.2f"),
