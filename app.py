@@ -416,8 +416,9 @@ st.set_page_config(
 )
 
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
-from shared.ui import islem_gosterge_css
+from shared.ui import islem_gosterge_css, genel_tema_css
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
+st.markdown(genel_tema_css(), unsafe_allow_html=True)
 
 # ── Global mobil / dar ekran uyumu (yalnız <=640px; masaüstü etkilenmez) ──
 st.markdown(
