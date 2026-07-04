@@ -663,7 +663,8 @@ def run():
                 return _kdt2.date.max
 
         _bg = _kdt2.date.today()
-        with st.expander(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", expanded=False):
+        @st.dialog(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", width="large")
+        def _dlg_dash_kampanyalar():
             if not _kmps:
                 st.info("Şu an aktif kampanya yok. Kampanya eklemek için **Kampanya Takip** sayfasını kullan.")
             else:
@@ -708,6 +709,8 @@ def run():
                         "Spiff ₺": (f"{_sp:,.0f}" if _sp else ""),
                     })
                 st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True, height=tablo_h(len(_rows_k)))
+        if st.button(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", key="btn_dash_kmp", use_container_width=True):
+            _dlg_dash_kampanyalar()
 
     elif sayfa == "📋  Tüm Ürünler":
         st.markdown('<div class="baslik">📋 Tüm Ürünler</div>', unsafe_allow_html=True)
@@ -919,7 +922,8 @@ def run():
         st.markdown("---")
     
         # Tüm ürünler özet tablosu
-        with st.expander("📊 Tüm Ürünler Özet — filtrele, sırala, incele", expanded=False):
+        @st.dialog("📊 Tüm Ürünler Özet — filtrele, sırala, incele", width="large")
+        def _dlg_urunler_ozet():
             _kat_oz = sorted({tr_kucuk(u.get("kategori")) for u in urun_data if tr_kucuk(u.get("kategori"))})
             _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
             _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
@@ -1194,8 +1198,11 @@ def run():
                                 os.unlink(_tp)
                             else:
                                 st.error(_msg)
+        if st.button("📊 Tüm Ürünler Özet — filtrele, sırala, incele", key="btn_urun_ozet", use_container_width=True):
+            _dlg_urunler_ozet()
 
-        with st.expander("✏️ Ürün Düzenle", expanded=False):
+        @st.dialog("✏️ Ürün Düzenle", width="large")
+        def _dlg_urun_duzenle():
             st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
             _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
             if _sec_list:
@@ -1275,6 +1282,8 @@ def run():
                         st.rerun()
                     except Exception as _e:
                         st.error(f"Silinemedi: {_e}")
+        if st.button("✏️ Ürün Düzenle", key="btn_urun_duz", use_container_width=True):
+            _dlg_urun_duzenle()
     
     
     
@@ -1314,17 +1323,21 @@ def run():
             _o1.metric("Toplam Haftalık Satış", f"{int(_df['Haftalık Satış'].sum()):,}")
             _o2.metric("Kayıt", f"{len(_df):,}")
             _o3.metric("Müşteri Sayısı", int(_df["Müşteri"].nunique()))
-            with st.expander("📊 Müşteri bazında toplam satış", expanded=False):
+            @st.dialog("📊 Müşteri bazında toplam satış", width="large")
+            def _dlg_musteri_toplam():
                 _grp = (_df.groupby("Müşteri")["Haftalık Satış"].sum()
                         .sort_values(ascending=False).reset_index())
                 st.dataframe(_grp, hide_index=True, use_container_width=True, height=tablo_h(len(_grp)))
+            if st.button("📊 Müşteri bazında toplam satış", key="btn_mus_top", use_container_width=True):
+                _dlg_musteri_toplam()
             st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
             st.download_button("⬇️ CSV indir",
                                _df.to_csv(index=False).encode("utf-8-sig"),
                                "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
 
         st.markdown("---")
-        with st.expander("📤 Müşteri Satış / Stok Verisi Yükle", expanded=False):
+        @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
+        def _dlg_musteri_yukle():
             st.caption("Firma adını tam yazabilirsin (HEPSİBURADA, EERA, D-MARKET…) — sistem otomatik tanır. "
                        "Önerilen: birleşik tek sayfa. Eski çok-sekmeli dosya da desteklenir.")
             st.markdown("**📊 Firma Stok + Satış · Birleşik Tek Sayfa**")
@@ -1370,6 +1383,8 @@ def run():
                 os.unlink(_thp)
                 st.cache_data.clear()
                 (st.success if _ok2 else st.error)(_msg2)
+        if st.button("📤 Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True):
+            _dlg_musteri_yukle()
 
     elif sayfa == "🎯  Kampanya Takip":
         st.markdown('<div class="baslik">🎯 Kampanya Takip</div>', unsafe_allow_html=True)
@@ -1538,7 +1553,8 @@ def run():
     
 
             # ── Excel şablonundan YENİ kampanya oluştur + ürünleri ekle (tek dosya) ──
-            with st.expander("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", expanded=False):
+            @st.dialog("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", width="large")
+            def _dlg_kmp_excel():
                 _KMP_TAM_KOL = ["FİRMA ADI", "MARKA", "KATEGORİ", "STOK KODU", "STOK ADI", "BARKOD",
                                 "FİYAT", "REBATE", "SELLOUT", "EK SELLOUT", "SPIFF", "NET FİYAT",
                                 "KAMPANYA ADI", "KAMPANYA TÜRÜ", "BAŞLANGIÇ TARİHİ", "BİTİŞ TARİHİ"]
@@ -1777,6 +1793,8 @@ def run():
                                 st.error("Kampanya oluşturulamadı (tablo izni/kolon olabilir).")
                     except Exception as _e:
                         st.error(f"Excel okunamadı: {_e}")
+            if st.button("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", key="btn_kmp_exc", use_container_width=True):
+                _dlg_kmp_excel()
 
             # Aktif kampanyaları listele
             aktif_kampanyalar = _kt_uygula(get_kampanyalar(durum="aktif"))
@@ -1828,7 +1846,7 @@ def run():
                         "Satılan": _sat,
                         "Net Kâr ($)": round(_net, 2),
                     })
-                st.markdown('<div style="font-size:13px;font-weight:700;color:#E2E8F0;margin:4px 0 6px;">📊 Kampanya Panosu — bir kampanyaya tıkla, detayı aşağıda açılsın</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:13px;font-weight:700;color:#E2E8F0;margin:4px 0 6px;">📊 Kampanya Panosu — bir kampanyaya tıkla, detayı açılır pencerede görünsün</div>', unsafe_allow_html=True)
                 _pano_evt = st.dataframe(
                     pd.DataFrame(_pano),
                     hide_index=True,
@@ -2467,7 +2485,7 @@ def run():
         st.markdown(f'<div class="alt-baslik">{_esik} günden az stok kalan ürünler · Otomatik öneri</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
-        with st.expander(f"⚙️ Sipariş eşiği (üretim/tedarik süresi) — şu an {_esik} gün", expanded=False):
+        with st.popover(f"⚙️ Sipariş eşiği (üretim/tedarik süresi) — şu an {_esik} gün", use_container_width=False):
             st.caption("Stok bu kadar günde biteceği zaman 'sipariş ver' uyarısı çıkar. "
                        "Üretim/tedarik sürenize göre ayarlayın (varsayılan 135 gün).")
             _e1, _e2 = st.columns([2, 1])
@@ -2620,7 +2638,8 @@ def run():
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
         # 💲 Toplu Satış Fiyatı & Marj
-        with st.expander("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", expanded=False):
+        @st.dialog("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", width="large")
+        def _dlg_toplu_fiyat():
             from .database import get_client as _gc_s, toplu_satis_kaydet as _satis_kaydet
             try:
                 from ithalat.database import get_sku_maliyet_ozet as _ith_maliyet
@@ -2694,6 +2713,8 @@ def run():
                     st.session_state.pop("_satis_oneri", None)
                     st.toast(f"✅ {_oks} ürün fiyatı kaydedildi" + (f" · {_hts} hata" if _hts else ""), icon="✅")
                     st.rerun()
+        if st.button("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", key="btn_top_fiy", use_container_width=True):
+            _dlg_toplu_fiyat()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
             st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:6px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
@@ -2704,7 +2725,8 @@ def run():
         st.markdown("---")
     
         # Disa Aktar (eski Raporlar)
-        with st.expander("📤 Dışa Aktar — Excel / PDF Rapor", expanded=False):
+        @st.dialog("📤 Dışa Aktar — Excel / PDF Rapor", width="large")
+        def _dlg_disa_aktar():
             _de1, _de2 = st.columns(2)
             with _de1:
                 st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
@@ -2736,6 +2758,8 @@ def run():
                         os.unlink(_tmp_path)
                     else:
                         st.error(_msg)
+        if st.button("📤 Dışa Aktar — Excel / PDF Rapor", key="btn_disa_akt", use_container_width=True):
+            _dlg_disa_aktar()
 
         st.markdown("---")
         st.markdown("---")
@@ -2802,13 +2826,16 @@ def run():
                 render_renkli_tablo(df_vy, sol=["Firmalar"], kisalt={"Firmalar": 60})
     
                 # Tarih seçip sil
-                with st.expander("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil"):
+                @st.dialog("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil", width="large")
+                def _dlg_tarih_sil():
                     st.caption("⚠️ Seçilen tarihe ait firma stok verileri silinir. Ürün listesi ve satın alma geçmişi etkilenmez.")
                     sil_tarih = st.selectbox("Silinecek Tarih", sorted(tarih_firma.keys(), reverse=True), key="vy_sil_tarih")
                     if st.button("🗑️ Bu Tarihin Verisini Sil", type="secondary", key="vy_sil_btn"):
                         sb_vy.table("firma_stok").delete().eq("yukleme_tarihi", sil_tarih).execute()
                         st.toast(f"✅ {sil_tarih} tarihli firma stok verisi silindi.")
                         st.rerun()
+                if st.button("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil", key="btn_tarih_sil", use_container_width=True):
+                    _dlg_tarih_sil()
     
         except Exception as e:
             _log.warning("Hata: %s", e)

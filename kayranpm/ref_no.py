@@ -808,7 +808,8 @@ def _render_refler(fid, fkod):
             if ok:
                 st.rerun()
 
-    with st.expander("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)"):
+    @st.dialog("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", width="large")
+    def _dlg_ref_ice_aktar():
         up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
         if up is not None:
             try:
@@ -831,6 +832,8 @@ def _render_refler(fid, fkod):
                         st.rerun()
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
+    if st.button("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", key="btn_ref_ice", use_container_width=True):
+        _dlg_ref_ice_aktar()
 
     st.markdown("#### 📋 Geçmiş Ref No'lar")
     if not refler:
@@ -926,7 +929,8 @@ def _render_refler(fid, fkod):
 
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
     st.markdown("---")
-    with st.expander("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil"):
+    @st.dialog("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil", width="large")
+    def _dlg_ref_toplu_sil():
         st.caption("⚠️ Silme geri alınamaz. 'Görünenleri sil' yalnızca yukarıdaki durum filtresine uyan "
                    "kayıtları siler; ya da bu firmanın tüm ref no kayıtlarını temizle. "
                    "(Tek tek silmek için tablodaki 'Sil?' kutusunu işaretleyip Kaydet'e de basabilirsin.)")
@@ -952,6 +956,8 @@ def _render_refler(fid, fkod):
                     st.rerun()
                 else:
                     st.error("Silme başarısız oldu.")
+    if st.button("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil", key="btn_ref_sil", use_container_width=True):
+        _dlg_ref_toplu_sil()
 
 
 # ── SEKME 2: HAVUZ BÜTÇE ────────────────────────────────────────────
@@ -985,7 +991,8 @@ def _render_butce(fid, firma):
     ])
 
     # ── Yeni kayıt ekle ──
-    with st.expander("➕ Yeni Bütçe / Harcama Kaydı Ekle"):
+    @st.dialog("➕ Yeni Bütçe / Harcama Kaydı Ekle", width="large")
+    def _dlg_butce_yeni():
         ref_secenek = [""] + [r.get("ref_no", "") for r in get_refler(fid)]
         with st.form(f"butce_ekle_{fid}", clear_on_submit=True):
             b1, b2, b3, b3b = st.columns([1.3, 1.1, 1, 0.9])
@@ -1008,9 +1015,12 @@ def _render_butce(fid, firma):
                 (st.success if ok else st.error)(msg)
                 if ok:
                     st.rerun()
+    if st.button("➕ Yeni Bütçe / Harcama Kaydı Ekle", key="btn_but_yeni", use_container_width=True):
+        _dlg_butce_yeni()
 
     # ── Excel içe aktar ──
-    with st.expander("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)"):
+    @st.dialog("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)", width="large")
+    def _dlg_butce_ice():
         st.caption("Sütunlar: TÜR · MARKA · AÇIKLAMA · HAKEDİŞ BÜTÇE · TUTAR · DÖVİZ · FATURA NO · FATURA TARİH · FİRMA · REF NO · AÇIKLAMA(kişi)")
         upb = st.file_uploader("Havuz bütçe Excel'i", type=["xlsx", "xls"], key=f"butce_up_{fid}")
         temizle = st.checkbox("Önce mevcut bütçe kayıtlarını sil (güncel listeyi baştan yükle)",
@@ -1026,6 +1036,8 @@ def _render_butce(fid, firma):
                         st.rerun()
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
+    if st.button("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)", key="btn_but_ice", use_container_width=True):
+        _dlg_butce_ice()
 
     if not kayitlar:
         st.info("Bu firma için henüz havuz bütçe kaydı yok. Yukarıdan ekleyebilir veya Excel'den içe aktarabilirsiniz.")
@@ -1103,7 +1115,8 @@ def _render_butce(fid, firma):
 
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
     st.markdown("---")
-    with st.expander("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil"):
+    @st.dialog("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil", width="large")
+    def _dlg_butce_sil():
         st.caption("⚠️ Silme geri alınamaz. Önce yukarıdaki arama ile daralt → 'görünenleri sil' yalnızca "
                    "filtrelenen kayıtları siler; ya da bu firmanın tüm havuz bütçe kayıtlarını temizle.")
         _bs1, _bs2 = st.columns(2)
@@ -1129,6 +1142,8 @@ def _render_butce(fid, firma):
                     st.rerun()
                 else:
                     st.error("Silme başarısız oldu.")
+    if st.button("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil", key="btn_but_sil", use_container_width=True):
+        _dlg_butce_sil()
 
 
 @st.cache_data(ttl=120, show_spinner=False)
