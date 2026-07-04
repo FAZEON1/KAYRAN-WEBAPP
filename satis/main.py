@@ -395,49 +395,62 @@ def run():
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
                             _sg_kaydet(_gecerli, _uz)
 
-            # 1) VATAN
-            with st.expander("📄 VATAN — Excel ile Toplu Sipariş"):
-                st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
-                                   "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
-                st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
-                _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
-                if _dv is not None:
-                    _sayfalar, _hata = _siparis_excel_oku(_dv)
-                    if _hata:
-                        st.error(_hata)
-                    else:
-                        _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
-                        _tum = []
-                        for _sf in (_sayfalar or []):
-                            _df = _sf["df"]
-                            if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
-                                _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
-                        if not _tum:
-                            st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
+            # 📊 Excel ile Toplu Satış — AÇILIR PENCERE
+            @st.dialog("📊 Excel ile Toplu Satış", width="large")
+            def _satis_excel_dialog():
+                st.caption("VATAN · EERA · DİĞER şablonlarından toplu sipariş yükle. "
+                           "Her sekmeyi açıp ilgili Excel'i yükle, önizlemeyi kontrol et, kaydet.")
+                # 1) VATAN
+                with st.expander("📄 VATAN — Excel ile Toplu Sipariş"):
+                    st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
+                                       "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
+                    st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
+                    _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
+                    if _dv is not None:
+                        _sayfalar, _hata = _siparis_excel_oku(_dv)
+                        if _hata:
+                            st.error(_hata)
                         else:
-                            _adet = sum(s["adet"] for s in _tum)
-                            _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                            st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
-                            _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
-                            _eksik = len(_tum) - len(_gecerli)
-                            if _eksik:
-                                st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
-                            _uzv = st.checkbox(
-                                "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
-                                key="sg_uz_vatan",
-                                help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
-                            if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
-                                         key="sg_kaydet_vatan", disabled=not _gecerli):
-                                _sg_kaydet(_gecerli, _uzv)
+                            _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
+                            _tum = []
+                            for _sf in (_sayfalar or []):
+                                _df = _sf["df"]
+                                if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
+                                    _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
+                            if not _tum:
+                                st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
+                            else:
+                                _adet = sum(s["adet"] for s in _tum)
+                                _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+                                st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
+                                _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+                                _eksik = len(_tum) - len(_gecerli)
+                                if _eksik:
+                                    st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                                _uzv = st.checkbox(
+                                    "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                                    key="sg_uz_vatan",
+                                    help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
+                                if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
+                                             key="sg_kaydet_vatan", disabled=not _gecerli):
+                                    _sg_kaydet(_gecerli, _uzv)
 
-            # 2) EERA (İTOPYA) — kanal sabit
-            _eera_knl = next((k for k in _kanallar
-                              if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
-            _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False)
+                # 2) EERA (İTOPYA) — kanal sabit
+                _eera_knl = next((k for k in _kanallar
+                                  if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
+                _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False)
 
-            # 3) DİĞER — firma/kanal kullanıcı seçer
-            _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
-                            "diger", (_kanallar[0] if _kanallar else "DİGER"), True)
+                # 3) DİĞER — firma/kanal kullanıcı seçer
+                _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
+                                "diger", (_kanallar[0] if _kanallar else "DİGER"), True)
+
+            _ex1, _ex2 = st.columns([1, 4])
+            if _ex1.button("📊 Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn"):
+                st.session_state["_satis_excel_ac"] = True
+                st.rerun()
+            _ex2.caption("VATAN / EERA / DİĞER Excel'lerinden toplu sipariş yüklemek için butona bas.")
+            if st.session_state.pop("_satis_excel_ac", False):
+                _satis_excel_dialog()
 
             # ── Manuel Satış Girişi — AÇILIR PENCERE ──
             _ms1, _ms2 = st.columns([1, 4])
