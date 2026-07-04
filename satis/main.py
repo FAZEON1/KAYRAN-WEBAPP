@@ -273,6 +273,7 @@ def run():
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
                 st.session_state.aktif_uygulama = "anasayfa"
+                st.cache_data.clear()
                 st.rerun()
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
@@ -351,6 +352,7 @@ def run():
                         st.cache_data.clear()
                     except Exception:
                         pass
+                    st.cache_data.clear()
                     st.rerun()
 
             def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir):
@@ -455,6 +457,7 @@ def run():
             _ex1, _ex2 = st.columns([1, 4])
             if _ex1.button("📊 Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn"):
                 st.session_state["_satis_excel_ac"] = True
+                st.cache_data.clear()
                 st.rerun()
             _ex2.caption("VATAN / EERA / DİĞER Excel'lerinden toplu sipariş yüklemek için butona bas.")
             if st.session_state.pop("_satis_excel_ac", False):
@@ -464,6 +467,7 @@ def run():
             _ms1, _ms2 = st.columns([1, 4])
             if _ms1.button("✍️ Manuel Satış Girişi", type="primary", use_container_width=True, key="ms_ac_btn"):
                 st.session_state["_ms_dialog_ac"] = True
+                st.cache_data.clear()
                 st.rerun()
             _ms2.caption("Tek tek ürün ekleyerek sipariş oluşturmak için butona bas — açılır pencerede.")
 
@@ -543,6 +547,7 @@ def run():
                             })
                             st.session_state.satis_kalemler = kalemler
                             st.session_state["_ms_dialog_ac"] = True
+                            st.cache_data.clear()
                             st.rerun()
                     _ipucu = f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt"
                     st.caption(_ipucu + (f" · 📦 {_sku} toplam {sum(_sku_depolar.values())} adet "
@@ -590,6 +595,7 @@ def run():
                     if _yeni != kalemler:
                         st.session_state.satis_kalemler = _yeni
                         st.session_state["_ms_dialog_ac"] = True
+                        st.cache_data.clear()
                         st.rerun()
                     kalemler = _yeni
 
@@ -660,6 +666,7 @@ def run():
                     if b2.button("🧹 Temizle", use_container_width=True, key="s_temizle"):
                         st.session_state.satis_kalemler = []
                         st.session_state["_ms_dialog_ac"] = True
+                        st.cache_data.clear()
                         st.rerun()
 
             if st.session_state.pop("_ms_dialog_ac", False):
@@ -747,6 +754,7 @@ def run():
                     if st.button("🗑️ Kalemi Sil", key="l_sil_btn"):
                         if sil_satis(_sec_sil["id"]):
                             st.success("✅ Silindi.")
+                            st.cache_data.clear()
                             st.rerun()
                         else:
                             st.error("Silinemedi.")
@@ -757,6 +765,7 @@ def run():
                         if st.button("🗑️ Siparişi Sil", key="l_sil_sip_btn"):
                             if sil_siparis(_sec_sip):
                                 st.success(f"✅ '{_sec_sip}' siparişi silindi.")
+                                st.cache_data.clear()
                                 st.rerun()
                             else:
                                 st.error("Silinemedi.")
@@ -983,6 +992,7 @@ def run():
                             st.cache_data.clear()
                             st.session_state.pop("_mlyt_onizle", None)
                             (st.success if _okm else st.error)(_msgm)
+                            st.cache_data.clear()
                             st.rerun()
             if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
                 _dlg_maliyet_fix()
@@ -1070,6 +1080,7 @@ def run():
                             st.cache_data.clear()
                         except Exception:
                             pass
+                        st.cache_data.clear()
                         st.rerun()
 
     # ───────────────────────── İADE ─────────────────────────
@@ -1141,6 +1152,7 @@ def run():
                             _cn += 1
                     st.cache_data.clear()
                     st.success(f"✅ {_cn} satış için iade oluşturuldu. '{_cev_kanal}' kanalı net ciro/kârda ~0'a indi.")
+                    st.cache_data.clear()
                     st.rerun()
         if st.button("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", key="btn_sat_kiade", use_container_width=True):
             _dlg_kanal_iade()
