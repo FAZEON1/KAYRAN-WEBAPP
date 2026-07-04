@@ -68,23 +68,8 @@ def _sd(v):
 
 
 def _baslik(ikon, ad, alt):
-    st.markdown(
-        f'<div style="margin:2px 0 18px">'
-        f'<div style="display:flex;align-items:center;gap:13px">'
-        f'<div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;'
-        f'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
-        f'justify-content:center;font-size:21px;box-shadow:0 6px 18px rgba(99,102,241,0.38)">{ikon}</div>'
-        f'<div><div style="font-family:Inter,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.3px;'
-        f'background:linear-gradient(90deg,#C7D2FE 0%,#A78BFA 45%,#67E8F9 100%);'
-        f'-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;'
-        f'display:inline-block">{ad}</div>'
-        f'<div style="color:#94A3B8;font-size:13px;margin-top:2px">{alt}</div></div>'
-        f'</div>'
-        f'<div style="height:1px;background:linear-gradient(90deg,rgba(99,102,241,0.45),rgba(167,139,250,0.2),transparent);margin-top:14px"></div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
+    from shared.ui import sayfa_baslik as _sb
+    st.markdown(_sb(ikon, ad, alt), unsafe_allow_html=True)
 
 def _metrik_satiri(cards):
     """Kompakt, renkli metric kartları satırı. cards = [{'label','value','renk','help'?}]."""
