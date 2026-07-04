@@ -602,58 +602,67 @@ def run():
             {"label": "🟡 Planlama", "value": f"{len(planlama_urunler):,}", "renk": "#FBBF24"},
         ])
     
-        # ACİL SİPARİŞ BANNER — şık tasarım
-        if acil_urunler:
-            acil_items_list = []
-            for u in acil_urunler:
-                gun = u.get('stok_bitis_gun', '?')
-                toplam = u.get('toplam_stok', u.get('bizim_stok', 0))
-                ad = u['urun_adi']
-                ad_kisalt = (ad[:60] + '...') if len(ad) > 60 else ad
-                acil_items_list.append(
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'padding:8px 12px;margin:4px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
-                    f'<span style="color:#E2E8F0;font-weight:600;font-size:13px;">⚡ {ad_kisalt}</span>'
-                    f'<div style="display:flex;gap:16px;flex-shrink:0;margin-left:12px;">'
-                    f'<span style="color:#94A3B8;font-size:12px;">📦 {toplam:,} adet</span>'
-                    f'<span style="color:#F87171;font-size:12px;font-weight:700;">{gun} günde biter</span>'
-                    f'</div></div>'
-                )
-            acil_items = "".join(acil_items_list)
-            st.markdown(
-                f'<div style="background:rgba(239,68,68,0.07);border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid rgba(239,68,68,0.22);border-left:3px solid rgba(239,68,68,0.6);">'
-                f'<div style="display:flex;align-items:center;margin-bottom:12px;">'
-                f'<span style="font-size:16px;font-weight:800;color:#F87171;">🚨 ACİL SİPARİŞ GEREKİYOR!</span>'
-                f'<span style="background:rgba(239,68,68,0.18);color:#FCA5A5;padding:2px 10px;border-radius:20px;'
-                f'font-size:13px;font-weight:700;margin-left:12px;">{len(acil_urunler)} ürün</span>'
-                f'</div>{acil_items}</div>',
-                unsafe_allow_html=True
+        # ── UYARI PENCERELERİ — yan yana 2 kompakt kart, sabit yükseklik + iç scroll ──
+        st.markdown("""<style>
+.kyr-pencere-icerik{max-height:250px;overflow-y:auto;padding-right:6px;}
+.kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
+.kyr-pencere-icerik::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.35);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,0.55);}
+</style>""", unsafe_allow_html=True)
+
+        def _uyari_pencere(baslik, renk, pill_renk, adet, icerik_html):
+            return (
+                f'<div style="flex:1;min-width:300px;background:rgba(255,255,255,0.02);'
+                f'border:1px solid {renk}40;border-left:3px solid {renk}99;border-radius:14px;'
+                f'padding:12px 14px;display:flex;flex-direction:column;">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-shrink:0;">'
+                f'<span style="font-size:13px;font-weight:800;color:{renk};letter-spacing:.3px;">{baslik}</span>'
+                f'<span style="background:{renk}26;color:{pill_renk};padding:1px 9px;border-radius:20px;'
+                f'font-size:11.5px;font-weight:700;">{adet} ürün</span></div>'
+                f'<div class="kyr-pencere-icerik">{icerik_html}</div></div>'
             )
-    
-        if yaklasan_urunler:
-            yak_items_list = []
-            for u in yaklasan_urunler[:5]:
-                gun = u.get('siparis_son_gun', u.get('stok_bitis_gun', '?'))
-                ad = u['urun_adi']
-                ad_kisalt = (ad[:55] + '...') if len(ad) > 55 else ad
-                yak_items_list.append(
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'padding:6px 12px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
-                    f'<span style="color:#E2E8F0;font-size:13px;">📌 {ad_kisalt}</span>'
-                    f'<span style="color:#FBBF24;font-size:12px;font-weight:600;flex-shrink:0;margin-left:12px;">'
-                    f'{gun}g içinde sipariş</span></div>'
-                )
-            yak_items = "".join(yak_items_list)
-            kalan = f'<span style="color:#FBBF24;font-size:12px;"> + {len(yaklasan_urunler)-5} ürün daha</span>' if len(yaklasan_urunler) > 5 else ""
-            st.markdown(
-                f'<div style="background:rgba(245,158,11,0.06);border-radius:12px;padding:14px 20px;margin:8px 0;border:1px solid rgba(245,158,11,0.22);border-left:3px solid rgba(245,158,11,0.6);">'
-                f'<div style="display:flex;align-items:center;margin-bottom:10px;">'
-                f'<span style="font-size:14px;font-weight:700;color:#FBBF24;">⚠️ 30 Gün İçinde Sipariş Verilmeli</span>'
-                f'<span style="background:rgba(245,158,11,0.16);color:#FCD34D;padding:2px 8px;border-radius:20px;'
-                f'font-size:12px;font-weight:700;margin-left:10px;">{len(yaklasan_urunler)} ürün</span>{kalan}'
-                f'</div>{yak_items}</div>',
-                unsafe_allow_html=True
+
+        acil_items_list = []
+        for u in acil_urunler:
+            gun = u.get('stok_bitis_gun', '?')
+            toplam = u.get('toplam_stok', u.get('bizim_stok', 0))
+            ad = u['urun_adi']
+            ad_kisalt = (ad[:46] + '…') if len(ad) > 46 else ad
+            acil_items_list.append(
+                f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                f'padding:5px 10px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
+                f'<span style="color:#E2E8F0;font-weight:600;font-size:12px;">⚡ {ad_kisalt}</span>'
+                f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:10px;">'
+                f'<span style="color:#94A3B8;font-size:11.5px;">📦 {toplam:,}</span>'
+                f'<span style="color:#F87171;font-size:11.5px;font-weight:700;">{gun}g</span>'
+                f'</div></div>'
             )
+        acil_html = "".join(acil_items_list) or \
+            '<div style="color:#64748B;font-size:12px;padding:14px 4px;">✓ Acil sipariş gerektiren ürün yok</div>'
+
+        yak_items_list = []
+        for u in yaklasan_urunler:
+            gun = u.get('siparis_son_gun', u.get('stok_bitis_gun', '?'))
+            ad = u['urun_adi']
+            ad_kisalt = (ad[:46] + '…') if len(ad) > 46 else ad
+            yak_items_list.append(
+                f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                f'padding:5px 10px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
+                f'<span style="color:#E2E8F0;font-size:12px;">📌 {ad_kisalt}</span>'
+                f'<span style="color:#FBBF24;font-size:11.5px;font-weight:600;flex-shrink:0;margin-left:10px;">'
+                f'{gun}g içinde</span></div>'
+            )
+        yak_html = "".join(yak_items_list) or \
+            '<div style="color:#64748B;font-size:12px;padding:14px 4px;">✓ 30 gün içinde sipariş gereken ürün yok</div>'
+
+        st.markdown(
+            f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin:10px 0 4px;">'
+            f'{_uyari_pencere("🚨 ACİL SİPARİŞ", "#F87171", "#FCA5A5", len(acil_urunler), acil_html)}'
+            f'{_uyari_pencere("⚠️ 30 GÜN İÇİNDE SİPARİŞ", "#FBBF24", "#FCD34D", len(yaklasan_urunler), yak_html)}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
     
         # Tarayıcı bildirimi (JS)
         if acil_urunler:
