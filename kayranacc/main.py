@@ -3114,11 +3114,35 @@ def run():
     
         bankalar = get_bankalar()
         kur = get_kur()
-    
+
         if len(bankalar) < 2:
             st.warning("⚠️ Virman için en az 2 banka hesabınız olmalı. Önce 'Banka Bakiyeleri' sayfasından hesap ekleyin.")
             st.stop()
-    
+
+        # ── 🏦 Banka bakiyeleri (üstte tek bakışta — virman öncesi durumu gör) ──
+        _renk_pb_v = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
+        metrik_satiri([{
+            "label": b["hesap_adi"],
+            "value": (("$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺"))
+                      + f"{float(b['bakiye']):,.2f}"),
+            "renk": _renk_pb_v.get(b["para_birimi"], "#818CF8"),
+            "alt": b["para_birimi"],
+        } for b in bankalar])
+        _v_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
+        _v_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
+        _v_eur = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "EUR")
+        _v_usd_esde = _v_usd + (_v_tl / kur if kur else 0) + (_v_eur * 1.08)
+        st.markdown(
+            '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);'
+            'border-radius:10px;padding:9px 16px;margin:6px 0 14px;display:flex;gap:26px;flex-wrap:wrap;'
+            'align-items:center;font-size:13px">'
+            '<span style="color:#94A3B8;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
+            f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{_v_tl:,.2f}</b></span>'
+            f'<span style="color:#60A5FA">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
+            + (f'<span style="color:#A78BFA">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
+            + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${_v_usd_esde:,.2f}</b></span>'
+            '</div>', unsafe_allow_html=True)
+
         # ─── Yeni Virman Formu ───
         st.markdown("### ➕ Yeni Virman")
     
@@ -4025,7 +4049,32 @@ def run():
             _snap_ok = False
             _snap_hata = str(_e)[:200]
         if _snap_ok:
-            st.success("✅ Veriler işlendi ve kaydedildi. Toplam aktif sonucu **Yönetim Panosu**'nda görüntülenir.")
+            st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
+            # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
+            st.markdown(
+                f'<div style="background:linear-gradient(135deg,#93C5FD,#3730A3,#7C3AED);border-radius:16px;'
+                f'padding:22px 24px;text-align:center;margin:10px 0 6px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C7D2FE;margin-bottom:6px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
+                f'<div style="font-size:36px;font-weight:800;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${toplam_aktif:,.0f}</div>'
+                f'<div style="font-size:13px;color:#A5B4FC;margin-top:6px;font-family:JetBrains Mono,monospace">≈ ₺{(toplam_aktif*kur):,.0f} (kur: {kur:g})</div>'
+                f'</div>', unsafe_allow_html=True)
+            # Kısa hesap dökümü
+            _dk = [
+                ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
+                ("🏦 Banka (USD)", banka_usd_eqv, "+"), ("📥 Cari alacak", toplam_alacak_usd, "+"),
+                ("💰 Havuz bütçe", havuz_butce_usd, "+"), ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
+                ("📤 Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
+                ("🧾 Çekler", cek_toplam_usd, "−"), ("➖ Manuel çıkarma", manuel_cikar_toplam, "−"),
+            ]
+            _chips = "".join(
+                f'<span style="display:inline-flex;gap:5px;align-items:center;background:rgba(255,255,255,0.04);'
+                f'border:1px solid rgba(148,163,184,0.18);border-radius:8px;padding:4px 10px;font-size:12px;margin:3px 5px 3px 0">'
+                f'<span style="color:{"#34D399" if y=="+" else "#F87171"}">{y}</span>'
+                f'<span style="color:#94A3B8">{k}</span>'
+                f'<b style="color:#E2E8F0;font-family:monospace">${float(v or 0):,.0f}</b></span>'
+                for k, v, y in _dk if float(v or 0))
+            st.markdown(f'<div style="display:flex;flex-wrap:wrap;margin-bottom:6px">{_chips}</div>',
+                        unsafe_allow_html=True)
         else:
             _h = st.session_state.get("_son_ayar_hata", "") or _snap_hata
             st.error("⚠️ Veriler işlendi ama sonuç **kaydedilemedi** — bu yüzden Yönetim Panosu'na yansımıyor. "
