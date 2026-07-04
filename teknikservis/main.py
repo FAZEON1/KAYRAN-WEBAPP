@@ -113,8 +113,27 @@ def _mal_kabul():
     # Bir önceki kaydın başarı mesajı (rerun sonrası kaybolmasın)
     _son_ok = st.session_state.pop("_mk_kayit_ok", None)
     if _son_ok:
-        st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır (form temizlendi).")
+        st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır.")
 
+    # ➕ Yeni Mal Kabül — AÇILIR PENCERE (ana ekran uzamaz)
+    _mk1, _mk2 = st.columns([1, 4])
+    if _mk1.button("📥 Yeni Mal Kabül", type="primary", use_container_width=True, key="mk_ac_btn"):
+        st.session_state["_mk_dialog_ac"] = True
+        # yeni kayda temiz başla
+        for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
+                   "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
+                   "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
+                   "mk_sk", "_mk_model_son", "mk_model_sec"):
+            st.session_state.pop(_k, None)
+        st.rerun()
+    _mk2.caption("Servise/iadeye gelen ürünü kaydetmek için butona bas — açılır pencerede doldur.")
+
+    if st.session_state.pop("_mk_dialog_ac", False):
+        _mal_kabul_dialog()
+
+
+@st.dialog("📥 Yeni Mal Kabül", width="large")
+def _mal_kabul_dialog():
     # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
     st.markdown('<div style="font-size:14px;font-weight:800;color:#FBBF24;margin:6px 0 2px">'
                 '1️⃣ Önce işlem türünü seç</div>', unsafe_allow_html=True)
@@ -146,6 +165,7 @@ def _mal_kabul():
                 if _s == _sku_sel and _a:
                     st.session_state["mk_stok_adi"] = _a
                     break
+            st.session_state["_mk_dialog_ac"] = True
             st.rerun()
 
     es1, es2 = st.columns([3, 1])
@@ -161,7 +181,9 @@ def _mal_kabul():
                 st.toast("✅ Ürün Yönetimi'nden eşleşti")
             else:
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
+            st.session_state["_mk_dialog_ac"] = True
             st.rerun()
+
 
     # 🏢 Firma cari — form DIŞINDA (değişince mağaza listesi anında filtrelensin, madde 6)
     from .magazalar import magaza_listesi, magaza_cari, _cari_grup
@@ -203,6 +225,7 @@ def _mal_kabul():
                     if _oto_cari and _oto_cari in TS_FIRMALAR:
                         st.session_state["_mk_firma_hedef"] = _oto_cari
                     break
+            st.session_state["_mk_dialog_ac"] = True
             st.rerun()
 
     # Sevk / Teslim Şekli — form DIŞINDA (Kargo seçilince Kargo Takip No görünsün)
