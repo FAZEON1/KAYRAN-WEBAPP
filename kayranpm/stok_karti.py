@@ -253,55 +253,97 @@ def goster(sku):
 
     # ═══ ÖZET ═══
     with t1:
+        from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
+        st.markdown(pencere_css(), unsafe_allow_html=True)
         _yeter = (f"~{toplam_stok / haftalik_gercek:.0f} hafta yeter"
                   if haftalik_gercek > 0 else "satış verisi yok")
+
+        # Panel verileri
+        _dagilim_dolu = {d: _f(m) for d, m in (_depo_kirilim or {}).items() if _f(m) != 0}
+        _firma_son = {}
+        for r in firma_stok:
+            _fa = firma_gorunen_ad(r.get("firma", "")) or "—"
+            _ft = str(r.get("yukleme_tarihi") or "")[:10]
+            if (_fa not in _firma_son) or (_ft > _firma_son[_fa][0]):
+                _firma_son[_fa] = (_ft, _f(r.get("stok_miktari")), _f(r.get("haftalik_satis")))
+        _musteri_toplam = sum(v[1] for v in _firma_son.values())
+
+        _kart1 = (_kart("Bizim Stok", f"{_g5f_toplam:,.0f}",
+                        f"{_g5f_satilabilir:,.0f} satılabilir", "#34D399")
+                  if _g5f_toplam > 0 else
+                  _kart("Canlı Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"))
         _kart_satiri([
-            _kart("Canlı Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"),
+            _kart1,
             _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", "#38BDF8"),
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", "#F87171"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", "#A5B4FC"),
         ])
-        # Canlı stoğun depo bazlı dağılımı (başlangıç formülü yerine)
-        _dagilim = _depo_kirilim if isinstance(_depo_kirilim, dict) else {}
-        _dagilim_dolu = {d: _f(m) for d, m in _dagilim.items() if _f(m) != 0}
+
+        # ── İKİZ STOK PANELİ — solda bizim depolar, sağda müşteriler ──
+        def _srow(ad, adet, maks, renk, alt=""):
+            _w = max(2.0, min(100.0, (adet / maks * 100) if maks else 0))
+            _alt = (f'<div style="color:{RENK["silik"]};font-size:10.5px;margin-top:2px">{alt}</div>'
+                    if alt else "")
+            return (f'<div style="padding:5px 10px;margin:3px 0;border-radius:6px;'
+                    f'background:rgba(255,255,255,0.03)">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+                    f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:600">{ad}</span>'
+                    f'<span style="color:{RENK["metin"]};font-size:12.5px;font-weight:700;'
+                    f'font-family:JetBrains Mono,monospace">{adet:,.0f}</span></div>'
+                    f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
+                    f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div>'
+                    f'{_alt}</div>')
+
+        def _satilabilir_mi(depo):
+            _du = str(depo).upper().replace("İ", "I")
+            return ("MERKEZ" in _du) or ("HAPPY" in _du)
+
         if _dagilim_dolu:
-            _dag_toplam = sum(_dagilim_dolu.values())
-            _chips = "".join(
-                f'<span style="display:inline-flex;gap:6px;align-items:center;'
-                f'background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.22);'
-                f'border-radius:8px;padding:5px 12px;font-size:12.5px;color:#CBD5E1;margin:3px 6px 3px 0">'
-                f'<span style="color:#94A3B8">{str(d).upper()}</span>'
-                f'<b style="color:#E2E8F0">{int(m):,}</b></span>'
+            _dmax = max(_dagilim_dolu.values())
+            _depo_html = "".join(
+                _srow(str(d).upper(), m, _dmax,
+                      RENK["yesil"] if _satilabilir_mi(d) else RENK["soluk"],
+                      alt=("satılabilir" if _satilabilir_mi(d) else "fiziksel takip"))
                 for d, m in sorted(_dagilim_dolu.items(), key=lambda x: -x[1]))
-            st.markdown(
-                f'<div style="background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.18);'
-                f'border-radius:10px;padding:11px 14px;margin:2px 0 12px">'
-                f'<div style="font-size:11px;font-weight:700;color:#7DD3FC;text-transform:uppercase;'
-                f'letter-spacing:1px;margin-bottom:8px">📍 Stok Hangi Depolarda '
-                f'<span style="color:#64748B;font-weight:600">· toplam {_dag_toplam:,.0f} adet</span></div>'
-                f'<div style="display:flex;flex-wrap:wrap">{_chips}</div></div>',
-                unsafe_allow_html=True)
-        elif _cs.get("var"):
-            st.markdown(
-                f'<div style="background:rgba(148,163,184,0.06);border:1px solid rgba(148,163,184,0.18);'
-                f'border-radius:10px;padding:9px 14px;margin:2px 0 12px;font-size:12.5px;color:#94A3B8">'
-                f'📍 Canlı stok <b style="color:#34D399">{_cs["canli"]:,.0f}</b> — '
-                f'henüz depo bazlı kırılım yok (G5F stok yüklenince depolara göre dağılım burada görünür).</div>',
-                unsafe_allow_html=True)
         else:
-            if _g5f_toplam > 0 or _depo_kirilim:
-                _kir = " · ".join(f"{str(d).upper()}: <b style='color:#E2E8F0'>{int(_f(m)):,}</b>"
-                                  for d, m in sorted(_depo_kirilim.items()) if _f(m) != 0)
-                st.markdown(
-                    f'<div style="background:rgba(56,189,248,0.07);border:1px solid rgba(56,189,248,0.2);'
-                    f'border-radius:10px;padding:9px 14px;margin:2px 0 12px;font-size:12.5px;color:#94A3B8">'
-                    f'🏬 G5F depo sayımı — toplam <b style="color:#E2E8F0">{_g5f_toplam:,.0f}</b> '
-                    f'&nbsp;·&nbsp; satılabilir (Merkez + Happy Life) <b style="color:#34D399">{_g5f_satilabilir:,.0f}</b>'
-                    f'<br><span style="font-size:11.5px;color:#64748B">{_kir}</span></div>',
-                    unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
-                           "Şimdilik gösterilen değer ham snapshot.")
+            _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
+        _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
+                          rozet=(f"{_g5f_toplam:,.0f} adet" if _g5f_toplam else ""), yukseklik=200)
+
+        if _firma_son:
+            _mmax = max(v[1] for v in _firma_son.values()) or 1
+            _mus_html = "".join(
+                _srow(fa, v[1], _mmax, RENK["mor"],
+                      alt=f"haftalık satış {v[2]:,.0f} · {gun_ay_yil(v[0]) or v[0] or '—'}")
+                for fa, v in sorted(_firma_son.items(), key=lambda x: -x[1][1]))
+        else:
+            _mus_html = bos_durum("Müşterilerde stok kaydı yok")
+        _p_mus = pencere("🛍️ MÜŞTERİ STOĞU", RENK["mor"], _mus_html,
+                         rozet=(f"{_musteri_toplam:,.0f} adet" if _musteri_toplam else ""), yukseklik=200)
+
+        st.markdown(pencere_grid(_p_depo, _p_mus, alt_bosluk=2), unsafe_allow_html=True)
+
+        # Genel toplam şeridi
+        _genel = _g5f_toplam + _musteri_toplam
+        _serit = (f'<span style="color:{RENK["metin"]};font-weight:800">GENEL TOPLAM '
+                  f'<span style="font-family:JetBrains Mono,monospace">{_genel:,.0f}</span></span>'
+                  f'<span style="color:{RENK["silik"]}"> = bizim {_g5f_toplam:,.0f} + müşteri {_musteri_toplam:,.0f}</span>')
+        if _cs.get("var"):
+            _serit += (f'<span style="color:{RENK["silik"]}"> · canlı hesap </span>'
+                       f'<span style="color:{RENK["yesil"]};font-family:JetBrains Mono,monospace;'
+                       f'font-weight:700">{_cs["canli"]:,.0f}</span>')
+        if haftalik_gercek > 0:
+            _serit += f'<span style="color:{RENK["silik"]}"> · {_yeter}</span>'
+        if yolda_adet > 0:
+            _serit += (f'<span style="color:{RENK["mavi"]}"> · 🚚 yolda '
+                       f'<b style="font-family:JetBrains Mono,monospace">{yolda_adet:,.0f}</b></span>')
+        st.markdown(
+            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+            f'border-radius:10px;padding:8px 14px;margin:0 0 10px;font-size:12px">{_serit}</div>',
+            unsafe_allow_html=True)
+        if not _dagilim_dolu and not _cs.get("var") and _g5f_toplam <= 0:
+            st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
+                       "Şimdilik gösterilen değer ham snapshot.")
         # Yolda detay
         if yolda_adet > 0:
             _yd = []
@@ -312,16 +354,6 @@ def goster(sku):
                 _yd.append(f"{_m:,.0f} adet — {r.get('yoldaki_tedarikci') or '—'} "
                            f"(varış {gun_ay_yil(r.get('tahmini_varis_tarihi')) or '—'})")
             st.info("🚚 **Yolda:** " + " · ".join(_yd))
-        if firma_stok:
-            st.markdown("**Firma / Depo Stok Kırılımı**")
-            st.dataframe(pd.DataFrame([{
-                "Firma/Depo": firma_gorunen_ad(r.get("firma", "")),
-                "Stok": _f(r.get("stok_miktari")),
-                "Haftalık Satış": _f(r.get("haftalik_satis")),
-                "Güncellenme": gun_ay_yil(r.get("yukleme_tarihi")),
-            } for r in firma_stok]), hide_index=True, use_container_width=True)
-        else:
-            st.info("Bu SKU için firma/depo stok kaydı yok.")
         st.caption(f"İlk görülme: {gun_ay_yil(ilk_gorulen) or '—'}  ·  "
                    f"Son alım: {gun_ay_yil(son_tarih) or '—'}")
 
