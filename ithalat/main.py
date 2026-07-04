@@ -1199,8 +1199,8 @@ def _yeni_ithalat():
                 teslim_tarihi_m = _tt_m.isoformat() if _tt_m else ""
 
         with st.container(border=True):
-            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da manuel SKU / ürün adı / barkod gir")
-            st.session_state.setdefault("m_satir_n", 5)
+            _alt_baslik("📦 Ürün Kalemleri · katalogdan seç ya da SKU/ad/barkod yaz")
+            st.session_state.setdefault("m_satir_n", 3)
             n_satir = st.session_state.m_satir_n
             _barkod_map = get_barkod_map()
 
@@ -1256,8 +1256,7 @@ def _yeni_ithalat():
             if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
-            _ec2.caption("🗑 Yanlış girdiğin satırı boşaltmak için satırın sağındaki çöp kutusuna bas "
-                         "(SKU boş olan satırlar zaten kaydedilmez).")
+            _ec2.caption("🗑 ile satırı boşalt · SKU boş satırlar kaydedilmez.")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
 
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
