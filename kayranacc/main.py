@@ -3845,7 +3845,8 @@ def run():
                 if st.session_state.get("_stok_islenen_fid") != _fid:
                     st.session_state["_stok_islenen_fid"] = _fid
                     try:
-                        parsed = parse_stok_excel(stok_file.read())
+                        with st.spinner("📦 Stok Excel'i işleniyor…"):
+                            parsed = parse_stok_excel(stok_file.read())
                         st.session_state.aktif_stok_data = parsed
                         # Supabase'e kaydet (tablo yoksa hata vermeden geç)
                         try:
@@ -3864,7 +3865,8 @@ def run():
                 if st.session_state.get("_ithalat_islenen_fid") != _fid:
                     st.session_state["_ithalat_islenen_fid"] = _fid
                     try:
-                        parsed = parse_ithalat_excel(ithalat_file.read())
+                        with st.spinner("🚢 İthalat Excel'i işleniyor…"):
+                            parsed = parse_ithalat_excel(ithalat_file.read())
                         st.session_state.aktif_ithalat_data = parsed
                         try:
                             aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
@@ -3881,8 +3883,9 @@ def run():
                 if st.session_state.get("_cari_islenen_fid") != _fid:
                     st.session_state["_cari_islenen_fid"] = _fid
                     try:
-                        _cari_bytes = cari_file.read()
-                        parsed = parse_cari_excel(_cari_bytes)
+                        with st.spinner("🧾 Cari Excel'i işleniyor…"):
+                            _cari_bytes = cari_file.read()
+                            parsed = parse_cari_excel(_cari_bytes)
                         st.session_state.aktif_cari_data = parsed
                         try:
                             aktif_excel_kaydet(aktif_kul, "cari", parsed)
