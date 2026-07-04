@@ -24,3 +24,6 @@ family = "Inter"
 url = "https://rsms.me/inter/font-files/InterVariable.woff2"
 weight = "100 900"
 style = "normal"
+
+[browser]
+gatherUsageStats = false
