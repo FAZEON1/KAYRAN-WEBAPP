@@ -439,161 +439,176 @@ def run():
             _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
                             "diger", (_kanallar[0] if _kanallar else "DİGER"), True)
 
-            # ── Sipariş başlığı ──
-            with st.container(border=True):
-                st.markdown("##### 🧾 Sipariş Bilgileri")
-                h1, h2, h3 = st.columns([1, 1.4, 1])
-                g_tarih = h1.date_input("Tarih", value=date.today(), key="s_tarih")
-                g_kanal = h2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
-                                       help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
-                g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
-                g_not = st.text_input("Sipariş notu (ops.)", key="s_not")
+            # ── Manuel Satış Girişi — AÇILIR PENCERE ──
+            _ms1, _ms2 = st.columns([1, 4])
+            if _ms1.button("✍️ Manuel Satış Girişi", type="primary", use_container_width=True, key="ms_ac_btn"):
+                st.session_state["_ms_dialog_ac"] = True
+                st.rerun()
+            _ms2.caption("Tek tek ürün ekleyerek sipariş oluşturmak için butona bas — açılır pencerede.")
 
-            # ── Kalem ekle ──
-            with st.container(border=True):
-                st.markdown("##### ➕ Ürün Kalemi Ekle")
-                _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
-                a1, a2, a3, a4 = st.columns([2.6, 0.9, 1.1, 1.1])
-                _sec = a1.selectbox("Ürün (SKU ara)", _sku_opts, key="s_sku_sec", label_visibility="collapsed",
-                                    placeholder="SKU / ürün ara")
-                _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
-                _urun = urun_map.get(_sku, {})
-                _pacal = float(pacal.get(_sku, 0) or 0)
-                _liste = _urun.get("satis_fiyat_listesi") or {}
-                if isinstance(_liste, dict):
-                    _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
-                else:
-                    _oneri = float(_urun.get("satis_fiyati") or 0)
-                _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet", label_visibility="collapsed")
-                _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.01, format="%.2f",
-                                        value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
-                                        key="s_bsat", label_visibility="collapsed")
-                if a4.button("➕ Ekle", use_container_width=True, key="s_ekle"):
-                    if not _bsat or _bsat <= 0:
-                        st.warning("Birim satış fiyatı gir.")
+            @st.dialog("✍️ Manuel Satış Girişi", width="large")
+            def _satis_manuel_dialog():
+                # ── Sipariş başlığı ──
+                with st.container(border=True):
+                    st.markdown("##### 🧾 Sipariş Bilgileri")
+                    h1, h2, h3 = st.columns([1, 1.4, 1])
+                    g_tarih = h1.date_input("Tarih", value=date.today(), key="s_tarih")
+                    g_kanal = h2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
+                                           help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
+                    g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
+                    g_not = st.text_input("Sipariş notu (ops.)", key="s_not")
+
+                # ── Kalem ekle ──
+                with st.container(border=True):
+                    st.markdown("##### ➕ Ürün Kalemi Ekle")
+                    _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
+                    a1, a2, a3, a4 = st.columns([2.6, 0.9, 1.1, 1.1])
+                    _sec = a1.selectbox("Ürün (SKU ara)", _sku_opts, key="s_sku_sec", label_visibility="collapsed",
+                                        placeholder="SKU / ürün ara")
+                    _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
+                    _urun = urun_map.get(_sku, {})
+                    _pacal = float(pacal.get(_sku, 0) or 0)
+                    _liste = _urun.get("satis_fiyat_listesi") or {}
+                    if isinstance(_liste, dict):
+                        _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
                     else:
-                        _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
-                        kalemler.append({
-                            "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
-                            "adet": int(_adet), "birim_satis": float(_bsat),
-                            "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
-                            "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
-                        })
-                        st.session_state.satis_kalemler = kalemler
-                        st.rerun()
-                _ipucu = []
-                _ipucu.append(f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt")
-                a3.caption(_ipucu[0])
-
-            # ── Sepet (kalemler) ──
-            if not kalemler:
-                st.info("Henüz kalem eklenmedi. Yukarıdan ürün ekleyerek siparişi oluştur.")
-            else:
-                st.markdown("##### 🛒 Sipariş Kalemleri — düzenle / sil")
-                _df = pd.DataFrame([{
-                    "Sil": False, "SKU": k["sku"], "Ürün": (k["urun_adi"] or "")[:30],
-                    "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
-                    "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
-                    "Ek Destek$": float(k["birim_ek_destek"]),
-                } for k in kalemler])
-                _ed = st.data_editor(
-                    _df, hide_index=True, use_container_width=True, num_rows="fixed",
-                    key=f"satis_cart_{len(kalemler)}",
-                    column_config={
-                        "Sil": st.column_config.CheckboxColumn("🗑", width="small"),
-                        "SKU": st.column_config.TextColumn("SKU", disabled=True),
-                        "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
-                        "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
-                        "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.2f"),
-                        "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.2f"),
-                        "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="%.2f"),
-                        "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="%.2f"),
-                    },
-                )
-                # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
-                _yeni = []
-                for i, row in _ed.iterrows():
-                    if bool(row.get("Sil")):
-                        continue
-                    k = dict(kalemler[i])
-                    k["adet"] = int(row["Adet"] or 0)
-                    k["birim_satis"] = float(row["B.Satış$"] or 0)
-                    k["birim_maliyet"] = float(row["Maliyet$"] or 0)
-                    k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
-                    k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
-                    _yeni.append(k)
-                if _yeni != kalemler:
-                    st.session_state.satis_kalemler = _yeni
-                    st.rerun()
-                kalemler = _yeni
-
-                # ── Sipariş özeti (canlı) ──
-                top, _, _ = ozet_hesapla(kalemler)
-                _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
-                st.markdown(
-                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px">' + _kart([
-                        ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#93C5FD"),
-                        ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
-                        ("Maliyet", _usd(top["maliyet"]), "#FB923C"),
-                        ("Destek", _usd(top["destek"]), "#A78BFA"),
-                        ("Net Kâr", _usd(top["net_kar"]), _renk),
-                        ("Net Kârlılık", f"%{top['marj']:.1f}", _renk),
-                    ]) + '</div>', unsafe_allow_html=True)
-
-                b1, b2 = st.columns([3, 1])
-                if b1.button("💾 Siparişi Kaydet", type="primary", use_container_width=True, key="s_kaydet"):
-                    gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
-                               and float(k.get("birim_satis", 0)) > 0]
-                    if not gecerli:
-                        st.warning("Kaydedilecek geçerli kalem yok (adet ve satış > 0 olmalı).")
-                    else:
-                        # ── Akıllı kontroller: geçersiz SKU engeller; stok/zarar/mükerrer uyarır ──
-                        from shared.dogrula import zararina_mi, gecerli_sku
-                        _engel, _uyari, _sku_adet = [], [], {}
-                        for k in gecerli:
-                            _sku_adet[k["sku"]] = _sku_adet.get(k["sku"], 0) + int(k.get("adet", 0))
-                            if not gecerli_sku(k["sku"], tum_sku):
-                                _engel.append(f"Geçersiz SKU: {k['sku']}")
-                            if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
-                                _uyari.append(f"Zararına satış: {k['sku']} "
-                                              f"(satış {_usd(k['birim_satis'])} < maliyet {_usd(k['birim_maliyet'])})")
-                        try:
-                            from kayranpm.database import canli_stok
-                            for _sk, _ad in _sku_adet.items():
-                                _cs = canli_stok(_sk)
-                                if _cs.get("var") and _ad > _cs["canli"]:
-                                    _uyari.append(f"Stok yetersiz: {_sk} "
-                                                  f"(canlı {_cs['canli']:.0f}, satılacak {_ad})")
-                        except Exception:
-                            pass
-                        try:
-                            from satis.database import siparis_no_var_mi
-                            if (g_sipno or "").strip() and siparis_no_var_mi(g_sipno):
-                                _uyari.append(f"Sipariş no '{(g_sipno or '').strip()}' daha önce kullanılmış.")
-                        except Exception:
-                            pass
-
-                        if _engel:
-                            for _e in _engel:
-                                st.error("⛔ " + _e)
-                            st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
+                        _oneri = float(_urun.get("satis_fiyati") or 0)
+                    _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet", label_visibility="collapsed")
+                    _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.01, format="%.2f",
+                                            value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
+                                            key="s_bsat", label_visibility="collapsed")
+                    if a4.button("➕ Ekle", use_container_width=True, key="s_ekle"):
+                        if not _bsat or _bsat <= 0:
+                            st.warning("Birim satış fiyatı gir.")
                         else:
-                            for _u in _uyari:
-                                st.warning("⚠️ " + _u)
-                            sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
-                            ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
-                            if ok:
-                                st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd(top['net_kar'])}")
-                                st.session_state.satis_kalemler = []
-                                for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
-                                    st.session_state.pop(_k, None)
-                                if not _uyari:
-                                    st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
+                            _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
+                            kalemler.append({
+                                "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
+                                "adet": int(_adet), "birim_satis": float(_bsat),
+                                "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
+                                "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
+                            })
+                            st.session_state.satis_kalemler = kalemler
+                            st.session_state["_ms_dialog_ac"] = True
+                            st.rerun()
+                    _ipucu = []
+                    _ipucu.append(f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt")
+                    a3.caption(_ipucu[0])
+
+                # ── Sepet (kalemler) ──
+                if not kalemler:
+                    st.info("Henüz kalem eklenmedi. Yukarıdan ürün ekleyerek siparişi oluştur.")
+                else:
+                    st.markdown("##### 🛒 Sipariş Kalemleri — düzenle / sil")
+                    _df = pd.DataFrame([{
+                        "Sil": False, "SKU": k["sku"], "Ürün": (k["urun_adi"] or "")[:30],
+                        "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
+                        "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
+                        "Ek Destek$": float(k["birim_ek_destek"]),
+                    } for k in kalemler])
+                    _ed = st.data_editor(
+                        _df, hide_index=True, use_container_width=True, num_rows="fixed",
+                        key=f"satis_cart_{len(kalemler)}",
+                        column_config={
+                            "Sil": st.column_config.CheckboxColumn("🗑", width="small"),
+                            "SKU": st.column_config.TextColumn("SKU", disabled=True),
+                            "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
+                            "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
+                            "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.2f"),
+                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.2f"),
+                            "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="%.2f"),
+                            "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="%.2f"),
+                        },
+                    )
+                    # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
+                    _yeni = []
+                    for i, row in _ed.iterrows():
+                        if bool(row.get("Sil")):
+                            continue
+                        k = dict(kalemler[i])
+                        k["adet"] = int(row["Adet"] or 0)
+                        k["birim_satis"] = float(row["B.Satış$"] or 0)
+                        k["birim_maliyet"] = float(row["Maliyet$"] or 0)
+                        k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
+                        k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
+                        _yeni.append(k)
+                    if _yeni != kalemler:
+                        st.session_state.satis_kalemler = _yeni
+                        st.session_state["_ms_dialog_ac"] = True
+                        st.rerun()
+                    kalemler = _yeni
+
+                    # ── Sipariş özeti (canlı) ──
+                    top, _, _ = ozet_hesapla(kalemler)
+                    _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
+                    st.markdown(
+                        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px">' + _kart([
+                            ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#93C5FD"),
+                            ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
+                            ("Maliyet", _usd(top["maliyet"]), "#FB923C"),
+                            ("Destek", _usd(top["destek"]), "#A78BFA"),
+                            ("Net Kâr", _usd(top["net_kar"]), _renk),
+                            ("Net Kârlılık", f"%{top['marj']:.1f}", _renk),
+                        ]) + '</div>', unsafe_allow_html=True)
+
+                    b1, b2 = st.columns([3, 1])
+                    if b1.button("💾 Siparişi Kaydet", type="primary", use_container_width=True, key="s_kaydet"):
+                        gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
+                                   and float(k.get("birim_satis", 0)) > 0]
+                        if not gecerli:
+                            st.warning("Kaydedilecek geçerli kalem yok (adet ve satış > 0 olmalı).")
+                        else:
+                            # ── Akıllı kontroller: geçersiz SKU engeller; stok/zarar/mükerrer uyarır ──
+                            from shared.dogrula import zararina_mi, gecerli_sku
+                            _engel, _uyari, _sku_adet = [], [], {}
+                            for k in gecerli:
+                                _sku_adet[k["sku"]] = _sku_adet.get(k["sku"], 0) + int(k.get("adet", 0))
+                                if not gecerli_sku(k["sku"], tum_sku):
+                                    _engel.append(f"Geçersiz SKU: {k['sku']}")
+                                if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
+                                    _uyari.append(f"Zararına satış: {k['sku']} "
+                                                  f"(satış {_usd(k['birim_satis'])} < maliyet {_usd(k['birim_maliyet'])})")
+                            try:
+                                from kayranpm.database import canli_stok
+                                for _sk, _ad in _sku_adet.items():
+                                    _cs = canli_stok(_sk)
+                                    if _cs.get("var") and _ad > _cs["canli"]:
+                                        _uyari.append(f"Stok yetersiz: {_sk} "
+                                                      f"(canlı {_cs['canli']:.0f}, satılacak {_ad})")
+                            except Exception:
+                                pass
+                            try:
+                                from satis.database import siparis_no_var_mi
+                                if (g_sipno or "").strip() and siparis_no_var_mi(g_sipno):
+                                    _uyari.append(f"Sipariş no '{(g_sipno or '').strip()}' daha önce kullanılmış.")
+                            except Exception:
+                                pass
+
+                            if _engel:
+                                for _e in _engel:
+                                    st.error("⛔ " + _e)
+                                st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
                             else:
-                                st.error(msg)
-                if b2.button("🧹 Temizle", use_container_width=True, key="s_temizle"):
-                    st.session_state.satis_kalemler = []
-                    st.rerun()
+                                for _u in _uyari:
+                                    st.warning("⚠️ " + _u)
+                                sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
+                                ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
+                                if ok:
+                                    st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd(top['net_kar'])}")
+                                    st.session_state.satis_kalemler = []
+                                    for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
+                                        st.session_state.pop(_k, None)
+                                    if not _uyari:
+                                        st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
+                                else:
+                                    st.error(msg)
+                    if b2.button("🧹 Temizle", use_container_width=True, key="s_temizle"):
+                        st.session_state.satis_kalemler = []
+                        st.session_state["_ms_dialog_ac"] = True
+                        st.rerun()
+
+            if st.session_state.pop("_ms_dialog_ac", False):
+                _satis_manuel_dialog()
 
     # ───────────────────────── SATIŞLAR ─────────────────────────
     elif _ssayfa == "📋 Satışlar":
