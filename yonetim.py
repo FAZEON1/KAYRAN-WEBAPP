@@ -167,32 +167,29 @@ def gider_tablosu_parse(file):
     return _en_iyi or ({"Sabit": [0.0] * 12, "Değişken": [0.0] * 12, "Yarı Değişken": [0.0] * 12}, [])
 
 
-def _kart(baslik, deger, alt, renk):
-    return (f'<div style="background:rgba(255,255,255,0.03);border:1px solid {renk}33;border-radius:14px;'
-            f'padding:16px 18px;flex:1;min-width:148px">'
-            f'<div style="font-size:11px;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{baslik}</div>'
-            f'<div style="color:#FFFFFF;font-size:23px;font-weight:800;font-family:JetBrains Mono,monospace;line-height:1">{deger}</div>'
-            f'<div style="color:{renk};font-size:12px;font-weight:600;margin-top:6px">{alt}</div></div>')
-
-
 def run():
-    st.markdown("## 📊 Yönetim Panosu — Kâr / Zarar")
-    st.caption("Ciro − COGS − Destekler = Net Kâr · destekler havuz/ref no harcamalarından (türlere göre)")
+    from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum, sayfa_baslik, tablo_h
+    st.markdown(pencere_css(), unsafe_allow_html=True)
+    st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Ciro − COGS − Destekler − Giderler = Net Kâr · tüm tutarlar USD"),
+                unsafe_allow_html=True)
 
+    # ── Dönem seçimi — tek kompakt satır ──
     _bugun = dt.date.today()
-    c1, c2 = st.columns([1, 3])
+    c1, c2, c3 = st.columns([0.8, 1.6, 1.6])
     with c1:
         _yil = st.selectbox("Yıl", list(range(_bugun.year + 1, _bugun.year - 4, -1)), index=1)
     with c2:
         _gor = st.radio("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], horizontal=True, index=2)
+    with c3:
         if _gor == "Aylık":
             _donem = st.selectbox("Ay", GIDER_AYLAR, index=min(_bugun.month - 1, 11))
         elif _gor == "Çeyreklik":
             _donem = st.radio("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], horizontal=True, index=0)
         else:
             _donem = "Tüm Yıl"
+            st.markdown('<div style="color:#64748B;font-size:12px;margin-top:34px">Tüm yıl görünümü</div>',
+                        unsafe_allow_html=True)
     baslangic, bitis = _donem_tarih(_yil, _donem)
-    st.caption(f"📅 Seçili dönem: **{baslangic} → {bitis}**")
 
     # ── Gelir / maliyet (satış) ──
     ciro = cogs = 0.0
@@ -206,7 +203,7 @@ def run():
     except Exception as e:
         st.warning(f"Satış verisi okunamadı: {e}")
 
-    # ── İadeler (net kâra dahil) — iade tutarı ciroyu, iade maliyeti COGS'u düşer ──
+    # ── İadeler (net kâra dahil) ──
     iade_tutar = iade_maliyet = 0.0
     try:
         from satis.database import iade_satis_net_ozet
@@ -217,8 +214,8 @@ def run():
         pass
 
     ciro_brut, cogs_brut = ciro, cogs
-    ciro = ciro_brut - iade_tutar          # net satış (iade sonrası)
-    cogs = cogs_brut - iade_maliyet        # net maliyet (iade edilen ürün maliyeti geri düşülür)
+    ciro = ciro_brut - iade_tutar
+    cogs = cogs_brut - iade_maliyet
     brut = ciro - cogs
     brut_marj = (brut / ciro * 100) if ciro else 0.0
 
@@ -229,8 +226,6 @@ def run():
         _harcama = get_tum_butce_harcamalari(baslangic, bitis)
     except Exception:
         _harcama = []
-    # Tek kur kaynağı: önce muhasebenin kullandığı kur (manuel override dahil),
-    # muhasebe sayfası bu oturumda hiç açılmadıysa gunluk'tan güncel kur.
     _usdtry = 0.0
     try:
         _usdtry = float(st.session_state.get("kur") or 0)
@@ -243,7 +238,6 @@ def run():
         except Exception:
             _usdtry = 0.0
 
-    # Tarihsel kur: dönem içi günlük kurlar; kaydı olmayan tarihler için güncel kur.
     _kur_map = {}
     try:
         from kayranacc.database import get_kur_araligi
@@ -274,7 +268,6 @@ def run():
         _tur_usd[t] = _tur_usd.get(t, 0.0) + tutar
         toplam_destek += tutar
 
-    # Ref no tutarları — havuz bütçeden AYRI destek kalemi (toplama dahil)
     try:
         from kayranpm.ref_no import get_tum_ref_tutarlari
         _ref_tutar = get_tum_ref_tutarlari(baslangic, bitis)
@@ -297,7 +290,7 @@ def run():
         _tur_usd["Ref No"] = _tur_usd.get("Ref No", 0.0) + _ref_usd
         toplam_destek += _ref_usd
 
-    # ── İşletme giderleri (Aylık Gider Tablosu) → USD, net kâra dahil ──
+    # ── İşletme giderleri (Aylık Gider Tablosu) → USD ──
     gider_usd = 0.0
     try:
         from kayranacc.database import get_ayar as _gax
@@ -327,83 +320,82 @@ def run():
 
     net_kar = brut - toplam_destek - gider_usd
     net_marj = (net_kar / ciro * 100) if ciro else 0.0
+    _nrenk = RENK["yesil"] if net_kar >= 0 else RENK["kirmizi"]
 
-    # ── P&L kartları ──
-    _nrenk = "#34D399" if net_kar >= 0 else "#F87171"
-    _iade_alt = (f"Net · brüt {_usd(ciro_brut)}" if iade_tutar > 0 else "Toplam satış")
-    _cogs_alt = ("Ürün maliyeti (iade düşülmüş)" if iade_tutar > 0 else "Ürün maliyeti")
-    _kartlar = ('<div style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px">'
-                + _kart("Ciro", _usd(ciro), _iade_alt, "#A5B4FC")
-                + _kart("İadeler", _usd(iade_tutar), "İade edilen (ciro−)", "#F472B6")
-                + _kart("COGS", _usd(cogs), _cogs_alt, "#FBBF24")
-                + _kart("Brüt Kâr", _usd(brut), f"Brüt marj {_pct(brut_marj)}", "#38BDF8")
-                + _kart("Destekler", _usd(toplam_destek), "Toplam destek/harcama", "#FB7185")
-                + _kart("Giderler", _usd(gider_usd), "İşletme gideri (TL→USD)", "#F59E0B")
-                + _kart("Net Kâr", _usd(net_kar), f"Net marj {_pct(net_marj)}", _nrenk)
-                + '</div>')
-    st.markdown(_kartlar, unsafe_allow_html=True)
-    if _tl_uyari:
-        st.caption(f"ℹ️ TL cinsi destekler fatura tarihindeki günlük kurla USD'ye çevrildi; "
-                   f"kur kaydı olmayan tarihler için güncel kur (~{_usdtry:.2f}₺) kullanıldı.")
+    # ═════════ P&L DENKLEM ŞERİDİ — kartlar + formül tek bantta ═════════
+    def _hucre(etiket, deger, alt, renk, vurgulu=False):
+        _st = ("background:" + renk + "14;border:1px solid " + renk + "45;border-radius:12px;"
+               if vurgulu else "")
+        _vf = "22px" if vurgulu else "18px"
+        _vr = renk if vurgulu else RENK["metin"]
+        return (f'<div style="flex:1;min-width:116px;text-align:center;padding:10px 8px;{_st}">'
+                f'<div style="font-size:10px;color:{RENK["soluk"]};letter-spacing:1.2px;'
+                f'text-transform:uppercase;font-weight:700;margin-bottom:5px">{etiket}</div>'
+                f'<div style="color:{_vr};font-size:{_vf};font-weight:800;'
+                f'font-family:JetBrains Mono,monospace;line-height:1.1">{deger}</div>'
+                f'<div style="color:{renk};font-size:10.5px;font-weight:600;margin-top:4px">{alt}</div></div>')
+
+    def _op(s):
+        return (f'<div style="display:flex;align-items:center;color:#475569;font-size:19px;'
+                f'font-weight:700;padding:0 2px">{s}</div>')
+
+    _ciro_alt = (f"brüt {_usd(ciro_brut)} − iade {_usd(iade_tutar)}" if iade_tutar > 0 else "net satış")
+    st.markdown(
+        f'<div style="display:flex;align-items:stretch;gap:4px;flex-wrap:wrap;'
+        f'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+        f'border-radius:16px;padding:12px 10px;margin:6px 0 4px">'
+        + _hucre("Ciro", _usd(ciro), _ciro_alt, RENK["mor2"])
+        + _op("−") + _hucre("COGS", _usd(cogs), "ürün maliyeti", RENK["amber"])
+        + _op("=") + _hucre("Brüt Kâr", _usd(brut), f"marj {_pct(brut_marj)}", RENK["cyan"])
+        + _op("−") + _hucre("Destekler", _usd(toplam_destek), "havuz + ref no", RENK["pembe"])
+        + _op("−") + _hucre("Giderler", _usd(gider_usd), "işletme (TL→USD)", RENK["amber2"])
+        + _op("=") + _hucre("NET KÂR", _usd(net_kar), f"net marj {_pct(net_marj)}", _nrenk, vurgulu=True)
+        + '</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="color:#475569;font-size:11px;margin:0 2px 10px">📅 {baslangic} → {bitis}'
+                + (f' · ℹ️ TL destekler fatura günü kuruyla çevrildi (eksik günlerde ~{_usdtry:.2f}₺)' if _tl_uyari else '')
+                + '</div>', unsafe_allow_html=True)
     if _kur_eksik:
         st.warning("⚠️ Güncel kur alınamadığı için TL cinsi destekler hesaba katılamadı.")
 
-    # ── Net kâr açıklama satırı (P&L akışı) ──
-    _iade_not = (f'{_usd(ciro_brut)} <span style="color:#64748B">brüt ciro</span> &nbsp;−&nbsp; '
-                 f'{_usd(iade_tutar)} <span style="color:#64748B">iade</span> &nbsp;=&nbsp; '
-                 if iade_tutar > 0 else "")
-    st.markdown(
-        f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);'
-        f'border-radius:12px;padding:12px 16px;margin-bottom:20px;font-family:JetBrains Mono,monospace;font-size:13px;color:#CBD5E1">'
-        f'{_iade_not}'
-        f'{_usd(ciro)} <span style="color:#64748B">{"net ciro" if iade_tutar > 0 else "ciro"}</span> &nbsp;−&nbsp; {_usd(cogs)} <span style="color:#64748B">cogs</span> '
-        f'&nbsp;−&nbsp; {_usd(toplam_destek)} <span style="color:#64748B">destek</span> '
-        f'&nbsp;−&nbsp; {_usd(gider_usd)} <span style="color:#64748B">gider</span> &nbsp;=&nbsp; '
-        f'<b style="color:{_nrenk}">{_usd(net_kar)} net kâr</b> &nbsp;·&nbsp; <span style="color:{_nrenk}">{_pct(net_marj)} marj</span>'
-        f'</div>', unsafe_allow_html=True)
+    # ═════════ ORTA GRID — 4 scroll'lu pencere ═════════
+    def _bar_satir(ad, tutar_str, oran, renk, sag_ek=""):
+        _w = max(2, min(100, oran))
+        return (f'<div style="padding:5px 10px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03)">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+                f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:600">{ad}</span>'
+                f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:700;'
+                f'font-family:JetBrains Mono,monospace">{tutar_str}'
+                f'<span style="color:{RENK["silik"]};font-weight:500"> {sag_ek}</span></span></div>'
+                f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
+                f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div></div>')
 
-    # ── Destek / harcama kırılımı (tür bazlı) ──
-    st.markdown("#### 🎯 Destek / harcama kırılımı (tür bazlı)")
-    if not _tur_usd:
-        st.info("Bu dönemde havuz/ref no harcaması (destek) kaydı bulunamadı.")
+    # Pencere 1 — Destek kırılımı
+    if _tur_usd:
+        _dmax = max(_tur_usd.values()) or 1
+        _d_html = "".join(
+            _bar_satir(t, f"${v:,.0f}", v / _dmax * 100, RENK["pembe"],
+                       sag_ek=(f"· %{(v / toplam_destek * 100):.0f}" if toplam_destek else ""))
+            for t, v in sorted(_tur_usd.items(), key=lambda x: -x[1]))
     else:
-        import pandas as pd
-        _rows_t = []
-        for t, v in sorted(_tur_usd.items(), key=lambda x: -x[1]):
-            _rows_t.append({
-                "Kategori": t,
-                "Tutar (USD)": f"${v:,.0f}",
-                "Ciroya oran": (f"%{(v / ciro * 100):.1f}" if ciro else "—"),
-                "Toplam destekte pay": (f"%{(v / toplam_destek * 100):.1f}" if toplam_destek else "—"),
-            })
-        _rows_t.append({
-            "Kategori": "▸ TOPLAM",
-            "Tutar (USD)": f"${toplam_destek:,.0f}",
-            "Ciroya oran": (f"%{(toplam_destek / ciro * 100):.1f}" if ciro else "—"),
-            "Toplam destekte pay": "%100",
-        })
-        st.dataframe(pd.DataFrame(_rows_t), hide_index=True, use_container_width=True)
+        _d_html = bos_durum("Bu dönemde destek/harcama kaydı yok")
+    _p_destek = pencere("🎯 DESTEK KIRILIMI", RENK["pembe"], _d_html,
+                        rozet=_usd(toplam_destek), yukseklik=230)
 
-    # ── Kanal bazında satış ──
+    # Pencere 2 — Kanal bazında satış
     if kanal:
-        st.markdown("#### 🛒 Kanal bazında satış")
-        import pandas as pd
-        _rk = []
-        for kn, v in sorted(kanal.items(), key=lambda x: -x[1].get("ciro", 0)):
-            _rk.append({
-                "Kanal": kn,
-                "Ciro": _usd(v.get("ciro", 0)),
-                "Adet": int(v.get("adet", 0)),
-                "Satış Net Kâr": _usd(v.get("net_kar", 0)),
-            })
-        st.dataframe(pd.DataFrame(_rk), hide_index=True, use_container_width=True)
-        st.caption("Not: 'Satış Net Kâr' satış-içi birim destekleri yansıtır (operasyonel); "
-                   "resmi dönem net kârı için üstteki havuz/ref no destekleri esastır.")
+        _kmax = max((v.get("ciro", 0) for v in kanal.values()), default=1) or 1
+        _k_html = "".join(
+            _bar_satir(kn, _usd(v.get("ciro", 0)), v.get("ciro", 0) / _kmax * 100, RENK["mor"],
+                       sag_ek=f"· {int(v.get('adet', 0)):,} ad · NK {_usd(v.get('net_kar', 0))}")
+            for kn, v in sorted(kanal.items(), key=lambda x: -x[1].get("ciro", 0)))
+    else:
+        _k_html = bos_durum("Bu dönemde satış kaydı yok")
+    _p_kanal = pencere("🛒 KANAL BAZINDA SATIŞ", RENK["mor"], _k_html,
+                       rozet=f"{len(kanal)} kanal", yukseklik=230)
 
-    # ── Aylık Gider Tablosu (Sabit / Değişken / Yarı Değişken) ──
-    st.markdown("---")
-    st.markdown("### 🧾 Aylık Gider Tablosu")
-    st.caption("Sabit / Değişken / Yarı Değişken giderler · taslağı muhasebeye doldurtup yükle")
+    st.markdown(pencere_grid(_p_destek, _p_kanal), unsafe_allow_html=True)
+
+    # Gider verisi (pencere 3 için)
     _gider_anahtar = f"gider_tablosu_{_yil}"
     try:
         from kayranacc.database import get_ayar as _ga3, set_ayar as _sa3
@@ -411,7 +403,88 @@ def run():
         _ga3 = _sa3 = None
     _gider = _ga3(_gider_anahtar) if _ga3 else None
 
-    with st.expander(f"📤 {_yil} yılı gider tablosunu yükle (doldurulmuş taslak)", expanded=(not _gider)):
+    if _gider:
+        _kat = _gider.get("kat", {}) or {}
+
+        def _g12(k):
+            v = _kat.get(k, [0.0] * 12) or [0.0] * 12
+            return [float(x or 0) for x in (v + [0.0] * 12)[:12]]
+
+        if _donem in GIDER_AYLAR:
+            _gdx = GIDER_AYLAR.index(_donem)
+            _i0, _i1 = _gdx, _gdx + 1
+        else:
+            _i0, _i1 = {"Q1": (0, 3), "Q2": (3, 6), "Q3": (6, 9), "Q4": (9, 12)}.get(_donem, (0, 12))
+        _sabit = sum(_g12("Sabit")[_i0:_i1])
+        _degisken = sum(_g12("Değişken")[_i0:_i1])
+        _yari = sum(_g12("Yarı Değişken")[_i0:_i1])
+        _topgider = _sabit + _degisken + _yari
+        _gmax = max(_sabit, _degisken, _yari, 1)
+        _g_html = (
+            _bar_satir("Sabit", f"₺{_sabit:,.0f}", _sabit / _gmax * 100, "#60A5FA",
+                       sag_ek=(f"· %{(_sabit / _topgider * 100):.0f}" if _topgider else ""))
+            + _bar_satir("Değişken", f"₺{_degisken:,.0f}", _degisken / _gmax * 100, "#FB923C",
+                         sag_ek=(f"· %{(_degisken / _topgider * 100):.0f}" if _topgider else ""))
+            + _bar_satir("Yarı Değişken", f"₺{_yari:,.0f}", _yari / _gmax * 100, "#A78BFA",
+                         sag_ek=(f"· %{(_yari / _topgider * 100):.0f}" if _topgider else ""))
+            + f'<div style="display:flex;justify-content:space-between;padding:7px 10px;margin-top:5px;'
+              f'border-top:1px solid rgba(255,255,255,0.08)">'
+              f'<span style="color:{RENK["soluk"]};font-size:11px;font-weight:700;letter-spacing:.5px">TOPLAM ({_donem})</span>'
+              f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:800;'
+              f'font-family:JetBrains Mono,monospace">₺{_topgider:,.0f}</span></div>'
+            + f'<div style="color:{RENK["silik"]};font-size:10.5px;padding:2px 10px">'
+              f'≈ {_usd(gider_usd)} · yüklenme: {_gider.get("tarih", "")}</div>')
+    else:
+        _g_html = bos_durum(f"{_yil} gider tablosu yüklenmedi — aşağıdan yükleyebilirsin")
+    _p_gider = pencere("🧾 İŞLETME GİDERLERİ", RENK["kirmizi"], _g_html,
+                       rozet=str(_yil), yukseklik=230)
+
+    # Pencere 4 — Toplam Aktifler
+    try:
+        from kayranacc.database import get_ayar
+        _snap = get_ayar("toplam_aktif_snapshot")
+    except Exception:
+        _snap = None
+    if not _snap:
+        _a_html = bos_durum("Muhasebe → Toplam Aktifler işlenince burada görünür")
+        _a_rozet = ""
+    else:
+        _ta = float(_snap.get("toplam", 0) or 0)
+        _kur_s = float(_snap.get("kur", 0) or 0)
+        _a_rozet = str(_snap.get("tarih", ""))[:16]
+        _kalemler = [
+            ("📦 Stok değeri (×1.20)", _snap.get("stok", 0), "+"),
+            ("🚢 İthalat (ödenen)", _snap.get("ithalat", 0), "+"),
+            ("🏦 Banka (USD eşd.)", _snap.get("banka", 0), "+"),
+            ("📥 Cari alacak", _snap.get("alacak", 0), "+"),
+            ("💰 Havuz bütçe (net)", _snap.get("havuz", 0), "+"),
+            ("➕ Manuel ekleme", _snap.get("manuel_ekle", 0), "+"),
+            ("📤 Cari borç", _snap.get("borc", 0), "−"),
+            ("🧾 Çekler", _snap.get("cek", 0), "−"),
+            ("➖ Manuel çıkarma", _snap.get("manuel_cikar", 0), "−"),
+        ]
+        _kalem_html = "".join(
+            f'<div style="display:flex;justify-content:space-between;padding:4px 10px;margin:2px 0;'
+            f'border-radius:6px;background:rgba(255,255,255,0.03)">'
+            f'<span style="color:{RENK["metin"]};font-size:11.5px">{k}</span>'
+            f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:11.5px;'
+            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
+            for k, v, y in _kalemler if float(v or 0))
+        _a_html = (
+            f'<div style="text-align:center;padding:8px 0 10px;margin-bottom:6px;'
+            f'border-bottom:1px solid rgba(255,255,255,0.08)">'
+            f'<div style="font-size:27px;font-weight:800;color:#FFFFFF;'
+            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_ta:,.0f}</div>'
+            f'<div style="font-size:11.5px;color:{RENK["mor2"]};'
+            f'font-family:JetBrains Mono,monospace;margin-top:3px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
+            + _kalem_html)
+    _p_aktif = pencere("💎 TOPLAM AKTİFLER", RENK["mor"], _a_html, rozet=_a_rozet, yukseklik=230)
+
+    st.markdown(pencere_grid(_p_gider, _p_aktif), unsafe_allow_html=True)
+
+    # ═════════ ARAÇLAR — 4 pencere butonu ═════════
+    @st.dialog(f"📤 {_yil} Gider Tablosu Yükle", width="large")
+    def _dlg_gider_yukle():
         st.markdown("Boş taslağı muhasebene gönder; **sabit / değişken / yarı değişken** kalemleri "
                     "12 ay için doldurulup buraya `.xlsx` olarak yüklenir. Aynı yılı tekrar yüklersen güncellenir.")
         _gf = st.file_uploader("Doldurulmuş Gider Tablosu (.xlsx / .xls)", type=["xlsx", "xls"],
@@ -421,127 +494,63 @@ def run():
                 st.error("Önce doldurulmuş tabloyu yükle.")
             else:
                 try:
-                    _katp, _detayp = gider_tablosu_parse(_gf)
+                    with st.spinner("🧾 Gider tablosu işleniyor…"):
+                        _katp, _detayp = gider_tablosu_parse(_gf)
                     _yillik_top = sum(sum(v) for v in _katp.values())
                     if not _detayp or _yillik_top <= 0:
                         st.warning("⚠️ Dosya açıldı ama **hiç gider değeri okunamadı** — kayıt YAPILMADI. "
                                    "Kontrol et: (1) tutarlar ay kolonlarına (Ocak…Aralık) girilmiş mi, "
                                    "(2) hücreler sayı mı (formül sonucu da olur), "
-                                   "(3) veriler dosyanın İLK sayfasında/aynı düzende mi. "
-                                   "Dosyayı bana atarsan tam nedenini bulurum.")
+                                   "(3) veriler dosyanın İLK sayfasında/aynı düzende mi.")
                     else:
                         _kayit = {"kat": _katp, "detay": _detayp, "tarih": str(dt.date.today())}
                         if _sa3:
                             _sa3(_gider_anahtar, _kayit)
-                        _gider = _kayit
-                        st.success(f"✅ Gider tablosu işlendi: **{len(_detayp)} kalem** · "
-                                   f"yıllık toplam **₺{_yillik_top:,.0f}** kaydedildi.")
+                        st.success(f"✅ {len(_detayp)} kalem · yıllık ₺{_yillik_top:,.0f} kaydedildi.")
                         st.rerun()
                 except Exception as e:
                     st.error(f"Dosya işlenemedi: {e}")
 
-    if not _gider:
-        st.info("Bu yıl için gider tablosu yüklenmedi. Taslağı doldurup yükleyince aylık masraflar burada görünür.")
-    else:
-        _kat = _gider.get("kat", {}) or {}
-        AYLAR = GIDER_AYLAR
-
-        def _g12(k):
-            v = _kat.get(k, [0.0] * 12) or [0.0] * 12
-            return [float(x or 0) for x in (v + [0.0] * 12)[:12]]
-
-        if _donem in GIDER_AYLAR:
-            _gdx = GIDER_AYLAR.index(_donem)
-            _ay_aralik = (_gdx, _gdx + 1)
-        else:
-            _ay_aralik = {"Q1": (0, 3), "Q2": (3, 6), "Q3": (6, 9), "Q4": (9, 12)}.get(_donem, (0, 12))
-        _i0, _i1 = _ay_aralik
-        _sabit = sum(_g12("Sabit")[_i0:_i1])
-        _degisken = sum(_g12("Değişken")[_i0:_i1])
-        _yari = sum(_g12("Yarı Değişken")[_i0:_i1])
-        _topgider = _sabit + _degisken + _yari
-
-        def _tl(x):
-            return f"₺{x:,.0f}"
-
-        def _pay(x):
-            return f"%{(x / _topgider * 100):.1f} pay" if _topgider else "—"
-
-        st.markdown(f"**Seçili dönem ({_donem}) gider özeti**")
-        st.markdown(
-            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 14px">'
-            + _kart("Sabit Giderler", _tl(_sabit), _pay(_sabit), "#60A5FA")
-            + _kart("Değişken Giderler", _tl(_degisken), _pay(_degisken), "#FB923C")
-            + _kart("Yarı Değişken", _tl(_yari), _pay(_yari), "#A78BFA")
-            + _kart("TOPLAM GİDER", _tl(_topgider), f"{_donem} dönemi", "#F87171")
-            + '</div>', unsafe_allow_html=True)
-
+    @st.dialog("📅 Aylık Gider Dağılımı (₺)", width="large")
+    def _dlg_gider_aylik():
+        if not _gider:
+            st.info("Bu yıl için gider tablosu yüklenmedi.")
+            return
         import pandas as _pd_g
         _satirlar = []
         for _knm in ["Sabit", "Değişken", "Yarı Değişken"]:
             _vv = _g12(_knm)
             _row = {"Kategori": _knm}
-            for _idx, _a in enumerate(AYLAR):
+            for _idx, _a in enumerate(GIDER_AYLAR):
                 _row[_a] = f"{_vv[_idx]:,.0f}"
             _row["Yıllık"] = f"{sum(_vv):,.0f}"
             _satirlar.append(_row)
         _trow = {"Kategori": "TOPLAM"}
-        for _idx, _a in enumerate(AYLAR):
+        for _idx, _a in enumerate(GIDER_AYLAR):
             _trow[_a] = f"{(_g12('Sabit')[_idx] + _g12('Değişken')[_idx] + _g12('Yarı Değişken')[_idx]):,.0f}"
         _trow["Yıllık"] = f"{(sum(_g12('Sabit')) + sum(_g12('Değişken')) + sum(_g12('Yarı Değişken'))):,.0f}"
         _satirlar.append(_trow)
-        st.markdown("**Aylık gider dağılımı (₺)** — yatay kaydırılabilir")
-        st.dataframe(_pd_g.DataFrame(_satirlar), hide_index=True, use_container_width=True)
-        st.caption(f"📅 Yüklenme: {_gider.get('tarih','')} · Tutarlar TL.")
+        st.dataframe(_pd_g.DataFrame(_satirlar), hide_index=True, use_container_width=True,
+                     height=tablo_h(len(_satirlar)))
+        st.caption(f"📅 Yüklenme: {_gider.get('tarih', '')} · Tutarlar TL · yatay kaydırılabilir.")
 
-    # ── Toplam Aktifler (Muhasebe → snapshot, anlık) ──
-    # ── Değişiklik Günlüğü (Audit Log) ──
-    st.markdown("---")
-    with st.expander("🗂️ Değişiklik Günlüğü (Audit Log)", expanded=False):
+    @st.dialog("🗂️ Değişiklik Günlüğü (Audit Log)", width="large")
+    def _dlg_audit():
         _audit_render()
 
-    with st.expander("💾 Veri Yedekleme", expanded=False):
+    @st.dialog("💾 Veri Yedekleme", width="large")
+    def _dlg_yedek():
         _yedek_render()
 
-    st.markdown("---")
-    st.markdown("### 💎 Toplam Aktifler")
-    try:
-        from kayranacc.database import get_ayar
-        _snap = get_ayar("toplam_aktif_snapshot")
-    except Exception:
-        _snap = None
-    if not _snap:
-        st.info("Henüz toplam aktif verisi yok. Muhasebe & Finans → 'Toplam Aktifler' sayfasında "
-                "veriler işlendiğinde burada görünür.")
-    else:
-        _ta = float(_snap.get("toplam", 0) or 0)
-        _kur = float(_snap.get("kur", 0) or 0)
-        _tarih = _snap.get("tarih", "")
-        st.markdown(
-            f'<div style="background:linear-gradient(135deg,#93C5FD,#3730A3,#7C3AED);border-radius:18px;'
-            f'padding:26px 24px;text-align:center;margin:8px 0 12px;box-shadow:0 12px 32px rgba(30,64,175,0.25)">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C7D2FE;margin-bottom:8px">💎 TOPLAM AKTİFLERİNİZ</div>'
-            f'<div style="font-size:38px;font-weight:800;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${_ta:,.0f}</div>'
-            f'<div style="font-size:13px;color:#A5B4FC;margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{(_ta*_kur):,.0f} (kur: {_kur:g})</div>'
-            f'</div>', unsafe_allow_html=True)
-        st.caption(f"📅 Son güncelleme: {_tarih} · Muhasebe → 'Toplam Aktifler' sayfası her işlendiğinde otomatik yenilenir.")
-        import pandas as _pd_ta
-        _kalemler = [
-            ("📦 Stok değeri (×1.20)", _snap.get("stok", 0), "➕"),
-            ("🚢 İthalat (ödenen)", _snap.get("ithalat", 0), "➕"),
-            ("🏦 Banka (USD eşdeğeri)", _snap.get("banka", 0), "➕"),
-            ("📥 Cari alacak", _snap.get("alacak", 0), "➕"),
-            ("💰 Havuz bütçe (net)", _snap.get("havuz", 0), "➕"),
-            ("➕ Manuel ekleme", _snap.get("manuel_ekle", 0), "➕"),
-            ("📤 Cari borç", _snap.get("borc", 0), "➖"),
-            ("🧾 Çekler", _snap.get("cek", 0), "➖"),
-            ("➖ Manuel çıkarma", _snap.get("manuel_cikar", 0), "➖"),
-        ]
-        _rows_b = [{"Kalem": k, "Yön": y, "Tutar (USD)": f"${float(v or 0):,.0f}"}
-                   for k, v, y in _kalemler if float(v or 0)]
-        if _rows_b:
-            st.markdown("**Hesaplama detayı**")
-            st.dataframe(_pd_ta.DataFrame(_rows_b), hide_index=True, use_container_width=True)
+    b1, b2, b3, b4 = st.columns(4)
+    if b1.button(f"📤 Gider Tablosu Yükle ({_yil})", key="btn_yon_gider", use_container_width=True):
+        _dlg_gider_yukle()
+    if b2.button("📅 Aylık Gider Dağılımı", key="btn_yon_aylik", use_container_width=True):
+        _dlg_gider_aylik()
+    if b3.button("🗂️ Değişiklik Günlüğü", key="btn_yon_audit", use_container_width=True):
+        _dlg_audit()
+    if b4.button("💾 Veri Yedekleme", key="btn_yon_yedek", use_container_width=True):
+        _dlg_yedek()
 
 
 def _audit_render():
