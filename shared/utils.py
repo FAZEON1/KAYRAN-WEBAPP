@@ -241,49 +241,65 @@ def vade_durumu(vade_str: str) -> str:
 # ORTAK SIDEBAR (tüm modüllerde aynı modern navigasyon)
 # ════════════════════════════════════════════════════════════════════
 def sidebar_stil() -> str:
-    """st.radio sidebar navigasyonunu, metric kartlarıyla BİREBİR aynı görünüme çevirir.
-    Renkli sol şerit + renkli kalın yazı + koyu kart + yuvarlak köşe. Tüm modüllerde ortak."""
+    """Sidebar navigasyonu — 'sessiz lüks' tasarım (tüm modüllerde ortak).
+    Pasif maddeler sakin ve çerçevesiz; aktif madde gradyan aksan çubuğu,
+    yumuşak dolgu ve parıltıyla öne çıkar. Ana içerik radyoları segmented pill."""
     SB = 'section[data-testid="stSidebar"] div[role="radiogroup"]'
-    # Metric kartlarındaki palet (7'li, döngüsel)
-    _palet = ["#818CF8", "#34D399", "#FB923C", "#A78BFA", "#22D3EE", "#FBBF24", "#F472B6"]
-    _renk_kurallari = ""
-    for i, renk in enumerate(_palet, start=1):
-        _renk_kurallari += (
-            f'{SB} > label:nth-of-type(7n+{i}){{border-left-color:{renk} !important;}}'
-            f'{SB} > label:nth-of-type(7n+{i}) p{{color:{renk} !important;}}'
-            f'{SB} > label:nth-of-type(7n+{i}):has(input:checked){{'
-            f'background:linear-gradient(135deg,{renk}2E,{renk}14) !important;'
-            f'border-color:{renk}99 !important;box-shadow:0 2px 14px {renk}33 !important;}}'
-        )
     return f"""
     <style>
-    {SB}{{ display:flex; flex-direction:column; gap:8px; }}
+    {SB}{{ display:flex; flex-direction:column; gap:3px; padding:2px 0; }}
     {SB} > label{{
-        background:rgba(255,255,255,0.022) !important;
-        border:1px solid rgba(255,255,255,0.06) !important;
-        border-left:3px solid #818CF8 !important;
-        border-radius:13px !important;
-        padding:10px 14px !important;
+        position:relative;
+        background:transparent !important;
+        border:none !important;
+        border-radius:10px !important;
+        padding:9px 12px 9px 16px !important;
         margin:0 !important;
         width:100% !important;
         box-sizing:border-box !important;
         display:flex !important;
         align-items:center !important;
         cursor:pointer;
-        transition:background .15s ease, border-color .15s ease, transform .1s ease;
+        transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
     }}
-    {SB} > label:hover{{ background:rgba(255,255,255,0.05) !important; transform:translateX(1px); }}
+    /* Sol aksan çubuğu — pasifte gizli, aktifte gradyanla yaylanarak açılır */
+    {SB} > label::before{{
+        content:""; position:absolute; left:3px; top:24%; bottom:24%;
+        width:3px; border-radius:2px;
+        background:linear-gradient(180deg,#818CF8,#22D3EE);
+        opacity:0; transform:scaleY(.3);
+        transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.4,.64,1);
+    }}
+    {SB} > label:hover{{
+        background:rgba(255,255,255,0.045) !important;
+        transform:translateX(2px);
+    }}
     {SB} > label > div:first-child{{ display:none !important; }}
     {SB} label p{{
         font-family:Inter,sans-serif !important;
-        font-size:15px !important;
-        font-weight:800 !important;
-        letter-spacing:-0.2px !important;
+        font-size:13.5px !important;
+        font-weight:600 !important;
+        letter-spacing:0 !important;
+        color:#94A3B8 !important;
         font-variant-numeric:tabular-nums;
+        transition:color .18s ease;
     }}
-    {_renk_kurallari}
+    {SB} > label:hover p{{ color:#E2E8F0 !important; }}
+    {SB} > label:has(input:checked){{
+        background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(34,211,238,0.06) 65%,transparent) !important;
+        box-shadow:inset 0 0 0 1px rgba(129,140,248,0.28), 0 2px 12px rgba(99,102,241,0.18);
+        transform:translateX(2px);
+    }}
+    {SB} > label:has(input:checked)::before{{ opacity:1; transform:scaleY(1); }}
+    {SB} > label:has(input:checked) p{{
+        color:#FFFFFF !important; font-weight:700 !important;
+    }}
     section[data-testid="stSidebar"] [data-testid="stButton"] button{{
-        border-radius:13px !important; font-weight:700 !important;
+        border-radius:10px !important; font-weight:600 !important;
+    }}
+    section[data-testid="stSidebar"] hr{{
+        margin:10px 0 !important;
+        border-color:rgba(148,163,184,0.12) !important;
     }}
     </style>
     <style>
