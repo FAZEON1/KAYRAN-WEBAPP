@@ -45,7 +45,7 @@ KOVALAR = ["Vadesi gelmemiş", "0-30 gün", "31-60 gün", "61-90 gün", "90+ gü
 
 
 def render():
-    st.markdown("## 🧾 Cari Ekstre & Vade Yaşlandırma")
+    st.markdown('<div class="baslik">🧾 Cari Ekstre & Vade Yaşlandırma</div>', unsafe_allow_html=True)
     st.caption("Ödenecekler (tedarikçi/gider) tarafı — ödeme kayıtlarından üretilir. "
                "Müşteri alacağı için satışlara tahsilat takibi gerekir (henüz yok).")
 
@@ -71,9 +71,12 @@ def render():
         odenen_usd = sum(_f(o.get("tutar_usd")) for o in kayitlar if o.get("durum") == "odendi")
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("Açık Borç (TL)", _tl(acik_tl))
-        c2.metric("Açık Borç (USD)", _usd(acik_usd))
-        c3.metric("Ödenmiş (TL)", _tl(odenen_tl), help=f"USD: {_usd(odenen_usd)}")
+        from shared.utils import metrik_satiri as _ms
+        _ms([
+            {"label": "📤 Açık Borç (TL)", "value": _tl(acik_tl), "renk": "#F87171"},
+            {"label": "💵 Açık Borç (USD)", "value": _usd(acik_usd), "renk": "#FB923C"},
+            {"label": "✅ Ödenmiş (TL)", "value": _tl(odenen_tl), "renk": "#34D399", "alt": f"USD: {_usd(odenen_usd)}"},
+        ])
 
         # Gecikmiş açık kalem var mı?
         _gecikmis = [o for o in kayitlar if o.get("durum") != "odendi"
@@ -136,9 +139,9 @@ def render():
 
         # Üst kartlar: kova toplamları
         kova_top = {kk: sum(kv[kk] for kv in firma_kova.values()) for kk in KOVALAR}
-        cols = st.columns(len(KOVALAR))
-        for col, kk in zip(cols, KOVALAR):
-            col.metric(kk, _fmt(kova_top[kk]))
+        from shared.utils import metrik_satiri as _ms2, KART_PALET as _pal
+        _ms2([{"label": f"📅 {kk}", "value": _fmt(kova_top[kk]), "renk": _pal[i % len(_pal)]}
+              for i, kk in enumerate(KOVALAR)])
 
         _gecikmis_top = sum(kova_top[kk] for kk in ["0-30 gün", "31-60 gün", "61-90 gün", "90+ gün"])
         if _gecikmis_top > 0:
