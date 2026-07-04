@@ -353,7 +353,8 @@ def run():
 
             def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir):
                 """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown."""
-                with st.expander(_baslik):
+                @st.dialog(_baslik, width="large")
+                def _dlg_kanal_blok():
                     st.download_button("⬇️ Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
                                        f"SIPARIS_SABLON_{_key.upper()}.xlsx", mime=_XLSX_MIME,
                                        key=f"sg_sablon_{_key}")
@@ -394,6 +395,8 @@ def run():
                         if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
                             _sg_kaydet(_gecerli, _uz)
+                if st.button(_baslik, key=f"btn_kanal_{_key}", use_container_width=True):
+                    _dlg_kanal_blok()
 
             # 📊 Excel ile Toplu Satış — AÇILIR PENCERE
             @st.dialog("📊 Excel ile Toplu Satış", width="large")
@@ -401,7 +404,8 @@ def run():
                 st.caption("VATAN · EERA · DİĞER şablonlarından toplu sipariş yükle. "
                            "Her sekmeyi açıp ilgili Excel'i yükle, önizlemeyi kontrol et, kaydet.")
                 # 1) VATAN
-                with st.expander("📄 VATAN — Excel ile Toplu Sipariş"):
+                @st.dialog("📄 VATAN — Excel ile Toplu Sipariş", width="large")
+                def _dlg_vatan_toplu():
                     st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
                                        "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
                     st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
@@ -434,6 +438,8 @@ def run():
                                 if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                              key="sg_kaydet_vatan", disabled=not _gecerli):
                                     _sg_kaydet(_gecerli, _uzv)
+                if st.button("📄 VATAN — Excel ile Toplu Sipariş", key="btn_sat_vatan", use_container_width=True):
+                    _dlg_vatan_toplu()
 
                 # 2) EERA (İTOPYA) — kanal sabit
                 _eera_knl = next((k for k in _kanallar
@@ -727,7 +733,8 @@ def run():
             st.dataframe(pd.DataFrame(_rows_disp), hide_index=True, use_container_width=True, height=380,
                          column_config={"id": None,
                                         "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})
-            with st.expander("🗑️ Sil — kalem veya sipariş"):
+            @st.dialog("🗑️ Sil — kalem veya sipariş", width="large")
+            def _dlg_satis_sil():
                 _ds1, _ds2 = st.columns(2)
                 with _ds1:
                     _sec_sil = st.selectbox(
@@ -752,6 +759,8 @@ def run():
                                 st.error("Silinemedi.")
                     else:
                         st.caption("Sipariş no'lu kayıt yok.")
+            if st.button("🗑️ Sil — kalem veya sipariş", key="btn_sat_sil", use_container_width=True):
+                _dlg_satis_sil()
 
     # ───────────────────────── KÂR / P&L ─────────────────────────
     elif _ssayfa == "📊 Kâr / P&L":
@@ -866,7 +875,8 @@ def run():
                 st.caption("💧 Havuz desteği = bu dönemde firmalara **verilen** sellout/marketing bütçesi (Ref No "
                            "havuz girişleri); verildiği an gider yazılır, net kârdan düşülür. Firmaların bu bütçeden "
                            f"harcaması yalnızca **kalan** takibidir, kâra tekrar yansımaz.{_ek}")
-                with st.expander("💧 Havuz Desteği — firma kırılımı", expanded=False):
+                @st.dialog("💧 Havuz Desteği — firma kırılımı", width="large")
+                def _dlg_havuz_kirilim():
                     _hf = _hav.get("firmalar", [])
                     if not _hf:
                         st.caption("Bu dönemde havuz hareketi yok.")
@@ -877,6 +887,8 @@ def run():
                             "Verilen (gider)": _usd(f["verilen"]), "Kullanılan": _usd(f["kullanilan"]),
                             "Kalan havuz": _usd(f["kalan"]),
                         } for f in _hf]), use_container_width=True, hide_index=True)
+                if st.button("💧 Havuz Desteği — firma kırılımı", key="btn_sat_havuz", use_container_width=True):
+                    _dlg_havuz_kirilim()
             if _ref_usd > 0.005 and not _p_filtreli:
                 _net_ds = _net_havuzlu - _ref_usd
                 _nd_renk = "#34D399" if _net_ds > 0 else "#F87171"
@@ -938,7 +950,8 @@ def run():
             } for su, v in _ur]), hide_index=True, use_container_width=True, height=320)
 
             st.markdown("---")
-            with st.expander("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", expanded=False):
+            @st.dialog("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", width="large")
+            def _dlg_maliyet_fix():
                 st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
                            "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
                            "Mevcut DOĞRU maliyetlere dokunmaz — yalnız 0 olanları düzeltir.")
@@ -967,6 +980,8 @@ def run():
                             st.session_state.pop("_mlyt_onizle", None)
                             (st.success if _okm else st.error)(_msgm)
                             st.rerun()
+            if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
+                _dlg_maliyet_fix()
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":
@@ -1059,7 +1074,8 @@ def run():
         st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
                    "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
 
-        with st.expander("➕ Manuel İade Girişi", expanded=False):
+        @st.dialog("➕ Manuel İade Girişi", width="large")
+        def _dlg_manuel_iade():
             ig1, ig2, ig3 = st.columns(3)
             _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih")
             _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
@@ -1079,8 +1095,11 @@ def run():
                     if _ok:
                         st.cache_data.clear()
                         st.rerun()
+        if st.button("➕ Manuel İade Girişi", key="btn_sat_miade", use_container_width=True):
+            _dlg_manuel_iade()
 
-        with st.expander("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", expanded=False):
+        @st.dialog("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", width="large")
+        def _dlg_kanal_iade():
             st.caption("Aslında satış olmayan (ör. tedarikçiden alınıp geri iade edilen) ama yanlışlıkla satış "
                        "girilmiş kalemler için: seçtiğin kanalın **her satışına eşit bir iade** kaydı oluşturur; "
                        "böylece o kanalın net cirosu ve kârı **sıfırlanır** (satış kaydı listede kalır, iade onu netler). "
@@ -1119,8 +1138,11 @@ def run():
                     st.cache_data.clear()
                     st.success(f"✅ {_cn} satış için iade oluşturuldu. '{_cev_kanal}' kanalı net ciro/kârda ~0'a indi.")
                     st.rerun()
+        if st.button("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", key="btn_sat_kiade", use_container_width=True):
+            _dlg_kanal_iade()
 
-        with st.expander("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", expanded=False):
+        @st.dialog("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", width="large")
+        def _dlg_toplu_iade():
             st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
                        "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
             _ie_dosya = st.file_uploader("İade Excel'i (.xls / .xlsx)", type=["xls", "xlsx"], key="iade_excel")
@@ -1161,6 +1183,8 @@ def run():
                             st.success(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                             st.cache_data.clear()
                             st.rerun()
+        if st.button("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", key="btn_sat_tiade", use_container_width=True):
+            _dlg_toplu_iade()
 
         st.markdown("---")
         _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
@@ -1227,7 +1251,8 @@ def run():
                         st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
                         st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
 
-        with st.expander("🗂️ İade Kayıtları (sil)", expanded=False):
+        @st.dialog("🗂️ İade Kayıtları (sil)", width="large")
+        def _dlg_iade_kayit():
             _kayitlar = get_iadeler(_ib, _ibit)
             if not _kayitlar:
                 st.caption("Kayıt yok.")
@@ -1246,3 +1271,5 @@ def run():
                         st.rerun()
                     else:
                         st.error("Silinemedi.")
+        if st.button("🗂️ İade Kayıtları (sil)", key="btn_sat_ikayit", use_container_width=True):
+            _dlg_iade_kayit()
