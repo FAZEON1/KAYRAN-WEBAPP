@@ -563,7 +563,7 @@ def _gecmis_ithalatlar():
         _df_show, hide_index=True, height=420,
         on_select="rerun", selection_mode="multi-row", key="ith_gecmis_df",
     )
-    st.caption("👆 **1 satır** seç → detay/masraf/düzenleme açılır.  ·  **2+ satır** seç (kutucuklarla) "
+    st.caption("👆 **1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (kutucuklarla) "
                "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
 
     try:
@@ -784,347 +784,351 @@ def _gecmis_ithalatlar():
                 st.error(_msg_d)
         return
 
-    # ── Tek satır seçili → detay & düzenleme ──
-    did = dosyalar_goster[_sel[0]]["id"]
-    d, kal, h = hesap_map[did]
+    # ── Tek satır seçili → detay & düzenleme (AÇILIR PENCERE) ──
+    @st.dialog("📋 İthalat Dosyası — Detay · Masraf · Düzenle", width="large")
+    def _dlg_dosya_detay():
+        did = dosyalar_goster[_sel[0]]["id"]
+        d, kal, h = hesap_map[did]
 
-    st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
-    _sip_t = gun_ay_yil(d.get("tarih")) or "—"
-    _tes_t = gun_ay_yil(d.get("teslim_tarihi"))
-    _tes_d = str(d.get("teslim_deposu", "") or "")
-    st.markdown(
-        f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">'
-        f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
-        + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#64748B">—</b>')
-        + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
-        + (f' · 🚢 Teslim Şekli: <b style="color:#E2E8F0">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
-        + '</div>', unsafe_allow_html=True)
-    _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
-    _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
-    st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#38BDF8" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#A78BFA" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
+        _sip_t = gun_ay_yil(d.get("tarih")) or "—"
+        _tes_t = gun_ay_yil(d.get("teslim_tarihi"))
+        _tes_d = str(d.get("teslim_deposu", "") or "")
+        st.markdown(
+            f'<div style="color:#94A3B8;font-size:12px;margin-bottom:6px">'
+            f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
+            + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#64748B">—</b>')
+            + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
+            + (f' · 🚢 Teslim Şekli: <b style="color:#E2E8F0">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
+            + '</div>', unsafe_allow_html=True)
+        _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
+        _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
+        st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:6px 12px;margin:2px 0 12px;color:{_dr_renk};font-size:12px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
 
-    # ── Yanlış / boş açılan ithalatı sil (onaylı) ──
-    _sok = f"ith_sil_onay_{did}"
-    _scc1, _scc2 = st.columns([3, 1])
-    with _scc2:
-        if st.button("🗑️ Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True):
-            st.session_state[_sok] = True
-    if st.session_state.get(_sok):
-        _ad_g = d.get("dosya_no", "") or d.get("pi_no", "") or "—"
-        st.warning(f"**{_ad_g}** ithalat dosyası ve tüm kalemleri kalıcı olarak silinecek. Emin misin?")
-        _del1, _del2 = st.columns(2)
-        if _del1.button("✅ Evet, sil", key=f"ith_sile_{did}", use_container_width=True, type="primary"):
-            if sil_dosya(did):
-                st.session_state.pop(_sok, None)
-                st.cache_data.clear()
-                st.success("✅ İthalat silindi.")
-                st.rerun()
-            else:
-                st.error("Silinemedi.")
-        if _del2.button("Vazgeç", key=f"ith_silv_{did}", use_container_width=True):
-            st.session_state.pop(_sok, None)
-            st.rerun()
-
-    # Bu belge bir takip no'ya aitse → o ithalatın (takibin) BİRLEŞİK % maliyetini üstte göster
-    _bu_takip = str(d.get("ithalat_takip_no", "") or "").strip()
-    if _bu_takip:
-        _tk_dosyalar = [x for x in dosyalar if str(x.get("ithalat_takip_no", "") or "").strip() == _bu_takip]
-        if len(_tk_dosyalar) >= 2:
-            _tk_mal = sum(hesap_map[x["id"]][2]["net_mal_bedeli"] for x in _tk_dosyalar)
-            _tk_mas = sum(hesap_map[x["id"]][2]["toplam_masraf"] for x in _tk_dosyalar)
-            _tk_yuzde = (_tk_mas / _tk_mal * 100) if _tk_mal > 0 else 0.0
-            st.markdown(
-                f'<div style="background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.28);'
-                f'border-radius:10px;padding:9px 14px;margin:0 0 12px;font-size:12.5px;color:#FCD34D">'
-                f'🔗 Bu takip no\'ya (<b>{_bu_takip}</b>) ait <b>{len(_tk_dosyalar)}</b> belgenin '
-                f'<b>Birleşik % Maliyeti: %{_tk_yuzde:.2f}</b> '
-                f'<span style="color:#94A3B8">· toplam masraf {_tam(_tk_mas)} / toplam mal bedeli {_tam(_tk_mal)}</span></div>',
-                unsafe_allow_html=True)
-    _masraf_karti(d, h)
-    _dokum = masraf_dokumu(d)
-    if _dokum:
-        st.caption(
-            "Masraf kalemleri → "
-            + " · ".join(f"{ad}: {_tam(tutar)}" for ad, tutar in _dokum)
-            + f" · Kur: {float(d.get('kur', 1) or 1):,.5f}"
-        )
-    else:
-        st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.5f}")
-
-    y = h["maliyet_yuzde"] / 100
-    _ind_oran = (h.get("indirim", 0.0) / h["mal_bedeli"]) if h.get("mal_bedeli", 0) > 0 else 0.0
-    krows = []
-    for k in kal:
-        adet = float(k.get("adet", 0) or 0)
-        bf = float(k.get("birim_fob", 0) or 0) * (1 - _ind_oran)  # indirim sonrası NET birim FOB
-        st_tutar = adet * bf
-        krows.append({
-            "SKU": k.get("sku", ""),
-            "Ürün": (k.get("urun_adi", "") or katalog.get(k.get("sku", ""), "")),
-            "Adet": adet,
-            "Birim FOB": bf,
-            "Satır Tutar": st_tutar,
-            "Dağıtılan Masraf": st_tutar * y,
-            "Final Birim Maliyet": bf * (1 + y),
-            "% Maliyet": h["maliyet_yuzde"],
-        })
-    if _ind_oran > 0:
-        st.caption(f"ℹ️ Fatura altı indirim (%{_ind_oran*100:.2f}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
-    _tablo(pd.DataFrame(krows),
-           para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
-           yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
-
-    # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
-    @st.dialog("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", width="large")
-    def _dlg_dosya_duzen():
-        # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
-        _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
-        _md = _masraf_dict(d)
-        _brut_mb = sum(float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0) for k in kal)
-        _cur_dv = str(d.get("doviz", "USD") or "USD")
-        _cs, _cr = st.columns([2.05, 1])
-        with _cs:
-            _ik = f"ith_edit_indirim_{did}"
-            _iv0 = float(d.get("fatura_indirim", 0) or 0)
-            st.session_state.setdefault(_ik, (_iv0 if _iv0 > 0 else None))
-            e_indirim = st.number_input(
-                "Fatura Altı İndirim (tutar)", min_value=0.0,
-                value=None, step=1.0, format="%.2f",
-                key=_ik,
-                help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
-            e_masraf = {}
-            for _slug, _label in MASRAF_TANIM:
-                _lc, _ic = st.columns([1, 1.4])
-                _lc.markdown(
-                    f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
-                    f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
-                _mv = float(_md.get(_slug, 0) or 0)
-                _mk = f"ith_edit_mas_{did}_{_slug}"
-                st.session_state.setdefault(_mk, (_mv if _mv > 0 else None))
-                e_masraf[_slug] = _ic.number_input(
-                    _label, min_value=0.0, value=None,
-                    step=1.0, format="%.2f", placeholder="0,00",
-                    label_visibility="collapsed", key=_mk)
-        with _cr:
-            e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
-                                    value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f",
-                                    key=f"ith_edit_kur_{did}")
-            _ind_v = float(e_indirim or 0)
-            _net_mb = max(_brut_mb - _ind_v, 0.0)
-            _mas_v = sum(float(_v or 0) for _v in e_masraf.values())
-            _yuzde_v = (_mas_v / _net_mb * 100) if _net_mb > 0 else 0.0
-            _ind_row = (
-                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura İndirim</div>'
-                f'<div style="font-size:13px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">−{_tam(_ind_v)} {_cur_dv}</div>'
-            ) if _ind_v > 0 else ""
-            st.markdown(
-                '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
-                'border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5">'
-                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
-                f'<div style="font-size:15px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_tam(_net_mb)} {_cur_dv}</div>'
-                + _ind_row +
-                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
-                f'<div style="font-size:15px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
-                '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
-                f'<div style="font-size:18px;font-weight:800;color:#FCD34D;font-family:monospace">%{_yuzde_v:.2f}</div>'
-                '</div>', unsafe_allow_html=True)
-        st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
-                   "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
-        st.caption("🧹 **Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
-                   "artık geri gelmez. *(bu satırı görüyorsan güncel sürüm yüklüdür)*")
-        _md_dolu = {s: v for s, v in _masraf_dict(d).items() if v}
-        if _md_dolu:
-            with st.expander("🧹 Masraf Kalemi Sıfırla (kesin silme — kutu boşaltmadan)", expanded=False):
-                st.caption("Kutu boşaltma çalışmazsa buradan sil: kalemi seç → düğmeye bas. "
-                           "Doğrudan veritabanından silinir, geri gelmez.")
-                _ms_sec = st.multiselect(
-                    "Sıfırlanacak masraf kalem(ler)i",
-                    list(_md_dolu.keys()),
-                    format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {_md_dolu[s]:,.2f}",
-                    key=f"ith_ms_sifirla_{did}")
-                if st.button("🧹 Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
-                             disabled=not _ms_sec):
-                    _ok2, _msg2 = masraf_sifirla(did, _ms_sec)
-                    if _ok2:
-                        for _sk in [k for k in list(st.session_state.keys())
-                                    if k.startswith(f"ith_edit_mas_{did}_")]:
-                            st.session_state.pop(_sk, None)
-                        st.success(_msg2)
-                        st.rerun()
-                    else:
-                        st.error(_msg2)
-        st.markdown("---")
-        with st.form(f"ith_edit_{did}"):
-            _alt_baslik("📄 Dosya Bilgileri")
-            ec1, ec2, ec3 = st.columns(3)
-            e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
-            e_dno = ec1.text_input("Dosya No", value=str(d.get("dosya_no", "") or ""))
-            e_sas = ec1.text_input("SAS No", value=str(d.get("sas_no", "") or ""))
-            e_ted = ec2.text_input("Tedarikçi", value=str(d.get("tedarikci", "") or ""))
-            _inc_cur = str(d.get("teslim_sekli", "") or "")
-            _inc_opts = INCOTERM_SECENEKLER + ([_inc_cur] if _inc_cur and _inc_cur not in INCOTERM_SECENEKLER else [])
-            e_teslim_sekli = ec2.selectbox("Teslim Şekli (Incoterm)", _inc_opts,
-                index=_inc_opts.index(_inc_cur) if _inc_cur in _inc_opts else 0,
-                key=f"ith_edit_inc_{did}")
-            e_mense = ""
-            _dv_list = ["USD", "EUR", "CNY", "TL"]
-            _dv = str(d.get("doviz", "USD") or "USD")
-            e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
-            e_takip = ec3.text_input("İthalat Takip No", value=str(d.get("ithalat_takip_no", "") or ""),
-                                     help="Masrafı giren kişinin kendi takibi için")
-            try:
-                _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
-            except Exception:
-                _td = date.today()
-            e_tarih = ec1.date_input("Sipariş Tarihi", value=_td)
-            e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
-
-            # Aşama (durum) + tahmini varış
-            _alt_baslik("🚚 Aşama / Durum · tahmini varış")
-            _cur_durum = str(d.get("durum", "") or "").strip()
-            _durum_idx = (DURUM_SECENEKLER.index(_cur_durum) if _cur_durum in DURUM_SECENEKLER
-                          else DURUM_SECENEKLER.index(VARSAYILAN_DURUM))
-            dcc1, dcc2 = st.columns([2.4, 1])
-            with dcc1:
-                e_durum = st.radio("durum_e", DURUM_SECENEKLER, index=_durum_idx,
-                                   horizontal=True, label_visibility="collapsed",
-                                   key=f"ith_edit_durum_{did}")
-            with dcc2:
-                if e_durum in IN_TRANSIT_DURUMLAR:
-                    try:
-                        _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
-                    except Exception:
-                        _tv = date.today()
-                    e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
-                else:
-                    e_tahmini_varis = None
-                    st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
-                    st.caption("✅ Teslim alındı — tahmini varış gerekmez.")
-            st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
-                       "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
-
-            _alt_baslik("📦 Teslim — ürün depoya girdiğinde doldur (stok yaşı bu tarihten sayılır)")
-            tcc1, tcc2 = st.columns([1, 1.6])
-            try:
-                _tt = date.fromisoformat(str(d.get("teslim_tarihi", "") or "")[:10])
-            except Exception:
-                _tt = None
-            e_teslim_tarihi = tcc1.date_input("Teslim Tarihi", value=_tt, key=f"ith_edit_tt_{did}",
-                                              format="YYYY-MM-DD")
-            _td_cur = str(d.get("teslim_deposu", "") or "")
-            _td_opts = DEPO_SECENEKLER + ([_td_cur] if _td_cur and _td_cur not in DEPO_SECENEKLER else [])
-            _e_td_sec = tcc2.selectbox("Teslim Deposu", _td_opts,
-                index=_td_opts.index(_td_cur) if _td_cur in _td_opts else 0,
-                key=f"ith_edit_td_{did}")
-            e_teslim_deposu = "" if str(_e_td_sec).startswith("(") else _e_td_sec
-
-            _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
-            _kdf = pd.DataFrame([
-                {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0),
-                 "Birim FOB": float(k.get("birim_fob", 0) or 0), "Sil": False}
-                for k in kal
-            ])
-            if _kdf.empty:
-                _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0, "Sil": False}])
-            _sku_secenek = sorted(set(katalog.keys()) | {str(k.get("sku", "")) for k in kal if k.get("sku")})
-            e_kdf = st.data_editor(
-                _kdf, num_rows="dynamic", use_container_width=True, key=f"ith_edit_kal_{did}",
-                column_config={
-                    "SKU": st.column_config.SelectboxColumn("SKU", options=_sku_secenek, required=False),
-                    "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
-                    "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
-                    "Sil": st.column_config.CheckboxColumn(
-                        "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
-                },
-            )
-            st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
-                       "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
-
-            _alt_baslik("🆕 Yeni Stok Kartı ile Satır Ekle · katalogda olmayan ürün")
-            st.caption("Katalogda olmayan bir ürünü bu dosyaya eklemek için doldur — Kaydet'e basınca "
-                       "hem dosyaya kalem olarak eklenir hem de **yeni stok kartı** (SKU + ürün adı + barkod) açılır. "
-                       "Boş bırakılan satırlar yok sayılır.")
-            _manuel_yeni = []
-            _mver = st.session_state.setdefault(f"ith_edit_mver_{did}", 0)
-            for _mi in range(2):
-                _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([1.2, 2, 1.2, 0.8, 1])
-                _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}_{_mver}",
-                                        placeholder="örn. RMA-CE01", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}_{_mver}",
-                                       placeholder="örn. Sertifikasyon Bedeli", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _mbk = _mc3.text_input("Barkod (ops.)", key=f"ith_edit_mbk_{did}_{_mi}_{_mver}",
-                                       placeholder="barkod", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _madet = _mc4.number_input("Adet", min_value=0, value=0, step=1,
-                                           key=f"ith_edit_madet_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
-                                          key=f"ith_edit_mfob_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                if _msku.strip() and _madet > 0:
-                    _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
-                                         "barkod": _mbk.strip(), "adet": float(_madet),
-                                         "birim_fob": float(_mfob)})
-
-            st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
-
-            if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
-                if e_durum == "Teslim Alındı" and not (e_teslim_deposu or "").strip():
-                    st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
-                    st.stop()
-                _kal_ad = {str(k.get("sku", "")).strip(): (k.get("urun_adi") or "") for k in kal}
-                _yeni_kal = []
-                for _, _r in e_kdf.iterrows():
-                    if _r.get("Sil"):
-                        continue
-                    _sku = str(_r.get("SKU", "") or "").strip()
-                    if not _sku:
-                        continue
-                    _yeni_kal.append({"sku": _sku,
-                                      "urun_adi": (katalog.get(_sku, "") or _kal_ad.get(_sku, "")),
-                                      "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
-                for _m in _manuel_yeni:  # yeni stok kartlı satırlar
-                    _yeni_kal.append({"sku": _m["sku"], "urun_adi": _m["urun_adi"],
-                                      "adet": _m["adet"], "birim_fob": _m["birim_fob"]})
-                with st.spinner("💾 Kaydediliyor..."):
-                    ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
-                                             e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
-                                             ithalat_takip_no=e_takip.strip(),
-                                             durum=e_durum,
-                                             tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
-                                             fatura_indirim=e_indirim,
-                                             teslim_tarihi=(e_teslim_tarihi.isoformat() if e_teslim_tarihi else ""),
-                                             teslim_deposu=e_teslim_deposu,
-                                             teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
-                                             sas_no=e_sas.strip())
-                if ok:
-                    st.session_state[f"ith_edit_mver_{did}"] = _mver + 1  # 🆕 manuel SKU alanlarını temizle
-                    if _manuel_yeni:
-                        try:
-                            _n, _hata = urun_bilgi_toplu_yukle(
-                                [{"sku": m["sku"], "urun_adi": m["urun_adi"], "barkod": m["barkod"]}
-                                 for m in _manuel_yeni])
-                            if _n:
-                                st.toast(f"🆕 {_n} yeni stok kartı açıldı", icon="🆕")
-                        except Exception:
-                            pass
-                    for _sk in [k for k in list(st.session_state.keys())
-                                if k in (f"ith_edit_indirim_{did}", f"ith_edit_kur_{did}")
-                                or k.startswith(f"ith_edit_mas_{did}_")
-                                or k.startswith(f"ith_edit_msku_{did}_")
-                                or k.startswith(f"ith_edit_mad_{did}_")
-                                or k.startswith(f"ith_edit_mbk_{did}_")
-                                or k.startswith(f"ith_edit_madet_{did}_")
-                                or k.startswith(f"ith_edit_mfob_{did}_")]:
-                        st.session_state.pop(_sk, None)
-                    st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
+        # ── Yanlış / boş açılan ithalatı sil (onaylı) ──
+        _sok = f"ith_sil_onay_{did}"
+        _scc1, _scc2 = st.columns([3, 1])
+        with _scc2:
+            if st.button("🗑️ Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True):
+                st.session_state[_sok] = True
+        if st.session_state.get(_sok):
+            _ad_g = d.get("dosya_no", "") or d.get("pi_no", "") or "—"
+            st.warning(f"**{_ad_g}** ithalat dosyası ve tüm kalemleri kalıcı olarak silinecek. Emin misin?")
+            _del1, _del2 = st.columns(2)
+            if _del1.button("✅ Evet, sil", key=f"ith_sile_{did}", use_container_width=True, type="primary"):
+                if sil_dosya(did):
+                    st.session_state.pop(_sok, None)
+                    st.cache_data.clear()
+                    st.success("✅ İthalat silindi.")
                     st.rerun()
                 else:
-                    st.error(msg)
-    if st.button("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key="btn_ith_duzen", use_container_width=True):
-        _dlg_dosya_duzen()
+                    st.error("Silinemedi.")
+            if _del2.button("Vazgeç", key=f"ith_silv_{did}", use_container_width=True):
+                st.session_state.pop(_sok, None)
+                st.rerun()
+
+        # Bu belge bir takip no'ya aitse → o ithalatın (takibin) BİRLEŞİK % maliyetini üstte göster
+        _bu_takip = str(d.get("ithalat_takip_no", "") or "").strip()
+        if _bu_takip:
+            _tk_dosyalar = [x for x in dosyalar if str(x.get("ithalat_takip_no", "") or "").strip() == _bu_takip]
+            if len(_tk_dosyalar) >= 2:
+                _tk_mal = sum(hesap_map[x["id"]][2]["net_mal_bedeli"] for x in _tk_dosyalar)
+                _tk_mas = sum(hesap_map[x["id"]][2]["toplam_masraf"] for x in _tk_dosyalar)
+                _tk_yuzde = (_tk_mas / _tk_mal * 100) if _tk_mal > 0 else 0.0
+                st.markdown(
+                    f'<div style="background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.28);'
+                    f'border-radius:10px;padding:9px 14px;margin:0 0 12px;font-size:12.5px;color:#FCD34D">'
+                    f'🔗 Bu takip no\'ya (<b>{_bu_takip}</b>) ait <b>{len(_tk_dosyalar)}</b> belgenin '
+                    f'<b>Birleşik % Maliyeti: %{_tk_yuzde:.2f}</b> '
+                    f'<span style="color:#94A3B8">· toplam masraf {_tam(_tk_mas)} / toplam mal bedeli {_tam(_tk_mal)}</span></div>',
+                    unsafe_allow_html=True)
+        _masraf_karti(d, h)
+        _dokum = masraf_dokumu(d)
+        if _dokum:
+            st.caption(
+                "Masraf kalemleri → "
+                + " · ".join(f"{ad}: {_tam(tutar)}" for ad, tutar in _dokum)
+                + f" · Kur: {float(d.get('kur', 1) or 1):,.5f}"
+            )
+        else:
+            st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.5f}")
+
+        y = h["maliyet_yuzde"] / 100
+        _ind_oran = (h.get("indirim", 0.0) / h["mal_bedeli"]) if h.get("mal_bedeli", 0) > 0 else 0.0
+        krows = []
+        for k in kal:
+            adet = float(k.get("adet", 0) or 0)
+            bf = float(k.get("birim_fob", 0) or 0) * (1 - _ind_oran)  # indirim sonrası NET birim FOB
+            st_tutar = adet * bf
+            krows.append({
+                "SKU": k.get("sku", ""),
+                "Ürün": (k.get("urun_adi", "") or katalog.get(k.get("sku", ""), "")),
+                "Adet": adet,
+                "Birim FOB": bf,
+                "Satır Tutar": st_tutar,
+                "Dağıtılan Masraf": st_tutar * y,
+                "Final Birim Maliyet": bf * (1 + y),
+                "% Maliyet": h["maliyet_yuzde"],
+            })
+        if _ind_oran > 0:
+            st.caption(f"ℹ️ Fatura altı indirim (%{_ind_oran*100:.2f}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
+        _tablo(pd.DataFrame(krows),
+               para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
+               yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
+
+        # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) ──
+        @st.dialog("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", width="large")
+        def _dlg_dosya_duzen():
+            # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
+            _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
+            _md = _masraf_dict(d)
+            _brut_mb = sum(float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0) for k in kal)
+            _cur_dv = str(d.get("doviz", "USD") or "USD")
+            _cs, _cr = st.columns([2.05, 1])
+            with _cs:
+                _ik = f"ith_edit_indirim_{did}"
+                _iv0 = float(d.get("fatura_indirim", 0) or 0)
+                st.session_state.setdefault(_ik, (_iv0 if _iv0 > 0 else None))
+                e_indirim = st.number_input(
+                    "Fatura Altı İndirim (tutar)", min_value=0.0,
+                    value=None, step=1.0, format="%.2f",
+                    key=_ik,
+                    help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
+                e_masraf = {}
+                for _slug, _label in MASRAF_TANIM:
+                    _lc, _ic = st.columns([1, 1.4])
+                    _lc.markdown(
+                        f'<div style="padding-top:9px;font-size:12.5px;color:#CBD5E1;font-weight:600;'
+                        f'text-align:right;padding-right:10px">{_label}</div>', unsafe_allow_html=True)
+                    _mv = float(_md.get(_slug, 0) or 0)
+                    _mk = f"ith_edit_mas_{did}_{_slug}"
+                    st.session_state.setdefault(_mk, (_mv if _mv > 0 else None))
+                    e_masraf[_slug] = _ic.number_input(
+                        _label, min_value=0.0, value=None,
+                        step=1.0, format="%.2f", placeholder="0,00",
+                        label_visibility="collapsed", key=_mk)
+            with _cr:
+                e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
+                                        value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f",
+                                        key=f"ith_edit_kur_{did}")
+                _ind_v = float(e_indirim or 0)
+                _net_mb = max(_brut_mb - _ind_v, 0.0)
+                _mas_v = sum(float(_v or 0) for _v in e_masraf.values())
+                _yuzde_v = (_mas_v / _net_mb * 100) if _net_mb > 0 else 0.0
+                _ind_row = (
+                    '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura İndirim</div>'
+                    f'<div style="font-size:13px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">−{_tam(_ind_v)} {_cur_dv}</div>'
+                ) if _ind_v > 0 else ""
+                st.markdown(
+                    '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
+                    'border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5">'
+                    '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
+                    f'<div style="font-size:15px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_tam(_net_mb)} {_cur_dv}</div>'
+                    + _ind_row +
+                    '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
+                    f'<div style="font-size:15px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
+                    '<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
+                    f'<div style="font-size:18px;font-weight:800;color:#FCD34D;font-family:monospace">%{_yuzde_v:.2f}</div>'
+                    '</div>', unsafe_allow_html=True)
+            st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
+                       "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
+            st.caption("🧹 **Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
+                       "artık geri gelmez. *(bu satırı görüyorsan güncel sürüm yüklüdür)*")
+            _md_dolu = {s: v for s, v in _masraf_dict(d).items() if v}
+            if _md_dolu:
+                with st.expander("🧹 Masraf Kalemi Sıfırla (kesin silme — kutu boşaltmadan)", expanded=False):
+                    st.caption("Kutu boşaltma çalışmazsa buradan sil: kalemi seç → düğmeye bas. "
+                               "Doğrudan veritabanından silinir, geri gelmez.")
+                    _ms_sec = st.multiselect(
+                        "Sıfırlanacak masraf kalem(ler)i",
+                        list(_md_dolu.keys()),
+                        format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {_md_dolu[s]:,.2f}",
+                        key=f"ith_ms_sifirla_{did}")
+                    if st.button("🧹 Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
+                                 disabled=not _ms_sec):
+                        _ok2, _msg2 = masraf_sifirla(did, _ms_sec)
+                        if _ok2:
+                            for _sk in [k for k in list(st.session_state.keys())
+                                        if k.startswith(f"ith_edit_mas_{did}_")]:
+                                st.session_state.pop(_sk, None)
+                            st.success(_msg2)
+                            st.rerun()
+                        else:
+                            st.error(_msg2)
+            st.markdown("---")
+            with st.form(f"ith_edit_{did}"):
+                _alt_baslik("📄 Dosya Bilgileri")
+                ec1, ec2, ec3 = st.columns(3)
+                e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
+                e_dno = ec1.text_input("Dosya No", value=str(d.get("dosya_no", "") or ""))
+                e_sas = ec1.text_input("SAS No", value=str(d.get("sas_no", "") or ""))
+                e_ted = ec2.text_input("Tedarikçi", value=str(d.get("tedarikci", "") or ""))
+                _inc_cur = str(d.get("teslim_sekli", "") or "")
+                _inc_opts = INCOTERM_SECENEKLER + ([_inc_cur] if _inc_cur and _inc_cur not in INCOTERM_SECENEKLER else [])
+                e_teslim_sekli = ec2.selectbox("Teslim Şekli (Incoterm)", _inc_opts,
+                    index=_inc_opts.index(_inc_cur) if _inc_cur in _inc_opts else 0,
+                    key=f"ith_edit_inc_{did}")
+                e_mense = ""
+                _dv_list = ["USD", "EUR", "CNY", "TL"]
+                _dv = str(d.get("doviz", "USD") or "USD")
+                e_doviz = ec3.selectbox("Döviz", _dv_list, index=_dv_list.index(_dv) if _dv in _dv_list else 0)
+                e_takip = ec3.text_input("İthalat Takip No", value=str(d.get("ithalat_takip_no", "") or ""),
+                                         help="Masrafı giren kişinin kendi takibi için")
+                try:
+                    _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
+                except Exception:
+                    _td = date.today()
+                e_tarih = ec1.date_input("Sipariş Tarihi", value=_td)
+                e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
+
+                # Aşama (durum) + tahmini varış
+                _alt_baslik("🚚 Aşama / Durum · tahmini varış")
+                _cur_durum = str(d.get("durum", "") or "").strip()
+                _durum_idx = (DURUM_SECENEKLER.index(_cur_durum) if _cur_durum in DURUM_SECENEKLER
+                              else DURUM_SECENEKLER.index(VARSAYILAN_DURUM))
+                dcc1, dcc2 = st.columns([2.4, 1])
+                with dcc1:
+                    e_durum = st.radio("durum_e", DURUM_SECENEKLER, index=_durum_idx,
+                                       horizontal=True, label_visibility="collapsed",
+                                       key=f"ith_edit_durum_{did}")
+                with dcc2:
+                    if e_durum in IN_TRANSIT_DURUMLAR:
+                        try:
+                            _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
+                        except Exception:
+                            _tv = date.today()
+                        e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
+                    else:
+                        e_tahmini_varis = None
+                        st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
+                        st.caption("✅ Teslim alındı — tahmini varış gerekmez.")
+                st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
+                           "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
+
+                _alt_baslik("📦 Teslim — ürün depoya girdiğinde doldur (stok yaşı bu tarihten sayılır)")
+                tcc1, tcc2 = st.columns([1, 1.6])
+                try:
+                    _tt = date.fromisoformat(str(d.get("teslim_tarihi", "") or "")[:10])
+                except Exception:
+                    _tt = None
+                e_teslim_tarihi = tcc1.date_input("Teslim Tarihi", value=_tt, key=f"ith_edit_tt_{did}",
+                                                  format="YYYY-MM-DD")
+                _td_cur = str(d.get("teslim_deposu", "") or "")
+                _td_opts = DEPO_SECENEKLER + ([_td_cur] if _td_cur and _td_cur not in DEPO_SECENEKLER else [])
+                _e_td_sec = tcc2.selectbox("Teslim Deposu", _td_opts,
+                    index=_td_opts.index(_td_cur) if _td_cur in _td_opts else 0,
+                    key=f"ith_edit_td_{did}")
+                e_teslim_deposu = "" if str(_e_td_sec).startswith("(") else _e_td_sec
+
+                _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
+                _kdf = pd.DataFrame([
+                    {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0),
+                     "Birim FOB": float(k.get("birim_fob", 0) or 0), "Sil": False}
+                    for k in kal
+                ])
+                if _kdf.empty:
+                    _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0, "Sil": False}])
+                _sku_secenek = sorted(set(katalog.keys()) | {str(k.get("sku", "")) for k in kal if k.get("sku")})
+                e_kdf = st.data_editor(
+                    _kdf, num_rows="dynamic", use_container_width=True, key=f"ith_edit_kal_{did}",
+                    column_config={
+                        "SKU": st.column_config.SelectboxColumn("SKU", options=_sku_secenek, required=False),
+                        "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
+                        "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
+                        "Sil": st.column_config.CheckboxColumn(
+                            "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
+                    },
+                )
+                st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
+                           "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
+
+                _alt_baslik("🆕 Yeni Stok Kartı ile Satır Ekle · katalogda olmayan ürün")
+                st.caption("Katalogda olmayan bir ürünü bu dosyaya eklemek için doldur — Kaydet'e basınca "
+                           "hem dosyaya kalem olarak eklenir hem de **yeni stok kartı** (SKU + ürün adı + barkod) açılır. "
+                           "Boş bırakılan satırlar yok sayılır.")
+                _manuel_yeni = []
+                _mver = st.session_state.setdefault(f"ith_edit_mver_{did}", 0)
+                for _mi in range(2):
+                    _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([1.2, 2, 1.2, 0.8, 1])
+                    _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}_{_mver}",
+                                            placeholder="örn. RMA-CE01", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}_{_mver}",
+                                           placeholder="örn. Sertifikasyon Bedeli", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    _mbk = _mc3.text_input("Barkod (ops.)", key=f"ith_edit_mbk_{did}_{_mi}_{_mver}",
+                                           placeholder="barkod", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    _madet = _mc4.number_input("Adet", min_value=0, value=0, step=1,
+                                               key=f"ith_edit_madet_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                              key=f"ith_edit_mfob_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    if _msku.strip() and _madet > 0:
+                        _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
+                                             "barkod": _mbk.strip(), "adet": float(_madet),
+                                             "birim_fob": float(_mfob)})
+
+                st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
+
+                if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
+                    if e_durum == "Teslim Alındı" and not (e_teslim_deposu or "").strip():
+                        st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
+                        st.stop()
+                    _kal_ad = {str(k.get("sku", "")).strip(): (k.get("urun_adi") or "") for k in kal}
+                    _yeni_kal = []
+                    for _, _r in e_kdf.iterrows():
+                        if _r.get("Sil"):
+                            continue
+                        _sku = str(_r.get("SKU", "") or "").strip()
+                        if not _sku:
+                            continue
+                        _yeni_kal.append({"sku": _sku,
+                                          "urun_adi": (katalog.get(_sku, "") or _kal_ad.get(_sku, "")),
+                                          "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
+                    for _m in _manuel_yeni:  # yeni stok kartlı satırlar
+                        _yeni_kal.append({"sku": _m["sku"], "urun_adi": _m["urun_adi"],
+                                          "adet": _m["adet"], "birim_fob": _m["birim_fob"]})
+                    with st.spinner("💾 Kaydediliyor..."):
+                        ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
+                                                 e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
+                                                 ithalat_takip_no=e_takip.strip(),
+                                                 durum=e_durum,
+                                                 tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
+                                                 fatura_indirim=e_indirim,
+                                                 teslim_tarihi=(e_teslim_tarihi.isoformat() if e_teslim_tarihi else ""),
+                                                 teslim_deposu=e_teslim_deposu,
+                                                 teslim_sekli=("" if str(e_teslim_sekli).startswith("(") else e_teslim_sekli),
+                                                 sas_no=e_sas.strip())
+                    if ok:
+                        st.session_state[f"ith_edit_mver_{did}"] = _mver + 1  # 🆕 manuel SKU alanlarını temizle
+                        if _manuel_yeni:
+                            try:
+                                _n, _hata = urun_bilgi_toplu_yukle(
+                                    [{"sku": m["sku"], "urun_adi": m["urun_adi"], "barkod": m["barkod"]}
+                                     for m in _manuel_yeni])
+                                if _n:
+                                    st.toast(f"🆕 {_n} yeni stok kartı açıldı", icon="🆕")
+                            except Exception:
+                                pass
+                        for _sk in [k for k in list(st.session_state.keys())
+                                    if k in (f"ith_edit_indirim_{did}", f"ith_edit_kur_{did}")
+                                    or k.startswith(f"ith_edit_mas_{did}_")
+                                    or k.startswith(f"ith_edit_msku_{did}_")
+                                    or k.startswith(f"ith_edit_mad_{did}_")
+                                    or k.startswith(f"ith_edit_mbk_{did}_")
+                                    or k.startswith(f"ith_edit_madet_{did}_")
+                                    or k.startswith(f"ith_edit_mfob_{did}_")]:
+                            st.session_state.pop(_sk, None)
+                        st.toast("✅ Masraf ve değişiklikler kaydedildi", icon="✅")
+                        st.rerun()
+                    else:
+                        st.error(msg)
+        if st.button("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key="btn_ith_duzen", use_container_width=True):
+            _dlg_dosya_duzen()
 
 
-# ─────────────────────────────────────────────────────────────────────
-# SAYFA 2 — Yeni İthalat (Manuel + Excel)
-# ─────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────
+    # SAYFA 2 — Yeni İthalat (Manuel + Excel)
+    # ─────────────────────────────────────────────────────────────────────
+
+    _dlg_dosya_detay()
 def _yeni_ithalat():
     _baslik("➕", "Yeni İthalat", "Manuel form veya Excel ile dosya + kalem girişi")
     katalog = get_urun_katalog()
