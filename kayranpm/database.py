@@ -1068,9 +1068,7 @@ def get_depo_ozet():
 
 def get_depo_stok(depo):
     """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı.
-    Kaynak: ürün kartındaki depo_kirilim. Eğer bir ürünün kırılımı boşsa ama o depoya
-    TESLİM ALINMIŞ ithalat dosyası varsa, teslim adedi de dahil edilir (böylece satın
-    alınıp teslim edilen modeller depo_kirilim güncel olmasa bile sevk listesinde çıkar)."""
+    TEK kaynak: ürün kartındaki depo_kirilim (Stok Kartı ile birebir aynı)."""
     depo = depo_kanonik(depo)
     stok = {}   # sku_norm -> adet
     adlar = {}  # sku_norm -> urun_adi
@@ -1092,31 +1090,10 @@ def get_depo_stok(depo):
         if m != 0:
             stok[key] = stok.get(key, 0) + m
 
-    # depo_kirilim'i olan SKU'lar dışında, bu depoya teslim edilmiş ithalat kalemlerini ekle
-    try:
-        from ithalat.database import get_dosyalar as _ith_dosyalar, get_kalemler as _ith_kalemler
-        for d in (_ith_dosyalar() or []):
-            if str(d.get("durum") or "").strip() != "Teslim Alındı":
-                continue
-            if depo_kanonik(d.get("teslim_deposu") or "") != depo:
-                continue
-            for k in (_ith_kalemler(d["id"]) or []):
-                sku = str(k.get("sku") or "").strip()
-                try:
-                    adet = int(float(k.get("adet") or 0))
-                except Exception:
-                    adet = 0
-                if not sku or adet <= 0:
-                    continue
-                key = _skun(sku)
-                # depo_kirilim'de zaten varsa ONU kullan (çift sayma); yoksa teslimden ekle
-                if key not in stok:
-                    goster.setdefault(key, key)
-                    stok[key] = stok.get(key, 0) + adet
-                    if not adlar.get(key):
-                        adlar[key] = str(k.get("urun_adi") or "")
-    except Exception:
-        pass
+    # NOT: Eski sürüm burada "Teslim Alındı" ithalat kalemlerinin ÖMÜRLÜK toplamını
+    # ekliyordu — satışlar düşülmediği için stok şişiyordu. Miktarın tek gerçek
+    # kaynağı artık ürün kartındaki depo_kirilim'dir. İşlenmemiş teslim dosyaları
+    # için Depo modülündeki "stoğu işlenmemiş" paneli teslim_stok_isle'yi çağırır.
 
     out = [{"sku": goster.get(s, s), "urun_adi": adlar.get(s, ""), "adet": a}
            for s, a in stok.items() if a > 0]
