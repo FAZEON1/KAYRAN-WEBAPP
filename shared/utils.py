@@ -247,7 +247,7 @@ def sidebar_stil() -> str:
     SB = 'section[data-testid="stSidebar"] div[role="radiogroup"]'
     return f"""
     <style>
-    {SB}{{ display:flex; flex-direction:column; gap:3px; padding:2px 0; }}
+    {SB}{{ display:flex; flex-direction:column; gap:3px; padding:2px 0; margin-top:14px !important; }}
     {SB} > label{{
         position:relative;
         background:transparent !important;
@@ -364,7 +364,7 @@ def sidebar_kullanici(kullanici: str) -> str:
     bas = kullanici[0].upper()
     return (
         '<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);'
-        'border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:9px 12px;margin-bottom:10px">'
+        'border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:9px 12px;margin-bottom:14px">'
         '<div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;'
         'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
         f'justify-content:center;font-size:14px;font-weight:700;color:#fff">{bas}</div>'
