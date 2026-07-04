@@ -1518,46 +1518,55 @@ def run():
                  "renk": "#34D399" if _s_net >= 0 else "#F87171"},
             ])
 
-            # ➕ Yeni kampanya — YATAY kompakt tek satır (Mali Takip mantığı, az yer kaplar)
-            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-            with st.form("yeni_kampanya_form", clear_on_submit=True):
-                _yf1, _yf2, _yf3, _yf4, _yf5, _yf6 = st.columns([2, 1.6, 1.3, 1.1, 1.1, 1.2])
-                k_adi = _yf1.text_input("Kampanya Adı *", placeholder="örn: HB Mart", label_visibility="collapsed")
-                k_firma = _yf2.selectbox("Firma *", ["(Firma seç)"] + FIRMA_LISTESI_K, label_visibility="collapsed",
-                                         format_func=lambda f: f if str(f).startswith("(") else firma_gorunen_ad(f))
-                k_kat = _yf3.selectbox("Kategori", ["(Genel)"] + _kt_kat_list, label_visibility="collapsed")
-                k_bas = _yf4.date_input("Başlangıç *", value=tr_today(), label_visibility="collapsed")
-                k_bit = _yf5.date_input("Bitiş *", value=tr_today(), label_visibility="collapsed")
-                _submit_kmp = _yf6.form_submit_button("🚀 Oluştur", type="primary", use_container_width=True)
-                st.caption("Kampanya Adı · Firma · Kategori · Başlangıç · Bitiş — soldan sağa. "
-                           "Tür/Spiff/Notlar oluşturduktan sonra kampanya detayından eklenir.")
-                if _submit_kmp:
-                    if not k_adi.strip():
-                        st.error("Kampanya adı zorunludur.")
-                    elif str(k_firma).startswith("("):
-                        st.error("Firma seçimi zorunludur.")
-                    elif str(k_bit) < str(k_bas):
-                        st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
-                    else:
-                        _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
-                        _hata = None
-                        yeni_id = None
-                        try:
-                            yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), "", _k_kat_val,
-                                                    kampanya_turu="", spiff_tl=0, spiff_kur=0, spiff_fatura=False)
-                        except Exception as _e:
-                            _hata = str(_e)
-                        if yeni_id:
-                            st.cache_data.clear()
-                            st.success(f"✅ '{k_adi.strip()}' oluşturuldu (ID: {yeni_id}).")
-                            st.rerun()
-                        elif _hata:
-                            st.error(f"Kampanya oluşturulamadı — kayıt hatası: {_hata}")
+            # ➕ Yeni Kampanya — AÇILIR PENCERE (dialog). Ana sayfa uzamaz.
+            @st.dialog("➕ Yeni Kampanya Oluştur", width="large")
+            def _yeni_kampanya_dialog():
+                st.caption("Temel bilgileri gir ve oluştur. Tür · Spiff · Notlar · ürünler, "
+                           "kampanya oluştuktan sonra detay penceresinden eklenir.")
+                with st.form("yeni_kampanya_form", clear_on_submit=False):
+                    k_adi = st.text_input("Kampanya Adı *", placeholder="örn: Hepsiburada Mart Kampanyası")
+                    _dc1, _dc2 = st.columns(2)
+                    k_firma = _dc1.selectbox("Firma *", ["(Firma seç)"] + FIRMA_LISTESI_K,
+                                             format_func=lambda f: f if str(f).startswith("(") else firma_gorunen_ad(f))
+                    k_kat = _dc2.selectbox("Kategori", ["(Genel / Karışık)"] + _kt_kat_list)
+                    _dc3, _dc4 = st.columns(2)
+                    k_bas = _dc3.date_input("Başlangıç Tarihi *", value=tr_today())
+                    k_bit = _dc4.date_input("Bitiş Tarihi *", value=tr_today())
+                    if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
+                        if not k_adi.strip():
+                            st.error("Kampanya adı zorunludur.")
+                        elif str(k_firma).startswith("("):
+                            st.error("Firma seçimi zorunludur.")
+                        elif str(k_bit) < str(k_bas):
+                            st.error("Bitiş tarihi başlangıç tarihinden önce olamaz.")
                         else:
-                            st.error("Kampanya kaydedilemedi — veritabanı kayıt döndürmedi "
-                                     "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu).")
+                            _k_kat_val = "" if str(k_kat).startswith("(") else k_kat
+                            _hata = None
+                            yeni_id = None
+                            try:
+                                yeni_id = ekle_kampanya(k_adi.strip(), k_firma, str(k_bas), str(k_bit), "", _k_kat_val,
+                                                        kampanya_turu="", spiff_tl=0, spiff_kur=0, spiff_fatura=False)
+                            except Exception as _e:
+                                _hata = str(_e)
+                            if yeni_id:
+                                st.cache_data.clear()
+                                st.session_state["_kamp_detay_sec"] = yeni_id
+                                st.success(f"✅ '{k_adi.strip()}' oluşturuldu.")
+                                st.rerun()
+                            elif _hata:
+                                st.error(f"Kampanya oluşturulamadı — kayıt hatası: {_hata}")
+                            else:
+                                st.error("Kampanya kaydedilemedi — veritabanı kayıt döndürmedi "
+                                         "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu).")
+
+            _yk1, _yk2 = st.columns([1, 4])
+            if _yk1.button("➕ Yeni Kampanya", type="primary", use_container_width=True, key="yeni_kmp_ac"):
+                _yeni_kampanya_dialog()
+            _yk2.caption("Yeni kampanya için butona bas — açılır pencerede oluştur. "
+                         "Listeden bir kampanyaya tıklayınca detayı açılır pencerede görünür.")
             st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     
+
             # ── Excel şablonundan YENİ kampanya oluştur + ürünleri ekle (tek dosya) ──
             with st.expander("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", expanded=False):
                 _KMP_TAM_KOL = ["FİRMA ADI", "MARKA", "KATEGORİ", "STOK KODU", "STOK ADI", "BARKOD",
