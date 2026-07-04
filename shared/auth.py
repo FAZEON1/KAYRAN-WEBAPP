@@ -133,15 +133,19 @@ def hash_guncelleme_gerekli_mi(hash_str: str, hedef: int = _ITERATIONS) -> bool:
 # ─ Supabase Şifre Yönetimi ──────────────────────────────────────────────────────────────
 
 def _get_supabase():
-    """Supabase client'ı döner. İmport hatası olursa None döner."""
+    """Supabase client'ı döner (süreç başına TEK bağlantı — cache_resource).
+    İmport hatası olursa None döner."""
     try:
         import streamlit as st
-        from supabase import create_client
-        url = st.secrets["supabase"]["url"]
-        # Şifre değişikliği için anon key yeterli (RLS ile korunur)
-        # service_role_key varsa onu kullan, yoksa anon key
-        key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
-        return create_client(url, key)
+
+        @st.cache_resource(show_spinner=False)
+        def _client_olustur():
+            from supabase import create_client
+            url = st.secrets["supabase"]["url"]
+            key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"].get("key")
+            return create_client(url, key)
+
+        return _client_olustur()
     except Exception:
         return None
 

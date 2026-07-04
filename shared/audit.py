@@ -11,10 +11,25 @@ Tüm loglama hataları sessizce yutulur; ana iş akışı ASLA bozulmaz."""
 from datetime import datetime, timedelta
 
 
+
+def _st_cache_resource_guvenli(fn):
+    """st.cache_resource varsa uygular; streamlit dışı bağlamda (gece yedek) sade bellek cache."""
+    try:
+        import streamlit as _st
+        return _st.cache_resource(show_spinner=False)(fn)
+    except Exception:
+        _c = {}
+        def _sarici(*a, **k):
+            if "v" not in _c:
+                _c["v"] = fn(*a, **k)
+            return _c["v"]
+        return _sarici
+
 def _tr_now():
     return (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
 
 
+@_st_cache_resource_guvenli
 def _raw_client():
     """Sarmalanmamış ham Supabase bağlantısı (yalnız audit_log yaz/oku için)."""
     import streamlit as st
