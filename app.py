@@ -31,6 +31,9 @@ TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "der
 SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet"}
 YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar"}
+# Patron Panosu — sabah kokpiti YALNIZCA bu kullanıcı(lar)a render edilir.
+# Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
+PATRON_PANEL_KULLANICILAR = {"ibrahim"}
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
@@ -1588,6 +1591,17 @@ def anasayfa():
         '</div>',
         unsafe_allow_html=True
     )
+
+    # ─── 👑 PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
+    if (aktif_kullanici or "").strip().lower() in PATRON_PANEL_KULLANICILAR:
+        try:
+            from shared.ui import (patron_verisi_topla, patron_panosu_html,
+                                   pencere_css as _pp_css)
+            st.markdown(_pp_css(), unsafe_allow_html=True)
+            _pv = patron_verisi_topla()
+            st.markdown(patron_panosu_html(_pv), unsafe_allow_html=True)
+        except Exception:
+            pass
 
     # ─── GÜNLÜK BİLGİ ŞERİDİ (döviz · altın · hava · günün sözü) ───
     try:
