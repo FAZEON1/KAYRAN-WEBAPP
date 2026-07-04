@@ -15,6 +15,7 @@ from shared.utils import tr_kucuk
 from shared.utils import firma_gorunen_ad
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
+from shared.ui import tablo_h
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -602,26 +603,9 @@ def run():
             {"label": "🟡 Planlama", "value": f"{len(planlama_urunler):,}", "renk": "#FBBF24"},
         ])
     
-        # ── UYARI PENCERELERİ — yan yana 2 kompakt kart, sabit yükseklik + iç scroll ──
-        st.markdown("""<style>
-.kyr-pencere-icerik{max-height:250px;overflow-y:auto;padding-right:6px;}
-.kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
-.kyr-pencere-icerik::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:3px;}
-.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.35);border-radius:3px;}
-.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,0.55);}
-</style>""", unsafe_allow_html=True)
-
-        def _uyari_pencere(baslik, renk, pill_renk, adet, icerik_html):
-            return (
-                f'<div style="flex:1;min-width:300px;background:rgba(255,255,255,0.02);'
-                f'border:1px solid {renk}40;border-left:3px solid {renk}99;border-radius:14px;'
-                f'padding:12px 14px;display:flex;flex-direction:column;">'
-                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-shrink:0;">'
-                f'<span style="font-size:13px;font-weight:800;color:{renk};letter-spacing:.3px;">{baslik}</span>'
-                f'<span style="background:{renk}26;color:{pill_renk};padding:1px 9px;border-radius:20px;'
-                f'font-size:11.5px;font-weight:700;">{adet} ürün</span></div>'
-                f'<div class="kyr-pencere-icerik">{icerik_html}</div></div>'
-            )
+        # ── UYARI PENCERELERİ — shared/ui.py standardı: yan yana kart + iç scroll ──
+        from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
+        st.markdown(pencere_css(), unsafe_allow_html=True)
 
         acil_items_list = []
         for u in acil_urunler:
@@ -638,8 +622,7 @@ def run():
                 f'<span style="color:#F87171;font-size:11.5px;font-weight:700;">{gun}g</span>'
                 f'</div></div>'
             )
-        acil_html = "".join(acil_items_list) or \
-            '<div style="color:#64748B;font-size:12px;padding:14px 4px;">✓ Acil sipariş gerektiren ürün yok</div>'
+        acil_html = "".join(acil_items_list) or bos_durum("Acil sipariş gerektiren ürün yok")
 
         yak_items_list = []
         for u in yaklasan_urunler:
@@ -653,37 +636,15 @@ def run():
                 f'<span style="color:#FBBF24;font-size:11.5px;font-weight:600;flex-shrink:0;margin-left:10px;">'
                 f'{gun}g içinde</span></div>'
             )
-        yak_html = "".join(yak_items_list) or \
-            '<div style="color:#64748B;font-size:12px;padding:14px 4px;">✓ 30 gün içinde sipariş gereken ürün yok</div>'
+        yak_html = "".join(yak_items_list) or bos_durum("30 gün içinde sipariş gereken ürün yok")
 
-        st.markdown(
-            f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin:10px 0 4px;">'
-            f'{_uyari_pencere("🚨 ACİL SİPARİŞ", "#F87171", "#FCA5A5", len(acil_urunler), acil_html)}'
-            f'{_uyari_pencere("⚠️ 30 GÜN İÇİNDE SİPARİŞ", "#FBBF24", "#FCD34D", len(yaklasan_urunler), yak_html)}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(pencere_grid(
+            pencere("🚨 ACİL SİPARİŞ", RENK["kirmizi"], acil_html,
+                    rozet=f"{len(acil_urunler)} ürün"),
+            pencere("⚠️ 30 GÜN İÇİNDE SİPARİŞ", RENK["amber"], yak_html,
+                    rozet=f"{len(yaklasan_urunler)} ürün"),
+        ), unsafe_allow_html=True)
     
-        # Tarayıcı bildirimi (JS)
-        if acil_urunler:
-            st.markdown(f"""
-            <script>
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {{
-                new Notification('🚨 Stok Yönetimi', {{
-                    body: '{len(acil_urunler)} ürün için ACİL sipariş gerekiyor!',
-                    icon: '📦'
-                }});
-            }} else if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {{
-                Notification.requestPermission().then(function(p) {{
-                    if (p === 'granted') {{
-                        new Notification('🚨 Stok Yönetimi', {{
-                            body: '{len(acil_urunler)} ürün için ACİL sipariş gerekiyor!',
-                        }});
-                    }}
-                }});
-            }}
-            </script>
-            """, unsafe_allow_html=True)
     
         st.markdown("---")
     
@@ -746,7 +707,7 @@ def run():
                         "Durum": _durum_k,
                         "Spiff ₺": (f"{_sp:,.0f}" if _sp else ""),
                     })
-                st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True)
+                st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True, height=tablo_h(len(_rows_k)))
 
     elif sayfa == "📋  Tüm Ürünler":
         st.markdown('<div class="baslik">📋 Tüm Ürünler</div>', unsafe_allow_html=True)
@@ -1356,7 +1317,7 @@ def run():
             with st.expander("📊 Müşteri bazında toplam satış", expanded=False):
                 _grp = (_df.groupby("Müşteri")["Haftalık Satış"].sum()
                         .sort_values(ascending=False).reset_index())
-                st.dataframe(_grp, hide_index=True, use_container_width=True)
+                st.dataframe(_grp, hide_index=True, use_container_width=True, height=tablo_h(len(_grp)))
             st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
             st.download_button("⬇️ CSV indir",
                                _df.to_csv(index=False).encode("utf-8-sig"),
@@ -2490,7 +2451,7 @@ def run():
                                     "Top. Destek ($)": f"${toplam_d:.0f}",
                                     "Top. Net Kar ($)": f"${net_t:.0f}",
                                 })
-                            st.dataframe(pd.DataFrame(rows_g), use_container_width=True, hide_index=True)
+                            st.dataframe(pd.DataFrame(rows_g), use_container_width=True, hide_index=True, height=tablo_h(len(rows_g)))
     
                             if st.button(f"🗑️ Kampanyayı Sil", key=f"sil_gecmis_{kid}"):
                                 sil_kampanya(kid)
