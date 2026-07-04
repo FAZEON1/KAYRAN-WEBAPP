@@ -258,6 +258,7 @@ def iade_excel_oku(dosya):
 
 
 def run():
+    from shared.ui import sayfa_baslik as _sb
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
 
     st.markdown("<style>.main .block-container{max-width:1200px !important;}</style>",
@@ -291,6 +292,7 @@ def run():
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
     if _ssayfa == "🧾 Satış Girişi":
+        st.markdown(_sb("🧾", "Satış Girişi", "Manuel giriş · Excel toplu satış · kanal sipariş blokları"), unsafe_allow_html=True)
         pacal = get_pacal_map()
         urunler = get_urunler()
         urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
@@ -665,6 +667,7 @@ def run():
 
     # ───────────────────────── SATIŞLAR ─────────────────────────
     elif _ssayfa == "📋 Satışlar":
+        st.markdown(_sb("📋", "Satışlar", "Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
         _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
 
@@ -764,6 +767,7 @@ def run():
 
     # ───────────────────────── KÂR / P&L ─────────────────────────
     elif _ssayfa == "📊 Kâr / P&L":
+        st.markdown(_sb("📊", "Kâr / P&L", "Dönemsel ciro · maliyet · destek · net kâr (USD)"), unsafe_allow_html=True)
         _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
 
         satislar = get_satislar(_pbas, _pbit)
@@ -985,7 +989,7 @@ def run():
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":
-        st.markdown("##### 📥 Geçmiş Satışları İçe Aktar")
+        st.markdown(_sb("📥", "Geçmiş Satışları İçe Aktar", "Mikro fatura bazlı satış dökümü · maliyet paçaldan otomatik"), unsafe_allow_html=True)
         st.caption("Mikro **fatura bazlı satış** dökümünü (.xls/.xlsx) yükle. "
                    "Maliyet, sistemdeki güncel **paçal** maliyetten otomatik hesaplanır. "
                    "Daha önce kaydedilmiş fatura numaraları atlanır (tekrar yüklemede mükerrer olmaz).")
@@ -1070,7 +1074,7 @@ def run():
 
     # ───────────────────────── İADE ─────────────────────────
     elif _ssayfa == "↩️ İade":
-        st.markdown("##### ↩️ İade Yönetimi")
+        st.markdown(_sb("↩️", "İade Yönetimi", "İadeler satıştan ayrı tutulur · net görünümde düşülür"), unsafe_allow_html=True)
         st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
                    "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
 
