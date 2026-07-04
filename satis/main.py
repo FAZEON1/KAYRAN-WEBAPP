@@ -407,9 +407,8 @@ def run():
             def _satis_excel_dialog():
                 st.caption("VATAN · EERA · DİĞER şablonlarından toplu sipariş yükle. "
                            "Her sekmeyi açıp ilgili Excel'i yükle, önizlemeyi kontrol et, kaydet.")
-                # 1) VATAN
-                @st.dialog("📄 VATAN — Excel ile Toplu Sipariş", width="large")
-                def _dlg_vatan_toplu():
+                # 1) VATAN — aynı pencere içinde açılır (iç içe dialog olmaz)
+                def _vatan_toplu_govde():
                     st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
                                        "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
                     st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
@@ -442,8 +441,8 @@ def run():
                                 if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                              key="sg_kaydet_vatan", disabled=not _gecerli):
                                     _sg_kaydet(_gecerli, _uzv)
-                if st.button("📄 VATAN — Excel ile Toplu Sipariş", key="btn_sat_vatan", use_container_width=True):
-                    _dlg_vatan_toplu()
+                if st.toggle("📄 VATAN — Excel ile Toplu Sipariş", key="tgl_sat_vatan"):
+                    _vatan_toplu_govde()
 
                 # 2) EERA (İTOPYA) — kanal sabit
                 _eera_knl = next((k for k in _kanallar
