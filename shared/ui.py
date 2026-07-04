@@ -131,3 +131,39 @@ def bos_durum(mesaj: str) -> str:
     """Pencere boşken düzeni koruyan sakin placeholder."""
     return (f'<div style="color:{RENK["silik"]};font-size:12px;'
             f'padding:14px 4px;">✓ {mesaj}</div>')
+
+
+# ─────────────────────────────────────────────────────────────────────
+# İŞLEM GÖSTERGESİ — uygulama genelinde "çalışıyor" geri bildirimi
+# ─────────────────────────────────────────────────────────────────────
+def islem_gosterge_css() -> str:
+    """Streamlit'in gözden kaçan sağ üst 'Running' ibaresini, her işlemde
+    kendiliğinden beliren belirgin bir göstergeye dönüştürür:
+
+      • Ekranın en üstünde akan gradyan progress çubuğu
+      • Üst-ortada nabız atan "⏳ İşleniyor" kapsülü
+      • Rerun sırasında eski içeriğin soluklaşması (bayat veri hissi)
+
+    CSS tabanlıdır → dosya yükleme, kaydetme, silme, sayfa geçişi, dialog…
+    İSTİSNASIZ her işlemde otomatik devreye girer; buton başına kod gerekmez.
+    app.py'de bir kez basılır, tüm modüller kapsanır.
+    """
+    return """<style>
+@keyframes kyr-akan-bar{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes kyr-puls{0%,100%{box-shadow:0 6px 22px rgba(99,102,241,.45)}50%{box-shadow:0 6px 30px rgba(34,211,238,.65)}}
+div[data-testid="stStatusWidget"]::before{
+  content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
+  background:linear-gradient(90deg,#6366F1,#22D3EE,#818CF8,#6366F1);
+  background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
+div[data-testid="stStatusWidget"]{
+  position:fixed !important;top:14px !important;left:50% !important;
+  transform:translateX(-50%) !important;z-index:999998 !important;
+  background:rgba(15,23,42,.96) !important;border:1px solid rgba(99,102,241,.55) !important;
+  border-radius:999px !important;padding:7px 18px !important;
+  animation:kyr-puls 1.3s ease-in-out infinite;}
+div[data-testid="stStatusWidget"]::after{
+  content:"⏳ İşleniyor — lütfen bekleyin";color:#C7D2FE;font-size:13px;
+  font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+div[data-testid="stStatusWidget"] > *{display:none !important;}
+div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
+</style>"""
