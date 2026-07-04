@@ -355,10 +355,10 @@ def run():
                     st.cache_data.clear()
                     st.rerun()
 
-            def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir):
-                """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown."""
-                @st.dialog(_baslik, width="large")
-                def _dlg_kanal_blok():
+            def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir, _ic_pencere=False):
+                """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown.
+                _ic_pencere=True → zaten bir dialog içindeyiz, iç içe dialog yerine toggle ile aç."""
+                def _kanal_blok_govde():
                     st.download_button("⬇️ Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
                                        f"SIPARIS_SABLON_{_key.upper()}.xlsx", mime=_XLSX_MIME,
                                        key=f"sg_sablon_{_key}")
@@ -399,8 +399,16 @@ def run():
                         if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
                             _sg_kaydet(_gecerli, _uz)
-                if st.button(_baslik, key=f"btn_kanal_{_key}", use_container_width=True):
-                    _dlg_kanal_blok()
+                if _ic_pencere:
+                    # Zaten bir dialog içindeyiz → toggle ile aynı pencerede aç (iç içe dialog yasak)
+                    if st.toggle(_baslik, key=f"tgl_kanal_{_key}"):
+                        _kanal_blok_govde()
+                else:
+                    @st.dialog(_baslik, width="large")
+                    def _dlg_kanal_blok():
+                        _kanal_blok_govde()
+                    if st.button(_baslik, key=f"btn_kanal_{_key}", use_container_width=True):
+                        _dlg_kanal_blok()
 
             # 📊 Excel ile Toplu Satış — AÇILIR PENCERE
             @st.dialog("📊 Excel ile Toplu Satış", width="large")
@@ -447,11 +455,11 @@ def run():
                 # 2) EERA (İTOPYA) — kanal sabit
                 _eera_knl = next((k for k in _kanallar
                                   if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
-                _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False)
+                _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False, _ic_pencere=True)
 
                 # 3) DİĞER — firma/kanal kullanıcı seçer
                 _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
-                                "diger", (_kanallar[0] if _kanallar else "DİGER"), True)
+                                "diger", (_kanallar[0] if _kanallar else "DİGER"), True, _ic_pencere=True)
 
             _ex1, _ex2 = st.columns([1, 4])
             if _ex1.button("📊 Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn"):
