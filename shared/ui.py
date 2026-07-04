@@ -166,6 +166,22 @@ div[data-testid="stStatusWidget"]::after{
   font-weight:700;letter-spacing:.3px;white-space:nowrap;}
 div[data-testid="stStatusWidget"] > *{display:none !important;}
 div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
+
+/* ── Araç çubuğu gizli olsa bile çalışan KÖK gösterge ──
+   Streamlit, script çalışırken uygulama köküne data-test-script-state="running"
+   basar; bu her modda (Cloud izleyici dahil) mevcuttur. */
+div[data-testid="stApp"][data-test-script-state="running"]::before{
+  content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
+  background:linear-gradient(90deg,#6366F1,#22D3EE,#818CF8,#6366F1);
+  background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
+div[data-testid="stApp"][data-test-script-state="running"]::after{
+  content:"⏳ İşleniyor — lütfen bekleyin";
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999998;
+  background:rgba(15,23,42,.96);border:1px solid rgba(99,102,241,.55);
+  border-radius:999px;padding:7px 18px;
+  color:#C7D2FE;font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
+  font-family:Inter,sans-serif;
+  animation:kyr-puls 1.3s ease-in-out infinite;}
 </style>"""
 
 
