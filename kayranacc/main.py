@@ -1544,8 +1544,11 @@ def run():
             </div>'''
             st.html(html)
 
-        with st.expander("📅 Günlük Ödeme Takvimi", expanded=False):
+        @st.dialog("📅 Günlük Ödeme Takvimi", width="large")
+        def _dlg_odeme_takvimi():
             render_takvim_tablosu(df_tablo)
+        if st.button("📅 Günlük Ödeme Takvimi", key="btn_acc_takvim", use_container_width=True):
+            _dlg_odeme_takvimi()
     
     
     # ════════════════════════════════════════════════════════════════════
@@ -1559,7 +1562,8 @@ def run():
         bankalar = get_bankalar()
     
         # Manuel ödeme ekleme formu
-        with st.expander("➕ Manuel Ödeme Ekle", key="exp_manuel_odeme"):
+        @st.dialog("➕ Manuel Ödeme Ekle", width="large")
+        def _dlg_manuel_odeme():
             with st.form("manuel_form"):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1592,28 +1596,31 @@ def run():
                         )
                         st.success(f"✅ {firma} ödeme olarak eklendi.")
                         st.rerun()
+        if st.button("➕ Manuel Ödeme Ekle", key="btn_acc_manuel", use_container_width=True):
+            _dlg_manuel_odeme()
     
         if not odemeler:
             st.info("Veri yok. Veri Yükleme sekmesinden Excel yükleyin veya manuel ödeme ekleyin.")
             st.stop()
     
-        # Alarmlar — Collapsible Expander
+        # Alarmlar — yan yana pencere kartları (shared/ui standardı)
         gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
         bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
-        if gecmis_alarm:
-            with st.expander(f"🚨 {len(gecmis_alarm)} GECİKMİŞ ÖDEME", expanded=st.session_state.get("exp_gecikmiş", False), key="exp_gecikmiş"):
-                rows_html = "".join(
-                    f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
-                    for o, _ in gecmis_alarm
-                )
-                st.markdown(rows_html, unsafe_allow_html=True)
-        if bugun_alarm:
-            with st.expander(f"⚠️ {len(bugun_alarm)} BUGÜN VADELİ ÖDEME", expanded=st.session_state.get("exp_bugun_vadeli", False), key="exp_bugun_vadeli"):
-                rows_html = "".join(
-                    f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
-                    for o, _ in bugun_alarm
-                )
-                st.markdown(rows_html, unsafe_allow_html=True)
+        if gecmis_alarm or bugun_alarm:
+            from shared.ui import RENK as _RENK, pencere_css as _pcss, pencere as _pen, pencere_grid as _pgrid, bos_durum as _bos
+            st.markdown(_pcss(), unsafe_allow_html=True)
+            _gec_html = "".join(
+                f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                for o, _ in gecmis_alarm
+            ) or _bos("Gecikmiş ödeme yok")
+            _bug_html = "".join(
+                f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                for o, _ in bugun_alarm
+            ) or _bos("Bugün vadeli ödeme yok")
+            st.markdown(_pgrid(
+                _pen("🚨 GECİKMİŞ ÖDEMELER", _RENK["kirmizi"], _gec_html, rozet=f"{len(gecmis_alarm)} ödeme"),
+                _pen("⚠️ BUGÜN VADELİ", _RENK["amber"], _bug_html, rozet=f"{len(bugun_alarm)} ödeme"),
+            ), unsafe_allow_html=True)
 
        # Özet
         tl_toplam = sum(o.get("tutar_tl") or 0 for o in odemeler)
@@ -2974,12 +2981,15 @@ def run():
                 st.error(f"HTML rapor oluşturulamadı: {e}")
     
             # Önizleme
-            with st.expander("👁️ Rapor Önizleme"):
+            @st.dialog("👁️ Rapor Önizleme", width="large")
+            def _dlg_rapor_onizleme():
                 try:
                     preview = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
                     st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
                 except Exception as e:
                     st.warning(f"Önizleme yüklenemedi: {e}")
+            if st.button("👁️ Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True):
+                _dlg_rapor_onizleme()
     
         with tab3:
             st.markdown("Nakit akış tablosunu Excel dosyası olarak indirin.")
@@ -3010,7 +3020,8 @@ def run():
         bankalar = get_bankalar()
     
         # Secrets konfigürasyonu
-        with st.expander("⚙️ SMTP Ayarları (Streamlit Secrets)", expanded=not ayarlar.get("smtp_user")):
+        @st.dialog("⚙️ SMTP Ayarları (Streamlit Secrets)", width="large")
+        def _dlg_smtp_ayar():
             st.markdown(
                 "Email bildirimleri icin Streamlit Cloud > Settings > Secrets bolumune ekleyin:\n\n"
                 "```toml\n[bildirim]\nsmtp_host = \"smtp.gmail.com\"\nsmtp_port = 587\n"
@@ -3021,6 +3032,8 @@ def run():
                 '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
                 unsafe_allow_html=True
             )
+        if st.button("⚙️ SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True):
+            _dlg_smtp_ayar()
     
         # Mevcut ayar durumu
         st.markdown("---")
@@ -3077,8 +3090,11 @@ def run():
                     st.markdown(f"**Konu:** `{konu}`")
                     st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
-                    with st.expander("👁️ Email Önizleme"):
+                    @st.dialog("👁️ Email Önizleme", width="large")
+                    def _dlg_email_on_vade():
                         st.components.v1.html(html_icerik, height=400, scrolling=True)
+                    if st.button("👁️ Email Önizleme", key="btn_acc_eml_vade", use_container_width=True):
+                        _dlg_email_on_vade()
     
                     if st.button("📨 Vade Uyarısı Gönder", type="primary", use_container_width=True):
                         with st.spinner("Gönderiliyor..."):
@@ -3093,8 +3109,11 @@ def run():
                 st.markdown(f"**Konu:** `{konu_ozet}`")
                 st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
-                with st.expander("👁️ Email Önizleme"):
+                @st.dialog("👁️ Email Önizleme", width="large")
+                def _dlg_email_on_hafta():
                     st.components.v1.html(html_ozet, height=400, scrolling=True)
+                if st.button("👁️ Email Önizleme", key="btn_acc_eml_hft", use_container_width=True):
+                    _dlg_email_on_hafta()
     
                 if st.button("📨 Haftalık Özet Gönder", type="primary", use_container_width=True):
                     with st.spinner("Gönderiliyor..."):
@@ -4088,7 +4107,8 @@ def run():
         st.markdown("### ✏️ Manuel Ekleme / Çıkarma")
         st.caption("Excel'lerde olmayan ek kalemler için manuel giriş yap. Kayıtlar kalıcıdır.")
     
-        with st.expander("➕ Yeni Kalem Ekle", expanded=False):
+        @st.dialog("➕ Yeni Kalem Ekle", width="large")
+        def _dlg_yeni_kalem():
             col_t, col_a, col_tu, col_pb, col_b = st.columns([1, 3, 1.5, 1, 1])
             with col_t:
                 yeni_tip = st.selectbox("Tip", ["ekle", "cikar"],
@@ -4132,6 +4152,8 @@ def run():
                         else:
                             st.success("✅ Kalem eklendi (kalıcı)")
                         st.rerun()
+        if st.button("➕ Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True):
+            _dlg_yeni_kalem()
     
         # Mevcut kalemleri listele
         if manuel_kalemler:
@@ -4181,7 +4203,8 @@ def run():
             st.warning("📭 Eksik dosyalar (sıfır olarak hesaplandı):\n\n" + "\n".join(f"- {e}" for e in eksikler))
     
         # ─── Temizleme ───
-        with st.expander("🗑️ Yüklenen verileri temizle"):
+        @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
+        def _dlg_veri_temizle():
             st.warning("⚠️ Bu işlem **kalıcı kayıtları da siler**. Yeniden Excel yüklemeniz gerekir.")
             if st.button("Tüm Excel verilerini sıfırla", type="secondary"):
                 st.session_state.aktif_stok_data = None
@@ -4190,9 +4213,11 @@ def run():
                 aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
                 st.success("Temizlendi.")
                 st.rerun()
+        if st.button("🗑️ Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True):
+            _dlg_veri_temizle()
     
         # ─── Formül açıklaması ───
-        with st.expander("📐 Hesaplama Formülü"):
+        with st.popover("📐 Hesaplama Formülü"):
             st.markdown(f"""
             **Toplam Aktifler (USD) =**
     
