@@ -75,8 +75,9 @@ def online_durum_guncelle(kullanici_adi: str):
     except Exception:
         pass
 
+@st.cache_data(ttl=60, show_spinner=False)
 def get_online_kullanicilar():
-    """Son 180 dakika (3 saat) içinde aktif olan kullanıcıların listesini döner."""
+    """Son 180 dk içinde aktif kullanıcılar (60 sn önbellekli — her tıklamada sorgu atmaz)."""
     try:
         import datetime as _dt
         sb = _get_supabase()
@@ -111,9 +112,14 @@ def _gunluk_giris_seri(tarih_set):
     return seri
 
 def gunluk_giris_yap(kullanici_adi):
-    """Bugün için giriş kaydı ekler (zaten varsa False)."""
+    """Bugün için giriş kaydı ekler (zaten varsa False).
+    Session-guard: aynı oturumda aynı gün için Supabase'e İKİNCİ kez gitmez."""
     try:
         import datetime as _dt
+        _gg_key = f"_gg_{kullanici_adi}_{_dt.date.today().isoformat()}"
+        if st.session_state.get(_gg_key):
+            return False
+        st.session_state[_gg_key] = True
         sb = _get_supabase()
         if not sb or not kullanici_adi:
             return False
