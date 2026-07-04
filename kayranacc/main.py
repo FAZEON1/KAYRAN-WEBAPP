@@ -1078,17 +1078,14 @@ def run():
             "📊 Dashboard",
             "💳 Bu Hafta",
             "🏦 Banka Bakiyeleri",
-            "🔁 Bankalar Arası Virman",
             "💰 Toplam Aktifler",
             "💸 Nakit Akış",
             "📋 Firma Çekleri",
-            "✅ Ödenenler",
+            "🕐 Ödenenler & Geçmiş",
             "⏳ Ertelenen Ödemeler",
             "🧾 Cari Ekstre",
-            "🕐 Geçmiş",
             "📂 Veri Yükleme",
-            "📄 Raporlar",
-            "🔔 Bildirim Ayarları",
+            "📄 Raporlar & Bildirim",
         ]
     
         # Yetkili olmayan kullanıcılar için kısıtlı sayfaları menüden çıkar
@@ -1179,6 +1176,196 @@ def run():
     # ════════════════════════════════════════════════════════════════════
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════
+    @st.dialog("🔁 Bankalar Arası Virman", width="large")
+    def _dlg_virman():
+    
+        bankalar = get_bankalar()
+        kur = get_kur()
+
+        if len(bankalar) < 2:
+            st.warning("⚠️ Virman için en az 2 banka hesabınız olmalı. Önce 'Banka Bakiyeleri' sayfasından hesap ekleyin.")
+            st.stop()
+
+        # ── 🏦 Banka bakiyeleri (üstte tek bakışta — virman öncesi durumu gör) ──
+        _renk_pb_v = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
+        metrik_satiri([{
+            "label": b["hesap_adi"],
+            "value": (("$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺"))
+                      + f"{float(b['bakiye']):,.2f}"),
+            "renk": _renk_pb_v.get(b["para_birimi"], "#818CF8"),
+            "alt": b["para_birimi"],
+        } for b in bankalar])
+        _v_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
+        _v_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
+        _v_eur = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "EUR")
+        _v_usd_esde = _v_usd + (_v_tl / kur if kur else 0) + (_v_eur * 1.08)
+        st.markdown(
+            '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);'
+            'border-radius:10px;padding:9px 16px;margin:6px 0 14px;display:flex;gap:26px;flex-wrap:wrap;'
+            'align-items:center;font-size:13px">'
+            '<span style="color:#94A3B8;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
+            f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{_v_tl:,.2f}</b></span>'
+            f'<span style="color:#60A5FA">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
+            + (f'<span style="color:#A78BFA">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
+            + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${_v_usd_esde:,.2f}</b></span>'
+            '</div>', unsafe_allow_html=True)
+
+        # ─── Yeni Virman Formu ───
+        st.markdown("### ➕ Yeni Virman")
+    
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Kaynak Hesap**")
+            kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id'] for b in bankalar}
+            kaynak_secim = st.selectbox("Kaynak", list(kaynak_options.keys()), key="virman_kaynak")
+            kaynak_id = kaynak_options[kaynak_secim]
+            kaynak_banka = next(b for b in bankalar if b['id'] == kaynak_id)
+    
+        with col2:
+            st.markdown("**Hedef Hesap**")
+            hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id']
+                             for b in bankalar if b['id'] != kaynak_id}
+            if not hedef_options:
+                st.warning("Başka hesap yok.")
+                st.stop()
+            hedef_secim = st.selectbox("Hedef", list(hedef_options.keys()), key="virman_hedef")
+            hedef_id = hedef_options[hedef_secim]
+            hedef_banka = next(b for b in bankalar if b['id'] == hedef_id)
+    
+        # Para birimi farklılığı uyarısı + kur input
+        farkli_pb = kaynak_banka['para_birimi'] != hedef_banka['para_birimi']
+    
+        col_t, col_k = st.columns([2, 1])
+        with col_t:
+            kaynak_bakiye_val = float(kaynak_banka.get('bakiye') or 0)
+            tutar = st.number_input(
+                f"Tutar ({kaynak_banka['para_birimi']})",
+                min_value=0.0,
+                max_value=max(kaynak_bakiye_val, 0.01),  # 0 ise input'u kullanılabilir tut
+                step=0.01,
+                format="%.2f",
+                key="virman_tutar",
+                disabled=(kaynak_bakiye_val <= 0)
+            )
+            if kaynak_bakiye_val <= 0:
+                st.caption("⚠️ Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
+        with col_k:
+            if farkli_pb:
+                kullanilan_kur = st.number_input(
+                    f"Kur ({kaynak_banka['para_birimi']}/{hedef_banka['para_birimi']})",
+                    value=float(kur),
+                    min_value=0.01,
+                    step=0.01,
+                    format="%.2f",
+                    key="virman_kur",
+                    help=f"1 USD = {kur} TL kullanılıyor"
+                )
+            else:
+                kullanilan_kur = None
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.caption("Aynı para birimi, kur gerekmez")
+    
+        # Hedefe gidecek hesaplanmış tutar (önizleme)
+        if farkli_pb and kullanilan_kur and tutar > 0:
+            if kaynak_banka['para_birimi'] == "TL" and hedef_banka['para_birimi'] == "USD":
+                hedef_tutar_onizleme = tutar / kullanilan_kur
+            elif kaynak_banka['para_birimi'] == "USD" and hedef_banka['para_birimi'] == "TL":
+                hedef_tutar_onizleme = tutar * kullanilan_kur
+            else:
+                hedef_tutar_onizleme = tutar
+            st.info(f"➡️ Hedef hesaba **{hedef_tutar_onizleme:,.2f} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
+        elif tutar > 0:
+            st.info(f"➡️ Hedef hesaba **{tutar:,.2f} {hedef_banka['para_birimi']}** eklenecek")
+    
+        aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
+    
+        if st.button("🔁 Virmanı Yap", type="primary", use_container_width=True):
+            if tutar <= 0:
+                st.error("Tutar 0'dan büyük olmalı.")
+            elif tutar > kaynak_bakiye_val:
+                st.error(f"Yetersiz bakiye! Maksimum: {kaynak_bakiye_val:,.2f} {kaynak_banka['para_birimi']}")
+            else:
+                with st.spinner("İşleniyor..."):
+                    basarili, mesaj = virman_yap(kaynak_id, hedef_id, tutar, aciklama, kullanilan_kur)
+                if basarili:
+                    st.success(mesaj)
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error(f"❌ {mesaj}")
+    
+        st.markdown("---")
+    
+        # ─── Geçmiş Virmanlar ───
+        st.markdown("### 📜 Son Virmanlar")
+        virmanlar = get_virmanlar(limit=30)
+    
+        if not virmanlar:
+            st.info("Henüz virman kaydı yok.")
+        else:
+            for v in virmanlar:
+                kaynak_pb = v.get('kaynak_para_birimi') or 'TL'
+                hedef_pb = v.get('hedef_para_birimi') or 'TL'
+                kaynak_sym = "$" if kaynak_pb == "USD" else "₺"
+                hedef_sym = "$" if hedef_pb == "USD" else "₺"
+    
+                # Float dönüşümleri (string olabilir)
+                try:
+                    v_tutar = float(v.get('tutar') or 0)
+                except (TypeError, ValueError):
+                    v_tutar = 0.0
+                try:
+                    v_hedef_tutar = float(v.get('hedef_tutar') or 0)
+                except (TypeError, ValueError):
+                    v_hedef_tutar = 0.0
+                v_kur = v.get('kur_kullanilan')
+                try:
+                    v_kur_float = float(v_kur) if v_kur else None
+                except (TypeError, ValueError):
+                    v_kur_float = None
+    
+                col_a, col_b = st.columns([8, 1])
+                with col_a:
+                    kur_str = f" • Kur: {v_kur_float:.2f}" if v_kur_float else ""
+                    tarih_str = v.get('tarih', '')
+                    aciklama_str = f"<br><small style='color:#94A3B8'>📝 {v.get('aciklama')}</small>" if v.get('aciklama') else ""
+    
+                    st.markdown(f"""
+                    <div style="background:#151F38;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('kaynak_hesap_adi','?')}</span>
+                                <span style="margin:0 10px;color:#94A3B8;font-size:14px">→</span>
+                                <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('hedef_hesap_adi','?')}</span>
+                            </div>
+                            <div style="text-align:right">
+                                <span style="font-family:monospace;color:#DC2626;font-weight:600">-{kaynak_sym}{v_tutar:,.2f}</span>
+                                &nbsp;&nbsp;
+                                <span style="font-family:monospace;color:#16A34A;font-weight:600">+{hedef_sym}{v_hedef_tutar:,.2f}</span>
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:#64748B;margin-top:4px">
+                            🗓️ {tarih_str}{kur_str}
+                            {aciklama_str}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+                with col_b:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("↩️", key=f"virman_geri_{v['id']}", help="Bu virmanı geri al"):
+                        basarili, mesaj = virman_geri_al(v['id'])
+                        if basarili:
+                            st.success(mesaj)
+                            st.rerun()
+                        else:
+                            st.error(mesaj)
+    
+    
+    # ════════════════════════════════════════════════════════════════════
+    # 12) ERTELENEN ÖDEMELER
+    # ════════════════════════════════════════════════════════════════════
+
     if sayfa == "📊 Dashboard":
         st.markdown('<div class="baslik">📊 Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Haftalık ödeme durumu ve finansal özet</div>', unsafe_allow_html=True)
@@ -2113,6 +2300,9 @@ def run():
     # ════════════════════════════════════════════════════════════════════
     # 4) NAKİT AKIŞ
     # ════════════════════════════════════════════════════════════════════
+        st.markdown("---")
+        if st.button("🔁 Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True):
+            _dlg_virman()
     elif sayfa == "💸 Nakit Akış":
         st.markdown('<div class="baslik">💸 Nakit Akış Analizi</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bekleyen ödemeler baz alınmıştır</div>', unsafe_allow_html=True)
@@ -2496,123 +2686,122 @@ def run():
     # ════════════════════════════════════════════════════════════════════
     # 6) ÖDENENLEr
     # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "✅ Ödenenler":
-        st.markdown('<div class="baslik">✅ Ödenen Ödemeler</div>', unsafe_allow_html=True)
+    elif sayfa == "🕐 Ödenenler & Geçmiş":
+        st.markdown('<div class="baslik">🕐 Ödenenler & Geçmiş</div>', unsafe_allow_html=True)
+        st.markdown('<div class="alt-baslik">Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi</div>', unsafe_allow_html=True)
+        _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
+        with _tab_odenen:
     
-        odemeler, hafta = get_aktif_odemeler()
-        odenenler = [o for o in odemeler if o["durum"] == "odendi"]
+            odemeler, hafta = get_aktif_odemeler()
+            odenenler = [o for o in odemeler if o["durum"] == "odendi"]
     
-        if not odenenler:
-            st.info("Bu haftada henüz ödendi olarak işaretlenmiş ödeme yok.")
-            st.stop()
+            if not odenenler:
+                st.info("Bu haftada henüz ödendi olarak işaretlenmiş ödeme yok.")
+                st.stop()
     
-        tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
-        usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
+            tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
+            usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
     
-        metrik_satiri([
-            {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": "#34D399"},
-            {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#60A5FA"},
-            {"label": "Ödeme Adedi", "value": f"{len(odenenler):,}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
-        ])
+            metrik_satiri([
+                {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": "#34D399"},
+                {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#60A5FA"},
+                {"label": "Ödeme Adedi", "value": f"{len(odenenler):,}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
+            ])
     
-        # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
-        bankalar = get_bankalar()
-        banka_map = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+            # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
+            bankalar = get_bankalar()
+            banka_map = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
     
-        rows = []
-        for o in sorted(odenenler, key=lambda x: x.get("vade") or ""):
-            kat = KATEGORILER.get(o.get("kategori") or "diger", KATEGORILER["diger"])
-            banka_adi = "—"
-            b_id = o.get("banka_id")
-            if b_id:
-                banka_adi = banka_map.get(b_id, f"ID: {b_id} (silinmiş?)")
-            rows.append({
-                "Firma": o["firma"],
-                "Açıklama": o.get("aciklama") or "",
-                "Kategori": kat["label"],
-                "Vade": fmt_tarih(o.get("vade")),
-                "Tutar TL (₺)": o.get("tutar_tl"),
-                "Tutar USD ($)": o.get("tutar_usd"),
-                "Ödendiği Banka": banka_adi,
-                "Ödendi Tarihi": o.get("odendi_tarih") or "",
-                "ID": o["id"],
-            })
+            rows = []
+            for o in sorted(odenenler, key=lambda x: x.get("vade") or ""):
+                kat = KATEGORILER.get(o.get("kategori") or "diger", KATEGORILER["diger"])
+                banka_adi = "—"
+                b_id = o.get("banka_id")
+                if b_id:
+                    banka_adi = banka_map.get(b_id, f"ID: {b_id} (silinmiş?)")
+                rows.append({
+                    "Firma": o["firma"],
+                    "Açıklama": o.get("aciklama") or "",
+                    "Kategori": kat["label"],
+                    "Vade": fmt_tarih(o.get("vade")),
+                    "Tutar TL (₺)": o.get("tutar_tl"),
+                    "Tutar USD ($)": o.get("tutar_usd"),
+                    "Ödendiği Banka": banka_adi,
+                    "Ödendi Tarihi": o.get("odendi_tarih") or "",
+                    "ID": o["id"],
+                })
     
-        # === ODENENLER HTML TABLO ===
-        def fmt_para_od(val):
-            if val is None or val == "" or (val != val):
-                return "-"
-            try:
-                v = float(val)
-                if v == 0:
+            # === ODENENLER HTML TABLO ===
+            def fmt_para_od(val):
+                if val is None or val == "" or (val != val):
                     return "-"
-                return f"{v:,.0f}".replace(",", ".")
-            except:
-                return str(val) if val else "-"
+                try:
+                    v = float(val)
+                    if v == 0:
+                        return "-"
+                    return f"{v:,.0f}".replace(",", ".")
+                except:
+                    return str(val) if val else "-"
 
-        od_rows_html = ""
-        for idx2, row2 in enumerate(rows):
-            bg = "#FFFFFF" if idx2 % 2 == 0 else "#F8FAFC"
-            firma_v = str(row2.get("Firma") or "-")
-            aciklama_v = str(row2.get("Açıklama") or "")
-            kategori_v = str(row2.get("Kategori") or "-")
-            vade_v = str(row2.get("Vade") or "-")
-            tutar_tl_r = fmt_para_od(row2.get("Tutar TL (₺)"))
-            tutar_usd_r = fmt_para_od(row2.get("Tutar USD ($)"))
-            tl_str = f"₺ {tutar_tl_r}" if tutar_tl_r != "-" else "-"
-            usd_str = f"$ {tutar_usd_r}" if tutar_usd_r != "-" else "-"
-            banka_v = str(row2.get("Ödendiği Banka") or "-")
-            tarih_v = str(row2.get("Ödendi Tarihi") or "-")
-            od_rows_html += (
-                f'<tr style="background:{bg};border-bottom:1px solid rgba(255,255,255,0.1);">' +
-                f'<td style="padding:10px 14px;color:#CBD5E1;font-size:12px;font-weight:600;">{firma_v}</td>' +
-                f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{aciklama_v}</td>' +
-                f'<td style="padding:10px 10px;text-align:center;"><span style="background:rgba(99,102,241,0.15);color:#A5B4FC;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
-                f'<td style="padding:10px 10px;text-align:center;color:#64748B;font-size:12px;">{vade_v}</td>' +
-                f'<td style="padding:10px 10px;text-align:right;color:#16A34A;font-size:12px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
-                f'<td style="padding:10px 10px;text-align:right;color:#2563EB;font-size:12px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
-                f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{banka_v}</td>' +
-                f'<td style="padding:10px 10px;text-align:center;color:#64748B;font-size:12px;">{tarih_v}</td>' +
-                '</tr>' + "\n"
+            od_rows_html = ""
+            for idx2, row2 in enumerate(rows):
+                bg = "#FFFFFF" if idx2 % 2 == 0 else "#F8FAFC"
+                firma_v = str(row2.get("Firma") or "-")
+                aciklama_v = str(row2.get("Açıklama") or "")
+                kategori_v = str(row2.get("Kategori") or "-")
+                vade_v = str(row2.get("Vade") or "-")
+                tutar_tl_r = fmt_para_od(row2.get("Tutar TL (₺)"))
+                tutar_usd_r = fmt_para_od(row2.get("Tutar USD ($)"))
+                tl_str = f"₺ {tutar_tl_r}" if tutar_tl_r != "-" else "-"
+                usd_str = f"$ {tutar_usd_r}" if tutar_usd_r != "-" else "-"
+                banka_v = str(row2.get("Ödendiği Banka") or "-")
+                tarih_v = str(row2.get("Ödendi Tarihi") or "-")
+                od_rows_html += (
+                    f'<tr style="background:{bg};border-bottom:1px solid rgba(255,255,255,0.1);">' +
+                    f'<td style="padding:10px 14px;color:#CBD5E1;font-size:12px;font-weight:600;">{firma_v}</td>' +
+                    f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{aciklama_v}</td>' +
+                    f'<td style="padding:10px 10px;text-align:center;"><span style="background:rgba(99,102,241,0.15);color:#A5B4FC;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
+                    f'<td style="padding:10px 10px;text-align:center;color:#64748B;font-size:12px;">{vade_v}</td>' +
+                    f'<td style="padding:10px 10px;text-align:right;color:#16A34A;font-size:12px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
+                    f'<td style="padding:10px 10px;text-align:right;color:#2563EB;font-size:12px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
+                    f'<td style="padding:10px 10px;color:#64748B;font-size:12px;">{banka_v}</td>' +
+                    f'<td style="padding:10px 10px;text-align:center;color:#64748B;font-size:12px;">{tarih_v}</td>' +
+                    '</tr>' + "\n"
+                )
+
+            od_header = (
+                '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
+                '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
+                '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">' +
+                '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
+                '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kategori</th>' +
+                '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>' +
+                '<th style="padding:12px 10px;text-align:right;color:#86EFAC;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
+                '<th style="padding:12px 10px;text-align:right;color:#93C5FD;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
+                '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendiği Banka</th>' +
+                '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendi Tarihi</th>' +
+                '</tr></thead><tbody>' + "\n"
             )
-
-        od_header = (
-            '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
-            '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
-            '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">' +
-            '<th style="padding:12px 14px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
-            '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
-            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kategori</th>' +
-            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>' +
-            '<th style="padding:12px 10px;text-align:right;color:#86EFAC;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
-            '<th style="padding:12px 10px;text-align:right;color:#93C5FD;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
-            '<th style="padding:12px 10px;text-align:left;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendiği Banka</th>' +
-            '<th style="padding:12px 10px;text-align:center;color:#94A3B8;font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendi Tarihi</th>' +
-            '</tr></thead><tbody>' + "\n"
-        )
-        od_footer = '</tbody></table></div>' + "\n"
-        od_tablo_html = od_header + od_rows_html + od_footer
-        st.markdown(od_tablo_html, unsafe_allow_html=True)
+            od_footer = '</tbody></table></div>' + "\n"
+            od_tablo_html = od_header + od_rows_html + od_footer
+            st.markdown(od_tablo_html, unsafe_allow_html=True)
     
-        st.markdown("---")
-        st.markdown("**Geri almak istediğin ödeme:**")
-        geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
-        if st.button("↩ Geri Al", type="secondary"):
-            idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
-            kur_now = get_kur()
-            odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
-            st.success("Geri alındı.")
-            st.rerun()
+            st.markdown("---")
+            st.markdown("**Geri almak istediğin ödeme:**")
+            geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
+            if st.button("↩ Geri Al", type="secondary"):
+                idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
+                kur_now = get_kur()
+                odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
+                st.success("Geri alındı.")
+                st.rerun()
     
     
-    # ════════════════════════════════════════════════════════════════════
-    # 7) GEÇMİŞ
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🕐 Geçmiş":
-        st.markdown('<div class="baslik">🕐 Geçmiş & Arşiv</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Geçmiş hafta ödemeleri ve firma çek arşivi</div>', unsafe_allow_html=True)
+        # ════════════════════════════════════════════════════════════════════
+        # 7) GEÇMİŞ
+        # ════════════════════════════════════════════════════════════════════
     
-        gecmis_tab1, gecmis_tab2 = st.tabs(["📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
     
         # ── TAB 1: Geçmiş Haftalar ────────────────────────────────
         with gecmis_tab1:
@@ -2911,412 +3100,224 @@ def run():
     # ════════════════════════════════════════════════════════════════════
     # 9) RAPORLAR
     # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📄 Raporlar":
-        st.markdown('<div class="baslik">📄 Raporlar</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Excel ve PDF formatında haftalık raporlar</div>', unsafe_allow_html=True)
+    elif sayfa == "📄 Raporlar & Bildirim":
+        _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
+        with _tab_rapor:
+            st.markdown('<div class="baslik">📄 Raporlar</div>', unsafe_allow_html=True)
+            st.markdown('<div class="alt-baslik">Excel ve PDF formatında haftalık raporlar</div>', unsafe_allow_html=True)
     
-        kur      = get_kur()
-        odemeler, hafta = get_aktif_odemeler()
-        bankalar = get_bankalar()
+            kur      = get_kur()
+            odemeler, hafta = get_aktif_odemeler()
+            bankalar = get_bankalar()
     
-        if not odemeler:
-            st.info("Rapor oluşturmak için önce veri yükleyin.")
-            st.stop()
+            if not odemeler:
+                st.info("Rapor oluşturmak için önce veri yükleyin.")
+                st.stop()
     
-        hafta_adi = hafta["hafta_adi"] if hafta else "Haftalık Rapor"
+            hafta_adi = hafta["hafta_adi"] if hafta else "Haftalık Rapor"
     
-        st.markdown(f"**Aktif hafta:** `{hafta_adi}` — {len(odemeler)} ödeme")
-        st.markdown("---")
+            st.markdown(f"**Aktif hafta:** `{hafta_adi}` — {len(odemeler)} ödeme")
+            st.markdown("---")
     
-        # ── TAB: Excel / HTML ──
-        tab1, tab2, tab3 = st.tabs(["📊 Tam Excel Raporu", "🖨️ PDF / Yazdır", "💸 Nakit Akış Excel"])
-    
-        with tab1:
-            st.markdown("**Özet + Günlük Detay + Kategori Analizi** üç sayfalı Excel dosyası.")
-            st.markdown("")
-    
-            tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
-            usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
-            odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
-            metrik_satiri([
-                {"label": "Toplam TL", "value": f"₺{fmt(tl_top)}", "renk": "#818CF8"},
-                {"label": "Toplam USD", "value": f"${fmt(usd_top)}", "renk": "#34D399"},
-                {"label": "Ödendi", "value": f"{odendi}/{len(odemeler)}", "renk": "#FBBF24"},
-            ])
-    
-            st.markdown("")
-            try:
-                excel_buf = haftalik_excel_raporu(odemeler, hafta_adi, bankalar, kur)
-                st.download_button(
-                    label="📥 Excel Raporu İndir",
-                    data=excel_buf,
-                    file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
-                    use_container_width=True,
-                )
-            except Exception as e:
-                st.error(f"Excel oluşturulamadı: {e}")
-    
-        with tab2:
-            st.markdown("Tarayıcınızda açılır — **Ctrl+P / Cmd+P** ile yazdırabilir ya da PDF olarak kaydedebilirsiniz.")
-            st.markdown("")
-    
-            try:
-                html_bytes = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
-                st.download_button(
-                    label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
-                    data=html_bytes,
-                    file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
-                    mime="text/html",
-                    type="primary",
-                    use_container_width=True,
-                )
-                st.markdown("")
-                st.markdown(
-                    '<div class="info-box">💡 <b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
-                    unsafe_allow_html=True
-                )
-            except Exception as e:
-                st.error(f"HTML rapor oluşturulamadı: {e}")
-    
-            # Önizleme
-            @st.dialog("👁️ Rapor Önizleme", width="large")
-            def _dlg_rapor_onizleme():
-                try:
-                    preview = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
-                    st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
-                except Exception as e:
-                    st.warning(f"Önizleme yüklenemedi: {e}")
-            if st.button("👁️ Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True):
-                _dlg_rapor_onizleme()
-    
-        with tab3:
-            st.markdown("Nakit akış tablosunu Excel dosyası olarak indirin.")
-            st.markdown("")
-            try:
-                nakit_buf = nakit_akis_excel(odemeler, bankalar, hafta_adi, kur)
-                st.download_button(
-                    label="📥 Nakit Akış Excel İndir",
-                    data=nakit_buf,
-                    file_name=f"MuhasebeFin_NakitAkis_{tr_today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
-                    use_container_width=True,
-                )
-            except Exception as e:
-                st.error(f"Nakit akış raporu oluşturulamadı: {e}")
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 10) BİLDİRİM AYARLARI
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🔔 Bildirim Ayarları":
-        st.markdown('<div class="baslik">🔔 Bildirim Ayarları</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Vade yaklaşan ödemeler için email bildirimleri</div>', unsafe_allow_html=True)
-    
-        ayarlar  = get_bildirim_ayarlari()
-        odemeler, hafta = get_aktif_odemeler()
-        bankalar = get_bankalar()
-    
-        # Secrets konfigürasyonu
-        @st.dialog("⚙️ SMTP Ayarları (Streamlit Secrets)", width="large")
-        def _dlg_smtp_ayar():
-            st.markdown(
-                "Email bildirimleri icin Streamlit Cloud > Settings > Secrets bolumune ekleyin:\n\n"
-                "```toml\n[bildirim]\nsmtp_host = \"smtp.gmail.com\"\nsmtp_port = 587\n"
-                "smtp_user = \"sizin@gmail.com\"\nsmtp_pass = \"uygulama-sifresi\"\n"
-                "alici_email = \"alici@firma.com\"\naktif = true\n```"
-            )
-            st.markdown(
-                '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
-                unsafe_allow_html=True
-            )
-        if st.button("⚙️ SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True):
-            _dlg_smtp_ayar()
-    
-        # Mevcut ayar durumu
-        st.markdown("---")
-    
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Mevcut Konfigürasyon**")
-            if ayarlar.get("smtp_user"):
-                st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
-    
-        with col2:
-            st.markdown("**Bağlantı Testi**")
-            if ayarlar.get("smtp_user"):
-                if st.button("🔌 Bağlantıyı Test Et", use_container_width=True):
-                    with st.spinner("Test ediliyor..."):
-                        basarili, mesaj = baglanti_test(ayarlar)
-                    if basarili:
-                        st.success(mesaj)
-                    else:
-                        st.error(mesaj)
-            else:
-                st.info("Önce SMTP ayarlarını yapılandırın.")
-    
-        st.markdown("---")
-        st.markdown("### 📨 Manuel Bildirim Gönder")
-    
-        if not ayarlar.get("smtp_user"):
-            st.warning("Email göndermek için önce SMTP ayarlarını yapılandırın.")
-        elif not odemeler:
-            st.info("Göndermek için önce veri yükleyin.")
-        else:
-            hafta_adi = hafta["hafta_adi"] if hafta else "Bu Hafta"
-    
-            tab1, tab2 = st.tabs(["⚠️ Vade Uyarısı", "📊 Haftalık Özet"])
+            # ── TAB: Excel / HTML ──
+            tab1, tab2, tab3 = st.tabs(["📊 Tam Excel Raporu", "🖨️ PDF / Yazdır", "💸 Nakit Akış Excel"])
     
             with tab1:
-                konu, html_icerik = vade_bildirimi_olustur(odemeler, hafta_adi)
-                if not konu:
-                    st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
+                st.markdown("**Özet + Günlük Detay + Kategori Analizi** üç sayfalı Excel dosyası.")
+                st.markdown("")
+    
+                tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
+                usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
+                odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
+                metrik_satiri([
+                    {"label": "Toplam TL", "value": f"₺{fmt(tl_top)}", "renk": "#818CF8"},
+                    {"label": "Toplam USD", "value": f"${fmt(usd_top)}", "renk": "#34D399"},
+                    {"label": "Ödendi", "value": f"{odendi}/{len(odemeler)}", "renk": "#FBBF24"},
+                ])
+    
+                st.markdown("")
+                try:
+                    excel_buf = haftalik_excel_raporu(odemeler, hafta_adi, bankalar, kur)
+                    st.download_button(
+                        label="📥 Excel Raporu İndir",
+                        data=excel_buf,
+                        file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"Excel oluşturulamadı: {e}")
+    
+            with tab2:
+                st.markdown("Tarayıcınızda açılır — **Ctrl+P / Cmd+P** ile yazdırabilir ya da PDF olarak kaydedebilirsiniz.")
+                st.markdown("")
+    
+                try:
+                    html_bytes = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
+                    st.download_button(
+                        label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
+                        data=html_bytes,
+                        file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
+                        mime="text/html",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                    st.markdown("")
+                    st.markdown(
+                        '<div class="info-box">💡 <b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
+                        unsafe_allow_html=True
+                    )
+                except Exception as e:
+                    st.error(f"HTML rapor oluşturulamadı: {e}")
+    
+                # Önizleme
+                @st.dialog("👁️ Rapor Önizleme", width="large")
+                def _dlg_rapor_onizleme():
+                    try:
+                        preview = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
+                        st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
+                    except Exception as e:
+                        st.warning(f"Önizleme yüklenemedi: {e}")
+                if st.button("👁️ Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True):
+                    _dlg_rapor_onizleme()
+    
+            with tab3:
+                st.markdown("Nakit akış tablosunu Excel dosyası olarak indirin.")
+                st.markdown("")
+                try:
+                    nakit_buf = nakit_akis_excel(odemeler, bankalar, hafta_adi, kur)
+                    st.download_button(
+                        label="📥 Nakit Akış Excel İndir",
+                        data=nakit_buf,
+                        file_name=f"MuhasebeFin_NakitAkis_{tr_today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"Nakit akış raporu oluşturulamadı: {e}")
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 10) BİLDİRİM AYARLARI
+        # ════════════════════════════════════════════════════════════════════
+        with _tab_bildirim:
+            st.markdown('<div class="baslik">🔔 Bildirim Ayarları</div>', unsafe_allow_html=True)
+            st.markdown('<div class="alt-baslik">Vade yaklaşan ödemeler için email bildirimleri</div>', unsafe_allow_html=True)
+    
+            ayarlar  = get_bildirim_ayarlari()
+            odemeler, hafta = get_aktif_odemeler()
+            bankalar = get_bankalar()
+    
+            # Secrets konfigürasyonu
+            @st.dialog("⚙️ SMTP Ayarları (Streamlit Secrets)", width="large")
+            def _dlg_smtp_ayar():
+                st.markdown(
+                    "Email bildirimleri icin Streamlit Cloud > Settings > Secrets bolumune ekleyin:\n\n"
+                    "```toml\n[bildirim]\nsmtp_host = \"smtp.gmail.com\"\nsmtp_port = 587\n"
+                    "smtp_user = \"sizin@gmail.com\"\nsmtp_pass = \"uygulama-sifresi\"\n"
+                    "alici_email = \"alici@firma.com\"\naktif = true\n```"
+                )
+                st.markdown(
+                    '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
+                    unsafe_allow_html=True
+                )
+            if st.button("⚙️ SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True):
+                _dlg_smtp_ayar()
+    
+            # Mevcut ayar durumu
+            st.markdown("---")
+    
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Mevcut Konfigürasyon**")
+                if ayarlar.get("smtp_user"):
+                    st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
                 else:
-                    bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
-                    yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
-                    gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
+                    st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
     
-                    if gecmis_cnt:
-                        st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
-                    if bugun_cnt:
-                        st.markdown(f'<div class="uyari-box">⚠️ Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
-                    if yarin_cnt:
-                        st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown("**Bağlantı Testi**")
+                if ayarlar.get("smtp_user"):
+                    if st.button("🔌 Bağlantıyı Test Et", use_container_width=True):
+                        with st.spinner("Test ediliyor..."):
+                            basarili, mesaj = baglanti_test(ayarlar)
+                        if basarili:
+                            st.success(mesaj)
+                        else:
+                            st.error(mesaj)
+                else:
+                    st.info("Önce SMTP ayarlarını yapılandırın.")
     
-                    st.markdown(f"**Konu:** `{konu}`")
+            st.markdown("---")
+            st.markdown("### 📨 Manuel Bildirim Gönder")
+    
+            if not ayarlar.get("smtp_user"):
+                st.warning("Email göndermek için önce SMTP ayarlarını yapılandırın.")
+            elif not odemeler:
+                st.info("Göndermek için önce veri yükleyin.")
+            else:
+                hafta_adi = hafta["hafta_adi"] if hafta else "Bu Hafta"
+    
+                tab1, tab2 = st.tabs(["⚠️ Vade Uyarısı", "📊 Haftalık Özet"])
+    
+                with tab1:
+                    konu, html_icerik = vade_bildirimi_olustur(odemeler, hafta_adi)
+                    if not konu:
+                        st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
+                    else:
+                        bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
+                        yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
+                        gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
+    
+                        if gecmis_cnt:
+                            st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
+                        if bugun_cnt:
+                            st.markdown(f'<div class="uyari-box">⚠️ Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
+                        if yarin_cnt:
+                            st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
+    
+                        st.markdown(f"**Konu:** `{konu}`")
+                        st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
+    
+                        @st.dialog("👁️ Email Önizleme", width="large")
+                        def _dlg_email_on_vade():
+                            st.components.v1.html(html_icerik, height=400, scrolling=True)
+                        if st.button("👁️ Email Önizleme", key="btn_acc_eml_vade", use_container_width=True):
+                            _dlg_email_on_vade()
+    
+                        if st.button("📨 Vade Uyarısı Gönder", type="primary", use_container_width=True):
+                            with st.spinner("Gönderiliyor..."):
+                                basarili, mesaj = email_gonder(konu, html_icerik, ayarlar)
+                            if basarili:
+                                st.success(mesaj)
+                            else:
+                                st.error(mesaj)
+    
+                with tab2:
+                    konu_ozet, html_ozet = ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi)
+                    st.markdown(f"**Konu:** `{konu_ozet}`")
                     st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
                     @st.dialog("👁️ Email Önizleme", width="large")
-                    def _dlg_email_on_vade():
-                        st.components.v1.html(html_icerik, height=400, scrolling=True)
-                    if st.button("👁️ Email Önizleme", key="btn_acc_eml_vade", use_container_width=True):
-                        _dlg_email_on_vade()
+                    def _dlg_email_on_hafta():
+                        st.components.v1.html(html_ozet, height=400, scrolling=True)
+                    if st.button("👁️ Email Önizleme", key="btn_acc_eml_hft", use_container_width=True):
+                        _dlg_email_on_hafta()
     
-                    if st.button("📨 Vade Uyarısı Gönder", type="primary", use_container_width=True):
+                    if st.button("📨 Haftalık Özet Gönder", type="primary", use_container_width=True):
                         with st.spinner("Gönderiliyor..."):
-                            basarili, mesaj = email_gonder(konu, html_icerik, ayarlar)
+                            basarili, mesaj = email_gonder(konu_ozet, html_ozet, ayarlar)
                         if basarili:
                             st.success(mesaj)
                         else:
                             st.error(mesaj)
     
-            with tab2:
-                konu_ozet, html_ozet = ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi)
-                st.markdown(f"**Konu:** `{konu_ozet}`")
-                st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
-                @st.dialog("👁️ Email Önizleme", width="large")
-                def _dlg_email_on_hafta():
-                    st.components.v1.html(html_ozet, height=400, scrolling=True)
-                if st.button("👁️ Email Önizleme", key="btn_acc_eml_hft", use_container_width=True):
-                    _dlg_email_on_hafta()
-    
-                if st.button("📨 Haftalık Özet Gönder", type="primary", use_container_width=True):
-                    with st.spinner("Gönderiliyor..."):
-                        basarili, mesaj = email_gonder(konu_ozet, html_ozet, ayarlar)
-                    if basarili:
-                        st.success(mesaj)
-                    else:
-                        st.error(mesaj)
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 11) BANKALAR ARASI VİRMAN
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🔁 Bankalar Arası Virman":
-        st.markdown('<div class="baslik">🔁 Bankalar Arası Virman</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Hesaplar arasında para transferi</div>', unsafe_allow_html=True)
-    
-        bankalar = get_bankalar()
-        kur = get_kur()
-
-        if len(bankalar) < 2:
-            st.warning("⚠️ Virman için en az 2 banka hesabınız olmalı. Önce 'Banka Bakiyeleri' sayfasından hesap ekleyin.")
-            st.stop()
-
-        # ── 🏦 Banka bakiyeleri (üstte tek bakışta — virman öncesi durumu gör) ──
-        _renk_pb_v = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
-        metrik_satiri([{
-            "label": b["hesap_adi"],
-            "value": (("$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺"))
-                      + f"{float(b['bakiye']):,.2f}"),
-            "renk": _renk_pb_v.get(b["para_birimi"], "#818CF8"),
-            "alt": b["para_birimi"],
-        } for b in bankalar])
-        _v_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
-        _v_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
-        _v_eur = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "EUR")
-        _v_usd_esde = _v_usd + (_v_tl / kur if kur else 0) + (_v_eur * 1.08)
-        st.markdown(
-            '<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);'
-            'border-radius:10px;padding:9px 16px;margin:6px 0 14px;display:flex;gap:26px;flex-wrap:wrap;'
-            'align-items:center;font-size:13px">'
-            '<span style="color:#94A3B8;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
-            f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{_v_tl:,.2f}</b></span>'
-            f'<span style="color:#60A5FA">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
-            + (f'<span style="color:#A78BFA">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
-            + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${_v_usd_esde:,.2f}</b></span>'
-            '</div>', unsafe_allow_html=True)
-
-        # ─── Yeni Virman Formu ───
-        st.markdown("### ➕ Yeni Virman")
-    
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Kaynak Hesap**")
-            kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id'] for b in bankalar}
-            kaynak_secim = st.selectbox("Kaynak", list(kaynak_options.keys()), key="virman_kaynak")
-            kaynak_id = kaynak_options[kaynak_secim]
-            kaynak_banka = next(b for b in bankalar if b['id'] == kaynak_id)
-    
-        with col2:
-            st.markdown("**Hedef Hesap**")
-            hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id']
-                             for b in bankalar if b['id'] != kaynak_id}
-            if not hedef_options:
-                st.warning("Başka hesap yok.")
-                st.stop()
-            hedef_secim = st.selectbox("Hedef", list(hedef_options.keys()), key="virman_hedef")
-            hedef_id = hedef_options[hedef_secim]
-            hedef_banka = next(b for b in bankalar if b['id'] == hedef_id)
-    
-        # Para birimi farklılığı uyarısı + kur input
-        farkli_pb = kaynak_banka['para_birimi'] != hedef_banka['para_birimi']
-    
-        col_t, col_k = st.columns([2, 1])
-        with col_t:
-            kaynak_bakiye_val = float(kaynak_banka.get('bakiye') or 0)
-            tutar = st.number_input(
-                f"Tutar ({kaynak_banka['para_birimi']})",
-                min_value=0.0,
-                max_value=max(kaynak_bakiye_val, 0.01),  # 0 ise input'u kullanılabilir tut
-                step=0.01,
-                format="%.2f",
-                key="virman_tutar",
-                disabled=(kaynak_bakiye_val <= 0)
-            )
-            if kaynak_bakiye_val <= 0:
-                st.caption("⚠️ Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
-        with col_k:
-            if farkli_pb:
-                kullanilan_kur = st.number_input(
-                    f"Kur ({kaynak_banka['para_birimi']}/{hedef_banka['para_birimi']})",
-                    value=float(kur),
-                    min_value=0.01,
-                    step=0.01,
-                    format="%.2f",
-                    key="virman_kur",
-                    help=f"1 USD = {kur} TL kullanılıyor"
-                )
-            else:
-                kullanilan_kur = None
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.caption("Aynı para birimi, kur gerekmez")
-    
-        # Hedefe gidecek hesaplanmış tutar (önizleme)
-        if farkli_pb and kullanilan_kur and tutar > 0:
-            if kaynak_banka['para_birimi'] == "TL" and hedef_banka['para_birimi'] == "USD":
-                hedef_tutar_onizleme = tutar / kullanilan_kur
-            elif kaynak_banka['para_birimi'] == "USD" and hedef_banka['para_birimi'] == "TL":
-                hedef_tutar_onizleme = tutar * kullanilan_kur
-            else:
-                hedef_tutar_onizleme = tutar
-            st.info(f"➡️ Hedef hesaba **{hedef_tutar_onizleme:,.2f} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
-        elif tutar > 0:
-            st.info(f"➡️ Hedef hesaba **{tutar:,.2f} {hedef_banka['para_birimi']}** eklenecek")
-    
-        aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
-    
-        if st.button("🔁 Virmanı Yap", type="primary", use_container_width=True):
-            if tutar <= 0:
-                st.error("Tutar 0'dan büyük olmalı.")
-            elif tutar > kaynak_bakiye_val:
-                st.error(f"Yetersiz bakiye! Maksimum: {kaynak_bakiye_val:,.2f} {kaynak_banka['para_birimi']}")
-            else:
-                with st.spinner("İşleniyor..."):
-                    basarili, mesaj = virman_yap(kaynak_id, hedef_id, tutar, aciklama, kullanilan_kur)
-                if basarili:
-                    st.success(mesaj)
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error(f"❌ {mesaj}")
-    
-        st.markdown("---")
-    
-        # ─── Geçmiş Virmanlar ───
-        st.markdown("### 📜 Son Virmanlar")
-        virmanlar = get_virmanlar(limit=30)
-    
-        if not virmanlar:
-            st.info("Henüz virman kaydı yok.")
-        else:
-            for v in virmanlar:
-                kaynak_pb = v.get('kaynak_para_birimi') or 'TL'
-                hedef_pb = v.get('hedef_para_birimi') or 'TL'
-                kaynak_sym = "$" if kaynak_pb == "USD" else "₺"
-                hedef_sym = "$" if hedef_pb == "USD" else "₺"
-    
-                # Float dönüşümleri (string olabilir)
-                try:
-                    v_tutar = float(v.get('tutar') or 0)
-                except (TypeError, ValueError):
-                    v_tutar = 0.0
-                try:
-                    v_hedef_tutar = float(v.get('hedef_tutar') or 0)
-                except (TypeError, ValueError):
-                    v_hedef_tutar = 0.0
-                v_kur = v.get('kur_kullanilan')
-                try:
-                    v_kur_float = float(v_kur) if v_kur else None
-                except (TypeError, ValueError):
-                    v_kur_float = None
-    
-                col_a, col_b = st.columns([8, 1])
-                with col_a:
-                    kur_str = f" • Kur: {v_kur_float:.2f}" if v_kur_float else ""
-                    tarih_str = v.get('tarih', '')
-                    aciklama_str = f"<br><small style='color:#94A3B8'>📝 {v.get('aciklama')}</small>" if v.get('aciklama') else ""
-    
-                    st.markdown(f"""
-                    <div style="background:#151F38;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 16px;margin-bottom:8px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <div>
-                                <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('kaynak_hesap_adi','?')}</span>
-                                <span style="margin:0 10px;color:#94A3B8;font-size:14px">→</span>
-                                <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('hedef_hesap_adi','?')}</span>
-                            </div>
-                            <div style="text-align:right">
-                                <span style="font-family:monospace;color:#DC2626;font-weight:600">-{kaynak_sym}{v_tutar:,.2f}</span>
-                                &nbsp;&nbsp;
-                                <span style="font-family:monospace;color:#16A34A;font-weight:600">+{hedef_sym}{v_hedef_tutar:,.2f}</span>
-                            </div>
-                        </div>
-                        <div style="font-size:11px;color:#64748B;margin-top:4px">
-                            🗓️ {tarih_str}{kur_str}
-                            {aciklama_str}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-    
-                with col_b:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("↩️", key=f"virman_geri_{v['id']}", help="Bu virmanı geri al"):
-                        basarili, mesaj = virman_geri_al(v['id'])
-                        if basarili:
-                            st.success(mesaj)
-                            st.rerun()
-                        else:
-                            st.error(mesaj)
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 12) ERTELENEN ÖDEMELER
-    # ════════════════════════════════════════════════════════════════════
+        # ════════════════════════════════════════════════════════════════════
+        # 11) BANKALAR ARASI VİRMAN
+        # ════════════════════════════════════════════════════════════════════
     elif sayfa == "⏳ Ertelenen Ödemeler":
         st.markdown('<div class="baslik">⏳ Ertelenen Ödemeler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bu oturumda vadesi değiştirilmiş ödemeler</div>', unsafe_allow_html=True)
