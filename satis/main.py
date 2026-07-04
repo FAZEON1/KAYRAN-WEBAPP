@@ -1001,8 +1001,11 @@ def run():
                     k = satir_kar(s)
                     _sno = (s.get("siparis_no") or "").strip() or "—"
                     g = _sipler.setdefault(_sno, {"tarih": str(s.get("tarih") or "")[:10],
-                                                  "kalem": 0, "adet": 0, "ciro": 0.0, "kar": 0.0})
+                                                  "kalem": 0, "adet": 0, "ciro": 0.0, "kar": 0.0,
+                                                  "skular": set()})
                     g["kalem"] += 1
+                    if (s.get("sku") or "").strip():
+                        g["skular"].add((s.get("sku") or "").strip())
                     g["adet"] += int(k["adet"] or 0)
                     g["ciro"] += k["ciro"]
                     g["kar"] += k["net_kar"]
@@ -1018,11 +1021,22 @@ def run():
                                 ("Ciro", _usd(_t_ciro), "#CBD5E1"),
                                 ("Net Kâr", _usd(_t_kar),
                                  "#34D399" if _t_kar >= 0 else "#F87171"),
+                                ("Kârlılık", f"%{(_t_kar / _t_ciro * 100) if _t_ciro else 0:.1f}",
+                                 "#34D399" if _t_kar >= 0 else "#F87171"),
                             ]) + '</div>', unsafe_allow_html=True)
                 st.markdown("**📦 Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
+                def _sku_ozet(g):
+                    _sk = sorted(g["skular"])
+                    if not _sk:
+                        return "—"
+                    if len(_sk) == 1:
+                        return _sk[0]
+                    return f"{_sk[0]} +{len(_sk) - 1}"
                 _sdf = pd.DataFrame([{
-                    "Tarih": g["tarih"], "Sipariş No": sno, "Kalem": g["kalem"],
+                    "Tarih": g["tarih"], "Sipariş No": sno,
+                    "SKU": _sku_ozet(g), "Kalem": g["kalem"],
                     "Adet": g["adet"], "Ciro": _usd(g["ciro"]), "Net Kâr": _usd(g["kar"]),
+                    "Kârlılık": f"%{(g['kar'] / g['ciro'] * 100) if g['ciro'] else 0:.1f}",
                 } for sno, g in sorted(_sipler.items(),
                                        key=lambda x: x[1]["tarih"], reverse=True)])
                 st.dataframe(_sdf, hide_index=True, use_container_width=True,
@@ -1038,6 +1052,7 @@ def run():
                         "B.Maliyet": _usd(s.get("birim_maliyet")),
                         "Ciro": _usd(satir_kar(s)["ciro"]),
                         "Net Kâr": _usd(satir_kar(s)["net_kar"]),
+                        "Kârlılık": f"%{satir_kar(s)['marj']:.1f}",
                     } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip])
                     st.dataframe(_kdf, hide_index=True, use_container_width=True,
                                  height=min(300, 40 + 35 * len(_kdf)))
