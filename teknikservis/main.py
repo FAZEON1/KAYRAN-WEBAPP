@@ -58,15 +58,8 @@ def _icerik_multiselect(st_col, etiket, secenekler, kayit_deger, key):
 
 # ── Başlık yardımcıları (portal teması) ──────────────────────────────
 def _baslik(ikon, ad, alt):
-    st.markdown(
-        f'<div style="margin:2px 0 18px">'
-        f'<div style="font-family:Inter,sans-serif;font-size:24px;font-weight:800;color:#FFFFFF;letter-spacing:-0.3px">{ikon} {ad}</div>'
-        f'<div style="color:#94A3B8;font-size:13px;margin-top:4px">{alt}</div>'
-        f'<div style="height:1px;background:linear-gradient(90deg,rgba(244,114,182,0.4),transparent);margin-top:12px"></div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
+    from shared.ui import sayfa_baslik as _sb
+    st.markdown(_sb(ikon, ad, alt), unsafe_allow_html=True)
 
 def _alt_baslik(t):
     st.markdown(
