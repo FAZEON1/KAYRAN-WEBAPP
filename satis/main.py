@@ -676,9 +676,15 @@ def run():
     elif _ssayfa == "📋 Satışlar":
         st.markdown(_sb("📋", "Satışlar", "Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
-        _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanallar, key="l_kanal")
 
         satislar = get_satislar(_bas, _bit)
+        # Kanal seçenekleri = dönemde GERÇEKTEN geçen kanallar (içe aktarılan
+        # cari adları dahil) ∪ kayıtlı kanal listesi — hiçbir kanal filtreden kaçamaz
+        _kanal_secenek = sorted({(s.get("kanal") or "").strip()
+                                 for s in satislar if (s.get("kanal") or "").strip()}
+                                | set(_kanallar))
+        _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanal_secenek, key="l_kanal")
+
         if _kanal_f != "Tümü":
             satislar = [s for s in satislar if (s.get("kanal") or "") == _kanal_f]
 
