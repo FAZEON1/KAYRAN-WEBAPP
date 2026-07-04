@@ -1299,8 +1299,9 @@ def run():
 
     elif sayfa == "📈  Müşteri Satışları":
         from shared.tarih import hizli_tarih_araligi
-        st.markdown("### 📈 Müşteri Haftalık Satışları")
-        st.caption("Müşteri (firma) bazında haftalık satış geçmişi — müşteri · tarih aralığı · ürün/SKU ile filtrele.")
+        st.markdown('<div class="baslik">📈 Müşteri Haftalık Satışları</div>', unsafe_allow_html=True)
+        st.markdown('<div class="alt-baslik">Müşteri (firma) bazında haftalık satış geçmişi · müşteri · tarih aralığı · ürün/SKU filtresi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Son 90 gün")
         _mc1, _mc2 = st.columns([1, 1.4])
         _firmalar = ["Tümü"] + get_firma_listesi()
@@ -1319,10 +1320,11 @@ def run():
                 "Haftalık Satış": int(r.get("haftalik_satis", 0) or 0),
                 "Stok": int(r.get("stok_miktari", 0) or 0),
             } for r in _rows])
-            _o1, _o2, _o3 = st.columns(3)
-            _o1.metric("Toplam Haftalık Satış", f"{int(_df['Haftalık Satış'].sum()):,}")
-            _o2.metric("Kayıt", f"{len(_df):,}")
-            _o3.metric("Müşteri Sayısı", int(_df["Müşteri"].nunique()))
+            metrik_satiri([
+                {"label": "📈 Toplam Haftalık Satış", "value": f"{int(_df['Haftalık Satış'].sum()):,}", "renk": "#818CF8"},
+                {"label": "🧾 Kayıt", "value": f"{len(_df):,}", "renk": "#22D3EE"},
+                {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
+            ])
             @st.dialog("📊 Müşteri bazında toplam satış", width="large")
             def _dlg_musteri_toplam():
                 _grp = (_df.groupby("Müşteri")["Haftalık Satış"].sum()
