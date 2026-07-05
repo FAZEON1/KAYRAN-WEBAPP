@@ -1418,11 +1418,15 @@ input, textarea, select { font-size: 16px !important; }
         if st.button(_lbl, key="tema_toggle", use_container_width=True):
             _hedef = "Light" if _su_an == "dark" else "Dark"
             import streamlit.components.v1 as _tema_c
+            # Streamlit tema tercihini stActiveTheme-{path}-v2 anahtarında
+            # JSON string ("Light"/"Dark") olarak tutar (kaynak: frontend bundle).
+            # Eski sürümler için v1 formatı ({name:...}) da yazılır.
             _tema_c.html(
                 """<script>(function(){try{
   var w=window.parent;
-  var key="stActiveTheme-"+w.location.pathname+"-v1";
-  w.localStorage.setItem(key,JSON.stringify({name:"__HEDEF__"}));
+  var base="stActiveTheme-"+w.location.pathname;
+  w.localStorage.setItem(base+"-v2",JSON.stringify("__HEDEF__"));
+  w.localStorage.setItem(base+"-v1",JSON.stringify({name:"__HEDEF__"}));
   w.location.reload();
 }catch(e){}})();</script>""".replace("__HEDEF__", _hedef),
                 height=0)
