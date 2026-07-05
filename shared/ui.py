@@ -119,7 +119,7 @@ def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
          f'margin:4px 0">{ikon} {ad}</div>')
     if alt:
         h += (f'<div style="color:{RENK["soluk"]};font-size:13px;'
-              f'margin-bottom:6px">{alt}</div>')
+              f'margin-bottom:8px">{alt}</div>')
     h += ('<div style="height:1px;background:linear-gradient(90deg,#6366F1,transparent);'
           'margin:8px 0 16px"></div>')
     return h
@@ -131,7 +131,7 @@ def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
 def pencere_css() -> str:
     """Pencere içi ince scrollbar stili — sayfada bir kez basılır."""
     return """<style>
-.kyr-pencere-icerik{overflow-y:auto;padding-right:6px;}
+.kyr-pencere-icerik{overflow-y:auto;padding-right:8px;}
 .kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
 .kyr-pencere-icerik::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:3px;}
 .kyr-pencere-icerik::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.35);border-radius:3px;}
@@ -173,7 +173,7 @@ def pencere_satiri(sol_html: str, sag_html: str = "") -> str:
     """Pencere içinde kompakt liste satırı: solda metin, sağda rozet/değer."""
     sag = ""
     if sag_html:
-        sag = (f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:10px;'
+        sag = (f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:8px;'
                f'align-items:center;">{sag_html}</div>')
     return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
             f'padding:4px 12px;margin:4px 0;border-radius:6px;'
@@ -277,7 +277,7 @@ div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHead
   font-family:Inter,sans-serif !important;
   font-size:17px !important; font-weight:800 !important;
   letter-spacing:-0.2px !important; color:#E2E8F0 !important;
-  padding-bottom:2px !important;
+  padding-bottom:0px !important;
 }
 div[data-testid="stDialog"] > div:first-child{
   border:1px solid rgba(129,140,248,0.22) !important;
@@ -642,7 +642,7 @@ def patron_panosu_html(v):
         _trend_html = (
             f'<div class="kyr-kart" style="background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {RENK["kenar2"]};'
             f'border-radius:16px;padding:12px 16px;margin:4px 0 12px;box-shadow:{GOLGE["kart"]}">'
-            f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+            f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
             f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
             f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
             f'<svg viewBox="0 0 {_W} {_H}" width="100%" height="{_H}" preserveAspectRatio="none" '
@@ -703,7 +703,7 @@ def patron_panosu_html(v):
         f'<span style="font-size:19px;font-weight:800;color:{RENK["metin"]}">👑 Patron Panosu</span>'
         f'<span style="color:{RENK["silik"]};font-size:11px">yalnızca sana özel · sabah kokpiti</span>'
         '</div>'
-        + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
+        + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
         + _buyume_html
