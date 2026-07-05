@@ -454,6 +454,73 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── HER ZAMAN GÖRÜNEN SIDEBAR AÇ/KAPAT DÜĞMESİ ─────────────────────────────
+# Streamlit'in kendi oku koyu temada/mobilde kaybolabildiği için, ana sayfaya
+# sabit konumlu belirgin bir düğme enjekte edip Streamlit'in gerçek toggle'ına
+# tıklatıyoruz. (components.html iframe'inden window.parent üzerinden erişilir.)
+import streamlit.components.v1 as _sb_comp
+_sb_comp.html(
+    """
+<script>
+(function () {
+  const doc = window.parent.document;
+  if (doc.getElementById('kayran-sb-toggle')) return;   // tek sefer ekle
+
+  const btn = doc.createElement('button');
+  btn.id = 'kayran-sb-toggle';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', 'Menüyü aç/kapat');
+  btn.innerHTML = '☰';
+  btn.style.cssText = [
+    'position:fixed','top:10px','left:10px','z-index:2147483647',
+    'width:44px','height:44px','border-radius:12px','cursor:pointer',
+    'border:1px solid rgba(255,255,255,0.45)',
+    'background:linear-gradient(135deg,#1565C0,#42A5F5)',
+    'color:#FFFFFF','font-size:22px','line-height:1','font-weight:700',
+    'box-shadow:0 3px 14px rgba(21,101,192,0.65)',
+    'display:flex','align-items:center','justify-content:center',
+    'padding:0','transition:transform .12s ease'
+  ].join(';');
+  btn.onmouseenter = () => btn.style.transform = 'scale(1.07)';
+  btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+
+  function nativeToggle() {
+    // Streamlit sürümlerine göre olası tüm toggle/expand kontrolleri
+    const sels = [
+      '[data-testid="stSidebarCollapseButton"] button',
+      '[data-testid="stSidebarCollapseButton"]',
+      '[data-testid="stExpandSidebarButton"]',
+      '[data-testid="stSidebarCollapsedControl"] button',
+      '[data-testid="stSidebarCollapsedControl"]',
+      '[data-testid="collapsedControl"] button',
+      '[data-testid="collapsedControl"]'
+    ];
+    for (const s of sels) {
+      const el = doc.querySelector(s);
+      if (el) { el.click(); return true; }
+    }
+    return false;
+  }
+
+  btn.onclick = function () {
+    if (nativeToggle()) return;
+    // Yedek: sidebar'ı doğrudan aç (kapalıysa görünür kıl)
+    const sb = doc.querySelector('section[data-testid="stSidebar"]');
+    if (sb) {
+      const gizli = sb.getAttribute('aria-expanded') === 'false'
+                 || sb.offsetWidth < 30;
+      sb.style.transform = gizli ? 'translateX(0)' : '';
+      sb.style.visibility = 'visible';
+    }
+  };
+
+  doc.body.appendChild(btn);
+})();
+</script>
+""",
+    height=0,
+)
+
 
 # Session state defaults
 def _oturum_secret():
