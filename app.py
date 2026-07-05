@@ -2521,22 +2521,32 @@ body.kayran-light ::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,0.30)
 
 def _tema_init():
     """Her sayfa yüklemesinde: localStorage'daki tema tercihini body class'ına
-    yansıt (body.kayran-light) ve tema düğmesinin etiketini güncelle.
-    Python'da tema algısı YOK — tek doğruluk kaynağı tarayıcı kaydı."""
+    yansıt (body.kayran-light) ve tema düğmesi etiketini güncelle.
+    GÜVENLİ TASARIM: MutationObserver YOK (sonsuz döngü riski), yazma işlemi
+    yalnız değer değiştiyse yapılır, zamanlayıcı window'da TEKİLDİR
+    (rerun'larda çoğalmaz)."""
     import streamlit.components.v1 as _c
     _c.html(
         """<script>(function(){try{
   var w=window.parent, d=w.document;
+  var LBL_KOYU="🌙  Koyu Mod", LBL_ACIK="☀️  Açık Mod";
   function uygula(){
-    var t=w.localStorage.getItem("kayran-tema")||"dark";
-    d.body.classList.toggle("kayran-light", t==="light");
-    var b=d.querySelector(".st-key-tema_toggle button p");
-    if(b) b.textContent=(t==="light")?"🌙  Koyu Mod":"☀️  Açık Mod";
+    try{
+      var t=w.localStorage.getItem("kayran-tema")||"dark";
+      var acik=(t==="light");
+      if(d.body.classList.contains("kayran-light")!==acik){
+        d.body.classList.toggle("kayran-light",acik);
+      }
+      var b=d.querySelector(".st-key-tema_toggle button p");
+      if(b){
+        var lbl=acik?LBL_KOYU:LBL_ACIK;
+        if(b.textContent!==lbl){b.textContent=lbl;}
+      }
+    }catch(e){}
   }
   uygula();
-  // Streamlit rerun'larında buton yeniden çizilir → etiketi tekrar uygula
-  new MutationObserver(function(){uygula();})
-    .observe(d.body,{childList:true,subtree:true});
+  if(w.__kayranTemaInt){w.clearInterval(w.__kayranTemaInt);}
+  w.__kayranTemaInt=w.setInterval(uygula,1000);
 }catch(e){}})();</script>""",
         height=0)
 
