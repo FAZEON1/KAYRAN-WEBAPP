@@ -863,3 +863,49 @@ def gunluk_pnl_tazele():
         return True, str(_r.data or "ok")
     except Exception as e:
         return False, f"{type(e).__name__}: {str(e)[:120]}"
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_kanal_buyume(ay_geri=1):
+    """mv_kanal_ay_pnl'den bu ay vs (ay_geri) ay önce kanal büyümesini hesaplar.
+    Döner: {"buyuyen": [...], "gerileyen": [...], "bu_ay": "YYYY-MM", "kiyas_ay": "YYYY-MM"}
+    Her firma: {kanal, bu_ciro, onceki_ciro, delta_pct, delta_abs}.
+    View yoksa None."""
+    try:
+        import datetime as _dt
+        _bugun = _dt.date.today()
+        _bu_ay = _bugun.replace(day=1)
+        # kıyas ayı
+        _y, _m = _bu_ay.year, _bu_ay.month - ay_geri
+        while _m <= 0:
+            _m += 12; _y -= 1
+        _kiyas = _dt.date(_y, _m, 1)
+        rows = (_get_client().table("mv_kanal_ay_pnl").select("*")
+                .in_("ay", [_bu_ay.isoformat(), _kiyas.isoformat()])
+                .limit(2000).execute().data)
+        if rows is None:
+            return None
+        _bu, _on = {}, {}
+        for r in rows:
+            _ay = str(r.get("ay"))[:7]
+            _kn = r.get("kanal") or "—"
+            _ci = float(r.get("ciro") or 0)
+            if _ay == _bu_ay.isoformat()[:7]:
+                _bu[_kn] = _ci
+            elif _ay == _kiyas.isoformat()[:7]:
+                _on[_kn] = _ci
+        _hepsi = []
+        for _kn in set(_bu) | set(_on):
+            _bc = _bu.get(_kn, 0.0); _oc = _on.get(_kn, 0.0)
+            _delta_abs = _bc - _oc
+            _delta_pct = (_delta_abs / _oc * 100) if _oc > 0 else (100.0 if _bc > 0 else 0.0)
+            _hepsi.append({"kanal": _kn, "bu_ciro": _bc, "onceki_ciro": _oc,
+                           "delta_pct": _delta_pct, "delta_abs": _delta_abs})
+        _buyuyen = sorted([x for x in _hepsi if x["delta_abs"] > 0],
+                          key=lambda x: -x["delta_abs"])[:5]
+        _gerileyen = sorted([x for x in _hepsi if x["delta_abs"] < 0],
+                            key=lambda x: x["delta_abs"])[:5]
+        return {"buyuyen": _buyuyen, "gerileyen": _gerileyen,
+                "bu_ay": _bu_ay.isoformat()[:7], "kiyas_ay": _kiyas.isoformat()[:7]}
+    except Exception:
+        return None
