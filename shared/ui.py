@@ -235,12 +235,17 @@ def patron_verisi_topla():
     import datetime as _dt
     v = {}
 
-    # ── İş nabzı: bu ay ciro/kâr/marj ──
+    # ── İş nabzı: bu ay ciro/kâr/marj — TEK KAYNAK: v_satis_pnl (yoksa Python) ──
     try:
-        from satis.database import get_satislar, ozet_hesapla, iade_satis_net_ozet
+        from satis.database import (get_satislar, ozet_hesapla,
+                                    get_satis_pnl_view, ozet_from_view)
         _bugun = _dt.date.today()
         _ay_ilk = _bugun.replace(day=1).isoformat()
-        _top, _kanal, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun.isoformat()))
+        _vr_p = get_satis_pnl_view(_ay_ilk, _bugun.isoformat())
+        if _vr_p is not None:
+            _top, _kanal, _ = ozet_from_view(_vr_p)
+        else:
+            _top, _kanal, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun.isoformat()))
         v["ay_ciro"] = float(_top.get("ciro", 0) or 0)
         v["ay_kar"] = float(_top.get("net_kar", 0) or 0)
         v["ay_marj"] = float(_top.get("marj", 0) or 0)
