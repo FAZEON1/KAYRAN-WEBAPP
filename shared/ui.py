@@ -40,7 +40,58 @@ RENK = {
     "metin":    "#E2E8F0",   # ana metin
     "soluk":    "#94A3B8",   # ikincil metin / etiket
     "silik":    "#64748B",   # placeholder · boş durum
+    # ── Yüzey katmanları (derinlik) — en koyudan açığa ──
+    "yuzey0":   "#0B1120",   # en dip zemin (sayfa arka planı)
+    "yuzey1":   "#0F172A",   # kart zemini (1. katman)
+    "yuzey2":   "#152036",   # öne çıkan kart / hover (2. katman)
+    "yuzey3":   "#1C2A44",   # en öndeki eleman (3. katman)
+    "kenar":    "rgba(148,163,184,0.10)",  # ince ayırıcı kenar
+    "kenar2":   "rgba(148,163,184,0.18)",  # belirgin kenar
 }
+
+# ═══════════════════════════════════════════════════════════════════
+#  DESIGN TOKENS — tüm görünümün tek kaynağı.
+#  Renk dışındaki her görsel karar (boşluk, yuvarlaklık, gölge,
+#  tipografi) burada tanımlı. Bir değeri buradan değiştir → her yer
+#  tutarlı değişir. Elle gömülü px değerleri yerine bunları kullan.
+# ═══════════════════════════════════════════════════════════════════
+
+# Boşluk ritmi — 4px tabanlı skala (4/8/12/16/24/32)
+BOSLUK = {
+    "xs": "4px", "sm": "8px", "md": "12px", "lg": "16px",
+    "xl": "24px", "2xl": "32px",
+}
+
+# Yuvarlaklık skalası
+RADIUS = {
+    "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px",
+}
+
+# Tipografik skala — 5 boyut, göz farkı hisseder (11/13/15/19/23)
+FONT = {
+    "xs":  "11px",   # etiket · caption · rozet
+    "sm":  "13px",   # gövde metni · tablo
+    "md":  "15px",   # alt başlık · vurgulu satır
+    "lg":  "19px",   # sayfa başlığı
+    "xl":  "23px",   # büyük metrik değeri
+    "mono": "'JetBrains Mono', ui-monospace, monospace",  # sayısal değerler
+}
+FONT_AGIRLIK = {"normal": "400", "orta": "600", "kalin": "700", "cok_kalin": "800"}
+
+# Gölge / yükseltme — dark UI'da ışık kenarı + alt gölge katmanı verir
+GOLGE = {
+    "kart":  "0 1px 2px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03)",
+    "one":   "0 4px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.05)",
+    "parlak": "0 0 0 1px rgba(129,140,248,0.30), 0 6px 20px rgba(99,102,241,0.18)",
+}
+
+# Geçiş süreleri — micro-interaction tutarlılığı
+GECIS = {"hizli": "0.12s ease", "normal": "0.2s ease", "yavas": "0.35s ease"}
+
+
+def _t(sozluk, anahtar, varsayilan=""):
+    """Token erişimi — güvenli (anahtar yoksa varsayılan)."""
+    return sozluk.get(anahtar, varsayilan)
 
 #: st.dataframe için üst sınır (px) — pencere hissi, sayfayı uzatmaz
 TABLO_MAKS = 320
@@ -183,6 +234,26 @@ div[data-testid="stApp"][data-test-script-state="running"]::after{
   font-family:Inter,sans-serif;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 </style>"""
+
+
+def token_css() -> str:
+    """Tüm design token'ları CSS değişkeni olarak :root'a basar.
+    app.py'de bir kez çağrılır. Bundan sonra hem CSS'te hem inline HTML'de
+    var(--kyr-...) kullanılabilir → tek kaynaktan tema yönetimi."""
+    _degiskenler = []
+    for k, v in RENK.items():
+        _degiskenler.append(f"--kyr-{k}:{v};")
+    for k, v in BOSLUK.items():
+        _degiskenler.append(f"--kyr-bosluk-{k}:{v};")
+    for k, v in RADIUS.items():
+        _degiskenler.append(f"--kyr-radius-{k}:{v};")
+    for k, v in FONT.items():
+        _degiskenler.append(f"--kyr-font-{k}:{v};")
+    for k, v in GOLGE.items():
+        _degiskenler.append(f"--kyr-golge-{k}:{v};")
+    for k, v in GECIS.items():
+        _degiskenler.append(f"--kyr-gecis-{k}:{v};")
+    return "<style>:root{" + "".join(_degiskenler) + "}</style>"
 
 
 def genel_tema_css() -> str:
