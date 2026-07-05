@@ -358,20 +358,36 @@ def run():
     
     /* ── BAŞLIKLAR ── */
     .baslik {
+        display: flex !important; align-items: center !important; gap: 11px !important;
         font-family: 'Inter', sans-serif !important;
-        font-size: 28px !important;
-        font-weight: 800 !important;
-        color: #E2E8F0 !important;
-        letter-spacing: -1px !important;
-        margin-bottom: 4px !important;
-        line-height: 1.2 !important;
+        font-size: 19px !important;
+        font-weight: 750 !important;
+        color: #F1F5F9 !important;
+        letter-spacing: -0.3px !important;
+        margin: 2px 0 0 !important;
+        line-height: 1.25 !important;
+    }
+    .baslik-ikon {
+        width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+        background: linear-gradient(135deg, rgba(99,102,241,0.28), rgba(139,92,246,0.16));
+        border: 1px solid rgba(129,140,248,0.28);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; letter-spacing: 0;
     }
     .alt-baslik {
-        font-size: 14px !important;
-        color: #64748B !important;
-        font-weight: 400 !important;
-        margin-bottom: 24px !important;
+        font-size: 12.5px !important;
+        color: #7C8AA0 !important;
+        font-weight: 450 !important;
         letter-spacing: .1px !important;
+        margin: 7px 0 18px !important;
+        padding: 0 0 12px 41px !important;
+        border-bottom: 1px solid rgba(148,163,184,0.10) !important;
+        position: relative !important;
+    }
+    .alt-baslik::before {
+        content: ""; position: absolute; left: 41px; bottom: -1px;
+        width: 40px; height: 2px; border-radius: 2px;
+        background: linear-gradient(90deg, #6366F1, #8B5CF6);
     }
     
     /* ── BADGE / TAG ── */
@@ -1367,7 +1383,7 @@ def run():
     # ════════════════════════════════════════════════════════════════════
 
     if sayfa == "📊 Dashboard":
-        st.markdown('<div class="baslik">📊 Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📊</span>Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Haftalık ödeme durumu ve finansal özet</div>', unsafe_allow_html=True)
     
         kur = get_kur()
@@ -1759,7 +1775,7 @@ def run():
     # 2) BU HAFTA
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "💳 Bu Hafta":
-        st.markdown('<div class="baslik">💳 Bu Hafta Ödemeleri</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">💳</span>Bu Hafta Ödemeleri</div>', unsafe_allow_html=True)
     
         kur = get_kur()
         odemeler, hafta = get_aktif_odemeler()
@@ -2221,7 +2237,7 @@ def run():
     # 3) BANKA BAKİYELERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🏦 Banka Bakiyeleri":
-        st.markdown('<div class="baslik">🏦 Banka Bakiyeleri</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">🏦</span>Banka Bakiyeleri</div>', unsafe_allow_html=True)
     
         kur = get_kur()
         bankalar = get_bankalar()
@@ -2321,7 +2337,7 @@ def run():
         if st.button("🔁 Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True):
             _dlg_virman()
     elif sayfa == "💸 Nakit Akış":
-        st.markdown('<div class="baslik">💸 Nakit Akış Analizi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">💸</span>Nakit Akış Analizi</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bekleyen ödemeler baz alınmıştır</div>', unsafe_allow_html=True)
     
         kur = get_kur()
@@ -2523,7 +2539,7 @@ def run():
     # 5) FİRMA ÇEKLERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📋 Firma Çekleri":
-        st.markdown('<div class="baslik">📋 Firma Çekleri</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📋</span>Firma Çekleri</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">TL ve USD bazında çek takibi</div>', unsafe_allow_html=True)
     
         def cek_ozet_kart(cekler, cur):
@@ -2708,7 +2724,7 @@ def run():
     # 6) ÖDENENLEr
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🕐 Ödenenler & Geçmiş":
-        st.markdown('<div class="baslik">🕐 Ödenenler & Geçmiş</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">🕐</span>Ödenenler & Geçmiş</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi</div>', unsafe_allow_html=True)
         _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
         with _tab_odenen:
@@ -2996,7 +3012,7 @@ def run():
     # 8) VERİ YÜKLEME
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📂 Veri Yükleme":
-        st.markdown('<div class="baslik">📂 Veri Yükleme</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📂</span>Veri Yükleme</div>', unsafe_allow_html=True)
     
         # Son yüklenenler (Recents)
         haftalar = get_tum_haftalar()
@@ -3124,7 +3140,7 @@ def run():
     elif sayfa == "📄 Raporlar & Bildirim":
         _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
         with _tab_rapor:
-            st.markdown('<div class="baslik">📄 Raporlar</div>', unsafe_allow_html=True)
+            st.markdown('<div class="baslik"><span class="baslik-ikon">📄</span>Raporlar</div>', unsafe_allow_html=True)
             st.markdown('<div class="alt-baslik">Excel ve PDF formatında haftalık raporlar</div>', unsafe_allow_html=True)
     
             kur      = get_kur()
@@ -3224,7 +3240,7 @@ def run():
         # 10) BİLDİRİM AYARLARI
         # ════════════════════════════════════════════════════════════════════
         with _tab_bildirim:
-            st.markdown('<div class="baslik">🔔 Bildirim Ayarları</div>', unsafe_allow_html=True)
+            st.markdown('<div class="baslik"><span class="baslik-ikon">🔔</span>Bildirim Ayarları</div>', unsafe_allow_html=True)
             st.markdown('<div class="alt-baslik">Vade yaklaşan ödemeler için email bildirimleri</div>', unsafe_allow_html=True)
     
             ayarlar  = get_bildirim_ayarlari()
@@ -3340,7 +3356,7 @@ def run():
         # 11) BANKALAR ARASI VİRMAN
         # ════════════════════════════════════════════════════════════════════
     elif sayfa == "⏳ Ertelenen Ödemeler":
-        st.markdown('<div class="baslik">⏳ Ertelenen Ödemeler</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">⏳</span>Ertelenen Ödemeler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bu oturumda vadesi değiştirilmiş ödemeler</div>', unsafe_allow_html=True)
     
         # ─── Session state'ten ertelemeleri al ───
@@ -3530,7 +3546,7 @@ def run():
             st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
             st.stop()
     
-        st.markdown('<div class="baslik">💰 Toplam Aktifler</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">💰</span>Toplam Aktifler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)</div>', unsafe_allow_html=True)
     
         kur = get_kur()
