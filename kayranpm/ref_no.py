@@ -754,8 +754,43 @@ def _render_tumu(firmalar):
     _payla = sum(1 for r in goster if r.get("durum") == "paylasildi")
     from collections import defaultdict
     _dv = defaultdict(float)
+
+    def _donem_tutari(r):
+        """Yıl/Ay filtresi seçiliyken, çok-döneme yayılmış kaydın SADECE o döneme
+        düşen aylık kısmını döndürür (aksi halde aynı para birden çok yılda sayılır).
+        Filtre yoksa ham tutarı döndürür."""
+        _ham = _f(r.get("tutar"))
+        if yil_f == "Tümü" and ay_f == "Tümü":
+            return _ham
+        _aylik = r.get("aylik") or {}
+        if isinstance(_aylik, str):
+            try:
+                import json
+                _aylik = json.loads(_aylik)
+            except Exception:
+                _aylik = {}
+        if not isinstance(_aylik, dict) or not _aylik:
+            return _ham  # aylık kırılım yoksa bölünemez, tam say
+        _sum_eslesen = 0.0
+        _sum_tum = 0.0
+        for _k, _tt in _aylik.items():
+            _tt = _f(_tt)
+            _sum_tum += _tt
+            try:
+                _yy, _mm = str(_k).split("-")[:2]
+                _ay_ad = _AY_AD.get(int(_mm), "")
+            except Exception:
+                _yy, _ay_ad = "", ""
+            _yil_ok = (yil_f == "Tümü") or (yil_f == _yy)
+            _ay_ok = (ay_f == "Tümü") or (ay_f == _ay_ad)
+            if _yil_ok and _ay_ok:
+                _sum_eslesen += _tt
+        # aylık toplam ham'dan azsa (etiketlenmemiş bakiye), farkı da dahil say
+        _artik = _ham - _sum_tum
+        return _sum_eslesen + (_artik if _artik > 0 else 0)
+
     for r in goster:
-        _dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
+        _dv[(r.get("doviz") or "USD").strip().upper()] += _donem_tutari(r)
     _sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
     _tutar_str = " · ".join(f'{_sembol.get(k, k+" ")}{v:,.0f}' for k, v in
                             sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
