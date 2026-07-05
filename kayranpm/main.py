@@ -504,23 +504,31 @@ def run():
             "📂  Veri Yükleme",
         ], label_visibility="collapsed")
 
-        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#90A4AE;font-size:11px;font-weight:600;'
-                    'text-transform:uppercase;letter-spacing:.5px;padding:0 4px 4px;margin-bottom:8px">🗂️ Stok Kartı</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+        # ── STOK KARTI — hızlı erişim (sık kullanılan eylem, öne çıkarılmış) ──
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(34,211,238,0.05) 70%,transparent);'
+            'border:1px solid rgba(129,140,248,0.28);border-radius:12px;padding:10px 12px 12px;margin-bottom:8px">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+            '<span style="font-size:15px">🗂️</span>'
+            '<span style="color:#C7D2FE;font-size:12px;font-weight:800;'
+            'text-transform:uppercase;letter-spacing:.6px">Stok Kartı Aç</span></div>',
+            unsafe_allow_html=True)
         _skl = get_tum_sku_listesi() or []
         _opts = [r["sku"] for r in _skl]
-        _ssec = st.selectbox("SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
-                             label_visibility="collapsed")
+        _ssec = st.selectbox(
+            "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
+            label_visibility="collapsed",
+            help="SKU veya model kodu yaz → seç → kart açılır")
+        st.markdown('<div style="font-size:10px;color:#64748B;margin-top:2px;padding:0 2px">'
+                    'Kodu yaz, listeden seç — kart anında açılır</div></div>',
+                    unsafe_allow_html=True)
         # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
         _gec = st.session_state.pop("_stok_gec_sku", None)
         if _gec:
-            st.session_state["_son_acilan_sku"] = _ssec  # selectbox otomatik açılışını tetikleme
+            st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_gec)
-        # Kod yazıp Enter'a basınca (seçim değişince) stok kartı otomatik açılır.
-        # Modal kapatılınca tekrar açılmasın diye son açılan SKU takip edilir;
-        # aynı kartı tekrar açmak için farklı bir SKU seç ya da "—" yapıp geri seç.
         elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
@@ -528,7 +536,7 @@ def run():
 
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
-            <div style="color:#263238; font-size:11px;">🕐 {tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
+            <div style="color:#475569; font-size:11px;">🕐 {tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
         </div>
         """, unsafe_allow_html=True)
     
