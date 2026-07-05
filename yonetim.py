@@ -316,7 +316,7 @@ def run():
             _donem = st.radio("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], horizontal=True, index=0)
         else:
             _donem = "Tüm Yıl"
-            st.markdown('<div style="color:#64748B;font-size:13px;margin-top:34px">Tüm yıl görünümü</div>',
+            st.markdown('<div style="color:#64748B;font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',
                         unsafe_allow_html=True)
     baslangic, bitis = _donem_tarih(_yil, _donem)
 
@@ -491,7 +491,7 @@ def run():
         _vr = renk if vurgulu else RENK["metin"]
         return (f'<div style="flex:1;min-width:116px;text-align:center;padding:12px 8px;{_st}">'
                 f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1.2px;'
-                f'text-transform:uppercase;font-weight:700;margin-bottom:5px">{etiket}</div>'
+                f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{etiket}</div>'
                 f'<div style="color:{_vr};font-size:{_vf};font-weight:800;'
                 f'font-family:JetBrains Mono,monospace;line-height:1.1">{deger}</div>'
                 f'<div style="color:{renk};font-size:11px;font-weight:600;margin-top:4px">{alt}</div></div>')
@@ -588,7 +588,7 @@ def run():
                          sag_ek=(f"· %{(_degisken / _topgider * 100):.0f}" if _topgider else ""))
             + _bar_satir("Yarı Değişken", f"₺{_yari:,.0f}", _yari / _gmax * 100, "#A78BFA",
                          sag_ek=(f"· %{(_yari / _topgider * 100):.0f}" if _topgider else ""))
-            + f'<div style="display:flex;justify-content:space-between;padding:8px 12px;margin-top:5px;'
+            + f'<div style="display:flex;justify-content:space-between;padding:8px 12px;margin-top:4px;'
               f'border-top:1px solid rgba(255,255,255,0.08)">'
               f'<span style="color:{RENK["soluk"]};font-size:11px;font-weight:700;letter-spacing:.5px">TOPLAM ({_donem})</span>'
               f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:800;'
@@ -632,12 +632,12 @@ def run():
             f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
             for k, v, y in _kalemler if float(v or 0))
         _a_html = (
-            f'<div style="text-align:center;padding:8px 0 12px;margin-bottom:6px;'
+            f'<div style="text-align:center;padding:8px 0 12px;margin-bottom:8px;'
             f'border-bottom:1px solid rgba(255,255,255,0.08)">'
             f'<div style="font-size:23px;font-weight:800;color:#FFFFFF;'
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_ta:,.0f}</div>'
             f'<div style="font-size:11px;color:{RENK["mor2"]};'
-            f'font-family:JetBrains Mono,monospace;margin-top:3px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
+            f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
             + _kalem_html)
     _p_aktif = pencere("💎 TOPLAM AKTİFLER", RENK["mor"], _a_html, rozet=_a_rozet, yukseklik=230)
 
@@ -734,16 +734,16 @@ def run():
         _nr = RENK["yesil"] if _r["net_kar"] >= 0 else RENK["kirmizi"]
         # Başlık + 4 büyük metrik (önceki aya kıyaslı)
         st.markdown(
-            f'<div style="font-size:15px;font-weight:800;color:{RENK["metin"]};margin-bottom:2px">'
+            f'<div style="font-size:15px;font-weight:800;color:{RENK["metin"]};margin-bottom:0px">'
             f'{_r["ay"]} {_r["yil"]} — Kapanış</div>'
-            f'<div style="color:{RENK["silik"]};font-size:11px;margin-bottom:10px">'
+            f'<div style="color:{RENK["silik"]};font-size:11px;margin-bottom:8px">'
             f'{_r["bas"]} → {_r["bit"]} · önceki ay ({_rp["ay"]}) ile kıyaslı · tüm tutarlar USD</div>'
             f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'
             + "".join(
                 f'<div style="flex:1;min-width:130px;text-align:center;padding:12px 8px;'
                 f'background:linear-gradient(180deg,#152036,#0F172A);border:1px solid {c}2E;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.30)">'
                 f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
-                f'text-transform:uppercase;font-weight:700;margin-bottom:5px">{lbl}</div>'
+                f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
                 f'<div style="color:{c};font-size:19px;font-weight:800;'
                 f'font-family:JetBrains Mono,monospace">{val}{dl}</div></div>'
                 for lbl, val, c, dl in [
@@ -757,7 +757,7 @@ def run():
         # P&L akış satırı
         st.markdown(
             f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-            f'border-radius:10px;padding:12px 16px;margin-bottom:14px;font-family:JetBrains Mono,monospace;'
+            f'border-radius:10px;padding:12px 16px;margin-bottom:16px;font-family:JetBrains Mono,monospace;'
             f'font-size:13px;color:#CBD5E1">'
             f'{_usd(_r["ciro"])} <span style="color:#64748B">ciro</span> − '
             f'{_usd(_r["cogs"])} <span style="color:#64748B">cogs</span> − '
