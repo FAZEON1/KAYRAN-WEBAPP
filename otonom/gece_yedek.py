@@ -58,5 +58,12 @@ def main():
 
     print(f"\n✅ Yedek oluşturuldu: {dosya}  ({len(YEDEK_TABLOLAR)} tablo, {toplam} kayıt)")
 
+    # ── Günlük P&L materialized view'ini tazele (Patron Panosu trendi güncel kalsın) ──
+    try:
+        _r = sb.rpc("mv_gunluk_pnl_tazele").execute()
+        print(f"📈 mv_gunluk_pnl tazelendi: {_r.data}")
+    except Exception as e:
+        print(f"  ! mv_gunluk_pnl tazelenemedi (view henüz kurulmamış olabilir): {e}")
+
 if __name__ == "__main__":
     main()
