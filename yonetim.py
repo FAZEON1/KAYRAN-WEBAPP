@@ -136,24 +136,38 @@ def ay_pnl_hesapla(yil, ay_idx):
     def _kur_of(t):
         return _kur_map.get(str(t)[:10]) if t else None
 
-    # Destekler (havuz + ref no)
+    # Destekler — TEK KAYNAK: v_destek_donem (yoksa Python yedeği)
     destek = 0.0
+    _vr = None
     try:
-        from kayranpm.ref_no import get_tum_butce_harcamalari, get_tum_ref_tutarlari
-        for h in (get_tum_butce_harcamalari(bas, bit) or []):
+        from kayranpm.ref_no import get_destek_donem
+        _vr = get_destek_donem(bas, bit)
+    except Exception:
+        _vr = None
+    if _vr is not None:
+        for h in _vr:
             _t = float(h.get("tutar") or 0)
             if (h.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
-                _k = _kur_of(h.get("fatura_tarih")) or _usdtry
+                _k = _kur_of(h.get("donem")) or _usdtry
                 _t = (_t / _k) if _k else 0
             destek += _t
-        for rf in (get_tum_ref_tutarlari(bas, bit) or []):
-            _t = float(rf.get("tutar") or 0)
-            if (rf.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
-                _k = _kur_of(rf.get("tarih")) or _usdtry
-                _t = (_t / _k) if _k else 0
-            destek += _t
-    except Exception:
-        pass
+    else:
+        try:
+            from kayranpm.ref_no import get_tum_butce_harcamalari, get_tum_ref_tutarlari
+            for h in (get_tum_butce_harcamalari(bas, bit) or []):
+                _t = float(h.get("tutar") or 0)
+                if (h.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
+                    _k = _kur_of(h.get("fatura_tarih")) or _usdtry
+                    _t = (_t / _k) if _k else 0
+                destek += _t
+            for rf in (get_tum_ref_tutarlari(bas, bit) or []):
+                _t = float(rf.get("tutar") or 0)
+                if (rf.get("doviz") or "USD").strip().upper() in ("TL", "TRY", "₺", "TRL"):
+                    _k = _kur_of(rf.get("tarih")) or _usdtry
+                    _t = (_t / _k) if _k else 0
+                destek += _t
+        except Exception:
+            pass
     r["destek"] = destek
 
     # İşletme gideri (aylık gider tablosu → USD)
@@ -329,13 +343,21 @@ def run():
     brut = ciro - cogs
     brut_marj = (brut / ciro * 100) if ciro else 0.0
 
-    # ── Destekler (havuz/ref no harcamaları) ──
-    _harcama = []
+    # ── Destekler — TEK KAYNAK: v_destek_donem view (yoksa Python hesabına düşer) ──
+    _vrows = None
     try:
-        from kayranpm.ref_no import get_tum_butce_harcamalari
-        _harcama = get_tum_butce_harcamalari(baslangic, bitis)
+        from kayranpm.ref_no import get_destek_donem
+        _vrows = get_destek_donem(baslangic, bitis)
     except Exception:
-        _harcama = []
+        _vrows = None
+
+    _harcama = []
+    if _vrows is None:
+        try:
+            from kayranpm.ref_no import get_tum_butce_harcamalari
+            _harcama = get_tum_butce_harcamalari(baslangic, bitis)
+        except Exception:
+            _harcama = []
     _usdtry = 0.0
     try:
         _usdtry = float(st.session_state.get("kur") or 0)
@@ -363,42 +385,61 @@ def run():
     _tl_uyari = False
     _kur_eksik = False
     toplam_destek = 0.0
-    for h in _harcama:
-        t = (h.get("tur") or "Diğer").strip() or "Diğer"
-        tutar = float(h.get("tutar") or 0)
-        dv = (h.get("doviz") or "USD").strip().upper()
-        if dv in ("TL", "TRY", "₺", "TRL"):
-            _k = _kur_of(h.get("fatura_tarih"))
-            if _k:
-                tutar = tutar / _k
-                _tl_uyari = True
-            else:
-                _kur_eksik = True
-                continue
-        _tur_usd[t] = _tur_usd.get(t, 0.0) + tutar
-        toplam_destek += tutar
 
-    try:
-        from kayranpm.ref_no import get_tum_ref_tutarlari
-        _ref_tutar = get_tum_ref_tutarlari(baslangic, bitis)
-    except Exception:
-        _ref_tutar = []
-    _ref_usd = 0.0
-    for r in _ref_tutar:
-        tutar = float(r.get("tutar") or 0)
-        dv = (r.get("doviz") or "USD").strip().upper()
-        if dv in ("TL", "TRY", "₺", "TRL"):
-            _k = _kur_of(r.get("tarih"))
-            if _k:
-                tutar = tutar / _k
-                _tl_uyari = True
-            else:
-                _kur_eksik = True
-                continue
-        _ref_usd += tutar
-    if _ref_usd:
-        _tur_usd["Ref No"] = _tur_usd.get("Ref No", 0.0) + _ref_usd
-        toplam_destek += _ref_usd
+    if _vrows is not None:
+        # ✅ TEK KAYNAK dalı: v_destek_donem — ref + havuz tek döngüde
+        for h in _vrows:
+            t = (h.get("tur") or "Diğer").strip() or "Diğer"
+            tutar = float(h.get("tutar") or 0)
+            dv = (h.get("doviz") or "USD").strip().upper()
+            if dv in ("TL", "TRY", "₺", "TRL"):
+                _k = _kur_of(h.get("donem"))
+                if _k:
+                    tutar = tutar / _k
+                    _tl_uyari = True
+                else:
+                    _kur_eksik = True
+                    continue
+            _tur_usd[t] = _tur_usd.get(t, 0.0) + tutar
+            toplam_destek += tutar
+    else:
+        # 🔁 Yedek dal: view kurulmamışsa eski Python hesabı (davranış birebir)
+        for h in _harcama:
+            t = (h.get("tur") or "Diğer").strip() or "Diğer"
+            tutar = float(h.get("tutar") or 0)
+            dv = (h.get("doviz") or "USD").strip().upper()
+            if dv in ("TL", "TRY", "₺", "TRL"):
+                _k = _kur_of(h.get("fatura_tarih"))
+                if _k:
+                    tutar = tutar / _k
+                    _tl_uyari = True
+                else:
+                    _kur_eksik = True
+                    continue
+            _tur_usd[t] = _tur_usd.get(t, 0.0) + tutar
+            toplam_destek += tutar
+
+        try:
+            from kayranpm.ref_no import get_tum_ref_tutarlari
+            _ref_tutar = get_tum_ref_tutarlari(baslangic, bitis)
+        except Exception:
+            _ref_tutar = []
+        _ref_usd = 0.0
+        for r in _ref_tutar:
+            tutar = float(r.get("tutar") or 0)
+            dv = (r.get("doviz") or "USD").strip().upper()
+            if dv in ("TL", "TRY", "₺", "TRL"):
+                _k = _kur_of(r.get("tarih"))
+                if _k:
+                    tutar = tutar / _k
+                    _tl_uyari = True
+                else:
+                    _kur_eksik = True
+                    continue
+            _ref_usd += tutar
+        if _ref_usd:
+            _tur_usd["Ref No"] = _tur_usd.get("Ref No", 0.0) + _ref_usd
+            toplam_destek += _ref_usd
 
     # ── İşletme giderleri (Aylık Gider Tablosu) → USD ──
     gider_usd = 0.0
