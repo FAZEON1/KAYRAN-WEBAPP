@@ -1264,11 +1264,31 @@ def get_tum_ref_tutarlari(baslangic, bitis):
                 _aylik = {}
         if isinstance(_aylik, dict) and _aylik:
             # 1) Aylık kırılım — dönemle kesişen ayların tutarları
+            _aylik_toplam = 0.0
             for _ay, _tt in _aylik.items():
                 _tt = _f(_tt)
-                if _tt > 0 and _ay_kesisiyor(str(_ay)):
-                    out.append({"tutar": _tt, "doviz": _doviz,
-                                "tarih": f"{_ay}-01", "firma_id": _fid})
+                if _tt > 0:
+                    _aylik_toplam += _tt
+                    if _ay_kesisiyor(str(_ay)):
+                        out.append({"tutar": _tt, "doviz": _doviz,
+                                    "tarih": f"{_ay}-01", "firma_id": _fid})
+            # ── EKSİK BAKİYE TELAFİSİ ──
+            # aylik JSONB'sinin toplamı ham 'tutar'dan azsa (ay/yıl bilgisi eksik
+            # satırlar aylik'e yazılmamışsa), kayıp bakiye vardır. Bu artığı kaydın
+            # kendi tarih/yıl bilgisine göre dönem içindeyse ekle — yoksa sessizce yok olur.
+            _ham = _f(r.get("tutar"))
+            _artik = _ham - _aylik_toplam
+            if _artik > 0.005:
+                _tar = str(r.get("tarih") or "").strip()
+                _dahil = False
+                if _tar and _tar.lower() != "none":
+                    _dahil = (_b <= _tar[:10] <= _e)
+                else:
+                    _y = str(r.get("yil") or "").strip()
+                    _dahil = bool(_y) and (_b <= f"{_y}-01-01" <= _e)
+                if _dahil:
+                    out.append({"tutar": _artik, "doviz": _doviz,
+                                "tarih": _tar or f"{r.get('yil') or ''}-01-01", "firma_id": _fid})
             continue
         t = _f(r.get("tutar"))
         if t <= 0:
