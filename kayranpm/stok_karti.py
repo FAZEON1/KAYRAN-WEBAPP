@@ -526,10 +526,27 @@ def goster(sku):
                     _kamp_map = {k["id"]: k for k in _kr}
             except Exception:
                 pass
-            _rows = []
+
+            # Kampanyanın devam edip etmediğini bitiş tarihinden hesapla
+            def _kamp_durum(_k):
+                _bit = str(_k.get("bitis_tarihi") or "")[:10]
+                _dur = (_k.get("durum") or "").lower()
+                if _dur in ("kapali", "kapalı", "pasif", "iptal"):
+                    return "kapali"
+                try:
+                    _bugun = tr_today().strftime("%Y-%m-%d")
+                    if _bit and _bit < _bugun:
+                        return "kapali"
+                except Exception:
+                    pass
+                return "devam"
+
+            _rows, _detay = [], []   # _detay: satırla aynı sırada (ku, _k) tut
             for ku in kampanya_urun:
                 _k = _kamp_map.get(ku.get("kampanya_id"), {})
+                _durum = _kamp_durum(_k)
                 _rows.append({
+                    "Durum": "🟢 Devam" if _durum == "devam" else "🔴 Bitti",
                     "Kampanya": _k.get("kampanya_adi", "") or f"#{ku.get('kampanya_id')}",
                     "Firma": _k.get("firma", "") or "—",
                     "Tür": _k.get("kampanya_turu", "") or "—",
@@ -538,8 +555,56 @@ def goster(sku):
                     "Firma Destek": _usd(ku.get("birim_firma_destek")),
                     "Ek Destek": _usd(ku.get("birim_ek_destek")),
                 })
-            st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True)
+                _detay.append((ku, _k))
+
+            st.caption("Detay için bir kampanya satırına tıkla ↓")
+            _sec = st.dataframe(
+                pd.DataFrame(_rows), hide_index=True, use_container_width=True,
+                on_select="rerun", selection_mode="single-row",
+                key=f"kamp_tbl_{sku}")
             st.caption(f"Bu SKU {len(kampanya_urun)} kampanyada yer almış.")
+
+            # ── Seçilen kampanyanın detay paneli (tablonun altında açılır) ──
+            _rows_sel = (_sec.get("selection", {}) or {}).get("rows", []) if _sec else []
+            if _rows_sel:
+                _ku, _k = _detay[_rows_sel[0]]
+                _durum = _kamp_durum(_k)
+                _renk = "#34D399" if _durum == "devam" else "#F87171"
+                _durum_txt = "🟢 Devam ediyor" if _durum == "devam" else "🔴 Kapanmış"
+                _ad = _k.get("kampanya_adi", "") or f"#{_ku.get('kampanya_id')}"
+
+                st.markdown(
+                    f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.14),'
+                    f'rgba(34,211,238,0.05) 70%,transparent);border:1px solid rgba(129,140,248,0.30);'
+                    f'border-left:3px solid {_renk};border-radius:14px;padding:16px 18px;margin-top:12px">'
+                    f'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
+                    f'<span style="font-size:16px;font-weight:800;color:#E2E8F0">{_ad}</span>'
+                    f'<span style="font-size:11px;font-weight:700;color:{_renk};'
+                    f'background:{_renk}1A;padding:4px 12px;border-radius:999px">{_durum_txt}</span></div>'
+                    f'<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:#94A3B8">'
+                    f'<span>Firma: <b style="color:#CBD5E1">{_k.get("firma") or "—"}</b></span>'
+                    f'<span>Tür: <b style="color:#CBD5E1">{_k.get("kampanya_turu") or "—"}</b></span>'
+                    f'<span>Kategori: <b style="color:#CBD5E1">{_k.get("kategori") or "—"}</b></span>'
+                    f'<span>Tarih: <b style="color:#CBD5E1">{gun_ay_yil(_k.get("baslangic_tarihi"))} → '
+                    f'{gun_ay_yil(_k.get("bitis_tarihi"))}</b></span></div></div>',
+                    unsafe_allow_html=True)
+
+                _c1, _c2, _c3, _c4 = st.columns(4)
+                _c1.metric("Firma Destek", _usd(_ku.get("birim_firma_destek")))
+                _c2.metric("Ek Destek", _usd(_ku.get("birim_ek_destek")))
+                _c3.metric("Satış Fiyatı", _usd(_ku.get("satis_fiyati")))
+                _c4.metric("Satılan Adet", f"{_f(_ku.get('satilan_adet')):,.0f}")
+
+                _sp_tl = _f(_k.get("spiff_tl"))
+                _sp_kur = _f(_k.get("spiff_kur"))
+                if _sp_tl:
+                    _sp_usd = (f" (≈ ${_sp_tl / _sp_kur:,.2f})" if _sp_kur else "")
+                    st.caption(f"💸 Spiff: ₺{_sp_tl:,.2f}{_sp_usd}"
+                               + ("  · faturalı" if _k.get("spiff_fatura") else ""))
+                if _k.get("notlar"):
+                    st.markdown(f"**Not:** {_k.get('notlar')}")
+                if _ku.get("notlar"):
+                    st.caption(f"Ürün notu: {_ku.get('notlar')}")
         else:
             st.info("Bu SKU hiç kampanyada yer almamış.")
 
