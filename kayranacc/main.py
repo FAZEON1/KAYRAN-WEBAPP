@@ -1426,16 +1426,18 @@ def run():
     
         st.markdown(f"""
         <style>
-        .kart-grid {{ display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px }}
+        .kart-grid {{ display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px }}
         .kart {{
-            flex:1;min-width:128px;
-            background:rgba(255,255,255,0.022);
-            border-radius:13px;
-            padding:12px 16px;
-            border:1px solid rgba(255,255,255,0.06);
-            border-top:3px solid #818CF8;
+            flex:1;min-width:150px;
+            background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));
+            border-radius:16px;
+            padding:16px 18px;
+            border:1px solid rgba(255,255,255,0.055);
+            border-left:3px solid #818CF8;
             text-align:left;
+            transition:transform .15s ease, border-color .15s ease;
         }}
+        .kart:hover {{ transform:translateY(-2px);border-color:rgba(129,140,248,0.35) }}
         .kart-label {{
             font-size:11px;font-weight:700;letter-spacing:.6px;
             text-transform:uppercase;color:#8B97A8;margin-bottom:0px;
@@ -1455,34 +1457,34 @@ def run():
         <div class="section-mini-title">Haftalık özet</div>
         <div class="kart-grid">
     
-          <div class="kart" style="border-top-color:#3B82F6">
+          <div class="kart" style="border-left-color:#3B82F6">
             <div class="kart-label">Toplam TL</div>
-            <div class="kart-deger" style="color:#60A5FA">₺{fmt(tl_toplam)}</div>
+            <div class="kart-deger">₺{fmt(tl_toplam)}</div>
             <div class="kart-alt">Ödendi: ₺{fmt(odendi_tl)}</div>
           </div>
     
-          <div class="kart" style="border-top-color:#8B5CF6">
+          <div class="kart" style="border-left-color:#8B5CF6">
             <div class="kart-label">Toplam USD</div>
-            <div class="kart-deger" style="color:#A78BFA">${fmt(usd_toplam)}</div>
+            <div class="kart-deger">${fmt(usd_toplam)}</div>
             <div class="kart-alt">≈ ₺{fmt(usd_toplam * kur)}</div>
           </div>
     
-          <div class="kart" style="border-top-color:#10B981">
+          <div class="kart" style="border-left-color:#10B981">
             <div class="kart-label">İlerleme</div>
-            <div class="kart-deger" style="color:#6EE7B7">{odendi_cnt} <span style="font-size:15px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>
+            <div class="kart-deger" style="color:#34D399">{odendi_cnt} <span style="font-size:15px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>
             <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
               <div style="background:#10B981;height:100%;width:{ilerleme_pct}%"></div>
             </div>
             <div class="kart-alt" style="margin-top:4px">%{ilerleme_pct} tamamlandı</div>
           </div>
     
-          <div class="kart" style="border-top-color:#F59E0B">
+          <div class="kart" style="border-left-color:#F59E0B">
             <div class="kart-label">Bekleyen TL</div>
-            <div class="kart-deger" style="color:#FDE68A">₺{fmt(bekleyen_tl)}</div>
+            <div class="kart-deger">₺{fmt(bekleyen_tl)}</div>
             <div class="kart-alt">Ödenmesi gereken</div>
           </div>
     
-          <div class="kart" style="border-top-color:{'#34D399' if hafta_sonu_tl >= 0 else '#F87171'}">
+          <div class="kart" style="border-left-color:{'#34D399' if hafta_sonu_tl >= 0 else '#F87171'}">
             <div class="kart-label">{nakit_emoji} {nakit_label}</div>
             <div class="kart-deger" style="color:{'#34D399' if hafta_sonu_tl >= 0 else '#F87171'}">
               ₺{fmt(abs(hafta_sonu_tl))}
@@ -1494,15 +1496,15 @@ def run():
     
         <div class="section-mini-title">Bugünün bekleyen ödemeleri</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">
-          <div class="kart" style="border-top-color:#FBBF24">
-            <div class="kart-label" style="color:#FDE68A">Bugün Kalan TL</div>
-            <div class="kart-deger" style="color:#FCD34D">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
-            <div class="kart-alt" style="color:#B45309">Ödenmemiş TL</div>
+          <div class="kart" style="border-left-color:#FBBF24">
+            <div class="kart-label">Bugün Kalan TL</div>
+            <div class="kart-deger">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
+            <div class="kart-alt">Ödenmemiş TL</div>
           </div>
-          <div class="kart" style="border-top-color:#FB923C">
-            <div class="kart-label" style="color:#FDE68A">Bugün Kalan USD</div>
-            <div class="kart-deger" style="color:#FCD34D">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
-            <div class="kart-alt" style="color:#B45309">Ödenmemiş USD</div>
+          <div class="kart" style="border-left-color:#FB923C">
+            <div class="kart-label">Bugün Kalan USD</div>
+            <div class="kart-deger">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
+            <div class="kart-alt">Ödenmemiş USD</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1513,10 +1515,10 @@ def run():
         toplam_varlik_usd = banka_usd + (banka_tl / kur if kur > 0 else 0)
         st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748B;margin-bottom:8px">Toplam Varlıklar</div>', unsafe_allow_html=True)
         metrik_satiri([
-            {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": "#60A5FA", "alt": "Tüm TL hesaplar"},
-            {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": "#34D399", "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
-            {"label": "Toplam Varlık (TL)", "value": f"₺{fmt(toplam_varlik_tl)}", "renk": "#A78BFA", "alt": f"≈ ${fmt(toplam_varlik_usd)}"},
-            {"label": "Toplam Varlık (USD)", "value": f"${fmt(toplam_varlik_usd)}", "renk": "#FB923C", "alt": f"≈ ₺{fmt(toplam_varlik_tl)}"},
+            {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": "#818CF8", "alt": "Tüm TL hesaplar"},
+            {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": "#818CF8", "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
+            {"label": "Toplam Varlık (TL)", "value": f"₺{fmt(toplam_varlik_tl)}", "renk": "#818CF8", "alt": f"≈ ${fmt(toplam_varlik_usd)}"},
+            {"label": "Toplam Varlık (USD)", "value": f"${fmt(toplam_varlik_usd)}", "renk": "#818CF8", "alt": f"≈ ₺{fmt(toplam_varlik_tl)}"},
         ])
     
         st.markdown("---")
@@ -1525,7 +1527,7 @@ def run():
         col1, col2 = st.columns(2)
     
         with col1:
-            st.markdown("**📊 Kategori Bazında Ödeme Dağılımı**")
+            st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Kategori Bazında Ödeme Dağılımı</div>', unsafe_allow_html=True)
             kat_data = {}
             for o in odemeler:
                 kat = o.get("kategori") or "diger"
@@ -1537,38 +1539,50 @@ def run():
                 fig = go.Figure(go.Pie(
                     labels=list(kat_data.keys()),
                     values=list(kat_data.values()),
-                    hole=0.5,
+                    hole=0.72,                              # ince modern halka
+                    sort=True, direction="clockwise",
                     marker=dict(
-                        colors=[KATEGORILER.get(k, {}).get("renk", "#888")
+                        colors=[KATEGORILER.get(k, {}).get("renk", "#64748B")
                                     for k in [next((key for key, v in KATEGORILER.items() if v["label"] == lab), "diger")
                                               for lab in kat_data.keys()]],
-                        line=dict(color="white", width=2),
+                        # Dilim arası boşluk hissi: zeminle aynı renkte kalın ayraç
+                        line=dict(color="#080C20", width=3),
                     ),
-                    textfont=dict(family="Inter, sans-serif", size=13, color="white"),
+                    textfont=dict(family="Inter, sans-serif", size=12, color="#F1F5F9"),
                     textposition="inside",
                     textinfo="percent",
-                    insidetextorientation="radial",
+                    insidetextorientation="horizontal",
                     hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
                 ))
+                _kat_toplam = sum(kat_data.values())
+                fig.add_annotation(
+                    text=(f"<span style='font-size:11px;color:#8B97A8'>TOPLAM</span><br>"
+                          f"<b>₺{_kat_toplam/1e6:,.1f}M</b>" if _kat_toplam >= 1e6 else
+                          f"<span style='font-size:11px;color:#8B97A8'>TOPLAM</span><br>"
+                          f"<b>₺{_kat_toplam:,.0f}</b>"),
+                    x=0.5, y=0.5, showarrow=False,
+                    font=dict(size=20, family="Inter, sans-serif", color="#F1F5F9"),
+                )
                 fig.update_layout(
-                    height=340, margin=dict(t=10, b=10, l=10, r=120),
-                    paper_bgcolor="#0F1629", plot_bgcolor="#0F1629",
+                    height=330, margin=dict(t=16, b=8, l=8, r=8),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                     showlegend=True,
                     legend=dict(
-                        font=dict(family="Inter, sans-serif", size=12, color="#E2E8F0"),
-                        orientation="v",
-                        yanchor="middle", y=0.5,
-                        xanchor="left", x=1.02,
-                        bgcolor="rgba(255,255,255,0)",
-                        bordercolor="rgba(0,0,0,0)",
-                        itemsizing="constant",
+                        font=dict(family="Inter, sans-serif", size=11, color="#B6C2D6"),
+                        orientation="h",
+                        yanchor="top", y=-0.06,
+                        xanchor="center", x=0.5,
+                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                        itemsizing="constant", itemwidth=30,
                     ),
                     font=dict(family="Inter, sans-serif", color="#E2E8F0"),
+                    hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
+                                    font=dict(family="Inter, sans-serif", color="#F1F5F9")),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     
         with col2:
-            st.markdown("**📈 Ödeme Durumu**")
+            st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme Durumu</div>', unsafe_allow_html=True)
             odendi_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
                                for o in odemeler if o["durum"] == "odendi")
             bekleyen_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
@@ -1576,36 +1590,39 @@ def run():
             fig2 = go.Figure(go.Pie(
                 labels=["Ödendi", "Bekliyor"],
                 values=[odendi_tutar, bekleyen_tutar],
-                hole=0.55,
+                hole=0.72,
                 marker=dict(
-                    colors=["#22C55E", "#F59E0B"],
-                    line=dict(color="white", width=2),
+                    colors=["#34D399", "#F59E0B"],
+                    line=dict(color="#080C20", width=3),
                 ),
-                textfont=dict(family="Inter, sans-serif", size=13, color="white"),
+                textfont=dict(family="Inter, sans-serif", size=12, color="#F1F5F9"),
                 textposition="inside",
                 textinfo="percent",
                 hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
             ))
             fig2.add_annotation(
-                text=f"%{ilerleme_pct}", x=0.5, y=0.5,
-                font=dict(size=26, family="JetBrains Mono, monospace", color="#E2E8F0"),
-                showarrow=False,
+                text=(f"<span style='font-size:11px;color:#8B97A8'>TAMAMLANAN</span><br>"
+                      f"<b>%{ilerleme_pct}</b>"),
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=24, family="Inter, sans-serif", color="#F1F5F9"),
             )
             fig2.update_layout(
-                height=340, margin=dict(t=10, b=10, l=10, r=120),
-                paper_bgcolor="#0F1629", plot_bgcolor="#0F1629",
+                height=330, margin=dict(t=16, b=8, l=8, r=8),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Inter, sans-serif", color="#E2E8F0"),
                 showlegend=True,
                 legend=dict(
-                    font=dict(family="Inter, sans-serif", size=12, color="#E2E8F0"),
-                    orientation="v",
-                    yanchor="middle", y=0.5,
-                    xanchor="left", x=1.02,
-                    bgcolor="rgba(255,255,255,0)",
-                    bordercolor="rgba(0,0,0,0)",
+                    font=dict(family="Inter, sans-serif", size=11, color="#B6C2D6"),
+                    orientation="h",
+                    yanchor="top", y=-0.06,
+                    xanchor="center", x=0.5,
+                    bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                    itemsizing="constant", itemwidth=30,
                 ),
+                hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
+                                font=dict(family="Inter, sans-serif", color="#F1F5F9")),
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
     
         # Günlük ödeme takvimi özeti (varsayılan kapalı — simge durumunda)
         from collections import defaultdict
