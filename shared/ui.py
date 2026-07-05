@@ -404,6 +404,15 @@ def patron_verisi_topla():
     except Exception:
         pass
 
+    # ── Kanal büyüme içgörüsü (mv_kanal_ay_pnl — bu ay vs geçen ay) ──
+    try:
+        from satis.database import get_kanal_buyume
+        _bg = get_kanal_buyume(1)
+        if _bg and (_bg.get("buyuyen") or _bg.get("gerileyen")):
+            v["buyume"] = _bg
+    except Exception:
+        pass
+
     return v
 
 
@@ -569,6 +578,47 @@ def patron_panosu_html(v):
             f'<circle cx="{_son_x:.1f}" cy="{_son_y:.1f}" r="3.5" fill="#22D3EE"/>'
             f'</svg></div>')
 
+    # ── 🚀 Büyüme içgörüsü: bu ay vs geçen ay en çok büyüyen/gerileyen firma ──
+    _buyume_html = ""
+    if v.get("buyume"):
+        _bg = v["buyume"]
+        def _firma_kisa(k):
+            return (k[:22] + "…") if len(k) > 23 else k
+        def _kart_ic(liste, artis):
+            _rows = ""
+            for x in liste[:3]:
+                _ok = "▲" if artis else "▼"
+                _c = RENK["yesil"] if artis else RENK["kirmizi"]
+                _pct = abs(x["delta_pct"])
+                _pct_str = f"%{_pct:.0f}" if _pct < 999 else "yeni"
+                _rows += (
+                    f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                    f'padding:5px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
+                    f'<span style="color:{RENK["metin"]};font-size:11.5px;font-weight:600">'
+                    f'{_firma_kisa(x["kanal"])}</span>'
+                    f'<span style="white-space:nowrap"><span style="color:{RENK["silik"]};'
+                    f'font-size:10.5px">${x["bu_ciro"]:,.0f}</span> '
+                    f'<span style="color:{_c};font-size:12px;font-weight:800">{_ok} {_pct_str}</span></span>'
+                    f'</div>')
+            return _rows or f'<div style="color:{RENK["silik"]};font-size:11px;padding:8px 0">—</div>'
+
+        _bh = _kart_ic(_bg.get("buyuyen", []), True)
+        _gh = _kart_ic(_bg.get("gerileyen", []), False)
+        _buyume_html = (
+            f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px">'
+            f'<div style="flex:1;min-width:240px;background:rgba(52,211,153,0.05);'
+            f'border:1px solid {RENK["yesil"]}28;border-radius:14px;padding:11px 15px">'
+            f'<div style="font-size:10px;color:{RENK["yesil"]};letter-spacing:1px;'
+            f'text-transform:uppercase;font-weight:700;margin-bottom:4px">🚀 En Çok Büyüyen Firma</div>'
+            f'{_bh}</div>'
+            f'<div style="flex:1;min-width:240px;background:rgba(248,113,113,0.05);'
+            f'border:1px solid {RENK["kirmizi"]}28;border-radius:14px;padding:11px 15px">'
+            f'<div style="font-size:10px;color:{RENK["kirmizi2"]};letter-spacing:1px;'
+            f'text-transform:uppercase;font-weight:700;margin-bottom:4px">📉 En Çok Gerileyen Firma</div>'
+            f'{_gh}</div></div>'
+            f'<div style="font-size:10px;color:{RENK["silik"]};margin:-8px 0 12px;text-align:right">'
+            f'{_bg.get("bu_ay","")} vs {_bg.get("kiyas_ay","")} · ciro bazlı</div>')
+
     return (
         '<div style="margin:0 0 22px">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
@@ -578,6 +628,7 @@ def patron_panosu_html(v):
         + (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
+        + _buyume_html
         + pencere_grid(_p1, _p2)
         + pencere_grid(_p3, _p4)
         + _hata_html
