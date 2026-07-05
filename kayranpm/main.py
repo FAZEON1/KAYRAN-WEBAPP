@@ -514,6 +514,16 @@ def run():
             '<span style="color:#C7D2FE;font-size:12px;font-weight:800;'
             'text-transform:uppercase;letter-spacing:.6px">Stok Kartı Görüntüle</span></div>',
             unsafe_allow_html=True)
+        # ── Kart kapanışını yakala ────────────────────────────────────────
+        # Dialog İÇİ etkileşimler yalnızca dialog'u rerun eder (buraya uğramaz).
+        # Script'in buraya gelmesi + flag'in set olması = kart az önce açıktı ve
+        # bu tam rerun onu kapattı → seçimi "—"a sıfırla ki aynı SKU'yu tekrar
+        # seçmek yeni bir değişiklik sayılsın ve kart yeniden açılabilsin.
+        _gec = st.session_state.pop("_stok_gec_sku", None)
+        if st.session_state.pop("_stok_dialog_acik", False) and not _gec:
+            st.session_state["stok_karti_sec"] = "—"
+            st.session_state.pop("_son_acilan_sku", None)
+
         _skl = get_tum_sku_listesi() or []
         _opts = [r["sku"] for r in _skl]
         _ssec = st.selectbox(
@@ -522,19 +532,16 @@ def run():
             help="SKU veya model kodu yaz → seç → kartı aç")
         st.markdown('</div>', unsafe_allow_html=True)
         # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
-        _gec = st.session_state.pop("_stok_gec_sku", None)
         if _gec:
             st.session_state["_son_acilan_sku"] = _ssec
+            st.session_state["_stok_dialog_acik"] = True
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_gec)
         elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
             st.session_state["_son_acilan_sku"] = _ssec
+            st.session_state["_stok_dialog_acik"] = True
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_ssec)
-        # Kart kapatıldıktan sonra aynı kodu tekrar açabilmek için: kapanınca
-        # son-açılan takibini sıfırla (böylece aynı SKU'ya tekrar tıklama açar).
-        if _ssec == "—":
-            st.session_state.pop("_son_acilan_sku", None)
 
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">

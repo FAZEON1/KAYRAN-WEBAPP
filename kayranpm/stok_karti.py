@@ -310,37 +310,28 @@ def goster(sku):
         f'<span>Barkod: <b style="color:#94A3B8">{urun.get("barkod") or "—"}</b></span>'
         f'</div></div>', unsafe_allow_html=True)
 
-    # ── Başka bir SKU / modele geç (modal içi arama — hep görünür) ──
-    _q = st.text_input("Ara", key=f"stok_ara_{sku}",
-                       placeholder="🔍 Başka bir SKU / model ara ve aç…",
-                       label_visibility="collapsed")
-    if _q and len(_q.strip()) >= 2:
-        try:
-            from kayranpm.database import get_tum_sku_listesi
-            from shared.utils import normalize_tr
-            _qn = normalize_tr(_q)
-            _tum = get_tum_sku_listesi() or []
-            _eslesme = [r for r in _tum
-                        if str(r.get("sku") or "") != sku and (
-                            _qn in normalize_tr(r.get("sku") or "") or
-                            _qn in normalize_tr(r.get("urun_adi") or ""))]
-            # Kodla BAŞLAYANLAR öne — sonra içinde geçenler (alfabetik)
-            def _sira(r):
-                _s = normalize_tr(r.get("sku") or "")
-                return (0 if _s.startswith(_qn) else 1, _s)
-            _bulunan = sorted(_eslesme, key=_sira)[:8]
-        except Exception:
-            _bulunan = []
-        if _bulunan:
-            st.caption(f"↓ {len(_bulunan)} eşleşme — aç:")
-            for r in _bulunan:
-                _ad = (r.get("urun_adi") or "")[:55]
-                _lbl = f"{r['sku']}  ·  {_ad}" if _ad else r["sku"]
-                if st.button(_lbl, key=f"gec_{r['sku']}", use_container_width=True):
-                    st.session_state["_stok_gec_sku"] = r["sku"]
-                    st.rerun()
-        else:
-            st.caption("Eşleşen ürün bulunamadı.")
+    # ── Başka bir SKU / modele geç (modal içi arama — yazdıkça filtreler,
+    #    Enter gerektirmez; SKU *veya* ürün adına göre eşleşir) ──
+    _gec_map = {}
+    try:
+        from kayranpm.database import get_tum_sku_listesi
+        for _r in (get_tum_sku_listesi() or []):
+            _s = str(_r.get("sku") or "")
+            if not _s or _s == sku:
+                continue
+            _ad = (_r.get("urun_adi") or "")[:55]
+            _gec_map[f"{_s}  ·  {_ad}" if _ad else _s] = _s
+    except Exception:
+        _gec_map = {}
+    if _gec_map:
+        _gec_sec = st.selectbox(
+            "Başka SKU aç", sorted(_gec_map),
+            index=None, key=f"stok_gec_{sku}",
+            placeholder="🔍 Başka bir SKU / model yaz → listeden seç, kart açılır",
+            label_visibility="collapsed")
+        if _gec_sec:
+            st.session_state["_stok_gec_sku"] = _gec_map[_gec_sec]
+            st.rerun()
 
     t1, t2, t3, t4, t5, t6 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade"])
 
