@@ -84,12 +84,13 @@ def _metrik_satiri(cards):
         ttl = f' title="{c["help"]}"' if c.get("help") else ""
         ipucu = ' <span style="color:#64748B;font-size:11px">ⓘ</span>' if c.get("help") else ""
         cells += (
-            f'<div{ttl} style="flex:1;min-width:128px;background:rgba(255,255,255,0.022);'
-            f'border:1px solid rgba(255,255,255,0.06);border-left:3px solid {renk};'
-            f'border-radius:13px;padding:8px 16px">'
+            f'<div{ttl} style="flex:1;min-width:150px;'
+            f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
+            f'border:1px solid rgba(255,255,255,0.055);border-left:3px solid {renk};'
+            f'border-radius:16px;padding:14px 18px">'
             f'<div style="color:#8B97A8;font-size:11px;font-weight:700;letter-spacing:.6px;'
             f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
-            f'<div style="color:{renk};font-size:19px;font-weight:800;margin-top:0px;'
+            f'<div style="color:#F1F5F9;font-size:19px;font-weight:800;margin-top:3px;'
             f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
             f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
             f'</div>'
