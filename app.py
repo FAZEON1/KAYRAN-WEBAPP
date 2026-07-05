@@ -579,9 +579,29 @@ _sb_comp.html(
     } catch (e) {}
   }
 
+  // Sınıf CSS'i her DOM yapısında tutmayabilir → durum satır-içi !important
+  // ile section'a VE genişliği taşıyabilecek kapsayıcısına doğrudan yazılır.
+  // (Satır-içi important, hiçbir stylesheet kuralının ezemeyeceği önceliktir.)
+  const OZELLIKLER = [['width','0'], ['min-width','0'],
+                      ['flex','0 0 0px'], ['overflow','hidden'],
+                      ['border-right','none']];
+  function uygulaDurum() {
+    const kapali = doc.body.classList.contains('kyr-sb-kapali');
+    const sb = doc.querySelector('section[data-testid="stSidebar"]');
+    if (!sb) return;
+    const hedefler = [sb, sb.parentElement].filter(Boolean);
+    for (const el of hedefler) {
+      for (const [p, v] of OZELLIKLER) {
+        if (kapali) el.style.setProperty(p, v, 'important');
+        else el.style.removeProperty(p);
+      }
+    }
+  }
+
   btn.onclick = function () {
     const kapali = doc.body.classList.toggle('kyr-sb-kapali');
     try { w.localStorage.setItem('kayran-sb', kapali ? 'kapali' : 'acik'); } catch(e){}
+    uygulaDurum();
     // animasyon bitişini transitionend yakalar; yedek tek atım:
     setTimeout(konumla, 220);
   };
@@ -593,6 +613,7 @@ _sb_comp.html(
   } catch(e){}
 
   doc.body.appendChild(btn);
+  uygulaDurum();
   konumla();
 
   // ── OLAY KAYNAKLARI (yoklama yok) ──
@@ -611,7 +632,15 @@ _sb_comp.html(
   w.__kayranSbMO = new w.MutationObserver(() => {
     if (planli) return;
     planli = true;
-    w.requestAnimationFrame(() => { planli = false; dialogKontrol(); });
+    w.requestAnimationFrame(() => {
+      planli = false;
+      dialogKontrol();
+      // rerun satır-içi stili silmişse yeniden uygula (ucuz string kontrolü)
+      if (doc.body.classList.contains('kyr-sb-kapali')) {
+        const sb = doc.querySelector('section[data-testid="stSidebar"]');
+        if (sb && sb.style.width !== '0px') uygulaDurum();
+      }
+    });
   });
   w.__kayranSbMO.observe(doc.body, { childList: true, subtree: true });
   // (Güvenli: gözlemci yalnız childList dinler; btn üzerinde yaptığımız
