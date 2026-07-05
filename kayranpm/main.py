@@ -339,6 +339,49 @@ def run():
         border-color: rgba(255,255,255,0.08) !important;
         margin: 12px 0 !important;
     }
+
+    /* ── SIDEBAR AÇ/KAPAT DÜĞMESİ (koyu zeminde görünür olsun) ───────────── */
+    /* Kapalıyken görünen "aç" oku + sidebar içindeki "kapat" oku — tüm
+       Streamlit sürümlerini kapsayacak şekilde birden çok testid hedeflenir */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stExpandSidebarButton"],
+    button[data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapseButton"] {
+        background: linear-gradient(135deg,#1565C0,#42A5F5) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255,255,255,0.35) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 10px rgba(21,101,192,0.55) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    /* İçindeki ok ikonunu net beyaz yap */
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="stExpandSidebarButton"] svg,
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="collapsedControl"] span,
+    [data-testid="stSidebarCollapseButton"] span {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+        opacity: 1 !important;
+    }
+    [data-testid="collapsedControl"]:hover,
+    [data-testid="stSidebarCollapsedControl"]:hover,
+    [data-testid="stExpandSidebarButton"]:hover,
+    [data-testid="stSidebarCollapseButton"]:hover {
+        background: linear-gradient(135deg,#1E88E5,#64B5F6) !important;
+        transform: scale(1.05);
+    }
+    /* Kapalıyken oku ekranın sol üstünde sabit ve büyükçe tut */
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] {
+        top: 12px !important;
+        left: 12px !important;
+        padding: 6px !important;
+        z-index: 999999 !important;
+    }
     
     /* ── BUTONLAR ────────────────────────────────────────────────────────── */
     .stButton > button {
