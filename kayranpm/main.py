@@ -512,16 +512,22 @@ def run():
             '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
             '<span style="font-size:15px">🗂️</span>'
             '<span style="color:#C7D2FE;font-size:12px;font-weight:800;'
-            'text-transform:uppercase;letter-spacing:.6px">Stok Kartı Aç</span></div>',
+            'text-transform:uppercase;letter-spacing:.6px">Stok Kartı Görüntüle</span></div>',
             unsafe_allow_html=True)
         _skl = get_tum_sku_listesi() or []
         _opts = [r["sku"] for r in _skl]
-        _ssec = st.selectbox(
-            "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
-            label_visibility="collapsed",
-            help="SKU veya model kodu yaz → seç → kart açılır")
+        _sc1, _sc2 = st.columns([4, 1])
+        with _sc1:
+            _ssec = st.selectbox(
+                "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
+                label_visibility="collapsed",
+                help="SKU veya model kodu yaz → seç → kartı aç")
+        with _sc2:
+            # Aynı kod seçiliyken kart kapatıldıysa tekrar açmak için (Enter/tekrar tık gerekmez)
+            _tekrar = st.button("↗", key="stok_karti_tekrar", use_container_width=True,
+                                help="Seçili kodun kartını (yeniden) aç")
         st.markdown('<div style="font-size:10px;color:#64748B;margin-top:2px;padding:0 2px">'
-                    'Kodu yaz, listeden seç — kart anında açılır</div></div>',
+                    'Kodu seç — kayıtlı ürünün kartı açılır · ↗ ile tekrar aç</div></div>',
                     unsafe_allow_html=True)
         # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
         _gec = st.session_state.pop("_stok_gec_sku", None)
@@ -529,6 +535,10 @@ def run():
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_gec)
+        elif _tekrar and _ssec and _ssec != "—":
+            # Tekrar aç: son-açılan takibini bypass et
+            from kayranpm.stok_karti import goster as _stok_goster
+            _stok_goster(_ssec)
         elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster

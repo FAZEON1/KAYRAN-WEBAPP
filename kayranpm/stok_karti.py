@@ -320,10 +320,15 @@ def goster(sku):
             from shared.utils import normalize_tr
             _qn = normalize_tr(_q)
             _tum = get_tum_sku_listesi() or []
-            _bulunan = [r for r in _tum
+            _eslesme = [r for r in _tum
                         if str(r.get("sku") or "") != sku and (
                             _qn in normalize_tr(r.get("sku") or "") or
-                            _qn in normalize_tr(r.get("urun_adi") or ""))][:8]
+                            _qn in normalize_tr(r.get("urun_adi") or ""))]
+            # Kodla BAŞLAYANLAR öne — sonra içinde geçenler (alfabetik)
+            def _sira(r):
+                _s = normalize_tr(r.get("sku") or "")
+                return (0 if _s.startswith(_qn) else 1, _s)
+            _bulunan = sorted(_eslesme, key=_sira)[:8]
         except Exception:
             _bulunan = []
         if _bulunan:
