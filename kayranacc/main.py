@@ -1056,15 +1056,15 @@ def run():
         hafta = get_aktif_hafta()
         if hafta:
             st.markdown(f"""
-            <div style="
-                background: rgba(37,99,235,0.12);
-                border: 1px solid rgba(59,130,246,0.25);
-                border-radius: 10px;
-                padding: 8px 16px;
-                margin-bottom: 12px;
-            ">
-                <div style="font-size:11px;color:#60A5FA;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;">📅 Aktif Hafta</div>
-                <div style="font-size:13px;color:#E2E8F0;font-weight:600;line-height:1.3;">{hafta['hafta_adi']}</div>
+            <div style="display:flex;align-items:center;gap:8px;
+                background:rgba(37,99,235,0.10);
+                border:1px solid rgba(59,130,246,0.22);
+                border-radius:999px;
+                padding:6px 12px;margin-bottom:12px;">
+                <span style="font-size:12px">📅</span>
+                <span style="font-size:11.5px;color:#93C5FD;font-weight:600;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    letter-spacing:.2px">{hafta['hafta_adi'].title()}</span>
             </div>
             """, unsafe_allow_html=True)
     
