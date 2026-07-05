@@ -29,6 +29,7 @@ jobs:
           [supabase]
           url = "${{ secrets.SUPABASE_URL }}"
           key = "${{ secrets.SUPABASE_KEY }}"
+          service_role_key = "${{ secrets.SUPABASE_KEY }}"
           SECRETS
 
       - name: Brifingi gönder
