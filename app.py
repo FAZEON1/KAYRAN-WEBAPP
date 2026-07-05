@@ -427,6 +427,33 @@ st.set_page_config(
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
 from shared.ui import islem_gosterge_css, genel_tema_css, token_css
 st.markdown(token_css(), unsafe_allow_html=True)
+
+# ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
+# (şeffaf zemin, Inter, yumuşak grid, alt yatay lejant, uygulama hover kutusu)
+try:
+    import plotly.io as _pio
+    import plotly.graph_objects as _pgo
+    _pio.templates["kayran"] = _pgo.layout.Template(layout=dict(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#E2E8F0", size=12),
+        colorway=["#818CF8", "#34D399", "#F59E0B", "#22D3EE",
+                  "#F472B6", "#A78BFA", "#FB923C", "#60A5FA"],
+        xaxis=dict(gridcolor="rgba(148,163,184,0.10)",
+                   linecolor="rgba(148,163,184,0.18)", zerolinecolor="rgba(148,163,184,0.22)"),
+        yaxis=dict(gridcolor="rgba(148,163,184,0.10)",
+                   linecolor="rgba(148,163,184,0.18)", zerolinecolor="rgba(148,163,184,0.22)"),
+        legend=dict(orientation="h", yanchor="top", y=-0.08, xanchor="center", x=0.5,
+                    bgcolor="rgba(0,0,0,0)", font=dict(size=11, color="#B6C2D6")),
+        hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
+                        font=dict(family="Inter, sans-serif", color="#F1F5F9")),
+        margin=dict(t=24, b=8, l=8, r=8),
+    ))
+    _pio.templates.default = "plotly_dark+kayran"
+except Exception:
+    pass
+
+# Plotly araç çubuğunu (modebar) program genelinde gizle — temiz görünüm
+st.markdown("<style>.modebar{display:none !important;}</style>", unsafe_allow_html=True)
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
 
