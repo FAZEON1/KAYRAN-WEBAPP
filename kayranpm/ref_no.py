@@ -879,8 +879,58 @@ def _render_tumu(firmalar):
             st.dataframe(pd.DataFrame(_detay), hide_index=True, use_container_width=True,
                          height=min(340, 40 + 35 * len(_detay)))
         else:
-            st.success("Tüm kayıtlarda ham tutar = aylık toplam. Fark döviz çevrimi veya "
-                       "havuz bütçesinden geliyor demektir.")
+            st.success("Tüm kayıtlarda ham tutar = aylık toplam. Fark aylık kırılımın DÖNEM eşleşmesinden "
+                       "geliyor olmalı — aşağıya bak.")
+
+        # ── Aylık kırılım dönem eşleşmesi: her kaydın aylık'ından ne kadarı B'ye giriyor? ──
+        st.markdown("**🎯 Aylık kırılım → dönem eşleşmesi (asıl fark burada)**")
+        def _kesis(yyyymm):
+            try:
+                y, m = str(yyyymm).split("-")[:2]
+                ilk = f"{int(y):04d}-{int(m):02d}-01"
+                son = f"{int(y):04d}-{int(m):02d}-28"
+            except Exception:
+                return None  # PARSE EDİLEMEDİ
+            return not (son < _b2 or ilk > _e2)
+        _kayip = []
+        for r in _a_kayit:
+            _aylik = r.get("aylik") or {}
+            if isinstance(_aylik, str):
+                try:
+                    import json
+                    _aylik = json.loads(_aylik)
+                except Exception:
+                    _aylik = {}
+            if not isinstance(_aylik, dict) or not _aylik:
+                continue
+            _giren = _elenen = _parse_hata = 0.0
+            _kotu_key = []
+            for _ay, _tt in _aylik.items():
+                _tt = _f(_tt)
+                _k = _kesis(_ay)
+                if _k is None:
+                    _parse_hata += _tt
+                    _kotu_key.append(str(_ay))
+                elif _k:
+                    _giren += _tt
+                else:
+                    _elenen += _tt
+            if _elenen > 0.01 or _parse_hata > 0.01:
+                _kayip.append({
+                    "Firma": (r.get("_firma", "") or "")[:18],
+                    "Ref No": r.get("ref_no", ""),
+                    "Aylık key'ler": ", ".join(list(_aylik.keys())[:4]),
+                    f"{_yil_sec}'e giren": round(_giren, 2),
+                    "Elenen (başka dönem)": round(_elenen, 2),
+                    "Parse HATASI": round(_parse_hata, 2),
+                })
+        if _kayip:
+            st.caption("Aşağıdaki kayıtların aylık key'lerinden bir kısmı bu yıla GİRMİYOR. "
+                       "'Parse HATASI' sütunu 0'dan büyükse key formatı bozuk demektir:")
+            st.dataframe(pd.DataFrame(_kayip), hide_index=True, use_container_width=True,
+                         height=min(340, 40 + 35 * len(_kayip)))
+        else:
+            st.info("Aylık kırılımların hepsi bu yıla giriyor — fark döviz çevrimi ya da havuz bütçesi.")
 
     if st.button("🔬 Yönetim'le neden farklı? (teşhis)", key="btn_ref_teshis",
                  use_container_width=True):
