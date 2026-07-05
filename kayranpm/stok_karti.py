@@ -68,49 +68,120 @@ def _tum_satis_ozeti():
         return {"toplam_kar": 0.0, "toplam_ciro": 0.0, "sku_kar": {}, "sku_ciro": {}}
 
 
+def _detay_satir(etiket, deger, renk="#E2E8F0"):
+    """Tek bir etiket:değer satırı (hizalı, profesyonel)."""
+    return (f'<div style="display:flex;justify-content:space-between;align-items:baseline;'
+            f'padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
+            f'<span style="color:#94A3B8;font-size:11px;font-weight:600">{etiket}</span>'
+            f'<span style="color:{renk};font-size:13px;font-weight:700;'
+            f'font-family:JetBrains Mono,monospace">{deger}</span></div>')
+
+
 def _alim_detay(a):
-    st.divider()
-    st.markdown(f"##### 📄 Alım Detayı — {a.get('belge_no') or '—'}")
-    st.markdown(
-        f"- **Sipariş Tarihi:** {gun_ay_yil(a.get('siparis_tarih')) or '—'}  ·  "
-        f"**Teslim:** {gun_ay_yil(a.get('teslim_tarih')) or '—'}\n"
-        f"- **Tedarikçi:** {a.get('tedarikci') or '—'} ({a.get('ulke') or '—'})  ·  "
-        f"**Takip No:** {a.get('takip_no') or '—'}\n"
-        f"- **Döviz / Kur:** {a.get('doviz')} / {_f(a.get('kur')):.2f}  ·  "
-        f"**Durum:** {a.get('durum') or '—'}"
-    )
     _ind = _f(a.get("indirim_orani")) * 100
+    _fob = _usd(a.get("birim_fob"))
+    _final = _usd(a.get("final_birim"))
+    _mas_yuzde = _f(a.get("maliyet_yuzde"))
+    _adet = _f(a.get("adet"))
+
+    # ── Başlık şeridi ──
     st.markdown(
-        f"**Bu kalem:** {_f(a.get('adet')):,.0f} adet × birim FOB {_usd(a.get('birim_fob'))}"
-        + (f" (indirim %{_ind:.1f})" if _ind else "")
-        + f"  →  final birim **{_usd(a.get('final_birim'))}** "
-        f"(masraf %{_f(a.get('maliyet_yuzde')):.1f})"
-    )
+        f'<div style="background:linear-gradient(180deg,#152036,#0F172A);'
+        f'border:1px solid rgba(129,140,248,0.20);border-left:3px solid #818CF8;'
+        f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+        f'<span style="font-size:15px;font-weight:800;color:#E2E8F0">📄 Alım Detayı</span>'
+        f'<span style="font-size:13px;font-weight:700;color:#A5B4FC;'
+        f'font-family:JetBrains Mono,monospace">{a.get("belge_no") or "—"}</span></div>'
+        f'</div>', unsafe_allow_html=True)
+
+    # ── Bilgi + hesap iki sütun ──
+    _sol = (
+        _detay_satir("Sipariş Tarihi", gun_ay_yil(a.get("siparis_tarih")) or "—")
+        + _detay_satir("Teslim Tarihi", gun_ay_yil(a.get("teslim_tarih")) or "—")
+        + _detay_satir("Tedarikçi",
+                       f'<span style="font-family:Inter">{(a.get("tedarikci") or "—")[:26]}</span>')
+        + _detay_satir("Takip No", a.get("takip_no") or "—")
+        + _detay_satir("Döviz / Kur", f'{a.get("doviz")} · {_f(a.get("kur")):.2f}')
+        + _detay_satir("Durum",
+                       f'<span style="color:#34D399;font-family:Inter">{a.get("durum") or "—"}</span>'))
+
+    _indirim_str = f' · indirim %{_ind:.1f}' if _ind else ''
+    _sag = (
+        _detay_satir("Adet", f"{_adet:,.0f}", "#93C5FD")
+        + _detay_satir("Birim FOB", _fob, "#CBD5E1")
+        + _detay_satir("Masraf Payı", f"%{_mas_yuzde:.1f}{_indirim_str}", "#FB923C")
+        + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.08);'
+          f'border:1px solid rgba(52,211,153,0.28);border-radius:12px;text-align:center">'
+          f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
+          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Final Birim Maliyet</div>'
+          f'<div style="font-size:23px;font-weight:800;color:#34D399;'
+          f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_final}</div></div>')
+
+    st.markdown(
+        f'<div style="background:linear-gradient(180deg,#152036,#0F172A);'
+        f'border:1px solid rgba(129,140,248,0.20);border-top:none;'
+        f'border-radius:0 0 16px 16px;padding:14px 18px 16px;margin-bottom:12px;'
+        f'display:flex;gap:24px;flex-wrap:wrap">'
+        f'<div style="flex:1;min-width:220px">{_sol}</div>'
+        f'<div style="flex:1;min-width:200px">{_sag}</div>'
+        f'</div>', unsafe_allow_html=True)
+
+    # ── Masraf dökümü ──
     try:
         from ithalat.database import masraf_dokumu
         _md = masraf_dokumu(a.get("_dosya") or {})
         if _md:
-            st.markdown("**Dosya Masraf Dökümü**")
+            st.markdown('<div style="font-size:13px;font-weight:700;color:#94A3B8;'
+                        'margin:4px 0 6px">Dosya Masraf Dökümü</div>', unsafe_allow_html=True)
             st.dataframe(pd.DataFrame([{"Masraf": ad, "Tutar": _usd(t)} for ad, t in _md]),
-                         hide_index=True, use_container_width=True)
+                         hide_index=True, use_container_width=True,
+                         height=min(320, 40 + 35 * len(_md)))
     except Exception:
         pass
 
 
 def _satis_detay(s, satir_kar):
-    st.divider()
     k = satir_kar(s) if satir_kar else {}
-    st.markdown(f"##### 📄 Satış Detayı — {gun_ay_yil(s.get('tarih'))} · {s.get('kanal') or '—'}")
     _destek = _f(s.get("birim_firma_destek")) + _f(s.get("birim_ek_destek"))
+    _marj = _f(k.get("marj"))
+    _nk = _f(k.get("net_kar"))
+    _nk_renk = "#34D399" if _nk >= 0 else "#F87171"
+
     st.markdown(
-        f"- **Sipariş No:** {s.get('siparis_no') or '—'}\n"
-        f"- **Adet:** {_f(k.get('adet') or s.get('adet')):,.0f}  ·  "
-        f"**Birim Satış:** {_usd(s.get('birim_satis'))}  ·  "
-        f"**Birim Maliyet:** {_usd(s.get('birim_maliyet'))}\n"
-        f"- **Birim Destek:** {_usd(_destek)}  ·  "
-        f"**Ciro:** {_usd(k.get('ciro'))}  ·  "
-        f"**Net Kâr:** {_usd(k.get('net_kar'))} (marj %{_f(k.get('marj')):.1f})"
-    )
+        f'<div style="background:linear-gradient(180deg,#152036,#0F172A);'
+        f'border:1px solid rgba(129,140,248,0.20);border-left:3px solid #818CF8;'
+        f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+        f'<span style="font-size:15px;font-weight:800;color:#E2E8F0">📄 Satış Detayı</span>'
+        f'<span style="font-size:13px;font-weight:700;color:#A5B4FC;font-family:Inter">'
+        f'{gun_ay_yil(s.get("tarih"))} · {s.get("kanal") or "—"}</span></div></div>',
+        unsafe_allow_html=True)
+
+    _sol = (
+        _detay_satir("Sipariş No", s.get("siparis_no") or "—")
+        + _detay_satir("Adet", f"{_f(k.get('adet') or s.get('adet')):,.0f}", "#93C5FD")
+        + _detay_satir("Birim Satış", _usd(s.get("birim_satis")), "#CBD5E1")
+        + _detay_satir("Birim Maliyet", _usd(s.get("birim_maliyet")), "#FB923C"))
+    _sag = (
+        _detay_satir("Birim Destek", _usd(_destek), "#A78BFA")
+        + _detay_satir("Ciro", _usd(k.get("ciro")), "#CBD5E1")
+        + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.06);'
+          f'border:1px solid {_nk_renk}44;border-radius:12px;text-align:center">'
+          f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
+          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Net Kâr · Marj %{_marj:.1f}</div>'
+          f'<div style="font-size:23px;font-weight:800;color:{_nk_renk};'
+          f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_usd(_nk)}</div></div>')
+
+    st.markdown(
+        f'<div style="background:linear-gradient(180deg,#152036,#0F172A);'
+        f'border:1px solid rgba(129,140,248,0.20);border-top:none;'
+        f'border-radius:0 0 16px 16px;padding:14px 18px 16px;margin-bottom:12px;'
+        f'display:flex;gap:24px;flex-wrap:wrap">'
+        f'<div style="flex:1;min-width:220px">{_sol}</div>'
+        f'<div style="flex:1;min-width:200px">{_sag}</div>'
+        f'</div>', unsafe_allow_html=True)
+
     if s.get("kampanya_id"):
         st.caption(f"🎯 Kampanya ID: {s.get('kampanya_id')}")
     if s.get("notlar"):
@@ -218,10 +289,26 @@ def goster(sku):
     gunluk_hiz = _son90 / 90.0
     haftalik_gercek = gunluk_hiz * 7
 
-    # Başlık
-    st.markdown(f"#### {sku} — {urun.get('urun_adi') or '—'}")
-    st.caption(f"Marka: **{urun.get('marka') or '—'}**  ·  Kategori: **{urun.get('kategori') or '—'}**  "
-               f"·  Barkod: **{urun.get('barkod') or '—'}**")
+    # ── Ürün başlık şeridi (profesyonel) ──
+    _canli_renk = "#34D399" if toplam_stok > 0 else "#F87171"
+    st.markdown(
+        f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(34,211,238,0.04) 60%,transparent);'
+        f'border:1px solid rgba(129,140,248,0.25);border-left:3px solid #818CF8;'
+        f'border-radius:16px;padding:14px 18px;margin-bottom:12px">'
+        f'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+        f'<span style="font-size:19px;font-weight:800;color:#E2E8F0;'
+        f'font-family:JetBrains Mono,monospace;letter-spacing:-0.3px">{sku}</span>'
+        f'<span style="font-size:13px;color:#94A3B8;flex:1;min-width:180px">'
+        f'{(urun.get("urun_adi") or "—")}</span>'
+        f'<span style="font-size:11px;font-weight:700;color:{_canli_renk};'
+        f'background:{_canli_renk}1A;padding:4px 12px;border-radius:999px;white-space:nowrap">'
+        f'📦 {toplam_stok:,.0f} adet</span></div>'
+        f'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;'
+        f'font-size:11px;color:#64748B">'
+        f'<span>Marka: <b style="color:#94A3B8">{urun.get("marka") or "—"}</b></span>'
+        f'<span>Kategori: <b style="color:#94A3B8">{urun.get("kategori") or "—"}</b></span>'
+        f'<span>Barkod: <b style="color:#94A3B8">{urun.get("barkod") or "—"}</b></span>'
+        f'</div></div>', unsafe_allow_html=True)
 
     # ── Başka bir SKU / modele geç (modal içi arama — hep görünür) ──
     _q = st.text_input("Ara", key=f"stok_ara_{sku}",
@@ -240,9 +327,10 @@ def goster(sku):
         except Exception:
             _bulunan = []
         if _bulunan:
+            st.caption(f"↓ {len(_bulunan)} eşleşme — aç:")
             for r in _bulunan:
                 _ad = (r.get("urun_adi") or "")[:55]
-                _lbl = f"{r['sku']} — {_ad}" if _ad else r["sku"]
+                _lbl = f"{r['sku']}  ·  {_ad}" if _ad else r["sku"]
                 if st.button(_lbl, key=f"gec_{r['sku']}", use_container_width=True):
                     st.session_state["_stok_gec_sku"] = r["sku"]
                     st.rerun()
