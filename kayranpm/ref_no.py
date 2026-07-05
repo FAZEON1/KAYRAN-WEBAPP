@@ -932,6 +932,67 @@ def _render_tumu(firmalar):
         else:
             st.info("Aylık kırılımların hepsi bu yıla giriyor — fark döviz çevrimi ya da havuz bütçesi.")
 
+        # ── 🏦 YÖNETİM'İN TAM HESABI: ref + havuz + TL→USD (asıl karşılaştırma) ──
+        st.markdown("---")
+        st.markdown("**🏦 Yönetim P&L'inin gerçekte topladığı 'destek' (ref no + havuz + TL çevrim)**")
+        try:
+            from kayranpm.ref_no import get_tum_butce_harcamalari
+            _usdtry = 0.0
+            try:
+                from gunluk import get_doviz
+                _usdtry = float(get_doviz().get("USD") or 0)
+            except Exception:
+                pass
+            _kur_map = {}
+            try:
+                from kayranacc.database import get_kur_araligi
+                _kur_map = get_kur_araligi(_b2, _e2)
+            except Exception:
+                pass
+            def _kur_of(t):
+                return _kur_map.get(str(t)[:10]) if t else None
+
+            # Ref no → USD (TL çevrim + kur eksik say)
+            _ref_usd = 0.0
+            _ref_tl_cevrik = 0.0
+            _ref_kur_eksik = 0.0
+            for r in get_tum_ref_tutarlari(_b2, _e2):
+                _t = _f(r.get("tutar")); _dv = (r.get("doviz") or "USD").strip().upper()
+                if _dv in ("TL", "TRY", "₺", "TRL"):
+                    _k = _kur_of(r.get("tarih")) or _usdtry
+                    if _k:
+                        _ref_usd += _t / _k; _ref_tl_cevrik += _t / _k
+                    else:
+                        _ref_kur_eksik += _t
+                else:
+                    _ref_usd += _t
+
+            # Havuz → USD
+            _hav_usd = 0.0; _hav_tl_cevrik = 0.0; _hav_kur_eksik = 0.0
+            for h in (get_tum_butce_harcamalari(_b2, _e2) or []):
+                _t = _f(h.get("tutar")); _dv = (h.get("doviz") or "USD").strip().upper()
+                if _dv in ("TL", "TRY", "₺", "TRL"):
+                    _k = _kur_of(h.get("fatura_tarih")) or _usdtry
+                    if _k:
+                        _hav_usd += _t / _k; _hav_tl_cevrik += _t / _k
+                    else:
+                        _hav_kur_eksik += _t
+                else:
+                    _hav_usd += _t
+
+            st.dataframe(pd.DataFrame([
+                {"Bileşen": "Ref No (USD karşılığı)", "Tutar $": round(_ref_usd, 2)},
+                {"Bileşen": "  ↳ bunun TL'den çevrilen kısmı", "Tutar $": round(_ref_tl_cevrik, 2)},
+                {"Bileşen": "  ↳ ⚠️ kuru bulunamayıp ATLANAN TL", "Tutar $": round(_ref_kur_eksik, 2)},
+                {"Bileşen": "Havuz Bütçe (USD karşılığı)", "Tutar $": round(_hav_usd, 2)},
+                {"Bileşen": "  ↳ ⚠️ kuru bulunamayıp ATLANAN TL (havuz)", "Tutar $": round(_hav_kur_eksik, 2)},
+                {"Bileşen": "🟰 YÖNETİM TOPLAM DESTEK", "Tutar $": round(_ref_usd + _hav_usd, 2)},
+            ]), hide_index=True, use_container_width=True)
+            st.caption(f"Kullanılan güncel kur: ~{_usdtry:.2f}₺ · Bu tablo Yönetim P&L 'Destekler' "
+                       "kutusuyla birebir aynı mantığı kullanır. 'ATLANAN' satırları > 0 ise fark oradadır.")
+        except Exception as _e:
+            st.error(f"Havuz hesabı okunamadı: {_e}")
+
     if st.button("🔬 Yönetim'le neden farklı? (teşhis)", key="btn_ref_teshis",
                  use_container_width=True):
         _dlg_teshis()
