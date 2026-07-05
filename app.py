@@ -470,7 +470,10 @@ _sb_comp.html(
   btn.id = 'kayran-sb-toggle';
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Menüyü aç/kapat');
-  btn.textContent = '«';
+  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  btn.innerHTML = SVG_SOL;
+  btn.dataset.yon = 'sol';
   btn.style.cssText = [
     'position:fixed','top:50%','transform:translateY(-50%)','left:0',
     'z-index:2147483647','width:34px','height:34px','border-radius:50%',
@@ -502,8 +505,11 @@ _sb_comp.html(
         ? Math.round(sb.getBoundingClientRect().right - 17) + 'px'
         : '10px';
       if (btn.style.left !== hedefLeft) btn.style.left = hedefLeft;
-      const ok = acik ? '«' : '»';
-      if (btn.textContent !== ok) btn.textContent = ok;
+      const yon = acik ? 'sol' : 'sag';
+      if (btn.dataset.yon !== yon) {
+        btn.dataset.yon = yon;
+        btn.innerHTML = acik ? SVG_SOL : SVG_SAG;
+      }
     } catch (e) {}
   }
 
@@ -1153,11 +1159,17 @@ def ust_navigasyon():
     yet = kullanici_yetkileri(ak)
     # Herkes TÜM modülleri görür; yetkisi olmayan tıklarsa yönlendirmede
     # "🔒 ... erişim yetkiniz yok" uyarısı alır (dispatch guard'ları).
-    moduller = [("🏠 Ana Sayfa", "anasayfa"), ("🔍 Arama", "arama"),
-                ("📊 Yönetim", "yonetim"), ("💳 Muhasebe", "kayranacc"),
-                ("🚢 İthalat", "ithalat"), ("📦 Ürün Yön.", "kayranpm"),
-                ("🏬 Depo", "depo"), ("💰 Satış", "satis"),
-                ("🛠️ Teknik Servis", "teknikservis"), ("🧮 Hesap Mak.", "hesap_makinesi")]
+    # (etiket, modül_kodu, material ikon) — emoji değil gerçek vektör ikon
+    moduller = [("Ana Sayfa", "anasayfa", ":material/home:"),
+                ("Arama", "arama", ":material/search:"),
+                ("Yönetim", "yonetim", ":material/monitoring:"),
+                ("Muhasebe", "kayranacc", ":material/account_balance_wallet:"),
+                ("İthalat", "ithalat", ":material/directions_boat:"),
+                ("Ürün Yön.", "kayranpm", ":material/inventory_2:"),
+                ("Depo", "depo", ":material/warehouse:"),
+                ("Satış", "satis", ":material/point_of_sale:"),
+                ("Teknik Servis", "teknikservis", ":material/construction:"),
+                ("Hesap Mak.", "hesap_makinesi", ":material/calculate:")]
 
     st.markdown("""<style>
     .st-key-ustnav [data-testid="stHorizontalBlock"]{gap:7px !important;margin-bottom:8px !important;}
@@ -1233,8 +1245,8 @@ def ust_navigasyon():
             gruplar = [moduller]
         for gi, grup in enumerate(gruplar):
             cols = st.columns(len(grup), gap="small")
-            for c, (ad, mod) in zip(cols, grup):
-                if c.button(ad, key=f"top_{mod}",
+            for c, (ad, mod, ikon) in zip(cols, grup):
+                if c.button(ad, key=f"top_{mod}", icon=ikon,
                             type="primary" if aktif == mod else "secondary",
                             use_container_width=True):
                     st.session_state.aktif_uygulama = mod
@@ -1482,7 +1494,7 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "sifre_degistir"
                 st.rerun()
 
-            if st.button("🚪 Cikis Yap", key="nav_cikis", use_container_width=True):
+            if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
                 _oturum_kapat()
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
