@@ -531,6 +531,12 @@ _sb_comp.html(
 
   function konumla() {
     try {
+      // Bir pencere (st.dialog) açıkken düğme gizlenir — içeriğin üstünde durmasın
+      const dialogAcik = !!doc.querySelector('div[data-testid="stDialog"]');
+      const hedefGoster = dialogAcik ? 'none' : 'flex';
+      if (btn.style.display !== hedefGoster) btn.style.display = hedefGoster;
+      if (dialogAcik) return;
+
       const sb = doc.querySelector('section[data-testid="stSidebar"]');
       const acik = acikMi();
       const hedefLeft = (acik && sb)
