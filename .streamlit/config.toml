@@ -1,29 +1,53 @@
-[theme]
-base = "dark"
-primaryColor = "#6366F1"
-backgroundColor = "#080C20"
-secondaryBackgroundColor = "#0F1730"
-textColor = "#E2E8F0"
+# ═══════════════════════════════════════════════════════════════════
+#  KAYRAN — ÇİFT TEMA (Streamlit resmî dual-theme mimarisi)
+#  Kullanıcı ⋮ menü → Settings → tema seçiminden Koyu/Açık geçer.
+#  [theme.dark] / [theme.light]: tablolar (canvas) DAHİL tüm yerleşik
+#  bileşenler motor seviyesinde doğru renklenir.
+# ═══════════════════════════════════════════════════════════════════
 
-# ── Tipografi — tüm arayüz + tablolar (canvas) Inter ile ──
+[theme]
+# ── Ortak: tipografi + köşeler (temadan bağımsız) ──
 font = "Inter, sans-serif"
 headingFont = "Inter, sans-serif"
 codeFont = "JetBrains Mono, monospace"
-
-# ── Yumuşak köşeler ve silik çerçeveler — sert beyaz çizgiler biter ──
 baseRadius = "12px"
-borderColor = "#232B47"
 
-# ── Tablolar (st.dataframe): silik grid + zeminle uyumlu başlık bandı ──
-dataframeBorderColor = "#1C2440"
-dataframeHeaderBackgroundColor = "#111A38"
-
-# Inter değişken fontunu yükle (resmî host) — tablo canvas'ı da bunu kullanır
+# Inter değişken fontu (tablo canvas'ı da kullanır)
 [[theme.fontFaces]]
 family = "Inter"
 url = "https://rsms.me/inter/font-files/InterVariable.woff2"
 weight = "100 900"
 style = "normal"
+
+# ── KOYU TEMA (mevcut tasarım — varsayılan) ──
+[theme.dark]
+primaryColor = "#6366F1"
+backgroundColor = "#080C20"
+secondaryBackgroundColor = "#0F1730"
+textColor = "#E2E8F0"
+borderColor = "#232B47"
+dataframeBorderColor = "#1C2440"
+dataframeHeaderBackgroundColor = "#111A38"
+
+[theme.dark.sidebar]
+backgroundColor = "#050B16"
+secondaryBackgroundColor = "#0F1730"
+textColor = "#CFD8DC"
+
+# ── AÇIK TEMA (yeni — kurumsal açık gri + beyaz yüzey) ──
+[theme.light]
+primaryColor = "#4F46E5"
+backgroundColor = "#EEF2F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1E293B"
+borderColor = "#D8DFEA"
+dataframeBorderColor = "#E2E8F0"
+dataframeHeaderBackgroundColor = "#F1F5F9"
+
+[theme.light.sidebar]
+backgroundColor = "#E4E9F2"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1E293B"
 
 [browser]
 gatherUsageStats = false
