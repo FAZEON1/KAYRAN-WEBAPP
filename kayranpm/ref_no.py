@@ -1360,29 +1360,39 @@ def get_tum_ref_tutarlari(baslangic, bitis):
             _ham = _f(r.get("tutar"))
             _artik = _ham - _aylik_toplam
             if _artik > 0.005:
+                # Telafide de planlama yılı önceliklidir (tarih ikincil)
+                _y = str(r.get("yil") or "").strip()
                 _tar = str(r.get("tarih") or "").strip()
                 _dahil = False
-                if _tar and _tar.lower() != "none":
+                if _y and _y.isdigit():
+                    _dahil = not (f"{_y}-12-31" < _b or f"{_y}-01-01" > _e)
+                elif _tar and _tar.lower() != "none":
                     _dahil = (_b <= _tar[:10] <= _e)
-                else:
-                    _y = str(r.get("yil") or "").strip()
-                    _dahil = bool(_y) and (_b <= f"{_y}-01-01" <= _e)
                 if _dahil:
                     out.append({"tutar": _artik, "doviz": _doviz,
-                                "tarih": _tar or f"{r.get('yil') or ''}-01-01", "firma_id": _fid})
+                                "tarih": (f"{_y}-01-01" if _y else (_tar or "")),
+                                "firma_id": _fid})
             continue
         t = _f(r.get("tutar"))
         if t <= 0:
             continue
+        # ── DÖNEM EŞLEME (aylik JSONB yok) ──
+        # ÖNCELİK: 'yil' alanı (planlama yılı — Ref No sayfası da buna göre gruplar).
+        # Bir kaydın fatura 'tarih'i başka yıla düşse bile planlama yılı esastır;
+        # aksi halde tarih≠yil olan kayıtlar Yönetim'de dönem dışı kalıp KAYBOLUR.
+        _y = str(r.get("yil") or "").strip()
         _tar = str(r.get("tarih") or "").strip()
-        if _tar and _tar.lower() != "none":
-            if not (_b <= _tar[:10] <= _e):
-                continue
-        else:
-            _y = str(r.get("yil") or "").strip()
-            if not _y or not (_b <= f"{_y}-01-01" <= _e):
-                continue
-        out.append({"tutar": t, "doviz": _doviz, "tarih": r.get("tarih") or "", "firma_id": _fid})
+        _dahil = False
+        if _y and _y.isdigit():
+            # planlama yılının [ilk, son] günü dönemle kesişiyor mu
+            _dahil = not (f"{_y}-12-31" < _b or f"{_y}-01-01" > _e)
+        elif _tar and _tar.lower() != "none":
+            _dahil = (_b <= _tar[:10] <= _e)
+        if not _dahil:
+            continue
+        out.append({"tutar": t, "doviz": _doviz,
+                    "tarih": (f"{_y}-01-01" if _y else (r.get("tarih") or "")),
+                    "firma_id": _fid})
     return out
 
 
