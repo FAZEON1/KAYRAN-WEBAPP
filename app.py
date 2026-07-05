@@ -1411,6 +1411,13 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
+        # ── Açık / Koyu mod anahtarı ──
+        _tema = st.session_state.get("tema", "koyu")
+        _tema_lbl = "☀️  Açık Mod" if _tema == "koyu" else "🌙  Koyu Mod"
+        if st.button(_tema_lbl, key="tema_toggle", use_container_width=True):
+            st.session_state["tema"] = "acik" if _tema == "koyu" else "koyu"
+            st.rerun()
+
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
         _u = aktif_kullanici
         _t = _oturum_token(_u)
@@ -2357,6 +2364,86 @@ def _global_hata_kart(uygulama_adi, hata):
 # ─────────────────────────────────────────────────────────────────────
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
+def _acik_mod_css() -> str:
+    """AÇIK MOD override katmanı. Modül CSS'lerinden SONRA (DOM'da en sonda)
+    basılır → koyu !important kurallarını ezer. Anlamlı renkler (yeşil kâr,
+    kırmızı zarar, mor/amber vurgular) KORUNUR; yalnız nötr/açık metinler ve
+    koyu kart zeminleri çevrilir."""
+    # Nötr/açık metin hex'leri → koyuya çevir (inline style="color:#..." hedefli)
+    _acik_metin = ["#FFFFFF", "#FFF", "#F8FAFC", "#F1F5F9", "#E2E8F0",
+                   "#E5E7EB", "#ECEFF1", "#CFD8DC", "#B0BEC5"]
+    _gri_metin = ["#94A3B8", "#8B98B8", "#90A4AE", "#CBD5E1"]
+    _indigo_metin = ["#A5B4FC", "#C7D2FE"]
+    _metin_kural = ""
+    for h in _acik_metin:
+        _metin_kural += f'[style*="color:{h}"]{{color:#1E293B !important;}}'
+    for h in _gri_metin:
+        _metin_kural += f'[style*="color:{h}"]{{color:#64748B !important;}}'
+    for h in _indigo_metin:
+        _metin_kural += f'[style*="color:{h}"]{{color:#4F46E5 !important;}}'
+
+    # Koyu kart zeminleri → açık yüzey
+    _koyu_kart = [
+        "rgba(255,255,255,0.022)", "rgba(255,255,255,0.03)",
+        "rgba(255,255,255,0.04)", "rgba(255,255,255,0.05)",
+        "rgba(255,255,255,0.06)",
+        "linear-gradient(180deg,#152036,#0F172A)",
+        "linear-gradient(135deg,#1E293B,#0F172A)",
+        "linear-gradient(135deg,#1E293B 0%,#0F172A 100%)",
+    ]
+    _kart_kural = ""
+    for b in _koyu_kart:
+        _kart_kural += (f'[style*="background:{b}"]{{background:#FFFFFF !important;'
+                        f'border-color:rgba(15,23,42,0.10) !important;}}')
+    for hexbg in ["#131C35", "#151F38", "#152036", "#0B1437"]:
+        _kart_kural += (f'[style*="background:{hexbg}"]{{background:#F1F5F9 !important;'
+                        f'border-color:rgba(15,23,42,0.10) !important;}}')
+
+    return "<style>" + """
+/* ── ZEMİN & ANA METİN ── */
+.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"],
+[data-testid="stMain"],.main{background:#EEF2F7 !important;}
+[data-testid="stHeader"]{background:transparent !important;}
+html,body,.stApp{background:#EEF2F7 !important;}
+[data-testid="stMain"]{color:#1E293B;}
+[data-testid="stMain"] h1,[data-testid="stMain"] h2,[data-testid="stMain"] h3,
+[data-testid="stMain"] h4,[data-testid="stMain"] h5,[data-testid="stMain"] h6{
+  color:#0F172A;}
+[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{color:#334155;}
+div[data-testid="stCaptionContainer"] p{color:#64748B !important;}
+
+/* ── SIDEBAR ── */
+section[data-testid="stSidebar"]{
+  background:linear-gradient(180deg,#E2E8F0 0%,#CBD5E1 100%) !important;
+  border-right:1px solid rgba(15,23,42,0.10) !important;}
+section[data-testid="stSidebar"]{color:#1E293B;}
+section[data-testid="stSidebar"] hr,
+section[data-testid="stSidebar"] [style*="background:rgba(255,255,255"]{
+  background:rgba(15,23,42,0.08) !important;border-color:rgba(15,23,42,0.10) !important;}
+
+/* ── METRIC / KART / INPUT / DIALOG YÜZEYLERİ ── */
+[data-testid="stMetric"],[data-testid="metric-container"]{
+  background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.08) !important;
+  box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;}
+[data-testid="stMetricValue"],[data-testid="stMetricValue"] *,
+[data-testid="stMetricLabel"],[data-testid="stMetricLabel"] *{color:#0F172A !important;}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,
+textarea,[data-baseweb="select"]>div,[data-baseweb="input"]>div{
+  background:#FFFFFF !important;color:#1E293B !important;
+  border-color:rgba(15,23,42,0.15) !important;}
+div[data-testid="stDialog"]>div:first-child{
+  background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.12) !important;}
+div[data-testid="stDialog"] h1,div[data-testid="stDialog"] h2,
+div[data-testid="stDialog"] h3{color:#0F172A !important;}
+button[data-baseweb="tab"][aria-selected="true"]{background:rgba(99,102,241,0.12) !important;}
+button[data-baseweb="tab"]{color:#475569 !important;}
+""" + _metin_kural + _kart_kural + """
+/* Sidebar nav butonları koyu kalsın (mavi zemin + beyaz yazı korunur) */
+section[data-testid="stSidebar"] .stButton button,
+section[data-testid="stSidebar"] .stButton button *{color:#FFFFFF !important;}
+</style>"""
+
+
 def main():
     # Login yapılmamışsa giriş ekranı
     if not st.session_state.giris_yapildi:
@@ -2493,6 +2580,10 @@ def main():
             "</script>",
             height=0,
         )
+
+    # ── AÇIK MOD: override katmanını EN SONDA bas (modül koyu CSS'lerini ezer) ──
+    if st.session_state.get("tema") == "acik":
+        st.markdown(_acik_mod_css(), unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
