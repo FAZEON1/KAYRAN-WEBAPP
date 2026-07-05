@@ -454,10 +454,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── SIDEBAR AÇ/KAPAT: kenara oturan yuvarlak « / » düğmesi ──────────────────
-# Sidebar'ın sağ kenarına dikeyde ortalanmış, altın halkalı dairesel düğme.
-# Kenar konumunu 300ms'de bir sidebar genişliğinden okuyup izler (güvenli:
-# yalnız değer değişince yazar, pencerede TEKİL interval — çoğalmaz/donmaz).
+# ── SIDEBAR AÇ/KAPAT: kenara oturan yuvarlak SVG-chevron düğmesi ────────────
+# Streamlit'in kendi daraltma oku yalnız sidebar hover'dayken DOM'da var olduğu
+# için ona güvenilmez. Bu düğme sidebar'ı DOĞRUDAN kendi CSS sınıfıyla yönetir:
+# body.kyr-sb-kapali → sidebar 0 genişliğe animasyonla kapanır, içerik genişler.
+# Tercih localStorage'da tutulur. Döngüsüz: yazımlar yalnız değer değişince.
 import streamlit.components.v1 as _sb_comp
 _sb_comp.html(
     """
@@ -466,21 +467,31 @@ _sb_comp.html(
   const w = window.parent, doc = w.document;
   if (doc.getElementById('kayran-sb-toggle')) return;   // tek sefer ekle
 
+  // ── Sidebar'ı kapatan CSS sınıfı (animasyonlu) ──
+  const st = doc.createElement('style');
+  st.textContent = `
+    section[data-testid="stSidebar"]{
+      transition: width .18s ease, min-width .18s ease, margin-left .18s ease;
+    }
+    body.kyr-sb-kapali section[data-testid="stSidebar"]{
+      width: 0 !important; min-width: 0 !important;
+      overflow: hidden !important; border-right: none !important;
+    }`;
+  doc.head.appendChild(st);
+
+  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+
   const btn = doc.createElement('button');
   btn.id = 'kayran-sb-toggle';
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Menüyü aç/kapat');
-  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-  btn.innerHTML = SVG_SOL;
-  btn.dataset.yon = 'sol';
   btn.style.cssText = [
     'position:fixed','top:50%','transform:translateY(-50%)','left:0',
     'z-index:2147483647','width:34px','height:34px','border-radius:50%',
     'cursor:pointer','border:2px solid #F59E0B',
     'background:#0D1526','color:#F59E0B',
-    'font-size:17px','line-height:1','font-weight:800','padding:0',
-    'display:flex','align-items:center','justify-content:center',
+    'padding:0','display:flex','align-items:center','justify-content:center',
     'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
     'transition:left .18s ease, box-shadow .15s ease'
   ].join(';');
@@ -489,20 +500,14 @@ _sb_comp.html(
   btn.onmouseleave = () => btn.style.boxShadow =
     '0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)';
 
-  function acikMi() {
-    const sb = doc.querySelector('section[data-testid="stSidebar"]');
-    if (!sb) return false;
-    if (sb.getAttribute('aria-expanded') === 'false') return false;
-    return sb.getBoundingClientRect().width > 40;
-  }
+  function acikMi(){ return !doc.body.classList.contains('kyr-sb-kapali'); }
 
   function konumla() {
     try {
       const sb = doc.querySelector('section[data-testid="stSidebar"]');
       const acik = acikMi();
-      // Açıkken: sidebar sağ kenarının üstüne yarı bindir · Kapalıyken: sol kıyı
       const hedefLeft = (acik && sb)
-        ? Math.round(sb.getBoundingClientRect().right - 17) + 'px'
+        ? Math.max(10, Math.round(sb.getBoundingClientRect().right - 17)) + 'px'
         : '10px';
       if (btn.style.left !== hedefLeft) btn.style.left = hedefLeft;
       const yon = acik ? 'sol' : 'sag';
@@ -513,31 +518,18 @@ _sb_comp.html(
     } catch (e) {}
   }
 
-  function nativeToggle() {
-    const sels = [
-      '[data-testid="stSidebarCollapseButton"] button',
-      '[data-testid="stSidebarCollapseButton"]',
-      '[data-testid="stExpandSidebarButton"]',
-      '[data-testid="stSidebarCollapsedControl"] button',
-      '[data-testid="stSidebarCollapsedControl"]',
-      '[data-testid="collapsedControl"] button',
-      '[data-testid="collapsedControl"]'
-    ];
-    for (const s of sels) {
-      const el = doc.querySelector(s);
-      if (el) { el.click(); return true; }
-    }
-    return false;
-  }
-
   btn.onclick = function () {
-    if (!nativeToggle()) {
-      // Yedek: sidebar'ı doğrudan görünür kıl
-      const sb = doc.querySelector('section[data-testid="stSidebar"]');
-      if (sb) { sb.style.transform = 'translateX(0)'; sb.style.visibility = 'visible'; }
-    }
-    setTimeout(konumla, 60); setTimeout(konumla, 260); setTimeout(konumla, 460);
+    const kapali = doc.body.classList.toggle('kyr-sb-kapali');
+    try { w.localStorage.setItem('kayran-sb', kapali ? 'kapali' : 'acik'); } catch(e){}
+    setTimeout(konumla, 40); setTimeout(konumla, 200); setTimeout(konumla, 380);
   };
+
+  // Kayıtlı tercihi uygula (varsayılan: açık)
+  try {
+    if (w.localStorage.getItem('kayran-sb') === 'kapali') {
+      doc.body.classList.add('kyr-sb-kapali');
+    }
+  } catch(e){}
 
   doc.body.appendChild(btn);
   konumla();
