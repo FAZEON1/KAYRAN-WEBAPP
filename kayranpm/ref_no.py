@@ -805,6 +805,87 @@ def _render_tumu(firmalar):
     st.caption("ℹ️ Birleşik görünüm salt-okunurdur. Ekleme · Excel içe aktarma · düzenleme · silme · bütçe için "
                "yukarıdan **tek bir firma** seç.")
 
+    # ── 🔬 TEŞHİS: Ref No sayfası vs Yönetim P&L uyumsuzluğu ──
+    @st.dialog("🔬 Ref No — Yönetim Tutar Karşılaştırma", width="large")
+    def _dlg_teshis():
+        from shared.ui import RENK
+        _yil_sec = st.selectbox("Hangi yıl için karşılaştır?",
+                                _t_yillar or [str(_yil())], key="teshis_yil")
+        _b2 = f"{_yil_sec}-01-01"
+        _e2 = f"{_yil_sec}-12-31"
+
+        # A) Ref No sayfası mantığı: aylik_ozet[1] içinde yıl geçen HAM tutar
+        _a_kayit = []
+        for r in _hepsi:
+            _, _yls = _aylik_ozet(r)
+            if str(r.get("durum") or "").lower() == "iptal":
+                continue
+            if _yil_sec in _yls:
+                _a_kayit.append(r)
+        _a_dv = defaultdict(float)
+        for r in _a_kayit:
+            _a_dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
+
+        # B) Yönetim mantığı: get_tum_ref_tutarlari (dönem bazlı, aylık dağıtımlı)
+        from kayranpm.ref_no import get_tum_ref_tutarlari
+        _b_rows = get_tum_ref_tutarlari(_b2, _e2)
+        _b_dv = defaultdict(float)
+        for r in _b_rows:
+            _b_dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
+
+        _sem = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
+        st.markdown(f"**{_yil_sec} — iki hesabın döviz bazlı toplamı**")
+        _cmp = []
+        for _dv in sorted(set(_a_dv) | set(_b_dv)):
+            _av, _bv = _a_dv.get(_dv, 0), _b_dv.get(_dv, 0)
+            _cmp.append({
+                "Döviz": _dv,
+                "Ref No sayfası": f"{_sem.get(_dv, '')}{_av:,.2f}",
+                "Yönetim (get_tum_ref)": f"{_sem.get(_dv, '')}{_bv:,.2f}",
+                "Fark": f"{_sem.get(_dv, '')}{(_av - _bv):,.2f}",
+            })
+        st.dataframe(pd.DataFrame(_cmp), hide_index=True, use_container_width=True)
+
+        # Kayıt bazında: A'da olup B'ye düşük yansıyanları bul
+        st.markdown("**🔎 Kayıt bazında fark (A'daki ham tutar vs B'nin bu kayda düşürdüğü)**")
+        # B'yi firma_id+tutar imzasıyla eşlemek zor; onun yerine A kayıtlarını tek tek
+        # get_tum_ref mantığından geçirip ne kadarının döneme girdiğini gösterelim
+        _detay = []
+        for r in _a_kayit:
+            _ham = _f(r.get("tutar"))
+            _aylik = r.get("aylik") or {}
+            if isinstance(_aylik, str):
+                try:
+                    import json
+                    _aylik = json.loads(_aylik)
+                except Exception:
+                    _aylik = {}
+            _aytop = sum(_f(v) for v in _aylik.values()) if isinstance(_aylik, dict) else 0
+            _ays, _yls = _aylik_ozet(r)
+            _detay.append({
+                "Firma": (r.get("_firma", "") or "")[:20],
+                "Ref No": r.get("ref_no", ""),
+                "Ham Tutar": round(_ham, 2),
+                "Aylık Top.": round(_aytop, 2),
+                "Fark": round(_ham - _aytop, 2),
+                "Ay/Yıl": f"{_ays} · {_yls}"[:26],
+                "tarih?": "✓" if str(r.get("tarih") or "").strip() not in ("", "none", "None") else "—",
+                "yil?": r.get("yil") or "—",
+            })
+        _detay = [d for d in _detay if abs(d["Fark"]) > 0.01 or d["Aylık Top."] == 0]
+        if _detay:
+            st.caption(f"⚠️ {len(_detay)} kayıtta ham tutar ile aylık kırılım toplamı farklı — "
+                       "bunlar B (Yönetim) tarafında eksik/kaymış olabilir:")
+            st.dataframe(pd.DataFrame(_detay), hide_index=True, use_container_width=True,
+                         height=min(340, 40 + 35 * len(_detay)))
+        else:
+            st.success("Tüm kayıtlarda ham tutar = aylık toplam. Fark döviz çevrimi veya "
+                       "havuz bütçesinden geliyor demektir.")
+
+    if st.button("🔬 Yönetim'le neden farklı? (teşhis)", key="btn_ref_teshis",
+                 use_container_width=True):
+        _dlg_teshis()
+
 
 # ── SEKME 1: REF NO'LAR ─────────────────────────────────────────────
 def _tutar_ozet(refler):
