@@ -281,7 +281,6 @@ def run():
                                      "📥 İçe Aktar", "↩️ İade"],
                            label_visibility="collapsed", key="satis_sayfa")
 
-    st.caption("Her şey **USD**. Maliyet = güncel paçal (ağırlıklı ortalama landed), kayıt anında sabitlenir.")
 
     _ice_mesaj = st.session_state.pop("_ice_mesaj", None)
     if _ice_mesaj:
@@ -962,10 +961,6 @@ def run():
                         ("Net Kâr (destek sonrası)", _usd(_net_ds), _nd_renk),
                         ("Marj (destek sonrası)", f"%{_marj_ds:.1f}", _nd_renk),
                     ]) + '</div>', unsafe_allow_html=True)
-                st.caption("🏷️ Ref No destekleri firma/dönem bazlıdır (Ürün Yön. → Ref No Takibi); "
-                           "TL olanlar güncel kurla USD'ye çevrildi. Net kârdan düşülür — Yönetim Panosu ile aynı "
-                           "kaynak. Not: AY+YIL girilmiş ref'ler ilgili aya düşer; yalnız yıl girilenler "
-                           "yıllık/çeyreklik dönemde sayılır.")
             if _itop["i_adet"] > 0:
                 st.markdown(
                     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
@@ -973,9 +968,6 @@ def run():
                         ("İade tutarı", _usd(_itop["i_tutar"]), "#FBBF24"),
                         ("İade sonrası net adet", f"{_itop['net_adet']:,}", "#93C5FD"),
                     ]) + '</div>', unsafe_allow_html=True)
-                st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir. "
-                           "**Kâr ve marj artık iade sonrası net ciro üzerinden hesaplanır** (ciro − iade). "
-                           "(Ayrıntı: İade sayfası)")
 
             st.markdown("#### Kanal Kırılımı")
             st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
