@@ -1611,3 +1611,24 @@ def havuz_destek_donem(bas, bit):
     except Exception:
         firmalar = {}
     return _havuz_hesapla(kayitlar, firmalar)
+
+
+# ════════════════════════════════════════════════════════════════════
+#  TEK KAYNAK: v_destek_donem SQL VIEW
+#  Kural veritabanında BİR kez tanımlı → tüm ekranlar aynı rakamı okur.
+# ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=120, show_spinner=False)
+def get_destek_donem(baslangic, bitis):
+    """v_destek_donem view'inden dönem destek satırları.
+    Döner: list[{kaynak, tur, firma_id, doviz, donem, tutar}]
+    View henüz kurulmadıysa/erişilemezse None döner → çağıran taraf
+    eski Python hesabına düşer (sıfır riskli geçiş)."""
+    try:
+        sb = get_client()
+        rows = (sb.table("v_destek_donem").select("*")
+                .gte("donem", str(baslangic)[:10])
+                .lte("donem", str(bitis)[:10])
+                .limit(20000).execute().data)
+        return rows if rows is not None else []
+    except Exception:
+        return None
