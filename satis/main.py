@@ -684,20 +684,24 @@ def run():
         st.markdown(_sb("📋", "Satışlar", "Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
 
-        satislar = get_satislar(_bas, _bit)
-        # Kanal seçenekleri = dönemde GERÇEKTEN geçen kanallar (içe aktarılan
-        # cari adları dahil) ∪ kayıtlı kanal listesi — hiçbir kanal filtreden kaçamaz
+        # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
+        satislar_ham = get_satislar(_bas, _bit)
         _kanal_secenek = sorted({(s.get("kanal") or "").strip()
-                                 for s in satislar if (s.get("kanal") or "").strip()}
+                                 for s in satislar_ham if (s.get("kanal") or "").strip()}
                                 | set(_kanallar))
-        _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanal_secenek, key="l_kanal")
 
-        if _kanal_f != "Tümü":
-            satislar = [s for s in satislar if (s.get("kanal") or "") == _kanal_f]
+        @st.fragment
+        def _satislar_fragment():
+            # Kanal filtresi + tablo + özet: kanal değişince SADECE bu blok yeniden çalışır,
+            # sayfanın kalanı (sidebar, başlık, veri çekimi) hiç dokunmaz → anlık his.
+            _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanal_secenek, key="l_kanal")
+            satislar = satislar_ham
+            if _kanal_f != "Tümü":
+                satislar = [s for s in satislar_ham if (s.get("kanal") or "") == _kanal_f]
 
-        if not satislar:
-            st.info("Bu aralıkta satış kaydı yok.")
-        else:
+            if not satislar:
+                st.info("Bu aralıkta satış kaydı yok.")
+                return
             from satis.database import get_sku_kategori
             _katmap = get_sku_kategori()
             _admap = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
@@ -822,6 +826,8 @@ def run():
                         st.caption("Sipariş no'lu kayıt yok.")
             if st.button("🗑️ Sil — kalem veya sipariş", key="btn_sat_sil", use_container_width=True):
                 _dlg_satis_sil()
+
+        _satislar_fragment()
 
     # ───────────────────────── KÂR / P&L ─────────────────────────
     elif _ssayfa == "📊 Kâr / P&L":
