@@ -1411,14 +1411,21 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        # ── Tema: Streamlit'in native seçicisi (⋮ → Settings) kullanılır ──
+        # ── Tek tıkla Koyu/Açık mod ──
         from shared.ui import tema_tipi as _tt
-        _tema_ikon = "🌙" if _tt() == "dark" else "☀️"
-        st.markdown(
-            f'<div style="font-size:11px;color:#7C8AA5;padding:2px 4px 8px">'
-            f'{_tema_ikon} Tema: sağ üst <b>⋮ → Settings</b> menüsünden '
-            f'Koyu/Açık seçebilirsiniz</div>',
-            unsafe_allow_html=True)
+        _su_an = _tt()
+        _lbl = "☀️  Açık Mod" if _su_an == "dark" else "🌙  Koyu Mod"
+        if st.button(_lbl, key="tema_toggle", use_container_width=True):
+            _hedef = "Light" if _su_an == "dark" else "Dark"
+            import streamlit.components.v1 as _tema_c
+            _tema_c.html(
+                """<script>(function(){try{
+  var w=window.parent;
+  var key="stActiveTheme-"+w.location.pathname+"-v1";
+  w.localStorage.setItem(key,JSON.stringify({name:"__HEDEF__"}));
+  w.location.reload();
+}catch(e){}})();</script>""".replace("__HEDEF__", _hedef),
+                height=0)
 
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
         _u = aktif_kullanici
