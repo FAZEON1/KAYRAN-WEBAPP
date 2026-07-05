@@ -338,38 +338,35 @@ def sidebar_stil() -> str:
 
 
 def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
-    """Modern sidebar başlığı: gradyan rozet + gradyan başlık. Tüm modüllerde ortak."""
-    alt_html = (
-        f'<div style="font-size:10px;color:#64748B;font-weight:600;letter-spacing:1px;'
-        f'text-transform:uppercase;margin-top:3px">{alt}</div>'
-    ) if alt else ""
+    """İnce modül kimlik çipi — tek satır: küçük ikon karosu + modül adı.
+    (Eski dev blok: 52px ikon + gradyan başlık + alt yazı → kaldırıldı;
+    `alt` parametresi geriye uyumluluk için duruyor, görselde kullanılmıyor.)"""
     return (
-        '<div style="text-align:center;padding:4px 4px 6px">'
-        '<div style="width:52px;height:52px;border-radius:15px;margin:0 auto 8px;'
-        'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
-        f'justify-content:center;font-size:26px;box-shadow:0 8px 22px rgba(99,102,241,0.4)">{ikon}</div>'
-        '<div style="font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.4px;'
-        'background:linear-gradient(90deg,#C7D2FE,#A78BFA,#67E8F9);-webkit-background-clip:text;'
-        f'background-clip:text;-webkit-text-fill-color:transparent;display:inline-block">{ad}</div>'
-        f'{alt_html}'
-        '<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(99,102,241,0.5),transparent);margin-top:12px"></div>'
+        '<div style="display:flex;align-items:center;gap:10px;padding:2px 2px 10px;'
+        'border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:10px">'
+        '<div style="width:26px;height:26px;border-radius:8px;flex-shrink:0;'
+        'background:linear-gradient(135deg,rgba(99,102,241,0.35),rgba(139,92,246,0.25));'
+        'border:1px solid rgba(129,140,248,0.35);display:flex;align-items:center;'
+        f'justify-content:center;font-size:13px">{ikon}</div>'
+        '<div style="font-family:Inter,sans-serif;font-size:13.5px;font-weight:700;'
+        f'letter-spacing:-0.2px;color:#E2E8F0;white-space:nowrap;overflow:hidden;'
+        f'text-overflow:ellipsis">{ad}</div>'
         '</div>'
     )
 
 
 def sidebar_kullanici(kullanici: str) -> str:
-    """Modern 'oturum açık' kartı (HTML). Çıkış butonu modülde st.button ile eklenir."""
+    """Sade tek satır kullanıcı kimliği: küçük avatar + isim.
+    ('OTURUM AÇIK' etiketi ve kutu kaldırıldı — oturum zaten açık, söylemeye gerek yok.)"""
     if not kullanici:
         return ""
     bas = kullanici[0].upper()
     return (
-        '<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);'
-        'border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:9px 12px;margin-bottom:14px">'
-        '<div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;'
+        '<div style="display:flex;align-items:center;gap:9px;padding:2px 2px;margin-bottom:8px">'
+        '<div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;'
         'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
-        f'justify-content:center;font-size:14px;font-weight:700;color:#fff">{bas}</div>'
-        '<div><div style="font-size:10px;color:#64748B;font-weight:600;letter-spacing:.5px">OTURUM AÇIK</div>'
-        f'<div style="font-size:13px;color:#F1F5F9;font-weight:700">{kullanici.capitalize()}</div></div>'
+        f'justify-content:center;font-size:11px;font-weight:700;color:#fff">{bas}</div>'
+        f'<div style="font-size:12.5px;color:#B6C2D6;font-weight:600">{kullanici.capitalize()}</div>'
         '</div>'
     )
 
