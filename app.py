@@ -430,7 +430,9 @@ st.markdown(token_css(), unsafe_allow_html=True)
 
 # ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
 # (şeffaf zemin, Inter, yumuşak grid, alt yatay lejant, uygulama hover kutusu)
-try:
+@st.cache_resource(show_spinner=False)
+def _kayran_plotly_tema():
+    """Global grafik teması — süreç başına bir kez kaydolur."""
     import plotly.io as _pio
     import plotly.graph_objects as _pgo
     _pio.templates["kayran"] = _pgo.layout.Template(layout=dict(
@@ -449,6 +451,10 @@ try:
         margin=dict(t=24, b=8, l=8, r=8),
     ))
     _pio.templates.default = "plotly_dark+kayran"
+    return True
+
+try:
+    _kayran_plotly_tema()
 except Exception:
     pass
 
@@ -481,20 +487,33 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── SIDEBAR AÇ/KAPAT: kenara oturan yuvarlak SVG-chevron düğmesi ────────────
-# Streamlit'in kendi daraltma oku yalnız sidebar hover'dayken DOM'da var olduğu
-# için ona güvenilmez. Bu düğme sidebar'ı DOĞRUDAN kendi CSS sınıfıyla yönetir:
-# body.kyr-sb-kapali → sidebar 0 genişliğe animasyonla kapanır, içerik genişler.
-# Tercih localStorage'da tutulur. Döngüsüz: yazımlar yalnız değer değişince.
+# ── SIDEBAR AÇ/KAPAT + tema temizliği: TEK enjekte script ───────────────────
+# PERFORMANS TASARIMI: sürekli zamanlayıcı YOK. Konum yalnız gerçek olaylarda
+# hesaplanır (ResizeObserver sidebar boyutu değişince, pencere resize, tık).
+# getBoundingClientRect asla periyodik çağrılmaz → zorla-reflow maliyeti sıfır.
+# Dialog algısı: childList MutationObserver + rAF birleştirme; tüm yazımlar
+# yalnız değer değişince (döngü yapısal olarak imkânsız).
 import streamlit.components.v1 as _sb_comp
 _sb_comp.html(
     """
 <script>
 (function () {
   const w = window.parent, doc = w.document;
+
+  // ── Eski açık-mod kalıntısı temizliği (tek sefer; kayıt yoksa hiç iş yok) ──
+  try {
+    if (w.localStorage.getItem("kayran-tema") !== null) {
+      w.localStorage.removeItem("kayran-tema");
+      const base = "stActiveTheme-" + w.location.pathname;
+      w.localStorage.removeItem(base + "-v1");
+      w.localStorage.removeItem(base + "-v2");
+      w.location.reload();
+    }
+    doc.body.classList.remove("kayran-light");
+  } catch (e) {}
+
   if (doc.getElementById('kayran-sb-toggle')) return;   // tek sefer ekle
 
-  // ── Sidebar'ı kapatan CSS sınıfı (animasyonlu) ──
   const st = doc.createElement('style');
   st.textContent = `
     section[data-testid="stSidebar"]{
@@ -522,6 +541,8 @@ _sb_comp.html(
     'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
     'transition:left .18s ease, box-shadow .15s ease'
   ].join(';');
+  btn.innerHTML = SVG_SOL;
+  btn.dataset.yon = 'sol';
   btn.onmouseenter = () => btn.style.boxShadow =
     '0 0 0 4px rgba(245,158,11,0.30), 0 2px 12px rgba(0,0,0,0.55)';
   btn.onmouseleave = () => btn.style.boxShadow =
@@ -529,14 +550,9 @@ _sb_comp.html(
 
   function acikMi(){ return !doc.body.classList.contains('kyr-sb-kapali'); }
 
+  // Konum hesabı: YALNIZ olay anında çağrılır (asla periyodik değil)
   function konumla() {
     try {
-      // Bir pencere (st.dialog) açıkken düğme gizlenir — içeriğin üstünde durmasın
-      const dialogAcik = !!doc.querySelector('div[data-testid="stDialog"]');
-      const hedefGoster = dialogAcik ? 'none' : 'flex';
-      if (btn.style.display !== hedefGoster) btn.style.display = hedefGoster;
-      if (dialogAcik) return;
-
       const sb = doc.querySelector('section[data-testid="stSidebar"]');
       const acik = acikMi();
       const hedefLeft = (acik && sb)
@@ -551,13 +567,25 @@ _sb_comp.html(
     } catch (e) {}
   }
 
+  // Dialog görünürlüğü: ucuz kontrol (querySelector, reflow tetiklemez)
+  function dialogKontrol() {
+    try {
+      const acik = !!doc.querySelector('div[data-testid="stDialog"]');
+      const hedef = acik ? 'none' : 'flex';
+      if (btn.style.display !== hedef) {
+        btn.style.display = hedef;
+        if (!acik) konumla();   // dialog kapanınca konumu tazele
+      }
+    } catch (e) {}
+  }
+
   btn.onclick = function () {
     const kapali = doc.body.classList.toggle('kyr-sb-kapali');
     try { w.localStorage.setItem('kayran-sb', kapali ? 'kapali' : 'acik'); } catch(e){}
-    setTimeout(konumla, 40); setTimeout(konumla, 200); setTimeout(konumla, 380);
+    // animasyon bitişini transitionend yakalar; yedek tek atım:
+    setTimeout(konumla, 220);
   };
 
-  // Kayıtlı tercihi uygula (varsayılan: açık)
   try {
     if (w.localStorage.getItem('kayran-sb') === 'kapali') {
       doc.body.classList.add('kyr-sb-kapali');
@@ -566,9 +594,31 @@ _sb_comp.html(
 
   doc.body.appendChild(btn);
   konumla();
-  if (w.__kayranSbInt) { w.clearInterval(w.__kayranSbInt); }
-  w.__kayranSbInt = w.setInterval(konumla, 300);
+
+  // ── OLAY KAYNAKLARI (yoklama yok) ──
+  const sbEl = doc.querySelector('section[data-testid="stSidebar"]');
+  if (w.ResizeObserver && sbEl) {
+    if (w.__kayranSbRO) { try { w.__kayranSbRO.disconnect(); } catch(e){} }
+    w.__kayranSbRO = new w.ResizeObserver(() => konumla());
+    w.__kayranSbRO.observe(sbEl);           // sidebar boyutu değişince tetiklenir
+    sbEl.addEventListener('transitionend', konumla);
+  }
   w.addEventListener('resize', konumla);
+
+  // Dialog aç/kapa: rAF ile tek karede birleştirilmiş, salt-okur kontrol
+  let planli = false;
+  if (w.__kayranSbMO) { try { w.__kayranSbMO.disconnect(); } catch(e){} }
+  w.__kayranSbMO = new w.MutationObserver(() => {
+    if (planli) return;
+    planli = true;
+    w.requestAnimationFrame(() => { planli = false; dialogKontrol(); });
+  });
+  w.__kayranSbMO.observe(doc.body, { childList: true, subtree: true });
+  // (Güvenli: gözlemci yalnız childList dinler; btn üzerinde yaptığımız
+  //  style/innerHTML yazımları koşullu ve rAF-birleştirmeli → döngü imkânsız.)
+
+  // Eski sürümden kalan zamanlayıcı varsa kapat
+  if (w.__kayranSbInt) { w.clearInterval(w.__kayranSbInt); w.__kayranSbInt = null; }
 })();
 </script>
 """,
@@ -2409,29 +2459,8 @@ def _global_hata_kart(uygulama_adi, hata):
 # ─────────────────────────────────────────────────────────────────────
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
-def _tema_init():
-    """Açık mod özelliği kaldırıldı. Bu fonksiyon yalnız GEÇİŞ temizliği yapar:
-    daha önce açık moda geçmiş tarayıcılarda kalan tema kayıtlarını siler ve
-    sayfayı bir kez yenileyerek uygulamayı koyu temaya döndürür. Kayıt yoksa
-    hiçbir şey yapmaz (döngü imkânsız)."""
-    import streamlit.components.v1 as _c
-    _c.html(
-        """<script>(function(){try{
-  var w=window.parent, ls=w.localStorage;
-  if(ls.getItem("kayran-tema")!==null){
-    ls.removeItem("kayran-tema");
-    var base="stActiveTheme-"+w.location.pathname;
-    ls.removeItem(base+"-v1"); ls.removeItem(base+"-v2");
-    w.location.reload();
-  }
-  w.document.body.classList.remove("kayran-light");
-}catch(e){}})();</script>""",
-        height=0)
-
-
 def main():
     # Login yapılmamışsa giriş ekranı
-    _tema_init()
     if not st.session_state.giris_yapildi:
         giris_ekrani()
         return
