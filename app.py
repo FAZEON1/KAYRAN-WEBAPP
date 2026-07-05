@@ -459,7 +459,23 @@ except Exception:
     pass
 
 # Plotly araç çubuğunu (modebar) program genelinde gizle — temiz görünüm
-st.markdown("<style>.modebar{display:none !important;}</style>", unsafe_allow_html=True)
+st.markdown(
+    "<style>"
+    ".modebar{display:none !important;}"
+    # Material ikonları: hiçbir font zorlaması ikon fontunu ezemesin.
+    # (Sidebar buton span'lerine Inter dayatan kurallar ikon ligatürünü
+    #  düz metne çeviriyordu — 'logout' yazısı olayı. Bileşik seçici,
+    #  o kuralların özgüllüğünü aşar.)
+    'section[data-testid="stSidebar"] .stButton > button span[data-testid="stIconMaterial"],'
+    'section[data-testid="stSidebar"] [data-testid="stIconMaterial"],'
+    '[data-testid="stIconMaterial"]{'
+    'font-family:"Material Symbols Rounded" !important;'
+    'font-weight:normal !important;'
+    'letter-spacing:normal !important;'
+    'text-transform:none !important;'
+    'line-height:1 !important;'
+    '}'
+    "</style>", unsafe_allow_html=True)
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
 
