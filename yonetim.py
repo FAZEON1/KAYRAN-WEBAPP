@@ -99,13 +99,18 @@ def ay_pnl_hesapla(yil, ay_idx):
          "net_kar": 0.0, "marj": 0.0, "iade_tutar": 0.0,
          "kanal": [], "urun_top": [], "urun_zarar": []}
 
-    # Satış P&L
+    # Satış P&L — TEK KAYNAK: v_satis_pnl (yoksa Python)
     kanal = {}
     urun = {}
     try:
-        from satis.database import get_satislar, ozet_hesapla, iade_satis_net_ozet
-        _sat = get_satislar(bas, bit)
-        _top, kanal, urun = ozet_hesapla(_sat)
+        from satis.database import (get_satislar, ozet_hesapla, iade_satis_net_ozet,
+                                    get_satis_pnl_view, ozet_from_view)
+        _vr_s = get_satis_pnl_view(bas, bit)
+        if _vr_s is not None:
+            _top, kanal, urun = ozet_from_view(_vr_s)
+        else:
+            _sat = get_satislar(bas, bit)
+            _top, kanal, urun = ozet_hesapla(_sat)
         r["ciro"] = float(_top.get("ciro", 0) or 0)
         r["cogs"] = float(_top.get("maliyet", 0) or 0)
         try:
@@ -315,13 +320,18 @@ def run():
                         unsafe_allow_html=True)
     baslangic, bitis = _donem_tarih(_yil, _donem)
 
-    # ── Gelir / maliyet (satış) ──
+    # ── Gelir / maliyet (satış) — TEK KAYNAK: v_satis_pnl (yoksa Python) ──
     ciro = cogs = 0.0
     kanal = {}
     try:
-        from satis.database import get_satislar, ozet_hesapla
-        _satislar = get_satislar(baslangic, bitis)
-        top, kanal, _urun = ozet_hesapla(_satislar)
+        from satis.database import (get_satislar, ozet_hesapla,
+                                    get_satis_pnl_view, ozet_from_view)
+        _vrows_s = get_satis_pnl_view(baslangic, bitis)
+        if _vrows_s is not None:
+            top, kanal, _urun = ozet_from_view(_vrows_s)
+        else:
+            _satislar = get_satislar(baslangic, bitis)
+            top, kanal, _urun = ozet_hesapla(_satislar)
         ciro = float(top.get("ciro", 0.0) or 0.0)
         cogs = float(top.get("maliyet", 0.0) or 0.0)
     except Exception as e:
