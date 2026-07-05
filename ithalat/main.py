@@ -1188,11 +1188,10 @@ def _yeni_ithalat():
                     st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
                     st.caption("✅ Teslim aşaması — tahmini varış gerekmez.")
             if durum in IN_TRANSIT_DURUMLAR:
-                st.caption(f"📦 Bu dosya **'{durum}'** aşamasında → kalemleri Ürün Yönetimi'nde **yolda** görünecek "
-                           "ve sipariş önerisinde hesaba katılacak. (Teslim Tarihi bu aşamada girilmez.)")
+                st.caption(f"📦 **'{durum}'** → kalemler Ürün Yönetimi'nde *yolda* sayılır; teslim tarihi bu aşamada girilmez.")
                 teslim_tarihi_m, teslim_deposu_m = "", ""
             else:
-                st.caption("✅ **Teslim Alındı** → depoya girmiş kabul edilir. Teslim tarihini ve deposunu gir.")
+
                 _tcc1, _tcc2 = st.columns([1, 1.6])
                 _tt_m = _tcc1.date_input("Teslim Tarihi", value=date.today(), key=f"m_teslim_tarihi_{_fv}",
                                          format="YYYY-MM-DD")
@@ -1214,9 +1213,17 @@ def _yeni_ithalat():
             if not katalog:
                 st.info("Katalog boş — sorun değil, **Manuel SKU** + **Ürün Adı** + **Barkod** kutularına yazarak yeni kalem ekleyebilirsin.")
 
-            _oran = [1.8, 1.15, 1.6, 1.25, 0.75, 0.95, 0.5]
+            _manuel_mod = st.toggle("✍️ Katalog dışı (yeni) ürün gireceğim — SKU · ad · barkod kolonlarını aç",
+                                    key=f"m_manuel_mod_{_fv}",
+                                    help="Kapalıyken sade görünüm: ürünü katalogdan seç, ad/barkod otomatik gelir.")
+            if _manuel_mod:
+                _oran = [1.8, 1.15, 1.6, 1.25, 0.75, 0.95, 0.5]
+                _basliklar = ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB", "🗑"]
+            else:
+                _oran = [3.2, 0.8, 1.0, 0.5]
+                _basliklar = ["Ürün (katalogdan — yazarak ara)", "Adet", "Birim FOB", "🗑"]
             hcols = st.columns(_oran)
-            for hc, ht in zip(hcols, ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB", "🗑"]):
+            for hc, ht in zip(hcols, _basliklar):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
 
             def _kalem_doldur(i):
@@ -1231,19 +1238,28 @@ def _yeni_ithalat():
                 _sel = rc[0].selectbox("urun", secenek_labels, key=f"m_urun_{i}_{_fv}",
                                        label_visibility="collapsed",
                                        on_change=_kalem_doldur, args=(i,))
-                _msku = rc[1].text_input("msku", key=f"m_msku_{i}_{_fv}", label_visibility="collapsed",
-                                         placeholder="SKU yaz").strip()
-                # Manuel SKU öncelikli; boşsa katalogdan seçilen kullanılır
-                _sku = _msku if _msku else (secenek_map[_sel] if (_sel and _sel != BOS) else "")
-                _uad = rc[2].text_input("uad", key=f"m_uad_{i}_{_fv}", label_visibility="collapsed",
-                                        placeholder=(katalog.get(_sku, "") or "ürün adı")).strip()
-                _bk = rc[3].text_input("bk", key=f"m_bk_{i}_{_fv}", label_visibility="collapsed",
-                                       placeholder=(_barkod_map.get(_sku, "") or "barkod")).strip()
-                _adet = rc[4].number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
-                                           min_value=0, step=1, value=0)
-                _fob = rc[5].number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
-                                          min_value=0.0, step=0.01, value=0.0, format="%.2f")
-                if rc[6].button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
+                if _manuel_mod:
+                    _msku = rc[1].text_input("msku", key=f"m_msku_{i}_{_fv}", label_visibility="collapsed",
+                                             placeholder="SKU yaz").strip()
+                    # Manuel SKU öncelikli; boşsa katalogdan seçilen kullanılır
+                    _sku = _msku if _msku else (secenek_map[_sel] if (_sel and _sel != BOS) else "")
+                    _uad = rc[2].text_input("uad", key=f"m_uad_{i}_{_fv}", label_visibility="collapsed",
+                                            placeholder=(katalog.get(_sku, "") or "ürün adı")).strip()
+                    _bk = rc[3].text_input("bk", key=f"m_bk_{i}_{_fv}", label_visibility="collapsed",
+                                           placeholder=(_barkod_map.get(_sku, "") or "barkod")).strip()
+                    _c_adet, _c_fob, _c_sil = rc[4], rc[5], rc[6]
+                else:
+                    # Sade mod: önceki oturumda manuel yazılmış değer varsa korunur (kaybolmaz)
+                    _msku = str(st.session_state.get(f"m_msku_{i}_{_fv}", "") or "").strip()
+                    _sku = _msku if _msku else (secenek_map[_sel] if (_sel and _sel != BOS) else "")
+                    _uad = str(st.session_state.get(f"m_uad_{i}_{_fv}", "") or "").strip()
+                    _bk = str(st.session_state.get(f"m_bk_{i}_{_fv}", "") or "").strip()
+                    _c_adet, _c_fob, _c_sil = rc[1], rc[2], rc[3]
+                _adet = _c_adet.number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
+                                             min_value=0, step=1, value=0)
+                _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
+                                           min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                if _c_sil.button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
                     for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
                                 f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}"):
                         st.session_state.pop(_rk, None)
@@ -1258,8 +1274,7 @@ def _yeni_ithalat():
             if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
-            _ec2.caption("🗑 Yanlış girdiğin satırı boşaltmak için satırın sağındaki çöp kutusuna bas "
-                         "(SKU boş olan satırlar zaten kaydedilmez).")
+            _ec2.caption("🗑 satırı temizler · SKU'suz satırlar kaydedilmez.")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
 
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
@@ -1271,7 +1286,7 @@ def _yeni_ithalat():
                 help="Faturanın altına yazılan toplam indirim (opsiyonel). "
                      "Net mal bedeli = Brüt − İndirim; SKU birim maliyetleri de bu orana göre düşer.")
         with _ic2:
-            st.caption("İndirim varsa gir; yoksa 0 bırak. Toplam tutar otomatik güncellenir.")
+            pass
         _net_mal = max(_mal - float(m_indirim or 0), 0.0)
 
         # Canlı özet — Brüt / İndirim / Net Mal Bedeli (masraf 2. aşamada girilir)
