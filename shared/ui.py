@@ -116,12 +116,12 @@ def tablo_h(n_satir: int, maks: int = TABLO_MAKS) -> int:
 def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
     """26px kalın başlık + soluk alt açıklama + gradyan çizgi (tek standart)."""
     h = (f'<div style="font-size:23px;font-weight:800;color:{RENK["metin"]};'
-         f'margin:2px 0 2px">{ikon} {ad}</div>')
+         f'margin:4px 0">{ikon} {ad}</div>')
     if alt:
         h += (f'<div style="color:{RENK["soluk"]};font-size:13px;'
               f'margin-bottom:6px">{alt}</div>')
     h += ('<div style="height:1px;background:linear-gradient(90deg,#6366F1,transparent);'
-          'margin:6px 0 16px"></div>')
+          'margin:8px 0 16px"></div>')
     return h
 
 
@@ -147,13 +147,13 @@ def pencere(baslik: str, renk: str, icerik_html: str,
     """
     roz = ""
     if rozet:
-        roz = (f'<span style="background:{renk}26;color:{renk};padding:1px 9px;'
+        roz = (f'<span style="background:{renk}26;color:{renk};padding:4px 8px;'
                f'border-radius:20px;font-size:11px;font-weight:700;">{rozet}</span>')
     return (
         f'<div style="flex:1;min-width:{min_genislik}px;background:rgba(255,255,255,0.02);'
         f'border:1px solid {renk}40;border-left:3px solid {renk}99;border-radius:14px;'
-        f'padding:12px 14px;display:flex;flex-direction:column;">'
-        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-shrink:0;">'
+        f'padding:12px 16px;display:flex;flex-direction:column;">'
+        f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-shrink:0;">'
         f'<span style="font-size:13px;font-weight:800;color:{renk};letter-spacing:.3px;">{baslik}</span>'
         f'{roz}</div>'
         f'<div class="kyr-pencere-icerik" style="max-height:{yukseklik}px;">{icerik_html}</div>'
@@ -164,7 +164,7 @@ def pencere(baslik: str, renk: str, icerik_html: str,
 def pencere_grid(*penceler: str, alt_bosluk: int = 4) -> str:
     """Pencereleri yan yana dizen esnek kapsayıcı (dar ekranda alta sarar)."""
     return (f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;'
-            f'margin:10px 0 {alt_bosluk}px;">' + "".join(penceler) + '</div>')
+            f'margin:8px 0 {alt_bosluk}px;">' + "".join(penceler) + '</div>')
 
 
 def pencere_satiri(sol_html: str, sag_html: str = "") -> str:
@@ -174,14 +174,14 @@ def pencere_satiri(sol_html: str, sag_html: str = "") -> str:
         sag = (f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:10px;'
                f'align-items:center;">{sag_html}</div>')
     return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
-            f'padding:5px 10px;margin:3px 0;border-radius:6px;'
+            f'padding:4px 12px;margin:4px 0;border-radius:6px;'
             f'background:rgba(255,255,255,0.03);">{sol_html}{sag}</div>')
 
 
 def bos_durum(mesaj: str) -> str:
     """Pencere boşken düzeni koruyan sakin placeholder."""
     return (f'<div style="color:{RENK["silik"]};font-size:13px;'
-            f'padding:14px 4px;">✓ {mesaj}</div>')
+            f'padding:12px 4px;">✓ {mesaj}</div>')
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ div[data-testid="stStatusWidget"]{
   position:fixed !important;top:14px !important;left:50% !important;
   transform:translateX(-50%) !important;z-index:999998 !important;
   background:rgba(15,23,42,.96) !important;border:1px solid rgba(99,102,241,.55) !important;
-  border-radius:999px !important;padding:7px 18px !important;
+  border-radius:999px !important;padding:8px 16px !important;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 div[data-testid="stStatusWidget"]::after{
   content:"⏳ İşleniyor — lütfen bekleyin";color:#C7D2FE;font-size:13px;
@@ -229,7 +229,7 @@ div[data-testid="stApp"][data-test-script-state="running"]::after{
   content:"⏳ İşleniyor — lütfen bekleyin";
   position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999998;
   background:rgba(15,23,42,.96);border:1px solid rgba(99,102,241,.55);
-  border-radius:999px;padding:7px 18px;
+  border-radius:999px;padding:8px 16px;
   color:#C7D2FE;font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
   font-family:Inter,sans-serif;
   animation:kyr-puls 1.3s ease-in-out infinite;}
@@ -506,7 +506,7 @@ def patron_panosu_html(v):
     if "toplam_aktif" in v:
         _nabiz.append(("TOPLAM AKTİF", f"${_fmt(v['toplam_aktif'])}", RENK["cyan"]))
     _nabiz_html = "".join(
-        f'<div style="flex:1;min-width:120px;text-align:center;padding:10px 8px;'
+        f'<div style="flex:1;min-width:120px;text-align:center;padding:12px 8px;'
         f'background:rgba(255,255,255,0.02);border:1px solid {c}30;border-radius:12px">'
         f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
@@ -587,7 +587,7 @@ def patron_panosu_html(v):
     _hata_html = ""
     if _hata_parca:
         _hata_html = (f'<div style="background:rgba(248,113,113,0.06);border:1px solid '
-                      f'{RENK["kirmizi"]}30;border-radius:10px;padding:8px 14px;margin:4px 0 0;'
+                      f'{RENK["kirmizi"]}30;border-radius:10px;padding:8px 16px;margin:4px 0 0;'
                       f'font-size:13px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
                       + " &nbsp;·&nbsp; ".join(_hata_parca) + '</div>')
 
@@ -634,7 +634,7 @@ def patron_panosu_html(v):
                            f'font-weight:400;font-size:11px">düne göre</span></span>')
         _trend_html = (
             f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-            f'border-radius:14px;padding:12px 16px;margin:2px 0 12px">'
+            f'border-radius:14px;padding:12px 16px;margin:4px 0 12px">'
             f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
             f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
             f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
@@ -664,7 +664,7 @@ def patron_panosu_html(v):
                 _pct_str = f"%{_pct:.0f}" if _pct < 999 else "yeni"
                 _rows += (
                     f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                    f'padding:5px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
+                    f'padding:4px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
                     f'<span style="color:{RENK["metin"]};font-size:11px;font-weight:600">'
                     f'{_firma_kisa(x["kanal"])}</span>'
                     f'<span style="white-space:nowrap"><span style="color:{RENK["silik"]};'
@@ -676,14 +676,14 @@ def patron_panosu_html(v):
         _bh = _kart_ic(_bg.get("buyuyen", []), True)
         _gh = _kart_ic(_bg.get("gerileyen", []), False)
         _buyume_html = (
-            f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px">'
+            f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 12px">'
             f'<div style="flex:1;min-width:240px;background:rgba(52,211,153,0.05);'
-            f'border:1px solid {RENK["yesil"]}28;border-radius:14px;padding:11px 15px">'
+            f'border:1px solid {RENK["yesil"]}28;border-radius:14px;padding:12px 16px">'
             f'<div style="font-size:11px;color:{RENK["yesil"]};letter-spacing:1px;'
             f'text-transform:uppercase;font-weight:700;margin-bottom:4px">🚀 En Çok Büyüyen Firma</div>'
             f'{_bh}</div>'
             f'<div style="flex:1;min-width:240px;background:rgba(248,113,113,0.05);'
-            f'border:1px solid {RENK["kirmizi"]}28;border-radius:14px;padding:11px 15px">'
+            f'border:1px solid {RENK["kirmizi"]}28;border-radius:14px;padding:12px 16px">'
             f'<div style="font-size:11px;color:{RENK["kirmizi2"]};letter-spacing:1px;'
             f'text-transform:uppercase;font-weight:700;margin-bottom:4px">📉 En Çok Gerileyen Firma</div>'
             f'{_gh}</div></div>'
@@ -691,12 +691,12 @@ def patron_panosu_html(v):
             f'{_bg.get("bu_ay","")} vs {_bg.get("kiyas_ay","")} · ciro bazlı</div>')
 
     return (
-        '<div style="margin:0 0 22px">'
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+        '<div style="margin:0 0 24px">'
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
         f'<span style="font-size:19px;font-weight:800;color:{RENK["metin"]}">👑 Patron Panosu</span>'
         f'<span style="color:{RENK["silik"]};font-size:11px">yalnızca sana özel · sabah kokpiti</span>'
         '</div>'
-        + (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
+        + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
         + _buyume_html
