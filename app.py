@@ -500,7 +500,7 @@ _sb_comp.html(
 (function () {
   const w = window.parent, doc = w.document;
 
-  // ── Eski açık-mod kalıntısı temizliği (tek sefer; kayıt yoksa hiç iş yok) ──
+  // ── Eski açık-mod kalıntısı temizliği (tek sefer) ──
   try {
     if (w.localStorage.getItem("kayran-tema") !== null) {
       w.localStorage.removeItem("kayran-tema");
@@ -512,18 +512,7 @@ _sb_comp.html(
     doc.body.classList.remove("kayran-light");
   } catch (e) {}
 
-  if (doc.getElementById('kayran-sb-toggle')) return;   // tek sefer ekle
-
-  const st = doc.createElement('style');
-  st.textContent = `
-    section[data-testid="stSidebar"]{
-      transition: width .18s ease, min-width .18s ease, margin-left .18s ease;
-    }
-    body.kyr-sb-kapali section[data-testid="stSidebar"]{
-      width: 0 !important; min-width: 0 !important;
-      overflow: hidden !important; border-right: none !important;
-    }`;
-  doc.head.appendChild(st);
+  if (doc.getElementById('kayran-sb-toggle')) return;
 
   const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
   const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
@@ -533,7 +522,7 @@ _sb_comp.html(
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Menüyü aç/kapat');
   btn.style.cssText = [
-    'position:fixed','top:50%','transform:translateY(-50%)','left:0',
+    'position:fixed','top:50%','transform:translateY(-50%)','left:10px',
     'z-index:2147483647','width:34px','height:34px','border-radius:50%',
     'cursor:pointer','border:2px solid #F59E0B',
     'background:#0D1526','color:#F59E0B',
@@ -548,13 +537,54 @@ _sb_comp.html(
   btn.onmouseleave = () => btn.style.boxShadow =
     '0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)';
 
-  function acikMi(){ return !doc.body.classList.contains('kyr-sb-kapali'); }
+  function sbEl() { return doc.querySelector('section[data-testid="stSidebar"]'); }
 
-  // Konum hesabı: YALNIZ olay anında çağrılır (asla periyodik değil)
+  // TEK DOĞRULUK KAYNAĞI = EKRANDAKİ GERÇEK: sınıf/kayıt değil, ölçülen genişlik.
+  function gorunurMu() {
+    const sb = sbEl();
+    return !!sb && sb.getBoundingClientRect().width > 40;
+  }
+
+  const KAPAT_OZ = [['width','0'], ['min-width','0'], ['flex','0 0 0px'],
+                    ['overflow','hidden'], ['border-right','none']];
+  // KURAL: kapsayıcıya ASLA yazılmaz (tüm sayfayı yok eder — yaşandı).
+  function zorlaKapat(sb) {
+    for (const [p, v] of KAPAT_OZ) sb.style.setProperty(p, v, 'important');
+  }
+  function inlineTemizle(sb) {
+    for (const [p] of KAPAT_OZ) sb.style.removeProperty(p);
+    sb.style.removeProperty('display');
+    sb.style.removeProperty('transform');
+    sb.style.removeProperty('visibility');
+  }
+  // Streamlit'in KENDİ kapalı durumunu açmak için native genişletme kontrolleri
+  function nativeAc() {
+    const sels = ['[data-testid="stExpandSidebarButton"]',
+                  '[data-testid="stSidebarCollapsedControl"] button',
+                  '[data-testid="stSidebarCollapsedControl"]',
+                  '[data-testid="collapsedControl"] button',
+                  '[data-testid="collapsedControl"]'];
+    for (const s of sels) {
+      const el = doc.querySelector(s);
+      if (el) { try { el.click(); return true; } catch (e) {} }
+    }
+    return false;
+  }
+  // Son çare: section'ı satır-içi important ile görünür kıl (yalnız section!)
+  function zorlaAc(sb) {
+    const gw = w.__kayranSbW || '246px';
+    sb.style.setProperty('display', 'flex', 'important');
+    sb.style.setProperty('visibility', 'visible', 'important');
+    sb.style.setProperty('transform', 'none', 'important');
+    sb.style.setProperty('width', gw, 'important');
+    sb.style.setProperty('min-width', gw, 'important');
+    sb.style.setProperty('overflow', 'visible', 'important');
+  }
+
   function konumla() {
     try {
-      const sb = doc.querySelector('section[data-testid="stSidebar"]');
-      const acik = acikMi();
+      const sb = sbEl();
+      const acik = gorunurMu();
       const hedefLeft = (acik && sb)
         ? Math.max(10, Math.round(sb.getBoundingClientRect().right - 17)) + 'px'
         : '10px';
@@ -567,106 +597,85 @@ _sb_comp.html(
     } catch (e) {}
   }
 
-  // Dialog görünürlüğü: ucuz kontrol (querySelector, reflow tetiklemez)
   function dialogKontrol() {
     try {
-      const acik = !!doc.querySelector('div[data-testid="stDialog"]');
-      const hedef = acik ? 'none' : 'flex';
+      const acikD = !!doc.querySelector('div[data-testid="stDialog"]');
+      const hedef = acikD ? 'none' : 'flex';
       if (btn.style.display !== hedef) {
         btn.style.display = hedef;
-        if (!acik) konumla();   // dialog kapanınca konumu tazele
+        if (!acikD) konumla();
       }
     } catch (e) {}
   }
 
-  // Durum satır-içi !important ile YALNIZ sidebar section'ına yazılır.
-  // KRİTİK GÜVENLİK KURALI: kapsayıcıya ASLA dokunulmaz — Streamlit'te
-  // sidebar'ın kapsayıcısı tüm uygulamayı saran konteyner olabilir;
-  // ona width:0 yazmak sayfanın tamamını yok eder (yaşandı, ders alındı).
-  const OZELLIKLER = [['width','0'], ['min-width','0'],
-                      ['flex','0 0 0px'], ['overflow','hidden'],
-                      ['border-right','none']];
-  function uygulaDurum() {
-    const kapali = doc.body.classList.contains('kyr-sb-kapali');
-    const sb = doc.querySelector('section[data-testid="stSidebar"]');
+  btn.onclick = function () {
+    const sb = sbEl();
     if (!sb) return;
-    if (kapali) {
-      // Kapatmadan önce mevcut genişliği hatırla (yeniden açılışta geri verilir)
+    if (gorunurMu()) {
+      // ── KAPAT ──
       const rw = sb.getBoundingClientRect().width;
       if (rw > 40) w.__kayranSbW = Math.round(rw) + 'px';
-      for (const [p, v] of OZELLIKLER) sb.style.setProperty(p, v, 'important');
-      // Kendini doğrula: görsel etki yoksa son çare — yalnız section'a display:none
-      w.setTimeout(() => {
+      doc.body.classList.add('kyr-sb-kapali');
+      zorlaKapat(sb);
+      try { w.localStorage.setItem('kayran-sb', 'kapali'); } catch (e) {}
+      w.setTimeout(() => {  // etki doğrulaması → son çare
         try {
-          if (doc.body.classList.contains('kyr-sb-kapali') &&
-              sb.getBoundingClientRect().width > 40) {
-            sb.style.setProperty('display', 'none', 'important');
-          }
+          if (gorunurMu()) sb.style.setProperty('display', 'none', 'important');
+          konumla();
         } catch (e) {}
-      }, 260);
+      }, 240);
     } else {
-      sb.style.removeProperty('display');
-      for (const [p] of OZELLIKLER) sb.style.removeProperty(p);
-      // Streamlit genişliği geri vermezse hatırlanan genişliği kısa süreliğine uygula
-      if (w.__kayranSbW) {
-        sb.style.setProperty('width', w.__kayranSbW, 'important');
-        sb.style.setProperty('min-width', w.__kayranSbW, 'important');
-        w.setTimeout(() => {
-          try { sb.style.removeProperty('width'); sb.style.removeProperty('min-width'); } catch (e) {}
-        }, 350);
-      }
+      // ── AÇ: iki mekanizmayı birden aç ──
+      doc.body.classList.remove('kyr-sb-kapali');
+      inlineTemizle(sb);
+      try { w.localStorage.setItem('kayran-sb', 'acik'); } catch (e) {}
+      nativeAc();                       // Streamlit kendi tarafında kapalıysa
+      w.setTimeout(() => {              // hâlâ görünmüyorsa son çare zorla aç
+        try { if (!gorunurMu()) zorlaAc(sbEl()); konumla(); } catch (e) {}
+      }, 300);
+      w.setTimeout(konumla, 600);
     }
-  }
-
-  btn.onclick = function () {
-    const kapali = doc.body.classList.toggle('kyr-sb-kapali');
-    try { w.localStorage.setItem('kayran-sb', kapali ? 'kapali' : 'acik'); } catch(e){}
-    uygulaDurum();
-    // animasyon bitişini transitionend yakalar; yedek tek atım:
-    setTimeout(konumla, 220);
+    w.setTimeout(konumla, 60);
   };
 
+  // Kayıtlı "kapalı" tercihi yüklemede uygula (yalnız kapalı yönde)
   try {
     if (w.localStorage.getItem('kayran-sb') === 'kapali') {
-      doc.body.classList.add('kyr-sb-kapali');
+      const sb = sbEl();
+      if (sb && gorunurMu()) { doc.body.classList.add('kyr-sb-kapali'); zorlaKapat(sb); }
     }
-  } catch(e){}
+  } catch (e) {}
 
   doc.body.appendChild(btn);
-  uygulaDurum();
   konumla();
 
   // ── OLAY KAYNAKLARI (yoklama yok) ──
-  const sbEl = doc.querySelector('section[data-testid="stSidebar"]');
-  if (w.ResizeObserver && sbEl) {
-    if (w.__kayranSbRO) { try { w.__kayranSbRO.disconnect(); } catch(e){} }
+  const sb0 = sbEl();
+  if (w.ResizeObserver && sb0) {
+    if (w.__kayranSbRO) { try { w.__kayranSbRO.disconnect(); } catch (e) {} }
     w.__kayranSbRO = new w.ResizeObserver(() => konumla());
-    w.__kayranSbRO.observe(sbEl);           // sidebar boyutu değişince tetiklenir
-    sbEl.addEventListener('transitionend', konumla);
+    w.__kayranSbRO.observe(sb0);
+    sb0.addEventListener('transitionend', konumla);
   }
   w.addEventListener('resize', konumla);
 
-  // Dialog aç/kapa: rAF ile tek karede birleştirilmiş, salt-okur kontrol
   let planli = false;
-  if (w.__kayranSbMO) { try { w.__kayranSbMO.disconnect(); } catch(e){} }
+  if (w.__kayranSbMO) { try { w.__kayranSbMO.disconnect(); } catch (e) {} }
   w.__kayranSbMO = new w.MutationObserver(() => {
     if (planli) return;
     planli = true;
     w.requestAnimationFrame(() => {
       planli = false;
       dialogKontrol();
-      // rerun satır-içi stili silmişse yeniden uygula (ucuz string kontrolü)
+      // Kapalı tercih rerun'da silindiyse yeniden uygula (ucuz string kontrolü)
       if (doc.body.classList.contains('kyr-sb-kapali')) {
-        const sb = doc.querySelector('section[data-testid="stSidebar"]');
-        if (sb && sb.style.width !== '0px') uygulaDurum();
+        const sb = sbEl();
+        if (sb && sb.style.width !== '0px' && sb.style.display !== 'none') zorlaKapat(sb);
       }
     });
   });
   w.__kayranSbMO.observe(doc.body, { childList: true, subtree: true });
-  // (Güvenli: gözlemci yalnız childList dinler; btn üzerinde yaptığımız
-  //  style/innerHTML yazımları koşullu ve rAF-birleştirmeli → döngü imkânsız.)
 
-  // Eski sürümden kalan zamanlayıcı varsa kapat
   if (w.__kayranSbInt) { w.clearInterval(w.__kayranSbInt); w.__kayranSbInt = null; }
 })();
 </script>
