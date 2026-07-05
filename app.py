@@ -1411,12 +1411,14 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        # ── Açık / Koyu mod anahtarı ──
-        _tema = st.session_state.get("tema", "koyu")
-        _tema_lbl = "☀️  Açık Mod" if _tema == "koyu" else "🌙  Koyu Mod"
-        if st.button(_tema_lbl, key="tema_toggle", use_container_width=True):
-            st.session_state["tema"] = "acik" if _tema == "koyu" else "koyu"
-            st.rerun()
+        # ── Tema: Streamlit'in native seçicisi (⋮ → Settings) kullanılır ──
+        from shared.ui import tema_tipi as _tt
+        _tema_ikon = "🌙" if _tt() == "dark" else "☀️"
+        st.markdown(
+            f'<div style="font-size:11px;color:#7C8AA5;padding:2px 4px 8px">'
+            f'{_tema_ikon} Tema: sağ üst <b>⋮ → Settings</b> menüsünden '
+            f'Koyu/Açık seçebilirsiniz</div>',
+            unsafe_allow_html=True)
 
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
         _u = aktif_kullanici
@@ -2365,82 +2367,137 @@ def _global_hata_kart(uygulama_adi, hata):
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
 def _acik_mod_css() -> str:
-    """AÇIK MOD override katmanı. Modül CSS'lerinden SONRA (DOM'da en sonda)
-    basılır → koyu !important kurallarını ezer. Anlamlı renkler (yeşil kâr,
-    kırmızı zarar, mor/amber vurgular) KORUNUR; yalnız nötr/açık metinler ve
-    koyu kart zeminleri çevrilir."""
-    # Nötr/açık metin hex'leri → koyuya çevir (inline style="color:#..." hedefli)
-    _acik_metin = ["#FFFFFF", "#FFF", "#F8FAFC", "#F1F5F9", "#E2E8F0",
-                   "#E5E7EB", "#ECEFF1", "#CFD8DC", "#B0BEC5"]
-    _gri_metin = ["#94A3B8", "#8B98B8", "#90A4AE", "#CBD5E1"]
-    _indigo_metin = ["#A5B4FC", "#C7D2FE"]
-    _metin_kural = ""
-    for h in _acik_metin:
-        _metin_kural += f'[style*="color:{h}"]{{color:#1E293B !important;}}'
-    for h in _gri_metin:
-        _metin_kural += f'[style*="color:{h}"]{{color:#64748B !important;}}'
-    for h in _indigo_metin:
-        _metin_kural += f'[style*="color:{h}"]{{color:#4F46E5 !important;}}'
+    """AÇIK MOD katmanı — DOM'da EN SONDA basılır, modüllerin koyu !important
+    kurallarını ezer. Yerleşik bileşenler (tablo/canvas, input, popover, tab)
+    config.toml [theme.light] ile MOTOR seviyesinde renklenir; bu katman yalnız
+    uygulamanın KENDİ özel CSS'ini ve inline HTML kartlarını çevirir.
+    Anlamlı renkler silinmez → açık zemin için koyulaştırılmış varyanta gider."""
 
-    # Koyu kart zeminleri → açık yüzey
-    _koyu_kart = [
-        "rgba(255,255,255,0.022)", "rgba(255,255,255,0.03)",
-        "rgba(255,255,255,0.04)", "rgba(255,255,255,0.05)",
-        "rgba(255,255,255,0.06)",
-        "linear-gradient(180deg,#152036,#0F172A)",
-        "linear-gradient(135deg,#1E293B,#0F172A)",
-        "linear-gradient(135deg,#1E293B 0%,#0F172A 100%)",
-    ]
-    _kart_kural = ""
-    for b in _koyu_kart:
-        _kart_kural += (f'[style*="background:{b}"]{{background:#FFFFFF !important;'
-                        f'border-color:rgba(15,23,42,0.10) !important;}}')
-    for hexbg in ["#131C35", "#151F38", "#152036", "#0B1437"]:
-        _kart_kural += (f'[style*="background:{hexbg}"]{{background:#F1F5F9 !important;'
-                        f'border-color:rgba(15,23,42,0.10) !important;}}')
+    # ── 1) Nötr metinler → koyu (case-insensitive attribute match) ──
+    _map_metin = {
+        # açık/beyaz → ana koyu
+        "#FFFFFF": "#0F172A", "#FFF": "#0F172A", "#F8FAFC": "#0F172A",
+        "#F1F5F9": "#0F172A", "#E2E8F0": "#0F172A", "#E5E7EB": "#1E293B",
+        "#ECEFF1": "#1E293B", "#CFD8DC": "#334155", "#B0BEC5": "#475569",
+        "#CBD5E1": "#475569",
+        # gri ikincil → orta gri (okunur)
+        "#94A3B8": "#5B6B84", "#8B98B8": "#5B6B84", "#90A4AE": "#5B6B84",
+        "#7C8AA5": "#64748B", "#64748B": "#64748B",
+        # ── Anlamlı renkler → açık zeminde kontrastlı varyant ──
+        "#818CF8": "#4F46E5", "#A5B4FC": "#4F46E5", "#C7D2FE": "#4338CA",
+        "#34D399": "#059669", "#6EE7B7": "#059669",
+        "#F87171": "#DC2626", "#FCA5A5": "#DC2626", "#FB7185": "#E11D48",
+        "#FBBF24": "#B45309", "#FCD34D": "#B45309",
+        "#22D3EE": "#0E7490", "#7DD3FC": "#0369A1", "#67E8F9": "#0E7490",
+        "#F9A8D4": "#BE185D", "#C084FC": "#7E22CE",
+    }
+    css_metin = "".join(
+        f'[style*="color:{k}" i]{{color:{v} !important;}}'
+        for k, v in _map_metin.items())
 
-    return "<style>" + """
-/* ── ZEMİN & ANA METİN ── */
-.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"],
+    # ── 2) Koyu kart zeminleri → açık yüzey ──
+    # Düşük opaklıklı beyaz zeminler (0.02–0.09) tek kuralla:
+    css_kart = (
+        '[style*="background:rgba(255,255,255,0.0" i]{'
+        'background:rgba(15,23,42,0.045) !important;}'
+        '[style*="border:1px solid rgba(255,255,255,0.0" i]{'
+        'border-color:rgba(15,23,42,0.14) !important;}'
+        '[style*="border:1px solid rgba(255,255,255,0.1" i]{'
+        'border-color:rgba(15,23,42,0.18) !important;}'
+    )
+    # Yaygın koyu düz/gradyan kart zeminleri:
+    for b in ["linear-gradient(180deg,#152036,#0F172A)",
+              "linear-gradient(135deg,#1E293B,#0F172A)",
+              "linear-gradient(135deg,#1E293B 0%,#0F172A 100%)",
+              "linear-gradient(135deg,#0B1437,#162050)",
+              "linear-gradient(180deg,#0D1235 0%,#080C20 100%)"]:
+        css_kart += (f'[style*="background:{b}" i]{{background:#FFFFFF !important;'
+                     f'border-color:rgba(15,23,42,0.12) !important;}}')
+    for h in ["#131C35", "#151F38", "#152036", "#0B1437", "#0F172A",
+              "#1C2A44", "#0B1120", "#080C20", "#0F1730"]:
+        css_kart += (f'[style*="background:{h}" i]{{background:#F1F5F9 !important;}}')
+    # Kenarlar (silik gri rgba):
+    css_kart += (
+        '[style*="border:1px solid rgba(148,163,184,0.1" i],'
+        '[style*="border:1px solid rgba(148,163,184,0.0" i]{'
+        'border-color:rgba(15,23,42,0.14) !important;}'
+    )
+
+    return "<style>" + css_metin + css_kart + """
+/* ═══ ZEMİN & GENEL METİN ═══ */
+html,body,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"],
 [data-testid="stMain"],.main{background:#EEF2F7 !important;}
 [data-testid="stHeader"]{background:transparent !important;}
-html,body,.stApp{background:#EEF2F7 !important;}
 [data-testid="stMain"]{color:#1E293B;}
 [data-testid="stMain"] h1,[data-testid="stMain"] h2,[data-testid="stMain"] h3,
-[data-testid="stMain"] h4,[data-testid="stMain"] h5,[data-testid="stMain"] h6{
-  color:#0F172A;}
+[data-testid="stMain"] h4,[data-testid="stMain"] h5{color:#0F172A !important;}
 [data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{color:#334155;}
 div[data-testid="stCaptionContainer"] p{color:#64748B !important;}
+a{color:#4F46E5 !important;}
 
-/* ── SIDEBAR ── */
-section[data-testid="stSidebar"]{
-  background:linear-gradient(180deg,#E2E8F0 0%,#CBD5E1 100%) !important;
-  border-right:1px solid rgba(15,23,42,0.10) !important;}
-section[data-testid="stSidebar"]{color:#1E293B;}
-section[data-testid="stSidebar"] hr,
-section[data-testid="stSidebar"] [style*="background:rgba(255,255,255"]{
-  background:rgba(15,23,42,0.08) !important;border-color:rgba(15,23,42,0.10) !important;}
+/* ═══ ÜST NAV (modül butonları) ═══ */
+.st-key-ustnav button{
+  background:#FFFFFF !important;color:#334155 !important;
+  border:1px solid rgba(15,23,42,0.12) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,0.05) !important;}
+.st-key-ustnav button:hover{
+  background:rgba(79,70,229,0.08) !important;color:#1E293B !important;
+  border-color:rgba(79,70,229,0.45) !important;}
+.st-key-ustnav button[kind="primary"]{
+  background:linear-gradient(135deg,#4F46E5,#7C3AED) !important;
+  color:#FFFFFF !important;border-color:transparent !important;}
+.st-key-ustnav button[kind="primary"] *{color:#FFFFFF !important;}
 
-/* ── METRIC / KART / INPUT / DIALOG YÜZEYLERİ ── */
-[data-testid="stMetric"],[data-testid="metric-container"]{
-  background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.08) !important;
-  box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;}
-[data-testid="stMetricValue"],[data-testid="stMetricValue"] *,
-[data-testid="stMetricLabel"],[data-testid="stMetricLabel"] *{color:#0F172A !important;}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,
-textarea,[data-baseweb="select"]>div,[data-baseweb="input"]>div{
-  background:#FFFFFF !important;color:#1E293B !important;
-  border-color:rgba(15,23,42,0.15) !important;}
-div[data-testid="stDialog"]>div:first-child{
+/* ═══ SEGMENTED / RADIO PILL'LER ═══ */
+[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{
   background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.12) !important;}
-div[data-testid="stDialog"] h1,div[data-testid="stDialog"] h2,
-div[data-testid="stDialog"] h3{color:#0F172A !important;}
-button[data-baseweb="tab"][aria-selected="true"]{background:rgba(99,102,241,0.12) !important;}
-button[data-baseweb="tab"]{color:#475569 !important;}
-""" + _metin_kural + _kart_kural + """
-/* Sidebar nav butonları koyu kalsın (mavi zemin + beyaz yazı korunur) */
+[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label p,
+[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label span{
+  color:#334155 !important;}
+[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){
+  background:rgba(79,70,229,0.10) !important;border-color:rgba(79,70,229,0.5) !important;}
+
+/* ═══ SIDEBAR ═══ */
+section[data-testid="stSidebar"]{
+  background:linear-gradient(180deg,#E9EDF5 0%,#DCE3EE 100%) !important;
+  border-right:1px solid rgba(15,23,42,0.10) !important;}
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label{color:#1E293B !important;}
+section[data-testid="stSidebar"] hr{border-color:rgba(15,23,42,0.10) !important;}
+/* Nav/aksiyon butonları: mavi zemin + beyaz yazı KORUNUR */
 section[data-testid="stSidebar"] .stButton button,
 section[data-testid="stSidebar"] .stButton button *{color:#FFFFFF !important;}
+
+/* ═══ METRIC KARTLARI ═══ */
+[data-testid="stMetric"],[data-testid="metric-container"]{
+  background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.09) !important;
+  box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;}
+[data-testid="stMetricValue"],[data-testid="stMetricValue"] *{color:#0F172A !important;}
+[data-testid="stMetricLabel"],[data-testid="stMetricLabel"] *{color:#64748B !important;}
+
+/* ═══ DIALOG / EXPANDER / TAB ═══ */
+div[data-testid="stDialog"]>div:first-child{
+  background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.12) !important;
+  box-shadow:0 24px 64px rgba(15,23,42,0.18) !important;}
+div[data-testid="stDialog"] h1,div[data-testid="stDialog"] h2,
+div[data-testid="stDialog"] h3{color:#0F172A !important;}
+details summary{color:#334155 !important;}
+button[data-baseweb="tab"]{color:#475569 !important;}
+button[data-baseweb="tab"][aria-selected="true"]{
+  background:rgba(79,70,229,0.10) !important;color:#312E81 !important;}
+
+/* ═══ GENEL BUTONLAR (ana alan, secondary) ═══ */
+[data-testid="stMain"] .stButton button[kind="secondary"]{
+  background:#FFFFFF !important;color:#334155 !important;
+  border:1px solid rgba(15,23,42,0.14) !important;}
+[data-testid="stMain"] .stButton button[kind="secondary"]:hover{
+  border-color:rgba(79,70,229,0.5) !important;color:#1E293B !important;}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar-track{background:rgba(15,23,42,0.04) !important;}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,0.18) !important;}
+::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,0.30) !important;}
 </style>"""
 
 
@@ -2581,8 +2638,9 @@ def main():
             height=0,
         )
 
-    # ── AÇIK MOD: override katmanını EN SONDA bas (modül koyu CSS'lerini ezer) ──
-    if st.session_state.get("tema") == "acik":
+    # ── AÇIK MOD: kullanıcı ⋮→Settings'ten Light seçtiyse katmanı EN SONDA bas ──
+    from shared.ui import tema_tipi as _tema_tipi
+    if _tema_tipi() == "light":
         st.markdown(_acik_mod_css(), unsafe_allow_html=True)
 
 
