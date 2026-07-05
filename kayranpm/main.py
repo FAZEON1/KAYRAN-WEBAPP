@@ -516,33 +516,25 @@ def run():
             unsafe_allow_html=True)
         _skl = get_tum_sku_listesi() or []
         _opts = [r["sku"] for r in _skl]
-        _sc1, _sc2 = st.columns([4, 1])
-        with _sc1:
-            _ssec = st.selectbox(
-                "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
-                label_visibility="collapsed",
-                help="SKU veya model kodu yaz → seç → kartı aç")
-        with _sc2:
-            # Aynı kod seçiliyken kart kapatıldıysa tekrar açmak için (Enter/tekrar tık gerekmez)
-            _tekrar = st.button("↗", key="stok_karti_tekrar", use_container_width=True,
-                                help="Seçili kodun kartını (yeniden) aç")
-        st.markdown('<div style="font-size:10px;color:#64748B;margin-top:2px;padding:0 2px">'
-                    'Kodu seç — kayıtlı ürünün kartı açılır · ↗ ile tekrar aç</div></div>',
-                    unsafe_allow_html=True)
+        _ssec = st.selectbox(
+            "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
+            label_visibility="collapsed",
+            help="SKU veya model kodu yaz → seç → kartı aç")
+        st.markdown('</div>', unsafe_allow_html=True)
         # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
         _gec = st.session_state.pop("_stok_gec_sku", None)
         if _gec:
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_gec)
-        elif _tekrar and _ssec and _ssec != "—":
-            # Tekrar aç: son-açılan takibini bypass et
-            from kayranpm.stok_karti import goster as _stok_goster
-            _stok_goster(_ssec)
         elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
             st.session_state["_son_acilan_sku"] = _ssec
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_ssec)
+        # Kart kapatıldıktan sonra aynı kodu tekrar açabilmek için: kapanınca
+        # son-açılan takibini sıfırla (böylece aynı SKU'ya tekrar tıklama açar).
+        if _ssec == "—":
+            st.session_state.pop("_son_acilan_sku", None)
 
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
