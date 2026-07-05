@@ -579,9 +579,10 @@ _sb_comp.html(
     } catch (e) {}
   }
 
-  // Sınıf CSS'i her DOM yapısında tutmayabilir → durum satır-içi !important
-  // ile section'a VE genişliği taşıyabilecek kapsayıcısına doğrudan yazılır.
-  // (Satır-içi important, hiçbir stylesheet kuralının ezemeyeceği önceliktir.)
+  // Durum satır-içi !important ile YALNIZ sidebar section'ına yazılır.
+  // KRİTİK GÜVENLİK KURALI: kapsayıcıya ASLA dokunulmaz — Streamlit'te
+  // sidebar'ın kapsayıcısı tüm uygulamayı saran konteyner olabilir;
+  // ona width:0 yazmak sayfanın tamamını yok eder (yaşandı, ders alındı).
   const OZELLIKLER = [['width','0'], ['min-width','0'],
                       ['flex','0 0 0px'], ['overflow','hidden'],
                       ['border-right','none']];
@@ -589,11 +590,30 @@ _sb_comp.html(
     const kapali = doc.body.classList.contains('kyr-sb-kapali');
     const sb = doc.querySelector('section[data-testid="stSidebar"]');
     if (!sb) return;
-    const hedefler = [sb, sb.parentElement].filter(Boolean);
-    for (const el of hedefler) {
-      for (const [p, v] of OZELLIKLER) {
-        if (kapali) el.style.setProperty(p, v, 'important');
-        else el.style.removeProperty(p);
+    if (kapali) {
+      // Kapatmadan önce mevcut genişliği hatırla (yeniden açılışta geri verilir)
+      const rw = sb.getBoundingClientRect().width;
+      if (rw > 40) w.__kayranSbW = Math.round(rw) + 'px';
+      for (const [p, v] of OZELLIKLER) sb.style.setProperty(p, v, 'important');
+      // Kendini doğrula: görsel etki yoksa son çare — yalnız section'a display:none
+      w.setTimeout(() => {
+        try {
+          if (doc.body.classList.contains('kyr-sb-kapali') &&
+              sb.getBoundingClientRect().width > 40) {
+            sb.style.setProperty('display', 'none', 'important');
+          }
+        } catch (e) {}
+      }, 260);
+    } else {
+      sb.style.removeProperty('display');
+      for (const [p] of OZELLIKLER) sb.style.removeProperty(p);
+      // Streamlit genişliği geri vermezse hatırlanan genişliği kısa süreliğine uygula
+      if (w.__kayranSbW) {
+        sb.style.setProperty('width', w.__kayranSbW, 'important');
+        sb.style.setProperty('min-width', w.__kayranSbW, 'important');
+        w.setTimeout(() => {
+          try { sb.style.removeProperty('width'); sb.style.removeProperty('min-width'); } catch (e) {}
+        }, 350);
       }
     }
   }
