@@ -796,3 +796,46 @@ def get_satislar_kanal_ara(q):
         return rows
     except Exception:
         return []
+
+
+# ════════════════════════════════════════════════════════════════════
+#  TEK KAYNAK: v_satis_pnl SQL VIEW (gün · kanal · SKU)
+# ════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=120, show_spinner=False)
+def get_satis_pnl_view(baslangic=None, bitis=None):
+    """v_satis_pnl'den P&L satırları. View yoksa None → çağıran Python'a düşer."""
+    try:
+        q = _get_client().table("v_satis_pnl").select("*")
+        if baslangic:
+            q = q.gte("tarih", str(baslangic)[:10])
+        if bitis:
+            q = q.lte("tarih", str(bitis)[:10])
+        rows = q.limit(50000).execute().data
+        return rows if rows is not None else []
+    except Exception:
+        return None
+
+
+def ozet_from_view(rows):
+    """View satırlarını ozet_hesapla ile AYNI çıktı biçimine çevirir:
+    (top, kanal, urun) — mevcut tüm tüketiciler değişmeden çalışır."""
+    top = {"ciro": 0.0, "maliyet": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0}
+    kanal, urun = {}, {}
+    for r in (rows or []):
+        _ad = int(_f(r.get("adet")))
+        _ci = _f(r.get("ciro")); _ma = _f(r.get("maliyet"))
+        _de = _f(r.get("destek")); _nk = _f(r.get("net_kar"))
+        top["ciro"] += _ci; top["maliyet"] += _ma
+        top["destek"] += _de; top["net_kar"] += _nk; top["adet"] += _ad
+        kn = r.get("kanal") or "—"
+        k = kanal.setdefault(kn, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
+        k["ciro"] += _ci; k["destek"] += _de; k["net_kar"] += _nk; k["adet"] += _ad
+        su = r.get("sku") or "—"
+        u = urun.setdefault(su, {"urun_adi": r.get("urun_adi", "") or "",
+                                 "ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
+        u["ciro"] += _ci; u["destek"] += _de; u["net_kar"] += _nk; u["adet"] += _ad
+        if not u["urun_adi"]:
+            u["urun_adi"] = r.get("urun_adi", "") or ""
+    _ns = top["ciro"] - top["destek"]
+    top["marj"] = (top["net_kar"] / _ns * 100) if _ns > 0 else 0.0
+    return top, kanal, urun
