@@ -10,12 +10,11 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 
 def _baslik(t, alt):
-    st.markdown(f'<div style="font-size:23px;font-weight:800;color:#E2E8F0;margin:0px 0 0px">{t}</div>',
-                unsafe_allow_html=True)
-    st.markdown(f'<div style="color:#94A3B8;font-size:13px;margin-bottom:8px">{alt}</div>',
-                unsafe_allow_html=True)
-    st.markdown('<div style="height:1px;background:linear-gradient(90deg,#6366F1,transparent);'
-                'margin:8px 0 16px"></div>', unsafe_allow_html=True)
+    # Baştaki emoji'yi ayır → ikon karosunda göster (tek standart başlık tasarımı)
+    _parca = t.split(" ", 1)
+    _ikon, _ad = (_parca[0], _parca[1]) if len(_parca) == 2 else ("", t)
+    from shared.ui import sayfa_baslik as _sb
+    st.markdown(_sb(_ikon, _ad, alt), unsafe_allow_html=True)
 
 
 def run():
