@@ -796,24 +796,24 @@ def _render_tumu(firmalar):
                             sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
 
     _durum_rozet = (
-        f'<span style="background:{RENK["amber"]}22;color:{RENK["amber2"]};padding:2px 10px;'
-        f'border-radius:20px;font-size:11.5px;font-weight:700">⏳ {_bekle} beklemede</span>'
-        f'<span style="background:{RENK["yesil"]}22;color:{RENK["yesil"]};padding:2px 10px;'
-        f'border-radius:20px;font-size:11.5px;font-weight:700">✅ {_payla} paylaşıldı</span>')
+        f'<span style="background:{RENK["amber"]}22;color:{RENK["amber2"]};padding:0px 8px;'
+        f'border-radius:20px;font-size:11px;font-weight:700">⏳ {_bekle} beklemede</span>'
+        f'<span style="background:{RENK["yesil"]}22;color:{RENK["yesil"]};padding:0px 8px;'
+        f'border-radius:20px;font-size:11px;font-weight:700">✅ {_payla} paylaşıldı</span>')
     _durum_notu = (f'<span style="color:{RENK["cyan"]};font-size:11px;font-weight:700">● FİLTRELİ</span>'
                    if _filtreli else
                    f'<span style="color:{RENK["silik"]};font-size:11px">tüm kayıtlar</span>')
     st.markdown(
         f'<div style="background:linear-gradient(90deg,rgba(99,102,241,0.10),rgba(34,211,238,0.03) 70%,transparent);'
         f'border:1px solid rgba(129,140,248,0.28);border-left:3px solid #818CF8;border-radius:14px;'
-        f'padding:12px 18px;margin:8px 0 14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
-        f'<div><div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
-        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">Filtreli Toplam Tutar</div>'
+        f'padding:12px 16px;margin:8px 0 16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
+        f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Filtreli Toplam Tutar</div>'
         f'<div style="font-size:23px;font-weight:800;color:{RENK["metin"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{_tutar_str}</div></div>'
         f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
-        f'<div><div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
-        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">Kayıt</div>'
+        f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Kayıt</div>'
         f'<div style="font-size:23px;font-weight:800;color:{RENK["mor2"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{len(goster):,}'
         f'<span style="font-size:13px;color:{RENK["silik"]}"> / {len(_hepsi):,}</span></div></div>'
@@ -870,7 +870,7 @@ def _render_refler(fid, fkod):
     _onizleme = ref_uret(fkod, _yil(), _siradaki)
     st.markdown(
         '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);'
-        'border-radius:10px;padding:11px 16px;margin:8px 0 6px">'
+        'border-radius:10px;padding:12px 16px;margin:8px 0 8px">'
         f'Sıradaki otomatik ref no: <b style="color:#A5B4FC;font-family:monospace;font-size:15px">{_onizleme}</b></div>',
         unsafe_allow_html=True,
     )

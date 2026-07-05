@@ -38,8 +38,8 @@ def _kart(baslik, deger, alt="", renk="#A5B4FC"):
         f'border:1px solid rgba(255,255,255,0.08);border-left:3px solid {renk};'
         f'border-radius:10px;padding:12px 16px">'
         f'<div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:.4px">{baslik}</div>'
-        f'<div style="color:{renk};font-size:19px;font-weight:700;margin-top:2px">{deger}</div>'
-        f'<div style="color:#64748B;font-size:11px;margin-top:1px">{alt}</div></div>'
+        f'<div style="color:{renk};font-size:19px;font-weight:700;margin-top:0px">{deger}</div>'
+        f'<div style="color:#64748B;font-size:11px;margin-top:0px">{alt}</div></div>'
     )
 
 
@@ -282,7 +282,7 @@ def goster(sku):
         # ── İKİZ STOK PANELİ — solda bizim depolar, sağda müşteriler ──
         def _srow(ad, adet, maks, renk, alt=""):
             _w = max(2.0, min(100.0, (adet / maks * 100) if maks else 0))
-            _alt = (f'<div style="color:{RENK["silik"]};font-size:11px;margin-top:2px">{alt}</div>'
+            _alt = (f'<div style="color:{RENK["silik"]};font-size:11px;margin-top:0px">{alt}</div>'
                     if alt else "")
             return (f'<div style="padding:4px 12px;margin:3px 0;border-radius:6px;'
                     f'background:linear-gradient(180deg,#152036,#0F172A)">'
