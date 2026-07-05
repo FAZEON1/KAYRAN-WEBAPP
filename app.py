@@ -1411,24 +1411,22 @@ input, textarea, select { font-size: 16px !important; }
             unsafe_allow_html=True
         )
 
-        # ── Tek tıkla Koyu/Açık mod ──
-        from shared.ui import tema_tipi as _tt
-        _su_an = _tt()
-        _lbl = "☀️  Açık Mod" if _su_an == "dark" else "🌙  Koyu Mod"
-        if st.button(_lbl, key="tema_toggle", use_container_width=True):
-            _hedef = "Light" if _su_an == "dark" else "Dark"
+        # ── Tek tıkla Koyu/Açık mod (kaynak: localStorage "kayran-tema") ──
+        if st.button("🌓  Koyu / Açık Mod", key="tema_toggle", use_container_width=True):
             import streamlit.components.v1 as _tema_c
-            # Streamlit tema tercihini stActiveTheme-{path}-v2 anahtarında
-            # JSON string ("Light"/"Dark") olarak tutar (kaynak: frontend bundle).
-            # Eski sürümler için v1 formatı ({name:...}) da yazılır.
             _tema_c.html(
                 """<script>(function(){try{
-  var w=window.parent;
+  var w=window.parent, ls=w.localStorage;
+  var su=ls.getItem("kayran-tema")||"dark";
+  var hedef=(su==="light")?"dark":"light";
+  ls.setItem("kayran-tema",hedef);
+  // Native motoru da senkronla (tablolar/inputlar motor seviyesinde renklensin)
+  var ad=(hedef==="light")?"Light":"Dark";
   var base="stActiveTheme-"+w.location.pathname;
-  w.localStorage.setItem(base+"-v2",JSON.stringify("__HEDEF__"));
-  w.localStorage.setItem(base+"-v1",JSON.stringify({name:"__HEDEF__"}));
+  ls.setItem(base+"-v2",JSON.stringify(ad));
+  ls.setItem(base+"-v1",JSON.stringify({name:ad}));
   w.location.reload();
-}catch(e){}})();</script>""".replace("__HEDEF__", _hedef),
+}catch(e){}})();</script>""",
                 height=0)
 
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
@@ -2378,23 +2376,20 @@ def _global_hata_kart(uygulama_adi, hata):
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
 def _acik_mod_css() -> str:
-    """AÇIK MOD katmanı — DOM'da EN SONDA basılır, modüllerin koyu !important
-    kurallarını ezer. Yerleşik bileşenler (tablo/canvas, input, popover, tab)
-    config.toml [theme.light] ile MOTOR seviyesinde renklenir; bu katman yalnız
-    uygulamanın KENDİ özel CSS'ini ve inline HTML kartlarını çevirir.
-    Anlamlı renkler silinmez → açık zemin için koyulaştırılmış varyanta gider."""
+    """AÇIK MOD katmanı. HER ZAMAN basılır; kurallar yalnız body.kayran-light
+    sınıfı varken etkilidir (sınıfı _tema_init JS'i tarayıcı kaydından basar).
+    Python'da tema algısına bağımlılık YOKTUR. body-öneki spesifisiteyi de
+    yükseltir → modüllerin koyu !important kurallarını çift güvenceyle ezer."""
+    P = "body.kayran-light "   # tüm seçicilerin öneki
 
-    # ── 1) Nötr metinler → koyu (case-insensitive attribute match) ──
+    # ── 1) Nötr metinler → koyu; anlamlı renkler → kontrastlı varyant ──
     _map_metin = {
-        # açık/beyaz → ana koyu
         "#FFFFFF": "#0F172A", "#FFF": "#0F172A", "#F8FAFC": "#0F172A",
         "#F1F5F9": "#0F172A", "#E2E8F0": "#0F172A", "#E5E7EB": "#1E293B",
         "#ECEFF1": "#1E293B", "#CFD8DC": "#334155", "#B0BEC5": "#475569",
         "#CBD5E1": "#475569",
-        # gri ikincil → orta gri (okunur)
         "#94A3B8": "#5B6B84", "#8B98B8": "#5B6B84", "#90A4AE": "#5B6B84",
-        "#7C8AA5": "#64748B", "#64748B": "#64748B",
-        # ── Anlamlı renkler → açık zeminde kontrastlı varyant ──
+        "#7C8AA5": "#64748B",
         "#818CF8": "#4F46E5", "#A5B4FC": "#4F46E5", "#C7D2FE": "#4338CA",
         "#34D399": "#059669", "#6EE7B7": "#059669",
         "#F87171": "#DC2626", "#FCA5A5": "#DC2626", "#FB7185": "#E11D48",
@@ -2402,118 +2397,153 @@ def _acik_mod_css() -> str:
         "#22D3EE": "#0E7490", "#7DD3FC": "#0369A1", "#67E8F9": "#0E7490",
         "#F9A8D4": "#BE185D", "#C084FC": "#7E22CE",
     }
-    css_metin = "".join(
-        f'[style*="color:{k}" i]{{color:{v} !important;}}'
+    css = "".join(
+        f'{P}[style*="color:{k}" i]{{color:{v} !important;}}'
         for k, v in _map_metin.items())
 
     # ── 2) Koyu kart zeminleri → açık yüzey ──
-    # Düşük opaklıklı beyaz zeminler (0.02–0.09) tek kuralla:
-    css_kart = (
-        '[style*="background:rgba(255,255,255,0.0" i]{'
-        'background:rgba(15,23,42,0.045) !important;}'
-        '[style*="border:1px solid rgba(255,255,255,0.0" i]{'
-        'border-color:rgba(15,23,42,0.14) !important;}'
-        '[style*="border:1px solid rgba(255,255,255,0.1" i]{'
-        'border-color:rgba(15,23,42,0.18) !important;}'
+    css += (
+        f'{P}[style*="background:rgba(255,255,255,0.0" i]{{'
+        f'background:rgba(15,23,42,0.045) !important;}}'
+        f'{P}[style*="border:1px solid rgba(255,255,255,0.0" i]{{'
+        f'border-color:rgba(15,23,42,0.14) !important;}}'
+        f'{P}[style*="border:1px solid rgba(255,255,255,0.1" i]{{'
+        f'border-color:rgba(15,23,42,0.18) !important;}}'
+        f'{P}[style*="border:1px solid rgba(148,163,184,0.1" i],'
+        f'{P}[style*="border:1px solid rgba(148,163,184,0.0" i]{{'
+        f'border-color:rgba(15,23,42,0.14) !important;}}'
     )
-    # Yaygın koyu düz/gradyan kart zeminleri:
     for b in ["linear-gradient(180deg,#152036,#0F172A)",
               "linear-gradient(135deg,#1E293B,#0F172A)",
               "linear-gradient(135deg,#1E293B 0%,#0F172A 100%)",
               "linear-gradient(135deg,#0B1437,#162050)",
               "linear-gradient(180deg,#0D1235 0%,#080C20 100%)"]:
-        css_kart += (f'[style*="background:{b}" i]{{background:#FFFFFF !important;'
-                     f'border-color:rgba(15,23,42,0.12) !important;}}')
+        css += (f'{P}[style*="background:{b}" i]{{background:#FFFFFF !important;'
+                f'border-color:rgba(15,23,42,0.12) !important;}}')
     for h in ["#131C35", "#151F38", "#152036", "#0B1437", "#0F172A",
               "#1C2A44", "#0B1120", "#080C20", "#0F1730"]:
-        css_kart += (f'[style*="background:{h}" i]{{background:#F1F5F9 !important;}}')
-    # Kenarlar (silik gri rgba):
-    css_kart += (
-        '[style*="border:1px solid rgba(148,163,184,0.1" i],'
-        '[style*="border:1px solid rgba(148,163,184,0.0" i]{'
-        'border-color:rgba(15,23,42,0.14) !important;}'
-    )
+        css += f'{P}[style*="background:{h}" i]{{background:#F1F5F9 !important;}}'
 
-    return "<style>" + css_metin + css_kart + """
+    # ── 3) Blok kurallar (hepsi P önekli) ──
+    blok = """
 /* ═══ ZEMİN & GENEL METİN ═══ */
-html,body,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"],
-[data-testid="stMain"],.main{background:#EEF2F7 !important;}
-[data-testid="stHeader"]{background:transparent !important;}
-[data-testid="stMain"]{color:#1E293B;}
-[data-testid="stMain"] h1,[data-testid="stMain"] h2,[data-testid="stMain"] h3,
-[data-testid="stMain"] h4,[data-testid="stMain"] h5{color:#0F172A !important;}
-[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{color:#334155;}
-div[data-testid="stCaptionContainer"] p{color:#64748B !important;}
-a{color:#4F46E5 !important;}
+body.kayran-light, body.kayran-light .stApp,
+body.kayran-light [data-testid="stApp"],
+body.kayran-light [data-testid="stAppViewContainer"],
+body.kayran-light [data-testid="stMain"], body.kayran-light .main{
+  background:#EEF2F7 !important;}
+body.kayran-light [data-testid="stHeader"]{background:transparent !important;}
+body.kayran-light [data-testid="stMain"]{color:#1E293B;}
+body.kayran-light [data-testid="stMain"] h1,body.kayran-light [data-testid="stMain"] h2,
+body.kayran-light [data-testid="stMain"] h3,body.kayran-light [data-testid="stMain"] h4,
+body.kayran-light [data-testid="stMain"] h5{color:#0F172A !important;}
+body.kayran-light [data-testid="stMarkdownContainer"] p,
+body.kayran-light [data-testid="stMarkdownContainer"] li{color:#334155;}
+body.kayran-light div[data-testid="stCaptionContainer"] p{color:#64748B !important;}
+body.kayran-light a{color:#4F46E5 !important;}
 
-/* ═══ ÜST NAV (modül butonları) ═══ */
-.st-key-ustnav button{
+/* ═══ ÜST NAV — buton VE sticky konteyner ═══ */
+body.kayran-light [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.st-key-ustnav),
+body.kayran-light [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(> div > .st-key-ustnav),
+body.kayran-light [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(.st-key-ustnav),
+body.kayran-light .st-key-ustnav{
+  background:#EEF2F7 !important;
+  box-shadow:0 8px 16px -12px rgba(15,23,42,0.18) !important;}
+body.kayran-light .st-key-ustnav button{
   background:#FFFFFF !important;color:#334155 !important;
   border:1px solid rgba(15,23,42,0.12) !important;
   box-shadow:0 1px 2px rgba(15,23,42,0.05) !important;}
-.st-key-ustnav button:hover{
+body.kayran-light .st-key-ustnav button:hover{
   background:rgba(79,70,229,0.08) !important;color:#1E293B !important;
   border-color:rgba(79,70,229,0.45) !important;}
-.st-key-ustnav button[kind="primary"]{
+body.kayran-light .st-key-ustnav button[kind="primary"]{
   background:linear-gradient(135deg,#4F46E5,#7C3AED) !important;
   color:#FFFFFF !important;border-color:transparent !important;}
-.st-key-ustnav button[kind="primary"] *{color:#FFFFFF !important;}
+body.kayran-light .st-key-ustnav button[kind="primary"] *{color:#FFFFFF !important;}
 
-/* ═══ SEGMENTED / RADIO PILL'LER ═══ */
-[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{
+/* ═══ SEGMENTED / RADIO PILL ═══ */
+body.kayran-light [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{
   background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.12) !important;}
-[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label p,
-[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label span{
+body.kayran-light [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label p,
+body.kayran-light [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label span{
   color:#334155 !important;}
-[data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){
+body.kayran-light [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){
   background:rgba(79,70,229,0.10) !important;border-color:rgba(79,70,229,0.5) !important;}
 
 /* ═══ SIDEBAR ═══ */
-section[data-testid="stSidebar"]{
+body.kayran-light section[data-testid="stSidebar"]{
   background:linear-gradient(180deg,#E9EDF5 0%,#DCE3EE 100%) !important;
   border-right:1px solid rgba(15,23,42,0.10) !important;}
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] label{color:#1E293B !important;}
-section[data-testid="stSidebar"] hr{border-color:rgba(15,23,42,0.10) !important;}
-/* Nav/aksiyon butonları: mavi zemin + beyaz yazı KORUNUR */
-section[data-testid="stSidebar"] .stButton button,
-section[data-testid="stSidebar"] .stButton button *{color:#FFFFFF !important;}
+body.kayran-light section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+body.kayran-light section[data-testid="stSidebar"] p,
+body.kayran-light section[data-testid="stSidebar"] span,
+body.kayran-light section[data-testid="stSidebar"] label{color:#1E293B !important;}
+body.kayran-light section[data-testid="stSidebar"] hr{border-color:rgba(15,23,42,0.10) !important;}
+body.kayran-light section[data-testid="stSidebar"] .stButton button,
+body.kayran-light section[data-testid="stSidebar"] .stButton button *{color:#FFFFFF !important;}
 
 /* ═══ METRIC KARTLARI ═══ */
-[data-testid="stMetric"],[data-testid="metric-container"]{
+body.kayran-light [data-testid="stMetric"],
+body.kayran-light [data-testid="metric-container"]{
   background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.09) !important;
   box-shadow:0 1px 3px rgba(15,23,42,0.06) !important;}
-[data-testid="stMetricValue"],[data-testid="stMetricValue"] *{color:#0F172A !important;}
-[data-testid="stMetricLabel"],[data-testid="stMetricLabel"] *{color:#64748B !important;}
+body.kayran-light [data-testid="stMetricValue"],
+body.kayran-light [data-testid="stMetricValue"] *{color:#0F172A !important;}
+body.kayran-light [data-testid="stMetricLabel"],
+body.kayran-light [data-testid="stMetricLabel"] *{color:#64748B !important;}
 
 /* ═══ DIALOG / EXPANDER / TAB ═══ */
-div[data-testid="stDialog"]>div:first-child{
+body.kayran-light div[data-testid="stDialog"]>div:first-child{
   background:#FFFFFF !important;border:1px solid rgba(15,23,42,0.12) !important;
   box-shadow:0 24px 64px rgba(15,23,42,0.18) !important;}
-div[data-testid="stDialog"] h1,div[data-testid="stDialog"] h2,
-div[data-testid="stDialog"] h3{color:#0F172A !important;}
-details summary{color:#334155 !important;}
-button[data-baseweb="tab"]{color:#475569 !important;}
-button[data-baseweb="tab"][aria-selected="true"]{
+body.kayran-light div[data-testid="stDialog"] h1,
+body.kayran-light div[data-testid="stDialog"] h2,
+body.kayran-light div[data-testid="stDialog"] h3{color:#0F172A !important;}
+body.kayran-light details summary{color:#334155 !important;}
+body.kayran-light button[data-baseweb="tab"]{color:#475569 !important;}
+body.kayran-light button[data-baseweb="tab"][aria-selected="true"]{
   background:rgba(79,70,229,0.10) !important;color:#312E81 !important;}
 
-/* ═══ GENEL BUTONLAR (ana alan, secondary) ═══ */
-[data-testid="stMain"] .stButton button[kind="secondary"]{
+/* ═══ GENEL BUTONLAR ═══ */
+body.kayran-light [data-testid="stMain"] .stButton button[kind="secondary"]{
   background:#FFFFFF !important;color:#334155 !important;
   border:1px solid rgba(15,23,42,0.14) !important;}
-[data-testid="stMain"] .stButton button[kind="secondary"]:hover{
+body.kayran-light [data-testid="stMain"] .stButton button[kind="secondary"]:hover{
   border-color:rgba(79,70,229,0.5) !important;color:#1E293B !important;}
 
 /* ═══ SCROLLBAR ═══ */
-::-webkit-scrollbar-track{background:rgba(15,23,42,0.04) !important;}
-::-webkit-scrollbar-thumb{background:rgba(15,23,42,0.18) !important;}
-::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,0.30) !important;}
-</style>"""
+body.kayran-light ::-webkit-scrollbar-track{background:rgba(15,23,42,0.04) !important;}
+body.kayran-light ::-webkit-scrollbar-thumb{background:rgba(15,23,42,0.18) !important;}
+body.kayran-light ::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,0.30) !important;}
+"""
+    return "<style>" + css + blok + "</style>"
+
+
+def _tema_init():
+    """Her sayfa yüklemesinde: localStorage'daki tema tercihini body class'ına
+    yansıt (body.kayran-light) ve tema düğmesinin etiketini güncelle.
+    Python'da tema algısı YOK — tek doğruluk kaynağı tarayıcı kaydı."""
+    import streamlit.components.v1 as _c
+    _c.html(
+        """<script>(function(){try{
+  var w=window.parent, d=w.document;
+  function uygula(){
+    var t=w.localStorage.getItem("kayran-tema")||"dark";
+    d.body.classList.toggle("kayran-light", t==="light");
+    var b=d.querySelector(".st-key-tema_toggle button p");
+    if(b) b.textContent=(t==="light")?"🌙  Koyu Mod":"☀️  Açık Mod";
+  }
+  uygula();
+  // Streamlit rerun'larında buton yeniden çizilir → etiketi tekrar uygula
+  new MutationObserver(function(){uygula();})
+    .observe(d.body,{childList:true,subtree:true});
+}catch(e){}})();</script>""",
+        height=0)
 
 
 def main():
     # Login yapılmamışsa giriş ekranı
+    _tema_init()
     if not st.session_state.giris_yapildi:
         giris_ekrani()
         return
@@ -2649,10 +2679,8 @@ def main():
             height=0,
         )
 
-    # ── AÇIK MOD: kullanıcı ⋮→Settings'ten Light seçtiyse katmanı EN SONDA bas ──
-    from shared.ui import tema_tipi as _tema_tipi
-    if _tema_tipi() == "light":
-        st.markdown(_acik_mod_css(), unsafe_allow_html=True)
+    # ── AÇIK MOD katmanı: HER ZAMAN basılır; body.kayran-light yoksa etkisizdir ──
+    st.markdown(_acik_mod_css(), unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
