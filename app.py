@@ -454,38 +454,60 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── HER ZAMAN GÖRÜNEN SIDEBAR AÇ/KAPAT DÜĞMESİ ─────────────────────────────
-# Streamlit'in kendi oku koyu temada/mobilde kaybolabildiği için, ana sayfaya
-# sabit konumlu belirgin bir düğme enjekte edip Streamlit'in gerçek toggle'ına
-# tıklatıyoruz. (components.html iframe'inden window.parent üzerinden erişilir.)
+# ── SIDEBAR AÇ/KAPAT: kenara oturan yuvarlak « / » düğmesi ──────────────────
+# Sidebar'ın sağ kenarına dikeyde ortalanmış, altın halkalı dairesel düğme.
+# Kenar konumunu 300ms'de bir sidebar genişliğinden okuyup izler (güvenli:
+# yalnız değer değişince yazar, pencerede TEKİL interval — çoğalmaz/donmaz).
 import streamlit.components.v1 as _sb_comp
 _sb_comp.html(
     """
 <script>
 (function () {
-  const doc = window.parent.document;
+  const w = window.parent, doc = w.document;
   if (doc.getElementById('kayran-sb-toggle')) return;   // tek sefer ekle
 
   const btn = doc.createElement('button');
   btn.id = 'kayran-sb-toggle';
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Menüyü aç/kapat');
-  btn.innerHTML = '☰';
+  btn.textContent = '«';
   btn.style.cssText = [
-    'position:fixed','top:10px','left:10px','z-index:2147483647',
-    'width:44px','height:44px','border-radius:12px','cursor:pointer',
-    'border:1px solid rgba(255,255,255,0.45)',
-    'background:linear-gradient(135deg,#1565C0,#42A5F5)',
-    'color:#FFFFFF','font-size:22px','line-height:1','font-weight:700',
-    'box-shadow:0 3px 14px rgba(21,101,192,0.65)',
+    'position:fixed','top:50%','transform:translateY(-50%)','left:0',
+    'z-index:2147483647','width:34px','height:34px','border-radius:50%',
+    'cursor:pointer','border:2px solid #F59E0B',
+    'background:#0D1526','color:#F59E0B',
+    'font-size:17px','line-height:1','font-weight:800','padding:0',
     'display:flex','align-items:center','justify-content:center',
-    'padding:0','transition:transform .12s ease'
+    'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
+    'transition:left .18s ease, box-shadow .15s ease'
   ].join(';');
-  btn.onmouseenter = () => btn.style.transform = 'scale(1.07)';
-  btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+  btn.onmouseenter = () => btn.style.boxShadow =
+    '0 0 0 4px rgba(245,158,11,0.30), 0 2px 12px rgba(0,0,0,0.55)';
+  btn.onmouseleave = () => btn.style.boxShadow =
+    '0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)';
+
+  function acikMi() {
+    const sb = doc.querySelector('section[data-testid="stSidebar"]');
+    if (!sb) return false;
+    if (sb.getAttribute('aria-expanded') === 'false') return false;
+    return sb.getBoundingClientRect().width > 40;
+  }
+
+  function konumla() {
+    try {
+      const sb = doc.querySelector('section[data-testid="stSidebar"]');
+      const acik = acikMi();
+      // Açıkken: sidebar sağ kenarının üstüne yarı bindir · Kapalıyken: sol kıyı
+      const hedefLeft = (acik && sb)
+        ? Math.round(sb.getBoundingClientRect().right - 17) + 'px'
+        : '10px';
+      if (btn.style.left !== hedefLeft) btn.style.left = hedefLeft;
+      const ok = acik ? '«' : '»';
+      if (btn.textContent !== ok) btn.textContent = ok;
+    } catch (e) {}
+  }
 
   function nativeToggle() {
-    // Streamlit sürümlerine göre olası tüm toggle/expand kontrolleri
     const sels = [
       '[data-testid="stSidebarCollapseButton"] button',
       '[data-testid="stSidebarCollapseButton"]',
@@ -503,18 +525,19 @@ _sb_comp.html(
   }
 
   btn.onclick = function () {
-    if (nativeToggle()) return;
-    // Yedek: sidebar'ı doğrudan aç (kapalıysa görünür kıl)
-    const sb = doc.querySelector('section[data-testid="stSidebar"]');
-    if (sb) {
-      const gizli = sb.getAttribute('aria-expanded') === 'false'
-                 || sb.offsetWidth < 30;
-      sb.style.transform = gizli ? 'translateX(0)' : '';
-      sb.style.visibility = 'visible';
+    if (!nativeToggle()) {
+      // Yedek: sidebar'ı doğrudan görünür kıl
+      const sb = doc.querySelector('section[data-testid="stSidebar"]');
+      if (sb) { sb.style.transform = 'translateX(0)'; sb.style.visibility = 'visible'; }
     }
+    setTimeout(konumla, 60); setTimeout(konumla, 260); setTimeout(konumla, 460);
   };
 
   doc.body.appendChild(btn);
+  konumla();
+  if (w.__kayranSbInt) { w.clearInterval(w.__kayranSbInt); }
+  w.__kayranSbInt = w.setInterval(konumla, 300);
+  w.addEventListener('resize', konumla);
 })();
 </script>
 """,
