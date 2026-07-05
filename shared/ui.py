@@ -390,6 +390,20 @@ def patron_verisi_topla():
     except Exception:
         pass
 
+    # ── Günlük trend (mv_gunluk_pnl — son 30 gün) ──
+    try:
+        from satis.database import get_gunluk_pnl
+        _tr = get_gunluk_pnl(30)
+        if _tr:
+            v["trend"] = [{"tarih": str(r.get("tarih"))[:10],
+                           "ciro": float(r.get("ciro") or 0),
+                           "net_kar": float(r.get("net_kar") or 0)} for r in _tr]
+            if len(_tr) >= 2:
+                v["trend_bugun_ciro"] = float(_tr[-1].get("ciro") or 0)
+                v["trend_dun_ciro"] = float(_tr[-2].get("ciro") or 0)
+    except Exception:
+        pass
+
     return v
 
 
@@ -511,6 +525,50 @@ def patron_panosu_html(v):
             pencere("🔔 SON 24 SAAT — KRİTİK İŞLEMLER", RENK["cyan"], _kr_ic,
                     rozet=f"{v.get('kritik_sayi', 0)} işlem", yukseklik=170))
 
+    # ── 📈 30 günlük ciro trendi (sparkline) ──
+    _trend_html = ""
+    if v.get("trend") and len(v["trend"]) >= 2:
+        _pts = v["trend"]
+        _cirolar = [p["ciro"] for p in _pts]
+        _mx = max(_cirolar) or 1
+        _mn = min(_cirolar)
+        _rng = (_mx - _mn) or 1
+        _W, _H = 680, 60
+        _n = len(_pts)
+        _coords = []
+        for _i, _c in enumerate(_cirolar):
+            _x = (_i / (_n - 1)) * _W
+            _y = _H - ((_c - _mn) / _rng) * (_H - 8) - 4
+            _coords.append((_x, _y))
+        _poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in _coords)
+        _alan = f"0,{_H} " + _poly + f" {_W},{_H}"
+        _son_x, _son_y = _coords[-1]
+        # dün vs bugün delta
+        _db = v.get("trend_bugun_ciro", 0); _dd = v.get("trend_dun_ciro", 0)
+        _delta_html = ""
+        if _dd:
+            _dp = (_db - _dd) / _dd * 100
+            _dc = RENK["yesil"] if _dp >= 0 else RENK["kirmizi"]
+            _delta_html = (f'<span style="color:{_dc};font-size:12px;font-weight:700">'
+                           f'{"▲" if _dp>=0 else "▼"} %{abs(_dp):.0f} <span style="color:{RENK["silik"]};'
+                           f'font-weight:400;font-size:10.5px">düne göre</span></span>')
+        _trend_html = (
+            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+            f'border-radius:14px;padding:12px 16px;margin:2px 0 12px">'
+            f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+            f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
+            f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
+            f'<svg viewBox="0 0 {_W} {_H}" width="100%" height="{_H}" preserveAspectRatio="none" '
+            f'style="display:block">'
+            f'<defs><linearGradient id="kyr-trend-g" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="#6366F1" stop-opacity="0.35"/>'
+            f'<stop offset="100%" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs>'
+            f'<polygon points="{_alan}" fill="url(#kyr-trend-g)"/>'
+            f'<polyline points="{_poly}" fill="none" stroke="#818CF8" stroke-width="2" '
+            f'stroke-linejoin="round" stroke-linecap="round"/>'
+            f'<circle cx="{_son_x:.1f}" cy="{_son_y:.1f}" r="3.5" fill="#22D3EE"/>'
+            f'</svg></div>')
+
     return (
         '<div style="margin:0 0 22px">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
@@ -519,6 +577,7 @@ def patron_panosu_html(v):
         '</div>'
         + (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
            if _nabiz_html else "")
+        + _trend_html
         + pencere_grid(_p1, _p2)
         + pencere_grid(_p3, _p4)
         + _hata_html
