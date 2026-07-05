@@ -392,17 +392,18 @@ def metrik_satiri(cards):
         alt_html = (f'<div style="color:#7C8AA0;font-size:10px;margin-top:3px;'
                     f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{alt}</div>') if alt else ""
         cells += (
-            f'<div{ttl} style="flex:1;min-width:128px;background:rgba(255,255,255,0.022);'
-            f'border:1px solid rgba(255,255,255,0.06);border-left:3px solid {renk};'
-            f'border-radius:13px;padding:11px 15px">'
-            f'<div style="color:#8B97A8;font-size:9.5px;font-weight:700;letter-spacing:.6px;'
+            f'<div{ttl} style="flex:1;min-width:150px;'
+            f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
+            f'border:1px solid rgba(255,255,255,0.055);border-left:3px solid {renk};'
+            f'border-radius:16px;padding:14px 18px">'
+            f'<div style="color:#8B97A8;font-size:10px;font-weight:700;letter-spacing:.6px;'
             f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
-            f'<div style="color:{renk};font-size:20px;font-weight:800;margin-top:2px;'
+            f'<div style="color:#F1F5F9;font-size:20px;font-weight:800;margin-top:3px;'
             f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
             f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
             f'{alt_html}</div>'
         )
-    st.markdown(f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 14px">{cells}</div>',
+    st.markdown(f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:2px 0 16px">{cells}</div>',
                 unsafe_allow_html=True)
 
 
@@ -416,11 +417,12 @@ def metric_css(renk="#818CF8") -> str:
     return f"""
     <style>
     div[data-testid="stMetric"]{{
-        background:rgba(255,255,255,0.022) !important;
-        border:1px solid rgba(255,255,255,0.06) !important;
+        background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012)) !important;
+        border:1px solid rgba(255,255,255,0.055) !important;
         border-left:3px solid {renk} !important;
-        border-radius:13px !important;
-        padding:11px 15px !important;
+        border-radius:16px !important;
+        padding:14px 18px !important;
+        transition:transform .15s ease, border-color .15s ease;
     }}
     div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"]{{
         color:#8B97A8 !important; font-size:9.5px !important; font-weight:700 !important;
