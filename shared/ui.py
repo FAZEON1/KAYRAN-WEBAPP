@@ -115,7 +115,7 @@ def tablo_h(n_satir: int, maks: int = TABLO_MAKS) -> int:
 # ─────────────────────────────────────────────────────────────────────
 def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
     """26px kalın başlık + soluk alt açıklama + gradyan çizgi (tek standart)."""
-    h = (f'<div style="font-size:26px;font-weight:800;color:{RENK["metin"]};'
+    h = (f'<div style="font-size:23px;font-weight:800;color:{RENK["metin"]};'
          f'margin:2px 0 2px">{ikon} {ad}</div>')
     if alt:
         h += (f'<div style="color:{RENK["soluk"]};font-size:13px;'
@@ -148,7 +148,7 @@ def pencere(baslik: str, renk: str, icerik_html: str,
     roz = ""
     if rozet:
         roz = (f'<span style="background:{renk}26;color:{renk};padding:1px 9px;'
-               f'border-radius:20px;font-size:11.5px;font-weight:700;">{rozet}</span>')
+               f'border-radius:20px;font-size:11px;font-weight:700;">{rozet}</span>')
     return (
         f'<div style="flex:1;min-width:{min_genislik}px;background:rgba(255,255,255,0.02);'
         f'border:1px solid {renk}40;border-left:3px solid {renk}99;border-radius:14px;'
@@ -180,7 +180,7 @@ def pencere_satiri(sol_html: str, sag_html: str = "") -> str:
 
 def bos_durum(mesaj: str) -> str:
     """Pencere boşken düzeni koruyan sakin placeholder."""
-    return (f'<div style="color:{RENK["silik"]};font-size:12px;'
+    return (f'<div style="color:{RENK["silik"]};font-size:13px;'
             f'padding:14px 4px;">✓ {mesaj}</div>')
 
 
@@ -508,10 +508,10 @@ def patron_panosu_html(v):
     _nabiz_html = "".join(
         f'<div style="flex:1;min-width:120px;text-align:center;padding:10px 8px;'
         f'background:rgba(255,255,255,0.02);border:1px solid {c}30;border-radius:12px">'
-        f'<div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
-        f'<div style="color:{c};font-size:19px;font-weight:800;'
-        f'font-family:JetBrains Mono,monospace">{val}</div></div>'
+        f'<div style="color:{c};font-size:23px;font-weight:800;'
+        f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{val}</div></div>'
         for lbl, val, c in _nabiz)
 
     def _pencere(baslik, renk, ic, rozet=""):
@@ -519,7 +519,7 @@ def patron_panosu_html(v):
 
     def _satir(sol, sag_html):
         return pencere_satiri(
-            f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:600">{sol}</span>',
+            f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{sol}</span>',
             sag_html)
 
     # ── Pencere 1: Acil sipariş ──
@@ -527,7 +527,7 @@ def patron_panosu_html(v):
         _ic = "".join(_satir(
             f'⚡ {a["ad"]}',
             f'<span style="color:{RENK["soluk"]};font-size:11px">📦 {_fmt(a["stok"])}</span>'
-            f'<span style="color:{RENK["kirmizi"]};font-size:11.5px;font-weight:700">{a["gun"]}g</span>')
+            f'<span style="color:{RENK["kirmizi"]};font-size:11px;font-weight:700">{a["gun"]}g</span>')
             for a in v["acil_liste"])
         _p1 = _pencere("🔴 ACİL SİPARİŞ", RENK["kirmizi"], _ic,
                        rozet=f"{v.get('acil_sayi', 0)} ürün")
@@ -540,7 +540,7 @@ def patron_panosu_html(v):
         _ic = "".join(_satir(
             ("🚨 " if o["durum"] == "gecmis" else "⚠️ ") + o["firma"],
             f'<span style="color:{RENK["amber"] if o["durum"]=="bugun" else RENK["kirmizi"]};'
-            f'font-size:11.5px;font-weight:700">'
+            f'font-size:11px;font-weight:700">'
             f'{("₺"+_fmt(o["tl"])) if o["tl"] else ("$"+_fmt(o["usd"]))}</span>')
             for o in v["odeme_liste"])
         _rz = f"{v.get('odeme_gecikmis',0)} geç · {v.get('odeme_bugun',0)} bugün"
@@ -553,7 +553,7 @@ def patron_panosu_html(v):
     if v.get("ithalat_durum"):
         _ic = "".join(_satir(
             f'🚢 {du}',
-            f'<span style="color:{RENK["mavi"]};font-size:12px;font-weight:700">{n}</span>')
+            f'<span style="color:{RENK["mavi"]};font-size:13px;font-weight:700">{n}</span>')
             for du, n in sorted(v["ithalat_durum"].items(), key=lambda x: -x[1]))
         _p3 = _pencere("🚢 YOLDA İTHALAT", RENK["mavi"], _ic,
                        rozet=f"{v.get('ithalat_yolda', 0)} dosya")
@@ -565,7 +565,7 @@ def patron_panosu_html(v):
     if v.get("ts_sla_asan"):
         _ic = "".join(_satir(
             f'🔧 {t["firma"]} · {t["no"]}',
-            f'<span style="color:{RENK["kirmizi"]};font-size:11.5px;font-weight:700">{t["gun"]}g</span>')
+            f'<span style="color:{RENK["kirmizi"]};font-size:11px;font-weight:700">{t["gun"]}g</span>')
             for t in v["ts_sla_asan"])
         _p4 = _pencere("🔧 SLA AŞAN SERVİS", RENK["pembe"], _ic,
                        rozet=f"{len(v['ts_sla_asan'])} iş")
@@ -588,7 +588,7 @@ def patron_panosu_html(v):
     if _hata_parca:
         _hata_html = (f'<div style="background:rgba(248,113,113,0.06);border:1px solid '
                       f'{RENK["kirmizi"]}30;border-radius:10px;padding:8px 14px;margin:4px 0 0;'
-                      f'font-size:12px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
+                      f'font-size:13px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
                       + " &nbsp;·&nbsp; ".join(_hata_parca) + '</div>')
 
     # ── Kritik değişiklikler şeridi (son 24 saat) ──
@@ -596,10 +596,10 @@ def patron_panosu_html(v):
     if v.get("kritik_liste"):
         _kr_ic = "".join(
             pencere_satiri(
-                f'<span style="color:{RENK["metin"]};font-size:11.5px;font-weight:600">'
+                f'<span style="color:{RENK["metin"]};font-size:11px;font-weight:600">'
                 f'{k["kullanici"]} · <span style="color:{RENK["soluk"]}">{k["islem"]} '
                 f'· {k["modul"]}</span></span>',
-                f'<span style="color:{RENK["silik"]};font-size:10.5px">{k["zaman"]}</span>')
+                f'<span style="color:{RENK["silik"]};font-size:11px">{k["zaman"]}</span>')
             for k in v["kritik_liste"])
         _kritik_html = pencere_grid(
             pencere("🔔 SON 24 SAAT — KRİTİK İŞLEMLER", RENK["cyan"], _kr_ic,
@@ -629,9 +629,9 @@ def patron_panosu_html(v):
         if _dd:
             _dp = (_db - _dd) / _dd * 100
             _dc = RENK["yesil"] if _dp >= 0 else RENK["kirmizi"]
-            _delta_html = (f'<span style="color:{_dc};font-size:12px;font-weight:700">'
+            _delta_html = (f'<span style="color:{_dc};font-size:13px;font-weight:700">'
                            f'{"▲" if _dp>=0 else "▼"} %{abs(_dp):.0f} <span style="color:{RENK["silik"]};'
-                           f'font-weight:400;font-size:10.5px">düne göre</span></span>')
+                           f'font-weight:400;font-size:11px">düne göre</span></span>')
         _trend_html = (
             f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
             f'border-radius:14px;padding:12px 16px;margin:2px 0 12px">'
@@ -665,11 +665,11 @@ def patron_panosu_html(v):
                 _rows += (
                     f'<div style="display:flex;align-items:center;justify-content:space-between;'
                     f'padding:5px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
-                    f'<span style="color:{RENK["metin"]};font-size:11.5px;font-weight:600">'
+                    f'<span style="color:{RENK["metin"]};font-size:11px;font-weight:600">'
                     f'{_firma_kisa(x["kanal"])}</span>'
                     f'<span style="white-space:nowrap"><span style="color:{RENK["silik"]};'
-                    f'font-size:10.5px">${x["bu_ciro"]:,.0f}</span> '
-                    f'<span style="color:{_c};font-size:12px;font-weight:800">{_ok} {_pct_str}</span></span>'
+                    f'font-size:11px">${x["bu_ciro"]:,.0f}</span> '
+                    f'<span style="color:{_c};font-size:13px;font-weight:800">{_ok} {_pct_str}</span></span>'
                     f'</div>')
             return _rows or f'<div style="color:{RENK["silik"]};font-size:11px;padding:8px 0">—</div>'
 
@@ -679,22 +679,22 @@ def patron_panosu_html(v):
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px">'
             f'<div style="flex:1;min-width:240px;background:rgba(52,211,153,0.05);'
             f'border:1px solid {RENK["yesil"]}28;border-radius:14px;padding:11px 15px">'
-            f'<div style="font-size:10px;color:{RENK["yesil"]};letter-spacing:1px;'
+            f'<div style="font-size:11px;color:{RENK["yesil"]};letter-spacing:1px;'
             f'text-transform:uppercase;font-weight:700;margin-bottom:4px">🚀 En Çok Büyüyen Firma</div>'
             f'{_bh}</div>'
             f'<div style="flex:1;min-width:240px;background:rgba(248,113,113,0.05);'
             f'border:1px solid {RENK["kirmizi"]}28;border-radius:14px;padding:11px 15px">'
-            f'<div style="font-size:10px;color:{RENK["kirmizi2"]};letter-spacing:1px;'
+            f'<div style="font-size:11px;color:{RENK["kirmizi2"]};letter-spacing:1px;'
             f'text-transform:uppercase;font-weight:700;margin-bottom:4px">📉 En Çok Gerileyen Firma</div>'
             f'{_gh}</div></div>'
-            f'<div style="font-size:10px;color:{RENK["silik"]};margin:-8px 0 12px;text-align:right">'
+            f'<div style="font-size:11px;color:{RENK["silik"]};margin:-8px 0 12px;text-align:right">'
             f'{_bg.get("bu_ay","")} vs {_bg.get("kiyas_ay","")} · ciro bazlı</div>')
 
     return (
         '<div style="margin:0 0 22px">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
         f'<span style="font-size:19px;font-weight:800;color:{RENK["metin"]}">👑 Patron Panosu</span>'
-        f'<span style="color:{RENK["silik"]};font-size:11.5px">yalnızca sana özel · sabah kokpiti</span>'
+        f'<span style="color:{RENK["silik"]};font-size:11px">yalnızca sana özel · sabah kokpiti</span>'
         '</div>'
         + (f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">{_nabiz_html}</div>'
            if _nabiz_html else "")
