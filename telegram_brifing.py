@@ -87,8 +87,56 @@ def mesaj_kur(hafta, odemeler, bankalar, bugun_str):
     if not (gecmis or bugun or yarin):
         satirlar.append("✅ Bugün ve yarın vadesi gelen ödeme yok. Rahat bir gün!")
 
-    satirlar += ["", "— KAYRAN Workspace"]
     return "\n".join(satirlar)
+
+
+def satis_blogu_kur(pnl):
+    """Saf fonksiyon: satış/kârlılık özetinden Telegram bloğu üretir.
+    pnl = {'dun','hafta','ay'} — her biri ozet_hesapla çıktısı (top, kanal, urun)
+    ya da None. Para birimi USD (uygulamadaki P&L ile aynı)."""
+    e = html.escape
+    L = ["", "━━━━━━━━━━━━━━", "💹 <b>SATIŞ & KÂRLILIK</b>"]
+
+    def ozet_satir(etiket, veri):
+        if not veri:
+            return None
+        top = veri[0] if isinstance(veri, tuple) else veri
+        ciro = float(top.get("ciro") or 0)
+        net = float(top.get("net_kar") or 0)
+        marj = float(top.get("marj") or 0)
+        adet = int(top.get("adet") or 0)
+        if adet == 0 and ciro == 0:
+            return f"{etiket} <i>—</i>"
+        return (f"{etiket} ${fmt(ciro)} ciro · "
+                f"${fmt(net)} kâr · %{marj:.1f} · {adet} adet")
+
+    for etiket, anahtar in [("📆 <b>Dün:</b>", "dun"),
+                            ("🗓 <b>Bu hafta:</b>", "hafta"),
+                            ("📅 <b>Bu ay:</b>", "ay")]:
+        s = ozet_satir(etiket, pnl.get(anahtar))
+        if s:
+            L.append(s)
+
+    # Dünün en kârlı 3 ürünü (SKU kırılımı ozet_hesapla'nın 3. çıktısı)
+    dun = pnl.get("dun")
+    if dun and isinstance(dun, tuple) and len(dun) >= 3 and dun[2]:
+        urunler = sorted(dun[2].items(),
+                         key=lambda kv: float(kv[1].get("net_kar") or 0),
+                         reverse=True)
+        ust = [u for u in urunler if int(u[1].get("adet") or 0) > 0][:3]
+        if ust:
+            L.append("🏆 <b>Dün en kârlı:</b>")
+            for sku, d in ust:
+                # Yalnız < > & kaçışlanır; " ve ' Telegram HTML'de güvenlidir
+                # (aksi halde &quot; olarak görünürdü)
+                ad = (d.get("urun_adi") or sku)[:30]
+                ad = ad.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                L.append(f"   • {ad} — ${fmt(d.get('net_kar') or 0)} "
+                         f"({int(d.get('adet') or 0)} adet)")
+
+    if len(L) <= 3:   # hiç veri gelmediyse blok koyma
+        return ""
+    return "\n".join(L)
 
 
 def gonder(mesaj):
@@ -129,6 +177,33 @@ def main():
     bugun_str = f"{simdi.strftime('%d.%m.%Y')} {gunler[simdi.weekday()]}"
 
     mesaj = mesaj_kur(hafta, odemeler, bankalar, bugun_str)
+
+    # ── Satış & kârlılık bloğu (satis modülünden; hata olursa atlanır) ──
+    try:
+        import datetime as _dt
+        from satis.database import get_satislar, ozet_hesapla
+
+        bugun_d = simdi.date()
+        dun_d = bugun_d - _dt.timedelta(days=1)
+        hafta_bas = bugun_d - _dt.timedelta(days=bugun_d.weekday())  # pazartesi
+        ay_bas = bugun_d.replace(day=1)
+
+        def ozet(bas, bit):
+            rows = get_satislar(bas.isoformat(), bit.isoformat()) or []
+            return ozet_hesapla(rows) if rows else None
+
+        pnl = {
+            "dun": ozet(dun_d, dun_d),
+            "hafta": ozet(hafta_bas, bugun_d),
+            "ay": ozet(ay_bas, bugun_d),
+        }
+        blok = satis_blogu_kur(pnl)
+        if blok:
+            mesaj += "\n" + blok
+    except Exception as ex:
+        print("satış bloğu atlandı:", type(ex).__name__, str(ex)[:120])
+
+    mesaj += "\n\n— KAYRAN Workspace"
     print("── MESAJ ──\n" + mesaj + "\n───────────")
     gonder(mesaj)
 
