@@ -689,7 +689,10 @@ def render():
 
 
 def _render_tumu(firmalar):
-    """Tüm firmaların ref no'larını firma sütunuyla birleşik, aramalı/filtreli gösterir (salt-okunur)."""
+    """Tüm firmaların ref no'ları — canlı filtreli özet + aramalı tablo (salt-okunur)."""
+    from shared.ui import RENK, sayfa_baslik
+    import pandas as pd
+
     def _trl(s):
         return str(s or "").replace("İ", "i").replace("I", "ı").lower()
     _hepsi = []
@@ -699,14 +702,12 @@ def _render_tumu(firmalar):
             _r = dict(r)
             _r["_firma"] = _fad
             _hepsi.append(_r)
-    _bekleyen = sum(1 for r in _hepsi if r.get("durum") == "beklemede")
-    _paylasilan = sum(1 for r in _hepsi if r.get("durum") == "paylasildi")
-    metrik_satiri([
-        {"label": "Toplam Ref (tüm firmalar)", "value": f"{len(_hepsi):,}", "renk": "#818CF8"},
-        {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
-        {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
-        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(_hepsi), "renk": "#A78BFA"},
-    ])
+
+    st.markdown(sayfa_baslik("🔗", "Referans No — Birleşik Görünüm",
+                             "Tüm firmaların ref no kayıtları · filtrele, ara, canlı toplamı gör"),
+                unsafe_allow_html=True)
+
+    # ── Filtreler ──
     _tf1, _tf2, _tf3, _tf4, _tf5 = st.columns(5)
     _t_firmalar = sorted({(r.get("_firma") or "").strip() for r in _hepsi if (r.get("_firma") or "").strip()})
     firma_f = _tf1.selectbox("Firma", ["Tümü"] + _t_firmalar, key="ref_tumu_firma")
@@ -745,8 +746,47 @@ def _render_tumu(firmalar):
                 return False
         return True
     goster = [r for r in _hepsi if _uy(r)]
-    st.caption(f"{len(goster)} / {len(_hepsi)} kayıt gösteriliyor · birleşik (tüm firmalar)")
-    import pandas as pd
+
+    # ── CANLI ÖZET BARI — filtreye göre değişir ──
+    _filtreli = (firma_f != "Tümü" or durum_f != "Tümü" or kat_f != "Tümü"
+                 or yil_f != "Tümü" or ay_f != "Tümü" or bool(_aral))
+    _bekle = sum(1 for r in goster if r.get("durum") == "beklemede")
+    _payla = sum(1 for r in goster if r.get("durum") == "paylasildi")
+    from collections import defaultdict
+    _dv = defaultdict(float)
+    for r in goster:
+        _dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
+    _sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
+    _tutar_str = " · ".join(f'{_sembol.get(k, k+" ")}{v:,.0f}' for k, v in
+                            sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
+
+    _durum_rozet = (
+        f'<span style="background:{RENK["amber"]}22;color:{RENK["amber2"]};padding:2px 10px;'
+        f'border-radius:20px;font-size:11.5px;font-weight:700">⏳ {_bekle} beklemede</span>'
+        f'<span style="background:{RENK["yesil"]}22;color:{RENK["yesil"]};padding:2px 10px;'
+        f'border-radius:20px;font-size:11.5px;font-weight:700">✅ {_payla} paylaşıldı</span>')
+    _durum_notu = (f'<span style="color:{RENK["cyan"]};font-size:11px;font-weight:700">● FİLTRELİ</span>'
+                   if _filtreli else
+                   f'<span style="color:{RENK["silik"]};font-size:11px">tüm kayıtlar</span>')
+    st.markdown(
+        f'<div style="background:linear-gradient(90deg,rgba(99,102,241,0.10),rgba(34,211,238,0.03) 70%,transparent);'
+        f'border:1px solid rgba(129,140,248,0.28);border-left:3px solid #818CF8;border-radius:14px;'
+        f'padding:12px 18px;margin:8px 0 14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
+        f'<div><div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">Filtreli Toplam Tutar</div>'
+        f'<div style="font-size:23px;font-weight:800;color:{RENK["metin"]};'
+        f'font-family:JetBrains Mono,monospace;line-height:1">{_tutar_str}</div></div>'
+        f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
+        f'<div><div style="font-size:9.5px;color:{RENK["soluk"]};letter-spacing:1px;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">Kayıt</div>'
+        f'<div style="font-size:23px;font-weight:800;color:{RENK["mor2"]};'
+        f'font-family:JetBrains Mono,monospace;line-height:1">{len(goster):,}'
+        f'<span style="font-size:13px;color:{RENK["silik"]}"> / {len(_hepsi):,}</span></div></div>'
+        f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
+        f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">{_durum_rozet}</div>'
+        f'<div style="margin-left:auto">{_durum_notu}</div>'
+        f'</div>', unsafe_allow_html=True)
+
     st.dataframe(pd.DataFrame([{
         "Firma": (r.get("_firma", "") or "")[:32],
         "Ref No": r.get("ref_no", "") or "",
@@ -757,7 +797,11 @@ def _render_tumu(firmalar):
         "Kategori": (r.get("kategori") or "") or "—",
         "Ay": _aylik_ozet(r)[0],
         "Yıl": _aylik_ozet(r)[1],
-    } for r in goster]), hide_index=True, use_container_width=True, height=460)
+    } for r in goster]), hide_index=True, use_container_width=True, height=460,
+        column_config={
+            "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
+            "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
+        })
     st.caption("ℹ️ Birleşik görünüm salt-okunurdur. Ekleme · Excel içe aktarma · düzenleme · silme · bütçe için "
                "yukarıdan **tek bir firma** seç.")
 
