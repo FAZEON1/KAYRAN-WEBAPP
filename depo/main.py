@@ -10,12 +10,12 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 
 
 def _baslik(t, alt):
-    st.markdown(f'<div style="font-size:26px;font-weight:800;color:#E2E8F0;margin:2px 0 2px">{t}</div>',
+    st.markdown(f'<div style="font-size:23px;font-weight:800;color:#E2E8F0;margin:0px 0 0px">{t}</div>',
                 unsafe_allow_html=True)
-    st.markdown(f'<div style="color:#94A3B8;font-size:13px;margin-bottom:6px">{alt}</div>',
+    st.markdown(f'<div style="color:#94A3B8;font-size:13px;margin-bottom:8px">{alt}</div>',
                 unsafe_allow_html=True)
     st.markdown('<div style="height:1px;background:linear-gradient(90deg,#6366F1,transparent);'
-                'margin:6px 0 16px"></div>', unsafe_allow_html=True)
+                'margin:8px 0 16px"></div>', unsafe_allow_html=True)
 
 
 def run():
@@ -120,15 +120,15 @@ def _sayfa_sevk():
 
     # Sevk listesi (sepet)
     if _sepet:
-        st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;margin:12px 0 4px;'
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#94A3B8;margin:12px 0 4px;'
                     'text-transform:uppercase;letter-spacing:.5px">📋 Sevk Listesi</div>',
                     unsafe_allow_html=True)
         for _i, _s in enumerate(_sepet):
             rc1, rc2, rc3 = st.columns([3, 1, 0.5])
-            rc1.markdown(f'<div style="padding:5px 0"><b style="color:#E2E8F0">{_s["sku"]}</b> '
-                         f'<span style="color:#94A3B8;font-size:12px">{(_s["urun_adi"] or "")[:42]}</span></div>',
+            rc1.markdown(f'<div style="padding:4px 0"><b style="color:#E2E8F0">{_s["sku"]}</b> '
+                         f'<span style="color:#94A3B8;font-size:13px">{(_s["urun_adi"] or "")[:42]}</span></div>',
                          unsafe_allow_html=True)
-            rc2.markdown(f'<div style="padding:5px 0;font-family:monospace;color:#34D399;font-weight:700">'
+            rc2.markdown(f'<div style="padding:4px 0;font-family:monospace;color:#34D399;font-weight:700">'
                          f'{_s["adet"]} adet</div>', unsafe_allow_html=True)
             if rc3.button("🗑", key=f"dpo_sil_{_i}", help="Listeden çıkar"):
                 _sepet.pop(_i)
@@ -171,7 +171,7 @@ def _sayfa_sevk():
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:14px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
+    st.markdown('<div style="font-size:15px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
                 '🕓 Son sevkler</div>', unsafe_allow_html=True)
     _gec = get_depo_sevk_gecmisi(50)
     if _gec:
@@ -257,7 +257,7 @@ def _sayfa_bekleyen():
                                    int(_mt_df["🔶 Bekleyen"].sum()), ""]
     st.dataframe(_mt_df, use_container_width=True, hide_index=True)
 
-    st.markdown('<div style="font-size:14px;font-weight:800;color:#A5B4FC;margin:10px 0 8px">'
+    st.markdown('<div style="font-size:15px;font-weight:800;color:#A5B4FC;margin:8px 0 8px">'
                 '🚚 Sevk düş (bekleyenden düşüm) / kayıt yönetimi</div>', unsafe_allow_html=True)
     _mt_sec = st.selectbox(
         "Kayıt", _mt_g,
