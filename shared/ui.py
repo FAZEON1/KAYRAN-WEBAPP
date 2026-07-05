@@ -238,6 +238,18 @@ div[data-testid="stApp"][data-test-script-state="running"]::after{
 </style>"""
 
 
+def tema_tipi() -> str:
+    """Aktif tema: 'light' | 'dark'. Kullanıcının ⋮ → Settings seçimini
+    st.context.theme ile algılar (Streamlit ≥1.46). Algılanamazsa 'dark'."""
+    try:
+        _t = getattr(st.context, "theme", None)
+        if _t is not None and getattr(_t, "type", "dark") == "light":
+            return "light"
+    except Exception:
+        pass
+    return "dark"
+
+
 def token_css() -> str:
     """Tüm design token'ları CSS değişkeni olarak :root'a basar.
     app.py'de bir kez çağrılır. Bundan sonra hem CSS'te hem inline HTML'de
