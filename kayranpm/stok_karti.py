@@ -34,17 +34,17 @@ def _usd(v):
 
 def _kart(baslik, deger, alt="", renk="#A5B4FC"):
     return (
-        f'<div style="flex:1;min-width:150px;background:rgba(255,255,255,0.03);'
+        f'<div style="flex:1;min-width:150px;background:linear-gradient(180deg,#152036,#0F172A);'
         f'border:1px solid rgba(255,255,255,0.08);border-left:3px solid {renk};'
-        f'border-radius:10px;padding:11px 14px">'
+        f'border-radius:10px;padding:12px 16px">'
         f'<div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:.4px">{baslik}</div>'
-        f'<div style="color:{renk};font-size:20px;font-weight:700;margin-top:2px">{deger}</div>'
+        f'<div style="color:{renk};font-size:19px;font-weight:700;margin-top:2px">{deger}</div>'
         f'<div style="color:#64748B;font-size:11px;margin-top:1px">{alt}</div></div>'
     )
 
 
 def _kart_satiri(kartlar):
-    st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px">'
+    st.markdown('<div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 14px">'
                 + "".join(kartlar) + '</div>', unsafe_allow_html=True)
 
 
@@ -282,13 +282,13 @@ def goster(sku):
         # ── İKİZ STOK PANELİ — solda bizim depolar, sağda müşteriler ──
         def _srow(ad, adet, maks, renk, alt=""):
             _w = max(2.0, min(100.0, (adet / maks * 100) if maks else 0))
-            _alt = (f'<div style="color:{RENK["silik"]};font-size:10.5px;margin-top:2px">{alt}</div>'
+            _alt = (f'<div style="color:{RENK["silik"]};font-size:11px;margin-top:2px">{alt}</div>'
                     if alt else "")
-            return (f'<div style="padding:5px 10px;margin:3px 0;border-radius:6px;'
-                    f'background:rgba(255,255,255,0.03)">'
+            return (f'<div style="padding:4px 12px;margin:3px 0;border-radius:6px;'
+                    f'background:linear-gradient(180deg,#152036,#0F172A)">'
                     f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-                    f'<span style="color:{RENK["metin"]};font-size:12px;font-weight:600">{ad}</span>'
-                    f'<span style="color:{RENK["metin"]};font-size:12.5px;font-weight:700;'
+                    f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{ad}</span>'
+                    f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:700;'
                     f'font-family:JetBrains Mono,monospace">{adet:,.0f}</span></div>'
                     f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
                     f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div>'
@@ -338,8 +338,8 @@ def goster(sku):
             _serit += (f'<span style="color:{RENK["mavi"]}"> · 🚚 yolda '
                        f'<b style="font-family:JetBrains Mono,monospace">{yolda_adet:,.0f}</b></span>')
         st.markdown(
-            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-            f'border-radius:10px;padding:8px 14px;margin:0 0 10px;font-size:12px">{_serit}</div>',
+            f'<div style="background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.07);'
+            f'border-radius:10px;padding:8px 16px;margin:0 0 10px;font-size:13px">{_serit}</div>',
             unsafe_allow_html=True)
         if not _dagilim_dolu and not _cs.get("var") and _g5f_toplam <= 0:
             st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
