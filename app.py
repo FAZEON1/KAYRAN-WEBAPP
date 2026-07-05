@@ -1455,19 +1455,13 @@ input, textarea, select { font-size: 16px !important; }
     with st.sidebar:
         # Logo + KAYRAN basligi
         st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;padding:4px 0 16px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:16px">'
+            '<div style="display:flex;align-items:center;gap:10px;padding:2px 0 12px;margin-bottom:10px">'
             + KAYRAN_LOGO_SVG +
-            '<div>'
-            '<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1">KAYRAN</div>'
-            '<div style="font-size:11px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;font-weight:600">Workspace</div>'
+            '<div style="display:flex;align-items:baseline;gap:6px">'
+            '<span style="font-family:Inter,sans-serif;font-size:16px;font-weight:800;color:#FFFFFF;letter-spacing:1.5px;line-height:1">KAYRAN</span>'
+            '<span style="font-size:9.5px;color:#5B6B84;letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Workspace</span>'
             '</div>'
             '</div>',
-            unsafe_allow_html=True
-        )
-
-
-        st.markdown(
-            '<div style="height:1px;background:rgba(255,255,255,0.06);margin:16px 0 16px"></div>',
             unsafe_allow_html=True
         )
 
@@ -1481,9 +1475,9 @@ input, textarea, select { font-size: 16px !important; }
                        ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
                        ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
                        ("🔧 Teknik Servis", "teknikservis")]
-        _lh = ('<details style="margin:0px 0 8px"><summary style="cursor:pointer;color:#94A3B8;'
-               'font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;'
-               'padding:8px;outline:none">↗ Yeni Sekmede Aç</summary>'
+        _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:#5B6B84;'
+               'font-size:10.5px;font-weight:600;letter-spacing:.4px;'
+               'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
                '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
         for _ad, _mod in _yeni_sekme:
             _lh += (f'<a href="?u={_u}&t={_t}&s={_mod}" target="_blank" '
@@ -1534,10 +1528,7 @@ input, textarea, select { font-size: 16px !important; }
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
             uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "depo": "#6EE7B7", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
-            st.markdown(
-                '<div style="font-size:11px;color:' + uyg_renk + ';letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:8px"> ' + uyg_adi + ' SAYFALARI</div>',
-                unsafe_allow_html=True
-            )
+            # Modül adı artık modülün kendi kimlik çipinde — mükerrer etiket kaldırıldı
             # Modüle tıklayınca soldaki menünün kayacağı hedef
             st.markdown('<div id="kayran-submenu-anchor"></div>', unsafe_allow_html=True)
 
