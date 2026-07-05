@@ -254,18 +254,36 @@ def run():
     
     /* ── BAŞLIK STİLLERİ ─────────────────────────────────────────────────── */
     .baslik {
-        font-size: 22px;
-        font-weight: 800;
-        color: #ECEFF1;
-        margin-bottom: 2px;
-        letter-spacing: -0.3px;
+        display: flex !important; align-items: center !important; gap: 11px !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 19px !important;
+        font-weight: 750 !important;
+        color: #F1F5F9 !important;
+        letter-spacing: -0.3px !important;
+        margin: 2px 0 0 !important;
+        line-height: 1.25 !important;
+    }
+    .baslik-ikon {
+        width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+        background: linear-gradient(135deg, rgba(99,102,241,0.28), rgba(139,92,246,0.16));
+        border: 1px solid rgba(129,140,248,0.28);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; letter-spacing: 0;
     }
     .alt-baslik {
-        font-size: 12px;
-        color: #546E7A;
-        margin-bottom: 24px;
-        font-weight: 500;
-        letter-spacing: 0.3px;
+        font-size: 12.5px !important;
+        color: #7C8AA0 !important;
+        font-weight: 450 !important;
+        letter-spacing: .1px !important;
+        margin: 7px 0 18px !important;
+        padding: 0 0 12px 41px !important;
+        border-bottom: 1px solid rgba(148,163,184,0.10) !important;
+        position: relative !important;
+    }
+    .alt-baslik::before {
+        content: ""; position: absolute; left: 41px; bottom: -1px;
+        width: 40px; height: 2px; border-radius: 2px;
+        background: linear-gradient(90deg, #6366F1, #8B5CF6);
     }
     .sayfa-baslik-cizgi {
         height: 3px;
@@ -506,7 +524,7 @@ def run():
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════
     if sayfa == "📊  Dashboard":
-        st.markdown('<div class="baslik">📊 Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📊</span>Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Stok durumu · Satış performansı · Uyarılar</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
@@ -1293,7 +1311,7 @@ def run():
 
 
     elif sayfa == "🎯  Kampanya Takip":
-        st.markdown('<div class="baslik">🎯 Kampanya Takip</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">🎯</span>Kampanya Takip</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Firma desteği · Net kar · Kampanya performansı</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
@@ -2026,7 +2044,7 @@ def run():
     elif sayfa == "📦  Sipariş Önerisi":
         from .database import get_uretim_suresi, set_uretim_suresi
         _esik = get_uretim_suresi()
-        st.markdown('<div class="baslik">📦 Sipariş Önerisi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📦</span>Sipariş Önerisi</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="alt-baslik">{_esik} günden az stok kalan ürünler · Otomatik öneri</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
@@ -2178,7 +2196,7 @@ def run():
         _ref_render()
 
     elif sayfa == "📂  Veri Yükleme":
-        st.markdown('<div class="baslik">📂 Veri Yükleme</div>', unsafe_allow_html=True)
+        st.markdown('<div class="baslik"><span class="baslik-ikon">📂</span>Veri Yükleme</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
