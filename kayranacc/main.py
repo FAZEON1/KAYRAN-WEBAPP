@@ -74,7 +74,7 @@ def run():
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"],
     .stApp {
-        background: linear-gradient(135deg, #0A0F1E 0%, #0F1629 50%, #0A0F1E 100%) !important;
+        background: #080C20 !important;
         min-height: 100vh;
     }
     
