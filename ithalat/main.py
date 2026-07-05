@@ -67,6 +67,11 @@ def _sd(v):
     return str(v)[:10]
 
 
+def _tr_upper(s):
+    """Türkçe uyumlu büyük harf: i→İ, ı→I (Python'un .upper()'ı i→I yapar, yanlış)."""
+    return str(s or "").replace("i", "İ").replace("ı", "I").upper()
+
+
 def _baslik(ikon, ad, alt):
     from shared.ui import sayfa_baslik as _sb
     st.markdown(_sb(ikon, ad, alt), unsafe_allow_html=True)
@@ -1660,7 +1665,7 @@ def _model_sorgu():
 
     ad = katalog.get(sku, "")
     st.markdown(
-        f'<div style="color:#A5B4FC;font-size:14px;margin:2px 0 12px">📦 <b>{sku}</b>{(" — " + ad) if ad else ""}</div>',
+        f'<div style="color:#A5B4FC;font-size:14px;margin:2px 0 12px">📦 <b>{sku}</b>{(" — " + _tr_upper(ad)) if ad else ""}</div>',
         unsafe_allow_html=True,
     )
 
