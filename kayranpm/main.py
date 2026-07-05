@@ -147,7 +147,7 @@ def run():
     
     html, body, .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        background: #0A0F1E !important;
+        background: #080C20 !important;
     }
 
     /* ── METRIC KARTLARI (modern · sade · profesyonel) ───────────────── */
