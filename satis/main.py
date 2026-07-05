@@ -29,9 +29,9 @@ def _usd(x):
 def _kart(satirlar):
     return "".join(
         f'<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.04);'
-        f'border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:11px 15px">'
-        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">{l}</div>'
-        f'<div style="font-size:17px;font-weight:800;color:{c};font-family:monospace">{v}</div></div>'
+        f'border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:12px 16px">'
+        f'<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">{l}</div>'
+        f'<div style="font-size:19px;font-weight:800;color:{c};font-family:monospace">{v}</div></div>'
         for l, v, c in satirlar)
 
 
@@ -610,7 +610,7 @@ def run():
                     top, _, _ = ozet_hesapla(kalemler)
                     _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
                     st.markdown(
-                        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px">' + _kart([
+                        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">' + _kart([
                             ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#93C5FD"),
                             ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
                             ("Maliyet", _usd(top["maliyet"]), "#FB923C"),
@@ -738,7 +738,7 @@ def run():
                 _oz_kart.append(("Destek", _usd(_t_destek), "#A78BFA"))
             _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
                          ("Marj", f"%{_t_marj_k:.1f}", _t_renk)]
-            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px">'
+            st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">'
                         + _kart(_oz_kart) + '</div>', unsafe_allow_html=True)
 
             # 🧮 ALT TOPLAM satırı — sayısal kolonların toplamı
@@ -919,7 +919,7 @@ def run():
             if top["destek"] > 0.005:
                 _ozet_kartlar.append(("Destek (satır bazlı)", _usd(top["destek"]), "#A78BFA"))
             st.markdown(
-                '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 8px">' + _kart(_ozet_kartlar + [
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart(_ozet_kartlar + [
                     ("Net Kâr", _usd(_net_kar), _renk),
                     ("Marj (iade sonrası)", f"%{_net_marj:.1f}", _renk),
                     ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
@@ -928,7 +928,7 @@ def run():
                 _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
                 _marj_h = (_net_havuzlu / _net_satis * 100) if _net_satis > 0 else 0.0
                 st.markdown(
-                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
                         ("Havuz Desteği (gider)", _usd(_hav_verilen), "#FB7185"),
                         ("Net Kâr (havuz sonrası)", _usd(_net_havuzlu), _nh_renk),
                         ("Marj (havuz sonrası)", f"%{_marj_h:.1f}", _nh_renk),
@@ -956,14 +956,14 @@ def run():
                 _nd_renk = "#34D399" if _net_ds > 0 else "#F87171"
                 _marj_ds = (_net_ds / _net_satis * 100) if _net_satis > 0 else 0.0
                 st.markdown(
-                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
                         ("Ref No Desteği (dönem)", _usd(_ref_usd), "#FB7185"),
                         ("Net Kâr (destek sonrası)", _usd(_net_ds), _nd_renk),
                         ("Marj (destek sonrası)", f"%{_marj_ds:.1f}", _nd_renk),
                     ]) + '</div>', unsafe_allow_html=True)
             if _itop["i_adet"] > 0:
                 st.markdown(
-                    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 6px">' + _kart([
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
                         ("İade adedi (stoğa döndü)", f"{_itop['i_adet']:,}", "#FBBF24"),
                         ("İade tutarı", _usd(_itop["i_tutar"]), "#FBBF24"),
                         ("İade sonrası net adet", f"{_itop['net_adet']:,}", "#93C5FD"),
@@ -989,7 +989,7 @@ def run():
             @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
             def _dlg_firma_gecmis(_fkn):
                 st.markdown(f'<div style="font-size:15px;font-weight:800;color:#E2E8F0;'
-                            f'margin-bottom:2px">{_fkn}</div>', unsafe_allow_html=True)
+                            f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
                 st.caption(f"Dönem: {_pbas} → {_pbit}")
                 _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
                 if not _fsat:
@@ -1014,7 +1014,7 @@ def run():
                 _t_adet = sum(g["adet"] for g in _sipler.values())
                 _t_ciro = sum(g["ciro"] for g in _sipler.values())
                 _t_kar = sum(g["kar"] for g in _sipler.values())
-                st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 10px">'
+                st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
                             + _kart([
                                 ("Sipariş", f"{len(_sipler):,}", "#93C5FD"),
                                 ("Adet", f"{_t_adet:,}", "#93C5FD"),
@@ -1121,7 +1121,7 @@ def run():
             else:
                 _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
                        if _ozet["tarih_min"] else "—")
-                st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0">' + _kart([
+                st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' + _kart([
                     ("Satır", f"{_ozet['satir']:,}", "#93C5FD"),
                     ("Fatura", f"{_ozet['fatura']:,}", "#A5B4FC"),
                     ("Toplam Ciro", _usd(_ozet["ciro"]), "#34D399"),
@@ -1348,7 +1348,7 @@ def run():
         else:
             _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
             _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
-            st.markdown('<div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 6px">' + _kart([
+            st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
                 ("Satış adedi", f"{_top['s_adet']:,}", "#93C5FD"),
                 ("İade adedi", f"{_top['i_adet']:,}", "#FBBF24"),
                 ("Net adet (müşteride)", f"{_top['net_adet']:,}", "#34D399"),
