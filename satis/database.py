@@ -839,3 +839,27 @@ def ozet_from_view(rows):
     _ns = top["ciro"] - top["destek"]
     top["marj"] = (top["net_kar"] / _ns * 100) if _ns > 0 else 0.0
     return top, kanal, urun
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_gunluk_pnl(gun_sayisi=30):
+    """mv_gunluk_pnl materialized view'inden son N günün P&L trendi.
+    View yoksa None → çağıran taraf trend göstermez (graceful)."""
+    try:
+        import datetime as _dt
+        _bas = (_dt.date.today() - _dt.timedelta(days=gun_sayisi)).isoformat()
+        rows = (_get_client().table("mv_gunluk_pnl").select("*")
+                .gte("tarih", _bas).order("tarih").limit(400).execute().data)
+        return rows if rows is not None else []
+    except Exception:
+        return None
+
+
+def gunluk_pnl_tazele():
+    """Materialized view'i tazeler (RPC). Gece Action / manuel tetik için.
+    Döner: (ok:bool, mesaj:str)."""
+    try:
+        _r = _get_client().rpc("mv_gunluk_pnl_tazele").execute()
+        return True, str(_r.data or "ok")
+    except Exception as e:
+        return False, f"{type(e).__name__}: {str(e)[:120]}"
