@@ -150,9 +150,11 @@ def pencere(baslik: str, renk: str, icerik_html: str,
         roz = (f'<span style="background:{renk}26;color:{renk};padding:4px 8px;'
                f'border-radius:20px;font-size:11px;font-weight:700;">{rozet}</span>')
     return (
-        f'<div style="flex:1;min-width:{min_genislik}px;background:rgba(255,255,255,0.02);'
-        f'border:1px solid {renk}40;border-left:3px solid {renk}99;border-radius:14px;'
-        f'padding:12px 16px;display:flex;flex-direction:column;">'
+        f'<div class="kyr-kart" style="flex:1;min-width:{min_genislik}px;'
+        f'background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});'
+        f'border:1px solid {renk}33;border-left:3px solid {renk};border-radius:16px;'
+        f'padding:12px 16px;display:flex;flex-direction:column;'
+        f'box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]},box-shadow {GECIS["hizli"]};">'
         f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-shrink:0;">'
         f'<span style="font-size:13px;font-weight:800;color:{renk};letter-spacing:.3px;">{baslik}</span>'
         f'{roz}</div>'
@@ -264,6 +266,11 @@ def genel_tema_css() -> str:
     Tablo İÇİ font/renk/grid çizgileri .streamlit/config.toml temasından gelir
     (canvas tabanlı olduğu için CSS ile değil tema ile yönetilir)."""
     return """<style>
+/* ── Kart hover: hafif yükselme + gölge derinleşmesi (micro-interaction) ── */
+.kyr-kart:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
 /* ── Dialog başlıkları ── */
 div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
 div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
@@ -506,8 +513,8 @@ def patron_panosu_html(v):
     if "toplam_aktif" in v:
         _nabiz.append(("TOPLAM AKTİF", f"${_fmt(v['toplam_aktif'])}", RENK["cyan"]))
     _nabiz_html = "".join(
-        f'<div style="flex:1;min-width:120px;text-align:center;padding:12px 8px;'
-        f'background:rgba(255,255,255,0.02);border:1px solid {c}30;border-radius:12px">'
+        f'<div class="kyr-kart" style="flex:1;min-width:120px;text-align:center;padding:12px 8px;'
+        f'background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {c}2E;border-radius:12px;box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]}">'
         f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
         f'<div style="color:{c};font-size:23px;font-weight:800;'
@@ -633,8 +640,8 @@ def patron_panosu_html(v):
                            f'{"▲" if _dp>=0 else "▼"} %{abs(_dp):.0f} <span style="color:{RENK["silik"]};'
                            f'font-weight:400;font-size:11px">düne göre</span></span>')
         _trend_html = (
-            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-            f'border-radius:14px;padding:12px 16px;margin:4px 0 12px">'
+            f'<div class="kyr-kart" style="background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {RENK["kenar2"]};'
+            f'border-radius:16px;padding:12px 16px;margin:4px 0 12px;box-shadow:{GOLGE["kart"]}">'
             f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
             f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
             f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
