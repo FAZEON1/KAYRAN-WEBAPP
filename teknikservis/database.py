@@ -459,17 +459,22 @@ def servis_formu_pdf(kayit, gecmis=None):
 
 def depo_etiket_pdf(kayit):
     """100mm × 135mm barkodlu depo etiketi (bytes döner).
-    TARİH = kayıttaki depo_tarihi → yoksa ts_gecmis'teki transfer satırı →
-    o da yoksa bugün. Barkod = Seri No (Code128)."""
+    UYARLANABİLİR YERLEŞİM: içerik uzunsa yazı kademeli küçülür, her koşulda
+    tek sayfaya sığar. Barkod = Seri No (Code128), altında okunur seri.
+    TARİH = depo_tarihi → yoksa ts_gecmis transfer satırı → yoksa bugün."""
     from io import BytesIO
     from datetime import date as _date
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas as _canvas
     from reportlab.graphics.barcode import code128
+    from reportlab.pdfbase.pdfmetrics import stringWidth
     from shared.utils import pdf_turkce_font
 
     NORMAL, BOLD = pdf_turkce_font()
     W, H = 100 * mm, 135 * mm
+    SOL, SAG = 6 * mm, W - 6 * mm
+    GEN = SAG - SOL
+    TABAN = 10 * mm          # içerik bu çizginin altına inmez (altta dipnot var)
 
     def _v(k, bos="—"):
         x = kayit.get(k)
@@ -493,16 +498,7 @@ def depo_etiket_pdf(kayit):
     if len(tarih) == 10 and tarih[4] == "-":
         tarih = f"{tarih[8:10]}.{tarih[5:7]}.{tarih[0:4]}"
 
-    buf = BytesIO()
-    c = _canvas.Canvas(buf, pagesize=(W, H))
-    c.setTitle(f"Etiket {_v('seri_no', '')}")
-
-    SOL, SAG = 6 * mm, W - 6 * mm
-    y = H - 8 * mm
-
-    def _wrap(txt, font, boyut, genislik):
-        """Metni verilen genişliğe satırlara böl."""
-        from reportlab.pdfbase.pdfmetrics import stringWidth
+    def _wrap(txt, font, boyut, genislik, max_satir):
         kelimeler = str(txt).split()
         satirlar, cur = [], ""
         for w_ in kelimeler:
@@ -515,70 +511,120 @@ def depo_etiket_pdf(kayit):
                 cur = w_
         if cur:
             satirlar.append(cur)
-        return satirlar or ["—"]
+        if not satirlar:
+            satirlar = ["—"]
+        if len(satirlar) > max_satir:            # taşanı son satırda kısalt
+            satirlar = satirlar[:max_satir]
+            while (stringWidth(satirlar[-1] + "…", font, boyut) > genislik
+                   and len(satirlar[-1]) > 1):
+                satirlar[-1] = satirlar[-1][:-1]
+            satirlar[-1] += "…"
+        return satirlar
 
-    def _alan(etiket, deger, deger_boyut=13, max_satir=3):
-        nonlocal y
-        c.setFont(NORMAL, 8.5)
-        c.setFillGray(0.35)
-        c.drawString(SOL, y, etiket)
-        y -= 5.2 * mm
-        c.setFillGray(0)
-        c.setFont(BOLD, deger_boyut)
-        for ln in _wrap(deger, BOLD, deger_boyut, SAG - SOL)[:max_satir]:
-            c.drawString(SOL, y, ln)
-            y -= (deger_boyut * 0.42 + 1.6) * mm / mm * mm  # satır aralığı
-            y -= 0  # netlik
-        y -= 2.6 * mm
+    # ── İçerik planı: (etiket, değer, taban_boyut, max_satir) ──
+    alanlar = [
+        ("STOK KODU:", _v("stok_kodu"), 15, 2),
+        ("ÜRÜN SON DURUMU:",
+         _v("depo_aciklama") if _v("depo_aciklama") != "—" else _v("mevcut_durum"),
+         11, 3),
+        ("DEPO:", _v("depo").upper(), 13, 1),
+        ("İÇERİK DURUMU:", _v("icerik_durumu"), 11, 3),
+        ("EKSİK İÇERİK:", _v("eksik_icerik"), 11, 3),
+    ]
+    seri = _v("seri_no", "")
 
-    # ── Üst sağ: tarih ──
-    c.setFont(NORMAL, 8.5)
+    ETIKET_B, ETIKET_ARA = 8.0, 4.6 * mm       # alan etiketi boyutu ve altı boşluk
+    BAR_H = 14 * mm
+
+    def _plan_yukseklik(olcek):
+        """Verilen ölçekte toplam içerik yüksekliği (mm türünden pt)."""
+        y = 0.0
+        y += 4.6 * mm + 6.4 * mm               # tarih (etiket + değer)
+        for i, (et, dg, bz, ms) in enumerate(alanlar):
+            b = bz * olcek
+            satir = len(_wrap(dg, BOLD, b, GEN, ms))
+            y += ETIKET_ARA + satir * (b * 1.32) + 2.2 * mm
+            if i == 0:                          # STOK'tan sonra SERİ bloğu gelir
+                y += ETIKET_ARA + BAR_H + 2 * mm
+                if seri != "—":
+                    y += (11 * olcek) * 1.3 + 2.5 * mm
+        return y
+
+    kullanilabilir = (H - 7 * mm) - TABAN
+    olcek = 1.0
+    for aday in (1.0, 0.93, 0.86, 0.79, 0.72, 0.66, 0.60):
+        if _plan_yukseklik(aday) <= kullanilabilir:
+            olcek = aday
+            break
+    else:
+        olcek = 0.60                            # en uç durumda bile kes-sığdır devrede
+
+    # ── Çizim ──
+    buf = BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(W, H))
+    c.setTitle(f"Etiket {seri}")
+    y = H - 7 * mm
+
+    # Üst sağ: tarih
+    c.setFont(NORMAL, ETIKET_B)
     c.setFillGray(0.35)
     c.drawRightString(SAG, y, "TARİH (DEPOYA TRANSFER):")
-    y -= 5 * mm
+    y -= 4.6 * mm
     c.setFont(BOLD, 12)
     c.setFillGray(0)
     c.drawRightString(SAG, y, tarih)
-    y -= 8 * mm
+    y -= 6.4 * mm
 
-    # ── Stok kodu ──
-    _alan("STOK KODU:", _v("stok_kodu"), 15, 2)
+    def _alan_ciz(etiket, deger, taban_boyut, max_satir):
+        nonlocal y
+        b = taban_boyut * olcek
+        c.setFont(NORMAL, ETIKET_B)
+        c.setFillGray(0.35)
+        c.drawString(SOL, y, etiket)
+        y -= ETIKET_ARA
+        c.setFillGray(0)
+        c.setFont(BOLD, b)
+        for ln in _wrap(deger, BOLD, b, GEN, max_satir):
+            c.drawString(SOL, y, ln)
+            y -= b * 1.32
+        y -= 2.2 * mm
 
-    # ── Seri + barkod ──
-    c.setFont(NORMAL, 8.5)
+    # STOK KODU
+    _alan_ciz(*alanlar[0])
+
+    # SERİ + barkod (bar ile okunur seri arasında NET boşluk)
+    c.setFont(NORMAL, ETIKET_B)
     c.setFillGray(0.35)
     c.drawString(SOL, y, "SERİ:")
-    y -= 5.4 * mm
+    y -= ETIKET_ARA
     c.setFillGray(0)
-    seri = _v("seri_no", "")
-    if seri and seri != "—":
+    if seri != "—":
         bar = None
-        for bw in (0.42, 0.34, 0.28, 0.22, 0.18):   # sığana kadar incelt
-            bar = code128.Code128(seri, barHeight=17 * mm, barWidth=bw * mm,
+        for bw in (0.42, 0.34, 0.28, 0.22, 0.18):
+            bar = code128.Code128(seri, barHeight=BAR_H, barWidth=bw * mm,
                                   humanReadable=False)
-            if bar.width <= (SAG - SOL):
+            if bar.width <= GEN:
                 break
-        bar.drawOn(c, SOL + max(0, (SAG - SOL - bar.width) / 2), y - 17 * mm)
-        y -= 19.5 * mm
-        c.setFont(BOLD, 12)
+        y -= BAR_H
+        bar.drawOn(c, SOL + max(0, (GEN - bar.width) / 2), y)
+        y -= (11 * olcek) * 1.3 + 1.2 * mm      # barkod ↔ yazı arası nefes payı
+        c.setFont(BOLD, 11 * olcek)
         c.drawCentredString(W / 2, y, seri)
-        y -= 8 * mm
+        y -= 4.2 * mm
     else:
-        c.setFont(BOLD, 12)
-        c.drawString(SOL, y, "—")
-        y -= 8 * mm
+        c.setFont(BOLD, 12 * olcek)
+        c.drawString(SOL, y - 4 * mm, "—")
+        y -= 9 * mm
 
-    # ── Diğer alanlar ──
-    _alan("ÜRÜN SON DURUMU:", _v("depo_aciklama") if _v("depo_aciklama") != "—"
-          else _v("mevcut_durum"), 11.5, 3)
-    _alan("DEPO:", _v("depo").upper(), 13, 1)
-    _alan("İÇERİK DURUMU:", _v("icerik_durumu"), 11, 3)
-    _alan("EKSİK İÇERİK:", _v("eksik_icerik"), 11, 3)
+    # Kalan alanlar
+    for a in alanlar[1:]:
+        _alan_ciz(*a)
 
-    # ── Alt bilgi ──
-    c.setFont(NORMAL, 7)
+    # Dip not
+    c.setFont(NORMAL, 6.5)
     c.setFillGray(0.5)
-    c.drawString(SOL, 5 * mm, f"Servis No: {_v('servis_form_no', '')}  ·  KAYRAN Teknik Servis")
+    c.drawString(SOL, 4.5 * mm,
+                 f"Servis No: {_v('servis_form_no', '')}  ·  KAYRAN Teknik Servis")
     c.showPage()
     c.save()
     return buf.getvalue()
