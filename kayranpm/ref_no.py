@@ -73,6 +73,180 @@ BUTCE_TURLER = ["BÜTÇE", "KAMPANYA", "REBATE", "STOK KORUMA", "KREDİ KARTI",
 GIRIS_TURLER = {"BÜTÇE"}
 
 
+# ════════════════════════════════════════════════════════════════════
+#  ALINAN DESTEKLER — firmalardan/markalardan bize gelen sellout,
+#  marketing, rebate vb. gelirler. AY (dönem) bazında tutulur ve
+#  kârlılığa GELİR olarak eklenir. ref_butce'den ayrı tutulur ki
+#  havuz bakiye hesapları bozulmasın.
+# ════════════════════════════════════════════════════════════════════
+ALINAN_TURLER = ["SELLOUT", "MARKETING", "REBATE", "PRICE PROTECTION",
+                 "PAZARLAMA", "BEDELSİZ ÜRÜN", "DİĞER"]
+
+_ALINAN_SQL = """create table if not exists alinan_destekler (
+  id bigint generated always as identity primary key,
+  firma text, tur text, donem text,
+  tutar numeric, doviz text default 'USD',
+  fatura_no text, aciklama text,
+  created_at timestamptz default now());"""
+
+
+def _donem_parse(v):
+    """'2026-07', '07.2026', '07/2026', tarih, datetime → 'YYYY-MM' (yoksa None)."""
+    if v is None:
+        return None
+    if isinstance(v, (date, datetime)):
+        return f"{v.year:04d}-{v.month:02d}"
+    s = str(v).strip()
+    m = re.match(r"^(\d{4})[-/.](\d{1,2})", s)
+    if m:
+        return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}"
+    m = re.match(r"^(\d{1,2})[-/.](\d{4})$", s)
+    if m:
+        return f"{int(m.group(2)):04d}-{int(m.group(1)):02d}"
+    m = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", s)  # gg.aa.yyyy
+    if m:
+        return f"{int(m.group(3)):04d}-{int(m.group(2)):02d}"
+    return None
+
+
+def alinan_destek_ekle(firma, tur, donem, tutar, doviz="USD",
+                       fatura_no="", aciklama=""):
+    """Returns (ok, msg). Tablo yoksa msg içinde kurulum SQL ipucu döner."""
+    d = _donem_parse(donem)
+    if not d:
+        return False, "Dönem anlaşılamadı (örn: 2026-07)"
+    if not tutar or _f(tutar) <= 0:
+        return False, "Tutar 0'dan büyük olmalı"
+    try:
+        get_client().table("alinan_destekler").insert({
+            "firma": (firma or "").strip(), "tur": (tur or "DİĞER").strip().upper(),
+            "donem": d, "tutar": _f(tutar),
+            "doviz": (doviz or "USD").strip().upper(),
+            "fatura_no": (fatura_no or "").strip(),
+            "aciklama": (aciklama or "").strip(),
+        }).execute()
+        _cache_temizle()
+        return True, "✅ Alınan destek kaydedildi"
+    except Exception as e:
+        if "alinan_destekler" in str(e):
+            return False, ("`alinan_destekler` tablosu bulunamadı. Supabase → "
+                           "SQL Editor'de şunu bir kez çalıştırın:\n" + _ALINAN_SQL)
+        return False, f"Kaydedilemedi: {e}"
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_alinan_destekler(yil=None):
+    try:
+        q = get_client().table("alinan_destekler").select("*")
+        if yil:
+            q = q.gte("donem", f"{yil}-01").lte("donem", f"{yil}-12")
+        return (q.order("donem", desc=True).order("id", desc=True)
+                .execute().data) or []
+    except Exception:
+        return []
+
+
+def alinan_destek_sil(rid):
+    try:
+        get_client().table("alinan_destekler").delete().eq("id", rid).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def _alinan_kur():
+    """TL→USD çevrimi için güncel kur (bulunamazsa None)."""
+    try:
+        from kayranacc.database import get_kur
+        k = float(get_kur() or 0)
+        return k if k > 0 else None
+    except Exception:
+        return None
+
+
+def alinan_destek_aralik_usd(bas, bit):
+    """[bas, bit] tarih aralığıyla KESİŞEN AYLARIN alınan destek toplamı (USD).
+    Ay-bazlı gelir mantığı: aralık ayın herhangi bir gününü kapsıyorsa o ayın
+    tamamı dahildir. TL kayıtlar güncel kurla çevrilir; kur yoksa atlanır."""
+    b = _donem_parse(bas)
+    e = _donem_parse(bit)
+    if not b or not e:
+        return 0.0
+    kur = None
+    toplam = 0.0
+    for r in get_alinan_destekler():
+        d = r.get("donem") or ""
+        if not (b <= d <= e):
+            continue
+        t = _f(r.get("tutar"))
+        dv = (r.get("doviz") or "USD").upper()
+        if dv in ("TL", "TRY", "₺"):
+            if kur is None:
+                kur = _alinan_kur()
+            if not kur:
+                continue
+            t = t / kur
+        toplam += t
+    return toplam
+
+
+def alinan_destek_ay_usd(yyyy_mm=None):
+    """Tek ayın alınan destek toplamı (USD). Varsayılan: içinde bulunulan ay."""
+    d = _donem_parse(yyyy_mm) if yyyy_mm else f"{date.today().year:04d}-{date.today().month:02d}"
+    return alinan_destek_aralik_usd(d, d)
+
+
+def alinan_destek_excel_ice_aktar(df):
+    """Kolon ADIYLA eşleşen esnek içe aktarım.
+    Beklenen başlıklar (büyük/küçük duyarsız): FİRMA | TÜR | DÖNEM | TUTAR |
+    DÖVİZ | FATURA NO | AÇIKLAMA. Returns (eklenen, atlanan, hatalar[])."""
+    kolmap = {}
+    for c in df.columns:
+        n = normalize_tr(str(c))
+        if "firma" in n or "marka" in n:
+            kolmap["firma"] = c
+        elif n.startswith("tur") or "tür" in str(c).lower():
+            kolmap["tur"] = c
+        elif "donem" in n or "ay" == n:
+            kolmap["donem"] = c
+        elif "tutar" in n:
+            kolmap["tutar"] = c
+        elif "doviz" in n or "birim" in n:
+            kolmap["doviz"] = c
+        elif "fatura" in n:
+            kolmap["fatura_no"] = c
+        elif "aciklama" in n:
+            kolmap["aciklama"] = c
+    eksik = [k for k in ("firma", "donem", "tutar") if k not in kolmap]
+    if eksik:
+        return 0, 0, [f"Zorunlu kolon(lar) yok: {', '.join(eksik).upper()}"]
+    eklenen, atlanan, hatalar = 0, 0, []
+    for i, r in df.iterrows():
+        firma = str(r.get(kolmap["firma"], "") or "").strip()
+        donem = r.get(kolmap["donem"])
+        tutar = _f(r.get(kolmap["tutar"]))
+        if not firma or firma.lower() == "nan" or tutar <= 0 or not _donem_parse(donem):
+            atlanan += 1
+            continue
+        ok, msg = alinan_destek_ekle(
+            firma,
+            str(r.get(kolmap.get("tur"), "") or "DİĞER"),
+            donem, tutar,
+            str(r.get(kolmap.get("doviz"), "") or "USD"),
+            str(r.get(kolmap.get("fatura_no"), "") or "").replace("nan", ""),
+            str(r.get(kolmap.get("aciklama"), "") or "").replace("nan", ""),
+        )
+        if ok:
+            eklenen += 1
+        else:
+            hatalar.append(f"Satır {i + 2}: {msg}")
+            if "tablosu bulunamadı" in msg:
+                break
+    return eklenen, atlanan, hatalar
+
+
+
 def _yil():
     return datetime.now().year
 
@@ -677,7 +851,7 @@ def render():
         return
     firma = fmap[sec_label]
 
-    tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
+    tab1, tab2, tab3 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe", "📥 Alınan Destekler"])
     with tab1:
         _render_refler(firma["id"], firma["firma_kodu"])
     with tab2:
@@ -686,6 +860,10 @@ def render():
         else:
             st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur. "
                     "Şu an başka cariye havuz bütçe verilmiyor.")
+
+
+    with tab3:
+        _render_alinan_destekler()
 
 
 def _render_tumu(firmalar):
@@ -1441,3 +1619,110 @@ def get_destek_donem(baslangic, bitis):
         return rows if rows is not None else []
     except Exception:
         return None
+
+
+def _render_alinan_destekler():
+    """📥 Alınan Destekler: firmalardan/markalardan gelen sellout, marketing,
+    rebate gelirleri. Ay bazında tutulur; Patron Panosu, Satış P&L, Yönetim
+    ve sabah brifingindeki kârlılığa GELİR olarak eklenir."""
+    import io
+
+    st.caption("Firmalardan **bize gelen** destekler (sellout, marketing, rebate…). "
+               "Ay bazında kaydedilir ve kârlılığa gelir olarak eklenir.")
+
+    _yil = st.selectbox("Yıl", [date.today().year, date.today().year - 1,
+                                date.today().year + 1], index=0, key="ad_yil")
+    kayitlar = get_alinan_destekler(_yil)
+
+    # ── Özet metrikler ──
+    _bu_ay = f"{date.today().year:04d}-{date.today().month:02d}"
+    _ay_usd = sum(_f(r["tutar"]) for r in kayitlar
+                  if r.get("donem") == _bu_ay and (r.get("doviz") or "USD") == "USD")
+    _ay_tl = sum(_f(r["tutar"]) for r in kayitlar
+                 if r.get("donem") == _bu_ay and (r.get("doviz") or "").upper() in ("TL", "TRY"))
+    _yil_usd = sum(_f(r["tutar"]) for r in kayitlar if (r.get("doviz") or "USD") == "USD")
+    _yil_tl = sum(_f(r["tutar"]) for r in kayitlar if (r.get("doviz") or "").upper() in ("TL", "TRY"))
+    metrik_satiri([
+        {"label": f"Bu Ay ({_bu_ay})", "value": f"${_f(_ay_usd):,.0f}",
+         "renk": "#34D399", "alt": (f"+ ₺{_ay_tl:,.0f}" if _ay_tl else "")},
+        {"label": f"{_yil} Toplam", "value": f"${_yil_usd:,.0f}",
+         "renk": "#818CF8", "alt": (f"+ ₺{_yil_tl:,.0f}" if _yil_tl else "")},
+        {"label": "Kayıt", "value": f"{len(kayitlar)}", "renk": "#60A5FA",
+         "alt": "seçili yıl"},
+    ])
+
+    # ── Manuel giriş ──
+    with st.expander("➕ Manuel Destek Girişi", expanded=not kayitlar):
+        with st.form("alinan_destek_form", clear_on_submit=True):
+            c1, c2, c3 = st.columns(3)
+            f_firma = c1.text_input("Firma / Marka *", placeholder="Örn: FAZEON, MSI")
+            f_tur = c2.selectbox("Tür", ALINAN_TURLER)
+            f_donem = c3.text_input("Dönem (YYYY-AA) *", value=_bu_ay)
+            c4, c5, c6 = st.columns(3)
+            f_tutar = c4.number_input("Tutar *", min_value=0.0, step=0.01, format="%.2f")
+            f_doviz = c5.selectbox("Döviz", ["USD", "TL", "EUR"])
+            f_fatura = c6.text_input("Fatura No", placeholder="opsiyonel")
+            f_acik = st.text_input("Açıklama", placeholder="Örn: Haziran sellout hakedişi")
+            if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
+                ok, msg = alinan_destek_ekle(f_firma, f_tur, f_donem, f_tutar,
+                                             f_doviz, f_fatura, f_acik)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+
+    # ── Excel toplu yükleme ──
+    with st.expander("📤 Excel ile Toplu Yükleme"):
+        st.markdown("Beklenen başlıklar: **FİRMA | TÜR | DÖNEM | TUTAR | DÖVİZ | "
+                    "FATURA NO | AÇIKLAMA** — sıra önemli değil, ada göre eşleşir. "
+                    "DÖNEM: `2026-07`, `07.2026` veya tarih olabilir.")
+        _sab = pd.DataFrame([{
+            "FİRMA": "FAZEON", "TÜR": "SELLOUT", "DÖNEM": _bu_ay,
+            "TUTAR": 1500.00, "DÖVİZ": "USD",
+            "FATURA NO": "", "AÇIKLAMA": "Örnek satır — silebilirsiniz"}])
+        _buf = io.BytesIO()
+        _sab.to_excel(_buf, index=False)
+        st.download_button("📄 Boş Şablonu İndir", _buf.getvalue(),
+                           file_name="alinan_destek_sablon.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        _up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="ad_excel")
+        if _up is not None:
+            try:
+                _df = pd.read_excel(_up)
+                st.dataframe(_df.head(10), use_container_width=True, hide_index=True)
+                st.caption(f"{len(_df)} satır bulundu — ilk 10 gösteriliyor.")
+                if st.button("📥 İçe Aktar", type="primary", key="ad_import"):
+                    eklenen, atlanan, hatalar = alinan_destek_excel_ice_aktar(_df)
+                    if eklenen:
+                        st.success(f"✅ {eklenen} kayıt eklendi"
+                                   + (f", {atlanan} satır atlandı" if atlanan else ""))
+                    for h in hatalar[:5]:
+                        st.error(h)
+                    if eklenen:
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Dosya okunamadı: {e}")
+
+    # ── Kayıt listesi + silme ──
+    if kayitlar:
+        st.markdown("---")
+        _df = pd.DataFrame([{
+            "Dönem": r.get("donem"), "Firma": r.get("firma"),
+            "Tür": r.get("tur"),
+            "Tutar": f"{'$' if (r.get('doviz') or 'USD') == 'USD' else ('₺' if (r.get('doviz') or '').upper() in ('TL','TRY') else '€')}{_f(r.get('tutar')):,.2f}",
+            "Fatura": r.get("fatura_no") or "—",
+            "Açıklama": (r.get("aciklama") or "")[:40],
+        } for r in kayitlar])
+        st.dataframe(_df, use_container_width=True, hide_index=True)
+
+        _sil_opts = {f"#{r['id']} · {r.get('donem')} · {r.get('firma')} · "
+                     f"{_f(r.get('tutar')):,.2f} {r.get('doviz')}": r["id"]
+                     for r in kayitlar}
+        c1, c2 = st.columns([4, 1])
+        _sec = c1.selectbox("Kayıt sil", ["—"] + list(_sil_opts), key="ad_sil_sec",
+                            label_visibility="collapsed")
+        if c2.button("🗑 Sil", key="ad_sil", use_container_width=True) and _sec != "—":
+            if alinan_destek_sil(_sil_opts[_sec]):
+                st.toast("Silindi")
+                st.rerun()
+    else:
+        st.info("Henüz alınan destek kaydı yok. Yukarıdan manuel ekleyin veya Excel yükleyin.")
