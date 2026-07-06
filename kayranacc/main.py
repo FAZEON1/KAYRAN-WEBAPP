@@ -26,6 +26,7 @@ from .database import (
     get_bankalar, banka_ekle, banka_guncelle, banka_sil,
     get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi,
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
+    tahsilat_ekle, get_tahsilatlar, tahsilat_geri_al,
     aktif_excel_kaydet, aktif_excel_oku, aktif_excel_sil, aktif_excel_meta_oku,
     aktif_manuel_ekle, aktif_manuel_listele, aktif_manuel_sil, get_cek_toplamlari,
     set_ayar, get_ayar,
@@ -2287,6 +2288,58 @@ def run():
 
         else:
             st.info("Henüz banka hesabı eklenmemiş.")
+
+        # ── 💰 Gelen Tahsilat (bankaya para girişi) ──
+        if bankalar:
+            @st.dialog("💰 Tahsilat Ekle — Bankaya Para Girişi", width="large")
+            def _dlg_tahsilat():
+                st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
+                _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b
+                         for b in bankalar}
+                _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
+                _bank = _opts[_sec]
+                _pb = _bank["para_birimi"]
+                _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
+
+                with st.form("tahsilat_form"):
+                    _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.01, format="%.2f")
+                    _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
+                    _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
+                    _tarih = st.date_input("Tarih", value=tr_today())
+                    _onay = st.form_submit_button(f"💰 {_sym} Tahsilatı İşle", type="primary", use_container_width=True)
+                    if _onay:
+                        if _tutar <= 0:
+                            st.error("Tutar 0'dan büyük olmalı.")
+                        else:
+                            ok, msg = tahsilat_ekle(_bank["id"], _tutar, _kaynak, _acik, _tarih)
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+
+                # Son tahsilatlar — geri alma imkânıyla
+                _son = get_tahsilatlar(limit=8)
+                if _son:
+                    st.markdown("---")
+                    st.markdown("**Son tahsilatlar**")
+                    for t in _son:
+                        _ts = "$" if t.get("para_birimi") == "USD" else ("€" if t.get("para_birimi") == "EUR" else "₺")
+                        c1, c2 = st.columns([5, 1])
+                        _knk = f" · {t['kaynak']}" if t.get("kaynak") else ""
+                        c1.markdown(
+                            f"<div style='font-size:12.5px'>{str(t.get('tarih',''))[:10]} — "
+                            f"<b>{_ts}{float(t.get('tutar') or 0):,.2f}</b> → {t.get('hesap_adi','')}"
+                            f"<span style='color:#8B97A8'>{_knk}</span></div>",
+                            unsafe_allow_html=True)
+                        if c2.button("↩", key=f"tahsilat_geri_{t['id']}", help="Geri al"):
+                            ok, msg = tahsilat_geri_al(t["id"])
+                            st.toast(msg)
+                            st.rerun()
+
+            if st.button("💰 Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary"):
+                _dlg_tahsilat()
+
     
         st.markdown("---")
     

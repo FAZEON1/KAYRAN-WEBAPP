@@ -660,6 +660,85 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
     return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
 
 
+def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
+    """Müşteriden/dışarıdan gelen tahsilatı işler:
+    1) Seçilen banka bakiyesine EKLER (para girişi)
+    2) tahsilatlar tablosuna kayıt atar (tablo yoksa işlem yine tamamlanır)
+    Returns: (basarili: bool, mesaj: str)
+    """
+    sb = get_client()
+
+    if not tutar or float(tutar) <= 0:
+        return False, "Tutar 0'dan büyük olmalı"
+    tutar = float(tutar)
+
+    try:
+        res = sb.table("bankalar").select("*").eq("id", banka_id).execute()
+        if not res.data:
+            return False, "Banka bulunamadı"
+        banka = res.data[0]
+    except Exception as e:
+        return False, f"Banka bilgisi alınamadı: {e}"
+
+    pb = banka["para_birimi"]
+
+    # ─── Bakiyeye ekle ───
+    try:
+        yeni_bakiye = float(banka["bakiye"]) + tutar
+        sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+    except Exception as e:
+        return False, f"Bakiye güncellenemedi: {e}"
+
+    # ─── Tahsilat kaydı (varsa) ───
+    try:
+        sb.table("tahsilatlar").insert({
+            "banka_id": banka_id,
+            "hesap_adi": banka["hesap_adi"],
+            "para_birimi": pb,
+            "tutar": tutar,
+            "kaynak": kaynak or "",
+            "aciklama": aciklama or "",
+            "tarih": str(tarih)[:10] if tarih else tr_today_iso(),
+        }).execute()
+    except Exception:
+        # tahsilatlar tablosu yoksa tahsilat yine işlendi, sadece kayıt tutulmadı
+        pass
+
+    _cache_temizle()
+    return True, f"✅ {tutar:,.2f} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi"
+
+
+def get_tahsilatlar(limit=100):
+    """Son tahsilat kayıtları (yeni→eski). Tablo yoksa boş liste döner."""
+    try:
+        r = (get_client().table("tahsilatlar").select("*")
+             .order("tarih", desc=True).order("id", desc=True)
+             .limit(limit).execute())
+        return r.data or []
+    except Exception:
+        return []
+
+
+def tahsilat_geri_al(tahsilat_id):
+    """Bir tahsilatı geri alır: bakiyeden düşer + kaydı siler.
+    Returns: (basarili: bool, mesaj: str)"""
+    sb = get_client()
+    try:
+        r = sb.table("tahsilatlar").select("*").eq("id", tahsilat_id).execute()
+        if not r.data:
+            return False, "Tahsilat kaydı bulunamadı"
+        t = r.data[0]
+        bres = sb.table("bankalar").select("*").eq("id", t["banka_id"]).execute()
+        if bres.data:
+            yeni = float(bres.data[0]["bakiye"]) - float(t["tutar"])
+            sb.table("bankalar").update({"bakiye": yeni}).eq("id", t["banka_id"]).execute()
+        sb.table("tahsilatlar").delete().eq("id", tahsilat_id).execute()
+        _cache_temizle()
+        return True, "✅ Tahsilat geri alındı"
+    except Exception as e:
+        return False, f"Geri alınamadı: {e}"
+
+
 def virman_geri_al(virman_id):
     """
     Virmanı geri alır:
