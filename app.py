@@ -1938,9 +1938,20 @@ def anasayfa():
         try:
             from satis.database import get_satislar, ozet_hesapla
             _top, _, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun_iso))
-            _r = "#34D399" if _top["net_kar"] >= 0 else "#F87171"
-            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${_top['net_kar']:,.0f}",
-                                      f"Ciro ${_top['ciro']:,.0f} · %{_top['marj']:.1f}", _r))
+            # + Alınan destekler (sellout/marketing/rebate — ay bazlı gelir)
+            _ad_usd = 0.0
+            try:
+                from kayranpm.ref_no import alinan_destek_ay_usd
+                _ad_usd = float(alinan_destek_ay_usd() or 0)
+            except Exception:
+                _ad_usd = 0.0
+            _genel_kar = _top["net_kar"] + _ad_usd
+            _r = "#34D399" if _genel_kar >= 0 else "#F87171"
+            _alt = f"Ciro ${_top['ciro']:,.0f} · %{_top['marj']:.1f}"
+            if _ad_usd:
+                _alt += f" · 📥 destek ${_ad_usd:,.0f} dahil"
+            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${_genel_kar:,.0f}",
+                                      _alt, _r))
         except Exception:
             pass
     if yetkiler.get("ithalat"):

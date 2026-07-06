@@ -479,7 +479,15 @@ def run():
     except Exception:
         pass
 
-    net_kar = brut - toplam_destek - gider_usd
+    # ── Alınan destekler (sellout/marketing/rebate) — dönem GELİRİ ──
+    alinan_destek_usd = 0.0
+    try:
+        from kayranpm.ref_no import alinan_destek_aralik_usd
+        alinan_destek_usd = float(alinan_destek_aralik_usd(baslangic, bitis) or 0)
+    except Exception:
+        alinan_destek_usd = 0.0
+
+    net_kar = brut - toplam_destek - gider_usd + alinan_destek_usd
     net_marj = (net_kar / ciro * 100) if ciro else 0.0
     _nrenk = RENK["yesil"] if net_kar >= 0 else RENK["kirmizi"]
 
@@ -510,6 +518,8 @@ def run():
         + _op("=") + _hucre("Brüt Kâr", _usd(brut), f"marj {_pct(brut_marj)}", RENK["cyan"])
         + _op("−") + _hucre("Destekler", _usd(toplam_destek), "havuz + ref no", RENK["pembe"])
         + _op("−") + _hucre("Giderler", _usd(gider_usd), "işletme (TL→USD)", RENK["amber2"])
+        + (_op("+") + _hucre("ALINAN DESTEK", _usd(alinan_destek_usd), "sellout/mkt/rebate", "#34D399")
+           if alinan_destek_usd else "")
         + _op("=") + _hucre("NET KÂR", _usd(net_kar), f"net marj {_pct(net_marj)}", _nrenk, vurgulu=True)
         + '</div>', unsafe_allow_html=True)
     st.markdown(f'<div style="color:#475569;font-size:11px;margin:0 2px 10px">📅 {baslangic} → {bitis}'

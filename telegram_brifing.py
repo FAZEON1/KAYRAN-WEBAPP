@@ -198,6 +198,14 @@ def main():
             "ay": ozet(ay_bas, bugun_d),
         }
         blok = satis_blogu_kur(pnl)
+        # + Bu ayın alınan destekleri (varsa)
+        try:
+            from kayranpm.ref_no import alinan_destek_ay_usd
+            _ad = float(alinan_destek_ay_usd() or 0)
+            if _ad and blok:
+                blok += f"\n🎁 <b>Alınan destek (bu ay):</b> ${fmt(_ad)}"
+        except Exception:
+            pass
         if blok:
             mesaj += "\n" + blok
     except Exception as ex:
