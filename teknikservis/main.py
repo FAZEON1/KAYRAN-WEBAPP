@@ -227,7 +227,9 @@ def _mal_kabul_dialog():
         ["(Seçilmedi)", "Selçuk Aydoğan", "Firma sevkiyat", "Depodan teslimat", "Kargo"],
         key="mk_sevk_y")
 
-    with st.form("mk_form", clear_on_submit=False):
+    # Barkod okuyucular her okutmada Enter gönderir; Enter formu GÖNDERMESİN
+    # (kayıt yalnız "✅ Kayıt Tamamla" butonuyla tamamlanır)
+    with st.form("mk_form", clear_on_submit=False, enter_to_submit=False):
         c1, c2 = st.columns(2)
         stok_adi = c1.text_input("Stok Adı", value=st.session_state.get("mk_stok_adi", ""))
         _gruplar = ts_urun_gruplari()
@@ -562,7 +564,7 @@ def _kontrol_paneli(kayit):
                             st.session_state[f"ts_dgsa_{kid}"] = _a
                             break
                     st.rerun()
-        with st.form(f"ts_durum_{kid}"):
+        with st.form(f"ts_durum_{kid}", enter_to_submit=False):
             # İşlemi yapan gösterilmez; oturumdaki kullanıcı otomatik kaydedilir
             personel = st.session_state.get("aktif_kullanici", "") or ""
             yapilan = st.text_input("Yapılan İşlem / Açıklama",
