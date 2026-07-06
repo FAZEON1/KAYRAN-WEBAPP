@@ -13,6 +13,7 @@ from .database import (
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
     kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
+    depo_etiket_pdf,
 )
 
 
@@ -653,7 +654,8 @@ def _kontrol_paneli(kayit):
             yeni = durum_haritasi.get(depo, kayit.get("mevcut_durum"))
             if durum_guncelle(kid, yeni, st.session_state.get("aktif_kullanici", ""),
                               f"{depo} deposuna transfer" + (f" — {depo_aciklama.strip()}" if depo_aciklama.strip() else ""),
-                              {"depo": depo, "depo_aciklama": depo_aciklama.strip()}):
+                              {"depo": depo, "depo_aciklama": depo_aciklama.strip(),
+                               "depo_tarihi": date.today().isoformat()}):
                 # Transfer sonrası Depolar sekmesine geç (madde 3)
                 st.session_state["ts_sayfa"] = "📦  Depolar"
                 st.session_state["_ts_depo_bilgi"] = f"✅ {depo} deposuna aktarıldı — Depolar sekmesine yönlendirildin."
@@ -761,7 +763,7 @@ def _depolar():
         kid = k["id"]
         satildi = k.get("mevcut_durum") == "satıldı"
         with st.container():
-            c1, c2, c3 = st.columns([3, 1.4, 1.4])
+            c1, c2, c3, c4 = st.columns([3, 1.15, 1.15, 0.95])
             with c1:
                 st.markdown(
                     f'<div style="padding:8px 0"><span style="color:#FDA4AF;font-weight:700">{_g(k,"servis_form_no")}</span> · '
@@ -776,6 +778,20 @@ def _depolar():
                             durum_guncelle(kid, "satışa hazır", st.session_state.get("aktif_kullanici", ""),
                                            "Satışa hazır işaretlendi")
                             st.rerun()
+            with c4:
+                if st.button("🏷 Etiket", key=f"etk_{kid}", use_container_width=True,
+                             help="100×135mm barkodlu depo etiketi"):
+                    st.session_state["_etiket_kid"] = kid
+                if st.session_state.get("_etiket_kid") == kid:
+                    try:
+                        _epdf = depo_etiket_pdf(k)
+                        st.download_button("⬇ PDF", _epdf,
+                                           file_name=f"etiket_{(k.get('seri_no') or kid)}.pdf",
+                                           mime="application/pdf",
+                                           key=f"etkd_{kid}", type="primary",
+                                           use_container_width=True)
+                    except Exception as _ee:
+                        st.error(f"Etiket üretilemedi: {_ee}")
             with c3:
                 if not satildi:
                     with st.popover("💰 Satıldı", use_container_width=True):

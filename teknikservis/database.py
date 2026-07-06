@@ -58,7 +58,8 @@ TS_FIRMALAR = [
 # Tabloda henüz olmayabilecek (sonradan eklenen) opsiyonel kolonlar — insert/update başarısız
 # olursa bunlar düşülüp tekrar denenir (graceful).
 _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
-                  "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo")
+                  "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo",
+                  "depo_tarihi")
 
 
 @st.cache_resource
@@ -453,4 +454,131 @@ def servis_formu_pdf(kayit, gecmis=None):
     el.append(imza)
 
     doc.build(el)
+    return buf.getvalue()
+
+
+def depo_etiket_pdf(kayit):
+    """100mm × 135mm barkodlu depo etiketi (bytes döner).
+    TARİH = kayıttaki depo_tarihi → yoksa ts_gecmis'teki transfer satırı →
+    o da yoksa bugün. Barkod = Seri No (Code128)."""
+    from io import BytesIO
+    from datetime import date as _date
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as _canvas
+    from reportlab.graphics.barcode import code128
+    from shared.utils import pdf_turkce_font
+
+    NORMAL, BOLD = pdf_turkce_font()
+    W, H = 100 * mm, 135 * mm
+
+    def _v(k, bos="—"):
+        x = kayit.get(k)
+        s = str(x).strip() if x not in (None, "") else ""
+        return s or bos
+
+    # ── Transfer tarihi ──
+    tarih = str(kayit.get("depo_tarihi") or "").strip()[:10]
+    if not tarih:
+        try:
+            r = (get_client().table("ts_gecmis").select("tarih, aciklama")
+                 .eq("kayit_id", kayit.get("id"))
+                 .ilike("aciklama", "%deposuna transfer%")
+                 .order("tarih", desc=True).limit(1).execute())
+            if r.data:
+                tarih = str(r.data[0].get("tarih") or "")[:10]
+        except Exception:
+            pass
+    if not tarih:
+        tarih = _date.today().isoformat()
+    if len(tarih) == 10 and tarih[4] == "-":
+        tarih = f"{tarih[8:10]}.{tarih[5:7]}.{tarih[0:4]}"
+
+    buf = BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(W, H))
+    c.setTitle(f"Etiket {_v('seri_no', '')}")
+
+    SOL, SAG = 6 * mm, W - 6 * mm
+    y = H - 8 * mm
+
+    def _wrap(txt, font, boyut, genislik):
+        """Metni verilen genişliğe satırlara böl."""
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        kelimeler = str(txt).split()
+        satirlar, cur = [], ""
+        for w_ in kelimeler:
+            dene = (cur + " " + w_).strip()
+            if stringWidth(dene, font, boyut) <= genislik:
+                cur = dene
+            else:
+                if cur:
+                    satirlar.append(cur)
+                cur = w_
+        if cur:
+            satirlar.append(cur)
+        return satirlar or ["—"]
+
+    def _alan(etiket, deger, deger_boyut=13, max_satir=3):
+        nonlocal y
+        c.setFont(NORMAL, 8.5)
+        c.setFillGray(0.35)
+        c.drawString(SOL, y, etiket)
+        y -= 5.2 * mm
+        c.setFillGray(0)
+        c.setFont(BOLD, deger_boyut)
+        for ln in _wrap(deger, BOLD, deger_boyut, SAG - SOL)[:max_satir]:
+            c.drawString(SOL, y, ln)
+            y -= (deger_boyut * 0.42 + 1.6) * mm / mm * mm  # satır aralığı
+            y -= 0  # netlik
+        y -= 2.6 * mm
+
+    # ── Üst sağ: tarih ──
+    c.setFont(NORMAL, 8.5)
+    c.setFillGray(0.35)
+    c.drawRightString(SAG, y, "TARİH (DEPOYA TRANSFER):")
+    y -= 5 * mm
+    c.setFont(BOLD, 12)
+    c.setFillGray(0)
+    c.drawRightString(SAG, y, tarih)
+    y -= 8 * mm
+
+    # ── Stok kodu ──
+    _alan("STOK KODU:", _v("stok_kodu"), 15, 2)
+
+    # ── Seri + barkod ──
+    c.setFont(NORMAL, 8.5)
+    c.setFillGray(0.35)
+    c.drawString(SOL, y, "SERİ:")
+    y -= 5.4 * mm
+    c.setFillGray(0)
+    seri = _v("seri_no", "")
+    if seri and seri != "—":
+        bar = None
+        for bw in (0.42, 0.34, 0.28, 0.22, 0.18):   # sığana kadar incelt
+            bar = code128.Code128(seri, barHeight=17 * mm, barWidth=bw * mm,
+                                  humanReadable=False)
+            if bar.width <= (SAG - SOL):
+                break
+        bar.drawOn(c, SOL + max(0, (SAG - SOL - bar.width) / 2), y - 17 * mm)
+        y -= 19.5 * mm
+        c.setFont(BOLD, 12)
+        c.drawCentredString(W / 2, y, seri)
+        y -= 8 * mm
+    else:
+        c.setFont(BOLD, 12)
+        c.drawString(SOL, y, "—")
+        y -= 8 * mm
+
+    # ── Diğer alanlar ──
+    _alan("ÜRÜN SON DURUMU:", _v("depo_aciklama") if _v("depo_aciklama") != "—"
+          else _v("mevcut_durum"), 11.5, 3)
+    _alan("DEPO:", _v("depo").upper(), 13, 1)
+    _alan("İÇERİK DURUMU:", _v("icerik_durumu"), 11, 3)
+    _alan("EKSİK İÇERİK:", _v("eksik_icerik"), 11, 3)
+
+    # ── Alt bilgi ──
+    c.setFont(NORMAL, 7)
+    c.setFillGray(0.5)
+    c.drawString(SOL, 5 * mm, f"Servis No: {_v('servis_form_no', '')}  ·  KAYRAN Teknik Servis")
+    c.showPage()
+    c.save()
     return buf.getvalue()
