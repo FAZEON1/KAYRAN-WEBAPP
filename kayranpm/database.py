@@ -657,14 +657,14 @@ def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
 
 
 def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
-                      stok_magaza=0, satis_magaza=0):
+                      stok_magaza=0, satis_magaza=0, rapor_tarihi=None):
     _kayit = {
         "firma": firma, "sku": sku, "urun_adi": urun_adi or "",
         "stok_miktari": int(stok_miktari or 0),
         "haftalik_satis": int(haftalik_satis or 0),
         "stok_magaza": int(stok_magaza or 0),
         "satis_magaza": int(satis_magaza or 0),
-        "yukleme_tarihi": get_today(),
+        "yukleme_tarihi": str(rapor_tarihi)[:10] if rapor_tarihi else get_today(),
     }
 
     def _yaz(kayit):

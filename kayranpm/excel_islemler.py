@@ -811,9 +811,22 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         _n_sku, _t_stok, _t_satis = 0, 0, 0
         for sku, o in agg.items():
             try:
-                upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
-                                  stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"],
-                                  rapor_tarihi=_rapor_tarihi)
+                try:
+                    upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
+                                      stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"],
+                                      rapor_tarihi=_rapor_tarihi)
+                except TypeError as _te:
+                    # Eski database.py (rapor_tarihi parametresini tanımıyor) →
+                    # önce rapor_tarihi'siz dene; kolonlar da yoksa en sade imzayla dene.
+                    if "rapor_tarihi" in str(_te):
+                        try:
+                            upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
+                                              stok_magaza=o["stok_magaza"],
+                                              satis_magaza=o["satis_magaza"])
+                        except TypeError:
+                            upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"])
+                    else:
+                        raise
                 _n_sku += 1
                 _t_stok += o["stok"] + o["stok_magaza"]
                 _t_satis += o["satis"] + o["satis_magaza"]
