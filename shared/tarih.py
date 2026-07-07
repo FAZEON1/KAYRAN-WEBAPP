@@ -19,7 +19,7 @@ def _bugun():
 
 # Sık kullanılan dönemler — tek tıkla
 ONAYARLAR = [
-    "Bugün", "Dün", "Bu hafta", "Bu ay", "Geçen ay",
+    "Bugün", "Dün", "Bu hafta", "Geçen hafta", "Bu ay", "Geçen ay",
     "Son 30 gün", "Son 90 gün", "Bu yıl", "Geçen yıl", "Tümü", "Özel…",
 ]
 
@@ -32,6 +32,11 @@ def _aralik(secim, bugun, min_tarih):
         return d, d
     if secim == "Bu hafta":
         return bugun - _dt.timedelta(days=bugun.weekday()), bugun
+    if secim == "Geçen hafta":
+        _bu_pzt = bugun - _dt.timedelta(days=bugun.weekday())
+        _gecen_pzt = _bu_pzt - _dt.timedelta(days=7)
+        _gecen_paz = _bu_pzt - _dt.timedelta(days=1)
+        return _gecen_pzt, _gecen_paz
     if secim == "Bu ay":
         return bugun.replace(day=1), bugun
     if secim == "Geçen ay":
@@ -50,14 +55,20 @@ def _aralik(secim, bugun, min_tarih):
     return None  # "Özel…" → takvim
 
 
-def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None):
+def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, secenekler=None):
     """Tek satır önayar (tek tık) + sadece 'Özel…' seçilince takvim.
-    Döner: (bas_date, bit_date). Her zaman geçerli bir aralık döndürür."""
+    Döner: (bas_date, bit_date). Her zaman geçerli bir aralık döndürür.
+    secenekler: None ise tüm ONAYARLAR gösterilir; liste verilirse yalnız
+                o önayarlar gösterilir (ör. haftalık rapor ekranında Bugün/Dün
+                gizlenip 'Geçen hafta' öne çıkarılabilir)."""
     bugun = _bugun()
+    _liste = [o for o in (secenekler or ONAYARLAR) if o in ONAYARLAR]
+    if "Özel…" not in _liste:
+        _liste = _liste + ["Özel…"]
     try:
-        idx = ONAYARLAR.index(varsayilan)
+        idx = _liste.index(varsayilan)
     except ValueError:
-        idx = ONAYARLAR.index("Bu ay")
+        idx = 0
 
     if etiket:
         st.caption(etiket)
@@ -71,7 +82,7 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None):
 </style>""".replace("KEY", str(key))
     st.markdown(_css, unsafe_allow_html=True)
     with st.container(key=f"htf_{key}"):
-        secim = st.radio("Dönem", ONAYARLAR, horizontal=True, index=idx,
+        secim = st.radio("Dönem", _liste, horizontal=True, index=idx,
                          key=f"{key}_onayar", label_visibility="collapsed")
 
     hesap = _aralik(secim, bugun, min_tarih)
