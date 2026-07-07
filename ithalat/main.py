@@ -884,6 +884,17 @@ def _gecmis_ithalatlar():
 
         # ── Düzenle: masraf + ürün/adet/FOB (Aşama 2) — aynı pencere içinde açılır ──
         def _dosya_duzen_govde():
+            # ── Bayat state koruması: bu dosya için düzenleme govdesi bu turda
+            #    ilk kez çiziliyorsa, masraf/indirim widget anahtarlarını temizle
+            #    ki number_input değerlerini DB'den (value=) taze alsın. Aksi halde
+            #    önceki oturumdan kalan session_state, silinen değeri geri gösterir.
+            _govde_guard = f"_ith_duzen_hazir_{did}"
+            if not st.session_state.get(_govde_guard):
+                for _sk in [k for k in list(st.session_state.keys())
+                            if k == f"ith_edit_indirim_{did}"
+                            or k.startswith(f"ith_edit_mas_{did}_")]:
+                    st.session_state.pop(_sk, None)
+                st.session_state[_govde_guard] = True
             # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
             _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
             _md = _masraf_dict(d)
@@ -893,10 +904,10 @@ def _gecmis_ithalatlar():
             with _cs:
                 _ik = f"ith_edit_indirim_{did}"
                 _iv0 = float(d.get("fatura_indirim", 0) or 0)
-                st.session_state.setdefault(_ik, (_iv0 if _iv0 > 0 else None))
+                # setdefault ön-yazma YOK (silinen değerin geri gelmesini önler)
                 e_indirim = st.number_input(
                     "Fatura Altı İndirim (tutar)", min_value=0.0,
-                    value=None, step=1.0, format="%.2f",
+                    value=(_iv0 if _iv0 > 0 else None), step=1.0, format="%.2f",
                     key=_ik,
                     help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
                 e_masraf = {}
@@ -907,9 +918,13 @@ def _gecmis_ithalatlar():
                         f'text-align:right;padding-right:8px">{_label}</div>', unsafe_allow_html=True)
                     _mv = float(_md.get(_slug, 0) or 0)
                     _mk = f"ith_edit_mas_{did}_{_slug}"
-                    st.session_state.setdefault(_mk, (_mv if _mv > 0 else None))
+                    # NOT: session_state'e setdefault ile ÖN-YAZMA YAPILMAZ.
+                    # Yapılırsa kullanıcı alanı silse bile eski değer session_state'te
+                    # kalır ve number_input onu geri gösterir (kaydet→hâlâ eski değer bug'ı).
+                    # value doğrudan verilir; kaydetme sonrası anahtar zaten temizleniyor.
                     e_masraf[_slug] = _ic.number_input(
-                        _label, min_value=0.0, value=None,
+                        _label, min_value=0.0,
+                        value=(_mv if _mv > 0 else None),
                         step=1.0, format="%.2f", placeholder="0,00",
                         label_visibility="collapsed", key=_mk)
             with _cr:
@@ -1129,6 +1144,9 @@ def _gecmis_ithalatlar():
         _duzen_key = f"ith_duzen_ac_{did}"
         if st.toggle("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key=_duzen_key):
             _dosya_duzen_govde()
+        else:
+            # Düzenleme kapalı → guard'ı sıfırla ki tekrar açılışta DB'den taze dolsun
+            st.session_state.pop(f"_ith_duzen_hazir_{did}", None)
 
 
     # ─────────────────────────────────────────────────────────────────────
