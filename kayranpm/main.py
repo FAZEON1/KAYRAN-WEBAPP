@@ -1418,21 +1418,6 @@ def run():
         st.markdown("---")
         @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
         def _dlg_musteri_yukle():
-            st.caption("Firma adını tam yazabilirsin (HEPSİBURADA, EERA, D-MARKET…) — sistem otomatik tanır. "
-                       "Önerilen: birleşik tek sayfa. Eski çok-sekmeli dosya da desteklenir.")
-            st.markdown("**📊 Firma Stok + Satış · Birleşik Tek Sayfa**")
-            st.caption("Sütunlar: FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA")
-            _dosya_b = st.file_uploader("Birleşik Excel'i Seç", type=["xlsx", "xls"], key="mhs_birlesik_dosya")
-            if _dosya_b and st.button("⬆️ Firma Stok + Satış Yükle", type="primary", use_container_width=True, key="mhs_birlesik_btn"):
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb:
-                    _tb.write(_dosya_b.read())
-                    _tbp = _tb.name
-                _ok, _msg = excel_yukle_firma_birlesik(_tbp)
-                os.unlink(_tbp)
-                st.cache_data.clear()
-                (st.success if _ok else st.error)(_msg)
-            st.markdown("---")
             st.markdown("**📅 Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
             st.caption("Sekmeler: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` · "
                        "`HEPSİBURADA STOK/SATIŞ` · `MONDAY STOK/SATIŞ`. Her firmanın **kendi portal başlıkları** "
@@ -1440,12 +1425,10 @@ def run():
                        "bağlanıp tek özet oluşturulur. **Kategori dosyada gerekmez** — bizim ürün kartından eşlenir; "
                        "boş bırakılan kategori kolonları hata vermez.")
             _dosya_hss = st.file_uploader("Haftalık STOK+SATIŞ Excel'i Seç", type=["xlsx", "xls"], key="mhs_hss_dosya")
-            st.caption("🔖 içe-aktarıcı sürümü: HSS-v3-tanı")
             _hss_bas = st.button("⬆️ Haftalık STOK+SATIŞ Yükle", type="primary",
                                  use_container_width=True, key="mhs_hss_btn",
                                  disabled=not _dosya_hss)
             if _hss_bas:
-                st.warning("⏳ Butona basıldı — içe aktarma başlıyor…")  # tıklama kanıtı
                 if not _dosya_hss:
                     st.error("Önce dosya seçin.")
                     st.stop()
@@ -1454,7 +1437,8 @@ def run():
                     _tb2.write(_dosya_hss.read())
                     _tbp2 = _tb2.name
                 try:
-                    _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
+                    with st.spinner("⏳ İçe aktarılıyor…"):
+                        _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
                 except Exception as _he:
                     import traceback
                     _ok2 = False
@@ -1465,19 +1449,6 @@ def run():
                         os.unlink(_tbp2)
                     except Exception:
                         pass
-                st.cache_data.clear()
-                (st.success if _ok2 else st.error)(_msg2)
-            st.markdown("---")
-            st.markdown("**📥 Çok-Sekmeli Haftalık Dosya**")
-            st.caption("Her firma ayrı sekmede (ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER) · SKU · Ürün Adı · Stok · Haftalık Satış")
-            _dosya_h = st.file_uploader("Excel Dosyasını Seç", type=["xlsx", "xls"], key="mhs_haftalik_dosya")
-            if _dosya_h and st.button("⬆️ Tüm Veriyi Yükle", type="primary", use_container_width=True, key="mhs_haftalik_btn"):
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _th:
-                    _th.write(_dosya_h.read())
-                    _thp = _th.name
-                _ok2, _msg2 = excel_yukle_firma_stoklari(_thp)
-                os.unlink(_thp)
                 st.cache_data.clear()
                 (st.success if _ok2 else st.error)(_msg2)
         if st.button("📤 Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True):
