@@ -1378,9 +1378,9 @@ def run():
     elif sayfa == "📈  Müşteri Satışları":
         from shared.tarih import hizli_tarih_araligi
         st.markdown('<div class="baslik"><span class="baslik-ikon">📈</span>Müşteri Haftalık Satışları</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Müşteri (firma) bazında haftalık satış geçmişi · müşteri · tarih aralığı · ürün/SKU filtresi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="alt-baslik">Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-        _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Son 90 gün")
+        _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Bu hafta")
         _mc1, _mc2 = st.columns([1, 1.4])
         _firmalar = ["Tümü"] + get_firma_listesi()
         _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma", format_func=firma_gorunen_ad)
@@ -1399,7 +1399,7 @@ def run():
                 "Stok": int(r.get("stok_miktari", 0) or 0),
             } for r in _rows])
             metrik_satiri([
-                {"label": "📈 Toplam Haftalık Satış", "value": f"{int(_df['Haftalık Satış'].sum()):,}", "renk": "#818CF8"},
+                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Haftalık Satış'].sum()):,}", "renk": "#818CF8"},
                 {"label": "🧾 Kayıt", "value": f"{len(_df):,}", "renk": "#22D3EE"},
                 {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
             ])

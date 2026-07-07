@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik
+from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik, get_today
 from shared.utils import normalize_tr
 import math
 
@@ -782,6 +782,15 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                         o["satis_magaza"] += adet
                     else:
                         o["satis"] += adet
+
+        # ── SNAPSHOT DEĞİŞTİR: bu firmanın BUGÜNKÜ kayıtlarını önce temizle.
+        #    Böylece aynı gün ikinci kez (düzeltilmiş) dosya yüklendiğinde
+        #    ilk yüklemeden kalan SKU kalıntıları toplamı şişiremez. ──
+        try:
+            get_client().table("firma_stok").delete() \
+                .eq("firma", kod).eq("yukleme_tarihi", get_today()).execute()
+        except Exception:
+            pass
 
         # ── Özet yaz (kategori bizim ürün kartından gelir; dosyadan beklenmez) ──
         _n_sku, _t_stok, _t_satis = 0, 0, 0

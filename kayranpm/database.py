@@ -617,6 +617,25 @@ def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
         i += adim
         if i > 60000:
             break
+    # ── HAFTA TEKİLLEŞTİRME: aynı ISO-haftada aynı firma+SKU için yalnız
+    #    EN GÜNCEL yükleme sayılır (aynı haftanın dosyası iki farklı gün
+    #    yüklenirse çift sayım olmaz). Liste tarih-azalan geldiği için ilk
+    #    görülen kayıt en güncelidir. ──
+    import datetime as _dtx
+    _gorulen, _tekil = set(), []
+    for r in out:
+        _t = str(r.get("yukleme_tarihi", ""))[:10]
+        try:
+            _iy, _iw, _ = _dtx.date.fromisoformat(_t).isocalendar()
+        except Exception:
+            _iy, _iw = _t, 0
+        _k = (r.get("firma"), r.get("sku"), _iy, _iw)
+        if _k in _gorulen:
+            continue
+        _gorulen.add(_k)
+        _tekil.append(r)
+    out = _tekil
+
     if sku_ara and sku_ara.strip():
         s = sku_ara.strip().lower()
         out = [r for r in out
