@@ -627,7 +627,7 @@ def sas_no_excel_eslesti(dosya_yolu):
     return True, mesaj
 
 
-def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
+def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None, sil=None):
     """Ortak masrafları (tek takip nolu birden çok belge) seçili dosyalara
     FOB (mal bedeli) payına göre ORANSAL dağıtır ve kaydeder.
 
@@ -640,6 +640,10 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
         • Her dosyanın payı = dosya_mal_bedeli / grup_toplam_mal_bedeli (FOB).
         • Toplam FOB 0 ise eşit bölüştürülür.
         • Yalnızca GİRİLEN (≠0) slug'lar dosyaya yazılır; diğer mevcut masraflar korunur.
+        • sil listesindeki slug'lar seçili TÜM belgelerden kaldırılır (silme).
+        • KURUŞ-DOĞRU dağıtım: son belge, toplam − diğerleri farkını alır;
+          böylece belgelere yazılanların toplamı girilen tutara BİREBİR eşittir
+          (yuvarlama kaynaklı +0,01 kaymaları biter).
     Döner: (ok: bool, mesaj: str).
     """
     sb = _get_client()
@@ -647,7 +651,8 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
         if not dosya_ids:
             return False, "Dosya seçilmedi."
         temiz = {k: _f(v) for k, v in (ortak_masraflar or {}).items() if _f(v) != 0}
-        if not temiz and kur is None:
+        sil = [s for s in (sil or []) if s]
+        if not temiz and not sil and kur is None:
             return False, "Dağıtılacak masraf tutarı girilmedi."
         # Her dosyanın mal bedeli (FOB) — tek sorguda
         kalemler = get_tum_kalemler()
@@ -670,17 +675,31 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
             fob_by_dosya[did] = _brut - _ind
         toplam_fob = sum(fob_by_dosya.get(d, 0.0) for d in dosya_ids)
         n = len(dosya_ids)
+        # ── KURUŞ-DOĞRU pay hesabı: her slug için ilk n-1 belge yuvarlanır,
+        #    SON belge kalan farkı alır → toplam birebir korunur ──
+        sirali_ids = [did for did in dosya_ids if did in dosya_map]
+        atama = {did: {} for did in sirali_ids}
+        for slug, toplam in temiz.items():
+            atanan = 0.0
+            for i, did in enumerate(sirali_ids):
+                if i < len(sirali_ids) - 1:
+                    pay = (fob_by_dosya.get(did, 0.0) / toplam_fob) if toplam_fob > 0 else (1.0 / n)
+                    v = round(toplam * pay, 2)
+                    atanan = round(atanan + v, 2)
+                else:
+                    v = round(toplam - atanan, 2)   # kalan fark → son belge
+                atama[did][slug] = max(v, 0.0)
+
         guncellenen = 0
-        for did in dosya_ids:
+        for did in sirali_ids:
             d = dosya_map.get(did)
-            if not d:
-                continue
             _payload = {}
-            if temiz:
-                pay = (fob_by_dosya.get(did, 0.0) / toplam_fob) if toplam_fob > 0 else (1.0 / n)
+            if temiz or sil:
                 mevcut = _masraf_dict(d)  # {slug: tutar} — mevcut masraflar korunur
-                for slug, toplam in temiz.items():
-                    mevcut[slug] = round(toplam * pay, 2)
+                for s in sil:              # açıkça boşaltılan kalemler SİLİNİR
+                    mevcut.pop(s, None)
+                for slug, v in atama.get(did, {}).items():
+                    mevcut[slug] = v
                 mevcut = {k: v for k, v in mevcut.items() if _f(v) != 0}
                 _payload["masraflar"] = mevcut
             if kur is not None:
@@ -690,8 +709,10 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None):
                 guncellenen += 1
         _temizle()
         _kur_not = f" · kur {_f(kur):.5f} kaydedildi" if kur is not None else ""
-        if temiz:
-            return True, f"✅ Ortak masraf {guncellenen} belgeye FOB payına göre dağıtıldı{_kur_not}."
+        _sil_not = f" · {len(sil)} kalem silindi" if sil else ""
+        if temiz or sil:
+            return True, (f"✅ {guncellenen} belge güncellendi — masraflar FOB payına göre "
+                          f"KURUŞ-DOĞRU dağıtıldı{_sil_not}{_kur_not}.")
         return True, f"✅ {guncellenen} belgenin kuru güncellendi{_kur_not}."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"

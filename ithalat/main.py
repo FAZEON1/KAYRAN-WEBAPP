@@ -771,14 +771,20 @@ def _gecmis_ithalatlar():
                 '</div>', unsafe_allow_html=True)
             if len(_kurlar_sec) > 1:
                 st.caption("⚠️ Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
-        st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre yazar ve **kuru** belgelere kaydeder. "
-                   "Sadece bakmak istiyorsan kaydetme. **Tek bir belgenin masrafını birebir düzenlemek** için "
-                   "o belgeyi **tek başına seç** — düzenleme formunda o belgenin kendi değerleri çıkar.")
+        st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre **kuruş-doğru** yazar ve **kuru** kaydeder. "
+                   "Dolu bir kalemi **boşaltıp Kaydet** → o masraf seçili belgelerin **hepsinden silinir**. "
+                   "**Tek bir belgenin masrafını birebir düzenlemek** için o belgeyi **tek başına seç**.")
         if st.button("💾 Kaydet (masraf FOB payına göre + kur)", type="primary",
                      use_container_width=True, key="ith_ortak_dagit_tablo"):
             _ids = [_sd["id"] for _sd in _sec_dosyalar]
+            # SİLME SİNYALİ: daha önce değeri olan bir kalem boşaltıldıysa
+            # (kutu None/0), o kalem seçili TÜM belgelerden silinir.
+            _silinen = [_slug for _slug, _ in MASRAF_TANIM
+                        if not _ortak.get(_slug)
+                        and float(_sec_mevcut_kalem.get(_slug, 0) or 0) > 0]
             with st.spinner("💾 Kaydediliyor..."):
-                _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen, kur=_ortak_kur)
+                _ok_d, _msg_d = dagit_ortak_masraf(_ids, _girilen, kur=_ortak_kur,
+                                                   sil=_silinen)
             if _ok_d:
                 # Kutuları DB'den tazele (kaydedilen yeni değerler dolu gelsin)
                 for _slug, _ in MASRAF_TANIM:
