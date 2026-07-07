@@ -1446,8 +1446,18 @@ def run():
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb2:
                     _tb2.write(_dosya_hss.read())
                     _tbp2 = _tb2.name
-                _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
-                os.unlink(_tbp2)
+                try:
+                    _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
+                except Exception as _he:
+                    import traceback
+                    _ok2 = False
+                    _msg2 = f"❌ Beklenmedik hata: {type(_he).__name__}: {str(_he)[:200]}"
+                    st.code(traceback.format_exc()[-1500:])
+                finally:
+                    try:
+                        os.unlink(_tbp2)
+                    except Exception:
+                        pass
                 st.cache_data.clear()
                 (st.success if _ok2 else st.error)(_msg2)
             st.markdown("---")

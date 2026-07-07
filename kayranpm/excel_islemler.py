@@ -731,6 +731,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
 
     firma_ozet, atlanan_sayfa = {}, []
     basarili = 0
+    yazma_hatasi = {"ilk": "", "sayi": 0}
     for kod, g in gruplar.items():
         agg = {}  # sku → {ad, stok, stok_magaza, satis, satis_magaza}
 
@@ -792,13 +793,20 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                 _t_stok += o["stok"] + o["stok_magaza"]
                 _t_satis += o["satis"] + o["satis_magaza"]
                 basarili += 1
-            except Exception:
-                pass
+            except Exception as _ye:
+                # İlk gerçek yazma hatasını sakla (sessiz yutma yok) → mesajda göster
+                if not yazma_hatasi["ilk"]:
+                    yazma_hatasi["ilk"] = f"{kod}/{sku}: {type(_ye).__name__}: {str(_ye)[:180]}"
+                yazma_hatasi["sayi"] += 1
         if _n_sku:
             firma_ozet[kod] = (_n_sku, _t_stok, _t_satis)
 
     if not basarili:
-        return False, ("❌ Hiç kayıt yazılamadı. Sekmelerde veri var mı ve SKU/adet kolonları dolu mu kontrol et."
+        _detay = ""
+        if yazma_hatasi["ilk"]:
+            _detay = f" İlk hata → {yazma_hatasi['ilk']}"
+        return False, ("❌ Hiç kayıt yazılamadı. Sekmeler tanındı ama veritabanına yazılamadı."
+                       + _detay
                        + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
     ozet = " · ".join(f"{k}: {n} SKU (stok {s:,} / satış {v:,})"
                       for k, (n, s, v) in firma_ozet.items())
