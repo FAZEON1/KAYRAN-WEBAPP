@@ -1398,19 +1398,17 @@ def run():
                 "Müşteri": firma_gorunen_ad(r.get("firma", "")),
                 "SKU": r.get("sku", ""),
                 "Ürün": (r.get("urun_adi", "") or "")[:45],
-                "Satış (Toplam)": int(r.get("haftalik_satis", 0) or 0) + int(r.get("satis_magaza", 0) or 0),
-                "Online": int(r.get("haftalik_satis", 0) or 0),
-                "Mağaza": int(r.get("satis_magaza", 0) or 0),
+                "Satış": int(r.get("haftalik_satis", 0) or 0) + int(r.get("satis_magaza", 0) or 0),
                 "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
             } for r in _rows])
             metrik_satiri([
-                {"label": "📈 Toplam Satış (online + mağaza)", "value": f"{int(_df['Satış (Toplam)'].sum()):,}", "renk": "#818CF8"},
-                {"label": "🌐 Online / 🏬 Mağaza", "value": f"{int(_df['Online'].sum()):,} / {int(_df['Mağaza'].sum()):,}", "renk": "#22D3EE"},
+                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
+                {"label": "🧾 Kayıt", "value": f"{len(_df):,}", "renk": "#22D3EE"},
                 {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
             ])
             @st.dialog("📊 Müşteri bazında toplam satış", width="large")
             def _dlg_musteri_toplam():
-                _grp = (_df.groupby("Müşteri")["Satış (Toplam)"].sum()
+                _grp = (_df.groupby("Müşteri")["Satış"].sum()
                         .sort_values(ascending=False).reset_index())
                 st.dataframe(_grp, hide_index=True, use_container_width=True, height=tablo_h(len(_grp)))
             if st.button("📊 Müşteri bazında toplam satış", key="btn_mus_top", use_container_width=True):

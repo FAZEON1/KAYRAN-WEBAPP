@@ -713,6 +713,26 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         return False, ("❌ Firma sekmesi bulunamadı. Sekme adları 'VATAN STOK', 'VATAN SATIŞ' "
                        "gibi FİRMA + STOK/SATIŞ içermeli.")
 
+    # ── RAPOR TARİHİ: kayıtlar "yükleme günü" değil, Excel'deki SATIŞ HAFTASI
+    #    ile etiketlenir. Böylece bugün yüklesen bile "Geçen hafta" filtresi
+    #    doğru haftayı bulur (kullanıcı: "Excel'de tarih yazıyor, ondan görmeliyiz").
+    #    Tarih kolonu olan sekmelerin EN GEÇ tarihini al; hiçbirinde yoksa bugün. ──
+    _TARIH_ADAY = ("TARIH", "TARİH", "SIPARIŞ TARIHI", "SİPARİŞ TARİHİ",
+                   "OLUŞTURMA", "OLUSTURMA", "DATE", "FATURA TARIHI", "FATURA TARİHİ")
+    _rapor_tarihleri = []
+    for _kod, _g in gruplar.items():
+        _vd = _g.get("satis")
+        if _vd is not None and len(_vd):
+            _ct = _hss_kolon(_vd, *_TARIH_ADAY)
+            if _ct:
+                try:
+                    _tt = pd.to_datetime(_vd[_ct], errors="coerce").dropna()
+                    if len(_tt):
+                        _rapor_tarihleri.append(_tt.max().date())
+                except Exception:
+                    pass
+    _rapor_tarihi = max(_rapor_tarihleri).isoformat() if _rapor_tarihleri else get_today()
+
     _SKU_ADAY = ("STOKKODU", "STOK KODU", "SKU", "MALZEME", "ÜRÜN KODU", "URUN KODU", "KOD")
     _AD_ADAY = ("STOKADI", "STOK ADI", "SKU ADI", "ÜRÜN ADI", "URUN ADI", "TANIM", "AD")
     _STOK_ADAY = ("ADET", "STOK", "DEPO MIKTAR", "MİKTAR", "MIKTAR")
@@ -741,7 +761,6 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
             c_sku = _hss_kolon(sdf, *_SKU_ADAY)
             c_ad = _hss_kolon(sdf, *_AD_ADAY)
             c_adet = _hss_kolon(sdf, *_STOK_ADAY)
-            c_depo = _hss_kolon(sdf, "DEPO")
             if c_sku is None or c_adet is None:
                 atlanan_sayfa.append(f"{kod} STOK (SKU/adet kolonu yok)")
             else:
@@ -754,10 +773,9 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                                              "satis": 0, "satis_magaza": 0})
                     if c_ad is not None and not o["ad"]:
                         o["ad"] = safe_str(r.get(c_ad, ""))
-                    if c_depo is not None and _mgz_mi(r.get(c_depo, "")):
-                        o["stok_magaza"] += adet
-                    else:
-                        o["stok"] += adet
+                    # Mağaza/online ayrımı YAPILMAZ — tüm stok tek değere toplanır
+                    # (bu kırılım yalnız bazı firmalarda var; ayırmak tutarsızlık yaratıyor).
+                    o["stok"] += adet
 
         # ── SATIŞ sekmesi → SKU ile stokun yanına bağlanır ──
         vdf = g.get("satis")
@@ -765,7 +783,6 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
             c_sku = _hss_kolon(vdf, *_SKU_ADAY)
             c_ad = _hss_kolon(vdf, *_AD_ADAY)
             c_adet = _hss_kolon(vdf, *_SATIS_ADAY)
-            c_kanal = _hss_kolon(vdf, *_KANAL_ADAY)
             if c_sku is None or c_adet is None:
                 atlanan_sayfa.append(f"{kod} SATIŞ (SKU/adet kolonu yok)")
             else:
@@ -778,17 +795,15 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                                              "satis": 0, "satis_magaza": 0})
                     if c_ad is not None and not o["ad"]:
                         o["ad"] = safe_str(r.get(c_ad, ""))
-                    if c_kanal is not None and not _online_mi(r.get(c_kanal, "")):
-                        o["satis_magaza"] += adet
-                    else:
-                        o["satis"] += adet
+                    # Online/mağaza ayrımı YAPILMAZ — tüm satış tek "satis" değerine
+                    # toplanır (DEPO/kanal kırılımı yalnız bazı firmalarda mevcut).
+                    o["satis"] += adet
 
-        # ── SNAPSHOT DEĞİŞTİR: bu firmanın BUGÜNKÜ kayıtlarını önce temizle.
-        #    Böylece aynı gün ikinci kez (düzeltilmiş) dosya yüklendiğinde
-        #    ilk yüklemeden kalan SKU kalıntıları toplamı şişiremez. ──
+        # ── SNAPSHOT DEĞİŞTİR: bu firmanın bu RAPOR HAFTASINA ait kayıtlarını
+        #    önce temizle (aynı haftanın dosyası tekrar yüklenirse şişmesin). ──
         try:
             get_client().table("firma_stok").delete() \
-                .eq("firma", kod).eq("yukleme_tarihi", get_today()).execute()
+                .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute()
         except Exception:
             pass
 
@@ -797,7 +812,8 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         for sku, o in agg.items():
             try:
                 upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
-                                  stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"])
+                                  stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"],
+                                  rapor_tarihi=_rapor_tarihi)
                 _n_sku += 1
                 _t_stok += o["stok"] + o["stok_magaza"]
                 _t_satis += o["satis"] + o["satis_magaza"]
@@ -819,7 +835,8 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                        + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
     ozet = " · ".join(f"{k}: {n} SKU (stok {s:,} / satış {v:,})"
                       for k, (n, s, v) in firma_ozet.items())
-    msg = f"✅ Haftalık stok+satış yüklendi → {ozet}."
+    _dd = "/".join(str(_rapor_tarihi)[:10].split("-")[::-1])  # gg/aa/yyyy
+    msg = f"✅ Haftalık stok+satış yüklendi (rapor haftası: {_dd}) → {ozet}."
     if atlanan_sayfa:
         msg += f" ⚠️ Atlanan sekme: {', '.join(atlanan_sayfa)}."
     msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)."
