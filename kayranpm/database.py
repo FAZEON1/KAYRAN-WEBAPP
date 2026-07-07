@@ -653,15 +653,36 @@ def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
         "satis_magaza": int(satis_magaza or 0),
         "yukleme_tarihi": get_today(),
     }
+
+    def _yaz(kayit):
+        """Önce upsert (unique constraint varsa). Constraint YOKSA
+        (PostgREST 'no unique or exclusion constraint' hatası) →
+        elle delete + insert ile aynı sonucu üret. Böylece tabloda
+        firma+sku+yukleme_tarihi unique kısıtı olmasa bile yazma çalışır."""
+        cl = get_client()
+        try:
+            cl.table("firma_stok").upsert(
+                kayit, on_conflict="firma,sku,yukleme_tarihi").execute()
+            return
+        except Exception as e:
+            _msg = str(e).lower()
+            _constraint_yok = ("no unique" in _msg or "exclusion constraint" in _msg
+                               or "on conflict" in _msg or "42p10" in _msg)
+            if not _constraint_yok:
+                raise  # başka bir hata (kolon vs) → üst katman ele alsın
+        # Constraint yok → aynı anahtarı sil, sonra ekle (upsert taklidi)
+        cl.table("firma_stok").delete() \
+            .eq("firma", kayit["firma"]).eq("sku", kayit["sku"]) \
+            .eq("yukleme_tarihi", kayit["yukleme_tarihi"]).execute()
+        cl.table("firma_stok").insert(kayit).execute()
+
     try:
-        get_client().table("firma_stok").upsert(
-            _kayit, on_conflict="firma,sku,yukleme_tarihi").execute()
+        _yaz(_kayit)
     except Exception:
         # stok_magaza / satis_magaza kolonları tabloda yoksa onlarsız tekrar dene
         for _k in ("stok_magaza", "satis_magaza"):
             _kayit.pop(_k, None)
-        get_client().table("firma_stok").upsert(
-            _kayit, on_conflict="firma,sku,yukleme_tarihi").execute()
+        _yaz(_kayit)
     _cache_temizle()
 
 # ── YOLDAKI ─────────────────────────────────────────────────────────
