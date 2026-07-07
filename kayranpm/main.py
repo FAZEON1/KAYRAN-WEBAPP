@@ -1380,7 +1380,10 @@ def run():
         st.markdown('<div class="baslik"><span class="baslik-ikon">📈</span>Müşteri Haftalık Satışları</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır</div>', unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-        _bas, _bit = hizli_tarih_araligi("mhs", varsayilan="Bu hafta")
+        _bas, _bit = hizli_tarih_araligi(
+            "mhs", varsayilan="Geçen hafta",
+            secenekler=["Geçen hafta", "Bu ay", "Geçen ay", "Son 30 gün",
+                        "Son 90 gün", "Bu yıl", "Geçen yıl", "Tümü", "Özel…"])
         _mc1, _mc2 = st.columns([1, 1.4])
         _firmalar = ["Tümü"] + get_firma_listesi()
         _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma", format_func=firma_gorunen_ad)
