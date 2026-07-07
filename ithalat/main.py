@@ -14,7 +14,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, parse_maliyet_coklu_sayfa, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
@@ -817,6 +817,36 @@ def _gecmis_ithalatlar():
         _dr_renk = "#4ADE80" if h["toplam_masraf"] > 0 else "#FB923C"
         st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:8px 12px;margin:0px 0 12px;color:{_dr_renk};font-size:13px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
 
+        # ── ÇOKLU ÜRÜN GRUBU: grup-bazlı maliyet kartları ──
+        if dosya_coklu_mu(d, kal):
+            _ck = dosya_hesapla_coklu(d, kal)
+            _cur = str(d.get("doviz", "USD") or "USD")
+            st.markdown(
+                '<div style="color:#A78BFA;font-size:12px;font-weight:800;text-transform:uppercase;'
+                'letter-spacing:0.8px;margin:6px 0 8px">🧩 Çoklu Ürün Grubu — Grup Bazlı Maliyet</div>',
+                unsafe_allow_html=True)
+            _gk = list(_ck["gruplar"].items())
+            _cols = st.columns(min(len(_gk), 3)) if _gk else []
+            for _i, (_gad, _gd) in enumerate(_gk):
+                with _cols[_i % len(_cols)]:
+                    st.markdown(
+                        f'<div style="background:linear-gradient(135deg,rgba(139,92,246,0.10),rgba(30,41,59,0.4));'
+                        f'border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:12px 14px;margin-bottom:8px">'
+                        f'<div style="font-size:14px;font-weight:800;color:#E9D5FF;margin-bottom:6px">{_gad}</div>'
+                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Mal Bedeli (FOB)</div>'
+                        f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:5px">{_tam(_gd["fob"])} {_cur}</div>'
+                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Ortak Pay · Özel</div>'
+                        f'<div style="font-size:12px;font-weight:600;color:#CBD5E1;font-family:monospace;margin-bottom:5px">{_tam(_gd["ortak_pay"])} · {_tam(_gd["ozel_masraf"])}</div>'
+                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Toplam Masraf</div>'
+                        f'<div style="font-size:14px;font-weight:700;color:#FB923C;font-family:monospace;margin-bottom:5px">{_tam(_gd["toplam_masraf"])} {_cur}</div>'
+                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Maliyet Yüzdesi</div>'
+                        f'<div style="font-size:18px;font-weight:800;color:#FCD34D;font-family:monospace">%{_gd["yuzde"]:.2f}</div>'
+                        f'<div style="font-size:10px;color:#64748B;margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
+                        f'</div>', unsafe_allow_html=True)
+            st.caption("ℹ️ Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
+                       "elle atandıkları gruba yazıldı. Atamaları **✏️ Düzenle** bölümünden değiştirebilirsin.")
+
+
         # ── Yanlış / boş açılan ithalatı sil (onaylı) ──
         _sok = f"ith_sil_onay_{did}"
         _scc1, _scc2 = st.columns([3, 1])
@@ -983,6 +1013,35 @@ def _gecmis_ithalatlar():
                             st.error(_msg2)
             st.markdown("---")
             with st.form(f"ith_edit_{did}"):
+                # ── ÇOKLU ÜRÜN GRUBU: masraf atama paneli (ortak/özel) ──
+                # Kalemlerde tanımlı gruplara göre her masraf kalemini ortak mı
+                # yoksa hangi gruba özel mi işaretle. Ortak → FOB payına dağıtılır.
+                _mevcut_gruplar = sorted({(k.get("urun_grubu", "") or "").strip()
+                                          for k in kal if (k.get("urun_grubu", "") or "").strip()})
+                e_grup_atama = None
+                if len(_mevcut_gruplar) >= 2:
+                    _alt_baslik("🧩 Çoklu Grup — Masraf Atama (ortak / gruba özel)")
+                    st.caption("Her masraf **ortak** (gruplara FOB payına göre bölünür) ya da **belirli bir gruba özel** "
+                               "(vergi/TSE gibi) olabilir. Ürün grubu kalem tablosundan gelir.")
+                    _atama_mevcut = d.get("grup_masraf_atama") if isinstance(d.get("grup_masraf_atama"), dict) else {}
+                    _secenekler = [ORTAK_GRUP] + _mevcut_gruplar
+                    _md_var = _masraf_dict(d)
+                    e_grup_atama = {}
+                    _ga_cols = st.columns(2)
+                    _dolu_masraflar = [(s, l) for s, l in MASRAF_TANIM if float(_md_var.get(s, 0) or 0) > 0]
+                    for _gi, (_slug, _label) in enumerate(_dolu_masraflar):
+                        with _ga_cols[_gi % 2]:
+                            _vars_secim = _atama_mevcut.get(_slug, ORTAK_GRUP)
+                            if _vars_secim not in _secenekler:
+                                _vars_secim = ORTAK_GRUP
+                            _sec = st.selectbox(
+                                f"{_label}  ({_tam(_md_var.get(_slug, 0))})",
+                                _secenekler,
+                                index=_secenekler.index(_vars_secim),
+                                format_func=lambda x: "🌐 Ortak (FOB payına böl)" if x == ORTAK_GRUP else f"🎯 {x}",
+                                key=f"ith_grup_atama_{did}_{_slug}")
+                            e_grup_atama[_slug] = _sec
+                    st.markdown("---")
                 _alt_baslik("📄 Dosya Bilgileri")
                 ec1, ec2, ec3 = st.columns(3)
                 e_pi = ec1.text_input("PI No", value=str(d.get("pi_no", "") or ""))
@@ -1047,18 +1106,26 @@ def _gecmis_ithalatlar():
                 e_teslim_deposu = "" if str(_e_td_sec).startswith("(") else _e_td_sec
 
                 _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
+                st.caption("💡 **Çoklu ürün grubu** için: farklı ürünlere farklı **Ürün Grubu** yaz "
+                           "(örn. SSD / RAM). 2+ grup olunca sistem grup-bazlı maliyet dağıtımına geçer. "
+                           "Tek grup (ya da boş) bırakırsan normal tek-maliyet sistemi çalışır.")
                 _kdf = pd.DataFrame([
-                    {"SKU": k.get("sku", ""), "Adet": float(k.get("adet", 0) or 0),
+                    {"SKU": k.get("sku", ""), "Ürün Grubu": (k.get("urun_grubu", "") or ""),
+                     "Adet": float(k.get("adet", 0) or 0),
                      "Birim FOB": float(k.get("birim_fob", 0) or 0), "Sil": False}
                     for k in kal
                 ])
                 if _kdf.empty:
-                    _kdf = pd.DataFrame([{"SKU": "", "Adet": 0.0, "Birim FOB": 0.0, "Sil": False}])
+                    _kdf = pd.DataFrame([{"SKU": "", "Ürün Grubu": "", "Adet": 0.0, "Birim FOB": 0.0, "Sil": False}])
                 _sku_secenek = sorted(set(katalog.keys()) | {str(k.get("sku", "")) for k in kal if k.get("sku")})
+                _grup_mevcut = sorted({(k.get("urun_grubu", "") or "").strip() for k in kal if (k.get("urun_grubu", "") or "").strip()})
                 e_kdf = st.data_editor(
                     _kdf, num_rows="dynamic", use_container_width=True, key=f"ith_edit_kal_{did}",
                     column_config={
                         "SKU": st.column_config.SelectboxColumn("SKU", options=_sku_secenek, required=False),
+                        "Ürün Grubu": st.column_config.TextColumn(
+                            "Ürün Grubu", help="Çoklu grup için doldur (örn. SSD, RAM). Tek grupsa boş bırak.",
+                            default=""),
                         "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
                         "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
                         "Sil": st.column_config.CheckboxColumn(
@@ -1107,14 +1174,17 @@ def _gecmis_ithalatlar():
                             continue
                         _yeni_kal.append({"sku": _sku,
                                           "urun_adi": (katalog.get(_sku, "") or _kal_ad.get(_sku, "")),
+                                          "urun_grubu": str(_r.get("Ürün Grubu", "") or "").strip(),
                                           "adet": float(_r.get("Adet", 0) or 0), "birim_fob": float(_r.get("Birim FOB", 0) or 0)})
                     for _m in _manuel_yeni:  # yeni stok kartlı satırlar
                         _yeni_kal.append({"sku": _m["sku"], "urun_adi": _m["urun_adi"],
+                                          "urun_grubu": _m.get("urun_grubu", ""),
                                           "adet": _m["adet"], "birim_fob": _m["birim_fob"]})
                     with st.spinner("💾 Kaydediliyor..."):
                         ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
                                                  e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
                                                  ithalat_takip_no=e_takip.strip(),
+                                                 grup_masraf_atama=e_grup_atama,
                                                  durum=e_durum,
                                                  tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
                                                  fatura_indirim=e_indirim,
@@ -1369,6 +1439,98 @@ def _yeni_ithalat():
 
     # ── Excel ──
     with sekme2:
+        # ═══════════════════════════════════════════════════════════════
+        # AYRI PENCERE: Çoklu Ürün Grubu — MALİYET formatı (istisna dosyalar)
+        # 2025-14 / 2026-12 gibi çok-gruplu sayfaları okur. Ortak masraf
+        # FOB payına göre dağıtılır (grup atamasını sonra Düzenle'den yaparsın).
+        # ═══════════════════════════════════════════════════════════════
+        with st.expander("🧩 Çoklu Ürün Grubu Yükle — MALİYET formatı (istisna dosyalar)", expanded=False):
+            st.caption("Bu pencere **yalnızca çoklu ürün gruplu** MALİYET dosyaların içindir "
+                       "(2025-14 MITAC, 2026-12 AGI gibi). Normal tek-grup dosyaları **alttaki** "
+                       "standart yükleyiciden gir. Bu pencere dosyanın masraflarını ve grup adlarını "
+                       "okur; **SKU/adet/FOB kalemlerini ve masraf atamalarını (ortak/özel) sonra "
+                       "Düzenle'den** eklersin. Ortak masraflar **FOB payına göre** dağıtılır.")
+            _cg_up = st.file_uploader("MALİYET Excel'ini seç (çoklu-grup sayfası)",
+                                      type=["xlsx", "xls"], key="ith_coklu_up")
+            if _cg_up is not None:
+                try:
+                    import openpyxl as _oxl
+                    _wb = _oxl.load_workbook(_cg_up, data_only=True)
+                    _sayfalar = _wb.sheetnames
+                    _sec_sayfa = st.selectbox("Hangi sayfa? (çoklu-grup olan)", _sayfalar,
+                                              key="ith_coklu_sayfa")
+                    _p = parse_maliyet_coklu_sayfa(_wb[_sec_sayfa])
+
+                    st.markdown(f"**Okunan:** `{_p['tedarikci']}` · {_p['tasima']} · "
+                                f"Mal Bedeli: {_tam(_p['mal_bedeli'])} · Kur: {_p['kur']:.4f}")
+                    if _p["gruplar"]:
+                        st.markdown("**Bulunan ürün grupları:** " +
+                                    " · ".join(f"`{g}`" for g in _p["gruplar"]))
+                    else:
+                        st.warning("⚠️ Bu sayfada ürün grubu bulunamadı. Doğru sayfayı seçtiğinden emin ol.")
+                    if _p["masraflar_usd"]:
+                        st.markdown("**Okunan masraflar (USD'ye çevrildi):**")
+                        _mdf = pd.DataFrame([{"Masraf": MASRAF_ETIKET.get(s, s),
+                                              "Tutar (USD)": v}
+                                             for s, v in _p["masraflar_usd"].items()])
+                        _tablo(_mdf, para=["Tutar (USD)"], sol=["Masraf"])
+                    if _p["uyari"]:
+                        for _u in _p["uyari"]:
+                            st.caption("⚠️ " + _u)
+
+                    st.markdown("---")
+                    _cg_dno = st.text_input("Dosya/Belge No *", key="ith_coklu_dno",
+                                            placeholder="örn. 2026-12")
+                    _cg_takip = st.text_input("İthalat Takip No", key="ith_coklu_takip",
+                                              placeholder="opsiyonel")
+                    _cg_doviz = st.selectbox("Döviz", ["USD", "EUR", "TL"], key="ith_coklu_doviz")
+
+                    st.caption("💡 Kaydedince dosya **çoklu-grup** olarak oluşur (grup adları kalem "
+                               "olarak eklenir; sonra Düzenle'den her gruba SKU/adet/FOB girip "
+                               "masrafları ortak/özel atarsın).")
+                    if st.button("💾 Çoklu-Grup Dosyası Oluştur", type="primary",
+                                 use_container_width=True, key="ith_coklu_kaydet",
+                                 disabled=not (_cg_dno.strip() and _p["gruplar"])):
+                        # Her grup için 1 placeholder kalem (SKU sonradan düzenlenir).
+                        # birim_fob = mal_bedeli / grup_sayisi geçici; kullanıcı Düzenle'de düzeltir.
+                        _gsay = max(len(_p["gruplar"]), 1)
+                        _kalemler = [{"sku": f"GRUP-{g}", "urun_adi": f"[{g}] — SKU'ları düzenle'den gir",
+                                      "urun_grubu": g, "adet": 1,
+                                      "birim_fob": round(_p["mal_bedeli"] / _gsay, 2)}
+                                     for g in _p["gruplar"]]
+                        # Tüm masraflar başta ORTAK; özel atamayı kullanıcı Düzenle'den yapar
+                        _atama = {s: ORTAK_GRUP for s in _p["masraflar_usd"].keys()}
+                        _okc, _msgc = ekle_dosya(
+                            _cg_dno.strip(), None, _p["tedarikci"], "",
+                            _cg_doviz, _p["kur"], _p["masraflar_usd"], "",
+                            _kalemler, pi_no="", ithalat_takip_no=_cg_takip.strip())
+                        if _okc:
+                            # grup atamasını da yaz (hepsi ortak başlangıç)
+                            try:
+                                _yeni = get_dosyalar()
+                                _bul = [d for d in _yeni if str(d.get("dosya_no","")) == _cg_dno.strip()]
+                                if _bul:
+                                    guncelle_dosya(
+                                        _bul[0]["id"], _cg_dno.strip(), "", None,
+                                        _p["tedarikci"], "", _cg_doviz, _p["kur"],
+                                        _p["masraflar_usd"], "", _kalemler,
+                                        ithalat_takip_no=_cg_takip.strip(),
+                                        grup_masraf_atama=_atama)
+                            except Exception:
+                                pass
+                            st.cache_data.clear()
+                            st.success(f"✅ Çoklu-grup dosyası oluşturuldu: {_cg_dno.strip()} "
+                                       f"({len(_p['gruplar'])} grup). Şimdi **Geçmiş İthalatlar**'dan "
+                                       f"aç → Düzenle → her gruba SKU/adet/FOB gir, masrafları ortak/özel ata.")
+                            st.rerun()
+                        else:
+                            st.error(_msgc)
+                except Exception as _cge:
+                    import traceback
+                    st.error(f"❌ Dosya okunamadı: {type(_cge).__name__}: {str(_cge)[:200]}")
+                    st.code(traceback.format_exc()[-1200:])
+        st.markdown("---")
+        st.markdown("**📄 Standart Satın Alım Raporu (tek grup — normal akış)**")
         st.download_button(
             "⬇️ Örnek şablonu indir", data=_excel_sablon_bytes(),
             file_name="ithalat_satin_alim_sablon.xlsx",
@@ -1396,6 +1558,8 @@ def _yeni_ithalat():
                 "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
                 "doviz": "doviz", "teslim tarihi": "teslim_tarihi",
                 "teslim turu": "teslim_sekli", "teslim sekli": "teslim_sekli", "incoterm": "teslim_sekli",
+                "urun grubu": "urun_grubu", "ürün grubu": "urun_grubu", "grup": "urun_grubu",
+                "mal grubu": "urun_grubu", "kategori": "urun_grubu",
             }
             kol = {}
             for c in df.columns:
@@ -1541,7 +1705,9 @@ def _yeni_ithalat():
                         if fob <= 0:
                             bedelsiz += 1
                         ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
+                        _ug = str(r.get(kol["urun_grubu"], "") or "").strip() if "urun_grubu" in kol else ""
                         kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
+                                         "urun_grubu": _ug,
                                          "adet": adet, "birim_fob": fob})
                     if not kalemler:
                         atlanan += 1

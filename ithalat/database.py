@@ -160,6 +160,191 @@ def dosya_hesapla(dosya, kalemler):
     }
 
 
+# ══════════════════════════════════════════════════════════════════════
+# ÇOKLU ÜRÜN GRUBU — maliyet dağıtımı (opsiyonel katman)
+# Tek-grup dosyalar bu fonksiyonu KULLANMAZ; davranışları değişmez.
+# Karar (kullanıcı): ORTAK masraf → grupların FOB payına göre; ÖZEL masraf
+# → elle atandığı gruba direkt. Her grup kendi maliyet yüzdesini alır.
+# ══════════════════════════════════════════════════════════════════════
+ORTAK_GRUP = "__ortak__"   # grup_atama'da bu değer = masraf tüm gruplara FOB payıyla bölünür
+
+
+def dosya_coklu_mu(dosya, kalemler):
+    """Dosya çoklu ürun grubu mu? Kalemlerde 2+ farklı (boş olmayan) urun_grubu
+    varsa ya da dosyada grup_masraf_atama tanımlıysa True."""
+    gruplar = {(str(k.get("urun_grubu") or "").strip()) for k in (kalemler or [])}
+    gruplar.discard("")
+    if len(gruplar) >= 2:
+        return True
+    return bool((dosya or {}).get("grup_masraf_atama"))
+
+
+def _grup_atama_dict(dosya):
+    """Dosyanın {slug: hedef_grup|__ortak__} atama sözlüğü. Yoksa boş (=hepsi ortak)."""
+    ga = (dosya or {}).get("grup_masraf_atama")
+    if isinstance(ga, dict):
+        return dict(ga)
+    return {}
+
+
+def dosya_hesapla_coklu(dosya, kalemler):
+    """Çoklu ürün grubu maliyet dağıtımı. Döner:
+    {
+      gruplar: {grup: {fob, net_fob, ozel_masraf, ortak_pay, toplam_masraf,
+                       yuzde, adet, birim_ek_maliyet_orani}},
+      genel:   {toplam_fob, indirim, ortak_masraf, toplam_masraf, grup_sayisi}
+    }
+    ORTAK masraf gruplara FOB payına göre KURUŞ-DOĞRU dağıtılır (son grup farkı alır).
+    ÖZEL masraf, grup_masraf_atama'da atandığı gruba doğrudan yazılır."""
+    masraflar = _masraf_dict(dosya)
+    grup_atama = _grup_atama_dict(dosya)
+
+    grup_fob, grup_adet = {}, {}
+    for k in (kalemler or []):
+        g = (str(k.get("urun_grubu") or "").strip() or "GENEL")
+        fob = _f(k.get("adet")) * _f(k.get("birim_fob"))
+        grup_fob[g] = grup_fob.get(g, 0.0) + fob
+        grup_adet[g] = grup_adet.get(g, 0.0) + _f(k.get("adet"))
+
+    gruplar = list(grup_fob.keys())
+    toplam_fob = sum(grup_fob.values())
+    indirim = _f((dosya or {}).get("fatura_indirim", 0))
+    indirim = max(0.0, min(indirim, toplam_fob))
+
+    ortak_toplam = 0.0
+    grup_ozel = {g: 0.0 for g in gruplar}
+    for slug, tutar in masraflar.items():
+        t = _f(tutar)
+        if t == 0:
+            continue
+        hedef = grup_atama.get(slug, ORTAK_GRUP)
+        if hedef == ORTAK_GRUP or hedef not in grup_fob:
+            ortak_toplam += t
+        else:
+            grup_ozel[hedef] += t
+
+    ortak_pay, atanan = {}, 0.0
+    for i, g in enumerate(gruplar):
+        if i < len(gruplar) - 1:
+            pay = (grup_fob[g] / toplam_fob) if toplam_fob > 0 else (1.0 / len(gruplar))
+            v = round(ortak_toplam * pay, 2)
+            atanan = round(atanan + v, 2)
+        else:
+            v = round(ortak_toplam - atanan, 2)
+        ortak_pay[g] = max(v, 0.0)
+
+    sonuc = {}
+    for g in gruplar:
+        pay_orani = (grup_fob[g] / toplam_fob) if toplam_fob > 0 else (1.0 / len(gruplar))
+        net_fob = grup_fob[g] - indirim * pay_orani
+        grup_masraf = grup_ozel[g] + ortak_pay[g]
+        yuzde = (grup_masraf / net_fob * 100) if net_fob > 0 else 0.0
+        sonuc[g] = {
+            "fob": round(grup_fob[g], 2),
+            "net_fob": round(net_fob, 2),
+            "ozel_masraf": round(grup_ozel[g], 2),
+            "ortak_pay": ortak_pay[g],
+            "toplam_masraf": round(grup_masraf, 2),
+            "yuzde": round(yuzde, 4),
+            "adet": grup_adet[g],
+            "birim_ek_maliyet_orani": round(yuzde / 100, 6),
+        }
+
+    return {
+        "gruplar": sonuc,
+        "genel": {
+            "toplam_fob": round(toplam_fob, 2),
+            "indirim": round(indirim, 2),
+            "ortak_masraf": round(ortak_toplam, 2),
+            "toplam_masraf": round(ortak_toplam + sum(grup_ozel.values()), 2),
+            "grup_sayisi": len(gruplar),
+        },
+    }
+
+
+# ── MALİYET Excel formatı (2025-14 / 2026-12 gibi çoklu-grup sayfaları) parser ──
+_MALIYET_ETIKET_SLUG = {
+    "NAVLUN": "navlun", "LİMAN": "liman_ardiye", "MAL SİGORTASI": "mal_sigortasi",
+    "DAMGA VERGİSİ": "damga_vergisi", "BANKA KOMİSYONU": "banka_komisyonu",
+    "ARDİYE": "liman_ardiye", "GÜMRÜK MÜŞAVİRLİĞİ": "gumruk_musavirligi",
+    "LİMAN-KITA NAKLİYE": "liman_depo_nakliye", "KITA-KAĞITHANE NAK.": "liman_depo_nakliye",
+    "KITA TAHLİYE": "tahliye_depolama_tasima", "G.V": "gv", "İ.G.V": "igv",
+    "KITA ARDİYE": "antrepo_ardiye", "YOLLUK": "yolluk", "HAMMALİYE": "diger",
+    "ANTREPO BEY.": "antrepo_beyannamesi", "ANTREPO BEYANNAM": "antrepo_beyannamesi",
+    "DEMURAJ": "demuraj", "TSE-TAREKS": "tse_tareks", "DTS-TAREKS": "tse_tareks",
+    "KBF": "kbf", "ÖTV": "otv", "OTV": "otv",
+}
+
+
+def _maliyet_norm(s):
+    return str(s or "").strip().upper()
+
+
+def parse_maliyet_coklu_sayfa(ws):
+    """MALİYET çoklu-grup Excel sayfasını okur (2025-14 / 2026-12 formatı).
+    A sütunu masraf etiketi, C sütunu TL tutar. Sağ blok (I) grup adları.
+    Döner: {tedarikci, tasima, mal_bedeli, kur, masraflar_tl{slug:tl},
+            masraflar_usd{slug:usd}, gruplar[...], uyari[...]}
+    Masraflar TL/kur ile USD'ye çevrilir (dosya para birimi USD varsayılır)."""
+    def cell(r, c):
+        return ws.cell(row=r + 1, column=c + 1).value
+
+    def num(v):
+        try:
+            return float(v or 0)
+        except Exception:
+            return 0.0
+
+    out = {"tedarikci": "", "tasima": "", "mal_bedeli": 0.0, "kur": 1.0,
+           "masraflar_tl": {}, "masraflar_usd": {}, "gruplar": [], "uyari": []}
+    out["tedarikci"] = str(cell(0, 0) or "").strip()
+    out["tasima"] = str(cell(0, 1) or "").strip()
+
+    for r in range(1, 6):
+        a = _maliyet_norm(cell(r, 0))
+        if "MAL BEDEL" in a:
+            out["mal_bedeli"] = num(cell(r, 2))
+        if "İŞLEM KURU" in a or "ISLEM KURU" in a:
+            out["kur"] = num(cell(r, 2)) or 1.0
+
+    kur = out["kur"] or 1.0
+    for r in range(4, 24):
+        a = str(cell(r, 0) or "").strip()
+        if not a:
+            continue
+        au = _maliyet_norm(a)
+        if au in ("TOPLAM", "ORAN", "GENEL"):
+            break
+        slug = None
+        for et, sl in _MALIYET_ETIKET_SLUG.items():
+            if _maliyet_norm(et) == au:
+                slug = sl
+                break
+        if slug:
+            tl = num(cell(r, 2))
+            if tl != 0:
+                out["masraflar_tl"][slug] = out["masraflar_tl"].get(slug, 0.0) + tl
+                out["masraflar_usd"][slug] = round(
+                    out["masraflar_usd"].get(slug, 0.0) + tl / kur, 2)
+        elif au not in ("MAL BEDELİ", "İŞLEM KURU", "ISLEM KURU"):
+            out["uyari"].append(f"Tanınmayan masraf satırı: '{a}' (atlandı)")
+
+    # Grup adları: sağ blok I sütunu (index 8), satır 5-8
+    for r in range(5, 9):
+        gad = str(cell(r, 8) or "").strip()
+        if not gad:
+            continue
+        gu = gad.upper()
+        if gu in ("GENEL TOPLAM", "TOPLAM CBM / CFEET", "GENEL", "CBM ORANI"):
+            continue
+        if gad.replace(".", "").replace(",", "").isdigit():
+            continue
+        if gad not in out["gruplar"]:
+            out["gruplar"].append(gad)
+
+    return out
+
+
 # ── Mevcut ürün kataloğu (SKU eşleştirme) ──
 @st.cache_data(ttl=120, show_spinner=False)
 def get_urun_katalog():
@@ -337,7 +522,8 @@ def get_sku_ithalat_partileri():
 
 # Tabloda sonradan eklenen, eksik olabilecek opsiyonel kolonlar
 _OPSIYONEL_KOLONLAR = ("fatura_indirim", "durum", "tahmini_varis", "ithalat_takip_no",
-                       "teslim_tarihi", "teslim_deposu", "teslim_sekli")
+                       "teslim_tarihi", "teslim_deposu", "teslim_sekli",
+                       "grup_masraf_atama")
 
 
 def _yaz_graceful(islem, payload):
@@ -376,6 +562,8 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "tedarikci": tedarikci or "", "mense_ulke": mense_ulke or "",
             "doviz": doviz or "USD", "kur": _f(kur, 1),
             "masraflar": temiz_masraf, "notlar": notlar or "",
+            **({"grup_masraf_atama": grup_masraf_atama}
+               if grup_masraf_atama is not None else {}),
             "ithalat_takip_no": ithalat_takip_no or "",
             "sas_no": sas_no or "",
             "durum": durum or "",
@@ -395,21 +583,37 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             sku = (str(k.get("sku") or "")).strip()
             if not sku or sku.lower() == "nan":
                 continue
-            rows.append({
+            _kalem_row = {
                 "dosya_id": dosya_id, "sku": sku,
                 "urun_adi": (str(k.get("urun_adi") or "")).strip(),
                 "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
-            })
+            }
+            _ug = (str(k.get("urun_grubu") or "")).strip()
+            if _ug:
+                _kalem_row["urun_grubu"] = _ug   # kolon yoksa aşağıda graceful düşer
+            rows.append(_kalem_row)
         if rows:
             try:
                 sb.table("ithalat_kalemleri").insert(rows).execute()
             except Exception as ke:
-                # TELAFİ: kalemler yazılamadı → kalemsiz "yetim" dosyayı geri al
-                try:
-                    sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
-                except Exception:
-                    pass
-                return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
+                # urun_grubu kolonu yoksa onu çıkarıp bir kez daha dene
+                if "urun_grubu" in str(ke).lower() or "column" in str(ke).lower():
+                    for _r in rows:
+                        _r.pop("urun_grubu", None)
+                    try:
+                        sb.table("ithalat_kalemleri").insert(rows).execute()
+                    except Exception as ke2:
+                        try:
+                            sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
+                        except Exception:
+                            pass
+                        return False, f"❌ Kalemler eklenemedi, dosya geri alındı: {str(ke2)[:150]}"
+                else:
+                    try:
+                        sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
+                    except Exception:
+                        pass
+                    return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
         if str(durum or "").strip() == "Teslim Alındı":
             _dosya_stok_uygula(dosya_id, +1,
                                kalem_agg=_dosya_kalem_agg(kalemler),
@@ -422,6 +626,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
+                   grup_masraf_atama=None,
                    durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
@@ -463,23 +668,38 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             sku = (str(k.get("sku") or "")).strip()
             if not sku or sku.lower() == "nan":
                 continue
-            rows.append({
+            _kr = {
                 "dosya_id": dosya_id, "sku": sku,
                 "urun_adi": (str(k.get("urun_adi") or "")).strip(),
                 "adet": _f(k.get("adet")), "birim_fob": _f(k.get("birim_fob")),
-            })
+            }
+            _ug = (str(k.get("urun_grubu") or "")).strip()
+            if _ug:
+                _kr["urun_grubu"] = _ug
+            rows.append(_kr)
         if rows:
-            try:
-                sb.table("ithalat_kalemleri").insert(rows).execute()
-            except Exception as ke:
-                # TELAFİ: yeni kalemler yazılamadı → eski kalemleri geri yükle (veri kaybını önle)
+            def _geri_yukle():
                 try:
                     if _eski_kalem:
                         _geri = [{kk: vv for kk, vv in r.items() if kk != "id"} for r in _eski_kalem]
                         sb.table("ithalat_kalemleri").insert(_geri).execute()
                 except Exception:
                     pass
-                return False, f"❌ Kalemler güncellenemedi, eski kalemler geri yüklendi (kayıp olmadı): {str(ke)[:150]}"
+            try:
+                sb.table("ithalat_kalemleri").insert(rows).execute()
+            except Exception as ke:
+                # urun_grubu kolonu yoksa onsuz bir kez daha dene
+                if "urun_grubu" in str(ke).lower() or "column" in str(ke).lower():
+                    for _r in rows:
+                        _r.pop("urun_grubu", None)
+                    try:
+                        sb.table("ithalat_kalemleri").insert(rows).execute()
+                    except Exception as ke2:
+                        _geri_yukle()
+                        return False, f"❌ Kalemler güncellenemedi, eski kalemler geri yüklendi: {str(ke2)[:150]}"
+                else:
+                    _geri_yukle()
+                    return False, f"❌ Kalemler güncellenemedi, eski kalemler geri yüklendi (kayıp olmadı): {str(ke)[:150]}"
         # ── MODEL B stok geçişleri ──
         _yeniT = str(durum or "").strip() == "Teslim Alındı"
         _yeni_agg = _dosya_kalem_agg(kalemler)
