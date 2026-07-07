@@ -892,7 +892,19 @@ def render():
 
     if not firmalar:
         st.info("Henüz firma yok. Yukarıdan 'Yeni Firma Ekle' ile başlayın (örn. VATAN / kod: VTN).")
+        # Firma olmasa bile Alınan Destekler erişilebilir olmalı (cariye bağlı değil)
+        st.markdown("---")
+        with st.expander("📥 Alınan Destekler (üreticiden/markadan gelen — cariye bağlı değil)",
+                         expanded=True):
+            _render_alinan_destekler()
         return
+
+    # ── 📥 Alınan Destekler: firma seçiminden BAĞIMSIZ (yurtdışı üretici/marka
+    #    desteği belirli bir TR carinin altına ait değildir) ──
+    with st.expander("📥 Alınan Destekler (üreticiden/markadan gelen — cariye bağlı değil)"):
+        _render_alinan_destekler()
+
+    st.markdown("---")
 
     _TUMU = "🌐 Tümü (tüm firmalar · birleşik liste)"
     fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
@@ -902,7 +914,7 @@ def render():
         return
     firma = fmap[sec_label]
 
-    tab1, tab2, tab3 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe", "📥 Alınan Destekler"])
+    tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
     with tab1:
         _render_refler(firma["id"], firma["firma_kodu"])
     with tab2:
@@ -911,10 +923,6 @@ def render():
         else:
             st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur. "
                     "Şu an başka cariye havuz bütçe verilmiyor.")
-
-
-    with tab3:
-        _render_alinan_destekler()
 
 
 def _render_tumu(firmalar):
