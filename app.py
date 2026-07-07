@@ -475,6 +475,13 @@ st.markdown(
     'text-transform:none !important;'
     'line-height:1 !important;'
     '}'
+    # Açılır listeler (selectbox/multiselect) PENCERENİN ÜSTÜNDE açılsın.
+    # (BaseWeb popover'ı body'ye portal olarak çizilir; katmanı dialog'un
+    #  altında kalırsa seçenekler arka planda kalır ve tıklanamaz.)
+    'div[data-baseweb="popover"], div[data-baseweb="select"] ~ div,'
+    'ul[data-testid="stSelectboxVirtualDropdown"], [data-baseweb="menu"]{'
+    'z-index:2147483000 !important;'
+    '}'
     "</style>", unsafe_allow_html=True)
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
