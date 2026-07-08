@@ -312,8 +312,9 @@ def render():
     plan = edf_hesap_plani()
     plan_map = {h["kod"]: h["ad"] for h in plan}
 
-    tab_fis, tab_yev, tab_keb, tab_miz, tab_plan = st.tabs(
-        ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan", "🗂 Hesap Planı"])
+    tab_fis, tab_yev, tab_keb, tab_miz, tab_plan, tab_xml, tab_ayar = st.tabs(
+        ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan", "🗂 Hesap Planı",
+         "📤 e-Defter XML", "⚙️ Kurum Ayarları"])
 
     # ── 🗂 HESAP PLANI ──
     with tab_plan:
@@ -478,3 +479,371 @@ def render():
             st.download_button("⬇️ Mizan CSV",
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
                                "mizan.csv", "text/csv", key="edf_mizan_csv")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FAZ 2a — KURUM AYARLARI + YEVMİYE (Y) XBRL-GL ÜRETİCİSİ
+# GİB e-Defter Paketi örnek Y dosyasıyla alan-alan ve sıra-sıra eşleşir.
+# Şema sırası XSD'de zorunlu olduğundan alan sırası birebir korunmalıdır.
+# ══════════════════════════════════════════════════════════════════════
+
+EDEFTER_NS = {
+    "edefter": "http://www.edefter.gov.tr",
+    "xbrli": "http://www.xbrl.org/2003/instance",
+    "gl-cor": "http://www.xbrl.org/int/gl/cor/2006-10-25",
+    "gl-bus": "http://www.xbrl.org/int/gl/bus/2006-10-25",
+    "gl-plt": "http://www.xbrl.org/int/gl/plt/2006-10-25",
+    "iso4217": "http://www.xbrl.org/2003/iso4217",
+    "iso639": "http://www.xbrl.org/2005/iso639",
+    "link": "http://www.xbrl.org/2003/linkbase",
+    "xlink": "http://www.w3.org/1999/xlink",
+    "ds": "http://www.w3.org/2000/09/xmldsig#",
+    "xades": "http://uri.etsi.org/01903/v1.3.2#",
+    "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+}
+
+# Kurum kimlik ayarları — tek satırlık kayıt (id=1). entityInformation'ı besler.
+EDEFTER_AYAR_ALANLAR = [
+    "vkn", "unvan", "telefon", "faks", "eposta",
+    "adres_bina", "adres_cadde", "adres_cadde2", "adres_il", "adres_posta", "adres_ulke",
+    "website", "nace_kodu", "mali_yil_baslangic", "mali_yil_bitis",
+    "smmm_ad", "smmm_bina", "smmm_cadde", "smmm_il",
+    "program_ad", "program_versiyon", "sube_kodu",
+]
+
+
+def edf_ayar_getir():
+    """Kurum ayarlarını döndürür (tek kayıt). Yoksa boş sözlük."""
+    try:
+        r = get_client().table("edefter_ayarlar").select("*").eq("id", 1).execute()
+        return (r.data[0] if r.data else {}) or {}
+    except Exception:
+        return {}
+
+
+def edf_ayar_kaydet(data):
+    """Kurum ayarlarını upsert eder (id=1)."""
+    try:
+        _p = {k: (str(data.get(k) or "").strip()) for k in EDEFTER_AYAR_ALANLAR}
+        _p["id"] = 1
+        try:
+            get_client().table("edefter_ayarlar").upsert(_p, on_conflict="id").execute()
+        except Exception:
+            # upsert yoksa: sil + ekle
+            try:
+                get_client().table("edefter_ayarlar").delete().eq("id", 1).execute()
+            except Exception:
+                pass
+            get_client().table("edefter_ayarlar").insert(_p).execute()
+        return True, "✅ Kurum ayarları kaydedildi."
+    except Exception as e:
+        return False, f"❌ {str(e)[:150]}"
+
+
+def edf_ayar_eksikler(ayar):
+    """XML üretimi için zorunlu alanların eksik olanlarını döndürür."""
+    zorunlu = {
+        "vkn": "VKN/TCKN", "unvan": "Unvan", "adres_il": "İl",
+        "nace_kodu": "NACE (faaliyet) kodu",
+        "mali_yil_baslangic": "Mali yıl başlangıç", "mali_yil_bitis": "Mali yıl bitiş",
+        "smmm_ad": "SMMM adı", "program_ad": "Program adı", "program_versiyon": "Program versiyonu",
+    }
+    return [ad for k, ad in zorunlu.items() if not str(ayar.get(k) or "").strip()]
+
+
+def _sub(parent, tag, text=None, ctx="journal_context", **attr):
+    """Namespace'li alt element ekler. tag: 'gl-cor:entryNumber' gibi."""
+    from lxml import etree
+    pre, local = tag.split(":")
+    el = etree.SubElement(parent, f"{{{EDEFTER_NS[pre]}}}{local}")
+    if ctx is not None:
+        el.set("contextRef", ctx)
+    for k, v in attr.items():
+        el.set(k, str(v))
+    if text is not None:
+        el.text = str(text)
+    return el
+
+
+def _para(v):
+    """Tutarı GİB formatına çevirir: tam sayıysa ondalıksız, değilse nokta ile."""
+    v = round(float(v or 0), 2)
+    return str(int(v)) if v == int(v) else f"{v:.2f}"
+
+
+def edf_yevmiye_xml(yil, ay, parca=0):
+    """Bir aya ait fişlerden GİB uyumlu Yevmiye (Y) XBRL-GL XML üretir.
+    Döner: (ok, xml_bytes|mesaj, dosya_adi). Mali mühür imzası İÇERMEZ
+    (Faz 3'te imzalanır) — imza yerine HashValue placeholder konur."""
+    from lxml import etree
+    ayar = edf_ayar_getir()
+    eksik = edf_ayar_eksikler(ayar)
+    if eksik:
+        return False, "❌ Kurum Ayarları eksik: " + ", ".join(eksik), ""
+
+    _ay = f"{int(ay):02d}"
+    donem = f"{yil}{_ay}"
+    bas = f"{yil}-{_ay}-01"
+    # ayın son günü
+    import calendar
+    son = f"{yil}-{_ay}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+    fisler = edf_get_fisler(bas, son)
+    if not fisler:
+        return False, f"❌ {donem} döneminde fiş yok.", ""
+
+    vkn = str(ayar["vkn"]).strip()
+    E = lambda p: f"{{{EDEFTER_NS[p]}}}"
+
+    # Kök
+    root = etree.Element(E("edefter") + "defter", nsmap={
+        "edefter": EDEFTER_NS["edefter"], "ds": EDEFTER_NS["ds"],
+        "xades": EDEFTER_NS["xades"], "xsi": EDEFTER_NS["xsi"]})
+    root.set(f"{E('xsi')}schemaLocation",
+             "http://www.edefter.gov.tr ../xsd/edefter.xsd")
+
+    xbrl = etree.SubElement(root, E("xbrli") + "xbrl", nsmap={
+        "gl-bus": EDEFTER_NS["gl-bus"], "gl-cor": EDEFTER_NS["gl-cor"],
+        "gl-plt": EDEFTER_NS["gl-plt"], "iso4217": EDEFTER_NS["iso4217"],
+        "iso639": EDEFTER_NS["iso639"], "link": EDEFTER_NS["link"],
+        "xbrli": EDEFTER_NS["xbrli"], "xlink": EDEFTER_NS["xlink"]})
+    xbrl.set(f"{E('xsi')}schemaLocation",
+             "http://www.xbrl.org/int/gl/plt/2006-10-25 "
+             "../xsd/2006-10-25/plt/case-c-b/gl-plt-2006-10-25.xsd")
+
+    sref = etree.SubElement(xbrl, E("link") + "schemaRef")
+    sref.set(f"{E('xlink')}href", "../xsd/2006-10-25/plt/case-c-b/gl-plt-2006-10-25.xsd")
+    sref.set(f"{E('xlink')}type", "simple")
+
+    # context
+    ctx = etree.SubElement(xbrl, E("xbrli") + "context", id="journal_context")
+    ent = etree.SubElement(ctx, E("xbrli") + "entity")
+    idf = etree.SubElement(ent, E("xbrli") + "identifier",
+                           scheme="http://www.gib.gov.tr")
+    idf.text = vkn
+    per = etree.SubElement(ctx, E("xbrli") + "period")
+    etree.SubElement(per, E("xbrli") + "instant").text = bas
+
+    u1 = etree.SubElement(xbrl, E("xbrli") + "unit", id="try")
+    etree.SubElement(u1, E("xbrli") + "measure").text = "iso4217:TRY"
+    u2 = etree.SubElement(xbrl, E("xbrli") + "unit", id="countable")
+    etree.SubElement(u2, E("xbrli") + "measure").text = "xbrli:pure"
+
+    ae = etree.SubElement(xbrl, E("gl-cor") + "accountingEntries")
+
+    # documentInfo
+    di = etree.SubElement(ae, E("gl-cor") + "documentInfo")
+    _sub(di, "gl-cor:entriesType", "journal")
+    _sub(di, "gl-cor:uniqueID", EDEFTER_UNIQUEID_KALIBI.format(donem=donem, sira=parca + 1))
+    _sub(di, "gl-cor:language", "iso639:tr")
+    _sub(di, "gl-cor:creationDate", date.today().isoformat())
+    _sub(di, "gl-bus:creator", ayar.get("smmm_ad") or ayar.get("unvan"))
+    _sub(di, "gl-cor:entriesComment",
+         f"{bas} - {son} arası {ayar['unvan']} yevmiye defteri.")
+    _sub(di, "gl-cor:periodCoveredStart", bas)
+    _sub(di, "gl-cor:periodCoveredEnd", son)
+    _src = f"{vkn}##{ayar['unvan']}##{ayar['program_ad']}##{ayar['program_versiyon']}"
+    _sub(di, "gl-bus:sourceApplication", _src)
+
+    # entityInformation
+    ei = etree.SubElement(ae, E("gl-cor") + "entityInformation")
+    if ayar.get("telefon"):
+        ph = etree.SubElement(ei, E("gl-bus") + "entityPhoneNumber")
+        _sub(ph, "gl-bus:phoneNumberDescription", "main")
+        _sub(ph, "gl-bus:phoneNumber", ayar["telefon"])
+    if ayar.get("faks"):
+        fx = etree.SubElement(ei, E("gl-bus") + "entityFaxNumberStructure")
+        _sub(fx, "gl-bus:entityFaxNumber", ayar["faks"])
+    if ayar.get("eposta"):
+        em = etree.SubElement(ei, E("gl-bus") + "entityEmailAddressStructure")
+        _sub(em, "gl-bus:entityEmailAddress", ayar["eposta"])
+    oi = etree.SubElement(ei, E("gl-bus") + "organizationIdentifiers")
+    _sub(oi, "gl-bus:organizationIdentifier", ayar["unvan"])
+    # tüzel (10 hane) → "Kurum Unvanı", gerçek (11 hane) → "Adı Soyadı"
+    _sub(oi, "gl-bus:organizationDescription",
+         "Kurum Unvanı" if len(vkn) == 10 else "Adı Soyadı")
+    oa = etree.SubElement(ei, E("gl-bus") + "organizationAddress")
+    if ayar.get("adres_bina"):
+        _sub(oa, "gl-bus:organizationBuildingNumber", ayar["adres_bina"])
+    if ayar.get("adres_cadde"):
+        _sub(oa, "gl-bus:organizationAddressStreet", ayar["adres_cadde"])
+    if ayar.get("adres_cadde2"):
+        _sub(oa, "gl-bus:organizationAddressStreet2", ayar["adres_cadde2"])
+    _sub(oa, "gl-bus:organizationAddressCity", ayar["adres_il"])
+    if ayar.get("adres_posta"):
+        _sub(oa, "gl-bus:organizationAddressZipOrPostalCode", ayar["adres_posta"])
+    _sub(oa, "gl-bus:organizationAddressCountry", ayar.get("adres_ulke") or "Türkiye")
+    if ayar.get("website"):
+        ws = etree.SubElement(ei, E("gl-bus") + "entityWebSite")
+        _sub(ws, "gl-bus:webSiteURL", ayar["website"])
+    _sub(ei, "gl-bus:businessDescription", ayar["nace_kodu"])
+    _sub(ei, "gl-bus:fiscalYearStart", ayar["mali_yil_baslangic"])
+    _sub(ei, "gl-bus:fiscalYearEnd", ayar["mali_yil_bitis"])
+    ai = etree.SubElement(ei, E("gl-bus") + "accountantInformation")
+    _sub(ai, "gl-bus:accountantName", ayar["smmm_ad"])
+    aa = etree.SubElement(ai, E("gl-bus") + "accountantAddress")
+    if ayar.get("smmm_bina"):
+        _sub(aa, "gl-bus:accountantBuildingNumber", ayar["smmm_bina"])
+    if ayar.get("smmm_cadde"):
+        _sub(aa, "gl-bus:accountantStreet", ayar["smmm_cadde"])
+    _sub(aa, "gl-bus:accountantCity", ayar.get("smmm_il") or ayar["adres_il"])
+
+    # entryHeader'lar (her fiş = bir yevmiye maddesi)
+    ln_counter = 0
+    for f in fisler:
+        eh = etree.SubElement(ae, E("gl-cor") + "entryHeader")
+        _sub(eh, "gl-cor:enteredBy", f.get("personel") or ayar.get("smmm_ad") or "-")
+        _sub(eh, "gl-cor:enteredDate", str(f.get("tarih"))[:10])
+        _sub(eh, "gl-cor:entryNumber", f"{int(f.get('yevmiye_madde_no')):06d}")
+        if f.get("aciklama"):
+            _sub(eh, "gl-cor:entryComment", f.get("aciklama"))
+        _sub(eh, "gl-bus:totalDebit", _para(f.get("toplam")),
+             unitRef="try", decimals="INF")
+        _sub(eh, "gl-bus:totalCredit", _para(f.get("toplam")),
+             unitRef="try", decimals="INF")
+        _sub(eh, "gl-cor:entryNumberCounter", str(int(f.get("yevmiye_madde_no"))),
+             unitRef="countable", decimals="INF")
+
+        for s in f.get("satirlar", []):
+            ln_counter += 1
+            ed = etree.SubElement(eh, E("gl-cor") + "entryDetail")
+            _sub(ed, "gl-cor:lineNumber", str(s.get("sira")))
+            _sub(ed, "gl-cor:lineNumberCounter", str(ln_counter),
+                 unitRef="countable", decimals="INF")
+            acc = etree.SubElement(ed, E("gl-cor") + "account")
+            kod = str(s.get("hesap_kodu") or "")
+            ana = kod.split(".")[0]
+            _sub(acc, "gl-cor:accountMainID", ana)
+            _sub(acc, "gl-cor:accountMainDescription", s.get("hesap_adi") or "")
+            if "." in kod:
+                asub = etree.SubElement(acc, E("gl-cor") + "accountSub")
+                _sub(asub, "gl-cor:accountSubDescription", s.get("hesap_adi") or "")
+                _sub(asub, "gl-cor:accountSubID", kod)
+            borc = round(_f(s.get("borc")), 2)
+            alacak = round(_f(s.get("alacak")), 2)
+            tutar = borc if borc > 0 else alacak
+            _sub(ed, "gl-cor:amount", _para(tutar), unitRef="try", decimals="INF")
+            _sub(ed, "gl-cor:debitCreditCode", "D" if borc > 0 else "C")
+            _sub(ed, "gl-cor:postingDate", str(f.get("tarih"))[:10])
+            if f.get("belge_no"):
+                _sub(ed, "gl-cor:documentReference", f.get("belge_no"))
+            if s.get("aciklama"):
+                _sub(ed, "gl-cor:detailComment", s.get("aciklama"))
+
+    # İmza yerine HashValue (Faz 3'te mali mühürle değişecek).
+    # Şema HashValue'yu namespace'SİZ bekler (ds:Signature'ın alternatifi).
+    hv = etree.SubElement(root, "HashValue")
+    hv.text = "FAZ3_MALI_MUHUR_ILE_IMZALANACAK"
+
+    xml = etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+    # stylesheet PI ekle
+    xml = b'<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="yevmiye.xslt"?>\n' \
+          + xml.split(b"\n", 1)[1]
+    dosya_adi = EDEFTER_DOSYA_AD_KALIBI.format(vkn=vkn, donem=donem, tur="Y", parca=parca)
+    return True, xml, dosya_adi
+
+    # ── ⚙️ KURUM AYARLARI (render içinden çağrılır) ──
+    with tab_ayar:
+        _render_kurum_ayarlari()
+
+    # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
+    with tab_xml:
+        _render_edefter_xml()
+
+
+def _render_kurum_ayarlari():
+    st.caption("e-Defter XML'lerine yazılacak kurum kimlik bilgileri. Bir kez doldur; "
+               "her defter/berat bu bilgileri otomatik kullanır. ⚠️ **sourceApplication** "
+               "unvanı, GİB'e vereceğin taahhütnamedeki unvanla **harfiyen aynı** olmalı.")
+    a = edf_ayar_getir()
+    with st.form("edf_ayar_form"):
+        st.markdown("**Kurum Kimliği**")
+        c1, c2 = st.columns(2)
+        vkn = c1.text_input("VKN / TCKN *", a.get("vkn", ""), help="Tüzel 10 hane, gerçek kişi 11 hane")
+        unvan = c2.text_input("Unvan *", a.get("unvan", ""))
+        c3, c4, c5 = st.columns(3)
+        telefon = c3.text_input("Telefon", a.get("telefon", ""))
+        faks = c4.text_input("Faks", a.get("faks", ""))
+        eposta = c5.text_input("E-posta", a.get("eposta", ""))
+        website = st.text_input("Web sitesi", a.get("website", ""))
+        nace = st.text_input("NACE (faaliyet) kodu *", a.get("nace_kodu", ""),
+                             help="businessDescription alanı — örn. 46.51.01")
+
+        st.markdown("**Adres**")
+        b1, b2, b3 = st.columns(3)
+        adres_bina = b1.text_input("Bina No", a.get("adres_bina", ""))
+        adres_cadde = b2.text_input("Cadde/Sokak", a.get("adres_cadde", ""))
+        adres_cadde2 = b3.text_input("Cadde/Sokak 2", a.get("adres_cadde2", ""))
+        b4, b5, b6 = st.columns(3)
+        adres_il = b4.text_input("İl *", a.get("adres_il", ""))
+        adres_posta = b5.text_input("Posta Kodu", a.get("adres_posta", ""))
+        adres_ulke = b6.text_input("Ülke", a.get("adres_ulke", "") or "Türkiye")
+
+        st.markdown("**Mali Yıl**")
+        d1, d2 = st.columns(2)
+        _mb = a.get("mali_yil_baslangic", "") or f"{date.today().year}-01-01"
+        _me = a.get("mali_yil_bitis", "") or f"{date.today().year}-12-31"
+        mali_bas = d1.text_input("Başlangıç * (YYYY-AA-GG)", _mb)
+        mali_bit = d2.text_input("Bitiş * (YYYY-AA-GG)", _me)
+
+        st.markdown("**SMMM / Mali Müşavir**")
+        e1, e2, e3 = st.columns(3)
+        smmm_ad = e1.text_input("SMMM Adı *", a.get("smmm_ad", ""))
+        smmm_bina = e2.text_input("SMMM Bina No", a.get("smmm_bina", ""))
+        smmm_cadde = e3.text_input("SMMM Cadde", a.get("smmm_cadde", ""))
+        smmm_il = st.text_input("SMMM İl", a.get("smmm_il", ""))
+
+        st.markdown("**Yazılım Kimliği** (sourceApplication)")
+        f1, f2, f3 = st.columns(3)
+        prog_ad = f1.text_input("Program Adı *", a.get("program_ad", "") or "KAYRAN e-Defter")
+        prog_ver = f2.text_input("Program Versiyonu *", a.get("program_versiyon", "") or "1.0")
+        sube = f3.text_input("Şube Kodu (4 hane)", a.get("sube_kodu", ""),
+                             help="Şubesiz ise boş bırak")
+
+        if st.form_submit_button("💾 Kurum Ayarlarını Kaydet", type="primary",
+                                 use_container_width=True):
+            ok, msg = edf_ayar_kaydet({
+                "vkn": vkn, "unvan": unvan, "telefon": telefon, "faks": faks, "eposta": eposta,
+                "adres_bina": adres_bina, "adres_cadde": adres_cadde, "adres_cadde2": adres_cadde2,
+                "adres_il": adres_il, "adres_posta": adres_posta, "adres_ulke": adres_ulke,
+                "website": website, "nace_kodu": nace, "mali_yil_baslangic": mali_bas,
+                "mali_yil_bitis": mali_bit, "smmm_ad": smmm_ad, "smmm_bina": smmm_bina,
+                "smmm_cadde": smmm_cadde, "smmm_il": smmm_il, "program_ad": prog_ad,
+                "program_versiyon": prog_ver, "sube_kodu": sube})
+            (st.success if ok else st.error)(msg)
+
+
+def _render_edefter_xml():
+    st.caption("Bir aya ait fişlerden **Yevmiye Defteri (Y)** XBRL-GL XML'i üretir. "
+               "Üretilen dosya GİB resmi şemasına (edefter.xsd) uygundur. "
+               "⚠️ Mali mühür imzası içermez (Faz 3) — bu haliyle GİB'e yüklenemez, "
+               "yapı/doğrulama testi ve önizleme amaçlıdır.")
+    ayar = edf_ayar_getir()
+    eksik = edf_ayar_eksikler(ayar)
+    if eksik:
+        st.warning("⚠️ Önce **⚙️ Kurum Ayarları** sekmesini doldur. Eksik: " + ", ".join(eksik))
+        return
+
+    c1, c2, c3 = st.columns([1, 1, 1])
+    _yil = c1.number_input("Yıl", min_value=2015, max_value=2100,
+                           value=date.today().year, step=1, key="edf_xml_yil")
+    _ay = c2.selectbox("Ay", list(range(1, 13)),
+                       index=date.today().month - 1, key="edf_xml_ay",
+                       format_func=lambda m: f"{m:02d}")
+    _parca = c3.number_input("Parça No", min_value=0, value=0, step=1, key="edf_xml_parca",
+                             help="Defter bölünmediyse 0")
+
+    if st.button("🔧 Yevmiye XML Üret", type="primary", use_container_width=True, key="edf_xml_uret"):
+        ok, sonuc, ad = edf_yevmiye_xml(str(int(_yil)), str(int(_ay)), int(_parca))
+        if not ok:
+            st.error(sonuc)
+        else:
+            st.success(f"✅ Üretildi: `{ad}` ({len(sonuc):,} bayt)")
+            # Özet
+            fisler = edf_get_fisler(f"{int(_yil)}-{int(_ay):02d}-01",
+                                    f"{int(_yil)}-{int(_ay):02d}-28")
+            st.download_button("⬇️ Yevmiye XML İndir", sonuc, ad, "application/xml",
+                               use_container_width=True, key="edf_xml_dl")
+            with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
+                st.code(sonuc.decode("utf-8")[:3000], language="xml")
+            st.caption("📁 GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
+                       "+ XSLT'ler. Kebir, berat ve paketleme sonraki adımlarda (Faz 2b-2e).")
