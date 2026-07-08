@@ -13,7 +13,7 @@ from .database import (
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
     kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
-    depo_etiket_pdf,
+    depo_etiket_pdf, evraksiz_depo_kayit,
 )
 
 
@@ -324,6 +324,106 @@ def _mal_kabul_dialog():
 
 
 # ── Liste (Teknik Servis / İade) ─────────────────────────────────────
+def _evraksiz_kayit():
+    """📋 EVRAKSIZ ÜRÜN KAYIT — geçmiş/evraksız stok ürünlerini tek ekranda
+    kaydedip doğrudan depoya aktarır (mini mal kabul). Etiket hazır olur."""
+    _baslik("📋", "Evraksız Ürün Kayıt", "geçmiş / evraksız stok ürünü · tek ekranda depoya al")
+    st.caption("Evraksız (geçmiş) stok ürünlerini buradan kaydet → seçtiğin depoya **doğrudan** aktarılır, "
+               "Depolar sekmesinde diğer ürünler gibi listelenir ve **etiketi hazır olur**. "
+               "Aktif teknik servis listesine düşmez.")
+
+    # ── İthalat'tan ürün çek (opsiyonel) ──
+    _modeller = ithalat_model_listesi()
+    if _modeller:
+        _opts = ["— İthalat'tan model seç (opsiyonel) —"] + [(f"{s} — {a}" if a else s) for s, a in _modeller]
+        _sec = st.selectbox(f"📦 İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
+                            _opts, key="ev_model_sec")
+        if _sec != _opts[0] and st.session_state.get("_ev_model_son") != _sec:
+            st.session_state["_ev_model_son"] = _sec
+            _sku_sel = _sec.split(" — ")[0].strip()
+            st.session_state["ev_sk"] = _sku_sel
+            for _s, _a in _modeller:
+                if _s == _sku_sel:
+                    if _a:
+                        st.session_state["ev_stok_adi"] = _a
+                    # ürün grubunu da ürün kartından çekmeye çalış
+                    try:
+                        _u = urun_getir(_sku_sel)
+                        if _u and _u.get("urun_grubu"):
+                            st.session_state["ev_urun_grubu"] = _u.get("urun_grubu", "")
+                    except Exception:
+                        pass
+                    break
+            st.rerun()
+
+    with st.form("ev_form", clear_on_submit=False, enter_to_submit=False):
+        c1, c2 = st.columns(2)
+        stok_kodu = c1.text_input("Stok Kodu *", key="ev_sk", placeholder="Stok kodu")
+        stok_adi = c2.text_input("Stok Adı", key="ev_stok_adi", placeholder="Ürün adı (opsiyonel)")
+
+        c3, c4 = st.columns(2)
+        _gruplar = ts_urun_gruplari()
+        _grup_opts = ["— Ürün grubu seç —"] + _gruplar + ["➕ Yeni grup…"]
+        _pre = (st.session_state.get("ev_urun_grubu", "") or "").strip()
+        _gidx = _grup_opts.index(_pre) if _pre in _grup_opts else 0
+        _grup_secim = c3.selectbox("Ürün Grubu", _grup_opts, index=_gidx, key="ev_grup_sec")
+        _grup_yeni = ""
+        if _grup_secim == "➕ Yeni grup…":
+            _grup_yeni = c4.text_input("Yeni grup adı", key="ev_grup_yeni", placeholder="örn. SSD, RAM, EKRAN KARTI")
+        else:
+            c4.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            c4.caption("Ürün grubunu listeden seç ya da 'Yeni grup…' ile ekle.")
+
+        seri_no = st.text_input("Seri No *", key="ev_seri", placeholder="Ürün seri numarası (barkod bundan üretilir)")
+
+        icerik_durumu = st.text_area("İçerik Durumu", key="ev_icerik", height=70,
+                                     placeholder="örn. Kutu orijinal, tüm aksesuarlar mevcut ve sağlam")
+        eksik_icerik = st.text_area("Eksik İçerik", key="ev_eksik", height=70,
+                                    placeholder="örn. HDMI kablosu ve adaptör eksik (yoksa boş bırak)")
+
+        st.markdown("---")
+        d1, d2 = st.columns(2)
+        hedef_depo = d1.selectbox("Hedef Depo *", DEPOLAR, key="ev_depo")
+        depo_aciklama = d2.text_input("Ürün Son Durumu / Açıklama (etikete yazılır)",
+                                      key="ev_depoack",
+                                      placeholder="örn. 2.el A kalite / sıfır ayarında / hurda")
+
+        _gonder = st.form_submit_button("📦 Kaydet ve Depoya Aktar", type="primary",
+                                        use_container_width=True)
+
+    if _gonder:
+        _sk = (stok_kodu or "").strip()
+        _seri = (seri_no or "").strip()
+        _grup = (_grup_yeni.strip() if _grup_secim == "➕ Yeni grup…"
+                 else ("" if _grup_secim.startswith("—") else _grup_secim))
+        if not _sk:
+            st.error("Stok Kodu zorunlu.")
+            st.stop()
+        if not _seri:
+            st.error("Seri No zorunlu (barkod bundan üretilir).")
+            st.stop()
+        data = {
+            "stok_kodu": _sk, "stok_adi": (stok_adi or "").strip(),
+            "urun_grubu": _grup, "seri_no": _seri,
+            "icerik_durumu": (icerik_durumu or "").strip(),
+            "eksik_icerik": (eksik_icerik or "").strip(),
+        }
+        ok, msg, form_no = evraksiz_depo_kayit(
+            data, hedef_depo, (depo_aciklama or "").strip(),
+            personel=st.session_state.get("aktif_kullanici", ""))
+        if ok:
+            # Form alanlarını temizle
+            for _k in ("ev_sk", "ev_stok_adi", "ev_urun_grubu", "ev_seri", "ev_icerik",
+                       "ev_eksik", "ev_depoack", "ev_grup_yeni", "_ev_model_son"):
+                st.session_state.pop(_k, None)
+            st.success(msg)
+            st.session_state["_ts_depo_bilgi"] = f"{msg} · Depolar sekmesinde etiketini alabilirsin."
+            st.session_state["ts_sayfa"] = "📦  Depolar"
+            st.rerun()
+        else:
+            st.error(msg)
+
+
 def _liste(arayuz):
     etk = "Teknik Servis" if arayuz == "teknik" else "İade"
     ikon = "🔧" if arayuz == "teknik" else "↩️"
@@ -878,12 +978,14 @@ def run():
         st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
         sayfa = st.radio(
             "Sayfa",
-            ["📥  Mal Kabül", "🔧  Teknik Servis", "↩️  İade", "📦  Depolar"],
+            ["📥  Mal Kabül", "📋  Evraksız Ürün Kayıt", "🔧  Teknik Servis", "↩️  İade", "📦  Depolar"],
             label_visibility="collapsed", key="ts_sayfa",
         )
 
     if sayfa == "📥  Mal Kabül":
         _mal_kabul()
+    elif sayfa == "📋  Evraksız Ürün Kayıt":
+        _evraksiz_kayit()
     elif sayfa == "🔧  Teknik Servis":
         _liste("teknik")
     elif sayfa == "↩️  İade":

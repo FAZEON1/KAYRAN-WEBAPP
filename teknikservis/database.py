@@ -297,6 +297,40 @@ def durum_guncelle(kayit_id, yeni_durum, personel="", aciklama="", ekstra=None):
         return False
 
 
+def evraksiz_depo_kayit(data, depo, depo_aciklama="", personel=""):
+    """EVRAKSIZ ÜRÜN KAYIT: geçmiş/evraksız stok ürününü tek adımda kaydeder
+    ve doğrudan depoya aktarır (mal kabül → depoya transfer). Aktif teknik
+    servis listesine düşmez; doğrudan Depolar'da görünür, etiketi hazır olur.
+    data: {stok_kodu, stok_adi, urun_grubu, seri_no, icerik_durumu, eksik_icerik}
+    Döner: (ok, mesaj, form_no)."""
+    try:
+        _pay = dict(data)
+        _pay.setdefault("fiziksel_durum", "")
+        ok, msg, form_no = ekle_kayit(_pay, personel=personel)
+        if not ok:
+            return False, msg, ""
+        sb = get_client()
+        _r = sb.table("ts_kayitlar").select("id").eq("servis_form_no", form_no).limit(1).execute()
+        _kid = (_r.data[0]["id"] if _r.data else None)
+        if not _kid:
+            return False, "❌ Kayıt oluştu ama depoya aktarılamadı (kayıt bulunamadı).", form_no
+        durum_haritasi = {"outlet": "satışa hazır", "ikinci el": "satışa hazır",
+                          "hurda": "hurda", "merkez": "gönderildi"}
+        yeni_durum = durum_haritasi.get(depo, "satışa hazır")
+        from datetime import date as _date
+        _ok2 = durum_guncelle(
+            _kid, yeni_durum, personel,
+            f"{depo} deposuna transfer (evraksız kayıt)"
+            + (f" — {depo_aciklama.strip()}" if depo_aciklama.strip() else ""),
+            {"depo": depo, "depo_aciklama": depo_aciklama.strip(),
+             "depo_tarihi": _date.today().isoformat()})
+        if not _ok2:
+            return False, f"❌ Kayıt oluştu (Servis No: {form_no}) ama depoya transfer başarısız.", form_no
+        return True, f"✅ Evraksız ürün kaydedildi ve {depo} deposuna aktarıldı — Servis No: {form_no}", form_no
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", ""
+
+
 def kayit_guncelle(kayit_id, alanlar):
     try:
         sb = get_client()
