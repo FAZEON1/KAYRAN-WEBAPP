@@ -1099,6 +1099,7 @@ def run():
             "💸 Nakit Akış",
             "📋 Firma Çekleri",
             "🕐 Ödenenler & Geçmiş",
+            "💵 Gelenler Geçmişi",
             "⏳ Ertelenen Ödemeler",
             "🧾 Cari Ekstre",
             "📂 Veri Yükleme",
@@ -3061,6 +3062,75 @@ def run():
                 cek_arsiv_goster("USD")
     
     
+    # ════════════════════════════════════════════════════════════════════
+    # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
+    # ════════════════════════════════════════════════════════════════════
+    elif sayfa == "💵 Gelenler Geçmişi":
+        st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>Gelenler Geçmişi</div>', unsafe_allow_html=True)
+        st.markdown('<div class="alt-baslik">Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri</div>', unsafe_allow_html=True)
+
+        _tahsilatlar = get_tahsilatlar(limit=2000)
+        if not _tahsilatlar:
+            st.info("Henüz tahsilat (para girişi) kaydı yok. Banka Bakiyeleri sayfasından "
+                    "**💰 Tahsilat Ekle** ile giriş yapabilirsin.")
+            st.stop()
+
+        import pandas as _pd
+        _gdf = _pd.DataFrame([{
+            "Tarih": str(t.get("tarih", ""))[:10],
+            "Kaynak (Kimden)": (t.get("kaynak") or "—").strip() or "—",
+            "Banka": t.get("hesap_adi", "—"),
+            "Döviz": t.get("para_birimi", ""),
+            "Tutar": float(t.get("tutar", 0) or 0),
+            "Açıklama": (t.get("aciklama") or "").strip(),
+        } for t in _tahsilatlar])
+
+        # ── Filtreler ──
+        f1, f2, f3 = st.columns([1.3, 1.3, 1])
+        _kaynaklar = ["Tümü"] + sorted([k for k in _gdf["Kaynak (Kimden)"].unique() if k and k != "—"])
+        _bankalar_f = ["Tümü"] + sorted(_gdf["Banka"].unique().tolist())
+        _sec_kaynak = f1.selectbox("Kaynak (kimden)", _kaynaklar, key="gg_kaynak")
+        _sec_banka = f2.selectbox("Banka", _bankalar_f, key="gg_banka")
+        _sec_doviz = f3.selectbox("Döviz", ["Tümü"] + sorted([d for d in _gdf["Döviz"].unique() if d]), key="gg_doviz")
+
+        _f = _gdf.copy()
+        if _sec_kaynak != "Tümü":
+            _f = _f[_f["Kaynak (Kimden)"] == _sec_kaynak]
+        if _sec_banka != "Tümü":
+            _f = _f[_f["Banka"] == _sec_banka]
+        if _sec_doviz != "Tümü":
+            _f = _f[_f["Döviz"] == _sec_doviz]
+
+        # ── Özet metrikler (döviz bazında toplam) ──
+        _tl = _f[_f["Döviz"] == "TL"]["Tutar"].sum()
+        _usd = _f[_f["Döviz"] == "USD"]["Tutar"].sum()
+        _eur = _f[_f["Döviz"] == "EUR"]["Tutar"].sum()
+        metrik_satiri([
+            {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": "#34D399"},
+            {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": "#60A5FA"},
+            {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": "#FBBF24"},
+            {"label": "Kayıt Adedi", "value": f"{len(_f):,}", "renk": "#818CF8", "alt": "para girişi"},
+        ])
+
+        # ── Kimden ne kadar gelmiş (kaynak bazında özet) ──
+        with st.expander("👥 Kimden ne kadar gelmiş (kaynak bazında toplam)", expanded=False):
+            _ozet = (_f.groupby(["Kaynak (Kimden)", "Döviz"])["Tutar"]
+                     .sum().reset_index().sort_values("Tutar", ascending=False))
+            _ozet["Tutar"] = _ozet["Tutar"].map(lambda x: f"{x:,.2f}")
+            st.dataframe(_ozet, hide_index=True, use_container_width=True,
+                         height=min(60 + len(_ozet) * 35, 420))
+
+        # ── Detay tablo ──
+        _goster = _f.copy()
+        _goster["Tutar"] = _goster.apply(
+            lambda r: f"{r['Tutar']:,.2f} {r['Döviz']}", axis=1)
+        _goster = _goster.drop(columns=["Döviz"])
+        st.dataframe(_goster, hide_index=True, use_container_width=True,
+                     height=min(60 + len(_goster) * 35, 560))
+        st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
+                   "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
+
+
     # ════════════════════════════════════════════════════════════════════
     # 8) VERİ YÜKLEME
     # ════════════════════════════════════════════════════════════════════
