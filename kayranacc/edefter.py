@@ -845,8 +845,10 @@ def _render_edefter_xml():
         st.warning("⚠️ Önce **⚙️ Kurum Ayarları** sekmesini doldur. Eksik: " + ", ".join(eksik))
         return
 
-    c0, c1, c2, c3 = st.columns([1.2, 1, 1, 1])
-    _tur = c0.selectbox("Defter Türü", ["Yevmiye (Y)", "Kebir (K)"], key="edf_xml_tur")
+    c0, c1, c2, c3 = st.columns([1.4, 1, 1, 1])
+    _tur = c0.selectbox("Defter Türü",
+                        ["Yevmiye (Y)", "Kebir (K)",
+                         "Yevmiye Beratı (YB)", "Kebir Beratı (KB)"], key="edf_xml_tur")
     _yil = c1.number_input("Yıl", min_value=2015, max_value=2100,
                            value=date.today().year, step=1, key="edf_xml_yil")
     _ay = c2.selectbox("Ay", list(range(1, 13)),
@@ -858,7 +860,12 @@ def _render_edefter_xml():
     if st.button("🔧 XML Üret", type="primary", use_container_width=True, key="edf_xml_uret"):
         with st.spinner("XML üretiliyor…"):
             try:
-                _uretici = edf_kebir_xml if _tur.startswith("Kebir") else edf_yevmiye_xml
+                _uretici = {
+                    "Yevmiye (Y)": edf_yevmiye_xml,
+                    "Kebir (K)": edf_kebir_xml,
+                    "Yevmiye Beratı (YB)": edf_yevmiye_berat_xml,
+                    "Kebir Beratı (KB)": edf_kebir_berat_xml,
+                }[_tur]
                 ok, sonuc, ad = _uretici(str(int(_yil)), str(int(_ay)), int(_parca))
             except Exception as _xe:
                 import traceback
@@ -873,7 +880,8 @@ def _render_edefter_xml():
             with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
                 st.code(sonuc.decode("utf-8")[:3000], language="xml")
             st.caption("📁 GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
-                       "+ XSLT'ler. Beratlar ve paketleme sonraki adımlarda (Faz 2c-2e).")
+                       "+ XSLT'ler. ⚠️ Beratların imza/hash alanları Faz 3'te mali mühürle "
+                       "doldurulacak. Paketleme (ZIP) sonraki adımda (Faz 2e).")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1020,3 +1028,161 @@ def edf_kebir_xml(yil, ay, parca=0):
           + xml.split(b"\n", 1)[1]
     dosya_adi = EDEFTER_DOSYA_AD_KALIBI.format(vkn=vkn, donem=donem, tur="K", parca=parca)
     return True, xml, dosya_adi
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FAZ 2c — BERAT (YB / KB) ÜRETİCİSİ
+# Berat = defterin kendisi DEĞİL; defterin ÖZETİ (ana hesap bazında dönem
+# borç/alacak toplamları = period_change) + documentInfo + entityInformation
+# + XAdES imza. GİB, beratla defteri eşleştirip onaylar.
+# Kök: edefter:berat. Yevmiye Beratı (YB) ve Kebir Beratı (KB) aynı yapı;
+# yalnız documentInfo tipi/uniqueID ve dosya adı türü (YB/KB) değişir.
+# İmza (SignatureValue/Signature) Faz 3'te mali mühürle doldurulacak.
+# ══════════════════════════════════════════════════════════════════════
+
+def _edf_berat_xml(yil, ay, defter_turu, parca=0):
+    """Berat üretir. defter_turu: 'Y' (yevmiye beratı=YB) veya 'K' (kebir beratı=KB).
+    Döner: (ok, xml_bytes|mesaj, dosya_adi)."""
+    from lxml import etree
+    import calendar
+    ayar = edf_ayar_getir()
+    eksik = edf_ayar_eksikler(ayar)
+    if eksik:
+        return False, "❌ Kurum Ayarları eksik: " + ", ".join(eksik), ""
+
+    _ay = f"{int(ay):02d}"
+    donem = f"{yil}{_ay}"
+    bas = f"{yil}-{_ay}-01"
+    son = f"{yil}-{_ay}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+    fisler = edf_get_fisler(bas, son)
+    if not fisler:
+        return False, f"❌ {donem} döneminde fiş yok.", ""
+
+    vkn = str(ayar["vkn"]).strip()
+    E = lambda p: f"{{{EDEFTER_NS[p]}}}"
+
+    # ── Ana hesap bazında dönem borç/alacak toplamları (period_change özeti) ──
+    from collections import OrderedDict
+    ana = OrderedDict()
+    for f in fisler:
+        for s in f.get("satirlar", []):
+            kod = str(s.get("hesap_kodu") or "").split(".")[0]
+            if not kod:
+                continue
+            o = ana.setdefault(kod, {"ad": s.get("hesap_adi") or "", "borc": 0.0, "alacak": 0.0})
+            o["borc"] = round(o["borc"] + _f(s.get("borc")), 2)
+            o["alacak"] = round(o["alacak"] + _f(s.get("alacak")), 2)
+            if not o["ad"] and s.get("hesap_adi"):
+                o["ad"] = s.get("hesap_adi")
+
+    is_yevmiye = (defter_turu == "Y")
+    entriesType = "journal" if is_yevmiye else "ledger"
+    uid_pre = "YEV" if is_yevmiye else "KEB"
+    tur_ad = "YB" if is_yevmiye else "KB"
+
+    # Kök: edefter:berat
+    root = etree.Element(E("edefter") + "berat", nsmap={
+        "edefter": EDEFTER_NS["edefter"], "ds": EDEFTER_NS["ds"],
+        "xades": EDEFTER_NS["xades"], "xsi": EDEFTER_NS["xsi"]})
+    root.set(f"{E('xsi')}schemaLocation", "http://www.edefter.gov.tr ../xsd/edefter.xsd")
+
+    xbrl = etree.SubElement(root, E("xbrli") + "xbrl", nsmap={
+        "gl-bus": EDEFTER_NS["gl-bus"], "gl-cor": EDEFTER_NS["gl-cor"],
+        "gl-plt": EDEFTER_NS["gl-plt"], "iso4217": EDEFTER_NS["iso4217"],
+        "iso639": EDEFTER_NS["iso639"], "link": EDEFTER_NS["link"],
+        "xbrli": EDEFTER_NS["xbrli"], "xlink": EDEFTER_NS["xlink"]})
+    xbrl.set(f"{E('xsi')}schemaLocation",
+             "http://www.xbrl.org/int/gl/plt/2006-10-25 "
+             "../xsd/2006-10-25/plt/case-c-b/gl-plt-2006-10-25.xsd")
+
+    sref = etree.SubElement(xbrl, E("link") + "schemaRef")
+    sref.set(f"{E('xlink')}href", "../xsd/2006-10-25/plt/case-c-b/gl-plt-2006-10-25.xsd")
+    sref.set(f"{E('xlink')}type", "simple")
+
+    ctx = etree.SubElement(xbrl, E("xbrli") + "context", id="journal_context")
+    ent = etree.SubElement(ctx, E("xbrli") + "entity")
+    etree.SubElement(ent, E("xbrli") + "identifier",
+                     scheme="http://www.gib.gov.tr").text = vkn
+    per = etree.SubElement(ctx, E("xbrli") + "period")
+    etree.SubElement(per, E("xbrli") + "instant").text = bas
+
+    u1 = etree.SubElement(xbrl, E("xbrli") + "unit", id="try")
+    etree.SubElement(u1, E("xbrli") + "measure").text = "iso4217:TRY"
+    u2 = etree.SubElement(xbrl, E("xbrli") + "unit", id="countable")
+    etree.SubElement(u2, E("xbrli") + "measure").text = "xbrli:pure"
+
+    ae = etree.SubElement(xbrl, E("gl-cor") + "accountingEntries")
+
+    # documentInfo (defterle AYNI uniqueID → eşleşme)
+    di = etree.SubElement(ae, E("gl-cor") + "documentInfo")
+    _sub(di, "gl-cor:entriesType", entriesType)
+    _sub(di, "gl-cor:uniqueID", f"{uid_pre}{donem}{parca+1:06d}")
+    _sub(di, "gl-cor:language", "iso639:tr")
+    _sub(di, "gl-cor:creationDate", date.today().isoformat())
+    _sub(di, "gl-bus:creator", ayar.get("smmm_ad") or ayar.get("unvan"))
+    _sub(di, "gl-cor:entriesComment",
+         f"{bas} - {son} arası {ayar['unvan']} "
+         f"{'yevmiye' if is_yevmiye else 'büyük'} defteri beratı.")
+    _sub(di, "gl-cor:periodCoveredStart", bas)
+    _sub(di, "gl-cor:periodCoveredEnd", son)
+    _sub(di, "gl-bus:sourceApplication",
+         f"{vkn}##{ayar['unvan']}##{ayar['program_ad']}##{ayar['program_versiyon']}")
+
+    # entityInformation (ortak)
+    _edf_entity_bilgisi(ae, ayar, vkn, E)
+
+    # entryHeader — defter özeti (period_change): her ana hesap D ve C satırı
+    eh = etree.SubElement(ae, E("gl-cor") + "entryHeader")
+    _sub(eh, "gl-cor:qualifierEntry", "standard")
+    ln = 0
+    for kod, o in sorted(ana.items()):
+        for kod_dc, tutar in (("D", o["borc"]), ("C", o["alacak"])):
+            ln += 1
+            det = etree.SubElement(eh, E("gl-cor") + "entryDetail")
+            _sub(det, "gl-cor:lineNumber", str(ln))
+            acc = etree.SubElement(det, E("gl-cor") + "account")
+            _sub(acc, "gl-cor:accountMainID", kod)
+            _sub(acc, "gl-cor:accountMainDescription", o["ad"])
+            _sub(det, "gl-cor:amount", _para(tutar), unitRef="try", decimals="INF")
+            _sub(det, "gl-cor:debitCreditCode", kod_dc)
+            xi = etree.SubElement(det, E("gl-cor") + "xbrlInfo")
+            _sub(xi, "gl-cor:xbrlInclude", "period_change")
+
+    # İmza yapısı (şema sırası: HashValue|SignatureValue seçimi → ds:Signature).
+    # Faz 3'te mali mühürle: HashValue defterin gerçek SHA hash'iyle,
+    # ds:Signature XAdES imzasıyla doldurulacak. Şimdilik yapı-geçerli iskelet.
+    hv = etree.SubElement(root, "HashValue")
+    hv.text = "FAZ3_MALI_MUHUR_ILE_DOLDURULACAK"
+    # ds:Signature iskeleti (şema zorunlu kılıyor)
+    DS = EDEFTER_NS["ds"]
+    sig = etree.SubElement(root, f"{{{DS}}}Signature")
+    si = etree.SubElement(sig, f"{{{DS}}}SignedInfo")
+    etree.SubElement(si, f"{{{DS}}}CanonicalizationMethod",
+                     Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315")
+    etree.SubElement(si, f"{{{DS}}}SignatureMethod",
+                     Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha512")
+    ref = etree.SubElement(si, f"{{{DS}}}Reference", URI="")
+    tr = etree.SubElement(ref, f"{{{DS}}}Transforms")
+    etree.SubElement(tr, f"{{{DS}}}Transform",
+                     Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature")
+    etree.SubElement(ref, f"{{{DS}}}DigestMethod",
+                     Algorithm="http://www.w3.org/2001/04/xmlenc#sha512")
+    etree.SubElement(ref, f"{{{DS}}}DigestValue").text = "FAZ3"
+    etree.SubElement(sig, f"{{{DS}}}SignatureValue").text = "FAZ3"
+
+    xml = etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+    xslt_ref = "yevmiyeberat.xslt" if is_yevmiye else "kebirberat.xslt"
+    xml = f'<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="{xslt_ref}"?>\n'.encode() \
+          + xml.split(b"\n", 1)[1]
+    dosya_adi = EDEFTER_DOSYA_AD_KALIBI.format(vkn=vkn, donem=donem, tur=tur_ad, parca=parca)
+    return True, xml, dosya_adi
+
+
+def edf_yevmiye_berat_xml(yil, ay, parca=0):
+    """Yevmiye Beratı (YB)."""
+    return _edf_berat_xml(yil, ay, "Y", parca)
+
+
+def edf_kebir_berat_xml(yil, ay, parca=0):
+    """Kebir/Büyük Defter Beratı (KB)."""
+    return _edf_berat_xml(yil, ay, "K", parca)
