@@ -901,7 +901,37 @@ def _render_edefter_xml():
                 st.code(sonuc.decode("utf-8")[:3000], language="xml")
             st.caption("📁 GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
                        "+ XSLT'ler. ⚠️ Beratların imza/hash alanları Faz 3'te mali mühürle "
-                       "doldurulacak. Paketleme (ZIP) sonraki adımda (Faz 2e).")
+                       "doldurulacak.")
+
+    # ── 📦 TÜM DEFTERLERİ PAKETLE (ZIP — GİB dizin yapısı) ──
+    st.markdown("---")
+    st.markdown("**📦 Tüm Defterleri Paketle (GİB dizin yapısında ZIP)**")
+    st.caption("Seçili ayın Y + K + YB + KB defterlerini tek seferde üretip GİB'in istediği "
+               "`VKN/hesap-dönemi/ay/` klasör yapısında, görüntüleme XSLT'leriyle birlikte ZIP'ler. "
+               "Üretimden önce GİB iş kuralları otomatik denetlenir.")
+    if st.button("📦 Aylık e-Defter Paketi (ZIP) Üret", use_container_width=True, key="edf_paket_btn"):
+        with st.spinner("Paket hazırlanıyor…"):
+            try:
+                pok, psonuc, padi = edf_paket_zip(str(int(_yil)), str(int(_ay)))
+            except Exception as _pe:
+                import traceback
+                pok, psonuc, padi = False, f"❌ {type(_pe).__name__}: {str(_pe)[:200]}", ""
+                st.code(traceback.format_exc()[-1500:])
+        if not pok:
+            st.error(psonuc)
+        else:
+            st.success(f"✅ Paket hazır: `{padi}` ({psonuc['boyut']:,} bayt)")
+            st.markdown(f"**Dizin:** `{psonuc['dizin']}/`")
+            st.markdown("**İçerik:** " + " · ".join(f"`{d}`" for d in psonuc["dosyalar"]))
+            if psonuc["xslt"]:
+                st.caption("🎨 Görüntüleme XSLT'leri dahil edildi: " + ", ".join(psonuc["xslt"]))
+            else:
+                st.warning("⚠️ XSLT görüntüleyiciler bulunamadı (kayranacc/edefter_xslt/ boş). "
+                           "Paket XML'leri geçerli ama görüntüleme şablonları eksik.")
+            st.download_button("⬇️ e-Defter Paketi (ZIP) İndir", psonuc["zip"], padi,
+                               "application/zip", use_container_width=True, key="edf_paket_dl")
+            st.caption("⚠️ Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
+                       "doldurulacak) — bu haliyle GİB'e yüklenemez, yapı testi amaçlıdır.")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1329,3 +1359,85 @@ def re_match_vkn(v):
 def re_match_sube(v):
     import re
     return bool(re.match(r"^[0-9]{4}$", v))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FAZ 2e — DİZİN YAPISI + PAKETLEME (ZIP)
+# GİB dizin yapısı: <VKN>/<01.01.YYYY-31.12.YYYY>/<AY>/ içinde
+#   Y, K, YB, KB xml'leri + görüntüleme XSLT'leri (yevmiye/kebir/berat.xslt).
+# Boyut kuralları (test senaryolarından): tek dosya için üst sınırlar var;
+# 10MB üstü defterler parçalanır (Faz 2e'de parça-farkında paketleme).
+# ══════════════════════════════════════════════════════════════════════
+
+# XSLT dosyaları repoda kayranacc/edefter_xslt/ altında beklenir (opsiyonel).
+# Kullanıcı GİB paketinden bu 3 dosyayı oraya koyar; yoksa ZIP onlarsız üretilir.
+import os as _os
+EDEFTER_XSLT_DIZIN = _os.path.join(_os.path.dirname(__file__), "edefter_xslt")
+
+
+def _edf_hesap_donemi(ayar):
+    """Hesap dönemi klasör adı: 01.01.YYYY-31.12.YYYY (mali yıldan)."""
+    mb = str(ayar.get("mali_yil_baslangic") or "").strip()
+    me = str(ayar.get("mali_yil_bitis") or "").strip()
+    def _fmt(d):
+        p = d.split("-")
+        return f"{p[2]}.{p[1]}.{p[0]}" if len(p) == 3 else d
+    return f"{_fmt(mb)}-{_fmt(me)}" if mb and me else "hesap-donemi"
+
+
+def edf_paket_zip(yil, ay):
+    """Bir ayın TÜM defterlerini (Y, K, YB, KB) GİB dizin yapısında ZIP'ler.
+    Döner: (ok, zip_bytes|mesaj, zip_adi). Üretimden önce iş kuralları denetlenir.
+    XSLT'ler edefter_xslt/ klasöründe varsa dahil edilir."""
+    import io
+    import zipfile
+
+    ayar = edf_ayar_getir()
+    eksik = edf_ayar_eksikler(ayar)
+    if eksik:
+        return False, "❌ Kurum Ayarları eksik: " + ", ".join(eksik), ""
+
+    # İş kuralları denetimi (Y ve K için)
+    for _dt in ("Y", "K"):
+        gecerli, kurallar = edf_is_kurallari_dogrula(str(int(yil)), str(int(ay)), _dt)
+        if not gecerli:
+            hatalar = [m for lvl, m in kurallar if lvl == "hata"]
+            return False, ("❌ GİB kural ihlali (paket üretilemez):\n- " +
+                           "\n- ".join(hatalar[:15])), ""
+
+    vkn = str(ayar["vkn"]).strip()
+    donem = f"{yil}{int(ay):02d}"
+    hesap_donemi = _edf_hesap_donemi(ayar)
+    ay_klasor = f"{int(ay):02d}"
+    kok = f"{vkn}/{hesap_donemi}/{ay_klasor}"
+
+    # 4 defteri üret
+    ureticiler = [
+        ("Y", edf_yevmiye_xml), ("YB", edf_yevmiye_berat_xml),
+        ("K", edf_kebir_xml), ("KB", edf_kebir_berat_xml),
+    ]
+    dosyalar = []
+    for _tur, fn in ureticiler:
+        ok, xml, ad = fn(str(int(yil)), str(int(ay)), 0)
+        if not ok:
+            return False, f"❌ {_tur} üretilemedi: {xml}", ""
+        dosyalar.append((ad, xml))
+
+    # ZIP oluştur
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for ad, xml in dosyalar:
+            zf.writestr(f"{kok}/{ad}", xml)
+        # XSLT'ler (varsa)
+        xslt_eklendi = []
+        for xslt in EDEFTER_XSLT_DOSYALARI:  # ('berat.xslt','kebir.xslt','yevmiye.xslt')
+            yol = _os.path.join(EDEFTER_XSLT_DIZIN, xslt)
+            if _os.path.exists(yol):
+                with open(yol, "rb") as fh:
+                    zf.writestr(f"{kok}/{xslt}", fh.read())
+                xslt_eklendi.append(xslt)
+
+    zip_bytes = buf.getvalue()
+    zip_adi = f"{vkn}-{donem}-eDefter-Paketi.zip"
+    return True, {"zip": zip_bytes, "dizin": kok, "dosyalar": [a for a, _ in dosyalar],
+                  "xslt": xslt_eklendi, "boyut": len(zip_bytes)}, zip_adi
