@@ -322,12 +322,18 @@ def render():
     plan = edf_hesap_plani()
     plan_map = {h["kod"]: h["ad"] for h in plan}
 
-    tab_fis, tab_yev, tab_keb, tab_miz, tab_plan, tab_xml, tab_ayar = st.tabs(
-        ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan", "🗂 Hesap Planı",
-         "📤 e-Defter XML", "⚙️ Kurum Ayarları"])
+    # NOT: st.tabs yerine radio kullanılıyor. 7 sekme + ağır bileşenler
+    # (data_editor/date_input) olduğunda Streamlit sekmeleri tarayıcıda
+    # yanlış hizalayıp içerik karışabiliyordu. Radio ile aynı anda YALNIZ
+    # bir bölüm render edilir → karışma fiziksel olarak imkânsız.
+    _bolumler = ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan",
+                 "🗂 Hesap Planı", "📤 e-Defter XML", "⚙️ Kurum Ayarları"]
+    secili = st.radio("e-Defter bölümü", _bolumler, horizontal=True,
+                      label_visibility="collapsed", key="edf_bolum")
+    st.markdown("---")
 
     # ── 🗂 HESAP PLANI ──
-    with tab_plan:
+    if secili == "🗂 Hesap Planı":
         if not plan:
             st.info("Hesap planı boş. Tekdüzen ana hesapları tek tıkla yükleyebilirsin.")
         c1, c2 = st.columns([1, 2])
@@ -352,7 +358,7 @@ def render():
                          height=min(60 + len(_pdf) * 35, 520))
 
     # ── 🧾 FİŞ GİRİŞİ ──
-    with tab_fis:
+    elif secili == "🧾 Fiş Girişi":
         if not plan:
             st.warning("Önce **Hesap Planı** sekmesinden Tekdüzen hesaplarını yükle.")
         f1, f2, f3, f4 = st.columns([1, 1, 2, 1])
@@ -407,7 +413,7 @@ def render():
                 st.error(msg)
 
     # ── 📒 YEVMİYE ──
-    with tab_yev:
+    elif secili == "📒 Yevmiye":
         y1, y2 = st.columns(2)
         _yb = y1.date_input("Başlangıç", value=date.today().replace(day=1), key="edf_yb")
         _ye = y2.date_input("Bitiş", value=date.today(), key="edf_ye")
@@ -437,7 +443,7 @@ def render():
                             st.rerun()
 
     # ── 📖 KEBİR ──
-    with tab_keb:
+    elif secili == "📖 Kebir":
         if not plan:
             st.info("Önce hesap planını yükle.")
         else:
@@ -465,7 +471,7 @@ def render():
                              height=min(60 + len(_kdf2) * 35, 520))
 
     # ── ⚖️ MİZAN ──
-    with tab_miz:
+    elif secili == "⚖️ Mizan":
         m1, m2 = st.columns(2)
         _mb = m1.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_mb")
         _me = m2.date_input("Bitiş", value=date.today(), key="edf_me")
@@ -491,11 +497,11 @@ def render():
                                "mizan.csv", "text/csv", key="edf_mizan_csv")
 
     # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
-    with tab_xml:
+    elif secili == "📤 e-Defter XML":
         _render_edefter_xml()
 
     # ── ⚙️ KURUM AYARLARI ──
-    with tab_ayar:
+    elif secili == "⚙️ Kurum Ayarları":
         _render_kurum_ayarlari()
 
 
