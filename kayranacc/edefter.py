@@ -480,6 +480,14 @@ def render():
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
                                "mizan.csv", "text/csv", key="edf_mizan_csv")
 
+    # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
+    with tab_xml:
+        _render_edefter_xml()
+
+    # ── ⚙️ KURUM AYARLARI ──
+    with tab_ayar:
+        _render_kurum_ayarlari()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # FAZ 2a — KURUM AYARLARI + YEVMİYE (Y) XBRL-GL ÜRETİCİSİ
@@ -740,14 +748,6 @@ def edf_yevmiye_xml(yil, ay, parca=0):
           + xml.split(b"\n", 1)[1]
     dosya_adi = EDEFTER_DOSYA_AD_KALIBI.format(vkn=vkn, donem=donem, tur="Y", parca=parca)
     return True, xml, dosya_adi
-
-    # ── ⚙️ KURUM AYARLARI (render içinden çağrılır) ──
-    with tab_ayar:
-        _render_kurum_ayarlari()
-
-    # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
-    with tab_xml:
-        _render_edefter_xml()
 
 
 def _render_kurum_ayarlari():
