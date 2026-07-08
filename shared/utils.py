@@ -388,6 +388,19 @@ def metrik_satiri(cards):
         alt = c.get("alt", "")
         alt_html = (f'<div style="color:#7C8AA0;font-size:10px;margin-top:3px;'
                     f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{alt}</div>') if alt else ""
+        # Değer uzunluğuna göre font boyutu (uzun rakamlar kartta kesilmesin diye küçülür)
+        _val = str(c["value"])
+        _vlen = len(_val)
+        if _vlen <= 9:
+            _vfs = 20
+        elif _vlen <= 12:
+            _vfs = 17
+        elif _vlen <= 15:
+            _vfs = 15
+        elif _vlen <= 18:
+            _vfs = 13
+        else:
+            _vfs = 12
         cells += (
             f'<div{ttl} style="flex:1;min-width:150px;'
             f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
@@ -395,9 +408,9 @@ def metrik_satiri(cards):
             f'border-radius:16px;padding:14px 18px">'
             f'<div style="color:#8B97A8;font-size:10px;font-weight:700;letter-spacing:.6px;'
             f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
-            f'<div style="color:#F1F5F9;font-size:20px;font-weight:800;margin-top:3px;'
+            f'<div style="color:#F1F5F9;font-size:{_vfs}px;font-weight:800;margin-top:3px;'
             f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
-            f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
+            f'overflow:hidden;text-overflow:ellipsis">{_val}</div>'
             f'{alt_html}</div>'
         )
     st.markdown(f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:2px 0 16px">{cells}</div>',
