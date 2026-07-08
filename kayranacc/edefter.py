@@ -641,10 +641,13 @@ def _edf_entity_bilgisi(ae, ayar, vkn, E):
     _sub(aa, "gl-bus:accountantCity", ayar.get("smmm_il") or ayar["adres_il"])
 
 
-def edf_yevmiye_xml(yil, ay, parca=0):
+def edf_yevmiye_xml(yil, ay, parca=0, fis_listesi=None, ln_baslangic=0):
     """Bir aya ait fişlerden GİB uyumlu Yevmiye (Y) XBRL-GL XML üretir.
     Döner: (ok, xml_bytes|mesaj, dosya_adi). Mali mühür imzası İÇERMEZ
-    (Faz 3'te imzalanır) — imza yerine HashValue placeholder konur."""
+    (Faz 3'te imzalanır) — imza yerine HashValue placeholder konur.
+    fis_listesi: verilirse o fişler kullanılır (çok parçalı bölme için);
+    None ise dönemin tüm fişleri çekilir.
+    ln_baslangic: lineNumberCounter başlangıcı (parçalar arası süreklilik)."""
     from lxml import etree
     ayar = edf_ayar_getir()
     eksik = edf_ayar_eksikler(ayar)
@@ -657,7 +660,7 @@ def edf_yevmiye_xml(yil, ay, parca=0):
     # ayın son günü
     import calendar
     son = f"{yil}-{_ay}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
-    fisler = edf_get_fisler(bas, son)
+    fisler = fis_listesi if fis_listesi is not None else edf_get_fisler(bas, son)
     if not fisler:
         return False, f"❌ {donem} döneminde fiş yok.", ""
 
@@ -703,7 +706,7 @@ def edf_yevmiye_xml(yil, ay, parca=0):
     # documentInfo
     di = etree.SubElement(ae, E("gl-cor") + "documentInfo")
     _sub(di, "gl-cor:entriesType", "journal")
-    _sub(di, "gl-cor:uniqueID", EDEFTER_UNIQUEID_KALIBI.format(donem=donem, sira=parca + 1))
+    _sub(di, "gl-cor:uniqueID", EDEFTER_UNIQUEID_KALIBI.format(donem=donem, sira=parca))
     _sub(di, "gl-cor:language", "iso639:tr")
     _sub(di, "gl-cor:creationDate", date.today().isoformat())
     _sub(di, "gl-bus:creator", ayar.get("smmm_ad") or ayar.get("unvan"))
@@ -718,7 +721,7 @@ def edf_yevmiye_xml(yil, ay, parca=0):
     _edf_entity_bilgisi(ae, ayar, vkn, E)
 
     # entryHeader'lar (her fiş = bir yevmiye maddesi)
-    ln_counter = 0
+    ln_counter = ln_baslangic
     for f in fisler:
         eh = etree.SubElement(ae, E("gl-cor") + "entryHeader")
         _sub(eh, "gl-cor:enteredBy", f.get("personel") or ayar.get("smmm_ad") or "-")
@@ -933,6 +936,44 @@ def _render_edefter_xml():
             st.caption("⚠️ Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
                        "doldurulacak) — bu haliyle GİB'e yüklenemez, yapı testi amaçlıdır.")
 
+    # ── ✂️ ÇOK PARÇALI DEFTER BÖLME (GİB onay testi Senaryo 5 & 6) ──
+    st.markdown("---")
+    with st.expander("✂️ Çok Parçalı Yevmiye Bölme (GİB onay testi için)"):
+        st.caption("Büyük aylık defterler GİB'de parçalara bölünür (dosya adı `-Y-000001`, "
+                   "`-Y-000002`…). GİB uyumluluk testinin **Senaryo 5 & 6**'sı bunu zorunlu tutar. "
+                   "Sayaçlar (lineNumberCounter) parçalar arası kesintisiz devam eder. Günlük "
+                   "kullanımda gerekmez; onay testi için buradan üretilir.")
+        _mm = st.number_input("Parça başına en fazla madde (fiş) sayısı", min_value=1, value=5,
+                              step=1, key="edf_bol_madde",
+                              help="Bu sayıyı aşınca yeni parçaya geçer.")
+        if st.button("✂️ Yevmiyeyi Parçalara Böl ve İndir", use_container_width=True, key="edf_bol_btn"):
+            with st.spinner("Bölünüyor…"):
+                try:
+                    bok, parcalar, bmsg = edf_yevmiye_bol(str(int(_yil)), str(int(_ay)),
+                                                          max_madde=int(_mm))
+                except Exception as _be:
+                    import traceback
+                    bok, parcalar, bmsg = False, [], f"❌ {type(_be).__name__}: {str(_be)[:200]}"
+                    st.code(traceback.format_exc()[-1500:])
+            if not bok:
+                st.error(bmsg)
+            else:
+                st.success(bmsg)
+                if len(parcalar) == 1:
+                    st.info("Bu dönem tek parçaya sığdı (bölme gerekmedi).")
+                # Parçaları ZIP'le indir
+                import io as _io2
+                import zipfile as _zf2
+                buf = _io2.BytesIO()
+                with _zf2.ZipFile(buf, "w", _zf2.ZIP_DEFLATED) as z:
+                    for ad, xml in parcalar:
+                        z.writestr(ad, xml)
+                for ad, xml in parcalar:
+                    st.markdown(f"- `{ad}` ({len(xml):,} B)")
+                st.download_button("⬇️ Parçalar (ZIP) İndir", buf.getvalue(),
+                                   f"yevmiye-parcalar-{int(_yil)}{int(_ay):02d}.zip",
+                                   "application/zip", use_container_width=True, key="edf_bol_dl")
+
 
 # ══════════════════════════════════════════════════════════════════════
 # FAZ 2b — KEBİR (K) XBRL-GL ÜRETİCİSİ (Defter-i Kebir)
@@ -1027,7 +1068,7 @@ def edf_kebir_xml(yil, ay, parca=0):
     # documentInfo (entriesType=ledger, uniqueID=KEB...)
     di = etree.SubElement(ae, E("gl-cor") + "documentInfo")
     _sub(di, "gl-cor:entriesType", "ledger")
-    _sub(di, "gl-cor:uniqueID", "KEB{donem}{sira:06d}".format(donem=donem, sira=parca + 1))
+    _sub(di, "gl-cor:uniqueID", "KEB{donem}{sira:06d}".format(donem=donem, sira=parca))
     _sub(di, "gl-cor:language", "iso639:tr")
     _sub(di, "gl-cor:creationDate", date.today().isoformat())
     _sub(di, "gl-bus:creator", ayar.get("smmm_ad") or ayar.get("unvan"))
@@ -1166,7 +1207,7 @@ def _edf_berat_xml(yil, ay, defter_turu, parca=0):
     # documentInfo (defterle AYNI uniqueID → eşleşme)
     di = etree.SubElement(ae, E("gl-cor") + "documentInfo")
     _sub(di, "gl-cor:entriesType", entriesType)
-    _sub(di, "gl-cor:uniqueID", f"{uid_pre}{donem}{parca+1:06d}")
+    _sub(di, "gl-cor:uniqueID", f"{uid_pre}{donem}{parca:06d}")
     _sub(di, "gl-cor:language", "iso639:tr")
     _sub(di, "gl-cor:creationDate", date.today().isoformat())
     _sub(di, "gl-bus:creator", ayar.get("smmm_ad") or ayar.get("unvan"))
@@ -1441,3 +1482,76 @@ def edf_paket_zip(yil, ay):
     zip_adi = f"{vkn}-{donem}-eDefter-Paketi.zip"
     return True, {"zip": zip_bytes, "dizin": kok, "dosyalar": [a for a, _ in dosyalar],
                   "xslt": xslt_eklendi, "boyut": len(zip_bytes)}, zip_adi
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FAZ 2f — ÇOK PARÇALI DEFTER BÖLME (GİB Senaryo 5 & 6 için)
+# Aylık defter belirli boyutu aşınca parçalara bölünür. Kurallar:
+#  • Her parça ayrı dosya: ...-Y-000001.xml, ...-Y-000002.xml
+#  • uniqueID tüm parçalarda AYNI (dönem eşleşmesi)
+#  • entryNumberCounter/lineNumberCounter parçalar arası KESİNTİSİZ devam eder
+#  • Fişler tarih+madde sırasını korur; bir fiş (yevmiye maddesi) bölünmez
+# Boyut sınırı pratik amaçlı; testte küçük parça sayısıyla da bölme sınanabilir.
+# ══════════════════════════════════════════════════════════════════════
+
+def edf_yevmiye_bol(yil, ay, max_madde=None, max_bayt=None):
+    """Aylık yevmiyeyi parçalara böler. Döner: (ok, [(dosya_adi, xml_bytes)], mesaj).
+    max_madde: parça başına en fazla madde (fiş) sayısı.
+    max_bayt: parça başına yaklaşık en fazla bayt (üretip ölçerek böler).
+    İkisi de None ise tek parça döner (000000)."""
+    import calendar
+    _ay = f"{int(ay):02d}"
+    bas = f"{yil}-{_ay}-01"
+    son = f"{yil}-{_ay}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+    tum_fisler = edf_get_fisler(bas, son)
+    if not tum_fisler:
+        return False, [], f"❌ {yil}-{_ay} döneminde fiş yok."
+
+    # Bölme yok → tek parça (000000)
+    if not max_madde and not max_bayt:
+        ok, xml, ad = edf_yevmiye_xml(yil, ay, 0)
+        return (ok, [(ad, xml)] if ok else [], "" if ok else xml)
+
+    # Fişleri madde numarasına göre sırala (kesintisiz sayaç için şart)
+    tum_fisler = sorted(tum_fisler, key=lambda f: int(f.get("yevmiye_madde_no") or 0))
+
+    # ── Parçalara ayır ──
+    parcalar = []          # her eleman: fiş listesi
+    mevcut = []
+    for f in tum_fisler:
+        mevcut.append(f)
+        bolme_gerek = False
+        if max_madde and len(mevcut) >= max_madde:
+            bolme_gerek = True
+        if max_bayt:
+            # bu parçanın tahmini boyutunu üretip ölç
+            ok, xml, _ = edf_yevmiye_xml(yil, ay, 0, fis_listesi=mevcut)
+            if ok and len(xml) >= max_bayt and len(mevcut) > 1:
+                # son fişi taşır: bu parçayı bir öncekiyle kapat
+                mevcut.pop()
+                parcalar.append(mevcut)
+                mevcut = [f]
+                continue
+        if bolme_gerek:
+            parcalar.append(mevcut)
+            mevcut = []
+    if mevcut:
+        parcalar.append(mevcut)
+
+    if len(parcalar) <= 1:
+        # bölmeye gerek kalmadı → tek parça
+        ok, xml, ad = edf_yevmiye_xml(yil, ay, 0)
+        return (ok, [(ad, xml)] if ok else [], "" if ok else xml)
+
+    # ── Her parçayı üret, sayaç sürekliliğini koru ──
+    sonuc = []
+    ln_offset = 0
+    for i, parca_fisler in enumerate(parcalar, start=1):
+        ok, xml, ad = edf_yevmiye_xml(yil, ay, parca=i,
+                                      fis_listesi=parca_fisler, ln_baslangic=ln_offset)
+        if not ok:
+            return False, [], f"❌ Parça {i} üretilemedi: {xml}"
+        # bu parçadaki toplam satır sayısını ekle (sonraki parça oradan devam)
+        ln_offset += sum(len(f.get("satirlar", [])) for f in parca_fisler)
+        sonuc.append((ad, xml))
+    return True, sonuc, f"✅ {len(parcalar)} parçaya bölündü."
