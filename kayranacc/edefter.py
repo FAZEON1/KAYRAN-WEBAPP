@@ -857,7 +857,27 @@ def _render_edefter_xml():
     _parca = c3.number_input("Parça No", min_value=0, value=0, step=1, key="edf_xml_parca",
                              help="Defter bölünmediyse 0")
 
-    if st.button("🔧 XML Üret", type="primary", use_container_width=True, key="edf_xml_uret"):
+    _dt = "K" if "Kebir" in _tur else "Y"
+
+    b1, b2 = st.columns(2)
+    _denetle = b1.button("🔍 GİB Kural Denetimi", use_container_width=True, key="edf_denetle")
+    _uret = b2.button("🔧 XML Üret", type="primary", use_container_width=True, key="edf_xml_uret")
+
+    # ── GİB iş kuralı denetimi (üretimden önce ya da tek başına) ──
+    if _denetle or _uret:
+        gecerli, kurallar = edf_is_kurallari_dogrula(str(int(_yil)), str(int(_ay)), _dt)
+        hatalar = [m for lvl, m in kurallar if lvl == "hata"]
+        if hatalar:
+            st.error(f"❌ {len(hatalar)} GİB kural ihlali — düzeltmeden XML üretilemez:")
+            for m in hatalar[:20]:
+                st.markdown(f"- {m}")
+            if len(hatalar) > 20:
+                st.caption(f"…ve {len(hatalar) - 20} ihlal daha.")
+            return  # üretimi engelle
+        else:
+            st.success("✅ Tüm GİB iş kurallarından geçti (denge, sayaç, tarih, zorunlu alanlar).")
+
+    if _uret:
         with st.spinner("XML üretiliyor…"):
             try:
                 _uretici = {
@@ -1186,3 +1206,126 @@ def edf_yevmiye_berat_xml(yil, ay, parca=0):
 def edf_kebir_berat_xml(yil, ay, parca=0):
     """Kebir/Büyük Defter Beratı (KB)."""
     return _edf_berat_xml(yil, ay, "K", parca)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FAZ 2d — GİB İŞ KURALLARI DENETLEYİCİSİ (schematron → Python)
+# GİB'in edefter_yevmiye.sch / edefter_kebir.sch kurallarının kritik
+# olanları natif Python'a taşındı. XSD "yapı doğru mu", bu katman "içerik
+# GİB kurallarına uygun mu" der. Üretim öncesi/sonrası denetim sağlar.
+# ══════════════════════════════════════════════════════════════════════
+
+def edf_is_kurallari_dogrula(yil, ay, defter_turu="Y"):
+    """Bir dönemin fişlerini GİB iş kurallarına göre denetler (XML üretmeden).
+    defter_turu: 'Y'/'K'. Döner: (gecerli, [ (seviye, mesaj) ]).
+    seviye: 'hata' (üretimi engeller) | 'uyari' (bilgi)."""
+    import calendar
+    sonuc = []
+    ayar = edf_ayar_getir()
+
+    # ── Kurum ayarları kuralları (entityInformation) ──
+    zorunlu_ayar = {
+        "vkn": "VKN/TCKN", "unvan": "Unvan", "telefon": "Telefon (entityPhoneNumber zorunlu)",
+        "eposta": "E-posta (entityEmailAddress zorunlu)", "website": "Web sitesi (entityWebSite zorunlu)",
+        "nace_kodu": "NACE/businessDescription", "adres_bina": "Adres bina no",
+        "adres_cadde": "Adres cadde", "adres_il": "Adres il", "adres_posta": "Adres posta kodu",
+        "mali_yil_baslangic": "Mali yıl başlangıç", "mali_yil_bitis": "Mali yıl bitiş",
+        "smmm_ad": "SMMM adı", "program_ad": "Program adı", "program_versiyon": "Program versiyonu",
+    }
+    for k, ad in zorunlu_ayar.items():
+        if not str(ayar.get(k) or "").strip():
+            sonuc.append(("hata", f"Kurum Ayarları eksik: {ad}"))
+
+    vkn = str(ayar.get("vkn") or "").strip()
+    if vkn and not re_match_vkn(vkn):
+        sonuc.append(("hata", "VKN/TCKN 10 veya 11 haneli sayısal olmalı."))
+    # mali yıl sırası
+    mb, me = str(ayar.get("mali_yil_baslangic") or ""), str(ayar.get("mali_yil_bitis") or "")
+    if mb and me and not (me > mb):
+        sonuc.append(("hata", "Mali yıl bitiş, başlangıçtan büyük olmalı (fiscalYearEnd > fiscalYearStart)."))
+    # SMMM adı en az 2 karakter
+    if str(ayar.get("smmm_ad") or "").strip() and len(ayar["smmm_ad"].strip()) < 2:
+        sonuc.append(("hata", "SMMM adı en az 2 karakter olmalı."))
+    # şube no/adı birlikte
+    if str(ayar.get("sube_kodu") or "").strip():
+        if not re_match_sube(ayar["sube_kodu"].strip()):
+            sonuc.append(("hata", "Şube no 4 haneli sayısal olmalı."))
+
+    # ── Dönem fişleri kuralları ──
+    _ay = f"{int(ay):02d}"
+    bas = f"{yil}-{_ay}-01"
+    son = f"{yil}-{_ay}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+    fisler = edf_get_fisler(bas, son)
+
+    if not fisler:
+        sonuc.append(("hata", f"{yil}-{_ay} döneminde hiç fiş yok. "
+                              "Tüm ayı kapsayan defterde en az 1 madde olmalı."))
+        return (not any(s[0] == "hata" for s in sonuc)), sonuc
+
+    onceki_madde = 0
+    onceki_tarih = None
+    for f in fisler:
+        madde = int(f.get("yevmiye_madde_no") or 0)
+        tarih = str(f.get("tarih"))[:10]
+        satirlar = f.get("satirlar", [])
+
+        # entryNumberCounter müteselsil (kesintisiz artan)
+        if defter_turu == "Y" and madde != onceki_madde + 1:
+            sonuc.append(("hata", f"Madde no {madde}: yevmiye madde numarası müteselsil değil "
+                                  f"(önceki {onceki_madde}). Kesintisiz artmalı."))
+        onceki_madde = madde
+
+        # tarihe göre sıralı
+        if defter_turu == "Y" and onceki_tarih and tarih < onceki_tarih:
+            sonuc.append(("hata", f"Madde {madde}: yevmiye tarihe göre sıralı değil "
+                                  f"({tarih} < {onceki_tarih})."))
+        onceki_tarih = tarih
+
+        # enteredDate dönem içinde
+        if not (bas <= tarih <= son):
+            sonuc.append(("hata", f"Madde {madde}: tarih ({tarih}) dönem dışında "
+                                  f"({bas} – {son} olmalı)."))
+
+        # en az 2 satır
+        dolu = [s for s in satirlar if (_f(s.get("borc")) > 0 or _f(s.get("alacak")) > 0)]
+        if len(dolu) < 2:
+            sonuc.append(("hata", f"Madde {madde}: en az 2 detay satırı olmalı (çift taraflı kayıt)."))
+
+        # denge: totalDebit = totalCredit
+        tb = round(sum(_f(s.get("borc")) for s in dolu), 2)
+        ta = round(sum(_f(s.get("alacak")) for s in dolu), 2)
+        if tb != ta:
+            sonuc.append(("hata", f"Madde {madde}: borç ({tb}) ≠ alacak ({ta}). Denge şart."))
+        if tb == 0:
+            sonuc.append(("hata", f"Madde {madde}: toplam 0 olamaz."))
+
+        # her satır: amount > 0, hesap kodu, alt-ana hesap ilişkisi
+        for s in dolu:
+            kod = str(s.get("hesap_kodu") or "")
+            tutar = _f(s.get("borc")) if _f(s.get("borc")) > 0 else _f(s.get("alacak"))
+            if tutar <= 0:
+                sonuc.append(("hata", f"Madde {madde}: tutar 0'dan büyük olmalı ({kod})."))
+            if not kod:
+                sonuc.append(("hata", f"Madde {madde}: hesap kodu boş."))
+            elif "." in kod:
+                ana = kod.split(".")[0]
+                if not kod.startswith(ana):
+                    sonuc.append(("hata", f"Madde {madde}: alt hesap {kod} ana hesap {ana} ile başlamalı."))
+            # kuruş: 2 haneden fazla ondalık olmamalı
+            if round(tutar, 2) != tutar:
+                sonuc.append(("hata", f"Madde {madde}: tutar 2 ondalıktan fazla ({tutar})."))
+
+    gecerli = not any(s[0] == "hata" for s in sonuc)
+    if gecerli and not sonuc:
+        sonuc.append(("uyari", "✓ Tüm GİB iş kurallarından geçti."))
+    return gecerli, sonuc
+
+
+def re_match_vkn(v):
+    import re
+    return bool(re.match(r"^[0-9]{10,11}$", v))
+
+
+def re_match_sube(v):
+    import re
+    return bool(re.match(r"^[0-9]{4}$", v))
