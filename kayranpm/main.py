@@ -1403,20 +1403,35 @@ def run():
             } for r in _rows])
             metrik_satiri([
                 {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
-                {"label": "🧾 Kayıt", "value": f"{len(_df):,}", "renk": "#22D3EE"},
+                {"label": "📦 Toplam Stok", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
                 {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
             ])
-            @st.dialog("📊 Müşteri bazında toplam satış", width="large")
-            def _dlg_musteri_toplam():
-                _grp = (_df.groupby("Müşteri")["Satış"].sum()
-                        .sort_values(ascending=False).reset_index())
-                st.dataframe(_grp, hide_index=True, use_container_width=True, height=tablo_h(len(_grp)))
-            if st.button("📊 Müşteri bazında toplam satış", key="btn_mus_top", use_container_width=True):
-                _dlg_musteri_toplam()
-            st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
-            st.download_button("⬇️ CSV indir",
-                               _df.to_csv(index=False).encode("utf-8-sig"),
-                               "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
+
+            # ── MÜŞTERİ BAZINDA ÖZET (her müşteri = 1 satır: toplam satış + stok) ──
+            st.markdown('<div class="alt-baslik">👥 Müşteri Bazında Özet — her müşteri tek satır (toplam satış + stok)</div>', unsafe_allow_html=True)
+            _ozet = (_df.groupby("Müşteri")
+                     .agg(**{"Toplam Satış": ("Satış", "sum"),
+                             "Toplam Stok": ("Stok", "sum"),
+                             "SKU Çeşidi": ("SKU", "nunique")})
+                     .reset_index()
+                     .sort_values("Toplam Satış", ascending=False))
+            st.dataframe(_ozet, hide_index=True, use_container_width=True,
+                         height=min(60 + len(_ozet) * 36, 420),
+                         column_config={
+                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="%d"),
+                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="%d"),
+                             "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
+                         })
+            st.download_button("⬇️ Özet CSV indir",
+                               _ozet.to_csv(index=False).encode("utf-8-sig"),
+                               "musteri_ozet.csv", "text/csv", key="mhs_ozet_csv")
+
+            # ── HAM DETAY (isteyen SKU kırılımını görsün) ──
+            with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({len(_df):,} kayıt)", expanded=False):
+                st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
+                st.download_button("⬇️ Detay CSV indir",
+                                   _df.to_csv(index=False).encode("utf-8-sig"),
+                                   "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
 
         st.markdown("---")
         @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
