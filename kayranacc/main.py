@@ -1104,6 +1104,7 @@ def run():
             "🧾 Cari Ekstre",
             "📂 Veri Yükleme",
             "📄 Raporlar & Bildirim",
+            "📚 e-Defter",
         ]
     
         # Yetkili olmayan kullanıcılar için kısıtlı sayfaları menüden çıkar
@@ -3129,6 +3130,14 @@ def run():
                      height=min(60 + len(_goster) * 35, 560))
         st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
                    "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
+
+
+    # ════════════════════════════════════════════════════════════════════
+    # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
+    # ════════════════════════════════════════════════════════════════════
+    elif sayfa == "📚 e-Defter":
+        from kayranacc.edefter import render as _edefter_render
+        _edefter_render()
 
 
     # ════════════════════════════════════════════════════════════════════
