@@ -40,20 +40,34 @@ def _coklu_deger(kayit_deger):
 
 
 def _icerik_multiselect(st_col, etiket, secenekler, kayit_deger, key):
-    """Seçilebilir + serbest metin girilebilir içerik alanı. ' · ' ile birleşik string döner."""
+    """Seçilebilir + serbest metin girilebilir içerik alanı. ' · ' ile birleşik string döner.
+    NOT: st.pills kullanılır (seçenekler pencere İÇİNDE düğme olarak durur) —
+    multiselect'in açılır listesi dialog arkasında kalabildiği için terk edildi.
+    pills mevcut değilse eski multiselect yoluna düşer."""
     _mevcut = _coklu_deger(kayit_deger)
     _opts = list(dict.fromkeys(secenekler + _mevcut))  # mevcut özel değerler de listede görünsün
+    # Önceki oturumdan session'da kalan, listede olmayan değerler pills'i
+    # patlatmasın → süz (yalnız geçerli seçenekler kalsın)
+    _ss = st.session_state.get(key)
+    if isinstance(_ss, list) and any(v not in _opts for v in _ss):
+        st.session_state[key] = [v for v in _ss if v in _opts]
     try:
-        _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key,
-                                  accept_new_options=True,
-                                  help="Listeden seç ya da yaz + Enter ile yeni ekle.")
-    except TypeError:
-        # Eski Streamlit: accept_new_options yoksa serbest metni ayrı kutudan al
-        _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key)
-        _ek = st_col.text_input(f"{etiket} — listede yoksa yaz", key=f"{key}_yeni",
-                                placeholder="virgülle birden çok: hdmi, adaptör")
-        if _ek.strip():
-            _sec = list(_sec) + [x.strip() for x in _ek.split(",") if x.strip()]
+        _sec = st_col.pills(etiket, _opts, selection_mode="multi",
+                            default=[m for m in _mevcut if m in _opts], key=key,
+                            help="Tıklayarak seç / kaldır — açılır liste yok, hepsi pencere içinde.")
+    except Exception:
+        # pills yoksa (eski Streamlit) → multiselect'e düş
+        try:
+            _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key,
+                                      accept_new_options=True,
+                                      help="Listeden seç ya da yaz + Enter ile yeni ekle.")
+        except TypeError:
+            _sec = st_col.multiselect(etiket, _opts, default=_mevcut, key=key)
+    # Listede olmayanı serbest metinle ekleme (virgülle çoklu)
+    _ek = st_col.text_input(f"➕ {etiket} — listede yoksa yaz", key=f"{key}_yeni",
+                            placeholder="virgülle birden çok: hdmi, adaptör")
+    if (_ek or "").strip():
+        _sec = list(_sec) + [x.strip() for x in _ek.split(",") if x.strip()]
     return " · ".join(dict.fromkeys(_sec))
 
 
