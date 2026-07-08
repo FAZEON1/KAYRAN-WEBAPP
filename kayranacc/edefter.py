@@ -201,6 +201,10 @@ def edf_fis_ekle(tarih, tur, aciklama, belge_no, satirlar, personel=""):
         except Exception as ke:
             sb.table("edefter_fisler").delete().eq("id", fid).execute()
             return False, f"❌ Satırlar yazılamadı, fiş geri alındı: {str(ke)[:120]}", None
+        try:
+            edf_get_fisler.clear()
+        except Exception:
+            pass
         return True, f"✅ Fiş kaydedildi — Yevmiye Madde No: {madde_no} · {toplam:,.2f} ₺", madde_no
     except Exception as e:
         return False, f"❌ {type(e).__name__}: {str(e)[:150]}", None
@@ -215,13 +219,19 @@ def edf_fis_sil(fis_id):
             return False, "🔒 Kilitli fiş silinemez (dönem kapanmış)."
         sb.table("edefter_fis_satirlari").delete().eq("fis_id", fis_id).execute()
         sb.table("edefter_fisler").delete().eq("id", fis_id).execute()
+        try:
+            edf_get_fisler.clear()
+        except Exception:
+            pass
         return True, "✅ Fiş silindi."
     except Exception as e:
         return False, f"❌ {str(e)[:150]}"
 
 
+@st.cache_data(ttl=60, show_spinner=False)
 def edf_get_fisler(bas=None, bit=None):
-    """Dönem fişleri (madde no sıralı) + satırları."""
+    """Dönem fişleri (madde no sıralı) + satırları. 60sn cache — aynı dönem
+    tekrar sorgulanınca DB'ye gidilmez (sekme değişiminde donmayı önler)."""
     try:
         sb = get_client()
         q = sb.table("edefter_fisler").select("*")
@@ -840,8 +850,14 @@ def _render_edefter_xml():
                              help="Defter bölünmediyse 0")
 
     if st.button("🔧 XML Üret", type="primary", use_container_width=True, key="edf_xml_uret"):
-        _uretici = edf_kebir_xml if _tur.startswith("Kebir") else edf_yevmiye_xml
-        ok, sonuc, ad = _uretici(str(int(_yil)), str(int(_ay)), int(_parca))
+        with st.spinner("XML üretiliyor…"):
+            try:
+                _uretici = edf_kebir_xml if _tur.startswith("Kebir") else edf_yevmiye_xml
+                ok, sonuc, ad = _uretici(str(int(_yil)), str(int(_ay)), int(_parca))
+            except Exception as _xe:
+                import traceback
+                ok, sonuc, ad = False, f"❌ Üretim hatası: {type(_xe).__name__}: {str(_xe)[:200]}", ""
+                st.code(traceback.format_exc()[-1500:])
         if not ok:
             st.error(sonuc)
         else:
