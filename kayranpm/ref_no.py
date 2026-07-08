@@ -899,30 +899,31 @@ def render():
             _render_alinan_destekler()
         return
 
-    # ── 📥 Alınan Destekler: firma seçiminden BAĞIMSIZ (yurtdışı üretici/marka
-    #    desteği belirli bir TR carinin altına ait değildir) ──
-    with st.expander("📥 Alınan Destekler (üreticiden/markadan gelen — cariye bağlı değil)"):
+    # ── Üstte 3 sekme (firma seçmeden hepsi görünür) ──
+    tab_ref, tab_dest, tab_butce = st.tabs(
+        ["🔖 Ref No'lar", "📥 Alınan Destekler", "💰 Havuz Bütçe"])
+
+    with tab_ref:
+        # Firma seçimi bu sekmenin İÇİNDE (Tümü varsayılan)
+        _TUMU = "🌐 Tümü (tüm firmalar · birleşik liste)"
+        fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
+        sec_label = st.selectbox("Firma", [_TUMU] + list(fmap.keys()), key="ref_firma_sec")
+        if sec_label == _TUMU:
+            _render_tumu(firmalar)
+        else:
+            firma = fmap[sec_label]
+            _render_refler(firma["id"], firma["firma_kodu"])
+
+    with tab_dest:
         _render_alinan_destekler()
 
-    st.markdown("---")
-
-    _TUMU = "🌐 Tümü (tüm firmalar · birleşik liste)"
-    fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
-    sec_label = st.selectbox("Firma seç", [_TUMU] + list(fmap.keys()), key="ref_firma_sec")
-    if sec_label == _TUMU:
-        _render_tumu(firmalar)
-        return
-    firma = fmap[sec_label]
-
-    tab1, tab2 = st.tabs(["🔖 Ref No'lar", "💰 Havuz Bütçe"])
-    with tab1:
-        _render_refler(firma["id"], firma["firma_kodu"])
-    with tab2:
-        if _firma_rol(firma) == "ITOPYA":
-            _render_butce(firma["id"], firma)
+    with tab_butce:
+        # Havuz bütçe yalnız EERA/ITOPYA için
+        _itopya = next((f for f in firmalar if _firma_rol(f) == "ITOPYA"), None)
+        if _itopya:
+            _render_butce(_itopya["id"], _itopya)
         else:
-            st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur. "
-                    "Şu an başka cariye havuz bütçe verilmiyor.")
+            st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur.")
 
 
 def _render_tumu(firmalar):
@@ -1105,54 +1106,50 @@ def _render_refler(fid, fkod):
 
     _siradaki = _sonraki_sira(fid)
     _onizleme = ref_uret(fkod, _yil(), _siradaki)
-    st.markdown(
-        '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);'
-        'border-radius:10px;padding:12px 16px;margin:8px 0 8px">'
-        f'Sıradaki otomatik ref no: <b style="color:#A5B4FC;font-family:monospace;font-size:15px">{_onizleme}</b></div>',
-        unsafe_allow_html=True,
-    )
-    with st.form("ref_ekle_form", clear_on_submit=True):
-        yeni_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
-        rc1, rc2, rc3 = st.columns([1.4, 1, 1.4])
-        yeni_tutar = rc1.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
-        yeni_doviz = rc2.selectbox("Döviz", DOVIZLER, index=0)
-        yeni_durum = rc3.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
-        yeni_tarih = st.date_input("Tarih", value=date.today())
-        if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
-            ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, yeni_tarih,
-                               tutar=yeni_tutar, doviz=yeni_doviz)
-            (st.success if ok else st.error)(msg)
-            if ok:
-                st.rerun()
 
-    @st.dialog("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", width="large")
-    def _dlg_ref_ice_aktar():
-        up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
-        if up is not None:
-            try:
-                df_imp = pd.read_excel(up)
-                st.caption(f"📄 Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
-                st.dataframe(df_imp, hide_index=True, use_container_width=True,
-                             height=min(38 + 35 * len(df_imp), 460))
-                imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
-                                         format_func=lambda d: DURUM_ETIKET[d], index=1,
-                                         key=f"ref_imp_durum_{fid}")
-                imp_guncelle = st.checkbox(
-                    "🔁 Mevcut ref'leri de güncelle (döviz/tutar/açıklamayı düzelt)",
-                    key=f"ref_imp_guncelle_{fid}",
-                    help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
-                         "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
-                if st.button("📥 İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}"):
-                    ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
-                    (st.success if ok else st.error)(msg)
-                    if ok:
-                        st.rerun()
-            except Exception as e:
-                st.error(f"Excel okunamadı: {e}")
-    if st.button("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", key="btn_ref_ice", use_container_width=True):
-        _dlg_ref_ice_aktar()
+    # ── Ekleme + içe aktarma tek kompakt panelde (varsayılan kapalı) ──
+    with st.expander(f"➕ Yeni Ref No Ata / Excel İçe Aktar  ·  sıradaki: {_onizleme}", expanded=False):
+        with st.form("ref_ekle_form", clear_on_submit=True):
+            rc1, rc2, rc3, rc4 = st.columns([2.2, 1, 0.8, 1.2])
+            yeni_ack = rc1.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
+            yeni_tutar = rc2.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+            yeni_doviz = rc3.selectbox("Döviz", DOVIZLER, index=0)
+            yeni_durum = rc4.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
+            if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
+                ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, date.today(),
+                                   tutar=yeni_tutar, doviz=yeni_doviz)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
 
-    st.markdown("#### 📋 Geçmiş Ref No'lar")
+        @st.dialog("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", width="large")
+        def _dlg_ref_ice_aktar():
+            up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
+            if up is not None:
+                try:
+                    df_imp = pd.read_excel(up)
+                    st.caption(f"📄 Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
+                    st.dataframe(df_imp, hide_index=True, use_container_width=True,
+                                 height=min(38 + 35 * len(df_imp), 460))
+                    imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
+                                             format_func=lambda d: DURUM_ETIKET[d], index=1,
+                                             key=f"ref_imp_durum_{fid}")
+                    imp_guncelle = st.checkbox(
+                        "🔁 Mevcut ref'leri de güncelle (döviz/tutar/açıklamayı düzelt)",
+                        key=f"ref_imp_guncelle_{fid}",
+                        help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
+                             "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
+                    if st.button("📥 İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}"):
+                        ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Excel okunamadı: {e}")
+        if st.button("📥 Excel'den İçe Aktar", key="btn_ref_ice", use_container_width=True):
+            _dlg_ref_ice_aktar()
+
+    st.markdown("**📋 Geçmiş Ref No'lar**")
     if not refler:
         st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'den içe aktarabilirsiniz.")
         return
@@ -1245,7 +1242,6 @@ def _render_refler(fid, fkod):
             st.rerun()
 
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
-    st.markdown("---")
     @st.dialog("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil", width="large")
     def _dlg_ref_toplu_sil():
         st.caption("⚠️ Silme geri alınamaz. 'Görünenleri sil' yalnızca yukarıdaki durum filtresine uyan "
@@ -1273,7 +1269,7 @@ def _render_refler(fid, fkod):
                     st.rerun()
                 else:
                     st.error("Silme başarısız oldu.")
-    if st.button("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil", key="btn_ref_sil", use_container_width=True):
+    if st.button("🗑 Toplu Sil", key="btn_ref_sil", use_container_width=True):
         _dlg_ref_toplu_sil()
 
 
