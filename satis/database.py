@@ -24,15 +24,55 @@ KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "KANAL", "Trendyol", "Direkt", "
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_kanallar():
-    """Kanal/firma listesi: Muhasebe'deki cari isimleri (varsa); yoksa varsayılan KANALLAR."""
+    """Kanal/firma listesi: Muhasebe cari isimleri + SATIŞLARDA fiilen geçen
+    firmalar (birleşik). Böylece cari listesinde olmasa bile satış yapılmış
+    her firma (ör. HURRACAN) seçim listesinde görünür — senkron sorunu biter."""
+    birlesik = []
+    _gorulen = set()
+
+    def _ekle(isimler):
+        for x in isimler or []:
+            s = str(x).strip()
+            if s and s.lower() not in _gorulen:
+                _gorulen.add(s.lower())
+                birlesik.append(s)
+
+    # 1) Muhasebe cari isimleri (varsa)
     try:
         from kayranacc.database import get_cari_isimler
-        cari = get_cari_isimler() or []
-        if cari:
-            return cari
+        _ekle(get_cari_isimler())
     except Exception:
         pass
+
+    # 2) Satış kayıtlarında fiilen geçen kanallar (distinct)
+    try:
+        _kanal_satis = _kanallar_satistan()
+        _ekle(_kanal_satis)
+    except Exception:
+        pass
+
+    if birlesik:
+        return sorted(birlesik, key=lambda s: s.lower())
     return KANALLAR
+
+
+def _kanallar_satistan():
+    """satislar tablosundaki distinct kanal isimleri (sayfalı, hafif)."""
+    sb = _get_client()
+    out, i, adim = set(), 0, 1000
+    while True:
+        r = sb.table("satislar").select("kanal").range(i, i + adim - 1).execute()
+        rows = r.data if r.data else []
+        for x in rows:
+            k = str(x.get("kanal") or "").strip()
+            if k:
+                out.add(k)
+        if len(rows) < adim:
+            break
+        i += adim
+        if i > 60000:
+            break
+    return sorted(out, key=lambda s: s.lower())
 
 
 @st.cache_resource
