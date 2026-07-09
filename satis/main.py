@@ -180,7 +180,11 @@ def _vatan_satirlar(df, kanal, urun_map):
 
 
 def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
-    """İTOPYA şablonu → satış kalemleri. Her depo satırı AYRI kalem; tarih+sipariş no dışarıdan."""
+    """İTOPYA/EERA şablonu → satış kalemleri.
+    ── ÖNEMLİ: EERA İLE İTOPYA AYNI FİRMADIR (tek cari, tek kanal). ──
+    Şablon sütunları: TARİH · DEPOTANIM · MAĞAZALAR · STOKKODU · SONALFIYAT · MIKTAR.
+    Her satır (her mağaza × her SKU) AYRI kalem olur; DEPOTANIM ve MAĞAZALAR
+    bilgisi nota yazılır. Tarih Excel'de varsa satırdan, yoksa dışarıdan alınır."""
     out = []
     for _, r in df.iterrows():
         sku = str(r.get("STOKKODU") or "").strip()
@@ -197,12 +201,22 @@ def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
         except Exception:
             bf = 0.0
         depo = str(r.get("DEPOTANIM") or "").strip()
+        magaza = str(r.get("MAĞAZALAR") or r.get("MAGAZALAR") or "").strip()
+        # satır bazlı tarih (varsa) — yoksa dışarıdan gelen tarih
+        _sr_tarih = _to_date(r.get("TARİH") or r.get("TARIH"))
+        _tarih = _sr_tarih.isoformat() if _sr_tarih else tarih_iso
+        # not: mağaza + depo birlikte, boş olanları atla
+        _not_parcalar = []
+        if magaza and magaza.lower() != "nan":
+            _not_parcalar.append(f"Mağaza: {magaza}")
+        if depo and depo.lower() != "nan":
+            _not_parcalar.append(f"Depo: {depo}")
         out.append({
-            "tarih": tarih_iso, "kanal": kanal, "sku": sku,
+            "tarih": _tarih, "kanal": kanal, "sku": sku,
             "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
             "adet": adet, "birim_satis": bf,
             "siparis_no": siparis_no,
-            "notlar": (f"Depo: {depo}" if depo and depo.lower() != "nan" else ""),
+            "notlar": " · ".join(_not_parcalar),
         })
     return out
 
@@ -304,7 +318,8 @@ def run():
             st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
         else:
             # ── Excel ile toplu sipariş girişi — 3 ayrı upload: VATAN · EERA · DİĞER ──
-            _EERA_KOL = ["TARİH", "DEPOTANIM", "STOKKODU", "SONALFIYAT", "MIKTAR"]
+            # EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
+            _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU", "SONALFIYAT", "MIKTAR"]
             _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar"]
             _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
