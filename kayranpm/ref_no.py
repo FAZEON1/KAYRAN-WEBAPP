@@ -33,19 +33,35 @@ _VARSAYILAN_KATEGORILER = [
 ]
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def _urun_kategorileri():
+    """Sisteme kayıtlı ürünlerin kategorileri — Kampanya Takip ile AYNI kaynak.
+    Kampanya Takip dropdown'ı da 'urunler' tablosundaki 'kategori' alanından
+    (tr_kucuk normalize + benzersiz + sıralı) besleniyor; birebir aynısı."""
+    try:
+        from shared.utils import tr_kucuk as _tk
+        rows = get_client().table("urunler").select("kategori").execute().data or []
+        return sorted({_tk(r.get("kategori")) for r in rows if _tk(r.get("kategori"))})
+    except Exception:
+        return []
+
+
 def _kategori_listesi(refler=None):
-    """Dropdown için kategori listesi: varsayılanlar + sistemde kullanılanlar
-    (mevcut ref'lerden toplanır), tekilleştirilmiş ve sıralı. En sonda 'Diğer…'."""
-    kats = list(_VARSAYILAN_KATEGORILER)
-    for r in (refler or []):
-        k = _tr_upper(str(r.get("kategori") or "").strip())
-        if k and k not in kats:
-            kats.append(k)
-    # tekilleştir, alfabetik sırala ama varsayılan sı.rayı bozmadan
-    seen, out = set(), []
-    for k in kats:
-        if k not in seen:
-            seen.add(k); out.append(k)
+    """Ref No kategori dropdown'ı. BİRİNCİL kaynak Kampanya Takip ile aynı:
+    ürünlerin kategorileri (urunler tablosu). Ayrıca ref'lerde geçmiş kategoriler
+    de eklenir (kaybolmasın). Hepsi Türkçe-büyük harfe normalize + tekil.
+    Ürün kategorisi hiç yoksa varsayılan sete düşülür (boş dropdown olmasın)."""
+    out = []
+    for k in _urun_kategorileri():                     # Kampanya Takip kaynağı (birincil)
+        ku = _tr_upper(str(k).strip())
+        if ku and ku not in out:
+            out.append(ku)
+    if not out:                                        # hiç ürün kategorisi yoksa
+        out = list(_VARSAYILAN_KATEGORILER)
+    for r in (refler or []):                            # ref'lerde geçmiş kategoriler
+        ku = _tr_upper(str(r.get("kategori") or "").strip())
+        if ku and ku not in out:
+            out.append(ku)
     return out
 
 
