@@ -522,26 +522,45 @@ def _sonraki_sira(firma_id):
     return max((int(r.get("sira_no") or 0) for r in refler), default=0) + 1
 
 
-def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD"):
+def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD",
+             kategori="", donem_ay=None, donem_yil=None):
+    """Ref no atar. kategori: serbest metin (örn. SELLOUT). donem_ay/donem_yil:
+    ref'in ait olduğu dönem — verilirse aylik alanına {YYYY-AA: tutar} yazılır
+    (Ay/Yıl kolonları dolar). NOT: donem_yil ref NUMARASINI etkilemez;
+    numara her zaman içinde bulunulan yıldan (yil) üretilir."""
     try:
         sb = get_client()
         sira = _sonraki_sira(firma_id)
         yil = yil or _yil()
         ref_no = ref_uret(kod, yil, sira)
-        sb.table("ref_kayitlari").insert({
+        _kayit = {
             "firma_id": firma_id, "sira_no": sira, "ref_no": ref_no,
             "aciklama": aciklama or "", "durum": durum, "yil": yil,
             "tarih": str(tarih) if tarih else None,
             "paylasim_tarihi": str(tarih) if (durum == "paylasildi" and tarih) else None,
             "tutar": _f(tutar), "doviz": doviz or "USD",
-        }).execute()
+        }
+        if (kategori or "").strip():
+            _kayit["kategori"] = kategori.strip().upper()
+        if donem_ay:
+            import json as _json
+            _dy = int(donem_yil or yil)
+            _kayit["aylik"] = _json.dumps({f"{_dy}-{int(donem_ay):02d}": _f(tutar)})
+        try:
+            sb.table("ref_kayitlari").insert(_kayit).execute()
+        except Exception:
+            # kategori/aylik kolonları yoksa onlarsız dene
+            for _k in ("kategori", "aylik"):
+                _kayit.pop(_k, None)
+            sb.table("ref_kayitlari").insert(_kayit).execute()
         _cache_temizle()
         return True, f"✅ {ref_no} atandı."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
-def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None):
+def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None,
+                 kategori=None):
     try:
         sb = get_client()
         _d = {
@@ -553,7 +572,13 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
             _d["tutar"] = _f(tutar)
         if doviz is not None:
             _d["doviz"] = doviz or "USD"
-        sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
+        if kategori is not None:
+            _d["kategori"] = str(kategori).strip().upper()
+        try:
+            sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
+        except Exception:
+            _d.pop("kategori", None)  # kolon yoksa onsuz dene
+            sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         _cache_temizle()
         return True
     except Exception:
@@ -1110,17 +1135,32 @@ def _render_refler(fid, fkod):
     # ── Ekleme + içe aktarma tek kompakt panelde (varsayılan kapalı) ──
     with st.expander(f"➕ Yeni Ref No Ata / Excel İçe Aktar  ·  sıradaki: {_onizleme}", expanded=False):
         with st.form("ref_ekle_form", clear_on_submit=True):
-            rc1, rc2, rc3, rc4 = st.columns([2.2, 1, 0.8, 1.2])
-            yeni_ack = rc1.text_input("Açıklama", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
-            yeni_tutar = rc2.number_input("Tutar", min_value=0.0, value=0.0, step=100.0, format="%.2f")
-            yeni_doviz = rc3.selectbox("Döviz", DOVIZLER, index=0)
-            yeni_durum = rc4.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
+            rc1, rc2 = st.columns([2.4, 1.2])
+            yeni_ack = rc1.text_input("Açıklama *", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
+            yeni_kat = rc2.text_input("Kategori", placeholder="örn. SELLOUT")
+            rd1, rd2, rd3, rd4, rd5 = st.columns([1.1, 0.8, 1.0, 0.8, 1.3])
+            yeni_tutar = rd1.number_input("Tutar", min_value=0.0, value=None,
+                                          placeholder="0,00", step=100.0, format="%.2f")
+            yeni_doviz = rd2.selectbox("Döviz", DOVIZLER, index=0)
+            _ay_opts = ["—"] + [_AY_AD[m] for m in range(1, 13)]
+            yeni_ay = rd3.selectbox("Dönem Ayı", _ay_opts, index=0,
+                                    help="Ref'in ait olduğu ay (Ay/Yıl kolonuna yazılır)")
+            yeni_donem_yil = rd4.number_input("Yıl", min_value=2020, max_value=2100,
+                                              value=_yil(), step=1)
+            yeni_durum = rd5.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
             if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
-                ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, date.today(),
-                                   tutar=yeni_tutar, doviz=yeni_doviz)
-                (st.success if ok else st.error)(msg)
-                if ok:
-                    st.rerun()
+                if not (yeni_ack or "").strip():
+                    st.error("⚠️ Açıklama boş olamaz — boş ref no atanmaz. "
+                             "Lütfen bir açıklama girip tekrar dene.")
+                else:
+                    _ay_no = (_ay_opts.index(yeni_ay) if yeni_ay != "—" else None)
+                    ok, msg = ref_ekle(fid, fkod, yeni_ack.strip(), yeni_durum, date.today(),
+                                       tutar=(yeni_tutar or 0.0), doviz=yeni_doviz,
+                                       kategori=yeni_kat, donem_ay=_ay_no,
+                                       donem_yil=int(yeni_donem_yil))
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        st.rerun()
 
         @st.dialog("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", width="large")
         def _dlg_ref_ice_aktar():
@@ -1181,7 +1221,9 @@ def _render_refler(fid, fkod):
             return False
         return True
     goster = [r for r in refler if _ref_uygun(r)]
-    st.caption(f"{len(goster)} / {len(refler)} kayıt gösteriliyor")
+    st.caption(f"{len(goster)} / {len(refler)} kayıt · ✏️ **Açıklama, Kategori, Tutar, Döviz ve Durum "
+               f"hücreleri tabloda doğrudan düzenlenebilir** — değiştirip altta 💾 Kaydet'e bas. "
+               f"Silmek için satırın 'Sil?' kutusunu işaretleyip Kaydet'e bas.")
 
     df_ed = pd.DataFrame([{
         "id": r["id"], "Sil?": False, "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
@@ -1205,9 +1247,9 @@ def _render_refler(fid, fkod):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
-            "Kategori": st.column_config.TextColumn("Kategori", disabled=True,
-                                                    help="Excel'deki KATEGORİ kolonundan gelir; aynı ref'te birden "
-                                                         "çok kategori varsa birlikte görünür."),
+            "Kategori": st.column_config.TextColumn("Kategori",
+                                                    help="Serbest metin — doğrudan düzenlenebilir "
+                                                         "(örn. SELLOUT, MARKETING). Kaydet ile yazılır."),
             "Ay": st.column_config.TextColumn("Ay", disabled=True,
                                               help="Excel'deki AY/YIL kolonlarından gelir; birden çok aya "
                                                    "yayılan ref'lerde aylar birlikte görünür. Değiştirmek için "
@@ -1231,11 +1273,17 @@ def _render_refler(fid, fkod):
             n_tar = (str(o.get("tarih") or "")[:10] or None)  # Tarih kolonu kaldırıldı; mevcut değer korunur
             n_tutar = _f(row.get("Tutar"))
             n_doviz = str(row.get("Döviz", "USD") or "USD")
+            n_kat = str(row.get("Kategori", "") or "").strip()
+            _o_kat = str(o.get("kategori") or "").strip()
+            if n_kat == "—":
+                n_kat = _o_kat  # placeholder tiresi değişiklik sayılmasın
             if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
-                    n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD")):
+                    n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD") or
+                    n_kat != _o_kat):
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
-                             tutar=n_tutar, doviz=n_doviz)
+                             tutar=n_tutar, doviz=n_doviz,
+                             kategori=(n_kat if n_kat != _o_kat else None))
                 degisen += 1
         st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
