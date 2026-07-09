@@ -86,6 +86,87 @@ def _f(v, d=0.0):
         return d
 
 
+# ══════════════════════════════════════════════════════════════════════
+# DÖNEM KİLİDİ — GİB'e verilen dönemin fişleri değiştirilemez/silinemez
+# olmalıdır (verilen defterle sistemdeki kayıt birebir kalmalı). Bir ay
+# kilitlenince o aya fiş eklenemez, silinemez, düzenlenemez.
+# ══════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=120, show_spinner=False)
+def edf_kilitli_donemler():
+    """Kilitli dönemlerin kümesi: {'2026-07', ...}. Tablo yoksa boş."""
+    try:
+        r = get_client().table("edefter_donem_kilit").select("donem").execute()
+        return {str(x["donem"]) for x in (r.data or [])}
+    except Exception:
+        return set()
+
+
+def edf_donem_kilitli_mi(yil, ay):
+    """Belirli bir ay kilitli mi?"""
+    return f"{int(yil)}-{int(ay):02d}" in edf_kilitli_donemler()
+
+
+def _tarih_kilitli_mi(tarih):
+    """Bir fiş tarihinin ait olduğu ay kilitli mi? (YYYY-MM-DD)."""
+    t = str(tarih or "")[:7]  # YYYY-MM
+    return t in edf_kilitli_donemler()
+
+
+def edf_donem_kilitle(yil, ay, personel=""):
+    """Bir dönemi (ay) kilitler + o aydaki fişleri kilitli işaretler."""
+    donem = f"{int(yil)}-{int(ay):02d}"
+    try:
+        sb = get_client()
+        # zaten kilitli mi
+        if donem in edf_kilitli_donemler():
+            return False, f"ℹ️ {donem} zaten kilitli."
+        sb.table("edefter_donem_kilit").insert({
+            "donem": donem, "personel": personel or "",
+            "kilit_tarihi": date.today().isoformat()}).execute()
+        # o aydaki fişleri de kilitli işaretle (ek güvenlik)
+        import calendar
+        bas = f"{donem}-01"
+        son = f"{donem}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+        try:
+            sb.table("edefter_fisler").update({"kilitli": True}) \
+                .gte("tarih", bas).lte("tarih", son).execute()
+        except Exception:
+            pass
+        try:
+            edf_kilitli_donemler.clear()
+            edf_get_fisler.clear()
+        except Exception:
+            pass
+        return True, f"🔒 {donem} dönemi kilitlendi. Bu aya artık fiş eklenemez/silinemez/değiştirilemez."
+    except Exception as e:
+        return False, f"❌ {type(e).__name__}: {str(e)[:150]}"
+
+
+def edf_donem_kilit_ac(yil, ay, personel=""):
+    """Bir dönemin kilidini açar (yönetici işlemi — dikkatli kullanılmalı)."""
+    donem = f"{int(yil)}-{int(ay):02d}"
+    try:
+        sb = get_client()
+        sb.table("edefter_donem_kilit").delete().eq("donem", donem).execute()
+        import calendar
+        bas = f"{donem}-01"
+        son = f"{donem}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
+        try:
+            sb.table("edefter_fisler").update({"kilitli": False}) \
+                .gte("tarih", bas).lte("tarih", son).execute()
+        except Exception:
+            pass
+        try:
+            edf_kilitli_donemler.clear()
+            edf_get_fisler.clear()
+        except Exception:
+            pass
+        return True, f"🔓 {donem} döneminin kilidi açıldı."
+    except Exception as e:
+        return False, f"❌ {type(e).__name__}: {str(e)[:150]}"
+
+
 # ══════════════════════════ VERİ KATMANI ══════════════════════════════
 
 def edf_hesap_plani():
@@ -181,6 +262,10 @@ def edf_fis_ekle(tarih, tur, aciklama, belge_no, satirlar, personel=""):
     ok, msg, temiz, toplam = edf_fis_dogrula(satirlar)
     if not ok:
         return False, "❌ " + msg, None
+    # Dönem kilidi: kilitli aya fiş eklenemez
+    if _tarih_kilitli_mi(tarih):
+        return False, (f"🔒 {str(tarih)[:7]} dönemi kilitli — bu aya fiş eklenemez. "
+                       "Gerekiyorsa önce dönem kilidini açın (Kurum Ayarları yetkisi)."), None
     try:
         sb = get_client()
         _t = str(tarih)[:10]
@@ -211,12 +296,15 @@ def edf_fis_ekle(tarih, tur, aciklama, belge_no, satirlar, personel=""):
 
 
 def edf_fis_sil(fis_id):
-    """Fişi ve satırlarını siler (kilitli fiş silinemez)."""
+    """Fişi ve satırlarını siler (kilitli fiş / kilitli dönem silinemez)."""
     try:
         sb = get_client()
-        r = sb.table("edefter_fisler").select("kilitli").eq("id", fis_id).execute()
-        if r.data and r.data[0].get("kilitli"):
-            return False, "🔒 Kilitli fiş silinemez (dönem kapanmış)."
+        r = sb.table("edefter_fisler").select("kilitli,tarih").eq("id", fis_id).execute()
+        if r.data:
+            if r.data[0].get("kilitli"):
+                return False, "🔒 Kilitli fiş silinemez (dönem kapanmış)."
+            if _tarih_kilitli_mi(r.data[0].get("tarih")):
+                return False, f"🔒 {str(r.data[0].get('tarih'))[:7]} dönemi kilitli — bu fiş silinemez."
         sb.table("edefter_fis_satirlari").delete().eq("fis_id", fis_id).execute()
         sb.table("edefter_fisler").delete().eq("id", fis_id).execute()
         try:
@@ -368,6 +456,12 @@ def render():
                                  placeholder="örn. Temmuz kira ödemesi")
         fis_belge = f4.text_input("Belge No", key="edf_fbelge", placeholder="ops.")
 
+        # Dönem kilidi uyarısı — seçilen ay kilitliyse fiş eklenemez
+        if _tarih_kilitli_mi(fis_tarih):
+            st.error(f"🔒 **{str(fis_tarih)[:7]} dönemi kilitli** — bu aya fiş eklenemez. "
+                     "Kilit, GİB'e verilen defterle tutarlılığı korur. Gerekiyorsa Mizan "
+                     "sekmesinden dönem kilidini açabilirsin.")
+
         _hesap_opts = [f"{k} — {a}" for k, a in sorted(plan_map.items())]
         _bos = pd.DataFrame([{"Hesap": None, "Açıklama": "", "Borç": 0.0, "Alacak": 0.0}
                              for _ in range(4)])
@@ -436,7 +530,9 @@ def render():
                     } for s in f.get("satirlar", [])])
                     st.dataframe(_sdf, hide_index=True, use_container_width=True,
                                  height=min(60 + len(_sdf) * 35, 300))
-                    if st.button("🗑 Fişi Sil", key=f"edf_sil_{f['id']}"):
+                    if _tarih_kilitli_mi(f.get("tarih")):
+                        st.caption("🔒 Bu dönem kilitli — fiş silinemez/değiştirilemez.")
+                    elif st.button("🗑 Fişi Sil", key=f"edf_sil_{f['id']}"):
                         ok, msg = edf_fis_sil(f["id"])
                         (st.success if ok else st.error)(msg)
                         if ok:
@@ -495,6 +591,46 @@ def render():
             st.download_button("⬇️ Mizan CSV",
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
                                "mizan.csv", "text/csv", key="edf_mizan_csv")
+
+        # ── 🔒 DÖNEM KİLİDİ ──
+        st.markdown("---")
+        st.markdown("**🔒 Dönem Kilidi**")
+        st.caption("GİB'e defteri verdiğin dönemi kilitle: o aya artık fiş eklenemez, "
+                   "silinemez, değiştirilemez. Bu, verilen defterle sistemdeki kaydın "
+                   "birebir aynı kalmasını (yasal tutarlılık) güvence altına alır.")
+        _kilitli = sorted(edf_kilitli_donemler(), reverse=True)
+        if _kilitli:
+            st.markdown("Kilitli dönemler: " + " · ".join(f"`🔒 {d}`" for d in _kilitli))
+        else:
+            st.caption("Henüz kilitli dönem yok.")
+        kc1, kc2, kc3 = st.columns([1, 1, 1.4])
+        _kyil = kc1.number_input("Yıl", min_value=2015, max_value=2100,
+                                 value=date.today().year, step=1, key="edf_kilit_yil")
+        _kay = kc2.selectbox("Ay", list(range(1, 13)), index=max(0, date.today().month - 2),
+                             key="edf_kilit_ay", format_func=lambda m: f"{m:02d}")
+        _donem_str = f"{int(_kyil)}-{int(_kay):02d}"
+        _bu_kilitli = _donem_str in edf_kilitli_donemler()
+        with kc3:
+            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            if not _bu_kilitli:
+                if st.button(f"🔒 {_donem_str} dönemini KİLİTLE", type="primary",
+                             use_container_width=True, key="edf_kilit_btn"):
+                    ok, msg = edf_donem_kilitle(int(_kyil), int(_kay),
+                                                st.session_state.get("aktif_kullanici", ""))
+                    (st.success if ok else st.info)(msg)
+                    if ok:
+                        st.rerun()
+            else:
+                with st.popover(f"🔓 {_donem_str} kilidini aç", use_container_width=True):
+                    st.warning(f"**{_donem_str} kilitli.** Kilidi açmak, GİB'e verilmiş "
+                               "defterle tutarsızlık riskini geri getirir. Yalnız hatalı bir "
+                               "kilitlemeyi geri almak için kullan.")
+                    if st.button("🔓 Evet, kilidi aç", key="edf_kilit_ac_btn"):
+                        ok, msg = edf_donem_kilit_ac(int(_kyil), int(_kay),
+                                                     st.session_state.get("aktif_kullanici", ""))
+                        (st.success if ok else st.error)(msg)
+                        if ok:
+                            st.rerun()
 
     # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
     elif secili == "📤 e-Defter XML":
