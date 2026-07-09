@@ -670,15 +670,31 @@ def _kontrol_paneli(kayit):
                 _dopts = ["— İthalat'tan yeni ürün seç —"] + [(f"{s} — {a}" if a else s) for s, a in _dmods]
                 _dsec = st.selectbox(f"🔄 Değişim ürününü ithalattan seç ({len(_dmods)} model · yazarak ara)",
                                      _dopts, key=f"ts_dgmodel_{kid}")
+                # Seçim değişince: değeri AYRI bir 'bekleyen' anahtarda tut. Form
+                # text_input'unun widget key'ine (ts_dgsk_) doğrudan yazmak +
+                # rerun etmek StreamlitAPIException'a yol açıyordu (widget zaten
+                # oluşmuşken key değiştirilemez → sekme kapanıyordu). Artık
+                # bekleyen değer form OLUŞMADAN önce (aşağıda) uygulanır.
                 if _dsec != _dopts[0] and st.session_state.get(f"_ts_dgmodel_son_{kid}") != _dsec:
                     st.session_state[f"_ts_dgmodel_son_{kid}"] = _dsec
                     _dsku = _dsec.split(" — ")[0].strip()
-                    st.session_state[f"ts_dgsk_{kid}"] = _dsku
+                    _dadi = ""
                     for _s, _a in _dmods:
                         if _s == _dsku and _a:
-                            st.session_state[f"ts_dgsa_{kid}"] = _a
+                            _dadi = _a
                             break
-                    st.rerun()
+                    st.session_state[f"_ts_dgsk_bekleyen_{kid}"] = _dsku
+                    st.session_state[f"_ts_dgsa_bekleyen_{kid}"] = _dadi
+
+        # Bekleyen ithalat seçimini, form text_input'ları OLUŞMADAN önce uygula.
+        # (widget key'i sonradan değiştirilemediği için tek güvenli yer burası)
+        _bek_sk = st.session_state.pop(f"_ts_dgsk_bekleyen_{kid}", None)
+        if _bek_sk is not None:
+            st.session_state[f"ts_dgsk_{kid}"] = _bek_sk
+        _bek_sa = st.session_state.pop(f"_ts_dgsa_bekleyen_{kid}", None)
+        if _bek_sa is not None:
+            st.session_state[f"ts_dgsa_{kid}"] = _bek_sa
+
         with st.form(f"ts_durum_{kid}", enter_to_submit=False):
             # İşlemi yapan gösterilmez; oturumdaki kullanıcı otomatik kaydedilir
             personel = st.session_state.get("aktif_kullanici", "") or ""
