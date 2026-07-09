@@ -275,7 +275,10 @@ def ekle_kayit(data, personel=""):
 
 
 def durum_guncelle(kayit_id, yeni_durum, personel="", aciklama="", ekstra=None):
-    """Durumu değiştirir, ts_gecmis'e satır ekler, opsiyonel ekstra alanları günceller."""
+    """Durumu değiştirir, ts_gecmis'e satır ekler, opsiyonel ekstra alanları günceller.
+    DİRENÇLİ: ekstra alanlardan biri tabloda yoksa (kolon eksik), yalnız o alan
+    atlanır — diğerleri (örn. depo_aciklama) yine yazılır. Önceki davranış tüm
+    yeni kolonları birden düşürüyordu ve etikete yazılan açıklama kayboluyordu."""
     try:
         sb = get_client()
         simdi = _simdi()
@@ -285,8 +288,14 @@ def durum_guncelle(kayit_id, yeni_durum, personel="", aciklama="", ekstra=None):
         try:
             sb.table("ts_kayitlar").update(guncelle).eq("id", kayit_id).execute()
         except Exception:
-            guncelle = {k: v for k, v in guncelle.items() if k not in _YENI_KOLONLAR}
-            sb.table("ts_kayitlar").update(guncelle).eq("id", kayit_id).execute()
+            # Toplu güncelleme kolon eksikliğine takıldı → alan alan dene:
+            # var olan her kolon yazılsın, yalnız eksik olan atlansın.
+            sb.table("ts_kayitlar").update({"mevcut_durum": yeni_durum}).eq("id", kayit_id).execute()
+            for _k, _v in (ekstra or {}).items():
+                try:
+                    sb.table("ts_kayitlar").update({_k: _v}).eq("id", kayit_id).execute()
+                except Exception:
+                    pass  # bu kolon tabloda yok — yalnız bunu atla
         sb.table("ts_gecmis").insert({
             "kayit_id": kayit_id, "durum": yeni_durum,
             "aciklama": aciklama or "", "personel": personel or "", "tarih": simdi,

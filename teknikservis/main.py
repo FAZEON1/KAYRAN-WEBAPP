@@ -432,7 +432,7 @@ def _evraksiz_kayit():
                 st.session_state.pop(_k, None)
             st.success(msg)
             st.session_state["_ts_depo_bilgi"] = f"{msg} · Depolar sekmesinde etiketini alabilirsin."
-            st.session_state["ts_sayfa"] = "📦  Depolar"
+            st.session_state["_ts_git"] = "📦  Depolar"  # radio oluşmadan önce işlenir
             st.rerun()
         else:
             st.error(msg)
@@ -771,7 +771,7 @@ def _kontrol_paneli(kayit):
                               {"depo": depo, "depo_aciklama": depo_aciklama.strip(),
                                "depo_tarihi": date.today().isoformat()}):
                 # Transfer sonrası Depolar sekmesine geç (madde 3)
-                st.session_state["ts_sayfa"] = "📦  Depolar"
+                st.session_state["_ts_git"] = "📦  Depolar"  # radio oluşmadan önce işlenir
                 st.session_state["_ts_depo_bilgi"] = f"✅ {depo} deposuna aktarıldı — Depolar sekmesine yönlendirildin."
                 st.rerun()
             else:
@@ -990,6 +990,11 @@ def run():
                 st.session_state.aktif_uygulama = "anasayfa"
                 st.rerun()
         st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+        # Bekleyen sayfa yönlendirmesi (kayıt/transfer sonrası) — widget
+        # OLUŞMADAN önce uygulanmalı, yoksa StreamlitAPIException fırlar.
+        _git = st.session_state.pop("_ts_git", None)
+        if _git:
+            st.session_state["ts_sayfa"] = _git
         sayfa = st.radio(
             "Sayfa",
             ["📥  Mal Kabül", "📋  Evraksız Ürün Kayıt", "🔧  Teknik Servis", "↩️  İade", "📦  Depolar"],
