@@ -25,6 +25,29 @@ _AY_NO = {"OCAK": 1, "SUBAT": 2, "MART": 3, "NISAN": 4, "MAYIS": 5, "HAZIRAN": 6
 _AY_AD = {1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
           7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"}
 
+# Ekranlarda görülen yaygın kategoriler (dropdown başlangıç seti).
+# Sistemdeki mevcut kategoriler bunlara EKLENİR (kaybolmaz), liste dinamik büyür.
+_VARSAYILAN_KATEGORILER = [
+    "GENEL", "MONİTÖR", "EKRAN KARTI", "BİLGİSAYAR KASASI", "KABLO",
+    "SOĞUTUCU", "GENEL SİSTEM", "SELLOUT", "MARKETING", "SPIFF", "KAMPANYA",
+]
+
+
+def _kategori_listesi(refler=None):
+    """Dropdown için kategori listesi: varsayılanlar + sistemde kullanılanlar
+    (mevcut ref'lerden toplanır), tekilleştirilmiş ve sıralı. En sonda 'Diğer…'."""
+    kats = list(_VARSAYILAN_KATEGORILER)
+    for r in (refler or []):
+        k = _tr_upper(str(r.get("kategori") or "").strip())
+        if k and k not in kats:
+            kats.append(k)
+    # tekilleştir, alfabetik sırala ama varsayılan sı.rayı bozmadan
+    seen, out = set(), []
+    for k in kats:
+        if k not in seen:
+            seen.add(k); out.append(k)
+    return out
+
 
 def _ay_no(ad):
     s = str(ad or "").strip()
@@ -35,6 +58,26 @@ def _ay_no(ad):
     if s.isdigit() and 1 <= int(s) <= 12:
         return int(s)
     return _AY_NO.get(s, 0)
+
+
+def _tr_upper(s):
+    """Türkçe-farkında büyük harf: i→İ, ı→I. Kategori tutarlılığı için
+    ('monitör' → 'MONİTÖR', varsayılan listeyle eşleşsin)."""
+    s = str(s or "")
+    return (s.replace("i", "İ").replace("ı", "I").replace("ğ", "Ğ")
+             .replace("ü", "Ü").replace("ş", "Ş").replace("ö", "Ö").replace("ç", "Ç")).upper()
+
+
+def _ay_no_coz(ad):
+    """Ay adını numaraya çevirir — Türkçe karakterli (ŞUBAT, HAZİRAN) dahil.
+    _AY_AD (görüntü adları) ve _AY_NO (ASCII) ikisini de dener."""
+    s = str(ad or "").strip().upper()
+    if not s:
+        return 0
+    for no, adx in _AY_AD.items():          # ŞUBAT, HAZİRAN gibi tam adlar
+        if adx == s:
+            return no
+    return _ay_no(s)                         # ASCII fallback (SUBAT vb.)
 
 
 def _aylik_ozet(r):
@@ -541,7 +584,7 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
             "tutar": _f(tutar), "doviz": doviz or "USD",
         }
         if (kategori or "").strip():
-            _kayit["kategori"] = kategori.strip().upper()
+            _kayit["kategori"] = _tr_upper(kategori.strip())
         if donem_ay:
             import json as _json
             _dy = int(donem_yil or yil)
@@ -560,7 +603,7 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
 
 
 def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None,
-                 kategori=None):
+                 kategori=None, aylik=None):
     try:
         sb = get_client()
         _d = {
@@ -573,11 +616,14 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
         if doviz is not None:
             _d["doviz"] = doviz or "USD"
         if kategori is not None:
-            _d["kategori"] = str(kategori).strip().upper()
+            _d["kategori"] = _tr_upper(str(kategori).strip())
+        if aylik is not None:
+            _d["aylik"] = aylik  # "" = temizle, JSON string = dönem ata
         try:
             sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         except Exception:
-            _d.pop("kategori", None)  # kolon yoksa onsuz dene
+            for _opsiyonel in ("kategori", "aylik"):  # kolon yoksa onsuz dene
+                _d.pop(_opsiyonel, None)
             sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         _cache_temizle()
         return True
@@ -1137,7 +1183,14 @@ def _render_refler(fid, fkod):
         with st.form("ref_ekle_form", clear_on_submit=True):
             rc1, rc2 = st.columns([2.4, 1.2])
             yeni_ack = rc1.text_input("Açıklama *", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
-            yeni_kat = rc2.text_input("Kategori", placeholder="örn. SELLOUT")
+            _kat_opts = _kategori_listesi(refler) + ["➕ Yeni kategori…"]
+            yeni_kat_sec = rc2.selectbox("Kategori", ["—"] + _kat_opts, index=0)
+            yeni_kat = ""
+            if yeni_kat_sec == "➕ Yeni kategori…":
+                yeni_kat = st.text_input("Yeni kategori adı", placeholder="örn. ANAKART",
+                                         key="ref_yeni_kat_input")
+            elif yeni_kat_sec != "—":
+                yeni_kat = yeni_kat_sec
             rd1, rd2, rd3, rd4, rd5 = st.columns([1.1, 0.8, 1.0, 0.8, 1.3])
             yeni_tutar = rd1.number_input("Tutar", min_value=0.0, value=None,
                                           placeholder="0,00", step=100.0, format="%.2f")
@@ -1221,18 +1274,27 @@ def _render_refler(fid, fkod):
             return False
         return True
     goster = [r for r in refler if _ref_uygun(r)]
-    st.caption(f"{len(goster)} / {len(refler)} kayıt · ✏️ **Açıklama, Kategori, Tutar, Döviz ve Durum "
-               f"hücreleri tabloda doğrudan düzenlenebilir** — değiştirip altta 💾 Kaydet'e bas. "
-               f"Silmek için satırın 'Sil?' kutusunu işaretleyip Kaydet'e bas.")
+    st.caption(f"{len(goster)} / {len(refler)} kayıt · ✏️ **Açıklama, Kategori, Tutar, Döviz, Dönem "
+               f"(Ay/Yıl) ve Durum hücreleri tabloda doğrudan düzenlenebilir** — değiştirip altta "
+               f"💾 Kaydet'e bas. Silmek için satırın 'Sil?' kutusunu işaretleyip Kaydet'e bas.")
 
+    _kat_secenekler = _kategori_listesi(refler)
     df_ed = pd.DataFrame([{
         "id": r["id"], "Sil?": False, "No": int(r.get("sira_no") or 0), "Ref No": r.get("ref_no", "") or "",
         "Açıklama": r.get("aciklama", "") or "", "Tutar": _f(r.get("tutar")),
         "Döviz": (r.get("doviz") or "USD"),
-        "Kategori": (r.get("kategori") or "") or "—",
+        "Kategori": (_tr_upper((r.get("kategori") or "").strip()) or "—"),
         "Ay": _aylik_ozet(r)[0], "Yıl": _aylik_ozet(r)[1],
         "Durum": r.get("durum", "beklemede") or "beklemede",
     } for r in goster])
+
+    # Kategori dropdown seçenekleri: mevcut değerler de dahil olmalı (yoksa hata verir)
+    _kat_kolon_opts = list(dict.fromkeys(["—"] + _kat_secenekler +
+                                         [str(x) for x in df_ed["Kategori"].tolist() if x]))
+    # Ay dropdown: tek ay adları + boş; çok-aylı ref'ler serbest metin gibi görünür ama
+    # düzenlenirse tek aya sabitlenir. Ay seçenekleri:
+    _ay_kolon_opts = list(dict.fromkeys([""] + list(_AY_AD.values()) +
+                                        [str(x) for x in df_ed["Ay"].tolist() if x]))
 
     edited = st.data_editor(
         df_ed, use_container_width=True, hide_index=True, num_rows="fixed",
@@ -1247,14 +1309,16 @@ def _render_refler(fid, fkod):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
-            "Kategori": st.column_config.TextColumn("Kategori",
-                                                    help="Serbest metin — doğrudan düzenlenebilir "
-                                                         "(örn. SELLOUT, MARKETING). Kaydet ile yazılır."),
-            "Ay": st.column_config.TextColumn("Ay", disabled=True,
-                                              help="Excel'deki AY/YIL kolonlarından gelir; birden çok aya "
-                                                   "yayılan ref'lerde aylar birlikte görünür. Değiştirmek için "
-                                                   "Excel'i 'Mevcut ref'leri de güncelle' ile yeniden yükle."),
-            "Yıl": st.column_config.TextColumn("Yıl", disabled=True, width="small"),
+            "Kategori": st.column_config.SelectboxColumn("Kategori", options=_kat_kolon_opts,
+                                                         width="medium",
+                                                         help="Açılır listeden seç. Yeni kategori eklemek "
+                                                              "istersen üstteki '➕ Yeni Ref No Ata' panelinden "
+                                                              "'Yeni kategori…' ile ekle."),
+            "Ay": st.column_config.SelectboxColumn("Ay", options=_ay_kolon_opts, width="small",
+                                                   help="Ref'in ait olduğu ay — düzenlenebilir. "
+                                                        "Değiştirip Kaydet'e bas."),
+            "Yıl": st.column_config.TextColumn("Yıl", width="small",
+                                               help="Ref'in ait olduğu yıl (örn. 2026) — düzenlenebilir."),
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
         },
     )
@@ -1277,13 +1341,31 @@ def _render_refler(fid, fkod):
             _o_kat = str(o.get("kategori") or "").strip()
             if n_kat == "—":
                 n_kat = _o_kat  # placeholder tiresi değişiklik sayılmasın
-            if (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
-                    n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD") or
-                    n_kat != _o_kat):
+
+            # ── Ay/Yıl değişikliği → aylik JSON'ı yeniden kur ──
+            n_ay = str(row.get("Ay", "") or "").strip()
+            n_yil = str(row.get("Yıl", "") or "").strip()
+            _o_ays, _o_yls = _aylik_ozet(o)
+            aylik_yeni = None  # None = değişiklik yok
+            if n_ay != _o_ays or n_yil != _o_yls:
+                # tek ay + tek yıl girildiyse temiz bir aylik kur; tutar ref tutarı
+                _ay_no = _ay_no_coz(n_ay)
+                _yil_i = "".join(ch for ch in n_yil if ch.isdigit())[:4]
+                if _ay_no and len(_yil_i) == 4:
+                    import json as _json
+                    aylik_yeni = _json.dumps({f"{_yil_i}-{_ay_no:02d}": n_tutar})
+                elif not n_ay and not n_yil:
+                    aylik_yeni = ""  # ikisi de boşaltıldı → dönem temizle
+
+            _degisti = (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
+                        n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD") or
+                        n_kat != _o_kat or aylik_yeni is not None)
+            if _degisti:
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
                 ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
                              tutar=n_tutar, doviz=n_doviz,
-                             kategori=(n_kat if n_kat != _o_kat else None))
+                             kategori=(n_kat if n_kat != _o_kat else None),
+                             aylik=aylik_yeni)
                 degisen += 1
         st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
