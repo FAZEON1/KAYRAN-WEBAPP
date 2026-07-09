@@ -25,7 +25,8 @@ def run():
         if _kull:
             st.markdown(sidebar_kullanici(_kull), unsafe_allow_html=True)
         _dsayfa = st.radio("Sayfa", ["🏬 Depo Stok", "🚚 Depolar Arası Sevk",
-                                     "📦 Bekleyen Sevk Takibi", "🔎 SKU Hareketleri"],
+                                     "📦 Bekleyen Sevk Takibi", "🔎 SKU Hareketleri",
+                                     "🏭 Happy Life Kiralık Depo"],
                            label_visibility="collapsed", key="depo_sayfa")
 
     if _dsayfa == "🏬 Depo Stok":
@@ -34,8 +35,10 @@ def run():
         _sayfa_sevk()
     elif _dsayfa == "📦 Bekleyen Sevk Takibi":
         _sayfa_bekleyen()
-    else:
+    elif _dsayfa == "🔎 SKU Hareketleri":
         _sayfa_sku()
+    else:
+        _sayfa_happylife()
 
 
 # ═════════════════════════ 🏬 DEPO STOK ═════════════════════════
@@ -374,3 +377,250 @@ def _sayfa_sku():
                 use_container_width=True, hide_index=True, height=300)
         else:
             st.caption("İade kaydı yok.")
+
+
+# ═════════════════════════ 🏭 HAPPY LIFE KİRALIK DEPO ═════════════════════════
+# Kiralık depoda (Happy Life) palet bazlı stok. Kira, stok yaşına göre ödendiği
+# için stok yaşı KRİTİK. Yaş = rapor günü − giriş tarihi olarak CANLI hesaplanır
+# (Excel'deki sabit yaş sayısı yok sayılır) → her gün açıldığında güncel görünür.
+
+import io as _io
+import json as _json
+from datetime import datetime as _dt
+
+_HL_TABLO = "happylife_stok"
+
+
+def _hl_tarih_coz(v):
+    """Excel'deki giriş tarihini ISO'ya çevirir (24.02.2026 / datetime / seri)."""
+    if v is None or str(v).strip() == "":
+        return None
+    if isinstance(v, (_dt, date)):
+        return v.strftime("%Y-%m-%d") if hasattr(v, "strftime") else str(v)[:10]
+    s = str(v).strip()
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return _dt.strptime(s, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    return None
+
+
+def _hl_yas(giris_iso, rapor_iso=None):
+    """Stok yaşı (gün) = rapor tarihi − giriş tarihi. rapor yoksa bugün."""
+    if not giris_iso:
+        return None
+    try:
+        g = _dt.strptime(str(giris_iso)[:10], "%Y-%m-%d").date()
+        r = _dt.strptime(str(rapor_iso)[:10], "%Y-%m-%d").date() if rapor_iso else date.today()
+        return (r - g).days
+    except Exception:
+        return None
+
+
+def hl_excel_parse(dosya):
+    """Happy Life Excel'ini (G5F_Stok sayfası) okur → kayıt listesi.
+    Döner: (kayitlar, hata). Yalnız istenen kolonlar + giriş tarihi tutulur."""
+    try:
+        xls = pd.ExcelFile(dosya)
+    except Exception as e:
+        return None, f"Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
+    # ham detay sayfasını bul (SKU kodu + Giriş tarihi + Palet etiketi olan)
+    hedef = None
+    for sn in xls.sheet_names:
+        try:
+            df = pd.read_excel(xls, sheet_name=sn)
+            df.columns = [str(c).strip() for c in df.columns]
+        except Exception:
+            continue
+        kols = set(df.columns)
+        if {"SKU kodu", "Giriş tarihi", "Palet etiketi"}.issubset(kols):
+            hedef = df
+            break
+    if hedef is None:
+        return None, "Uygun sayfa bulunamadı (SKU kodu · Giriş tarihi · Palet etiketi sütunları gerekli)."
+
+    kayitlar = []
+    for _, r in hedef.iterrows():
+        sku = str(r.get("SKU kodu") or "").strip()
+        if not sku or sku.lower() == "nan":
+            continue
+        giris = _hl_tarih_coz(r.get("Giriş tarihi"))
+        def _say(x):
+            try:
+                return float(x or 0)
+            except Exception:
+                return 0.0
+        kayitlar.append({
+            "sku": sku,
+            "sku_tanim": str(r.get("SKU tanımı") or "").strip(),
+            "giris_tarihi": giris,
+            "palet_etiketi": str(r.get("Palet etiketi") or "").strip(),
+            "miktar": _say(r.get("Miktar")),
+            "birim": str(r.get("Birim") or "").strip(),
+            "miktar2": _say(r.get("Miktar-2")),
+            "birim2": str(r.get("Birim.1") or r.get("Birim") or "").strip(),
+        })
+    return kayitlar, None
+
+
+def hl_kaydet(kayitlar, rapor_tarihi=None):
+    """Kayıtları DB'ye yazar. Aynı rapor tarihindeki eski kayıtları silip
+    yeniden yazar (idempotent) → aynı günü iki kez yüklersen mükerrer olmaz."""
+    rapor = str(rapor_tarihi or date.today().isoformat())[:10]
+    try:
+        sb = get_client()
+        try:
+            sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()
+        except Exception:
+            pass
+        rows = [dict(k, rapor_tarihi=rapor) for k in kayitlar]
+        for i in range(0, len(rows), 200):
+            sb.table(_HL_TABLO).insert(rows[i:i + 200]).execute()
+        return True, f"✅ {len(rows)} palet kaydı yüklendi ({rapor})."
+    except Exception as e:
+        return False, f"❌ {type(e).__name__}: {str(e)[:160]}"
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def hl_rapor_tarihleri():
+    """Yüklenmiş rapor tarihleri (yeniden eskiye)."""
+    try:
+        r = get_client().table(_HL_TABLO).select("rapor_tarihi").execute()
+        return sorted({str(x["rapor_tarihi"])[:10] for x in (r.data or [])}, reverse=True)
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def hl_get_stok(rapor_tarihi=None):
+    """Bir rapor tarihinin palet kayıtları. rapor yoksa en son yükleme."""
+    try:
+        sb = get_client()
+        if not rapor_tarihi:
+            _tarihler = hl_rapor_tarihleri()
+            if not _tarihler:
+                return []
+            rapor_tarihi = _tarihler[0]
+        r = (sb.table(_HL_TABLO).select("*")
+             .eq("rapor_tarihi", str(rapor_tarihi)[:10]).execute())
+        return r.data or []
+    except Exception:
+        return []
+
+
+def _sayfa_happylife():
+    _baslik("🏭 Happy Life Kiralık Depo",
+            "Palet bazlı stok · stok yaşı tarihe göre canlı hesaplanır (kira takibi)")
+
+    # ── Excel yükleme ──
+    with st.expander("📥 Günlük Excel Yükle (G5F_Stok)", expanded=False):
+        st.caption("Happy Life'tan gelen günlük stok Excel'ini yükle. Stok yaşı, Excel'deki "
+                   "sabit sayı yerine **giriş tarihine göre her gün otomatik güncellenir** — "
+                   "yani yüklemesen bile yaş bugüne göre doğru kalır.")
+        up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="hl_upload")
+        _rapor = st.date_input("Rapor tarihi", value=date.today(), key="hl_rapor_t",
+                               help="Bu yüklemenin ait olduğu gün. Aynı günü tekrar yüklersen "
+                                    "önceki kayıt güncellenir (mükerrer olmaz).")
+        if up is not None:
+            kayitlar, hata = hl_excel_parse(up)
+            if hata:
+                st.error(hata)
+            else:
+                st.success(f"📄 {len(kayitlar)} palet satırı okundu.")
+                if st.button("💾 Veritabanına Kaydet", type="primary", key="hl_kaydet_btn",
+                             use_container_width=True):
+                    ok, msg = hl_kaydet(kayitlar, _rapor.isoformat())
+                    (st.success if ok else st.error)(msg)
+                    if ok:
+                        try:
+                            hl_rapor_tarihleri.clear(); hl_get_stok.clear()
+                        except Exception:
+                            pass
+                        st.rerun()
+
+    # ── Rapor tarihi seçimi ──
+    _tarihler = hl_rapor_tarihleri()
+    if not _tarihler:
+        st.info("Henüz veri yok. Yukarıdan Happy Life Excel'ini yükle.")
+        return
+    c1, c2 = st.columns([1, 3])
+    _sec_tarih = c1.selectbox("Rapor tarihi", _tarihler, index=0, key="hl_sec_tarih")
+    kayitlar = hl_get_stok(_sec_tarih)
+    if not kayitlar:
+        st.info("Bu tarihte kayıt yok.")
+        return
+
+    # ── Canlı yaş hesabı (bugüne göre) ──
+    from shared.utils import tr_buyuk as _tb
+    bugun_iso = date.today().isoformat()
+    for k in kayitlar:
+        k["_yas"] = _hl_yas(k.get("giris_tarihi"), bugun_iso)
+
+    # ── Özet metrikler ──
+    _toplam_palet = len(kayitlar)
+    _cesit = len({k["sku"] for k in kayitlar})
+    _yaslar = [k["_yas"] for k in kayitlar if k["_yas"] is not None]
+    _max_yas = max(_yaslar) if _yaslar else 0
+    _ort_yas = round(sum(_yaslar) / len(_yaslar)) if _yaslar else 0
+    from shared.utils import metrik_satiri
+    metrik_satiri([
+        {"label": "🎁 Palet Sayısı", "value": f"{_toplam_palet:,}", "renk": "#818CF8"},
+        {"label": "📦 SKU Çeşidi", "value": f"{_cesit:,}", "renk": "#22D3EE"},
+        {"label": "⏳ En Yaşlı Stok", "value": f"{_max_yas} gün",
+         "renk": "#F87171" if _max_yas >= 120 else "#FBBF24" if _max_yas >= 60 else "#34D399"},
+        {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": "#A78BFA"},
+    ])
+
+    # ── SKU ÖZET (Sayfa1 gibi: SKU · toplam miktar · en yüksek yaş) ──
+    st.markdown("**📊 SKU Bazında Özet** — her SKU'nun toplam stoğu ve en yaşlı paletinin yaşı")
+    _ozet = {}
+    for k in kayitlar:
+        o = _ozet.setdefault(k["sku"], {"tanim": k["sku_tanim"], "miktar2": 0.0,
+                                        "palet": 0, "max_yas": 0, "birim2": k.get("birim2") or "Adet"})
+        o["miktar2"] += k.get("miktar2") or 0
+        o["palet"] += 1
+        if (k["_yas"] or 0) > o["max_yas"]:
+            o["max_yas"] = k["_yas"] or 0
+    _ozet_df = pd.DataFrame([{
+        "SKU": _tb(sku), "SKU Tanımı": _tb(o["tanim"]),
+        "Toplam Miktar": int(o["miktar2"]), "Birim": o["birim2"],
+        "Palet Sayısı": o["palet"], "En Yüksek Stok Yaşı (gün)": o["max_yas"],
+    } for sku, o in sorted(_ozet.items(), key=lambda kv: -kv[1]["max_yas"])])
+    st.dataframe(_ozet_df, hide_index=True, use_container_width=True,
+                 height=min(60 + len(_ozet_df) * 35, 420),
+                 column_config={
+                     "En Yüksek Stok Yaşı (gün)": st.column_config.NumberColumn(
+                         "En Yüksek Stok Yaşı (gün)", format="%d 🗓"),
+                 })
+    st.download_button("⬇️ Özet CSV", _ozet_df.to_csv(index=False).encode("utf-8-sig"),
+                       f"happylife_ozet_{_sec_tarih}.csv", "text/csv", key="hl_ozet_csv")
+
+    # ── DETAY (istenen 8 kolon) ──
+    st.markdown("**📋 Palet Detayı** — talep edilen kolonlar")
+    _detay_df = pd.DataFrame([{
+        "SKU Kodu": _tb(k["sku"]), "SKU Tanımı": _tb(k["sku_tanim"]),
+        "Giriş Tarihi": _hl_gun_ay_yil(k.get("giris_tarihi")),
+        "Stok Yaşı (gün)": k["_yas"] if k["_yas"] is not None else "—",
+        "Palet Etiketi": k.get("palet_etiketi") or "",
+        "Miktar": int(k.get("miktar") or 0), "Birim": k.get("birim") or "",
+        "Miktar-2": int(k.get("miktar2") or 0), "Birim-2": k.get("birim2") or "",
+    } for k in sorted(kayitlar, key=lambda x: -(x["_yas"] or 0))])
+    st.caption(f"{len(_detay_df)} palet · yaşa göre azalan sıralı (en yaşlı üstte)")
+    st.dataframe(_detay_df, hide_index=True, use_container_width=True,
+                 height=min(60 + len(_detay_df) * 35, 640),
+                 column_config={
+                     "Stok Yaşı (gün)": st.column_config.NumberColumn("Stok Yaşı (gün)", format="%d"),
+                 })
+    st.download_button("⬇️ Detay CSV", _detay_df.to_csv(index=False).encode("utf-8-sig"),
+                       f"happylife_detay_{_sec_tarih}.csv", "text/csv", key="hl_detay_csv")
+
+
+def _hl_gun_ay_yil(iso):
+    """ISO tarihi → GG.AA.YYYY görüntü."""
+    if not iso:
+        return "—"
+    try:
+        return _dt.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+    except Exception:
+        return str(iso)
