@@ -2455,12 +2455,17 @@ def run():
             return ["background-color:#FEF2F2;color:#FCA5A5" if k < 0 else ""] * len(row)
     
         # --- Nakit Akis HTML Tablosu ---
+        def _tr_para(v, sym):
+            """TR format + kuruş: 1234567.75 → '₺ 1.234.567,75'"""
+            return f"{sym} " + f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
         def fmt_tl(v):
             if v is None or (isinstance(v, float) and v == 0.0): return "-"
-            return f"₺ {v:,.0f}"
+            return _tr_para(v, "₺")
+
         def fmt_usd(v):
             if v is None or (isinstance(v, float) and v == 0.0): return "-"
-            return f"$ {v:,.0f}"
+            return _tr_para(v, "$")
         nakit_rows_html = ""
         for idx_r, row in enumerate(tablo_rows):
             is_toplam = row["Tarih"] == "TOPLAM"
@@ -2705,7 +2710,8 @@ def run():
             sym_prefix = "$" if is_usd else "₺"
             def fmt_para(v):
                 if v is None or v == 0: return "-"
-                return f"{sym_prefix} {v:,.0f}"
+                # kuruşlar korunur (TR format: binlik '.', ondalık ',')
+                return f"{sym_prefix} " + f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             cek_rows_html = ""
             for ri, row in enumerate(rows):
                 vd_raw = row.get("_vd", "")
@@ -2825,14 +2831,18 @@ def run():
     
             # === ODENENLER HTML TABLO ===
             def fmt_para_od(val):
+                """Ödenen tutarları TAM gösterir: binlik '.', ondalık ',' ve 2 hane kuruş.
+                (Eskiden ':,.0f' ile yuvarlanıyordu → 1.037,75 TL '1.038' görünüyordu;
+                kuruşlar kayboluyordu. Artık kuruşlar korunur.)"""
                 if val is None or val == "" or (val != val):
                     return "-"
                 try:
                     v = float(val)
                     if v == 0:
                         return "-"
-                    return f"{v:,.0f}".replace(",", ".")
-                except:
+                    # 1234567.75 → "1.234.567,75"
+                    return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                except Exception:
                     return str(val) if val else "-"
 
             od_rows_html = ""
