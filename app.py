@@ -21,6 +21,76 @@ from shared.auth import kullanici_dogrula, kullanici_dogrula_v2, sifre_dogrula, 
 
 
 # ─────────────────────────────────────────────────────────────────────
+# AKILLI CACHE TEMİZLİK (tek dosyalık optimizasyon — modüllere dokunmaz)
+#
+# SORUN : st.cache_data.clear() TÜM uygulamanın cache'ini siliyordu.
+#         Biri satış kaydedince muhasebe/ithalat/ana sayfa dahil herkesin
+#         verisi Supabase'den yeniden çekiliyordu.
+# ÇÖZÜM : clear() çağrısının HANGİ dosyadan geldiğine bakılır; yalnızca o
+#         modülün ve ona bağımlı modüllerin cache'i silinir. Eşleşme
+#         olmazsa güvenli eski davranışa (global temizlik) düşülür.
+# ─────────────────────────────────────────────────────────────────────
+import sys as _sys, os as _os, inspect as _inspect
+
+_CACHE_CLEAR_ORJINAL = st.cache_data.clear
+
+# Klasör → temizlenecek modül grupları (çapraz bağımlılıklar dahil)
+_CACHE_GRUPLARI = {
+    "satis":          ("satis", "kayranpm", "shared"),
+    "kayranpm":       ("kayranpm", "satis", "depo", "shared"),
+    "depo":           ("depo", "kayranpm", "satis", "shared"),
+    "ithalat":        ("ithalat", "kayranpm", "satis", "shared"),
+    "kayranacc":      ("kayranacc", "satis", "shared"),
+    "teknikservis":   ("teknikservis", "shared"),
+    "hesap_makinesi": ("hesap_makinesi", "shared"),
+    # Kök dosyalar (app.py, gunluk.py, yonetim.py): bildirim/talep/duyuru
+    "_kok":           ("__main__", "app", "gunluk", "yonetim", "database",
+                       "kayranpm", "shared"),
+}
+
+
+def _grup_cache_sil(gruplar):
+    """Verilen modül gruplarındaki @st.cache_data fonksiyonlarını temizler."""
+    silinen = 0
+    for _mod_adi, _mod in list(_sys.modules.items()):
+        if _mod is None:
+            continue
+        if not any(_mod_adi == g or _mod_adi.startswith(g + ".") for g in gruplar):
+            continue
+        for _attr in list(vars(_mod).values()):
+            if type(_attr).__name__ == "CachedFunc" and hasattr(_attr, "clear"):
+                try:
+                    _attr.clear()
+                    silinen += 1
+                except Exception:
+                    pass
+    return silinen
+
+
+def _akilli_cache_clear():
+    """st.cache_data.clear() yerine geçer: çağıranı bulur, hedefli temizler."""
+    try:
+        _kok = _os.path.dirname(_os.path.abspath(__file__))
+        for _fr in _inspect.stack()[1:8]:
+            _dosya = _os.path.abspath(_fr.filename)
+            if not _dosya.startswith(_kok) or "streamlit" in _dosya:
+                continue
+            _rel = _os.path.relpath(_dosya, _kok)
+            _parcalar = _rel.split(_os.sep)
+            _anahtar = _parcalar[0] if len(_parcalar) > 1 else "_kok"
+            _gruplar = _CACHE_GRUPLARI.get(_anahtar)
+            if _gruplar and _grup_cache_sil(_gruplar) > 0:
+                return
+            break  # proje içi ilk kare eşleşmediyse emniyete düş
+    except Exception:
+        pass
+    _CACHE_CLEAR_ORJINAL()  # emniyet ağı: eski global davranış
+
+
+st.cache_data.clear = _akilli_cache_clear
+
+
+# ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar"}
