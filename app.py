@@ -91,6 +91,29 @@ st.cache_data.clear = _akilli_cache_clear
 
 
 # ─────────────────────────────────────────────────────────────────────
+# HAFİF SAYIM SORGULARI (ana sayfa rozetleri)
+#
+# SORUN : Ana sayfa, sadece bir SAYI göstermek için tüm tabloyu indiriyordu
+#         (ithalat_dosyalari 1000'er sayfalanarak, ts_kayitlar tamamı...).
+# ÇÖZÜM : count="exact", head=True → Postgres sayıyı döner, TEK SATIR bile
+#         indirilmez. Hata olursa eski yönteme düşülür (rozet kaybolmaz).
+# ─────────────────────────────────────────────────────────────────────
+@st.cache_data(ttl=60, show_spinner=False)
+def _hizli_sayim(tablo: str, kolon: str = None, degerler=None):
+    """Satır indirmeden COUNT döner. Başarısızsa None (çağıran eski yola düşer)."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return None
+        q = sb.table(tablo).select("id", count="exact", head=True)
+        if kolon and degerler:
+            q = q.in_(kolon, list(degerler))
+        return q.execute().count
+    except Exception:
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
 KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar"}
@@ -2078,8 +2101,13 @@ def anasayfa():
             pass
     if yetkiler.get("ithalat"):
         try:
-            from ithalat.database import get_dosyalar, IN_TRANSIT_DURUMLAR
-            _yol = sum(1 for d in get_dosyalar() if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
+            from ithalat.database import IN_TRANSIT_DURUMLAR
+            # Hafif: satır indirmeden COUNT. Başarısızsa eski tam-tablo yoluna düş.
+            _yol = _hizli_sayim("ithalat_dosyalari", "durum", IN_TRANSIT_DURUMLAR)
+            if _yol is None:
+                from ithalat.database import get_dosyalar
+                _yol = sum(1 for d in get_dosyalar()
+                           if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
             kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", "#38BDF8"))
             if _yol:
                 _rozet["ithalat"] = f"{_yol} yolda"
@@ -2087,8 +2115,10 @@ def anasayfa():
             pass
     if yetkiler.get("teknikservis"):
         try:
-            from teknikservis.database import get_kayitlar
-            _ts_n = len(get_kayitlar())
+            _ts_n = _hizli_sayim("ts_kayitlar")
+            if _ts_n is None:
+                from teknikservis.database import get_kayitlar
+                _ts_n = len(get_kayitlar())
             kpi_html.append(_kpi_card("Teknik Servis", f"{_ts_n}", "🛠️ Açık kayıt", "#A78BFA"))
             if _ts_n:
                 _rozet["teknikservis"] = f"{_ts_n} açık"
@@ -2096,8 +2126,10 @@ def anasayfa():
             pass
     if yetkiler.get("kayranpm"):
         try:
-            from kayranpm.database import get_kampanyalar
-            _kmp_n = len(get_kampanyalar(durum='aktif'))
+            _kmp_n = _hizli_sayim("kampanyalar", "durum", ["aktif"])
+            if _kmp_n is None:
+                from kayranpm.database import get_kampanyalar
+                _kmp_n = len(get_kampanyalar(durum='aktif'))
             kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "🎯 Aktif kampanya", "#F472B6"))
             if _kmp_n:
                 _rozet["kayranpm"] = f"{_kmp_n} kampanya"
