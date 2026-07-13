@@ -684,9 +684,17 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
     """Firma başına AYRI 'X STOK' + 'X SATIŞ' sekmeleri olan haftalık dosyayı yükler.
     Her firmanın PORTAL formatı desteklenir (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu...).
     Satışlar SKU ile stok satırlarının yanına bağlanır → firma_stok'a tek özet yazılır.
-    KATEGORİ dosyadan BEKLENMEZ (boş/yok → hata vermez) — kategori bizim ürün kartından gelir."""
+    KATEGORİ dosyadan BEKLENMEZ (boş/yok → hata vermez) — kategori bizim ürün kartından gelir.
+
+    BELLEK NOTU: Büyük dosyalarda (ör. VATAN) tüm sekmeleri aynı anda belleğe almak
+    Streamlit Cloud'un bellek sınırını aşıp süreci çökertiyordu ('Segmentation fault').
+    Bu yüzden sekmeler TEK TEK okunur ve işlendikçe bellekten atılır; veritabanına
+    yazma da SKU başına tek tek değil, TOPLU (chunk) yapılır.
+    """
+    import gc as _gc
     try:
-        sheets = pd.read_excel(dosya_yolu, sheet_name=None)
+        _xls = pd.ExcelFile(dosya_yolu)
+        _sayfa_adlari = list(_xls.sheet_names)
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:140]}"
 
@@ -698,16 +706,22 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         return None
 
     # firma → {"stok": df, "satis": df}
+    # Sekmeler TEK TEK okunur (hepsi birden değil) → bellek sıçraması olmaz.
     gruplar = {}
-    for ad, df in (sheets or {}).items():
+    for ad in _sayfa_adlari:
         kod = _sayfa_firma(ad)
         if not kod:
-            continue
+            continue                       # ilgisiz sekme → hiç okuma, belleğe alma
         _u = tr_upper(str(ad))
         tur = "satis" if ("SATIS" in _u.replace("Ş", "S") or "SATIŞ" in _u) else \
               ("stok" if "STOK" in _u else None)
-        if tur:
-            gruplar.setdefault(kod, {})[tur] = df
+        if not tur:
+            continue
+        try:
+            df = pd.read_excel(_xls, sheet_name=ad)
+        except Exception:
+            continue
+        gruplar.setdefault(kod, {})[tur] = df
 
     if not gruplar:
         return False, ("❌ Firma sekmesi bulunamadı. Sekme adları 'VATAN STOK', 'VATAN SATIŞ' "
@@ -808,36 +822,73 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
             pass
 
         # ── Özet yaz (kategori bizim ürün kartından gelir; dosyadan beklenmez) ──
+        # TOPLU YAZMA: eskiden her SKU için ayrı HTTP isteği atılıyordu (binlerce
+        # istek) → yavaş + bellek şişmesi + çökme. Yukarıda bu firma+hafta zaten
+        # silindiği için burada upsert'e gerek yok; parçalar hâlinde insert yeterli.
         _n_sku, _t_stok, _t_satis = 0, 0, 0
-        for sku, o in agg.items():
+        _satirlar = [{
+            "firma": kod, "sku": sku, "urun_adi": o["ad"] or "",
+            "stok_miktari": int(o["stok"] or 0),
+            "haftalik_satis": int(o["satis"] or 0),
+            "stok_magaza": int(o["stok_magaza"] or 0),
+            "satis_magaza": int(o["satis_magaza"] or 0),
+            "yukleme_tarihi": _rapor_tarihi,
+        } for sku, o in agg.items()]
+
+        _toplu_oldu = False
+        if _satirlar:
             try:
-                try:
-                    upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
-                                      stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"],
-                                      rapor_tarihi=_rapor_tarihi)
-                except TypeError as _te:
-                    # Eski database.py (rapor_tarihi parametresini tanımıyor) →
-                    # önce rapor_tarihi'siz dene; kolonlar da yoksa en sade imzayla dene.
-                    if "rapor_tarihi" in str(_te):
-                        try:
-                            upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
-                                              stok_magaza=o["stok_magaza"],
-                                              satis_magaza=o["satis_magaza"])
-                        except TypeError:
-                            upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"])
-                    else:
-                        raise
-                _n_sku += 1
-                _t_stok += o["stok"] + o["stok_magaza"]
-                _t_satis += o["satis"] + o["satis_magaza"]
-                basarili += 1
-            except Exception as _ye:
-                # İlk gerçek yazma hatasını sakla (sessiz yutma yok) → mesajda göster
+                _cl = get_client()
+                for _i in range(0, len(_satirlar), 400):      # 400'lük parçalar
+                    _cl.table("firma_stok").insert(_satirlar[_i:_i + 400]).execute()
+                _toplu_oldu = True
+                _n_sku = len(_satirlar)
+                _t_stok = sum(r["stok_miktari"] + r["stok_magaza"] for r in _satirlar)
+                _t_satis = sum(r["haftalik_satis"] + r["satis_magaza"] for r in _satirlar)
+                basarili += _n_sku
+            except Exception as _be:
+                # Toplu yazma tutmadıysa (şema farkı vb.) → eski, satır satır yola dön
+                _toplu_oldu = False
                 if not yazma_hatasi["ilk"]:
-                    yazma_hatasi["ilk"] = f"{kod}/{sku}: {type(_ye).__name__}: {str(_ye)[:180]}"
-                yazma_hatasi["sayi"] += 1
+                    yazma_hatasi["ilk"] = f"{kod} toplu yazma: {type(_be).__name__}: {str(_be)[:120]}"
+
+        if not _toplu_oldu:
+            for sku, o in agg.items():
+                try:
+                    try:
+                        upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
+                                          stok_magaza=o["stok_magaza"], satis_magaza=o["satis_magaza"],
+                                          rapor_tarihi=_rapor_tarihi)
+                    except TypeError as _te:
+                        # Eski database.py (rapor_tarihi parametresini tanımıyor) →
+                        # önce rapor_tarihi'siz dene; kolonlar da yoksa en sade imzayla dene.
+                        if "rapor_tarihi" in str(_te):
+                            try:
+                                upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"],
+                                                  stok_magaza=o["stok_magaza"],
+                                                  satis_magaza=o["satis_magaza"])
+                            except TypeError:
+                                upsert_firma_stok(kod, sku, o["ad"], o["stok"], o["satis"])
+                        else:
+                            raise
+                    _n_sku += 1
+                    _t_stok += o["stok"] + o["stok_magaza"]
+                    _t_satis += o["satis"] + o["satis_magaza"]
+                    basarili += 1
+                except Exception as _ye:
+                    # İlk gerçek yazma hatasını sakla (sessiz yutma yok) → mesajda göster
+                    if not yazma_hatasi["ilk"]:
+                        yazma_hatasi["ilk"] = f"{kod}/{sku}: {type(_ye).__name__}: {str(_ye)[:180]}"
+                    yazma_hatasi["sayi"] += 1
+
         if _n_sku:
             firma_ozet[kod] = (_n_sku, _t_stok, _t_satis)
+
+        # bu firmanın verilerini bellekten at (sonraki firmaya temiz gir)
+        agg.clear()
+        sdf = vdf = None
+        g.clear()
+        _gc.collect()
 
     if not basarili:
         _detay = ""
