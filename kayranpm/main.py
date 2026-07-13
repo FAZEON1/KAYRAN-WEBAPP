@@ -1422,9 +1422,37 @@ def run():
                              "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="%d"),
                              "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
                          })
-            st.download_button("⬇️ Özet CSV indir",
-                               _ozet.to_csv(index=False).encode("utf-8-sig"),
-                               "musteri_ozet.csv", "text/csv", key="mhs_ozet_csv")
+            _ind1, _ind2 = st.columns(2)
+            _ind1.download_button("⬇️ Özet CSV indir",
+                                  _ozet.to_csv(index=False).encode("utf-8-sig"),
+                                  "musteri_ozet.csv", "text/csv", key="mhs_ozet_csv",
+                                  use_container_width=True)
+
+            # ── EXCEL (tek dosya, iki sayfa: Özet + Ham Detay) ──
+            def _mhs_excel(ozet_df, detay_df):
+                import io as _io
+                _buf = _io.BytesIO()
+                with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                    ozet_df.to_excel(_w, index=False, sheet_name="Müşteri Özet")
+                    detay_df.to_excel(_w, index=False, sheet_name="Ham Detay")
+                    # sütun genişliklerini içeriğe göre ayarla (okunabilirlik)
+                    for _sn, _d in (("Müşteri Özet", ozet_df), ("Ham Detay", detay_df)):
+                        _ws = _w.sheets[_sn]
+                        for _i, _kol in enumerate(_d.columns, start=1):
+                            _uzun = max([len(str(_kol))] +
+                                        [len(str(_v)) for _v in _d[_kol].head(200)])
+                            _ws.column_dimensions[
+                                _ws.cell(row=1, column=_i).column_letter
+                            ].width = min(max(_uzun + 2, 10), 48)
+                        _ws.freeze_panes = "A2"       # başlık satırı sabit
+                return _buf.getvalue()
+
+            _ind2.download_button(
+                "⬇️ Excel indir (Özet + Detay)",
+                _mhs_excel(_ozet, _df),
+                f"musteri_satislari_{_bas}_{_bit}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="mhs_xlsx", type="primary", use_container_width=True)
 
             # ── HAM DETAY (isteyen SKU kırılımını görsün) ──
             with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({len(_df):,} kayıt)", expanded=False):
