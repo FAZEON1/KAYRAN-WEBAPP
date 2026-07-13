@@ -424,6 +424,49 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ══════════════════════════════════════════════════════════════════════
+# AÇILIŞ SAĞLIK KONTROLÜ — "Oh no." beyaz ekranına karşı
+# Streamlit Cloud, uygulama bir süre kullanılmayınca (örn. hafta sonu)
+# uykuya alır. Uyanışta önbellekteki Supabase bağlantısı ölü olabiliyor ya
+# da ağ geç geliyor; ilk sorgu patlayınca uygulama açılışta çöküyordu.
+# Burada bağlantı canlılığı sınanır; ölüyse otomatik yeniden kurulur.
+# Onarılamazsa kullanıcıya beyaz ekran yerine anlaşılır bir mesaj + buton.
+# ══════════════════════════════════════════════════════════════════════
+if not st.session_state.get("_db_saglik_ok"):
+    try:
+        from kayranpm.database import db_saglik_kontrol as _db_saglik
+        _ok, _mesaj = _db_saglik()
+    except Exception as _e:
+        _ok, _mesaj = False, f"{type(_e).__name__}: {str(_e)[:150]}"
+    if _ok:
+        st.session_state["_db_saglik_ok"] = True
+    else:
+        st.markdown(
+            '<div style="max-width:640px;margin:80px auto;padding:28px 32px;'
+            'background:#1E293B;border:1px solid #334155;border-radius:14px;'
+            'font-family:Inter,sans-serif;color:#E2E8F0">'
+            '<div style="font-size:34px;margin-bottom:10px">🔌</div>'
+            '<div style="font-size:20px;font-weight:700;margin-bottom:8px">'
+            'Veritabanına bağlanılamadı</div>'
+            '<div style="color:#94A3B8;line-height:1.6;margin-bottom:6px">'
+            'Uygulama bir süre kullanılmadığında uyku moduna geçer; uyanırken '
+            'bağlantı bazen geç kurulur. Genellikle birkaç saniye sonra '
+            '<b>Yeniden Dene</b> demek yeterlidir.</div>'
+            f'<div style="color:#64748B;font-size:12px;font-family:monospace;'
+            f'margin-top:10px">{_mesaj}</div></div>',
+            unsafe_allow_html=True,
+        )
+        _c1, _c2, _c3 = st.columns([1, 1, 1])
+        if _c2.button("🔄 Yeniden Dene", type="primary", use_container_width=True):
+            try:
+                from kayranpm.database import db_yeniden_baglan as _yb
+                _yb()
+            except Exception:
+                pass
+            st.session_state.pop("_db_saglik_ok", None)
+            st.rerun()
+        st.stop()
+
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
 from shared.ui import islem_gosterge_css, genel_tema_css, token_css
 st.markdown(token_css(), unsafe_allow_html=True)
