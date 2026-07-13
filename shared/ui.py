@@ -331,6 +331,10 @@ div[data-testid="stCaptionContainer"] p{ color:#8B98B8 !important; }
 # ─────────────────────────────────────────────────────────────────────
 # PATRON PANOSU — sabah kokpiti (yalnız yetkili kullanıcıya render edilir)
 # ─────────────────────────────────────────────────────────────────────
+import streamlit as st
+
+
+@st.cache_data(ttl=120, show_spinner=False)
 def patron_verisi_topla():
     """Tüm modüllerden sabah kokpiti verisini HATAYA DAYANIKLI toplar.
     Her blok kendi try/except'inde — biri patlasa panel yine açılır.
@@ -508,13 +512,9 @@ def patron_verisi_topla():
         pass
 
     # ── Kanal büyüme içgörüsü (mv_kanal_ay_pnl — bu ay vs geçen ay) ──
-    try:
-        from satis.database import get_kanal_buyume
-        _bg = get_kanal_buyume(1)
-        if _bg and (_bg.get("buyuyen") or _bg.get("gerileyen")):
-            v["buyume"] = _bg
-    except Exception:
-        pass
+    # ── Büyüme içgörüsü KALDIRILDI (kullanıcı talebi: En Çok Büyüyen/Gerileyen
+    #    kartları gösterilmesin). get_kanal_buyume 2 aylık satış taraması yapan
+    #    ağır bir sorguydu — kaldırılması ana sayfayı da hızlandırır.
 
     return v
 
@@ -637,7 +637,7 @@ def patron_panosu_html(v):
             pencere("🔔 SON 24 SAAT — KRİTİK İŞLEMLER", RENK["cyan"], _kr_ic,
                     rozet=f"{v.get('kritik_sayi', 0)} işlem", yukseklik=170))
 
-    # ── 📈 30 günlük ciro trendi (sparkline) ──
+    # ── 📈 30 günlük ciro trendi (sparkline + değer etiketleri) ──
     _trend_html = ""
     if v.get("trend") and len(v["trend"]) >= 2:
         _pts = v["trend"]
@@ -645,16 +645,37 @@ def patron_panosu_html(v):
         _mx = max(_cirolar) or 1
         _mn = min(_cirolar)
         _rng = (_mx - _mn) or 1
-        _W, _H = 680, 60
+        _W, _H = 680, 96          # etiketlere yer açmak için yükseklik artırıldı
+        _UST = 26                 # üstte etiket bandı
         _n = len(_pts)
         _coords = []
         for _i, _c in enumerate(_cirolar):
             _x = (_i / (_n - 1)) * _W
-            _y = _H - ((_c - _mn) / _rng) * (_H - 8) - 4
+            _y = _H - ((_c - _mn) / _rng) * (_H - _UST - 8) - 4
             _coords.append((_x, _y))
         _poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in _coords)
         _alan = f"0,{_H} " + _poly + f" {_W},{_H}"
         _son_x, _son_y = _coords[-1]
+
+        # Değer etiketleri: her günün cirosu kompakt formatta ("12.4K" / "980").
+        # Üst üste binmesin diye iki sırada dönüşümlü (zikzak) yerleştirilir.
+        def _kfmt(_c):
+            if _c >= 100000:
+                return f"{_c/1000:,.0f}K"
+            if _c >= 1000:
+                return f"{_c/1000:.1f}K".replace(".0K", "K")
+            return f"{_c:,.0f}"
+        _lbl = ""
+        for _i, ((_x, _y), _c) in enumerate(zip(_coords, _cirolar)):
+            if _c <= 0:
+                continue                      # sıfır gün etiketi kalabalık yapmasın
+            _ly = _y - (7 if _i % 2 == 0 else 17)   # zikzak: iki sıra
+            _ly = max(_ly, 8)                       # üstten taşma
+            _anchor = "start" if _i == 0 else ("end" if _i == _n - 1 else "middle")
+            _lbl += (f'<text x="{_x:.1f}" y="{_ly:.1f}" text-anchor="{_anchor}" '
+                     f'font-size="8" font-family="JetBrains Mono,monospace" '
+                     f'fill="#94A3B8">{_kfmt(_c)}</text>')
+
         # dün vs bugün delta
         _db = v.get("trend_bugun_ciro", 0); _dd = v.get("trend_dun_ciro", 0)
         _delta_html = ""
@@ -670,57 +691,19 @@ def patron_panosu_html(v):
             f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
             f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
             f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
-            f'<svg viewBox="0 0 {_W} {_H}" width="100%" height="{_H}" preserveAspectRatio="none" '
-            f'style="display:block">'
+            f'<svg viewBox="0 0 {_W} {_H}" preserveAspectRatio="xMidYMid meet" '
+            f'style="display:block;width:100%;height:auto">'
             f'<defs><linearGradient id="kyr-trend-g" x1="0" y1="0" x2="0" y2="1">'
             f'<stop offset="0%" stop-color="#6366F1" stop-opacity="0.35"/>'
             f'<stop offset="100%" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs>'
             f'<polygon points="{_alan}" fill="url(#kyr-trend-g)"/>'
             f'<polyline points="{_poly}" fill="none" stroke="#818CF8" stroke-width="2" '
             f'stroke-linejoin="round" stroke-linecap="round"/>'
+            f'{_lbl}'
             f'<circle cx="{_son_x:.1f}" cy="{_son_y:.1f}" r="3.5" fill="#22D3EE"/>'
             f'</svg></div>')
 
-    # ── 🚀 Büyüme içgörüsü: bu ay vs geçen ay en çok büyüyen/gerileyen firma ──
-    _buyume_html = ""
-    if v.get("buyume"):
-        _bg = v["buyume"]
-        def _firma_kisa(k):
-            return (k[:22] + "…") if len(k) > 23 else k
-        def _kart_ic(liste, artis):
-            _rows = ""
-            for x in liste[:3]:
-                _ok = "▲" if artis else "▼"
-                _c = RENK["yesil"] if artis else RENK["kirmizi"]
-                _pct = abs(x["delta_pct"])
-                _pct_str = f"%{_pct:.0f}" if _pct < 999 else "yeni"
-                _rows += (
-                    f'<div style="display:flex;align-items:center;justify-content:space-between;'
-                    f'padding:4px 0;border-bottom:1px solid rgba(148,163,184,0.08)">'
-                    f'<span style="color:{RENK["metin"]};font-size:11px;font-weight:600">'
-                    f'{_firma_kisa(x["kanal"])}</span>'
-                    f'<span style="white-space:nowrap"><span style="color:{RENK["silik"]};'
-                    f'font-size:11px">${x["bu_ciro"]:,.0f}</span> '
-                    f'<span style="color:{_c};font-size:13px;font-weight:800">{_ok} {_pct_str}</span></span>'
-                    f'</div>')
-            return _rows or f'<div style="color:{RENK["silik"]};font-size:11px;padding:8px 0">—</div>'
-
-        _bh = _kart_ic(_bg.get("buyuyen", []), True)
-        _gh = _kart_ic(_bg.get("gerileyen", []), False)
-        _buyume_html = (
-            f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 12px">'
-            f'<div style="flex:1;min-width:240px;background:rgba(52,211,153,0.05);'
-            f'border:1px solid {RENK["yesil"]}28;border-radius:14px;padding:12px 16px">'
-            f'<div style="font-size:11px;color:{RENK["yesil"]};letter-spacing:1px;'
-            f'text-transform:uppercase;font-weight:700;margin-bottom:4px">🚀 En Çok Büyüyen Firma</div>'
-            f'{_bh}</div>'
-            f'<div style="flex:1;min-width:240px;background:rgba(248,113,113,0.05);'
-            f'border:1px solid {RENK["kirmizi"]}28;border-radius:14px;padding:12px 16px">'
-            f'<div style="font-size:11px;color:{RENK["kirmizi2"]};letter-spacing:1px;'
-            f'text-transform:uppercase;font-weight:700;margin-bottom:4px">📉 En Çok Gerileyen Firma</div>'
-            f'{_gh}</div></div>'
-            f'<div style="font-size:11px;color:{RENK["silik"]};margin:-8px 0 12px;text-align:right">'
-            f'{_bg.get("bu_ay","")} vs {_bg.get("kiyas_ay","")} · ciro bazlı</div>')
+    # 🚀/📉 Büyüyen-Gerileyen firma kartları kullanıcı talebiyle kaldırıldı.
 
     return (
         '<div style="margin:0 0 24px">'
@@ -731,7 +714,6 @@ def patron_panosu_html(v):
         + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
-        + _buyume_html
         + pencere_grid(_p1, _p2)
         + pencere_grid(_p3, _p4)
         + _hata_html
