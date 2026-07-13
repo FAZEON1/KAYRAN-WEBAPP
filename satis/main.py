@@ -125,26 +125,50 @@ def _parse_mikro_satislar(dosya):
 
 def _siparis_excel_oku(dosya):
     """Sipariş Excel'inin tüm sayfalarını okur, her birinin türünü algılar.
-    Döner: ([{sayfa, tur, df}], hata). tur ∈ {VATAN, İTOPYA, ?}."""
+    Döner: ([{sayfa, tur, df}], hata). tur ∈ {VATAN, İTOPYA, ?}.
+
+    BELLEK NOTU: Portal dosyaları (özellikle VATAN) onlarca kolon × binlerce
+    satır olabiliyor; hepsini okumak Streamlit Cloud'da bellek sınırını aşıp
+    süreci çökertiyordu ('Segmentation fault'). Bu yüzden her sekmenin önce
+    yalnız BAŞLIĞI okunur (nrows=0), tür belirlenir; sonra yalnız İHTİYAÇ
+    duyulan kolonlar yüklenir. Eşleşmeyen sekmelerin verisi hiç tutulmaz."""
+    import gc as _gc
     try:
         xls = pd.ExcelFile(dosya)
     except Exception as e:
         return None, f"Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
+
+    _VATAN_GEREK = {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}
+    _VATAN_KOLON = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar"]
+    _ITOPYA_GEREK = {"STOKKODU", "SONALFIYAT", "MIKTAR"}
+    _ITOPYA_KOLON = ["TARİH", "TARIH", "DEPOTANIM", "MAĞAZALAR", "MAGAZALAR",
+                     "STOKKODU", "SONALFIYAT", "MIKTAR"]
+
     sonuc = []
     for sn in xls.sheet_names:
         try:
-            df = pd.read_excel(xls, sheet_name=sn)
+            _baslik = pd.read_excel(xls, sheet_name=sn, nrows=0)   # yalnız başlık satırı
+            # ham ad ↔ kırpılmış ad eşlemesi (portal başlıklarında sondaki
+            # boşluklar usecols eşleşmesini bozmasın)
+            _ham = {str(c).strip(): c for c in _baslik.columns}
+            kols = set(_ham.keys())
+        except Exception:
+            continue
+        if _VATAN_GEREK.issubset(kols):
+            tur, _sec = "VATAN", [_ham[c] for c in _VATAN_KOLON if c in kols]
+        elif _ITOPYA_GEREK.issubset(kols):
+            tur, _sec = "İTOPYA", [_ham[c] for c in _ITOPYA_KOLON if c in kols]
+        else:
+            # tanınmayan sekme: veri YÜKLEME (bellek harcama), sadece adını bildir
+            sonuc.append({"sayfa": sn, "tur": "?", "df": pd.DataFrame()})
+            continue
+        try:
+            df = pd.read_excel(xls, sheet_name=sn, usecols=_sec)   # yalnız gereken kolonlar
             df.columns = [str(c).strip() for c in df.columns]
         except Exception:
             continue
-        kols = set(df.columns)
-        if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(kols):
-            tur = "VATAN"
-        elif {"STOKKODU", "SONALFIYAT", "MIKTAR"}.issubset(kols):
-            tur = "İTOPYA"
-        else:
-            tur = "?"
         sonuc.append({"sayfa": sn, "tur": tur, "df": df})
+    _gc.collect()
     return sonuc, None
 
 
