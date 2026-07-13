@@ -12,11 +12,54 @@ from collections import defaultdict
 
 @st.cache_resource
 def get_client() -> Client:
+    """Supabase istemcisi (önbellekli).
+    DAYANIKLILIK: Streamlit Cloud uygulamayı bir süre kullanılmayınca uykuya
+    alır; uyanışta ağ/DNS geç gelebiliyor ve bağlantı ilk denemede kurulamayıp
+    uygulama açılışta çökebiliyor ('Oh no' ekranı). Bu yüzden bağlantı kurulumu
+    kısa beklemelerle 3 kez denenir."""
+    import time
     url = st.secrets["supabase"]["url"]
     # service_role_key varsa onu kullan (RLS aşılır, sunucuda kalır); yoksa anon key.
     key = st.secrets["supabase"].get("service_role_key") or st.secrets["supabase"]["key"]
     from shared.audit import wrap_client
-    return wrap_client(create_client(url, key), "Ürün Yönetimi")
+    _son_hata = None
+    for _deneme in range(3):
+        try:
+            return wrap_client(create_client(url, key), "Ürün Yönetimi")
+        except Exception as e:      # ağ/DNS/geçici hata → kısa bekle, tekrar dene
+            _son_hata = e
+            time.sleep(0.6 * (_deneme + 1))
+    raise _son_hata
+
+
+def db_yeniden_baglan():
+    """Ölü/bayat bağlantıyı atıp yeniden kurar (uyanış sonrası onarım)."""
+    try:
+        get_client.clear()          # önbellekteki eski (ölü) istemciyi at
+    except Exception:
+        pass
+    try:
+        st.cache_data.clear()       # bayat veri önbelleğini de temizle
+    except Exception:
+        pass
+    return get_client()
+
+
+def db_saglik_kontrol():
+    """Bağlantı canlı mı? Değilse bir kez yeniden bağlanmayı dener.
+    Döner: (saglikli, mesaj). Uygulama açılışında çağrılır."""
+    def _dene(c):
+        # en ucuz sorgu: tek satır iste (tablo içeriği önemli değil)
+        c.table("urunler").select("id").limit(1).execute()
+    try:
+        _dene(get_client())
+        return True, ""
+    except Exception as e1:
+        try:
+            _dene(db_yeniden_baglan())
+            return True, "yeniden baglandi"
+        except Exception as e2:
+            return False, f"{type(e2).__name__}: {str(e2)[:150]}"
 
 
 def _cache_temizle():
