@@ -47,18 +47,40 @@ def db_yeniden_baglan():
 
 def db_saglik_kontrol():
     """Bağlantı canlı mı? Değilse bir kez yeniden bağlanmayı dener.
-    Döner: (saglikli, mesaj). Uygulama açılışında çağrılır."""
+    Döner: (saglikli, mesaj).
+
+    KRİTİK AYRIM: Sunucudan HATA CEVABI gelmesi, bağlantının ÇALIŞTIĞI
+    anlamına gelir (ör. 'column does not exist' → Supabase cevap verdi).
+    Bunu 'bağlantı yok' sayıp uygulamayı kilitlemek YANLIŞTIR. Bu yüzden:
+      • Ağ/DNS/timeout hatası  → bağlantı ölü, yeniden bağlan.
+      • Sunucudan gelen API hatası → bağlantı SAĞLIKLI (şema sorunu olabilir,
+        o zaten ilgili ekranda görünür; tüm uygulamayı engellemeyiz).
+    Şüpheye düşersek FAIL-OPEN: uygulamayı açarız, hatayı yerinde gösteririz.
+    """
+    _AG_HATALARI = ("timeout", "timed out", "connection", "resolve", "dns",
+                    "unreachable", "refused", "reset", "ssl", "network",
+                    "max retries", "name resolution")
+
+    def _ag_hatasi_mi(e):
+        s = f"{type(e).__name__}: {e}".lower()
+        return any(k in s for k in _AG_HATALARI)
+
     def _dene(c):
-        # en ucuz sorgu: tek satır iste (tablo içeriği önemli değil)
-        c.table("urunler").select("id").limit(1).execute()
+        c.table("urunler").select("*").limit(1).execute()
+
     try:
         _dene(get_client())
         return True, ""
     except Exception as e1:
+        if not _ag_hatasi_mi(e1):
+            # Sunucu cevap verdi (şema/izin vb.) → bağlantı ayakta. Engelleme.
+            return True, ""
         try:
             _dene(db_yeniden_baglan())
             return True, "yeniden baglandi"
         except Exception as e2:
+            if not _ag_hatasi_mi(e2):
+                return True, ""      # yine sunucu cevabı → aç
             return False, f"{type(e2).__name__}: {str(e2)[:150]}"
 
 
