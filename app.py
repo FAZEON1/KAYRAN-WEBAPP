@@ -2110,60 +2110,8 @@ def anasayfa():
             '<span style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 10px #10B981"></span>'
             'Tüm servisler aktif · KAYRAN Workspace v2.0 Kurumsal sürüm'
             '</div>', unsafe_allow_html=True)
-    # GÜNLÜK GİRİŞ & SERİ & LİDERLİK — tek kapalı panel
-    # ─────────────────────────────────────────────────────────────────────
-    # Giriş kaydı + kutlama panelin DIŞINDA; panel kapalı olsa da her açılışta çalışır
-    import datetime as _dtg
-    _bugun_str = _dtg.date.today().isoformat()
-    if st.session_state.get("_giris_kayit_gun") != _bugun_str:
-        if gunluk_giris_yap(aktif_kullanici):
-            st.session_state["_giris_kutla"] = True
-        st.session_state["_giris_kayit_gun"] = _bugun_str
-    if st.session_state.pop("_giris_kutla", False):
-        st.balloons()
-        st.toast("🔥 Seri devam ediyor! Bugünkü girişin kaydedildi.")
-
-    _gd = get_giris_durum(aktif_kullanici)
-    _bugun_g, _seri, _toplam = _gd["bugun"], _gd["seri"], _gd["toplam"]
-    _alev = "🔥" if _seri > 0 else "🧊"
-    _seri_renk = "#FB923C" if _seri > 0 else "#64748B"
-    with st.expander(f"{_alev} Giriş serin: {_seri} gün · toplam {_toplam} gün · {'bugün tamam ✓' if _bugun_g else 'bugün henüz yok'}", expanded=False):
-        st.markdown(
-            '<div style="background:linear-gradient(135deg,rgba(251,146,60,0.10),rgba(239,68,68,0.05));border:1px solid rgba(251,146,60,0.22);border-radius:14px;padding:16px 20px;margin-bottom:12px">'
-            '<div style="display:flex;align-items:center;gap:16px">'
-            f'<div style="font-size:23px;line-height:1">{_alev}</div>'
-            '<div>'
-            f'<div style="color:{_seri_renk};font-size:23px;font-weight:800;line-height:1">{_seri}<span style="font-size:13px;color:#94A3B8;font-weight:600;margin-left:8px">günlük seri</span></div>'
-            f'<div style="color:#94A3B8;font-size:13px;margin-top:4px">Toplam {_toplam} gün giriş · {"Bugün tamam ✓" if _bugun_g else "Bugün henüz giriş yok"} · girişin otomatik kaydedilir</div>'
-            '</div></div></div>',
-            unsafe_allow_html=True
-        )
-        _lider = get_giris_liderlik(8)
-        if _lider:
-            _madalya = {0: "🥇", 1: "🥈", 2: "🥉"}
-            _satir = ""
-            for _i, _u in enumerate(_lider):
-                _benmi = (_u["kullanici"] or "").lower() == (aktif_kullanici or "").lower()
-                _ikon = _madalya.get(_i, f'<span style="color:#64748B;font-size:13px;font-weight:700">{_i+1}</span>')
-                _bg = "rgba(99,102,241,0.12)" if _benmi else "transparent"
-                _ad_renk = "#A5B4FC" if _benmi else "#E2E8F0"
-                _ad = (_u["kullanici"] or "").capitalize() + (" (sen)" if _benmi else "")
-                _kalin = "700" if _benmi else "500"
-                _satir += (
-                    f'<div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-radius:9px;background:{_bg}">'
-                    f'<div style="width:22px;text-align:center">{_ikon}</div>'
-                    f'<div style="flex:1;color:{_ad_renk};font-size:13px;font-weight:{_kalin}">{_ad}</div>'
-                    f'<div style="color:#FB923C;font-size:13px;font-weight:700">🔥 {_u["seri"]}</div>'
-                    f'<div style="color:#64748B;font-size:11px;width:62px;text-align:right">{_u["toplam"]} gün</div>'
-                    f'</div>'
-                )
-            st.markdown(
-                '<div style="background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:12px 8px 8px">'
-                '<div style="color:#94A3B8;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0 16px 8px">🏆 Giriş Liderliği</div>'
-                + _satir +
-                '</div>',
-                unsafe_allow_html=True
-            )
+    # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI (panel + kayıt +
+    # liderlik sorguları) — ana sayfa açılışını da hızlandırır.
 
     # ── 📬 Gelen Talepler (admin) — kapalı panel, sade liste ──
     if aktif_kullanici.lower() == "ibrahim":
