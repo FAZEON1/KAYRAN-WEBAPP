@@ -271,12 +271,15 @@ def goster(sku):
     _g5f_toplam = sum(_f(v) for v in _depo_kirilim.values())
     _g5f_satilabilir = _f(urun.get("bizim_stok"))
     _firma_toplam = sum(_f(r.get("stok_miktari")) for r in firma_stok)
-    if _cs.get("var"):
-        toplam_stok = _cs["canli"]
-    elif _g5f_toplam > 0:
-        toplam_stok = _g5f_toplam
-    else:
-        toplam_stok = _firma_toplam
+    # Üst rozet + stok değeri için FİZİKİ toplam (bizim depolar + müşteri stoğu).
+    # NOT: Eskiden burada canlı hesap (_cs["canli"]) gösteriliyordu; müşteri stok
+    # dosyası henüz yüklenmemişken satış girilince eksiye düşüyor ve rozette
+    # '-700 adet' gibi kafa karıştıran değerler çıkıyordu (kullanıcı talebi:
+    # eksiler yazmasın). Canlı hesap Analiz tarafında yaşamaya devam eder;
+    # rozet ve stok değeri artık elle tutulur fiziki stoğu gösterir.
+    toplam_stok = _g5f_toplam + _firma_toplam
+    if toplam_stok <= 0 and _cs.get("var"):
+        toplam_stok = max(_f(_cs.get("canli")), 0)
     yolda_adet = sum(_f(r.get("yoldaki_miktar")) for r in yolda_rows)
     haftalik_statik = sum(_f(r.get("haftalik_satis")) for r in firma_stok)
     liste_fiyat = _f(urun.get("satis_fiyati"))
@@ -412,10 +415,8 @@ def goster(sku):
         _serit = (f'<span style="color:{RENK["metin"]};font-weight:800">GENEL TOPLAM '
                   f'<span style="font-family:JetBrains Mono,monospace">{_genel:,.0f}</span></span>'
                   f'<span style="color:{RENK["silik"]}"> = bizim {_g5f_toplam:,.0f} + müşteri {_musteri_toplam:,.0f}</span>')
-        if _cs.get("var"):
-            _serit += (f'<span style="color:{RENK["silik"]}"> · canlı hesap </span>'
-                       f'<span style="color:{RENK["yesil"]};font-family:JetBrains Mono,monospace;'
-                       f'font-weight:700">{_cs["canli"]:,.0f}</span>')
+        # NOT: 'canlı hesap' ibaresi kullanıcı talebiyle şeritten kaldırıldı
+        # (müşteri stok dosyası beklenirken eksi görünüp kafa karıştırıyordu).
         if haftalik_gercek > 0:
             _serit += f'<span style="color:{RENK["silik"]}"> · {_yeter}</span>'
         if yolda_adet > 0:
