@@ -270,7 +270,16 @@ def goster(sku):
     _depo_kirilim = urun.get("depo_kirilim") if isinstance(urun.get("depo_kirilim"), dict) else {}
     _g5f_toplam = sum(_f(v) for v in _depo_kirilim.values())
     _g5f_satilabilir = _f(urun.get("bizim_stok"))
-    _firma_toplam = sum(_f(r.get("stok_miktari")) for r in firma_stok)
+    # Müşteri stoğu: her firmanın SON yüklemesi (snapshot). firma_stok'ta eski
+    # haftaların kayıtları da durur; hepsini toplamak stoğu katlıyordu (rozette
+    # 866 gibi şişkin değerler görünmüştü). Müşteri penceresiyle aynı mantık.
+    _fs_son = {}
+    for r in firma_stok:
+        _fa = str(r.get("firma") or "")
+        _ft = str(r.get("yukleme_tarihi") or "")[:10]
+        if (_fa not in _fs_son) or (_ft > _fs_son[_fa][0]):
+            _fs_son[_fa] = (_ft, _f(r.get("stok_miktari")))
+    _firma_toplam = sum(v[1] for v in _fs_son.values())
     # Üst rozet + stok değeri için FİZİKİ toplam (bizim depolar + müşteri stoğu).
     # NOT: Eskiden burada canlı hesap (_cs["canli"]) gösteriliyordu; müşteri stok
     # dosyası henüz yüklenmemişken satış girilince eksiye düşüyor ve rozette
