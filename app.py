@@ -436,8 +436,10 @@ if not st.session_state.get("_db_saglik_ok"):
     try:
         from kayranpm.database import db_saglik_kontrol as _db_saglik
         _ok, _mesaj = _db_saglik()
-    except Exception as _e:
-        _ok, _mesaj = False, f"{type(_e).__name__}: {str(_e)[:150]}"
+    except Exception:
+        # Kontrolün KENDİSİ patlarsa uygulamayı kilitleme — aç, hata varsa
+        # ilgili ekranda görünsün (fail-open).
+        _ok, _mesaj = True, ""
     if _ok:
         st.session_state["_db_saglik_ok"] = True
     else:
