@@ -193,6 +193,71 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+def _stok_akilli_dus(hareketler):
+    """AKILLI DEPO DÜŞÜMÜ (Excel toplu satış için): {sku: adet} çıkışını stoğu
+    OLAN depolardan otomatik düşer. Eskiden her şey MERKEZ DEPO'dan düşüyordu;
+    stok Happy Life gibi başka depodaysa merkez eksiye iniyordu (kullanıcı
+    bildirimi). Kural — öngörülebilir ve basit:
+      1) MERKEZ DEPO'daki mevcut kadarını merkezden düş,
+      2) kalanı stoğu ÇOKTAN AZA sıralı diğer depolardan düş,
+      3) hiçbir depoda kalmadıysa kalan MERKEZ'e eksi yazılır (satış asla
+         engellenmez; stok uyarısı zaten ekranda gösteriliyor).
+    Hata durumunda sessizce eski davranışa (hepsi merkezden) döner."""
+    try:
+        from kayranpm.database import get_client as _gc, depo_kanonik, stok_hareket_coklu
+        try:
+            _merkez = depo_kanonik("MERKEZ DEPO")
+        except Exception:
+            _merkez = "MERKEZ DEPO"
+        sb = _gc()
+        depo_dus = {}                       # {depo: {sku: düşülecek adet}}
+        for sku, adet in (hareketler or {}).items():
+            sku = str(sku or "").strip()
+            try:
+                kalan = float(adet or 0)
+            except Exception:
+                kalan = 0
+            if not sku or kalan <= 0:
+                continue
+            # SKU'nun depo kırılımını oku
+            kirilim = {}
+            try:
+                u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku).execute())
+                if not u and sku != sku.upper():
+                    u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku.upper()).execute())
+                _k = (u or {}).get("depo_kirilim") or {}
+                if isinstance(_k, str):
+                    import json as _json
+                    _k = _json.loads(_k or "{}")
+                kirilim = {str(d): float(v or 0) for d, v in (_k or {}).items()}
+            except Exception:
+                kirilim = {}
+            # 1) merkezden mevcut kadar
+            _m = max(kirilim.get(_merkez, 0), 0)
+            if _m > 0:
+                _d = min(kalan, _m)
+                depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + _d
+                kalan -= _d
+            # 2) diğer depolar (stok çoktan aza)
+            if kalan > 0:
+                for depo, mevcut in sorted(kirilim.items(), key=lambda kv: -kv[1]):
+                    if depo == _merkez or mevcut <= 0 or kalan <= 0:
+                        continue
+                    _d = min(kalan, mevcut)
+                    depo_dus.setdefault(depo, {})[sku] = depo_dus.get(depo, {}).get(sku, 0) + _d
+                    kalan -= _d
+            # 3) kalan → merkez (eksiye düşebilir; uyarı ekranda)
+            if kalan > 0:
+                depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + kalan
+        for depo, _h in depo_dus.items():
+            _neg = {k: -v for k, v in _h.items() if v}
+            if _neg:
+                stok_hareket_coklu(_neg, depo)
+    except Exception:
+        # herhangi bir aksaklıkta eski davranış: hepsi merkezden
+        _stok_uygula(hareketler, -1, "satis_import_fallback")
+
+
 def _stok_uygula_depolu(depo_map, yon=-1):
     """MODEL B: satış (−) hareketlerini SEÇİLEN depodan düşer.
     depo_map: [(sku, adet, depo), ...]. Depoya göre gruplar, her depo için ayrı uygular.
@@ -461,7 +526,7 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
                         ilk_hata = f"{type(e2).__name__}: {str(e2)[:120]}"
         if ilerleme:
             ilerleme(min(i + B, len(rows)), len(rows))
-    _stok_uygula(_satis_agg(_ins_rows), -1, "satis_import")   # MODEL B
+    _stok_akilli_dus(_satis_agg(_ins_rows))   # MODEL B: stoğu OLAN depodan düşer (merkez→diğerleri)
     _temizle()
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
             "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}
