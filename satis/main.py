@@ -799,6 +799,74 @@ def run():
             st.dataframe(pd.DataFrame(_rows_disp), hide_index=True, use_container_width=True, height=380,
                          column_config={"id": None,
                                         "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})
+
+            # ─────────────────────────────────────────────────────────────
+            # ⬇️ TOPLU İNDİR — ekrandaki filtreli veri (tarih + kanal)
+            # Ekrandaki tablo sayıları "$1.234" gibi METİN; Excel'de toplam
+            # alınamaz. Bu yüzden indirmede HAM SAYI yazılır → Excel'de
+            # doğrudan toplanır, pivot çekilir, formül yazılır.
+            # ─────────────────────────────────────────────────────────────
+            _dl_rows = []
+            for s in satislar:                      # TOPLAM satırı hariç, gerçek kayıtlar
+                k = satir_kar(s)
+                _sku = str(s.get("sku") or "")
+                _bd = (s.get("birim_firma_destek") or 0) + (s.get("birim_ek_destek") or 0)
+                _dl_rows.append({
+                    "Tarih": str(s.get("tarih") or ""),
+                    "Sipariş No": s.get("siparis_no") or "",
+                    "Kanal": s.get("kanal") or "",
+                    "SKU": _sku,
+                    "Ürün": (s.get("urun_adi") or "") or _admap.get(_sku.strip(), ""),
+                    "Kategori": _katmap.get(_sku.strip(), "") or "",
+                    "Adet": int(k["adet"] or 0),
+                    "Birim Satış": round(float(s.get("birim_satis") or 0), 2),
+                    "Birim Maliyet": round(float(s.get("birim_maliyet") or 0), 2),
+                    "Birim Destek": round(float(_bd or 0), 2),
+                    "Ciro": round(k["ciro"], 2),
+                    "Maliyet": round(k["maliyet"], 2),
+                    "Destek": round(k["destek"], 2),
+                    "Net Kâr": round(k["net_kar"], 2),
+                    "Marj %": round(k["marj"], 1),
+                })
+            _dl_df = pd.DataFrame(_dl_rows)
+
+            _ad = f"satislar_{_bas}_{_bit}" + (
+                "" if _kanal_f == "Tümü" else "_" + "".join(
+                    c for c in _kanal_f if c.isalnum() or c in "-_"))
+
+            _d1, _d2, _d3 = st.columns([1, 1, 2])
+
+            # Excel: ham sayılar + otomatik sütun genişliği
+            # DİKKAT: parametre adı alt çizgisiz olmalı — Streamlit alt çizgiyle
+            # başlayan parametreleri önbellek anahtarına KATMAZ; öyle olsaydı
+            # filtre değişince eski dosya inerdi.
+            @st.cache_data(ttl=300, show_spinner=False)
+            def _satis_xlsx(kayitlar):
+                _df = pd.DataFrame(kayitlar)
+                _buf = io.BytesIO()
+                with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                    _df.to_excel(_w, index=False, sheet_name="Satışlar")
+                    _ws = _w.sheets["Satışlar"]
+                    for _i, _kol in enumerate(_df.columns, start=1):
+                        _en = max(len(str(_kol)),
+                                  *(len(str(_v)) for _v in _df[_kol].head(200))) if len(_df) else len(str(_kol))
+                        _ws.column_dimensions[_ws.cell(row=1, column=_i).column_letter].width = min(_en + 3, 40)
+                return _buf.getvalue()
+
+            _d1.download_button(
+                "⬇️ Excel indir", _satis_xlsx(_dl_rows), f"{_ad}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True, key="l_dl_xlsx")
+
+            # CSV: utf-8-sig → Excel Türkçe karakterleri doğru gösterir
+            _d2.download_button(
+                "⬇️ CSV indir", _dl_df.to_csv(index=False).encode("utf-8-sig"),
+                f"{_ad}.csv", mime="text/csv",
+                use_container_width=True, key="l_dl_csv")
+
+            _d3.caption(f"📦 {len(_dl_df):,} kayıt · {_bas} → {_bit}"
+                        + ("" if _kanal_f == "Tümü" else f" · {_kanal_f}")
+                        + " — ekrandaki filtrenin aynısı, sayılar ham (Excel'de toplanabilir).")
             @st.dialog("🗑️ Sil — kalem veya sipariş", width="large")
             def _dlg_satis_sil():
                 # ── 🔎 Hayalet kayıt avcısı: TARİH FİLTRESİZ kanal araması ──
