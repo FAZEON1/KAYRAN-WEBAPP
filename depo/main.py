@@ -574,6 +574,21 @@ def _sayfa_happylife():
 
     # ── SKU ÖZET (Sayfa1 gibi: SKU · toplam miktar · en yüksek yaş) ──
     st.markdown("**📊 SKU Bazında Özet** — her SKU'nun toplam stoğu ve en yaşlı paletinin yaşı")
+    st.caption("ℹ️ **İki ayrı sayı gösterilir:** *Excel Miktarı* Happy Life'ın gönderdiği "
+               "son rapordur ve yalnız yeni Excel yüklenince değişir. *KAYRAN Canlı Stok* "
+               "ise satış anında düşer (çıkış deposu Happy Life seçildiyse). Fark eksi ise "
+               "son Excel'den beri satış/çıkış yapılmış demektir — bir sonraki Excel'de "
+               "iki sayı yeniden eşitlenir.")
+    # KAYRAN canlı stok (urunler.depo_kirilim → HAPPY LIFE) — tek toplu okuma
+    _canli = {}
+    try:
+        from kayranpm.database import get_depo_stok as _gds
+        for _r in (_gds("HAPPY LIFE") or []):
+            _k = " ".join(str(_r.get("sku") or "").strip().upper().split())
+            if _k:
+                _canli[_k] = _canli.get(_k, 0) + int(_r.get("adet") or 0)
+    except Exception:
+        _canli = {}
     _ozet = {}
     for k in kayitlar:
         o = _ozet.setdefault(k["sku"], {"tanim": k["sku_tanim"], "miktar2": 0.0,
@@ -582,17 +597,32 @@ def _sayfa_happylife():
         o["palet"] += 1
         if (k["_yas"] or 0) > o["max_yas"]:
             o["max_yas"] = k["_yas"] or 0
+    def _hl_norm_sku(s):
+        return " ".join(str(s or "").strip().upper().split())
     _ozet_df = pd.DataFrame([{
         "SKU": _tb(sku), "SKU Tanımı": _tb(o["tanim"]),
-        "Toplam Miktar": int(o["miktar2"]), "Birim": o["birim2"],
+        "Excel Miktarı": int(o["miktar2"]), "Birim": o["birim2"],
+        "KAYRAN Canlı Stok": (_canli.get(_hl_norm_sku(sku))
+                              if _hl_norm_sku(sku) in _canli else None),
+        "Fark": ((_canli.get(_hl_norm_sku(sku), 0) - int(o["miktar2"]))
+                 if _hl_norm_sku(sku) in _canli else None),
         "Palet Sayısı": o["palet"], "En Yüksek Stok Yaşı (gün)": o["max_yas"],
     } for sku, o in sorted(_ozet.items(), key=lambda kv: -kv[1]["max_yas"])])
     st.dataframe(_ozet_df, hide_index=True, use_container_width=True,
                  height=min(60 + len(_ozet_df) * 35, 420),
                  column_config={
+                     "KAYRAN Canlı Stok": st.column_config.NumberColumn(
+                         "🔄 KAYRAN Canlı Stok",
+                         help="Ürün kartındaki HAPPY LIFE kırılımı — satışta anında düşer"),
+                     "Fark": st.column_config.NumberColumn(
+                         "Δ Fark", help="Canlı − Excel. Eksi: son Excel'den beri çıkış var"),
                      "En Yüksek Stok Yaşı (gün)": st.column_config.NumberColumn(
                          "En Yüksek Stok Yaşı (gün)", format="%d 🗓"),
                  })
+    _f_neg = int((_ozet_df["Fark"].dropna() < 0).sum()) if len(_ozet_df) else 0
+    if _f_neg:
+        st.caption(f"⚠️ {_f_neg} SKU'da canlı stok Excel'in altında — son rapordan beri "
+                   "satış/çıkış yapılmış. Palet detayı bir sonraki Excel'le güncellenir.")
     st.download_button("⬇️ Özet CSV", _ozet_df.to_csv(index=False).encode("utf-8-sig"),
                        f"happylife_ozet_{_sec_tarih}.csv", "text/csv", key="hl_ozet_csv")
 
