@@ -229,14 +229,27 @@ def get_kayit(kayit_id):
 
 
 def _sonraki_form_no():
+    """Sonraki servis form no'yu üretir: G5F00001, G5F00032, ...
+
+    ÖNEMLİ: "G5F" önekinin İÇİNDE bir '5' vardır. Eski kod numaradaki tüm
+    rakamları çektiği için bu 5'i de sıraya katıyordu (G5F00031 → 500031),
+    her kayıtta başa fazladan bir 5 birikiyordu (G5F55...500032). Düzeltme:
+    G5F'ten sonraki kısmın SON 5 hanesini gerçek sıra sayarız (üretim her
+    zaman :05d ile 5 haneli olduğu için fazlalık hep başa biner). Böylece
+    bozuk eski kayıtlar da doğru okunur ve seri temizlenerek devam eder.
+    """
+    import re
     try:
         rows = _rows(get_client().table("ts_kayitlar").select("servis_form_no").execute())
         mx = 0
         for r in rows:
-            s = str(r.get("servis_form_no", "") or "")
-            num = "".join(ch for ch in s if ch.isdigit())
-            if num:
-                mx = max(mx, int(num))
+            s = str(r.get("servis_form_no", "") or "").strip().upper()
+            m = re.match(r"^G5F(\d+)$", s)
+            if not m:
+                continue
+            rakam = m.group(1)
+            sira = int(rakam[-5:]) if len(rakam) >= 5 else int(rakam)
+            mx = max(mx, sira)
         return f"G5F{mx + 1:05d}"
     except Exception:
         return "G5F00001"
