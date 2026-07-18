@@ -58,20 +58,10 @@ def get_kanallar():
 
 def _kanallar_satistan():
     """satislar tablosundaki distinct kanal isimleri (sayfalı, hafif)."""
-    sb = _get_client()
-    out, i, adim = set(), 0, 1000
-    while True:
-        r = sb.table("satislar").select("kanal").range(i, i + adim - 1).execute()
-        rows = r.data if r.data else []
-        for x in rows:
-            k = str(x.get("kanal") or "").strip()
-            if k:
-                out.add(k)
-        if len(rows) < adim:
-            break
-        i += adim
-        if i > 60000:
-            break
+    # HIZ: sayfalama merkezi katmanda PARALEL (shared/audit)
+    rows = _rows(_get_client().table("satislar").select("kanal").order("id").execute())
+    out = {str(x.get("kanal") or "").strip() for x in rows}
+    out.discard("")
     return sorted(out, key=lambda s: s.lower())
 
 
@@ -593,29 +583,18 @@ def sil_siparis(siparis_no):
         return False
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_satislar(baslangic=None, bitis=None):
-    """Tarih aralığına göre satışlar (yeni→eski). baslangic/bitis: 'YYYY-MM-DD' veya None.
-    Supabase tek sorguda en fazla 1000 satır döndürür; bu yüzden 1000'erli sayfalarla
-    TÜM satırlar çekilir (binlerce geçmiş satış için şart)."""
+    """Tarih aralığına göre satışlar (yeni→eski).
+    HIZ: sayfalama artık merkezi katmanda (shared/audit) 8'erli dalgalar
+    halinde PARALEL yapılır — buradaki eski ardışık döngü kaldırıldı."""
     try:
-        cli = _get_client()
-        tum, adim, bas = [], 1000, 0
-        while True:
-            q = cli.table("satislar").select("*")
-            if baslangic:
-                q = q.gte("tarih", str(baslangic)[:10])
-            if bitis:
-                q = q.lte("tarih", str(bitis)[:10])
-            q = q.order("tarih", desc=True).order("id", desc=True).range(bas, bas + adim - 1)
-            chunk = _rows(q.execute())
-            if not chunk:
-                break
-            tum.extend(chunk)
-            if len(chunk) < adim:
-                break
-            bas += adim
-        return tum
+        q = _get_client().table("satislar").select("*")
+        if baslangic:
+            q = q.gte("tarih", str(baslangic)[:10])
+        if bitis:
+            q = q.lte("tarih", str(bitis)[:10])
+        return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
     except Exception:
         return []
 
@@ -772,23 +751,13 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
 @st.cache_data(ttl=60, show_spinner=False)
 def get_iadeler(baslangic=None, bitis=None):
     try:
-        cli = _get_client()
-        tum, adim, bas = [], 1000, 0
-        while True:
-            q = cli.table("iadeler").select("*")
-            if baslangic:
-                q = q.gte("tarih", str(baslangic)[:10])
-            if bitis:
-                q = q.lte("tarih", str(bitis)[:10])
-            q = q.order("tarih", desc=True).order("id", desc=True).range(bas, bas + adim - 1)
-            chunk = _rows(q.execute())
-            if not chunk:
-                break
-            tum.extend(chunk)
-            if len(chunk) < adim:
-                break
-            bas += adim
-        return tum
+        # HIZ: sayfalama merkezi katmanda PARALEL (shared/audit)
+        q = _get_client().table("iadeler").select("*")
+        if baslangic:
+            q = q.gte("tarih", str(baslangic)[:10])
+        if bitis:
+            q = q.lte("tarih", str(bitis)[:10])
+        return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
     except Exception:
         return []
 
