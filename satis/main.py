@@ -1118,11 +1118,17 @@ def run():
 
             # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
             if not _p_filtreli:
+                _urun_ad_map = {}
                 try:
                     from kayranpm.database import get_tum_sku_listesi as _gtsl
+                    _skl_p = _gtsl() or []
                     _marka_map = {str(r.get("sku") or "").strip().upper():
                                   (r.get("marka") or "").strip().upper()
-                                  for r in (_gtsl() or [])}
+                                  for r in _skl_p}
+                    # Aynı sorgudan ürün adları — DİĞER kırılımı için (ek sorgu YOK)
+                    _urun_ad_map = {str(r.get("sku") or "").strip().upper():
+                                    (r.get("urun_adi") or "").strip()
+                                    for r in _skl_p}
                 except Exception:
                     _marka_map = {}
                 _katmap_p = {}
@@ -1200,6 +1206,38 @@ def run():
                                    f"Kırılıma dağıtılmayan GENEL destek: **{_usd(_genel_dst)}** — "
                                    f"bu eklenince genel toplam kâr **{_usd(_t_kar_ort + _genel_dst)}** olur. "
                                    f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
+
+                    # ── 🔍 "DİĞER" içinde ne var? (markası boş / ürün kartı olmayan SKU'lar) ──
+                    _diger_skus = []
+                    for _sk, _v in urun.items():
+                        _sku_u = str(_sk).strip().upper()
+                        if (_marka_map.get(_sku_u) or "").strip():
+                            continue          # markası dolu → DİĞER'e düşmedi
+                        _diger_skus.append({
+                            "SKU": str(_sk).strip(),
+                            "Ürün Adı": _urun_ad_map.get(_sku_u, "") or "— ürün kartı yok —",
+                            "_adet": int(_v.get("adet") or 0),
+                            "_ciro": float(_v.get("ciro") or 0),
+                            "_kar": float(_v.get("net_kar") or 0),
+                        })
+                    if _diger_skus:
+                        _diger_skus.sort(key=lambda r: -r["_ciro"])
+                        _dg_ciro = sum(r["_ciro"] for r in _diger_skus)
+                        _dg_kartsiz = sum(1 for r in _diger_skus
+                                          if not _urun_ad_map.get(str(r["SKU"]).strip().upper()))
+                        with st.expander(f"🔍 Markası boş {len(_diger_skus)} SKU — "
+                                         f"{_usd(_dg_ciro)} ciro DİĞER'e düşüyor"):
+                            st.caption(
+                                "Bu SKU'ların **Ürün Yönetimi → ürünler** tablosunda `marka` alanı boş. "
+                                "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
+                                + (f"⚠️ {_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
+                                   if _dg_kartsiz else ""))
+                            st.dataframe(pd.DataFrame([{
+                                "SKU": r["SKU"], "Ürün Adı": r["Ürün Adı"][:60],
+                                "Adet": r["_adet"], "Ciro": _usd(r["_ciro"]),
+                                "Kâr": _usd(r["_kar"]),
+                            } for r in _diger_skus]), hide_index=True,
+                                use_container_width=True, height=380)
 
             st.markdown("#### Kanal Kırılımı")
             st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
