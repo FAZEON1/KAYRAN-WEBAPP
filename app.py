@@ -844,6 +844,45 @@ _sb_comp.html(
     height=0,
 )
 
+# ── TIKLA-YAZ: tüm giriş kutularında odaklanınca mevcut metni SEÇ ──────────
+# Sorun: selectbox/text_input'a tıklayıp yazınca eski değerin ("—", "1-2",
+# SKU vb.) ÜZERİNE ekleniyordu; arama "—401A..." gibi bozuk metinle yapılıyor
+# ve eşleşme çıkmıyordu. Çözüm: odak anında mevcut metin komple seçilir →
+# ilk tuş vuruşu eski değeri silip yerine yazar. Uygulama genelinde geçerli
+# (tüm modüller bu sayfadan render edildiği için tek nokta yeter).
+_sb_comp.html(
+    """
+<script>
+(function () {
+  const w = window.parent, doc = w.document;
+  if (w.__kayranTiklaYaz) return;            // tek sefer kur
+  w.__kayranTiklaYaz = true;
+
+  const UYGUN = ["text", "search", "number", "tel", "email", "url"];
+
+  doc.addEventListener("focusin", function (e) {
+    const t = e.target;
+    if (!t || t.tagName !== "INPUT") return;
+    const tip = (t.getAttribute("type") || "text").toLowerCase();
+    if (UYGUN.indexOf(tip) === -1) return;
+
+    // Fare ile odaklanmada tarayıcı, mouseup'ta seçimi bozup imleci koyar;
+    // ilk mouseup'ı bir kez engelle → seçim korunur.
+    const koru = function (ev) { ev.preventDefault(); };
+    t.addEventListener("mouseup", koru, { once: true });
+
+    w.setTimeout(function () {
+      try {
+        if (doc.activeElement === t && t.value) t.select();
+      } catch (err) {}
+    }, 60);
+  }, true);
+})();
+</script>
+""",
+    height=0,
+)
+
 
 # Session state defaults
 def _oturum_secret():
