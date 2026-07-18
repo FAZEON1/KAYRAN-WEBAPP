@@ -188,8 +188,12 @@ KATEGORI_KURALLAR = [
     ("Kasa",            r"KASA|\bCASE\b|\bATX\b|MESH|\bMID\s*TOWER\b"),
     ("Kablo/Konnektör", r"KONNEKTÖR|KONNEKTOR|\bKABLO\b|\bSATA\b|ADAPTÖR|ADAPTOR|5V3PIN"),
     ("El Aleti",        r"TORNAVIDA|ALET SET|ŞARJLI HASSAS|HASSAS TORNAVIDA"),
+    ("Mouse Pad",       r"MOUSE\s*PAD|MOUSEPAD"),
     ("Klavye/Mouse",    r"KLAVYE|MOUSE|\bFARE\b|KEYBOARD"),
     ("Kulaklık",        r"KULAKLIK|HEADSET|EARBUD"),
+    ("SSD",             r"\bSSD\b|\bNVME\b|\bM\.2\b"),
+    ("RAM",             r"\bRAM\b|\bDDR[345]\b|\bDIMM\b|SODIMM"),
+    ("Yedek Parça",     r"YEDEK\s*PARÇA|YEDEK\s*PARCA|SPARE\s*PART"),
 ]
 KATEGORI_LISTE = [k for k, _ in KATEGORI_KURALLAR]
 
@@ -232,6 +236,9 @@ MARKA_KURALLAR = [
     ("INNO3D",    r"\bINNO ?3D\b"),
     ("EXCAVATOR", r"\bEXCAVATOR\b"),
     ("Mio",       r"\bMIO\b|MIVUE"),
+    ("NZXT",      r"\bNZXT\b"),
+    ("AGI",       r"\bAGI\b"),
+    # SSD/RAM ithal ediliyor — adda geçen yaygın kategori ipuçları da eklendi
 ]
 
 
@@ -305,7 +312,7 @@ def kategori_standartlastir():
     'KASA'/'Kasa' → 'kasa', 'MONİTÖR'/'Monitör' → 'monitör' (büyük/küçük farkı birleşir).
     (degisen_urun_sayisi, {eski: yeni}) döner."""
     sb = get_client()
-    rows = sb.table("urunler").select("sku, kategori").execute().data or []
+    rows = _hepsi("urunler", "sku, kategori", "sku")
     sku_yeni, degisim = {}, {}
     for r in rows:
         eski = (r.get("kategori") or "").strip()
@@ -352,7 +359,8 @@ def set_uretim_suresi(gun):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()
-    urunler = _rows(sb.table("urunler").select("*").order("urun_adi").execute())
+    # Sayfalama şart: 1000+ üründe panel toplamları sessizce eksik çıkıyordu
+    urunler = _hepsi("urunler", "*", "urun_adi")
     from shared.utils import tr_buyuk as _tb_ad
     for _u in urunler:
         if _u.get("urun_adi"):
@@ -415,11 +423,10 @@ def sil_urun(sku):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_sku_listesi():
-    # NOT: "marka" kolonu Satış → P&L → Marka Kırılımı için ŞART.
-    # Select'ten çıkarılırsa r.get("marka") None döner ve tüm ürünler
-    # "DİĞER" grubuna düşer (marka tablosu tek satıra iner).
-    _rws = _rows(get_client().table("urunler")
-                 .select("sku, urun_adi, marka").order("sku").execute())
+    # SAYFALAMA ŞART: Supabase tek sorguda en fazla 1000 satır döndürür.
+    # _hepsi() olmadan ürün sayısı 1000'i geçtiğinde liste sessizce kesilir;
+    # kesilen SKU'lar Satış → P&L'de "ürün kartı yok" gibi görünür.
+    _rws = _hepsi("urunler", "sku, urun_adi, marka", "sku")
     from shared.utils import tr_buyuk as _tb_ad
     for _r in _rws:
         if _r.get("urun_adi"):
