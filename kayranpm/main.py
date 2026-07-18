@@ -2754,15 +2754,15 @@ def run():
         # 💲 Toplu Satış Fiyatı & Marj
         @st.dialog("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", width="large")
         def _dlg_toplu_fiyat():
-            from .database import get_client as _gc_s, toplu_satis_kaydet as _satis_kaydet
+            from .database import toplu_satis_kaydet as _satis_kaydet, _hepsi as _hepsi_s
             try:
                 from ithalat.database import get_sku_maliyet_ozet as _ith_maliyet
                 _pacal_map = _ith_maliyet() or {}
             except Exception:
                 _pacal_map = {}
             try:
-                _ur_s = (_gc_s().table("urunler").select("sku, urun_adi, satis_fiyati, hedef_kar_marji")
-                         .order("urun_adi").execute().data) or []
+                _ur_s = _hepsi_s("urunler", "sku, urun_adi, satis_fiyati, hedef_kar_marji",
+                                 "urun_adi") or []
             except Exception as _e_s:
                 _ur_s = []
                 st.warning(f"Ürünler okunamadı: {_e_s}")
@@ -2833,13 +2833,14 @@ def run():
         # 🏷️ Toplu Kategori & Marka — markası/kategorisi boş ürünleri tek tabloda etiketle
         @st.dialog("🏷️ Toplu Kategori & Marka — ürünleri tek tabloda etiketle", width="large")
         def _dlg_toplu_kat_marka():
-            from .database import (get_client as _gc_kat, kategori_oner as _kat_oner,
+            from .database import (kategori_oner as _kat_oner,
                                    marka_oner as _marka_oner,
                                    toplu_kategori_marka_kaydet as _km_kaydet,
-                                   kategori_standartlastir as _kat_std)
+                                   kategori_standartlastir as _kat_std,
+                                   _hepsi as _hepsi_kat)
             try:
-                _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori, marka")
-                           .order("urun_adi").execute().data) or []
+                # _hepsi → sayfalamalı; 1000'den fazla üründe liste kesilmesin
+                _ur_kat = _hepsi_kat("urunler", "sku, urun_adi, kategori, marka", "urun_adi") or []
             except Exception as _e_kat:
                 _ur_kat = []
                 st.warning(f"Ürünler okunamadı: {type(_e_kat).__name__}: {_e_kat}")
@@ -2920,6 +2921,54 @@ def run():
         if st.button("🏷️ Toplu Kategori & Marka — markasız ürünleri etiketle",
                      key="btn_top_kat_marka", use_container_width=True):
             _dlg_toplu_kat_marka()
+
+        # 🧹 'Fazeon ' önekli SKU temizliği — satislar'daki "Fazeon X24F165S" ile
+        # urunler'deki "X24F165S" aynı ürün; önek yüzünden eşleşmeyip P&L'de
+        # DİĞER'e düşüyor. Arka uç fonksiyonları hazırdı, arayüzü buradan bağlandı.
+        @st.dialog("🧹 'Fazeon' Önekli SKU Temizliği", width="large")
+        def _dlg_fazeon_sku():
+            st.caption("Satış/stok kayıtlarında **'Fazeon ' önekiyle** yazılmış SKU'ları bulur ve "
+                       "öneksiz gerçek koduna taşır (örn. `Fazeon X24F165S` → `X24F165S`). "
+                       "8 tabloda birden çalışır: ürünler, satışlar, firma stok, kampanyalar, "
+                       "yoldaki ürünler, stok yaşı, ithalat kalemleri, sipariş önerileri.")
+            with st.spinner("Taranıyor — hiçbir şey yazılmıyor..."):
+                try:
+                    _onz = sku_fazeon_temizle_onizle() or []
+                except Exception as _e_fz:
+                    st.error(f"Önizleme alınamadı: {type(_e_fz).__name__}: {_e_fz}")
+                    return
+            if not _onz:
+                st.success("✅ Temizlenecek 'Fazeon' önekli SKU yok — sistem zaten temiz.")
+                return
+            _top_kayit = sum(int(i.get("toplam_kayit") or 0) for i in _onz)
+            _catisan = sum(1 for i in _onz if i.get("catisma"))
+            st.markdown(f"**{len(_onz)} SKU** bulundu · toplam **{_top_kayit:,} kayıt** etkilenecek · "
+                        f"**{_catisan}** tanesinin öneksiz hedefi zaten kayıtlı (birleştirilecek).")
+            st.dataframe(pd.DataFrame([{
+                "Eski SKU": i["eski"], "Yeni SKU": i["yeni"],
+                "Durum": "🔗 Mevcutla birleşir" if i.get("catisma") else "✏️ Yeniden adlanır",
+                "Kayıt": int(i.get("toplam_kayit") or 0),
+                "Tablolar": ", ".join(f"{t}:{n}" for t, n in (i.get("tablolar") or {}).items()),
+            } for i in _onz]), hide_index=True, use_container_width=True, height=300)
+            st.warning("⚠️ Bu işlem **geri alınamaz** — 8 tabloda SKU'ları kalıcı olarak değiştirir. "
+                       "Uygulamadan önce GitHub → Actions → **Gece Yedeği** iş akışını elle çalıştırıp "
+                       "güncel bir yedek indirmen önerilir.")
+            _onay = st.checkbox(f"Önizlemeyi inceledim; {len(_onz)} SKU'nun ({_top_kayit:,} kayıt) "
+                                "kalıcı olarak taşınacağını anladım.", key="fz_sku_onay")
+            if st.button("🧹 Temizliği Uygula", type="primary", disabled=not _onay,
+                         use_container_width=True, key="fz_sku_uygula"):
+                with st.spinner("Uygulanıyor — tablo tablo taşınıyor..."):
+                    _ok_fz, _msg_fz = sku_fazeon_temizle_uygula()
+                st.cache_data.clear()
+                if _ok_fz:
+                    st.success(_msg_fz)
+                    st.caption("Satış → P&L sayfasını yenilediğinde bu satırlar FAZEON altında görünecek.")
+                else:
+                    st.error(_msg_fz)
+
+        if st.button("🧹 'Fazeon' Önekli SKU Temizliği — mükerrer SKU'ları birleştir",
+                     key="btn_fz_sku", use_container_width=True):
+            _dlg_fazeon_sku()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
             st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:8px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
