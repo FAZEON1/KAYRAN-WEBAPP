@@ -96,7 +96,7 @@ class _LoggingTable:
     """Supabase query builder sarmalayıcısı. insert/update/delete/upsert/eq yakalanır;
     diğer tüm metotlar (select, order, neq, gt, in_, single, ...) gerçek builder'a delege."""
 
-    def __init__(self, real, tablo, modul):
+    def __init__(self, real, tablo, modul, yeniden=None):
         self._b = real
         self._tablo = tablo
         self._modul = modul
@@ -106,6 +106,11 @@ class _LoggingTable:
         # Oto-sayfalama takibi: select çağrıldı mı, satır sınırı kondu mu?
         self._select_var = False
         self._sinir_var = False
+        # PARALEL sayfalama için: sorgu zinciri kaydı + taze builder fabrikası.
+        # Zincir, aynı sorguyu yeni bir builder üzerinde yeniden kurmayı sağlar;
+        # böylece sayfalar AYNI ANDA (dalga halinde) çekilebilir.
+        self._yeniden = yeniden
+        self._zincir = []
 
     def insert(self, data, *a, **k):
         self._islem = "ekle"
@@ -143,30 +148,63 @@ class _LoggingTable:
                         _detay_yap(self._payload), self._modul)
             except Exception:
                 pass
-        # ── OTO-SAYFALAMA ────────────────────────────────────────────────
-        # Supabase tek sorguda en fazla 1000 satır döndürür. Kod tabanında
-        # .range() ile elle sayfalanmayan onlarca select var; tablo 1000
-        # satırı aştığında bunlar SESSİZCE kesiliyordu (örn. ürün listesi →
-        # kesilen SKU'lar P&L'de "ürün kartı yok" görünüyordu). Burada, tüm
-        # modüllerin ortak geçtiği TEK noktada tamamlanır:
-        #   • yalnız SELECT (insert/update/delete değil)
-        #   • sorguda elle limit/range/single YOKSA
-        #   • ve tam 1000 satır döndüyse (= büyük ihtimalle kesildi)
-        # kalan sayfalar çekilip sonuca eklenir. Elle .range()/.limit()
-        # kullanan mevcut sayfalama kodları etkilenmez (_sinir_var=True).
+        # ── OTO-SAYFALAMA (PARALEL) ──────────────────────────────────────
+        # Supabase tek sorguda en fazla 1000 satır döndürür. Elle .range()
+        # yazılmamış select'ler tam 1000 dönerse kesilmiş demektir; kalan
+        # sayfalar burada tamamlanır. HIZ: sayfalar teker teker değil,
+        # 8'erli DALGALAR halinde AYNI ANDA çekilir (sorgu zinciri taze
+        # builder'lar üzerinde yeniden kurulur). 100 sayfalık tablo ~100
+        # ardışık istek yerine ~13 paralel dalgada iner (≈8 kat hızlı).
         try:
             if (self._islem is None and self._select_var and not self._sinir_var
                     and self._tablo != "audit_log"):
                 _data = getattr(res, "data", None)
                 if isinstance(_data, list) and len(_data) == 1000:
-                    _tum, _bas = list(_data), 1000
-                    while True:
-                        _cd = getattr(self._b.range(_bas, _bas + 999)
-                                      .execute(*a, **k), "data", None) or []
-                        _tum.extend(_cd)
-                        if len(_cd) < 1000 or _bas > 500_000:   # emniyet tavanı
-                            break
-                        _bas += 1000
+                    _tum = list(_data)
+                    if self._yeniden is not None:
+                        # PARALEL yol: zinciri taze builder'da yeniden kur
+                        from concurrent.futures import ThreadPoolExecutor
+
+                        def _sayfa(_ab):
+                            _a0, _b0 = _ab
+                            try:
+                                _nb = self._yeniden()
+                                for _nm, _aa, _kk in self._zincir:
+                                    _nb = getattr(_nb, _nm)(*_aa, **_kk)
+                                return getattr(_nb.range(_a0, _b0).execute(),
+                                               "data", None) or []
+                            except Exception:
+                                return None          # hata → ardışık yola düş
+                        _bas, _dalga, _hata = 1000, 8, False
+                        while _bas <= 500_000:
+                            _arlk = [(_bas + _i * 1000, _bas + (_i + 1) * 1000 - 1)
+                                     for _i in range(_dalga)]
+                            with ThreadPoolExecutor(max_workers=_dalga) as _ex:
+                                _sonuc = list(_ex.map(_sayfa, _arlk))
+                            _kisa = False
+                            for _cd in _sonuc:
+                                if _cd is None:
+                                    _hata = True
+                                    break
+                                _tum.extend(_cd)
+                                if len(_cd) < 1000:
+                                    _kisa = True
+                                    break
+                            if _hata or _kisa:
+                                break
+                            _bas += _dalga * 1000
+                    else:
+                        _hata = True                 # fabrika yok → ardışık yol
+                    if self._yeniden is None or _hata:
+                        # ARDIŞIK yedek yol (eski davranış — her koşulda çalışır)
+                        _bas = len(_tum)
+                        while _bas <= 500_000:
+                            _cd = getattr(self._b.range(_bas, _bas + 999)
+                                          .execute(*a, **k), "data", None) or []
+                            _tum.extend(_cd)
+                            if len(_cd) < 1000:
+                                break
+                            _bas += 1000
                     try:
                         res.data = _tum
                     except Exception:
@@ -182,11 +220,15 @@ class _LoggingTable:
         attr = getattr(self._b, name)
         if callable(attr):
             def _wrap(*a, **k):
-                # Oto-sayfalama için sorgu tipini işaretle
+                # Oto-sayfalama için sorgu tipini işaretle + zinciri kaydet
                 if name == "select":
                     self._select_var = True
                 elif name in ("limit", "range", "single", "maybe_single", "csv"):
                     self._sinir_var = True
+                try:
+                    self._zincir.append((name, a, k))
+                except Exception:
+                    pass
                 self._b = attr(*a, **k)
                 return self
             return _wrap
@@ -199,7 +241,9 @@ class _LoggingClient:
         self._modul = modul
 
     def table(self, name):
-        return _LoggingTable(self._c.table(name), name, self._modul)
+        # yeniden: paralel sayfalama için aynı tabloya TAZE builder üretir
+        return _LoggingTable(self._c.table(name), name, self._modul,
+                             yeniden=lambda _n=name: self._c.table(_n))
 
     def __getattr__(self, name):
         if name == "_c":
