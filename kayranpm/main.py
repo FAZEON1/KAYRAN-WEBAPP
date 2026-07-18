@@ -2830,6 +2830,97 @@ def run():
         if st.button("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", key="btn_top_fiy", use_container_width=True):
             _dlg_toplu_fiyat()
 
+        # 🏷️ Toplu Kategori & Marka — markası/kategorisi boş ürünleri tek tabloda etiketle
+        @st.dialog("🏷️ Toplu Kategori & Marka — ürünleri tek tabloda etiketle", width="large")
+        def _dlg_toplu_kat_marka():
+            from .database import (get_client as _gc_kat, kategori_oner as _kat_oner,
+                                   marka_oner as _marka_oner,
+                                   toplu_kategori_marka_kaydet as _km_kaydet,
+                                   kategori_standartlastir as _kat_std)
+            try:
+                _ur_kat = (_gc_kat().table("urunler").select("sku, urun_adi, kategori, marka")
+                           .order("urun_adi").execute().data) or []
+            except Exception as _e_kat:
+                _ur_kat = []
+                st.warning(f"Ürünler okunamadı: {type(_e_kat).__name__}: {_e_kat}")
+            if not _ur_kat:
+                st.info("Henüz ürün yok.")
+                return
+            _kbos = sum(1 for u in _ur_kat if not (u.get("kategori") or "").strip())
+            _mbos = sum(1 for u in _ur_kat if not (u.get("marka") or "").strip())
+            st.caption(f"Toplam {len(_ur_kat)} ürün · kategorisiz **{_kbos}** · markasız **{_mbos}**. "
+                       "Önce 🪄 Otomatik Öner'e bas, kalanları elle yaz, 💾 Kaydet. "
+                       "Markası boş ürünler Satış → P&L'de **DİĞER** grubuna düşer.")
+            _kc1, _kc2, _kc3 = st.columns([1, 1, 1])
+            _sadece_bos = _kc1.checkbox("Sadece eksik olanlar", value=True, key="kat_sadece_bos",
+                                        help="Kategorisi veya markası boş olan ürünleri gösterir.")
+            if _kc2.button("🪄 Otomatik Öner (kategori + marka)", use_container_width=True, key="kat_oto"):
+                _onk = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
+                        if _kat_oner(u.get("urun_adi", ""))}
+                _onm = {u["sku"]: _marka_oner(u.get("urun_adi", "")) for u in _ur_kat
+                        if _marka_oner(u.get("urun_adi", ""))}
+                st.session_state["_kat_oneri"] = _onk
+                st.session_state["_marka_oneri"] = _onm
+                st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
+                st.toast(f"🪄 {len(_onk)} kategori · {len(_onm)} marka önerildi", icon="🪄")
+                st.rerun()
+            if _kc3.button("🔀 Kategori Standartlaştır", use_container_width=True, key="kat_std_btn",
+                           help="Aynı kategorinin farklı yazımlarını tek biçime indirger (MONİTÖR / Monitör → monitör)."):
+                with st.spinner("Birleştiriliyor..."):
+                    _ds, _hrt = _kat_std()
+                if _ds:
+                    st.session_state["_kat_std_ozet"] = " · ".join(f"{e}→{y}" for e, y in list(_hrt.items())[:6])
+                    st.toast(f"🔀 {_ds} ürün standart yazıma çevrildi", icon="🔀")
+                else:
+                    st.session_state["_kat_std_ozet"] = "Zaten standart — birleştirilecek bir şey yok."
+                st.rerun()
+            if st.session_state.get("_kat_std_ozet"):
+                st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
+            _onk = st.session_state.get("_kat_oneri", {})
+            _onm = st.session_state.get("_marka_oneri", {})
+            st.caption("💡 **Kategori ve Marka hücrelerine tıklayıp serbestçe yazabilirsin.** "
+                       "🪄 Otomatik Öner bilinenleri doldurur; üzerine kendi değerini yazabilirsin.")
+            if _sadece_bos:
+                _liste = [u for u in _ur_kat
+                          if not (u.get("kategori") or "").strip() or not (u.get("marka") or "").strip()]
+            else:
+                _liste = _ur_kat
+            if not _liste:
+                st.success("✅ Tüm ürünlerin kategorisi ve markası dolu.")
+                return
+            _df_kat = pd.DataFrame([{
+                "SKU": u["sku"],
+                "Ürün Adı": u.get("urun_adi", ""),
+                "Kategori": (_onk.get(u["sku"]) or (u.get("kategori") or "")),
+                "Marka": (_onm.get(u["sku"]) or (u.get("marka") or "")),
+            } for u in _liste])
+            _ed_key = f"kat_editor_{int(_sadece_bos)}_{st.session_state.get('_kat_oneri_v', 0)}"
+            _edited_kat = st.data_editor(
+                _df_kat, use_container_width=True, height=430, hide_index=True, key=_ed_key,
+                column_config={
+                    "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
+                    "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
+                    "Kategori": st.column_config.TextColumn(
+                        "Kategori", help="Serbest yaz (kasa, monitör, ekran kartı...)"),
+                    "Marka": st.column_config.TextColumn(
+                        "Marka", help="Serbest yaz (FAZEON, INNO3D, NZXT, MIO, AGI...)"),
+                },
+            )
+            if st.button("💾 Kategori & Marka Kaydet", type="primary", key="kat_kaydet_btn"):
+                _map = {str(r["SKU"]): {"kategori": str(r.get("Kategori", "") or "").strip(),
+                                        "marka": str(r.get("Marka", "") or "").strip()}
+                        for _, r in _edited_kat.iterrows()}
+                with st.spinner("Kaydediliyor..."):
+                    _okk, _htk = _km_kaydet(_map)
+                st.session_state.pop("_kat_oneri", None)
+                st.session_state.pop("_marka_oneri", None)
+                st.toast(f"✅ {_okk} ürün kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
+                st.rerun()
+
+        if st.button("🏷️ Toplu Kategori & Marka — markasız ürünleri etiketle",
+                     key="btn_top_kat_marka", use_container_width=True):
+            _dlg_toplu_kat_marka()
+
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
             st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:8px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
             sablon_bytes = create_sample_excel_bytes()
