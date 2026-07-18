@@ -1233,6 +1233,8 @@ def run():
                                     _kol: r["_ad"], "Adet": r["Adet"],
                                     "Ciro": _usd(r["Ciro"]),
                                     "Kâr": _usd(r["Kâr"]) + (" 📥" if r["_destek"] > 0.005 else ""),
+                                    "Marj": (f"%{(r['Kâr'] / r['Ciro'] * 100):.1f}"
+                                             if r["Ciro"] > 0 else "—"),
                                 } for r in _rows]
                                 # ── Σ ALT TOPLAM (yalnız yukarıdaki satırların toplamı;
                                 #    GENEL destek dahil DEĞİL — o kırılıma dağıtılmıyor) ──
@@ -1243,6 +1245,8 @@ def run():
                                 _tablo.append({
                                     _kol: "Σ TOPLAM", "Adet": _t_adet,
                                     "Ciro": _usd(_t_ciro), "Kâr": _usd(_t_kar),
+                                    "Marj": (f"%{(_t_kar / _t_ciro * 100):.1f}"
+                                             if _t_ciro > 0 else "—"),
                                 })
                                 _bk.dataframe(pd.DataFrame(_tablo), hide_index=True,
                                               use_container_width=True)
@@ -1285,12 +1289,63 @@ def run():
                                 "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
                                 + (f"⚠️ {_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
                                    if _dg_kartsiz else ""))
-                            st.dataframe(pd.DataFrame([{
+                            # Marka/Kategori hücreleri DÜZENLENEBİLİR — yaz, kaydet, bitti.
+                            _dg_df = pd.DataFrame([{
                                 "SKU": r["SKU"], "Ürün Adı": r["Ürün Adı"][:60],
                                 "Adet": r["_adet"], "Ciro": _usd(r["_ciro"]),
-                                "Kâr": _usd(r["_kar"]),
-                            } for r in _diger_skus]), hide_index=True,
-                                use_container_width=True, height=380)
+                                "Kâr": _usd(r["_kar"]), "Marka": "", "Kategori": "",
+                            } for r in _diger_skus])
+                            _dg_ed = st.data_editor(
+                                _dg_df, hide_index=True, use_container_width=True,
+                                height=min(380, 60 + 36 * len(_diger_skus)),
+                                key="pnl_diger_editor",
+                                column_config={
+                                    "SKU": st.column_config.TextColumn(disabled=True),
+                                    "Ürün Adı": st.column_config.TextColumn(disabled=True, width="large"),
+                                    "Adet": st.column_config.NumberColumn(disabled=True),
+                                    "Ciro": st.column_config.TextColumn(disabled=True),
+                                    "Kâr": st.column_config.TextColumn(disabled=True),
+                                    "Marka": st.column_config.TextColumn(
+                                        help="FAZEON, INNO3D, NZXT, AGI, MIO... serbest yaz"),
+                                    "Kategori": st.column_config.TextColumn(
+                                        help="kasa, monitör, ekran kartı... boş bırakılabilir"),
+                                })
+                            if st.button("💾 Marka/Kategori Ata", type="primary",
+                                         key="pnl_diger_kaydet", use_container_width=True):
+                                from kayranpm.database import (get_client as _gc_dg,
+                                                               upsert_urun as _up_dg)
+                                _ok_dg, _yeni_dg = 0, 0
+                                for _, _r in _dg_ed.iterrows():
+                                    _mv = str(_r.get("Marka") or "").strip()
+                                    _kv = str(_r.get("Kategori") or "").strip()
+                                    if not _mv and not _kv:
+                                        continue
+                                    _sk_raw = str(_r["SKU"]).strip()
+                                    _sk_kanonik = _skn(_sk_raw)
+                                    _upd = {}
+                                    if _mv:
+                                        _upd["marka"] = _mv
+                                    if _kv:
+                                        _upd["kategori"] = _kv
+                                    try:
+                                        _res_dg = (_gc_dg().table("urunler").update(_upd)
+                                                   .eq("sku", _sk_kanonik).execute())
+                                        if (getattr(_res_dg, "data", None) or []):
+                                            _ok_dg += 1     # mevcut kart güncellendi
+                                        else:
+                                            # Kart yok → satış satırındaki adla YENİ kart aç
+                                            _up_dg(_sk_kanonik, _satis_ad(_sk_raw),
+                                                   _kv, _mv)
+                                            _yeni_dg += 1
+                                    except Exception:
+                                        pass
+                                if _ok_dg or _yeni_dg:
+                                    st.cache_data.clear()
+                                    st.toast(f"✅ {_ok_dg} kart güncellendi · "
+                                             f"{_yeni_dg} yeni kart açıldı", icon="✅")
+                                    st.rerun()
+                                else:
+                                    st.info("Marka veya Kategori hücresine bir değer yaz, sonra kaydet.")
 
             st.markdown("#### Kanal Kırılımı")
             st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
