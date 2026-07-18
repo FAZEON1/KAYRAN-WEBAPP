@@ -107,19 +107,13 @@ def _row(response):
     return d[0] if d else None
 
 def _hepsi(table, secim="*", order_col=None, desc=False):
-    """Supabase 1000 satır limitini aşarak bir tablodaki TÜM satırları sayfalayarak çeker."""
-    sb = get_client()
-    rows, start = [], 0
-    while True:
-        q = sb.table(table).select(secim)
-        if order_col:
-            q = q.order(order_col, desc=desc)
-        chunk = _rows(q.range(start, start + 999).execute())
-        rows.extend(chunk)
-        if len(chunk) < 1000:
-            break
-        start += 1000
-    return rows
+    """Bir tablodaki TÜM satırları çeker. HIZ: 1000+ satırda sayfalama
+    merkezi katmanda (shared/audit) 8'erli dalgalarla PARALEL yapılır —
+    eski ardışık range döngüsü kaldırıldı."""
+    q = get_client().table(table).select(secim)
+    if order_col:
+        q = q.order(order_col, desc=desc)
+    return _rows(q.execute())
 
 # ── ÜRÜNLER ─────────────────────────────────────────────────────────
 
