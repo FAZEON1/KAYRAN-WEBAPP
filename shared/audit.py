@@ -103,6 +103,9 @@ class _LoggingTable:
         self._islem = None
         self._payload = None
         self._filtre = {}
+        # Oto-sayfalama takibi: select çağrıldı mı, satır sınırı kondu mu?
+        self._select_var = False
+        self._sinir_var = False
 
     def insert(self, data, *a, **k):
         self._islem = "ekle"
@@ -140,6 +143,36 @@ class _LoggingTable:
                         _detay_yap(self._payload), self._modul)
             except Exception:
                 pass
+        # ── OTO-SAYFALAMA ────────────────────────────────────────────────
+        # Supabase tek sorguda en fazla 1000 satır döndürür. Kod tabanında
+        # .range() ile elle sayfalanmayan onlarca select var; tablo 1000
+        # satırı aştığında bunlar SESSİZCE kesiliyordu (örn. ürün listesi →
+        # kesilen SKU'lar P&L'de "ürün kartı yok" görünüyordu). Burada, tüm
+        # modüllerin ortak geçtiği TEK noktada tamamlanır:
+        #   • yalnız SELECT (insert/update/delete değil)
+        #   • sorguda elle limit/range/single YOKSA
+        #   • ve tam 1000 satır döndüyse (= büyük ihtimalle kesildi)
+        # kalan sayfalar çekilip sonuca eklenir. Elle .range()/.limit()
+        # kullanan mevcut sayfalama kodları etkilenmez (_sinir_var=True).
+        try:
+            if (self._islem is None and self._select_var and not self._sinir_var
+                    and self._tablo != "audit_log"):
+                _data = getattr(res, "data", None)
+                if isinstance(_data, list) and len(_data) == 1000:
+                    _tum, _bas = list(_data), 1000
+                    while True:
+                        _cd = getattr(self._b.range(_bas, _bas + 999)
+                                      .execute(*a, **k), "data", None) or []
+                        _tum.extend(_cd)
+                        if len(_cd) < 1000 or _bas > 500_000:   # emniyet tavanı
+                            break
+                        _bas += 1000
+                    try:
+                        res.data = _tum
+                    except Exception:
+                        pass        # atanamazsa ilk 1000 ile devam (eski davranış)
+        except Exception:
+            pass                    # sayfalama hatası ana akışı ASLA bozmaz
         return res
 
     def __getattr__(self, name):
@@ -149,6 +182,11 @@ class _LoggingTable:
         attr = getattr(self._b, name)
         if callable(attr):
             def _wrap(*a, **k):
+                # Oto-sayfalama için sorgu tipini işaretle
+                if name == "select":
+                    self._select_var = True
+                elif name in ("limit", "range", "single", "maybe_single", "csv"):
+                    self._sinir_var = True
                 self._b = attr(*a, **k)
                 return self
             return _wrap
