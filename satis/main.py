@@ -1264,7 +1264,11 @@ def run():
                         _sku_k = _skn(_sk)
                         _diger_skus.append({
                             "SKU": str(_sk).strip(),
-                            "Ürün Adı": _urun_ad_map.get(_sku_k, "") or "— ürün kartı yok —",
+                            # Kart yoksa satış satırındaki ürün adını göster —
+                            # kalan DİĞER'in NE olduğu bir bakışta anlaşılsın
+                            "Ürün Adı": _urun_ad_map.get(_sku_k, "")
+                                        or _satis_ad(_sk)
+                                        or "— adsız —",
                             "_adet": int(_v.get("adet") or 0),
                             "_ciro": float(_v.get("ciro") or 0),
                             "_kar": float(_v.get("net_kar") or 0),
