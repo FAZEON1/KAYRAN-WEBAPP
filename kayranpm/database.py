@@ -415,7 +415,11 @@ def sil_urun(sku):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_sku_listesi():
-    _rws = _rows(get_client().table("urunler").select("sku, urun_adi").order("sku").execute())
+    # NOT: "marka" kolonu Satış → P&L → Marka Kırılımı için ŞART.
+    # Select'ten çıkarılırsa r.get("marka") None döner ve tüm ürünler
+    # "DİĞER" grubuna düşer (marka tablosu tek satıra iner).
+    _rws = _rows(get_client().table("urunler")
+                 .select("sku, urun_adi, marka").order("sku").execute())
     from shared.utils import tr_buyuk as _tb_ad
     for _r in _rws:
         if _r.get("urun_adi"):
