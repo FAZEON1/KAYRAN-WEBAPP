@@ -1137,20 +1137,53 @@ def run():
                 _katmap_p = {}
                 try:
                     from satis.database import get_sku_kategori as _gskp
-                    _katmap_p = {_skn(k): (v or "").strip().upper()
+                    from shared.utils import tr_buyuk as _trb_pl
+                    # tr_buyuk: 'MONİTÖR' ve 'Monitör' → 'MONITOR' tek biçim;
+                    # kart kategorisi ile ad-türevi kategori AYNI satırda birleşir.
+                    _katmap_p = {_skn(k): _trb_pl(v)
                                  for k, v in (_gskp() or {}).items()}
                 except Exception:
                     _katmap_p = {}
-                # FAZEON öneki taşıyan satış SKU'ları: öneksiz kart eşleşse bile
-                # markası boşsa markayı adından biliyoruz → FAZEON say.
+                    _trb_pl = lambda s: str(s or "").strip().upper()
+                # ── 3 KADEMELİ EŞLEŞTİRME — ürün kartı olmasa bile çalışır ──
+                # 1) Ürün kartı (kanonik SKU ile)  2) SKU'daki FAZEON öneki
+                # 3) SATIŞ SATIRINDAKİ ÜRÜN ADI (ithalattan gelen adla aynı):
+                #    marka → bilinen marka kuralları, kategori → kategori kuralları.
+                # Böylece kart hiç açılmamış olsa da satır DİĞER'e düşmez.
+                try:
+                    from kayranpm.database import MARKA_KURALLAR as _mkr, \
+                        kategori_oner as _kat_oner_pl
+                except Exception:
+                    _mkr, _kat_oner_pl = [], (lambda _a: "")
+                import re as _re_pl
+
+                def _satis_ad(sk):
+                    """Bu SKU'nun satış satırlarında taşınan ürün adı."""
+                    return str((urun.get(sk) or {}).get("urun_adi") or "").strip()
+
                 def _marka_bul(sk):
-                    _k = _skn(sk)
-                    _m = (_marka_map.get(_k) or "").strip()
+                    _m = (_marka_map.get(_skn(sk)) or "").strip()
                     if _m:
-                        return _m
+                        return _m                                   # 1) ürün kartı
                     if str(sk or "").strip().upper().startswith("FAZEON "):
-                        return "FAZEON"
+                        return "FAZEON"                             # 2) SKU öneki
+                    _ad = _satis_ad(sk).upper()                     # 3) ürün adı
+                    for _mm, _pat in _mkr:                          #    (yalnız BİLİNEN
+                        try:                                        #     markalar; ilk-
+                            if _ad and _re_pl.search(_pat, _ad):    #     kelime tahmini
+                                return str(_mm).upper()             #     YAPILMAZ →
+                        except Exception:                           #     çöp marka çıkmaz)
+                            pass
                     return ""
+
+                def _kat_bul(sk):
+                    _k = (_katmap_p.get(_skn(sk)) or "").strip()
+                    if _k:
+                        return _k                                   # 1) ürün kartı
+                    try:
+                        return _trb_pl(_kat_oner_pl(_satis_ad(sk)))
+                    except Exception:                               # 3) ürün adından
+                        return ""
                 _ad_marka, _ad_kat, _ad_top = {}, {}, 0.0
                 try:
                     from kayranpm.ref_no import alinan_destek_kirilim_usd
@@ -1165,7 +1198,7 @@ def run():
                         if marka_mi:
                             _key = _marka_bul(_sk) or "DİĞER"
                         else:
-                            _key = harita.get(_skn(_sk), "") or "DİĞER"
+                            _key = _kat_bul(_sk) or "DİĞER"
                         _e = g.setdefault(_key, {"ciro": 0.0, "kar": 0.0, "adet": 0})
                         _e["ciro"] += float(_v.get("ciro") or 0)
                         _e["kar"] += float(_v.get("net_kar") or 0)
