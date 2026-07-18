@@ -576,3 +576,21 @@ def pdf_stilleri_turkcele(styles, normal=None, bold=None):
         except Exception:
             pass
     return styles
+
+# ── KANONİK SKU ANAHTARI ─────────────────────────────────────────────
+def sku_anahtar(sku):
+    """SKU eşleştirmede kullanılacak KANONİK anahtar.
+
+    Sorun: satış Excel'lerinde SKU 'Fazeon X24F165S' yazılırken ürün kartında
+    'X24F165S' kayıtlı. Birebir karşılaştırma tutmayınca satırlar P&L'de
+    'DİĞER' grubuna, maliyet eşleşmesi de sıfıra düşüyordu.
+
+    Kural: kırp + BÜYÜK harf + baştaki 'FAZEON ' önekini at.
+    'Fazeon X24F165S' → 'X24F165S'   |   'x24f165s' → 'X24F165S'
+    Tüm modüller SKU karşılaştırırken bu fonksiyonu kullanmalı; ham SKU
+    yalnız gösterim içindir.
+    """
+    s = str(sku or "").strip().upper()
+    if s.startswith("FAZEON ") and len(s) > 7:
+        s = s[7:].strip()
+    return s
