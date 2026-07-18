@@ -115,21 +115,45 @@ def _bugun():
 # ── Maliyet (paçal) ve ürün katalogu — İthalat / Ürün Yönetimi'nden ──
 @st.cache_data(ttl=120, show_spinner=False)
 def get_pacal_map():
-    """{sku: pacal_final} — güncel ağırlıklı ortalama landed maliyet (USD)."""
+    """{KANONİK sku: pacal_final} — güncel ağırlıklı ortalama landed maliyet (USD).
+    Anahtarlar sku_anahtar ile normalize edilir: satışta 'Fazeon X24F165S'
+    yazsa bile ithalattaki 'X24F165S' maliyeti bulunur. Eskiden bu eşleşme
+    tutmayınca birim_maliyet 0 yazılıyor, kâr olduğundan YÜKSEK görünüyordu."""
     try:
         from ithalat.database import get_sku_maliyet_ozet
+        from shared.utils import sku_anahtar as _skn
         ozet = get_sku_maliyet_ozet() or {}
-        return {sku: _f(v.get("pacal_final")) for sku, v in ozet.items()}
+        out = {}
+        for sku, v in ozet.items():
+            _k = _skn(sku)
+            if _k and _k not in out:      # ilk (öneksiz/gerçek) kayıt öncelikli
+                out[_k] = _f(v.get("pacal_final"))
+        return out
     except Exception:
         return {}
+
+
+def _urunler_hepsi(secim):
+    """Supabase'in 1000 satır limitini aşarak urunler tablosunun TAMAMINI çeker.
+    Sayfalama olmadan ürün sayısı 1000'i geçtiğinde sorgu sessizce kesilir ve
+    kesilen SKU'lar P&L kırılımlarında 'DİĞER' grubuna düşer."""
+    cli = _get_client()
+    tum, bas = [], 0
+    while True:
+        chunk = _rows(cli.table("urunler").select(secim)
+                      .order("sku").range(bas, bas + 999).execute())
+        tum.extend(chunk)
+        if len(chunk) < 1000:
+            break
+        bas += 1000
+    return tum
 
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_urunler():
     """Ürün katalogu: [{sku, urun_adi, satis_fiyati, satis_fiyat_listesi}]."""
     try:
-        rows = _rows(_get_client().table("urunler")
-                     .select("sku, urun_adi, satis_fiyati, satis_fiyat_listesi").execute())
+        rows = _urunler_hepsi("sku, urun_adi, satis_fiyati, satis_fiyat_listesi")
         try:
             from shared.utils import tr_buyuk as _tb_ad
             for _r in rows:
@@ -146,7 +170,7 @@ def get_urunler():
 def get_sku_kategori():
     """{SKU: kategori} haritası (satış listesinde Kategori kolonu için)."""
     try:
-        rows = _rows(_get_client().table("urunler").select("sku, kategori").execute())
+        rows = _urunler_hepsi("sku, kategori")
         return {str(r.get("sku") or "").strip(): (r.get("kategori") or "") for r in rows}
     except Exception:
         return {}
@@ -180,7 +204,8 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
                birim_firma_destek=0, birim_ek_destek=0, kampanya_id=None, notlar="", siparis_no=""):
     try:
         _get_client().table("satislar").insert({
-            "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": sku or "",
+            "tarih": str(tarih)[:10], "kanal": kanal or "",
+            "sku": _normalize_sku_yerel(sku),   # kaynakta normalize (senkron kök çözümü)
             "urun_adi": urun_adi or "", "adet": _i(adet),
             "birim_satis": _f(birim_satis), "birim_maliyet": _f(birim_maliyet),
             "birim_firma_destek": _f(birim_firma_destek), "birim_ek_destek": _f(birim_ek_destek),
@@ -429,7 +454,8 @@ def ice_aktar_onizle(satirlar):
         sku = str(s.get("sku") or "").strip()
         adet = _i(s.get("adet"))
         tarih = str(s.get("tarih") or "")[:10]
-        bm = _f(pacal.get(sku, 0)) if sku else 0
+        # KANONİK eşleşme: 'Fazeon X24F165S' yazsa da 'X24F165S' maliyeti bulunur
+        bm = _f(pacal.get(_normalize_sku_yerel(sku), 0)) if sku else 0
         _sorun = False
         if not sku:
             skusuz += 1; _sorun = True
@@ -478,7 +504,10 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     rows, atlandi, maliyetsiz = [], 0, 0
     for s in (satirlar or []):
         sno = str(s.get("siparis_no") or "").strip()
-        sku = str(s.get("sku") or "").strip()
+        # SENKRON KÖK ÇÖZÜMÜ: SKU kaynağında normalize edilir ('Fazeon X24F165S'
+        # → 'X24F165S'). Böylece ürün kartı, maliyet, stok ve P&L eşleşmeleri
+        # baştan tutar; DİĞER'e düşme ve 0-maliyet sorunu yeni veride hiç oluşmaz.
+        sku = _normalize_sku_yerel(s.get("sku"))
         if atla_mevcut and not temizle_once and sno and sku:
             _anahtar = f"{str(s.get('kanal') or '').strip()}|{sno}|{sku.upper()}"
             if _anahtar in mevcut:
@@ -489,7 +518,7 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         tarih = str(s.get("tarih") or "")[:10]
         if not tarih:           # boş tarih insert'i patlatır → atla
             continue
-        bm = _f(pacal.get(sku, 0))
+        bm = _f(pacal.get(_normalize_sku_yerel(sku), 0))
         if bm <= 0:
             maliyetsiz += 1
         rows.append({

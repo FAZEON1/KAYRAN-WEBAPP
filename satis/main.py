@@ -1118,15 +1118,18 @@ def run():
 
             # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
             if not _p_filtreli:
+                # KANONİK SKU ANAHTARI: satışta 'Fazeon X24F165S', ürün kartında
+                # 'X24F165S' yazsa bile aynı ürün olarak eşleşir (shared.utils).
+                from shared.utils import sku_anahtar as _skn
                 _urun_ad_map = {}
                 try:
                     from kayranpm.database import get_tum_sku_listesi as _gtsl
                     _skl_p = _gtsl() or []
-                    _marka_map = {str(r.get("sku") or "").strip().upper():
+                    _marka_map = {_skn(r.get("sku")):
                                   (r.get("marka") or "").strip().upper()
                                   for r in _skl_p}
                     # Aynı sorgudan ürün adları — DİĞER kırılımı için (ek sorgu YOK)
-                    _urun_ad_map = {str(r.get("sku") or "").strip().upper():
+                    _urun_ad_map = {_skn(r.get("sku")):
                                     (r.get("urun_adi") or "").strip()
                                     for r in _skl_p}
                 except Exception:
@@ -1134,10 +1137,20 @@ def run():
                 _katmap_p = {}
                 try:
                     from satis.database import get_sku_kategori as _gskp
-                    _katmap_p = {k.strip().upper(): (v or "").strip().upper()
+                    _katmap_p = {_skn(k): (v or "").strip().upper()
                                  for k, v in (_gskp() or {}).items()}
                 except Exception:
                     _katmap_p = {}
+                # FAZEON öneki taşıyan satış SKU'ları: öneksiz kart eşleşse bile
+                # markası boşsa markayı adından biliyoruz → FAZEON say.
+                def _marka_bul(sk):
+                    _k = _skn(sk)
+                    _m = (_marka_map.get(_k) or "").strip()
+                    if _m:
+                        return _m
+                    if str(sk or "").strip().upper().startswith("FAZEON "):
+                        return "FAZEON"
+                    return ""
                 _ad_marka, _ad_kat, _ad_top = {}, {}, 0.0
                 try:
                     from kayranpm.ref_no import alinan_destek_kirilim_usd
@@ -1146,10 +1159,13 @@ def run():
                     pass
 
                 # Satışlardan marka/kategori gruplaması (urun: SKU→ciro/net_kar/adet)
-                def _grupla(harita):
+                def _grupla(harita, marka_mi=False):
                     g = {}
                     for _sk, _v in urun.items():
-                        _key = harita.get(str(_sk).strip().upper(), "") or "DİĞER"
+                        if marka_mi:
+                            _key = _marka_bul(_sk) or "DİĞER"
+                        else:
+                            _key = harita.get(_skn(_sk), "") or "DİĞER"
                         _e = g.setdefault(_key, {"ciro": 0.0, "kar": 0.0, "adet": 0})
                         _e["ciro"] += float(_v.get("ciro") or 0)
                         _e["kar"] += float(_v.get("net_kar") or 0)
@@ -1178,7 +1194,7 @@ def run():
                     for _bk, _hrt, _dst, _kol in [(_c1, _marka_map, _ad_marka, "Marka"),
                                                   (_c2, _katmap_p, _ad_kat, "Kategori")]:
                         with _bk:
-                            _rows = _kirilim_df(_grupla(_hrt), _dst)
+                            _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")), _dst)
                             if _rows:
                                 _tablo = [{
                                     _kol: r["_ad"], "Adet": r["Adet"],
@@ -1207,15 +1223,15 @@ def run():
                                    f"bu eklenince genel toplam kâr **{_usd(_t_kar_ort + _genel_dst)}** olur. "
                                    f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
 
-                    # ── 🔍 "DİĞER" içinde ne var? (markası boş / ürün kartı olmayan SKU'lar) ──
+                    # ── 🔍 "DİĞER" içinde ne var? (markası bulunamayan SKU'lar) ──
                     _diger_skus = []
                     for _sk, _v in urun.items():
-                        _sku_u = str(_sk).strip().upper()
-                        if (_marka_map.get(_sku_u) or "").strip():
-                            continue          # markası dolu → DİĞER'e düşmedi
+                        if _marka_bul(_sk):
+                            continue          # markası bulundu → DİĞER'e düşmedi
+                        _sku_k = _skn(_sk)
                         _diger_skus.append({
                             "SKU": str(_sk).strip(),
-                            "Ürün Adı": _urun_ad_map.get(_sku_u, "") or "— ürün kartı yok —",
+                            "Ürün Adı": _urun_ad_map.get(_sku_k, "") or "— ürün kartı yok —",
                             "_adet": int(_v.get("adet") or 0),
                             "_ciro": float(_v.get("ciro") or 0),
                             "_kar": float(_v.get("net_kar") or 0),
@@ -1224,7 +1240,7 @@ def run():
                         _diger_skus.sort(key=lambda r: -r["_ciro"])
                         _dg_ciro = sum(r["_ciro"] for r in _diger_skus)
                         _dg_kartsiz = sum(1 for r in _diger_skus
-                                          if not _urun_ad_map.get(str(r["SKU"]).strip().upper()))
+                                          if not _urun_ad_map.get(_skn(r["SKU"])))
                         with st.expander(f"🔍 Markası boş {len(_diger_skus)} SKU — "
                                          f"{_usd(_dg_ciro)} ciro DİĞER'e düşüyor"):
                             st.caption(
