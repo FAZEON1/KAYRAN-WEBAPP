@@ -1168,19 +1168,38 @@ def run():
                                "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
                                "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
                     _c1, _c2 = st.columns(2)
+                    _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
                     for _bk, _hrt, _dst, _kol in [(_c1, _marka_map, _ad_marka, "Marka"),
                                                   (_c2, _katmap_p, _ad_kat, "Kategori")]:
                         with _bk:
                             _rows = _kirilim_df(_grupla(_hrt), _dst)
                             if _rows:
-                                _bk.dataframe(pd.DataFrame([{
+                                _tablo = [{
                                     _kol: r["_ad"], "Adet": r["Adet"],
                                     "Ciro": _usd(r["Ciro"]),
                                     "Kâr": _usd(r["Kâr"]) + (" 📥" if r["_destek"] > 0.005 else ""),
-                                } for r in _rows]), hide_index=True, use_container_width=True)
-                    if _ad_kat.get("GENEL", 0) or _ad_marka.get("GENEL", 0):
-                        st.caption(f"ℹ️ Kırılıma dağıtılmayan GENEL destek: "
-                                   f"{_usd(max(_ad_kat.get('GENEL', 0), _ad_marka.get('GENEL', 0)))}")
+                                } for r in _rows]
+                                # ── Σ ALT TOPLAM (yalnız yukarıdaki satırların toplamı;
+                                #    GENEL destek dahil DEĞİL — o kırılıma dağıtılmıyor) ──
+                                _t_adet = sum(int(r["Adet"] or 0) for r in _rows)
+                                _t_ciro = sum(float(r["Ciro"] or 0) for r in _rows)
+                                _t_kar = sum(float(r["Kâr"] or 0) for r in _rows)
+                                _t_kar_ort = max(_t_kar_ort, _t_kar)
+                                _tablo.append({
+                                    _kol: "Σ TOPLAM", "Adet": _t_adet,
+                                    "Ciro": _usd(_t_ciro), "Kâr": _usd(_t_kar),
+                                })
+                                _bk.dataframe(pd.DataFrame(_tablo), hide_index=True,
+                                              use_container_width=True)
+                                _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
+                                            f"Marj: %{(_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0:.1f}")
+                    _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
+                                     float(_ad_marka.get("GENEL", 0) or 0))
+                    if abs(_genel_dst) > 0.005:
+                        st.caption(f"ℹ️ Σ TOPLAM satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
+                                   f"Kırılıma dağıtılmayan GENEL destek: **{_usd(_genel_dst)}** — "
+                                   f"bu eklenince genel toplam kâr **{_usd(_t_kar_ort + _genel_dst)}** olur. "
+                                   f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
 
             st.markdown("#### Kanal Kırılımı")
             st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
