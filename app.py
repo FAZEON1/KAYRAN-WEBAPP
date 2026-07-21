@@ -1787,8 +1787,16 @@ input, textarea, select { font-size: 16px !important; }
                'font-size:10.5px;font-weight:600;letter-spacing:.4px;'
                'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
                '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
+        # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
+        # geçersiz sayar; link artık MEVCUT oturum token'ıyla (?t=...) üretilir.
+        # Böylece yeni sekme, aynı tarayıcıda TEKRAR GİRİŞ İSTEMEDEN açılır.
+        _tok_aktif = ""
+        try:
+            _tok_aktif = st.query_params.get("t", "")
+        except Exception:
+            pass
         for _ad, _mod in _yeni_sekme:
-            _lh += (f'<a href="?u={_u}&t={_t}&s={_mod}" target="_blank" '
+            _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
                     f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,#152036,#0F172A);'
                     f'border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:#A5B4FC;'
                     f'text-decoration:none;font-size:13px;font-weight:500">{_ad} ↗</a>')
