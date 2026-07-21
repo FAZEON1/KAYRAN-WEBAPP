@@ -517,6 +517,61 @@ def run():
                 st.rerun()
             _ms2.caption("Tek tek ürün ekleyerek sipariş oluşturmak için butona bas — açılır pencerede.")
 
+            # ── ➕ MANUEL KANAL / CARİ EKLE ──────────────────────────────
+            @st.dialog("➕ Yeni Kanal / Cari Ekle", width="small")
+            def _kanal_ekle_dialog():
+                from satis.database import (ekle_manuel_kanal as _mk_ekle,
+                                            get_manuel_kanallar as _mk_liste,
+                                            sil_manuel_kanal as _mk_sil)
+                st.caption("Cari listesinde olmayan yeni bir satış kanalı / firma ekle. "
+                           "Eklenen isim tüm kanal seçim kutularında anında görünür "
+                           "(manuel giriş, Excel yükleme, filtreler).")
+                _yeni_ad = st.text_input("Kanal / Cari adı", key="mk_yeni_ad",
+                                         placeholder="örn. PAZARAMA, N11, AMAZON TR...",
+                                         max_chars=60)
+                # Benzer isim uyarısı — TRENDYOL / Trendyol gibi mükerrerleri önle
+                _aday = (_yeni_ad or "").strip()
+                if _aday and len(_aday) >= 2:
+                    _benzer = [k for k in _kanallar
+                               if _aday.lower() in k.lower() or k.lower() in _aday.lower()]
+                    if _benzer:
+                        st.warning("Benzer kayıt(lar) zaten var: **" + " · ".join(_benzer[:5])
+                                   + "** — aynı firmaysa yenisini ekleme, mevcut olanı seç.")
+                if st.button("💾 Ekle", type="primary", use_container_width=True,
+                             key="mk_ekle_btn", disabled=not _aday):
+                    _ok, _msg = _mk_ekle(_aday)
+                    if _ok:
+                        st.session_state["_mk_son_eklenen"] = _aday
+                        st.toast(f"✅ {_msg}", icon="✅")
+                        st.rerun()
+                    else:
+                        st.error(_msg)
+                # Elle eklenmiş kayıtların yönetimi (yalnız manuel olanlar silinebilir;
+                # silmek yalnız listeden çıkarır, geçmiş satış kayıtlarına DOKUNMAZ)
+                _mevcut_mk = _mk_liste()
+                if _mevcut_mk:
+                    with st.expander(f"🗂️ Elle eklenenler ({len(_mevcut_mk)})"):
+                        _sil_sec = st.selectbox("Listeden çıkar", ["—"] + _mevcut_mk,
+                                                key="mk_sil_sec", label_visibility="collapsed")
+                        if _sil_sec != "—" and st.button(f"🗑️ “{_sil_sec}” çıkar",
+                                                         key="mk_sil_btn",
+                                                         use_container_width=True):
+                            _mk_sil(_sil_sec)
+                            st.toast(f"🗑️ “{_sil_sec}” listeden çıkarıldı", icon="🗑️")
+                            st.rerun()
+                        st.caption("Silme yalnız seçim listesini etkiler; o kanala girilmiş "
+                                   "satışlar durur ve kanal, satışlarda geçtiği sürece "
+                                   "listede görünmeye devam eder.")
+
+            if st.button("➕ Yeni Kanal / Cari Ekle", key="mk_ac_btn"):
+                _kanal_ekle_dialog()
+            # Yeni eklenen kanal, manuel satış penceresinde otomatik SEÇİLİ gelsin
+            _mk_son = st.session_state.pop("_mk_son_eklenen", None)
+            if _mk_son and _mk_son in _kanallar:
+                st.session_state["s_kanal"] = _mk_son
+                st.success(f"✅ **{_mk_son}** eklendi ve seçili hale getirildi — "
+                           "✍️ Manuel Satış Girişi'ni açıp devam edebilirsin.")
+
             @st.dialog("✍️ Manuel Satış Girişi", width="large")
             def _satis_manuel_dialog():
                 # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
@@ -1191,18 +1246,33 @@ def run():
                 except Exception:
                     pass
 
-                # Satışlardan marka/kategori gruplaması (urun: SKU→ciro/net_kar/adet)
+                # İadeler SKU bazında kırılıma da yansısın (kanonik anahtarla):
+                # KASPERSKY gibi iadeli markalarda ciro/kâr/adet NET gösterilir.
+                _iade_sku_k = {}
+                for _ir_k, _ir_v in (_sku_iade or {}).items():
+                    _e_ik = _iade_sku_k.setdefault(_skn(_ir_k),
+                                                   {"i_adet": 0, "i_tutar": 0.0, "i_kar": 0.0})
+                    _e_ik["i_adet"] += int(_ir_v.get("i_adet") or 0)
+                    _e_ik["i_tutar"] += float(_ir_v.get("i_tutar") or 0)
+                    _e_ik["i_kar"] += float(_ir_v.get("i_kar") or 0)
+
+                # Satışlardan marka/kategori gruplaması — İADE DÜŞÜLMÜŞ (net)
                 def _grupla(harita, marka_mi=False):
                     g = {}
+                    _islenen_iade = set()
                     for _sk, _v in urun.items():
                         if marka_mi:
                             _key = _marka_bul(_sk) or "DİĞER"
                         else:
                             _key = _kat_bul(_sk) or "DİĞER"
                         _e = g.setdefault(_key, {"ciro": 0.0, "kar": 0.0, "adet": 0})
-                        _e["ciro"] += float(_v.get("ciro") or 0)
-                        _e["kar"] += float(_v.get("net_kar") or 0)
-                        _e["adet"] += int(_v.get("adet") or 0)
+                        _sk_k = _skn(_sk)
+                        _ii = (_iade_sku_k.get(_sk_k) or {}) \
+                            if _sk_k not in _islenen_iade else {}
+                        _islenen_iade.add(_sk_k)   # aynı iade iki satış SKU'suna düşmesin
+                        _e["ciro"] += float(_v.get("ciro") or 0) - float(_ii.get("i_tutar") or 0)
+                        _e["kar"] += float(_v.get("net_kar") or 0) - float(_ii.get("i_kar") or 0)
+                        _e["adet"] += int(_v.get("adet") or 0) - int(_ii.get("i_adet") or 0)
                     return g
 
                 def _kirilim_df(g, destekler):
@@ -1219,7 +1289,8 @@ def run():
 
                 if urun and (_marka_map or _katmap_p or _ad_top):
                     st.markdown("#### 🏷️ Marka & Kategori Kırılımı")
-                    st.caption("Kâr kolonu, o marka/kategori için **alınan destekleri içerir** "
+                    st.caption("Rakamlar **iade düşülmüş (net)** değerlerdir. Kâr kolonu, o "
+                               "marka/kategori için **alınan destekleri içerir** "
                                "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
                                "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
                     _c1, _c2 = st.columns(2)

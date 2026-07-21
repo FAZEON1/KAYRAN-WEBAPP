@@ -22,6 +22,70 @@ TR_TZ = timezone(timedelta(hours=3))
 KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "KANAL", "Trendyol", "Direkt", "DİGER"]
 
 
+# ── MANUEL KANAL / CARİ ──────────────────────────────────────────────
+# Elle eklenen kanallar mevcut sistem_ayarlari tablosunda tek anahtar
+# altında JSON liste olarak durur (yeni tablo GEREKMEZ, yedeğe de girer).
+_MANUEL_KANAL_ANAHTAR = "satis_manuel_kanallar"
+
+
+def get_manuel_kanallar():
+    """Elle eklenmiş kanal/cari isimleri (sistem_ayarlari → JSON liste)."""
+    import json as _json
+    try:
+        rows = _rows(_get_client().table("sistem_ayarlari").select("deger")
+                     .eq("anahtar", _MANUEL_KANAL_ANAHTAR).limit(1).execute())
+        if not rows:
+            return []
+        v = _json.loads(rows[0].get("deger") or "[]")
+        return [str(x).strip() for x in v if str(x).strip()] if isinstance(v, list) else []
+    except Exception:
+        return []
+
+
+def _manuel_kanal_yaz(liste):
+    import json as _json
+    from datetime import datetime as _dt, timedelta as _td
+    _zaman = (_dt.utcnow() + _td(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+    _get_client().table("sistem_ayarlari").upsert(
+        {"anahtar": _MANUEL_KANAL_ANAHTAR,
+         "deger": _json.dumps(sorted(set(liste), key=lambda s: s.lower()),
+                              ensure_ascii=False),
+         "guncelleme_tarihi": _zaman},
+        on_conflict="anahtar").execute()
+
+
+def ekle_manuel_kanal(ad):
+    """Yeni kanal/cari ekler. Döner: (True, mesaj) | (False, hata)."""
+    ad = str(ad or "").strip()
+    if not ad:
+        return False, "Kanal adı boş olamaz."
+    if len(ad) > 60:
+        return False, "Kanal adı çok uzun (en fazla 60 karakter)."
+    try:
+        mevcut_hepsi = {k.strip().lower() for k in (get_kanallar() or [])}
+        if ad.lower() in mevcut_hepsi:
+            return False, f"“{ad}” zaten listede var."
+        liste = get_manuel_kanallar()
+        liste.append(ad)
+        _manuel_kanal_yaz(liste)
+        get_kanallar.clear()          # liste anında tazelensin
+        return True, f"“{ad}” eklendi."
+    except Exception as e:
+        return False, f"Kaydedilemedi: {type(e).__name__}: {str(e)[:120]}"
+
+
+def sil_manuel_kanal(ad):
+    """Elle eklenmiş bir kanalı listeden çıkarır (satış kayıtlarına DOKUNMAZ)."""
+    ad = str(ad or "").strip()
+    try:
+        liste = [k for k in get_manuel_kanallar() if k.lower() != ad.lower()]
+        _manuel_kanal_yaz(liste)
+        get_kanallar.clear()
+        return True
+    except Exception:
+        return False
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def get_kanallar():
     """Kanal/firma listesi: Muhasebe cari isimleri + SATIŞLARDA fiilen geçen
@@ -37,14 +101,20 @@ def get_kanallar():
                 _gorulen.add(s.lower())
                 birlesik.append(s)
 
-    # 1) Muhasebe cari isimleri (varsa)
+    # 1) Elle eklenen kanal/cariler (Satış Girişi → ➕ Yeni Kanal/Cari)
+    try:
+        _ekle(get_manuel_kanallar())
+    except Exception:
+        pass
+
+    # 2) Muhasebe cari isimleri (varsa)
     try:
         from kayranacc.database import get_cari_isimler
         _ekle(get_cari_isimler())
     except Exception:
         pass
 
-    # 2) Satış kayıtlarında fiilen geçen kanallar (distinct)
+    # 3) Satış kayıtlarında fiilen geçen kanallar (distinct)
     try:
         _kanal_satis = _kanallar_satistan()
         _ekle(_kanal_satis)
