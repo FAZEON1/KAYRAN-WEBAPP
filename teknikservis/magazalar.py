@@ -3,6 +3,18 @@
 Yeni firma mağazaları eklemek için MAGAZALAR sözlüğüne yeni anahtar ekleyin."""
 
 MAGAZALAR = {
+    "D-MARKET": [
+        {"ad": "D-MARKET (HEPSİBURADA) TEKNİK SERVİS — GEBZE", "sehir": "KOCAELİ", "ilce": "Gebze",
+         "tel": "0850 252 40 00",
+         "adres": "İnönü Mah. Mimar Sinan Cad. No: 3 Gebze Güzeller OSB",
+         "mail": "teknikservis@hepsiburada.com"},
+    ],
+    "SERVISPOINT": [
+        {"ad": "SERVISPOINT — MECİDİYEKÖY", "sehir": "İSTANBUL", "ilce": "Şişli",
+         "tel": "0212 288 42 30",
+         "adres": "Gülbahar Mah. Uysal Sk. No:3C Mecidiyeköy",
+         "mail": "bilgi@servispoint.com"},
+    ],
     "EERA": [
         {"ad": "İSTANBUL ACIBADEM MAĞAZASI", "sehir": "İSTANBUL", "ilce": "Kadıköy", "tel": "0850 259 2696", "adres": "Hasanpaşa Mahallesi, Lavanta Sokak, Etap İş Merkezi D Blok No: 22, Kadıköy/İstanbul", "mail": "acibademmh@itopya.com"},
         {"ad": "İSTANBUL BEYLİKDÜZÜ MAĞAZASI", "sehir": "İSTANBUL", "ilce": "Beylikdüzü", "tel": "0850 259 2696", "adres": "Barış Mahallesi, Belediye Caddesi, Ginza Lavinya No: 30/A5, Beylikdüzü/İstanbul", "mail": "beylikduzumh@itopya.com"},
@@ -191,6 +203,8 @@ def magaza_listesi(firma=None):
 
 # Mağaza grubu (MAGAZALAR anahtarı) → tam cari unvan (TS_FIRMALAR ile birebir).
 GRUP_CARI = {
+    "D-MARKET": "D-MARKET ELEKTRONİK HİZMETLER VE TİCARET ANONİM ŞİRKETİ",
+    "SERVISPOINT": "SERVİS NOKTASI TEKNOLOJİ ANONİM ŞİRKETİ",
     "EERA": "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ",
     "MONDAY": "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ",
     "VATAN": "VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI",

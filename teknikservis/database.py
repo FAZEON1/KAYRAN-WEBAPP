@@ -52,6 +52,7 @@ TS_FIRMALAR = [
     "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ",
     "SERVİS NOKTASI TEKNOLOJİ ANONİM ŞİRKETİ",
     "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ",
+    "SON KULLANICI",
     "DİĞER",
 ]
 
@@ -59,10 +60,91 @@ TS_FIRMALAR = [
 # olursa bunlar düşülüp tekrar denenir (graceful).
 _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo",
-                  "depo_tarihi")
+                  "depo_tarihi", "sonuc_durumu", "test_sureci")
 
 
 @st.cache_resource
+# ── Kalıcı küçük listeler (sistem_ayarlari · JSON) ───────────────────
+def _ayar_liste_oku(anahtar):
+    import json as _json
+    try:
+        rows = _rows(get_client().table("sistem_ayarlari").select("deger")
+                     .eq("anahtar", anahtar).limit(1).execute())
+        v = _json.loads(rows[0].get("deger") or "[]") if rows else []
+        return [str(x).strip() for x in v if str(x).strip()] if isinstance(v, list) else []
+    except Exception:
+        return []
+
+
+def _ayar_liste_yaz(anahtar, liste):
+    import json as _json
+    from datetime import datetime as _dt, timedelta as _td
+    _z = (_dt.utcnow() + _td(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+    get_client().table("sistem_ayarlari").upsert(
+        {"anahtar": anahtar, "deger": _json.dumps(liste, ensure_ascii=False),
+         "guncelleme_tarihi": _z}, on_conflict="anahtar").execute()
+
+
+def ts_firmalar_tam():
+    """TS_FIRMALAR + elle eklenmiş (kalıcı) firmalar. 'DİĞER' hep sonda kalır."""
+    _manuel = [f for f in _ayar_liste_oku("ts_manuel_firmalar")
+               if f.upper() not in {x.upper() for x in TS_FIRMALAR}]
+    _lst = [f for f in TS_FIRMALAR if f != "DİĞER"] + sorted(_manuel, key=str.lower)
+    return _lst + ["DİĞER"]
+
+
+def ekle_ts_firma(ad):
+    """Mal kabülde elle yazılan yeni cariyi kalıcı listeye ekler (madde 5)."""
+    ad = str(ad or "").strip()
+    if not ad or ad.upper() in {x.upper() for x in ts_firmalar_tam()}:
+        return
+    try:
+        _ayar_liste_yaz("ts_manuel_firmalar",
+                        _ayar_liste_oku("ts_manuel_firmalar") + [ad])
+    except Exception:
+        pass
+
+
+def seri_kayitlari(seri):
+    """Aynı seri no ile daha önce açılmış kayıtlar (mükerrer uyarısı için)."""
+    s = str(seri or "").strip()
+    if not s:
+        return []
+    try:
+        return _rows(get_client().table("ts_kayitlar")
+                     .select("servis_form_no, mevcut_durum, arayuz, mal_kabul_tarihi")
+                     .ilike("seri_no", s).order("id", desc=True).limit(10).execute())
+    except Exception:
+        return []
+
+
+def tum_seriler():
+    """Kayıtlı tüm seri numaraları (BÜYÜK harf küme) — toplu Excel mükerrer kontrolü."""
+    try:
+        rows = _rows(get_client().table("ts_kayitlar").select("seri_no").order("id").execute())
+        return {str(r.get("seri_no") or "").strip().upper()
+                for r in rows if str(r.get("seri_no") or "").strip()}
+    except Exception:
+        return set()
+
+
+def depo_aciklamalar():
+    """Depo transferinde daha önce kullanılan açıklamalar (madde 11)."""
+    return _ayar_liste_oku("ts_depo_aciklamalar")
+
+
+def ekle_depo_aciklama(txt):
+    txt = str(txt or "").strip()
+    if not txt:
+        return
+    try:
+        _lst = [x for x in _ayar_liste_oku("ts_depo_aciklamalar")
+                if x.lower() != txt.lower()]
+        _ayar_liste_yaz("ts_depo_aciklamalar", ([txt] + _lst)[:30])  # en yeni başta, 30 tut
+    except Exception:
+        pass
+
+
 def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     # service_role_key varsa onu kullan (RLS aşılır, kayranacc ile tutarlı); yoksa anon key.
@@ -463,13 +545,14 @@ def servis_formu_pdf(kayit, gecmis=None):
         ("Ürün Grubu", _v("urun_grubu")), ("Seri No", _v("seri_no")),
         ("EAN", _v("ean")), ("Arıza", _v("ariza")),
         ("İçerik Durumu", _v("icerik_durumu")), ("Fiziksel Durum", _v("fiziksel_durum")),
-        ("Detay / Not", _v("detay")), ("Mevcut Durum", durum or "—"),
+        ("Detay / Not", _v("detay")), ("Test Süreci", _v("test_sureci")),
+        ("Mevcut Durum", durum or "—"),
     ]))
-    el.append(Paragraph("MÜŞTERİ / FİRMA", sec))
+    el.append(Paragraph("MAĞAZA / MÜŞTERİ", sec))
     el.append(_tablo([
-        ("Firma Bilgisi", _v("firma_bilgisi")), ("Müşteri / Firma Adı", _v("musteri_adi")),
+        ("Firma Bilgisi", _v("firma_bilgisi")), ("Mağaza / Müşteri Adı", _v("musteri_adi")),
         ("Telefon", _v("musteri_tel")), ("Mail", _v("musteri_mail")),
-        ("Adres", _v("musteri_adres")), ("Sevk / Kargo", _v("sevk_kargo_bilgisi")),
+        ("Adres", _v("musteri_adres")), ("Sevk / Teslim", _v("sevk_kargo_bilgisi")),
     ]))
     if any(kayit.get(a) for a in ("degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo")):
         el.append(Paragraph("DEĞİŞİM ÜRÜNÜ (yeni verilen)", sec))
