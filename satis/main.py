@@ -403,8 +403,15 @@ def run():
                                        key=f"sg_sablon_{_key}")
                     _knl = _sabit_kanal
                     if _kanal_secilebilir:
+                        # Firma OTOMATİK gelmesin — boş başlar, kullanıcı bilinçli seçer
+                        # (alfabetik ilk cari yanlışlıkla seçili kalıp yanlış firmaya
+                        # sipariş yazılmasın diye).
                         _knl = st.selectbox("Firma / Kanal (cari)", _kanallar,
-                                            index=0 if _kanallar else 0, key=f"sg_kanal_{_key}")
+                                            index=None, key=f"sg_kanal_{_key}",
+                                            placeholder="— Firma seç (zorunlu) —")
+                        if not _knl:
+                            st.info("👆 Devam etmek için önce firma / kanal seç.")
+                            return
                     _c1, _c2 = st.columns(2)
                     _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}")
                     _sno = _c2.text_input("Sipariş No", key=f"sg_sno_{_key}",
