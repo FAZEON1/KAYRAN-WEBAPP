@@ -40,7 +40,8 @@ def _urun_kategorileri():
     (tr_kucuk normalize + benzersiz + sıralı) besleniyor; birebir aynısı."""
     try:
         from shared.utils import tr_kucuk as _tk
-        rows = get_client().table("urunler").select("kategori").execute().data or []
+        from .database import _hepsi as _hepsi_k
+        rows = _hepsi_k("urunler", "kategori", "sku")
         return sorted({_tk(r.get("kategori")) for r in rows if _tk(r.get("kategori"))})
     except Exception:
         return []
@@ -231,6 +232,18 @@ def alinan_destek_sil(rid):
         return False
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _eur_usd_kur():
+    """1 EUR kaç USD — mevcut kur API'sinden (open.er-api.com). Alınamazsa 1.08."""
+    try:
+        import requests
+        d = requests.get("https://open.er-api.com/v6/latest/EUR", timeout=6).json()
+        v = float(d["rates"]["USD"])
+        return v if 0.5 < v < 2.5 else 1.08
+    except Exception:
+        return 1.08
+
+
 def _alinan_kur():
     """TL→USD çevrimi için güncel kur (bulunamazsa None)."""
     try:
@@ -263,6 +276,9 @@ def alinan_destek_aralik_usd(bas, bit):
             if not kur:
                 continue
             t = t / kur
+        elif dv in ("EUR", "EURO", "€"):
+            # DÜZELTME: EUR eskiden 1:1 dolar sayılıyordu → gerçek kurla çevrilir
+            t = t * _eur_usd_kur()
         toplam += t
     return toplam
 
@@ -290,6 +306,9 @@ def alinan_destek_kirilim_usd(bas, bit):
             if not kur:
                 continue
             t = t / kur
+        elif dv in ("EUR", "EURO", "€"):
+            # DÜZELTME: EUR eskiden 1:1 dolar sayılıyordu → gerçek kurla çevrilir
+            t = t * _eur_usd_kur()
         mk = (r.get("firma") or "").strip().upper() or "GENEL"
         kt = (r.get("kategori") or "").strip().upper() or "GENEL"
         marka[mk] = marka.get(mk, 0.0) + t
@@ -1837,17 +1856,46 @@ def _render_alinan_destekler():
 
     # ── Özet metrikler ──
     _bu_ay = f"{date.today().year:04d}-{date.today().month:02d}"
-    _ay_usd = sum(_f(r["tutar"]) for r in kayitlar
-                  if r.get("donem") == _bu_ay and (r.get("doviz") or "USD") == "USD")
-    _ay_tl = sum(_f(r["tutar"]) for r in kayitlar
-                 if r.get("donem") == _bu_ay and (r.get("doviz") or "").upper() in ("TL", "TRY"))
-    _yil_usd = sum(_f(r["tutar"]) for r in kayitlar if (r.get("doviz") or "USD") == "USD")
-    _yil_tl = sum(_f(r["tutar"]) for r in kayitlar if (r.get("doviz") or "").upper() in ("TL", "TRY"))
+
+    # DÜZELTME: eskiden yalnız USD toplanıyor, EUR kayıtlar (€750 vb.) karta HİÇ
+    # girmiyordu. Artık her döviz USD karşılığıyla toplanır; orijinal tutarlar
+    # alt satırda gösterilir.
+    def _doviz_kirilim(rows):
+        _u = _e = _t = 0.0
+        for r in rows:
+            _dv = (r.get("doviz") or "USD").upper()
+            _v = _f(r.get("tutar"))
+            if _dv in ("TL", "TRY", "₺"):
+                _t += _v
+            elif _dv in ("EUR", "EURO", "€"):
+                _e += _v
+            else:
+                _u += _v
+        return _u, _e, _t
+
+    _ay_u, _ay_e, _ay_t = _doviz_kirilim([r for r in kayitlar if r.get("donem") == _bu_ay])
+    _yl_u, _yl_e, _yl_t = _doviz_kirilim(kayitlar)
+    _eurk = _eur_usd_kur() if (_ay_e or _yl_e) else 1.0
+    _tlk = _alinan_kur() if (_ay_t or _yl_t) else None
+
+    def _usd_toplam(u, e, t):
+        return u + e * _eurk + ((t / _tlk) if (_tlk and t) else 0.0)
+
+    def _alt_yazi(u, e, t):
+        _p = []
+        if e:
+            _p.append(f"€{e:,.0f}")
+        if t:
+            _p.append(f"₺{t:,.0f}")
+        if not _p:
+            return ""
+        return " + ".join(_p) + f" dahil (kur €→$ {_eurk:.2f})" if e else " + ".join(_p) + " dahil"
+
     metrik_satiri([
-        {"label": f"Bu Ay ({_bu_ay})", "value": f"${_f(_ay_usd):,.0f}",
-         "renk": "#34D399", "alt": (f"+ ₺{_ay_tl:,.0f}" if _ay_tl else "")},
-        {"label": f"{_yil} Toplam", "value": f"${_yil_usd:,.0f}",
-         "renk": "#818CF8", "alt": (f"+ ₺{_yil_tl:,.0f}" if _yil_tl else "")},
+        {"label": f"Bu Ay ({_bu_ay})", "value": f"${_usd_toplam(_ay_u, _ay_e, _ay_t):,.0f}",
+         "renk": "#34D399", "alt": _alt_yazi(_ay_u, _ay_e, _ay_t)},
+        {"label": f"{_yil} Toplam", "value": f"${_usd_toplam(_yl_u, _yl_e, _yl_t):,.0f}",
+         "renk": "#818CF8", "alt": _alt_yazi(_yl_u, _yl_e, _yl_t)},
         {"label": "Kayıt", "value": f"{len(kayitlar)}", "renk": "#60A5FA",
          "alt": "seçili yıl"},
     ])
