@@ -3817,95 +3817,105 @@ def run():
                         pass
             return odenen
     
-        def _cari_isimleri_cikar(file_bytes):
-            """Cari Excel'inden Hesap adı (sütun 2) listesini çıkarır — Satış kanalları için."""
-            import pandas as pd
-            from io import BytesIO
-            try:
-                df = pd.read_excel(BytesIO(file_bytes), header=None)
-            except Exception:
-                return []
-            isimler = []
-            for i in range(1, len(df)):
-                ad = df.iloc[i, 2] if df.shape[1] > 2 else None
-                if pd.notna(ad):
-                    s = str(ad).strip()
-                    if s and s.lower() != "nan" and s not in isimler:
-                        isimler.append(s)
-            return isimler
-
-        def parse_cari_excel(file_bytes):
-            """
-            Cari Excel'inden BORÇ ve ALACAK kalemlerini çıkarır.
-            Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
-            - Negatif bakiye = SEN borçlusun (BORÇ)
-            - Pozitif bakiye = SANA borçlu (ALACAK)
-            Returns: dict{'borc': {usd, tl, eur}, 'alacak': {usd, tl, eur}}
-            """
-            import pandas as pd
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-            sonuc = {
-                "borc": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-                "alacak": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-            }
-            for i in range(1, len(df)):
-                tip = df.iloc[i, 0]
-                doviz = df.iloc[i, 3]
-                bakiye = df.iloc[i, 6]
-                if pd.notna(tip) and pd.notna(bakiye) and pd.notna(doviz):
-                    try:
-                        bakiye_val = float(bakiye)
-                        if bakiye_val == 0:
-                            continue
-                        yon = "borc" if bakiye_val < 0 else "alacak"
-                        d = str(doviz).strip().upper()
-                        if d == "USD":
-                            sonuc[yon]["usd"] += abs(bakiye_val)
-                        elif d == "TL":
-                            sonuc[yon]["tl"] += abs(bakiye_val)
-                        elif d == "EUR":
-                            sonuc[yon]["eur"] += abs(bakiye_val)
-                    except (ValueError, TypeError):
-                        pass
-            return sonuc
-
         def parse_cari_detay(file_bytes):
-            """Cari Excel'inden SATIR BAZLI detay çıkarır (Bayi Portalı bunu okur).
-            Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
+            """Cari Excel'inden SATIR BAZLI detay çıkarır (Bayi Portalı + diğerleri bunu kullanır).
+
+            Sütunlar KONUM yerine BAŞLIK ADINA göre bulunur — böylece rapor 6 sütunlu
+            (Hesap kodu·Hesap adı·Döviz·Toplam borç·Toplam alacak·Toplam bakiye) ya da
+            başında 'Tip' olan 7 sütunlu varyant olsun, ikisi de doğru okunur.
             Döner: [{kod, unvan, doviz, borc, alacak, bakiye}, ...] — unvanı olan satırlar.
             Bakiye şirket defteri işaretindedir (negatif=siz borçlusunuz, pozitif=cari borçlu).
             """
+            import unicodedata
             import pandas as pd
             from io import BytesIO
             try:
                 df = pd.read_excel(BytesIO(file_bytes), header=None)
             except Exception:
                 return []
+            if df.shape[0] < 2 or df.shape[1] < 3:
+                return []
 
-            def _sf(v):
+            def _norm(s):
+                s = str(s or "").strip().lower()
+                return "".join(c for c in unicodedata.normalize("NFKD", s)
+                               if not unicodedata.combining(c))
+
+            # Başlık satırından sütun indekslerini çöz
+            hdr = {_norm(df.iloc[0, c]): c for c in range(df.shape[1])}
+
+            def _col(*ipuclari):
+                for isim, idx in hdr.items():
+                    if any(t in isim for t in ipuclari):
+                        return idx
+                return None
+
+            c_kod = _col("hesap kodu", "kod")
+            c_ad = _col("hesap adi", "unvan", "hesap adı")
+            c_dov = _col("doviz")
+            c_borc = _col("borc")
+            c_alacak = _col("alacak")
+            c_bak = _col("bakiye")
+            # Başlık tanınmadıysa doğrulanmış 6 sütunlu düzene düş
+            if c_ad is None:
+                c_kod, c_ad, c_dov, c_borc, c_alacak, c_bak = 0, 1, 2, 3, 4, 5
+
+            def _sf(c):
+                if c is None or c >= df.shape[1]:
+                    return 0.0
+                v = df.iloc[_i, c]
                 try:
                     return float(v) if pd.notna(v) else 0.0
                 except (ValueError, TypeError):
                     return 0.0
 
+            def _sv(c):
+                if c is None or c >= df.shape[1]:
+                    return ""
+                v = df.iloc[_i, c]
+                return "" if not pd.notna(v) else str(v).strip()
+
             satirlar = []
-            for i in range(1, len(df)):
-                unvan = df.iloc[i, 2] if df.shape[1] > 2 else None
-                if not pd.notna(unvan) or not str(unvan).strip() or str(unvan).strip().lower() == "nan":
+            for _i in range(1, len(df)):
+                unvan = _sv(c_ad)
+                if not unvan or unvan.lower() == "nan":   # ara-toplam / boş satır
                     continue
-                kod = df.iloc[i, 1] if df.shape[1] > 1 else None
-                doviz = df.iloc[i, 3] if df.shape[1] > 3 else None
+                doviz = _sv(c_dov).upper() or "TL"
                 satirlar.append({
-                    "kod": "" if not pd.notna(kod) else str(kod).strip(),
-                    "unvan": str(unvan).strip(),
-                    "doviz": ("TL" if not pd.notna(doviz) else str(doviz).strip().upper()),
-                    "borc": _sf(df.iloc[i, 4]) if df.shape[1] > 4 else 0.0,
-                    "alacak": _sf(df.iloc[i, 5]) if df.shape[1] > 5 else 0.0,
-                    "bakiye": _sf(df.iloc[i, 6]) if df.shape[1] > 6 else 0.0,
+                    "kod": _sv(c_kod), "unvan": unvan, "doviz": doviz,
+                    "borc": _sf(c_borc), "alacak": _sf(c_alacak), "bakiye": _sf(c_bak),
                 })
             return satirlar
+
+        def _cari_isimleri_cikar(file_bytes):
+            """Cari Excel'indeki Hesap adı listesi (Satış kanalları için) — detaydan türetilir."""
+            isimler = []
+            for r in parse_cari_detay(file_bytes):
+                s = r.get("unvan", "").strip()
+                if s and s not in isimler:
+                    isimler.append(s)
+            return isimler
+
+        def parse_cari_excel(file_bytes):
+            """Cari Excel'inden BORÇ/ALACAK toplamlarını (döviz bazlı) çıkarır — detaydan.
+
+            - Negatif bakiye = SEN borçlusun (BORÇ) · Pozitif bakiye = SANA borçlu (ALACAK)
+            Returns: dict{'borc': {usd, tl, eur}, 'alacak': {usd, tl, eur}}
+            """
+            sonuc = {
+                "borc": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
+                "alacak": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
+            }
+            _dkey = {"USD": "usd", "TL": "tl", "TRY": "tl", "EUR": "eur"}
+            for r in parse_cari_detay(file_bytes):
+                bakiye_val = r.get("bakiye") or 0.0
+                if bakiye_val == 0:
+                    continue
+                yon = "borc" if bakiye_val < 0 else "alacak"
+                k = _dkey.get(str(r.get("doviz", "")).strip().upper())
+                if k:
+                    sonuc[yon][k] += abs(bakiye_val)
+            return sonuc
 
         # ─── Session state init + Supabase'den önceki kayıtları yükle ───
         # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.

@@ -50,18 +50,19 @@ def _hesap_ac_formu():
     st.markdown("#### ➕ Yeni Bayi Hesabı")
     secenekler = cari_secenekleri()
     unvan_opts = ["— Cari seç —"] + [s["unvan"] for s in secenekler] + ["✏️ Elle gir"]
-    kod_map = {s["unvan"]: s["kod"] for s in secenekler}
 
     with st.form("bayi_ac", clear_on_submit=False):
         c1, c2 = st.columns(2)
         with c1:
             kul = st.text_input("Kullanıcı adı *", help="Bayinin giriş adı (küçük harf)")
-            sec_unvan = st.selectbox("Cari *", unvan_opts)
+            sec_unvan = st.selectbox("Cari (unvan) *", unvan_opts)
             ad = st.text_input("Yetkili ad soyad")
         with c2:
             sif = st.text_input("Başlangıç şifresi *", type="password")
             manuel_unvan = st.text_input("Cari unvan (elle)", help="Yukarıda '✏️ Elle gir' seçtiyseniz")
-            manuel_kod = st.text_input("Cari kod (elle / opsiyonel)")
+            manuel_kod = st.text_input("Cari kod (opsiyonel)",
+                                       help="Boş bırakın → bayi tüm döviz alt-hesaplarını görür. "
+                                            "Yalnızca tek bir alt-hesaba daraltmak için doldurun.")
         c3, c4 = st.columns(2)
         with c3:
             email = st.text_input("E-posta")
@@ -76,7 +77,7 @@ def _hesap_ac_formu():
                 unvan, kod = "", ""
             else:
                 unvan = sec_unvan
-                kod = manuel_kod.strip() or kod_map.get(sec_unvan, "")
+                kod = manuel_kod.strip()   # boş → tüm döviz alt-hesapları görünür
 
             if not kul.strip() or not sif or not unvan:
                 st.error("Kullanıcı adı, şifre ve cari zorunlu.")

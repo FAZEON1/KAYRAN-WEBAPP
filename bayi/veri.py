@@ -98,9 +98,12 @@ def cari_bakiye(cari_kod=None, cari_unvan=None):
     unvan_n = _norm(cari_unvan)
     satirlar = []
     for r in cari_detay_tumu():
-        if kod_n and _norm(r.get("kod")) == kod_n:
-            satirlar.append(r)
-        elif not kod_n and unvan_n and _norm(r.get("unvan")) == unvan_n:
+        if unvan_n:
+            # Unvan birincil anahtar (bayi = firma). Bir firmanın birden çok döviz
+            # alt-hesabı olabilir → hepsi gösterilir. kod verilmişse tek alt-hesaba daralt.
+            if _norm(r.get("unvan")) == unvan_n and (not kod_n or _norm(r.get("kod")) == kod_n):
+                satirlar.append(r)
+        elif kod_n and _norm(r.get("kod")) == kod_n:
             satirlar.append(r)
 
     doviz_bazli = {}
@@ -123,17 +126,21 @@ def cari_bakiye(cari_kod=None, cari_unvan=None):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def cari_secenekleri():
-    """Admin ekranı için (unvan, kod) seçenek listesi — yüklenen cari detayından."""
-    secenek = []
-    gorulen = set()
+    """Admin ekranı için benzersiz UNVAN listesi — yüklenen cari detayından.
+
+    Aynı firmanın birden çok döviz alt-hesabı (kod) tek unvana toplanır; admin
+    unvanla bağlar, bayi tüm dövizlerini görür. Döner: [{unvan, kodlar:[...]}].
+    """
+    grup = {}
     for r in cari_detay_tumu():
         unvan = str(r.get("unvan") or "").strip()
-        kod = str(r.get("kod") or "").strip()
-        anahtar = (_norm(kod), _norm(unvan))
-        if not unvan or anahtar in gorulen:
+        if not unvan:
             continue
-        gorulen.add(anahtar)
-        secenek.append({"unvan": unvan, "kod": kod})
+        kod = str(r.get("kod") or "").strip()
+        grup.setdefault(_norm(unvan), {"unvan": unvan, "kodlar": []})
+        if kod and kod not in grup[_norm(unvan)]["kodlar"]:
+            grup[_norm(unvan)]["kodlar"].append(kod)
+    secenek = list(grup.values())
     secenek.sort(key=lambda x: x["unvan"].lower())
     return secenek
 
