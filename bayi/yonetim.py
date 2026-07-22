@@ -14,6 +14,7 @@ from shared.auth import kullanici_dogrula_v2, sifre_hash_uret
 from bayi.veri import (
     cari_secenekleri, bayi_kullanici_ekle, bayi_kullanici_listele,
     bayi_aktiflik_degistir, bayi_sifre_guncelle,
+    cari_detay_yukle, cari_detay_durum,
 )
 
 # Bayi hesaplarını yönetebilecek personel kullanıcı adları
@@ -44,6 +45,30 @@ def _admin_giris_formu():
                 st.rerun()
             else:
                 st.error("Yetkisiz kullanıcı veya hatalı şifre.")
+
+
+def _cari_yukle_bolumu():
+    """Cari Alacaklar Excel'ini portaldan yükle → cari_detay yazılır (Özet buradan beslenir)."""
+    st.markdown("#### 📤 Cari Alacaklar Excel")
+    durum = cari_detay_durum()
+    if durum["adet"]:
+        kim = (durum.get("son_yukleyen") or "?")
+        zaman = (durum.get("yukleme_zamani") or "")[:16]
+        st.success(f"✅ Yüklü: {durum['adet']} cari kaydı · 👤 {kim} · 🕐 {zaman}")
+    else:
+        st.warning("⚠️ Henüz cari verisi yok. Özet ekranındaki bakiyeler için Excel yükleyin.")
+
+    dosya = st.file_uploader("Cari Alacaklar Listesi (.xls / .xlsx)",
+                             type=["xls", "xlsx"], key="cari_detay_upload")
+    if dosya is not None:
+        fid = f"{dosya.name}:{getattr(dosya, 'size', 0)}"
+        if st.session_state.get("_cari_detay_islenen") != fid:
+            st.session_state["_cari_detay_islenen"] = fid
+            with st.spinner("🧾 Cari Excel işleniyor…"):
+                ok, msg, adet = cari_detay_yukle(dosya.read())
+            (st.success if ok else st.error)(msg)
+            if ok:
+                st.rerun()
 
 
 def _hesap_ac_formu():
@@ -140,6 +165,8 @@ def render():
         if st.button("Çıkış", use_container_width=True):
             st.session_state.pop("bayi_admin", None)
             st.rerun()
+    st.markdown("---")
+    _cari_yukle_bolumu()
     st.markdown("---")
     _hesap_ac_formu()
     st.markdown("---")

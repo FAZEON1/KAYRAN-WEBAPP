@@ -124,6 +124,122 @@ def cari_bakiye(cari_kod=None, cari_unvan=None):
     }
 
 
+def parse_cari_detay(file_bytes):
+    """Cari Alacaklar Excel'ini SATIR BAZLI ayrıştırır (portal içi yükleme için).
+
+    Sütunlar KONUM yerine BAŞLIK ADINA göre bulunur (6 sütunlu standart rapor ya da
+    başında 'Tip' olan 7 sütunlu varyant — ikisi de doğru okunur). Ara-toplam / boş
+    satırlar (unvanı olmayan) elenir. kayranacc/main.py'deki parser ile aynı mantık.
+    Döner: [{kod, unvan, doviz, borc, alacak, bakiye}, ...]
+    """
+    import unicodedata
+    import pandas as pd
+    from io import BytesIO
+    try:
+        df = pd.read_excel(BytesIO(file_bytes), header=None)
+    except Exception:
+        return []
+    if df.shape[0] < 2 or df.shape[1] < 3:
+        return []
+
+    def _n(s):
+        s = str(s or "").strip().lower()
+        return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+
+    hdr = {_n(df.iloc[0, c]): c for c in range(df.shape[1])}
+
+    def _col(*ipuclari):
+        for isim, idx in hdr.items():
+            if any(t in isim for t in ipuclari):
+                return idx
+        return None
+
+    c_kod = _col("hesap kodu", "kod")
+    c_ad = _col("hesap adi", "unvan", "hesap adı")
+    c_dov = _col("doviz")
+    c_borc = _col("borc")
+    c_alacak = _col("alacak")
+    c_bak = _col("bakiye")
+    if c_ad is None:                       # başlık tanınmadı → doğrulanmış 6 sütun düzeni
+        c_kod, c_ad, c_dov, c_borc, c_alacak, c_bak = 0, 1, 2, 3, 4, 5
+
+    import pandas as _pd
+    satirlar = []
+    for i in range(1, len(df)):
+        def _sv(c):
+            if c is None or c >= df.shape[1]:
+                return ""
+            v = df.iloc[i, c]
+            return "" if not _pd.notna(v) else str(v).strip()
+
+        def _sf(c):
+            if c is None or c >= df.shape[1]:
+                return 0.0
+            v = df.iloc[i, c]
+            try:
+                return float(v) if _pd.notna(v) else 0.0
+            except (ValueError, TypeError):
+                return 0.0
+
+        unvan = _sv(c_ad)
+        if not unvan or unvan.lower() == "nan":
+            continue
+        satirlar.append({
+            "kod": _sv(c_kod), "unvan": unvan, "doviz": (_sv(c_dov).upper() or "TL"),
+            "borc": _sf(c_borc), "alacak": _sf(c_alacak), "bakiye": _sf(c_bak),
+        })
+    return satirlar
+
+
+def cari_detay_yukle(file_bytes):
+    """Cari Excel'ini ayrıştırıp cari_detay olarak Supabase'e yazar (portal admin).
+
+    Depolama, personel uygulamasıyla AYNI yeri kullanır (aktif_excel_verileri ·
+    dosya_tipi='cari_detay') — böylece iki taraf da aynı veriyi görür.
+    Döner: (ok, mesaj, adet).
+    """
+    rows = parse_cari_detay(file_bytes)
+    if not rows:
+        return False, "Dosyadan geçerli cari satırı okunamadı (başlıkları kontrol edin).", 0
+    try:
+        from kayranacc.database import aktif_excel_kaydet
+        ok = aktif_excel_kaydet("ortak", "cari_detay", rows)
+        _cari_cache_temizle()
+        if ok:
+            return True, f"✅ {len(rows)} cari kaydı yüklendi.", len(rows)
+        return False, "Supabase'e yazılamadı (aktif_excel_verileri tablosu var mı?).", 0
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
+
+
+def cari_detay_durum():
+    """Yüklü cari_detay özeti: {adet, son_yukleyen, yukleme_zamani}. Yoksa adet=0."""
+    adet = len(cari_detay_tumu())
+    meta = {}
+    try:
+        from kayranacc.database import aktif_excel_meta_oku
+        meta = aktif_excel_meta_oku("cari_detay") or {}
+    except Exception:
+        meta = {}
+    return {"adet": adet,
+            "son_yukleyen": meta.get("son_yukleyen"),
+            "yukleme_zamani": meta.get("yukleme_zamani")}
+
+
+def _cari_cache_temizle():
+    """Cari yüklemesi sonrası ilgili cache'leri temizler (anında yansısın)."""
+    for fn in (cari_detay_tumu, cari_secenekleri):
+        try:
+            fn.clear()
+        except Exception:
+            pass
+    try:
+        from kayranacc.database import aktif_excel_oku
+        aktif_excel_oku.clear()
+    except Exception:
+        pass
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def cari_secenekleri():
     """Admin ekranı için benzersiz UNVAN listesi — yüklenen cari detayından.
