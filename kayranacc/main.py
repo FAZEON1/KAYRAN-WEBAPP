@@ -3870,7 +3870,43 @@ def run():
                     except (ValueError, TypeError):
                         pass
             return sonuc
-    
+
+        def parse_cari_detay(file_bytes):
+            """Cari Excel'inden SATIR BAZLI detay çıkarır (Bayi Portalı bunu okur).
+            Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
+            Döner: [{kod, unvan, doviz, borc, alacak, bakiye}, ...] — unvanı olan satırlar.
+            Bakiye şirket defteri işaretindedir (negatif=siz borçlusunuz, pozitif=cari borçlu).
+            """
+            import pandas as pd
+            from io import BytesIO
+            try:
+                df = pd.read_excel(BytesIO(file_bytes), header=None)
+            except Exception:
+                return []
+
+            def _sf(v):
+                try:
+                    return float(v) if pd.notna(v) else 0.0
+                except (ValueError, TypeError):
+                    return 0.0
+
+            satirlar = []
+            for i in range(1, len(df)):
+                unvan = df.iloc[i, 2] if df.shape[1] > 2 else None
+                if not pd.notna(unvan) or not str(unvan).strip() or str(unvan).strip().lower() == "nan":
+                    continue
+                kod = df.iloc[i, 1] if df.shape[1] > 1 else None
+                doviz = df.iloc[i, 3] if df.shape[1] > 3 else None
+                satirlar.append({
+                    "kod": "" if not pd.notna(kod) else str(kod).strip(),
+                    "unvan": str(unvan).strip(),
+                    "doviz": ("TL" if not pd.notna(doviz) else str(doviz).strip().upper()),
+                    "borc": _sf(df.iloc[i, 4]) if df.shape[1] > 4 else 0.0,
+                    "alacak": _sf(df.iloc[i, 5]) if df.shape[1] > 5 else 0.0,
+                    "bakiye": _sf(df.iloc[i, 6]) if df.shape[1] > 6 else 0.0,
+                })
+            return satirlar
+
         # ─── Session state init + Supabase'den önceki kayıtları yükle ───
         # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.
         # Bu yüzden kayıtlar sabit "ortak" anahtarıyla saklanır.
@@ -4072,6 +4108,10 @@ def run():
                             _isimler = _cari_isimleri_cikar(_cari_bytes)
                             if _isimler:
                                 aktif_excel_kaydet(aktif_kul, "cari_isimler", _isimler)
+                            # Bayi Portalı için satır bazlı cari detayını da sakla (additive).
+                            _detay = parse_cari_detay(_cari_bytes)
+                            if _detay:
+                                aktif_excel_kaydet(aktif_kul, "cari_detay", _detay)
                         except Exception:
                             pass
                         st.success(f"✅ {cari_file.name}")
