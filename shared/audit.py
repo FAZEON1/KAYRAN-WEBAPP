@@ -47,6 +47,35 @@ def _aktif_kullanici():
         return "?"
 
 
+# ── SALT-OKUR (read-only) KORUMASI ───────────────────────────────────
+# Oturum 'salt_okur' işaretliyse, sarmalanmış bağlantı üzerinden yapılan
+# TÜM insert/update/upsert/delete çağrıları burada durdurulur. Tek nokta:
+# her modülün get_client'i wrap_client'ten geçtiği için ek koda gerek yok.
+class SaltOkurHatasi(Exception):
+    """Salt-okur kullanıcı yazma denemesi yaptı."""
+
+
+def salt_okur_mu():
+    try:
+        import streamlit as st
+        return bool(st.session_state.get("salt_okur"))
+    except Exception:
+        return False
+
+
+def _salt_okur_engelle(islem, tablo):
+    """Yazma işlemini durdurur; ekrana da uyarı basar (çağıran hatayı yutsa bile
+    kullanıcı 'kaydedildi' sanmasın diye)."""
+    _msg = (f"🔒 Salt-okur hesap — '{tablo}' tablosunda **{islem}** işlemi yapılamaz. "
+            "Bu hesap tüm modülleri görüntüleyebilir, veri değiştiremez.")
+    try:
+        import streamlit as st
+        st.error(_msg)
+    except Exception:
+        pass
+    raise SaltOkurHatasi(_msg)
+
+
 def log_yaz(islem, tablo, kayit_id="", detay="", modul=""):
     """Tek bir değişiklik kaydı yazar. Hata olsa bile sessiz."""
     try:
@@ -141,6 +170,9 @@ class _LoggingTable:
         return self
 
     def execute(self, *a, **k):
+        # SALT-OKUR: yazma işlemi Supabase'e HİÇ gitmeden burada durur.
+        if self._islem and salt_okur_mu():
+            _salt_okur_engelle(self._islem, self._tablo)
         res = self._b.execute(*a, **k)
         if self._islem and self._tablo != "audit_log":
             try:
