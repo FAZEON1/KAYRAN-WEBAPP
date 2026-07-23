@@ -56,7 +56,8 @@ def _get_supabase():
         from supabase import create_client
         url = st.secrets['supabase']['url']
         key = st.secrets['supabase'].get('service_role_key') or st.secrets['supabase'].get('key')
-        return create_client(url, key)
+        from shared.audit import wrap_client
+        return wrap_client(create_client(url, key), 'Hesap Makinesi')
     except Exception: return None
 
 def prim_kaydet(kisi, donem, toplam_prim, odeme_tarihi, notlar=''):
