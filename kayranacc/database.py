@@ -12,7 +12,10 @@ from datetime import date
 def get_client() -> Client:
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["service_role_key"]
-    return create_client(url, key)
+    # NOT: Muhasebe modülü tek başına sarmalanmamıştı — audit log tutmuyor ve
+    # salt-okur korumasının dışında kalıyordu. Diğer modüllerle aynı hatta alındı.
+    from shared.audit import wrap_client
+    return wrap_client(create_client(url, key), "Muhasebe")
 
 
 # ── Cache yardımcısı ────────────────────────────────────────────────h
