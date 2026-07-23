@@ -128,6 +128,23 @@ YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar"}
 # Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
 PATRON_PANEL_KULLANICILAR = {"ibrahim"}
 
+# ── SALT-OKUR (read-only) KULLANICILAR ───────────────────────────────
+# Bu kullanicilar TUM modulleri gorur ama hicbir veriyi degistiremez.
+# Yazma engeli tek noktada: shared/audit.py -> wrap_client proxy'si.
+SALT_OKUR_KULLANICILAR = {"ahmet"}
+
+# Salt-okur kullanicilar butun modul setlerine otomatik eklenir
+# (tek tek listeye yazmaya gerek yok; yeni modul eklenince de calisir).
+for _k in SALT_OKUR_KULLANICILAR:
+    for _set in (KAYRANACC_KULLANICILAR, KAYRANPM_KULLANICILAR, HESAP_MAKINESI_KULLANICILAR,
+                 ITHALAT_KULLANICILAR, TEKNIKSERVIS_KULLANICILAR, SATIS_KULLANICILAR,
+                 DEPO_KULLANICILAR, YONETIM_KULLANICILAR):
+        _set.add(_k)
+
+
+def salt_okur_mu(kullanici):
+    return (kullanici or "").lower().strip() in SALT_OKUR_KULLANICILAR
+
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
 
@@ -957,6 +974,8 @@ if "giris_yapildi" not in st.session_state:
     st.session_state.giris_yapildi = False
 if "aktif_kullanici" not in st.session_state:
     st.session_state.aktif_kullanici = ""
+if "salt_okur" not in st.session_state:
+    st.session_state["salt_okur"] = False
 
 # Tarayıcı yenilendiğinde (yeni oturum) girişi URL'deki güvenli token'dan geri yükle
 # → otomatik çıkışı önler. Token = HMAC(kullanıcı, sunucu_secret); başkası için taklit edilemez.
@@ -974,6 +993,7 @@ if not st.session_state.giris_yapildi:
                 if _rec.get("cihaz") and _imza and _rec["cihaz"] == _imza:
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = _rec["u"]
+                    st.session_state["salt_okur"] = salt_okur_mu(_rec["u"])
                     _rec["ts"] = _t.time()  # kaydır: aktif kullanım süreyi tazeler
                 else:
                     # Farklı tarayıcı/cihaz → token'ı yak (link paylaşımı girişimi)
@@ -1469,6 +1489,7 @@ def giris_ekrani():
                     giris_basarili(kullanici)
                     st.session_state.giris_yapildi = True
                     st.session_state.aktif_kullanici = kullanici
+                    st.session_state["salt_okur"] = salt_okur_mu(kullanici)
                     st.session_state.aktif_uygulama = "anasayfa"
                     _oturum_ac(kullanici)
                     st.rerun()
@@ -1833,6 +1854,7 @@ input, textarea, select { font-size: 16px !important; }
                 _oturum_kapat()
                 st.session_state.giris_yapildi = False
                 st.session_state.aktif_kullanici = ""
+                st.session_state["salt_okur"] = False
                 st.session_state.aktif_uygulama = "anasayfa"
                 try:
                     st.query_params.clear()
@@ -2027,6 +2049,16 @@ def anasayfa():
         '</div>',
         unsafe_allow_html=True
     )
+
+    # ─── 🔒 SALT-OKUR ŞERİDİ ───
+    if st.session_state.get("salt_okur"):
+        st.markdown(
+            '<div style="background:linear-gradient(90deg,#1E293B,#0F172A);'
+            'border:1px solid rgba(251,191,36,0.35);border-radius:10px;'
+            'padding:8px 16px;margin:0 0 12px;font-size:13px;color:#FBBF24">'
+            '🔒 <b>Salt-okur oturum</b> — tüm modülleri görüntüleyebilirsin, '
+            'veri ekleme/değiştirme/silme kapalıdır.</div>',
+            unsafe_allow_html=True)
 
     # ─── 👑 PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
     if (aktif_kullanici or "").strip().lower() in PATRON_PANEL_KULLANICILAR:
