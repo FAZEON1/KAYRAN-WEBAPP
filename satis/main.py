@@ -1605,7 +1605,8 @@ def run():
                 # ── 🩺 VERİ SAĞLIĞI ÖNİZLEME — kaydetmeden önce sorunlu satırları göster ──
                 from satis.database import ice_aktar_onizle as _ic_onizle
                 _sag = _ic_onizle(_satirlar)
-                _sorunlu = _sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"] + _sag["skusuz"]
+                _sorunlu = (_sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"]
+                            + _sag["skusuz"] + _sag.get("anormal_tarih", 0))
                 if _sorunlu == 0:
                     st.success(f"🩺 Veri sağlığı: ✓ {_sag['toplam']:,} satırın tamamı temiz.")
                 else:
@@ -1613,6 +1614,10 @@ def run():
                     if _sag["tarihsiz"]:
                         _uyari.append(f"📅 **{_sag['tarihsiz']:,}** satırda tarih yok → **kaydedilmeyecek** "
                                       "(hayalet kayda dönüşmesin diye)")
+                    if _sag.get("anormal_tarih"):
+                        _uyari.append(f"⏰ **{_sag['anormal_tarih']:,}** satırda tarih GELECEKTE veya 3+ yıl "
+                                      "eski → büyük ihtimalle yıl yazım hatası; bu satırlar dönem "
+                                      "raporlarında **görünmez**, önce Excel'de düzeltmen önerilir")
                     if _sag["maliyetsiz"]:
                         _uyari.append(f"💰 **{_sag['maliyetsiz']:,}** satırda paçal maliyet yok → maliyet 0 "
                                       "yazılır (**%100 marj** görünür); ithalatı girince 'Maliyeti 0 düzelt' ile onarılır")
@@ -1624,6 +1629,8 @@ def run():
                                "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
                     if _sag["tarihsiz_ornek"]:
                         st.caption("📅 Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
+                    if _sag.get("anormal_ornek"):
+                        st.caption("⏰ Anormal tarih örnekleri: " + " · ".join(_sag["anormal_ornek"]))
                     if _sag["maliyetsiz_ornek"]:
                         st.caption("💰 Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
 
@@ -1768,6 +1775,40 @@ def run():
             st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
             _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
                                       value=True, key="iade_excel_temizle")
+
+            # ── DÖNEM KİLİDİ: mevcut partiler + çakışma kontrolü ──
+            # (5.199'luk kaza: Ocak–Haziran raporu 01.07 tarihiyle yüklendi, sonra aynı
+            #  dönem Q1+Q2 olarak tekrar geldi → aynı iadeler iki kez sayıldı. Artık
+            #  yeni dönem mevcut bir partiyle kesişiyorsa yükleme bilinçli onay ister.)
+            from satis.database import get_iade_partileri, iade_cakisma_bul
+            _partiler = get_iade_partileri()
+            if _partiler:
+                with st.expander(f"📚 Kayıtlı iade partileri ({len(_partiler)})", expanded=False):
+                    st.dataframe(pd.DataFrame([{
+                        "Parti tarihi": p["tarih"],
+                        "Dönem": (f'{p["donem_bas"]} → {p["donem_bit"]}'
+                                  if p.get("donem_bas") else "— (eski yükleme, dönem kaydı yok)"),
+                        "Satır": p["satir"], "Adet": p["adet"],
+                    } for p in _partiler]), use_container_width=True, hide_index=True)
+            _cakisan_p = iade_cakisma_bul(_ie_bas, _ie_bit,
+                                          temizlenecek_tarih=_ie_tarih if _ie_temizle else None)
+            _cak_onay = True
+            if _cakisan_p:
+                st.error("⛔ **Dönem çakışması:** yüklemek istediğin aralık şu partilerle kesişiyor → "
+                         + " · ".join(f'{p["tarih"]} ({p["adet"]:,} adet)' for p in _cakisan_p)
+                         + ". Aynı iadeler iki kez sayılabilir. Ya farklı bir dönem seç, ya da "
+                           "eski partiyi bilerek yanına ekliyorsan aşağıyı onayla.")
+                _cak_onay = st.checkbox("Çakışmayı biliyorum, dönemler gerçekten farklı iadeler "
+                                        "içeriyor — yine de yükle", key="iade_cakisma_onay")
+
+            # ── ANORMAL TARİH KORUMASI ──
+            from datetime import date as _d
+            _trh_onay = True
+            if str(_ie_bit) > str(_d.today()):
+                st.error(f"⛔ Dönem bitişi ({_ie_bit}) **gelecekte** — büyük ihtimalle yıl yazım hatası.")
+                _trh_onay = st.checkbox("Tarih doğru, bilerek seçtim", key="iade_trh_onay")
+            elif str(_ie_bas) < "2024-01-01":
+                st.warning(f"⚠️ Dönem başlangıcı ({_ie_bas}) 2024 öncesi — emin misin?")
             if _ie_dosya is not None:
                 try:
                     _ie_satir, _ie_hata = iade_excel_oku(_ie_dosya)
@@ -1785,8 +1826,11 @@ def run():
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
                         "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
                     } for x in _ie_satir[:200]]), use_container_width=True, hide_index=True)
-                    if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn"):
-                        _r = ice_aktar_iadeler(_ie_satir, str(_ie_tarih)[:10], temizle_once=_ie_temizle)
+                    if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
+                                 disabled=not (_cak_onay and _trh_onay)):
+                        _r = ice_aktar_iadeler(_ie_satir, str(_ie_tarih)[:10],
+                                               temizle_once=_ie_temizle,
+                                               donem_bas=str(_ie_bas)[:10])
                         if _r.get("hata"):
                             st.error(f"Hata: {_r['hata']}")
                         else:

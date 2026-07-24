@@ -501,14 +501,18 @@ def sil_siparisler(siparis_nolar):
 def ice_aktar_onizle(satirlar):
     """İçe aktarmadan ÖNCE veri sağlığını çıkarır — hiçbir şey yazmaz.
     Girdi satırlarını tarar, sorunlu olanları kategoriler.
-    Döner: {toplam, temiz, tarihsiz, maliyetsiz, adetsiz, skusuz,
-            tarihsiz_ornek, maliyetsiz_ornek}."""
+    Döner: {toplam, temiz, tarihsiz, maliyetsiz, adetsiz, skusuz, anormal_tarih,
+            tarihsiz_ornek, maliyetsiz_ornek, anormal_ornek}."""
     try:
         pacal = get_pacal_map()
     except Exception:
         pacal = {}
+    from datetime import date as _date, timedelta as _td
+    _bugun = str(_date.today())
+    _cok_eski = str(_date.today() - _td(days=1100))  # ~3 yıl
     toplam = tarihsiz = maliyetsiz = adetsiz = skusuz = temiz = 0
-    tarihsiz_ornek, maliyetsiz_ornek = [], []
+    anormal_tarih = 0
+    tarihsiz_ornek, maliyetsiz_ornek, anormal_ornek = [], [], []
     for s in (satirlar or []):
         toplam += 1
         sku = str(s.get("sku") or "").strip()
@@ -525,6 +529,12 @@ def ice_aktar_onizle(satirlar):
             tarihsiz += 1; _sorun = True
             if len(tarihsiz_ornek) < 5:
                 tarihsiz_ornek.append(f"{sku or '—'} · {s.get('kanal') or '—'} · {adet} adet")
+        elif tarih > _bugun or tarih < _cok_eski:
+            # ANORMAL TARİH: gelecekte veya ~3 yıldan eski — 2027'li HARUN GÜNEYSU
+            # vakası gibi yıl yazım hataları dönem raporlarından sessizce kaybolur.
+            anormal_tarih += 1; _sorun = True
+            if len(anormal_ornek) < 5:
+                anormal_ornek.append(f"{tarih} · {sku or '—'} · {s.get('kanal') or '—'} · {adet} adet")
         if sku and bm <= 0:
             maliyetsiz += 1
             if len(maliyetsiz_ornek) < 5:
@@ -533,6 +543,7 @@ def ice_aktar_onizle(satirlar):
             temiz += 1
     return {"toplam": toplam, "temiz": temiz, "tarihsiz": tarihsiz,
             "maliyetsiz": maliyetsiz, "adetsiz": adetsiz, "skusuz": skusuz,
+            "anormal_tarih": anormal_tarih, "anormal_ornek": anormal_ornek,
             "tarihsiz_ornek": tarihsiz_ornek, "maliyetsiz_ornek": maliyetsiz_ornek}
 
 
@@ -623,7 +634,25 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
 
 def guncelle_satis(satis_id, alanlar):
     try:
-        _get_client().table("satislar").update(alanlar).eq("id", satis_id).execute()
+        cli = _get_client()
+        # ── STOK SENKRONU: adet/SKU değişiyorsa farkı stoğa yansıt ──
+        # (Eski davranış stoğa hiç dokunmuyordu → adet düzeltmeleri stokta iz
+        #  bırakmıyordu. Şimdi: eski kaydın stok etkisi geri alınır, yenisi uygulanır.)
+        _eski = None
+        if any(k in (alanlar or {}) for k in ("adet", "sku")):
+            _eski = _row(cli.table("satislar").select("sku,adet").eq("id", satis_id).execute())
+        # Eski değerleri UPDATE'ten önce sabitle (referans paylaşımına karşı güvenli)
+        _e_sku = str((_eski or {}).get("sku") or "").strip()
+        _e_adet = _i((_eski or {}).get("adet"))
+        cli.table("satislar").update(alanlar).eq("id", satis_id).execute()
+        if _eski:
+            _y_sku = str(alanlar.get("sku", _e_sku) or "").strip()
+            _y_adet = _i(alanlar.get("adet", _e_adet))
+            if (_e_sku, _e_adet) != (_y_sku, _y_adet):
+                if _e_sku and _e_adet:
+                    _stok_uygula({_e_sku: _e_adet}, +1, "satis_duzenle_geri")   # eskiyi iade et
+                if _y_sku and _y_adet:
+                    _stok_uygula({_y_sku: _y_adet}, -1, "satis_duzenle_dus")    # yeniyi düş
         _temizle()
         return True
     except Exception:
@@ -644,9 +673,15 @@ def sil_satis(satis_id):
 
 
 def sil_siparis(siparis_no):
-    """Bir sipariş numarasına ait tüm kalemleri siler."""
+    """Bir sipariş numarasına ait tüm kalemleri siler ve stok karşılığını geri verir.
+    (Eskiden stok geri verilmiyordu → silinen sipariş yeniden import edilince
+    düşüm iki kez uygulanıyordu. Artık sil_satis/sil_siparisler ile aynı davranır.)"""
     try:
-        _get_client().table("satislar").delete().eq("siparis_no", siparis_no).execute()
+        cli = _get_client()
+        _r = _rows(cli.table("satislar").select("sku,adet").eq("siparis_no", siparis_no).execute())
+        cli.table("satislar").delete().eq("siparis_no", siparis_no).execute()
+        if _r:
+            _stok_uygula(_satis_agg(_r), +1, "siparis_sil")   # MODEL B
         _temizle()
         return True
     except Exception:
@@ -853,7 +888,55 @@ def guncelle_iade(iade_id, alanlar):
         return False
 
 
-def ice_aktar_iadeler(satirlar, tarih, temizle_once=False):
+def get_iade_partileri():
+    """Mevcut iade partileri: her benzersiz 'tarih' bir partidir.
+    Döner: [{tarih, satir, adet, donem_bas, donem_bit}] (donem kolonları yoksa None).
+    Dönem kilidi/çakışma kontrolü bu listeyle yapılır."""
+    try:
+        rows = _rows(_get_client().table("iadeler")
+                     .select("tarih, iade_adet, donem_bas, donem_bit").execute())
+    except Exception:
+        try:  # donem kolonları henüz eklenmemiş olabilir
+            rows = _rows(_get_client().table("iadeler").select("tarih, iade_adet").execute())
+        except Exception:
+            return []
+    part = {}
+    for r in rows:
+        t = str(r.get("tarih") or "")[:10]
+        if not t:
+            continue
+        p = part.setdefault(t, {"tarih": t, "satir": 0, "adet": 0,
+                                "donem_bas": None, "donem_bit": None})
+        p["satir"] += 1
+        p["adet"] += _i(r.get("iade_adet"))
+        for k in ("donem_bas", "donem_bit"):
+            v = str(r.get(k) or "")[:10]
+            if v and not p[k]:
+                p[k] = v
+    return sorted(part.values(), key=lambda x: x["tarih"])
+
+
+def iade_cakisma_bul(yeni_bas, yeni_bit, temizlenecek_tarih=None):
+    """Yeni dönem [yeni_bas, yeni_bit] mevcut partilerle çakışıyor mu?
+    - Dönemi kayıtlı partiler: aralık kesişimiyle,
+    - Eski (dönemsiz) partiler: parti tarihi yeni aralığın içindeyse çakışık sayılır.
+    temizlenecek_tarih: 'temizle' işaretliyse o parti zaten silineceği için hariç.
+    Döner: çakışan partilerin listesi (get_iade_partileri biçiminde)."""
+    yb, ye = str(yeni_bas)[:10], str(yeni_bit)[:10]
+    cakisan = []
+    for p in get_iade_partileri():
+        if temizlenecek_tarih and p["tarih"] == str(temizlenecek_tarih)[:10]:
+            continue
+        pb, pe = p.get("donem_bas"), p.get("donem_bit")
+        if pb and pe:
+            if not (ye < pb or yb > pe):
+                cakisan.append(p)
+        elif yb <= p["tarih"] <= ye:
+            cakisan.append(p)
+    return cakisan
+
+
+def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None):
     """satirlar: [{sku, urun_adi, kanal, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net}].
     tarih: dönem tarihi (hepsine yazılır). temizle_once: aynı tarihli iadeleri önce siler.
     Döner: {eklendi, atlandi}."""
@@ -880,11 +963,25 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False):
                 "iade_adet": adet, "iade_brut": _f(s.get("iade_brut")),
                 "iade_iskonto": _f(s.get("iade_iskonto")), "iade_masraf": _f(s.get("iade_masraf")),
                 "iade_net": _f(s.get("iade_net")),
+                "donem_bas": str(donem_bas)[:10] if donem_bas else None,
+                "donem_bit": str(tarih)[:10],
             })
         eklendi = 0
+        _donemsiz = None  # donem kolonları DB'de yoksa: bir kez soyup tekrar dene
         for i in range(0, len(rows), 500):
             chunk = rows[i:i + 500]
-            cli.table("iadeler").insert(chunk).execute()
+            if _donemsiz:
+                chunk = [{k: v for k, v in r.items() if k not in ("donem_bas", "donem_bit")}
+                         for r in chunk]
+            try:
+                cli.table("iadeler").insert(chunk).execute()
+            except Exception:
+                if _donemsiz:
+                    raise
+                _donemsiz = True  # kolonlar yok → dönemsiz yaz (davranış eskisi gibi)
+                chunk = [{k: v for k, v in r.items() if k not in ("donem_bas", "donem_bit")}
+                         for r in chunk]
+                cli.table("iadeler").insert(chunk).execute()
             eklendi += len(chunk)
         _stok_uygula(_satis_agg(rows[:eklendi], "iade_adet"), +1, "iade_import")   # MODEL B
         _temizle()
