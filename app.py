@@ -123,7 +123,7 @@ ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut
 TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet", "serkan"}
 SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet", "berkay", "selcuk"}
-YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar"}
+YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar", "cem"}
 # Patron Panosu — sabah kokpiti YALNIZCA bu kullanıcı(lar)a render edilir.
 # Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
 PATRON_PANEL_KULLANICILAR = {"ibrahim"}
