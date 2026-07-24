@@ -413,7 +413,9 @@ def run():
                             st.info("👆 Devam etmek için önce firma / kanal seç.")
                             return
                     _c1, _c2 = st.columns(2)
-                    _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}")
+                    _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}",
+                                          min_value=date(2024, 1, 1), max_value=date.today(),
+                                          help="Gelecek tarih seçilemez (2027 vakası koruması)")
                     _sno = _c2.text_input("Sipariş No", key=f"sg_sno_{_key}",
                                           placeholder="örn. 2026-06-30").strip()
                     _dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"],
@@ -597,7 +599,9 @@ def run():
                                                   value=False, key="s_tarih_degistir",
                                                   on_change=_s_tarih_dgs)
                     if _tarih_degistir:
-                        g_tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="s_tarih")
+                        g_tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="s_tarih",
+                                                min_value=date(2024, 1, 1), max_value=date.today(),
+                                                help="Gelecek tarih seçilemez (2027 vakası koruması)")
                     else:
                         g_tarih = date.today()
                         st.caption(f"📅 Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
@@ -1693,7 +1697,8 @@ def run():
         @st.dialog("➕ Manuel İade Girişi", width="large")
         def _dlg_manuel_iade():
             ig1, ig2, ig3 = st.columns(3)
-            _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih")
+            _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
+                                      min_value=date(2024, 1, 1), max_value=date.today())
             _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
             _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
             ig4, ig5, ig6 = st.columns(3)
