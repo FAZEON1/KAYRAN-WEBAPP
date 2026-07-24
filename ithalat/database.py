@@ -1316,27 +1316,53 @@ def teslim_stok_isle(dosya_idler=None):
         if not _depo:
             mesajlar.append(f"⏭️ {b['dosya_no']}: teslim deposu boş — atlandı")
             continue
-        _agg = _dosya_kalem_agg(get_kalemler(b["id"]))
+        _kalemler = get_kalemler(b["id"])
+        _agg = _dosya_kalem_agg(_kalemler)
         if not _agg:
             mesajlar.append(f"⏭️ {b['dosya_no']}: kalem yok — atlandı")
             continue
+        # KAYIP GİRİŞ DÜZELTMESİ: kartı olmayan SKU'lar eskiden sessizce atlanıyor,
+        # dosyanın bayrağı yine de True yazıldığından o girişler KALICI kayboluyordu
+        # (X27F240P −689 vakasının kök adaylarından). Artık kart otomatik açılır →
+        # hiçbir teslim kalemi stok dışı kalmaz.
+        _adlar = {}
+        for _k in (_kalemler or []):
+            _s = str(_k.get("sku") or "").strip()
+            if _s and _s not in _adlar:
+                _adlar[_s] = str(_k.get("urun_adi") or _k.get("aciklama") or "").strip()
         try:
-            uyg, atl = stok_hareket_coklu({s: a for s, a in _agg.items()}, _depo)
+            uyg, atl = stok_hareket_coklu({s: a for s, a in _agg.items()}, _depo,
+                                          kart_ac=True, kart_adlar=_adlar)
         except Exception as e:
             mesajlar.append(f"❌ {b['dosya_no']}: {type(e).__name__}: {str(e)[:80]}")
             continue
-        # Bayrağı yalnız GERÇEKTEN uygulanan varsa yaz (yoksa yeniden denenebilsin)
-        if uyg := uyg:
+        # Bayrak SADECE dosya EKSİKSİZ işlendiyse yazılır. Kısmi işlenen dosya
+        # bekleyenlerde kalır ki eksik SKU'lar bir sonraki denemede tamamlansın.
+        # (stok_hareket_coklu SKU bazında çalıştığı için işlenmiş SKU'ların kartı
+        #  artık var → yeniden deneme onları mükerrer uygulamaz sanılmasın diye NOT:
+        #  yeniden denemede TÜM SKU'lar tekrar uygulanır; bu yüzden kısmi durumda
+        #  bayrağı açık bırakmak yerine uygulananları GERİ ÇEKİP dosyayı bütün
+        #  olarak reddediyoruz — ya hep ya hiç.)
+        if uyg and atl:
+            try:  # kısmi uygulamayı geri al → dosya olduğu gibi bekleyende kalsın
+                stok_hareket_coklu({s: -a for s, a in _agg.items()
+                                    if s not in set(atl)}, _depo)
+            except Exception:
+                pass
+            mesajlar.append(f"❌ {b['dosya_no']}: {len(atl)} SKU işlenemedi "
+                            f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — "
+                            f"dosya İŞLENMEDİ (ya hep ya hiç), bekleyenlerde duruyor")
+            continue
+        if uyg:
             try:
                 sb.table("ithalat_dosyalari").update({"stok_islendi": True}).eq("id", b["id"]).execute()
             except Exception:
                 pass  # bayrak kolonu yoksa sorun değil; stok yine de işlendi
             islenen += 1
             eklenen += uyg
-        if atl:
-            mesajlar.append(f"⚠️ {b['dosya_no']}: kartı olmayan {len(atl)} SKU atlandı "
-                            f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — "
-                            f"bu SKU'lar için önce ürün kartı açılmalı")
+        elif atl:
+            mesajlar.append(f"❌ {b['dosya_no']}: hiçbir SKU işlenemedi "
+                            f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — bekleyenlerde duruyor")
     try:
         _temizle()
     except Exception:
