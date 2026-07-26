@@ -1,23 +1,46 @@
-"""KAYRAN WEBAPP uyanık tutucu.
+"""KAYRAN WEBAPP uyanık tutucu (v2 — inatçı sürüm).
 
-GitHub Actions tarafından günde birkaç kez çalıştırılır:
-1. Uygulamayı gerçek (headless) tarayıcıyla açar — Streamlit'in websocket
-   trafiği oluşur, "ziyaret" sayılır, uyku sayacı sıfırlanır.
-2. Uygulama uyumuşsa Streamlit'in "get this app back up" butonunu bulup
-   TIKLAR ve tam uyanana kadar bekler.
-
-Yerel makinede test: STREAMLIT_APP_URL ortam değişkeniyle çalıştır.
+GitHub Actions günde birkaç kez çalıştırır:
+1. Uygulamayı headless tarayıcıyla açar (websocket trafiği = ziyaret sayılır).
+2. Uyku ekranı varsa "wake up" butonuna basar.
+3. Uygulama kalkana kadar 3 tur dener (tur başına 4 dk bekleme + sayfa yenileme).
+4. Yine olmadıysa ekran görüntüsü bırakır (Actions artifact) ve hata döner.
 """
 import os
 import sys
 import time
 
 URL = os.environ.get("STREAMLIT_APP_URL", "https://kayran-corporate.streamlit.app")
+FOTO = os.environ.get("EKRAN_FOTO", "uyandir_son_durum.png")
+UYANDIR_KALIPLARI = ["get this app back up", "wake this app", "back up", "wake up"]
 
-# Uyku ekranındaki buton metinleri (Streamlit zaman içinde değiştirdi; hepsi denenir)
-UYANDIR_KALIPLARI = [
-    "get this app back up", "wake this app", "back up", "wake up",
-]
+
+def _uyku_butonuna_bas(page) -> bool:
+    """Uyku ekranı butonunu birden çok stratejiyle arar; bastıysa True."""
+    # 1) rol=button + metin filtresi
+    for kalip in UYANDIR_KALIPLARI:
+        try:
+            btn = page.get_by_role("button").filter(has_text=kalip).first
+            if btn.count() and btn.is_visible():
+                print(f"😴 Uyku ekranı → '{kalip}' butonuna basılıyor (rol)")
+                btn.click()
+                return True
+        except Exception:
+            pass
+    # 2) tüm butonları tek tek gez (metin farklı sarmalanmış olabilir)
+    try:
+        for btn in page.locator("button").all():
+            try:
+                t = (btn.inner_text() or "").strip().lower()
+            except Exception:
+                continue
+            if any(k in t for k in UYANDIR_KALIPLARI):
+                print(f"😴 Uyku ekranı → '{t[:40]}' butonuna basılıyor (tarama)")
+                btn.click()
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def main() -> int:
@@ -26,40 +49,43 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 1280, "height": 900})
-        print(f"→ {URL} açılıyor…")
-        page.goto(URL, wait_until="domcontentloaded", timeout=120_000)
-        time.sleep(8)  # yönlendirme/iframe otursun
+        print(f"→ {URL}")
 
-        # ── Uyku ekranı mı? Butonu bul, tıkla ──
-        tiklandi = False
-        for kalip in UYANDIR_KALIPLARI:
+        uyandirildi = False
+        for tur in range(1, 4):                      # 3 tur × ~4 dk
+            print(f"— Tur {tur}/3 —")
             try:
-                btn = page.get_by_role("button").filter(has_text=kalip).first
-                if btn.is_visible(timeout=2_000):
-                    print(f"😴 Uyku ekranı yakalandı → '{kalip}' butonuna basılıyor")
-                    btn.click()
-                    tiklandi = True
-                    break
-            except Exception:
+                page.goto(URL, wait_until="domcontentloaded", timeout=120_000)
+            except Exception as e:
+                print(f"  sayfa açılamadı: {type(e).__name__} — tekrar denenecek")
+                time.sleep(15)
                 continue
+            time.sleep(10)                           # yönlendirme/iframe otursun
 
-        # ── Uygulamanın gerçekten yüklenmesini bekle ──
-        # stApp: Streamlit ana kabı. Ağır uygulamada soğuk başlangıç dakikalar sürebilir.
-        bekleme = 300_000 if tiklandi else 180_000
+            if _uyku_butonuna_bas(page):
+                uyandirildi = True
+
+            try:                                     # uygulama kabı gelsin
+                page.wait_for_selector('[data-testid="stApp"], .stApp, section.main',
+                                       timeout=240_000)
+                time.sleep(12)                       # websocket otursun
+                print("✅ Uygulama ayakta — ziyaret tamamlandı"
+                      + (" (uyandırıldı)" if uyandirildi else ""))
+                browser.close()
+                return 0
+            except Exception:
+                print("  ⏳ bu turda yüklenmedi; sayfa yenilenip tekrar denenecek")
+
+        # ── 3 tur da olmadı: kanıt bırak ──
         try:
-            page.wait_for_selector('[data-testid="stApp"], .stApp, section.main',
-                                   timeout=bekleme)
-            time.sleep(10)  # websocket otursun, ziyaret "gerçek" sayılsın
-            print("✅ Uygulama ayakta — ziyaret tamamlandı"
-                  + (" (uyandırıldı)" if tiklandi else " (zaten uyanıktı)"))
-            browser.close()
-            return 0
+            page.screenshot(path=FOTO, full_page=True)
+            print(f"📸 Son durum fotoğrafı kaydedildi: {FOTO}")
         except Exception:
-            print("⚠️ Uygulama verilen sürede yüklenmedi — konteyner çok yavaş "
-                  "kalkıyor ya da kaynak sınırına takılıyor olabilir. "
-                  "(Bu tur başarısız; bir sonraki zamanlanmış tur tekrar deneyecek.)")
-            browser.close()
-            return 1
+            pass
+        print("❌ Uygulama ~12 dakikada ayağa kalkmadı. Muhtemel sebep: konteyner "
+              "kaynak sınırında asılı (Manage app → Reboot gerekebilir).")
+        browser.close()
+        return 1
 
 
 if __name__ == "__main__":
