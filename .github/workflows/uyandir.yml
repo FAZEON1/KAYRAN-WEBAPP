@@ -1,0 +1,34 @@
+name: Uygulamayı uyanık tut
+
+# Türkiye saatiyle ~08:00 · 13:00 · 18:00 · 00:00 (cron UTC'dir; GitHub
+# zamanlanmış işleri birkaç dakika geciktirebilir, sorun değil).
+on:
+  schedule:
+    - cron: "0 5,10,15,21 * * *"
+  workflow_dispatch: {}   # Actions sekmesinden elle de tetiklenebilir
+
+permissions:
+  contents: read
+
+jobs:
+  uyandir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Repoyu al
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Playwright kur
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Uygulamayı ziyaret et / uyandır
+        env:
+          STREAMLIT_APP_URL: https://kayran-corporate.streamlit.app
+        run: python keepalive/uyandir.py
