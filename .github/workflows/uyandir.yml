@@ -1,11 +1,10 @@
 name: Uygulamayı uyanık tut
 
-# Türkiye saatiyle ~08:00 · 13:00 · 18:00 · 00:00 (cron UTC'dir; GitHub
-# zamanlanmış işleri birkaç dakika geciktirebilir, sorun değil).
+# TR saatiyle ~08:00 · 13:00 · 18:00 · 00:00 (cron UTC; birkaç dk gecikebilir)
 on:
   schedule:
     - cron: "0 5,10,15,21 * * *"
-  workflow_dispatch: {}   # Actions sekmesinden elle de tetiklenebilir
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -13,7 +12,7 @@ permissions:
 jobs:
   uyandir:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: Repoyu al
         uses: actions/checkout@v4
@@ -31,4 +30,13 @@ jobs:
       - name: Uygulamayı ziyaret et / uyandır
         env:
           STREAMLIT_APP_URL: https://kayran-corporate.streamlit.app
+          EKRAN_FOTO: uyandir_son_durum.png
         run: python keepalive/uyandir.py
+
+      - name: Başarısızsa ekran görüntüsünü yükle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: son-durum-ekran-goruntusu
+          path: uyandir_son_durum.png
+          if-no-files-found: ignore
