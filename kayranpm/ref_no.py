@@ -1587,8 +1587,15 @@ def _render_butce(fid, firma):
                     n_ref != (o.get("ref_no", "") or "") or n_kisi != (o.get("kisi", "") or "")):
                 butce_guncelle(rid, n_tur, n_ack, n_tut, n_fno, n_tar, n_ref, n_kisi, yon=n_yon)
                 degisen += 1
-        st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
+            st.success(f"✅ {degisen} güncellendi, {silinen} silindi.")
+        elif not _sil_hata:
+            st.info("Değişiklik yok. (Silmek için satırdaki 'Sil?' kutusunu işaretle, "
+                    "sonra butona bas.)")
+        if _sil_hata:
+            st.error("❌ Silinemeyen kayıtlar:\n\n" + "\n\n".join(_sil_hata))
+        if degisen or silinen:
+            st.cache_data.clear()
             st.rerun()
 
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
