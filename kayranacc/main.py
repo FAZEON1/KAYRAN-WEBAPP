@@ -3969,8 +3969,13 @@ def run():
             if st.session_state.aktif_stok_data:
                 try:
                     usd_v, pzr = st.session_state.aktif_stok_data
-                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${float(usd_v):,.0f}",
-                                    "renk": "#34D399", "alt": _meta_str(stok_meta)}])
+                    # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
+                    # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
+                    _ham_v = float(usd_v or 0)
+                    metrik_satiri([{"label": "✅ Yüklendi (KDV dahil)",
+                                    "value": f"${_ham_v * 1.20:,.0f}",
+                                    "renk": "#34D399",
+                                    "alt": f"ham ${_ham_v:,.0f} × 1.20 · {_meta_str(stok_meta)}"}])
                 except Exception:
                     st.session_state.aktif_stok_data = None
     
@@ -4111,7 +4116,8 @@ def run():
             _stok_ozet = ""
             try:
                 if st.session_state.aktif_stok_data:
-                    _stok_ozet = f"${float(st.session_state.aktif_stok_data[0]):,.0f}"
+                    _hs = float(st.session_state.aktif_stok_data[0])
+                    _stok_ozet = f"ham ${_hs:,.0f} · KDV dahil ${_hs * 1.20:,.0f}"
             except Exception:
                 pass
             _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
