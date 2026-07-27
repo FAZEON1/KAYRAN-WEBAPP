@@ -1125,88 +1125,118 @@ def run():
                         _ref_usd += _rt
             except Exception:
                 _ref_usd = 0.0
-            _renk = "#34D399" if _net_kar > 0 else "#F87171"
-            _ozet_kartlar = [
-                ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
-                ("İadeler", _usd(_itop["i_tutar"]), "#F472B6"),
-                ("Maliyet (COGS)", _usd(top["maliyet"]), "#FB923C"),
-            ]
-            # "Destek" kartı yalnızca satır bazlı (kampanyalı satış) destek varsa gösterilir;
-            # dönem destekleri zaten aşağıdaki "Ref No Desteği" kartında.
-            if top["destek"] > 0.005:
-                _ozet_kartlar.append(("Destek (satır bazlı)", _usd(top["destek"]), "#A78BFA"))
-            st.markdown(
-                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart(_ozet_kartlar + [
-                    ("Net Kâr", _usd(_net_kar), _renk),
-                    ("Marj (iade sonrası)", f"%{_net_marj:.1f}", _renk),
-                    ("Adet", f"{int(top['adet']):,}", "#93C5FD"),
-                ]) + '</div>', unsafe_allow_html=True)
-            if _hav_verilen > 0.005 and not _p_filtreli:
-                _nh_renk = "#34D399" if _net_havuzlu > 0 else "#F87171"
-                _marj_h = (_net_havuzlu / _net_satis * 100) if _net_satis > 0 else 0.0
-                st.markdown(
-                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
-                        ("Havuz Desteği (gider)", _usd(_hav_verilen), "#FB7185"),
-                        ("Net Kâr (havuz sonrası)", _usd(_net_havuzlu), _nh_renk),
-                        ("Marj (havuz sonrası)", f"%{_marj_h:.1f}", _nh_renk),
-                    ]) + '</div>', unsafe_allow_html=True)
-                _ek = f" · {_hav['atlanan_doviz']} farklı dövizli kayıt atlandı" if _hav.get("atlanan_doviz") else ""
-                st.caption("💧 Havuz desteği = bu dönemde firmalara **verilen** sellout/marketing bütçesi (Ref No "
-                           "havuz girişleri); verildiği an gider yazılır, net kârdan düşülür. Firmaların bu bütçeden "
-                           f"harcaması yalnızca **kalan** takibidir, kâra tekrar yansımaz.{_ek}")
-            # ── 📥 ALINAN destekler (firmalardan BİZE gelen — dönem GELİRİ) ──
+            # ═══════════════════════════════════════════════════════════
+            # KOMPAKT P&L GÖRÜNÜMÜ
+            # Eski tasarımda 6 ayrı kart satırı ve BİRBİRİNİ TAKİP ETMEYEN dört
+            # farklı "net kâr" vardı (havuz sonrası / genel / destek sonrası) —
+            # hiçbiri nihai sonucu göstermiyordu. Artık: 4 ana KPI + tek dikey
+            # kâr merdiveni. Zincir tek yönde akar, en altta GERÇEK net kâr durur.
+            # ═══════════════════════════════════════════════════════════
+            _alinan_usd = 0.0
             if not _p_filtreli:
-                _alinan_usd = 0.0
                 try:
                     from kayranpm.ref_no import alinan_destek_aralik_usd
                     _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
                 except Exception:
                     _alinan_usd = 0.0
+
+            _hav_g = _hav_verilen if (_hav_verilen > 0.005 and not _p_filtreli) else 0.0
+            _ref_g = _ref_usd if (_ref_usd > 0.005 and not _p_filtreli) else 0.0
+            _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd
+            _nihai_marj = (_nihai / _net_satis * 100) if _net_satis > 0 else 0.0
+            _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
+            _nr = "#34D399" if _nihai > 0 else "#F87171"
+
+            # ── Üst şerit: yalnız 4 ana gösterge ──
+            st.markdown(
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px">' + _kart([
+                    ("Net Ciro", _usd(_net_ciro), "#CBD5E1"),
+                    ("Net Adet", f"{int(_itop.get('net_adet') or top['adet']):,}", "#93C5FD"),
+                    ("NET KÂR", _usd(_nihai), _nr),
+                    ("Net Marj", f"%{_nihai_marj:.1f}", _nr),
+                ]) + '</div>', unsafe_allow_html=True)
+
+            # ── Kâr merdiveni ──
+            def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
+                _renkler = {"normal": ("#94A3B8", "#E2E8F0"),
+                            "eksi": ("#94A3B8", "#FB923C"),
+                            "arti": ("#94A3B8", "#34D399"),
+                            "ara": ("#CBD5E1", "#22D3EE"),
+                            "son": ("#FFFFFF", _nr)}
+                el, dr = _renkler.get(ton, _renkler["normal"])
+                _bg = ("rgba(255,255,255,0.05)" if ton in ("ara", "son")
+                       else "transparent")
+                _bd = ("border-top:1px solid rgba(148,163,184,0.25);"
+                       if ton in ("ara", "son") else "")
+                _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
+                _fw = "800" if ton in ("ara", "son") else "600"
+                _oran = (f'<span style="color:#64748B;font-size:11px;margin-left:8px">'
+                         f'%{oran:.1f}</span>' if oran is not None else "")
+                return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                        f'padding:7px 14px;background:{_bg};{_bd}">'
+                        f'<span style="color:{el};font-size:{"13px" if ton in ("ara","son") else "12.5px"};'
+                        f'font-weight:{_fw};letter-spacing:.3px">{isaret} {etiket}{_oran}</span>'
+                        f'<span style="color:{dr};font-size:{_fs};font-weight:{_fw};'
+                        f'font-family:JetBrains Mono,monospace">{tutar}</span></div>')
+
+            _adim = _mrd("Brüt Ciro", _usd(top["ciro"]))
+            if _itop["i_tutar"] > 0.005:
+                _adim += _mrd("İadeler", "− " + _usd(_itop["i_tutar"]), "−", "eksi")
+                _adim += _mrd("Net Ciro", _usd(_net_ciro), "=", "ara")
+            if top["destek"] > 0.005:
+                _adim += _mrd("Destek (satır bazlı)", "− " + _usd(top["destek"]), "−", "eksi")
+            _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
+            _adim += _mrd("Brüt Kâr", _usd(_net_kar), "=", "ara", _brut_marj)
+            if _hav_g:
+                _adim += _mrd("Havuz desteği (verilen)", "− " + _usd(_hav_g), "−", "eksi")
+            if _ref_g:
+                _adim += _mrd("Ref No desteği (dönem)", "− " + _usd(_ref_g), "−", "eksi")
+            if _alinan_usd > 0.005:
+                _adim += _mrd("Alınan destek (gelir)", "+ " + _usd(_alinan_usd), "+", "arti")
+            _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
+
+            st.markdown(
+                f'<div style="border:1px solid rgba(148,163,184,0.18);border-radius:12px;'
+                f'overflow:hidden;margin:0 0 10px;background:rgba(255,255,255,0.02)">'
+                f'<div style="padding:8px 14px;background:rgba(255,255,255,0.04);'
+                f'font-size:11px;font-weight:700;letter-spacing:1.5px;color:#A5B4FC;'
+                f'text-transform:uppercase">📊 Kâr Merdiveni</div>{_adim}</div>',
+                unsafe_allow_html=True)
+
+            # ── Detaylar: meraklısına, varsayılan kapalı ──
+            with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
+                _d1, _d2, _d3 = st.columns(3)
+                _d1.metric("İade adedi (stoğa döndü)", f"{_itop.get('i_adet', 0):,}")
+                _d2.metric("İade tutarı", _usd(_itop["i_tutar"]))
+                _d3.metric("Brüt adet", f"{int(top['adet']):,}")
+                if _hav_g:
+                    st.caption("💧 **Havuz desteği** = bu dönemde firmalara *verilen* sellout/marketing "
+                               "bütçesi; verildiği an gider yazılır. Firmaların bu bütçeden harcaması "
+                               "yalnızca kalan takibidir, kâra tekrar yansımaz."
+                               + (f" · {_hav['atlanan_doviz']} farklı dövizli kayıt atlandı"
+                                  if _hav.get("atlanan_doviz") else ""))
                 if _alinan_usd > 0.005:
-                    _taban = _net_havuzlu if _hav_verilen > 0.005 else _net_kar
-                    _genel = _taban + _alinan_usd
-                    _g_renk = "#34D399" if _genel > 0 else "#F87171"
-                    _g_marj = (_genel / _net_satis * 100) if _net_satis > 0 else 0.0
-                    st.markdown(
-                        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
-                            ("📥 Alınan Destek (gelir)", _usd(_alinan_usd), "#34D399"),
-                            ("GENEL NET KÂR", _usd(_genel), _g_renk),
-                            ("Genel Marj", f"%{_g_marj:.1f}", _g_renk),
-                        ]) + '</div>', unsafe_allow_html=True)
-                    st.caption("📥 Alınan destek = firmalardan/markalardan **bize gelen** sellout, marketing, "
-                               "rebate gelirleri (Ref No Takip → Alınan Destekler). Dönemle kesişen ayların "
-                               "toplamı gelir olarak eklenir.")
+                    st.caption("📥 **Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
+                               "marketing, rebate gelirleri (Ref No Takip → Alınan Destekler).")
+                if _ref_g:
+                    st.caption("🎯 **Ref No desteği** = dönem içinde firma bazlı verilen destekler.")
+
                 @st.dialog("💧 Havuz Desteği — firma kırılımı", width="large")
                 def _dlg_havuz_kirilim():
                     _hf = _hav.get("firmalar", [])
                     if not _hf:
                         st.caption("Bu dönemde havuz hareketi yok.")
                     else:
-                        st.caption(f"{len(_hf)} firma · Verilen = gider (kâra düşer) · Kalan = verilen − kullanılan (takip, kâra girmez)")
+                        st.caption(f"{len(_hf)} firma · Verilen = gider (kâra düşer) · "
+                                   "Kalan = verilen − kullanılan (takip, kâra girmez)")
                         st.dataframe(_kar_df(pd.DataFrame([{
                             "Firma": (f["firma"] or "")[:34], "Rol/Kanal": f["rol"],
                             "Verilen (gider)": _usd(f["verilen"]), "Kullanılan": _usd(f["kullanilan"]),
                             "Kalan havuz": _usd(f["kalan"]),
                         } for f in _hf])), use_container_width=True, hide_index=True)
-                if st.button("💧 Havuz Desteği — firma kırılımı", key="btn_sat_havuz", use_container_width=True):
+                if _hav_g and st.button("💧 Havuz Desteği — firma kırılımı",
+                                        key="btn_sat_havuz", use_container_width=True):
                     _dlg_havuz_kirilim()
-            if _ref_usd > 0.005 and not _p_filtreli:
-                _net_ds = _net_havuzlu - _ref_usd
-                _nd_renk = "#34D399" if _net_ds > 0 else "#F87171"
-                _marj_ds = (_net_ds / _net_satis * 100) if _net_satis > 0 else 0.0
-                st.markdown(
-                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
-                        ("Ref No Desteği (dönem)", _usd(_ref_usd), "#FB7185"),
-                        ("Net Kâr (destek sonrası)", _usd(_net_ds), _nd_renk),
-                        ("Marj (destek sonrası)", f"%{_marj_ds:.1f}", _nd_renk),
-                    ]) + '</div>', unsafe_allow_html=True)
-            if _itop["i_adet"] > 0:
-                st.markdown(
-                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">' + _kart([
-                        ("İade adedi (stoğa döndü)", f"{_itop['i_adet']:,}", "#FBBF24"),
-                        ("İade tutarı", _usd(_itop["i_tutar"]), "#FBBF24"),
-                        ("İade sonrası net adet", f"{_itop['net_adet']:,}", "#93C5FD"),
-                    ]) + '</div>', unsafe_allow_html=True)
 
             # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
             if not _p_filtreli:
