@@ -4015,69 +4015,165 @@ def run():
                     st.session_state.aktif_cari_data = None
     
 
+        # ═══ YÜKLEME DİYALOĞU (yeniden tasarlandı) ═══
+        # Eski tasarımın üç sorunu vardı:
+        #  1) Okuyucular sütunları sabit konumdan alıyordu → Mikro sütun sayısı
+        #     değişince sessizce patlıyordu (27.07 cari dosyası: IndexError).
+        #  2) Dosya "işlendi" damgası DENEMEDEN ÖNCE basılıyordu → başarısız bir
+        #     dosya tekrar seçilse bile hiçbir şey olmuyordu ("yüklenmiyor" hissi).
+        #  3) Ekranda ne olduğu görünmüyordu: işleniyor mu, bitti mi, ne okundu?
+        # Yeni tasarım: adım adım durum + okunan değerlerin gözle doğrulanması.
+        from kayranacc.aktif_excel import (parse_cari as _p_cari,
+                                           parse_ithalat as _p_ithalat,
+                                           parse_stok as _p_stok,
+                                           ExcelBicimHatasi as _BicimHatasi)
+
+        def _durum_rozeti(baslik, meta, yuklu, ozet_satir=""):
+            """Kartın üstündeki tek satırlık durum şeridi."""
+            if yuklu:
+                kim = (meta or {}).get("son_yukleyen") or "?"
+                zaman = ((meta or {}).get("yukleme_zamani") or "")[:16]
+                st.markdown(
+                    f'<div style="background:rgba(52,211,153,.10);border-left:3px solid #34D399;'
+                    f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
+                    f'<span style="color:#34D399;font-weight:700;font-size:13px">✅ {baslik} yüklü</span>'
+                    f'<span style="color:#94A3B8;font-size:12px"> — {ozet_satir}</span><br>'
+                    f'<span style="color:#64748B;font-size:11px">👤 {kim.capitalize()} · 🕐 {zaman or "—"}</span>'
+                    f'</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f'<div style="background:rgba(248,113,113,.10);border-left:3px solid #F87171;'
+                    f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
+                    f'<span style="color:#F87171;font-weight:700;font-size:13px">⭕ {baslik} henüz yüklenmedi</span>'
+                    f'</div>', unsafe_allow_html=True)
+
+        def _yukle_bloku(no, baslik, anahtar, dosya_key, parser, kaydet_fn,
+                         meta, yuklu, ozet_satir="", yardim=""):
+            """Tek dosya için: durum + seçici + işleme + sonuç gösterimi."""
+            st.markdown(f"##### {no} {baslik}")
+            _durum_rozeti(baslik, meta, yuklu, ozet_satir)
+            if yardim:
+                st.caption(yardim)
+
+            f = st.file_uploader(baslik, type=["xls", "xlsx"], key=dosya_key,
+                                 label_visibility="collapsed")
+            _sonuc_key = f"_sonuc_{anahtar}"
+
+            if f is not None:
+                fid = f"{f.name}:{getattr(f, 'size', 0)}"
+                # DAMGA ARTIK SADECE BAŞARIDA BASILIR → hatalı dosya tekrar denenebilir
+                if st.session_state.get(f"_ok_{anahtar}") != fid:
+                    with st.status(f"📄 {f.name} işleniyor…", expanded=True) as durum:
+                        try:
+                            st.write("1/3 · Dosya okunuyor")
+                            ham = f.read()
+                            st.write("2/3 · Sütunlar çözümleniyor")
+                            deger, detay = parser(ham)
+                            st.write("3/3 · Kaydediliyor")
+                            kaydet_fn(deger, ham)
+                            st.session_state[f"_ok_{anahtar}"] = fid
+                            st.session_state[_sonuc_key] = detay
+                            durum.update(label=f"✅ {f.name} yüklendi", state="complete")
+                        except _BicimHatasi as e:
+                            durum.update(label=f"❌ {f.name} okunamadı", state="error")
+                            st.error(f"**Dosya biçimi beklenenden farklı.**\n\n{e}")
+                            st.caption("Dosyayı düzeltip tekrar seçebilirsin — aynı dosyayı "
+                                       "yeniden denemen de mümkün.")
+                        except Exception as e:
+                            durum.update(label=f"❌ {f.name} — beklenmedik hata", state="error")
+                            st.error(f"{type(e).__name__}: {e}")
+
+            # Son başarılı okumanın özeti — gözle doğrulama için
+            _d = st.session_state.get(_sonuc_key)
+            if _d:
+                with st.container(border=True):
+                    st.markdown("**Okunan değerler** (kontrol et)")
+                    for satir in _d.get("ozet", []):
+                        st.markdown(f"- {satir}")
+                    if _d.get("satir"):
+                        st.caption(f"{_d['satir']} satır işlendi")
+                    if _d.get("uyari"):
+                        st.warning(_d["uyari"])
+
         @st.dialog("📤 Excel Dosyalarını Yükle", width="large")
         def _dlg_aktif_excel():
-            st.caption("Stok Değeri · İthalat Ödeme Takip · Cari Alacaklar — yükleme bitince pencere kapanır, kartlar güncellenir.")
-            st.markdown("**1️⃣ Stok Değeri Raporu**")
-            stok_file = st.file_uploader("Stok Excel", type=["xls", "xlsx"], key="aktif_stok_upload", label_visibility="collapsed")
-            if stok_file is not None:
-                _fid = f"{stok_file.name}:{getattr(stok_file, 'size', 0)}"
-                if st.session_state.get("_stok_islenen_fid") != _fid:
-                    st.session_state["_stok_islenen_fid"] = _fid
-                    try:
-                        with st.spinner("📦 Stok Excel'i işleniyor…"):
-                            parsed = parse_stok_excel(stok_file.read())
-                        st.session_state.aktif_stok_data = parsed
-                        # Supabase'e kaydet (tablo yoksa hata vermeden geç)
-                        try:
-                            usd_stok_v, pazar_dict = parsed
-                            aktif_excel_kaydet(aktif_kul, "stok", [float(usd_stok_v), pazar_dict])
-                        except Exception:
-                            pass
-                        st.success(f"✅ {stok_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
-            st.markdown("**2️⃣ İthalat Ödeme Takip**")
-            ithalat_file = st.file_uploader("İthalat Excel", type=["xls", "xlsx"], key="aktif_ithalat_upload", label_visibility="collapsed")
-            if ithalat_file is not None:
-                _fid = f"{ithalat_file.name}:{getattr(ithalat_file, 'size', 0)}"
-                if st.session_state.get("_ithalat_islenen_fid") != _fid:
-                    st.session_state["_ithalat_islenen_fid"] = _fid
-                    try:
-                        with st.spinner("🚢 İthalat Excel'i işleniyor…"):
-                            parsed = parse_ithalat_excel(ithalat_file.read())
-                        st.session_state.aktif_ithalat_data = parsed
-                        try:
-                            aktif_excel_kaydet(aktif_kul, "ithalat", float(parsed))
-                        except Exception:
-                            pass
-                        st.success(f"✅ {ithalat_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
-            st.markdown("**3️⃣ Cari Alacaklar Listesi**")
-            cari_file = st.file_uploader("Cari Excel", type=["xls", "xlsx"], key="aktif_cari_upload", label_visibility="collapsed")
-            if cari_file is not None:
-                _fid = f"{cari_file.name}:{getattr(cari_file, 'size', 0)}"
-                if st.session_state.get("_cari_islenen_fid") != _fid:
-                    st.session_state["_cari_islenen_fid"] = _fid
-                    try:
-                        with st.spinner("🧾 Cari Excel'i işleniyor…"):
-                            _cari_bytes = cari_file.read()
-                            parsed = parse_cari_excel(_cari_bytes)
-                        st.session_state.aktif_cari_data = parsed
-                        try:
-                            aktif_excel_kaydet(aktif_kul, "cari", parsed)
-                            _isimler = _cari_isimleri_cikar(_cari_bytes)
-                            if _isimler:
-                                aktif_excel_kaydet(aktif_kul, "cari_isimler", _isimler)
-                        except Exception:
-                            pass
-                        st.success(f"✅ {cari_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Hata: {type(e).__name__}: {e}")
+            st.caption("Her dosya için durum ve okunan değerler aşağıda görünür. "
+                       "Yükleme bitince pencereyi kapat — kartlar güncellenir.")
+
+            # ── 1) STOK ──
+            def _kaydet_stok(deger, ham):
+                st.session_state.aktif_stok_data = deger
+                try:
+                    usd_v, pazar = deger
+                    aktif_excel_kaydet(aktif_kul, "stok", [float(usd_v), pazar])
+                except Exception:
+                    pass
+            _stok_ozet = ""
+            try:
+                if st.session_state.aktif_stok_data:
+                    _stok_ozet = f"${float(st.session_state.aktif_stok_data[0]):,.0f}"
+            except Exception:
+                pass
+            _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
+                         lambda b: _p_stok(b, parse_stok_excel), _kaydet_stok,
+                         stok_meta, bool(st.session_state.aktif_stok_data), _stok_ozet,
+                         "Mikro → Stok → Stok değeri raporu")
+
+            st.divider()
+
+            # ── 2) İTHALAT ──
+            def _kaydet_ithalat(deger, ham):
+                st.session_state.aktif_ithalat_data = deger
+                try:
+                    aktif_excel_kaydet(aktif_kul, "ithalat", float(deger))
+                except Exception:
+                    pass
+            _ith_ozet = ""
+            try:
+                if st.session_state.aktif_ithalat_data:
+                    _ith_ozet = f"${float(st.session_state.aktif_ithalat_data):,.0f} ödenen"
+            except Exception:
+                pass
+            _yukle_bloku("2️⃣", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
+                         _p_ithalat, _kaydet_ithalat,
+                         ithalat_meta, bool(st.session_state.aktif_ithalat_data), _ith_ozet,
+                         "'Ödenen / USD' sütunu içeren takip dosyası")
+
+            st.divider()
+
+            # ── 3) CARİ ──
+            def _kaydet_cari(deger, ham):
+                st.session_state.aktif_cari_data = deger
+                try:
+                    aktif_excel_kaydet(aktif_kul, "cari", deger)
+                except Exception:
+                    pass
+                try:  # cari isimleri — Satış kanalları için
+                    _isim = (st.session_state.get("_sonuc_cari") or {}).get("isimler")
+                    if not _isim:
+                        _isim = _cari_isimleri_cikar(ham)
+                    if _isim:
+                        aktif_excel_kaydet(aktif_kul, "cari_isimler", _isim)
+                except Exception:
+                    pass
+            _cari_ozet = ""
+            try:
+                _c = st.session_state.aktif_cari_data
+                if isinstance(_c, dict) and "borc" in _c:
+                    _cari_ozet = (f"borç USD {float(_c['borc'].get('usd') or 0):,.0f} · "
+                                  f"alacak USD {float(_c['alacak'].get('usd') or 0):,.0f}")
+            except Exception:
+                pass
+            _yukle_bloku("3️⃣", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
+                         _p_cari, _kaydet_cari,
+                         cari_meta, bool(st.session_state.aktif_cari_data), _cari_ozet,
+                         "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
+
+            st.divider()
+            if st.button("✔️ Bitir ve Kartları Güncelle", type="primary",
+                         use_container_width=True, key="dlg_bitir"):
+                st.rerun()
+
         if st.button("📤 Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True):
             _dlg_aktif_excel()
 
