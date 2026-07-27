@@ -298,16 +298,54 @@ def gider_tablosu_parse(file):
 
 def run():
     from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum, sayfa_baslik, tablo_h
-    # KÂR GİZLEME: Yönetim Panosu bütünüyle kâr/zarar analizidir. Girilmemiş
-    # destek ve masraflar nedeniyle rakamlar henüz doğru olmadığından yalnızca
-    # yetkili kullanıcıya açıktır (shared/kar_gizle.py → KAR_GOREBILEN).
+    # KÂR GİZLEME: Kâr/zarar analizleri (ciro−COGS−destek−gider) girilmemiş
+    # destek ve masraflar nedeniyle henüz doğru sonuç vermiyor → yalnız yetkiliye.
+    # ANCAK Toplam Aktifler kâr hesabı DEĞİL; yüklenen stok/banka/cari verisinden
+    # gelir ve doğrudur → herkese gösterilir.
     from shared.kar_gizle import kar_gorunur, uyari_ciz
+    st.markdown(pencere_css(), unsafe_allow_html=True)
     if not kar_gorunur():
-        st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "geçici olarak kısıtlı"),
+        st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Toplam Aktifler özeti"),
                     unsafe_allow_html=True)
         uyari_ciz()
+        try:
+            from kayranacc.database import get_ayar
+            _s = get_ayar("toplam_aktif_snapshot")
+        except Exception:
+            _s = None
+        if not _s:
+            st.markdown(pencere("💎 TOPLAM AKTİFLER", RENK["mor"],
+                                bos_durum("Muhasebe → Toplam Aktifler işlenince burada görünür")),
+                        unsafe_allow_html=True)
+            st.stop()
+        _t = float(_s.get("toplam", 0) or 0)
+        _k = float(_s.get("kur", 0) or 0)
+        _kal = [("📦 Stok değeri (×1.20)", _s.get("stok", 0), "+"),
+                ("🚢 İthalat (ödenen)", _s.get("ithalat", 0), "+"),
+                ("🏦 Banka (USD eşd.)", _s.get("banka", 0), "+"),
+                ("📥 Cari alacak", _s.get("alacak", 0), "+"),
+                ("💰 Havuz bütçe (net)", _s.get("havuz", 0), "+"),
+                ("➕ Manuel ekleme", _s.get("manuel_ekle", 0), "+"),
+                ("📤 Cari borç", _s.get("borc", 0), "−"),
+                ("🧾 Çekler", _s.get("cek", 0), "−"),
+                ("➖ Manuel çıkarma", _s.get("manuel_cikar", 0), "−")]
+        _kh = "".join(
+            f'<div style="display:flex;justify-content:space-between;padding:5px 12px;margin:2px 0;'
+            f'border-radius:6px;background:rgba(255,255,255,0.03)">'
+            f'<span style="color:{RENK["metin"]};font-size:12px">{a}</span>'
+            f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:12px;'
+            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
+            for a, v, y in _kal if float(v or 0))
+        st.markdown(pencere(
+            "💎 TOPLAM AKTİFLER", RENK["mor"],
+            f'<div style="text-align:center;padding:10px 0 14px;margin-bottom:8px;'
+            f'border-bottom:1px solid rgba(255,255,255,0.08)">'
+            f'<div style="font-size:28px;font-weight:800;color:#FFFFFF;'
+            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_t:,.0f}</div>'
+            f'<div style="font-size:12px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
+            f'margin-top:4px">≈ ₺{(_t * _k):,.0f} · kur {_k:g}</div></div>' + _kh,
+            rozet=str(_s.get("tarih", ""))[:16]), unsafe_allow_html=True)
         st.stop()
-    st.markdown(pencere_css(), unsafe_allow_html=True)
     st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Ciro − COGS − Destekler − Giderler = Net Kâr · tüm tutarlar USD"),
                 unsafe_allow_html=True)
 
