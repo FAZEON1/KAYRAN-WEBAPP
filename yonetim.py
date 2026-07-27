@@ -298,6 +298,15 @@ def gider_tablosu_parse(file):
 
 def run():
     from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum, sayfa_baslik, tablo_h
+    # KÂR GİZLEME: Yönetim Panosu bütünüyle kâr/zarar analizidir. Girilmemiş
+    # destek ve masraflar nedeniyle rakamlar henüz doğru olmadığından yalnızca
+    # yetkili kullanıcıya açıktır (shared/kar_gizle.py → KAR_GOREBILEN).
+    from shared.kar_gizle import kar_gorunur, uyari_ciz
+    if not kar_gorunur():
+        st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "geçici olarak kısıtlı"),
+                    unsafe_allow_html=True)
+        uyari_ciz()
+        st.stop()
     st.markdown(pencere_css(), unsafe_allow_html=True)
     st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Ciro − COGS − Destekler − Giderler = Net Kâr · tüm tutarlar USD"),
                 unsafe_allow_html=True)
