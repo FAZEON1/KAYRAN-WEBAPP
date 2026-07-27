@@ -220,7 +220,11 @@ def parse_stok(file_bytes, eski_parser):
             "Dosya okundu ama stok değeri bulunamadı — 'TOPLAM TUTAR' başlıklı "
             "sütun içeren bir rapor bekleniyor."
         )
-    ozet = [f"Toplam stok değeri: ${float(usd_stok or 0):,.0f}"]
+    _ham = float(usd_stok or 0)
+    ozet = [
+        f"Ham stok değeri (dosyadan okunan): ${_ham:,.0f}",
+        f"**KDV dahil (×1.20) → Toplam Aktifler'e giren: ${_ham * 1.20:,.0f}**",
+    ]
     if pazaryerleri:
         ozet.append("Firmalar: " + " · ".join(
             f"{k} ${float(v):,.0f}" for k, v in list(pazaryerleri.items())[:4]))
