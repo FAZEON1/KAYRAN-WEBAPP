@@ -277,18 +277,24 @@ div[data-stale="true"]{{opacity:.5 !important;transition:opacity .2s ease;}}
 # ═══════════════════════════════════════════════════════════════════
 # 6. BİLEŞENLER — programda "etiketli kutu" artık SADECE burada.
 # ═══════════════════════════════════════════════════════════════════
-def baslik(modul, sayfa, alt=""):
+def baslik(modul, sayfa, alt="", ipucu=""):
     """Tek satır kompakt başlık: 34px. Eskisi 85px'ti.
 
     Modül adı zaten sidebar çipinde ve aktif nav pill'inde yazıyor — bu,
     nerede olduğunun üçüncü kez söylenmesiydi. Kırıntı biçimine indirildi.
+
+    modul  : "🧾 Satış" gibi (baştaki emoji ikon karosuna alınır)
+    sayfa  : "Kâr / P&L"
+    alt    : sağda mono ile — kısa olmalı ("01.01–28.07.2026")
+    ipucu  : uzun açıklama. Piksel harcamaz, üstüne gelince görünür.
     """
     ikon = ""
-    if modul and modul[0] not in "ABCÇDEFGHIİJKLMNOÖPRSŞTUÜVYZabcçdefg":
+    if modul and not modul[0].isalnum():
         ikon = f'<div class="k-baslik-ikon">{modul[0]}</div>'
         modul = modul[1:].strip()
     alt_html = f'<div class="k-baslik-alt">{alt}</div>' if alt else ""
-    return (f'<div class="k-baslik">{ikon}'
+    ttl = f' title="{ipucu}"' if ipucu else ""
+    return (f'<div class="k-baslik"{ttl}>{ikon}'
             f'<span class="k-baslik-mod">{modul}</span>'
             f'<span class="k-baslik-ayrac">›</span>'
             f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}</div>')
