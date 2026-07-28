@@ -1151,6 +1151,60 @@ def render():
         _render_alinan_destekler()
 
 
+def _ref_detay_govde(r, firma_adi=""):
+    """Tek ref kaydının kırılımını çizer (dialog içinde kullanılır).
+    Aynı ref no altında birleştirilmiş kalemler burada tek tek görünür."""
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, _dv + " ")
+    _parcalar = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Firma", (firma_adi or r.get("_firma") or "—")[:20])
+    m2.metric("Tutar", f"{_sm}{_f(r.get('tutar')):,.2f}")
+    m3.metric("Durum", DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "") or "—"))
+    m4.metric("Kalem", f"{len(_parcalar) or 1}")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**📝 Açıklama kırılımı**")
+        if _parcalar:
+            for i, pz in enumerate(_parcalar, 1):
+                st.markdown(f"{i}. {pz}")
+        else:
+            st.caption("—")
+        st.markdown("**🏷️ Kategoriler**")
+        _kats = [x.strip() for x in str(r.get("kategori") or "").split("·") if x.strip()]
+        st.markdown(" · ".join(f"`{k}`" for k in _kats) if _kats else "—")
+    with c2:
+        st.markdown("**📅 Aylık kırılım**")
+        _ay = r.get("aylik") or {}
+        if isinstance(_ay, str):
+            try:
+                import json
+                _ay = json.loads(_ay)
+            except Exception:
+                _ay = {}
+        if isinstance(_ay, dict) and _ay:
+            _sat = []
+            for k in sorted(_ay.keys()):
+                try:
+                    yy, mm = str(k).split("-")[:2]
+                    etk = f"{_AY_AD.get(int(mm), mm)} {yy}"
+                except Exception:
+                    etk = str(k)
+                _sat.append({"Dönem": etk, "Tutar": _f(_ay[k])})
+            st.dataframe(pd.DataFrame(_sat), hide_index=True, use_container_width=True,
+                         column_config={"Tutar": st.column_config.NumberColumn(
+                             f"Tutar ({_dv})", format="%,.2f")})
+            _tp = sum(x["Tutar"] for x in _sat)
+            _fk = _f(r.get("tutar")) - _tp
+            st.caption(f"Aylık toplam: {_sm}{_tp:,.2f}"
+                       + (f" · ⚠️ kayıt tutarıyla {_sm}{_fk:,.2f} fark var"
+                          if abs(_fk) > 0.01 else " · kayıt tutarıyla uyumlu ✓"))
+        else:
+            st.caption("Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.")
+
+
 def _render_tumu(firmalar):
     """Tüm firmaların ref no'ları — canlı filtreli özet + aramalı tablo (salt-okunur)."""
     from shared.ui import RENK, sayfa_baslik
@@ -1307,66 +1361,21 @@ def _render_tumu(firmalar):
                "aylık kırılım aşağıda açılır. Bu görünüm salt-okunurdur; ekleme · "
                "düzenleme · silme için yukarıdan **tek bir firma** seç.")
 
-    # ── SEÇİLİ KAYDIN DETAYI ──
+    # ── SEÇİLİ KAYDIN DETAYI — AYRI PENCEREDE ──
+    @st.dialog("🔎 Ref No Detayı", width="large")
+    def _dlg_ref_detay(_kayit, _fadi=""):
+        st.markdown(f"### {_kayit.get('ref_no','')}")
+        _ref_detay_govde(_kayit, _fadi)
+
     try:
         _secilen = list(_tablo.selection.rows)
     except Exception:
         _secilen = []
     if _secilen and _secilen[0] < len(goster):
         _r = goster[_secilen[0]]
-        _dv = (_r.get("doviz") or "USD").strip().upper()
-        _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, _dv + " ")
-        st.markdown("---")
-        st.markdown(f"#### 🔎 {_r.get('ref_no','')} — detay")
-
-        _d1, _d2, _d3, _d4 = st.columns(4)
-        _d1.metric("Firma", (_r.get("_firma") or "—")[:22])
-        _d2.metric("Tutar", f"{_sm}{_f(_r.get('tutar')):,.2f}")
-        _d3.metric("Durum", DURUM_ETIKET.get(_r.get("durum", ""), _r.get("durum", "") or "—"))
-        _d4.metric("Kalem sayısı",
-                   f"{len([x for x in str(_r.get('aciklama') or '').split('·') if x.strip()]) or 1}")
-
-        _dc1, _dc2 = st.columns(2)
-        with _dc1:
-            st.markdown("**📝 Açıklama kırılımı**")
-            _parcalar = [x.strip() for x in str(_r.get("aciklama") or "").split("·") if x.strip()]
-            if _parcalar:
-                for _i, _p in enumerate(_parcalar, 1):
-                    st.markdown(f"{_i}. {_p}")
-            else:
-                st.caption("—")
-            st.markdown("**🏷️ Kategoriler**")
-            _kats = [x.strip() for x in str(_r.get("kategori") or "").split("·") if x.strip()]
-            st.markdown(" · ".join(f"`{k}`" for k in _kats) if _kats else "—")
-        with _dc2:
-            st.markdown("**📅 Aylık kırılım**")
-            _ay = _r.get("aylik") or {}
-            if isinstance(_ay, str):
-                try:
-                    import json
-                    _ay = json.loads(_ay)
-                except Exception:
-                    _ay = {}
-            if isinstance(_ay, dict) and _ay:
-                _satirlar = []
-                for _k in sorted(_ay.keys()):
-                    try:
-                        _yy, _mm = str(_k).split("-")[:2]
-                        _etiket = f"{_AY_AD.get(int(_mm), _mm)} {_yy}"
-                    except Exception:
-                        _etiket = str(_k)
-                    _satirlar.append({"Dönem": _etiket, "Tutar": _f(_ay[_k])})
-                _adf = pd.DataFrame(_satirlar)
-                st.dataframe(_adf, hide_index=True, use_container_width=True,
-                             column_config={"Tutar": st.column_config.NumberColumn(
-                                 f"Tutar ({_dv})", format="%,.2f")})
-                _ay_top = sum(x["Tutar"] for x in _satirlar)
-                _fark = _f(_r.get("tutar")) - _ay_top
-                st.caption(f"Aylık toplam: {_sm}{_ay_top:,.2f}"
-                           + (f" · ⚠️ kayıt tutarıyla {_sm}{_fark:,.2f} fark var"
-                              if abs(_fark) > 0.01 else " · kayıt tutarıyla uyumlu ✓"))
-            else:
-                st.caption("Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.")
+        if st.button(f"🔎 {_r.get('ref_no','')} detayını aç", type="primary",
+                     use_container_width=True, key="ref_tumu_detay_btn"):
+            _dlg_ref_detay(_r, _r.get("_firma", ""))
 
 
 
@@ -1496,6 +1505,25 @@ def _render_refler(fid, fkod):
     st.caption(f"{len(goster)} / {len(refler)} kayıt · ✏️ **Açıklama, Kategori, Tutar, Döviz, Dönem "
                f"(Ay/Yıl) ve Durum hücreleri tabloda doğrudan düzenlenebilir** — değiştirip altta "
                f"💾 Kaydet'e bas. Silmek için satırın 'Sil?' kutusunu işaretleyip Kaydet'e bas.")
+
+    # 🔎 DETAY PENCERESİ — düzenlenebilir tabloda satır tıklaması olmadığı için
+    # kayıt seçici + buton ile açılır. Aynı ref no altında birleşmiş kalemler,
+    # kategoriler ve aylık kırılım burada tek tek görünür.
+    @st.dialog("🔎 Ref No Detayı", width="large")
+    def _dlg_ref_detay_firma(_kayit):
+        st.markdown(f"### {_kayit.get('ref_no','')}")
+        _ref_detay_govde(_kayit)
+
+    if goster:
+        _dt1, _dt2 = st.columns([3, 1])
+        _dsec = _dt1.selectbox(
+            "Detayını görmek istediğin kayıt", goster,
+            format_func=lambda r: (f"{r.get('ref_no','')} · "
+                                   f"{(r.get('aciklama') or '')[:48]} · "
+                                   f"{_f(r.get('tutar')):,.0f} {r.get('doviz','USD')}"),
+            key=f"ref_detay_sec_{fid}", label_visibility="collapsed")
+        if _dt2.button("🔎 Detayı Aç", use_container_width=True, key=f"ref_detay_btn_{fid}"):
+            _dlg_ref_detay_firma(_dsec)
 
     _kat_secenekler = _kategori_listesi(refler)
     df_ed = pd.DataFrame([{
