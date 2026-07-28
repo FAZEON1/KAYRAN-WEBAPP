@@ -424,14 +424,82 @@ def get_firmalar():
         return []
 
 
+def kod_dogrula(kod):
+    """Ref kodu geçerli mi? (basarili, temiz_kod_veya_hata)
+
+    NEDEN: Bir kayıtta firma_kodu alanına tam ref no yazılmış
+    ('FZMNDRF2025001') → ref_uret() bunun başına FZ, sonuna RF+yıl+sıra
+    ekleyince 'FZFZMNDRF2025001RF2025001' gibi bozuk numaralar üretiliyordu.
+    Kod artık kaynağında doğrulanır."""
+    k = str(kod or "").strip().upper()
+    if not k:
+        return False, "Ref kodu boş olamaz."
+    if not re.fullmatch(r"[A-Z0-9]{2,6}", k):
+        return False, ("Ref kodu 2-6 karakter olmalı, yalnız harf/rakam "
+                       f"içerebilir (girilen: '{k}').")
+    if k.startswith("FZ") or "RF" in k:
+        return False, ("Ref kodu 'FZ' ile başlayamaz ve içinde 'RF' geçemez — "
+                       "bunlar numaranın kendisine otomatik eklenir. "
+                       "Sadece firma kısaltmasını yaz (örn. VTN, INC, MND).")
+    return True, k
+
+
 def firma_ekle(adi, kodu):
+    ok, sonuc = kod_dogrula(kodu)
+    if not ok:
+        return False, f"❌ {sonuc}"
     try:
         sb = get_client()
         sb.table("ref_firmalar").insert(
-            {"firma_adi": adi.strip(), "firma_kodu": kodu.strip().upper()}
+            {"firma_adi": adi.strip(), "firma_kodu": sonuc}
         ).execute()
         _cache_temizle()
-        return True, f"✅ '{adi}' firması eklendi."
+        return True, f"✅ '{adi}' firması eklendi (kod: {sonuc})."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def firma_guncelle(fid, adi, kodu):
+    ok, sonuc = kod_dogrula(kodu)
+    if not ok:
+        return False, f"❌ {sonuc}"
+    try:
+        sb = get_client()
+        sb.table("ref_firmalar").update(
+            {"firma_adi": str(adi or "").strip(), "firma_kodu": sonuc}
+        ).eq("id", fid).execute()
+        _cache_temizle()
+        return True, "✅ Firma güncellendi."
+    except Exception as e:
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def firma_ref_sayisi(fid):
+    """Firmaya bağlı ref no adedi — silmeden önce uyarmak için."""
+    try:
+        return len(_rows(get_client().table("ref_no").select("id")
+                         .eq("firma_id", fid).execute()) or [])
+    except Exception:
+        return 0
+
+
+def firma_sil(fid, refleri_de_sil=False):
+    """Firmayı siler. refleri_de_sil=False iken bağlı ref no varsa SİLMEZ."""
+    try:
+        sb = get_client()
+        _adet = firma_ref_sayisi(fid)
+        if _adet and not refleri_de_sil:
+            return False, (f"Bu firmaya bağlı {_adet} ref no var. Önce onları "
+                           "sil ya da 'ref no'ları da sil' kutusunu işaretle.")
+        if _adet and refleri_de_sil:
+            sb.table("ref_no").delete().eq("firma_id", fid).execute()
+        sb.table("ref_firmalar").delete().eq("id", fid).execute()
+        # Silme gerçekten oldu mu?
+        _kalan = _rows(sb.table("ref_firmalar").select("id").eq("id", fid).execute())
+        if _kalan:
+            return False, "Silme komutu hata vermedi ama firma hâlâ duruyor."
+        _cache_temizle()
+        return True, (f"✅ Firma silindi" + (f" ({_adet} ref no ile birlikte)." if _adet else "."))
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
@@ -991,10 +1059,66 @@ def render():
                     else:
                         st.error(msg)
 
-    _ff1, _ff2 = st.columns([1, 4])
+    # 🛠 FİRMA YÖNETİMİ — düzenle / sil (daha önce hiç yoktu; bozuk kayıtlar
+    # silinemiyordu, ref kodu alanına yanlışlıkla tam ref no yazılabiliyordu)
+    @st.dialog("🛠 Firmaları Yönet — düzenle / sil", width="large")
+    def _firma_yonet_dialog():
+        if not firmalar:
+            st.info("Kayıtlı firma yok.")
+            return
+        st.caption("Ref kodu **sadece kısaltmadır** (örn. VTN). Numaranın başındaki "
+                   "`FZ` ve ortasındaki `RF` otomatik eklenir — koda yazma.")
+        _fsec = st.selectbox(
+            "Firma", firmalar,
+            format_func=lambda f: (f"{f.get('firma_adi','')} · kod: {f.get('firma_kodu','')} "
+                                   f"· {firma_ref_sayisi(f['id'])} ref"),
+            key="ref_firma_yonet_sec")
+        if not _fsec:
+            return
+        _adet = firma_ref_sayisi(_fsec["id"])
+        _ornek = ref_uret(_fsec.get("firma_kodu", ""), _yil(), 1)
+        st.markdown(f"Bu firmada üretilecek ref no örneği: **{_ornek}**")
+        _gecerli, _kh = kod_dogrula(_fsec.get("firma_kodu", ""))
+        if not _gecerli:
+            st.error(f"⚠️ Bu firmanın ref kodu bozuk: {_kh}")
+
+        st.markdown("##### ✏️ Düzenle")
+        _y1, _y2 = st.columns([2.2, 1])
+        _yad = _y1.text_input("Firma adı", value=_fsec.get("firma_adi", "") or "",
+                              key="ref_fy_ad")
+        _ykod = _y2.text_input("Ref kodu", value=_fsec.get("firma_kodu", "") or "",
+                               key="ref_fy_kod")
+        if st.button("💾 Kaydet", type="primary", use_container_width=True, key="ref_fy_kaydet"):
+            _ok, _m = firma_guncelle(_fsec["id"], _yad, _ykod)
+            (st.success if _ok else st.error)(_m)
+            if _ok:
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("##### 🗑 Sil")
+        if _adet:
+            st.warning(f"Bu firmaya bağlı **{_adet} ref no** var. Firmayı silmek "
+                       "onları da siler — geri alınamaz.")
+        _refsil = st.checkbox(f"Bağlı {_adet} ref no'yu da sil", key="ref_fy_refsil",
+                              disabled=not _adet)
+        _onay = st.checkbox(f"Onaylıyorum — '{_fsec.get('firma_adi','')}' firmasını sil",
+                            key="ref_fy_onay")
+        if st.button("🗑 Firmayı Sil", use_container_width=True, key="ref_fy_sil",
+                     disabled=not _onay):
+            _ok, _m = firma_sil(_fsec["id"], refleri_de_sil=_refsil)
+            if _ok:
+                st.success(_m)
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error(_m)
+
+    _ff1, _ff2, _ff3 = st.columns([1, 1, 3])
     if _ff1.button("🏢 Yeni Firma Ekle", type="primary", use_container_width=True, key="ref_firma_ac_btn"):
         _firma_ekle_dialog()
-    _ff2.caption("Yeni firma eklemek için butona bas — açılır pencerede firma ve ref kodunu gir.")
+    if _ff2.button("🛠 Firmaları Yönet", use_container_width=True, key="ref_firma_yonet_btn"):
+        _firma_yonet_dialog()
+    _ff3.caption("Firma adları muhasebe cari listesinden gelir · ref kodu yalnız kısaltmadır.")
 
     if not firmalar:
         st.info("Henüz firma yok. Yukarıdan 'Yeni Firma Ekle' ile başlayın (örn. VATAN / kod: VTN).")
@@ -1161,7 +1285,9 @@ def _render_tumu(firmalar):
         f'<div style="margin-left:auto">{_durum_notu}</div>'
         f'</div>', unsafe_allow_html=True)
 
-    st.dataframe(pd.DataFrame([{
+    # SATIR SEÇİLEBİLİR: aynı ref no altında birleşmiş kalemler tabloda tek satır
+    # göründüğü için detay kayboluyordu. Satıra tıklayınca altta kırılım açılır.
+    _tablo = st.dataframe(pd.DataFrame([{
         "Firma": (r.get("_firma", "") or "")[:32],
         "Ref No": r.get("ref_no", "") or "",
         "Açıklama": r.get("aciklama", "") or "",
@@ -1172,12 +1298,75 @@ def _render_tumu(firmalar):
         "Ay": _aylik_ozet(r)[0],
         "Yıl": _aylik_ozet(r)[1],
     } for r in goster]), hide_index=True, use_container_width=True, height=460,
+        on_select="rerun", selection_mode="single-row", key="ref_tumu_tablo",
         column_config={
             "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
         })
-    st.caption("ℹ️ Birleşik görünüm salt-okunurdur. Ekleme · Excel içe aktarma · düzenleme · silme · bütçe için "
-               "yukarıdan **tek bir firma** seç.")
+    st.caption("👆 Detayını görmek istediğin satıra tıkla — açıklama, kategori ve "
+               "aylık kırılım aşağıda açılır. Bu görünüm salt-okunurdur; ekleme · "
+               "düzenleme · silme için yukarıdan **tek bir firma** seç.")
+
+    # ── SEÇİLİ KAYDIN DETAYI ──
+    try:
+        _secilen = list(_tablo.selection.rows)
+    except Exception:
+        _secilen = []
+    if _secilen and _secilen[0] < len(goster):
+        _r = goster[_secilen[0]]
+        _dv = (_r.get("doviz") or "USD").strip().upper()
+        _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, _dv + " ")
+        st.markdown("---")
+        st.markdown(f"#### 🔎 {_r.get('ref_no','')} — detay")
+
+        _d1, _d2, _d3, _d4 = st.columns(4)
+        _d1.metric("Firma", (_r.get("_firma") or "—")[:22])
+        _d2.metric("Tutar", f"{_sm}{_f(_r.get('tutar')):,.2f}")
+        _d3.metric("Durum", DURUM_ETIKET.get(_r.get("durum", ""), _r.get("durum", "") or "—"))
+        _d4.metric("Kalem sayısı",
+                   f"{len([x for x in str(_r.get('aciklama') or '').split('·') if x.strip()]) or 1}")
+
+        _dc1, _dc2 = st.columns(2)
+        with _dc1:
+            st.markdown("**📝 Açıklama kırılımı**")
+            _parcalar = [x.strip() for x in str(_r.get("aciklama") or "").split("·") if x.strip()]
+            if _parcalar:
+                for _i, _p in enumerate(_parcalar, 1):
+                    st.markdown(f"{_i}. {_p}")
+            else:
+                st.caption("—")
+            st.markdown("**🏷️ Kategoriler**")
+            _kats = [x.strip() for x in str(_r.get("kategori") or "").split("·") if x.strip()]
+            st.markdown(" · ".join(f"`{k}`" for k in _kats) if _kats else "—")
+        with _dc2:
+            st.markdown("**📅 Aylık kırılım**")
+            _ay = _r.get("aylik") or {}
+            if isinstance(_ay, str):
+                try:
+                    import json
+                    _ay = json.loads(_ay)
+                except Exception:
+                    _ay = {}
+            if isinstance(_ay, dict) and _ay:
+                _satirlar = []
+                for _k in sorted(_ay.keys()):
+                    try:
+                        _yy, _mm = str(_k).split("-")[:2]
+                        _etiket = f"{_AY_AD.get(int(_mm), _mm)} {_yy}"
+                    except Exception:
+                        _etiket = str(_k)
+                    _satirlar.append({"Dönem": _etiket, "Tutar": _f(_ay[_k])})
+                _adf = pd.DataFrame(_satirlar)
+                st.dataframe(_adf, hide_index=True, use_container_width=True,
+                             column_config={"Tutar": st.column_config.NumberColumn(
+                                 f"Tutar ({_dv})", format="%,.2f")})
+                _ay_top = sum(x["Tutar"] for x in _satirlar)
+                _fark = _f(_r.get("tutar")) - _ay_top
+                st.caption(f"Aylık toplam: {_sm}{_ay_top:,.2f}"
+                           + (f" · ⚠️ kayıt tutarıyla {_sm}{_fark:,.2f} fark var"
+                              if abs(_fark) > 0.01 else " · kayıt tutarıyla uyumlu ✓"))
+            else:
+                st.caption("Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.")
 
 
 
