@@ -1401,77 +1401,116 @@ def giris_ekrani():
 
     col_l, col_r = st.columns([1.1, 0.9], gap="large")
 
-    # ── SOL PANEL: Marka + Özellikler ──
+    # ── SOL PANEL: Marka + yetenekler + canlı sistem bilgisi ──
     with col_l:
+        # Modül listesi artık gerçek uygulamayı yansıtıyor (eski liste 4 modül
+        # gösteriyordu; uygulama 8 modüle çıktı). İki sütuna alındı ki dikey
+        # boşluk azalsın, sağdaki giriş kartıyla hizalansın.
+        _moduller = [
+            ("💰", "#818CF8", "Muhasebe & Finans", "Nakit akış · banka · cari"),
+            ("🧾", "#34D399", "Satış & Kâr Analizi", "P&L merdiveni · marj · iade"),
+            ("🚢", "#7DD3FC", "İthalat", "Dosya · masraf · paçal maliyet"),
+            ("📦", "#F9A8D4", "Ürün & Stok", "Depo kırılımı · sayım senkronu"),
+            ("🏬", "#FBBF24", "Depo & Sevkiyat", "Bekleyen sevk · irsaliye"),
+            ("🔗", "#22D3EE", "Ref No & Destekler", "Sellout · rebate · marketing"),
+            ("🛠️", "#A78BFA", "Teknik Servis", "Arıza kaydı · servis formu"),
+            ("📊", "#F87171", "Yönetim Panosu", "Toplam aktifler · özet"),
+        ]
+        _kartlar = "".join(
+            '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 11px;'
+            'background:rgba(255,255,255,.022);border:1px solid rgba(148,163,184,.09);'
+            'border-radius:10px">'
+            f'<div style="width:30px;height:30px;border-radius:8px;background:{_r}1A;'
+            f'border:1px solid {_r}33;display:flex;align-items:center;justify-content:center;'
+            f'flex-shrink:0;font-size:13px">{_ik}</div>'
+            f'<div style="min-width:0"><div style="color:#E2E8F0;font-size:12.5px;'
+            f'font-weight:600;line-height:1.25">{_ad}</div>'
+            f'<div style="color:#64748B;font-size:10.5px;margin-top:2px;line-height:1.3">{_alt}</div></div>'
+            '</div>' for _ik, _r, _ad, _alt in _moduller)
+
         st.markdown(
-            '<div style="padding:20px 24px 20px 8px;animation:fadeUp 0.6s ease-out">'
-            '<div style="display:flex;align-items:center;gap:16px;margin-bottom:32px">'
+            '<div style="padding:8px 26px 8px 6px;animation:fadeUp .6s ease-out">'
+            # ── Marka ──
+            '<div style="display:flex;align-items:center;gap:15px;margin-bottom:26px">'
             f'{KAYRAN_LOGO_BIG}'
             '<div>'
-            '<div style="font-family:Inter,sans-serif;font-size:23px;font-weight:900;color:#FFFFFF;letter-spacing:5px;line-height:1">KAYRAN</div>'
-            '<div style="font-size:11px;color:#94A3B8;letter-spacing:3px;text-transform:uppercase;font-weight:600;margin-top:4px">Workspace</div>'
-            '</div>'
-            '</div>'
-            '<div style="margin-bottom:28px">'
-            '<h2 style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;color:#FFFFFF;line-height:1.3;margin:0 0 8px">'
-            'Şirket Operasyonları '
-            '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Tek Çatı Altında</span>'
+            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;'
+            'color:#FFFFFF;letter-spacing:5px;line-height:1">KAYRAN</div>'
+            '<div style="font-size:10px;color:#818CF8;letter-spacing:3.4px;'
+            'text-transform:uppercase;font-weight:700;margin-top:5px">Workspace</div>'
+            '</div></div>'
+            # ── Başlık ──
+            '<h2 style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;'
+            'color:#FFFFFF;line-height:1.25;margin:0 0 10px;letter-spacing:-.5px">'
+            'Tek ekrandan '
+            '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA);'
+            '-webkit-background-clip:text;-webkit-text-fill-color:transparent;'
+            'background-clip:text">tüm operasyon</span>'
             '</h2>'
-            '<p style="color:#94A3B8;font-size:15px;line-height:1.6;margin:0">'
-            'Muhasebe, finans, ithalat ve ürün yönetimini tek platformda yönetin.'
-            '</p>'
+            '<p style="color:#94A3B8;font-size:13.5px;line-height:1.65;margin:0 0 22px;'
+            'max-width:520px">Satıştan ithalata, stoktan muhasebeye kadar sekiz modül '
+            'aynı veriyle çalışır — rakamlar her yerde birbirini tutar.</p>'
+            # ── Modül ızgarası ──
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:22px">'
+            + _kartlar +
             '</div>'
-            '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">'
-            + "".join(
-                '<div style="display:flex;align-items:center;gap:16px">'
-                f'<div style="width:38px;height:38px;border-radius:10px;background:{_bg};border:1px solid {_bd};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px">{_ik}</div>'
-                f'<div><div style="color:#E2E8F0;font-size:13px;font-weight:600">{_ad}</div>'
-                f'<div style="color:#64748B;font-size:11px;margin-top:0px">{_alt}</div></div>'
-                '</div>'
-                for _ik, _bg, _bd, _ad, _alt in [
-                    ("💳", "rgba(99,102,241,0.15)", "rgba(99,102,241,0.25)", "Muhasebe & Finans", "Haftalık ödeme takibi, banka bakiyeleri, nakit akış"),
-                    ("📦", "rgba(236,72,153,0.12)", "rgba(236,72,153,0.22)", "İthalat & Ürün Yönetimi", "Stok takibi, sipariş yönetimi, tedarik zinciri"),
-                    ("🧮", "rgba(16,185,129,0.12)", "rgba(16,185,129,0.22)", "Hesap Makinesi", "Ürün kârlılık analizi, kırılma noktası hesaplama"),
-                    ("🔐", "rgba(245,158,11,0.12)", "rgba(245,158,11,0.22)", "Yetki Bazlı Erişim", "Kullanıcıya özel panel, güvenli oturum yönetimi"),
-                ]
-            )
-            + '</div>'
-            '<div style="display:flex;align-items:center;gap:8px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06)">'
-            '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 8px #10B981"></div>'
-            '<span style="color:#64748B;font-size:11px;font-weight:500">Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; <b style="color:#94A3B8">Fazeon</b> projesi · İbrahim Kayran tarafından geliştirildi</span>'
+            # ── Alt bilgi ──
+            '<div style="display:flex;align-items:center;gap:9px;padding-top:15px;'
+            'border-top:1px solid rgba(255,255,255,.06)">'
+            '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;'
+            'box-shadow:0 0 8px #10B981;flex-shrink:0"></div>'
+            '<span style="color:#64748B;font-size:10.5px;font-weight:500;line-height:1.5">'
+            'Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; '
+            '<b style="color:#94A3B8">Fazeon</b> projesi · '
+            'İbrahim Kayran tarafından geliştirildi</span>'
             '</div>'
             '</div>',
             unsafe_allow_html=True
         )
 
-    # ── SAĞ PANEL: Login Kartı ──
+    # ── SAĞ PANEL: Giriş Kartı ──
     with col_r:
         with st.container(border=True):
             st.markdown(
-                '<div style="text-align:center;margin-bottom:16px">'
-                '<div style="width:48px;height:48px;border-radius:14px;'
-                'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.2));'
-                'border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;'
-                'justify-content:center;font-size:19px;margin:0 auto 14px">🔐</div>'
-                '<div style="color:#FFFFFF;font-size:19px;font-weight:700;margin-bottom:8px">Hesabınıza Giriş Yapın</div>'
-                '<div style="color:#64748B;font-size:13px">Yetkili personel için özel erişim</div>'
+                '<div style="text-align:center;margin-bottom:18px">'
+                '<div style="width:46px;height:46px;border-radius:13px;'
+                'background:linear-gradient(135deg,rgba(129,140,248,.22),rgba(167,139,250,.14));'
+                'border:1px solid rgba(129,140,248,.28);display:flex;align-items:center;'
+                'justify-content:center;font-size:18px;margin:0 auto 14px">🔐</div>'
+                '<div style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-.2px;'
+                'margin-bottom:6px">Oturum Aç</div>'
+                '<div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;'
+                'font-weight:700;color:#64748B">Yetkili personel erişimi</div>'
                 '</div>',
                 unsafe_allow_html=True
             )
             with st.form("giris_form", clear_on_submit=False):
-                kullanici = st.text_input("Kullanıcı Adı", placeholder="kullanici_adi", key="login_user")
-                sifre = st.text_input("Şifre", type="password", placeholder="••••••••••••", key="login_pass")
-                st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                giris_btn = st.form_submit_button("Giriş Yap  →", type="primary", use_container_width=True)
+                kullanici = st.text_input("Kullanıcı Adı", placeholder="kullanici_adi",
+                                          key="login_user")
+                sifre = st.text_input("Şifre", type="password", placeholder="••••••••••••",
+                                      key="login_pass")
+                st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+                giris_btn = st.form_submit_button("Giriş Yap  →", type="primary",
+                                                  use_container_width=True)
+
+            # GÜVENLİK NOTU — yalnızca GERÇEKTEN uygulanan korumalar yazılır.
+            # (Eski metin "256-bit SSL" diyordu; uygulama HTTP üzerinden de
+            #  çalışabildiği için bu iddia yanıltıcıydı. Alan adı + HTTPS
+            #  kurulduğunda buraya bağlantı şifrelemesi de eklenebilir.)
             st.markdown(
-                '<div style="margin-top:16px;text-align:center">'
-                '<div style="display:flex;align-items:center;justify-content:center;gap:8px">'
-                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-                '<path d="M12 2L2 7v10c0 5.25 3.75 10.15 10 11.25C18.25 27.15 22 22.25 22 17V7L12 2z" fill="rgba(16,185,129,0.8)"/>'
-                '</svg>'
-                '<span style="color:#64748B;font-size:11px">256-bit SSL şifrelemeli güvenli bağlantı</span>'
-                '</div>'
-                '</div>',
+                '<div style="margin-top:18px;padding-top:14px;'
+                'border-top:1px solid rgba(148,163,184,.10)">'
+                '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">'
+                + "".join(
+                    f'<div style="display:flex;align-items:center;gap:6px">'
+                    f'<span style="color:{_r};font-size:11px">{_ik}</span>'
+                    f'<span style="color:#64748B;font-size:10.5px">{_t}</span></div>'
+                    for _ik, _r, _t in [
+                        ("✓", "#34D399", "PBKDF2 şifre koruması"),
+                        ("✓", "#34D399", "Hatalı denemede kilit"),
+                        ("✓", "#34D399", "İşlem kayıt altında"),
+                    ])
+                + '</div></div>',
                 unsafe_allow_html=True
             )
 
