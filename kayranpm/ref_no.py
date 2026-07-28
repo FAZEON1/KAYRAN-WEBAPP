@@ -531,13 +531,40 @@ def _firma_rol(f):
     return None
 
 
+# Cari listesine yanlışlıkla düşmüş, firma OLMAYAN değerler
+# (eski okuyucu 'Döviz' sütununu okuduğu için listeye para birimleri doluyordu)
+_CARI_GECERSIZ = {
+    "DOVIZ", "DÖVIZ", "USD", "EUR", "TL", "TRY", "TRL", "GBP", "CHF", "JPY",
+    "HESAP ADI", "HESAP KODU", "TOPLAM BORC", "TOPLAM BORÇ", "TOPLAM ALACAK",
+    "TOPLAM BAKIYE", "TOPLAM BAKİYE", "TOPLAM", "NAN", "-", "—",
+}
+
+
+def _cari_gecerli_mi(ad):
+    """Bu metin gerçek bir firma adı mı? (para birimi / başlık / çöp değil mi)"""
+    a = str(ad or "").strip()
+    if len(a) < 3:
+        return False
+    if a.upper().replace("İ", "I") in _CARI_GECERSIZ:
+        return False
+    if not any(ch.isalpha() for ch in a):
+        return False
+    return True
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def _cari_isimleri():
+    """Muhasebe cari isim listesi — geçersiz kayıtlar süzülür.
+
+    NOT: liste, cari Excel'i yüklenirken kaydedilir. Eski (bozuk) bir
+    yüklemeden kalan para birimi/başlık satırları burada elenir; böylece
+    Excel yeniden yüklenmeden de temiz liste görünür."""
     try:
         from kayranacc.database import get_cari_isimler
-        return [str(c).strip() for c in (get_cari_isimler() or []) if str(c).strip()]
+        ham = [str(c).strip() for c in (get_cari_isimler() or []) if str(c).strip()]
     except Exception:
         return []
+    return [c for c in ham if _cari_gecerli_mi(c)]
 
 
 def _cari_esle(onek, doviz, cariler):
@@ -1039,15 +1066,27 @@ def render():
         _cariler = sorted(set(_cari_isimleri()), key=lambda s: s.lower())
         _mevcut = {_norm(f.get("firma_adi")) for f in firmalar}
         _secilebilir = [c for c in _cariler if _norm(c) not in _mevcut]
+
+        if _secilebilir:
+            st.caption(f"📇 Muhasebe cari listesinden {len(_secilebilir)} firma seçilebilir. "
+                       "Listede olmayan bir firmayı elle de yazabilirsin.")
+        else:
+            st.warning("📇 Cari listesi boş görünüyor. **Muhasebe → Toplam Aktifler → "
+                       "Cari Alacaklar Listesi**'ni bir kez yükle; firma adları oradan gelir. "
+                       "O zamana kadar firma adını elle yazabilirsin.")
+
+        # Elle giriş her zaman açık — cari listesi eksik/bozuksa iş durmasın
+        _elle = st.checkbox("✍️ Firma adını elle yaz", value=not _secilebilir,
+                            key="ref_firma_elle")
         with st.form("ref_firma_ekle", clear_on_submit=False):
-            if _secilebilir:
+            if _secilebilir and not _elle:
                 fa = st.selectbox("Firma (cari listesinden)", ["— seç —"] + _secilebilir)
                 yf_adi = "" if fa == "— seç —" else fa
             else:
                 yf_adi = st.text_input("Firma Adı", placeholder="örn. INCEHESAP")
-                st.caption("Cari listesi boş — Muhasebe → Cari yükleyince buradan seçebilirsin.")
             yf_kod = st.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
-                                   help="Ref no'da kullanılır: FZ<KOD>RF<yıl><sıra>")
+                                   help="2-6 harf/rakam. Ref no'da kullanılır: "
+                                        "FZ<KOD>RF<yıl><sıra> — 'FZ' ve 'RF' otomatik eklenir, yazma.")
             if st.form_submit_button("➕ Firma Ekle", type="primary", use_container_width=True):
                 if not yf_adi.strip() or not yf_kod.strip():
                     st.warning("Firma (cari) ve ref kodu zorunlu.")
