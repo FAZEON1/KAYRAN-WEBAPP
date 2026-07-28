@@ -739,6 +739,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             "teslim_deposu": teslim_deposu or "",
             "teslim_sekli": teslim_sekli or "",
         }
+        if grup_masraf_atama is not None:
+            _payload["grup_masraf_atama"] = grup_masraf_atama
         # TELAFİ için eski kalemleri silmeden ÖNCE yedekle (yeni yazma başarısız olursa geri yüklenir)
         _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
         _yaz_graceful(
