@@ -1,28 +1,39 @@
 [theme]
 base = "dark"
 primaryColor = "#6366F1"
-backgroundColor = "#080C20"
-secondaryBackgroundColor = "#0F1730"
-textColor = "#E2E8F0"
 
-# ── Tipografi — tüm arayüz + tablolar (canvas) Inter ile ──
+# ── Yüzeyler: shared/tasarim.py RENK sözlüğüyle BİREBİR aynı olmalı ──
+# (Eskiden #080C20 / #0F1730 / #232B47 idi — farklı bir hue ailesiydi,
+#  kartlarla sayfa arasında gözle görülür renk dikişi bırakıyordu.)
+backgroundColor = "#0B1120"           # RENK["yuzey0"]
+secondaryBackgroundColor = "#0F172A"  # RENK["yuzey1"]
+textColor = "#E2E8F0"                 # RENK["metin"]
+borderColor = "#1E293B"
+
+# ── Tipografi ──
 font = "Inter, sans-serif"
 headingFont = "Inter, sans-serif"
 codeFont = "JetBrains Mono, monospace"
 
-# ── Yumuşak köşeler ve silik çerçeveler — sert beyaz çizgiler biter ──
-baseRadius = "12px"
-borderColor = "#232B47"
+# ── Yumuşak köşeler — tasarim.py YOGUNLUK["sik"]["kart_r"] ile aynı ──
+baseRadius = "10px"
 
-# ── Tablolar (st.dataframe): silik grid + zeminle uyumlu başlık bandı ──
-dataframeBorderColor = "#1C2440"
-dataframeHeaderBackgroundColor = "#111A38"
+# ── Tablolar: silik grid + zeminle uyumlu başlık bandı ──
+dataframeBorderColor = "#1E293B"
+dataframeHeaderBackgroundColor = "#152036"   # RENK["yuzey2"]
 
-# Inter değişken fontunu yükle (resmî host) — tablo canvas'ı da bunu kullanır
+# ── TEK font kaynağı. login_css() içindeki Google Fonts @import KALDIRILMALI:
+#    Inter iki yerden birden iniyordu → çift indirme + girişte yazı sıçraması.
 [[theme.fontFaces]]
 family = "Inter"
 url = "https://rsms.me/inter/font-files/InterVariable.woff2"
 weight = "100 900"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono:vf@latest/latin-wght-normal.woff2"
+weight = "100 800"
 style = "normal"
 
 [browser]
