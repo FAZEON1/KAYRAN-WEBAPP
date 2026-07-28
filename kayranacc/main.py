@@ -4295,18 +4295,9 @@ def run():
             except (TypeError, ValueError):
                 pass
     
-        # ─── EERA HAVUZ BÜTÇE (Ürün Yönetimi → Ref No Takibi) ───
-        try:
-            from kayranpm.ref_no import (get_firmalar as _rf_firmalar,
-                                         get_butce as _rf_butce, _f as _rf_f)
-            havuz_butce_usd = 0.0
-            for _hf in (_rf_firmalar() or []):
-                _hk = _rf_butce(_hf["id"]) or []
-                _hg = sum(_rf_f(x.get("tutar")) for x in _hk if x.get("yon") == "giris")
-                _hh = sum(_rf_f(x.get("tutar")) for x in _hk if x.get("yon") != "giris")
-                havuz_butce_usd += (_hg - _hh)
-        except Exception:
-            havuz_butce_usd = 0.0
+        # ─── HAVUZ BÜTÇE KALDIRILDI (27.07.2026) ───
+        # Kayıt türü kullanımdan çıkarıldı; aktiflere artık girmiyor.
+        havuz_butce_usd = 0.0
 
         # TOPLAM AKTİFLER
         toplam_aktif = (
@@ -4361,7 +4352,7 @@ def run():
             _dk = [
                 ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
                 ("🏦 Banka (USD)", banka_usd_eqv, "+"), ("📥 Cari alacak", toplam_alacak_usd, "+"),
-                ("💰 Havuz bütçe", havuz_butce_usd, "+"), ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
+                ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
                 ("📤 Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
                 ("🧾 Çekler", cek_toplam_usd, "−"), ("➖ Manuel çıkarma", manuel_cikar_toplam, "−"),
             ]
