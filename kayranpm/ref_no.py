@@ -723,8 +723,20 @@ def get_refler(firma_id):
 
 
 def _sonraki_sira(firma_id):
+    """Sıradaki numara — hem sira_no alanına HEM de ref_no metnine bakar.
+
+    NEDEN: ref_no elle düzenlenebildiği için ikisi ayrışabilir (numara
+    ...005 yapılır ama sira_no 2 kalır) → sistem sonraki numarayı 003 diye
+    üretip MÜKERRER numara oluştururdu. Artık ikisinin de maksimumu alınır."""
     refler = get_refler(firma_id)
-    return max((int(r.get("sira_no") or 0) for r in refler), default=0) + 1
+    _enb = max((int(r.get("sira_no") or 0) for r in refler), default=0)
+    for r in refler:
+        # 'FZITRF2026007' ve 'FZITRF2026007-FZITRF2026008' gibi tireli biçimler
+        for parca in str(r.get("ref_no") or "").split("-"):
+            _, _, _s = _parse_ref(parca.strip())
+            if _s:
+                _enb = max(_enb, int(_s))
+    return _enb + 1
 
 
 def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD",
@@ -1428,6 +1440,62 @@ def _render_tumu(firmalar):
             "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
         })
+    # ── ⚠️ SAĞLIK UYARILARI: sessiz hataları görünür kıl ──
+    _uyarilar = []
+
+    # (a) Çok kategorili kayıtlar — kategori filtresinde tutar ŞİŞER
+    if kat_f != "Tümü":
+        _cok_kat = [r for r in goster
+                    if len([x for x in str(r.get("kategori") or "").split("·") if x.strip()]) > 1]
+        if _cok_kat:
+            _tp = sum(_f(r.get("tutar")) for r in _cok_kat)
+            _uyarilar.append(
+                f"🏷️ **{len(_cok_kat)} kayıt birden çok kategori taşıyor** "
+                f"(toplam {_tp:,.0f}). Kategori bazında tutar saklanmadığı için bu "
+                f"kayıtlar **her kategoride tam tutarıyla** sayılır — yukarıdaki "
+                f"'Filtreli Toplam' bu nedenle olduğundan yüksek olabilir. "
+                f"(Ay/Yıl filtresinde böyle bir sorun yok, orada tutar aylara bölünür.)")
+
+    # (b) Aylık kırılım ile kayıt tutarı ayrışmış kayıtlar
+    _tutarsiz = []
+    for r in goster:
+        _ay = r.get("aylik") or {}
+        if isinstance(_ay, str):
+            try:
+                import json as _js
+                _ay = _js.loads(_ay)
+            except Exception:
+                _ay = {}
+        if isinstance(_ay, dict) and _ay:
+            _fark = _f(r.get("tutar")) - sum(_f(v) for v in _ay.values())
+            if abs(_fark) > 0.01:
+                _tutarsiz.append((r, _fark))
+    if _tutarsiz:
+        _uyarilar.append(
+            f"📅 **{len(_tutarsiz)} kayıtta aylık kırılım toplamı, kayıt tutarıyla "
+            f"uyuşmuyor.** Ay/Yıl filtreli raporlar ile filtresiz raporlar bu yüzden "
+            f"birbirini tutmayabilir.")
+
+    if _uyarilar:
+        with st.expander(f"⚠️ Veri sağlığı — {len(_uyarilar)} uyarı", expanded=False):
+            for u in _uyarilar:
+                st.warning(u)
+            if _tutarsiz:
+                st.markdown("**Tutarsız kayıtlar**")
+                st.dataframe(pd.DataFrame([{
+                    "Firma": (r.get("_firma") or "")[:26],
+                    "Ref No": r.get("ref_no", ""),
+                    "Kayıt tutarı": _f(r.get("tutar")),
+                    "Aylık toplam": _f(r.get("tutar")) - fk,
+                    "Fark": fk,
+                } for r, fk in _tutarsiz[:40]]), hide_index=True, use_container_width=True,
+                    column_config={
+                        "Kayıt tutarı": st.column_config.NumberColumn(format="%,.2f"),
+                        "Aylık toplam": st.column_config.NumberColumn(format="%,.2f"),
+                        "Fark": st.column_config.NumberColumn(format="%,.2f")})
+                st.caption("Düzeltmek için: yukarıdan firmayı seç → Ref No'lar tablosunda "
+                           "Ay/Yıl ya da Tutar hücresini düzelt → Kaydet.")
+
     st.caption("👆 Detayını görmek istediğin satıra tıkla — açıklama, kategori ve "
                "aylık kırılım aşağıda açılır. Bu görünüm salt-okunurdur; ekleme · "
                "düzenleme · silme için yukarıdan **tek bir firma** seç.")
