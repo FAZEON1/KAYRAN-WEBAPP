@@ -356,3 +356,68 @@ def tablo_h(n_satir, maks=320):
     except (TypeError, ValueError):
         n = 1
     return int(min(maks, 38 + 35 * n))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 7. TABLO KOLONLARI
+#    Sorun: para değerleri DataFrame'e METİN olarak giriyordu ("$1.170.000").
+#    Sonuç: sola yaslanıyor VE başlığa tıklayınca alfabetik sıralanıyor —
+#    "$689" ile "$1.170.000" karşılaştırıldığında ikincisi küçük çıkıyor.
+#    Çözüm: değerler sayısal kalır, biçimi burası verir.
+#
+#    KÂR GİZLEME UYUMU: df_maskele() maskelediği kolonu "•••" metnine
+#    çevirir → dtype sayısal olmaktan çıkar → bu fonksiyon o kolona
+#    dokunmaz, metin olarak geçer. Maskeleme bozulmaz.
+# ═══════════════════════════════════════════════════════════════════
+_ORAN_K = ("marj", "kârlılık", "karlilik", "oran", "yüzde", "%")
+_ADET_K = ("adet", "kalem", "satır", "satir", "fatura", "stok", "sayı", "sayi")
+_PARA_K = ("ciro", "tutar", "maliyet", "kâr", "kar ", "kar)", "destek", "fiyat",
+           "bakiye", "gider", "masraf", "satış", "satis", "cogs", "b.satış",
+           "b.maliyet", "iskonto")
+
+
+def _kolon_tipi(ad):
+    a = str(ad).strip().lower()
+    if any(k in a for k in _ORAN_K):
+        return "oran"
+    if any(k in a for k in _ADET_K):      # "Satış adedi" → adet, para değil
+        return "adet"
+    if a in ("kâr", "kar") or any(k in a for k in _PARA_K):
+        return "para"
+    return None
+
+
+def tablo_kolonlari(df, para="dollar", ekstra=None):
+    """DataFrame'e bakıp column_config üretir. Sadece SAYISAL kolonlara dokunur.
+
+        st.dataframe(df, column_config=tablo_kolonlari(df), ...)
+
+    para : "dollar" | "euro" | "accounting" | "localized"
+    ekstra : elle ezmek istediğin kolonlar → {"Kolon": st.column_config...}
+    """
+    try:
+        import pandas as pd
+        import streamlit as st
+    except ImportError:
+        return ekstra or {}
+    cfg = {}
+    for c in df.columns:
+        try:
+            s = df[c]
+            if pd.api.types.is_datetime64_any_dtype(s):
+                cfg[c] = st.column_config.DateColumn(format="DD.MM.YYYY")
+                continue
+            if not pd.api.types.is_numeric_dtype(s):
+                continue          # metin ya da maskelenmiş → olduğu gibi bırak
+            t = _kolon_tipi(c)
+            if t == "para":
+                cfg[c] = st.column_config.NumberColumn(format=para, alignment="right")
+            elif t == "adet":
+                cfg[c] = st.column_config.NumberColumn(format="localized", alignment="right")
+            elif t == "oran":
+                cfg[c] = st.column_config.NumberColumn(format="%.1f%%", alignment="right")
+        except Exception:
+            continue              # tek kolon patlasa tablo yine çizilsin
+    if ekstra:
+        cfg.update(ekstra)
+    return cfg
