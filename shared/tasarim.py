@@ -40,9 +40,10 @@ RENK = {
     "kenar2":  "rgba(148,163,184,0.18)",
 
     # ── Metin: 3 kademe, fazlası gürültü ──
-    "metin":   "#E2E8F0",
-    "soluk":   "#94A3B8",
-    "silik":   "#64748B",
+    # Kontrast (kart zemini #0F172A üzerinde, WCAG AA eşiği 4.5):
+    "metin":   "#E2E8F0",   # 15.3  ✓
+    "soluk":   "#94A3B8",   #  7.0  ✓
+    "silik":   "#7B8AA0",   #  5.1  ✓  (eski #64748B = 3.75 → eşiğin altındaydı)
 
     # ── Anlam renkleri: her biri TEK ton + TEK açık ton ──
     "mor":      "#818CF8",  "mor2":      "#A5B4FC",   # marka / nötr metrik
@@ -122,6 +123,22 @@ FONT = {
 MONO = "'JetBrains Mono', ui-monospace, monospace"
 SANS = "Inter, -apple-system, sans-serif"
 
+# ── AĞIRLIK: 3 kademe. Programda 8 farklı ağırlık vardı (450/750/900 dahil)
+#    ve 931 kalın kullanıma karşılık sadece 10 normal — her şey aynı anda
+#    bağırıyordu. Gövde artık 400; kalın istisna. ──
+AGIRLIK = {
+    "govde":  "400",   # varsayılan. Liste satırı, tablo, açıklama, caption.
+    "vurgu":  "600",   # etiket, aktif sekme, öne çıkan satır.
+    "baslik": "700",   # sayfa başlığı, KPI değeri, kart başlığı. Fazlası yok.
+}
+
+# ── TRACKING: 3 değer. 38 farklı letter-spacing vardı. ──
+TRACKING = {
+    "baslik":  "-0.2px",  # 16px+ başlıklar
+    "govde":   "0",       # her şey
+    "etiket":  "0.6px",   # SADECE uppercase KPI etiketleri
+}
+
 
 def _y(anahtar, yogunluk=None):
     return YOGUNLUK.get(yogunluk or VARSAYILAN_YOGUNLUK, YOGUNLUK["sik"])[anahtar]
@@ -141,14 +158,19 @@ def sayi(deger, birim="", kisa=True, basamak=0):
     isaret = "-" if d < 0 else ""
     m = abs(d)
     if kisa and m >= 1_000_000_000:
-        govde = f"{m/1_000_000_000:,.2f}B".replace(",", " ").replace(".", ",")
+        govde = _tr(f"{m/1_000_000_000:,.2f}") + "B"
     elif kisa and m >= 1_000_000:
-        govde = f"{m/1_000_000:,.2f}M".replace(",", " ").replace(".", ",")
+        govde = _tr(f"{m/1_000_000:,.2f}") + "M"
     elif kisa and m >= 100_000:
-        govde = f"{m/1_000:,.0f}K"
+        govde = _tr(f"{m/1_000:,.0f}") + "K"
     else:
-        govde = f"{m:,.{basamak}f}"
+        govde = _tr(f"{m:,.{basamak}f}")
     return f"{isaret}{birim}{govde}"
+
+
+def _tr(s):
+    """Türkçe sayı biçimi: binlik nokta, ondalık virgül. 1,234.50 → 1.234,50"""
+    return s.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
 
 
 def _tam(deger, birim=""):
@@ -179,12 +201,12 @@ def cekirdek_css(yogunluk=None):
 .k-kart:hover{{background:{R['yuzey2']};border-color:{R['kenar2']};}}
 .k-kart[data-akscent]{{border-left-width:2px;border-radius:var(--k-r);}}
 
-.k-etiket{{font-size:{F['etiket']};color:{R['soluk']};font-weight:700;
-  letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;
+.k-etiket{{font-size:{F['etiket']};color:{R['soluk']};
+  font-weight:{AGIRLIK['vurgu']};letter-spacing:{TRACKING['etiket']};text-transform:uppercase;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;line-height:1.2;}}
-.k-deger{{font-size:{F['deger']};color:{R['metin']};font-weight:700;
+.k-deger{{font-size:{F['deger']};color:{R['metin']};font-weight:{AGIRLIK['baslik']};
   font-family:var(--k-mono);font-variant-numeric:tabular-nums;
-  letter-spacing:-.3px;margin-top:2px;line-height:1.25;
+  letter-spacing:{TRACKING['baslik']};margin-top:2px;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 .k-alt{{font-size:{F['kucuk']};color:{R['silik']};margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
@@ -195,18 +217,18 @@ def cekirdek_css(yogunluk=None):
 .k-baslik-ikon{{width:22px;height:22px;border-radius:6px;flex-shrink:0;
   background:{R['yuzey2']};border:1px solid {R['kenar2']};
   display:flex;align-items:center;justify-content:center;font-size:12px;}}
-.k-baslik-mod{{font-size:{F['orta']};color:{R['soluk']};font-weight:600;}}
+.k-baslik-mod{{font-size:{F['orta']};color:{R['soluk']};font-weight:{AGIRLIK['vurgu']};}}
 .k-baslik-ayrac{{color:{R['silik']};font-size:{F['orta']};}}
-.k-baslik-ad{{font-size:{F['baslik']};color:{R['metin']};font-weight:700;
-  letter-spacing:-.2px;}}
+.k-baslik-ad{{font-size:{F['baslik']};color:{R['metin']};
+  font-weight:{AGIRLIK['baslik']};letter-spacing:{TRACKING['baslik']};}}
 .k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:{R['silik']};
   font-family:var(--k-mono);white-space:nowrap;}}
 
 .k-rozet{{display:inline-block;padding:2px 7px;border-radius:999px;
-  font-size:{F['kucuk']};font-weight:700;line-height:1.4;white-space:nowrap;}}
+  font-size:{F['kucuk']};font-weight:{AGIRLIK['vurgu']};line-height:1.4;white-space:nowrap;}}
 
 .k-pencere-basi{{display:flex;align-items:center;gap:8px;margin-bottom:6px;
-  flex-shrink:0;font-size:{F['govde']};font-weight:700;letter-spacing:.2px;}}
+  flex-shrink:0;font-size:{F['govde']};font-weight:{AGIRLIK['baslik']};}}
 .k-pencere-ic{{overflow-y:auto;padding-right:6px;}}
 .k-pencere-ic::-webkit-scrollbar{{width:5px;}}
 .k-pencere-ic::-webkit-scrollbar-track{{background:transparent;}}
@@ -214,7 +236,7 @@ def cekirdek_css(yogunluk=None):
 
 .k-satir{{display:flex;justify-content:space-between;align-items:center;
   padding:{sp};margin:2px 0;border-radius:6px;font-size:{F['govde']};
-  background:rgba(255,255,255,0.025);}}
+  font-weight:{AGIRLIK['govde']};background:rgba(255,255,255,0.025);}}
 .k-satir:hover{{background:rgba(255,255,255,0.05);}}
 .k-satir-sag{{display:flex;gap:10px;flex-shrink:0;margin-left:8px;
   align-items:center;font-variant-numeric:tabular-nums;}}
