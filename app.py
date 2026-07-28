@@ -1033,7 +1033,7 @@ KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" x
 def login_css():
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
 
     .stApp {
         background: #080C20 !important;
@@ -1179,7 +1179,7 @@ def portal_css():
     """Ana sayfa + sidebar CSS (alt uygulamalar yüklenmedikçe geçerli)"""
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
 
     .stApp {
         background: #080C20 !important;
