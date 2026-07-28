@@ -1292,8 +1292,8 @@ def _ref_detay_govde(r, firma_adi=""):
                     etk = str(k)
                 _sat += (f'<div style="display:flex;justify-content:space-between;'
                          f'padding:6px 0;border-bottom:1px solid rgba(148,163,184,.08)">'
-                         f'<span style="font-size:12.5px;color:{RENK["soluk"]}">{etk}</span>'
-                         f'<span style="font-family:{_MONO};font-size:12.5px;font-weight:700;'
+                         f'<span style="font-size:13px;color:{RENK["soluk"]}">{etk}</span>'
+                         f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
                          f'color:{RENK["metin"]};font-variant-numeric:tabular-nums">'
                          f'{_sm}{v:,.2f}</span></div>')
             _fk = _f(r.get("tutar")) - _tp
@@ -1301,12 +1301,12 @@ def _ref_detay_govde(r, firma_adi=""):
                   ("#FBBF24", f"kayıt tutarıyla {_sm}{_fk:,.2f} fark")
             _sat += (f'<div style="display:flex;justify-content:space-between;padding:8px 0 0">'
                      f'<span style="{_etiket_css(RENK["silik"])}">Toplam</span>'
-                     f'<span style="font-family:{_MONO};font-size:13px;font-weight:800;'
+                     f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
                      f'color:{_uy[0]};font-variant-numeric:tabular-nums">{_sm}{_tp:,.2f}</span></div>'
                      f'<div style="{_etiket_css(_uy[0])};margin-top:6px">{_uy[1]}</div>')
             st.markdown(_sat, unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="color:{RENK["silik"]};font-size:12.5px;line-height:1.5">'
+            st.markdown(f'<div style="color:{RENK["silik"]};font-size:13px;line-height:1.5">'
                         f'Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.</div>',
                         unsafe_allow_html=True)
 
@@ -1328,14 +1328,14 @@ def _ref_kart_html(r, firma_adi=""):
     _ack = " · ".join(_parca)
     _cip = "".join(
         f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
-        f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">{k}</span>'
+        f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">{k}</span>'
         for k in _kats)
     _donem = ""
     if _ays and _ays != "—":
         _donem = (f'<span style="background:rgba(34,211,238,.12);color:{RENK["cyan"]};'
-                  f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">'
+                  f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">'
                   f'📅 {_ays}{(" " + _yls) if _yls and _yls != "—" else ""}</span>')
-    _cok = (f'<span style="color:{RENK["silik"]};font-size:10.5px">'
+    _cok = (f'<span style="color:{RENK["silik"]};font-size:11px">'
             f'{len(_parca)} kalem</span>' if len(_parca) > 1 else "")
     _fr = (f'<span style="color:{RENK["silik"]};font-size:11px">· {firma_adi[:26]}</span>'
            if firma_adi else "")
@@ -1345,9 +1345,9 @@ def _ref_kart_html(r, firma_adi=""):
         f'padding:9px 14px;margin-bottom:6px">'
         f'  <div style="flex:1;min-width:0">'
         f'    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'
-        f'      <span style="font-family:JetBrains Mono,monospace;font-size:12.5px;'
-        f'font-weight:800;color:{RENK["mor2"]};letter-spacing:.3px">{r.get("ref_no","")}</span>'
-        f'      <span style="color:{_dr};font-size:10.5px;font-weight:700">'
+        f'      <span style="font-family:JetBrains Mono,monospace;font-size:13px;'
+        f'font-weight:700;color:{RENK["mor2"]};letter-spacing:.3px">{r.get("ref_no","")}</span>'
+        f'      <span style="color:{_dr};font-size:11px;font-weight:700">'
         f'{DURUM_ETIKET.get(_durum, _durum)}</span>{_fr}{_cok}'
         f'    </div>'
         f'    <div style="color:{RENK["metin"]};font-size:13px;line-height:1.35;'
@@ -1357,9 +1357,9 @@ def _ref_kart_html(r, firma_adi=""):
         f'  </div>'
         f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
         f'display:flex;flex-direction:column;justify-content:center">'
-        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:800;'
+        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:700;'
         f'color:{RENK["metin"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
-        f'    <div style="color:{RENK["silik"]};font-size:10.5px;margin-top:3px">{_dv}</div>'
+        f'    <div style="color:{RENK["silik"]};font-size:11px;margin-top:3px">{_dv}</div>'
         f'  </div>'
         f'</div>')
 
@@ -1374,12 +1374,12 @@ _MONO = "'JetBrains Mono','SF Mono',ui-monospace,monospace"
 
 
 def _etiket_css(renk):
-    return (f"font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;"
+    return (f"font-size:10px;letter-spacing:1.4px;text-transform:uppercase;"
             f"font-weight:700;color:{renk};line-height:1")
 
 
 def _sayi_css(renk, boyut=19):
-    return (f"font-family:{_MONO};font-size:{boyut}px;font-weight:800;color:{renk};"
+    return (f"font-family:{_MONO};font-size:{boyut}px;font-weight:700;color:{renk};"
             f"line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.3px")
 
 
@@ -1395,7 +1395,7 @@ def _kpi_serit(kalemler):
         etiket, deger, renk = k[0], k[1], k[2]
         alt = k[3] if len(k) > 3 else ""
         gen = k[4] if len(k) > 4 else 1
-        _alt = (f'<div style="font-size:10.5px;color:{RENK["silik"]};margin-top:3px;'
+        _alt = (f'<div style="font-size:11px;color:{RENK["silik"]};margin-top:3px;'
                 f'font-family:{_MONO};font-variant-numeric:tabular-nums">{alt}</div>'
                 if alt else "")
         ic.append(
@@ -1413,14 +1413,14 @@ def _dt_baslik(ana, rozet="", rozet_renk="#818CF8", alt=""):
     """Detay penceresi başlık bandı."""
     from shared.ui import RENK
     _r = (f'<span style="background:{rozet_renk}1F;color:{rozet_renk};padding:3px 10px;'
-          f'border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.5px;'
+          f'border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;'
           f'white-space:nowrap">{rozet}</span>' if rozet else "")
     _a = (f'<div style="{_etiket_css(RENK["silik"])};margin-top:7px">{alt}</div>'
           if alt else "")
     return (f'<div style="border-left:3px solid {rozet_renk};padding:2px 0 2px 14px;'
             f'margin:0 0 16px">'
             f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            f'<span style="font-family:{_MONO};font-size:17px;font-weight:800;'
+            f'<span style="font-family:{_MONO};font-size:16px;font-weight:700;'
             f'color:{RENK["metin"]};letter-spacing:-.2px">{ana}</span>{_r}</div>{_a}</div>')
 
 
@@ -1440,7 +1440,7 @@ def _dt_alan(etiket, deger, mono=False):
     """Detay penceresi etiket/değer satırı."""
     from shared.ui import RENK
     _st = (f"font-family:{_MONO};font-size:13px;font-variant-numeric:tabular-nums"
-           if mono else "font-size:13.5px")
+           if mono else "font-size:13px")
     return (f'<div style="margin-bottom:13px">'
             f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:5px">{etiket}</div>'
             f'<div style="{_st};color:{RENK["metin"]};line-height:1.45">{deger}</div></div>')
@@ -1725,12 +1725,12 @@ def _render_tumu(firmalar):
         f'padding:12px 16px;margin:8px 0 16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
         f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Filtreli Toplam Tutar</div>'
-        f'<div style="font-size:23px;font-weight:800;color:{RENK["metin"]};'
+        f'<div style="font-size:23px;font-weight:700;color:{RENK["metin"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{_tutar_str}</div></div>'
         f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
         f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Kayıt</div>'
-        f'<div style="font-size:23px;font-weight:800;color:{RENK["mor2"]};'
+        f'<div style="font-size:23px;font-weight:700;color:{RENK["mor2"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{len(goster):,}'
         f'<span style="font-size:13px;color:{RENK["silik"]}"> / {len(_hepsi):,}</span></div></div>'
         f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
@@ -1855,7 +1855,7 @@ def _render_refler(fid, fkod):
         {"label": "Toplam Ref", "value": f"{len(refler):,}", "renk": "#818CF8"},
         {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
         {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
-        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": "#A78BFA"},
+        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": "#818CF8"},
     ])
 
     _siradaki = _sonraki_sira(fid)
@@ -2160,7 +2160,7 @@ def _render_butce(fid, firma):
         {"label": "Toplam Bütçe (giriş)", "value": f"${giris:,.2f}", "renk": "#34D399"},
         {"label": "Toplam Harcama", "value": f"${harcama:,.2f}", "renk": "#F87171"},
         {"label": "Kalan Havuz", "value": f"${kalan:,.2f}", "renk": "#A5B4FC"},
-        {"label": "Atanan Ref No (USD)", "value": f"${ref_usd:,.2f}", "renk": "#A78BFA"},
+        {"label": "Atanan Ref No (USD)", "value": f"${ref_usd:,.2f}", "renk": "#818CF8"},
     ])
 
     # ── Yeni kayıt ekle ──
@@ -2548,7 +2548,7 @@ def get_destek_donem(baslangic, bitis):
 
 
 _AD_TUR_RENK = {
-    "SELLOUT": "#34D399", "MARKETING": "#A78BFA", "REBATE": "#22D3EE",
+    "SELLOUT": "#34D399", "MARKETING": "#818CF8", "REBATE": "#22D3EE",
     "PRICE PROTECTION": "#FBBF24", "PAZARLAMA": "#F9A8D4",
     "BEDELSİZ ÜRÜN": "#7DD3FC", "DİĞER": "#94A3B8",
 }
@@ -2564,32 +2564,32 @@ def _ad_kart_html(r):
     _kat = (r.get("kategori") or "GENEL").strip()
     _fat = (r.get("fatura_no") or "").strip()
     _cip = (f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
-            f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">{_kat}</span>')
+            f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">{_kat}</span>')
     if _fat:
         _cip += (f'<span style="background:rgba(148,163,184,.12);color:{RENK["soluk"]};'
-                 f'padding:1px 7px;border-radius:20px;font-size:10.5px">🧾 {_fat[:18]}</span>')
+                 f'padding:1px 7px;border-radius:20px;font-size:11px">🧾 {_fat[:18]}</span>')
     return (
         f'<div style="display:flex;align-items:stretch;background:{RENK["yuzey1"]};'
         f'border:1px solid {RENK["kenar"]};border-left:3px solid {_tr};border-radius:10px;'
         f'padding:9px 14px;margin-bottom:6px">'
         f'  <div style="flex:1;min-width:0">'
         f'    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'
-        f'      <span style="font-size:12.5px;font-weight:800;color:{RENK["metin"]}">'
+        f'      <span style="font-size:13px;font-weight:700;color:{RENK["metin"]}">'
         f'{(r.get("firma") or "—")[:34]}</span>'
-        f'      <span style="color:{_tr};font-size:10.5px;font-weight:700">{_tur}</span>'
+        f'      <span style="color:{_tr};font-size:11px;font-weight:700">{_tur}</span>'
         f'      <span style="font-family:JetBrains Mono,monospace;color:{RENK["cyan"]};'
         f'font-size:11px">📅 {r.get("donem") or "—"}</span>'
         f'    </div>'
-        f'    <div style="color:{RENK["soluk"]};font-size:12.5px;line-height:1.35;'
+        f'    <div style="color:{RENK["soluk"]};font-size:13px;line-height:1.35;'
         f'overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;'
         f'-webkit-box-orient:vertical">{(r.get("aciklama") or "—")}</div>'
         f'    <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">{_cip}</div>'
         f'  </div>'
         f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
         f'display:flex;flex-direction:column;justify-content:center">'
-        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:800;'
+        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:700;'
         f'color:{RENK["yesil"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
-        f'    <div style="color:{RENK["silik"]};font-size:10.5px;margin-top:3px">{_dv}</div>'
+        f'    <div style="color:{RENK["silik"]};font-size:11px;margin-top:3px">{_dv}</div>'
         f'  </div>'
         f'</div>')
 
@@ -2627,7 +2627,7 @@ def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
         st.markdown(f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:7px">Kategori</div>'
                     f'{_dt_cipler([_kat])}', unsafe_allow_html=True)
         if _kat.upper() == "GENEL":
-            st.markdown(f'<div style="color:{RENK["silik"]};font-size:11.5px;'
+            st.markdown(f'<div style="color:{RENK["silik"]};font-size:11px;'
                         f'line-height:1.5;margin-top:8px">Belirli bir ürün kategorisine '
                         f'dağıtılmamış destek — kâr analizinde kategori kırılımına girmez.</div>',
                         unsafe_allow_html=True)

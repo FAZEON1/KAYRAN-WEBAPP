@@ -122,17 +122,17 @@ def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
         'background:linear-gradient(135deg,rgba(99,102,241,0.28),rgba(139,92,246,0.16));'
         'border:1px solid rgba(129,140,248,0.28);display:flex;align-items:center;'
         f'justify-content:center;font-size:14px">{ikon}</div>'
-        '<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:750;'
-        f'color:#F1F5F9;letter-spacing:-0.3px;line-height:1.25">{ad}</div>'
+        '<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:700;'
+        f'color:#7DD3FC;letter-spacing:-0.3px;line-height:1.25">{ad}</div>'
         '</div>'
     )
     alt_txt = alt or ""
     h += (
-        '<div style="font-size:12.5px;color:#7C8AA0;font-weight:450;letter-spacing:.1px;'
+        '<div style="font-size:13px;color:#94A3B8;font-weight:400;letter-spacing:.1px;'
         'margin:7px 0 18px;padding:0 0 12px 41px;position:relative;'
         'border-bottom:1px solid rgba(148,163,184,0.10)">'
         '<span style="position:absolute;left:41px;bottom:-1px;width:40px;height:2px;'
-        'border-radius:2px;background:linear-gradient(90deg,#6366F1,#8B5CF6)"></span>'
+        'border-radius:2px;background:linear-gradient(90deg,#818CF8,#818CF8)"></span>'
         f'{alt_txt}</div>'
     )
     return h
@@ -169,7 +169,7 @@ def pencere(baslik: str, renk: str, icerik_html: str,
         f'padding:12px 16px;display:flex;flex-direction:column;'
         f'box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]},box-shadow {GECIS["hizli"]};">'
         f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-shrink:0;">'
-        f'<span style="font-size:13px;font-weight:800;color:{renk};letter-spacing:.3px;">{baslik}</span>'
+        f'<span style="font-size:13px;font-weight:700;color:{renk};letter-spacing:.3px;">{baslik}</span>'
         f'{roz}</div>'
         f'<div class="kyr-pencere-icerik" style="max-height:{yukseklik}px;">{icerik_html}</div>'
         f'</div>'
@@ -219,7 +219,7 @@ def islem_gosterge_css() -> str:
 @keyframes kyr-puls{0%,100%{box-shadow:0 6px 22px rgba(99,102,241,.45)}50%{box-shadow:0 6px 30px rgba(34,211,238,.65)}}
 div[data-testid="stStatusWidget"]::before{
   content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
-  background:linear-gradient(90deg,#6366F1,#22D3EE,#818CF8,#6366F1);
+  background:linear-gradient(90deg,#818CF8,#22D3EE,#818CF8,#818CF8);
   background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
 div[data-testid="stStatusWidget"]{
   position:fixed !important;top:14px !important;left:50% !important;
@@ -228,7 +228,7 @@ div[data-testid="stStatusWidget"]{
   border-radius:999px !important;padding:8px 16px !important;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 div[data-testid="stStatusWidget"]::after{
-  content:"⏳ İşleniyor — lütfen bekleyin";color:#C7D2FE;font-size:13px;
+  content:"⏳ İşleniyor — lütfen bekleyin";color:#A5B4FC;font-size:13px;
   font-weight:700;letter-spacing:.3px;white-space:nowrap;}
 div[data-testid="stStatusWidget"] > *{display:none !important;}
 div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
@@ -238,14 +238,14 @@ div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
    basar; bu her modda (Cloud izleyici dahil) mevcuttur. */
 div[data-testid="stApp"][data-test-script-state="running"]::before{
   content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
-  background:linear-gradient(90deg,#6366F1,#22D3EE,#818CF8,#6366F1);
+  background:linear-gradient(90deg,#818CF8,#22D3EE,#818CF8,#818CF8);
   background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
 div[data-testid="stApp"][data-test-script-state="running"]::after{
   content:"⏳ İşleniyor — lütfen bekleyin";
   position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999998;
   background:rgba(15,23,42,.96);border:1px solid rgba(99,102,241,.55);
   border-radius:999px;padding:8px 16px;
-  color:#C7D2FE;font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
+  color:#A5B4FC;font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
   font-family:Inter,sans-serif;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 </style>"""
@@ -300,7 +300,7 @@ def genel_tema_css() -> str:
 div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
 div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
   font-family:Inter,sans-serif !important;
-  font-size:17px !important; font-weight:800 !important;
+  font-size:16px !important; font-weight:700 !important;
   letter-spacing:-0.2px !important; color:#E2E8F0 !important;
   padding-bottom:0px !important;
 }
@@ -324,7 +324,7 @@ button[data-baseweb="tab"][aria-selected="true"]{
   background:rgba(99,102,241,0.10) !important;
 }
 /* ── Caption'lar biraz daha okunur ── */
-div[data-testid="stCaptionContainer"] p{ color:#8B98B8 !important; }
+div[data-testid="stCaptionContainer"] p{ color:#94A3B8 !important; }
 </style>"""
 
 
@@ -542,7 +542,7 @@ def patron_panosu_html(v):
         f'background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {c}2E;border-radius:12px;box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]}">'
         f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
-        f'<div style="color:{c};font-size:23px;font-weight:800;'
+        f'<div style="color:{c};font-size:23px;font-weight:700;'
         f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{val}</div></div>'
         for lbl, val, c in _nabiz)
 
@@ -694,8 +694,8 @@ def patron_panosu_html(v):
             f'<svg viewBox="0 0 {_W} {_H}" preserveAspectRatio="xMidYMid meet" '
             f'style="display:block;width:100%;height:auto">'
             f'<defs><linearGradient id="kyr-trend-g" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0%" stop-color="#6366F1" stop-opacity="0.35"/>'
-            f'<stop offset="100%" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs>'
+            f'<stop offset="0%" stop-color="#818CF8" stop-opacity="0.35"/>'
+            f'<stop offset="100%" stop-color="#818CF8" stop-opacity="0"/></linearGradient></defs>'
             f'<polygon points="{_alan}" fill="url(#kyr-trend-g)"/>'
             f'<polyline points="{_poly}" fill="none" stroke="#818CF8" stroke-width="2" '
             f'stroke-linejoin="round" stroke-linecap="round"/>'
@@ -708,7 +708,7 @@ def patron_panosu_html(v):
     return (
         '<div style="margin:0 0 24px">'
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
-        f'<span style="font-size:19px;font-weight:800;color:{RENK["metin"]}">👑 Patron Panosu</span>'
+        f'<span style="font-size:19px;font-weight:700;color:{RENK["metin"]}">👑 Patron Panosu</span>'
         f'<span style="color:{RENK["silik"]};font-size:11px">yalnızca sana özel · sabah kokpiti</span>'
         '</div>'
         + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">{_nabiz_html}</div>'

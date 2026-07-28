@@ -18,8 +18,8 @@ section[data-testid='stAppViewContainer'],[data-testid='stMain']{font-family:'In
 .prim-metric-card.highlight{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);}
 .prim-metric-card.accent{background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);}
 .pm-label{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;color:#64748B;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;line-height:1;}
-.pm-val{font-family:'Inter',sans-serif;font-size:22px;font-weight:800;line-height:1.1;}
-.pm-val-sm{font-family:'Inter',sans-serif;font-size:15px;font-weight:700;line-height:1.2;}
+.pm-val{font-family:'Inter',sans-serif;font-size:23px;font-weight:700;line-height:1.1;}
+.pm-val-sm{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;line-height:1.2;}
 .pm-val-xs{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;line-height:1.3;}
 .pm-sub{font-family:'Inter',sans-serif;font-size:11px;color:#475569;margin-top:4px;}
 .prim-divider{height:1px;background:rgba(255,255,255,0.06);margin:16px 0;}
@@ -27,9 +27,9 @@ section[data-testid='stAppViewContainer'],[data-testid='stMain']{font-family:'In
 .prim-hist-val{font-family:'Inter',sans-serif;font-size:13px;padding:8px 0;line-height:1.4;}
 .prim-edit-box{background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px 18px;margin-top:10px;}
 [data-testid='stNumberInput'] label,[data-testid='stTextInput'] label,[data-testid='stSelectbox'] label,[data-testid='stDateInput'] label{font-family:'Inter',sans-serif!important;color:#94A3B8!important;font-size:11px!important;font-weight:600!important;letter-spacing:.8px!important;text-transform:uppercase!important;}
-[data-testid='stNumberInput'] input,[data-testid='stTextInput'] input{font-family:'Inter',sans-serif!important;background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#F1F5F9!important;border-radius:10px!important;font-size:14px!important;}
-[data-testid='stNumberInput'] input:focus,[data-testid='stTextInput'] input:focus{border-color:#6366F1!important;box-shadow:0 0 0 3px rgba(99,102,241,0.12)!important;}
-[data-testid='stSelectbox'] > div > div{font-family:'Inter',sans-serif!important;background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#F1F5F9!important;border-radius:10px!important;}
+[data-testid='stNumberInput'] input,[data-testid='stTextInput'] input{font-family:'Inter',sans-serif!important;background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#7DD3FC!important;border-radius:10px!important;font-size:14px!important;}
+[data-testid='stNumberInput'] input:focus,[data-testid='stTextInput'] input:focus{border-color:#818CF8!important;box-shadow:0 0 0 3px rgba(99,102,241,0.12)!important;}
+[data-testid='stSelectbox'] > div > div{font-family:'Inter',sans-serif!important;background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.1)!important;color:#7DD3FC!important;border-radius:10px!important;}
 h1,h2,h3{font-family:'Inter',sans-serif!important;}
 </style>
 """
@@ -45,8 +45,8 @@ def _fmt(val, prefix='$', decimals=2):
     return prefix + ('{:,.2f}' if decimals == 2 else '{:,.0f}').format(val)
 def _renk(kar):
     if kar > 0: return '#10B981'
-    if kar < 0: return '#EF4444'
-    return '#F59E0B'
+    if kar < 0: return '#F87171'
+    return '#FBBF24'
 def _tl(val): return '{:,.0f} TL'.format(val)
 def _usd(val): return '${:,.0f}'.format(val)
 
@@ -150,8 +150,8 @@ def _gecmis_odemeler(kisi, pfx):
 def _prim_gokhan():
     st.markdown(
         '<div style="font-family:Inter,sans-serif;margin-bottom:20px">'
-        '<div style="font-size:18px;font-weight:800;color:#FFFFFF;margin-bottom:4px">PRİM HESAPLAMA — GÖKHAN YAVUZ</div>'
-        '<div style="font-size:12px;color:#64748B">Prim = Baz Hakediş (1,5 Maaş) + Ciro Ağırlıklı Bonus &nbsp;·&nbsp; NZXT/AGI hariç</div>'
+        '<div style="font-size:16px;font-weight:700;color:#E2E8F0;margin-bottom:4px">PRİM HESAPLAMA — GÖKHAN YAVUZ</div>'
+        '<div style="font-size:13px;color:#64748B">Prim = Baz Hakediş (1,5 Maaş) + Ciro Ağırlıklı Bonus &nbsp;·&nbsp; NZXT/AGI hariç</div>'
         '</div>',
         unsafe_allow_html=True)
 
@@ -173,9 +173,9 @@ def _prim_gokhan():
     with k3: kasa_ciro_usd = st.number_input('Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='gy_kc')
     with k4:
         kasa_carpan = (kasa_gercek_pct / kasa_hedef_pct) if kasa_hedef_pct > 0 else 0.0
-        c_renk = '#10B981' if kasa_carpan >= 1 else ('#F59E0B' if kasa_carpan >= 0.8 else '#EF4444')
+        c_renk = '#10B981' if kasa_carpan >= 1 else ('#FBBF24' if kasa_carpan >= 0.8 else '#F87171')
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-family:Inter,sans-serif;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px"><div class="pm-label">KASA Çarpan</div><div style="font-size:20px;font-weight:800;color:'+c_renk+'">{:.2f}x</div></div>'.format(kasa_carpan), unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Inter,sans-serif;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px"><div class="pm-label">KASA Çarpan</div><div style="font-size:19px;font-weight:700;color:'+c_renk+'">{:.2f}x</div></div>'.format(kasa_carpan), unsafe_allow_html=True)
     st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#34D399;letter-spacing:1px;text-transform:uppercase;margin:12px 0 8px">━━ SOĞ (Soğutucu)</div>', unsafe_allow_html=True)
     s1,s2,s3,s4 = st.columns(4)
@@ -184,9 +184,9 @@ def _prim_gokhan():
     with s3: sog_ciro_usd = st.number_input('Ciro (USD)', min_value=0.0, value=0.0, step=100.0, format='%.0f', key='gy_sc')
     with s4:
         sog_carpan = (sog_gercek_pct / sog_hedef_pct) if sog_hedef_pct > 0 else 0.0
-        s_renk = '#10B981' if sog_carpan >= 1 else ('#F59E0B' if sog_carpan >= 0.8 else '#EF4444')
+        s_renk = '#10B981' if sog_carpan >= 1 else ('#FBBF24' if sog_carpan >= 0.8 else '#F87171')
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-family:Inter,sans-serif;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px"><div class="pm-label">SOĞ Çarpan</div><div style="font-size:20px;font-weight:800;color:'+s_renk+'">{:.2f}x</div></div>'.format(sog_carpan), unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Inter,sans-serif;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px"><div class="pm-label">SOĞ Çarpan</div><div style="font-size:19px;font-weight:700;color:'+s_renk+'">{:.2f}x</div></div>'.format(sog_carpan), unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     # ─ Hesaplama: ciro tutarina gore agirlik
     kasa_ciro_tl = kasa_ciro_usd * usd_kur
@@ -215,11 +215,11 @@ def _prim_gokhan():
     mcard(m1, 'Baz Hakediş (1,5 Maaş)', _tl(baz_hakdis), '#A5B4FC')
     mcard(m2, 'KASA Çarpan', '{:.2f}x'.format(kasa_carpan), '#FCD34D')
     mcard(m3, 'SOĞ Çarpan', '{:.2f}x'.format(sog_carpan), '#6EE7B7')
-    mcard(m4, 'Ciro Ağ. Bonus', _tl(ciro_bonus), '#F59E0B', cls='accent')
+    mcard(m4, 'Ciro Ağ. Bonus', _tl(ciro_bonus), '#FBBF24', cls='accent')
     mcard(m5, 'TOPLAM PRİM', _tl(toplam_prim), '#10B981', big=True, cls='highlight')
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
     d1,d2,d3,d4,d5 = st.columns(5)
-    def dcard(col, label, val, sub='', color='#CBD5E1'):
+    def dcard(col, label, val, sub='', color='#7DD3FC'):
         with col:
             sub_html = ('<div class="pm-sub">'+sub+'</div>') if sub else ''
             st.markdown('<div class="prim-metric-card"><div class="pm-label">'+label+'</div><div class="pm-val-sm" style="color:'+color+'">'+val+'</div>'+sub_html+'</div>', unsafe_allow_html=True)
@@ -255,8 +255,8 @@ def _prim_gokhan():
 def _prim_ayhan():
     st.markdown(
         '<div style="font-family:Inter,sans-serif;margin-bottom:20px">'
-        '<div style="font-size:18px;font-weight:800;color:#FFFFFF;margin-bottom:4px">PRİM HESAPLAMA — AYHAN EROĞLU</div>'
-        '<div style="font-size:12px;color:#64748B">Mon/Kasa/SSD: Ciro × Oran % | E.Kartı: Adet × 1 USD × Kur</div>'
+        '<div style="font-size:16px;font-weight:700;color:#E2E8F0;margin-bottom:4px">PRİM HESAPLAMA — AYHAN EROĞLU</div>'
+        '<div style="font-size:13px;color:#64748B">Mon/Kasa/SSD: Ciro × Oran % | E.Kartı: Adet × 1 USD × Kur</div>'
         '</div>',
         unsafe_allow_html=True)
 
@@ -297,10 +297,10 @@ def _prim_ayhan():
         fw = '800' if big else '700'
         with col:
             st.markdown('<div class="prim-metric-card'+(' highlight' if big else '')+'" style="min-height:72px"><div class="pm-label">'+lbl+'</div><div style="font-family:Inter,sans-serif;font-size:'+fs+'px;font-weight:'+fw+';color:'+color+';line-height:1.2">'+val+'</div></div>', unsafe_allow_html=True)
-    mcard2(r1, 'Monitör Prim', '${:.2f}'.format(mon_usd), '#CBD5E1')
-    mcard2(r2, 'Kasa Prim', '${:.2f}'.format(kas_usd), '#CBD5E1')
-    mcard2(r3, 'E.Kartı Prim', '${:.2f}'.format(ek_usd), '#CBD5E1')
-    mcard2(r4, 'SSD&RAM Prim', '${:.2f}'.format(ssd_usd), '#CBD5E1')
+    mcard2(r1, 'Monitör Prim', '${:.2f}'.format(mon_usd), '#7DD3FC')
+    mcard2(r2, 'Kasa Prim', '${:.2f}'.format(kas_usd), '#7DD3FC')
+    mcard2(r3, 'E.Kartı Prim', '${:.2f}'.format(ek_usd), '#7DD3FC')
+    mcard2(r4, 'SSD&RAM Prim', '${:.2f}'.format(ssd_usd), '#7DD3FC')
     mcard2(r5, 'TOPLAM ($)', '${:,.2f}'.format(tot_usd), '#FCD34D', big=True)
     mcard2(r6, 'TOPLAM (TL)', _tl(tot_tl), '#10B981', big=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -330,7 +330,7 @@ def _prim_ayhan():
 def _urun_karlilik():
     st.markdown('<div class="hm-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:16px">ÜRÜN KARLILIK HESAPLAYICI</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:14px">Hızlı Hesap</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:14px">Hızlı Hesap</div>', unsafe_allow_html=True)
     c1,c2,c3 = st.columns([1.5,1,1])
     with c1: urun_adi = st.text_input('Ürün Adı (opsiyonel)', placeholder='Örn: Monitor XG27', key='uk_ad')
     with c2: alis = st.number_input('Alış Fiyatı ($)', min_value=0.0, value=0.0, step=0.01, format='%.2f', key='uk_alis')
@@ -354,21 +354,21 @@ def _urun_karlilik():
         st.markdown('<div style="font-family:Inter,sans-serif;color:#94A3B8;font-size:11px;font-weight:600;margin-bottom:12px">'+(urun_adi+' — ' if urun_adi else '')+'Toplam Maliyet: '+_fmt(maliyet)+'</div>', unsafe_allow_html=True)
         if ind_s and ind_s > 0:
             r1,r2,r3,r4,r5 = st.columns(5)
-            data = [('Satış Fiyatı','$'+'{:,.2f}'.format(satis),'#FFFFFF'),('Kar ($)','$'+'{:,.2f}'.format(kar_n),renk),('Marj (%)','%'+'{:.1f}'.format(marj_n),renk),('İnd. Fiyat','$'+'{:,.2f}'.format(ind_s),'#F59E0B'),('İnd. Kar ($)','$'+'{:,.2f}'.format(kar_i),renk_i)]
+            data = [('Satış Fiyatı','$'+'{:,.2f}'.format(satis),'#E2E8F0'),('Kar ($)','$'+'{:,.2f}'.format(kar_n),renk),('Marj (%)','%'+'{:.1f}'.format(marj_n),renk),('İnd. Fiyat','$'+'{:,.2f}'.format(ind_s),'#FBBF24'),('İnd. Kar ($)','$'+'{:,.2f}'.format(kar_i),renk_i)]
             for col,(lbl,val,clr) in zip([r1,r2,r3,r4,r5],data):
-                with col: st.markdown('<div style="font-family:Inter,sans-serif"><div class="pm-label">'+lbl+'</div><div style="font-size:22px;font-weight:800;color:'+clr+'">'+val+'</div></div>', unsafe_allow_html=True)
+                with col: st.markdown('<div style="font-family:Inter,sans-serif"><div class="pm-label">'+lbl+'</div><div style="font-size:23px;font-weight:700;color:'+clr+'">'+val+'</div></div>', unsafe_allow_html=True)
         else:
             r1,r2,r3 = st.columns(3)
-            data = [('Satış Fiyatı','$'+'{:,.2f}'.format(satis),'#FFFFFF'),('Kar ($)','$'+'{:,.2f}'.format(kar_n),renk),('Marj (%)','%'+'{:.1f}'.format(marj_n),renk)]
+            data = [('Satış Fiyatı','$'+'{:,.2f}'.format(satis),'#E2E8F0'),('Kar ($)','$'+'{:,.2f}'.format(kar_n),renk),('Marj (%)','%'+'{:.1f}'.format(marj_n),renk)]
             for col,(lbl,val,clr) in zip([r1,r2,r3],data):
-                with col: st.markdown('<div style="font-family:Inter,sans-serif"><div class="pm-label">'+lbl+'</div><div style="font-size:26px;font-weight:800;color:'+clr+'">'+val+'</div></div>', unsafe_allow_html=True)
+                with col: st.markdown('<div style="font-family:Inter,sans-serif"><div class="pm-label">'+lbl+'</div><div style="font-size:23px;font-weight:700;color:'+clr+'">'+val+'</div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div style="font-family:Inter,sans-serif;color:#475569;font-size:13px;padding:16px 0">Alış ve satış fiyatını girerek sonucu görün.</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="hm-sep"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:6px">Toplu Kıyaslama</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;color:#64748B;font-size:12px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip kıyasla.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:6px">Toplu Kıyaslama</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;color:#64748B;font-size:13px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip kıyasla.</div>', unsafe_allow_html=True)
     if 'uk_liste' not in st.session_state: st.session_state.uk_liste = []
     if 'uk_sayac' not in st.session_state: st.session_state.uk_sayac = 0
     with st.expander('+ Ürün Ekle', expanded=(len(st.session_state.uk_liste)==0)):
@@ -402,16 +402,16 @@ def _urun_karlilik():
             ru = _renk(u['kar'])
             u1,u2,u3,u4,u5,u6,u7,u8 = st.columns([2,1.2,1.2,1.2,1.2,1.2,1.2,0.6])
             with u1: st.markdown('<div style="font-family:Inter,sans-serif;color:#E2E8F0;font-size:13px;padding:8px 0">'+u['ad']+'</div>', unsafe_allow_html=True)
-            with u2: st.markdown('<div style="font-family:Inter,sans-serif;color:#CBD5E1;font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['alis'])+'</div>', unsafe_allow_html=True)
+            with u2: st.markdown('<div style="font-family:Inter,sans-serif;color:#7DD3FC;font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['alis'])+'</div>', unsafe_allow_html=True)
             with u3: st.markdown('<div style="font-family:Inter,sans-serif;color:#94A3B8;font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['maliyet'])+'</div>', unsafe_allow_html=True)
-            with u4: st.markdown('<div style="font-family:Inter,sans-serif;color:#CBD5E1;font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['satis'])+'</div>', unsafe_allow_html=True)
+            with u4: st.markdown('<div style="font-family:Inter,sans-serif;color:#7DD3FC;font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['satis'])+'</div>', unsafe_allow_html=True)
             with u5: st.markdown('<div style="font-family:Inter,sans-serif;color:'+ru+';font-size:13px;font-weight:700;padding:8px 0">$'+'{:,.2f}'.format(u['kar'])+'</div>', unsafe_allow_html=True)
             with u6: st.markdown('<div style="font-family:Inter,sans-serif;color:'+ru+';font-size:13px;font-weight:700;padding:8px 0">%'+'{:.1f}'.format(u['marj'])+'</div>', unsafe_allow_html=True)
             with u7:
                 if u['kar_ind'] is not None:
                     ri = _renk(u['kar_ind'])
                     st.markdown('<div style="font-family:Inter,sans-serif;color:'+ri+';font-size:13px;padding:8px 0">$'+'{:,.2f}'.format(u['kar_ind'])+'</div>', unsafe_allow_html=True)
-                else: st.markdown('<div style="color:#475569;font-size:12px;padding:8px 0">—</div>', unsafe_allow_html=True)
+                else: st.markdown('<div style="color:#475569;font-size:13px;padding:8px 0">—</div>', unsafe_allow_html=True)
             with u8:
                 if st.button('✕', key='uk_sil_'+str(u['id']), help='Sil'): silinecek = u['id']
             st.markdown('<div style="height:1px;background:rgba(255,255,255,0.04)"></div>', unsafe_allow_html=True)
@@ -425,32 +425,32 @@ def _breakeven():
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#FCD34D;margin-bottom:16px">KIRILMA NOKTASI HESAPLAYICI</div>', unsafe_allow_html=True)
     c1,c2 = st.columns(2)
     with c1:
-        st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:14px">Parametreler</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:14px">Parametreler</div>', unsafe_allow_html=True)
         periyot = st.selectbox('Periyot', ['Günlük','Haftalık','Aylık','Yıllık'], index=2, key='be_periyot')
         gider = st.number_input('Sabit Gider ($) — '+periyot, min_value=0.0, value=0.0, step=10.0, format='%.2f', key='be_gider')
         marj = st.number_input('Ortalama Marj (%)', min_value=0.1, max_value=99.9, value=30.0, step=0.1, format='%.1f', key='be_marj')
         ort_fiyat = st.number_input('Ortalama Ürün Fiyatı ($)', min_value=0.0, value=0.0, step=1.0, format='%.2f', key='be_ort_fiyat')
         mevcut = st.number_input('Mevcut Ciro ($) — '+periyot, min_value=0.0, value=0.0, step=100.0, format='%.2f', key='be_mevcut')
     with c2:
-        st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:14px">Sonuç</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:14px">Sonuç</div>', unsafe_allow_html=True)
         if gider > 0 and marj > 0:
             hedef = gider / (marj / 100)
             kalan = max(0.0, hedef - mevcut)
             pct = min(1.0, mevcut / hedef) * 100 if hedef > 0 else 0.0
             asindi = mevcut >= hedef
-            bar_renk = '#10B981' if asindi else '#6366F1'
-            st.markdown('<div class="pm-label">Hedef Ciro ('+periyot+')</div><div style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;color:#A5B4FC">$'+'{:,.0f}'.format(hedef)+'</div>', unsafe_allow_html=True)
+            bar_renk = '#10B981' if asindi else '#818CF8'
+            st.markdown('<div class="pm-label">Hedef Ciro ('+periyot+')</div><div style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;color:#A5B4FC">$'+'{:,.0f}'.format(hedef)+'</div>', unsafe_allow_html=True)
             st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
             st.markdown('<div class="pm-label">İlerleme — %'+'{:.1f}'.format(pct)+'</div><div style="height:10px;background:rgba(255,255,255,0.08);border-radius:5px;overflow:hidden;margin:6px 0"><div style="height:100%;width:'+'{:.1f}'.format(pct)+'%;background:'+bar_renk+';border-radius:5px"></div></div>', unsafe_allow_html=True)
             st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
             if asindi:
                 fazla = mevcut - hedef
-                st.markdown('<div style="font-family:Inter,sans-serif;font-size:18px;font-weight:700;color:#10B981">Hedef Aşıldı &nbsp;<span style="font-size:13px;color:#6EE7B7">+$'+'{:,.0f}'.format(fazla)+' fazla</span></div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#10B981">Hedef Aşıldı &nbsp;<span style="font-size:13px;color:#6EE7B7">+$'+'{:,.0f}'.format(fazla)+' fazla</span></div>', unsafe_allow_html=True)
             else:
-                st.markdown('<div class="pm-label">Kalan Ciro</div><div style="font-family:Inter,sans-serif;font-size:20px;font-weight:700;color:#F59E0B">$'+'{:,.0f}'.format(kalan)+'</div>', unsafe_allow_html=True)
+                st.markdown('<div class="pm-label">Kalan Ciro</div><div style="font-family:Inter,sans-serif;font-size:19px;font-weight:700;color:#FBBF24">$'+'{:,.0f}'.format(kalan)+'</div>', unsafe_allow_html=True)
                 if ort_fiyat > 0:
                     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                    st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#C4B5FD">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#64748B;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#818CF8">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#64748B;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
                 gun_map={'Günlük':1,'Haftalık':7,'Aylık':30,'Yıllık':365}
                 if kalan > 0:
                     gd = kalan / gun_map.get(periyot,30)
@@ -463,7 +463,7 @@ def _breakeven():
 # ─── RUN
 def run():
     st.markdown(_css(), unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:28px"><div style="display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:20px;margin-bottom:10px"><span style="font-size:10px;font-weight:700;color:#FCD34D;letter-spacing:1.5px;text-transform:uppercase">Hesap Makinesi</span></div><h1 style="font-size:clamp(22px,4vw,32px);font-weight:800;color:#FFFFFF;margin:0;line-height:1.1">Hesap Makinesi</h1><p style="color:#64748B;font-size:13px;margin-top:6px">Ürün karlılık analizi, kırılma noktası ve prim hesaplama</p></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:28px"><div style="display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:20px;margin-bottom:10px"><span style="font-size:10px;font-weight:700;color:#FCD34D;letter-spacing:1.5px;text-transform:uppercase">Hesap Makinesi</span></div><h1 style="font-size:clamp(22px,4vw,32px);font-weight:700;color:#E2E8F0;margin:0;line-height:1.1">Hesap Makinesi</h1><p style="color:#64748B;font-size:13px;margin-top:6px">Ürün karlılık analizi, kırılma noktası ve prim hesaplama</p></div>', unsafe_allow_html=True)
     if 'hm_sekme' not in st.session_state: st.session_state.hm_sekme = 'karlilik'
     t1,t2,t3,t4,_ = st.columns([1.4,1.4,1.4,1.4,4])
     with t1:

@@ -166,16 +166,16 @@ def sayfa_error_handler(sayfa_adi: str, hata: Exception) -> None:
             sayfa_error_handler("Bu Hafta", e)
     """
     st.markdown(
-        '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-left:4px solid #DC2626;'
+        '<div style="background:#F87171;border:1px solid #FCA5A5;border-left:4px solid #F87171;'
         'border-radius:12px;padding:20px 24px;margin:20px 0">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-        '<span style="font-size:24px">⚠️</span>'
+        '<span style="font-size:23px">⚠️</span>'
         f'<b style="color:#991B1B;font-size:16px">{sayfa_adi} Sayfasında Bir Sorun Oluştu</b>'
         '</div>'
         '<div style="color:#7F1D1D;font-size:13px;line-height:1.6;margin-bottom:14px">'
         'Üzgünüz, beklenmedik bir hata oluştu. Sayfayı yenileyebilir veya birkaç dakika sonra tekrar deneyebilirsiniz.'
         '</div>'
-        '<div style="background:#FFFFFF;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;'
+        '<div style="background:#E2E8F0;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;'
         'font-family:monospace;font-size:11px;color:#991B1B;margin-bottom:10px;overflow-x:auto">'
         f'<b>Hata Detayı:</b> {type(hata).__name__}: {str(hata)[:300]}'
         '</div>'
@@ -277,7 +277,7 @@ def sidebar_stil() -> str:
     {SB} > label > div:first-child{{ display:none !important; }}
     {SB} label p{{
         font-family:Inter,sans-serif !important;
-        font-size:13.5px !important;
+        font-size:13px !important;
         font-weight:600 !important;
         letter-spacing:0 !important;
         color:#94A3B8 !important;
@@ -292,7 +292,7 @@ def sidebar_stil() -> str:
     }}
     {SB} > label:has(input:checked)::before{{ opacity:1; transform:scaleY(1); }}
     {SB} > label:has(input:checked) p{{
-        color:#FFFFFF !important; font-weight:700 !important;
+        color:#E2E8F0 !important; font-weight:700 !important;
     }}
     section[data-testid="stSidebar"] [data-testid="stButton"] button{{
         border-radius:10px !important; font-weight:600 !important;
@@ -322,7 +322,7 @@ def sidebar_stil() -> str:
     }}
     section[data-testid="stMain"] div[role="radiogroup"] > label > div:first-child{{ display:none !important; }}
     section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked){{
-        background:linear-gradient(135deg,#6366F1,#818CF8) !important;
+        background:linear-gradient(135deg,#818CF8,#818CF8) !important;
         border-color:#818CF8 !important;
         box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;
     }}
@@ -331,7 +331,7 @@ def sidebar_stil() -> str:
         letter-spacing:-0.1px !important; font-size:14px !important;
     }}
     section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked) p{{
-        color:#FFFFFF !important; font-weight:700 !important;
+        color:#E2E8F0 !important; font-weight:700 !important;
     }}
     </style>
     """
@@ -348,7 +348,7 @@ def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
         'background:linear-gradient(135deg,rgba(99,102,241,0.35),rgba(139,92,246,0.25));'
         'border:1px solid rgba(129,140,248,0.35);display:flex;align-items:center;'
         f'justify-content:center;font-size:13px">{ikon}</div>'
-        '<div style="font-family:Inter,sans-serif;font-size:13.5px;font-weight:700;'
+        '<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;'
         f'letter-spacing:-0.2px;color:#E2E8F0;white-space:nowrap;overflow:hidden;'
         f'text-overflow:ellipsis">{ad}</div>'
         '</div>'
@@ -364,9 +364,9 @@ def sidebar_kullanici(kullanici: str) -> str:
     return (
         '<div style="display:flex;align-items:center;gap:9px;padding:2px 2px;margin-bottom:8px">'
         '<div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;'
-        'background:linear-gradient(135deg,#6366F1,#A78BFA);display:flex;align-items:center;'
+        'background:linear-gradient(135deg,#818CF8,#818CF8);display:flex;align-items:center;'
         f'justify-content:center;font-size:11px;font-weight:700;color:#fff">{bas}</div>'
-        f'<div style="font-size:12.5px;color:#B6C2D6;font-weight:600">{kullanici.capitalize()}</div>'
+        f'<div style="font-size:13px;color:#A5B4FC;font-weight:600">{kullanici.capitalize()}</div>'
         '</div>'
     )
 
@@ -374,38 +374,32 @@ def sidebar_kullanici(kullanici: str) -> str:
 # ════════════════════════════════════════════════════════════════════
 # ORTAK METRİK KARTLARI (tüm programda tek tip — renkli sol şeritli kart)
 # ════════════════════════════════════════════════════════════════════
-KART_PALET = ["#818CF8", "#34D399", "#FB923C", "#A78BFA", "#22D3EE", "#FBBF24", "#F472B6"]
+KART_PALET = ["#818CF8", "#34D399", "#FBBF24", "#818CF8", "#22D3EE", "#FBBF24", "#F9A8D4"]
 
 
 def metrik_satiri(cards):
-    """Metrik kartı şeridi — GÖRÜNÜM artık shared/tasarim.py'den geliyor.
+    """Metrik kartı şeridi — görünüm shared/tasarim.py'den gelir.
 
-    Çağrı sözleşmesi aynı: [{'label','value','renk'?,'alt'?,'help'?}].
-    'renk' eskiden serbest hex'ti; tek palete eşleniyor (ESKI_RENK_ESLEME).
-
-    DEĞİŞEN: değerin karakter sayısına göre fontu 20/17/15/13/12 px arasında
-    küçülten mantık kaldırıldı. Yan yana iki kart farklı puntoda oluyordu.
-    Punto artık sabit; sığmayan değer '…' ile kısalır, tamamı title'da durur.
+    Sözleşme aynı: [{'label','value','renk'?,'alt'?,'help'?}].
+    DEĞİŞEN: değerin uzunluğuna göre fontu 20/17/15/13/12 px arasında
+    küçülten mantık kaldırıldı; yan yana kartlar farklı puntoda oluyordu.
     """
     from shared.tasarim import RENK, KART_TOKEN, ESKI_RENK_ESLEME
     hucreler = ""
     for i, c in enumerate(cards):
         ham = c.get("renk")
         if ham:
-            token = ESKI_RENK_ESLEME.get(str(ham).upper())
-            renk = RENK.get(token, ham if str(ham).startswith("#") else RENK["mor"])
+            tok = ESKI_RENK_ESLEME.get(str(ham).upper())
+            renk = RENK.get(tok, ham if str(ham).startswith("#") else RENK["mor"])
         else:
             renk = RENK[KART_TOKEN[i % len(KART_TOKEN)]]
         _val = str(c["value"])
-        ipucu = c.get("help") or _val
-        ttl = f' title="{ipucu}"' if ipucu else ""
-        ipucu_im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
+        ttl = f' title="{c.get("help") or _val}"'
+        im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
         alt = f'<div class="k-alt">{c["alt"]}</div>' if c.get("alt") else ""
-        hucreler += (
-            f'<div class="k-kart" data-akscent style="border-left-color:{renk}"{ttl}>'
-            f'<div class="k-etiket">{c["label"]}{ipucu_im}</div>'
-            f'<div class="k-deger" style="color:{renk}">{_val}</div>'
-            f'{alt}</div>')
+        hucreler += (f'<div class="k-kart" data-akscent style="border-left-color:{renk}"{ttl}>'
+                     f'<div class="k-etiket">{c["label"]}{im}</div>'
+                     f'<div class="k-deger" style="color:{renk}">{_val}</div>{alt}</div>')
     st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
 
 
@@ -415,31 +409,10 @@ def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
 
 
 def metric_css(renk="#818CF8") -> str:
-    """Kalan st.metric öğelerini de ortak kart diline sokar.
-    (Etiket eskiden 9.5px'ti — okunabilir alt sınır 11px.)"""
-    from shared.tasarim import RENK, FONT, AGIRLIK, TRACKING, YOGUNLUK
-    _y = YOGUNLUK["sik"]
-    return f"""
-    <style>
-    div[data-testid="stMetric"]{{
-        background:{RENK['yuzey1']} !important;
-        border:1px solid {RENK['kenar']} !important;
-        border-left:2px solid {renk} !important;
-        border-radius:{_y['kart_r']} !important;
-        padding:{_y['kart_pad']} !important;
-    }}
-    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"]{{
-        color:{RENK['soluk']} !important; font-size:{FONT['etiket']} !important;
-        font-weight:{AGIRLIK['vurgu']} !important;
-        letter-spacing:{TRACKING['etiket']} !important; text-transform:uppercase !important;
-    }}
-    div[data-testid="stMetricValue"]{{
-        color:{RENK['metin']} !important; font-size:{FONT['deger']} !important;
-        font-weight:{AGIRLIK['baslik']} !important; font-family:{'JetBrains Mono, ui-monospace, monospace'};
-        font-variant-numeric:tabular-nums; line-height:1.25 !important;
-    }}
-    </style>
-    """
+    """Geriye uyumluluk kabuğu. st.metric artık cekirdek_css() içindeki
+    normalize katmanından biçimleniyor — bu fonksiyon hiçbir modülden
+    çağrılmıyordu, o yüzden her st.metric ham Streamlit görünümündeydi."""
+    return ""
 
 
 def modern_input_stil() -> str:
@@ -475,8 +448,8 @@ def modern_input_stil() -> str:
     [data-testid="stDateInput"] input,
     [data-testid="stTextArea"] textarea {
         background: transparent !important;
-        color: #E8EDF4 !important;
-        font-size: 13.5px !important;
+        color: #A5B4FC !important;
+        font-size:13px !important;
         padding: 11px 14px !important;
         border: none !important;
         font-variant-numeric: tabular-nums;
@@ -501,7 +474,7 @@ def modern_input_stil() -> str:
     div[data-baseweb="base-input"]:focus-within,
     div[data-baseweb="select"]:focus-within > div,
     [data-testid="stTextArea"] textarea:focus {
-        border-color: #6366F1 !important;
+        border-color: #818CF8 !important;
         box-shadow: 0 0 0 3px rgba(99,102,241,0.20) !important;
         background: rgba(99,102,241,0.06) !important;
     }
@@ -511,7 +484,7 @@ def modern_input_stil() -> str:
     div[data-baseweb="base-input"] > div { border: none !important; background: transparent !important; }
 
     /* Etiketler biraz daha okunur */
-    [data-testid="stWidgetLabel"] p { font-size: 12px !important; color: #AEB9C9 !important; font-weight: 600 !important; }
+    [data-testid="stWidgetLabel"] p { font-size:13px !important; color: #94A3B8 !important; font-weight: 600 !important; }
     </style>
     """
 

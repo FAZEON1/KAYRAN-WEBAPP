@@ -101,19 +101,19 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
         "<style>"
         ".rkw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
         ".rkt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-        ".rkt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-        ".rkt thead th{padding:10px 12px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+        ".rkt thead tr{background:linear-gradient(135deg,#1C2A44,#0F172A)}"
+        ".rkt thead th{padding:10px 12px;color:#7DD3FC;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
         ".rkt thead th.l{text-align:left}"
-        ".rkt tbody{background:#131C35}"
-        ".rkt td{padding:8px 12px;font-size:11.5px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+        ".rkt tbody{background:#152036}"
+        ".rkt td{padding:8px 12px;font-size:11px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
         ".rkt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
         ".rkt tbody tr:hover{background:rgba(99,102,241,0.06)}"
-        ".rk-txt{text-align:left;color:#CBD5E1}"
-        ".rk-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
-        ".rk-pos{text-align:right;color:#4ADE80 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
+        ".rk-txt{text-align:left;color:#7DD3FC}"
+        ".rk-num{text-align:right;color:#7DD3FC;font-family:'JetBrains Mono',monospace}"
+        ".rk-pos{text-align:right;color:#6EE7B7 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
         ".rk-neg{text-align:right;color:#F87171 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
-        ".rk-red{color:#F87171 !important;font-weight:600}.rk-org{color:#FB923C !important;font-weight:600}"
-        ".rk-yel{color:#FCD34D !important;font-weight:600}.rk-grn{color:#4ADE80 !important;font-weight:600}.rk-dim{color:#64748B !important}"
+        ".rk-red{color:#F87171 !important;font-weight:600}.rk-org{color:#FBBF24 !important;font-weight:600}"
+        ".rk-yel{color:#FCD34D !important;font-weight:600}.rk-grn{color:#6EE7B7 !important;font-weight:600}.rk-dim{color:#64748B !important}"
         "</style>"
     )
     st.html(css + f'<div class="rkw"><table class="rkt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
@@ -141,7 +141,7 @@ def run():
     
     html, body, .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        background: #0A0F1E !important;
+        background: #0B1120 !important;
     }
 
     /* ── METRIC KARTLARI (modern · sade · profesyonel) ───────────────── */
@@ -166,8 +166,8 @@ def run():
         text-transform: uppercase !important;
     }
     div[data-testid="stMetricValue"] {
-        color: #F1F5F9 !important;
-        font-size: 25px !important;
+        color: #7DD3FC !important;
+        font-size:23px !important;
         font-weight: 700 !important;
         font-variant-numeric: tabular-nums;
         line-height: 1.22 !important;
@@ -175,7 +175,7 @@ def run():
         white-space: normal !important;
         word-break: break-word;
     }
-    div[data-testid="stMetricDelta"] { font-size: 12px !important; }
+    div[data-testid="stMetricDelta"] { font-size:13px !important; }
 
     /* ── ALERT BOX'LARI (warning/error/info/success) ─────────────────── */
     /* Streamlit'in default renkleri dark tema'da okunmuyor. Manuel override. */
@@ -183,7 +183,7 @@ def run():
         border-radius: 10px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 13px !important;
-        font-weight: 500 !important;
+        font-weight:400 !important;
         padding: 0 !important;
         border: 1px solid transparent !important;
         box-shadow: none !important;
@@ -240,25 +240,25 @@ def run():
     [data-testid="stMetric"]:hover { border-color: rgba(66,165,245,0.4); }
     [data-testid="stMetricLabel"],
     [data-testid="stMetricLabel"] * {
-        color: #78909C !important; font-size:11.5px !important; font-weight:700 !important;
+        color: #78909C !important; font-size:11px !important; font-weight:700 !important;
         letter-spacing:0.5px; text-transform:uppercase;
         white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
     }
     [data-testid="stMetricValue"],
     [data-testid="stMetricValue"] * {
-        color: #ECEFF1 !important; font-weight: 800 !important; font-size:24px !important;
+        color: #E2E8F0 !important; font-weight:700 !important; font-size:23px !important;
         white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
         line-height:1.15 !important;
     }
-    [data-testid="stMetricDelta"] { font-size:12px !important; }
+    [data-testid="stMetricDelta"] { font-size:13px !important; }
     
     /* ── BAŞLIK STİLLERİ ─────────────────────────────────────────────────── */
     .baslik {
         display: flex !important; align-items: center !important; gap: 11px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 19px !important;
-        font-weight: 750 !important;
-        color: #F1F5F9 !important;
+        font-weight:700 !important;
+        color: #7DD3FC !important;
         letter-spacing: -0.3px !important;
         margin: 2px 0 0 !important;
         line-height: 1.25 !important;
@@ -271,9 +271,9 @@ def run():
         font-size: 14px; letter-spacing: 0;
     }
     .alt-baslik {
-        font-size: 12.5px !important;
-        color: #7C8AA0 !important;
-        font-weight: 450 !important;
+        font-size:13px !important;
+        color: #94A3B8 !important;
+        font-weight:400 !important;
         letter-spacing: .1px !important;
         margin: 7px 0 18px !important;
         padding: 0 0 12px 41px !important;
@@ -283,65 +283,65 @@ def run():
     .alt-baslik::before {
         content: ""; position: absolute; left: 41px; bottom: -1px;
         width: 40px; height: 2px; border-radius: 2px;
-        background: linear-gradient(90deg, #6366F1, #8B5CF6);
+        background: linear-gradient(90deg, #818CF8, #818CF8);
     }
     .sayfa-baslik-cizgi {
         height: 3px;
-        background: linear-gradient(90deg, #1565C0, #42A5F5, transparent);
+        background: linear-gradient(90deg, #1565C0, #7DD3FC, transparent);
         border-radius: 2px;
         margin-bottom: 24px;
     }
     
     /* ── ETİKET KUTUCUKLARI ──────────────────────────────────────────────── */
-    .tag-kirmizi { background:#7F0000; color:#FFCDD2; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-    .tag-turuncu { background:#BF360C; color:#FFE0B2; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-    .tag-sari    { background:#F57F17; color:#FFF9C4; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-    .tag-yesil   { background:#1B5E20; color:#C8E6C9; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-    .tag-mavi    { background:#0D47A1; color:#BBDEFB; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-    .tag-gri     { background:#263238; color:#90A4AE; padding:3px 10px; border-radius:20px; font-size:11px; }
+    .tag-kirmizi { background:#7F0000; color:#F87171; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag-turuncu { background:#BF360C; color:#FBBF24; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag-sari    { background:#FBBF24; color:#FCD34D; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag-yesil   { background:#1B5E20; color:#6EE7B7; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag-mavi    { background:#0D47A1; color:#7DD3FC; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag-gri     { background:#263238; color:#94A3B8; padding:3px 10px; border-radius:20px; font-size:11px; }
     
     /* ── BİLGİ KUTULARI ─────────────────────────────────────────────────── */
     .uyari-box {
         background: linear-gradient(135deg,#3E1800,#2E1200);
-        border-left: 3px solid #FF6F00;
-        color: #FFE0B2;
+        border-left: 3px solid #FBBF24;
+        color: #FBBF24;
         padding: 12px 16px;
         border-radius: 0 8px 8px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
+        font-weight:400;
     }
     .info-box {
         background: linear-gradient(135deg,#0A1929,#071526);
-        border-left: 3px solid #42A5F5;
-        color: #BBDEFB;
+        border-left: 3px solid #7DD3FC;
+        color: #7DD3FC;
         padding: 12px 16px;
         border-radius: 0 8px 8px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
+        font-weight:400;
     }
     .basari-box {
         background: linear-gradient(135deg,#0F2910,#091E0A);
-        border-left: 3px solid #66BB6A;
-        color: #C8E6C9;
+        border-left: 3px solid #6EE7B7;
+        color: #6EE7B7;
         padding: 12px 16px;
         border-radius: 0 8px 8px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
+        font-weight:400;
     }
     
     /* ── SIDEBAR ─────────────────────────────────────────────────────────── */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #050B16 0%, #0A1628 100%) !important;
+        background: linear-gradient(180deg, #0B1120 0%, #0F172A 100%) !important;
         border-right: 1px solid rgba(255,255,255,0.06) !important;
     }
-    section[data-testid="stSidebar"] * { color: #CFD8DC !important; }
+    section[data-testid="stSidebar"] * { color: #E2E8F0 !important; }
     /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stButton button {
         background: linear-gradient(135deg,#1A3A5C,#1565C0) !important;
-        color: #ECEFF1 !important;
+        color: #E2E8F0 !important;
         border: none !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
@@ -360,7 +360,7 @@ def run():
         transition: all 0.2s !important;
     }
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg,#1565C0,#1E88E5) !important;
+        background: linear-gradient(135deg,#1565C0,#7DD3FC) !important;
         border: none !important;
         color: white !important;
         box-shadow: 0 4px 12px rgba(21,101,192,0.3) !important;
@@ -378,17 +378,17 @@ def run():
         background: rgba(255,255,255,0.05) !important;
         border: 1px solid rgba(255,255,255,0.12) !important;
         border-radius: 8px !important;
-        color: #ECEFF1 !important;
+        color: #E2E8F0 !important;
         font-size: 13px !important;
     }
     .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus {
-        border-color: #42A5F5 !important;
+        border-color: #7DD3FC !important;
         box-shadow: 0 0 0 2px rgba(66,165,245,0.15) !important;
     }
     label[data-testid="stWidgetLabel"] p {
         color: #78909C !important;
-        font-size: 12px !important;
+        font-size:13px !important;
         font-weight: 600 !important;
         letter-spacing: 0.3px !important;
     }
@@ -398,7 +398,7 @@ def run():
         background: rgba(255,255,255,0.04) !important;
         border-radius: 10px !important;
         border: 1px solid rgba(255,255,255,0.08) !important;
-        color: #90CAF9 !important;
+        color: #7DD3FC !important;
         font-weight: 600 !important;
         font-size: 13px !important;
     }
@@ -425,7 +425,7 @@ def run():
     }
     .stTabs [aria-selected="true"] {
         background: rgba(21,101,192,0.4) !important;
-        color: #90CAF9 !important;
+        color: #7DD3FC !important;
     }
     
     /* ── DATAFRAME ───────────────────────────────────────────────────────── */
@@ -439,12 +439,12 @@ def run():
     hr { border-color: rgba(255,255,255,0.06) !important; margin: 20px 0 !important; }
     
     /* ── TABLO HÜCRE RENKLERİ ────────────────────────────────────────────── */
-    .hucre-acil    { background:#7F0000 !important; color:#FFCDD2 !important; font-weight:700; }
-    .hucre-turuncu { background:#BF360C !important; color:#FFE0B2 !important; font-weight:600; }
-    .hucre-sari    { background:#827717 !important; color:#F9A825 !important; font-weight:600; }
-    .hucre-yesil   { background:#1B5E20 !important; color:#A5D6A7 !important; font-weight:600; }
-    .hucre-gri     { background:#263238 !important; color:#CFD8DC !important; }
-    .fcp-vurgu { color:#FFD54F; font-weight:800; font-size:15px; }
+    .hucre-acil    { background:#7F0000 !important; color:#F87171 !important; font-weight:700; }
+    .hucre-turuncu { background:#BF360C !important; color:#FBBF24 !important; font-weight:600; }
+    .hucre-sari    { background:#827717 !important; color:#FBBF24 !important; font-weight:600; }
+    .hucre-yesil   { background:#1B5E20 !important; color:#6EE7B7 !important; font-weight:600; }
+    .hucre-gri     { background:#263238 !important; color:#E2E8F0 !important; }
+    .fcp-vurgu { color:#FCD34D; font-weight:700; font-size:14px; }
     
     /* ── SCROLLBAR ───────────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -587,7 +587,7 @@ def run():
         metrik_satiri([
             {"label": "📦 Toplam Ürün", "value": f"{toplam_sku:,}", "renk": "#818CF8"},
             {"label": "🔴 Acil Sipariş", "value": f"{len(acil_urunler):,}", "renk": "#F87171"},
-            {"label": "🟠 Yaklaşıyor", "value": f"{len(yaklasan_urunler):,}", "renk": "#FB923C"},
+            {"label": "🟠 Yaklaşıyor", "value": f"{len(yaklasan_urunler):,}", "renk": "#FBBF24"},
             {"label": "🟡 Planlama", "value": f"{len(planlama_urunler):,}", "renk": "#FBBF24"},
         ])
     
@@ -604,15 +604,15 @@ def run():
                     f'padding:8px 12px;margin:4px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
                     f'<span style="color:#E2E8F0;font-weight:600;font-size:13px;">⚡ {ad_kisalt}</span>'
                     f'<div style="display:flex;gap:16px;flex-shrink:0;margin-left:12px;">'
-                    f'<span style="color:#94A3B8;font-size:12px;">📦 {toplam:,} adet</span>'
-                    f'<span style="color:#F87171;font-size:12px;font-weight:700;">{gun} günde biter</span>'
+                    f'<span style="color:#94A3B8;font-size:13px;">📦 {toplam:,} adet</span>'
+                    f'<span style="color:#F87171;font-size:13px;font-weight:700;">{gun} günde biter</span>'
                     f'</div></div>'
                 )
             acil_items = "".join(acil_items_list)
             st.markdown(
                 f'<div style="background:rgba(239,68,68,0.07);border-radius:12px;padding:16px 20px;margin:12px 0;border:1px solid rgba(239,68,68,0.22);border-left:3px solid rgba(239,68,68,0.6);">'
                 f'<div style="display:flex;align-items:center;margin-bottom:12px;">'
-                f'<span style="font-size:16px;font-weight:800;color:#F87171;">🚨 ACİL SİPARİŞ GEREKİYOR!</span>'
+                f'<span style="font-size:16px;font-weight:700;color:#F87171;">🚨 ACİL SİPARİŞ GEREKİYOR!</span>'
                 f'<span style="background:rgba(239,68,68,0.18);color:#FCA5A5;padding:2px 10px;border-radius:20px;'
                 f'font-size:13px;font-weight:700;margin-left:12px;">{len(acil_urunler)} ürün</span>'
                 f'</div>{acil_items}</div>',
@@ -629,17 +629,17 @@ def run():
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
                     f'padding:6px 12px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03);">'
                     f'<span style="color:#E2E8F0;font-size:13px;">📌 {ad_kisalt}</span>'
-                    f'<span style="color:#FBBF24;font-size:12px;font-weight:600;flex-shrink:0;margin-left:12px;">'
+                    f'<span style="color:#FBBF24;font-size:13px;font-weight:600;flex-shrink:0;margin-left:12px;">'
                     f'{gun}g içinde sipariş</span></div>'
                 )
             yak_items = "".join(yak_items_list)
-            kalan = f'<span style="color:#FBBF24;font-size:12px;"> + {len(yaklasan_urunler)-5} ürün daha</span>' if len(yaklasan_urunler) > 5 else ""
+            kalan = f'<span style="color:#FBBF24;font-size:13px;"> + {len(yaklasan_urunler)-5} ürün daha</span>' if len(yaklasan_urunler) > 5 else ""
             st.markdown(
                 f'<div style="background:rgba(245,158,11,0.06);border-radius:12px;padding:14px 20px;margin:8px 0;border:1px solid rgba(245,158,11,0.22);border-left:3px solid rgba(245,158,11,0.6);">'
                 f'<div style="display:flex;align-items:center;margin-bottom:10px;">'
                 f'<span style="font-size:14px;font-weight:700;color:#FBBF24;">⚠️ 30 Gün İçinde Sipariş Verilmeli</span>'
                 f'<span style="background:rgba(245,158,11,0.16);color:#FCD34D;padding:2px 8px;border-radius:20px;'
-                f'font-size:12px;font-weight:700;margin-left:10px;">{len(yaklasan_urunler)} ürün</span>{kalan}'
+                f'font-size:13px;font-weight:700;margin-left:10px;">{len(yaklasan_urunler)} ürün</span>{kalan}'
                 f'</div>{yak_items}</div>',
                 unsafe_allow_html=True
             )
@@ -671,7 +671,7 @@ def run():
         st.markdown(
             '<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;'
             'margin:6px 0 12px;display:flex;align-items:center;gap:9px">'
-            '<span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>'
+            '<span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#818CF8,#818CF8);display:inline-block"></span>'
             '🎯 Güncel Kampanyalar</div>',
             unsafe_allow_html=True)
         try:
@@ -701,10 +701,10 @@ def run():
             if _dagilim:
                 _ozet += f' · <span style="color:#94A3B8">{_dagilim}</span>'
             if _yakin:
-                _ozet += f' · <span style="color:#FB923C">⏳ {_yakin} tanesi 7 gün içinde bitiyor</span>'
-            st.markdown(f'<div style="font-size:12px;margin-bottom:14px">{_ozet}</div>', unsafe_allow_html=True)
+                _ozet += f' · <span style="color:#FBBF24">⏳ {_yakin} tanesi 7 gün içinde bitiyor</span>'
+            st.markdown(f'<div style="font-size:13px;margin-bottom:14px">{_ozet}</div>', unsafe_allow_html=True)
 
-            _TUR_RENK = {"Sellout": "#38BDF8", "Rebate": "#34D399", "Marketing": "#F472B6",
+            _TUR_RENK = {"Sellout": "#7DD3FC", "Rebate": "#34D399", "Marketing": "#F9A8D4",
                          "Spiff": "#FBBF24", "Belirsiz": "#94A3B8"}
             _satir_html = '<div style="display:flex;flex-direction:column;gap:8px">'
             for k in sorted(_kmps, key=_bts):
@@ -721,9 +721,9 @@ def run():
                     if _kalan < 0:
                         _kalan_html = '<span style="color:#F87171;font-size:11px;font-weight:600">süresi doldu</span>'
                     elif _kalan == 0:
-                        _kalan_html = '<span style="color:#FB923C;font-size:11px;font-weight:600">bugün bitiyor</span>'
+                        _kalan_html = '<span style="color:#FBBF24;font-size:11px;font-weight:600">bugün bitiyor</span>'
                     elif _kalan <= 7:
-                        _kalan_html = f'<span style="color:#FB923C;font-size:11px;font-weight:600">{_kalan} gün kaldı</span>'
+                        _kalan_html = f'<span style="color:#FBBF24;font-size:11px;font-weight:600">{_kalan} gün kaldı</span>'
                     else:
                         _kalan_html = f'<span style="color:#94A3B8;font-size:11px;font-weight:600">{_kalan} gün kaldı</span>'
                 _tur_rozet = f'<span style="background:{_renk}22;color:{_renk};font-size:10px;font-weight:700;padding:2px 9px;border-radius:6px;white-space:nowrap">{_tur or "—"}</span>'
@@ -771,7 +771,7 @@ def run():
         metrik_satiri([
             {"label": "📦 Toplam Ürün", "value": f"{len(urun_data):,}", "renk": "#818CF8"},
             {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{toplam_genel_stok:,} adet", "renk": "#22D3EE"},
-            {"label": "💰 Depo Stok Değeri (Cost)", "value": f"${toplam_stok_degeri:,.0f}", "renk": "#FB923C"},
+            {"label": "💰 Depo Stok Değeri (Cost)", "value": f"${toplam_stok_degeri:,.0f}", "renk": "#FBBF24"},
             {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${toplam_satis_degeri:,.0f}", "renk": "#34D399"},
         ])
 
@@ -786,12 +786,12 @@ def run():
         if _eksik_fiy: _sg.append(f'<span style="color:#F87171">⚠ {_eksik_fiy} satış fiyatsız</span>')
         if _eksik_mal: _sg.append(f'<span style="color:#94A3B8">{_eksik_mal} İthalat maliyeti yok</span>')
         if _sg:
-            st.markdown('<div style="font-size:12px;color:#94A3B8;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> '
+            st.markdown('<div style="font-size:13px;color:#94A3B8;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> '
                         + '  ·  '.join(_sg)
                         + ' <span style="color:#64748B">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
                         unsafe_allow_html=True)
         else:
-            st.markdown('<div style="font-size:12px;color:#34D399;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
+            st.markdown('<div style="font-size:13px;color:#34D399;margin:8px 0 2px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
                         unsafe_allow_html=True)
 
         st.markdown("---")
@@ -810,9 +810,9 @@ def run():
     
         # ── Ürün Başlığı (modern kart) ──
         st.markdown(f"""<div style="display:flex;align-items:center;gap:16px;padding:15px 18px;margin:4px 0 14px;background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(59,130,246,0.04));border:1px solid rgba(99,102,241,0.18);border-radius:16px;">
- <div style="width:48px;height:48px;border-radius:13px;flex-shrink:0;background:linear-gradient(135deg,#6366F1,#7C3AED);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 18px rgba(99,102,241,0.35);">📦</div>
+ <div style="width:48px;height:48px;border-radius:13px;flex-shrink:0;background:linear-gradient(135deg,#818CF8,#818CF8);display:flex;align-items:center;justify-content:center;font-size:23px;box-shadow:0 6px 18px rgba(99,102,241,0.35);">📦</div>
  <div style="min-width:0;">
- <div style="font-family:'Manrope','Inter',sans-serif;font-size:18px;font-weight:800;color:#F8FAFC;line-height:1.3;letter-spacing:-0.3px;">{secilen["urun_adi"]}</div>
+ <div style="font-family:'Manrope','Inter',sans-serif;font-size:16px;font-weight:700;color:#7DD3FC;line-height:1.3;letter-spacing:-0.3px;">{secilen["urun_adi"]}</div>
  <div style="margin-top:7px;"><span style="display:inline-block;padding:3px 11px;border-radius:7px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);color:#A5B4FC;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
  </div></div>""", unsafe_allow_html=True)
     
@@ -821,14 +821,14 @@ def run():
         toplam = secilen.get("toplam_stok", bizim_stok + toplam_firma)
     
         # Stok kartları — ortak tema (renkli sol şeritli kart)
-        _stok_cards = [{"label": "G5F DEPO", "value": f"{bizim_stok:,}", "alt": "adet", "renk": "#60A5FA"}]
+        _stok_cards = [{"label": "G5F DEPO", "value": f"{bizim_stok:,}", "alt": "adet", "renk": "#7DD3FC"}]
         for firma, adet in firma_st.items():
             if adet > 0:
                 _stok_cards.append({"label": firma, "value": f"{adet:,}", "alt": "adet"})
         st.markdown(
             f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
-            f'<span style="color:#8B97A8; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
-            f'<span style="color:#FBBF24; font-size:18px; font-weight:800;">{toplam:,} adet</span>'
+            f'<span style="color:#94A3B8; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
+            f'<span style="color:#FBBF24; font-size:16px; font-weight:700;">{toplam:,} adet</span>'
             f'</div>',
             unsafe_allow_html=True)
         metrik_satiri(_stok_cards)
@@ -839,17 +839,17 @@ def run():
             _dk_toplam = sum(int(v or 0) for v in _dk.values())
             _chips = "".join(
                 f'<span style="display:inline-flex;gap:6px;align-items:center;background:rgba(255,255,255,0.04);'
-                f'border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:5px 11px;font-size:12px;color:#CBD5E1">'
-                f'{_d} <b style="color:#93C5FD;font-family:monospace">{int(_v or 0):,}</b></span>'
+                f'border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:5px 11px;font-size:13px;color:#7DD3FC">'
+                f'{_d} <b style="color:#7DD3FC;font-family:monospace">{int(_v or 0):,}</b></span>'
                 for _d, _v in sorted(_dk.items(), key=lambda x: -int(x[1] or 0)))
             st.markdown(
                 f'<div style="margin:2px 0 12px">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'
-                f'<span style="color:#8B97A8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
-                f'<span style="color:#34D399;font-size:14px;font-weight:800;font-family:monospace">Tüm depolar: {_dk_toplam:,} adet</span></div>'
+                f'<span style="color:#94A3B8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
+                f'<span style="color:#34D399;font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {_dk_toplam:,} adet</span></div>'
                 f'<div style="display:flex;flex-wrap:wrap;gap:7px">{_chips}</div>'
-                f'<div style="color:#64748B;font-size:10.5px;margin-top:7px">Sipariş önerisinde kullanılan stok '
-                f'(Merkez + Happy Life): <b style="color:#93C5FD">{bizim_stok:,}</b></div>'
+                f'<div style="color:#64748B;font-size:11px;margin-top:7px">Sipariş önerisinde kullanılan stok '
+                f'(Merkez + Happy Life): <b style="color:#7DD3FC">{bizim_stok:,}</b></div>'
                 f'</div>', unsafe_allow_html=True)
     
         # Fiyat ve karlılık kartı
@@ -867,11 +867,11 @@ def run():
         if fob > 0 or fcp > 0:
             _son_alt = f"En yeni dosya · {son_tarih}" if son_tarih else "En yeni ithalat dosyası"
             _fiyat_cards = [
-                {"label": "PAÇAL FOB", "value": f"${fob:,.2f}", "renk": "#60A5FA",
+                {"label": "PAÇAL FOB", "value": f"${fob:,.2f}", "renk": "#7DD3FC",
                  "alt": "Adet-ağırlıklı ortalama"},
-                {"label": "SON FOB", "value": f"${son_fob:,.2f}" if son_fob else "—", "renk": "#38BDF8",
+                {"label": "SON FOB", "value": f"${son_fob:,.2f}" if son_fob else "—", "renk": "#7DD3FC",
                  "alt": _son_alt},
-                {"label": f"COST (%{mal_y:.1f})", "value": f"${cost:,.2f}", "renk": "#FB923C"},
+                {"label": f"COST (%{mal_y:.1f})", "value": f"${cost:,.2f}", "renk": "#FBBF24"},
                 {"label": "⭐ PAÇAL MALİYET", "value": f"${fcp:,.2f}", "renk": "#FBBF24",
                  "alt": "Landed · İthalat"},
                 {"label": "SON MALİYET", "value": f"${son_fcp:,.2f}" if son_fcp else "—", "renk": "#FCD34D",
@@ -890,25 +890,25 @@ def run():
                                              "renk": "#F87171", "alt": "Satış, paçal maliyetin altında"})
             st.markdown(
                 f'<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px">'
-                f'<div style="color:#90CAF9;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">FİYAT ANALİZİ</div>'
-                f'<div style="color:#A5D6A7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>',
+                f'<div style="color:#7DD3FC;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px">FİYAT ANALİZİ</div>'
+                f'<div style="color:#6EE7B7;font-size:10px;font-weight:600;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:3px 9px">🚢 İthalat · {ithalat_dosya} parti</div></div>',
                 unsafe_allow_html=True)
             metrik_satiri(_fiyat_cards)
         else:
-            st.markdown('<div style="background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:12px;padding:16px;text-align:center;color:#94A3B8;font-size:12px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:rgba(148,163,184,0.06);border:1px dashed rgba(148,163,184,0.25);border-radius:12px;padding:16px;text-align:center;color:#94A3B8;font-size:13px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
 
         # EOL rozeti
         if secilen.get("eol"):
             st.markdown(
                 '<div style="background:rgba(248,113,113,0.10);border:1px solid rgba(248,113,113,0.35);'
-                'border-radius:10px;padding:9px 14px;margin:4px 0 10px;color:#F87171;font-size:12.5px;font-weight:700">'
+                'border-radius:10px;padding:9px 14px;margin:4px 0 10px;color:#F87171;font-size:13px;font-weight:700">'
                 '⛔ EOL — Bu ürün üretimi/satışı sonlandı olarak işaretli; sipariş önerisine girmez.</div>',
                 unsafe_allow_html=True)
 
         # Müşteri bazlı satış fiyat listesi
         _fl = secilen.get("satis_fiyat_listesi") or {}
         if _fl:
-            st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:6px 0 6px">🏷️ Müşteri Bazlı Satış Fiyatları</div>', unsafe_allow_html=True)
+            st.markdown('<div style="color:#7DD3FC;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:6px 0 6px">🏷️ Müşteri Bazlı Satış Fiyatları</div>', unsafe_allow_html=True)
             metrik_satiri([{"label": _m, "value": f"${_v:,.2f}", "renk": "#22D3EE"}
                            for _m, _v in _fl.items()])
 
@@ -931,8 +931,8 @@ def run():
             {"label": "📦 Toplam Stok", "value": f"{toplam_stok_ud:,}", "renk": "#818CF8"},
             {"label": "📊 Ort. Hft. Satış", "value": f"{round(urun.get('ortalama_haftalik_satis', 0)):,}", "renk": "#22D3EE"},
             {"label": "⚡ Risk Skoru", "value": f"{_risk}/100", "renk": _risk_renk},
-            {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": "#A78BFA"},
-            {"label": "📦 Sipariş Önerisi", "value": f"{urun.get('oneri_miktar',0)} adet", "renk": "#FB923C"},
+            {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": "#818CF8"},
+            {"label": "📦 Sipariş Önerisi", "value": f"{urun.get('oneri_miktar',0)} adet", "renk": "#FBBF24"},
         ])
     
         # Sipariş durumu banner (yumuşak, tek katman)
@@ -942,8 +942,8 @@ def run():
         _durum_stil = {
             "acil":       ("rgba(239,68,68,0.07)", "rgba(239,68,68,0.55)", "🚨", "#F87171"),
             "yaklasıyor": ("rgba(245,158,11,0.07)", "rgba(245,158,11,0.5)", "⚠️", "#FBBF24"),
-            "planlama":   ("rgba(59,130,246,0.07)", "rgba(59,130,246,0.5)", "📋", "#93C5FD"),
-            "veri_yok":   ("rgba(34,197,94,0.06)", "rgba(34,197,94,0.45)", "✅", "#4ADE80"),
+            "planlama":   ("rgba(59,130,246,0.07)", "rgba(59,130,246,0.5)", "📋", "#7DD3FC"),
+            "veri_yok":   ("rgba(34,197,94,0.06)", "rgba(34,197,94,0.45)", "✅", "#6EE7B7"),
         }
         _bg, _brd, _ik, _tc = _durum_stil.get(siparis_durum, _durum_stil["veri_yok"])
         _detay = f' <span style="color:#94A3B8;font-weight:400;">· {_oneri_mesaj}</span>' if _oneri_mesaj else ""
@@ -1115,10 +1115,10 @@ def run():
                     kanal_str = " · ".join(_kanallar) if _kanallar else "—"
                     kanal_title = kanal_str.replace(chr(34), "&quot;")
                     _loss = (nk is not None and nk < 0)
-                    _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #EF4444"' if _loss else ""
+                    _tr_attr = ' style="background:rgba(239,68,68,0.07);box-shadow:inset 3px 0 0 #F87171"' if _loss else ""
                     _yas_v = r.get("_stok_yas")
                     _yas_renk = r.get("_stok_renk", "yok")
-                    _yas_renk_map = {"yesil": "#4ADE80", "sari": "#FBBF24", "turuncu": "#FB923C", "kirmizi": "#F87171"}
+                    _yas_renk_map = {"yesil": "#6EE7B7", "sari": "#FBBF24", "turuncu": "#FBBF24", "kirmizi": "#F87171"}
                     if _yas_renk in _yas_renk_map:
                         _yas_col = _yas_renk_map[_yas_renk]
                         _yas_txt = f"{int(_yas_v or 0)}g"
@@ -1148,25 +1148,25 @@ def run():
                     "<style>"
                     ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:6px}"
                     ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
-                    ".urun-tbl thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                    ".urun-tbl thead th{padding:8px 6px;color:#CBD5E1;font-size:9.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
+                    ".urun-tbl thead tr{background:linear-gradient(135deg,#1C2A44,#0F172A)}"
+                    ".urun-tbl thead th{padding:8px 6px;color:#7DD3FC;font-size:10px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
                     ".urun-tbl thead th.l{text-align:left}"
-                    ".urun-tbl tbody{background:#131C35}"
+                    ".urun-tbl tbody{background:#152036}"
                     ".urun-tbl td{padding:7px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                     ".urun-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
                     ".urun-tbl tbody tr:hover{background:rgba(99,102,241,0.06)}"
                     ".c-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                    ".c-name{color:#CBD5E1;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                    ".c-name{color:#7DD3FC;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                     ".c-kat{color:#94A3B8;font-size:11px}"
                     ".c-kanal{text-align:left;color:#94A3B8;font-family:'JetBrains Mono',monospace;font-size:11px;max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                    ".c-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                    ".c-num{text-align:right;color:#7DD3FC;font-family:'JetBrains Mono',monospace}"
                     ".c-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                     ".c-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                    ".c-mal{text-align:right;color:#C4B5FD;font-family:'JetBrains Mono',monospace}"
-                    ".c-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".c-mal{text-align:right;color:#818CF8;font-family:'JetBrains Mono',monospace}"
+                    ".c-pos{text-align:right;color:#6EE7B7;font-weight:700;font-family:'JetBrains Mono',monospace}"
                     ".c-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
                     ".c-fcp{text-align:right;color:#FBBF24;font-weight:600;font-family:'JetBrains Mono',monospace}"
-                    ".c-tot{text-align:right;color:#93C5FD;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                    ".c-tot{text-align:right;color:#7DD3FC;font-weight:700;font-family:'JetBrains Mono',monospace}"
                     ".c-muted{text-align:right;color:#475569;font-family:'JetBrains Mono',monospace}"
                     "</style>"
                 )
@@ -1301,13 +1301,13 @@ def run():
     
     
         st.markdown("---")
-        st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 6px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#0EA5E9);display:inline-block"></span>🚢 Yoldaki Ürün Durumu</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 6px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,#7DD3FC,#7DD3FC);display:inline-block"></span>🚢 Yoldaki Ürün Durumu</div>', unsafe_allow_html=True)
         _yr = urun.get("yol_renk", "yok")
         _ymik = urun.get("yol_miktar", 0)
         _ymsg = urun.get("yol_mesaj", "")
-        _yol_map = {"yesil": ("rgba(34,197,94,0.10)", "#4ADE80", "🟢", f"{_ymik} adet yolda · {_ymsg}"), "sari": ("rgba(245,158,11,0.10)", "#FBBF24", "🟡", f"{_ymik} adet yolda · {_ymsg}"), "kirmizi": ("rgba(239,68,68,0.10)", "#F87171", "🔴", _ymsg)}
+        _yol_map = {"yesil": ("rgba(34,197,94,0.10)", "#6EE7B7", "🟢", f"{_ymik} adet yolda · {_ymsg}"), "sari": ("rgba(245,158,11,0.10)", "#FBBF24", "🟡", f"{_ymik} adet yolda · {_ymsg}"), "kirmizi": ("rgba(239,68,68,0.10)", "#F87171", "🔴", _ymsg)}
         _yb, _yc, _yi, _yt = _yol_map.get(_yr, ("rgba(148,163,184,0.08)", "#94A3B8", "⚪", "Yolda ürün kaydı bulunmuyor."))
-        st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:7px 12px;font-size:12px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:7px 12px;font-size:13px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
 
 
     elif sayfa == "🎯  Kampanya Takip":
@@ -1504,16 +1504,16 @@ def run():
                     # Kampanya başlık kartı
                     st.markdown(f"""
                     <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:16px 20px;
-                                margin:12px 0 8px; border-left:5px solid #42A5F5;">
+                                margin:12px 0 8px; border-left:5px solid #7DD3FC;">
                       <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                          <span style="color:#90CAF9; font-size:18px; font-weight:800;">📢 {kamp["kampanya_adi"]}</span>
-                          <span style="background:#1F4E79; color:#90CAF9; padding:2px 10px; border-radius:10px;
-                                      font-size:12px; margin-left:10px; font-weight:600;">{kamp["firma"]}</span>
-                          <span style="background:#1B5E20; color:#A5D6A7; padding:2px 10px; border-radius:10px;
-                                      font-size:12px; margin-left:6px;">● AKTİF</span>
+                          <span style="color:#7DD3FC; font-size:16px; font-weight:700;">📢 {kamp["kampanya_adi"]}</span>
+                          <span style="background:#1F4E79; color:#7DD3FC; padding:2px 10px; border-radius:10px;
+                                      font-size:13px; margin-left:10px; font-weight:600;">{kamp["firma"]}</span>
+                          <span style="background:#1B5E20; color:#6EE7B7; padding:2px 10px; border-radius:10px;
+                                      font-size:13px; margin-left:6px;">● AKTİF</span>
                         </div>
-                        <span style="color:#90A4AE; font-size:12px;">
+                        <span style="color:#94A3B8; font-size:13px;">
                           {kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}
                         </span>
                       </div>
@@ -1591,7 +1591,7 @@ def run():
                                 for ku in k_urunler:
                                     kf1, kf2, kf3 = st.columns([2, 2, 1])
                                     with kf1:
-                                        st.markdown(f'<span style="color:#90CAF9; font-size:13px; font-weight:600;">{ku["sku"]}</span>'
+                                        st.markdown(f'<span style="color:#7DD3FC; font-size:13px; font-weight:600;">{ku["sku"]}</span>'
                                                    f'<span style="color:#546E7A; font-size:11px;"> — {ku.get("urun_adi","")[:40]}</span>',
                                                    unsafe_allow_html=True)
                                     with kf2:
@@ -1641,7 +1641,7 @@ def run():
     
                                 with st.form(f"urun_gun_{kid}_{ku_id}", clear_on_submit=False):
                                     st.markdown(f'<div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 14px; margin-bottom:6px;">'
-                                                f'<span style="color:#90CAF9; font-weight:700; font-size:13px;">📦 {ku.get("urun_adi","")}</span>'
+                                                f'<span style="color:#7DD3FC; font-weight:700; font-size:13px;">📦 {ku.get("urun_adi","")}</span>'
                                                 f'<span style="color:#546E7A; font-size:11px; margin-left:8px;">SKU: {ku["sku"]}</span>'
                                                 f'</div>', unsafe_allow_html=True)
     
@@ -1681,9 +1681,9 @@ def run():
                                         net_kar = (ug_satis - pacal_ku) - toplam_destek
                                         net_marj = (net_kar / ug_satis * 100) if ug_satis > 0 else 0
                                         toplam_net = net_kar * ug_satilan
-                                        renk = "#A5D6A7" if net_kar >= 0 else "#FFCDD2"
+                                        renk = "#6EE7B7" if net_kar >= 0 else "#F87171"
                                         st.markdown(
-                                            f'<div class="info-box" style="font-size:12px; margin:4px 0;">'
+                                            f'<div class="info-box" style="font-size:13px; margin:4px 0;">'
                                             f'⭐ Paçal: <b>${pacal_ku:.2f}</b> &nbsp;|&nbsp; '
                                             f'Net Kar/Adet: <span style="color:{renk}; font-weight:700;">${net_kar:.2f} (%{net_marj:.1f})</span> &nbsp;|&nbsp; '
                                             f'Toplam Net: <span style="color:{renk}; font-weight:700;">${toplam_net:.0f}</span>'
@@ -1723,7 +1723,7 @@ def run():
                                         )
                                         if hedef_marj_giris > 0:
                                             onerilen_satis = pacal / (1 - hedef_marj_giris / 100)
-                                            st.markdown(f"""<div class="info-box" style="font-size:12px">
+                                            st.markdown(f"""<div class="info-box" style="font-size:13px">
                                             💡 %{hedef_marj_giris:.1f} marj için önerilen satış: <b>${onerilen_satis:.2f}</b>
                                             </div>""", unsafe_allow_html=True)
     
@@ -1741,7 +1741,7 @@ def run():
                                         net_kar_birim = (u_satis - pacal) - toplam_destek if u_satis > 0 else 0
                                         net_marj = (net_kar_birim / u_satis * 100) if u_satis > 0 else 0  # Top-down: kar/satış
                                         st.markdown(f"""
-                                        <div class="info-box" style="font-size:12px">
+                                        <div class="info-box" style="font-size:13px">
                                         ⭐ Paçal: <b>${pacal:.2f}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${pacal_son:.2f}</b>' if pacal_son else ''}<br>
                                         💸 Toplam Destek: <b>${toplam_destek:.2f}</b><br>
                                         📈 Net Kar/Adet: <b>${net_kar_birim:.2f} (%{net_marj:.1f})</b>
@@ -1855,21 +1855,21 @@ def run():
                             "<style>"
                             ".kw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
                             ".kt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-                            ".kt thead tr{background:linear-gradient(135deg,#1E293B,#0F172A)}"
-                            ".kt thead th{padding:9px 11px;color:#CBD5E1;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+                            ".kt thead tr{background:linear-gradient(135deg,#1C2A44,#0F172A)}"
+                            ".kt thead th{padding:9px 11px;color:#7DD3FC;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
                             ".kt thead th:nth-child(1),.kt thead th:nth-child(2),.kt thead th:last-child{text-align:left}"
-                            ".kt tbody{background:#131C35}"
-                            ".kt td{padding:8px 11px;font-size:11.5px}"
+                            ".kt tbody{background:#152036}"
+                            ".kt td{padding:8px 11px;font-size:11px}"
                             ".kt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
                             ".kt tbody tr:hover{background:rgba(99,102,241,0.06)}"
                             ".kc-sku{color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                            ".kc-name{color:#CBD5E1;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+                            ".kc-name{color:#7DD3FC;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
                             ".kc-note{color:#78909C;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}"
-                            ".kc-num{text-align:right;color:#CBD5E1;font-family:'JetBrains Mono',monospace}"
+                            ".kc-num{text-align:right;color:#7DD3FC;font-family:'JetBrains Mono',monospace}"
                             ".kc-dim{text-align:right;color:#94A3B8;font-family:'JetBrains Mono',monospace}"
                             ".kc-money{text-align:right;color:#E2E8F0;font-family:'JetBrains Mono',monospace;font-weight:600}"
-                            ".kc-gold{text-align:right;color:#FFD54F;font-weight:600;font-family:'JetBrains Mono',monospace}"
-                            ".kc-pos{text-align:right;color:#4ADE80;font-weight:700;font-family:'JetBrains Mono',monospace}"
+                            ".kc-gold{text-align:right;color:#FCD34D;font-weight:600;font-family:'JetBrains Mono',monospace}"
+                            ".kc-pos{text-align:right;color:#6EE7B7;font-weight:700;font-family:'JetBrains Mono',monospace}"
                             ".kc-neg{text-align:right;color:#F87171;font-weight:700;font-family:'JetBrains Mono',monospace}"
                             "</style>"
                         )
@@ -1891,7 +1891,7 @@ def run():
                         _net_final = toplam_net_kar - _spiff_usd_p
                         _metrikler = [
                             {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
-                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_destek_verilen:,.0f}", "renk": "#FB923C"},
+                            {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_destek_verilen:,.0f}", "renk": "#FBBF24"},
                         ]
                         if _spiff_usd_p > 0:
                             _metrikler.append({
@@ -1904,7 +1904,7 @@ def run():
                             "renk": "#34D399" if _net_final > 0 else "#F87171",
                             "alt": "Kârlı" if _net_final > 0 else "Zararlı"})
                         _metrikler.append({
-                            "label": "🏪 Firma", "value": kamp["firma"], "renk": "#A78BFA",
+                            "label": "🏪 Firma", "value": kamp["firma"], "renk": "#818CF8",
                             "alt": (f"Tür: {_kamp_turu_p}" if _kamp_turu_p else None)})
                         metrik_satiri(_metrikler)
     
@@ -1973,7 +1973,7 @@ def run():
                     )
                     toplam_satilan = sum(ku.get("satilan_adet",0) or 0 for ku in k_urunler)
     
-                    net_renk = "#A5D6A7" if toplam_net >= 0 else "#FFCDD2"
+                    net_renk = "#6EE7B7" if toplam_net >= 0 else "#F87171"
                     net_bg = "#1B5E20" if toplam_net >= 0 else "#7F0000"
     
                     st.markdown(f"""
@@ -1981,23 +1981,23 @@ def run():
                                 margin:10px 0; border-left:5px solid #546E7A;">
                       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
                         <div>
-                          <span style="color:#CFD8DC; font-size:16px; font-weight:700;">📁 {kamp["kampanya_adi"]}</span>
-                          <span style="background:#263238; color:#90A4AE; padding:2px 8px; border-radius:8px; font-size:11px; margin-left:8px;">{kamp["firma"]}</span>
-                          <span style="background:#37474F; color:#CFD8DC; padding:2px 8px; border-radius:8px; font-size:11px; margin-left:4px;">● KAPALI</span>
-                          <div style="color:#78909C; font-size:12px; margin-top:4px;">{kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}</div>
+                          <span style="color:#E2E8F0; font-size:16px; font-weight:700;">📁 {kamp["kampanya_adi"]}</span>
+                          <span style="background:#263238; color:#94A3B8; padding:2px 8px; border-radius:8px; font-size:11px; margin-left:8px;">{kamp["firma"]}</span>
+                          <span style="background:#37474F; color:#E2E8F0; padding:2px 8px; border-radius:8px; font-size:11px; margin-left:4px;">● KAPALI</span>
+                          <div style="color:#78909C; font-size:13px; margin-top:4px;">{kamp["baslangic_tarihi"]} → {kamp["bitis_tarihi"]}</div>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
                           <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #818CF8; border-radius:10px; padding:7px 13px;">
-                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">SATILAN</div>
-                            <div style="color:#C7D2FE; font-size:16px; font-weight:800;">{toplam_satilan:,} adet</div>
+                            <div style="color:#94A3B8; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">SATILAN</div>
+                            <div style="color:#A5B4FC; font-size:16px; font-weight:700;">{toplam_satilan:,} adet</div>
                           </div>
-                          <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #FB923C; border-radius:10px; padding:7px 13px;">
-                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">TOPLAM DESTEK</div>
-                            <div style="color:#FB923C; font-size:16px; font-weight:800;">${toplam_destek:,.0f}</div>
+                          <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #FBBF24; border-radius:10px; padding:7px 13px;">
+                            <div style="color:#94A3B8; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">TOPLAM DESTEK</div>
+                            <div style="color:#FBBF24; font-size:16px; font-weight:700;">${toplam_destek:,.0f}</div>
                           </div>
                           <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid {'#34D399' if toplam_net >= 0 else '#F87171'}; border-radius:10px; padding:7px 13px;">
-                            <div style="color:#8B97A8; font-size:9px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">NET KAR</div>
-                            <div style="color:{'#34D399' if toplam_net >= 0 else '#F87171'}; font-size:16px; font-weight:800;">${toplam_net:,.0f}</div>
+                            <div style="color:#94A3B8; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">NET KAR</div>
+                            <div style="color:{'#34D399' if toplam_net >= 0 else '#F87171'}; font-size:16px; font-weight:700;">${toplam_net:,.0f}</div>
                           </div>
                         </div>
                       </div>
@@ -2085,7 +2085,7 @@ def run():
     
         metrik_satiri([
             {"label": "🔴 ACİL", "value": f"{len(acil):,}", "renk": "#F87171"},
-            {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{len(yaklasan):,}", "renk": "#FB923C"},
+            {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{len(yaklasan):,}", "renk": "#FBBF24"},
             {"label": "🟡 Planlama (60 gün)", "value": f"{len(planlama):,}", "renk": "#FBBF24"},
         ])
 
@@ -2162,9 +2162,9 @@ def run():
     
             def sp_rengi(row):
                 d = row.get("Durum","")
-                if d == "onaylandi":   return ["background-color:#1B5E20; color:#A5D6A7"]*len(row)
-                if d == "reddedildi":  return ["background-color:#7F0000; color:#FFCDD2"]*len(row)
-                return ["background-color:#827717; color:#FFF176"]*len(row)
+                if d == "onaylandi":   return ["background-color:#1B5E20; color:#6EE7B7"]*len(row)
+                if d == "reddedildi":  return ["background-color:#7F0000; color:#F87171"]*len(row)
+                return ["background-color:#827717; color:#FCD34D"]*len(row)
     
             render_renkli_tablo(
                 df_sp,
@@ -2201,8 +2201,8 @@ def run():
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
         # ── İthalat'tan Ürün Senkronizasyonu ──
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#7DD3FC;letter-spacing:1px;text-transform:uppercase;margin:4px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#0EA5E9,#7DD3FC);display:inline-block"></span>🚢 Ürünleri İthalat\'tan Senkronize Et</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:10px">Ürün listesi İthalat\'tan çekilir: İthalat\'taki her SKU ürün olur, İthalat\'ta olmayan <b style="color:#CBD5E1">eski modeller silinir</b>. Ortak ürünlerin satış/stok/hedef bilgisi korunur.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#7DD3FC;letter-spacing:1px;text-transform:uppercase;margin:4px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#7DD3FC,#7DD3FC);display:inline-block"></span>🚢 Ürünleri İthalat\'tan Senkronize Et</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:10px">Ürün listesi İthalat\'tan çekilir: İthalat\'taki her SKU ürün olur, İthalat\'ta olmayan <b style="color:#7DD3FC">eski modeller silinir</b>. Ortak ürünlerin satış/stok/hedef bilgisi korunur.</div>', unsafe_allow_html=True)
         try:
             from .database import ithalat_senkron_onizleme, senkronize_urunler_ithalattan
             _ekl, _sil, _kor, _ithoz, _mvmap = ithalat_senkron_onizleme()
@@ -2397,7 +2397,7 @@ def run():
                     st.rerun()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
-            st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:6px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
+            st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:6px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
             sablon_bytes = create_sample_excel_bytes()
             st.download_button("📥 Şablonu İndir", sablon_bytes, "SABLON_STOK_TAKIP.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -2408,8 +2408,8 @@ def run():
         with st.expander("📤 Dışa Aktar — Excel / PDF Rapor", expanded=False):
             _de1, _de2 = st.columns(2)
             with _de1:
-                st.markdown('<div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
-                st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#7DD3FC;font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#94A3B8;font-size:11px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
                 if st.button("📊 Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor"):
                     from .rapor import excel_rapor_olustur
                     import tempfile
@@ -2423,8 +2423,8 @@ def run():
                     else:
                         st.error(_msg)
             with _de2:
-                st.markdown('<div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
-                st.markdown('<div style="color:#94A3B8;font-size:11.5px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#F9A8D4;font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
+                st.markdown('<div style="color:#94A3B8;font-size:11px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
                 if st.button("📑 PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor"):
                     from .rapor import pdf_rapor_olustur
                     import tempfile
@@ -2439,8 +2439,8 @@ def run():
                         st.error(_msg)
 
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📤 G5F Stok · Haftalık Veri Yükleme</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında tüm sekmeler: <b style="color:#CBD5E1">G5F STOK</b> (bizim depo) · <b style="color:#CBD5E1">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b> (firma stokları) · <b style="color:#CBD5E1">YOLDAKI</b> (yoldaki ürünler)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#818CF8,#818CF8);display:inline-block"></span>📤 G5F Stok · Haftalık Veri Yükleme</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:12px">Tek Excel dosyasında tüm sekmeler: <b style="color:#7DD3FC">G5F STOK</b> (bizim depo) · <b style="color:#7DD3FC">ITOPYA, HB, VATAN, MONDAY, KANAL, DIGER</b> (firma stokları) · <b style="color:#7DD3FC">YOLDAKI</b> (yoldaki ürünler)</div>', unsafe_allow_html=True)
     
         dosya = st.file_uploader("Excel Dosyasını Seç", type=["xlsx","xls"], key="tek_dosya")
         if dosya:
@@ -2472,21 +2472,21 @@ def run():
                         st.warning(f"**{baslik}:** {mesaj}")
     
         st.markdown("---")
-        st.markdown('<div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 10px">📋 Excel Sekme Yapısı</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;margin:6px 0 10px">📋 Excel Sekme Yapısı</div>', unsafe_allow_html=True)
         st.markdown("""<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
- <div style="color:#90CAF9;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">G5F STOK <span style="color:#64748B;font-weight:500">· bizim depo + yoldaki</span></div>
- <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
+ <div style="color:#7DD3FC;font-size:13px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">G5F STOK <span style="color:#64748B;font-weight:400">· bizim depo + yoldaki</span></div>
+ <div style="color:#94A3B8;font-size:11px;line-height:1.7">SKU · Ürün Adı · Kategori · Marka · Satış Fiyatı ($) · Hedef Kar Marjı (%) · Bizim Stok · Yoldaki Miktar · Tahmini Varış Tarihi · Yoldaki Tedarikçi</div>
  </div>
  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px">
- <div style="color:#F9A8D4;font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:500">· firma stokları</span></div>
- <div style="color:#94A3B8;font-size:11.5px;line-height:1.7">SKU · Ürün Adı · Stok Miktarı · Haftalık Satış</div>
+ <div style="color:#F9A8D4;font-size:13px;font-weight:700;letter-spacing:.4px;margin-bottom:6px">ITOPYA / HB / VATAN / MONDAY / KANAL / DIGER <span style="color:#64748B;font-weight:400">· firma stokları</span></div>
+ <div style="color:#94A3B8;font-size:11px;line-height:1.7">SKU · Ürün Adı · Stok Miktarı · Haftalık Satış</div>
  </div>
  </div>""", unsafe_allow_html=True)
     
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#38BDF8,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#CBD5E1">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#CBD5E1">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#7DD3FC,#818CF8);display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:#7DD3FC">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:#7DD3FC">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
         dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
         if dosya_g:
@@ -2505,7 +2505,7 @@ def run():
 
         st.markdown("---")
         st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#34D399,#22D3EE);display:inline-block"></span>📊 Firma Stok + Satış · Birleşik Tek Sayfa</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:12px">Stok ve satışı birleştirdiğin <b style="color:#CBD5E1">tek sayfalı</b> dosya. Sütunlar: <b style="color:#CBD5E1">FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA</b>. Her satır bir firma-ürün. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA <b>ayrı</b> saklanır. (GSF STOK & YOLDAKI bu dosyada beklenmez — yukarıdaki çok-sekmeli dosyadan gelir.)</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:12px">Stok ve satışı birleştirdiğin <b style="color:#7DD3FC">tek sayfalı</b> dosya. Sütunlar: <b style="color:#7DD3FC">FİRMA ADI · KATEGORİ · MARKA · STOK KODU · STOK ADI · STOK · STOK-MAĞAZA · SATIŞ · SATIŞ-MAĞAZA</b>. Her satır bir firma-ürün. STOK ve STOK-MAĞAZA / SATIŞ ve SATIŞ-MAĞAZA <b>ayrı</b> saklanır. (GSF STOK & YOLDAKI bu dosyada beklenmez — yukarıdaki çok-sekmeli dosyadan gelir.)</div>', unsafe_allow_html=True)
 
         dosya_b = st.file_uploader("Birleşik Excel'i Seç", type=["xlsx", "xls"], key="firma_birlesik_dosya")
         if dosya_b:
@@ -2523,8 +2523,8 @@ def run():
                     st.error(mesaj_b)
 
         st.markdown("---")
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#6366F1,#A78BFA);display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color:#94A3B8;font-size:12px;line-height:1.6;margin-bottom:8px">Hangi tarihlerde veri yüklendiğini gör, gerekirse sil.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#A5B4FC;letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:9px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,#818CF8,#818CF8);display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:8px">Hangi tarihlerde veri yüklendiğini gör, gerekirse sil.</div>', unsafe_allow_html=True)
     
         try:
             sb_vy = get_client()

@@ -173,7 +173,7 @@ def _sayfa_sevk():
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:15px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:4px 0 8px">'
                 '🕓 Son sevkler</div>', unsafe_allow_html=True)
     _gec = get_depo_sevk_gecmisi(50)
     if _gec:
@@ -301,7 +301,7 @@ def _sayfa_bekleyen():
                                    int(_mt_df["🔶 Bekleyen"].sum()), ""]
     st.dataframe(_mt_df, use_container_width=True, hide_index=True)
 
-    st.markdown('<div style="font-size:15px;font-weight:800;color:#A5B4FC;margin:8px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:8px 0 8px">'
                 '🚚 Sevk düş (bekleyenden düşüm) / kayıt yönetimi</div>', unsafe_allow_html=True)
     _mt_sec = st.selectbox(
         "Kayıt", _mt_g,
@@ -382,7 +382,7 @@ def _sayfa_bekleyen():
 
     # ═══════════ 📋 TÜM SEVK HAREKETLERİ (konsolide) ═══════════
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:15px;font-weight:800;color:#A5B4FC;margin:4px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:4px 0 8px">'
                 '📋 Tüm Sevk Hareketleri</div>', unsafe_allow_html=True)
 
     _duz = []
@@ -698,7 +698,7 @@ def _sayfa_happylife():
         {"label": "📦 SKU Çeşidi", "value": f"{_cesit:,}", "renk": "#22D3EE"},
         {"label": "⏳ En Yaşlı Stok", "value": f"{_max_yas} gün",
          "renk": "#F87171" if _max_yas >= 120 else "#FBBF24" if _max_yas >= 60 else "#34D399"},
-        {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": "#A78BFA"},
+        {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": "#818CF8"},
     ])
 
     # ── SKU ÖZET (Sayfa1 gibi: SKU · toplam miktar · en yüksek yaş) ──

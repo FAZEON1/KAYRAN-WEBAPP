@@ -90,7 +90,7 @@ def _alim_detay(a):
         f'border:1px solid rgba(129,140,248,0.20);border-left:3px solid #818CF8;'
         f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
         f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:15px;font-weight:800;color:#E2E8F0">📄 Alım Detayı</span>'
+        f'<span style="font-size:14px;font-weight:700;color:#E2E8F0">📄 Alım Detayı</span>'
         f'<span style="font-size:13px;font-weight:700;color:#A5B4FC;'
         f'font-family:JetBrains Mono,monospace">{a.get("belge_no") or "—"}</span></div>'
         f'</div>', unsafe_allow_html=True)
@@ -108,14 +108,14 @@ def _alim_detay(a):
 
     _indirim_str = f' · indirim %{_ind:.1f}' if _ind else ''
     _sag = (
-        _detay_satir("Adet", f"{_adet:,.0f}", "#93C5FD")
-        + _detay_satir("Birim FOB", _fob, "#CBD5E1")
-        + _detay_satir("Masraf Payı", f"%{_mas_yuzde:.1f}{_indirim_str}", "#FB923C")
+        _detay_satir("Adet", f"{_adet:,.0f}", "#7DD3FC")
+        + _detay_satir("Birim FOB", _fob, "#7DD3FC")
+        + _detay_satir("Masraf Payı", f"%{_mas_yuzde:.1f}{_indirim_str}", "#FBBF24")
         + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.08);'
           f'border:1px solid rgba(52,211,153,0.28);border-radius:12px;text-align:center">'
           f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
           f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Final Birim Maliyet</div>'
-          f'<div style="font-size:23px;font-weight:800;color:#34D399;'
+          f'<div style="font-size:23px;font-weight:700;color:#34D399;'
           f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_final}</div></div>')
 
     st.markdown(
@@ -153,24 +153,24 @@ def _satis_detay(s, satir_kar):
         f'border:1px solid rgba(129,140,248,0.20);border-left:3px solid #818CF8;'
         f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
         f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:15px;font-weight:800;color:#E2E8F0">📄 Satış Detayı</span>'
+        f'<span style="font-size:14px;font-weight:700;color:#E2E8F0">📄 Satış Detayı</span>'
         f'<span style="font-size:13px;font-weight:700;color:#A5B4FC;font-family:Inter">'
         f'{gun_ay_yil(s.get("tarih"))} · {s.get("kanal") or "—"}</span></div></div>',
         unsafe_allow_html=True)
 
     _sol = (
         _detay_satir("Sipariş No", s.get("siparis_no") or "—")
-        + _detay_satir("Adet", f"{_f(k.get('adet') or s.get('adet')):,.0f}", "#93C5FD")
-        + _detay_satir("Birim Satış", _usd(s.get("birim_satis")), "#CBD5E1")
-        + _detay_satir("Birim Maliyet", _usd(s.get("birim_maliyet")), "#FB923C"))
+        + _detay_satir("Adet", f"{_f(k.get('adet') or s.get('adet')):,.0f}", "#7DD3FC")
+        + _detay_satir("Birim Satış", _usd(s.get("birim_satis")), "#7DD3FC")
+        + _detay_satir("Birim Maliyet", _usd(s.get("birim_maliyet")), "#FBBF24"))
     _sag = (
-        _detay_satir("Birim Destek", _usd(_destek), "#A78BFA")
-        + _detay_satir("Ciro", _usd(k.get("ciro")), "#CBD5E1")
+        _detay_satir("Birim Destek", _usd(_destek), "#818CF8")
+        + _detay_satir("Ciro", _usd(k.get("ciro")), "#7DD3FC")
         + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.06);'
           f'border:1px solid {_nk_renk}44;border-radius:12px;text-align:center">'
           f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
           f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Net Kâr · Marj %{_marj:.1f}</div>'
-          f'<div style="font-size:23px;font-weight:800;color:{_nk_renk};'
+          f'<div style="font-size:23px;font-weight:700;color:{_nk_renk};'
           f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_usd(_nk)}</div></div>')
 
     st.markdown(
@@ -308,7 +308,7 @@ def goster(sku):
         f'border:1px solid rgba(129,140,248,0.25);border-left:3px solid #818CF8;'
         f'border-radius:16px;padding:14px 18px;margin-bottom:12px">'
         f'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
-        f'<span style="font-size:19px;font-weight:800;color:#E2E8F0;'
+        f'<span style="font-size:19px;font-weight:700;color:#E2E8F0;'
         f'font-family:JetBrains Mono,monospace;letter-spacing:-0.3px">{sku}</span>'
         f'<span style="font-size:13px;color:#94A3B8;flex:1;min-width:180px">'
         f'{(urun.get("urun_adi") or "—")}</span>'
@@ -370,7 +370,7 @@ def goster(sku):
                   _kart("Canlı Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"))
         _kart_satiri([
             _kart1,
-            _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", "#38BDF8"),
+            _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", "#7DD3FC"),
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", "#F87171"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", "#A5B4FC"),
         ])
@@ -421,7 +421,7 @@ def goster(sku):
 
         # Genel toplam şeridi
         _genel = _g5f_toplam + _musteri_toplam
-        _serit = (f'<span style="color:{RENK["metin"]};font-weight:800">GENEL TOPLAM '
+        _serit = (f'<span style="color:{RENK["metin"]};font-weight:700">GENEL TOPLAM '
                   f'<span style="font-family:JetBrains Mono,monospace">{_genel:,.0f}</span></span>'
                   f'<span style="color:{RENK["silik"]}"> = bizim {_g5f_toplam:,.0f} + müşteri {_musteri_toplam:,.0f}</span>')
         # NOT: 'canlı hesap' ibaresi kullanıcı talebiyle şeritten kaldırıldı
@@ -588,14 +588,14 @@ def goster(sku):
                     f'rgba(34,211,238,0.05) 70%,transparent);border:1px solid rgba(129,140,248,0.30);'
                     f'border-left:3px solid {_renk};border-radius:14px;padding:16px 18px;margin-top:12px">'
                     f'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
-                    f'<span style="font-size:16px;font-weight:800;color:#E2E8F0">{_ad}</span>'
+                    f'<span style="font-size:16px;font-weight:700;color:#E2E8F0">{_ad}</span>'
                     f'<span style="font-size:11px;font-weight:700;color:{_renk};'
                     f'background:{_renk}1A;padding:4px 12px;border-radius:999px">{_durum_txt}</span></div>'
-                    f'<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:#94A3B8">'
-                    f'<span>Firma: <b style="color:#CBD5E1">{_k.get("firma") or "—"}</b></span>'
-                    f'<span>Tür: <b style="color:#CBD5E1">{_k.get("kampanya_turu") or "—"}</b></span>'
-                    f'<span>Kategori: <b style="color:#CBD5E1">{_k.get("kategori") or "—"}</b></span>'
-                    f'<span>Tarih: <b style="color:#CBD5E1">{gun_ay_yil(_k.get("baslangic_tarihi"))} → '
+                    f'<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:#94A3B8">'
+                    f'<span>Firma: <b style="color:#7DD3FC">{_k.get("firma") or "—"}</b></span>'
+                    f'<span>Tür: <b style="color:#7DD3FC">{_k.get("kampanya_turu") or "—"}</b></span>'
+                    f'<span>Kategori: <b style="color:#7DD3FC">{_k.get("kategori") or "—"}</b></span>'
+                    f'<span>Tarih: <b style="color:#7DD3FC">{gun_ay_yil(_k.get("baslangic_tarihi"))} → '
                     f'{gun_ay_yil(_k.get("bitis_tarihi"))}</b></span></div></div>',
                     unsafe_allow_html=True)
 
@@ -637,7 +637,7 @@ def goster(sku):
             _kart_satiri([
                 _kart("Günlük Hız", f"{gunluk_hiz:.1f}", "son 90 gün", "#A5B4FC"),
                 _kart("Tükenme", f"~{_tukenme:.0f} gün", "mevcut hızda", "#FBBF24"),
-                _kart("Stok Devir (DIO)", f"{_tukenme:.0f} gün", "elde kalma", "#38BDF8"),
+                _kart("Stok Devir (DIO)", f"{_tukenme:.0f} gün", "elde kalma", "#7DD3FC"),
             ])
             st.markdown(
                 f"📦 **Yeniden sipariş noktası:** Üretim/tedarik süresi {uretim_suresi} gün. "
@@ -697,7 +697,7 @@ def goster(sku):
             _it = sum(_f(r.get("iade_net")) for r in iadeler)
             _kart_satiri([
                 _kart("Toplam İade", f"{_ia:,.0f}", f"{len(iadeler)} kalem · stoğa döndü", "#FBBF24"),
-                _kart("İade Tutarı", _usd(_it), "müşteriye iade", "#FB923C"),
+                _kart("İade Tutarı", _usd(_it), "müşteriye iade", "#FBBF24"),
                 _kart("Tekrar Satılabilir", f"{_ia:,.0f} adet", "stoğa eklendi", "#34D399"),
             ])
             _fk = {}

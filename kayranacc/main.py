@@ -59,7 +59,7 @@ def run():
     # ── CSS ──────────────────────────────────────────────────────────────
     st.markdown("""
     <style>
-    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
+    /* Font @import kaldırıldı — tek kaynak config.toml */
     
     /* ── GLOBAL ── */
     *, *::before, *::after { box-sizing: border-box; }
@@ -67,7 +67,7 @@ def run():
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         -webkit-font-smoothing: antialiased;
-        background: #0A0F1E !important;
+        background: #0B1120 !important;
         color: #E2E8F0 !important;
     }
     
@@ -76,7 +76,7 @@ def run():
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"],
     .stApp {
-        background: #080C20 !important;
+        background: #0B1120 !important;
         min-height: 100vh;
     }
     
@@ -84,7 +84,7 @@ def run():
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #1A2540; }
     ::-webkit-scrollbar-thumb { background: #2D3F6B; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #4A6FA5; }
+    ::-webkit-scrollbar-thumb:hover { background: #A5B4FC; }
     
     /* ── SIDEBAR ── */
     section[data-testid="stSidebar"] {
@@ -102,36 +102,36 @@ def run():
     section[data-testid="stSidebar"] .stNumberInput input {
         background: rgba(255,255,255,0.08) !important;
         border: 1px solid rgba(255,255,255,0.12) !important;
-        color: #F1F5F9 !important;
+        color: #7DD3FC !important;
         border-radius: 8px !important;
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 15px !important;
+        font-size:14px !important;
         font-weight: 600 !important;
     }
     section[data-testid="stSidebar"] .stButton button {
         background: rgba(59, 130, 246, 0.15) !important;
         border: 1px solid rgba(59, 130, 246, 0.3) !important;
-        color: #93C5FD !important;
+        color: #7DD3FC !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
-        font-size: 12px !important;
+        font-size:13px !important;
         transition: all .2s !important;
     }
     section[data-testid="stSidebar"] .stButton button:hover {
         background: rgba(59, 130, 246, 0.25) !important;
-        color: #BFDBFE !important;
+        color: #7DD3FC !important;
     }
     section[data-testid="stSidebar"] hr {
         border-color: rgba(255,255,255,0.08) !important;
     }
     section[data-testid="stSidebar"] a {
-        color: #60A5FA !important;
+        color: #7DD3FC !important;
     }
     
     /* ── METRİK KARTLARI ── (eski: metric-container, yeni: stMetric) */
     [data-testid="metric-container"],
     [data-testid="stMetric"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 14px !important;
         padding: 20px 22px !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
@@ -154,7 +154,7 @@ def run():
     [data-testid="stMetricValue"],
     [data-testid="stMetricValue"] * {
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 24px !important;
+        font-size:23px !important;
         font-weight: 700 !important;
         color: #E2E8F0 !important;
         letter-spacing: -.5px !important;
@@ -184,30 +184,30 @@ def run():
     [data-testid="stBaseButton-secondary"]:hover {
         border-color: #94A3B8 !important;
         background: #243358 !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
     }
     /* Primary (mavi) butonlar — her yerde geçerli */
     .stButton > button[kind="primary"],
     [data-testid="stButton"] button[kind="primary"],
     [data-testid="stBaseButton-primary"] {
-        background: linear-gradient(135deg, #2563EB, #1D4ED8) !important;
+        background: linear-gradient(135deg, #A5B4FC, #A5B4FC) !important;
         border: none !important;
         box-shadow: 0 2px 8px rgba(37,99,235,0.3) !important;
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
     }
     .stButton > button[kind="primary"]:hover,
     [data-testid="stButton"] button[kind="primary"]:hover,
     [data-testid="stBaseButton-primary"]:hover {
-        background: linear-gradient(135deg, #1D4ED8, #93C5FD) !important;
+        background: linear-gradient(135deg, #A5B4FC, #7DD3FC) !important;
         box-shadow: 0 4px 16px rgba(37,99,235,0.4) !important;
         transform: translateY(-1px) !important;
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
     }
     /* Popover / Vadeyi Ötele gibi açılır buton tetikleyicileri */
     [data-testid="stPopover"] button {
         background: rgba(255,255,255,0.05) !important;
         border: 1.5px solid rgba(255,255,255,0.12) !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         border-radius: 10px !important;
         font-weight: 600 !important;
     }
@@ -226,7 +226,7 @@ def run():
         font-size: 13px !important;
         padding: 10px 14px !important;
         transition: border-color .2s, box-shadow .2s !important;
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
     }
     /* Sidebar'daki inputs için override (yukarıdaki kural ezilsin) */
@@ -236,10 +236,10 @@ def run():
     section[data-testid="stSidebar"] .stDateInput input {
         background: rgba(15,22,41,0.6) !important;
         border: 1px solid rgba(148,163,184,0.25) !important;
-        color: #F1F5F9 !important;
+        color: #7DD3FC !important;
         border-radius: 8px !important;
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 15px !important;
+        font-size:14px !important;
         font-weight: 600 !important;
         box-shadow: inset 0 1px 2px rgba(0,0,0,0.2) !important;
     }
@@ -256,17 +256,17 @@ def run():
     }
     section[data-testid="stSidebar"] .stNumberInput button:hover {
         background: rgba(59,130,246,0.2) !important;
-        color: #BFDBFE !important;
+        color: #7DD3FC !important;
     }
     .stTextInput input:focus, .stNumberInput input:focus,
     .stSelectbox select:focus, .stDateInput input:focus {
-        border-color: #3B82F6 !important;
+        border-color: #A5B4FC !important;
         box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
         outline: none !important;
     }
     .stTextInput label, .stNumberInput label, .stSelectbox label,
     .stDateInput label, .stTextArea label {
-        font-size: 12px !important;
+        font-size:13px !important;
         font-weight: 600 !important;
         color: #94A3B8 !important;
         letter-spacing: .3px !important;
@@ -279,14 +279,14 @@ def run():
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
-        color: #CBD5E1 !important;
-        background: #131C35 !important;
+        color: #7DD3FC !important;
+        background: #152036 !important;
         border-radius: 12px !important;
         border: 1.5px solid #E2E8F0 !important;
         padding: 14px 18px !important;
     }
     .streamlit-expanderContent {
-        background: #0A0F1E !important;
+        background: #0B1120 !important;
         border: 1.5px solid #E2E8F0 !important;
         border-top: none !important;
         border-radius: 0 0 12px 12px !important;
@@ -296,13 +296,13 @@ def run():
     [data-testid="stExpander"] details {
         border: 1.5px solid #E2E8F0 !important;
         border-radius: 12px !important;
-        background: #131C35 !important;
+        background: #152036 !important;
     }
     [data-testid="stExpander"] summary {
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
         font-size: 13px !important;
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 12px !important;
         padding: 12px 16px !important;
     }
@@ -312,18 +312,18 @@ def run():
     [data-testid="stExpander"] summary span,
     [data-testid="stExpander"] summary div,
     [data-testid="stExpander"] summary label {
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
     }
     /* +/- aç-kapa ikonu görünür olsun */
     [data-testid="stExpander"] summary svg,
     [data-testid="stExpanderToggleIcon"] {
-        color: #6366F1 !important;
+        color: #818CF8 !important;
         fill: currentColor !important;
         opacity: 1 !important;
     }
     /* Expander içeriği */
     [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
-        background: #0A0F1E !important;
+        background: #0B1120 !important;
         border-radius: 0 0 12px 12px !important;
         padding: 8px !important;
     }
@@ -353,8 +353,8 @@ def run():
         transition: all .2s !important;
     }
     .stTabs [aria-selected="true"] {
-        background: #131C35 !important;
-        color: #93C5FD !important;
+        background: #152036 !important;
+        color: #7DD3FC !important;
         box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;
     }
     
@@ -363,8 +363,8 @@ def run():
         display: flex !important; align-items: center !important; gap: 11px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 19px !important;
-        font-weight: 750 !important;
-        color: #F1F5F9 !important;
+        font-weight:700 !important;
+        color: #7DD3FC !important;
         letter-spacing: -0.3px !important;
         margin: 2px 0 0 !important;
         line-height: 1.25 !important;
@@ -377,9 +377,9 @@ def run():
         font-size: 14px; letter-spacing: 0;
     }
     .alt-baslik {
-        font-size: 12.5px !important;
-        color: #7C8AA0 !important;
-        font-weight: 450 !important;
+        font-size:13px !important;
+        color: #94A3B8 !important;
+        font-weight:400 !important;
         letter-spacing: .1px !important;
         margin: 7px 0 18px !important;
         padding: 0 0 12px 41px !important;
@@ -389,66 +389,66 @@ def run():
     .alt-baslik::before {
         content: ""; position: absolute; left: 41px; bottom: -1px;
         width: 40px; height: 2px; border-radius: 2px;
-        background: linear-gradient(90deg, #6366F1, #8B5CF6);
+        background: linear-gradient(90deg, #818CF8, #818CF8);
     }
     
     /* ── BADGE / TAG ── */
-    .tag-kirmizi { background:#2D0A0A; color:#FCA5A5; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #FECACA; }
-    .tag-turuncu { background:#2D200A; color:#FDE68A; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #FDE68A; }
-    .tag-sari    { background:#2D200A; color:#854D0E; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #FEF08A; }
-    .tag-yesil   { background:#0A2D15; color:#86EFAC; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #BBF7D0; }
-    .tag-mavi    { background:#0E1A3A; color:#93C5FD; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #BFDBFE; }
+    .tag-kirmizi { background:#2D0A0A; color:#FCA5A5; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #F87171; }
+    .tag-turuncu { background:#2D200A; color:#FCD34D; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #FCD34D; }
+    .tag-sari    { background:#2D200A; color:#854D0E; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #FCD34D; }
+    .tag-yesil   { background:#0A2D15; color:#6EE7B7; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #6EE7B7; }
+    .tag-mavi    { background:#0E1A3A; color:#7DD3FC; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; border:1px solid #7DD3FC; }
     .tag-gri     { background: #1A2540; color:#64748B; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid rgba(255,255,255,0.12); }
     
     /* ── ALERT KUTULARI ── */
     .uyari-box {
         background: linear-gradient(135deg, #2D200A, #2D200A);
-        border-left: 4px solid #F59E0B;
+        border-left: 4px solid #FBBF24;
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
+        font-weight:400;
         color: #FCD34D;
         box-shadow: 0 1px 4px rgba(245,158,11,0.1);
     }
     .info-box {
         background: linear-gradient(135deg, #0E1A3A, #0E1A3A);
-        border-left: 4px solid #3B82F6;
+        border-left: 4px solid #A5B4FC;
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
-        color: #60A5FA;
+        font-weight:400;
+        color: #7DD3FC;
         box-shadow: 0 1px 4px rgba(59,130,246,0.1);
     }
     .ok-box {
         background: linear-gradient(135deg, #0A2D15, #0A2D15);
-        border-left: 4px solid #22C55E;
+        border-left: 4px solid #6EE7B7;
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
-        color: #86EFAC;
+        font-weight:400;
+        color: #6EE7B7;
         box-shadow: 0 1px 4px rgba(34,197,94,0.1);
     }
     .alarm-box {
         background: linear-gradient(135deg, #2D0A0F, #3D1515);
-        border-left: 4px solid #EF4444;
+        border-left: 4px solid #F87171;
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
         margin: 8px 0;
         font-size: 13px;
-        font-weight: 500;
+        font-weight:400;
         color: #FCA5A5;
         box-shadow: 0 1px 4px rgba(239,68,68,0.1);
     }
     
     /* ── FORM ALANLARI ── */
     div[data-testid="stForm"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 16px !important;
         padding: 24px !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
@@ -458,7 +458,7 @@ def run():
     /* ── DIVIDER ── */
     hr {
         border: none !important;
-        border-top: 1px solid #F1F5F9 !important;
+        border-top: 1px solid #7DD3FC !important;
         margin: 20px 0 !important;
     }
     
@@ -468,7 +468,7 @@ def run():
         border-radius: 10px !important;
         font-family: 'Inter', sans-serif !important;
         font-size: 13px !important;
-        font-weight: 500 !important;
+        font-weight:400 !important;
         padding: 12px 16px !important;
         border: 1px solid transparent !important;
     }
@@ -495,14 +495,14 @@ def run():
     div[data-testid="stAlertContentInfo"],
     div.stAlert:has([data-testid="stAlertContentInfo"]) {
         background: #0E1A3A !important;
-        color: #60A5FA !important;
-        border-color: #93C5FD !important;
+        color: #7DD3FC !important;
+        border-color: #7DD3FC !important;
     }
     
     /* Success (yeşil) */
     div[data-testid="stAlertContentSuccess"],
     div.stAlert:has([data-testid="stAlertContentSuccess"]) {
-        background: #D1FAE5 !important;
+        background: #6EE7B7 !important;
         color: #064E3B !important;
         border-color: #6EE7B7 !important;
     }
@@ -524,7 +524,7 @@ def run():
     
     /* ── SPINNER ── */
     .stSpinner > div {
-        border-top-color: #3B82F6 !important;
+        border-top-color: #A5B4FC !important;
     }
     
     /* ── MONO FONT ── */
@@ -536,7 +536,7 @@ def run():
     
     /* ── KART ── */
     .pro-kart {
-        background: #131C35;
+        background: #152036;
         border-radius: 16px;
         padding: 20px 24px;
         border: 1px solid rgba(255,255,255,0.1);
@@ -560,14 +560,14 @@ def run():
     .stMarkdown p {
         font-family: 'Inter', sans-serif !important;
         font-size: 14px !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         line-height: 1.6 !important;
     }
     
     /* ── STREAMLIT ÜST BAR (HEADER) — yüksek kontrast, net ikonlar ── */
     header[data-testid="stHeader"],
     [data-testid="stHeader"] {
-        background: #FFFFFF !important;
+        background: #E2E8F0 !important;
         backdrop-filter: blur(10px) !important;
         border-bottom: 1px solid #E2E8F0 !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
@@ -578,7 +578,7 @@ def run():
     [data-testid="stHeader"] p,
     [data-testid="stToolbar"] span,
     [data-testid="stToolbarActions"] span {
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         opacity: 1 !important;
     }
     /* Buton zemini şeffaf, yazı koyu */
@@ -587,7 +587,7 @@ def run():
     [data-testid="stToolbarActions"] button,
     [data-testid="stMainMenu"] button {
         background: transparent !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         border: 1px solid transparent !important;
         border-radius: 8px !important;
         opacity: 1 !important;
@@ -595,7 +595,7 @@ def run():
     [data-testid="stHeader"] button:hover,
     [data-testid="stToolbar"] button:hover {
         background: #1A2540 !important;
-        border-color: #CBD5E1 !important;
+        border-color: #7DD3FC !important;
         color: #E2E8F0 !important;
     }
     /* İkonlar: yalnızca SVG'yi currentColor ile boya — arka plan şekillerini doldurma */
@@ -603,7 +603,7 @@ def run():
     [data-testid="stToolbar"] svg,
     [data-testid="stToolbarActions"] svg,
     [data-testid="stMainMenu"] svg {
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         fill: currentColor !important;
         opacity: 1 !important;
     }
@@ -622,18 +622,18 @@ def run():
         color-scheme: light !important;
     }
     .stApp {
-        background: linear-gradient(135deg, #0E1433 0%, #F8FAFF 50%, #0E1A3A 100%) !important;
+        background: linear-gradient(135deg, #0E1433 0%, #A5B4FC 50%, #0E1A3A 100%) !important;
     }
     /* Ana içerik yazıları — login sayfasını eziyordu, kaldırıldı */
     /* Yazı renkleri her sayfa için kendi spesifik kurallarında ayarlandı */
     /* Tab yazıları */
     .stTabs [data-baseweb="tab"] span { color: #64748B !important; }
-    .stTabs [aria-selected="true"] span { color: #93C5FD !important; }
+    .stTabs [aria-selected="true"] span { color: #7DD3FC !important; }
     /* Info / success / warning / error kutuları */
     /* DataFrame içi */
     .stDataFrame * { color: #E2E8F0 !important; }
     /* Expander */
-    .streamlit-expanderHeader p, .streamlit-expanderHeader span { color: #CBD5E1 !important; }
+    .streamlit-expanderHeader p, .streamlit-expanderHeader span { color: #7DD3FC !important; }
     /* Selectbox, input */
     .stSelectbox div, .stTextInput div, .stNumberInput div { color: #E2E8F0 !important; }
     
@@ -648,12 +648,12 @@ def run():
     .stApp .login-left-panel h2,
     body .login-left-panel,
     body .login-left-panel * {
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
     }
     /* Açık gri (muted) yazılar için ayrı kural */
     .stApp .login-left-panel .login-muted,
     body .login-left-panel .login-muted {
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
     }
     .stApp .login-left-panel .login-accent,
     body .login-left-panel .login-accent {
@@ -662,7 +662,7 @@ def run():
     /* "profesyonelce" gradient — color:transparent koruyalım */
     .stApp .login-left-panel h1 .login-gradient-text,
     body .login-left-panel h1 .login-gradient-text {
-        background: linear-gradient(135deg,#60A5FA,#A5B4FC,#C4B5FD) !important;
+        background: linear-gradient(135deg,#7DD3FC,#A5B4FC,#818CF8) !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
         background-clip: text !important;
@@ -688,23 +688,23 @@ def run():
     
     /* ── FILE UPLOADER — KARANLIK ALAN DÜZELTMESİ ── */
     [data-testid="stFileUploader"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 14px !important;
     }
     [data-testid="stFileUploader"] > div,
     [data-testid="stFileUploader"] section,
     [data-testid="stFileUploader"] section > div {
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 12px !important;
     }
     [data-testid="stFileUploader"] section {
-        border: 2px dashed #CBD5E1 !important;
+        border: 2px dashed #7DD3FC !important;
         padding: 16px !important;
     }
     [data-testid="stFileUploader"] button {
         background: #0E1A3A !important;
-        color: #93C5FD !important;
-        border: 1.5px solid #BFDBFE !important;
+        color: #7DD3FC !important;
+        border: 1.5px solid #7DD3FC !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
         font-size: 13px !important;
@@ -717,37 +717,37 @@ def run():
         color: #64748B !important;
     }
     [data-testid="stFileUploaderDropzone"] {
-        background: #131C35 !important;
-        border: 2px dashed #CBD5E1 !important;
+        background: #152036 !important;
+        border: 2px dashed #7DD3FC !important;
         border-radius: 12px !important;
     }
     
     /* ── DOWNLOAD BUTONU ── */
     [data-testid="stDownloadButton"] button {
-        background: #131C35 !important;
+        background: #152036 !important;
         border: 1.5px solid #E2E8F0 !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         border-radius: 10px !important;
         font-weight: 600 !important;
     }
     [data-testid="stDownloadButton"] button:hover {
         background: #151F38 !important;
-        border-color: #CBD5E1 !important;
+        border-color: #7DD3FC !important;
     }
     
     /* ── SELECTBOX DROPDOWN — Karanlık açılır paneli düzelt ── */
     [data-baseweb="select"] > div {
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
         border: 1.5px solid #E2E8F0 !important;
         border-radius: 10px !important;
     }
     [data-baseweb="select"] > div:hover {
-        border-color: #CBD5E1 !important;
+        border-color: #7DD3FC !important;
     }
     [data-baseweb="select"] span {
         color: #E2E8F0 !important;
-        font-weight: 500 !important;
+        font-weight:400 !important;
     }
     [data-baseweb="select"] svg {
         color: #64748B !important;
@@ -756,7 +756,7 @@ def run():
     
     /* Açılır liste popover */
     [data-baseweb="popover"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         border-radius: 10px !important;
         box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08) !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
@@ -766,7 +766,7 @@ def run():
         color: #E2E8F0 !important;
     }
     [data-baseweb="menu"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         padding: 4px !important;
         border-radius: 8px !important;
     }
@@ -775,35 +775,35 @@ def run():
     }
     [data-baseweb="menu"] li,
     [role="option"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
         padding: 8px 12px !important;
         border-radius: 6px !important;
         font-size: 13px !important;
-        font-weight: 500 !important;
+        font-weight:400 !important;
         transition: background .15s !important;
     }
     [data-baseweb="menu"] li:hover,
     [role="option"]:hover,
     [role="option"][aria-selected="true"] {
         background: #0E1A3A !important;
-        color: #93C5FD !important;
+        color: #7DD3FC !important;
     }
     [data-baseweb="option"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
     }
     [data-baseweb="option"]:hover {
         background: #0E1A3A !important;
-        color: #93C5FD !important;
+        color: #7DD3FC !important;
     }
     /* Açık bir şekilde koyu renk oluşumlarını engelle */
     ul[role="listbox"] {
-        background: #131C35 !important;
+        background: #152036 !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
     ul[role="listbox"] li {
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
     }
     
@@ -812,7 +812,7 @@ def run():
     [data-testid="stTextInput"] input,
     [data-testid="stDateInput"] input,
     textarea {
-        background: #131C35 !important;
+        background: #152036 !important;
         color: #E2E8F0 !important;
     }
     /* Sidebar'da bu kuralı ez */
@@ -820,7 +820,7 @@ def run():
     section[data-testid="stSidebar"] [data-testid="stTextInput"] input,
     section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
         background: rgba(15,22,41,0.6) !important;
-        color: #F1F5F9 !important;
+        color: #7DD3FC !important;
     }
     
     /* ── CHECKBOX ── */
@@ -830,23 +830,23 @@ def run():
     [data-testid="stCheckbox"] label div,
     [data-testid="stCheckbox"] label span,
     [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] {
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
     }
     /* Kutucuğun kendisi: beyaz zemin, belirgin kenarlık */
     [data-testid="stCheckbox"] [data-baseweb="checkbox"] span[aria-hidden="true"],
     [data-testid="stCheckbox"] [role="checkbox"] {
-        background-color: #FFFFFF !important;
+        background-color: #E2E8F0 !important;
         border: 1.5px solid #94A3B8 !important;
         border-radius: 5px !important;
     }
     /* İşaretliyken mavi dolgu, beyaz tik */
     [data-testid="stCheckbox"] [aria-checked="true"] span[aria-hidden="true"],
     [data-testid="stCheckbox"] [role="checkbox"][aria-checked="true"] {
-        background-color: #2563EB !important;
-        border-color: #2563EB !important;
-        color: #FFFFFF !important;
+        background-color: #A5B4FC !important;
+        border-color: #A5B4FC !important;
+        color: #E2E8F0 !important;
     }
-    [data-testid="stCheckbox"] [aria-checked="true"] svg { fill: #FFFFFF !important; }
+    [data-testid="stCheckbox"] [aria-checked="true"] svg { fill: #E2E8F0 !important; }
     
     /* ── SIDEBAR HARİÇ TUT ── */
     section[data-testid="stSidebar"] p,
@@ -862,10 +862,10 @@ def run():
     
     /* ── HTML TABLE IN stMarkdown (dark theme) ── */
     .stMarkdown table { border-collapse: collapse !important; width: 100% !important; background: #0F1629 !important; }
-    .stMarkdown table tr { background: #131C35 !important; }
+    .stMarkdown table tr { background: #152036 !important; }
     .stMarkdown table tr:nth-child(odd) { background: #0F1629 !important; }
-    .stMarkdown table td { color: #CBD5E1 !important; }
-    .stMarkdown table th { color: #94A3B8 !important; background: #0A0F1E !important; }
+    .stMarkdown table td { color: #7DD3FC !important; }
+    .stMarkdown table th { color: #94A3B8 !important; background: #0B1120 !important; }
     .stMarkdown table tr:nth-child(even) td { background: rgba(255,255,255,0.03) !important; }
 </style>
     """, unsafe_allow_html=True)
@@ -876,13 +876,13 @@ def run():
     GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"]
     
     KATEGORILER = {
-        "cek":      {"label": "Çek",         "oncelik": 1, "renk": "#dc2626"},
-        "kredi":    {"label": "Kredi",        "oncelik": 2, "renk": "#ea580c"},
+        "cek":      {"label": "Çek",         "oncelik": 1, "renk": "#F87171"},
+        "kredi":    {"label": "Kredi",        "oncelik": 2, "renk": "#F87171"},
         "kart":     {"label": "K.Kartı",      "oncelik": 3, "renk": "#d97706"},
-        "vergi":    {"label": "Vergi",        "oncelik": 4, "renk": "#7c3aed"},
+        "vergi":    {"label": "Vergi",        "oncelik": 4, "renk": "#818CF8"},
         "sgk":      {"label": "SGK",          "oncelik": 5, "renk": "#0891b2"},
         "kira":     {"label": "Kira",         "oncelik": 6, "renk": "#059669"},
-        "sabit":    {"label": "Sabit Gider",  "oncelik": 7, "renk": "#2563eb"},
+        "sabit":    {"label": "Sabit Gider",  "oncelik": 7, "renk": "#A5B4FC"},
         "cari":     {"label": "Cari Hesap",   "oncelik": 8, "renk": "#be185d"},
         "ithalat":  {"label": "İthalat",      "oncelik": 9, "renk": "#0e7490"},
         "ihracat":  {"label": "İhracat",      "oncelik": 10, "renk": "#15803d"},
@@ -1079,8 +1079,8 @@ def run():
                 border:1px solid rgba(59,130,246,0.22);
                 border-radius:999px;
                 padding:6px 12px;margin-bottom:12px;">
-                <span style="font-size:12px">📅</span>
-                <span style="font-size:11.5px;color:#93C5FD;font-weight:600;
+                <span style="font-size:13px">📅</span>
+                <span style="font-size:11px;color:#7DD3FC;font-weight:600;
                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
                     letter-spacing:.2px">{hafta['hafta_adi'].title()}</span>
             </div>
@@ -1128,7 +1128,7 @@ def run():
         if st.session_state.get("kur_otomatik_cekildi") and not st.session_state.get("kur_bildirim_gosterildi"):
             st.markdown(
                 f'<div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);'
-                f'border-radius:8px;padding:8px 8px;margin-bottom:8px;font-size:11px;color:#86EFAC;'
+                f'border-radius:8px;padding:8px 8px;margin-bottom:8px;font-size:11px;color:#6EE7B7;'
                 f'display:flex;align-items:center;gap:8px;">'
                 f'<span style="font-size:13px;">✓</span>'
                 f'<span>Güncel kur otomatik alındı</span>'
@@ -1207,7 +1207,7 @@ def run():
             st.stop()
 
         # ── 🏦 Banka bakiyeleri (üstte tek bakışta — virman öncesi durumu gör) ──
-        _renk_pb_v = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
+        _renk_pb_v = {"USD": "#7DD3FC", "TL": "#818CF8", "EUR": "#818CF8"}
         metrik_satiri([{
             "label": b["hesap_adi"],
             "value": (("$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺"))
@@ -1225,8 +1225,8 @@ def run():
             'align-items:center;font-size:13px">'
             '<span style="color:#94A3B8;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
             f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{_v_tl:,.2f}</b></span>'
-            f'<span style="color:#60A5FA">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
-            + (f'<span style="color:#A78BFA">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
+            f'<span style="color:#7DD3FC">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
+            + (f'<span style="color:#818CF8">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
             + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${_v_usd_esde:,.2f}</b></span>'
             '</div>', unsafe_allow_html=True)
 
@@ -1355,11 +1355,11 @@ def run():
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <div>
                                 <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('kaynak_hesap_adi','?')}</span>
-                                <span style="margin:0 8px;color:#94A3B8;font-size:15px">→</span>
+                                <span style="margin:0 8px;color:#94A3B8;font-size:14px">→</span>
                                 <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('hedef_hesap_adi','?')}</span>
                             </div>
                             <div style="text-align:right">
-                                <span style="font-family:monospace;color:#DC2626;font-weight:600">-{kaynak_sym}{v_tutar:,.2f}</span>
+                                <span style="font-family:monospace;color:#F87171;font-weight:600">-{kaynak_sym}{v_tutar:,.2f}</span>
                                 &nbsp;&nbsp;
                                 <span style="font-family:monospace;color:#16A34A;font-weight:600">+{hedef_sym}{v_hedef_tutar:,.2f}</span>
                             </div>
@@ -1407,13 +1407,13 @@ def run():
     
         if gecmis_alarmlar:
             isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-left:4px solid #F87171;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#EF4444;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCA5A5;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:#FECACA;font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-left:4px solid #F87171;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#F87171;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCA5A5;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:#F87171;font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
         if bugun_alarmlar:
             isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-left:4px solid #FBBF24;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:800">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCD34D;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#FDE68A;font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-left:4px solid #FBBF24;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#FBBF24;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:#FCD34D;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#FCD34D;font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
         if yarin_alarmlar:
             isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-left:4px solid #60A5FA;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#3B82F6;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:800">i</span></div><div><span style="font-size:11px;font-weight:700;color:#93C5FD;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#BFDBFE;font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-left:4px solid #7DD3FC;border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:#A5B4FC;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:11px;font-weight:700;color:#7DD3FC;letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:#7DD3FC;font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
     
         # Özet metrikler
         tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
@@ -1447,8 +1447,7 @@ def run():
     
         st.markdown(f"""
         <style>
-        /* .kart ailesi ortak tasarım katmanının takma adı oldu —
-           HTML değişmedi, görünüm tek yerden (shared/tasarim.py) geliyor. */
+        /* .kart ailesi ortak katmanın takma adı — HTML değişmedi. */
         .kart-grid {{ display:flex;flex-wrap:wrap;gap:var(--k-gap);margin-bottom:var(--k-gap) }}
         .kart {{
             flex:1;min-width:132px;background:var(--k-yuzey1);
@@ -1457,32 +1456,26 @@ def run():
             transition:background .12s ease,border-color .12s ease;
         }}
         .kart:hover {{ background:var(--k-yuzey2);border-color:var(--k-kenar2) }}
-        .kart-label {{
-            font-size:10px;font-weight:600;letter-spacing:.6px;
-            text-transform:uppercase;color:var(--k-soluk);
-        }}
-        .kart-deger {{
-            font-size:19px;font-weight:700;font-family:var(--k-mono);
-            font-variant-numeric:tabular-nums;
-            letter-spacing:-0.2px;line-height:1.25;color:var(--k-metin);
-        }}
+        .kart-label {{ font-size:10px;font-weight:600;letter-spacing:.6px;
+            text-transform:uppercase;color:var(--k-soluk); }}
+        .kart-deger {{ font-size:19px;font-weight:700;font-family:var(--k-mono);
+            font-variant-numeric:tabular-nums;letter-spacing:-0.2px;
+            line-height:1.25;color:var(--k-metin); }}
         .kart-alt {{ font-size:11px;margin-top:2px;color:var(--k-silik);font-weight:400 }}
-        .section-mini-title {{
-            font-size:10px;font-weight:600;letter-spacing:.6px;
-            text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px;
-        }}
+        .section-mini-title {{ font-size:10px;font-weight:600;letter-spacing:.6px;
+            text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px; }}
         </style>
     
         <div class="section-mini-title">Haftalık özet</div>
         <div class="kart-grid">
     
-          <div class="kart" style="border-left-color:#3B82F6">
+          <div class="kart" style="border-left-color:#A5B4FC">
             <div class="kart-label">Toplam TL</div>
             <div class="kart-deger">₺{fmt(tl_toplam)}</div>
             <div class="kart-alt">Ödendi: ₺{fmt(odendi_tl)}</div>
           </div>
     
-          <div class="kart" style="border-left-color:#8B5CF6">
+          <div class="kart" style="border-left-color:#818CF8">
             <div class="kart-label">Toplam USD</div>
             <div class="kart-deger">${fmt(usd_toplam)}</div>
             <div class="kart-alt">≈ ₺{fmt(usd_toplam * kur)}</div>
@@ -1490,14 +1483,14 @@ def run():
     
           <div class="kart" style="border-left-color:#10B981">
             <div class="kart-label">İlerleme</div>
-            <div class="kart-deger" style="color:#34D399">{odendi_cnt} <span style="font-size:15px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>
+            <div class="kart-deger" style="color:#34D399">{odendi_cnt} <span style="font-size:14px;color:#94A3B8;font-weight:600">/ {len(odemeler)}</span></div>
             <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
               <div style="background:#10B981;height:100%;width:{ilerleme_pct}%"></div>
             </div>
             <div class="kart-alt" style="margin-top:4px">%{ilerleme_pct} tamamlandı</div>
           </div>
     
-          <div class="kart" style="border-left-color:#F59E0B">
+          <div class="kart" style="border-left-color:#FBBF24">
             <div class="kart-label">Bekleyen TL</div>
             <div class="kart-deger">₺{fmt(bekleyen_tl)}</div>
             <div class="kart-alt">Ödenmesi gereken</div>
@@ -1520,7 +1513,7 @@ def run():
             <div class="kart-deger">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
             <div class="kart-alt">Ödenmemiş TL</div>
           </div>
-          <div class="kart" style="border-left-color:#FB923C">
+          <div class="kart" style="border-left-color:#FBBF24">
             <div class="kart-label">Bugün Kalan USD</div>
             <div class="kart-deger">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
             <div class="kart-alt">Ödenmemiş USD</div>
@@ -1565,9 +1558,9 @@ def run():
                                     for k in [next((key for key, v in KATEGORILER.items() if v["label"] == lab), "diger")
                                               for lab in kat_data.keys()]],
                         # Dilim arası boşluk hissi: zeminle aynı renkte kalın ayraç
-                        line=dict(color="#080C20", width=3),
+                        line=dict(color="#0B1120", width=3),
                     ),
-                    textfont=dict(family="Inter, sans-serif", size=12, color="#F1F5F9"),
+                    textfont=dict(family="Inter, sans-serif", size=12, color="#7DD3FC"),
                     textposition="inside",
                     textinfo="percent",
                     insidetextorientation="horizontal",
@@ -1575,19 +1568,19 @@ def run():
                 ))
                 _kat_toplam = sum(kat_data.values())
                 fig.add_annotation(
-                    text=(f"<span style='font-size:11px;color:#8B97A8'>TOPLAM</span><br>"
+                    text=(f"<span style='font-size:11px;color:#94A3B8'>TOPLAM</span><br>"
                           f"<b>₺{_kat_toplam/1e6:,.1f}M</b>" if _kat_toplam >= 1e6 else
-                          f"<span style='font-size:11px;color:#8B97A8'>TOPLAM</span><br>"
+                          f"<span style='font-size:11px;color:#94A3B8'>TOPLAM</span><br>"
                           f"<b>₺{_kat_toplam:,.0f}</b>"),
                     x=0.5, y=0.5, showarrow=False,
-                    font=dict(size=20, family="Inter, sans-serif", color="#F1F5F9"),
+                    font=dict(size=20, family="Inter, sans-serif", color="#7DD3FC"),
                 )
                 fig.update_layout(
                     height=330, margin=dict(t=16, b=8, l=8, r=8),
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                     showlegend=True,
                     legend=dict(
-                        font=dict(family="Inter, sans-serif", size=11, color="#B6C2D6"),
+                        font=dict(family="Inter, sans-serif", size=11, color="#A5B4FC"),
                         orientation="h",
                         yanchor="top", y=-0.06,
                         xanchor="center", x=0.5,
@@ -1595,8 +1588,8 @@ def run():
                         itemsizing="constant", itemwidth=30,
                     ),
                     font=dict(family="Inter, sans-serif", color="#E2E8F0"),
-                    hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
-                                    font=dict(family="Inter, sans-serif", color="#F1F5F9")),
+                    hoverlabel=dict(bgcolor="#152036", bordercolor="rgba(129,140,248,0.4)",
+                                    font=dict(family="Inter, sans-serif", color="#7DD3FC")),
                 )
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     
@@ -1611,19 +1604,19 @@ def run():
                 values=[odendi_tutar, bekleyen_tutar],
                 hole=0.72,
                 marker=dict(
-                    colors=["#34D399", "#F59E0B"],
-                    line=dict(color="#080C20", width=3),
+                    colors=["#34D399", "#FBBF24"],
+                    line=dict(color="#0B1120", width=3),
                 ),
-                textfont=dict(family="Inter, sans-serif", size=12, color="#F1F5F9"),
+                textfont=dict(family="Inter, sans-serif", size=12, color="#7DD3FC"),
                 textposition="inside",
                 textinfo="percent",
                 hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
             ))
             fig2.add_annotation(
-                text=(f"<span style='font-size:11px;color:#8B97A8'>TAMAMLANAN</span><br>"
+                text=(f"<span style='font-size:11px;color:#94A3B8'>TAMAMLANAN</span><br>"
                       f"<b>%{ilerleme_pct}</b>"),
                 x=0.5, y=0.5, showarrow=False,
-                font=dict(size=24, family="Inter, sans-serif", color="#F1F5F9"),
+                font=dict(size=24, family="Inter, sans-serif", color="#7DD3FC"),
             )
             fig2.update_layout(
                 height=330, margin=dict(t=16, b=8, l=8, r=8),
@@ -1631,15 +1624,15 @@ def run():
                 font=dict(family="Inter, sans-serif", color="#E2E8F0"),
                 showlegend=True,
                 legend=dict(
-                    font=dict(family="Inter, sans-serif", size=11, color="#B6C2D6"),
+                    font=dict(family="Inter, sans-serif", size=11, color="#A5B4FC"),
                     orientation="h",
                     yanchor="top", y=-0.06,
                     xanchor="center", x=0.5,
                     bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
                     itemsizing="constant", itemwidth=30,
                 ),
-                hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
-                                font=dict(family="Inter, sans-serif", color="#F1F5F9")),
+                hoverlabel=dict(bgcolor="#152036", bordercolor="rgba(129,140,248,0.4)",
+                                font=dict(family="Inter, sans-serif", color="#7DD3FC")),
             )
             st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
     
@@ -1699,11 +1692,11 @@ def run():
 
             def durum_badge(durum):
                 if "GECİKMİŞ" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(239,68,68,0.12);color:#EF4444;border:1px solid rgba(239,68,68,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">🚨 GECİKMİŞ</span>'''
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(239,68,68,0.12);color:#F87171;border:1px solid rgba(239,68,68,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">🚨 GECİKMİŞ</span>'''
                 elif "BUGÜN" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(245,158,11,0.12);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">⏰ BUGÜN</span>'''
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(245,158,11,0.12);color:#FBBF24;border:1px solid rgba(245,158,11,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">⏰ BUGÜN</span>'''
                 elif "YARIN" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(59,130,246,0.12);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">📅 YARIN</span>'''
+                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(59,130,246,0.12);color:#A5B4FC;border:1px solid rgba(59,130,246,0.3);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">📅 YARIN</span>'''
                 return f'''<span style="color:#94A3B8;font-size:11px">—</span>'''
 
             rows_html = ""
@@ -1711,7 +1704,7 @@ def run():
                 bg = row_bg(row.get("Durum", ""))
                 durum_html = durum_badge(row.get("Durum", ""))
                 bekliyor_val = row.get("Bekliyor", 0)
-                bekliyor_color = "#EF4444" if bekliyor_val and bekliyor_val > 0 else "#10B981"
+                bekliyor_color = "#F87171" if bekliyor_val and bekliyor_val > 0 else "#10B981"
                 odendi_val = row.get("Ödendi", 0)
                 _kisalt = lambda s, n=42: (str(s or "")[:n-1] + "…") if len(str(s or "")) > n else str(s or "")
                 firma_disp = _kisalt(row.get("Firma",""))
@@ -1720,7 +1713,7 @@ def run():
                 acik_title = str(row.get("Açıklama","") or "").replace(chr(34), "&quot;")
                 rows_html += f'''
                 <tr style="background:{bg};border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.15s">
-                  <td style="padding:8px 16px;font-weight:600;color:#CBD5E1;font-size:13px">{row.get("Gün","")}</td>
+                  <td style="padding:8px 16px;font-weight:600;color:#7DD3FC;font-size:13px">{row.get("Gün","")}</td>
                   <td style="padding:8px 16px;color:#64748B;font-size:13px;font-family:'JetBrains Mono',monospace">{row.get("Tarih","")}</td>
                   <td style="padding:8px 16px;text-align:center;color:#64748B;font-size:13px;font-weight:600">{row.get("Ödeme Sayısı","")}</td>
                   <td style="padding:8px 16px;text-align:center;color:#10B981;font-weight:700;font-size:13px">{odendi_val}</td>
@@ -1737,10 +1730,10 @@ def run():
               .takvim-tablo-wrap {{ overflow-x:auto; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,0.08); }}
               .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Inter','Inter',sans-serif; }}
               .takvim-tablo .cell-firma, .takvim-tablo .cell-acik {{ text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; padding:8px 16px; }}
-              .takvim-tablo .cell-firma {{ color:#CBD5E1; font-size:13px; font-weight:600; }}
+              .takvim-tablo .cell-firma {{ color:#7DD3FC; font-size:13px; font-weight:600; }}
               .takvim-tablo .cell-acik {{ color:#94A3B8; font-size:13px; }}
-              .takvim-tablo thead tr {{ background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%); }}
-              .takvim-tablo thead th {{ padding:12px 16px; color:#CBD5E1; font-size:11px; font-weight:700;
+              .takvim-tablo thead tr {{ background:linear-gradient(135deg,#1C2A44 0%,#0F172A 100%); }}
+              .takvim-tablo thead th {{ padding:12px 16px; color:#7DD3FC; font-size:11px; font-weight:700;
                 letter-spacing:1px; text-transform:uppercase; border:none; white-space:nowrap; }}
               .takvim-tablo thead th:first-child {{ border-radius:14px 0 0 0; }}
               .takvim-tablo thead th:last-child {{ border-radius:0 14px 0 0; text-align:center; }}
@@ -1749,7 +1742,7 @@ def run():
               .takvim-tablo thead th:nth-child(5) {{ text-align:center; }}
               .takvim-tablo thead th:nth-child(6),
               .takvim-tablo thead th:nth-child(7) {{ text-align:right; }}
-              .takvim-tablo tbody {{ background:#131C35; }}
+              .takvim-tablo tbody {{ background:#152036; }}
               .takvim-tablo tbody tr:hover {{ background:rgba(99,102,241,0.04) !important; }}
               .takvim-tablo tbody tr:last-child td:first-child {{ border-radius:0 0 0 14px; }}
               .takvim-tablo tbody tr:last-child td:last-child {{ border-radius:0 0 14px 0; }}
@@ -1838,7 +1831,7 @@ def run():
                 for o, _ in gecmis_alarm
             ) or _bos("Gecikmiş ödeme yok")
             _bug_html = "".join(
-                f'<div class="alarm-box" style="border-color:#F59E0B;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                f'<div class="alarm-box" style="border-color:#FBBF24;background:linear-gradient(135deg,#2D200A,#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                 for o, _ in bugun_alarm
             ) or _bos("Bugün vadeli ödeme yok")
             st.markdown(_pgrid(
@@ -1856,8 +1849,8 @@ def run():
         ilerleme = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
     
         metrik_satiri([
-            {"label": "Toplam TL", "value": f"₺{fmt(tl_toplam)}", "renk": "#60A5FA", "alt": f"Ödendi: ₺{fmt(odendi_tl)}"},
-            {"label": "Toplam USD", "value": f"${fmt(usd_toplam)}", "renk": "#A78BFA", "alt": f"Ödendi: ${fmt(odendi_usd)}"},
+            {"label": "Toplam TL", "value": f"₺{fmt(tl_toplam)}", "renk": "#7DD3FC", "alt": f"Ödendi: ₺{fmt(odendi_tl)}"},
+            {"label": "Toplam USD", "value": f"${fmt(usd_toplam)}", "renk": "#818CF8", "alt": f"Ödendi: ${fmt(odendi_usd)}"},
             {"label": "İlerleme", "value": f"{odendi_cnt}/{len(odemeler)}", "renk": "#34D399", "alt": f"%{ilerleme} tamamlandı"},
             {"label": "Kalan TL", "value": f"₺{fmt(kalan_tl)}", "renk": "#FBBF24", "alt": "Ödenmesi gereken"},
         ])
@@ -1930,7 +1923,7 @@ def run():
             gun_usd = sum(o.get("tutar_usd") or 0 for o in gun_odemeler)
             vd = vade_durumu(day)
     
-            renk_header = "#0E1A3A" if vd == "bugun" else ("#2D200A" if vd == "yarin" else ("#FEF2F2" if vd == "gecmis" else "#F8F9FB"))
+            renk_header = "#0E1A3A" if vd == "bugun" else ("#2D200A" if vd == "yarin" else ("#F87171" if vd == "gecmis" else "#A5B4FC"))
     
             etiket = ""
             if vd == "bugun":
@@ -1972,9 +1965,9 @@ def run():
     
                     with col4:
                         if o.get("tutar_tl"):
-                            tutar_disp = f'<b style="color:#6EE7B7;font-size:15px;white-space:nowrap;font-family:monospace">₺{fmt(o["tutar_tl"])}</b>'
+                            tutar_disp = f'<b style="color:#6EE7B7;font-size:14px;white-space:nowrap;font-family:monospace">₺{fmt(o["tutar_tl"])}</b>'
                         elif o.get("tutar_usd"):
-                            tutar_disp = f'<b style="color:#93C5FD;font-size:15px;white-space:nowrap;font-family:monospace">${fmt(o["tutar_usd"])}</b>'
+                            tutar_disp = f'<b style="color:#7DD3FC;font-size:14px;white-space:nowrap;font-family:monospace">${fmt(o["tutar_usd"])}</b>'
                         else:
                             tutar_disp = '<b style="color:#64748B;font-size:13px">—</b>'
                         st.markdown(tutar_disp, unsafe_allow_html=True)
@@ -2085,7 +2078,7 @@ def run():
                         st.markdown(
                             '<div style="background:#2D200A;border:1px solid #FCD34D;'
                             'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
-                                                        '<b style="color:#FDE68A;font-size:13px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
+                                                        '<b style="color:#FCD34D;font-size:13px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
                             unsafe_allow_html=True
                         )
                         col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
@@ -2253,7 +2246,7 @@ def run():
     
         # Hesap kartları — kompakt, ortak tema (para birimine göre renkli sol şerit)
         if bankalar:
-            _renk_pb = {"USD": "#60A5FA", "TL": "#818CF8", "EUR": "#A78BFA"}
+            _renk_pb = {"USD": "#7DD3FC", "TL": "#818CF8", "EUR": "#818CF8"}
             _banka_cards = []
             for b in bankalar:
                 sym = "$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺")
@@ -2279,13 +2272,13 @@ def run():
             toplam_eur_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
             toplam_usd_esde = toplam_usd_hesap + (toplam_tl_hesap / kur) + (toplam_eur_hesap * 1.08)
             toplam_html = (
-                '<div style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:16px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
+                '<div style="background:linear-gradient(135deg,#0F172A 0%,#1C2A44 100%);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:16px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
                 '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">🏦</span>'
-                '<span style="font-size:15px;font-weight:700;color:#E2E8F0">TOPLAM BAKİYE</span></div>'
+                '<span style="font-size:14px;font-weight:700;color:#E2E8F0">TOPLAM BAKİYE</span></div>'
                 '<div style="display:flex;gap:24px;flex-wrap:wrap">'
-                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:800;color:#34D399;font-family:monospace">₺{toplam_tl_hesap:,.2f}</div></div>'
-                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:800;color:#60A5FA;font-family:monospace">${toplam_usd_hesap:,.2f}</div></div>'
-                f'<div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:20px"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:#A78BFA;font-family:monospace">${toplam_usd_esde:,.2f}</div></div>'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:#34D399;font-family:monospace">₺{toplam_tl_hesap:,.2f}</div></div>'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:#7DD3FC;font-family:monospace">${toplam_usd_hesap:,.2f}</div></div>'
+                f'<div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:20px"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:#818CF8;font-family:monospace">${toplam_usd_esde:,.2f}</div></div>'
                 '</div></div>'
             )
             st.markdown(toplam_html, unsafe_allow_html=True)
@@ -2332,9 +2325,9 @@ def run():
                         c1, c2 = st.columns([5, 1])
                         _knk = f" · {t['kaynak']}" if t.get("kaynak") else ""
                         c1.markdown(
-                            f"<div style='font-size:12.5px'>{str(t.get('tarih',''))[:10]} — "
+                            f"<div style='font-size:13px'>{str(t.get('tarih',''))[:10]} — "
                             f"<b>{_ts}{float(t.get('tutar') or 0):,.2f}</b> → {t.get('hesap_adi','')}"
-                            f"<span style='color:#8B97A8'>{_knk}</span></div>",
+                            f"<span style='color:#94A3B8'>{_knk}</span></div>",
                             unsafe_allow_html=True)
                         if c2.button("↩", key=f"tahsilat_geri_{t['id']}", help="Geri al"):
                             ok, msg = tahsilat_geri_al(t["id"])
@@ -2453,9 +2446,9 @@ def run():
         def nakit_rengi(row):
             k = row.get("_kalan", 0)
             if row["Tarih"] == "TOPLAM":
-                return ["background-color:#0A2D15;color:#86EFAC;font-weight:700" if k >= 0
+                return ["background-color:#0A2D15;color:#6EE7B7;font-weight:700" if k >= 0
                         else "background-color:#2D0A0A;color:#FCA5A5;font-weight:700"] * len(row)
-            return ["background-color:#FEF2F2;color:#FCA5A5" if k < 0 else ""] * len(row)
+            return ["background-color:#F87171;color:#FCA5A5" if k < 0 else ""] * len(row)
     
         # --- Nakit Akis HTML Tablosu ---
         def _tr_para(v, sym):
@@ -2474,15 +2467,15 @@ def run():
             is_toplam = row["Tarih"] == "TOPLAM"
             kalan_v = row.get("_kalan") or 0
             if is_toplam:
-                row_bg = "background:#1E293B;"
+                row_bg = "background:#1C2A44;"
                 tarih_style = "font-weight:700;color:#E2E8F0;font-size:13px;"
             elif idx_r % 2 == 0:
-                row_bg = "background:#131C35;"
-                tarih_style = "color:#CBD5E1;font-size:13px;"
+                row_bg = "background:#152036;"
+                tarih_style = "color:#7DD3FC;font-size:13px;"
             else:
                 row_bg = "background:#151F38;"
-                tarih_style = "color:#CBD5E1;font-size:13px;"
-            kalan_color = "#10B981" if kalan_v >= 0 else "#EF4444"
+                tarih_style = "color:#7DD3FC;font-size:13px;"
+            kalan_color = "#10B981" if kalan_v >= 0 else "#F87171"
             gun_tl_v = row.get("Günlük TL (₺)") or 0
             gun_usd_v = row.get("Günlük USD ($)") or 0
             kum_tl_v = row.get("Kümülatif TL (₺)") or 0
@@ -2502,12 +2495,12 @@ def run():
                 )
             else:
                 nakit_rows_html += (
-                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{"#131C35" if idx_r%2 else "#151F38"}''">'
+                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{"#152036" if idx_r%2 else "#151F38"}''">'
                     f'<td style="padding:8px 16px;{tarih_style}border-bottom:1px solid rgba(255,255,255,0.1);">{row["Tarih"]}</td>'
                     f'<td style="padding:8px 16px;{num_style}color:#10B981;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(gun_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:#3B82F6;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(gun_usd_v)}</td>'
+                    f'<td style="padding:8px 16px;{num_style}color:#A5B4FC;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(gun_usd_v)}</td>'
                     f'<td style="padding:8px 16px;{num_style}color:#059669;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(kum_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:#2563EB;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(kum_usd_v)}</td>'
+                    f'<td style="padding:8px 16px;{num_style}color:#A5B4FC;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_usd(kum_usd_v)}</td>'
                     f'<td style="padding:8px 16px;font-family:monospace;font-size:13px;text-align:right;font-weight:600;color:{kalan_color};border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_tl(kalan_v)}</td>'
                     '</tr>'
                 )
@@ -2515,13 +2508,13 @@ def run():
             '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
             '<div style="overflow-x:auto;">'
             '<table style="width:100%;border-collapse:collapse;background:transparent;">'
-            '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">'
+            '<thead><tr style="background:linear-gradient(135deg,#1C2A44 0%,#0F172A 100%);">'
             '<th style="padding:12px 16px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
             '<th style="padding:12px 16px;text-align:right;color:#34D399;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük TL</th>'
-            '<th style="padding:12px 16px;text-align:right;color:#60A5FA;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük USD</th>'
+            '<th style="padding:12px 16px;text-align:right;color:#7DD3FC;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük USD</th>'
             '<th style="padding:12px 16px;text-align:right;color:#6EE7B7;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. TL</th>'
-            '<th style="padding:12px 16px;text-align:right;color:#93C5FD;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. USD</th>'
-            '<th style="padding:12px 16px;text-align:right;color:#F59E0B;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">TL Bakiye</th>'
+            '<th style="padding:12px 16px;text-align:right;color:#7DD3FC;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. USD</th>'
+            '<th style="padding:12px 16px;text-align:right;color:#FBBF24;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">TL Bakiye</th>'
             '</tr></thead><tbody>'
             + nakit_rows_html +
             '</tbody></table></div></div>'
@@ -2546,7 +2539,7 @@ def run():
                 name="Kalan Bakiye",
                 mode="lines+markers",
                 line=dict(color="#34D399", width=2.5, shape="spline", smoothing=0.6),
-                marker=dict(size=7, color="#34D399", line=dict(color="#080C20", width=2)),
+                marker=dict(size=7, color="#34D399", line=dict(color="#0B1120", width=2)),
                 yaxis="y2",
                 hovertemplate="<b>%{x}</b><br>Kalan: ₺%{y:,.0f}<extra></extra>",
             ))
@@ -2584,8 +2577,8 @@ def run():
                 height=420,
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 hovermode="x unified",
-                hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
-                                font=dict(family="Inter, sans-serif", color="#F1F5F9")),
+                hoverlabel=dict(bgcolor="#152036", bordercolor="rgba(129,140,248,0.4)",
+                                font=dict(family="Inter, sans-serif", color="#7DD3FC")),
                 bargap=0.45, barcornerradius=6,
                 font=dict(family="Inter, sans-serif", color="#E2E8F0"),
                 legend=dict(
@@ -2662,7 +2655,7 @@ def run():
                     bekleyen_cnt += 1
     
             metrik_satiri([
-                {"label": "Toplam Meblağ", "value": f"{sym}{fmt(toplam_meblagh)}", "renk": "#60A5FA", "alt": f"{len(cekler)} çek (tümü)"},
+                {"label": "Toplam Meblağ", "value": f"{sym}{fmt(toplam_meblagh)}", "renk": "#7DD3FC", "alt": f"{len(cekler)} çek (tümü)"},
                 {"label": "Toplam Ödenen", "value": f"{sym}{fmt(toplam_odenen)}", "renk": "#34D399", "alt": f"{odendi_cnt} adet ödendi"},
                 {"label": "Toplam Kalan", "value": f"{sym}{fmt(toplam_kalan)}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekleyen/ciro"},
             ])
@@ -2702,11 +2695,11 @@ def run():
                 if vd == "gecmis" and "odendi" not in durum:
                     return ["background-color:#2D0A0A;color:#FCA5A5"] * len(row)
                 if vd == "bugun" and "odendi" not in durum:
-                    return ["background-color:#2D200A;color:#FDE68A"] * len(row)
+                    return ["background-color:#2D200A;color:#FCD34D"] * len(row)
                 if "odendi" in durum:
-                    return ["background-color:#0A2D15;color:#86EFAC"] * len(row)
+                    return ["background-color:#0A2D15;color:#6EE7B7"] * len(row)
                 if "ciro" in durum:
-                    return ["background-color:#0E1A3A;color:#93C5FD"] * len(row)
+                    return ["background-color:#0E1A3A;color:#7DD3FC"] * len(row)
                 return [""] * len(row)
     
             # --- Firma Cekleri HTML Tablosu ---
@@ -2723,24 +2716,24 @@ def run():
                 kalan_v = row.get(f"Kalan ({sym})", 0) or 0
                 if "gecmis" in pozisyon or ("odendi" not in pozisyon and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
                     row_bg = "background:rgba(248,113,113,0.08);"
-                    ref_color = "#DC2626"
+                    ref_color = "#F87171"
                 elif "odendi" in pozisyon:
                     row_bg = "background:#0A2D15;" if ri % 2 == 0 else "background:rgba(16,185,129,0.08);"
                     ref_color = "#059669"
                 elif ri % 2 == 0:
-                    row_bg = "background:#131C35;"
-                    ref_color = "#CBD5E1"
+                    row_bg = "background:#152036;"
+                    ref_color = "#7DD3FC"
                 else:
                     row_bg = "background:#151F38;"
-                    ref_color = "#CBD5E1"
+                    ref_color = "#7DD3FC"
                 meblag_v = row.get(f"Meblağ ({sym})", 0) or 0
                 odenen_v = row.get(f"Ödenen ({sym})", 0) or 0
-                kalan_color = "#10B981" if kalan_v <= 0 else "#EF4444"
+                kalan_color = "#10B981" if kalan_v <= 0 else "#F87171"
                 pos_badge = ""
                 if "odendi" in pozisyon:
-                    pos_badge = '<span style="background:#D1FAE5;color:#6EE7B7;font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
+                    pos_badge = '<span style="background:#6EE7B7;color:#6EE7B7;font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
                 elif "bekliyor" in pozisyon:
-                    pos_badge = '<span style="background:#2D200A;color:#FDE68A;font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⏳ BEKLİYOR</span>'
+                    pos_badge = '<span style="background:#2D200A;color:#FCD34D;font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⏳ BEKLİYOR</span>'
                 elif "gecmis" in pozisyon:
                     pos_badge = '<span style="background:#2D0A0A;color:#FCA5A5;font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⚠ GECİKMİŞ</span>'
                 else:
@@ -2752,7 +2745,7 @@ def run():
                     f'<td style="padding:8px 12px;{num_s}color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);">{row.get("Cek No","") or row.get("Çek No","")}</td>'
                     f'<td style="padding:8px 12px;font-size:13px;color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);white-space:nowrap;">{row.get("Tarih","")}</td>'
                     f'<td style="padding:8px 12px;font-size:13px;color:#64748B;border-bottom:1px solid rgba(255,255,255,0.1);white-space:nowrap;">{row.get("Vade Tarihi","")}</td>'
-                    f'<td style="padding:8px 12px;{num_s}color:#CBD5E1;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(meblag_v)}</td>'
+                    f'<td style="padding:8px 12px;{num_s}color:#7DD3FC;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(meblag_v)}</td>'
                     f'<td style="padding:8px 12px;{num_s}color:#059669;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(odenen_v)}</td>'
                     f'<td style="padding:8px 12px;{num_s}color:{kalan_color};font-weight:600;border-bottom:1px solid rgba(255,255,255,0.1);">{fmt_para(kalan_v)}</td>'
                     f'<td style="padding:8px 12px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);">{pos_badge}</td>'
@@ -2763,14 +2756,14 @@ def run():
                 '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
                 '<div style="overflow-x:auto;">'
                 '<table style="width:100%;border-collapse:collapse;">'
-                '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">'
+                '<thead><tr style="background:linear-gradient(135deg,#1C2A44 0%,#0F172A 100%);">'
                 '<th style="padding:12px 12px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ref No</th>'
                 '<th style="padding:12px 12px;text-align:right;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Çek No</th>'
                 '<th style="padding:12px 12px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
                 '<th style="padding:12px 12px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>'
-                f'<th style="padding:12px 12px;text-align:right;color:#60A5FA;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Meblağ {cur_label}</th>'
+                f'<th style="padding:12px 12px;text-align:right;color:#7DD3FC;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Meblağ {cur_label}</th>'
                 f'<th style="padding:12px 12px;text-align:right;color:#34D399;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödenen {cur_label}</th>'
-                f'<th style="padding:12px 12px;text-align:right;color:#F59E0B;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kalan {cur_label}</th>'
+                f'<th style="padding:12px 12px;text-align:right;color:#FBBF24;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kalan {cur_label}</th>'
                 '<th style="padding:12px 12px;text-align:center;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Durum</th>'
                 '</tr></thead><tbody>'
                 + cek_rows_html +
@@ -2807,7 +2800,7 @@ def run():
     
             metrik_satiri([
                 {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": "#34D399"},
-                {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#60A5FA"},
+                {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#7DD3FC"},
                 {"label": "Ödeme Adedi", "value": f"{len(odenenler):,}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
             ])
     
@@ -2852,7 +2845,7 @@ def run():
 
             od_rows_html = ""
             for idx2, row2 in enumerate(rows):
-                bg = "#FFFFFF" if idx2 % 2 == 0 else "#F8FAFC"
+                bg = "#E2E8F0" if idx2 % 2 == 0 else "#7DD3FC"
                 firma_v = str(row2.get("Firma") or "-")
                 aciklama_v = str(row2.get("Açıklama") or "")
                 kategori_v = str(row2.get("Kategori") or "-")
@@ -2865,12 +2858,12 @@ def run():
                 tarih_v = str(row2.get("Ödendi Tarihi") or "-")
                 od_rows_html += (
                     f'<tr style="background:{bg};border-bottom:1px solid rgba(255,255,255,0.1);">' +
-                    f'<td style="padding:8px 16px;color:#CBD5E1;font-size:13px;font-weight:600;">{firma_v}</td>' +
+                    f'<td style="padding:8px 16px;color:#7DD3FC;font-size:13px;font-weight:600;">{firma_v}</td>' +
                     f'<td style="padding:8px 8px;color:#64748B;font-size:13px;">{aciklama_v}</td>' +
                     f'<td style="padding:8px 8px;text-align:center;"><span style="background:rgba(99,102,241,0.15);color:#A5B4FC;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
                     f'<td style="padding:8px 8px;text-align:center;color:#64748B;font-size:13px;">{vade_v}</td>' +
                     f'<td style="padding:8px 8px;text-align:right;color:#16A34A;font-size:13px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
-                    f'<td style="padding:8px 8px;text-align:right;color:#2563EB;font-size:13px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
+                    f'<td style="padding:8px 8px;text-align:right;color:#A5B4FC;font-size:13px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
                     f'<td style="padding:8px 8px;color:#64748B;font-size:13px;">{banka_v}</td>' +
                     f'<td style="padding:8px 8px;text-align:center;color:#64748B;font-size:13px;">{tarih_v}</td>' +
                     '</tr>' + "\n"
@@ -2879,13 +2872,13 @@ def run():
             od_header = (
                 '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
                 '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
-                '<thead><tr style="background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);">' +
+                '<thead><tr style="background:linear-gradient(135deg,#1C2A44 0%,#0F172A 100%);">' +
                 '<th style="padding:12px 16px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
                 '<th style="padding:12px 8px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
                 '<th style="padding:12px 8px;text-align:center;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kategori</th>' +
                 '<th style="padding:12px 8px;text-align:center;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>' +
-                '<th style="padding:12px 8px;text-align:right;color:#86EFAC;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
-                '<th style="padding:12px 8px;text-align:right;color:#93C5FD;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
+                '<th style="padding:12px 8px;text-align:right;color:#6EE7B7;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
+                '<th style="padding:12px 8px;text-align:right;color:#7DD3FC;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
                 '<th style="padding:12px 8px;text-align:left;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendiği Banka</th>' +
                 '<th style="padding:12px 8px;text-align:center;color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendi Tarihi</th>' +
                 '</tr></thead><tbody>' + "\n"
@@ -2925,14 +2918,14 @@ def run():
                     is_aktif = h["id"] == aktif_id
     
                     renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
-                    border = "2px solid #2563EB" if is_aktif else "1px solid rgba(255,255,255,0.06)"
+                    border = "2px solid #A5B4FC" if is_aktif else "1px solid rgba(255,255,255,0.06)"
     
                     col1, col2 = st.columns([5, 1])
                     with col1:
-                        aktif_badge = '<span style="background:#2563EB;color:white;font-size:11px;padding:0px 8px;border-radius:4px;margin-left:8px;font-weight:700">AKTİF</span>' if is_aktif else ''
+                        aktif_badge = '<span style="background:#A5B4FC;color:white;font-size:11px;padding:0px 8px;border-radius:4px;margin-left:8px;font-weight:700">AKTİF</span>' if is_aktif else ''
                         gecmis_html = (
                             f'<div style="background:{renk};border:{border};border-radius:10px;padding:16px 16px;margin-bottom:8px">'
-                            f'<div style="font-size:15px;font-weight:700;color:#E2E8F0">{h["hafta_adi"]}{aktif_badge}</div>'
+                            f'<div style="font-size:14px;font-weight:700;color:#E2E8F0">{h["hafta_adi"]}{aktif_badge}</div>'
                             f'<div style="font-size:13px;color:#64748B;margin-top:4px">{ozet["toplam"]} ödeme · {ozet["odendi"]}/{ozet["toplam"]} ödendi · Yüklendi: {h["yuklendi_tarih"]}</div>'
                             f'<div style="margin-top:8px"><span class="tag-yesil">₺{fmt(ozet["tl_toplam"])}</span>&nbsp;<span class="tag-mavi">${fmt(ozet["usd_toplam"])}</span></div>'
                             '</div>'
@@ -2979,9 +2972,9 @@ def run():
                     toplam_meblagh = sum(c.get("meblagh") or 0 for c in cekler)
                     st.markdown(
                         f'<div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:10px;'
-                        f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:#93C5FD;'
+                        f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:#7DD3FC;'
                         f'letter-spacing:.5px;text-transform:uppercase;">Toplam Meblağ</span><br>'
-                        f'<span style="font-size:19px;font-weight:700;color:#BFDBFE;font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
+                        f'<span style="font-size:19px;font-weight:700;color:#7DD3FC;font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
                         unsafe_allow_html=True
                     )
                 with col_sil3:
@@ -3024,15 +3017,15 @@ def run():
                     vd = vade_durumu(c.get("vade"))
     
                     if "odendi" in durum_str:
-                        kart_bg = "#0A2D15"; kart_border = "#86EFAC"; durum_renk = "#86EFAC"
+                        kart_bg = "#0A2D15"; kart_border = "#6EE7B7"; durum_renk = "#6EE7B7"
                     elif "ciro" in durum_str:
-                        kart_bg = "#0E1A3A"; kart_border = "#93C5FD"; durum_renk = "#93C5FD"
+                        kart_bg = "#0E1A3A"; kart_border = "#7DD3FC"; durum_renk = "#7DD3FC"
                     elif vd == "gecmis":
                         kart_bg = "#2D0A0A"; kart_border = "#FCA5A5"; durum_renk = "#FCA5A5"
                     elif vd == "bugun":
-                        kart_bg = "#2D200A"; kart_border = "#FCD34D"; durum_renk = "#FDE68A"
+                        kart_bg = "#2D200A"; kart_border = "#FCD34D"; durum_renk = "#FCD34D"
                     else:
-                        kart_bg = "#F8FAFC"; kart_border = "#E2E8F0"; durum_renk = "#94A3B8"
+                        kart_bg = "#7DD3FC"; kart_border = "#E2E8F0"; durum_renk = "#94A3B8"
     
                     col_a, col_b = st.columns([9, 1])
                     with col_a:
@@ -3055,7 +3048,7 @@ def run():
                                 </div>
                                 <div>
                                     <div style="font-size:13px;color:#64748B;font-weight:600">MEBLAĞ / KALAN</div>
-                                    <div style="font-size:15px;font-weight:700;color:#E2E8F0;font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
+                                    <div style="font-size:14px;font-weight:700;color:#E2E8F0;font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
                                     <div style="font-size:11px;color:#64748B;margin-top:0px">Kalan: {sym}{fmt(c.get('kalan') or 0)}</div>
                                 </div>
                                 <div>
@@ -3124,7 +3117,7 @@ def run():
         _eur = _f[_f["Döviz"] == "EUR"]["Tutar"].sum()
         metrik_satiri([
             {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": "#34D399"},
-            {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": "#60A5FA"},
+            {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": "#7DD3FC"},
             {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": "#FBBF24"},
             {"label": "Kayıt Adedi", "value": f"{len(_f):,}", "renk": "#818CF8", "alt": "para girişi"},
         ])
@@ -3138,8 +3131,8 @@ def run():
                          height=tablo_h(len(_ozet), maks=420))
 
         # ── Detay tablo ──
-        # Döviz artık tutarın içine yapıştırılmıyor; ayrı kolon olarak kalıyor
-        # (yapıştırılınca kolon metin oluyor → sıralama alfabetik bozuluyordu).
+        # Döviz artık tutarın içine yapıştırılmıyor — yapışınca kolon metin
+        # oluyor ve sıralama alfabetik bozuluyordu.
         _goster = _f.copy()
         st.dataframe(_goster, hide_index=True, use_container_width=True,
                      column_config=tablo_kolonlari(_goster, para="accounting"),
@@ -3177,14 +3170,14 @@ def run():
                 is_aktif = h["id"] == aktif_id
                 with cols[i % 4]:
                     renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
-                    border = "2px solid #2563EB" if is_aktif else "1px solid rgba(255,255,255,0.06)"
-                    aktif_badge = '<br><span style="background:#2563EB;color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
+                    border = "2px solid #A5B4FC" if is_aktif else "1px solid rgba(255,255,255,0.06)"
+                    aktif_badge = '<br><span style="background:#A5B4FC;color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
                     recent_html = (
                         f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 16px;margin-bottom:8px;min-height:100px">'
                         f'<div style="font-size:13px;font-weight:700;color:#E2E8F0;line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
-                        f'<div style="font-size:11px;color:#9CA3AF;margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
+                        f'<div style="font-size:11px;color:#94A3B8;margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
                         f'<div style="font-size:11px"><span style="color:#6EE7B7">₺{fmt(ozet["tl_toplam"])}</span></div>'
-                        f'<div style="font-size:11px;color:#9CA3AF">{h["yuklendi_tarih"]}</div>'
+                        f'<div style="font-size:11px;color:#94A3B8">{h["yuklendi_tarih"]}</div>'
                         '</div>'
                     )
                     st.markdown(recent_html, unsafe_allow_html=True)
@@ -3198,7 +3191,7 @@ def run():
     
         st.markdown("### 📤 Yeni Hafta Yükle")
         st.markdown(
-            '<div style="background:#2D200A;border:1px solid #FDE68A;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#FCD34D">'
+            '<div style="background:#2D200A;border:1px solid #FCD34D;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#FCD34D">'
             '<b>Excel sutun sirasi:</b> A=HAFTA | B=FIRMA | C=ACIKLAMA | D=(bos) | E=VADE | F=TUTAR TL | G=TUTAR USD | <b>H=KATEGORI (opsiyonel)</b>'
             '</div>',
             unsafe_allow_html=True
@@ -3549,7 +3542,7 @@ def run():
     
         # Bilgi notu
         st.markdown("""
-        <div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 16px;margin:8px 0;font-size:11px;color:#BFDBFE">
+        <div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 16px;margin:8px 0;font-size:11px;color:#7DD3FC">
             ℹ️ Erteleme kayıtları bu oturumda tutulur. Tarayıcıyı kapatınca veya çıkış yapınca geçmiş silinir.
             Kalıcı kayıt için Supabase'e 3 kolon eklenmesi gerekir (opsiyonel).
         </div>
@@ -3559,8 +3552,8 @@ def run():
             st.info("📭 Henüz ertelenmiş ödeme yok.")
             st.markdown("""
             <div style="background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:10px;padding:16px 16px;margin-top:12px">
-                <div style="font-size:13px;color:#93C5FD;font-weight:600;margin-bottom:8px">💡 Nasıl ertelerim?</div>
-                <div style="font-size:13px;color:#BFDBFE;line-height:1.5">
+                <div style="font-size:13px;color:#7DD3FC;font-weight:600;margin-bottom:8px">💡 Nasıl ertelerim?</div>
+                <div style="font-size:13px;color:#7DD3FC;line-height:1.5">
                     <b>"Bu Hafta"</b> sayfasında bir ödemenin altındaki <b>"📅 Vadeyi Ötele"</b> kutucuğunu işaretle, yeni tarih seç, <b>💾 Ötele</b>'ye bas. Ya da hızlı butonlardan <b>+1, +3, +7, +30 gün</b> kullan. Sonra bu sayfaya geri dön.
                 </div>
             </div>
@@ -3580,8 +3573,8 @@ def run():
             metrik_satiri([
                 {"label": "Ertelenen Adet", "value": f"{len(ertelenenler):,}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekliyor"},
                 {"label": "Toplam Erteleme", "value": f"{toplam_erteleme:,}", "renk": "#F87171", "alt": "kez ötelendi"},
-                {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": "#60A5FA"},
-                {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": "#A78BFA"},
+                {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": "#7DD3FC"},
+                {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": "#818CF8"},
             ])
     
             # Filtre
@@ -3631,21 +3624,21 @@ def run():
                 if o.get("tutar_tl"):
                     tutar_str = f"<span style='color:#6EE7B7;font-weight:700;font-family:monospace'>₺{fmt(o['tutar_tl'])}</span>"
                 elif o.get("tutar_usd"):
-                    tutar_str = f"<span style='color:#93C5FD;font-weight:700;font-family:monospace'>${fmt(o['tutar_usd'])}</span>"
+                    tutar_str = f"<span style='color:#7DD3FC;font-weight:700;font-family:monospace'>${fmt(o['tutar_usd'])}</span>"
     
                 durum_badge = (
-                    '<span style="background:#0A2D15;color:#86EFAC;padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">✅ Ödendi</span>'
+                    '<span style="background:#0A2D15;color:#6EE7B7;padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">✅ Ödendi</span>'
                     if is_odendi else
-                    '<span style="background:#2D200A;color:#FDE68A;padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">⏳ Bekliyor</span>'
+                    '<span style="background:#2D200A;color:#FCD34D;padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">⏳ Bekliyor</span>'
                 )
     
                 opacity = "0.5" if is_odendi else "1"
     
                 st.markdown(f"""
-                <div style="background:#131C35;border-left:4px solid {kat_info['renk']};border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:16px 16px;margin-bottom:8px;opacity:{opacity}">
+                <div style="background:#152036;border-left:4px solid {kat_info['renk']};border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:16px 16px;margin-bottom:8px;opacity:{opacity}">
                     <div style="display:grid;grid-template-columns:2.5fr 1.5fr 1.5fr 1fr 1fr;gap:16px;align-items:center">
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#E2E8F0">{o['firma']}</div>
+                            <div style="font-size:14px;font-weight:700;color:#E2E8F0">{o['firma']}</div>
                             <div style="font-size:11px;color:#64748B;margin-top:0px">{o.get('aciklama') or ''}</div>
                             <span style="background:{kat_info['renk']};color:white;font-size:11px;padding:0px 8px;border-radius:8px;font-weight:600;margin-top:8px;display:inline-block">{kat_info['label']}</span>
                         </div>
@@ -3656,7 +3649,7 @@ def run():
                         <div>
                             <div style="font-size:11px;color:#94A3B8;font-weight:600;letter-spacing:.3px">YENİ VADE</div>
                             <div style="font-size:13px;color:#E2E8F0;font-weight:700;font-family:monospace">{yeni_str}</div>
-                            <div style="font-size:11px;color:#DC2626;font-weight:600">{fark_str}</div>
+                            <div style="font-size:11px;color:#F87171;font-weight:600">{fark_str}</div>
                         </div>
                         <div style="text-align:center">
                             <div style="background:#2D0A0A;color:#FCA5A5;border-radius:8px;padding:8px 8px;font-size:19px;font-weight:700;font-family:monospace">{erteleme_sayisi}x</div>
@@ -4078,7 +4071,7 @@ def run():
                     f'<div style="background:rgba(52,211,153,.10);border-left:3px solid #34D399;'
                     f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
                     f'<span style="color:#34D399;font-weight:700;font-size:13px">✅ {baslik} yüklü</span>'
-                    f'<span style="color:#94A3B8;font-size:12px"> — {ozet_satir}</span><br>'
+                    f'<span style="color:#94A3B8;font-size:13px"> — {ozet_satir}</span><br>'
                     f'<span style="color:#64748B;font-size:11px">👤 {kim.capitalize()} · 🕐 {zaman or "—"}</span>'
                     f'</div>', unsafe_allow_html=True)
             else:
@@ -4380,10 +4373,10 @@ def run():
             st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
             # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
             st.markdown(
-                f'<div style="background:linear-gradient(135deg,#93C5FD,#3730A3,#7C3AED);border-radius:16px;'
+                f'<div style="background:linear-gradient(135deg,#7DD3FC,#3730A3,#818CF8);border-radius:16px;'
                 f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
-                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C7D2FE;margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
-                f'<div style="font-size:23px;font-weight:800;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${toplam_aktif:,.0f}</div>'
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
+                f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${toplam_aktif:,.0f}</div>'
                 f'<div style="font-size:13px;color:#A5B4FC;margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{(toplam_aktif*kur):,.0f} (kur: {kur:g})</div>'
                 f'</div>', unsafe_allow_html=True)
             # Kısa hesap dökümü
@@ -4469,16 +4462,16 @@ def run():
             st.markdown(f"**📋 Kayıtlı Kalemler ({len(manuel_kalemler)})**")
             for k in manuel_kalemler:
                 tip = k.get("tip", "ekle")
-                renk = "#16A34A" if tip == "ekle" else "#DC2626"
+                renk = "#16A34A" if tip == "ekle" else "#F87171"
                 isaret = "+" if tip == "ekle" else "-"
                 sembol = "$" if (k.get("para_birimi") or "USD").upper() == "USD" else "₺"
                 tutar_v = float(k.get("tutar") or 0)
                 col_a, col_b = st.columns([10, 1])
                 with col_a:
                     st.markdown(
-                        f'<div style="background:#131C35;border:1px solid rgba(255,255,255,0.12);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
+                        f'<div style="background:#152036;border:1px solid rgba(255,255,255,0.12);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
                         f'<div><b style="color:#E2E8F0;font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:#94A3B8">📅 {(k.get("olusturuldu") or "")[:10]}</div></div>'
-                        f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:15px">{isaret}{sembol}{tutar_v:,.2f}</div>'
+                        f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tutar_v:,.2f}</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )

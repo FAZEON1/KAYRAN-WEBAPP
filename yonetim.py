@@ -331,17 +331,17 @@ def run():
         _kh = "".join(
             f'<div style="display:flex;justify-content:space-between;padding:5px 12px;margin:2px 0;'
             f'border-radius:6px;background:rgba(255,255,255,0.03)">'
-            f'<span style="color:{RENK["metin"]};font-size:12px">{a}</span>'
-            f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:12px;'
+            f'<span style="color:{RENK["metin"]};font-size:13px">{a}</span>'
+            f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:13px;'
             f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
             for a, v, y in _kal if float(v or 0))
         st.markdown(pencere(
             "💎 TOPLAM AKTİFLER", RENK["mor"],
             f'<div style="text-align:center;padding:10px 0 14px;margin-bottom:8px;'
             f'border-bottom:1px solid rgba(255,255,255,0.08)">'
-            f'<div style="font-size:28px;font-weight:800;color:#FFFFFF;'
+            f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_t:,.0f}</div>'
-            f'<div style="font-size:12px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
+            f'<div style="font-size:13px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
             f'margin-top:4px">≈ ₺{(_t * _k):,.0f} · kur {_k:g}</div></div>' + _kh,
             rozet=str(_s.get("tarih", ""))[:16]), unsafe_allow_html=True)
         st.stop()
@@ -548,7 +548,7 @@ def run():
         return (f'<div style="flex:1;min-width:116px;text-align:center;padding:12px 8px;{_st}">'
                 f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1.2px;'
                 f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{etiket}</div>'
-                f'<div style="color:{_vr};font-size:{_vf};font-weight:800;'
+                f'<div style="color:{_vr};font-size:{_vf};font-weight:700;'
                 f'font-family:JetBrains Mono,monospace;line-height:1.1">{deger}</div>'
                 f'<div style="color:{renk};font-size:11px;font-weight:600;margin-top:4px">{alt}</div></div>')
 
@@ -584,7 +584,7 @@ def run():
                 f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{ad}</span>'
                 f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:700;'
                 f'font-family:JetBrains Mono,monospace">{tutar_str}'
-                f'<span style="color:{RENK["silik"]};font-weight:500"> {sag_ek}</span></span></div>'
+                f'<span style="color:{RENK["silik"]};font-weight:400"> {sag_ek}</span></span></div>'
                 f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
                 f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div></div>')
 
@@ -640,16 +640,16 @@ def run():
         _topgider = _sabit + _degisken + _yari
         _gmax = max(_sabit, _degisken, _yari, 1)
         _g_html = (
-            _bar_satir("Sabit", f"₺{_sabit:,.0f}", _sabit / _gmax * 100, "#60A5FA",
+            _bar_satir("Sabit", f"₺{_sabit:,.0f}", _sabit / _gmax * 100, "#7DD3FC",
                        sag_ek=(f"· %{(_sabit / _topgider * 100):.0f}" if _topgider else ""))
-            + _bar_satir("Değişken", f"₺{_degisken:,.0f}", _degisken / _gmax * 100, "#FB923C",
+            + _bar_satir("Değişken", f"₺{_degisken:,.0f}", _degisken / _gmax * 100, "#FBBF24",
                          sag_ek=(f"· %{(_degisken / _topgider * 100):.0f}" if _topgider else ""))
-            + _bar_satir("Yarı Değişken", f"₺{_yari:,.0f}", _yari / _gmax * 100, "#A78BFA",
+            + _bar_satir("Yarı Değişken", f"₺{_yari:,.0f}", _yari / _gmax * 100, "#818CF8",
                          sag_ek=(f"· %{(_yari / _topgider * 100):.0f}" if _topgider else ""))
             + f'<div style="display:flex;justify-content:space-between;padding:8px 12px;margin-top:4px;'
               f'border-top:1px solid rgba(255,255,255,0.08)">'
               f'<span style="color:{RENK["soluk"]};font-size:11px;font-weight:700;letter-spacing:.5px">TOPLAM ({_donem})</span>'
-              f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:800;'
+              f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:700;'
               f'font-family:JetBrains Mono,monospace">₺{_topgider:,.0f}</span></div>'
             + f'<div style="color:{RENK["silik"]};font-size:11px;padding:4px 12px">'
               f'≈ {_usd(gider_usd)} · yüklenme: {_gider.get("tarih", "")}</div>')
@@ -691,7 +691,7 @@ def run():
         _a_html = (
             f'<div style="text-align:center;padding:8px 0 12px;margin-bottom:8px;'
             f'border-bottom:1px solid rgba(255,255,255,0.08)">'
-            f'<div style="font-size:23px;font-weight:800;color:#FFFFFF;'
+            f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_ta:,.0f}</div>'
             f'<div style="font-size:11px;color:{RENK["mor2"]};'
             f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
@@ -791,7 +791,7 @@ def run():
         _nr = RENK["yesil"] if _r["net_kar"] >= 0 else RENK["kirmizi"]
         # Başlık + 4 büyük metrik (önceki aya kıyaslı)
         st.markdown(
-            f'<div style="font-size:15px;font-weight:800;color:{RENK["metin"]};margin-bottom:0px">'
+            f'<div style="font-size:14px;font-weight:700;color:{RENK["metin"]};margin-bottom:0px">'
             f'{_r["ay"]} {_r["yil"]} — Kapanış</div>'
             f'<div style="color:{RENK["silik"]};font-size:11px;margin-bottom:8px">'
             f'{_r["bas"]} → {_r["bit"]} · önceki ay ({_rp["ay"]}) ile kıyaslı · tüm tutarlar USD</div>'
@@ -801,7 +801,7 @@ def run():
                 f'background:linear-gradient(180deg,#152036,#0F172A);border:1px solid {c}2E;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.30)">'
                 f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
                 f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
-                f'<div style="color:{c};font-size:19px;font-weight:800;'
+                f'<div style="color:{c};font-size:19px;font-weight:700;'
                 f'font-family:JetBrains Mono,monospace">{val}{dl}</div></div>'
                 for lbl, val, c, dl in [
                     ("Ciro", _usd(_r["ciro"]), RENK["mor2"], _delta(_r["ciro"], _rp["ciro"])),
@@ -815,7 +815,7 @@ def run():
         st.markdown(
             f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
             f'border-radius:10px;padding:12px 16px;margin-bottom:16px;font-family:JetBrains Mono,monospace;'
-            f'font-size:13px;color:#CBD5E1">'
+            f'font-size:13px;color:#7DD3FC">'
             f'{_usd(_r["ciro"])} <span style="color:#64748B">ciro</span> − '
             f'{_usd(_r["cogs"])} <span style="color:#64748B">cogs</span> − '
             f'{_usd(_r["destek"])} <span style="color:#64748B">destek</span> − '

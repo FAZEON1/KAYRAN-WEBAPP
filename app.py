@@ -555,16 +555,16 @@ if not st.session_state.get("_db_saglik_ok"):
     else:
         st.markdown(
             '<div style="max-width:640px;margin:80px auto;padding:28px 32px;'
-            'background:#1E293B;border:1px solid #334155;border-radius:14px;'
+            'background:#1C2A44;border:1px solid #334155;border-radius:14px;'
             'font-family:Inter,sans-serif;color:#E2E8F0">'
-            '<div style="font-size:34px;margin-bottom:10px">🔌</div>'
-            '<div style="font-size:20px;font-weight:700;margin-bottom:8px">'
+            '<div style="font-size:23px;margin-bottom:10px">🔌</div>'
+            '<div style="font-size:19px;font-weight:700;margin-bottom:8px">'
             'Veritabanına bağlanılamadı</div>'
             '<div style="color:#94A3B8;line-height:1.6;margin-bottom:6px">'
             'Uygulama bir süre kullanılmadığında uyku moduna geçer; uyanırken '
             'bağlantı bazen geç kurulur. Genellikle birkaç saniye sonra '
             '<b>Yeniden Dene</b> demek yeterlidir.</div>'
-            f'<div style="color:#64748B;font-size:12px;font-family:monospace;'
+            f'<div style="color:#64748B;font-size:13px;font-family:monospace;'
             f'margin-top:10px">{_mesaj}</div></div>',
             unsafe_allow_html=True,
         )
@@ -582,7 +582,7 @@ if not st.session_state.get("_db_saglik_ok"):
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
 from shared.tasarim import cekirdek_css, islem_gosterge_css
 from shared.ui import genel_tema_css
-# token_css() kaldırıldı — CSS değişkenlerini artık cekirdek_css() basıyor.
+# token_css() kaldırıldı — CSS değişkenlerini cekirdek_css() basıyor.
 
 # ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
 # (şeffaf zemin, Inter, yumuşak grid, alt yatay lejant, uygulama hover kutusu)
@@ -594,16 +594,16 @@ def _kayran_plotly_tema():
     _pio.templates["kayran"] = _pgo.layout.Template(layout=dict(
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, sans-serif", color="#E2E8F0", size=12),
-        colorway=["#818CF8", "#34D399", "#F59E0B", "#22D3EE",
-                  "#F472B6", "#A78BFA", "#FB923C", "#60A5FA"],
+        colorway=["#818CF8", "#34D399", "#FBBF24", "#22D3EE",
+                  "#F9A8D4", "#818CF8", "#FBBF24", "#7DD3FC"],
         xaxis=dict(gridcolor="rgba(148,163,184,0.10)",
                    linecolor="rgba(148,163,184,0.18)", zerolinecolor="rgba(148,163,184,0.22)"),
         yaxis=dict(gridcolor="rgba(148,163,184,0.10)",
                    linecolor="rgba(148,163,184,0.18)", zerolinecolor="rgba(148,163,184,0.22)"),
         legend=dict(orientation="h", yanchor="top", y=-0.08, xanchor="center", x=0.5,
-                    bgcolor="rgba(0,0,0,0)", font=dict(size=11, color="#B6C2D6")),
-        hoverlabel=dict(bgcolor="#131C35", bordercolor="rgba(129,140,248,0.4)",
-                        font=dict(family="Inter, sans-serif", color="#F1F5F9")),
+                    bgcolor="rgba(0,0,0,0)", font=dict(size=11, color="#A5B4FC")),
+        hoverlabel=dict(bgcolor="#152036", bordercolor="rgba(129,140,248,0.4)",
+                        font=dict(family="Inter, sans-serif", color="#7DD3FC")),
         margin=dict(t=24, b=8, l=8, r=8),
     ))
     _pio.templates.default = "plotly_dark+kayran"
@@ -642,9 +642,8 @@ st.markdown(
 st.markdown(cekirdek_css(), unsafe_allow_html=True)      # TEK tasarım kaynağı
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
-# Sayfa genişliği: TEK yerden. Modüllerin kendi max-width'i kaldırıldı —
-# 3 modül 1200px, 5 modül tam genişlikteydi; geçişte sayfa gözle görülür
-# şekilde daralıyordu.
+# Sayfa genişliği TEK yerden — modül başına farklı max-width, modüller arası
+# geçişte sayfanın gözle görülür şekilde daralmasına yol açıyordu.
 st.markdown("<style>.stApp [data-testid='stMainBlockContainer'],"
             ".stApp .block-container{max-width:1440px !important;}</style>",
             unsafe_allow_html=True)
@@ -700,8 +699,8 @@ _sb_comp.html(
 
   if (doc.getElementById('kayran-sb-toggle')) return;
 
-  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 
   const btn = doc.createElement('button');
   btn.id = 'kayran-sb-toggle';
@@ -710,8 +709,8 @@ _sb_comp.html(
   btn.style.cssText = [
     'position:fixed','top:50%','transform:translateY(-50%)','left:10px',
     'z-index:2147483647','width:34px','height:34px','border-radius:50%',
-    'cursor:pointer','border:2px solid #F59E0B',
-    'background:#0D1526','color:#F59E0B',
+    'cursor:pointer','border:2px solid #FBBF24',
+    'background:#0D1526','color:#FBBF24',
     'padding:0','display:flex','align-items:center','justify-content:center',
     'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
     'transition:left .18s ease, box-shadow .15s ease'
@@ -1022,9 +1021,9 @@ if "aktif_uygulama" not in st.session_state:
 # ─────────────────────────────────────────────────────────────────────
 # KURUMSAL KIMLIK
 # ─────────────────────────────────────────────────────────────────────
-KAYRAN_LOGO_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgS" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5B5EF4"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#kgS)"/><polygon points="9,8 15,8 15,19 24,8 32,8 21,21 32,32 24,32 15,21 15,32 9,32" fill="white"/></svg>'
+KAYRAN_LOGO_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgS" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#818CF8"/><stop offset="50%" stop-color="#818CF8"/><stop offset="100%" stop-color="#A5B4FC"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#kgS)"/><polygon points="9,8 15,8 15,19 24,8 32,8 21,21 32,32 24,32 15,21 15,32 9,32" fill="white"/></svg>'
 
-KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgB" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#5B5EF4"/><stop offset="50%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#kgB)"/><polygon points="14,13 24,13 24,30 38,13 51,13 34,34 51,51 38,51 24,34 24,51 14,51" fill="white"/></svg>'
+KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgB" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#818CF8"/><stop offset="50%" stop-color="#818CF8"/><stop offset="100%" stop-color="#A5B4FC"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#kgB)"/><polygon points="14,13 24,13 24,30 38,13 51,13 34,34 51,51 38,51 24,34 24,51 14,51" fill="white"/></svg>'
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1033,10 +1032,10 @@ KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" x
 def login_css():
     return """
     <style>
-    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
+    /* Font @import kaldırıldı — tek kaynak config.toml */
 
     .stApp {
-        background: #080C20 !important;
+        background: #0B1120 !important;
         font-family: 'Inter', -apple-system, sans-serif !important;
     }
     [data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
@@ -1049,7 +1048,7 @@ def login_css():
     .kayran-bg {
         position: fixed; top: 0; left: 0;
         width: 100vw; height: 100vh; z-index: -1;
-        background: #080C20; overflow: hidden;
+        background: #0B1120; overflow: hidden;
     }
     .kayran-bg::before, .kayran-bg::after {
         content: ''; position: absolute;
@@ -1059,11 +1058,11 @@ def login_css():
         animation: blobMove 20s ease-in-out infinite;
     }
     .kayran-bg::before {
-        background: radial-gradient(circle, #3b82f6, transparent 70%);
+        background: radial-gradient(circle, #A5B4FC, transparent 70%);
         top: -200px; left: -150px;
     }
     .kayran-bg::after {
-        background: radial-gradient(circle, #ec4899, transparent 70%);
+        background: radial-gradient(circle, #F9A8D4, transparent 70%);
         bottom: -200px; right: -150px;
         animation-delay: -10s;
     }
@@ -1083,13 +1082,13 @@ def login_css():
         backdrop-filter: blur(10px);
         border-bottom: 1px solid rgba(255,255,255,0.08);
         padding: 8px 24px; text-align: center;
-        color: #E0E7FF; font-size: 12px; font-weight: 500;
+        color: #A5B4FC; font-size:13px; font-weight:400;
         z-index: 100;
     }
 
     .stButton > button, .stFormSubmitButton > button,
     button[kind="primaryFormSubmit"] {
-        background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%) !important;
+        background: linear-gradient(135deg, #818CF8 0%, #818CF8 100%) !important;
         color: white !important;
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
@@ -1114,13 +1113,13 @@ def login_css():
         padding: 12px 16px !important;
     }
     .stTextInput > div > div > input:focus {
-        border-color: #8B5CF6 !important;
+        border-color: #818CF8 !important;
         box-shadow: 0 0 0 3px rgba(139,92,246,0.15) !important;
     }
     .stTextInput label {
-        color: #CBD5E1 !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
+        color: #7DD3FC !important;
+        font-size:13px !important;
+        font-weight:400 !important;
         letter-spacing: 0.5px !important;
         text-transform: uppercase !important;
     }
@@ -1137,7 +1136,7 @@ def login_css():
     header[data-testid="stHeader"] button:hover,
     .stAppToolbar button:hover,
     .stAppDeployButton button:hover {
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
         background: rgba(255,255,255,0.06) !important;
     }
     header[data-testid="stHeader"] svg,
@@ -1179,10 +1178,10 @@ def portal_css():
     """Ana sayfa + sidebar CSS (alt uygulamalar yüklenmedikçe geçerli)"""
     return """
     <style>
-    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
+    /* Font @import kaldırıldı — tek kaynak config.toml */
 
     .stApp {
-        background: #080C20 !important;
+        background: #0B1120 !important;
         font-family: 'Inter', -apple-system, sans-serif !important;
     }
     [data-testid="stHeader"] { background: transparent !important; }
@@ -1192,7 +1191,7 @@ def portal_css():
 
     /* ── STREAMLIT SIDEBAR — Custom KAYRAN Stil ── */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0D1235 0%, #080C20 100%) !important;
+        background: linear-gradient(180deg, #0F172A 0%, #0B1120 100%) !important;
         border-right: 1px solid rgba(255,255,255,0.06) !important;
         padding-top: 0 !important;
     }
@@ -1208,13 +1207,13 @@ def portal_css():
     /* Sidebar içindeki butonlar */
     section[data-testid="stSidebar"] .stButton > button {
         background: transparent !important;
-        color: #CBD5E1 !important;
+        color: #7DD3FC !important;
         border: 1px solid transparent !important;
         border-radius: 10px !important;
         padding: 10px 14px !important;
         text-align: left !important;
         font-size: 13px !important;
-        font-weight: 500 !important;
+        font-weight:400 !important;
         font-family: 'Inter', sans-serif !important;
         box-shadow: none !important;
         transition: all 0.2s !important;
@@ -1224,7 +1223,7 @@ def portal_css():
     }
     section[data-testid="stSidebar"] .stButton > button:hover {
         background: rgba(99,102,241,0.1) !important;
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
         transform: none !important;
         box-shadow: none !important;
         border-color: rgba(99,102,241,0.2) !important;
@@ -1232,7 +1231,7 @@ def portal_css():
     /* Aktif buton */
     section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
         background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.15)) !important;
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
         border: 1px solid rgba(99,102,241,0.4) !important;
         box-shadow: 0 0 0 1px rgba(99,102,241,0.1) inset !important;
     }
@@ -1264,7 +1263,7 @@ def portal_css():
     header[data-testid="stHeader"] button:hover,
     .stAppToolbar button:hover,
     .stAppDeployButton button:hover {
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
         background: rgba(255,255,255,0.06) !important;
     }
     header[data-testid="stHeader"] svg,
@@ -1317,7 +1316,7 @@ def portal_css():
     /* ── TOOLTIP & POPOVER ── */
     [role="tooltip"], .stTooltipIcon, [data-baseweb="tooltip"] {
         background: #1B2436 !important;
-        color: #FFFFFF !important;
+        color: #E2E8F0 !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
 
@@ -1337,13 +1336,13 @@ def portal_css():
         pointer-events: none;
     }
     .anasayfa-bg-blob1 {
-        background: radial-gradient(circle, #3b82f6, transparent 70%);
+        background: radial-gradient(circle, #A5B4FC, transparent 70%);
         top: -100px; right: -100px;
         width: 500px; height: 500px;
         animation: blobMove 25s ease-in-out infinite;
     }
     .anasayfa-bg-blob2 {
-        background: radial-gradient(circle, #ec4899, transparent 70%);
+        background: radial-gradient(circle, #F9A8D4, transparent 70%);
         bottom: -100px; left: 300px;
         width: 500px; height: 500px;
         animation: blobMove 25s ease-in-out infinite -12s;
@@ -1360,7 +1359,7 @@ def portal_css():
 
     /* ── Genel buton stili (ana içerik alanı) ── */
     .main .stButton > button {
-        background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%) !important;
+        background: linear-gradient(135deg, #818CF8 0%, #818CF8 100%) !important;
         color: white !important;
         font-family: 'Inter', sans-serif !important;
         font-weight: 600 !important;
@@ -1421,7 +1420,7 @@ def giris_ekrani():
             ("📦", "#F9A8D4", "Ürün & Stok", "Depo kırılımı · sayım senkronu"),
             ("🏬", "#FBBF24", "Depo & Sevkiyat", "Bekleyen sevk · irsaliye"),
             ("🔗", "#22D3EE", "Ref No & Destekler", "Sellout · rebate · marketing"),
-            ("🛠️", "#A78BFA", "Teknik Servis", "Arıza kaydı · servis formu"),
+            ("🛠️", "#818CF8", "Teknik Servis", "Arıza kaydı · servis formu"),
             ("📊", "#F87171", "Yönetim Panosu", "Toplam aktifler · özet"),
         ]
         _kartlar = "".join(
@@ -1431,9 +1430,9 @@ def giris_ekrani():
             f'<div style="width:30px;height:30px;border-radius:8px;background:{_r}1A;'
             f'border:1px solid {_r}33;display:flex;align-items:center;justify-content:center;'
             f'flex-shrink:0;font-size:13px">{_ik}</div>'
-            f'<div style="min-width:0"><div style="color:#E2E8F0;font-size:12.5px;'
+            f'<div style="min-width:0"><div style="color:#E2E8F0;font-size:13px;'
             f'font-weight:600;line-height:1.25">{_ad}</div>'
-            f'<div style="color:#64748B;font-size:10.5px;margin-top:2px;line-height:1.3">{_alt}</div></div>'
+            f'<div style="color:#64748B;font-size:11px;margin-top:2px;line-height:1.3">{_alt}</div></div>'
             '</div>' for _ik, _r, _ad, _alt in _moduller)
 
         st.markdown(
@@ -1442,20 +1441,20 @@ def giris_ekrani():
             '<div style="display:flex;align-items:center;gap:15px;margin-bottom:26px">'
             f'{KAYRAN_LOGO_BIG}'
             '<div>'
-            '<div style="font-family:Inter,sans-serif;font-size:22px;font-weight:900;'
-            'color:#FFFFFF;letter-spacing:5px;line-height:1">KAYRAN</div>'
+            '<div style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;'
+            'color:#E2E8F0;letter-spacing:5px;line-height:1">KAYRAN</div>'
             '<div style="font-size:10px;color:#818CF8;letter-spacing:3.4px;'
             'text-transform:uppercase;font-weight:700;margin-top:5px">Workspace</div>'
             '</div></div>'
             # ── Başlık ──
-            '<h2 style="font-family:Inter,sans-serif;font-size:26px;font-weight:800;'
-            'color:#FFFFFF;line-height:1.25;margin:0 0 10px;letter-spacing:-.5px">'
+            '<h2 style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;'
+            'color:#E2E8F0;line-height:1.25;margin:0 0 10px;letter-spacing:-.5px">'
             'Tek ekrandan '
-            '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA);'
+            '<span style="background:linear-gradient(90deg,#7DD3FC,#818CF8);'
             '-webkit-background-clip:text;-webkit-text-fill-color:transparent;'
             'background-clip:text">tüm operasyon</span>'
             '</h2>'
-            '<p style="color:#94A3B8;font-size:13.5px;line-height:1.65;margin:0 0 22px;'
+            '<p style="color:#94A3B8;font-size:13px;line-height:1.65;margin:0 0 22px;'
             'max-width:520px">Satıştan ithalata, stoktan muhasebeye kadar sekiz modül '
             'aynı veriyle çalışır — rakamlar her yerde birbirini tutar.</p>'
             # ── Modül ızgarası ──
@@ -1467,7 +1466,7 @@ def giris_ekrani():
             'border-top:1px solid rgba(255,255,255,.06)">'
             '<div style="width:6px;height:6px;border-radius:50%;background:#10B981;'
             'box-shadow:0 0 8px #10B981;flex-shrink:0"></div>'
-            '<span style="color:#64748B;font-size:10.5px;font-weight:500;line-height:1.5">'
+            '<span style="color:#64748B;font-size:11px;font-weight:400;line-height:1.5">'
             'Bir <b style="color:#94A3B8">G5F Teknoloji</b> &amp; '
             '<b style="color:#94A3B8">Fazeon</b> projesi · '
             'İbrahim Kayran tarafından geliştirildi</span>'
@@ -1484,8 +1483,8 @@ def giris_ekrani():
                 '<div style="width:46px;height:46px;border-radius:13px;'
                 'background:linear-gradient(135deg,rgba(129,140,248,.22),rgba(167,139,250,.14));'
                 'border:1px solid rgba(129,140,248,.28);display:flex;align-items:center;'
-                'justify-content:center;font-size:18px;margin:0 auto 14px">🔐</div>'
-                '<div style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-.2px;'
+                'justify-content:center;font-size:16px;margin:0 auto 14px">🔐</div>'
+                '<div style="color:#E2E8F0;font-size:16px;font-weight:700;letter-spacing:-.2px;'
                 'margin-bottom:6px">Oturum Aç</div>'
                 '<div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;'
                 'font-weight:700;color:#64748B">Yetkili personel erişimi</div>'
@@ -1512,7 +1511,7 @@ def giris_ekrani():
                 + "".join(
                     f'<div style="display:flex;align-items:center;gap:6px">'
                     f'<span style="color:{_r};font-size:11px">{_ik}</span>'
-                    f'<span style="color:#64748B;font-size:10.5px">{_t}</span></div>'
+                    f'<span style="color:#64748B;font-size:11px">{_t}</span></div>'
                     for _ik, _r, _t in [
                         ("✓", "#34D399", "PBKDF2 şifre koruması"),
                         ("✓", "#34D399", "Hatalı denemede kilit"),
@@ -1580,15 +1579,15 @@ def ust_navigasyon():
         border-radius:10px !important;font-size:13px !important;font-weight:600 !important;
         letter-spacing:.2px !important;line-height:1 !important;white-space:nowrap !important;
         border:1px solid rgba(255,255,255,0.07) !important;
-        background:rgba(255,255,255,0.025) !important;color:#CBD5E1 !important;
+        background:rgba(255,255,255,0.025) !important;color:#7DD3FC !important;
         transition:background .15s ease,border-color .15s ease,color .15s ease !important;}
     .st-key-ustnav button:hover{
         border-color:rgba(129,140,248,0.55) !important;background:rgba(99,102,241,0.12) !important;
-        color:#FFFFFF !important;}
+        color:#E2E8F0 !important;}
     .st-key-ustnav button[kind="primary"]{
-        background:linear-gradient(135deg,#4F46E5,#7C3AED) !important;border-color:transparent !important;
-        color:#FFFFFF !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
-    .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#4338CA,#6D28D9) !important;}
+        background:linear-gradient(135deg,#818CF8,#818CF8) !important;border-color:transparent !important;
+        color:#E2E8F0 !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
+    .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#818CF8,#818CF8) !important;}
 
     /* === ANA İÇERİK radyoları → modern segmented/pill (TÜM sayfalarda: Yönetim dahil) === */
     [data-testid="stMainBlockContainer"] div[role="radiogroup"]{gap:8px !important;align-items:center;}
@@ -1601,11 +1600,11 @@ def ust_navigasyon():
         background:rgba(129,140,248,0.10) !important;border-color:rgba(129,140,248,0.55) !important;transform:translateY(-1px);}
     [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label > div:first-child{display:none !important;}
     [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){
-        background:linear-gradient(135deg,#6366F1,#818CF8) !important;border-color:#818CF8 !important;
+        background:linear-gradient(135deg,#818CF8,#818CF8) !important;border-color:#818CF8 !important;
         box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;}
     [data-testid="stMainBlockContainer"] div[role="radiogroup"] label p{
-        font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-0.1px !important;font-size:15px !important;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked) p{color:#FFFFFF !important;font-weight:700 !important;}
+        font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-0.1px !important;font-size:14px !important;}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked) p{color:#E2E8F0 !important;font-weight:700 !important;}
 
     /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
     /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */
@@ -1684,26 +1683,26 @@ input, textarea, select { font-size: 16px !important; }
     st.markdown(
         '<style>'
         'section[data-testid="stSidebar"]{'
-        'background:linear-gradient(180deg,#0D1235 0%,#080C20 100%) !important;'
+        'background:linear-gradient(180deg,#0F172A 0%,#0B1120 100%) !important;'
         'border-right:1px solid rgba(255,255,255,0.06) !important;'
         '}'
         'section[data-testid="stSidebar"] *{'
-        'color:#CBD5E1 !important;'
+        'color:#7DD3FC !important;'
         '}'
         'section[data-testid="stSidebar"] h1,'
         'section[data-testid="stSidebar"] h2,'
         'section[data-testid="stSidebar"] h3,'
         'section[data-testid="stSidebar"] strong{'
-        'color:#FFFFFF !important;'
+        'color:#E2E8F0 !important;'
         '}'
         'section[data-testid="stSidebar"] .stButton > button{'
         'background:rgba(255,255,255,0.022) !important;'
-        'color:#D5DBE5 !important;'
+        'color:#E2E8F0 !important;'
         'border:1px solid rgba(255,255,255,0.06) !important;'
         'border-left:3px solid #818CF8 !important;'
         'border-radius:13px !important;'
         'padding:10px 14px !important;'
-        'font-size:15px !important;'
+        'font-size:14px !important;'
         'font-weight:600 !important;'
         'font-family:\'Inter\',sans-serif !important;'
         'line-height:1.2 !important;'
@@ -1726,7 +1725,7 @@ input, textarea, select { font-size: 16px !important; }
         'section[data-testid="stSidebar"] .stButton > button div{'
         'text-align:left !important;'
         'justify-content:flex-start !important;'
-        'font-size:15px !important;'
+        'font-size:14px !important;'
         'font-weight:600 !important;'
         'letter-spacing:0.2px !important;'
         'font-family:\'Inter\',sans-serif !important;'
@@ -1735,19 +1734,19 @@ input, textarea, select { font-size: 16px !important; }
         '}'
         'section[data-testid="stSidebar"] .stButton > button:hover{'
         'background:rgba(99,102,241,0.1) !important;'
-        'color:#FFFFFF !important;'
+        'color:#E2E8F0 !important;'
         'border-color:rgba(99,102,241,0.2) !important;'
         'transform:none !important;'
         'box-shadow:none !important;'
         '}'
         'section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]{'
         'background:linear-gradient(135deg,rgba(99,102,241,0.30),rgba(139,92,246,0.18)) !important;'
-        'color:#FFFFFF !important;'
+        'color:#E2E8F0 !important;'
         'border:1px solid rgba(139,92,246,0.55) !important;'
-        'border-left:3px solid #A78BFA !important;'
+        'border-left:3px solid #818CF8 !important;'
         'border-radius:13px !important;'
         'box-shadow:0 2px 14px rgba(99,102,241,0.25) !important;'
-        'font-size:15px !important;'
+        'font-size:14px !important;'
         'font-weight:700 !important;'
         'font-family:\'Inter\',sans-serif !important;'
         'padding:10px 14px !important;'
@@ -1774,10 +1773,10 @@ input, textarea, select { font-size: 16px !important; }
         'section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"],'
         'section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"]{'
         'background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.15)) !important;'
-        'color:#FFFFFF !important;'
+        'color:#E2E8F0 !important;'
         'border:1px solid rgba(99,102,241,0.4) !important;'
         'font-size:13px !important;'
-        'font-weight:500 !important;'
+        'font-weight:400 !important;'
         '}'
         'section[data-testid="stSidebar"] .stButton > button:disabled,'
         'section[data-testid="stSidebar"] .stButton > button:disabled:hover{'
@@ -1790,7 +1789,7 @@ input, textarea, select { font-size: 16px !important; }
         '}'
         'section[data-testid="stSidebar"] [data-testid="stRadio"] label,'
         'section[data-testid="stSidebar"] [data-testid="stRadio"] p{'
-        'color:#CBD5E1 !important;'
+        'color:#7DD3FC !important;'
         '}'
         'button[data-testid="stBaseButton-headerNoPadding"],'
         '[data-testid="stSidebarCollapsedControl"]{'
@@ -1834,8 +1833,8 @@ input, textarea, select { font-size: 16px !important; }
             '<div style="display:flex;align-items:center;gap:10px;padding:2px 0 12px;margin-bottom:10px">'
             + KAYRAN_LOGO_SVG +
             '<div style="display:flex;align-items:baseline;gap:6px">'
-            '<span style="font-family:Inter,sans-serif;font-size:16px;font-weight:800;color:#FFFFFF;letter-spacing:1.5px;line-height:1">KAYRAN</span>'
-            '<span style="font-size:9.5px;color:#5B6B84;letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Workspace</span>'
+            '<span style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#E2E8F0;letter-spacing:1.5px;line-height:1">KAYRAN</span>'
+            '<span style="font-size:10px;color:#5B6B84;letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Workspace</span>'
             '</div>'
             '</div>',
             unsafe_allow_html=True
@@ -1852,7 +1851,7 @@ input, textarea, select { font-size: 16px !important; }
                        ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
                        ("🔧 Teknik Servis", "teknikservis")]
         _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:#5B6B84;'
-               'font-size:10.5px;font-weight:600;letter-spacing:.4px;'
+               'font-size:11px;font-weight:600;letter-spacing:.4px;'
                'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
                '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
         # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
@@ -1867,7 +1866,7 @@ input, textarea, select { font-size: 16px !important; }
             _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
                     f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,#152036,#0F172A);'
                     f'border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:#A5B4FC;'
-                    f'text-decoration:none;font-size:13px;font-weight:500">{_ad} ↗</a>')
+                    f'text-decoration:none;font-size:13px;font-weight:400">{_ad} ↗</a>')
         _lh += ('</div><div style="color:#64748B;font-size:11px;margin-top:8px;padding:0 8px;'
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
@@ -1879,10 +1878,10 @@ input, textarea, select { font-size: 16px !important; }
             )
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:8px">'
-                '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px">' + ilk_harf + '</div>'
+                '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#818CF8,#818CF8);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px">' + ilk_harf + '</div>'
                 '<div style="overflow:hidden">'
                 '<div style="color:#94A3B8;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1">Oturum</div>'
-                '<div style="color:#FFFFFF;font-weight:600;font-size:13px;margin-top:0px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + aktif_kullanici.capitalize() + '</div>'
+                '<div style="color:#E2E8F0;font-weight:600;font-size:13px;margin-top:0px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + aktif_kullanici.capitalize() + '</div>'
                 '</div>'
                 '</div>',
                 unsafe_allow_html=True
@@ -1911,7 +1910,7 @@ input, textarea, select { font-size: 16px !important; }
         else:
             uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "depo": "Depo Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "satis": "Satis", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
-            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "depo": "#6EE7B7", "ithalat": "#7DD3FC", "teknikservis": "#FDA4AF", "hesap_makinesi": "#FCD34D"}
+            uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "depo": "#6EE7B7", "ithalat": "#7DD3FC", "teknikservis": "#F87171", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
             # Modül adı artık modülün kendi kimlik çipinde — mükerrer etiket kaldırıldı
             # Modüle tıklayınca soldaki menünün kayacağı hedef
@@ -2002,8 +2001,8 @@ def _arama_kutusu(yer="anasayfa"):
 
 
 def anasayfa():
-    G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E88420">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FFFFFF">F</text></svg>'
-    FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#FFFFFF" letter-spacing="6">FAZEON</text></svg>'
+    G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E2E8F0">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FBBF24">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E2E8F0">F</text></svg>'
+    FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#E2E8F0" letter-spacing="6">FAZEON</text></svg>'
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
 
@@ -2013,7 +2012,7 @@ def anasayfa():
     _duyuru_aktif, _duyuru_metni = get_duyuru()
     if _duyuru_aktif and _duyuru_metni:
         st.markdown(
-            f'<div style="background:linear-gradient(90deg,rgba(59,130,246,0.12),rgba(139,92,246,0.12),rgba(236,72,153,0.12));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:8px 16px;text-align:center;color:#A5B4FC;font-size:13px;font-weight:500;margin-bottom:24px;animation:fadeUp 0.5s ease-out">{_duyuru_metni}</div>',
+            f'<div style="background:linear-gradient(90deg,rgba(59,130,246,0.12),rgba(139,92,246,0.12),rgba(236,72,153,0.12));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:8px 16px;text-align:center;color:#A5B4FC;font-size:13px;font-weight:400;margin-bottom:24px;animation:fadeUp 0.5s ease-out">{_duyuru_metni}</div>',
             unsafe_allow_html=True
         )
 
@@ -2084,13 +2083,13 @@ def anasayfa():
         '<div style="display:inline-block;padding:8px 16px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
         '</div>'
-        f'<span style="color:#64748B;font-size:13px;font-weight:500">{_tarih_str}</span>'
+        f'<span style="color:#64748B;font-size:13px;font-weight:400">{_tarih_str}</span>'
         '</div>'
-        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,40px);font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;line-height:1.1;margin:0">'
+        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,40px);font-weight:700;color:#E2E8F0;letter-spacing:-0.5px;line-height:1.1;margin:0">'
         f'{selamlama}, '
-        f'<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
+        f'<span style="background:linear-gradient(90deg,#7DD3FC,#818CF8,#F9A8D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
         '</h1>'
-        '<p style="color:#94A3B8;font-size:15px;margin-top:8px;font-weight:400">'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:8px;font-weight:400">'
         'İşletmenin güncel durumu aşağıda. Bir modüle geçmek için kartına tıkla.'
         '</p>'
         '</div>',
@@ -2100,7 +2099,7 @@ def anasayfa():
     # ─── 🔒 SALT-OKUR ŞERİDİ ───
     if st.session_state.get("salt_okur"):
         st.markdown(
-            '<div style="background:linear-gradient(90deg,#1E293B,#0F172A);'
+            '<div style="background:linear-gradient(90deg,#1C2A44,#0F172A);'
             'border:1px solid rgba(251,191,36,0.35);border-radius:10px;'
             'padding:8px 16px;margin:0 0 12px;font-size:13px;color:#FBBF24">'
             '🔒 <b>Salt-okur oturum</b> — tüm modülleri görüntüleyebilirsin, '
@@ -2143,7 +2142,7 @@ def anasayfa():
         return (f'<div style="background:rgba(255,255,255,0.04);border:1px solid {accent}2e;border-radius:16px;'
                 f'padding:16px 20px;flex:1;min-width:150px">'
                 f'<div style="font-size:11px;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{ikon} {ust}</div>'
-                f'<div style="color:#FFFFFF;font-size:23px;font-weight:800;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
+                f'<div style="color:#E2E8F0;font-size:23px;font-weight:700;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
                 f'<div style="color:{accent};font-size:13px;font-weight:600;margin-top:8px">{alt}</div></div>')
 
     _saat_str = _ist_now.strftime("%H:%M")
@@ -2156,15 +2155,15 @@ def anasayfa():
         _gunluk_kartlar.append(_g_card("Gram Altın", f"₺{_altin:,.0f}".replace(",", "."), "Anlık fiyat", "#FBBF24", "🥇"))
     if _hava and _hava.get("sicaklik") is not None:
         _gunluk_kartlar.append(_g_card("Hava", f"{_hava['sicaklik']}°",
-                                       f"{_hava['ikon']} {_hava['durum']} · {_hava['sehir']}", "#38BDF8", "🌤️"))
+                                       f"{_hava['ikon']} {_hava['durum']} · {_hava['sehir']}", "#7DD3FC", "🌤️"))
     if _tatil:
         _td = _tatil["tarih"]
         _ttar = f"{_td.day} {_aylar_tr[_td.month-1][:3]}"
         if _tatil["bugun"]:
-            _gunluk_kartlar.append(_g_card("Bugün Tatil", "🎉", _tatil["ad"], "#FB7185", "🗓️"))
+            _gunluk_kartlar.append(_g_card("Bugün Tatil", "🎉", _tatil["ad"], "#F87171", "🗓️"))
         else:
             _gunluk_kartlar.append(_g_card("Yaklaşan Tatil", f"{_tatil['kalan_gun']} gün",
-                                           f"{_tatil['ad']} · {_ttar}", "#FB7185", "🗓️"))
+                                           f"{_tatil['ad']} · {_ttar}", "#F87171", "🗓️"))
     st.markdown(
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;animation:fadeUp 0.6s ease-out">'
         + "".join(_gunluk_kartlar) + '</div>', unsafe_allow_html=True)
@@ -2174,7 +2173,7 @@ def anasayfa():
             'border:1px solid rgba(139,92,246,0.22);border-radius:14px;padding:12px 20px;margin-bottom:8px;'
             'display:flex;align-items:center;gap:12px;animation:fadeUp 0.7s ease-out">'
             '<span style="font-size:19px">💬</span>'
-            f'<span style="color:#CBD5E1;font-size:15px;font-style:italic;font-weight:500">{_soz}</span></div>',
+            f'<span style="color:#7DD3FC;font-size:14px;font-style:italic;font-weight:400">{_soz}</span></div>',
             unsafe_allow_html=True)
     if _mola:
         st.markdown(
@@ -2182,7 +2181,7 @@ def anasayfa():
             'border-radius:14px;padding:12px 20px;margin-bottom:28px;display:flex;align-items:center;gap:12px;'
             'animation:fadeUp 0.75s ease-out">'
             '<span style="font-size:19px">💧</span>'
-            f'<span style="color:#A7F3D0;font-size:15px;font-weight:600">{_mola}</span></div>',
+            f'<span style="color:#6EE7B7;font-size:14px;font-weight:600">{_mola}</span></div>',
             unsafe_allow_html=True)
 
     # ─────────────────────────────────────────────────────────────────────
@@ -2194,8 +2193,8 @@ def anasayfa():
         return (f'<div style="background:linear-gradient(180deg,#152036,#0F172A);border:1px solid {accent}33;border-radius:12px;'
                 f'padding:12px 16px;backdrop-filter:blur(10px)">'
                 f'<div style="font-size:11px;color:#64748B;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{label}</div>'
-                f'<div style="color:#FFFFFF;font-size:19px;font-weight:800;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
-                f'<div style="color:{accent};font-size:11px;font-weight:500;margin-top:4px">{sub}</div></div>')
+                f'<div style="color:#E2E8F0;font-size:19px;font-weight:700;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
+                f'<div style="color:{accent};font-size:11px;font-weight:400;margin-top:4px">{sub}</div></div>')
 
     import datetime as _kdt
     _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
@@ -2234,7 +2233,7 @@ def anasayfa():
                 from ithalat.database import get_dosyalar
                 _yol = sum(1 for d in get_dosyalar()
                            if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
-            kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", "#38BDF8"))
+            kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", "#7DD3FC"))
             if _yol:
                 _rozet["ithalat"] = f"{_yol} yolda"
         except Exception:
@@ -2245,7 +2244,7 @@ def anasayfa():
             if _ts_n is None:
                 from teknikservis.database import get_kayitlar
                 _ts_n = len(get_kayitlar())
-            kpi_html.append(_kpi_card("Teknik Servis", f"{_ts_n}", "🛠️ Açık kayıt", "#A78BFA"))
+            kpi_html.append(_kpi_card("Teknik Servis", f"{_ts_n}", "🛠️ Açık kayıt", "#818CF8"))
             if _ts_n:
                 _rozet["teknikservis"] = f"{_ts_n} açık"
         except Exception:
@@ -2256,7 +2255,7 @@ def anasayfa():
             if _kmp_n is None:
                 from kayranpm.database import get_kampanyalar
                 _kmp_n = len(get_kampanyalar(durum='aktif'))
-            kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "🎯 Aktif kampanya", "#F472B6"))
+            kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "🎯 Aktif kampanya", "#F9A8D4"))
             if _kmp_n:
                 _rozet["kayranpm"] = f"{_kmp_n} kampanya"
         except Exception:
@@ -2277,7 +2276,7 @@ def anasayfa():
                 'padding:16px 20px;margin-bottom:24px;animation:fadeUp 0.4s ease-out">'
                 f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
                 f'<div style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.25);'
-                f'display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">🔔</div>'
+                f'display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔔</div>'
                 f'<span style="color:#A5B4FC;font-size:13px;font-weight:700">'
                 f'{len(_bildirimler)} yeni bildirim</span>'
                 f'</div>'
@@ -2288,7 +2287,7 @@ def anasayfa():
                     f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
                     f'<div style="color:#E2E8F0;font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
                     f'<div style="color:#64748B;font-size:11px;margin-top:8px;display:flex;align-items:center;gap:8px">'
-                    f'<span style="width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block"></span>'
+                    f'<span style="width:5px;height:5px;border-radius:50%;background:#818CF8;display:inline-block"></span>'
                     f'{str(_b.get("gonderen") or "Sistem").capitalize()} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
                     f'</div>'
                     f'</div>'
@@ -2327,7 +2326,7 @@ def anasayfa():
                         st.markdown(
                             f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
                             f'<div style="font-size:23px;line-height:1">{_ic}</div>{_rz_html}</div>'
-                            f'<div style="color:#F1F5F9;font-size:15px;font-weight:700;margin-top:8px">{_ad}</div>'
+                            f'<div style="color:#7DD3FC;font-size:14px;font-weight:700;margin-top:8px">{_ad}</div>'
                             f'<div style="color:#64748B;font-size:11px;margin:4px 0 8px;min-height:30px;line-height:1.4">{_ds}</div>',
                             unsafe_allow_html=True)
                         if st.button("Aç →", key=f"home_open_{_mk}", use_container_width=True):
@@ -2361,7 +2360,7 @@ def anasayfa():
                     st.markdown(
                         f'<div style="color:#E2E8F0;font-size:13px;font-weight:700">{durum_renk} {t.get("konu","—")}</div>'
                         f'<div style="color:#64748B;font-size:11px;margin:0px 0 8px">{t.get("gonderen","?")} · {str(t.get("olusturma_tarihi",""))[:16].replace("T"," ")}</div>'
-                        f'<div style="color:#CBD5E1;font-size:13px;line-height:1.5;margin-bottom:8px">{t.get("mesaj","")}</div>',
+                        f'<div style="color:#7DD3FC;font-size:13px;line-height:1.5;margin-bottom:8px">{t.get("mesaj","")}</div>',
                         unsafe_allow_html=True)
                     talep_id = t.get("id")
                     _ct1, _ct2 = st.columns([3, 1])
@@ -2398,24 +2397,24 @@ def anasayfa():
         with _bk1:
             st.markdown(
                 '<div style="background:linear-gradient(135deg,#1B2436 0%,#0F172A 100%);'
-                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid #E88420;border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
+                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid #FBBF24;border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
                 f'<div style="height:46px;display:flex;align-items:center;margin-bottom:8px">{G5F_LOGO_SVG}</div>'
-                '<div style="font-size:15px;font-weight:800;color:#FFFFFF;margin-bottom:0px">G5F Teknoloji</div>'
-                '<div style="font-size:11px;color:#FED7AA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Distribütör · Teknoloji Çözümleri</div>'
-                '<div style="font-size:13px;line-height:1.6;color:#CBD5E1;margin-bottom:16px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
-                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:#FFEDD5;text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
+                '<div style="font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:0px">G5F Teknoloji</div>'
+                '<div style="font-size:11px;color:#FBBF24;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Distribütör · Teknoloji Çözümleri</div>'
+                '<div style="font-size:13px;line-height:1.6;color:#7DD3FC;margin-bottom:16px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
+                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:#FBBF24;text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
                 '</div>',
                 unsafe_allow_html=True
             )
         with _bk2:
             st.markdown(
                 '<div style="background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
-                'border:1px solid rgba(139,92,246,0.25);border-left:3px solid #A78BFA;border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
+                'border:1px solid rgba(139,92,246,0.25);border-left:3px solid #818CF8;border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
                 f'<div style="height:46px;display:flex;align-items:center;margin-bottom:8px">{FAZEON_LOGO_SVG}</div>'
-                '<div style="font-size:15px;font-weight:800;color:#FFFFFF;margin-bottom:0px">Fazeon</div>'
-                '<div style="font-size:11px;color:#A78BFA;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Gaming · Monitors · Cases · Coolers</div>'
-                '<div style="font-size:13px;line-height:1.6;color:#CBD5E1;margin-bottom:16px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
-                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(139,92,246,0.4);border-radius:9px;color:#C4B5FD;text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
+                '<div style="font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:0px">Fazeon</div>'
+                '<div style="font-size:11px;color:#818CF8;letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Gaming · Monitors · Cases · Coolers</div>'
+                '<div style="font-size:13px;line-height:1.6;color:#7DD3FC;margin-bottom:16px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
+                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15));border:1px solid rgba(139,92,246,0.4);border-radius:9px;color:#818CF8;text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
                 '</div>',
                 unsafe_allow_html=True
             )
@@ -2425,10 +2424,10 @@ def anasayfa():
         '<style>'
         '[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea{'
         'background:rgba(255,255,255,0.04) !important;border:1px solid rgba(255,255,255,0.12) !important;'
-        'color:#FFFFFF !important;border-radius:10px !important;}'
+        'color:#E2E8F0 !important;border-radius:10px !important;}'
         '[data-testid="stTextInput"] input::placeholder,[data-testid="stTextArea"] textarea::placeholder{color:#64748B !important;}'
         '[data-testid="stTextInput"] input:focus,[data-testid="stTextArea"] textarea:focus{'
-        'border-color:#8B5CF6 !important;box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
+        'border-color:#818CF8 !important;box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
         '</style>',
         unsafe_allow_html=True
     )
@@ -2477,7 +2476,7 @@ def anasayfa():
         '<span style="color:#475569;font-size:11px">•</span>'
         f'<span style="color:#64748B;font-size:11px;font-family:JetBrains Mono,monospace">KAYRAN v2.0.0</span>'
         '<span style="color:#475569;font-size:11px">•</span>'
-        f'<span style="color:#64748B;font-size:11px;font-weight:500">© {yil} G5F Teknoloji</span>'
+        f'<span style="color:#64748B;font-size:11px;font-weight:400">© {yil} G5F Teknoloji</span>'
         '</div>'
         '</div>',
         unsafe_allow_html=True
@@ -2525,8 +2524,8 @@ def anasayfa():
                     cards_html += (
                         f'<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px">'
                         f'<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px;flex-shrink:0">{ilk}</div>'
-                        f'<div style="overflow:hidden"><div style="color:#FFFFFF;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
-                        f'<div style="color:#6EE7B7;font-size:11px;font-weight:500">● {zaman_str}</div></div></div>'
+                        f'<div style="overflow:hidden"><div style="color:#E2E8F0;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
+                        f'<div style="color:#6EE7B7;font-size:11px;font-weight:400">● {zaman_str}</div></div></div>'
                     )
                 cards_html += '</div>'
                 st.markdown(
@@ -2613,8 +2612,8 @@ def sifre_degistir():
         '<div style="display:inline-block;padding:8px 16px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px;margin-bottom:16px">'
         '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔑 Güvenlik</span>'
         '</div>'
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,36px);font-weight:800;color:#FFFFFF;margin:0">Şifremi Değiştir</h1>'
-        '<p style="color:#94A3B8;font-size:15px;margin-top:8px">Yeni şifren Supabase&#39;de güvenli şekilde saklanır &mdash; Streamlit Secrets&#39;tan bağımsızdır.</p>'
+        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,36px);font-weight:700;color:#E2E8F0;margin:0">Şifremi Değiştir</h1>'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:8px">Yeni şifren Supabase&#39;de güvenli şekilde saklanır &mdash; Streamlit Secrets&#39;tan bağımsızdır.</p>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -2622,13 +2621,13 @@ def sifre_degistir():
     # ─── FORM CSS ─────────────────────────────────────────────────────────────
     st.markdown(
         '<style>'
-        '[data-testid="stTextInput"] label{color:#CBD5E1 !important;font-weight:600 !important;'
+        '[data-testid="stTextInput"] label{color:#7DD3FC !important;font-weight:600 !important;'
         'font-size:13px !important;letter-spacing:.5px !important;text-transform:uppercase !important;}'
         '[data-testid="stTextInput"] input{background:rgba(255,255,255,0.04) !important;'
-        'border:1px solid rgba(255,255,255,0.12) !important;color:#FFFFFF !important;border-radius:12px !important;}'
-        '[data-testid="stTextInput"] input:focus{border-color:#8B5CF6 !important;'
+        'border:1px solid rgba(255,255,255,0.12) !important;color:#E2E8F0 !important;border-radius:12px !important;}'
+        '[data-testid="stTextInput"] input:focus{border-color:#818CF8 !important;'
         'box-shadow:0 0 0 3px rgba(139,92,246,0.15) !important;}'
-        '.stFormSubmitButton>button{background:linear-gradient(135deg,#6366F1,#8B5CF6) !important;'
+        '.stFormSubmitButton>button{background:linear-gradient(135deg,#818CF8,#818CF8) !important;'
         'color:#fff !important;border:none !important;border-radius:12px !important;'
         'font-weight:600 !important;box-shadow:0 4px 20px rgba(99,102,241,0.35) !important;}'
         '</style>',
@@ -2643,9 +2642,9 @@ def sifre_degistir():
             'border-radius:20px;padding:32px 28px;">'
             f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;'
             f'padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06)">'
-            f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366F1,#8B5CF6);'
-            f'display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:15px">{ilk_harf}</div>'
-            f'<div><div style="color:#FFFFFF;font-weight:600;font-size:15px">{aktif_kullanici.capitalize()}</div>'
+            f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#818CF8,#818CF8);'
+            f'display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:14px">{ilk_harf}</div>'
+            f'<div><div style="color:#E2E8F0;font-weight:600;font-size:14px">{aktif_kullanici.capitalize()}</div>'
             f'<div style="color:#64748B;font-size:11px">Şifre değiştirme</div></div>'
             f'</div>'
             '</div>',
@@ -2713,19 +2712,19 @@ def kayrantsw_yakinda():
         '<span style="color:#A5B4FC;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
         '</div>'
         # Başlık
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:800;color:#FFFFFF;'
+        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:700;color:#E2E8F0;'
         'letter-spacing:1px;margin:0;line-height:1.1">'
-        '<span style="background:linear-gradient(90deg,#60A5FA,#A78BFA,#F472B6);'
+        '<span style="background:linear-gradient(90deg,#7DD3FC,#818CF8,#F9A8D4);'
         '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
         '</h1>'
         # Alt açıklama
-        '<p style="color:#94A3B8;font-size:15px;margin-top:16px;max-width:480px;line-height:1.7;font-weight:400">'
+        '<p style="color:#94A3B8;font-size:14px;margin-top:16px;max-width:480px;line-height:1.7;font-weight:400">'
         'Depo & Teknik Servis üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
         'Gelişmelerden haberdar olmak için takipte kalın.'
         '</p>'
         # Dekoratif çizgi
         '<div style="width:80px;height:3px;margin:28px auto 0;'
-        'background:linear-gradient(90deg,#6366F1,#A78BFA,#EC4899);border-radius:2px"></div>'
+        'background:linear-gradient(90deg,#818CF8,#818CF8,#F9A8D4);border-radius:2px"></div>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -2748,7 +2747,7 @@ def _global_hata_kart(uygulama_adi, hata):
         '<span style="font-size:23px">⚠️</span>'
         f'<b style="color:#FCA5A5;font-size:19px">{uygulama_adi} Uygulamasında Bir Sorun Oluştu</b>'
         '</div>'
-        '<div style="color:#FECACA;font-size:15px;line-height:1.6;margin-bottom:16px">'
+        '<div style="color:#F87171;font-size:14px;line-height:1.6;margin-bottom:16px">'
         'Üzgünüz, beklenmedik bir hata oluştu. Verileriniz güvende — sadece bu işlem tamamlanamadı.'
         '</div>'
         '<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(248,113,113,0.25);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:13px;color:#FCA5A5;margin-bottom:16px;overflow-x:auto">'

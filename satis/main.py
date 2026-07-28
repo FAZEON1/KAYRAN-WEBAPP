@@ -43,13 +43,11 @@ def _kart(satirlar):
         satirlar = _km(satirlar)
     except Exception:
         pass
-    # GÖRÜNÜM: artık ortak tasarım katmanı çiziyor. Çağrı sözleşmesi aynı
-    # kaldı — (etiket, değer, hex) üçlüsü — ama hex, tek palete eşleniyor.
     from shared.tasarim import RENK, ESKI_RENK_ESLEME
     hucreler = ""
     for l, v, c in satirlar:
-        token = ESKI_RENK_ESLEME.get(str(c).upper(), None)
-        renk = RENK.get(token, c if str(c).startswith("#") else RENK["mor"])
+        tok = ESKI_RENK_ESLEME.get(str(c).upper())
+        renk = RENK.get(tok, c if str(c).startswith("#") else RENK["mor"])
         hucreler += (f'<div class="k-kart" data-akscent style="border-left-color:{renk}">'
                      f'<div class="k-etiket">{l}</div>'
                      f'<div class="k-deger" style="color:{renk}">{v}</div></div>')
@@ -317,10 +315,9 @@ def iade_excel_oku(dosya):
 
 
 def run():
-    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h
+    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h, tablo_kolonlari
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-    # NOT: sayfa genişliği artık app.py'de tek yerden veriliyor (modül başına
-    # farklı max-width, modüller arası geçişte sayfanın daralmasına yol açıyordu).
+    # Sayfa genişliği artık app.py'de tek yerden.
 
     with st.sidebar:
         st.markdown(sidebar_stil(), unsafe_allow_html=True)
@@ -742,10 +739,10 @@ def run():
                     _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
                     st.markdown(
                         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">' + _kart([
-                            ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#93C5FD"),
-                            ("Ciro", _usd(top["ciro"]), "#CBD5E1"),
-                            ("Maliyet", _usd(top["maliyet"]), "#FB923C"),
-                            ("Destek", _usd(top["destek"]), "#A78BFA"),
+                            ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#7DD3FC"),
+                            ("Ciro", _usd(top["ciro"]), "#7DD3FC"),
+                            ("Maliyet", _usd(top["maliyet"]), "#FBBF24"),
+                            ("Destek", _usd(top["destek"]), "#818CF8"),
                             ("Net Kâr", _usd(top["net_kar"]), _renk),
                             ("Net Kârlılık", f"%{top['marj']:.1f}", _renk),
                         ]) + '</div>', unsafe_allow_html=True)
@@ -864,13 +861,13 @@ def run():
             _t_marj_k = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
             _t_renk = "#34D399" if _t_kar > 0 else "#F87171"
             _oz_kart = [
-                ("Kayıt", f"{len(satislar):,}", "#93C5FD"),
-                ("Adet", f"{_t_adet:,}", "#93C5FD"),
-                ("Ciro", _usd(_t_ciro), "#CBD5E1"),
-                ("Maliyet (COGS)", _usd(_t_maliyet), "#FB923C"),
+                ("Kayıt", f"{len(satislar):,}", "#7DD3FC"),
+                ("Adet", f"{_t_adet:,}", "#7DD3FC"),
+                ("Ciro", _usd(_t_ciro), "#7DD3FC"),
+                ("Maliyet (COGS)", _usd(_t_maliyet), "#FBBF24"),
             ]
             if _t_destek > 0.005:
-                _oz_kart.append(("Destek", _usd(_t_destek), "#A78BFA"))
+                _oz_kart.append(("Destek", _usd(_t_destek), "#818CF8"))
             _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
                          ("Marj", f"%{_t_marj_k:.1f}", _t_renk)]
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">'
@@ -1154,8 +1151,8 @@ def run():
             _nr = "#34D399" if _nihai > 0 else "#F87171"
 
             # ── Üst şerit: yalnız 4 ana gösterge ──
-            _kar_tonu = "yesil" if _nihai > 0 else "kirmizi"
-            _ok = "▲" if _nihai > 0 else "▼"   # renk körlüğü için renkten başka işaret
+            _kt = "yesil" if _nihai > 0 else "kirmizi"
+            _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
             st.markdown(kpi_serit([
                 {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
                  "renk": "metin", "tam": f"${_net_ciro:,.2f}"},
@@ -1163,18 +1160,18 @@ def run():
                  "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
                  "renk": "mavi"},
                 {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"),
-                 "renk": _kar_tonu, "tam": f"${_nihai:,.2f}"},
-                {"etiket": "NET MARJ", "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1),
-                 "renk": _kar_tonu},
+                 "renk": _kt, "tam": f"${_nihai:,.2f}"},
+                {"etiket": "NET MARJ",
+                 "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt},
             ]), unsafe_allow_html=True)
 
             # ── Kâr merdiveni ──
             def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
                 _renkler = {"normal": ("#94A3B8", "#E2E8F0"),
-                            "eksi": ("#94A3B8", "#FB923C"),
+                            "eksi": ("#94A3B8", "#FBBF24"),
                             "arti": ("#94A3B8", "#34D399"),
-                            "ara": ("#CBD5E1", "#22D3EE"),
-                            "son": ("#FFFFFF", _nr)}
+                            "ara": ("#7DD3FC", "#22D3EE"),
+                            "son": ("#E2E8F0", _nr)}
                 el, dr = _renkler.get(ton, _renkler["normal"])
                 _bg = ("rgba(255,255,255,0.05)" if ton in ("ara", "son")
                        else "transparent")
@@ -1357,8 +1354,7 @@ def run():
                             if _rows:
                                 _tablo = [{
                                     _kol: r["_ad"], "Adet": r["Adet"],
-                                    "Ciro": r["Ciro"],
-                                    "Kâr": r["Kâr"],
+                                    "Ciro": r["Ciro"], "Kâr": r["Kâr"],
                                     "Destek": "📥" if r["_destek"] > 0.005 else "",
                                     "Marj": ((r["Kâr"] / r["Ciro"] * 100)
                                              if r["Ciro"] > 0 else None),
@@ -1486,8 +1482,7 @@ def run():
                 return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
             _kdf_kanal = _kar_df(pd.DataFrame([{
                 "Kanal": kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
-                "Net Kâr": _kn_net(kn, v)[1],
-                "Marj": _kn_net(kn, v)[2],
+                "Net Kâr": _kn_net(kn, v)[1], "Marj": _kn_net(kn, v)[2],
             } for kn, v in _kr]))
             _kanal_evt = st.dataframe(
                 _kdf_kanal, hide_index=True, use_container_width=True,
@@ -1496,7 +1491,7 @@ def run():
 
             @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
             def _dlg_firma_gecmis(_fkn):
-                st.markdown(f'<div style="font-size:15px;font-weight:800;color:#E2E8F0;'
+                st.markdown(f'<div style="font-size:14px;font-weight:700;color:#E2E8F0;'
                             f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
                 st.caption(f"Dönem: {_pbas} → {_pbit}")
                 _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
@@ -1524,9 +1519,9 @@ def run():
                 _t_kar = sum(g["kar"] for g in _sipler.values())
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
                             + _kart([
-                                ("Sipariş", f"{len(_sipler):,}", "#93C5FD"),
-                                ("Adet", f"{_t_adet:,}", "#93C5FD"),
-                                ("Ciro", _usd(_t_ciro), "#CBD5E1"),
+                                ("Sipariş", f"{len(_sipler):,}", "#7DD3FC"),
+                                ("Adet", f"{_t_adet:,}", "#7DD3FC"),
+                                ("Ciro", _usd(_t_ciro), "#7DD3FC"),
                                 ("Net Kâr", _usd(_t_kar),
                                  "#34D399" if _t_kar >= 0 else "#F87171"),
                                 ("Kârlılık", f"%{(_t_kar / _t_ciro * 100) if _t_ciro else 0:.1f}",
@@ -1549,8 +1544,7 @@ def run():
                                        key=lambda x: x[1]["tarih"], reverse=True)])
                 _sdf_g = _kar_df(_sdf)
                 st.dataframe(_sdf_g, hide_index=True, use_container_width=True,
-                             column_config=tablo_kolonlari(_sdf_g),
-                             height=tablo_h(len(_sdf_g)))
+                             column_config=tablo_kolonlari(_sdf_g), height=tablo_h(len(_sdf_g)))
                 _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + list(_sdf["Sipariş No"]),
                                         key="pnl_firma_sip")
                 if _sec_sip != "(seç)":
@@ -1636,7 +1630,7 @@ def run():
                 _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
                        if _ozet["tarih_min"] else "—")
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' + _kart([
-                    ("Satır", f"{_ozet['satir']:,}", "#93C5FD"),
+                    ("Satır", f"{_ozet['satir']:,}", "#7DD3FC"),
                     ("Fatura", f"{_ozet['fatura']:,}", "#A5B4FC"),
                     ("Toplam Ciro", _usd(_ozet["ciro"]), "#34D399"),
                     ("Tarih Aralığı", _ta, "#FBBF24"),
@@ -1908,14 +1902,14 @@ def run():
             _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
             _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
-                ("Satış adedi", f"{_top['s_adet']:,}", "#93C5FD"),
+                ("Satış adedi", f"{_top['s_adet']:,}", "#7DD3FC"),
                 ("İade adedi", f"{_top['i_adet']:,}", "#FBBF24"),
                 ("Net adet (müşteride)", f"{_top['net_adet']:,}", "#34D399"),
-                ("Satış cirosu", _usd(_top["s_ciro"]), "#CBD5E1"),
+                ("Satış cirosu", _usd(_top["s_ciro"]), "#7DD3FC"),
                 ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), "#FBBF24"),
                 ("Net ciro", _usd(_top["net_ciro"]), "#34D399"),
-                ("Satış kârı", _usd(_top["s_kar"]), "#A78BFA"),
-                ("Satış marjı", f"%{_mr:.1f}", "#A78BFA"),
+                ("Satış kârı", _usd(_top["s_kar"]), "#818CF8"),
+                ("Satış marjı", f"%{_mr:.1f}", "#818CF8"),
                 ("İade oranı", f"%{_ior:.1f}", "#FBBF24"),
             ]) + '</div>', unsafe_allow_html=True)
             st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "

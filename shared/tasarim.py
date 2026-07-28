@@ -124,6 +124,7 @@ FONT = {
     "orta":    "14px",   # alt başlık · vurgulu satır
     "baslik":  "16px",   # sayfa başlığı
     "deger":   "19px",   # metrik değeri (mono, tabular)
+    "hero":    "23px",   # SADECE tek başına duran büyük rakam (Toplam Aktifler)
 }
 MONO = "'JetBrains Mono', ui-monospace, monospace"
 SANS = "Inter, -apple-system, sans-serif"
@@ -188,6 +189,93 @@ def _tam(deger, birim=""):
 # ═══════════════════════════════════════════════════════════════════
 # 5. ÇEKİRDEK CSS — app.py'de bir kez. Tüm sınıflar burada tanımlı.
 # ═══════════════════════════════════════════════════════════════════
+def _streamlit_normalize():
+    """Streamlit'in KENDİ ilkellerini tasarım sistemine sokar.
+
+    NEDEN AYRI: Şimdiye kadar stil bileşen bazlıydı ve opt-in'di — modül
+    çağırmayı unutunca Streamlit'in ham hali çıkıyordu. (metric_css()
+    hiçbir modülden çağrılmıyordu; bu yüzden her st.metric 64px değerle,
+    kartsız çiziliyordu.) Burası app.py'de bir kez basılır ve hiçbir
+    modülün kaçamayacağı taban katmanıdır.
+
+    Kapsam: başlıklar (### → h3) · st.metric · st.info/warning/success/error
+    (745 çağrı) · st.expander (67) · caption · ayraç · sekme · buton.
+    """
+    R, F, A, T = RENK, FONT, AGIRLIK, TRACKING
+    y = YOGUNLUK["sik"]
+    return f"""<style>
+/* ── BAŞLIKLAR: markdown ### ve st.header hep aynı ölçekte ── */
+.stApp h1{{font-size:20px !important;}}
+.stApp h2{{font-size:18px !important;}}
+.stApp h3{{font-size:{F['baslik']} !important;}}
+.stApp h4,.stApp h5,.stApp h6{{font-size:{F['orta']} !important;}}
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6{{
+  font-weight:{A['baslik']} !important;letter-spacing:{T['baslik']} !important;
+  color:{R['metin']} !important;line-height:1.3 !important;
+  padding:0 !important;margin:14px 0 6px !important;}}
+
+/* ── st.metric: ortak kart diline sokulur ── */
+div[data-testid="stMetric"]{{
+  background:{R['yuzey1']} !important;border:1px solid {R['kenar']} !important;
+  border-left:2px solid {R['mor']} !important;border-radius:{y['kart_r']} !important;
+  padding:{y['kart_pad']} !important;}}
+div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p,
+div[data-testid="stMetricLabel"] div{{
+  font-size:{F['etiket']} !important;color:{R['soluk']} !important;
+  font-weight:{A['vurgu']} !important;letter-spacing:{T['etiket']} !important;
+  text-transform:uppercase !important;line-height:1.3 !important;
+  white-space:normal !important;overflow:visible !important;}}
+div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] div{{
+  font-size:{F['deger']} !important;color:{R['metin']} !important;
+  font-weight:{A['baslik']} !important;font-family:{MONO} !important;
+  font-variant-numeric:tabular-nums !important;letter-spacing:{T['baslik']} !important;
+  line-height:1.3 !important;}}
+div[data-testid="stMetricDelta"]{{font-size:{F['kucuk']} !important;
+  font-family:{MONO} !important;}}
+
+/* ── Uyarı kutuları: 745 çağrı, hepsi tek dilde ── */
+div[data-testid="stAlert"],div[data-testid="stNotification"]{{
+  border-radius:{y['kart_r']} !important;padding:8px 13px !important;
+  border:1px solid {R['kenar2']} !important;border-left-width:2px !important;
+  margin:6px 0 !important;}}
+div[data-testid="stAlert"] p,div[data-testid="stNotification"] p{{
+  font-size:{F['govde']} !important;font-weight:{A['govde']} !important;
+  line-height:1.55 !important;margin:0 !important;}}
+div[data-testid="stAlert"] svg,div[data-testid="stNotification"] svg{{
+  width:15px !important;height:15px !important;}}
+
+/* ── Expander: 67 çağrı ── */
+details[data-testid="stExpander"],div[data-testid="stExpander"] details{{
+  border:1px solid {R['kenar']} !important;border-radius:{y['kart_r']} !important;
+  background:{R['yuzey1']} !important;}}
+div[data-testid="stExpander"] summary{{
+  padding:7px 13px !important;font-size:{F['govde']} !important;
+  font-weight:{A['vurgu']} !important;color:{R['soluk']} !important;}}
+div[data-testid="stExpander"] summary:hover{{color:{R['metin']} !important;}}
+div[data-testid="stExpander"] summary p{{
+  font-size:{F['govde']} !important;font-weight:{A['vurgu']} !important;}}
+
+/* ── Caption · ayraç · sekme ── */
+div[data-testid="stCaptionContainer"] p,.stApp small{{
+  font-size:{F['kucuk']} !important;color:{R['silik']} !important;
+  font-weight:{A['govde']} !important;line-height:1.5 !important;}}
+.stApp hr,div[data-testid="stDivider"] hr{{
+  border-color:{R['kenar']} !important;margin:12px 0 !important;}}
+button[data-baseweb="tab"]{{font-size:{F['govde']} !important;
+  font-weight:{A['vurgu']} !important;border-radius:9px 9px 0 0 !important;}}
+button[data-baseweb="tab"][aria-selected="true"]{{
+  background:rgba(129,140,248,0.10) !important;color:{R['metin']} !important;}}
+
+/* ── Gövde metni: varsayılan 400. Program 931 kalın / 10 normal idi. ── */
+.stApp [data-testid="stMarkdownContainer"] p,
+.stApp [data-testid="stMarkdownContainer"] li{{
+  font-size:{F['govde']} !important;font-weight:{A['govde']} !important;
+  line-height:1.6 !important;}}
+.stApp [data-testid="stMarkdownContainer"] strong{{
+  font-weight:{A['vurgu']} !important;color:{R['metin']} !important;}}
+</style>"""
+
+
 def cekirdek_css(yogunluk=None):
     R, F = RENK, FONT
     kp, kr, gg, sa, sp, kmin = (_y("kart_pad", yogunluk), _y("kart_r", yogunluk),
@@ -261,7 +349,7 @@ div[data-testid="stCaptionContainer"] p{{color:{R['soluk']} !important;}}
   .k-kart{{min-width:110px;}}
   .k-baslik-alt{{display:none;}}
 }}
-</style>"""
+</style>""" + _streamlit_normalize()
 
 
 def islem_gosterge_css():
