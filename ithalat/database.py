@@ -273,6 +273,8 @@ _MALIYET_ETIKET_SLUG = {
     "ANTREPO BEY.": "antrepo_beyannamesi", "ANTREPO BEYANNAM": "antrepo_beyannamesi",
     "DEMURAJ": "demuraj", "TSE-TAREKS": "tse_tareks", "DTS-TAREKS": "tse_tareks",
     "KBF": "kbf", "ÖTV": "otv", "OTV": "otv",
+    # Grup-özel vergi satırlarında noktasız yazılıyor (genel blokta "G.V")
+    "GV": "gv", "İGV": "igv", "IGV": "igv", "TSE": "tse_tareks", "TAREKS": "tse_tareks",
 }
 
 
@@ -284,7 +286,9 @@ def parse_maliyet_coklu_sayfa(ws):
     """MALİYET çoklu-grup Excel sayfasını okur (2025-14 / 2026-12 formatı).
     A sütunu masraf etiketi, C sütunu TL tutar. Sağ blok (I) grup adları.
     Döner: {tedarikci, tasima, mal_bedeli, kur, masraflar_tl{slug:tl},
-            masraflar_usd{slug:usd}, gruplar[...], uyari[...]}
+            masraflar_usd{slug:usd}, gruplar[...], uyari[...],
+            grup_masraflari[{grup,slug,etiket,usd}],   ← 27-37. satırlar
+            grup_cbm{grup:cbm}, grup_fob{grup:fob}}
     Masraflar TL/kur ile USD'ye çevrilir (dosya para birimi USD varsayılır)."""
     def cell(r, c):
         return ws.cell(row=r + 1, column=c + 1).value
@@ -296,7 +300,8 @@ def parse_maliyet_coklu_sayfa(ws):
             return 0.0
 
     out = {"tedarikci": "", "tasima": "", "mal_bedeli": 0.0, "kur": 1.0,
-           "masraflar_tl": {}, "masraflar_usd": {}, "gruplar": [], "uyari": []}
+           "masraflar_tl": {}, "masraflar_usd": {}, "gruplar": [], "uyari": [],
+           "grup_masraflari": [], "grup_cbm": {}, "grup_fob": {}}
     out["tedarikci"] = str(cell(0, 0) or "").strip()
     out["tasima"] = str(cell(0, 1) or "").strip()
 
@@ -329,7 +334,7 @@ def parse_maliyet_coklu_sayfa(ws):
         elif au not in ("MAL BEDELİ", "İŞLEM KURU", "ISLEM KURU"):
             out["uyari"].append(f"Tanınmayan masraf satırı: '{a}' (atlandı)")
 
-    # Grup adları: sağ blok I sütunu (index 8), satır 5-8
+    # Grup adları + hacim (cbm/cfeet): sağ blok — I sütunu ad, J sütunu cbm
     for r in range(5, 9):
         gad = str(cell(r, 8) or "").strip()
         if not gad:
@@ -341,6 +346,47 @@ def parse_maliyet_coklu_sayfa(ws):
             continue
         if gad not in out["gruplar"]:
             out["gruplar"].append(gad)
+        _cbm = num(cell(r, 9))
+        if _cbm > 0:
+            out["grup_cbm"][gad] = _cbm
+
+    # ── GRUP-ÖZEL VERGİLER (27-37. satırlar): "GRUP | VERGİ | TL | USD" ──
+    # Bu blok eskiden HİÇ okunmuyordu: masraf döngüsü 24. satırdaki TOPLAM'da
+    # duruyordu. Sonuç: KBF/GV/ÖTV sisteme girmiyor, tüm masraflar ortak
+    # kalıyor ve her grup MATEMATİKSEL OLARAK aynı yüzdeyi alıyordu.
+    for r in range(25, 37):
+        gad = str(cell(r, 0) or "").strip()
+        if not gad:
+            continue
+        if _maliyet_norm(gad) in ("GENEL TOPLAM", "TOPLAM", "ORAN"):
+            break
+        etiket = str(cell(r, 1) or "").strip()
+        if not etiket:
+            continue
+        usd = num(cell(r, 3)) or (num(cell(r, 2)) / kur)
+        if usd <= 0:
+            continue                      # sıfır satır — uyarı üretme
+        slug = None
+        for et, sl in _MALIYET_ETIKET_SLUG.items():
+            if _maliyet_norm(et) == _maliyet_norm(etiket):
+                slug = sl
+                break
+        if not slug:
+            out["uyari"].append(f"Tanınmayan grup vergisi: '{etiket}' ({gad}) — atlandı")
+            continue
+        out["grup_masraflari"].append({"grup": gad, "slug": slug,
+                                       "etiket": etiket, "usd": round(usd, 2)})
+        if gad not in out["gruplar"]:
+            out["gruplar"].append(gad)
+
+    # ── GRUP FOB'LARI (41. satırdan itibaren): doğrulama için ──
+    for r in range(40, 52):
+        gad = str(cell(r, 0) or "").strip()
+        if not gad:
+            continue
+        fob = num(cell(r, 2))
+        if fob > 0:
+            out["grup_fob"][gad] = round(fob, 2)
 
     return out
 
@@ -623,6 +669,40 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
         return True, f"✅ '{dosya_no}' dosyası {len(rows)} kalem ile eklendi."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
+
+
+def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True):
+    """SADECE masraflar + grup_masraf_atama kolonlarını yazar.
+
+    guncelle_dosya() kalemleri baştan yazar; burada kalemlere, duruma, teslime
+    ve stoğa HİÇ dokunulmaz — ithalat zaten sistemde, yalnız masraf eklenir.
+
+    birlestir=True → mevcut masrafların üstüne ekler (aynı slug varsa ezer).
+    Döner (ok, mesaj).
+    """
+    try:
+        sb = _get_client()
+        _dl = _rows(sb.table("ithalat_dosyalari")
+                    .select("id, masraflar, grup_masraf_atama").eq("id", dosya_id).execute())
+        if not _dl:
+            return False, "Dosya bulunamadı."
+        d = _dl[0]
+        yeni_mas = dict(_masraf_dict(d)) if birlestir else {}
+        for slug, tutar in (masraflar_usd or {}).items():
+            t = _f(tutar)
+            if t > 0:
+                yeni_mas[slug] = round(t, 2)
+        eski_atama = d.get("grup_masraf_atama")
+        yeni_atama = dict(eski_atama) if (birlestir and isinstance(eski_atama, dict)) else {}
+        yeni_atama.update(grup_atama or {})
+        sb.table("ithalat_dosyalari").update({
+            "masraflar": yeni_mas,
+            "grup_masraf_atama": yeni_atama,
+        }).eq("id", dosya_id).execute()
+        _temizle()
+        return True, f"{len(yeni_mas)} masraf kalemi ve {len(yeni_atama)} atama yazıldı."
+    except Exception as e:
+        return False, f"Yazılamadı: {e}"
 
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
