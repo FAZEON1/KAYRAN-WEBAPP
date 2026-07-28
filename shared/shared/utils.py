@@ -1,0 +1,565 @@
+"""
+KAYRAN - Ortak Yardımcı Fonksiyonlar
+Tüm uygulamaların kullandığı timezone, error handling, vb.
+"""
+from datetime import datetime, date, timedelta
+import zoneinfo
+import streamlit as st
+import traceback
+
+
+# ─────────────────────────────────────────────────────────────────────
+# TIMEZONE — Türkiye Saatine Göre Tarih/Saat
+# ─────────────────────────────────────────────────────────────────────
+# Streamlit Cloud sunucuları UTC saatinde çalışır. Türkiye UTC+3.
+# Bu yüzden tüm uygulamada Türkiye saatini garantilemek için bu fonksiyonları kullanırız.
+
+TURKIYE_TZ = zoneinfo.ZoneInfo("Europe/Istanbul")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# METİN — Türkçe karakter normalizasyonu (string eşleştirme için)
+# ─────────────────────────────────────────────────────────────────────
+def normalize_tr(s) -> str:
+    """Türkçe karakterleri Latin karşılığına indirger ve BÜYÜK harfe çevirir.
+    İ/ı/I, Ş, Ğ, Ü, Ö, Ç kaynaklı eşleşme uyuşmazlıklarını önler:
+    normalize_tr('İTOPYA') == 'ITOPYA'. Firma/cari/sekme eşleştirmesinde kullanılır."""
+    s = str(s or "")
+    for a, b in (("İ", "I"), ("ı", "I"), ("Ş", "S"), ("ş", "S"),
+                 ("Ğ", "G"), ("ğ", "G"), ("Ü", "U"), ("ü", "U"),
+                 ("Ö", "O"), ("ö", "O"), ("Ç", "C"), ("ç", "C")):
+        s = s.replace(a, b)
+    return s.upper()
+
+
+# Firma stok kodu → gerçek/görünen ad. Veri/sorgu KODU korur (ITOPYA), bu yalnız GÖSTERİM içindir.
+# Kaynak: kayranpm/ref_no.py FIRMA_ESLESME ile aynı eşleme.
+FIRMA_GORUNEN_AD = {
+    "ITOPYA": "EERA",
+    "HB": "D-MARKET",
+    "VATAN": "VATAN",
+}
+
+
+def firma_gorunen_ad(kod) -> str:
+    """Firma stok kodunu (ITOPYA, HB...) muhasebedeki TAM cari adına çevirir.
+    Önce ref_no.firma_tam_cari_adi ile cari listesinden tam adı bulur; ulaşılamazsa
+    kısa öneke (EERA / D-MARKET...) düşer; o da yoksa kodu olduğu gibi gösterir.
+    Sadece ekranda gösterim için — veri/sorguda firma kodu kullanılır."""
+    if not kod:
+        return ""
+    try:
+        from kayranpm.ref_no import firma_tam_cari_adi
+        ad = firma_tam_cari_adi(kod)
+        if ad:
+            return ad
+    except Exception:
+        pass
+    k = normalize_tr(kod).strip()
+    return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
+
+
+def tr_buyuk(s) -> str:
+    """BÜYÜK harf — İngilizce tarzı (i→I, noktasız). Marka/model isimleri için uygundur.
+    Türkçe'ye özgü harfler doğru büyür (ç→Ç, ğ→Ğ, ş→Ş, ö→Ö, ü→Ü, İ→İ).
+    'Mio Mivue 802' → 'MIO MIVUE 802', 'Fazeon Soğutucu' → 'FAZEON SOĞUTUCU'."""
+    # Önce Türkçe küçük 'i̇' bileşenini sadeleştir, sonra standart upper (i→I noktasız)
+    s = str(s or "").replace("İ", "I").replace("i̇", "I")
+    return s.upper().strip()
+
+
+def tr_baslik(s) -> str:
+    """'Her Kelime Baş Harfi Büyük' (Title Case), Türkçe karakterleri koruyarak.
+    Marka/model kısaltmalarını bozmamak için standart büyük/küçük kullanılır
+    (I→I, i→i korunur; yalnızca İ/ı gibi Türkçe'ye özgü noktalı harfler doğru eşlenir).
+    'MIO MIVUE 802' → 'Mio Mivue 802', 'FAZEON SOĞUTUCU' → 'Fazeon Soğutucu',
+    'AGI 1TB SSD' → 'Agi 1TB SSD' (tamamı büyük kısa kelimeler korunur)."""
+    def _kelime(w):
+        if not w:
+            return w
+        # Rakam İÇEREN model kodları (935W, C595WD, 1TB, X24) olduğu gibi korunur
+        if any(c.isdigit() for c in w):
+            return w
+        # İlk harf büyük (İ/ı doğru), kalanı küçük (marka bozulmasın diye I→ı yapılmaz)
+        ilk = w[0]
+        if ilk == "i":
+            ilk = "İ"
+        elif ilk == "ı":
+            ilk = "I"
+        else:
+            ilk = ilk.upper()
+        kalan = w[1:].lower().replace("i̇", "i")
+        return ilk + kalan
+    s = str(s or "").strip()
+    return " ".join(_kelime(w) for w in s.split(" "))
+
+
+def tr_kucuk(s) -> str:
+    """Türkçe-doğru küçük harf çevrimi. İ→i, I→ı yapıp küçültür; Türkçe karakter KORUNUR.
+    Serbest metinleri (kategori vb.) tek biçime indirger:
+    'MONİTÖR'→'monitör', 'KASA'→'kasa', 'SOĞUTUCU'→'soğutucu', 'MicroSD Card'→'microsd card'."""
+    s = str(s or "").replace("İ", "i").replace("I", "ı")
+    return s.lower().strip()
+
+
+def gun_ay_yil(d) -> str:
+    """Tarihi ekranda DD-MM-YYYY biçiminde gösterir. ISO string ('2026-06-28'),
+    date/datetime veya boş değer kabul eder. DB'ye yazarken KULLANILMAZ —
+    veritabanı her zaman ISO (YYYY-MM-DD) saklar; bu yalnızca görünüm içindir."""
+    if not d:
+        return ""
+    try:
+        if isinstance(d, (datetime, date)):
+            return d.strftime("%d-%m-%Y")
+        return date.fromisoformat(str(d)[:10]).strftime("%d-%m-%Y")
+    except Exception:
+        return str(d or "")
+
+
+def tr_now() -> datetime:
+    """Türkiye saatine göre şu anki datetime."""
+    return datetime.now(TURKIYE_TZ)
+
+
+def tr_today() -> date:
+    """Türkiye saatine göre bugünün tarihi.
+    UTC sunucularda saat 21:00-00:00 arası 'date.today()' kullanılırsa
+    yanlış (bir gün geride) tarih döner. Bu fonksiyon her zaman doğru gün döner."""
+    return tr_now().date()
+
+
+def tr_tomorrow() -> date:
+    """Türkiye saatine göre yarının tarihi."""
+    return tr_today() + timedelta(days=1)
+
+
+def tr_yesterday() -> date:
+    """Türkiye saatine göre dünün tarihi."""
+    return tr_today() - timedelta(days=1)
+
+
+def tr_today_iso() -> str:
+    """Türkiye saatine göre bugün - ISO formatında (YYYY-MM-DD)."""
+    return tr_today().isoformat()
+
+
+def tr_now_str(fmt: str = "%d.%m.%Y %H:%M") -> str:
+    """Türkiye saatine göre formatlanmış zaman.
+    Varsayılan format: 27.04.2026 14:35
+    """
+    return tr_now().strftime(fmt)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ERROR HANDLING — Sayfa Bazlı Hata Yakalama
+# ─────────────────────────────────────────────────────────────────────
+
+def sayfa_error_handler(sayfa_adi: str, hata: Exception) -> None:
+    """
+    Sayfada hata oluştuğunda kullanıcıya gösterilecek standart hata kartı.
+    Tüm app çökmesi yerine sadece o sayfa hata gösterir.
+
+    Kullanım:
+        try:
+            # sayfa içeriği
+        except Exception as e:
+            sayfa_error_handler("Bu Hafta", e)
+    """
+    st.markdown(
+        '<div style="background:#F87171;border:1px solid #FCA5A5;border-left:4px solid #F87171;'
+        'border-radius:12px;padding:20px 24px;margin:20px 0">'
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+        '<span style="font-size:23px">⚠️</span>'
+        f'<b style="color:#991B1B;font-size:16px">{sayfa_adi} Sayfasında Bir Sorun Oluştu</b>'
+        '</div>'
+        '<div style="color:#7F1D1D;font-size:13px;line-height:1.6;margin-bottom:14px">'
+        'Üzgünüz, beklenmedik bir hata oluştu. Sayfayı yenileyebilir veya birkaç dakika sonra tekrar deneyebilirsiniz.'
+        '</div>'
+        '<div style="background:#E2E8F0;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;'
+        'font-family:monospace;font-size:11px;color:#991B1B;margin-bottom:10px;overflow-x:auto">'
+        f'<b>Hata Detayı:</b> {type(hata).__name__}: {str(hata)[:300]}'
+        '</div>'
+        '<div style="font-size:11px;color:#991B1B">'
+        '💡 <b>Ne yapabilirim?</b> Sayfayı yenileyin (Ctrl+F5) · Çıkış yapıp tekrar girin · Sorun devam ederse yöneticiye bildirin'
+        '</div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # Geliştirici detayı (sadece debug modunda gösterilir)
+    with st.expander("🔧 Teknik Detay (Geliştirici için)"):
+        st.code(traceback.format_exc(), language="python")
+
+
+def safe_run(fn, sayfa_adi: str = "Bu sayfa", *args, **kwargs):
+    """
+    Bir fonksiyonu güvenli şekilde çalıştırır.
+    Hata olursa kullanıcıya gösterir, app çökmez.
+
+    Kullanım:
+        safe_run(sayfayi_goster, "Dashboard")
+    """
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        sayfa_error_handler(sayfa_adi, e)
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# YARDIMCI - Vade Durumu (timezone-aware)
+# ─────────────────────────────────────────────────────────────────────
+
+def vade_durumu(vade_str: str) -> str:
+    """
+    Bir vade tarihini bugüne göre değerlendirir.
+    Returns: 'gecmis' | 'bugun' | 'yarin' | 'normal' | 'bilinmiyor'
+    """
+    if not vade_str:
+        return "bilinmiyor"
+    try:
+        # ISO formatta gelirse direkt parse, değilse pandas ile
+        try:
+            v = date.fromisoformat(str(vade_str)[:10])
+        except ValueError:
+            import pandas as pd
+            v = pd.to_datetime(vade_str).date()
+
+        bugun = tr_today()
+        if v < bugun:
+            return "gecmis"
+        elif v == bugun:
+            return "bugun"
+        elif v == bugun + timedelta(days=1):
+            return "yarin"
+        return "normal"
+    except Exception:
+        return "bilinmiyor"
+
+
+# ════════════════════════════════════════════════════════════════════
+# ORTAK SIDEBAR (tüm modüllerde aynı modern navigasyon)
+# ════════════════════════════════════════════════════════════════════
+def sidebar_stil() -> str:
+    """Sidebar navigasyonu — 'sessiz lüks' tasarım (tüm modüllerde ortak).
+    Pasif maddeler sakin ve çerçevesiz; aktif madde gradyan aksan çubuğu,
+    yumuşak dolgu ve parıltıyla öne çıkar. Ana içerik radyoları segmented pill."""
+    SB = 'section[data-testid="stSidebar"] div[role="radiogroup"]'
+    return f"""
+    <style>
+    {SB}{{ display:flex; flex-direction:column; gap:3px; padding:2px 0; margin-top:14px !important; }}
+    {SB} > label{{
+        position:relative;
+        background:transparent !important;
+        border:none !important;
+        border-radius:10px !important;
+        padding:9px 12px 9px 16px !important;
+        margin:0 !important;
+        width:100% !important;
+        box-sizing:border-box !important;
+        display:flex !important;
+        align-items:center !important;
+        cursor:pointer;
+        transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
+    }}
+    /* Sol aksan çubuğu — pasifte gizli, aktifte gradyanla yaylanarak açılır */
+    {SB} > label::before{{
+        content:""; position:absolute; left:3px; top:24%; bottom:24%;
+        width:3px; border-radius:2px;
+        background:linear-gradient(180deg,#818CF8,#22D3EE);
+        opacity:0; transform:scaleY(.3);
+        transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.4,.64,1);
+    }}
+    {SB} > label:hover{{
+        background:rgba(255,255,255,0.045) !important;
+        transform:translateX(2px);
+    }}
+    {SB} > label > div:first-child{{ display:none !important; }}
+    {SB} label p{{
+        font-family:Inter,sans-serif !important;
+        font-size:13px !important;
+        font-weight:600 !important;
+        letter-spacing:0 !important;
+        color:#94A3B8 !important;
+        font-variant-numeric:tabular-nums;
+        transition:color .18s ease;
+    }}
+    {SB} > label:hover p{{ color:#E2E8F0 !important; }}
+    {SB} > label:has(input:checked){{
+        background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(34,211,238,0.06) 65%,transparent) !important;
+        box-shadow:inset 0 0 0 1px rgba(129,140,248,0.28), 0 2px 12px rgba(99,102,241,0.18);
+        transform:translateX(2px);
+    }}
+    {SB} > label:has(input:checked)::before{{ opacity:1; transform:scaleY(1); }}
+    {SB} > label:has(input:checked) p{{
+        color:#E2E8F0 !important; font-weight:700 !important;
+    }}
+    section[data-testid="stSidebar"] [data-testid="stButton"] button{{
+        border-radius:10px !important; font-weight:600 !important;
+    }}
+    section[data-testid="stSidebar"] hr{{
+        margin:10px 0 !important;
+        border-color:rgba(148,163,184,0.12) !important;
+    }}
+    </style>
+    <style>
+    /* ── ANA İÇERİK radyoları → modern segmented/pill (tüm modüllerde ortak).
+       stMain ile kapsanır: Streamlit varsayılanını yener, sidebar etkilenmez. ── */
+    section[data-testid="stMain"] div[role="radiogroup"]{{ gap:8px !important; align-items:center; }}
+    section[data-testid="stMain"] div[role="radiogroup"] > label{{
+        background:rgba(255,255,255,0.035) !important;
+        border:1px solid rgba(148,163,184,0.18) !important;
+        border-radius:11px !important;
+        padding:8px 18px !important;
+        margin:0 !important;
+        cursor:pointer;
+        transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+    }}
+    section[data-testid="stMain"] div[role="radiogroup"] > label:hover{{
+        background:rgba(129,140,248,0.10) !important;
+        border-color:rgba(129,140,248,0.55) !important;
+        transform:translateY(-1px);
+    }}
+    section[data-testid="stMain"] div[role="radiogroup"] > label > div:first-child{{ display:none !important; }}
+    section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked){{
+        background:linear-gradient(135deg,#818CF8,#818CF8) !important;
+        border-color:#818CF8 !important;
+        box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;
+    }}
+    section[data-testid="stMain"] div[role="radiogroup"] label p{{
+        font-family:Inter,sans-serif !important; font-weight:600 !important;
+        letter-spacing:-0.1px !important; font-size:14px !important;
+    }}
+    section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked) p{{
+        color:#E2E8F0 !important; font-weight:700 !important;
+    }}
+    </style>
+    """
+
+
+def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
+    """İnce modül kimlik çipi — tek satır: küçük ikon karosu + modül adı.
+    (Eski dev blok: 52px ikon + gradyan başlık + alt yazı → kaldırıldı;
+    `alt` parametresi geriye uyumluluk için duruyor, görselde kullanılmıyor.)"""
+    return (
+        '<div style="display:flex;align-items:center;gap:10px;padding:2px 2px 10px;'
+        'border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:10px">'
+        '<div style="width:26px;height:26px;border-radius:8px;flex-shrink:0;'
+        'background:linear-gradient(135deg,rgba(99,102,241,0.35),rgba(139,92,246,0.25));'
+        'border:1px solid rgba(129,140,248,0.35);display:flex;align-items:center;'
+        f'justify-content:center;font-size:13px">{ikon}</div>'
+        '<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;'
+        f'letter-spacing:-0.2px;color:#E2E8F0;white-space:nowrap;overflow:hidden;'
+        f'text-overflow:ellipsis">{ad}</div>'
+        '</div>'
+    )
+
+
+def sidebar_kullanici(kullanici: str) -> str:
+    """Sade tek satır kullanıcı kimliği: küçük avatar + isim.
+    ('OTURUM AÇIK' etiketi ve kutu kaldırıldı — oturum zaten açık, söylemeye gerek yok.)"""
+    if not kullanici:
+        return ""
+    bas = kullanici[0].upper()
+    return (
+        '<div style="display:flex;align-items:center;gap:9px;padding:2px 2px;margin-bottom:8px">'
+        '<div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;'
+        'background:linear-gradient(135deg,#818CF8,#818CF8);display:flex;align-items:center;'
+        f'justify-content:center;font-size:11px;font-weight:700;color:#fff">{bas}</div>'
+        f'<div style="font-size:13px;color:#A5B4FC;font-weight:600">{kullanici.capitalize()}</div>'
+        '</div>'
+    )
+
+
+# ════════════════════════════════════════════════════════════════════
+# ORTAK METRİK KARTLARI (tüm programda tek tip — renkli sol şeritli kart)
+# ════════════════════════════════════════════════════════════════════
+KART_PALET = ["#818CF8", "#34D399", "#FBBF24", "#818CF8", "#22D3EE", "#FBBF24", "#F9A8D4"]
+
+
+def metrik_satiri(cards):
+    """Metrik kartı şeridi — görünüm shared/tasarim.py'den gelir.
+
+    Sözleşme aynı: [{'label','value','renk'?,'alt'?,'help'?}].
+    DEĞİŞEN: değerin uzunluğuna göre fontu 20/17/15/13/12 px arasında
+    küçülten mantık kaldırıldı; yan yana kartlar farklı puntoda oluyordu.
+    """
+    from shared.tasarim import RENK, KART_TOKEN, ESKI_RENK_ESLEME
+    hucreler = ""
+    for i, c in enumerate(cards):
+        ham = c.get("renk")
+        if ham:
+            tok = ESKI_RENK_ESLEME.get(str(ham).upper())
+            renk = RENK.get(tok, ham if str(ham).startswith("#") else RENK["mor"])
+        else:
+            renk = RENK[KART_TOKEN[i % len(KART_TOKEN)]]
+        _val = str(c["value"])
+        ttl = f' title="{c.get("help") or _val}"'
+        im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
+        alt = f'<div class="k-alt">{c["alt"]}</div>' if c.get("alt") else ""
+        hucreler += (f'<div class="k-kart" data-akscent style="border-left-color:{renk}"{ttl}>'
+                     f'<div class="k-etiket">{c["label"]}{im}</div>'
+                     f'<div class="k-deger" style="color:{renk}">{_val}</div>{alt}</div>')
+    st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
+
+
+def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
+    """Tek bir kartı satır olarak çizer (metrik_satiri kısayolu)."""
+    metrik_satiri([{"label": label, "value": value, "renk": renk, "alt": alt, "help": help}])
+
+
+def metric_css(renk="#818CF8") -> str:
+    """Geriye uyumluluk kabuğu. st.metric artık cekirdek_css() içindeki
+    normalize katmanından biçimleniyor — bu fonksiyon hiçbir modülden
+    çağrılmıyordu, o yüzden her st.metric ham Streamlit görünümündeydi."""
+    return ""
+
+
+def modern_input_stil() -> str:
+    """Tüm modüllerde ortak modern form alanları:
+      • number_input'taki +/- adım düğmelerini gizler,
+      • text/number/textarea/date input ve selectbox'lara modern görünüm verir
+        (yuvarlak köşe, yumuşak kenar, odakta parlama, rahat iç boşluk).
+    app.py'de modül dağıtımından hemen önce bir kez enjekte edilir → her sayfaya uygulanır.
+    """
+    return """
+    <style>
+    /* number_input +/- adım düğmelerini kaldır */
+    [data-testid="stNumberInputStepUp"],
+    [data-testid="stNumberInputStepDown"] { display:none !important; }
+    [data-testid="stNumberInput"] button { display:none !important; }
+
+    /* Görünür kutu = baseweb input/select sarmalayıcısı */
+    div[data-baseweb="input"],
+    div[data-baseweb="base-input"],
+    div[data-baseweb="select"] > div,
+    [data-testid="stTextArea"] textarea {
+        background: rgba(255,255,255,0.045) !important;
+        border: 1px solid rgba(148,163,184,0.22) !important;
+        border-radius: 11px !important;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease !important;
+        box-shadow: none !important;
+    }
+    div[data-baseweb="select"] > div { min-height: 44px !important; }
+
+    /* İç input — şeffaf, rahat boşluk, okunaklı */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background: transparent !important;
+        color: #A5B4FC !important;
+        font-size:13px !important;
+        padding: 11px 14px !important;
+        border: none !important;
+        font-variant-numeric: tabular-nums;
+    }
+    [data-testid="stTextArea"] textarea { padding: 12px 14px !important; }
+
+    /* Placeholder daha yumuşak */
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stNumberInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder { color: rgba(148,163,184,0.65) !important; }
+
+    /* Hover */
+    div[data-baseweb="input"]:hover,
+    div[data-baseweb="base-input"]:hover,
+    div[data-baseweb="select"] > div:hover,
+    [data-testid="stTextArea"] textarea:hover {
+        border-color: rgba(148,163,184,0.40) !important;
+        background: rgba(255,255,255,0.06) !important;
+    }
+    /* Odak — accent parlaması */
+    div[data-baseweb="input"]:focus-within,
+    div[data-baseweb="base-input"]:focus-within,
+    div[data-baseweb="select"]:focus-within > div,
+    [data-testid="stTextArea"] textarea:focus {
+        border-color: #818CF8 !important;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.20) !important;
+        background: rgba(99,102,241,0.06) !important;
+    }
+
+    /* BaseWeb'in kendi iç kenarlığını sıfırla (çift kenar olmasın) */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"] > div { border: none !important; background: transparent !important; }
+
+    /* Etiketler biraz daha okunur */
+    [data-testid="stWidgetLabel"] p { font-size:13px !important; color: #94A3B8 !important; font-weight: 600 !important; }
+    </style>
+    """
+
+
+# ─────────────────────────── PDF Türkçe Font ───────────────────────────
+_PDF_FONT_KAYITLI = {"normal": None, "bold": None}
+
+
+def pdf_turkce_font():
+    """reportlab için Türkçe (ş, ğ, İ, ı, ç, ö, ü) destekli font kaydeder.
+    Döner: (normal_font_adi, bold_font_adi). Kayıt başarısızsa Helvetica'ya düşer.
+    Bir kez kaydeder, sonraki çağrılarda hazır adları döndürür."""
+    if _PDF_FONT_KAYITLI["normal"]:
+        return _PDF_FONT_KAYITLI["normal"], _PDF_FONT_KAYITLI["bold"]
+    import os
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+
+    burada = os.path.dirname(os.path.abspath(__file__))
+    adaylar_normal = [
+        os.path.join(burada, "fonts", "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    adaylar_bold = [
+        os.path.join(burada, "fonts", "DejaVuSans-Bold.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    yol_n = next((p for p in adaylar_normal if os.path.exists(p)), None)
+    yol_b = next((p for p in adaylar_bold if os.path.exists(p)), None)
+    try:
+        if yol_n:
+            pdfmetrics.registerFont(TTFont("DejaVuSans", yol_n))
+            if yol_b:
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", yol_b))
+            else:
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", yol_n))
+            registerFontFamily("DejaVuSans", normal="DejaVuSans", bold="DejaVuSans-Bold",
+                               italic="DejaVuSans", boldItalic="DejaVuSans-Bold")
+            _PDF_FONT_KAYITLI["normal"] = "DejaVuSans"
+            _PDF_FONT_KAYITLI["bold"] = "DejaVuSans-Bold"
+            return "DejaVuSans", "DejaVuSans-Bold"
+    except Exception:
+        pass
+    _PDF_FONT_KAYITLI["normal"] = "Helvetica"
+    _PDF_FONT_KAYITLI["bold"] = "Helvetica-Bold"
+    return "Helvetica", "Helvetica-Bold"
+
+
+def pdf_stilleri_turkcele(styles, normal=None, bold=None):
+    """getSampleStyleSheet() ile gelen tüm stillerin fontunu Türkçe fonta çevirir."""
+    if normal is None:
+        normal, bold = pdf_turkce_font()
+    for ad in list(styles.byName.keys()):
+        try:
+            st_obj = styles[ad]
+            st_obj.fontName = bold if ("Bold" in (st_obj.fontName or "") or "Heading" in ad or "Title" in ad) else normal
+        except Exception:
+            pass
+    return styles
+
+# ── KANONİK SKU ANAHTARI ─────────────────────────────────────────────
+def sku_anahtar(sku):
+    """SKU eşleştirmede kullanılacak KANONİK anahtar.
+
+    Sorun: satış Excel'lerinde SKU 'Fazeon X24F165S' yazılırken ürün kartında
+    'X24F165S' kayıtlı. Birebir karşılaştırma tutmayınca satırlar P&L'de
+    'DİĞER' grubuna, maliyet eşleşmesi de sıfıra düşüyordu.
+
+    Kural: kırp + BÜYÜK harf + baştaki 'FAZEON ' önekini at.
+    'Fazeon X24F165S' → 'X24F165S'   |   'x24f165s' → 'X24F165S'
+    Tüm modüller SKU karşılaştırırken bu fonksiyonu kullanmalı; ham SKU
+    yalnız gösterim içindir.
+    """
+    s = str(sku or "").strip().upper()
+    if s.startswith("FAZEON ") and len(s) > 7:
+        s = s[7:].strip()
+    return s
