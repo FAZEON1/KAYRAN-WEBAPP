@@ -1,0 +1,162 @@
+# -*- coding: utf-8 -*-
+"""
+otonom/geri_yukle.py — SİLİNEN İTHALAT DOSYASINI GERİ YÜKLE
+
+Gece yedeğinden (kayran-yedek artifact'ı) tek bir ithalat dosyasını ve onun
+tüm kalemlerini geri yazar.
+
+GÜVENLİK TASARIMI:
+  • VARSAYILAN KURU ÇALIŞMA — hiçbir şey yazmaz, ne yapacağını yazdırır.
+    Yazması için ONAY ortam değişkeni tam olarak "EVET" olmalı.
+  • Kayıt zaten varsa yazmayı REDDEDER (mükerrer oluşmasın).
+  • Sadece ithalat_dosyalari + ithalat_kalemleri tablolarına, sadece
+    belirtilen dosya_id için dokunur. Başka hiçbir tabloya değmez.
+
+Ortam değişkenleri:
+  SUPABASE_URL, SUPABASE_KEY   — GitHub Secrets'tan
+  YEDEK_DIZIN                  — artifact'ın indirildiği klasör (varsayılan "yedek")
+  DOSYA_ID                     — geri yüklenecek kayıt kimliği
+  ONAY                         — "EVET" ise gerçekten yazar; aksi halde kuru çalışma
+"""
+import ast
+import json
+import os
+import sys
+import glob
+
+import pandas as pd
+
+DOSYA_TABLO = "ithalat_dosyalari"
+KALEM_TABLO = "ithalat_kalemleri"
+JSON_KOLONLAR = ("masraflar", "grup_masraf_atama")
+
+
+def _coz(v):
+    """Excel'e metin olarak yazılmış dict/JSON değerini geri çevirir."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    if isinstance(v, (dict, list)):
+        return v
+    s = str(v).strip()
+    if not s or s.lower() in ("nan", "none", "null"):
+        return None
+    for _p in (json.loads, ast.literal_eval):
+        try:
+            return _p(s)
+        except Exception:
+            continue
+    return None
+
+
+def _temiz(satir):
+    """pandas satırını Supabase'e yazılabilir sözlüğe çevirir."""
+    out = {}
+    for k, v in satir.items():
+        if isinstance(v, float) and pd.isna(v):
+            out[k] = None
+        elif isinstance(v, pd.Timestamp):
+            out[k] = v.strftime("%Y-%m-%d")
+        elif k in JSON_KOLONLAR:
+            out[k] = _coz(v) or {}
+        elif hasattr(v, "item"):          # numpy tipleri
+            out[k] = v.item()
+        else:
+            out[k] = v
+    return out
+
+
+def main():
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    if not url or not key:
+        sys.exit("HATA: SUPABASE_URL / SUPABASE_KEY yok.")
+    try:
+        dosya_id = int(os.environ.get("DOSYA_ID", "").strip())
+    except Exception:
+        sys.exit("HATA: DOSYA_ID sayı olmalı.")
+    onay = os.environ.get("ONAY", "").strip().upper() == "EVET"
+    dizin = os.environ.get("YEDEK_DIZIN", "yedek")
+
+    # ── Yedek dosyasını bul (en yeni) ──
+    adaylar = sorted(glob.glob(os.path.join(dizin, "**", "*.xlsx"), recursive=True))
+    if not adaylar:
+        sys.exit(f"HATA: {dizin} altında .xlsx bulunamadı.")
+    yedek = adaylar[-1]
+    print(f"📦 Yedek dosyası : {os.path.basename(yedek)}")
+    print(f"🎯 Aranan kayıt  : {DOSYA_TABLO}.id = {dosya_id}")
+    print(f"🔐 Mod           : {'YAZMA (ONAY=EVET)' if onay else 'KURU ÇALIŞMA — hiçbir şey yazılmaz'}\n")
+
+    xl = pd.ExcelFile(yedek)
+    if DOSYA_TABLO not in xl.sheet_names:
+        sys.exit(f"HATA: Yedekte '{DOSYA_TABLO}' sayfası yok.")
+
+    df_d = pd.read_excel(yedek, sheet_name=DOSYA_TABLO)
+    hedef = df_d[df_d["id"] == dosya_id]
+    if hedef.empty:
+        print(f"❌ Bu yedekte id={dosya_id} YOK.")
+        print("   Kayıt bu yedek alındıktan SONRA oluşturulmuş olabilir.")
+        print("   Mevcut kimlikler (son 15):", sorted(df_d["id"].dropna().astype(int))[-15:])
+        sys.exit(1)
+
+    dosya = _temiz(hedef.iloc[0].to_dict())
+    print("── GERİ YÜKLENECEK DOSYA ──")
+    for k in ("id", "dosya_no", "pi_no", "sas_no", "tarih", "tedarikci",
+              "doviz", "kur", "durum", "teslim_tarihi", "teslim_deposu",
+              "ithalat_takip_no"):
+        if k in dosya and dosya[k] not in (None, ""):
+            print(f"   {k:20} {dosya[k]}")
+    if dosya.get("masraflar"):
+        print(f"   {'masraflar':20} {dosya['masraflar']}")
+    if dosya.get("grup_masraf_atama"):
+        print(f"   {'grup_masraf_atama':20} {dosya['grup_masraf_atama']}")
+
+    kalemler = []
+    if KALEM_TABLO in xl.sheet_names:
+        df_k = pd.read_excel(yedek, sheet_name=KALEM_TABLO)
+        if "dosya_id" in df_k.columns:
+            kalemler = [_temiz(r) for _, r in df_k[df_k["dosya_id"] == dosya_id].iterrows()]
+
+    print(f"\n── KALEMLER ({len(kalemler)} satır) ──")
+    for k in kalemler:
+        print(f"   {str(k.get('sku','')):22} {str(k.get('urun_grubu','') or '—'):16} "
+              f"adet {k.get('adet')} × FOB {k.get('birim_fob')}")
+    _tfob = sum(float(k.get("adet") or 0) * float(k.get("birim_fob") or 0) for k in kalemler)
+    print(f"   {'':22} {'TOPLAM FOB':16} {_tfob:,.2f}")
+
+    if not onay:
+        print("\n🔍 Kuru çalışma bitti. Yazmak için iş akışını ONAY='EVET' ile tekrar çalıştır.")
+        return
+
+    # ── Yazma ── (supabase yalnız burada gerekir; kuru çalışma kütüphanesiz döner)
+    from supabase import create_client
+    sb = create_client(url, key)
+    mevcut = sb.table(DOSYA_TABLO).select("id").eq("id", dosya_id).execute().data or []
+    if mevcut:
+        sys.exit(f"❌ id={dosya_id} ZATEN VAR — mükerrer oluşmasın diye durduruldu.")
+
+    try:
+        sb.table(DOSYA_TABLO).insert(dosya).execute()
+        yeni_id = dosya_id
+        print(f"\n✅ Dosya geri yazıldı (id={yeni_id}).")
+    except Exception as e:
+        # id kolonu 'generated always' ise açık id reddedilir → id'siz dene
+        print(f"   ! Açık id ile yazılamadı ({str(e)[:90]}) — id'siz deneniyor…")
+        dosya.pop("id", None)
+        res = sb.table(DOSYA_TABLO).insert(dosya).execute()
+        yeni_id = (res.data or [{}])[0].get("id")
+        if not yeni_id:
+            sys.exit("❌ Dosya yazılamadı.")
+        print(f"\n✅ Dosya geri yazıldı — YENİ id={yeni_id} (eski {dosya_id}).")
+
+    if kalemler:
+        for k in kalemler:
+            k.pop("id", None)
+            k["dosya_id"] = yeni_id
+        sb.table(KALEM_TABLO).insert(kalemler).execute()
+        print(f"✅ {len(kalemler)} kalem geri yazıldı.")
+
+    print("\n🎉 Bitti. Programda İthalat → Geçmiş İthalatlar'dan kontrol et.")
+
+
+if __name__ == "__main__":
+    main()
