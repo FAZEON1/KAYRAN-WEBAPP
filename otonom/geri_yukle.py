@@ -16,6 +16,8 @@ Ortam değişkenleri:
   SUPABASE_URL, SUPABASE_KEY   — GitHub Secrets'tan
   YEDEK_DIZIN                  — artifact'ın indirildiği klasör (varsayılan "yedek")
   DOSYA_ID                     — geri yüklenecek kayıt kimliği
+  ARA                          — kimlik yerine METİNLE ara (dosya_no/tedarikçi
+                                 içinde geçer). Doluysa sadece LİSTELER, yazmaz.
   ONAY                         — "EVET" ise gerçekten yazar; aksi halde kuru çalışma
 """
 import ast
@@ -70,10 +72,13 @@ def main():
     key = os.environ.get("SUPABASE_KEY")
     if not url or not key:
         sys.exit("HATA: SUPABASE_URL / SUPABASE_KEY yok.")
-    try:
-        dosya_id = int(os.environ.get("DOSYA_ID", "").strip())
-    except Exception:
-        sys.exit("HATA: DOSYA_ID sayı olmalı.")
+    ara = (os.environ.get("ARA") or "").strip()
+    dosya_id = None
+    if not ara:
+        try:
+            dosya_id = int(os.environ.get("DOSYA_ID", "").strip())
+        except Exception:
+            sys.exit("HATA: DOSYA_ID sayı olmalı (ya da ARA doldur).")
     onay = os.environ.get("ONAY", "").strip().upper() == "EVET"
     dizin = os.environ.get("YEDEK_DIZIN", "yedek")
 
@@ -83,7 +88,8 @@ def main():
         sys.exit(f"HATA: {dizin} altında .xlsx bulunamadı.")
     yedek = adaylar[-1]
     print(f"📦 Yedek dosyası : {os.path.basename(yedek)}")
-    print(f"🎯 Aranan kayıt  : {DOSYA_TABLO}.id = {dosya_id}")
+    print(f"🎯 Aranan kayıt  : "
+          + (f"metin '{ara}'" if ara else f"{DOSYA_TABLO}.id = {dosya_id}"))
     print(f"🔐 Mod           : {'YAZMA (ONAY=EVET)' if onay else 'KURU ÇALIŞMA — hiçbir şey yazılmaz'}\n")
 
     xl = pd.ExcelFile(yedek)
@@ -91,6 +97,24 @@ def main():
         sys.exit(f"HATA: Yedekte '{DOSYA_TABLO}' sayfası yok.")
 
     df_d = pd.read_excel(yedek, sheet_name=DOSYA_TABLO)
+
+    # ── ARAMA MODU: kimliği bilmiyorsan dosya_no / tedarikçi ile bul ──
+    if ara:
+        _a = ara.lower()
+        _m = df_d[df_d.apply(
+            lambda r: _a in str(r.get("dosya_no", "")).lower()
+                   or _a in str(r.get("tedarikci", "")).lower(), axis=1)]
+        if _m.empty:
+            print(f"\n❌ '{ara}' ile eşleşen kayıt yok.")
+            sys.exit(1)
+        print(f"\n── EŞLEŞEN {len(_m)} KAYIT ──")
+        for _, r in _m.iterrows():
+            print(f"   id={int(r['id']):<6} dosya_no={str(r.get('dosya_no','')):12} "
+                  f"tedarikci={str(r.get('tedarikci','')):22} "
+                  f"tarih={str(r.get('tarih',''))[:10]:12} durum={r.get('durum','')}")
+        print("\n🔍 Geri yüklemek istediğin kimliği DOSYA_ID alanına yazıp tekrar çalıştır.")
+        return
+
     hedef = df_d[df_d["id"] == dosya_id]
     if hedef.empty:
         print(f"❌ Bu yedekte id={dosya_id} YOK.")
