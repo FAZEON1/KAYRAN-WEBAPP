@@ -2442,67 +2442,224 @@ def get_destek_donem(baslangic, bitis):
         return None
 
 
+_AD_TUR_RENK = {
+    "SELLOUT": "#34D399", "MARKETING": "#A78BFA", "REBATE": "#22D3EE",
+    "PRICE PROTECTION": "#FBBF24", "PAZARLAMA": "#F9A8D4",
+    "BEDELSİZ ÜRÜN": "#7DD3FC", "DİĞER": "#94A3B8",
+}
+
+
+def _ad_kart_html(r):
+    """Alınan destek kaydı — ref no kartlarıyla aynı görsel dil."""
+    from shared.ui import RENK
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    _tur = (r.get("tur") or "—").strip().upper()
+    _tr = _AD_TUR_RENK.get(_tur, "#818CF8")
+    _kat = (r.get("kategori") or "GENEL").strip()
+    _fat = (r.get("fatura_no") or "").strip()
+    _cip = (f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
+            f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">{_kat}</span>')
+    if _fat:
+        _cip += (f'<span style="background:rgba(148,163,184,.12);color:{RENK["soluk"]};'
+                 f'padding:1px 7px;border-radius:20px;font-size:10.5px">🧾 {_fat[:18]}</span>')
+    return (
+        f'<div style="display:flex;align-items:stretch;background:{RENK["yuzey1"]};'
+        f'border:1px solid {RENK["kenar"]};border-left:3px solid {_tr};border-radius:10px;'
+        f'padding:9px 14px;margin-bottom:6px">'
+        f'  <div style="flex:1;min-width:0">'
+        f'    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'
+        f'      <span style="font-size:12.5px;font-weight:800;color:{RENK["metin"]}">'
+        f'{(r.get("firma") or "—")[:34]}</span>'
+        f'      <span style="color:{_tr};font-size:10.5px;font-weight:700">{_tur}</span>'
+        f'      <span style="font-family:JetBrains Mono,monospace;color:{RENK["cyan"]};'
+        f'font-size:11px">📅 {r.get("donem") or "—"}</span>'
+        f'    </div>'
+        f'    <div style="color:{RENK["soluk"]};font-size:12.5px;line-height:1.35;'
+        f'overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;'
+        f'-webkit-box-orient:vertical">{(r.get("aciklama") or "—")}</div>'
+        f'    <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">{_cip}</div>'
+        f'  </div>'
+        f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
+        f'display:flex;flex-direction:column;justify-content:center">'
+        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:800;'
+        f'color:{RENK["yesil"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
+        f'    <div style="color:{RENK["silik"]};font-size:10.5px;margin-top:3px">{_dv}</div>'
+        f'  </div>'
+        f'</div>')
+
+
+@st.dialog("🔎 Alınan Destek Detayı", width="large")
+def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
+    from shared.ui import RENK
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _tut = _f(r.get("tutar"))
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    if _dv in ("TL", "TRY"):
+        _usd = (_tut / tl_kur) if tl_kur else None
+    elif _dv in ("EUR", "EURO"):
+        _usd = _tut * (eur_kur or 1.0)
+    else:
+        _usd = _tut
+
+    st.markdown(f"### {(r.get('firma') or '—')}")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Tür", (r.get("tur") or "—"))
+    m2.metric("Dönem", (r.get("donem") or "—"))
+    m3.metric("Tutar", f"{_sm}{_tut:,.2f}")
+    m4.metric("USD karşılığı", f"${_usd:,.2f}" if _usd is not None else "kur yok")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**🏷️ Kategori**")
+        st.markdown(f"`{(r.get('kategori') or 'GENEL')}`")
+        st.caption("GENEL = belirli bir ürün kategorisine dağıtılmamış destek. "
+                   "Kâr analizinde kategori kırılımına girmez.")
+    with c2:
+        st.markdown("**🧾 Fatura No**")
+        st.markdown((r.get("fatura_no") or "—"))
+        st.markdown("**📝 Açıklama**")
+        st.markdown((r.get("aciklama") or "—"))
+    if _dv not in ("USD",) and _usd is None:
+        st.warning("Bu kaydın USD karşılığı hesaplanamadı (kur bilgisi yok) — "
+                   "kârlılık toplamlarına dahil edilmemiş olabilir.")
+
+
 def _render_alinan_destekler():
-    """📥 Alınan Destekler: firmalardan/markalardan gelen sellout, marketing,
-    rebate gelirleri. Ay bazında tutulur; Patron Panosu, Satış P&L, Yönetim
-    ve sabah brifingindeki kârlılığa GELİR olarak eklenir."""
+    """📥 Alınan Destekler — Ref No merkeziyle AYNI mimari:
+    KPI şeridi · tek satır komut çubuğu · kartlar + detay · düzenle anahtarı.
+
+    Firmalardan/markalardan gelen sellout, marketing, rebate gelirleri.
+    Ay bazında tutulur; Satış P&L ve Yönetim'de kârlılığa GELİR olarak eklenir."""
     import io
+    from shared.ui import RENK
 
-    st.caption("Firmalardan **bize gelen** destekler (sellout, marketing, rebate…). "
-               "Ay bazında kaydedilir ve kârlılığa gelir olarak eklenir.")
-
-    _yil = st.selectbox("Yıl", [date.today().year, date.today().year - 1,
-                                date.today().year + 1], index=0, key="ad_yil")
-    kayitlar = get_alinan_destekler(_yil)
-
-    # ── Özet metrikler ──
+    kayitlar_tum = []
     _bu_ay = f"{date.today().year:04d}-{date.today().month:02d}"
 
-    # DÜZELTME: eskiden yalnız USD toplanıyor, EUR kayıtlar (€750 vb.) karta HİÇ
-    # girmiyordu. Artık her döviz USD karşılığıyla toplanır; orijinal tutarlar
-    # alt satırda gösterilir.
-    def _doviz_kirilim(rows):
-        _u = _e = _t = 0.0
+    # ── KOMUT ÇUBUĞU (tek satır) ──
+    b1, b2, b3, b4, b5 = st.columns([0.8, 1.5, 1.1, 1.1, 2.2])
+    _yil_sec = b1.selectbox("Yıl", [date.today().year, date.today().year - 1,
+                                    date.today().year + 1], index=0, key="ad_yil",
+                            label_visibility="collapsed")
+    kayitlar_tum = get_alinan_destekler(_yil_sec)
+
+    _firmalar_ad = sorted({(r.get("firma") or "").strip()
+                           for r in kayitlar_tum if (r.get("firma") or "").strip()})
+    f_firma_f = b2.selectbox("Firma", ["🌐 Tüm firmalar"] + _firmalar_ad,
+                             key="ad_firma_f", label_visibility="collapsed")
+    _turler = sorted({(r.get("tur") or "").strip() for r in kayitlar_tum if (r.get("tur") or "").strip()})
+    f_tur_f = b3.selectbox("Tür", ["Tüm türler"] + _turler, key="ad_tur_f",
+                           label_visibility="collapsed")
+    _donemler = sorted({(r.get("donem") or "").strip() for r in kayitlar_tum
+                        if (r.get("donem") or "").strip()}, reverse=True)
+    f_don_f = b4.selectbox("Dönem", ["Tüm dönemler"] + _donemler, key="ad_don_f",
+                           label_visibility="collapsed")
+    f_ara = b5.text_input("Ara", key="ad_ara", label_visibility="collapsed",
+                          placeholder="🔍 firma · açıklama · fatura · tutar…")
+
+    def _trl(s):
+        return str(s or "").replace("İ", "i").replace("I", "ı").lower()
+    _al = _trl(f_ara)
+
+    def _uy(r):
+        if f_firma_f != "🌐 Tüm firmalar" and (r.get("firma") or "").strip() != f_firma_f:
+            return False
+        if f_tur_f != "Tüm türler" and (r.get("tur") or "").strip() != f_tur_f:
+            return False
+        if f_don_f != "Tüm dönemler" and (r.get("donem") or "").strip() != f_don_f:
+            return False
+        if _al and _al not in _trl(f"{r.get('firma','')} {r.get('aciklama','')} "
+                                  f"{r.get('fatura_no','')} {r.get('tutar','')} "
+                                  f"{r.get('tur','')} {r.get('kategori','')}"):
+            return False
+        return True
+
+    kayitlar = [r for r in kayitlar_tum if _uy(r)]
+    kayitlar.sort(key=lambda r: (str(r.get("donem") or ""), str(r.get("firma") or "")),
+                  reverse=True)
+
+    # ── KPI ŞERİDİ ──
+    def _kirilim(rows):
+        u = e = t = 0.0
         for r in rows:
-            _dv = (r.get("doviz") or "USD").upper()
-            _v = _f(r.get("tutar"))
-            if _dv in ("TL", "TRY", "₺"):
-                _t += _v
-            elif _dv in ("EUR", "EURO", "€"):
-                _e += _v
+            dv = (r.get("doviz") or "USD").upper()
+            v = _f(r.get("tutar"))
+            if dv in ("TL", "TRY", "₺"):
+                t += v
+            elif dv in ("EUR", "EURO", "€"):
+                e += v
             else:
-                _u += _v
-        return _u, _e, _t
+                u += v
+        return u, e, t
 
-    _ay_u, _ay_e, _ay_t = _doviz_kirilim([r for r in kayitlar if r.get("donem") == _bu_ay])
-    _yl_u, _yl_e, _yl_t = _doviz_kirilim(kayitlar)
-    _eurk = _eur_usd_kur() if (_ay_e or _yl_e) else 1.0
-    _tlk = _alinan_kur() if (_ay_t or _yl_t) else None
+    _u, _e, _t = _kirilim(kayitlar)
+    _ay_u, _ay_e, _ay_t = _kirilim([r for r in kayitlar if r.get("donem") == _bu_ay])
+    _eurk = _eur_usd_kur() if (_e or _ay_e) else 1.0
+    _tlk = _alinan_kur() if (_t or _ay_t) else None
 
-    def _usd_toplam(u, e, t):
+    def _usdt(u, e, t):
         return u + e * _eurk + ((t / _tlk) if (_tlk and t) else 0.0)
 
-    def _alt_yazi(u, e, t):
-        _p = []
-        if e:
-            _p.append(f"€{e:,.0f}")
-        if t:
-            _p.append(f"₺{t:,.0f}")
-        if not _p:
-            return ""
-        return " + ".join(_p) + f" dahil (kur €→$ {_eurk:.2f})" if e else " + ".join(_p) + " dahil"
+    _ham = " · ".join(p for p in [f"${_u:,.0f}" if _u else "",
+                                  f"€{_e:,.0f}" if _e else "",
+                                  f"₺{_t:,.0f}" if _t else ""] if p) or "—"
+    st.markdown(_kpi_serit([
+        ("Kayıt", f'{len(kayitlar):,}<span style="font-size:12px;color:{RENK["silik"]}">'
+                  f' / {len(kayitlar_tum):,}</span>', RENK["metin"]),
+        ("Toplam (USD)", f"${_usdt(_u, _e, _t):,.0f}", RENK["yesil"]),
+        (f"Bu Ay ({_bu_ay})", f"${_usdt(_ay_u, _ay_e, _ay_t):,.0f}", RENK["mor2"]),
+        ("Orijinal", _ham, RENK["cyan"]),
+        ("Firma", f"{len({(r.get('firma') or '').strip() for r in kayitlar}):,}", RENK["amber"]),
+    ]), unsafe_allow_html=True)
 
-    metrik_satiri([
-        {"label": f"Bu Ay ({_bu_ay})", "value": f"${_usd_toplam(_ay_u, _ay_e, _ay_t):,.0f}",
-         "renk": "#34D399", "alt": _alt_yazi(_ay_u, _ay_e, _ay_t)},
-        {"label": f"{_yil} Toplam", "value": f"${_usd_toplam(_yl_u, _yl_e, _yl_t):,.0f}",
-         "renk": "#818CF8", "alt": _alt_yazi(_yl_u, _yl_e, _yl_t)},
-        {"label": "Kayıt", "value": f"{len(kayitlar)}", "renk": "#60A5FA",
-         "alt": "seçili yıl"},
-    ])
+    if _t and not _tlk:
+        st.warning("₺ tutarlar için kur bulunamadı — TL kayıtlar USD toplamına dahil "
+                   "EDİLMEDİ. Kur girilince otomatik hesaplanır.")
 
-    # ── Manuel giriş ──
-    with st.expander("➕ Manuel Destek Girişi", expanded=not kayitlar):
+    # ── ARAÇ ÇUBUĞU ──
+    _SAYFA = 20
+    _tsayfa = max(1, (len(kayitlar) + _SAYFA - 1) // _SAYFA)
+    if st.session_state.get("ad_sayfa", 1) > _tsayfa:
+        st.session_state["ad_sayfa"] = 1
+    _sayfa = int(st.session_state.get("ad_sayfa", 1))
+
+    t1, t2, t3, t4 = st.columns([1.1, 0.5, 0.5, 3.2])
+    _duzenle = t1.toggle("✏️ Düzenle", key="ad_duzenle",
+                         help="Yeni destek girişi · Excel yükleme · kayıt silme")
+    if t2.button("◀", key="ad_geri", disabled=_sayfa <= 1, use_container_width=True):
+        st.session_state["ad_sayfa"] = _sayfa - 1
+        st.rerun()
+    if t3.button("▶", key="ad_ileri", disabled=_sayfa >= _tsayfa, use_container_width=True):
+        st.session_state["ad_sayfa"] = _sayfa + 1
+        st.rerun()
+    t4.caption("Firmalardan **bize gelen** destekler — kârlılığa gelir olarak eklenir."
+               + (f" · sayfa {_sayfa}/{_tsayfa}" if _tsayfa > 1 else ""))
+
+    # ── KARTLAR ──
+    if not kayitlar_tum:
+        st.info("Bu yıl için alınan destek kaydı yok. **✏️ Düzenle** ile ekleyebilir "
+                "veya Excel yükleyebilirsin.")
+    elif not kayitlar:
+        st.info("Bu filtreye uyan kayıt yok — filtreleri gevşet.")
+    elif not _duzenle:
+        _bas = (_sayfa - 1) * _SAYFA
+        for _i, _r in enumerate(kayitlar[_bas:_bas + _SAYFA]):
+            k1, k2 = st.columns([13, 1.6])
+            k1.markdown(_ad_kart_html(_r), unsafe_allow_html=True)
+            k2.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
+            if k2.button("🔎", key=f"ad_kart_{_bas + _i}_{_r.get('id')}",
+                         use_container_width=True, help="Detayı aç"):
+                _dlg_ad_detay(_r, _eurk, _tlk)
+        if _tsayfa > 1:
+            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {len(kayitlar):,} kayıt")
+
+    if not _duzenle:
+        return
+
+    # ═══════════ DÜZENLE KATMANI ═══════════
+    st.markdown("---")
+    with st.expander("➕ Manuel Destek Girişi", expanded=not kayitlar_tum):
         with st.form("alinan_destek_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             f_firma = c1.text_input("Firma / Marka *", placeholder="Örn: FAZEON, MSI")
@@ -2530,7 +2687,6 @@ def _render_alinan_destekler():
                 if ok:
                     st.rerun()
 
-    # ── Excel toplu yükleme ──
     with st.expander("📤 Excel ile Toplu Yükleme"):
         st.markdown("Beklenen başlıklar: **FİRMA | TÜR | DÖNEM | TUTAR | DÖVİZ | "
                     "FATURA NO | AÇIKLAMA | KATEGORİ** — sıra önemli değil, ada göre eşleşir. "
@@ -2562,27 +2718,20 @@ def _render_alinan_destekler():
             except Exception as e:
                 st.error(f"Dosya okunamadı: {e}")
 
-    # ── Kayıt listesi + silme ──
     if kayitlar:
-        st.markdown("---")
-        _df = pd.DataFrame([{
-            "Dönem": r.get("donem"), "Firma": r.get("firma"),
-            "Tür": r.get("tur"), "Kategori": r.get("kategori") or "GENEL",
-            "Tutar": f"{'$' if (r.get('doviz') or 'USD') == 'USD' else ('₺' if (r.get('doviz') or '').upper() in ('TL','TRY') else '€')}{_f(r.get('tutar')):,.2f}",
-            "Fatura": r.get("fatura_no") or "—",
-            "Açıklama": (r.get("aciklama") or "")[:40],
-        } for r in kayitlar])
-        st.dataframe(_df, use_container_width=True, hide_index=True)
-
+        st.markdown("##### 🗑 Kayıt Sil")
         _sil_opts = {f"#{r['id']} · {r.get('donem')} · {r.get('firma')} · "
                      f"{_f(r.get('tutar')):,.2f} {r.get('doviz')}": r["id"]
                      for r in kayitlar}
-        c1, c2 = st.columns([4, 1])
-        _sec = c1.selectbox("Kayıt sil", ["—"] + list(_sil_opts), key="ad_sil_sec",
+        s1, s2 = st.columns([4, 1])
+        _sec = s1.selectbox("Kayıt sil", ["—"] + list(_sil_opts), key="ad_sil_sec",
                             label_visibility="collapsed")
-        if c2.button("🗑 Sil", key="ad_sil", use_container_width=True) and _sec != "—":
+        if s2.button("🗑 Sil", key="ad_sil", use_container_width=True) and _sec != "—":
             if alinan_destek_sil(_sil_opts[_sec]):
                 st.toast("Silindi")
+                st.cache_data.clear()
                 st.rerun()
-    else:
-        st.info("Henüz alınan destek kaydı yok. Yukarıdan manuel ekleyin veya Excel yükleyin.")
+            else:
+                st.error("Silinemedi — kayıt başkası tarafından silinmiş olabilir.")
+
+
