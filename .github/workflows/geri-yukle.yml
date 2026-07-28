@@ -13,6 +13,10 @@ on:
         description: "Gerçekten yaz (EVET yazmazsan sadece gösterir)"
         required: true
         default: "hayir"
+      ara:
+        description: "Kimlik yerine METİNLE ara (örn. MITAC veya 2025-14) — sadece listeler"
+        required: false
+        default: ""
       run_id:
         description: "Belirli bir yedek çalışması (boş bırak = en son başarılı)"
         required: false
@@ -60,5 +64,6 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           YEDEK_DIZIN: yedek
           DOSYA_ID: ${{ inputs.dosya_id }}
+          ARA: ${{ inputs.ara }}
           ONAY: ${{ inputs.onay }}
         run: python otonom/geri_yukle.py
