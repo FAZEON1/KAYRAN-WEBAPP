@@ -3818,19 +3818,43 @@ def run():
             return odenen
     
         def _cari_isimleri_cikar(file_bytes):
-            """Cari Excel'inden Hesap adı (sütun 2) listesini çıkarır — Satış kanalları için."""
+            """Cari Excel'inden firma (Hesap adı) listesini çıkarır — Satış kanalları
+            ve Ref No 'Yeni Firma Ekle' listesi için.
+
+            ESKİ HATA: sütun 2 sabit okunuyordu. Mikro'nun yeni raporunda sütun 2
+            'Döviz' olduğu için listeye firma adı yerine EUR/TL/USD düşüyordu.
+            Artık sütun BAŞLIK ADINDAN bulunur (aktif_excel ile aynı yöntem)."""
+            try:
+                from kayranacc.aktif_excel import parse_cari as _pc
+                _, _detay = _pc(file_bytes)
+                return list(_detay.get("isimler") or [])
+            except Exception:
+                pass
+            # Yedek yol: başlığı elle ara
             import pandas as pd
             from io import BytesIO
             try:
                 df = pd.read_excel(BytesIO(file_bytes), header=None)
             except Exception:
                 return []
+            _c = None
+            for r in range(min(8, len(df))):
+                for c in range(df.shape[1]):
+                    v = df.iloc[r, c]
+                    if pd.notna(v) and "hesap ad" in str(v).strip().lower().replace("ı", "i"):
+                        _c = c
+                        break
+                if _c is not None:
+                    break
+            if _c is None:
+                return []
             isimler = []
-            for i in range(1, len(df)):
-                ad = df.iloc[i, 2] if df.shape[1] > 2 else None
+            for i in range(len(df)):
+                ad = df.iloc[i, _c]
                 if pd.notna(ad):
                     s = str(ad).strip()
-                    if s and s.lower() != "nan" and s not in isimler:
+                    if (s and s.lower() not in ("nan", "hesap adı", "hesap adi")
+                            and s not in isimler):
                         isimler.append(s)
             return isimler
 
@@ -4075,9 +4099,11 @@ def run():
                             st.write("2/3 · Sütunlar çözümleniyor")
                             deger, detay = parser(ham)
                             st.write("3/3 · Kaydediliyor")
+                            # Detay ÖNCE yazılır: kaydet_fn içinde (örn. cari
+                            # isimleri) kullanılabilsin diye.
+                            st.session_state[_sonuc_key] = detay
                             kaydet_fn(deger, ham)
                             st.session_state[f"_ok_{anahtar}"] = fid
-                            st.session_state[_sonuc_key] = detay
                             durum.update(label=f"✅ {f.name} yüklendi", state="complete")
                         except _BicimHatasi as e:
                             durum.update(label=f"❌ {f.name} okunamadı", state="error")
