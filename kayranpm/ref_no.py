@@ -1230,31 +1230,46 @@ def render():
 
 
 def _ref_detay_govde(r, firma_adi=""):
-    """Tek ref kaydının kırılımını çizer (dialog içinde kullanılır).
-    Aynı ref no altında birleştirilmiş kalemler burada tek tek görünür."""
+    """Ref kaydının kırılımı — tutarlı tipografiyle."""
+    from shared.ui import RENK
     _dv = (r.get("doviz") or "USD").strip().upper()
-    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, _dv + " ")
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    _durum = r.get("durum", "") or ""
+    _dr = _durum_renk(_durum)
     _parcalar = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
+    _kats = [x.strip() for x in str(r.get("kategori") or "").split("·") if x.strip()]
+    _ays, _yls = _aylik_ozet(r)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Firma", (firma_adi or r.get("_firma") or "—")[:20])
-    m2.metric("Tutar", f"{_sm}{_f(r.get('tutar')):,.2f}")
-    m3.metric("Durum", DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "") or "—"))
-    m4.metric("Kalem", f"{len(_parcalar) or 1}")
+    st.markdown(_dt_baslik(r.get("ref_no", "—"),
+                           DURUM_ETIKET.get(_durum, _durum), _dr,
+                           (firma_adi or r.get("_firma") or "")), unsafe_allow_html=True)
+    st.markdown(_dt_kutular([
+        ("Tutar", f"{_sm}{_f(r.get('tutar')):,.2f}", RENK["metin"]),
+        ("Döviz", _dv, RENK["soluk"]),
+        ("Kalem", f"{len(_parcalar) or 1}", RENK["mor2"]),
+        ("Dönem", (_ays if _ays != "—" else "—"), RENK["cyan"]),
+    ]), unsafe_allow_html=True)
 
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns([1.25, 1])
     with c1:
-        st.markdown("**📝 Açıklama kırılımı**")
-        if _parcalar:
-            for i, pz in enumerate(_parcalar, 1):
-                st.markdown(f"{i}. {pz}")
+        if len(_parcalar) > 1:
+            _liste = "".join(
+                f'<div style="display:flex;gap:10px;padding:6px 0;'
+                f'border-bottom:1px solid rgba(148,163,184,.08)">'
+                f'<span style="font-family:{_MONO};font-size:11px;color:{RENK["silik"]};'
+                f'min-width:18px">{i:02d}</span>'
+                f'<span style="font-size:13px;color:{RENK["metin"]};line-height:1.4">{p}</span>'
+                f'</div>' for i, p in enumerate(_parcalar, 1))
+            st.markdown(f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:8px">'
+                        f'Açıklama kırılımı · {len(_parcalar)} kalem</div>{_liste}',
+                        unsafe_allow_html=True)
         else:
-            st.caption("—")
-        st.markdown("**🏷️ Kategoriler**")
-        _kats = [x.strip() for x in str(r.get("kategori") or "").split("·") if x.strip()]
-        st.markdown(" · ".join(f"`{k}`" for k in _kats) if _kats else "—")
+            st.markdown(_dt_alan("Açıklama", _parcalar[0] if _parcalar else "—"),
+                        unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-top:14px">'
+                    f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:7px">Kategoriler</div>'
+                    f'{_dt_cipler(_kats)}</div>', unsafe_allow_html=True)
     with c2:
-        st.markdown("**📅 Aylık kırılım**")
         _ay = r.get("aylik") or {}
         if isinstance(_ay, str):
             try:
@@ -1262,25 +1277,38 @@ def _ref_detay_govde(r, firma_adi=""):
                 _ay = json.loads(_ay)
             except Exception:
                 _ay = {}
+        st.markdown(f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:8px">'
+                    f'Aylık kırılım</div>', unsafe_allow_html=True)
         if isinstance(_ay, dict) and _ay:
-            _sat = []
+            _sat = ""
+            _tp = 0.0
             for k in sorted(_ay.keys()):
+                v = _f(_ay[k])
+                _tp += v
                 try:
                     yy, mm = str(k).split("-")[:2]
-                    etk = f"{_AY_AD.get(int(mm), mm)} {yy}"
+                    etk = f"{_AY_AD.get(int(mm), mm).title()} {yy}"
                 except Exception:
                     etk = str(k)
-                _sat.append({"Dönem": etk, "Tutar": _f(_ay[k])})
-            st.dataframe(pd.DataFrame(_sat), hide_index=True, use_container_width=True,
-                         column_config={"Tutar": st.column_config.NumberColumn(
-                             f"Tutar ({_dv})", format="%,.2f")})
-            _tp = sum(x["Tutar"] for x in _sat)
+                _sat += (f'<div style="display:flex;justify-content:space-between;'
+                         f'padding:6px 0;border-bottom:1px solid rgba(148,163,184,.08)">'
+                         f'<span style="font-size:12.5px;color:{RENK["soluk"]}">{etk}</span>'
+                         f'<span style="font-family:{_MONO};font-size:12.5px;font-weight:700;'
+                         f'color:{RENK["metin"]};font-variant-numeric:tabular-nums">'
+                         f'{_sm}{v:,.2f}</span></div>')
             _fk = _f(r.get("tutar")) - _tp
-            st.caption(f"Aylık toplam: {_sm}{_tp:,.2f}"
-                       + (f" · ⚠️ kayıt tutarıyla {_sm}{_fk:,.2f} fark var"
-                          if abs(_fk) > 0.01 else " · kayıt tutarıyla uyumlu ✓"))
+            _uy = ("#34D399", "kayıt tutarıyla uyumlu") if abs(_fk) <= 0.01 else \
+                  ("#FBBF24", f"kayıt tutarıyla {_sm}{_fk:,.2f} fark")
+            _sat += (f'<div style="display:flex;justify-content:space-between;padding:8px 0 0">'
+                     f'<span style="{_etiket_css(RENK["silik"])}">Toplam</span>'
+                     f'<span style="font-family:{_MONO};font-size:13px;font-weight:800;'
+                     f'color:{_uy[0]};font-variant-numeric:tabular-nums">{_sm}{_tp:,.2f}</span></div>'
+                     f'<div style="{_etiket_css(_uy[0])};margin-top:6px">{_uy[1]}</div>')
+            st.markdown(_sat, unsafe_allow_html=True)
         else:
-            st.caption("Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.")
+            st.markdown(f'<div style="color:{RENK["silik"]};font-size:12.5px;line-height:1.5">'
+                        f'Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.</div>',
+                        unsafe_allow_html=True)
 
 
 def _durum_renk(d):
@@ -1336,20 +1364,95 @@ def _ref_kart_html(r, firma_adi=""):
         f'</div>')
 
 
+# ══════════════════════════════════════════════════════════════════
+#  ORTAK TASARIM KATMANI — özet şeridi ve detay pencereleri
+#  Tipografi kuralı: etiketler 9.5px/1.4px aralık/UPPERCASE/700,
+#  sayılar JetBrains Mono + tabular-nums (rakamlar alt alta hizalanır),
+#  metinler sistem fontu. Tüm ölçüler tek yerden yönetilir.
+# ══════════════════════════════════════════════════════════════════
+_MONO = "'JetBrains Mono','SF Mono',ui-monospace,monospace"
+
+
+def _etiket_css(renk):
+    return (f"font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;"
+            f"font-weight:700;color:{renk};line-height:1")
+
+
+def _sayi_css(renk, boyut=19):
+    return (f"font-family:{_MONO};font-size:{boyut}px;font-weight:800;color:{renk};"
+            f"line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.3px")
+
+
 def _kpi_serit(kalemler):
-    """Tek satırlık sıkı KPI şeridi — büyük kutular yerine bölmeli tek panel."""
+    """Özet şeridi. kalemler: (etiket, deger, renk) veya (etiket, deger, renk, alt)
+    veya (etiket, deger, renk, alt, genislik).
+
+    Genişlik verilebildiği için uzun tutarlar ('$876,292 · ₺35,312') artık
+    satır sarmıyor; kısa sayılar da gereksiz yer kaplamıyor."""
+    from shared.ui import RENK
+    ic = []
+    for i, k in enumerate(kalemler):
+        etiket, deger, renk = k[0], k[1], k[2]
+        alt = k[3] if len(k) > 3 else ""
+        gen = k[4] if len(k) > 4 else 1
+        _alt = (f'<div style="font-size:10.5px;color:{RENK["silik"]};margin-top:3px;'
+                f'font-family:{_MONO};font-variant-numeric:tabular-nums">{alt}</div>'
+                if alt else "")
+        ic.append(
+            f'<div style="flex:{gen};min-width:92px;padding:1px 18px;'
+            f'border-left:{"1px solid rgba(148,163,184,.14)" if i else "none"}">'
+            f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:6px">{etiket}</div>'
+            f'<div style="{_sayi_css(renk)};white-space:nowrap">{deger}</div>{_alt}</div>')
+    return (f'<div style="display:flex;align-items:flex-start;'
+            f'background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));'
+            f'border:1px solid rgba(148,163,184,.14);border-radius:12px;'
+            f'padding:13px 2px;margin:6px 0 14px">{"".join(ic)}</div>')
+
+
+def _dt_baslik(ana, rozet="", rozet_renk="#818CF8", alt=""):
+    """Detay penceresi başlık bandı."""
+    from shared.ui import RENK
+    _r = (f'<span style="background:{rozet_renk}1F;color:{rozet_renk};padding:3px 10px;'
+          f'border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.5px;'
+          f'white-space:nowrap">{rozet}</span>' if rozet else "")
+    _a = (f'<div style="{_etiket_css(RENK["silik"])};margin-top:7px">{alt}</div>'
+          if alt else "")
+    return (f'<div style="border-left:3px solid {rozet_renk};padding:2px 0 2px 14px;'
+            f'margin:0 0 16px">'
+            f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            f'<span style="font-family:{_MONO};font-size:17px;font-weight:800;'
+            f'color:{RENK["metin"]};letter-spacing:-.2px">{ana}</span>{_r}</div>{_a}</div>')
+
+
+def _dt_kutular(kalemler):
+    """Detay penceresi üst metrikleri — st.metric yerine tutarlı tipografi."""
     from shared.ui import RENK
     ic = "".join(
-        f'<div style="flex:1;min-width:104px;padding:2px 16px;'
-        f'border-left:{"1px solid " + RENK["kenar"] if i else "none"}">'
-        f'<div style="font-size:9.5px;letter-spacing:1.3px;color:{RENK["soluk"]};'
-        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">{e}</div>'
-        f'<div style="font-size:19px;font-weight:800;color:{c};'
-        f'font-family:JetBrains Mono,monospace;line-height:1.1">{v}</div></div>'
-        for i, (e, v, c) in enumerate(kalemler))
-    return (f'<div style="display:flex;align-items:center;background:{RENK["yuzey1"]};'
-            f'border:1px solid {RENK["kenar"]};border-radius:12px;padding:11px 2px;'
-            f'margin:4px 0 12px;flex-wrap:wrap">{ic}</div>')
+        f'<div style="flex:1;min-width:112px;background:rgba(255,255,255,.025);'
+        f'border:1px solid rgba(148,163,184,.10);border-radius:10px;padding:10px 14px">'
+        f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:7px">{e}</div>'
+        f'<div style="{_sayi_css(c, 17)};white-space:nowrap">{v}</div></div>'
+        for e, v, c in kalemler)
+    return f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">{ic}</div>'
+
+
+def _dt_alan(etiket, deger, mono=False):
+    """Detay penceresi etiket/değer satırı."""
+    from shared.ui import RENK
+    _st = (f"font-family:{_MONO};font-size:13px;font-variant-numeric:tabular-nums"
+           if mono else "font-size:13.5px")
+    return (f'<div style="margin-bottom:13px">'
+            f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:5px">{etiket}</div>'
+            f'<div style="{_st};color:{RENK["metin"]};line-height:1.45">{deger}</div></div>')
+
+
+def _dt_cipler(degerler, renk="#A5B4FC"):
+    if not degerler:
+        return '<span style="color:#64748B;font-size:13px">—</span>'
+    return "".join(
+        f'<span style="background:{renk}1F;color:{renk};padding:3px 10px;'
+        f'border-radius:20px;font-size:11px;font-weight:600;margin:0 5px 5px 0;'
+        f'display:inline-block">{d}</span>' for d in degerler)
 
 
 def _render_ref_merkez(firmalar):
@@ -1427,13 +1530,15 @@ def _render_ref_merkez(firmalar):
                       for k, v in sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
     _bek = sum(1 for r in goster if r.get("durum") == "beklemede")
     _pay = sum(1 for r in goster if r.get("durum") == "paylasildi")
+    _tutlar = [f'{_sembol.get(k, k + " ")}{v:,.0f}'
+               for k, v in sorted(_dv.items(), key=lambda x: -x[1]) if v]
     st.markdown(_kpi_serit([
-        ("Kayıt", f'{len(goster):,}<span style="font-size:12px;color:{RENK["silik"]}">'
-                  f' / {len(_hepsi):,}</span>', RENK["metin"]),
-        ("Toplam Tutar", _tut, RENK["mor2"]),
-        ("Beklemede", f"{_bek:,}", RENK["amber"]),
-        ("Paylaşıldı", f"{_pay:,}", RENK["yesil"]),
-        ("Firma", f"{len({r.get('_firma') for r in goster}):,}", RENK["cyan"]),
+        ("Kayıt", f"{len(goster):,}", RENK["metin"], f"/ {len(_hepsi):,} toplam", 0.8),
+        ("Toplam Tutar", _tutlar[0] if _tutlar else "—", RENK["mor2"],
+         " · ".join(_tutlar[1:]), 1.6),
+        ("Beklemede", f"{_bek:,}", RENK["amber"], "", 0.7),
+        ("Paylaşıldı", f"{_pay:,}", RENK["yesil"], "", 0.7),
+        ("Firma", f"{len({r.get('_firma') for r in goster}):,}", RENK["cyan"], "", 0.7),
     ]), unsafe_allow_html=True)
 
     if not goster:
@@ -2495,32 +2600,46 @@ def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
     _dv = (r.get("doviz") or "USD").strip().upper()
     _tut = _f(r.get("tutar"))
     _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    _tur = (r.get("tur") or "—").strip().upper()
+    _tr = _AD_TUR_RENK.get(_tur, "#818CF8")
     if _dv in ("TL", "TRY"):
         _usd = (_tut / tl_kur) if tl_kur else None
+        _kur_not = f"₺/$ {tl_kur:,.2f}" if tl_kur else "kur yok"
     elif _dv in ("EUR", "EURO"):
         _usd = _tut * (eur_kur or 1.0)
+        _kur_not = f"€→$ {eur_kur:,.2f}"
     else:
-        _usd = _tut
+        _usd, _kur_not = _tut, "—"
+    _kat = (r.get("kategori") or "GENEL").strip()
 
-    st.markdown(f"### {(r.get('firma') or '—')}")
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Tür", (r.get("tur") or "—"))
-    m2.metric("Dönem", (r.get("donem") or "—"))
-    m3.metric("Tutar", f"{_sm}{_tut:,.2f}")
-    m4.metric("USD karşılığı", f"${_usd:,.2f}" if _usd is not None else "kur yok")
+    st.markdown(_dt_baslik(r.get("firma", "—"), _tur, _tr,
+                           f"dönem {r.get('donem') or '—'}"), unsafe_allow_html=True)
+    st.markdown(_dt_kutular([
+        ("Tutar", f"{_sm}{_tut:,.2f}", RENK["yesil"]),
+        ("Döviz", _dv, RENK["soluk"]),
+        ("USD karşılığı", (f"${_usd:,.2f}" if _usd is not None else "—"),
+         RENK["metin"] if _usd is not None else RENK["amber"]),
+        ("Kur", _kur_not, RENK["cyan"]),
+    ]), unsafe_allow_html=True)
 
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns([1, 1.15])
     with c1:
-        st.markdown("**🏷️ Kategori**")
-        st.markdown(f"`{(r.get('kategori') or 'GENEL')}`")
-        st.caption("GENEL = belirli bir ürün kategorisine dağıtılmamış destek. "
-                   "Kâr analizinde kategori kırılımına girmez.")
+        st.markdown(f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:7px">Kategori</div>'
+                    f'{_dt_cipler([_kat])}', unsafe_allow_html=True)
+        if _kat.upper() == "GENEL":
+            st.markdown(f'<div style="color:{RENK["silik"]};font-size:11.5px;'
+                        f'line-height:1.5;margin-top:8px">Belirli bir ürün kategorisine '
+                        f'dağıtılmamış destek — kâr analizinde kategori kırılımına girmez.</div>',
+                        unsafe_allow_html=True)
+        st.markdown(f'<div style="margin-top:16px">'
+                    f'{_dt_alan("Fatura No", (r.get("fatura_no") or "—"), mono=True)}</div>',
+                    unsafe_allow_html=True)
     with c2:
-        st.markdown("**🧾 Fatura No**")
-        st.markdown((r.get("fatura_no") or "—"))
-        st.markdown("**📝 Açıklama**")
-        st.markdown((r.get("aciklama") or "—"))
-    if _dv not in ("USD",) and _usd is None:
+        st.markdown(_dt_alan("Açıklama", (r.get("aciklama") or "—")), unsafe_allow_html=True)
+        st.markdown(_dt_alan("Kayıt No", f"#{r.get('id', '—')}", mono=True),
+                    unsafe_allow_html=True)
+
+    if _usd is None:
         st.warning("Bu kaydın USD karşılığı hesaplanamadı (kur bilgisi yok) — "
                    "kârlılık toplamlarına dahil edilmemiş olabilir.")
 
@@ -2604,13 +2723,15 @@ def _render_alinan_destekler():
     _ham = " · ".join(p for p in [f"${_u:,.0f}" if _u else "",
                                   f"€{_e:,.0f}" if _e else "",
                                   f"₺{_t:,.0f}" if _t else ""] if p) or "—"
+    _ham_l = [p for p in [f"${_u:,.0f}" if _u else "", f"€{_e:,.0f}" if _e else "",
+                          f"₺{_t:,.0f}" if _t else ""] if p]
     st.markdown(_kpi_serit([
-        ("Kayıt", f'{len(kayitlar):,}<span style="font-size:12px;color:{RENK["silik"]}">'
-                  f' / {len(kayitlar_tum):,}</span>', RENK["metin"]),
-        ("Toplam (USD)", f"${_usdt(_u, _e, _t):,.0f}", RENK["yesil"]),
-        (f"Bu Ay ({_bu_ay})", f"${_usdt(_ay_u, _ay_e, _ay_t):,.0f}", RENK["mor2"]),
-        ("Orijinal", _ham, RENK["cyan"]),
-        ("Firma", f"{len({(r.get('firma') or '').strip() for r in kayitlar}):,}", RENK["amber"]),
+        ("Kayıt", f"{len(kayitlar):,}", RENK["metin"], f"/ {len(kayitlar_tum):,} toplam", 0.75),
+        ("Toplam (USD)", f"${_usdt(_u, _e, _t):,.0f}", RENK["yesil"],
+         " · ".join(_ham_l[1:]) if len(_ham_l) > 1 else "", 1.3),
+        (f"Bu Ay · {_bu_ay}", f"${_usdt(_ay_u, _ay_e, _ay_t):,.0f}", RENK["mor2"], "", 1.1),
+        ("Firma", f"{len({(r.get('firma') or '').strip() for r in kayitlar}):,}",
+         RENK["cyan"], "", 0.7),
     ]), unsafe_allow_html=True)
 
     if _t and not _tlk:
