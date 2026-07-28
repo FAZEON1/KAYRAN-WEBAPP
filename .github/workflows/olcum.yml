@@ -1,0 +1,38 @@
+name: Nöbetçi Eşik Ölçümü
+
+# SADECE elle çalışır — zamanlanmış değil. Tek seferlik ölçüm içindir.
+# GitHub → Actions → "Nöbetçi Eşik Ölçümü" → Run workflow
+on:
+  workflow_dispatch: {}
+
+jobs:
+  olcum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: pip install --quiet streamlit supabase requests pandas
+
+      - name: Supabase erişimini hazırla (uygulamanın kendi secrets dosyası)
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml << SECRETS
+          [supabase]
+          url = "${{ secrets.SUPABASE_URL }}"
+          key = "${{ secrets.SUPABASE_KEY }}"
+          service_role_key = "${{ secrets.SUPABASE_KEY }}"
+          SECRETS
+
+      - name: Ölçümü çalıştır
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python otonom/olcum.py
