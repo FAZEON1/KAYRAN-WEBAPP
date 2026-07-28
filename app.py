@@ -580,8 +580,9 @@ if not st.session_state.get("_db_saglik_ok"):
         st.stop()
 
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
-from shared.ui import islem_gosterge_css, genel_tema_css, token_css
-st.markdown(token_css(), unsafe_allow_html=True)
+from shared.tasarim import cekirdek_css, islem_gosterge_css
+from shared.ui import genel_tema_css
+# token_css() kaldırıldı — CSS değişkenlerini artık cekirdek_css() basıyor.
 
 # ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
 # (şeffaf zemin, Inter, yumuşak grid, alt yatay lejant, uygulama hover kutusu)
@@ -638,8 +639,15 @@ st.markdown(
     'z-index:2147483000 !important;'
     '}'
     "</style>", unsafe_allow_html=True)
+st.markdown(cekirdek_css(), unsafe_allow_html=True)      # TEK tasarım kaynağı
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
+# Sayfa genişliği: TEK yerden. Modüllerin kendi max-width'i kaldırıldı —
+# 3 modül 1200px, 5 modül tam genişlikteydi; geçişte sayfa gözle görülür
+# şekilde daralıyordu.
+st.markdown("<style>.stApp [data-testid='stMainBlockContainer'],"
+            ".stApp .block-container{max-width:1440px !important;}</style>",
+            unsafe_allow_html=True)
 
 # ── Global mobil / dar ekran uyumu (yalnız <=640px; masaüstü etkilenmez) ──
 st.markdown(
