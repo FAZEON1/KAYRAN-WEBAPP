@@ -2,13 +2,22 @@ name: Silinen İthalatı Geri Yükle
 
 # Elle çalışır. VARSAYILAN KURU ÇALIŞMA — hiçbir şey yazmaz, ne yapacağını gösterir.
 # Yazması için "onay" alanına tam olarak EVET yaz.
+# mod=eksikler seçilirse SALT OKUNUR ölçüm yapar: yedekte olup canlıda olmayan dosyaları listeler.
 on:
   workflow_dispatch:
     inputs:
-      dosya_id:
-        description: "Geri yüklenecek ithalat_dosyalari.id"
+      mod:
+        description: "Mod"
         required: true
-        default: "573"
+        default: "geri_yukle"
+        type: choice
+        options:
+          - geri_yukle
+          - eksikler
+      dosya_id:
+        description: "Geri yüklenecek ithalat_dosyalari.id (eksikler modunda boş bırak)"
+        required: false
+        default: ""
       onay:
         description: "Gerçekten yaz (EVET yazmazsan sadece gösterir)"
         required: true
@@ -23,7 +32,7 @@ on:
         default: ""
 
 permissions:
-  actions: read          # yedek artifact'ını indirebilmek için
+  actions: read        # yedek artifact'ını indirebilmek için
   contents: read
 
 jobs:
@@ -63,6 +72,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           YEDEK_DIZIN: yedek
+          MOD: ${{ inputs.mod == 'eksikler' && 'eksikler' || '' }}
           DOSYA_ID: ${{ inputs.dosya_id }}
           ARA: ${{ inputs.ara }}
           ONAY: ${{ inputs.onay }}
