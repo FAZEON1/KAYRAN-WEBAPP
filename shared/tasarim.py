@@ -69,7 +69,12 @@ ESKI_RENK_ESLEME = {
     "#6EE7B7": "yesil2", "#FCD34D": "amber2", "#F1F5F9": "metin",
     "#7C8AA0": "soluk", "#8B97A8": "soluk",  "#475569": "silik",
     "#131C35": "yuzey2", "#0F1730": "yuzey1", "#080C20": "yuzey0",
+    "#5B6B84": "silik",  "#8B98B8": "soluk",  "#B6C2D6": "metin",
+    "#FFFFFF": "metin",  "#FDA4AF": "kirmizi2", "#F9A8D4": "pembe",
 }
+
+# ── Renk verilmeyen kartlar için döngü (eski KART_PALET'in karşılığı) ──
+KART_TOKEN = ["mor", "yesil", "amber", "mor2", "cyan", "pembe", "mavi"]
 
 # ── Modül → kimlik rengi (tek yerden) ──
 MODUL_RENK = {

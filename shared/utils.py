@@ -378,43 +378,35 @@ KART_PALET = ["#818CF8", "#34D399", "#FB923C", "#A78BFA", "#22D3EE", "#FBBF24", 
 
 
 def metrik_satiri(cards):
-    """Renkli, sol şeritli metric kart satırı (sidebar/İthalat temasıyla birebir).
-    cards = [{'label','value','renk'?,'alt'?,'help'?}]. renk verilmezse paletten döner."""
-    cells = ""
+    """Metrik kartı şeridi — GÖRÜNÜM artık shared/tasarim.py'den geliyor.
+
+    Çağrı sözleşmesi aynı: [{'label','value','renk'?,'alt'?,'help'?}].
+    'renk' eskiden serbest hex'ti; tek palete eşleniyor (ESKI_RENK_ESLEME).
+
+    DEĞİŞEN: değerin karakter sayısına göre fontu 20/17/15/13/12 px arasında
+    küçülten mantık kaldırıldı. Yan yana iki kart farklı puntoda oluyordu.
+    Punto artık sabit; sığmayan değer '…' ile kısalır, tamamı title'da durur.
+    """
+    from shared.tasarim import RENK, KART_TOKEN, ESKI_RENK_ESLEME
+    hucreler = ""
     for i, c in enumerate(cards):
-        renk = c.get("renk") or KART_PALET[i % len(KART_PALET)]
-        ttl = f' title="{c["help"]}"' if c.get("help") else ""
-        ipucu = ' <span style="color:#64748B;font-size:11px">ⓘ</span>' if c.get("help") else ""
-        alt = c.get("alt", "")
-        alt_html = (f'<div style="color:#7C8AA0;font-size:10px;margin-top:3px;'
-                    f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{alt}</div>') if alt else ""
-        # Değer uzunluğuna göre font boyutu (uzun rakamlar kartta kesilmesin diye küçülür)
-        _val = str(c["value"])
-        _vlen = len(_val)
-        if _vlen <= 9:
-            _vfs = 20
-        elif _vlen <= 12:
-            _vfs = 17
-        elif _vlen <= 15:
-            _vfs = 15
-        elif _vlen <= 18:
-            _vfs = 13
+        ham = c.get("renk")
+        if ham:
+            token = ESKI_RENK_ESLEME.get(str(ham).upper())
+            renk = RENK.get(token, ham if str(ham).startswith("#") else RENK["mor"])
         else:
-            _vfs = 12
-        cells += (
-            f'<div{ttl} style="flex:1;min-width:150px;'
-            f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
-            f'border:1px solid rgba(255,255,255,0.055);border-left:3px solid {renk};'
-            f'border-radius:16px;padding:14px 18px">'
-            f'<div style="color:#8B97A8;font-size:10px;font-weight:700;letter-spacing:.6px;'
-            f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
-            f'<div style="color:#F1F5F9;font-size:{_vfs}px;font-weight:800;margin-top:3px;'
-            f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
-            f'overflow:hidden;text-overflow:ellipsis">{_val}</div>'
-            f'{alt_html}</div>'
-        )
-    st.markdown(f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:2px 0 16px">{cells}</div>',
-                unsafe_allow_html=True)
+            renk = RENK[KART_TOKEN[i % len(KART_TOKEN)]]
+        _val = str(c["value"])
+        ipucu = c.get("help") or _val
+        ttl = f' title="{ipucu}"' if ipucu else ""
+        ipucu_im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
+        alt = f'<div class="k-alt">{c["alt"]}</div>' if c.get("alt") else ""
+        hucreler += (
+            f'<div class="k-kart" data-akscent style="border-left-color:{renk}"{ttl}>'
+            f'<div class="k-etiket">{c["label"]}{ipucu_im}</div>'
+            f'<div class="k-deger" style="color:{renk}">{_val}</div>'
+            f'{alt}</div>')
+    st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
 
 
 def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
@@ -423,24 +415,28 @@ def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
 
 
 def metric_css(renk="#818CF8") -> str:
-    """Geriye kalan st.metric öğelerini de aynı koyu kart görünümüne sokan global CSS."""
+    """Kalan st.metric öğelerini de ortak kart diline sokar.
+    (Etiket eskiden 9.5px'ti — okunabilir alt sınır 11px.)"""
+    from shared.tasarim import RENK, FONT, AGIRLIK, TRACKING, YOGUNLUK
+    _y = YOGUNLUK["sik"]
     return f"""
     <style>
     div[data-testid="stMetric"]{{
-        background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012)) !important;
-        border:1px solid rgba(255,255,255,0.055) !important;
-        border-left:3px solid {renk} !important;
-        border-radius:16px !important;
-        padding:14px 18px !important;
-        transition:transform .15s ease, border-color .15s ease;
+        background:{RENK['yuzey1']} !important;
+        border:1px solid {RENK['kenar']} !important;
+        border-left:2px solid {renk} !important;
+        border-radius:{_y['kart_r']} !important;
+        padding:{_y['kart_pad']} !important;
     }}
     div[data-testid="stMetricLabel"] p, div[data-testid="stMetricLabel"]{{
-        color:#8B97A8 !important; font-size:9.5px !important; font-weight:700 !important;
-        letter-spacing:.6px !important; text-transform:uppercase !important;
+        color:{RENK['soluk']} !important; font-size:{FONT['etiket']} !important;
+        font-weight:{AGIRLIK['vurgu']} !important;
+        letter-spacing:{TRACKING['etiket']} !important; text-transform:uppercase !important;
     }}
     div[data-testid="stMetricValue"]{{
-        color:#F1F5F9 !important; font-size:20px !important; font-weight:800 !important;
-        font-variant-numeric:tabular-nums; line-height:1.2 !important;
+        color:{RENK['metin']} !important; font-size:{FONT['deger']} !important;
+        font-weight:{AGIRLIK['baslik']} !important; font-family:{'JetBrains Mono, ui-monospace, monospace'};
+        font-variant-numeric:tabular-nums; line-height:1.25 !important;
     }}
     </style>
     """
