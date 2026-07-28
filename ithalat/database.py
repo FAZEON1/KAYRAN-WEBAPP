@@ -546,6 +546,7 @@ def _yaz_graceful(islem, payload):
 
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
+               grup_masraf_atama=None,
                durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
