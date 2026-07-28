@@ -1439,64 +1439,56 @@ def _render_ref_merkez(firmalar):
     if not goster:
         st.info("Bu filtreye uyan ref no yok. Filtreleri gevşet ya da yeni ref ata.")
 
-    # ── GÖRÜNÜM MODU ──
+    # ── ARAÇ ÇUBUĞU: mod seçici YOK — tek görünüm (kartlar) ──
+    # Tablo modu kaldırıldı: aynı bilgiyi iki farklı biçimde sunmak fazladan
+    # karar yüküydü. Detay artık her kartın kendi butonuyla açılır.
     _tekil = _fmap.get(firma_f) if firma_f != "🌐 Tüm firmalar" else None
-    _modlar = ["🃏 Kartlar", "📊 Tablo"] + (["✏️ Düzenle"] if _tekil else [])
-    m1, m2 = st.columns([2.2, 2.8])
-    mod = m1.radio("Görünüm", _modlar, horizontal=True,
-                   key="rm_mod", label_visibility="collapsed")
+    _SAYFA = 20
+    _tsayfa = max(1, (len(goster) + _SAYFA - 1) // _SAYFA)
+    _sk = "rm_sayfa"
+    if st.session_state.get(_sk, 1) > _tsayfa:
+        st.session_state[_sk] = 1
+
+    a1, a2, a3, a4 = st.columns([1.1, 0.5, 0.5, 3.2])
+    _duzenle = False
     if _tekil:
-        m2.caption(f"🏢 **{_tekil.get('firma_adi','')}** · sıradaki numara: "
-                   f"`{ref_uret(_tekil.get('firma_kodu',''), _yil(), _sonraki_sira(_tekil['id']))}`")
+        _duzenle = a1.toggle("✏️ Düzenle", key="rm_duzenle",
+                             help="Tabloda toplu düzenleme · yeni ref atama · Excel içe aktarma")
     else:
-        m2.caption("💡 Düzenlemek, yeni ref atamak veya Excel yüklemek için "
-                   "soldan **bir firma seç**.")
+        a1.caption("")
+    _sayfa = int(st.session_state.get(_sk, 1))
+    if a2.button("◀", key="rm_geri", disabled=_sayfa <= 1, use_container_width=True):
+        st.session_state[_sk] = _sayfa - 1
+        st.rerun()
+    if a3.button("▶", key="rm_ileri", disabled=_sayfa >= _tsayfa, use_container_width=True):
+        st.session_state[_sk] = _sayfa + 1
+        st.rerun()
+    if _tekil:
+        a4.caption(f"🏢 **{_tekil.get('firma_adi','')}** · sıradaki numara: "
+                   f"`{ref_uret(_tekil.get('firma_kodu',''), _yil(), _sonraki_sira(_tekil['id']))}`"
+                   + (f" · sayfa {_sayfa}/{_tsayfa}" if _tsayfa > 1 else ""))
+    else:
+        a4.caption("💡 Düzenlemek, yeni ref atamak veya Excel yüklemek için "
+                   "yukarıdan **bir firma seç**."
+                   + (f" · sayfa {_sayfa}/{_tsayfa}" if _tsayfa > 1 else ""))
 
-    # ── KARTLAR ──
-    if mod == "🃏 Kartlar" and goster:
-        _limit = 60
-        st.markdown("".join(_ref_kart_html(r, "" if _tekil else r.get("_firma", ""))
-                            for r in goster[:_limit]), unsafe_allow_html=True)
-        if len(goster) > _limit:
-            st.caption(f"İlk {_limit} kayıt gösteriliyor ({len(goster):,} sonuçtan). "
-                       "Daraltmak için filtre veya arama kullan.")
-        _d1, _d2 = st.columns([3, 1])
-        _sec = _d1.selectbox("Detay", goster[:_limit],
-                             format_func=lambda r: f"{r.get('ref_no','')} · "
-                                                   f"{(r.get('aciklama') or '')[:44]}",
-                             key="rm_detay_sec", label_visibility="collapsed")
-        if _d2.button("🔎 Detayı Aç", use_container_width=True, key="rm_detay_btn"):
-            _dlg_ref_detay_merkez(_sec)
-
-    # ── TABLO ──
-    elif mod == "📊 Tablo" and goster:
-        _tablo = st.dataframe(pd.DataFrame([{
-            "Ref No": r.get("ref_no", "") or "",
-            "Firma": (r.get("_firma", "") or "")[:24],
-            "Açıklama": r.get("aciklama", "") or "",
-            "Tutar": _f(r.get("tutar")),
-            "Döviz": (r.get("doviz", "") or "USD"),
-            "Kategori": (r.get("kategori") or "—"),
-            "Dönem": f"{_aylik_ozet(r)[0]} {_aylik_ozet(r)[1]}".strip(),
-            "Durum": DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "")),
-        } for r in goster]), hide_index=True, use_container_width=True, height=520,
-            on_select="rerun", selection_mode="single-row", key="rm_tablo",
-            column_config={
-                "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
-                "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
-            })
-        try:
-            _s = list(_tablo.selection.rows)
-        except Exception:
-            _s = []
-        if _s and _s[0] < len(goster):
-            _r = goster[_s[0]]
-            if st.button(f"🔎 {_r.get('ref_no','')} detayını aç", type="primary",
-                         use_container_width=True, key="rm_tablo_detay"):
+    # ── KARTLAR — her kartın kendi detay butonu var ──
+    if goster and not _duzenle:
+        _bas = (_sayfa - 1) * _SAYFA
+        for _i, _r in enumerate(goster[_bas:_bas + _SAYFA]):
+            _kc1, _kc2 = st.columns([13, 1.6])
+            _kc1.markdown(_ref_kart_html(_r, "" if _tekil else _r.get("_firma", "")),
+                          unsafe_allow_html=True)
+            _kc2.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
+            if _kc2.button("🔎", key=f"rm_kart_{_bas + _i}_{_r.get('id')}",
+                           use_container_width=True, help="Detayı aç"):
                 _dlg_ref_detay_merkez(_r)
+        if _tsayfa > 1:
+            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {len(goster):,} kayıt — "
+                       "◀ ▶ ile gez ya da filtre/arama ile daralt.")
 
     # ── DÜZENLE (mevcut, kanıtlanmış editör) ──
-    elif mod == "✏️ Düzenle" and _tekil:
+    if _duzenle and _tekil:
         st.markdown("---")
         _render_refler(_tekil["id"], _tekil.get("firma_kodu", ""))
 
