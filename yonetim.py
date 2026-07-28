@@ -2,7 +2,7 @@
 KAYRAN — Yönetim Panosu (P&L)
 Dönemsel kâr/zarar: Ciro − COGS − Destekler = Net Kâr.
  • Gelir/maliyet → Satış modülünden (ciro, paçal COGS).
- • Destekler → Havuz bütçe / ref no harcamalarından, türlere göre kırılımlı.
+ • Destekler → Ref no harcamalarından, türlere göre kırılımlı.
 Tüm tutarlar USD. TL cinsi destekler güncel kurla yaklaşık çevrilir.
 """
 import streamlit as st
@@ -324,7 +324,6 @@ def run():
                 ("🚢 İthalat (ödenen)", _s.get("ithalat", 0), "+"),
                 ("🏦 Banka (USD eşd.)", _s.get("banka", 0), "+"),
                 ("📥 Cari alacak", _s.get("alacak", 0), "+"),
-                ("💰 Havuz bütçe (net)", _s.get("havuz", 0), "+"),
                 ("➕ Manuel ekleme", _s.get("manuel_ekle", 0), "+"),
                 ("📤 Cari borç", _s.get("borc", 0), "−"),
                 ("🧾 Çekler", _s.get("cek", 0), "−"),
@@ -444,7 +443,9 @@ def run():
     toplam_destek = 0.0
 
     if _vrows is not None:
-        # ✅ TEK KAYNAK dalı: v_destek_donem — ref + havuz tek döngüde
+        # ✅ TEK KAYNAK dalı: v_destek_donem — ref no destekleri
+        # (havuz bütçe 27.07.2026'da kaldırıldı; kayıtlar DB'den silindiği
+        #  için bu görünüm de yalnız ref no destekleri döndürür)
         for h in _vrows:
             t = (h.get("tur") or "Diğer").strip() or "Diğer"
             tutar = float(h.get("tutar") or 0)
@@ -563,7 +564,7 @@ def run():
         + _hucre("Ciro", _usd(ciro), _ciro_alt, RENK["mor2"])
         + _op("−") + _hucre("COGS", _usd(cogs), "ürün maliyeti", RENK["amber"])
         + _op("=") + _hucre("Brüt Kâr", _usd(brut), f"marj {_pct(brut_marj)}", RENK["cyan"])
-        + _op("−") + _hucre("Destekler", _usd(toplam_destek), "havuz + ref no", RENK["pembe"])
+        + _op("−") + _hucre("Destekler", _usd(toplam_destek), "ref no destekleri", RENK["pembe"])
         + _op("−") + _hucre("Giderler", _usd(gider_usd), "işletme (TL→USD)", RENK["amber2"])
         + (_op("+") + _hucre("ALINAN DESTEK", _usd(alinan_destek_usd), "sellout/mkt/rebate", "#34D399")
            if alinan_destek_usd else "")
@@ -675,7 +676,6 @@ def run():
             ("🚢 İthalat (ödenen)", _snap.get("ithalat", 0), "+"),
             ("🏦 Banka (USD eşd.)", _snap.get("banka", 0), "+"),
             ("📥 Cari alacak", _snap.get("alacak", 0), "+"),
-            ("💰 Havuz bütçe (net)", _snap.get("havuz", 0), "+"),
             ("➕ Manuel ekleme", _snap.get("manuel_ekle", 0), "+"),
             ("📤 Cari borç", _snap.get("borc", 0), "−"),
             ("🧾 Çekler", _snap.get("cek", 0), "−"),
