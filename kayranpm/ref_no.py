@@ -1005,9 +1005,12 @@ def render():
             _render_alinan_destekler()
         return
 
-    # ── Üstte 3 sekme (firma seçmeden hepsi görünür) ──
-    tab_ref, tab_dest, tab_butce = st.tabs(
-        ["🔖 Ref No'lar", "📥 Alınan Destekler", "💰 Havuz Bütçe"])
+    # ── Üstte 2 sekme (firma seçmeden hepsi görünür) ──
+    # HAVUZ BÜTÇE KALDIRILDI (27.07.2026): kayıt ihtiyacı ortadan kalktı.
+    # Sekme, P&L etkisi ve Toplam Aktifler kalemi kaldırıldı; geçmiş kayıtlar
+    # veritabanından da temizlendi. Fonksiyonlar (_render_butce, butce_*,
+    # havuz_destek_donem) geri dönüş gerekirse diye kodda duruyor, çağrılmıyor.
+    tab_ref, tab_dest = st.tabs(["🔖 Ref No'lar", "📥 Alınan Destekler"])
 
     with tab_ref:
         # Firma seçimi bu sekmenin İÇİNDE (Tümü varsayılan)
@@ -1022,14 +1025,6 @@ def render():
 
     with tab_dest:
         _render_alinan_destekler()
-
-    with tab_butce:
-        # Havuz bütçe yalnız EERA/ITOPYA için
-        _itopya = next((f for f in firmalar if _firma_rol(f) == "ITOPYA"), None)
-        if _itopya:
-            _render_butce(_itopya["id"], _itopya)
-        else:
-            st.info("💰 Havuz bütçe yalnızca **EERA (ITOPYA)** firması için tutulur.")
 
 
 def _render_tumu(firmalar):
@@ -1805,6 +1800,10 @@ def _havuz_hesapla(kayitlar, firmalar):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def havuz_destek_donem(bas, bit):
+    # HAVUZ KALDIRILDI: hiçbir dönemde kâr/aktif hesabına girmez.
+    # (Geri açmak için aşağıdaki satırı sil.)
+    return {"verilen": 0.0, "kullanilan": 0.0, "kalan": 0.0,
+            "firmalar": [], "atlanan_doviz": 0}
     """Dönem (fatura_tarih ∈ [bas, bit]) içindeki havuz desteğini döndürür.
     Döner: {verilen, kullanilan, kalan, firmalar:[{firma,kod,rol,verilen,kullanilan,kalan}],
     rol_verilen:{rol:verilen}, atlanan_doviz}. Kâr/P&L gideri = 'verilen'.
