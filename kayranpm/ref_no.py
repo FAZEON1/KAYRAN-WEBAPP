@@ -554,17 +554,49 @@ def _cari_gecerli_mi(ad):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def _cari_isimleri():
-    """Muhasebe cari isim listesi — geçersiz kayıtlar süzülür.
+    """Firma adı havuzu — ÜÇ kaynağın birleşimi:
 
-    NOT: liste, cari Excel'i yüklenirken kaydedilir. Eski (bozuk) bir
-    yüklemeden kalan para birimi/başlık satırları burada elenir; böylece
-    Excel yeniden yüklenmeden de temiz liste görünür."""
+      1) Muhasebe cari isimleri (Toplam Aktifler'de yüklenen cari Excel'i)
+      2) Satışlarda fiilen geçen kanal/firma adları  ← ana kaynak
+      3) İthalat dosyalarındaki tedarikçiler
+
+    NEDEN: Tek kaynağa (cari) bağlıyken liste boş ya da bozuk kalabiliyordu —
+    oysa programda zaten yüzlerce satışta firma adı mevcut. Artık cari hiç
+    yüklenmemiş olsa bile liste dolu gelir.
+
+    Para birimi / başlık gibi firma olmayan değerler süzülür."""
+    havuz, gorulen = [], set()
+
+    def _ekle(isimler):
+        for x in (isimler or []):
+            sx = str(x or "").strip()
+            if not sx or not _cari_gecerli_mi(sx):
+                continue
+            _k = _norm(sx)
+            if _k in gorulen:
+                continue
+            gorulen.add(_k)
+            havuz.append(sx)
+
+    # 1) Muhasebe cari isimleri
     try:
         from kayranacc.database import get_cari_isimler
-        ham = [str(c).strip() for c in (get_cari_isimler() or []) if str(c).strip()]
+        _ekle(get_cari_isimler())
     except Exception:
-        return []
-    return [c for c in ham if _cari_gecerli_mi(c)]
+        pass
+    # 2) Satış kanalları (cari + satışta geçenleri zaten birleştirir)
+    try:
+        from satis.database import get_kanallar
+        _ekle(get_kanallar())
+    except Exception:
+        pass
+    # 3) İthalat tedarikçileri
+    try:
+        from ithalat.database import get_dosyalar
+        _ekle([d.get("tedarikci") for d in (get_dosyalar() or [])])
+    except Exception:
+        pass
+    return sorted(havuz, key=lambda x: x.lower())
 
 
 def _cari_esle(onek, doviz, cariler):
@@ -1068,12 +1100,12 @@ def render():
         _secilebilir = [c for c in _cariler if _norm(c) not in _mevcut]
 
         if _secilebilir:
-            st.caption(f"📇 Muhasebe cari listesinden {len(_secilebilir)} firma seçilebilir. "
-                       "Listede olmayan bir firmayı elle de yazabilirsin.")
+            st.caption(f"📇 {len(_secilebilir)} firma seçilebilir — muhasebe carileri, "
+                       "satış kanalları ve ithalat tedarikçilerinden derlendi. "
+                       "Listede yoksa elle de yazabilirsin.")
         else:
-            st.warning("📇 Cari listesi boş görünüyor. **Muhasebe → Toplam Aktifler → "
-                       "Cari Alacaklar Listesi**'ni bir kez yükle; firma adları oradan gelir. "
-                       "O zamana kadar firma adını elle yazabilirsin.")
+            st.warning("📇 Seçilebilecek yeni firma bulunamadı — ya tüm firmalar zaten "
+                       "eklenmiş ya da henüz hiç satış/cari kaydı yok. Firma adını elle yaz.")
 
         # Elle giriş her zaman açık — cari listesi eksik/bozuksa iş durmasın
         _elle = st.checkbox("✍️ Firma adını elle yaz", value=not _secilebilir,
