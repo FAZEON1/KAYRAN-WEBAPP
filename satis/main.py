@@ -43,12 +43,17 @@ def _kart(satirlar):
         satirlar = _km(satirlar)
     except Exception:
         pass
-    return "".join(
-        f'<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.04);'
-        f'border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:12px 16px">'
-        f'<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">{l}</div>'
-        f'<div style="font-size:19px;font-weight:800;color:{c};font-family:monospace">{v}</div></div>'
-        for l, v, c in satirlar)
+    # GÖRÜNÜM: artık ortak tasarım katmanı çiziyor. Çağrı sözleşmesi aynı
+    # kaldı — (etiket, değer, hex) üçlüsü — ama hex, tek palete eşleniyor.
+    from shared.tasarim import RENK, ESKI_RENK_ESLEME
+    hucreler = ""
+    for l, v, c in satirlar:
+        token = ESKI_RENK_ESLEME.get(str(c).upper(), None)
+        renk = RENK.get(token, c if str(c).startswith("#") else RENK["mor"])
+        hucreler += (f'<div class="k-kart" data-akscent style="border-left-color:{renk}">'
+                     f'<div class="k-etiket">{l}</div>'
+                     f'<div class="k-deger" style="color:{renk}">{v}</div></div>')
+    return hucreler
 
 
 def _to_date(v):
@@ -312,11 +317,10 @@ def iade_excel_oku(dosya):
 
 
 def run():
-    from shared.ui import sayfa_baslik as _sb
+    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-
-    st.markdown("<style>.main .block-container{max-width:1200px !important;}</style>",
-                unsafe_allow_html=True)
+    # NOT: sayfa genişliği artık app.py'de tek yerden veriliyor (modül başına
+    # farklı max-width, modüller arası geçişte sayfanın daralmasına yol açıyordu).
 
     with st.sidebar:
         st.markdown(sidebar_stil(), unsafe_allow_html=True)
@@ -352,7 +356,7 @@ def run():
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
     if _ssayfa == "🧾 Satış Girişi":
-        st.markdown(_sb("🧾", "Satış Girişi", "Manuel giriş · Excel toplu satış · kanal sipariş blokları"), unsafe_allow_html=True)
+        st.markdown(_sb("🧾 Satış", "Satış Girişi", ipucu="Manuel giriş · Excel toplu satış · kanal sipariş blokları"), unsafe_allow_html=True)
         pacal = get_pacal_map()
         urunler = get_urunler()
         urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
@@ -808,7 +812,7 @@ def run():
 
     # ───────────────────────── SATIŞLAR ─────────────────────────
     elif _ssayfa == "📋 Satışlar":
-        st.markdown(_sb("📋", "Satışlar", "Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
+        st.markdown(_sb("🧾 Satış", "Satışlar", ipucu="Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
 
         # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
@@ -1030,8 +1034,10 @@ def run():
             from shared.kar_gizle import uyari_ciz as _kar_uyari
             _kar_uyari()
             st.stop()
-        st.markdown(_sb("📊", "Kâr / P&L", "Dönemsel ciro · maliyet · destek · net kâr (USD)"), unsafe_allow_html=True)
         _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
+        st.markdown(_sb("🧾 Satış", "Kâr / P&L", alt=f"{_pbas} – {_pbit}",
+                        ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
+                    unsafe_allow_html=True)
 
         satislar = get_satislar(_pbas, _pbit)
         if not satislar:
@@ -1148,13 +1154,19 @@ def run():
             _nr = "#34D399" if _nihai > 0 else "#F87171"
 
             # ── Üst şerit: yalnız 4 ana gösterge ──
-            st.markdown(
-                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px">' + _kart([
-                    ("Net Ciro", _usd(_net_ciro), "#CBD5E1"),
-                    ("Net Adet", f"{int(_itop.get('net_adet') or top['adet']):,}", "#93C5FD"),
-                    ("NET KÂR", _usd(_nihai), _nr),
-                    ("Net Marj", f"%{_nihai_marj:.1f}", _nr),
-                ]) + '</div>', unsafe_allow_html=True)
+            _kar_tonu = "yesil" if _nihai > 0 else "kirmizi"
+            _ok = "▲" if _nihai > 0 else "▼"   # renk körlüğü için renkten başka işaret
+            st.markdown(kpi_serit([
+                {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
+                 "renk": "metin", "tam": f"${_net_ciro:,.2f}"},
+                {"etiket": "NET ADET",
+                 "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
+                 "renk": "mavi"},
+                {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"),
+                 "renk": _kar_tonu, "tam": f"${_nihai:,.2f}"},
+                {"etiket": "NET MARJ", "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1),
+                 "renk": _kar_tonu},
+            ]), unsafe_allow_html=True)
 
             # ── Kâr merdiveni ──
             def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
@@ -1598,7 +1610,7 @@ def run():
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":
-        st.markdown(_sb("📥", "Geçmiş Satışları İçe Aktar", "Mikro fatura bazlı satış dökümü · maliyet paçaldan otomatik"), unsafe_allow_html=True)
+        st.markdown(_sb("🧾 Satış", "Geçmiş Satışları İçe Aktar", ipucu="Mikro fatura bazlı satış dökümü · maliyet paçaldan otomatik"), unsafe_allow_html=True)
         st.caption("Mikro **fatura bazlı satış** dökümünü (.xls/.xlsx) yükle. "
                    "Maliyet, sistemdeki güncel **paçal** maliyetten otomatik hesaplanır. "
                    "Daha önce kaydedilmiş fatura numaraları atlanır (tekrar yüklemede mükerrer olmaz).")
@@ -1722,7 +1734,7 @@ def run():
 
     # ───────────────────────── İADE ─────────────────────────
     elif _ssayfa == "↩️ İade":
-        st.markdown(_sb("↩️", "İade Yönetimi", "İadeler satıştan ayrı tutulur · net görünümde düşülür"), unsafe_allow_html=True)
+        st.markdown(_sb("🧾 Satış", "İade Yönetimi", ipucu="İadeler satıştan ayrı tutulur · net görünümde düşülür"), unsafe_allow_html=True)
         st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
                    "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
 
