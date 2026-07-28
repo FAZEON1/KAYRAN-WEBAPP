@@ -11,6 +11,7 @@ import streamlit as st
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
+from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -58,7 +59,7 @@ def run():
     # ── CSS ──────────────────────────────────────────────────────────────
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    /* Font @import kaldırıldı — tek kaynak .streamlit/config.toml */
     
     /* ── GLOBAL ── */
     *, *::before, *::after { box-sizing: border-box; }
@@ -1386,6 +1387,7 @@ def run():
     # ════════════════════════════════════════════════════════════════════
 
     if sayfa == "📊 Dashboard":
+        st.markdown(_sb("💰 Muhasebe", "Dashboard"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">📊</span>Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Haftalık ödeme durumu ve finansal özet</div>', unsafe_allow_html=True)
     
@@ -1445,31 +1447,29 @@ def run():
     
         st.markdown(f"""
         <style>
-        .kart-grid {{ display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px }}
+        /* .kart ailesi ortak tasarım katmanının takma adı oldu —
+           HTML değişmedi, görünüm tek yerden (shared/tasarim.py) geliyor. */
+        .kart-grid {{ display:flex;flex-wrap:wrap;gap:var(--k-gap);margin-bottom:var(--k-gap) }}
         .kart {{
-            flex:1;min-width:150px;
-            background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));
-            border-radius:16px;
-            padding:16px 18px;
-            border:1px solid rgba(255,255,255,0.055);
-            border-left:3px solid #818CF8;
-            text-align:left;
-            transition:transform .15s ease, border-color .15s ease;
+            flex:1;min-width:132px;background:var(--k-yuzey1);
+            border:1px solid var(--k-kenar);border-left:2px solid var(--k-mor);
+            border-radius:var(--k-r);padding:var(--k-pad);text-align:left;
+            transition:background .12s ease,border-color .12s ease;
         }}
-        .kart:hover {{ transform:translateY(-2px);border-color:rgba(129,140,248,0.35) }}
+        .kart:hover {{ background:var(--k-yuzey2);border-color:var(--k-kenar2) }}
         .kart-label {{
-            font-size:11px;font-weight:700;letter-spacing:.6px;
-            text-transform:uppercase;color:#8B97A8;margin-bottom:0px;
+            font-size:10px;font-weight:600;letter-spacing:.6px;
+            text-transform:uppercase;color:var(--k-soluk);
         }}
         .kart-deger {{
-            font-size:19px;font-weight:800;
+            font-size:19px;font-weight:700;font-family:var(--k-mono);
             font-variant-numeric:tabular-nums;
-            letter-spacing:-0.3px;line-height:1.2;color:#F1F5F9;
+            letter-spacing:-0.2px;line-height:1.25;color:var(--k-metin);
         }}
-        .kart-alt {{ font-size:11px;margin-top:4px;color:#7C8AA0;font-weight:500 }}
+        .kart-alt {{ font-size:11px;margin-top:2px;color:var(--k-silik);font-weight:400 }}
         .section-mini-title {{
-            font-size:11px;font-weight:700;letter-spacing:1px;
-            text-transform:uppercase;color:#64748B;margin:16px 0 8px;
+            font-size:10px;font-weight:600;letter-spacing:.6px;
+            text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px;
         }}
         </style>
     
@@ -1778,6 +1778,7 @@ def run():
     # 2) BU HAFTA
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "💳 Bu Hafta":
+        st.markdown(_sb("💰 Muhasebe", "Bu Hafta"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">💳</span>Bu Hafta Ödemeleri</div>', unsafe_allow_html=True)
     
         kur = get_kur()
@@ -2240,6 +2241,7 @@ def run():
     # 3) BANKA BAKİYELERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🏦 Banka Bakiyeleri":
+        st.markdown(_sb("💰 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">🏦</span>Banka Bakiyeleri</div>', unsafe_allow_html=True)
     
         kur = get_kur()
@@ -2392,6 +2394,7 @@ def run():
         if st.button("🔁 Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True):
             _dlg_virman()
     elif sayfa == "💸 Nakit Akış":
+        st.markdown(_sb("💰 Muhasebe", "Nakit Akış"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">💸</span>Nakit Akış Analizi</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bekleyen ödemeler baz alınmıştır</div>', unsafe_allow_html=True)
     
@@ -2599,6 +2602,7 @@ def run():
     # 5) FİRMA ÇEKLERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📋 Firma Çekleri":
+        st.markdown(_sb("💰 Muhasebe", "Firma Çekleri"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">📋</span>Firma Çekleri</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">TL ve USD bazında çek takibi</div>', unsafe_allow_html=True)
     
@@ -2785,6 +2789,7 @@ def run():
     # 6) ÖDENENLEr
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🕐 Ödenenler & Geçmiş":
+        st.markdown(_sb("💰 Muhasebe", "Ödenenler & Geçmiş"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">🕐</span>Ödenenler & Geçmiş</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi</div>', unsafe_allow_html=True)
         _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
@@ -3077,6 +3082,7 @@ def run():
     # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "💵 Gelenler Geçmişi":
+        st.markdown(_sb("💰 Muhasebe", "Gelenler Geçmişi"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>Gelenler Geçmişi</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri</div>', unsafe_allow_html=True)
 
@@ -3127,17 +3133,17 @@ def run():
         with st.expander("👥 Kimden ne kadar gelmiş (kaynak bazında toplam)", expanded=False):
             _ozet = (_f.groupby(["Kaynak (Kimden)", "Döviz"])["Tutar"]
                      .sum().reset_index().sort_values("Tutar", ascending=False))
-            _ozet["Tutar"] = _ozet["Tutar"].map(lambda x: f"{x:,.2f}")
             st.dataframe(_ozet, hide_index=True, use_container_width=True,
-                         height=min(60 + len(_ozet) * 35, 420))
+                         column_config=tablo_kolonlari(_ozet, para="accounting"),
+                         height=tablo_h(len(_ozet), maks=420))
 
         # ── Detay tablo ──
+        # Döviz artık tutarın içine yapıştırılmıyor; ayrı kolon olarak kalıyor
+        # (yapıştırılınca kolon metin oluyor → sıralama alfabetik bozuluyordu).
         _goster = _f.copy()
-        _goster["Tutar"] = _goster.apply(
-            lambda r: f"{r['Tutar']:,.2f} {r['Döviz']}", axis=1)
-        _goster = _goster.drop(columns=["Döviz"])
         st.dataframe(_goster, hide_index=True, use_container_width=True,
-                     height=min(60 + len(_goster) * 35, 560))
+                     column_config=tablo_kolonlari(_goster, para="accounting"),
+                     height=tablo_h(len(_goster), maks=560))
         st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
                    "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
 
@@ -3146,6 +3152,7 @@ def run():
     # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📚 e-Defter":
+        st.markdown(_sb("💰 Muhasebe", "e-Defter"), unsafe_allow_html=True)
         from kayranacc.edefter import render as _edefter_render
         _edefter_render()
 
@@ -3154,6 +3161,7 @@ def run():
     # 8) VERİ YÜKLEME
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📂 Veri Yükleme":
+        st.markdown(_sb("💰 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">📂</span>Veri Yükleme</div>', unsafe_allow_html=True)
     
         # Son yüklenenler (Recents)
@@ -3280,6 +3288,7 @@ def run():
     # 9) RAPORLAR
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📄 Raporlar & Bildirim":
+        st.markdown(_sb("💰 Muhasebe", "Raporlar & Bildirim"), unsafe_allow_html=True)
         _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
         with _tab_rapor:
             st.markdown('<div class="baslik"><span class="baslik-ikon">📄</span>Raporlar</div>', unsafe_allow_html=True)
@@ -3498,6 +3507,7 @@ def run():
         # 11) BANKALAR ARASI VİRMAN
         # ════════════════════════════════════════════════════════════════════
     elif sayfa == "⏳ Ertelenen Ödemeler":
+        st.markdown(_sb("💰 Muhasebe", "Ertelenen Ödemeler"), unsafe_allow_html=True)
         st.markdown('<div class="baslik"><span class="baslik-ikon">⏳</span>Ertelenen Ödemeler</div>', unsafe_allow_html=True)
         st.markdown('<div class="alt-baslik">Bu oturumda vadesi değiştirilmiş ödemeler</div>', unsafe_allow_html=True)
     
@@ -3677,10 +3687,12 @@ def run():
     # 13) TOPLAM AKTİFLER
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🧾 Cari Ekstre":
+        st.markdown(_sb("💰 Muhasebe", "Cari Ekstre"), unsafe_allow_html=True)
         from kayranacc.cari_ekstre import render as _cari_ekstre_render
         _cari_ekstre_render()
 
     elif sayfa == "💰 Toplam Aktifler":
+        st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler"), unsafe_allow_html=True)
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
         YETKILI_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman", "pamuk"}
