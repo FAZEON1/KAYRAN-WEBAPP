@@ -1220,15 +1220,10 @@ def render():
     tab_ref, tab_dest = st.tabs(["🔖 Ref No'lar", "📥 Alınan Destekler"])
 
     with tab_ref:
-        # Firma seçimi bu sekmenin İÇİNDE (Tümü varsayılan)
-        _TUMU = "🌐 Tümü (tüm firmalar · birleşik liste)"
-        fmap = {f"{f['firma_adi']}  ·  FZ{f['firma_kodu']}RF…": f for f in firmalar}
-        sec_label = st.selectbox("Firma", [_TUMU] + list(fmap.keys()), key="ref_firma_sec")
-        if sec_label == _TUMU:
-            _render_tumu(firmalar)
-        else:
-            firma = fmap[sec_label]
-            _render_refler(firma["id"], firma["firma_kodu"])
+        # YENİ TASARIM: tek birleşik merkez (KPI şeridi + tek satır komut çubuğu
+        # + kart/tablo/düzenle modları). Eski iki-ayrı-arayüz yapısı kaldırıldı;
+        # firma artık ayrı bir ekran değil, sadece bir filtre.
+        _render_ref_merkez(firmalar)
 
     with tab_dest:
         _render_alinan_destekler()
@@ -1286,6 +1281,230 @@ def _ref_detay_govde(r, firma_adi=""):
                           if abs(_fk) > 0.01 else " · kayıt tutarıyla uyumlu ✓"))
         else:
             st.caption("Bu kayıtta aylık kırılım yok — tutar tek dönemde işlenir.")
+
+
+def _durum_renk(d):
+    return {"paylasildi": "#34D399", "beklemede": "#FBBF24"}.get(d, "#64748B")
+
+
+def _ref_kart_html(r, firma_adi=""):
+    """Tek ref kaydı — okunabilir kart. Tablo satırından çok daha hızlı taranır."""
+    from shared.ui import RENK
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    _durum = r.get("durum", "") or ""
+    _dr = _durum_renk(_durum)
+    _ays, _yls = _aylik_ozet(r)
+    _kats = [x.strip() for x in str(r.get("kategori") or "").split("·") if x.strip()][:4]
+    _parca = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
+    _ack = " · ".join(_parca)
+    _cip = "".join(
+        f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
+        f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">{k}</span>'
+        for k in _kats)
+    _donem = ""
+    if _ays and _ays != "—":
+        _donem = (f'<span style="background:rgba(34,211,238,.12);color:{RENK["cyan"]};'
+                  f'padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600">'
+                  f'📅 {_ays}{(" " + _yls) if _yls and _yls != "—" else ""}</span>')
+    _cok = (f'<span style="color:{RENK["silik"]};font-size:10.5px">'
+            f'{len(_parca)} kalem</span>' if len(_parca) > 1 else "")
+    _fr = (f'<span style="color:{RENK["silik"]};font-size:11px">· {firma_adi[:26]}</span>'
+           if firma_adi else "")
+    return (
+        f'<div style="display:flex;align-items:stretch;background:{RENK["yuzey1"]};'
+        f'border:1px solid {RENK["kenar"]};border-left:3px solid {_dr};border-radius:10px;'
+        f'padding:9px 14px;margin-bottom:6px">'
+        f'  <div style="flex:1;min-width:0">'
+        f'    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">'
+        f'      <span style="font-family:JetBrains Mono,monospace;font-size:12.5px;'
+        f'font-weight:800;color:{RENK["mor2"]};letter-spacing:.3px">{r.get("ref_no","")}</span>'
+        f'      <span style="color:{_dr};font-size:10.5px;font-weight:700">'
+        f'{DURUM_ETIKET.get(_durum, _durum)}</span>{_fr}{_cok}'
+        f'    </div>'
+        f'    <div style="color:{RENK["metin"]};font-size:13px;line-height:1.35;'
+        f'overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;'
+        f'-webkit-box-orient:vertical">{_ack or "—"}</div>'
+        f'    <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">{_cip}{_donem}</div>'
+        f'  </div>'
+        f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
+        f'display:flex;flex-direction:column;justify-content:center">'
+        f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:800;'
+        f'color:{RENK["metin"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
+        f'    <div style="color:{RENK["silik"]};font-size:10.5px;margin-top:3px">{_dv}</div>'
+        f'  </div>'
+        f'</div>')
+
+
+def _kpi_serit(kalemler):
+    """Tek satırlık sıkı KPI şeridi — büyük kutular yerine bölmeli tek panel."""
+    from shared.ui import RENK
+    ic = "".join(
+        f'<div style="flex:1;min-width:104px;padding:2px 16px;'
+        f'border-left:{"1px solid " + RENK["kenar"] if i else "none"}">'
+        f'<div style="font-size:9.5px;letter-spacing:1.3px;color:{RENK["soluk"]};'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:2px">{e}</div>'
+        f'<div style="font-size:19px;font-weight:800;color:{c};'
+        f'font-family:JetBrains Mono,monospace;line-height:1.1">{v}</div></div>'
+        for i, (e, v, c) in enumerate(kalemler))
+    return (f'<div style="display:flex;align-items:center;background:{RENK["yuzey1"]};'
+            f'border:1px solid {RENK["kenar"]};border-radius:12px;padding:11px 2px;'
+            f'margin:4px 0 12px;flex-wrap:wrap">{ic}</div>')
+
+
+def _render_ref_merkez(firmalar):
+    """Ref No merkezi — tek ekranda: KPI şeridi · tek satır komut çubuğu ·
+    kart/tablo/düzenle modları.
+
+    ESKİ TASARIM SORUNU: 'Tümü' ve 'tek firma' iki ayrı arayüzdü; filtreler
+    alt alta 5-6 satır kaplıyordu; veriye ulaşmak için önce firma seçmek
+    gerekiyordu. Yeni tasarım tek görünüm — firma sadece bir filtre."""
+    from shared.ui import RENK, sayfa_baslik
+
+    st.markdown(sayfa_baslik("🔗", "Referans No Takibi",
+                             "Tüm firmalar tek ekranda · filtrele, tara, detaya in"),
+                unsafe_allow_html=True)
+
+    _fmap = {f"{f.get('firma_adi','')}": f for f in firmalar}
+    _hepsi = []
+    for f in firmalar:
+        for r in get_refler(f["id"]):
+            _r = dict(r)
+            _r["_firma"] = f.get("firma_adi", "") or ""
+            _r["_fid"] = f["id"]
+            _r["_fkod"] = f.get("firma_kodu", "") or ""
+            _hepsi.append(_r)
+
+    # ── KOMUT ÇUBUĞU: hepsi TEK satırda ──
+    c1, c2, c3, c4, c5 = st.columns([1.7, 1.1, 1.2, 0.9, 2.1])
+    firma_f = c1.selectbox("Firma", ["🌐 Tüm firmalar"] + list(_fmap.keys()),
+                           key="rm_firma", label_visibility="collapsed")
+    durum_f = c2.selectbox("Durum", ["Tüm durumlar"] + DURUMLAR,
+                           format_func=lambda d: DURUM_ETIKET.get(d, d),
+                           key="rm_durum", label_visibility="collapsed")
+    _katlar = sorted({p.strip() for r in _hepsi
+                      for p in str(r.get("kategori") or "").split("·") if p.strip()})
+    kat_f = c3.selectbox("Kategori", ["Tüm kategoriler"] + _katlar,
+                         key="rm_kat", label_visibility="collapsed")
+    _yillar = sorted({p.strip() for r in _hepsi
+                      for p in _aylik_ozet(r)[1].split("·") if p.strip() and p.strip() != "—"},
+                     reverse=True)
+    yil_f = c4.selectbox("Yıl", ["Tüm yıllar"] + _yillar,
+                         key="rm_yil", label_visibility="collapsed")
+    ara = c5.text_input("Ara", key="rm_ara", label_visibility="collapsed",
+                        placeholder="🔍 ref no · açıklama · kategori · tutar…")
+
+    def _trl(s):
+        return str(s or "").replace("İ", "i").replace("I", "ı").lower()
+    _aral = _trl(ara)
+
+    def _uy(r):
+        if firma_f != "🌐 Tüm firmalar" and r.get("_firma") != firma_f:
+            return False
+        if durum_f != "Tüm durumlar" and r.get("durum") != durum_f:
+            return False
+        if kat_f != "Tüm kategoriler" and kat_f not in str(r.get("kategori") or ""):
+            return False
+        if yil_f != "Tüm yıllar" and yil_f not in _aylik_ozet(r)[1]:
+            return False
+        if _aral and _aral not in _trl(
+                f"{r.get('_firma','')} {r.get('ref_no','')} {r.get('aciklama','')} "
+                f"{r.get('kategori','')} {r.get('tutar','')} {r.get('doviz','')}"):
+            return False
+        return True
+
+    goster = [r for r in _hepsi if _uy(r)]
+    goster.sort(key=lambda r: (str(r.get("_firma") or ""), str(r.get("ref_no") or "")),
+                reverse=True)
+
+    # ── KPI ŞERİDİ ──
+    from collections import defaultdict
+    _dv = defaultdict(float)
+    for r in goster:
+        _dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
+    _sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
+    _tut = " · ".join(f'{_sembol.get(k, k + " ")}{v:,.0f}'
+                      for k, v in sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
+    _bek = sum(1 for r in goster if r.get("durum") == "beklemede")
+    _pay = sum(1 for r in goster if r.get("durum") == "paylasildi")
+    st.markdown(_kpi_serit([
+        ("Kayıt", f'{len(goster):,}<span style="font-size:12px;color:{RENK["silik"]}">'
+                  f' / {len(_hepsi):,}</span>', RENK["metin"]),
+        ("Toplam Tutar", _tut, RENK["mor2"]),
+        ("Beklemede", f"{_bek:,}", RENK["amber"]),
+        ("Paylaşıldı", f"{_pay:,}", RENK["yesil"]),
+        ("Firma", f"{len({r.get('_firma') for r in goster}):,}", RENK["cyan"]),
+    ]), unsafe_allow_html=True)
+
+    if not goster:
+        st.info("Bu filtreye uyan ref no yok. Filtreleri gevşet ya da yeni ref ata.")
+
+    # ── GÖRÜNÜM MODU ──
+    _tekil = _fmap.get(firma_f) if firma_f != "🌐 Tüm firmalar" else None
+    _modlar = ["🃏 Kartlar", "📊 Tablo"] + (["✏️ Düzenle"] if _tekil else [])
+    m1, m2 = st.columns([2.2, 2.8])
+    mod = m1.radio("Görünüm", _modlar, horizontal=True,
+                   key="rm_mod", label_visibility="collapsed")
+    if _tekil:
+        m2.caption(f"🏢 **{_tekil.get('firma_adi','')}** · sıradaki numara: "
+                   f"`{ref_uret(_tekil.get('firma_kodu',''), _yil(), _sonraki_sira(_tekil['id']))}`")
+    else:
+        m2.caption("💡 Düzenlemek, yeni ref atamak veya Excel yüklemek için "
+                   "soldan **bir firma seç**.")
+
+    # ── KARTLAR ──
+    if mod == "🃏 Kartlar" and goster:
+        _limit = 60
+        st.markdown("".join(_ref_kart_html(r, "" if _tekil else r.get("_firma", ""))
+                            for r in goster[:_limit]), unsafe_allow_html=True)
+        if len(goster) > _limit:
+            st.caption(f"İlk {_limit} kayıt gösteriliyor ({len(goster):,} sonuçtan). "
+                       "Daraltmak için filtre veya arama kullan.")
+        _d1, _d2 = st.columns([3, 1])
+        _sec = _d1.selectbox("Detay", goster[:_limit],
+                             format_func=lambda r: f"{r.get('ref_no','')} · "
+                                                   f"{(r.get('aciklama') or '')[:44]}",
+                             key="rm_detay_sec", label_visibility="collapsed")
+        if _d2.button("🔎 Detayı Aç", use_container_width=True, key="rm_detay_btn"):
+            _dlg_ref_detay_merkez(_sec)
+
+    # ── TABLO ──
+    elif mod == "📊 Tablo" and goster:
+        _tablo = st.dataframe(pd.DataFrame([{
+            "Ref No": r.get("ref_no", "") or "",
+            "Firma": (r.get("_firma", "") or "")[:24],
+            "Açıklama": r.get("aciklama", "") or "",
+            "Tutar": _f(r.get("tutar")),
+            "Döviz": (r.get("doviz", "") or "USD"),
+            "Kategori": (r.get("kategori") or "—"),
+            "Dönem": f"{_aylik_ozet(r)[0]} {_aylik_ozet(r)[1]}".strip(),
+            "Durum": DURUM_ETIKET.get(r.get("durum", ""), r.get("durum", "")),
+        } for r in goster]), hide_index=True, use_container_width=True, height=520,
+            on_select="rerun", selection_mode="single-row", key="rm_tablo",
+            column_config={
+                "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
+                "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
+            })
+        try:
+            _s = list(_tablo.selection.rows)
+        except Exception:
+            _s = []
+        if _s and _s[0] < len(goster):
+            _r = goster[_s[0]]
+            if st.button(f"🔎 {_r.get('ref_no','')} detayını aç", type="primary",
+                         use_container_width=True, key="rm_tablo_detay"):
+                _dlg_ref_detay_merkez(_r)
+
+    # ── DÜZENLE (mevcut, kanıtlanmış editör) ──
+    elif mod == "✏️ Düzenle" and _tekil:
+        st.markdown("---")
+        _render_refler(_tekil["id"], _tekil.get("firma_kodu", ""))
+
+
+@st.dialog("🔎 Ref No Detayı", width="large")
+def _dlg_ref_detay_merkez(kayit):
+    st.markdown(f"### {kayit.get('ref_no','')}")
+    _ref_detay_govde(kayit, kayit.get("_firma", ""))
 
 
 def _render_tumu(firmalar):
