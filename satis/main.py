@@ -1357,10 +1357,11 @@ def run():
                             if _rows:
                                 _tablo = [{
                                     _kol: r["_ad"], "Adet": r["Adet"],
-                                    "Ciro": _usd(r["Ciro"]),
-                                    "Kâr": _usd(r["Kâr"]) + (" 📥" if r["_destek"] > 0.005 else ""),
-                                    "Marj": (f"%{(r['Kâr'] / r['Ciro'] * 100):.1f}"
-                                             if r["Ciro"] > 0 else "—"),
+                                    "Ciro": r["Ciro"],
+                                    "Kâr": r["Kâr"],
+                                    "Destek": "📥" if r["_destek"] > 0.005 else "",
+                                    "Marj": ((r["Kâr"] / r["Ciro"] * 100)
+                                             if r["Ciro"] > 0 else None),
                                 } for r in _rows]
                                 # ── Σ ALT TOPLAM (yalnız yukarıdaki satırların toplamı;
                                 #    GENEL destek dahil DEĞİL — o kırılıma dağıtılmıyor) ──
@@ -1370,9 +1371,9 @@ def run():
                                 _t_kar_ort = max(_t_kar_ort, _t_kar)
                                 _tablo.append({
                                     _kol: "Σ TOPLAM", "Adet": _t_adet,
-                                    "Ciro": _usd(_t_ciro), "Kâr": _usd(_t_kar),
-                                    "Marj": (f"%{(_t_kar / _t_ciro * 100):.1f}"
-                                             if _t_ciro > 0 else "—"),
+                                    "Ciro": _t_ciro, "Kâr": _t_kar, "Destek": "",
+                                    "Marj": ((_t_kar / _t_ciro * 100)
+                                             if _t_ciro > 0 else None),
                                 })
                                 _bk.dataframe(pd.DataFrame(_tablo), hide_index=True,
                                               use_container_width=True)
@@ -1418,8 +1419,8 @@ def run():
                             # Marka/Kategori hücreleri DÜZENLENEBİLİR — yaz, kaydet, bitti.
                             _dg_df = pd.DataFrame([{
                                 "SKU": r["SKU"], "Ürün Adı": r["Ürün Adı"][:60],
-                                "Adet": r["_adet"], "Ciro": _usd(r["_ciro"]),
-                                "Kâr": _usd(r["_kar"]), "Marka": "", "Kategori": "",
+                                "Adet": r["_adet"], "Ciro": r["_ciro"],
+                                "Kâr": r["_kar"], "Marka": "", "Kategori": "",
                             } for r in _diger_skus])
                             _dg_ed = st.data_editor(
                                 _dg_df, hide_index=True, use_container_width=True,
@@ -1483,11 +1484,14 @@ def run():
                 _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
                 _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
                 return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
-            _kanal_evt = st.dataframe(_kar_df(pd.DataFrame([{
-                "Kanal": kn, "Adet": int(v["adet"]), "Ciro": _usd(v["ciro"]),
-                "Net Kâr": _usd(_kn_net(kn, v)[1]),
-                "Marj": f"%{_kn_net(kn, v)[2]:.1f}",
-            } for kn, v in _kr])), hide_index=True, use_container_width=True,
+            _kdf_kanal = _kar_df(pd.DataFrame([{
+                "Kanal": kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
+                "Net Kâr": _kn_net(kn, v)[1],
+                "Marj": _kn_net(kn, v)[2],
+            } for kn, v in _kr]))
+            _kanal_evt = st.dataframe(
+                _kdf_kanal, hide_index=True, use_container_width=True,
+                column_config=tablo_kolonlari(_kdf_kanal),
                 on_select="rerun", selection_mode="single-row", key="pnl_kanal_df")
 
             @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
@@ -1539,12 +1543,14 @@ def run():
                 _sdf = pd.DataFrame([{
                     "Tarih": g["tarih"], "Sipariş No": sno,
                     "SKU": _sku_ozet(g), "Kalem": g["kalem"],
-                    "Adet": g["adet"], "Ciro": _usd(g["ciro"]), "Net Kâr": _usd(g["kar"]),
-                    "Kârlılık": f"%{(g['kar'] / g['ciro'] * 100) if g['ciro'] else 0:.1f}",
+                    "Adet": g["adet"], "Ciro": g["ciro"], "Net Kâr": g["kar"],
+                    "Kârlılık": (g["kar"] / g["ciro"] * 100) if g["ciro"] else 0.0,
                 } for sno, g in sorted(_sipler.items(),
                                        key=lambda x: x[1]["tarih"], reverse=True)])
-                st.dataframe(_kar_df(_sdf), hide_index=True, use_container_width=True,
-                             height=min(320, 40 + 35 * len(_sdf)))
+                _sdf_g = _kar_df(_sdf)
+                st.dataframe(_sdf_g, hide_index=True, use_container_width=True,
+                             column_config=tablo_kolonlari(_sdf_g),
+                             height=tablo_h(len(_sdf_g)))
                 _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + list(_sdf["Sipariş No"]),
                                         key="pnl_firma_sip")
                 if _sec_sip != "(seç)":
@@ -1552,13 +1558,15 @@ def run():
                         "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
                         "Ürün": (s.get("urun_adi", "") or "")[:38],
                         "Adet": int(satir_kar(s)["adet"] or 0),
-                        "B.Satış": _usd(s.get("birim_satis")),
-                        "B.Maliyet": _usd(s.get("birim_maliyet")),
-                        "Ciro": _usd(satir_kar(s)["ciro"]),
-                        "Net Kâr": _usd(satir_kar(s)["net_kar"]),
-                        "Kârlılık": f"%{satir_kar(s)['marj']:.1f}",
+                        "B.Satış": float(s.get("birim_satis") or 0),
+                        "B.Maliyet": float(s.get("birim_maliyet") or 0),
+                        "Ciro": satir_kar(s)["ciro"],
+                        "Net Kâr": satir_kar(s)["net_kar"],
+                        "Kârlılık": satir_kar(s)["marj"],
                     } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip])
-                    st.dataframe(_kar_df(_kdf), hide_index=True, use_container_width=True,
+                    _kdf_g = _kar_df(_kdf)
+                    st.dataframe(_kdf_g, hide_index=True, use_container_width=True,
+                                 column_config=tablo_kolonlari(_kdf_g),
                                  height=min(300, 40 + 35 * len(_kdf)))
 
             _psel = list(_kanal_evt.selection.rows)
@@ -1593,7 +1601,9 @@ def run():
                             "Satış satırı": x["satir"], "Adet": int(x["adet"]),
                             "Yeni birim maliyet $": round(x["yeni_birim"], 2),
                         } for x in _mz])
-                        st.dataframe(_kar_df(_mdf), hide_index=True, use_container_width=True, height=300)
+                        _mdf_g = _kar_df(_mdf)
+                        st.dataframe(_mdf_g, hide_index=True, use_container_width=True,
+                                     column_config=tablo_kolonlari(_mdf_g), height=300)
                         _tsatir = sum(x["satir"] for x in _mz)
                         st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
                                    "(0 → paçal). Geri alınamaz.")
