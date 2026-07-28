@@ -1591,7 +1591,11 @@ def _render_refler(fid, fkod):
             "Sil?": st.column_config.CheckboxColumn("Sil?", width="small",
                                                     help="İşaretle → Kaydet'e basınca bu kayıt silinir"),
             "No": st.column_config.NumberColumn("No", disabled=True, width="small"),
-            "Ref No": st.column_config.TextColumn("Ref No", disabled=True),
+            "Ref No": st.column_config.TextColumn(
+                "Ref No",
+                help="Düzenlenebilir. Bozuk numaraları elle düzeltmek için kullan "
+                     "(örn. FZFZMNDRF2025001RF2026001 → FZMNDRF2026001). "
+                     "Aynı firmada iki kayıt aynı numarayı alamaz."),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
@@ -1611,6 +1615,10 @@ def _render_refler(fid, fkod):
     if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}"):
         orijinal = {r["id"]: r for r in goster}
         degisen = silinen = 0
+        _ref_hata = []
+        # Bu firmadaki TÜM ref no'lar (filtre dışındakiler dahil) — mükerrer kontrolü
+        _mevcut_refler = {str(r.get("ref_no") or "").strip().upper()
+                          for r in refler if str(r.get("ref_no") or "").strip()}
         for _, row in edited.iterrows():
             rid = row["id"]
             if bool(row.get("Sil?")):
@@ -1643,18 +1651,38 @@ def _render_refler(fid, fkod):
                 elif not n_ay and not n_yil:
                     aylik_yeni = ""  # ikisi de boşaltıldı → dönem temizle
 
+            # ── REF NO artık düzenlenebilir — ama önce doğrula ──
+            _o_ref = str(o.get("ref_no") or "").strip()
+            n_ref = str(row.get("Ref No", "") or "").strip()
+            if not n_ref:
+                _ref_hata.append(f"#{rid}: Ref no boş bırakılamaz — eski değer korundu.")
+                n_ref = _o_ref
+            elif n_ref != _o_ref and n_ref.upper() in _mevcut_refler - {_o_ref.upper()}:
+                _ref_hata.append(f"#{rid}: '{n_ref}' bu firmada zaten kullanılıyor — "
+                                 "eski değer korundu.")
+                n_ref = _o_ref
+
             _degisti = (n_ack != (o.get("aciklama", "") or "") or n_dur != (o.get("durum") or "") or
                         n_tutar != _f(o.get("tutar")) or n_doviz != (o.get("doviz") or "USD") or
-                        n_kat != _o_kat or aylik_yeni is not None)
+                        n_kat != _o_kat or aylik_yeni is not None or n_ref != _o_ref)
             if _degisti:
                 pay = n_tar if n_dur == "paylasildi" else o.get("paylasim_tarihi")
-                ref_guncelle(rid, str(row.get("Ref No", "")), n_ack, n_dur, n_tar, pay,
+                ref_guncelle(rid, n_ref, n_ack, n_dur, n_tar, pay,
                              tutar=n_tutar, doviz=n_doviz,
                              kategori=(n_kat if n_kat != _o_kat else None),
                              aylik=aylik_yeni)
+                if n_ref != _o_ref:
+                    _mevcut_refler.discard(_o_ref.upper())
+                    _mevcut_refler.add(n_ref.upper())
                 degisen += 1
-        st.success(f"✅ {degisen} güncellendi, {silinen} silindi." if (degisen or silinen) else "Değişiklik yok.")
         if degisen or silinen:
+            st.success(f"✅ {degisen} güncellendi, {silinen} silindi.")
+        elif not _ref_hata:
+            st.info("Değişiklik yok. (Hücreyi düzenleyip tekrar bu butona bas.)")
+        if _ref_hata:
+            st.error("⚠️ Bazı ref no değişiklikleri uygulanmadı:\n\n" + "\n\n".join(_ref_hata))
+        if degisen or silinen:
+            st.cache_data.clear()
             st.rerun()
 
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
