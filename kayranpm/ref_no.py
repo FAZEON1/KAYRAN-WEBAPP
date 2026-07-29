@@ -777,7 +777,7 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
 
 
 def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None,
-                 kategori=None, aylik=None):
+                 kategori=None, aylik=None, kategori_tutar=None):
     try:
         sb = get_client()
         _d = {
@@ -793,10 +793,12 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
             _d["kategori"] = _tr_upper(str(kategori).strip())
         if aylik is not None:
             _d["aylik"] = aylik  # "" = temizle, JSON string = dönem ata
+        if kategori_tutar is not None:
+            _d["kategori_tutar"] = kategori_tutar   # {} = temizle
         try:
             sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         except Exception:
-            for _opsiyonel in ("kategori", "aylik"):  # kolon yoksa onsuz dene
+            for _opsiyonel in ("kategori", "aylik", "kategori_tutar"):  # kolon yoksa onsuz dene
                 _d.pop(_opsiyonel, None)
             sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         _cache_temizle()
@@ -1229,6 +1231,65 @@ def render():
         _render_alinan_destekler()
 
 
+def kategori_dagit_dialog(r, firma_adi=""):
+    """Çok kategorili bir ref kaydının tutarını kategorilere böler.
+
+    Açıklamadan kategori ÖNERİSİ gösterir ama tutarı önermez — açıklamalarda
+    kalem bazlı tutar yok, uydurmak yanlış olur.
+    """
+    import json as _json
+    _kats = _kat_liste(r.get("kategori"))
+    _ham = _f(r.get("tutar"))
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    st.markdown(f"**{r.get('ref_no','—')}** · {firma_adi} · toplam **{_sm}{_ham:,.2f}**")
+
+    _oneri = ref_kategori_onerisi(r.get("aciklama"), _kats)
+    if _oneri:
+        st.caption("💡 Açıklamada geçen kategoriler: " + " · ".join(f"`{k}`" for k in _oneri))
+
+    _mevcut = r.get("kategori_tutar") or {}
+    if isinstance(_mevcut, str):
+        try:
+            _mevcut = _json.loads(_mevcut)
+        except Exception:
+            _mevcut = {}
+
+    _giris, _kol = {}, st.columns(min(3, max(1, len(_kats))))
+    for _i, _k in enumerate(_kats):
+        with _kol[_i % len(_kol)]:
+            _giris[_k] = st.number_input(
+                _k, min_value=0.0, step=100.0, format="%.2f",
+                value=float(_f(_mevcut.get(_k, 0))),
+                key=f"refkt_{r.get('id')}_{_k}")
+    _top = sum(_giris.values())
+    _kalan = _ham - _top
+    if abs(_kalan) < 0.005:
+        st.success(f"✓ Dağıtım tam: {_sm}{_top:,.2f}")
+    elif _top == 0:
+        st.info(f"Henüz dağıtılmadı — tamamı **GENEL**'de kalır ve kategori "
+                f"filtresine yansımaz.")
+    else:
+        st.warning(f"⚠️ Kalan: {_sm}{_kalan:,.2f} — toplam {_sm}{_ham:,.2f} olmalı.")
+
+    _c1, _c2 = st.columns(2)
+    if _c1.button("💾 Kaydet", type="primary", use_container_width=True,
+                  key=f"refkt_kaydet_{r.get('id')}",
+                  disabled=abs(_kalan) >= 0.005 and _top > 0):
+        ref_guncelle(r.get("id"), r.get("ref_no"), r.get("aciklama"), r.get("durum"),
+                     r.get("tarih"), r.get("paylasim_tarihi"),
+                     kategori_tutar={k: round(v, 2) for k, v in _giris.items() if v > 0})
+        _cache_temizle()
+        st.success("✅ Kategori dağılımı kaydedildi")
+        st.rerun()
+    if _c2.button("🧹 Dağılımı temizle", use_container_width=True,
+                  key=f"refkt_temizle_{r.get('id')}"):
+        ref_guncelle(r.get("id"), r.get("ref_no"), r.get("aciklama"), r.get("durum"),
+                     r.get("tarih"), r.get("paylasim_tarihi"), kategori_tutar={})
+        _cache_temizle()
+        st.rerun()
+
+
 def _ref_detay_govde(r, firma_adi=""):
     """Ref kaydının kırılımı — tutarlı tipografiyle."""
     from shared.ui import RENK
@@ -1249,6 +1310,30 @@ def _ref_detay_govde(r, firma_adi=""):
         ("Kalem", f"{len(_parcalar) or 1}", RENK["mor2"]),
         ("Dönem", (_ays if _ays != "—" else "—"), RENK["cyan"]),
     ]), unsafe_allow_html=True)
+
+    # Çok kategorili kayıtlarda tutar dağıtımı — kategori bazlı Kâr/P&L için şart
+    if len(_kats) > 1:
+        _kt = r.get("kategori_tutar") or {}
+        if isinstance(_kt, str):
+            try:
+                import json as _j
+                _kt = _j.loads(_kt)
+            except Exception:
+                _kt = {}
+        _dagitildi = sum(_f(v) for v in (_kt or {}).values()) > 0.005
+        if _dagitildi:
+            st.caption("🏷️ Kategori dağılımı: " + " · ".join(
+                f"**{k}** {_sm}{_f(v):,.0f}" for k, v in _kt.items() if _f(v) > 0))
+        else:
+            st.warning(f"🏷️ Bu kayıt **{len(_kats)} kategori** taşıyor ama tutar "
+                       f"dağıtılmamış — kategori bazlı Kâr/P&L'de **GENEL**'de kalıyor "
+                       f"ve filtreye yansımıyor.")
+        if st.button("🏷️ Kategori tutarını dağıt", key=f"refkt_ac_{r.get('id')}",
+                     use_container_width=True):
+            st.session_state[f"refkt_acik_{r.get('id')}"] = True
+        if st.session_state.get(f"refkt_acik_{r.get('id')}"):
+            with st.container(border=True):
+                kategori_dagit_dialog(r, firma_adi)
 
     c1, c2 = st.columns([1.25, 1])
     with c1:
@@ -2367,10 +2452,16 @@ def get_tum_ref_tutarlari(baslangic, bitis):
         sb = get_client()
         try:
             rows = _rows(sb.table("ref_kayitlari")
-                         .select("tutar,doviz,tarih,durum,yil,firma_id,aylik").execute())
-        except Exception:  # 'aylik' kolonu henüz yoksa
-            rows = _rows(sb.table("ref_kayitlari")
-                         .select("tutar,doviz,tarih,durum,yil,firma_id").execute())
+                         .select("tutar,doviz,tarih,durum,yil,firma_id,aylik,"
+                                 "kategori,kategori_tutar,ref_no").execute())
+        except Exception:
+            try:  # 'kategori_tutar' kolonu henüz yoksa
+                rows = _rows(sb.table("ref_kayitlari")
+                             .select("tutar,doviz,tarih,durum,yil,firma_id,aylik,"
+                                     "kategori,ref_no").execute())
+            except Exception:  # 'aylik' kolonu da yoksa
+                rows = _rows(sb.table("ref_kayitlari")
+                             .select("tutar,doviz,tarih,durum,yil,firma_id").execute())
     except Exception:
         return []
     _b, _e = str(baslangic)[:10], str(bitis)[:10]
@@ -2391,6 +2482,11 @@ def get_tum_ref_tutarlari(baslangic, bitis):
             continue
         _doviz = (r.get("doviz") or "USD")
         _fid = r.get("firma_id")
+        # Kategori bilgisi her çıktı satırına taşınır — kırılım bunun üzerine kurulur
+        _kbilgi = {"kategori": r.get("kategori") or "",
+                   "kategori_tutar": r.get("kategori_tutar") or {},
+                   "ham_tutar": _f(r.get("tutar")),
+                   "ref_no": r.get("ref_no") or ""}
         _aylik = r.get("aylik") or {}
         if isinstance(_aylik, str):
             try:
@@ -2407,7 +2503,7 @@ def get_tum_ref_tutarlari(baslangic, bitis):
                     _aylik_toplam += _tt
                     if _ay_kesisiyor(str(_ay)):
                         out.append({"tutar": _tt, "doviz": _doviz,
-                                    "tarih": f"{_ay}-01", "firma_id": _fid})
+                                    "tarih": f"{_ay}-01", "firma_id": _fid, **_kbilgi})
             # ── EKSİK BAKİYE TELAFİSİ ──
             # aylik JSONB'sinin toplamı ham 'tutar'dan azsa (ay/yıl bilgisi eksik
             # satırlar aylik'e yazılmamışsa), kayıp bakiye vardır. Bu artığı kaydın
@@ -2426,7 +2522,7 @@ def get_tum_ref_tutarlari(baslangic, bitis):
                 if _dahil:
                     out.append({"tutar": _artik, "doviz": _doviz,
                                 "tarih": (f"{_y}-01-01" if _y else (_tar or "")),
-                                "firma_id": _fid})
+                                "firma_id": _fid, **_kbilgi})
             continue
         t = _f(r.get("tutar"))
         if t <= 0:
@@ -2447,8 +2543,92 @@ def get_tum_ref_tutarlari(baslangic, bitis):
             continue
         out.append({"tutar": t, "doviz": _doviz,
                     "tarih": (f"{_y}-01-01" if _y else (r.get("tarih") or "")),
-                    "firma_id": _fid})
+                    "firma_id": _fid, **_kbilgi})
     return out
+
+
+def _kat_liste(metin):
+    """'MONİTÖR · KASA' → ['MONİTÖR','KASA'] (BÜYÜK, boşlar atılır)."""
+    return [_tr_upper(x.strip()) for x in str(metin or "").split("·") if x.strip()]
+
+
+def ref_destek_kirilim_usd(baslangic, bitis):
+    """Ref No desteklerinin KATEGORİ kırılımı (USD).
+
+    Döner: {"kategori": {KAT: usd}, "genel": usd, "toplam": usd,
+            "dagitilmayan": [{ref_no, kategoriler, usd}]}
+
+    Dağıtım kuralı:
+      • Kayıt TEK kategoriliyse → tutarın tamamı o kategoriye.
+      • kategori_tutar JSON'ı doluysa → o oranlara göre bölünür.
+      • Çok kategorili ama kategori_tutar boşsa → GENEL'e yazılır ve
+        'dagitilmayan' listesine düşer. Eşit bölme YAPILMAZ; uydurmak yerine
+        eksik olduğu açıkça raporlanır.
+    """
+    kat, genel, toplam = {}, 0.0, 0.0
+    dagitilmayan, gorulen = {}, set()
+    _kur_tl = None
+    for r in (get_tum_ref_tutarlari(baslangic, bitis) or []):
+        t = _f(r.get("tutar"))
+        if t <= 0:
+            continue
+        dv = str(r.get("doviz") or "USD").upper()
+        if dv in ("TL", "TRY", "₺", "TRL"):
+            if _kur_tl is None:
+                _kur_tl = _alinan_kur()
+            if not _kur_tl:
+                continue
+            t = t / _kur_tl
+        elif dv in ("EUR", "EURO", "€"):
+            t = t * _eur_usd_kur()
+        toplam += t
+
+        kats = _kat_liste(r.get("kategori"))
+        if len(kats) == 1:
+            kat[kats[0]] = kat.get(kats[0], 0.0) + t
+            continue
+        if len(kats) > 1:
+            kt = r.get("kategori_tutar") or {}
+            if isinstance(kt, str):
+                try:
+                    import json
+                    kt = json.loads(kt)
+                except Exception:
+                    kt = {}
+            paylar = {_tr_upper(k): _f(v) for k, v in (kt or {}).items() if _f(v) > 0}
+            _pt = sum(paylar.values())
+            if _pt > 0.005:
+                # Dönem tutarı, kayıttaki kategori oranlarına göre bölünür
+                for k, v in paylar.items():
+                    kat[k] = kat.get(k, 0.0) + t * (v / _pt)
+                continue
+            _rn = str(r.get("ref_no") or "").strip() or "—"
+            if _rn not in gorulen:
+                gorulen.add(_rn)
+                dagitilmayan[_rn] = {"ref_no": _rn, "kategoriler": kats, "usd": 0.0}
+            dagitilmayan[_rn]["usd"] += t
+        genel += t
+    return {"kategori": kat, "genel": genel, "toplam": toplam,
+            "dagitilmayan": sorted(dagitilmayan.values(), key=lambda x: -x["usd"])}
+
+
+def ref_kategori_onerisi(aciklama, kategoriler=None):
+    """Açıklama metnini tarayıp hangi kategorilerin geçtiğini önerir.
+
+    'Q425 FAZEON KASA SOĞUTUCU REBATE' → ['KASA','SOĞUTUCU'] gibi.
+    Tutar ÖNERMEZ — açıklamalarda kalem bazlı tutar yok. Yalnız hangi
+    kategorileri işaretlemen gerektiğini bulmanı kolaylaştırır.
+    """
+    metin = _tr_upper(str(aciklama or ""))
+    if not metin:
+        return []
+    havuz = kategoriler if kategoriler is not None else _urun_kategorileri()
+    bulunan = []
+    for k in havuz:
+        ku = _tr_upper(str(k or "").strip())
+        if len(ku) >= 3 and ku in metin and ku not in bulunan:
+            bulunan.append(ku)
+    return bulunan
 
 
 # ════════════════════════════════════════════════════════════════════
