@@ -933,112 +933,152 @@ def _gecmis_ithalatlar():
                 st.session_state[_govde_guard] = True
             # ── Masraf girişi CANLI (form DIŞI → yazdıkça sağdaki özet anında güncellenir) ──
             # ═══════════════════════════════════════════════════════════
-            # MALİYET Excel'inden masraf doldurma — MEVCUT dosyaya yazar.
-            # İthalat zaten sistemde (SKU/adet/FOB girili); eksik olan sadece
-            # masraf tarafı. Bu panel kalemlere, duruma, teslime, stoğa
-            # DOKUNMAZ — yalnız masraflar + grup atamasını yazar.
+            # İKİ AYRI YÜKLEME PENCERESİ
+            #   A) Normal ithalat  → yalnız genel masrafları doldurur
+            #   B) Çoklu grup      → grup-özel vergiler + atama + cbm
+            #                        SADECE kalemlerde 2+ ürün grubu varsa çıkar
+            # İkisi de kalemlere, duruma, teslime, stoğa DOKUNMAZ.
             # ═══════════════════════════════════════════════════════════
+            _gruplar_var = sorted({(k.get("urun_grubu", "") or "").strip()
+                                   for k in kal if (k.get("urun_grubu", "") or "").strip()})
+            _coklu = len(_gruplar_var) >= 2
+
+            def _mal_oku(_key):
+                """Excel seç + sayfa seç + ayrıştır. (parse, workbook) döner."""
+                _f = st.file_uploader("MALİYET Excel", type=["xlsx", "xls"], key=f"{_key}_up_{did}")
+                if _f is None:
+                    return None
+                import openpyxl as _oxl
+                _wb = _oxl.load_workbook(_f, data_only=True)
+                _sh = st.selectbox("Sayfa", _wb.sheetnames, key=f"{_key}_sh_{did}")
+                _pp = parse_maliyet_coklu_sayfa(_wb[_sh])
+                st.markdown(f"**Okunan:** `{_pp['tedarikci']}` · {_pp['tasima']} · "
+                            f"Mal Bedeli {_tam(_pp['mal_bedeli'])} · Kur {_pp['kur']:.4f}")
+                if _pp["masraflar_usd"]:
+                    _tablo(pd.DataFrame([{"Masraf": MASRAF_ETIKET.get(k, k), "Tutar": v}
+                                         for k, v in _pp["masraflar_usd"].items()]),
+                           para=["Tutar"], sol=["Masraf"])
+                for _u in _pp["uyari"]:
+                    st.warning("⚠️ " + _u)
+                return _pp
+
+            # ── A) NORMAL İTHALAT ──
             with st.expander("📥 MALİYET Excel'inden masrafları doldur", expanded=False):
-                st.caption("Bu ithalatın MALİYET sayfasını yükle. Genel masraflar, "
-                           "grup-özel vergiler (KBF/GV/ÖTV/TSE) ve atamalar otomatik yazılır. "
+                st.caption("Tek ürün gruplu ithalatlar için. Yalnız **genel masrafları** "
+                           "okur ve aşağıdaki kutulara yazar. "
                            "**Ürün kalemlerine ve teslim/stok bilgisine dokunulmaz.**")
-                _mu = st.file_uploader("MALİYET Excel", type=["xlsx", "xls"],
-                                       key=f"ith_mal_up_{did}")
-                if _mu is not None:
-                    try:
-                        import openpyxl as _oxl
-                        _wbm = _oxl.load_workbook(_mu, data_only=True)
-                        _shm = st.selectbox("Sayfa", _wbm.sheetnames,
-                                            key=f"ith_mal_sh_{did}")
-                        _pm = parse_maliyet_coklu_sayfa(_wbm[_shm])
-
-                        st.markdown(f"**Okunan:** `{_pm['tedarikci']}` · {_pm['tasima']} · "
-                                    f"Mal Bedeli {_tam(_pm['mal_bedeli'])} · Kur {_pm['kur']:.4f}")
-
-                        # Sistemdeki gruplar (kalemlerin urun_grubu alanından)
-                        _sis_gruplar = sorted({(k.get("urun_grubu", "") or "").strip()
-                                               for k in kal if (k.get("urun_grubu", "") or "").strip()})
-                        _excel_gruplar = _pm["gruplar"]
-
-                        if _pm["masraflar_usd"]:
-                            st.markdown("**Genel masraflar (USD):**")
-                            _tablo(pd.DataFrame([{"Masraf": MASRAF_ETIKET.get(k, k), "Tutar": v}
-                                                 for k, v in _pm["masraflar_usd"].items()]),
-                                   para=["Tutar"], sol=["Masraf"])
-
-                        if _pm["grup_masraflari"]:
-                            st.markdown("**Grup-özel vergiler:**")
-                            _tablo(pd.DataFrame([{"Grup": g["grup"], "Vergi": g["etiket"],
-                                                  "Tutar": g["usd"]} for g in _pm["grup_masraflari"]]),
-                                   para=["Tutar"], sol=["Grup", "Vergi"])
-                        else:
-                            st.caption("Bu sayfada grup-özel vergi yok — tüm masraflar ortak yazılacak.")
-
-                        for _uy in _pm["uyari"]:
-                            st.warning("⚠️ " + _uy)
-
-                        # ── Grup eşleştirme: Excel adı → sistemdeki grup ──
-                        _eslesme = {}
-                        if _excel_gruplar and _sis_gruplar:
-                            st.markdown("**Grup eşleştirme** — Excel'deki ad sistemdeki hangi gruba karşılık geliyor?")
-                            for _eg in _excel_gruplar:
-                                _vars = _eg if _eg in _sis_gruplar else "(atlanacak)"
-                                _sec_g = st.selectbox(
-                                    f"Excel: `{_eg}`", ["(atlanacak)"] + _sis_gruplar,
-                                    index=(["(atlanacak)"] + _sis_gruplar).index(_vars),
-                                    key=f"ith_mal_esl_{did}_{_eg}")
-                                if _sec_g != "(atlanacak)":
-                                    _eslesme[_eg] = _sec_g
-                        elif not _sis_gruplar:
-                            st.warning("⚠️ Bu dosyanın kalemlerinde **Ürün Grubu** tanımlı değil. "
-                                       "Önce kalem tablosundan her satıra ürün grubu yaz (örn. SSD / RAM), "
-                                       "kaydet, sonra buraya dön. Aksi halde grup-özel vergiler atanamaz.")
-
-                        # ── FOB doğrulaması (Excel'deki grup FOB'ları ile karşılaştır) ──
-                        if _pm["grup_fob"] and _eslesme:
-                            _sat_fob = {}
-                            for k in kal:
-                                _g = (k.get("urun_grubu", "") or "").strip()
-                                if _g:
-                                    _sat_fob[_g] = _sat_fob.get(_g, 0.0) + \
-                                        float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0)
-                            _fark = []
-                            for _eg, _sg in _eslesme.items():
-                                _ef = float(_pm["grup_fob"].get(_eg, 0) or 0)
-                                _sf = float(_sat_fob.get(_sg, 0) or 0)
-                                if _ef > 0 and abs(_ef - _sf) > max(1.0, _ef * 0.01):
-                                    _fark.append(f"{_sg}: sistem {_sf:,.2f} · Excel {_ef:,.2f}")
-                            if _fark:
-                                st.warning("⚠️ **FOB uyuşmuyor** — maliyet yüzdeleri Excel'den farklı çıkar:\n\n"
-                                           + "\n".join(f"- {x}" for x in _fark))
-
-                        st.markdown("---")
-                        _birlestir = st.checkbox("Mevcut masrafların üzerine ekle (kapalıysa hepsini bunlarla değiştirir)",
-                                                 value=True, key=f"ith_mal_bir_{did}")
-                        if st.button("💾 Masrafları bu dosyaya yaz", type="primary",
+                if _coklu:
+                    st.info("ℹ️ Bu ithalatta **{} ürün grubu** var. Grup-özel vergiler ve "
+                            "dağıtım için alttaki **🧩 Çoklu grup** penceresini kullan."
+                            .format(len(_gruplar_var)))
+                try:
+                    _p1 = _mal_oku("ith_mal")
+                    if _p1:
+                        _b1 = st.checkbox("Mevcut masrafların üzerine ekle", value=True,
+                                          key=f"ith_mal_bir_{did}")
+                        if st.button("💾 Genel masrafları yaz", type="primary",
                                      use_container_width=True, key=f"ith_mal_yaz_{did}",
-                                     disabled=not _pm["masraflar_usd"]):
-                            _mas = dict(_pm["masraflar_usd"])
-                            _atama = {sl: ORTAK_GRUP for sl in _mas}
-                            for _gm in _pm["grup_masraflari"]:
-                                _hedef = _eslesme.get(_gm["grup"])
-                                if not _hedef:
-                                    continue
-                                _mas[_gm["slug"]] = _mas.get(_gm["slug"], 0.0) + _gm["usd"]
-                                _atama[_gm["slug"]] = _hedef
-                            _okm, _msgm = masraf_ve_atama_yaz(did, _mas, _atama,
-                                                              birlestir=_birlestir)
-                            if _okm:
+                                     disabled=not _p1["masraflar_usd"]):
+                            _ok1, _m1 = masraf_ve_atama_yaz(
+                                did, dict(_p1["masraflar_usd"]),
+                                {sl: ORTAK_GRUP for sl in _p1["masraflar_usd"]},
+                                birlestir=_b1)
+                            if _ok1:
                                 for _kk in [k for k in list(st.session_state.keys())
                                             if k.startswith(f"ith_edit_mas_{did}_")]:
                                     st.session_state.pop(_kk, None)
                                 st.cache_data.clear()
-                                st.success("✅ " + _msgm)
+                                st.success("✅ " + _m1)
                                 st.rerun()
                             else:
-                                st.error(_msgm)
-                    except Exception as _em:
-                        st.error(f"Excel okunamadı: {_em}")
+                                st.error(_m1)
+                except Exception as _e1:
+                    st.error(f"Excel okunamadı: {_e1}")
+
+            # ── B) ÇOKLU GRUP — yalnız 2+ grup varsa ──
+            if _coklu:
+                with st.expander("🧩 Çoklu grup masraf atama — MALİYET Excel'i", expanded=False):
+                    st.caption("Grup-özel vergileri (**GV · İGV · ÖTV · KBF · Diğer**) okur, "
+                               "ilgili gruba atar, hacim (cbm) değerlerini kaydeder. "
+                               "Genel masraflar da yazılır. Ürün kalemlerine dokunulmaz.")
+                    st.markdown("**Bu dosyadaki gruplar:** " + " · ".join(f"`{g}`" for g in _gruplar_var))
+                    try:
+                        _p2 = _mal_oku("ith_cg")
+                        if _p2:
+                            if _p2["grup_masraflari"]:
+                                st.markdown("**Grup-özel vergiler:**")
+                                _tablo(pd.DataFrame([{"Grup": g["grup"], "Vergi": g["etiket"],
+                                                      "Tutar": g["usd"]} for g in _p2["grup_masraflari"]]),
+                                       para=["Tutar"], sol=["Grup", "Vergi"])
+                            else:
+                                st.caption("Bu sayfada grup-özel vergi yok — hepsi ortak yazılacak.")
+
+                            # Grup eşleştirme
+                            _esl = {}
+                            st.markdown("**Grup eşleştirme** — Excel'deki ad hangi gruba karşılık geliyor?")
+                            for _eg in _p2["gruplar"]:
+                                _v0 = _eg if _eg in _gruplar_var else "(atlanacak)"
+                                _sg = st.selectbox(f"Excel: `{_eg}`", ["(atlanacak)"] + _gruplar_var,
+                                                   index=(["(atlanacak)"] + _gruplar_var).index(_v0),
+                                                   key=f"ith_cg_esl_{did}_{_eg}")
+                                if _sg != "(atlanacak)":
+                                    _esl[_eg] = _sg
+
+                            # cbm önizleme
+                            _cbm_yeni = {_esl[g]: v for g, v in (_p2["grup_cbm"] or {}).items() if g in _esl}
+                            if _cbm_yeni:
+                                _tc = sum(_cbm_yeni.values())
+                                st.markdown("**Hacim (cbm/cfeet):** " + " · ".join(
+                                    f"`{g}` {v:g}" + (f" (%{v/_tc*100:.1f})" if _tc else "")
+                                    for g, v in _cbm_yeni.items()))
+                                st.caption("Kaydedilir. Navlunu hacme göre bölmek için "
+                                           "aşağıdaki **Masraf Atama** panelinden seç.")
+
+                            # FOB doğrulaması
+                            if _p2["grup_fob"] and _esl:
+                                _sf = {}
+                                for k in kal:
+                                    _g = (k.get("urun_grubu", "") or "").strip()
+                                    if _g:
+                                        _sf[_g] = _sf.get(_g, 0.0) + \
+                                            float(k.get("adet", 0) or 0) * float(k.get("birim_fob", 0) or 0)
+                                _fk = [f"{sg}: sistem {_sf.get(sg,0):,.2f} · Excel {_p2['grup_fob'].get(eg,0):,.2f}"
+                                       for eg, sg in _esl.items()
+                                       if float(_p2["grup_fob"].get(eg, 0) or 0) > 0
+                                       and abs(float(_p2["grup_fob"][eg]) - _sf.get(sg, 0))
+                                           > max(1.0, float(_p2["grup_fob"][eg]) * 0.01)]
+                                if _fk:
+                                    st.warning("⚠️ **FOB uyuşmuyor** — maliyet yüzdeleri farklı çıkar:\n\n"
+                                               + "\n".join(f"- {x}" for x in _fk))
+
+                            st.markdown("---")
+                            _b2 = st.checkbox("Mevcut masrafların üzerine ekle", value=True,
+                                              key=f"ith_cg_bir_{did}")
+                            if st.button("💾 Masrafları ve atamaları yaz", type="primary",
+                                         use_container_width=True, key=f"ith_cg_yaz_{did}",
+                                         disabled=not _p2["masraflar_usd"]):
+                                _mas2 = dict(_p2["masraflar_usd"])
+                                _at2 = {sl: ORTAK_GRUP for sl in _mas2}
+                                for _gm in _p2["grup_masraflari"]:
+                                    _hd = _esl.get(_gm["grup"])
+                                    if not _hd:
+                                        continue
+                                    _mas2[_gm["slug"]] = _mas2.get(_gm["slug"], 0.0) + _gm["usd"]
+                                    _at2[_gm["slug"]] = _hd
+                                _ok2, _m2 = masraf_ve_atama_yaz(did, _mas2, _at2,
+                                                                birlestir=_b2,
+                                                                grup_cbm=_cbm_yeni or None)
+                                if _ok2:
+                                    for _kk in [k for k in list(st.session_state.keys())
+                                                if k.startswith(f"ith_edit_mas_{did}_")]:
+                                        st.session_state.pop(_kk, None)
+                                    st.cache_data.clear()
+                                    st.success("✅ " + _m2)
+                                    st.rerun()
+                                else:
+                                    st.error(_m2)
+                    except Exception as _e2:
+                        st.error(f"Excel okunamadı: {_e2}")
 
             _alt_baslik("💸 Masraf Kalemleri · dosya para biriminde (canlı)")
             _md = _masraf_dict(d)
