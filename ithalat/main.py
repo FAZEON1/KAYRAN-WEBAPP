@@ -1548,95 +1548,22 @@ def _yeni_ithalat():
     # ── Excel ──
     with sekme2:
         # ═══════════════════════════════════════════════════════════════
-        # AYRI PENCERE: Çoklu Ürün Grubu — MALİYET formatı (istisna dosyalar)
-        # 2025-14 / 2026-12 gibi çok-gruplu sayfaları okur. Ortak masraf
-        # FOB payına göre dağıtılır (grup atamasını sonra Düzenle'den yaparsın).
+        # Çoklu-grup MALİYET yükleyicisi buradan KALDIRILDI.
+        # Sebep: yeni bir ithalat dosyası oluşturuyordu. Oysa ithalat zaten
+        # sisteme girilmiş oluyor ve yalnız masraf tarafı eksik kalıyor —
+        # bu da mükerrer kayıt üretiyordu (bkz. silinen id=573).
+        # Doğru yer: Geçmiş İthalatlar → dosyayı aç → Düzenle →
+        #            "📥 MALİYET Excel'inden masrafları doldur"
         # ═══════════════════════════════════════════════════════════════
-        with st.expander("🧩 Çoklu Ürün Grubu Yükle — MALİYET formatı (istisna dosyalar)", expanded=False):
-            st.caption("Bu pencere **yalnızca çoklu ürün gruplu** MALİYET dosyaların içindir "
-                       "(2025-14 MITAC, 2026-12 AGI gibi). Normal tek-grup dosyaları **alttaki** "
-                       "standart yükleyiciden gir. Bu pencere dosyanın masraflarını ve grup adlarını "
-                       "okur; **SKU/adet/FOB kalemlerini ve masraf atamalarını (ortak/özel) sonra "
-                       "Düzenle'den** eklersin. Ortak masraflar **FOB payına göre** dağıtılır.")
-            _cg_up = st.file_uploader("MALİYET Excel'ini seç (çoklu-grup sayfası)",
-                                      type=["xlsx", "xls"], key="ith_coklu_up")
-            if _cg_up is not None:
-                try:
-                    import openpyxl as _oxl
-                    _wb = _oxl.load_workbook(_cg_up, data_only=True)
-                    _sayfalar = _wb.sheetnames
-                    _sec_sayfa = st.selectbox("Hangi sayfa? (çoklu-grup olan)", _sayfalar,
-                                              key="ith_coklu_sayfa")
-                    _p = parse_maliyet_coklu_sayfa(_wb[_sec_sayfa])
+        st.info(
+            "🧩 **Çoklu ürün gruplu MALİYET dosyası mı yükleyeceksin?**\n\n"
+            "Bu bölümden değil — burası **yeni** ithalat açar ve mükerrer kayıt oluşur. "
+            "İthalat zaten sistemdeyse: **Geçmiş İthalatlar** → dosyayı aç → **Düzenle** → "
+            "**📥 MALİYET Excel'inden masrafları doldur** panelinden yükle. "
+            "Genel masraflar, grup-özel vergiler (KBF/GV/ÖTV/TSE) ve atamalar otomatik yazılır; "
+            "ürün kalemlerine ve stoğa dokunulmaz."
+        )
 
-                    st.markdown(f"**Okunan:** `{_p['tedarikci']}` · {_p['tasima']} · "
-                                f"Mal Bedeli: {_tam(_p['mal_bedeli'])} · Kur: {_p['kur']:.4f}")
-                    if _p["gruplar"]:
-                        st.markdown("**Bulunan ürün grupları:** " +
-                                    " · ".join(f"`{g}`" for g in _p["gruplar"]))
-                    else:
-                        st.warning("⚠️ Bu sayfada ürün grubu bulunamadı. Doğru sayfayı seçtiğinden emin ol.")
-                    if _p["masraflar_usd"]:
-                        st.markdown("**Okunan masraflar (USD'ye çevrildi):**")
-                        _mdf = pd.DataFrame([{"Masraf": MASRAF_ETIKET.get(s, s),
-                                              "Tutar (USD)": v}
-                                             for s, v in _p["masraflar_usd"].items()])
-                        _tablo(_mdf, para=["Tutar (USD)"], sol=["Masraf"])
-                    if _p["uyari"]:
-                        for _u in _p["uyari"]:
-                            st.caption("⚠️ " + _u)
-
-                    st.markdown("---")
-                    _cg_dno = st.text_input("Dosya/Belge No *", key="ith_coklu_dno",
-                                            placeholder="örn. 2026-12")
-                    _cg_takip = st.text_input("İthalat Takip No", key="ith_coklu_takip",
-                                              placeholder="opsiyonel")
-                    _cg_doviz = st.selectbox("Döviz", ["USD", "EUR", "TL"], key="ith_coklu_doviz")
-
-                    st.caption("💡 Kaydedince dosya **çoklu-grup** olarak oluşur (grup adları kalem "
-                               "olarak eklenir; sonra Düzenle'den her gruba SKU/adet/FOB girip "
-                               "masrafları ortak/özel atarsın).")
-                    if st.button("💾 Çoklu-Grup Dosyası Oluştur", type="primary",
-                                 use_container_width=True, key="ith_coklu_kaydet",
-                                 disabled=not (_cg_dno.strip() and _p["gruplar"])):
-                        # Her grup için 1 placeholder kalem (SKU sonradan düzenlenir).
-                        # birim_fob = mal_bedeli / grup_sayisi geçici; kullanıcı Düzenle'de düzeltir.
-                        _gsay = max(len(_p["gruplar"]), 1)
-                        _kalemler = [{"sku": f"GRUP-{g}", "urun_adi": f"[{g}] — SKU'ları düzenle'den gir",
-                                      "urun_grubu": g, "adet": 1,
-                                      "birim_fob": round(_p["mal_bedeli"] / _gsay, 2)}
-                                     for g in _p["gruplar"]]
-                        # Tüm masraflar başta ORTAK; özel atamayı kullanıcı Düzenle'den yapar
-                        _atama = {s: ORTAK_GRUP for s in _p["masraflar_usd"].keys()}
-                        _okc, _msgc = ekle_dosya(
-                            _cg_dno.strip(), None, _p["tedarikci"], "",
-                            _cg_doviz, _p["kur"], _p["masraflar_usd"], "",
-                            _kalemler, pi_no="", ithalat_takip_no=_cg_takip.strip())
-                        if _okc:
-                            # grup atamasını da yaz (hepsi ortak başlangıç)
-                            try:
-                                _yeni = get_dosyalar()
-                                _bul = [d for d in _yeni if str(d.get("dosya_no","")) == _cg_dno.strip()]
-                                if _bul:
-                                    guncelle_dosya(
-                                        _bul[0]["id"], _cg_dno.strip(), "", None,
-                                        _p["tedarikci"], "", _cg_doviz, _p["kur"],
-                                        _p["masraflar_usd"], "", _kalemler,
-                                        ithalat_takip_no=_cg_takip.strip(),
-                                        grup_masraf_atama=_atama)
-                            except Exception:
-                                pass
-                            st.cache_data.clear()
-                            st.success(f"✅ Çoklu-grup dosyası oluşturuldu: {_cg_dno.strip()} "
-                                       f"({len(_p['gruplar'])} grup). Şimdi **Geçmiş İthalatlar**'dan "
-                                       f"aç → Düzenle → her gruba SKU/adet/FOB gir, masrafları ortak/özel ata.")
-                            st.rerun()
-                        else:
-                            st.error(_msgc)
-                except Exception as _cge:
-                    import traceback
-                    st.error(f"❌ Dosya okunamadı: {type(_cge).__name__}: {str(_cge)[:200]}")
-                    st.code(traceback.format_exc()[-1200:])
         st.markdown("---")
         st.markdown("**📄 Standart Satın Alım Raporu (tek grup — normal akış)**")
         st.download_button(
