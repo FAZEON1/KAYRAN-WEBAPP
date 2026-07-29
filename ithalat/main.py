@@ -1168,26 +1168,30 @@ def _gecmis_ithalatlar():
                                           for k in kal if (k.get("urun_grubu", "") or "").strip()})
                 e_grup_atama = None
                 e_grup_cbm = None
-                if len(_mevcut_gruplar) >= 2:
-                    _alt_baslik("🧩 Çoklu Grup — Masraf Atama (ortak / gruba özel)")
-                    st.caption("Her masraf **ortak** (gruplara FOB payına göre bölünür) ya da **belirli bir gruba özel** "
-                               "(vergi/TSE gibi) olabilir. Ürün grubu kalem tablosundan gelir.")
+                _md_on = _masraf_dict(d)
+                _ATANABILIR_ON = ("navlun", "gv", "igv", "otv", "kbf", "diger")
+                _atanabilir_dolu = [sl for sl in _ATANABILIR_ON if float(_md_on.get(sl, 0) or 0) > 0]
+                if len(_mevcut_gruplar) >= 2 and _atanabilir_dolu:
+                    _alt_baslik("🧩 Çoklu Grup — Masraf Atama (ortak / hacim / gruba özel)")
+                    st.caption("Navlun · GV · İGV · ÖTV · KBF · Diğer kalemleri gruba özel ya da hacme göre "
+                               "bölünebilir. **Diğer tüm masraflar her zaman ortaktır** "
+                               "(gruplara FOB payına göre bölünür) ve burada listelenmez.")
                     _atama_mevcut = d.get("grup_masraf_atama") if isinstance(d.get("grup_masraf_atama"), dict) else {}
                     _secenekler = [ORTAK_GRUP] + _mevcut_gruplar
-                    # Hacim (cbm/cfeet) seçeneğinin sunulduğu kalemler.
-                    # Navlun ağırlık/hacim üzerinden faturalanır; vergiler de
-                    # bazı sevkiyatlarda hacimle ilişkilendirilebiliyor.
-                    # Diğer kalemlerde yalnız ortak / gruba-özel vardır.
-                    _HACIMLI = {"navlun", "gv", "igv", "otv", "kbf", "diger"}
+                    # ATAMA MENÜSÜ ÇIKAN KALEMLER — yalnız bunlar.
+                    # Sigorta, damga, ardiye, müşavirlik vb. her zaman ortaktır;
+                    # onlara menü koymak gereksiz gürültü. Düz kutu olarak kalırlar.
+                    _ATANABILIR = ("navlun", "gv", "igv", "otv", "kbf", "diger")
                     _sec_hacim = [ORTAK_GRUP, HACIM_GRUP] + _mevcut_gruplar
                     _md_var = _masraf_dict(d)
                     e_grup_atama = {}
                     _ga_cols = st.columns(2)
-                    _dolu_masraflar = [(s, l) for s, l in MASRAF_TANIM if float(_md_var.get(s, 0) or 0) > 0]
+                    _dolu_masraflar = [(sl, lb) for sl, lb in MASRAF_TANIM
+                                       if sl in _ATANABILIR and float(_md_var.get(sl, 0) or 0) > 0]
                     for _gi, (_slug, _label) in enumerate(_dolu_masraflar):
                         with _ga_cols[_gi % 2]:
                             _vars_secim = _atama_mevcut.get(_slug, ORTAK_GRUP)
-                            _liste = _sec_hacim if _slug in _HACIMLI else _secenekler
+                            _liste = _sec_hacim
                             if _vars_secim not in _liste:
                                 _vars_secim = ORTAK_GRUP
                             _sec = st.selectbox(
