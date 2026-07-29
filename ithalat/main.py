@@ -990,7 +990,7 @@ def _gecmis_ithalatlar():
                         st.markdown(
                             f'<div style="font-size:13px;color:#7DD3FC;font-weight:600;'
                             f'margin:10px 0 2px">{_label}</div>', unsafe_allow_html=True)
-                        _kolonlar = st.columns(len(_kats) + 1)
+                        _kolonlar = st.columns(len(_kats))
                         _satir = {}
                         for _ki, _kt in enumerate(_kats):
                             _v0 = float(_onceki.get(_kt, 0) or 0)
@@ -998,27 +998,21 @@ def _gecmis_ithalatlar():
                                 _kt, min_value=0.0, value=(_v0 if _v0 > 0 else None),
                                 step=1.0, format="%.2f", placeholder="0,00",
                                 key=f"ith_dag_{did}_{_slug}_{_kt}")
-                        _ort0 = float(_md.get(_slug, 0) or 0) - sum(
-                            float(_onceki.get(_k2, 0) or 0) for _k2 in _kats)
-                        _ortak_v = _kolonlar[-1].number_input(
-                            "🌐 Ortak", min_value=0.0,
-                            value=(_ort0 if _ort0 > 0.005 else None),
-                            step=1.0, format="%.2f", placeholder="0,00",
-                            key=f"ith_dag_{did}_{_slug}__ortak__",
-                            help="FOB payına göre tüm kategorilere bölünür")
                         _kat_top = sum(float(_v or 0) for _v in _satir.values())
-                        _top = _kat_top + float(_ortak_v or 0)
-                        e_masraf[_slug] = _top
+                        e_masraf[_slug] = _kat_top
                         if _kat_top > 0:
                             e_dagilim[_slug] = {_k3: float(_v3 or 0)
                                                 for _k3, _v3 in _satir.items() if float(_v3 or 0) > 0}
-                        if _top > 0:
-                            st.caption(f"Toplam **{_tam(_top)}**" + (
-                                f" · kategorilere yazılan {_tam(_kat_top)}" if _kat_top > 0 else ""))
+                            # Binlik ayraçlı okunur özet — Streamlit'in sayı kutusu
+                            # ayraç gösteremiyor ("çıktı tamamen sayısal olmalı").
+                            st.caption(" · ".join(
+                                f"{_k4} **{_tam(_v4)}**" for _k4, _v4 in _satir.items()
+                                if float(_v4 or 0) > 0)
+                                + f"  →  Toplam **{_tam(_kat_top)}**")
                         continue
 
                     # ── Tek tutar (klasik) ──
-                    _lc, _ic = st.columns([1, 1.4])
+                    _lc, _ic, _ec = st.columns([1, 1.15, 0.75])
                     _lc.markdown(
                         f'<div style="padding-top:8px;font-size:13px;color:#7DD3FC;font-weight:600;'
                         f'text-align:right;padding-right:8px">{_label}</div>', unsafe_allow_html=True)
@@ -1033,6 +1027,14 @@ def _gecmis_ithalatlar():
                         value=(_mv if _mv > 0 else None),
                         step=1.0, format="%.2f", placeholder="0,00",
                         label_visibility="collapsed", key=_mk)
+                    # Girilen tutarın binlik ayraçlı hali — kutunun kendisi
+                    # ayraç gösteremediği için okunurluk buradan sağlanıyor.
+                    _ev = float(e_masraf[_slug] or 0)
+                    _ec.markdown(
+                        f'<div style="padding-top:8px;font-size:13px;font-family:monospace;'
+                        f'font-variant-numeric:tabular-nums;color:'
+                        f'{"#E2E8F0" if _ev > 0 else "#475569"}">{_tam(_ev) if _ev > 0 else "—"}</div>',
+                        unsafe_allow_html=True)
             with _cr:
                 e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
                                         value=float(d.get("kur", 1) or 1), step=0.00001, format="%.5f",
