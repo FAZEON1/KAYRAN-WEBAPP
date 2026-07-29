@@ -14,7 +14,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, HACIM_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, HACIM_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, get_kategoriler, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
@@ -1235,8 +1235,12 @@ def _gecmis_ithalatlar():
                            "Boş bırakılan satırlar yok sayılır.")
                 _manuel_yeni = []
                 _mver = st.session_state.setdefault(f"ith_edit_mver_{did}", 0)
+                _kat_havuz = get_kategoriler()
+                _YENI_KAT = "➕ Yeni kategori…"
+                if _kat_havuz:
+                    st.caption("Mevcut kategoriler: " + " · ".join(f"`{_k}`" for _k in _kat_havuz))
                 for _mi in range(2):
-                    _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([1.2, 2, 1.2, 0.8, 1])
+                    _mc1, _mc2, _mc3, _mc6, _mc4, _mc5 = st.columns([1.1, 1.7, 1, 1.3, 0.7, 0.9])
                     _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}_{_mver}",
                                             placeholder="örn. RMA-CE01", label_visibility=("visible" if _mi == 0 else "collapsed"))
                     _mad = _mc2.text_input("Ürün Adı", key=f"ith_edit_mad_{did}_{_mi}_{_mver}",
@@ -1247,10 +1251,22 @@ def _gecmis_ithalatlar():
                                                key=f"ith_edit_madet_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
                     _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
                                               key=f"ith_edit_mfob_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
+                    # Kategori: mevcutlardan seç ya da yenisini yarat
+                    _mkat_sec = _mc6.selectbox(
+                        "Kategori", ["(yok)"] + _kat_havuz + [_YENI_KAT],
+                        key=f"ith_edit_mkat_{did}_{_mi}_{_mver}",
+                        label_visibility=("visible" if _mi == 0 else "collapsed"),
+                        help="Maliyet dağıtımı bu kategoriye göre yapılır. "
+                             "Listede yoksa '➕ Yeni kategori…' seç ve adını yaz.")
+                    _mkat = "" if _mkat_sec == "(yok)" else _mkat_sec
+                    if _mkat_sec == _YENI_KAT:
+                        _mkat = _mc6.text_input(
+                            "Yeni kategori adı", key=f"ith_edit_mkatyeni_{did}_{_mi}_{_mver}",
+                            placeholder="örn. SOĞUTUCU", label_visibility="collapsed").strip().upper()
                     if _msku.strip() and _madet > 0:
                         _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
                                              "barkod": _mbk.strip(), "adet": float(_madet),
-                                             "birim_fob": float(_mfob)})
+                                             "birim_fob": float(_mfob), "urun_grubu": _mkat})
 
                 st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
@@ -1408,11 +1424,12 @@ def _yeni_ithalat():
                                     key=f"m_manuel_mod_{_fv}",
                                     help="Kapalıyken sade görünüm: ürünü katalogdan seç, ad/barkod otomatik gelir.")
             if _manuel_mod:
-                _oran = [1.8, 1.15, 1.6, 1.25, 0.75, 0.95, 0.5]
-                _basliklar = ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod", "Adet", "Birim FOB", "🗑"]
+                _oran = [1.6, 1.0, 1.4, 1.0, 1.25, 0.7, 0.9, 0.45]
+                _basliklar = ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod",
+                              "Kategori", "Adet", "Birim FOB", "🗑"]
             else:
-                _oran = [3.2, 0.8, 1.0, 0.5]
-                _basliklar = ["Ürün (katalogdan — yazarak ara)", "Adet", "Birim FOB", "🗑"]
+                _oran = [2.6, 1.25, 0.75, 0.95, 0.45]
+                _basliklar = ["Ürün (katalogdan)", "Kategori", "Adet", "Birim FOB", "🗑"]
             hcols = st.columns(_oran)
             for hc, ht in zip(hcols, _basliklar):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
@@ -1422,6 +1439,10 @@ def _yeni_ithalat():
                 if _sv and _sv != BOS:
                     st.session_state[f"m_uad_{i}_{_fv}"] = katalog.get(_sv, "")
                     st.session_state[f"m_bk_{i}_{_fv}"] = _barkod_map.get(_sv, "")
+
+            _kat_havuz = get_kategoriler()
+            _YENI_KAT = "➕ Yeni…"
+            _kat_secenek = ["(yok)"] + _kat_havuz + [_YENI_KAT]
 
             _kalemler = []
             for i in range(n_satir):
@@ -1438,27 +1459,36 @@ def _yeni_ithalat():
                                             placeholder=(katalog.get(_sku, "") or "ürün adı")).strip()
                     _bk = rc[3].text_input("bk", key=f"m_bk_{i}_{_fv}", label_visibility="collapsed",
                                            placeholder=(_barkod_map.get(_sku, "") or "barkod")).strip()
-                    _c_adet, _c_fob, _c_sil = rc[4], rc[5], rc[6]
+                    _c_kat, _c_adet, _c_fob, _c_sil = rc[4], rc[5], rc[6], rc[7]
                 else:
                     # Sade mod: önceki oturumda manuel yazılmış değer varsa korunur (kaybolmaz)
                     _msku = str(st.session_state.get(f"m_msku_{i}_{_fv}", "") or "").strip()
                     _sku = _msku if _msku else (secenek_map[_sel] if (_sel and _sel != BOS) else "")
                     _uad = str(st.session_state.get(f"m_uad_{i}_{_fv}", "") or "").strip()
                     _bk = str(st.session_state.get(f"m_bk_{i}_{_fv}", "") or "").strip()
-                    _c_adet, _c_fob, _c_sil = rc[1], rc[2], rc[3]
+                    _c_kat, _c_adet, _c_fob, _c_sil = rc[1], rc[2], rc[3], rc[4]
+                _katsec = _c_kat.selectbox("kat", _kat_secenek, key=f"m_kat_{i}_{_fv}",
+                                           label_visibility="collapsed")
+                _kat = "" if _katsec == "(yok)" else _katsec
+                if _katsec == _YENI_KAT:
+                    _kat = _c_kat.text_input("katyeni", key=f"m_katyeni_{i}_{_fv}",
+                                             label_visibility="collapsed",
+                                             placeholder="yeni kategori").strip().upper()
                 _adet = _c_adet.number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
                                              min_value=0, step=1, value=0)
                 _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
                                            min_value=0.0, step=0.01, value=0.0, format="%.2f")
                 if _c_sil.button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
                     for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
-                                f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}"):
+                                f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}",
+                                f"m_kat_{i}_{_fv}", f"m_katyeni_{i}_{_fv}"):
                         st.session_state.pop(_rk, None)
                     st.rerun()
                 if _sku:
                     _kalemler.append({"sku": _sku,
                                       "urun_adi": (_uad or katalog.get(_sku, "")),
                                       "barkod": (_bk or _barkod_map.get(_sku, "")),
+                                      "urun_grubu": _kat,
                                       "adet": _adet, "birim_fob": _fob})
 
             ec1, _ec2 = st.columns([1.6, 5])

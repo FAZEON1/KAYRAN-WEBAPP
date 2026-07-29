@@ -457,6 +457,24 @@ def get_urun_katalog():
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_kategoriler():
+    """Sistemde kullanılan ürün kategorileri (ithalat_kalemleri.urun_grubu).
+
+    Yeni ithalatta katalog dışı ürün eklerken listeden seçilir; böylece aynı
+    kategori farklı yazımlarla ("SSD" / "ssd" / "S.S.D") çoğalmaz — maliyet
+    dağıtımı kategori adının birebir eşleşmesine dayandığı için bu önemli.
+    """
+    try:
+        sb = _get_client()
+        rows = _rows(sb.table("ithalat_kalemleri").select("urun_grubu").execute())
+        return sorted({(r.get("urun_grubu") or "").strip()
+                       for r in rows if (r.get("urun_grubu") or "").strip()},
+                      key=lambda x: x.upper())
+    except Exception:
+        return []
+
+
 # ── İthalat dosyaları / kalemleri ──
 @st.cache_data(ttl=60, show_spinner=False)
 def get_dosyalar():
