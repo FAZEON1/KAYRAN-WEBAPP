@@ -1051,6 +1051,7 @@ def run():
             _p_katlar = sorted({(_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip()
                                 for s in satislar} - {""})
             _p_kat_f = _pf2.selectbox("🏷️ Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
+            _kat_destek_f = 0.0
             _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
             if _p_kanal_f != "Tümü":
                 satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
@@ -1089,11 +1090,11 @@ def run():
                     try:
                         from kayranpm.ref_no import alinan_destek_kirilim_usd
                         _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
+                        # ARTIK top["net_kar"]'a gizlice eklenmiyor. Eskiden öyleydi ve
+                        # destek "Brüt Kâr"ın içinde kaybolduğu için merdivenin
+                        # aritmetiği tutmuyordu (Net Ciro − COGS ≠ Brüt Kâr).
+                        # Şimdi kendi satırı olarak merdivene giriyor.
                         _kat_destek_f = float(_adk_f.get(_p_kat_f.strip().upper(), 0.0))
-                        if _kat_destek_f > 0.005:
-                            top = dict(top)
-                            top["net_kar"] = top["net_kar"] + _kat_destek_f
-                            st.caption(f"📥 Bu kategorinin alınan desteği kâra dahil: {_usd(_kat_destek_f)}")
                     except Exception:
                         pass
             # Net (iade sonrası) ciro/kâr/marj — marj = kâr / (ciro − destek − iade)
@@ -1146,7 +1147,7 @@ def run():
 
             _hav_g = 0.0   # HAVUZ KALDIRILDI (27.07.2026) — kâra girmez
             _ref_g = _ref_usd if (_ref_usd > 0.005 and not _p_filtreli) else 0.0
-            _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd
+            _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd + _kat_destek_f
             _nihai_marj = (_nihai / _net_satis * 100) if _net_satis > 0 else 0.0
             _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
             _nr = "#34D399" if _nihai > 0 else "#F87171"
@@ -1201,6 +1202,12 @@ def run():
                 _adim += _mrd("Ref No desteği (dönem)", "− " + _usd(_ref_g), "−", "eksi")
             if _alinan_usd > 0.005:
                 _adim += _mrd("Alınan destek (gelir)", "+ " + _usd(_alinan_usd), "+", "arti")
+            if _kat_destek_f > 0.005:
+                _adim += _mrd(f"Alınan destek — {_p_kat_f}", "+ " + _usd(_kat_destek_f), "+", "arti")
+            if _p_filtreli and _ref_usd > 0.005:
+                # Sessizce yok saymak yerine neden hariç olduğunu söyle
+                _adim += _mrd("Ref No desteği (firma geneli — filtreye bölünemez)",
+                              "hariç " + _usd(_ref_usd), "•", "eksi")
             _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
 
             st.markdown(
