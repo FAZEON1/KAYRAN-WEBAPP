@@ -959,16 +959,27 @@ def _gecmis_ithalatlar():
                 _KAT_BAZLI = ("navlun", "gv", "igv", "otv", "kbf", "diger")
                 _dag_kayitli = d.get("masraf_grup_dagilim") if isinstance(
                     d.get("masraf_grup_dagilim"), dict) else {}
-                e_coklu = False
-                if len(_kats) >= 2:
-                    e_coklu = st.checkbox(
-                        "🧩 Çoklu ürün grubu — Navlun · GV · İGV · ÖTV · KBF · Diğer "
-                        "kalemlerini **kategori başına** gir",
-                        value=bool(_dag_kayitli), key=f"ith_coklu_{did}",
-                        help="Kapalıyken tek tutar girilir ve gruplara FOB payına göre bölünür.")
-                    if e_coklu:
-                        st.caption("Kategoriler: " + " · ".join(f"`{_k}`" for _k in _kats)
-                                   + " — boş bıraktığın tutar **ortak** sayılır ve FOB payına bölünür.")
+                # Anahtar HER dosyada görünür. Kategori yoksa gizlemek yerine
+                # ne yapılması gerektiğini söyler — gizlendiğinde kullanıcı
+                # seçeneğin varlığını hiç fark etmiyordu.
+                _coklu_secim = st.checkbox(
+                    "🧩 Çoklu ürün grubu — Navlun · GV · İGV · ÖTV · KBF · Diğer "
+                    "kalemlerini **kategori başına** gir",
+                    value=bool(_dag_kayitli), key=f"ith_coklu_{did}",
+                    help="Kapalı = normal ithalat: tek tutar girilir, kategorilere "
+                         "FOB payına göre bölünür.")
+                e_coklu = bool(_coklu_secim) and len(_kats) >= 2
+                if _coklu_secim and len(_kats) < 2:
+                    st.warning(
+                        "⚠️ **Kategori başına giriş için en az 2 kategori gerekiyor.** "
+                        "Aşağıdaki **📦 Ürün Kalemleri** tablosunda her satırın "
+                        "**Ürün Grubu** kolonunu doldur (örn. `SSD`, `RAM`), **Kaydet**'e bas, "
+                        "sonra bu anahtarı tekrar aç."
+                        + (f"\n\nŞu an tanımlı tek kategori: `{_kats[0]}`" if len(_kats) == 1
+                           else "\n\nŞu an hiçbir kalemde kategori yazmıyor."))
+                elif e_coklu:
+                    st.caption("Kategoriler: " + " · ".join(f"`{_k}`" for _k in _kats)
+                               + " — boş bıraktığın tutar **ortak** sayılır ve FOB payına bölünür.")
 
                 e_masraf = {}
                 e_dagilim = {}

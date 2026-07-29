@@ -494,10 +494,70 @@ def get_dosyalar():
 
 
 @st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
+def get_sku_kategori_map():
+    """{normalize_sku: kategori} — urunler tablosundan.
+
+    Kategori tek kaynakta (ürün kartı) tutulur; ithalat kalemine ayrıca
+    yazmaya gerek yok. Kalem yüklenirken urun_grubu boşsa buradan doldurulur.
+    Anahtarlar sku_anahtar ile normalize edilir ki "FAZEON X24F165S" ile
+    "X24F165S" eşleşsin.
+    """
+    try:
+        from shared.utils import sku_anahtar as _skn
+    except Exception:
+        _skn = lambda x: str(x or "").strip().upper()
+    try:
+        sb = _get_client()
+        rows, start = [], 0
+        while True:
+            chunk = _rows(sb.table("urunler").select("sku, kategori")
+                          .range(start, start + 999).execute())
+            rows.extend(chunk)
+            if len(chunk) < 1000:
+                break
+            start += 1000
+        out = {}
+        for r in rows:
+            kat = (r.get("kategori") or "").strip()
+            k = _skn(r.get("sku"))
+            if k and kat and k not in out:
+                out[k] = kat.upper()
+        return out
+    except Exception:
+        return {}
+
+
+def _kategori_doldur(kalemler):
+    """urun_grubu BOŞ olan kalemlere ürün kartındaki kategoriyi yazar.
+
+    Kalemde açıkça yazılmış bir değer varsa ona DOKUNULMAZ — dosyaya özel
+    gruplama (örn. aynı SKU'yu farklı kategoride ele alma) korunur.
+    """
+    if not kalemler:
+        return kalemler
+    if not any(not (str(k.get("urun_grubu") or "").strip()) for k in kalemler):
+        return kalemler                      # hepsi dolu, katalog sorgusu yok
+    try:
+        from shared.utils import sku_anahtar as _skn
+    except Exception:
+        _skn = lambda x: str(x or "").strip().upper()
+    kmap = get_sku_kategori_map()
+    if not kmap:
+        return kalemler
+    for k in kalemler:
+        if not (str(k.get("urun_grubu") or "").strip()):
+            kat = kmap.get(_skn(k.get("sku")))
+            if kat:
+                k["urun_grubu"] = kat
+    return kalemler
+
+
 def get_kalemler(dosya_id):
     try:
         sb = _get_client()
-        return _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
+        return _kategori_doldur(_rows(
+            sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute()))
     except Exception:
         return []
 
@@ -514,7 +574,7 @@ def get_tum_kalemler():
             if len(chunk) < 1000:
                 break
             start += 1000
-        return rows
+        return _kategori_doldur(rows)
     except Exception:
         return []
 
