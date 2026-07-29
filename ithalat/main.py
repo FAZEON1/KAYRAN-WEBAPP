@@ -1294,6 +1294,25 @@ def _gecmis_ithalatlar():
                         _yeni_kal.append({"sku": _m["sku"], "urun_adi": _m["urun_adi"],
                                           "urun_grubu": _m.get("urun_grubu", ""),
                                           "adet": _m["adet"], "birim_fob": _m["birim_fob"]})
+                    # ── VERİ KAYBI KORUMASI ──
+                    # guncelle_dosya kalemleri TAMAMEN yeniden yazar. Tablo boş
+                    # geldiyse (editör state'i sıfırlandı, tüm satırlar Sil
+                    # işaretlendi vb.) kaydetmek dosyanın tüm kalemlerini siler.
+                    # Dolu bir dosyanın boşalmasına açık onay olmadan izin verme.
+                    if not _yeni_kal and len(kal) > 0:
+                        st.error(
+                            f"⛔ **Kayıt durduruldu — veri kaybı önlendi.**\n\n"
+                            f"Bu dosyada **{len(kal)} ürün kalemi** var ama kaydedilecek "
+                            f"tabloda hiç satır yok. Kaydedilirse tüm kalemler silinir.\n\n"
+                            f"Kalemleri gerçekten silmek istiyorsan aşağıdaki kutuyu işaretle; "
+                            f"aksi halde sayfayı yenile (F5) ve tekrar dene — tablo genelde "
+                            f"yenileyince geri gelir.")
+                        st.checkbox(
+                            f"⚠️ Evet, bu dosyanın {len(kal)} kaleminin tamamını sil",
+                            key=f"ith_bos_onay_{did}")
+                        if not st.session_state.get(f"ith_bos_onay_{did}"):
+                            st.stop()
+
                     with st.spinner("💾 Kaydediliyor..."):
                         ok, msg = guncelle_dosya(did, e_dno.strip(), e_pi.strip(), e_tarih, e_ted, e_mense,
                                                  e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
