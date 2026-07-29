@@ -11,17 +11,16 @@ GÜVENLİK TASARIMI:
   • Kayıt zaten varsa yazmayı REDDEDER (mükerrer oluşmasın).
   • Sadece ithalat_dosyalari + ithalat_kalemleri tablolarına, sadece
     belirtilen dosya_id için dokunur. Başka hiçbir tabloya değmez.
-  • MOD=eksikler tamamen okunur — asla yazmaz.
 
 Ortam değişkenleri:
-  SUPABASE_URL, SUPABASE_KEY — GitHub Secrets'tan
-  YEDEK_DIZIN — artifact'ın indirildiği klasör (varsayılan "yedek")
-  MOD         — "eksikler" ise yedek ile canlıyı karşılaştırır, çıkar
-  DOSYA_ID    — geri yüklenecek kayıt kimliği
-  ARA         — kimlik yerine METİNLE ara (dosya_no / tedarikci /
-                ithalat_takip_no / pi_no / sas_no içinde geçer).
-                Doluysa sadece LİSTELER, yazmaz.
-  ONAY        — "EVET" ise gerçekten yazar; aksi halde kuru çalışma
+  SUPABASE_URL, SUPABASE_KEY   — GitHub Secrets'tan
+  YEDEK_DIZIN                  — artifact'ın indirildiği klasör (varsayılan "yedek")
+  DOSYA_ID                     — geri yüklenecek kayıt kimliği
+  ARA                          — kimlik yerine METİNLE ara (dosya_no/tedarikçi
+                                 içinde geçer). Doluysa sadece LİSTELER, yazmaz.
+  ONAY                         — "EVET" ise gerçekten yazar; aksi halde kuru çalışma
+  SADECE_KALEM                 — "1" ise dosya kaydına dokunmaz, YALNIZ kalemleri
+                                 geri yükler (dosya duruyor ama kalemleri silinmişse)
 """
 import ast
 import json
@@ -34,10 +33,6 @@ import pandas as pd
 DOSYA_TABLO = "ithalat_dosyalari"
 KALEM_TABLO = "ithalat_kalemleri"
 JSON_KOLONLAR = ("masraflar", "grup_masraf_atama")
-
-# Arama bu kolonların hepsine bakar. ithalat_takip_no'nun burada olmaması
-# 2025-14 dosyasının "hiç girilmemiş" sanılmasına yol açtı — tekrarlamasın.
-ARAMA_KOLONLARI = ("dosya_no", "tedarikci", "ithalat_takip_no", "pi_no", "sas_no")
 
 
 def _coz(v):
@@ -74,99 +69,32 @@ def _temiz(satir):
     return out
 
 
-def _yedegi_bul(dizin):
-    adaylar = sorted(glob.glob(os.path.join(dizin, "**", "*.xlsx"), recursive=True))
-    if not adaylar:
-        sys.exit(f"HATA: {dizin} altında .xlsx bulunamadı.")
-    return adaylar[-1]
-
-
-def _canli_kimlikler(url, key):
-    """ithalat_dosyalari'ndaki tüm id'leri sayfalayarak çeker."""
-    from supabase import create_client
-    sb = create_client(url, key)
-    kimlikler, adim, bas = set(), 1000, 0
-    while True:
-        par = (sb.table(DOSYA_TABLO).select("id")
-               .order("id").range(bas, bas + adim - 1).execute().data) or []
-        if not par:
-            break
-        kimlikler.update(int(r["id"]) for r in par if r.get("id") is not None)
-        if len(par) < adim:
-            break
-        bas += adim
-    return kimlikler
-
-
-def _eksikleri_listele(yedek, url, key):
-    """Yedekte olup canlıda olmayan dosyaları döker. HİÇBİR ŞEY YAZMAZ."""
-    df_d = pd.read_excel(yedek, sheet_name=DOSYA_TABLO)
-    yedek_kimlik = {int(x) for x in df_d["id"].dropna().astype(int)}
-    canli = _canli_kimlikler(url, key)
-
-    eksik = sorted(yedek_kimlik - canli)
-    fazla = sorted(canli - yedek_kimlik)
-
-    print(f"📊 Yedekteki dosya sayısı : {len(yedek_kimlik)}")
-    print(f"📊 Canlıdaki dosya sayısı : {len(canli)}")
-    print(f"📊 En büyük yedek kimliği : {max(yedek_kimlik) if yedek_kimlik else '—'}")
-    print(f"📊 En büyük canlı kimliği : {max(canli) if canli else '—'}\n")
-
-    if not eksik:
-        print("✅ Yedekteki her dosya canlıda mevcut. Eksik yok.")
-    else:
-        print(f"── YEDEKTE VAR, CANLIDA YOK ({len(eksik)} dosya) ──")
-        ind = df_d.set_index("id")
-        for i in eksik:
-            try:
-                r = ind.loc[i]
-            except Exception:
-                print(f"  id={i}  (yedekte satır okunamadı)")
-                continue
-            print(f"  id={i:<6} takip={str(r.get('ithalat_takip_no','') or '—'):10} "
-                  f"dosya_no={str(r.get('dosya_no','') or '—'):14} "
-                  f"tedarikci={str(r.get('tedarikci','') or '—')[:28]:28} "
-                  f"tarih={str(r.get('tarih',''))[:10]:12} durum={r.get('durum','') or '—'}")
-        print("\n🔁 Geri yüklemek için her biri: DOSYA_ID=<id>, ONAY=EVET")
-
-    if fazla:
-        print(f"\nℹ️  Canlıda olup yedekte olmayan {len(fazla)} kimlik "
-              f"(yedekten SONRA oluşmuş): {fazla[:40]}")
-
-    print("\n🔍 Ölçüm modu — hiçbir şey yazılmadı.")
-
-
 def main():
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_KEY")
     if not url or not key:
         sys.exit("HATA: SUPABASE_URL / SUPABASE_KEY yok.")
-
-    mod = (os.environ.get("MOD") or "").strip().lower()
     ara = (os.environ.get("ARA") or "").strip()
-    onay = os.environ.get("ONAY", "").strip().upper() == "EVET"
-    dizin = os.environ.get("YEDEK_DIZIN", "yedek")
-
-    yedek = _yedegi_bul(dizin)
-    print(f"📦 Yedek dosyası : {os.path.basename(yedek)}")
-
-    # ── EKSİKLER MODU: yedek ile canlıyı karşılaştır, çık ──
-    if mod == "eksikler":
-        print("🎯 Aranan kayıt  : —  (EKSİKLERİ LİSTELE modu)")
-        print("🔐 Mod           : SALT OKUNUR — hiçbir şey yazılmaz\n")
-        _eksikleri_listele(yedek, url, key)
-        return
-
     dosya_id = None
     if not ara:
         try:
             dosya_id = int(os.environ.get("DOSYA_ID", "").strip())
         except Exception:
-            sys.exit("HATA: DOSYA_ID sayı olmalı (ya da ARA doldur, ya da MOD=eksikler).")
+            sys.exit("HATA: DOSYA_ID sayı olmalı (ya da ARA doldur).")
+    onay = os.environ.get("ONAY", "").strip().upper() == "EVET"
+    sadece_kalem = os.environ.get("SADECE_KALEM", "").strip() == "1"
+    dizin = os.environ.get("YEDEK_DIZIN", "yedek")
 
+    # ── Yedek dosyasını bul (en yeni) ──
+    adaylar = sorted(glob.glob(os.path.join(dizin, "**", "*.xlsx"), recursive=True))
+    if not adaylar:
+        sys.exit(f"HATA: {dizin} altında .xlsx bulunamadı.")
+    yedek = adaylar[-1]
+    print(f"📦 Yedek dosyası : {os.path.basename(yedek)}")
     print(f"🎯 Aranan kayıt  : "
           + (f"metin '{ara}'" if ara else f"{DOSYA_TABLO}.id = {dosya_id}"))
-    print(f"🔐 Mod           : {'YAZMA (ONAY=EVET)' if onay else 'KURU ÇALIŞMA — hiçbir şey yazılmaz'}\n")
+    print(f"🔐 Mod           : {'YAZMA (ONAY=EVET)' if onay else 'KURU ÇALIŞMA — hiçbir şey yazılmaz'}"
+          + ("  ·  SADECE KALEMLER" if sadece_kalem else "") + "\n")
 
     xl = pd.ExcelFile(yedek)
     if DOSYA_TABLO not in xl.sheet_names:
@@ -174,27 +102,20 @@ def main():
 
     df_d = pd.read_excel(yedek, sheet_name=DOSYA_TABLO)
 
-    # ── ARAMA MODU: kimliği bilmiyorsan metinle bul ──
+    # ── ARAMA MODU: kimliği bilmiyorsan dosya_no / tedarikçi ile bul ──
     if ara:
         _a = ara.lower()
-
-        def _esles(r):
-            for k in ARAMA_KOLONLARI:
-                if _a in str(r.get(k, "") or "").lower():
-                    return True
-            return False
-
-        _m = df_d[df_d.apply(_esles, axis=1)]
+        _m = df_d[df_d.apply(
+            lambda r: _a in str(r.get("dosya_no", "")).lower()
+                   or _a in str(r.get("tedarikci", "")).lower(), axis=1)]
         if _m.empty:
             print(f"\n❌ '{ara}' ile eşleşen kayıt yok.")
-            print(f"   Taranan kolonlar: {', '.join(ARAMA_KOLONLARI)}")
-            return                      # 'sonuç yok' bir hata değil → exit 0
+            sys.exit(1)
         print(f"\n── EŞLEŞEN {len(_m)} KAYIT ──")
         for _, r in _m.iterrows():
-            print(f"  id={int(r['id']):<6} takip={str(r.get('ithalat_takip_no','') or '—'):10} "
-                  f"dosya_no={str(r.get('dosya_no','') or '—'):14} "
-                  f"tedarikci={str(r.get('tedarikci','') or '—')[:28]:28} "
-                  f"tarih={str(r.get('tarih',''))[:10]:12} durum={r.get('durum','') or '—'}")
+            print(f"   id={int(r['id']):<6} dosya_no={str(r.get('dosya_no','')):12} "
+                  f"tedarikci={str(r.get('tedarikci','')):22} "
+                  f"tarih={str(r.get('tarih',''))[:10]:12} durum={r.get('durum','')}")
         print("\n🔍 Geri yüklemek istediğin kimliği DOSYA_ID alanına yazıp tekrar çalıştır.")
         return
 
@@ -211,11 +132,11 @@ def main():
               "doviz", "kur", "durum", "teslim_tarihi", "teslim_deposu",
               "ithalat_takip_no"):
         if k in dosya and dosya[k] not in (None, ""):
-            print(f"  {k:20} {dosya[k]}")
+            print(f"   {k:20} {dosya[k]}")
     if dosya.get("masraflar"):
-        print(f"  {'masraflar':20} {dosya['masraflar']}")
+        print(f"   {'masraflar':20} {dosya['masraflar']}")
     if dosya.get("grup_masraf_atama"):
-        print(f"  {'grup_masraf_atama':20} {dosya['grup_masraf_atama']}")
+        print(f"   {'grup_masraf_atama':20} {dosya['grup_masraf_atama']}")
 
     kalemler = []
     if KALEM_TABLO in xl.sheet_names:
@@ -225,10 +146,10 @@ def main():
 
     print(f"\n── KALEMLER ({len(kalemler)} satır) ──")
     for k in kalemler:
-        print(f"  {str(k.get('sku','')):22} {str(k.get('urun_grubu','') or '—'):16} "
+        print(f"   {str(k.get('sku','')):22} {str(k.get('urun_grubu','') or '—'):16} "
               f"adet {k.get('adet')} × FOB {k.get('birim_fob')}")
     _tfob = sum(float(k.get("adet") or 0) * float(k.get("birim_fob") or 0) for k in kalemler)
-    print(f"  {'':22} {'TOPLAM FOB':16} {_tfob:,.2f}")
+    print(f"   {'':22} {'TOPLAM FOB':16} {_tfob:,.2f}")
 
     if not onay:
         print("\n🔍 Kuru çalışma bitti. Yazmak için iş akışını ONAY='EVET' ile tekrar çalıştır.")
@@ -237,9 +158,30 @@ def main():
     # ── Yazma ── (supabase yalnız burada gerekir; kuru çalışma kütüphanesiz döner)
     from supabase import create_client
     sb = create_client(url, key)
+
+    if sadece_kalem:
+        # Dosya duruyor, kalemleri silinmiş → yalnız kalemleri geri yaz
+        var = sb.table(DOSYA_TABLO).select("id").eq("id", dosya_id).execute().data or []
+        if not var:
+            sys.exit(f"❌ id={dosya_id} veritabanında YOK. SADECE_KALEM yerine tam geri yükleme kullan.")
+        mevcut_k = sb.table(KALEM_TABLO).select("id").eq("dosya_id", dosya_id).execute().data or []
+        if mevcut_k:
+            sys.exit(f"❌ Bu dosyanın zaten {len(mevcut_k)} kalemi var — "
+                     f"mükerrer oluşmasın diye durduruldu.")
+        if not kalemler:
+            sys.exit("❌ Yedekte bu dosyaya ait kalem yok.")
+        for k in kalemler:
+            k.pop("id", None)
+            k["dosya_id"] = dosya_id
+        sb.table(KALEM_TABLO).insert(kalemler).execute()
+        print(f"\n✅ {len(kalemler)} kalem geri yazıldı (dosya kaydına dokunulmadı).")
+        print("\n🎉 Bitti. Programda dosyayı açıp kontrol et.")
+        return
+
     mevcut = sb.table(DOSYA_TABLO).select("id").eq("id", dosya_id).execute().data or []
     if mevcut:
-        sys.exit(f"❌ id={dosya_id} ZATEN VAR — mükerrer oluşmasın diye durduruldu.")
+        sys.exit(f"❌ id={dosya_id} ZATEN VAR — mükerrer oluşmasın diye durduruldu. "
+                 f"Sadece kalemleri geri yüklemek istiyorsan SADECE_KALEM=1 kullan.")
 
     try:
         sb.table(DOSYA_TABLO).insert(dosya).execute()
@@ -247,7 +189,7 @@ def main():
         print(f"\n✅ Dosya geri yazıldı (id={yeni_id}).")
     except Exception as e:
         # id kolonu 'generated always' ise açık id reddedilir → id'siz dene
-        print(f"  ! Açık id ile yazılamadı ({str(e)[:90]}) — id'siz deneniyor…")
+        print(f"   ! Açık id ile yazılamadı ({str(e)[:90]}) — id'siz deneniyor…")
         dosya.pop("id", None)
         res = sb.table(DOSYA_TABLO).insert(dosya).execute()
         yeni_id = (res.data or [{}])[0].get("id")
