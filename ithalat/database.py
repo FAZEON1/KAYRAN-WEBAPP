@@ -166,6 +166,7 @@ def dosya_hesapla(dosya, kalemler):
 # Karar (kullanıcı): ORTAK masraf → grupların FOB payına göre; ÖZEL masraf
 # → elle atandığı gruba direkt. Her grup kendi maliyet yüzdesini alır.
 # ══════════════════════════════════════════════════════════════════════
+HACIM_GRUP = "__hacim__"   # navlunu cbm/cfeet payına göre böl
 ORTAK_GRUP = "__ortak__"   # grup_atama'da bu değer = masraf tüm gruplara FOB payıyla bölünür
 
 
@@ -194,8 +195,13 @@ def dosya_hesapla_coklu(dosya, kalemler):
                        yuzde, adet, birim_ek_maliyet_orani}},
       genel:   {toplam_fob, indirim, ortak_masraf, toplam_masraf, grup_sayisi}
     }
-    ORTAK masraf gruplara FOB payına göre KURUŞ-DOĞRU dağıtılır (son grup farkı alır).
-    ÖZEL masraf, grup_masraf_atama'da atandığı gruba doğrudan yazılır."""
+    Üç dağıtım kovası:
+      ORTAK  (__ortak__) → FOB payına göre, kuruş-doğru (son grup farkı alır)
+      HACİM  (__hacim__) → cbm/cfeet payına göre. SADECE navlun için sunulur;
+                           navlun ağırlık/hacim üzerinden faturalandığı için
+                           FOB payına bölmek hafif-pahalı grubu cezalandırır.
+                           cbm değerleri dosya.grup_cbm alanında tutulur.
+      ÖZEL   (grup adı)  → atandığı gruba doğrudan yazılır (GV/KBF/ÖTV/TSE)."""
     masraflar = _masraf_dict(dosya)
     grup_atama = _grup_atama_dict(dosya)
 
@@ -211,14 +217,25 @@ def dosya_hesapla_coklu(dosya, kalemler):
     indirim = _f((dosya or {}).get("fatura_indirim", 0))
     indirim = max(0.0, min(indirim, toplam_fob))
 
+    # cbm haritası: {grup: hacim}. Yoksa hacim kovası ortağa düşer.
+    _cbm_ham = (dosya or {}).get("grup_cbm") or {}
+    grup_cbm = {g: _f(_cbm_ham.get(g)) for g in gruplar}
+    toplam_cbm = sum(v for v in grup_cbm.values() if v > 0)
+
     ortak_toplam = 0.0
+    hacim_toplam = 0.0
     grup_ozel = {g: 0.0 for g in gruplar}
     for slug, tutar in masraflar.items():
         t = _f(tutar)
         if t == 0:
             continue
         hedef = grup_atama.get(slug, ORTAK_GRUP)
-        if hedef == ORTAK_GRUP or hedef not in grup_fob:
+        if hedef == HACIM_GRUP:
+            if toplam_cbm > 0:
+                hacim_toplam += t
+            else:
+                ortak_toplam += t        # cbm girilmemiş → ortağa düş
+        elif hedef == ORTAK_GRUP or hedef not in grup_fob:
             ortak_toplam += t
         else:
             grup_ozel[hedef] += t
@@ -233,17 +250,30 @@ def dosya_hesapla_coklu(dosya, kalemler):
             v = round(ortak_toplam - atanan, 2)
         ortak_pay[g] = max(v, 0.0)
 
+    # Hacim kovası — aynı kuruş-doğru mantık, payda cbm
+    hacim_pay, h_atanan = {g: 0.0 for g in gruplar}, 0.0
+    if hacim_toplam > 0 and toplam_cbm > 0:
+        for i, g in enumerate(gruplar):
+            if i < len(gruplar) - 1:
+                v = round(hacim_toplam * (grup_cbm[g] / toplam_cbm), 2)
+                h_atanan = round(h_atanan + v, 2)
+            else:
+                v = round(hacim_toplam - h_atanan, 2)
+            hacim_pay[g] = max(v, 0.0)
+
     sonuc = {}
     for g in gruplar:
         pay_orani = (grup_fob[g] / toplam_fob) if toplam_fob > 0 else (1.0 / len(gruplar))
         net_fob = grup_fob[g] - indirim * pay_orani
-        grup_masraf = grup_ozel[g] + ortak_pay[g]
+        grup_masraf = grup_ozel[g] + ortak_pay[g] + hacim_pay[g]
         yuzde = (grup_masraf / net_fob * 100) if net_fob > 0 else 0.0
         sonuc[g] = {
             "fob": round(grup_fob[g], 2),
             "net_fob": round(net_fob, 2),
             "ozel_masraf": round(grup_ozel[g], 2),
             "ortak_pay": ortak_pay[g],
+            "hacim_pay": hacim_pay[g],
+            "cbm": round(grup_cbm[g], 4),
             "toplam_masraf": round(grup_masraf, 2),
             "yuzde": round(yuzde, 4),
             "adet": grup_adet[g],
@@ -671,7 +701,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
 
 
-def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True):
+def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True, grup_cbm=None):
     """SADECE masraflar + grup_masraf_atama kolonlarını yazar.
 
     guncelle_dosya() kalemleri baştan yazar; burada kalemlere, duruma, teslime
@@ -683,7 +713,7 @@ def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True):
     try:
         sb = _get_client()
         _dl = _rows(sb.table("ithalat_dosyalari")
-                    .select("id, masraflar, grup_masraf_atama").eq("id", dosya_id).execute())
+                    .select("id, masraflar, grup_masraf_atama, grup_cbm").eq("id", dosya_id).execute())
         if not _dl:
             return False, "Dosya bulunamadı."
         d = _dl[0]
@@ -695,10 +725,13 @@ def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True):
         eski_atama = d.get("grup_masraf_atama")
         yeni_atama = dict(eski_atama) if (birlestir and isinstance(eski_atama, dict)) else {}
         yeni_atama.update(grup_atama or {})
-        sb.table("ithalat_dosyalari").update({
-            "masraflar": yeni_mas,
-            "grup_masraf_atama": yeni_atama,
-        }).eq("id", dosya_id).execute()
+        _guncelle = {"masraflar": yeni_mas, "grup_masraf_atama": yeni_atama}
+        if grup_cbm:
+            _eski_cbm = (d.get("grup_cbm") or {}) if birlestir else {}
+            _yeni_cbm = dict(_eski_cbm) if isinstance(_eski_cbm, dict) else {}
+            _yeni_cbm.update({k: _f(v) for k, v in grup_cbm.items() if _f(v) > 0})
+            _guncelle["grup_cbm"] = _yeni_cbm
+        sb.table("ithalat_dosyalari").update(_guncelle).eq("id", dosya_id).execute()
         _temizle()
         return True, f"{len(yeni_mas)} masraf kalemi ve {len(yeni_atama)} atama yazıldı."
     except Exception as e:
@@ -707,7 +740,7 @@ def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True):
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   grup_masraf_atama=None,
+                   grup_masraf_atama=None, grup_cbm=None,
                    durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
@@ -741,6 +774,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
         }
         if grup_masraf_atama is not None:
             _payload["grup_masraf_atama"] = grup_masraf_atama
+        if grup_cbm is not None:
+            _payload["grup_cbm"] = {k: _f(v) for k, v in (grup_cbm or {}).items() if _f(v) > 0}
         # TELAFİ için eski kalemleri silmeden ÖNCE yedekle (yeni yazma başarısız olursa geri yüklenir)
         _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
         _yaz_graceful(

@@ -14,7 +14,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, HACIM_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
@@ -1127,12 +1127,19 @@ def _gecmis_ithalatlar():
                 _mevcut_gruplar = sorted({(k.get("urun_grubu", "") or "").strip()
                                           for k in kal if (k.get("urun_grubu", "") or "").strip()})
                 e_grup_atama = None
+                e_grup_cbm = None
                 if len(_mevcut_gruplar) >= 2:
                     _alt_baslik("🧩 Çoklu Grup — Masraf Atama (ortak / gruba özel)")
                     st.caption("Her masraf **ortak** (gruplara FOB payına göre bölünür) ya da **belirli bir gruba özel** "
                                "(vergi/TSE gibi) olabilir. Ürün grubu kalem tablosundan gelir.")
                     _atama_mevcut = d.get("grup_masraf_atama") if isinstance(d.get("grup_masraf_atama"), dict) else {}
                     _secenekler = [ORTAK_GRUP] + _mevcut_gruplar
+                    # Hacim (cbm/cfeet) seçeneğinin sunulduğu kalemler.
+                    # Navlun ağırlık/hacim üzerinden faturalanır; vergiler de
+                    # bazı sevkiyatlarda hacimle ilişkilendirilebiliyor.
+                    # Diğer kalemlerde yalnız ortak / gruba-özel vardır.
+                    _HACIMLI = {"navlun", "gv", "igv", "otv", "kbf", "diger"}
+                    _sec_hacim = [ORTAK_GRUP, HACIM_GRUP] + _mevcut_gruplar
                     _md_var = _masraf_dict(d)
                     e_grup_atama = {}
                     _ga_cols = st.columns(2)
@@ -1140,15 +1147,43 @@ def _gecmis_ithalatlar():
                     for _gi, (_slug, _label) in enumerate(_dolu_masraflar):
                         with _ga_cols[_gi % 2]:
                             _vars_secim = _atama_mevcut.get(_slug, ORTAK_GRUP)
-                            if _vars_secim not in _secenekler:
+                            _liste = _sec_hacim if _slug in _HACIMLI else _secenekler
+                            if _vars_secim not in _liste:
                                 _vars_secim = ORTAK_GRUP
                             _sec = st.selectbox(
                                 f"{_label}  ({_tam(_md_var.get(_slug, 0))})",
-                                _secenekler,
-                                index=_secenekler.index(_vars_secim),
-                                format_func=lambda x: "🌐 Ortak (FOB payına böl)" if x == ORTAK_GRUP else f"🎯 {x}",
+                                _liste,
+                                index=_liste.index(_vars_secim),
+                                format_func=lambda x: ("🌐 Ortak (FOB payına böl)" if x == ORTAK_GRUP
+                                                       else "📦 Hacme göre böl (cbm/cfeet)" if x == HACIM_GRUP
+                                                       else f"🎯 {x}"),
                                 key=f"ith_grup_atama_{did}_{_slug}")
                             e_grup_atama[_slug] = _sec
+
+                    # Herhangi bir kalem hacme atandıysa grup başına cbm gir
+                    _hacme_atanan = [MASRAF_ETIKET.get(_s, _s)
+                                     for _s, _h in e_grup_atama.items() if _h == HACIM_GRUP]
+                    if _hacme_atanan:
+                        st.markdown("**📦 Grup hacimleri (cbm / cfeet)** — "
+                                    + ", ".join(f"**{_x}**" for _x in _hacme_atanan)
+                                    + " bu orana göre bölünür")
+                        _cbm_kayitli = d.get("grup_cbm") if isinstance(d.get("grup_cbm"), dict) else {}
+                        e_grup_cbm = {}
+                        _ck = st.columns(min(4, max(1, len(_mevcut_gruplar))))
+                        for _ci, _g in enumerate(_mevcut_gruplar):
+                            with _ck[_ci % len(_ck)]:
+                                e_grup_cbm[_g] = st.number_input(
+                                    _g, min_value=0.0, step=0.1, format="%.2f",
+                                    value=float(_cbm_kayitli.get(_g, 0) or 0),
+                                    key=f"ith_cbm_{did}_{_g}")
+                        _tcbm = sum(e_grup_cbm.values())
+                        if _tcbm > 0:
+                            st.caption("Hacim payı → " + " · ".join(
+                                f"**{_g}** %{_v / _tcbm * 100:.1f}"
+                                for _g, _v in e_grup_cbm.items() if _v > 0))
+                        else:
+                            st.warning("⚠️ Hacim girilmedi — hacme atanan kalemler "
+                                       "ortak (FOB payı) olarak dağıtılacak.")
                     st.markdown("---")
                 _alt_baslik("📄 Dosya Bilgileri")
                 ec1, ec2, ec3 = st.columns(3)
@@ -1293,6 +1328,7 @@ def _gecmis_ithalatlar():
                                                  e_doviz, e_kur, e_masraf, e_not, _yeni_kal,
                                                  ithalat_takip_no=e_takip.strip(),
                                                  grup_masraf_atama=e_grup_atama,
+                                                 grup_cbm=e_grup_cbm,
                                                  durum=e_durum,
                                                  tahmini_varis=(e_tahmini_varis if e_durum in IN_TRANSIT_DURUMLAR else ""),
                                                  fatura_indirim=e_indirim,
