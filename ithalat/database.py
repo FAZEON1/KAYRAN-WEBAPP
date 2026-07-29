@@ -222,12 +222,36 @@ def dosya_hesapla_coklu(dosya, kalemler):
     grup_cbm = {g: _f(_cbm_ham.get(g)) for g in gruplar}
     toplam_cbm = sum(v for v in grup_cbm.values() if v > 0)
 
+    # KATEGORİ BAZLI DAĞILIM: {slug: {kategori: tutar}}
+    # Kullanıcı navlunu/vergiyi doğrudan kategori başına yazar; sistem bölme
+    # yapmaz, sadece toplar. Bu, dağılımı olan kalemler için grup_atama'yı
+    # ve hacim kovasını devre dışı bırakır.
+    _dag_ham = (dosya or {}).get("masraf_grup_dagilim") or {}
+    dagilim = {}
+    if isinstance(_dag_ham, dict):
+        for _sl, _mp in _dag_ham.items():
+            if isinstance(_mp, dict):
+                _t = {g: _f(v) for g, v in _mp.items() if _f(v) != 0}
+                if _t:
+                    dagilim[_sl] = _t
+
     ortak_toplam = 0.0
     hacim_toplam = 0.0
     grup_ozel = {g: 0.0 for g in gruplar}
     for slug, tutar in masraflar.items():
         t = _f(tutar)
         if t == 0:
+            continue
+        if slug in dagilim:
+            _yazilan = 0.0
+            for _g, _v in dagilim[slug].items():
+                if _g in grup_ozel:
+                    grup_ozel[_g] += _v
+                    _yazilan += _v
+            # kategorilere yazılmayan bakiye ortağa düşer (FOB payına bölünür)
+            _kalan = t - _yazilan
+            if abs(_kalan) > 0.005:
+                ortak_toplam += _kalan
             continue
         hedef = grup_atama.get(slug, ORTAK_GRUP)
         if hedef == HACIM_GRUP:
@@ -740,7 +764,7 @@ def masraf_ve_atama_yaz(dosya_id, masraflar_usd, grup_atama, birlestir=True, gru
 
 def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, doviz, kur,
                    masraflar, notlar, kalemler, ithalat_takip_no="",
-                   grup_masraf_atama=None, grup_cbm=None,
+                   grup_masraf_atama=None, grup_cbm=None, masraf_grup_dagilim=None,
                    durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
     """Dosya bilgileri + masraflar + kalemleri günceller (kalemler tamamen yenilenir)."""
     sb = _get_client()
@@ -776,6 +800,13 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             _payload["grup_masraf_atama"] = grup_masraf_atama
         if grup_cbm is not None:
             _payload["grup_cbm"] = {k: _f(v) for k, v in (grup_cbm or {}).items() if _f(v) > 0}
+        if masraf_grup_dagilim is not None:
+            _temiz_dag = {}
+            for _sl, _mp in (masraf_grup_dagilim or {}).items():
+                _t = {g: round(_f(v), 2) for g, v in (_mp or {}).items() if _f(v) != 0}
+                if _t:
+                    _temiz_dag[_sl] = _t
+            _payload["masraf_grup_dagilim"] = _temiz_dag
         # TELAFİ için eski kalemleri silmeden ÖNCE yedekle (yeni yazma başarısız olursa geri yüklenir)
         _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
         _yaz_graceful(
