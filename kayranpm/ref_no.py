@@ -2598,9 +2598,15 @@ def ref_destek_kirilim_usd(baslangic, bitis):
             paylar = {_tr_upper(k): _f(v) for k, v in (kt or {}).items() if _f(v) > 0}
             _pt = sum(paylar.values())
             if _pt > 0.005:
-                # Dönem tutarı, kayıttaki kategori oranlarına göre bölünür
+                # Dönem tutarı, kayıttaki kategori oranlarına göre bölünür.
+                # "TÜM KATEGORİLER" tek bir kategoriye ait değildir → GENEL'e
+                # yazılır; filtreye yansıtmak yanlış olur.
                 for k, v in paylar.items():
-                    kat[k] = kat.get(k, 0.0) + t * (v / _pt)
+                    _pay = t * (v / _pt)
+                    if k in ("TÜM KATEGORİLER", "TUM KATEGORILER", "GENEL"):
+                        genel += _pay
+                    else:
+                        kat[k] = kat.get(k, 0.0) + _pay
                 continue
             _rn = str(r.get("ref_no") or "").strip() or "—"
             if _rn not in gorulen:
