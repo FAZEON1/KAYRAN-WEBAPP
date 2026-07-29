@@ -343,7 +343,7 @@ def run():
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_t:,.0f}</div>'
             f'<div style="font-size:13px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
             f'margin-top:4px">≈ ₺{(_t * _k):,.0f} · kur {_k:g}</div></div>' + _kh,
-            rozet=str(_s.get("tarih", ""))[:16]), unsafe_allow_html=True)
+            rozet=str(_s.get("tarih", ""))[:16], yukseklik=320), unsafe_allow_html=True)
         st.stop()
     st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Ciro − COGS − Destekler − Giderler = Net Kâr · tüm tutarlar USD"),
                 unsafe_allow_html=True)
@@ -656,7 +656,7 @@ def run():
     else:
         _g_html = bos_durum(f"{_yil} gider tablosu yüklenmedi — aşağıdan yükleyebilirsin")
     _p_gider = pencere("🧾 İŞLETME GİDERLERİ", RENK["kirmizi"], _g_html,
-                       rozet=str(_yil), yukseklik=230)
+                       rozet=str(_yil), yukseklik=300)
 
     # Pencere 4 — Toplam Aktifler
     try:
@@ -696,7 +696,9 @@ def run():
             f'<div style="font-size:11px;color:{RENK["mor2"]};'
             f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
             + _kalem_html)
-    _p_aktif = pencere("💎 TOPLAM AKTİFLER", RENK["mor"], _a_html, rozet=_a_rozet, yukseklik=230)
+    # 8 kalem + başlık bloğu kaydırmasız sığsın diye 300px; komşu gider
+    # penceresiyle AYNI değer — pencere_grid stretch ile boyları eşitliyor.
+    _p_aktif = pencere("💎 TOPLAM AKTİFLER", RENK["mor"], _a_html, rozet=_a_rozet, yukseklik=300)
 
     st.markdown(pencere_grid(_p_gider, _p_aktif), unsafe_allow_html=True)
 
