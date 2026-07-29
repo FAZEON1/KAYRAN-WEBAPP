@@ -520,12 +520,41 @@ def get_tum_kalemler():
 
 
 @st.cache_data(ttl=60, show_spinner=False)
+def kategori_yuzde_map(dosya, kalemler):
+    """{kategori: maliyet_yuzdesi} + "__vars__": dosya ortalaması.
+
+    NEDEN: Çoklu kategorili bir dosyada her kategorinin maliyet oranı FARKLIDIR
+    (navlun/vergi kategoriye özel yazılır). Dosya ortalamasını her SKU'ya
+    uygulamak, hafif-vergisiz kategoriyi pahalı, ağır-vergili kategoriyi ucuz
+    gösterir. Bu fonksiyon her kaleme KENDİ kategorisinin oranını verir.
+    Tek kategorili dosyalarda davranış değişmez (hepsi dosya ortalaması).
+    """
+    out = {"__vars__": _f(dosya_hesapla(dosya, kalemler).get("maliyet_yuzde", 0.0))}
+    if not dosya_coklu_mu(dosya, kalemler):
+        return out
+    # Sessiz yutma YOK: hesap patlarsa dosya ortalamasına döner ama sebebi loglanır
+    try:
+        for g, v in (dosya_hesapla_coklu(dosya, kalemler).get("gruplar") or {}).items():
+            out[g] = _f(v.get("yuzde"))
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning("kategori_yuzde_map: %s", _e)
+    return out
+
+
+def kalem_yuzde(ymap, kalem):
+    """Bir kalemin geçerli maliyet yüzdesi (kategorisine göre)."""
+    g = (str((kalem or {}).get("urun_grubu") or "").strip() or "GENEL")
+    return _f((ymap or {}).get(g, (ymap or {}).get("__vars__", 0.0)))
+
+
 def get_sku_maliyet_ozet():
     """
     Her SKU için ithalat verisinden PAÇAL (adet-ağırlıklı ortalama) + SON (en yeni dosya) maliyet.
     Dönen: {sku: {pacal_fob, pacal_final, son_fob, son_final, son_tarih, toplam_adet, dosya_sayisi}}
-      • dosya_yuzde = toplam_masraf / FOB * 100  (dosya bazında)
-      • birim landed = birim_fob * (1 + dosya_yuzde/100)
+      • yüzde = KATEGORİ bazında (çoklu dosyada her kategori kendi oranını alır;
+        tek kategorili dosyada dosya ortalaması)
+      • birim landed = birim_fob * (1 + yüzde/100)
       • paçal = tüm partilerdeki landed/fob değerlerinin adet-ağırlıklı ortalaması
       • son   = en yeni TARİHLİ dosyadaki landed/fob (aynı dosyada birden çok kalem varsa
                 o dosya içinde adet-ağırlıklı ortalama)
@@ -542,12 +571,13 @@ def get_sku_maliyet_ozet():
             by_dosya.setdefault(k.get("dosya_id"), []).append(k)
         # Her dosyanın masraf yüzdesi (NET üzerinden) + indirim oranı + tarihi
         dosya_map = {d.get("id"): d for d in dosyalar}
-        dosya_yuzde = {}
+        dosya_yuzde = {}       # {dosya_id: {kategori: yuzde, "__vars__": ortalama}}
         dosya_indirim_orani = {}  # indirim / brüt mal bedeli (0..1)
         dosya_tarih = {}
         for did, ks in by_dosya.items():
             _h = dosya_hesapla(dosya_map.get(did, {}), ks)
-            dosya_yuzde[did] = _h.get("maliyet_yuzde", 0.0)
+            # Kategori bazlı oran haritası — çoklu dosyada her kategori kendi oranını alır
+            dosya_yuzde[did] = kategori_yuzde_map(dosya_map.get(did, {}), ks)
             _brut = _h.get("mal_bedeli", 0.0)
             dosya_indirim_orani[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
             dosya_tarih[did] = str((dosya_map.get(did, {}) or {}).get("tarih") or "")[:10]
@@ -563,7 +593,7 @@ def get_sku_maliyet_ozet():
             if adet <= 0:
                 continue
             did = k.get("dosya_id")
-            yuzde = dosya_yuzde.get(did, 0.0)
+            yuzde = kalem_yuzde(dosya_yuzde.get(did), k)   # kalemin KENDİ kategorisi
             final = fob * (1 + yuzde / 100.0)
             a = agg.setdefault(sku, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0, "dosyalar": set()})
             a["fob_x"] += fob * adet
@@ -1331,7 +1361,7 @@ def get_sku_alim_detay(sku):
         dosya_yuzde, dosya_indirim = {}, {}
         for did, ks in by_dosya.items():
             _h = dosya_hesapla(dosyalar.get(did, {}), ks)
-            dosya_yuzde[did] = _h.get("maliyet_yuzde", 0.0)
+            dosya_yuzde[did] = kategori_yuzde_map(dosyalar.get(did, {}), ks)
             _brut = _h.get("mal_bedeli", 0.0)
             dosya_indirim[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
         out = []
@@ -1344,7 +1374,7 @@ def get_sku_alim_detay(sku):
             did = k.get("dosya_id")
             d = dosyalar.get(did, {})
             fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim.get(did, 0.0))
-            yuzde = dosya_yuzde.get(did, 0.0)
+            yuzde = kalem_yuzde(dosya_yuzde.get(did), k)   # kalemin KENDİ kategorisi
             out.append({
                 "tarih": str(d.get("teslim_tarihi") or d.get("tarih") or "")[:10],
                 "belge_no": d.get("pi_no") or d.get("dosya_no") or "",

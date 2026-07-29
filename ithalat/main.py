@@ -14,7 +14,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
-    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, ORTAK_GRUP, HACIM_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, get_kategoriler, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
+    ekle_dosya, guncelle_dosya, sil_dosya, dosya_hesapla, dosya_hesapla_coklu, dosya_coklu_mu, kategori_yuzde_map, kalem_yuzde, ORTAK_GRUP, HACIM_GRUP, parse_maliyet_coklu_sayfa, masraf_ve_atama_yaz, get_kategoriler, MASRAF_TANIM, MASRAF_ETIKET, masraf_dokumu, _masraf_dict, masraf_sifirla,
     set_dosya_takip_no, dagit_ortak_masraf, DURUM_SECENEKLER, VARSAYILAN_DURUM, IN_TRANSIT_DURUMLAR,
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
@@ -895,10 +895,13 @@ def _gecmis_ithalatlar():
         else:
             st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.5f}")
 
-        y = h["maliyet_yuzde"] / 100
+        # Kategori bazlı oran: çoklu dosyada her SKU kendi kategorisinin
+        # yüzdesini alır; dosya ortalaması artık her satıra uygulanmıyor.
+        _ymap = kategori_yuzde_map(d, kal)
         _ind_oran = (h.get("indirim", 0.0) / h["mal_bedeli"]) if h.get("mal_bedeli", 0) > 0 else 0.0
         krows = []
         for k in kal:
+            y = kalem_yuzde(_ymap, k) / 100
             adet = float(k.get("adet", 0) or 0)
             bf = float(k.get("birim_fob", 0) or 0) * (1 - _ind_oran)  # indirim sonrası NET birim FOB
             st_tutar = adet * bf
@@ -910,7 +913,8 @@ def _gecmis_ithalatlar():
                 "Satır Tutar": st_tutar,
                 "Dağıtılan Masraf": st_tutar * y,
                 "Final Birim Maliyet": bf * (1 + y),
-                "% Maliyet": h["maliyet_yuzde"],
+                "% Maliyet": y * 100,
+                "Kategori": (k.get("urun_grubu", "") or ""),
             })
         if _ind_oran > 0:
             st.caption(f"ℹ️ Fatura altı indirim (%{_ind_oran*100:.2f}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
@@ -1904,7 +1908,7 @@ def _model_sorgu():
         did = k.get("dosya_id")
         d = dosyalar.get(did, {})
         _h = dosya_hesapla(d, kalem_by_dosya.get(did, []))
-        y = _h["maliyet_yuzde"]
+        y = kalem_yuzde(kategori_yuzde_map(d, kalem_by_dosya.get(did, [])), k)
         _ior = (_h.get("indirim", 0.0) / _h["mal_bedeli"]) if _h.get("mal_bedeli", 0) > 0 else 0.0
         bf = float(k.get("birim_fob", 0) or 0) * (1 - _ior)  # indirim sonrası NET birim FOB
         adet = float(k.get("adet", 0) or 0)
