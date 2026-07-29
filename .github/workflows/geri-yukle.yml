@@ -2,22 +2,13 @@ name: Silinen İthalatı Geri Yükle
 
 # Elle çalışır. VARSAYILAN KURU ÇALIŞMA — hiçbir şey yazmaz, ne yapacağını gösterir.
 # Yazması için "onay" alanına tam olarak EVET yaz.
-# mod=eksikler seçilirse SALT OKUNUR ölçüm yapar: yedekte olup canlıda olmayan dosyaları listeler.
 on:
   workflow_dispatch:
     inputs:
-      mod:
-        description: "Mod"
-        required: true
-        default: "geri_yukle"
-        type: choice
-        options:
-          - geri_yukle
-          - eksikler
       dosya_id:
-        description: "Geri yüklenecek ithalat_dosyalari.id (eksikler modunda boş bırak)"
-        required: false
-        default: ""
+        description: "Geri yüklenecek ithalat_dosyalari.id"
+        required: true
+        default: "573"
       onay:
         description: "Gerçekten yaz (EVET yazmazsan sadece gösterir)"
         required: true
@@ -26,13 +17,17 @@ on:
         description: "Kimlik yerine METİNLE ara (örn. MITAC veya 2025-14) — sadece listeler"
         required: false
         default: ""
+      sadece_kalem:
+        description: "Sadece kalemleri geri yükle (dosya duruyor, kalemleri silindi) — 1 yaz"
+        required: false
+        default: ""
       run_id:
         description: "Belirli bir yedek çalışması (boş bırak = en son başarılı)"
         required: false
         default: ""
 
 permissions:
-  actions: read        # yedek artifact'ını indirebilmek için
+  actions: read          # yedek artifact'ını indirebilmek için
   contents: read
 
 jobs:
@@ -72,8 +67,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           YEDEK_DIZIN: yedek
-          MOD: ${{ inputs.mod == 'eksikler' && 'eksikler' || '' }}
           DOSYA_ID: ${{ inputs.dosya_id }}
           ARA: ${{ inputs.ara }}
+          SADECE_KALEM: ${{ inputs.sadece_kalem }}
           ONAY: ${{ inputs.onay }}
         run: python otonom/geri_yukle.py
