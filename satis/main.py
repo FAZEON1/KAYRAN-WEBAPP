@@ -1776,50 +1776,6 @@ def run():
         if st.button("➕ Manuel İade Girişi", key="btn_sat_miade", use_container_width=True):
             _dlg_manuel_iade()
 
-        @st.dialog("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", width="large")
-        def _dlg_kanal_iade():
-            st.caption("Aslında satış olmayan (ör. tedarikçiden alınıp geri iade edilen) ama yanlışlıkla satış "
-                       "girilmiş kalemler için: seçtiğin kanalın **her satışına eşit bir iade** kaydı oluşturur; "
-                       "böylece o kanalın net cirosu ve kârı **sıfırlanır** (satış kaydı listede kalır, iade onu netler). "
-                       "⚠️ Bir kez çalıştır — tekrar çalıştırırsan mükerrer iade oluşur.")
-            _cev_satislar = get_satislar()
-            _kanal_sat = {}
-            for _s in (_cev_satislar or []):
-                _kn = (_s.get("kanal") or "").strip() or "—"
-                _kk = satir_kar(_s)
-                _o = _kanal_sat.setdefault(_kn, {"n": 0, "ciro": 0.0, "sat": []})
-                _o["n"] += 1
-                _o["ciro"] += _kk["ciro"]
-                _o["sat"].append((_s, _kk))
-            _cev_kanal = st.selectbox("Kanal (bu kanalın satışları iadeye çevrilecek)",
-                                      ["(Seç)"] + sorted(_kanal_sat.keys()), key="cev_kanal")
-            if _cev_kanal and not str(_cev_kanal).startswith("("):
-                _grp = _kanal_sat[_cev_kanal]
-                _mev_iade = sum(1 for _r in (get_iadeler() or [])
-                                if str(_r.get("kanal", "")).strip() == _cev_kanal)
-                st.info(f"**{_cev_kanal}** → {_grp['n']} satış · toplam ciro {_usd(_grp['ciro'])}. "
-                        f"Her satış için eşit iade oluşturulacak (net → ~0)."
-                        + (f"  ⚠️ Bu kanalda zaten {_mev_iade} iade kaydı var — tekrar çevirirsen mükerrer olur."
-                           if _mev_iade else ""))
-                _cev_onay = st.checkbox("Onaylıyorum — bu kanalın satışlarını iadeye çevir", key="cev_onay")
-                if st.button("🔄 İadeye Çevir", type="primary", disabled=not _cev_onay, key="cev_btn"):
-                    _cn = 0
-                    for _s, _kk in _grp["sat"]:
-                        _adet = int(_kk["adet"]) if _kk["adet"] else 0
-                        if _adet <= 0:
-                            continue
-                        _ok, _ = ekle_iade(str(_s.get("tarih", ""))[:10], _cev_kanal,
-                                           _s.get("sku", "") or "", _s.get("urun_adi", "") or "",
-                                           _adet, iade_net=_kk["ciro"])
-                        if _ok:
-                            _cn += 1
-                    st.cache_data.clear()
-                    st.success(f"✅ {_cn} satış için iade oluşturuldu. '{_cev_kanal}' kanalı net ciro/kârda ~0'a indi.")
-                    st.cache_data.clear()
-                    st.rerun()
-        if st.button("🔄 Bir kanalın satışlarını İADE'ye çevir (net'te sıfırlar)", key="btn_sat_kiade", use_container_width=True):
-            _dlg_kanal_iade()
-
         @st.dialog("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", width="large")
         def _dlg_toplu_iade():
             st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
