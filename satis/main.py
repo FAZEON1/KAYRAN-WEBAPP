@@ -16,6 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
+    iade_manuel_donem, iade_fark_plani,
 )
 
 
@@ -1742,6 +1743,8 @@ def run():
         st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
                    "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
 
+        _IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+
         @st.dialog("➕ Manuel İade Girişi", width="large")
         def _dlg_manuel_iade():
             ig1, ig2, ig3 = st.columns(3)
@@ -1749,17 +1752,23 @@ def run():
                                       min_value=date(2024, 1, 1), max_value=date.today())
             _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
             _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
-            ig4, ig5, ig6 = st.columns(3)
+            ig4, ig5, ig6, ig7 = st.columns(4)
             _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")
             _i_adet = ig5.number_input("İade adet", min_value=1, step=1, value=1, key="iade_adet_g")
             _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.2f", key="iade_net_g")
+            _i_depo = ig7.selectbox("Giren depo", _IADE_DEPOLAR, key="iade_depo_g",
+                                    help="Mal fiziksel olarak hangi depoya girdiyse onu seç — "
+                                         "stok o depoya eklenir.")
+            st.caption("Bu kayıt **manuel** işaretlenir; ay sonu toplu yüklemede "
+                       "mükerrer sayılmaz, avans olarak düşülür.")
             if st.button("💾 İadeyi Kaydet", type="primary", key="iade_kaydet"):
                 if not _i_sku.strip():
                     st.error("SKU zorunludur.")
                 else:
                     _k = "" if str(_i_kanal).startswith("(") else _i_kanal
                     _ok, _msg = ekle_iade(str(_i_tarih)[:10], _k, _i_sku.strip(), _i_ad.strip(),
-                                          int(_i_adet), iade_net=float(_i_net))
+                                          int(_i_adet), iade_net=float(_i_net),
+                                          depo=_i_depo, kaynak="manuel")
                     (st.success if _ok else st.error)(_msg)
                     if _ok:
                         st.cache_data.clear()
@@ -1879,11 +1888,42 @@ def run():
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
                         "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
                     } for x in _ie_satir[:200]])), use_container_width=True, hide_index=True)
+                    # ── MANUEL AVANS MUTABAKATI ──
+                    _man = iade_manuel_donem(str(_ie_bas)[:10], str(_ie_bit)[:10])
+                    _plan, _uyus = iade_fark_plani(_ie_satir, _man)
+                    if _man:
+                        _mtop = sum(v["adet"] for v in _man.values())
+                        st.info(f"🔁 Bu dönemde **{len(_man)} kalemde {_mtop:,} adet** manuel iade "
+                                f"zaten girilmiş. Aşağıdaki tabloda yalnız **fark** yazılacak.")
+                        _onizle = [{
+                            "SKU": p["sku"], "Cari": (p.get("kanal") or "")[:24],
+                            "Excel": p["_excel_adet"], "Manuel": p["_manuel_adet"],
+                            "Yazılacak": p["iade_adet"],
+                            "Depo": p.get("depo") or "(varsayılan)",
+                        } for p in _plan if p["_manuel_adet"]]
+                        if _onizle:
+                            st.dataframe(pd.DataFrame(_onizle), use_container_width=True,
+                                         hide_index=True)
+                    if _uyus:
+                        st.warning("⚠️ **Excel manuel girişten az** — bu kalemler yazılmayacak, "
+                                   "elle kontrol et:\n\n"
+                                   + "\n".join(f"- `{u['sku']}` / {u['kanal']}: manuel **{u['manuel']}**, "
+                                                f"Excel **{u['excel']}**" for u in _uyus))
+                    _ie_depo = st.selectbox(
+                        "Manuel eşleşmesi olmayan satırlar hangi depoya girsin?",
+                        _IADE_DEPOLAR, key="iade_excel_depo",
+                        help="Excel'de depo bilgisi yok. Manuel karşılığı olan satırlar "
+                             "kendi deposunu korur; kalanlar buraya yazılır.")
+                    _yaz_adet = sum(p["iade_adet"] for p in _plan)
+                    st.caption(f"Yazılacak: **{len(_plan)} satır · {_yaz_adet:,} adet** "
+                               f"(Excel toplamı {_tadet:,})")
+
                     if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
-                                 disabled=not (_cak_onay and _trh_onay)):
-                        _r = ice_aktar_iadeler(_ie_satir, str(_ie_tarih)[:10],
+                                 disabled=not (_cak_onay and _trh_onay) or not _plan):
+                        _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10],
                                                temizle_once=_ie_temizle,
-                                               donem_bas=str(_ie_bas)[:10])
+                                               donem_bas=str(_ie_bas)[:10],
+                                               varsayilan_depo=_ie_depo)
                         if _r.get("hata"):
                             st.error(f"Hata: {_r['hata']}")
                         else:

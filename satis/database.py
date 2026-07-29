@@ -838,17 +838,32 @@ def siparis_no_var_mi(sipno):
 
 # ── İADELER · satışı bozmadan ayrı tutulur; rapor Satış / İade / Net ─────────
 def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
-              iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0):
+              iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0,
+              depo=None, kaynak="manuel"):
+    """Tek iade kaydı. depo: malın fiziksel olarak girdiği depo.
+
+    Eskiden iade her zaman MERKEZ DEPO'ya yazılıyordu; mal başka depoya
+    girdiyse stok kırılımı yanlış oluyordu. Artık seçilen depoya işlenir.
+    kaynak='manuel' → ay sonu toplu import bu satırı 'avans' sayıp mükerrer yazmaz.
+    """
     try:
-        _get_client().table("iadeler").insert({
+        _depo = (str(depo or "").strip() or "MERKEZ DEPO")
+        _kayit = {
             "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": (sku or "").strip(),
             "urun_adi": urun_adi or "", "iade_adet": _i(iade_adet),
             "iade_brut": _f(iade_brut), "iade_iskonto": _f(iade_iskonto),
             "iade_masraf": _f(iade_masraf), "iade_net": _f(iade_net),
-        }).execute()
-        _stok_uygula({(sku or "").strip(): _i(iade_adet)}, +1, "iade")   # MODEL B: iade stoğa döner
+            "depo": _depo, "kaynak": (kaynak or "manuel"),
+        }
+        try:
+            _get_client().table("iadeler").insert(_kayit).execute()
+        except Exception:
+            # depo/kaynak kolonları henüz eklenmemişse eski biçimde yaz
+            _get_client().table("iadeler").insert(
+                {k: v for k, v in _kayit.items() if k not in ("depo", "kaynak")}).execute()
+        _stok_uygula_depolu([((sku or "").strip(), _i(iade_adet), _depo)], yon=+1)
         _temizle()
-        return True, "✅ İade kaydedildi"
+        return True, f"✅ İade kaydedildi → {_depo}"
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}"
 
@@ -870,10 +885,16 @@ def get_iadeler(baslangic=None, bitis=None):
 def sil_iade(iade_id):
     try:
         cli = _get_client()
-        _r = _rows(cli.table("iadeler").select("sku,iade_adet").eq("id", iade_id).execute())
+        try:
+            _r = _rows(cli.table("iadeler").select("sku,iade_adet,depo").eq("id", iade_id).execute())
+        except Exception:
+            _r = _rows(cli.table("iadeler").select("sku,iade_adet").eq("id", iade_id).execute())
         cli.table("iadeler").delete().eq("id", iade_id).execute()
         if _r:
-            _stok_uygula(_satis_agg(_r, "iade_adet"), -1, "iade_sil")   # MODEL B
+            # Girdiği depodan geri al — eskiden hep merkezden düşülüyordu
+            _stok_uygula_depolu(
+                [(x.get("sku"), _i(x.get("iade_adet")), x.get("depo") or "MERKEZ DEPO")
+                 for x in _r], yon=-1)
         _temizle()
         return True
     except Exception:
@@ -894,12 +915,16 @@ def get_iade_partileri():
     Dönem kilidi/çakışma kontrolü bu listeyle yapılır."""
     try:
         rows = _rows(_get_client().table("iadeler")
-                     .select("tarih, iade_adet, donem_bas, donem_bit").execute())
+                     .select("tarih, iade_adet, donem_bas, donem_bit, kaynak").execute())
     except Exception:
-        try:  # donem kolonları henüz eklenmemiş olabilir
+        try:  # donem/kaynak kolonları henüz eklenmemiş olabilir
             rows = _rows(_get_client().table("iadeler").select("tarih, iade_adet").execute())
         except Exception:
             return []
+    # MANUEL satırlar parti sayılmaz: ay içinde tek tek girilen iadeler bir
+    # dönem partisi değil, o dönemin avansıdır. Parti sayılsalardı ay sonu
+    # Excel'i her seferinde "çakışma var" uyarısı alırdı.
+    rows = [r for r in rows if str(r.get("kaynak") or "excel").strip().lower() != "manuel"]
     part = {}
     for r in rows:
         t = str(r.get("tarih") or "")[:10]
@@ -936,17 +961,94 @@ def iade_cakisma_bul(yeni_bas, yeni_bit, temizlenecek_tarih=None):
     return cakisan
 
 
-def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None):
-    """satirlar: [{sku, urun_adi, kanal, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net}].
+def iade_manuel_donem(donem_bas, donem_bit):
+    """Bir dönemdeki MANUEL iadeleri {(sku_anahtar, kanal): {adet, depo}} olarak döner.
+    Ay sonu toplu import bununla karşılaştırıp yalnız FARKI yazar."""
+    try:
+        from shared.utils import sku_anahtar as _skn
+    except Exception:
+        _skn = lambda x: str(x or "").strip().upper()
+    try:
+        q = _get_client().table("iadeler").select("sku,kanal,iade_adet,depo,kaynak,tarih")
+        if donem_bas:
+            q = q.gte("tarih", str(donem_bas)[:10])
+        if donem_bit:
+            q = q.lte("tarih", str(donem_bit)[:10])
+        rows = _rows(q.execute())
+    except Exception:
+        return {}
+    out = {}
+    for r in rows:
+        if str(r.get("kaynak") or "excel").strip().lower() != "manuel":
+            continue
+        anahtar = (_skn(r.get("sku")), str(r.get("kanal") or "").strip().upper())
+        d = out.setdefault(anahtar, {"adet": 0, "depo": None})
+        d["adet"] += _i(r.get("iade_adet"))
+        if not d["depo"]:
+            d["depo"] = (r.get("depo") or "").strip() or None
+    return out
+
+
+def iade_fark_plani(satirlar, manuel_ozet):
+    """Excel satırları ile manuel avansları karşılaştırıp yazılacak farkı çıkarır.
+
+    Döner: (plan, uyusmazlik)
+      plan         : [{...satir, iade_adet: FARK, depo: miras/None, _excel_adet, _manuel_adet}]
+      uyusmazlik   : [{sku, kanal, manuel, excel}]  ← Excel manuelden AZ olanlar
+    Tutarlar (brüt/iskonto/masraf/net) adet oranında ölçeklenir.
+    """
+    try:
+        from shared.utils import sku_anahtar as _skn
+    except Exception:
+        _skn = lambda x: str(x or "").strip().upper()
+    plan, uyusmazlik = [], []
+    for s in (satirlar or []):
+        sku = str(s.get("sku") or "").strip()
+        excel_adet = _i(s.get("iade_adet"))
+        if not sku or excel_adet <= 0:
+            continue
+        anahtar = (_skn(sku), str(s.get("kanal") or "").strip().upper())
+        m = manuel_ozet.get(anahtar) or {}
+        manuel_adet = _i(m.get("adet"))
+        fark = excel_adet - manuel_adet
+        if manuel_adet and fark < 0:
+            uyusmazlik.append({"sku": sku, "kanal": s.get("kanal") or "",
+                               "manuel": manuel_adet, "excel": excel_adet})
+            continue                      # eksiye yazmıyoruz; kararı kullanıcı verir
+        if fark == 0:
+            continue                      # tamamı manuel girilmiş → atla
+        oran = (fark / excel_adet) if excel_adet else 1.0
+        yeni = dict(s)
+        yeni["iade_adet"] = fark
+        for _alan in ("iade_brut", "iade_iskonto", "iade_masraf", "iade_net"):
+            yeni[_alan] = round(_f(s.get(_alan)) * oran, 2)
+        yeni["depo"] = m.get("depo")      # manuel eşleşme varsa deposunu miras al
+        yeni["_excel_adet"] = excel_adet
+        yeni["_manuel_adet"] = manuel_adet
+        plan.append(yeni)
+    return plan, uyusmazlik
+
+
+def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
+                      varsayilan_depo="MERKEZ DEPO"):
+    """satirlar: [{sku, urun_adi, kanal, iade_adet, ..., depo?}].
     tarih: dönem tarihi (hepsine yazılır). temizle_once: aynı tarihli iadeleri önce siler.
+    varsayilan_depo: satırda depo yoksa kullanılır (Excel'de depo bilgisi olmaz).
+    Satırlar kaynak='excel' yazılır; manuel avanslar iade_fark_plani ile önceden düşülür.
     Döner: {eklendi, atlandi}."""
     try:
         cli = _get_client()
         if temizle_once and tarih:
             try:  # MODEL B: silinecek iadelerin stok karşılığını geri çek
-                _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet")
-                                .eq("tarih", str(tarih)[:10]).execute())
-                _stok_uygula(_satis_agg(_eski_i, "iade_adet"), -1, "iade_temizle")
+                try:
+                    _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet,depo")
+                                    .eq("tarih", str(tarih)[:10]).execute())
+                except Exception:
+                    _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet")
+                                    .eq("tarih", str(tarih)[:10]).execute())
+                _stok_uygula_depolu(
+                    [(x.get("sku"), _i(x.get("iade_adet")), x.get("depo") or "MERKEZ DEPO")
+                     for x in _eski_i], yon=-1)
             except Exception:
                 pass
             cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
@@ -965,25 +1067,29 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None):
                 "iade_net": _f(s.get("iade_net")),
                 "donem_bas": str(donem_bas)[:10] if donem_bas else None,
                 "donem_bit": str(tarih)[:10],
+                "depo": (str(s.get("depo") or "").strip() or varsayilan_depo or "MERKEZ DEPO"),
+                "kaynak": "excel",
             })
         eklendi = 0
         _donemsiz = None  # donem kolonları DB'de yoksa: bir kez soyup tekrar dene
         for i in range(0, len(rows), 500):
             chunk = rows[i:i + 500]
+            _soy = ("donem_bas", "donem_bit", "depo", "kaynak")
             if _donemsiz:
-                chunk = [{k: v for k, v in r.items() if k not in ("donem_bas", "donem_bit")}
-                         for r in chunk]
+                chunk = [{k: v for k, v in r.items() if k not in _soy} for r in chunk]
             try:
                 cli.table("iadeler").insert(chunk).execute()
             except Exception:
                 if _donemsiz:
                     raise
-                _donemsiz = True  # kolonlar yok → dönemsiz yaz (davranış eskisi gibi)
-                chunk = [{k: v for k, v in r.items() if k not in ("donem_bas", "donem_bit")}
-                         for r in chunk]
+                _donemsiz = True  # kolonlar yok → soyup yaz (davranış eskisi gibi)
+                chunk = [{k: v for k, v in r.items() if k not in _soy} for r in chunk]
                 cli.table("iadeler").insert(chunk).execute()
             eklendi += len(chunk)
-        _stok_uygula(_satis_agg(rows[:eklendi], "iade_adet"), +1, "iade_import")   # MODEL B
+        # MODEL B: iade stoğa döner — her satır KENDİ deposuna
+        _stok_uygula_depolu(
+            [(r["sku"], _i(r.get("iade_adet")), r.get("depo") or varsayilan_depo)
+             for r in rows[:eklendi]], yon=+1)
         _temizle()
         return {"eklendi": eklendi, "atlandi": atlandi}
     except Exception as e:
