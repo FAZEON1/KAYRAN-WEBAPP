@@ -1146,7 +1146,20 @@ def run():
                     _alinan_usd = 0.0
 
             _hav_g = 0.0   # HAVUZ KALDIRILDI (27.07.2026) — kâra girmez
-            _ref_g = _ref_usd if (_ref_usd > 0.005 and not _p_filtreli) else 0.0
+            # Kategori filtresi açıkken Ref No desteğinin O KATEGORİYE düşen payı
+            # kullanılır. Dağıtılmamış (çok kategorili, tutarı bölünmemiş) kayıtlar
+            # GENEL'de kalır ve merdivende ayrıca raporlanır.
+            _ref_kat, _ref_dagitilmayan = 0.0, []
+            if _p_kat_f != "Tümü":
+                try:
+                    from kayranpm.ref_no import ref_destek_kirilim_usd
+                    _rk = ref_destek_kirilim_usd(_pbas, _pbit)
+                    _ref_kat = float(_rk["kategori"].get(_p_kat_f.strip().upper(), 0.0))
+                    _ref_dagitilmayan = _rk.get("dagitilmayan") or []
+                except Exception:
+                    _ref_kat, _ref_dagitilmayan = 0.0, []
+            _ref_g = (_ref_kat if _p_kat_f != "Tümü"
+                      else (_ref_usd if (_ref_usd > 0.005 and not _p_filtreli) else 0.0))
             _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd + _kat_destek_f
             _nihai_marj = (_nihai / _net_satis * 100) if _net_satis > 0 else 0.0
             _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
@@ -1199,14 +1212,19 @@ def run():
             _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
             _adim += _mrd("Brüt Kâr", _usd(_net_kar), "=", "ara", _brut_marj)
             if _ref_g:
-                _adim += _mrd("Ref No desteği (dönem)", "− " + _usd(_ref_g), "−", "eksi")
+                _adim += _mrd(
+                    f"Ref No desteği — {_p_kat_f}" if _p_kat_f != "Tümü" else "Ref No desteği (dönem)",
+                    "− " + _usd(_ref_g), "−", "eksi")
             if _alinan_usd > 0.005:
                 _adim += _mrd("Alınan destek (gelir)", "+ " + _usd(_alinan_usd), "+", "arti")
             if _kat_destek_f > 0.005:
                 _adim += _mrd(f"Alınan destek — {_p_kat_f}", "+ " + _usd(_kat_destek_f), "+", "arti")
-            if _p_filtreli and _ref_usd > 0.005:
-                # Sessizce yok saymak yerine neden hariç olduğunu söyle
-                _adim += _mrd("Ref No desteği (firma geneli — filtreye bölünemez)",
+            if _p_kat_f != "Tümü" and _ref_dagitilmayan:
+                _dt = sum(float(x.get("usd") or 0) for x in _ref_dagitilmayan)
+                _adim += _mrd(f"Dağıtılmamış Ref No desteği ({len(_ref_dagitilmayan)} kayıt)",
+                              "hariç " + _usd(_dt), "•", "eksi")
+            elif _p_kanal_f != "Tümü" and _p_kat_f == "Tümü" and _ref_usd > 0.005:
+                _adim += _mrd("Ref No desteği (firma geneli — kanala bölünemez)",
                               "hariç " + _usd(_ref_usd), "•", "eksi")
             _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
 
