@@ -783,6 +783,12 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
 # Üstünde st.dataframe kalır: orada satırlar sanallaştırıldığı için DOM şişmez.
 SIRALANABILIR_SINIR = 3000
 
+# Her tabloya benzersiz kimlik: st.html iframe DEĞİL, sayfaya doğrudan yazıyor.
+# Sabit id kullanılsa aynı sayfadaki tablolar birbirinin CSS'ini ve scriptini
+# ezerdi. Bu sayaç her çizimde artar.
+import itertools as _it
+_TABLO_SAYAC = _it.count(1)
+
 
 def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
                  satir_yuksekligi=None, maks_yukseklik=520, kap=None):
@@ -809,31 +815,30 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
     _pad = "10px 12px" if _acik else "6px 11px"
     _sy = satir_yuksekligi or (38 if _acik else 30)
 
+    _id = f"kt{next(_TABLO_SAYAC)}"
     _css = f"""<style>
-*{{box-sizing:border-box}}
-body{{margin:0;background:transparent;font-family:Inter,-apple-system,sans-serif}}
-.w{{{'' if _acik else f'border:1px solid {R["kenar"]};border-radius:10px;'}overflow:auto}}
-table{{width:100%;border-collapse:collapse{'' if _acik else f';background:{R["yuzey1"]}'}}}
-th{{font-size:{F["kucuk"]};font-weight:{A["vurgu"]};white-space:nowrap;
+#{_id}{{{'' if _acik else f'border:1px solid {R["kenar"]};border-radius:10px;'}overflow:auto}}
+#{_id} table{{width:100%;border-collapse:collapse{'' if _acik else f';background:{R["yuzey1"]}'}}}
+#{_id} th{{font-size:{F["kucuk"]};font-weight:{A["vurgu"]};white-space:nowrap;
    position:sticky;top:0;z-index:1;cursor:pointer;user-select:none;
    {f'color:{R["silik"]};letter-spacing:.6px;text-transform:uppercase;padding:0 12px 8px;background:{R["yuzey0"]};border-bottom:1px solid {R["kenar2"]}'
      if _acik else
      f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}'}}}
-th:hover{{color:{R["metin"]}}}
-td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
+#{_id} th:hover{{color:{R["metin"]}}}
+#{_id} td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
    color:{R["metin"]};white-space:nowrap{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
-td.n{{text-align:right;font-family:{MONO};font-variant-numeric:tabular-nums}}
-td.neg{{color:{R["kirmizi"]}}}
-{'' if _acik else f'tbody tr:nth-child(even){{background:{R["yuzey2"]}}}'}
-tbody tr:hover{{background:{R["yuzey3"]}}}
-tfoot td{{font-weight:{A["baslik"]};border-top:1px solid {R["kenar2"]}
+#{_id} td.n{{text-align:right;font-family:{MONO};font-variant-numeric:tabular-nums}}
+#{_id} td.neg{{color:{R["kirmizi"]}}}
+{'' if _acik else f'#{_id} tbody tr:nth-child(even){{background:{R["yuzey2"]}}}'}
+#{_id} tbody tr:hover{{background:{R["yuzey3"]}}}
+#{_id} tfoot td{{font-weight:{A["baslik"]};border-top:1px solid {R["kenar2"]}
    {'' if _acik else f';background:{R["yuzey2"]}'}}}
-.rz{{display:inline-block;padding:2px 8px;border-radius:10px;font-size:{F["kucuk"]};
+#{_id} .rz{{display:inline-block;padding:2px 8px;border-radius:10px;font-size:{F["kucuk"]};
    font-family:{MONO};font-variant-numeric:tabular-nums;font-weight:{A["vurgu"]}}}
-.rp{{background:{R["yesil"]}22;color:{R["yesil"]}}}
-.rn{{background:{R["kirmizi"]}22;color:{R["kirmizi"]}}}
-.rt{{background:{R["mor"]}22;color:{R["mor"]}}}
-.ok{{opacity:.35;margin-left:5px}}
+#{_id} .rp{{background:{R["yesil"]}22;color:{R["yesil"]}}}
+#{_id} .rn{{background:{R["kirmizi"]}22;color:{R["kirmizi"]}}}
+#{_id} .rt{{background:{R["mor"]}22;color:{R["mor"]}}}
+#{_id} .ok{{opacity:.35;margin-left:5px}}
 </style>"""
 
     def _hucre(v, t, toplam):
@@ -872,13 +877,13 @@ tfoot td{{font-weight:{A["baslik"]};border-top:1px solid {R["kenar2"]}
 
     _yuk = min(maks_yukseklik, 46 + _sy * (len(satirlar) + 1) + 14)
     html = (_css
-            + f'<div class="w" style="max-height:{_yuk - 8}px">'
-            + f'<table id="t"><thead><tr>{bas_html}</tr></thead><tbody>'
+            + f'<div id="{_id}" style="max-height:{_yuk}px">'
+            + f'<table><thead><tr>{bas_html}</tr></thead><tbody>'
             + "".join(govde)
             + f'</tbody>{"<tfoot>" + toplam_tr + "</tfoot>" if toplam_tr else ""}'
             + '</table></div>'
-            '<script>'
-            'const t=document.getElementById("t");let y={};'
+            '<script>(function(){'
+            f'const t=document.querySelector("#{_id} table");if(!t)return;let y={{}};'
             't.querySelectorAll("th").forEach(h=>h.addEventListener("click",()=>{'
             ' const k=+h.dataset.k;y[k]=!y[k];const b=t.tBodies[0];'
             ' const r=[...b.rows];r.sort((p,q)=>{'
@@ -891,5 +896,9 @@ tfoot td{{font-weight:{A["baslik"]};border-top:1px solid {R["kenar2"]}
             ' t.querySelectorAll("th .ok").forEach(o=>{o.textContent="↕";o.style.opacity=".35"});'
             ' const o=h.querySelector(".ok");o.textContent=y[k]?"↑":"↓";o.style.opacity="1";'
             '}));'
-            '</script>')
-    _k.html(html, height=_yuk, scrolling=False)
+            '})();</script>')
+    # st.html: iframe DEĞİL, sayfaya doğrudan yazar → sabit yükseklik gerekmez,
+    # iç içe kaydırma çubuğu olmaz. components.v1.html(height=...) ile KARIŞTIRMA:
+    # st.html'in height parametresi YOKTUR, verilirse TypeError atar ve
+    # çağıran taraftaki except onu yutup tabloyu sessizce native çizer.
+    _k.html(html, unsafe_allow_javascript=True)
