@@ -6,7 +6,7 @@ import io
 import pandas as pd
 import streamlit as st
 
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit, gun_ay_yil
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, Zamanlayici, secim_serit, gun_ay_yil
 from shared.tarih import hizli_tarih_araligi
 from kayranpm.ref_no import havuz_destek_donem
 from .database import (
@@ -1037,13 +1037,17 @@ def run():
                         ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
                     unsafe_allow_html=True)
 
-        satislar = get_satislar(_pbas, _pbit)
+        # ── ÖLÇÜM (sadece ibrahim) — hiçbir hesaba dokunmaz ──
+        _z = Zamanlayici(aktif=(str(aktif_kullanici or "").strip().lower() == "ibrahim"))
+        with _z("1 · veri çekimi (get_satislar)"):
+            satislar = get_satislar(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
             # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
             from satis.database import get_sku_kategori as _gsk
-            _pkatmap = _gsk()
+            with _z("2 · kategori haritası"):
+                _pkatmap = _gsk()
             _pf1, _pf2 = st.columns(2)
             _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
                                   if (s.get("kanal") or "").strip()})
@@ -1062,8 +1066,10 @@ def run():
                 st.info("Bu filtrede satış yok.")
                 st.stop()
 
-            top, kanal, urun = ozet_hesapla(satislar)
-            _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
+            with _z("3 · toplama (ozet_hesapla)"):
+                top, kanal, urun = ozet_hesapla(satislar)
+            with _z("4 · iade özeti"):
+                _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
             _ikan = iade_kanal_ozet(_pbas, _pbit)
             _sku_iade = {r["sku"]: r for r in _isat}
             if _p_filtreli:
@@ -1141,7 +1147,8 @@ def run():
             if not _p_filtreli:
                 try:
                     from kayranpm.ref_no import alinan_destek_aralik_usd
-                    _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
+                    with _z("5 · alınan destek"):
+                        _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
                 except Exception:
                     _alinan_usd = 0.0
 
@@ -1637,6 +1644,8 @@ def run():
                             st.rerun()
             if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
                 _dlg_maliyet_fix()
+
+            _z.ciz()   # ölçüm paneli — sayfanın en altında, kapalı başlar
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":

@@ -247,6 +247,76 @@ def _css1(m):
     return css_tek_satir(m)
 
 
+class Zamanlayici:
+    """SIFIR RİSKLİ ölçüm aracı — hiçbir hesabı değiştirmez, yalnız süre biriktirir.
+
+    Kullanım:
+        _z = Zamanlayici(aktif=(kullanici == "ibrahim"))
+        with _z("veri çekimi"):
+            satislar = get_satislar(bas, bit)
+        ...
+        _z.ciz()          # en sonda tabloyu yazar
+
+    aktif=False iken bağlam yöneticisi hiçbir şey yapmaz; ölçüm kapalıyken
+    ek maliyeti yoktur. Panel yalnız ölçüm açıkken ve kayıt varsa çizilir.
+    """
+
+    def __init__(self, aktif=True):
+        import time as _t
+        self.aktif = bool(aktif)
+        self.kayitlar = []
+        self.bas = _t.perf_counter()
+
+    def __call__(self, ad):
+        import contextlib
+        import time as _t
+        if not self.aktif:
+            return contextlib.nullcontext()
+        kayitlar = self.kayitlar
+
+        @contextlib.contextmanager
+        def _olc():
+            _b = _t.perf_counter()
+            try:
+                yield
+            finally:
+                kayitlar.append((ad, (_t.perf_counter() - _b) * 1000.0))
+        return _olc()
+
+    def ciz(self, baslik="⏱ Zamanlama"):
+        if not self.aktif or not self.kayitlar:
+            return
+        import time as _t
+        _duvar = (_t.perf_counter() - self.bas) * 1000.0
+        _olculen = sum(v for _, v in self.kayitlar)
+        # Ölçülmeyen kalan = ekran çizimi, döngüler, Streamlit ek yükü.
+        # Bunu göstermeden toplam yanıltıcı olur.
+        _kalem = list(self.kayitlar) + [("· ölçülmeyen (çizim + döngüler)",
+                                         max(0.0, _duvar - _olculen))]
+        _top = max(_duvar, _olculen)
+        with st.expander(f"{baslik} — sayfa {_top:,.0f} ms", expanded=False):
+            _en = max((v for _, v in _kalem), default=1) or 1
+            _satir = []
+            for ad, v in _kalem:
+                _w = max(2, int(v / _en * 100))
+                _renk = "#F87171" if v >= _top * 0.35 else (
+                        "#FBBF24" if v >= _top * 0.15 else "#34D399")
+                _satir.append(
+                    f'<div style="display:flex;align-items:center;gap:8px;margin:3px 0">'
+                    f'<div style="width:190px;font-size:12px;color:#94A3B8">{ad}</div>'
+                    f'<div style="flex:1;height:6px;background:rgba(255,255,255,0.05);'
+                    f'border-radius:3px;overflow:hidden">'
+                    f'<div style="height:6px;width:{_w}%;background:{_renk}"></div></div>'
+                    f'<div style="width:74px;text-align:right;font-size:12px;'
+                    f'font-family:JetBrains Mono,monospace;color:{_renk}">'
+                    f'{v:,.0f} ms</div>'
+                    f'<div style="width:44px;text-align:right;font-size:11px;color:#7B8AA0">'
+                    f'%{v / _top * 100:.0f}</div></div>')
+            st.markdown("".join(_satir), unsafe_allow_html=True)
+            st.caption("Kırmızı = en pahalı aşama. Bu panel yalnız ölçüm için; "
+                       "hiçbir hesaba dokunmaz, kapatılınca ek maliyeti kalmaz.")
+
+
 def secim_serit(etiket, secenekler, index=0, key=None, help=None,
                 label_visibility="visible", format_func=None, on_change=None,
                 bos_izin=False):
