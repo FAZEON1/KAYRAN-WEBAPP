@@ -130,7 +130,7 @@ def _html_uygun_mu(data, kw):
             df = _pd.DataFrame(list(data))
         else:
             return None                   # dizi/dict/None → native
-        if len(df) == 0 or len(df) > 150:
+        if len(df) == 0 or len(df) > 3000:
             return None                   # boş ya da uzun → native (sanallaştırma)
         for v in (kw.get("column_config") or {}).values():
             t = ((v or {}).get("type_config") or {}).get("type")
