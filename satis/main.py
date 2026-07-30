@@ -16,7 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
-    iade_manuel_donem, iade_fark_plani, get_satislar_yalin,
+    iade_manuel_donem, iade_fark_plani, get_satislar_yalin, SORGU_SAYAC,
 )
 
 
@@ -1097,7 +1097,8 @@ def run():
                 if _p_kat_f != "Tümü" and _p_kanal_f == "Tümü":
                     try:
                         from kayranpm.ref_no import alinan_destek_kirilim_usd
-                        _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
+                        with _z("5a · alınan destek kırılımı (kategori)"):
+                            _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
                         # ARTIK top["net_kar"]'a gizlice eklenmiyor. Eskiden öyleydi ve
                         # destek "Brüt Kâr"ın içinde kaybolduğu için merdivenin
                         # aritmetiği tutmuyordu (Net Ciro − COGS ≠ Brüt Kâr).
@@ -1162,7 +1163,8 @@ def run():
             if _p_kat_f != "Tümü":
                 try:
                     from kayranpm.ref_no import ref_destek_kirilim_usd
-                    _rk = ref_destek_kirilim_usd(_pbas, _pbit)
+                    with _z("5b · ref no destek kırılımı"):
+                        _rk = ref_destek_kirilim_usd(_pbas, _pbit)
                     _ref_kat = float(_rk["kategori"].get(_p_kat_f.strip().upper(), 0.0))
                     _ref_dagitilmayan = _rk.get("dagitilmayan") or []
                 except Exception:
@@ -1647,6 +1649,9 @@ def run():
             if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
                 _dlg_maliyet_fix()
 
+            if SORGU_SAYAC:
+                _z.not_ekle("🔁 Önbellek ıskası: " + " · ".join(
+                    f"**{k}** {v}×" for k, v in sorted(SORGU_SAYAC.items())))
             _z.ciz()   # ölçüm paneli — sayfanın en altında, kapalı başlar
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────

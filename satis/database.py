@@ -711,11 +711,21 @@ def get_satislar(baslangic=None, bitis=None):
 # olusturma_tarihi ve kampanya_id P&L'de HİÇ okunmuyor. Ölçüm get_satislar'ın
 # sayfanın %46'sını yediğini gösterdi (419 ms) — aktarılan baytı kısmak
 # doğrudan oraya vuruyor.
+# Önbellek teşhisi: bu sözlük yalnız GÖVDE çalıştığında artar, yani her artış
+# bir önbellek ISKASI demektir. Süreye bakarak ıska/isabet ayırmak yanıltıcı
+# oluyordu (ölçümler arasında TTL doluyor). Panel bunu okuyup yazıyor.
+SORGU_SAYAC = {}
+
+
+def _sayac(ad):
+    SORGU_SAYAC[ad] = SORGU_SAYAC.get(ad, 0) + 1
+
+
 _SATIS_KOLON = ("id,tarih,kanal,sku,urun_adi,adet,birim_satis,birim_maliyet,"
                 "birim_firma_destek,birim_ek_destek,siparis_no")
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
 def get_satislar_yalin(baslangic=None, bitis=None):
     """YALIN satış okuması — ekranların gerçekten okuduğu 11 kolon.
 
@@ -726,6 +736,7 @@ def get_satislar_yalin(baslangic=None, bitis=None):
 
     DİKKAT: yeni bir kolon okunmaya başlanırsa _PNL_KOLON'a eklenmeli.
     """
+    _sayac("satislar okuma")
     try:
         q = _get_client().table("satislar").select(_SATIS_KOLON)
         if baslangic:
@@ -1142,10 +1153,11 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
         return {"eklendi": 0, "atlandi": 0, "hata": f"{type(e).__name__}: {str(e)[:140]}"}
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
 def iade_satis_net_ozet(baslangic=None, bitis=None):
     """SKU bazında Satış / İade / Net özeti. İade kârı paçal maliyetinden hesaplanır.
     Döner: (satirlar:list, toplam:dict)."""
+    _sayac("iade özeti hesabı")
     pacal = get_pacal_map()
     sat = {}
     # YALIN okuma: burada da get_satislar_pnl kullanılıyor. Aksi halde P&L

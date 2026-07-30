@@ -283,6 +283,11 @@ class Zamanlayici:
                 kayitlar.append((ad, (_t.perf_counter() - _b) * 1000.0))
         return _olc()
 
+    def not_ekle(self, metin):
+        """Panelin altına serbest bir bilgi satırı ekler (sayaç gibi)."""
+        if self.aktif:
+            self.notlar = getattr(self, "notlar", []) + [str(metin)]
+
     def ciz(self, baslik="⏱ Zamanlama"):
         if not self.aktif or not self.kayitlar:
             return
@@ -313,8 +318,10 @@ class Zamanlayici:
                     f'<div style="width:44px;text-align:right;font-size:11px;color:#7B8AA0">'
                     f'%{v / _top * 100:.0f}</div></div>')
             st.markdown("".join(_satir), unsafe_allow_html=True)
-            st.caption("Kırmızı = en pahalı aşama. Bu panel yalnız ölçüm için; "
-                       "hiçbir hesaba dokunmaz, kapatılınca ek maliyeti kalmaz.")
+            for _n in getattr(self, "notlar", []):
+                st.caption(_n)
+            st.caption("Kırmızı = en pahalı aşama · sayaçtaki her artış bir önbellek "
+                       "ISKASI demektir (gövde çalıştı). Panel hiçbir hesaba dokunmaz.")
 
 
 def secim_serit(etiket, secenekler, index=0, key=None, help=None,
