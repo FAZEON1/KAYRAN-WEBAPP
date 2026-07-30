@@ -102,43 +102,66 @@ st.cache_data.clear = _akilli_cache_clear
 #         eksik kolonlar tamamlanır. st.data_editor'a DOKUNULMAZ — düzenleme
 #         alanlarında ham değer gerekir.
 # ─────────────────────────────────────────────────────────────────────
-_ORIJ_DATAFRAME = st.dataframe
+from streamlit.delta_generator import DeltaGenerator as _DG
+
+_ORIJ_DATAFRAME = _DG.dataframe
+_KOK_DG = st.dataframe.__self__          # modül seviyesindeki bağlı metodun nesnesi
+
+# Sıralanabilir HTML tabloya çevirmeyi ENGELLEYEN durumlar
+_OZEL_KOLON = ("link", "image", "progress", "bar_chart", "line_chart",
+               "area_chart", "button", "checkbox", "selectbox", "multiselect",
+               "json", "list", "markdown", "audio", "video")
 
 
-def _akilli_dataframe(data=None, *a, **kw):
-    """st.dataframe yerine geçer: eksik kolon biçimlerini otomatik tamamlar."""
+def _html_uygun_mu(data, kw):
+    """Muhafazakâr uygunluk testi. Şüphe varsa native st.dataframe kalır."""
+    if kw.get("on_select") or kw.get("key") or kw.get("column_order"):
+        return None                       # seçim/durum/kolon sırası → native
     try:
-        from shared.tasarim import otomatik_kolonlar
+        import pandas as _pd
+        # DİKKAT: `_pd.io.formats.style.Styler` YAZILAMAZ — alt modül ayrıca
+        # içe aktarılmadan AttributeError verir ve try onu yutup TÜM tabloları
+        # native'e düşürür. Sınıf adıyla test etmek güvenli.
+        if type(data).__name__ == "Styler":
+            return None                   # Styler → native
+        if isinstance(data, _pd.DataFrame):
+            df = data
+        elif isinstance(data, (list, tuple)) and data and isinstance(data[0], dict):
+            df = _pd.DataFrame(list(data))
+        else:
+            return None                   # dizi/dict/None → native
+        if len(df) == 0 or len(df) > 150:
+            return None                   # boş ya da uzun → native (sanallaştırma)
+        for v in (kw.get("column_config") or {}).values():
+            t = ((v or {}).get("type_config") or {}).get("type")
+            if t in _OZEL_KOLON:
+                return None               # özel kolon tipi → native
+        return df.where(_pd.notna(df), None).to_dict("records")
+    except Exception:
+        return None
+
+
+def _akilli_dataframe(self, data=None, *a, **kw):
+    """st.dataframe / kolon.dataframe yerine geçer.
+
+    KISA ve salt-okur tablolar → sıralanabilir HTML (tasarım kontrolü bizde).
+    UZUN, seçimli ya da özel kolonlu tablolar → native st.dataframe.
+    Her iki yolda da sayı biçimleri otomatik tamamlanır.
+    """
+    try:
+        from shared.tasarim import otomatik_kolonlar, tablo_sirali
+        kayitlar = _html_uygun_mu(data, kw)
+        if kayitlar is not None:
+            tablo_sirali(kayitlar, kap=self)
+            return None
         kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
     except Exception:
-        pass          # biçimlendirme başarısızsa tablo yine çizilsin
-    return _ORIJ_DATAFRAME(data, *a, **kw)
+        pass          # biçimlendirme/çeviri başarısızsa tablo yine çizilsin
+    return _ORIJ_DATAFRAME(self, data, *a, **kw)
 
 
-st.dataframe = _akilli_dataframe
-
-
-# st.dataframe kök nesneye BAĞLI bir metottur; onu değiştirmek
-# `kolon.dataframe(...)` / `konteyner.dataframe(...)` çağrılarını KAPSAMAZ —
-# onlar sınıf üzerinden çözülür. Programda 5 yerde `_bk.dataframe(...)` var
-# (Marka & Kategori kırılımı gibi) ve yalnız modül seviyesini sarmalamak
-# o tabloları ham bırakıyordu. Sınıfı da sarmalıyoruz.
-try:
-    from streamlit.delta_generator import DeltaGenerator as _DG
-
-    _ORIJ_DG_DATAFRAME = _DG.dataframe
-
-    def _dg_dataframe(self, data=None, *a, **kw):
-        try:
-            from shared.tasarim import otomatik_kolonlar
-            kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
-        except Exception:
-            pass
-        return _ORIJ_DG_DATAFRAME(self, data, *a, **kw)
-
-    _DG.dataframe = _dg_dataframe
-except Exception:
-    pass          # sınıf yapısı değişmişse modül seviyesi yine çalışır
+_DG.dataframe = _akilli_dataframe
+st.dataframe = _akilli_dataframe.__get__(_KOK_DG, _DG)
 
 
 # ─────────────────────────────────────────────────────────────────────

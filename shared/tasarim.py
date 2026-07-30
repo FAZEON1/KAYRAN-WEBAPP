@@ -766,3 +766,128 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
             + f'">'
             + f"<thead><tr>{_bas}</tr></thead><tbody>"
             + "".join(_govde) + "</tbody></table></div>")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. SIRALANABİLİR TABLO (components.html)
+#     st.markdown JS çalıştırmıyor (Streamlit sanitize eder), o yüzden
+#     başlığa tıklayıp sıralama için iframe şart.
+#
+#     BEDELİ: yükseklik sabit (satır sayısından hesaplanır) · CSV indirme
+#     düğmesi yok · her satır DOM'a çizilir, bu yüzden UZUN listeler için
+#     UYGUN DEĞİL — orada st.dataframe sanallaştırma yapıyor.
+#     Bu fonksiyon KISA özet tabloları içindir (varsayılan sınır 150 satır).
+# ═══════════════════════════════════════════════════════════════════
+
+SIRALANABILIR_SINIR = 150      # bu satırdan fazlasında st.dataframe kullanılmalı
+
+
+def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
+                 satir_yuksekligi=None, maks_yukseklik=520, kap=None):
+    """Başlığa tıklayınca sıralanan tablo. st.components.v1.html ile çizer.
+
+    Sıralama tamamen tarayıcıda olur — Streamlit'e gidip gelmez, anlıktır.
+    Toplam satırı (Σ) sıralamaya KATILMAZ, her zaman en altta kalır.
+    Sayısal kolonlar gerçek değere göre sıralanır (biçimli metne göre değil).
+    """
+    import streamlit as _st
+    # kap: hangi konteynere çizilecek (st, kolon, expander...). DeltaGenerator'ın
+    # kendi .html metodu kullanılır ki `with kolon:` dışından çağrılsa bile
+    # tablo doğru yere gitsin.
+    _k = kap if kap is not None else _st
+    if not satirlar:
+        _k.markdown(bos(" Gösterilecek veri yok."), unsafe_allow_html=True)
+        return
+    R, F, A = RENK, FONT, AGIRLIK
+    kolonlar = list(satirlar[0].keys())
+    tipler = {k: _tablo_kolon_tipi(k) for k in kolonlar}
+    _acik = stil in ("havadar", "rozet")
+    _rozet = (stil == "rozet")
+    _pad = "10px 12px" if _acik else "6px 11px"
+    _sy = satir_yuksekligi or (38 if _acik else 30)
+
+    def _hucre_html(v, t, toplam, cizgi):
+        if t == "para":
+            metin, sayi = _tr_para(v, birim), True
+        elif t == "adet":
+            metin, sayi = _tr_adet(v), True
+        elif t == "oran":
+            metin, sayi = _tr_oran(v), True
+        else:
+            metin, sayi = ("" if v is None else str(v)), False
+        try:
+            ham = float(v) if sayi else None
+        except (TypeError, ValueError):
+            ham = None
+        neg = bool(sayi and ham is not None and ham < 0)
+        _ds = f' data-s="{ham if ham is not None else metin}"'
+        if _rozet and t == "oran" and metin:
+            rc = R["mor"] if toplam else (R["kirmizi"] if neg else R["yesil"])
+            ic = (f'<span style="display:inline-block;padding:2px 8px;'
+                  f'border-radius:10px;background:{rc}22;color:{rc};'
+                  f'font-size:{F["kucuk"]};font-family:{MONO};'
+                  f'font-variant-numeric:tabular-nums;font-weight:{A["vurgu"]}">{metin}</span>')
+            return f'<td{_ds} style="text-align:right;padding:{_pad}{cizgi}">{ic}</td>'
+        renk = R["kirmizi"] if neg else R["metin"]
+        return (f'<td{_ds} style="text-align:{"right" if sayi else "left"};'
+                f'padding:{_pad};font-size:{F["govde"]};'
+                f'font-weight:{A["baslik"] if toplam else A["govde"]};'
+                f'color:{renk};white-space:nowrap{cizgi}'
+                + (f';font-family:{MONO};font-variant-numeric:tabular-nums' if sayi else "")
+                + f'">{metin}</td>')
+
+    if _acik:
+        bas_stil = (f'font-size:{F["kucuk"]};font-weight:{A["vurgu"]};color:{R["silik"]};'
+                    f'letter-spacing:.6px;text-transform:uppercase;padding:0 12px 8px;'
+                    f'border-bottom:1px solid {R["kenar2"]};background:{R["yuzey0"]}')
+    else:
+        bas_stil = (f'font-size:{F["kucuk"]};font-weight:{A["vurgu"]};color:{R["soluk"]};'
+                    f'letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};'
+                    f'border-bottom:1px solid {R["kenar2"]}')
+    bas = "".join(
+        f'<th data-k="{i}" style="text-align:{"right" if tipler[k] else "left"};'
+        f'{bas_stil};position:sticky;top:0;z-index:1;white-space:nowrap;'
+        f'cursor:pointer;user-select:none" title="sıralamak için tıkla">'
+        f'{k}<span class="ok" style="opacity:.35;margin-left:5px">↕</span></th>'
+        for i, k in enumerate(kolonlar))
+
+    govde, toplam_tr = [], ""
+    for i, r in enumerate(satirlar):
+        toplam = str(r.get(kolonlar[0], "") or "").strip().startswith(toplam_isaret)
+        if toplam:
+            ss = (f'border-top:1px solid {R["kenar2"]}' if _acik
+                  else f'background:{R["yuzey2"]};border-top:1px solid {R["kenar2"]}')
+        elif _acik:
+            ss = "background:transparent"
+        else:
+            ss = f'background:{R["yuzey2"] if i % 2 else "transparent"}'
+        cizgi = f';border-bottom:1px solid {R["kenar"]}' if (_acik and not toplam) else ""
+        tr = (f'<tr{" data-toplam=1" if toplam else ""} style="{ss}">'
+              + "".join(_hucre_html(r.get(k), tipler[k], toplam, cizgi) for k in kolonlar)
+              + "</tr>")
+        (toplam_tr := tr) if toplam else govde.append(tr)
+
+    cerceve = ("" if _acik else
+               f'border:1px solid {R["kenar"]};border-radius:10px;overflow:hidden')
+    _yuk = min(maks_yukseklik, 46 + _sy * (len(satirlar) + 1) + 14)
+    html = (f'<div style="{cerceve};overflow:auto;max-height:{_yuk - 8}px;'
+            f'font-family:Inter,-apple-system,sans-serif">'
+            f'<table id="t" style="width:100%;border-collapse:collapse'
+            + (f';background:{R["yuzey1"]}' if not _acik else "") + '">'
+            f'<thead><tr>{bas}</tr></thead><tbody>'
+            + "".join(govde) + f'</tbody><tfoot>{toplam_tr}</tfoot></table></div>'
+            '<script>'
+            'const t=document.getElementById("t");let yon={};'
+            't.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{'
+            ' const k=+th.dataset.k;yon[k]=!yon[k];'
+            ' const tb=t.tBodies[0];const r=[...tb.rows];'
+            ' r.sort((a,b)=>{const x=a.cells[k].dataset.s,y=b.cells[k].dataset.s;'
+            '  const nx=parseFloat(x),ny=parseFloat(y);'
+            '  const s=(!isNaN(nx)&&!isNaN(ny))?nx-ny:String(x).localeCompare(String(y),"tr");'
+            '  return yon[k]?s:-s;});'
+            ' r.forEach(x=>tb.appendChild(x));'
+            ' t.querySelectorAll("th .ok").forEach(o=>{o.textContent="↕";o.style.opacity=".35"});'
+            ' const o=th.querySelector(".ok");o.textContent=yon[k]?"↑":"↓";o.style.opacity="1";'
+            '}));'
+            '</script>')
+    _k.html(html, height=_yuk, scrolling=False)
