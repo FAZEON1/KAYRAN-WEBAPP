@@ -1084,7 +1084,7 @@ def run():
                 _itop = dict(_itop)
                 _itop["i_tutar"], _itop["i_kar"] = _fi_tutar, _fi_kar
                 st.caption(f"🔎 Filtre: **{_p_kanal_f}** · **{_p_kat_f}** — tüm kartlar ve kırılımlar bu filtreye göredir. "
-                           "(Ref No dönem destekleri firma-geneli olduğundan filtreli görünümde gizlenir.)")
+                           "(Ref No destekleri kategoriye dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.)")
                 # Kategori filtresi + kanal 'Tümü' → o kategorinin ALINAN desteği kâra dahil edilir
                 if _p_kat_f != "Tümü" and _p_kanal_f == "Tümü":
                     try:
@@ -1094,7 +1094,11 @@ def run():
                         # destek "Brüt Kâr"ın içinde kaybolduğu için merdivenin
                         # aritmetiği tutmuyordu (Net Ciro − COGS ≠ Brüt Kâr).
                         # Şimdi kendi satırı olarak merdivene giriyor.
-                        _kat_destek_f = float(_adk_f.get(_p_kat_f.strip().upper(), 0.0))
+                        # TÜRKÇE BÜYÜK HARF: "monitör".upper() → "MONITÖR"
+                        # (noktasız I) ama anahtar "MONİTÖR" (noktalı İ).
+                        # Python'ın upper()'ı Türkçe bilmez; _tr_upper kullanılmalı.
+                        from kayranpm.ref_no import _tr_upper as _tu
+                        _kat_destek_f = float(_adk_f.get(_tu(_p_kat_f.strip()), 0.0))
                     except Exception:
                         pass
             # Net (iade sonrası) ciro/kâr/marj — marj = kâr / (ciro − destek − iade)
@@ -1154,7 +1158,8 @@ def run():
                 try:
                     from kayranpm.ref_no import ref_destek_kirilim_usd
                     _rk = ref_destek_kirilim_usd(_pbas, _pbit)
-                    _ref_kat = float(_rk["kategori"].get(_p_kat_f.strip().upper(), 0.0))
+                    from kayranpm.ref_no import _tr_upper as _tu2
+                    _ref_kat = float(_rk["kategori"].get(_tu2(_p_kat_f.strip()), 0.0))
                     _ref_dagitilmayan = _rk.get("dagitilmayan") or []
                 except Exception:
                     _ref_kat, _ref_dagitilmayan = 0.0, []
