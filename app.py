@@ -91,6 +91,34 @@ st.cache_data.clear = _akilli_cache_clear
 
 
 # ─────────────────────────────────────────────────────────────────────
+# OTOMATİK TABLO BİÇİMİ (tek dosyalık optimizasyon — modüllere dokunmaz)
+#
+# SORUN : 74 st.dataframe çağrısının çoğu ham sayı gösteriyordu —
+#         596699.4595 · 36.9231 · 21813. Binlik ayraç yok, para birimi yok,
+#         sola yaslı, ve sayısal olmayan biçimlendirme yüzünden sıralama da
+#         alfabetik bozuluyordu.
+# ÇÖZÜM : st.dataframe sarmalanır; kolon adına göre biçim otomatik verilir.
+#         ELLE yazılmış column_config her zaman kazanır (ezilmez), yalnız
+#         eksik kolonlar tamamlanır. st.data_editor'a DOKUNULMAZ — düzenleme
+#         alanlarında ham değer gerekir.
+# ─────────────────────────────────────────────────────────────────────
+_ORIJ_DATAFRAME = st.dataframe
+
+
+def _akilli_dataframe(data=None, *a, **kw):
+    """st.dataframe yerine geçer: eksik kolon biçimlerini otomatik tamamlar."""
+    try:
+        from shared.tasarim import otomatik_kolonlar
+        kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
+    except Exception:
+        pass          # biçimlendirme başarısızsa tablo yine çizilsin
+    return _ORIJ_DATAFRAME(data, *a, **kw)
+
+
+st.dataframe = _akilli_dataframe
+
+
+# ─────────────────────────────────────────────────────────────────────
 # HAFİF SAYIM SORGULARI (ana sayfa rozetleri)
 #
 # SORUN : Ana sayfa, sadece bir SAYI göstermek için tüm tabloyu indiriyordu

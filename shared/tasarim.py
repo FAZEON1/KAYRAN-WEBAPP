@@ -539,3 +539,89 @@ def tablo_kolonlari(df, para="dollar", ekstra=None):
     if ekstra:
         cfg.update(ekstra)
     return cfg
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 8. OTOMATİK TABLO BİÇİMİ
+#    st.dataframe app.py'de sarmalanır; bu fonksiyon her tabloya
+#    kolon adına göre biçim verir. Böylece 74 tablo tek yerden düzelir.
+#
+#    Ham hali: 596699.4595 · 36.9231 · 21813
+#    Biçimli : $596,699.46 · %36,9    · 21,813   (sağa yaslı, sıralanabilir)
+# ═══════════════════════════════════════════════════════════════════
+
+# Sıra ÖNEMLİ: yüzde → adet → para. "Net adet" hem 'net' hem 'adet' içerir;
+# adet kazanmalı. "İade oranı" hem 'iade' hem 'oran' içerir; oran kazanmalı.
+_ORAN_AD = ("marj", "oran", "kârlılık", "karlilik", "yüzde", "yuzde", "%")
+_ADET_AD = ("adet", "kalem", "satır", "satir", "sayı", "sayi", "fatura",
+            "stok", "miktar", "çeşit", "cesit", "gün", "gun", "adedi")
+_PARA_AD = ("ciro", "tutar", "kâr", "kar", "maliyet", "destek", "fiyat",
+            "bakiye", "gider", "masraf", "fob", "satış", "satis", "alış",
+            "alis", "net", "brüt", "brut", "cogs", "ödeme", "odeme",
+            "borç", "borc", "alacak", "çek", "cek", "bedel", "prim")
+
+
+def _tablo_kolon_tipi(ad):
+    """Kolon adından biçim tipini çıkarır. None → dokunulmaz."""
+    a = str(ad or "").strip().lower()
+    if not a:
+        return None
+    if any(k in a for k in _ORAN_AD):
+        return "oran"
+    if any(k in a for k in _ADET_AD):
+        return "adet"
+    if any(k in a for k in _PARA_AD):
+        return "para"
+    return None
+
+
+def otomatik_kolonlar(df, mevcut=None):
+    """DataFrame'e bakıp column_config üretir.
+
+    • Yalnız SAYISAL ve TARİH kolonlarına dokunur. Metin kolonları
+      (kâr gizleme maskesi '•••' dahil) olduğu gibi kalır.
+    • `mevcut` (elle yazılmış column_config) her zaman kazanır — bu fonksiyon
+      yalnız eksikleri tamamlar, mevcut ayarı EZMEZ.
+    • Hata durumunda boş döner; tablo asla kırılmaz.
+    """
+    try:
+        import pandas as pd
+        import streamlit as _st
+    except ImportError:
+        return dict(mevcut or {})
+    cfg = {}
+    # DİKKAT: `df.columns or []` YAZILAMAZ — pandas Index üzerinde `or`,
+    # "truth value of a Index is ambiguous" hatası verir; except onu yutar ve
+    # fonksiyon sessizce BOŞ config döndürür (hiçbir tablo biçimlenmez).
+    try:
+        _k = getattr(df, "columns", None)
+        kolonlar = list(_k) if _k is not None else []
+    except Exception:
+        return dict(mevcut or {})
+    for c in kolonlar:
+        if mevcut and c in mevcut:
+            continue                      # elle yazılan ayara dokunma
+        try:
+            seri = df[c]
+            if pd.api.types.is_datetime64_any_dtype(seri):
+                cfg[c] = _st.column_config.DateColumn(format="DD.MM.YYYY")
+                continue
+            if pd.api.types.is_bool_dtype(seri):
+                continue                  # onay kutusu varsayılanı yeterli
+            if not pd.api.types.is_numeric_dtype(seri):
+                continue                  # metin / maskelenmiş → dokunma
+            t = _tablo_kolon_tipi(c)
+            if t == "para":
+                cfg[c] = _st.column_config.NumberColumn(
+                    format="dollar", alignment="right")
+            elif t == "adet":
+                cfg[c] = _st.column_config.NumberColumn(
+                    format="localized", alignment="right")
+            elif t == "oran":
+                cfg[c] = _st.column_config.NumberColumn(
+                    format="%%%.1f", alignment="right")
+        except Exception:
+            continue
+    if mevcut:
+        cfg.update(mevcut)
+    return cfg
