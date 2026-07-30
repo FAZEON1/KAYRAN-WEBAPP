@@ -16,7 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
-    iade_manuel_donem, iade_fark_plani, get_satislar_pnl,
+    iade_manuel_donem, iade_fark_plani, get_satislar_yalin,
 )
 
 
@@ -814,7 +814,9 @@ def run():
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
 
         # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
-        satislar_ham = get_satislar(_bas, _bit)
+        # Yalın okuma: Satışlar ve Kâr/P&L artık AYNI önbellek girdisini paylaşır.
+        # Ayrı okumalar kullanılsa iki sayfayı gezmek iki ayrı çekim demek olurdu.
+        satislar_ham = get_satislar_yalin(_bas, _bit)
         _kanal_secenek = sorted({(s.get("kanal") or "").strip()
                                  for s in satislar_ham if (s.get("kanal") or "").strip()}
                                 | set(_kanallar))
@@ -1040,7 +1042,7 @@ def run():
         # ── ÖLÇÜM (sadece ibrahim) — hiçbir hesaba dokunmaz ──
         _z = Zamanlayici(aktif=(str(aktif_kullanici or "").strip().lower() == "ibrahim"))
         with _z("1 · veri çekimi (yalın 10 kolon)"):
-            satislar = get_satislar_pnl(_pbas, _pbit)
+            satislar = get_satislar_yalin(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:

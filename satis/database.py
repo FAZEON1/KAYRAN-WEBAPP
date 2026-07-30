@@ -711,13 +711,13 @@ def get_satislar(baslangic=None, bitis=None):
 # olusturma_tarihi ve kampanya_id P&L'de HİÇ okunmuyor. Ölçüm get_satislar'ın
 # sayfanın %46'sını yediğini gösterdi (419 ms) — aktarılan baytı kısmak
 # doğrudan oraya vuruyor.
-_PNL_KOLON = ("tarih,kanal,sku,urun_adi,adet,birim_satis,birim_maliyet,"
-              "birim_firma_destek,birim_ek_destek,siparis_no")
+_SATIS_KOLON = ("id,tarih,kanal,sku,urun_adi,adet,birim_satis,birim_maliyet,"
+                "birim_firma_destek,birim_ek_destek,siparis_no")
 
 
 @st.cache_data(ttl=120, show_spinner=False)
-def get_satislar_pnl(baslangic=None, bitis=None):
-    """Kâr/P&L için YALIN satış okuması — yalnız gereken 10 kolon.
+def get_satislar_yalin(baslangic=None, bitis=None):
+    """YALIN satış okuması — ekranların gerçekten okuduğu 11 kolon.
 
     get_satislar(*) ile aynı satırları döner ama notlar/olusturma_tarihi/
     kampanya_id taşımaz. P&L bu üçünü okumuyor (kod taramasıyla doğrulandı:
@@ -727,7 +727,7 @@ def get_satislar_pnl(baslangic=None, bitis=None):
     DİKKAT: yeni bir kolon okunmaya başlanırsa _PNL_KOLON'a eklenmeli.
     """
     try:
-        q = _get_client().table("satislar").select(_PNL_KOLON)
+        q = _get_client().table("satislar").select(_SATIS_KOLON)
         if baslangic:
             q = q.gte("tarih", str(baslangic)[:10])
         if bitis:
@@ -751,7 +751,7 @@ def _temizle():
     # kadar bayat kalıyordu. Bu bir hız değil, doğruluk sorunuydu.
     for _fn in (get_satislar, get_iadeler, get_iade_partileri,
                 get_mevcut_siparis_nolar, get_mevcut_satis_anahtarlari,
-                get_satislar_pnl, _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
+                get_satislar_yalin, iade_satis_net_ozet, _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
                 get_sku_kategori, kampanya_destek_bul, get_satis_pnl_view,
                 get_gunluk_pnl, get_kanal_buyume):
         try:
@@ -1142,12 +1142,17 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
         return {"eklendi": 0, "atlandi": 0, "hata": f"{type(e).__name__}: {str(e)[:140]}"}
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def iade_satis_net_ozet(baslangic=None, bitis=None):
     """SKU bazında Satış / İade / Net özeti. İade kârı paçal maliyetinden hesaplanır.
     Döner: (satirlar:list, toplam:dict)."""
     pacal = get_pacal_map()
     sat = {}
-    for s in get_satislar(baslangic, bitis):
+    # YALIN okuma: burada da get_satislar_pnl kullanılıyor. Aksi halde P&L
+    # sayfası aynı veriyi İKİ KEZ çeker (biri yalın, biri tam kolonlu) ve
+    # sayfa süresi iki katına çıkar. Gereken kolonların hepsi yalın kümede:
+    # sku, urun_adi + satir_kar'ın okudukları.
+    for s in get_satislar_yalin(baslangic, bitis):
         sku = str(s.get("sku") or "").strip()
         if not sku:
             continue
