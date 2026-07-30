@@ -118,6 +118,29 @@ def _akilli_dataframe(data=None, *a, **kw):
 st.dataframe = _akilli_dataframe
 
 
+# st.dataframe kök nesneye BAĞLI bir metottur; onu değiştirmek
+# `kolon.dataframe(...)` / `konteyner.dataframe(...)` çağrılarını KAPSAMAZ —
+# onlar sınıf üzerinden çözülür. Programda 5 yerde `_bk.dataframe(...)` var
+# (Marka & Kategori kırılımı gibi) ve yalnız modül seviyesini sarmalamak
+# o tabloları ham bırakıyordu. Sınıfı da sarmalıyoruz.
+try:
+    from streamlit.delta_generator import DeltaGenerator as _DG
+
+    _ORIJ_DG_DATAFRAME = _DG.dataframe
+
+    def _dg_dataframe(self, data=None, *a, **kw):
+        try:
+            from shared.tasarim import otomatik_kolonlar
+            kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
+        except Exception:
+            pass
+        return _ORIJ_DG_DATAFRAME(self, data, *a, **kw)
+
+    _DG.dataframe = _dg_dataframe
+except Exception:
+    pass          # sınıf yapısı değişmişse modül seviyesi yine çalışır
+
+
 # ─────────────────────────────────────────────────────────────────────
 # HAFİF SAYIM SORGULARI (ana sayfa rozetleri)
 #

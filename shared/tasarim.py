@@ -625,3 +625,108 @@ def otomatik_kolonlar(df, mevcut=None):
     if mevcut:
         cfg.update(mevcut)
     return cfg
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 9. HTML ÖZET TABLOSU
+#    st.dataframe canvas'a çizildiği için görünümü değiştirilemiyor —
+#    satır yüksekliği, hücre boşluğu, zebra, hover, hizalama, negatifi
+#    kırmızıya boyamak, Türkçe sayı biçimi: hiçbiri mümkün değil.
+#    Bu fonksiyon KISA, SALT-OKUR özet tabloları için HTML üretir.
+#
+#    KAYIP: başlığa tıklayıp sıralama · kolon genişliği · CSV indirme ·
+#           satır seçimi. Uzun listelerde st.dataframe kalmalı.
+# ═══════════════════════════════════════════════════════════════════
+
+def _tr_para(v, birim="$", basamak=2):
+    """1616061.27 → '$1.616.061,27' (TR ayraç). st.dataframe bunu yapamıyordu."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return ""
+    s = f"{abs(f):,.{basamak}f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    return ("-" if f < 0 else "") + birim + s
+
+
+def _tr_adet(v):
+    try:
+        return f"{int(round(float(v))):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _tr_oran(v, basamak=1):
+    try:
+        return "%" + f"{float(v):,.{basamak}f}".replace(".", ",")
+    except (TypeError, ValueError):
+        return ""
+
+
+def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ"):
+    """Salt-okur özet tablosu (HTML). satirlar: [{kolon: değer}].
+
+    Kolon tipi ADINDAN çıkarılır (_tablo_kolon_tipi): para · adet · oran.
+    Negatif değerler kırmızı; ilk hücresi `toplam_isaret` ile başlayan satır
+    toplam satırı sayılıp vurgulanır. yukseklik verilirse kaydırmalı olur ve
+    başlık yapışkan kalır.
+    """
+    if not satirlar:
+        return bos(" Gösterilecek veri yok.")
+    R, F, A = RENK, FONT, AGIRLIK
+    kolonlar = list(satirlar[0].keys())
+    tipler = {k: _tablo_kolon_tipi(k) for k in kolonlar}
+
+    _bas = "".join(
+        f'<th style="text-align:{"right" if tipler[k] else "left"};'
+        f'padding:7px 11px;font-size:{F["kucuk"]};font-weight:{A["vurgu"]};'
+        f'color:{R["soluk"]};letter-spacing:.3px;background:{R["yuzey2"]};'
+        f'position:sticky;top:0;z-index:1;white-space:nowrap;'
+        f'border-bottom:1px solid {R["kenar2"]}">{k}</th>'
+        for k in kolonlar)
+
+    _govde = []
+    for i, r in enumerate(satirlar):
+        _ilk = str(r.get(kolonlar[0], "") or "")
+        _toplam = _ilk.strip().startswith(toplam_isaret)
+        _zebra = R["yuzey2"] if (i % 2 and not _toplam) else "transparent"
+        _stil_satir = (f'background:{R["yuzey2"]};border-top:1px solid {R["kenar2"]}'
+                       if _toplam else f'background:{_zebra}')
+        _hucre = []
+        for k in kolonlar:
+            v, t = r.get(k), tipler[k]
+            if t == "para":
+                metin, sayi_mi = _tr_para(v, birim), True
+            elif t == "adet":
+                metin, sayi_mi = _tr_adet(v), True
+            elif t == "oran":
+                metin, sayi_mi = _tr_oran(v), True
+            else:
+                metin, sayi_mi = ("" if v is None else str(v)), False
+            _neg = False
+            if sayi_mi:
+                try:
+                    _neg = float(v) < 0
+                except (TypeError, ValueError):
+                    _neg = False
+            _renk = (R["kirmizi"] if _neg else
+                     (R["metin"] if (_toplam or not sayi_mi) else R["metin"]))
+            _hucre.append(
+                f'<td style="text-align:{"right" if sayi_mi else "left"};'
+                f'padding:6px 11px;font-size:{F["govde"]};'
+                f'font-weight:{A["baslik"] if _toplam else A["govde"]};'
+                f'color:{_renk};white-space:nowrap;'
+                + (f'font-family:{MONO};font-variant-numeric:tabular-nums;'
+                   if sayi_mi else "")
+                + f'">{metin}</td>')
+        _govde.append(f'<tr style="{_stil_satir}">' + "".join(_hucre) + "</tr>")
+
+    _sar_bas = (f'<div style="max-height:{yukseklik}px;overflow-y:auto;'
+                f'border:1px solid {R["kenar"]};border-radius:{YOGUNLUK["sik"]["kart_r"]}">'
+                if yukseklik else
+                f'<div style="overflow:hidden;border:1px solid {R["kenar"]};'
+                f'border-radius:{YOGUNLUK["sik"]["kart_r"]}">')
+    return (_sar_bas
+            + '<table style="width:100%;border-collapse:collapse;'
+            + f'background:{R["yuzey1"]}">'
+            + f"<thead><tr>{_bas}</tr></thead><tbody>"
+            + "".join(_govde) + "</tbody></table></div>")

@@ -16,7 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
-    iade_manuel_donem, iade_fark_plani, get_satislar_yalin,
+    iade_manuel_donem, iade_fark_plani,
 )
 
 
@@ -316,7 +316,7 @@ def iade_excel_oku(dosya):
 
 
 def run():
-    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h, tablo_kolonlari
+    from shared.tasarim import baslik as _sb, tablo_ciz, kpi_serit, sayi, tablo_h, tablo_kolonlari
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     # Sayfa genişliği artık app.py'de tek yerden.
 
@@ -814,9 +814,7 @@ def run():
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
 
         # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
-        # Yalın okuma: Satışlar ve Kâr/P&L artık AYNI önbellek girdisini paylaşır.
-        # Ayrı okumalar kullanılsa iki sayfayı gezmek iki ayrı çekim demek olurdu.
-        satislar_ham = get_satislar_yalin(_bas, _bit)
+        satislar_ham = get_satislar(_bas, _bit)
         _kanal_secenek = sorted({(s.get("kanal") or "").strip()
                                  for s in satislar_ham if (s.get("kanal") or "").strip()}
                                 | set(_kanallar))
@@ -1039,7 +1037,7 @@ def run():
                         ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
                     unsafe_allow_html=True)
 
-        satislar = get_satislar_yalin(_pbas, _pbit)
+        satislar = get_satislar(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
@@ -1399,8 +1397,13 @@ def run():
                                     "Marj": ((_t_kar / _t_ciro * 100)
                                              if _t_ciro > 0 else None),
                                 })
-                                _bk.dataframe(pd.DataFrame(_tablo), hide_index=True,
-                                              use_container_width=True)
+                                # HTML özet tablosu: st.dataframe canvas'a
+                                # çizildiği için görünümü (satır yüksekliği,
+                                # zebra, hizalama, TR sayı biçimi, negatifi
+                                # kırmızı) değiştirilemiyordu. Bu tablo kısa ve
+                                # salt-okur olduğu için sıralama kaybı sorun değil.
+                                _bk.markdown(tablo_ciz(_tablo),
+                                             unsafe_allow_html=True)
                                 _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
                                             f"Marj: %{(_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0:.1f}")
                     _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
@@ -1639,7 +1642,6 @@ def run():
                             st.rerun()
             if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
                 _dlg_maliyet_fix()
-
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":
@@ -1939,57 +1941,48 @@ def run():
             st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "
                        "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")
 
-            # Kırılım seçimi + tablo FRAGMENT içinde: kırılım değiştiğinde yalnız bu
-            # blok yeniden çalışır — sidebar, navigasyon, üstteki özet kartları ve
-            # dönem seçici hiç dokunulmaz.
-            # GÜVENLİ: içinde yazma yok (st.rerun/st.stop/@st.dialog) ve dışarıdaki
-            # hiçbir kod _kirilim / _sadece_iade değerini okumuyor.
-            @st.fragment
-            def _iade_kirilim_frg():
-                with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
-                    _kirilim = secim_serit("Kırılım",
-                                        ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"], index=2, key="iade_kirilim")
-                    if _kirilim == "🏷️ SKU bazlı (net)":
-                        _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
-                        _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
-                        st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
-                        st.dataframe(_kar_df(pd.DataFrame([{
-                            "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
-                            "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
-                            "Satış ciro": _usd(x["s_ciro"]), "İade tutar": _usd(x["i_tutar"]),
-                            "Net ciro": _usd(x["net_ciro"]), "Satış kârı": _usd(x["s_kar"]),
-                        } for x in _gor])), use_container_width=True, hide_index=True)
-                    else:
-                        _iadeler = get_iadeler(_ib, _ibit)
-                        if not _iadeler:
-                            st.info("Bu dönemde iade kaydı yok.")
-                        elif _kirilim == "🏢 Firma bazlı":
-                            _fb = {}
-                            for r in _iadeler:
-                                f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
-                                o = _fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
-                                o["adet"] += int(r.get("iade_adet") or 0)
-                                o["tutar"] += float(r.get("iade_net") or 0)
-                                o["sku"].add(r.get("sku"))
-                            _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
-                                             "İade tutarı": _usd(v["tutar"]), "SKU çeşidi": len(v["sku"]),
-                                             "_t": v["tutar"]}
-                                            for f, v in _fb.items()], key=lambda x: -x["İade adet"])
-                            for _r in _rows:
-                                _r.pop("_t", None)
-                            st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
-                            st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
-                        else:  # SKU + Firma
-                            _rows = sorted([{
-                                "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
-                                "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
-                                "İade tutarı": _usd(float(r.get("iade_net") or 0)),
-                            } for r in _iadeler], key=lambda x: -x["İade adet"])
-                            st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
-                            st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
+            with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
+                _kirilim = secim_serit("Kırılım",
+                                    ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"], index=2, key="iade_kirilim")
+                if _kirilim == "🏷️ SKU bazlı (net)":
+                    _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
+                    _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
+                    st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
+                    st.dataframe(_kar_df(pd.DataFrame([{
+                        "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
+                        "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
+                        "Satış ciro": _usd(x["s_ciro"]), "İade tutar": _usd(x["i_tutar"]),
+                        "Net ciro": _usd(x["net_ciro"]), "Satış kârı": _usd(x["s_kar"]),
+                    } for x in _gor])), use_container_width=True, hide_index=True)
+                else:
+                    _iadeler = get_iadeler(_ib, _ibit)
+                    if not _iadeler:
+                        st.info("Bu dönemde iade kaydı yok.")
+                    elif _kirilim == "🏢 Firma bazlı":
+                        _fb = {}
+                        for r in _iadeler:
+                            f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
+                            o = _fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
+                            o["adet"] += int(r.get("iade_adet") or 0)
+                            o["tutar"] += float(r.get("iade_net") or 0)
+                            o["sku"].add(r.get("sku"))
+                        _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
+                                         "İade tutarı": _usd(v["tutar"]), "SKU çeşidi": len(v["sku"]),
+                                         "_t": v["tutar"]}
+                                        for f, v in _fb.items()], key=lambda x: -x["İade adet"])
+                        for _r in _rows:
+                            _r.pop("_t", None)
+                        st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
+                        st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
+                    else:  # SKU + Firma
+                        _rows = sorted([{
+                            "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
+                            "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
+                            "İade tutarı": _usd(float(r.get("iade_net") or 0)),
+                        } for r in _iadeler], key=lambda x: -x["İade adet"])
+                        st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
+                        st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
 
-
-            _iade_kirilim_frg()
         @st.dialog("🗂️ İade Kayıtları (sil)", width="large")
         def _dlg_iade_kayit():
             _kayitlar = get_iadeler(_ib, _ibit)
