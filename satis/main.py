@@ -6,7 +6,7 @@ import io
 import pandas as pd
 import streamlit as st
 
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, Zamanlayici, secim_serit, gun_ay_yil
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit, gun_ay_yil
 from shared.tarih import hizli_tarih_araligi
 from kayranpm.ref_no import havuz_destek_donem
 from .database import (
@@ -16,7 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
-    iade_manuel_donem, iade_fark_plani, get_satislar_yalin, SORGU_SAYAC,
+    iade_manuel_donem, iade_fark_plani, get_satislar_yalin,
 )
 
 
@@ -1039,17 +1039,13 @@ def run():
                         ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
                     unsafe_allow_html=True)
 
-        # ── ÖLÇÜM (sadece ibrahim) — hiçbir hesaba dokunmaz ──
-        _z = Zamanlayici(aktif=(str(aktif_kullanici or "").strip().lower() == "ibrahim"))
-        with _z("1 · veri çekimi (yalın 10 kolon)"):
-            satislar = get_satislar_yalin(_pbas, _pbit)
+        satislar = get_satislar_yalin(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
             # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
             from satis.database import get_sku_kategori as _gsk
-            with _z("2 · kategori haritası"):
-                _pkatmap = _gsk()
+            _pkatmap = _gsk()
             _pf1, _pf2 = st.columns(2)
             _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
                                   if (s.get("kanal") or "").strip()})
@@ -1068,10 +1064,8 @@ def run():
                 st.info("Bu filtrede satış yok.")
                 st.stop()
 
-            with _z("3 · toplama (ozet_hesapla)"):
-                top, kanal, urun = ozet_hesapla(satislar)
-            with _z("4 · iade özeti"):
-                _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
+            top, kanal, urun = ozet_hesapla(satislar)
+            _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
             _ikan = iade_kanal_ozet(_pbas, _pbit)
             _sku_iade = {r["sku"]: r for r in _isat}
             if _p_filtreli:
@@ -1097,8 +1091,7 @@ def run():
                 if _p_kat_f != "Tümü" and _p_kanal_f == "Tümü":
                     try:
                         from kayranpm.ref_no import alinan_destek_kirilim_usd
-                        with _z("5a · alınan destek kırılımı (kategori)"):
-                            _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
+                        _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
                         # ARTIK top["net_kar"]'a gizlice eklenmiyor. Eskiden öyleydi ve
                         # destek "Brüt Kâr"ın içinde kaybolduğu için merdivenin
                         # aritmetiği tutmuyordu (Net Ciro − COGS ≠ Brüt Kâr).
@@ -1150,8 +1143,7 @@ def run():
             if not _p_filtreli:
                 try:
                     from kayranpm.ref_no import alinan_destek_aralik_usd
-                    with _z("5 · alınan destek"):
-                        _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
+                    _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
                 except Exception:
                     _alinan_usd = 0.0
 
@@ -1163,8 +1155,7 @@ def run():
             if _p_kat_f != "Tümü":
                 try:
                     from kayranpm.ref_no import ref_destek_kirilim_usd
-                    with _z("5b · ref no destek kırılımı"):
-                        _rk = ref_destek_kirilim_usd(_pbas, _pbit)
+                    _rk = ref_destek_kirilim_usd(_pbas, _pbit)
                     _ref_kat = float(_rk["kategori"].get(_p_kat_f.strip().upper(), 0.0))
                     _ref_dagitilmayan = _rk.get("dagitilmayan") or []
                 except Exception:
@@ -1649,10 +1640,6 @@ def run():
             if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
                 _dlg_maliyet_fix()
 
-            if SORGU_SAYAC:
-                _z.not_ekle("🔁 Önbellek ıskası: " + " · ".join(
-                    f"**{k}** {v}×" for k, v in sorted(SORGU_SAYAC.items())))
-            _z.ciz()   # ölçüm paneli — sayfanın en altında, kapalı başlar
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
     elif _ssayfa == "📥 İçe Aktar":
