@@ -1402,7 +1402,7 @@ def run():
                                 # zebra, hizalama, TR sayı biçimi, negatifi
                                 # kırmızı) değiştirilemiyordu. Bu tablo kısa ve
                                 # salt-okur olduğu için sıralama kaybı sorun değil.
-                                _bk.markdown(tablo_ciz(_tablo),
+                                _bk.markdown(tablo_ciz(_tablo, stil="rozet"),
                                              unsafe_allow_html=True)
                                 _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
                                             f"Marj: %{(_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0:.1f}")

@@ -655,42 +655,66 @@ def _tr_adet(v):
         return ""
 
 
-def _tr_oran(v, basamak=1):
+def _tr_oran(v, basamak=2):
     try:
         return "%" + f"{float(v):,.{basamak}f}".replace(".", ",")
     except (TypeError, ValueError):
         return ""
 
 
-def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ"):
+def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
+              stil="zebra"):
     """Salt-okur özet tablosu (HTML). satirlar: [{kolon: değer}].
 
+    stil:
+      "zebra"   — çerçeveli, dolgulu başlık, dönüşümlü satır zemini.
+                  Yoğun/uzun özetlerde göz kaymasını engeller.
+      "havadar" — kutu ve zebra yok, yalnız saç teli çizgi + ferah aralık.
+                  En modern duran; ama yer kapladığı için kısa tablolara.
+      "rozet"   — havadar düzen + oran kolonları renkli rozette. Maliyeti
+                  girilmemiş satırların %100 marjı böyle gözden kaçmıyor.
+
     Kolon tipi ADINDAN çıkarılır (_tablo_kolon_tipi): para · adet · oran.
-    Negatif değerler kırmızı; ilk hücresi `toplam_isaret` ile başlayan satır
-    toplam satırı sayılıp vurgulanır. yukseklik verilirse kaydırmalı olur ve
-    başlık yapışkan kalır.
+    Negatifler kırmızı; ilk hücresi `toplam_isaret` ile başlayan satır
+    toplam sayılıp vurgulanır. yukseklik verilirse başlık yapışkan olur.
     """
     if not satirlar:
         return bos(" Gösterilecek veri yok.")
     R, F, A = RENK, FONT, AGIRLIK
     kolonlar = list(satirlar[0].keys())
     tipler = {k: _tablo_kolon_tipi(k) for k in kolonlar}
+    _acik = stil in ("havadar", "rozet")      # kutusuz düzen
+    _rozet = (stil == "rozet")
+    _pad = "10px 12px" if _acik else "6px 11px"
 
+    # ── Başlık ──
+    if _acik:
+        _bas_stil = (f'font-size:{F["kucuk"]};font-weight:{A["vurgu"]};'
+                     f'color:{R["silik"]};letter-spacing:.6px;text-transform:uppercase;'
+                     f'padding:0 12px 8px;border-bottom:1px solid {R["kenar2"]};'
+                     f'background:transparent')
+    else:
+        _bas_stil = (f'font-size:{F["kucuk"]};font-weight:{A["vurgu"]};'
+                     f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;'
+                     f'background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}')
     _bas = "".join(
-        f'<th style="text-align:{"right" if tipler[k] else "left"};'
-        f'padding:7px 11px;font-size:{F["kucuk"]};font-weight:{A["vurgu"]};'
-        f'color:{R["soluk"]};letter-spacing:.3px;background:{R["yuzey2"]};'
-        f'position:sticky;top:0;z-index:1;white-space:nowrap;'
-        f'border-bottom:1px solid {R["kenar2"]}">{k}</th>'
+        f'<th style="text-align:{"right" if tipler[k] else "left"};{_bas_stil};'
+        f'position:sticky;top:0;z-index:1;white-space:nowrap">{k}</th>'
         for k in kolonlar)
 
+    # ── Gövde ──
     _govde = []
     for i, r in enumerate(satirlar):
-        _ilk = str(r.get(kolonlar[0], "") or "")
-        _toplam = _ilk.strip().startswith(toplam_isaret)
-        _zebra = R["yuzey2"] if (i % 2 and not _toplam) else "transparent"
-        _stil_satir = (f'background:{R["yuzey2"]};border-top:1px solid {R["kenar2"]}'
-                       if _toplam else f'background:{_zebra}')
+        _toplam = str(r.get(kolonlar[0], "") or "").strip().startswith(toplam_isaret)
+        if _toplam:
+            _satir_stil = (f'border-top:1px solid {R["kenar2"]}'
+                           if _acik else
+                           f'background:{R["yuzey2"]};border-top:1px solid {R["kenar2"]}')
+        elif _acik:
+            _satir_stil = "background:transparent"
+        else:
+            _satir_stil = f'background:{R["yuzey2"] if i % 2 else "transparent"}'
+
         _hucre = []
         for k in kolonlar:
             v, t = r.get(k), tipler[k]
@@ -702,31 +726,43 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ"):
                 metin, sayi_mi = _tr_oran(v), True
             else:
                 metin, sayi_mi = ("" if v is None else str(v)), False
-            _neg = False
-            if sayi_mi:
-                try:
-                    _neg = float(v) < 0
-                except (TypeError, ValueError):
-                    _neg = False
-            _renk = (R["kirmizi"] if _neg else
-                     (R["metin"] if (_toplam or not sayi_mi) else R["metin"]))
+            try:
+                _neg = sayi_mi and float(v) < 0
+            except (TypeError, ValueError):
+                _neg = False
+            _cizgi = f';border-bottom:1px solid {R["kenar"]}' if (_acik and not _toplam) else ""
+
+            # Rozet: yalnız oran kolonlarında
+            if _rozet and t == "oran" and metin:
+                _rc = R["mor"] if _toplam else (R["kirmizi"] if _neg else R["yesil"])
+                _ic = (f'<span style="display:inline-block;padding:2px 8px;'
+                       f'border-radius:{YOGUNLUK["sik"]["kart_r"]};'
+                       f'background:{_rc}22;color:{_rc};font-size:{F["kucuk"]};'
+                       f'font-family:{MONO};font-variant-numeric:tabular-nums;'
+                       f'font-weight:{A["vurgu"]}">{metin}</span>')
+                _hucre.append(f'<td style="text-align:right;padding:{_pad}{_cizgi}">'
+                              f'{_ic}</td>')
+                continue
+
+            _renk = R["kirmizi"] if _neg else R["metin"]
             _hucre.append(
                 f'<td style="text-align:{"right" if sayi_mi else "left"};'
-                f'padding:6px 11px;font-size:{F["govde"]};'
+                f'padding:{_pad};font-size:{F["govde"]};'
                 f'font-weight:{A["baslik"] if _toplam else A["govde"]};'
-                f'color:{_renk};white-space:nowrap;'
-                + (f'font-family:{MONO};font-variant-numeric:tabular-nums;'
+                f'color:{_renk};white-space:nowrap{_cizgi}'
+                + (f';font-family:{MONO};font-variant-numeric:tabular-nums'
                    if sayi_mi else "")
                 + f'">{metin}</td>')
-        _govde.append(f'<tr style="{_stil_satir}">' + "".join(_hucre) + "</tr>")
+        _govde.append(f'<tr style="{_satir_stil}">' + "".join(_hucre) + "</tr>")
 
-    _sar_bas = (f'<div style="max-height:{yukseklik}px;overflow-y:auto;'
-                f'border:1px solid {R["kenar"]};border-radius:{YOGUNLUK["sik"]["kart_r"]}">'
-                if yukseklik else
-                f'<div style="overflow:hidden;border:1px solid {R["kenar"]};'
-                f'border-radius:{YOGUNLUK["sik"]["kart_r"]}">')
-    return (_sar_bas
-            + '<table style="width:100%;border-collapse:collapse;'
-            + f'background:{R["yuzey1"]}">'
+    # ── Sarmal ──
+    _cerceve = ("" if _acik else
+                f'border:1px solid {R["kenar"]};'
+                f'border-radius:{YOGUNLUK["sik"]["kart_r"]};overflow:hidden')
+    _kaydir = f'max-height:{yukseklik}px;overflow-y:auto;' if yukseklik else ""
+    return (f'<div style="{_kaydir}{_cerceve}">'
+            f'<table style="width:100%;border-collapse:collapse;'
+            + (f'background:{R["yuzey1"]}' if not _acik else "")
+            + f'">'
             + f"<thead><tr>{_bas}</tr></thead><tbody>"
             + "".join(_govde) + "</tbody></table></div>")
