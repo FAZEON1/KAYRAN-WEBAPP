@@ -707,6 +707,36 @@ def get_satislar(baslangic=None, bitis=None):
         return []
 
 
+# P&L yolunda gereken kolonlar. satislar'da 14 kolon var; notlar (serbest metin),
+# olusturma_tarihi ve kampanya_id P&L'de HİÇ okunmuyor. Ölçüm get_satislar'ın
+# sayfanın %46'sını yediğini gösterdi (419 ms) — aktarılan baytı kısmak
+# doğrudan oraya vuruyor.
+_PNL_KOLON = ("tarih,kanal,sku,urun_adi,adet,birim_satis,birim_maliyet,"
+              "birim_firma_destek,birim_ek_destek,siparis_no")
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def get_satislar_pnl(baslangic=None, bitis=None):
+    """Kâr/P&L için YALIN satış okuması — yalnız gereken 10 kolon.
+
+    get_satislar(*) ile aynı satırları döner ama notlar/olusturma_tarihi/
+    kampanya_id taşımaz. P&L bu üçünü okumuyor (kod taramasıyla doğrulandı:
+    ozet_hesapla → kanal/sku/urun_adi · satir_kar → adet + 4 birim alanı ·
+    sayfa → tarih/siparis_no).
+
+    DİKKAT: yeni bir kolon okunmaya başlanırsa _PNL_KOLON'a eklenmeli.
+    """
+    try:
+        q = _get_client().table("satislar").select(_PNL_KOLON)
+        if baslangic:
+            q = q.gte("tarih", str(baslangic)[:10])
+        if bitis:
+            q = q.lte("tarih", str(bitis)[:10])
+        return _rows(q.order("tarih", desc=True).execute())
+    except Exception:
+        return []
+
+
 def _temizle():
     """Yazma sonrası önbellekleri boşaltır.
 
@@ -721,7 +751,7 @@ def _temizle():
     # kadar bayat kalıyordu. Bu bir hız değil, doğruluk sorunuydu.
     for _fn in (get_satislar, get_iadeler, get_iade_partileri,
                 get_mevcut_siparis_nolar, get_mevcut_satis_anahtarlari,
-                _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
+                get_satislar_pnl, _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
                 get_sku_kategori, kampanya_destek_bul, get_satis_pnl_view,
                 get_gunluk_pnl, get_kanal_buyume):
         try:

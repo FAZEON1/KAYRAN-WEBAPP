@@ -16,7 +16,7 @@ from .database import (
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
     ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
-    iade_manuel_donem, iade_fark_plani,
+    iade_manuel_donem, iade_fark_plani, get_satislar_pnl,
 )
 
 
@@ -1039,8 +1039,8 @@ def run():
 
         # ── ÖLÇÜM (sadece ibrahim) — hiçbir hesaba dokunmaz ──
         _z = Zamanlayici(aktif=(str(aktif_kullanici or "").strip().lower() == "ibrahim"))
-        with _z("1 · veri çekimi (get_satislar)"):
-            satislar = get_satislar(_pbas, _pbit)
+        with _z("1 · veri çekimi (yalın 10 kolon)"):
+            satislar = get_satislar_pnl(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
