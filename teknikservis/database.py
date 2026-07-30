@@ -286,7 +286,7 @@ def ithalat_model_listesi():
 
 
 # ── DB: kayıtlar ─────────────────────────────────────────────────────
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_kayitlar(arayuz=None, depolu=None):
     try:
         q = get_client().table("ts_kayitlar").select("*").order("id", desc=True)
@@ -302,7 +302,7 @@ def get_kayitlar(arayuz=None, depolu=None):
         return []
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_kayit(kayit_id):
     try:
         return _row(get_client().table("ts_kayitlar").select("*").eq("id", kayit_id).execute())
@@ -462,7 +462,7 @@ def sil_kayit(kayit_id):
         return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_gecmis(kayit_id):
     try:
         return _rows(get_client().table("ts_gecmis").select("*")

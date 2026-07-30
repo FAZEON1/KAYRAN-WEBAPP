@@ -193,6 +193,7 @@ def get_pacal_map():
         return {}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _urunler_hepsi(secim):
     """Supabase'in 1000 satır limitini aşarak urunler tablosunun TAMAMINI çeker.
     Sayfalama olmadan ürün sayısı 1000'i geçtiğinde sorgu sessizce kesilir ve
@@ -423,6 +424,7 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_mevcut_siparis_nolar():
     """satislar tablosundaki tüm benzersiz sipariş numaraları (mükerrer kontrolü için).
     1000'erli sayfalarla TÜM kayıtlar taranır."""
@@ -446,6 +448,7 @@ def get_mevcut_siparis_nolar():
         return set()
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_mevcut_satis_anahtarlari():
     """Mevcut satışların (kanal | sipariş no | sku) bileşik anahtar kümesi.
     Mükerrer kontrolünü kanal bazlı yapar → aynı sipariş no farklı kanalda çakışmaz."""
@@ -688,7 +691,7 @@ def sil_siparis(siparis_no):
         return False
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=1200, show_spinner=False)
 def get_satislar(baslangic=None, bitis=None):
     """Tarih aralığına göre satışlar (yeni→eski).
     HIZ: sayfalama artık merkezi katmanda (shared/audit) 8'erli dalgalar
@@ -705,14 +708,26 @@ def get_satislar(baslangic=None, bitis=None):
 
 
 def _temizle():
-    try:
-        get_satislar.clear()
-    except Exception:
-        pass
-    try:
-        get_iadeler.clear()
-    except Exception:
-        pass
+    """Yazma sonrası önbellekleri boşaltır.
+
+    DİKKAT: Yeni bir @st.cache_data okuma fonksiyonu eklendiğinde BURAYA da
+    eklenmeli. Bu modül global st.cache_data.clear() kullanmıyor (seçici
+    temizlik), o yüzden listede olmayan önbellek TTL bitene kadar bayat kalır.
+    """
+    # TAM LİSTE. Eskiden yalnız get_satislar ve get_iadeler temizleniyordu;
+    # get_pacal_map, get_satis_pnl_view, get_gunluk_pnl, get_kanal_buyume,
+    # get_urunler, get_kanallar, get_sku_kategori ve kampanya_destek_bul
+    # listede YOKTU — satış girildikten sonra kâr görünümleri TTL bitene
+    # kadar bayat kalıyordu. Bu bir hız değil, doğruluk sorunuydu.
+    for _fn in (get_satislar, get_iadeler, get_iade_partileri,
+                get_mevcut_siparis_nolar, get_mevcut_satis_anahtarlari,
+                _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
+                get_sku_kategori, kampanya_destek_bul, get_satis_pnl_view,
+                get_gunluk_pnl, get_kanal_buyume):
+        try:
+            _fn.clear()
+        except Exception:
+            pass
 
 
 def _normalize_sku_yerel(s):
@@ -909,6 +924,7 @@ def guncelle_iade(iade_id, alanlar):
         return False
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_iade_partileri():
     """Mevcut iade partileri: her benzersiz 'tarih' bir partidir.
     Döner: [{tarih, satir, adet, donem_bas, donem_bit}] (donem kolonları yoksa None).

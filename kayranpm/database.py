@@ -563,6 +563,7 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
     _cache_temizle()
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_firma_listesi():
     """firma_stok'taki benzersiz müşteri/firma adları (alfabetik)."""
     rows = _hepsi("firma_stok", "firma", "yukleme_tarihi")
@@ -663,6 +664,7 @@ def sku_fazeon_temizle_uygula():
     return True, mesaj
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
     """firma_stok'tan haftalık satış kayıtları — tarih aralığı + müşteri + SKU/ürün filtreli (sayfalı).
     Döner: [{firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi}]."""
@@ -1013,6 +1015,7 @@ def guncelle_talep_cevap(talep_id, cevap, yeni_durum="tamamlandi"):
     return True
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def canli_stok(sku):
     """Tam canlı (perpetual) stok hesabı — fiziksel kayıt DEĞİŞTİRİLMEZ, her çağrıda hesaplanır.
         canlı = başlangıç snapshot + (baz tarihten sonra 'Teslim Alındı' ithalat) − (baz tarihten sonraki satış)
@@ -1531,6 +1534,7 @@ def urun_adlari_kucuk_harf():
     return degisen, ornekler
 
 
+@st.cache_data(ttl=120, show_spinner=False)
 def get_sku_depo_dagilim(sku):
     """Bir SKU'nun hangi depolarda kaç adet olduğunu döndürür (kanonik depo adlarıyla).
     Döner: {depo_adi: adet} — yalnız adet>0 olanlar. Satışta depo seçimi için kullanılır."""

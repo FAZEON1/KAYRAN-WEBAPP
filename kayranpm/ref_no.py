@@ -415,7 +415,7 @@ def _f(v, d=0.0):
 
 
 # ── FİRMA DB ────────────────────────────────────────────────────────
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_firmalar():
     try:
         sb = get_client()
@@ -712,7 +712,7 @@ def _senkronize_firmalar():
 
 
 # ── REF NO DB ───────────────────────────────────────────────────────
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_refler(firma_id):
     try:
         sb = get_client()
@@ -973,7 +973,7 @@ def excel_ice_aktar(firma_id, df, varsayilan_durum="paylasildi", guncelle_mevcut
 
 
 # ── HAVUZ BÜTÇE DB ──────────────────────────────────────────────────
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def get_butce(firma_id):
     try:
         sb = get_client()
