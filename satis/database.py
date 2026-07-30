@@ -691,7 +691,7 @@ def sil_siparis(siparis_no):
         return False
 
 
-@st.cache_data(ttl=1200, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_satislar(baslangic=None, bitis=None):
     """Tarih aralığına göre satışlar (yeni→eski).
     HIZ: sayfalama artık merkezi katmanda (shared/audit) 8'erli dalgalar
