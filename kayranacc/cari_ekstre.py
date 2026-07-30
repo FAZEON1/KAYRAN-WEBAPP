@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 
 try:
-    from shared.utils import gun_ay_yil, tr_today
+    from shared.utils import gun_ay_yil, tr_today, secim_serit
 except Exception:
     def gun_ay_yil(d):
         return str(d or "")[:10]
@@ -99,7 +99,7 @@ def render():
 
     # ═══ VADE YAŞLANDIRMA ═══
     with t2:
-        pb = st.radio("Para birimi", ["TL", "USD"], horizontal=True, key="yas_pb")
+        pb = secim_serit("Para birimi", ["TL", "USD"], key="yas_pb")
         alan = "tutar_tl" if pb == "TL" else "tutar_usd"
         _fmt = _tl if pb == "TL" else _usd
 

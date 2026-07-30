@@ -6,7 +6,7 @@ import io
 import pandas as pd
 import streamlit as st
 
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit, gun_ay_yil
 from shared.tarih import hizli_tarih_araligi
 from kayranpm.ref_no import havuz_destek_donem
 from .database import (
@@ -1937,9 +1937,8 @@ def run():
                        "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")
 
             with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
-                _kirilim = st.radio("Kırılım",
-                                    ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"],
-                                    horizontal=True, index=2, key="iade_kirilim")
+                _kirilim = secim_serit("Kırılım",
+                                    ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"], index=2, key="iade_kirilim")
                 if _kirilim == "🏷️ SKU bazlı (net)":
                     _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
                     _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar

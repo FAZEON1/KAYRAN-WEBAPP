@@ -14,7 +14,7 @@ import pandas as pd
 from datetime import date
 
 from kayranacc.database import get_client
-from shared.utils import metrik_satiri
+from shared.utils import metrik_satiri, secim_serit
 
 # ── GİB standartları (Yazılım Uyumluluk Onayı Kılavuzu v1.6) ─────────────
 EDEFTER_BELGE_TURLERI = {
@@ -416,7 +416,7 @@ def render():
     # bir bölüm render edilir → karışma fiziksel olarak imkânsız.
     _bolumler = ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan",
                  "🗂 Hesap Planı", "📤 e-Defter XML", "⚙️ Kurum Ayarları"]
-    secili = st.radio("e-Defter bölümü", _bolumler, horizontal=True,
+    secili = secim_serit("e-Defter bölümü", _bolumler,
                       label_visibility="collapsed", key="edf_bolum")
     st.markdown("---")
 

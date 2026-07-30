@@ -6,6 +6,7 @@ Dönemsel kâr/zarar: Ciro − COGS − Destekler = Net Kâr.
 Tüm tutarlar USD. TL cinsi destekler güncel kurla yaklaşık çevrilir.
 """
 import streamlit as st
+from shared.utils import secim_serit
 import datetime as dt
 
 
@@ -354,12 +355,12 @@ def run():
     with c1:
         _yil = st.selectbox("Yıl", list(range(_bugun.year + 1, _bugun.year - 4, -1)), index=1)
     with c2:
-        _gor = st.radio("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], horizontal=True, index=2)
+        _gor = secim_serit("Görünüm", ["Aylık", "Çeyreklik", "Yıllık"], index=2)
     with c3:
         if _gor == "Aylık":
             _donem = st.selectbox("Ay", GIDER_AYLAR, index=min(_bugun.month - 1, 11))
         elif _gor == "Çeyreklik":
-            _donem = st.radio("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], horizontal=True, index=0)
+            _donem = secim_serit("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], index=0)
         else:
             _donem = "Tüm Yıl"
             st.markdown('<div style="color:#64748B;font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',

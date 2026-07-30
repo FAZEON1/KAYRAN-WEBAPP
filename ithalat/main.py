@@ -10,7 +10,7 @@ from datetime import date
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, gun_ay_yil
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit, gun_ay_yil
 
 from .database import (
     get_dosyalar, get_kalemler, get_tum_kalemler, get_urun_katalog,
@@ -1184,8 +1184,7 @@ def _gecmis_ithalatlar():
                               else DURUM_SECENEKLER.index(VARSAYILAN_DURUM))
                 dcc1, dcc2 = st.columns([2.4, 1])
                 with dcc1:
-                    e_durum = st.radio("durum_e", DURUM_SECENEKLER, index=_durum_idx,
-                                       horizontal=True, label_visibility="collapsed",
+                    e_durum = secim_serit("durum_e", DURUM_SECENEKLER, index=_durum_idx, label_visibility="collapsed",
                                        key=f"ith_edit_durum_{did}")
                 with dcc2:
                     if e_durum in IN_TRANSIT_DURUMLAR:
@@ -1418,9 +1417,8 @@ def _yeni_ithalat():
             dc1, dc2 = st.columns([2.4, 1])
             with dc1:
                 st.markdown('<div class="ith-th" style="margin-bottom:4px">Aşama / Durum</div>', unsafe_allow_html=True)
-                durum = st.radio("durum", DURUM_SECENEKLER,
-                                 index=DURUM_SECENEKLER.index(VARSAYILAN_DURUM),
-                                 horizontal=True, label_visibility="collapsed", key=f"m_durum_{_fv}")
+                durum = secim_serit("durum", DURUM_SECENEKLER,
+                                 index=DURUM_SECENEKLER.index(VARSAYILAN_DURUM), label_visibility="collapsed", key=f"m_durum_{_fv}")
             with dc2:
                 if durum in IN_TRANSIT_DURUMLAR:
                     tahmini_varis = st.date_input(

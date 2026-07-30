@@ -247,6 +247,33 @@ def _css1(m):
     return css_tek_satir(m)
 
 
+def secim_serit(etiket, secenekler, index=0, key=None, help=None,
+                label_visibility="visible", format_func=None, on_change=None,
+                bos_izin=False):
+    """st.radio(horizontal=True) YERİNE yerleşik st.segmented_control.
+
+    NEDEN: yatay radyo her seçeneğin yanına bir daire çiziyor — hem çirkin
+    hem yer kaplıyor. CSS ile daireyi gizleme denemesi Streamlit iç yapısı
+    değişince kırıldı. segmented_control 1.40+ ile yerleşik geldi: daire yok,
+    kompakt, sürüm yükseltmesinde kırılmaz.
+
+    Dönüş sözleşmesi st.radio ile AYNI: bos_izin=False iken asla None dönmez
+    (kullanıcı seçimi kaldırırsa varsayılana döner). index=None + bos_izin=True
+    ile 'hiçbiri seçili değil' hali korunur.
+    """
+    _sec = list(secenekler or [])
+    if not _sec:
+        return None
+    _vars = None if index is None else _sec[index if 0 <= index < len(_sec) else 0]
+    _v = st.segmented_control(
+        etiket, _sec, selection_mode="single", default=_vars,
+        format_func=format_func, key=key, help=help,
+        on_change=on_change, label_visibility=label_visibility)
+    if _v is None and not bos_izin:
+        return _vars if _vars is not None else _sec[0]
+    return _v
+
+
 def sidebar_stil() -> str:
     """Sidebar navigasyonu — 'sessiz lüks' tasarım (tüm modüllerde ortak).
     Pasif maddeler sakin ve çerçevesiz; aktif madde gradyan aksan çubuğu,

@@ -10,7 +10,7 @@ import streamlit as st
 import logging
 _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
-from shared.utils import tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
+from shared.utils import secim_serit, tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import tr_kucuk
 from shared.utils import firma_gorunen_ad
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
@@ -1519,8 +1519,7 @@ def run():
             sku_listesi_k = {}
     
         # ── Durum sekmesi (üstte, sekme gibi) ──────────────────────────
-        _kt_durum = st.radio("Durum", ["📢 Aktif Kampanyalar", "📁 Geçmiş Kampanyalar"],
-                             horizontal=True, key="kt_durum", label_visibility="collapsed")
+        _kt_durum = secim_serit("Durum", ["📢 Aktif Kampanyalar", "📁 Geçmiş Kampanyalar"], key="kt_durum", label_visibility="collapsed")
 
         # ── Filtreler tek kompakt panelde (kapalı başlar → özet + giriş üste çıkar) ──
         _kt_kat_list = sorted({tr_kucuk(u.get("kategori")) for u in urun_data_k if tr_kucuk(u.get("kategori"))})
@@ -1533,8 +1532,7 @@ def run():
         _KT_AYLAR = ["Tümü", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
                      "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
         with st.expander("🔍 Filtrele — Müşteri · Kategori · Dönem", expanded=False):
-            _kt_firma = st.radio("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"],
-                                 horizontal=True, key="kt_firma",
+            _kt_firma = secim_serit("Müşteri", ["Tümü", "HB", "VATAN", "ITOPYA", "DİĞER"], key="kt_firma",
                                  format_func=firma_gorunen_ad)
             _fk1, _fk2, _fk3, _fk4, _fk5 = st.columns(5)
             _kt_kat = _fk1.selectbox("Kategori", ["Tümü"] + _kt_kat_list, key="kt_kat")

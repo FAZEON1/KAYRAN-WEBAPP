@@ -5,7 +5,7 @@ from io import BytesIO
 
 import pandas as pd
 import streamlit as st
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
+from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit
 
 from .database import (
     ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
@@ -271,8 +271,7 @@ def _mal_kabul_dialog():
     # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
     st.markdown('<div style="font-size:14px;font-weight:700;color:#FBBF24;margin:8px 0 0px">'
                 '1️⃣ Önce işlem türünü seç</div>', unsafe_allow_html=True)
-    arayuz_lbl = st.radio("İşlem türü", ["🔧 Teknik Servis", "↩️ İade"],
-                          horizontal=True, key="mk_arayuz", index=None,
+    arayuz_lbl = secim_serit("İşlem türü", ["🔧 Teknik Servis", "↩️ İade"], key="mk_arayuz", index=None, bos_izin=True,
                           label_visibility="collapsed")
     if not arayuz_lbl:
         # Madde 1: tür seçilmeden form AÇILMAZ → iade ürünün yanlışlıkla
