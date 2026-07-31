@@ -1329,6 +1329,18 @@ def run():
                 except Exception:
                     pass
 
+                # REF NO desteği (VERİLEN — kârdan DÜŞÜLÜR). Eskiden kırılım
+                # tablolarına hiç girmiyordu; bu yüzden marka/kategori kârı
+                # filtreli merdivenle uyuşmuyordu.
+                _rf_marka, _rf_kat = {}, {}
+                try:
+                    from kayranpm.ref_no import ref_destek_kirilim_usd as _rdk
+                    _rk_all = _rdk(_pbas, _pbit)
+                    _rf_marka = _rk_all.get("marka") or {}
+                    _rf_kat = _rk_all.get("kategori") or {}
+                except Exception:
+                    pass
+
                 # İadeler SKU bazında kırılıma da yansısın (kanonik anahtarla):
                 # KASPERSKY gibi iadeli markalarda ciro/kâr/adet NET gösterilir.
                 _iade_sku_k = {}
@@ -1358,15 +1370,24 @@ def run():
                         _e["adet"] += int(_v.get("adet") or 0) - int(_ii.get("i_adet") or 0)
                     return g
 
-                def _kirilim_df(g, destekler):
+                def _kirilim_df(g, destekler, ref_destek=None):
+                    """Kâr = satış kârı + ALINAN destek − REF NO desteği.
+
+                    Merdivenle aynı işaret kuralı: alınan destek gelirdir (+),
+                    Ref No desteği verilen destektir (−). Eskiden yalnız alınan
+                    ekleniyordu, ref hiç görünmüyordu."""
+                    ref_destek = ref_destek or {}
                     _rows = []
-                    _tum = set(g) | {k for k in destekler if k != "GENEL"}
+                    _tum = (set(g) | {k for k in destekler if k != "GENEL"}
+                            | {k for k in ref_destek if k != "GENEL"})
                     for _k in _tum:
                         _e = g.get(_k, {"ciro": 0.0, "kar": 0.0, "adet": 0})
                         _d = float(destekler.get(_k, 0.0))
+                        _rd = float(ref_destek.get(_k, 0.0))
                         _rows.append({"_ad": _k, "Adet": _e["adet"],
-                                      "Ciro": _e["ciro"], "Kâr": _e["kar"] + _d,
-                                      "_destek": _d})
+                                      "Ciro": _e["ciro"],
+                                      "Kâr": _e["kar"] + _d - _rd,
+                                      "_destek": _d, "_ref": _rd})
                     _rows.sort(key=lambda r: -r["Kâr"])
                     return _rows
 
@@ -1378,15 +1399,22 @@ def run():
                                "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
                     _c1, _c2 = st.columns(2)
                     _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
-                    for _bk, _hrt, _dst, _kol in [(_c1, _marka_map, _ad_marka, "Marka"),
-                                                  (_c2, _katmap_p, _ad_kat, "Kategori")]:
+                    for _bk, _hrt, _dst, _rfd, _kol in [
+                            (_c1, _marka_map, _ad_marka, _rf_marka, "Marka"),
+                            (_c2, _katmap_p, _ad_kat, _rf_kat, "Kategori")]:
                         with _bk:
-                            _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")), _dst)
+                            _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),
+                                                _dst, _rfd)
                             if _rows:
+                                # İki AYRI destek kolonu. Tek kolonda birleştirmek
+                                # yanıltıcı olurdu: alınan destek gelir (+),
+                                # Ref No desteği verilen destektir (−).
                                 _tablo = [{
                                     _kol: r["_ad"], "Adet": r["Adet"],
-                                    "Ciro": r["Ciro"], "Kâr": r["Kâr"],
-                                    "Destek": "📥" if r["_destek"] > 0.005 else "",
+                                    "Ciro": r["Ciro"],
+                                    "Alınan destek": r["_destek"],
+                                    "Ref No desteği": -r["_ref"] if r["_ref"] else 0.0,
+                                    "Kâr": r["Kâr"],
                                     "Marj": ((r["Kâr"] / r["Ciro"] * 100)
                                              if r["Ciro"] > 0 else None),
                                 } for r in _rows]
@@ -1395,10 +1423,15 @@ def run():
                                 _t_adet = sum(int(r["Adet"] or 0) for r in _rows)
                                 _t_ciro = sum(float(r["Ciro"] or 0) for r in _rows)
                                 _t_kar = sum(float(r["Kâr"] or 0) for r in _rows)
+                                _t_ad = sum(float(r["_destek"] or 0) for r in _rows)
+                                _t_rf = sum(float(r["_ref"] or 0) for r in _rows)
                                 _t_kar_ort = max(_t_kar_ort, _t_kar)
                                 _tablo.append({
                                     _kol: "Σ TOPLAM", "Adet": _t_adet,
-                                    "Ciro": _t_ciro, "Kâr": _t_kar, "Destek": "",
+                                    "Ciro": _t_ciro,
+                                    "Alınan destek": _t_ad,
+                                    "Ref No desteği": -_t_rf if _t_rf else 0.0,
+                                    "Kâr": _t_kar,
                                     "Marj": ((_t_kar / _t_ciro * 100)
                                              if _t_ciro > 0 else None),
                                 })

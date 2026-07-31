@@ -555,7 +555,11 @@ def tablo_kolonlari(df, para="dollar", ekstra=None):
 _ORAN_AD = ("marj", "oran", "kârlılık", "karlilik", "yüzde", "yuzde", "%")
 _ADET_AD = ("adet", "kalem", "satır", "satir", "sayı", "sayi", "fatura",
             "stok", "miktar", "çeşit", "cesit", "gün", "gun", "adedi")
-_PARA_AD = ("ciro", "tutar", "kâr", "kar", "maliyet", "destek", "fiyat",
+# TÜRKÇE ÜNSÜZ YUMUŞAMASI: "destek" → "desteği" (k→ğ), "alacak" → "alacağı".
+# Alt dizge araması bu yüzden yumuşamış hâlleri de içermeli, yoksa
+# "Ref No desteği" kolonu para sayılmaz ve biçimlenmez.
+_PARA_AD = ("ciro", "tutar", "kâr", "kar", "maliyet", "destek", "desteğ",
+            "alacağ", "fiyat",
             "bakiye", "gider", "masraf", "fob", "satış", "satis", "alış",
             "alis", "net", "brüt", "brut", "cogs", "ödeme", "odeme",
             "borç", "borc", "alacak", "çek", "cek", "bedel", "prim")
@@ -745,11 +749,15 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
                 continue
 
             _renk = R["kirmizi"] if _neg else R["metin"]
+            # nowrap YALNIZ sayılarda. Metin kolonlarında da olunca marka/kategori
+            # adları satırı genişletiyor ve yan yana iki tablo sığmıyordu.
             _hucre.append(
                 f'<td style="text-align:{"right" if sayi_mi else "left"};'
                 f'padding:{_pad};font-size:{F["govde"]};'
                 f'font-weight:{A["baslik"] if _toplam else A["govde"]};'
-                f'color:{_renk};white-space:nowrap{_cizgi}'
+                f'color:{_renk};'
+                + ("white-space:nowrap" if sayi_mi else "word-break:break-word")
+                + f'{_cizgi}'
                 + (f';font-family:{MONO};font-variant-numeric:tabular-nums'
                    if sayi_mi else "")
                 + f'">{metin}</td>')
@@ -830,8 +838,8 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
      f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}'}}}
 #{_id} th:hover{{color:{R["metin"]}}}
 #{_id} td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
-   color:{R["metin"]};white-space:nowrap{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
-#{_id} td.n{{text-align:right;font-family:{MONO};font-variant-numeric:tabular-nums}}
+   color:{R["metin"]};word-break:break-word{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
+#{_id} td.n{{text-align:right;white-space:nowrap;font-family:{MONO};font-variant-numeric:tabular-nums}}
 #{_id} td.neg{{color:{R["kirmizi"]}}}
 {'' if _acik else f'#{_id} tbody tr:nth-child(even){{background:{R["yuzey2"]}}}'}
 #{_id} tbody tr:hover{{background:{R["yuzey3"]}}}
