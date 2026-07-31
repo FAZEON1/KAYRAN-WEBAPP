@@ -703,8 +703,10 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
                      f'background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}')
     _bas = "".join(
         f'<th style="text-align:{"right" if tipler[k] else "left"};{_bas_stil};'
-        f'position:sticky;top:0;z-index:1;white-space:nowrap">{k}</th>'
-        for k in kolonlar)
+        f'position:sticky;top:0;z-index:1;white-space:nowrap'
+        + (f';min-width:{110 if _i == 0 else 0}px' if _i == 0 else '')
+        + f'">{k}</th>'
+        for _i, k in enumerate(kolonlar))
 
     # ── Gövde ──
     _govde = []
@@ -756,7 +758,11 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
                 f'padding:{_pad};font-size:{F["govde"]};'
                 f'font-weight:{A["baslik"] if _toplam else A["govde"]};'
                 f'color:{_renk};'
-                + ("white-space:nowrap" if sayi_mi else "word-break:break-word")
+                + ("white-space:nowrap" if sayi_mi
+                   # KELİME ORTASINDAN kırma (word-break:break-word) "FAZEO/N"
+                   # gibi çirkin sonuç veriyordu. overflow-wrap yalnız SIĞMAYAN
+                   # tek kelimeyi kırar; normal metin kelime aralarından sarar.
+                   else "overflow-wrap:anywhere;word-break:normal")
                 + f'{_cizgi}'
                 + (f';font-family:{MONO};font-variant-numeric:tabular-nums'
                    if sayi_mi else "")
@@ -838,7 +844,7 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
      f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}'}}}
 #{_id} th:hover{{color:{R["metin"]}}}
 #{_id} td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
-   color:{R["metin"]};word-break:break-word{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
+   color:{R["metin"]};overflow-wrap:anywhere;word-break:normal{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
 #{_id} td.n{{text-align:right;white-space:nowrap;font-family:{MONO};font-variant-numeric:tabular-nums}}
 #{_id} td.neg{{color:{R["kirmizi"]}}}
 {'' if _acik else f'#{_id} tbody tr:nth-child(even){{background:{R["yuzey2"]}}}'}
@@ -875,8 +881,9 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
         return f'<td{f" class=\"{sinif}\"" if sinif else ""}{ds}>{metin}</td>'
 
     bas_html = "".join(
-        f'<th data-k="{i}" style="text-align:{"right" if tipler[k] else "left"}">'
-        f'{k}<span class="ok">↕</span></th>' for i, k in enumerate(kolonlar))
+        f'<th data-k="{i}" style="text-align:{"right" if tipler[k] else "left"}'
+        + (';min-width:110px' if i == 0 else '')
+        + f'">{k}<span class="ok">↕</span></th>' for i, k in enumerate(kolonlar))
 
     govde, toplam_tr = [], ""
     for r in satirlar:
