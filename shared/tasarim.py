@@ -756,9 +756,13 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
         _govde.append(f'<tr style="{_satir_stil}">' + "".join(_hucre) + "</tr>")
 
     # ── Sarmal ──
-    _cerceve = ("" if _acik else
-                f'border:1px solid {R["kenar"]};'
-                f'border-radius:{YOGUNLUK["sik"]["kart_r"]};overflow:hidden')
+    # SARMALAYICI HER ZAMAN taşmayı kontrol etmeli. Hücrelerde nowrap var;
+    # havadar/rozet stilinde çerçeve boş bırakıldığı için overflow kuralı da
+    # yoktu ve geniş tablo st.columns kolonunu taşırıp YANINDAKİ TABLONUN
+    # ÜSTÜNE biniyordu. max-width + overflow-x ile kendi kolonunda kaydırır.
+    _cerceve = ("max-width:100%;overflow-x:auto" if _acik else
+                f'max-width:100%;overflow-x:auto;border:1px solid {R["kenar"]};'
+                f'border-radius:{YOGUNLUK["sik"]["kart_r"]}')
     _kaydir = f'max-height:{yukseklik}px;overflow-y:auto;' if yukseklik else ""
     return (f'<div style="{_kaydir}{_cerceve}">'
             f'<table style="width:100%;border-collapse:collapse;'
@@ -817,7 +821,7 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
 
     _id = f"kt{next(_TABLO_SAYAC)}"
     _css = f"""<style>
-#{_id}{{{'' if _acik else f'border:1px solid {R["kenar"]};border-radius:10px;'}overflow:auto}}
+#{_id}{{{'' if _acik else f'border:1px solid {R["kenar"]};border-radius:10px;'}max-width:100%;overflow:auto}}
 #{_id} table{{width:100%;border-collapse:collapse{'' if _acik else f';background:{R["yuzey1"]}'}}}
 #{_id} th{{font-size:{F["kucuk"]};font-weight:{A["vurgu"]};white-space:nowrap;
    position:sticky;top:0;z-index:1;cursor:pointer;user-select:none;
