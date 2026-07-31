@@ -1332,14 +1332,20 @@ def run():
                 # REF NO desteği (VERİLEN — kârdan DÜŞÜLÜR). Eskiden kırılım
                 # tablolarına hiç girmiyordu; bu yüzden marka/kategori kârı
                 # filtreli merdivenle uyuşmuyordu.
-                _rf_marka, _rf_kat = {}, {}
+                # NOT: ref kaydının FİRMASI bir CARİdir (D-MARKET, VATAN…),
+                # MARKA DEĞİL. Bu yüzden Ref No desteği yalnız KATEGORİ
+                # boyutuna yansıtılır; marka tablosuna karıştırılmaz.
+                # Kategori anahtarları satış tarafıyla AYNI biçime (tr_buyuk)
+                # çevrilir, yoksa "MONİTÖR" ve "MONITÖR" iki ayrı satır olur.
+                _rf_kat = {}
                 try:
                     from kayranpm.ref_no import ref_destek_kirilim_usd as _rdk
-                    _rk_all = _rdk(_pbas, _pbit)
-                    _rf_marka = _rk_all.get("marka") or {}
-                    _rf_kat = _rk_all.get("kategori") or {}
+                    from shared.utils import tr_buyuk as _trb_rf
+                    for _rk_k, _rk_v in ((_rdk(_pbas, _pbit).get("kategori") or {})).items():
+                        _nk = _trb_rf(_rk_k)
+                        _rf_kat[_nk] = _rf_kat.get(_nk, 0.0) + float(_rk_v or 0)
                 except Exception:
-                    pass
+                    _rf_kat = {}
 
                 # İadeler SKU bazında kırılıma da yansısın (kanonik anahtarla):
                 # KASPERSKY gibi iadeli markalarda ciro/kâr/adet NET gösterilir.
@@ -1400,7 +1406,7 @@ def run():
                     _c1, _c2 = st.columns(2)
                     _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
                     for _bk, _hrt, _dst, _rfd, _kol in [
-                            (_c1, _marka_map, _ad_marka, _rf_marka, "Marka"),
+                            (_c1, _marka_map, _ad_marka, {}, "Marka"),
                             (_c2, _katmap_p, _ad_kat, _rf_kat, "Kategori")]:
                         with _bk:
                             _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),

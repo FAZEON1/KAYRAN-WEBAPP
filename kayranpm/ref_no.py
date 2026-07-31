@@ -2555,12 +2555,11 @@ def _kat_liste(metin):
 def ref_destek_kirilim_usd(baslangic, bitis):
     """Ref No desteklerinin KATEGORİ kırılımı (USD).
 
-    Döner: {"kategori": {KAT: usd}, "marka": {MARKA: usd}, "genel": usd,
-            "toplam": usd, "dagitilmayan": [{ref_no, kategoriler, usd}]}
+    Döner: {"kategori": {KAT: usd}, "genel": usd, "toplam": usd,
+            "dagitilmayan": [{ref_no, kategoriler, usd}]}
 
-    MARKA kırılımı ref kaydının FİRMASINDAN gelir (ref_firmalar.firma_adi) —
-    FAZEON, INNO3D, AGI gibi. Kategori dağıtımından bağımsızdır: bir ref
-    kategoriye dağıtılmamış olsa bile markası bellidir.
+    MARKA boyutu YOKTUR: ref kaydının firması bir CARİdir (müşteri), marka
+    değil. Ref No desteği yalnız kategori boyutuna dağıtılabilir.
 
     Dağıtım kuralı:
       • Kayıt TEK kategoriliyse → tutarın tamamı o kategoriye.
@@ -2570,16 +2569,9 @@ def ref_destek_kirilim_usd(baslangic, bitis):
         eksik olduğu açıkça raporlanır.
     """
     kat, genel, toplam = {}, 0.0, 0.0
-    marka = {}                       # ref FİRMASI = marka (FAZEON, INNO3D, AGI…)
-    _firma_ad = {}
-    try:
-        # DİKKAT: döngü değişkeni _f OLAMAZ — bu modülde _f() sayı çevirme
-        # fonksiyonudur. Fonksiyon içinde _f'ye atama yapılırsa Python onu
-        # YEREL sayar ve sonraki _f(...) çağrıları "dict is not callable" atar.
-        for _frm in (get_firmalar() or []):
-            _firma_ad[_frm.get("id")] = _tr_upper(str(_frm.get("firma_adi") or "").strip())
-    except Exception:
-        pass
+    # MARKA boyutu YOK — ref kaydının firması bir CARİdir (D-MARKET, VATAN),
+    # marka değil. Marka kırılımına çevirmek "D-MARKET ELEKTRONİK HİZMETLER"
+    # gibi carileri marka tablosuna sokuyordu.
     dagitilmayan, gorulen = {}, set()
     _kur_tl = None
     for r in (get_tum_ref_tutarlari(baslangic, bitis) or []):
@@ -2596,9 +2588,6 @@ def ref_destek_kirilim_usd(baslangic, bitis):
         elif dv in ("EUR", "EURO", "€"):
             t = t * _eur_usd_kur()
         toplam += t
-        _mk = _firma_ad.get(r.get("firma_id"))
-        if _mk:
-            marka[_mk] = marka.get(_mk, 0.0) + t
 
         kats = _kat_liste(r.get("kategori"))
         if len(kats) == 1:
@@ -2631,7 +2620,7 @@ def ref_destek_kirilim_usd(baslangic, bitis):
                 dagitilmayan[_rn] = {"ref_no": _rn, "kategoriler": kats, "usd": 0.0}
             dagitilmayan[_rn]["usd"] += t
         genel += t
-    return {"kategori": kat, "marka": marka, "genel": genel, "toplam": toplam,
+    return {"kategori": kat, "genel": genel, "toplam": toplam,
             "dagitilmayan": sorted(dagitilmayan.values(), key=lambda x: -x["usd"])}
 
 
