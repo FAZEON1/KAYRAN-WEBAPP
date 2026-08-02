@@ -1402,8 +1402,10 @@ def run():
                 "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
             } for r in _rows])
             metrik_satiri([
-                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
-                {"label": "📦 Toplam Stok", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
+                # Bu ekranın kaynağı musteri_haftalik_satis — ADET tablosu,
+                # para alanı YOK. Etiketlerde "adet" yazmak $ karışıklığını önler.
+                {"label": "📈 Toplam Satış (adet)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
+                {"label": "📦 Toplam Stok (adet)", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
                 {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
             ])
 
@@ -1418,8 +1420,8 @@ def run():
             st.dataframe(_ozet, hide_index=True, use_container_width=True,
                          height=min(60 + len(_ozet) * 36, 420),
                          column_config={
-                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="%d"),
-                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="%d"),
+                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış (adet)", format="localized"),
+                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok (adet)", format="localized"),
                              "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
                          })
             _ind1, _ind2 = st.columns(2)

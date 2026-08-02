@@ -565,11 +565,21 @@ _PARA_AD = ("ciro", "tutar", "kâr", "kar", "maliyet", "destek", "desteğ",
             "borç", "borc", "alacak", "çek", "cek", "bedel", "prim")
 
 
+# ADET anlamına gelen kolonlar, içinde para kelimesi geçse bile adet kalmalı.
+# "Toplam Satış" adet taşıyabilir (sell-out raporu) — para sanıp $ koymak
+# rakamı yanlış gösteriyordu.
+_ADET_ONCELIK = ("toplam satış", "toplam satis", "toplam stok", "satış adet",
+                 "satis adet", "satılan", "satilan", "sellout", "sell-out",
+                 "iade adet", "toplam adet", "stok adet")
+
+
 def _tablo_kolon_tipi(ad):
     """Kolon adından biçim tipini çıkarır. None → dokunulmaz."""
     a = str(ad or "").strip().lower()
     if not a:
         return None
+    if any(k in a for k in _ADET_ONCELIK):
+        return "adet"
     if any(k in a for k in _ORAN_AD):
         return "oran"
     if any(k in a for k in _ADET_AD):
