@@ -369,69 +369,10 @@ def patron_verisi_topla():
     except Exception:
         pass
 
-    # ── Acil sipariş + kritik stoklar (ürün yönetimi) ──
-    try:
-        from kayranpm.analitik import dashboard_hesapla
-        _veri = dashboard_hesapla() or []
-        _acil = [u for u in _veri if u.get("siparis_durum") == "acil"]
-        v["acil_sayi"] = len(_acil)
-        v["acil_liste"] = [{"ad": (u.get("urun_adi") or u.get("sku") or "—")[:40],
-                            "gun": u.get("stok_bitis_gun", "?"),
-                            "stok": u.get("toplam_stok", u.get("bizim_stok", 0))}
-                           for u in _acil[:6]]
-        _yak = [u for u in _veri if u.get("siparis_durum") == "yaklasıyor"]
-        v["yaklasan_sayi"] = len(_yak)
-    except Exception:
-        pass
-
-    # ── Bugün vadeli + gecikmiş ödemeler (muhasebe) ──
-    try:
-        from kayranacc.database import get_aktif_odemeler
-        from shared.utils import vade_durumu
-        _odm, _ = get_aktif_odemeler()
-        _bek = [o for o in (_odm or []) if o.get("durum") == "bekliyor"]
-        v["odeme_bugun"] = sum(1 for o in _bek if vade_durumu(o.get("vade")) == "bugun")
-        v["odeme_gecikmis"] = sum(1 for o in _bek if vade_durumu(o.get("vade")) == "gecmis")
-        _bugvad = [o for o in _bek if vade_durumu(o.get("vade")) in ("bugun", "gecmis")]
-        v["odeme_liste"] = [{"firma": o.get("firma", "—"),
-                             "durum": vade_durumu(o.get("vade")),
-                             "tl": float(o.get("tutar_tl") or 0),
-                             "usd": float(o.get("tutar_usd") or 0)} for o in _bugvad[:6]]
-    except Exception:
-        pass
-
-    # ── Gümrükte/yolda ithalatlar ──
-    try:
-        from ithalat.database import get_dosyalar, IN_TRANSIT_DURUMLAR
-        _dos = get_dosyalar() or []
-        _yolda = [d for d in _dos if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR]
-        v["ithalat_yolda"] = len(_yolda)
-        _durum_say = {}
-        for d in _yolda:
-            _du = str(d.get("durum", "")).strip()
-            _durum_say[_du] = _durum_say.get(_du, 0) + 1
-        v["ithalat_durum"] = _durum_say
-    except Exception:
-        pass
-
-    # ── Teknik servis: SLA aşan (21 iş günü) açık işler ──
-    try:
-        from teknikservis.database import get_kayitlar, is_gunu_farki, BITMIS_DURUMLAR
-        _tsk = get_kayitlar() or []
-        _acik_ts = [k for k in _tsk if str(k.get("durum", "")) not in BITMIS_DURUMLAR]
-        _sla_asan = []
-        for k in _acik_ts:
-            try:
-                _g = is_gunu_farki(k.get("mal_kabul_tarihi") or k.get("kayit_tarihi"))
-                if _g is not None and _g > 21:
-                    _sla_asan.append({"no": k.get("servis_no", "—"),
-                                      "firma": (k.get("firma", "") or "—")[:24], "gun": _g})
-            except Exception:
-                continue
-        v["ts_acik"] = len(_acik_ts)
-        v["ts_sla_asan"] = sorted(_sla_asan, key=lambda x: -x["gun"])[:6]
-    except Exception:
-        pass
+    # Acil sipariş · vadeli ödemeler · yolda ithalat · SLA aşan servis
+    # bloklarının VERİSİ de kaldırıldı — kartları gösterilmediği için
+    # dashboard_hesapla(), get_aktif_odemeler(), get_dosyalar() ve
+    # get_kayitlar() çağrıları boşuna çalışıyordu.
 
     # ── Hatalı veri: %100 marjlı (maliyetsiz) satış + eksi stok ──
     try:
@@ -554,56 +495,9 @@ def patron_panosu_html(v):
             f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{sol}</span>',
             sag_html)
 
-    # ── Pencere 1: Acil sipariş ──
-    if v.get("acil_liste"):
-        _ic = "".join(_satir(
-            f'⚡ {a["ad"]}',
-            f'<span style="color:{RENK["soluk"]};font-size:11px">📦 {_fmt(a["stok"])}</span>'
-            f'<span style="color:{RENK["kirmizi"]};font-size:11px;font-weight:700">{a["gun"]}g</span>')
-            for a in v["acil_liste"])
-        _p1 = _pencere("🔴 ACİL SİPARİŞ", RENK["kirmizi"], _ic,
-                       rozet=f"{v.get('acil_sayi', 0)} ürün")
-    else:
-        _p1 = _pencere("🔴 ACİL SİPARİŞ", RENK["kirmizi"],
-                       bos_durum("Acil sipariş gereken ürün yok"), rozet="0")
-
-    # ── Pencere 2: Ödemeler ──
-    if v.get("odeme_liste"):
-        _ic = "".join(_satir(
-            ("🚨 " if o["durum"] == "gecmis" else "⚠️ ") + o["firma"],
-            f'<span style="color:{RENK["amber"] if o["durum"]=="bugun" else RENK["kirmizi"]};'
-            f'font-size:11px;font-weight:700">'
-            f'{("₺"+_fmt(o["tl"])) if o["tl"] else ("$"+_fmt(o["usd"]))}</span>')
-            for o in v["odeme_liste"])
-        _rz = f"{v.get('odeme_gecikmis',0)} geç · {v.get('odeme_bugun',0)} bugün"
-        _p2 = _pencere("💳 VADELİ ÖDEMELER", RENK["amber"], _ic, rozet=_rz)
-    else:
-        _p2 = _pencere("💳 VADELİ ÖDEMELER", RENK["amber"],
-                       bos_durum("Bugün/gecikmiş ödeme yok"), rozet="0")
-
-    # ── Pencere 3: İthalat ──
-    if v.get("ithalat_durum"):
-        _ic = "".join(_satir(
-            f'🚢 {du}',
-            f'<span style="color:{RENK["mavi"]};font-size:13px;font-weight:700">{n}</span>')
-            for du, n in sorted(v["ithalat_durum"].items(), key=lambda x: -x[1]))
-        _p3 = _pencere("🚢 YOLDA İTHALAT", RENK["mavi"], _ic,
-                       rozet=f"{v.get('ithalat_yolda', 0)} dosya")
-    else:
-        _p3 = _pencere("🚢 YOLDA İTHALAT", RENK["mavi"],
-                       bos_durum("Yolda/gümrükte dosya yok"), rozet="0")
-
-    # ── Pencere 4: Teknik servis SLA ──
-    if v.get("ts_sla_asan"):
-        _ic = "".join(_satir(
-            f'🔧 {t["firma"]} · {t["no"]}',
-            f'<span style="color:{RENK["kirmizi"]};font-size:11px;font-weight:700">{t["gun"]}g</span>')
-            for t in v["ts_sla_asan"])
-        _p4 = _pencere("🔧 SLA AŞAN SERVİS", RENK["pembe"], _ic,
-                       rozet=f"{len(v['ts_sla_asan'])} iş")
-    else:
-        _p4 = _pencere("🔧 SLA AŞAN SERVİS", RENK["pembe"],
-                       bos_durum("21 iş gününü aşan servis yok"), rozet="0")
+    # ACİL SİPARİŞ · VADELİ ÖDEMELER · YOLDA İTHALAT · SLA AŞAN SERVİS
+    # kartları KALDIRILDI (anasayfa hızı). Bu kartların verisini toplayan
+    # bloklar patron_verisi_topla() içinde de devre dışı bırakıldı.
 
     # ── Hatalı veri şeridi ──
     _hata_parca = []
@@ -714,8 +608,6 @@ def patron_panosu_html(v):
         + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
-        + pencere_grid(_p1, _p2)
-        + pencere_grid(_p3, _p4)
         + _hata_html
         + _kritik_html
         + '</div>'
