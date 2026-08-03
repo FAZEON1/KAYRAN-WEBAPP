@@ -175,7 +175,14 @@ def _bugun():
 # ── Maliyet (paçal) ve ürün katalogu — İthalat / Ürün Yönetimi'nden ──
 @st.cache_data(ttl=120, show_spinner=False)
 def get_pacal_map():
-    """{KANONİK sku: pacal_final} — güncel ağırlıklı ortalama landed maliyet (USD).
+    """{KANONİK sku: birim maliyet USD} — TÜM maliyetlerin tek kapısı.
+
+    İki kaynak, bu öncelikle:
+      1) İthalat paçalı (get_sku_maliyet_ozet) — landed maliyet
+      2) Ürün kartı alis_fiyati — yurt içinden alınanlar için
+
+    21 çağrı yeri buradan geçtiği için yurt içi maliyet girildiği anda
+    Kâr/P&L, kırılımlar, satış kârı ve tüm raporlar birlikte düzelir.
     Anahtarlar sku_anahtar ile normalize edilir: satışta 'Fazeon X24F165S'
     yazsa bile ithalattaki 'X24F165S' maliyeti bulunur. Eskiden bu eşleşme
     tutmayınca birim_maliyet 0 yazılıyor, kâr olduğundan YÜKSEK görünüyordu."""
@@ -188,6 +195,24 @@ def get_pacal_map():
             _k = _skn(sku)
             if _k and _k not in out:      # ilk (öneksiz/gerçek) kayıt öncelikli
                 out[_k] = _f(v.get("pacal_final"))
+
+        # ── YURT İÇİ ALIM MALİYETİ (ithalatı olmayan ürünler) ──
+        # Kaspersky, mouse pad gibi yurt içinden alınan ürünlerin ithalat
+        # dosyası yoktur; maliyetleri 0 kalıyor ve raporlarda marj %100
+        # görünüyordu. Ürün kartındaki alis_fiyati bu boşluğu doldurur.
+        # ÖNCELİK: ithalat paçalı > yurt içi alış. Bir ürünün ithalatı VARSA
+        # gerçek landed maliyet her zaman kazanır; alis_fiyati yalnız
+        # paçalı olmayan ya da sıfır olan SKU'lara uygulanır.
+        try:
+            for u in (_urunler_hepsi("sku, alis_fiyati") or []):
+                _k = _skn(u.get("sku"))
+                if not _k:
+                    continue
+                _af = _f(u.get("alis_fiyati"))
+                if _af > 0 and out.get(_k, 0) <= 0:
+                    out[_k] = _af
+        except Exception:
+            pass
         return out
     except Exception:
         return {}

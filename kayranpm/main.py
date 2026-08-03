@@ -561,6 +561,7 @@ def run():
             "📈  Müşteri Satışları",
             "🎯  Kampanya Takip",
             "📦  Sipariş Önerisi",
+            "💵  Maliyet Girişi",
             "🔖  Ref No Takibi",
             "📂  Veri Yükleme",
         ], label_visibility="collapsed")
@@ -1299,6 +1300,47 @@ def run():
                     with fc4:
                         d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
 
+                    # ── YURT İÇİ ALIM MALİYETİ ──
+                    # Kaspersky, mouse pad gibi ithalatı olmayan ürünlerin
+                    # maliyeti hiçbir yerden gelmiyordu; raporlarda marj %100
+                    # çıkıyordu. Burası tüm raporları besleyen tek giriş noktası.
+                    from shared.utils import sku_anahtar as _skn_kart
+                    _ith_pacal = 0.0
+                    try:
+                        from ithalat.database import get_sku_maliyet_ozet as _gsmo
+                        for _s2, _v2 in (_gsmo() or {}).items():
+                            if _skn_kart(_s2) == _skn_kart(_sec_sku):
+                                _ith_pacal = float(_v2.get("pacal_final") or 0)
+                                break
+                    except Exception:
+                        _ith_pacal = 0.0
+
+                    _alis_mevcut = float(_u.get("alis_fiyati", 0) or 0)
+                    st.markdown("**\U0001F4B5 Birim Maliyet ($)**")
+                    if _ith_pacal > 0:
+                        st.info(
+                            "Bu ürünün **ithalat paçalı** var: "
+                            "**${:,.4f}**. Raporlarda o kullanılır — aşağıdaki alan "
+                            "yalnız yurt içinden alınan, ithalatı olmayan ürünler "
+                            "içindir.".format(_ith_pacal))
+                        d_alis = st.number_input(
+                            "Yurt içi alış maliyeti ($) — bu üründe kullanılmıyor",
+                            value=_alis_mevcut, min_value=0.0, step=0.01,
+                            format="%.4f", key="urun_alis_f")
+                    else:
+                        d_alis = st.number_input(
+                            "Yurt içi alış maliyeti ($) — birim başına, nakliye dahil",
+                            value=_alis_mevcut, min_value=0.0, step=0.01,
+                            format="%.4f", key="urun_alis_f",
+                            help="Bu ürünün ithalat dosyası yok. Buraya girdiğin maliyet "
+                                 "Kâr/P&L, marka/kategori kırılımı ve tüm satış "
+                                 "raporlarında kullanılır. 0 bırakırsan marj %100 "
+                                 "görünmeye devam eder.")
+                        if _alis_mevcut <= 0:
+                            st.warning(
+                                "\u26a0\ufe0f Maliyet girilmemiş — bu ürünün satışları "
+                                "raporlarda **%100 marj** gösterir.")
+
                     # Müşteri bazlı satış fiyat listesi (ana müşteriler hazır + satır ekleyerek yeni müşteri)
                     from .database import ANA_MUSTERILER as _ANA_MUST
                     _mevcut_liste = _u.get("satis_fiyat_listesi") or {}
@@ -1335,7 +1377,7 @@ def run():
                             _upsert_urun(
                                 _sec_sku, d_ad.strip(), d_kat.strip(),
                                 _u.get("marka", "") or "", float(d_satis or 0),
-                                float(_u.get("alis_fiyati", 0) or 0), float(_u.get("hedef_kar_marji", 0) or 0),
+                                float(d_alis or 0), float(_u.get("hedef_kar_marji", 0) or 0),
                                 _u.get("ozellikler", "") or "", int(d_stok or 0),
                                 int(_u.get("trendyol_stok", 0) or 0),
                                 satis_fiyat_listesi=_yeni_liste, eol=d_eol,
@@ -1375,6 +1417,116 @@ def run():
         st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:8px 12px;font-size:13px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
 
 
+    elif sayfa == "💵  Maliyet Girişi":
+        _baslik("💵", "Maliyet Girişi",
+                "Yurt içinden alınan ürünlerin birim maliyeti · toplu düzenleme")
+        st.markdown(
+            '<div class="alt-baslik">İthalat dosyası olan ürünlerin maliyeti '
+            'paçaldan gelir ve burada <b>değiştirilemez</b>. Bu ekran yalnız '
+            'yurt içinden alınan ürünler içindir — girdiğin maliyet Kâr/P&L, '
+            'kırılımlar ve tüm satış raporlarına yansır.</div>',
+            unsafe_allow_html=True)
+
+        from shared.utils import sku_anahtar as _skn_m
+        try:
+            from ithalat.database import get_sku_maliyet_ozet as _gsmo_m
+            _pacal_m = {}
+            for _s3, _v3 in (_gsmo_m() or {}).items():
+                _k3 = _skn_m(_s3)
+                if _k3 and _k3 not in _pacal_m:
+                    _pacal_m[_k3] = float(_v3.get("pacal_final") or 0)
+        except Exception:
+            _pacal_m = {}
+
+        _tum_u = get_urunler() or []
+        _satirlar = []
+        for _u3 in _tum_u:
+            _sk = _u3.get("sku", "")
+            _pc = _pacal_m.get(_skn_m(_sk), 0.0)
+            if _pc > 0:
+                continue                       # ithalatı var → burada gösterme
+            _satirlar.append({
+                "SKU": _sk,
+                "Ürün": _u3.get("urun_adi", "") or "",
+                "Kategori": _u3.get("kategori", "") or "",
+                "Maliyet ($)": float(_u3.get("alis_fiyati", 0) or 0),
+            })
+        _satirlar.sort(key=lambda r: (r["Maliyet ($)"] > 0, r["Kategori"], r["SKU"]))
+
+        _eksik = [r for r in _satirlar if r["Maliyet ($)"] <= 0]
+        metrik_satiri([
+            {"label": "📋 Yurt içi ürün", "value": f"{len(_satirlar):,}", "renk": "#818CF8"},
+            {"label": "⚠️ Maliyeti girilmemiş", "value": f"{len(_eksik):,}", "renk": "#F87171"},
+            {"label": "✅ Maliyeti girilmiş",
+             "value": f"{len(_satirlar) - len(_eksik):,}", "renk": "#34D399"},
+        ])
+
+        if not _satirlar:
+            st.info("Tüm ürünlerin ithalat maliyeti var — bu ekranda düzenlenecek ürün yok.")
+        else:
+            if _eksik:
+                st.warning(
+                    "⚠️ **{:,} ürünün maliyeti girilmemiş.** Bu ürünlerin satışları "
+                    "raporlarda **%100 marj** gösterir. Aşağıdaki tabloda "
+                    "**Maliyet ($)** kolonunu doldurup kaydet.".format(len(_eksik)))
+
+            _sadece_eksik = st.checkbox("Yalnız maliyeti girilmemiş ürünleri göster",
+                                        value=bool(_eksik), key="mal_sadece_eksik")
+            _goster = _eksik if _sadece_eksik else _satirlar
+            _ara_m = st.text_input("🔍 Ara (SKU / ürün / kategori)", key="mal_ara").strip().lower()
+            if _ara_m:
+                _goster = [r for r in _goster
+                           if _ara_m in (r["SKU"] + " " + r["Ürün"] + " " + r["Kategori"]).lower()]
+
+            st.caption("{:,} ürün gösteriliyor".format(len(_goster)))
+            _duz = st.data_editor(
+                pd.DataFrame(_goster), use_container_width=True, hide_index=True,
+                key="mal_editor", num_rows="fixed",
+                column_config={
+                    "SKU": st.column_config.TextColumn("SKU", disabled=True),
+                    "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
+                    "Kategori": st.column_config.TextColumn("Kategori", disabled=True),
+                    "Maliyet ($)": st.column_config.NumberColumn(
+                        "Maliyet ($)", min_value=0.0, step=0.01, format="%.4f",
+                        help="Birim başına, nakliye dahil"),
+                })
+
+            if st.button("💾 Maliyetleri Kaydet", type="primary",
+                         use_container_width=True, key="mal_kaydet"):
+                from .database import upsert_urun as _upsert_m
+                _eski_map = {r["SKU"]: r["Maliyet ($)"] for r in _goster}
+                _u_map = {u.get("sku"): u for u in _tum_u}
+                _n, _hata = 0, []
+                for _, _r4 in _duz.iterrows():
+                    _sk4 = str(_r4.get("SKU", "") or "").strip()
+                    _yeni = float(_r4.get("Maliyet ($)", 0) or 0)
+                    if not _sk4 or abs(_yeni - float(_eski_map.get(_sk4, 0))) < 0.00005:
+                        continue               # değişmeyen satıra dokunma
+                    _uu = _u_map.get(_sk4) or {}
+                    try:
+                        _upsert_m(
+                            _sk4, _uu.get("urun_adi", "") or "", _uu.get("kategori", "") or "",
+                            _uu.get("marka", "") or "", float(_uu.get("satis_fiyati", 0) or 0),
+                            _yeni, float(_uu.get("hedef_kar_marji", 0) or 0),
+                            _uu.get("ozellikler", "") or "", int(_uu.get("bizim_stok", 0) or 0),
+                            int(_uu.get("trendyol_stok", 0) or 0),
+                            satis_fiyat_listesi=_uu.get("satis_fiyat_listesi") or {},
+                            eol=bool(_uu.get("eol")))
+                        _n += 1
+                    except Exception as _e4:
+                        _hata.append("{}: {}".format(_sk4, str(_e4)[:60]))
+                st.cache_data.clear()
+                if _n:
+                    st.success("✅ {:,} ürünün maliyeti güncellendi. "
+                               "Raporlar yeni maliyete göre hesaplanacak.".format(_n))
+                if _hata:
+                    st.error("Yazılamayan {} kayıt:\n\n".format(len(_hata))
+                             + "\n".join("- " + h for h in _hata[:10]))
+                if not _n and not _hata:
+                    st.info("Değişiklik yok.")
+                if _n:
+                    st.rerun()
+
     elif sayfa == "📈  Müşteri Satışları":
         from shared.tarih import hizli_tarih_araligi
         st.markdown('<div class="baslik"><span class="baslik-ikon">📈</span>Müşteri Haftalık Satışları</div>', unsafe_allow_html=True)
@@ -1402,10 +1554,8 @@ def run():
                 "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
             } for r in _rows])
             metrik_satiri([
-                # Bu ekranın kaynağı musteri_haftalik_satis — ADET tablosu,
-                # para alanı YOK. Etiketlerde "adet" yazmak $ karışıklığını önler.
-                {"label": "📈 Toplam Satış (adet)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
-                {"label": "📦 Toplam Stok (adet)", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
+                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
+                {"label": "📦 Toplam Stok", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
                 {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
             ])
 
@@ -1420,8 +1570,8 @@ def run():
             st.dataframe(_ozet, hide_index=True, use_container_width=True,
                          height=min(60 + len(_ozet) * 36, 420),
                          column_config={
-                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış (adet)", format="localized"),
-                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok (adet)", format="localized"),
+                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="%d"),
+                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="%d"),
                              "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
                          })
             _ind1, _ind2 = st.columns(2)
