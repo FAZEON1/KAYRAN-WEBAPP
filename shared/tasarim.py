@@ -700,6 +700,8 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
     _acik = stil in ("havadar", "rozet")      # kutusuz düzen
     _rozet = (stil == "rozet")
     _pad = "10px 12px" if _acik else "6px 11px"
+    _ilk_genislik = 130                      # sabit kolonun asgari genişliği
+    _ilk_zemin = R["yuzey0"] if _acik else R["yuzey2"]
 
     # ── Başlık ──
     if _acik:
@@ -713,8 +715,12 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
                      f'background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}')
     _bas = "".join(
         f'<th style="text-align:{"right" if tipler[k] else "left"};{_bas_stil};'
-        f'position:sticky;top:0;z-index:1;white-space:nowrap'
-        + (f';min-width:{110 if _i == 0 else 0}px' if _i == 0 else '')
+        f'position:sticky;top:0;white-space:nowrap'
+        # İlk kolon YATAY kaydırmada da sabit kalır (left:0). Başlık hücresi
+        # hem üstte hem solda durduğu için z-index en yüksek olmalı, yoksa
+        # kayan sayı hücreleri üstüne biner.
+        + (f';left:0;z-index:3;min-width:{_ilk_genislik}px;'
+           f'background:{_ilk_zemin}' if _i == 0 else ';z-index:2')
         + f'">{k}</th>'
         for _i, k in enumerate(kolonlar))
 
@@ -731,6 +737,10 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
         else:
             _satir_stil = f'background:{R["yuzey2"] if i % 2 else "transparent"}'
 
+        # Sabit ilk kolonun zemini satırınkiyle AYNI olmalı (zebra dahil),
+        # yoksa kaydırırken şerit gibi görünür.
+        _satir_zemin = (R["yuzey2"] if (_toplam or (not _acik and i % 2))
+                        else R["yuzey1"])
         _hucre = []
         for k in kolonlar:
             v, t = r.get(k), tipler[k]
@@ -763,6 +773,7 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
             _renk = R["kirmizi"] if _neg else R["metin"]
             # nowrap YALNIZ sayılarda. Metin kolonlarında da olunca marka/kategori
             # adları satırı genişletiyor ve yan yana iki tablo sığmıyordu.
+            _ilk_mi = (k == kolonlar[0])
             _hucre.append(
                 f'<td style="text-align:{"right" if sayi_mi else "left"};'
                 f'padding:{_pad};font-size:{F["govde"]};'
@@ -773,6 +784,11 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
                    # gibi çirkin sonuç veriyordu. overflow-wrap yalnız SIĞMAYAN
                    # tek kelimeyi kırar; normal metin kelime aralarından sarar.
                    else "overflow-wrap:anywhere;word-break:normal")
+                # Sağa kaydırınca ilk kolon (marka/kategori adı) yerinde kalır.
+                # Zemin ŞART: saydam kalırsa altından kayan sayılar görünür.
+                + (f';position:sticky;left:0;z-index:1;'
+                   f'min-width:{_ilk_genislik}px;background:{_satir_zemin}'
+                   if _ilk_mi else '')
                 + f'{_cizgi}'
                 + (f';font-family:{MONO};font-variant-numeric:tabular-nums'
                    if sayi_mi else "")
@@ -856,6 +872,15 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
 #{_id} td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
    color:{R["metin"]};overflow-wrap:anywhere;word-break:normal{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
 #{_id} td.n{{text-align:right;white-space:nowrap;font-family:{MONO};font-variant-numeric:tabular-nums}}
+/* İlk kolon yatay kaydırmada sabit. Zemin ŞART — saydam kalırsa altından
+   kayan sayılar görünür. Zebra/toplam satırları kendi zeminini ezer. */
+#{_id} th:first-child{{position:sticky;left:0;z-index:3;min-width:130px;
+   background:{R["yuzey2"] if not _acik else R["yuzey0"]}}}
+#{_id} td:first-child{{position:sticky;left:0;z-index:1;min-width:130px;
+   background:{R["yuzey1"] if not _acik else R["yuzey0"]}}}
+{'' if _acik else f'#{_id} tbody tr:nth-child(even) td:first-child{{background:{R["yuzey2"]}}}'}
+#{_id} tbody tr:hover td:first-child{{background:{R["yuzey3"]}}}
+#{_id} tfoot td:first-child{{background:{R["yuzey2"] if not _acik else R["yuzey0"]}}}
 #{_id} td.neg{{color:{R["kirmizi"]}}}
 {'' if _acik else f'#{_id} tbody tr:nth-child(even){{background:{R["yuzey2"]}}}'}
 #{_id} tbody tr:hover{{background:{R["yuzey3"]}}}
