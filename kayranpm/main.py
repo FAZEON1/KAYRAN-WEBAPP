@@ -1423,23 +1423,19 @@ def run():
         st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>'
                     'Maliyet Girişi</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="alt-baslik">Yalnız <b>hiç ithalatı olmayan</b> ürünler '
-            'listelenir. Yolda / gümrükte / antrepoda olanlar burada <b>yok</b> — '
-            'onların maliyeti teslim alınıp stoğa girince otomatik oluşur. '
-            'Girdiğin maliyet Kâr/P&L, kırılımlar ve tüm satış raporlarına yansır.</div>',
+            '<div class="alt-baslik">Yurt içinden alınan ürünlerin birim maliyeti. '
+            'İthal ettiğin ürünler burada <b>yok</b> — onların maliyeti ithalat '
+            'paçalından otomatik gelir. Girdiğin maliyet Kâr/P&L, kırılımlar ve '
+            'tüm satış raporlarına yansır.</div>',
             unsafe_allow_html=True)
 
         from shared.utils import sku_anahtar as _skn_m
-        # ÖLÇÜT: "ithalat KALEMLERİNDE geçiyor mu", "paçalı hesaplanmış mı" DEĞİL.
-        # Yolda / gümrükte / antrepodaki ürünler henüz stoğa girmediği için
-        # paçalları 0'dır; ama ithalatları var, maliyet teslim alınınca
-        # otomatik oluşur. Onları bu listeye koymak gereksiz iş yaratıyordu.
-        try:
-            from ithalat.database import get_tum_kalemler as _gtk_m
-            _ithalatli = {_skn_m(_k3.get("sku")) for _k3 in (_gtk_m() or [])
-                          if _skn_m(_k3.get("sku"))}
-        except Exception:
-            _ithalatli = set()
+        from .database import (get_yurtici_kategoriler as _gyk,
+                               set_yurtici_kategoriler as _syk)
+        # ÖLÇÜT: KATEGORİ. "İthalatta geçiyor mu" ölçütü tek başına yetmedi
+        # çünkü bazı ürünlerin SKU yazımı iki tarafta farklı (F11PA650BWM ↔
+        # F11PA650BBM) ve o ürünler yanlışlıkla listeye düşüyordu.
+        _yurtici_kat = _gyk()
 
         # get_urunler() bu modülde YOK (satis modülünde). Ham urunler
         # tablosunu doğrudan çekiyoruz — upsert için alis_fiyati, bizim_stok,
@@ -1452,10 +1448,11 @@ def run():
             _tum_u = []
             st.error("Ürün listesi alınamadı: {}".format(str(_e_m)[:120]))
         _satirlar = []
+        _kat_norm = {str(k).strip().lower() for k in _yurtici_kat}
         for _u3 in _tum_u:
             _sk = _u3.get("sku", "")
-            if _skn_m(_sk) in _ithalatli:
-                continue                       # ithalat kaydı var → burada gösterme
+            if str(_u3.get("kategori", "") or "").strip().lower() not in _kat_norm:
+                continue                       # yurt içi kategorisinde değil
             _satirlar.append({
                 "SKU": _sk,
                 "Ürün": _u3.get("urun_adi", "") or "",
@@ -1463,6 +1460,22 @@ def run():
                 "Maliyet ($)": float(_u3.get("alis_fiyati", 0) or 0),
             })
         _satirlar.sort(key=lambda r: (r["Maliyet ($)"] > 0, r["Kategori"], r["SKU"]))
+
+        with st.expander("⚙️ Hangi kategoriler yurt içi? ({} seçili)".format(len(_yurtici_kat))):
+            st.caption("Yeni bir yurt içi ürün grubu aldığında buraya ekle — "
+                       "kodu değiştirmeye gerek yok.")
+            _tum_kat = sorted({str(u.get("kategori", "") or "").strip()
+                               for u in _tum_u if str(u.get("kategori", "") or "").strip()})
+            _sec_kat = st.multiselect("Yurt içi kategoriler", _tum_kat,
+                                      default=[k for k in _yurtici_kat if k in _tum_kat],
+                                      key="mal_kat_sec")
+            if st.button("💾 Kategori seçimini kaydet", key="mal_kat_kaydet"):
+                if _syk(_sec_kat):
+                    st.cache_data.clear()
+                    st.success("✅ Kaydedildi.")
+                    st.rerun()
+                else:
+                    st.error("Kaydedilemedi (pm_ayarlar tablosu yok olabilir).")
 
         _eksik = [r for r in _satirlar if r["Maliyet ($)"] <= 0]
         metrik_satiri([

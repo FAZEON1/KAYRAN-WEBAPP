@@ -350,6 +350,41 @@ def set_uretim_suresi(gun):
     except Exception:
         return False
 
+# Yurt içinden alınan ürünlerin kategorileri. Maliyet Girişi ekranı YALNIZ
+# bu kategorileri listeler. Neden kategori bazlı: ithalatı olan ürünlerin bir
+# kısmında SKU yazımı ürün kartıyla tutmuyor (F11PA650BWM ↔ F11PA650BBM gibi),
+# bu yüzden "ithalatta geçiyor mu" ölçütü tek başına yetmiyordu.
+YURTICI_KATEGORI_VARSAYILAN = ["anti virüs", "mouse pad"]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_yurtici_kategoriler():
+    """Maliyet Girişi ekranında listelenecek kategoriler."""
+    try:
+        rows = _rows(get_client().table("pm_ayarlar").select("deger")
+                     .eq("anahtar", "yurtici_kategoriler").limit(1).execute())
+        if rows:
+            ham = str(rows[0].get("deger") or "").strip()
+            if ham:
+                return [k.strip() for k in ham.split("·") if k.strip()]
+    except Exception:
+        pass
+    return list(YURTICI_KATEGORI_VARSAYILAN)
+
+
+def set_yurtici_kategoriler(kategoriler):
+    """Kategori listesini kaydeder. Tablo yoksa False döner."""
+    try:
+        get_client().table("pm_ayarlar").upsert(
+            {"anahtar": "yurtici_kategoriler",
+             "deger": " · ".join(str(k).strip() for k in (kategoriler or []) if str(k).strip())},
+            on_conflict="anahtar").execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()
