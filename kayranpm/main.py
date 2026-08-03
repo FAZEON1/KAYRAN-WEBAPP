@@ -1423,22 +1423,23 @@ def run():
         st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>'
                     'Maliyet Girişi</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="alt-baslik">İthalat dosyası olan ürünlerin maliyeti '
-            'paçaldan gelir ve burada <b>değiştirilemez</b>. Bu ekran yalnız '
-            'yurt içinden alınan ürünler içindir — girdiğin maliyet Kâr/P&L, '
-            'kırılımlar ve tüm satış raporlarına yansır.</div>',
+            '<div class="alt-baslik">Yalnız <b>hiç ithalatı olmayan</b> ürünler '
+            'listelenir. Yolda / gümrükte / antrepoda olanlar burada <b>yok</b> — '
+            'onların maliyeti teslim alınıp stoğa girince otomatik oluşur. '
+            'Girdiğin maliyet Kâr/P&L, kırılımlar ve tüm satış raporlarına yansır.</div>',
             unsafe_allow_html=True)
 
         from shared.utils import sku_anahtar as _skn_m
+        # ÖLÇÜT: "ithalat KALEMLERİNDE geçiyor mu", "paçalı hesaplanmış mı" DEĞİL.
+        # Yolda / gümrükte / antrepodaki ürünler henüz stoğa girmediği için
+        # paçalları 0'dır; ama ithalatları var, maliyet teslim alınınca
+        # otomatik oluşur. Onları bu listeye koymak gereksiz iş yaratıyordu.
         try:
-            from ithalat.database import get_sku_maliyet_ozet as _gsmo_m
-            _pacal_m = {}
-            for _s3, _v3 in (_gsmo_m() or {}).items():
-                _k3 = _skn_m(_s3)
-                if _k3 and _k3 not in _pacal_m:
-                    _pacal_m[_k3] = float(_v3.get("pacal_final") or 0)
+            from ithalat.database import get_tum_kalemler as _gtk_m
+            _ithalatli = {_skn_m(_k3.get("sku")) for _k3 in (_gtk_m() or [])
+                          if _skn_m(_k3.get("sku"))}
         except Exception:
-            _pacal_m = {}
+            _ithalatli = set()
 
         # get_urunler() bu modülde YOK (satis modülünde). Ham urunler
         # tablosunu doğrudan çekiyoruz — upsert için alis_fiyati, bizim_stok,
@@ -1453,9 +1454,8 @@ def run():
         _satirlar = []
         for _u3 in _tum_u:
             _sk = _u3.get("sku", "")
-            _pc = _pacal_m.get(_skn_m(_sk), 0.0)
-            if _pc > 0:
-                continue                       # ithalatı var → burada gösterme
+            if _skn_m(_sk) in _ithalatli:
+                continue                       # ithalat kaydı var → burada gösterme
             _satirlar.append({
                 "SKU": _sk,
                 "Ürün": _u3.get("urun_adi", "") or "",
