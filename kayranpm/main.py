@@ -1418,8 +1418,10 @@ def run():
 
 
     elif sayfa == "💵  Maliyet Girişi":
-        _baslik("💵", "Maliyet Girişi",
-                "Yurt içinden alınan ürünlerin birim maliyeti · toplu düzenleme")
+        # Bu modülde _baslik() diye bir fonksiyon YOK — başlıklar doğrudan
+        # HTML sınıflarıyla çiziliyor (diğer sayfalarla aynı desen).
+        st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>'
+                    'Maliyet Girişi</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="alt-baslik">İthalat dosyası olan ürünlerin maliyeti '
             'paçaldan gelir ve burada <b>değiştirilemez</b>. Bu ekran yalnız '
@@ -1438,7 +1440,16 @@ def run():
         except Exception:
             _pacal_m = {}
 
-        _tum_u = get_urunler() or []
+        # get_urunler() bu modülde YOK (satis modülünde). Ham urunler
+        # tablosunu doğrudan çekiyoruz — upsert için alis_fiyati, bizim_stok,
+        # satis_fiyat_listesi gibi TÜM alanlar gerekiyor.
+        try:
+            from .database import get_client as _gc_m
+            _tum_u = (_gc_m().table("urunler").select("*")
+                      .order("urun_adi").execute().data) or []
+        except Exception as _e_m:
+            _tum_u = []
+            st.error("Ürün listesi alınamadı: {}".format(str(_e_m)[:120]))
         _satirlar = []
         for _u3 in _tum_u:
             _sk = _u3.get("sku", "")
