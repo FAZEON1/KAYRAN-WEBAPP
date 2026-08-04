@@ -1118,6 +1118,69 @@ _DEPO_KANONIK = {
 }
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_satis_depolari(sku=None):
+    """Satışta çıkış yapılabilecek depolar — VERİDEN çıkarılır, sabit liste değil.
+
+    sku verilirse: O ÜRÜNÜN stoğu olan depolar, adetle birlikte.
+        [{"depo": "HAPPY LIFE", "adet": 1892}, ...]  (adede göre azalan)
+    sku verilmezse: sistemdeki tüm satılabilir depo adları.
+
+    İADE DEPO ve İKİNCİ EL DEPO hariç tutulur — fiziksel takip içindir,
+    yeni satışta kullanılmaz (canli_stok da onları satılabilir saymaz).
+    """
+    _haric = {"IADE DEPO", "IKINCI EL DEPO", "İADE DEPO", "İKİNCİ EL DEPO"}
+    try:
+        sb = get_client()
+        if sku:
+            rows = _rows(sb.table("urunler").select("depo_kirilim")
+                         .eq("sku", str(sku).strip()).limit(1).execute())
+        else:
+            rows, start = [], 0
+            while True:
+                ch = _rows(sb.table("urunler").select("depo_kirilim")
+                           .range(start, start + 999).execute())
+                rows.extend(ch)
+                if len(ch) < 1000:
+                    break
+                start += 1000
+    except Exception:
+        return [{"depo": "MERKEZ DEPO", "adet": 0}] if sku else ["MERKEZ DEPO"]
+
+    toplam = {}
+    for r in rows:
+        k = r.get("depo_kirilim")
+        if isinstance(k, str):
+            try:
+                import json as _j
+                k = _j.loads(k)
+            except Exception:
+                k = {}
+        if not isinstance(k, dict):
+            continue
+        for d, a in k.items():
+            d = depo_kanonik(d)
+            if not d or d.upper() in _haric:
+                continue
+            try:
+                a = float(a or 0)
+            except Exception:
+                a = 0.0
+            toplam[d] = toplam.get(d, 0.0) + a
+
+    if sku:
+        # Stoğu olan depolar önce; hiç yoksa MERKEZ DEPO'yu seçenek bırak
+        cikti = [{"depo": d, "adet": int(a)} for d, a in toplam.items()]
+        cikti.sort(key=lambda x: -x["adet"])
+        return cikti or [{"depo": "MERKEZ DEPO", "adet": 0}]
+
+    adlar = sorted(toplam, key=lambda d: -toplam[d])
+    for _v in ("MERKEZ DEPO", "HAPPY LIFE"):     # her zaman seçilebilir olsun
+        if _v not in adlar:
+            adlar.append(_v)
+    return adlar
+
+
 def depo_kanonik(s):
     """Depo adını standart yazıma çevirir: 'happy life' / 'HAPPYLIFE' / 'Happy Life' → 'HAPPY LIFE'.
     Bilinmeyen depolar boşluk sadeleştirilip BÜYÜK harfe çevrilerek döner (yine tutarlı olur)."""

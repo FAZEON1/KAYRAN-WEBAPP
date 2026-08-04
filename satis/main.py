@@ -377,7 +377,40 @@ def run():
                     pd.DataFrame(columns=_kolonlar).to_excel(_w, index=False, sheet_name=_sheet)
                 return _b.getvalue()
 
-            def _sg_kaydet(_gecerli, _temizle=False):
+            def _sg_depo_sec(_anahtar, _skular=None):
+                """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir."""
+                try:
+                    from kayranpm.database import get_satis_depolari
+                    _dl = get_satis_depolari()
+                except Exception:
+                    _dl = ["MERKEZ DEPO", "HAPPY LIFE"]
+                _sec = st.selectbox("📦 Çıkış deposu — stok bu depodan düşer", _dl,
+                                    key=f"sg_depo_{_anahtar}",
+                                    help="Excel'de depo bilgisi yok. Bu partideki tüm "
+                                         "kalemler seçtiğin depodan çıkar.")
+                # Seçilen depoda stok yetiyor mu? (uyarı, engellemez)
+                if _skular:
+                    try:
+                        from kayranpm.database import get_sku_depo_dagilim
+                        _yetersiz = []
+                        for _sk, _ad in list(_skular.items())[:60]:
+                            _dag = get_sku_depo_dagilim(_sk) or {}
+                            _mev = float(_dag.get(_sec, 0) or 0)
+                            if _ad > _mev:
+                                _yetersiz.append(f"{_sk} ({_mev:.0f} var, {_ad:.0f} gerek)")
+                        if _yetersiz:
+                            st.warning("⚠️ **{}** deposunda yetersiz stok: {}{}".format(
+                                _sec, ", ".join(_yetersiz[:6]),
+                                " …" if len(_yetersiz) > 6 else ""))
+                    except Exception:
+                        pass
+                return _sec
+
+            def _sg_kaydet(_gecerli, _temizle=False, _depo=None):
+                # Excel'de depo kolonu yok; kullanıcı yükleme ekranından seçer.
+                # Kalemde depo yoksa buradaki seçim yazılır — stok O DEPODAN düşer.
+                if _depo:
+                    _gecerli = [dict(_g, depo=(_g.get("depo") or _depo)) for _g in _gecerli]
                 _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
                 if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                     st.error(f"❌ {_sonuc['hata']}")
@@ -468,9 +501,15 @@ def run():
                             key=f"sg_uz_{_key}",
                             help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
                                  "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
+                        _sku_ad_k = {}
+                        for _g in _gecerli:
+                            _k2 = str(_g.get("sku") or "").strip()
+                            if _k2:
+                                _sku_ad_k[_k2] = _sku_ad_k.get(_k2, 0) + float(_g.get("adet") or 0)
+                        _depo_k = _sg_depo_sec(_key, _sku_ad_k)
                         if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
-                            _sg_kaydet(_gecerli, _uz)
+                            _sg_kaydet(_gecerli, _uz, _depo_k)
                 if _ic_pencere:
                     # Zaten bir dialog içindeyiz → toggle ile aynı pencerede aç (iç içe dialog yasak)
                     if st.toggle(_baslik, key=f"tgl_kanal_{_key}"):
@@ -518,9 +557,15 @@ def run():
                                     "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
                                     key="sg_uz_vatan",
                                     help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
+                                _sku_ad_v = {}
+                                for _g in _gecerli:
+                                    _k = str(_g.get("sku") or "").strip()
+                                    if _k:
+                                        _sku_ad_v[_k] = _sku_ad_v.get(_k, 0) + float(_g.get("adet") or 0)
+                                _depo_v = _sg_depo_sec("vatan", _sku_ad_v)
                                 if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                              key="sg_kaydet_vatan", disabled=not _gecerli):
-                                    _sg_kaydet(_gecerli, _uzv)
+                                    _sg_kaydet(_gecerli, _uzv, _depo_v)
                 if st.toggle("📄 VATAN — Excel ile Toplu Sipariş", key="tgl_sat_vatan"):
                     _vatan_toplu_govde()
 

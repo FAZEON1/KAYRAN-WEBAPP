@@ -304,9 +304,13 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
-def _stok_akilli_dus(hareketler):
+def _stok_akilli_dus(hareketler, secili_depo=None):
     """AKILLI DEPO DÜŞÜMÜ (Excel toplu satış için): {sku: adet} çıkışını stoğu
-    OLAN depolardan otomatik düşer. Eskiden her şey MERKEZ DEPO'dan düşüyordu;
+    OLAN depolardan otomatik düşer.
+
+    secili_depo verilirse (kullanıcı yükleme ekranından seçtiyse) TAMAMI o
+    depodan düşer — stok yetmese bile, çünkü kullanıcının bilinçli seçimi
+    otomatik dağıtımdan önce gelir. Yetersizlik ekranda zaten uyarılıyor. Eskiden her şey MERKEZ DEPO'dan düşüyordu;
     stok Happy Life gibi başka depodaysa merkez eksiye iniyordu (kullanıcı
     bildirimi). Kural — öngörülebilir ve basit:
       1) MERKEZ DEPO'daki mevcut kadarını merkezden düş,
@@ -320,6 +324,19 @@ def _stok_akilli_dus(hareketler):
             _merkez = depo_kanonik("MERKEZ DEPO")
         except Exception:
             _merkez = "MERKEZ DEPO"
+
+        # Kullanıcı depo seçtiyse otomatik dağıtım devreye GİRMEZ.
+        if secili_depo:
+            try:
+                _sd = depo_kanonik(secili_depo)
+            except Exception:
+                _sd = str(secili_depo).strip().upper()
+            _h = {str(k or "").strip(): -float(v or 0)
+                  for k, v in (hareketler or {}).items()
+                  if str(k or "").strip() and float(v or 0) > 0}
+            if _h:
+                stok_hareket_coklu(_h, _sd)
+            return
         sb = _gc()
         depo_dus = {}                       # {depo: {sku: düşülecek adet}}
         for sku, adet in (hareketler or {}).items():
@@ -654,7 +671,15 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
                         ilk_hata = f"{type(e2).__name__}: {str(e2)[:120]}"
         if ilerleme:
             ilerleme(min(i + B, len(rows)), len(rows))
-    _stok_akilli_dus(_satis_agg(_ins_rows))   # MODEL B: stoğu OLAN depodan düşer (merkez→diğerleri)
+    # Kalemlerde depo varsa (kullanıcı yükleme ekranından seçti) o depodan,
+    # yoksa stoğu olan depodan otomatik düşer.
+    _sec_depo = None
+    for _r in (satirlar or []):
+        _d = str((_r or {}).get("depo") or "").strip()
+        if _d:
+            _sec_depo = _d
+            break
+    _stok_akilli_dus(_satis_agg(_ins_rows), _sec_depo)
     _temizle()
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
             "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}
