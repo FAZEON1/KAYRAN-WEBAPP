@@ -350,41 +350,6 @@ def set_uretim_suresi(gun):
     except Exception:
         return False
 
-# Yurt içinden alınan ürünlerin kategorileri. Maliyet Girişi ekranı YALNIZ
-# bu kategorileri listeler. Neden kategori bazlı: ithalatı olan ürünlerin bir
-# kısmında SKU yazımı ürün kartıyla tutmuyor (F11PA650BWM ↔ F11PA650BBM gibi),
-# bu yüzden "ithalatta geçiyor mu" ölçütü tek başına yetmiyordu.
-YURTICI_KATEGORI_VARSAYILAN = ["anti virüs", "mouse pad"]
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_yurtici_kategoriler():
-    """Maliyet Girişi ekranında listelenecek kategoriler."""
-    try:
-        rows = _rows(get_client().table("pm_ayarlar").select("deger")
-                     .eq("anahtar", "yurtici_kategoriler").limit(1).execute())
-        if rows:
-            ham = str(rows[0].get("deger") or "").strip()
-            if ham:
-                return [k.strip() for k in ham.split("·") if k.strip()]
-    except Exception:
-        pass
-    return list(YURTICI_KATEGORI_VARSAYILAN)
-
-
-def set_yurtici_kategoriler(kategoriler):
-    """Kategori listesini kaydeder. Tablo yoksa False döner."""
-    try:
-        get_client().table("pm_ayarlar").upsert(
-            {"anahtar": "yurtici_kategoriler",
-             "deger": " · ".join(str(k).strip() for k in (kategoriler or []) if str(k).strip())},
-            on_conflict="anahtar").execute()
-        _cache_temizle()
-        return True
-    except Exception:
-        return False
-
-
 @st.cache_data(ttl=300, show_spinner=False)
 def get_all_dashboard_data():
     sb = get_client()
@@ -1052,71 +1017,89 @@ def guncelle_talep_cevap(talep_id, cevap, yeni_durum="tamamlandi"):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def canli_stok(sku):
-    """Tam canlı (perpetual) stok hesabı — fiziksel kayıt DEĞİŞTİRİLMEZ, her çağrıda hesaplanır.
-        canlı = başlangıç snapshot + (baz tarihten sonra 'Teslim Alındı' ithalat) − (baz tarihten sonraki satış)
-    Bu yöntem satış silme/düzeltmeye dayanıklıdır (stok otomatik doğru kalır).
-    Dönen: {var, baz, baz_tarih, giris, cikis, canli}"""
+    """Satılabilir canlı stok — BİZİM depolarımız.
+
+    ESKİ FORMÜL YANLIŞTI: firma_stok (müşterilerin haftalık stok raporu)
+    tabanlı çalışıyordu. Vatan'ın deposundaki 328 adetten, bizim Happy
+    Life'tan yaptığımız satışlar düşülünce sonuç eksiye iniyordu (-272)
+    ve satış girişinde yanlış uyarı çıkıyordu.
+
+    Gerçek durum:
+      • urunler.depo_kirilim = BİZİM depolarımız (Happy Life, Merkez…).
+        Bu alan zaten CANLI bakiye: ithalat teslim alınınca artar
+        (stok_hareket_coklu), satışta azalır, iadede geri döner.
+        Dolayısıyla ayrıca "snapshot + giriş − çıkış" hesabı YAPILMAZ,
+        çift sayım olur.
+      • firma_stok = MÜŞTERİDEKİ mal (Vatan'ın deposu). Bilgi amaçlı;
+        satılabilir stoğa dahil DEĞİL, sipariş önerisinde ayrı gösterilir.
+
+    Dönen: {var, baz, baz_tarih, giris, cikis, canli, musteri, iade_depo}
+    (baz/giris/cikis alanları geriye uyumluluk için korunur.)
+    """
     sb = get_client()
     sku_n = (sku or "").strip()
+    bos = {"var": False, "baz": 0, "baz_tarih": None, "giris": 0,
+           "cikis": 0, "canli": 0, "musteri": 0, "iade_depo": 0}
     if not sku_n:
-        return {"var": False, "baz": 0, "baz_tarih": None, "giris": 0, "cikis": 0, "canli": 0}
+        return bos
 
-    # 1) Başlangıç: SKU'nun her firmadaki EN SON snapshot'ını topla
-    rows = _rows(sb.table("firma_stok").select("stok_miktari,yukleme_tarihi,firma")
-                 .eq("sku", sku_n).execute())
-    if not rows:
-        return {"var": False, "baz": 0, "baz_tarih": None, "giris": 0, "cikis": 0, "canli": 0}
-    firma_son = {}
-    for r in rows:
-        f = r.get("firma") or "—"
-        t = str(r.get("yukleme_tarihi") or "")[:10]
-        if (f not in firma_son) or (t > firma_son[f][0]):
-            firma_son[f] = (t, float(r.get("stok_miktari") or 0))
-    baz = sum(v[1] for v in firma_son.values())
-    baz_tarih = max((v[0] for v in firma_son.values()), default=None)
-
-    # 2) Giriş: baz tarihten SONRA "Teslim Alındı" olan ithalat adetleri
-    giris = 0.0
+    # ── 1) Bizim depolar (satılabilir) ──
     try:
-        from ithalat.database import get_sku_alim_detay
-        for p in (get_sku_alim_detay(sku_n) or []):
-            tt = str(p.get("teslim_tarih") or "")[:10]
-            if str(p.get("durum") or "").strip() == "Teslim Alındı" and baz_tarih and tt and tt > baz_tarih:
-                giris += float(p.get("adet") or 0)
+        u = _rows(sb.table("urunler").select("bizim_stok, depo_kirilim")
+                  .eq("sku", sku_n).limit(1).execute())
     except Exception:
-        pass
+        u = []
+    if not u:
+        return bos
 
-    # 3) Çıkış: baz tarihten SONRAKİ satışlar
-    cikis = 0.0
+    kirilim = u[0].get("depo_kirilim")
+    if isinstance(kirilim, str):
+        try:
+            import json as _j
+            kirilim = _j.loads(kirilim)
+        except Exception:
+            kirilim = {}
+    kirilim = kirilim if isinstance(kirilim, dict) else {}
+
+    # İADE ve İKİNCİ EL depoları SATILABİLİR sayılmaz — fiziksel takip için.
+    _haric = ("IADE DEPO", "IKINCI EL DEPO", "İADE DEPO", "İKİNCİ EL DEPO")
+    satilabilir, iade_depo = 0.0, 0.0
+    for _d, _a in kirilim.items():
+        try:
+            _a = float(_a or 0)
+        except Exception:
+            _a = 0.0
+        if str(_d or "").strip().upper() in _haric:
+            iade_depo += _a
+        else:
+            satilabilir += _a
+
+    if not kirilim:                       # kırılım yoksa toplam alana düş
+        try:
+            satilabilir = float(u[0].get("bizim_stok") or 0)
+        except Exception:
+            satilabilir = 0.0
+
+    # ── 2) Müşterideki mal (bilgi) ──
+    musteri = 0.0
     try:
-        sat = _rows(sb.table("satislar").select("adet,tarih").eq("sku", sku_n).execute())
-        for s in sat:
-            st = str(s.get("tarih") or "")[:10]
-            if baz_tarih and st and st > baz_tarih:
-                cikis += float(s.get("adet") or 0)
+        rows = _rows(sb.table("firma_stok").select("stok_miktari,yukleme_tarihi,firma")
+                     .eq("sku", sku_n).execute())
+        firma_son = {}
+        for r in rows:
+            f = r.get("firma") or "—"
+            t = str(r.get("yukleme_tarihi") or "")[:10]
+            if (f not in firma_son) or (t > firma_son[f][0]):
+                firma_son[f] = (t, float(r.get("stok_miktari") or 0))
+        musteri = sum(v[1] for v in firma_son.values())
     except Exception:
-        pass
+        musteri = 0.0
 
-    # 4) İade: baz tarihten SONRAKİ iadeler stoğa GERİ döner (net çıkış = satış − iade)
-    iade_geri = 0.0
-    try:
-        iad = _rows(sb.table("iadeler").select("iade_adet,tarih").eq("sku", sku_n).execute())
-        for r in iad:
-            it = str(r.get("tarih") or "")[:10]
-            if baz_tarih and it and it > baz_tarih:
-                iade_geri += float(r.get("iade_adet") or 0)
-    except Exception:
-        pass
-
-    return {"var": True, "baz": baz, "baz_tarih": baz_tarih,
-            "giris": giris, "cikis": cikis, "iade": iade_geri,
-            "canli": baz + giris - cikis + iade_geri}
-
-
-# ── DEPO YÖNETİMİ · depo bazlı stok + depolar arası sevk ─────────────────────
-# bizim_stok = satılabilir depoların (Merkez + Happy Life) toplamı; sevk sonrası
-# yeniden hesaplanır. depo_kirilim {depo: adet} canlı güncellenir.
-_SATILABILIR_DEPOLAR = {"MERKEZ DEPO", "HAPPY LIFE"}
+    return {"var": True, "baz": satilabilir, "baz_tarih": None,
+            "giris": 0, "cikis": 0,
+            "canli": satilabilir,          # SATILABİLİR = bizim depolar
+            "musteri": musteri,            # müşterideki (bilgi)
+            "iade_depo": iade_depo}
 
 
 def _depo_norm(s):

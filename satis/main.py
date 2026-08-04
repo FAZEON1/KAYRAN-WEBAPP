@@ -11,7 +11,7 @@ from shared.tarih import hizli_tarih_araligi
 from kayranpm.ref_no import havuz_destek_donem
 from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
-    ekle_satis, ekle_siparis, get_satislar, sil_satis, sil_siparis, guncelle_satis,
+    ekle_satis, ekle_siparis, get_satislar, get_satislar_yalin, sil_satis, sil_siparis, guncelle_satis,
     satir_kar, ozet_hesapla, TR_TZ,
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
@@ -403,7 +403,7 @@ def run():
                             for _sk2, _ad2 in list(_sku_top.items())[:60]:
                                 _cs2 = canli_stok(_sk2)
                                 if _cs2.get("var") and _cs2["canli"] < 0:
-                                    _asim.append(f"{_sk2} (canlı {_cs2['canli']:.0f})")
+                                    _asim.append(f"{_sk2} (depomuzda {_cs2['canli']:.0f})")
                             if _asim:
                                 _m += (" · 📦 Stok uyarısı — canlı stok eksiye düştü: "
                                        + ", ".join(_asim[:8])
@@ -769,9 +769,13 @@ def run():
                                 from kayranpm.database import canli_stok
                                 for _sk, _ad in _sku_adet.items():
                                     _cs = canli_stok(_sk)
+                                    # canli = BİZİM depolarımızdaki satılabilir stok.
+                                    # Müşterideki mal (firma_stok) buna DAHİL DEĞİL.
                                     if _cs.get("var") and _ad > _cs["canli"]:
                                         _uyari.append(f"Stok yetersiz: {_sk} "
-                                                      f"(canlı {_cs['canli']:.0f}, satılacak {_ad})")
+                                                      f"(depomuzda {_cs['canli']:.0f}, satılacak {_ad}"
+                                                      + (f", müşteride {_cs.get('musteri', 0):.0f}"
+                                                         if _cs.get("musteri") else "") + ")")
                             except Exception:
                                 pass
                             try:
@@ -814,7 +818,10 @@ def run():
         _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
 
         # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
-        satislar_ham = get_satislar(_bas, _bit)
+        # Yalın okuma: Satışlar ve Kâr/P&L AYNI önbellek girdisini paylaşır.
+        # notlar/olusturma_tarihi/kampanya_id kolonları hiçbir ekranda
+        # okunmuyor; taşımamak çekimi ~%26 kısaltıyor.
+        satislar_ham = get_satislar_yalin(_bas, _bit)
         _kanal_secenek = sorted({(s.get("kanal") or "").strip()
                                  for s in satislar_ham if (s.get("kanal") or "").strip()}
                                 | set(_kanallar))
@@ -1037,7 +1044,7 @@ def run():
                         ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
                     unsafe_allow_html=True)
 
-        satislar = get_satislar(_pbas, _pbit)
+        satislar = get_satislar_yalin(_pbas, _pbit)
         if not satislar:
             st.info("Bu aralıkta satış yok.")
         else:
