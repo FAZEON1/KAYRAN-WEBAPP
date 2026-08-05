@@ -1231,6 +1231,122 @@ def render():
         _render_alinan_destekler()
 
 
+def kalem_yonet_paneli(r, firma_adi=""):
+    """Ref kayıtlarının KALEM listesini düzenler: ekle · değiştir · sil.
+
+    tutar/aylik/kategori_tutar bu listeden TÜRETİLİR — üçünü elle senkron
+    tutmaya gerek yok, kaydettiğin anda hepsi yeniden hesaplanır.
+    """
+    import pandas as _pd
+    _rid = r.get("id")
+    _dv = (r.get("doviz") or "USD").strip().upper()
+    _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
+    _kalemler = kalemleri_oku(r)
+
+    st.markdown(f"**{r.get('ref_no', '—')}** · {firma_adi}")
+
+    if not _kalemler:
+        st.info("Bu kayıtta henüz kalem yok. Aşağıdan ekleyebilirsin. "
+                "Kalem girildiğinde **tutar, aylık kırılım ve kategori dağılımı** "
+                "otomatik hesaplanır.")
+
+    # ── Mevcut kalemler (düzenlenebilir) ──
+    _kat_havuz = sorted({k["kategori"] for k in _kalemler if k["kategori"]}
+                        | set(_urun_kategorileri() or []))
+    _ay_havuz = sorted({k["ay"] for k in _kalemler if k["ay"]}, reverse=True)
+
+    if _kalemler:
+        _df = _pd.DataFrame([{
+            "Sil": False,
+            "Açıklama": k["aciklama"],
+            "Tutar": k["tutar"],
+            "Ay": k["ay"],
+            "Kategori": k["kategori"],
+        } for k in _kalemler])
+        _duz = st.data_editor(
+            _df, use_container_width=True, hide_index=True, num_rows="fixed",
+            key=f"refkal_duz_{_rid}",
+            column_config={
+                "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
+                "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
+                "Tutar": st.column_config.NumberColumn(
+                    f"Tutar ({_sm})", min_value=0.0, step=0.01, format="%.2f"),
+                "Ay": st.column_config.TextColumn("Ay", help="YYYY-AA · örn 2026-04"),
+                "Kategori": st.column_config.SelectboxColumn(
+                    "Kategori", options=_kat_havuz or None),
+            })
+        _yeni_liste = []
+        for _, _r2 in _duz.iterrows():
+            if bool(_r2.get("Sil")):
+                continue
+            _ack = str(_r2.get("Açıklama") or "").strip()
+            _tut = _f(_r2.get("Tutar"))
+            if not _ack and _tut == 0:
+                continue
+            _yeni_liste.append({
+                "aciklama": _ack, "tutar": round(_tut, 2),
+                "ay": str(_r2.get("Ay") or "").strip(),
+                "kategori": _tr_upper(str(_r2.get("Kategori") or "").strip()),
+            })
+    else:
+        _yeni_liste = []
+
+    # ── Yeni kalem ekle ──
+    st.markdown("**➕ Yeni kalem**")
+    _c1, _c2 = st.columns([3, 1])
+    _y_ack = _c1.text_input("Açıklama", key=f"refkal_ack_{_rid}",
+                            placeholder="örn. TEMMUZ FAZEON SELLOUT EK DESTEK")
+    _y_tut = _c2.number_input(f"Tutar ({_sm})", min_value=0.0, step=0.01,
+                              format="%.2f", key=f"refkal_tut_{_rid}")
+    _c3, _c4 = st.columns(2)
+    _ay_sec = _c3.selectbox("Ay", ["(yaz)"] + _ay_havuz, key=f"refkal_aysec_{_rid}")
+    _y_ay = (_c3.text_input("Ay (YYYY-AA)", key=f"refkal_ay_{_rid}",
+                            placeholder="2026-07").strip()
+             if _ay_sec == "(yaz)" else _ay_sec)
+    _kat_sec = _c4.selectbox("Kategori", ["(yaz)"] + _kat_havuz, key=f"refkal_katsec_{_rid}")
+    _y_kat = (_c4.text_input("Kategori", key=f"refkal_kat_{_rid}").strip()
+              if _kat_sec == "(yaz)" else _kat_sec)
+
+    _ekle = st.button("➕ Kaleme ekle", key=f"refkal_ekle_{_rid}",
+                      use_container_width=True,
+                      disabled=not (_y_ack.strip() and _y_tut > 0))
+    if _ekle:
+        _yeni_liste.append({"aciklama": _y_ack.strip(), "tutar": round(_y_tut, 2),
+                            "ay": _y_ay, "kategori": _tr_upper(_y_kat)})
+
+    # ── Önizleme: türetilen değerler ──
+    _t = kalemlerden_turet(_yeni_liste)
+    _ham = round(_f(r.get("tutar")), 2)
+    _fark = round(_t["tutar"] - _ham, 2)
+    st.markdown("---")
+    _m1, _m2, _m3 = st.columns(3)
+    _m1.metric("Kalem", f"{len(_yeni_liste)}")
+    _m2.metric("Yeni toplam", f"{_sm}{_t['tutar']:,.2f}",
+               delta=(f"{_fark:+,.2f}" if abs(_fark) >= 0.005 else None))
+    _m3.metric("Kayıtlı tutar", f"{_sm}{_ham:,.2f}")
+    if _t["aylik"]:
+        st.caption("📅 " + " · ".join(f"**{a}** {_sm}{v:,.0f}"
+                                      for a, v in sorted(_t["aylik"].items())))
+    if _t["kategori_tutar"]:
+        st.caption("🏷️ " + " · ".join(f"**{k}** {_sm}{v:,.0f}" for k, v in
+                                      sorted(_t["kategori_tutar"].items(),
+                                             key=lambda x: -x[1])))
+    _aysiz = [k for k in _yeni_liste if not k["ay"]]
+    _katsiz = [k for k in _yeni_liste if not k["kategori"]]
+    if _aysiz:
+        st.warning(f"⚠️ {len(_aysiz)} kalemde **ay** yok — aylık kırılıma girmez.")
+    if _katsiz:
+        st.warning(f"⚠️ {len(_katsiz)} kalemde **kategori** yok — Kâr/P&L "
+                   f"kategori filtresine yansımaz.")
+
+    if st.button("💾 Kalemleri kaydet", type="primary", use_container_width=True,
+                 key=f"refkal_kaydet_{_rid}"):
+        _ok, _msg = kalemleri_yaz(_rid, _yeni_liste)
+        (st.success if _ok else st.error)(_msg)
+        if _ok:
+            st.rerun()
+
+
 def kategori_dagit_dialog(r, firma_adi=""):
     """Çok kategorili bir ref kaydının tutarını kategorilere böler.
 
@@ -1311,8 +1427,22 @@ def _ref_detay_govde(r, firma_adi=""):
         ("Dönem", (_ays if _ays != "—" else "—"), RENK["cyan"]),
     ]), unsafe_allow_html=True)
 
-    # Çok kategorili kayıtlarda tutar dağıtımı — kategori bazlı Kâr/P&L için şart
-    if len(_kats) > 1:
+    # ── KALEM YÖNETİMİ — açıklama + tutar ekle/düzenle/sil ──
+    # Kalem yapısı varsa tutar/aylik/kategori_tutar BURADAN türetilir;
+    # aşağıdaki "kategori tutarını dağıt" paneline gerek kalmaz.
+    _mev_kalem = kalemleri_oku(r)
+    _kalem_btn = ("🧾 Kalemleri düzenle ({} kalem)".format(len(_mev_kalem))
+                  if _mev_kalem else "🧾 Kalem ekle (açıklama + tutar)")
+    if st.button(_kalem_btn, key=f"refkal_ac_{r.get('id')}", use_container_width=True):
+        st.session_state[f"refkal_acik_{r.get('id')}"] = not st.session_state.get(
+            f"refkal_acik_{r.get('id')}", False)
+    if st.session_state.get(f"refkal_acik_{r.get('id')}"):
+        with st.container(border=True):
+            kalem_yonet_paneli(r, firma_adi)
+
+    # Çok kategorili kayıtlarda tutar dağıtımı — YALNIZ kalem yapısı yoksa.
+    # Kalemler varsa dağıtım zaten kalem bazında yapılıyor.
+    if len(_kats) > 1 and not _mev_kalem:
         _kt = r.get("kategori_tutar") or {}
         if isinstance(_kt, str):
             try:
@@ -2550,6 +2680,120 @@ def get_tum_ref_tutarlari(baslangic, bitis):
 def _kat_liste(metin):
     """'MONİTÖR · KASA' → ['MONİTÖR','KASA'] (BÜYÜK, boşlar atılır)."""
     return [_tr_upper(x.strip()) for x in str(metin or "").split("·") if x.strip()]
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  KALEM YAPISI  (ref_kayitlari.kalemler JSONB)
+#
+#  ESKİ: aciklama tek metin ("A · B · C"), tutar tek sayı, aylik ve
+#  kategori_tutar AYRI JSON'lar. Üçü elle senkron tutuluyordu; biri
+#  değişince diğerleri bozuluyordu.
+#
+#  YENİ: her kalem kendi tutarını/ayını/kategorisini taşır:
+#     [{"aciklama": "...", "tutar": 249.0, "ay": "2026-03",
+#       "kategori": "MONİTÖR"}, ...]
+#  tutar · aylik · kategori_tutar artık BURADAN TÜRETİLİR → tek kaynak.
+# ═══════════════════════════════════════════════════════════════════
+
+_AY_ADI = {"OCAK": 1, "ŞUBAT": 2, "SUBAT": 2, "MART": 3, "NİSAN": 4, "NISAN": 4,
+           "MAYIS": 5, "HAZİRAN": 6, "HAZIRAN": 6, "TEMMUZ": 7, "AĞUSTOS": 8,
+           "AGUSTOS": 8, "EYLÜL": 9, "EYLUL": 9, "EKİM": 10, "EKIM": 10,
+           "KASIM": 11, "ARALIK": 12}
+
+
+def ay_anahtar(ay, yil=None):
+    """'NİSAN' + 2026 → '2026-04'. Zaten 'YYYY-MM' ise olduğu gibi döner."""
+    a = str(ay or "").strip()
+    if not a:
+        return ""
+    if len(a) >= 7 and a[4] == "-" and a[:4].isdigit():
+        return a[:7]
+    n = _AY_ADI.get(_tr_upper(a))
+    if not n:
+        return ""
+    try:
+        y = int(str(yil or "").strip()[:4])
+    except (TypeError, ValueError):
+        y = None
+    if not y:
+        return ""
+    return f"{y:04d}-{n:02d}"
+
+
+def kalemleri_oku(kayit):
+    """Kaydın kalem listesi. Yoksa [] döner (eski kayıtlar için güvenli)."""
+    ham = (kayit or {}).get("kalemler")
+    if isinstance(ham, str):
+        try:
+            import json as _j
+            ham = _j.loads(ham)
+        except Exception:
+            ham = []
+    if not isinstance(ham, list):
+        return []
+    out = []
+    for k in ham:
+        if not isinstance(k, dict):
+            continue
+        out.append({
+            "aciklama": str(k.get("aciklama") or "").strip(),
+            "tutar": _f(k.get("tutar")),
+            "ay": str(k.get("ay") or "").strip(),
+            "kategori": _tr_upper(str(k.get("kategori") or "").strip()),
+        })
+    return out
+
+
+def kalemlerden_turet(kalemler):
+    """Kalemlerden tutar · aylik · kategori_tutar · aciklama üretir.
+
+    Bu fonksiyon TEK GERÇEK KAYNAK: kalem eklenince/silinince üç alan da
+    kendiliğinden tutarlı kalır. Elle senkron tutmaya gerek yok.
+    """
+    kalemler = kalemler or []
+    toplam = round(sum(_f(k.get("tutar")) for k in kalemler), 2)
+    aylik, kat = {}, {}
+    for k in kalemler:
+        t = _f(k.get("tutar"))
+        if t == 0:
+            continue
+        a = str(k.get("ay") or "").strip()
+        if a:
+            aylik[a] = round(aylik.get(a, 0.0) + t, 2)
+        c = _tr_upper(str(k.get("kategori") or "").strip())
+        if c:
+            kat[c] = round(kat.get(c, 0.0) + t, 2)
+    aciklama = " · ".join(str(k.get("aciklama") or "").strip()
+                          for k in kalemler if str(k.get("aciklama") or "").strip())
+    return {"tutar": toplam, "aylik": aylik, "kategori_tutar": kat,
+            "aciklama": aciklama,
+            "kategori": " · ".join(sorted(kat)) if kat else ""}
+
+
+def kalemleri_yaz(ref_id, kalemler):
+    """Kalemleri kaydeder ve türetilen alanları birlikte günceller."""
+    t = kalemlerden_turet(kalemler)
+    try:
+        sb = get_client()
+        _d = {"kalemler": kalemler,
+              "tutar": t["tutar"],
+              "aylik": t["aylik"],
+              "kategori_tutar": t["kategori_tutar"],
+              "aciklama": t["aciklama"]}
+        if t["kategori"]:
+            _d["kategori"] = t["kategori"]
+        try:
+            sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
+        except Exception:
+            # 'kalemler' kolonu henüz eklenmemişse onsuz yaz (bozulma olmasın)
+            _d.pop("kalemler", None)
+            sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
+            _cache_temizle()
+            return False, "⚠️ 'kalemler' kolonu yok — yalnız toplamlar güncellendi."
+        _cache_temizle()
+        return True, f"✅ {len(kalemler)} kalem kaydedildi · toplam {t['tutar']:,.2f}"
+    except Exception as e:
+        return False, f"❌ {type(e).__name__}: {str(e)[:140]}"
 
 
 def ref_destek_kirilim_usd(baslangic, bitis):
