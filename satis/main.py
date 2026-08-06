@@ -160,7 +160,7 @@ def _siparis_excel_oku(dosya):
 
     _VATAN_GEREK = {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}
     _VATAN_KOLON = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat",
-                    "Miktar", "ÇIKIŞ DEPOSU"]
+                    "Miktar", "Depo Tanım"]
     _ITOPYA_GEREK = {"STOKKODU", "SONALFIYAT", "MIKTAR"}
     _ITOPYA_KOLON = ["TARİH", "TARIH", "DEPOTANIM", "MAĞAZALAR", "MAGAZALAR",
                      "STOKKODU", "SONALFIYAT", "MIKTAR"]
@@ -214,9 +214,10 @@ def _vatan_satirlar(df, kanal, urun_map):
         sno = str(r.get("Sipariş Numarası") or "").strip()
         if sno.endswith(".0"):
             sno = sno[:-2]
-        # ÇIKIŞ DEPOSU — bizim hangi depomuzdan düşecek (satır bazlı)
-        _cikis = str(r.get("ÇIKIŞ DEPOSU") or r.get("CIKIS DEPOSU")
-                     or r.get("ÇIKIS DEPOSU") or "").strip()
+        # "Depo Tanım" = BİZİM çıkış depomuz. VATAN Excel'inde ayrıca "Depo"
+        # kolonu var (müşterinin depo KODU, sayı) — o KULLANILMAZ.
+        _cikis = str(r.get("Depo Tanım") or r.get("DEPO TANIM")
+                     or r.get("DEPOTANIM") or "").strip()
         if _cikis.lower() in ("nan", "none"):
             _cikis = ""
         out.append({
@@ -250,7 +251,11 @@ def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
             bf = float(r.get("SONALFIYAT") or 0)
         except Exception:
             bf = 0.0
-        depo = str(r.get("DEPOTANIM") or "").strip()
+        # DEPOTANIM = BİZİM çıkış depomuz (stok buradan düşer)
+        depo = str(r.get("DEPOTANIM") or r.get("DEPO TANIM")
+                   or r.get("Depo Tanım") or "").strip()
+        if depo.lower() in ("nan", "none"):
+            depo = ""
         magaza = str(r.get("MAĞAZALAR") or r.get("MAGAZALAR") or "").strip()
         # satır bazlı tarih (varsa) — yoksa dışarıdan gelen tarih
         _sr_tarih = _to_date(r.get("TARİH") or r.get("TARIH"))
@@ -259,19 +264,13 @@ def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
         _not_parcalar = []
         if magaza and magaza.lower() != "nan":
             _not_parcalar.append(f"Mağaza: {magaza}")
-        if depo and depo.lower() != "nan":
-            _not_parcalar.append(f"Depo: {depo}")
-        # ÇIKIŞ DEPOSU — bizim hangi depomuzdan düşecek (satır bazlı)
-        _cikis = str(r.get("ÇIKIŞ DEPOSU") or r.get("CIKIS DEPOSU")
-                     or r.get("ÇIKIS DEPOSU") or "").strip()
-        if _cikis.lower() in ("nan", "none"):
-            _cikis = ""
+        # NOT: depo artık ÇIKIŞ DEPOSU olarak kullanılıyor, nota yazılmıyor.
         out.append({
             "tarih": _tarih, "kanal": kanal, "sku": sku,
             "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
             "adet": adet, "birim_satis": bf,
             "siparis_no": siparis_no,
-            "depo": _cikis,
+            "depo": depo,                     # DEPOTANIM → çıkış deposu
             "notlar": " · ".join(_not_parcalar),
         })
     return out
@@ -379,14 +378,15 @@ def run():
         else:
             # ── Excel ile toplu sipariş girişi — 3 ayrı upload: VATAN · EERA · DİĞER ──
             # EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
-            # ÇIKIŞ DEPOSU: BİZİM hangi depomuzdan düşeceği. Satır bazlı olduğu
-            # için tek Excel'de farklı depolardan mal çıkabilir. Boş bırakılan
+            # DEPOTANIM (EERA/DİĞER/İTOPYA) ve "Depo Tanım" (VATAN) = BİZİM
+            # hangi depomuzdan mal çıkacağı. Satır bazlı olduğu için tek
+            # Excel'de farklı depolardan çıkış yapılabilir. Boş bırakılan
             # satırlar yükleme ekranındaki varsayılan depodan düşer.
-            # (DEPOTANIM bizim depomuz DEĞİL — müşterinin deposu, nota yazılır.)
-            _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU", "SONALFIYAT",
-                         "MIKTAR", "ÇIKIŞ DEPOSU"]
+            # Yazım serbest: "MERKEZ" → MERKEZ DEPO, "HAPPY LİFE" → HAPPY LIFE.
+            _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU",
+                         "SONALFIYAT", "MIKTAR"]
             _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu",
-                          "Birim Fiyat", "Miktar", "ÇIKIŞ DEPOSU"]
+                          "Birim Fiyat", "Miktar", "Depo Tanım"]
             _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             def _sg_sablon_bytes(_kolonlar, _sheet):
@@ -414,14 +414,15 @@ def run():
                         for _i, _ad in enumerate(_kolonlar, 1):
                             _h = get_column_letter(_i)
                             _ws.column_dimensions[_h].width = max(14, len(str(_ad)) + 6)
-                            if str(_ad).strip().upper() != "ÇIKIŞ DEPOSU":
+                            if str(_ad).strip().upper().replace(" ", "") not in (
+                                    "DEPOTANIM", "ÇIKIŞDEPOSU"):
                                 continue
                             # Excel'in liste formülü 255 karakteri aşamaz
                             _fml = '"' + ",".join(_depolar) + '"'
                             if len(_fml) <= 255:
                                 _dv = DataValidation(type="list", formula1=_fml,
                                                      allow_blank=True)
-                                _dv.promptTitle = "ÇIKIŞ DEPOSU"
+                                _dv.promptTitle = "DEPO TANIM (çıkış deposu)"
                                 _dv.prompt = ("Bizim hangi depomuzdan düşecek? "
                                               "Boş bırakırsan varsayılan depo kullanılır.")
                                 _ws.add_data_validation(_dv)
