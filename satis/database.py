@@ -618,6 +618,8 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     mevcut = get_mevcut_satis_anahtarlari() if (atla_mevcut and not temizle_once) else set()
 
     rows, atlandi, maliyetsiz = [], 0, 0
+
+    _satir_depo = {}   # {(siparis_no, sku): depo} — satır bazlı çıkış deposu
     for s in (satirlar or []):
         sno = str(s.get("siparis_no") or "").strip()
         # SENKRON KÖK ÇÖZÜMÜ: SKU kaynağında normalize edilir ('Fazeon X24F165S'
@@ -637,13 +639,19 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         bm = _f(pacal.get(_normalize_sku_yerel(sku), 0))
         if bm <= 0:
             maliyetsiz += 1
-        rows.append({
+        # DEPO: satislar tablosunda kolon YOK — insert payload'una konamaz,
+        # yoksa insert patlar. Stok düşümü için ayrı haritada taşınır.
+        _row = {
             "tarih": tarih, "kanal": s.get("kanal") or "",
             "siparis_no": sno, "sku": sku, "urun_adi": s.get("urun_adi") or "",
             "adet": _i(s.get("adet")), "birim_satis": _f(s.get("birim_satis")),
             "birim_maliyet": bm, "birim_firma_destek": 0, "birim_ek_destek": 0,
             "kampanya_id": None, "notlar": s.get("notlar") or "", "olusturma_tarihi": zaman,
-        })
+        }
+        _d_satir = str(s.get("depo") or "").strip()
+        if _d_satir:
+            _satir_depo[(sno, sku)] = _d_satir
+        rows.append(_row)
     if not rows:
         return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0,
                 "silinen_fatura": silinen, "hatali": 0, "hata": None}
@@ -671,15 +679,29 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
                         ilk_hata = f"{type(e2).__name__}: {str(e2)[:120]}"
         if ilerleme:
             ilerleme(min(i + B, len(rows)), len(rows))
-    # Kalemlerde depo varsa (kullanıcı yükleme ekranından seçti) o depodan,
-    # yoksa stoğu olan depodan otomatik düşer.
-    _sec_depo = None
-    for _r in (satirlar or []):
-        _d = str((_r or {}).get("depo") or "").strip()
+    # ── STOK DÜŞÜMÜ: DEPO BAZINDA ──
+    # Her satırın kendi 'depo' değeri olabilir (Excel'de ÇIKIŞ DEPOSU kolonu).
+    # Böylece TEK Excel'de farklı depolardan mal çıkabilir. Eskiden tek depo
+    # tüm partiye uygulanıyordu ve farklı depodaki ürünler ayrı ayrı
+    # yüklenmek zorundaydı.
+    # Deposu boş satırlar → _stok_akilli_dus'un otomatik dağıtımına düşer.
+    _depo_gruplu = {}
+    _deposuz = []
+    for _r in (_ins_rows or []):
+        _sku = str((_r or {}).get("sku") or "").strip()
+        _ad = _i((_r or {}).get("adet"))
+        if not _sku or not _ad:
+            continue
+        _d = _satir_depo.get((str((_r or {}).get("siparis_no") or ""), _sku), "")
         if _d:
-            _sec_depo = _d
-            break
-    _stok_akilli_dus(_satis_agg(_ins_rows), _sec_depo)
+            _g = _depo_gruplu.setdefault(_d, {})
+            _g[_sku] = _g.get(_sku, 0) + _ad
+        else:
+            _deposuz.append(_r)
+    for _d, _hrk in _depo_gruplu.items():
+        _stok_akilli_dus(_hrk, _d)
+    if _deposuz:
+        _stok_akilli_dus(_satis_agg(_deposuz), None)
     _temizle()
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
             "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}

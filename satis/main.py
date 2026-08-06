@@ -159,7 +159,8 @@ def _siparis_excel_oku(dosya):
         return None, f"Dosya okunamadı: {type(e).__name__}: {str(e)[:120]}"
 
     _VATAN_GEREK = {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}
-    _VATAN_KOLON = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar"]
+    _VATAN_KOLON = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat",
+                    "Miktar", "ÇIKIŞ DEPOSU"]
     _ITOPYA_GEREK = {"STOKKODU", "SONALFIYAT", "MIKTAR"}
     _ITOPYA_KOLON = ["TARİH", "TARIH", "DEPOTANIM", "MAĞAZALAR", "MAGAZALAR",
                      "STOKKODU", "SONALFIYAT", "MIKTAR"]
@@ -213,12 +214,17 @@ def _vatan_satirlar(df, kanal, urun_map):
         sno = str(r.get("Sipariş Numarası") or "").strip()
         if sno.endswith(".0"):
             sno = sno[:-2]
+        # ÇIKIŞ DEPOSU — bizim hangi depomuzdan düşecek (satır bazlı)
+        _cikis = str(r.get("ÇIKIŞ DEPOSU") or r.get("CIKIS DEPOSU")
+                     or r.get("ÇIKIS DEPOSU") or "").strip()
+        if _cikis.lower() in ("nan", "none"):
+            _cikis = ""
         out.append({
             "tarih": d.isoformat() if d else "",
             "kanal": kanal, "sku": sku,
             "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
             "adet": adet, "birim_satis": bf,
-            "siparis_no": sno, "notlar": "",
+            "siparis_no": sno, "depo": _cikis, "notlar": "",
         })
     return out
 
@@ -255,11 +261,17 @@ def _itopya_satirlar(df, kanal, tarih_iso, siparis_no, urun_map):
             _not_parcalar.append(f"Mağaza: {magaza}")
         if depo and depo.lower() != "nan":
             _not_parcalar.append(f"Depo: {depo}")
+        # ÇIKIŞ DEPOSU — bizim hangi depomuzdan düşecek (satır bazlı)
+        _cikis = str(r.get("ÇIKIŞ DEPOSU") or r.get("CIKIS DEPOSU")
+                     or r.get("ÇIKIS DEPOSU") or "").strip()
+        if _cikis.lower() in ("nan", "none"):
+            _cikis = ""
         out.append({
             "tarih": _tarih, "kanal": kanal, "sku": sku,
             "urun_adi": (urun_map.get(sku, {}).get("urun_adi") or ""),
             "adet": adet, "birim_satis": bf,
             "siparis_no": siparis_no,
+            "depo": _cikis,
             "notlar": " · ".join(_not_parcalar),
         })
     return out
@@ -367,14 +379,59 @@ def run():
         else:
             # ── Excel ile toplu sipariş girişi — 3 ayrı upload: VATAN · EERA · DİĞER ──
             # EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
-            _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU", "SONALFIYAT", "MIKTAR"]
-            _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar"]
+            # ÇIKIŞ DEPOSU: BİZİM hangi depomuzdan düşeceği. Satır bazlı olduğu
+            # için tek Excel'de farklı depolardan mal çıkabilir. Boş bırakılan
+            # satırlar yükleme ekranındaki varsayılan depodan düşer.
+            # (DEPOTANIM bizim depomuz DEĞİL — müşterinin deposu, nota yazılır.)
+            _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU", "SONALFIYAT",
+                         "MIKTAR", "ÇIKIŞ DEPOSU"]
+            _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu",
+                          "Birim Fiyat", "Miktar", "ÇIKIŞ DEPOSU"]
             _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
             def _sg_sablon_bytes(_kolonlar, _sheet):
+                """İndirilebilir şablon. ÇIKIŞ DEPOSU kolonuna, SİSTEMDE KAYITLI
+                depolardan açılır liste konur — yeni depo açıldığında şablon
+                kendiliğinden günceldir, kodu değiştirmek gerekmez."""
+                try:
+                    from kayranpm.database import get_satis_depolari as _gsd
+                    _depolar = [str(d) for d in (_gsd() or []) if str(d).strip()]
+                except Exception:
+                    _depolar = ["MERKEZ DEPO", "HAPPY LIFE"]
                 _b = io.BytesIO()
                 with pd.ExcelWriter(_b, engine="openpyxl") as _w:
-                    pd.DataFrame(columns=_kolonlar).to_excel(_w, index=False, sheet_name=_sheet)
+                    pd.DataFrame(columns=_kolonlar).to_excel(
+                        _w, index=False, sheet_name=_sheet)
+                    try:
+                        from openpyxl.styles import Font, PatternFill, Alignment
+                        from openpyxl.utils import get_column_letter
+                        from openpyxl.worksheet.datavalidation import DataValidation
+                        _ws = _w.book[_sheet]
+                        for _c in _ws[1]:
+                            _c.font = Font(bold=True, color="FFFFFF")
+                            _c.fill = PatternFill("solid", fgColor="1E3A5F")
+                            _c.alignment = Alignment(horizontal="center")
+                        for _i, _ad in enumerate(_kolonlar, 1):
+                            _h = get_column_letter(_i)
+                            _ws.column_dimensions[_h].width = max(14, len(str(_ad)) + 6)
+                            if str(_ad).strip().upper() != "ÇIKIŞ DEPOSU":
+                                continue
+                            # Excel'in liste formülü 255 karakteri aşamaz
+                            _fml = '"' + ",".join(_depolar) + '"'
+                            if len(_fml) <= 255:
+                                _dv = DataValidation(type="list", formula1=_fml,
+                                                     allow_blank=True)
+                                _dv.promptTitle = "ÇIKIŞ DEPOSU"
+                                _dv.prompt = ("Bizim hangi depomuzdan düşecek? "
+                                              "Boş bırakırsan varsayılan depo kullanılır.")
+                                _ws.add_data_validation(_dv)
+                                _dv.add(f"{_h}2:{_h}2000")
+                            for _r in range(2, 40):
+                                _ws[f"{_h}{_r}"].fill = PatternFill(
+                                    "solid", fgColor="FEF3C7")
+                        _ws.freeze_panes = "A2"
+                    except Exception:
+                        pass          # biçimlendirme başarısızsa şablon yine insin
                 return _b.getvalue()
 
             def _sg_depo_sec(_anahtar, _skular=None):
@@ -384,10 +441,12 @@ def run():
                     _dl = get_satis_depolari()
                 except Exception:
                     _dl = ["MERKEZ DEPO", "HAPPY LIFE"]
-                _sec = st.selectbox("📦 Çıkış deposu — stok bu depodan düşer", _dl,
+                _sec = st.selectbox("📦 Varsayılan çıkış deposu", _dl,
                                     key=f"sg_depo_{_anahtar}",
-                                    help="Excel'de depo bilgisi yok. Bu partideki tüm "
-                                         "kalemler seçtiğin depodan çıkar.")
+                                    help="Excel'de **ÇIKIŞ DEPOSU** kolonu doldurulmuş "
+                                         "satırlar KENDİ deposundan düşer. Bu seçim "
+                                         "yalnız o kolonu boş bırakılan satırlar için. "
+                                         "İade/ikinci el dahil TÜM depolar seçilebilir.")
                 # Seçilen depoda stok yetiyor mu? (uyarı, engellemez)
                 if _skular:
                     try:
@@ -409,8 +468,11 @@ def run():
             def _sg_kaydet(_gecerli, _temizle=False, _depo=None):
                 # Excel'de depo kolonu yok; kullanıcı yükleme ekranından seçer.
                 # Kalemde depo yoksa buradaki seçim yazılır — stok O DEPODAN düşer.
+                # Satırın KENDİ deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu)
+                # ona dokunulmaz; yalnız boş olanlara varsayılan yazılır.
                 if _depo:
-                    _gecerli = [dict(_g, depo=(_g.get("depo") or _depo)) for _g in _gecerli]
+                    _gecerli = [dict(_g, depo=(str(_g.get("depo") or "").strip() or _depo))
+                                for _g in _gecerli]
                 _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
                 if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                     st.error(f"❌ {_sonuc['hata']}")

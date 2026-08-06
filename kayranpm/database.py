@@ -1124,12 +1124,14 @@ def get_satis_depolari(sku=None):
 
     sku verilirse: O ÜRÜNÜN stoğu olan depolar, adetle birlikte.
         [{"depo": "HAPPY LIFE", "adet": 1892}, ...]  (adede göre azalan)
-    sku verilmezse: sistemdeki tüm satılabilir depo adları.
+    sku verilmezse: sistemde KAYITLI TÜM depo adları.
 
-    İADE DEPO ve İKİNCİ EL DEPO hariç tutulur — fiziksel takip içindir,
-    yeni satışta kullanılmaz (canli_stok da onları satılabilir saymaz).
+    HİÇBİR DEPO HARİÇ TUTULMAZ. İade deposundaki mal ikinci el olarak,
+    teknik servisten çıkan ürün de satılabilir — hangi depodan çıkacağına
+    kullanıcı karar verir. (canli_stok bunları "satılabilir" saymaz; o
+    ayrı bir hesap: uyarı eşiği. Buradaki liste satış seçeneğidir.)
     """
-    _haric = {"IADE DEPO", "IKINCI EL DEPO", "İADE DEPO", "İKİNCİ EL DEPO"}
+    _haric = set()
     try:
         sb = get_client()
         if sku:
@@ -1175,9 +1177,10 @@ def get_satis_depolari(sku=None):
         return cikti or [{"depo": "MERKEZ DEPO", "adet": 0}]
 
     adlar = sorted(toplam, key=lambda d: -toplam[d])
-    for _v in ("MERKEZ DEPO", "HAPPY LIFE"):     # her zaman seçilebilir olsun
-        if _v not in adlar:
-            adlar.append(_v)
+    # Stoğu 0 olsa bile bu depolar listede dursun (mal girdiğinde seçilebilsin)
+    for _v in ("MERKEZ DEPO", "HAPPY LIFE", "IADE DEPO", "IKINCI EL DEPO"):
+        if depo_kanonik(_v) not in adlar:
+            adlar.append(depo_kanonik(_v))
     return adlar
 
 
