@@ -1209,10 +1209,23 @@ def _kirilim_kanonik(depo_kirilim):
     return out
 
 
+# "Satılabilir" sayılan depolar — bizim_stok toplamı ve depo listesindeki
+# satilabilir işareti bunu kullanır. TANIMLI DEĞİLDİ: _bizim_stok_hesapla ve
+# depo_ozet çağrıldığında NameError atıyor, Depolar Arası Sevk sayfası
+# açılmıyordu. (excel_islemler.py'de G5F_SATILABILIR_DEPOLAR adıyla ayrı bir
+# kopyası var; burada da lazım.)
+# NOT: iade/ikinci el depoları buraya DAHİL DEĞİL — oradaki mal fiziksel
+# takipte. Satışta seçilebilir ama "satılabilir stok" sayılmaz.
+_SATILABILIR_DEPOLAR = {"MERKEZ DEPO", "HAPPY LIFE"}
+
+
 def _bizim_stok_hesapla(depo_kirilim):
     """Satılabilir depoların (Merkez + Happy Life) toplamı."""
+    # depo_kanonik ŞART: _depo_norm yalnız boşluk/büyük harf düzeltir,
+    # "MERKEZ" → "MERKEZ DEPO" eşlemesini yapmaz. Kırılımda kısa yazım
+    # varsa o depo satılabilir sayılmaz ve stok eksik görünürdü.
     return int(sum(int(m or 0) for d, m in (depo_kirilim or {}).items()
-                   if _depo_norm(d) in _SATILABILIR_DEPOLAR))
+                   if depo_kanonik(d) in _SATILABILIR_DEPOLAR))
 
 
 def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
@@ -1274,7 +1287,7 @@ def get_depo_ozet():
             sayac[d][0] += 1
             sayac[d][1] += m
     return [{"depo": d, "cesit": v[0], "toplam_adet": v[1],
-             "satilabilir": _depo_norm(d) in _SATILABILIR_DEPOLAR}
+             "satilabilir": depo_kanonik(d) in _SATILABILIR_DEPOLAR}
             for d, v in sorted(sayac.items())]
 
 

@@ -1289,7 +1289,7 @@ def get_satislar_kanal_ara(q):
     if len(q) < 2:
         return []
     try:
-        sb = get_client()
+        sb = _get_client()
         rows = (sb.table("satislar").select("*")
                 .ilike("kanal", f"%{q}%").limit(500).execute().data) or []
         return rows
