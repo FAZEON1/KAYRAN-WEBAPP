@@ -1280,9 +1280,13 @@ def run():
         if st.button("📊 Tüm Ürünler Özet — filtrele, sırala, incele", key="btn_urun_ozet", use_container_width=True):
             _dlg_urunler_ozet()
 
-        @st.dialog("✏️ Ürün Düzenle", width="large")
+        # KALICI PANEL — @st.dialog DEĞİL.
+        # Dialog, st.rerun() çağrıldığında kapanıyordu; her kayıttan sonra
+        # düğmeye basıp yeniden açmak gerekiyordu. Normal panel açık kalır,
+        # kaydettikten sonra listeden başka ürün seçip devam edebilirsin.
         def _dlg_urun_duzenle():
-            st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas.")
+            st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas. "
+                       "Panel açık kalır — arka arkaya birden çok ürün düzenleyebilirsin.")
             _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
             if _sec_list:
                 _sec_label = st.selectbox("Düzenlenecek ürün", list(_sec_list.keys()), key="urun_duzen_sec")
@@ -1383,7 +1387,11 @@ def run():
                                 satis_fiyat_listesi=_yeni_liste, eol=d_eol,
                             )
                             st.cache_data.clear()
-                            st.success(f"✅ {_sec_sku} güncellendi.")
+                            # Panel AÇIK kalsın: bayrağı koru, seçili ürünü
+                            # hatırla. rerun listeyi tazeler ama panel kapanmaz.
+                            st.session_state["urun_duz_acik"] = True
+                            st.session_state["_urun_duz_son"] = _sec_sku
+                            st.toast(f"✅ {_sec_sku} güncellendi", icon="✅")
                             st.rerun()
                         except Exception as _e:
                             st.error(f"Kaydedilemedi: {_e}")
@@ -1398,12 +1406,23 @@ def run():
                     try:
                         _sil_urun(_sec_sku)
                         st.cache_data.clear()
-                        st.success(f"🗑️ {_sec_sku} stok kartı silindi.")
+                        st.session_state["urun_duz_acik"] = True
+                        st.session_state.pop("_urun_duz_son", None)   # silinen ürünü unutma
+                        st.session_state.pop("urun_duzen_sec", None)
+                        st.toast(f"🗑️ {_sec_sku} silindi", icon="🗑️")
                         st.rerun()
                     except Exception as _e:
                         st.error(f"Silinemedi: {_e}")
-        if st.button("✏️ Ürün Düzenle", key="btn_urun_duz", use_container_width=True):
-            _dlg_urun_duzenle()
+        # Panel durumu session_state'te tutulur → rerun'da kaybolmaz.
+        _duz_acik = st.session_state.get("urun_duz_acik", False)
+        if st.button(("✖️ Ürün Düzenle — kapat" if _duz_acik else "✏️ Ürün Düzenle"),
+                     key="btn_urun_duz", use_container_width=True,
+                     type=("secondary" if _duz_acik else "primary")):
+            st.session_state["urun_duz_acik"] = not _duz_acik
+            st.rerun()
+        if st.session_state.get("urun_duz_acik"):
+            with st.container(border=True):
+                _dlg_urun_duzenle()
     
     
     
