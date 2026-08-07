@@ -626,8 +626,21 @@ def otomatik_kolonlar(df, mevcut=None):
                 continue                  # metin / maskelenmiş → dokunma
             t = _tablo_kolon_tipi(c)
             if t == "para":
+                # format="dollar" sabit 2 hane verir; birim fiyatlardaki
+                # kuruş altı basamak (7,2938) kaybolurdu. Kolonun DEĞERLERİNE
+                # bakıp gereken hassasiyeti seçiyoruz.
+                try:
+                    _ond = 2
+                    for _v in seri.dropna().head(400):
+                        _f2 = float(_v)
+                        if _f2 != round(_f2, 2):
+                            _ond = 4
+                            break
+                except Exception:
+                    _ond = 2
                 cfg[c] = _st.column_config.NumberColumn(
-                    format="dollar", alignment="right")
+                    format=("dollar" if _ond == 2 else "$%.4f"),
+                    alignment="right")
             elif t == "adet":
                 cfg[c] = _st.column_config.NumberColumn(
                     format="localized", alignment="right")
@@ -652,13 +665,26 @@ def otomatik_kolonlar(df, mevcut=None):
 #           satır seçimi. Uzun listelerde st.dataframe kalmalı.
 # ═══════════════════════════════════════════════════════════════════
 
-def _tr_para(v, birim="$", basamak=2):
-    """1616061.27 → '$1.616.061,27' (TR ayraç). st.dataframe bunu yapamıyordu."""
+def _tr_para(v, birim="$", basamak=None):
+    """1616061.27 → '$1.616.061,27' (TR ayraç).
+
+    basamak=None (varsayılan): AKILLI — en az 2, en fazla 4 hane. Gereksiz
+    sondaki sıfırlar atılır. Böylece birim fiyatlardaki kuruş altı basamak
+    (7,2938) korunur, toplamlarda gürültü olmaz (1.616.061,27).
+    """
     try:
         f = float(v)
     except (TypeError, ValueError):
         return ""
-    s = f"{abs(f):,.{basamak}f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    if basamak is None:
+        s = f"{abs(f):,.4f}"
+        tam, _, ond = s.partition(".")
+        ond = ond.rstrip("0")
+        ond = (ond + "00")[:2] if len(ond) < 2 else ond
+        s = f"{tam}.{ond}"
+    else:
+        s = f"{abs(f):,.{basamak}f}"
+    s = s.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
     return ("-" if f < 0 else "") + birim + s
 
 

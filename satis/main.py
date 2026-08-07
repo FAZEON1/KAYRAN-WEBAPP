@@ -20,11 +20,21 @@ from .database import (
 )
 
 
-def _usd(x):
+def _usd(x, max_ond=4):
+    """Para gösterimi. Gereksiz sondaki sıfırlar atılır:
+    7.29 → '$7.29' · 7.2938 → '$7.2938' · 1200 → '$1,200.00'
+    Birim fiyatlarda kuruş altı basamak korunur, toplamlarda gürültü olmaz."""
     try:
-        return f"${float(x):,.2f}"
+        f = float(x)
     except (TypeError, ValueError):
         return "$0.00"
+    s = f"{abs(f):,.{max_ond}f}"
+    if "." in s:
+        tam, ond = s.split(".")
+        ond = ond.rstrip("0")
+        ond = (ond + "00")[:2] if len(ond) < 2 else ond   # en az 2 hane
+        s = f"{tam}.{ond}"
+    return ("-" if f < 0 else "") + "$" + s
 
 
 def _kar_df(df):
@@ -770,7 +780,7 @@ def run():
                     _depo_sec_lbl = a1.selectbox("📦 Çıkış Deposu", _depo_opts, key="s_depo_sec")
                     _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
                     _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
-                    _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.01, format="%.2f",
+                    _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.0001, format="%.4f",
                                             value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
                                             key="s_bsat")
                     a4.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
@@ -818,10 +828,10 @@ def run():
                             "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
                             "Depo": st.column_config.TextColumn("📦 Depo", disabled=True),
                             "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
-                            "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.2f"),
-                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.2f"),
-                            "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="%.2f"),
-                            "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="%.2f"),
+                            "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.4f"),
+                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.4f"),
+                            "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="%.4f"),
+                            "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="%.4f"),
                         },
                     )
                     # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
@@ -1944,7 +1954,7 @@ def run():
             ig4, ig5, ig6, ig7 = st.columns(4)
             _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")
             _i_adet = ig5.number_input("İade adet", min_value=1, step=1, value=1, key="iade_adet_g")
-            _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.2f", key="iade_net_g")
+            _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.4f", key="iade_net_g")
             _i_depo = ig7.selectbox("Giren depo", _IADE_DEPOLAR, key="iade_depo_g",
                                     help="Mal fiziksel olarak hangi depoya girdiyse onu seç — "
                                          "stok o depoya eklenir.")

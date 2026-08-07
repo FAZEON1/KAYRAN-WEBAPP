@@ -1141,7 +1141,7 @@ def run():
             value=float(mevcut_kur),
             step=0.01,
             min_value=1.0,
-            format="%.2f",
+            format="%.4f",
             label_visibility="collapsed",
         )
         st.session_state.kur = yeni_kur
@@ -1263,7 +1263,7 @@ def run():
                 min_value=0.0,
                 max_value=max(kaynak_bakiye_val, 0.01),  # 0 ise input'u kullanılabilir tut
                 step=0.01,
-                format="%.2f",
+                format="%.4f",
                 key="virman_tutar",
                 disabled=(kaynak_bakiye_val <= 0)
             )
@@ -1276,7 +1276,7 @@ def run():
                     value=float(kur),
                     min_value=0.01,
                     step=0.01,
-                    format="%.2f",
+                    format="%.4f",
                     key="virman_kur",
                     help=f"1 USD = {kur} TL kullanılıyor"
                 )
@@ -2048,12 +2048,12 @@ def run():
                         _mev_usd = float(o.get("tutar_usd") or 0)
                         _ks_tl = kp1.number_input(f"Ödenen TL (mevcut ₺{fmt(_mev_tl)})",
                                                   min_value=0.0, max_value=max(0.0, _mev_tl),
-                                                  value=0.0, step=100.0, format="%.2f",
+                                                  value=0.0, step=100.0, format="%.4f",
                                                   key=f"kismi_tl_{o['id']}",
                                                   disabled=_mev_tl <= 0)
                         _ks_usd = kp2.number_input(f"Ödenen USD (mevcut ${fmt(_mev_usd)})",
                                                    min_value=0.0, max_value=max(0.0, _mev_usd),
-                                                   value=0.0, step=100.0, format="%.2f",
+                                                   value=0.0, step=100.0, format="%.4f",
                                                    key=f"kismi_usd_{o['id']}",
                                                    disabled=_mev_usd <= 0)
                         with kp3:
@@ -2088,7 +2088,7 @@ def run():
                                 value=float(o.get("tutar_tl") or 0),
                                 min_value=0.0,
                                 step=0.01,
-                                format="%.2f",
+                                format="%.4f",
                                 key=f"edit_tl_{o['id']}"
                             )
                         with col_usd:
@@ -2097,7 +2097,7 @@ def run():
                                 value=float(o.get("tutar_usd") or 0),
                                 min_value=0.0,
                                 step=0.01,
-                                format="%.2f",
+                                format="%.4f",
                                 key=f"edit_usd_{o['id']}"
                             )
                         with col_kat:
@@ -2299,7 +2299,7 @@ def run():
                 _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
 
                 with st.form("tahsilat_form"):
-                    _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.01, format="%.2f")
+                    _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
                     _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
                     _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
                     _tarih = st.date_input("Tarih", value=tr_today())
@@ -2347,7 +2347,7 @@ def run():
             st.markdown("**➕ Yeni Hesap Ekle**")
             with st.form("banka_ekle"):
                 hesap_adi = st.text_input("Hesap Adı", placeholder="Örn: YKB TL Hesabı")
-                bakiye = st.number_input("Bakiye", min_value=0.0, step=0.01, format="%.2f")
+                bakiye = st.number_input("Bakiye", min_value=0.0, step=0.0001, format="%.4f")
                 para_birimi = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
                 if st.form_submit_button("➕ Ekle", type="primary"):
                     if hesap_adi:
@@ -2364,7 +2364,7 @@ def run():
     
                 with st.form("banka_duzenle"):
                     yeni_ad = st.text_input("Hesap Adı", value=sec_banka["hesap_adi"])
-                    yeni_bakiye = st.number_input("Bakiye", value=float(sec_banka["bakiye"]), step=0.01, format="%.2f")
+                    yeni_bakiye = st.number_input("Bakiye", value=float(sec_banka["bakiye"]), step=0.0001, format="%.4f")
                     yeni_pb = st.selectbox("Para Birimi", ["TL", "USD", "EUR"],
                                            index=["TL", "USD", "EUR"].index(sec_banka["para_birimi"]))
                     col_a, col_b = st.columns(2)
@@ -4420,7 +4420,7 @@ def run():
                 yeni_aciklama = st.text_input("Açıklama", key="manuel_aciklama",
                                                placeholder="Örn: Kasa nakit, Yatırım fonu, Henüz fatura kesilmemiş alacak")
             with col_tu:
-                yeni_tutar = st.number_input("Tutar", min_value=0.0, step=0.01, format="%.2f", key="manuel_tutar")
+                yeni_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f", key="manuel_tutar")
             with col_pb:
                 yeni_pb = st.selectbox("PB", ["USD", "TL"], key="manuel_pb")
             with col_b:

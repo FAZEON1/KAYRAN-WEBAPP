@@ -1295,7 +1295,7 @@ def run():
                     with fc2:
                         d_kat = st.text_input("Kategori", value=_u.get("kategori", "") or "")
                     with fc3:
-                        d_satis = st.number_input("Genel Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.2f",
+                        d_satis = st.number_input("Genel Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.4f",
                                                   help="Genel/liste fiyatı — kâr marjı ve dashboard bundan hesaplanır.")
                     with fc4:
                         d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
@@ -1354,7 +1354,7 @@ def run():
                         _liste_df, num_rows="dynamic", use_container_width=True, key="urun_fiyat_liste",
                         column_config={
                             "Müşteri": st.column_config.TextColumn("Müşteri", required=False),
-                            "Fiyat ($)": st.column_config.NumberColumn("Fiyat ($)", min_value=0.0, step=1.0, format="%.2f"),
+                            "Fiyat ($)": st.column_config.NumberColumn("Fiyat ($)", min_value=0.0, step=1.0, format="%.4f"),
                         },
                     )
                     d_eol = st.checkbox(
@@ -1511,7 +1511,7 @@ def run():
                     "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
                     "Kategori": st.column_config.TextColumn("Kategori", disabled=True),
                     "Maliyet ($)": st.column_config.NumberColumn(
-                        "Maliyet ($)", min_value=0.0, step=0.01, format="%.4f",
+                        "Maliyet ($)", min_value=0.0, step=0.0001, format="%.4f",
                         help="Birim başına, nakliye dahil"),
                 })
 
@@ -2019,7 +2019,7 @@ def run():
                         if str(_o_turu).lower() == "spiff" or _xl_spiff > 0:
                             _sp1, _sp2 = st.columns(2)
                             _o_spiff_tl = _sp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0,
-                                                            value=float(_xl_spiff or 0), format="%.2f",
+                                                            value=float(_xl_spiff or 0), format="%.4f",
                                                             key="kmp_o_spiff_tl",
                                                             help="Dosyadaki SPIFF kolonundan geldi; düzenleyebilirsin.")
                             _o_spiff_kur = _sp2.number_input("Kur (₺/$ tahmini)", min_value=0.0, step=0.1,
@@ -2210,7 +2210,7 @@ def run():
                                     key=f"dk_turu_{kid}")
                                 st.markdown('<div style="color:#94A3B8;font-size:11px;font-weight:700;margin:8px 0 0px">🎟️ Spiff — TL net + kur. Fatura gelince <b>kuru</b> güncelle, USD/kâr otomatik düzelir.</div>', unsafe_allow_html=True)
                                 dsp1, dsp2, dsp3 = st.columns([1.2, 1, 1])
-                                dk_spiff_tl = dsp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.2f",
+                                dk_spiff_tl = dsp1.number_input("Spiff Net (₺TL)", min_value=0.0, step=100.0, format="%.4f",
                                     value=float(kamp.get("spiff_tl") or 0) or None, placeholder="0", key=f"dk_spiff_tl_{kid}")
                                 dk_spiff_kur = dsp2.number_input("Kur (₺/$)", min_value=0.0, step=0.1, format="%.4f",
                                     value=float(kamp.get("spiff_kur") or 0) or None, placeholder="örn. 40", key=f"dk_spiff_kur_{kid}")
@@ -2317,21 +2317,21 @@ def run():
                                             ug_satis = st.number_input(
                                                 "Müşteriye Fiyat ($)",
                                                 value=float(ku.get("satis_fiyati", 0) or 0),
-                                                step=0.01, format="%.2f",
+                                                step=0.0001, format="%.4f",
                                                 key=f"ug_s_{kid}_{ku_id}"
                                             )
                                         with ug2:
                                             ug_fd = st.number_input(
                                                 "Birim Firma Desteği ($)",
                                                 value=float(ku.get("birim_firma_destek", 0) or 0),
-                                                step=0.01, format="%.2f",
+                                                step=0.0001, format="%.4f",
                                                 key=f"ug_fd_{kid}_{ku_id}"
                                             )
                                         with ug3:
                                             ug_ed = st.number_input(
                                                 "Birim Ek Destek ($)",
                                                 value=float(ku.get("birim_ek_destek", 0) or 0),
-                                                step=0.01, format="%.2f",
+                                                step=0.0001, format="%.4f",
                                                 key=f"ug_ed_{kid}_{ku_id}"
                                             )
                                         with ug4:
@@ -2439,12 +2439,12 @@ def run():
                                                 💡 %{hedef_marj_giris:.1f} marj için önerilen satış: <b>${onerilen_satis:.2f}</b>
                                                 </div>""", unsafe_allow_html=True)
     
-                                        u_satis = st.number_input("Satış Fiyatı ($) *", min_value=0.0, value=0.0, step=0.01, format="%.2f", key=f"u_satis_{kid}")
+                                        u_satis = st.number_input("Satış Fiyatı ($) *", min_value=0.0, value=0.0, step=0.0001, format="%.4f", key=f"u_satis_{kid}")
                                         u_not = st.text_area("Notlar", key=f"u_not_{kid}")
                                     with uf2:
-                                        u_firma_destek = st.number_input("Birim Firma Desteği ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                        u_firma_destek = st.number_input("Birim Firma Desteği ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f",
                                             help="Firma tarafından ürün başına verilen destek tutarı", key=f"u_fd_{kid}")
-                                        u_ek_destek = st.number_input("Birim Ek Destek ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                                        u_ek_destek = st.number_input("Birim Ek Destek ($)", min_value=0.0, value=0.0, step=0.0001, format="%.4f",
                                             help="Ek destek tutarı (ürün başına)", key=f"u_ed_{kid}")
     
                                         # Seçilen ürünün paçal maliyetini göster
@@ -2643,10 +2643,10 @@ def run():
                                 with st.form(f"gun_form_{kid}_{g_id}"):
                                     gf1, gf2 = st.columns(2)
                                     with gf1:
-                                        g_satis = st.number_input("Satış Fiyatı ($)", value=float(g_urun.get("satis_fiyati",0) or 0), step=0.01, format="%.2f", key=f"g_s_{kid}_{g_id}")
-                                        g_fd = st.number_input("Birim Firma Desteği ($)", value=float(g_urun.get("birim_firma_destek",0) or 0), step=0.01, format="%.2f", key=f"g_fd_{kid}_{g_id}")
+                                        g_satis = st.number_input("Satış Fiyatı ($)", value=float(g_urun.get("satis_fiyati",0) or 0), step=0.0001, format="%.4f", key=f"g_s_{kid}_{g_id}")
+                                        g_fd = st.number_input("Birim Firma Desteği ($)", value=float(g_urun.get("birim_firma_destek",0) or 0), step=0.0001, format="%.4f", key=f"g_fd_{kid}_{g_id}")
                                     with gf2:
-                                        g_ed = st.number_input("Birim Ek Destek ($)", value=float(g_urun.get("birim_ek_destek",0) or 0), step=0.01, format="%.2f", key=f"g_ed_{kid}_{g_id}")
+                                        g_ed = st.number_input("Birim Ek Destek ($)", value=float(g_urun.get("birim_ek_destek",0) or 0), step=0.0001, format="%.4f", key=f"g_ed_{kid}_{g_id}")
                                         g_satilan = st.number_input("Satılan Adet", value=int(g_urun.get("satilan_adet",0) or 0), min_value=0, step=1, key=f"g_sa_{kid}_{g_id}")
                                     g_not = st.text_area("Notlar", value=g_urun.get("notlar","") or "", key=f"g_not_{kid}_{g_id}")
     

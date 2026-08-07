@@ -745,7 +745,7 @@ def _gecmis_ithalatlar():
                 st.session_state.setdefault(_ok2, (_mevcut_v if _mevcut_v > 0 else None))
                 _ortak[_slug] = _ic.number_input(
                     _label, min_value=0.0, value=None,
-                    step=1.0, format="%.2f", placeholder="0,00",
+                    step=1.0, format="%.4f", placeholder="0,00",
                     label_visibility="collapsed", key=_ok2)
             _girilen = {k: v for k, v in _ortak.items() if v and v > 0}
 
@@ -950,7 +950,7 @@ def _gecmis_ithalatlar():
                 # setdefault ön-yazma YOK (silinen değerin geri gelmesini önler)
                 e_indirim = st.number_input(
                     "Fatura Altı İndirim (tutar)", min_value=0.0,
-                    value=(_iv0 if _iv0 > 0 else None), step=1.0, format="%.2f",
+                    value=(_iv0 if _iv0 > 0 else None), step=1.0, format="%.4f",
                     key=_ik,
                     help="Net mal bedeli = Brüt − İndirim. SKU birim maliyetleri ve % maliyet bu indirime göre hesaplanır.")
                 # ── Kategori bazlı giriş anahtarı ──
@@ -996,7 +996,7 @@ def _gecmis_ithalatlar():
                             _v0 = float(_onceki.get(_kt, 0) or 0)
                             _satir[_kt] = _kolonlar[_ki].number_input(
                                 _kt, min_value=0.0, value=(_v0 if _v0 > 0 else None),
-                                step=1.0, format="%.2f", placeholder="0,00",
+                                step=1.0, format="%.4f", placeholder="0,00",
                                 key=f"ith_dag_{did}_{_slug}_{_kt}")
                         _kat_top = sum(float(_v or 0) for _v in _satir.values())
                         e_masraf[_slug] = _kat_top
@@ -1025,7 +1025,7 @@ def _gecmis_ithalatlar():
                     e_masraf[_slug] = _ic.number_input(
                         _label, min_value=0.0,
                         value=(_mv if _mv > 0 else None),
-                        step=1.0, format="%.2f", placeholder="0,00",
+                        step=1.0, format="%.4f", placeholder="0,00",
                         label_visibility="collapsed", key=_mk)
                     # Girilen tutarın binlik ayraçlı hali — kutunun kendisi
                     # ayraç gösteremediği için okunurluk buradan sağlanıyor.
@@ -1141,7 +1141,7 @@ def _gecmis_ithalatlar():
                         for _ci, _g in enumerate(_mevcut_gruplar):
                             with _ck[_ci % len(_ck)]:
                                 e_grup_cbm[_g] = st.number_input(
-                                    _g, min_value=0.0, step=0.1, format="%.2f",
+                                    _g, min_value=0.0, step=0.1, format="%.4f",
                                     value=float(_cbm_kayitli.get(_g, 0) or 0),
                                     key=f"ith_cbm_{did}_{_g}")
                         _tcbm = sum(e_grup_cbm.values())
@@ -1237,7 +1237,7 @@ def _gecmis_ithalatlar():
                             "Ürün Grubu", help="Çoklu grup için doldur (örn. SSD, RAM). Tek grupsa boş bırak.",
                             default=""),
                         "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
-                        "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.01, format="%.2f"),
+                        "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.0001, format="%.4f"),
                         "Sil": st.column_config.CheckboxColumn(
                             "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
                     },
@@ -1265,7 +1265,7 @@ def _gecmis_ithalatlar():
                                            placeholder="barkod", label_visibility=("visible" if _mi == 0 else "collapsed"))
                     _madet = _mc4.number_input("Adet", min_value=0, value=0, step=1,
                                                key=f"ith_edit_madet_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
-                    _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.01, format="%.2f",
+                    _mfob = _mc5.number_input("Birim FOB", min_value=0.0, value=0.0, step=0.0001, format="%.4f",
                                               key=f"ith_edit_mfob_{did}_{_mi}_{_mver}", label_visibility=("visible" if _mi == 0 else "collapsed"))
                     # Kategori: mevcutlardan seç ya da yenisini yarat
                     _mkat_sec = _mc6.selectbox(
@@ -1511,7 +1511,7 @@ def _yeni_ithalat():
                 _adet = _c_adet.number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
                                              min_value=0, step=1, value=0)
                 _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
-                                           min_value=0.0, step=0.01, value=0.0, format="%.2f")
+                                           min_value=0.0, step=0.0001, value=0.0, format="%.4f")
                 if _c_sil.button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
                     for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
                                 f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}",
@@ -1537,7 +1537,7 @@ def _yeni_ithalat():
         with _ic1:
             m_indirim = st.number_input(
                 "Fatura Altı İndirim (tutar)", min_value=0.0, value=0.0, step=1.0,
-                format="%.2f", key=f"m_indirim_{_fv}",
+                format="%.4f", key=f"m_indirim_{_fv}",
                 help="Faturanın altına yazılan toplam indirim (opsiyonel). "
                      "Net mal bedeli = Brüt − İndirim; SKU birim maliyetleri de bu orana göre düşer.")
         with _ic2:

@@ -1270,7 +1270,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
                 "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
                 "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
                 "Tutar": st.column_config.NumberColumn(
-                    f"Tutar ({_sm})", min_value=0.0, step=0.01, format="%.2f"),
+                    f"Tutar ({_sm})", min_value=0.0, step=0.0001, format="%.4f"),
                 "Ay": st.column_config.TextColumn("Ay", help="YYYY-AA · örn 2026-04"),
                 "Kategori": st.column_config.SelectboxColumn(
                     "Kategori", options=_kat_havuz or None),
@@ -1297,7 +1297,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
     _y_ack = _c1.text_input("Açıklama", key=f"refkal_ack_{_rid}",
                             placeholder="örn. TEMMUZ FAZEON SELLOUT EK DESTEK")
     _y_tut = _c2.number_input(f"Tutar ({_sm})", min_value=0.0, step=0.01,
-                              format="%.2f", key=f"refkal_tut_{_rid}")
+                              format="%.4f", key=f"refkal_tut_{_rid}")
     _c3, _c4 = st.columns(2)
     _ay_sec = _c3.selectbox("Ay", ["(yaz)"] + _ay_havuz, key=f"refkal_aysec_{_rid}")
     _y_ay = (_c3.text_input("Ay (YYYY-AA)", key=f"refkal_ay_{_rid}",
@@ -1375,7 +1375,7 @@ def kategori_dagit_dialog(r, firma_adi=""):
     for _i, _k in enumerate(_kats):
         with _kol[_i % len(_kol)]:
             _giris[_k] = st.number_input(
-                _k, min_value=0.0, step=100.0, format="%.2f",
+                _k, min_value=0.0, step=100.0, format="%.4f",
                 value=float(_f(_mevcut.get(_k, 0))),
                 key=f"refkt_{r.get('id')}_{_k}")
     _top = sum(_giris.values())
@@ -2091,7 +2091,7 @@ def _render_refler(fid, fkod):
                 yeni_kat = yeni_kat_sec
             rd1, rd2, rd3, rd4, rd5 = st.columns([1.1, 0.8, 1.0, 0.8, 1.3])
             yeni_tutar = rd1.number_input("Tutar", min_value=0.0, value=None,
-                                          placeholder="0,00", step=100.0, format="%.2f")
+                                          placeholder="0,00", step=100.0, format="%.4f")
             yeni_doviz = rd2.selectbox("Döviz", DOVIZLER, index=0)
             _ay_opts = ["—"] + [_AY_AD[m] for m in range(1, 13)]
             yeni_ay = rd3.selectbox("Dönem Ayı", _ay_opts, index=0,
@@ -2228,7 +2228,7 @@ def _render_refler(fid, fkod):
                      "(örn. FZFZMNDRF2025001RF2026001 → FZMNDRF2026001). "
                      "Aynı firmada iki kayıt aynı numarayı alamaz."),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
-            "Tutar": st.column_config.NumberColumn("Tutar", format="%.2f", width="small"),
+            "Tutar": st.column_config.NumberColumn("Tutar", format="%.4f", width="small"),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
             "Kategori": st.column_config.SelectboxColumn("Kategori", options=_kat_kolon_opts,
                                                          width="medium",
@@ -2464,7 +2464,7 @@ def _render_butce(fid, firma):
                                                     required=True, width="small",
                                                     help="giris = bütçe girişi (+), harcama = destek (−)"),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
-            "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.2f"),
+            "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.4f"),
             "Fatura No": st.column_config.TextColumn("Fatura No"),
             "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
             "Ref No": st.column_config.TextColumn("Ref No"),
@@ -3223,7 +3223,7 @@ def _render_alinan_destekler():
             f_tur = c2.selectbox("Tür", ALINAN_TURLER)
             f_donem = c3.text_input("Dönem (YYYY-AA) *", value=_bu_ay)
             c4, c5, c6 = st.columns(3)
-            f_tutar = c4.number_input("Tutar *", min_value=0.0, step=0.01, format="%.2f")
+            f_tutar = c4.number_input("Tutar *", min_value=0.0, step=0.0001, format="%.4f")
             f_doviz = c5.selectbox("Döviz", ["USD", "TL", "EUR"])
             f_fatura = c6.text_input("Fatura No", placeholder="opsiyonel")
             try:

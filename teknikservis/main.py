@@ -1255,7 +1255,7 @@ def _depolar():
                     with st.popover("💰 Satıldı", use_container_width=True):
                         sf = st.text_input("Satış Firma/Kişi", key=f"sf_{kid}")
                         sfiyat = st.number_input("Satış Fiyatı ($)", min_value=0.0, step=1.0,
-                                                 format="%.2f", key=f"sfi_{kid}")
+                                                 format="%.4f", key=f"sfi_{kid}")
                         bedelsiz = st.checkbox("Bedelsiz", key=f"bd_{kid}")
                         if st.button("Kaydet", key=f"sk_{kid}", type="primary", use_container_width=True):
                             durum_guncelle(kid, "satıldı", st.session_state.get("aktif_kullanici", ""),
