@@ -110,6 +110,14 @@ st.cache_data.clear = _akilli_cache_clear
 try:
     from streamlit.delta_generator import DeltaGenerator as _DG
 
+    # ÖZYİNELEME KORUMASI — app.py Streamlit'in GİRİŞ BETİĞİ, her etkileşimde
+    # baştan çalışır. Koruma olmadan ikinci çalıştırmada _ORIJ_DATAFRAME
+    # ZATEN YAMALI fonksiyonu yakalıyor ve _akilli_dataframe kendini
+    # çağırıyordu → RecursionError, sayfa hiç açılmıyordu.
+    # İşaret fonksiyonun ÜSTÜNDE tutulur: modül yeniden yüklense de kalır.
+    if getattr(_DG.dataframe, "_kayran_yamali", False):
+        raise RuntimeError("zaten yamalı")   # aşağıdaki except'e düşer, atlanır
+
     _ORIJ_DATAFRAME = _DG.dataframe
 
     # Sıralanabilir HTML tabloya çevirmeyi ENGELLEYEN durumlar
@@ -162,6 +170,7 @@ try:
             pass          # biçimlendirme/çeviri başarısızsa tablo yine çizilsin
         return _ORIJ_DATAFRAME(self, data, *a, **kw)
 
+    _akilli_dataframe._kayran_yamali = True      # ikinci kez yamalanmasın
     _DG.dataframe = _akilli_dataframe
 
     # Modül seviyesindeki st.dataframe'i yeniden bağla — ancak bağlı metotsa.
@@ -169,7 +178,7 @@ try:
     if _kok_dg is not None:
         st.dataframe = _akilli_dataframe.__get__(_kok_dg, _DG)
 except Exception:
-    pass          # sarmalama kurulamazsa tablolar eski haliyle çalışır
+    pass          # zaten yamalıysa ya da kurulamazsa: tablolar çalışmaya devam
 
 
 # ─────────────────────────────────────────────────────────────────────
