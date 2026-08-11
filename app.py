@@ -981,13 +981,34 @@ _sb_comp.html(
     const tip = (t.getAttribute("type") || "text").toLowerCase();
     if (UYGUN.indexOf(tip) === -1) return;
 
+    // Odaklanma anındaki değeri sakla. 60 ms sonraki select() YALNIZ bu
+    // değer DEĞİŞMEMİŞSE çalışır.
+    //
+    // SORUN: kullanıcı boş arama kutusuna hızlı yazınca ("F11"), 60 ms'de
+    // select() araya giriyor ve o ana kadar yazılan "F" seçili hale geliyor;
+    // sonraki tuş onu siliyordu → "11" kalıyordu.
+    // ÇÖZÜM: kullanıcı yazmaya başladıysa dokunma. Ayrıca alan BOŞSA
+    // seçilecek bir şey yok, zamanlayıcıyı hiç kurma.
+    const bas_deger = t.value;
+    if (!bas_deger) return;          // boş alan → select() gereksiz
+
     // Fare ile odaklanmada tarayıcı, mouseup'ta seçimi bozup imleci koyar;
     // ilk mouseup'ı bir kez engelle → seçim korunur.
     const koru = function (ev) { ev.preventDefault(); };
     t.addEventListener("mouseup", koru, { once: true });
 
+    // Kullanıcı yazmaya başlarsa seçimi iptal et
+    let yazdi = false;
+    const yazma_izle = function () { yazdi = true; };
+    t.addEventListener("input", yazma_izle, { once: true });
+    t.addEventListener("keydown", yazma_izle, { once: true });
+
     w.setTimeout(function () {
       try {
+        t.removeEventListener("input", yazma_izle);
+        t.removeEventListener("keydown", yazma_izle);
+        if (yazdi) return;                       // kullanıcı yazıyor → dokunma
+        if (t.value !== bas_deger) return;       // değer değişmiş → dokunma
         if (doc.activeElement === t && t.value) t.select();
       } catch (err) {}
     }, 60);
