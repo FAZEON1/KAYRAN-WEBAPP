@@ -648,9 +648,15 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
             "birim_maliyet": bm, "birim_firma_destek": 0, "birim_ek_destek": 0,
             "kampanya_id": None, "notlar": s.get("notlar") or "", "olusturma_tarihi": zaman,
         }
+        # DEPO, satır NESNESİNE bağlanır — anahtar/sıra ile eşleştirme GÜVENSİZ:
+        #  • (siparis_no, sku) benzersiz değil (VATAN'da 162 satır → 2 çift)
+        #  • sıra numarası da kaymaya açık: insert hatası alan satırlar
+        #    _ins_rows'a girmiyor, sonraki satırların sırası kayıyor.
+        # id() ile satır nesnesinin kendisini işaretliyoruz; _ins_rows aynı
+        # nesneleri taşıdığı için eşleşme her zaman doğru.
         _d_satir = str(s.get("depo") or "").strip()
         if _d_satir:
-            _satir_depo[(sno, sku)] = _d_satir
+            _satir_depo[id(_row)] = _d_satir
         rows.append(_row)
     if not rows:
         return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0,
@@ -692,7 +698,7 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         _ad = _i((_r or {}).get("adet"))
         if not _sku or not _ad:
             continue
-        _d = _satir_depo.get((str((_r or {}).get("siparis_no") or ""), _sku), "")
+        _d = str(_satir_depo.get(id(_r), "") or "").strip()
         if _d:
             _g = _depo_gruplu.setdefault(_d, {})
             _g[_sku] = _g.get(_sku, 0) + _ad
