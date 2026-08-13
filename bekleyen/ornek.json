@@ -1,0 +1,15 @@
+{
+  "baslik": "ÖRNEK — bu dosya silinebilir",
+  "talep": "Yama dosyalarının nasıl yazıldığını gösterir",
+  "hazirlayan": "Claude",
+  "tarih": "2026-08-13",
+  "not": "Gerçek bir yama değildir. /onayla ornek dersen 'aranan metin bulunamadı' der ve hiçbir şey değişmez — güvenli.",
+  "degisiklikler": [
+    {
+      "dosya": "satis/main.py",
+      "tip": "degistir",
+      "eski": "BU_METIN_DOSYADA_YOK_ORNEK_AMACLI",
+      "yeni": "degistirilmis_hali"
+    }
+  ]
+}
