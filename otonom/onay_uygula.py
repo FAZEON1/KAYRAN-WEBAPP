@@ -297,6 +297,7 @@ def bekleyenleri_duyur():
         return
     liste = sorted(p.stem for p in BEKLEYEN.glob("*.json"))
     if not liste:
+        _log("duyurulacak yama yok")
         return
     s = ["BEKLEYEN DEĞİŞİKLİKLER", "=" * 34]
     for ad in liste:
@@ -317,13 +318,29 @@ def bekleyenleri_duyur():
 
 def main():
     BEKLEYEN.mkdir(parents=True, exist_ok=True)
+
+    # Tanı: hangi ortamda çalışıyoruz, ne bulundu — körlemesine bakmayalım
+    _log(f"kök: {KOK}")
+    _log(f"telegram token: {'var' if os.environ.get('TELEGRAM_BOT_TOKEN') else 'YOK'} · "
+         f"chat: {'var' if os.environ.get('TELEGRAM_CHAT_ID') else 'YOK'}")
+    bek = sorted(p.stem for p in BEKLEYEN.glob("*.json"))
+    _log(f"bekleyen yama: {len(bek)} → {bek}")
+
     komutlar = tg_komutlar()
     _log(f"{len(komutlar)} komut bulundu")
     for k in komutlar:
         _log(f"işleniyor: /{k['eylem']} {k['ad']}")
         islem(k)
-    if os.environ.get("DUYUR", "").strip() == "1":
+
+    # DUYUR=1 ZORUNLU DEĞİL: bekleyen yama varsa ve bu çalıştırmada işlenen
+    # komut yoksa, hatırlatma gönderilir. Elle tetiklemede kutuyu doldurmayı
+    # unutmak duyuruyu tamamen susturuyordu.
+    _duyur = os.environ.get("DUYUR", "").strip() == "1"
+    if _duyur or (bek and not komutlar):
+        _log("bekleyenler duyuruluyor")
         bekleyenleri_duyur()
+    else:
+        _log("duyuru yok (bekleyen yama yok ya da komut işlendi)")
 
 
 if __name__ == "__main__":
