@@ -625,6 +625,28 @@ def get_sku_maliyet_ozet():
         kalemler = get_tum_kalemler()
         if not kalemler:
             return {}
+
+        # ── YOLDAKİ PARTİLER PAÇALA GİRMEZ (13.08.2026) ──
+        # SORUN: durum filtresi yoktu; "Üretimde/Yolda/Gümrükte/Antrepoda"
+        # dosyalar teslim alınmış gibi ortalamaya giriyordu. O aşamada ardiye,
+        # antrepo beyannamesi, gümrük müşavirliği gibi masraflar HENÜZ
+        # GİRİLMEMİŞ oluyor → dosya yüzdesi 0 → final = FOB. Yani parti,
+        # landed maliyeti olmadan, çıplak FOB ile paçalı AŞAĞI çekiyordu;
+        # maliyet düşük, kâr olduğundan yüksek görünüyordu.
+        # KURAL: yalnız depoya girmiş mal maliyet ortalamasına katılır.
+        # DİKKAT: durumu BOŞ olan eski kayıtlar HARİÇ TUTULMAZ — durum alanı
+        # sonradan eklendi, geçmiş dosyaların çoğu boş. Onları elemek paçalı
+        # tamamen boşaltırdı. Yalnız açıkça yolda olanlar elenir.
+        _yoldaki_dosyalar = {
+            d.get("id") for d in (dosyalar or [])
+            if str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR
+        }
+        if _yoldaki_dosyalar:
+            kalemler = [k for k in kalemler
+                        if k.get("dosya_id") not in _yoldaki_dosyalar]
+            if not kalemler:
+                return {}
+
         # Kalemleri dosyaya göre grupla
         by_dosya = {}
         for k in kalemler:

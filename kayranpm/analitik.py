@@ -556,13 +556,30 @@ def siparis_onerisi_listesi():
     return sonuc
 
 
-def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis, uretim_suresi=None):
-    """Üretim/tedarik süresi (varsayılan 135 gün) baz alınarak sipariş takvimi hesaplar."""
+def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis, uretim_suresi=None,
+                            yoldaki_miktar=0):
+    """Üretim/tedarik süresi (varsayılan 135 gün) baz alınarak sipariş takvimi hesaplar.
+
+    yoldaki_miktar: üretimde/yolda/gümrükte/antrepoda bekleyen adet.
+
+    NEDEN DAHİL EDİLİR (13.08.2026 · Gokhan talebi): Bu fonksiyon 'yeni sipariş
+    AÇMAK için son gün'ü hesaplar. Zaten yolda olan mal, bugün açılacak yeni bir
+    siparişten HER ZAMAN önce gelir; kapsam dışı bırakılırsa antrepoda 800 adet
+    dururken ürün 'ACİL' görünür ve mükerrer sipariş önerilir.
+    Eskiden yalnız depo+firma stoğu sayılıyordu; siparis_miktari_oneri ise
+    yoldakini düşüyordu — ikisi çelişiyor, liste yine de ACİL gösteriyordu.
+
+    DİKKAT: Bu, 'stok bitmeden mal yetişir mi' sorusunun cevabı DEĞİLDİR.
+    Varış gecikmesi/boşluk uyarısı ayrı hesaplanır (yoldaki_durum_hesapla:
+    🟡 varış gecikmeli · 🔴 yolda ürün yok). O uyarı bu değişiklikten
+    etkilenmez; stok gerçekten boşa düşerse orada görünmeye devam eder.
+    """
     if not toplam_haftalik_satis or toplam_haftalik_satis == 0:
         return None, None, "veri_yok", "Satış verisi yok"
     _us = uretim_suresi if uretim_suresi is not None else get_uretim_suresi()
     gunluk_satis = toplam_haftalik_satis / 7
-    stok_bitis_gun = int(bizim_stok / gunluk_satis) if gunluk_satis > 0 else 0
+    _kapsam = (bizim_stok or 0) + (yoldaki_miktar or 0)
+    stok_bitis_gun = int(_kapsam / gunluk_satis) if gunluk_satis > 0 else 0
     siparis_son_gun = stok_bitis_gun - _us
     if siparis_son_gun <= 0:
         return stok_bitis_gun, siparis_son_gun, "acil", f"ACİL — {stok_bitis_gun}g'de biter"
@@ -692,9 +709,11 @@ def dashboard_hesapla():
         yol = yoldaki_data.get(sku, {})
         yoldaki_miktar = yol.get("yoldaki_miktar", 0) or 0
 
-        # Sipariş takvimi — TOPLAM STOK baz alınır
+        # Sipariş takvimi — TOPLAM STOK + YOLDAKİ baz alınır
+        # (yoldaki = üretimde/yolda/gümrükte/antrepoda; yeni siparişten önce gelir)
         stok_bitis_gun, siparis_son_gun, siparis_durum, siparis_mesaj = siparis_takvimi_hesapla(
-            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us
+            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us,
+            yoldaki_miktar
         )
 
         # Sipariş miktarı önerisi — TOPLAM STOK baz alınır
