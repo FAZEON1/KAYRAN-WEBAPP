@@ -1,0 +1,30 @@
+{
+  "baslik": "Kategori eşleşmesi: 'MOUSEPAD' ile 'MOUSE PAD' aynı kategori sayılsın",
+  "talep": "Kategori adı uyuşmazlığı — Excel/ref kaydında 'MOUSEPAD', katalogda 'Mouse Pad' yazıldığı için Ref No desteğinde ayrı satır oluşuyor ve kategori filtresinde destek 0 görünüyor.",
+  "degisiklikler": [
+    {
+      "dosya": "kayranpm/ref_no.py",
+      "tip": "degistir",
+      "eski": "def _kat_liste(metin):\n    \"\"\"'MONİTÖR · KASA' → ['MONİTÖR','KASA'] (BÜYÜK, boşlar atılır).\"\"\"\n    return [_tr_upper(x.strip()) for x in str(metin or \"\").split(\"·\") if x.strip()]",
+      "yeni": "def _kat_bosluksuz(s):\n    \"\"\"Karşılaştırma anahtarı: BÜYÜK harf + tüm boşluklar atılmış.\n    'Mouse Pad' · 'MOUSEPAD' · 'mouse  pad' → hepsi 'MOUSEPAD'.\"\"\"\n    return \"\".join(_tr_upper(s).split())\n\n\ndef kategori_kanonik(ad):\n    \"\"\"Serbest yazılmış kategori adını KATALOG yazımına çevirir.\n\n    SORUN: ref kaydına 'MOUSEPAD', ürün kartına 'Mouse Pad' yazılıyordu.\n    İkisi ayrı anahtar üretiyor; Kâr/P&L kategori filtresi katalog adını\n    arayınca desteği bulamıyor, destek ayrı bir satır olarak kalıyordu.\n\n    YÖNTEM: elle alias listesi TUTULMAZ — katalogla (KATEGORI_LISTE)\n    boşluksuz karşılaştırılır. Katalog büyüdükçe eşleme kendiliğinden\n    büyür, ikinci bir liste bakımı gerekmez. (depo_kanonik ile aynı fikir.)\n\n    BELİRSİZ ADLAR ÇEVRİLMEZ: 'SOĞUTUCU' katalogdaki 'CPU Soğutucu',\n    'Kule Soğutucu', 'Sıvı Soğutma'dan hangisi olduğu bilinemez. Tahmin\n    etmek desteği yanlış kategoriye yazar; olduğu gibi bırakılır ve\n    raporda kendi adıyla görünür.\n    \"\"\"\n    ham = _tr_upper(str(ad or \"\").strip())\n    if not ham:\n        return \"\"\n    anahtar = _kat_bosluksuz(ham)\n    if not anahtar:\n        return \"\"\n    try:\n        from .database import KATEGORI_LISTE\n    except Exception:\n        return ham\n    for kat in KATEGORI_LISTE:\n        if _kat_bosluksuz(kat) == anahtar:\n            return _tr_upper(kat)\n    return ham\n\n\ndef _kat_liste(metin):\n    \"\"\"'MONİTÖR · KASA' → ['MONİTÖR','KASA'] (BÜYÜK, boşlar atılır).\n    Kategori adları katalog yazımına çevrilir (bkz. kategori_kanonik).\"\"\"\n    return [kategori_kanonik(x) for x in str(metin or \"\").split(\"·\")\n            if str(x).strip() and kategori_kanonik(x)]"
+    },
+    {
+      "dosya": "kayranpm/ref_no.py",
+      "tip": "degistir",
+      "eski": "            paylar = {_tr_upper(k): _f(v) for k, v in (kt or {}).items() if _f(v) > 0}",
+      "yeni": "            paylar = {kategori_kanonik(k): _f(v) for k, v in (kt or {}).items() if _f(v) > 0}"
+    },
+    {
+      "dosya": "satis/main.py",
+      "tip": "degistir",
+      "eski": "                        from kayranpm.ref_no import _tr_upper as _tu\n                        _kat_destek_f = float(_adk_f.get(_tu(_p_kat_f.strip()), 0.0))",
+      "yeni": "                        # Arama tarafı da kanonikleştirilir; yoksa katalogdaki\n                        # 'Mouse Pad' ile kırılımdaki 'MOUSEPAD' yine buluşmaz.\n                        from kayranpm.ref_no import kategori_kanonik as _tu\n                        _kat_destek_f = float(_adk_f.get(_tu(_p_kat_f.strip()), 0.0))"
+    },
+    {
+      "dosya": "satis/main.py",
+      "tip": "degistir",
+      "eski": "                    from kayranpm.ref_no import _tr_upper as _tu2\n                    _ref_kat = float(_rk[\"kategori\"].get(_tu2(_p_kat_f.strip()), 0.0))",
+      "yeni": "                    from kayranpm.ref_no import kategori_kanonik as _tu2\n                    _ref_kat = float(_rk[\"kategori\"].get(_tu2(_p_kat_f.strip()), 0.0))"
+    }
+  ]
+}
