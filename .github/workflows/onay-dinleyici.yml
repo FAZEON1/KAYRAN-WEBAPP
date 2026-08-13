@@ -39,7 +39,7 @@ jobs:
           python-version: "3.11"
 
       - name: Bağımlılıklar
-        run: pip install --quiet requests
+        run: pip install --quiet requests pytest pandas
 
       - name: Onayları işle
         env:
