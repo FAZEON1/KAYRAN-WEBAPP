@@ -1366,6 +1366,107 @@ def run():
                 f'text-transform:uppercase">📊 Kâr Merdiveni</div>{_adim}</div>',
                 unsafe_allow_html=True)
 
+            # ── EXCEL RAPORU ──
+            # Ekrandaki rakamların AYNISI. Merdiven satırları, kırılımlar ve
+            # ham satışlar ayrı sayfalarda. Sayılar HAM (metin değil) —
+            # Excel'de toplanabilir, pivot çekilebilir.
+            def _pnl_xlsx():
+                def _fl(x):
+                    try:
+                        return round(float(x or 0), 4)
+                    except (TypeError, ValueError):
+                        return 0.0
+                _buf = io.BytesIO()
+                # 1) Kâr merdiveni — ekrandaki sırayla
+                _md = [{"Adım": "Brüt Ciro", "Tutar ($)": round(float(top["ciro"]), 4)}]
+                if _itop["i_tutar"] > 0.005:
+                    _md.append({"Adım": "İadeler (−)",
+                                "Tutar ($)": -round(float(_itop["i_tutar"]), 4)})
+                    _md.append({"Adım": "Net Ciro (=)", "Tutar ($)": round(_net_ciro, 4)})
+                if top["destek"] > 0.005:
+                    _md.append({"Adım": "Destek satır bazlı (−)",
+                                "Tutar ($)": -round(float(top["destek"]), 4)})
+                _md.append({"Adım": "Maliyet COGS (−)",
+                            "Tutar ($)": -round(float(top["maliyet"]), 4)})
+                # İade KÂRI ayrı satır: yoksa merdiven Excel'de toplanmıyor
+                # (_net_kar = top["net_kar"] − _itop["i_kar"]).
+                if abs(float(_itop.get("i_kar") or 0)) > 0.005:
+                    _md.append({"Adım": "İade kârı (−)",
+                                "Tutar ($)": -round(float(_itop["i_kar"]), 4)})
+                _md.append({"Adım": "Brüt Kâr (=)", "Tutar ($)": round(_net_kar, 4)})
+                if _ref_g:
+                    _md.append({"Adım": ("Ref No desteği — " + _p_kat_f + " (−)"
+                                         if _p_kat_f != "Tümü" else "Ref No desteği dönem (−)"),
+                                "Tutar ($)": -round(float(_ref_g), 4)})
+                if _alinan_usd > 0.005:
+                    _md.append({"Adım": "Alınan destek gelir (+)",
+                                "Tutar ($)": round(float(_alinan_usd), 4)})
+                if _kat_destek_f > 0.005:
+                    _md.append({"Adım": f"Alınan destek — {_p_kat_f} (+)",
+                                "Tutar ($)": round(float(_kat_destek_f), 4)})
+                _md.append({"Adım": "NET KÂR (=)", "Tutar ($)": round(float(_nihai), 4)})
+                _md.append({"Adım": "Net marj (%)", "Tutar ($)": round(float(_nihai_marj or 0), 2)})
+
+                with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                    pd.DataFrame(_md).to_excel(_w, index=False, sheet_name="Kâr Merdiveni")
+                    # 2) Filtre bilgisi — rapor hangi koşullarla alındı
+                    pd.DataFrame([
+                        {"Alan": "Dönem", "Değer": f"{_pbas} → {_pbit}"},
+                        {"Alan": "Kanal", "Değer": _p_kanal_f},
+                        {"Alan": "Kategori", "Değer": _p_kat_f},
+                        {"Alan": "Satır sayısı", "Değer": len(satislar)},
+                        {"Alan": "Rapor tarihi",
+                         "Değer": datetime.now().strftime("%d.%m.%Y %H:%M")},
+                        {"Alan": "", "Değer": ""},
+                        {"Alan": "NOT — Brüt Kâr",
+                         "Değer": "Satır bazlı kâr toplamıdır; 'net ciro − COGS' "
+                                  "işlemiyle birebir tutmaz. Aradaki fark satır "
+                                  "bazlı desteklerden gelir. Ekrandaki merdivenin "
+                                  "aynısıdır."},
+                        {"Alan": "NOT — Sayılar",
+                         "Değer": "Ham sayı olarak yazıldı (metin değil), "
+                                  "Excel'de toplanabilir ve pivot çekilebilir."},
+                    ]).to_excel(_w, index=False, sheet_name="Filtre")
+                    # 3) Kırılımlar — ekrandaki tabloların aynısı
+                    for _sh in ("Marka", "Kategori"):
+                        _rows_k = st.session_state.get(f"_pnl_xl_{_sh}") or []
+                        if _rows_k:
+                            pd.DataFrame(_rows_k).to_excel(
+                                _w, index=False, sheet_name=_sh)
+                    # 4) Ham satışlar — Excel'de pivot çekilebilsin
+                    if satislar:
+                        pd.DataFrame([{
+                            "Tarih": s2.get("tarih"), "Kanal": s2.get("kanal"),
+                            "Sipariş No": s2.get("siparis_no"), "SKU": s2.get("sku"),
+                            "Ürün": s2.get("urun_adi"), "Adet": _i(s2.get("adet")),
+                            "Birim Satış": _fl(s2.get("birim_satis")),
+                            "Birim Maliyet": _fl(s2.get("birim_maliyet")),
+                            "Firma Destek": _fl(s2.get("birim_firma_destek")),
+                            "Ek Destek": _fl(s2.get("birim_ek_destek")),
+                        } for s2 in satislar]).to_excel(
+                            _w, index=False, sheet_name="Ham Satışlar")
+                    # Kolon genişlikleri
+                    for _sh in _w.sheets:
+                        _ws = _w.sheets[_sh]
+                        for _c in _ws.columns:
+                            _en = max((len(str(_x.value)) for _x in _c[:200]
+                                       if _x.value is not None), default=10)
+                            _ws.column_dimensions[_c[0].column_letter].width = min(_en + 3, 46)
+                        _ws.freeze_panes = "A2"
+                return _buf.getvalue()
+
+            _px1, _px2 = st.columns([1, 3])
+            try:
+                _px1.download_button(
+                    "⬇️ Excel raporu", _pnl_xlsx(),
+                    f"kar_pnl_{_pbas}_{_pbit}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, key="pnl_dl_xlsx")
+                _px2.caption("Ekrandaki rakamların aynısı · merdiven, kırılımlar ve "
+                             "ham satırlar ayrı sayfalarda · sayılar ham (toplanabilir)")
+            except Exception as _e_x:
+                _px1.caption(f"Excel hazırlanamadı: {str(_e_x)[:60]}")
+
             # ── Detaylar: meraklısına, varsayılan kapalı ──
             with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
                 _d1, _d2, _d3 = st.columns(3)
@@ -1557,6 +1658,8 @@ def run():
                                 _t_ad = sum(float(r["_destek"] or 0) for r in _rows)
                                 _t_rf = sum(float(r["_ref"] or 0) for r in _rows)
                                 _t_kar_ort = max(_t_kar_ort, _t_kar)
+                                # Excel raporu AYNI satırları kullansın diye sakla
+                                st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
                                 _tablo.append({
                                     _kol: "Σ TOPLAM", "Adet": _t_adet,
                                     "Ciro": _t_ciro,
