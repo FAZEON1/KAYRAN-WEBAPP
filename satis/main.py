@@ -1371,11 +1371,20 @@ def run():
             # ham satışlar ayrı sayfalarda. Sayılar HAM (metin değil) —
             # Excel'de toplanabilir, pivot çekilebilir.
             def _pnl_xlsx():
+                # _fl ve _in YEREL tanımlanır. _i / _f satis.database'de,
+                # bu dosyada DEĞİL — dışarıdan kullanmaya çalışmak
+                # "name '_i' is not defined" ile Excel'i düşürüyordu.
                 def _fl(x):
                     try:
                         return round(float(x or 0), 4)
                     except (TypeError, ValueError):
                         return 0.0
+
+                def _in(x):
+                    try:
+                        return int(round(float(x or 0)))
+                    except (TypeError, ValueError):
+                        return 0
                 _buf = io.BytesIO()
                 # 1) Kâr merdiveni — ekrandaki sırayla
                 _md = [{"Adım": "Brüt Ciro", "Tutar ($)": round(float(top["ciro"]), 4)}]
@@ -1438,7 +1447,7 @@ def run():
                         pd.DataFrame([{
                             "Tarih": s2.get("tarih"), "Kanal": s2.get("kanal"),
                             "Sipariş No": s2.get("siparis_no"), "SKU": s2.get("sku"),
-                            "Ürün": s2.get("urun_adi"), "Adet": _i(s2.get("adet")),
+                            "Ürün": s2.get("urun_adi"), "Adet": _in(s2.get("adet")),
                             "Birim Satış": _fl(s2.get("birim_satis")),
                             "Birim Maliyet": _fl(s2.get("birim_maliyet")),
                             "Firma Destek": _fl(s2.get("birim_firma_destek")),
