@@ -1,0 +1,18 @@
+{
+  "baslik": "Sipariş takvimi: yoldaki/antrepodaki/gümrükteki mal stok kapsamına dahil edilsin",
+  "talep": "#Gokhan — Yolda, antrepoda veya gümrükte mal varken program yine sipariş önerisi veriyor (örn. F1 siyah/beyaz kasa: antrepoda yüksek adet var, yine de öneriliyor).",
+  "degisiklikler": [
+    {
+      "dosya": "kayranpm/analitik.py",
+      "tip": "degistir",
+      "eski": "def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis, uretim_suresi=None):\n    \"\"\"Üretim/tedarik süresi (varsayılan 135 gün) baz alınarak sipariş takvimi hesaplar.\"\"\"\n    if not toplam_haftalik_satis or toplam_haftalik_satis == 0:\n        return None, None, \"veri_yok\", \"Satış verisi yok\"\n    _us = uretim_suresi if uretim_suresi is not None else get_uretim_suresi()\n    gunluk_satis = toplam_haftalik_satis / 7\n    stok_bitis_gun = int(bizim_stok / gunluk_satis) if gunluk_satis > 0 else 0",
+      "yeni": "def siparis_takvimi_hesapla(bizim_stok, toplam_haftalik_satis, uretim_suresi=None,\n                            yoldaki_miktar=0):\n    \"\"\"Üretim/tedarik süresi (varsayılan 135 gün) baz alınarak sipariş takvimi hesaplar.\n\n    yoldaki_miktar: üretimde/yolda/gümrükte/antrepoda bekleyen adet.\n\n    NEDEN DAHİL EDİLİR (13.08.2026 · Gokhan talebi): Bu fonksiyon 'yeni sipariş\n    AÇMAK için son gün'ü hesaplar. Zaten yolda olan mal, bugün açılacak yeni bir\n    siparişten HER ZAMAN önce gelir; kapsam dışı bırakılırsa antrepoda 800 adet\n    dururken ürün 'ACİL' görünür ve mükerrer sipariş önerilir.\n    Eskiden yalnız depo+firma stoğu sayılıyordu; siparis_miktari_oneri ise\n    yoldakini düşüyordu — ikisi çelişiyor, liste yine de ACİL gösteriyordu.\n\n    DİKKAT: Bu, 'stok bitmeden mal yetişir mi' sorusunun cevabı DEĞİLDİR.\n    Varış gecikmesi/boşluk uyarısı ayrı hesaplanır (yoldaki_durum_hesapla:\n    🟡 varış gecikmeli · 🔴 yolda ürün yok). O uyarı bu değişiklikten\n    etkilenmez; stok gerçekten boşa düşerse orada görünmeye devam eder.\n    \"\"\"\n    if not toplam_haftalik_satis or toplam_haftalik_satis == 0:\n        return None, None, \"veri_yok\", \"Satış verisi yok\"\n    _us = uretim_suresi if uretim_suresi is not None else get_uretim_suresi()\n    gunluk_satis = toplam_haftalik_satis / 7\n    _kapsam = (bizim_stok or 0) + (yoldaki_miktar or 0)\n    stok_bitis_gun = int(_kapsam / gunluk_satis) if gunluk_satis > 0 else 0"
+    },
+    {
+      "dosya": "kayranpm/analitik.py",
+      "tip": "degistir",
+      "eski": "        # Sipariş takvimi — TOPLAM STOK baz alınır\n        stok_bitis_gun, siparis_son_gun, siparis_durum, siparis_mesaj = siparis_takvimi_hesapla(\n            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us\n        )",
+      "yeni": "        # Sipariş takvimi — TOPLAM STOK + YOLDAKİ baz alınır\n        # (yoldaki = üretimde/yolda/gümrükte/antrepoda; yeni siparişten önce gelir)\n        stok_bitis_gun, siparis_son_gun, siparis_durum, siparis_mesaj = siparis_takvimi_hesapla(\n            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us,\n            yoldaki_miktar\n        )"
+    }
+  ]
+}
