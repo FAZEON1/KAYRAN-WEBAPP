@@ -1,0 +1,50 @@
+name: Onay Dinleyici
+
+# KADEMELİ OTONOMİ · 2. AŞAMA
+# Telegram'dan gelen /onayla ve /reddet komutlarını okur ve bekleyen/
+# klasöründeki HAZIR yamayı uygular. KOD YAZMAZ — yalnız insanın
+# hazırladığı yamayı uygular, test koşar, commit'ler.
+#
+# Yasak dosyalar (para/stok/yetki) onaylansa bile uygulanmaz.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"       # 15 dakikada bir komutları kontrol et
+  workflow_dispatch:
+    inputs:
+      duyur:
+        description: "Bekleyenleri Telegram'a hatırlat (1 = evet)"
+        required: false
+        default: ""
+
+# Commit atabilmesi için yazma izni şart
+permissions:
+  contents: write
+
+# Aynı anda iki kopya çalışmasın — çakışan commit olmasın
+concurrency:
+  group: onay-dinleyici
+  cancel-in-progress: false
+
+jobs:
+  onay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıklar
+        run: pip install --quiet requests
+
+      - name: Onayları işle
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          YETKILI_CHAT: ${{ secrets.YETKILI_CHAT }}
+          DUYUR: ${{ inputs.duyur }}
+        run: python otonom/onay_uygula.py
