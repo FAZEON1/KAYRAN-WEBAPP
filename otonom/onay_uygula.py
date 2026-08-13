@@ -43,15 +43,27 @@ ARSIV = KOK / "bekleyen" / "arsiv"
 #  Para, stok, maliyet ve yetki hesapları burada. Bir hata sessizce
 #  yanlış rakam üretir ve aylar sonra fark edilir.
 # ═══════════════════════════════════════════════════════════════════
+# GÜNCELLEME (13.08.2026): Uygulama kodu (satis/database.py, kayranpm/database.py,
+# ithalat/database.py, kayranacc/database.py, app.py) listeden ÇIKARILDI.
+# Gerekçe: liste, tests/ klasörü yokken tek koruma sözdizimi kontrolüyken
+# konmuştu. Artık 115 test tam olarak o dosyaların mantığını (stok, depo,
+# maliyet önceliği, kâr formülü) tutuyor ve testleri kıran yama uygulanmıyor.
+#
+# Listede KALANLAR — bunları test korumaz, o yüzden hâlâ elle değiştirilir:
 YASAK_DOSYA = [
-    "satis/database.py",        # satış, kâr, stok düşümü
-    "kayranpm/database.py",     # stok hareketi, depo kırılımı
-    "ithalat/database.py",      # maliyet, paçal
-    "kayranacc/database.py",    # ödeme, bakiye, cari
-    "app.py",                   # yetkilendirme, giriş, oturum
-    "shared/audit.py",          # denetim kaydı
+    # 1) Zincirin kendisi: onay mekanizması kendi kısıtını gevşetemesin.
+    #    (Bu açık daha önce vardı: otonom/ hiç korunmuyordu.)
+    "otonom/onay_uygula.py",
+    "otonom/yama_uret.py",
+    # 2) Denetim kaydı: kim ne yaptı izini silen/bozan yama sessiz kalır.
+    "shared/audit.py",
 ]
-YASAK_UZANTI = [".sql", ".yml", ".yaml", ".toml"]   # şema ve iş akışı
+# 3) Şema ve iş akışı:
+#    .yml → workflow'u değiştiren yama test adımını kaldırabilir ya da
+#           secrets'ı dışarı yazdırabilir; korumayı korumanın içinden söker.
+#    .sql → şema/veri değişikliği geri alınamaz ve pytest bunu göremez.
+#    .toml→ Streamlit yapılandırması.
+YASAK_UZANTI = [".sql", ".yml", ".yaml", ".toml"]
 
 
 def _log(m):
