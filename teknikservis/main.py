@@ -111,6 +111,26 @@ def _tarih_kisa(v):
         return s[:16]
 
 
+def _ts_simdi():
+    """İstanbul saati, ISO (saniye) — depo transfer zaman damgası (madde 12)."""
+    from datetime import timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=3))).isoformat(timespec="seconds")
+
+
+def _tarih_gun(v):
+    """Madde 6: yalnız GÜN — işlem geçmişinde saat gösterilmez."""
+    if not v:
+        return "—"
+    s = str(v)
+    try:
+        return datetime.fromisoformat(s[:19]).strftime("%d-%m-%Y")
+    except Exception:
+        # 'YYYY-MM-DD…' biçimini elle çevir; olmuyorsa ilk 10 karakteri ver
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            return f"{s[8:10]}-{s[5:7]}-{s[0:4]}"
+        return s[:10]
+
+
 def _g(kayit, alan, bos="—"):
     v = kayit.get(alan)
     return v if (v not in (None, "")) else bos
@@ -435,10 +455,12 @@ def _mal_kabul_dialog():
                  or st.session_state.get("mk_firma_sec", "")).strip()
 
         # Kargo Takip No — yalnızca "Kargo" seçilirse görünür
+        # Madde 2: bu GELİŞ takip numarasıdır; gidiş numarası ayrı kolonda tutulur
+        # ve artık bunun üzerine yazmaz.
         kargo_takip = ""
         if str(st.session_state.get("mk_sevk_y", "")) == "Kargo":
-            kargo_takip = st.text_input("Kargo Takip No", key="mk_kargo",
-                                        placeholder="kargo takip numarası")
+            kargo_takip = st.text_input("📥 Kargo Takip No (geliş)", key="mk_kargo",
+                                        placeholder="ürünün bize geldiği kargo takip numarası")
 
         ariza = st.text_input("Arıza *", placeholder="örn: güç kaynağı bozuk")
 
@@ -451,16 +473,16 @@ def _mal_kabul_dialog():
         m_adres = st.text_input("Adres", key="mk_m_adres")
 
         if not _son_kullanici:
-            _alt_baslik("Belge — fatura veya irsaliye ile kabul")
-            fbz = st.columns([1.3, 3])
-            fatura_mevcut = fbz[0].checkbox("Fatura mevcut", value=True, key="mk_fat_mevcut")
-            fbz[1].caption("Fatura No / İrsaliye No **opsiyoneldir** — ürün belge beklemeden işleme alınır. "
-                           "Fatura sonradan kesilince Muhasebe ya da Teknik Servis, kaydı **Düzenle**'den "
-                           "girip ✓'e çevirebilir.")
+            # Madde 1: mal kabulde fatura İSTENMEZ — irsaliye + firma servis form no yeterli.
+            # 'Fatura mevcut' tiki ve Fatura No kaldırıldı; fatura sonradan kesilince
+            # kayıt üzerinden Düzenle ile girilir (fatura_mevcut orada ✓'e çevrilir).
+            _alt_baslik("Belge — irsaliye ile kabul")
             f1, f2 = st.columns(2)
-            fatura = f1.text_input("Fatura No")
-            irsaliye = f2.text_input("İrsaliye No")
-            firma_servis_no = f1.text_input("Firma Servis Form No", placeholder="ör. 11MS0072257")
+            irsaliye = f1.text_input("İrsaliye No")
+            firma_servis_no = f2.text_input("Firma Servis Form No", placeholder="ör. 11MS0072257")
+            st.caption("Fatura bilgisi mal kabulde istenmez. Fatura kesildiğinde kaydı **Düzenle**'den "
+                       "girip ✓'e çevirebilirsin.")
+            fatura_mevcut, fatura = False, ""
         else:
             # Madde 13: SON KULLANICI → belge bölümü yok; fatura iade onayı
             # sonrası muhasebe tarafından "Fatura geldi ✓" ile işlenecek
@@ -524,6 +546,8 @@ def _mal_kabul_dialog():
             "urun_grubu": urun_grubu, "stok_adi": stok_adi.strip(),
             "seri_no": seri.strip(), "ariza": ariza.strip(),
             "firma_bilgisi": _firma_kayit, "sevk_kargo_bilgisi": _sevk_txt,
+            # Madde 2: geliş takip no'su kendi kolonunda — gidiş kaydı bunu ezemez
+            "gelis_kargo_no": kargo_takip.strip(),
             "musteri_adi": m_adi.strip(), "musteri_mail": m_mail.strip(),
             "musteri_tel": m_tel.strip(), "musteri_adres": m_adres.strip(),
             "fatura_no": fatura.strip(), "irsaliye_no": irsaliye.strip(),
@@ -586,6 +610,14 @@ def _evraksiz_kayit():
                     break
             st.rerun()
 
+    # Madde 7: bekleyen mükerrer seri uyarısı — formun ÜSTÜNDE, onay kutusuyla
+    _ev_dup = st.session_state.get("_ev_seri_dup")
+    if _ev_dup:
+        st.warning(f"⚠️ **{_ev_dup['seri']}** seri numarasıyla daha önce kayıt yapılmıştır: "
+                   f"{_ev_dup['ozet']}. İşleme devam etmek istiyor musun?")
+        st.checkbox("Evet — aynı seri numarasıyla YENİ bir kayıt açmak istiyorum",
+                    key="ev_dup_onay")
+
     with st.form("ev_form", clear_on_submit=False, enter_to_submit=False):
         c1, c2 = st.columns(2)
         stok_kodu = c1.text_input("Stok Kodu *", key="ev_sk", placeholder="Stok kodu")
@@ -632,6 +664,18 @@ def _evraksiz_kayit():
         if not _seri:
             st.error("Seri No zorunlu (barkod bundan üretilir).")
             st.stop()
+        # ── Madde 7: mükerrer seri kontrolü (mal kabuldeki mantığın aynısı) ──
+        _MUAF = {"NO SERIAL NUMBER", "NOSERIALNUMBER", "N/A", "YOK", "-", "SERİ YOK"}
+        if _seri.upper() not in _MUAF and not st.session_state.get("ev_dup_onay"):
+            _eski = seri_kayitlari(_seri)
+            if _eski:
+                st.session_state["_ev_seri_dup"] = {
+                    "seri": _seri,
+                    "ozet": " · ".join(f"{e.get('servis_form_no','')}"
+                                       f" ({e.get('mevcut_durum','') or '—'})"
+                                       for e in _eski[:3]),
+                }
+                st.rerun()
         data = {
             "stok_kodu": _sk, "stok_adi": (stok_adi or "").strip(),
             "urun_grubu": _grup, "seri_no": _seri,
@@ -644,7 +688,8 @@ def _evraksiz_kayit():
         if ok:
             # Form alanlarını temizle
             for _k in ("ev_sk", "ev_stok_adi", "ev_urun_grubu", "ev_seri", "ev_icerik",
-                       "ev_eksik", "ev_depoack", "ev_grup_yeni", "_ev_model_son"):
+                       "ev_eksik", "ev_depoack", "ev_grup_yeni", "_ev_model_son",
+                       "_ev_seri_dup", "ev_dup_onay"):
                 st.session_state.pop(_k, None)
             st.success(msg)
             st.session_state["_ts_depo_bilgi"] = f"{msg} · Depolar sekmesinde etiketini alabilirsin."
@@ -778,6 +823,8 @@ def _liste(arayuz):
             f'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "stok_adi", "")}">{_g(k, "stok_adi")}</td>'
             f'<td>{_g(k, "seri_no")}</td>'
             f'<td>{_g(k, "firma_bilgisi")}</td>'
+            # Madde 4: firma ile fatura durumu arasına mağaza bilgisi
+            f'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "musteri_adi", "")}">{_g(k, "musteri_adi")}</td>'
             f'<td style="padding:8px 8px;border-top:1px solid rgba(255,255,255,0.05);text-align:center;font-weight:700;color:{"#34D399" if _fm_of(k) else "#F87171"}">{"✓" if _fm_of(k) else "✗"}</td>'
             f'<td>{_durum_chip(k.get("mevcut_durum", ""))}'
             + ((f' <span style="color:#94A3B8;font-size:11px">({k.get("sonuc_durumu")})</span>')
@@ -791,7 +838,7 @@ def _liste(arayuz):
         '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
         '<thead><tr style="text-align:left;color:#64748B;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">'
         '<th style="padding:8px 8px">Servis No</th><th>Stok Kodu</th><th>Stok Adı</th>'
-        '<th>Seri No</th><th>Firma</th><th>Fatura</th><th>Durum</th><th>SLA</th><th>Mal Kabül</th>'
+        '<th>Seri No</th><th>Firma</th><th>Mağaza</th><th>Fatura</th><th>Durum</th><th>SLA</th><th>Mal Kabül</th>'
         '</tr></thead>'
         '<tbody style="color:#E2E8F0">'
         + satirlar.replace("<td>", '<td style="padding:8px 8px;border-top:1px solid rgba(255,255,255,0.05)">')
@@ -917,7 +964,11 @@ def _kontrol_paneli(kayit):
         _satir("Fatura No", _g(kayit, "fatura_no"))
         _satir("İrsaliye No", _g(kayit, "irsaliye_no"))
         _satir("Firma Servis Form No", _g(kayit, "firma_servis_form_no"))
-        _satir("Sevk / Kargo", _g(kayit, "sevk_kargo_bilgisi"))
+        _satir("Sevk / Teslim (geliş)", _g(kayit, "sevk_kargo_bilgisi"))
+        # Madde 2: geliş ve gidiş takip numaraları ayrı ayrı görünür
+        _satir("📥 Geliş Kargo Takip No", _g(kayit, "gelis_kargo_no"))
+        _satir("📤 Gidiş Sevk / Teslim", _g(kayit, "gidis_sevk_sekli"))
+        _satir("📤 Gidiş Kargo Takip No", _g(kayit, "gidis_kargo_no"))
         _satir("Kayıt Yapan", _g(kayit, "personel"))
 
         if any(kayit.get(a) for a in ("degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no")):
@@ -937,7 +988,7 @@ def _kontrol_paneli(kayit):
                     f'<div style="display:flex;gap:8px;padding:8px 0">'
                     f'<div style="width:9px;height:9px;border-radius:50%;background:{rk};margin-top:4px;flex-shrink:0"></div>'
                     f'<div><div style="color:{rk};font-size:13px;font-weight:700">{h.get("durum","")}</div>'
-                    f'<div style="color:#64748B;font-size:11px">{_tarih_kisa(h.get("tarih"))} · {h.get("personel","") or "—"}</div>'
+                    f'<div style="color:#64748B;font-size:11px">{_tarih_gun(h.get("tarih"))} · {h.get("personel","") or "—"}</div>'
                     + (f'<div style="color:#94A3B8;font-size:11px">{h.get("aciklama")}</div>' if h.get("aciklama") else "")
                     + '</div></div>'
                 )
@@ -1005,8 +1056,11 @@ def _kontrol_paneli(kayit):
             # "gönderildi" + Kargo → Kargo Takip No
             _ts_kargo = ""
             if yeni_durum == "gönderildi" and str(st.session_state.get(f"ts_sevk_{kid}", "")) == "Kargo":
-                _ts_kargo = st.text_input("Kargo Takip No", key=f"ts_kargo_{kid}",
-                                          placeholder="kargo takip numarası")
+                _gk = (kayit.get("gelis_kargo_no") or "").strip()
+                if _gk:
+                    st.caption(f"📥 Geliş kargo takip no: **{_gk}** — bu numara korunur, silinmez.")
+                _ts_kargo = st.text_input("📤 Kargo Takip No (gidiş)", key=f"ts_kargo_{kid}",
+                                          placeholder="ürünün geri gönderildiği kargo takip numarası")
 
             # 🔄 Ürün değişimi seçiliyse — değişim ürünü bilgileri
             _dg = {}
@@ -1057,11 +1111,14 @@ def _kontrol_paneli(kayit):
                 if test.strip():
                     ekstra["test_sureci"] = test.strip()
                 if yeni_durum == "gönderildi":
+                    # Madde 2: ARTIK 'sevk_kargo_bilgisi' (geliş bilgisi) EZİLMİYOR.
+                    # Gidiş bilgisi kendi kolonlarına yazılır; her iki takip no da
+                    # kayıtta yan yana görünür.
                     _sv = "" if (not _ts_sevk or str(_ts_sevk).startswith("(")) else _ts_sevk
-                    if _ts_kargo.strip():
-                        _sv = (f"{_sv} · Kargo No: {_ts_kargo.strip()}").strip(" ·")
                     if _sv:
-                        ekstra["sevk_kargo_bilgisi"] = _sv
+                        ekstra["gidis_sevk_sekli"] = _sv
+                    if _ts_kargo.strip():
+                        ekstra["gidis_kargo_no"] = _ts_kargo.strip()
                 if durum_guncelle(kid, yeni_durum, personel.strip(), yapilan.strip(), ekstra):
                     st.success(f"✅ Durum güncellendi: {yeni_durum}")
                     st.rerun()
@@ -1076,16 +1133,38 @@ def _kontrol_paneli(kayit):
         depo = st.selectbox("Hedef Depo", DEPOLAR, key=f"ts_depo_{kid}")
         # Madde 11: daha önce kullanılan açıklamalar hatırlanır — seç, yeniden yazma
         _eski_acks = depo_aciklamalar()
-        _hazir_ack = "—"
+
+        # Madde 3: metin kutusunu ÖNCE session_state'e kur. Bir widget'ta hem key hem
+        # value varsa ve key zaten doluysa Streamlit value'yu yok sayar — eski kodda
+        # listeden seçilen açıklama bu yüzden kutuya hiç yazılmıyor, boş kaydediliyor
+        # ve etiket 'satışa hazır'a düşüyordu.
+        st.session_state.setdefault(f"ts_depoack_{kid}", kayit.get("depo_aciklama", "") or "")
+
+        def _ack_sec_uygula():
+            # on_change callback'i rerun'dan ÖNCE çalışır → metin kutusunun key'ine
+            # doğrudan yazmak güvenlidir (dialog kapanmaz, rerun gerekmez).
+            _s = st.session_state.get(f"ts_depoack_sec_{kid}", "—")
+            if _s and _s != "—":
+                st.session_state[f"ts_depoack_{kid}"] = _s
+
         if _eski_acks:
-            _hazir_ack = st.selectbox("📝 Kayıtlı açıklamalardan seç (en sık kullandıkların)",
-                                      ["—"] + _eski_acks, key=f"ts_depoack_sec_{kid}")
-        depo_aciklama = st.text_input("Ürün Son Durumu / Açıklama (rapor için)",
+            st.selectbox("📝 Kayıtlı açıklamalardan seç (en sık kullandıkların)",
+                         ["—"] + _eski_acks, key=f"ts_depoack_sec_{kid}",
+                         on_change=_ack_sec_uygula,
+                         help="Seçtiğin açıklama aşağıdaki kutuya otomatik yazılır — "
+                              "artık kopyala/yapıştır gerekmez. İstersen üzerinde değişiklik yap.")
+
+        depo_aciklama = st.text_input("Ürün Son Durumu / Açıklama (rapor için) *",
                                       key=f"ts_depoack_{kid}",
-                                      value=(_hazir_ack if _hazir_ack != "—"
-                                             else (kayit.get("depo_aciklama", "") or "")),
                                       placeholder="örn: panel değişti, sıfır ayarında / 2.el A kalite / hurda - anakart yanmış")
+
         if st.button("Transfer Et", use_container_width=True, key=f"ts_tbtn_{kid}"):
+            # Madde 5: açıklama olmadan transfer yok — etikette 'satışa hazır' çıkmasının
+            # ikinci nedeni buydu (boş bırakılıp geçiliyordu).
+            if not (depo_aciklama or "").strip():
+                st.error("Ürün Son Durumu / Açıklama zorunludur — etikete ve rapora bu yazı basılır. "
+                         "Listeden seç ya da elle yaz.")
+                return
             durum_haritasi = {"outlet": "satışa hazır", "ikinci el": "satışa hazır",
                               "hurda": "hurda", "merkez": "gönderildi"}
             yeni = durum_haritasi.get(depo, kayit.get("mevcut_durum"))
@@ -1094,7 +1173,11 @@ def _kontrol_paneli(kayit):
             if durum_guncelle(kid, yeni, st.session_state.get("aktif_kullanici", ""),
                               f"{depo} deposuna transfer" + (f" — {depo_aciklama.strip()}" if depo_aciklama.strip() else ""),
                               {"depo": depo, "depo_aciklama": depo_aciklama.strip(),
-                               "depo_tarihi": date.today().isoformat(),
+                               # Madde 12: SAAT-DAKİKA ile yazılır. Eskiden yalnız gün
+                               # yazıldığı için aynı gün transfer edilen tüm ürünlerin
+                               # tarihi eşitleniyor, sıralama servis form numarasına
+                               # düşüyordu — G5F numarası küçük olan dibe kaçıyordu.
+                               "depo_tarihi": _ts_simdi(),
                                # Madde 17: gönderim SONUCU saklanır (sorunsuz mu, değişim mi…)
                                "sonuc_durumu": kayit.get("mevcut_durum", "")}):
                 # Transfer sonrası Depolar sekmesine geç (madde 3)
@@ -1141,7 +1224,12 @@ def _depolar():
     _firmalar = sorted({(k.get("firma_bilgisi") or "").strip() for k in kayitlar
                         if (k.get("firma_bilgisi") or "").strip()})
     f1, f2, f3, f4 = st.columns(4)
-    depo_f = f1.selectbox("Depo filtresi", ["Tümü"] + DEPOLAR, key="depo_filtre")
+    # Madde 11: çoklu depo seçimi — outlet + ikinci el aynı anda görülebilsin.
+    # Hiçbir şey seçilmezse "tümü" demektir.
+    # NOT: key eskisinden (depo_filtre) FARKLI — eski oturumlarda o anahtarda
+    # "Tümü" string'i duruyor, multiselect bir liste beklediği için çakışırdı.
+    depo_f = f1.multiselect("Depo filtresi", DEPOLAR, key="depo_filtre_coklu",
+                            placeholder="Tümü (birden fazla seçebilirsin)")
     grup_f = f2.selectbox("Ürün grubu", ["Tümü"] + _gruplar, key="depo_grup_f")
     firma_f = f3.selectbox("Firma", ["Tümü"] + _firmalar, key="depo_firma_f")
     kaynak_f = f4.selectbox("Kaynak", ["Tümü", "🔧 Teknik Servis", "↩️ İade"], key="depo_kaynak_f")
@@ -1158,7 +1246,7 @@ def _depolar():
         return bool((k.get("fatura_no") or "").strip()) if v is None else bool(v)
 
     def _uy(k):
-        if depo_f != "Tümü" and (k.get("depo") or "") != depo_f:
+        if depo_f and (k.get("depo") or "") not in depo_f:
             return False
         if grup_f != "Tümü" and (k.get("urun_grubu") or "").strip() != grup_f:
             return False
@@ -1181,8 +1269,19 @@ def _depolar():
     goster = [k for k in kayitlar if _uy(k)]
     # Madde 16: sıralamayı uygula (varsayılan: en son depoya transfer edilen en üstte)
     if depo_sira == "Son transfer → en üstte":
-        goster = sorted(goster, key=lambda k: (str(k.get("depo_tarihi") or ""),
-                                               str(k.get("servis_form_no") or "")), reverse=True)
+        # Madde 12: eşitlikte ARTIK servis form numarasına düşülmüyor — kayıt id'si
+        # (gerçek oluşturulma sırası) kullanılır. Ayrıca depo_tarihi hiç yazılmamış
+        # eski kayıtlar en dibe yığılmasın diye mal kabul tarihine geri düşülür.
+        def _transfer_anahtar(k):
+            _t = str(k.get("depo_tarihi") or "").strip()
+            if not _t:
+                _t = str(k.get("mal_kabul_tarihi") or "").strip()[:10]
+            try:
+                _id = int(k.get("id") or 0)
+            except (TypeError, ValueError):
+                _id = 0
+            return (_t, _id)
+        goster = sorted(goster, key=_transfer_anahtar, reverse=True)
     elif depo_sira == "Servis No ↓":
         goster = sorted(goster, key=lambda k: str(k.get("servis_form_no") or ""), reverse=True)
     elif depo_sira == "Servis No ↑":
@@ -1203,7 +1302,14 @@ def _depolar():
             "Kaynak": ARAYUZ_ETIKET.get(k.get("arayuz", ""), ""),
             "Depo": k.get("depo", ""), "Durum": k.get("mevcut_durum", ""),
             "Mal Kabül": _tarih_kisa(k.get("mal_kabul_tarihi")),
+            # Madde 10: mal kabul tarihinin SAĞINDA depoya transfer tarihi
+            "Depoya Transfer": _tarih_kisa(k.get("depo_tarihi")),
             "Fatura No": k.get("fatura_no", ""), "İrsaliye No": k.get("irsaliye_no", ""),
+            # Madde 2: her iki kargo takip numarası da raporda
+            "Geliş Kargo No": k.get("gelis_kargo_no", ""),
+            "Gidiş Kargo No": k.get("gidis_kargo_no", ""),
+            # Madde 10: depo açıklamasının SOLUNDA durum güncellemede yazılan işlem
+            "Yapılan İşlem": k.get("yapilan_islem", ""),
             "Depo Açıklaması": k.get("depo_aciklama", ""),
             "Satış Firma": k.get("satis_firma", ""), "Satış Fiyatı": k.get("satis_fiyati", ""),
             "Satış Tarihi": k.get("satis_tarihi", ""),
@@ -1293,7 +1399,7 @@ def _depolar():
                     for _h in _gec:
                         st.markdown(
                             f'<div style="font-size:13px;color:#94A3B8;padding:0px 0">'
-                            f'<span style="color:#E2E8F0">{_tarih_kisa(_h.get("tarih"))}</span> · '
+                            f'<span style="color:#E2E8F0">{_tarih_gun(_h.get("tarih"))}</span> · '
                             f'{_durum_chip(_h.get("durum",""))} '
                             f'{_h.get("aciklama","") or ""} '
                             f'<span style="color:#64748B">({_h.get("personel","") or "—"})</span></div>',

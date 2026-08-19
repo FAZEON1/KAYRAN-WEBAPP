@@ -60,7 +60,9 @@ TS_FIRMALAR = [
 # olursa bunlar düşülüp tekrar denenir (graceful).
 _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo",
-                  "depo_tarihi", "sonuc_durumu", "test_sureci")
+                  "depo_tarihi", "sonuc_durumu", "test_sureci",
+                  # Madde 2: geliş / gidiş kargo bilgisi ayrı kolonlarda tutulur
+                  "gelis_kargo_no", "gidis_kargo_no", "gidis_sevk_sekli")
 
 
 @st.cache_resource
