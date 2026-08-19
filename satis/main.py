@@ -388,6 +388,24 @@ def run():
                    "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
 
     _kanallar = get_kanallar()
+    # Aynı cari birden fazla yazımla kayıtlıysa P&L'de ciro bölünür — uyar.
+    try:
+        from .database import kanal_bolunmeleri as _kb
+        _bolunme = _kb()
+    except Exception:
+        _bolunme = []
+    if _bolunme:
+        with st.expander(f"⚠️ {len(_bolunme)} cari birden fazla isimle kayıtlı — "
+                         f"P&L'de cirosu bölünüyor", expanded=False):
+            st.caption("Aşağıdaki cariler `satislar` tablosunda farklı yazımlarla "
+                       "duruyor. Kanal bazlı raporlar bunları AYRI firma sayar, "
+                       "dolayısıyla toplam ciroları eksik görünür. Yeni satışlarda "
+                       "artık tek seçenek gösteriliyor; geçmiş kayıtların "
+                       "birleştirilmesi için SQL ile tek seferlik düzeltme gerekir.")
+            for _b in _bolunme:
+                st.markdown("**" + _b["kok"] + "**")
+                for _y in _b["yazimlar"]:
+                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;· `{_y}`", unsafe_allow_html=True)
 
     # ───────────────────────── SATIŞ GİRİŞİ ─────────────────────────
     if _ssayfa == "🧾 Satış Girişi":
@@ -461,8 +479,15 @@ def run():
                         pass          # biçimlendirme başarısızsa şablon yine insin
                 return _b.getvalue()
 
-            def _sg_depo_sec(_anahtar, _skular=None):
-                """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir."""
+            def _sg_depo_sec(_anahtar, _kalemler=None):
+                """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir.
+
+                Stok uyarısı SATIR BAZLI depoyu dikkate alır: Excel'de DEPOTANIM
+                dolu olan satırlar KENDİ deposundan düşer, yalnız boş bırakılanlar
+                buradaki varsayılanı kullanır. Eski sürüm tüm SKU'ları seçili
+                depoya karşı kontrol ediyor, MERKEZ DEPO'dan çıkacak satırlar için
+                "HAPPY LIFE'ta yetersiz stok" gibi YANLIŞ uyarı basıyordu.
+                """
                 try:
                     from kayranpm.database import get_satis_depolari
                     _dl = get_satis_depolari()
@@ -470,26 +495,52 @@ def run():
                     _dl = ["MERKEZ DEPO", "HAPPY LIFE"]
                 _sec = st.selectbox("📦 Varsayılan çıkış deposu", _dl,
                                     key=f"sg_depo_{_anahtar}",
-                                    help="Excel'de **ÇIKIŞ DEPOSU** kolonu doldurulmuş "
+                                    help="Excel'de **DEPOTANIM** kolonu doldurulmuş "
                                          "satırlar KENDİ deposundan düşer. Bu seçim "
                                          "yalnız o kolonu boş bırakılan satırlar için. "
                                          "İade/ikinci el dahil TÜM depolar seçilebilir.")
-                # Seçilen depoda stok yetiyor mu? (uyarı, engellemez)
-                if _skular:
-                    try:
-                        from kayranpm.database import get_sku_depo_dagilim
+
+                _kalemler = _kalemler or []
+                # Satırları GERÇEKTEN düşecekleri depoya göre grupla
+                _ihtiyac = {}          # {depo: {sku: adet}}
+                _kendi, _varsayilan = 0, 0
+                for _k in _kalemler:
+                    _sk = str(_k.get("sku") or "").strip()
+                    if not _sk:
+                        continue
+                    _kd = str(_k.get("depo") or "").strip()
+                    if _kd:
+                        _kendi += 1
+                    else:
+                        _varsayilan += 1
+                    _hedef = _kd or _sec
+                    _ihtiyac.setdefault(_hedef, {})
+                    _ihtiyac[_hedef][_sk] = _ihtiyac[_hedef].get(_sk, 0) + float(_k.get("adet") or 0)
+
+                if _kendi:
+                    st.caption(f"ℹ️ {_kendi} satır Excel'deki kendi deposundan düşecek"
+                               + (f", {_varsayilan} satır **{_sec}** deposundan."
+                                  if _varsayilan else " — bu seçim onlara uygulanmaz."))
+
+                try:
+                    from kayranpm.database import get_sku_depo_dagilim
+                    _uyarilar = []
+                    for _depo, _skular in _ihtiyac.items():
                         _yetersiz = []
                         for _sk, _ad in list(_skular.items())[:60]:
                             _dag = get_sku_depo_dagilim(_sk) or {}
-                            _mev = float(_dag.get(_sec, 0) or 0)
+                            _mev = float(_dag.get(_depo, 0) or 0)
                             if _ad > _mev:
                                 _yetersiz.append(f"{_sk} ({_mev:.0f} var, {_ad:.0f} gerek)")
                         if _yetersiz:
-                            st.warning("⚠️ **{}** deposunda yetersiz stok: {}{}".format(
-                                _sec, ", ".join(_yetersiz[:6]),
+                            _uyarilar.append("**{}**: {}{}".format(
+                                _depo, ", ".join(_yetersiz[:6]),
                                 " …" if len(_yetersiz) > 6 else ""))
-                    except Exception:
-                        pass
+                    if _uyarilar:
+                        st.warning("⚠️ Yetersiz stok — " + " · ".join(_uyarilar)
+                                   + "\n\nKayıt yine de yapılabilir; stok eksiye düşer.")
+                except Exception:
+                    pass
                 return _sec
 
             def _sg_kaydet(_gecerli, _temizle=False, _depo=None):
@@ -594,12 +645,9 @@ def run():
                             key=f"sg_uz_{_key}",
                             help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
                                  "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
-                        _sku_ad_k = {}
-                        for _g in _gecerli:
-                            _k2 = str(_g.get("sku") or "").strip()
-                            if _k2:
-                                _sku_ad_k[_k2] = _sku_ad_k.get(_k2, 0) + float(_g.get("adet") or 0)
-                        _depo_k = _sg_depo_sec(_key, _sku_ad_k)
+                        # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı
+                        # kendi deposuna karşı kontrol etsin (satır bazlı DEPOTANIM).
+                        _depo_k = _sg_depo_sec(_key, _gecerli)
                         if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                      key=f"sg_kaydet_{_key}", disabled=not _gecerli):
                             _sg_kaydet(_gecerli, _uz, _depo_k)
@@ -650,12 +698,7 @@ def run():
                                     "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
                                     key="sg_uz_vatan",
                                     help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
-                                _sku_ad_v = {}
-                                for _g in _gecerli:
-                                    _k = str(_g.get("sku") or "").strip()
-                                    if _k:
-                                        _sku_ad_v[_k] = _sku_ad_v.get(_k, 0) + float(_g.get("adet") or 0)
-                                _depo_v = _sg_depo_sec("vatan", _sku_ad_v)
+                                _depo_v = _sg_depo_sec("vatan", _gecerli)
                                 if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
                                              key="sg_kaydet_vatan", disabled=not _gecerli):
                                     _sg_kaydet(_gecerli, _uzv, _depo_v)

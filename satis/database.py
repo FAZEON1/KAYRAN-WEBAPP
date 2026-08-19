@@ -87,6 +87,28 @@ def sil_manuel_kanal(ad):
 
 
 @st.cache_data(ttl=120, show_spinner=False)
+# ── Kanal adı kanonikleştirme ────────────────────────────────────────
+# SORUN: Aynı cari birden fazla yazımla kaydedilebiliyor. Gerçek örnek:
+#   "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ"                (Excel)
+#   "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ" (Mikro)
+# Liste yalnız birebir aynı isimleri teklerdi, bu ikisi ayrı seçenek
+# olarak görünüyordu. Sonuç: P&L'de tek cari İKİ satır olarak çıkıyor,
+# ciro bölünüyor; mükerrer kontrolü de kanal bazlı olduğu için bölünüyor.
+def kanal_kok(ad):
+    """Kanal adını karşılaştırma köküne indirger.
+    Türkçe karakterler sadeleşir, sondaki şirket türü ekleri atılır:
+      'EERA … HİZMETLERİ ANONİM ŞİRKETİ' → 'EERA ELEKTRONIK TICARET VE BILISIM HIZMETLERI'
+    Yalnız KARŞILAŞTIRMA içindir — ekranda hiçbir zaman gösterilmez."""
+    import re as _re
+    s = str(ad or "").strip().upper()
+    s = s.translate(str.maketrans("ÇĞİIÖŞÜÂÎÛ", "CGIIOSUAIU"))
+    s = _re.sub(r"\s+", " ", s)
+    # sondaki şirket türü / bağlaç eklerini yinelemeli olarak at
+    s = _re.sub(r"(\s+(ANONIM|LIMITED|LTD|A\.?S\.?|SIRKETI|STI|SAN|TIC|VE|DIS|"
+                r"TICARET|SANAYI)\.?)+\s*$", "", s)
+    return s.strip()
+
+
 def get_kanallar():
     """Kanal/firma listesi: Muhasebe cari isimleri + SATIŞLARDA fiilen geçen
     firmalar (birleşik). Böylece cari listesinde olmasa bile satış yapılmış
@@ -122,8 +144,36 @@ def get_kanallar():
         pass
 
     if birlesik:
-        return sorted(birlesik, key=lambda s: s.lower())
+        # Aynı carinin farklı yazımlarını TEK seçeneğe indir: kök eşleşenlerden
+        # EN UZUN (en eksiksiz) yazım kalır. Böylece kullanıcı yanlışlıkla
+        # kısa varyantı seçip cariyi ikiye bölemez.
+        _kok_en_iyi = {}
+        for _ad in birlesik:
+            _k = kanal_kok(_ad)
+            if not _k:
+                _kok_en_iyi.setdefault(_ad, _ad)      # kök çıkmadıysa aynen koru
+                continue
+            _mv = _kok_en_iyi.get(_k)
+            if _mv is None or len(_ad) > len(_mv):
+                _kok_en_iyi[_k] = _ad
+        return sorted(set(_kok_en_iyi.values()), key=lambda s: s.lower())
     return KANALLAR
+
+
+def kanal_bolunmeleri():
+    """Aynı carinin birden fazla yazımla kayıtlı olduğu durumları bulur.
+    Döner: [{kok, yazimlar: [...]}] — yalnız 2+ yazımı olanlar.
+    Yönetim ekranında uyarı göstermek için."""
+    try:
+        _gruplar = {}
+        for _ad in (_kanallar_satistan() or []):
+            _k = kanal_kok(_ad)
+            if _k:
+                _gruplar.setdefault(_k, set()).add(_ad)
+        return [{"kok": k, "yazimlar": sorted(v)}
+                for k, v in sorted(_gruplar.items()) if len(v) > 1]
+    except Exception:
+        return []
 
 
 def _kanallar_satistan():
