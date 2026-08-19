@@ -19,6 +19,7 @@ from .database import (
     kullanilmis_irsaliye_nolari, irsaliye_no_ayir, irsaliye_isle,
 )
 from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
+from . import stok as _stok
 
 
 # İçerik durumu / Eksik içerik için seçilebilir standart seçenekler (madde 4-5).
@@ -146,6 +147,9 @@ def _mal_kabul():
     _son_ok = st.session_state.pop("_mk_kayit_ok", None)
     if _son_ok:
         st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır.")
+    _son_stok = st.session_state.pop("_mk_stok_msg", None)
+    if _son_stok:
+        (st.caption if _son_stok.startswith("📦") else st.warning)(_son_stok)
 
     # ➕ Yeni Mal Kabül — AÇILIR PENCERE (ana ekran uzamaz)
     _mk1, _mk2 = st.columns([1, 4])
@@ -271,6 +275,7 @@ def _mal_kabul():
                             _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
                             if _okk:
                                 _ok_s += 1
+                                _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
                             else:
                                 _hata_s.append(f"{_g['veri']['seri_no']}: {_msgk[:60]}")
                             _bar.progress(_n / len(_gecerli),
@@ -572,6 +577,11 @@ def _mal_kabul_dialog():
                       "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay"):
                 st.session_state.pop(k, None)
             st.session_state["_mk_kayit_ok"] = form_no or msg
+            # ── Stok: teknik → TEKNİK DEPO, iade → İADE DEPO (+1) ──
+            _sok, _smsg = _stok.mal_kabul_girisi(data)
+            st.session_state["_mk_stok_msg"] = (
+                ("📦 Stok: " + _smsg) if _sok and _smsg
+                else (f"⚠️ Kayıt oluştu ama stok işlenemedi — {_smsg}" if not _sok else ""))
             st.balloons()
             st.rerun()
         else:
@@ -694,7 +704,12 @@ def _evraksiz_kayit():
                        "_ev_seri_dup", "ev_dup_onay"):
                 st.session_state.pop(_k, None)
             st.success(msg)
-            st.session_state["_ts_depo_bilgi"] = f"{msg} · Depolar sekmesinde etiketini alabilirsin."
+            _o, _m = _stok.evraksiz_girisi(data, hedef_depo)
+            st.session_state["_ts_depo_bilgi"] = (
+                f"{msg} · Depolar sekmesinde etiketini alabilirsin."
+                + (f"\n\n📦 Stok: {_m}" if _o and _m else ""))
+            if not _o:
+                st.session_state["_ts_depo_uyari"] = f"⚠️ Stok işlenemedi — {_m}"
             st.session_state["_ts_git"] = "📦  Depolar"  # radio oluşmadan önce işlenir
             st.rerun()
         else:
@@ -1125,7 +1140,21 @@ def _kontrol_paneli(kayit):
                     if _ts_kargo.strip():
                         ekstra["gidis_kargo_no"] = _ts_kargo.strip()
                 if durum_guncelle(kid, yeni_durum, personel.strip(), yapilan.strip(), ekstra):
+                    # ── Stok hareketleri ──
+                    _smsgs = []
+                    _onceki = kayit.get("mevcut_durum", "")
+                    if yeni_durum == "gönderildi" and _onceki != "gönderildi":
+                        _o, _m = _stok.gonderildi_cikisi(kayit)
+                        _smsgs.append(("📦 " + _m) if _o and _m else f"⚠️ {_m}")
+                    if yeni_durum == "ürün değişimi" and _onceki != "ürün değişimi":
+                        # Müşteriye verilen YENİ ürün MERKEZ DEPO'dan düşer
+                        _kk = dict(kayit)
+                        _kk.update({k: v for k, v in ekstra.items() if k.startswith("degisim_")})
+                        _o, _m = _stok.degisim_cikisi(_kk)
+                        _smsgs.append(("📦 " + _m) if _o and _m else f"⚠️ {_m}")
                     st.success(f"✅ Durum güncellendi: {yeni_durum}")
+                    for _sm in _smsgs:
+                        (st.caption if _sm.startswith("📦") else st.warning)(_sm)
                     st.rerun()
                 else:
                     st.error("Güncelleme başarısız.")
@@ -1186,8 +1215,13 @@ def _kontrol_paneli(kayit):
                                # Madde 17: gönderim SONUCU saklanır (sorunsuz mu, değişim mi…)
                                "sonuc_durumu": kayit.get("mevcut_durum", "")}):
                 # Transfer sonrası Depolar sekmesine geç (madde 3)
+                _o, _m = _stok.depoya_transfer(kayit, depo)
                 st.session_state["_ts_git"] = "📦  Depolar"  # radio oluşmadan önce işlenir
-                st.session_state["_ts_depo_bilgi"] = f"✅ {depo} deposuna aktarıldı — Depolar sekmesine yönlendirildin."
+                st.session_state["_ts_depo_bilgi"] = (
+                    f"✅ {depo} deposuna aktarıldı — Depolar sekmesine yönlendirildin."
+                    + (f"\n\n📦 Stok: {_m}" if _o and _m else ""))
+                if not _o:
+                    st.session_state["_ts_depo_uyari"] = f"⚠️ Stok işlenemedi — {_m}"
                 st.rerun()
             else:
                 st.error("Transfer başarısız.")
@@ -1590,6 +1624,9 @@ def _depolar():
     _depo_bilgi = st.session_state.pop("_ts_depo_bilgi", None)
     if _depo_bilgi:
         st.success(_depo_bilgi)
+    _depo_uyari = st.session_state.pop("_ts_depo_uyari", None)
+    if _depo_uyari:
+        st.warning(_depo_uyari)
     kayitlar = get_kayitlar(depolu=True)
     if not kayitlar:
         st.info("Henüz depoya aktarılmış ürün yok. Bir kaydın Kontrol Paneli'nden **Depoya Transfer** yapabilirsin.")
@@ -1609,9 +1646,12 @@ def _depolar():
     grup_f = f2.selectbox("Ürün grubu", ["Tümü"] + _gruplar, key="depo_grup_f")
     firma_f = f3.selectbox("Firma", ["Tümü"] + _firmalar, key="depo_firma_f")
     kaynak_f = f4.selectbox("Kaynak", ["Tümü", "🔧 Teknik Servis", "↩️ İade"], key="depo_kaynak_f")
+    # Satılmış / satılmamış ürünleri ayrı görebilme
+    durum_f = st.radio("Stok durumu",
+                       ["Tümü", "🟢 Satışa hazır (elde)", "💰 Satıldı", "🗑 Hurda"],
+                       horizontal=True, key="depo_durum_f")
     g1, g2, g3 = st.columns([1, 1.2, 2.4])
     fatura_f = g1.selectbox("Fatura", ["Tümü", "✓ Mevcut", "✗ Yok"], key="depo_fat_f")
-    # Madde 16: son transfer edilen ürün EN ÜSTTE (etiket hemen elinin altında)
     depo_sira = g2.selectbox("Sıralama", ["Son transfer → en üstte", "Servis No ↓",
                                           "Servis No ↑", "Satış tarihi ↓"], key="depo_sira")
     ara = g3.text_input("🔍 Ara — Servis No · Stok · Seri · Firma · Fatura · İrsaliye · Firma Servis No",
@@ -1633,6 +1673,13 @@ def _depolar():
         if fatura_f == "✓ Mevcut" and not _fm_of(k):
             return False
         if fatura_f == "✗ Yok" and _fm_of(k):
+            return False
+        _md = (k.get("mevcut_durum") or "").strip()
+        if durum_f.startswith("🟢") and _md != "satışa hazır":
+            return False
+        if durum_f.startswith("💰") and _md != "satıldı":
+            return False
+        if durum_f.startswith("🗑") and _md != "hurda":
             return False
         if ara:
             blob = " ".join(str(k.get(a, "") or "") for a in
@@ -1699,6 +1746,75 @@ def _depolar():
 
     st.caption(f"{len(goster)} / {len(kayitlar)} ürün")
 
+    # ── TOPLU SATIŞ ──────────────────────────────────────────────────
+    # Stok katmanı seri no tutmadığı için fatura/irsaliye kesildiğinde hangi
+    # BİRİMİN satıldığı otomatik anlaşılamaz. Burada birimleri elle seçersin;
+    # sistem hem ts_kayitlar'ı 'satıldı' yapar, hem stoktan düşer, hem de
+    # P&L'e AYRI kanal ("TEKNİK SERVİS / 2.EL") olarak satış kaydı açar.
+    _satilabilir = [k for k in goster if k.get("mevcut_durum") != "satıldı"]
+    if _satilabilir:
+        with st.expander(f"💰 Toplu Satış — birden fazla ürünü tek seferde sat "
+                         f"({len(_satilabilir)} uygun ürün)"):
+            st.caption("Fatura/irsaliye kesilen ürünleri işaretle. Stoktan düşer ve "
+                       "P&L'de **TEKNİK SERVİS / 2.EL** kanalı altında görünür — "
+                       "normal satış cirosuna karışmaz.")
+
+            def _ts_etiket(k):
+                return (f'{k.get("servis_form_no","")} · {k.get("stok_kodu","")} · '
+                        f'{(k.get("stok_adi") or "")[:32]} · Seri {k.get("seri_no","")} '
+                        f'· [{k.get("depo","")}]')
+
+            _tsh = {_ts_etiket(k): k for k in _satilabilir}
+            _secili = st.multiselect("Satılan ürünler", list(_tsh.keys()),
+                                     key="ts_toplu_sec",
+                                     placeholder="Satılan ürünleri işaretle")
+            if _secili:
+                ts1, ts2, ts3 = st.columns(3)
+                _t_firma = ts1.text_input("Satış Firma / Kişi", key="ts_toplu_firma")
+                _t_fiyat = ts2.number_input("Birim Satış Fiyatı ($)", min_value=0.0,
+                                            step=1.0, format="%.4f", key="ts_toplu_fiyat")
+                _t_tarih = ts3.date_input("Satış Tarihi", value=date.today(),
+                                          key="ts_toplu_tarih", format="DD.MM.YYYY")
+                _t_bedelsiz = st.checkbox("Bedelsiz (ciro 0 yazılır)", key="ts_toplu_bedelsiz")
+                _t_pl = st.checkbox("P&L'e satış kaydı aç (satislar tablosuna yaz)",
+                                    value=True, key="ts_toplu_pl",
+                                    help="Kapatırsan yalnız stok düşer, P&L'e yansımaz.")
+                st.info(f"**{len(_secili)} ürün** · toplam "
+                        f"**${0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0):,.2f}**")
+
+                if st.button(f"💰 {len(_secili)} ürünü SATILDI yap",
+                             type="primary", use_container_width=True, key="ts_toplu_btn"):
+                    _bar = st.progress(0.0, text="İşleniyor…")
+                    _ok_n, _uyari = 0, []
+                    _prs = st.session_state.get("aktif_kullanici", "")
+                    for _i, _lbl in enumerate(_secili, 1):
+                        _kk = _tsh[_lbl]
+                        durum_guncelle(_kk["id"], "satıldı", _prs, "Toplu satış",
+                                       {"satis_firma": (_t_firma or "").strip(),
+                                        "satis_fiyati": 0.0 if _t_bedelsiz else float(_t_fiyat or 0),
+                                        "bedelsiz": bool(_t_bedelsiz),
+                                        "satis_tarihi": str(_t_tarih)[:10]})
+                        _o, _m = _stok.satis_cikisi(_kk)
+                        if not _o:
+                            _uyari.append(f"{_kk.get('servis_form_no','')}: {_m}")
+                        if _t_pl:
+                            _o2, _m2 = _stok.satis_kaydi_yaz(
+                                _kk, _t_fiyat, tarih=_t_tarih,
+                                notlar=(_t_firma or "").strip(), bedelsiz=bool(_t_bedelsiz))
+                            if not _o2:
+                                _uyari.append(f"{_kk.get('servis_form_no','')}: {_m2}")
+                        _ok_n += 1
+                        _bar.progress(_i / len(_secili), text=f"İşleniyor… {_i}/{len(_secili)}")
+                    _bar.empty()
+                    st.session_state["_ts_depo_bilgi"] = (
+                        f"💰 {_ok_n} ürün satıldı olarak işlendi, stoktan düşüldü"
+                        + (" ve P&L'e yazıldı." if _t_pl else "."))
+                    if _uyari:
+                        st.session_state["_ts_depo_uyari"] = ("⚠️ Bazı hareketler işlenemedi: "
+                                                              + " · ".join(_uyari[:5]))
+                    st.session_state.pop("ts_toplu_sec", None)
+                    st.rerun()
+
     for k in goster:
         kid = k["id"]
         satildi = k.get("mevcut_durum") == "satıldı"
@@ -1746,6 +1862,18 @@ def _depolar():
                                             "satis_fiyati": float(sfiyat or 0),
                                             "bedelsiz": bool(bedelsiz),
                                             "satis_tarihi": date.today().isoformat()})
+                            # Stok çıkışı + P&L'de ayrı kanal olarak satış kaydı
+                            _o, _m = _stok.satis_cikisi(k)
+                            _o2, _m2 = _stok.satis_kaydi_yaz(
+                                k, sfiyat, notlar=sf.strip(), bedelsiz=bool(bedelsiz))
+                            st.session_state["_ts_depo_bilgi"] = (
+                                f"💰 {k.get('servis_form_no','')} satıldı."
+                                + (f"\n\n📦 {_m}" if _o and _m else "")
+                                + (f"\n\n📊 {_m2}" if _o2 and _m2 else ""))
+                            if not (_o and _o2):
+                                st.session_state["_ts_depo_uyari"] = (
+                                    "⚠️ " + " · ".join(x for x, ok in
+                                                       ((_m, _o), (_m2, _o2)) if not ok))
                             st.rerun()
                 else:
                     st.markdown('<div style="text-align:center;color:#10B981;font-weight:700;padding:8px 0">✓ Satıldı</div>',
