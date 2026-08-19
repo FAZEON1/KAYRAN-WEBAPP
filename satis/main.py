@@ -368,6 +368,22 @@ def run():
     _ice_mesaj = st.session_state.pop("_ice_mesaj", None)
     if _ice_mesaj:
         st.success(_ice_mesaj)
+    # Atlanan satırların SEBEBİ — hangi satır neden girmedi, tahmin gerekmesin
+    _ice_atlanan = st.session_state.pop("_ice_atlanan", None)
+    if _ice_atlanan:
+        with st.expander(f"⏭️ Atlanan {len(_ice_atlanan)} satır — neden girmediler?",
+                         expanded=True):
+            st.caption("Bu satırlar zaten kayıtlı olduğu için eklenmedi. Gerçekten YENİ "
+                       "bir sipariş giriyorsan **Sipariş No'yu değiştir** (örn. sonuna "
+                       "`-2` ekle) ve tekrar yükle. Mevcut kaydı DÜZELTMEK istiyorsan "
+                       "**ÜZERİNE YAZ** kutusunu işaretle — ama o, aynı Sipariş No'daki "
+                       "TÜM kayıtları siler, dikkatli ol.")
+            st.dataframe(
+                pd.DataFrame([{"Ürün": a.get("sku", ""), "Mağaza": a.get("magaza", "—"),
+                               "Adet": a.get("adet", 0),
+                               "Sipariş No": a.get("siparis_no", ""),
+                               "Sebep": a.get("sebep", "")} for a in _ice_atlanan]),
+                hide_index=True, use_container_width=True)
         st.caption("Kâr/P&L sekmesinde tarih aralığını **01.01.2025 – 31.12.2025** seçerek "
                    "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
 
@@ -491,6 +507,9 @@ def run():
                     _m = f"✅ {_sonuc['eklendi']:,} kalem kaydedildi."
                     if _sonuc["atlandi"]:
                         _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
+                        # Atlanan satırlar SEBEBİYLE gösterilir — "neden girmedi"
+                        # sorusunu tahmine bırakmamak için.
+                        st.session_state["_ice_atlanan"] = _sonuc.get("atlanan_detay") or []
                     if _sonuc["maliyetsiz"]:
                         _m += (f" ⚠️ {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok → maliyet 0 "
                                "(bu ürünler %100 marj görünür; ithalatı girip 'Kâr/P&L → Maliyeti 0 düzelt' ile onar).")
@@ -567,7 +586,8 @@ def run():
                         _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
                         st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_knl}**")
                         if not _sno:
-                            st.caption("⚠️ Sipariş No gir (boşsa kaydedilmez).")
+                            st.error("⛔ **Sipariş No boş** — bu yüzden kaydet butonu "
+                                     "pasif. Yukarıdaki Sipariş No kutusunu doldur.")
                         _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
                         _uz = st.checkbox(
                             "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",

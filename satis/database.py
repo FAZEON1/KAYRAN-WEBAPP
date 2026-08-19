@@ -491,14 +491,42 @@ def get_mevcut_siparis_nolar():
 
 
 @st.cache_data(ttl=120, show_spinner=False)
+# ── Mükerrer kontrol anahtarı (mağaza dahil) ─────────────────────────
+# SORUN: Anahtar eskiden yalnız kanal|sipariş no|SKU idi. Mağaza bilgisi
+# ayrı bir kolonda değil, 'notlar' içinde metin olarak duruyor
+# ("Mağaza: ACB Depo") ve anahtara girmiyordu. Sonuç: bir sipariş
+# numarası altına SONRADAN yeni mağaza satırı eklenemiyordu — aynı SKU
+# başka mağazaya gitse bile "zaten kayıtlı" sayılıp sessizce atlanıyordu.
+#
+# ÇÖZÜM: anahtara mağaza eklenir. Yalnızca 'Mağaza:' etiketli kısım
+# alınır — notlar'ın tamamı DEĞİL. Böylece:
+#   • EERA/İTOPYA (mağazalı)  → mağazalar birbirini engellemez ✔
+#   • VATAN (notlar boş)      → anahtar eskisiyle AYNI, davranış değişmez ✔
+#   • Mikro ("Belge: … Cari kodu: …") → 'Mağaza:' yok, anahtar aynı ✔
+# Notlar'ın tamamını katsaydık, nottaki en ufak değişiklik mükerrer
+# kontrolünü kaçırıp çift kayda yol açardı.
+def _magaza_ayikla(notlar):
+    """notlar içindeki 'Mağaza: X' değerini normalize edip döndürür (yoksa '')."""
+    import re as _re
+    _m = _re.search(r"Mağaza\s*:\s*([^·|]+)", str(notlar or ""))
+    return " ".join(_m.group(1).strip().upper().split()) if _m else ""
+
+
+def satis_anahtar(kanal, siparis_no, sku, notlar=""):
+    """Mükerrer kontrol anahtarı: kanal|sipariş no|SKU|mağaza."""
+    return (f"{str(kanal or '').strip()}|{str(siparis_no or '').strip()}|"
+            f"{str(sku or '').strip().upper()}|{_magaza_ayikla(notlar)}")
+
+
 def get_mevcut_satis_anahtarlari():
-    """Mevcut satışların (kanal | sipariş no | sku) bileşik anahtar kümesi.
-    Mükerrer kontrolünü kanal bazlı yapar → aynı sipariş no farklı kanalda çakışmaz."""
+    """Mevcut satışların (kanal | sipariş no | sku | mağaza) bileşik anahtar kümesi.
+    Mükerrer kontrolünü kanal ve MAĞAZA bazlı yapar → aynı sipariş no farklı
+    kanalda ya da farklı mağazada çakışmaz."""
     try:
         cli = _get_client()
         anahtarlar, adim, bas = set(), 1000, 0
         while True:
-            chunk = _rows(cli.table("satislar").select("kanal,siparis_no,sku")
+            chunk = _rows(cli.table("satislar").select("kanal,siparis_no,sku,notlar")
                           .order("id", desc=True).range(bas, bas + adim - 1).execute())
             if not chunk:
                 break
@@ -506,8 +534,8 @@ def get_mevcut_satis_anahtarlari():
                 _sno = str(r.get("siparis_no") or "").strip()
                 _sku = str(r.get("sku") or "").strip().upper()
                 if _sno and _sku:
-                    _knl = str(r.get("kanal") or "").strip()
-                    anahtarlar.add(f"{_knl}|{_sno}|{_sku}")
+                    anahtarlar.add(satis_anahtar(r.get("kanal"), _sno, _sku,
+                                                 r.get("notlar")))
             if len(chunk) < adim:
                 break
             bas += adim
@@ -613,11 +641,13 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         silinen, sil_hata = sil_siparisler(dosya_faturalar)
         if sil_hata:
             return {"eklendi": 0, "atlandi": 0, "maliyetsiz": 0, "silinen_fatura": 0,
-                    "hatali": 0, "hata": "Silme hatası: " + sil_hata}
+                    "hatali": 0, "hata": "Silme hatası: " + sil_hata,
+                    "atlanan_detay": []}
 
     mevcut = get_mevcut_satis_anahtarlari() if (atla_mevcut and not temizle_once) else set()
 
     rows, atlandi, maliyetsiz = [], 0, 0
+    atlanan_detay = []          # atlanan satırlar — kullanıcıya SEBEBİYLE gösterilir
 
     _satir_depo = {}   # {(siparis_no, sku): depo} — satır bazlı çıkış deposu
     for s in (satirlar or []):
@@ -627,9 +657,19 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         # baştan tutar; DİĞER'e düşme ve 0-maliyet sorunu yeni veride hiç oluşmaz.
         sku = _normalize_sku_yerel(s.get("sku"))
         if atla_mevcut and not temizle_once and sno and sku:
-            _anahtar = f"{str(s.get('kanal') or '').strip()}|{sno}|{sku.upper()}"
+            # Anahtar artık MAĞAZAYI da içeriyor (bkz. satis_anahtar).
+            _anahtar = satis_anahtar(s.get("kanal"), sno, sku, s.get("notlar"))
             if _anahtar in mevcut:
                 atlandi += 1
+                _mgz = _magaza_ayikla(s.get("notlar"))
+                atlanan_detay.append({
+                    "sku": sku, "siparis_no": sno,
+                    "kanal": str(s.get("kanal") or "").strip(),
+                    "magaza": _mgz or "—", "adet": _i(s.get("adet")),
+                    "sebep": "Bu sipariş no + ürün"
+                             + (f" + mağaza ({_mgz})" if _mgz else "")
+                             + " zaten kayıtlı",
+                })
                 continue
         if not sku or _i(s.get("adet")) <= 0:
             continue
@@ -660,7 +700,8 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         rows.append(_row)
     if not rows:
         return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0,
-                "silinen_fatura": silinen, "hatali": 0, "hata": None}
+                "silinen_fatura": silinen, "hatali": 0, "hata": None,
+                "atlanan_detay": atlanan_detay}
 
     cli = _get_client()
     B = 200
@@ -710,7 +751,8 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
         _stok_akilli_dus(_satis_agg(_deposuz), None)
     _temizle()
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
-            "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata}
+            "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata,
+            "atlanan_detay": atlanan_detay}
 
 
 def guncelle_satis(satis_id, alanlar):
