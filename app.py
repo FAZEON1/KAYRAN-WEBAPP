@@ -3008,14 +3008,42 @@ def main():
     # Modül değiştiyse soldaki menüyü ilgili "SAYFALARI" alt menüsüne kaydır
     if st.session_state.pop("_sidebar_kaydir", False):
         import streamlit.components.v1 as _components
+        # ── ARAMA KUTUSU HATASININ KAYNAĞI BURASIYDI ──────────────────
+        # Eski script sayfa çizildikten sonra 20 kez × 120ms = ~2,4 saniye
+        # boyunca deneme yapıp 'smooth' (animasyonlu) kaydırma tetikliyordu.
+        # Kullanıcı sayfaya girip HEMEN yazmaya başladığında bu kaydırma
+        # araya giriyor, odaktaki input/selectbox yeniden bağlanıyor ve
+        # yazılan ilk karakter SEÇİLİ kalıyordu — sonraki tuş onu siliyordu.
+        # ("F11 yazıyorum, F gidiyor." İkinci denemede script bittiği için
+        #  sorun kendiliğinden kayboluyordu.)
+        #
+        # Düzeltme üç parçalı:
+        #   1) Kullanıcı bir alana yazıyorsa kaydırma HİÇ yapılmaz.
+        #   2) İlk tuşa/tıklamaya basıldığı anda deneme döngüsü iptal edilir.
+        #   3) Animasyonsuz ('auto') ve daha kısa deneme penceresi (~0,7 sn).
         _components.html(
             "<script>"
-            "(function(){function go(n){try{"
-            "var d=window.parent.document;"
-            "var a=d.querySelector('#kayran-submenu-anchor');"
-            "if(a){a.scrollIntoView({behavior:'smooth',block:'start'});}"
-            "else if(n>0){setTimeout(function(){go(n-1);},120);}"
-            "}catch(e){}}go(20);})();"
+            "(function(){"
+            " var d=window.parent.document, iptal=false;"
+            " function yaziyorMu(){"
+            "  try{var e=d.activeElement; if(!e)return false;"
+            "   var t=(e.tagName||'').toUpperCase();"
+            "   return t==='INPUT'||t==='TEXTAREA'||e.isContentEditable===true;"
+            "  }catch(e){return false;}}"
+            " function dur(){iptal=true;}"
+            " try{"
+            "  d.addEventListener('keydown',dur,{once:true,capture:true});"
+            "  d.addEventListener('pointerdown',dur,{once:true,capture:true});"
+            " }catch(e){}"
+            " function go(n){"
+            "  if(iptal||yaziyorMu())return;"          # kullanıcı yazıyorsa dokunma
+            "  try{var a=d.querySelector('#kayran-submenu-anchor');"
+            "   if(a){a.scrollIntoView({behavior:'auto',block:'start'});return;}"
+            "  }catch(e){}"
+            "  if(n>0)setTimeout(function(){go(n-1);},100);"
+            " }"
+            " go(7);"                                   # ~0,7 sn, eskiden 2,4 sn
+            "})();"
             "</script>",
             height=0,
         )
