@@ -1115,6 +1115,17 @@ _DEPO_KANONIK = {
     "HAPPY LIFE": "HAPPY LIFE", "HAPPYLIFE": "HAPPY LIFE", "HAPPY": "HAPPY LIFE",
     "ASEL DEPO": "ASEL DEPO", "ASELDEPO": "ASEL DEPO", "ASEL": "ASEL DEPO",
     "TEKNIK DEPO": "TEKNİK DEPO", "TEKNIKDEPO": "TEKNİK DEPO", "TEKNIK": "TEKNİK DEPO",
+    # ── Teknik Servis modülü depoları ──────────────────────────────────
+    # NOT: anahtarlar _depo_norm çıktısı biçiminde olmalı (İ→I, Ş→S, ...).
+    # "servis depo" AYRI bir depo değildir — mevcut TEKNİK DEPO'ya eşlenir,
+    # yoksa aynı fiziksel depo için ikiz kayıt oluşurdu.
+    "SERVIS DEPO": "TEKNİK DEPO", "SERVISDEPO": "TEKNİK DEPO",
+    "SERVIS": "TEKNİK DEPO", "TEKNIK SERVIS": "TEKNİK DEPO",
+    "IADE DEPO": "İADE DEPO", "IADEDEPO": "İADE DEPO", "IADE": "İADE DEPO",
+    "OUTLET DEPO": "OUTLET DEPO", "OUTLETDEPO": "OUTLET DEPO", "OUTLET": "OUTLET DEPO",
+    "IKINCI EL DEPO": "İKİNCİ EL DEPO", "IKINCI EL": "İKİNCİ EL DEPO",
+    "IKINCIEL": "İKİNCİ EL DEPO", "2.EL": "İKİNCİ EL DEPO", "2 EL": "İKİNCİ EL DEPO",
+    "HURDA DEPO": "HURDA DEPO", "HURDADEPO": "HURDA DEPO", "HURDA": "HURDA DEPO",
 }
 
 
