@@ -582,14 +582,28 @@ def run():
         # bu tam rerun onu kapattı → seçimi "—"a sıfırla ki aynı SKU'yu tekrar
         # seçmek yeni bir değişiklik sayılsın ve kart yeniden açılabilsin.
         _gec = st.session_state.pop("_stok_gec_sku", None)
+        # Kart kapandıysa seçimi sıfırla — ama widget ANAHTARINA YAZMADAN.
+        #
+        # ESKİ KOD burada `st.session_state["stok_karti_sec"] = "—"` yapıyordu.
+        # Bir widget'ın kendi key'ine yazmak, Streamlit'in o bileşeni yeniden
+        # kurmasına (remount) yol açar. Yazarak arama yapılan bir selectbox
+        # remount olunca kutuya girilmiş metin seçili hâle gelir ve bir sonraki
+        # tuş onu siler — "F11 yazıyorum, F gidiyor" şikâyetinin mekanizması bu.
+        #
+        # ÇÖZÜM: sıfırlama gerektiğinde widget'a YENİ BİR ANAHTAR verilir.
+        # Yeni anahtar = tertemiz widget = varsayılan olarak "—" seçili.
+        # Anahtar yalnız bilinçli sıfırlamada değişir; yazarken SABİT kalır,
+        # dolayısıyla kutu yazma sırasında asla yeniden kurulmaz.
         if st.session_state.pop("_stok_dialog_acik", False) and not _gec:
-            st.session_state["stok_karti_sec"] = "—"
+            st.session_state["_stok_sec_nonce"] = \
+                st.session_state.get("_stok_sec_nonce", 0) + 1
             st.session_state.pop("_son_acilan_sku", None)
 
         _skl = get_tum_sku_listesi() or []
-        _opts = [r["sku"] for r in _skl]
+        _opts = ["—"] + [r["sku"] for r in _skl]
         _ssec = st.selectbox(
-            "SKU ara/seç", ["—"] + _opts, key="stok_karti_sec",
+            "SKU ara/seç", _opts,
+            key=f"stok_karti_sec_{st.session_state.get('_stok_sec_nonce', 0)}",
             label_visibility="collapsed",
             help="SKU veya model kodu yaz → seç → kartı aç")
         st.markdown('</div>', unsafe_allow_html=True)
