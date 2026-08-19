@@ -285,15 +285,18 @@ def test_aktarim_gecersiz_satirlar_elenir(aktarim_ortami):
 
 
 def test_aktarim_mevcut_anahtarlar_atlanir(aktarim_ortami, monkeypatch):
-    """atla_mevcut: kanal|sipariş|SKU üçlüsü kayıtlıysa satır tekrar eklenmez."""
+    """atla_mevcut: kanal|sipariş|SKU|mağaza dörtlüsü kayıtlıysa satır eklenmez.
+    Notlar boş olduğunda (VATAN) anahtar sonu boş mağaza ile biter."""
     monkeypatch.setattr(sdb, "get_mevcut_satis_anahtarlari",
-                        lambda: {"VATAN|S1|A1"})
+                        lambda: {"VATAN|S1|A1|"})
     sonuc = sdb.ice_aktar_satislar([
         _satir("S1", "A1", 2, depo="MERKEZ DEPO"),   # zaten kayıtlı
         _satir("S2", "A1", 3, depo="MERKEZ DEPO"),   # yeni
     ])
-    assert sonuc == {"eklendi": 1, "atlandi": 1, "maliyetsiz": 1,
-                     "silinen_fatura": 0, "hatali": 0, "hata": None}
+    assert sonuc["eklendi"] == 1 and sonuc["atlandi"] == 1
+    assert sonuc["maliyetsiz"] == 1 and sonuc["hata"] is None
+    assert len(sonuc["atlanan_detay"]) == 1
+    assert sonuc["atlanan_detay"][0]["sku"] == "A1"
 
 
 def test_aktarim_maliyetsiz_sayaci(aktarim_ortami, monkeypatch):
