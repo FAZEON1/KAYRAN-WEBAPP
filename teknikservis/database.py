@@ -62,7 +62,9 @@ _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   "degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo",
                   "depo_tarihi", "sonuc_durumu", "test_sureci",
                   # Madde 2: geliş / gidiş kargo bilgisi ayrı kolonlarda tutulur
-                  "gelis_kargo_no", "gidis_kargo_no", "gidis_sevk_sekli")
+                  "gelis_kargo_no", "gidis_kargo_no", "gidis_sevk_sekli",
+                  # Madde 8: kaydın hangi sevk irsaliyesiyle gönderildiği
+                  "irsaliye_no")
 
 
 @st.cache_resource
@@ -105,6 +107,54 @@ def ekle_ts_firma(ad):
                         _ayar_liste_oku("ts_manuel_firmalar") + [ad])
     except Exception:
         pass
+
+
+# ── İrsaliye (madde 8) ───────────────────────────────────────────────
+def kullanilmis_irsaliye_nolari():
+    """Bugüne kadar üretilmiş irsaliye numaraları (sıra üretimi için)."""
+    return _ayar_liste_oku("ts_irsaliye_nolari")
+
+
+def irsaliye_no_ayir(no):
+    """Üretilen numarayı kalıcı listeye yazar — aynı numara iki kez verilmez.
+    Döner: True (ayrıldı) / False (zaten kullanılmış → çağıran yeniden üretmeli)."""
+    no = str(no or "").strip().upper()
+    if not no:
+        return False
+    mevcut = kullanilmis_irsaliye_nolari()
+    if no in {str(x).strip().upper() for x in mevcut}:
+        return False
+    try:
+        _ayar_liste_yaz("ts_irsaliye_nolari", mevcut + [no])
+        return True
+    except Exception:
+        return False
+
+
+def irsaliye_isle(kayit_idler, irsaliye_no, personel="", aciklama=""):
+    """Seçilen kayıtlara irsaliye numarasını damgalar ve geçmişe iz düşer.
+    Durumu DEĞİŞTİRMEZ — sevk durumu ayrıca 'gönderildi' yapılır."""
+    sb = get_client()
+    basarili, hatali = [], []
+    simdi = _simdi()
+    for kid in (kayit_idler or []):
+        try:
+            try:
+                sb.table("ts_kayitlar").update({"irsaliye_no": irsaliye_no}) \
+                    .eq("id", kid).execute()
+            except Exception:
+                pass          # kolon yoksa sessiz geç — geçmiş kaydı yine düşer
+            sb.table("ts_gecmis").insert({
+                "kayit_id": kid, "durum": "irsaliye",
+                "aciklama": (f"Sevk irsaliyesi düzenlendi: {irsaliye_no}"
+                             + (f" — {aciklama}" if aciklama else "")),
+                "personel": personel or "", "tarih": simdi,
+            }).execute()
+            basarili.append(kid)
+        except Exception:
+            hatali.append(kid)
+    _cache_temizle()
+    return basarili, hatali
 
 
 def seri_kayitlari(seri):

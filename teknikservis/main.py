@@ -16,7 +16,9 @@ from .database import (
     kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
     depo_etiket_pdf, evraksiz_depo_kayit,
+    kullanilmis_irsaliye_nolari, irsaliye_no_ayir, irsaliye_isle,
 )
+from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
 
 
 # İçerik durumu / Eksik içerik için seçilebilir standart seçenekler (madde 4-5).
@@ -1306,6 +1308,195 @@ def _kontrol_paneli(kayit):
         _dlg_ts_sil()
 
 
+# ── İrsaliye (madde 8) ───────────────────────────────────────────────
+def _irsaliye():
+    """Madde 8: aynı alıcıya giden birden fazla ürünü TEK sevk irsaliyesinde topla."""
+    _baslik("🚚", "Sevk İrsaliyesi", "Aynı alıcıya giden ürünleri tek belgede topla · çok kalemli")
+
+    _ok = st.session_state.pop("_irs_ok", None)
+    if _ok:
+        st.success(_ok)
+
+    st.info("ℹ️ Şirket **e-İrsaliye mükellefi** olduğu için buradan çıkan belge resmî "
+            "sevk irsaliyesi yerine geçmez — sevkin depo/müşteri nüshasıdır. Resmî "
+            "e-İrsaliye entegratörden kesilir, numarasını aşağıdaki **e-İrsaliye No** "
+            "alanına yazarsan belgeye işlenir.")
+
+    _tum = get_kayitlar()
+    # Sevke uygun kalemler: henüz depoya girmemiş ve iptal/satılmış olmayan kayıtlar
+    _uygun = [k for k in _tum
+              if not (k.get("depo") or "").strip()
+              and k.get("mevcut_durum") not in ("iptal", "satıldı", "hurda")]
+    if not _uygun:
+        st.info("Sevk edilebilecek kayıt yok.")
+        return
+
+    # ── 1) Alıcı seç ──
+    _firmalar = sorted({(k.get("firma_bilgisi") or "").strip()
+                        for k in _uygun if (k.get("firma_bilgisi") or "").strip()})
+    if not _firmalar:
+        st.warning("Sevke uygun kayıtlarda firma bilgisi yok.")
+        return
+
+    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:8px 0 4px">'
+                '1️⃣ Alıcı firmayı seç</div>', unsafe_allow_html=True)
+    _firma = st.selectbox("Alıcı firma (cari unvan)", _firmalar, key="irs_firma")
+
+    _firma_kayitlari = [k for k in _uygun
+                        if (k.get("firma_bilgisi") or "").strip() == _firma]
+
+    # Mağaza kırılımı — aynı firmanın farklı mağazalarına ayrı irsaliye kesilir
+    _magazalar = sorted({(k.get("musteri_adi") or "").strip()
+                         for k in _firma_kayitlari if (k.get("musteri_adi") or "").strip()})
+    _magaza = ""
+    if _magazalar:
+        _mopts = ["(tüm mağazalar)"] + _magazalar
+        _magaza = st.selectbox("🏬 Mağaza / şube (aynı adrese giden ürünleri ayır)",
+                               _mopts, key="irs_magaza")
+        if _magaza.startswith("("):
+            _magaza = ""
+        else:
+            _firma_kayitlari = [k for k in _firma_kayitlari
+                                if (k.get("musteri_adi") or "").strip() == _magaza]
+
+    if not _firma_kayitlari:
+        st.info("Bu seçimde sevk edilecek kayıt yok.")
+        return
+
+    # ── 2) Kalemleri seç ──
+    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:14px 0 4px">'
+                '2️⃣ İrsaliyeye girecek ürünleri işaretle</div>', unsafe_allow_html=True)
+
+    def _kalem_etiket(k):
+        _dg = str(k.get("degisim_stok_kodu") or "").strip()
+        _sk = _dg or (k.get("stok_kodu") or "—")
+        _sn = (str(k.get("degisim_seri_no") or "").strip() if _dg
+               else (k.get("seri_no") or "—"))
+        _ek = " 🔄" if _dg else ""
+        return (f'{k.get("servis_form_no","")} · {_sk} · {(k.get("stok_adi") or "")[:34]} '
+                f'· Seri: {_sn} · [{k.get("mevcut_durum","")}]{_ek}')
+
+    _harita = {_kalem_etiket(k): k for k in _firma_kayitlari}
+    _secili_lbl = st.multiselect(
+        f"Ürünler ({len(_firma_kayitlari)} uygun kayıt · 🔄 = değişim ürünü gönderilecek)",
+        list(_harita.keys()), key="irs_kalemler",
+        placeholder="Bu irsaliyeye girecek ürünleri seç")
+    _kalemler = [_harita[l] for l in _secili_lbl]
+
+    if not _kalemler:
+        st.caption("👆 En az bir ürün seç.")
+        return
+
+    st.success(f"✅ **{len(_kalemler)} kalem** seçildi — hepsi tek irsaliyede toplanacak.")
+
+    # ── 3) Belge bilgileri ──
+    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:14px 0 4px">'
+                '3️⃣ Belge bilgileri</div>', unsafe_allow_html=True)
+
+    _ilk = _kalemler[0]
+    with st.form("irs_form", enter_to_submit=False):
+        i1, i2 = st.columns(2)
+        _neden = i1.selectbox("Sevk Nedeni *", SEVK_NEDENLERI, key="irs_neden")
+        _sevk_tarihi = i2.date_input("Sevk Tarihi *", value=date.today(), key="irs_tarih",
+                                     format="DD.MM.YYYY")
+        i3, i4 = st.columns(2)
+        _tasiyici = i3.selectbox("Taşıyıcı / Sevk Şekli",
+                                 ["Kargo", "Selçuk Aydoğan", "Firma sevkiyat",
+                                  "Depodan teslimat", "(Belirtilmedi)"], key="irs_tasiyici")
+        _kargo_no = i4.text_input("Kargo Takip No", key="irs_kargo",
+                                  placeholder="tek takip no ile gönderiliyorsa")
+
+        _e_irs = st.text_input("e-İrsaliye No (entegratörden kesilen resmî numara)",
+                               key="irs_eirs", placeholder="boş bırakılabilir, sonra eklenir")
+
+        _alt_baslik("Alıcı Bilgileri (belgeye basılır)")
+        a1, a2 = st.columns(2)
+        _a_unvan = a1.text_input("Alıcı Unvan", value=_firma, key="irs_a_unvan")
+        _a_ilgili = a2.text_input("Mağaza / İlgili",
+                                  value=_magaza or (_ilk.get("musteri_adi") or ""),
+                                  key="irs_a_ilgili")
+        _a_adres = st.text_input("Adres", value=(_ilk.get("musteri_adres") or ""),
+                                 key="irs_a_adres")
+        a3, a4 = st.columns(2)
+        _a_vd = a3.text_input("Vergi Dairesi", key="irs_a_vd")
+        _a_vkn = a4.text_input("Vergi / TC No", key="irs_a_vkn")
+
+        _aciklama = st.text_input("Açıklama", key="irs_aciklama",
+                                  placeholder="belgeye yazılacak serbest not")
+        _gonderildi_yap = st.checkbox(
+            "Bu ürünlerin durumunu **gönderildi** olarak da güncelle", value=True,
+            key="irs_gonderildi",
+            help="İşaretliysek seçilen kayıtların durumu 'gönderildi' olur ve "
+                 "aktif listeden düşer.")
+
+        _uret = st.form_submit_button("🚚 İrsaliyeyi Oluştur", type="primary",
+                                      use_container_width=True)
+
+    if _uret:
+        _prs = st.session_state.get("aktif_kullanici", "") or ""
+        # Numara ayır — çakışırsa bir sonrakini dene
+        _no = ""
+        for _ in range(5):
+            _aday = irsaliye_no_uret(kullanilmis_irsaliye_nolari())
+            if irsaliye_no_ayir(_aday):
+                _no = _aday
+                break
+        if not _no:
+            st.error("İrsaliye numarası ayrılamadı — tekrar dene.")
+            return
+
+        _bilgi = {
+            "irsaliye_no": _no,
+            "sevk_tarihi": _sevk_tarihi.strftime("%d.%m.%Y"),
+            "sevk_nedeni": _neden,
+            "tasiyici": "" if str(_tasiyici).startswith("(") else _tasiyici,
+            "kargo_no": (_kargo_no or "").strip(),
+            "e_irsaliye_no": (_e_irs or "").strip(),
+            "aciklama": (_aciklama or "").strip(),
+            "duzenleyen": _prs,
+            "alici_unvan": (_a_unvan or "").strip(),
+            "alici_ilgili": (_a_ilgili or "").strip(),
+            "alici_adres": (_a_adres or "").strip(),
+            "alici_vd": (_a_vd or "").strip(),
+            "alici_vkn": (_a_vkn or "").strip(),
+        }
+        try:
+            _pdf = sevk_irsaliyesi_pdf(_kalemler, _bilgi)
+        except Exception as _pe:
+            st.error(f"İrsaliye üretilemedi: {type(_pe).__name__}: {str(_pe)[:180]}")
+            return
+
+        _idler = [k["id"] for k in _kalemler]
+        irsaliye_isle(_idler, _no, _prs, _neden)
+
+        if _gonderildi_yap:
+            for _k in _kalemler:
+                _eks = {"sonuc_durumu": _k.get("mevcut_durum", "")}
+                if _bilgi["kargo_no"]:
+                    _eks["gidis_kargo_no"] = _bilgi["kargo_no"]
+                if _bilgi["tasiyici"]:
+                    _eks["gidis_sevk_sekli"] = _bilgi["tasiyici"]
+                durum_guncelle(_k["id"], "gönderildi", _prs,
+                               f"İrsaliye {_no} ile sevk edildi", _eks)
+
+        st.session_state["_irs_pdf"] = _pdf
+        st.session_state["_irs_pdf_no"] = _no
+        st.session_state["_irs_ok"] = (f"✅ İrsaliye **{_no}** oluşturuldu — "
+                                       f"{len(_kalemler)} kalem"
+                                       + (" · kayıtlar 'gönderildi' yapıldı."
+                                          if _gonderildi_yap else "."))
+        st.rerun()
+
+    # Üretilen PDF indirme bağlantısı (rerun sonrası da durur)
+    if st.session_state.get("_irs_pdf"):
+        _n = st.session_state.get("_irs_pdf_no", "irsaliye")
+        st.download_button(f"⬇️ {_n} — İrsaliyeyi indir (PDF)",
+                           st.session_state["_irs_pdf"],
+                           file_name=f"{_n}.pdf", mime="application/pdf",
+                           type="primary", use_container_width=True,
+                           key="irs_indir")
+
+
 # ── Özet Şerit (madde 9) ─────────────────────────────────────────────
 def _donem_baslangic(donem):
     """Seçilen dönemin başlangıç tarihi (dahil)."""
@@ -1695,7 +1886,8 @@ def run():
             st.session_state["ts_sayfa"] = _git
         sayfa = st.radio(
             "Sayfa",
-            ["📥  Mal Kabül", "📋  Evraksız Ürün Kayıt", "🔧  Teknik Servis", "↩️  İade", "📦  Depolar"],
+            ["📥  Mal Kabül", "📋  Evraksız Ürün Kayıt", "🔧  Teknik Servis", "↩️  İade",
+             "🚚  İrsaliye", "📦  Depolar"],
             label_visibility="collapsed", key="ts_sayfa",
         )
 
@@ -1707,5 +1899,7 @@ def run():
         _liste("teknik")
     elif sayfa == "↩️  İade":
         _liste("iade")
+    elif sayfa == "🚚  İrsaliye":
+        _irsaliye()
     else:
         _depolar()
