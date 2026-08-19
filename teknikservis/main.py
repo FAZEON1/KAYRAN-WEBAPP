@@ -858,6 +858,9 @@ def _liste(arayuz):
 # ── Kontrol Paneli (detay) ───────────────────────────────────────────
 def _kontrol_paneli(kayit):
     kid = kayit["id"]
+    _bilgi = st.session_state.pop("_ts_bilgi", None)
+    if _bilgi:
+        st.success(_bilgi)
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     bitmis = kayit.get("mevcut_durum") in BITMIS_DURUMLAR
     g = sla_is_gunu(kayit)
@@ -1189,6 +1192,101 @@ def _kontrol_paneli(kayit):
     if st.button("📦 Depoya Transfer (işlem bitti)", key="btn_ts_transfer", use_container_width=True):
         _dlg_ts_transfer()
 
+    # ── Madde 13: mevcut kayıt üzerinden STOK KARTI DEĞİŞTİR ──
+    # Örn. F7 kasanın ön paneli yoksa F5'in paneli takılır → ürün artık başka
+    # bir modele dönüşmüştür. Kayıt silinip yeniden açılmaz; stok kartı
+    # güncellenir ve eski kart işlem geçmişine iz olarak düşülür.
+    @st.dialog("🔄 Stok Kartı Değiştir (ürün dönüştürüldü)", width="large")
+    def _dlg_ts_stok_degis():
+        st.caption("Üründe parça değişimi yapıldıysa ve artık başka bir modele karşılık "
+                   "geliyorsa stok kartını buradan değiştir. Servis No, seri no ve tüm "
+                   "işlem geçmişi korunur; eski stok kartı geçmişe not olarak yazılır.")
+        st.markdown(
+            f'<div style="background:rgba(148,163,184,.12);border-radius:8px;padding:8px 12px;'
+            f'margin-bottom:10px;font-size:13px;color:#94A3B8">Şu anki kart: '
+            f'<b style="color:#E2E8F0">{_g(kayit,"stok_kodu")}</b> — '
+            f'{_g(kayit,"stok_adi")} · <i>{_g(kayit,"urun_grubu")}</i></div>',
+            unsafe_allow_html=True)
+
+        _dmods = ithalat_model_listesi()
+
+        def _sd_model_uygula():
+            _s = st.session_state.get(f"sd_model_{kid}", "")
+            if not _s or _s.startswith("—"):
+                return
+            _sku = _s.split(" — ")[0].strip()
+            st.session_state[f"sd_sk_{kid}"] = _sku
+            for _a, _b in _dmods:
+                if _a == _sku and _b:
+                    st.session_state[f"sd_sa_{kid}"] = _b
+                    break
+            try:
+                _u = urun_getir(_sku) or {}
+                if _u.get("urun_grubu"):
+                    st.session_state[f"sd_gr_{kid}"] = _u["urun_grubu"]
+            except Exception:
+                pass
+
+        if _dmods:
+            _opts = ["— İthalat'tan yeni model seç —"] + [(f"{s} — {a}" if a else s)
+                                                          for s, a in _dmods]
+            st.selectbox(f"📦 Yeni model ({len(_dmods)} model · yazarak ara)", _opts,
+                         key=f"sd_model_{kid}", on_change=_sd_model_uygula)
+
+        st.session_state.setdefault(f"sd_sk_{kid}", kayit.get("stok_kodu", "") or "")
+        st.session_state.setdefault(f"sd_sa_{kid}", kayit.get("stok_adi", "") or "")
+        st.session_state.setdefault(f"sd_gr_{kid}", kayit.get("urun_grubu", "") or "")
+
+        _s1, _s2 = st.columns(2)
+        _yeni_sk = _s1.text_input("Yeni Stok Kodu *", key=f"sd_sk_{kid}")
+        _yeni_sa = _s2.text_input("Yeni Stok Adı", key=f"sd_sa_{kid}")
+
+        _gruplar = ts_urun_gruplari()
+        _gopts = ["— ürün grubu seç —"] + _gruplar
+        _cur_gr = (st.session_state.get(f"sd_gr_{kid}", "") or "").strip()
+        if _cur_gr and _cur_gr not in _gopts:
+            _gopts.insert(1, _cur_gr)
+        _yeni_gr = st.selectbox("Ürün Grubu", _gopts,
+                                index=_gopts.index(_cur_gr) if _cur_gr in _gopts else 0,
+                                key=f"sd_grsec_{kid}")
+        _neden = st.text_input("Değişim nedeni *", key=f"sd_neden_{kid}",
+                               placeholder="örn. F7 ön panel stokta yok, F5 paneli montajlandı")
+
+        if st.button("🔄 Stok Kartını Değiştir", type="primary",
+                     use_container_width=True, key=f"sd_btn_{kid}"):
+            if not (_yeni_sk or "").strip():
+                st.error("Yeni Stok Kodu zorunludur.")
+                return
+            if not (_neden or "").strip():
+                st.error("Değişim nedeni zorunludur — geçmişe iz olarak yazılır.")
+                return
+            _eski_sk = kayit.get("stok_kodu", "") or "—"
+            _eski_sa = kayit.get("stok_adi", "") or ""
+            if _yeni_sk.strip() == _eski_sk and _yeni_sa.strip() == _eski_sa:
+                st.warning("Stok kartında bir değişiklik yok.")
+                return
+            _alanlar = {"stok_kodu": _yeni_sk.strip(), "stok_adi": _yeni_sa.strip()}
+            if _yeni_gr and not str(_yeni_gr).startswith("—"):
+                _alanlar["urun_grubu"] = _yeni_gr
+            if not kayit_guncelle(kid, _alanlar):
+                st.error("Stok kartı güncellenemedi.")
+                return
+            # Geçmişe iz düş — durum DEĞİŞMEZ, yalnız satır eklenir
+            durum_guncelle(
+                kid, kayit.get("mevcut_durum", "mal kabül"),
+                st.session_state.get("aktif_kullanici", ""),
+                f"Stok kartı değişti: {_eski_sk} → {_yeni_sk.strip()} — {_neden.strip()}")
+            for _k in (f"sd_model_{kid}", f"sd_sk_{kid}", f"sd_sa_{kid}",
+                       f"sd_gr_{kid}", f"sd_neden_{kid}"):
+                st.session_state.pop(_k, None)
+            st.session_state["_ts_bilgi"] = (f"🔄 Stok kartı değiştirildi: "
+                                             f"{_eski_sk} → {_yeni_sk.strip()}")
+            st.rerun()
+
+    if st.button("🔄 Stok Kartı Değiştir (ürün dönüştürüldü)", key="btn_ts_stok_degis",
+                 use_container_width=True):
+        _dlg_ts_stok_degis()
+
     @st.dialog("🗑️ Hatalı / Mükerrer Kaydı Sil", width="large")
     def _dlg_ts_sil():
         st.caption("Yanlışlıkla oluşmuş ya da mükerrer kayıtları kalıcı siler. Geri alınamaz; "
@@ -1208,9 +1306,96 @@ def _kontrol_paneli(kayit):
         _dlg_ts_sil()
 
 
+# ── Özet Şerit (madde 9) ─────────────────────────────────────────────
+def _donem_baslangic(donem):
+    """Seçilen dönemin başlangıç tarihi (dahil)."""
+    from datetime import timedelta
+    bugun = date.today()
+    if donem == "Bugün":
+        return bugun
+    if donem == "Bu hafta":
+        return bugun - timedelta(days=bugun.weekday())      # pazartesi
+    if donem == "Bu ay":
+        return bugun.replace(day=1)
+    return date.min                                          # "Tümü"
+
+
+def _transfer_gunu(k):
+    """Kaydın depoya transfer edildiği GÜN (date) — yoksa None."""
+    s = str(k.get("depo_tarihi") or "").strip()[:10]
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def _ozet_serit():
+    """Madde 9: günlük / haftalık / aylık depoya transfer edilen ürün adetleri,
+    kategori (ürün grubu) kırılımıyla. Yanında hâlâ işlemde olan aktif adetler —
+    'kaç tanesi bitti, kaç tanesi elde kaldı' tek bakışta görünür."""
+    _tum = get_kayitlar()
+    if not _tum:
+        return
+
+    # Aktif = işlemi bitmemiş ve henüz depoya girmemiş kayıtlar
+    _aktif = [k for k in _tum
+              if k.get("mevcut_durum") not in BITMIS_DURUMLAR
+              and not (k.get("depo") or "").strip()]
+    _transferli = [k for k in _tum if _transfer_gunu(k) is not None]
+
+    with st.container(border=True):
+        _b1, _b2 = st.columns([2.2, 2.8])
+        _b1.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;'
+                     'letter-spacing:.5px;padding-top:6px">📊 İŞLEM ÖZETİ</div>',
+                     unsafe_allow_html=True)
+        donem = _b2.radio("Dönem", ["Bugün", "Bu hafta", "Bu ay", "Tümü"],
+                          horizontal=True, key="depo_ozet_donem",
+                          label_visibility="collapsed")
+
+        _bas = _donem_baslangic(donem)
+        _donemsel = [k for k in _transferli if _transfer_gunu(k) >= _bas]
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric(f"Depoya transfer · {donem}", f"{len(_donemsel)} adet")
+        m2.metric("Aktif (işlemi bitmemiş)", f"{len(_aktif)} adet")
+        m3.metric("Toplam transfer (tüm zaman)", f"{len(_transferli)} adet")
+
+        # ── Kategori kırılımı: transfer edilen ↔ hâlâ işlemde olan ──
+        def _kat(k):
+            return (k.get("urun_grubu") or "").strip() or "— grupsuz —"
+
+        _katlar = sorted({_kat(k) for k in _donemsel} | {_kat(k) for k in _aktif})
+        if _katlar:
+            _sat = []
+            for _c in _katlar:
+                _t = sum(1 for k in _donemsel if _kat(k) == _c)
+                _a = sum(1 for k in _aktif if _kat(k) == _c)
+                if _t or _a:
+                    _sat.append({"Kategori": _c,
+                                 f"Transfer ({donem})": _t,
+                                 "Aktif (işlemde)": _a})
+            if _sat:
+                _kdf = pd.DataFrame(_sat).sort_values(f"Transfer ({donem})", ascending=False)
+                st.dataframe(_kdf, hide_index=True, use_container_width=True,
+                             height=min(300, 45 + 35 * len(_sat)))
+
+        # ── Kişi bazlı: dönem içinde kim kaç ürün tamamladı ──
+        _kisiler = {}
+        for k in _donemsel:
+            _p = (k.get("personel") or "").strip() or "—"
+            _kisiler[_p] = _kisiler.get(_p, 0) + 1
+        if len(_kisiler) > 1:
+            st.caption("👤 " + " · ".join(f"**{a}**: {s}"
+                                          for a, s in sorted(_kisiler.items(),
+                                                             key=lambda x: -x[1])))
+
+
 # ── Depolar ──────────────────────────────────────────────────────────
 def _depolar():
     _baslik("📦", "Depolar", "İşlemi biten ürünler · outlet / 2.el / hurda / merkez · satışa hazır → satıldı")
+    _ozet_serit()          # madde 9: performans / adet takibi
     _depo_bilgi = st.session_state.pop("_ts_depo_bilgi", None)
     if _depo_bilgi:
         st.success(_depo_bilgi)
@@ -1411,6 +1596,69 @@ def _depolar():
                                        mime="application/pdf", key=f"depo_pdf_{kid}")
                 except Exception:
                     pass
+
+                # ── Madde 7: hatalı kaydı DÜZELT / SİL ──
+                # Evraksız kayıtların 'arayuz' alanı boş olduğu için Teknik Servis
+                # ve İade listelerinde HİÇ görünmüyorlar → Kontrol Paneli'ne, dolayısıyla
+                # düzeltme/silmeye erişilemiyordu (G5F00227 bu yüzden takılı kalmıştı).
+                # Depo satırından doğrudan müdahale imkânı eklendi.
+                st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+                _dz1, _dz2 = st.columns(2)
+
+                with _dz1.popover("✏️ Kaydı Düzelt", use_container_width=True):
+                    st.caption("Hatalı girilen bilgileri düzelt. Servis No ve işlem geçmişi korunur.")
+                    _e1, _e2 = st.columns(2)
+                    _n_sk = _e1.text_input("Stok Kodu", value=k.get("stok_kodu", "") or "",
+                                           key=f"dz_sk_{kid}")
+                    _n_sa = _e2.text_input("Stok Adı", value=k.get("stok_adi", "") or "",
+                                           key=f"dz_sa_{kid}")
+                    _e3, _e4 = st.columns(2)
+                    _n_sn = _e3.text_input("Seri No", value=k.get("seri_no", "") or "",
+                                           key=f"dz_sn_{kid}")
+                    _gl = ts_urun_gruplari()
+                    _go = ["— grup seç —"] + _gl
+                    _cg = (k.get("urun_grubu") or "").strip()
+                    if _cg and _cg not in _go:
+                        _go.insert(1, _cg)
+                    _n_gr = _e4.selectbox("Ürün Grubu", _go,
+                                          index=_go.index(_cg) if _cg in _go else 0,
+                                          key=f"dz_gr_{kid}")
+                    _dpo = ["(değiştirme)"] + DEPOLAR
+                    _n_dp = st.selectbox("Depo", _dpo, key=f"dz_dp_{kid}")
+                    _n_ack = st.text_input("Ürün Son Durumu / Açıklama",
+                                           value=k.get("depo_aciklama", "") or "",
+                                           key=f"dz_ack_{kid}")
+                    if st.button("💾 Değişiklikleri Kaydet", type="primary",
+                                 use_container_width=True, key=f"dz_btn_{kid}"):
+                        _al = {"stok_kodu": (_n_sk or "").strip(),
+                               "stok_adi": (_n_sa or "").strip(),
+                               "seri_no": (_n_sn or "").strip(),
+                               "depo_aciklama": (_n_ack or "").strip()}
+                        if _n_gr and not str(_n_gr).startswith("—"):
+                            _al["urun_grubu"] = _n_gr
+                        if not str(_n_dp).startswith("("):
+                            _al["depo"] = _n_dp
+                        if kayit_guncelle(kid, _al):
+                            st.session_state["_ts_depo_bilgi"] = (
+                                f"✏️ {k.get('servis_form_no','')} güncellendi.")
+                            st.rerun()
+                        else:
+                            st.error("Güncellenemedi.")
+
+                with _dz2.popover("🗑️ Kaydı Sil", use_container_width=True):
+                    st.caption("Yanlışlıkla oluşmuş / mükerrer kaydı kalıcı siler. "
+                               "İşlem geçmişi de silinir, geri alınamaz.")
+                    _so = st.checkbox(f"⚠️ '{_g(k,'servis_form_no')}' kaydını kalıcı sil",
+                                      key=f"dz_sil_onay_{kid}")
+                    if st.button("🗑️ Kalıcı Sil", disabled=not _so,
+                                 use_container_width=True, key=f"dz_sil_{kid}"):
+                        _ok, _hata = sil_kayit(kid)
+                        if _ok:
+                            st.session_state["_ts_depo_bilgi"] = (
+                                f"🗑️ {k.get('servis_form_no','')} silindi.")
+                            st.rerun()
+                        else:
+                            st.error(f"Silinemedi: {_hata}")
         st.markdown('<div style="height:1px;background:rgba(255,255,255,0.05);margin:4px 0"></div>',
                     unsafe_allow_html=True)
 
