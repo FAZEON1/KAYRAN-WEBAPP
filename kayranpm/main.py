@@ -581,43 +581,54 @@ def run():
         # Script'in buraya gelmesi + flag'in set olması = kart az önce açıktı ve
         # bu tam rerun onu kapattı → seçimi "—"a sıfırla ki aynı SKU'yu tekrar
         # seçmek yeni bir değişiklik sayılsın ve kart yeniden açılabilsin.
-        _gec = st.session_state.pop("_stok_gec_sku", None)
-        # Kart kapandıysa seçimi sıfırla — ama widget ANAHTARINA YAZMADAN.
+        # ── Stok kartı arama & açma ───────────────────────────────────
+        # BU BÖLÜM YENİDEN YAZILDI. Eski hâlinde iki ayrı hata vardı:
         #
-        # ESKİ KOD burada `st.session_state["stok_karti_sec"] = "—"` yapıyordu.
-        # Bir widget'ın kendi key'ine yazmak, Streamlit'in o bileşeni yeniden
-        # kurmasına (remount) yol açar. Yazarak arama yapılan bir selectbox
-        # remount olunca kutuya girilmiş metin seçili hâle gelir ve bir sonraki
-        # tuş onu siler — "F11 yazıyorum, F gidiyor" şikâyetinin mekanizması bu.
+        # 1) YAZILAN İLK KARAKTER SİLİNİYORDU. Kod, selectbox'ın kendi
+        #    widget anahtarına yazıyordu (`st.session_state["stok_karti_sec"]
+        #    = "—"`). Bu, bileşeni yeniden kurduruyor; yazarak arama yapılan
+        #    bir selectbox yeniden kurulunca girilen metin seçili kalıyor ve
+        #    sonraki tuş onu siliyordu.
         #
-        # ÇÖZÜM: sıfırlama gerektiğinde widget'a YENİ BİR ANAHTAR verilir.
-        # Yeni anahtar = tertemiz widget = varsayılan olarak "—" seçili.
-        # Anahtar yalnız bilinçli sıfırlamada değişir; yazarken SABİT kalır,
-        # dolayısıyla kutu yazma sırasında asla yeniden kurulmaz.
-        if st.session_state.pop("_stok_dialog_acik", False) and not _gec:
-            st.session_state["_stok_sec_nonce"] = \
-                st.session_state.get("_stok_sec_nonce", 0) + 1
-            st.session_state.pop("_son_acilan_sku", None)
-
+        # 2) İKİNCİ SEFERDE KART AÇILMIYORDU. Kartı kapatmak tam yenileme
+        #    tetiklemediği için `_stok_dialog_acik` bayrağı True kalıyordu.
+        #    Yeni bir SKU seçtiğinde oluşan yenilemede kod ÖNCE bayrağı görüp
+        #    seçimi sıfırlıyor, böylece yeni seçim silinip kart açılmıyordu.
+        #
+        # ÇÖZÜM: bayrak dansı ve selectbox tamamen kaldırıldı. Artık düz bir
+        # metin kutusu + sonuç butonları var. Butona basmak kartı HER ZAMAN
+        # açar — aynı SKU'ya arka arkaya basılsa bile. Durum takibi yok,
+        # dolayısıyla yarış durumu da yok.
         _skl = get_tum_sku_listesi() or []
-        _opts = ["—"] + [r["sku"] for r in _skl]
-        _ssec = st.selectbox(
-            "SKU ara/seç", _opts,
-            key=f"stok_karti_sec_{st.session_state.get('_stok_sec_nonce', 0)}",
-            label_visibility="collapsed",
-            help="SKU veya model kodu yaz → seç → kartı aç")
+        _hedef = st.session_state.pop("_stok_gec_sku", None)   # modal içi geçiş
+
+        _ara = st.text_input(
+            "SKU / model ara", key="stok_karti_ara",
+            placeholder="SKU veya ürün adı yaz — örn. X24F241S",
+            label_visibility="collapsed")
+
+        if not _hedef and (_ara or "").strip():
+            _q = " ".join(_ara.strip().lower().split())
+            _bul = [r for r in _skl
+                    if _q in str(r.get("sku") or "").lower()
+                    or _q in str(r.get("urun_adi") or "").lower()]
+            if not _bul:
+                st.caption("Eşleşen ürün yok.")
+            else:
+                for _r in _bul[:8]:
+                    _ad = (_r.get("urun_adi") or "").strip()
+                    if st.button(f"{_r['sku']}" + (f" — {_ad[:44]}" if _ad else ""),
+                                 key=f"stok_ac_{_r['sku']}", use_container_width=True):
+                        _hedef = _r["sku"]
+                if len(_bul) > 8:
+                    st.caption(f"{len(_bul)} sonuç bulundu, ilk 8'i gösteriliyor — "
+                               f"aramayı daraltabilirsin.")
         st.markdown('</div>', unsafe_allow_html=True)
-        # Modal içinden "başka SKU'ya geç" isteği (selectbox'tan bağımsız çalışır).
-        if _gec:
-            st.session_state["_son_acilan_sku"] = _ssec
-            st.session_state["_stok_dialog_acik"] = True
+
+        if _hedef:
             from kayranpm.stok_karti import goster as _stok_goster
-            _stok_goster(_gec)
-        elif _ssec and _ssec != "—" and _ssec != st.session_state.get("_son_acilan_sku"):
-            st.session_state["_son_acilan_sku"] = _ssec
-            st.session_state["_stok_dialog_acik"] = True
-            from kayranpm.stok_karti import goster as _stok_goster
-            _stok_goster(_ssec)
+            _stok_goster(_hedef)
+
 
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
