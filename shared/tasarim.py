@@ -861,7 +861,8 @@ _TABLO_SAYAC = _it.count(1)
 
 
 def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
-                 satir_yuksekligi=None, maks_yukseklik=520, kap=None):
+                 satir_yuksekligi=None, maks_yukseklik=520, kap=None,
+                 maks_hucre=280):
     """Başlığa tıklayınca sıralanan tablo (components.html · iframe).
 
     Sıralama tamamen tarayıcıda olur — Streamlit'e gidip gelmez, anlıktır.
@@ -884,6 +885,10 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
     _rozet = (stil == "rozet")
     _pad = "10px 12px" if _acik else "6px 11px"
     _sy = satir_yuksekligi or (38 if _acik else 30)
+    try:
+        _maks_hucre = max(90, int(maks_hucre))
+    except (TypeError, ValueError):
+        _maks_hucre = 280
 
     _id = f"kt{next(_TABLO_SAYAC)}"
     _css = f"""<style>
@@ -896,7 +901,14 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
      f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}'}}}
 #{_id} th:hover{{color:{R["metin"]}}}
 #{_id} td{{padding:{_pad};font-size:{F["govde"]};font-weight:{A["govde"]};
-   color:{R["metin"]};overflow-wrap:anywhere;word-break:normal{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
+   color:{R["metin"]};
+   /* TEK SATIR. Eskiden `overflow-wrap:anywhere` vardı ve uzun ürün adları
+      satırı aşağı doğru büyütüyor, hatta kelime ortasından kırıp
+      "FAZEO / N" gibi okunmaz sonuçlar veriyordu. Artık her hücre tek
+      satır; sığmayan metin "…" ile kısalır ve tamamı fareyle üzerine
+      gelince ipucu (title) olarak görünür. */
+   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+   max-width:{_maks_hucre}px{f';border-bottom:1px solid {R["kenar"]}' if _acik else ''}}}
 #{_id} td.n{{text-align:right;white-space:nowrap;font-family:{MONO};font-variant-numeric:tabular-nums}}
 /* İlk kolon yatay kaydırmada sabit. Zemin ŞART — saydam kalırsa altından
    kayan sayılar görünür. Zebra/toplam satırları kendi zeminini ezer. */
@@ -928,7 +940,14 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
         elif t == "oran":
             metin, sayi = _tr_oran(v), True
         else:
-            metin, sayi = ("" if v is None else str(v)), False
+            # Sayı olarak SINIFLANDIRILMAYAN kolonlarda (ör. "id") pandas
+            # değeri float tuttuğu için str() "49669.0" üretiyordu. Tam
+            # sayıya eşit float'lar ondalıksız yazılır. Gerçek ondalıklı
+            # değerler (12.5) olduğu gibi kalır.
+            if isinstance(v, float) and v == v and float(v).is_integer():
+                metin, sayi = str(int(v)), False
+            else:
+                metin, sayi = ("" if v is None else str(v)), False
         try:
             ham = float(v) if sayi else None
         except (TypeError, ValueError):
@@ -939,7 +958,15 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
             rc = "rt" if toplam else ("rn" if neg else "rp")
             return f'<td class="n"{ds}><span class="rz {rc}">{metin}</span></td>'
         sinif = ("n neg" if (sayi and neg) else ("n" if sayi else ""))
-        return f'<td{f" class=\"{sinif}\"" if sinif else ""}{ds}>{metin}</td>'
+        # Hücre tek satıra sığmayınca "…" ile kısalıyor; tam metin KAYBOLMASIN
+        # diye title olarak eklenir (fareyle üzerine gelince görünür).
+        # Sayılar kısa olduğu için onlara ipucu konmaz.
+        _ip = ""
+        if not sayi and len(metin) > 24:
+            _kacis = (metin.replace("&", "&amp;").replace('"', "&quot;")
+                      .replace("<", "&lt;").replace(">", "&gt;"))
+            _ip = f' title="{_kacis}"'
+        return f'<td{f" class=\"{sinif}\"" if sinif else ""}{ds}{_ip}>{metin}</td>'
 
     bas_html = "".join(
         f'<th data-k="{i}" style="text-align:{"right" if tipler[k] else "left"}'
