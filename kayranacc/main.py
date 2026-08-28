@@ -29,7 +29,8 @@ from .database import (
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
     tahsilat_ekle, get_tahsilatlar, tahsilat_geri_al,
     aktif_excel_kaydet, aktif_excel_oku, aktif_excel_sil, aktif_excel_meta_oku,
-    aktif_manuel_ekle, aktif_manuel_listele, aktif_manuel_sil, get_cek_toplamlari,
+    aktif_manuel_ekle, aktif_manuel_listele, aktif_manuel_sil,
+    aktif_manuel_guncelle, get_cek_toplamlari,
     set_ayar, get_ayar,
 )
 from .excel_islemler import (
@@ -4456,6 +4457,82 @@ def run():
                         st.rerun()
         if st.button("➕ Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True):
             _dlg_yeni_kalem()
+
+        # ─── Kayıtlı bir kalemi REVİZE et ───
+        # Kalem silinip yeniden eklenmez; id ve oluşturma tarihi korunur.
+        @st.dialog("✏️ Kalemi Düzenle", width="large")
+        def _dlg_kalem_duzenle(_k):
+            _kid = _k["id"]
+            _yerel = isinstance(_kid, str) and str(_kid).startswith("local_")
+            st.caption(f"📅 Oluşturulma: {(_k.get('olusturuldu') or '')[:10]}"
+                       + ("  ·  ⚠️ oturum belleğinde (kalıcı değil)" if _yerel else ""))
+            d1, d2, d3 = st.columns([1, 3, 1])
+            with d1:
+                _d_tip = st.selectbox(
+                    "Tip", ["ekle", "cikar"],
+                    index=0 if (_k.get("tip", "ekle") == "ekle") else 1,
+                    format_func=lambda x: "➕ Ekle" if x == "ekle" else "➖ Çıkar",
+                    key=f"duz_tip_{_kid}")
+            with d2:
+                _d_ack = st.text_input("Açıklama", value=_k.get("aciklama", "") or "",
+                                       key=f"duz_ack_{_kid}")
+            with d3:
+                _d_pb = st.selectbox(
+                    "PB", ["USD", "TL"],
+                    index=0 if (_k.get("para_birimi", "USD") or "USD").upper() == "USD" else 1,
+                    key=f"duz_pb_{_kid}")
+            _d_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f",
+                                       value=float(_k.get("tutar") or 0),
+                                       key=f"duz_tutar_{_kid}")
+
+            _eski = float(_k.get("tutar") or 0)
+            if abs(_d_tutar - _eski) > 0.0001:
+                _fark = _d_tutar - _eski
+                st.info(f"Tutar {_eski:,.2f} → **{_d_tutar:,.2f}**  "
+                        f"({'+' if _fark > 0 else ''}{_fark:,.2f})")
+
+            b1, b2 = st.columns([1, 1])
+            if b1.button("💾 Değişiklikleri Kaydet", type="primary",
+                         use_container_width=True, key=f"duz_kaydet_{_kid}"):
+                if not (_d_ack or "").strip():
+                    st.error("Açıklama boş olamaz.")
+                elif _d_tutar <= 0:
+                    st.error("Tutar 0'dan büyük olmalı.")
+                else:
+                    if _yerel:
+                        for _kk in st.session_state.manuel_kalemler_local:
+                            if _kk.get("id") == _kid:
+                                _kk.update({"aciklama": _d_ack.strip(),
+                                            "tutar": float(_d_tutar),
+                                            "para_birimi": _d_pb, "tip": _d_tip})
+                        st.session_state["_manuel_mesaj"] = "✅ Kalem güncellendi (oturum belleği)."
+                    else:
+                        _ok = False
+                        try:
+                            _ok = aktif_manuel_guncelle(_kid, _d_ack.strip(), _d_tutar,
+                                                        _d_pb, _d_tip)
+                        except Exception:
+                            _ok = False
+                        st.session_state["_manuel_mesaj"] = (
+                            "✅ Kalem güncellendi." if _ok
+                            else "⚠️ Güncellenemedi — kayıt değişmedi.")
+                    st.session_state.pop("_manuel_duzenle_id", None)
+                    st.rerun()
+            if b2.button("Vazgeç", use_container_width=True, key=f"duz_vazgec_{_kid}"):
+                st.session_state.pop("_manuel_duzenle_id", None)
+                st.rerun()
+
+        _mmsg = st.session_state.pop("_manuel_mesaj", None)
+        if _mmsg:
+            (st.success if _mmsg.startswith("✅") else st.warning)(_mmsg)
+
+        # Düzenleme isteği varsa ilgili kalemi bul ve diyaloğu aç
+        _duz_id = st.session_state.pop("_manuel_duzenle_id", None)
+        if _duz_id is not None:
+            _hedef_k = next((x for x in (manuel_kalemler or [])
+                             if str(x.get("id")) == str(_duz_id)), None)
+            if _hedef_k:
+                _dlg_kalem_duzenle(_hedef_k)
     
         # Mevcut kalemleri listele
         if manuel_kalemler:
@@ -4466,7 +4543,7 @@ def run():
                 isaret = "+" if tip == "ekle" else "-"
                 sembol = "$" if (k.get("para_birimi") or "USD").upper() == "USD" else "₺"
                 tutar_v = float(k.get("tutar") or 0)
-                col_a, col_b = st.columns([10, 1])
+                col_a, col_b, col_c = st.columns([10, 1, 1])
                 with col_a:
                     st.markdown(
                         f'<div style="background:#152036;border:1px solid rgba(255,255,255,0.12);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
@@ -4476,6 +4553,12 @@ def run():
                         unsafe_allow_html=True
                     )
                 with col_b:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("✏️", key=f"manuel_duzenle_{k['id']}",
+                                 help="Tutarı / açıklamayı revize et"):
+                        st.session_state["_manuel_duzenle_id"] = k["id"]
+                        st.rerun()
+                with col_c:
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("🗑️", key=f"manuel_sil_{k['id']}", help="Sil"):
                         kalem_id = k['id']

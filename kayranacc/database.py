@@ -930,6 +930,34 @@ def aktif_manuel_listele(kullanici=None):
         return []
 
 
+def aktif_manuel_guncelle(kalem_id, aciklama=None, tutar=None,
+                          para_birimi=None, tip=None):
+    """Mevcut bir manuel kalemi REVİZE eder.
+
+    Yalnızca verilen alanlar güncellenir (None geçilenlere dokunulmaz).
+    Kalem silinip yeniden eklenmediği için id ve oluşturma tarihi korunur.
+    """
+    sb = get_client()
+    alanlar = {}
+    if aciklama is not None:
+        alanlar["aciklama"] = str(aciklama).strip()
+    if tutar is not None:
+        alanlar["tutar"] = float(tutar)
+    if para_birimi is not None:
+        alanlar["para_birimi"] = str(para_birimi).upper()
+    if tip is not None:
+        alanlar["tip"] = str(tip)
+    if not alanlar:
+        return True                     # değişiklik yok — başarılı say
+    try:
+        sb.table("aktif_manuel_kalemler").update(alanlar).eq("id", kalem_id).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        _cache_temizle()
+        return False
+
+
 def aktif_manuel_sil(kalem_id):
     """Bir manuel kalemi sil."""
     sb = get_client()
