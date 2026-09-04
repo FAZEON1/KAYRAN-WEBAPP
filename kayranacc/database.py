@@ -1107,6 +1107,30 @@ def kur_kaydet(tarih, kur):
         return False
 
 
+def get_kur(tarih=None):
+    """En güncel USD/TL kuru (bulunamazsa None).
+
+    kayranpm/ref_no.py bu fonksiyonu çağırıyordu ama tanımlı değildi; çağrı
+    try/except içinde olduğu için sessizce None dönüyor ve TL→USD çevrimi
+    hiç çalışmıyordu. Hata görünmediği için fark edilmemişti.
+
+    tarih verilirse O GÜNE ait kur, yoksa en son kaydedilen kur döner.
+    """
+    try:
+        q = get_client().table("kur_gunluk").select("tarih,usd_try")
+        if tarih:
+            q = q.eq("tarih", str(tarih)[:10])
+        else:
+            q = q.order("tarih", desc=True)
+        rows = (q.limit(1).execute().data) or []
+        if rows and rows[0].get("usd_try"):
+            k = float(rows[0]["usd_try"])
+            return k if k > 0 else None
+    except Exception:
+        pass
+    return None
+
+
 def get_kur_araligi(baslangic, bitis):
     """Dönem [baslangic, bitis] aralığındaki günlük kurları döndürür:
     {'2026-06-28': 38.5, ...}. Tablo yoksa/boşsa {} döner."""
