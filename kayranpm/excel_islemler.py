@@ -918,7 +918,9 @@ def excel_yukle_stok_kartlari(dosya_yolu):
           - marka / ürün adı: karttaki boşsa doldurulur
     Kategoriler programın standardında (Türkçe küçük harf) yazılır; dosyadaki yeni
     kategoriler (örn. mouse pad) otomatik oluşur."""
-    from .database import tr_kucuk
+    # tr_kucuk 'shared/utils.py'de tanımlı — kayranpm.database'de DEĞİL.
+    # Eski hâli ImportError veriyor ve bu Excel içe aktarımı hiç çalışmıyordu.
+    from shared.utils import tr_kucuk
     try:
         df = pd.read_excel(dosya_yolu)
     except Exception as e:

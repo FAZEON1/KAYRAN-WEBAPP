@@ -192,6 +192,47 @@ KATEGORI_KURALLAR = [
 KATEGORI_LISTE = [k for k, _ in KATEGORI_KURALLAR]
 
 
+# ── Yurt içi kategoriler (Maliyet Girişi ekranı) ─────────────────────
+# NOT: Bu iki fonksiyon 03.08.2026'da eklenmiş, 04.08.2026'da yüklenen eski
+# bir database.py sürümüyle YANLIŞLIKLA SİLİNMİŞTİ. kayranpm/main.py onları
+# çağırmaya devam ettiği için Maliyet Girişi ekranı ImportError veriyordu.
+# Git geçmişinden (commit 9a465b2) aynen geri alındı.
+#
+# Yurt içinden alınan ürünlerin kategorileri. Maliyet Girişi ekranı YALNIZ
+# bu kategorileri listeler. Neden kategori bazlı: ithalatı olan ürünlerin bir
+# kısmında SKU yazımı ürün kartıyla tutmuyor (F11PA650BWM ↔ F11PA650BBM gibi),
+# bu yüzden "ithalatta geçiyor mu" ölçütü tek başına yetmiyordu.
+YURTICI_KATEGORI_VARSAYILAN = ["anti virüs", "mouse pad"]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_yurtici_kategoriler():
+    """Maliyet Girişi ekranında listelenecek kategoriler."""
+    try:
+        rows = _rows(get_client().table("pm_ayarlar").select("deger")
+                     .eq("anahtar", "yurtici_kategoriler").limit(1).execute())
+        if rows:
+            ham = str(rows[0].get("deger") or "").strip()
+            if ham:
+                return [k.strip() for k in ham.split("·") if k.strip()]
+    except Exception:
+        pass
+    return list(YURTICI_KATEGORI_VARSAYILAN)
+
+
+def set_yurtici_kategoriler(kategoriler):
+    """Kategori listesini kaydeder. Tablo yoksa False döner."""
+    try:
+        get_client().table("pm_ayarlar").upsert(
+            {"anahtar": "yurtici_kategoriler",
+             "deger": " · ".join(str(k).strip() for k in (kategoriler or []) if str(k).strip())},
+            on_conflict="anahtar").execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
 def kategori_oner(urun_adi):
     """Ürün adından kategori önerir; eşleşme yoksa boş döner."""
     ad = str(urun_adi or "").upper()
