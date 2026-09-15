@@ -1229,10 +1229,19 @@ def get_satis_depolari(sku=None):
         return cikti or [{"depo": "MERKEZ DEPO", "adet": 0}]
 
     adlar = sorted(toplam, key=lambda d: -toplam[d])
-    # Stoğu 0 olsa bile bu depolar listede dursun (mal girdiğinde seçilebilsin)
-    for _v in ("MERKEZ DEPO", "HAPPY LIFE", "IADE DEPO", "IKINCI EL DEPO"):
-        if depo_kanonik(_v) not in adlar:
-            adlar.append(depo_kanonik(_v))
+    # Stoğu 0 olsa bile bu depolar listede DURSUN (mal girdiğinde seçilebilsin).
+    #
+    # TEKNİK / HURDA / OUTLET eskiden bu listede YOKTU: o depodaki stok sıfıra
+    # düşünce depo seçeneklerden tamamen kayboluyordu. 09.09'da Teknik (Servis)
+    # deposundan satış girilememesinin sebebi buydu.
+    #
+    # NOT: "Servis Depo" ile "Teknik Depo" AYNI fiziksel yer; veritabanında
+    # hangi yazımla durursa dursun ekranda tek isimle (TEKNİK DEPO) görünür.
+    for _v in ("MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "İADE DEPO",
+               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "ASEL DEPO"):
+        _k = depo_kanonik(_v)
+        if _k not in adlar:
+            adlar.append(_k)
     return adlar
 
 
