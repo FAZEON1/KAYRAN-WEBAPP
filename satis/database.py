@@ -349,6 +349,12 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
             "olusturma_tarihi": datetime.now(TR_TZ).isoformat(timespec="seconds"),
         }).execute()
         _temizle()
+        _marj_uyarisi_gonder(
+            [{"sku": _normalize_sku_yerel(sku), "adet": _i(adet),
+              "birim_satis": _f(birim_satis), "birim_maliyet": _f(birim_maliyet),
+              "birim_firma_destek": _f(birim_firma_destek),
+              "birim_ek_destek": _f(birim_ek_destek)}],
+            kanal, siparis_no, tarih, kaynak="Tekil satış")
         return True, "✅ Satış kaydedildi."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
@@ -484,6 +490,27 @@ def _satis_agg(rows, adet_alan="adet"):
     return agg
 
 
+def _marj_uyarisi_gonder(rows, kanal="", siparis_no="", tarih="", kaynak=""):
+    """Zararına satış Telegram uyarısı — sarmalayıcı.
+
+    Kaydetme akışının İÇİNDE çalışır, bu yüzden hiçbir koşulda istisna
+    fırlatmamalı ve uzun sürmemelidir. shared/marj_uyari.py zaten kendi
+    içinde hata yakalıyor; burası son emniyet katmanı.
+    """
+    try:
+        from shared.marj_uyari import marj_uyarisi
+        _kul = ""
+        try:
+            import streamlit as _st
+            _kul = _st.session_state.get("aktif_kullanici", "") or ""
+        except Exception:
+            pass
+        return marj_uyarisi(rows, kanal=kanal, siparis_no=siparis_no,
+                            tarih=tarih, kullanici=_kul, kaynak=kaynak)
+    except Exception:
+        return False, "atlandı"
+
+
 def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
     """Tek siparişte birden çok kalemi TEK seferde kaydeder (toplu insert).
     kalemler: [{sku, urun_adi, adet, birim_satis, birim_maliyet,
@@ -511,6 +538,8 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
         _get_client().table("satislar").insert(rows).execute()
         _stok_uygula_depolu(_depo_map, -1)   # MODEL B: satış SEÇİLEN depodan düşer
         _temizle()
+        # Zararına satış varsa Telegram uyarısı (kaydı ASLA bozmaz)
+        _marj_uyarisi_gonder(rows, kanal, siparis_no, tarih, kaynak="Satış Girişi")
         return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.", len(rows)
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
@@ -800,6 +829,14 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     if _deposuz:
         _stok_akilli_dus(_satis_agg(_deposuz), None)
     _temizle()
+    # Excel yüklemesinde SADECE gerçekten eklenen satırlar için tek uyarı.
+    # Atlanan (mükerrer) satırlar uyarı üretmez — onlar zaten kayıtlıydı.
+    if _ins_rows:
+        _knl = str((_ins_rows[0] or {}).get("kanal") or "")
+        _sno = str((_ins_rows[0] or {}).get("siparis_no") or "")
+        _trh = str((_ins_rows[0] or {}).get("tarih") or "")
+        _marj_uyarisi_gonder(_ins_rows, _knl, _sno, _trh,
+                             kaynak=f"Excel içe aktarım ({len(_ins_rows)} kalem)")
     return {"eklendi": eklendi, "atlandi": atlandi, "maliyetsiz": maliyetsiz,
             "silinen_fatura": silinen, "hatali": hatali, "hata": ilk_hata,
             "atlanan_detay": atlanan_detay}
