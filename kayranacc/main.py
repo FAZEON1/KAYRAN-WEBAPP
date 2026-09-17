@@ -2391,7 +2391,22 @@ def run():
         # günceller ve 'virmanlar' tablosuna kayıt atar). Ayrı bir veri yolu
         # AÇILMADI — tek kayıt kaynağı korunur. Fark arayüzde: banka bir kez
         # seçilir, yön düğmeyle belirlenir, karşılık anında hesaplanır.
-        @st.dialog("💱 Arbitraj — Aynı Banka TL ↔ USD", width="large")
+        # ─── ARBİTRAJ: aynı banka içinde TL / USD / EUR çevrimi ───
+        # Altı yönün hepsi desteklenir: TL↔USD, TL↔EUR, USD↔EUR.
+        #
+        # KUR YORUMU — tek kural: "1 <güçlü birim> = kur <zayıf birim>".
+        # Güçlülük sırası EUR > USD > TL. Böylece kullanıcı kuru her zaman
+        # piyasada konuşulduğu gibi girer (1 USD = 48,68 TL / 1 EUR = 1,08 USD)
+        # ve yön karışıklığı olmaz. Hesaplanan karşılık virman_yap'a AÇIKÇA
+        # hedef_tutar olarak geçilir — çevrim tek yerde, burada yapılır.
+        _PB_SIRA = {"TL": 0, "TRY": 0, "USD": 1, "EUR": 2}
+        _PB_SIM = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
+
+        def _pb_std(p):
+            p = str(p or "").upper()
+            return "TL" if p == "TRY" else p
+
+        @st.dialog("💱 Arbitraj — Aynı Banka (TL / USD / EUR)", width="large")
         def _dlg_arbitraj():
             _bnk = get_bankalar() or []
             if not _bnk:
@@ -2405,66 +2420,75 @@ def run():
                     if _ayr in s:
                         s = s.split(_ayr)[0]
                         break
-                for _son in ("USD", "TL", "TRY", "EUR", "$", "₺"):
+                for _son in ("USD", "TRY", "TL", "EUR", "$", "₺", "€"):
                     if s.upper().endswith(_son):
                         s = s[: -len(_son)]
                 return " ".join(s.split()).rstrip("-–— ").strip()
 
-            # Aynı bankanın TL ve USD hesaplarını eşleştir
+            # Aynı bankanın TL / USD / EUR hesaplarını grupla
             _grup = {}
             for b in _bnk:
-                _pb = str(b.get("para_birimi") or "").upper()
-                if _pb in ("TL", "TRY", "USD"):
-                    _grup.setdefault(_kok(b.get("hesap_adi")), {})[
-                        "TL" if _pb in ("TL", "TRY") else "USD"] = b
+                _pb = _pb_std(b.get("para_birimi"))
+                if _pb in _PB_SIRA:
+                    _grup.setdefault(_kok(b.get("hesap_adi")), {})[_pb] = b
 
-            _uygun = {k: v for k, v in _grup.items() if "TL" in v and "USD" in v}
+            # En az İKİ farklı para birimi olan bankalar
+            _uygun = {k: v for k, v in _grup.items() if len(v) >= 2}
             if not _uygun:
-                st.warning("Arbitraj için aynı bankada hem **TL** hem **USD** hesabı "
-                           "gerekiyor. Eşleşen banka bulunamadı.")
-                st.caption("Hesap adları 'BANKA ADI - TL' ve 'BANKA ADI - USD' "
+                st.warning("Arbitraj için aynı bankada **en az iki farklı para "
+                           "biriminde** hesap gerekiyor (TL / USD / EUR).")
+                st.caption("Hesap adları 'BANKA ADI - TL', 'BANKA ADI - USD' "
                            "biçiminde olursa otomatik eşleşir.")
                 return
 
             _banka_ad = st.selectbox("🏦 Banka", sorted(_uygun.keys()), key="arb_banka")
-            _tl_h, _usd_h = _uygun[_banka_ad]["TL"], _uygun[_banka_ad]["USD"]
-            _tl_bak = float(_tl_h.get("bakiye") or 0)
-            _usd_bak = float(_usd_h.get("bakiye") or 0)
+            _hesaplar = _uygun[_banka_ad]
 
-            m1, m2 = st.columns(2)
-            m1.metric("TL Hesap", f"{_tl_bak:,.2f} ₺")
-            m2.metric("USD Hesap", f"{_usd_bak:,.2f} $")
+            # Mevcut bakiyeler
+            _mcols = st.columns(len(_hesaplar))
+            for _c, _pb in zip(_mcols, sorted(_hesaplar, key=lambda x: _PB_SIRA[x])):
+                _c.metric(f"{_pb} Hesap",
+                          f"{float(_hesaplar[_pb].get('bakiye') or 0):,.2f} {_PB_SIM[_pb]}")
 
-            _yon = st.radio("İşlem", ["TL → USD  (dolar al)", "USD → TL  (dolar sat)"],
-                            horizontal=True, key="arb_yon")
-            _tl_den = _yon.startswith("TL")
-            _kaynak, _hedef = (_tl_h, _usd_h) if _tl_den else (_usd_h, _tl_h)
-            _k_bak = _tl_bak if _tl_den else _usd_bak
-            _k_pb, _h_pb = ("TL", "USD") if _tl_den else ("USD", "TL")
+            _pblar = sorted(_hesaplar.keys(), key=lambda x: _PB_SIRA[x])
+            y1, y2 = st.columns(2)
+            _kpb = y1.selectbox("Bozulacak (kaynak)", _pblar, key="arb_kaynak_pb")
+            _hedefler = [p for p in _pblar if p != _kpb]
+            _hpb = y2.selectbox("Alınacak (hedef)", _hedefler, key="arb_hedef_pb")
+
+            _kaynak, _hedef = _hesaplar[_kpb], _hesaplar[_hpb]
+            _k_bak = float(_kaynak.get("bakiye") or 0)
+            _h_bak = float(_hedef.get("bakiye") or 0)
+
+            # Kur her zaman güçlü birim üzerinden sorulur
+            _guclu, _zayif = (_kpb, _hpb) if _PB_SIRA[_kpb] > _PB_SIRA[_hpb] else (_hpb, _kpb)
+            _usd_tl = float(get_kur() or 1)
+            _vars = {("USD", "TL"): _usd_tl, ("EUR", "TL"): _usd_tl * 1.08,
+                     ("EUR", "USD"): 1.08}.get((_guclu, _zayif), 1.0)
 
             a1, a2 = st.columns([2, 1])
             _tutar = a1.number_input(
-                f"Bozdurulacak tutar ({_k_pb})", min_value=0.0, step=0.01,
-                format="%.4f", max_value=max(_k_bak, 0.01), key="arb_tutar",
-                disabled=(_k_bak <= 0))
-            _kur = a2.number_input("Kur (USD/TL)", min_value=0.0001, step=0.01,
-                                   format="%.4f", value=float(get_kur() or 1),
-                                   key="arb_kur",
+                f"Bozulacak tutar ({_kpb})", min_value=0.0, step=0.01, format="%.4f",
+                max_value=max(_k_bak, 0.01), key="arb_tutar", disabled=(_k_bak <= 0))
+            _kur = a2.number_input(f"Kur — 1 {_guclu} = ? {_zayif}", min_value=0.0001,
+                                   step=0.01, format="%.4f", value=float(_vars),
+                                   key=f"arb_kur_{_guclu}_{_zayif}",
                                    help="Bankanın uyguladığı gerçek kuru gir")
             if _k_bak <= 0:
-                st.caption(f"⚠️ {_k_pb} hesabının bakiyesi 0 veya negatif.")
+                st.caption(f"⚠️ {_kpb} hesabının bakiyesi 0 veya negatif.")
 
-            _karsilik = (_tutar / _kur) if _tl_den else (_tutar * _kur)
+            # Zayıf → güçlü ise BÖL, güçlü → zayıf ise ÇARP
+            _karsilik = (_tutar / _kur) if _PB_SIRA[_kpb] < _PB_SIRA[_hpb] else (_tutar * _kur)
+
             if _tutar > 0:
-                st.success(f"➡️ **{_tutar:,.2f} {_k_pb}** bozulacak, "
-                           f"**{_karsilik:,.2f} {_h_pb}** alınacak  ·  kur {_kur:,.4f}")
-                y1, y2 = st.columns(2)
-                y1.metric("TL Hesap (sonra)",
-                          f"{(_tl_bak - _tutar if _tl_den else _tl_bak + _karsilik):,.2f} ₺",
-                          delta=f"{(-_tutar if _tl_den else _karsilik):+,.2f}")
-                y2.metric("USD Hesap (sonra)",
-                          f"{(_usd_bak + _karsilik if _tl_den else _usd_bak - _tutar):,.2f} $",
-                          delta=f"{(_karsilik if _tl_den else -_tutar):+,.2f}")
+                st.success(f"➡️ **{_tutar:,.2f} {_kpb}** bozulacak, "
+                           f"**{_karsilik:,.2f} {_hpb}** alınacak  ·  "
+                           f"1 {_guclu} = {_kur:,.4f} {_zayif}")
+                z1, z2 = st.columns(2)
+                z1.metric(f"{_kpb} Hesap (sonra)", f"{_k_bak - _tutar:,.2f} {_PB_SIM[_kpb]}",
+                          delta=f"{-_tutar:+,.2f}")
+                z2.metric(f"{_hpb} Hesap (sonra)", f"{_h_bak + _karsilik:,.2f} {_PB_SIM[_hpb]}",
+                          delta=f"{_karsilik:+,.2f}")
 
             _not = st.text_input("Açıklama", key="arb_not",
                                  placeholder="örn. 14.09 arbitraj, banka kuru 48,92")
@@ -2472,10 +2496,13 @@ def run():
             if st.button("💱 Arbitrajı Gerçekleştir", type="primary",
                          use_container_width=True, key="arb_btn",
                          disabled=(_tutar <= 0 or _k_bak <= 0)):
-                _ack = (f"Arbitraj · {_banka_ad} · {_k_pb}→{_h_pb} · kur {_kur:,.4f}"
+                _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
+                        f"1 {_guclu}={_kur:,.4f} {_zayif}"
                         + (f" · {_not.strip()}" if (_not or "").strip() else ""))
+                # Karşılık BURADA hesaplandı; virman_yap'a açıkça geçiliyor ki
+                # çevrim iki yerde ayrı ayrı yapılmasın.
                 _ok, _msg = virman_yap(_kaynak["id"], _hedef["id"], float(_tutar),
-                                       _ack, float(_kur))
+                                       _ack, float(_kur), hedef_tutar=float(_karsilik))
                 if _ok:
                     st.success(f"✅ {_msg}")
                     st.rerun()

@@ -578,7 +578,8 @@ def get_virmanlar(limit=50):
         return []
 
 
-def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanilan=None):
+def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanilan=None,
+               hedef_tutar=None):
     """
     Bankalar arası para transferi yapar:
     1) Kaynak banka bakiyesinden düşer
@@ -615,19 +616,35 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
         return False, f"Yetersiz bakiye. {kaynak['hesap_adi']} hesabında {float(kaynak['bakiye']):.2f} {kaynak_pb} var"
 
     # Hedefe gidecek tutar (kur dönüşümü)
-    hedef_tutar = tutar  # aynı para birimi ise direkt
-    if kaynak_pb != hedef_pb and kur_kullanilan:
+    #
+    # ⚠️ ESKİ KODDA SESSİZ VERİ BOZMA HATASI VARDI.
+    # Yalnız TL→USD, USD→TL ve EUR→TL tanımlıydı. TL→EUR, USD→EUR ve
+    # EUR→USD hiçbir dala girmediği için `hedef_tutar` başlangıç değerinde
+    # (= tutar) kalıyor ve para 1:1 aktarılıyordu: 100.000 TL → 100.000 EUR.
+    # Hata da vermiyordu. Artık:
+    #   · hedef_tutar açıkça verilirse O kullanılır (çağıran hesaplamış demektir)
+    #   · tanımsız bir çift gelirse işlem REDDEDİLİR, asla 1:1 geçmez
+    if hedef_tutar is not None:
+        hedef_tutar = float(hedef_tutar)
+        if hedef_tutar <= 0:
+            return False, "Hedef tutar 0'dan büyük olmalı"
+    elif kaynak_pb == hedef_pb:
+        hedef_tutar = tutar
+    elif kur_kullanilan:
         kur = float(kur_kullanilan)
         if kur <= 0:
             return False, "Geçersiz kur"
-        if kaynak_pb == "TL" and hedef_pb == "USD":
-            hedef_tutar = tutar / kur
-        elif kaynak_pb == "USD" and hedef_pb == "TL":
-            hedef_tutar = tutar * kur
-        elif kaynak_pb == "EUR" and hedef_pb == "TL":
-            hedef_tutar = tutar * kur  # basitleştirilmiş
-        # Diğer kombinasyonlar için kullanıcı kuru manuel girer
-    elif kaynak_pb != hedef_pb:
+        # Kur her zaman "1 <güçlü birim> = kur <zayıf birim>" olarak yorumlanır.
+        # Güçlülük sırası: EUR > USD > TL
+        _sira = {"TL": 0, "TRY": 0, "USD": 1, "EUR": 2}
+        _k, _h = _sira.get(kaynak_pb, -1), _sira.get(hedef_pb, -1)
+        if _k < 0 or _h < 0:
+            return False, f"Desteklenmeyen para birimi: {kaynak_pb}/{hedef_pb}"
+        if _k < _h:
+            hedef_tutar = tutar / kur      # zayıf → güçlü (böl)
+        else:
+            hedef_tutar = tutar * kur      # güçlü → zayıf (çarp)
+    else:
         return False, "Farklı para birimleri arası virman için kur gerekli"
 
     # ─── Bakiye güncellemeleri ───
