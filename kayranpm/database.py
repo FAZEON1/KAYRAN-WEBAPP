@@ -1028,18 +1028,55 @@ def get_kampanya_destek_ortalamalari():
 
 # ── TALEPLER ────────────────────────────────────────────────────────
 
-def ekle_talep(gonderen, konu, mesaj):
-    """Kullanicinin talebini talepler tablosuna kaydeder."""
+def ekle_talep(gonderen, konu, mesaj, kategori=None, oncelik=None):
+    """Kullanıcının talebini talepler tablosuna kaydeder.
+
+    kategori / oncelik kolonları tabloda YOKSA da çalışır: önce onlarla
+    denenir, hata alınırsa temel alanlarla tekrar denenir. Böylece SQL
+    çalıştırılmadan da talep gönderilebilir, kolon eklenince zenginleşir.
+    """
+    _temel = {"gonderen": gonderen or "", "konu": konu or "",
+              "mesaj": mesaj or "", "durum": "bekliyor"}
+    _zengin = dict(_temel)
+    if kategori:
+        _zengin["kategori"] = str(kategori)
+    if oncelik:
+        _zengin["oncelik"] = str(oncelik)
     try:
-        get_client().table("talepler").insert({
-            "gonderen": gonderen or "",
-            "konu": konu or "",
-            "mesaj": mesaj or "",
-            "durum": "bekliyor",
-        }).execute()
+        get_client().table("talepler").insert(_zengin).execute()
+        _cache_temizle()
         return True
-    except Exception as e:
+    except Exception:
+        if _zengin == _temel:
+            return False
+    try:
+        get_client().table("talepler").insert(_temel).execute()   # kolonsuz yeniden dene
+        _cache_temizle()
+        return True
+    except Exception:
         return False
+
+
+def get_talepler_kullanici(gonderen):
+    """Bir kullanıcının KENDİ talepleri (en yeni üstte)."""
+    _ad = str(gonderen or "").strip()
+    if not _ad:
+        return []
+    try:
+        return [t for t in (get_talepler() or [])
+                if str(t.get("gonderen") or "").strip().lower() == _ad.lower()]
+    except Exception:
+        return []
+
+
+def acik_talep_sayisi():
+    """Tamamlanmamış talep sayısı — bildirim rozeti için."""
+    try:
+        return sum(1 for t in (get_talepler() or [])
+                   if str(t.get("durum") or "") != "tamamlandi")
+    except Exception:
+        return 0
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_talepler():
@@ -1229,19 +1266,10 @@ def get_satis_depolari(sku=None):
         return cikti or [{"depo": "MERKEZ DEPO", "adet": 0}]
 
     adlar = sorted(toplam, key=lambda d: -toplam[d])
-    # Stoğu 0 olsa bile bu depolar listede DURSUN (mal girdiğinde seçilebilsin).
-    #
-    # TEKNİK / HURDA / OUTLET eskiden bu listede YOKTU: o depodaki stok sıfıra
-    # düşünce depo seçeneklerden tamamen kayboluyordu. 09.09'da Teknik (Servis)
-    # deposundan satış girilememesinin sebebi buydu.
-    #
-    # NOT: "Servis Depo" ile "Teknik Depo" AYNI fiziksel yer; veritabanında
-    # hangi yazımla durursa dursun ekranda tek isimle (TEKNİK DEPO) görünür.
-    for _v in ("MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "İADE DEPO",
-               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "ASEL DEPO"):
-        _k = depo_kanonik(_v)
-        if _k not in adlar:
-            adlar.append(_k)
+    # Stoğu 0 olsa bile bu depolar listede dursun (mal girdiğinde seçilebilsin)
+    for _v in ("MERKEZ DEPO", "HAPPY LIFE", "IADE DEPO", "IKINCI EL DEPO"):
+        if depo_kanonik(_v) not in adlar:
+            adlar.append(depo_kanonik(_v))
     return adlar
 
 
