@@ -207,16 +207,13 @@ def _hizli_sayim(tablo: str, kolon: str = None, degerler=None):
 # ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
-KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar",
-                          "serdar"}
+KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar"}
 KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
 HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk",
-                        "serdar"}
-TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet", "serkan", "korkut",
-                             "serdar"}
+ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk"}
+TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet", "serkan", "korkut"}
 SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
-DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet", "berkay", "selcuk", "serdar"}
+DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet", "berkay", "selcuk"}
 YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar", "cem"}
 # Patron Panosu — sabah kokpiti YALNIZCA bu kullanıcı(lar)a render edilir.
 # Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
@@ -572,6 +569,14 @@ def gorev_sil(gorev_id: int):
         return True
     except Exception:
         return False
+
+# ── Talep Merkezi sabitleri ──────────────────────────────────────────
+# Gelen talepleri görebilen ve cevaplayabilen kullanıcılar (küçük harf).
+TALEP_YONETICILERI = {"ibrahim"}
+
+TALEP_KATEGORILERI = ["🐞 Hata bildirimi", "✨ Yeni özellik", "⚡ İyileştirme",
+                      "❓ Soru / destek", "📊 Rapor talebi", "🔧 Diğer"]
+
 
 def talep_gonder(gonderen_ad, konu, mesaj):
     """Talebi SMTP ile sabit alıcıya (TALEP_ALICI) gönderir.
@@ -2455,56 +2460,9 @@ def anasayfa():
     # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI (panel + kayıt +
     # liderlik sorguları) — ana sayfa açılışını da hızlandırır.
 
-    # ── 📬 Gelen Talepler (admin) — kapalı panel, sade liste ──
-    if aktif_kullanici.lower() == "ibrahim":
-        try:
-            from kayranpm.database import get_talepler
-            talepler = get_talepler()
-        except Exception:
-            talepler = []
-        _acik = sum(1 for t in talepler if t.get("durum") != "tamamlandi")
-        with st.expander(f"📬 Gelen Talepler — {len(talepler)} kayıt · {_acik} açık", expanded=False):
-            if not talepler:
-                st.info("Henüz talep yok.")
-            else:
-                _durum_secenekler = ["bekliyor", "inceleniyor", "tamamlandi"]
-                for _i_t, t in enumerate(talepler):
-                    durum_renk = {"bekliyor": "🟡", "inceleniyor": "🔵", "tamamlandi": "🟢"}.get(t.get("durum", ""), "⚪")
-                    if _i_t:
-                        st.markdown('<div style="height:1px;background:rgba(255,255,255,0.07);margin:12px 0"></div>', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div style="color:#E2E8F0;font-size:13px;font-weight:700">{durum_renk} {t.get("konu","—")}</div>'
-                        f'<div style="color:#64748B;font-size:11px;margin:0px 0 8px">{t.get("gonderen","?")} · {str(t.get("olusturma_tarihi",""))[:16].replace("T"," ")}</div>'
-                        f'<div style="color:#7DD3FC;font-size:13px;line-height:1.5;margin-bottom:8px">{t.get("mesaj","")}</div>',
-                        unsafe_allow_html=True)
-                    talep_id = t.get("id")
-                    _ct1, _ct2 = st.columns([3, 1])
-                    with _ct1:
-                        yeni_cevap = st.text_area("Cevap", value=(t.get("cevap") or ""), key=f"cevap_{talep_id}", height=70,
-                                                  label_visibility="collapsed", placeholder="Cevabınızı yazın...")
-                    with _ct2:
-                        _mevcut_durum = t.get("durum", "bekliyor")
-                        _durum_idx = _durum_secenekler.index(_mevcut_durum) if _mevcut_durum in _durum_secenekler else 0
-                        durum_sec = st.selectbox("Durum", _durum_secenekler, index=_durum_idx,
-                                                 key=f"durum_{talep_id}", label_visibility="collapsed")
-                        _kaydet = st.button("💾 Kaydet", key=f"kaydet_{talep_id}", use_container_width=True)
-                    if _kaydet:
-                        try:
-                            from kayranpm.database import guncelle_talep_cevap
-                            _cevap = (yeni_cevap or "").strip()
-                            guncelle_talep_cevap(talep_id, _cevap, durum_sec)
-                            _gonderen = (t.get("gonderen") or "").strip()
-                            if _gonderen and _cevap:
-                                try:
-                                    bildirim_gonder(_gonderen.lower(),
-                                                    f"📬 '{t.get('konu','talebiniz')}' talebinize yanıt verildi: {_cevap}")
-                                except Exception:
-                                    pass
-                            st.success("✅ Cevap kaydedildi ve gönderene iletildi.")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as _e:
-                            st.error(f"Kaydedilemedi: {_e}")
+    # 📬 Gelen Talepler artık HER SAYFADA sağ alttaki ✉️ düğmesinde
+    # (_talep_merkezi → "Gelen Talepler" sekmesi). Rozet açık talep sayısını
+    # gösterir, böylece ana sayfaya dönmeye gerek kalmaz.
 
     # ─── KURUMSAL — G5F & FAZEON (kapalı panel, kompakt) ───
     with st.expander("🏢 Kurumsal · G5F Teknoloji & Fazeon", expanded=False):
@@ -2546,30 +2504,9 @@ def anasayfa():
         '</style>',
         unsafe_allow_html=True
     )
-    with st.expander("💬 Destek · Talep / geri bildirim gönder", expanded=False):
-        st.caption("Geliştirme, optimizasyon veya yeni özellik taleplerini doğrudan ekibe ilet.")
-        with st.form("talep_form", clear_on_submit=True):
-            konu = st.text_input("Konu", placeholder="Örn. toplu Excel dışa aktarma")
-            mesaj = st.text_area("Mesajınız", placeholder="Talebinizi, önerinizi veya sorunu detaylıca yazın...", height=110)
-            gonder = st.form_submit_button("📨 Talebi Gönder", type="primary", use_container_width=True)
-        if gonder:
-            if not mesaj or not mesaj.strip():
-                st.warning("⚠️ Lütfen mesaj alanını doldurun.")
-            else:
-                konu_son = (konu or "").strip() or "Konusuz Talep"
-                with st.spinner("Talebiniz kaydediliyor..."):
-                    from kayranpm.database import ekle_talep, get_talepler
-                    ok = ekle_talep(aktif_kullanici.capitalize(), konu_son, mesaj.strip())
-                if ok:
-                    st.cache_data.clear()
-                    if aktif_kullanici.lower() != "ibrahim":
-                        try:
-                            bildirim_gonder("ibrahim", f"📨 Yeni talep — {konu_son} · {aktif_kullanici.capitalize()}")
-                        except Exception:
-                            pass
-                    st.success("✅ Talebiniz kaydedildi. Teşekkürler!")
-                else:
-                    st.error("❌ Talep kaydedilemedi. Lütfen tekrar deneyin.")
+    # Talep formu artık HER SAYFADA sağ alttaki ✉️ düğmesinde (_talep_merkezi).
+    # Ana sayfadaki kopya kaldırıldı ki iki ayrı yerden aynı iş yapılmasın.
+    st.caption("💬 Talep veya geri bildirim için sağ alttaki ✉️ düğmesini kullanabilirsin.")
 
     # ─── ALT BİLGİ ŞERİDİ (sade tek satır) ───
     st.markdown(
@@ -2886,6 +2823,190 @@ def _global_hata_kart(uygulama_adi, hata):
 # ─────────────────────────────────────────────────────────────────────
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
+def _talep_merkezi():
+    """Her sayfada sağ altta duran talep düğmesi ve talep merkezi.
+
+    · Herkes: talep gönderir ve KENDİ taleplerinin durumunu görür.
+    · Yönetici: gelen tüm talepleri görür, cevaplar, durum değiştirir.
+      Rozet açık talep sayısını gösterir — hangi sayfada olursa olsun.
+
+    Düğme CSS ile sabitlenir (position:fixed). Streamlit 1.39+ sürümlerinde
+    key verilen her bileşene 'st-key-<key>' sınıfı eklendiği için düğmeyi
+    o sınıf üzerinden konumlandırabiliyoruz.
+    """
+    _kul = st.session_state.get("aktif_kullanici", "") or ""
+    if not _kul:
+        return
+    _yonetici = _kul.lower() in TALEP_YONETICILERI
+
+    _acik = 0
+    if _yonetici:
+        try:
+            from kayranpm.database import acik_talep_sayisi
+            _acik = acik_talep_sayisi()
+        except Exception:
+            _acik = 0
+
+    st.markdown(
+        "<style>"
+        ".st-key-fab_talep{position:fixed !important;right:26px;bottom:26px;z-index:9990;width:auto !important;}"
+        ".st-key-fab_talep button{border-radius:50px !important;min-height:56px !important;"
+        "padding:0 22px !important;font-size:20px !important;font-weight:700 !important;"
+        "background:linear-gradient(135deg,#F59E0B,#FBBF24) !important;color:#1E293B !important;"
+        "border:none !important;box-shadow:0 8px 24px rgba(245,158,11,.45) !important;"
+        "transition:transform .15s ease,box-shadow .15s ease !important;}"
+        ".st-key-fab_talep button:hover{transform:translateY(-2px) scale(1.04) !important;"
+        "box-shadow:0 12px 30px rgba(245,158,11,.6) !important;}"
+        "@media(max-width:640px){.st-key-fab_talep{right:14px;bottom:14px;}}"
+        "</style>",
+        unsafe_allow_html=True)
+
+    _etiket = f"✉️  {_acik}" if (_yonetici and _acik) else "✉️"
+    _ipucu = (f"Talep Merkezi — {_acik} açık talep" if (_yonetici and _acik)
+              else "Talep / geri bildirim gönder")
+
+    @st.dialog("✉️ Talep Merkezi", width="large")
+    def _dlg_talep():
+        from kayranpm.database import (ekle_talep, get_talepler,
+                                       get_talepler_kullanici, guncelle_talep_cevap)
+
+        _DURUM_ETIKET = {"bekliyor": ("🟡", "Bekliyor"),
+                         "inceleniyor": ("🔵", "İnceleniyor"),
+                         "tamamlandi": ("🟢", "Tamamlandı"),
+                         "reddedildi": ("⚪", "Kapatıldı")}
+
+        def _durum_rozet(d):
+            _i, _a = _DURUM_ETIKET.get(str(d or "bekliyor"), ("🟡", "Bekliyor"))
+            return f"{_i} {_a}"
+
+        _sekmeler = ["📝 Yeni Talep", "📋 Taleplerim"]
+        if _yonetici:
+            _sekmeler.append(f"📬 Gelen Talepler ({_acik})")
+        _tabs = st.tabs(_sekmeler)
+
+        # ── Yeni talep ──
+        with _tabs[0]:
+            st.caption("Geliştirme, hata bildirimi veya yeni özellik isteklerini "
+                       "doğrudan ekibe ilet. Talebin kaydedilir ve durumunu "
+                       "**Taleplerim** sekmesinden takip edebilirsin.")
+            with st.form("talep_form_fab", clear_on_submit=True):
+                f1, f2 = st.columns([1, 1])
+                _kat = f1.selectbox("Kategori", TALEP_KATEGORILERI, key="fab_kat")
+                _onc = f2.selectbox("Öncelik", ["Normal", "Yüksek", "Acil", "Düşük"],
+                                    key="fab_onc")
+                _konu = st.text_input(
+                    "Konu *", placeholder="Kısa ve net — örn. 'Depo raporuna transfer tarihi eklensin'")
+                _mesaj = st.text_area(
+                    "Açıklama *", height=150,
+                    placeholder="Ne olmasını istiyorsun? Hangi ekranda? Hata ise hangi "
+                                "adımlarda oluşuyor? Örnek verirsen daha hızlı çözülür.")
+                _gonder = st.form_submit_button("📨 Talebi Gönder", type="primary",
+                                                use_container_width=True)
+            if _gonder:
+                if not (_mesaj or "").strip():
+                    st.warning("⚠️ Açıklama alanı zorunlu.")
+                elif not (_konu or "").strip():
+                    st.warning("⚠️ Konu alanı zorunlu.")
+                else:
+                    _ok = ekle_talep(_kul.capitalize(), _konu.strip(), _mesaj.strip(),
+                                     kategori=_kat, oncelik=_onc)
+                    if _ok:
+                        st.cache_data.clear()
+                        for _yn in TALEP_YONETICILERI:
+                            if _kul.lower() != _yn:
+                                try:
+                                    bildirim_gonder(
+                                        _yn, f"📨 Yeni talep — {_konu.strip()} "
+                                             f"· {_kul.capitalize()} ({_onc})")
+                                except Exception:
+                                    pass
+                        st.success("✅ Talebin kaydedildi. Teşekkürler!")
+                    else:
+                        st.error("❌ Kaydedilemedi, tekrar dener misin?")
+
+        # ── Kendi taleplerim ──
+        with _tabs[1]:
+            _benim = get_talepler_kullanici(_kul.capitalize())
+            if not _benim:
+                st.info("Henüz talep göndermemişsin.")
+            else:
+                st.caption(f"{len(_benim)} talep · en yeni üstte")
+                for _t in _benim[:40]:
+                    _bas = (f"{_durum_rozet(_t.get('durum'))} · "
+                            f"{_t.get('konu') or 'Konusuz'}")
+                    with st.expander(_bas):
+                        _ust = []
+                        if _t.get("kategori"):
+                            _ust.append(f"🏷️ {_t['kategori']}")
+                        if _t.get("oncelik"):
+                            _ust.append(f"⚡ {_t['oncelik']}")
+                        if _t.get("olusturma_tarihi"):
+                            _ust.append(f"📅 {str(_t['olusturma_tarihi'])[:10]}")
+                        if _ust:
+                            st.caption(" · ".join(_ust))
+                        st.markdown(_t.get("mesaj") or "—")
+                        if (_t.get("cevap") or "").strip():
+                            st.success(f"**Cevap:** {_t['cevap']}")
+
+        # ── Yönetici: gelen talepler ──
+        if _yonetici:
+            with _tabs[2]:
+                _hepsi = get_talepler() or []
+                _f = st.radio("Filtre", ["Açık olanlar", "Tümü"], horizontal=True,
+                              key="fab_filtre", label_visibility="collapsed")
+                _liste = ([t for t in _hepsi if t.get("durum") != "tamamlandi"]
+                          if _f == "Açık olanlar" else _hepsi)
+                if not _liste:
+                    st.success("🎉 Açık talep yok.")
+                for _t in _liste[:60]:
+                    _tid = _t.get("id")
+                    _bas = (f"{_durum_rozet(_t.get('durum'))} · "
+                            f"{_t.get('konu') or 'Konusuz'} — "
+                            f"{_t.get('gonderen') or '?'}")
+                    if str(_t.get("oncelik") or "").lower() in ("acil", "yüksek"):
+                        _bas = "🔴 " + _bas
+                    with st.expander(_bas):
+                        _ust = [f"👤 {_t.get('gonderen') or '?'}"]
+                        if _t.get("kategori"):
+                            _ust.append(f"🏷️ {_t['kategori']}")
+                        if _t.get("oncelik"):
+                            _ust.append(f"⚡ {_t['oncelik']}")
+                        if _t.get("olusturma_tarihi"):
+                            _ust.append(f"📅 {str(_t['olusturma_tarihi'])[:10]}")
+                        st.caption(" · ".join(_ust))
+                        st.markdown(_t.get("mesaj") or "—")
+                        _c1, _c2 = st.columns([3, 1])
+                        _cev = _c1.text_area("Cevap", value=(_t.get("cevap") or ""),
+                                             key=f"fab_cevap_{_tid}", height=90)
+                        _dur = _c2.selectbox(
+                            "Durum", ["bekliyor", "inceleniyor", "tamamlandi", "reddedildi"],
+                            index=["bekliyor", "inceleniyor", "tamamlandi",
+                                   "reddedildi"].index(str(_t.get("durum") or "bekliyor"))
+                            if str(_t.get("durum") or "bekliyor") in
+                               ("bekliyor", "inceleniyor", "tamamlandi", "reddedildi") else 0,
+                            key=f"fab_durum_{_tid}")
+                        if _c2.button("💾 Kaydet", key=f"fab_kaydet_{_tid}",
+                                      use_container_width=True):
+                            try:
+                                guncelle_talep_cevap(_tid, _cev.strip(), _dur)
+                                st.cache_data.clear()
+                                _gnd = str(_t.get("gonderen") or "").strip().lower()
+                                if _gnd and _cev.strip():
+                                    try:
+                                        bildirim_gonder(
+                                            _gnd, f"💬 Talebine cevap geldi — "
+                                                  f"{_t.get('konu') or 'Talep'}")
+                                    except Exception:
+                                        pass
+                                st.success("✅ Kaydedildi.")
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"❌ {type(_e).__name__}")
+
+    if st.button(_etiket, key="fab_talep", help=_ipucu):
+        _dlg_talep()
+
+
 def main():
     # Login yapılmamışsa giriş ekranı
     if not st.session_state.giris_yapildi:
@@ -3007,6 +3128,13 @@ def main():
     except Exception as hata:
         ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
+
+    # Talep düğmesi HER SAYFADA görünür — sayfa içeriği çizildikten sonra
+    # eklenir ki modül hata verse bile erişilebilir kalsın.
+    try:
+        _talep_merkezi()
+    except Exception:
+        pass
 
     # Modül değiştiyse soldaki menüyü ilgili "SAYFALARI" alt menüsüne kaydır
     if st.session_state.pop("_sidebar_kaydir", False):
