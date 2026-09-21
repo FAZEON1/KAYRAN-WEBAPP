@@ -44,6 +44,14 @@ from .bildirim import (mask_email,
 )
 
 
+# ── Toplam Aktifler yetkisi — TEK KAYNAK ─────────────────────────────
+# Bu liste ESKİDEN İKİ AYRI YERDE tekrar yazılıyordu: biri sol menüyü
+# süzen kısımda, diğeri sayfanın kendi gövdesinde. Sadece birine kullanıcı
+# eklenince sayfa menüde görünüyor ama açılınca "erişim yetkiniz yok"
+# diyordu. Artık tek yerde duruyor; her iki kontrol de buradan okuyor.
+TOPLAM_AKTIFLER_YETKILI = {"ibrahim", "cem", "yilmaz", "derman", "pamuk", "serdar"}
+
+
 def run():
     """Muhasebe & Finans ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
@@ -1090,8 +1098,7 @@ def run():
         # ─── Sayfa listesi (kullanıcıya göre dinamik) ───
         aktif_kullanici_lower = st.session_state.get("aktif_kullanici", "").lower().strip()
         # Toplam Aktifler sayfasına yetkili kullanıcılar (yeni eklemek için bu set'e ekle)
-        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman",
-                                                 "pamuk", "serdar"}
+        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI
         KISITLI_SAYFALAR = ["💰 Toplam Aktifler"]
     
         tum_sayfalar = [
@@ -3817,7 +3824,7 @@ def run():
         st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler"), unsafe_allow_html=True)
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
-        YETKILI_TOPLAM_AKTIFLER = {"ibrahim", "cem", "yilmaz", "derman", "pamuk"}
+        YETKILI_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI
         if aktif_kul not in YETKILI_TOPLAM_AKTIFLER:
             st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
             st.stop()
