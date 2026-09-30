@@ -27,7 +27,7 @@ from .database import (
     get_hafta_odemeler, odeme_ekle_bulk, odeme_ekle_manuel,
         odeme_durum_guncelle, odeme_sil, odeme_kismi_ode, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle, get_hafta_ozet,
     get_bankalar, banka_ekle, banka_guncelle, banka_sil,
-    get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi,
+    get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi, cek_tutarlari, cek_durum_norm,
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
     tahsilat_ekle, get_tahsilatlar, tahsilat_geri_al,
     aktif_excel_kaydet, aktif_excel_oku, aktif_excel_sil, aktif_excel_meta_oku,
@@ -2741,54 +2741,16 @@ def run():
                 return
             sym = "$" if cur == "USD" else "₺"
     
-            def _f(v):
-                try: return float(v) if v else 0.0
-                except (TypeError, ValueError): return 0.0
-    
-            # Türkçe karakter normalize ederek karşılaştır (Python upper(İ→I sorununu önlemek için)
-            def _tr_norm(s):
-                if not s: return ""
-                s = str(s)
-                for tr, en in [("İ","i"),("I","i"),("Ş","s"),("ş","s"),("Ç","c"),("ç","c"),
-                               ("Ğ","g"),("ğ","g"),("Ü","u"),("ü","u"),("Ö","o"),("ö","o"),("ı","i")]:
-                    s = s.replace(tr, en)
-                return s.lower().strip()
-    
-            ODENDI_DURUMLAR = {"odendi", "tahsil edildi", "tahsil", "iptal", "portfoyden cikti"}
-    
-            def _odendi_mi(c):
-                return _tr_norm(c.get("durum", "")) in ODENDI_DURUMLAR
-    
-            toplam_meblagh = 0.0
-            toplam_odenen = 0.0
-            toplam_kalan = 0.0
-            odendi_cnt = 0
-            bekleyen_cnt = 0
-    
+            toplam_meblagh = toplam_odenen = toplam_kalan = 0.0
+            odendi_cnt = bekleyen_cnt = 0
             for c in cekler:
-                meblag = _f(c.get("meblagh"))
-                odenen_kolon = _f(c.get("odenen"))
-                kalan_kolon = _f(c.get("kalan"))
-                is_odendi = _odendi_mi(c)
-    
-                toplam_meblagh += meblag
-    
-                if is_odendi:
-                    # Durum "Ödendi" ise: tamamı ödenmiş sayılır
-                    # odenen kolonu 0 olsa bile meblağ kadar ödenmiş sayalım
-                    toplam_odenen += max(odenen_kolon, meblag)
-                    # kalan 0
+                t = cek_tutarlari(c)          # tablo ve arşivle AYNI kural
+                toplam_meblagh += t["meblag"]
+                toplam_odenen += t["odenen"]
+                toplam_kalan += t["kalan"]
+                if t["odendi"]:
                     odendi_cnt += 1
                 else:
-                    # Bekleyen/Ciro: gerçek kalanı hesapla
-                    toplam_odenen += odenen_kolon
-                    # Gerçek kalan: önce kalan kolonunu dene, mantıklı değilse meblag-odenen
-                    gercek_kalan = meblag - odenen_kolon
-                    # Eğer kalan kolonu dolu ve mantıklıysa kullan
-                    if kalan_kolon > 0 and abs(kalan_kolon - gercek_kalan) < max(1, meblag * 0.01):
-                        toplam_kalan += kalan_kolon
-                    else:
-                        toplam_kalan += max(0, gercek_kalan)
                     bekleyen_cnt += 1
     
             metrik_satiri([
@@ -2808,14 +2770,16 @@ def run():
             rows = []
             for c in cekler:
                 vd = vade_durumu(c.get("vade"))
+                _t = cek_tutarlari(c)
                 rows.append({
                     "Ref No":       c.get("ref_no") or c.get("ref", ""),
                     "Çek No":       c.get("cek_no", ""),
                     "Tarih":        fmt_tarih(c.get("tarih")),
                     "Vade Tarihi":  fmt_tarih(c.get("vade")),
                     f"Meblağ ({sym})": c.get("meblagh", 0),
-                    f"Ödenen ({sym})": c.get("odenen", 0),
-                    f"Kalan ({sym})":  c.get("kalan", 0),
+                    f"Ödenen ({sym})": _t["odenen"],
+                    f"Kalan ({sym})":  _t["kalan"],
+                    "_odendi":      _t["odendi"],
                     "Son Pozisyon": c.get("durum", "Bekliyor"),
                     "C/H Kodu":     c.get("ch_kodu", ""),
                     "C/H İsmi":     c.get("ch_ismi", ""),
@@ -2849,12 +2813,14 @@ def run():
             cek_rows_html = ""
             for ri, row in enumerate(rows):
                 vd_raw = row.get("_vd", "")
-                pozisyon = str(row.get("Son Pozisyon", "")).lower()
+                # 'Ödendi' → 'odendi' (eskiden .lower() 'ödendi' veriyordu, hiç eşleşmiyordu)
+                pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))
+                odendi_satir = bool(row.get("_odendi"))
                 kalan_v = row.get(f"Kalan ({sym})", 0) or 0
-                if "gecmis" in pozisyon or ("odendi" not in pozisyon and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
+                if "gecmis" in pozisyon or (not odendi_satir and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
                     row_bg = "background:color-mix(in srgb,var(--k-kirmizi) 8%,transparent);"
                     ref_color = trenk("kirmizi")
-                elif "odendi" in pozisyon:
+                elif odendi_satir:
                     row_bg = "background:color-mix(in srgb,var(--k-yesil) 15%,transparent);" if ri % 2 == 0 else "background:color-mix(in srgb,var(--k-yesil) 8%,transparent);"
                     ref_color = trenk("yesil")
                 elif ri % 2 == 0:
@@ -2867,8 +2833,8 @@ def run():
                 odenen_v = row.get(f"Ödenen ({sym})", 0) or 0
                 kalan_color = trenk("yesil") if kalan_v <= 0 else trenk("kirmizi")
                 pos_badge = ""
-                if "odendi" in pozisyon:
-                    pos_badge = '<span style="background:var(--k-yesil2);color:var(--k-yesil2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
+                if pozisyon == "odendi":
+                    pos_badge = '<span style="background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
                 elif "bekliyor" in pozisyon:
                     pos_badge = '<span style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);color:var(--k-amber2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⏳ BEKLİYOR</span>'
                 elif "gecmis" in pozisyon:
@@ -3148,19 +3114,22 @@ def run():
     
                 # Çek listesi (her biri silinebilir)
                 for c in filtre_cekler:
-                    durum_str = str(c.get("durum", "")).lower()
+                    _t = cek_tutarlari(c)
+                    durum_str = cek_durum_norm(c.get("durum"))
                     vd = vade_durumu(c.get("vade"))
     
-                    if "odendi" in durum_str:
-                        kart_bg = "#0A2D15"; kart_border = trenk("yesil2"); durum_renk = trenk("yesil2")
+                    # Zeminler tema duyarlı (eskiden koyu sabit hex → açık temada okunmuyordu;
+                    # varsayılan kart ise açık mavi zemin + metin rengiydi, iki temada da okunmuyordu)
+                    if _t["odendi"]:
+                        kart_bg = "color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1))"; kart_border = trenk("yesil2"); durum_renk = trenk("yesil2")
                     elif "ciro" in durum_str:
-                        kart_bg = "#0E1A3A"; kart_border = trenk("mavi"); durum_renk = trenk("mavi")
+                        kart_bg = "color-mix(in srgb,var(--k-mavi) 9%,var(--k-yuzey1))"; kart_border = trenk("mavi"); durum_renk = trenk("mavi")
                     elif vd == "gecmis":
-                        kart_bg = "#2D0A0A"; kart_border = trenk("kirmizi2"); durum_renk = trenk("kirmizi2")
+                        kart_bg = "color-mix(in srgb,var(--k-kirmizi) 9%,var(--k-yuzey1))"; kart_border = trenk("kirmizi2"); durum_renk = trenk("kirmizi2")
                     elif vd == "bugun":
-                        kart_bg = "#2D200A"; kart_border = trenk("amber2"); durum_renk = trenk("amber2")
+                        kart_bg = "color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1))"; kart_border = trenk("amber2"); durum_renk = trenk("amber2")
                     else:
-                        kart_bg = trenk("mavi"); kart_border = trenk("metin"); durum_renk = trenk("soluk")
+                        kart_bg = "var(--k-yuzey1)"; kart_border = "var(--k-kenar2)"; durum_renk = trenk("soluk")
     
                     col_a, col_b = st.columns([9, 1])
                     with col_a:
@@ -3184,7 +3153,7 @@ def run():
                                 <div>
                                     <div style="font-size:13px;color:var(--k-silik);font-weight:600">MEBLAĞ / KALAN</div>
                                     <div style="font-size:14px;font-weight:700;color:var(--k-metin);font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
-                                    <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Kalan: {sym}{fmt(c.get('kalan') or 0)}</div>
+                                    <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Kalan: {sym}{fmt(_t['kalan'])}</div>
                                 </div>
                                 <div>
                                     <div style="font-size:13px;color:var(--k-silik);font-weight:600">DURUM</div>
