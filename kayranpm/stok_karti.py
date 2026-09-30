@@ -39,7 +39,7 @@ def _kart(baslik, deger, alt="", renk="#A5B4FC"):
         f'border-radius:10px;padding:12px 16px">'
         f'<div style="color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:.4px">{baslik}</div>'
         f'<div style="color:{renk};font-size:19px;font-weight:700;margin-top:0px">{deger}</div>'
-        f'<div style="color:#64748B;font-size:11px;margin-top:0px">{alt}</div></div>'
+        f'<div style="color:#7B8AA0;font-size:11px;margin-top:0px">{alt}</div></div>'
     )
 
 
@@ -316,7 +316,7 @@ def goster(sku):
         f'background:{_canli_renk}1A;padding:4px 12px;border-radius:999px;white-space:nowrap">'
         f'📦 {toplam_stok:,.0f} adet</span></div>'
         f'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;'
-        f'font-size:11px;color:#64748B">'
+        f'font-size:11px;color:#7B8AA0">'
         f'<span>Marka: <b style="color:#94A3B8">{urun.get("marka") or "—"}</b></span>'
         f'<span>Kategori: <b style="color:#94A3B8">{urun.get("kategori") or "—"}</b></span>'
         f'<span>Barkod: <b style="color:#94A3B8">{urun.get("barkod") or "—"}</b></span>'
@@ -753,7 +753,7 @@ def _hareket_sekmesi(sku):
         _kart("Kayıt", f"{len(rows):,}", "son 300 hareket"),
         _kart("Toplam Giriş", f"+{_giris:,.0f}", "adet", "#34D399"),
         _kart("Toplam Çıkış", f"{_cikis:,.0f}", "adet", "#F87171"),
-        _kart("Başarısız", f"{len(_hatali):,}", "işlem", "#FBBF24" if _hatali else "#64748B"),
+        _kart("Başarısız", f"{len(_hatali):,}", "işlem", "#FBBF24" if _hatali else "#7B8AA0"),
     ])
     _depolar = sorted({r.get("depo") or "" for r in rows} - {""})
     _sec = st.selectbox("Depo", ["Tümü"] + _depolar, key=f"sh_depo_{sku}")

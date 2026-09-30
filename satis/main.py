@@ -351,7 +351,8 @@ def run():
         if _kar_ok():
             _sayfalar.append("📊 Kâr / P&L")
         _sayfalar += ["📥 İçe Aktar", "↩️ İade"]
-        _ssayfa = st.radio("Sayfa", _sayfalar,
+        from shared.tasarim import menu_etiketi as _me
+        _ssayfa = st.radio("Sayfa", _sayfalar, format_func=_me,
                            label_visibility="collapsed", key="satis_sayfa")
 
 
@@ -1377,7 +1378,7 @@ def run():
                        if ton in ("ara", "son") else "")
                 _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
                 _fw = "800" if ton in ("ara", "son") else "600"
-                _oran = (f'<span style="color:#64748B;font-size:11px;margin-left:8px">'
+                _oran = (f'<span style="color:#7B8AA0;font-size:11px;margin-left:8px">'
                          f'%{oran:.1f}</span>' if oran is not None else "")
                 return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
                         f'padding:7px 14px;background:{_bg};{_bd}">'

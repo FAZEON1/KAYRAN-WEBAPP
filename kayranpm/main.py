@@ -120,7 +120,7 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
         ".rk-pos{text-align:right;color:#6EE7B7 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
         ".rk-neg{text-align:right;color:#F87171 !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
         ".rk-red{color:#F87171 !important;font-weight:600}.rk-org{color:#FBBF24 !important;font-weight:600}"
-        ".rk-yel{color:#FCD34D !important;font-weight:600}.rk-grn{color:#6EE7B7 !important;font-weight:600}.rk-dim{color:#64748B !important}"
+        ".rk-yel{color:#FCD34D !important;font-weight:600}.rk-grn{color:#6EE7B7 !important;font-weight:600}.rk-dim{color:#7B8AA0 !important}"
         "</style>"
     )
     st.html(css + f'<div class="rkw"><table class="rkt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
@@ -547,6 +547,7 @@ def run():
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
         from shared.utils import sidebar_ust
         sidebar_ust("📦", "Ürün Yönetimi", "kayranpm")
+        from shared.tasarim import menu_etiketi as _me
         sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
             "📋  Tüm Ürünler",
@@ -556,7 +557,8 @@ def run():
             "💵  Maliyet Girişi",
             "🔖  Ref No Takibi",
             "📂  Veri Yükleme",
-        ], label_visibility="collapsed")
+        ], label_visibility="collapsed",
+           format_func=_me)
 
         st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
         # ── STOK KARTI — hızlı erişim (sık kullanılan eylem, öne çıkarılmış) ──
@@ -700,18 +702,17 @@ def run():
     
         # ── UYARI PENCERELERİ — shared/ui.py standardı: yan yana kart + iç scroll ──
         from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
+        from shared.tasarim import urun_etiketi
         st.markdown(pencere_css(), unsafe_allow_html=True)
 
         acil_items_list = []
         for u in acil_urunler:
             gun = u.get('stok_bitis_gun', '?')
             toplam = u.get('toplam_stok', u.get('bizim_stok', 0))
-            ad = u['urun_adi']
-            ad_kisalt = (ad[:46] + '…') if len(ad) > 46 else ad
             acil_items_list.append(
-                f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;'
                 f'padding:4px 8px;margin:4px 0;border-radius:6px;background:linear-gradient(180deg,#152036,#0F172A);">'
-                f'<span style="color:#E2E8F0;font-weight:600;font-size:13px;">⚡ {ad_kisalt}</span>'
+                f'{urun_etiketi(u.get("urun_adi"), u.get("sku"), kalin=True)}'
                 f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:8px;">'
                 f'<span style="color:#94A3B8;font-size:11px;">📦 {toplam:,}</span>'
                 f'<span style="color:#F87171;font-size:11px;font-weight:700;">{gun}g</span>'
@@ -722,12 +723,10 @@ def run():
         yak_items_list = []
         for u in yaklasan_urunler:
             gun = u.get('siparis_son_gun', u.get('stok_bitis_gun', '?'))
-            ad = u['urun_adi']
-            ad_kisalt = (ad[:46] + '…') if len(ad) > 46 else ad
             yak_items_list.append(
-                f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;'
                 f'padding:4px 8px;margin:4px 0;border-radius:6px;background:linear-gradient(180deg,#152036,#0F172A);">'
-                f'<span style="color:#E2E8F0;font-size:13px;">📌 {ad_kisalt}</span>'
+                f'{urun_etiketi(u.get("urun_adi"), u.get("sku"))}'
                 f'<span style="color:#FBBF24;font-size:11px;font-weight:600;flex-shrink:0;margin-left:8px;">'
                 f'{gun}g içinde</span></div>'
             )
@@ -848,7 +847,7 @@ def run():
         if _sg:
             st.markdown('<div style="font-size:13px;color:#94A3B8;margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> '
                         + '  ·  '.join(_sg)
-                        + ' <span style="color:#64748B">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
+                        + ' <span style="color:#7B8AA0">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
                         unsafe_allow_html=True)
         else:
             st.markdown('<div style="font-size:13px;color:#34D399;margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
@@ -908,7 +907,7 @@ def run():
                 f'<span style="color:#94A3B8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
                 f'<span style="color:#34D399;font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {_dk_toplam:,} adet</span></div>'
                 f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
-                f'<div style="color:#64748B;font-size:11px;margin-top:8px">Sipariş önerisinde kullanılan stok '
+                f'<div style="color:#7B8AA0;font-size:11px;margin-top:8px">Sipariş önerisinde kullanılan stok '
                 f'(Merkez + Happy Life): <b style="color:#7DD3FC">{bizim_stok:,}</b></div>'
                 f'</div>', unsafe_allow_html=True)
     
@@ -2021,7 +2020,7 @@ def run():
                                 return ""
                             for _c in FIRMA_LISTESI_K:
                                 try:
-                                    _tam = _knrm(firma_gorunen_ad(_c))
+                                    _tam = _knrm(firma_gorunen_ad(_c, kisa=False))  # eşleştirme: TAM ad
                                 except Exception:
                                     _tam = ""
                                 if _tam and (_tam == _adn or _tam in _adn or _adn in _tam):

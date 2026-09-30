@@ -17,7 +17,7 @@ section[data-testid='stAppViewContainer'],[data-testid='stMain']{font-family:'In
 .prim-metric-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;height:100%;}
 .prim-metric-card.highlight{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);}
 .prim-metric-card.accent{background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);}
-.pm-label{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;color:#64748B;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;line-height:1;}
+.pm-label{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;color:#7B8AA0;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;line-height:1;}
 .pm-val{font-family:'Inter',sans-serif;font-size:23px;font-weight:700;line-height:1.1;}
 .pm-val-sm{font-family:'Inter',sans-serif;font-size:14px;font-weight:700;line-height:1.2;}
 .pm-val-xs{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;line-height:1.3;}
@@ -114,7 +114,7 @@ def _gecmis_odemeler(kisi, pfx):
         with c1: st.markdown('<div class="prim-hist-val" style="color:#E2E8F0;font-weight:600">'+str(row.get('donem',''))+'</div>', unsafe_allow_html=True)
         with c2: st.markdown('<div class="prim-hist-val" style="color:#10B981;font-weight:700">'+ _tl(row.get('toplam_prim',0))+'</div>', unsafe_allow_html=True)
         with c3: st.markdown('<div class="prim-hist-val" style="color:#94A3B8">'+str(row.get('odeme_tarihi',''))+'</div>', unsafe_allow_html=True)
-        with c4: st.markdown('<div class="prim-hist-val" style="color:#64748B">'+(row.get('notlar','') or '—')+'</div>', unsafe_allow_html=True)
+        with c4: st.markdown('<div class="prim-hist-val" style="color:#7B8AA0">'+(row.get('notlar','') or '—')+'</div>', unsafe_allow_html=True)
         with c5:
             if st.button('✏️', key=pfx+'_ed_'+str(rid), help='Düzenle'):
                 st.session_state[ek] = rid; st.rerun()
@@ -151,7 +151,7 @@ def _prim_gokhan():
     st.markdown(
         '<div style="font-family:Inter,sans-serif;margin-bottom:20px">'
         '<div style="font-size:16px;font-weight:700;color:#E2E8F0;margin-bottom:4px">PRİM HESAPLAMA — GÖKHAN YAVUZ</div>'
-        '<div style="font-size:13px;color:#64748B">Prim = Baz Hakediş (1,5 Maaş) + Ciro Ağırlıklı Bonus &nbsp;·&nbsp; NZXT/AGI hariç</div>'
+        '<div style="font-size:13px;color:#7B8AA0">Prim = Baz Hakediş (1,5 Maaş) + Ciro Ağırlıklı Bonus &nbsp;·&nbsp; NZXT/AGI hariç</div>'
         '</div>',
         unsafe_allow_html=True)
 
@@ -256,7 +256,7 @@ def _prim_ayhan():
     st.markdown(
         '<div style="font-family:Inter,sans-serif;margin-bottom:20px">'
         '<div style="font-size:16px;font-weight:700;color:#E2E8F0;margin-bottom:4px">PRİM HESAPLAMA — AYHAN EROĞLU</div>'
-        '<div style="font-size:13px;color:#64748B">Mon/Kasa/SSD: Ciro × Oran % | E.Kartı: Adet × 1 USD × Kur</div>'
+        '<div style="font-size:13px;color:#7B8AA0">Mon/Kasa/SSD: Ciro × Oran % | E.Kartı: Adet × 1 USD × Kur</div>'
         '</div>',
         unsafe_allow_html=True)
 
@@ -368,7 +368,7 @@ def _urun_karlilik():
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="hm-sep"></div>', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:14px;font-weight:700;color:#E2E8F0;margin-bottom:6px">Toplu Kıyaslama</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;color:#64748B;font-size:13px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip kıyasla.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;color:#7B8AA0;font-size:13px;margin-bottom:14px">Birden fazla ürünü yan yana ekleyip kıyasla.</div>', unsafe_allow_html=True)
     if 'uk_liste' not in st.session_state: st.session_state.uk_liste = []
     if 'uk_sayac' not in st.session_state: st.session_state.uk_sayac = 0
     with st.expander('+ Ürün Ekle', expanded=(len(st.session_state.uk_liste)==0)):
@@ -450,7 +450,7 @@ def _breakeven():
                 st.markdown('<div class="pm-label">Kalan Ciro</div><div style="font-family:Inter,sans-serif;font-size:19px;font-weight:700;color:#FBBF24">$'+'{:,.0f}'.format(kalan)+'</div>', unsafe_allow_html=True)
                 if ort_fiyat > 0:
                     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-                    st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#818CF8">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#64748B;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="pm-label">Hedef / Kalan Adet</div><div style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:#818CF8">'+'{:,.0f}'.format(hedef/ort_fiyat)+' &nbsp;<span style="color:#7B8AA0;font-size:13px">/ '+'{:,.0f}'.format(kalan/ort_fiyat)+' kalan</span></div>', unsafe_allow_html=True)
                 gun_map={'Günlük':1,'Haftalık':7,'Aylık':30,'Yıllık':365}
                 if kalan > 0:
                     gd = kalan / gun_map.get(periyot,30)
@@ -463,7 +463,7 @@ def _breakeven():
 # ─── RUN
 def run():
     st.markdown(_css(), unsafe_allow_html=True)
-    st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:28px"><div style="display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:20px;margin-bottom:10px"><span style="font-size:10px;font-weight:700;color:#FCD34D;letter-spacing:1.5px;text-transform:uppercase">Hesap Makinesi</span></div><h1 style="font-size:clamp(22px,4vw,32px);font-weight:700;color:#E2E8F0;margin:0;line-height:1.1">Hesap Makinesi</h1><p style="color:#64748B;font-size:13px;margin-top:6px">Ürün karlılık analizi, kırılma noktası ve prim hesaplama</p></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif;margin-bottom:28px"><div style="display:inline-block;padding:4px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:20px;margin-bottom:10px"><span style="font-size:10px;font-weight:700;color:#FCD34D;letter-spacing:1.5px;text-transform:uppercase">Hesap Makinesi</span></div><h1 style="font-size:clamp(22px,4vw,32px);font-weight:700;color:#E2E8F0;margin:0;line-height:1.1">Hesap Makinesi</h1><p style="color:#7B8AA0;font-size:13px;margin-top:6px">Ürün karlılık analizi, kırılma noktası ve prim hesaplama</p></div>', unsafe_allow_html=True)
     if 'hm_sekme' not in st.session_state: st.session_state.hm_sekme = 'karlilik'
     t1,t2,t3,t4,_ = st.columns([1.4,1.4,1.4,1.4,4])
     with t1:

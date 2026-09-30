@@ -1555,7 +1555,7 @@ def _ref_detay_govde(r, firma_adi=""):
 
 
 def _durum_renk(d):
-    return {"paylasildi": "#34D399", "beklemede": "#FBBF24"}.get(d, "#64748B")
+    return {"paylasildi": "#34D399", "beklemede": "#FBBF24"}.get(d, "#7B8AA0")
 
 
 def _ref_kart_html(r, firma_adi=""):
@@ -1691,7 +1691,7 @@ def _dt_alan(etiket, deger, mono=False):
 
 def _dt_cipler(degerler, renk="#A5B4FC"):
     if not degerler:
-        return '<span style="color:#64748B;font-size:13px">—</span>'
+        return '<span style="color:#7B8AA0;font-size:13px">—</span>'
     return "".join(
         f'<span style="background:{renk}1F;color:{renk};padding:3px 10px;'
         f'border-radius:20px;font-size:11px;font-weight:600;margin:0 5px 5px 0;'
