@@ -41,10 +41,52 @@ FIRMA_GORUNEN_AD = {
 }
 
 
-def firma_gorunen_ad(kod) -> str:
-    """Firma stok kodunu (ITOPYA, HB...) muhasebedeki TAM cari adına çevirir.
+# Resmî ünvanın ekranda gereksiz kısmı. Normalize (normalize_tr) hâliyle
+# karşılaştırılır; ilk rastlanan yerden sonrası atılır.
+_UNVAN_BASLANGIC = {
+    "SANAYI", "SAN", "SAN.", "TICARET", "TIC", "TIC.", "LIMITED", "LTD", "LTD.",
+    "SIRKETI", "STI", "STI.", "ANONIM", "A.S.", "A.S", "AS", "AS.",
+    "DIS", "ITHALAT", "IHRACAT", "PAZARLAMA", "SAN.VE", "SAN.TIC.", "TIC.LTD.STI.",
+    "TIC.A.S.", "LTD.STI.",
+}
+_DOVIZ = {"USD", "EUR", "TL", "TRY", "GBP"}
+
+
+def firma_kisa_ad(ad) -> str:
+    """Uzun resmî ünvanı ekranda okunur kısa ada indirir.
+
+    'EERA BİLGİSAYAR SANAYİ VE TİCARET LİMİTED ŞİRKETİ USD' → 'EERA BİLGİSAYAR · USD'
+    'D-MARKET ELEKTRONİK HİZMETLER VE TİCARET A.Ş.'        → 'D-MARKET ELEKTRONİK HİZMETLER'
+    Sonda döviz etiketi varsa korunur (aynı firmanın TL/USD carisi ayrışsın).
+    Yalnız GÖSTERİM içindir; eşleştirme/sorgu için tam ad kullanılır."""
+    s = " ".join(str(ad or "").split())
+    if not s:
+        return ""
+    kelimeler = s.split(" ")
+    doviz = ""
+    son = normalize_tr(kelimeler[-1]).strip("()[]")
+    if len(kelimeler) > 1 and son in _DOVIZ:
+        doviz = kelimeler[-1].strip("()[]")
+        kelimeler = kelimeler[:-1]
+    kes = len(kelimeler)
+    for i, k in enumerate(kelimeler):
+        if i > 0 and normalize_tr(k).strip(",") in _UNVAN_BASLANGIC:
+            kes = i
+            break
+    kalan = kelimeler[:kes]
+    # Kesim noktasının hemen önündeki bağlaçları at ("… HİZMETLER VE")
+    while len(kalan) > 1 and normalize_tr(kalan[-1]) in {"VE", "&", "-", ","}:
+        kalan = kalan[:-1]
+    kisa = " ".join(kalan) or s
+    return f"{kisa} · {doviz}" if doviz else kisa
+
+
+def firma_gorunen_ad(kod, kisa=True) -> str:
+    """Firma stok kodunu (ITOPYA, HB...) ekranda gösterilecek ada çevirir.
     Önce ref_no.firma_tam_cari_adi ile cari listesinden tam adı bulur; ulaşılamazsa
     kısa öneke (EERA / D-MARKET...) düşer; o da yoksa kodu olduğu gibi gösterir.
+    kisa=True (varsayılan): uzun resmî ünvan firma_kisa_ad ile kısaltılır.
+    kisa=False: TAM cari adı — eşleştirme yapan kod bunu kullanmalı.
     Sadece ekranda gösterim için — veri/sorguda firma kodu kullanılır."""
     if not kod:
         return ""
@@ -52,7 +94,7 @@ def firma_gorunen_ad(kod) -> str:
         from kayranpm.ref_no import firma_tam_cari_adi
         ad = firma_tam_cari_adi(kod)
         if ad:
-            return ad
+            return firma_kisa_ad(ad) if kisa else ad
     except Exception:
         pass
     k = normalize_tr(kod).strip()

@@ -60,7 +60,7 @@ def kart_maskele(satirlar):
                 yeni = list(s)
                 yeni[1] = MASKE
                 if len(yeni) >= 3:
-                    yeni[2] = "#64748B"   # nötr gri — yeşil/kırmızı ipucu vermesin
+                    yeni[2] = "#7B8AA0"   # nötr gri — yeşil/kırmızı ipucu vermesin
                 out.append(tuple(yeni))
                 continue
         except Exception:

@@ -363,7 +363,7 @@ def run():
             _donem = secim_serit("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], index=0)
         else:
             _donem = "Tüm Yıl"
-            st.markdown('<div style="color:#64748B;font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',
+            st.markdown('<div style="color:#7B8AA0;font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',
                         unsafe_allow_html=True)
     baslangic, bitis = _donem_tarih(_yil, _donem)
 
@@ -819,10 +819,10 @@ def run():
             f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
             f'border-radius:10px;padding:12px 16px;margin-bottom:16px;font-family:JetBrains Mono,monospace;'
             f'font-size:13px;color:#7DD3FC">'
-            f'{_usd(_r["ciro"])} <span style="color:#64748B">ciro</span> − '
-            f'{_usd(_r["cogs"])} <span style="color:#64748B">cogs</span> − '
-            f'{_usd(_r["destek"])} <span style="color:#64748B">destek</span> − '
-            f'{_usd(_r["gider"])} <span style="color:#64748B">gider</span> = '
+            f'{_usd(_r["ciro"])} <span style="color:#7B8AA0">ciro</span> − '
+            f'{_usd(_r["cogs"])} <span style="color:#7B8AA0">cogs</span> − '
+            f'{_usd(_r["destek"])} <span style="color:#7B8AA0">destek</span> − '
+            f'{_usd(_r["gider"])} <span style="color:#7B8AA0">gider</span> = '
             f'<b style="color:{_nr}">{_usd(_r["net_kar"])} net kâr</b></div>',
             unsafe_allow_html=True)
 

@@ -39,7 +39,7 @@ RENK = {
     "pembe":    "#F9A8D4",   # ürün yönetimi teması
     "metin":    "#E2E8F0",   # ana metin
     "soluk":    "#94A3B8",   # ikincil metin / etiket
-    "silik":    "#64748B",   # placeholder · boş durum
+    "silik":    "#7B8AA0",   # placeholder · boş durum
     # ── Yüzey katmanları (derinlik) — en koyudan açığa ──
     "yuzey0":   "#0B1120",   # en dip zemin (sayfa arka planı)
     "yuzey1":   "#0F172A",   # kart zemini (1. katman)

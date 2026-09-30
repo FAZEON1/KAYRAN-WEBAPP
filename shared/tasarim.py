@@ -88,6 +88,88 @@ MODUL_RENK = {
     "hesap_makinesi": "amber2",
 }
 
+# ── Kategorik grafik paleti (pasta/halka/çubuk dilimleri) ──────────────
+# Koyu zeminde birbirinden AYIRT EDİLEBİLİR 13 ton. Eskiden Muhasebe'de
+# Çek=Kredi aynı kırmızı, SGK (#0891b2) ile İthalat (#0e7490) neredeyse aynı
+# camgöbeğiydi; #1e40af / #92400e gibi koyu tonlar zeminde kayboluyordu.
+GRAFIK_PALET = [
+    "#818CF8",  # çivit
+    "#34D399",  # yeşil
+    "#FBBF24",  # amber
+    "#F87171",  # kırmızı
+    "#22D3EE",  # camgöbeği
+    "#F472B6",  # pembe
+    "#60A5FA",  # mavi
+    "#FB923C",  # turuncu
+    "#A3E635",  # limon
+    "#C084FC",  # mor
+    "#2DD4BF",  # turkuaz
+    "#FDA4AF",  # gül
+    "#94A3B8",  # gri (her zaman "Diğer" için)
+]
+# Grafik dilimi üstündeki yazı: açık dilimlerde koyu metin okunur.
+GRAFIK_DILIM_METIN = "#0B1120"
+
+
+# ── Menü ikon dili ──────────────────────────────────────────────────
+# Sidebar menülerinde emoji yerine TEK ikon ailesi (Material Symbols).
+# Menü DEĞERLERİ (emoji'li metin) aynen kalır; bu yalnız GÖRÜNÜMÜ çevirir,
+# böylece `if sayfa == "📊 Dashboard"` gibi karşılaştırmalar bozulmaz.
+EMOJI_IKON = {
+    "📊": "dashboard", "📋": "list_alt", "📈": "trending_up", "🎯": "campaign",
+    "📦": "inventory_2", "💵": "payments", "🔖": "tag", "📂": "upload_file",
+    "💳": "credit_card", "🏦": "account_balance", "💰": "savings",
+    "💸": "account_balance_wallet", "🕐": "history", "⏳": "hourglass_top",
+    "🧾": "receipt_long", "📄": "description", "📚": "menu_book",
+    "🏬": "warehouse", "🚚": "local_shipping", "🔎": "manage_search",
+    "🔍": "search", "🏭": "factory", "📥": "move_to_inbox", "↩️": "undo",
+    "↩": "undo", "➕": "add_circle", "🔧": "build", "🔑": "key",
+    "👥": "group", "🏠": "home", "🚢": "directions_boat", "🛒": "shopping_cart",
+}
+
+
+def menu_etiketi(metin):
+    """'📊  Dashboard' → ':material/dashboard: Dashboard'.
+    st.radio(..., format_func=menu_etiketi) ile kullanılır. Tanınmayan emoji
+    atılır (menüde yarı emoji yarı ikon karışımı olmasın)."""
+    s = str(metin or "").strip()
+    for emo in sorted(EMOJI_IKON, key=len, reverse=True):
+        if s.startswith(emo):
+            return f":material/{EMOJI_IKON[emo]}: {s[len(emo):].strip()}"
+    # Tanınmayan emoji / sembol → at (harf ya da rakamla başlayana kadar)
+    i = 0
+    while i < len(s) and not (s[i].isalnum()):
+        i += 1
+    return s[i:] if i < len(s) else s
+
+
+# ── Ürün etiketi: SKU her zaman görünür, ad CSS ile kısalır ─────────
+def urun_etiketi(ad, sku="", renk=None, kalin=False):
+    """Liste satırı için ürün etiketi (HTML).
+
+    SKU sabit genişlikte başta durur ve ASLA kesilmez; ad kalan yere sığdığı
+    kadar görünür, taşarsa '…' ile biter, tam adı fareyle üstüne gelince
+    görünür. Eskiden ad Python'da 46 karakterde kesiliyordu: 'FAZEON F14 PLUS…'
+    ile başlayan iki farklı ürün ekranda AYNI görünüyordu.
+
+    Kapsayıcı satır `display:flex` olmalı; bu span `min-width:0` ile daralır."""
+    import html as _h
+    ad = str(ad or "").strip()
+    sku = str(sku or "").strip()
+    ad_e, sku_e = _h.escape(ad), _h.escape(sku)
+    baslik = _h.escape(f"{sku} · {ad}" if sku else ad, quote=True)
+    renk = renk or RENK["metin"]
+    agirlik = AGIRLIK["vurgu"] if kalin else AGIRLIK["govde"]
+    sku_html = (f'<span style="flex-shrink:0;font-family:{MONO};font-size:11px;'
+                f'color:{RENK["mor2"]};background:rgba(129,140,248,0.10);'
+                f'border:1px solid rgba(129,140,248,0.22);border-radius:5px;'
+                f'padding:1px 6px;letter-spacing:0">{sku_e}</span>') if sku else ""
+    return (f'<span title="{baslik}" style="display:flex;align-items:center;gap:8px;'
+            f'min-width:0;flex:1 1 auto">{sku_html}'
+            f'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;'
+            f'white-space:nowrap;color:{renk};font-size:13px;font-weight:{agirlik}">'
+            f'{ad_e}</span></span>')
+
 
 # ═══════════════════════════════════════════════════════════════════
 # 2. YOĞUNLUK — kompaktlığın kaynağı.

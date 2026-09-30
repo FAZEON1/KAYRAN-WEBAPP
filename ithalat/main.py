@@ -82,7 +82,7 @@ def _metrik_satiri(cards):
     for c in cards:
         renk = c.get("renk", "#A5B4FC")
         ttl = f' title="{c["help"]}"' if c.get("help") else ""
-        ipucu = ' <span style="color:#64748B;font-size:11px">ⓘ</span>' if c.get("help") else ""
+        ipucu = ' <span style="color:#7B8AA0;font-size:11px">ⓘ</span>' if c.get("help") else ""
         cells += (
             f'<div{ttl} style="flex:1;min-width:150px;'
             f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
@@ -809,7 +809,7 @@ def _gecmis_ithalatlar():
         st.markdown(
             f'<div style="color:#94A3B8;font-size:13px;margin-bottom:8px">'
             f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
-            + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#64748B">—</b>')
+            + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#7B8AA0">—</b>')
             + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
             + (f' · 🚢 Teslim Şekli: <b style="color:#E2E8F0">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
             + '</div>', unsafe_allow_html=True)
@@ -841,7 +841,7 @@ def _gecmis_ithalatlar():
                         f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:5px">{_tam(_gd["toplam_masraf"])} {_cur}</div>'
                         f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Maliyet Yüzdesi</div>'
                         f'<div style="font-size:16px;font-weight:700;color:#FCD34D;font-family:monospace">%{_gd["yuzde"]:.2f}</div>'
-                        f'<div style="font-size:10px;color:#64748B;margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
+                        f'<div style="font-size:10px;color:#7B8AA0;margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
                         f'</div>', unsafe_allow_html=True)
             st.caption("ℹ️ Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
                        "elle atandıkları gruba yazıldı. Atamaları **✏️ Düzenle** bölümünden değiştirebilirsin.")
@@ -1548,17 +1548,17 @@ def _yeni_ithalat():
         _indirim_html = (
             '<div style="flex:1;min-width:120px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:12px 16px">'
             '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura Altı İndirim</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace">−{_tam(float(m_indirim or 0))} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace">−{_tam(float(m_indirim or 0))} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
         ) if float(m_indirim or 0) > 0 else ""
         st.markdown(
             '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px">'
             '<div style="flex:1;min-width:120px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:12px 16px">'
             '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Brüt Mal Bedeli</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#7DD3FC;font-family:monospace">{_tam(_mal)} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            f'<div style="font-size:14px;font-weight:700;color:#7DD3FC;font-family:monospace">{_tam(_mal)} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
             + _indirim_html +
             '<div style="flex:1;min-width:130px;background:rgba(52,211,153,0.10);border:1px solid rgba(52,211,153,0.28);border-radius:12px;padding:12px 16px">'
             '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace">{_tam(_net_mal)} <span style="font-size:11px;color:#64748B">{doviz}</span></div></div>'
+            f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace">{_tam(_net_mal)} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
             '<div style="flex:2;min-width:200px;background:rgba(251,146,60,0.06);border:1px dashed rgba(251,146,60,0.28);border-radius:12px;padding:12px 16px;display:flex;align-items:center">'
             '<div style="font-size:11px;color:#FBBF24;line-height:1.45">⏳ Masraf 2. aşamada (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal masraf girilince oluşur.</div></div>'
             '</div>',
@@ -2120,10 +2120,12 @@ def run():
     with st.sidebar:
         from shared.utils import sidebar_ust
         sidebar_ust("🚢", "İthalat", "ithalat")
+        from shared.tasarim import menu_etiketi as _me
         sayfa = st.radio(
             "Sayfa",
             ["📋  Geçmiş İthalatlar", "➕  Yeni İthalat", "🔍  Model Sorgu", "💸  Masraf Detayları"],
             label_visibility="collapsed", key="ith_sayfa",
+            format_func=_me,
         )
 
     if sayfa == "📋  Geçmiş İthalatlar":

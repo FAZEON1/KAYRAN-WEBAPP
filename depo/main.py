@@ -21,10 +21,12 @@ def run():
     with st.sidebar:
         from shared.utils import sidebar_ust
         sidebar_ust("🏬", "Depo", "depo")
+        from shared.tasarim import menu_etiketi as _me
         _dsayfa = st.radio("Sayfa", ["🏬 Depo Stok", "🚚 Depolar Arası Sevk",
                                      "📦 Bekleyen Sevk Takibi", "🔎 SKU Hareketleri",
                                      "🏭 Happy Life Kiralık Depo"],
-                           label_visibility="collapsed", key="depo_sayfa")
+                           label_visibility="collapsed", key="depo_sayfa",
+                           format_func=_me)
 
     if _dsayfa == "🏬 Depo Stok":
         _sayfa_stok()
