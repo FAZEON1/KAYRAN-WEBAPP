@@ -4,6 +4,7 @@ KAYRAN — İthalat Modülü
   ➕ Yeni İthalat      : manuel form + Excel toplu yükleme
   🔍 Model Sorgu       : SKU yaz → geçmiş tüm alımlar (firma/adet/fiyat/dosya % maliyeti/final maliyet)
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import io
 from datetime import date
 
@@ -251,7 +252,7 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
             if c in para:
                 return _tam(v)
             if c in yuzde:
-                return f"%{float(v):.2f}"
+                return f"%{tr_sayi(float(v), 2)}"
             if _isnum(c):
                 fv = float(v)
                 return _tam(fv)
@@ -342,7 +343,7 @@ def _masraf_karti(d, h):
         f'<div style="font-size:19px;font-weight:700;color:#FBBF24;font-family:\'JetBrains Mono\',monospace">{_tam(h["toplam_masraf"])} {doviz}</div></div>'
         '<div style="background:rgba(74,222,128,0.10);border:1px solid rgba(74,222,128,0.25);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
         '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Binen % Maliyet</div>'
-        f'<div style="font-size:19px;font-weight:700;color:#6EE7B7;font-family:\'JetBrains Mono\',monospace">%{h["maliyet_yuzde"]:.2f}</div></div>'
+        f'<div style="font-size:19px;font-weight:700;color:#6EE7B7;font-family:\'JetBrains Mono\',monospace">%{tr_sayi(h["maliyet_yuzde"], 2)}</div></div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -427,10 +428,10 @@ def _gecmis_ithalatlar():
     toplam_masraf = sum(s["Toplam Masraf"] for s in satirlar)
     ort_yuzde = (toplam_masraf / toplam_mal * 100) if toplam_mal > 0 else 0
     _metrik_satiri([
-        {"label": "Dosya Sayısı", "value": f"{len(dosyalar):,}", "renk": "#818CF8"},
+        {"label": "Dosya Sayısı", "value": f"{tr_sayi(len(dosyalar))}", "renk": "#818CF8"},
         {"label": "Toplam Mal Bedeli", "value": f"${_tam(toplam_mal)}", "renk": "#34D399"},
         {"label": "Toplam Masraf", "value": f"${_tam(toplam_masraf)}", "renk": "#FBBF24"},
-        {"label": "Ort. % Maliyet", "value": f"%{ort_yuzde:.2f}", "renk": "#818CF8"},
+        {"label": "Ort. % Maliyet", "value": f"%{tr_sayi(ort_yuzde, 2)}", "renk": "#818CF8"},
     ])
 
     # ── 🧹 Mükerrer Belge Temizliği (Belge No + Tarih + Tutar birebir aynı) ──
@@ -559,7 +560,7 @@ def _gecmis_ithalatlar():
         "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
         "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
         "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
-        "% Maliyet": f"%{s['% Maliyet']:.2f}", "Kalem": s["Kalem"],
+        "% Maliyet": f"%{tr_sayi(s['% Maliyet'], 2)}", "Kalem": s["Kalem"],
         "Aşama": s["Aşama"],
         "Teslim Şekli": s.get("Teslim Şekli", "—"),
         "Teslim Deposu": s.get("Teslim Deposu", "—"),
@@ -666,7 +667,7 @@ def _gecmis_ithalatlar():
         _metrik_satiri([
             {"label": "Birleşik Mal Bedeli (FOB)", "value": f"{_tam(_sec_toplam_fob)} {_dv0}", "renk": "#34D399"},
             {"label": "Birleşik Masraf", "value": f"{_tam(_sec_mevcut_masraf)} {_dv0}", "renk": "#FBBF24"},
-            {"label": "⭐ Birleşik % Maliyet", "value": f"%{_birlesik_yuzde:.2f}", "renk": "#FCD34D",
+            {"label": "⭐ Birleşik % Maliyet", "value": f"%{tr_sayi(_birlesik_yuzde, 2)}", "renk": "#FCD34D",
              "help": "Seçili tüm belgelerin TOPLAM masrafı / TOPLAM mal bedeli — o ithalatın tek ortalama oranı."},
             {"label": "Belge Sayısı", "value": f"{len(_sec_dosyalar)}", "renk": "#818CF8"},
         ])
@@ -682,7 +683,7 @@ def _gecmis_ithalatlar():
             _doc_yuzde = (_doc_masraf / _mb * 100) if _mb > 0 else 0.0
             _bno = _sd.get("pi_no", "") or _sd.get("dosya_no", "") or "—"
             _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_tam(_mb)} {_dv0} "
-                          f"<span style='color:#818CF8'>(FOB pay %{_pay:.1f})</span> "
+                          f"<span style='color:#818CF8'>(FOB pay %{tr_sayi(_pay, 1)})</span> "
                           f"<span style='color:#94A3B8'>· şu anki % {_doc_yuzde:.2f}</span><br>")
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
@@ -700,7 +701,7 @@ def _gecmis_ithalatlar():
                 f'border-radius:10px;padding:8px 16px;margin:0 0 8px;font-size:13px;color:#FBBF24">'
                 f'⚠️ Masraf belgelere eşit dağılmamış — bazı belgeler boş/%0. '
                 f'Aşağıdaki düğmeyle takibin <b>tüm masrafını</b> ({_tam(_sec_mevcut_masraf)} {_dv0}) '
-                f'belgelere <b>FOB payına göre</b> dağıtabilirsin: hepsi <b>%{_birlesik_yuzde:.2f}</b> olur, '
+                f'belgelere <b>FOB payına göre</b> dağıtabilirsin: hepsi <b>%{tr_sayi(_birlesik_yuzde, 2)}</b> olur, '
                 f'boş belgeler dolar ve hepsi <b>"Tamam"</b> görünür.</div>',
                 unsafe_allow_html=True)
             if st.button("🔄 Takibin masrafını tüm belgelere FOB payına göre dağıt (boş belgeler dolsun)",
@@ -714,7 +715,7 @@ def _gecmis_ithalatlar():
                 if _ok_t:
                     for _slug, _ in MASRAF_TANIM:
                         st.session_state.pop(f"ith_ortak_mas_{_sec_sig}_{_slug}", None)
-                    st.success(f"✅ Masraf {len(_sec_dosyalar)} belgeye dağıtıldı — hepsi %{_birlesik_yuzde:.2f}.")
+                    st.success(f"✅ Masraf {len(_sec_dosyalar)} belgeye dağıtıldı — hepsi %{tr_sayi(_birlesik_yuzde, 2)}.")
                     st.rerun()
                 else:
                     st.error(_msg_t)
@@ -767,7 +768,7 @@ def _gecmis_ithalatlar():
                 '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
                 f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:8px">{_tam(_toplam_girilen)} {_dv0}</div>'
                 '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Dağıtım Sonrası % Maliyet</div>'
-                f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{_proj_yuzde:.2f}</div>'
+                f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_proj_yuzde, 2)}</div>'
                 '</div>', unsafe_allow_html=True)
             if len(_kurlar_sec) > 1:
                 st.caption("⚠️ Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
@@ -840,7 +841,7 @@ def _gecmis_ithalatlar():
                         f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Toplam Masraf</div>'
                         f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:5px">{_tam(_gd["toplam_masraf"])} {_cur}</div>'
                         f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Maliyet Yüzdesi</div>'
-                        f'<div style="font-size:16px;font-weight:700;color:#FCD34D;font-family:monospace">%{_gd["yuzde"]:.2f}</div>'
+                        f'<div style="font-size:16px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_gd["yuzde"], 2)}</div>'
                         f'<div style="font-size:10px;color:#7B8AA0;margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
                         f'</div>', unsafe_allow_html=True)
             st.caption("ℹ️ Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
@@ -881,7 +882,7 @@ def _gecmis_ithalatlar():
                     f'<div style="background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.28);'
                     f'border-radius:10px;padding:8px 16px;margin:0 0 12px;font-size:13px;color:#FCD34D">'
                     f'🔗 Bu takip no\'ya (<b>{_bu_takip}</b>) ait <b>{len(_tk_dosyalar)}</b> belgenin '
-                    f'<b>Birleşik % Maliyeti: %{_tk_yuzde:.2f}</b> '
+                    f'<b>Birleşik % Maliyeti: %{tr_sayi(_tk_yuzde, 2)}</b> '
                     f'<span style="color:#94A3B8">· toplam masraf {_tam(_tk_mas)} / toplam mal bedeli {_tam(_tk_mal)}</span></div>',
                     unsafe_allow_html=True)
         _masraf_karti(d, h)
@@ -890,10 +891,10 @@ def _gecmis_ithalatlar():
             st.caption(
                 "Masraf kalemleri → "
                 + " · ".join(f"{ad}: {_tam(tutar)}" for ad, tutar in _dokum)
-                + f" · Kur: {float(d.get('kur', 1) or 1):,.5f}"
+                + f" · Kur: {tr_sayi(float(d.get('kur', 1) or 1), 5)}"
             )
         else:
-            st.caption(f"Masraf girilmemiş · Kur: {float(d.get('kur', 1) or 1):,.5f}")
+            st.caption(f"Masraf girilmemiş · Kur: {tr_sayi(float(d.get('kur', 1) or 1), 5)}")
 
         # Kategori bazlı oran: çoklu dosyada her SKU kendi kategorisinin
         # yüzdesini alır; dosya ortalaması artık her satıra uygulanmıyor.
@@ -917,7 +918,7 @@ def _gecmis_ithalatlar():
                 "Kategori": (k.get("urun_grubu", "") or ""),
             })
         if _ind_oran > 0:
-            st.caption(f"ℹ️ Fatura altı indirim (%{_ind_oran*100:.2f}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
+            st.caption(f"ℹ️ Fatura altı indirim (%{tr_sayi(_ind_oran*100, 2)}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
         _tablo(pd.DataFrame(krows),
                para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
                yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
@@ -1056,7 +1057,7 @@ def _gecmis_ithalatlar():
                     '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
                     f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
                     '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
-                    f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{_yuzde_v:.2f}</div>'
+                    f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_yuzde_v, 2)}</div>'
                     '</div>', unsafe_allow_html=True)
             st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
                        "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
@@ -1070,7 +1071,7 @@ def _gecmis_ithalatlar():
                     _ms_sec = st.multiselect(
                         "Sıfırlanacak masraf kalem(ler)i",
                         list(_md_dolu.keys()),
-                        format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {_md_dolu[s]:,.2f}",
+                        format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {tr_sayi(_md_dolu[s], 2)}",
                         key=f"ith_ms_sifirla_{did}")
                     if st.button("🧹 Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
                                  disabled=not _ms_sec):
@@ -1147,7 +1148,7 @@ def _gecmis_ithalatlar():
                         _tcbm = sum(e_grup_cbm.values())
                         if _tcbm > 0:
                             st.caption("Hacim payı → " + " · ".join(
-                                f"**{_g}** %{_v / _tcbm * 100:.1f}"
+                                f"**{_g}** %{tr_sayi(_v / _tcbm * 100, 1)}"
                                 for _g, _v in e_grup_cbm.items() if _v > 0))
                         else:
                             st.warning("⚠️ Hacim girilmedi — hacme atanan kalemler "
@@ -1207,7 +1208,7 @@ def _gecmis_ithalatlar():
                 except Exception:
                     _tt = None
                 e_teslim_tarihi = tcc1.date_input("Teslim Tarihi", value=_tt, key=f"ith_edit_tt_{did}",
-                                                  format="YYYY-MM-DD")
+                                                  format="DD.MM.YYYY")
                 _td_cur = str(d.get("teslim_deposu", "") or "")
                 _td_opts = DEPO_SECENEKLER + ([_td_cur] if _td_cur and _td_cur not in DEPO_SECENEKLER else [])
                 _e_td_sec = tcc2.selectbox("Teslim Deposu", _td_opts,
@@ -1435,7 +1436,7 @@ def _yeni_ithalat():
 
                 _tcc1, _tcc2 = st.columns([1, 1.6])
                 _tt_m = _tcc1.date_input("Teslim Tarihi", value=date.today(), key=f"m_teslim_tarihi_{_fv}",
-                                         format="YYYY-MM-DD")
+                                         format="DD.MM.YYYY")
                 _td_sec_m = _tcc2.selectbox("Teslim Deposu", DEPO_SECENEKLER, key=f"m_teslim_deposu_{_fv}")
                 teslim_deposu_m = "" if str(_td_sec_m).startswith("(") else _td_sec_m
                 teslim_tarihi_m = _tt_m.isoformat() if _tt_m else ""
@@ -1987,8 +1988,8 @@ def _model_sorgu():
     _son_help = (f"En yeni tarihli ({son_tarih_v}) ithalat dosyasındaki değer."
                  if son_tarih_v else "En yeni ithalat dosyasındaki değer.")
     _metrik_satiri([
-        {"label": "Toplam Alım Adedi", "value": f"{toplam_adet:,.0f}", "renk": "#22D3EE"},
-        {"label": "Sipariş Sayısı", "value": f"{len(satirlar):,}", "renk": "#818CF8"},
+        {"label": "Toplam Alım Adedi", "value": f"{tr_sayi(toplam_adet)}", "renk": "#22D3EE"},
+        {"label": "Sipariş Sayısı", "value": f"{tr_sayi(len(satirlar))}", "renk": "#818CF8"},
         {"label": "Ort. Birim FOB", "value": _ort_fob, "renk": "#7DD3FC"},
         {"label": "Son FOB", "value": _son_fob, "renk": "#7DD3FC", "help": _son_help},
         {"label": "⭐ Paçal Birim Maliyet", "value": _pacal, "renk": "#FCD34D",
@@ -2063,7 +2064,7 @@ def _masraf_detaylari():
     _dovizler = {s["Döviz"] for s in _flt}
     _dov_lbl = list(_dovizler)[0] if len(_dovizler) == 1 else "karışık"
     _metrik_satiri([
-        {"label": "Masraf Kalemi", "value": f"{len(_flt):,}", "renk": "#818CF8"},
+        {"label": "Masraf Kalemi", "value": f"{tr_sayi(len(_flt))}", "renk": "#818CF8"},
         {"label": "Toplam Tutar", "value": f"{_tam(_toplam)} {_dov_lbl}", "renk": "#FBBF24"},
         {"label": "Belge Sayısı", "value": f"{len({s['Belge No'] for s in _flt}):,}", "renk": "#34D399"},
         {"label": "Masraf Türü Sayısı", "value": f"{len({s['Masraf Türü'] for s in _flt}):,}", "renk": "#818CF8"},
@@ -2087,7 +2088,7 @@ def _masraf_detaylari():
     _df = pd.DataFrame([{
         "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": gun_ay_yil(s["Tarih"]),
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
-        "Tutar": f"{s['Tutar']:,.2f}", "Döviz": s["Döviz"], "% (belge)": f"%{s['% (belge)']:.2f}",
+        "Tutar": f"{tr_sayi(s['Tutar'], 2)}", "Döviz": s["Döviz"], "% (belge)": f"%{tr_sayi(s['% (belge)'], 2)}",
     } for s in _flt_sirali])
     st.dataframe(_df, hide_index=True, use_container_width=True, height=520)
     st.caption(f"{len(_flt)} masraf kalemi · Toplam {_tam(_toplam)} {_dov_lbl}")

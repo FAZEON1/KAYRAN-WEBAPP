@@ -1,3 +1,4 @@
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import os
 import math
 import streamlit as st
@@ -363,10 +364,10 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
         except Exception:
             pass
     _cache_temizle()
-    _p = " + ".join(([f"₺{kismi_tl:,.2f}"] if kismi_tl > 0 else [])
-                    + ([f"${kismi_usd:,.2f}"] if kismi_usd > 0 else []))
-    _k = " + ".join(([f"₺{kalan_tl:,.2f}"] if kalan_tl > 0 else [])
-                    + ([f"${kalan_usd:,.2f}"] if kalan_usd > 0 else []))
+    _p = " + ".join(([f"₺{tr_sayi(kismi_tl, 2)}"] if kismi_tl > 0 else [])
+                    + ([f"${tr_sayi(kismi_usd, 2)}"] if kismi_usd > 0 else []))
+    _k = " + ".join(([f"₺{tr_sayi(kalan_tl, 2)}"] if kalan_tl > 0 else [])
+                    + ([f"${tr_sayi(kalan_usd, 2)}"] if kalan_usd > 0 else []))
     return True, f"💸 {_p} ödendi · kalan {_k} bekliyor."
 
 
@@ -725,7 +726,7 @@ def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
         pass
 
     _cache_temizle()
-    return True, f"✅ {tutar:,.2f} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi"
+    return True, f"✅ {tr_sayi(tutar, 2)} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi"
 
 
 def get_tahsilatlar(limit=100):

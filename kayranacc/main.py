@@ -6,6 +6,7 @@ Kullanım:
     from kayranacc.main import run
     run()
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
@@ -1227,7 +1228,7 @@ def run():
         metrik_satiri([{
             "label": b["hesap_adi"],
             "value": (("$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺"))
-                      + f"{float(b['bakiye']):,.2f}"),
+                      + f"{tr_sayi(float(b['bakiye']), 2)}"),
             "renk": _renk_pb_v.get(b["para_birimi"], "#818CF8"),
             "alt": b["para_birimi"],
         } for b in bankalar])
@@ -1240,10 +1241,10 @@ def run():
             'border-radius:10px;padding:8px 16px;margin:8px 0 16px;display:flex;gap:24px;flex-wrap:wrap;'
             'align-items:center;font-size:13px">'
             '<span style="color:#94A3B8;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
-            f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{_v_tl:,.2f}</b></span>'
-            f'<span style="color:#7DD3FC">USD <b style="color:#E2E8F0;font-family:monospace">${_v_usd:,.2f}</b></span>'
-            + (f'<span style="color:#818CF8">EUR <b style="color:#E2E8F0;font-family:monospace">€{_v_eur:,.2f}</b></span>' if _v_eur else '')
-            + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${_v_usd_esde:,.2f}</b></span>'
+            f'<span style="color:#818CF8">TL <b style="color:#E2E8F0;font-family:monospace">₺{tr_sayi(_v_tl, 2)}</b></span>'
+            f'<span style="color:#7DD3FC">USD <b style="color:#E2E8F0;font-family:monospace">${tr_sayi(_v_usd, 2)}</b></span>'
+            + (f'<span style="color:#818CF8">EUR <b style="color:#E2E8F0;font-family:monospace">€{tr_sayi(_v_eur, 2)}</b></span>' if _v_eur else '')
+            + f'<span style="color:#34D399">≈ USD karşılığı <b style="font-family:monospace">${tr_sayi(_v_usd_esde, 2)}</b></span>'
             '</div>', unsafe_allow_html=True)
 
         # ─── Yeni Virman Formu ───
@@ -1252,14 +1253,14 @@ def run():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("**Kaynak Hesap**")
-            kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id'] for b in bankalar}
+            kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id'] for b in bankalar}
             kaynak_secim = st.selectbox("Kaynak", list(kaynak_options.keys()), key="virman_kaynak")
             kaynak_id = kaynak_options[kaynak_secim]
             kaynak_banka = next(b for b in bankalar if b['id'] == kaynak_id)
     
         with col2:
             st.markdown("**Hedef Hesap**")
-            hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b['id']
+            hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id']
                              for b in bankalar if b['id'] != kaynak_id}
             if not hedef_options:
                 st.warning("Başka hesap yok.")
@@ -1309,9 +1310,9 @@ def run():
                 hedef_tutar_onizleme = tutar * kullanilan_kur
             else:
                 hedef_tutar_onizleme = tutar
-            st.info(f"➡️ Hedef hesaba **{hedef_tutar_onizleme:,.2f} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
+            st.info(f"➡️ Hedef hesaba **{tr_sayi(hedef_tutar_onizleme, 2)} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
         elif tutar > 0:
-            st.info(f"➡️ Hedef hesaba **{tutar:,.2f} {hedef_banka['para_birimi']}** eklenecek")
+            st.info(f"➡️ Hedef hesaba **{tr_sayi(tutar, 2)} {hedef_banka['para_birimi']}** eklenecek")
     
         aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
     
@@ -1319,7 +1320,7 @@ def run():
             if tutar <= 0:
                 st.error("Tutar 0'dan büyük olmalı.")
             elif tutar > kaynak_bakiye_val:
-                st.error(f"Yetersiz bakiye! Maksimum: {kaynak_bakiye_val:,.2f} {kaynak_banka['para_birimi']}")
+                st.error(f"Yetersiz bakiye! Maksimum: {tr_sayi(kaynak_bakiye_val, 2)} {kaynak_banka['para_birimi']}")
             else:
                 with st.spinner("İşleniyor..."):
                     basarili, mesaj = virman_yap(kaynak_id, hedef_id, tutar, aciklama, kullanilan_kur)
@@ -1375,9 +1376,9 @@ def run():
                                 <span style="font-size:13px;font-weight:700;color:#E2E8F0">{v.get('hedef_hesap_adi','?')}</span>
                             </div>
                             <div style="text-align:right">
-                                <span style="font-family:monospace;color:#F87171;font-weight:600">-{kaynak_sym}{v_tutar:,.2f}</span>
+                                <span style="font-family:monospace;color:#F87171;font-weight:600">-{kaynak_sym}{tr_sayi(v_tutar, 2)}</span>
                                 &nbsp;&nbsp;
-                                <span style="font-family:monospace;color:#16A34A;font-weight:600">+{hedef_sym}{v_hedef_tutar:,.2f}</span>
+                                <span style="font-family:monospace;color:#16A34A;font-weight:600">+{hedef_sym}{tr_sayi(v_hedef_tutar, 2)}</span>
                             </div>
                         </div>
                         <div style="font-size:11px;color:#7B8AA0;margin-top:4px">
@@ -1403,7 +1404,7 @@ def run():
     # ════════════════════════════════════════════════════════════════════
 
     if sayfa == "📊 Dashboard":
-        st.markdown(_sb("📊 Muhasebe", "Dashboard", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
+        st.markdown(_sb("📊 Muhasebe", "Genel Bakış", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
     
         kur = get_kur()
         odemeler, hafta = get_aktif_odemeler()
@@ -1580,14 +1581,14 @@ def run():
                     textposition="inside",
                     textinfo="percent",
                     insidetextorientation="horizontal",
-                    hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
+                    hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
                 ))
                 _kat_toplam = sum(kat_data.values())
                 fig.add_annotation(
                     text=(f"<span style='font-size:11px;color:#94A3B8'>TOPLAM</span><br>"
-                          f"<b>₺{_kat_toplam/1e6:,.1f}M</b>" if _kat_toplam >= 1e6 else
+                          f"<b>₺{tr_sayi(_kat_toplam/1e6, 1)}M</b>" if _kat_toplam >= 1e6 else
                           f"<span style='font-size:11px;color:#94A3B8'>TOPLAM</span><br>"
-                          f"<b>₺{_kat_toplam:,.0f}</b>"),
+                          f"<b>₺{tr_sayi(_kat_toplam)}</b>"),
                     x=0.5, y=0.5, showarrow=False,
                     font=dict(size=20, family="Inter, sans-serif", color="#E2E8F0"),
                 )
@@ -1638,7 +1639,7 @@ def run():
                     textfont=dict(family="Inter, sans-serif", size=12, color="#0B1120"),
                     textposition="inside",
                     textinfo="percent",
-                    hovertemplate="<b>%{label}</b><br>₺%{value:,.0f}<br>%{percent}<extra></extra>",
+                    hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
                 ))
                 fig2.add_annotation(
                     text=(f"<span style='font-size:11px;color:#94A3B8'>ÖDENEN (TUTAR)</span><br>"
@@ -2303,9 +2304,9 @@ def run():
                 '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">🏦</span>'
                 '<span style="font-size:14px;font-weight:700;color:#E2E8F0">TOPLAM BAKİYE</span></div>'
                 '<div style="display:flex;gap:24px;flex-wrap:wrap">'
-                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:#34D399;font-family:monospace">₺{toplam_tl_hesap:,.2f}</div></div>'
-                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:#7DD3FC;font-family:monospace">${toplam_usd_hesap:,.2f}</div></div>'
-                f'<div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:20px"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:#818CF8;font-family:monospace">${toplam_usd_esde:,.2f}</div></div>'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:#34D399;font-family:monospace">₺{tr_sayi(toplam_tl_hesap, 2)}</div></div>'
+                f'<div style="text-align:right"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:#7DD3FC;font-family:monospace">${tr_sayi(toplam_usd_hesap, 2)}</div></div>'
+                f'<div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:20px"><div style="font-size:11px;color:#94A3B8;margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:#818CF8;font-family:monospace">${tr_sayi(toplam_usd_esde, 2)}</div></div>'
                 '</div></div>'
             )
             st.markdown(toplam_html, unsafe_allow_html=True)
@@ -2318,7 +2319,7 @@ def run():
             @st.dialog("💰 Tahsilat Ekle — Bankaya Para Girişi", width="large")
             def _dlg_tahsilat():
                 st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
-                _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {float(b['bakiye']):,.2f}": b
+                _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b
                          for b in bankalar}
                 _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
                 _bank = _opts[_sec]
@@ -2353,7 +2354,7 @@ def run():
                         _knk = f" · {t['kaynak']}" if t.get("kaynak") else ""
                         c1.markdown(
                             f"<div style='font-size:13px'>{str(t.get('tarih',''))[:10]} — "
-                            f"<b>{_ts}{float(t.get('tutar') or 0):,.2f}</b> → {t.get('hesap_adi','')}"
+                            f"<b>{_ts}{tr_sayi(float(t.get('tutar') or 0), 2)}</b> → {t.get('hesap_adi','')}"
                             f"<span style='color:#94A3B8'>{_knk}</span></div>",
                             unsafe_allow_html=True)
                         if c2.button("↩", key=f"tahsilat_geri_{t['id']}", help="Geri al"):
@@ -2474,7 +2475,7 @@ def run():
             _mcols = st.columns(len(_hesaplar))
             for _c, _pb in zip(_mcols, sorted(_hesaplar, key=lambda x: _PB_SIRA[x])):
                 _c.metric(f"{_pb} Hesap",
-                          f"{float(_hesaplar[_pb].get('bakiye') or 0):,.2f} {_PB_SIM[_pb]}")
+                          f"{tr_sayi(float(_hesaplar[_pb].get('bakiye') or 0), 2)} {_PB_SIM[_pb]}")
 
             _pblar = sorted(_hesaplar.keys(), key=lambda x: _PB_SIRA[x])
             y1, y2 = st.columns(2)
@@ -2507,13 +2508,13 @@ def run():
             _karsilik = (_tutar / _kur) if _PB_SIRA[_kpb] < _PB_SIRA[_hpb] else (_tutar * _kur)
 
             if _tutar > 0:
-                st.success(f"➡️ **{_tutar:,.2f} {_kpb}** bozulacak, "
-                           f"**{_karsilik:,.2f} {_hpb}** alınacak  ·  "
-                           f"1 {_guclu} = {_kur:,.4f} {_zayif}")
+                st.success(f"➡️ **{tr_sayi(_tutar, 2)} {_kpb}** bozulacak, "
+                           f"**{tr_sayi(_karsilik, 2)} {_hpb}** alınacak  ·  "
+                           f"1 {_guclu} = {tr_sayi(_kur, 4)} {_zayif}")
                 z1, z2 = st.columns(2)
-                z1.metric(f"{_kpb} Hesap (sonra)", f"{_k_bak - _tutar:,.2f} {_PB_SIM[_kpb]}",
+                z1.metric(f"{_kpb} Hesap (sonra)", f"{tr_sayi(_k_bak - _tutar, 2)} {_PB_SIM[_kpb]}",
                           delta=f"{-_tutar:+,.2f}")
-                z2.metric(f"{_hpb} Hesap (sonra)", f"{_h_bak + _karsilik:,.2f} {_PB_SIM[_hpb]}",
+                z2.metric(f"{_hpb} Hesap (sonra)", f"{tr_sayi(_h_bak + _karsilik, 2)} {_PB_SIM[_hpb]}",
                           delta=f"{_karsilik:+,.2f}")
 
             _not = st.text_input("Açıklama", key="arb_not",
@@ -2523,7 +2524,7 @@ def run():
                          use_container_width=True, key="arb_btn",
                          disabled=(_tutar <= 0 or _k_bak <= 0)):
                 _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
-                        f"1 {_guclu}={_kur:,.4f} {_zayif}"
+                        f"1 {_guclu}={tr_sayi(_kur, 4)} {_zayif}"
                         + (f" · {_not.strip()}" if (_not or "").strip() else ""))
                 # Karşılık BURADA hesaplandı; virman_yap'a açıkça geçiliyor ki
                 # çevrim iki yerde ayrı ayrı yapılmasın.
@@ -2683,7 +2684,7 @@ def run():
                 name="Günlük TL Ödemesi",
                 marker_color="rgba(99,102,241,0.85)",
                 marker_line=dict(color="rgba(0,0,0,0)", width=0),
-                hovertemplate="<b>%{x}</b><br>Günlük: ₺%{y:,.0f}<extra></extra>",
+                hovertemplate="<b>%{x}</b><br>Günlük: ₺%{tr_sayi(y)}<extra></extra>",
             ))
             fig.add_trace(go.Scatter(
                 x=df_grafik["Tarih"],
@@ -2693,7 +2694,7 @@ def run():
                 line=dict(color="#34D399", width=2.5, shape="spline", smoothing=0.6),
                 marker=dict(size=7, color="#34D399", line=dict(color="#0B1120", width=2)),
                 yaxis="y2",
-                hovertemplate="<b>%{x}</b><br>Kalan: ₺%{y:,.0f}<extra></extra>",
+                hovertemplate="<b>%{x}</b><br>Kalan: ₺%{tr_sayi(y)}<extra></extra>",
             ))
             fig.update_layout(
                 title=dict(
@@ -2949,7 +2950,7 @@ def run():
             metrik_satiri([
                 {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": "#34D399"},
                 {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": "#7DD3FC"},
-                {"label": "Ödeme Adedi", "value": f"{len(odenenler):,}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
+                {"label": "Ödeme Adedi", "value": f"{tr_sayi(len(odenenler))}", "renk": "#818CF8", "alt": "tamamlanan ödeme"},
             ])
     
             # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
@@ -3265,7 +3266,7 @@ def run():
             {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": "#34D399"},
             {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": "#7DD3FC"},
             {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": "#FBBF24"},
-            {"label": "Kayıt Adedi", "value": f"{len(_f):,}", "renk": "#818CF8", "alt": "para girişi"},
+            {"label": "Kayıt Adedi", "value": f"{tr_sayi(len(_f))}", "renk": "#818CF8", "alt": "para girişi"},
         ])
 
         # ── Kimden ne kadar gelmiş (kaynak bazında özet) ──
@@ -3711,8 +3712,8 @@ def run():
             bekleyen_cnt = sum(1 for o in ertelenenler if o["durum"] == "bekliyor")
     
             metrik_satiri([
-                {"label": "Ertelenen Adet", "value": f"{len(ertelenenler):,}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekliyor"},
-                {"label": "Toplam Erteleme", "value": f"{toplam_erteleme:,}", "renk": "#F87171", "alt": "kez ötelendi"},
+                {"label": "Ertelenen Adet", "value": f"{tr_sayi(len(ertelenenler))}", "renk": "#FBBF24", "alt": f"{bekleyen_cnt} bekliyor"},
+                {"label": "Toplam Erteleme", "value": f"{tr_sayi(toplam_erteleme)}", "renk": "#F87171", "alt": "kez ötelendi"},
                 {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": "#7DD3FC"},
                 {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": "#818CF8"},
             ])
@@ -4140,9 +4141,9 @@ def run():
                     # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
                     _ham_v = float(usd_v or 0)
                     metrik_satiri([{"label": "✅ Yüklendi (KDV dahil)",
-                                    "value": f"${_ham_v * 1.20:,.0f}",
+                                    "value": f"${tr_sayi(_ham_v * 1.20)}",
                                     "renk": "#34D399",
-                                    "alt": f"ham ${_ham_v:,.0f} × 1.20 · {_meta_str(stok_meta)}"}])
+                                    "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
                 except Exception:
                     st.session_state.aktif_stok_data = None
     
@@ -4150,7 +4151,7 @@ def run():
             st.markdown("**2️⃣ İthalat Ödeme Takip**")
             if st.session_state.aktif_ithalat_data:
                 try:
-                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${float(st.session_state.aktif_ithalat_data):,.0f}",
+                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
                                     "renk": "#34D399", "alt": _meta_str(ithalat_meta)}])
                 except Exception:
                     st.session_state.aktif_ithalat_data = None
@@ -4171,13 +4172,13 @@ def run():
                         b_tot = _usd_kar(_b)
                         a_tot = _usd_kar(_a)
                         metrik_satiri([
-                            {"label": "Borç", "value": f"${b_tot:,.0f}", "renk": "#F87171",
-                             "alt": f"USD {float(_b.get('usd') or 0):,.0f} · TL {float(_b.get('tl') or 0):,.0f} · EUR {float(_b.get('eur') or 0):,.0f}"},
-                            {"label": "Alacak", "value": f"${a_tot:,.0f}", "renk": "#34D399",
-                             "alt": f"USD {float(_a.get('usd') or 0):,.0f} · TL {float(_a.get('tl') or 0):,.0f} · EUR {float(_a.get('eur') or 0):,.0f}"},
+                            {"label": "Borç", "value": f"${tr_sayi(b_tot)}", "renk": "#F87171",
+                             "alt": f"USD {tr_sayi(float(_b.get('usd') or 0))} · TL {tr_sayi(float(_b.get('tl') or 0))} · EUR {tr_sayi(float(_b.get('eur') or 0))}"},
+                            {"label": "Alacak", "value": f"${tr_sayi(a_tot)}", "renk": "#34D399",
+                             "alt": f"USD {tr_sayi(float(_a.get('usd') or 0))} · TL {tr_sayi(float(_a.get('tl') or 0))} · EUR {tr_sayi(float(_a.get('eur') or 0))}"},
                         ])
                     elif isinstance(cari, (tuple, list)) and len(cari) == 3:
-                        metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${float(cari[0]):,.0f}",
+                        metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${tr_sayi(float(cari[0]))}",
                                         "renk": "#34D399", "alt": "USD borç"}])
                     else:
                         st.session_state.aktif_cari_data = None
@@ -4286,7 +4287,7 @@ def run():
             try:
                 if st.session_state.aktif_stok_data:
                     _hs = float(st.session_state.aktif_stok_data[0])
-                    _stok_ozet = f"ham ${_hs:,.0f} · KDV dahil ${_hs * 1.20:,.0f}"
+                    _stok_ozet = f"ham ${tr_sayi(_hs)} · KDV dahil ${tr_sayi(_hs * 1.20)}"
             except Exception:
                 pass
             _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
@@ -4306,7 +4307,7 @@ def run():
             _ith_ozet = ""
             try:
                 if st.session_state.aktif_ithalat_data:
-                    _ith_ozet = f"${float(st.session_state.aktif_ithalat_data):,.0f} ödenen"
+                    _ith_ozet = f"${tr_sayi(float(st.session_state.aktif_ithalat_data))} ödenen"
             except Exception:
                 pass
             _yukle_bloku("2️⃣", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
@@ -4335,8 +4336,8 @@ def run():
             try:
                 _c = st.session_state.aktif_cari_data
                 if isinstance(_c, dict) and "borc" in _c:
-                    _cari_ozet = (f"borç USD {float(_c['borc'].get('usd') or 0):,.0f} · "
-                                  f"alacak USD {float(_c['alacak'].get('usd') or 0):,.0f}")
+                    _cari_ozet = (f"borç USD {tr_sayi(float(_c['borc'].get('usd') or 0))} · "
+                                  f"alacak USD {tr_sayi(float(_c['alacak'].get('usd') or 0))}")
             except Exception:
                 pass
             _yukle_bloku("3️⃣", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
@@ -4514,8 +4515,8 @@ def run():
                 f'<div style="background:linear-gradient(135deg,#7DD3FC,#3730A3,#818CF8);border-radius:16px;'
                 f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
                 f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#A5B4FC;margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
-                f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${toplam_aktif:,.0f}</div>'
-                f'<div style="font-size:13px;color:#A5B4FC;margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{(toplam_aktif*kur):,.0f} (kur: {kur:g})</div>'
+                f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
+                f'<div style="font-size:13px;color:#A5B4FC;margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
                 f'</div>', unsafe_allow_html=True)
             # Kısa hesap dökümü
             _dk = [
@@ -4530,7 +4531,7 @@ def run():
                 f'border:1px solid rgba(148,163,184,0.18);border-radius:8px;padding:4px 8px;font-size:13px;margin:4px 4px 4px 0">'
                 f'<span style="color:{"#34D399" if y=="+" else "#F87171"}">{y}</span>'
                 f'<span style="color:#94A3B8">{k}</span>'
-                f'<b style="color:#E2E8F0;font-family:monospace">${float(v or 0):,.0f}</b></span>'
+                f'<b style="color:#E2E8F0;font-family:monospace">${tr_sayi(float(v or 0))}</b></span>'
                 for k, v, y in _dk if float(v or 0))
             st.markdown(f'<div style="display:flex;flex-wrap:wrap;margin-bottom:8px">{_chips}</div>',
                         unsafe_allow_html=True)
@@ -4625,8 +4626,8 @@ def run():
             _eski = float(_k.get("tutar") or 0)
             if abs(_d_tutar - _eski) > 0.0001:
                 _fark = _d_tutar - _eski
-                st.info(f"Tutar {_eski:,.2f} → **{_d_tutar:,.2f}**  "
-                        f"({'+' if _fark > 0 else ''}{_fark:,.2f})")
+                st.info(f"Tutar {tr_sayi(_eski, 2)} → **{tr_sayi(_d_tutar, 2)}**  "
+                        f"({'+' if _fark > 0 else ''}{tr_sayi(_fark, 2)})")
 
             b1, b2 = st.columns([1, 1])
             if b1.button("💾 Değişiklikleri Kaydet", type="primary",
@@ -4685,7 +4686,7 @@ def run():
                     st.markdown(
                         f'<div style="background:#152036;border:1px solid rgba(255,255,255,0.12);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
                         f'<div><b style="color:#E2E8F0;font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:#94A3B8">📅 {(k.get("olusturuldu") or "")[:10]}</div></div>'
-                        f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tutar_v:,.2f}</div>'
+                        f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )

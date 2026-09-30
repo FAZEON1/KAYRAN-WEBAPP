@@ -6,6 +6,7 @@ Kullanım:
     from kayranpm.main import run
     run()
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import logging
 _log = logging.getLogger(__name__)
@@ -69,12 +70,12 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
             return "\u2014"
         try:
             if c in para:
-                return f"${float(v):,.2f}"
+                return f"${tr_sayi(float(v), 2)}"
             if c in yuzde:
-                return f"%{float(v):.1f}"
+                return f"%{tr_sayi(float(v), 1)}"
             if _isnum(c):
                 fv = float(v)
-                return f"{int(fv):,}" if fv == int(fv) else f"{fv:,.2f}"
+                return f"{tr_sayi(int(fv))}" if fv == int(fv) else f"{tr_sayi(fv, 2)}"
         except Exception:
             pass
         s = str(v)
@@ -634,7 +635,7 @@ def run():
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════
     if sayfa == "📊  Dashboard":
-        st.markdown(_sb("📊 Ürün Yönetimi", "Dashboard", aciklama="Stok durumu · Satış performansı · Uyarılar"), unsafe_allow_html=True)
+        st.markdown(_sb("📊 Ürün Yönetimi", "Genel Bakış", aciklama="Stok durumu · Satış performansı · Uyarılar"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         # Veri yükle (seçici için SKU listesi gerekli)
@@ -694,10 +695,10 @@ def run():
         kritik_sayisi = sum(1 for u in veri if u.get("stok_renk") == "kirmizi")
     
         metrik_satiri([
-            {"label": "📦 Toplam Ürün", "value": f"{toplam_sku:,}", "renk": "#818CF8"},
-            {"label": "🔴 Acil Sipariş", "value": f"{len(acil_urunler):,}", "renk": "#F87171"},
-            {"label": "🟠 Yaklaşıyor", "value": f"{len(yaklasan_urunler):,}", "renk": "#FBBF24"},
-            {"label": "🟡 Planlama", "value": f"{len(planlama_urunler):,}", "renk": "#FBBF24"},
+            {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(toplam_sku)}", "renk": "#818CF8"},
+            {"label": "🔴 Acil Sipariş", "value": f"{tr_sayi(len(acil_urunler))}", "renk": "#F87171"},
+            {"label": "🟠 Yaklaşıyor", "value": f"{tr_sayi(len(yaklasan_urunler))}", "renk": "#FBBF24"},
+            {"label": "🟡 Planlama", "value": f"{tr_sayi(len(planlama_urunler))}", "renk": "#FBBF24"},
         ])
     
         # ── UYARI PENCERELERİ — shared/ui.py standardı: yan yana kart + iç scroll ──
@@ -714,7 +715,7 @@ def run():
                 f'padding:4px 8px;margin:4px 0;border-radius:6px;background:linear-gradient(180deg,#152036,#0F172A);">'
                 f'{urun_etiketi(u.get("urun_adi"), u.get("sku"), kalin=True)}'
                 f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:8px;">'
-                f'<span style="color:#94A3B8;font-size:11px;">📦 {toplam:,}</span>'
+                f'<span style="color:#94A3B8;font-size:11px;">📦 {tr_sayi(toplam)}</span>'
                 f'<span style="color:#F87171;font-size:11px;font-weight:700;">{gun}g</span>'
                 f'</div></div>'
             )
@@ -800,7 +801,7 @@ def run():
                         "Bitiş": str(k.get("bitis_tarihi", "") or "")[:10],
                         "Kalan (gün)": _kalan,
                         "Durum": _durum_k,
-                        "Spiff ₺": (f"{_sp:,.0f}" if _sp else ""),
+                        "Spiff ₺": (f"{tr_sayi(_sp)}" if _sp else ""),
                     })
                 st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True, height=tablo_h(len(_rows_k)))
         if st.button(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", key="btn_dash_kmp", use_container_width=True):
@@ -828,10 +829,10 @@ def run():
         toplam_genel_stok = sum(u.get("toplam_stok", u.get("bizim_stok", 0)) for u in urun_data)
     
         metrik_satiri([
-            {"label": "📦 Toplam Ürün", "value": f"{len(urun_data):,}", "renk": "#818CF8"},
-            {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{toplam_genel_stok:,} adet", "renk": "#22D3EE"},
-            {"label": "💰 Depo Stok Değeri (Cost)", "value": f"${toplam_stok_degeri:,.0f}", "renk": "#FBBF24"},
-            {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${toplam_satis_degeri:,.0f}", "renk": "#34D399"},
+            {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(len(urun_data))}", "renk": "#818CF8"},
+            {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{tr_sayi(toplam_genel_stok)} adet", "renk": "#22D3EE"},
+            {"label": "💰 Depo Stok Değeri (Maliyet)", "value": f"${tr_sayi(toplam_stok_degeri)}", "renk": "#FBBF24"},
+            {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${tr_sayi(toplam_satis_degeri)}", "renk": "#34D399"},
         ])
 
         # 🩺 Veri sağlığı (tek satır · eksik alanlar)
@@ -880,14 +881,14 @@ def run():
         toplam = secilen.get("toplam_stok", bizim_stok + toplam_firma)
     
         # Stok kartları — ortak tema (renkli sol şeritli kart)
-        _stok_cards = [{"label": "G5F DEPO", "value": f"{bizim_stok:,}", "alt": "adet", "renk": "#7DD3FC"}]
+        _stok_cards = [{"label": "G5F DEPO", "value": f"{tr_sayi(bizim_stok)}", "alt": "adet", "renk": "#7DD3FC"}]
         for firma, adet in firma_st.items():
             if adet > 0:
-                _stok_cards.append({"label": firma, "value": f"{adet:,}", "alt": "adet"})
+                _stok_cards.append({"label": firma, "value": f"{tr_sayi(adet)}", "alt": "adet"})
         st.markdown(
             f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
             f'<span style="color:#94A3B8; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
-            f'<span style="color:#FBBF24; font-size:19px; font-weight:700;">{toplam:,} adet</span>'
+            f'<span style="color:#FBBF24; font-size:19px; font-weight:700;">{tr_sayi(toplam)} adet</span>'
             f'</div>',
             unsafe_allow_html=True)
         metrik_satiri(_stok_cards)
@@ -899,16 +900,16 @@ def run():
             _chips = "".join(
                 f'<span style="display:inline-flex;gap:8px;align-items:center;background:rgba(255,255,255,0.04);'
                 f'border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:4px 12px;font-size:13px;color:#7DD3FC">'
-                f'{_d} <b style="color:#7DD3FC;font-family:monospace">{int(_v or 0):,}</b></span>'
+                f'{_d} <b style="color:#7DD3FC;font-family:monospace">{tr_sayi(int(_v or 0))}</b></span>'
                 for _d, _v in sorted(_dk.items(), key=lambda x: -int(x[1] or 0)))
             st.markdown(
                 f'<div style="margin:0px 0 12px">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
                 f'<span style="color:#94A3B8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
-                f'<span style="color:#34D399;font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {_dk_toplam:,} adet</span></div>'
+                f'<span style="color:#34D399;font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                 f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
                 f'<div style="color:#7B8AA0;font-size:11px;margin-top:8px">Sipariş önerisinde kullanılan stok '
-                f'(Merkez + Happy Life): <b style="color:#7DD3FC">{bizim_stok:,}</b></div>'
+                f'(Merkez + Happy Life): <b style="color:#7DD3FC">{tr_sayi(bizim_stok)}</b></div>'
                 f'</div>', unsafe_allow_html=True)
     
         # Fiyat ve karlılık kartı
@@ -926,26 +927,26 @@ def run():
         if fob > 0 or fcp > 0:
             _son_alt = f"En yeni dosya · {son_tarih}" if son_tarih else "En yeni ithalat dosyası"
             _fiyat_cards = [
-                {"label": "PAÇAL FOB", "value": f"${fob:,.2f}", "renk": "#7DD3FC",
+                {"label": "PAÇAL FOB", "value": f"${tr_sayi(fob, 2)}", "renk": "#7DD3FC",
                  "alt": "Adet-ağırlıklı ortalama"},
-                {"label": "SON FOB", "value": f"${son_fob:,.2f}" if son_fob else "—", "renk": "#7DD3FC",
+                {"label": "SON FOB", "value": f"${tr_sayi(son_fob, 2)}" if son_fob else "—", "renk": "#7DD3FC",
                  "alt": _son_alt},
-                {"label": f"COST (%{mal_y:.1f})", "value": f"${cost:,.2f}", "renk": "#FBBF24"},
-                {"label": "⭐ PAÇAL MALİYET", "value": f"${fcp:,.2f}", "renk": "#FBBF24",
+                {"label": f"MALİYET (%{tr_sayi(mal_y, 1)})", "value": f"${tr_sayi(cost, 2)}", "renk": "#FBBF24"},
+                {"label": "⭐ PAÇAL MALİYET", "value": f"${tr_sayi(fcp, 2)}", "renk": "#FBBF24",
                  "alt": "Landed · İthalat"},
-                {"label": "SON MALİYET", "value": f"${son_fcp:,.2f}" if son_fcp else "—", "renk": "#FCD34D",
+                {"label": "SON MALİYET", "value": f"${tr_sayi(son_fcp, 2)}" if son_fcp else "—", "renk": "#FCD34D",
                  "alt": _son_alt},
             ]
             if satis > 0:
-                _fiyat_cards.append({"label": "SATIŞ FİYATI", "value": f"${satis:,.2f}", "renk": "#22D3EE"})
+                _fiyat_cards.append({"label": "SATIŞ FİYATI", "value": f"${tr_sayi(satis, 2)}", "renk": "#22D3EE"})
                 if fcp > 0:
                     _kar = satis - fcp
                     _marj = (_kar / satis * 100) if satis else 0
                     if _kar >= 0:
-                        _fiyat_cards.append({"label": "KÂR", "value": f"${_kar:,.2f}",
-                                             "renk": "#34D399", "alt": f"Marj %{_marj:.1f} · paçala göre"})
+                        _fiyat_cards.append({"label": "KÂR", "value": f"${tr_sayi(_kar, 2)}",
+                                             "renk": "#34D399", "alt": f"Marj %{tr_sayi(_marj, 1)} · paçala göre"})
                     else:
-                        _fiyat_cards.append({"label": "⚠️ ZARAR", "value": f"${_kar:,.2f}",
+                        _fiyat_cards.append({"label": "⚠️ ZARAR", "value": f"${tr_sayi(_kar, 2)}",
                                              "renk": "#F87171", "alt": "Satış, paçal maliyetin altında"})
             st.markdown(
                 f'<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px">'
@@ -968,7 +969,7 @@ def run():
         _fl = secilen.get("satis_fiyat_listesi") or {}
         if _fl:
             st.markdown('<div style="color:#7DD3FC;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:8px 0 8px">🏷️ Müşteri Bazlı Satış Fiyatları</div>', unsafe_allow_html=True)
-            metrik_satiri([{"label": _m, "value": f"${_v:,.2f}", "renk": "#22D3EE"}
+            metrik_satiri([{"label": _m, "value": f"${tr_sayi(_v, 2)}", "renk": "#22D3EE"}
                            for _m, _v in _fl.items()])
 
         st.markdown("---")
@@ -987,8 +988,8 @@ def run():
         _risk = urun.get('risk_skor', 0) or 0
         _risk_renk = "#F87171" if _risk >= 70 else ("#FBBF24" if _risk >= 40 else "#34D399")
         metrik_satiri([
-            {"label": "📦 Toplam Stok", "value": f"{toplam_stok_ud:,}", "renk": "#818CF8"},
-            {"label": "📊 Ort. Hft. Satış", "value": f"{round(urun.get('ortalama_haftalik_satis', 0)):,}", "renk": "#22D3EE"},
+            {"label": "📦 Toplam Stok", "value": f"{tr_sayi(toplam_stok_ud)}", "renk": "#818CF8"},
+            {"label": "📊 Ort. Hft. Satış", "value": f"{tr_sayi(round(urun.get('ortalama_haftalik_satis', 0)))}", "renk": "#22D3EE"},
             {"label": "⚡ Risk Skoru", "value": f"{_risk}/100", "renk": _risk_renk},
             {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": "#818CF8"},
             {"label": "📦 Sipariş Önerisi", "value": f"{urun.get('oneri_miktar',0)} adet", "renk": "#FBBF24"},
@@ -1107,17 +1108,17 @@ def run():
             else:
                 def _fmt_para(v):
                     try:
-                        return f"${float(v):,.2f}" if v not in (None, "") and float(v) != 0 else "—"
+                        return f"${tr_sayi(float(v), 2)}" if v not in (None, "") and float(v) != 0 else "—"
                     except Exception:
                         return "—"
                 def _fmt_int(v):
                     try:
-                        return f"{int(v):,}" if v not in (None, "") else "0"
+                        return f"{tr_sayi(int(v))}" if v not in (None, "") else "0"
                     except Exception:
                         return "0"
                 def _fmt_pct(v):
                     try:
-                        return f"%{float(v):.1f}" if v not in (None, "") else "—"
+                        return f"%{tr_sayi(float(v), 1)}" if v not in (None, "") else "—"
                     except Exception:
                         return "—"
                 def _stok_cls(v):
@@ -1135,20 +1136,20 @@ def run():
                     if nk is None:
                         nk_cls, nk_txt = "c-muted", "—"
                     elif nk > 0:
-                        nk_cls, nk_txt = "c-pos", f"${nk:,.2f}"
+                        nk_cls, nk_txt = "c-pos", f"${tr_sayi(nk, 2)}"
                     elif nk < 0:
-                        nk_cls, nk_txt = "c-neg", f"${nk:,.2f}"
+                        nk_cls, nk_txt = "c-neg", f"${tr_sayi(nk, 2)}"
                     else:
-                        nk_cls, nk_txt = "c-num", f"${nk:,.2f}"
+                        nk_cls, nk_txt = "c-num", f"${tr_sayi(nk, 2)}"
                     nm = r.get("Net Marj (%)")
                     if nm is None:
                         nm_cls, nm_txt = "c-muted", "—"
                     elif nm > 0:
-                        nm_cls, nm_txt = "c-pos", f"%{nm:.1f}"
+                        nm_cls, nm_txt = "c-pos", f"%{tr_sayi(nm, 1)}"
                     elif nm < 0:
-                        nm_cls, nm_txt = "c-neg", f"%{nm:.1f}"
+                        nm_cls, nm_txt = "c-neg", f"%{tr_sayi(nm, 1)}"
                     else:
-                        nm_cls, nm_txt = "c-num", f"%{nm:.1f}"
+                        nm_cls, nm_txt = "c-num", f"%{tr_sayi(nm, 1)}"
                     tot = r.get("Toplam") or 0
                     tot_cls = "c-tot" if tot else "c-muted"
                     fcp_raw = r.get("Final Cost ($)")
@@ -1338,9 +1339,9 @@ def run():
                     if _ith_pacal > 0:
                         st.info(
                             "Bu ürünün **ithalat paçalı** var: "
-                            "**${:,.4f}**. Raporlarda o kullanılır — aşağıdaki alan "
+                            "**${}**. Raporlarda o kullanılır — aşağıdaki alan "
                             "yalnız yurt içinden alınan, ithalatı olmayan ürünler "
-                            "içindir.".format(_ith_pacal))
+                            "içindir.".format(tr_sayi(_ith_pacal, 4)))
                         d_alis = st.number_input(
                             "Yurt içi alış maliyeti ($) — bu üründe kullanılmıyor",
                             value=_alis_mevcut, min_value=0.0, step=0.01,
@@ -1509,10 +1510,10 @@ def run():
 
         _eksik = [r for r in _satirlar if r["Maliyet ($)"] <= 0]
         metrik_satiri([
-            {"label": "📋 Yurt içi ürün", "value": f"{len(_satirlar):,}", "renk": "#818CF8"},
-            {"label": "⚠️ Maliyeti girilmemiş", "value": f"{len(_eksik):,}", "renk": "#F87171"},
+            {"label": "📋 Yurt içi ürün", "value": f"{tr_sayi(len(_satirlar))}", "renk": "#818CF8"},
+            {"label": "⚠️ Maliyeti girilmemiş", "value": f"{tr_sayi(len(_eksik))}", "renk": "#F87171"},
             {"label": "✅ Maliyeti girilmiş",
-             "value": f"{len(_satirlar) - len(_eksik):,}", "renk": "#34D399"},
+             "value": f"{tr_sayi(len(_satirlar) - len(_eksik))}", "renk": "#34D399"},
         ])
 
         if not _satirlar:
@@ -1520,9 +1521,9 @@ def run():
         else:
             if _eksik:
                 st.warning(
-                    "⚠️ **{:,} ürünün maliyeti girilmemiş.** Bu ürünlerin satışları "
+                    "⚠️ **{} ürünün maliyeti girilmemiş.** Bu ürünlerin satışları "
                     "raporlarda **%100 marj** gösterir. Aşağıdaki tabloda "
-                    "**Maliyet ($)** kolonunu doldurup kaydet.".format(len(_eksik)))
+                    "**Maliyet ($)** kolonunu doldurup kaydet.".format(tr_sayi(len(_eksik))))
 
             _sadece_eksik = st.checkbox("Yalnız maliyeti girilmemiş ürünleri göster",
                                         value=bool(_eksik), key="mal_sadece_eksik")
@@ -1532,7 +1533,7 @@ def run():
                 _goster = [r for r in _goster
                            if _ara_m in (r["SKU"] + " " + r["Ürün"] + " " + r["Kategori"]).lower()]
 
-            st.caption("{:,} ürün gösteriliyor".format(len(_goster)))
+            st.caption("{} ürün gösteriliyor".format(tr_sayi(len(_goster))))
             _duz = st.data_editor(
                 pd.DataFrame(_goster), use_container_width=True, hide_index=True,
                 key="mal_editor", num_rows="fixed",
@@ -1571,8 +1572,8 @@ def run():
                         _hata.append("{}: {}".format(_sk4, str(_e4)[:60]))
                 st.cache_data.clear()
                 if _n:
-                    st.success("✅ {:,} ürünün maliyeti güncellendi. "
-                               "Raporlar yeni maliyete göre hesaplanacak.".format(_n))
+                    st.success("✅ {} ürünün maliyeti güncellendi. "
+                               "Raporlar yeni maliyete göre hesaplanacak.".format(tr_sayi(_n)))
                 if _hata:
                     st.error("Yazılamayan {} kayıt:\n\n".format(len(_hata))
                              + "\n".join("- " + h for h in _hata[:10]))
@@ -1607,9 +1608,9 @@ def run():
                 "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
             } for r in _rows])
             metrik_satiri([
-                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{int(_df['Satış'].sum()):,}", "renk": "#818CF8"},
-                {"label": "📦 Toplam Stok", "value": f"{int(_df['Stok'].sum()):,}", "renk": "#22D3EE"},
-                {"label": "👥 Müşteri Sayısı", "value": f"{int(_df['Müşteri'].nunique()):,}", "renk": "#34D399"},
+                {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{tr_sayi(int(_df['Satış'].sum()))}", "renk": "#818CF8"},
+                {"label": "📦 Toplam Stok", "value": f"{tr_sayi(int(_df['Stok'].sum()))}", "renk": "#22D3EE"},
+                {"label": "👥 Müşteri Sayısı", "value": f"{tr_sayi(int(_df['Müşteri'].nunique()))}", "renk": "#34D399"},
             ])
 
             # ── MÜŞTERİ BAZINDA ÖZET (her müşteri = 1 satır: toplam satış + stok) ──
@@ -1660,7 +1661,7 @@ def run():
                 key="mhs_xlsx", type="primary", use_container_width=True)
 
             # ── HAM DETAY (isteyen SKU kırılımını görsün) ──
-            with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({len(_df):,} kayıt)", expanded=False):
+            with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({tr_sayi(len(_df))} kayıt)", expanded=False):
                 st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
                 st.download_button("⬇️ Detay CSV indir",
                                    _df.to_csv(index=False).encode("utf-8-sig"),
@@ -1812,10 +1813,10 @@ def run():
                     if _s > 0 and _p > 0:
                         _s_net += ((_s - _p) - (_fd + _ed)) * _ad
             metrik_satiri([
-                {"label": "🎯 Toplam", "value": f"{_s_toplam:,}", "renk": "#818CF8"},
-                {"label": "📢 Aktif", "value": f"{_s_aktif:,}", "renk": "#34D399"},
-                {"label": "💰 Destek", "value": f"${_s_destek:,.0f}", "renk": "#FBBF24"},
-                {"label": "📈 Net Kâr", "value": f"${_s_net:,.0f}",
+                {"label": "🎯 Toplam", "value": f"{tr_sayi(_s_toplam)}", "renk": "#818CF8"},
+                {"label": "📢 Aktif", "value": f"{tr_sayi(_s_aktif)}", "renk": "#34D399"},
+                {"label": "💰 Destek", "value": f"${tr_sayi(_s_destek)}", "renk": "#FBBF24"},
+                {"label": "📈 Net Kâr", "value": f"${tr_sayi(_s_net)}",
                  "renk": "#34D399" if _s_net >= 0 else "#F87171"},
             ])
 
@@ -2054,7 +2055,7 @@ def run():
                                                              value=None, placeholder="örn. 40",
                                                              format="%.4f", key="kmp_o_spiff_kur") or 0.0
                             if _o_spiff_tl and _o_spiff_kur:
-                                st.caption(f"≈ ${(_o_spiff_tl / _o_spiff_kur):,.2f} USD spiff maliyeti (tahmini)")
+                                st.caption(f"≈ ${tr_sayi((_o_spiff_tl / _o_spiff_kur), 2)} USD spiff maliyeti (tahmini)")
                         _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas")
                         _o_bit = _of5.date_input("Bitiş Tarihi *", value=(_xl_bit or tr_today()), key="kmp_o_bit")
                         st.caption(f"🏷️ Kategori (dosyadan): **{_kat_final or '—'}**"
@@ -2245,7 +2246,7 @@ def run():
                                 dk_spiff_fatura = dsp3.checkbox("Fatura geldi (kur kesin)",
                                     value=bool(kamp.get("spiff_fatura")), key=f"dk_spiff_fatura_{kid}")
                                 if dk_spiff_tl and dk_spiff_kur:
-                                    st.caption(f"≈ ${(dk_spiff_tl / dk_spiff_kur):,.2f} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
+                                    st.caption(f"≈ ${tr_sayi((dk_spiff_tl / dk_spiff_kur), 2)} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
                                 dc1_k, dc2_k, dc3_k = st.columns(3)
                                 with dc1_k:
                                     if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
@@ -2379,9 +2380,9 @@ def run():
                                             renk = "#6EE7B7" if net_kar >= 0 else "#F87171"
                                             st.markdown(
                                                 f'<div class="info-box" style="font-size:13px; margin:4px 0;">'
-                                                f'⭐ Paçal: <b>${pacal_ku:.2f}</b> &nbsp;|&nbsp; '
-                                                f'Net Kar/Adet: <span style="color:{renk}; font-weight:700;">${net_kar:.2f} (%{net_marj:.1f})</span> &nbsp;|&nbsp; '
-                                                f'Toplam Net: <span style="color:{renk}; font-weight:700;">${toplam_net:.0f}</span>'
+                                                f'⭐ Paçal: <b>${tr_sayi(pacal_ku, 2)}</b> &nbsp;|&nbsp; '
+                                                f'Net Kar/Adet: <span style="color:{renk}; font-weight:700;">${tr_sayi(net_kar, 2)} (%{tr_sayi(net_marj, 1)})</span> &nbsp;|&nbsp; '
+                                                f'Toplam Net: <span style="color:{renk}; font-weight:700;">${tr_sayi(toplam_net)}</span>'
                                                 f'</div>',
                                                 unsafe_allow_html=True
                                             )
@@ -2464,7 +2465,7 @@ def run():
                                             if hedef_marj_giris > 0:
                                                 onerilen_satis = pacal / (1 - hedef_marj_giris / 100)
                                                 st.markdown(f"""<div class="info-box" style="font-size:13px">
-                                                💡 %{hedef_marj_giris:.1f} marj için önerilen satış: <b>${onerilen_satis:.2f}</b>
+                                                💡 %{tr_sayi(hedef_marj_giris, 1)} marj için önerilen satış: <b>${tr_sayi(onerilen_satis, 2)}</b>
                                                 </div>""", unsafe_allow_html=True)
     
                                         u_satis = st.number_input("Satış Fiyatı ($) *", min_value=0.0, value=0.0, step=0.0001, format="%.4f", key=f"u_satis_{kid}")
@@ -2482,9 +2483,9 @@ def run():
                                             net_marj = (net_kar_birim / u_satis * 100) if u_satis > 0 else 0  # Top-down: kar/satış
                                             st.markdown(f"""
                                             <div class="info-box" style="font-size:13px">
-                                            ⭐ Paçal: <b>${pacal:.2f}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${pacal_son:.2f}</b>' if pacal_son else ''}<br>
-                                            💸 Toplam Destek: <b>${toplam_destek:.2f}</b><br>
-                                            📈 Net Kar/Adet: <b>${net_kar_birim:.2f} (%{net_marj:.1f})</b>
+                                            ⭐ Paçal: <b>${tr_sayi(pacal, 2)}</b>{f' &nbsp;·&nbsp; 🆕 Son: <b>${tr_sayi(pacal_son, 2)}</b>' if pacal_son else ''}<br>
+                                            💸 Toplam Destek: <b>${tr_sayi(toplam_destek, 2)}</b><br>
+                                            📈 Net Kar/Adet: <b>${tr_sayi(net_kar_birim, 2)} (%{tr_sayi(net_marj, 1)})</b>
                                             </div>
                                             """, unsafe_allow_html=True)
                                         else:
@@ -2638,18 +2639,18 @@ def run():
                             _kamp_turu_p = (kamp.get("kampanya_turu") or "").strip()
                             _net_final = toplam_net_kar - _spiff_usd_p
                             _metrikler = [
-                                {"label": "📦 Toplam Satılan", "value": f"{toplam_satilan:,} adet", "renk": "#818CF8"},
-                                {"label": "💸 Toplam Destek Verilen", "value": f"${toplam_ek_destek_verilen:,.0f}",
+                                {"label": "📦 Toplam Satılan", "value": f"{tr_sayi(toplam_satilan)} adet", "renk": "#818CF8"},
+                                {"label": "💸 Toplam Destek Verilen", "value": f"${tr_sayi(toplam_ek_destek_verilen)}",
                                  "renk": "#FBBF24", "alt": "yalnızca ek destek"},
                             ]
                             if _spiff_usd_p > 0:
                                 _metrikler.append({
-                                    "label": "🎟️ Spiff Maliyeti", "value": f"${_spiff_usd_p:,.0f}",
+                                    "label": "🎟️ Spiff Maliyeti", "value": f"${tr_sayi(_spiff_usd_p)}",
                                     "renk": "#FBBF24",
-                                    "alt": f"₺{_spiff_tl_p:,.0f} @ {_spiff_kur_p:.2f} · {'fatura/kesin' if _spiff_fat_p else 'tahmini'}"})
+                                    "alt": f"₺{tr_sayi(_spiff_tl_p)} @ {_spiff_kur_p:.2f} · {'fatura/kesin' if _spiff_fat_p else 'tahmini'}"})
                             _metrikler.append({
                                 "label": "📈 Net Kar" + (" (Spiff sonrası)" if _spiff_usd_p > 0 else ""),
-                                "value": f"${_net_final:,.0f}",
+                                "value": f"${tr_sayi(_net_final)}",
                                 "renk": "#34D399" if _net_final > 0 else "#F87171",
                                 "alt": "Kârlı" if _net_final > 0 else "Zararlı"})
                             _metrikler.append({
@@ -2742,15 +2743,15 @@ def run():
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
                           <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #818CF8; border-radius:10px; padding:8px 12px;">
                             <div style="color:#94A3B8; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">SATILAN</div>
-                            <div style="color:#A5B4FC; font-size:14px; font-weight:700;">{toplam_satilan:,} adet</div>
+                            <div style="color:#A5B4FC; font-size:14px; font-weight:700;">{tr_sayi(toplam_satilan)} adet</div>
                           </div>
                           <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #FBBF24; border-radius:10px; padding:8px 12px;">
                             <div style="color:#94A3B8; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">TOPLAM DESTEK</div>
-                            <div style="color:#FBBF24; font-size:14px; font-weight:700;">${toplam_destek:,.0f}</div>
+                            <div style="color:#FBBF24; font-size:14px; font-weight:700;">${tr_sayi(toplam_destek)}</div>
                           </div>
                           <div style="background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.06); border-left:3px solid {'#34D399' if toplam_net >= 0 else '#F87171'}; border-radius:10px; padding:8px 12px;">
                             <div style="color:#94A3B8; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;">NET KAR</div>
-                            <div style="color:{'#34D399' if toplam_net >= 0 else '#F87171'}; font-size:14px; font-weight:700;">${toplam_net:,.0f}</div>
+                            <div style="color:{'#34D399' if toplam_net >= 0 else '#F87171'}; font-size:14px; font-weight:700;">${tr_sayi(toplam_net)}</div>
                           </div>
                         </div>
                       </div>
@@ -2776,14 +2777,14 @@ def run():
                                 rows_g.append({
                                     "SKU": ku["sku"],
                                     "Ürün": ku.get("urun_adi",""),
-                                    "⭐ Paçal ($)": f"${pacal:.2f}" if pacal else "—",
-                                    "Satış ($)": f"${satis:.2f}",
-                                    "Firma D. ($)": f"${fd:.2f}",
-                                    "Ek D. ($)": f"${ed:.2f}",
-                                    "Net Kar/Adet ($)": f"${net_b:.2f}",
+                                    "⭐ Paçal ($)": f"${tr_sayi(pacal, 2)}" if pacal else "—",
+                                    "Satış ($)": f"${tr_sayi(satis, 2)}",
+                                    "Firma D. ($)": f"${tr_sayi(fd, 2)}",
+                                    "Ek D. ($)": f"${tr_sayi(ed, 2)}",
+                                    "Net Kar/Adet ($)": f"${tr_sayi(net_b, 2)}",
                                     "Satılan": satilan,
-                                    "Top. Destek ($)": f"${toplam_d:.0f}",
-                                    "Top. Net Kar ($)": f"${net_t:.0f}",
+                                    "Top. Destek ($)": f"${tr_sayi(toplam_d)}",
+                                    "Top. Net Kar ($)": f"${tr_sayi(net_t)}",
                                 })
                             st.dataframe(pd.DataFrame(rows_g), use_container_width=True, hide_index=True, height=tablo_h(len(rows_g)))
     
@@ -2836,9 +2837,9 @@ def run():
         planlama = [u for u in siparis_listesi if u.get("siparis_durum") == "planlama"]
     
         metrik_satiri([
-            {"label": "🔴 ACİL", "value": f"{len(acil):,}", "renk": "#F87171"},
-            {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{len(yaklasan):,}", "renk": "#FBBF24"},
-            {"label": "🟡 Planlama (60 gün)", "value": f"{len(planlama):,}", "renk": "#FBBF24"},
+            {"label": "🔴 ACİL", "value": f"{tr_sayi(len(acil))}", "renk": "#F87171"},
+            {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{tr_sayi(len(yaklasan))}", "renk": "#FBBF24"},
+            {"label": "🟡 Planlama (60 gün)", "value": f"{tr_sayi(len(planlama))}", "renk": "#FBBF24"},
         ])
 
         st.markdown("---")
@@ -2868,7 +2869,7 @@ def run():
             if firma_kisa:
                 alt.append(firma_kisa)
             if fcp > 0:
-                alt.append(f'💵 ${fcp:,.0f}→${satis:,.0f}')
+                alt.append(f'💵 ${tr_sayi(fcp)}→${tr_sayi(satis)}')
             alt_str = "  ·  ".join(alt)
 
             c1, c2, c3 = st.columns([6, 1.2, 1.7])
@@ -2984,7 +2985,7 @@ def run():
                             _on[u["sku"]] = round(_p * (1 + _hedef_marj / 100.0), 2)
                     st.session_state["_satis_oneri"] = _on
                     st.session_state["_satis_oneri_v"] = st.session_state.get("_satis_oneri_v", 0) + 1
-                    st.toast(f"🪄 {len(_on)} ürün için satış fiyatı önerildi (marj %{_hedef_marj:.0f})", icon="🪄")
+                    st.toast(f"🪄 {len(_on)} ürün için satış fiyatı önerildi (marj %{tr_sayi(_hedef_marj)})", icon="🪄")
                     st.rerun()
                 _son = st.session_state.get("_satis_oneri", {})
                 st.caption("💡 Satış ($) hücresini elle de değiştirebilirsin. Paçal = İthalat maliyeti · "
@@ -3142,7 +3143,7 @@ def run():
                 return
             _top_kayit = sum(int(i.get("toplam_kayit") or 0) for i in _onz)
             _catisan = sum(1 for i in _onz if i.get("catisma"))
-            st.markdown(f"**{len(_onz)} SKU** bulundu · toplam **{_top_kayit:,} kayıt** etkilenecek · "
+            st.markdown(f"**{len(_onz)} SKU** bulundu · toplam **{tr_sayi(_top_kayit)} kayıt** etkilenecek · "
                         f"**{_catisan}** tanesinin öneksiz hedefi zaten kayıtlı (birleştirilecek).")
             st.dataframe(pd.DataFrame([{
                 "Eski SKU": i["eski"], "Yeni SKU": i["yeni"],
@@ -3153,7 +3154,7 @@ def run():
             st.warning("⚠️ Bu işlem **geri alınamaz** — 8 tabloda SKU'ları kalıcı olarak değiştirir. "
                        "Uygulamadan önce GitHub → Actions → **Gece Yedeği** iş akışını elle çalıştırıp "
                        "güncel bir yedek indirmen önerilir.")
-            _onay = st.checkbox(f"Önizlemeyi inceledim; {len(_onz)} SKU'nun ({_top_kayit:,} kayıt) "
+            _onay = st.checkbox(f"Önizlemeyi inceledim; {len(_onz)} SKU'nun ({tr_sayi(_top_kayit)} kayıt) "
                                 "kalıcı olarak taşınacağını anladım.", key="fz_sku_onay")
             if st.button("🧹 Temizliği Uygula", type="primary", disabled=not _onay,
                          use_container_width=True, key="fz_sku_uygula"):

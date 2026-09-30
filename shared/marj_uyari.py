@@ -27,6 +27,7 @@ TEK bir Telegram mesajı gönderir.
 """
 
 
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 def _f(v):
     try:
         return float(v or 0)
@@ -107,9 +108,9 @@ def mesaj_uret(zararli, maliyetsiz, kanal="", siparis_no="", tarih="",
         for x in zararli[:12]:
             sat.append(
                 f"• <code>{_k(x.get('sku'))}</code> × {x['adet']}  "
-                f"alış {x['maliyet'] / max(x['adet'], 1):,.2f} → "
-                f"satış {_f(x.get('birim_satis')):,.2f}  "
-                f"<b>{x['net_kar']:+,.2f}$</b> (%{x['marj']:.1f})")
+                f"alış {tr_sayi(x['maliyet'] / max(x['adet'], 1), 2)} → "
+                f"satış {tr_sayi(_f(x.get('birim_satis')), 2)}  "
+                f"<b>{x['net_kar']:+,.2f}$</b> (%{tr_sayi(x['marj'], 1)})")
         if len(zararli) > 12:
             sat.append(f"  <i>… ve {len(zararli) - 12} kalem daha</i>")
         sat += ["", f"💸 <b>Toplam etki: {_top:+,.2f}$</b>"]

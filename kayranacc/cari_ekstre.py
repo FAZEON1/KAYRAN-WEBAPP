@@ -2,6 +2,7 @@
 """Cari Ekstre & Vade Yaşlandırma — ödenecekler (tedarikçi/gider) tarafı.
 'odemeler' tablosundan beslenir. Müşteri alacağı (satış tahsilatı) AYRI bir konudur,
 o veri henüz tutulmadığı için burada yer almaz."""
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -34,11 +35,11 @@ def _parse(d):
 
 
 def _tl(v):
-    return f"₺{_f(v):,.0f}"
+    return f"₺{tr_sayi(_f(v))}"
 
 
 def _usd(v):
-    return f"${_f(v):,.2f}"
+    return f"${tr_sayi(_f(v), 2)}"
 
 
 KOVALAR = ["Vadesi gelmemiş", "0-30 gün", "31-60 gün", "61-90 gün", "90+ gün"]

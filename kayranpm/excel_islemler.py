@@ -1,3 +1,4 @@
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import pandas as pd
 from datetime import datetime
 from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik, get_today
@@ -661,7 +662,7 @@ def excel_yukle_g5f_depolar(dosya_yolu):
         _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"
                 if sifirlanan else "")
         return True, (f"✅ {basarili} ürün yüklendi · {eslesen} mevcut güncellendi, {yeni} yeni eklendi · "
-                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {toplam_adet:,} adet{_sfr}. "
+                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {tr_sayi(toplam_adet)} adet{_sfr}. "
                       f"'bizim stok' = Merkez + Happy Life.")
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
@@ -909,7 +910,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         return False, ("❌ Hiç kayıt yazılamadı. Sekmeler tanındı ama veritabanına yazılamadı."
                        + _detay
                        + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
-    ozet = " · ".join(f"{k}: {n} SKU (stok {s:,} / satış {v:,})"
+    ozet = " · ".join(f"{k}: {n} SKU (stok {tr_sayi(s)} / satış {tr_sayi(v)})"
                       for k, (n, s, v) in firma_ozet.items())
     _dd = "/".join(str(_rapor_tarihi)[:10].split("-")[::-1])  # gg/aa/yyyy
     msg = f"✅ Haftalık stok+satış yüklendi (rapor haftası: {_dd}) → {ozet}."

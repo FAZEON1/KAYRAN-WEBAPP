@@ -195,14 +195,20 @@ EMOJI_IKON = {
 }
 
 
+# Menüde görünen İngilizce ad → Türkçe. DEĞER aynı kalır (kod "📊 Dashboard"
+# ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
+MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
+
+
 def menu_etiketi(metin):
-    """'📊  Dashboard' → ':material/dashboard: Dashboard'.
+    """'📊  Dashboard' → ':material/dashboard: Genel Bakış'.
     st.radio(..., format_func=menu_etiketi) ile kullanılır. Tanınmayan emoji
     atılır (menüde yarı emoji yarı ikon karışımı olmasın)."""
     s = str(metin or "").strip()
     for emo in sorted(EMOJI_IKON, key=len, reverse=True):
         if s.startswith(emo):
-            return f":material/{EMOJI_IKON[emo]}: {s[len(emo):].strip()}"
+            ad = s[len(emo):].strip()
+            return f":material/{EMOJI_IKON[emo]}: {MENU_CEVIRI.get(ad, ad)}"
     # Tanınmayan emoji / sembol → at (harf ya da rakamla başlayana kadar)
     i = 0
     while i < len(s) and not (s[i].isalnum()):
@@ -957,10 +963,76 @@ def _tr_adet(v):
 
 
 def _tr_oran(v, basamak=2):
+    # Eskiden yalnız "." → "," yapılıyordu: 1234.5 → "%1,234,50" (binlik
+    # virgül kalıyordu). Artık tam TR biçimi: "%1.234,50".
     try:
-        return "%" + f"{float(v):,.{basamak}f}".replace(".", ",")
+        return "%" + _tr(f"{float(v):,.{basamak}f}")
     except (TypeError, ValueError):
         return ""
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SAYI · TARİH STANDARDI — programın TEK biçimi (Türkçe)
+#   para(678033)            → "$678.033"      para(1240500.5, "₺", 2) → "₺1.240.500,50"
+#   adet(12500)             → "12.500"
+#   oran(30.94)             → "%30,9"
+#   tarih("2026-09-30")     → "30.09.2026"
+#   tr_sayi(1234.5, 2)      → "1.234,50"       (f-string içinde: {tr_sayi(x, 2)})
+# Eskiden aynı ekranda "$678,033" (İngilizce) ile "₺226.500" (Türkçe) yan
+# yana duruyordu. f"{x:,.2f}" YAZMA — bunları kullan.
+# ═══════════════════════════════════════════════════════════════════
+def tr_sayi(v, basamak=0):
+    """Sayı → TR biçimli metin (binlik nokta, ondalık virgül). Sayı değilse olduğu gibi."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return "" if v is None else str(v)
+    if basamak == 0:
+        f = round(f)
+    return _tr(f"{f:,.{basamak}f}")
+
+
+def para(v, birim="$", basamak=0):
+    """Para: işaret birimden önce → '-$1.234'. Sayı değilse '—'."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    return ("-" if f < 0 else "") + birim + tr_sayi(abs(f), basamak)
+
+
+def adet(v):
+    try:
+        return tr_sayi(int(round(float(v))))
+    except (TypeError, ValueError):
+        return "—"
+
+
+def oran(v, basamak=1):
+    try:
+        return "%" + tr_sayi(float(v), basamak)
+    except (TypeError, ValueError):
+        return "—"
+
+
+def tarih(v, saat=False):
+    """'2026-09-30' / date / datetime → '30.09.2026' (saat=True → '30.09.2026 14:05')."""
+    import datetime as _dt
+    if v in (None, ""):
+        return "—"
+    try:
+        if isinstance(v, str):
+            t = v.strip().replace("T", " ")
+            d = _dt.datetime.fromisoformat(t[:19]) if len(t) > 10 else _dt.datetime.fromisoformat(t[:10])
+        elif isinstance(v, _dt.datetime):
+            d = v
+        elif isinstance(v, _dt.date):
+            d = _dt.datetime(v.year, v.month, v.day)
+        else:
+            return str(v)
+    except ValueError:
+        return str(v)
+    return d.strftime("%d.%m.%Y %H:%M" if saat else "%d.%m.%Y")
 
 
 def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",

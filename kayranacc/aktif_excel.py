@@ -13,6 +13,7 @@ bulunamazsa anlaşılır bir hata mesajı döner (sessiz başarısızlık yok).
 Her okuyucu (deger, detay) döndürür; detay kullanıcıya "ne okudum" diye
 gösterilir ki yüklemenin gerçekten çalıştığı gözle doğrulanabilsin.
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from io import BytesIO
 
 
@@ -143,8 +144,8 @@ def parse_cari(file_bytes):
         "satir": satir_sayisi,
         "isimler": isimler,
         "ozet": [
-            f"Borç: USD {sonuc['borc']['usd']:,.0f} · TL {sonuc['borc']['tl']:,.0f} · EUR {sonuc['borc']['eur']:,.0f}",
-            f"Alacak: USD {sonuc['alacak']['usd']:,.0f} · TL {sonuc['alacak']['tl']:,.0f} · EUR {sonuc['alacak']['eur']:,.0f}",
+            f"Borç: USD {tr_sayi(sonuc['borc']['usd'])} · TL {tr_sayi(sonuc['borc']['tl'])} · EUR {tr_sayi(sonuc['borc']['eur'])}",
+            f"Alacak: USD {tr_sayi(sonuc['alacak']['usd'])} · TL {tr_sayi(sonuc['alacak']['tl'])} · EUR {tr_sayi(sonuc['alacak']['eur'])}",
         ],
         "uyari": (f"Tanınmayan döviz kodu atlandı: {', '.join(sorted(atlanan_doviz))}"
                   if atlanan_doviz else ""),
@@ -183,7 +184,7 @@ def parse_ithalat(file_bytes):
             v = _sayi(df.iloc[i, c_odenen])
             if v is not None:
                 return v, {"kaynak": "TOPLAM satırı", "satir": 1,
-                           "ozet": [f"Ödenen: ${v:,.0f}"], "uyari": ""}
+                           "ozet": [f"Ödenen: ${tr_sayi(v)}"], "uyari": ""}
 
     # TOPLAM yoksa elle topla
     toplam, adet = 0.0, 0
@@ -195,7 +196,7 @@ def parse_ithalat(file_bytes):
     if adet == 0:
         raise ExcelBicimHatasi("'Ödenen' sütunu bulundu ama hiç sayı okunamadı.")
     return toplam, {"kaynak": f"{adet} satır toplandı", "satir": adet,
-                    "ozet": [f"Ödenen: ${toplam:,.0f}"], "uyari": ""}
+                    "ozet": [f"Ödenen: ${tr_sayi(toplam)}"], "uyari": ""}
 
 
 # ════════════════════════════════════════════════════════════════
@@ -222,11 +223,11 @@ def parse_stok(file_bytes, eski_parser):
         )
     _ham = float(usd_stok or 0)
     ozet = [
-        f"Ham stok değeri (dosyadan okunan): ${_ham:,.0f}",
-        f"**KDV dahil (×1.20) → Toplam Aktifler'e giren: ${_ham * 1.20:,.0f}**",
+        f"Ham stok değeri (dosyadan okunan): ${tr_sayi(_ham)}",
+        f"**KDV dahil (×1.20) → Toplam Aktifler'e giren: ${tr_sayi(_ham * 1.20)}**",
     ]
     if pazaryerleri:
         ozet.append("Firmalar: " + " · ".join(
-            f"{k} ${float(v):,.0f}" for k, v in list(pazaryerleri.items())[:4]))
+            f"{k} ${tr_sayi(float(v))}" for k, v in list(pazaryerleri.items())[:4]))
     return (usd_stok, pazaryerleri), {
         "satir": len(pazaryerleri or {}), "ozet": ozet, "uyari": ""}

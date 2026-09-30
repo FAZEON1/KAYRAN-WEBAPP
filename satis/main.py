@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Satış & Kârlılık modülü — arayüz (USD bazlı, tek tek işlem girişi)."""
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import date, timedelta, datetime
 import io
 
@@ -546,17 +547,17 @@ def run():
                 if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                     st.error(f"❌ {_sonuc['hata']}")
                 else:
-                    _m = f"✅ {_sonuc['eklendi']:,} kalem kaydedildi."
+                    _m = f"✅ {tr_sayi(_sonuc['eklendi'])} kalem kaydedildi."
                     if _sonuc["atlandi"]:
-                        _m += f" {_sonuc['atlandi']:,} atlandı (zaten kayıtlı)."
+                        _m += f" {tr_sayi(_sonuc['atlandi'])} atlandı (zaten kayıtlı)."
                         # Atlanan satırlar SEBEBİYLE gösterilir — "neden girmedi"
                         # sorusunu tahmine bırakmamak için.
                         st.session_state["_ice_atlanan"] = _sonuc.get("atlanan_detay") or []
                     if _sonuc["maliyetsiz"]:
-                        _m += (f" ⚠️ {_sonuc['maliyetsiz']:,} kalemde paçal maliyet yok → maliyet 0 "
+                        _m += (f" ⚠️ {tr_sayi(_sonuc['maliyetsiz'])} kalemde paçal maliyet yok → maliyet 0 "
                                "(bu ürünler %100 marj görünür; ithalatı girip 'Kâr/P&L → Maliyeti 0 düzelt' ile onar).")
                     if _sonuc.get("hatali"):
-                        _m += f" ⚠️ {_sonuc['hatali']:,} kalem yazılamadı."
+                        _m += f" ⚠️ {tr_sayi(_sonuc['hatali'])} kalem yazılamadı."
                     # 📦 Stok aşımı UYARISI (engellemez): kaydedilen SKU'larda canlı stok kontrolü
                     if _sonuc["eklendi"] > 0:
                         try:
@@ -626,7 +627,7 @@ def run():
                             return
                         _adet = sum(s["adet"] for s in _tum)
                         _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                        st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_knl}**")
+                        st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd(_ciro)} • Kanal: **{_knl}**")
                         if not _sno:
                             st.error("⛔ **Sipariş No boş** — bu yüzden kaydet butonu "
                                      "pasif. Yukarıdaki Sipariş No kutusunu doldur.")
@@ -680,7 +681,7 @@ def run():
                             else:
                                 _adet = sum(s["adet"] for s in _tum)
                                 _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                                st.caption(f"{len(_tum)} kalem • {_adet:,} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
+                                st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
                                 _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
                                 _eksik = len(_tum) - len(_gecerli)
                                 if _eksik:
@@ -912,12 +913,12 @@ def run():
                     _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
                     st.markdown(
                         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">' + _kart([
-                            ("Kalem / Adet", f"{len(kalemler)} / {int(top['adet']):,}", "#7DD3FC"),
+                            ("Kalem / Adet", f"{len(kalemler)} / {tr_sayi(int(top['adet']))}", "#7DD3FC"),
                             ("Ciro", _usd(top["ciro"]), "#7DD3FC"),
                             ("Maliyet", _usd(top["maliyet"]), "#FBBF24"),
                             ("Destek", _usd(top["destek"]), "#818CF8"),
                             ("Net Kâr", _usd(top["net_kar"]), _renk),
-                            ("Net Kârlılık", f"%{top['marj']:.1f}", _renk),
+                            ("Net Kârlılık", f"%{tr_sayi(top['marj'], 1)}", _renk),
                         ]) + '</div>', unsafe_allow_html=True)
 
                     b1, b2 = st.columns([3, 1])
@@ -1034,22 +1035,22 @@ def run():
                     "Adet": k["adet"], "B.Satış": _usd(s.get("birim_satis")),
                     "B.Maliyet": _usd(s.get("birim_maliyet")),
                     "Destek": _usd(_bd) if _bd else "—",
-                    "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{k['marj']:.1f}",
+                    "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{tr_sayi(k['marj'], 1)}",
                 })
             # 📊 ÖZET KARTLARI — filtre (tarih + kanal) sonrası toplamlar
             _t_ns = _t_ciro - _t_destek
             _t_marj_k = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
             _t_renk = "#34D399" if _t_kar > 0 else "#F87171"
             _oz_kart = [
-                ("Kayıt", f"{len(satislar):,}", "#7DD3FC"),
-                ("Adet", f"{_t_adet:,}", "#7DD3FC"),
+                ("Kayıt", f"{tr_sayi(len(satislar))}", "#7DD3FC"),
+                ("Adet", f"{tr_sayi(_t_adet)}", "#7DD3FC"),
                 ("Ciro", _usd(_t_ciro), "#7DD3FC"),
                 ("Maliyet (COGS)", _usd(_t_maliyet), "#FBBF24"),
             ]
             if _t_destek > 0.005:
                 _oz_kart.append(("Destek", _usd(_t_destek), "#818CF8"))
             _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
-                         ("Marj", f"%{_t_marj_k:.1f}", _t_renk)]
+                         ("Marj", f"%{tr_sayi(_t_marj_k, 1)}", _t_renk)]
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">'
                         + _kart(_oz_kart) + '</div>', unsafe_allow_html=True)
 
@@ -1063,11 +1064,11 @@ def run():
                 "Adet": _t_adet, "B.Satış": "",
                 "B.Maliyet": _usd(_t_maliyet) if _t_maliyet else "",
                 "Destek": _usd(_t_destek) if _t_destek > 0.005 else "",
-                "Ciro": _usd(_t_ciro), "Net Kâr": _usd(_t_kar), "Marj": f"%{_t_marj:.1f}",
+                "Ciro": _usd(_t_ciro), "Net Kâr": _usd(_t_kar), "Marj": f"%{tr_sayi(_t_marj, 1)}",
             })
             st.dataframe(_kar_df(pd.DataFrame(_rows_disp)), hide_index=True, use_container_width=True, height=380,
                          column_config={"id": None,
-                                        "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY")})
+                                        "Tarih": st.column_config.DateColumn("Tarih", format="DD.MM.YYYY")})
 
             # ─────────────────────────────────────────────────────────────
             # ⬇️ TOPLU İNDİR — ekrandaki filtreli veri (tarih + kanal)
@@ -1133,7 +1134,7 @@ def run():
                 f"{_ad}.csv", mime="text/csv",
                 use_container_width=True, key="l_dl_csv")
 
-            _d3.caption(f"📦 {len(_dl_df):,} kayıt · {_bas} → {_bit}"
+            _d3.caption(f"📦 {tr_sayi(len(_dl_df))} kayıt · {_bas} → {_bit}"
                         + ("" if _kanal_f == "Tümü" else f" · {_kanal_f}")
                         + " — ekrandaki filtrenin aynısı, sayılar ham (Excel'de toplanabilir).")
             @st.dialog("🗑️ Sil — kalem veya sipariş", width="large")
@@ -1354,12 +1355,12 @@ def run():
             _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
             st.markdown(kpi_serit([
                 {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
-                 "renk": "metin", "tam": f"${_net_ciro:,.2f}"},
+                 "renk": "metin", "tam": f"${tr_sayi(_net_ciro, 2)}"},
                 {"etiket": "NET ADET",
                  "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
                  "renk": "mavi"},
                 {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"),
-                 "renk": _kt, "tam": f"${_nihai:,.2f}"},
+                 "renk": _kt, "tam": f"${tr_sayi(_nihai, 2)}"},
                 {"etiket": "NET MARJ",
                  "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt},
             ]), unsafe_allow_html=True)
@@ -1379,7 +1380,7 @@ def run():
                 _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
                 _fw = "800" if ton in ("ara", "son") else "600"
                 _oran = (f'<span style="color:#7B8AA0;font-size:11px;margin-left:8px">'
-                         f'%{oran:.1f}</span>' if oran is not None else "")
+                         f'%{tr_sayi(oran, 1)}</span>' if oran is not None else "")
                 return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
                         f'padding:7px 14px;background:{_bg};{_bd}">'
                         f'<span style="color:{el};font-size:{"13px" if ton in ("ara","son") else "12.5px"};'
@@ -1533,9 +1534,9 @@ def run():
             # ── Detaylar: meraklısına, varsayılan kapalı ──
             with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
                 _d1, _d2, _d3 = st.columns(3)
-                _d1.metric("İade adedi (stoğa döndü)", f"{_itop.get('i_adet', 0):,}")
+                _d1.metric("İade adedi (stoğa döndü)", f"{tr_sayi(_itop.get('i_adet', 0))}")
                 _d2.metric("İade tutarı", _usd(_itop["i_tutar"]))
-                _d3.metric("Brüt adet", f"{int(top['adet']):,}")
+                _d3.metric("Brüt adet", f"{tr_sayi(int(top['adet']))}")
                 if _alinan_usd > 0.005:
                     st.caption("📥 **Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
                                "marketing, rebate gelirleri (Ref No Takip → Alınan Destekler).")
@@ -1740,7 +1741,7 @@ def run():
                                 _bk.markdown(tablo_ciz(_tablo, stil="rozet"),
                                              unsafe_allow_html=True)
                                 _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
-                                            f"Marj: %{(_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0:.1f}")
+                                            f"Marj: %{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0, 1)}")
                     _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
                                      float(_ad_marka.get("GENEL", 0) or 0))
                     if abs(_genel_dst) > 0.005:
@@ -1885,12 +1886,12 @@ def run():
                 _t_kar = sum(g["kar"] for g in _sipler.values())
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
                             + _kart([
-                                ("Sipariş", f"{len(_sipler):,}", "#7DD3FC"),
-                                ("Adet", f"{_t_adet:,}", "#7DD3FC"),
+                                ("Sipariş", f"{tr_sayi(len(_sipler))}", "#7DD3FC"),
+                                ("Adet", f"{tr_sayi(_t_adet)}", "#7DD3FC"),
                                 ("Ciro", _usd(_t_ciro), "#7DD3FC"),
                                 ("Net Kâr", _usd(_t_kar),
                                  "#34D399" if _t_kar >= 0 else "#F87171"),
-                                ("Kârlılık", f"%{(_t_kar / _t_ciro * 100) if _t_ciro else 0:.1f}",
+                                ("Kârlılık", f"%{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro else 0, 1)}",
                                  "#34D399" if _t_kar >= 0 else "#F87171"),
                             ]) + '</div>', unsafe_allow_html=True)
                 st.markdown("**📦 Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
@@ -1996,8 +1997,8 @@ def run():
                 _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
                        if _ozet["tarih_min"] else "—")
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' + _kart([
-                    ("Satır", f"{_ozet['satir']:,}", "#7DD3FC"),
-                    ("Fatura", f"{_ozet['fatura']:,}", "#A5B4FC"),
+                    ("Satır", f"{tr_sayi(_ozet['satir'])}", "#7DD3FC"),
+                    ("Fatura", f"{tr_sayi(_ozet['fatura'])}", "#A5B4FC"),
                     ("Toplam Ciro", _usd(_ozet["ciro"]), "#34D399"),
                     ("Tarih Aralığı", _ta, "#FBBF24"),
                 ]) + '</div>', unsafe_allow_html=True)
@@ -2026,24 +2027,24 @@ def run():
                 _sorunlu = (_sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"]
                             + _sag["skusuz"] + _sag.get("anormal_tarih", 0))
                 if _sorunlu == 0:
-                    st.success(f"🩺 Veri sağlığı: ✓ {_sag['toplam']:,} satırın tamamı temiz.")
+                    st.success(f"🩺 Veri sağlığı: ✓ {tr_sayi(_sag['toplam'])} satırın tamamı temiz.")
                 else:
                     _uyari = []
                     if _sag["tarihsiz"]:
-                        _uyari.append(f"📅 **{_sag['tarihsiz']:,}** satırda tarih yok → **kaydedilmeyecek** "
+                        _uyari.append(f"📅 **{tr_sayi(_sag['tarihsiz'])}** satırda tarih yok → **kaydedilmeyecek** "
                                       "(hayalet kayda dönüşmesin diye)")
                     if _sag.get("anormal_tarih"):
-                        _uyari.append(f"⏰ **{_sag['anormal_tarih']:,}** satırda tarih GELECEKTE veya 3+ yıl "
+                        _uyari.append(f"⏰ **{tr_sayi(_sag['anormal_tarih'])}** satırda tarih GELECEKTE veya 3+ yıl "
                                       "eski → büyük ihtimalle yıl yazım hatası; bu satırlar dönem "
                                       "raporlarında **görünmez**, önce Excel'de düzeltmen önerilir")
                     if _sag["maliyetsiz"]:
-                        _uyari.append(f"💰 **{_sag['maliyetsiz']:,}** satırda paçal maliyet yok → maliyet 0 "
+                        _uyari.append(f"💰 **{tr_sayi(_sag['maliyetsiz'])}** satırda paçal maliyet yok → maliyet 0 "
                                       "yazılır (**%100 marj** görünür); ithalatı girince 'Maliyeti 0 düzelt' ile onarılır")
                     if _sag["adetsiz"]:
-                        _uyari.append(f"🔢 **{_sag['adetsiz']:,}** satırda adet 0/eksik → kaydedilmeyecek")
+                        _uyari.append(f"🔢 **{tr_sayi(_sag['adetsiz'])}** satırda adet 0/eksik → kaydedilmeyecek")
                     if _sag["skusuz"]:
-                        _uyari.append(f"🏷️ **{_sag['skusuz']:,}** satırda SKU yok → kaydedilmeyecek")
-                    st.warning(f"🩺 **Veri sağlığı — {_sag['temiz']:,}/{_sag['toplam']:,} satır temiz.** "
+                        _uyari.append(f"🏷️ **{tr_sayi(_sag['skusuz'])}** satırda SKU yok → kaydedilmeyecek")
+                    st.warning(f"🩺 **Veri sağlığı — {tr_sayi(_sag['temiz'])}/{tr_sayi(_sag['toplam'])} satır temiz.** "
                                "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
                     if _sag["tarihsiz_ornek"]:
                         st.caption("📅 Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
@@ -2055,7 +2056,7 @@ def run():
                 _onay = True
                 if _sorunlu > 0:
                     _onay = st.checkbox(
-                        f"⚠️ Yukarıdaki {_sorunlu:,} sorunlu satırı gördüm — yine de temiz satırları içe aktar",
+                        f"⚠️ Yukarıdaki {tr_sayi(_sorunlu)} sorunlu satırı gördüm — yine de temiz satırları içe aktar",
                         key="satis_ice_onay")
 
                 _mod = st.radio(
@@ -2084,15 +2085,15 @@ def run():
                     if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                         st.error(f"❌ {_sonuc['hata']}")
                     else:
-                        _msg = f"✅ {_sonuc['eklendi']:,} satış kaydedildi."
+                        _msg = f"✅ {tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
                         if _sonuc.get("silinen_fatura"):
-                            _msg += f" {_sonuc['silinen_fatura']:,} eski fatura temizlendi."
+                            _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
                         if _sonuc["atlandi"]:
-                            _msg += f" {_sonuc['atlandi']:,} satır atlandı (zaten kayıtlı)."
+                            _msg += f" {tr_sayi(_sonuc['atlandi'])} satır atlandı (zaten kayıtlı)."
                         if _sonuc["maliyetsiz"]:
-                            _msg += f" {_sonuc['maliyetsiz']:,} satırda paçal maliyet yok (maliyet 0)."
+                            _msg += f" {tr_sayi(_sonuc['maliyetsiz'])} satırda paçal maliyet yok (maliyet 0)."
                         if _sonuc.get("hatali"):
-                            _msg += f" ⚠️ {_sonuc['hatali']:,} satır yazılamadı ({_sonuc.get('hata')})."
+                            _msg += f" ⚠️ {tr_sayi(_sonuc['hatali'])} satır yazılamadı ({_sonuc.get('hata')})."
                         # Tüm önbelleği temizle + sayfayı yenile ki P&L/Satışlar taze veriyi göstersin
                         st.session_state["_ice_mesaj"] = _msg
                         try:
@@ -2178,7 +2179,7 @@ def run():
             _cak_onay = True
             if _cakisan_p:
                 st.error("⛔ **Dönem çakışması:** yüklemek istediğin aralık şu partilerle kesişiyor → "
-                         + " · ".join(f'{p["tarih"]} ({p["adet"]:,} adet)' for p in _cakisan_p)
+                         + " · ".join(f'{p["tarih"]} ({tr_sayi(p["adet"])} adet)' for p in _cakisan_p)
                          + ". Aynı iadeler iki kez sayılabilir. Ya farklı bir dönem seç, ya da "
                            "eski partiyi bilerek yanına ekliyorsan aşağıyı onayla.")
                 _cak_onay = st.checkbox("Çakışmayı biliyorum, dönemler gerçekten farklı iadeler "
@@ -2204,7 +2205,7 @@ def run():
                 else:
                     _tadet = sum(x["iade_adet"] for x in _ie_satir)
                     _tnet = sum(x["iade_net"] for x in _ie_satir)
-                    st.success(f"{len(_ie_satir)} iade kalemi · {_tadet:,} adet · {_usd(_tnet)} bulundu.")
+                    st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd(_tnet)} bulundu.")
                     st.dataframe(_kar_df(pd.DataFrame([{
                         "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
                         "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
@@ -2214,7 +2215,7 @@ def run():
                     _plan, _uyus = iade_fark_plani(_ie_satir, _man)
                     if _man:
                         _mtop = sum(v["adet"] for v in _man.values())
-                        st.info(f"🔁 Bu dönemde **{len(_man)} kalemde {_mtop:,} adet** manuel iade "
+                        st.info(f"🔁 Bu dönemde **{len(_man)} kalemde {tr_sayi(_mtop)} adet** manuel iade "
                                 f"zaten girilmiş. Aşağıdaki tabloda yalnız **fark** yazılacak.")
                         _onizle = [{
                             "SKU": p["sku"], "Cari": (p.get("kanal") or "")[:24],
@@ -2236,8 +2237,8 @@ def run():
                         help="Excel'de depo bilgisi yok. Manuel karşılığı olan satırlar "
                              "kendi deposunu korur; kalanlar buraya yazılır.")
                     _yaz_adet = sum(p["iade_adet"] for p in _plan)
-                    st.caption(f"Yazılacak: **{len(_plan)} satır · {_yaz_adet:,} adet** "
-                               f"(Excel toplamı {_tadet:,})")
+                    st.caption(f"Yazılacak: **{len(_plan)} satır · {tr_sayi(_yaz_adet)} adet** "
+                               f"(Excel toplamı {tr_sayi(_tadet)})")
 
                     if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
                                  disabled=not (_cak_onay and _trh_onay) or not _plan):
@@ -2263,15 +2264,15 @@ def run():
             _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
             _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
-                ("Satış adedi", f"{_top['s_adet']:,}", "#7DD3FC"),
-                ("İade adedi", f"{_top['i_adet']:,}", "#FBBF24"),
-                ("Net adet (müşteride)", f"{_top['net_adet']:,}", "#34D399"),
+                ("Satış adedi", f"{tr_sayi(_top['s_adet'])}", "#7DD3FC"),
+                ("İade adedi", f"{tr_sayi(_top['i_adet'])}", "#FBBF24"),
+                ("Net adet (müşteride)", f"{tr_sayi(_top['net_adet'])}", "#34D399"),
                 ("Satış cirosu", _usd(_top["s_ciro"]), "#7DD3FC"),
                 ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), "#FBBF24"),
                 ("Net ciro", _usd(_top["net_ciro"]), "#34D399"),
                 ("Satış kârı", _usd(_top["s_kar"]), "#818CF8"),
-                ("Satış marjı", f"%{_mr:.1f}", "#818CF8"),
-                ("İade oranı", f"%{_ior:.1f}", "#FBBF24"),
+                ("Satış marjı", f"%{tr_sayi(_mr, 1)}", "#818CF8"),
+                ("İade oranı", f"%{tr_sayi(_ior, 1)}", "#FBBF24"),
             ]) + '</div>', unsafe_allow_html=True)
             st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "
                        "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")

@@ -1,3 +1,4 @@
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -369,9 +370,9 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
                 return "—"
             try:
                 if para:
-                    return f"${float(v):,.0f}"
+                    return f"${tr_sayi(float(v))}"
                 if pct:
-                    return f"%{float(v):.0f}"
+                    return f"%{tr_sayi(float(v))}"
                 return str(v)
             except Exception:
                 return str(v)

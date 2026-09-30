@@ -9,6 +9,7 @@
 #   YERİNE GEÇMEZ — iç kontrol ve hazırlık amaçlıdır.
 # ══════════════════════════════════════════════════════════════════════
 
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -249,8 +250,8 @@ def edf_fis_dogrula(satirlar):
     t_borc = round(sum(x["borc"] for x in temiz), 2)
     t_alacak = round(sum(x["alacak"] for x in temiz), 2)
     if t_borc != t_alacak:
-        return False, (f"DENGE YOK: borç {t_borc:,.2f} ≠ alacak {t_alacak:,.2f} "
-                       f"(fark {abs(t_borc - t_alacak):,.2f}). Yevmiye maddesi dengede olmalı."), [], 0.0
+        return False, (f"DENGE YOK: borç {tr_sayi(t_borc, 2)} ≠ alacak {tr_sayi(t_alacak, 2)} "
+                       f"(fark {tr_sayi(abs(t_borc - t_alacak), 2)}). Yevmiye maddesi dengede olmalı."), [], 0.0
     if t_borc == 0:
         return False, "Fiş toplamı 0 olamaz.", [], 0.0
     return True, "", temiz, t_borc
@@ -290,7 +291,7 @@ def edf_fis_ekle(tarih, tur, aciklama, belge_no, satirlar, personel=""):
             edf_get_fisler.clear()
         except Exception:
             pass
-        return True, f"✅ Fiş kaydedildi — Yevmiye Madde No: {madde_no} · {toplam:,.2f} ₺", madde_no
+        return True, f"✅ Fiş kaydedildi — Yevmiye Madde No: {madde_no} · {tr_sayi(toplam, 2)} ₺", madde_no
     except Exception as e:
         return False, f"❌ {type(e).__name__}: {str(e)[:150]}", None
 
@@ -480,9 +481,9 @@ def render():
         _ta = round(sum(_f(r.get("Alacak")) for _, r in _kdf.iterrows()), 2)
         _fark = round(_tb - _ta, 2)
         metrik_satiri([
-            {"label": "Toplam Borç", "value": f"{_tb:,.2f}", "renk": "#60A5FA"},
-            {"label": "Toplam Alacak", "value": f"{_ta:,.2f}", "renk": "#34D399"},
-            {"label": "Fark", "value": f"{_fark:,.2f}",
+            {"label": "Toplam Borç", "value": f"{tr_sayi(_tb, 2)}", "renk": "#60A5FA"},
+            {"label": "Toplam Alacak", "value": f"{tr_sayi(_ta, 2)}", "renk": "#34D399"},
+            {"label": "Fark", "value": f"{tr_sayi(_fark, 2)}",
              "renk": "#34D399" if _fark == 0 and _tb > 0 else "#F87171",
              "alt": "✓ dengede" if _fark == 0 and _tb > 0 else "borç = alacak olmalı"},
         ])
@@ -517,12 +518,12 @@ def render():
         else:
             t_top = round(sum(_f(f.get("toplam")) for f in fisler), 2)
             metrik_satiri([
-                {"label": "Madde Sayısı", "value": f"{len(fisler):,}", "renk": "#818CF8"},
-                {"label": "Dönem Toplamı (borç=alacak)", "value": f"{t_top:,.2f}", "renk": "#34D399"},
+                {"label": "Madde Sayısı", "value": f"{tr_sayi(len(fisler))}", "renk": "#818CF8"},
+                {"label": "Dönem Toplamı (borç=alacak)", "value": f"{tr_sayi(t_top, 2)}", "renk": "#34D399"},
             ])
             for f in fisler:
                 with st.expander(f"Madde {f['yevmiye_madde_no']} · {str(f.get('tarih'))[:10]} · "
-                                 f"{f.get('tur')} · {f.get('aciklama') or '—'} · {_f(f.get('toplam')):,.2f}"):
+                                 f"{f.get('tur')} · {f.get('aciklama') or '—'} · {tr_sayi(_f(f.get('toplam')), 2)}"):
                     _sdf = pd.DataFrame([{
                         "Hesap": f"{s.get('hesap_kodu')} — {s.get('hesap_adi') or ''}",
                         "Açıklama": s.get("aciklama") or "",
@@ -556,10 +557,10 @@ def render():
                 _kdf2 = pd.DataFrame(rows)
                 son_bakiye = rows[-1]["Bakiye"]
                 metrik_satiri([
-                    {"label": "Hareket", "value": f"{len(rows):,}", "renk": "#818CF8"},
-                    {"label": "Toplam Borç", "value": f"{sum(r['Borç'] for r in rows):,.2f}", "renk": "#60A5FA"},
-                    {"label": "Toplam Alacak", "value": f"{sum(r['Alacak'] for r in rows):,.2f}", "renk": "#34D399"},
-                    {"label": "Bakiye", "value": f"{son_bakiye:,.2f}",
+                    {"label": "Hareket", "value": f"{tr_sayi(len(rows))}", "renk": "#818CF8"},
+                    {"label": "Toplam Borç", "value": f"{tr_sayi(sum(r['Borç'] for r in rows), 2)}", "renk": "#60A5FA"},
+                    {"label": "Toplam Alacak", "value": f"{tr_sayi(sum(r['Alacak'] for r in rows), 2)}", "renk": "#34D399"},
+                    {"label": "Bakiye", "value": f"{tr_sayi(son_bakiye, 2)}",
                      "renk": "#34D399" if son_bakiye >= 0 else "#F87171",
                      "alt": "borç bakiyesi" if son_bakiye >= 0 else "alacak bakiyesi"},
                 ])
@@ -576,12 +577,12 @@ def render():
             st.info("Bu dönemde kayıt yok.")
         else:
             metrik_satiri([
-                {"label": "Toplam Borç", "value": f"{t_borc:,.2f}", "renk": "#60A5FA"},
-                {"label": "Toplam Alacak", "value": f"{t_alacak:,.2f}", "renk": "#34D399"},
+                {"label": "Toplam Borç", "value": f"{tr_sayi(t_borc, 2)}", "renk": "#60A5FA"},
+                {"label": "Toplam Alacak", "value": f"{tr_sayi(t_alacak, 2)}", "renk": "#34D399"},
                 {"label": "Denge", "value": "✓ DENGEDE" if denge else "✗ DENGESİZ",
                  "renk": "#34D399" if denge else "#F87171",
-                 "alt": "borç = alacak" if denge else f"fark {abs(t_borc - t_alacak):,.2f}"},
-                {"label": "Hesap Sayısı", "value": f"{len(rows):,}", "renk": "#818CF8"},
+                 "alt": "borç = alacak" if denge else f"fark {tr_sayi(abs(t_borc - t_alacak), 2)}"},
+                {"label": "Hesap Sayısı", "value": f"{tr_sayi(len(rows))}", "renk": "#818CF8"},
             ])
             _mdf = pd.DataFrame(rows)
             st.dataframe(_mdf, hide_index=True, use_container_width=True,
@@ -1033,7 +1034,7 @@ def _render_edefter_xml():
         if not ok:
             st.error(sonuc)
         else:
-            st.success(f"✅ Üretildi: `{ad}` ({len(sonuc):,} bayt)")
+            st.success(f"✅ Üretildi: `{ad}` ({tr_sayi(len(sonuc))} bayt)")
             st.download_button(f"⬇️ {_tur} XML İndir", sonuc, ad, "application/xml",
                                use_container_width=True, key="edf_xml_dl")
             with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
@@ -1059,7 +1060,7 @@ def _render_edefter_xml():
         if not pok:
             st.error(psonuc)
         else:
-            st.success(f"✅ Paket hazır: `{padi}` ({psonuc['boyut']:,} bayt)")
+            st.success(f"✅ Paket hazır: `{padi}` ({tr_sayi(psonuc['boyut'])} bayt)")
             st.markdown(f"**Dizin:** `{psonuc['dizin']}/`")
             st.markdown("**İçerik:** " + " · ".join(f"`{d}`" for d in psonuc["dosyalar"]))
             if psonuc["xslt"]:
@@ -1105,7 +1106,7 @@ def _render_edefter_xml():
                     for ad, xml in parcalar:
                         z.writestr(ad, xml)
                 for ad, xml in parcalar:
-                    st.markdown(f"- `{ad}` ({len(xml):,} B)")
+                    st.markdown(f"- `{ad}` ({tr_sayi(len(xml))} B)")
                 st.download_button("⬇️ Parçalar (ZIP) İndir", buf.getvalue(),
                                    f"yevmiye-parcalar-{int(_yil)}{int(_ay):02d}.zip",
                                    "application/zip", use_container_width=True, key="edf_bol_dl")
