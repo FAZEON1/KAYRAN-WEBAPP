@@ -22,6 +22,16 @@ from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
 from . import stok as _stok
 
 
+def _rerun_app():
+    """Dialog içinden TÜM uygulamayı yeniden çalıştırır.
+    Dialog bir fragment içinden açıldığında düz st.rerun() yalnız fragment'ı
+    yenileyebilir ve dialog kapanmaz (mal kabul bug'ı). scope="app" bunu önler."""
+    try:
+        st.rerun(scope="app")
+    except TypeError:          # scope parametresi olmayan eski Streamlit
+        st.rerun()
+
+
 # İçerik durumu / Eksik içerik için seçilebilir standart seçenekler (madde 4-5).
 # Kullanıcı bunlardan seçebilir + serbestçe yenisini yazabilir (multiselect accept_new_options).
 ICERIK_SECENEKLER = [
@@ -344,7 +354,7 @@ def _mal_kabul_dialog():
             except Exception:
                 pass
             st.session_state["_mk_dialog_ac"] = True
-            st.rerun()
+            _rerun_app()
 
     es1, es2 = st.columns([3, 1])
     with es1:
@@ -360,7 +370,7 @@ def _mal_kabul_dialog():
             else:
                 st.toast("⚠ Ürün Yönetimi'nde bulunamadı — bilgileri elle gir")
             st.session_state["_mk_dialog_ac"] = True
-            st.rerun()
+            _rerun_app()
 
 
     # 🏢 Firma cari — form DIŞINDA (değişince mağaza listesi anında filtrelensin, madde 6)
@@ -420,7 +430,7 @@ def _mal_kabul_dialog():
                         st.session_state["_mk_firma_hedef"] = _oto_cari
                     break
             st.session_state["_mk_dialog_ac"] = True
-            st.rerun()
+            _rerun_app()
 
     # Sevk / Teslim Şekli — form DIŞINDA (Kargo seçilince Kargo Takip No görünsün)
     sevk_yontemi = st.selectbox(
@@ -543,7 +553,7 @@ def _mal_kabul_dialog():
                                        for e in _eski_k[:3]),
                 }
                 st.session_state["_mk_dialog_ac"] = True
-                st.rerun()
+                _rerun_app()
         _sevk_txt = "" if str(sevk_yontemi).startswith("(") else sevk_yontemi
         if kargo_takip.strip():
             # Madde 9: PDF'te "Sevk/Kargo Kargo · Kargo No" tekrarı → tek ve temiz metin
@@ -583,7 +593,7 @@ def _mal_kabul_dialog():
                 ("📦 Stok: " + _smsg) if _sok and _smsg
                 else (f"⚠️ Kayıt oluştu ama stok işlenemedi — {_smsg}" if not _sok else ""))
             st.balloons()
-            st.rerun()
+            _rerun_app()
         else:
             st.error(msg)
 
@@ -1155,7 +1165,7 @@ def _kontrol_paneli(kayit):
                     st.success(f"✅ Durum güncellendi: {yeni_durum}")
                     for _sm in _smsgs:
                         (st.caption if _sm.startswith("📦") else st.warning)(_sm)
-                    st.rerun()
+                    _rerun_app()
                 else:
                     st.error("Güncelleme başarısız.")
     if st.button("⚙️ Durum Güncelle / İşlem Yap", key="btn_ts_durum", use_container_width=True):
@@ -1222,7 +1232,7 @@ def _kontrol_paneli(kayit):
                     + (f"\n\n📦 Stok: {_m}" if _o and _m else ""))
                 if not _o:
                     st.session_state["_ts_depo_uyari"] = f"⚠️ Stok işlenemedi — {_m}"
-                st.rerun()
+                _rerun_app()
             else:
                 st.error("Transfer başarısız.")
     if st.button("📦 Depoya Transfer (işlem bitti)", key="btn_ts_transfer", use_container_width=True):
@@ -1317,7 +1327,7 @@ def _kontrol_paneli(kayit):
                 st.session_state.pop(_k, None)
             st.session_state["_ts_bilgi"] = (f"🔄 Stok kartı değiştirildi: "
                                              f"{_eski_sk} → {_yeni_sk.strip()}")
-            st.rerun()
+            _rerun_app()
 
     if st.button("🔄 Stok Kartı Değiştir (ürün dönüştürüldü)", key="btn_ts_stok_degis",
                  use_container_width=True):
@@ -1335,7 +1345,7 @@ def _kontrol_paneli(kayit):
             ok, hata = sil_kayit(kid)
             if ok:
                 st.success("🗑️ Kayıt silindi.")
-                st.rerun()
+                _rerun_app()
             else:
                 st.error(f"Silinemedi: {hata}")
     if st.button("🗑️ Hatalı / Mükerrer Kaydı Sil", key="btn_ts_sil", use_container_width=True):
