@@ -103,7 +103,7 @@ def _sayfa_sevk():
         _adet = ec2.number_input(f"Adet (kalan {_kalan})", min_value=1,
                                  max_value=max(1, _kalan), value=1, step=1, key="dpo_adet")
         ec3.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-        if ec3.button("➕ Listeye ekle", use_container_width=True, key="dpo_ekle"):
+        if ec3.button("Listeye ekle", use_container_width=True, key="dpo_ekle", icon=":material/add:"):
             if _sec_urun and _kalan >= 1:
                 _bulundu = False
                 for s in _sepet:
@@ -132,7 +132,7 @@ def _sayfa_sevk():
                          unsafe_allow_html=True)
             rc2.markdown(f'<div style="padding:4px 0;font-family:monospace;color:#34D399;font-weight:700">'
                          f'{_s["adet"]} adet</div>', unsafe_allow_html=True)
-            if rc3.button("🗑", key=f"dpo_sil_{_i}", help="Listeden çıkar"):
+            if rc3.button("", key=f"dpo_sil_{_i}", help="Listeden çıkar", icon=":material/delete:"):
                 _sepet.pop(_i)
                 st.cache_data.clear()
                 st.rerun()
@@ -145,11 +145,11 @@ def _sayfa_sevk():
                                    placeholder="irsaliye / fatura / belge no")
 
         bc1, bc2 = st.columns([1, 1.4])
-        if bc1.button("🗑 Listeyi temizle", use_container_width=True, key="dpo_temizle"):
+        if bc1.button("Listeyi temizle", use_container_width=True, key="dpo_temizle", icon=":material/delete:"):
             st.session_state["dpo_sepet"] = []
             st.cache_data.clear()
             st.rerun()
-        if bc2.button("🚚 Tümünü Sevk Et", type="primary", use_container_width=True, key="dpo_sevk_hepsi"):
+        if bc2.button("Tümünü Sevk Et", type="primary", use_container_width=True, key="dpo_sevk_hepsi", icon=":material/local_shipping:"):
             if not _hedef:
                 st.error("Hedef depo gerekli.")
             else:
@@ -235,10 +235,10 @@ def _sayfa_bekleyen():
             fc1, fc2 = st.columns([2.2, 1])
             fc1.success(f'✅ {_son["hareket"].get("adet")} adet sevk kaydedildi · '
                         f'Fiş No: **{_son["hareket"].get("fis_no")}**')
-            fc2.download_button("🖨 Sevk Fişini İndir (PDF)", _pdf,
+            fc2.download_button("Sevk Fişini İndir (PDF)", _pdf,
                                 file_name=f'{_son["hareket"].get("fis_no","sevk")}.pdf',
                                 mime="application/pdf", type="primary",
-                                use_container_width=True, key="mt_fis_indir")
+                                use_container_width=True, key="mt_fis_indir", icon=":material/print:")
         except Exception as _e:
             st.error(f"Fiş üretilemedi: {_e}")
         if st.button("✖ Kapat", key="mt_fis_kapat"):
@@ -260,8 +260,8 @@ def _sayfa_bekleyen():
         _mt_vd = a2.text_input("Vergi Dairesi", key="mt_vd")
         _mt_vkn = st.text_input("Vergi No / TCKN", key="mt_vkn")
         _mt_not = st.text_input("Not (ops.)", key="mt_not", placeholder="fatura no / açıklama")
-        if st.button("➕ Takibe Ekle", type="primary", key="mt_ekle",
-                     disabled=not (_mt_firma.strip() and _mt_sku.strip())):
+        if st.button("Takibe Ekle", type="primary", key="mt_ekle",
+                     disabled=not (_mt_firma.strip() and _mt_sku.strip()), icon=":material/add:"):
             try:
                 _kayit = {
                     "firma": _mt_firma.strip(), "sku": _mt_sku.strip(),
@@ -326,7 +326,7 @@ def _sayfa_bekleyen():
                                 placeholder="taşıyıcı / plaka / şoför / not")
 
         b1, b2 = st.columns(2)
-        if b1.button("🚚 Düşümü Kaydet", type="primary", key="mt_dus", disabled=_kalan <= 0):
+        if b1.button("Düşümü Kaydet", type="primary", key="mt_dus", disabled=_kalan <= 0, icon=":material/local_shipping:"):
             try:
                 _yeni_h = {"tarih": str(_d_tarih), "adet": int(_d_adet),
                            "belge_no": _d_belge.strip(), "fis_no": _d_fis.strip(),
@@ -345,7 +345,7 @@ def _sayfa_bekleyen():
                 st.rerun()
             except Exception as _e:
                 st.error(f"Düşüm kaydedilemedi: {_e}")
-        if b2.button("🗑 Kaydı Sil", key="mt_sil"):
+        if b2.button("Kaydı Sil", key="mt_sil", icon=":material/delete:"):
             try:
                 get_client().table("depo_manuel_takip").delete().eq("id", _mt_sec.get("id")).execute()
                 st.success("Kayıt silindi.")
@@ -373,10 +373,10 @@ def _sayfa_bekleyen():
             try:
                 from depo.belge import sevk_fisi_pdf
                 r2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                r2.download_button("🖨 PDF", sevk_fisi_pdf(_mt_sec, _hrk[_hsec]),
+                r2.download_button("PDF", sevk_fisi_pdf(_mt_sec, _hrk[_hsec]),
                                    file_name=f'{_hrk[_hsec].get("fis_no") or "sevk_fisi"}.pdf',
                                    mime="application/pdf", use_container_width=True,
-                                   key="mt_rep_indir")
+                                   key="mt_rep_indir", icon=":material/print:")
             except Exception as _e:
                 r2.caption(f"PDF hatası: {_e}")
 
@@ -427,10 +427,10 @@ def _sayfa_bekleyen():
         from io import BytesIO
         _buf = BytesIO()
         pd.DataFrame(_f).to_excel(_buf, index=False, sheet_name="Sevk Hareketleri")
-        st.download_button("📥 Excel'e Aktar", _buf.getvalue(),
+        st.download_button("Excel'e Aktar", _buf.getvalue(),
                            file_name=f"sevk_hareketleri_{date.today()}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           key="mt_h_excel")
+                           key="mt_h_excel", icon=":material/move_to_inbox:")
     except Exception as _e:
         st.caption(f"Excel üretilemedi: {_e}")
 
@@ -657,8 +657,8 @@ def _sayfa_happylife():
                 st.error(hata)
             else:
                 st.success(f"📄 {len(kayitlar)} palet satırı okundu.")
-                if st.button("💾 Veritabanına Kaydet", type="primary", key="hl_kaydet_btn",
-                             use_container_width=True):
+                if st.button("Veritabanına Kaydet", type="primary", key="hl_kaydet_btn",
+                             use_container_width=True, icon=":material/save:"):
                     ok, msg = hl_kaydet(kayitlar, _rapor.isoformat())
                     (st.success if ok else st.error)(msg)
                     if ok:
@@ -752,8 +752,8 @@ def _sayfa_happylife():
     if _f_neg:
         st.caption(f"⚠️ {_f_neg} SKU'da canlı stok Excel'in altında — son rapordan beri "
                    "satış/çıkış yapılmış. Palet detayı bir sonraki Excel'le güncellenir.")
-    st.download_button("⬇️ Özet CSV", _ozet_df.to_csv(index=False).encode("utf-8-sig"),
-                       f"happylife_ozet_{_sec_tarih}.csv", "text/csv", key="hl_ozet_csv")
+    st.download_button("Özet CSV", _ozet_df.to_csv(index=False).encode("utf-8-sig"),
+                       f"happylife_ozet_{_sec_tarih}.csv", "text/csv", key="hl_ozet_csv", icon=":material/download:")
 
     # ── DETAY (istenen 8 kolon) ──
     st.markdown("**📋 Palet Detayı** — talep edilen kolonlar")
@@ -771,8 +771,8 @@ def _sayfa_happylife():
                  column_config={
                      "Stok Yaşı (gün)": st.column_config.NumberColumn("Stok Yaşı (gün)", format="%d"),
                  })
-    st.download_button("⬇️ Detay CSV", _detay_df.to_csv(index=False).encode("utf-8-sig"),
-                       f"happylife_detay_{_sec_tarih}.csv", "text/csv", key="hl_detay_csv")
+    st.download_button("Detay CSV", _detay_df.to_csv(index=False).encode("utf-8-sig"),
+                       f"happylife_detay_{_sec_tarih}.csv", "text/csv", key="hl_detay_csv", icon=":material/download:")
 
 
 def _hl_gun_ay_yil(iso):

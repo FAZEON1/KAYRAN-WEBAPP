@@ -117,10 +117,10 @@ def _gecmis_odemeler(kisi, pfx):
         with c3: st.markdown('<div class="prim-hist-val" style="color:#94A3B8">'+str(row.get('odeme_tarihi',''))+'</div>', unsafe_allow_html=True)
         with c4: st.markdown('<div class="prim-hist-val" style="color:#7B8AA0">'+(row.get('notlar','') or '—')+'</div>', unsafe_allow_html=True)
         with c5:
-            if st.button('✏️', key=pfx+'_ed_'+str(rid), help='Düzenle'):
+            if st.button('', key=pfx+'_ed_'+str(rid), help='Düzenle', icon=":material/edit:"):
                 st.session_state[ek] = rid; st.rerun()
         with c6:
-            if st.button('🗑️', key=pfx+'_dl_'+str(rid), help='Sil'): sil_id = rid
+            if st.button('', key=pfx+'_dl_'+str(rid), help='Sil', icon=":material/delete:"): sil_id = rid
         st.markdown('<div style="height:1px;background:rgba(255,255,255,0.04)"></div>', unsafe_allow_html=True)
     if sil_id: prim_sil(sil_id); st.rerun()
     if st.session_state[ek] is not None:
@@ -138,11 +138,11 @@ def _gecmis_odemeler(kisi, pfx):
             with e4: e_n = st.text_input('Not', value=erow.get('notlar',''), key=pfx+'_en')
             b1,b2,_ = st.columns([1,1,4])
             with b1:
-                if st.button('✅ Kaydet', key=pfx+'_esv', type='primary'):
+                if st.button('Kaydet', key=pfx+'_esv', type='primary', icon=":material/check_circle:"):
                     if prim_guncelle(st.session_state[ek], e_d, e_p, e_t, e_n):
                         st.session_state[ek] = None; st.rerun()
             with b2:
-                if st.button('❌ İptal', key=pfx+'_ecl'):
+                if st.button('İptal', key=pfx+'_ecl', icon=":material/close:"):
                     st.session_state[ek] = None; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         else: st.session_state[ek] = None
@@ -238,7 +238,7 @@ def _prim_gokhan():
     with op2: gy_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='gy_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        if st.button('💾 Ödemeyi Kaydet', key='gy_save', type='primary', use_container_width=True):
+        if st.button('Ödemeyi Kaydet', key='gy_save', type='primary', use_container_width=True, icon=":material/save:"):
             if toplam_prim > 0 and donem:
                 if prim_kaydet('gokhan_yavuz', donem, toplam_prim, gy_odt, gy_not):
                     st.success('✅ '+donem+' dönemi '+_tl(toplam_prim)+' prim ödemesi kaydedildi.')
@@ -313,7 +313,7 @@ def _prim_ayhan():
     with op2: ay_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='ay_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
-        if st.button('💾 Ödemeyi Kaydet', key='ay_save', type='primary', use_container_width=True):
+        if st.button('Ödemeyi Kaydet', key='ay_save', type='primary', use_container_width=True, icon=":material/save:"):
             if tot_tl > 0 and ay_d:
                 if prim_kaydet('ayhan_eroglu', ay_d, tot_tl, ay_odt, ay_not):
                     st.success('✅ '+ay_d+' dönemi '+_tl(tot_tl)+' prim ödemesi kaydedildi.')
@@ -474,10 +474,10 @@ def run():
         if st.button('Kırılma Noktası', key='tab_b', type=('primary' if st.session_state.hm_sekme=='breakeven' else 'secondary'), use_container_width=True):
             st.session_state.hm_sekme='breakeven'; st.rerun()
     with t3:
-        if st.button('💰 Gökhan Prim', key='tab_gy', type=('primary' if st.session_state.hm_sekme=='prim_gokhan' else 'secondary'), use_container_width=True):
+        if st.button('Gökhan Prim', key='tab_gy', type=('primary' if st.session_state.hm_sekme=='prim_gokhan' else 'secondary'), use_container_width=True, icon=":material/payments:"):
             st.session_state.hm_sekme='prim_gokhan'; st.rerun()
     with t4:
-        if st.button('💰 Ayhan Prim', key='tab_ay', type=('primary' if st.session_state.hm_sekme=='prim_ayhan' else 'secondary'), use_container_width=True):
+        if st.button('Ayhan Prim', key='tab_ay', type=('primary' if st.session_state.hm_sekme=='prim_ayhan' else 'secondary'), use_container_width=True, icon=":material/payments:"):
             st.session_state.hm_sekme='prim_ayhan'; st.rerun()
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
     if st.session_state.hm_sekme == 'karlilik': _urun_karlilik()

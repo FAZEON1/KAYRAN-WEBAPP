@@ -151,3 +151,19 @@ def test_menu_ikonlari_yazi_tipi_ezilmiyor():
     assert 'html body span[translate="no"][aria-label$=" icon"]' in src
     kural = src[src.index('html body span[translate="no"]'):]
     assert 'Material Symbols Rounded' in kural[:600]
+
+
+def test_dugmelerde_emoji_yok():
+    """Sayfa içindeki düğmeler tek ikon dilinde: emoji yerine icon=":material/..:".
+    Ok/kapat işaretleri (◀ ▶ ‹ › ✕) tipografik sayılır, serbest."""
+    import glob as _g
+    bas = re.compile(r"\.(?:button|form_submit_button|download_button)\(\s*f?([\"'])([^\"']*)\1")
+    kotu = []
+    for f in _g.glob(str(KOK / "**" / "*.py"), recursive=True):
+        if any(p in f.replace("\\", "/") for p in ("/tests/", "/bekleyen/", "/otonom/", "/deploy/")):
+            continue
+        for m in bas.finditer(open(f, encoding="utf-8").read()):
+            et = m.group(2)
+            if et and not (et[0].isalnum() or et[0] in " ←→✓✖-+%$₺#.◀▶‹›✕({“‘«"):
+                kotu.append(f"{Path(f).relative_to(KOK)}: {et[:30]}")
+    assert not kotu, kotu[:10]

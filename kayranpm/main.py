@@ -655,7 +655,7 @@ def run():
             filtre_kat = st.selectbox("Kategori", ["Tüm Kategoriler"] + _kat_list_d, key="dash_kat")
         with col_f3:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔄 Yenile", use_container_width=True):
+            if st.button("Yenile", use_container_width=True, icon=":material/refresh:"):
                 st.cache_data.clear()
                 st.rerun()
     
@@ -804,7 +804,7 @@ def run():
                         "Spiff ₺": (f"{tr_sayi(_sp)}" if _sp else ""),
                     })
                 st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True, height=tablo_h(len(_rows_k)))
-        if st.button(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", key="btn_dash_kmp", use_container_width=True):
+        if st.button(f"Güncel Kampanyalar ({len(_kmps)} aktif)", key="btn_dash_kmp", use_container_width=True, icon=":material/track_changes:"):
             _dlg_dash_kampanyalar()
 
     elif sayfa == "📋  Tüm Ürünler":
@@ -1261,7 +1261,7 @@ def run():
                     st.caption(f"Aktif filtre → {_rapor_meta}")
                     _rr1, _rr2 = st.columns(2)
                     with _rr1:
-                        if st.button("📊 Excel Oluştur", use_container_width=True, type="primary", key="oz_rapor_excel"):
+                        if st.button("Excel Oluştur", use_container_width=True, type="primary", key="oz_rapor_excel", icon=":material/table_view:"):
                             from .rapor import tum_urunler_excel
                             import tempfile
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
@@ -1269,15 +1269,15 @@ def run():
                             _ok, _msg = tum_urunler_excel(rows_oz, _tp, _rapor_meta)
                             if _ok:
                                 with open(_tp, "rb") as _f:
-                                    st.download_button("⬇️ Excel İndir", _f.read(),
+                                    st.download_button("Excel İndir", _f.read(),
                                         f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx",
                                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                        use_container_width=True, key="oz_rapor_excel_dl")
+                                        use_container_width=True, key="oz_rapor_excel_dl", icon=":material/download:")
                                 os.unlink(_tp)
                             else:
                                 st.error(_msg)
                     with _rr2:
-                        if st.button("📑 PDF Oluştur", use_container_width=True, key="oz_rapor_pdf"):
+                        if st.button("PDF Oluştur", use_container_width=True, key="oz_rapor_pdf", icon=":material/picture_as_pdf:"):
                             from .rapor import tum_urunler_pdf
                             import tempfile
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
@@ -1285,14 +1285,14 @@ def run():
                             _ok, _msg = tum_urunler_pdf(rows_oz, _tp, _rapor_meta)
                             if _ok:
                                 with open(_tp, "rb") as _f:
-                                    st.download_button("⬇️ PDF İndir", _f.read(),
+                                    st.download_button("PDF İndir", _f.read(),
                                         f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.pdf",
                                         mime="application/pdf",
-                                        use_container_width=True, key="oz_rapor_pdf_dl")
+                                        use_container_width=True, key="oz_rapor_pdf_dl", icon=":material/download:")
                                 os.unlink(_tp)
                             else:
                                 st.error(_msg)
-        if st.button("📊 Tüm Ürünler Özet — filtrele, sırala, incele", key="btn_urun_ozet", use_container_width=True):
+        if st.button("Tüm Ürünler Özet — filtrele, sırala, incele", key="btn_urun_ozet", use_container_width=True, icon=":material/table_view:"):
             _dlg_urunler_ozet()
 
         # KALICI PANEL — @st.dialog DEĞİL.
@@ -1380,7 +1380,7 @@ def run():
                         "⛔ EOL — üretimi/satışı sonlandı (bu ürüne sipariş ÖNERİLMESİN)",
                         value=bool(_u.get("eol")))
 
-                    if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
+                    if st.form_submit_button("Kaydet", type="primary", use_container_width=True, icon=":material/save:"):
                         from .database import upsert_urun as _upsert_urun
                         # Fiyat listesini editörden topla
                         _yeni_liste = {}
@@ -1415,8 +1415,8 @@ def run():
                 st.markdown("<div style='height:1px;background:rgba(255,255,255,0.06);margin:12px 0 8px'></div>",
                             unsafe_allow_html=True)
                 _sil_onay = st.checkbox(f"⚠️ '{_sec_sku}' stok kartını kalıcı olarak sil", key="urun_sil_onay")
-                if st.button("🗑️ Stok Kartını Sil", key="urun_sil_btn",
-                             disabled=not _sil_onay, use_container_width=True):
+                if st.button("Stok Kartını Sil", key="urun_sil_btn",
+                             disabled=not _sil_onay, use_container_width=True, icon=":material/delete:"):
                     from .database import sil_urun as _sil_urun
                     try:
                         _sil_urun(_sec_sku)
@@ -1500,7 +1500,7 @@ def run():
             _sec_kat = st.multiselect("Yurt içi kategoriler", _tum_kat,
                                       default=[k for k in _yurtici_kat if k in _tum_kat],
                                       key="mal_kat_sec")
-            if st.button("💾 Kategori seçimini kaydet", key="mal_kat_kaydet"):
+            if st.button("Kategori seçimini kaydet", key="mal_kat_kaydet", icon=":material/save:"):
                 if _syk(_sec_kat):
                     st.cache_data.clear()
                     st.success("✅ Kaydedildi.")
@@ -1546,8 +1546,8 @@ def run():
                         help="Birim başına, nakliye dahil"),
                 })
 
-            if st.button("💾 Maliyetleri Kaydet", type="primary",
-                         use_container_width=True, key="mal_kaydet"):
+            if st.button("Maliyetleri Kaydet", type="primary",
+                         use_container_width=True, key="mal_kaydet", icon=":material/save:"):
                 from .database import upsert_urun as _upsert_m
                 _eski_map = {r["SKU"]: r["Maliyet ($)"] for r in _goster}
                 _u_map = {u.get("sku"): u for u in _tum_u}
@@ -1629,10 +1629,10 @@ def run():
                              "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
                          })
             _ind1, _ind2 = st.columns(2)
-            _ind1.download_button("⬇️ Özet CSV indir",
+            _ind1.download_button("Özet CSV indir",
                                   _ozet.to_csv(index=False).encode("utf-8-sig"),
                                   "musteri_ozet.csv", "text/csv", key="mhs_ozet_csv",
-                                  use_container_width=True)
+                                  use_container_width=True, icon=":material/download:")
 
             # ── EXCEL (tek dosya, iki sayfa: Özet + Ham Detay) ──
             def _mhs_excel(ozet_df, detay_df):
@@ -1654,18 +1654,18 @@ def run():
                 return _buf.getvalue()
 
             _ind2.download_button(
-                "⬇️ Excel indir (Özet + Detay)",
+                "Excel indir (Özet + Detay)",
                 _mhs_excel(_ozet, _df),
                 f"musteri_satislari_{_bas}_{_bit}.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="mhs_xlsx", type="primary", use_container_width=True)
+                key="mhs_xlsx", type="primary", use_container_width=True, icon=":material/download:")
 
             # ── HAM DETAY (isteyen SKU kırılımını görsün) ──
             with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({tr_sayi(len(_df))} kayıt)", expanded=False):
                 st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
-                st.download_button("⬇️ Detay CSV indir",
+                st.download_button("Detay CSV indir",
                                    _df.to_csv(index=False).encode("utf-8-sig"),
-                                   "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv")
+                                   "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv", icon=":material/download:")
 
         st.markdown("---")
         @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
@@ -1677,9 +1677,9 @@ def run():
                        "bağlanıp tek özet oluşturulur. **Kategori dosyada gerekmez** — bizim ürün kartından eşlenir; "
                        "boş bırakılan kategori kolonları hata vermez.")
             _dosya_hss = st.file_uploader("Haftalık STOK+SATIŞ Excel'i Seç", type=["xlsx", "xls"], key="mhs_hss_dosya")
-            _hss_bas = st.button("⬆️ Haftalık STOK+SATIŞ Yükle", type="primary",
+            _hss_bas = st.button("Haftalık STOK+SATIŞ Yükle", type="primary",
                                  use_container_width=True, key="mhs_hss_btn",
-                                 disabled=not _dosya_hss)
+                                 disabled=not _dosya_hss, icon=":material/upload:")
             if _hss_bas:
                 if not _dosya_hss:
                     st.error("Önce dosya seçin.")
@@ -1703,7 +1703,7 @@ def run():
                         pass
                 st.cache_data.clear()
                 (st.success if _ok2 else st.error)(_msg2)
-        if st.button("📤 Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True):
+        if st.button("Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True, icon=":material/upload:"):
             _dlg_musteri_yukle()
 
     elif sayfa == "🎯  Kampanya Takip":
@@ -1834,7 +1834,7 @@ def run():
                     _dc3, _dc4 = st.columns(2)
                     k_bas = _dc3.date_input("Başlangıç Tarihi *", value=tr_today(), format="DD.MM.YYYY")
                     k_bit = _dc4.date_input("Bitiş Tarihi *", value=tr_today(), format="DD.MM.YYYY")
-                    if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
+                    if st.form_submit_button("Kampanya Oluştur", type="primary", use_container_width=True, icon=":material/rocket_launch:"):
                         if not k_adi.strip():
                             st.error("Kampanya adı zorunludur.")
                         elif str(k_firma).startswith("("):
@@ -1862,7 +1862,7 @@ def run():
                                          "(muhtemelen 'kampanyalar' tablosunda izin/kolon sorunu).")
 
             _yk1, _yk2 = st.columns([1, 4])
-            if _yk1.button("➕ Yeni Kampanya", type="primary", use_container_width=True, key="yeni_kmp_ac"):
+            if _yk1.button("Yeni Kampanya", type="primary", use_container_width=True, key="yeni_kmp_ac", icon=":material/add:"):
                 _yeni_kampanya_dialog()
             _yk2.caption("Yeni kampanya için butona bas — açılır pencerede oluştur. "
                          "Listeden bir kampanyaya tıklayınca detayı açılır pencerede görünür.")
@@ -1938,10 +1938,10 @@ def run():
                         pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
                 st.caption(f"⬇️ Şablonda Firma Adı ({len(_cariler)}) · Kategori ({len(_katlar)}) · "
                            f"Marka ({len(_markalar)}) · Kampanya Türü açılır listeden seçilir.")
-                st.download_button("⬇️ Kampanya şablonu indir", _tbuf.getvalue(),
+                st.download_button("Kampanya şablonu indir", _tbuf.getvalue(),
                                    "KAMPANYA_OLUSTUR_SABLONU.xlsx",
                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                   key="kmp_olustur_sablon_dl")
+                                   key="kmp_olustur_sablon_dl", icon=":material/download:")
                 _kfile = st.file_uploader("Doldurulmuş kampanya şablonu", type=["xlsx", "xls"],
                                           key="kmp_olustur_up")
                 if _kfile is not None:
@@ -2079,9 +2079,9 @@ def run():
                             })
                         st.caption(f"Şablonda **{len(_urun_satir)}** geçerli ürün satırı bulundu.")
 
-                        if st.button("🚀 Şablondan Kampanya Oluştur ve Ürünleri Ekle", type="primary",
+                        if st.button("Şablondan Kampanya Oluştur ve Ürünleri Ekle", type="primary",
                                      use_container_width=True, key="kmp_o_olustur",
-                                     disabled=(not _o_ad.strip() or not _o_firma.strip() or not _urun_satir)):
+                                     disabled=(not _o_ad.strip() or not _o_firma.strip() or not _urun_satir), icon=":material/rocket_launch:"):
                             _ohata, _oyid = None, None
                             try:
                                 _oyid = ekle_kampanya(
@@ -2110,7 +2110,7 @@ def run():
                                 st.error("Kampanya oluşturulamadı (tablo izni/kolon olabilir).")
                     except Exception as _e:
                         st.error(f"Excel okunamadı: {_e}")
-            if st.button("📥 Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", key="btn_kmp_exc", use_container_width=True):
+            if st.button("Excel Şablonundan Kampanya Oluştur (kampanya + ürünler tek dosyada)", key="btn_kmp_exc", use_container_width=True, icon=":material/move_to_inbox:"):
                 _dlg_kmp_excel()
 
             # Aktif kampanyaları listele
@@ -2249,7 +2249,7 @@ def run():
                                     st.caption(f"≈ ${tr_sayi((dk_spiff_tl / dk_spiff_kur), 2)} USD spiff maliyeti {'(fatura/kesin)' if dk_spiff_fatura else '(tahmini)'}")
                                 dc1_k, dc2_k, dc3_k = st.columns(3)
                                 with dc1_k:
-                                    if st.form_submit_button("💾 Kampanyayı Güncelle", use_container_width=True, type="primary"):
+                                    if st.form_submit_button("Kampanyayı Güncelle", use_container_width=True, type="primary", icon=":material/save:"):
                                         _dk_kat_val = "" if str(dk_kat).startswith("(") else dk_kat
                                         _dk_turu_val = "" if str(dk_turu).startswith("(") else dk_turu
                                         guncelle_kampanya(kid, dk_adi, dk_firma, str(dk_bas), str(dk_bit), dk_not,
@@ -2261,9 +2261,9 @@ def run():
                                         st.session_state['_kamp_detay_ac'] = True
                                         st.rerun()
                                 with dc2_k:
-                                    kapat_flag = st.form_submit_button("🔒 Kampanyayı Kapat", use_container_width=True)
+                                    kapat_flag = st.form_submit_button("Kampanyayı Kapat", use_container_width=True, icon=":material/lock:")
                                 with dc3_k:
-                                    if st.form_submit_button("🗑️ Kampanyayı Sil", use_container_width=True):
+                                    if st.form_submit_button("Kampanyayı Sil", use_container_width=True, icon=":material/delete:"):
                                         sil_kampanya(kid)
                                         st.cache_data.clear()
                                         st.warning("Kampanya silindi.")
@@ -2300,7 +2300,7 @@ def run():
     
                                     kk1, kk2 = st.columns(2)
                                     with kk1:
-                                        if st.form_submit_button("✅ Kaydet ve Kapat", type="primary", use_container_width=True):
+                                        if st.form_submit_button("Kaydet ve Kapat", type="primary", use_container_width=True, icon=":material/check_circle:"):
                                             for ku_id_k, adet_k in adet_girisleri.items():
                                                 ku_bilgi = next((x for x in k_urunler if x["id"] == ku_id_k), {})
                                                 guncelle_kampanya_urun(ku_id_k,
@@ -2389,7 +2389,7 @@ def run():
     
                                         ub1, ub2 = st.columns([3, 1])
                                         with ub2:
-                                            if st.form_submit_button("💾 Güncelle", use_container_width=True, type="primary"):
+                                            if st.form_submit_button("Güncelle", use_container_width=True, type="primary", icon=":material/save:"):
                                                 guncelle_kampanya_urun(ku_id, ug_satis, ug_fd, ug_ed, ug_satilan, ku.get("notlar",""))
                                                 st.cache_data.clear()
                                                 st.toast(f"✅ Güncellendi!")
@@ -2405,8 +2405,8 @@ def run():
                             _kop_ad = _kop_c1.text_input("Yeni kampanya adı",
                                                          value=f"{kamp['kampanya_adi']} (KOPYA)", key=f"kop_ad_{kid}")
                             _kop_c2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                            if _kop_c2.button("📋 Kopyala ve Oluştur", type="primary",
-                                              use_container_width=True, key=f"kop_btn_{kid}"):
+                            if _kop_c2.button("Kopyala ve Oluştur", type="primary",
+                                              use_container_width=True, key=f"kop_btn_{kid}", icon=":material/content_copy:"):
                                 _kop_hata, _yeni_id = None, None
                                 try:
                                     _yeni_id = ekle_kampanya(
@@ -2491,7 +2491,7 @@ def run():
                                         else:
                                             st.info(f"⭐ Paçal: Henüz satın alma kaydı yok")
     
-                                    if st.form_submit_button("➕ Ürünü Kampanyaya Ekle", type="primary", use_container_width=True):
+                                    if st.form_submit_button("Ürünü Kampanyaya Ekle", type="primary", use_container_width=True, icon=":material/add:"):
                                         if not u_secim or u_satis <= 0:
                                             st.error("Ürün ve satış fiyatı zorunludur.")
                                         else:
@@ -2681,14 +2681,14 @@ def run():
     
                                     gf_c1, gf_c2 = st.columns(2)
                                     with gf_c1:
-                                        if st.form_submit_button("💾 Güncelle", type="primary", use_container_width=True):
+                                        if st.form_submit_button("Güncelle", type="primary", use_container_width=True, icon=":material/save:"):
                                             guncelle_kampanya_urun(g_id, g_satis, g_fd, g_ed, g_satilan, g_not)
                                             st.cache_data.clear()
                                             st.toast("Güncellendi!")
                                             st.session_state['_kamp_detay_ac'] = True
                                             st.rerun()
                                     with gf_c2:
-                                        if st.form_submit_button("🗑️ Ürünü Sil", use_container_width=True):
+                                        if st.form_submit_button("Ürünü Sil", use_container_width=True, icon=":material/delete:"):
                                             sil_kampanya_urun(g_id)
                                             st.cache_data.clear()
                                             st.warning("Ürün kaldırıldı.")
@@ -2788,7 +2788,7 @@ def run():
                                 })
                             st.dataframe(pd.DataFrame(rows_g), use_container_width=True, hide_index=True, height=tablo_h(len(rows_g)))
     
-                            if st.button(f"🗑️ Kampanyayı Sil", key=f"sil_gecmis_{kid}"):
+                            if st.button(f"Kampanyayı Sil", key=f"sil_gecmis_{kid}", icon=":material/delete:"):
                                 sil_kampanya(kid)
                                 st.cache_data.clear()
                                 st.warning("Silindi.")
@@ -2808,7 +2808,7 @@ def run():
             _yeni_esik = _e1.number_input("Eşik (gün)", min_value=1, max_value=730, value=int(_esik),
                                           step=5, key="uretim_suresi_input")
             _e2.markdown("<br>", unsafe_allow_html=True)
-            if _e2.button("💾 Kaydet", use_container_width=True, key="uretim_suresi_kaydet"):
+            if _e2.button("Kaydet", use_container_width=True, key="uretim_suresi_kaydet", icon=":material/save:"):
                 if set_uretim_suresi(int(_yeni_esik)):
                     st.cache_data.clear()
                     st.toast(f"✅ Sipariş eşiği {int(_yeni_esik)} güne ayarlandı", icon="✅")
@@ -2887,7 +2887,7 @@ def run():
                 miktar = st.number_input("Miktar", min_value=1, value=max(oneri, 1),
                                          key=f"sp_miktar_{sku}", label_visibility="collapsed")
             with c3:
-                if st.button("📦 Sipariş Ekle", key=f"sp_btn_{sku}", use_container_width=True):
+                if st.button("Sipariş Ekle", key=f"sp_btn_{sku}", use_container_width=True, icon=":material/inventory_2:"):
                     from .database import ekle_siparis_onerisi
                     ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
                     st.cache_data.clear()
@@ -2929,14 +2929,14 @@ def run():
             col_o1, col_o2 = st.columns(2)
             with col_o1:
                 onayla_id = st.number_input("Onaylanacak ID", min_value=1, step=1, key="onayla_id")
-                if st.button("✅ Onayla", key="onayla_btn", use_container_width=True):
+                if st.button("Onayla", key="onayla_btn", use_container_width=True, icon=":material/check_circle:"):
                     from .database import onayla_siparis
                     onayla_siparis(int(onayla_id))
                     st.toast("Onaylandı!")
                     st.rerun()
             with col_o2:
                 reddet_id = st.number_input("Reddedilecek ID", min_value=1, step=1, key="reddet_id")
-                if st.button("❌ Reddet", key="reddet_btn", use_container_width=True):
+                if st.button("Reddet", key="reddet_btn", use_container_width=True, icon=":material/close:"):
                     from .database import reddet_siparis
                     reddet_siparis(int(reddet_id))
                     st.warning("Reddedildi.")
@@ -2977,7 +2977,7 @@ def run():
                 _hedef_marj = _sc1.number_input("Hedef marj (%)", min_value=0.0, max_value=500.0,
                                                 value=25.0, step=5.0, key="satis_marj")
                 _sadece_fiyatsiz = _sc2.checkbox("Sadece fiyatsız ürünler", value=False, key="satis_sadece")
-                if _sc3.button("🪄 Marj'dan Satış Öner", use_container_width=True, key="satis_oner"):
+                if _sc3.button("Marj'dan Satış Öner", use_container_width=True, key="satis_oner", icon=":material/auto_fix_high:"):
                     _on = {}
                     for u in _ur_s:
                         _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
@@ -3016,7 +3016,7 @@ def run():
                         "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="%.1f%%"),
                     },
                 )
-                if st.button("💾 Satış Fiyatlarını Kaydet", type="primary", key="satis_kaydet_btn"):
+                if st.button("Satış Fiyatlarını Kaydet", type="primary", key="satis_kaydet_btn", icon=":material/save:"):
                     _map_s = {}
                     for _, r in _edited_s.iterrows():
                         _satis_v = float(r.get("Satış ($)") or 0)
@@ -3028,7 +3028,7 @@ def run():
                     st.session_state.pop("_satis_oneri", None)
                     st.toast(f"✅ {_oks} ürün fiyatı kaydedildi" + (f" · {_hts} hata" if _hts else ""), icon="✅")
                     st.rerun()
-        if st.button("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", key="btn_top_fiy", use_container_width=True):
+        if st.button("Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", key="btn_top_fiy", use_container_width=True, icon=":material/attach_money:"):
             _dlg_toplu_fiyat()
 
         # 🏷️ Toplu Kategori & Marka — markası/kategorisi boş ürünleri tek tabloda etiketle
@@ -3056,7 +3056,7 @@ def run():
             _kc1, _kc2, _kc3 = st.columns([1, 1, 1])
             _sadece_bos = _kc1.checkbox("Sadece eksik olanlar", value=True, key="kat_sadece_bos",
                                         help="Kategorisi veya markası boş olan ürünleri gösterir.")
-            if _kc2.button("🪄 Otomatik Öner (kategori + marka)", use_container_width=True, key="kat_oto"):
+            if _kc2.button("Otomatik Öner (kategori + marka)", use_container_width=True, key="kat_oto", icon=":material/auto_fix_high:"):
                 _onk = {u["sku"]: _kat_oner(u.get("urun_adi", "")) for u in _ur_kat
                         if _kat_oner(u.get("urun_adi", ""))}
                 _onm = {u["sku"]: _marka_oner(u.get("urun_adi", "")) for u in _ur_kat
@@ -3066,8 +3066,8 @@ def run():
                 st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
                 st.toast(f"🪄 {len(_onk)} kategori · {len(_onm)} marka önerildi", icon="🪄")
                 st.rerun()
-            if _kc3.button("🔀 Kategori Standartlaştır", use_container_width=True, key="kat_std_btn",
-                           help="Aynı kategorinin farklı yazımlarını tek biçime indirger (MONİTÖR / Monitör → monitör)."):
+            if _kc3.button("Kategori Standartlaştır", use_container_width=True, key="kat_std_btn",
+                           help="Aynı kategorinin farklı yazımlarını tek biçime indirger (MONİTÖR / Monitör → monitör).", icon=":material/shuffle:"):
                 with st.spinner("Birleştiriliyor..."):
                     _ds, _hrt = _kat_std()
                 if _ds:
@@ -3108,7 +3108,7 @@ def run():
                         "Marka", help="Serbest yaz (FAZEON, INNO3D, NZXT, MIO, AGI...)"),
                 },
             )
-            if st.button("💾 Kategori & Marka Kaydet", type="primary", key="kat_kaydet_btn"):
+            if st.button("Kategori & Marka Kaydet", type="primary", key="kat_kaydet_btn", icon=":material/save:"):
                 _map = {str(r["SKU"]): {"kategori": str(r.get("Kategori", "") or "").strip(),
                                         "marka": str(r.get("Marka", "") or "").strip()}
                         for _, r in _edited_kat.iterrows()}
@@ -3119,8 +3119,8 @@ def run():
                 st.toast(f"✅ {_okk} ürün kaydedildi" + (f" · {_htk} hata" if _htk else ""), icon="✅")
                 st.rerun()
 
-        if st.button("🏷️ Toplu Kategori & Marka — markasız ürünleri etiketle",
-                     key="btn_top_kat_marka", use_container_width=True):
+        if st.button("Toplu Kategori & Marka — markasız ürünleri etiketle",
+                     key="btn_top_kat_marka", use_container_width=True, icon=":material/sell:"):
             _dlg_toplu_kat_marka()
 
         # 🧹 'Fazeon ' önekli SKU temizliği — satislar'daki "Fazeon X24F165S" ile
@@ -3156,8 +3156,8 @@ def run():
                        "güncel bir yedek indirmen önerilir.")
             _onay = st.checkbox(f"Önizlemeyi inceledim; {len(_onz)} SKU'nun ({tr_sayi(_top_kayit)} kayıt) "
                                 "kalıcı olarak taşınacağını anladım.", key="fz_sku_onay")
-            if st.button("🧹 Temizliği Uygula", type="primary", disabled=not _onay,
-                         use_container_width=True, key="fz_sku_uygula"):
+            if st.button("Temizliği Uygula", type="primary", disabled=not _onay,
+                         use_container_width=True, key="fz_sku_uygula", icon=":material/cleaning_services:"):
                 with st.spinner("Uygulanıyor — tablo tablo taşınıyor..."):
                     _ok_fz, _msg_fz = sku_fazeon_temizle_uygula()
                 st.cache_data.clear()
@@ -3167,15 +3167,15 @@ def run():
                 else:
                     st.error(_msg_fz)
 
-        if st.button("🧹 'Fazeon' Önekli SKU Temizliği — mükerrer SKU'ları birleştir",
-                     key="btn_fz_sku", use_container_width=True):
+        if st.button("'Fazeon' Önekli SKU Temizliği — mükerrer SKU'ları birleştir",
+                     key="btn_fz_sku", use_container_width=True, icon=":material/cleaning_services:"):
             _dlg_fazeon_sku()
 
         with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
             st.markdown('<div style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:8px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
             sablon_bytes = create_sample_excel_bytes()
-            st.download_button("📥 Şablonu İndir", sablon_bytes, "SABLON_STOK_TAKIP.xlsx",
-                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("Şablonu İndir", sablon_bytes, "SABLON_STOK_TAKIP.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", icon=":material/move_to_inbox:")
     
         st.markdown("---")
     
@@ -3186,7 +3186,7 @@ def run():
             with _de1:
                 st.markdown('<div style="color:#7DD3FC;font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
                 st.markdown('<div style="color:#94A3B8;font-size:11px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
-                if st.button("📊 Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor"):
+                if st.button("Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor", icon=":material/table_view:"):
                     from .rapor import excel_rapor_olustur
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
@@ -3194,14 +3194,14 @@ def run():
                     _ok, _msg = excel_rapor_olustur(_tmp_path)
                     if _ok:
                         with open(_tmp_path, "rb") as _f:
-                            st.download_button("⬇️ Excel İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="vy_excel_dl")
+                            st.download_button("Excel İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="vy_excel_dl", icon=":material/download:")
                         os.unlink(_tmp_path)
                     else:
                         st.error(_msg)
             with _de2:
                 st.markdown('<div style="color:#F9A8D4;font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
                 st.markdown('<div style="color:#94A3B8;font-size:11px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
-                if st.button("📑 PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor"):
+                if st.button("PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor", icon=":material/picture_as_pdf:"):
                     from .rapor import pdf_rapor_olustur
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
@@ -3209,11 +3209,11 @@ def run():
                     _ok, _msg = pdf_rapor_olustur(_tmp_path)
                     if _ok:
                         with open(_tmp_path, "rb") as _f:
-                            st.download_button("⬇️ PDF İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", use_container_width=True, key="vy_pdf_dl")
+                            st.download_button("PDF İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", use_container_width=True, key="vy_pdf_dl", icon=":material/download:")
                         os.unlink(_tmp_path)
                     else:
                         st.error(_msg)
-        if st.button("📤 Dışa Aktar — Excel / PDF Rapor", key="btn_disa_akt", use_container_width=True):
+        if st.button("Dışa Aktar — Excel / PDF Rapor", key="btn_disa_akt", use_container_width=True, icon=":material/upload:"):
             _dlg_disa_aktar()
 
         st.markdown("---")
@@ -3227,7 +3227,7 @@ def run():
                    "Excel'deki değerlere **eşitler** (üzerine yazar). Yalnızca fiziksel sayım sonrası ya da "
                    "düzeltme amacıyla yükle.")
         if dosya_g:
-            if st.button("⬆️ G5F Stok Yükle (Depo Kırılımlı)", type="primary", use_container_width=True, key="g5f_depo_btn"):
+            if st.button("G5F Stok Yükle (Depo Kırılımlı)", type="primary", use_container_width=True, key="g5f_depo_btn", icon=":material/upload:"):
                 import tempfile
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpg:
                     tmpg.write(dosya_g.read())
@@ -3286,11 +3286,11 @@ def run():
                 def _dlg_tarih_sil():
                     st.caption("⚠️ Seçilen tarihe ait firma stok verileri silinir. Ürün listesi ve satın alma geçmişi etkilenmez.")
                     sil_tarih = st.selectbox("Silinecek Tarih", sorted(tarih_firma.keys(), reverse=True), key="vy_sil_tarih")
-                    if st.button("🗑️ Bu Tarihin Verisini Sil", type="secondary", key="vy_sil_btn"):
+                    if st.button("Bu Tarihin Verisini Sil", type="secondary", key="vy_sil_btn", icon=":material/delete:"):
                         sb_vy.table("firma_stok").delete().eq("yukleme_tarihi", sil_tarih).execute()
                         st.toast(f"✅ {sil_tarih} tarihli firma stok verisi silindi.")
                         st.rerun()
-                if st.button("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil", key="btn_tarih_sil", use_container_width=True):
+                if st.button("Belirli Bir Tarihin Firma Stok Verisini Sil", key="btn_tarih_sil", use_container_width=True, icon=":material/delete:"):
                     _dlg_tarih_sil()
     
         except Exception as e:

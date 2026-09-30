@@ -1163,7 +1163,7 @@ def run():
         )
         st.session_state.kur = yeni_kur
     
-        if st.button("🔄 Güncel Kur", use_container_width=True):
+        if st.button("Güncel Kur", use_container_width=True, icon=":material/refresh:"):
             with st.spinner("Alınıyor..."):
                 kur_cekilen, basarili = fetch_kur_live()
             if basarili:
@@ -1179,7 +1179,7 @@ def run():
     
         # ── Uygulamayı Yenile (Browser cache'i temizle + veri yenile) ──
         st.markdown("**⚙️ Sistem**")
-        if st.button("🔄 Uygulamayı Yenile", use_container_width=True, help="Verileri ve arayüzü tazele"):
+        if st.button("Uygulamayı Yenile", use_container_width=True, help="Verileri ve arayüzü tazele", icon=":material/refresh:"):
             # Session state'i temizle (kullanıcı bilgisi hariç)
             korunacak = {"giris_yapildi", "aktif_kullanici"}
             for k in list(st.session_state.keys()):
@@ -1316,7 +1316,7 @@ def run():
     
         aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
     
-        if st.button("🔁 Virmanı Yap", type="primary", use_container_width=True):
+        if st.button("Virmanı Yap", type="primary", use_container_width=True, icon=":material/sync_alt:"):
             if tutar <= 0:
                 st.error("Tutar 0'dan büyük olmalı.")
             elif tutar > kaynak_bakiye_val:
@@ -1390,7 +1390,7 @@ def run():
     
                 with col_b:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("↩️", key=f"virman_geri_{v['id']}", help="Bu virmanı geri al"):
+                    if st.button("", key=f"virman_geri_{v['id']}", help="Bu virmanı geri al", icon=":material/undo:"):
                         basarili, mesaj = virman_geri_al(v['id'])
                         if basarili:
                             st.success(mesaj)
@@ -1793,7 +1793,7 @@ def run():
         @st.dialog("📅 Günlük Ödeme Takvimi", width="large")
         def _dlg_odeme_takvimi():
             render_takvim_tablosu(df_tablo)
-        if st.button("📅 Günlük Ödeme Takvimi", key="btn_acc_takvim", use_container_width=True):
+        if st.button("Günlük Ödeme Takvimi", key="btn_acc_takvim", use_container_width=True, icon=":material/calendar_month:"):
             _dlg_odeme_takvimi()
     
     
@@ -1822,7 +1822,7 @@ def run():
                     tutar_tl = st.number_input("Tutar TL (₺)", min_value=0.0, step=100.0)
                     tutar_usd = st.number_input("Tutar USD ($)", min_value=0.0, step=100.0)
     
-                ekle_btn = st.form_submit_button("➕ Ekle", type="primary")
+                ekle_btn = st.form_submit_button("Ekle", type="primary", icon=":material/add:")
                 if ekle_btn:
                     if not firma:
                         st.error("Firma adı zorunludur.")
@@ -1842,7 +1842,7 @@ def run():
                         )
                         st.success(f"✅ {firma} ödeme olarak eklendi.")
                         st.rerun()
-        if st.button("➕ Manuel Ödeme Ekle", key="btn_acc_manuel", use_container_width=True):
+        if st.button("Manuel Ödeme Ekle", key="btn_acc_manuel", use_container_width=True, icon=":material/add:"):
             _dlg_manuel_odeme()
     
         if not odemeler:
@@ -2015,25 +2015,25 @@ def run():
                                         st.rerun()
                             with c4c:
                                 if st.session_state.get(sil_key, False):
-                                    if st.button("❗ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
-                                                 help="Kaydı kalıcı siler"):
+                                    if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
+                                                 help="Kaydı kalıcı siler", icon=":material/priority_high:"):
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
                                         st.rerun()
                                 else:
-                                    if st.button("🗑 Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
+                                    if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True, icon=":material/delete:"):
                                         st.session_state[sil_key] = True
                                         st.rerun()
                         else:
                             # Ödenmiş kayıt için de silme (iki adımlı onay)
                             if st.session_state.get(sil_key, False):
-                                if st.button("❗ Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
-                                             help="Ödenmiş kaydı kalıcı siler (banka bakiyesi geri YÜKLENMEZ)"):
+                                if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
+                                             help="Ödenmiş kaydı kalıcı siler (banka bakiyesi geri YÜKLENMEZ)", icon=":material/priority_high:"):
                                     odeme_sil(o["id"])
                                     st.session_state[sil_key] = False
                                     st.rerun()
                             else:
-                                if st.button("🗑 Sil", key=f"sil_btn_{o['id']}", use_container_width=True):
+                                if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True, icon=":material/delete:"):
                                     st.session_state[sil_key] = True
                                     st.rerun()
                     
@@ -2043,7 +2043,7 @@ def run():
                             banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
                             banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
                             st.markdown(f'<div style="font-size:11px;color:#94A3B8;font-weight:600;margin-bottom:0px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
-                            if st.button(f"↩ Geri Al", key=f"geri_{o['id']}"):
+                            if st.button(f"Geri Al", key=f"geri_{o['id']}", icon=":material/undo:"):
                                 odeme_durum_guncelle(o["id"], "bekliyor", kur=kur)
                                 st.rerun()
                         else:
@@ -2053,14 +2053,14 @@ def run():
                                                      key=f"banka_{o['id']}", label_visibility="collapsed")
                             c5a, c5b = st.columns([1.3, 1])
                             with c5a:
-                                if st.button(f"✅ Ödendi", key=f"od_{o['id']}", type="primary", use_container_width=True):
+                                if st.button(f"Ödendi", key=f"od_{o['id']}", type="primary", use_container_width=True, icon=":material/check_circle:"):
                                     banka_id = banka_options.get(sec_banka)
                                     odeme_durum_guncelle(o["id"], "odendi", banka_id, kur)
                                     st.rerun()
                             with c5b:
                                 _kk = f"kismi_toggle_{o['id']}"
-                                if st.button("💸 Kısmi", key=f"kismi_btn_{o['id']}", use_container_width=True,
-                                             help="Tutarın bir kısmını öde — kalan bekliyor olarak devam eder"):
+                                if st.button("Kısmi", key=f"kismi_btn_{o['id']}", use_container_width=True,
+                                             help="Tutarın bir kısmını öde — kalan bekliyor olarak devam eder", icon=":material/payments:"):
                                     st.session_state[_kk] = not st.session_state.get(_kk, False)
                                     st.rerun()
 
@@ -2087,8 +2087,8 @@ def run():
                                                    disabled=_mev_usd <= 0)
                         with kp3:
                             st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                            if st.button("💸 Kısmi Öde", key=f"kismi_kaydet_{o['id']}", type="primary",
-                                         use_container_width=True, disabled=(_ks_tl <= 0 and _ks_usd <= 0)):
+                            if st.button("Kısmi Öde", key=f"kismi_kaydet_{o['id']}", type="primary",
+                                         use_container_width=True, disabled=(_ks_tl <= 0 and _ks_usd <= 0), icon=":material/payments:"):
                                 _bid = ({f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
                                         .get(st.session_state.get(f"banka_{o['id']}", ""), None))
                                 _ok_k, _msg_k = odeme_kismi_ode(o["id"], _ks_tl, _ks_usd, _bid, kur)
@@ -2158,7 +2158,7 @@ def run():
                             yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_acik_{o['id']}")
                         with col_kaydet:
                             st.markdown("<br>", unsafe_allow_html=True)
-                            if st.button("💾 Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True):
+                            if st.button("Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
                                 if yeni_tl <= 0 and yeni_usd <= 0:
                                     st.error("En az bir tutar (TL veya USD) 0'dan büyük olmalı.")
                                 else:
@@ -2210,7 +2210,7 @@ def run():
                                     label_visibility="collapsed", format="DD.MM.YYYY"
                                 )
                             with col_kaydet:
-                                if st.button("💾 Ötele", key=f"vade_save_{o['id']}", type="primary", use_container_width=True):
+                                if st.button("Ötele", key=f"vade_save_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
                                     kayit_erteleme(o, mevcut_vade, yeni_vade)
                                     odeme_vade_guncelle(o["id"], yeni_vade)
                                     st.success(f"Vade {yeni_vade.strftime('%d.%m.%Y')} olarak güncellendi.")
@@ -2251,11 +2251,11 @@ def run():
         with col1:
             excel_buf = export_excel(odemeler, hafta["hafta_adi"] if hafta else "", kur)
             st.download_button(
-                "📥 Excel İndir",
+                "Excel İndir",
                 data=excel_buf,
                 file_name=f"odeme_listesi_{tr_today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                use_container_width=True, icon=":material/move_to_inbox:"
             )
     
     
@@ -2331,7 +2331,7 @@ def run():
                     _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
                     _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
                     _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
-                    _onay = st.form_submit_button(f"💰 {_sym} Tahsilatı İşle", type="primary", use_container_width=True)
+                    _onay = st.form_submit_button(f"{_sym} Tahsilatı İşle", type="primary", use_container_width=True, icon=":material/payments:")
                     if _onay:
                         if _tutar <= 0:
                             st.error("Tutar 0'dan büyük olmalı.")
@@ -2357,12 +2357,12 @@ def run():
                             f"<b>{_ts}{tr_sayi(float(t.get('tutar') or 0), 2)}</b> → {t.get('hesap_adi','')}"
                             f"<span style='color:#94A3B8'>{_knk}</span></div>",
                             unsafe_allow_html=True)
-                        if c2.button("↩", key=f"tahsilat_geri_{t['id']}", help="Geri al"):
+                        if c2.button("", key=f"tahsilat_geri_{t['id']}", help="Geri al", icon=":material/undo:"):
                             ok, msg = tahsilat_geri_al(t["id"])
                             st.toast(msg)
                             st.rerun()
 
-            if st.button("💰 Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary"):
+            if st.button("Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary", icon=":material/payments:"):
                 _dlg_tahsilat()
 
     
@@ -2377,7 +2377,7 @@ def run():
                 hesap_adi = st.text_input("Hesap Adı", placeholder="Örn: YKB TL Hesabı")
                 bakiye = st.number_input("Bakiye", min_value=0.0, step=0.0001, format="%.4f")
                 para_birimi = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
-                if st.form_submit_button("➕ Ekle", type="primary"):
+                if st.form_submit_button("Ekle", type="primary", icon=":material/add:"):
                     if hesap_adi:
                         banka_ekle(hesap_adi, bakiye, para_birimi)
                         st.success("✅ Hesap eklendi.")
@@ -2397,12 +2397,12 @@ def run():
                                            index=["TL", "USD", "EUR"].index(sec_banka["para_birimi"]))
                     col_a, col_b = st.columns(2)
                     with col_a:
-                        if st.form_submit_button("💾 Kaydet", type="primary"):
+                        if st.form_submit_button("Kaydet", type="primary", icon=":material/save:"):
                             banka_guncelle(sec_banka["id"], yeni_ad, yeni_bakiye, yeni_pb)
                             st.success("✅ Güncellendi.")
                             st.rerun()
                     with col_b:
-                        if st.form_submit_button("🗑 Sil"):
+                        if st.form_submit_button("Sil", icon=":material/delete:"):
                             banka_sil(sec_banka["id"])
                             st.success("Silindi.")
                             st.rerun()
@@ -2520,9 +2520,9 @@ def run():
             _not = st.text_input("Açıklama", key="arb_not",
                                  placeholder="örn. 14.09 arbitraj, banka kuru 48,92")
 
-            if st.button("💱 Arbitrajı Gerçekleştir", type="primary",
+            if st.button("Arbitrajı Gerçekleştir", type="primary",
                          use_container_width=True, key="arb_btn",
-                         disabled=(_tutar <= 0 or _k_bak <= 0)):
+                         disabled=(_tutar <= 0 or _k_bak <= 0), icon=":material/currency_exchange:"):
                 _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
                         f"1 {_guclu}={tr_sayi(_kur, 4)} {_zayif}"
                         + (f" · {_not.strip()}" if (_not or "").strip() else ""))
@@ -2537,9 +2537,9 @@ def run():
                     st.error(f"❌ {_msg}")
 
         _vb1, _vb2 = st.columns(2)
-        if _vb1.button("🔁 Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True):
+        if _vb1.button("Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True, icon=":material/sync_alt:"):
             _dlg_virman()
-        if _vb2.button("💱 Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True):
+        if _vb2.button("Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True, icon=":material/currency_exchange:"):
             _dlg_arbitraj()
     elif sayfa == "💸 Nakit Akış":
         st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
@@ -3039,7 +3039,7 @@ def run():
             st.markdown("---")
             st.markdown("**Geri almak istediğin ödeme:**")
             geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
-            if st.button("↩ Geri Al", type="secondary"):
+            if st.button("Geri Al", type="secondary", icon=":material/undo:"):
                 idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
                 kur_now = get_kur()
                 odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
@@ -3084,11 +3084,11 @@ def run():
                     with col2:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if not is_aktif:
-                            if st.button("📂 Aç", key=f"ac_{h['id']}"):
+                            if st.button("Aç", key=f"ac_{h['id']}", icon=":material/folder_open:"):
                                 hafta_aktif_yap(h["id"])
                                 st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
                                 st.rerun()
-                        if st.button("🗑 Sil", key=f"sil_{h['id']}"):
+                        if st.button("Sil", key=f"sil_{h['id']}", icon=":material/delete:"):
                             hafta_sil(h["id"])
                             st.success("Silindi.")
                             st.rerun()
@@ -3131,7 +3131,7 @@ def run():
                     # Onay checkbox'lı toplu silme
                     onay_key = f"toplu_sil_onay_{para_birimi}"
                     if st.session_state.get(onay_key, False):
-                        if st.button(f"⚠️ EVET, TÜM {para_birimi} ÇEKLERİNİ SİL", key=f"toplu_sil_exec_{para_birimi}", type="primary", use_container_width=True):
+                        if st.button(f"EVET, TÜM {para_birimi} ÇEKLERİNİ SİL", key=f"toplu_sil_exec_{para_birimi}", type="primary", use_container_width=True, icon=":material/warning:"):
                             cek_sil_hepsi(para_birimi)
                             st.session_state[onay_key] = False
                             st.success(f"Tüm {para_birimi} çekleri silindi.")
@@ -3140,7 +3140,7 @@ def run():
                             st.session_state[onay_key] = False
                             st.rerun()
                     else:
-                        if st.button(f"🗑 Tüm {para_birimi} Çeklerini Sil", key=f"toplu_sil_btn_{para_birimi}", use_container_width=True):
+                        if st.button(f"Tüm {para_birimi} Çeklerini Sil", key=f"toplu_sil_btn_{para_birimi}", use_container_width=True, icon=":material/delete:"):
                             st.session_state[onay_key] = True
                             st.rerun()
     
@@ -3209,7 +3209,7 @@ def run():
                         """, unsafe_allow_html=True)
                     with col_b:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("🗑", key=f"cek_sil_{c.get('id')}", help="Bu çeki sil"):
+                        if st.button("", key=f"cek_sil_{c.get('id')}", help="Bu çeki sil", icon=":material/delete:"):
                             cek_sil(c.get("id"))
                             st.success("Silindi.")
                             st.rerun()
@@ -3359,15 +3359,15 @@ def run():
     
         col_a, col_b = st.columns(2)
         with col_a:
-            yukle_btn = st.button("✅ Verileri İşle ve Yükle", type="primary", use_container_width=True)
+            yukle_btn = st.button("Verileri İşle ve Yükle", type="primary", use_container_width=True, icon=":material/check_circle:")
         with col_b:
             ornek = create_sample_excel()
             st.download_button(
-                "📥 Örnek Excel İndir",
+                "Örnek Excel İndir",
                 data=ornek,
                 file_name="ornek_odeme_listesi.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                use_container_width=True, icon=":material/move_to_inbox:"
             )
     
         if yukle_btn:
@@ -3504,7 +3504,7 @@ def run():
                         st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
                     except Exception as e:
                         st.warning(f"Önizleme yüklenemedi: {e}")
-                if st.button("👁️ Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True):
+                if st.button("Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True, icon=":material/visibility:"):
                     _dlg_rapor_onizleme()
     
             with tab3:
@@ -3547,7 +3547,7 @@ def run():
                     '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
                     unsafe_allow_html=True
                 )
-            if st.button("⚙️ SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True):
+            if st.button("SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True, icon=":material/settings:"):
                 _dlg_smtp_ayar()
     
             # Mevcut ayar durumu
@@ -3564,7 +3564,7 @@ def run():
             with col2:
                 st.markdown("**Bağlantı Testi**")
                 if ayarlar.get("smtp_user"):
-                    if st.button("🔌 Bağlantıyı Test Et", use_container_width=True):
+                    if st.button("Bağlantıyı Test Et", use_container_width=True, icon=":material/power:"):
                         with st.spinner("Test ediliyor..."):
                             basarili, mesaj = baglanti_test(ayarlar)
                         if basarili:
@@ -3608,10 +3608,10 @@ def run():
                         @st.dialog("👁️ Email Önizleme", width="large")
                         def _dlg_email_on_vade():
                             st.components.v1.html(html_icerik, height=400, scrolling=True)
-                        if st.button("👁️ Email Önizleme", key="btn_acc_eml_vade", use_container_width=True):
+                        if st.button("Email Önizleme", key="btn_acc_eml_vade", use_container_width=True, icon=":material/visibility:"):
                             _dlg_email_on_vade()
     
-                        if st.button("📨 Vade Uyarısı Gönder", type="primary", use_container_width=True):
+                        if st.button("Vade Uyarısı Gönder", type="primary", use_container_width=True, icon=":material/send:"):
                             with st.spinner("Gönderiliyor..."):
                                 basarili, mesaj = email_gonder(konu, html_icerik, ayarlar)
                             if basarili:
@@ -3627,10 +3627,10 @@ def run():
                     @st.dialog("👁️ Email Önizleme", width="large")
                     def _dlg_email_on_hafta():
                         st.components.v1.html(html_ozet, height=400, scrolling=True)
-                    if st.button("👁️ Email Önizleme", key="btn_acc_eml_hft", use_container_width=True):
+                    if st.button("Email Önizleme", key="btn_acc_eml_hft", use_container_width=True, icon=":material/visibility:"):
                         _dlg_email_on_hafta()
     
-                    if st.button("📨 Haftalık Özet Gönder", type="primary", use_container_width=True):
+                    if st.button("Haftalık Özet Gönder", type="primary", use_container_width=True, icon=":material/send:"):
                         with st.spinner("Gönderiliyor..."):
                             basarili, mesaj = email_gonder(konu_ozet, html_ozet, ayarlar)
                         if basarili:
@@ -3676,7 +3676,7 @@ def run():
         col_baslik, col_temizle = st.columns([5, 1])
         with col_temizle:
             if ertelenenler:
-                if st.button("🗑️ Geçmişi Temizle", help="Erteleme kayıtlarını sıfırla", use_container_width=True):
+                if st.button("Geçmişi Temizle", help="Erteleme kayıtlarını sıfırla", use_container_width=True, icon=":material/delete:"):
                     st.session_state.ertelemeler = {}
                     st.success("Erteleme geçmişi temizlendi.")
                     st.rerun()
@@ -4346,11 +4346,11 @@ def run():
                          "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
 
             st.divider()
-            if st.button("✔️ Bitir ve Kartları Güncelle", type="primary",
-                         use_container_width=True, key="dlg_bitir"):
+            if st.button("Bitir ve Kartları Güncelle", type="primary",
+                         use_container_width=True, key="dlg_bitir", icon=":material/check:"):
                 st.rerun()
 
-        if st.button("📤 Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True):
+        if st.button("Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True, icon=":material/upload:"):
             _dlg_aktif_excel()
 
         st.markdown("---")
@@ -4564,7 +4564,7 @@ def run():
                 yeni_pb = st.selectbox("PB", ["USD", "TL"], key="manuel_pb")
             with col_b:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("💾 Ekle", type="primary", use_container_width=True, key="manuel_kaydet"):
+                if st.button("Ekle", type="primary", use_container_width=True, key="manuel_kaydet", icon=":material/save:"):
                     if not yeni_aciklama.strip():
                         st.error("Açıklama boş olamaz")
                     elif yeni_tutar <= 0:
@@ -4593,7 +4593,7 @@ def run():
                         else:
                             st.success("✅ Kalem eklendi (kalıcı)")
                         st.rerun()
-        if st.button("➕ Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True):
+        if st.button("Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True, icon=":material/add:"):
             _dlg_yeni_kalem()
 
         # ─── Kayıtlı bir kalemi REVİZE et ───
@@ -4630,8 +4630,8 @@ def run():
                         f"({'+' if _fark > 0 else ''}{tr_sayi(_fark, 2)})")
 
             b1, b2 = st.columns([1, 1])
-            if b1.button("💾 Değişiklikleri Kaydet", type="primary",
-                         use_container_width=True, key=f"duz_kaydet_{_kid}"):
+            if b1.button("Değişiklikleri Kaydet", type="primary",
+                         use_container_width=True, key=f"duz_kaydet_{_kid}", icon=":material/save:"):
                 if not (_d_ack or "").strip():
                     st.error("Açıklama boş olamaz.")
                 elif _d_tutar <= 0:
@@ -4692,13 +4692,13 @@ def run():
                     )
                 with col_b:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("✏️", key=f"manuel_duzenle_{k['id']}",
-                                 help="Tutarı / açıklamayı revize et"):
+                    if st.button("", key=f"manuel_duzenle_{k['id']}",
+                                 help="Tutarı / açıklamayı revize et", icon=":material/edit:"):
                         st.session_state["_manuel_duzenle_id"] = k["id"]
                         st.rerun()
                 with col_c:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("🗑️", key=f"manuel_sil_{k['id']}", help="Sil"):
+                    if st.button("", key=f"manuel_sil_{k['id']}", help="Sil", icon=":material/delete:"):
                         kalem_id = k['id']
                         # Local kalem ise (id "local_" ile başlar) session'dan sil
                         if isinstance(kalem_id, str) and kalem_id.startswith("local_"):
@@ -4736,7 +4736,7 @@ def run():
                 aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
                 st.success("Temizlendi.")
                 st.rerun()
-        if st.button("🗑️ Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True):
+        if st.button("Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True, icon=":material/delete:"):
             _dlg_veri_temizle()
     
         # ─── Formül açıklaması ───

@@ -179,7 +179,7 @@ def _mal_kabul():
 
     # ➕ Yeni Mal Kabül — AÇILIR PENCERE (ana ekran uzamaz)
     _mk1, _mk2 = st.columns([1, 4])
-    if _mk1.button("📥 Yeni Mal Kabül", type="primary", use_container_width=True, key="mk_ac_btn"):
+    if _mk1.button("Yeni Mal Kabül", type="primary", use_container_width=True, key="mk_ac_btn", icon=":material/move_to_inbox:"):
         st.session_state["_mk_dialog_ac"] = True
         # yeni kayda temiz başla
         for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
@@ -201,9 +201,9 @@ def _mal_kabul():
         _tb = BytesIO()
         with pd.ExcelWriter(_tb, engine="openpyxl") as _tw:
             pd.DataFrame(columns=_TK).to_excel(_tw, index=False, sheet_name="MalKabul")
-        st.download_button("📋 Boş şablonu indir", _tb.getvalue(), "toplu_mal_kabul_sablon.xlsx",
+        st.download_button("Boş şablonu indir", _tb.getvalue(), "toplu_mal_kabul_sablon.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           key="tmk_sablon")
+                           key="tmk_sablon", icon=":material/content_copy:")
         st.caption("Zorunlu sütunlar: **İşlem Türü, Stok Kodu, Seri No** (yoksa NO SERIAL NUMBER yaz), "
                    "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur.")
         _tyk = st.file_uploader("Doldurulmuş Excel'i yükle", type=["xlsx", "xls"], key="tmk_yukle")
@@ -293,9 +293,9 @@ def _mal_kabul():
                     if _muk_say:
                         _muk_ok = st.checkbox(f"⚠️ {_muk_say} mükerrer seriye RAĞMEN hepsini kaydet",
                                               key="tmk_muk_ok")
-                    if st.button(f"✅ {len(_gecerli)} kaydı içeri al", type="primary",
+                    if st.button(f"{len(_gecerli)} kaydı içeri al", type="primary",
                                  use_container_width=True, key="tmk_kaydet",
-                                 disabled=not (_gecerli and _muk_ok)):
+                                 disabled=not (_gecerli and _muk_ok), icon=":material/check_circle:"):
                         _bar = st.progress(0.0, text="Kaydediliyor…")
                         _ok_s, _hata_s = 0, []
                         _prs = st.session_state.get("aktif_kullanici", "") or ""
@@ -379,7 +379,7 @@ def _mal_kabul_dialog():
         sk = st.text_input("Stok Kodu *", key="mk_sk", placeholder="Stok kodu yaz")
     with es2:
         st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-        if st.button("🔍 Eşleştir", use_container_width=True, key="mk_eslestir"):
+        if st.button("Eşleştir", use_container_width=True, key="mk_eslestir", icon=":material/search:"):
             u = urun_getir(sk)
             if u and (u.get("stok_adi") or u.get("urun_grubu")):
                 st.session_state["mk_stok_adi"] = u.get("stok_adi", "")
@@ -532,7 +532,7 @@ def _mal_kabul_dialog():
         _alt_baslik("Ön Kontrol")
         fiziksel = st.text_input("Fiziksel Durum", placeholder="hasarsız / çizik / tozlu / kullanılmış")
 
-        kaydet = st.form_submit_button("✅ Kayıt Tamamla", type="primary", use_container_width=True)
+        kaydet = st.form_submit_button("Kayıt Tamamla", type="primary", use_container_width=True, icon=":material/check_circle:")
 
     if kaydet:
         if not (sk or "").strip():
@@ -704,8 +704,8 @@ def _evraksiz_kayit():
                                       key="ev_depoack",
                                       placeholder="örn. 2.el A kalite / sıfır ayarında / hurda")
 
-        _gonder = st.form_submit_button("📦 Kaydet ve Depoya Aktar", type="primary",
-                                        use_container_width=True)
+        _gonder = st.form_submit_button("Kaydet ve Depoya Aktar", type="primary",
+                                        use_container_width=True, icon=":material/inventory_2:")
 
     if _gonder:
         _sk = (stok_kodu or "").strip()
@@ -872,10 +872,10 @@ def _liste(arayuz):
         _rbuf = BytesIO()
         with pd.ExcelWriter(_rbuf, engine="openpyxl") as _rw:
             _rdf.to_excel(_rw, index=False, sheet_name=etk[:28])
-        st.download_button(f"⬇️ {etk} Excel raporu ({len(goster)} kayıt · tüm süreç)",
+        st.download_button(f"{etk} Excel raporu ({len(goster)} kayıt · tüm süreç)",
                            _rbuf.getvalue(), f"{arayuz}_rapor.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           key=f"ts_rapor_{arayuz}")
+                           key=f"ts_rapor_{arayuz}", icon=":material/download:")
 
     # HTML tablo
     satirlar = ""
@@ -954,9 +954,9 @@ def _kontrol_paneli(kayit):
     with pc1:
         try:
             _pdf = servis_formu_pdf(kayit, get_gecmis(kid))
-            st.download_button("📄 PDF Form indir", _pdf,
+            st.download_button("PDF Form indir", _pdf,
                                f'{_g(kayit, "servis_form_no", "servis_formu")}.pdf',
-                               mime="application/pdf", use_container_width=True, key=f"ts_pdf_{kid}")
+                               mime="application/pdf", use_container_width=True, key=f"ts_pdf_{kid}", icon=":material/description:")
         except Exception as _e:
             st.caption(f"PDF oluşturulamadı: {type(_e).__name__}")
     with pc2:
@@ -972,15 +972,15 @@ def _kontrol_paneli(kayit):
                 st.caption("Fatura No'yu düzelt ya da yanlış işaretlendiyse ✗'e geri al.")
                 _fno_dz = st.text_input("Fatura No", value=kayit.get("fatura_no", "") or "",
                                         key=f"ts_fno_dz_{kid}")
-                if st.button("💾 Fatura No'yu güncelle", key=f"ts_fno_kaydet_{kid}",
-                             use_container_width=True):
+                if st.button("Fatura No'yu güncelle", key=f"ts_fno_kaydet_{kid}",
+                             use_container_width=True, icon=":material/save:"):
                     if kayit_guncelle(kid, {"fatura_no": _fno_dz.strip()}):
                         durum_guncelle(kid, kayit.get("mevcut_durum", "mal kabül"),
                                        st.session_state.get("aktif_kullanici", ""),
                                        f"Fatura No düzeltildi: {_fno_dz.strip()}")
                         st.rerun()
-                if st.button("↩️ Fatura durumunu ✗'e geri al", key=f"ts_fno_geri_{kid}",
-                             use_container_width=True):
+                if st.button("Fatura durumunu ✗'e geri al", key=f"ts_fno_geri_{kid}",
+                             use_container_width=True, icon=":material/undo:"):
                     if kayit_guncelle(kid, {"fatura_mevcut": False}):
                         durum_guncelle(kid, kayit.get("mevcut_durum", "mal kabül"),
                                        st.session_state.get("aktif_kullanici", ""),
@@ -1170,7 +1170,7 @@ def _kontrol_paneli(kayit):
             d_detay = st.text_area("Detay / Not", value=kayit.get("detay", "") or "",
                                    key=f"ts_dt_{kid}", height=68)
 
-            if st.form_submit_button("💾 Durumu Güncelle", type="primary", use_container_width=True):
+            if st.form_submit_button("Durumu Güncelle", type="primary", use_container_width=True, icon=":material/save:"):
                 ekstra = {
                     "icerik_durumu": d_icerik.strip(),
                     "eksik_icerik": d_eksik.strip(),
@@ -1211,7 +1211,7 @@ def _kontrol_paneli(kayit):
                     _rerun_app()
                 else:
                     st.error("Güncelleme başarısız.")
-    if st.button("⚙️ Durum Güncelle / İşlem Yap", key="btn_ts_durum", use_container_width=True):
+    if st.button("Durum Güncelle / İşlem Yap", key="btn_ts_durum", use_container_width=True, icon=":material/settings:"):
         _dlg_ts_durum()
 
     @st.dialog("📦 Depoya Transfer (işlem bitti)", width="large")
@@ -1278,7 +1278,7 @@ def _kontrol_paneli(kayit):
                 _rerun_app()
             else:
                 st.error("Transfer başarısız.")
-    if st.button("📦 Depoya Transfer (işlem bitti)", key="btn_ts_transfer", use_container_width=True):
+    if st.button("Depoya Transfer (işlem bitti)", key="btn_ts_transfer", use_container_width=True, icon=":material/inventory_2:"):
         _dlg_ts_transfer()
 
     # ── Madde 13: mevcut kayıt üzerinden STOK KARTI DEĞİŞTİR ──
@@ -1341,8 +1341,8 @@ def _kontrol_paneli(kayit):
         _neden = st.text_input("Değişim nedeni *", key=f"sd_neden_{kid}",
                                placeholder="örn. F7 ön panel stokta yok, F5 paneli montajlandı")
 
-        if st.button("🔄 Stok Kartını Değiştir", type="primary",
-                     use_container_width=True, key=f"sd_btn_{kid}"):
+        if st.button("Stok Kartını Değiştir", type="primary",
+                     use_container_width=True, key=f"sd_btn_{kid}", icon=":material/refresh:"):
             if not (_yeni_sk or "").strip():
                 st.error("Yeni Stok Kodu zorunludur.")
                 return
@@ -1373,8 +1373,8 @@ def _kontrol_paneli(kayit):
                                              f"{_eski_sk} → {_yeni_sk.strip()}")
             _rerun_app()
 
-    if st.button("🔄 Stok Kartı Değiştir (ürün dönüştürüldü)", key="btn_ts_stok_degis",
-                 use_container_width=True):
+    if st.button("Stok Kartı Değiştir (ürün dönüştürüldü)", key="btn_ts_stok_degis",
+                 use_container_width=True, icon=":material/refresh:"):
         _dlg_ts_stok_degis()
 
     @st.dialog("🗑️ Hatalı / Mükerrer Kaydı Sil", width="large")
@@ -1384,15 +1384,15 @@ def _kontrol_paneli(kayit):
                    "servisler için bunun yerine yukarıdan durumu **iptal** yap.")
         _sil_onay = st.checkbox(f"⚠️ '{_g(kayit, 'servis_form_no')}' kaydını kalıcı silmek istiyorum",
                                 key=f"ts_sil_onay_{kid}")
-        if st.button("🗑️ Kaydı Kalıcı Sil", disabled=not _sil_onay,
-                     use_container_width=True, key=f"ts_sil_btn_{kid}"):
+        if st.button("Kaydı Kalıcı Sil", disabled=not _sil_onay,
+                     use_container_width=True, key=f"ts_sil_btn_{kid}", icon=":material/delete:"):
             ok, hata = sil_kayit(kid)
             if ok:
                 st.success("🗑️ Kayıt silindi.")
                 _rerun_app()
             else:
                 st.error(f"Silinemedi: {hata}")
-    if st.button("🗑️ Hatalı / Mükerrer Kaydı Sil", key="btn_ts_sil", use_container_width=True):
+    if st.button("Hatalı / Mükerrer Kaydı Sil", key="btn_ts_sil", use_container_width=True, icon=":material/delete:"):
         _dlg_ts_sil()
 
 
@@ -1517,8 +1517,8 @@ def _irsaliye():
             help="İşaretliysek seçilen kayıtların durumu 'gönderildi' olur ve "
                  "aktif listeden düşer.")
 
-        _uret = st.form_submit_button("🚚 İrsaliyeyi Oluştur", type="primary",
-                                      use_container_width=True)
+        _uret = st.form_submit_button("İrsaliyeyi Oluştur", type="primary",
+                                      use_container_width=True, icon=":material/local_shipping:")
 
     if _uret:
         _prs = st.session_state.get("aktif_kullanici", "") or ""
@@ -1578,11 +1578,11 @@ def _irsaliye():
     # Üretilen PDF indirme bağlantısı (rerun sonrası da durur)
     if st.session_state.get("_irs_pdf"):
         _n = st.session_state.get("_irs_pdf_no", "irsaliye")
-        st.download_button(f"⬇️ {_n} — İrsaliyeyi indir (PDF)",
+        st.download_button(f"{_n} — İrsaliyeyi indir (PDF)",
                            st.session_state["_irs_pdf"],
                            file_name=f"{_n}.pdf", mime="application/pdf",
                            type="primary", use_container_width=True,
-                           key="irs_indir")
+                           key="irs_indir", icon=":material/download:")
 
 
 # ── Özet Şerit (madde 9) ─────────────────────────────────────────────
@@ -1794,9 +1794,9 @@ def _depolar():
         _buf = BytesIO()
         with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
             _df.to_excel(_w, index=False, sheet_name="Depolar")
-        st.download_button("⬇️ Excel indir", _buf.getvalue(), "depolar.xlsx",
+        st.download_button("Excel indir", _buf.getvalue(), "depolar.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           key="depo_excel")
+                           key="depo_excel", icon=":material/download:")
 
     st.caption(f"{len(goster)} / {len(kayitlar)} ürün")
 
@@ -1836,8 +1836,8 @@ def _depolar():
                 st.info(f"**{len(_secili)} ürün** · toplam "
                         f"**${tr_sayi(0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0), 2)}**")
 
-                if st.button(f"💰 {len(_secili)} ürünü SATILDI yap",
-                             type="primary", use_container_width=True, key="ts_toplu_btn"):
+                if st.button(f"{len(_secili)} ürünü SATILDI yap",
+                             type="primary", use_container_width=True, key="ts_toplu_btn", icon=":material/payments:"):
                     _bar = st.progress(0.0, text="İşleniyor…")
                     _ok_n, _uyari = 0, []
                     _prs = st.session_state.get("aktif_kullanici", "")
@@ -1884,22 +1884,22 @@ def _depolar():
             with c2:
                 if not satildi:
                     if k.get("mevcut_durum") != "satışa hazır":
-                        if st.button("✅ Satışa Hazır", key=f"sh_{kid}", use_container_width=True):
+                        if st.button("Satışa Hazır", key=f"sh_{kid}", use_container_width=True, icon=":material/check_circle:"):
                             durum_guncelle(kid, "satışa hazır", st.session_state.get("aktif_kullanici", ""),
                                            "Satışa hazır işaretlendi")
                             st.rerun()
             with c4:
-                if st.button("🏷 Etiket", key=f"etk_{kid}", use_container_width=True,
-                             help="100×135mm barkodlu depo etiketi"):
+                if st.button("Etiket", key=f"etk_{kid}", use_container_width=True,
+                             help="100×135mm barkodlu depo etiketi", icon=":material/sell:"):
                     st.session_state["_etiket_kid"] = kid
                 if st.session_state.get("_etiket_kid") == kid:
                     try:
                         _epdf = depo_etiket_pdf(k)
-                        st.download_button("⬇ PDF", _epdf,
+                        st.download_button("PDF", _epdf,
                                            file_name=f"etiket_{(k.get('seri_no') or kid)}.pdf",
                                            mime="application/pdf",
                                            key=f"etkd_{kid}", type="primary",
-                                           use_container_width=True)
+                                           use_container_width=True, icon=":material/download:")
                     except Exception as _ee:
                         st.error(f"Etiket üretilemedi: {_ee}")
             with c3:
@@ -1964,9 +1964,9 @@ def _depolar():
                             unsafe_allow_html=True)
                 try:
                     _pdf = servis_formu_pdf(k, _gec)
-                    st.download_button("📄 PDF Form indir", _pdf,
+                    st.download_button("PDF Form indir", _pdf,
                                        f'{_g(k, "servis_form_no", "servis_formu")}.pdf',
-                                       mime="application/pdf", key=f"depo_pdf_{kid}")
+                                       mime="application/pdf", key=f"depo_pdf_{kid}", icon=":material/description:")
                 except Exception:
                     pass
 
@@ -2001,8 +2001,8 @@ def _depolar():
                     _n_ack = st.text_input("Ürün Son Durumu / Açıklama",
                                            value=k.get("depo_aciklama", "") or "",
                                            key=f"dz_ack_{kid}")
-                    if st.button("💾 Değişiklikleri Kaydet", type="primary",
-                                 use_container_width=True, key=f"dz_btn_{kid}"):
+                    if st.button("Değişiklikleri Kaydet", type="primary",
+                                 use_container_width=True, key=f"dz_btn_{kid}", icon=":material/save:"):
                         _al = {"stok_kodu": (_n_sk or "").strip(),
                                "stok_adi": (_n_sa or "").strip(),
                                "seri_no": (_n_sn or "").strip(),
@@ -2023,8 +2023,8 @@ def _depolar():
                                "İşlem geçmişi de silinir, geri alınamaz.")
                     _so = st.checkbox(f"⚠️ '{_g(k,'servis_form_no')}' kaydını kalıcı sil",
                                       key=f"dz_sil_onay_{kid}")
-                    if st.button("🗑️ Kalıcı Sil", disabled=not _so,
-                                 use_container_width=True, key=f"dz_sil_{kid}"):
+                    if st.button("Kalıcı Sil", disabled=not _so,
+                                 use_container_width=True, key=f"dz_sil_{kid}", icon=":material/delete:"):
                         _ok, _hata = sil_kayit(kid)
                         if _ok:
                             st.session_state["_ts_depo_bilgi"] = (

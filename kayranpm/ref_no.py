@@ -1162,7 +1162,7 @@ def render():
             yf_kod = st.text_input("Ref Kodu (kısaltma)", placeholder="örn. INC",
                                    help="2-6 harf/rakam. Ref no'da kullanılır: "
                                         "FZ<KOD>RF<yıl><sıra> — 'FZ' ve 'RF' otomatik eklenir, yazma.")
-            if st.form_submit_button("➕ Firma Ekle", type="primary", use_container_width=True):
+            if st.form_submit_button("Firma Ekle", type="primary", use_container_width=True, icon=":material/add:"):
                 if not yf_adi.strip() or not yf_kod.strip():
                     st.warning("Firma (cari) ve ref kodu zorunlu.")
                 else:
@@ -1202,7 +1202,7 @@ def render():
                               key="ref_fy_ad")
         _ykod = _y2.text_input("Ref kodu", value=_fsec.get("firma_kodu", "") or "",
                                key="ref_fy_kod")
-        if st.button("💾 Kaydet", type="primary", use_container_width=True, key="ref_fy_kaydet"):
+        if st.button("Kaydet", type="primary", use_container_width=True, key="ref_fy_kaydet", icon=":material/save:"):
             _ok, _m = firma_guncelle(_fsec["id"], _yad, _ykod)
             (st.success if _ok else st.error)(_m)
             if _ok:
@@ -1217,8 +1217,8 @@ def render():
                               disabled=not _adet)
         _onay = st.checkbox(f"Onaylıyorum — '{_fsec.get('firma_adi','')}' firmasını sil",
                             key="ref_fy_onay")
-        if st.button("🗑 Firmayı Sil", use_container_width=True, key="ref_fy_sil",
-                     disabled=not _onay):
+        if st.button("Firmayı Sil", use_container_width=True, key="ref_fy_sil",
+                     disabled=not _onay, icon=":material/delete:"):
             _ok, _m = firma_sil(_fsec["id"], refleri_de_sil=_refsil)
             if _ok:
                 st.success(_m)
@@ -1228,9 +1228,9 @@ def render():
                 st.error(_m)
 
     _ff1, _ff2, _ff3 = st.columns([1, 1, 3])
-    if _ff1.button("🏢 Yeni Firma Ekle", type="primary", use_container_width=True, key="ref_firma_ac_btn"):
+    if _ff1.button("Yeni Firma Ekle", type="primary", use_container_width=True, key="ref_firma_ac_btn", icon=":material/domain:"):
         _firma_ekle_dialog()
-    if _ff2.button("🛠 Firmaları Yönet", use_container_width=True, key="ref_firma_yonet_btn"):
+    if _ff2.button("Firmaları Yönet", use_container_width=True, key="ref_firma_yonet_btn", icon=":material/construction:"):
         _firma_yonet_dialog()
     _ff3.caption("Firma adları muhasebe cari listesinden gelir · ref kodu yalnız kısaltmadır.")
 
@@ -1336,9 +1336,9 @@ def kalem_yonet_paneli(r, firma_adi=""):
     _y_kat = (_c4.text_input("Kategori", key=f"refkal_kat_{_rid}").strip()
               if _kat_sec == "(yaz)" else _kat_sec)
 
-    _ekle = st.button("➕ Kaleme ekle", key=f"refkal_ekle_{_rid}",
+    _ekle = st.button("Kaleme ekle", key=f"refkal_ekle_{_rid}",
                       use_container_width=True,
-                      disabled=not (_y_ack.strip() and _y_tut > 0))
+                      disabled=not (_y_ack.strip() and _y_tut > 0), icon=":material/add:")
     if _ekle:
         _yeni_liste.append({"aciklama": _y_ack.strip(), "tutar": round(_y_tut, 2),
                             "ay": _y_ay, "kategori": kategori_kanonik(_y_kat)})
@@ -1368,8 +1368,8 @@ def kalem_yonet_paneli(r, firma_adi=""):
         st.warning(f"⚠️ {len(_katsiz)} kalemde **kategori** yok — Kâr/P&L "
                    f"kategori filtresine yansımaz.")
 
-    if st.button("💾 Kalemleri kaydet", type="primary", use_container_width=True,
-                 key=f"refkal_kaydet_{_rid}"):
+    if st.button("Kalemleri kaydet", type="primary", use_container_width=True,
+                 key=f"refkal_kaydet_{_rid}", icon=":material/save:"):
         _ok, _msg = kalemleri_yaz(_rid, _yeni_liste)
         (st.success if _ok else st.error)(_msg)
         if _ok:
@@ -1418,17 +1418,17 @@ def kategori_dagit_dialog(r, firma_adi=""):
         st.warning(f"⚠️ Kalan: {_sm}{tr_sayi(_kalan, 2)} — toplam {_sm}{tr_sayi(_ham, 2)} olmalı.")
 
     _c1, _c2 = st.columns(2)
-    if _c1.button("💾 Kaydet", type="primary", use_container_width=True,
+    if _c1.button("Kaydet", type="primary", use_container_width=True,
                   key=f"refkt_kaydet_{r.get('id')}",
-                  disabled=abs(_kalan) >= 0.005 and _top > 0):
+                  disabled=abs(_kalan) >= 0.005 and _top > 0, icon=":material/save:"):
         ref_guncelle(r.get("id"), r.get("ref_no"), r.get("aciklama"), r.get("durum"),
                      r.get("tarih"), r.get("paylasim_tarihi"),
                      kategori_tutar={k: round(v, 2) for k, v in _giris.items() if v > 0})
         _cache_temizle()
         st.success("✅ Kategori dağılımı kaydedildi")
         st.rerun()
-    if _c2.button("🧹 Dağılımı temizle", use_container_width=True,
-                  key=f"refkt_temizle_{r.get('id')}"):
+    if _c2.button("Dağılımı temizle", use_container_width=True,
+                  key=f"refkt_temizle_{r.get('id')}", icon=":material/cleaning_services:"):
         ref_guncelle(r.get("id"), r.get("ref_no"), r.get("aciklama"), r.get("durum"),
                      r.get("tarih"), r.get("paylasim_tarihi"), kategori_tutar={})
         _cache_temizle()
@@ -1487,8 +1487,8 @@ def _ref_detay_govde(r, firma_adi=""):
             st.warning(f"🏷️ Bu kayıt **{len(_kats)} kategori** taşıyor ama tutar "
                        f"dağıtılmamış — kategori bazlı Kâr/P&L'de **GENEL**'de kalıyor "
                        f"ve filtreye yansımıyor.")
-        if st.button("🏷️ Kategori tutarını dağıt", key=f"refkt_ac_{r.get('id')}",
-                     use_container_width=True):
+        if st.button("Kategori tutarını dağıt", key=f"refkt_ac_{r.get('id')}",
+                     use_container_width=True, icon=":material/sell:"):
             st.session_state[f"refkt_acik_{r.get('id')}"] = True
         if st.session_state.get(f"refkt_acik_{r.get('id')}"):
             with st.container(border=True):
@@ -1828,8 +1828,8 @@ def _render_ref_merkez(firmalar):
             _kc1.markdown(_ref_kart_html(_r, "" if _tekil else _r.get("_firma", "")),
                           unsafe_allow_html=True)
             _kc2.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-            if _kc2.button("🔎", key=f"rm_kart_{_bas + _i}_{_r.get('id')}",
-                           use_container_width=True, help="Detayı aç"):
+            if _kc2.button("", key=f"rm_kart_{_bas + _i}_{_r.get('id')}",
+                           use_container_width=True, help="Detayı aç", icon=":material/search:"):
                 _dlg_ref_detay_merkez(_r)
         if _tsayfa > 1:
             st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {tr_sayi(len(goster))} kayıt — "
@@ -2070,8 +2070,8 @@ def _render_tumu(firmalar):
         _secilen = []
     if _secilen and _secilen[0] < len(goster):
         _r = goster[_secilen[0]]
-        if st.button(f"🔎 {_r.get('ref_no','')} detayını aç", type="primary",
-                     use_container_width=True, key="ref_tumu_detay_btn"):
+        if st.button(f"{_r.get('ref_no','')} detayını aç", type="primary",
+                     use_container_width=True, key="ref_tumu_detay_btn", icon=":material/search:"):
             _dlg_ref_detay(_r, _r.get("_firma", ""))
 
 
@@ -2126,7 +2126,7 @@ def _render_refler(fid, fkod):
             yeni_donem_yil = rd4.number_input("Yıl", min_value=2020, max_value=2100,
                                               value=_yil(), step=1)
             yeni_durum = rd5.selectbox("Durum", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d], index=0)
-            if st.form_submit_button("➕ Ref No Ata", type="primary", use_container_width=True):
+            if st.form_submit_button("Ref No Ata", type="primary", use_container_width=True, icon=":material/add:"):
                 if not (yeni_ack or "").strip():
                     st.error("⚠️ Açıklama boş olamaz — boş ref no atanmaz. "
                              "Lütfen bir açıklama girip tekrar dene.")
@@ -2157,14 +2157,14 @@ def _render_refler(fid, fkod):
                         key=f"ref_imp_guncelle_{fid}",
                         help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
                              "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
-                    if st.button("📥 İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}"):
+                    if st.button("İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}", icon=":material/move_to_inbox:"):
                         ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
                         (st.success if ok else st.error)(msg)
                         if ok:
                             st.rerun()
                 except Exception as e:
                     st.error(f"Excel okunamadı: {e}")
-        if st.button("📥 Excel'den İçe Aktar", key="btn_ref_ice", use_container_width=True):
+        if st.button("Excel'den İçe Aktar", key="btn_ref_ice", use_container_width=True, icon=":material/move_to_inbox:"):
             _dlg_ref_ice_aktar()
 
     st.markdown("**📋 Geçmiş Ref No'lar**")
@@ -2219,7 +2219,7 @@ def _render_refler(fid, fkod):
                                    f"{(r.get('aciklama') or '')[:48]} · "
                                    f"{tr_sayi(_f(r.get('tutar')))} {r.get('doviz','USD')}"),
             key=f"ref_detay_sec_{fid}", label_visibility="collapsed")
-        if _dt2.button("🔎 Detayı Aç", use_container_width=True, key=f"ref_detay_btn_{fid}"):
+        if _dt2.button("Detayı Aç", use_container_width=True, key=f"ref_detay_btn_{fid}", icon=":material/search:"):
             _dlg_ref_detay_firma(_dsec)
 
     _kat_secenekler = _kategori_listesi(refler)
@@ -2270,7 +2270,7 @@ def _render_refler(fid, fkod):
             "Durum": st.column_config.SelectboxColumn("Durum", options=DURUMLAR, required=True),
         },
     )
-    if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}"):
+    if st.button("Değişiklikleri Kaydet", type="primary", key=f"ref_save_{fid}", icon=":material/save:"):
         orijinal = {r["id"]: r for r in goster}
         degisen = silinen = 0
         _ref_hata = []
@@ -2351,8 +2351,8 @@ def _render_refler(fid, fkod):
                    "(Tek tek silmek için tablodaki 'Sil?' kutusunu işaretleyip Kaydet'e de basabilirsin.)")
         _rs1, _rs2 = st.columns(2)
         with _rs1:
-            if st.button(f"🗑 Görünen {len(goster)} kaydı sil", use_container_width=True,
-                         key=f"ref_bulk_goster_{fid}", disabled=(len(goster) == 0)):
+            if st.button(f"Görünen {len(goster)} kaydı sil", use_container_width=True,
+                         key=f"ref_bulk_goster_{fid}", disabled=(len(goster) == 0), icon=":material/delete:"):
                 _sil = 0
                 for _r in goster:
                     if ref_sil(_r["id"]):
@@ -2363,15 +2363,15 @@ def _render_refler(fid, fkod):
         with _rs2:
             _onay = st.checkbox(f"Onaylıyorum — bu firmanın TÜM ({len(refler)}) ref no'sunu sil",
                                 key=f"ref_temizle_onay_{fid}")
-            if st.button("🗑 Tümünü Sil", type="primary", use_container_width=True,
-                         key=f"ref_temizle_btn_{fid}", disabled=not _onay):
+            if st.button("Tümünü Sil", type="primary", use_container_width=True,
+                         key=f"ref_temizle_btn_{fid}", disabled=not _onay, icon=":material/delete:"):
                 if ref_temizle(fid):
                     st.cache_data.clear()
                     st.success("✅ Bu firmanın tüm ref no kayıtları silindi.")
                     st.rerun()
                 else:
                     st.error("Silme başarısız oldu.")
-    if st.button("🗑 Toplu Sil", key="btn_ref_sil", use_container_width=True):
+    if st.button("Toplu Sil", key="btn_ref_sil", use_container_width=True, icon=":material/delete:"):
         _dlg_ref_toplu_sil()
 
 
@@ -2424,13 +2424,13 @@ def _render_butce(fid, firma):
             b_ftar = b5.date_input("Fatura Tarihi", value=date.today(), format="DD.MM.YYYY")
             b_ref = b6.selectbox("Ref No", ref_secenek, index=0)
             b_kisi = st.text_input("Kişi / Sorumlu", placeholder="örn. DERYA MOLLAOĞLU")
-            if st.form_submit_button("➕ Kaydı Ekle", type="primary", use_container_width=True):
+            if st.form_submit_button("Kaydı Ekle", type="primary", use_container_width=True, icon=":material/add:"):
                 ok, msg = butce_ekle(fid, b_tur, b_ack.strip(), b_tutar, b_doviz,
                                      b_fno.strip(), b_ftar, b_ref, b_kisi.strip(), yon=b_yon)
                 (st.success if ok else st.error)(msg)
                 if ok:
                     st.rerun()
-    if st.button("➕ Yeni Bütçe / Harcama Kaydı Ekle", key="btn_but_yeni", use_container_width=True):
+    if st.button("Yeni Bütçe / Harcama Kaydı Ekle", key="btn_but_yeni", use_container_width=True, icon=":material/add:"):
         _dlg_butce_yeni()
 
     # ── Excel içe aktar ──
@@ -2444,14 +2444,14 @@ def _render_butce(fid, firma):
             try:
                 df_b = pd.read_excel(upb)
                 st.dataframe(df_b.head(15), use_container_width=True, height=200)
-                if st.button("📥 İçe Aktar", type="primary", key=f"butce_imp_{fid}"):
+                if st.button("İçe Aktar", type="primary", key=f"butce_imp_{fid}", icon=":material/move_to_inbox:"):
                     ok, msg, _n = butce_excel_ice_aktar(fid, df_b, temizle=temizle)
                     (st.success if ok else st.error)(msg)
                     if ok:
                         st.rerun()
             except Exception as e:
                 st.error(f"Excel okunamadı: {e}")
-    if st.button("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)", key="btn_but_ice", use_container_width=True):
+    if st.button("Excel'den İçe Aktar (Havuz Bütçe formatı)", key="btn_but_ice", use_container_width=True, icon=":material/move_to_inbox:"):
         _dlg_butce_ice()
 
     if not kayitlar:
@@ -2498,7 +2498,7 @@ def _render_butce(fid, firma):
             "Kişi": st.column_config.TextColumn("Kişi"),
         },
     )
-    if st.button("💾 Değişiklikleri Kaydet", type="primary", key=f"butce_save_{fid}"):
+    if st.button("Değişiklikleri Kaydet", type="primary", key=f"butce_save_{fid}", icon=":material/save:"):
         orijinal = {r["id"]: r for r in goster}
         silinen = degisen = 0
         for _, row in edited.iterrows():
@@ -2543,9 +2543,9 @@ def _render_butce(fid, firma):
                    "filtrelenen kayıtları siler; ya da bu firmanın tüm havuz bütçe kayıtlarını temizle.")
         _bs1, _bs2 = st.columns(2)
         with _bs1:
-            if st.button(f"🗑 Aramada görünen {len(goster)} kaydı sil",
+            if st.button(f"Aramada görünen {len(goster)} kaydı sil",
                          use_container_width=True, key=f"butce_bulk_goster_{fid}",
-                         disabled=(len(goster) == 0)):
+                         disabled=(len(goster) == 0), icon=":material/delete:"):
                 _sil = 0
                 for _r in goster:
                     if butce_sil(_r["id"]):
@@ -2556,15 +2556,15 @@ def _render_butce(fid, firma):
         with _bs2:
             _onay = st.checkbox(f"Onaylıyorum — bu firmanın TÜM ({len(kayitlar)}) kaydını sil",
                                 key=f"butce_temizle_onay_{fid}")
-            if st.button("🗑 Tümünü Sil", type="primary", use_container_width=True,
-                         key=f"butce_temizle_btn_{fid}", disabled=not _onay):
+            if st.button("Tümünü Sil", type="primary", use_container_width=True,
+                         key=f"butce_temizle_btn_{fid}", disabled=not _onay, icon=":material/delete:"):
                 if butce_temizle(fid):
                     st.cache_data.clear()
                     st.success("✅ Bu firmanın tüm bütçe kayıtları silindi.")
                     st.rerun()
                 else:
                     st.error("Silme başarısız oldu.")
-    if st.button("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil", key="btn_but_sil", use_container_width=True):
+    if st.button("Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil", key="btn_but_sil", use_container_width=True, icon=":material/delete:"):
         _dlg_butce_sil()
 
 
@@ -3233,8 +3233,8 @@ def _render_alinan_destekler():
             k1, k2 = st.columns([13, 1.6])
             k1.markdown(_ad_kart_html(_r), unsafe_allow_html=True)
             k2.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-            if k2.button("🔎", key=f"ad_kart_{_bas + _i}_{_r.get('id')}",
-                         use_container_width=True, help="Detayı aç"):
+            if k2.button("", key=f"ad_kart_{_bas + _i}_{_r.get('id')}",
+                         use_container_width=True, help="Detayı aç", icon=":material/search:"):
                 _dlg_ad_detay(_r, _eurk, _tlk)
         if _tsayfa > 1:
             st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {tr_sayi(len(kayitlar))} kayıt")
@@ -3265,7 +3265,7 @@ def _render_alinan_destekler():
                                  help="Destek hangi ürün kategorisi için alındı? "
                                       "Dağıtılamıyorsa GENEL bırakın.")
             f_acik = c8.text_input("Açıklama", placeholder="Örn: Haziran sellout hakedişi")
-            if st.form_submit_button("💾 Kaydet", type="primary", use_container_width=True):
+            if st.form_submit_button("Kaydet", type="primary", use_container_width=True, icon=":material/save:"):
                 ok, msg = alinan_destek_ekle(f_firma, f_tur, f_donem, f_tutar,
                                              f_doviz, f_fatura, f_acik, f_kat)
                 (st.success if ok else st.error)(msg)
@@ -3282,16 +3282,16 @@ def _render_alinan_destekler():
             "FATURA NO": "", "AÇIKLAMA": "Örnek satır — silebilirsiniz"}])
         _buf = io.BytesIO()
         _sab.to_excel(_buf, index=False)
-        st.download_button("📄 Boş Şablonu İndir", _buf.getvalue(),
+        st.download_button("Boş Şablonu İndir", _buf.getvalue(),
                            file_name="alinan_destek_sablon.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", icon=":material/description:")
         _up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="ad_excel")
         if _up is not None:
             try:
                 _df = pd.read_excel(_up)
                 st.dataframe(_df.head(10), use_container_width=True, hide_index=True)
                 st.caption(f"{len(_df)} satır bulundu — ilk 10 gösteriliyor.")
-                if st.button("📥 İçe Aktar", type="primary", key="ad_import"):
+                if st.button("İçe Aktar", type="primary", key="ad_import", icon=":material/move_to_inbox:"):
                     eklenen, atlanan, hatalar = alinan_destek_excel_ice_aktar(_df)
                     if eklenen:
                         st.success(f"✅ {eklenen} kayıt eklendi"
@@ -3311,7 +3311,7 @@ def _render_alinan_destekler():
         s1, s2 = st.columns([4, 1])
         _sec = s1.selectbox("Kayıt sil", ["—"] + list(_sil_opts), key="ad_sil_sec",
                             label_visibility="collapsed")
-        if s2.button("🗑 Sil", key="ad_sil", use_container_width=True) and _sec != "—":
+        if s2.button("Sil", key="ad_sil", use_container_width=True, icon=":material/delete:") and _sec != "—":
             if alinan_destek_sil(_sil_opts[_sec]):
                 st.toast("Silindi")
                 st.cache_data.clear()

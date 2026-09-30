@@ -590,9 +590,9 @@ def run():
                 """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown.
                 _ic_pencere=True → zaten bir dialog içindeyiz, iç içe dialog yerine toggle ile aç."""
                 def _kanal_blok_govde():
-                    st.download_button("⬇️ Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
+                    st.download_button("Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
                                        f"SIPARIS_SABLON_{_key.upper()}.xlsx", mime=_XLSX_MIME,
-                                       key=f"sg_sablon_{_key}")
+                                       key=f"sg_sablon_{_key}", icon=":material/download:")
                     _knl = _sabit_kanal
                     if _kanal_secilebilir:
                         # Firma OTOMATİK gelmesin — boş başlar, kullanıcı bilinçli seçer
@@ -640,8 +640,8 @@ def run():
                         # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı
                         # kendi deposuna karşı kontrol etsin (satır bazlı DEPOTANIM).
                         _depo_k = _sg_depo_sec(_key, _gecerli)
-                        if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
-                                     key=f"sg_kaydet_{_key}", disabled=not _gecerli):
+                        if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
+                                     key=f"sg_kaydet_{_key}", disabled=not _gecerli, icon=":material/move_to_inbox:"):
                             _sg_kaydet(_gecerli, _uz, _depo_k)
                 if _ic_pencere:
                     # Zaten bir dialog içindeyiz → toggle ile aynı pencerede aç (iç içe dialog yasak)
@@ -661,8 +661,8 @@ def run():
                            "Her sekmeyi açıp ilgili Excel'i yükle, önizlemeyi kontrol et, kaydet.")
                 # 1) VATAN — aynı pencere içinde açılır (iç içe dialog olmaz)
                 def _vatan_toplu_govde():
-                    st.download_button("⬇️ VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
-                                       "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan")
+                    st.download_button("VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
+                                       "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan", icon=":material/download:")
                     st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
                     _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
                     if _dv is not None:
@@ -691,8 +691,8 @@ def run():
                                     key="sg_uz_vatan",
                                     help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
                                 _depo_v = _sg_depo_sec("vatan", _gecerli)
-                                if st.button("📥 Siparişleri Kaydet", type="primary", use_container_width=True,
-                                             key="sg_kaydet_vatan", disabled=not _gecerli):
+                                if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
+                                             key="sg_kaydet_vatan", disabled=not _gecerli, icon=":material/move_to_inbox:"):
                                     _sg_kaydet(_gecerli, _uzv, _depo_v)
                 if st.toggle("📄 VATAN — Excel ile Toplu Sipariş", key="tgl_sat_vatan"):
                     _vatan_toplu_govde()
@@ -707,7 +707,7 @@ def run():
                                 "diger", (_kanallar[0] if _kanallar else "DİGER"), True, _ic_pencere=True)
 
             _ex1, _ex2 = st.columns([1, 4])
-            if _ex1.button("📊 Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn"):
+            if _ex1.button("Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn", icon=":material/table_view:"):
                 st.session_state["_satis_excel_ac"] = True
                 st.cache_data.clear()
                 st.rerun()
@@ -717,7 +717,7 @@ def run():
 
             # ── Manuel Satış Girişi — AÇILIR PENCERE ──
             _ms1, _ms2 = st.columns([1, 4])
-            if _ms1.button("✍️ Manuel Satış Girişi", type="primary", use_container_width=True, key="ms_ac_btn"):
+            if _ms1.button("Manuel Satış Girişi", type="primary", use_container_width=True, key="ms_ac_btn", icon=":material/edit_note:"):
                 st.session_state["_ms_dialog_ac"] = True
                 st.cache_data.clear()
                 st.rerun()
@@ -743,8 +743,8 @@ def run():
                     if _benzer:
                         st.warning("Benzer kayıt(lar) zaten var: **" + " · ".join(_benzer[:5])
                                    + "** — aynı firmaysa yenisini ekleme, mevcut olanı seç.")
-                if st.button("💾 Ekle", type="primary", use_container_width=True,
-                             key="mk_ekle_btn", disabled=not _aday):
+                if st.button("Ekle", type="primary", use_container_width=True,
+                             key="mk_ekle_btn", disabled=not _aday, icon=":material/save:"):
                     _ok, _msg = _mk_ekle(_aday)
                     if _ok:
                         st.session_state["_mk_son_eklenen"] = _aday
@@ -759,9 +759,9 @@ def run():
                     with st.expander(f"🗂️ Elle eklenenler ({len(_mevcut_mk)})"):
                         _sil_sec = st.selectbox("Listeden çıkar", ["—"] + _mevcut_mk,
                                                 key="mk_sil_sec", label_visibility="collapsed")
-                        if _sil_sec != "—" and st.button(f"🗑️ “{_sil_sec}” çıkar",
+                        if _sil_sec != "—" and st.button(f"“{_sil_sec}” çıkar",
                                                          key="mk_sil_btn",
-                                                         use_container_width=True):
+                                                         use_container_width=True, icon=":material/delete:"):
                             _mk_sil(_sil_sec)
                             st.toast(f"🗑️ “{_sil_sec}” listeden çıkarıldı", icon="🗑️")
                             st.rerun()
@@ -769,7 +769,7 @@ def run():
                                    "satışlar durur ve kanal, satışlarda geçtiği sürece "
                                    "listede görünmeye devam eder.")
 
-            if st.button("➕ Yeni Kanal / Cari Ekle", key="mk_ac_btn"):
+            if st.button("Yeni Kanal / Cari Ekle", key="mk_ac_btn", icon=":material/add:"):
                 _kanal_ekle_dialog()
             # Yeni eklenen kanal, manuel satış penceresinde otomatik SEÇİLİ gelsin
             _mk_son = st.session_state.pop("_mk_son_eklenen", None)
@@ -839,7 +839,7 @@ def run():
                                             value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
                                             key="s_bsat")
                     a4.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                    if a4.button("➕ Ekle", use_container_width=True, key="s_ekle"):
+                    if a4.button("Ekle", use_container_width=True, key="s_ekle", icon=":material/add:"):
                         if not _bsat or _bsat <= 0:
                             st.warning("Birim satış fiyatı gir.")
                         elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
@@ -922,7 +922,7 @@ def run():
                         ]) + '</div>', unsafe_allow_html=True)
 
                     b1, b2 = st.columns([3, 1])
-                    if b1.button("💾 Siparişi Kaydet", type="primary", use_container_width=True, key="s_kaydet"):
+                    if b1.button("Siparişi Kaydet", type="primary", use_container_width=True, key="s_kaydet", icon=":material/save:"):
                         gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
                                    and float(k.get("birim_satis", 0)) > 0]
                         if not gecerli:
@@ -976,7 +976,7 @@ def run():
                                         st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
                                 else:
                                     st.error(msg)
-                    if b2.button("🧹 Temizle", use_container_width=True, key="s_temizle"):
+                    if b2.button("Temizle", use_container_width=True, key="s_temizle", icon=":material/cleaning_services:"):
                         st.session_state.satis_kalemler = []
                         st.session_state["_ms_dialog_ac"] = True
                         st.cache_data.clear()
@@ -1124,15 +1124,15 @@ def run():
                 return _buf.getvalue()
 
             _d1.download_button(
-                "⬇️ Excel indir", _satis_xlsx(_dl_rows), f"{_ad}.xlsx",
+                "Excel indir", _satis_xlsx(_dl_rows), f"{_ad}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True, key="l_dl_xlsx")
+                use_container_width=True, key="l_dl_xlsx", icon=":material/download:")
 
             # CSV: utf-8-sig → Excel Türkçe karakterleri doğru gösterir
             _d2.download_button(
-                "⬇️ CSV indir", _dl_df.to_csv(index=False).encode("utf-8-sig"),
+                "CSV indir", _dl_df.to_csv(index=False).encode("utf-8-sig"),
                 f"{_ad}.csv", mime="text/csv",
-                use_container_width=True, key="l_dl_csv")
+                use_container_width=True, key="l_dl_csv", icon=":material/download:")
 
             _d3.caption(f"📦 {tr_sayi(len(_dl_df))} kayıt · {_bas} → {_bit}"
                         + ("" if _kanal_f == "Tümü" else f" · {_kanal_f}")
@@ -1165,8 +1165,8 @@ def run():
                                 "Silinecek kayıt id'leri",
                                 [r.get("id") for r in _hrows],
                                 key="l_hayalet_sec")
-                            if _hsec and st.button(f"🗑️ Seçili {len(_hsec)} kaydı sil",
-                                                   type="primary", key="l_hayalet_sil"):
+                            if _hsec and st.button(f"Seçili {len(_hsec)} kaydı sil",
+                                                   type="primary", key="l_hayalet_sil", icon=":material/delete:"):
                                 _hok = 0
                                 for _hid in _hsec:
                                     if sil_satis(_hid):
@@ -1181,7 +1181,7 @@ def run():
                         "Tek kalem sil", satislar,
                         format_func=lambda s: f"#{s.get('id')} · {gun_ay_yil(s.get('tarih'))} · {s.get('kanal','')} · {s.get('sku','')} · {s.get('adet')} ad.",
                         key="l_sil_sec")
-                    if st.button("🗑️ Kalemi Sil", key="l_sil_btn"):
+                    if st.button("Kalemi Sil", key="l_sil_btn", icon=":material/delete:"):
                         if sil_satis(_sec_sil["id"]):
                             st.success("✅ Silindi.")
                             st.cache_data.clear()
@@ -1192,7 +1192,7 @@ def run():
                     _sipnolar = sorted({(s.get("siparis_no") or "").strip() for s in satislar if (s.get("siparis_no") or "").strip()})
                     if _sipnolar:
                         _sec_sip = st.selectbox("Tüm siparişi sil", _sipnolar, key="l_sil_sip")
-                        if st.button("🗑️ Siparişi Sil", key="l_sil_sip_btn"):
+                        if st.button("Siparişi Sil", key="l_sil_sip_btn", icon=":material/delete:"):
                             if sil_siparis(_sec_sip):
                                 st.success(f"✅ '{_sec_sip}' siparişi silindi.")
                                 st.cache_data.clear()
@@ -1201,7 +1201,7 @@ def run():
                                 st.error("Silinemedi.")
                     else:
                         st.caption("Sipariş no'lu kayıt yok.")
-            if st.button("🗑️ Sil — kalem veya sipariş", key="btn_sat_sil", use_container_width=True):
+            if st.button("Sil — kalem veya sipariş", key="btn_sat_sil", use_container_width=True, icon=":material/delete:"):
                 _dlg_satis_sil()
 
         _satislar_fragment()
@@ -1522,10 +1522,10 @@ def run():
             _px1, _px2 = st.columns([1, 3])
             try:
                 _px1.download_button(
-                    "⬇️ Excel raporu", _pnl_xlsx(),
+                    "Excel raporu", _pnl_xlsx(),
                     f"kar_pnl_{_pbas}_{_pbit}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True, key="pnl_dl_xlsx")
+                    use_container_width=True, key="pnl_dl_xlsx", icon=":material/download:")
                 _px2.caption("Ekrandaki rakamların aynısı · merdiven, kırılımlar ve "
                              "ham satırlar ayrı sayfalarda · sayılar ham (toplanabilir)")
             except Exception as _e_x:
@@ -1800,8 +1800,8 @@ def run():
                                     "Kategori": st.column_config.TextColumn(
                                         help="kasa, monitör, ekran kartı... boş bırakılabilir"),
                                 })
-                            if st.button("💾 Marka/Kategori Ata", type="primary",
-                                         key="pnl_diger_kaydet", use_container_width=True):
+                            if st.button("Marka/Kategori Ata", type="primary",
+                                         key="pnl_diger_kaydet", use_container_width=True, icon=":material/save:"):
                                 from kayranpm.database import (get_client as _gc_dg,
                                                                upsert_urun as _up_dg)
                                 _ok_dg, _yeni_dg = 0, 0
@@ -1945,7 +1945,7 @@ def run():
                 st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
                            "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
                            "Mevcut DOĞRU maliyetlere dokunmaz — yalnız 0 olanları düzeltir.")
-                if st.button("🔍 Önizle — kaç satış düzelecek", key="mlyt_onizle_btn"):
+                if st.button("Önizle — kaç satış düzelecek", key="mlyt_onizle_btn", icon=":material/search:"):
                     with st.spinner("Satışlar paçalla karşılaştırılıyor…"):
                         st.session_state["_mlyt_onizle"] = satis_maliyet_tazele_onizle(sadece_sifir=True)
                 _mz = st.session_state.get("_mlyt_onizle")
@@ -1968,7 +1968,7 @@ def run():
                         _tsatir = sum(x["satir"] for x in _mz)
                         st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
                                    "(0 → paçal). Geri alınamaz.")
-                        if st.button("✅ Onayla ve Maliyetleri Yaz", type="primary", use_container_width=True, key="mlyt_uygula_btn"):
+                        if st.button("Onayla ve Maliyetleri Yaz", type="primary", use_container_width=True, key="mlyt_uygula_btn", icon=":material/check_circle:"):
                             with st.spinner("Maliyetler yazılıyor…"):
                                 _okm, _msgm = satis_maliyet_tazele_uygula(sadece_sifir=True)
                             st.cache_data.clear()
@@ -1976,7 +1976,7 @@ def run():
                             (st.success if _okm else st.error)(_msgm)
                             st.cache_data.clear()
                             st.rerun()
-            if st.button("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True):
+            if st.button("Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True, icon=":material/build:"):
                 _dlg_maliyet_fix()
 
     # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
@@ -2068,8 +2068,8 @@ def run():
                 if _temizle_once and _cakisan:
                     st.caption(f"↻ Bu dosyadaki {len(_cakisan)} fatura önce silinip yeniden yazılacak "
                                "(eksik/kısmi kalan kayıtlar temizlenir).")
-                if st.button("📥 İçe Aktar ve Kaydet", type="primary",
-                             use_container_width=True, key="satis_ice_btn", disabled=not _onay):
+                if st.button("İçe Aktar ve Kaydet", type="primary",
+                             use_container_width=True, key="satis_ice_btn", disabled=not _onay, icon=":material/move_to_inbox:"):
                     _pb = st.progress(0.0, text="Kaydediliyor…")
 
                     def _ilerle(yapilan, toplam):
@@ -2127,7 +2127,7 @@ def run():
                                          "stok o depoya eklenir.")
             st.caption("Bu kayıt **manuel** işaretlenir; ay sonu toplu yüklemede "
                        "mükerrer sayılmaz, avans olarak düşülür.")
-            if st.button("💾 İadeyi Kaydet", type="primary", key="iade_kaydet"):
+            if st.button("İadeyi Kaydet", type="primary", key="iade_kaydet", icon=":material/save:"):
                 if not _i_sku.strip():
                     st.error("SKU zorunludur.")
                 else:
@@ -2139,7 +2139,7 @@ def run():
                     if _ok:
                         st.cache_data.clear()
                         st.rerun()
-        if st.button("➕ Manuel İade Girişi", key="btn_sat_miade", use_container_width=True):
+        if st.button("Manuel İade Girişi", key="btn_sat_miade", use_container_width=True, icon=":material/add:"):
             _dlg_manuel_iade()
 
         @st.dialog("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", width="large")
@@ -2240,8 +2240,8 @@ def run():
                     st.caption(f"Yazılacak: **{len(_plan)} satır · {tr_sayi(_yaz_adet)} adet** "
                                f"(Excel toplamı {tr_sayi(_tadet)})")
 
-                    if st.button("⬆️ İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
-                                 disabled=not (_cak_onay and _trh_onay) or not _plan):
+                    if st.button("İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
+                                 disabled=not (_cak_onay and _trh_onay) or not _plan, icon=":material/upload:"):
                         _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10],
                                                temizle_once=_ie_temizle,
                                                donem_bas=str(_ie_bas)[:10],
@@ -2252,7 +2252,7 @@ def run():
                             st.success(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                             st.cache_data.clear()
                             st.rerun()
-        if st.button("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", key="btn_sat_tiade", use_container_width=True):
+        if st.button("Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", key="btn_sat_tiade", use_container_width=True, icon=":material/description:"):
             _dlg_toplu_iade()
 
         st.markdown("---")
@@ -2332,12 +2332,12 @@ def run():
                     "İade Net": _usd(r.get("iade_net", 0)), "Kanal": (r.get("kanal") or "")[:24],
                 } for r in _kayitlar])), use_container_width=True, hide_index=True)
                 _sil_id = st.number_input("Silinecek iade ID", min_value=0, step=1, value=0, key="iade_sil_id")
-                if st.button("🗑 İadeyi Sil", key="iade_sil_btn") and _sil_id > 0:
+                if st.button("İadeyi Sil", key="iade_sil_btn", icon=":material/delete:") and _sil_id > 0:
                     if sil_iade(int(_sil_id)):
                         st.success("Silindi.")
                         st.cache_data.clear()
                         st.rerun()
                     else:
                         st.error("Silinemedi.")
-        if st.button("🗂️ İade Kayıtları (sil)", key="btn_sat_ikayit", use_container_width=True):
+        if st.button("İade Kayıtları (sil)", key="btn_sat_ikayit", use_container_width=True, icon=":material/folder_open:"):
             _dlg_iade_kayit()

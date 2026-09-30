@@ -377,8 +377,8 @@ def _gecmis_ithalatlar():
             _de_depo = _de2.selectbox("Atanacak depo", DEPO_SECENEKLER, key="ith_depoeksik_depo")
             _de3.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
             _de_depo_val = "" if str(_de_depo).startswith("(") else _de_depo
-            if _de3.button("📦 Depoyu Ata", type="primary", use_container_width=True,
-                           key="ith_depoeksik_btn", disabled=(not _de_sec or not _de_depo_val)):
+            if _de3.button("Depoyu Ata", type="primary", use_container_width=True,
+                           key="ith_depoeksik_btn", disabled=(not _de_sec or not _de_depo_val), icon=":material/inventory_2:"):
                 _de_ok = 0
                 for _d in _de_sec:
                     if set_dosya_teslim(_d["id"], teslim_deposu=_de_depo_val):
@@ -386,7 +386,7 @@ def _gecmis_ithalatlar():
                 st.cache_data.clear()
                 st.success(f"✅ {_de_ok} dosyaya '{_de_depo_val}' teslim deposu atandı.")
                 st.rerun()
-        if st.button(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", key="btn_ith_depoata", use_container_width=True):
+        if st.button(f"Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", key="btn_ith_depoata", use_container_width=True, icon=":material/warning:"):
             _dlg_depo_ata()
     if not dosyalar:
         st.info("Henüz ithalat kaydı yok. '➕ Yeni İthalat' sayfasından ekleyebilirsin.")
@@ -484,8 +484,8 @@ def _gecmis_ithalatlar():
                          height=min(440, 70 + len(_rows_dup) * 36), hide_index=True)
             _onay = st.checkbox(f"{_toplam_silinecek} fazla kaydı kalıcı olarak silmeyi onaylıyorum",
                                 key="ith_dup_onay")
-            if st.button(f"🧹 Mükerrerleri Temizle ({_toplam_silinecek} kayıt sil)",
-                         type="primary", disabled=not _onay, use_container_width=True, key="ith_dup_temizle"):
+            if st.button(f"Mükerrerleri Temizle ({_toplam_silinecek} kayıt sil)",
+                         type="primary", disabled=not _onay, use_container_width=True, key="ith_dup_temizle", icon=":material/cleaning_services:"):
                 _n = 0
                 with st.spinner("🧹 Temizleniyor..."):
                     for _iid in _silinecek_ids:
@@ -493,7 +493,7 @@ def _gecmis_ithalatlar():
                             _n += 1
                 st.success(f"✅ {_n} mükerrer kayıt silindi.")
                 st.rerun()
-        if st.button(f"🧹 Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt", key="btn_ith_muker", use_container_width=True):
+        if st.button(f"Mükerrer Belge Temizliği — {len(_mukerrer)} grup · {_toplam_silinecek} fazla kayıt", key="btn_ith_muker", use_container_width=True, icon=":material/cleaning_services:"):
             _dlg_mukerrer()
 
     # 🔍 Filtreler (başlık bazlı) + arama
@@ -599,8 +599,8 @@ def _gecmis_ithalatlar():
                                      key="ith_toplu_depo")
         _tc2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
         _toplu_depo_val = "" if str(_toplu_depo).startswith("(") else _toplu_depo
-        if _tc2.button("📦 Teslim Alındı yap", use_container_width=True, key="ith_toplu_teslim",
-                       disabled=(len(_bekleyen_teslim) == 0 or not _toplu_depo_val)):
+        if _tc2.button("Teslim Alındı yap", use_container_width=True, key="ith_toplu_teslim",
+                       disabled=(len(_bekleyen_teslim) == 0 or not _toplu_depo_val), icon=":material/inventory_2:"):
             _ts_ok = 0
             _depo_sec = _toplu_depo_val
             for _d in _bekleyen_teslim:
@@ -626,7 +626,7 @@ def _gecmis_ithalatlar():
                                        value=_onceki_takip, key="ith_toplu_takip",
                                        placeholder="örn. 2025-26")
         _kc2.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-        if _kc2.button("🔗 Takip No Ata", use_container_width=True, key="ith_toplu_takip_btn"):
+        if _kc2.button("Takip No Ata", use_container_width=True, key="ith_toplu_takip_btn", icon=":material/link:"):
             _tk_ok = 0
             for _d in _sec_dosyalar:
                 if set_dosya_takip_no(_d["id"], _toplu_takip.strip()):
@@ -704,8 +704,8 @@ def _gecmis_ithalatlar():
                 f'belgelere <b>FOB payına göre</b> dağıtabilirsin: hepsi <b>%{tr_sayi(_birlesik_yuzde, 2)}</b> olur, '
                 f'boş belgeler dolar ve hepsi <b>"Tamam"</b> görünür.</div>',
                 unsafe_allow_html=True)
-            if st.button("🔄 Takibin masrafını tüm belgelere FOB payına göre dağıt (boş belgeler dolsun)",
-                         use_container_width=True, key="ith_takip_dagit"):
+            if st.button("Takibin masrafını tüm belgelere FOB payına göre dağıt (boş belgeler dolsun)",
+                         use_container_width=True, key="ith_takip_dagit", icon=":material/refresh:"):
                 _combined = {}
                 for _sd in _sec_dosyalar:
                     for _slug, _v in _masraf_dict(_sd).items():
@@ -775,8 +775,8 @@ def _gecmis_ithalatlar():
         st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre **kuruş-doğru** yazar ve **kuru** kaydeder. "
                    "Dolu bir kalemi **boşaltıp Kaydet** → o masraf seçili belgelerin **hepsinden silinir**. "
                    "**Tek bir belgenin masrafını birebir düzenlemek** için o belgeyi **tek başına seç**.")
-        if st.button("💾 Kaydet (masraf FOB payına göre + kur)", type="primary",
-                     use_container_width=True, key="ith_ortak_dagit_tablo"):
+        if st.button("Kaydet (masraf FOB payına göre + kur)", type="primary",
+                     use_container_width=True, key="ith_ortak_dagit_tablo", icon=":material/save:"):
             _ids = [_sd["id"] for _sd in _sec_dosyalar]
             # SİLME SİNYALİ: daha önce değeri olan bir kalem boşaltıldıysa
             # (kutu None/0), o kalem seçili TÜM belgelerden silinir.
@@ -852,13 +852,13 @@ def _gecmis_ithalatlar():
         _sok = f"ith_sil_onay_{did}"
         _scc1, _scc2 = st.columns([3, 1])
         with _scc2:
-            if st.button("🗑️ Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True):
+            if st.button("Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True, icon=":material/delete:"):
                 st.session_state[_sok] = True
         if st.session_state.get(_sok):
             _ad_g = d.get("dosya_no", "") or d.get("pi_no", "") or "—"
             st.warning(f"**{_ad_g}** ithalat dosyası ve tüm kalemleri kalıcı olarak silinecek. Emin misin?")
             _del1, _del2 = st.columns(2)
-            if _del1.button("✅ Evet, sil", key=f"ith_sile_{did}", use_container_width=True, type="primary"):
+            if _del1.button("Evet, sil", key=f"ith_sile_{did}", use_container_width=True, type="primary", icon=":material/check_circle:"):
                 if sil_dosya(did):
                     st.session_state.pop(_sok, None)
                     st.cache_data.clear()
@@ -1073,8 +1073,8 @@ def _gecmis_ithalatlar():
                         list(_md_dolu.keys()),
                         format_func=lambda s: f"{MASRAF_ETIKET.get(s, s)} — {tr_sayi(_md_dolu[s], 2)}",
                         key=f"ith_ms_sifirla_{did}")
-                    if st.button("🧹 Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
-                                 disabled=not _ms_sec):
+                    if st.button("Seçilenleri Sıfırla", type="primary", key=f"ith_ms_sifirla_btn_{did}",
+                                 disabled=not _ms_sec, icon=":material/cleaning_services:"):
                         _ok2, _msg2 = masraf_sifirla(did, _ms_sec)
                         if _ok2:
                             for _sk in [k for k in list(st.session_state.keys())
@@ -1287,7 +1287,7 @@ def _gecmis_ithalatlar():
 
                 st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
-                if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary", use_container_width=True):
+                if st.form_submit_button("Değişiklikleri Kaydet", type="primary", use_container_width=True, icon=":material/save:"):
                     if e_durum == "Teslim Alındı" and not (e_teslim_deposu or "").strip():
                         st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
                         st.stop()
@@ -1513,7 +1513,7 @@ def _yeni_ithalat():
                                              min_value=0, step=1, value=0)
                 _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
                                            min_value=0.0, step=0.0001, value=0.0, format="%.4f")
-                if _c_sil.button("🗑", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle"):
+                if _c_sil.button("", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle", icon=":material/delete:"):
                     for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
                                 f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}",
                                 f"m_kat_{i}_{_fv}", f"m_katyeni_{i}_{_fv}"):
@@ -1527,7 +1527,7 @@ def _yeni_ithalat():
                                       "adet": _adet, "birim_fob": _fob})
 
             ec1, _ec2 = st.columns([1.6, 5])
-            if ec1.button("➕ Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True):
+            if ec1.button("Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True, icon=":material/add:"):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
             _ec2.caption("🗑 satırı temizler · SKU'suz satırlar kaydedilmez.")
@@ -1566,7 +1566,7 @@ def _yeni_ithalat():
             unsafe_allow_html=True,
         )
 
-        if st.button("💾 Dosyayı Kaydet", type="primary", key=f"m_kaydet_{_fv}", use_container_width=True):
+        if st.button("Dosyayı Kaydet", type="primary", key=f"m_kaydet_{_fv}", use_container_width=True, icon=":material/save:"):
             if not dosya_no.strip():
                 st.warning("Dosya / Sipariş No zorunlu.")
             elif not _kalemler:
@@ -1620,10 +1620,10 @@ def _yeni_ithalat():
         st.markdown("---")
         st.markdown("**📄 Standart Satın Alım Raporu (tek grup — normal akış)**")
         st.download_button(
-            "⬇️ Örnek şablonu indir", data=_excel_sablon_bytes(),
+            "Örnek şablonu indir", data=_excel_sablon_bytes(),
             file_name="ithalat_satin_alim_sablon.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="ith_sablon_dl",
+            key="ith_sablon_dl", icon=":material/download:"
         )
         up = st.file_uploader("Satın Alım Raporu Excel'ini yükle", type=["xlsx", "xls"], key="ith_excel_up")
         if up is not None:
@@ -1743,7 +1743,7 @@ def _yeni_ithalat():
                             pd.DataFrame([{"Dosya": a[1], "Eski Takip": a[2], "Atanacak Takip No": a[3]}
                                          for a in _adaylar]),
                             use_container_width=True, height=220, hide_index=True)
-                        if st.button("🔗 Takip No'ları Ata", type="primary", key="ith_takip_ata"):
+                        if st.button("Takip No'ları Ata", type="primary", key="ith_takip_ata", icon=":material/link:"):
                             _n = 0
                             for _id, _, _, _t in _adaylar:
                                 if set_dosya_takip_no(_id, _t):
@@ -1752,7 +1752,7 @@ def _yeni_ithalat():
                             st.rerun()
                     else:
                         st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
-                if st.button("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", key="btn_ith_takip", use_container_width=True):
+                if st.button("Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", key="btn_ith_takip", use_container_width=True, icon=":material/link:"):
                     _dlg_takip_ata()
 
             guncelle_mod = st.radio(
@@ -1770,7 +1770,7 @@ def _yeni_ithalat():
                            "Yalnızca **boş** olan SAS No, Incoterm, takip no ve teslim tarihi Excel'den doldurulur. "
                            "→ Sadece eksik SAS No / Incoterm'i tamamlamak için aynı Excel'i bu modda tekrar yükle.")
 
-            if st.button("📥 İçe Aktar", type="primary", key="ith_excel_import"):
+            if st.button("İçe Aktar", type="primary", key="ith_excel_import", icon=":material/move_to_inbox:"):
                 basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
                 for dno, g in gruplar:
                     dno_s = str(dno).strip()
@@ -2080,7 +2080,7 @@ def _masraf_detaylari():
             pd.DataFrame([{"Masraf Türü": k, "Toplam": _tam(v)}
                           for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
             hide_index=True, use_container_width=True)
-    if st.button("📊 Masraf Türüne Göre Toplam", key="btn_ith_masraf", use_container_width=True):
+    if st.button("Masraf Türüne Göre Toplam", key="btn_ith_masraf", use_container_width=True, icon=":material/table_view:"):
         _dlg_masraf_top()
 
     # Ana liste
@@ -2099,8 +2099,8 @@ def _masraf_detaylari():
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
         "Tutar": round(s["Tutar"], 2), "Döviz": s["Döviz"],
     } for s in _flt_sirali]).to_csv(index=False).encode("utf-8-sig")
-    st.download_button("⬇️ CSV indir", _csv, "ithalat_masraf_detaylari.csv",
-                       mime="text/csv", use_container_width=True, key="md_csv")
+    st.download_button("CSV indir", _csv, "ithalat_masraf_detaylari.csv",
+                       mime="text/csv", use_container_width=True, key="md_csv", icon=":material/download:")
 
 
 def run():
