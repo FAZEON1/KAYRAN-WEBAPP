@@ -785,7 +785,13 @@ st.markdown(
     #  o kuralların özgüllüğünü aşar.)
     'section[data-testid="stSidebar"] .stButton > button span[data-testid="stIconMaterial"],'
     'section[data-testid="stSidebar"] [data-testid="stIconMaterial"],'
-    '[data-testid="stIconMaterial"]{'
+    '[data-testid="stIconMaterial"],'
+    # Menü/etiket içindeki :material/..: ikonları (st.radio format_func=menu_etiketi).
+    # Muhasebe'nin 'section[data-testid=stSidebar] *{font-family:Inter !important}'
+    # kuralı bunları ezip ikon yerine 'dashboard' gibi DÜZ METİN gösteriyordu.
+    # 'html body' + öznitelikler o kuraldan daha özgül → her modülde ikon kalır.
+    'html body span[translate="no"][aria-label$=" icon"],'
+    'html body section[data-testid="stSidebar"] span[translate="no"][aria-label$=" icon"]{'
     'font-family:"Material Symbols Rounded" !important;'
     'font-weight:normal !important;'
     'letter-spacing:normal !important;'

@@ -141,3 +141,13 @@ def test_hesap_dugmeleri_material_ikon():
     for ik in (":material/key:", ":material/group:", ":material/receipt_long:"):
         assert ik in src
     assert '"🔑 Şifremi Değiştir"' not in src
+
+
+def test_menu_ikonlari_yazi_tipi_ezilmiyor():
+    """Muhasebe sidebar'ı her öğeye Inter dayatıyor; :material/..: ikonları
+    için daha özgül bir istisna olmazsa ikon yerine 'dashboard' gibi düz
+    metin görünür (canlıda yaşandı)."""
+    src = _oku("app.py")
+    assert 'html body span[translate="no"][aria-label$=" icon"]' in src
+    kural = src[src.index('html body span[translate="no"]'):]
+    assert 'Material Symbols Rounded' in kural[:600]
