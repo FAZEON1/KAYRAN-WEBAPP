@@ -1,0 +1,70 @@
+name: Testler
+
+# HER push ve pull request'te çalışır. Amaç: bir dosya yüklemesi daha önce
+# yapılmış bir düzeltmeyi sessizce geri aldıysa ANINDA görmek.
+#
+# Kırmızı ✗ görürsen: Actions sekmesinde hangi testin kırıldığına bak.
+# tests/test_butunluk.py hataları kaybolan fonksiyon/yetkiyi adıyla söyler.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:        # elle de çalıştırılabilir
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testler-${{ github.ref }}
+  cancel-in-progress: true  # aynı dala yeni push gelince eskisini iptal et
+
+jobs:
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Testler streamlit/supabase'i sahte modülle karşıladığı için (bkz.
+      # tests/conftest.py) yalnız pytest + pandas yeter. Bu, CI'yı 30 sn'de
+      # tutar; tam requirements kurulsaydı 2-3 dk sürerdi.
+      - name: Bağımlılıklar
+        run: pip install --quiet pytest pandas openpyxl
+
+      - name: Sözdizimi kontrolü (tüm canlı .py dosyaları)
+        run: |
+          python - <<'EOF'
+          import os, sys, py_compile
+          OLU = ("(", "/shared/shared", "/shared/kayran", "/shared/satis", "/shared/depo",
+                 "/shared/ithalat", "/shared/teknik", "/kayranpm/kayranpm", "/satis/satis",
+                 "_tek.py", "/.git")
+          hata = 0
+          for k, _, fs in os.walk("."):
+              for f in fs:
+                  p = os.path.join(k, f)
+                  if f.endswith(".py") and not any(x in p for x in OLU):
+                      try:
+                          py_compile.compile(p, doraise=True)
+                      except py_compile.PyCompileError as e:
+                          print("SÖZDİZİMİ HATASI:", p, "\n  ", e); hata += 1
+          print("Sözdizimi: OK" if not hata else f"{hata} dosyada hata")
+          sys.exit(1 if hata else 0)
+          EOF
+
+      - name: Testler
+        working-directory: tests
+        run: python -m pytest -q --tb=short -p no:cacheprovider
+
+      # Özet: kaç test geçti, hangi bütünlük kontrolleri çalıştı
+      - name: Bütünlük özeti
+        if: always()
+        working-directory: tests
+        run: python -m pytest test_butunluk.py -q --tb=line -p no:cacheprovider || true
