@@ -18,10 +18,10 @@ Yapı: topla() veriyi getirir (Supabase), maddeler_*() saf fonksiyonlardır
 import html as _h
 from datetime import date, timedelta
 
-from shared.tasarim import RENK, MONO
+from shared.tasarim import MONO
 
 ONCELIK_SIRA = {"kritik": 0, "uyari": 1, "bilgi": 2}
-ONCELIK_RENK = {"kritik": RENK["kirmizi"], "uyari": RENK["amber"], "bilgi": RENK["cyan"]}
+ONCELIK_RENK = {"kritik": "var(--k-kirmizi)", "uyari": "var(--k-amber)", "bilgi": "var(--k-cyan)"}
 # Rozet önceliği anlatır, zamanı değil (acil sipariş "bugün" değildir).
 ONCELIK_ETIKET = {"kritik": "ACİL", "uyari": "ÖNEMLİ", "bilgi": "TAKİP"}
 
@@ -172,25 +172,25 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
 def css():
     return f"""<style>
 .bgn-satir{{display:flex;align-items:center;gap:12px;padding:10px 14px;
-  background:{RENK['yuzey1']};border:1px solid {RENK['kenar']};border-left:3px solid var(--r);
+  background:var(--k-yuzey1);border:1px solid var(--k-kenar);border-left:3px solid var(--r);
   border-radius:10px;min-width:0}}
 .bgn-sayi{{flex-shrink:0;min-width:34px;height:34px;border-radius:9px;display:flex;
   align-items:center;justify-content:center;font-family:{MONO};font-size:15px;font-weight:700;
   color:var(--r);background:color-mix(in srgb,var(--r) 14%,transparent)}}
 .bgn-metin{{min-width:0;flex:1}}
-.bgn-baslik{{color:{RENK['metin']};font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center}}
+.bgn-baslik{{color:var(--k-metin);font-size:13px;font-weight:600;display:flex;gap:8px;align-items:center}}
 .bgn-rozet{{font-size:10px;font-weight:700;letter-spacing:.6px;color:var(--r)}}
-.bgn-detay{{color:{RENK['soluk']};font-size:12px;margin-top:2px;white-space:nowrap;
+.bgn-detay{{color:var(--k-soluk);font-size:12px;margin-top:2px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}}
-.bgn-bos{{padding:14px 16px;border-radius:10px;border:1px solid rgba(52,211,153,.25);
-  background:rgba(52,211,153,.06);color:{RENK['yesil2']};font-size:13px}}
+.bgn-bos{{padding:14px 16px;border-radius:10px;border:1px solid color-mix(in srgb,var(--k-yesil) 30%,transparent);
+  background:color-mix(in srgb,var(--k-yesil) 7%,transparent);color:var(--k-yesil2);font-size:13px}}
 .st-key-bugun_panel [data-testid="stHorizontalBlock"]{{align-items:center;gap:8px}}
 .st-key-bugun_panel .stButton button{{min-height:34px !important;height:34px !important;
   padding:0 12px !important;font-size:12px !important;background:transparent !important;
-  border:1px solid {RENK['kenar2']} !important;box-shadow:none !important;color:{RENK['soluk']} !important;
+  border:1px solid var(--k-kenar2) !important;box-shadow:none !important;color:var(--k-soluk) !important;
   transform:none !important}}
 .st-key-bugun_panel .stButton button:hover{{border-color:rgba(129,140,248,.45) !important;
-  color:{RENK['metin']} !important}}
+  color:var(--k-metin) !important}}
 @media (max-width:640px){{
   .st-key-bugun_panel [data-testid="stHorizontalBlock"]{{flex-direction:row !important;flex-wrap:nowrap !important}}
   .st-key-bugun_panel [data-testid="stColumn"]:last-child{{flex:0 0 auto !important;width:auto !important;min-width:0 !important}}
@@ -200,7 +200,7 @@ def css():
 
 
 def satir_html(m):
-    r = ONCELIK_RENK.get(m["oncelik"], RENK["soluk"])
+    r = ONCELIK_RENK.get(m["oncelik"], "var(--k-soluk)")
     return (f'<div class="bgn-satir" style="--r:{r}">'
             f'<div class="bgn-sayi">{m["sayi"]}</div>'
             f'<div class="bgn-metin"><div class="bgn-baslik">{_h.escape(m["baslik"])}'
