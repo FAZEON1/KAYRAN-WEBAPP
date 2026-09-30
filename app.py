@@ -2146,7 +2146,7 @@ input, textarea, select { font-size: 16px !important; }
             _tema_sec = st.segmented_control(
                 "Görünüm", ["Koyu", "Açık"], key="tema_secim",
                 default="Açık" if _aktif_tema() == "acik" else "Koyu",
-                label_visibility="collapsed", use_container_width=True)
+                label_visibility="collapsed")
             _tema_yeni = "acik" if _tema_sec == "Açık" else "koyu"
             if _tema_yeni != _aktif_tema():
                 from shared.tercih import tema_yaz as _tema_yaz
