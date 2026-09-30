@@ -22,6 +22,21 @@ baseRadius = "10px"
 dataframeBorderColor = "#1E293B"
 dataframeHeaderBackgroundColor = "#152036"   # RENK["yuzey2"]
 
+# AÇIK TEMA: kullanıcı HESAP > Görünüm'den seçer (shared/tercih.py).
+# Değerler shared/tasarim.py RENK_ACIK ile BİREBİR aynı olmalı.
+[theme.light]
+primaryColor = "#4F46E5"
+backgroundColor = "#F4F6FA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F172A"
+borderColor = "#D6DCE6"
+dataframeBorderColor = "#D6DCE6"
+dataframeHeaderBackgroundColor = "#F1F4F9"
+
+[theme.light.sidebar]
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F4F9"
+
 # ── TEK font kaynağı. login_css() içindeki Google Fonts @import KALDIRILMALI:
 #    Inter iki yerden birden iniyordu → çift indirme + girişte yazı sıçraması.
 [[theme.fontFaces]]
