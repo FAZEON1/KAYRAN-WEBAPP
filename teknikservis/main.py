@@ -165,6 +165,8 @@ def _mal_kabul():
                    "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay",
                    "mk_sk", "_mk_model_son", "mk_model_sec"):
             st.session_state.pop(_k, None)
+        from shared.barkod import barkod_temizle
+        barkod_temizle("mk_seri")
 
     # Bir önceki kaydın başarı mesajı (rerun sonrası kaybolmasın)
     _son_ok = st.session_state.pop("_mk_kayit_ok", None)
@@ -185,6 +187,8 @@ def _mal_kabul():
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
                    "mk_sk", "_mk_model_son", "mk_model_sec"):
             st.session_state.pop(_k, None)
+        from shared.barkod import barkod_temizle
+        barkod_temizle("mk_seri")
         st.rerun()
     _mk2.caption("Servise/iadeye gelen ürünü kaydetmek için butona bas — açılır pencerede doldur.")
 
@@ -460,6 +464,12 @@ def _mal_kabul_dialog():
         st.checkbox("Evet — aynı seri numarasıyla YENİ bir kayıt açmak istiyorum",
                     key="mk_dup_onay")
 
+    # Telefonda seri no kamerayla okunur (masaüstündeki el okuyucusu da
+    # aynen çalışır). Okuyucu FORMUN ÜSTÜNDE: form içindeki alan ancak
+    # kaydedince güncellendiği için okunan numara alana yazılamazdı.
+    from shared.barkod import barkod_okuyucu
+    barkod_okuyucu("mk_seri", etiket="Seri no'yu kamerayla okut")
+
     # Barkod okuyucular her okutmada Enter gönderir; Enter formu GÖNDERMESİN
     # (kayıt yalnız "✅ Kayıt Tamamla" butonuyla tamamlanır)
     with st.form("mk_form", clear_on_submit=False, enter_to_submit=False):
@@ -659,6 +669,9 @@ def _evraksiz_kayit():
         st.checkbox("Evet — aynı seri numarasıyla YENİ bir kayıt açmak istiyorum",
                     key="ev_dup_onay")
 
+    from shared.barkod import barkod_okuyucu, barkod_temizle
+    barkod_okuyucu("ev_seri", etiket="Seri no'yu kamerayla okut")
+
     with st.form("ev_form", clear_on_submit=False, enter_to_submit=False):
         c1, c2 = st.columns(2)
         stok_kodu = c1.text_input("Stok Kodu *", key="ev_sk", placeholder="Stok kodu")
@@ -732,6 +745,7 @@ def _evraksiz_kayit():
                        "ev_eksik", "ev_depoack", "ev_grup_yeni", "_ev_model_son",
                        "_ev_seri_dup", "ev_dup_onay"):
                 st.session_state.pop(_k, None)
+            barkod_temizle("ev_seri")
             st.success(msg)
             _o, _m = _stok.evraksiz_girisi(data, hedef_depo)
             st.session_state["_ts_depo_bilgi"] = (
@@ -759,6 +773,10 @@ def _liste(arayuz):
                 + ("Yukarıdaki kutuyu işaretleyip depodaki kayıtları görebilir veya " if not dep_dahil else "")
                 + "**Mal Kabül**'den ekleyebilirsin.")
         return
+
+    # Ürünü okutup kaydını bul: okunan seri no arama kutusuna yazılır
+    from shared.barkod import barkod_okuyucu
+    barkod_okuyucu(f"ts_ara_{arayuz}", etiket="Seri no okutarak ara")
 
     fc1, fc2, fc3, fc4 = st.columns([1.3, 1, 1.2, 1.9])
     with fc1:

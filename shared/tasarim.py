@@ -585,7 +585,10 @@ MOBIL_CSS = f"""
   /* Düğmeler telefonda tam genişlik: sütunlar alt alta dizildiğinde "Kaydet"
      küçük bir ada gibi kalmasın, başparmakla her yerden basılabilsin.
      (Üst menü, ✉️ ve Bugün paneli kendi düzeninde kalır.) */
-  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> :is(.stButton,.stDownloadButton,.stFormSubmitButton)):not(.st-key-ustnav *):not(.st-key-fab_talep):not(.st-key-bugun_panel *){{
+  /* Form düğmesinde kapsayıcı ile düğme arasında bir ara katman daha var
+     (stElementContainer > div > .stFormSubmitButton) — ikisi de genişlemeli. */
+  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> :is(.stButton,.stDownloadButton,.stFormSubmitButton), > div > .stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep):not(.st-key-bugun_panel *),
+  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> div > .stFormSubmitButton) > div{{
     width:100% !important;}}
   :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *){{
     width:100% !important;}}
