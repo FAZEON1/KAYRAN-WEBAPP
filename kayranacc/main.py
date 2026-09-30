@@ -913,7 +913,7 @@ def run():
             return ""
         try:
             d = pd.to_datetime(s)
-            return d.strftime("%d-%m-%Y")
+            return d.strftime("%d.%m.%Y")
         except Exception:
             return str(s)
     
@@ -2635,7 +2635,7 @@ def run():
             else:
                 nakit_rows_html += (
                     f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{trenk("yuzey2") if idx_r%2 else trenk("yuzey2")}''">'
-                    f'<td style="padding:8px 16px;{tarih_style}border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{row["Tarih"]}</td>'
+                    f'<td style="padding:8px 16px;{tarih_style}border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{row["Tarih"] if is_toplam else fmt_tarih(row["Tarih"])}</td>'
                     f'<td style="padding:8px 16px;{num_style}color:var(--k-yesil);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_tl(gun_tl_v)}</td>'
                     f'<td style="padding:8px 16px;{num_style}color:var(--k-mor2);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_usd(gun_usd_v)}</td>'
                     f'<td style="padding:8px 16px;{num_style}color:var(--k-yesil);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_tl(kum_tl_v)}</td>'
@@ -2817,11 +2817,18 @@ def run():
                 pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))
                 odendi_satir = bool(row.get("_odendi"))
                 kalan_v = row.get(f"Kalan ({sym})", 0) or 0
-                if "gecmis" in pozisyon or (not odendi_satir and kalan_v > 0 and vd_raw and vd_raw < str(__import__("datetime").date.today())):
-                    row_bg = "background:color-mix(in srgb,var(--k-kirmizi) 8%,transparent);"
+                # vd_raw = vade_durumu() sonucu ("gecmis"/"bugun"/"yarin"/"normal").
+                # Eskiden bugünün TARİHİYLE karşılaştırılıyordu ("gecmis" < "2026-…" hep
+                # yanlış) → gecikmiş çek hiç kırmızı olmuyordu.
+                # !important: Muhasebe CSS'i tablo satırlarını zebraya zorluyor (satır ~871).
+                if "gecmis" in pozisyon or (not odendi_satir and kalan_v > 0 and vd_raw == "gecmis"):
+                    row_bg = "background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent) !important;"
                     ref_color = trenk("kirmizi")
+                elif not odendi_satir and kalan_v > 0 and vd_raw == "bugun":
+                    row_bg = "background:color-mix(in srgb,var(--k-amber) 12%,transparent) !important;"
+                    ref_color = trenk("amber")
                 elif odendi_satir:
-                    row_bg = "background:color-mix(in srgb,var(--k-yesil) 15%,transparent);" if ri % 2 == 0 else "background:color-mix(in srgb,var(--k-yesil) 8%,transparent);"
+                    row_bg = "background:color-mix(in srgb,var(--k-yesil) 10%,transparent) !important;"
                     ref_color = trenk("yesil")
                 elif ri % 2 == 0:
                     row_bg = "background:var(--k-yuzey2);"
@@ -3189,7 +3196,7 @@ def run():
 
         import pandas as _pd
         _gdf = _pd.DataFrame([{
-            "Tarih": str(t.get("tarih", ""))[:10],
+            "Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce"),
             "Kaynak (Kimden)": (t.get("kaynak") or "—").strip() or "—",
             "Banka": t.get("hesap_adi", "—"),
             "Döviz": t.get("para_birimi", ""),

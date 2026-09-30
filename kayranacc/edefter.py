@@ -465,7 +465,8 @@ def render():
                      "sekmesinden dönem kilidini açabilirsin.")
 
         _hesap_opts = [f"{k} — {a}" for k, a in sorted(plan_map.items())]
-        _bos = pd.DataFrame([{"Hesap": None, "Açıklama": "", "Borç": 0.0, "Alacak": 0.0}
+        # Hesap None olursa tabloda gri "None" yazıyordu; boş metin kaydı etkilemez
+        _bos = pd.DataFrame([{"Hesap": "", "Açıklama": "", "Borç": 0.0, "Alacak": 0.0}
                              for _ in range(4)])
         _kdf = st.data_editor(
             _bos, num_rows="dynamic", use_container_width=True, key="edf_fis_kdf",
