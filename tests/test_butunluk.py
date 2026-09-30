@@ -69,7 +69,7 @@ _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared"):
     for _d in ("database.py", "utils.py", "auth.py", "ui.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
-               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py",
+               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -139,6 +139,8 @@ KRITIK_FONKSIYONLAR = {
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
+    "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
+    "shared.utils": ["sidebar_ust", "sidebar_baslik", "sidebar_kullanici"],
 }
 
 
@@ -271,3 +273,50 @@ def test_requirements_ust_sinirli():
     for paket in ("streamlit", "supabase", "pandas"):
         satir = next((l for l in req.splitlines() if l.strip().startswith(paket)), "")
         assert satir and "<" in satir, f"requirements.txt: {paket} için üst sınır yok"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 6) ÇERÇEVE (D1) — tek standart, geri dönmesin
+# ═══════════════════════════════════════════════════════════════════════
+_MODULLER = ["satis", "ithalat", "kayranpm", "teknikservis", "kayranacc", "depo"]
+
+
+@pytest.mark.parametrize("modul", _MODULLER)
+def test_modul_kendi_cikis_dugmesini_yazmiyor(modul):
+    """Modüllerdeki elle yazılmış 'Çıkış Yap' düğmeleri oturum anahtarını
+    YAKMIYORDU — kullanıcı yenileyince 7 gün boyunca geri içerideydi.
+    Çıkış yalnız shared.oturum.cikis_yap() üzerinden yapılmalı."""
+    src = open(KOK / modul / "main.py", encoding="utf-8").read()
+    assert not re.search(r'st\.button\(\s*["\'][^"\']*Çıkış Yap', src), (
+        f"{modul}/main.py kendi Çıkış düğmesini çiziyor — shared.utils.sidebar_ust kullanılmalı")
+    assert "sidebar_ust(" in src, f"{modul}/main.py ortak sidebar üst bileşenini kullanmıyor"
+
+
+def test_cikis_yap_anahtari_yakar_ve_urlyi_temizler():
+    src = open(KOK / "shared" / "oturum.py", encoding="utf-8").read()
+    govde = src[src.index("def cikis_yap"):]
+    assert "oturum_kapat()" in govde and "query_params.clear()" in govde
+
+
+@pytest.mark.parametrize("modul", ["kayranacc", "kayranpm"])
+def test_elle_yazilmis_buyuk_baslik_kalmadi(modul):
+    """Sayfa başlıkları tek standart (shared/tasarim.baslik). Muhasebe'de
+    eskiden her sayfada başlık İKİ KEZ çıkıyordu."""
+    src = open(KOK / modul / "main.py", encoding="utf-8").read()
+    assert 'class="baslik"' not in src
+
+
+def test_gorunmez_eleman_boslugu_kurali_var():
+    """Sayfa başındaki ~200px boşluğu kapatan kural çekirdek CSS'te durmalı."""
+    src = open(KOK / "shared" / "tasarim.py", encoding="utf-8").read()
+    assert '[data-testid="stElementContainer"][height="0px"]' in src
+    assert 'style:only-child' in src
+
+
+def test_oturum_hata_yutmuyor():
+    """shared/oturum.py'de 'except ...: pass' olmamalı. Anahtar yakma hatası
+    sessizce geçerse çıkış yapan kullanıcı yenileyince içeride kalır."""
+    import re
+    src = open(KOK / "shared" / "oturum.py", encoding="utf-8").read()
+    assert not re.search(r"except[^\n]*:\s*\n\s*pass\b", src)
+    assert "kritik=True" in src

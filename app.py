@@ -1098,12 +1098,11 @@ def _oturum_secret():
         return "kayran-oturum-varsayilan-anahtar"
 
 
-@st.cache_resource
 def _oturum_store():
-    """Sunucu tarafı oturum deposu: {token: {"u", "cihaz", "ts"}}.
-    Rastgele token URL'de taşınır ama YALNIZCA aynı tarayıcıda (cihaz imzası) geçerlidir
-    → link paylaşımıyla oturum devri İMKÂNSIZ."""
-    return {}
+    """Sunucu tarafı oturum deposu — artık shared/oturum.py'de (tek kaynak).
+    Token yalnız onu oluşturan tarayıcıda geçerlidir (cihaz imzası)."""
+    from shared.oturum import oturum_store
+    return oturum_store()
 
 
 def _cihaz_imzasi():
@@ -1134,12 +1133,36 @@ def _oturum_ac(kullanici):
 
 
 def _oturum_kapat():
+    from shared.oturum import oturum_kapat
+    oturum_kapat()
+
+
+def oturumlari_sonlandir(kullanici):
+    """Kullanıcının bu sunucudaki TÜM açık oturum token'larını yakar.
+    Hesap pasife alındığında ya da şifresi sıfırlandığında çağrılır."""
+    k = (kullanici or "").strip().lower()
+    if not k:
+        return 0
     try:
-        tok = st.query_params.get("t", "")
-        if tok:
-            _oturum_store().pop(tok, None)
+        _st = _oturum_store()
+        _yak = [t for t, r in list(_st.items()) if str(r.get("u", "")).strip().lower() == k]
+        for t in _yak:
+            _st.pop(t, None)
+        return len(_yak)
     except Exception:
-        pass
+        return 0
+
+
+def _hesap_hala_aktif_mi(kullanici):
+    """Açık oturum sırasında hesap PASİFE alındıysa False.
+    Veritabanına ulaşılamazsa ya da kullanıcı tabloda yoksa True (kimseyi
+    yanlışlıkla atmayalım — giriş kontrolü zaten ayrıca yapılıyor)."""
+    try:
+        from shared.yetki import kullanici_kaydi
+        _db_var, _kayit = kullanici_kaydi(kullanici)
+        return not (_db_var and _kayit is not None and not _kayit.get("aktif", True))
+    except Exception:
+        return True
 
 
 def _oturum_token(kullanici):
@@ -1753,89 +1776,96 @@ def ust_navigasyon():
                 ("Teknik Servis", "teknikservis", ":material/construction:"),
                 ("Hesap Mak.", "hesap_makinesi", ":material/calculate:")]
 
-    st.markdown("""<style>
-    .st-key-ustnav [data-testid="stHorizontalBlock"]{gap:7px !important;margin-bottom:8px !important;}
-    .st-key-ustnav [data-testid="column"]{padding:0 !important;}
-    .st-key-ustnav button{
-        min-height:38px !important;height:38px !important;padding:0 10px !important;
-        border-radius:10px !important;font-size:13px !important;font-weight:600 !important;
-        letter-spacing:.2px !important;line-height:1 !important;white-space:nowrap !important;
+    # ── Üst menü stili ─────────────────────────────────────────────────
+    # TEK SATIR · her modülde AYNI aktif renk · mobilde yatay kaydırmalı şerit.
+    # Seçiciler 'html body' ile güçlendirildi: modüllerin kendi birincil düğme
+    # renkleri (Muhasebe mor degrade, Ürün Yön. mavi…) artık menüyü EZEMEZ.
+    N = 'html body .st-key-ustnav'
+    st.markdown(f"""<style>
+    {N} [data-testid="stHorizontalBlock"]{{gap:6px !important;margin:0 !important;
+        flex-wrap:nowrap !important;}}
+    {N} [data-testid="stColumn"]{{padding:0 !important;min-width:0 !important;}}
+    {N} button{{
+        min-height:36px !important;height:36px !important;padding:0 8px !important;
+        border-radius:9px !important;font-size:12.5px !important;font-weight:600 !important;
+        letter-spacing:.1px !important;line-height:1 !important;white-space:nowrap !important;
+        overflow:hidden !important;text-overflow:ellipsis !important;
         border:1px solid rgba(255,255,255,0.07) !important;
-        background:rgba(255,255,255,0.025) !important;color:#7DD3FC !important;
-        transition:background .15s ease,border-color .15s ease,color .15s ease !important;}
-    .st-key-ustnav button:hover{
-        border-color:rgba(129,140,248,0.55) !important;background:rgba(99,102,241,0.12) !important;
-        color:#E2E8F0 !important;}
-    .st-key-ustnav button[kind="primary"]{
-        background:linear-gradient(135deg,#818CF8,#818CF8) !important;border-color:transparent !important;
-        color:#E2E8F0 !important;box-shadow:0 2px 10px rgba(79,70,229,0.35) !important;}
-    .st-key-ustnav button[kind="primary"]:hover{background:linear-gradient(135deg,#818CF8,#818CF8) !important;}
+        background:rgba(255,255,255,0.025) !important;color:#94A3B8 !important;
+        box-shadow:none !important;
+        transition:background .15s ease,border-color .15s ease,color .15s ease !important;}}
+    {N} button p{{font-size:12.5px !important;white-space:nowrap !important;
+        overflow:hidden !important;text-overflow:ellipsis !important;}}
+    {N} button:hover{{border-color:rgba(129,140,248,0.45) !important;
+        background:rgba(99,102,241,0.10) !important;color:#E2E8F0 !important;}}
+    {N} button[kind="primary"], {N} button[data-testid="stBaseButton-primary"]{{
+        background:#6366F1 !important;border-color:#6366F1 !important;color:#FFFFFF !important;
+        box-shadow:0 2px 10px rgba(99,102,241,0.35) !important;}}
+    {N} button[kind="primary"] p, {N} button[data-testid="stBaseButton-primary"] p{{
+        color:#FFFFFF !important;}}
+    /* Dar ekranlarda ikonları gizle — etiket sığsın */
+    @media (max-width:1700px){{ {N} button [data-testid="stIconMaterial"]{{display:none !important;}} }}
+    /* Mobil: Streamlit sütunları alt alta dizer (10 düğme = yarım ekran).
+       Bunun yerine tek satırlık, yana kaydırılan bir şerit. */
+    @media (max-width:640px){{
+        {N} [data-testid="stHorizontalBlock"]{{flex-direction:row !important;overflow-x:auto !important;
+            scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}}
+        {N} [data-testid="stHorizontalBlock"]::-webkit-scrollbar{{display:none;}}
+        {N} [data-testid="stColumn"]{{flex:0 0 auto !important;width:auto !important;}}
+        {N} button{{padding:0 12px !important;}}
+    }}
 
     /* === ANA İÇERİK radyoları → modern segmented/pill (TÜM sayfalarda: Yönetim dahil) === */
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"]{gap:8px !important;align-items:center;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"]{{gap:8px !important;align-items:center;}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{{
         background:rgba(255,255,255,0.035) !important;
         border:1px solid rgba(148,163,184,0.18) !important;
         border-radius:11px !important;padding:8px 18px !important;margin:0 !important;cursor:pointer;
-        transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:hover{
-        background:rgba(129,140,248,0.10) !important;border-color:rgba(129,140,248,0.55) !important;transform:translateY(-1px);}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label > div:first-child{display:none !important;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){
+        transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease;}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:hover{{
+        background:rgba(129,140,248,0.10) !important;border-color:rgba(129,140,248,0.55) !important;transform:translateY(-1px);}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label > div:first-child{{display:none !important;}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){{
         background:linear-gradient(135deg,#818CF8,#818CF8) !important;border-color:#818CF8 !important;
-        box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] label p{
-        font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-0.1px !important;font-size:14px !important;}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked) p{color:#E2E8F0 !important;font-weight:700 !important;}
+        box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] label p{{
+        font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-0.1px !important;font-size:14px !important;}}
+    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked) p{{color:#E2E8F0 !important;font-weight:700 !important;}}
 
     /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
     /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */
-    header[data-testid="stHeader"]{display:none !important;height:0 !important;}
-    [data-testid="stToolbar"]{display:none !important;}
-    [data-testid="stDecoration"]{display:none !important;}
+    header[data-testid="stHeader"]{{display:none !important;height:0 !important;}}
+    [data-testid="stToolbar"]{{display:none !important;}}
+    [data-testid="stDecoration"]{{display:none !important;}}
     /* Ana içerik üst boşluğu ~0'a (yüksek spesifiklik ile Streamlit'in kendi padding'ini ez) */
     .stApp [data-testid="stMainBlockContainer"],
     .stApp .block-container,
     section.main > div.block-container,
-    [data-testid="stAppViewBlockContainer"]{padding-top:0.4rem !important;}
-    /* Üst navigasyon scroll'da yukarıda SABİT kalsın (gizlenmesin).
-       st.container ayrı/kısa bir bloğa sarıyor; sticky'yi tüm sayfayı saran ana içerik
-       bloğunun çocuğuna uygulayınca yapışacak alanı bulur. Ara katman overflow'u açık olmalı. */
-    [data-testid="stMainBlockContainer"]{overflow:visible !important;}
-    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"]{overflow:visible !important;}
-    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.st-key-ustnav),
-    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(> div > .st-key-ustnav),
+    [data-testid="stAppViewBlockContainer"]{{padding-top:0.4rem !important;}}
+    /* Üst menü kaydırmada üstte SABİT kalsın */
+    [data-testid="stMainBlockContainer"]{{overflow:visible !important;}}
+    [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"]{{overflow:visible !important;}}
     [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(.st-key-ustnav),
-    .st-key-ustnav{
-        position:sticky !important;top:0 !important;z-index:999 !important;
-        background:#0F172A !important;}
-    .st-key-ustnav{padding:6px 0 6px !important;
-        box-shadow:0 8px 16px -10px rgba(0,0,0,0.7) !important;}
-    /* Sol sidebar: üstteki collapse-header boşluğunu kaldır + içeriği yukarı çek */
-    [data-testid="stSidebarHeader"]{padding-top:0.4rem !important;padding-bottom:0 !important;
-        min-height:0 !important;height:auto !important;}
-    [data-testid="stSidebarUserContent"]{padding-top:0.4rem !important;}
-    section[data-testid="stSidebar"] .block-container{padding-top:0.6rem !important;}
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:0.5rem !important;}
+    .st-key-ustnav{{position:sticky !important;top:0 !important;z-index:999 !important;
+        background:#0F172A !important;}}
+    .st-key-ustnav{{padding:6px 0 8px !important;margin-bottom:10px !important;
+        border-bottom:1px solid rgba(255,255,255,0.06) !important;}}
+    /* Sol sidebar: üstteki collapse-header boşluğunu kaldır */
+    [data-testid="stSidebarHeader"]{{padding-top:0.4rem !important;padding-bottom:0 !important;
+        min-height:0 !important;height:auto !important;}}
+    [data-testid="stSidebarUserContent"]{{padding-top:0.4rem !important;}}
+    section[data-testid="stSidebar"] .block-container{{padding-top:0.6rem !important;}}
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{{gap:0.5rem !important;}}
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
-        if len(moduller) > 6:
-            yarim = (len(moduller) + 1) // 2
-            gruplar = [moduller[:yarim], moduller[yarim:]]
-        else:
-            gruplar = [moduller]
-        for gi, grup in enumerate(gruplar):
-            cols = st.columns(len(grup), gap="small")
-            for c, (ad, mod, ikon) in zip(cols, grup):
-                if c.button(ad, key=f"top_{mod}", icon=ikon,
-                            type="primary" if aktif == mod else "secondary",
-                            use_container_width=True):
-                    st.session_state.aktif_uygulama = mod
-                    st.rerun()
-    st.markdown('<div style="height:1px;background:rgba(255,255,255,0.07);margin:4px 0 16px"></div>',
-                unsafe_allow_html=True)
-
+        cols = st.columns(len(moduller), gap="small")
+        for c, (ad, mod, ikon) in zip(cols, moduller):
+            if c.button(ad, key=f"top_{mod}", icon=ikon, help=ad,
+                        type="primary" if aktif == mod else "secondary",
+                        use_container_width=True):
+                st.session_state.aktif_uygulama = mod
+                st.rerun()
 
 def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
@@ -2070,7 +2100,7 @@ input, textarea, select { font-size: 16px !important; }
             )
 
             if st.button(
-                "🔑 Sifremi Degistir",
+                "🔑 Şifremi Değiştir",
                 key="nav_sifre_degistir",
                 type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
                 use_container_width=True
@@ -2097,18 +2127,10 @@ input, textarea, select { font-size: 16px !important; }
                 st.rerun()
 
             if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
-                _oturum_kapat()
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.session_state["salt_okur"] = False
-                st.session_state.aktif_uygulama = "anasayfa"
-                try:
-                    st.query_params.clear()
-                except Exception:
-                    pass
-                st.rerun()
+                from shared.oturum import cikis_yap
+                cikis_yap()
         else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Urun Yonetimi", "depo": "Depo Yonetimi", "ithalat": "Ithalat", "teknikservis": "Teknik Servis", "satis": "Satis", "hesap_makinesi": "Hesap Makinesi"}
+            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ürün Yönetimi", "depo": "Depo Yönetimi", "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
             uyg_renk_map = {"kayranacc": "#A5B4FC", "kayranpm": "#F9A8D4", "depo": "#6EE7B7", "ithalat": "#7DD3FC", "teknikservis": "#F87171", "hesap_makinesi": "#FCD34D"}
             uyg_renk = uyg_renk_map.get(aktif_sayfa, "#A5B4FC")
@@ -2884,6 +2906,8 @@ def kullanici_yonetimi():
                 ok, msg = kaydet(k, mod, oz, so, ak, guncelleyen=ben)
                 if not ok:
                     hatalar.append(f"{k}: {msg}")
+                elif not ak:
+                    oturumlari_sonlandir(k)      # pasife alınan anında düşsün
             st.session_state["_ky_mesaj"] = (
                 f"❌ Kaydedilemedi — {'; '.join(hatalar)}" if hatalar
                 else f"✅ {len(degisen)} kullanıcının yetkisi güncellendi: "
@@ -2938,8 +2962,11 @@ def kullanici_yonetimi():
                 st.error("Şifre en az 8 karakter olmalı, harf ve rakam içermeli.")
             else:
                 ok = supabase_sifre_kaydet(kim, sifre_hash_uret(y1))
-                st.session_state["_ky_mesaj"] = (f"✅ '{kim}' şifresi güncellendi." if ok
-                                                 else "❌ Şifre kaydedilemedi.")
+                _n = oturumlari_sonlandir(kim) if ok and kim != ben else 0
+                st.session_state["_ky_mesaj"] = (
+                    f"✅ '{kim}' şifresi güncellendi"
+                    + (f" · {_n} açık oturumu kapatıldı." if _n else ".")
+                    if ok else "❌ Şifre kaydedilemedi.")
                 st.rerun()
 
     if st.button("🔄 Listeyi yenile", key="ky_yenile"):
@@ -3306,6 +3333,22 @@ def _talep_merkezi():
 def main():
     # Login yapılmamışsa giriş ekranı
     if not st.session_state.giris_yapildi:
+        giris_ekrani()
+        return
+
+    # Hesap açık oturum SIRASINDA pasife alındıysa hemen çıkış yaptır.
+    # (Eskiden pasif kontrolü yalnız girişte yapılıyordu; tarayıcısı açık olan
+    # kullanıcı erişmeye devam ediyordu. Yetki tablosu 60 sn önbellekli —
+    # pasife alınan hesap en geç 1 dakika içinde düşer.)
+    if not _hesap_hala_aktif_mi(st.session_state.aktif_kullanici):
+        oturumlari_sonlandir(st.session_state.aktif_kullanici)
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+        st.session_state.giris_yapildi = False
+        st.session_state.aktif_kullanici = ""
+        st.warning("🔒 Hesabınız devre dışı bırakıldı. Yöneticinizle görüşün.")
         giris_ekrani()
         return
 
