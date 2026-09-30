@@ -866,20 +866,20 @@ def run():
                 "\n".join(f"  {k['kanal'][:30]:30s} {_usd(k['ciro']):>12s}  "
                           f"NK {_usd(k['net_kar']):>10s}  %{tr_sayi(k['marj'], 1)}"
                           for k in _r["kanal"]))
-        st.download_button("⬇️ Özeti indir (.txt)", _txt.encode("utf-8"),
+        st.download_button("Özeti indir (.txt)", _txt.encode("utf-8"),
                            f"kapanis_{_r['yil']}_{_ai+1:02d}.txt", "text/plain",
-                           use_container_width=True, key="ayrap_dl")
+                           use_container_width=True, key="ayrap_dl", icon=":material/download:")
 
     _bt = st.columns(5)
-    if _bt[0].button(f"📤 Gider Yükle ({_yil})", key="btn_yon_gider", use_container_width=True):
+    if _bt[0].button(f"Gider Yükle ({_yil})", key="btn_yon_gider", use_container_width=True, icon=":material/upload:"):
         _dlg_gider_yukle()
-    if _bt[1].button("📅 Aylık Gider", key="btn_yon_aylik", use_container_width=True):
+    if _bt[1].button("Aylık Gider", key="btn_yon_aylik", use_container_width=True, icon=":material/calendar_month:"):
         _dlg_gider_aylik()
-    if _bt[2].button("📄 Ay Kapanış Raporu", key="btn_yon_ayrapor", use_container_width=True):
+    if _bt[2].button("Ay Kapanış Raporu", key="btn_yon_ayrapor", use_container_width=True, icon=":material/description:"):
         _dlg_ay_rapor()
-    if _bt[3].button("🗂️ Değişiklik Günlüğü", key="btn_yon_audit", use_container_width=True):
+    if _bt[3].button("Değişiklik Günlüğü", key="btn_yon_audit", use_container_width=True, icon=":material/folder_open:"):
         _dlg_audit()
-    if _bt[4].button("💾 Yedekleme", key="btn_yon_yedek", use_container_width=True):
+    if _bt[4].button("Yedekleme", key="btn_yon_yedek", use_container_width=True, icon=":material/save:"):
         _dlg_yedek()
 
 
@@ -963,7 +963,7 @@ def _yedek_render():
     from datetime import datetime, timedelta
     st.caption("Tüm iş verisini tek bir Excel dosyasına indirir (her tablo ayrı sayfa). "
                "Şifreler ve geçici/oturum verileri güvenlik gereği yedeğe DAHİL EDİLMEZ.")
-    if st.button("📦 Yedeği Hazırla", key="yedek_hazirla"):
+    if st.button("Yedeği Hazırla", key="yedek_hazirla", icon=":material/inventory_2:"):
         with st.spinner("Tablolar toplanıyor…"):
             try:
                 veri, ozet = _yedek_olustur()
@@ -978,12 +978,12 @@ def _yedek_render():
         _toplam = sum(n for _, n in _ozet)
         st.success(f"✅ Yedek hazır — {len(_ozet)} tablo, {tr_sayi(_toplam)} kayıt.")
         st.download_button(
-            "💾 Excel'i İndir",
+            "Excel'i İndir",
             data=st.session_state["_yedek_data"],
             file_name=st.session_state["_yedek_ad"],
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
-            key="yedek_indir",
+            key="yedek_indir", icon=":material/save:"
         )
         with st.expander("Tablo özeti", expanded=False):
             import pandas as pd

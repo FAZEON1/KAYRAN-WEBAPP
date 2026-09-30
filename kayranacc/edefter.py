@@ -426,7 +426,7 @@ def render():
         if not plan:
             st.info("Hesap planı boş. Tekdüzen ana hesapları tek tıkla yükleyebilirsin.")
         c1, c2 = st.columns([1, 2])
-        if c1.button("📥 Tekdüzen Ana Hesapları Yükle", use_container_width=True, key="edf_seed"):
+        if c1.button("Tekdüzen Ana Hesapları Yükle", use_container_width=True, key="edf_seed", icon=":material/move_to_inbox:"):
             ok, msg = edf_plan_seed()
             (st.success if ok else st.error)(msg)
             if ok:
@@ -488,8 +488,8 @@ def render():
              "alt": "✓ dengede" if _fark == 0 and _tb > 0 else "borç = alacak olmalı"},
         ])
 
-        if st.button("💾 Fişi Kaydet", type="primary", use_container_width=True,
-                     key="edf_fkaydet", disabled=not plan):
+        if st.button("Fişi Kaydet", type="primary", use_container_width=True,
+                     key="edf_fkaydet", disabled=not plan, icon=":material/save:"):
             satirlar = []
             for _, r in _kdf.iterrows():
                 _h = str(r.get("Hesap") or "")
@@ -533,7 +533,7 @@ def render():
                                  height=min(60 + len(_sdf) * 35, 300))
                     if _tarih_kilitli_mi(f.get("tarih")):
                         st.caption("🔒 Bu dönem kilitli — fiş silinemez/değiştirilemez.")
-                    elif st.button("🗑 Fişi Sil", key=f"edf_sil_{f['id']}"):
+                    elif st.button("Fişi Sil", key=f"edf_sil_{f['id']}", icon=":material/delete:"):
                         ok, msg = edf_fis_sil(f["id"])
                         (st.success if ok else st.error)(msg)
                         if ok:
@@ -589,9 +589,9 @@ def render():
                          height=min(60 + len(_mdf) * 35, 560),
                          column_config={c: st.column_config.NumberColumn(c, format="%.4f")
                                         for c in ["Borç", "Alacak", "Borç Bakiyesi", "Alacak Bakiyesi"]})
-            st.download_button("⬇️ Mizan CSV",
+            st.download_button("Mizan CSV",
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
-                               "mizan.csv", "text/csv", key="edf_mizan_csv")
+                               "mizan.csv", "text/csv", key="edf_mizan_csv", icon=":material/download:")
 
         # ── 🔒 DÖNEM KİLİDİ ──
         st.markdown("---")
@@ -614,8 +614,8 @@ def render():
         with kc3:
             st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
             if not _bu_kilitli:
-                if st.button(f"🔒 {_donem_str} dönemini KİLİTLE", type="primary",
-                             use_container_width=True, key="edf_kilit_btn"):
+                if st.button(f"{_donem_str} dönemini KİLİTLE", type="primary",
+                             use_container_width=True, key="edf_kilit_btn", icon=":material/lock:"):
                     ok, msg = edf_donem_kilitle(int(_kyil), int(_kay),
                                                 st.session_state.get("aktif_kullanici", ""))
                     (st.success if ok else st.info)(msg)
@@ -626,7 +626,7 @@ def render():
                     st.warning(f"**{_donem_str} kilitli.** Kilidi açmak, GİB'e verilmiş "
                                "defterle tutarsızlık riskini geri getirir. Yalnız hatalı bir "
                                "kilitlemeyi geri almak için kullan.")
-                    if st.button("🔓 Evet, kilidi aç", key="edf_kilit_ac_btn"):
+                    if st.button("Evet, kilidi aç", key="edf_kilit_ac_btn", icon=":material/lock_open:"):
                         ok, msg = edf_donem_kilit_ac(int(_kyil), int(_kay),
                                                      st.session_state.get("aktif_kullanici", ""))
                         (st.success if ok else st.error)(msg)
@@ -961,8 +961,8 @@ def _render_kurum_ayarlari():
         sube = f3.text_input("Şube Kodu (4 hane)", a.get("sube_kodu", ""),
                              help="Şubesiz ise boş bırak")
 
-        if st.form_submit_button("💾 Kurum Ayarlarını Kaydet", type="primary",
-                                 use_container_width=True):
+        if st.form_submit_button("Kurum Ayarlarını Kaydet", type="primary",
+                                 use_container_width=True, icon=":material/save:"):
             ok, msg = edf_ayar_kaydet({
                 "vkn": vkn, "unvan": unvan, "telefon": telefon, "faks": faks, "eposta": eposta,
                 "adres_bina": adres_bina, "adres_cadde": adres_cadde, "adres_cadde2": adres_cadde2,
@@ -1000,8 +1000,8 @@ def _render_edefter_xml():
     _dt = "K" if "Kebir" in _tur else "Y"
 
     b1, b2 = st.columns(2)
-    _denetle = b1.button("🔍 GİB Kural Denetimi", use_container_width=True, key="edf_denetle")
-    _uret = b2.button("🔧 XML Üret", type="primary", use_container_width=True, key="edf_xml_uret")
+    _denetle = b1.button("GİB Kural Denetimi", use_container_width=True, key="edf_denetle", icon=":material/search:")
+    _uret = b2.button("XML Üret", type="primary", use_container_width=True, key="edf_xml_uret", icon=":material/build:")
 
     # ── GİB iş kuralı denetimi (üretimden önce ya da tek başına) ──
     if _denetle or _uret:
@@ -1035,8 +1035,8 @@ def _render_edefter_xml():
             st.error(sonuc)
         else:
             st.success(f"✅ Üretildi: `{ad}` ({tr_sayi(len(sonuc))} bayt)")
-            st.download_button(f"⬇️ {_tur} XML İndir", sonuc, ad, "application/xml",
-                               use_container_width=True, key="edf_xml_dl")
+            st.download_button(f"{_tur} XML İndir", sonuc, ad, "application/xml",
+                               use_container_width=True, key="edf_xml_dl", icon=":material/download:")
             with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
                 st.code(sonuc.decode("utf-8")[:3000], language="xml")
             st.caption("📁 GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
@@ -1049,7 +1049,7 @@ def _render_edefter_xml():
     st.caption("Seçili ayın Y + K + YB + KB defterlerini tek seferde üretip GİB'in istediği "
                "`VKN/hesap-dönemi/ay/` klasör yapısında, görüntüleme XSLT'leriyle birlikte ZIP'ler. "
                "Üretimden önce GİB iş kuralları otomatik denetlenir.")
-    if st.button("📦 Aylık e-Defter Paketi (ZIP) Üret", use_container_width=True, key="edf_paket_btn"):
+    if st.button("Aylık e-Defter Paketi (ZIP) Üret", use_container_width=True, key="edf_paket_btn", icon=":material/inventory_2:"):
         with st.spinner("Paket hazırlanıyor…"):
             try:
                 pok, psonuc, padi = edf_paket_zip(str(int(_yil)), str(int(_ay)))
@@ -1068,8 +1068,8 @@ def _render_edefter_xml():
             else:
                 st.warning("⚠️ XSLT görüntüleyiciler bulunamadı (kayranacc/edefter_xslt/ boş). "
                            "Paket XML'leri geçerli ama görüntüleme şablonları eksik.")
-            st.download_button("⬇️ e-Defter Paketi (ZIP) İndir", psonuc["zip"], padi,
-                               "application/zip", use_container_width=True, key="edf_paket_dl")
+            st.download_button("e-Defter Paketi (ZIP) İndir", psonuc["zip"], padi,
+                               "application/zip", use_container_width=True, key="edf_paket_dl", icon=":material/download:")
             st.caption("⚠️ Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
                        "doldurulacak) — bu haliyle GİB'e yüklenemez, yapı testi amaçlıdır.")
 
@@ -1083,7 +1083,7 @@ def _render_edefter_xml():
         _mm = st.number_input("Parça başına en fazla madde (fiş) sayısı", min_value=1, value=5,
                               step=1, key="edf_bol_madde",
                               help="Bu sayıyı aşınca yeni parçaya geçer.")
-        if st.button("✂️ Yevmiyeyi Parçalara Böl ve İndir", use_container_width=True, key="edf_bol_btn"):
+        if st.button("Yevmiyeyi Parçalara Böl ve İndir", use_container_width=True, key="edf_bol_btn", icon=":material/content_cut:"):
             with st.spinner("Bölünüyor…"):
                 try:
                     bok, parcalar, bmsg = edf_yevmiye_bol(str(int(_yil)), str(int(_ay)),
@@ -1107,9 +1107,9 @@ def _render_edefter_xml():
                         z.writestr(ad, xml)
                 for ad, xml in parcalar:
                     st.markdown(f"- `{ad}` ({tr_sayi(len(xml))} B)")
-                st.download_button("⬇️ Parçalar (ZIP) İndir", buf.getvalue(),
+                st.download_button("Parçalar (ZIP) İndir", buf.getvalue(),
                                    f"yevmiye-parcalar-{int(_yil)}{int(_ay):02d}.zip",
-                                   "application/zip", use_container_width=True, key="edf_bol_dl")
+                                   "application/zip", use_container_width=True, key="edf_bol_dl", icon=":material/download:")
 
 
 # ══════════════════════════════════════════════════════════════════════

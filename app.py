@@ -731,7 +731,7 @@ if not st.session_state.get("_db_saglik_ok"):
             unsafe_allow_html=True,
         )
         _c1, _c2, _c3 = st.columns([1, 1, 1])
-        if _c2.button("🔄 Yeniden Dene", type="primary", use_container_width=True):
+        if _c2.button("Yeniden Dene", type="primary", use_container_width=True, icon=":material/refresh:"):
             try:
                 from kayranpm.database import db_yeniden_baglan as _yb
                 _yb()
@@ -2765,7 +2765,7 @@ def anasayfa():
             with st.form("duyuru_form", clear_on_submit=False):
                 _yeni_aktif = st.checkbox("Duyuruyu aktifleştir", value=bool(_mevcut_aktif))
                 _yeni_metni = st.text_input("Duyuru metni", value=_mevcut_metni, placeholder="Örn: Sistem bugün 18:00-19:00 arası bakımda.")
-                _duyuru_kaydet = st.form_submit_button("💾 Kaydet", type="primary")
+                _duyuru_kaydet = st.form_submit_button("Kaydet", type="primary", icon=":material/save:")
                 if _duyuru_kaydet:
                     if set_duyuru(_yeni_aktif, _yeni_metni or ""):
                         st.success("✅ Duyuru kaydedildi.")
@@ -2779,7 +2779,7 @@ def anasayfa():
             with st.form("bildirim_form", clear_on_submit=True):
                 _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
                 _bildirim_mesaj = st.text_area("Mesaj", placeholder="Kullanıcılara göndermek istediğin mesajı yaz...", height=90)
-                _bildirim_gonder_btn = st.form_submit_button("📢 Gönder", type="primary")
+                _bildirim_gonder_btn = st.form_submit_button("Gönder", type="primary", icon=":material/campaign:")
                 if _bildirim_gonder_btn:
                     if not _bildirim_mesaj or not _bildirim_mesaj.strip():
                         st.warning("⚠️ Mesaj boş olamaz.")
@@ -2918,7 +2918,7 @@ def kullanici_yonetimi():
     st.caption("Salt-okur: tüm modülleri görür, hiçbir veriyi değiştiremez. "
                "Aktif işareti kaldırılan kullanıcı giriş yapamaz.")
 
-    if st.button("💾 Yetki değişikliklerini kaydet", type="primary", key="ky_kaydet"):
+    if st.button("Yetki değişikliklerini kaydet", type="primary", key="ky_kaydet", icon=":material/save:"):
         degisen = []
         for _, r in duz.iterrows():
             k = r["Kullanıcı"]
@@ -3014,7 +3014,7 @@ def kullanici_yonetimi():
                     if ok else "❌ Şifre kaydedilemedi.")
                 st.rerun()
 
-    if st.button("🔄 Listeyi yenile", key="ky_yenile"):
+    if st.button("Listeyi yenile", key="ky_yenile", icon=":material/refresh:"):
         temizle()
         st.rerun()
 
@@ -3075,7 +3075,7 @@ def sifre_degistir():
             mevcut = st.text_input("Mevcut Şifre", type="password", placeholder="Mevcut şifrenizi girin")
             yeni   = st.text_input("Yeni Şifre",   type="password", placeholder="En az 6 karakter")
             tekrar = st.text_input("Yeni Şifre (Tekrar)", type="password", placeholder="Yeni şifreyi tekrar girin")
-            kaydet = st.form_submit_button("🔑 Şifreyi Güncelle", type="primary", use_container_width=True)
+            kaydet = st.form_submit_button("Şifreyi Güncelle", type="primary", use_container_width=True, icon=":material/key:")
 
         if kaydet:
             # Validasyonlar
@@ -3152,7 +3152,7 @@ def kayrantsw_yakinda():
     # Ana sayfaya dön butonu (ortalı)
     col_l, col_c, col_r = st.columns([1, 1.2, 1])
     with col_c:
-        if st.button("🏠  Ana Sayfaya Dön", key="tsw_ana_don", use_container_width=True):
+        if st.button("Ana Sayfaya Dön", key="tsw_ana_don", use_container_width=True, icon=":material/home:"):
             st.session_state.aktif_uygulama = "anasayfa"
             st.rerun()
 
@@ -3183,7 +3183,7 @@ def _global_hata_kart(uygulama_adi, hata):
     with st.expander("🔧 Teknik Detay"):
         st.code(traceback.format_exc(), language="python")
 
-    if st.button("🏠 Ana Sayfaya Dön", key="hata_ana_don", type="primary"):
+    if st.button("Ana Sayfaya Dön", key="hata_ana_don", type="primary", icon=":material/home:"):
         st.session_state.aktif_uygulama = "anasayfa"
         st.rerun()
 
@@ -3268,8 +3268,8 @@ def _talep_merkezi():
                     "Açıklama *", height=150,
                     placeholder="Ne olmasını istiyorsun? Hangi ekranda? Hata ise hangi "
                                 "adımlarda oluşuyor? Örnek verirsen daha hızlı çözülür.")
-                _gonder = st.form_submit_button("📨 Talebi Gönder", type="primary",
-                                                use_container_width=True)
+                _gonder = st.form_submit_button("Talebi Gönder", type="primary",
+                                                use_container_width=True, icon=":material/send:")
             if _gonder:
                 if not (_mesaj or "").strip():
                     st.warning("⚠️ Açıklama alanı zorunlu.")
@@ -3353,8 +3353,8 @@ def _talep_merkezi():
                             if str(_t.get("durum") or "bekliyor") in
                                ("bekliyor", "inceleniyor", "tamamlandi", "reddedildi") else 0,
                             key=f"fab_durum_{_tid}")
-                        if _c2.button("💾 Kaydet", key=f"fab_kaydet_{_tid}",
-                                      use_container_width=True):
+                        if _c2.button("Kaydet", key=f"fab_kaydet_{_tid}",
+                                      use_container_width=True, icon=":material/save:"):
                             try:
                                 guncelle_talep_cevap(_tid, _cev.strip(), _dur)
                                 st.cache_data.clear()
