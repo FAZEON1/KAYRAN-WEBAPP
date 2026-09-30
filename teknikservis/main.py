@@ -153,10 +153,23 @@ def _g(kayit, alan, bos="—"):
 def _mal_kabul():
     _baslik("📥", "Mal Kabül", "Servise/iadeye gelen ürünü kaydet · Servis No otomatik üretilir (G5F)")
 
+    # Kayıt sonrası ERTELENMİŞ form temizliği.
+    # Dialog artık KAPALI, dolayısıyla bu widget'lar ekranda değil —
+    # anahtarlarını silmek güvenli. (Silme işlemi dialog'un içinde yapılınca
+    # Streamlit'in widget durumu bozuluyor ve sayfa yenilenmiyordu.)
+    if st.session_state.pop("_mk_temizle", False):
+        for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
+                   "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
+                   "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
+                   "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay",
+                   "mk_sk", "_mk_model_son", "mk_model_sec"):
+            st.session_state.pop(_k, None)
+
     # Bir önceki kaydın başarı mesajı (rerun sonrası kaybolmasın)
     _son_ok = st.session_state.pop("_mk_kayit_ok", None)
     if _son_ok:
         st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır.")
+        st.balloons()          # dialog kapandıktan SONRA — rerun onu yutmasın
     _son_stok = st.session_state.pop("_mk_stok_msg", None)
     if _son_stok:
         (st.caption if _son_stok.startswith("📦") else st.warning)(_son_stok)
@@ -579,20 +592,25 @@ def _mal_kabul_dialog():
             # bir dahaki kayıtta seçim listesinde hazır bekler
             if (firma_yeni or "").strip():
                 ekle_ts_firma(firma_yeni.strip())
-            st.success(msg)
-            # Bir sonraki kayda temiz başla — tüm form alanlarını sıfırla (madde 3: mükerrer kayıt önlenir)
-            for k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
-                      "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
-                      "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
-                      "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay"):
-                st.session_state.pop(k, None)
             st.session_state["_mk_kayit_ok"] = form_no or msg
             # ── Stok: teknik → TEKNİK DEPO, iade → İADE DEPO (+1) ──
             _sok, _smsg = _stok.mal_kabul_girisi(data)
             st.session_state["_mk_stok_msg"] = (
                 ("📦 Stok: " + _smsg) if _sok and _smsg
                 else (f"⚠️ Kayıt oluştu ama stok işlenemedi — {_smsg}" if not _sok else ""))
-            st.balloons()
+
+            # ⚠️ FORM ALANLARINI BURADA TEMİZLEME.
+            # Bu fonksiyon @st.dialog ile işaretli; Streamlit dialog'ları
+            # fragment olarak çalıştırır. Ekranda HÂLÂ ÇİZİLİ durumdaki
+            # widget'ların (mk_seri, mk_seri_yok, mk_grup_sec, mk_kargo …)
+            # session_state anahtarlarını silip hemen st.rerun() çağırmak
+            # Streamlit'in widget durum yöneticisini tutarsız bırakıyor ve
+            # sayfa yenilenmiyordu. Eski Streamlit sürümleri buna göz
+            # yumuyordu, yenileri yummuyor — kod değişmediği hâlde bozulmasının
+            # sebebi buydu.
+            # ÇÖZÜM: temizliği bayrakla sonraki çalıştırmaya ertele. O anda
+            # dialog kapalı, bu widget'lar ekranda yok → silmek güvenli.
+            st.session_state["_mk_temizle"] = True
             _rerun_app()
         else:
             st.error(msg)
@@ -885,6 +903,12 @@ def _liste(arayuz):
 # ── Kontrol Paneli (detay) ───────────────────────────────────────────
 def _kontrol_paneli(kayit):
     kid = kayit["id"]
+    # Stok kartı değişimi sonrası ERTELENMİŞ temizlik (dialog artık kapalı)
+    _sd_kid = st.session_state.pop("_ts_sd_temizle", None)
+    if _sd_kid is not None:
+        for _k in (f"sd_model_{_sd_kid}", f"sd_sk_{_sd_kid}", f"sd_sa_{_sd_kid}",
+                   f"sd_gr_{_sd_kid}", f"sd_grsec_{_sd_kid}", f"sd_neden_{_sd_kid}"):
+            st.session_state.pop(_k, None)
     _bilgi = st.session_state.pop("_ts_bilgi", None)
     if _bilgi:
         st.success(_bilgi)
@@ -1322,9 +1346,10 @@ def _kontrol_paneli(kayit):
                 kid, kayit.get("mevcut_durum", "mal kabül"),
                 st.session_state.get("aktif_kullanici", ""),
                 f"Stok kartı değişti: {_eski_sk} → {_yeni_sk.strip()} — {_neden.strip()}")
-            for _k in (f"sd_model_{kid}", f"sd_sk_{kid}", f"sd_sa_{kid}",
-                       f"sd_gr_{kid}", f"sd_neden_{kid}"):
-                st.session_state.pop(_k, None)
+            # Form alanları BURADA temizlenmez — bu widget'lar hâlâ ekranda.
+            # (mal kabuldeki yenilenmeme hatasının aynısı olurdu.) Temizlik
+            # dialog kapandıktan sonra _kontrol_paneli başında yapılır.
+            st.session_state["_ts_sd_temizle"] = kid
             st.session_state["_ts_bilgi"] = (f"🔄 Stok kartı değiştirildi: "
                                              f"{_eski_sk} → {_yeni_sk.strip()}")
             _rerun_app()
