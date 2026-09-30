@@ -54,13 +54,13 @@ def _kategori_listesi(refler=None):
     Ürün kategorisi hiç yoksa varsayılan sete düşülür (boş dropdown olmasın)."""
     out = []
     for k in _urun_kategorileri():                     # Kampanya Takip kaynağı (birincil)
-        ku = _tr_upper(str(k).strip())
+        ku = kategori_kanonik(k)
         if ku and ku not in out:
             out.append(ku)
     if not out:                                        # hiç ürün kategorisi yoksa
         out = list(_VARSAYILAN_KATEGORILER)
     for r in (refler or []):                            # ref'lerde geçmiş kategoriler
-        ku = _tr_upper(str(r.get("kategori") or "").strip())
+        ku = kategori_kanonik(r.get("kategori"))
         if ku and ku not in out:
             out.append(ku)
     return out
@@ -83,6 +83,34 @@ def _tr_upper(s):
     s = str(s or "")
     return (s.replace("i", "İ").replace("ı", "I").replace("ğ", "Ğ")
              .replace("ü", "Ü").replace("ş", "Ş").replace("ö", "Ö").replace("ç", "Ç")).upper()
+
+
+def _kat_anahtar(s):
+    """Karşılaştırma anahtarı: Türkçe büyük harf + TÜM boşluklar atılmış.
+    'MOUSEPAD', 'Mouse Pad', 'mouse  pad' → 'MOUSEPAD'."""
+    return re.sub(r"\s+", "", _tr_upper(s))
+
+
+def _katalog_haritasi():
+    """{boşluksuz anahtar: kanonik ad} — ürün kataloğundan (KATEGORI_LISTE).
+    Elle alias listesi YOK; katalog neyse o."""
+    try:
+        from .database import KATEGORI_LISTE
+    except Exception:
+        return {}
+    return {_kat_anahtar(k): _tr_upper(k).strip() for k in KATEGORI_LISTE}
+
+
+def kategori_kanonik(ad):
+    """Kategori adını tek bir kanonik yazıma indirir.
+    - Katalogdaki bir kategoriyle boşluksuz eşleşirse → katalog yazımı (TR büyük harf)
+    - Eşleşmezse → kendi adı (TR büyük harf, fazla boşluklar tekilleştirilmiş)
+    Belirsiz adlar (ör. 'SOĞUTUCU') tahmin edilmez, olduğu gibi kalır."""
+    s = re.sub(r"\s+", " ", _tr_upper(ad)).strip()
+    if not s:
+        return ""
+    return _katalog_haritasi().get(_kat_anahtar(s), s)
+
 
 
 def _ay_no_coz(ad):
@@ -758,7 +786,7 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
             "tutar": _f(tutar), "doviz": doviz or "USD",
         }
         if (kategori or "").strip():
-            _kayit["kategori"] = _tr_upper(kategori.strip())
+            _kayit["kategori"] = kategori_kanonik(kategori)
         if donem_ay:
             import json as _json
             _dy = int(donem_yil or yil)
@@ -790,7 +818,7 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
         if doviz is not None:
             _d["doviz"] = doviz or "USD"
         if kategori is not None:
-            _d["kategori"] = _tr_upper(str(kategori).strip())
+            _d["kategori"] = kategori_kanonik(kategori)
         if aylik is not None:
             _d["aylik"] = aylik  # "" = temizle, JSON string = dönem ata
         if kategori_tutar is not None:
@@ -1286,7 +1314,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
             _yeni_liste.append({
                 "aciklama": _ack, "tutar": round(_tut, 2),
                 "ay": str(_r2.get("Ay") or "").strip(),
-                "kategori": _tr_upper(str(_r2.get("Kategori") or "").strip()),
+                "kategori": kategori_kanonik(_r2.get("Kategori")),
             })
     else:
         _yeni_liste = []
@@ -1312,7 +1340,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
                       disabled=not (_y_ack.strip() and _y_tut > 0))
     if _ekle:
         _yeni_liste.append({"aciklama": _y_ack.strip(), "tutar": round(_y_tut, 2),
-                            "ay": _y_ay, "kategori": _tr_upper(_y_kat)})
+                            "ay": _y_ay, "kategori": kategori_kanonik(_y_kat)})
 
     # ── Önizleme: türetilen değerler ──
     _t = kalemlerden_turet(_yeni_liste)
@@ -1700,8 +1728,7 @@ def _render_ref_merkez(firmalar):
     durum_f = c2.selectbox("Durum", ["Tüm durumlar"] + DURUMLAR,
                            format_func=lambda d: DURUM_ETIKET.get(d, d),
                            key="rm_durum", label_visibility="collapsed")
-    _katlar = sorted({p.strip() for r in _hepsi
-                      for p in str(r.get("kategori") or "").split("·") if p.strip()})
+    _katlar = sorted({p for r in _hepsi for p in _kat_liste(r.get("kategori"))})
     kat_f = c3.selectbox("Kategori", ["Tüm kategoriler"] + _katlar,
                          key="rm_kat", label_visibility="collapsed")
     _yillar = sorted({p.strip() for r in _hepsi
@@ -1721,7 +1748,7 @@ def _render_ref_merkez(firmalar):
             return False
         if durum_f != "Tüm durumlar" and r.get("durum") != durum_f:
             return False
-        if kat_f != "Tüm kategoriler" and kat_f not in str(r.get("kategori") or ""):
+        if kat_f != "Tüm kategoriler" and kat_f not in _kat_liste(r.get("kategori")):
             return False
         if yil_f != "Tüm yıllar" and yil_f not in _aylik_ozet(r)[1]:
             return False
@@ -1845,8 +1872,7 @@ def _render_tumu(firmalar):
     durum_f = _tf2.selectbox("Durum", ["Tümü"] + DURUMLAR,
                              format_func=lambda d: DURUM_ETIKET.get(d, d) if d != "Tümü" else d,
                              key="ref_tumu_durum")
-    _t_katlar = sorted({p.strip() for r in _hepsi
-                        for p in str(r.get("kategori") or "").split("·") if p.strip()})
+    _t_katlar = sorted({p for r in _hepsi for p in _kat_liste(r.get("kategori"))})
     kat_f = _tf3.selectbox("Kategori", ["Tümü"] + _t_katlar, key="ref_tumu_kat")
     _t_yillar = sorted({p.strip() for r in _hepsi
                         for p in _aylik_ozet(r)[1].split("·") if p.strip() and p.strip() != "—"})
@@ -1863,7 +1889,7 @@ def _render_tumu(firmalar):
             return False
         if durum_f != "Tümü" and r.get("durum") != durum_f:
             return False
-        if kat_f != "Tümü" and kat_f not in str(r.get("kategori") or ""):
+        if kat_f != "Tümü" and kat_f not in _kat_liste(r.get("kategori")):
             return False
         _ays, _yls = _aylik_ozet(r)
         if yil_f != "Tümü" and yil_f not in _yls:
@@ -2678,8 +2704,9 @@ def get_tum_ref_tutarlari(baslangic, bitis):
 
 
 def _kat_liste(metin):
-    """'MONİTÖR · KASA' → ['MONİTÖR','KASA'] (BÜYÜK, boşlar atılır)."""
-    return [_tr_upper(x.strip()) for x in str(metin or "").split("·") if x.strip()]
+    """'MOUSEPAD · monitör' → ['MOUSE PAD','MONİTÖR'] — kanonik, boşlar atılır.
+    (kategori_kanonik ile: katalog yazımına indirir, filtrede kaybolmaz.)"""
+    return [k for k in (kategori_kanonik(x) for x in str(metin or "").split("·")) if k]
 
 
 # ═══════════════════════════════════════════════════════════════════
