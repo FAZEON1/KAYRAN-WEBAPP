@@ -39,8 +39,25 @@ def test_depo_kanonik_bilinen_yazimlar(girdi, beklenen):
 def test_depo_kanonik_bilinmeyen_depo_normalize_edilir():
     """Bilinmeyen depo kaybolmaz; en azından tutarlı yazıma çevrilir."""
     assert depo_kanonik("Bilinmeyen Depo") == "BILINMEYEN DEPO"
-    # İKİNCİ EL DEPO artık BİLİNEN depo (18 Eyl) — kanonik yazım noktalı İ ile
-    assert depo_kanonik("İkinci El Depo") == "İKİNCİ EL DEPO"
+    assert depo_kanonik("Şube Deposu") == "SUBE DEPOSU"
+
+
+@pytest.mark.parametrize("girdi,beklenen", [
+    # Teknik servis entegrasyonuyla TANINAN depolar haline geldi.
+    # 'İkinci El Depo' eskiden bu testte "bilinmeyen" örneğiydi; artık
+    # kanonik yazıma (Türkçe İ ile) çevrilir ve stok ekranlarında tek
+    # isimle görünür.
+    ("İkinci El Depo",  "İKİNCİ EL DEPO"),
+    ("ikinci el",       "İKİNCİ EL DEPO"),
+    ("2.el",            "İKİNCİ EL DEPO"),
+    ("Servis Depo",     "TEKNİK DEPO"),      # servis = teknik, aynı fiziksel yer
+    ("teknik servis",   "TEKNİK DEPO"),
+    ("iade",            "İADE DEPO"),
+    ("outlet",          "OUTLET DEPO"),
+    ("hurda",           "HURDA DEPO"),
+])
+def test_depo_kanonik_teknik_servis_depolari(girdi, beklenen):
+    assert depo_kanonik(girdi) == beklenen
 
 
 def test_depo_kanonik_bos_girdi():
