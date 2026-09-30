@@ -3,8 +3,6 @@ base = "dark"
 primaryColor = "#6366F1"
 
 # ── Yüzeyler: shared/tasarim.py RENK sözlüğüyle BİREBİR aynı olmalı ──
-# (Eskiden #080C20 / #0F1730 / #232B47 idi — farklı bir hue ailesiydi,
-#  kartlarla sayfa arasında gözle görülür renk dikişi bırakıyordu.)
 backgroundColor = "#0B1120"           # RENK["yuzey0"]
 secondaryBackgroundColor = "#0F172A"  # RENK["yuzey1"]
 textColor = "#E2E8F0"                 # RENK["metin"]
@@ -21,6 +19,21 @@ baseRadius = "10px"
 # ── Tablolar: silik grid + zeminle uyumlu başlık bandı ──
 dataframeBorderColor = "#1E293B"
 dataframeHeaderBackgroundColor = "#152036"   # RENK["yuzey2"]
+
+# ── AÇIK TEMA — kullanıcı HESAP › Görünüm'den seçer (shared/tercih.py).
+#    Değerler shared/tasarim.py RENK_ACIK ile BİREBİR aynı olmalı.
+[theme.light]
+primaryColor = "#4F46E5"              # RENK_ACIK["mor"]
+backgroundColor = "#F4F6FA"           # RENK_ACIK["yuzey0"]
+secondaryBackgroundColor = "#FFFFFF"  # RENK_ACIK["yuzey1"]
+textColor = "#0F172A"                 # RENK_ACIK["metin"]
+borderColor = "#D6DCE6"
+dataframeBorderColor = "#D6DCE6"
+dataframeHeaderBackgroundColor = "#F1F4F9"   # RENK_ACIK["yuzey2"]
+
+[theme.light.sidebar]
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F4F9"
 
 # ── TEK font kaynağı. login_css() içindeki Google Fonts @import KALDIRILMALI:
 #    Inter iki yerden birden iniyordu → çift indirme + girişte yazı sıçraması.
