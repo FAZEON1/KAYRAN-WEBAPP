@@ -52,6 +52,16 @@ from .bildirim import (mask_email,
 TOPLAM_AKTIFLER_YETKILI = {"ibrahim", "cem", "yilmaz", "derman", "pamuk", "serdar"}
 
 
+def _toplam_aktifler_yetkilileri():
+    """Toplam Aktifler'i görebilenler. Kaynak: 'kullanici_yetkileri' tablosu
+    (özel yetki: toplam_aktifler). Tablo yoksa yukarıdaki sabit listeye düşer."""
+    try:
+        from shared.yetki import ozel_sahipleri
+        return ozel_sahipleri("toplam_aktifler", TOPLAM_AKTIFLER_YETKILI)
+    except Exception:
+        return set(TOPLAM_AKTIFLER_YETKILI)
+
+
 def run():
     """Muhasebe & Finans ana çalıştırıcı. Portal tarafından çağrılır."""
     initialize_db()
@@ -1098,7 +1108,7 @@ def run():
         # ─── Sayfa listesi (kullanıcıya göre dinamik) ───
         aktif_kullanici_lower = st.session_state.get("aktif_kullanici", "").lower().strip()
         # Toplam Aktifler sayfasına yetkili kullanıcılar (yeni eklemek için bu set'e ekle)
-        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI
+        YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
         KISITLI_SAYFALAR = ["💰 Toplam Aktifler"]
     
         tum_sayfalar = [
@@ -3824,7 +3834,7 @@ def run():
         st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler"), unsafe_allow_html=True)
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
-        YETKILI_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI
+        YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
         if aktif_kul not in YETKILI_TOPLAM_AKTIFLER:
             st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
             st.stop()
