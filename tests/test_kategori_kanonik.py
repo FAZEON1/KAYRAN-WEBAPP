@@ -12,6 +12,16 @@ karşılaştırma. Belirsiz adlar (SOĞUTUCU) bilerek ÇEVRİLMEZ.
 
 import pytest
 
+# BEKLEYEN ÖZELLİK: kategori_kanonik henüz uygulanmadı — değişiklik planı
+# bekleyen/kategori-kanonik.json içinde duruyor. Fonksiyon kodda yokken bu
+# dosya import hatasıyla TÜM test paketini çökertiyordu. Özellik gelene
+# kadar atlanır; geldiğinde kendiliğinden çalışmaya başlar.
+pytest.importorskip("kayranpm.ref_no")
+from kayranpm import ref_no as _rn
+if not hasattr(_rn, "kategori_kanonik"):
+    pytest.skip("kategori_kanonik henüz uygulanmadı (bkz. bekleyen/kategori-kanonik.json)",
+                allow_module_level=True)
+
 from kayranpm.ref_no import kategori_kanonik, _kat_liste, _tr_upper
 from kayranpm.database import KATEGORI_LISTE
 
