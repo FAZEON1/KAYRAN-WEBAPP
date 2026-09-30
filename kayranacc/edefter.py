@@ -451,7 +451,7 @@ def render():
         if not plan:
             st.warning("Önce **Hesap Planı** sekmesinden Tekdüzen hesaplarını yükle.")
         f1, f2, f3, f4 = st.columns([1, 1, 2, 1])
-        fis_tarih = f1.date_input("Tarih", value=date.today(), key="edf_ft")
+        fis_tarih = f1.date_input("Tarih", value=date.today(), key="edf_ft", format="DD.MM.YYYY")
         fis_tur = f2.selectbox("Fiş Türü", FIS_TURLERI, key="edf_ftur")
         fis_acik = f3.text_input("Fiş Açıklaması", key="edf_facik",
                                  placeholder="örn. Temmuz kira ödemesi")
@@ -510,8 +510,8 @@ def render():
     # ── 📒 YEVMİYE ──
     elif secili == "📒 Yevmiye":
         y1, y2 = st.columns(2)
-        _yb = y1.date_input("Başlangıç", value=date.today().replace(day=1), key="edf_yb")
-        _ye = y2.date_input("Bitiş", value=date.today(), key="edf_ye")
+        _yb = y1.date_input("Başlangıç", value=date.today().replace(day=1), key="edf_yb", format="DD.MM.YYYY")
+        _ye = y2.date_input("Bitiş", value=date.today(), key="edf_ye", format="DD.MM.YYYY")
         fisler = edf_get_fisler(_yb, _ye)
         if not fisler:
             st.info("Bu dönemde fiş yok.")
@@ -547,8 +547,8 @@ def render():
             k1, k2, k3 = st.columns([2, 1, 1])
             _ksec = k1.selectbox("Hesap", [f"{k} — {a}" for k, a in sorted(plan_map.items())],
                                  key="edf_khesap")
-            _kb = k2.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_kb")
-            _ke = k3.date_input("Bitiş", value=date.today(), key="edf_ke")
+            _kb = k2.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_kb", format="DD.MM.YYYY")
+            _ke = k3.date_input("Bitiş", value=date.today(), key="edf_ke", format="DD.MM.YYYY")
             _kod = _ksec.split(" — ")[0]
             rows = edf_kebir(_kod, _kb, _ke)
             if not rows:
@@ -570,8 +570,8 @@ def render():
     # ── ⚖️ MİZAN ──
     elif secili == "⚖️ Mizan":
         m1, m2 = st.columns(2)
-        _mb = m1.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_mb")
-        _me = m2.date_input("Bitiş", value=date.today(), key="edf_me")
+        _mb = m1.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_mb", format="DD.MM.YYYY")
+        _me = m2.date_input("Bitiş", value=date.today(), key="edf_me", format="DD.MM.YYYY")
         rows, denge, t_borc, t_alacak = edf_mizan(_mb, _me)
         if not rows:
             st.info("Bu dönemde kayıt yok.")

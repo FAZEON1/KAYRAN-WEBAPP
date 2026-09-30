@@ -2421,7 +2421,7 @@ def _render_butce(fid, firma):
             b_ack = st.text_input("Açıklama", placeholder="örn. TEMMUZ FAZEON SELLOUT")
             b4, b5, b6 = st.columns(3)
             b_fno = b4.text_input("Fatura No", placeholder="örn. UYSD-8459")
-            b_ftar = b5.date_input("Fatura Tarihi", value=date.today())
+            b_ftar = b5.date_input("Fatura Tarihi", value=date.today(), format="DD.MM.YYYY")
             b_ref = b6.selectbox("Ref No", ref_secenek, index=0)
             b_kisi = st.text_input("Kişi / Sorumlu", placeholder="örn. DERYA MOLLAOĞLU")
             if st.form_submit_button("➕ Kaydı Ekle", type="primary", use_container_width=True):
