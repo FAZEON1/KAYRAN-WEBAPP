@@ -1175,7 +1175,7 @@ def _gecmis_ithalatlar():
                     _td = date.fromisoformat(str(d.get("tarih", ""))[:10])
                 except Exception:
                     _td = date.today()
-                e_tarih = ec1.date_input("Sipariş Tarihi", value=_td)
+                e_tarih = ec1.date_input("Sipariş Tarihi", value=_td, format="DD.MM.YYYY")
                 e_not = st.text_input("Notlar", value=str(d.get("notlar", "") or ""))
 
                 # Aşama (durum) + tahmini varış
@@ -1193,7 +1193,7 @@ def _gecmis_ithalatlar():
                             _tv = date.fromisoformat(str(d.get("tahmini_varis", "") or "")[:10])
                         except Exception:
                             _tv = date.today()
-                        e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}")
+                        e_tahmini_varis = st.date_input("Tahmini Varış", value=_tv, key=f"ith_edit_tv_{did}", format="DD.MM.YYYY")
                     else:
                         e_tahmini_varis = None
                         st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
@@ -1408,7 +1408,7 @@ def _yeni_ithalat():
                                               index=INCOTERM_SECENEKLER.index("FOB"),
                                               key=f"m_teslim_sekli_{_fv}")
             with c3:
-                tarih = st.date_input("Sipariş Tarihi", value=date.today(), key=f"m_tarih_{_fv}")
+                tarih = st.date_input("Sipariş Tarihi", value=date.today(), key=f"m_tarih_{_fv}", format="DD.MM.YYYY")
                 doviz = st.selectbox("Döviz", ["USD", "EUR", "CNY", "TL"], key=f"m_doviz_{_fv}")
                 # Kur burada girilmez — masraf aşamasında (Geçmiş İthalatlar → ✏️ Düzenle) girilir.
                 kur = 1.0
@@ -1424,7 +1424,7 @@ def _yeni_ithalat():
                 if durum in IN_TRANSIT_DURUMLAR:
                     tahmini_varis = st.date_input(
                         "Tahmini Varış", value=date.today(), key=f"m_tahmini_varis_{_fv}",
-                        help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.")
+                        help="Yolda sayılan aşamalarda gecikme riski bu tarihe göre hesaplanır.", format="DD.MM.YYYY")
                 else:
                     tahmini_varis = None
                     st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)

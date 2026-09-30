@@ -1832,8 +1832,8 @@ def run():
                                              format_func=lambda f: f if str(f).startswith("(") else firma_gorunen_ad(f))
                     k_kat = _dc2.selectbox("Kategori", ["(Genel / Karışık)"] + _kt_kat_list)
                     _dc3, _dc4 = st.columns(2)
-                    k_bas = _dc3.date_input("Başlangıç Tarihi *", value=tr_today())
-                    k_bit = _dc4.date_input("Bitiş Tarihi *", value=tr_today())
+                    k_bas = _dc3.date_input("Başlangıç Tarihi *", value=tr_today(), format="DD.MM.YYYY")
+                    k_bit = _dc4.date_input("Bitiş Tarihi *", value=tr_today(), format="DD.MM.YYYY")
                     if st.form_submit_button("🚀 Kampanya Oluştur", type="primary", use_container_width=True):
                         if not k_adi.strip():
                             st.error("Kampanya adı zorunludur.")
@@ -2056,8 +2056,8 @@ def run():
                                                              format="%.4f", key="kmp_o_spiff_kur") or 0.0
                             if _o_spiff_tl and _o_spiff_kur:
                                 st.caption(f"≈ ${tr_sayi((_o_spiff_tl / _o_spiff_kur), 2)} USD spiff maliyeti (tahmini)")
-                        _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas")
-                        _o_bit = _of5.date_input("Bitiş Tarihi *", value=(_xl_bit or tr_today()), key="kmp_o_bit")
+                        _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas", format="DD.MM.YYYY")
+                        _o_bit = _of5.date_input("Bitiş Tarihi *", value=(_xl_bit or tr_today()), key="kmp_o_bit", format="DD.MM.YYYY")
                         st.caption(f"🏷️ Kategori (dosyadan): **{_kat_final or '—'}**"
                                    + ("" if (not _kat_final or _kat_final == _xl_kat)
                                       else f"  · mevcut '{_kat_final}' ile eşleştirildi (yeni mükerrer açılmadı)"))
@@ -2229,8 +2229,8 @@ def run():
                                         index=_dk_opts.index(_dk_kat_cur) if _dk_kat_cur in _dk_opts else 0,
                                         key=f"dk_kat_{kid}")
                                 with dk2:
-                                    dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}")
-                                    dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}")
+                                    dk_bas = st.date_input("Başlangıç Tarihi", value=date.fromisoformat(kamp["baslangic_tarihi"]) if kamp["baslangic_tarihi"] else tr_today(), key=f"dk_bas_{kid}", format="DD.MM.YYYY")
+                                    dk_bit = st.date_input("Bitiş Tarihi", value=date.fromisoformat(kamp["bitis_tarihi"]) if kamp["bitis_tarihi"] else tr_today(), key=f"dk_bit_{kid}", format="DD.MM.YYYY")
                                 dk_not = st.text_area("Notlar", value=kamp.get("notlar","") or "", key=f"dk_not_{kid}")
                                 _dk_turu_cur = (kamp.get("kampanya_turu") or "").strip()
                                 _dk_turu_opts = KAMPANYA_TURLERI + ([_dk_turu_cur] if _dk_turu_cur and _dk_turu_cur not in KAMPANYA_TURLERI else [])

@@ -1815,7 +1815,7 @@ def run():
                 with col1:
                     firma = st.text_input("Firma / Kişi Adı *")
                     aciklama = st.text_input("Açıklama")
-                    vade = st.date_input("Vade Tarihi *", value=tr_today())
+                    vade = st.date_input("Vade Tarihi *", value=tr_today(), format="DD.MM.YYYY")
                 with col2:
                     kategori = st.selectbox("Kategori", list(KATEGORILER.keys()),
                                             format_func=lambda k: KATEGORILER[k]["label"])
@@ -2153,7 +2153,7 @@ def run():
                                         mevcut_vade_dt = parsed_dt.date()
                                 except Exception:
                                     pass
-                            yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}")
+                            yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}", format="DD.MM.YYYY")
                         with col_aciklama:
                             yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_acik_{o['id']}")
                         with col_kaydet:
@@ -2207,7 +2207,7 @@ def run():
                                     "Yeni vade tarihi",
                                     value=mevcut_vade,
                                     key=f"vade_{o['id']}",
-                                    label_visibility="collapsed"
+                                    label_visibility="collapsed", format="DD.MM.YYYY"
                                 )
                             with col_kaydet:
                                 if st.button("💾 Ötele", key=f"vade_save_{o['id']}", type="primary", use_container_width=True):
@@ -2330,7 +2330,7 @@ def run():
                     _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
                     _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
                     _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
-                    _tarih = st.date_input("Tarih", value=tr_today())
+                    _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
                     _onay = st.form_submit_button(f"💰 {_sym} Tahsilatı İşle", type="primary", use_container_width=True)
                     if _onay:
                         if _tutar <= 0:

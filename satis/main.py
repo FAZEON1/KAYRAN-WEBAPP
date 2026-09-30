@@ -607,7 +607,7 @@ def run():
                     _c1, _c2 = st.columns(2)
                     _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}",
                                           min_value=date(2024, 1, 1), max_value=date.today(),
-                                          help="Gelecek tarih seçilemez (2027 vakası koruması)")
+                                          help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
                     _sno = _c2.text_input("Sipariş No", key=f"sg_sno_{_key}",
                                           placeholder="örn. 2026-06-30").strip()
                     _dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"],
@@ -798,7 +798,7 @@ def run():
                     if _tarih_degistir:
                         g_tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="s_tarih",
                                                 min_value=date(2024, 1, 1), max_value=date.today(),
-                                                help="Gelecek tarih seçilemez (2027 vakası koruması)")
+                                                help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
                     else:
                         g_tarih = date.today()
                         st.caption(f"📅 Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
@@ -2115,7 +2115,7 @@ def run():
         def _dlg_manuel_iade():
             ig1, ig2, ig3 = st.columns(3)
             _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
-                                      min_value=date(2024, 1, 1), max_value=date.today())
+                                      min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY")
             _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
             _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
             ig4, ig5, ig6, ig7 = st.columns(4)
@@ -2148,7 +2148,7 @@ def run():
                        "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
             _ie_dosya = st.file_uploader("İade Excel'i (.xls / .xlsx)", type=["xls", "xlsx"], key="iade_excel")
             _ie_aralik = st.date_input("Bu rapor hangi dönemi kapsıyor? (başlangıç – bitiş)",
-                                       value=(date.today(), date.today()), key="iade_excel_tarih")
+                                       value=(date.today(), date.today()), key="iade_excel_tarih", format="DD.MM.YYYY")
             if isinstance(_ie_aralik, (list, tuple)) and len(_ie_aralik) == 2:
                 _ie_bas, _ie_bit = _ie_aralik
             elif isinstance(_ie_aralik, (list, tuple)) and _ie_aralik:

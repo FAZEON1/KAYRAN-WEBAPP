@@ -239,7 +239,7 @@ def urun_etiketi(ad, sku="", renk=None, kalin=False):
                 f'padding:1px 6px;letter-spacing:0">{sku_e}</span>') if sku else ""
     return (f'<span title="{baslik}" style="display:flex;align-items:center;gap:8px;'
             f'min-width:0;flex:1 1 auto">{sku_html}'
-            f'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;'
+            f'<span class="k-urun-ad" style="min-width:0;overflow:hidden;text-overflow:ellipsis;'
             f'white-space:nowrap;color:{renk};font-size:13px;font-weight:{agirlik}">'
             f'{ad_e}</span></span>')
 
@@ -469,10 +469,11 @@ button[data-baseweb="tab"][aria-selected="true"]{{
 #
 #    Seçiciler bilinçli olarak çok özgül: modüllerdeki eski düğme kuralları
 #    (Ürün Yön. mavi degrade, ana sayfa mor degrade…) bunu ezemez.
-#    Üst menü (.st-key-ustnav) ve sidebar kendi stilinde kalır.
+#    Üst menü (.st-key-ustnav), sağ alttaki ✉️ talep düğmesi (.st-key-fab_talep)
+#    ve sidebar kendi stilinde kalır.
 # ═══════════════════════════════════════════════════════════════════
 _D = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
-      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *) > button')
+      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *) > button')
 _SIL = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
         '[class*="st-key-"][class*="_sil"]:not([class*="iptal"]):not([class*="vazgec"]) '
         ':is(.stButton,.stFormSubmitButton) > button')
@@ -548,6 +549,76 @@ def mesaj(tur, metin):
             f'<div>{_h.escape(metin)}</div></div>')
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 7. MOBİL KATMAN — telefonda (≤640px) HER sayfa buna uyar.
+#    Ekran ekran uğraşmak yerine ortak kurallar: dokunma hedefleri, iOS
+#    yakınlaştırma sorunu, taşan tablolar, sıkışan ızgaralar, tam ekran
+#    pencereler. Modüllerin kendi kodu değişmeden telefonda düzgün görünür.
+# ═══════════════════════════════════════════════════════════════════
+_MD = '[data-testid="stMarkdownContainer"]'
+MOBIL_CSS = f"""
+@media (max-width:640px){{
+  /* Kenar boşluğu: ekranın her pikseli değerli. Altta ✉️ düğmesi için yer. */
+  .stApp [data-testid="stMainBlockContainer"], .stApp .block-container{{
+    padding-left:10px !important;padding-right:10px !important;padding-bottom:96px !important;}}
+
+  /* iOS, 16px'ten küçük yazılı kutuya dokununca sayfayı YAKINLAŞTIRIR ve
+     geri uzaklaştırmaz. Bütün giriş kutuları 16px. */
+  input, textarea, select, [data-baseweb="select"] *{{font-size:16px !important;}}
+
+  /* Dokunma hedefleri: en az 44px (parmak ucu ~ 1cm) */
+  [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+  [data-testid="stDateInput"] input, [data-testid="stTimeInput"] input{{min-height:44px !important;}}
+  [data-baseweb="select"] > div{{min-height:44px !important;}}
+  [data-testid="stNumberInputStepDown"], [data-testid="stNumberInputStepUp"]{{
+    min-width:44px !important;min-height:44px !important;}}
+  [data-testid="stCheckbox"] label, [data-testid="stToggle"] label,
+  [data-testid="stMain"] [role="radiogroup"] > label{{min-height:40px !important;align-items:center !important;}}
+  [data-testid="stExpander"] summary{{min-height:48px !important;align-items:center !important;}}
+  section[data-testid="stSidebar"] [role="radiogroup"] > label{{min-height:42px !important;align-items:center !important;}}
+
+  /* Sekmeler: sığmazsa yana kaysın, sekme yüksekliği parmağa uygun */
+  [data-baseweb="tab-list"]{{overflow-x:auto !important;scrollbar-width:none;flex-wrap:nowrap !important;}}
+  [data-baseweb="tab-list"]::-webkit-scrollbar{{display:none;}}
+  button[data-baseweb="tab"]{{min-height:44px !important;padding:0 12px !important;flex-shrink:0 !important;}}
+
+  /* Düğmeler telefonda tam genişlik: sütunlar alt alta dizildiğinde "Kaydet"
+     küçük bir ada gibi kalmasın, başparmakla her yerden basılabilsin.
+     (Üst menü, ✉️ ve Bugün paneli kendi düzeninde kalır.) */
+  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> :is(.stButton,.stDownloadButton,.stFormSubmitButton)):not(.st-key-ustnav *):not(.st-key-fab_talep):not(.st-key-bugun_panel *){{
+    width:100% !important;}}
+  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *){{
+    width:100% !important;}}
+  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *) > button{{
+    width:100% !important;}}
+
+  /* Elle yazılmış HTML tablolar: ekranı taşırmasın, kendi içinde yana kaysın.
+     Hücre bölünmesin (3 satıra kırılan "FAZEON / F14 / PLUS" yerine tek satır),
+     aralık daralsın: telefonda bir satır = bir kayıt, yana kaydırarak okunur. */
+  {_MD} table{{display:block !important;max-width:100% !important;overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch;}}
+  {_MD} table :is(td,th){{white-space:nowrap !important;padding:6px 10px !important;font-size:12.5px !important;}}
+  {_MD} :is(img,svg,video,pre){{max-width:100% !important;height:auto;}}
+
+  /* Sabit 3-6 sütunlu ızgaralar telefonda 2 sütuna iner (rakamlar okunur kalır) */
+  {_MD} :is([style*="grid-template-columns:repeat(3"],[style*="grid-template-columns:repeat(4"],
+    [style*="grid-template-columns:repeat(5"],[style*="grid-template-columns:repeat(6"],
+    [style*="grid-template-columns: repeat(3"],[style*="grid-template-columns: repeat(4"]){{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+
+  /* Kısalan metin telefonda "üstüne gel" ile açılamaz (fare yok): ürün adı ve
+     Bugün satırı ayrıntısı kesilmek yerine en fazla 2 satıra sarar. */
+  .k-urun-ad, .bgn-detay{{white-space:normal !important;display:-webkit-box !important;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden !important;}}
+
+  [data-testid="stMetricValue"]{{font-size:1.05rem !important;}}
+  [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p{{font-size:.72rem !important;}}
+  .stApp h1{{font-size:1.3rem !important;}} .stApp h2{{font-size:1.12rem !important;}}
+  .stApp h3{{font-size:1rem !important;}}
+}}
+"""
+
+
 def cekirdek_css(yogunluk=None):
     R, F = RENK, FONT
     kp, kr, gg, sa, sp, kmin = (_y("kart_pad", yogunluk), _y("kart_r", yogunluk),
@@ -560,7 +631,7 @@ def cekirdek_css(yogunluk=None):
 /* Bu sınıfı taşıyan kapsayıcı AÇIK paleti kullanır (Tasarım Rehberi önizlemesi;
    ileride kullanıcı tema seçimi de aynı değişkenlerle çalışır). */
 .k-tema-acik{{{acik}color:var(--k-metin);}}
-""" + DUGME_CSS + BILESEN_CSS + f"""
+""" + DUGME_CSS + BILESEN_CSS + MOBIL_CSS + f"""
 
 .k-grid{{display:flex;gap:var(--k-gap);flex-wrap:wrap;align-items:stretch;margin:0 0 {sa};}}
 

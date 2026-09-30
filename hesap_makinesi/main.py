@@ -134,7 +134,7 @@ def _gecmis_odemeler(kisi, pfx):
             with e3:
                 try: td = date.fromisoformat(str(erow.get('odeme_tarihi', date.today())))
                 except: td = date.today()
-                e_t = st.date_input('Ödeme Tarihi', value=td, key=pfx+'_et')
+                e_t = st.date_input('Ödeme Tarihi', value=td, key=pfx+'_et', format="DD.MM.YYYY")
             with e4: e_n = st.text_input('Not', value=erow.get('notlar',''), key=pfx+'_en')
             b1,b2,_ = st.columns([1,1,4])
             with b1:
@@ -234,7 +234,7 @@ def _prim_gokhan():
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8;margin-bottom:12px">PRİM ÖDEMESİ KAYDET</div>', unsafe_allow_html=True)
     op1,op2,op3 = st.columns([1.5,1.5,1])
-    with op1: gy_odt = st.date_input('Ödeme Tarihi', value=date.today(), key='gy_odt')
+    with op1: gy_odt = st.date_input('Ödeme Tarihi', value=date.today(), key='gy_odt', format="DD.MM.YYYY")
     with op2: gy_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='gy_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
@@ -309,7 +309,7 @@ def _prim_ayhan():
     st.markdown('<div class="prim-card">', unsafe_allow_html=True)
     st.markdown('<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#94A3B8;margin-bottom:12px">PRİM ÖDEMESİ KAYDET</div>', unsafe_allow_html=True)
     op1,op2,op3 = st.columns([1.5,1.5,1])
-    with op1: ay_odt = st.date_input('Ödeme Tarihi', value=date.today(), key='ay_odt')
+    with op1: ay_odt = st.date_input('Ödeme Tarihi', value=date.today(), key='ay_odt', format="DD.MM.YYYY")
     with op2: ay_not = st.text_input('Not (opsiyonel)', placeholder='Örn: Q1 ödemesi', key='ay_not')
     with op3:
         st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)

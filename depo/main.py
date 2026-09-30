@@ -140,7 +140,7 @@ def _sayfa_sevk():
         st.caption(f"{len(_sepet)} kalem · toplam {_toplam} adet · {_kaynak} → {_hedef or '(hedef seçilmedi)'}")
 
         sv1, sv2 = st.columns(2)
-        _sevk_tarih = sv1.date_input("Sevk Tarihi", value=date.today(), key="dpo_sevk_tarih")
+        _sevk_tarih = sv1.date_input("Sevk Tarihi", value=date.today(), key="dpo_sevk_tarih", format="DD.MM.YYYY")
         _belge_no = sv2.text_input("Belge Numarası", key="dpo_belge_no",
                                    placeholder="irsaliye / fatura / belge no")
 
@@ -315,7 +315,7 @@ def _sayfa_bekleyen():
         d1, d2, d3 = st.columns(3)
         _d_adet = d1.number_input(f"Sevk adedi (bekleyen {_kalan})", min_value=1,
                                   max_value=max(1, _kalan), value=1, step=1, key="mt_d_adet")
-        _d_tarih = d2.date_input("Sevk tarihi", value=date.today(), key="mt_d_tarih")
+        _d_tarih = d2.date_input("Sevk tarihi", value=date.today(), key="mt_d_tarih", format="DD.MM.YYYY")
         _d_belge = d3.text_input("Fatura / Belge no (ops.)", key="mt_d_belge")
         e1, e2 = st.columns(2)
         _d_fis = e1.text_input("Fiş No", value=fis_no_uret(_tum_hrk), key="mt_d_fis",
@@ -407,8 +407,8 @@ def _sayfa_bekleyen():
     h1, h2, h3 = st.columns([1.2, 1, 1])
     _h_firma = h1.selectbox("Firma", ["Tümü"] + sorted({d["Firma"] for d in _duz if d["Firma"]}),
                             key="mt_h_firma")
-    _h_bas = h2.date_input("Başlangıç", value=None, key="mt_h_bas")
-    _h_bit = h3.date_input("Bitiş", value=None, key="mt_h_bit")
+    _h_bas = h2.date_input("Başlangıç", value=None, key="mt_h_bas", format="DD.MM.YYYY")
+    _h_bit = h3.date_input("Bitiş", value=None, key="mt_h_bit", format="DD.MM.YYYY")
 
     _f = [d for d in _duz if _h_firma == "Tümü" or d["Firma"] == _h_firma]
     if _h_bas:
@@ -650,7 +650,7 @@ def _sayfa_happylife():
         up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="hl_upload")
         _rapor = st.date_input("Rapor tarihi", value=date.today(), key="hl_rapor_t",
                                help="Bu yüklemenin ait olduğu gün. Aynı günü tekrar yüklersen "
-                                    "önceki kayıt güncellenir (mükerrer olmaz).")
+                                    "önceki kayıt güncellenir (mükerrer olmaz).", format="DD.MM.YYYY")
         if up is not None:
             kayitlar, hata = hl_excel_parse(up)
             if hata:
