@@ -189,7 +189,7 @@ def css():
   padding:0 12px !important;font-size:12px !important;background:transparent !important;
   border:1px solid var(--k-kenar2) !important;box-shadow:none !important;color:var(--k-soluk) !important;
   transform:none !important}}
-.st-key-bugun_panel .stButton button:hover{{border-color:rgba(129,140,248,.45) !important;
+.st-key-bugun_panel .stButton button:hover{{border-color:color-mix(in srgb,var(--k-mor) 45%,transparent) !important;
   color:var(--k-metin) !important}}
 @media (max-width:640px){{
   .st-key-bugun_panel [data-testid="stHorizontalBlock"]{{flex-direction:row !important;flex-wrap:nowrap !important}}

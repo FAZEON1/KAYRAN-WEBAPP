@@ -2,6 +2,7 @@
 KAYRAN - Ortak Yardımcı Fonksiyonlar
 Tüm uygulamaların kullandığı timezone, error handling, vb.
 """
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import datetime, date, timedelta
 import zoneinfo
@@ -209,20 +210,20 @@ def sayfa_error_handler(sayfa_adi: str, hata: Exception) -> None:
             sayfa_error_handler("Bu Hafta", e)
     """
     st.markdown(
-        '<div style="background:#F87171;border:1px solid #FCA5A5;border-left:4px solid #F87171;'
+        '<div style="background:var(--k-kirmizi);border:1px solid var(--k-kirmizi2);border-left:4px solid var(--k-kirmizi);'
         'border-radius:12px;padding:20px 24px;margin:20px 0">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
         '<span style="font-size:23px">⚠️</span>'
-        f'<b style="color:#991B1B;font-size:16px">{sayfa_adi} Sayfasında Bir Sorun Oluştu</b>'
+        f'<b style="color:var(--k-kirmizi);font-size:16px">{sayfa_adi} Sayfasında Bir Sorun Oluştu</b>'
         '</div>'
-        '<div style="color:#7F1D1D;font-size:13px;line-height:1.6;margin-bottom:14px">'
+        '<div style="color:var(--k-kirmizi);font-size:13px;line-height:1.6;margin-bottom:14px">'
         'Üzgünüz, beklenmedik bir hata oluştu. Sayfayı yenileyebilir veya birkaç dakika sonra tekrar deneyebilirsiniz.'
         '</div>'
-        '<div style="background:#E2E8F0;border:1px solid #FCA5A5;border-radius:8px;padding:10px 14px;'
-        'font-family:monospace;font-size:11px;color:#991B1B;margin-bottom:10px;overflow-x:auto">'
+        '<div style="background:var(--k-metin);border:1px solid var(--k-kirmizi2);border-radius:8px;padding:10px 14px;'
+        'font-family:monospace;font-size:11px;color:var(--k-kirmizi);margin-bottom:10px;overflow-x:auto">'
         f'<b>Hata Detayı:</b> {type(hata).__name__}: {str(hata)[:300]}'
         '</div>'
-        '<div style="font-size:11px;color:#991B1B">'
+        '<div style="font-size:11px;color:var(--k-kirmizi)">'
         '💡 <b>Ne yapabilirim?</b> Sayfayı yenileyin (Ctrl+F5) · Çıkış yapıp tekrar girin · Sorun devam ederse yöneticiye bildirin'
         '</div>'
         '</div>',
@@ -347,18 +348,18 @@ class Zamanlayici:
             _satir = []
             for ad, v in _kalem:
                 _w = max(2, int(v / _en * 100))
-                _renk = "#F87171" if v >= _top * 0.35 else (
-                        "#FBBF24" if v >= _top * 0.15 else "#34D399")
+                _renk = trenk("kirmizi") if v >= _top * 0.35 else (
+                        trenk("amber") if v >= _top * 0.15 else trenk("yesil"))
                 _satir.append(
                     f'<div style="display:flex;align-items:center;gap:8px;margin:3px 0">'
-                    f'<div style="width:190px;font-size:12px;color:#94A3B8">{ad}</div>'
-                    f'<div style="flex:1;height:6px;background:rgba(255,255,255,0.05);'
+                    f'<div style="width:190px;font-size:12px;color:var(--k-soluk)">{ad}</div>'
+                    f'<div style="flex:1;height:6px;background:color-mix(in srgb,var(--k-metin) 5%,transparent);'
                     f'border-radius:3px;overflow:hidden">'
                     f'<div style="height:6px;width:{_w}%;background:{_renk}"></div></div>'
                     f'<div style="width:74px;text-align:right;font-size:12px;'
                     f'font-family:JetBrains Mono,monospace;color:{_renk}">'
                     f'{tr_sayi(v)} ms</div>'
-                    f'<div style="width:44px;text-align:right;font-size:11px;color:#7B8AA0">'
+                    f'<div style="width:44px;text-align:right;font-size:11px;color:var(--k-silik)">'
                     f'%{tr_sayi(v / _top * 100)}</div></div>')
             st.markdown("".join(_satir), unsafe_allow_html=True)
             for _n in getattr(self, "notlar", []):
@@ -420,12 +421,12 @@ def sidebar_stil() -> str:
     {SB} > label::before{{
         content:""; position:absolute; left:3px; top:24%; bottom:24%;
         width:3px; border-radius:2px;
-        background:linear-gradient(180deg,#818CF8,#22D3EE);
+        background:linear-gradient(180deg,var(--k-mor),var(--k-cyan));
         opacity:0; transform:scaleY(.3);
         transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.4,.64,1);
     }}
     {SB} > label:hover{{
-        background:rgba(255,255,255,0.045) !important;
+        background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
         transform:translateX(2px);
     }}
     {SB} > label > div:first-child{{ display:none !important; }}
@@ -434,26 +435,26 @@ def sidebar_stil() -> str:
         font-size:13px !important;
         font-weight:600 !important;
         letter-spacing:0 !important;
-        color:#94A3B8 !important;
+        color:var(--k-soluk) !important;
         font-variant-numeric:tabular-nums;
         transition:color .18s ease;
     }}
-    {SB} > label:hover p{{ color:#E2E8F0 !important; }}
+    {SB} > label:hover p{{ color:var(--k-metin) !important; }}
     {SB} > label:has(input:checked){{
-        background:linear-gradient(90deg,rgba(99,102,241,0.18),rgba(34,211,238,0.06) 65%,transparent) !important;
-        box-shadow:inset 0 0 0 1px rgba(129,140,248,0.28), 0 2px 12px rgba(99,102,241,0.18);
+        background:linear-gradient(90deg,color-mix(in srgb,var(--k-mor) 18%,transparent),color-mix(in srgb,var(--k-cyan) 6%,transparent) 65%,transparent) !important;
+        box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k-mor) 28%,transparent), 0 2px 12px color-mix(in srgb,var(--k-mor) 18%,transparent);
         transform:translateX(2px);
     }}
     {SB} > label:has(input:checked)::before{{ opacity:1; transform:scaleY(1); }}
     {SB} > label:has(input:checked) p{{
-        color:#E2E8F0 !important; font-weight:700 !important;
+        color:var(--k-metin) !important; font-weight:700 !important;
     }}
     section[data-testid="stSidebar"] [data-testid="stButton"] button{{
         border-radius:10px !important; font-weight:600 !important;
     }}
     section[data-testid="stSidebar"] hr{{
         margin:10px 0 !important;
-        border-color:rgba(148,163,184,0.12) !important;
+        border-color:color-mix(in srgb,var(--k-soluk) 12%,transparent) !important;
     }}
     </style>
     <style>
@@ -461,8 +462,8 @@ def sidebar_stil() -> str:
        stMain ile kapsanır: Streamlit varsayılanını yener, sidebar etkilenmez. ── */
     section[data-testid="stMain"] div[role="radiogroup"]{{ gap:8px !important; align-items:center; }}
     section[data-testid="stMain"] div[role="radiogroup"] > label{{
-        background:rgba(255,255,255,0.035) !important;
-        border:1px solid rgba(148,163,184,0.18) !important;
+        background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
+        border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent) !important;
         border-radius:11px !important;
         padding:8px 18px !important;
         margin:0 !important;
@@ -470,22 +471,22 @@ def sidebar_stil() -> str:
         transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
     }}
     section[data-testid="stMain"] div[role="radiogroup"] > label:hover{{
-        background:rgba(129,140,248,0.10) !important;
-        border-color:rgba(129,140,248,0.55) !important;
+        background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
+        border-color:color-mix(in srgb,var(--k-mor) 55%,transparent) !important;
         transform:translateY(-1px);
     }}
     section[data-testid="stMain"] div[role="radiogroup"] > label > div:first-child{{ display:none !important; }}
     section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked){{
-        background:linear-gradient(135deg,#818CF8,#818CF8) !important;
-        border-color:#818CF8 !important;
-        box-shadow:0 4px 14px rgba(99,102,241,0.38) !important;
+        background:linear-gradient(135deg,var(--k-mor),var(--k-mor)) !important;
+        border-color:var(--k-mor) !important;
+        box-shadow:0 4px 14px color-mix(in srgb,var(--k-mor) 38%,transparent) !important;
     }}
     section[data-testid="stMain"] div[role="radiogroup"] label p{{
         font-family:Inter,sans-serif !important; font-weight:600 !important;
         letter-spacing:-0.1px !important; font-size:14px !important;
     }}
     section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked) p{{
-        color:#E2E8F0 !important; font-weight:700 !important;
+        color:var(--k-metin) !important; font-weight:700 !important;
     }}
     </style>
     """)
@@ -497,13 +498,13 @@ def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
     `alt` parametresi geriye uyumluluk için duruyor, görselde kullanılmıyor.)"""
     return (
         '<div style="display:flex;align-items:center;gap:10px;padding:2px 2px 10px;'
-        'border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:10px">'
+        'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent);margin-bottom:10px">'
         '<div style="width:26px;height:26px;border-radius:8px;flex-shrink:0;'
-        'background:linear-gradient(135deg,rgba(99,102,241,0.35),rgba(139,92,246,0.25));'
-        'border:1px solid rgba(129,140,248,0.35);display:flex;align-items:center;'
+        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 35%,transparent),color-mix(in srgb,var(--k-mor) 25%,transparent));'
+        'border:1px solid color-mix(in srgb,var(--k-mor) 35%,transparent);display:flex;align-items:center;'
         f'justify-content:center;font-size:13px">{ikon}</div>'
         '<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;'
-        f'letter-spacing:-0.2px;color:#E2E8F0;white-space:nowrap;overflow:hidden;'
+        f'letter-spacing:-0.2px;color:var(--k-metin);white-space:nowrap;overflow:hidden;'
         f'text-overflow:ellipsis">{ad}</div>'
         '</div>'
     )
@@ -518,9 +519,9 @@ def sidebar_kullanici(kullanici: str) -> str:
     return (
         '<div style="display:flex;align-items:center;gap:9px;padding:2px 2px;margin-bottom:8px">'
         '<div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;'
-        'background:linear-gradient(135deg,#818CF8,#818CF8);display:flex;align-items:center;'
+        'background:linear-gradient(135deg,var(--k-mor),var(--k-mor));display:flex;align-items:center;'
         f'justify-content:center;font-size:11px;font-weight:700;color:#fff">{bas}</div>'
-        f'<div style="font-size:13px;color:#A5B4FC;font-weight:600">{kullanici.capitalize()}</div>'
+        f'<div style="font-size:13px;color:var(--k-mor2);font-weight:600">{kullanici.capitalize()}</div>'
         '</div>'
     )
 
@@ -609,8 +610,8 @@ def modern_input_stil() -> str:
     div[data-baseweb="base-input"],
     div[data-baseweb="select"] > div,
     [data-testid="stTextArea"] textarea {
-        background: rgba(255,255,255,0.045) !important;
-        border: 1px solid rgba(148,163,184,0.22) !important;
+        background: color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
+        border: 1px solid color-mix(in srgb,var(--k-soluk) 22%,transparent) !important;
         border-radius: 11px !important;
         transition: border-color .15s ease, box-shadow .15s ease, background .15s ease !important;
         box-shadow: none !important;
@@ -623,7 +624,7 @@ def modern_input_stil() -> str:
     [data-testid="stDateInput"] input,
     [data-testid="stTextArea"] textarea {
         background: transparent !important;
-        color: #A5B4FC !important;
+        color: var(--k-mor2) !important;
         font-size:13px !important;
         padding: 11px 14px !important;
         border: none !important;
@@ -634,24 +635,24 @@ def modern_input_stil() -> str:
     /* Placeholder daha yumuşak */
     [data-testid="stTextInput"] input::placeholder,
     [data-testid="stNumberInput"] input::placeholder,
-    [data-testid="stTextArea"] textarea::placeholder { color: rgba(148,163,184,0.65) !important; }
+    [data-testid="stTextArea"] textarea::placeholder { color: color-mix(in srgb,var(--k-soluk) 65%,transparent) !important; }
 
     /* Hover */
     div[data-baseweb="input"]:hover,
     div[data-baseweb="base-input"]:hover,
     div[data-baseweb="select"] > div:hover,
     [data-testid="stTextArea"] textarea:hover {
-        border-color: rgba(148,163,184,0.40) !important;
-        background: rgba(255,255,255,0.06) !important;
+        border-color: color-mix(in srgb,var(--k-soluk) 40%,transparent) !important;
+        background: color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
     }
     /* Odak — accent parlaması */
     div[data-baseweb="input"]:focus-within,
     div[data-baseweb="base-input"]:focus-within,
     div[data-baseweb="select"]:focus-within > div,
     [data-testid="stTextArea"] textarea:focus {
-        border-color: #818CF8 !important;
-        box-shadow: 0 0 0 3px rgba(99,102,241,0.20) !important;
-        background: rgba(99,102,241,0.06) !important;
+        border-color: var(--k-mor) !important;
+        box-shadow: 0 0 0 3px color-mix(in srgb,var(--k-mor) 20%,transparent) !important;
+        background: color-mix(in srgb,var(--k-mor) 6%,transparent) !important;
     }
 
     /* BaseWeb'in kendi iç kenarlığını sıfırla (çift kenar olmasın) */
@@ -659,7 +660,7 @@ def modern_input_stil() -> str:
     div[data-baseweb="base-input"] > div { border: none !important; background: transparent !important; }
 
     /* Etiketler biraz daha okunur */
-    [data-testid="stWidgetLabel"] p { font-size:13px !important; color: #94A3B8 !important; font-weight: 600 !important; }
+    [data-testid="stWidgetLabel"] p { font-size:13px !important; color: var(--k-soluk) !important; font-weight: 600 !important; }
     </style>
     """)
 

@@ -5,6 +5,7 @@ Dönemsel kâr/zarar: Ciro − COGS − Destekler = Net Kâr.
  • Destekler → Ref no harcamalarından, türlere göre kırılımlı.
 Tüm tutarlar USD. TL cinsi destekler güncel kurla yaklaşık çevrilir.
 """
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 from shared.utils import secim_serit
@@ -332,7 +333,7 @@ def run():
                 ("➖ Manuel çıkarma", _s.get("manuel_cikar", 0), "−")]
         _kh = "".join(
             f'<div style="display:flex;justify-content:space-between;padding:5px 12px;margin:2px 0;'
-            f'border-radius:6px;background:rgba(255,255,255,0.03)">'
+            f'border-radius:6px;background:color-mix(in srgb,var(--k-metin) 3%,transparent)">'
             f'<span style="color:{RENK["metin"]};font-size:13px">{a}</span>'
             f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:13px;'
             f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${tr_sayi(float(v or 0))}</span></div>'
@@ -340,8 +341,8 @@ def run():
         st.markdown(pencere(
             "💎 TOPLAM AKTİFLER", RENK["mor"],
             f'<div style="text-align:center;padding:10px 0 14px;margin-bottom:8px;'
-            f'border-bottom:1px solid rgba(255,255,255,0.08)">'
-            f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
+            f'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent)">'
+            f'<div style="font-size:23px;font-weight:700;color:var(--k-metin);'
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${tr_sayi(_t)}</div>'
             f'<div style="font-size:13px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
             f'margin-top:4px">≈ ₺{tr_sayi((_t * _k))} · kur {_k:g}</div></div>' + _kh,
@@ -364,7 +365,7 @@ def run():
             _donem = secim_serit("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], index=0)
         else:
             _donem = "Tüm Yıl"
-            st.markdown('<div style="color:#7B8AA0;font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',
+            st.markdown('<div style="color:var(--k-silik);font-size:13px;margin-top:32px">Tüm yıl görünümü</div>',
                         unsafe_allow_html=True)
     baslangic, bitis = _donem_tarih(_yil, _donem)
 
@@ -555,24 +556,24 @@ def run():
                 f'<div style="color:{renk};font-size:11px;font-weight:600;margin-top:4px">{alt}</div></div>')
 
     def _op(s):
-        return (f'<div style="display:flex;align-items:center;color:#475569;font-size:19px;'
+        return (f'<div style="display:flex;align-items:center;color:var(--k-silik);font-size:19px;'
                 f'font-weight:700;padding:0 2px">{s}</div>')
 
     _ciro_alt = (f"brüt {_usd(ciro_brut)} − iade {_usd(iade_tutar)}" if iade_tutar > 0 else "net satış")
     st.markdown(
         f'<div style="display:flex;align-items:stretch;gap:4px;flex-wrap:wrap;'
-        f'background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(148,163,184,0.14);'
+        f'background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-soluk) 14%,transparent);'
         f'border-radius:16px;padding:12px 12px;margin:6px 0 4px">'
         + _hucre("Ciro", _usd(ciro), _ciro_alt, RENK["mor2"])
         + _op("−") + _hucre("COGS", _usd(cogs), "ürün maliyeti", RENK["amber"])
         + _op("=") + _hucre("Brüt Kâr", _usd(brut), f"marj {_pct(brut_marj)}", RENK["cyan"])
         + _op("−") + _hucre("Destekler", _usd(toplam_destek), "ref no destekleri", RENK["pembe"])
         + _op("−") + _hucre("Giderler", _usd(gider_usd), "işletme (TL→USD)", RENK["amber2"])
-        + (_op("+") + _hucre("ALINAN DESTEK", _usd(alinan_destek_usd), "sellout/mkt/rebate", "#34D399")
+        + (_op("+") + _hucre("ALINAN DESTEK", _usd(alinan_destek_usd), "sellout/mkt/rebate", trenk("yesil"))
            if alinan_destek_usd else "")
         + _op("=") + _hucre("NET KÂR", _usd(net_kar), f"net marj {_pct(net_marj)}", _nrenk, vurgulu=True)
         + '</div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="color:#475569;font-size:11px;margin:0 2px 10px">📅 {baslangic} → {bitis}'
+    st.markdown(f'<div style="color:var(--k-silik);font-size:11px;margin:0 2px 10px">📅 {baslangic} → {bitis}'
                 + (f' · ℹ️ TL destekler fatura günü kuruyla çevrildi (eksik günlerde ~{_usdtry:.2f}₺)' if _tl_uyari else '')
                 + '</div>', unsafe_allow_html=True)
     if _kur_eksik:
@@ -581,13 +582,13 @@ def run():
     # ═════════ ORTA GRID — 4 scroll'lu pencere ═════════
     def _bar_satir(ad, tutar_str, oran, renk, sag_ek=""):
         _w = max(2, min(100, oran))
-        return (f'<div style="padding:4px 12px;margin:3px 0;border-radius:6px;background:rgba(255,255,255,0.03)">'
+        return (f'<div style="padding:4px 12px;margin:3px 0;border-radius:6px;background:color-mix(in srgb,var(--k-metin) 3%,transparent)">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
                 f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{ad}</span>'
                 f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:700;'
                 f'font-family:JetBrains Mono,monospace">{tutar_str}'
                 f'<span style="color:{RENK["silik"]};font-weight:400"> {sag_ek}</span></span></div>'
-                f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
+                f'<div style="height:4px;border-radius:2px;background:color-mix(in srgb,var(--k-metin) 5%,transparent)">'
                 f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div></div>')
 
     # Pencere 1 — Destek kırılımı
@@ -642,14 +643,14 @@ def run():
         _topgider = _sabit + _degisken + _yari
         _gmax = max(_sabit, _degisken, _yari, 1)
         _g_html = (
-            _bar_satir("Sabit", f"₺{tr_sayi(_sabit)}", _sabit / _gmax * 100, "#7DD3FC",
+            _bar_satir("Sabit", f"₺{tr_sayi(_sabit)}", _sabit / _gmax * 100, trenk("mavi"),
                        sag_ek=(f"· %{tr_sayi((_sabit / _topgider * 100))}" if _topgider else ""))
-            + _bar_satir("Değişken", f"₺{tr_sayi(_degisken)}", _degisken / _gmax * 100, "#FBBF24",
+            + _bar_satir("Değişken", f"₺{tr_sayi(_degisken)}", _degisken / _gmax * 100, trenk("amber"),
                          sag_ek=(f"· %{tr_sayi((_degisken / _topgider * 100))}" if _topgider else ""))
-            + _bar_satir("Yarı Değişken", f"₺{tr_sayi(_yari)}", _yari / _gmax * 100, "#818CF8",
+            + _bar_satir("Yarı Değişken", f"₺{tr_sayi(_yari)}", _yari / _gmax * 100, trenk("mor"),
                          sag_ek=(f"· %{tr_sayi((_yari / _topgider * 100))}" if _topgider else ""))
             + f'<div style="display:flex;justify-content:space-between;padding:8px 12px;margin-top:4px;'
-              f'border-top:1px solid rgba(255,255,255,0.08)">'
+              f'border-top:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent)">'
               f'<span style="color:{RENK["soluk"]};font-size:11px;font-weight:700;letter-spacing:.5px">TOPLAM ({_donem})</span>'
               f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:700;'
               f'font-family:JetBrains Mono,monospace">₺{tr_sayi(_topgider)}</span></div>'
@@ -685,15 +686,15 @@ def run():
         ]
         _kalem_html = "".join(
             f'<div style="display:flex;justify-content:space-between;padding:4px 12px;margin:2px 0;'
-            f'border-radius:6px;background:rgba(255,255,255,0.03)">'
+            f'border-radius:6px;background:color-mix(in srgb,var(--k-metin) 3%,transparent)">'
             f'<span style="color:{RENK["metin"]};font-size:11px">{k}</span>'
             f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:11px;'
             f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${tr_sayi(float(v or 0))}</span></div>'
             for k, v, y in _kalemler if float(v or 0))
         _a_html = (
             f'<div style="text-align:center;padding:8px 0 12px;margin-bottom:8px;'
-            f'border-bottom:1px solid rgba(255,255,255,0.08)">'
-            f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
+            f'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent)">'
+            f'<div style="font-size:23px;font-weight:700;color:var(--k-metin);'
             f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${tr_sayi(_ta)}</div>'
             f'<div style="font-size:11px;color:{RENK["mor2"]};'
             f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{tr_sayi((_ta * _kur_s))} · kur {_kur_s:g}</div></div>'
@@ -802,7 +803,7 @@ def run():
             f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'
             + "".join(
                 f'<div style="flex:1;min-width:130px;text-align:center;padding:12px 8px;'
-                f'background:linear-gradient(180deg,#152036,#0F172A);border:1px solid {c}2E;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.30)">'
+                f'background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid {c}2E;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.30)">'
                 f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
                 f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
                 f'<div style="color:{c};font-size:19px;font-weight:700;'
@@ -817,13 +818,13 @@ def run():
 
         # P&L akış satırı
         st.markdown(
-            f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
+            f'<div style="background:color-mix(in srgb,var(--k-metin) 2%,transparent);border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);'
             f'border-radius:10px;padding:12px 16px;margin-bottom:16px;font-family:JetBrains Mono,monospace;'
-            f'font-size:13px;color:#7DD3FC">'
-            f'{_usd(_r["ciro"])} <span style="color:#7B8AA0">ciro</span> − '
-            f'{_usd(_r["cogs"])} <span style="color:#7B8AA0">cogs</span> − '
-            f'{_usd(_r["destek"])} <span style="color:#7B8AA0">destek</span> − '
-            f'{_usd(_r["gider"])} <span style="color:#7B8AA0">gider</span> = '
+            f'font-size:13px;color:var(--k-mavi)">'
+            f'{_usd(_r["ciro"])} <span style="color:var(--k-silik)">ciro</span> − '
+            f'{_usd(_r["cogs"])} <span style="color:var(--k-silik)">cogs</span> − '
+            f'{_usd(_r["destek"])} <span style="color:var(--k-silik)">destek</span> − '
+            f'{_usd(_r["gider"])} <span style="color:var(--k-silik)">gider</span> = '
             f'<b style="color:{_nr}">{_usd(_r["net_kar"])} net kâr</b></div>',
             unsafe_allow_html=True)
 

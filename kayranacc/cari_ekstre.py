@@ -2,6 +2,7 @@
 """Cari Ekstre & Vade Yaşlandırma — ödenecekler (tedarikçi/gider) tarafı.
 'odemeler' tablosundan beslenir. Müşteri alacağı (satış tahsilatı) AYRI bir konudur,
 o veri henüz tutulmadığı için burada yer almaz."""
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
@@ -74,9 +75,9 @@ def render():
         c1, c2, c3 = st.columns(3)
         from shared.utils import metrik_satiri as _ms
         _ms([
-            {"label": "📤 Açık Borç (TL)", "value": _tl(acik_tl), "renk": "#F87171"},
+            {"label": "📤 Açık Borç (TL)", "value": _tl(acik_tl), "renk": trenk("kirmizi")},
             {"label": "💵 Açık Borç (USD)", "value": _usd(acik_usd), "renk": "#FB923C"},
-            {"label": "✅ Ödenmiş (TL)", "value": _tl(odenen_tl), "renk": "#34D399", "alt": f"USD: {_usd(odenen_usd)}"},
+            {"label": "✅ Ödenmiş (TL)", "value": _tl(odenen_tl), "renk": trenk("yesil"), "alt": f"USD: {_usd(odenen_usd)}"},
         ])
 
         # Gecikmiş açık kalem var mı?

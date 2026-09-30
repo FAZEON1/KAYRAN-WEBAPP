@@ -1,5 +1,6 @@
 """Depo Yönetimi modülü — sidebar sayfaları: Depo Stok · Depolar Arası Sevk ·
 Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
@@ -122,15 +123,15 @@ def _sayfa_sevk():
 
     # Sevk listesi (sepet)
     if _sepet:
-        st.markdown('<div style="font-size:13px;font-weight:700;color:#94A3B8;margin:12px 0 4px;'
+        st.markdown('<div style="font-size:13px;font-weight:700;color:var(--k-soluk);margin:12px 0 4px;'
                     'text-transform:uppercase;letter-spacing:.5px">📋 Sevk Listesi</div>',
                     unsafe_allow_html=True)
         for _i, _s in enumerate(_sepet):
             rc1, rc2, rc3 = st.columns([3, 1, 0.5])
-            rc1.markdown(f'<div style="padding:4px 0"><b style="color:#E2E8F0">{_s["sku"]}</b> '
-                         f'<span style="color:#94A3B8;font-size:13px">{(_s["urun_adi"] or "")[:42]}</span></div>',
+            rc1.markdown(f'<div style="padding:4px 0"><b style="color:var(--k-metin)">{_s["sku"]}</b> '
+                         f'<span style="color:var(--k-soluk);font-size:13px">{(_s["urun_adi"] or "")[:42]}</span></div>',
                          unsafe_allow_html=True)
-            rc2.markdown(f'<div style="padding:4px 0;font-family:monospace;color:#34D399;font-weight:700">'
+            rc2.markdown(f'<div style="padding:4px 0;font-family:monospace;color:var(--k-yesil);font-weight:700">'
                          f'{_s["adet"]} adet</div>', unsafe_allow_html=True)
             if rc3.button("", key=f"dpo_sil_{_i}", help="Listeden çıkar", icon=":material/delete:"):
                 _sepet.pop(_i)
@@ -173,7 +174,7 @@ def _sayfa_sevk():
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:4px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-mor2);margin:4px 0 8px">'
                 '🕓 Son sevkler</div>', unsafe_allow_html=True)
     _gec = get_depo_sevk_gecmisi(50)
     if _gec:
@@ -301,7 +302,7 @@ def _sayfa_bekleyen():
                                    int(_mt_df["🔶 Bekleyen"].sum()), ""]
     st.dataframe(_mt_df, use_container_width=True, hide_index=True)
 
-    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:8px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-mor2);margin:8px 0 8px">'
                 '🚚 Sevk düş (bekleyenden düşüm) / kayıt yönetimi</div>', unsafe_allow_html=True)
     _mt_sec = st.selectbox(
         "Kayıt", _mt_g,
@@ -382,7 +383,7 @@ def _sayfa_bekleyen():
 
     # ═══════════ 📋 TÜM SEVK HAREKETLERİ (konsolide) ═══════════
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:14px;font-weight:700;color:#A5B4FC;margin:4px 0 8px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-mor2);margin:4px 0 8px">'
                 '📋 Tüm Sevk Hareketleri</div>', unsafe_allow_html=True)
 
     _duz = []
@@ -694,11 +695,11 @@ def _sayfa_happylife():
     _ort_yas = round(sum(_yaslar) / len(_yaslar)) if _yaslar else 0
     from shared.utils import metrik_satiri
     metrik_satiri([
-        {"label": "🎁 Palet Sayısı", "value": f"{tr_sayi(_toplam_palet)}", "renk": "#818CF8"},
-        {"label": "📦 SKU Çeşidi", "value": f"{tr_sayi(_cesit)}", "renk": "#22D3EE"},
+        {"label": "🎁 Palet Sayısı", "value": f"{tr_sayi(_toplam_palet)}", "renk": trenk("mor")},
+        {"label": "📦 SKU Çeşidi", "value": f"{tr_sayi(_cesit)}", "renk": trenk("cyan")},
         {"label": "⏳ En Yaşlı Stok", "value": f"{_max_yas} gün",
-         "renk": "#F87171" if _max_yas >= 120 else "#FBBF24" if _max_yas >= 60 else "#34D399"},
-        {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": "#818CF8"},
+         "renk": trenk("kirmizi") if _max_yas >= 120 else trenk("amber") if _max_yas >= 60 else trenk("yesil")},
+        {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": trenk("mor")},
     ])
 
     # ── SKU ÖZET (Sayfa1 gibi: SKU · toplam miktar · en yüksek yaş) ──

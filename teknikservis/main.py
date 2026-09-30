@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Teknik Servis / İade modülü — arayüz (V1)."""
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import datetime, date
 from io import BytesIO
@@ -94,14 +95,14 @@ def _baslik(ikon, ad, alt):
 
 def _alt_baslik(t):
     st.markdown(
-        f'<div style="font-size:11px;font-weight:700;color:#F87171;letter-spacing:1.2px;'
+        f'<div style="font-size:11px;font-weight:700;color:var(--k-kirmizi);letter-spacing:1.2px;'
         f'text-transform:uppercase;margin:16px 0 8px">{t}</div>',
         unsafe_allow_html=True,
     )
 
 
 def _durum_chip(durum):
-    renk = DURUM_RENK.get(durum, "#94A3B8")
+    renk = DURUM_RENK.get(durum, trenk("soluk"))
     return (f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};'
             f'border-radius:6px;padding:0px 8px;font-size:11px;font-weight:700;white-space:nowrap">{durum}</span>')
 
@@ -324,7 +325,7 @@ def _mal_kabul():
 @st.dialog("📥 Yeni Mal Kabül", width="large")
 def _mal_kabul_dialog():
     # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
-    st.markdown('<div style="font-size:14px;font-weight:700;color:#FBBF24;margin:8px 0 0px">'
+    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-amber);margin:8px 0 0px">'
                 '1️⃣ Önce işlem türünü seç</div>', unsafe_allow_html=True)
     arayuz_lbl = secim_serit("İşlem türü", ["🔧 Teknik Servis", "↩️ İade"], key="mk_arayuz", index=None, bos_izin=True,
                           label_visibility="collapsed")
@@ -335,13 +336,13 @@ def _mal_kabul_dialog():
         return
     arayuz = "teknik" if "Teknik" in arayuz_lbl else "iade"
     if arayuz == "teknik":
-        st.markdown('<div style="background:rgba(167,139,250,.15);border:1px solid #818CF8;'
-                    'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:#818CF8;'
+        st.markdown('<div style="background:rgba(167,139,250,.15);border:1px solid var(--k-mor);'
+                    'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:var(--k-mor);'
                     'font-weight:700;font-size:13px">🔧 TEKNİK SERVİS kaydı oluşturuyorsun</div>',
                     unsafe_allow_html=True)
     else:
-        st.markdown('<div style="background:rgba(244,114,182,.15);border:1px solid #F9A8D4;'
-                    'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:#F9A8D4;'
+        st.markdown('<div style="background:rgba(244,114,182,.15);border:1px solid var(--k-pembe);'
+                    'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:var(--k-pembe);'
                     'font-weight:700;font-size:13px">↩️ İADE kaydı oluşturuyorsun</div>',
                     unsafe_allow_html=True)
 
@@ -882,30 +883,30 @@ def _liste(arayuz):
     for k in goster:
         satirlar += (
             "<tr>"
-            f'<td style="font-weight:700;color:#F87171">{_g(k, "servis_form_no")}</td>'
+            f'<td style="font-weight:700;color:var(--k-kirmizi)">{_g(k, "servis_form_no")}</td>'
             f'<td>{_g(k, "stok_kodu")}</td>'
             f'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "stok_adi", "")}">{_g(k, "stok_adi")}</td>'
             f'<td>{_g(k, "seri_no")}</td>'
             f'<td>{_g(k, "firma_bilgisi")}</td>'
             # Madde 4: firma ile fatura durumu arasına mağaza bilgisi
             f'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "musteri_adi", "")}">{_g(k, "musteri_adi")}</td>'
-            f'<td style="padding:8px 8px;border-top:1px solid rgba(255,255,255,0.05);text-align:center;font-weight:700;color:{"#34D399" if _fm_of(k) else "#F87171"}">{"✓" if _fm_of(k) else "✗"}</td>'
+            f'<td style="padding:8px 8px;border-top:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent);text-align:center;font-weight:700;color:{trenk("yesil") if _fm_of(k) else trenk("kirmizi")}">{"✓" if _fm_of(k) else "✗"}</td>'
             f'<td>{_durum_chip(k.get("mevcut_durum", ""))}'
-            + ((f' <span style="color:#94A3B8;font-size:11px">({k.get("sonuc_durumu")})</span>')
+            + ((f' <span style="color:var(--k-soluk);font-size:11px">({k.get("sonuc_durumu")})</span>')
                if k.get("mevcut_durum") == "gönderildi" and (k.get("sonuc_durumu") or "").strip()
                else "") + '</td>'
             f'<td>{_sla_chip(k)}</td>'
-            f'<td style="color:#94A3B8;font-size:11px">{_tarih_kisa(k.get("mal_kabul_tarihi"))}</td>'
+            f'<td style="color:var(--k-soluk);font-size:11px">{_tarih_kisa(k.get("mal_kabul_tarihi"))}</td>'
             "</tr>"
         )
     st.html(
         '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-        '<thead><tr style="text-align:left;color:#7B8AA0;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">'
+        '<thead><tr style="text-align:left;color:var(--k-silik);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">'
         '<th style="padding:8px 8px">Servis No</th><th>Stok Kodu</th><th>Stok Adı</th>'
         '<th>Seri No</th><th>Firma</th><th>Mağaza</th><th>Fatura</th><th>Durum</th><th>SLA</th><th>Mal Kabül</th>'
         '</tr></thead>'
-        '<tbody style="color:#E2E8F0">'
-        + satirlar.replace("<td>", '<td style="padding:8px 8px;border-top:1px solid rgba(255,255,255,0.05)">')
+        '<tbody style="color:var(--k-metin)">'
+        + satirlar.replace("<td>", '<td style="padding:8px 8px;border-top:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)">')
         + '</tbody></table></div>'
     )
 
@@ -938,11 +939,11 @@ def _kontrol_paneli(kayit):
 
     # Üst kart
     st.markdown(
-        f'<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);'
+        f'<div style="background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);'
         f'border-radius:12px;padding:16px 20px;margin-bottom:16px">'
         f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
-        f'<div><div style="color:#F87171;font-size:19px;font-weight:700">{_g(kayit, "servis_form_no")}</div>'
-        f'<div style="color:#94A3B8;font-size:13px;margin-top:0px">{ARAYUZ_ETIKET.get(kayit.get("arayuz",""),"")} · {_g(kayit,"stok_kodu")} · Seri {_g(kayit,"seri_no")}</div></div>'
+        f'<div><div style="color:var(--k-kirmizi);font-size:19px;font-weight:700">{_g(kayit, "servis_form_no")}</div>'
+        f'<div style="color:var(--k-soluk);font-size:13px;margin-top:0px">{ARAYUZ_ETIKET.get(kayit.get("arayuz",""),"")} · {_g(kayit,"stok_kodu")} · Seri {_g(kayit,"seri_no")}</div></div>'
         f'<div style="display:flex;gap:8px;align-items:center">{_durum_chip(kayit.get("mevcut_durum",""))}'
         f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700">⏱ {sla_txt}</span></div>'
         f'</div></div>',
@@ -965,7 +966,7 @@ def _kontrol_paneli(kayit):
             _fm = bool((kayit.get("fatura_no") or "").strip())
         if _fm:
             _fx1, _fx2 = st.columns([2, 1])
-            _fx1.markdown('<div style="padding:8px 0;color:#34D399;font-size:13px;font-weight:700">🧾 Fatura: ✓ Mevcut</div>',
+            _fx1.markdown('<div style="padding:8px 0;color:var(--k-yesil);font-size:13px;font-weight:700">🧾 Fatura: ✓ Mevcut</div>',
                           unsafe_allow_html=True)
             # Madde 12 (muhasebe talebi): yanlış işaretlenen "fatura geldi" düzenlenebilir/geri alınabilir
             with _fx2.popover("✏️ Düzenle", use_container_width=True):
@@ -1006,9 +1007,9 @@ def _kontrol_paneli(kayit):
     with sol:
         def _satir(et, deg):
             st.markdown(
-                f'<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">'
-                f'<div style="color:#7B8AA0;font-size:13px;min-width:150px">{et}</div>'
-                f'<div style="color:#E2E8F0;font-size:13px">{deg}</div></div>',
+                f'<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 4%,transparent)">'
+                f'<div style="color:var(--k-silik);font-size:13px;min-width:150px">{et}</div>'
+                f'<div style="color:var(--k-metin);font-size:13px">{deg}</div></div>',
                 unsafe_allow_html=True)
 
         _alt_baslik("Ürün Bilgisi")
@@ -1056,17 +1057,17 @@ def _kontrol_paneli(kayit):
         if gecmis:
             tl = ""
             for h in gecmis:
-                rk = DURUM_RENK.get(h.get("durum", ""), "#94A3B8")
+                rk = DURUM_RENK.get(h.get("durum", ""), trenk("soluk"))
                 tl += (
                     f'<div style="display:flex;gap:8px;padding:8px 0">'
                     f'<div style="width:9px;height:9px;border-radius:50%;background:{rk};margin-top:4px;flex-shrink:0"></div>'
                     f'<div><div style="color:{rk};font-size:13px;font-weight:700">{h.get("durum","")}</div>'
-                    f'<div style="color:#7B8AA0;font-size:11px">{_tarih_gun(h.get("tarih"))} · {h.get("personel","") or "—"}</div>'
-                    + (f'<div style="color:#94A3B8;font-size:11px">{h.get("aciklama")}</div>' if h.get("aciklama") else "")
+                    f'<div style="color:var(--k-silik);font-size:11px">{_tarih_gun(h.get("tarih"))} · {h.get("personel","") or "—"}</div>'
+                    + (f'<div style="color:var(--k-soluk);font-size:11px">{h.get("aciklama")}</div>' if h.get("aciklama") else "")
                     + '</div></div>'
                 )
             st.markdown(
-                f'<div style="border-left:2px solid rgba(255,255,255,0.08);padding-left:12px;margin-left:4px">{tl}</div>',
+                f'<div style="border-left:2px solid color-mix(in srgb,var(--k-metin) 8%,transparent);padding-left:12px;margin-left:4px">{tl}</div>',
                 unsafe_allow_html=True)
         else:
             st.caption("Henüz işlem geçmişi yok.")
@@ -1138,7 +1139,7 @@ def _kontrol_paneli(kayit):
             # 🔄 Ürün değişimi seçiliyse — değişim ürünü bilgileri
             _dg = {}
             if yeni_durum == "ürün değişimi":
-                st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;'
+                st.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;'
                             'text-transform:uppercase;letter-spacing:.5px;margin:8px 0 0px">'
                             '🔄 Değişim Yapılan Ürün</div>', unsafe_allow_html=True)
                 dg1, dg2 = st.columns(2)
@@ -1156,7 +1157,7 @@ def _kontrol_paneli(kayit):
                                          key=f"ts_dgdp_{kid}")
                 _dg["degisim_depo"] = "" if str(_dg_depo).startswith("(") else _dg_depo
 
-            st.markdown('<div style="color:#7B8AA0;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 0px">Ön Kontrol Bilgileri (güncellenebilir)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="color:var(--k-silik);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 0px">Ön Kontrol Bilgileri (güncellenebilir)</div>', unsafe_allow_html=True)
             k1, k2 = st.columns(2)
             d_icerik = _icerik_multiselect(
                 k1, "İçerik Durumu", ICERIK_SECENEKLER,
@@ -1291,9 +1292,9 @@ def _kontrol_paneli(kayit):
                    "geliyorsa stok kartını buradan değiştir. Servis No, seri no ve tüm "
                    "işlem geçmişi korunur; eski stok kartı geçmişe not olarak yazılır.")
         st.markdown(
-            f'<div style="background:rgba(148,163,184,.12);border-radius:8px;padding:8px 12px;'
-            f'margin-bottom:10px;font-size:13px;color:#94A3B8">Şu anki kart: '
-            f'<b style="color:#E2E8F0">{_g(kayit,"stok_kodu")}</b> — '
+            f'<div style="background:color-mix(in srgb,var(--k-soluk) 12%,transparent);border-radius:8px;padding:8px 12px;'
+            f'margin-bottom:10px;font-size:13px;color:var(--k-soluk)">Şu anki kart: '
+            f'<b style="color:var(--k-metin)">{_g(kayit,"stok_kodu")}</b> — '
             f'{_g(kayit,"stok_adi")} · <i>{_g(kayit,"urun_grubu")}</i></div>',
             unsafe_allow_html=True)
 
@@ -1426,7 +1427,7 @@ def _irsaliye():
         st.warning("Sevke uygun kayıtlarda firma bilgisi yok.")
         return
 
-    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:8px 0 4px">'
+    st.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;margin:8px 0 4px">'
                 '1️⃣ Alıcı firmayı seç</div>', unsafe_allow_html=True)
     _firma = st.selectbox("Alıcı firma (cari unvan)", _firmalar, key="irs_firma")
 
@@ -1452,7 +1453,7 @@ def _irsaliye():
         return
 
     # ── 2) Kalemleri seç ──
-    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:14px 0 4px">'
+    st.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;margin:14px 0 4px">'
                 '2️⃣ İrsaliyeye girecek ürünleri işaretle</div>', unsafe_allow_html=True)
 
     def _kalem_etiket(k):
@@ -1478,7 +1479,7 @@ def _irsaliye():
     st.success(f"✅ **{len(_kalemler)} kalem** seçildi — hepsi tek irsaliyede toplanacak.")
 
     # ── 3) Belge bilgileri ──
-    st.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;margin:14px 0 4px">'
+    st.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;margin:14px 0 4px">'
                 '3️⃣ Belge bilgileri</div>', unsafe_allow_html=True)
 
     _ilk = _kalemler[0]
@@ -1626,7 +1627,7 @@ def _ozet_serit():
 
     with st.container(border=True):
         _b1, _b2 = st.columns([2.2, 2.8])
-        _b1.markdown('<div style="color:#FBBF24;font-size:13px;font-weight:700;'
+        _b1.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;'
                      'letter-spacing:.5px;padding-top:6px">📊 İŞLEM ÖZETİ</div>',
                      unsafe_allow_html=True)
         donem = _b2.radio("Dönem", ["Bugün", "Bu hafta", "Bu ay", "Tümü"],
@@ -1876,9 +1877,9 @@ def _depolar():
             c1, c2, c3, c4 = st.columns([3, 1.15, 1.15, 0.95])
             with c1:
                 st.markdown(
-                    f'<div style="padding:8px 0"><span style="color:#F87171;font-weight:700">{_g(k,"servis_form_no")}</span> · '
-                    f'{_g(k,"stok_kodu")} · <span style="color:#94A3B8">{(_g(k,"stok_adi","")[:50])}</span><br>'
-                    f'<span style="color:#7B8AA0;font-size:11px">{ARAYUZ_ETIKET.get(k.get("arayuz",""),"")} · Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo")}</span> '
+                    f'<div style="padding:8px 0"><span style="color:var(--k-kirmizi);font-weight:700">{_g(k,"servis_form_no")}</span> · '
+                    f'{_g(k,"stok_kodu")} · <span style="color:var(--k-soluk)">{(_g(k,"stok_adi","")[:50])}</span><br>'
+                    f'<span style="color:var(--k-silik);font-size:11px">{ARAYUZ_ETIKET.get(k.get("arayuz",""),"")} · Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo")}</span> '
                     f'{_durum_chip(k.get("mevcut_durum",""))}</div>',
                     unsafe_allow_html=True)
             with c2:
@@ -1930,13 +1931,13 @@ def _depolar():
                                                        ((_m, _o), (_m2, _o2)) if not ok))
                             st.rerun()
                 else:
-                    st.markdown('<div style="text-align:center;color:#10B981;font-weight:700;padding:8px 0">✓ Satıldı</div>',
+                    st.markdown('<div style="text-align:center;color:var(--k-yesil);font-weight:700;padding:8px 0">✓ Satıldı</div>',
                                 unsafe_allow_html=True)
             with st.expander("📋 Detay & İşlem Geçmişi"):
                 dd1, dd2 = st.columns(2)
                 with dd1:
                     st.markdown(
-                        f'<div style="font-size:13px;line-height:1.9;color:#7DD3FC">'
+                        f'<div style="font-size:13px;line-height:1.9;color:var(--k-mavi)">'
                         f'<b>Ürün Grubu:</b> {_g(k,"urun_grubu")}<br>'
                         f'<b>Arıza:</b> {_g(k,"ariza")}<br>'
                         f'<b>İçerik:</b> {_g(k,"icerik_durumu")}<br>'
@@ -1944,7 +1945,7 @@ def _depolar():
                         f'<b>Detay/Not:</b> {_g(k,"detay")}</div>', unsafe_allow_html=True)
                 with dd2:
                     st.markdown(
-                        f'<div style="font-size:13px;line-height:1.9;color:#7DD3FC">'
+                        f'<div style="font-size:13px;line-height:1.9;color:var(--k-mavi)">'
                         f'<b>Firma:</b> {_g(k,"firma_bilgisi")}<br>'
                         f'<b>Müşteri:</b> {_g(k,"musteri_adi")}<br>'
                         f'<b>Fatura No:</b> {_g(k,"fatura_no")}<br>'
@@ -1953,14 +1954,14 @@ def _depolar():
                         f'<b>Depo Açıklaması:</b> {_g(k,"depo_aciklama")}</div>', unsafe_allow_html=True)
                 _gec = get_gecmis(kid)
                 if _gec:
-                    st.markdown('<div style="color:#7B8AA0;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 0px">İşlem Geçmişi</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="color:var(--k-silik);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 0px">İşlem Geçmişi</div>', unsafe_allow_html=True)
                     for _h in _gec:
                         st.markdown(
-                            f'<div style="font-size:13px;color:#94A3B8;padding:0px 0">'
-                            f'<span style="color:#E2E8F0">{_tarih_gun(_h.get("tarih"))}</span> · '
+                            f'<div style="font-size:13px;color:var(--k-soluk);padding:0px 0">'
+                            f'<span style="color:var(--k-metin)">{_tarih_gun(_h.get("tarih"))}</span> · '
                             f'{_durum_chip(_h.get("durum",""))} '
                             f'{_h.get("aciklama","") or ""} '
-                            f'<span style="color:#7B8AA0">({_h.get("personel","") or "—"})</span></div>',
+                            f'<span style="color:var(--k-silik)">({_h.get("personel","") or "—"})</span></div>',
                             unsafe_allow_html=True)
                 try:
                     _pdf = servis_formu_pdf(k, _gec)
@@ -2032,7 +2033,7 @@ def _depolar():
                             st.rerun()
                         else:
                             st.error(f"Silinemedi: {_hata}")
-        st.markdown('<div style="height:1px;background:rgba(255,255,255,0.05);margin:4px 0"></div>',
+        st.markdown('<div style="height:1px;background:color-mix(in srgb,var(--k-metin) 5%,transparent);margin:4px 0"></div>',
                     unsafe_allow_html=True)
 
 
@@ -2044,7 +2045,7 @@ def run():
     st.markdown(
         "<style>"
         ".main .block-container{max-width:1200px !important;}"
-        "[data-testid=\"stMetric\"]{background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.08);"
+        "[data-testid=\"stMetric\"]{background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);"
         "border-radius:12px;padding:12px 16px;}"
         "</style>",
         unsafe_allow_html=True,
