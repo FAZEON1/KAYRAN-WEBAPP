@@ -2096,7 +2096,7 @@ input, textarea, select { font-size: 16px !important; }
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi"):
             st.markdown(
                 '<div style="font-size:11px;color:#7B8AA0;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:8px">HESAP</div>',
                 unsafe_allow_html=True
@@ -2137,6 +2137,15 @@ input, textarea, select { font-size: 16px !important; }
                 use_container_width=True
             ):
                 st.session_state.aktif_uygulama = "sistem_kayitlari"
+                st.rerun()
+
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
+                "Tasarım Rehberi", icon=":material/palette:",
+                key="nav_tasarim_rehberi",
+                type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "tasarim_rehberi"
                 st.rerun()
 
             if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
@@ -3438,6 +3447,7 @@ def main():
         "depo": "Depo Yönetimi",
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
+        "tasarim_rehberi": "Tasarım Rehberi",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3492,6 +3502,12 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
+        elif aktif == "tasarim_rehberi":
+            if ozel_yetki(st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
+                from shared.rehber import goster as tasarim_rehberi_goster
+                tasarim_rehberi_goster()
+            else:
+                st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
         elif aktif == "sifre_degistir":
             sifre_degistir()
         else:

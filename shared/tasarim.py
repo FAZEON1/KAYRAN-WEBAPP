@@ -57,6 +57,73 @@ RENK = {
     "pembe":    "#F9A8D4",   # ürün yönetimi
 }
 
+# ═══════════════════════════════════════════════════════════════════
+# 1b. TEMALAR — aynı anahtarlar, iki palet.
+#     RENK = koyu tema (varsayılan, geriye uyumlu). Bileşenler renk kodunu
+#     DEĞİL `var(--k-anahtar)` değişkenini kullanır; tema değişince yalnız
+#     değişkenlerin değeri değişir, hiçbir bileşene dokunulmaz.
+#     Açık paletteki her metin rengi beyaz kart üstünde WCAG AA (4.5) eşiğini,
+#     anlam renkleri 3.0 eşiğini geçer — tests/test_tasarim_tema.py ölçer.
+# ═══════════════════════════════════════════════════════════════════
+RENK_ACIK = {
+    "yuzey0":  "#F4F6FA",   # sayfa zemini (saf beyaz değil: göz yormasın)
+    "yuzey1":  "#FFFFFF",   # kart
+    "yuzey2":  "#F1F4F9",   # öne çıkan / hover
+    "yuzey3":  "#E7ECF3",   # dialog, popover
+    "kenar":   "rgba(15,23,42,0.09)",
+    "kenar2":  "rgba(15,23,42,0.16)",
+    "metin":   "#0F172A",
+    "soluk":   "#475569",
+    "silik":   "#5B6778",
+    "mor":     "#4F46E5",  "mor2":     "#4338CA",
+    "yesil":   "#047857",  "yesil2":   "#065F46",
+    "kirmizi": "#DC2626",  "kirmizi2": "#B91C1C",
+    "amber":   "#B45309",  "amber2":   "#92400E",
+    "cyan":    "#0E7490",  "cyan2":    "#155E75",
+    "mavi":    "#0369A1",
+    "pembe":   "#BE185D",
+}
+# Yarı saydam katmanlar (satır zemini, vurgu dolgusu, gölge) tema başına
+ORTU = {
+    "koyu": {"ortu": "rgba(255,255,255,0.025)", "ortu2": "rgba(255,255,255,0.05)",
+             "vurgu": "rgba(129,140,248,0.10)", "golge": "0 1px 2px rgba(0,0,0,.3)",
+             "dolgu": "#6366F1", "dolgu-metin": "#FFFFFF"},
+    "acik": {"ortu": "rgba(15,23,42,0.025)", "ortu2": "rgba(15,23,42,0.05)",
+             "vurgu": "rgba(79,70,229,0.08)", "golge": "0 1px 3px rgba(15,23,42,.08)",
+             "dolgu": "#4F46E5", "dolgu-metin": "#FFFFFF"},
+}
+TEMALAR = {"koyu": RENK, "acik": RENK_ACIK}
+
+
+def rv(anahtar, varsayilan="mor"):
+    """RENK anahtarı → 'var(--k-anahtar)'. Bileşenler hex yerine bunu kullanır,
+    böylece iki temada da doğru renk çıkar. Bilinmeyen anahtar → varsayılan."""
+    return f"var(--k-{anahtar if anahtar in RENK else varsayilan})"
+
+
+def tema_degiskenleri(tema="koyu"):
+    """'--k-metin:#E2E8F0;...' — :root ya da bir önizleme kapsayıcısına basılır."""
+    palet = TEMALAR.get(tema, RENK)
+    ek = ORTU.get(tema, ORTU["koyu"])
+    return ("".join(f"--k-{k}:{v};" for k, v in palet.items())
+            + "".join(f"--k-{k}:{v};" for k, v in ek.items()))
+
+
+def _parlaklik(hex_renk):
+    h = hex_renk.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+    def _f(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * _f(r) + 0.7152 * _f(g) + 0.0722 * _f(b)
+
+
+def kontrast(on, arka):
+    """WCAG kontrast oranı (1–21). 4.5 = normal metin eşiği, 3.0 = büyük metin/ikon."""
+    a, b = sorted((_parlaklik(on), _parlaklik(arka)), reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
 # ── KALDIRILAN RENKLER ──────────────────────────────────────────────
 # #A78BFA, #F472B6, #FB923C  → KART_PALET'ten geliyordu, RENK'te karşılığı yoktu
 # #10B981, #EF4444, #F59E0B  → mevcut tonların hafif varyantlarıydı
@@ -158,11 +225,11 @@ def urun_etiketi(ad, sku="", renk=None, kalin=False):
     sku = str(sku or "").strip()
     ad_e, sku_e = _h.escape(ad), _h.escape(sku)
     baslik = _h.escape(f"{sku} · {ad}" if sku else ad, quote=True)
-    renk = renk or RENK["metin"]
+    renk = renk or "var(--k-metin)"
     agirlik = AGIRLIK["vurgu"] if kalin else AGIRLIK["govde"]
     sku_html = (f'<span style="flex-shrink:0;font-family:{MONO};font-size:11px;'
-                f'color:{RENK["mor2"]};background:rgba(129,140,248,0.10);'
-                f'border:1px solid rgba(129,140,248,0.22);border-radius:5px;'
+                f'color:var(--k-mor2);background:var(--k-vurgu);'
+                f'border:1px solid color-mix(in srgb,var(--k-mor) 30%,transparent);border-radius:5px;'
                 f'padding:1px 6px;letter-spacing:0">{sku_e}</span>') if sku else ""
     return (f'<span title="{baslik}" style="display:flex;align-items:center;gap:8px;'
             f'min-width:0;flex:1 1 auto">{sku_html}'
@@ -318,22 +385,22 @@ def _streamlit_normalize():
 .stApp h4,.stApp h5,.stApp h6{{font-size:{F['orta']} !important;}}
 .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6{{
   font-weight:{A['baslik']} !important;letter-spacing:{T['baslik']} !important;
-  color:{R['metin']} !important;line-height:1.3 !important;
+  color:var(--k-metin) !important;line-height:1.3 !important;
   padding:0 !important;margin:14px 0 6px !important;}}
 
 /* ── st.metric: ortak kart diline sokulur ── */
 div[data-testid="stMetric"]{{
-  background:{R['yuzey1']} !important;border:1px solid {R['kenar']} !important;
-  border-left:2px solid {R['mor']} !important;border-radius:{y['kart_r']} !important;
+  background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;
+  border-left:2px solid var(--k-mor) !important;border-radius:{y['kart_r']} !important;
   padding:{y['kart_pad']} !important;}}
 div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p,
 div[data-testid="stMetricLabel"] div{{
-  font-size:{F['etiket']} !important;color:{R['soluk']} !important;
+  font-size:{F['etiket']} !important;color:var(--k-soluk) !important;
   font-weight:{A['vurgu']} !important;letter-spacing:{T['etiket']} !important;
   text-transform:uppercase !important;line-height:1.3 !important;
   white-space:normal !important;overflow:visible !important;}}
 div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] div{{
-  font-size:{F['deger']} !important;color:{R['metin']} !important;
+  font-size:{F['deger']} !important;color:var(--k-metin) !important;
   font-weight:{A['baslik']} !important;font-family:{MONO} !important;
   font-variant-numeric:tabular-nums !important;letter-spacing:{T['baslik']} !important;
   line-height:1.3 !important;}}
@@ -343,7 +410,7 @@ div[data-testid="stMetricDelta"]{{font-size:{F['kucuk']} !important;
 /* ── Uyarı kutuları: 745 çağrı, hepsi tek dilde ── */
 div[data-testid="stAlert"],div[data-testid="stNotification"]{{
   border-radius:{y['kart_r']} !important;padding:8px 13px !important;
-  border:1px solid {R['kenar2']} !important;border-left-width:2px !important;
+  border:1px solid var(--k-kenar2) !important;border-left-width:2px !important;
   margin:6px 0 !important;}}
 div[data-testid="stAlert"] p,div[data-testid="stNotification"] p{{
   font-size:{F['govde']} !important;font-weight:{A['govde']} !important;
@@ -353,25 +420,25 @@ div[data-testid="stAlert"] svg,div[data-testid="stNotification"] svg{{
 
 /* ── Expander: 67 çağrı ── */
 details[data-testid="stExpander"],div[data-testid="stExpander"] details{{
-  border:1px solid {R['kenar']} !important;border-radius:{y['kart_r']} !important;
-  background:{R['yuzey1']} !important;}}
+  border:1px solid var(--k-kenar) !important;border-radius:{y['kart_r']} !important;
+  background:var(--k-yuzey1) !important;}}
 div[data-testid="stExpander"] summary{{
   padding:7px 13px !important;font-size:{F['govde']} !important;
-  font-weight:{A['vurgu']} !important;color:{R['soluk']} !important;}}
-div[data-testid="stExpander"] summary:hover{{color:{R['metin']} !important;}}
+  font-weight:{A['vurgu']} !important;color:var(--k-soluk) !important;}}
+div[data-testid="stExpander"] summary:hover{{color:var(--k-metin) !important;}}
 div[data-testid="stExpander"] summary p{{
   font-size:{F['govde']} !important;font-weight:{A['vurgu']} !important;}}
 
 /* ── Caption · ayraç · sekme ── */
 div[data-testid="stCaptionContainer"] p,.stApp small{{
-  font-size:{F['kucuk']} !important;color:{R['silik']} !important;
+  font-size:{F['kucuk']} !important;color:var(--k-silik) !important;
   font-weight:{A['govde']} !important;line-height:1.5 !important;}}
 .stApp hr,div[data-testid="stDivider"] hr{{
-  border-color:{R['kenar']} !important;margin:12px 0 !important;}}
+  border-color:var(--k-kenar) !important;margin:12px 0 !important;}}
 button[data-baseweb="tab"]{{font-size:{F['govde']} !important;
   font-weight:{A['vurgu']} !important;border-radius:9px 9px 0 0 !important;}}
 button[data-baseweb="tab"][aria-selected="true"]{{
-  background:rgba(129,140,248,0.10) !important;color:{R['metin']} !important;}}
+  background:var(--k-vurgu) !important;color:var(--k-metin) !important;}}
 
 /* ── Gövde metni: varsayılan 400. Program 931 kalın / 10 normal idi. ── */
 .stApp [data-testid="stMarkdownContainer"] p,
@@ -379,8 +446,100 @@ button[data-baseweb="tab"][aria-selected="true"]{{
   font-size:{F['govde']} !important;font-weight:{A['govde']} !important;
   line-height:1.6 !important;}}
 .stApp [data-testid="stMarkdownContainer"] strong{{
-  font-weight:{A['vurgu']} !important;color:{R['metin']} !important;}}
+  font-weight:{A['vurgu']} !important;color:var(--k-metin) !important;}}
 """
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. DÜĞME HİYERARŞİSİ — sayfa başına tek ANA düğme, gerisi sakin.
+#    Eskiden sayfa içindeki her düğme aynı parlak mor dolguyla çiziliyordu;
+#    "Kaydet" ile "Listeyi yenile" aynı ağırlıktaydı, göz nereye basacağını
+#    bulamıyordu. Artık Streamlit'in kendi `type=` parametresi belirler:
+#
+#      type="primary"    → dolu renk      (sayfanın ASIL eylemi: Kaydet, Gönder)
+#      type="secondary"  → kenarlı, sade  (varsayılan: Filtrele, Yenile, İndir)
+#      type="tertiary"   → yalnız yazı    (Vazgeç, Temizle, küçük bağlantılar)
+#      anahtarında "_sil" geçen düğme → KIRMIZI (silme / geri alınamaz işlem)
+#
+#    Seçiciler bilinçli olarak çok özgül: modüllerdeki eski düğme kuralları
+#    (Ürün Yön. mavi degrade, ana sayfa mor degrade…) bunu ezemez.
+#    Üst menü (.st-key-ustnav) ve sidebar kendi stilinde kalır.
+# ═══════════════════════════════════════════════════════════════════
+_D = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
+      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *) > button')
+_SIL = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
+        '[class*="st-key-"][class*="_sil"]:not([class*="iptal"]):not([class*="vazgec"]) '
+        ':is(.stButton,.stFormSubmitButton) > button')
+DUGME_CSS = f"""
+{_D}{{min-height:38px !important;height:auto !important;padding:0 16px !important;
+  border-radius:9px !important;font-size:13px !important;font-weight:600 !important;
+  letter-spacing:0 !important;box-shadow:none !important;transform:none !important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,filter .15s ease !important;}}
+{_D} p{{font-size:13px !important;font-weight:600 !important;color:inherit !important;}}
+{_D}:is([data-testid="stBaseButton-secondary"],[data-testid="stBaseButton-secondaryFormSubmit"]){{
+  background:transparent !important;border:1px solid var(--k-kenar2) !important;color:var(--k-metin) !important;}}
+{_D}:is([data-testid="stBaseButton-secondary"],[data-testid="stBaseButton-secondaryFormSubmit"]):hover{{
+  background:var(--k-vurgu) !important;border-color:var(--k-mor) !important;}}
+{_D}:is([data-testid="stBaseButton-primary"],[data-testid="stBaseButton-primaryFormSubmit"]){{
+  background:var(--k-dolgu) !important;border:1px solid var(--k-dolgu) !important;
+  color:var(--k-dolgu-metin) !important;}}
+{_D}:is([data-testid="stBaseButton-primary"],[data-testid="stBaseButton-primaryFormSubmit"]):hover{{
+  filter:brightness(1.1) !important;}}
+{_D}[data-testid="stBaseButton-tertiary"]{{background:transparent !important;border:1px solid transparent !important;
+  color:var(--k-soluk) !important;padding:0 8px !important;}}
+{_D}[data-testid="stBaseButton-tertiary"]:hover{{color:var(--k-metin) !important;background:var(--k-ortu2) !important;}}
+{_D}:disabled{{opacity:.45 !important;filter:none !important;cursor:not-allowed !important;}}
+{_SIL}:is([data-testid="stBaseButton-secondary"],[data-testid="stBaseButton-secondaryFormSubmit"],[data-testid="stBaseButton-tertiary"]){{
+  color:var(--k-kirmizi) !important;border-color:color-mix(in srgb,var(--k-kirmizi) 45%,transparent) !important;}}
+{_SIL}:is([data-testid="stBaseButton-secondary"],[data-testid="stBaseButton-secondaryFormSubmit"]):hover{{
+  background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent) !important;border-color:var(--k-kirmizi) !important;}}
+{_SIL}:is([data-testid="stBaseButton-primary"],[data-testid="stBaseButton-primaryFormSubmit"]){{
+  background:var(--k-kirmizi) !important;border-color:var(--k-kirmizi) !important;color:#FFFFFF !important;}}
+/* Telefonda parmakla rahat basılsın: en az 44px (Apple/Google dokunma hedefi) */
+@media (max-width:640px){{ {_D}{{min-height:44px !important;}} }}
+"""
+
+# ═══════════════════════════════════════════════════════════════════
+# 6. ORTAK BİLEŞENLER (değişkenlerle — iki temada da çalışır)
+# ═══════════════════════════════════════════════════════════════════
+BILESEN_CSS = """
+.k-bosd{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:6px;padding:28px 16px;border:1px dashed var(--k-kenar2);
+  border-radius:var(--k-r);background:var(--k-ortu);}
+.k-bosd-ikon{font-family:"Material Symbols Rounded";font-size:28px;line-height:1;
+  color:var(--k-silik);font-weight:normal;letter-spacing:normal;text-transform:none;}
+.k-bosd-baslik{color:var(--k-metin);font-size:14px;font-weight:600;}
+.k-bosd-aciklama{color:var(--k-soluk);font-size:12.5px;max-width:420px;line-height:1.5;}
+.k-mesaj{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:10px;
+  font-size:13px;line-height:1.5;color:var(--k-metin);
+  background:color-mix(in srgb,var(--m) 9%,transparent);
+  border:1px solid color-mix(in srgb,var(--m) 30%,transparent);border-left:3px solid var(--m);}
+.k-mesaj-ikon{font-family:"Material Symbols Rounded";font-size:18px;line-height:1.2;color:var(--m);
+  font-weight:normal;letter-spacing:normal;text-transform:none;flex-shrink:0;}
+"""
+
+
+def bos_durum(baslik, aciklama="", ikon="inbox"):
+    """Boş liste / sonuç yok durumu. Kullanıcıya NE olduğunu ve varsa ne
+    yapacağını söyler — tek başına 'Veri yok' yazmaz.
+      st.markdown(bos_durum("Bekleyen sevk yok", "Yeni sevk 'Depolar Arası Sevk'ten açılır."), unsafe_allow_html=True)"""
+    import html as _h
+    ac = f'<div class="k-bosd-aciklama">{_h.escape(aciklama)}</div>' if aciklama else ""
+    return (f'<div class="k-bosd"><span class="k-bosd-ikon" aria-hidden="true">{_h.escape(ikon)}</span>'
+            f'<div class="k-bosd-baslik">{_h.escape(baslik)}</div>{ac}</div>')
+
+
+_MESAJ = {"bilgi": ("cyan", "info"), "basari": ("yesil", "check_circle"),
+          "uyari": ("amber", "warning"), "hata": ("kirmizi", "error")}
+
+
+def mesaj(tur, metin):
+    """Satır içi bilgi / başarı / uyarı / hata kutusu (HTML). tur: bilgi|basari|uyari|hata"""
+    import html as _h
+    renk, ikon = _MESAJ.get(tur, _MESAJ["bilgi"])
+    return (f'<div class="k-mesaj" style="--m:var(--k-{renk})">'
+            f'<span class="k-mesaj-ikon" aria-hidden="true">{ikon}</span>'
+            f'<div>{_h.escape(metin)}</div></div>')
 
 
 def cekirdek_css(yogunluk=None):
@@ -388,27 +547,32 @@ def cekirdek_css(yogunluk=None):
     kp, kr, gg, sa, sp, kmin = (_y("kart_pad", yogunluk), _y("kart_r", yogunluk),
                                 _y("grid_gap", yogunluk), _y("serit_alt", yogunluk),
                                 _y("satir_pad", yogunluk), _y("kart_min", yogunluk))
-    degiskenler = "".join(f"--k-{k}:{v};" for k, v in R.items())
+    degiskenler = tema_degiskenleri("koyu")
+    acik = tema_degiskenleri('acik')
     return "<style>" + css_tek_satir(f"""
 :root{{{degiskenler}--k-r:{kr};--k-gap:{gg};--k-pad:{kp};--k-mono:{MONO};}}
+/* Bu sınıfı taşıyan kapsayıcı AÇIK paleti kullanır (Tasarım Rehberi önizlemesi;
+   ileride kullanıcı tema seçimi de aynı değişkenlerle çalışır). */
+.k-tema-acik{{{acik}color:var(--k-metin);}}
+""" + DUGME_CSS + BILESEN_CSS + f"""
 
 .k-grid{{display:flex;gap:var(--k-gap);flex-wrap:wrap;align-items:stretch;margin:0 0 {sa};}}
 
-.k-kart{{flex:1;min-width:{kmin};background:{R['yuzey1']};
-  border:1px solid {R['kenar']};border-radius:var(--k-r);padding:var(--k-pad);
+.k-kart{{flex:1;min-width:{kmin};background:var(--k-yuzey1);
+  border:1px solid var(--k-kenar);border-radius:var(--k-r);padding:var(--k-pad);
   display:flex;flex-direction:column;
   transition:background .12s ease,border-color .12s ease;}}
-.k-kart:hover{{background:{R['yuzey2']};border-color:{R['kenar2']};}}
+.k-kart:hover{{background:var(--k-yuzey2);border-color:var(--k-kenar2);}}
 .k-kart[data-akscent]{{border-left-width:2px;border-radius:var(--k-r);}}
 
-.k-etiket{{font-size:{F['etiket']};color:{R['soluk']};
+.k-etiket{{font-size:{F['etiket']};color:var(--k-soluk);
   font-weight:{AGIRLIK['vurgu']};letter-spacing:{TRACKING['etiket']};text-transform:uppercase;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;line-height:1.2;}}
-.k-deger{{font-size:{F['deger']};color:{R['metin']};font-weight:{AGIRLIK['baslik']};
+.k-deger{{font-size:{F['deger']};color:var(--k-metin);font-weight:{AGIRLIK['baslik']};
   font-family:var(--k-mono);font-variant-numeric:tabular-nums;
   letter-spacing:{TRACKING['baslik']};margin-top:2px;line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
-.k-alt{{font-size:{F['kucuk']};color:{R['silik']};margin-top:2px;
+.k-alt{{font-size:{F['kucuk']};color:var(--k-silik);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 
 /* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
@@ -424,17 +588,17 @@ def cekirdek_css(yogunluk=None):
   margin:0 !important;padding:0 !important;overflow:hidden !important;pointer-events:none;}}
 .k-baslik{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   padding:0 0 7px;margin:0 0 11px;
-  border-bottom:1px solid {R['kenar']};}}
+  border-bottom:1px solid var(--k-kenar);}}
 .k-baslik-ikon{{width:22px;height:22px;border-radius:6px;flex-shrink:0;
-  background:{R['yuzey2']};border:1px solid {R['kenar2']};
+  background:var(--k-yuzey2);border:1px solid var(--k-kenar2);
   display:flex;align-items:center;justify-content:center;font-size:12px;}}
-.k-baslik-mod{{font-size:{F['orta']};color:{R['soluk']};font-weight:{AGIRLIK['vurgu']};}}
-.k-baslik-ayrac{{color:{R['silik']};font-size:{F['orta']};}}
-.k-baslik-ad{{font-size:{F['baslik']};color:{R['metin']};
+.k-baslik-mod{{font-size:{F['orta']};color:var(--k-soluk);font-weight:{AGIRLIK['vurgu']};}}
+.k-baslik-ayrac{{color:var(--k-silik);font-size:{F['orta']};}}
+.k-baslik-ad{{font-size:{F['baslik']};color:var(--k-metin);
   font-weight:{AGIRLIK['baslik']};letter-spacing:{TRACKING['baslik']};}}
 .k-baslik-aciklama{{flex-basis:100%;order:9;margin:3px 0 0 30px;
-  font-size:12.5px;color:{R['soluk']};line-height:1.45;}}
-.k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:{R['silik']};
+  font-size:12.5px;color:var(--k-soluk);line-height:1.45;}}
+.k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:var(--k-silik);
   font-family:var(--k-mono);white-space:nowrap;}}
 
 .k-rozet{{display:inline-block;padding:2px 7px;border-radius:999px;
@@ -445,25 +609,25 @@ def cekirdek_css(yogunluk=None):
 .k-pencere-ic{{overflow-y:auto;padding-right:6px;}}
 .k-pencere-ic::-webkit-scrollbar{{width:5px;}}
 .k-pencere-ic::-webkit-scrollbar-track{{background:transparent;}}
-.k-pencere-ic::-webkit-scrollbar-thumb{{background:{R['kenar2']};border-radius:3px;}}
+.k-pencere-ic::-webkit-scrollbar-thumb{{background:var(--k-kenar2);border-radius:3px;}}
 
 .k-satir{{display:flex;justify-content:space-between;align-items:center;
   padding:{sp};margin:2px 0;border-radius:6px;font-size:{F['govde']};
-  font-weight:{AGIRLIK['govde']};background:rgba(255,255,255,0.025);}}
-.k-satir:hover{{background:rgba(255,255,255,0.05);}}
+  font-weight:{AGIRLIK['govde']};background:var(--k-ortu);}}
+.k-satir:hover{{background:var(--k-ortu2);}}
 .k-satir-sag{{display:flex;gap:10px;flex-shrink:0;margin-left:8px;
   align-items:center;font-variant-numeric:tabular-nums;}}
 
-.k-bos{{color:{R['silik']};font-size:{F['govde']};padding:10px 4px;}}
+.k-bos{{color:var(--k-silik);font-size:{F['govde']};padding:10px 4px;}}
 
 [data-testid="stDataFrame"]{{border-radius:var(--k-r) !important;
-  overflow:hidden !important;border:1px solid {R['kenar']} !important;}}
+  overflow:hidden !important;border:1px solid var(--k-kenar) !important;}}
 div[data-testid="stDialog"] > div:first-child{{
-  border:1px solid {R['kenar2']} !important;border-radius:14px !important;}}
+  border:1px solid var(--k-kenar2) !important;border-radius:14px !important;}}
 div[data-testid="stDialog"] [data-testid="stHeading"]{{
   font-size:{F['baslik']} !important;font-weight:700 !important;
-  letter-spacing:-.2px !important;color:{R['metin']} !important;}}
-div[data-testid="stCaptionContainer"] p{{color:{R['soluk']} !important;}}
+  letter-spacing:-.2px !important;color:var(--k-metin) !important;}}
+div[data-testid="stCaptionContainer"] p{{color:var(--k-soluk) !important;}}
 
 @media (max-width:640px){{
   .k-kart{{min-width:110px;}}
@@ -522,7 +686,7 @@ def kpi_serit(kalemler, yogunluk=None):
     """
     hucreler = ""
     for k in kalemler:
-        c = RENK.get(k.get("renk", "mor"), RENK["mor"])
+        c = rv(k.get("renk", "mor"))
         ipucu = k.get("ipucu") or k.get("tam") or ""
         ttl = f' title="{ipucu}"' if ipucu else ""
         alt = f'<div class="k-alt">{k["alt"]}</div>' if k.get("alt") else ""
@@ -536,7 +700,7 @@ def kpi_serit(kalemler, yogunluk=None):
 
 def kart(baslik_metni, renk, icerik_html, rozet_metni="", yukseklik=170):
     """İç kaydırmalı pencere kartı. `renk` RENK anahtarı."""
-    c = RENK.get(renk, RENK["mor"])
+    c = rv(renk)
     roz = rozet(rozet_metni, renk) if rozet_metni else ""
     return (f'<div class="k-kart" data-akscent style="border-left-color:{c}">'
             f'<div class="k-pencere-basi" style="color:{c}">'
@@ -550,8 +714,9 @@ def kart_grid(*kartlar):
 
 
 def rozet(metin, renk="mor"):
-    c = RENK.get(renk, RENK["mor"])
-    return f'<span class="k-rozet" style="background:{c}22;color:{c}">{metin}</span>'
+    c = rv(renk)
+    return (f'<span class="k-rozet" style="background:color-mix(in srgb,{c} 14%,transparent);'
+            f'color:{c}">{metin}</span>')
 
 
 def satir(sol_html, sag_html=""):
