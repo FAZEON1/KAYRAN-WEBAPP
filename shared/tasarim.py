@@ -454,10 +454,16 @@ div[data-testid="stMetricDelta"]{{font-size:{F['kucuk']} !important;
   font-family:{MONO} !important;}}
 
 /* ── Uyarı kutuları: 745 çağrı, hepsi tek dilde ── */
-div[data-testid="stAlert"],div[data-testid="stNotification"]{{
+/* Çerçeve + zemin TEK katmanda: stAlertContainer (Streamlit zemini orada).
+   Dış stAlert'e çerçeve verilirse "kutu içinde kutu" oluşur. */
+div[data-testid="stAlert"]{{margin:6px 0 !important;padding:0 !important;
+  border:0 !important;background:transparent !important;}}
+div[data-testid="stAlertContainer"],div[data-testid="stNotification"]{{
   border-radius:{y['kart_r']} !important;padding:8px 13px !important;
-  border:1px solid var(--k-kenar2) !important;border-left-width:2px !important;
-  margin:6px 0 !important;}}
+  border:1px solid var(--k-kenar2) !important;border-left-width:2px !important;}}
+/* Streamlit metnin altına -1rem koyar (paragraf boşluğunu telafi için);
+   paragraf boşluğunu sıfırladığımızdan kutu 5px'e iniyor, metin taşıyordu. */
+div[data-testid="stAlert"] [data-testid="stMarkdownContainer"]{{margin-bottom:0 !important;}}
 div[data-testid="stAlert"] p,div[data-testid="stNotification"] p{{
   font-size:{F['govde']} !important;font-weight:{A['govde']} !important;
   line-height:1.55 !important;margin:0 !important;}}

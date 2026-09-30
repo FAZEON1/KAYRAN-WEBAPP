@@ -311,7 +311,7 @@ def run():
     
     /* ── BİLGİ KUTULARI ─────────────────────────────────────────────────── */
     .uyari-box {
-        background: linear-gradient(135deg,#3E1800,#2E1200);
+        background: color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1));
         border-left: 3px solid var(--k-amber);
         color: var(--k-amber);
         padding: 12px 16px;
@@ -321,7 +321,7 @@ def run():
         font-weight:400;
     }
     .info-box {
-        background: linear-gradient(135deg,#0A1929,#071526);
+        background: color-mix(in srgb,var(--k-mavi) 10%,var(--k-yuzey1));
         border-left: 3px solid var(--k-mavi);
         color: var(--k-mavi);
         padding: 12px 16px;
@@ -331,7 +331,7 @@ def run():
         font-weight:400;
     }
     .basari-box {
-        background: linear-gradient(135deg,#0F2910,#091E0A);
+        background: color-mix(in srgb,var(--k-yesil) 10%,var(--k-yuzey1));
         border-left: 3px solid var(--k-yesil2);
         color: var(--k-yesil2);
         padding: 12px 16px;
@@ -349,9 +349,9 @@ def run():
     section[data-testid="stSidebar"] * { color: var(--k-metin) !important; }
     /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stButton button {
-        background: linear-gradient(135deg,#1A3A5C,var(--k-mavi)) !important;
+        background: var(--k-yuzey2) !important;
         color: var(--k-metin) !important;
-        border: none !important;
+        border: 1px solid var(--k-kenar2) !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
         font-size: 13px !important;
