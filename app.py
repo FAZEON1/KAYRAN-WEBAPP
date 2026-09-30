@@ -2235,6 +2235,41 @@ def _arama_kutusu(yer="anasayfa"):
                 _git("teknikservis")
 
 
+def _bugun_panel(aktif_kullanici, yetkiler):
+    """Ana sayfa 'Bugün' paneli — veri shared/bugun.py'de, burada yalnız çizim.
+    Her madde ilgili modülü açan bir düğmeyle gelir."""
+    from shared import bugun as _bgn
+    _maddeler = _bgn.topla(
+        yetkiler,
+        talep_yoneticisi=ozel_yetki(aktif_kullanici, "talep_yonetici"),
+        sistem_yoneticisi=ozel_yetki(aktif_kullanici, "kullanici_yonetimi"),
+    )
+    _kritik = sum(1 for m in _maddeler if m["oncelik"] == "kritik")
+    _ozet = (f'{len(_maddeler)} konu' + (f' · <span style="color:#F87171">{_kritik} acil</span>' if _kritik else '')
+             ) if _maddeler else "her şey yolunda"
+    st.markdown(_bgn.css(), unsafe_allow_html=True)
+    st.markdown(
+        '<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 8px">'
+        '<span style="color:#E2E8F0;font-size:15px;font-weight:700">Bugün</span>'
+        f'<span style="color:#7B8AA0;font-size:12px">{_ozet}</span></div>',
+        unsafe_allow_html=True)
+    with st.container(key="bugun_panel"):
+        if not _maddeler:
+            st.markdown(_bgn.bos_html(), unsafe_allow_html=True)
+        for _m in _maddeler:
+            _c1, _c2 = st.columns([12, 2], vertical_alignment="center")
+            _c1.markdown(_bgn.satir_html(_m), unsafe_allow_html=True)
+            if _m["hedef"] == "talep":
+                # Talep Merkezi her sayfada sağ alttaki ✉️ düğmesinde açılır
+                _c2.markdown('<div style="color:#7B8AA0;font-size:11px;text-align:center">'
+                             'sağ alttaki ✉️</div>', unsafe_allow_html=True)
+            elif _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
+                            use_container_width=True):
+                st.session_state.aktif_uygulama = _m["hedef"]
+                st.rerun()
+    st.markdown('<div style="height:20px"></div>', unsafe_allow_html=True)
+
+
 def anasayfa():
     G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E2E8F0">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#FBBF24">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" fill="#E2E8F0">F</text></svg>'
     FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" fill="#E2E8F0" letter-spacing="6">FAZEON</text></svg>'
@@ -2311,22 +2346,16 @@ def anasayfa():
                  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
     _now_h = _ist_now
     _tarih_str = f"{_now_h.day} {_aylar_tr[_now_h.month-1]} {_now_h.year} · {_gunler_tr[_now_h.weekday()]}"
+    # Tanıtım satırları (geliştirici imzası, "Ana Sayfa" rozeti,
+    # açıklama cümlesi) kaldırıldı: yer kaplıyor, bilgi vermiyordu.
     st.markdown(
-        '<div style="margin-bottom:24px;animation:fadeUp 0.6s ease-out">'
-        '<div style="font-size:11px;color:#475569;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">⚡ İbrahim Kayran tarafından geliştirildi</div>'
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-        '<div style="display:inline-block;padding:8px 16px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);border-radius:20px">'
-        '<span style="color:#A5B4FC;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🏠 Ana Sayfa</span>'
-        '</div>'
-        f'<span style="color:#7B8AA0;font-size:13px;font-weight:400">{_tarih_str}</span>'
-        '</div>'
-        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,40px);font-weight:700;color:#E2E8F0;letter-spacing:-0.5px;line-height:1.1;margin:0">'
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;'
+        'flex-wrap:wrap;margin:4px 0 14px">'
+        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(22px,4vw,30px);font-weight:700;color:#E2E8F0;letter-spacing:-0.4px;line-height:1.15;margin:0">'
         f'{selamlama}, '
-        f'<span style="background:linear-gradient(90deg,#7DD3FC,#818CF8,#F9A8D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">{aktif_kullanici.capitalize()}</span>'
+        f'<span style="color:#A5B4FC">{aktif_kullanici.capitalize()}</span>'
         '</h1>'
-        '<p style="color:#94A3B8;font-size:14px;margin-top:8px;font-weight:400">'
-        'İşletmenin güncel durumu aşağıda. Bir modüle geçmek için kartına tıkla.'
-        '</p>'
+        f'<span style="color:#7B8AA0;font-size:13px;font-weight:400">{_tarih_str}</span>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -2341,8 +2370,12 @@ def anasayfa():
             'veri ekleme/değiştirme/silme kapalıdır.</div>',
             unsafe_allow_html=True)
 
+    # ─── 📋 BUGÜN — dikkat gerektiren işler (D2) ───
+    _bugun_panel(aktif_kullanici, yetkiler)
+
     # ─── 👑 PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
-    if ozel_yetki(aktif_kullanici, "patron_panel"):
+    _patron_gor = ozel_yetki(aktif_kullanici, "patron_panel")
+    if _patron_gor:
         try:
             from shared.ui import (patron_verisi_topla, patron_panosu_html,
                                    pencere_css as _pp_css)
@@ -2354,8 +2387,7 @@ def anasayfa():
 
     # ─── GÜNLÜK BİLGİ ŞERİDİ (döviz · altın · hava · günün sözü) ───
     try:
-        from gunluk import (get_doviz, get_gram_altin, get_hava, get_gunun_sozu,
-                            get_yaklasan_tatil, get_mola_ipucu)
+        from gunluk import get_doviz, get_gram_altin, get_hava, get_yaklasan_tatil
         _dv = get_doviz()
         # Tarihsel kur için: o günün USD/TL kurunu kaydet (idempotent, günde 1)
         try:
@@ -2367,11 +2399,11 @@ def anasayfa():
             pass
         _altin = get_gram_altin()
         _hava = get_hava()
-        _soz = get_gunun_sozu()
         _tatil = get_yaklasan_tatil()
-        _mola = get_mola_ipucu()
-    except Exception:
-        _dv, _altin, _hava, _soz, _tatil, _mola = {}, None, None, "", None, ""
+    except Exception as _ge:
+        from shared.hata_log import kaydet as _hk
+        _hk("anasayfa.gunluk", _ge)
+        _dv, _altin, _hava, _tatil = {}, None, None, None
 
     def _g_card(ust, buyuk, alt, accent, ikon):
         return (f'<div style="background:rgba(255,255,255,0.04);border:1px solid {accent}2e;border-radius:16px;'
@@ -2380,8 +2412,8 @@ def anasayfa():
                 f'<div style="color:#E2E8F0;font-size:23px;font-weight:700;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
                 f'<div style="color:{accent};font-size:13px;font-weight:600;margin-top:8px">{alt}</div></div>')
 
-    _saat_str = _ist_now.strftime("%H:%M")
-    _gunluk_kartlar = [_g_card("Bugün", _saat_str, _tarih_str, "#A5B4FC", "📅")]
+    # "Bugün · saat" kartı kaldırıldı: tarih zaten selamlamanın yanında.
+    _gunluk_kartlar = []
     if _dv.get("USD"):
         _usd_s = f"₺{_dv['USD']:.2f}".replace(".", ",")
         _eur_alt = (f"EUR ₺{_dv['EUR']:.2f}".replace(".", ",")) if _dv.get("EUR") else "USD/TRY"
@@ -2399,30 +2431,14 @@ def anasayfa():
         else:
             _gunluk_kartlar.append(_g_card("Yaklaşan Tatil", f"{_tatil['kalan_gun']} gün",
                                            f"{_tatil['ad']} · {_ttar}", "#F87171", "🗓️"))
-    st.markdown(
-        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;animation:fadeUp 0.6s ease-out">'
-        + "".join(_gunluk_kartlar) + '</div>', unsafe_allow_html=True)
-    if _soz:
+    if _gunluk_kartlar:
         st.markdown(
-            '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(168,85,247,0.06));'
-            'border:1px solid rgba(139,92,246,0.22);border-radius:14px;padding:12px 20px;margin-bottom:8px;'
-            'display:flex;align-items:center;gap:12px;animation:fadeUp 0.7s ease-out">'
-            '<span style="font-size:19px">💬</span>'
-            f'<span style="color:#7DD3FC;font-size:14px;font-style:italic;font-weight:400">{_soz}</span></div>',
-            unsafe_allow_html=True)
-    if _mola:
-        st.markdown(
-            '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);'
-            'border-radius:14px;padding:12px 20px;margin-bottom:28px;display:flex;align-items:center;gap:12px;'
-            'animation:fadeUp 0.75s ease-out">'
-            '<span style="font-size:19px">💧</span>'
-            f'<span style="color:#6EE7B7;font-size:14px;font-weight:600">{_mola}</span></div>',
-            unsafe_allow_html=True)
+            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;animation:fadeUp 0.6s ease-out">'
+            + "".join(_gunluk_kartlar) + '</div>', unsafe_allow_html=True)
+    # Günün sözü ve su/mola hatırlatması kaldırıldı (D2: dekor → iş).
 
     # ─────────────────────────────────────────────────────────────────────
     # ─── İŞ KPI KARTLARI (gerçek veriden, yetkiye göre, güvenli) ───
-    erisilebilir = sum(1 for v in yetkiler.values() if v)
-    toplam_uygulama = len(yetkiler)
 
     def _kpi_card(label, value, sub, accent):
         return (f'<div style="background:linear-gradient(180deg,#152036,#0F172A);border:1px solid {accent}33;border-radius:12px;'
@@ -2437,9 +2453,12 @@ def anasayfa():
     # Finansal rakamları (net kâr, ciro, marj) yalnızca yetkili görür — diğer personele gösterilmez
     _finans_gor = (aktif_kullanici or "").lower() == "ibrahim"
     _rozet = {}
-    kpi_html = [_kpi_card("Erişim", f"{erisilebilir}/{toplam_uygulama}", "⚡ Yetkili uygulama", "#A5B4FC")]
+    # "Erişim x/y" kartı kaldırıldı (bilgi değil süs). Net Kâr, Patron
+    # Panosu'nda zaten var; aynı rakam iki yerde (üstelik farklı hesapla)
+    # görünmesin diye yalnız pano GÖRÜNMEYEN yetkiliye gösterilir.
+    kpi_html = []
 
-    if _finans_gor:
+    if _finans_gor and not _patron_gor:
         try:
             from satis.database import get_satislar, ozet_hesapla
             _top, _, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun_iso))
@@ -2496,12 +2515,13 @@ def anasayfa():
         except Exception:
             pass
 
-    st.markdown(
-        '<div style="font-size:11px;color:#7B8AA0;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 0 8px">📊 İş özeti</div>'
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px;margin-bottom:28px;animation:fadeUp 0.75s ease-out">'
-        + "".join(kpi_html) + '</div>',
-        unsafe_allow_html=True
-    )
+    if kpi_html:
+        st.markdown(
+            '<div style="font-size:11px;color:#7B8AA0;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 0 8px">İş özeti</div>'
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px;margin-bottom:28px;animation:fadeUp 0.75s ease-out">'
+            + "".join(kpi_html) + '</div>',
+            unsafe_allow_html=True
+        )
 
     if _bildirimler:
         if True:
@@ -2567,11 +2587,9 @@ def anasayfa():
                         if st.button("Aç →", key=f"home_open_{_mk}", use_container_width=True):
                             st.session_state.aktif_uygulama = _mk
                             st.rerun()
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 40px;color:#475569;font-size:11px">'
-            '<span style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 10px #10B981"></span>'
-            'Tüm servisler aktif · KAYRAN Workspace v2.0 Kurumsal sürüm'
-            '</div>', unsafe_allow_html=True)
+        # Sabit "servisler aktif" yeşil ışığı kaldırıldı: hiçbir şeyi kontrol
+        # etmeden her zaman yeşil yanıyordu — yanıltıcıydı.
+        st.markdown('<div style="height:32px"></div>', unsafe_allow_html=True)
     # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI (panel + kayıt +
     # liderlik sorguları) — ana sayfa açılışını da hızlandırır.
 
