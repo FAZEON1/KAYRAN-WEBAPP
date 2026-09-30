@@ -194,3 +194,36 @@ def test_kullanici_adi(ad, beklenen):
                                        ("abcd1234", True), ("Kayran2026", True)])
 def test_sifre_kurali(s, beklenen):
     assert Y.sifre_gecerli_mi(s) is beklenen
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 6) AÇIK OTURUM: pasife alınan kullanıcı düşer (C10)
+# ═══════════════════════════════════════════════════════════════════════
+def _oturum_fonksiyonlari(store):
+    src = open(KOK / "app.py", encoding="utf-8").read()
+    ns = {"_oturum_store": lambda: store}
+    for ad in ("oturumlari_sonlandir", "_hesap_hala_aktif_mi"):
+        exec(re.search(rf"^def {ad}\(.*?(?=^def )", src, re.S | re.M).group(0), ns)
+    return ns
+
+
+def test_pasife_alinan_acik_oturumda_duser(db):
+    db(TABLO)
+    ns = _oturum_fonksiyonlari({})
+    assert ns["_hesap_hala_aktif_mi"]("serdar") is True
+    assert ns["_hesap_hala_aktif_mi"]("eski") is False          # pasif
+
+
+def test_db_yoksa_ya_da_kullanici_tabloda_yoksa_kimse_atilmaz(db):
+    ns = _oturum_fonksiyonlari({})
+    db(None)
+    assert ns["_hesap_hala_aktif_mi"]("eski") is True
+    db(TABLO)
+    assert ns["_hesap_hala_aktif_mi"]("yalniz_secretsta") is True
+
+
+def test_oturumlari_sonlandir_yalniz_o_kullaniciyi_yakar():
+    store = {"t1": {"u": "serdar"}, "t2": {"u": "Serdar"}, "t3": {"u": "ibrahim"}}
+    ns = _oturum_fonksiyonlari(store)
+    assert ns["oturumlari_sonlandir"]("serdar") == 2
+    assert list(store) == ["t3"]
