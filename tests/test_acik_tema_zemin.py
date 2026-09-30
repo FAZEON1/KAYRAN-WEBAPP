@@ -29,6 +29,10 @@ _ZEMIN = re.compile(r"(background(?:-color)?\s*:[^;\"']*?|linear-gradient\([^)]*
                     r"(#[0-9A-Fa-f]{6}\b|#[0-9A-Fa-f]{3}\b)")
 
 
+# kart_bg = "#2D200A" gibi değişkene atanıp sonra style'a basılan zeminler
+_ZEMIN_DEGISKEN = re.compile(r"""\b\w*(bg|zemin|arka)\w*\s*[=:]\s*["'](#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{3})\b""", re.I)
+
+
 def _parlaklik(h):
     h = h[1:]
     if len(h) == 3:
@@ -57,6 +61,10 @@ def test_ekranda_koyu_sabit_zemin_yok():
                     continue
                 if _parlaklik(hx) < 0.25 and hx not in IZINLI:
                     sorun.append(f"{yol.relative_to(KOK)}:{no}  {hx}")
+            for m in _ZEMIN_DEGISKEN.finditer(satir):
+                hx = m.group(2).upper()
+                if _parlaklik(hx) < 0.25 and hx not in IZINLI:
+                    sorun.append(f"{yol.relative_to(KOK)}:{no}  {hx}  (değişkende)")
     assert not sorun, (
         "Açık temada okunmaz kalacak koyu SABİT zemin(ler). var(--k-yuzey*) ya da "
         "color-mix(in srgb,var(--k-renk) 10%,var(--k-yuzey1)) kullan:\n  "

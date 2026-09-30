@@ -491,6 +491,43 @@ def banka_sil(banka_id):
 # ════════════════════════════════════════════════════════════════════
 # CEKLER
 # ════════════════════════════════════════════════════════════════════
+_TR_HARF = str.maketrans("İIŞşÇçĞğÜüÖöı", "iissccgguuooi")
+CEK_ODENDI_DURUMLAR = {"odendi", "tahsil edildi", "tahsil", "iptal", "portfoyden cikti"}
+
+
+def cek_durum_norm(durum):
+    """'Ödendi' / 'ÖDENDİ' / 'odendi' → 'odendi'. Türkçe harfler sadeleşir."""
+    return str(durum or "").translate(_TR_HARF).lower().strip()
+
+
+def cek_tutarlari(c):
+    """Bir çekin EKRANDA gösterilecek ödenen/kalan tutarı — TEK kural.
+
+    Bankanın dökümündeki "kalan" sütunu ödenmiş çekte de meblağı gösterebiliyor;
+    bu yüzden durum "Ödendi/Tahsil/İptal/Portföyden Çıktı" ise kalan 0'dır.
+    Bekleyen/ciro çekte: kalan sütunu meblağ−ödenen ile (%1 toleransla) uyuşuyorsa
+    o, uyuşmuyorsa meblağ−ödenen kullanılır.
+    Dönen: {"meblag", "odenen", "kalan", "odendi"}
+    """
+    def _f(v):
+        try:
+            return float(v) if v not in (None, "") else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    meblag = _f(c.get("meblagh") or c.get("meblag"))
+    odenen = _f(c.get("odenen"))
+    kalan_kolon = _f(c.get("kalan"))
+    if cek_durum_norm(c.get("durum")) in CEK_ODENDI_DURUMLAR:
+        return {"meblag": meblag, "odenen": max(odenen, meblag), "kalan": 0.0, "odendi": True}
+    gercek = meblag - odenen
+    if kalan_kolon > 0 and abs(kalan_kolon - gercek) < max(1, meblag * 0.01):
+        kalan = kalan_kolon
+    else:
+        kalan = max(0.0, gercek)
+    return {"meblag": meblag, "odenen": odenen, "kalan": kalan, "odendi": False}
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_cekler(para_birimi="TL"):
     sb = get_client()
