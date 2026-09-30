@@ -104,7 +104,7 @@ def run():
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--k-yuzey2); }
-    ::-webkit-scrollbar-thumb { background: #2D3F6B; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--k-kenar2); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--k-mor2); }
     
     /* ── SIDEBAR ── */
@@ -195,8 +195,8 @@ def run():
         padding: 8px 16px !important;
         transition: all .2s !important;
         letter-spacing: .1px !important;
-        background: #1A2744 !important;
-        border: 1.5px solid #2D4070 !important;
+        background: var(--k-yuzey2) !important;
+        border: 1.5px solid var(--k-kenar2) !important;
         color: var(--k-soluk) !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
     }
@@ -204,7 +204,7 @@ def run():
     [data-testid="stButton"] button:hover,
     [data-testid="stBaseButton-secondary"]:hover {
         border-color: var(--k-soluk) !important;
-        background: #243358 !important;
+        background: var(--k-yuzey3) !important;
         color: var(--k-mavi) !important;
     }
     /* Primary (mavi) butonlar — her yerde geçerli */
@@ -255,23 +255,23 @@ def run():
     section[data-testid="stSidebar"] .stNumberInput input,
     section[data-testid="stSidebar"] .stSelectbox select,
     section[data-testid="stSidebar"] .stDateInput input {
-        background: rgba(15,22,41,0.6) !important;
+        background: color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
         border: 1px solid color-mix(in srgb,var(--k-soluk) 25%,transparent) !important;
         color: var(--k-mavi) !important;
         border-radius: 8px !important;
         font-family: 'JetBrains Mono', monospace !important;
         font-size:14px !important;
         font-weight: 600 !important;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.2) !important;
+        box-shadow: none !important;
     }
     section[data-testid="stSidebar"] .stNumberInput input:focus {
-        background: rgba(15,22,41,0.8) !important;
+        background: color-mix(in srgb,var(--k-metin) 9%,transparent) !important;
         border-color: color-mix(in srgb,var(--k-mavi) 50%,transparent) !important;
         box-shadow: 0 0 0 2px color-mix(in srgb,var(--k-mavi) 20%,transparent) !important;
     }
     /* Sidebar number input +/- butonları */
     section[data-testid="stSidebar"] .stNumberInput button {
-        background: rgba(15,22,41,0.5) !important;
+        background: color-mix(in srgb,var(--k-metin) 5%,transparent) !important;
         border-color: color-mix(in srgb,var(--k-soluk) 20%,transparent) !important;
         color: var(--k-soluk) !important;
     }
@@ -456,7 +456,7 @@ def run():
         box-shadow: 0 1px 4px color-mix(in srgb,var(--k-yesil) 10%,transparent);
     }
     .alarm-box {
-        background: linear-gradient(135deg, #2D0A0F, #3D1515);
+        background: color-mix(in srgb,var(--k-kirmizi) 9%,var(--k-yuzey1));
         border-left: 4px solid var(--k-kirmizi);
         padding: 12px 16px;
         border-radius: 0 10px 10px 0;
@@ -484,48 +484,33 @@ def run():
     }
     
     /* ── SUCCESS / ERROR / WARNING / INFO ── */
-    /* Streamlit'in default st.alert renkleri dark tema'da okunmuyor. Burada manuel ayarlıyoruz. */
-    div[data-testid="stAlert"] {
-        border-radius: 10px !important;
+    /* Zemin + çerçeve TEK katmanda (stAlertContainer). Eskiden dış kutuya
+       çerçeve, iç kutuya zemin veriliyordu → "kutu içinde kutu" + ince şerit.
+       Genel kutu ölçüsü shared/tasarim.py'de; burada yalnız modül renkleri. */
+    div[data-testid="stAlertContainer"] {
         font-family: 'Inter', sans-serif !important;
         font-size: 13px !important;
         font-weight:400 !important;
-        padding: 12px 16px !important;
-        border: 1px solid transparent !important;
     }
-    
-    /* Warning (sarı) - okunaklı koyu zemin + açık sarı yazı */
-    div[data-testid="stAlert"][data-baseweb="notification"] [data-testid="stAlertContentWarning"],
-    div[data-testid="stAlertContentWarning"],
-    div[data-testid="stAlert"] div[role="alert"]:has(svg[fill*="warning"]),
-    div.stAlert:has([data-testid="stAlertContentWarning"]) {
-        background: #1F1A08 !important;
+    div[data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]) {
+        background: color-mix(in srgb,var(--k-amber) 12%,var(--k-yuzey1)) !important;
         color: var(--k-amber2) !important;
-        border-color: var(--k-amber2) !important;
+        border-color: color-mix(in srgb,var(--k-amber2) 45%,transparent) !important;
     }
-    
-    /* Error (kırmızı) */
-    div[data-testid="stAlertContentError"],
-    div.stAlert:has([data-testid="stAlertContentError"]) {
-        background: #1F0808 !important;
+    div[data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]) {
+        background: color-mix(in srgb,var(--k-kirmizi) 10%,var(--k-yuzey1)) !important;
         color: var(--k-kirmizi2) !important;
-        border-color: var(--k-kirmizi2) !important;
+        border-color: color-mix(in srgb,var(--k-kirmizi2) 45%,transparent) !important;
     }
-    
-    /* Info (mavi) */
-    div[data-testid="stAlertContentInfo"],
-    div.stAlert:has([data-testid="stAlertContentInfo"]) {
-        background: color-mix(in srgb,var(--k-mavi) 15%,transparent) !important;
+    div[data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]) {
+        background: color-mix(in srgb,var(--k-mavi) 10%,var(--k-yuzey1)) !important;
         color: var(--k-mavi) !important;
-        border-color: var(--k-mavi) !important;
+        border-color: color-mix(in srgb,var(--k-mavi) 45%,transparent) !important;
     }
-    
-    /* Success (yeşil) */
-    div[data-testid="stAlertContentSuccess"],
-    div.stAlert:has([data-testid="stAlertContentSuccess"]) {
-        background: var(--k-yesil2) !important;
-        color: #064E3B !important;
-        border-color: var(--k-yesil2) !important;
+    div[data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]) {
+        background: color-mix(in srgb,var(--k-yesil) 12%,var(--k-yuzey1)) !important;
+        color: var(--k-yesil2) !important;
+        border-color: color-mix(in srgb,var(--k-yesil2) 45%,transparent) !important;
     }
     
     /* Tüm alert içindeki text - parent'tan inherit etsin */
@@ -643,7 +628,7 @@ def run():
         color-scheme: light !important;
     }
     .stApp {
-        background: linear-gradient(135deg, #0E1433 0%, var(--k-mor2) 50%, color-mix(in srgb,var(--k-mavi) 15%,transparent) 100%) !important;
+        background: var(--k-yuzey0) !important;
     }
     /* Ana içerik yazıları — login sayfasını eziyordu, kaldırıldı */
     /* Yazı renkleri her sayfa için kendi spesifik kurallarında ayarlandı */
@@ -840,7 +825,7 @@ def run():
     section[data-testid="stSidebar"] [data-testid="stNumberInput"] input,
     section[data-testid="stSidebar"] [data-testid="stTextInput"] input,
     section[data-testid="stSidebar"] [data-testid="stDateInput"] input {
-        background: rgba(15,22,41,0.6) !important;
+        background: color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
         color: var(--k-mavi) !important;
     }
     
@@ -1861,7 +1846,7 @@ def run():
                 for o, _ in gecmis_alarm
             ) or _bos("Gecikmiş ödeme yok")
             _bug_html = "".join(
-                f'<div class="alarm-box" style="border-color:var(--k-amber);background:linear-gradient(135deg,color-mix(in srgb,var(--k-amber) 15%,transparent),#3D2E15);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                f'<div class="alarm-box" style="border-color:var(--k-amber);background:color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1));color:var(--k-amber2);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
                 for o, _ in bugun_alarm
             ) or _bos("Bugün vadeli ödeme yok")
             st.markdown(_pgrid(
@@ -2068,7 +2053,7 @@ def run():
                     # ─── 💸 KISMİ ÖDEME paneli (bekleyenler için) ───
                     if not is_odendi and st.session_state.get(f"kismi_toggle_{o['id']}", False):
                         st.markdown(
-                            '<div style="background:#0A2D1E;border:1px solid var(--k-yesil);'
+                            '<div style="background:color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1));border:1px solid var(--k-yesil);'
                             'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
                             '<b style="color:var(--k-yesil2);font-size:13px">💸 Kısmi Ödeme — ödenen kısım ayrı '
                             '"ödendi" kaydı olur, kalan bekler</b>',
@@ -3067,7 +3052,7 @@ def run():
                     ozet = get_hafta_ozet(h["id"])
                     is_aktif = h["id"] == aktif_id
     
-                    renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
+                    renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
                     border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
     
                     col1, col2 = st.columns([5, 1])
@@ -3316,7 +3301,7 @@ def run():
                 ozet = get_hafta_ozet(h["id"])
                 is_aktif = h["id"] == aktif_id
                 with cols[i % 4]:
-                    renk = "#0E1A3A" if is_aktif else "rgba(255,255,255,0.03)"
+                    renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
                     border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
                     aktif_badge = '<br><span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
                     recent_html = (
@@ -4513,11 +4498,11 @@ def run():
             st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
             # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
             st.markdown(
-                f'<div style="background:linear-gradient(135deg,var(--k-mavi),#3730A3,var(--k-mor));border-radius:16px;'
+                f'<div style="background:linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5);border-radius:16px;'
                 f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
-                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--k-mor2);margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
-                f'<div style="font-size:23px;font-weight:700;color:var(--k-metin);font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
-                f'<div style="font-size:13px;color:var(--k-mor2);margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.78);margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
+                f'<div style="font-size:23px;font-weight:700;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
+                f'<div style="font-size:13px;color:rgba(255,255,255,0.78);margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
                 f'</div>', unsafe_allow_html=True)
             # Kısa hesap dökümü
             _dk = [

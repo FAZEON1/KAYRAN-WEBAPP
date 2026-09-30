@@ -886,7 +886,7 @@ _sb_comp.html(
     'position:fixed','top:50%','transform:translateY(-50%)','left:10px',
     'z-index:2147483647','width:34px','height:34px','border-radius:50%',
     'cursor:pointer','border:2px solid #FBBF24',
-    'background:#0D1526','color:#FBBF24',
+    'background:var(--k-yuzey1,#0D1526)','color:#F59E0B',
     'padding:0','display:flex','align-items:center','justify-content:center',
     'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
     'transition:left .18s ease, box-shadow .15s ease'
@@ -2665,7 +2665,7 @@ def anasayfa():
             )
         with _bk2:
             st.markdown(
-                '<div style="background:linear-gradient(135deg,#0F0A1E 0%,#1A0F3C 50%,#0D0D2B 100%);'
+                '<div style="background:color-mix(in srgb,var(--k-mor) 7%,var(--k-yuzey1));'
                 'border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-left:3px solid var(--k-mor);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
                 f'<div style="height:46px;display:flex;align-items:center;margin-bottom:8px">{FAZEON_LOGO_SVG}</div>'
                 '<div style="font-size:14px;font-weight:700;color:var(--k-metin);margin-bottom:0px">Fazeon</div>'
