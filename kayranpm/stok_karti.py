@@ -345,7 +345,7 @@ def goster(sku):
             st.session_state["_stok_gec_sku"] = _gec_map[_gec_sec]
             st.rerun()
 
-    t1, t2, t3, t4, t5, t6 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade"])
+    t1, t2, t3, t4, t5, t6, t7 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade", "📜 Stok Hareketleri"])
 
     # ═══ ÖZET ═══
     with t1:
@@ -719,6 +719,56 @@ def goster(sku):
             st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir; kâr/marj brüt satıştan "
                        "hesaplanır, iade kârdan düşülmez.")
 
+    # ── 📜 Stok hareket defteri ──
+    with t7:
+        _hareket_sekmesi(sku)
+
     st.divider()
     if st.button("Kapat", use_container_width=True):
         st.rerun()
+
+
+_TUR_ADI = {"cikis": "📤 Çıkış", "giris": "📥 Giriş", "sevk": "🔁 Sevk",
+            "aktarim": "📋 Excel aktarımı", "sifirlama": "🧹 Sıfırlama", "hata": "⚠️ BAŞARISIZ"}
+
+
+def _hareket_sekmesi(sku):
+    """Bu SKU'nun stok hareket defteri — 'stok neden değişti?' sorusunun cevabı."""
+    try:
+        from shared.stok_defteri import gecmis
+        rows = gecmis(sku=sku, limit=300)
+    except Exception:
+        rows = []
+    if not rows:
+        st.info("Bu ürün için kayıtlı stok hareketi yok. Defter, kurulumdan sonraki "
+                "hareketleri tutar; daha eski değişimler burada görünmez.")
+        return
+    _hatali = [r for r in rows if not r.get("basarili", True)]
+    if _hatali:
+        st.error(f"⚠️ {len(_hatali)} başarısız stok işlemi var — stok bu işlemlerde "
+                 f"DEĞİŞMEDİ. Nedenleri aşağıda 'Hata' sütununda.")
+    _giris = sum(_f(r.get("degisim")) for r in rows if r.get("basarili", True) and _f(r.get("degisim")) > 0)
+    _cikis = sum(_f(r.get("degisim")) for r in rows if r.get("basarili", True) and _f(r.get("degisim")) < 0)
+    _kart_satiri([
+        _kart("Kayıt", f"{len(rows):,}", "son 300 hareket"),
+        _kart("Toplam Giriş", f"+{_giris:,.0f}", "adet", "#34D399"),
+        _kart("Toplam Çıkış", f"{_cikis:,.0f}", "adet", "#F87171"),
+        _kart("Başarısız", f"{len(_hatali):,}", "işlem", "#FBBF24" if _hatali else "#64748B"),
+    ])
+    _depolar = sorted({r.get("depo") or "" for r in rows} - {""})
+    _sec = st.selectbox("Depo", ["Tümü"] + _depolar, key=f"sh_depo_{sku}")
+    _goster = [r for r in rows if _sec == "Tümü" or r.get("depo") == _sec]
+    st.dataframe(pd.DataFrame([{
+        "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
+        "Tür": _TUR_ADI.get(r.get("tur"), r.get("tur") or ""),
+        "Depo": r.get("depo") or "",
+        "Önce": _f(r.get("onceki")), "Sonra": _f(r.get("sonraki")),
+        "Değişim": _f(r.get("degisim")),
+        "Açıklama": r.get("aciklama") or "",
+        "Kaynak": r.get("kaynak") or "",
+        "Kullanıcı": r.get("kullanici") or "",
+        "Hata": r.get("hata") or "",
+    } for r in _goster]), hide_index=True, use_container_width=True,
+        column_config={"Değişim": st.column_config.NumberColumn(format="%+.0f")})
+    st.caption("Kaynak: stok işlemini başlatan kod (ör. satis/database.py:_stok_uygula_depolu). "
+               "Başarısız satırlarda Önce/Sonra 0 görünür — stok o işlemde hiç değişmemiştir.")

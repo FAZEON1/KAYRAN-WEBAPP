@@ -615,6 +615,10 @@ def excel_yukle_g5f_depolar(dosya_yolu):
             pass
 
         basarili, toplam_adet, eslesen, yeni = 0, 0, 0, 0
+        from .database import _defter as _defter_al
+        _sd = _defter_al()
+        _defter = _sd.toplu()          # yüzlerce SKU'nun defter satırı tek istekte yazılsın
+        _defter.__enter__()
         for sku, dd in kirilim.items():
             gercek_sku = mevcut_sku_map.get(sku, sku)   # mevcut varsa onun yazımıyla güncelle
             if sku in mevcut_sku_map:
@@ -641,9 +645,17 @@ def excel_yukle_g5f_depolar(dosya_yolu):
                 if normalize_sku(_gs) not in kirilim:
                     get_client().table("urunler").update(
                         {"depo_kirilim": {}, "bizim_stok": 0}).eq("sku", _gs).execute()
+                    _sd.yaz_fark(_gs, _dk, {}, "sifirlama",
+                                 "Excel'de yok — birebir senkron sıfırlama")
                     sifirlanan += 1
-        except Exception:
-            pass
+        except Exception as _e:
+            try:
+                from shared.hata_log import kaydet
+                kaydet("excel_islemler.senkron_sifirlama", _e, kritik=True)
+            except Exception:
+                pass
+        finally:
+            _defter.__exit__(None, None, None)
 
         depo_liste = ", ".join(sorted(depolar_set))
         _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"

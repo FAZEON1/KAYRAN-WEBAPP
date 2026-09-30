@@ -2053,7 +2053,7 @@ input, textarea, select { font-size: 16px !important; }
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari"):
             st.markdown(
                 '<div style="font-size:11px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:8px">HESAP</div>',
                 unsafe_allow_html=True
@@ -2085,6 +2085,15 @@ input, textarea, select { font-size: 16px !important; }
                 use_container_width=True
             ):
                 st.session_state.aktif_uygulama = "kullanici_yonetimi"
+                st.rerun()
+
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
+                "🧾 Sistem Kayıtları",
+                key="nav_sistem_kayitlari",
+                type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "sistem_kayitlari"
                 st.rerun()
 
             if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
@@ -2722,6 +2731,68 @@ def anasayfa():
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
 # ─────────────────────────────────────────────────────────────────────
+def sistem_kayitlari():
+    """🧾 Sistem Kayıtları — stok hareket defteri + hata kaydı (yönetici)."""
+    import pandas as pd
+    ben = (st.session_state.get("aktif_kullanici", "") or "").strip().lower()
+    if not ozel_yetki(ben, "kullanici_yonetimi"):
+        st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
+        return
+    from shared.stok_defteri import gecmis
+    from shared.hata_log import son_hatalar
+
+    st.markdown("## 🧾 Sistem Kayıtları")
+    st.caption("Stok neden değişti, hangi işlem başarısız oldu, sistem nerede hata verdi — "
+               "hepsi burada. Kayıtlar kurulumdan sonraki olayları kapsar.")
+
+    t1, t2, t3 = st.tabs(["⚠️ Başarısız stok işlemleri", "📜 Stok hareketleri", "🧯 Hatalar"])
+
+    def _tablo(rows):
+        return pd.DataFrame([{
+            "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
+            "SKU": r.get("sku") or "", "Depo": r.get("depo") or "", "Tür": r.get("tur") or "",
+            "Önce": r.get("onceki"), "Sonra": r.get("sonraki"), "Değişim": r.get("degisim"),
+            "Açıklama": r.get("aciklama") or "", "Kaynak": r.get("kaynak") or "",
+            "Kullanıcı": r.get("kullanici") or "", "Hata": r.get("hata") or "",
+        } for r in rows])
+
+    with t1:
+        rows = gecmis(limit=500, yalniz_basarisiz=True)
+        if not rows:
+            st.success("✅ Kayıtlı başarısız stok işlemi yok.")
+        else:
+            st.error(f"{len(rows)} stok işlemi uygulanamadı — bu satırlarda stok DEĞİŞMEDİ. "
+                     "Genellikle ürün kartı eksikliği ya da bağlantı hatasıdır.")
+            st.dataframe(_tablo(rows), hide_index=True, use_container_width=True)
+
+    with t2:
+        c1, c2 = st.columns([2, 1])
+        _sku = c1.text_input("SKU", placeholder="boş bırakırsan son 300 hareket",
+                             key="sk_sku").strip()
+        _tur = c2.selectbox("Tür", ["Tümü", "cikis", "giris", "sevk", "aktarim", "sifirlama", "hata"],
+                            key="sk_tur")
+        rows = gecmis(sku=_sku or None, limit=300, tur=None if _tur == "Tümü" else _tur)
+        if not rows:
+            st.info("Kayıt yok.")
+        else:
+            st.dataframe(_tablo(rows), hide_index=True, use_container_width=True)
+
+    with t3:
+        _kr = st.toggle("Yalnız kritik", key="sk_kritik")
+        rows = son_hatalar(limit=300, yalniz_kritik=_kr)
+        if not rows:
+            st.success("✅ Kayıtlı hata yok.")
+        else:
+            st.dataframe(pd.DataFrame([{
+                "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
+                "Kritik": "🔴" if r.get("kritik") else "",
+                "Yer": r.get("yer") or "", "Tür": r.get("tur") or "",
+                "Mesaj": r.get("mesaj") or "", "Kullanıcı": r.get("kullanici") or "",
+            } for r in rows]), hide_index=True, use_container_width=True)
+            with st.expander("Ayrıntı (son hata)"):
+                st.code(rows[0].get("ayrinti") or "—")
+
+
 def kullanici_yonetimi():
     """👥 Kullanıcı Yönetimi — yetkileri ekrandan yönetir.
 
@@ -3292,7 +3363,7 @@ def main():
         "kayranacc": "Muhasebe", "ithalat": "İthalat", "kayranpm": "Ürün Yönetimi",
         "depo": "Depo Yönetimi",
         "satis": "Satış", "teknikservis": "Teknik Servis",
-        "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi",
+        "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3345,6 +3416,8 @@ def main():
             kayrantsw_yakinda()
         elif aktif == "kullanici_yonetimi":
             kullanici_yonetimi()
+        elif aktif == "sistem_kayitlari":
+            sistem_kayitlari()
         elif aktif == "sifre_degistir":
             sifre_degistir()
         else:

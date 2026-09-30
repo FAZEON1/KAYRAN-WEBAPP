@@ -575,7 +575,12 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
     Mevcut ürünün fiyat/kategori/marka/hedef kâr bilgilerine DOKUNMAZ."""
     sb = get_client()
     bugun = get_today()
-    mevcut = _row(sb.table("urunler").select("urun_adi, ilk_giris_tarihi").eq("sku", sku).execute())
+    try:
+        mevcut = _row(sb.table("urunler").select("urun_adi, ilk_giris_tarihi, depo_kirilim")
+                      .eq("sku", sku).execute())
+    except Exception:
+        mevcut = _row(sb.table("urunler").select("urun_adi, ilk_giris_tarihi").eq("sku", sku).execute())
+    _sd = _defter()
     if mevcut:
         _payload = {"bizim_stok": int(bizim_stok_satilabilir or 0),
                     "depo_kirilim": depo_kirilim or {}, "guncelleme_tarihi": bugun}
@@ -583,6 +588,8 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
             _payload["urun_adi"] = urun_adi
         try:
             sb.table("urunler").update(_payload).eq("sku", sku).execute()
+            _sd.yaz_fark(sku, mevcut.get("depo_kirilim") or {}, depo_kirilim or {},
+                         "aktarim", "Excel/G5F stok aktarımı")
         except Exception:
             _payload.pop("depo_kirilim", None)
             sb.table("urunler").update(_payload).eq("sku", sku).execute()
@@ -594,6 +601,7 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
                     "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun}
         try:
             sb.table("urunler").insert(_payload).execute()
+            _sd.yaz_fark(sku, {}, depo_kirilim or {}, "aktarim", "Excel/G5F stok aktarımı · yeni kart")
         except Exception:
             _payload.pop("depo_kirilim", None)
             sb.table("urunler").insert(_payload).execute()
@@ -1452,6 +1460,13 @@ def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici="", sevk_tarihi="", 
             "bizim_stok": _bizim_stok_hesapla(yeni_dk),
             "guncelleme_tarihi": get_today(),
         }).eq("sku", sku).execute()
+        try:
+            _sd = _defter()
+            _sd.yaz_fark(sku, dk, yeni_dk, "sevk",
+                         f"{kaynak_depo} → {hedef_depo}"
+                         + (f" · belge {belge_no}" if str(belge_no or "").strip() else ""))
+        except Exception:
+            pass
         _log = {
             "sku": sku, "urun_adi": u.get("urun_adi", ""),
             "kaynak_depo": kaynak_depo, "hedef_depo": hedef_depo,
@@ -1495,59 +1510,114 @@ def get_depo_sevk_gecmisi(limit=50):
 
 
 # ═══════════ MODEL B — HAREKET BAZLI STOK ÇEKİRDEĞİ ═══════════
-def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None):
+class _DefterYok:
+    """Stok defteri yüklenemezse kullanılan etkisiz yedek — stok işlemleri DURMASIN."""
+    @staticmethod
+    def kaynak_bul():
+        return ""
+
+    @staticmethod
+    def yaz(*a, **k):
+        return None
+
+    @staticmethod
+    def yaz_fark(*a, **k):
+        return None
+
+    @staticmethod
+    def toplu():
+        import contextlib
+        return contextlib.nullcontext()
+
+
+def _defter():
+    try:
+        from shared import stok_defteri
+        return stok_defteri
+    except Exception:
+        return _DefterYok
+
+
+def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None, aciklama=""):
     """MODEL B: {sku: delta} hareketlerini urunler.depo_kirilim'e uygular.
     delta + → giriş, − → çıkış. depo verilmezse 'MERKEZ DEPO'.
     kart_ac=True: ürün kartı olmayan SKU için otomatik boş kart açılır (adı kart_adlar[sku]).
-    Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan)."""
+    Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan).
+
+    STOK DEFTERİ: her uygulanan hareket VE her başarısız deneme (nedeniyle)
+    'stok_hareketleri' tablosuna yazılır. Eskiden başarısız SKU sessizce
+    'atlanan' listesine düşüyor, nedeni kayboluyordu."""
+    _sd = _defter()
     depo = depo_kanonik((depo or "").strip() or "MERKEZ DEPO")
     kart_adlar = kart_adlar or {}
     uygulanan, atlanan = 0, []
+    _kaynak = _sd.kaynak_bul()
+
+    def _basarisiz(sku, delta, neden, istisna=None):
+        atlanan.append(sku)
+        _sd.yaz(sku, depo, 0, 0, "hata", aciklama or f"{delta:+g} uygulanamadı",
+                basarili=False, hata=neden, kaynak=_kaynak)
+        if istisna is not None:
+            try:
+                from shared.hata_log import kaydet
+                kaydet("kayranpm.stok_hareket_coklu", istisna,
+                       f"sku={sku} depo={depo} delta={delta} kaynak={_kaynak}", kritik=True)
+            except Exception:
+                pass
+
     try:
         sb = get_client()
-    except Exception:
+    except Exception as e:
+        with _sd.toplu():
+            for _s, _d in (hareketler or {}).items():
+                _basarisiz(str(_s), _d, f"veritabanı bağlantısı yok: {type(e).__name__}", e)
         return 0, list(hareketler or {})
-    for sku, delta in (hareketler or {}).items():
-        sku = str(sku or "").strip()
-        try:
-            delta = float(delta or 0)
-        except Exception:
-            delta = 0
-        if not sku or delta == 0:
-            continue
-        try:
-            u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku).execute())
-            if not u and sku != sku.upper():
-                u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
-            if not u:
-                if kart_ac:
-                    # Otomatik boş kart aç (fiyat/paçal 0, sadece stok tutulur)
-                    try:
-                        sb.table("urunler").insert({
-                            "sku": sku, "urun_adi": (kart_adlar.get(sku) or "")[:200],
-                            "depo_kirilim": {}, "bizim_stok": 0,
-                        }).execute()
-                        u = {"sku": sku, "depo_kirilim": {}}
-                    except Exception:
-                        atlanan.append(sku)
+
+    with _sd.toplu():
+        for sku, delta in (hareketler or {}).items():
+            sku = str(sku or "").strip()
+            try:
+                delta = float(delta or 0)
+            except Exception:
+                delta = 0
+            if not sku or delta == 0:
+                continue
+            try:
+                u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku).execute())
+                if not u and sku != sku.upper():
+                    u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
+                if not u:
+                    if kart_ac:
+                        # Otomatik boş kart aç (fiyat/paçal 0, sadece stok tutulur)
+                        try:
+                            sb.table("urunler").insert({
+                                "sku": sku, "urun_adi": (kart_adlar.get(sku) or "")[:200],
+                                "depo_kirilim": {}, "bizim_stok": 0,
+                            }).execute()
+                            u = {"sku": sku, "depo_kirilim": {}}
+                        except Exception as e:
+                            _basarisiz(sku, delta, f"ürün kartı açılamadı: {type(e).__name__}: {str(e)[:120]}", e)
+                            continue
+                    else:
+                        _basarisiz(sku, delta, "ürün kartı yok — stok işlenmedi")
                         continue
-                else:
-                    atlanan.append(sku)
-                    continue
-            dk = u.get("depo_kirilim") or {}
-            if not isinstance(dk, dict):
-                dk = {}
-            dk[depo] = float(dk.get(depo, 0) or 0) + delta
-            if abs(dk[depo]) < 1e-9:
-                dk[depo] = 0
-            sb.table("urunler").update({
-                "depo_kirilim": dk,
-                "bizim_stok": _bizim_stok_hesapla(dk),
-                "guncelleme_tarihi": get_today(),
-            }).eq("sku", u["sku"]).execute()
-            uygulanan += 1
-        except Exception:
-            atlanan.append(sku)
+                dk = u.get("depo_kirilim") or {}
+                if not isinstance(dk, dict):
+                    dk = {}
+                once = float(dk.get(depo, 0) or 0)
+                dk[depo] = once + delta
+                if abs(dk[depo]) < 1e-9:
+                    dk[depo] = 0
+                sb.table("urunler").update({
+                    "depo_kirilim": dk,
+                    "bizim_stok": _bizim_stok_hesapla(dk),
+                    "guncelleme_tarihi": get_today(),
+                }).eq("sku", u["sku"]).execute()
+                uygulanan += 1
+                _sd.yaz(u["sku"], depo, once, dk[depo], "cikis" if delta < 0 else "giris",
+                        aciklama, kaynak=_kaynak)
+            except Exception as e:
+                _basarisiz(sku, delta, f"{type(e).__name__}: {str(e)[:200]}", e)
     _cache_temizle()
     return uygulanan, atlanan
 

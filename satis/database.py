@@ -433,13 +433,28 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
             # 3) kalan → merkez (eksiye düşebilir; uyarı ekranda)
             if kalan > 0:
                 depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + kalan
+        _uygulama_basladi = True
         for depo, _h in depo_dus.items():
             _neg = {k: -v for k, v in _h.items() if v}
             if _neg:
                 stok_hareket_coklu(_neg, depo)
-    except Exception:
-        # herhangi bir aksaklıkta eski davranış: hepsi merkezden
-        _stok_uygula(hareketler, -1, "satis_import_fallback")
+    except Exception as _e:
+        # ÇİFT DÜŞÜM KORUMASI: hata, bazı depolar ZATEN düşüldükten sonra
+        # oluştuysa yedek yol çalıştırılmaz — aksi hâlde aynı satış MERKEZ'den
+        # ikinci kez düşülürdü. Durum hata kaydına ve Telegram'a gider.
+        try:
+            from shared.hata_log import kaydet as _hk
+        except Exception:
+            _hk = None
+        if locals().get("_uygulama_basladi"):
+            if _hk:
+                _hk("satis._stok_akilli_dus", _e,
+                    "Stok düşümü KISMEN uygulandı; çift düşümü önlemek için yedek yol "
+                    "çalıştırılmadı. Stok hareketleri defterinden kontrol edin.", kritik=True)
+        else:
+            if _hk:
+                _hk("satis._stok_akilli_dus", _e, "Planlama hatası — yedek yol (hepsi merkezden) kullanıldı")
+            _stok_uygula(hareketler, -1, "satis_import_fallback")
 
 
 def _stok_uygula_depolu(depo_map, yon=-1):
@@ -462,8 +477,12 @@ def _stok_uygula_depolu(depo_map, yon=-1):
             _h = {k: yon * v for k, v in hareketler.items() if v}
             if _h:
                 stok_hareket_coklu(_h, depo)
-    except Exception:
-        pass
+    except Exception as _e_stok:
+        try:
+            from shared.hata_log import kaydet as _hk
+            _hk("satis.stok_yolu", _e_stok, kritik=True)
+        except Exception:
+            pass
 
 
 def _stok_uygula(hareketler, yon=1, kaynak=""):
@@ -476,8 +495,12 @@ def _stok_uygula(hareketler, yon=1, kaynak=""):
             return
         from kayranpm.database import stok_hareket_coklu
         stok_hareket_coklu(_h, None)
-    except Exception:
-        pass
+    except Exception as _e_stok:
+        try:
+            from shared.hata_log import kaydet as _hk
+            _hk("satis.stok_yolu", _e_stok, kritik=True)
+        except Exception:
+            pass
 
 
 def _satis_agg(rows, adet_alan="adet"):
