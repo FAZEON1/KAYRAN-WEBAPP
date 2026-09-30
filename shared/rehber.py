@@ -6,10 +6,10 @@ programın geri kalanında kullanılan GERÇEK bileşendir (kopya değil): burad
 bir şeyi değiştirmek, onu kullanan her ekranı değiştirir. Yeni bir ekran
 yaparken önce buraya bak; burada olmayan bir görünüm icat etme.
 
-Koyu / Açık anahtarı, bileşenlerin açık temada nasıl görüneceğini önizler.
-Açık tema henüz kullanıcılara AÇIK DEĞİL: modüllerdeki eski sabit renkler
-(inline hex) değişkenlere taşındıkça açılacak. Streamlit'in kendi giriş
-kutuları ve tabloları bu önizlemede koyu kalır — onlar config.toml'dan gelir.
+Koyu / Açık anahtarı yalnız bu sayfadaki bileşenleri önizler. Programın
+tamamı için tema seçimi: sol menü › HESAP › Görünüm (kullanıcı bazlı,
+kullanici_tercih tablosu). Modüllerdeki renkler tema değişkenlerine taşındı
+(var(--k-…) / trenk("…") / RENK["…"]); yeni kod sabit renk kodu YAZMAZ.
 """
 import streamlit as st
 
@@ -135,8 +135,8 @@ def goster():
                                 key="rehber_tema", label_visibility="collapsed") or "Koyu"
     acik = tema == "Açık"
     if acik:
-        st.markdown(T.mesaj("bilgi", "Açık tema önizlemesi. Kullanıcılara modüller taşındıkça açılacak; "
-                                     "Streamlit'in kendi giriş kutuları bu önizlemede koyu kalır."),
+        st.markdown(T.mesaj("bilgi", "Bileşenlerin açık temadaki hâli. Programın tamamını açık temada görmek "
+                                     "için sol menüde HESAP › Görünüm'den Açık'ı seç."),
                     unsafe_allow_html=True)
     anahtar = "rehber_acik" if acik else "rehber_koyu"
     st.markdown(f'<style>.st-key-rehber_acik{{{T.tema_degiskenleri("acik")}'

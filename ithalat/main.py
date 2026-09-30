@@ -4,6 +4,7 @@ KAYRAN — İthalat Modülü
   ➕ Yeni İthalat      : manuel form + Excel toplu yükleme
   🔍 Model Sorgu       : SKU yaz → geçmiş tüm alımlar (firma/adet/fiyat/dosya % maliyeti/final maliyet)
 """
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import io
 from datetime import date
@@ -81,17 +82,17 @@ def _metrik_satiri(cards):
     """Kompakt, renkli metric kartları satırı. cards = [{'label','value','renk','help'?}]."""
     cells = ""
     for c in cards:
-        renk = c.get("renk", "#A5B4FC")
+        renk = c.get("renk", trenk("mor2"))
         ttl = f' title="{c["help"]}"' if c.get("help") else ""
-        ipucu = ' <span style="color:#7B8AA0;font-size:11px">ⓘ</span>' if c.get("help") else ""
+        ipucu = ' <span style="color:var(--k-silik);font-size:11px">ⓘ</span>' if c.get("help") else ""
         cells += (
             f'<div{ttl} style="flex:1;min-width:150px;'
-            f'background:linear-gradient(180deg,rgba(255,255,255,0.030),rgba(255,255,255,0.012));'
-            f'border:1px solid rgba(255,255,255,0.055);border-left:3px solid {renk};'
+            f'background:linear-gradient(180deg,color-mix(in srgb,var(--k-metin) 3%,transparent),color-mix(in srgb,var(--k-metin) 1%,transparent));'
+            f'border:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent);border-left:3px solid {renk};'
             f'border-radius:16px;padding:14px 18px">'
-            f'<div style="color:#94A3B8;font-size:11px;font-weight:700;letter-spacing:.6px;'
+            f'<div style="color:var(--k-soluk);font-size:11px;font-weight:700;letter-spacing:.6px;'
             f'text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{c["label"]}{ipucu}</div>'
-            f'<div style="color:#7DD3FC;font-size:19px;font-weight:700;margin-top:3px;'
+            f'<div style="color:var(--k-mavi);font-size:19px;font-weight:700;margin-top:3px;'
             f'font-variant-numeric:tabular-nums;letter-spacing:-0.3px;white-space:nowrap;'
             f'overflow:hidden;text-overflow:ellipsis">{c["value"]}</div>'
             f'</div>'
@@ -102,9 +103,9 @@ def _metrik_satiri(cards):
 
 def _alt_baslik(t):
     st.markdown(
-        f'<div style="font-size:11px;font-weight:700;color:#A5B4FC;letter-spacing:1.2px;'
+        f'<div style="font-size:11px;font-weight:700;color:var(--k-mor2);letter-spacing:1.2px;'
         f'text-transform:uppercase;margin:0px 0 12px;display:flex;align-items:center;gap:8px">'
-        f'<span style="width:5px;height:14px;border-radius:3px;background:linear-gradient(180deg,#818CF8,#818CF8);display:inline-block"></span>'
+        f'<span style="width:5px;height:14px;border-radius:3px;background:linear-gradient(180deg,var(--k-mor),var(--k-mor));display:inline-block"></span>'
         f'{t}</div>',
         unsafe_allow_html=True,
     )
@@ -119,10 +120,10 @@ def _form_css():
         .main [data-testid="stTextInput"] input,
         .main [data-testid="stNumberInput"] input,
         .main [data-testid="stDateInput"] input {
-            background: rgba(255,255,255,0.04) !important;
-            border: 1px solid rgba(255,255,255,0.10) !important;
+            background: color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
+            border: 1px solid color-mix(in srgb,var(--k-metin) 10%,transparent) !important;
             border-radius: 11px !important;
-            color: #E2E8F0 !important;
+            color: var(--k-metin) !important;
             font-size: 13px !important;
             padding: 11px 14px !important;
             transition: border-color .2s, box-shadow .2s !important;
@@ -130,14 +131,14 @@ def _form_css():
         .main [data-testid="stTextInput"] input:focus,
         .main [data-testid="stNumberInput"] input:focus,
         .main [data-testid="stDateInput"] input:focus {
-            border-color: #818CF8 !important;
-            box-shadow: 0 0 0 3px rgba(139,92,246,0.15) !important;
+            border-color: var(--k-mor) !important;
+            box-shadow: 0 0 0 3px color-mix(in srgb,var(--k-mor) 15%,transparent) !important;
         }
-        .main [data-testid="stTextInput"] input::placeholder { color: #475569 !important; }
+        .main [data-testid="stTextInput"] input::placeholder { color: var(--k-silik) !important; }
 
         /* ── Etiketler ── */
         .main [data-testid="stWidgetLabel"] p {
-            color: #94A3B8 !important;
+            color: var(--k-soluk) !important;
             font-size: 11px !important;
             font-weight: 600 !important;
             letter-spacing: .5px !important;
@@ -146,12 +147,12 @@ def _form_css():
 
         /* ── Selectbox (döviz) ── */
         .main [data-baseweb="select"] > div {
-            background: rgba(255,255,255,0.04) !important;
-            border: 1px solid rgba(255,255,255,0.10) !important;
+            background: color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
+            border: 1px solid color-mix(in srgb,var(--k-metin) 10%,transparent) !important;
             border-radius: 11px !important;
-            color: #E2E8F0 !important;
+            color: var(--k-metin) !important;
         }
-        .main [data-baseweb="select"] > div:hover { border-color: rgba(139,92,246,0.4) !important; }
+        .main [data-baseweb="select"] > div:hover { border-color: color-mix(in srgb,var(--k-mor) 40%,transparent) !important; }
 
         /* ── Number input: adımlayıcıları gizle, temiz alan ── */
         .main [data-testid="stNumberInput"] button { display: none !important; }
@@ -159,30 +160,30 @@ def _form_css():
 
         /* ── Metric kartları (modern · sade) ── */
         div[data-testid="stMetric"] {
-            background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
-            border: 1px solid rgba(255,255,255,0.07);
+            background: linear-gradient(180deg, color-mix(in srgb,var(--k-metin) 4%,transparent), color-mix(in srgb,var(--k-metin) 2%,transparent));
+            border: 1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);
             border-radius: 16px;
             padding: 16px 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.22);
             transition: border-color .15s ease;
         }
-        div[data-testid="stMetric"]:hover { border-color: rgba(139,92,246,0.32); }
+        div[data-testid="stMetric"]:hover { border-color: color-mix(in srgb,var(--k-mor) 32%,transparent); }
         div[data-testid="stMetricLabel"],
         div[data-testid="stMetricLabel"] p,
         div[data-testid="stMetricLabel"] div {
-            color: #94A3B8 !important; font-size: 11px !important; font-weight: 600 !important;
+            color: var(--k-soluk) !important; font-size: 11px !important; font-weight: 600 !important;
             letter-spacing: .5px !important; text-transform: uppercase !important;
         }
         div[data-testid="stMetricValue"] {
-            color: #7DD3FC !important; font-size:23px !important; font-weight: 700 !important;
+            color: var(--k-mavi) !important; font-size:23px !important; font-weight: 700 !important;
             font-variant-numeric: tabular-nums; line-height: 1.2 !important; margin-top: 3px;
             white-space: normal !important; word-break: break-word;
         }
 
         /* ── Özel ürün tablosu başlık hücreleri ── */
         .ith-th {
-            background: linear-gradient(135deg,#1C2A44,#0F172A);
-            color: #7DD3FC; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+            background: linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1));
+            color: var(--k-mavi); font-size: 10px; font-weight: 700; letter-spacing: .4px;
             text-transform: uppercase; padding: 8px 12px; border-radius: 8px;
             font-family: Inter, sans-serif; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
@@ -190,8 +191,8 @@ def _form_css():
 
         /* ── Kart kapsayıcılar (st.container border=True) ── */
         .main [data-testid="stVerticalBlockBorderWrapper"] {
-            background: rgba(255,255,255,0.02) !important;
-            border: 1px solid rgba(255,255,255,0.07) !important;
+            background: color-mix(in srgb,var(--k-metin) 2%,transparent) !important;
+            border: 1px solid color-mix(in srgb,var(--k-metin) 7%,transparent) !important;
             border-radius: 16px !important;
         }
 
@@ -200,26 +201,26 @@ def _form_css():
         .main [data-testid="stDataEditor"] {
             border-radius: 12px !important;
             overflow: hidden !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
+            border: 1px solid color-mix(in srgb,var(--k-metin) 8%,transparent) !important;
         }
 
         /* ── Sekmeler ── */
-        .main [data-baseweb="tab-list"] { gap: 6px !important; border-bottom: 1px solid rgba(255,255,255,0.06) !important; }
+        .main [data-baseweb="tab-list"] { gap: 6px !important; border-bottom: 1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important; }
         .main [data-baseweb="tab"] {
-            background: rgba(255,255,255,0.03) !important;
+            background: color-mix(in srgb,var(--k-metin) 3%,transparent) !important;
             border-radius: 10px 10px 0 0 !important;
             padding: 8px 16px !important;
-            color: #94A3B8 !important;
+            color: var(--k-soluk) !important;
         }
         .main [data-baseweb="tab"][aria-selected="true"] {
-            background: rgba(99,102,241,0.15) !important;
-            color: #818CF8 !important;
+            background: color-mix(in srgb,var(--k-mor) 15%,transparent) !important;
+            color: var(--k-mor) !important;
         }
 
         /* ── Dosya yükleyici ── */
         .main [data-testid="stFileUploaderDropzone"] {
-            background: rgba(255,255,255,0.03) !important;
-            border: 1px dashed rgba(139,92,246,0.35) !important;
+            background: color-mix(in srgb,var(--k-metin) 3%,transparent) !important;
+            border: 1px dashed color-mix(in srgb,var(--k-mor) 35%,transparent) !important;
             border-radius: 12px !important;
         }
         </style>
@@ -276,15 +277,15 @@ def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
         "<style>"
         ".itw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
         ".itt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-        ".itt thead tr{background:linear-gradient(135deg,#1C2A44,#0F172A)}"
-        ".itt thead th{padding:8px 12px;color:#7DD3FC;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
+        ".itt thead tr{background:linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1))}"
+        ".itt thead th{padding:8px 12px;color:var(--k-mavi);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
         ".itt thead th.l{text-align:left}"
-        ".itt tbody{background:#152036}"
+        ".itt tbody{background:var(--k-yuzey2)}"
         ".itt td{padding:8px 12px;font-size:11px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-        ".itt tbody tr{border-bottom:1px solid rgba(255,255,255,0.05)}"
-        ".itt tbody tr:hover{background:rgba(99,102,241,0.06)}"
-        ".rk-txt{text-align:left;color:#7DD3FC}"
-        ".rk-num{text-align:right;color:#7DD3FC;font-family:'JetBrains Mono',monospace}"
+        ".itt tbody tr{border-bottom:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)}"
+        ".itt tbody tr:hover{background:color-mix(in srgb,var(--k-mor) 6%,transparent)}"
+        ".rk-txt{text-align:left;color:var(--k-mavi)}"
+        ".rk-num{text-align:right;color:var(--k-mavi);font-family:'JetBrains Mono',monospace}"
         "</style>"
     )
     st.html(css + f'<div class="itw"><table class="itt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
@@ -319,31 +320,31 @@ def _masraf_karti(d, h):
     # İndirim varsa: Brüt → İndirim → Net olarak göster; yoksa tek "Mal Bedeli" kartı
     if _ind > 0:
         _mb_html = (
-            '<div style="background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Brüt Mal Bedeli</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#7DD3FC;font-family:\'JetBrains Mono\',monospace">{_tam(h["mal_bedeli"])} {doviz}</div></div>'
-            '<div style="background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:12px 16px;flex:1;min-width:130px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura Altı İndirim</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:\'JetBrains Mono\',monospace">−{_tam(_ind)} {doviz}</div></div>'
-            '<div style="background:rgba(52,211,153,0.10);border:1px solid rgba(52,211,153,0.28);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
-            f'<div style="font-size:19px;font-weight:700;color:#34D399;font-family:\'JetBrains Mono\',monospace">{_tam(_net)} {doviz}</div></div>'
+            '<div style="background:color-mix(in srgb,var(--k-soluk) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Brüt Mal Bedeli</div>'
+            f'<div style="font-size:14px;font-weight:700;color:var(--k-mavi);font-family:\'JetBrains Mono\',monospace">{_tam(h["mal_bedeli"])} {doviz}</div></div>'
+            '<div style="background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-radius:12px;padding:12px 16px;flex:1;min-width:130px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Fatura Altı İndirim</div>'
+            f'<div style="font-size:14px;font-weight:700;color:var(--k-amber);font-family:\'JetBrains Mono\',monospace">−{_tam(_ind)} {doviz}</div></div>'
+            '<div style="background:color-mix(in srgb,var(--k-yesil) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 28%,transparent);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
+            f'<div style="font-size:19px;font-weight:700;color:var(--k-yesil);font-family:\'JetBrains Mono\',monospace">{_tam(_net)} {doviz}</div></div>'
         )
     else:
         _mb_html = (
-            '<div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:12px 16px;flex:1;min-width:150px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Mal Bedeli (FOB)</div>'
-            f'<div style="font-size:19px;font-weight:700;color:#E2E8F0;font-family:\'JetBrains Mono\',monospace">{_tam(h["mal_bedeli"])} {doviz}</div></div>'
+            '<div style="background:color-mix(in srgb,var(--k-mor) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:12px;padding:12px 16px;flex:1;min-width:150px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Mal Bedeli (FOB)</div>'
+            f'<div style="font-size:19px;font-weight:700;color:var(--k-metin);font-family:\'JetBrains Mono\',monospace">{_tam(h["mal_bedeli"])} {doviz}</div></div>'
         )
     st.markdown(
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px">'
         + _mb_html +
-        '<div style="background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
-        '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Masraf</div>'
-        f'<div style="font-size:19px;font-weight:700;color:#FBBF24;font-family:\'JetBrains Mono\',monospace">{_tam(h["toplam_masraf"])} {doviz}</div></div>'
+        '<div style="background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
+        '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Toplam Masraf</div>'
+        f'<div style="font-size:19px;font-weight:700;color:var(--k-amber);font-family:\'JetBrains Mono\',monospace">{_tam(h["toplam_masraf"])} {doviz}</div></div>'
         '<div style="background:rgba(74,222,128,0.10);border:1px solid rgba(74,222,128,0.25);border-radius:12px;padding:12px 16px;flex:1;min-width:140px">'
-        '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Binen % Maliyet</div>'
-        f'<div style="font-size:19px;font-weight:700;color:#6EE7B7;font-family:\'JetBrains Mono\',monospace">%{tr_sayi(h["maliyet_yuzde"], 2)}</div></div>'
+        '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Binen % Maliyet</div>'
+        f'<div style="font-size:19px;font-weight:700;color:var(--k-yesil2);font-family:\'JetBrains Mono\',monospace">%{tr_sayi(h["maliyet_yuzde"], 2)}</div></div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -428,10 +429,10 @@ def _gecmis_ithalatlar():
     toplam_masraf = sum(s["Toplam Masraf"] for s in satirlar)
     ort_yuzde = (toplam_masraf / toplam_mal * 100) if toplam_mal > 0 else 0
     _metrik_satiri([
-        {"label": "Dosya Sayısı", "value": f"{tr_sayi(len(dosyalar))}", "renk": "#818CF8"},
-        {"label": "Toplam Mal Bedeli", "value": f"${_tam(toplam_mal)}", "renk": "#34D399"},
-        {"label": "Toplam Masraf", "value": f"${_tam(toplam_masraf)}", "renk": "#FBBF24"},
-        {"label": "Ort. % Maliyet", "value": f"%{tr_sayi(ort_yuzde, 2)}", "renk": "#818CF8"},
+        {"label": "Dosya Sayısı", "value": f"{tr_sayi(len(dosyalar))}", "renk": trenk("mor")},
+        {"label": "Toplam Mal Bedeli", "value": f"${_tam(toplam_mal)}", "renk": trenk("yesil")},
+        {"label": "Toplam Masraf", "value": f"${_tam(toplam_masraf)}", "renk": trenk("amber")},
+        {"label": "Ort. % Maliyet", "value": f"%{tr_sayi(ort_yuzde, 2)}", "renk": trenk("mor")},
     ])
 
     # ── 🧹 Mükerrer Belge Temizliği (Belge No + Tarih + Tutar birebir aynı) ──
@@ -665,26 +666,26 @@ def _gecmis_ithalatlar():
             _sec_mevcut_masraf += sum(float(_v or 0) for _v in _masraf_dict(_sd).values())
         _birlesik_yuzde = (_sec_mevcut_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
         _metrik_satiri([
-            {"label": "Birleşik Mal Bedeli (FOB)", "value": f"{_tam(_sec_toplam_fob)} {_dv0}", "renk": "#34D399"},
-            {"label": "Birleşik Masraf", "value": f"{_tam(_sec_mevcut_masraf)} {_dv0}", "renk": "#FBBF24"},
-            {"label": "⭐ Birleşik % Maliyet", "value": f"%{tr_sayi(_birlesik_yuzde, 2)}", "renk": "#FCD34D",
+            {"label": "Birleşik Mal Bedeli (FOB)", "value": f"{_tam(_sec_toplam_fob)} {_dv0}", "renk": trenk("yesil")},
+            {"label": "Birleşik Masraf", "value": f"{_tam(_sec_mevcut_masraf)} {_dv0}", "renk": trenk("amber")},
+            {"label": "⭐ Birleşik % Maliyet", "value": f"%{tr_sayi(_birlesik_yuzde, 2)}", "renk": trenk("amber2"),
              "help": "Seçili tüm belgelerin TOPLAM masrafı / TOPLAM mal bedeli — o ithalatın tek ortalama oranı."},
-            {"label": "Belge Sayısı", "value": f"{len(_sec_dosyalar)}", "renk": "#818CF8"},
+            {"label": "Belge Sayısı", "value": f"{len(_sec_dosyalar)}", "renk": trenk("mor")},
         ])
         if _takipler_sec:
             st.caption("🔗 Takip No: " + ", ".join(sorted(_takipler_sec)))
         if len(_dovizler_sec) > 1:
             st.warning(f"⚠️ Seçili belgelerde farklı para birimleri var ({', '.join(sorted(_dovizler_sec))}). "
                        "Ortak masraf tek para biriminde girilmeli — dağıtım döviz farkı gözetmez.")
-        _pay_html = "<div style='font-size:13px;color:#94A3B8;margin:0 0 8px;line-height:1.7'>"
+        _pay_html = "<div style='font-size:13px;color:var(--k-soluk);margin:0 0 8px;line-height:1.7'>"
         for _sd, _mb in _sec_bilgi:
             _pay = (_mb / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else (100.0 / max(len(_sec_bilgi), 1))
             _doc_masraf = sum(float(_v or 0) for _v in _masraf_dict(_sd).values())
             _doc_yuzde = (_doc_masraf / _mb * 100) if _mb > 0 else 0.0
             _bno = _sd.get("pi_no", "") or _sd.get("dosya_no", "") or "—"
-            _pay_html += (f"• <b style='color:#E2E8F0'>{_bno}</b> — {_tam(_mb)} {_dv0} "
-                          f"<span style='color:#818CF8'>(FOB pay %{tr_sayi(_pay, 1)})</span> "
-                          f"<span style='color:#94A3B8'>· şu anki % {_doc_yuzde:.2f}</span><br>")
+            _pay_html += (f"• <b style='color:var(--k-metin)'>{_bno}</b> — {_tam(_mb)} {_dv0} "
+                          f"<span style='color:var(--k-mor)'>(FOB pay %{tr_sayi(_pay, 1)})</span> "
+                          f"<span style='color:var(--k-soluk)'>· şu anki % {_doc_yuzde:.2f}</span><br>")
         _pay_html += "</div>"
         st.markdown(_pay_html, unsafe_allow_html=True)
 
@@ -697,8 +698,8 @@ def _gecmis_ithalatlar():
         _dengesiz = (max(_doc_yuzdeler) - min(_doc_yuzdeler) > 0.1) if _doc_yuzdeler else False
         if _sec_mevcut_masraf > 0 and (_bos_belge_var or _dengesiz):
             st.markdown(
-                f'<div style="background:rgba(251,146,60,0.10);border:1px solid rgba(251,146,60,0.32);'
-                f'border-radius:10px;padding:8px 16px;margin:0 0 8px;font-size:13px;color:#FBBF24">'
+                f'<div style="background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 32%,transparent);'
+                f'border-radius:10px;padding:8px 16px;margin:0 0 8px;font-size:13px;color:var(--k-amber)">'
                 f'⚠️ Masraf belgelere eşit dağılmamış — bazı belgeler boş/%0. '
                 f'Aşağıdaki düğmeyle takibin <b>tüm masrafını</b> ({_tam(_sec_mevcut_masraf)} {_dv0}) '
                 f'belgelere <b>FOB payına göre</b> dağıtabilirsin: hepsi <b>%{tr_sayi(_birlesik_yuzde, 2)}</b> olur, '
@@ -739,7 +740,7 @@ def _gecmis_ithalatlar():
             for _slug, _label in MASRAF_TANIM:
                 _lc, _ic = st.columns([1, 1.15])
                 _lc.markdown(
-                    f'<div style="padding-top:8px;font-size:13px;color:#7DD3FC;font-weight:600;'
+                    f'<div style="padding-top:8px;font-size:13px;color:var(--k-mavi);font-weight:600;'
                     f'text-align:right;padding-right:8px">{_label}</div>', unsafe_allow_html=True)
                 _mevcut_v = float(_sec_mevcut_kalem.get(_slug, 0.0) or 0)
                 _ok2 = f"ith_ortak_mas_{_sec_sig}_{_slug}"
@@ -761,14 +762,14 @@ def _gecmis_ithalatlar():
             _proj_masraf = _korunan + _toplam_girilen
             _proj_yuzde = (_proj_masraf / _sec_toplam_fob * 100) if _sec_toplam_fob > 0 else 0.0
             st.markdown(
-                '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
+                '<div style="background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);'
                 'border-radius:12px;padding:12px 16px;margin-top:8px;line-height:1.5">'
-                '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Birleşik Mal Bedeli</div>'
-                f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_tam(_sec_toplam_fob)} {_dv0}</div>'
-                '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
-                f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:8px">{_tam(_toplam_girilen)} {_dv0}</div>'
-                '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Dağıtım Sonrası % Maliyet</div>'
-                f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_proj_yuzde, 2)}</div>'
+                '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Birleşik Mal Bedeli</div>'
+                f'<div style="font-size:14px;font-weight:700;color:var(--k-yesil);font-family:monospace;margin-bottom:8px">{_tam(_sec_toplam_fob)} {_dv0}</div>'
+                '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
+                f'<div style="font-size:14px;font-weight:700;color:var(--k-amber);font-family:monospace;margin-bottom:8px">{_tam(_toplam_girilen)} {_dv0}</div>'
+                '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Dağıtım Sonrası % Maliyet</div>'
+                f'<div style="font-size:19px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_proj_yuzde, 2)}</div>'
                 '</div>', unsafe_allow_html=True)
             if len(_kurlar_sec) > 1:
                 st.caption("⚠️ Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
@@ -803,27 +804,27 @@ def _gecmis_ithalatlar():
         did = dosyalar_goster[_sel[0]]["id"]
         d, kal, h = hesap_map[did]
 
-        st.markdown(f'<div style="color:#94A3B8;font-size:13px;margin-bottom:8px">Belge No: <b style="color:#E2E8F0">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:#E2E8F0">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:#7DD3FC" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:#818CF8" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color:var(--k-soluk);font-size:13px;margin-bottom:8px">Belge No: <b style="color:var(--k-metin)">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:var(--k-metin)">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:var(--k-mavi)" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:var(--k-mor)" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
         _sip_t = gun_ay_yil(d.get("tarih")) or "—"
         _tes_t = gun_ay_yil(d.get("teslim_tarihi"))
         _tes_d = str(d.get("teslim_deposu", "") or "")
         st.markdown(
-            f'<div style="color:#94A3B8;font-size:13px;margin-bottom:8px">'
-            f'🗓️ Sipariş Tarihi: <b style="color:#E2E8F0">{_sip_t}</b>'
-            + (f' · 📦 Teslim Tarihi: <b style="color:#34D399">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:#7B8AA0">—</b>')
-            + (f' · 🏬 Teslim Deposu: <b style="color:#E2E8F0">{_tes_d}</b>' if _tes_d else '')
-            + (f' · 🚢 Teslim Şekli: <b style="color:#E2E8F0">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
+            f'<div style="color:var(--k-soluk);font-size:13px;margin-bottom:8px">'
+            f'🗓️ Sipariş Tarihi: <b style="color:var(--k-metin)">{_sip_t}</b>'
+            + (f' · 📦 Teslim Tarihi: <b style="color:var(--k-yesil)">{_tes_t}</b>' if _tes_t else ' · 📦 Teslim Tarihi: <b style="color:var(--k-silik)">—</b>')
+            + (f' · 🏬 Teslim Deposu: <b style="color:var(--k-metin)">{_tes_d}</b>' if _tes_d else '')
+            + (f' · 🚢 Teslim Şekli: <b style="color:var(--k-metin)">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
             + '</div>', unsafe_allow_html=True)
         _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
-        _dr_renk = "#6EE7B7" if h["toplam_masraf"] > 0 else "#FBBF24"
-        st.markdown(f'<div style="display:inline-block;background:rgba(255,255,255,0.04);border:1px solid {_dr_renk}55;border-radius:8px;padding:8px 12px;margin:0px 0 12px;color:{_dr_renk};font-size:13px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
+        _dr_renk = trenk("yesil2") if h["toplam_masraf"] > 0 else trenk("amber")
+        st.markdown(f'<div style="display:inline-block;background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid {_dr_renk}55;border-radius:8px;padding:8px 12px;margin:0px 0 12px;color:{_dr_renk};font-size:13px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
 
         # ── ÇOKLU ÜRÜN GRUBU: grup-bazlı maliyet kartları ──
         if dosya_coklu_mu(d, kal):
             _ck = dosya_hesapla_coklu(d, kal)
             _cur = str(d.get("doviz", "USD") or "USD")
             st.markdown(
-                '<div style="color:#818CF8;font-size:13px;font-weight:700;text-transform:uppercase;'
+                '<div style="color:var(--k-mor);font-size:13px;font-weight:700;text-transform:uppercase;'
                 'letter-spacing:0.8px;margin:6px 0 8px">🧩 Çoklu Ürün Grubu — Grup Bazlı Maliyet</div>',
                 unsafe_allow_html=True)
             _gk = list(_ck["gruplar"].items())
@@ -831,18 +832,18 @@ def _gecmis_ithalatlar():
             for _i, (_gad, _gd) in enumerate(_gk):
                 with _cols[_i % len(_cols)]:
                     st.markdown(
-                        f'<div style="background:linear-gradient(135deg,rgba(139,92,246,0.10),rgba(30,41,59,0.4));'
+                        f'<div style="background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 10%,transparent),color-mix(in srgb,var(--k-yuzey2) 40%,transparent));'
                         f'border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:12px 14px;margin-bottom:8px">'
-                        f'<div style="font-size:14px;font-weight:700;color:#818CF8;margin-bottom:6px">{_gad}</div>'
-                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Mal Bedeli (FOB)</div>'
-                        f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:5px">{_tam(_gd["fob"])} {_cur}</div>'
-                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Ortak Pay · Özel</div>'
-                        f'<div style="font-size:13px;font-weight:600;color:#7DD3FC;font-family:monospace;margin-bottom:5px">{_tam(_gd["ortak_pay"])} · {_tam(_gd["ozel_masraf"])}</div>'
-                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Toplam Masraf</div>'
-                        f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:5px">{_tam(_gd["toplam_masraf"])} {_cur}</div>'
-                        f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Maliyet Yüzdesi</div>'
-                        f'<div style="font-size:16px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_gd["yuzde"], 2)}</div>'
-                        f'<div style="font-size:10px;color:#7B8AA0;margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
+                        f'<div style="font-size:14px;font-weight:700;color:var(--k-mor);margin-bottom:6px">{_gad}</div>'
+                        f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:0.5px">Mal Bedeli (FOB)</div>'
+                        f'<div style="font-size:14px;font-weight:700;color:var(--k-yesil);font-family:monospace;margin-bottom:5px">{_tam(_gd["fob"])} {_cur}</div>'
+                        f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:0.5px">Ortak Pay · Özel</div>'
+                        f'<div style="font-size:13px;font-weight:600;color:var(--k-mavi);font-family:monospace;margin-bottom:5px">{_tam(_gd["ortak_pay"])} · {_tam(_gd["ozel_masraf"])}</div>'
+                        f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:0.5px">Toplam Masraf</div>'
+                        f'<div style="font-size:14px;font-weight:700;color:var(--k-amber);font-family:monospace;margin-bottom:5px">{_tam(_gd["toplam_masraf"])} {_cur}</div>'
+                        f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:0.5px">Maliyet Yüzdesi</div>'
+                        f'<div style="font-size:16px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_gd["yuzde"], 2)}</div>'
+                        f'<div style="font-size:10px;color:var(--k-silik);margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
                         f'</div>', unsafe_allow_html=True)
             st.caption("ℹ️ Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
                        "elle atandıkları gruba yazıldı. Atamaları **✏️ Düzenle** bölümünden değiştirebilirsin.")
@@ -879,11 +880,11 @@ def _gecmis_ithalatlar():
                 _tk_mas = sum(hesap_map[x["id"]][2]["toplam_masraf"] for x in _tk_dosyalar)
                 _tk_yuzde = (_tk_mas / _tk_mal * 100) if _tk_mal > 0 else 0.0
                 st.markdown(
-                    f'<div style="background:rgba(252,211,77,0.08);border:1px solid rgba(252,211,77,0.28);'
-                    f'border-radius:10px;padding:8px 16px;margin:0 0 12px;font-size:13px;color:#FCD34D">'
+                    f'<div style="background:color-mix(in srgb,var(--k-amber2) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-amber2) 28%,transparent);'
+                    f'border-radius:10px;padding:8px 16px;margin:0 0 12px;font-size:13px;color:var(--k-amber2)">'
                     f'🔗 Bu takip no\'ya (<b>{_bu_takip}</b>) ait <b>{len(_tk_dosyalar)}</b> belgenin '
                     f'<b>Birleşik % Maliyeti: %{tr_sayi(_tk_yuzde, 2)}</b> '
-                    f'<span style="color:#94A3B8">· toplam masraf {_tam(_tk_mas)} / toplam mal bedeli {_tam(_tk_mal)}</span></div>',
+                    f'<span style="color:var(--k-soluk)">· toplam masraf {_tam(_tk_mas)} / toplam mal bedeli {_tam(_tk_mal)}</span></div>',
                     unsafe_allow_html=True)
         _masraf_karti(d, h)
         _dokum = masraf_dokumu(d)
@@ -989,7 +990,7 @@ def _gecmis_ithalatlar():
                     if e_coklu and _slug in _KAT_BAZLI:
                         _onceki = _dag_kayitli.get(_slug, {}) or {}
                         st.markdown(
-                            f'<div style="font-size:13px;color:#7DD3FC;font-weight:600;'
+                            f'<div style="font-size:13px;color:var(--k-mavi);font-weight:600;'
                             f'margin:10px 0 2px">{_label}</div>', unsafe_allow_html=True)
                         _kolonlar = st.columns(len(_kats))
                         _satir = {}
@@ -1015,7 +1016,7 @@ def _gecmis_ithalatlar():
                     # ── Tek tutar (klasik) ──
                     _lc, _ic, _ec = st.columns([1, 1.15, 0.75])
                     _lc.markdown(
-                        f'<div style="padding-top:8px;font-size:13px;color:#7DD3FC;font-weight:600;'
+                        f'<div style="padding-top:8px;font-size:13px;color:var(--k-mavi);font-weight:600;'
                         f'text-align:right;padding-right:8px">{_label}</div>', unsafe_allow_html=True)
                     _mv = float(_md.get(_slug, 0) or 0)
                     _mk = f"ith_edit_mas_{did}_{_slug}"
@@ -1034,7 +1035,7 @@ def _gecmis_ithalatlar():
                     _ec.markdown(
                         f'<div style="padding-top:8px;font-size:13px;font-family:monospace;'
                         f'font-variant-numeric:tabular-nums;color:'
-                        f'{"#E2E8F0" if _ev > 0 else "#475569"}">{_tam(_ev) if _ev > 0 else "—"}</div>',
+                        f'{trenk("metin") if _ev > 0 else trenk("silik")}">{_tam(_ev) if _ev > 0 else "—"}</div>',
                         unsafe_allow_html=True)
             with _cr:
                 e_kur = st.number_input("Kur (1 döviz = ? TL)", min_value=0.0,
@@ -1045,19 +1046,19 @@ def _gecmis_ithalatlar():
                 _mas_v = sum(float(_v or 0) for _v in e_masraf.values())
                 _yuzde_v = (_mas_v / _net_mb * 100) if _net_mb > 0 else 0.0
                 _ind_row = (
-                    '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura İndirim</div>'
-                    f'<div style="font-size:13px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:8px">−{_tam(_ind_v)} {_cur_dv}</div>'
+                    '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Fatura İndirim</div>'
+                    f'<div style="font-size:13px;font-weight:700;color:var(--k-amber);font-family:monospace;margin-bottom:8px">−{_tam(_ind_v)} {_cur_dv}</div>'
                 ) if _ind_v > 0 else ""
                 st.markdown(
-                    '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.2);'
+                    '<div style="background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);'
                     'border-radius:12px;padding:12px 16px;margin-top:8px;line-height:1.5">'
-                    '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
-                    f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace;margin-bottom:8px">{_tam(_net_mb)} {_cur_dv}</div>'
+                    '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
+                    f'<div style="font-size:14px;font-weight:700;color:var(--k-yesil);font-family:monospace;margin-bottom:8px">{_tam(_net_mb)} {_cur_dv}</div>'
                     + _ind_row +
-                    '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
-                    f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
-                    '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
-                    f'<div style="font-size:19px;font-weight:700;color:#FCD34D;font-family:monospace">%{tr_sayi(_yuzde_v, 2)}</div>'
+                    '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Toplam Girilen Masraf</div>'
+                    f'<div style="font-size:14px;font-weight:700;color:var(--k-amber);font-family:monospace;margin-bottom:8px">{_tam(_mas_v)} {_cur_dv}</div>'
+                    '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">% Maliyet</div>'
+                    f'<div style="font-size:19px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_yuzde_v, 2)}</div>'
                     '</div>', unsafe_allow_html=True)
             st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
                        "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
@@ -1547,21 +1548,21 @@ def _yeni_ithalat():
 
         # Canlı özet — Brüt / İndirim / Net Mal Bedeli (masraf 2. aşamada girilir)
         _indirim_html = (
-            '<div style="flex:1;min-width:120px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);border-radius:12px;padding:12px 16px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Fatura Altı İndirim</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#FBBF24;font-family:monospace">−{_tam(float(m_indirim or 0))} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
+            '<div style="flex:1;min-width:120px;background:color-mix(in srgb,var(--k-amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-radius:12px;padding:12px 16px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Fatura Altı İndirim</div>'
+            f'<div style="font-size:14px;font-weight:700;color:var(--k-amber);font-family:monospace">−{_tam(float(m_indirim or 0))} <span style="font-size:11px;color:var(--k-silik)">{doviz}</span></div></div>'
         ) if float(m_indirim or 0) > 0 else ""
         st.markdown(
             '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px">'
-            '<div style="flex:1;min-width:120px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.2);border-radius:12px;padding:12px 16px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Brüt Mal Bedeli</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#7DD3FC;font-family:monospace">{_tam(_mal)} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
+            '<div style="flex:1;min-width:120px;background:color-mix(in srgb,var(--k-soluk) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);border-radius:12px;padding:12px 16px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Brüt Mal Bedeli</div>'
+            f'<div style="font-size:14px;font-weight:700;color:var(--k-mavi);font-family:monospace">{_tam(_mal)} <span style="font-size:11px;color:var(--k-silik)">{doviz}</span></div></div>'
             + _indirim_html +
-            '<div style="flex:1;min-width:130px;background:rgba(52,211,153,0.10);border:1px solid rgba(52,211,153,0.28);border-radius:12px;padding:12px 16px">'
-            '<div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
-            f'<div style="font-size:14px;font-weight:700;color:#34D399;font-family:monospace">{_tam(_net_mal)} <span style="font-size:11px;color:#7B8AA0">{doviz}</span></div></div>'
-            '<div style="flex:2;min-width:200px;background:rgba(251,146,60,0.06);border:1px dashed rgba(251,146,60,0.28);border-radius:12px;padding:12px 16px;display:flex;align-items:center">'
-            '<div style="font-size:11px;color:#FBBF24;line-height:1.45">⏳ Masraf 2. aşamada (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal masraf girilince oluşur.</div></div>'
+            '<div style="flex:1;min-width:130px;background:color-mix(in srgb,var(--k-yesil) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 28%,transparent);border-radius:12px;padding:12px 16px">'
+            '<div style="font-size:11px;color:var(--k-soluk);text-transform:uppercase;letter-spacing:1px">Net Mal Bedeli (FOB)</div>'
+            f'<div style="font-size:14px;font-weight:700;color:var(--k-yesil);font-family:monospace">{_tam(_net_mal)} <span style="font-size:11px;color:var(--k-silik)">{doviz}</span></div></div>'
+            '<div style="flex:2;min-width:200px;background:color-mix(in srgb,var(--k-amber) 6%,transparent);border:1px dashed color-mix(in srgb,var(--k-amber) 28%,transparent);border-radius:12px;padding:12px 16px;display:flex;align-items:center">'
+            '<div style="font-size:11px;color:var(--k-amber);line-height:1.45">⏳ Masraf 2. aşamada (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal masraf girilince oluşur.</div></div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -1959,7 +1960,7 @@ def _model_sorgu():
 
     ad = katalog.get(sku, "")
     st.markdown(
-        f'<div style="color:#A5B4FC;font-size:14px;margin:0px 0 12px">📦 <b>{sku}</b>{(" — " + _tr_upper(ad)) if ad else ""}</div>',
+        f'<div style="color:var(--k-mor2);font-size:14px;margin:0px 0 12px">📦 <b>{sku}</b>{(" — " + _tr_upper(ad)) if ad else ""}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1988,14 +1989,14 @@ def _model_sorgu():
     _son_help = (f"En yeni tarihli ({son_tarih_v}) ithalat dosyasındaki değer."
                  if son_tarih_v else "En yeni ithalat dosyasındaki değer.")
     _metrik_satiri([
-        {"label": "Toplam Alım Adedi", "value": f"{tr_sayi(toplam_adet)}", "renk": "#22D3EE"},
-        {"label": "Sipariş Sayısı", "value": f"{tr_sayi(len(satirlar))}", "renk": "#818CF8"},
-        {"label": "Ort. Birim FOB", "value": _ort_fob, "renk": "#7DD3FC"},
-        {"label": "Son FOB", "value": _son_fob, "renk": "#7DD3FC", "help": _son_help},
-        {"label": "⭐ Paçal Birim Maliyet", "value": _pacal, "renk": "#FCD34D",
+        {"label": "Toplam Alım Adedi", "value": f"{tr_sayi(toplam_adet)}", "renk": trenk("cyan")},
+        {"label": "Sipariş Sayısı", "value": f"{tr_sayi(len(satirlar))}", "renk": trenk("mor")},
+        {"label": "Ort. Birim FOB", "value": _ort_fob, "renk": trenk("mavi")},
+        {"label": "Son FOB", "value": _son_fob, "renk": trenk("mavi"), "help": _son_help},
+        {"label": "⭐ Paçal Birim Maliyet", "value": _pacal, "renk": trenk("amber2"),
          "help": "Ortalama FOB üzerine ithalat masraf yüzdesi bindirilmiş, adet ağırlıklı "
                  "ortalama yerine konmuş (paçal) birim maliyet. Masraf girilmemiş dosyalarda FOB'a eşittir."},
-        {"label": "Son Birim Maliyet", "value": _son_mal, "renk": "#FCD34D", "help": _son_help},
+        {"label": "Son Birim Maliyet", "value": _son_mal, "renk": trenk("amber2"), "help": _son_help},
     ])
 
     _tablo(df, para=["Birim FOB", "Final Birim Maliyet"], yuzde=["% Maliyet"],
@@ -2064,10 +2065,10 @@ def _masraf_detaylari():
     _dovizler = {s["Döviz"] for s in _flt}
     _dov_lbl = list(_dovizler)[0] if len(_dovizler) == 1 else "karışık"
     _metrik_satiri([
-        {"label": "Masraf Kalemi", "value": f"{tr_sayi(len(_flt))}", "renk": "#818CF8"},
-        {"label": "Toplam Tutar", "value": f"{_tam(_toplam)} {_dov_lbl}", "renk": "#FBBF24"},
-        {"label": "Belge Sayısı", "value": f"{len({s['Belge No'] for s in _flt}):,}", "renk": "#34D399"},
-        {"label": "Masraf Türü Sayısı", "value": f"{len({s['Masraf Türü'] for s in _flt}):,}", "renk": "#818CF8"},
+        {"label": "Masraf Kalemi", "value": f"{tr_sayi(len(_flt))}", "renk": trenk("mor")},
+        {"label": "Toplam Tutar", "value": f"{_tam(_toplam)} {_dov_lbl}", "renk": trenk("amber")},
+        {"label": "Belge Sayısı", "value": f"{len({s['Belge No'] for s in _flt}):,}", "renk": trenk("yesil")},
+        {"label": "Masraf Türü Sayısı", "value": f"{len({s['Masraf Türü'] for s in _flt}):,}", "renk": trenk("mor")},
     ])
 
     # Masraf türüne göre toplam
@@ -2110,7 +2111,7 @@ def run():
     st.markdown(
         "<style>"
         ".main .block-container{max-width:1200px !important;}"
-        "[data-testid=\"stMetric\"]{background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.08);"
+        "[data-testid=\"stMetric\"]{background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);"
         "border-radius:12px;padding:12px 16px;}"
         "[data-testid=\"stMetricValue\"]{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:19px !important;}"
         "</style>",

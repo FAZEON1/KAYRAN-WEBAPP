@@ -26,8 +26,10 @@ Kullanım:
 # ─────────────────────────────────────────────────────────────────────
 # RENK TOKENLARI — serbest hex yerine daima buradan
 # ─────────────────────────────────────────────────────────────────────
-from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
-RENK = {
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.tasarim import tr_sayi, TemaRenk  # TR sayı biçimi · tema duyarlı sözlük
+# Tema duyarlı: RENK["x"] aktif temanın rengini verir (bkz. tasarim.TemaRenk)
+RENK = TemaRenk({
     "mor":      "#818CF8",   # birincil vurgu / marka / nötr metrik
     "mor2":     "#A5B4FC",   # mor'un açık tonu (rozet/ikincil)
     "yesil":    "#34D399",   # pozitif · satılabilir · başarı
@@ -48,7 +50,7 @@ RENK = {
     "yuzey3":   "#1C2A44",   # en öndeki eleman (3. katman)
     "kenar":    "rgba(148,163,184,0.10)",  # ince ayırıcı kenar
     "kenar2":   "rgba(148,163,184,0.18)",  # belirgin kenar
-}
+})
 
 # ═══════════════════════════════════════════════════════════════════
 #  DESIGN TOKENS — tüm görünümün tek kaynağı.
@@ -141,9 +143,9 @@ def pencere_css() -> str:
     return """<style>
 .kyr-pencere-icerik{overflow-y:auto;padding-right:8px;}
 .kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
-.kyr-pencere-icerik::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:3px;}
-.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.35);border-radius:3px;}
-.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,0.55);}
+.kyr-pencere-icerik::-webkit-scrollbar-track{background:color-mix(in srgb,var(--k-metin) 3%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--k-soluk) 35%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--k-soluk) 55%,transparent);}
 </style>"""
 
 
@@ -185,7 +187,7 @@ def pencere_satiri(sol_html: str, sag_html: str = "") -> str:
                f'align-items:center;">{sag_html}</div>')
     return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
             f'padding:4px 12px;margin:4px 0;border-radius:6px;'
-            f'background:rgba(255,255,255,0.03);">{sol_html}{sag}</div>')
+            f'background:color-mix(in srgb,var(--k-metin) 3%,transparent);">{sol_html}{sag}</div>')
 
 
 def bos_durum(mesaj: str) -> str:
@@ -211,19 +213,19 @@ def islem_gosterge_css() -> str:
     """
     return """<style>
 @keyframes kyr-akan-bar{0%{background-position:0% 0}100%{background-position:200% 0}}
-@keyframes kyr-puls{0%,100%{box-shadow:0 6px 22px rgba(99,102,241,.45)}50%{box-shadow:0 6px 30px rgba(34,211,238,.65)}}
+@keyframes kyr-puls{0%,100%{box-shadow:0 6px 22px color-mix(in srgb,var(--k-mor) 45%,transparent)}50%{box-shadow:0 6px 30px color-mix(in srgb,var(--k-cyan) 65%,transparent)}}
 div[data-testid="stStatusWidget"]::before{
   content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
-  background:linear-gradient(90deg,#818CF8,#22D3EE,#818CF8,#818CF8);
+  background:linear-gradient(90deg,var(--k-mor),var(--k-cyan),var(--k-mor),var(--k-mor));
   background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
 div[data-testid="stStatusWidget"]{
   position:fixed !important;top:14px !important;left:50% !important;
   transform:translateX(-50%) !important;z-index:999998 !important;
-  background:rgba(15,23,42,.96) !important;border:1px solid rgba(99,102,241,.55) !important;
+  background:color-mix(in srgb,var(--k-yuzey1) 96%,transparent) !important;border:1px solid color-mix(in srgb,var(--k-mor) 55%,transparent) !important;
   border-radius:999px !important;padding:8px 16px !important;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 div[data-testid="stStatusWidget"]::after{
-  content:"⏳ İşleniyor — lütfen bekleyin";color:#A5B4FC;font-size:13px;
+  content:"⏳ İşleniyor — lütfen bekleyin";color:var(--k-mor2);font-size:13px;
   font-weight:700;letter-spacing:.3px;white-space:nowrap;}
 div[data-testid="stStatusWidget"] > *{display:none !important;}
 div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
@@ -233,14 +235,14 @@ div[data-stale="true"]{opacity:.35 !important;transition:opacity .25s ease;}
    basar; bu her modda (Cloud izleyici dahil) mevcuttur. */
 div[data-testid="stApp"][data-test-script-state="running"]::before{
   content:"";position:fixed;top:0;left:0;right:0;height:3px;z-index:999999;
-  background:linear-gradient(90deg,#818CF8,#22D3EE,#818CF8,#818CF8);
+  background:linear-gradient(90deg,var(--k-mor),var(--k-cyan),var(--k-mor),var(--k-mor));
   background-size:200% 100%;animation:kyr-akan-bar 1.1s linear infinite;}
 div[data-testid="stApp"][data-test-script-state="running"]::after{
   content:"⏳ İşleniyor — lütfen bekleyin";
   position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999998;
-  background:rgba(15,23,42,.96);border:1px solid rgba(99,102,241,.55);
+  background:color-mix(in srgb,var(--k-yuzey1) 96%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 55%,transparent);
   border-radius:999px;padding:8px 16px;
-  color:#A5B4FC;font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
+  color:var(--k-mor2);font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap;
   font-family:Inter,sans-serif;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 </style>"""
@@ -289,18 +291,18 @@ def genel_tema_css() -> str:
 /* ── Kart hover: hafif yükselme + gölge derinleşmesi (micro-interaction) ── */
 .kyr-kart:hover{
   transform:translateY(-2px);
-  box-shadow:0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  box-shadow:0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
 }
 /* ── Dialog başlıkları ── */
 div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
 div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
   font-family:Inter,sans-serif !important;
   font-size:16px !important; font-weight:700 !important;
-  letter-spacing:-0.2px !important; color:#E2E8F0 !important;
+  letter-spacing:-0.2px !important; color:var(--k-metin) !important;
   padding-bottom:0px !important;
 }
 div[data-testid="stDialog"] > div:first-child{
-  border:1px solid rgba(129,140,248,0.22) !important;
+  border:1px solid color-mix(in srgb,var(--k-mor) 22%,transparent) !important;
   border-radius:18px !important;
   box-shadow:0 24px 64px rgba(0,0,0,0.55) !important;
 }
@@ -308,7 +310,7 @@ div[data-testid="stDialog"] > div:first-child{
 div[data-testid="stDataFrame"]{
   border-radius:12px !important;
   overflow:hidden !important;
-  border:1px solid rgba(148,163,184,0.10) !important;
+  border:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent) !important;
 }
 /* ── Sekmeler: alt çizgi yerine yumuşak aktif dolgu ── */
 button[data-baseweb="tab"]{
@@ -316,10 +318,10 @@ button[data-baseweb="tab"]{
   border-radius:9px 9px 0 0 !important;
 }
 button[data-baseweb="tab"][aria-selected="true"]{
-  background:rgba(99,102,241,0.10) !important;
+  background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
 }
 /* ── Caption'lar biraz daha okunur ── */
-div[data-testid="stCaptionContainer"] p{ color:#94A3B8 !important; }
+div[data-testid="stCaptionContainer"] p{ color:var(--k-soluk) !important; }
 </style>"""
 
 
@@ -507,7 +509,7 @@ def patron_panosu_html(v):
                            f'ürün eksi stokta</span>')
     _hata_html = ""
     if _hata_parca:
-        _hata_html = (f'<div style="background:rgba(248,113,113,0.06);border:1px solid '
+        _hata_html = (f'<div style="background:color-mix(in srgb,var(--k-kirmizi) 6%,transparent);border:1px solid '
                       f'{RENK["kirmizi"]}30;border-radius:10px;padding:8px 16px;margin:4px 0 0;'
                       f'font-size:13px">⚠️ <b style="color:{RENK["kirmizi2"]}">Dikkat:</b> '
                       + " &nbsp;·&nbsp; ".join(_hata_parca) + '</div>')
@@ -563,7 +565,7 @@ def patron_panosu_html(v):
             _anchor = "start" if _i == 0 else ("end" if _i == _n - 1 else "middle")
             _lbl += (f'<text x="{_x:.1f}" y="{_ly:.1f}" text-anchor="{_anchor}" '
                      f'font-size="8" font-family="JetBrains Mono,monospace" '
-                     f'fill="#94A3B8">{_kfmt(_c)}</text>')
+                     f'style="fill:var(--k-soluk)">{_kfmt(_c)}</text>')
 
         # dün vs bugün delta
         _db = v.get("trend_bugun_ciro", 0); _dd = v.get("trend_dun_ciro", 0)
@@ -583,13 +585,13 @@ def patron_panosu_html(v):
             f'<svg viewBox="0 0 {_W} {_H}" preserveAspectRatio="xMidYMid meet" '
             f'style="display:block;width:100%;height:auto">'
             f'<defs><linearGradient id="kyr-trend-g" x1="0" y1="0" x2="0" y2="1">'
-            f'<stop offset="0%" stop-color="#818CF8" stop-opacity="0.35"/>'
-            f'<stop offset="100%" stop-color="#818CF8" stop-opacity="0"/></linearGradient></defs>'
+            f'<stop offset="0%" style="stop-color:var(--k-mor)" stop-opacity="0.35"/>'
+            f'<stop offset="100%" style="stop-color:var(--k-mor)" stop-opacity="0"/></linearGradient></defs>'
             f'<polygon points="{_alan}" fill="url(#kyr-trend-g)"/>'
-            f'<polyline points="{_poly}" fill="none" stroke="#818CF8" stroke-width="2" '
+            f'<polyline points="{_poly}" fill="none" style="stroke:var(--k-mor)" stroke-width="2" '
             f'stroke-linejoin="round" stroke-linecap="round"/>'
             f'{_lbl}'
-            f'<circle cx="{_son_x:.1f}" cy="{_son_y:.1f}" r="3.5" fill="#22D3EE"/>'
+            f'<circle cx="{_son_x:.1f}" cy="{_son_y:.1f}" r="3.5" style="fill:var(--k-cyan)"/>'
             f'</svg></div>')
 
     # 🚀/📉 Büyüyen-Gerileyen firma kartları kullanıcı talebiyle kaldırıldı.

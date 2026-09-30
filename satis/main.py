@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Satış & Kârlılık modülü — arayüz (USD bazlı, tek tek işlem girişi)."""
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import date, timedelta, datetime
 import io
@@ -910,13 +911,13 @@ def run():
 
                     # ── Sipariş özeti (canlı) ──
                     top, _, _ = ozet_hesapla(kalemler)
-                    _renk = "#34D399" if top["net_kar"] > 0 else ("#F87171" if top["net_kar"] < 0 else "#94A3B8")
+                    _renk = trenk("yesil") if top["net_kar"] > 0 else (trenk("kirmizi") if top["net_kar"] < 0 else trenk("soluk"))
                     st.markdown(
                         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">' + _kart([
-                            ("Kalem / Adet", f"{len(kalemler)} / {tr_sayi(int(top['adet']))}", "#7DD3FC"),
-                            ("Ciro", _usd(top["ciro"]), "#7DD3FC"),
-                            ("Maliyet", _usd(top["maliyet"]), "#FBBF24"),
-                            ("Destek", _usd(top["destek"]), "#818CF8"),
+                            ("Kalem / Adet", f"{len(kalemler)} / {tr_sayi(int(top['adet']))}", trenk("mavi")),
+                            ("Ciro", _usd(top["ciro"]), trenk("mavi")),
+                            ("Maliyet", _usd(top["maliyet"]), trenk("amber")),
+                            ("Destek", _usd(top["destek"]), trenk("mor")),
                             ("Net Kâr", _usd(top["net_kar"]), _renk),
                             ("Net Kârlılık", f"%{tr_sayi(top['marj'], 1)}", _renk),
                         ]) + '</div>', unsafe_allow_html=True)
@@ -1040,15 +1041,15 @@ def run():
             # 📊 ÖZET KARTLARI — filtre (tarih + kanal) sonrası toplamlar
             _t_ns = _t_ciro - _t_destek
             _t_marj_k = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
-            _t_renk = "#34D399" if _t_kar > 0 else "#F87171"
+            _t_renk = trenk("yesil") if _t_kar > 0 else trenk("kirmizi")
             _oz_kart = [
-                ("Kayıt", f"{tr_sayi(len(satislar))}", "#7DD3FC"),
-                ("Adet", f"{tr_sayi(_t_adet)}", "#7DD3FC"),
-                ("Ciro", _usd(_t_ciro), "#7DD3FC"),
-                ("Maliyet (COGS)", _usd(_t_maliyet), "#FBBF24"),
+                ("Kayıt", f"{tr_sayi(len(satislar))}", trenk("mavi")),
+                ("Adet", f"{tr_sayi(_t_adet)}", trenk("mavi")),
+                ("Ciro", _usd(_t_ciro), trenk("mavi")),
+                ("Maliyet (COGS)", _usd(_t_maliyet), trenk("amber")),
             ]
             if _t_destek > 0.005:
-                _oz_kart.append(("Destek", _usd(_t_destek), "#818CF8"))
+                _oz_kart.append(("Destek", _usd(_t_destek), trenk("mor")))
             _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
                          ("Marj", f"%{tr_sayi(_t_marj_k, 1)}", _t_renk)]
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">'
@@ -1348,7 +1349,7 @@ def run():
             _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd + _kat_destek_f
             _nihai_marj = (_nihai / _net_satis * 100) if _net_satis > 0 else 0.0
             _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
-            _nr = "#34D399" if _nihai > 0 else "#F87171"
+            _nr = trenk("yesil") if _nihai > 0 else trenk("kirmizi")
 
             # ── Üst şerit: yalnız 4 ana gösterge ──
             _kt = "yesil" if _nihai > 0 else "kirmizi"
@@ -1367,19 +1368,19 @@ def run():
 
             # ── Kâr merdiveni ──
             def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
-                _renkler = {"normal": ("#94A3B8", "#E2E8F0"),
-                            "eksi": ("#94A3B8", "#FBBF24"),
-                            "arti": ("#94A3B8", "#34D399"),
-                            "ara": ("#7DD3FC", "#22D3EE"),
-                            "son": ("#E2E8F0", _nr)}
+                _renkler = {"normal": (trenk("soluk"), trenk("metin")),
+                            "eksi": (trenk("soluk"), trenk("amber")),
+                            "arti": (trenk("soluk"), trenk("yesil")),
+                            "ara": (trenk("mavi"), trenk("cyan")),
+                            "son": (trenk("metin"), _nr)}
                 el, dr = _renkler.get(ton, _renkler["normal"])
                 _bg = ("rgba(255,255,255,0.05)" if ton in ("ara", "son")
                        else "transparent")
-                _bd = ("border-top:1px solid rgba(148,163,184,0.25);"
+                _bd = ("border-top:1px solid color-mix(in srgb,var(--k-soluk) 25%,transparent);"
                        if ton in ("ara", "son") else "")
                 _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
                 _fw = "800" if ton in ("ara", "son") else "600"
-                _oran = (f'<span style="color:#7B8AA0;font-size:11px;margin-left:8px">'
+                _oran = (f'<span style="color:var(--k-silik);font-size:11px;margin-left:8px">'
                          f'%{tr_sayi(oran, 1)}</span>' if oran is not None else "")
                 return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
                         f'padding:7px 14px;background:{_bg};{_bd}">'
@@ -1414,10 +1415,10 @@ def run():
             _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
 
             st.markdown(
-                f'<div style="border:1px solid rgba(148,163,184,0.18);border-radius:12px;'
-                f'overflow:hidden;margin:0 0 10px;background:rgba(255,255,255,0.02)">'
-                f'<div style="padding:8px 14px;background:rgba(255,255,255,0.04);'
-                f'font-size:11px;font-weight:700;letter-spacing:1.5px;color:#A5B4FC;'
+                f'<div style="border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent);border-radius:12px;'
+                f'overflow:hidden;margin:0 0 10px;background:color-mix(in srgb,var(--k-metin) 2%,transparent)">'
+                f'<div style="padding:8px 14px;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
+                f'font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--k-mor2);'
                 f'text-transform:uppercase">📊 Kâr Merdiveni</div>{_adim}</div>',
                 unsafe_allow_html=True)
 
@@ -1858,7 +1859,7 @@ def run():
 
             @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
             def _dlg_firma_gecmis(_fkn):
-                st.markdown(f'<div style="font-size:14px;font-weight:700;color:#E2E8F0;'
+                st.markdown(f'<div style="font-size:14px;font-weight:700;color:var(--k-metin);'
                             f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
                 st.caption(f"Dönem: {_pbas} → {_pbit}")
                 _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
@@ -1886,13 +1887,13 @@ def run():
                 _t_kar = sum(g["kar"] for g in _sipler.values())
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
                             + _kart([
-                                ("Sipariş", f"{tr_sayi(len(_sipler))}", "#7DD3FC"),
-                                ("Adet", f"{tr_sayi(_t_adet)}", "#7DD3FC"),
-                                ("Ciro", _usd(_t_ciro), "#7DD3FC"),
+                                ("Sipariş", f"{tr_sayi(len(_sipler))}", trenk("mavi")),
+                                ("Adet", f"{tr_sayi(_t_adet)}", trenk("mavi")),
+                                ("Ciro", _usd(_t_ciro), trenk("mavi")),
                                 ("Net Kâr", _usd(_t_kar),
-                                 "#34D399" if _t_kar >= 0 else "#F87171"),
+                                 trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
                                 ("Kârlılık", f"%{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro else 0, 1)}",
-                                 "#34D399" if _t_kar >= 0 else "#F87171"),
+                                 trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
                             ]) + '</div>', unsafe_allow_html=True)
                 st.markdown("**📦 Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
                 def _sku_ozet(g):
@@ -1997,10 +1998,10 @@ def run():
                 _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
                        if _ozet["tarih_min"] else "—")
                 st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' + _kart([
-                    ("Satır", f"{tr_sayi(_ozet['satir'])}", "#7DD3FC"),
-                    ("Fatura", f"{tr_sayi(_ozet['fatura'])}", "#A5B4FC"),
-                    ("Toplam Ciro", _usd(_ozet["ciro"]), "#34D399"),
-                    ("Tarih Aralığı", _ta, "#FBBF24"),
+                    ("Satır", f"{tr_sayi(_ozet['satir'])}", trenk("mavi")),
+                    ("Fatura", f"{tr_sayi(_ozet['fatura'])}", trenk("mor2")),
+                    ("Toplam Ciro", _usd(_ozet["ciro"]), trenk("yesil")),
+                    ("Tarih Aralığı", _ta, trenk("amber")),
                 ]) + '</div>', unsafe_allow_html=True)
 
                 _mevcut = get_mevcut_siparis_nolar()
@@ -2264,15 +2265,15 @@ def run():
             _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
             _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
             st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
-                ("Satış adedi", f"{tr_sayi(_top['s_adet'])}", "#7DD3FC"),
-                ("İade adedi", f"{tr_sayi(_top['i_adet'])}", "#FBBF24"),
-                ("Net adet (müşteride)", f"{tr_sayi(_top['net_adet'])}", "#34D399"),
-                ("Satış cirosu", _usd(_top["s_ciro"]), "#7DD3FC"),
-                ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), "#FBBF24"),
-                ("Net ciro", _usd(_top["net_ciro"]), "#34D399"),
-                ("Satış kârı", _usd(_top["s_kar"]), "#818CF8"),
-                ("Satış marjı", f"%{tr_sayi(_mr, 1)}", "#818CF8"),
-                ("İade oranı", f"%{tr_sayi(_ior, 1)}", "#FBBF24"),
+                ("Satış adedi", f"{tr_sayi(_top['s_adet'])}", trenk("mavi")),
+                ("İade adedi", f"{tr_sayi(_top['i_adet'])}", trenk("amber")),
+                ("Net adet (müşteride)", f"{tr_sayi(_top['net_adet'])}", trenk("yesil")),
+                ("Satış cirosu", _usd(_top["s_ciro"]), trenk("mavi")),
+                ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), trenk("amber")),
+                ("Net ciro", _usd(_top["net_ciro"]), trenk("yesil")),
+                ("Satış kârı", _usd(_top["s_kar"]), trenk("mor")),
+                ("Satış marjı", f"%{tr_sayi(_mr, 1)}", trenk("mor")),
+                ("İade oranı", f"%{tr_sayi(_ior, 1)}", trenk("amber")),
             ]) + '</div>', unsafe_allow_html=True)
             st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "
                        "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")

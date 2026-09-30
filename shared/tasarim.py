@@ -30,7 +30,47 @@ birebir aynı. Eski kod bozulmadan çalışmaya devam eder.
 # 1. PALET — tek rampa. Zemin #0B1120 (slate) ailesine kilitli.
 #    .streamlit/config.toml bu değerlerle AYNI olmalı, yoksa dikiş görünür.
 # ═══════════════════════════════════════════════════════════════════
-RENK = {
+class TemaRenk(dict):
+    """Tema duyarlı renk sözlüğü.
+
+    RENK["metin"] → AKTİF temanın metin rengi (koyu: #E2E8F0, açık: #0F172A).
+    Programda 150+ yerde RENK["x"] HTML'e ve Plotly'ye gömülüyor; sözlüğün
+    kendisi temaya göre cevap verince hiçbirine dokunmak gerekmedi.
+    .items()/.values() ise her zaman KOYU paleti verir (tema_degiskenleri
+    ve testler ham paleti bekler)."""
+
+    def __getitem__(self, k):
+        if aktif_tema() == "acik" and k in RENK_ACIK:
+            return RENK_ACIK[k]
+        return dict.__getitem__(self, k)
+
+    def get(self, k, varsayilan=None):
+        return self[k] if k in self else varsayilan
+
+
+def aktif_tema():
+    """'koyu' | 'acik' — kullanıcının seçimi (session). Streamlit yoksa koyu."""
+    try:
+        import streamlit as st
+        t = st.session_state.get("tema")
+        return "acik" if t == "acik" else "koyu"
+    except Exception:  # noqa: BLE001 — test ortamı / import zamanı
+        return "koyu"
+
+
+def renk(anahtar, varsayilan="mor"):
+    """Aktif temanın rengi (hex). Python değeri gereken yerde — Plotly,
+    {"renk": renk("yesil")} gibi. HTML içinde ise var(--k-anahtar) kullan."""
+    k = anahtar if anahtar in RENK else varsayilan
+    return RENK[k]
+
+
+def karisim(anahtar, yuzde):
+    """HTML/CSS için yarı saydam ton: 'color-mix(in srgb,var(--k-x) 15%,transparent)'."""
+    return f"color-mix(in srgb,var(--k-{anahtar}) {int(yuzde)}%,transparent)"
+
+
+RENK = TemaRenk({
     # ── Yüzeyler: en dipten en öne (tek aile, tek hue) ──
     "yuzey0":  "#0B1120",   # sayfa zemini      → config.toml backgroundColor
     "yuzey1":  "#0F172A",   # kart zemini       → config.toml secondaryBackgroundColor
@@ -55,7 +95,7 @@ RENK = {
     # ── Modül kimlikleri (sidebar çipi + kart sol şeridi) ──
     "mavi":     "#7DD3FC",   # ithalat
     "pembe":    "#F9A8D4",   # ürün yönetimi
-}
+})
 
 # ═══════════════════════════════════════════════════════════════════
 # 1b. TEMALAR — aynı anahtarlar, iki palet.
@@ -627,7 +667,7 @@ def cekirdek_css(yogunluk=None):
     kp, kr, gg, sa, sp, kmin = (_y("kart_pad", yogunluk), _y("kart_r", yogunluk),
                                 _y("grid_gap", yogunluk), _y("serit_alt", yogunluk),
                                 _y("satir_pad", yogunluk), _y("kart_min", yogunluk))
-    degiskenler = tema_degiskenleri("koyu")
+    degiskenler = tema_degiskenleri(aktif_tema())
     acik = tema_degiskenleri('acik')
     return "<style>" + css_tek_satir(f"""
 :root{{{degiskenler}--k-r:{kr};--k-gap:{gg};--k-pad:{kp};--k-mono:{MONO};}}

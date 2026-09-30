@@ -9,6 +9,7 @@
 #   YERİNE GEÇMEZ — iç kontrol ve hazırlık amaçlıdır.
 # ══════════════════════════════════════════════════════════════════════
 
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
@@ -393,7 +394,7 @@ def edf_kebir(hesap_kodu, bas=None, bit=None):
 
 def _uyari_banner():
     st.markdown(
-        '<div style="background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.35);'
+        '<div style="background:color-mix(in srgb,var(--k-amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 35%,transparent);'
         'border-radius:10px;padding:10px 14px;margin:4px 0 14px;font-size:12.5px;color:#FDBA74">'
         '🚧 <b>Faz 1 — Çift Taraflı Kayıt Çekirdeği (aktif)</b> · GİB uyumluluk onayı '
         'alınana kadar buradaki kayıtlar <b>yasal defter yerine geçmez</b>; iç kontrol '
@@ -481,10 +482,10 @@ def render():
         _ta = round(sum(_f(r.get("Alacak")) for _, r in _kdf.iterrows()), 2)
         _fark = round(_tb - _ta, 2)
         metrik_satiri([
-            {"label": "Toplam Borç", "value": f"{tr_sayi(_tb, 2)}", "renk": "#60A5FA"},
-            {"label": "Toplam Alacak", "value": f"{tr_sayi(_ta, 2)}", "renk": "#34D399"},
+            {"label": "Toplam Borç", "value": f"{tr_sayi(_tb, 2)}", "renk": trenk("mavi")},
+            {"label": "Toplam Alacak", "value": f"{tr_sayi(_ta, 2)}", "renk": trenk("yesil")},
             {"label": "Fark", "value": f"{tr_sayi(_fark, 2)}",
-             "renk": "#34D399" if _fark == 0 and _tb > 0 else "#F87171",
+             "renk": trenk("yesil") if _fark == 0 and _tb > 0 else trenk("kirmizi"),
              "alt": "✓ dengede" if _fark == 0 and _tb > 0 else "borç = alacak olmalı"},
         ])
 
@@ -518,8 +519,8 @@ def render():
         else:
             t_top = round(sum(_f(f.get("toplam")) for f in fisler), 2)
             metrik_satiri([
-                {"label": "Madde Sayısı", "value": f"{tr_sayi(len(fisler))}", "renk": "#818CF8"},
-                {"label": "Dönem Toplamı (borç=alacak)", "value": f"{tr_sayi(t_top, 2)}", "renk": "#34D399"},
+                {"label": "Madde Sayısı", "value": f"{tr_sayi(len(fisler))}", "renk": trenk("mor")},
+                {"label": "Dönem Toplamı (borç=alacak)", "value": f"{tr_sayi(t_top, 2)}", "renk": trenk("yesil")},
             ])
             for f in fisler:
                 with st.expander(f"Madde {f['yevmiye_madde_no']} · {str(f.get('tarih'))[:10]} · "
@@ -557,11 +558,11 @@ def render():
                 _kdf2 = pd.DataFrame(rows)
                 son_bakiye = rows[-1]["Bakiye"]
                 metrik_satiri([
-                    {"label": "Hareket", "value": f"{tr_sayi(len(rows))}", "renk": "#818CF8"},
-                    {"label": "Toplam Borç", "value": f"{tr_sayi(sum(r['Borç'] for r in rows), 2)}", "renk": "#60A5FA"},
-                    {"label": "Toplam Alacak", "value": f"{tr_sayi(sum(r['Alacak'] for r in rows), 2)}", "renk": "#34D399"},
+                    {"label": "Hareket", "value": f"{tr_sayi(len(rows))}", "renk": trenk("mor")},
+                    {"label": "Toplam Borç", "value": f"{tr_sayi(sum(r['Borç'] for r in rows), 2)}", "renk": trenk("mavi")},
+                    {"label": "Toplam Alacak", "value": f"{tr_sayi(sum(r['Alacak'] for r in rows), 2)}", "renk": trenk("yesil")},
                     {"label": "Bakiye", "value": f"{tr_sayi(son_bakiye, 2)}",
-                     "renk": "#34D399" if son_bakiye >= 0 else "#F87171",
+                     "renk": trenk("yesil") if son_bakiye >= 0 else trenk("kirmizi"),
                      "alt": "borç bakiyesi" if son_bakiye >= 0 else "alacak bakiyesi"},
                 ])
                 st.dataframe(_kdf2, hide_index=True, use_container_width=True,
@@ -577,12 +578,12 @@ def render():
             st.info("Bu dönemde kayıt yok.")
         else:
             metrik_satiri([
-                {"label": "Toplam Borç", "value": f"{tr_sayi(t_borc, 2)}", "renk": "#60A5FA"},
-                {"label": "Toplam Alacak", "value": f"{tr_sayi(t_alacak, 2)}", "renk": "#34D399"},
+                {"label": "Toplam Borç", "value": f"{tr_sayi(t_borc, 2)}", "renk": trenk("mavi")},
+                {"label": "Toplam Alacak", "value": f"{tr_sayi(t_alacak, 2)}", "renk": trenk("yesil")},
                 {"label": "Denge", "value": "✓ DENGEDE" if denge else "✗ DENGESİZ",
-                 "renk": "#34D399" if denge else "#F87171",
+                 "renk": trenk("yesil") if denge else trenk("kirmizi"),
                  "alt": "borç = alacak" if denge else f"fark {tr_sayi(abs(t_borc - t_alacak), 2)}"},
-                {"label": "Hesap Sayısı", "value": f"{tr_sayi(len(rows))}", "renk": "#818CF8"},
+                {"label": "Hesap Sayısı", "value": f"{tr_sayi(len(rows))}", "renk": trenk("mor")},
             ])
             _mdf = pd.DataFrame(rows)
             st.dataframe(_mdf, hide_index=True, use_container_width=True,

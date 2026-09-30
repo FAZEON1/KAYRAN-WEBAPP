@@ -8,6 +8,7 @@ Havuz Bütçe mantığı:
   - Diğer türler   → sellout / destek harcaması (HARCAMA −)
   - Kalan havuz    = toplam giriş − toplam harcama
 """
+from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import re
 import pandas as pd
@@ -1499,7 +1500,7 @@ def _ref_detay_govde(r, firma_adi=""):
         if len(_parcalar) > 1:
             _liste = "".join(
                 f'<div style="display:flex;gap:10px;padding:6px 0;'
-                f'border-bottom:1px solid rgba(148,163,184,.08)">'
+                f'border-bottom:1px solid color-mix(in srgb,var(--k-soluk) 8%,transparent)">'
                 f'<span style="font-family:{_MONO};font-size:11px;color:{RENK["silik"]};'
                 f'min-width:18px">{i:02d}</span>'
                 f'<span style="font-size:13px;color:{RENK["metin"]};line-height:1.4">{p}</span>'
@@ -1535,14 +1536,14 @@ def _ref_detay_govde(r, firma_adi=""):
                 except Exception:
                     etk = str(k)
                 _sat += (f'<div style="display:flex;justify-content:space-between;'
-                         f'padding:6px 0;border-bottom:1px solid rgba(148,163,184,.08)">'
+                         f'padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--k-soluk) 8%,transparent)">'
                          f'<span style="font-size:13px;color:{RENK["soluk"]}">{etk}</span>'
                          f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
                          f'color:{RENK["metin"]};font-variant-numeric:tabular-nums">'
                          f'{_sm}{tr_sayi(v, 2)}</span></div>')
             _fk = _f(r.get("tutar")) - _tp
-            _uy = ("#34D399", "kayıt tutarıyla uyumlu") if abs(_fk) <= 0.01 else \
-                  ("#FBBF24", f"kayıt tutarıyla {_sm}{tr_sayi(_fk, 2)} fark")
+            _uy = (trenk("yesil"), "kayıt tutarıyla uyumlu") if abs(_fk) <= 0.01 else \
+                  (trenk("amber"), f"kayıt tutarıyla {_sm}{tr_sayi(_fk, 2)} fark")
             _sat += (f'<div style="display:flex;justify-content:space-between;padding:8px 0 0">'
                      f'<span style="{_etiket_css(RENK["silik"])}">Toplam</span>'
                      f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
@@ -1556,7 +1557,7 @@ def _ref_detay_govde(r, firma_adi=""):
 
 
 def _durum_renk(d):
-    return {"paylasildi": "#34D399", "beklemede": "#FBBF24"}.get(d, "#7B8AA0")
+    return {"paylasildi": trenk("yesil"), "beklemede": trenk("amber")}.get(d, trenk("silik"))
 
 
 def _ref_kart_html(r, firma_adi=""):
@@ -1571,12 +1572,12 @@ def _ref_kart_html(r, firma_adi=""):
     _parca = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
     _ack = " · ".join(_parca)
     _cip = "".join(
-        f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
+        f'<span style="background:color-mix(in srgb,var(--k-mor) 14%,transparent);color:{RENK["mor2"]};'
         f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">{k}</span>'
         for k in _kats)
     _donem = ""
     if _ays and _ays != "—":
-        _donem = (f'<span style="background:rgba(34,211,238,.12);color:{RENK["cyan"]};'
+        _donem = (f'<span style="background:color-mix(in srgb,var(--k-cyan) 12%,transparent);color:{RENK["cyan"]};'
                   f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">'
                   f'📅 {_ays}{(" " + _yls) if _yls and _yls != "—" else ""}</span>')
     _cok = (f'<span style="color:{RENK["silik"]};font-size:11px">'
@@ -1644,12 +1645,12 @@ def _kpi_serit(kalemler):
                 if alt else "")
         ic.append(
             f'<div style="flex:{gen};min-width:92px;padding:1px 18px;'
-            f'border-left:{"1px solid rgba(148,163,184,.14)" if i else "none"}">'
+            f'border-left:{"1px solid color-mix(in srgb,var(--k-soluk) 14%,transparent)" if i else "none"}">'
             f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:6px">{etiket}</div>'
             f'<div style="{_sayi_css(renk)};white-space:nowrap">{deger}</div>{_alt}</div>')
     return (f'<div style="display:flex;align-items:flex-start;'
-            f'background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));'
-            f'border:1px solid rgba(148,163,184,.14);border-radius:12px;'
+            f'background:linear-gradient(180deg,color-mix(in srgb,var(--k-metin) 4%,transparent),color-mix(in srgb,var(--k-metin) 1%,transparent));'
+            f'border:1px solid color-mix(in srgb,var(--k-soluk) 14%,transparent);border-radius:12px;'
             f'padding:13px 2px;margin:6px 0 14px">{"".join(ic)}</div>')
 
 
@@ -1672,8 +1673,8 @@ def _dt_kutular(kalemler):
     """Detay penceresi üst metrikleri — st.metric yerine tutarlı tipografi."""
     from shared.ui import RENK
     ic = "".join(
-        f'<div style="flex:1;min-width:112px;background:rgba(255,255,255,.025);'
-        f'border:1px solid rgba(148,163,184,.10);border-radius:10px;padding:10px 14px">'
+        f'<div style="flex:1;min-width:112px;background:color-mix(in srgb,var(--k-metin) 2%,transparent);'
+        f'border:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent);border-radius:10px;padding:10px 14px">'
         f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:7px">{e}</div>'
         f'<div style="{_sayi_css(c, 17)};white-space:nowrap">{v}</div></div>'
         for e, v, c in kalemler)
@@ -1692,7 +1693,7 @@ def _dt_alan(etiket, deger, mono=False):
 
 def _dt_cipler(degerler, renk="#A5B4FC"):
     if not degerler:
-        return '<span style="color:#7B8AA0;font-size:13px">—</span>'
+        return '<span style="color:var(--k-silik);font-size:13px">—</span>'
     return "".join(
         f'<span style="background:{renk}1F;color:{renk};padding:3px 10px;'
         f'border-radius:20px;font-size:11px;font-weight:600;margin:0 5px 5px 0;'
@@ -1962,20 +1963,20 @@ def _render_tumu(firmalar):
                    if _filtreli else
                    f'<span style="color:{RENK["silik"]};font-size:11px">tüm kayıtlar</span>')
     st.markdown(
-        f'<div style="background:linear-gradient(90deg,rgba(99,102,241,0.10),rgba(34,211,238,0.03) 70%,transparent);'
-        f'border:1px solid rgba(129,140,248,0.28);border-left:3px solid #818CF8;border-radius:14px;'
+        f'<div style="background:linear-gradient(90deg,color-mix(in srgb,var(--k-mor) 10%,transparent),color-mix(in srgb,var(--k-cyan) 3%,transparent) 70%,transparent);'
+        f'border:1px solid color-mix(in srgb,var(--k-mor) 28%,transparent);border-left:3px solid var(--k-mor);border-radius:14px;'
         f'padding:12px 16px;margin:8px 0 16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
         f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Filtreli Toplam Tutar</div>'
         f'<div style="font-size:23px;font-weight:700;color:{RENK["metin"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{_tutar_str}</div></div>'
-        f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
+        f'<div style="height:34px;width:1px;background:color-mix(in srgb,var(--k-soluk) 20%,transparent)"></div>'
         f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Kayıt</div>'
         f'<div style="font-size:23px;font-weight:700;color:{RENK["mor2"]};'
         f'font-family:JetBrains Mono,monospace;line-height:1">{tr_sayi(len(goster))}'
         f'<span style="font-size:13px;color:{RENK["silik"]}"> / {tr_sayi(len(_hepsi))}</span></div></div>'
-        f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
+        f'<div style="height:34px;width:1px;background:color-mix(in srgb,var(--k-soluk) 20%,transparent)"></div>'
         f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">{_durum_rozet}</div>'
         f'<div style="margin-left:auto">{_durum_notu}</div>'
         f'</div>', unsafe_allow_html=True)
@@ -2094,10 +2095,10 @@ def _render_refler(fid, fkod):
     _bekleyen = sum(1 for r in refler if r.get("durum") == "beklemede")
     _paylasilan = sum(1 for r in refler if r.get("durum") == "paylasildi")
     metrik_satiri([
-        {"label": "Toplam Ref", "value": f"{tr_sayi(len(refler))}", "renk": "#818CF8"},
-        {"label": "⏳ Beklemede", "value": f"{tr_sayi(_bekleyen)}", "renk": "#FBBF24"},
-        {"label": "✅ Paylaşılan", "value": f"{tr_sayi(_paylasilan)}", "renk": "#34D399"},
-        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": "#818CF8"},
+        {"label": "Toplam Ref", "value": f"{tr_sayi(len(refler))}", "renk": trenk("mor")},
+        {"label": "⏳ Beklemede", "value": f"{tr_sayi(_bekleyen)}", "renk": trenk("amber")},
+        {"label": "✅ Paylaşılan", "value": f"{tr_sayi(_paylasilan)}", "renk": trenk("yesil")},
+        {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": trenk("mor")},
     ])
 
     _siradaki = _sonraki_sira(fid)
@@ -2399,10 +2400,10 @@ def _render_butce(fid, firma):
         ref_usd += t
 
     metrik_satiri([
-        {"label": "Toplam Bütçe (giriş)", "value": f"${tr_sayi(giris, 2)}", "renk": "#34D399"},
-        {"label": "Toplam Harcama", "value": f"${tr_sayi(harcama, 2)}", "renk": "#F87171"},
-        {"label": "Kalan Havuz", "value": f"${tr_sayi(kalan, 2)}", "renk": "#A5B4FC"},
-        {"label": "Atanan Ref No (USD)", "value": f"${tr_sayi(ref_usd, 2)}", "renk": "#818CF8"},
+        {"label": "Toplam Bütçe (giriş)", "value": f"${tr_sayi(giris, 2)}", "renk": trenk("yesil")},
+        {"label": "Toplam Harcama", "value": f"${tr_sayi(harcama, 2)}", "renk": trenk("kirmizi")},
+        {"label": "Kalan Havuz", "value": f"${tr_sayi(kalan, 2)}", "renk": trenk("mor2")},
+        {"label": "Atanan Ref No (USD)", "value": f"${tr_sayi(ref_usd, 2)}", "renk": trenk("mor")},
     ])
 
     # ── Yeni kayıt ekle ──
@@ -3024,13 +3025,13 @@ def _ad_kart_html(r):
     _dv = (r.get("doviz") or "USD").strip().upper()
     _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
     _tur = (r.get("tur") or "—").strip().upper()
-    _tr = _AD_TUR_RENK.get(_tur, "#818CF8")
+    _tr = _AD_TUR_RENK.get(_tur, trenk("mor"))
     _kat = (r.get("kategori") or "GENEL").strip()
     _fat = (r.get("fatura_no") or "").strip()
-    _cip = (f'<span style="background:rgba(129,140,248,.14);color:{RENK["mor2"]};'
+    _cip = (f'<span style="background:color-mix(in srgb,var(--k-mor) 14%,transparent);color:{RENK["mor2"]};'
             f'padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600">{_kat}</span>')
     if _fat:
-        _cip += (f'<span style="background:rgba(148,163,184,.12);color:{RENK["soluk"]};'
+        _cip += (f'<span style="background:color-mix(in srgb,var(--k-soluk) 12%,transparent);color:{RENK["soluk"]};'
                  f'padding:1px 7px;border-radius:20px;font-size:11px">🧾 {_fat[:18]}</span>')
     return (
         f'<div style="display:flex;align-items:stretch;background:{RENK["yuzey1"]};'
@@ -3065,7 +3066,7 @@ def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
     _tut = _f(r.get("tutar"))
     _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
     _tur = (r.get("tur") or "—").strip().upper()
-    _tr = _AD_TUR_RENK.get(_tur, "#818CF8")
+    _tr = _AD_TUR_RENK.get(_tur, trenk("mor"))
     if _dv in ("TL", "TRY"):
         _usd = (_tut / tl_kur) if tl_kur else None
         _kur_not = f"₺/$ {tr_sayi(tl_kur, 2)}" if tl_kur else "kur yok"
