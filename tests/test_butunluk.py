@@ -69,7 +69,7 @@ _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared"):
     for _d in ("database.py", "utils.py", "auth.py", "ui.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
-               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py",
+               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -137,6 +137,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
                      "salt_okur", "kullanici_kaydi", "kaydet"],
+    "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul"],
+    "shared.hata_log": ["kaydet", "son_hatalar"],
 }
 
 
