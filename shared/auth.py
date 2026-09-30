@@ -200,18 +200,36 @@ def kullanici_dogrula_v2(kullanici_adi: str, sifre_duz: str, kullanicilar: dict)
         sifre_duz     : Giriş formundan gelen şifre
         kullanicilar  : st.secrets["kullanicilar"] dict'i
     """
-    # Kullanıcı secrets'ta tanımlı mı? (yoksa hiç kabul etme)
-    if kullanici_adi not in kullanicilar:
+    # Kullanıcı tanımlı mı? İki kaynak:
+    #   · Secrets [kullanicilar]  (eski yöntem)
+    #   · 'kullanici_yetkileri' tablosu (👥 Kullanıcı Yönetimi ekranından açılanlar)
+    # Tabloda PASİF işaretli kullanıcı, Secrets'ta olsa bile GİREMEZ.
+    try:
+        from shared.yetki import kullanici_kaydi
+        _db_var, _kayit = kullanici_kaydi(kullanici_adi)
+    except Exception:
+        _db_var, _kayit = False, None
+
+    if _db_var and _kayit is not None and not _kayit.get("aktif", True):
         sifre_dogrula(sifre_duz, sifre_hash_uret("__dummy__"))  # timing koruması
         return False
 
-    # 1) Supabase'de özel şifre var mı?
-    supabase_hash = supabase_sifre_oku(kullanici_adi)
+    _secrets_te = kullanici_adi in kullanicilar
+    if not _secrets_te and _kayit is None:
+        sifre_dogrula(sifre_duz, sifre_hash_uret("__dummy__"))  # timing koruması
+        return False
+
+    # 1) Supabase'de şifre var mı? (şifresini değiştirmiş ya da ekrandan açılmış)
+    supabase_hash = supabase_sifre_oku(kullanici_adi) or (
+        supabase_sifre_oku(kullanici_adi.strip().lower())
+        if kullanici_adi != kullanici_adi.strip().lower() else None)
     if supabase_hash:
         return sifre_dogrula(sifre_duz, supabase_hash)
 
     # 2) Secrets'taki hash ile doğrula (fallback)
-    return sifre_dogrula(sifre_duz, kullanicilar[kullanici_adi])
+    if _secrets_te:
+        return sifre_dogrula(sifre_duz, kullanicilar[kullanici_adi])
+    return False            # tabloda var ama şifresi hiç atanmamış
 
 
 # ── Brute-force koruması (kalıcı, kullanıcı bazlı) ───────────────────
