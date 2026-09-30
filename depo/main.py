@@ -19,11 +19,8 @@ def _baslik(t, alt):
 
 def run():
     with st.sidebar:
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("🏬", "Depo", "Depo Yönetimi"), unsafe_allow_html=True)
-        _kull = st.session_state.get("aktif_kullanici", "")
-        if _kull:
-            st.markdown(sidebar_kullanici(_kull), unsafe_allow_html=True)
+        from shared.utils import sidebar_ust
+        sidebar_ust("🏬", "Depo", "depo")
         _dsayfa = st.radio("Sayfa", ["🏬 Depo Stok", "🚚 Depolar Arası Sevk",
                                      "📦 Bekleyen Sevk Takibi", "🔎 SKU Hareketleri",
                                      "🏭 Happy Life Kiralık Depo"],

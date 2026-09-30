@@ -2032,16 +2032,8 @@ def run():
     )
 
     with st.sidebar:
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("🛠️", "Teknik Servis", "Servis & İade"), unsafe_allow_html=True)
-        if aktif_kullanici:
-            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
-            if st.button("Çıkış Yap", use_container_width=True, key="ts_cikis"):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.session_state.aktif_uygulama = "anasayfa"
-                st.rerun()
-        st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+        from shared.utils import sidebar_ust
+        sidebar_ust("🛠️", "Teknik Servis", "teknikservis")
         # Bekleyen sayfa yönlendirmesi (kayıt/transfer sonrası) — widget
         # OLUŞMADAN önce uygulanmalı, yoksa StreamlitAPIException fırlar.
         _git = st.session_state.pop("_ts_git", None)

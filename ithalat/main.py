@@ -2118,16 +2118,8 @@ def run():
     _form_css()
 
     with st.sidebar:
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("🚢", "İthalat", "İthalat Yönetimi"), unsafe_allow_html=True)
-        if aktif_kullanici:
-            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
-            if st.button("Çıkış Yap", use_container_width=True, key="ith_cikis"):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.session_state.aktif_uygulama = "anasayfa"
-                st.rerun()
-        st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+        from shared.utils import sidebar_ust
+        sidebar_ust("🚢", "İthalat", "ithalat")
         sayfa = st.radio(
             "Sayfa",
             ["📋  Geçmiş İthalatlar", "➕  Yeni İthalat", "🔍  Model Sorgu", "💸  Masraf Detayları"],

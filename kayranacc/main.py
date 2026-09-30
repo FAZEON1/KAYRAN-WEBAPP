@@ -1076,18 +1076,9 @@ def run():
     # ── SIDEBAR ──────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown('<script>var s=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(s)s.scrollTop=0;</script>', unsafe_allow_html=True)
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("💳", "Muhasebe & Finans", "Ödeme Takip Sistemi"), unsafe_allow_html=True)
-
+        from shared.utils import sidebar_ust
+        sidebar_ust("💳", "Muhasebe & Finans", "kayranacc")
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-        if aktif_kullanici:
-            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
-            if st.button("🚪 Çıkış Yap", use_container_width=True):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.rerun()
-    
-        st.markdown("---")
     
         # Aktif hafta göster
         hafta = get_aktif_hafta()
@@ -1406,9 +1397,7 @@ def run():
     # ════════════════════════════════════════════════════════════════════
 
     if sayfa == "📊 Dashboard":
-        st.markdown(_sb("💰 Muhasebe", "Dashboard"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📊</span>Muhasebe & Finans — Dashboard</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Haftalık ödeme durumu ve finansal özet</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📊 Muhasebe", "Dashboard", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
     
         kur = get_kur()
         odemeler, hafta = get_aktif_odemeler()
@@ -1790,8 +1779,7 @@ def run():
     # 2) BU HAFTA
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "💳 Bu Hafta":
-        st.markdown(_sb("💰 Muhasebe", "Bu Hafta"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">💳</span>Bu Hafta Ödemeleri</div>', unsafe_allow_html=True)
+        st.markdown(_sb("💳 Muhasebe", "Bu Hafta"), unsafe_allow_html=True)
     
         kur = get_kur()
         odemeler, hafta = get_aktif_odemeler()
@@ -2253,8 +2241,7 @@ def run():
     # 3) BANKA BAKİYELERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🏦 Banka Bakiyeleri":
-        st.markdown(_sb("💰 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">🏦</span>Banka Bakiyeleri</div>', unsafe_allow_html=True)
+        st.markdown(_sb("🏦 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
     
         kur = get_kur()
         bankalar = get_bankalar()
@@ -2533,9 +2520,7 @@ def run():
         if _vb2.button("💱 Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True):
             _dlg_arbitraj()
     elif sayfa == "💸 Nakit Akış":
-        st.markdown(_sb("💰 Muhasebe", "Nakit Akış"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">💸</span>Nakit Akış Analizi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Bekleyen ödemeler baz alınmıştır</div>', unsafe_allow_html=True)
+        st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
     
         kur = get_kur()
         odemeler, hafta = get_aktif_odemeler()
@@ -2741,9 +2726,7 @@ def run():
     # 5) FİRMA ÇEKLERİ
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📋 Firma Çekleri":
-        st.markdown(_sb("💰 Muhasebe", "Firma Çekleri"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📋</span>Firma Çekleri</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">TL ve USD bazında çek takibi</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📋 Muhasebe", "Firma Çekleri", aciklama="TL ve USD bazında çek takibi"), unsafe_allow_html=True)
     
         def cek_ozet_kart(cekler, cur):
             if not cekler:
@@ -2928,9 +2911,7 @@ def run():
     # 6) ÖDENENLEr
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "🕐 Ödenenler & Geçmiş":
-        st.markdown(_sb("💰 Muhasebe", "Ödenenler & Geçmiş"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">🕐</span>Ödenenler & Geçmiş</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi</div>', unsafe_allow_html=True)
+        st.markdown(_sb("🕐 Muhasebe", "Ödenenler & Geçmiş", aciklama="Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi"), unsafe_allow_html=True)
         _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
         with _tab_odenen:
     
@@ -3221,9 +3202,7 @@ def run():
     # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "💵 Gelenler Geçmişi":
-        st.markdown(_sb("💰 Muhasebe", "Gelenler Geçmişi"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>Gelenler Geçmişi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri</div>', unsafe_allow_html=True)
+        st.markdown(_sb("💵 Muhasebe", "Gelenler Geçmişi", aciklama="Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri"), unsafe_allow_html=True)
 
         _tahsilatlar = get_tahsilatlar(limit=2000)
         if not _tahsilatlar:
@@ -3300,8 +3279,7 @@ def run():
     # 8) VERİ YÜKLEME
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📂 Veri Yükleme":
-        st.markdown(_sb("💰 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📂</span>Veri Yükleme</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📂 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
     
         # Son yüklenenler (Recents)
         haftalar = get_tum_haftalar()
@@ -3427,11 +3405,9 @@ def run():
     # 9) RAPORLAR
     # ════════════════════════════════════════════════════════════════════
     elif sayfa == "📄 Raporlar & Bildirim":
-        st.markdown(_sb("💰 Muhasebe", "Raporlar & Bildirim"), unsafe_allow_html=True)
+        st.markdown(_sb("📄 Muhasebe", "Raporlar & Bildirim", aciklama="Excel ve PDF formatında haftalık raporlar"), unsafe_allow_html=True)
         _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
         with _tab_rapor:
-            st.markdown('<div class="baslik"><span class="baslik-ikon">📄</span>Raporlar</div>', unsafe_allow_html=True)
-            st.markdown('<div class="alt-baslik">Excel ve PDF formatında haftalık raporlar</div>', unsafe_allow_html=True)
     
             kur      = get_kur()
             odemeler, hafta = get_aktif_odemeler()
@@ -3530,8 +3506,7 @@ def run():
         # 10) BİLDİRİM AYARLARI
         # ════════════════════════════════════════════════════════════════════
         with _tab_bildirim:
-            st.markdown('<div class="baslik"><span class="baslik-ikon">🔔</span>Bildirim Ayarları</div>', unsafe_allow_html=True)
-            st.markdown('<div class="alt-baslik">Vade yaklaşan ödemeler için email bildirimleri</div>', unsafe_allow_html=True)
+            st.markdown(_sb("🔔", "Bildirim Ayarları", aciklama="Vade yaklaşan ödemeler için email bildirimleri"), unsafe_allow_html=True)
     
             ayarlar  = get_bildirim_ayarlari()
             odemeler, hafta = get_aktif_odemeler()
@@ -3646,9 +3621,7 @@ def run():
         # 11) BANKALAR ARASI VİRMAN
         # ════════════════════════════════════════════════════════════════════
     elif sayfa == "⏳ Ertelenen Ödemeler":
-        st.markdown(_sb("💰 Muhasebe", "Ertelenen Ödemeler"), unsafe_allow_html=True)
-        st.markdown('<div class="baslik"><span class="baslik-ikon">⏳</span>Ertelenen Ödemeler</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Bu oturumda vadesi değiştirilmiş ödemeler</div>', unsafe_allow_html=True)
+        st.markdown(_sb("⏳ Muhasebe", "Ertelenen Ödemeler", aciklama="Bu oturumda vadesi değiştirilmiş ödemeler"), unsafe_allow_html=True)
     
         # ─── Session state'ten ertelemeleri al ───
         ertelemeler_dict = st.session_state.get("ertelemeler", {})
@@ -3831,7 +3804,7 @@ def run():
         _cari_ekstre_render()
 
     elif sayfa == "💰 Toplam Aktifler":
-        st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler"), unsafe_allow_html=True)
+        st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler", aciklama="Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)"), unsafe_allow_html=True)
         # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
         aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
         YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
@@ -3839,8 +3812,6 @@ def run():
             st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
             st.stop()
     
-        st.markdown('<div class="baslik"><span class="baslik-ikon">💰</span>Toplam Aktifler</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)</div>', unsafe_allow_html=True)
     
         kur = get_kur()
     

@@ -16,6 +16,7 @@ from shared.utils import firma_gorunen_ad
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
 from shared.ui import tablo_h
+from shared.tasarim import baslik as _sb
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -544,17 +545,8 @@ def run():
     with st.sidebar:
         st.markdown('<script>var sidebarEl=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(sidebarEl)sidebarEl.scrollTop=0;</script>', unsafe_allow_html=True)
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("📦", "Ürün Yönetimi", "Stok Sistemi"), unsafe_allow_html=True)
-
-        if aktif_kullanici:
-            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
-            if st.button("Çıkış Yap", use_container_width=True):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.rerun()
-    
-        st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
+        from shared.utils import sidebar_ust
+        sidebar_ust("📦", "Ürün Yönetimi", "kayranpm")
         sayfa = st.radio("Sayfa", [
             "📊  Dashboard",
             "📋  Tüm Ürünler",
@@ -640,8 +632,7 @@ def run():
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════
     if sayfa == "📊  Dashboard":
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📊</span>Dashboard</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Stok durumu · Satış performansı · Uyarılar</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📊 Ürün Yönetimi", "Dashboard", aciklama="Stok durumu · Satış performansı · Uyarılar"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         # Veri yükle (seçici için SKU listesi gerekli)
@@ -817,8 +808,7 @@ def run():
             _dlg_dash_kampanyalar()
 
     elif sayfa == "📋  Tüm Ürünler":
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📋</span>Tüm Ürünler</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         # Ürün verilerini yükle
@@ -1462,10 +1452,7 @@ def run():
 
 
     elif sayfa == "💵  Maliyet Girişi":
-        # Bu modülde _baslik() diye bir fonksiyon YOK — başlıklar doğrudan
-        # HTML sınıflarıyla çiziliyor (diğer sayfalarla aynı desen).
-        st.markdown('<div class="baslik"><span class="baslik-ikon">💵</span>'
-                    'Maliyet Girişi</div>', unsafe_allow_html=True)
+        st.markdown(_sb("💵 Ürün Yönetimi", "Maliyet Girişi"), unsafe_allow_html=True)
         st.markdown(
             '<div class="alt-baslik">Yurt içinden alınan ürünlerin birim maliyeti. '
             'İthal ettiğin ürünler burada <b>yok</b> — onların maliyeti ithalat '
@@ -1597,8 +1584,7 @@ def run():
 
     elif sayfa == "📈  Müşteri Satışları":
         from shared.tarih import hizli_tarih_araligi
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📈</span>Müşteri Haftalık Satışları</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Haftalık Satışları", aciklama="Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
         _bas, _bit = hizli_tarih_araligi(
             "mhs", varsayilan="Geçen hafta",
@@ -1721,8 +1707,7 @@ def run():
             _dlg_musteri_yukle()
 
     elif sayfa == "🎯  Kampanya Takip":
-        st.markdown('<div class="baslik"><span class="baslik-ikon">🎯</span>Kampanya Takip</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Firma desteği · Net kar · Kampanya performansı</div>', unsafe_allow_html=True)
+        st.markdown(_sb("🎯 Ürün Yönetimi", "Kampanya Takip", aciklama="Firma desteği · Net kar · Kampanya performansı"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
         FIRMA_LISTESI_K = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"]
@@ -2813,8 +2798,7 @@ def run():
     elif sayfa == "📦  Sipariş Önerisi":
         from .database import get_uretim_suresi, set_uretim_suresi
         _esik = get_uretim_suresi()
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📦</span>Sipariş Önerisi</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="alt-baslik">{_esik} günden az stok kalan ürünler · Otomatik öneri</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📦 Ürün Yönetimi", "Sipariş Önerisi", aciklama=f"{_esik} günden az stok kalan ürünler · Otomatik öneri"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
         with st.popover(f"⚙️ Sipariş eşiği (üretim/tedarik süresi) — şu an {_esik} gün", use_container_width=False):
@@ -2965,8 +2949,7 @@ def run():
         _ref_render()
 
     elif sayfa == "📂  Veri Yükleme":
-        st.markdown('<div class="baslik"><span class="baslik-ikon">📂</span>Veri Yükleme</div>', unsafe_allow_html=True)
-        st.markdown('<div class="alt-baslik">Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet</div>', unsafe_allow_html=True)
+        st.markdown(_sb("📂 Ürün Yönetimi", "Veri Yükleme", aciklama="Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet"), unsafe_allow_html=True)
         st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
         # 💲 Toplu Satış Fiyatı & Marj

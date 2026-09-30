@@ -342,18 +342,8 @@ def run():
     # Sayfa genişliği artık app.py'de tek yerden.
 
     with st.sidebar:
-        st.markdown(sidebar_stil(), unsafe_allow_html=True)
-        st.markdown(sidebar_baslik("💰", "Satış", "Satış & Kârlılık"), unsafe_allow_html=True)
-        if aktif_kullanici:
-            st.markdown(sidebar_kullanici(aktif_kullanici), unsafe_allow_html=True)
-            if st.button("Çıkış Yap", use_container_width=True, key="satis_cikis"):
-                st.session_state.giris_yapildi = False
-                st.session_state.aktif_kullanici = ""
-                st.session_state.aktif_uygulama = "anasayfa"
-                st.cache_data.clear()
-                st.rerun()
-
-        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        from shared.utils import sidebar_ust
+        sidebar_ust("💰", "Satış", "satis")
         # KÂR GİZLEME: Kâr/P&L sayfası tamamen kâr odaklı olduğundan yetkisiz
         # kullanıcıya sekme olarak da gösterilmez (maskelenmiş boş sayfa yerine).
         from shared.kar_gizle import kar_gorunur as _kar_ok

@@ -113,29 +113,23 @@ def tablo_h(n_satir: int, maks: int = TABLO_MAKS) -> int:
 # ─────────────────────────────────────────────────────────────────────
 # SAYFA BAŞLIĞI — tüm modüllerde tek stil
 # ─────────────────────────────────────────────────────────────────────
+_MODUL_ADI = {"kayranacc": "Muhasebe", "kayranpm": "Ürün Yönetimi", "depo": "Depo",
+              "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış",
+              "yonetim": "Yönetim", "hesap_makinesi": "Hesap Makinesi"}
+
+
 def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
-    """Profesyonel sayfa başlığı: küçük ikon karosu + 19px başlık + hizalı
-    alt yazı + kısa indigo aksanlı ince ayraç. Tüm modüllerde tek standart."""
-    h = (
-        '<div style="display:flex;align-items:center;gap:11px;margin:2px 0 0">'
-        '<div style="width:30px;height:30px;border-radius:9px;flex-shrink:0;'
-        'background:linear-gradient(135deg,rgba(99,102,241,0.28),rgba(139,92,246,0.16));'
-        'border:1px solid rgba(129,140,248,0.28);display:flex;align-items:center;'
-        f'justify-content:center;font-size:14px">{ikon}</div>'
-        '<div style="font-family:Inter,sans-serif;font-size:19px;font-weight:700;'
-        f'color:#7DD3FC;letter-spacing:-0.3px;line-height:1.25">{ad}</div>'
-        '</div>'
-    )
-    alt_txt = alt or ""
-    h += (
-        '<div style="font-size:13px;color:#94A3B8;font-weight:400;letter-spacing:.1px;'
-        'margin:7px 0 18px;padding:0 0 12px 41px;position:relative;'
-        'border-bottom:1px solid rgba(148,163,184,0.10)">'
-        '<span style="position:absolute;left:41px;bottom:-1px;width:40px;height:2px;'
-        'border-radius:2px;background:linear-gradient(90deg,#818CF8,#818CF8)"></span>'
-        f'{alt_txt}</div>'
-    )
-    return h
+    """Sayfa başlığı — artık TEK STANDART: shared/tasarim.baslik.
+
+    Eskiden iki ayrı başlık bileşeni vardı (bu büyük olan + tasarim.baslik
+    kompakt olan); modüller karışık kullandığı için her sayfa farklı
+    görünüyordu, Muhasebe'de ikisi birden çıkıyordu. Bu fonksiyon geriye
+    uyumluluk için duruyor ve standart başlığı üretiyor: "ikon Modül › Sayfa",
+    altında açıklama satırı."""
+    import streamlit as st
+    from shared.tasarim import baslik
+    _mod = _MODUL_ADI.get(st.session_state.get("aktif_uygulama", ""), "")
+    return baslik(f"{ikon} {_mod}".strip() if ikon else _mod, ad, aciklama=alt)
 
 
 # ─────────────────────────────────────────────────────────────────────

@@ -329,7 +329,18 @@ def cekirdek_css(yogunluk=None):
 .k-alt{{font-size:{F['kucuk']};color:{R['silik']};margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 
-.k-baslik{{display:flex;align-items:center;gap:8px;
+/* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
+   Sayfaya eklenen yalnız-<style> blokları ve yüksekliği 0 olan script
+   iframe'leri görünmez, ama Streamlit her birinin arasına 16px boşluk koyar.
+   Sayfa başında ~10 tane olduğu için içerik ~200px aşağıda başlıyordu.
+   Bunları akıştan çıkarıyoruz (position:absolute → flex boşluğu almaz).
+   display:none DEĞİL — script'ler çalışmaya devam etsin. Seçiciler canlı
+   sayfada doğrulandı: görünür hiçbir elemanı yakalamıyor. */
+[data-testid="stElementContainer"]:has([data-testid="stMarkdownContainer"] > style:only-child),
+[data-testid="stElementContainer"][height="0px"]{{
+  position:absolute !important;width:0 !important;height:0 !important;
+  margin:0 !important;padding:0 !important;overflow:hidden !important;pointer-events:none;}}
+.k-baslik{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   padding:0 0 7px;margin:0 0 11px;
   border-bottom:1px solid {R['kenar']};}}
 .k-baslik-ikon{{width:22px;height:22px;border-radius:6px;flex-shrink:0;
@@ -339,6 +350,8 @@ def cekirdek_css(yogunluk=None):
 .k-baslik-ayrac{{color:{R['silik']};font-size:{F['orta']};}}
 .k-baslik-ad{{font-size:{F['baslik']};color:{R['metin']};
   font-weight:{AGIRLIK['baslik']};letter-spacing:{TRACKING['baslik']};}}
+.k-baslik-aciklama{{flex-basis:100%;order:9;margin:3px 0 0 30px;
+  font-size:12.5px;color:{R['soluk']};line-height:1.45;}}
 .k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:{R['silik']};
   font-family:var(--k-mono);white-space:nowrap;}}
 
@@ -395,7 +408,7 @@ div[data-stale="true"]{{opacity:.5 !important;transition:opacity .2s ease;}}
 # ═══════════════════════════════════════════════════════════════════
 # 6. BİLEŞENLER — programda "etiketli kutu" artık SADECE burada.
 # ═══════════════════════════════════════════════════════════════════
-def baslik(modul, sayfa, alt="", ipucu=""):
+def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     """Tek satır kompakt başlık: 34px. Eskisi 85px'ti.
 
     Modül adı zaten sidebar çipinde ve aktif nav pill'inde yazıyor — bu,
@@ -411,11 +424,12 @@ def baslik(modul, sayfa, alt="", ipucu=""):
         ikon = f'<div class="k-baslik-ikon">{modul[0]}</div>'
         modul = modul[1:].strip()
     alt_html = f'<div class="k-baslik-alt">{alt}</div>' if alt else ""
+    ack_html = f'<div class="k-baslik-aciklama">{aciklama}</div>' if aciklama else ""
     ttl = f' title="{ipucu}"' if ipucu else ""
-    return (f'<div class="k-baslik"{ttl}>{ikon}'
-            f'<span class="k-baslik-mod">{modul}</span>'
-            f'<span class="k-baslik-ayrac">›</span>'
-            f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}</div>')
+    mod_html = (f'<span class="k-baslik-mod">{modul}</span>'
+                f'<span class="k-baslik-ayrac">›</span>') if modul else ""
+    return (f'<div class="k-baslik"{ttl}>{ikon}{mod_html}'
+            f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}{ack_html}</div>')
 
 
 def kpi_serit(kalemler, yogunluk=None):

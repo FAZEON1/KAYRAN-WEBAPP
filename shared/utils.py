@@ -482,6 +482,27 @@ def sidebar_kullanici(kullanici: str) -> str:
     )
 
 
+def sidebar_ust(ikon: str, ad: str, anahtar: str) -> None:
+    """Her modülün sidebar'ının ÜST kısmı — tek standart.
+
+    Eskiden 6 modül bunu kendisi çiziyordu: çıkış düğmesi 3 farklı stilde,
+    kimi emojili kimi değil; ve 5'i ÇIKIŞI YANLIŞ yapıyordu (oturum anahtarı
+    yakılmıyor, yenileyince geri içeri alınıyordu). Artık hepsi burayı çağırır.
+    `with st.sidebar:` bloğunun İÇİNDE çağrılmalı.
+    """
+    import streamlit as st
+    st.markdown(sidebar_stil(), unsafe_allow_html=True)
+    st.markdown(sidebar_baslik(ikon, ad), unsafe_allow_html=True)
+    _k = st.session_state.get("aktif_kullanici", "")
+    if _k:
+        st.markdown(sidebar_kullanici(_k), unsafe_allow_html=True)
+        if st.button("Çıkış Yap", key=f"cikis_{anahtar}", icon=":material/logout:",
+                     use_container_width=True):
+            from shared.oturum import cikis_yap
+            cikis_yap()
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+
+
 # ════════════════════════════════════════════════════════════════════
 # ORTAK METRİK KARTLARI (tüm programda tek tip — renkli sol şeritli kart)
 # ════════════════════════════════════════════════════════════════════
