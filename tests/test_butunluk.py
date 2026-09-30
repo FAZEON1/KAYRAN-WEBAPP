@@ -69,7 +69,7 @@ _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared"):
     for _d in ("database.py", "utils.py", "auth.py", "ui.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
-               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py",
+               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -135,6 +135,8 @@ KRITIK_FONKSIYONLAR = {
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler"],
+    "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
+                     "salt_okur", "kullanici_kaydi", "kaydet"],
 }
 
 
@@ -162,8 +164,8 @@ def _app_yetkileri():
         m = re.search(rf"^{ad}\s*=\s*(.*?)(?=\n[A-Z_]+\s*=|\n#|\nY0)", src, re.S | re.M)
         assert m, f"app.py içinde {ad} bulunamadı"
         exec(m.group(0).split("\n#")[0], ns)
-    exec(re.search(r"^def kullanici_yetkileri\(.*?^    \}", src, re.S | re.M).group(0), ns)
-    return ns["kullanici_yetkileri"]
+    exec(re.search(r"^def _statik_yetkiler\(.*?^    \}", src, re.S | re.M).group(0), ns)
+    return ns["_statik_yetkiler"]
 
 
 # kullanıcı → sahip OLMASI gereken modüller
@@ -203,9 +205,9 @@ def test_toplam_aktifler_tek_kaynak():
     src = open(KOK / "kayranacc" / "main.py", encoding="utf-8").read()
     assert re.search(r"^TOPLAM_AKTIFLER_YETKILI\s*=\s*\{", src, re.M), \
         "TOPLAM_AKTIFLER_YETKILI modül düzeyinde tanımlı değil"
-    assert "YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI" in src, \
+    assert "YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()" in src, \
         "sol menü tek kaynaktan okumuyor"
-    assert "YETKILI_TOPLAM_AKTIFLER = TOPLAM_AKTIFLER_YETKILI" in src, \
+    assert "YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()" in src, \
         "sayfa gövdesi tek kaynaktan okumuyor"
     # Elde yazılmış ikinci bir liste kalmamalı
     sabit = re.findall(r'YETKILI\w*TOPLAM\w*\s*=\s*\{"ibrahim"', src)
