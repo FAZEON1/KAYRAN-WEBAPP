@@ -1237,8 +1237,8 @@ def _gecmis_ithalatlar():
                         "Ürün Grubu": st.column_config.TextColumn(
                             "Ürün Grubu", help="Çoklu grup için doldur (örn. SSD, RAM). Tek grupsa boş bırak.",
                             default=""),
-                        "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="%d"),
-                        "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.0001, format="%.4f"),
+                        "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
+                        "Birim FOB": st.column_config.NumberColumn("Birim FOB", min_value=0.0, step=0.0001, format="localized"),
                         "Sil": st.column_config.CheckboxColumn(
                             "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
                     },

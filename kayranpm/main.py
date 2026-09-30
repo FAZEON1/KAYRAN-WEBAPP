@@ -1542,7 +1542,7 @@ def run():
                     "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
                     "Kategori": st.column_config.TextColumn("Kategori", disabled=True),
                     "Maliyet ($)": st.column_config.NumberColumn(
-                        "Maliyet ($)", min_value=0.0, step=0.0001, format="%.4f",
+                        "Maliyet ($)", min_value=0.0, step=0.0001, format="localized",
                         help="Birim başına, nakliye dahil"),
                 })
 
@@ -1624,9 +1624,9 @@ def run():
             st.dataframe(_ozet, hide_index=True, use_container_width=True,
                          height=min(60 + len(_ozet) * 36, 420),
                          column_config={
-                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="%d"),
-                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="%d"),
-                             "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="%d"),
+                             "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="localized", step=1),
+                             "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="localized", step=1),
+                             "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="localized", step=1),
                          })
             _ind1, _ind2 = st.columns(2)
             _ind1.download_button("Özet CSV indir",
@@ -2171,7 +2171,7 @@ def run():
                     on_select="rerun",
                     selection_mode="single-row",
                     key="kamp_pano_df",
-                    column_config={"Net Kâr ($)": st.column_config.NumberColumn(format="$%.2f")},
+                    column_config={"Net Kâr ($)": st.column_config.NumberColumn(format="dollar")},
                 )
                 _pano_sel = list(_pano_evt.selection.rows)
                 if _pano_sel:
@@ -3010,8 +3010,8 @@ def run():
                     column_config={
                         "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                         "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
-                        "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="$%.2f"),
-                        "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="$%.2f", help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
+                        "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="dollar"),
+                        "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="dollar", help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
                         "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=1.0, format="$%.2f"),
                         "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="%.1f%%"),
                     },

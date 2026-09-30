@@ -472,8 +472,8 @@ def render():
                 "Hesap": st.column_config.SelectboxColumn("Hesap", options=_hesap_opts,
                                                           required=False, width="large"),
                 "Açıklama": st.column_config.TextColumn("Satır Açıklaması"),
-                "Borç": st.column_config.NumberColumn("Borç", min_value=0.0, step=0.0001, format="%.4f"),
-                "Alacak": st.column_config.NumberColumn("Alacak", min_value=0.0, step=0.0001, format="%.4f"),
+                "Borç": st.column_config.NumberColumn("Borç", min_value=0.0, step=0.0001, format="localized"),
+                "Alacak": st.column_config.NumberColumn("Alacak", min_value=0.0, step=0.0001, format="localized"),
             })
 
         # canlı denge göstergesi
@@ -587,7 +587,7 @@ def render():
             _mdf = pd.DataFrame(rows)
             st.dataframe(_mdf, hide_index=True, use_container_width=True,
                          height=min(60 + len(_mdf) * 35, 560),
-                         column_config={c: st.column_config.NumberColumn(c, format="%.4f")
+                         column_config={c: st.column_config.NumberColumn(c, format="localized", step=0.0001)
                                         for c in ["Borç", "Alacak", "Borç Bakiyesi", "Alacak Bakiyesi"]})
             st.download_button("Mizan CSV",
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
