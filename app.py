@@ -236,14 +236,26 @@ for _k in SALT_OKUR_KULLANICILAR:
         _set.add(_k)
 
 
+# Kullanıcı Yönetimi ekranını görebilenler (DB yoksa geçerli sabit liste)
+KULLANICI_YONETIMI_KULLANICILAR = {"ibrahim"}
+
+
 def salt_okur_mu(kullanici):
-    return (kullanici or "").lower().strip() in SALT_OKUR_KULLANICILAR
+    """DB'de tanımlıysa oradan, değilse sabit listeden (bkz. shared/yetki.py)."""
+    try:
+        from shared.yetki import salt_okur as _so
+        return _so(kullanici, SALT_OKUR_KULLANICILAR)
+    except Exception:
+        return (kullanici or "").lower().strip() in SALT_OKUR_KULLANICILAR
 
 DUYURU_AKTIF = False
 DUYURU_METNI = ""
 
 
-def kullanici_yetkileri(kullanici):
+def _statik_yetkiler(kullanici):
+    """Koddaki SABİT listelerden yetki — veritabanı yoksa/okunamazsa kullanılır.
+    Bu listeler artık yalnız GÜVENLİK AĞI; asıl kaynak 'kullanici_yetkileri'
+    tablosu ve 👥 Kullanıcı Yönetimi ekranı."""
     k = (kullanici or "").lower().strip()
     return {
         "kayranacc": k in KAYRANACC_KULLANICILAR,
@@ -254,6 +266,53 @@ def kullanici_yetkileri(kullanici):
         "teknikservis": k in TEKNIKSERVIS_KULLANICILAR,
         "satis": k in SATIS_KULLANICILAR,
     }
+
+
+def kullanici_yetkileri(kullanici):
+    """Modül yetkileri. Kaynak: Supabase 'kullanici_yetkileri' tablosu.
+    Tablo yoksa/okunamazsa _statik_yetkiler'e düşer — kimse kilitlenmez."""
+    try:
+        from shared.yetki import moduller as _mod
+        return _mod(kullanici, _statik_yetkiler(kullanici))
+    except Exception:
+        return _statik_yetkiler(kullanici)
+
+
+def _ozel_statik():
+    return {"yonetim": YONETIM_KULLANICILAR,
+            "patron_panel": PATRON_PANEL_KULLANICILAR,
+            "talep_yonetici": TALEP_YONETICILERI,
+            "kullanici_yonetimi": KULLANICI_YONETIMI_KULLANICILAR}
+
+
+def ozel_yetki(kullanici, ad):
+    """Özel yetki (yonetim / patron_panel / talep_yonetici / kullanici_yonetimi)."""
+    statik = _ozel_statik().get(ad, set())
+    try:
+        from shared.yetki import ozel_yetki as _oy
+        return _oy(kullanici, ad, statik)
+    except Exception:
+        return (kullanici or "").lower().strip() in statik
+
+
+def talep_yoneticileri():
+    try:
+        from shared.yetki import ozel_sahipleri
+        return ozel_sahipleri("talep_yonetici", TALEP_YONETICILERI)
+    except Exception:
+        return set(TALEP_YONETICILERI)
+
+
+def tum_kullanicilar():
+    """Aktif kullanıcılar (bildirim alıcı listesi vb.)."""
+    _statik = set().union(KAYRANACC_KULLANICILAR, KAYRANPM_KULLANICILAR, ITHALAT_KULLANICILAR,
+                          TEKNIKSERVIS_KULLANICILAR, SATIS_KULLANICILAR, DEPO_KULLANICILAR,
+                          HESAP_MAKINESI_KULLANICILAR)
+    try:
+        from shared.yetki import aktif_kullanicilar
+        return aktif_kullanicilar(_statik)
+    except Exception:
+        return _statik
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1994,7 +2053,7 @@ input, textarea, select { font-size: 16px !important; }
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi"):
             st.markdown(
                 '<div style="font-size:11px;color:#64748B;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:8px">HESAP</div>',
                 unsafe_allow_html=True
@@ -2017,6 +2076,15 @@ input, textarea, select { font-size: 16px !important; }
                 use_container_width=True
             ):
                 st.session_state.aktif_uygulama = "sifre_degistir"
+                st.rerun()
+
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
+                "👥 Kullanıcı Yönetimi",
+                key="nav_kullanici_yonetimi",
+                type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.aktif_uygulama = "kullanici_yonetimi"
                 st.rerun()
 
             if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
@@ -2230,7 +2298,7 @@ def anasayfa():
             unsafe_allow_html=True)
 
     # ─── 👑 PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
-    if (aktif_kullanici or "").strip().lower() in PATRON_PANEL_KULLANICILAR:
+    if ozel_yetki(aktif_kullanici, "patron_panel"):
         try:
             from shared.ui import (patron_verisi_topla, patron_panosu_html,
                                    pencere_css as _pp_css)
@@ -2631,7 +2699,7 @@ def anasayfa():
 
         # 3) Bildirim gönder
         with st.expander("🔔 Bildirim gönder", expanded=False):
-            _tum_kullanicilar = sorted((KAYRANACC_KULLANICILAR | KAYRANPM_KULLANICILAR) - {"ibrahim"})
+            _tum_kullanicilar = sorted(tum_kullanicilar() - {(aktif_kullanici or "").strip().lower()})
             with st.form("bildirim_form", clear_on_submit=True):
                 _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
                 _bildirim_mesaj = st.text_area("Mesaj", placeholder="Kullanıcılara göndermek istediğin mesajı yaz...", height=90)
@@ -2654,6 +2722,160 @@ def anasayfa():
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
 # ─────────────────────────────────────────────────────────────────────
+def kullanici_yonetimi():
+    """👥 Kullanıcı Yönetimi — yetkileri ekrandan yönetir.
+
+    Değişiklikler 'kullanici_yetkileri' tablosuna yazılır; kod yüklemeleri
+    onları etkilemez. Yeni kullanıcı için Secrets'a dokunmaya gerek yok:
+    şifre hash'i mevcut 'kullanici_sifreler' tablosuna yazılır.
+    """
+    import pandas as pd
+    from shared.yetki import (MODULLER, MODUL_ADI, OZEL, OZEL_ADI, yetki_tablosu,
+                              kaydet, temizle, tablo_var_mi,
+                              kullanici_adi_gecerli_mi, sifre_gecerli_mi)
+    from shared.auth import sifre_hash_uret, supabase_sifre_kaydet
+
+    ben = (st.session_state.get("aktif_kullanici", "") or "").strip().lower()
+    if not ozel_yetki(ben, "kullanici_yonetimi"):
+        st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
+        return
+
+    st.markdown("## 👥 Kullanıcı Yönetimi")
+    st.caption("Yetkiler veritabanında tutulur — değişiklik anında geçerli olur, "
+               "kod yüklemeleri etkilemez.")
+
+    if not tablo_var_mi():
+        st.error("⚠️ `kullanici_yetkileri` tablosu henüz oluşturulmamış. Supabase SQL "
+                 "Editor'de kurulum betiğini çalıştır. O zamana kadar sistem koddaki "
+                 "sabit listelerle çalışmaya devam ediyor.")
+        return
+
+    db = yetki_tablosu()
+    if db is None:
+        st.warning("Tablo boş. Kurulum betiğinin başlangıç verisini (INSERT) çalıştır.")
+        return
+
+    _mesaj = st.session_state.pop("_ky_mesaj", None)
+    if _mesaj:
+        (st.success if _mesaj.startswith("✅") else st.error)(_mesaj)
+
+    # ── 1) Yetki tablosu ─────────────────────────────────────────────
+    st.markdown("#### Yetkiler")
+    satirlar = []
+    for k in sorted(db):
+        v = db[k]
+        r = {"Kullanıcı": k, "Aktif": v["aktif"], "Salt-okur": v["salt_okur"]}
+        for m in MODULLER:
+            r[MODUL_ADI[m]] = m in v["moduller"]
+        for o in OZEL:
+            r[OZEL_ADI[o]] = o in v["ozel"]
+        satirlar.append(r)
+    df = pd.DataFrame(satirlar)
+    _cfg = {"Kullanıcı": st.column_config.TextColumn(disabled=True)}
+    for c in df.columns[1:]:
+        _cfg[c] = st.column_config.CheckboxColumn(c, width="small")
+    duz = st.data_editor(df, hide_index=True, use_container_width=True,
+                         column_config=_cfg, key="ky_editor",
+                         height=min(600, 42 + 35 * len(df)))
+    st.caption("Salt-okur: tüm modülleri görür, hiçbir veriyi değiştiremez. "
+               "Aktif işareti kaldırılan kullanıcı giriş yapamaz.")
+
+    if st.button("💾 Yetki değişikliklerini kaydet", type="primary", key="ky_kaydet"):
+        degisen = []
+        for _, r in duz.iterrows():
+            k = r["Kullanıcı"]
+            eski = db[k]
+            mod = [m for m in MODULLER if bool(r[MODUL_ADI[m]])]
+            oz = [o for o in OZEL if bool(r[OZEL_ADI[o]])]
+            yeni = (sorted(mod), sorted(oz), bool(r["Salt-okur"]), bool(r["Aktif"]))
+            if yeni != (eski["moduller"], eski["ozel"], eski["salt_okur"], eski["aktif"]):
+                degisen.append((k, *yeni))
+        # Kendini kilitleme koruması
+        for k, mod, oz, so, ak in degisen:
+            if k == ben and ("kullanici_yonetimi" not in oz or not ak):
+                st.error("⛔ Kendi Kullanıcı Yönetimi yetkini kaldıramaz ya da kendi "
+                         "hesabını kapatamazsın — kendini sistemden kilitlerdin.")
+                return
+        yoneticiler = {k for k, v in db.items() if v["aktif"] and "kullanici_yonetimi" in v["ozel"]}
+        for k, mod, oz, so, ak in degisen:
+            if not ak or "kullanici_yonetimi" not in oz:
+                yoneticiler.discard(k)
+            elif ak and "kullanici_yonetimi" in oz:
+                yoneticiler.add(k)
+        if not yoneticiler:
+            st.error("⛔ En az bir aktif Kullanıcı Yönetimi yetkilisi kalmalı.")
+            return
+        if not degisen:
+            st.info("Değişiklik yok.")
+        else:
+            hatalar = []
+            for k, mod, oz, so, ak in degisen:
+                ok, msg = kaydet(k, mod, oz, so, ak, guncelleyen=ben)
+                if not ok:
+                    hatalar.append(f"{k}: {msg}")
+            st.session_state["_ky_mesaj"] = (
+                f"❌ Kaydedilemedi — {'; '.join(hatalar)}" if hatalar
+                else f"✅ {len(degisen)} kullanıcının yetkisi güncellendi: "
+                     + ", ".join(d[0] for d in degisen))
+            st.rerun()
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+
+    # ── 2) Yeni kullanıcı ────────────────────────────────────────────
+    with c1:
+        st.markdown("#### ➕ Yeni kullanıcı")
+        with st.form("ky_yeni", clear_on_submit=True):
+            ad = st.text_input("Kullanıcı adı", placeholder="örn. serdar",
+                               help="Küçük harf, rakam ve _ ; 2-20 karakter")
+            s1 = st.text_input("Şifre", type="password",
+                               help="En az 8 karakter, harf ve rakam içermeli")
+            s2 = st.text_input("Şifre (tekrar)", type="password")
+            mod = st.multiselect("Modüller", MODULLER, format_func=MODUL_ADI.get)
+            oz = st.multiselect("Özel yetkiler", OZEL, format_func=OZEL_ADI.get)
+            gonder = st.form_submit_button("Kullanıcıyı oluştur", type="primary")
+        if gonder:
+            ad_n = (ad or "").strip().lower()
+            if not kullanici_adi_gecerli_mi(ad_n):
+                st.error("Kullanıcı adı geçersiz: küçük harf, rakam, _ ; 2-20 karakter.")
+            elif ad_n in db:
+                st.error(f"'{ad_n}' zaten var.")
+            elif s1 != s2:
+                st.error("Şifreler aynı değil.")
+            elif not sifre_gecerli_mi(s1):
+                st.error("Şifre en az 8 karakter olmalı, harf ve rakam içermeli.")
+            else:
+                ok1 = supabase_sifre_kaydet(ad_n, sifre_hash_uret(s1))
+                ok2, msg = kaydet(ad_n, mod, oz, False, True, guncelleyen=ben) if ok1 else (False, "şifre yazılamadı")
+                st.session_state["_ky_mesaj"] = (
+                    f"✅ '{ad_n}' oluşturuldu. İlk girişte şifresini değiştirmesini öner."
+                    if ok1 and ok2 else f"❌ Oluşturulamadı: {msg}")
+                st.rerun()
+
+    # ── 3) Şifre sıfırla ─────────────────────────────────────────────
+    with c2:
+        st.markdown("#### 🔑 Şifre sıfırla")
+        with st.form("ky_sifre", clear_on_submit=True):
+            kim = st.selectbox("Kullanıcı", sorted(db))
+            y1 = st.text_input("Yeni şifre", type="password")
+            y2 = st.text_input("Yeni şifre (tekrar)", type="password")
+            sifirla = st.form_submit_button("Şifreyi sıfırla")
+        if sifirla:
+            if y1 != y2:
+                st.error("Şifreler aynı değil.")
+            elif not sifre_gecerli_mi(y1):
+                st.error("Şifre en az 8 karakter olmalı, harf ve rakam içermeli.")
+            else:
+                ok = supabase_sifre_kaydet(kim, sifre_hash_uret(y1))
+                st.session_state["_ky_mesaj"] = (f"✅ '{kim}' şifresi güncellendi." if ok
+                                                 else "❌ Şifre kaydedilemedi.")
+                st.rerun()
+
+    if st.button("🔄 Listeyi yenile", key="ky_yenile"):
+        temizle()
+        st.rerun()
+
+
 def sifre_degistir():
     """Kullanıcının kendi şifresini değiştirebileceği sayfa."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
@@ -2840,7 +3062,7 @@ def _talep_merkezi():
     _kul = st.session_state.get("aktif_kullanici", "") or ""
     if not _kul:
         return
-    _yonetici = _kul.lower() in TALEP_YONETICILERI
+    _yonetici = ozel_yetki(_kul, "talep_yonetici")
 
     _acik = 0
     if _yonetici:
@@ -2915,7 +3137,7 @@ def _talep_merkezi():
                                      kategori=_kat, oncelik=_onc)
                     if _ok:
                         st.cache_data.clear()
-                        for _yn in TALEP_YONETICILERI:
+                        for _yn in talep_yoneticileri():
                             if _kul.lower() != _yn:
                                 try:
                                     bildirim_gonder(
@@ -3037,7 +3259,7 @@ def main():
         st.session_state.aktif_uygulama = "anasayfa"
         st.rerun()
 
-    if aktif == "yonetim" and (st.session_state.get("aktif_kullanici", "") or "").strip().lower() not in YONETIM_KULLANICILAR:
+    if aktif == "yonetim" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
         _yetki_reddi("🔒 Yönetim Panosu'na erişim yetkiniz yok.")
     if aktif == "hesap_makinesi" and not yetkiler["hesap_makinesi"]:
         _yetki_reddi("🔒 Hesap Makinesi uygulamasına erişim yetkiniz yok.")
@@ -3070,7 +3292,7 @@ def main():
         "kayranacc": "Muhasebe", "ithalat": "İthalat", "kayranpm": "Ürün Yönetimi",
         "depo": "Depo Yönetimi",
         "satis": "Satış", "teknikservis": "Teknik Servis",
-        "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir",
+        "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3111,7 +3333,7 @@ def main():
             from satis.main import run as satis_run
             satis_run()
         elif aktif == "yonetim":
-            if (st.session_state.get("aktif_kullanici", "") or "").strip().lower() in YONETIM_KULLANICILAR:
+            if ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
                 from yonetim import run as yonetim_run
                 yonetim_run()
             else:
@@ -3121,6 +3343,8 @@ def main():
             hesap_makinesi_run()
         elif aktif == "kayrantsw":
             kayrantsw_yakinda()
+        elif aktif == "kullanici_yonetimi":
+            kullanici_yonetimi()
         elif aktif == "sifre_degistir":
             sifre_degistir()
         else:
