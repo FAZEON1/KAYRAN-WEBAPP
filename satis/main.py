@@ -883,10 +883,10 @@ def run():
                             "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
                             "Depo": st.column_config.TextColumn("📦 Depo", disabled=True),
                             "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
-                            "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="%.4f"),
-                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="%.4f"),
-                            "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="%.4f"),
-                            "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="%.4f"),
+                            "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="localized", step=0.0001),
+                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
+                            "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="localized", step=0.0001),
+                            "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="localized", step=0.0001),
                         },
                     )
                     # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar

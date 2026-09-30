@@ -857,6 +857,20 @@ _sb_comp.html(
   // i→İ, ı→I doğru çevrilir; ekran okuyucu da Türkçe okur.
   try { if (doc.documentElement.lang !== "tr") doc.documentElement.lang = "tr"; } catch (e) {}
 
+  // ── Tablo sayıları: Türkçe ──
+  // st.dataframe'in "localized"/"dollar" sütunları tarayıcının DİLİNE göre
+  // biçimlenir (navigator.languages). İngilizce kurulu bir bilgisayarda
+  // "1,234.56" çıkıyordu. Programın dili Türkçe olduğu için tablo sayıları
+  // her bilgisayarda "1.234,56" olsun. Yalnız dil LİSTESİNİN başına tr-TR
+  // eklenir; tarayıcının kendisi ya da başka siteler etkilenmez.
+  try {
+    const dl = Array.from(w.navigator.languages || []);
+    if (!dl.length || !String(dl[0]).toLowerCase().startsWith("tr")) {
+      Object.defineProperty(w.navigator, "languages",
+        { get: () => ["tr-TR", "tr"].concat(dl), configurable: true });
+    }
+  } catch (e) {}
+
   // ── Eski açık-mod kalıntısı temizliği (tek sefer) ──
   try {
     if (w.localStorage.getItem("kayran-tema") !== null) {

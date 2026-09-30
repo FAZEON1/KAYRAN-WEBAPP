@@ -1299,7 +1299,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
                 "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
                 "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
                 "Tutar": st.column_config.NumberColumn(
-                    f"Tutar ({_sm})", min_value=0.0, step=0.0001, format="%.4f"),
+                    f"Tutar ({_sm})", min_value=0.0, step=0.0001, format="localized"),
                 "Ay": st.column_config.TextColumn("Ay", help="YYYY-AA · örn 2026-04"),
                 "Kategori": st.column_config.SelectboxColumn(
                     "Kategori", options=_kat_havuz or None),
@@ -1995,7 +1995,7 @@ def _render_tumu(firmalar):
     } for r in goster]), hide_index=True, use_container_width=True, height=460,
         on_select="rerun", selection_mode="single-row", key="ref_tumu_tablo",
         column_config={
-            "Tutar": st.column_config.NumberColumn("Tutar", format="%,.2f"),
+            "Tutar": st.column_config.NumberColumn("Tutar", format="localized", step=0.01),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
         })
     # ── ⚠️ SAĞLIK UYARILARI: sessiz hataları görünür kıl ──
@@ -2048,9 +2048,9 @@ def _render_tumu(firmalar):
                     "Fark": fk,
                 } for r, fk in _tutarsiz[:40]]), hide_index=True, use_container_width=True,
                     column_config={
-                        "Kayıt tutarı": st.column_config.NumberColumn(format="%,.2f"),
-                        "Aylık toplam": st.column_config.NumberColumn(format="%,.2f"),
-                        "Fark": st.column_config.NumberColumn(format="%,.2f")})
+                        "Kayıt tutarı": st.column_config.NumberColumn(format="localized", step=0.01),
+                        "Aylık toplam": st.column_config.NumberColumn(format="localized", step=0.01),
+                        "Fark": st.column_config.NumberColumn(format="localized", step=0.01)})
                 st.caption("Düzeltmek için: yukarıdan firmayı seç → Ref No'lar tablosunda "
                            "Ay/Yıl ya da Tutar hücresini düzelt → Kaydet.")
 
@@ -2255,7 +2255,7 @@ def _render_refler(fid, fkod):
                      "(örn. FZFZMNDRF2025001RF2026001 → FZMNDRF2026001). "
                      "Aynı firmada iki kayıt aynı numarayı alamaz."),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
-            "Tutar": st.column_config.NumberColumn("Tutar", format="%.4f", width="small"),
+            "Tutar": st.column_config.NumberColumn("Tutar", format="localized", width="small", step=0.0001),
             "Döviz": st.column_config.SelectboxColumn("Döviz", options=DOVIZLER, required=True, width="small"),
             "Kategori": st.column_config.SelectboxColumn("Kategori", options=_kat_kolon_opts,
                                                          width="medium",
@@ -2491,7 +2491,7 @@ def _render_butce(fid, firma):
                                                     required=True, width="small",
                                                     help="giris = bütçe girişi (+), harcama = destek (−)"),
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
-            "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.4f"),
+            "Tutar": st.column_config.NumberColumn("Tutar ($)", format="localized", step=0.0001),
             "Fatura No": st.column_config.TextColumn("Fatura No"),
             "Tarih": st.column_config.DateColumn("Tarih", format="DD.MM.YYYY"),
             "Ref No": st.column_config.TextColumn("Ref No"),

@@ -769,7 +769,7 @@ def _sayfa_happylife():
     st.dataframe(_detay_df, hide_index=True, use_container_width=True,
                  height=min(60 + len(_detay_df) * 35, 640),
                  column_config={
-                     "Stok Yaşı (gün)": st.column_config.NumberColumn("Stok Yaşı (gün)", format="%d"),
+                     "Stok Yaşı (gün)": st.column_config.NumberColumn("Stok Yaşı (gün)", format="localized", step=1),
                  })
     st.download_button("Detay CSV", _detay_df.to_csv(index=False).encode("utf-8-sig"),
                        f"happylife_detay_{_sec_tarih}.csv", "text/csv", key="hl_detay_csv", icon=":material/download:")
