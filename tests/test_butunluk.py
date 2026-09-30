@@ -320,3 +320,14 @@ def test_oturum_hata_yutmuyor():
     src = open(KOK / "shared" / "oturum.py", encoding="utf-8").read()
     assert not re.search(r"except[^\n]*:\s*\n\s*pass\b", src)
     assert "kritik=True" in src
+
+
+def test_ust_menu_etiketleri_kesilmiyor():
+    """Üst menüde etiketler '…' ile kesilmemeli ve ikon gizlenince ikonun
+    KUTUSU da gizlenmeli (yoksa yazı sağa itilip 'Ana Sa…' oluyordu)."""
+    src = open(KOK / "app.py", encoding="utf-8").read()
+    bas = src.index("def ust_navigasyon")
+    govde = src[bas:src.index("\ndef ", bas + 10)]
+    assert "text-overflow:ellipsis" not in govde
+    assert 'span:has(> [data-testid="stIconMaterial"])' in govde
+    assert "min-width:max-content" in govde
