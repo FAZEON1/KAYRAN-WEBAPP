@@ -1142,6 +1142,34 @@ def _oturum_kapat():
         pass
 
 
+def oturumlari_sonlandir(kullanici):
+    """Kullanıcının bu sunucudaki TÜM açık oturum token'larını yakar.
+    Hesap pasife alındığında ya da şifresi sıfırlandığında çağrılır."""
+    k = (kullanici or "").strip().lower()
+    if not k:
+        return 0
+    try:
+        _st = _oturum_store()
+        _yak = [t for t, r in list(_st.items()) if str(r.get("u", "")).strip().lower() == k]
+        for t in _yak:
+            _st.pop(t, None)
+        return len(_yak)
+    except Exception:
+        return 0
+
+
+def _hesap_hala_aktif_mi(kullanici):
+    """Açık oturum sırasında hesap PASİFE alındıysa False.
+    Veritabanına ulaşılamazsa ya da kullanıcı tabloda yoksa True (kimseyi
+    yanlışlıkla atmayalım — giriş kontrolü zaten ayrıca yapılıyor)."""
+    try:
+        from shared.yetki import kullanici_kaydi
+        _db_var, _kayit = kullanici_kaydi(kullanici)
+        return not (_db_var and _kayit is not None and not _kayit.get("aktif", True))
+    except Exception:
+        return True
+
+
 def _oturum_token(kullanici):
     import hmac, hashlib
     return hmac.new(_oturum_secret().encode(),
@@ -2884,6 +2912,8 @@ def kullanici_yonetimi():
                 ok, msg = kaydet(k, mod, oz, so, ak, guncelleyen=ben)
                 if not ok:
                     hatalar.append(f"{k}: {msg}")
+                elif not ak:
+                    oturumlari_sonlandir(k)      # pasife alınan anında düşsün
             st.session_state["_ky_mesaj"] = (
                 f"❌ Kaydedilemedi — {'; '.join(hatalar)}" if hatalar
                 else f"✅ {len(degisen)} kullanıcının yetkisi güncellendi: "
@@ -2938,8 +2968,11 @@ def kullanici_yonetimi():
                 st.error("Şifre en az 8 karakter olmalı, harf ve rakam içermeli.")
             else:
                 ok = supabase_sifre_kaydet(kim, sifre_hash_uret(y1))
-                st.session_state["_ky_mesaj"] = (f"✅ '{kim}' şifresi güncellendi." if ok
-                                                 else "❌ Şifre kaydedilemedi.")
+                _n = oturumlari_sonlandir(kim) if ok and kim != ben else 0
+                st.session_state["_ky_mesaj"] = (
+                    f"✅ '{kim}' şifresi güncellendi"
+                    + (f" · {_n} açık oturumu kapatıldı." if _n else ".")
+                    if ok else "❌ Şifre kaydedilemedi.")
                 st.rerun()
 
     if st.button("🔄 Listeyi yenile", key="ky_yenile"):
@@ -3306,6 +3339,22 @@ def _talep_merkezi():
 def main():
     # Login yapılmamışsa giriş ekranı
     if not st.session_state.giris_yapildi:
+        giris_ekrani()
+        return
+
+    # Hesap açık oturum SIRASINDA pasife alındıysa hemen çıkış yaptır.
+    # (Eskiden pasif kontrolü yalnız girişte yapılıyordu; tarayıcısı açık olan
+    # kullanıcı erişmeye devam ediyordu. Yetki tablosu 60 sn önbellekli —
+    # pasife alınan hesap en geç 1 dakika içinde düşer.)
+    if not _hesap_hala_aktif_mi(st.session_state.aktif_kullanici):
+        oturumlari_sonlandir(st.session_state.aktif_kullanici)
+        try:
+            st.query_params.clear()
+        except Exception:
+            pass
+        st.session_state.giris_yapildi = False
+        st.session_state.aktif_kullanici = ""
+        st.warning("🔒 Hesabınız devre dışı bırakıldı. Yöneticinizle görüşün.")
         giris_ekrani()
         return
 
