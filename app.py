@@ -1783,36 +1783,43 @@ def ust_navigasyon():
     N = 'html body .st-key-ustnav'
     st.markdown(f"""<style>
     {N} [data-testid="stHorizontalBlock"]{{gap:6px !important;margin:0 !important;
-        flex-wrap:nowrap !important;}}
-    {N} [data-testid="stColumn"]{{padding:0 !important;min-width:0 !important;}}
+        flex-wrap:nowrap !important;overflow-x:auto !important;scrollbar-width:none;
+        -webkit-overflow-scrolling:touch;}}
+    {N} [data-testid="stHorizontalBlock"]::-webkit-scrollbar{{display:none;}}
+    /* Sütunlar yazının genişliğini alır, kalan yer eşit paylaşılır.
+       Hiçbir etiket "Ana Sa…" gibi KESİLMEZ; sığmazsa şerit yana kayar. */
+    {N} [data-testid="stColumn"]{{padding:0 !important;flex:1 0 auto !important;
+        width:auto !important;min-width:max-content !important;}}
     {N} button{{
-        min-height:36px !important;height:36px !important;padding:0 8px !important;
+        min-height:36px !important;height:36px !important;padding:0 12px !important;
         border-radius:9px !important;font-size:12.5px !important;font-weight:600 !important;
         letter-spacing:.1px !important;line-height:1 !important;white-space:nowrap !important;
-        overflow:hidden !important;text-overflow:ellipsis !important;
+        justify-content:center !important;
         border:1px solid rgba(255,255,255,0.07) !important;
         background:rgba(255,255,255,0.025) !important;color:#94A3B8 !important;
-        box-shadow:none !important;
+        box-shadow:none !important;transform:none !important;
         transition:background .15s ease,border-color .15s ease,color .15s ease !important;}}
     {N} button p{{font-size:12.5px !important;white-space:nowrap !important;
-        overflow:hidden !important;text-overflow:ellipsis !important;}}
+        overflow:visible !important;text-overflow:clip !important;margin:0 !important;}}
     {N} button:hover{{border-color:rgba(129,140,248,0.45) !important;
-        background:rgba(99,102,241,0.10) !important;color:#E2E8F0 !important;}}
+        background:rgba(99,102,241,0.10) !important;color:#E2E8F0 !important;
+        transform:none !important;}}
     {N} button[kind="primary"], {N} button[data-testid="stBaseButton-primary"]{{
         background:#6366F1 !important;border-color:#6366F1 !important;color:#FFFFFF !important;
         box-shadow:0 2px 10px rgba(99,102,241,0.35) !important;}}
     {N} button[kind="primary"] p, {N} button[data-testid="stBaseButton-primary"] p{{
         color:#FFFFFF !important;}}
-    /* Dar ekranlarda ikonları gizle — etiket sığsın */
-    @media (max-width:1700px){{ {N} button [data-testid="stIconMaterial"]{{display:none !important;}} }}
+    /* Dar ekranlarda ikonları gizle. İkonun KUTUSU da gizlenmeli; yalnız
+       ikon gizlenince boş kutu yazıyı sağa itip "…" ile kesiyordu. */
+    @media (max-width:1700px){{
+        {N} button span:has(> [data-testid="stIconMaterial"]),
+        {N} button [data-testid="stIconMaterial"]{{display:none !important;}} }}
     /* Mobil: Streamlit sütunları alt alta dizer (10 düğme = yarım ekran).
        Bunun yerine tek satırlık, yana kaydırılan bir şerit. */
     @media (max-width:640px){{
-        {N} [data-testid="stHorizontalBlock"]{{flex-direction:row !important;overflow-x:auto !important;
-            scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}}
-        {N} [data-testid="stHorizontalBlock"]::-webkit-scrollbar{{display:none;}}
+        {N} [data-testid="stHorizontalBlock"]{{flex-direction:row !important;padding-bottom:2px;}}
         {N} [data-testid="stColumn"]{{flex:0 0 auto !important;width:auto !important;}}
-        {N} button{{padding:0 12px !important;}}
+        {N} button{{padding:0 14px !important;}}
     }}
 
     /* === ANA İÇERİK radyoları → modern segmented/pill (TÜM sayfalarda: Yönetim dahil) === */
