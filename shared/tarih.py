@@ -26,6 +26,7 @@ Yerleşim (tek satır, ~36 px — eskisi iki sıra ve ~100 px idi):
 • Çözülmüş aralık her zaman yazılı — "Bu yıl"ın hangi tarihleri kapsadığı
   eskiden hiç görünmüyordu.
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import datetime as _dt
 import streamlit as st
 
@@ -228,7 +229,7 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
             f'<div style="font-size:12px;font-family:JetBrains Mono,monospace;'
             f'color:#94A3B8;white-space:nowrap;padding-top:2px">'
             f'{_tr(bas)} – {_tr(bit)}<br>'
-            f'<span style="color:#7B8AA0">{_gun:,} gün{_ek}</span></div>',
+            f'<span style="color:#7B8AA0">{tr_sayi(_gun)} gün{_ek}</span></div>',
             unsafe_allow_html=True)
 
     return bas, bit

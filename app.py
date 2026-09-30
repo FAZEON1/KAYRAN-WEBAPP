@@ -9,6 +9,7 @@ Mimari:
   Yetkisiz uygulamalar gri + 🔒 görünür, tıklanamaz
   Hamburger ile sidebar açılır-kapanır
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
@@ -775,6 +776,23 @@ try:
 except Exception:
     pass
 
+# ── Grafiklerde Türkçe sayı ayracı ──────────────────────────────────
+# Plotly varsayılanı İngilizce: eksende "1.5M", etikette "1,234,567.8".
+# separators=",." → "1,5M" ve "1.234.567,8". Tek ayar, bütün grafikler
+# (Streamlit'in grafik teması bu ayarı ezmiyor — tarayıcıda doğrulandı).
+try:
+    import plotly.io as _pio
+    import plotly.graph_objects as _pgo
+    if "kayran_tr" not in _pio.templates:
+        _pio.templates["kayran_tr"] = _pgo.layout.Template(layout={"separators": ",."})
+        _pio.templates.default = _pio.templates.default + "+kayran_tr"
+except Exception as _pe:  # plotly yoksa grafik de yoktur; kaydet, devam et
+    try:
+        from shared.hata_log import kaydet as _hk
+        _hk("app.plotly_tr", _pe)
+    except Exception:
+        print("[app] plotly TR ayracı kurulamadı:", _pe)
+
 # Plotly araç çubuğunu (modebar) program genelinde gizle — temiz görünüm
 st.markdown(
     "<style>"
@@ -851,6 +869,13 @@ _sb_comp.html(
 <script>
 (function () {
   const w = window.parent, doc = w.document;
+
+  // ── Sayfa dili: Türkçe ──
+  // Streamlit <html lang="en"> basıyor. Tarayıcı büyük harfe çevirirken
+  // (text-transform:uppercase — 140+ yerde) İngilizce kuralı uyguluyordu:
+  // "Gecikmiş" → "GECIKMIŞ", "İthalat" etiketleri noktasız I. lang="tr" ile
+  // i→İ, ı→I doğru çevrilir; ekran okuyucu da Türkçe okur.
+  try { if (doc.documentElement.lang !== "tr") doc.documentElement.lang = "tr"; } catch (e) {}
 
   // ── Eski açık-mod kalıntısı temizliği (tek sefer) ──
   try {
@@ -2480,10 +2505,10 @@ def anasayfa():
                 _ad_usd = 0.0
             _genel_kar = _top["net_kar"] + _ad_usd
             _r = "#34D399" if _genel_kar >= 0 else "#F87171"
-            _alt = f"Ciro ${_top['ciro']:,.0f} · %{_top['marj']:.1f}"
+            _alt = f"Ciro ${tr_sayi(_top['ciro'])} · %{tr_sayi(_top['marj'], 1)}"
             if _ad_usd:
-                _alt += f" · 📥 destek ${_ad_usd:,.0f} dahil"
-            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${_genel_kar:,.0f}",
+                _alt += f" · 📥 destek ${tr_sayi(_ad_usd)} dahil"
+            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${tr_sayi(_genel_kar)}",
                                       _alt, _r))
         except Exception:
             pass

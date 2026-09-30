@@ -26,6 +26,7 @@ Kullanım:
 # ─────────────────────────────────────────────────────────────────────
 # RENK TOKENLARI — serbest hex yerine daima buradan
 # ─────────────────────────────────────────────────────────────────────
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 RENK = {
     "mor":      "#818CF8",   # birincil vurgu / marka / nötr metrik
     "mor2":     "#A5B4FC",   # mor'un açık tonu (rozet/ikincil)
@@ -459,7 +460,7 @@ def patron_panosu_html(v):
     st.markdown(..., unsafe_allow_html=True) ile basılır."""
     def _fmt(x):
         try:
-            return f"{float(x):,.0f}"
+            return f"{tr_sayi(float(x))}"
         except Exception:
             return "0"
 
@@ -469,7 +470,7 @@ def patron_panosu_html(v):
         _kr = RENK["yesil"] if v.get("ay_kar", 0) >= 0 else RENK["kirmizi"]
         _nabiz.append(("BU AY CİRO", f"${_fmt(v['ay_ciro'])}", RENK["mor2"]))
         _nabiz.append(("BU AY NET KÂR", f"${_fmt(v['ay_kar'])}", _kr))
-        _nabiz.append(("MARJ", f"%{v.get('ay_marj', 0):.1f}", _kr))
+        _nabiz.append(("MARJ", f"%{tr_sayi(v.get('ay_marj', 0), 1)}", _kr))
     if "toplam_aktif" in v:
         _nabiz.append(("TOPLAM AKTİF", f"${_fmt(v['toplam_aktif'])}", RENK["cyan"]))
     _nabiz_html = "".join(
@@ -496,13 +497,13 @@ def patron_panosu_html(v):
     # ── Hatalı veri şeridi ──
     _hata_parca = []
     if v.get("maliyetsiz_onarilir"):
-        _hata_parca.append(f'<span style="color:{RENK["amber2"]}">🔧 {v["maliyetsiz_onarilir"]:,} '
+        _hata_parca.append(f'<span style="color:{RENK["amber2"]}">🔧 {tr_sayi(v["maliyetsiz_onarilir"])} '
                            f'satış tek tıkla onarılır (Kâr/P&L → Maliyeti 0 düzelt)</span>')
     if v.get("maliyetsiz_ithalatsiz"):
-        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">🚫 {v["maliyetsiz_ithalatsiz"]:,} '
+        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">🚫 {tr_sayi(v["maliyetsiz_ithalatsiz"])} '
                            f'satış ithalatsız/eşleşmiyor (%100 marj — ithalat gir ya da SKU düzelt)</span>')
     if v.get("eksi_stok"):
-        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">📉 {v["eksi_stok"]:,} '
+        _hata_parca.append(f'<span style="color:{RENK["kirmizi2"]}">📉 {tr_sayi(v["eksi_stok"])} '
                            f'ürün eksi stokta</span>')
     _hata_html = ""
     if _hata_parca:
@@ -549,10 +550,10 @@ def patron_panosu_html(v):
         # Üst üste binmesin diye iki sırada dönüşümlü (zikzak) yerleştirilir.
         def _kfmt(_c):
             if _c >= 100000:
-                return f"{_c/1000:,.0f}K"
+                return f"{tr_sayi(_c/1000)}K"
             if _c >= 1000:
                 return f"{_c/1000:.1f}K".replace(".0K", "K")
-            return f"{_c:,.0f}"
+            return f"{tr_sayi(_c)}"
         _lbl = ""
         for _i, ((_x, _y), _c) in enumerate(zip(_coords, _cirolar)):
             if _c <= 0:
@@ -571,7 +572,7 @@ def patron_panosu_html(v):
             _dp = (_db - _dd) / _dd * 100
             _dc = RENK["yesil"] if _dp >= 0 else RENK["kirmizi"]
             _delta_html = (f'<span style="color:{_dc};font-size:13px;font-weight:700">'
-                           f'{"▲" if _dp>=0 else "▼"} %{abs(_dp):.0f} <span style="color:{RENK["silik"]};'
+                           f'{"▲" if _dp>=0 else "▼"} %{tr_sayi(abs(_dp))} <span style="color:{RENK["silik"]};'
                            f'font-weight:400;font-size:11px">düne göre</span></span>')
         _trend_html = (
             f'<div class="kyr-kart" style="background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {RENK["kenar2"]};'

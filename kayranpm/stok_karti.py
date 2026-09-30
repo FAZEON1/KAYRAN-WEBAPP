@@ -3,6 +3,7 @@
 Sekmeler: 📊 Özet · 📥 Alımlar · 📤 Satışlar · 🎯 Kampanya · 📈 Analiz
 Veriyi ürün/stok (kayranpm), ithalat ve satış modüllerinden birleştirir.
 Performans: satışlar SKU bazlı çekilir, paçal alım partilerinden hesaplanır."""
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
@@ -29,7 +30,7 @@ def _f(v, d=0.0):
 
 
 def _usd(v):
-    return f"${_f(v):,.2f}"
+    return f"${tr_sayi(_f(v), 2)}"
 
 
 def _kart(baslik, deger, alt="", renk="#A5B4FC"):
@@ -106,11 +107,11 @@ def _alim_detay(a):
         + _detay_satir("Durum",
                        f'<span style="color:#34D399;font-family:Inter">{a.get("durum") or "—"}</span>'))
 
-    _indirim_str = f' · indirim %{_ind:.1f}' if _ind else ''
+    _indirim_str = f' · indirim %{tr_sayi(_ind, 1)}' if _ind else ''
     _sag = (
-        _detay_satir("Adet", f"{_adet:,.0f}", "#7DD3FC")
+        _detay_satir("Adet", f"{tr_sayi(_adet)}", "#7DD3FC")
         + _detay_satir("Birim FOB", _fob, "#7DD3FC")
-        + _detay_satir("Masraf Payı", f"%{_mas_yuzde:.1f}{_indirim_str}", "#FBBF24")
+        + _detay_satir("Masraf Payı", f"%{tr_sayi(_mas_yuzde, 1)}{_indirim_str}", "#FBBF24")
         + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.08);'
           f'border:1px solid rgba(52,211,153,0.28);border-radius:12px;text-align:center">'
           f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
@@ -160,7 +161,7 @@ def _satis_detay(s, satir_kar):
 
     _sol = (
         _detay_satir("Sipariş No", s.get("siparis_no") or "—")
-        + _detay_satir("Adet", f"{_f(k.get('adet') or s.get('adet')):,.0f}", "#7DD3FC")
+        + _detay_satir("Adet", f"{tr_sayi(_f(k.get('adet') or s.get('adet')))}", "#7DD3FC")
         + _detay_satir("Birim Satış", _usd(s.get("birim_satis")), "#7DD3FC")
         + _detay_satir("Birim Maliyet", _usd(s.get("birim_maliyet")), "#FBBF24"))
     _sag = (
@@ -169,7 +170,7 @@ def _satis_detay(s, satir_kar):
         + f'<div style="margin-top:10px;padding:12px 14px;background:rgba(52,211,153,0.06);'
           f'border:1px solid {_nk_renk}44;border-radius:12px;text-align:center">'
           f'<div style="font-size:10px;color:#94A3B8;text-transform:uppercase;'
-          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Net Kâr · Marj %{_marj:.1f}</div>'
+          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Net Kâr · Marj %{tr_sayi(_marj, 1)}</div>'
           f'<div style="font-size:23px;font-weight:700;color:{_nk_renk};'
           f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_usd(_nk)}</div></div>')
 
@@ -314,7 +315,7 @@ def goster(sku):
         f'{(urun.get("urun_adi") or "—")}</span>'
         f'<span style="font-size:11px;font-weight:700;color:{_canli_renk};'
         f'background:{_canli_renk}1A;padding:4px 12px;border-radius:999px;white-space:nowrap">'
-        f'📦 {toplam_stok:,.0f} adet</span></div>'
+        f'📦 {tr_sayi(toplam_stok)} adet</span></div>'
         f'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;'
         f'font-size:11px;color:#7B8AA0">'
         f'<span>Marka: <b style="color:#94A3B8">{urun.get("marka") or "—"}</b></span>'
@@ -364,10 +365,10 @@ def goster(sku):
                 _firma_son[_fa] = (_ft, _f(r.get("stok_miktari")), _f(r.get("haftalik_satis")))
         _musteri_toplam = sum(v[1] for v in _firma_son.values())
 
-        _kart1 = (_kart("Bizim Stok", f"{_g5f_toplam:,.0f}",
-                        f"{_g5f_satilabilir:,.0f} satılabilir", "#34D399")
+        _kart1 = (_kart("Bizim Stok", f"{tr_sayi(_g5f_toplam)}",
+                        f"{tr_sayi(_g5f_satilabilir)} satılabilir", "#34D399")
                   if _g5f_toplam > 0 else
-                  _kart("Canlı Stok", f"{toplam_stok:,.0f}", _yeter, "#34D399"))
+                  _kart("Canlı Stok", f"{tr_sayi(toplam_stok)}", _yeter, "#34D399"))
         _kart_satiri([
             _kart1,
             _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", "#7DD3FC"),
@@ -385,7 +386,7 @@ def goster(sku):
                     f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
                     f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{ad}</span>'
                     f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:700;'
-                    f'font-family:JetBrains Mono,monospace">{adet:,.0f}</span></div>'
+                    f'font-family:JetBrains Mono,monospace">{tr_sayi(adet)}</span></div>'
                     f'<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05)">'
                     f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div>'
                     f'{_alt}</div>')
@@ -404,33 +405,33 @@ def goster(sku):
         else:
             _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
-                          rozet=(f"{_g5f_toplam:,.0f} adet" if _g5f_toplam else ""), yukseklik=200)
+                          rozet=(f"{tr_sayi(_g5f_toplam)} adet" if _g5f_toplam else ""), yukseklik=200)
 
         if _firma_son:
             _mmax = max(v[1] for v in _firma_son.values()) or 1
             _mus_html = "".join(
                 _srow(fa, v[1], _mmax, RENK["mor"],
-                      alt=f"haftalık satış {v[2]:,.0f} · {gun_ay_yil(v[0]) or v[0] or '—'}")
+                      alt=f"haftalık satış {tr_sayi(v[2])} · {gun_ay_yil(v[0]) or v[0] or '—'}")
                 for fa, v in sorted(_firma_son.items(), key=lambda x: -x[1][1]))
         else:
             _mus_html = bos_durum("Müşterilerde stok kaydı yok")
         _p_mus = pencere("🛍️ MÜŞTERİ STOĞU", RENK["mor"], _mus_html,
-                         rozet=(f"{_musteri_toplam:,.0f} adet" if _musteri_toplam else ""), yukseklik=200)
+                         rozet=(f"{tr_sayi(_musteri_toplam)} adet" if _musteri_toplam else ""), yukseklik=200)
 
         st.markdown(pencere_grid(_p_depo, _p_mus, alt_bosluk=2), unsafe_allow_html=True)
 
         # Genel toplam şeridi
         _genel = _g5f_toplam + _musteri_toplam
         _serit = (f'<span style="color:{RENK["metin"]};font-weight:700">GENEL TOPLAM '
-                  f'<span style="font-family:JetBrains Mono,monospace">{_genel:,.0f}</span></span>'
-                  f'<span style="color:{RENK["silik"]}"> = bizim {_g5f_toplam:,.0f} + müşteri {_musteri_toplam:,.0f}</span>')
+                  f'<span style="font-family:JetBrains Mono,monospace">{tr_sayi(_genel)}</span></span>'
+                  f'<span style="color:{RENK["silik"]}"> = bizim {tr_sayi(_g5f_toplam)} + müşteri {tr_sayi(_musteri_toplam)}</span>')
         # NOT: 'canlı hesap' ibaresi kullanıcı talebiyle şeritten kaldırıldı
         # (müşteri stok dosyası beklenirken eksi görünüp kafa karıştırıyordu).
         if haftalik_gercek > 0:
             _serit += f'<span style="color:{RENK["silik"]}"> · {_yeter}</span>'
         if yolda_adet > 0:
             _serit += (f'<span style="color:{RENK["mavi"]}"> · 🚚 yolda '
-                       f'<b style="font-family:JetBrains Mono,monospace">{yolda_adet:,.0f}</b></span>')
+                       f'<b style="font-family:JetBrains Mono,monospace">{tr_sayi(yolda_adet)}</b></span>')
         st.markdown(
             f'<div style="background:linear-gradient(180deg,#152036,#0F172A);border:1px solid rgba(255,255,255,0.07);'
             f'border-radius:10px;padding:8px 16px;margin:0 0 10px;font-size:13px">{_serit}</div>',
@@ -445,7 +446,7 @@ def goster(sku):
                 _m = _f(r.get("yoldaki_miktar"))
                 if _m <= 0:
                     continue
-                _yd.append(f"{_m:,.0f} adet — {r.get('yoldaki_tedarikci') or '—'} "
+                _yd.append(f"{tr_sayi(_m)} adet — {r.get('yoldaki_tedarikci') or '—'} "
                            f"(varış {gun_ay_yil(r.get('tahmini_varis_tarihi')) or '—'})")
             st.info("🚚 **Yolda:** " + " · ".join(_yd))
         st.caption(f"İlk görülme: {gun_ay_yil(ilk_gorulen) or '—'}  ·  "
@@ -455,7 +456,7 @@ def goster(sku):
     with t2:
         if alimlar:
             _kart_satiri([
-                _kart("Toplam Alınan", f"{_adet_t:,.0f}", f"{len(alimlar)} parti", "#34D399"),
+                _kart("Toplam Alınan", f"{tr_sayi(_adet_t)}", f"{len(alimlar)} parti", "#34D399"),
                 _kart("Son Alım FOB", _usd(son_fob), gun_ay_yil(son_tarih), "#FBBF24"),
                 _kart("Paçal (Final)", _usd(pacal_final), "tüm partiler", "#F87171"),
             ])
@@ -499,13 +500,13 @@ def goster(sku):
                     "Sipariş No": s.get("siparis_no", "") or "—", "Adet": _f(k.get("adet")),
                     "B.Satış": round(_f(s.get("birim_satis")), 2),
                     "Net Kâr": round(_f(k.get("net_kar")), 2),
-                    "Marj": f"%{_f(k.get('marj')):.1f}",
+                    "Marj": f"%{tr_sayi(_f(k.get('marj')), 1)}",
                 })
             _om = (_tk / _tc * 100) if _tc else 0.0
             _kart_satiri([
-                _kart("Toplam Satılan", f"{_ta:,.0f}", f"{len(satislar)} kalem", "#34D399"),
+                _kart("Toplam Satılan", f"{tr_sayi(_ta)}", f"{len(satislar)} kalem", "#34D399"),
                 _kart("Toplam Ciro", _usd(_tc), "", "#A5B4FC"),
-                _kart("Toplam Kâr", _usd(_tk), f"ort. marj %{_om:.1f}",
+                _kart("Toplam Kâr", _usd(_tk), f"ort. marj %{tr_sayi(_om, 1)}",
                       "#34D399" if _tk >= 0 else "#F87171"),
             ])
             st.markdown("**Kanal / Firma Kırılımı**")
@@ -513,7 +514,7 @@ def goster(sku):
                 "Kanal/Firma": kn, "Adet": v["adet"],
                 "Ort. Birim": _usd(v["ciro"] / v["adet"]) if v["adet"] else _usd(0),
                 "Ciro": _usd(v["ciro"]), "Kâr": _usd(v["kar"]),
-                "Marj": f"%{(v['kar'] / v['ciro'] * 100) if v['ciro'] else 0:.1f}",
+                "Marj": f"%{tr_sayi((v['kar'] / v['ciro'] * 100) if v['ciro'] else 0, 1)}",
             } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])]),
                 hide_index=True, use_container_width=True)
             st.markdown("**Satış Hareketleri**")
@@ -603,13 +604,13 @@ def goster(sku):
                 _c1.metric("Firma Destek", _usd(_ku.get("birim_firma_destek")))
                 _c2.metric("Ek Destek", _usd(_ku.get("birim_ek_destek")))
                 _c3.metric("Satış Fiyatı", _usd(_ku.get("satis_fiyati")))
-                _c4.metric("Satılan Adet", f"{_f(_ku.get('satilan_adet')):,.0f}")
+                _c4.metric("Satılan Adet", f"{tr_sayi(_f(_ku.get('satilan_adet')))}")
 
                 _sp_tl = _f(_k.get("spiff_tl"))
                 _sp_kur = _f(_k.get("spiff_kur"))
                 if _sp_tl:
-                    _sp_usd = (f" (≈ ${_sp_tl / _sp_kur:,.2f})" if _sp_kur else "")
-                    st.caption(f"💸 Spiff: ₺{_sp_tl:,.2f}{_sp_usd}"
+                    _sp_usd = (f" (≈ ${tr_sayi(_sp_tl / _sp_kur, 2)})" if _sp_kur else "")
+                    st.caption(f"💸 Spiff: ₺{tr_sayi(_sp_tl, 2)}{_sp_usd}"
                                + ("  · faturalı" if _k.get("spiff_fatura") else ""))
                 if _k.get("notlar"):
                     st.markdown(f"**Not:** {_k.get('notlar')}")
@@ -626,9 +627,9 @@ def goster(sku):
             if liste_fiyat <= pacal_final:
                 st.error(f"⚠️ **Zarar riski:** Liste satış ({_usd(liste_fiyat)}) ≤ paçal maliyet ({_usd(pacal_final)}).")
             elif _marj < 10:
-                st.warning(f"⚠️ **Düşük marj:** Teorik marj sadece %{_marj:.1f}.")
+                st.warning(f"⚠️ **Düşük marj:** Teorik marj sadece %{tr_sayi(_marj, 1)}.")
             else:
-                st.success(f"✅ **Sağlıklı marj:** Teorik marj %{_marj:.1f}.")
+                st.success(f"✅ **Sağlıklı marj:** Teorik marj %{tr_sayi(_marj, 1)}.")
 
         # Gerçek satış hızı + reorder + DIO
         if gunluk_hiz > 0:
@@ -641,8 +642,8 @@ def goster(sku):
             ])
             st.markdown(
                 f"📦 **Yeniden sipariş noktası:** Üretim/tedarik süresi {uretim_suresi} gün. "
-                f"Stok **{_reorder:,.0f} adet**'e inince sipariş ver "
-                f"(şu an {toplam_stok:,.0f}, yolda {yolda_adet:,.0f})."
+                f"Stok **{tr_sayi(_reorder)} adet**'e inince sipariş ver "
+                f"(şu an {tr_sayi(toplam_stok)}, yolda {tr_sayi(yolda_adet)})."
             )
             if toplam_stok + yolda_adet <= _reorder:
                 st.warning("🔴 **Sipariş zamanı:** Stok + yoldaki, yeniden sipariş noktasının altında.")
@@ -662,7 +663,7 @@ def goster(sku):
             _renk = {"A": "#34D399", "B": "#FBBF24", "C": "#94A3B8"}[_abc]
             st.markdown(
                 f"<div style='margin:8px 0'>🏷️ <b style='color:{_renk}'>ABC Sınıfı: {_abc}</b> — "
-                f"Toplam cironun %{_cp:.1f}'i, toplam kârın %{_kp:.1f}'i bu üründen.</div>",
+                f"Toplam cironun %{tr_sayi(_cp, 1)}'i, toplam kârın %{tr_sayi(_kp, 1)}'i bu üründen.</div>",
                 unsafe_allow_html=True)
 
         # En kârlı kanal
@@ -696,9 +697,9 @@ def goster(sku):
             _ia = sum(_f(r.get("iade_adet")) for r in iadeler)
             _it = sum(_f(r.get("iade_net")) for r in iadeler)
             _kart_satiri([
-                _kart("Toplam İade", f"{_ia:,.0f}", f"{len(iadeler)} kalem · stoğa döndü", "#FBBF24"),
+                _kart("Toplam İade", f"{tr_sayi(_ia)}", f"{len(iadeler)} kalem · stoğa döndü", "#FBBF24"),
                 _kart("İade Tutarı", _usd(_it), "müşteriye iade", "#FBBF24"),
-                _kart("Tekrar Satılabilir", f"{_ia:,.0f} adet", "stoğa eklendi", "#34D399"),
+                _kart("Tekrar Satılabilir", f"{tr_sayi(_ia)} adet", "stoğa eklendi", "#34D399"),
             ])
             _fk = {}
             for r in iadeler:
@@ -750,10 +751,10 @@ def _hareket_sekmesi(sku):
     _giris = sum(_f(r.get("degisim")) for r in rows if r.get("basarili", True) and _f(r.get("degisim")) > 0)
     _cikis = sum(_f(r.get("degisim")) for r in rows if r.get("basarili", True) and _f(r.get("degisim")) < 0)
     _kart_satiri([
-        _kart("Kayıt", f"{len(rows):,}", "son 300 hareket"),
-        _kart("Toplam Giriş", f"+{_giris:,.0f}", "adet", "#34D399"),
-        _kart("Toplam Çıkış", f"{_cikis:,.0f}", "adet", "#F87171"),
-        _kart("Başarısız", f"{len(_hatali):,}", "işlem", "#FBBF24" if _hatali else "#7B8AA0"),
+        _kart("Kayıt", f"{tr_sayi(len(rows))}", "son 300 hareket"),
+        _kart("Toplam Giriş", f"+{tr_sayi(_giris)}", "adet", "#34D399"),
+        _kart("Toplam Çıkış", f"{tr_sayi(_cikis)}", "adet", "#F87171"),
+        _kart("Başarısız", f"{tr_sayi(len(_hatali))}", "işlem", "#FBBF24" if _hatali else "#7B8AA0"),
     ])
     _depolar = sorted({r.get("depo") or "" for r in rows} - {""})
     _sec = st.selectbox("Depo", ["Tümü"] + _depolar, key=f"sh_depo_{sku}")

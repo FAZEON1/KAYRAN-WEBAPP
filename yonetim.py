@@ -5,6 +5,7 @@ Dönemsel kâr/zarar: Ciro − COGS − Destekler = Net Kâr.
  • Destekler → Ref no harcamalarından, türlere göre kırılımlı.
 Tüm tutarlar USD. TL cinsi destekler güncel kurla yaklaşık çevrilir.
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 from shared.utils import secim_serit
 import datetime as dt
@@ -12,14 +13,14 @@ import datetime as dt
 
 def _usd(x):
     try:
-        return f"${float(x):,.0f}"
+        return f"${tr_sayi(float(x))}"
     except Exception:
         return "$0"
 
 
 def _pct(x):
     try:
-        return f"%{float(x):.1f}"
+        return f"%{tr_sayi(float(x), 1)}"
     except Exception:
         return "%0.0"
 
@@ -334,16 +335,16 @@ def run():
             f'border-radius:6px;background:rgba(255,255,255,0.03)">'
             f'<span style="color:{RENK["metin"]};font-size:13px">{a}</span>'
             f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:13px;'
-            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
+            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${tr_sayi(float(v or 0))}</span></div>'
             for a, v, y in _kal if float(v or 0))
         st.markdown(pencere(
             "💎 TOPLAM AKTİFLER", RENK["mor"],
             f'<div style="text-align:center;padding:10px 0 14px;margin-bottom:8px;'
             f'border-bottom:1px solid rgba(255,255,255,0.08)">'
             f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
-            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_t:,.0f}</div>'
+            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${tr_sayi(_t)}</div>'
             f'<div style="font-size:13px;color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
-            f'margin-top:4px">≈ ₺{(_t * _k):,.0f} · kur {_k:g}</div></div>' + _kh,
+            f'margin-top:4px">≈ ₺{tr_sayi((_t * _k))} · kur {_k:g}</div></div>' + _kh,
             rozet=str(_s.get("tarih", ""))[:16], yukseklik=320), unsafe_allow_html=True)
         st.stop()
     st.markdown(sayfa_baslik("📊", "Yönetim Panosu", "Ciro − COGS − Destekler − Giderler = Net Kâr · tüm tutarlar USD"),
@@ -593,8 +594,8 @@ def run():
     if _tur_usd:
         _dmax = max(_tur_usd.values()) or 1
         _d_html = "".join(
-            _bar_satir(t, f"${v:,.0f}", v / _dmax * 100, RENK["pembe"],
-                       sag_ek=(f"· %{(v / toplam_destek * 100):.0f}" if toplam_destek else ""))
+            _bar_satir(t, f"${tr_sayi(v)}", v / _dmax * 100, RENK["pembe"],
+                       sag_ek=(f"· %{tr_sayi((v / toplam_destek * 100))}" if toplam_destek else ""))
             for t, v in sorted(_tur_usd.items(), key=lambda x: -x[1]))
     else:
         _d_html = bos_durum("Bu dönemde destek/harcama kaydı yok")
@@ -606,7 +607,7 @@ def run():
         _kmax = max((v.get("ciro", 0) for v in kanal.values()), default=1) or 1
         _k_html = "".join(
             _bar_satir(kn, _usd(v.get("ciro", 0)), v.get("ciro", 0) / _kmax * 100, RENK["mor"],
-                       sag_ek=f"· {int(v.get('adet', 0)):,} ad · NK {_usd(v.get('net_kar', 0))}")
+                       sag_ek=f"· {tr_sayi(int(v.get('adet', 0)))} ad · NK {_usd(v.get('net_kar', 0))}")
             for kn, v in sorted(kanal.items(), key=lambda x: -x[1].get("ciro", 0)))
     else:
         _k_html = bos_durum("Bu dönemde satış kaydı yok")
@@ -641,17 +642,17 @@ def run():
         _topgider = _sabit + _degisken + _yari
         _gmax = max(_sabit, _degisken, _yari, 1)
         _g_html = (
-            _bar_satir("Sabit", f"₺{_sabit:,.0f}", _sabit / _gmax * 100, "#7DD3FC",
-                       sag_ek=(f"· %{(_sabit / _topgider * 100):.0f}" if _topgider else ""))
-            + _bar_satir("Değişken", f"₺{_degisken:,.0f}", _degisken / _gmax * 100, "#FBBF24",
-                         sag_ek=(f"· %{(_degisken / _topgider * 100):.0f}" if _topgider else ""))
-            + _bar_satir("Yarı Değişken", f"₺{_yari:,.0f}", _yari / _gmax * 100, "#818CF8",
-                         sag_ek=(f"· %{(_yari / _topgider * 100):.0f}" if _topgider else ""))
+            _bar_satir("Sabit", f"₺{tr_sayi(_sabit)}", _sabit / _gmax * 100, "#7DD3FC",
+                       sag_ek=(f"· %{tr_sayi((_sabit / _topgider * 100))}" if _topgider else ""))
+            + _bar_satir("Değişken", f"₺{tr_sayi(_degisken)}", _degisken / _gmax * 100, "#FBBF24",
+                         sag_ek=(f"· %{tr_sayi((_degisken / _topgider * 100))}" if _topgider else ""))
+            + _bar_satir("Yarı Değişken", f"₺{tr_sayi(_yari)}", _yari / _gmax * 100, "#818CF8",
+                         sag_ek=(f"· %{tr_sayi((_yari / _topgider * 100))}" if _topgider else ""))
             + f'<div style="display:flex;justify-content:space-between;padding:8px 12px;margin-top:4px;'
               f'border-top:1px solid rgba(255,255,255,0.08)">'
               f'<span style="color:{RENK["soluk"]};font-size:11px;font-weight:700;letter-spacing:.5px">TOPLAM ({_donem})</span>'
               f'<span style="color:{RENK["kirmizi"]};font-size:13px;font-weight:700;'
-              f'font-family:JetBrains Mono,monospace">₺{_topgider:,.0f}</span></div>'
+              f'font-family:JetBrains Mono,monospace">₺{tr_sayi(_topgider)}</span></div>'
             + f'<div style="color:{RENK["silik"]};font-size:11px;padding:4px 12px">'
               f'≈ {_usd(gider_usd)} · yüklenme: {_gider.get("tarih", "")}</div>')
     else:
@@ -687,15 +688,15 @@ def run():
             f'border-radius:6px;background:rgba(255,255,255,0.03)">'
             f'<span style="color:{RENK["metin"]};font-size:11px">{k}</span>'
             f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:11px;'
-            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${float(v or 0):,.0f}</span></div>'
+            f'font-weight:700;font-family:JetBrains Mono,monospace">{y} ${tr_sayi(float(v or 0))}</span></div>'
             for k, v, y in _kalemler if float(v or 0))
         _a_html = (
             f'<div style="text-align:center;padding:8px 0 12px;margin-bottom:8px;'
             f'border-bottom:1px solid rgba(255,255,255,0.08)">'
             f'<div style="font-size:23px;font-weight:700;color:#E2E8F0;'
-            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${_ta:,.0f}</div>'
+            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">${tr_sayi(_ta)}</div>'
             f'<div style="font-size:11px;color:{RENK["mor2"]};'
-            f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{(_ta * _kur_s):,.0f} · kur {_kur_s:g}</div></div>'
+            f'font-family:JetBrains Mono,monospace;margin-top:4px">≈ ₺{tr_sayi((_ta * _kur_s))} · kur {_kur_s:g}</div></div>'
             + _kalem_html)
     # 8 kalem + başlık bloğu kaydırmasız sığsın diye 300px; komşu gider
     # penceresiyle AYNI değer — pencere_grid stretch ile boyları eşitliyor.
@@ -727,7 +728,7 @@ def run():
                         _kayit = {"kat": _katp, "detay": _detayp, "tarih": str(dt.date.today())}
                         if _sa3:
                             _sa3(_gider_anahtar, _kayit)
-                        st.success(f"✅ {len(_detayp)} kalem · yıllık ₺{_yillik_top:,.0f} kaydedildi.")
+                        st.success(f"✅ {len(_detayp)} kalem · yıllık ₺{tr_sayi(_yillik_top)} kaydedildi.")
                         st.rerun()
                 except Exception as e:
                     st.error(f"Dosya işlenemedi: {e}")
@@ -743,13 +744,13 @@ def run():
             _vv = _g12(_knm)
             _row = {"Kategori": _knm}
             for _idx, _a in enumerate(GIDER_AYLAR):
-                _row[_a] = f"{_vv[_idx]:,.0f}"
-            _row["Yıllık"] = f"{sum(_vv):,.0f}"
+                _row[_a] = f"{tr_sayi(_vv[_idx])}"
+            _row["Yıllık"] = f"{tr_sayi(sum(_vv))}"
             _satirlar.append(_row)
         _trow = {"Kategori": "TOPLAM"}
         for _idx, _a in enumerate(GIDER_AYLAR):
-            _trow[_a] = f"{(_g12('Sabit')[_idx] + _g12('Değişken')[_idx] + _g12('Yarı Değişken')[_idx]):,.0f}"
-        _trow["Yıllık"] = f"{(sum(_g12('Sabit')) + sum(_g12('Değişken')) + sum(_g12('Yarı Değişken'))):,.0f}"
+            _trow[_a] = f"{tr_sayi((_g12('Sabit')[_idx] + _g12('Değişken')[_idx] + _g12('Yarı Değişken')[_idx]))}"
+        _trow["Yıllık"] = f"{tr_sayi((sum(_g12('Sabit')) + sum(_g12('Değişken')) + sum(_g12('Yarı Değişken'))))}"
         _satirlar.append(_trow)
         st.dataframe(_pd_g.DataFrame(_satirlar), hide_index=True, use_container_width=True,
                      height=tablo_h(len(_satirlar)))
@@ -789,7 +790,7 @@ def run():
             _ok = "▲" if _d >= 0 else "▼"
             _iyi = (_d >= 0) if not tersi else (_d < 0)
             _c = RENK["yesil"] if _iyi else RENK["kirmizi"]
-            return f'<span style="color:{_c};font-size:11px;font-weight:700"> {_ok}%{abs(_d):.0f}</span>'
+            return f'<span style="color:{_c};font-size:11px;font-weight:700"> {_ok}%{tr_sayi(abs(_d))}</span>'
 
         _nr = RENK["yesil"] if _r["net_kar"] >= 0 else RENK["kirmizi"]
         # Başlık + 4 büyük metrik (önceki aya kıyaslı)
@@ -810,7 +811,7 @@ def run():
                     ("Ciro", _usd(_r["ciro"]), RENK["mor2"], _delta(_r["ciro"], _rp["ciro"])),
                     ("COGS", _usd(_r["cogs"]), RENK["amber"], _delta(_r["cogs"], _rp["cogs"], tersi=True)),
                     ("Net Kâr", _usd(_r["net_kar"]), _nr, _delta(_r["net_kar"], _rp["net_kar"])),
-                    ("Marj", f'%{_r["marj"]:.1f}', _nr, ""),
+                    ("Marj", f'%{tr_sayi(_r["marj"], 1)}', _nr, ""),
                 ])
             + '</div>', unsafe_allow_html=True)
 
@@ -831,7 +832,7 @@ def run():
             st.markdown("**🛒 Kanal Kırılımı**")
             st.dataframe(_pd.DataFrame([{
                 "Kanal": k["kanal"], "Adet": k["adet"], "Ciro": _usd(k["ciro"]),
-                "Net Kâr": _usd(k["net_kar"]), "Marj": f'%{k["marj"]:.1f}',
+                "Net Kâr": _usd(k["net_kar"]), "Marj": f'%{tr_sayi(k["marj"], 1)}',
             } for k in _r["kanal"]]), hide_index=True, use_container_width=True,
                 height=min(300, 40 + 35 * len(_r["kanal"])))
 
@@ -860,10 +861,10 @@ def run():
                 f"Brüt Kâr   : {_usd(_r['brut'])}\n"
                 f"Destekler  : {_usd(_r['destek'])}\n"
                 f"Giderler   : {_usd(_r['gider'])}\n"
-                f"NET KÂR    : {_usd(_r['net_kar'])}  (marj %{_r['marj']:.1f})\n\n"
+                f"NET KÂR    : {_usd(_r['net_kar'])}  (marj %{tr_sayi(_r['marj'], 1)})\n\n"
                 f"KANAL KIRILIMI\n" +
                 "\n".join(f"  {k['kanal'][:30]:30s} {_usd(k['ciro']):>12s}  "
-                          f"NK {_usd(k['net_kar']):>10s}  %{k['marj']:.1f}"
+                          f"NK {_usd(k['net_kar']):>10s}  %{tr_sayi(k['marj'], 1)}"
                           for k in _r["kanal"]))
         st.download_button("⬇️ Özeti indir (.txt)", _txt.encode("utf-8"),
                            f"kapanis_{_r['yil']}_{_ai+1:02d}.txt", "text/plain",
@@ -975,7 +976,7 @@ def _yedek_render():
     if st.session_state.get("_yedek_data"):
         _ozet = st.session_state.get("_yedek_ozet", [])
         _toplam = sum(n for _, n in _ozet)
-        st.success(f"✅ Yedek hazır — {len(_ozet)} tablo, {_toplam:,} kayıt.")
+        st.success(f"✅ Yedek hazır — {len(_ozet)} tablo, {tr_sayi(_toplam)} kayıt.")
         st.download_button(
             "💾 Excel'i İndir",
             data=st.session_state["_yedek_data"],

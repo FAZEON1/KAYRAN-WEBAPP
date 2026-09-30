@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Teknik Servis / İade modülü — arayüz (V1)."""
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import datetime, date
 from io import BytesIO
 
@@ -1815,7 +1816,7 @@ def _depolar():
                                     value=True, key="ts_toplu_pl",
                                     help="Kapatırsan yalnız stok düşer, P&L'e yansımaz.")
                 st.info(f"**{len(_secili)} ürün** · toplam "
-                        f"**${0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0):,.2f}**")
+                        f"**${tr_sayi(0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0), 2)}**")
 
                 if st.button(f"💰 {len(_secili)} ürünü SATILDI yap",
                              type="primary", use_container_width=True, key="ts_toplu_btn"):

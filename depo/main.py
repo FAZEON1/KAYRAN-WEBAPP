@@ -1,5 +1,6 @@
 """Depo Yönetimi modülü — sidebar sayfaları: Depo Stok · Depolar Arası Sevk ·
 Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -50,7 +51,7 @@ def _sayfa_stok():
         from shared.utils import tr_buyuk as _tb
         _df = pd.DataFrame([{"SKU": _tb(u["sku"]), "Ürün": _tb(u["urun_adi"]), "Adet": u["adet"]}
                            for u in _di_urunler])
-        st.caption(f"{len(_di_urunler)} çeşit · {sum(u['adet'] for u in _di_urunler):,} adet")
+        st.caption(f"{len(_di_urunler)} çeşit · {tr_sayi(sum(u['adet'] for u in _di_urunler))} adet")
         st.dataframe(_df, use_container_width=True, hide_index=True)
     else:
         st.info("Bu depoda stoklu ürün yok.")
@@ -419,7 +420,7 @@ def _sayfa_bekleyen():
         st.info("Bu filtreye uyan sevk hareketi yok.")
         return
 
-    st.caption(f"{len(_f)} hareket · toplam {sum(d['Adet'] for d in _f):,} adet")
+    st.caption(f"{len(_f)} hareket · toplam {tr_sayi(sum(d['Adet'] for d in _f))} adet")
     st.dataframe(pd.DataFrame(_f), use_container_width=True, hide_index=True)
 
     try:
@@ -693,8 +694,8 @@ def _sayfa_happylife():
     _ort_yas = round(sum(_yaslar) / len(_yaslar)) if _yaslar else 0
     from shared.utils import metrik_satiri
     metrik_satiri([
-        {"label": "🎁 Palet Sayısı", "value": f"{_toplam_palet:,}", "renk": "#818CF8"},
-        {"label": "📦 SKU Çeşidi", "value": f"{_cesit:,}", "renk": "#22D3EE"},
+        {"label": "🎁 Palet Sayısı", "value": f"{tr_sayi(_toplam_palet)}", "renk": "#818CF8"},
+        {"label": "📦 SKU Çeşidi", "value": f"{tr_sayi(_cesit)}", "renk": "#22D3EE"},
         {"label": "⏳ En Yaşlı Stok", "value": f"{_max_yas} gün",
          "renk": "#F87171" if _max_yas >= 120 else "#FBBF24" if _max_yas >= 60 else "#34D399"},
         {"label": "📊 Ortalama Yaş", "value": f"{_ort_yas} gün", "renk": "#818CF8"},

@@ -8,6 +8,7 @@ Havuz Bütçe mantığı:
   - Diğer türler   → sellout / destek harcaması (HARCAMA −)
   - Kalan havuz    = toplam giriş − toplam harcama
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import re
 import pandas as pd
 import streamlit as st
@@ -1349,14 +1350,14 @@ def kalem_yonet_paneli(r, firma_adi=""):
     st.markdown("---")
     _m1, _m2, _m3 = st.columns(3)
     _m1.metric("Kalem", f"{len(_yeni_liste)}")
-    _m2.metric("Yeni toplam", f"{_sm}{_t['tutar']:,.2f}",
+    _m2.metric("Yeni toplam", f"{_sm}{tr_sayi(_t['tutar'], 2)}",
                delta=(f"{_fark:+,.2f}" if abs(_fark) >= 0.005 else None))
-    _m3.metric("Kayıtlı tutar", f"{_sm}{_ham:,.2f}")
+    _m3.metric("Kayıtlı tutar", f"{_sm}{tr_sayi(_ham, 2)}")
     if _t["aylik"]:
-        st.caption("📅 " + " · ".join(f"**{a}** {_sm}{v:,.0f}"
+        st.caption("📅 " + " · ".join(f"**{a}** {_sm}{tr_sayi(v)}"
                                       for a, v in sorted(_t["aylik"].items())))
     if _t["kategori_tutar"]:
-        st.caption("🏷️ " + " · ".join(f"**{k}** {_sm}{v:,.0f}" for k, v in
+        st.caption("🏷️ " + " · ".join(f"**{k}** {_sm}{tr_sayi(v)}" for k, v in
                                       sorted(_t["kategori_tutar"].items(),
                                              key=lambda x: -x[1])))
     _aysiz = [k for k in _yeni_liste if not k["ay"]]
@@ -1386,7 +1387,7 @@ def kategori_dagit_dialog(r, firma_adi=""):
     _ham = _f(r.get("tutar"))
     _dv = (r.get("doviz") or "USD").strip().upper()
     _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
-    st.markdown(f"**{r.get('ref_no','—')}** · {firma_adi} · toplam **{_sm}{_ham:,.2f}**")
+    st.markdown(f"**{r.get('ref_no','—')}** · {firma_adi} · toplam **{_sm}{tr_sayi(_ham, 2)}**")
 
     _oneri = ref_kategori_onerisi(r.get("aciklama"), _kats)
     if _oneri:
@@ -1409,12 +1410,12 @@ def kategori_dagit_dialog(r, firma_adi=""):
     _top = sum(_giris.values())
     _kalan = _ham - _top
     if abs(_kalan) < 0.005:
-        st.success(f"✓ Dağıtım tam: {_sm}{_top:,.2f}")
+        st.success(f"✓ Dağıtım tam: {_sm}{tr_sayi(_top, 2)}")
     elif _top == 0:
         st.info(f"Henüz dağıtılmadı — tamamı **GENEL**'de kalır ve kategori "
                 f"filtresine yansımaz.")
     else:
-        st.warning(f"⚠️ Kalan: {_sm}{_kalan:,.2f} — toplam {_sm}{_ham:,.2f} olmalı.")
+        st.warning(f"⚠️ Kalan: {_sm}{tr_sayi(_kalan, 2)} — toplam {_sm}{tr_sayi(_ham, 2)} olmalı.")
 
     _c1, _c2 = st.columns(2)
     if _c1.button("💾 Kaydet", type="primary", use_container_width=True,
@@ -1449,7 +1450,7 @@ def _ref_detay_govde(r, firma_adi=""):
                            DURUM_ETIKET.get(_durum, _durum), _dr,
                            (firma_adi or r.get("_firma") or "")), unsafe_allow_html=True)
     st.markdown(_dt_kutular([
-        ("Tutar", f"{_sm}{_f(r.get('tutar')):,.2f}", RENK["metin"]),
+        ("Tutar", f"{_sm}{tr_sayi(_f(r.get('tutar')), 2)}", RENK["metin"]),
         ("Döviz", _dv, RENK["soluk"]),
         ("Kalem", f"{len(_parcalar) or 1}", RENK["mor2"]),
         ("Dönem", (_ays if _ays != "—" else "—"), RENK["cyan"]),
@@ -1481,7 +1482,7 @@ def _ref_detay_govde(r, firma_adi=""):
         _dagitildi = sum(_f(v) for v in (_kt or {}).values()) > 0.005
         if _dagitildi:
             st.caption("🏷️ Kategori dağılımı: " + " · ".join(
-                f"**{k}** {_sm}{_f(v):,.0f}" for k, v in _kt.items() if _f(v) > 0))
+                f"**{k}** {_sm}{tr_sayi(_f(v))}" for k, v in _kt.items() if _f(v) > 0))
         else:
             st.warning(f"🏷️ Bu kayıt **{len(_kats)} kategori** taşıyor ama tutar "
                        f"dağıtılmamış — kategori bazlı Kâr/P&L'de **GENEL**'de kalıyor "
@@ -1538,14 +1539,14 @@ def _ref_detay_govde(r, firma_adi=""):
                          f'<span style="font-size:13px;color:{RENK["soluk"]}">{etk}</span>'
                          f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
                          f'color:{RENK["metin"]};font-variant-numeric:tabular-nums">'
-                         f'{_sm}{v:,.2f}</span></div>')
+                         f'{_sm}{tr_sayi(v, 2)}</span></div>')
             _fk = _f(r.get("tutar")) - _tp
             _uy = ("#34D399", "kayıt tutarıyla uyumlu") if abs(_fk) <= 0.01 else \
-                  ("#FBBF24", f"kayıt tutarıyla {_sm}{_fk:,.2f} fark")
+                  ("#FBBF24", f"kayıt tutarıyla {_sm}{tr_sayi(_fk, 2)} fark")
             _sat += (f'<div style="display:flex;justify-content:space-between;padding:8px 0 0">'
                      f'<span style="{_etiket_css(RENK["silik"])}">Toplam</span>'
                      f'<span style="font-family:{_MONO};font-size:13px;font-weight:700;'
-                     f'color:{_uy[0]};font-variant-numeric:tabular-nums">{_sm}{_tp:,.2f}</span></div>'
+                     f'color:{_uy[0]};font-variant-numeric:tabular-nums">{_sm}{tr_sayi(_tp, 2)}</span></div>'
                      f'<div style="{_etiket_css(_uy[0])};margin-top:6px">{_uy[1]}</div>')
             st.markdown(_sat, unsafe_allow_html=True)
         else:
@@ -1601,7 +1602,7 @@ def _ref_kart_html(r, firma_adi=""):
         f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
         f'display:flex;flex-direction:column;justify-content:center">'
         f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:700;'
-        f'color:{RENK["metin"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
+        f'color:{RENK["metin"]};line-height:1">{_sm}{tr_sayi(_f(r.get("tutar")), 2)}</div>'
         f'    <div style="color:{RENK["silik"]};font-size:11px;margin-top:3px">{_dv}</div>'
         f'  </div>'
         f'</div>')
@@ -1768,18 +1769,18 @@ def _render_ref_merkez(firmalar):
     for r in goster:
         _dv[(r.get("doviz") or "USD").strip().upper()] += _f(r.get("tutar"))
     _sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
-    _tut = " · ".join(f'{_sembol.get(k, k + " ")}{v:,.0f}'
+    _tut = " · ".join(f'{_sembol.get(k, k + " ")}{tr_sayi(v)}'
                       for k, v in sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
     _bek = sum(1 for r in goster if r.get("durum") == "beklemede")
     _pay = sum(1 for r in goster if r.get("durum") == "paylasildi")
-    _tutlar = [f'{_sembol.get(k, k + " ")}{v:,.0f}'
+    _tutlar = [f'{_sembol.get(k, k + " ")}{tr_sayi(v)}'
                for k, v in sorted(_dv.items(), key=lambda x: -x[1]) if v]
     st.markdown(_kpi_serit([
-        ("Kayıt", f"{len(goster):,}", RENK["metin"], f"/ {len(_hepsi):,} toplam", 0.8),
+        ("Kayıt", f"{tr_sayi(len(goster))}", RENK["metin"], f"/ {tr_sayi(len(_hepsi))} toplam", 0.8),
         ("Toplam Tutar", _tutlar[0] if _tutlar else "—", RENK["mor2"],
          " · ".join(_tutlar[1:]), 1.6),
-        ("Beklemede", f"{_bek:,}", RENK["amber"], "", 0.7),
-        ("Paylaşıldı", f"{_pay:,}", RENK["yesil"], "", 0.7),
+        ("Beklemede", f"{tr_sayi(_bek)}", RENK["amber"], "", 0.7),
+        ("Paylaşıldı", f"{tr_sayi(_pay)}", RENK["yesil"], "", 0.7),
         ("Firma", f"{len({r.get('_firma') for r in goster}):,}", RENK["cyan"], "", 0.7),
     ]), unsafe_allow_html=True)
 
@@ -1831,7 +1832,7 @@ def _render_ref_merkez(firmalar):
                            use_container_width=True, help="Detayı aç"):
                 _dlg_ref_detay_merkez(_r)
         if _tsayfa > 1:
-            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {len(goster):,} kayıt — "
+            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {tr_sayi(len(goster))} kayıt — "
                        "◀ ▶ ile gez ya da filtre/arama ile daralt.")
 
     # ── DÜZENLE (mevcut, kanıtlanmış editör) ──
@@ -1949,7 +1950,7 @@ def _render_tumu(firmalar):
     for r in goster:
         _dv[(r.get("doviz") or "USD").strip().upper()] += _donem_tutari(r)
     _sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
-    _tutar_str = " · ".join(f'{_sembol.get(k, k+" ")}{v:,.0f}' for k, v in
+    _tutar_str = " · ".join(f'{_sembol.get(k, k+" ")}{tr_sayi(v)}' for k, v in
                             sorted(_dv.items(), key=lambda x: -x[1]) if v) or "—"
 
     _durum_rozet = (
@@ -1972,8 +1973,8 @@ def _render_tumu(firmalar):
         f'<div><div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
         f'text-transform:uppercase;font-weight:700;margin-bottom:0px">Kayıt</div>'
         f'<div style="font-size:23px;font-weight:700;color:{RENK["mor2"]};'
-        f'font-family:JetBrains Mono,monospace;line-height:1">{len(goster):,}'
-        f'<span style="font-size:13px;color:{RENK["silik"]}"> / {len(_hepsi):,}</span></div></div>'
+        f'font-family:JetBrains Mono,monospace;line-height:1">{tr_sayi(len(goster))}'
+        f'<span style="font-size:13px;color:{RENK["silik"]}"> / {tr_sayi(len(_hepsi))}</span></div></div>'
         f'<div style="height:34px;width:1px;background:rgba(148,163,184,0.2)"></div>'
         f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">{_durum_rozet}</div>'
         f'<div style="margin-left:auto">{_durum_notu}</div>'
@@ -2008,7 +2009,7 @@ def _render_tumu(firmalar):
             _tp = sum(_f(r.get("tutar")) for r in _cok_kat)
             _uyarilar.append(
                 f"🏷️ **{len(_cok_kat)} kayıt birden çok kategori taşıyor** "
-                f"(toplam {_tp:,.0f}). Kategori bazında tutar saklanmadığı için bu "
+                f"(toplam {tr_sayi(_tp)}). Kategori bazında tutar saklanmadığı için bu "
                 f"kayıtlar **her kategoride tam tutarıyla** sayılır — yukarıdaki "
                 f"'Filtreli Toplam' bu nedenle olduğundan yüksek olabilir. "
                 f"(Ay/Yıl filtresinde böyle bir sorun yok, orada tutar aylara bölünür.)")
@@ -2084,7 +2085,7 @@ def _tutar_ozet(refler):
         dv = (r.get("doviz") or "USD").strip().upper()
         d[dv] += _f(r.get("tutar"))
     sembol = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}
-    parcalar = [f"{sembol.get(k, k + ' ')}{v:,.0f}" for k, v in d.items() if v]
+    parcalar = [f"{sembol.get(k, k + ' ')}{tr_sayi(v)}" for k, v in d.items() if v]
     return " · ".join(parcalar) if parcalar else "—"
 
 
@@ -2093,9 +2094,9 @@ def _render_refler(fid, fkod):
     _bekleyen = sum(1 for r in refler if r.get("durum") == "beklemede")
     _paylasilan = sum(1 for r in refler if r.get("durum") == "paylasildi")
     metrik_satiri([
-        {"label": "Toplam Ref", "value": f"{len(refler):,}", "renk": "#818CF8"},
-        {"label": "⏳ Beklemede", "value": f"{_bekleyen:,}", "renk": "#FBBF24"},
-        {"label": "✅ Paylaşılan", "value": f"{_paylasilan:,}", "renk": "#34D399"},
+        {"label": "Toplam Ref", "value": f"{tr_sayi(len(refler))}", "renk": "#818CF8"},
+        {"label": "⏳ Beklemede", "value": f"{tr_sayi(_bekleyen)}", "renk": "#FBBF24"},
+        {"label": "✅ Paylaşılan", "value": f"{tr_sayi(_paylasilan)}", "renk": "#34D399"},
         {"label": "💰 Toplam Tutar", "value": _tutar_ozet(refler), "renk": "#818CF8"},
     ])
 
@@ -2216,7 +2217,7 @@ def _render_refler(fid, fkod):
             "Detayını görmek istediğin kayıt", goster,
             format_func=lambda r: (f"{r.get('ref_no','')} · "
                                    f"{(r.get('aciklama') or '')[:48]} · "
-                                   f"{_f(r.get('tutar')):,.0f} {r.get('doviz','USD')}"),
+                                   f"{tr_sayi(_f(r.get('tutar')))} {r.get('doviz','USD')}"),
             key=f"ref_detay_sec_{fid}", label_visibility="collapsed")
         if _dt2.button("🔎 Detayı Aç", use_container_width=True, key=f"ref_detay_btn_{fid}"):
             _dlg_ref_detay_firma(_dsec)
@@ -2398,10 +2399,10 @@ def _render_butce(fid, firma):
         ref_usd += t
 
     metrik_satiri([
-        {"label": "Toplam Bütçe (giriş)", "value": f"${giris:,.2f}", "renk": "#34D399"},
-        {"label": "Toplam Harcama", "value": f"${harcama:,.2f}", "renk": "#F87171"},
-        {"label": "Kalan Havuz", "value": f"${kalan:,.2f}", "renk": "#A5B4FC"},
-        {"label": "Atanan Ref No (USD)", "value": f"${ref_usd:,.2f}", "renk": "#818CF8"},
+        {"label": "Toplam Bütçe (giriş)", "value": f"${tr_sayi(giris, 2)}", "renk": "#34D399"},
+        {"label": "Toplam Harcama", "value": f"${tr_sayi(harcama, 2)}", "renk": "#F87171"},
+        {"label": "Kalan Havuz", "value": f"${tr_sayi(kalan, 2)}", "renk": "#A5B4FC"},
+        {"label": "Atanan Ref No (USD)", "value": f"${tr_sayi(ref_usd, 2)}", "renk": "#818CF8"},
     ])
 
     # ── Yeni kayıt ekle ──
@@ -2492,7 +2493,7 @@ def _render_butce(fid, firma):
             "Açıklama": st.column_config.TextColumn("Açıklama", width="large"),
             "Tutar": st.column_config.NumberColumn("Tutar ($)", format="%.4f"),
             "Fatura No": st.column_config.TextColumn("Fatura No"),
-            "Tarih": st.column_config.DateColumn("Tarih", format="DD-MM-YYYY"),
+            "Tarih": st.column_config.DateColumn("Tarih", format="DD.MM.YYYY"),
             "Ref No": st.column_config.TextColumn("Ref No"),
             "Kişi": st.column_config.TextColumn("Kişi"),
         },
@@ -2818,7 +2819,7 @@ def kalemleri_yaz(ref_id, kalemler):
             _cache_temizle()
             return False, "⚠️ 'kalemler' kolonu yok — yalnız toplamlar güncellendi."
         _cache_temizle()
-        return True, f"✅ {len(kalemler)} kalem kaydedildi · toplam {t['tutar']:,.2f}"
+        return True, f"✅ {len(kalemler)} kalem kaydedildi · toplam {tr_sayi(t['tutar'], 2)}"
     except Exception as e:
         return False, f"❌ {type(e).__name__}: {str(e)[:140]}"
 
@@ -3051,7 +3052,7 @@ def _ad_kart_html(r):
         f'  <div style="text-align:right;padding-left:16px;white-space:nowrap;'
         f'display:flex;flex-direction:column;justify-content:center">'
         f'    <div style="font-family:JetBrains Mono,monospace;font-size:16px;font-weight:700;'
-        f'color:{RENK["yesil"]};line-height:1">{_sm}{_f(r.get("tutar")):,.2f}</div>'
+        f'color:{RENK["yesil"]};line-height:1">{_sm}{tr_sayi(_f(r.get("tutar")), 2)}</div>'
         f'    <div style="color:{RENK["silik"]};font-size:11px;margin-top:3px">{_dv}</div>'
         f'  </div>'
         f'</div>')
@@ -3067,10 +3068,10 @@ def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
     _tr = _AD_TUR_RENK.get(_tur, "#818CF8")
     if _dv in ("TL", "TRY"):
         _usd = (_tut / tl_kur) if tl_kur else None
-        _kur_not = f"₺/$ {tl_kur:,.2f}" if tl_kur else "kur yok"
+        _kur_not = f"₺/$ {tr_sayi(tl_kur, 2)}" if tl_kur else "kur yok"
     elif _dv in ("EUR", "EURO"):
         _usd = _tut * (eur_kur or 1.0)
-        _kur_not = f"€→$ {eur_kur:,.2f}"
+        _kur_not = f"€→$ {tr_sayi(eur_kur, 2)}"
     else:
         _usd, _kur_not = _tut, "—"
     _kat = (r.get("kategori") or "GENEL").strip()
@@ -3078,9 +3079,9 @@ def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
     st.markdown(_dt_baslik(r.get("firma", "—"), _tur, _tr,
                            f"dönem {r.get('donem') or '—'}"), unsafe_allow_html=True)
     st.markdown(_dt_kutular([
-        ("Tutar", f"{_sm}{_tut:,.2f}", RENK["yesil"]),
+        ("Tutar", f"{_sm}{tr_sayi(_tut, 2)}", RENK["yesil"]),
         ("Döviz", _dv, RENK["soluk"]),
-        ("USD karşılığı", (f"${_usd:,.2f}" if _usd is not None else "—"),
+        ("USD karşılığı", (f"${tr_sayi(_usd, 2)}" if _usd is not None else "—"),
          RENK["metin"] if _usd is not None else RENK["amber"]),
         ("Kur", _kur_not, RENK["cyan"]),
     ]), unsafe_allow_html=True)
@@ -3183,16 +3184,16 @@ def _render_alinan_destekler():
     def _usdt(u, e, t):
         return u + e * _eurk + ((t / _tlk) if (_tlk and t) else 0.0)
 
-    _ham = " · ".join(p for p in [f"${_u:,.0f}" if _u else "",
-                                  f"€{_e:,.0f}" if _e else "",
-                                  f"₺{_t:,.0f}" if _t else ""] if p) or "—"
-    _ham_l = [p for p in [f"${_u:,.0f}" if _u else "", f"€{_e:,.0f}" if _e else "",
-                          f"₺{_t:,.0f}" if _t else ""] if p]
+    _ham = " · ".join(p for p in [f"${tr_sayi(_u)}" if _u else "",
+                                  f"€{tr_sayi(_e)}" if _e else "",
+                                  f"₺{tr_sayi(_t)}" if _t else ""] if p) or "—"
+    _ham_l = [p for p in [f"${tr_sayi(_u)}" if _u else "", f"€{tr_sayi(_e)}" if _e else "",
+                          f"₺{tr_sayi(_t)}" if _t else ""] if p]
     st.markdown(_kpi_serit([
-        ("Kayıt", f"{len(kayitlar):,}", RENK["metin"], f"/ {len(kayitlar_tum):,} toplam", 0.75),
-        ("Toplam (USD)", f"${_usdt(_u, _e, _t):,.0f}", RENK["yesil"],
+        ("Kayıt", f"{tr_sayi(len(kayitlar))}", RENK["metin"], f"/ {tr_sayi(len(kayitlar_tum))} toplam", 0.75),
+        ("Toplam (USD)", f"${tr_sayi(_usdt(_u, _e, _t))}", RENK["yesil"],
          " · ".join(_ham_l[1:]) if len(_ham_l) > 1 else "", 1.3),
-        (f"Bu Ay · {_bu_ay}", f"${_usdt(_ay_u, _ay_e, _ay_t):,.0f}", RENK["mor2"], "", 1.1),
+        (f"Bu Ay · {_bu_ay}", f"${tr_sayi(_usdt(_ay_u, _ay_e, _ay_t))}", RENK["mor2"], "", 1.1),
         ("Firma", f"{len({(r.get('firma') or '').strip() for r in kayitlar}):,}",
          RENK["cyan"], "", 0.7),
     ]), unsafe_allow_html=True)
@@ -3236,7 +3237,7 @@ def _render_alinan_destekler():
                          use_container_width=True, help="Detayı aç"):
                 _dlg_ad_detay(_r, _eurk, _tlk)
         if _tsayfa > 1:
-            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {len(kayitlar):,} kayıt")
+            st.caption(f"Sayfa {_sayfa}/{_tsayfa} · toplam {tr_sayi(len(kayitlar))} kayıt")
 
     if not _duzenle:
         return
@@ -3305,7 +3306,7 @@ def _render_alinan_destekler():
     if kayitlar:
         st.markdown("##### 🗑 Kayıt Sil")
         _sil_opts = {f"#{r['id']} · {r.get('donem')} · {r.get('firma')} · "
-                     f"{_f(r.get('tutar')):,.2f} {r.get('doviz')}": r["id"]
+                     f"{tr_sayi(_f(r.get('tutar')), 2)} {r.get('doviz')}": r["id"]
                      for r in kayitlar}
         s1, s2 = st.columns([4, 1])
         _sec = s1.selectbox("Kayıt sil", ["—"] + list(_sil_opts), key="ad_sil_sec",

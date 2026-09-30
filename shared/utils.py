@@ -2,6 +2,7 @@
 KAYRAN - Ortak Yardımcı Fonksiyonlar
 Tüm uygulamaların kullandığı timezone, error handling, vb.
 """
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import datetime, date, timedelta
 import zoneinfo
 import streamlit as st
@@ -341,7 +342,7 @@ class Zamanlayici:
         _kalem = list(self.kayitlar) + [("· ölçülmeyen (çizim + döngüler)",
                                          max(0.0, _duvar - _olculen))]
         _top = max(_duvar, _olculen)
-        with st.expander(f"{baslik} — sayfa {_top:,.0f} ms", expanded=False):
+        with st.expander(f"{baslik} — sayfa {tr_sayi(_top)} ms", expanded=False):
             _en = max((v for _, v in _kalem), default=1) or 1
             _satir = []
             for ad, v in _kalem:
@@ -356,9 +357,9 @@ class Zamanlayici:
                     f'<div style="height:6px;width:{_w}%;background:{_renk}"></div></div>'
                     f'<div style="width:74px;text-align:right;font-size:12px;'
                     f'font-family:JetBrains Mono,monospace;color:{_renk}">'
-                    f'{v:,.0f} ms</div>'
+                    f'{tr_sayi(v)} ms</div>'
                     f'<div style="width:44px;text-align:right;font-size:11px;color:#7B8AA0">'
-                    f'%{v / _top * 100:.0f}</div></div>')
+                    f'%{tr_sayi(v / _top * 100)}</div></div>')
             st.markdown("".join(_satir), unsafe_allow_html=True)
             for _n in getattr(self, "notlar", []):
                 st.caption(_n)

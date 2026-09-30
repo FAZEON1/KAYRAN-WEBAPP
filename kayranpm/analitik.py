@@ -1,3 +1,4 @@
+from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from datetime import datetime, date
 import streamlit as st
 import logging
@@ -178,9 +179,9 @@ def trend_hesapla(gecmis_satislar):
         yuzde = ((yeni - eski) / eski) * 100
 
     if yuzde >= 15:
-        return "yukseliyor", yuzde, ortalama, f"📈 Yükseliyor (+%{yuzde:.0f})"
+        return "yukseliyor", yuzde, ortalama, f"📈 Yükseliyor (+%{tr_sayi(yuzde)})"
     elif yuzde <= -15:
-        return "dusuyor", yuzde, ortalama, f"📉 Düşüyor (-%{abs(yuzde):.0f})"
+        return "dusuyor", yuzde, ortalama, f"📉 Düşüyor (-%{tr_sayi(abs(yuzde))})"
     else:
         return "stabil", yuzde, ortalama, f"➡️ Stabil (%{yuzde:+.0f})"
 
