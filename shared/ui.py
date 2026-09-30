@@ -553,8 +553,8 @@ def patron_panosu_html(v):
         def _kfmt(_c):
             if _c >= 100000:
                 return f"{tr_sayi(_c/1000)}K"
-            if _c >= 1000:
-                return f"{_c/1000:.1f}K".replace(".0K", "K")
+            if _c >= 1000:   # TR ondalık: 6,8K (eskiden 6.8K)
+                return f"{_c/1000:.1f}K".replace(".0K", "K").replace(".", ",")
             return f"{tr_sayi(_c)}"
         _lbl = ""
         for _i, ((_x, _y), _c) in enumerate(zip(_coords, _cirolar)):
