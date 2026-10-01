@@ -263,8 +263,11 @@ def alinan_destek_sil(rid):
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def _eur_usd_kur():
-    """1 EUR kaç USD — mevcut kur API'sinden (open.er-api.com). Alınamazsa 1.08."""
+    """1 EUR kaç USD — mevcut kur API'sinden (open.er-api.com). Alınamazsa 1.08.
+    HIZ: saatlik önbellek. Eskiden EUR kaydı olan her ekran çiziminde internete
+    gidiyordu (6 sn zaman aşımı; ağ yavaşsa sayfa 6 sn donuyordu)."""
     try:
         import requests
         d = requests.get("https://open.er-api.com/v6/latest/EUR", timeout=6).json()
@@ -1122,6 +1125,15 @@ def butce_excel_ice_aktar(firma_id, df, temizle=False):
 # UI
 # ════════════════════════════════════════════════════════════════════
 def render():
+    """Ref No Takibi ekranı — Ekim 2026'dan itibaren kayranpm/ref_ekran.py.
+    Bu modüldeki veri fonksiyonları, kalem paneli, tablo editörü (_render_refler)
+    ve Alınan Destekler aynen kullanılır."""
+    from .ref_ekran import render as _yeni_ekran
+    _yeni_ekran()
+
+
+def _render_eski():
+    """Eski ekran (yalnız geri dönüş için duruyor, çağrılmıyor)."""
     st.markdown('<div class="baslik">🔖 Ref No Takibi</div>', unsafe_allow_html=True)
     st.markdown('<div class="alt-baslik">Firma bazlı ref no atama + havuz bütçe takibi</div>',
                 unsafe_allow_html=True)
@@ -1619,8 +1631,8 @@ _MONO = "'JetBrains Mono','SF Mono',ui-monospace,monospace"
 
 
 def _etiket_css(renk):
-    return (f"font-size:10px;letter-spacing:1.4px;text-transform:uppercase;"
-            f"font-weight:700;color:{renk};line-height:1")
+    # Programın yeni dili: cümle düzeni (eskiden 10px büyük harf + 1.4px aralık)
+    return f"font-size:12px;font-weight:500;color:{renk};line-height:1.2"
 
 
 def _sayi_css(renk, boyut=19):
@@ -1649,8 +1661,8 @@ def _kpi_serit(kalemler):
             f'<div style="{_etiket_css(RENK["soluk"])};margin-bottom:6px">{etiket}</div>'
             f'<div style="{_sayi_css(renk)};white-space:nowrap">{deger}</div>{_alt}</div>')
     return (f'<div style="display:flex;align-items:flex-start;'
-            f'background:linear-gradient(180deg,color-mix(in srgb,var(--k-metin) 4%,transparent),color-mix(in srgb,var(--k-metin) 1%,transparent));'
-            f'border:1px solid color-mix(in srgb,var(--k-soluk) 14%,transparent);border-radius:12px;'
+            f'background:var(--k-yuzey1);'
+            f'border:1px solid var(--k-kenar);border-radius:12px;'
             f'padding:13px 2px;margin:6px 0 14px">{"".join(ic)}</div>')
 
 
@@ -2352,8 +2364,12 @@ def _render_refler(fid, fkod):
                    "(Tek tek silmek için tablodaki 'Sil?' kutusunu işaretleyip Kaydet'e de basabilirsin.)")
         _rs1, _rs2 = st.columns(2)
         with _rs1:
+            # Eskiden onaysız siliyordu (yanındaki "Tümünü sil" onay istiyordu).
+            _onay_g = st.checkbox(f"Onaylıyorum — görünen {len(goster)} kaydı sil",
+                                  key=f"ref_bulk_onay_{fid}", disabled=(len(goster) == 0))
             if st.button(f"Görünen {len(goster)} kaydı sil", use_container_width=True,
-                         key=f"ref_bulk_goster_{fid}", disabled=(len(goster) == 0), icon=":material/delete:"):
+                         key=f"ref_bulk_goster_{fid}", disabled=(len(goster) == 0 or not _onay_g),
+                         icon=":material/delete:"):
                 _sil = 0
                 for _r in goster:
                     if ref_sil(_r["id"]):

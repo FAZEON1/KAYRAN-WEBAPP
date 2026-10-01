@@ -54,14 +54,12 @@ def test_ingilizce_sayi_bicimi_geri_gelmedi():
     assert not kotu, "Türkçe biçim kullan (tr_sayi/para/adet/oran): " + ", ".join(kotu[:10])
 
 
-def test_pf_okunan_degerler_korunur():
-    """Ürün Yön. kampanya tablosu bu iki değeri _pf() ile GERİ OKUYUP renk
-    seçiyor; _pf virgülü siler. TR biçime çevrilirse 1.234,50 → 1.23450 olur.
-    Bu yüzden bu blok bilerek İngilizce biçimde bırakıldı."""
-    src = _oku("kayranpm/main.py")
-    assert '"Net Kar/Adet ($)": f"${net_kar_birim:.2f}"' in src
-    assert '"Toplam Net Kar ($)": f"${toplam_net_urun:.0f}"' in src
-
+def test_kampanya_rakamlari_metin_degil():
+    """Eski kampanya tablosu kâr değerlerini İngilizce METİN olarak yazıp _pf()
+    ile geri okuyordu (TR biçime çevrilemiyordu). Yeni ekranda değerler sayı
+    olarak kalır, TR biçimi sütun verir → bu kısıt kalktı."""
+    src = _oku("kayranpm/kampanya.py")
+    assert "_pf(" not in src and '"Net kâr/adet": h["net_kar"]' in src
 
 def test_grafik_ayraci_turkce():
     src = _oku("app.py")

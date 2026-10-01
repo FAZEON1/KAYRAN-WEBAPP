@@ -53,7 +53,8 @@ def test_firma_kisa_ad():
 def test_firma_eslestirme_tam_ad_kullanir():
     """Kampanya şablonundaki firma adı TAM cari adıyla eşleştirilir;
     kısa ad kullanılırsa eşleşme sessizce bozulur."""
-    assert "firma_gorunen_ad(_c, kisa=False)" in _oku("kayranpm/main.py")
+    # Excel şablonu akışı Ekim 2026'da kayranpm/kampanya.py'ye taşındı (birebir)
+    assert "firma_gorunen_ad(_c, kisa=False)" in _oku("kayranpm/kampanya.py")
 
 
 # ── D3 · grafik renkleri ─────────────────────────────────────────────
