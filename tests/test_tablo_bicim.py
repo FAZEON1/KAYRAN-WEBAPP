@@ -143,15 +143,19 @@ def test_tr_oran_virgullu():
 
 
 # ═══════════════════════════════════════════════════════════
-#  _usd (satis/main.py) — US ayraç + akıllı ondalık (2-4)
+#  _usd (satis/main.py) — TR ayraç; toplam 2 hane, birim fiyat 4 hane
+#  (Ekim 2026: eskiden İngilizce ayraçlıydı ve 4 hane toplamlara da
+#   uygulanıyordu: "$230,365.7346")
 # ═══════════════════════════════════════════════════════════
 
-def test_usd_akilli_ondalik():
-    assert _usd(7.29) == "$7.29"
-    assert _usd(7.2938) == "$7.2938"
-    assert _usd(1200) == "$1,200.00"
+def test_usd_tr_ayrac_ve_ondalik():
+    assert _usd(1035231.62) == "$1.035.231,62"
+    assert _usd(230365.7346) == "$230.365,73"     # toplam: 2 hane
+    assert _usd(7.29) == "$7,29"
+    assert _usd(7.2938, 4) == "$7,2938"            # birim fiyat: 4 hane, sondaki sıfırlar atılır
+    assert _usd(1200, 4) == "$1.200,00"
 
 
 def test_usd_eksi_ve_gecersiz():
-    assert _usd(-3.5) == "-$3.50"
-    assert _usd("abc") == "$0.00"     # _tr_para'dan farklı: boş değil $0.00
+    assert _usd(-3.5) == "-$3,50"
+    assert _usd("abc") == "$0,00"

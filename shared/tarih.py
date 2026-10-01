@@ -172,7 +172,7 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
     _kaydirilabilir = _secim in _KAYDIRMA
 
     c_hap, c_dig, c_geri, c_ileri, c_bilgi = st.columns(
-        [len(_haplar) * 0.62 or 1, 1.05, 0.20, 0.20, 1.6],
+        [len(_haplar) * 0.62 or 1, 1.05, 0.24, 0.24, 1.6],
         vertical_alignment="center")
 
     with c_hap:
@@ -186,18 +186,26 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
                      index=(_digerler.index(_secim) if _secim in _digerler else None),
                      placeholder="Diğer…", key=f"{key}_dig",
                      on_change=_dig_degisti, label_visibility="collapsed")
+    # ‹ › : dar sütunda ortak düğme stilinin iç boşluğu işareti dışarı itiyor,
+    # düğmeler BOŞ kutu görünüyordu. Bu iki düğmeye özel sıfır boşluk verilir.
+    # on_click: kaydırma tek çalışmada uygulanır (eskiden düğme → st.rerun()
+    # programı iki kez çalıştırıyordu).
+    # NOT: help= verildiği için düğme bir ipucu kabına (stTooltipIcon) sarılır;
+    # '.stButton > button' tutmaz, kabın içindeki düğme hedeflenir.
+    _ok_sec = ",".join(f'html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
+                       f'.st-key-{key}_{y}.st-key-{key}_{y} button[data-testid]' for y in ("geri", "ileri"))
+    st.markdown(f"<style>{_ok_sec}{{padding:0 !important;min-width:0 !important;"
+                f"font-size:18px !important;line-height:1 !important;}}</style>", unsafe_allow_html=True)
+
+    def _kaydir_tik(adim):
+        st.session_state[_kk] = st.session_state.get(_kk, 0) + adim
+
     with c_geri:
-        if st.button("‹", key=f"{key}_geri", use_container_width=True,
-                     disabled=not _kaydirilabilir,
-                     help="Bir önceki döneme"):
-            st.session_state[_kk] -= 1
-            st.rerun()
+        st.button("‹", key=f"{key}_geri", use_container_width=True, disabled=not _kaydirilabilir,
+                  help="Bir önceki döneme", on_click=_kaydir_tik, args=(-1,))
     with c_ileri:
-        if st.button("›", key=f"{key}_ileri", use_container_width=True,
-                     disabled=not _kaydirilabilir,
-                     help="Bir sonraki döneme"):
-            st.session_state[_kk] += 1
-            st.rerun()
+        st.button("›", key=f"{key}_ileri", use_container_width=True, disabled=not _kaydirilabilir,
+                  help="Bir sonraki döneme", on_click=_kaydir_tik, args=(1,))
 
     _hesap = _aralik(_secim, bugun, min_tarih)
 

@@ -22,21 +22,97 @@ from .database import (
 )
 
 
-def _usd(x, max_ond=4):
-    """Para gösterimi. Gereksiz sondaki sıfırlar atılır:
-    7.29 → '$7.29' · 7.2938 → '$7.2938' · 1200 → '$1,200.00'
-    Birim fiyatlarda kuruş altı basamak korunur, toplamlarda gürültü olmaz."""
+def _usd(x, max_ond=2):
+    """Para gösterimi — Türkçe biçim: $1.234,56.
+
+    Eskiden İngilizce biçimdeydi ($1,234.56; programın geri kalanı Türkçe) ve
+    varsayılan 4 hane toplamlara da uygulanıyordu ("$230,365.7346"). Artık
+    toplamlar 2 hane; birim fiyat gösteren yerler max_ond=4 ister
+    (7,2938 gibi kuruş altı basamaklar korunur, sondaki sıfırlar atılır)."""
     try:
         f = float(x)
     except (TypeError, ValueError):
-        return "$0.00"
+        return "$0,00"
     s = f"{abs(f):,.{max_ond}f}"
-    if "." in s:
-        tam, ond = s.split(".")
-        ond = ond.rstrip("0")
-        ond = (ond + "00")[:2] if len(ond) < 2 else ond   # en az 2 hane
-        s = f"{tam}.{ond}"
-    return ("-" if f < 0 else "") + "$" + s
+    tam, ond = (s.split(".") + [""])[:2]
+    ond = ond.rstrip("0")
+    ond = (ond + "00")[:2] if len(ond) < 2 else ond   # en az 2 hane
+    return ("-" if f < 0 else "") + "$" + tam.replace(",", ".") + "," + ond
+
+
+def _sg_xl_sec(anahtar):
+    st.session_state["_sg_xl"] = anahtar
+
+
+def _sg_acilis(dlg_vatan, dlg_eera, dlg_diger):
+    """Satış Girişi açılışı (Ekim 2026): bugün / bu ay özeti, firma başına
+    Excel kartı (doğrudan ilgili pencere açılır), son 7 günün siparişleri."""
+    from shared import bilesen as B
+    from shared.kar_gizle import kar_gorunur
+    from shared.tasarim import kpi_serit, sayi, ikon, css_tek_satir
+    from . import satis_hesap as SH
+    from .satislar_ekran import siparis_listesi
+    bugun = date.today()
+    son = get_satislar_yalin(str(bugun - timedelta(days=31)), str(bugun)) or []
+    sip = SH.siparis_grupla(son, satir_kar)
+    tb = SH.toplam([o for o in sip if o["tarih"] == str(bugun)])
+    ta = SH.toplam([o for o in sip if o["tarih"][:7] == str(bugun)[:7]])
+    kal = [{"etiket": "Bugün", "deger": f"{tr_sayi(tb['siparis'])} sipariş", "renk": "mor",
+            "alt": f"{tr_sayi(tb['adet'])} adet"},
+           {"etiket": "Bugün ciro", "deger": sayi(tb["ciro"], "$"), "renk": "cyan",
+            "alt": (f"kâr {sayi(tb['net_kar'], '$')}" if kar_gorunur() and tb["siparis"] else "")},
+           {"etiket": f"Bu ay · {SH.AY[bugun.month]}", "deger": f"{tr_sayi(ta['siparis'])} sipariş", "renk": "mor",
+            "alt": f"{tr_sayi(ta['adet'])} adet"},
+           {"etiket": "Bu ay ciro", "deger": sayi(ta["ciro"], "$"), "renk": "cyan",
+            "alt": (f"kâr {sayi(ta['net_kar'], '$')} · %{tr_sayi(ta['marj'], 1)}"
+                    if kar_gorunur() and ta["marj"] is not None else "")}]
+    st.markdown(kpi_serit(kal), unsafe_allow_html=True)
+
+    st.markdown("<style>" + css_tek_satir("""
+.sg-x{display:flex;gap:12px;align-items:flex-start;min-height:52px;}
+.sg-x i{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-style:normal;background:color-mix(in srgb,var(--k-mor) 14%,transparent);}
+.sg-x i .k-ikon{color:var(--k-mor);}
+.sg-x b{display:block;font-size:14px;font-weight:650;color:var(--k-metin);}
+.sg-x span{display:block;font-size:12.5px;color:var(--k-soluk);line-height:1.45;margin-top:2px;}
+""") + "</style>" + B.grup_basligi("Excel ile toplu sipariş", "şablonu indir · doldur · yükle · önizle · kaydet"),
+        unsafe_allow_html=True)
+    kartlar = [("vatan", "VATAN", "Sipariş no ve tarih dosyadan gelir.", "storefront"),
+               ("eera", "EERA (İtopya)", "Firma sabit; tarih ve sipariş no'yu sen girersin.", "store"),
+               ("diger", "Diğer firmalar", "Firmayı listeden seçersin; şablon EERA ile aynı.", "domain")]
+    for col, (k, ad, ack, ik) in zip(st.columns(3, gap="small"), kartlar):
+        with col:
+            B.tiklanir(f"sgx_{k}", f'<div class="sg-x"><i>{ikon(ik, 20)}</i><div><b>{ad}</b><span>{ack}</span></div></div>',
+                       _sg_xl_sec, (k,), tur="kart", renk="mor", etiket=f"{ad} Excel penceresini aç")
+    secilen = st.session_state.pop("_sg_xl", None)
+    if secilen:
+        st.cache_data.clear()
+        {"vatan": dlg_vatan, "eera": dlg_eera, "diger": dlg_diger}[secilen]()
+
+    yedi = [o for o in sip if o["tarih"] >= str(bugun - timedelta(days=6))]
+    st.markdown(B.grup_basligi("Son siparişler", "son 7 gün · tıkla: kalemleri gör, düzelt ya da sil"),
+                unsafe_allow_html=True)
+    if yedi:
+        siparis_listesi(yedi, "sg", sayfa=12)
+    else:
+        st.caption("Son 7 günde sipariş yok.")
+
+
+def _tb_anahtar(d):
+    """{ad: tutar} sözlüğünün anahtarlarını tr_buyuk biçimine indirir, çakışanları toplar."""
+    from shared.utils import tr_buyuk
+    out = {}
+    for k, v in (d or {}).items():
+        nk = tr_buyuk(k) if k != "GENEL" else k
+        out[nk] = out.get(nk, 0.0) + float(v or 0)
+    return out
+
+
+def _usd_md(x, max_ond=2):
+    """Markdown metni (caption/success/expander) içinde tutar. '$' kaçırılır:
+    aynı metinde iki '$' olunca Streamlit arası LaTeX formülü sanıyordu
+    (Kâr/P&L notu 'bekleniyorgenel toplamkar' diye bozuk görünüyordu)."""
+    return _usd(x, max_ond).replace("$", "\\$")
 
 
 def _kar_df(df):
@@ -458,7 +534,19 @@ def run():
     @st.fragment
     def _sayfa_parcasi():
         if _ssayfa == "🧾 Satış Girişi":
-            st.markdown(_sb("🧾 Satış", "Satış Girişi", ipucu="Manuel giriş · Excel toplu satış · kanal sipariş blokları"), unsafe_allow_html=True)
+            # Ekim 2026: başlık + iki ana eylem tek satırda; altında bugünün özeti,
+            # firma başına Excel kartları ve son siparişler (eskiden yalnız üç düğme).
+            from shared import bilesen as _B
+            _sg_ey = _B.baslik_eylem("🧾 Satış", "Satış Girişi",
+                                     aciklama="Sipariş gir: elle, ya da firmanın Excel'inden toplu.",
+                                     eylemler=[{"etiket": "Yeni kanal", "key": "sg_kanal_btn", "icon": ":material/add_business:",
+                                                "help": "Cari listesinde olmayan yeni satış kanalı / firma ekle"},
+                                               {"etiket": "Manuel sipariş", "key": "sg_manuel_btn", "icon": ":material/edit_note:",
+                                                "birincil": True}])
+            if _sg_ey.get("sg_manuel_btn"):
+                st.session_state["_ms_dialog_ac"] = True
+            if _sg_ey.get("sg_kanal_btn"):
+                st.session_state["_mk_dialog_ac"] = True
             pacal = get_pacal_map()
             urunler = get_urunler()
             urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
@@ -643,7 +731,8 @@ def run():
                         st.cache_data.clear()
                         st.rerun()
 
-                def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir, _ic_pencere=False):
+                def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir, _ic_pencere=False,
+                                    _sadece_govde=False):
                     """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown.
                     _ic_pencere=True → zaten bir dialog içindeyiz, iç içe dialog yerine toggle ile aç."""
                     def _kanal_blok_govde():
@@ -684,7 +773,7 @@ def run():
                                 return
                             _adet = sum(s["adet"] for s in _tum)
                             _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                            st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd(_ciro)} • Kanal: **{_knl}**")
+                            st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Kanal: **{_knl}**")
                             if not _sno:
                                 st.error("⛔ **Sipariş No boş** — bu yüzden kaydet butonu "
                                          "pasif. Yukarıdaki Sipariş No kutusunu doldur.")
@@ -700,6 +789,10 @@ def run():
                             if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
                                          key=f"sg_kaydet_{_key}", disabled=not _gecerli, icon=":material/move_to_inbox:"):
                                 _sg_kaydet(_gecerli, _uz, _depo_k)
+                    if _sadece_govde:
+                        # Ekim 2026: Satış Girişi kartından doğrudan açılan pencerenin içi
+                        _kanal_blok_govde()
+                        return
                     if _ic_pencere:
                         # Zaten bir dialog içindeyiz → toggle ile aynı pencerede aç (iç içe dialog yasak)
                         if st.toggle(_baslik, key=f"tgl_kanal_{_key}"):
@@ -711,74 +804,62 @@ def run():
                         if st.button(_baslik, key=f"btn_kanal_{_key}", use_container_width=True):
                             _dlg_kanal_blok()
 
-                # 📊 Excel ile Toplu Satış — AÇILIR PENCERE
-                @st.dialog("📊 Excel ile Toplu Satış", width="large")
-                def _satis_excel_dialog():
-                    st.caption("VATAN · EERA · DİĞER şablonlarından toplu sipariş yükle. "
-                               "Her sekmeyi açıp ilgili Excel'i yükle, önizlemeyi kontrol et, kaydet.")
-                    # 1) VATAN — aynı pencere içinde açılır (iç içe dialog olmaz)
-                    def _vatan_toplu_govde():
-                        st.download_button("VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
-                                           "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan", icon=":material/download:")
-                        st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
-                        _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
-                        if _dv is not None:
-                            _sayfalar, _hata = _siparis_excel_oku(_dv)
-                            if _hata:
-                                st.error(_hata)
+                # ── Excel ile toplu sipariş: firma başına DOĞRUDAN açılan pencere ──
+                # Ekim 2026: eskiden tek "Excel ile Toplu Satış" penceresinin içinde üç
+                # aç-kapa anahtarı vardı (VATAN · EERA · DİĞER). Artık Satış Girişi'ndeki
+                # kart doğrudan ilgili pencereyi açar. Ayrıştırıcı ve kayıt kodu aynı.
+                def _vatan_toplu_govde():
+                    st.download_button("VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
+                                       "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan", icon=":material/download:")
+                    st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
+                    _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
+                    if _dv is not None:
+                        _sayfalar, _hata = _siparis_excel_oku(_dv)
+                        if _hata:
+                            st.error(_hata)
+                        else:
+                            _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
+                            _tum = []
+                            for _sf in (_sayfalar or []):
+                                _df = _sf["df"]
+                                if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
+                                    _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
+                            if not _tum:
+                                st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
                             else:
-                                _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
-                                _tum = []
-                                for _sf in (_sayfalar or []):
-                                    _df = _sf["df"]
-                                    if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
-                                        _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
-                                if not _tum:
-                                    st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
-                                else:
-                                    _adet = sum(s["adet"] for s in _tum)
-                                    _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                                    st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd(_ciro)} • Kanal: **{_vk}**")
-                                    _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
-                                    _eksik = len(_tum) - len(_gecerli)
-                                    if _eksik:
-                                        st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
-                                    _uzv = st.checkbox(
-                                        "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
-                                        key="sg_uz_vatan",
-                                        help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
-                                    _depo_v = _sg_depo_sec("vatan", _gecerli)
-                                    if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
-                                                 key="sg_kaydet_vatan", disabled=not _gecerli, icon=":material/move_to_inbox:"):
-                                        _sg_kaydet(_gecerli, _uzv, _depo_v)
-                    if st.toggle("📄 VATAN — Excel ile Toplu Sipariş", key="tgl_sat_vatan"):
-                        _vatan_toplu_govde()
+                                _adet = sum(s["adet"] for s in _tum)
+                                _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+                                st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Kanal: **{_vk}**")
+                                _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+                                _eksik = len(_tum) - len(_gecerli)
+                                if _eksik:
+                                    st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                                _uzv = st.checkbox(
+                                    "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                                    key="sg_uz_vatan",
+                                    help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
+                                _depo_v = _sg_depo_sec("vatan", _gecerli)
+                                if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
+                                             key="sg_kaydet_vatan", disabled=not _gecerli, icon=":material/move_to_inbox:"):
+                                    _sg_kaydet(_gecerli, _uzv, _depo_v)
 
-                    # 2) EERA (İTOPYA) — kanal sabit
-                    _eera_knl = next((k for k in _kanallar
-                                      if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
-                    _sg_itopya_blok("📄 EERA — Excel ile Toplu Sipariş", "eera", _eera_knl, False, _ic_pencere=True)
+                _eera_knl = next((k for k in _kanallar
+                                  if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
 
-                    # 3) DİĞER — firma/kanal kullanıcı seçer
-                    _sg_itopya_blok("📄 DİĞER — Excel ile Toplu Sipariş (firmayı sen seç)",
-                                    "diger", (_kanallar[0] if _kanallar else "DİGER"), True, _ic_pencere=True)
+                @st.dialog("VATAN siparişleri · Excel", width="large")
+                def _dlg_xl_vatan():
+                    _vatan_toplu_govde()
 
-                _ex1, _ex2 = st.columns([1, 4])
-                if _ex1.button("Excel ile Toplu Satış", type="primary", use_container_width=True, key="satis_excel_ac_btn", icon=":material/table_view:"):
-                    st.session_state["_satis_excel_ac"] = True
-                    st.cache_data.clear()
-                    st.rerun()
-                _ex2.caption("VATAN / EERA / DİĞER Excel'lerinden toplu sipariş yüklemek için butona bas.")
-                if st.session_state.pop("_satis_excel_ac", False):
-                    _satis_excel_dialog()
+                @st.dialog("EERA (İtopya) siparişleri · Excel", width="large")
+                def _dlg_xl_eera():
+                    _sg_itopya_blok("EERA", "eera", _eera_knl, False, _sadece_govde=True)
+
+                @st.dialog("Diğer firmaların siparişleri · Excel", width="large")
+                def _dlg_xl_diger():
+                    _sg_itopya_blok("DİĞER", "diger", (_kanallar[0] if _kanallar else "DİGER"), True,
+                                    _sadece_govde=True)
 
                 # ── Manuel Satış Girişi — AÇILIR PENCERE ──
-                _ms1, _ms2 = st.columns([1, 4])
-                if _ms1.button("Manuel Satış Girişi", type="primary", use_container_width=True, key="ms_ac_btn", icon=":material/edit_note:"):
-                    st.session_state["_ms_dialog_ac"] = True
-                    st.cache_data.clear()
-                    st.rerun()
-                _ms2.caption("Tek tek ürün ekleyerek sipariş oluşturmak için butona bas — açılır pencerede.")
 
                 # ── ➕ MANUEL KANAL / CARİ EKLE ──────────────────────────────
                 @st.dialog("➕ Yeni Kanal / Cari Ekle", width="small")
@@ -826,7 +907,7 @@ def run():
                                        "satışlar durur ve kanal, satışlarda geçtiği sürece "
                                        "listede görünmeye devam eder.")
 
-                if st.button("Yeni Kanal / Cari Ekle", key="mk_ac_btn", icon=":material/add:"):
+                if st.session_state.pop("_mk_dialog_ac", False):
                     _kanal_ekle_dialog()
                 # Yeni eklenen kanal, manuel satış penceresinde otomatik SEÇİLİ gelsin
                 _mk_son = st.session_state.pop("_mk_son_eklenen", None)
@@ -915,7 +996,7 @@ def run():
                                 st.session_state["_ms_dialog_ac"] = True
                                 st.cache_data.clear()
                                 st.rerun()
-                        _ipucu = f"Maliyet (paçal): {_usd(_pacal)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt"
+                        _ipucu = f"Maliyet (paçal): {_usd(_pacal, 4)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt"
                         st.caption(_ipucu + (f" · 📦 {_sku} toplam {sum(_sku_depolar.values())} adet "
                                              f"({len(_sku_depolar)} depoda)" if _sku_depolar else ""))
 
@@ -994,7 +1075,7 @@ def run():
                                         _engel.append(f"Geçersiz SKU: {k['sku']}")
                                     if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
                                         _uyari.append(f"Zararına satış: {k['sku']} "
-                                                      f"(satış {_usd(k['birim_satis'])} < maliyet {_usd(k['birim_maliyet'])})")
+                                                      f"(satış {_usd_md(k['birim_satis'], 4)} < maliyet {_usd_md(k['birim_maliyet'], 4)})")
                                 try:
                                     from kayranpm.database import canli_stok
                                     for _sk, _ad in _sku_adet.items():
@@ -1025,7 +1106,7 @@ def run():
                                     sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
                                     ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
                                     if ok:
-                                        st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd(top['net_kar'])}")
+                                        st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd_md(top['net_kar'])}")
                                         st.session_state.satis_kalemler = []
                                         for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
                                             st.session_state.pop(_k, None)
@@ -1039,229 +1120,20 @@ def run():
                             st.cache_data.clear()
                             st.rerun()
 
+                # ── Açılış: bugünün özeti · Excel kartları · son siparişler ──
+                _sg_acilis(_dlg_xl_vatan, _dlg_xl_eera, _dlg_xl_diger)
+
                 if st.session_state.pop("_ms_dialog_ac", False):
                     _satis_manuel_dialog()
+                from .satislar_ekran import siparis_detay_kontrol as _sdk
+                _sdk()
 
         # ───────────────────────── SATIŞLAR ─────────────────────────
         elif _ssayfa == "📋 Satışlar":
-            st.markdown(_sb("🧾 Satış", "Satışlar", ipucu="Kayıtlı satışlar · dönem ve kanal filtresi · düzenle / sil"), unsafe_allow_html=True)
-            _bas, _bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
-
-            # Tarihe bağlı veri fragment DIŞINDA çekilir (tarih değişince tüm sayfa yenilenir).
-            # Yalın okuma: Satışlar ve Kâr/P&L AYNI önbellek girdisini paylaşır.
-            # notlar/olusturma_tarihi/kampanya_id kolonları hiçbir ekranda
-            # okunmuyor; taşımamak çekimi ~%26 kısaltıyor.
-            satislar_ham = get_satislar_yalin(_bas, _bit)
-            _kanal_secenek = sorted({(s.get("kanal") or "").strip()
-                                     for s in satislar_ham if (s.get("kanal") or "").strip()}
-                                    | set(_kanallar))
-
-            @st.fragment
-            def _satislar_fragment():
-                # Kanal filtresi + tablo + özet: kanal değişince SADECE bu blok yeniden çalışır,
-                # sayfanın kalanı (sidebar, başlık, veri çekimi) hiç dokunmaz → anlık his.
-                _kanal_f = st.selectbox("Kanal", ["Tümü"] + _kanal_secenek, key="l_kanal")
-                satislar = satislar_ham
-                if _kanal_f != "Tümü":
-                    satislar = [s for s in satislar_ham if (s.get("kanal") or "") == _kanal_f]
-
-                if not satislar:
-                    st.info("Bu aralıkta satış kaydı yok.")
-                    return
-                from satis.database import get_sku_kategori
-                _katmap = get_sku_kategori()
-                _admap = {str(u.get("sku") or "").strip(): (u.get("urun_adi") or "")
-                          for u in (get_urunler() or [])}
-                _rows_disp = []
-                _t_adet = 0
-                _t_ciro = _t_kar = _t_maliyet = _t_destek = 0.0
-                for s in satislar:
-                    k = satir_kar(s)
-                    _sku = s.get("sku", "") or ""
-                    _bd = (s.get("birim_firma_destek") or 0) + (s.get("birim_ek_destek") or 0)
-                    _t_adet += int(k["adet"] or 0)
-                    _t_ciro += k["ciro"]
-                    _t_kar += k["net_kar"]
-                    _t_maliyet += float(s.get("birim_maliyet") or 0) * int(k["adet"] or 0)
-                    _t_destek += float(_bd or 0) * int(k["adet"] or 0)
-                    _rows_disp.append({
-                        "id": s.get("id"), "Tarih": pd.to_datetime(s.get("tarih"), errors="coerce"),
-                        "Sipariş No": s.get("siparis_no", "") or "—", "Kanal": s.get("kanal", ""),
-                        "SKU": _sku, "Ürün": ((s.get("urun_adi", "") or "") or _admap.get(_sku.strip(), ""))[:30],
-                        "Kategori": (_katmap.get(_sku.strip(), "") or "—"),
-                        "Adet": k["adet"], "B.Satış": _usd(s.get("birim_satis")),
-                        "B.Maliyet": _usd(s.get("birim_maliyet")),
-                        "Destek": _usd(_bd) if _bd else "—",
-                        "Ciro": _usd(k["ciro"]), "Net Kâr": _usd(k["net_kar"]), "Marj": f"%{tr_sayi(k['marj'], 1)}",
-                    })
-                # 📊 ÖZET KARTLARI — filtre (tarih + kanal) sonrası toplamlar
-                _t_ns = _t_ciro - _t_destek
-                _t_marj_k = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
-                _t_renk = trenk("yesil") if _t_kar > 0 else trenk("kirmizi")
-                _oz_kart = [
-                    ("Kayıt", f"{tr_sayi(len(satislar))}", trenk("mavi")),
-                    ("Adet", f"{tr_sayi(_t_adet)}", trenk("mavi")),
-                    ("Ciro", _usd(_t_ciro), trenk("mavi")),
-                    ("Maliyet (COGS)", _usd(_t_maliyet), trenk("amber")),
-                ]
-                if _t_destek > 0.005:
-                    _oz_kart.append(("Destek", _usd(_t_destek), trenk("mor")))
-                _oz_kart += [("Net Kâr", _usd(_t_kar), _t_renk),
-                             ("Marj", f"%{tr_sayi(_t_marj_k, 1)}", _t_renk)]
-                st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">'
-                            + _kart(_oz_kart) + '</div>', unsafe_allow_html=True)
-
-                # 🧮 ALT TOPLAM satırı — sayısal kolonların toplamı
-                _t_ns = _t_ciro - _t_destek
-                _t_marj = (_t_kar / _t_ns * 100) if _t_ns > 0 else 0.0
-                _rows_disp.append({
-                    "id": None, "Tarih": pd.NaT,
-                    "Sipariş No": "", "Kanal": "🧮 TOPLAM",
-                    "SKU": "", "Ürün": f"{len(satislar)} kalem", "Kategori": "",
-                    "Adet": _t_adet, "B.Satış": "",
-                    "B.Maliyet": _usd(_t_maliyet) if _t_maliyet else "",
-                    "Destek": _usd(_t_destek) if _t_destek > 0.005 else "",
-                    "Ciro": _usd(_t_ciro), "Net Kâr": _usd(_t_kar), "Marj": f"%{tr_sayi(_t_marj, 1)}",
-                })
-                st.dataframe(_kar_df(pd.DataFrame(_rows_disp)), hide_index=True, use_container_width=True, height=380,
-                             column_config={"id": None,
-                                            "Tarih": st.column_config.DateColumn("Tarih", format="DD.MM.YYYY")})
-
-                # ─────────────────────────────────────────────────────────────
-                # ⬇️ TOPLU İNDİR — ekrandaki filtreli veri (tarih + kanal)
-                # Ekrandaki tablo sayıları "$1.234" gibi METİN; Excel'de toplam
-                # alınamaz. Bu yüzden indirmede HAM SAYI yazılır → Excel'de
-                # doğrudan toplanır, pivot çekilir, formül yazılır.
-                # ─────────────────────────────────────────────────────────────
-                _dl_rows = []
-                for s in satislar:                      # TOPLAM satırı hariç, gerçek kayıtlar
-                    k = satir_kar(s)
-                    _sku = str(s.get("sku") or "")
-                    _bd = (s.get("birim_firma_destek") or 0) + (s.get("birim_ek_destek") or 0)
-                    _dl_rows.append({
-                        "Tarih": str(s.get("tarih") or ""),
-                        "Sipariş No": s.get("siparis_no") or "",
-                        "Kanal": s.get("kanal") or "",
-                        "SKU": _sku,
-                        "Ürün": (s.get("urun_adi") or "") or _admap.get(_sku.strip(), ""),
-                        "Kategori": _katmap.get(_sku.strip(), "") or "",
-                        "Adet": int(k["adet"] or 0),
-                        "Birim Satış": round(float(s.get("birim_satis") or 0), 2),
-                        "Birim Maliyet": round(float(s.get("birim_maliyet") or 0), 2),
-                        "Birim Destek": round(float(_bd or 0), 2),
-                        "Ciro": round(k["ciro"], 2),
-                        "Maliyet": round(k["maliyet"], 2),
-                        "Destek": round(k["destek"], 2),
-                        "Net Kâr": round(k["net_kar"], 2),
-                        "Marj %": round(k["marj"], 1),
-                    })
-                _dl_df = pd.DataFrame(_dl_rows)
-
-                _ad = f"satislar_{_bas}_{_bit}" + (
-                    "" if _kanal_f == "Tümü" else "_" + "".join(
-                        c for c in _kanal_f if c.isalnum() or c in "-_"))
-
-                _d1, _d2, _d3 = st.columns([1, 1, 2])
-
-                # Excel: ham sayılar + otomatik sütun genişliği
-                # DİKKAT: parametre adı alt çizgisiz olmalı — Streamlit alt çizgiyle
-                # başlayan parametreleri önbellek anahtarına KATMAZ; öyle olsaydı
-                # filtre değişince eski dosya inerdi.
-                @st.cache_data(ttl=300, show_spinner=False)
-                def _satis_xlsx(kayitlar):
-                    _df = pd.DataFrame(kayitlar)
-                    _buf = io.BytesIO()
-                    with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
-                        _df.to_excel(_w, index=False, sheet_name="Satışlar")
-                        _ws = _w.sheets["Satışlar"]
-                        for _i, _kol in enumerate(_df.columns, start=1):
-                            _en = max(len(str(_kol)),
-                                      *(len(str(_v)) for _v in _df[_kol].head(200))) if len(_df) else len(str(_kol))
-                            _ws.column_dimensions[_ws.cell(row=1, column=_i).column_letter].width = min(_en + 3, 40)
-                    return _buf.getvalue()
-
-                _d1.download_button(
-                    "Excel indir", _satis_xlsx(_dl_rows), f"{_ad}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True, key="l_dl_xlsx", icon=":material/download:")
-
-                # CSV: utf-8-sig → Excel Türkçe karakterleri doğru gösterir
-                _d2.download_button(
-                    "CSV indir", _dl_df.to_csv(index=False).encode("utf-8-sig"),
-                    f"{_ad}.csv", mime="text/csv",
-                    use_container_width=True, key="l_dl_csv", icon=":material/download:")
-
-                _d3.caption(f"📦 {tr_sayi(len(_dl_df))} kayıt · {_bas} → {_bit}"
-                            + ("" if _kanal_f == "Tümü" else f" · {_kanal_f}")
-                            + " — ekrandaki filtrenin aynısı, sayılar ham (Excel'de toplanabilir).")
-                @st.dialog("🗑️ Sil — kalem veya sipariş", width="large")
-                def _dlg_satis_sil():
-                    # ── 🔎 Hayalet kayıt avcısı: TARİH FİLTRESİZ kanal araması ──
-                    with st.container():
-                        st.markdown("**🔎 Tarih filtresiz ara** — tarihi boş/bozuk olduğu için "
-                                    "listede görünmeyen kayıtları da bulur")
-                        _hq = st.text_input("Kanal / müşteri adı", key="l_hayalet_q",
-                                            placeholder="örn. AYKON")
-                        if _hq and len(_hq.strip()) >= 2:
-                            from satis.database import get_satislar_kanal_ara
-                            _hrows = get_satislar_kanal_ara(_hq)
-                            if not _hrows:
-                                st.caption("Eşleşen kayıt yok.")
-                            else:
-                                _hdf = pd.DataFrame([{
-                                    "id": r.get("id"),
-                                    "Tarih": str(r.get("tarih") or "⚠️ BOŞ"),
-                                    "Kanal": r.get("kanal", ""), "SKU": r.get("sku", ""),
-                                    "Adet": r.get("adet", 0),
-                                    "B.Satış": r.get("birim_satis", 0),
-                                    "Sipariş": r.get("siparis_no", "") or "—",
-                                } for r in _hrows])
-                                st.dataframe(_kar_df(_hdf), hide_index=True, use_container_width=True,
-                                             height=min(280, 40 + 35 * len(_hdf)))
-                                _hsec = st.multiselect(
-                                    "Silinecek kayıt id'leri",
-                                    [r.get("id") for r in _hrows],
-                                    key="l_hayalet_sec")
-                                if _hsec and st.button(f"Seçili {len(_hsec)} kaydı sil",
-                                                       type="primary", key="l_hayalet_sil", icon=":material/delete:"):
-                                    _hok = 0
-                                    for _hid in _hsec:
-                                        if sil_satis(_hid):
-                                            _hok += 1
-                                    st.cache_data.clear()
-                                    st.success(f"✅ {_hok} kayıt silindi.")
-                                    st.rerun()
-                        st.markdown("---")
-                    _ds1, _ds2 = st.columns(2)
-                    with _ds1:
-                        _sec_sil = st.selectbox(
-                            "Tek kalem sil", satislar,
-                            format_func=lambda s: f"#{s.get('id')} · {gun_ay_yil(s.get('tarih'))} · {s.get('kanal','')} · {s.get('sku','')} · {s.get('adet')} ad.",
-                            key="l_sil_sec")
-                        if st.button("Kalemi Sil", key="l_sil_btn", icon=":material/delete:"):
-                            if sil_satis(_sec_sil["id"]):
-                                st.success("✅ Silindi.")
-                                st.cache_data.clear()
-                                st.rerun()
-                            else:
-                                st.error("Silinemedi.")
-                    with _ds2:
-                        _sipnolar = sorted({(s.get("siparis_no") or "").strip() for s in satislar if (s.get("siparis_no") or "").strip()})
-                        if _sipnolar:
-                            _sec_sip = st.selectbox("Tüm siparişi sil", _sipnolar, key="l_sil_sip")
-                            if st.button("Siparişi Sil", key="l_sil_sip_btn", icon=":material/delete:"):
-                                if sil_siparis(_sec_sip):
-                                    st.success(f"✅ '{_sec_sip}' siparişi silindi.")
-                                    st.cache_data.clear()
-                                    st.rerun()
-                                else:
-                                    st.error("Silinemedi.")
-                        else:
-                            st.caption("Sipariş no'lu kayıt yok.")
-                if st.button("Sil — kalem veya sipariş", key="btn_sat_sil", use_container_width=True, icon=":material/delete:"):
-                    _dlg_satis_sil()
-
-            _satislar_fragment()
+            # Ekim 2026: sipariş bazlı yeni ekran (satis/satislar_ekran.py).
+            # Hesap satis_hesap.py'de (testli); silme/düzeltme onaylı ve stok-senkron.
+            from .satislar_ekran import render_satislar
+            render_satislar(hizli_tarih_araligi, _kanallar)
 
         # ───────────────────────── KÂR / P&L ─────────────────────────
         elif _ssayfa == "📊 Kâr / P&L":
@@ -1269,10 +1141,12 @@ def run():
                 from shared.kar_gizle import uyari_ciz as _kar_uyari
                 _kar_uyari()
                 st.stop()
-            _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
-            st.markdown(_sb("🧾 Satış", "Kâr / P&L", alt=f"{_pbas} – {_pbit}",
+            # Başlık önce, dönem seçici altında (eskiden seçici başlığın ÜSTÜNDEydi).
+            # Seçilen aralık seçicinin yanında zaten yazıyor; başlıkta tekrar yok.
+            st.markdown(_sb("🧾 Satış", "Kâr / P&L",
                             ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
                         unsafe_allow_html=True)
+            _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
 
             satislar = get_satislar_yalin(_pbas, _pbit)
             if not satislar:
@@ -1675,6 +1549,11 @@ def run():
                         _ad_marka, _ad_kat, _ad_top = alinan_destek_kirilim_usd(_pbas, _pbit)
                     except Exception:
                         pass
+                    # Alınan destek anahtarları da satış tarafıyla AYNI biçime
+                    # (tr_buyuk) çevrilir. Ref No için yapılmıştı, alınan destek için
+                    # yapılmamıştı: "MONİTÖR" (destek) ve "MONITÖR" (satış) iki ayrı
+                    # satırdı, kategori cirosu/kârı bölünüyordu.
+                    _ad_marka, _ad_kat = _tb_anahtar(_ad_marka), _tb_anahtar(_ad_kat)
 
                     # REF NO desteği (VERİLEN — kârdan DÜŞÜLÜR). Eskiden kırılım
                     # tablolarına hiç girmiyordu; bu yüzden marka/kategori kârı
@@ -1750,11 +1629,30 @@ def run():
                                    "marka/kategori için **alınan destekleri içerir** "
                                    "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
                                    "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
-                        _c1, _c2 = st.columns(2)
+                        # Tek tablo, tam genişlik + seçici. Eskiden iki 7 sütunlu tablo
+                        # yarım genişlikte yan yana duruyordu; Kâr/Marj sütunları ekran
+                        # dışına taşıyordu. İkisi de hesaplanır (Excel raporu ikisini
+                        # kullanır), yalnız seçilen çizilir.
+                        _kr_sec = st.segmented_control("Kırılım", ["Kategori", "Marka"], default="Kategori",
+                                                       key="pnl_kirilim_sec", label_visibility="collapsed") \
+                            or "Kategori"
+                        _gorunur = st.container()
+
+                        class _Sessiz:
+                            """Seçilmeyen tablonun çıktısını yutar (hesap yine yapılır)."""
+                            def __enter__(self):
+                                return self
+
+                            def __exit__(self, *a):
+                                return False
+
+                            def __getattr__(self, ad):
+                                return lambda *a, **k: None
                         _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
                         for _bk, _hrt, _dst, _rfd, _kol in [
-                                (_c1, _marka_map, _ad_marka, {}, "Marka"),
-                                (_c2, _katmap_p, _ad_kat, _rf_kat, "Kategori")]:
+                                (_gorunur if _kr_sec == "Marka" else _Sessiz(), _marka_map, _ad_marka, {}, "Marka"),
+                                (_gorunur if _kr_sec == "Kategori" else _Sessiz(), _katmap_p, _ad_kat, _rf_kat,
+                                 "Kategori")]:
                             with _bk:
                                 _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),
                                                     _dst, _rfd)
@@ -1762,12 +1660,14 @@ def run():
                                     # İki AYRI destek kolonu. Tek kolonda birleştirmek
                                     # yanıltıcı olurdu: alınan destek gelir (+),
                                     # Ref No desteği verilen destektir (−).
+                                    # 2 haneye yuvarlanır: ham kur çevirisi "$20.982,7772" gibi
+                                    # 4 haneli tutarlar gösteriyordu.
                                     _tablo = [{
                                         _kol: r["_ad"], "Adet": r["Adet"],
-                                        "Ciro": r["Ciro"],
-                                        "Alınan destek": r["_destek"],
-                                        "Ref No desteği": -r["_ref"] if r["_ref"] else 0.0,
-                                        "Kâr": r["Kâr"],
+                                        "Ciro": round(r["Ciro"], 2),
+                                        "Alınan destek": round(r["_destek"], 2),
+                                        "Ref No desteği": -round(r["_ref"], 2) if r["_ref"] else 0.0,
+                                        "Kâr": round(r["Kâr"], 2),
                                         "Marj": ((r["Kâr"] / r["Ciro"] * 100)
                                                  if r["Ciro"] > 0 else None),
                                     } for r in _rows]
@@ -1783,10 +1683,10 @@ def run():
                                     st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
                                     _tablo.append({
                                         _kol: "Σ TOPLAM", "Adet": _t_adet,
-                                        "Ciro": _t_ciro,
-                                        "Alınan destek": _t_ad,
-                                        "Ref No desteği": -_t_rf if _t_rf else 0.0,
-                                        "Kâr": _t_kar,
+                                        "Ciro": round(_t_ciro, 2),
+                                        "Alınan destek": round(_t_ad, 2),
+                                        "Ref No desteği": -round(_t_rf, 2) if _t_rf else 0.0,
+                                        "Kâr": round(_t_kar, 2),
                                         "Marj": ((_t_kar / _t_ciro * 100)
                                                  if _t_ciro > 0 else None),
                                     })
@@ -1803,8 +1703,8 @@ def run():
                                          float(_ad_marka.get("GENEL", 0) or 0))
                         if abs(_genel_dst) > 0.005:
                             st.caption(f"ℹ️ Σ TOPLAM satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
-                                       f"Kırılıma dağıtılmayan GENEL destek: **{_usd(_genel_dst)}** — "
-                                       f"bu eklenince genel toplam kâr **{_usd(_t_kar_ort + _genel_dst)}** olur. "
+                                       f"Kırılıma dağıtılmayan GENEL destek: **{_usd_md(_genel_dst)}** — "
+                                       f"bu eklenince genel toplam kâr **{_usd_md(_t_kar_ort + _genel_dst)}** olur. "
                                        f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
 
                         # ── 🔍 "DİĞER" içinde ne var? (markası bulunamayan SKU'lar) ──
@@ -1830,7 +1730,7 @@ def run():
                             _dg_kartsiz = sum(1 for r in _diger_skus
                                               if not _urun_ad_map.get(_skn(r["SKU"])))
                             with st.expander(f"🔍 Markası boş {len(_diger_skus)} SKU — "
-                                             f"{_usd(_dg_ciro)} ciro DİĞER'e düşüyor"):
+                                             f"{_usd_md(_dg_ciro)} ciro DİĞER'e düşüyor"):
                                 st.caption(
                                     "Bu SKU'ların **Ürün Yönetimi → ürünler** tablosunda `marka` alanı boş. "
                                     "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
@@ -2262,7 +2162,7 @@ def run():
                     else:
                         _tadet = sum(x["iade_adet"] for x in _ie_satir)
                         _tnet = sum(x["iade_net"] for x in _ie_satir)
-                        st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd(_tnet)} bulundu.")
+                        st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd_md(_tnet)} bulundu.")
                         st.dataframe(_kar_df(pd.DataFrame([{
                             "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
                             "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
@@ -2355,8 +2255,11 @@ def run():
                         st.dataframe(_kar_df(pd.DataFrame([{
                             "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
                             "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
-                            "Satış ciro": _usd(x["s_ciro"]), "İade tutar": _usd(x["i_tutar"]),
-                            "Net ciro": _usd(x["net_ciro"]), "Satış kârı": _usd(x["s_kar"]),
+                            # Ham sayı: ortak tablo "ciro/tutar/kâr" sütununu kendisi biçimler.
+                            # Eskiden hazır metin ("$7.29") gidiyordu, sayıya çevrilemediği
+                            # için hücreler BOŞ görünüyordu.
+                            "Satış ciro": round(float(x["s_ciro"]), 2), "İade tutar": round(float(x["i_tutar"]), 2),
+                            "Net ciro": round(float(x["net_ciro"]), 2), "Satış kârı": round(float(x["s_kar"]), 2),
                         } for x in _gor])), use_container_width=True, hide_index=True)
                     else:
                         _iadeler = get_iadeler(_ib, _ibit)
@@ -2371,7 +2274,7 @@ def run():
                                 o["tutar"] += float(r.get("iade_net") or 0)
                                 o["sku"].add(r.get("sku"))
                             _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
-                                             "İade tutarı": _usd(v["tutar"]), "SKU çeşidi": len(v["sku"]),
+                                             "İade tutarı": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"]),
                                              "_t": v["tutar"]}
                                             for f, v in _fb.items()], key=lambda x: -x["İade adet"])
                             for _r in _rows:
@@ -2382,7 +2285,7 @@ def run():
                             _rows = sorted([{
                                 "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
                                 "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
-                                "İade tutarı": _usd(float(r.get("iade_net") or 0)),
+                                "İade tutarı": round(float(r.get("iade_net") or 0), 2),
                             } for r in _iadeler], key=lambda x: -x["İade adet"])
                             st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
                             st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
