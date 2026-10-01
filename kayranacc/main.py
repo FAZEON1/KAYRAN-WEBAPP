@@ -1576,7 +1576,8 @@ def run():
                         textposition="inside",
                         textinfo="percent",
                         insidetextorientation="horizontal",
-                        hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
+                        customdata=[f"₺{tr_sayi(v, 2)}" for v in kat_data.values()],
+                        hovertemplate="<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>",
                     ))
                     _kat_toplam = sum(kat_data.values())
                     fig.add_annotation(
@@ -1634,7 +1635,8 @@ def run():
                         textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
                         textposition="inside",
                         textinfo="percent",
-                        hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
+                        customdata=[f"₺{tr_sayi(v, 2)}" for v in (odendi_tutar, bekleyen_tutar)],
+                        hovertemplate="<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>",
                     ))
                     fig2.add_annotation(
                         text=(f"<span style='font-size:11px;color:var(--k-soluk)'>ÖDENEN (TUTAR)</span><br>"
@@ -1761,7 +1763,21 @@ def run():
         # 3) BANKA BAKİYELERİ
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "🏦 Banka Bakiyeleri":
-            st.markdown(_sb("🏦 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
+            # Ekim 2026: eylemler başlıkta; hesaplar tıklanır kart (bakiye kesilmez);
+            # ekle/düzenle formları pencerede, silme ONAYLI (eskiden onaysızdı).
+            from shared import bilesen as _Bb
+            from .banka_ekran import banka_kartlari, banka_toplam, banka_yeni_dialog, banka_detay_kontrol
+            _bey = _Bb.baslik_eylem(
+                "🏦 Muhasebe", "Banka Bakiyeleri",
+                aciklama="Hesap bakiyeleri, hafta sonu tahmini, para girişi ve hesaplar arası transfer.",
+                eylemler=[{"etiket": "Virman", "key": "bnk_virman", "icon": ":material/sync_alt:",
+                           "help": "Bankalar arası para transferi"},
+                          {"etiket": "Arbitraj", "key": "bnk_arb", "icon": ":material/currency_exchange:",
+                           "help": "Aynı bankada TL / USD / EUR çevrimi"},
+                          {"etiket": "Hesap", "key": "bnk_yeni", "icon": ":material/add_card:",
+                           "help": "Yeni banka hesabı ekle"},
+                          {"etiket": "Tahsilat", "key": "bnk_tahsilat", "icon": ":material/payments:",
+                           "birincil": True, "help": "Bankaya para girişi"}])
     
             kur = get_kur()
             bankalar = get_bankalar()
@@ -1770,45 +1786,9 @@ def run():
             bekleyen_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "bekliyor")
             bekleyen_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "bekliyor")
     
-            # Hesap kartları — kompakt, ortak tema (para birimine göre renkli sol şerit)
             if bankalar:
-                _renk_pb = {"USD": trenk("mavi"), "TL": trenk("mor"), "EUR": trenk("mor")}
-                _banka_cards = []
-                for b in bankalar:
-                    sym = "$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺")
-                    if b["para_birimi"] == "TL":
-                        net = b["bakiye"] - bekleyen_tl - (bekleyen_usd * kur)
-                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ₺{fmt(net)}"
-                    elif b["para_birimi"] == "USD":
-                        net = b["bakiye"] - bekleyen_usd
-                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ${fmt(net)}"
-                    else:
-                        net_str = ""
-                    _banka_cards.append({
-                        "label": b["hesap_adi"],
-                        "value": f"{sym}{fmt(b['bakiye'])}",
-                        "renk": _renk_pb.get(b["para_birimi"], trenk("mor")),
-                        "alt": net_str,
-                    })
-                metrik_satiri(_banka_cards)
-            # === TOPLAM BAKIYE OZETI ===
-            if bankalar:
-                toplam_tl_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
-                toplam_usd_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
-                toplam_eur_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
-                toplam_usd_esde = toplam_usd_hesap + (toplam_tl_hesap / kur) + (toplam_eur_hesap * 1.08)
-                toplam_html = (
-                    '<div style="background:linear-gradient(135deg,var(--k-yuzey1) 0%,var(--k-yuzey3) 100%);border:1px solid color-mix(in srgb,var(--k-mor) 30%,transparent);border-radius:14px;padding:16px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
-                    '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">🏦</span>'
-                    '<span style="font-size:14px;font-weight:700;color:var(--k-metin)">TOPLAM BAKİYE</span></div>'
-                    '<div style="display:flex;gap:24px;flex-wrap:wrap">'
-                    f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:var(--k-yesil);font-family:monospace">₺{tr_sayi(toplam_tl_hesap, 2)}</div></div>'
-                    f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace">${tr_sayi(toplam_usd_hesap, 2)}</div></div>'
-                    f'<div style="text-align:right;border-left:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);padding-left:20px"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:var(--k-mor);font-family:monospace">${tr_sayi(toplam_usd_esde, 2)}</div></div>'
-                    '</div></div>'
-                )
-                st.markdown(toplam_html, unsafe_allow_html=True)
-
+                banka_toplam(bankalar, kur, bekleyen_tl, bekleyen_usd)
+                banka_kartlari(bankalar, kur, bekleyen_tl, bekleyen_usd)
             else:
                 st.info("Henüz banka hesabı eklenmemiş.")
 
@@ -1860,56 +1840,15 @@ def run():
                                 st.toast(msg)
                                 st.rerun()
 
-                if st.button("Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary", icon=":material/payments:"):
+                if _bey.get("bnk_tahsilat"):
                     _dlg_tahsilat()
 
-    
-            st.markdown("---")
-    
-            # Hesap ekle / düzenle
-            col1, col2 = st.columns(2)
-    
-            with col1:
-                st.markdown("**➕ Yeni Hesap Ekle**")
-                with st.form("banka_ekle"):
-                    hesap_adi = st.text_input("Hesap Adı", placeholder="Örn: YKB TL Hesabı")
-                    bakiye = st.number_input("Bakiye", min_value=0.0, step=0.0001, format="%.4f")
-                    para_birimi = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
-                    if st.form_submit_button("Ekle", type="primary", icon=":material/add:"):
-                        if hesap_adi:
-                            banka_ekle(hesap_adi, bakiye, para_birimi)
-                            st.success("✅ Hesap eklendi.")
-                            st.rerun()
-    
-            with col2:
-                if bankalar:
-                    st.markdown("**✏️ Hesap Düzenle / Sil**")
-                    secim = st.selectbox("Hesap seçin", [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar])
-                    sec_idx = [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar].index(secim)
-                    sec_banka = bankalar[sec_idx]
-    
-                    with st.form("banka_duzenle"):
-                        yeni_ad = st.text_input("Hesap Adı", value=sec_banka["hesap_adi"])
-                        yeni_bakiye = st.number_input("Bakiye", value=float(sec_banka["bakiye"]), step=0.0001, format="%.4f")
-                        yeni_pb = st.selectbox("Para Birimi", ["TL", "USD", "EUR"],
-                                               index=["TL", "USD", "EUR"].index(sec_banka["para_birimi"]))
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            if st.form_submit_button("Kaydet", type="primary", icon=":material/save:"):
-                                banka_guncelle(sec_banka["id"], yeni_ad, yeni_bakiye, yeni_pb)
-                                st.success("✅ Güncellendi.")
-                                st.rerun()
-                        with col_b:
-                            if st.form_submit_button("Sil", icon=":material/delete:"):
-                                banka_sil(sec_banka["id"])
-                                st.success("Silindi.")
-                                st.rerun()
-    
-    
-        # ════════════════════════════════════════════════════════════════════
-        # 4) NAKİT AKIŞ
-        # ════════════════════════════════════════════════════════════════════
-            st.markdown("---")
+
+            if _bey.get("bnk_yeni"):
+                banka_yeni_dialog()
+            banka_detay_kontrol(kur)
+
+            # ─── Virman / Arbitraj pencereleri (başlıktaki düğmelerden açılır) ───
 
             # ─── ARBİTRAJ: aynı banka içinde TL ↔ USD çevrimi ───
             # Mekanik olarak virman ile aynı yola gider (virman_yap bakiyeleri
@@ -2034,10 +1973,9 @@ def run():
                     else:
                         st.error(f"❌ {_msg}")
 
-            _vb1, _vb2 = st.columns(2)
-            if _vb1.button("Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True, icon=":material/sync_alt:"):
+            if _bey.get("bnk_virman"):
                 _dlg_virman()
-            if _vb2.button("Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True, icon=":material/currency_exchange:"):
+            if _bey.get("bnk_arb"):
                 _dlg_arbitraj()
         elif sayfa == "💸 Nakit Akış":
             st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
@@ -2128,24 +2066,41 @@ def run():
             # Grafik
             df_grafik = pd.DataFrame([r for r in tablo_rows if r["Tarih"] != "TOPLAM"])
             if len(df_grafik) > 1:
+                # Eksen: GÜN etiketi (kategori). Eskiden gerçek tarih verildiği için
+                # eksen İngilizce ve saat çizgiliydi ("Sep 27, 2026 · 12:00").
+                # Üzerine gelince çıkan kutu: TR biçimli hazır metin (customdata).
+                # Eskiden şablona Python fonksiyonu (tr_sayi) yazılmıştı — grafik bunu anlamaz,
+                # tutar hiç görünmüyordu.
+                from .odeme_hesap import GUN_KISA as _GUN
+                def _gx(t):
+                    try:
+                        _d = pd.to_datetime(t).date()
+                        return f"{_d.day:02d}.{_d.month:02d} {_GUN[_d.weekday()]}"
+                    except Exception:
+                        return str(t)
+                _x = [_gx(t) for t in df_grafik["Tarih"]]
+                _gun_tl = df_grafik["Günlük TL (₺)"].fillna(0)
+                _kalan = df_grafik["TL Bakiye Kalan (₺)"]
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
-                    x=df_grafik["Tarih"],
-                    y=df_grafik["Günlük TL (₺)"].fillna(0),
+                    x=_x,
+                    y=_gun_tl,
                     name="Günlük TL Ödemesi",
                     marker_color="rgba(99,102,241,0.85)",
                     marker_line=dict(color="rgba(0,0,0,0)", width=0),
-                    hovertemplate="<b>%{x}</b><br>Günlük: ₺%{tr_sayi(y)}<extra></extra>",
+                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _gun_tl],
+                    hovertemplate="<b>%{x}</b><br>Günlük: %{customdata}<extra></extra>",
                 ))
                 fig.add_trace(go.Scatter(
-                    x=df_grafik["Tarih"],
-                    y=df_grafik["TL Bakiye Kalan (₺)"],
+                    x=_x,
+                    y=_kalan,
                     name="Kalan Bakiye",
                     mode="lines+markers",
                     line=dict(color=trenk("yesil"), width=2.5, shape="spline", smoothing=0.6),
                     marker=dict(size=7, color=trenk("yesil"), line=dict(color=trenk("yuzey0"), width=2)),
                     yaxis="y2",
-                    hovertemplate="<b>%{x}</b><br>Kalan: ₺%{tr_sayi(y)}<extra></extra>",
+                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _kalan.fillna(0)],
+                    hovertemplate="<b>%{x}</b><br>Kalan: %{customdata}<extra></extra>",
                 ))
                 fig.update_layout(
                     title=dict(
@@ -2154,6 +2109,7 @@ def run():
                         x=0.01, xanchor="left",
                     ),
                     xaxis=dict(
+                        type="category",
                         title=dict(text="Tarih", font=dict(family="Inter, sans-serif", size=12, color=trenk("silik"))),
                         tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
                         gridcolor="rgba(148,163,184,0.10)",
@@ -2281,6 +2237,10 @@ def run():
                     kalan_v = row.get(f"Kalan ({sym})", 0) or 0
                     satirlar.append({
                         "Ref No": renkli(row.get("Ref No", ""), "mavi", kalin=True),
+                        # Firma ve banka eskiden hazırlanıp tabloya KONMUYORDU:
+                        # "Firma Çekleri" sayfasında çekin kime verildiği görünmüyordu.
+                        "Firma": row.get("C/H İsmi", "") or "—",
+                        "Banka": row.get("Banka", "") or "—",
                         "Çek No": row.get("Çek No", ""),
                         "Tarih": row.get("Tarih", ""),
                         "Vade": row.get("Vade Tarihi", ""),
@@ -2291,7 +2251,7 @@ def run():
                         "_odendi": bool(row.get("_odendi")), "_kalan": kalan_v, "_vd": row.get("_vd", ""),
                     })
                 st.html(tablo_html(
-                    ["Ref No", ("Çek No", "mono"), ("Tarih", "mono"), ("Vade", "mono"),
+                    ["Ref No", "Firma", "Banka", ("Çek No", "mono"), ("Vade", "mono"),
                      ("Meblağ", "para", sym), ("Ödenen", "para", sym), ("Kalan", "para", sym),
                      ("Durum", "metin", "$", "orta")],
                     satirlar, vurgu=_vurgu))
@@ -2556,68 +2516,10 @@ def run():
         # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "💵 Gelenler Geçmişi":
-            st.markdown(_sb("💵 Muhasebe", "Gelenler Geçmişi", aciklama="Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri"), unsafe_allow_html=True)
-
-            _tahsilatlar = get_tahsilatlar(limit=2000)
-            if not _tahsilatlar:
-                st.info("Henüz tahsilat (para girişi) kaydı yok. Banka Bakiyeleri sayfasından "
-                        "**💰 Tahsilat Ekle** ile giriş yapabilirsin.")
-                st.stop()
-
-            import pandas as _pd
-            _gdf = _pd.DataFrame([{
-                "Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce"),
-                "Kaynak (Kimden)": (t.get("kaynak") or "—").strip() or "—",
-                "Banka": t.get("hesap_adi", "—"),
-                "Döviz": t.get("para_birimi", ""),
-                "Tutar": float(t.get("tutar", 0) or 0),
-                "Açıklama": (t.get("aciklama") or "").strip(),
-            } for t in _tahsilatlar])
-
-            # ── Filtreler ──
-            f1, f2, f3 = st.columns([1.3, 1.3, 1])
-            _kaynaklar = ["Tümü"] + sorted([k for k in _gdf["Kaynak (Kimden)"].unique() if k and k != "—"])
-            _bankalar_f = ["Tümü"] + sorted(_gdf["Banka"].unique().tolist())
-            _sec_kaynak = f1.selectbox("Kaynak (kimden)", _kaynaklar, key="gg_kaynak")
-            _sec_banka = f2.selectbox("Banka", _bankalar_f, key="gg_banka")
-            _sec_doviz = f3.selectbox("Döviz", ["Tümü"] + sorted([d for d in _gdf["Döviz"].unique() if d]), key="gg_doviz")
-
-            _f = _gdf.copy()
-            if _sec_kaynak != "Tümü":
-                _f = _f[_f["Kaynak (Kimden)"] == _sec_kaynak]
-            if _sec_banka != "Tümü":
-                _f = _f[_f["Banka"] == _sec_banka]
-            if _sec_doviz != "Tümü":
-                _f = _f[_f["Döviz"] == _sec_doviz]
-
-            # ── Özet metrikler (döviz bazında toplam) ──
-            _tl = _f[_f["Döviz"] == "TL"]["Tutar"].sum()
-            _usd = _f[_f["Döviz"] == "USD"]["Tutar"].sum()
-            _eur = _f[_f["Döviz"] == "EUR"]["Tutar"].sum()
-            metrik_satiri([
-                {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": trenk("yesil")},
-                {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": trenk("mavi")},
-                {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": trenk("amber")},
-                {"label": "Kayıt Adedi", "value": f"{tr_sayi(len(_f))}", "renk": trenk("mor"), "alt": "para girişi"},
-            ])
-
-            # ── Kimden ne kadar gelmiş (kaynak bazında özet) ──
-            with st.expander("👥 Kimden ne kadar gelmiş (kaynak bazında toplam)", expanded=False):
-                _ozet = (_f.groupby(["Kaynak (Kimden)", "Döviz"])["Tutar"]
-                         .sum().reset_index().sort_values("Tutar", ascending=False))
-                st.dataframe(_ozet, hide_index=True, use_container_width=True,
-                             column_config=tablo_kolonlari(_ozet, para="accounting"),
-                             height=tablo_h(len(_ozet), maks=420))
-
-            # ── Detay tablo ──
-            # Döviz artık tutarın içine yapıştırılmıyor — yapışınca kolon metin
-            # oluyor ve sıralama alfabetik bozuluyordu.
-            _goster = _f.copy()
-            st.dataframe(_goster, hide_index=True, use_container_width=True,
-                         column_config=tablo_kolonlari(_goster, para="accounting"),
-                         height=tablo_h(len(_goster), maks=560))
-            st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
-                       "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
+            # Ekim 2026: aya göre gruplu liste, her giriş KENDİ para birimiyle
+            # (eskiden TL tahsilatlar "$" ile görünüyordu); onaylı geri alma.
+            from .gelen_ekran import render_gelenler
+            render_gelenler()
 
 
         # ════════════════════════════════════════════════════════════════════

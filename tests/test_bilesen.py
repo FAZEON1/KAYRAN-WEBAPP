@@ -45,3 +45,17 @@ def test_onayli_sil_dugmesi_kirmizi_anahtar():
     """DUGME_CSS anahtarında '_sil' geçen düğmeyi kırmızı çizer."""
     src = _oku("shared/bilesen.py")
     assert 'key=f"{key}_sil"' in src and "disabled=not onay" in src
+
+
+def test_ipuclu_dugmeler_de_ortak_stili_alir():
+    """help= verilen düğme bir ipucu kabına sarılır; '> button' ona ulaşmıyordu
+    (birincil düğmeler dolgusuz görünüyordu). Seçici alt öğeyi de kapsar ve ona
+    bağlı özel kurallar en az aynı özgüllükte, SONRA yazılır."""
+    src = _oku("shared/tasarim.py")
+    d = src[src.index("_D = ("):src.index("_SIL = (")]
+    assert 'button[data-testid^="stBaseButton"]' in d and "> button" not in d.split("')")[0][-30:]
+    # Tıklanır kap kuralı ORTAK_BILESEN_CSS'te, DUGME_CSS'ten sonra basılır
+    cek = src.split("def cekirdek_css", 1)[1]
+    assert cek.index("DUGME_CSS") < cek.index("ORTAK_BILESEN_CSS")
+    t = _oku("shared/tarih.py")
+    assert '[data-testid="stElementContainer"].st-key-{key}_{y}.st-key-{key}_{y} ' in t

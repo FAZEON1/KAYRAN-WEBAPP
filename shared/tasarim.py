@@ -591,11 +591,18 @@ button[data-baseweb="tab"][aria-selected="true"]{{
 #    Üst menü (.st-key-ustnav), sağ alttaki ✉️ talep düğmesi (.st-key-fab_talep)
 #    ve sidebar kendi stilinde kalır.
 # ═══════════════════════════════════════════════════════════════════
+# NOT (Ekim 2026): '> button' yerine 'button[data-testid^="stBaseButton"]'.
+# help= verilen düğmeyi Streamlit bir ipucu kabına (stTooltipIcon) sarar;
+# '> button' ona ulaşmıyordu → ipuçlu düğmeler ortak stili ALMIYORDU (birincil
+# düğme dolgusuz/soluk görünüyordu). Bu seçici bir kademe daha özgül; ona
+# bağlı özel kurallar (tıklanır kart düğmesi, tarih okları) bundan SONRA ve en
+# az bu özgüllükte yazılır (test_bilesen denetler).
 _D = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
-      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *) > button')
+      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *) '
+      'button[data-testid^="stBaseButton"]')
 _SIL = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
         '[class*="st-key-"][class*="_sil"]:not([class*="iptal"]):not([class*="vazgec"]) '
-        ':is(.stButton,.stFormSubmitButton) > button')
+        ':is(.stButton,.stFormSubmitButton) button[data-testid^="stBaseButton"]')
 DUGME_CSS = f"""
 {_D}{{min-height:38px !important;height:auto !important;padding:0 16px !important;
   border-radius:9px !important;font-size:13px !important;font-weight:600 !important;
@@ -736,7 +743,7 @@ MOBIL_CSS = f"""
     width:100% !important;}}
   :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *){{
     width:100% !important;}}
-  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *) > button{{
+  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *) button[data-testid^="stBaseButton"]{{
     width:100% !important;}}
 
   /* Elle yazılmış HTML tablolar: ekranı taşırmasın, kendi içinde yana kaysın.
