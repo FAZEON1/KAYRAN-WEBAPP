@@ -569,6 +569,28 @@ BILESEN_CSS = """
   border:1px solid color-mix(in srgb,var(--m) 30%,transparent);border-left:3px solid var(--m);}
 .k-mesaj-ikon{font-family:"Material Symbols Rounded";font-size:18px;line-height:1.2;color:var(--m);
   font-weight:normal;letter-spacing:normal;text-transform:none;flex-shrink:0;}
+.k-tbw{max-width:100%;overflow:auto;border:1px solid var(--k-kenar);border-radius:var(--k-r);
+  background:var(--k-yuzey1);}
+.k-tb{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;color:var(--k-metin);}
+.k-tb thead th{position:sticky;top:0;z-index:2;background:var(--k-yuzey2);color:var(--k-soluk);
+  font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;
+  padding:9px 12px;border-bottom:1px solid var(--k-kenar2);text-align:left;}
+.k-tb tbody td{padding:7px 12px;border-bottom:1px solid var(--k-kenar);vertical-align:middle;
+  line-height:1.4;word-break:normal;}
+.k-tb tbody tr:nth-child(even) td{background:var(--k-ortu);}
+.k-tb tbody tr:hover td{background:var(--k-ortu2);}
+.k-tb tbody tr[data-vurgu] td{background:color-mix(in srgb,var(--v) 10%,transparent);}
+.k-tb tbody tr[data-vurgu]:hover td{background:color-mix(in srgb,var(--v) 16%,transparent);}
+.k-tb tbody tr:last-child td{border-bottom:0;}
+.k-tb .sag{text-align:right;} .k-tb .orta{text-align:center;}
+.k-tb .sayi{font-family:var(--k-mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.k-tb .neg{color:var(--k-kirmizi);} .k-tb .silik{color:var(--k-silik);}
+.k-tb td.kisa{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.k-tb tfoot td{padding:8px 12px;font-weight:700;background:var(--k-yuzey2);
+  border-top:2px solid var(--k-kenar2);position:sticky;bottom:0;}
+.k-tb .k-rz{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
+  letter-spacing:.2px;white-space:nowrap;background:color-mix(in srgb,var(--r) 12%,transparent);
+  color:var(--r);border:1px solid color-mix(in srgb,var(--r) 30%,transparent);}
 """
 
 
@@ -1153,6 +1175,118 @@ def tarih(v, saat=False):
     except ValueError:
         return str(v)
     return d.strftime("%d.%m.%Y %H:%M" if saat else "%d.%m.%Y")
+
+
+class Ham(str):
+    """tablo_html hücresi için HAZIR HTML — kaçış uygulanmadan basılır.
+    Metin/sayı hücreleri kaçırılır (DB'den gelen '<' patlatmaz); rozet, link ya da
+    renkli parça gerekiyorsa Ham("...") ver ya da rozet_html()/renkli() kullan."""
+
+
+def rozet_html(metin, renk="mor"):
+    """Tablo/kart içinde küçük durum rozeti: rozet_html("ÖDENDİ", "yesil")."""
+    import html as _h
+    return Ham(f'<span class="k-rz" style="--r:var(--k-{renk if renk in RENK else "mor"})">{_h.escape(str(metin))}</span>')
+
+
+def renkli(metin, renk="metin", kalin=False, title=None, tek=True):
+    """Tek renkli hücre parçası (Ham). tek=True → kelime ortasından kırılmaz
+    (gün adı, kod gibi kısa metinler). title verilirse üstüne gelince görünür."""
+    import html as _h
+    t = f' title="{_h.escape(str(title), quote=True)}"' if title else ""
+    k = ("font-weight:700;" if kalin else "") + ("white-space:nowrap;" if tek else "")
+    return Ham(f'<span style="{k}color:var(--k-{renk if renk in RENK else "metin"})"{t}>{_h.escape(str(metin))}</span>')
+
+
+class Kisa(Ham):
+    """kisalt() çıktısı — hücre tek satırda kalır, sığmayan kısım '…' ile kesilir."""
+
+
+def kisalt(metin, n=42):
+    """Uzun metni '…' ile kısaltıp tamamını title'a koyar (üstüne gelince görünür).
+    Hücre tek satır kalır, en fazla 200px genişler; komşu sütunları ezmez."""
+    import html as _h
+    m = str(metin or "")
+    if len(m) <= n:
+        return Kisa(_h.escape(m))
+    return Kisa(f'<span title="{_h.escape(m, quote=True)}">{_h.escape(m[:n - 1])}…</span>')
+
+
+
+_TB_HIZA = {"para": "sag", "adet": "sag", "oran": "sag", "mono": "sol"}
+
+
+def tablo_html(kolonlar, satirlar, toplam=None, vurgu=None, yukseklik=None, bos_mesaj="Gösterilecek veri yok."):
+    """ORTAK salt-okur tablo (HTML). Modüllerin kendi <table> yazması yerine bu.
+
+    kolonlar: ["Firma", ("Tutar", "para", "₺"), {"ad": "Adet", "tip": "adet"}]
+        tip: metin (varsayılan) · para · adet · oran · mono (sabit genişlik yazı)
+        birim: para için ₺ / $ (tip para ise 3. eleman ya da "birim" anahtarı)
+        hiza: sol / sag / orta (varsayılan: sayı → sağ, diğer → sol)
+    satirlar: [{kolon_adi: değer}]  değer: sayı, metin, None ("—") ya da Ham (hazır HTML)
+    toplam:   {kolon_adi: değer} — kalın alt satır (tfoot)
+    vurgu:    satır → renk anahtarı ("kirmizi"/"amber"/"yesil"/…) ya da None
+    yukseklik: px verilirse kaydırmalı olur, başlık yapışkan kalır.
+
+    Kaçış: Ham olmayan her hücre html.escape'ten geçer.
+    Kullanım: st.html(tablo_html(...))  (st.markdown da olur)
+    """
+    import html as _h
+    if not satirlar:
+        return bos(_h.escape(bos_mesaj))
+    kol = []
+    for k in kolonlar:
+        if isinstance(k, dict):
+            kol.append({"ad": k["ad"], "tip": k.get("tip", "metin"), "birim": k.get("birim", "$"),
+                        "hiza": k.get("hiza")})
+        elif isinstance(k, (tuple, list)):
+            kol.append({"ad": k[0], "tip": k[1] if len(k) > 1 else "metin",
+                        "birim": k[2] if len(k) > 2 else "$", "hiza": k[3] if len(k) > 3 else None})
+        else:
+            kol.append({"ad": str(k), "tip": "metin", "birim": "$", "hiza": None})
+    for k in kol:
+        k["hiza"] = k["hiza"] or _TB_HIZA.get(k["tip"], "sol")
+
+    def hucre(k, v, tag="td"):
+        sinif = [k["hiza"]] if k["hiza"] != "sol" else []
+        if isinstance(v, Kisa):
+            metin = str(v); sinif.append("kisa")
+        elif isinstance(v, Ham):
+            metin = str(v)
+        elif v is None or v == "":
+            metin, sinif = "—", sinif + ["silik"]
+        elif k["tip"] == "para":
+            metin = _tr_para(v, k["birim"]); sinif.append("sayi")
+        elif k["tip"] == "adet":
+            metin = _tr_adet(v); sinif.append("sayi")
+        elif k["tip"] == "oran":
+            metin = _tr_oran(v); sinif.append("sayi")
+        elif k["tip"] == "mono":
+            metin = _h.escape(str(v)); sinif.append("sayi")
+        else:
+            metin = _h.escape(str(v))
+        if k["tip"] in ("para", "adet", "oran") and not isinstance(v, Ham):
+            try:
+                if float(v) < 0:
+                    sinif.append("neg")
+            except (TypeError, ValueError):
+                pass
+        c = f' class="{" ".join(sinif)}"' if sinif else ""
+        return f"<{tag}{c}>{metin}</{tag}>"
+
+    bas = "".join(f'<th class="{k["hiza"]}">{_h.escape(k["ad"])}</th>' if k["hiza"] != "sol"
+                  else f'<th>{_h.escape(k["ad"])}</th>' for k in kol)
+    govde = []
+    for r in satirlar:
+        vr = vurgu(r) if vurgu else None
+        attr = f' data-vurgu="{vr}" style="--v:var(--k-{vr})"' if vr in RENK else ""
+        govde.append(f"<tr{attr}>" + "".join(hucre(k, r.get(k["ad"])) for k in kol) + "</tr>")
+    alt = ""
+    if toplam:
+        alt = "<tfoot><tr>" + "".join(hucre(k, toplam.get(k["ad"])) for k in kol) + "</tr></tfoot>"
+    sarmal = f' style="max-height:{int(yukseklik)}px"' if yukseklik else ""
+    return (f'<div class="k-tbw"{sarmal}><table class="k-tb"><thead><tr>{bas}</tr></thead>'
+            f'<tbody>{"".join(govde)}</tbody>{alt}</table></div>')
 
 
 def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",

@@ -24,12 +24,13 @@ def _oku(p):
 def test_gecikmis_cek_kirmizi_satir():
     kod = _oku("kayranacc/main.py")
     assert 'vd_raw < str(__import__("datetime").date.today())' not in kod
-    assert 'vd_raw == "gecmis"' in kod
     i = kod.index("def cek_tablo(")
-    blok = kod[i:kod.index("cur_label =", i)]
-    # renkli satır zeminleri zebrayı ezsin
-    for renk in ("kirmizi", "yesil"):
-        assert re.search(r'row_bg = "background:color-mix\(in srgb,var\(--k-%s\) \d+%%,transparent\) !important;"' % renk, blok), renk
+    blok = kod[i:kod.index("tab1, tab2 = st.tabs(", i)]
+    # vade_durumu() sonucuyla karşılaştırılır; satır vurgusu ortak tabloya verilir
+    assert 'row["_vd"] == "gecmis"' in blok and 'return "kirmizi"' in blok
+    assert 'row["_vd"] == "bugun"' in blok and 'return "amber"' in blok
+    assert 'if row["_odendi"]:' in blok and 'return "yesil"' in blok
+    assert "tablo_html(" in blok and "vurgu=_vurgu" in blok
 
 
 def test_muhasebe_tarih_bicimi():
@@ -37,7 +38,7 @@ def test_muhasebe_tarih_bicimi():
     assert 'strftime("%d-%m-%Y")' not in kod
     assert 'return d.strftime("%d.%m.%Y")' in kod
     # Nakit Akış tablosu hücresi TR tarih
-    assert '{row["Tarih"] if is_toplam else fmt_tarih(row["Tarih"])}' in kod
+    assert '"Tarih": row["Tarih"] if row["Tarih"] == "TOPLAM" else fmt_tarih(row["Tarih"])' in kod
     # Gelenler Geçmişi: metin değil gerçek tarih (tablo_kolonlari GG.AA.YYYY basar)
     assert '"Tarih": str(t.get("tarih", ""))[:10]' not in kod
     assert '"Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce")' in kod

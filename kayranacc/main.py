@@ -13,7 +13,8 @@ import streamlit as st
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
-from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h
+from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h, tablo_html, Ham, rozet_html, renkli, kisalt
+from shared.tasarim import para as _tpara
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -1690,91 +1691,46 @@ def run():
     
         df_tablo = pd.DataFrame(tablo_rows)
 
-        # ── Profesyonel HTML tablo (siyah bg yerine modern tasarım) ──
+        # ── Takvim tablosu: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
         def render_takvim_tablosu(df):
             if df.empty:
                 st.info("Veri yok.")
                 return
+            _ROZET = {"GECİKMİŞ": ("🚨 GECİKMİŞ", "kirmizi"), "BUGÜN": ("⏰ BUGÜN", "amber"), "YARIN": ("📅 YARIN", "mavi")}
 
-            # Renk kodlaması: Durum sütununa göre satır rengi
-            def row_bg(durum):
-                if "GECİKMİŞ" in str(durum):
-                    return "rgba(239,68,68,0.08)"   # kırmızı tonu
-                elif "BUGÜN" in str(durum):
-                    return "rgba(245,158,11,0.10)"  # turuncu tonu
-                elif "YARIN" in str(durum):
-                    return "rgba(59,130,246,0.08)"  # mavi tonu
-                return "transparent"
+            def _durum(d):
+                for anahtar, (etiket, renk) in _ROZET.items():
+                    if anahtar in str(d):
+                        return rozet_html(etiket, renk)
+                return None
 
-            def durum_badge(durum):
-                if "GECİKMİŞ" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:color-mix(in srgb,var(--k-kirmizi) 12%,transparent);color:var(--k-kirmizi);border:1px solid color-mix(in srgb,var(--k-kirmizi) 30%,transparent);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">🚨 GECİKMİŞ</span>'''
-                elif "BUGÜN" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:color-mix(in srgb,var(--k-amber) 12%,transparent);color:var(--k-amber);border:1px solid color-mix(in srgb,var(--k-amber) 30%,transparent);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">⏰ BUGÜN</span>'''
-                elif "YARIN" in str(durum):
-                    return f'''<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:color-mix(in srgb,var(--k-mavi) 12%,transparent);color:var(--k-mor2);border:1px solid color-mix(in srgb,var(--k-mavi) 30%,transparent);border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.3px">📅 YARIN</span>'''
-                return f'''<span style="color:var(--k-soluk);font-size:11px">—</span>'''
+            def _vurgu(r):
+                for anahtar, (_, renk) in _ROZET.items():
+                    if anahtar in str(r.get("Durum", "")):
+                        return renk
+                return None
 
-            rows_html = ""
-            for i, row in df.iterrows():
-                bg = row_bg(row.get("Durum", ""))
-                durum_html = durum_badge(row.get("Durum", ""))
-                bekliyor_val = row.get("Bekliyor", 0)
-                bekliyor_color = trenk("kirmizi") if bekliyor_val and bekliyor_val > 0 else trenk("yesil")
-                odendi_val = row.get("Ödendi", 0)
-                _kisalt = lambda s, n=42: (str(s or "")[:n-1] + "…") if len(str(s or "")) > n else str(s or "")
-                firma_disp = _kisalt(row.get("Firma",""))
-                acik_disp = _kisalt(row.get("Açıklama",""))
-                firma_title = str(row.get("Firma","") or "").replace(chr(34), "&quot;")
-                acik_title = str(row.get("Açıklama","") or "").replace(chr(34), "&quot;")
-                rows_html += f'''
-                <tr style="background:{bg};border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.15s">
-                  <td style="padding:8px 16px;font-weight:600;color:var(--k-mavi);font-size:13px">{row.get("Gün","")}</td>
-                  <td style="padding:8px 16px;color:var(--k-silik);font-size:13px;font-family:'JetBrains Mono',monospace">{row.get("Tarih","")}</td>
-                  <td style="padding:8px 16px;text-align:center;color:var(--k-silik);font-size:13px;font-weight:600">{row.get("Ödeme Sayısı","")}</td>
-                  <td style="padding:8px 16px;text-align:center;color:var(--k-yesil);font-weight:700;font-size:13px">{odendi_val}</td>
-                  <td style="padding:8px 16px;text-align:center;color:{bekliyor_color};font-weight:700;font-size:13px">{bekliyor_val}</td>
-                  <td style="padding:8px 16px;text-align:right;color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600">{row.get("Tutar TL (₺)","")}</td>
-                  <td style="padding:8px 16px;text-align:right;color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600">{row.get("Tutar USD ($)","")}</td>
-                  <td class="cell-firma" title="{firma_title}">{firma_disp}</td>
-                  <td class="cell-acik" title="{acik_title}">{acik_disp}</td>
-                  <td style="padding:8px 16px;text-align:center">{durum_html}</td>
-                </tr>'''
+            satirlar = []
+            for _, row in df.iterrows():
+                bekliyor = int(row.get("Bekliyor", 0) or 0)
+                satirlar.append({
+                    "Gün": renkli(row.get("Gün", ""), "mavi", kalin=True),
+                    "Tarih": row.get("Tarih", ""),
+                    "Ödeme": int(row.get("Ödeme Sayısı", 0) or 0),
+                    "Ödendi": renkli(int(row.get("Ödendi", 0) or 0), "yesil", kalin=True),
+                    "Bekliyor": renkli(bekliyor, "kirmizi" if bekliyor > 0 else "yesil", kalin=True),
+                    "Tutar TL (₺)": row.get("Tutar TL (₺)", ""),
+                    "Tutar USD ($)": row.get("Tutar USD ($)", ""),
+                    "Firma": kisalt(row.get("Firma", "")),
+                    "Açıklama": kisalt(row.get("Açıklama", "")),
+                    "Durum": _durum(row.get("Durum", "")),
+                })
+            st.html(tablo_html(
+                ["Gün", ("Tarih", "mono"), ("Ödeme", "adet", "$", "orta"), ("Ödendi", "adet", "$", "orta"),
+                 ("Bekliyor", "adet", "$", "orta"), ("Tutar TL (₺)", "mono", "$", "sag"),
+                 ("Tutar USD ($)", "mono", "$", "sag"), "Firma", "Açıklama", ("Durum", "metin", "$", "orta")],
+                satirlar, vurgu=_vurgu))
 
-            html = f'''
-            <style>
-              .takvim-tablo-wrap {{ overflow-x:auto; border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,0.08); }}
-              .takvim-tablo {{ width:100%; border-collapse:collapse; font-family:'Inter','Inter',sans-serif; }}
-              .takvim-tablo .cell-firma, .takvim-tablo .cell-acik {{ text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; padding:8px 16px; }}
-              .takvim-tablo .cell-firma {{ color:var(--k-mavi); font-size:13px; font-weight:600; }}
-              .takvim-tablo .cell-acik {{ color:var(--k-soluk); font-size:13px; }}
-              .takvim-tablo thead tr {{ background:linear-gradient(135deg,var(--k-yuzey3) 0%,var(--k-yuzey1) 100%); }}
-              .takvim-tablo thead th {{ padding:12px 16px; color:var(--k-mavi); font-size:11px; font-weight:700;
-                letter-spacing:1px; text-transform:uppercase; border:none; white-space:nowrap; }}
-              .takvim-tablo thead th:first-child {{ border-radius:14px 0 0 0; }}
-              .takvim-tablo thead th:last-child {{ border-radius:0 14px 0 0; text-align:center; }}
-              .takvim-tablo thead th:nth-child(3),
-              .takvim-tablo thead th:nth-child(4),
-              .takvim-tablo thead th:nth-child(5) {{ text-align:center; }}
-              .takvim-tablo thead th:nth-child(6),
-              .takvim-tablo thead th:nth-child(7) {{ text-align:right; }}
-              .takvim-tablo tbody {{ background:var(--k-yuzey2); }}
-              .takvim-tablo tbody tr:hover {{ background:color-mix(in srgb,var(--k-mor) 4%,transparent) !important; }}
-              .takvim-tablo tbody tr:last-child td:first-child {{ border-radius:0 0 0 14px; }}
-              .takvim-tablo tbody tr:last-child td:last-child {{ border-radius:0 0 14px 0; }}
-            </style>
-            <div class="takvim-tablo-wrap">
-              <table class="takvim-tablo">
-                <thead>
-                  <tr>
-                    <th>Gün</th><th>Tarih</th><th>Ödeme</th><th>Ödendi</th>
-                    <th>Bekliyor</th><th>Tutar TL (₺)</th><th>Tutar USD ($)</th><th>Firma</th><th>Açıklama</th><th>Durum</th>
-                  </tr>
-                </thead>
-                <tbody>{rows_html}</tbody>
-              </table>
-            </div>'''
-            st.html(html)
 
         @st.dialog("📅 Günlük Ödeme Takvimi", width="large")
         def _dlg_odeme_takvimi():
@@ -2589,76 +2545,29 @@ def run():
                         else "background-color:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);font-weight:700"] * len(row)
             return ["background-color:var(--k-kirmizi);color:var(--k-kirmizi2)" if k < 0 else ""] * len(row)
     
-        # --- Nakit Akis HTML Tablosu ---
-        def _tr_para(v, sym):
-            """TR format + kuruş: 1234567.75 → '₺ 1.234.567,75'"""
-            return f"{sym} " + f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        # --- Nakit Akış tablosu: ortak tablo_html (Aşama 4b) ---
+        def _kalan_hucre(v, kalin=False):
+            return renkli(_tpara(v, "₺", 2), "yesil" if (v or 0) >= 0 else "kirmizi", kalin=kalin)
 
-        def fmt_tl(v):
-            if v is None or (isinstance(v, float) and v == 0.0): return "-"
-            return _tr_para(v, "₺")
-
-        def fmt_usd(v):
-            if v is None or (isinstance(v, float) and v == 0.0): return "-"
-            return _tr_para(v, "$")
-        nakit_rows_html = ""
-        for idx_r, row in enumerate(tablo_rows):
-            is_toplam = row["Tarih"] == "TOPLAM"
-            kalan_v = row.get("_kalan") or 0
-            if is_toplam:
-                row_bg = "background:var(--k-yuzey3);"
-                tarih_style = "font-weight:700;color:var(--k-metin);font-size:13px;"
-            elif idx_r % 2 == 0:
-                row_bg = "background:var(--k-yuzey2);"
-                tarih_style = "color:var(--k-mavi);font-size:13px;"
+        _nk_kol = [("Tarih", "mono"), ("Günlük TL", "para", "₺"), ("Günlük USD", "para", "$"),
+                   ("Küm. TL", "para", "₺"), ("Küm. USD", "para", "$"), ("TL Bakiye", "para", "₺")]
+        _nk_satir, _nk_toplam = [], None
+        for row in tablo_rows:
+            kayit = {
+                "Tarih": row["Tarih"] if row["Tarih"] == "TOPLAM" else fmt_tarih(row["Tarih"]),
+                "Günlük TL": row.get("Günlük TL (₺)") or None,
+                "Günlük USD": row.get("Günlük USD ($)") or None,
+                "Küm. TL": row.get("Kümülatif TL (₺)") or None,
+                "Küm. USD": row.get("Kümülatif USD ($)") or None,
+                "TL Bakiye": _kalan_hucre(row.get("_kalan") or 0, kalin=row["Tarih"] == "TOPLAM"),
+            }
+            if row["Tarih"] == "TOPLAM":
+                kayit["Tarih"] = "Σ TOPLAM"
+                _nk_toplam = kayit
             else:
-                row_bg = "background:var(--k-yuzey2);"
-                tarih_style = "color:var(--k-mavi);font-size:13px;"
-            kalan_color = trenk("yesil") if kalan_v >= 0 else trenk("kirmizi")
-            gun_tl_v = row.get("Günlük TL (₺)") or 0
-            gun_usd_v = row.get("Günlük USD ($)") or 0
-            kum_tl_v = row.get("Kümülatif TL (₺)") or 0
-            kum_usd_v = row.get("Kümülatif USD ($)") or 0
-            num_style = "font-family:monospace;font-size:13px;text-align:right;"
-            num_style_top = "font-family:monospace;font-size:13px;text-align:right;font-weight:700;color:var(--k-soluk);"
-            if is_toplam:
-                nakit_rows_html += (
-                    f'<tr style="{row_bg}border-top:2px solid var(--k-soluk);">'
-                    f'<td style="padding:8px 16px;{tarih_style}border-bottom:1px solid var(--k-soluk);">Σ TOPLAM</td>'
-                    f'<td style="padding:8px 16px;{num_style_top}border-bottom:1px solid var(--k-soluk);">{fmt_tl(gun_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style_top}border-bottom:1px solid var(--k-soluk);">{fmt_usd(gun_usd_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style_top}border-bottom:1px solid var(--k-soluk);">{fmt_tl(kum_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style_top}border-bottom:1px solid var(--k-soluk);">{fmt_usd(kum_usd_v)}</td>'
-                    f'<td style="padding:8px 16px;font-family:monospace;font-size:13px;text-align:right;font-weight:700;color:{kalan_color};border-bottom:1px solid var(--k-soluk);">{fmt_tl(kalan_v)}</td>'
-                    '</tr>'
-                )
-            else:
-                nakit_rows_html += (
-                    f'<tr style="{row_bg}" onmouseover="this.style.background=''#0E1A3A''" onmouseout="this.style.background=''{trenk("yuzey2") if idx_r%2 else trenk("yuzey2")}''">'
-                    f'<td style="padding:8px 16px;{tarih_style}border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{row["Tarih"] if is_toplam else fmt_tarih(row["Tarih"])}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:var(--k-yesil);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_tl(gun_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:var(--k-mor2);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_usd(gun_usd_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:var(--k-yesil);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_tl(kum_tl_v)}</td>'
-                    f'<td style="padding:8px 16px;{num_style}color:var(--k-mor2);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_usd(kum_usd_v)}</td>'
-                    f'<td style="padding:8px 16px;font-family:monospace;font-size:13px;text-align:right;font-weight:600;color:{kalan_color};border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_tl(kalan_v)}</td>'
-                    '</tr>'
-                )
-        nakit_tablo_html = (
-            '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
-            '<div style="overflow-x:auto;">'
-            '<table style="width:100%;border-collapse:collapse;background:transparent;">'
-            '<thead><tr style="background:linear-gradient(135deg,var(--k-yuzey3) 0%,var(--k-yuzey1) 100%);">'
-            '<th style="padding:12px 16px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
-            '<th style="padding:12px 16px;text-align:right;color:var(--k-yesil);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük TL</th>'
-            '<th style="padding:12px 16px;text-align:right;color:var(--k-mavi);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Günlük USD</th>'
-            '<th style="padding:12px 16px;text-align:right;color:var(--k-yesil2);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. TL</th>'
-            '<th style="padding:12px 16px;text-align:right;color:var(--k-mavi);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Küm. USD</th>'
-            '<th style="padding:12px 16px;text-align:right;color:var(--k-amber);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">TL Bakiye</th>'
-            '</tr></thead><tbody>'
-            + nakit_rows_html +
-            '</tbody></table></div></div>'
-        )
-        st.markdown(nakit_tablo_html, unsafe_allow_html=True)
+                _nk_satir.append(kayit)
+        st.html(tablo_html(_nk_kol, _nk_satir, toplam=_nk_toplam,
+                           vurgu=lambda r: "kirmizi" if "k-kirmizi" in str(r["TL Bakiye"]) else None))
     
         # Grafik
         df_grafik = pd.DataFrame([r for r in tablo_rows if r["Tarih"] != "TOPLAM"])
@@ -2788,98 +2697,48 @@ def run():
                     "Hesap No":     c.get("hesap_no", ""),
                     "_vd": vd,
                 })
-            df = pd.DataFrame(rows)
-    
-            def renk(row):
-                vd = row.get("_vd", "")
-                durum = str(row.get("Son Pozisyon", "")).lower()
-                if vd == "gecmis" and "odendi" not in durum:
-                    return ["background-color:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2)"] * len(row)
-                if vd == "bugun" and "odendi" not in durum:
-                    return ["background-color:color-mix(in srgb,var(--k-amber) 15%,transparent);color:var(--k-amber2)"] * len(row)
-                if "odendi" in durum:
-                    return ["background-color:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2)"] * len(row)
-                if "ciro" in durum:
-                    return ["background-color:color-mix(in srgb,var(--k-mavi) 15%,transparent);color:var(--k-mavi)"] * len(row)
-                return [""] * len(row)
-    
-            # --- Firma Cekleri HTML Tablosu ---
-            is_usd = (cur == "USD")
-            sym_prefix = "$" if is_usd else "₺"
-            def fmt_para(v):
-                if v is None or v == 0: return "-"
-                # kuruşlar korunur (TR format: binlik '.', ondalık ',')
-                return f"{sym_prefix} " + f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            cek_rows_html = ""
-            for ri, row in enumerate(rows):
-                vd_raw = row.get("_vd", "")
-                # 'Ödendi' → 'odendi' (eskiden .lower() 'ödendi' veriyordu, hiç eşleşmiyordu)
-                pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))
-                odendi_satir = bool(row.get("_odendi"))
-                kalan_v = row.get(f"Kalan ({sym})", 0) or 0
-                # vd_raw = vade_durumu() sonucu ("gecmis"/"bugun"/"yarin"/"normal").
-                # Eskiden bugünün TARİHİYLE karşılaştırılıyordu ("gecmis" < "2026-…" hep
-                # yanlış) → gecikmiş çek hiç kırmızı olmuyordu.
-                # !important: Muhasebe CSS'i tablo satırlarını zebraya zorluyor (satır ~871).
-                if "gecmis" in pozisyon or (not odendi_satir and kalan_v > 0 and vd_raw == "gecmis"):
-                    row_bg = "background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent) !important;"
-                    ref_color = trenk("kirmizi")
-                elif not odendi_satir and kalan_v > 0 and vd_raw == "bugun":
-                    row_bg = "background:color-mix(in srgb,var(--k-amber) 12%,transparent) !important;"
-                    ref_color = trenk("amber")
-                elif odendi_satir:
-                    row_bg = "background:color-mix(in srgb,var(--k-yesil) 10%,transparent) !important;"
-                    ref_color = trenk("yesil")
-                elif ri % 2 == 0:
-                    row_bg = "background:var(--k-yuzey2);"
-                    ref_color = trenk("mavi")
-                else:
-                    row_bg = "background:var(--k-yuzey2);"
-                    ref_color = trenk("mavi")
-                meblag_v = row.get(f"Meblağ ({sym})", 0) or 0
-                odenen_v = row.get(f"Ödenen ({sym})", 0) or 0
-                kalan_color = trenk("yesil") if kalan_v <= 0 else trenk("kirmizi")
-                pos_badge = ""
+            # --- Firma Çekleri tablosu: ortak tablo_html (Aşama 4b) ---
+            def _durum_rozet(pozisyon, ham):
                 if pozisyon == "odendi":
-                    pos_badge = '<span style="background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">✓ ÖDENDİ</span>'
-                elif "bekliyor" in pozisyon:
-                    pos_badge = '<span style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);color:var(--k-amber2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⏳ BEKLİYOR</span>'
-                elif "gecmis" in pozisyon:
-                    pos_badge = '<span style="background:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);font-size:11px;font-weight:600;padding:0px 8px;border-radius:10px;">⚠ GECİKMİŞ</span>'
-                else:
-                    pos_badge = f'<span style="background:color-mix(in srgb,var(--k-metin) 8%,transparent);color:var(--k-soluk);font-size:11px;padding:0px 8px;border-radius:10px;">{row.get("Son Pozisyon","")}</span>'
-                num_s = "font-family:monospace;font-size:13px;text-align:right;"
-                cek_rows_html += (
-                    f'<tr style="{row_bg}">'
-                    f'<td style="padding:8px 12px;font-size:11px;font-weight:600;color:{ref_color};border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);white-space:nowrap;">{row.get("Ref No","")}</td>'
-                    f'<td style="padding:8px 12px;{num_s}color:var(--k-silik);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{row.get("Cek No","") or row.get("Çek No","")}</td>'
-                    f'<td style="padding:8px 12px;font-size:13px;color:var(--k-silik);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);white-space:nowrap;">{row.get("Tarih","")}</td>'
-                    f'<td style="padding:8px 12px;font-size:13px;color:var(--k-silik);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);white-space:nowrap;">{row.get("Vade Tarihi","")}</td>'
-                    f'<td style="padding:8px 12px;{num_s}color:var(--k-mavi);font-weight:600;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_para(meblag_v)}</td>'
-                    f'<td style="padding:8px 12px;{num_s}color:var(--k-yesil);border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_para(odenen_v)}</td>'
-                    f'<td style="padding:8px 12px;{num_s}color:{kalan_color};font-weight:600;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{fmt_para(kalan_v)}</td>'
-                    f'<td style="padding:8px 12px;text-align:center;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">{pos_badge}</td>'
-                    '</tr>'
-                )
-            cur_label = "USD ($)" if is_usd else "TL (₺)"
-            cek_html = (
-                '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">'
-                '<div style="overflow-x:auto;">'
-                '<table style="width:100%;border-collapse:collapse;">'
-                '<thead><tr style="background:linear-gradient(135deg,var(--k-yuzey3) 0%,var(--k-yuzey1) 100%);">'
-                '<th style="padding:12px 12px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ref No</th>'
-                '<th style="padding:12px 12px;text-align:right;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Çek No</th>'
-                '<th style="padding:12px 12px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tarih</th>'
-                '<th style="padding:12px 12px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>'
-                f'<th style="padding:12px 12px;text-align:right;color:var(--k-mavi);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Meblağ {cur_label}</th>'
-                f'<th style="padding:12px 12px;text-align:right;color:var(--k-yesil);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödenen {cur_label}</th>'
-                f'<th style="padding:12px 12px;text-align:right;color:var(--k-amber);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kalan {cur_label}</th>'
-                '<th style="padding:12px 12px;text-align:center;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Durum</th>'
-                '</tr></thead><tbody>'
-                + cek_rows_html +
-                '</tbody></table></div></div>'
-            )
-            st.markdown(cek_html, unsafe_allow_html=True)
+                    return rozet_html("✓ ÖDENDİ", "yesil")
+                if "bekliyor" in pozisyon:
+                    return rozet_html("⏳ BEKLİYOR", "amber")
+                if "gecmis" in pozisyon:
+                    return rozet_html("⚠ GECİKMİŞ", "kirmizi")
+                return rozet_html(ham or "—", "soluk")
+
+            def _vurgu(row):
+                """Gecikmiş → kırmızı · bugün vadeli → sarı · ödenmiş → yeşil.
+                (vade_durumu() sonucu; eskiden bugünün tarih METNİYLE karşılaştırılıyordu,
+                'gecmis' < '2026-…' hep yanlış → gecikmiş çek hiç kırmızı olmuyordu.)"""
+                if row["_odendi"]:
+                    return "yesil"
+                if row["_kalan"] > 0 and row["_vd"] == "gecmis":
+                    return "kirmizi"
+                if row["_kalan"] > 0 and row["_vd"] == "bugun":
+                    return "amber"
+                return None
+
+            satirlar = []
+            for row in rows:
+                pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))   # 'Ödendi' → 'odendi'
+                kalan_v = row.get(f"Kalan ({sym})", 0) or 0
+                satirlar.append({
+                    "Ref No": renkli(row.get("Ref No", ""), "mavi", kalin=True),
+                    "Çek No": row.get("Çek No", ""),
+                    "Tarih": row.get("Tarih", ""),
+                    "Vade": row.get("Vade Tarihi", ""),
+                    "Meblağ": row.get(f"Meblağ ({sym})", 0) or None,
+                    "Ödenen": row.get(f"Ödenen ({sym})", 0) or None,
+                    "Kalan": renkli(_tpara(kalan_v, sym, 2), "kirmizi" if kalan_v > 0 else "yesil", kalin=True) if kalan_v else None,
+                    "Durum": _durum_rozet(pozisyon, row.get("Son Pozisyon", "")),
+                    "_odendi": bool(row.get("_odendi")), "_kalan": kalan_v, "_vd": row.get("_vd", ""),
+                })
+            st.html(tablo_html(
+                ["Ref No", ("Çek No", "mono"), ("Tarih", "mono"), ("Vade", "mono"),
+                 ("Meblağ", "para", sym), ("Ödenen", "para", sym), ("Kalan", "para", sym),
+                 ("Durum", "metin", "$", "orta")],
+                satirlar, vurgu=_vurgu))
     
         tab1, tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
         with tab1:
@@ -2935,65 +2794,20 @@ def run():
                     "ID": o["id"],
                 })
     
-            # === ODENENLER HTML TABLO ===
-            def fmt_para_od(val):
-                """Ödenen tutarları TAM gösterir: binlik '.', ondalık ',' ve 2 hane kuruş.
-                (Eskiden ':,.0f' ile yuvarlanıyordu → 1.037,75 TL '1.038' görünüyordu;
-                kuruşlar kayboluyordu. Artık kuruşlar korunur.)"""
-                if val is None or val == "" or (val != val):
-                    return "-"
-                try:
-                    v = float(val)
-                    if v == 0:
-                        return "-"
-                    # 1234567.75 → "1.234.567,75"
-                    return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                except Exception:
-                    return str(val) if val else "-"
-
-            od_rows_html = ""
-            for idx2, row2 in enumerate(rows):
-                bg = trenk("metin") if idx2 % 2 == 0 else trenk("mavi")
-                firma_v = str(row2.get("Firma") or "-")
-                aciklama_v = str(row2.get("Açıklama") or "")
-                kategori_v = str(row2.get("Kategori") or "-")
-                vade_v = str(row2.get("Vade") or "-")
-                tutar_tl_r = fmt_para_od(row2.get("Tutar TL (₺)"))
-                tutar_usd_r = fmt_para_od(row2.get("Tutar USD ($)"))
-                tl_str = f"₺ {tutar_tl_r}" if tutar_tl_r != "-" else "-"
-                usd_str = f"$ {tutar_usd_r}" if tutar_usd_r != "-" else "-"
-                banka_v = str(row2.get("Ödendiği Banka") or "-")
-                tarih_v = str(row2.get("Ödendi Tarihi") or "-")
-                od_rows_html += (
-                    f'<tr style="background:{bg};border-bottom:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);">' +
-                    f'<td style="padding:8px 16px;color:var(--k-mavi);font-size:13px;font-weight:600;">{firma_v}</td>' +
-                    f'<td style="padding:8px 8px;color:var(--k-silik);font-size:13px;">{aciklama_v}</td>' +
-                    f'<td style="padding:8px 8px;text-align:center;"><span style="background:color-mix(in srgb,var(--k-mor) 15%,transparent);color:var(--k-mor2);padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">{kategori_v}</span></td>' +
-                    f'<td style="padding:8px 8px;text-align:center;color:var(--k-silik);font-size:13px;">{vade_v}</td>' +
-                    f'<td style="padding:8px 8px;text-align:right;color:var(--k-yesil);font-size:13px;font-weight:700;font-family:monospace;">{tl_str}</td>' +
-                    f'<td style="padding:8px 8px;text-align:right;color:var(--k-mor2);font-size:13px;font-weight:700;font-family:monospace;">{usd_str}</td>' +
-                    f'<td style="padding:8px 8px;color:var(--k-silik);font-size:13px;">{banka_v}</td>' +
-                    f'<td style="padding:8px 8px;text-align:center;color:var(--k-silik);font-size:13px;">{tarih_v}</td>' +
-                    '</tr>' + "\n"
-                )
-
-            od_header = (
-                '<div style="border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-top:8px;">' +
-                '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;">' +
-                '<thead><tr style="background:linear-gradient(135deg,var(--k-yuzey3) 0%,var(--k-yuzey1) 100%);">' +
-                '<th style="padding:12px 16px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Firma</th>' +
-                '<th style="padding:12px 8px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Açıklama</th>' +
-                '<th style="padding:12px 8px;text-align:center;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Kategori</th>' +
-                '<th style="padding:12px 8px;text-align:center;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Vade</th>' +
-                '<th style="padding:12px 8px;text-align:right;color:var(--k-yesil2);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar TL (₺)</th>' +
-                '<th style="padding:12px 8px;text-align:right;color:var(--k-mavi);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Tutar USD ($)</th>' +
-                '<th style="padding:12px 8px;text-align:left;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendiği Banka</th>' +
-                '<th style="padding:12px 8px;text-align:center;color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap;">Ödendi Tarihi</th>' +
-                '</tr></thead><tbody>' + "\n"
-            )
-            od_footer = '</tbody></table></div>' + "\n"
-            od_tablo_html = od_header + od_rows_html + od_footer
-            st.markdown(od_tablo_html, unsafe_allow_html=True)
+            # --- Ödenenler tablosu: ortak tablo_html (Aşama 4b). Kuruşlar korunur. ---
+            st.html(tablo_html(
+                ["Firma", "Açıklama", ("Kategori", "metin", "$", "orta"), ("Vade", "mono"),
+                 ("Tutar TL", "para", "₺"), ("Tutar USD", "para", "$"), "Ödendiği Banka", ("Ödendi Tarihi", "mono")],
+                [{
+                    "Firma": renkli(r.get("Firma") or "—", "mavi", kalin=True),
+                    "Açıklama": kisalt(r.get("Açıklama") or "", 60),
+                    "Kategori": rozet_html(r.get("Kategori") or "—", "mor"),
+                    "Vade": r.get("Vade") or None,
+                    "Tutar TL": r.get("Tutar TL (₺)") or None,
+                    "Tutar USD": r.get("Tutar USD ($)") or None,
+                    "Ödendiği Banka": r.get("Ödendiği Banka") or None,
+                    "Ödendi Tarihi": fmt_tarih(r.get("Ödendi Tarihi")) or None,
+                } for r in rows]))
     
             st.markdown("---")
             st.markdown("**Geri almak istediğin ödeme:**")
