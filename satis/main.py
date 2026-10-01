@@ -2,6 +2,7 @@
 """Satış & Kârlılık modülü — arayüz (USD bazlı, tek tek işlem girişi)."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.tasarim import mesaj  # ortak uyarı kutusu
 from datetime import date, timedelta, datetime
 import io
 
@@ -96,6 +97,106 @@ def _sg_acilis(dlg_vatan, dlg_eera, dlg_diger):
         siparis_listesi(yedi, "sg", sayfa=12)
     else:
         st.caption("Son 7 günde sipariş yok.")
+
+
+def _iade_ac(rid):
+    from shared import bilesen as B
+    B.detay_ac("iade", rid)
+
+
+def _iade_kayit_listesi(bas, bit):
+    """Dönemdeki iade kayıtları — aya göre gruplu, tıklanır; detayda onaylı silme."""
+    from shared import bilesen as B
+    from shared.tasarim import sayi
+    from shared.utils import firma_kisa_ad
+    from . import satis_hesap as SH
+    import html as _h
+    kayitlar = get_iadeler(bas, bit) or []
+    st.markdown(B.grup_basligi("İade kayıtları", f"{len(kayitlar)} kayıt · tıkla: ayrıntı ya da sil"),
+                unsafe_allow_html=True)
+    if not kayitlar:
+        st.caption("Bu dönemde iade kaydı yok.")
+        return
+    gruplar = {}
+    for r in sorted(kayitlar, key=lambda r: (str(r.get("tarih") or ""), r.get("id") or 0), reverse=True):
+        gruplar.setdefault(str(r.get("tarih") or "")[:7], []).append(r)
+    limit = int(st.session_state.get("iade_kayit_limit", 30))
+    n = 0
+    for ay, grup in gruplar.items():
+        if n >= limit:
+            break
+        try:
+            baslik = f"{SH.AY[int(ay[5:7])]} {ay[:4]}"
+        except (ValueError, IndexError):
+            baslik = "Tarihsiz"
+        st.markdown(B.grup_basligi(baslik, f"{len(grup)} iade · {sayi(sum(float(r.get('iade_net') or 0) for r in grup), '$')}"),
+                    unsafe_allow_html=True)
+        for r in grup[:max(0, limit - n)]:
+            B.tiklanir(f"iade{r['id']}",
+                       f'<div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:4px 16px;align-items:center">'
+                       f'<div style="font-size:12.5px;color:var(--k-soluk)">{SH.gun_adi(r.get("tarih"))}</div>'
+                       f'<div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--k-metin);'
+                       f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{_h.escape(str(r.get("sku") or ""))} · '
+                       f'{_h.escape(str(r.get("urun_adi") or "")[:48])}</div>'
+                       f'{B.meta(firma_kisa_ad(r.get("kanal")) or "cari belirsiz", r.get("depo") or "", r.get("kaynak") or "")}</div>'
+                       f'<div style="text-align:right;white-space:nowrap"><b style="font-family:var(--k-mono);font-size:14px">'
+                       f'{sayi(float(r.get("iade_net") or 0), "$")}</b><div style="font-size:11.5px;color:var(--k-silik)">'
+                       f'{tr_sayi(int(r.get("iade_adet") or 0))} adet</div></div></div>',
+                       _iade_ac, (r["id"],), tur="satir", renk="amber", etiket="İade ayrıntısı")
+            n += 1
+    if len(kayitlar) > n:
+        if st.button(f"Daha fazla göster ({len(kayitlar) - n} iade daha)", key="iade_kayit_daha", type="tertiary",
+                     use_container_width=True):
+            st.session_state["iade_kayit_limit"] = limit + 30
+            st.rerun(scope="fragment")
+    sec = B.detay_istendi("iade")
+    if sec:
+        r = next((x for x in kayitlar if x.get("id") == sec), None)
+        if r:
+            _iade_detay_dialog(r)
+
+
+@st.dialog("İade kaydı", width="medium")
+def _iade_detay_dialog(r):
+    from shared import bilesen as B
+    from shared.utils import firma_kisa_ad
+    import html as _h
+    st.markdown(f'<div style="font-size:18px;font-weight:650">{_h.escape(str(r.get("sku") or ""))}</div>'
+                f'<div style="font-size:13px;color:var(--k-soluk);margin:2px 0 12px">'
+                f'{_h.escape(str(r.get("urun_adi") or ""))}</div>', unsafe_allow_html=True)
+    for etk, v in (("Tarih", gun_ay_yil(r.get("tarih"))), ("Firma / cari", firma_kisa_ad(r.get("kanal")) or "—"),
+                   ("Adet", tr_sayi(int(r.get("iade_adet") or 0))), ("İade net", _usd(r.get("iade_net"))),
+                   ("Giren depo", r.get("depo") or "—"), ("Kaynak", r.get("kaynak") or "—")):
+        st.markdown(f'<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--k-kenar)">'
+                    f'<span style="width:100px;color:var(--k-silik);font-size:12.5px">{etk}</span>'
+                    f'<span style="font-size:13px">{_h.escape(str(v))}</span></div>', unsafe_allow_html=True)
+    if st.session_state.get("salt_okur"):
+        return
+    if B.onayli_sil("Evet, bu iade kaydını sil", key=f"iade_{r['id']}", dugme="İadeyi sil",
+                    aciklama="Kayıt silinir; iade edilen adet stoktan geri düşülür."):
+        if sil_iade(int(r["id"])):
+            B.yenile("İade kaydı silindi")
+        else:
+            st.error("Silinemedi; ayrıntı Sistem Kayıtları'nda.")
+
+
+def _adim_gostergesi(aktif, adimlar=("Dosyayı yükle", "Önizle ve kontrol et", "Kaydet")):
+    """'1 Dosya → 2 Önizleme → 3 Kaydet' — tamamlanan adım tikli, aktif adım vurgulu."""
+    import html as _h
+    parca = []
+    for i, ad in enumerate(adimlar, 1):
+        durum = "tamam" if i < aktif else ("aktif" if i == aktif else "bekliyor")
+        renk = {"tamam": "var(--k-yesil)", "aktif": "var(--k-mor)", "bekliyor": "var(--k-silik)"}[durum]
+        isaret = "✓" if durum == "tamam" else str(i)
+        parca.append(
+            f'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+            f'<span style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
+            f'font-size:12px;font-weight:700;color:{renk};box-shadow:inset 0 0 0 1.5px {renk};'
+            f'background:color-mix(in srgb,{renk} {14 if durum != "bekliyor" else 0}%,transparent)">{isaret}</span>'
+            f'<span style="font-size:13px;font-weight:{600 if durum == "aktif" else 500};'
+            f'color:{"var(--k-metin)" if durum != "bekliyor" else "var(--k-silik)"}">{_h.escape(ad)}</span></div>')
+    ayrac = '<div style="flex:1;min-width:18px;height:1px;background:var(--k-kenar)"></div>'
+    return f'<div style="display:flex;align-items:center;gap:10px;margin:2px 0 14px">{ayrac.join(parca)}</div>'
 
 
 def _tb_anahtar(d):
@@ -1143,9 +1244,12 @@ def run():
                 st.stop()
             # Başlık önce, dönem seçici altında (eskiden seçici başlığın ÜSTÜNDEydi).
             # Seçilen aralık seçicinin yanında zaten yazıyor; başlıkta tekrar yok.
-            st.markdown(_sb("🧾 Satış", "Kâr / P&L",
-                            ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
-                        unsafe_allow_html=True)
+            from shared import bilesen as _B2
+            _ph1, _ph2 = st.columns([5.2, 1.3], vertical_alignment="center")
+            _ph1.markdown(_sb("🧾 Satış", "Kâr / P&L",
+                              ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
+                          unsafe_allow_html=True)
+            _pnl_xl_yer = _ph2.empty()          # Excel raporu düğmesi, veri hazır olunca buraya
             _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
 
             satislar = get_satislar_yalin(_pbas, _pbit)
@@ -1155,13 +1259,15 @@ def run():
                 # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
                 from satis.database import get_sku_kategori as _gsk
                 _pkatmap = _gsk()
-                _pf1, _pf2 = st.columns(2)
+                _pf1, _pf2, _pf3 = st.columns([1.6, 1.6, 2.6])
                 _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
                                       if (s.get("kanal") or "").strip()})
-                _p_kanal_f = _pf1.selectbox("🏢 Firma (Kanal)", ["Tümü"] + _p_kanallar, key="pnl_kanal")
+                from shared.utils import firma_kisa_ad as _fka
+                _p_kanal_f = _pf1.selectbox("Firma", ["Tümü"] + _p_kanallar, key="pnl_kanal",
+                                            format_func=lambda x: x if x == "Tümü" else _fka(x))
                 _p_katlar = sorted({(_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip()
                                     for s in satislar} - {""})
-                _p_kat_f = _pf2.selectbox("🏷️ Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
+                _p_kat_f = _pf2.selectbox("Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
                 _kat_destek_f = 0.0
                 _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
                 if _p_kanal_f != "Tümü":
@@ -1194,8 +1300,8 @@ def run():
                         _fi_kar += _inet - _iadet * _pacal_p.get(_isku.upper(), _pacal_p.get(_isku, 0.0))
                     _itop = dict(_itop)
                     _itop["i_tutar"], _itop["i_kar"] = _fi_tutar, _fi_kar
-                    st.caption(f"🔎 Filtre: **{_p_kanal_f}** · **{_p_kat_f}** — tüm kartlar ve kırılımlar bu filtreye göredir. "
-                               "(Ref No destekleri kategoriye dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.)")
+                    _pf3.caption("Tüm kartlar ve merdiven bu filtreye göre. Ref No destekleri kategoriye "
+                                 "dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.")
                     # Kategori filtresi + kanal 'Tümü' → o kategorinin ALINAN desteği kâra dahil edilir
                     if _p_kat_f != "Tümü" and _p_kanal_f == "Tümü":
                         try:
@@ -1344,18 +1450,67 @@ def run():
                                   "hariç " + _usd(_ref_usd), "•", "eksi")
                 _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
 
-                st.markdown(
-                    f'<div style="border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent);border-radius:12px;'
-                    f'overflow:hidden;margin:0 0 10px;background:color-mix(in srgb,var(--k-metin) 2%,transparent)">'
-                    f'<div style="padding:8px 14px;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
-                    f'font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--k-mor2);'
-                    f'text-transform:uppercase">📊 Kâr Merdiveni</div>{_adim}</div>',
+                # ── Maliyeti 0 satışlar: yalnız GERÇEKTEN varsa, sayısıyla ──
+                from . import satis_hesap as _SHp
+                _mlz = _SHp.maliyetsiz_say(satislar)
+                if _mlz:
+                    _mz1, _mz2 = st.columns([4, 1.4], vertical_alignment="center")
+                    _mz1.markdown(mesaj("uyari", f"Bu dönemde {tr_sayi(_mlz)} satış satırının birim maliyeti 0: "
+                                                 "o satışlar %100 marj gibi görünüyor, kâr olduğundan yüksek."),
+                                  unsafe_allow_html=True)
+                    if _mz2.button("Paçaldan düzelt", key="btn_sat_mfix", use_container_width=True,
+                                   icon=":material/build:"):
+                        st.session_state["_mlyt_ac"] = True
+
+                # ── Kâr merdiveni (sol) + aylık seyir (sağ) ──
+                _ml, _mr = st.columns([1.12, 1], gap="medium")
+                _ml.markdown(
+                    f'<div style="border:1px solid var(--k-kenar);border-radius:12px;'
+                    f'overflow:hidden;margin:0 0 10px;background:var(--k-yuzey1)">'
+                    f'<div style="padding:9px 14px;border-bottom:1px solid var(--k-kenar);'
+                    f'font-size:13px;font-weight:650;color:var(--k-metin)">Kâr merdiveni</div>{_adim}</div>',
                     unsafe_allow_html=True)
+                with _mr:
+                    _aylar = _SHp.aylik_seyir(satislar, satir_kar)
+                    st.markdown('<div style="font-size:13px;font-weight:650;color:var(--k-metin);margin:2px 0 0">'
+                                'Aylık seyir</div><div style="font-size:12px;color:var(--k-silik)">'
+                                'ciro ve satır bazlı brüt kâr · iade ve destekler hariç</div>',
+                                unsafe_allow_html=True)
+                    if len(_aylar) >= 2:
+                        import plotly.graph_objects as _pgo
+                        _ax = [f"{_SHp.AY[int(a[5:7])][:3]} {a[2:4]}" for a, *_ in _aylar]
+                        _fg = _pgo.Figure()
+                        # Üzerine gelince çıkan kutu Türkçe biçimli (hazır metin, customdata)
+                        _fg.add_bar(x=_ax, y=[c for _, c, _k, _a in _aylar], name="Ciro",
+                                    marker_color=trenk("mor"), opacity=0.55,
+                                    customdata=[f"${tr_sayi(c)}" for _, c, _k, _a in _aylar],
+                                    hovertemplate="%{x}<br>Ciro %{customdata}<extra></extra>")
+                        _fg.add_bar(x=_ax, y=[_k for _, c, _k, _a in _aylar], name="Brüt kâr",
+                                    marker_color=trenk("yesil"),
+                                    customdata=[f"${tr_sayi(_k)}" for _, c, _k, _a in _aylar],
+                                    hovertemplate="%{x}<br>Brüt kâr %{customdata}<extra></extra>")
+                        _fg.update_layout(barmode="overlay", bargap=0.35, height=300,
+                                          margin=dict(t=8, b=4, l=4, r=4),
+                                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                          font=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
+                                          legend=dict(orientation="h", y=1.08, x=0, bgcolor="rgba(0,0,0,0)"),
+                                          yaxis=dict(tickprefix="$", gridcolor=trenk("kenar"), zeroline=False),
+                                          xaxis=dict(showgrid=False),
+                                          hoverlabel=dict(bgcolor=trenk("yuzey2"), font=dict(color=trenk("metin"))))
+                        st.plotly_chart(_fg, use_container_width=True, config={"displayModeBar": False},
+                                        key="pnl_aylik")
+                    else:
+                        st.caption("Aylık seyir için dönem en az iki ay kapsamalı.")
 
                 # ── EXCEL RAPORU ──
                 # Ekrandaki rakamların AYNISI. Merdiven satırları, kırılımlar ve
                 # ham satışlar ayrı sayfalarda. Sayılar HAM (metin değil) —
                 # Excel'de toplanabilir, pivot çekilebilir.
+                # Kırılım tabloları burada da tutulur: Excel raporu YALNIZ tıklanınca,
+                # AYRI bir iş parçacığında üretilir ve orada st.session_state
+                # okunamaz. Sözlük bu çizimin kapsamında; kırılımlar hesaplandıkça dolar.
+                _xl_kirilim = {}
+
                 def _pnl_xlsx():
                     # _fl ve _in YEREL tanımlanır. _i / _f satis.database'de,
                     # bu dosyada DEĞİL — dışarıdan kullanmaya çalışmak
@@ -1424,7 +1579,7 @@ def run():
                         ]).to_excel(_w, index=False, sheet_name="Filtre")
                         # 3) Kırılımlar — ekrandaki tabloların aynısı
                         for _sh in ("Marka", "Kategori"):
-                            _rows_k = st.session_state.get(f"_pnl_xl_{_sh}") or []
+                            _rows_k = _xl_kirilim.get(_sh) or []
                             if _rows_k:
                                 pd.DataFrame(_rows_k).to_excel(
                                     _w, index=False, sheet_name=_sh)
@@ -1450,17 +1605,16 @@ def run():
                             _ws.freeze_panes = "A2"
                     return _buf.getvalue()
 
-                _px1, _px2 = st.columns([1, 3])
-                try:
-                    _px1.download_button(
-                        "Excel raporu", _pnl_xlsx(),
-                        f"kar_pnl_{_pbas}_{_pbit}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True, key="pnl_dl_xlsx", icon=":material/download:")
-                    _px2.caption("Ekrandaki rakamların aynısı · merdiven, kırılımlar ve "
-                                 "ham satırlar ayrı sayfalarda · sayılar ham (toplanabilir)")
-                except Exception as _e_x:
-                    _px1.caption(f"Excel hazırlanamadı: {str(_e_x)[:60]}")
+                # Excel raporu başlığın sağında. Dosya YALNIZ tıklanınca üretilir:
+                # eskiden her çizimde baştan üretiliyordu (yavaş) ve kırılım
+                # sayfaları bir ÖNCEKİ çizimin verisini taşıyordu (kırılımlar düğmeden
+                # sonra hesaplanıyor). Artık tıklama anında güncel veriyle üretilir.
+                _pnl_xl_yer.download_button(
+                    "Excel raporu", data=_pnl_xlsx, file_name=f"kar_pnl_{_pbas}_{_pbit}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, key="pnl_dl_xlsx", icon=":material/download:", on_click="ignore",
+                    help="Ekrandaki rakamların aynısı: merdiven, kırılımlar ve ham satırlar ayrı sayfalarda; "
+                         "sayılar ham (Excel'de toplanabilir)")
 
                 # ── Detaylar: meraklısına, varsayılan kapalı ──
                 with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
@@ -1624,7 +1778,8 @@ def run():
                         return _rows
 
                     if urun and (_marka_map or _katmap_p or _ad_top):
-                        st.markdown("#### 🏷️ Marka & Kategori Kırılımı")
+                        st.markdown(_B2.grup_basligi("Kategori ve marka kırılımı", "iade düşülmüş, net"),
+                                    unsafe_allow_html=True)
                         st.caption("Rakamlar **iade düşülmüş (net)** değerlerdir. Kâr kolonu, o "
                                    "marka/kategori için **alınan destekleri içerir** "
                                    "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
@@ -1681,6 +1836,7 @@ def run():
                                     _t_kar_ort = max(_t_kar_ort, _t_kar)
                                     # Excel raporu AYNI satırları kullansın diye sakla
                                     st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
+                                    _xl_kirilim[_kol] = list(_tablo)
                                     _tablo.append({
                                         _kol: "Σ TOPLAM", "Adet": _t_adet,
                                         "Ciro": round(_t_ciro, 2),
@@ -1794,8 +1950,8 @@ def run():
                                     else:
                                         st.info("Marka veya Kategori hücresine bir değer yaz, sonra kaydet.")
 
-                st.markdown("#### Kanal Kırılımı")
-                st.caption("👆 Bir firmaya tıkla — geçmiş siparişleri açılır pencerede detaylı görünsün.")
+                st.markdown(_B2.grup_basligi("Firma kırılımı", "satıra tıkla: firmanın sipariş geçmişi açılır"),
+                            unsafe_allow_html=True)
                 _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
 
                 def _kn_net(kn, v):
@@ -1896,8 +2052,7 @@ def run():
                     else:
                         st.session_state.pop("_pnl_firma_sec", None)
 
-                st.markdown("---")
-                @st.dialog("🔧 Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", width="large")
+                @st.dialog("Maliyeti 0 olan satışları paçaldan düzelt", width="large")
                 def _dlg_maliyet_fix():
                     st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
                                "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
@@ -1933,19 +2088,22 @@ def run():
                                 (st.success if _okm else st.error)(_msgm)
                                 st.cache_data.clear()
                                 st.rerun()
-                if st.button("Maliyeti 0 olan satışları paçaldan düzelt (%100 marj sorunu)", key="btn_sat_mfix", use_container_width=True, icon=":material/build:"):
+                if st.session_state.pop("_mlyt_ac", False):
                     _dlg_maliyet_fix()
 
         # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
         elif _ssayfa == "📥 İçe Aktar":
-            st.markdown(_sb("🧾 Satış", "Geçmiş Satışları İçe Aktar", ipucu="Mikro fatura bazlı satış dökümü · maliyet paçaldan otomatik"), unsafe_allow_html=True)
-            st.caption("Mikro **fatura bazlı satış** dökümünü (.xls/.xlsx) yükle. "
-                       "Maliyet, sistemdeki güncel **paçal** maliyetten otomatik hesaplanır. "
-                       "Daha önce kaydedilmiş fatura numaraları atlanır (tekrar yüklemede mükerrer olmaz).")
+            st.markdown(_sb("🧾 Satış", "Geçmiş Satışları İçe Aktar",
+                            aciklama="Mikro fatura bazlı satış dökümü. Maliyet güncel paçaldan gelir; "
+                                     "daha önce kaydedilmiş faturalar atlanır."), unsafe_allow_html=True)
+            _adim_yer = st.empty()
             _dosya = st.file_uploader("Fatura dökümü (.xls / .xlsx)", type=["xls", "xlsx"],
                                       key="satis_ice_aktar")
+            _adim_yer.markdown(_adim_gostergesi(1), unsafe_allow_html=True)
             if _dosya is not None:
                 _satirlar, _ozet, _hata = _parse_mikro_satislar(_dosya)
+                if _satirlar and not _hata:
+                    _adim_yer.markdown(_adim_gostergesi(2), unsafe_allow_html=True)
                 if _hata:
                     st.error(_hata)
                 elif not _satirlar:
@@ -1953,12 +2111,13 @@ def run():
                 else:
                     _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
                            if _ozet["tarih_min"] else "—")
-                    st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' + _kart([
-                        ("Satır", f"{tr_sayi(_ozet['satir'])}", trenk("mavi")),
-                        ("Fatura", f"{tr_sayi(_ozet['fatura'])}", trenk("mor2")),
-                        ("Toplam Ciro", _usd(_ozet["ciro"]), trenk("yesil")),
-                        ("Tarih Aralığı", _ta, trenk("amber")),
-                    ]) + '</div>', unsafe_allow_html=True)
+                    from shared.tasarim import kpi_serit as _ks2
+                    st.markdown(_ks2([
+                        {"etiket": "Satır", "deger": tr_sayi(_ozet["satir"]), "renk": "mavi"},
+                        {"etiket": "Fatura", "deger": tr_sayi(_ozet["fatura"]), "renk": "mor"},
+                        {"etiket": "Toplam ciro", "deger": _usd(_ozet["ciro"]), "renk": "yesil"},
+                        {"etiket": "Tarih aralığı", "deger": _ta, "renk": "amber"},
+                    ]), unsafe_allow_html=True)
 
                     _mevcut = get_mevcut_siparis_nolar()
                     _cakisan = _ozet["fatura_set"] & _mevcut
@@ -2062,13 +2221,17 @@ def run():
 
         # ───────────────────────── İADE ─────────────────────────
         elif _ssayfa == "↩️ İade":
-            st.markdown(_sb("🧾 Satış", "İade Yönetimi", ipucu="İadeler satıştan ayrı tutulur · net görünümde düşülür"), unsafe_allow_html=True)
-            st.caption("İadeler satışı bozmadan AYRI tutulur; aşağıda Satış / İade / Net ayrı görünür. "
-                       "Excel'den yalnızca **iade** kısmı alınır (satışlar zaten sistemde).")
+            from shared import bilesen as _B3
+            _iey = _B3.baslik_eylem(
+                "🧾 Satış", "İade Yönetimi",
+                aciklama="İadeler satıştan ayrı tutulur; mal stoğa döner, kâr brüt satıştan hesaplanır.",
+                eylemler=[{"etiket": "Excel ile toplu", "key": "btn_sat_tiade", "icon": ":material/upload_file:",
+                           "help": "Mikro 'iadeli satışlar' raporundan toplu iade (yalnız iade kolonları alınır)"},
+                          {"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
 
             _IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
 
-            @st.dialog("➕ Manuel İade Girişi", width="large")
+            @st.dialog("Manuel iade girişi", width="large")
             def _dlg_manuel_iade():
                 ig1, ig2, ig3 = st.columns(3)
                 _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
@@ -2096,10 +2259,10 @@ def run():
                         if _ok:
                             st.cache_data.clear()
                             st.rerun()
-            if st.button("Manuel İade Girişi", key="btn_sat_miade", use_container_width=True, icon=":material/add:"):
+            if _iey.get("btn_sat_miade"):
                 _dlg_manuel_iade()
 
-            @st.dialog("📄 Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", width="large")
+            @st.dialog("Excel ile toplu iade · Mikro 'iadeli satışlar' raporu", width="large")
             def _dlg_toplu_iade():
                 st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
                            "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
@@ -2209,43 +2372,45 @@ def run():
                                 st.success(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                                 st.cache_data.clear()
                                 st.rerun()
-            if st.button("Excel ile Toplu İade (Mikro 'iadeli satışlar' raporu)", key="btn_sat_tiade", use_container_width=True, icon=":material/description:"):
+            if _iey.get("btn_sat_tiade"):
                 _dlg_toplu_iade()
 
-            st.markdown("---")
             _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
             _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
             # Excel çıktısı: ekrandaki özet + kırılımlar + ham kayıtlar, tek dosyada 4 sayfa
             _ix1, _ix2 = st.columns([1, 3])
             _ix_iadeler = get_iadeler(_ib, _ibit)
             _ix1.download_button(
-                "Excel indir", iade_excel_bytes(_satirlar, _ix_iadeler, _ib, _ibit),
-                f"iade_{str(_ib)[:10]}_{str(_ibit)[:10]}.xlsx",
+                "Excel indir", data=lambda: iade_excel_bytes(_satirlar, _ix_iadeler, _ib, _ibit), on_click="ignore",
+                file_name=f"iade_{str(_ib)[:10]}_{str(_ibit)[:10]}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True, key="iade_dl_xlsx", icon=":material/download:",
                 disabled=not (_satirlar or _ix_iadeler))
-            _ix2.caption(f"📦 {tr_sayi(len(_ix_iadeler))} iade kaydı · {len(_satirlar)} ürün · "
-                         f"4 sayfa: SKU Net · Firma · SKU + Firma · Kayıtlar — sayılar ham, Excel'de toplanabilir.")
+            _ix2.caption(f"{tr_sayi(len(_ix_iadeler))} iade kaydı · {len(_satirlar)} ürün · "
+                         f"4 sayfa: SKU net · Firma · SKU + firma · Kayıtlar; sayılar ham.")
             if not _satirlar:
                 st.info("Bu dönemde satış/iade kaydı yok.")
             else:
                 _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
                 _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
-                st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 8px">' + _kart([
-                    ("Satış adedi", f"{tr_sayi(_top['s_adet'])}", trenk("mavi")),
-                    ("İade adedi", f"{tr_sayi(_top['i_adet'])}", trenk("amber")),
-                    ("Net adet (müşteride)", f"{tr_sayi(_top['net_adet'])}", trenk("yesil")),
-                    ("Satış cirosu", _usd(_top["s_ciro"]), trenk("mavi")),
-                    ("İade tutarı (stoğa döndü)", _usd(_top["i_tutar"]), trenk("amber")),
-                    ("Net ciro", _usd(_top["net_ciro"]), trenk("yesil")),
-                    ("Satış kârı", _usd(_top["s_kar"]), trenk("mor")),
-                    ("Satış marjı", f"%{tr_sayi(_mr, 1)}", trenk("mor")),
-                    ("İade oranı", f"%{tr_sayi(_ior, 1)}", trenk("amber")),
-                ]) + '</div>', unsafe_allow_html=True)
-                st.caption("İade edilen mal stoğa döner, tekrar satılabilir — **kâr/marj brüt satıştan hesaplanır, "
-                           "iade düşülmez.** Net adet/ciro yalnızca fiziksel/gelir bilgisidir.")
+                # 9 küçük kart (değerleri "…" ile kesiliyordu) yerine 4 okunur kart
+                from shared.tasarim import kpi_serit as _ks, sayi as _sy
+                _ikal = [
+                    {"etiket": "İade adedi", "deger": tr_sayi(_top["i_adet"]), "renk": "amber",
+                     "alt": f"satılan {tr_sayi(_top['s_adet'])} adedin %{tr_sayi(_ior, 1)}'i"},
+                    {"etiket": "İade tutarı", "deger": _sy(_top["i_tutar"], "$"), "renk": "amber",
+                     "alt": "mal stoğa döndü", "ipucu": _usd(_top["i_tutar"])},
+                    {"etiket": "Net ciro", "deger": _sy(_top["net_ciro"], "$"), "renk": "cyan",
+                     "alt": f"satış {_sy(_top['s_ciro'], '$')} − iade", "ipucu": _usd(_top["net_ciro"])},
+                ]
+                if _kar_ok():
+                    _ikal.append({"etiket": "Satış kârı", "deger": _sy(_top["s_kar"], "$"), "renk": "yesil",
+                                  "alt": f"marj %{tr_sayi(_mr, 1)} · iade düşülmez", "ipucu": _usd(_top["s_kar"])})
+                st.markdown(_ks(_ikal), unsafe_allow_html=True)
 
-                with st.expander("📊 İade Özeti — kırılım seç", expanded=True):
+                st.markdown(_B3.grup_basligi("İade kırılımı", "ürün, firma ya da ikisi birden"),
+                            unsafe_allow_html=True)
+                with st.container():
                     _kirilim = secim_serit("Kırılım",
                                         ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"], index=2, key="iade_kirilim")
                     if _kirilim == "🏷️ SKU bazlı (net)":
@@ -2290,27 +2455,10 @@ def run():
                             st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
                             st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
 
-            @st.dialog("🗂️ İade Kayıtları (sil)", width="large")
-            def _dlg_iade_kayit():
-                _kayitlar = get_iadeler(_ib, _ibit)
-                if not _kayitlar:
-                    st.caption("Kayıt yok.")
-                else:
-                    st.caption(f"{len(_kayitlar)} iade kaydı")
-                    st.dataframe(_kar_df(pd.DataFrame([{
-                        "Tarih": (r.get("tarih") or "")[:10], "SKU": r.get("sku", ""),
-                        "Ürün": (r.get("urun_adi") or "")[:34], "Adet": r.get("iade_adet", 0),
-                        "İade Net": _usd(r.get("iade_net", 0)), "Kanal": (r.get("kanal") or "")[:24],
-                    } for r in _kayitlar])), use_container_width=True, hide_index=True)
-                    _sil_id = st.number_input("Silinecek iade ID", min_value=0, step=1, value=0, key="iade_sil_id")
-                    if st.button("İadeyi Sil", key="iade_sil_btn", icon=":material/delete:") and _sil_id > 0:
-                        if sil_iade(int(_sil_id)):
-                            st.success("Silindi.")
-                            st.cache_data.clear()
-                            st.rerun()
-                        else:
-                            st.error("Silinemedi.")
-            if st.button("İade Kayıtları (sil)", key="btn_sat_ikayit", use_container_width=True, icon=":material/folder_open:"):
-                _dlg_iade_kayit()
+            # İade kayıtları: tıklanır liste → detay + ONAYLI silme.
+            # Eskiden pencere "Silinecek iade ID" istiyordu ama tabloda ID sütunu
+            # yoktu: hangi numaranın yazılacağı bilinemiyor, yanlış numara başka
+            # bir iadeyi siliyordu.
+            _iade_kayit_listesi(_ib, _ibit)
 
     _sayfa_parcasi()

@@ -99,7 +99,7 @@ def test_6_tarih_oklari_ve_pnl_sirasi():
     assert "on_click=_kaydir_tik" in t and "padding:0 !important" in t
     assert "button[data-testid]" in t            # ipucu kabının içindeki düğme hedeflenir
     src = _oku("satis/main.py")
-    i_bas = src.index('st.markdown(_sb("🧾 Satış", "Kâr / P&L"')
+    i_bas = src.index('_ph1.markdown(_sb("🧾 Satış", "Kâr / P&L"')
     i_tar = src.index('_pbas, _pbit = hizli_tarih_araligi("p_pnl"')
     assert i_bas < i_tar
 
@@ -124,3 +124,44 @@ def test_satis_girisi_dogrudan_pencereler():
     for d in ("def _dlg_xl_vatan", "def _dlg_xl_eera", "def _dlg_xl_diger", "def _sg_acilis("):
         assert d in m, d
     assert "_satis_excel_dialog" not in m and 'key="tgl_sat_vatan"' not in m
+
+
+# ── 2. paket: Kâr/P&L · İade · İçe Aktar ────────────────────────────
+def test_pnl_excel_raporu_ertelenmis_ve_kirilimli():
+    """Rapor yalnız tıklanınca, AYRI iş parçacığında üretilir; orada
+    st.session_state okunamaz. Kırılım sayfaları kapsam sözlüğünden gelir
+    (yoksa rapor 'Marka'/'Kategori' sayfasız iniyordu)."""
+    import ast
+    src = _oku("satis/main.py")
+    fn = next(n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef) and n.name == "_pnl_xlsx")
+    assert "session_state" not in ast.get_source_segment(src, fn)
+    assert "_xl_kirilim[_kol] = list(_tablo)" in src
+    assert "data=_pnl_xlsx" in src and 'on_click="ignore"' in src
+
+
+def test_pnl_yerlesim():
+    src = _oku("satis/main.py")
+    assert "_SHp.aylik_seyir(satislar, satir_kar)" in src            # aylık seyir grafiği
+    assert "_mlz = _SHp.maliyetsiz_say(satislar)" in src and "if _mlz:" in src
+    assert 'st.button("Maliyeti 0 olan satışları paçaldan düzelt' not in src   # koşulsuz düğme kalktı
+    assert "%{y:,.0f}" not in src                                     # grafik ipucu TR
+
+
+def test_aylik_seyir_ve_maliyetsiz():
+    a = H.aylik_seyir(S, _kar)
+    assert [x[0] for x in a] == ["2026-09", "2026-10"]
+    assert a[1][1] == 250 and a[1][2] == (200 - 140) + 50
+    assert H.maliyetsiz_say(S) == 1
+
+
+def test_iade_silme_id_yazdirmiyor_onayli():
+    """Eski pencere 'Silinecek iade ID' istiyordu ama tabloda ID yoktu."""
+    src = _oku("satis/main.py")
+    assert "st.number_input(\"Silinecek iade ID\"" not in src
+    assert "def _iade_kayit_listesi(" in src and 'B.onayli_sil("Evet, bu iade kaydını sil"' in src
+
+
+def test_iade_dort_kart_ve_ice_aktar_adimlari():
+    src = _oku("satis/main.py")
+    assert '("İade oranı", f"%{tr_sayi(_ior, 1)}", trenk("amber"))' not in src     # 9'lu eski kartlar
+    assert "def _adim_gostergesi(" in src and "_adim_gostergesi(2)" in src
