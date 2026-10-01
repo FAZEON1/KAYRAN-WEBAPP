@@ -58,11 +58,11 @@ def geri_dugmesi(on_ek):
 
 
 def koru(keys):
-    """Detay açıkken çizilmeyen filtre kutularının değeri kaybolmasın
-    (Streamlit çizilmeyen kutunun durumunu çalışma sonunda siler)."""
-    for k in keys:
-        if k in st.session_state:
-            st.session_state[k] = st.session_state[k]
+    B.koru(keys)          # gölge anahtara kopyalar (ayrıntı: shared/bilesen.py)
+
+
+def geri_yukle(keys):
+    B.geri_yukle(keys)
 
 
 # ── Küçük parçalar ───────────────────────────────────────────────────
