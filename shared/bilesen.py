@@ -44,7 +44,9 @@ def tiklanir(anahtar, icerik_html, on_click, args=(), tur="kart", renk=None, sec
 def baslik_eylem(modul, sayfa, aciklama="", eylemler=()):
     """eylemler: [{"etiket","key","icon"?,"birincil"?,"help"?,"disabled"?}]
     Döner: {key: tıklandı_mı}. Düğmeler başlığın sağında, aynı satırda."""
-    oran = [5.2 - 0.2 * max(0, len(eylemler) - 2)] + [1.3] * len(eylemler)
+    n = len(eylemler)
+    gen = 1.45 if n > 3 else 1.3          # 4 eylemde etiketler kesilmesin
+    oran = [max(3.6, 5.2 - 0.4 * max(0, n - 2))] + [gen] * n
     kol = st.columns(oran, vertical_alignment="center")
     kol[0].markdown(_baslik(modul, sayfa, aciklama=aciklama), unsafe_allow_html=True)
     out = {}

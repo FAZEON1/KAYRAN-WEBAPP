@@ -39,9 +39,10 @@ def test_muhasebe_tarih_bicimi():
     assert 'return d.strftime("%d.%m.%Y")' in kod
     # Nakit Akış tablosu hücresi TR tarih
     assert '"Tarih": row["Tarih"] if row["Tarih"] == "TOPLAM" else fmt_tarih(row["Tarih"])' in kod
-    # Gelenler Geçmişi: metin değil gerçek tarih (tablo_kolonlari GG.AA.YYYY basar)
-    assert '"Tarih": str(t.get("tarih", ""))[:10]' not in kod
-    assert '"Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce")' in kod
+    # Gelenler Geçmişi (Ekim 2026: kayranacc/gelen_ekran.py): tarih Türkçe gün
+    # adıyla yazılır ("30 Eylül, Çar"), ay adı AY listesinden — İngilizce strftime yok.
+    g = _oku("kayranacc/gelen_ekran.py")
+    assert "strftime" not in g and 'f"{d.day} {AY[d.month]}, {GUN_KISA[d.weekday()]}"' in g
 
 
 def test_ciro_grafigi_tr_ondalik():

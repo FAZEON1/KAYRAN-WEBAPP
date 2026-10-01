@@ -193,7 +193,8 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
     # NOT: help= verildiği için düğme bir ipucu kabına (stTooltipIcon) sarılır;
     # '.stButton > button' tutmaz, kabın içindeki düğme hedeflenir.
     _ok_sec = ",".join(f'html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
-                       f'.st-key-{key}_{y}.st-key-{key}_{y} button[data-testid]' for y in ("geri", "ileri"))
+                       f'[data-testid="stElementContainer"].st-key-{key}_{y}.st-key-{key}_{y} '
+                       f'button[data-testid]' for y in ("geri", "ileri"))
     st.markdown(f"<style>{_ok_sec}{{padding:0 !important;min-width:0 !important;"
                 f"font-size:18px !important;line-height:1 !important;}}</style>", unsafe_allow_html=True)
 

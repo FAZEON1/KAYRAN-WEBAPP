@@ -8,6 +8,8 @@ Hafta sonu tahmini (Genel Bakış ile AYNI formül):
 from datetime import date, timedelta
 
 GUN = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+# Kısaltma: ilk 3 harf DEĞİL (Pazartesi ve Pazar ikisi de "Paz" olurdu)
+GUN_KISA = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 AY = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
       "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
