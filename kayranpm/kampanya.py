@@ -23,6 +23,7 @@ import streamlit as st
 from shared.tasarim import (baslik, css_tek_satir, kpi_serit, mesaj, bos_durum,
                             rv, sayi, tr_sayi)
 from shared.utils import firma_gorunen_ad, tr_kucuk, tr_today
+from shared import bilesen as B
 from . import kampanya_hesap as H
 from .analitik import tum_urunler_listesi
 from .database import (_cache_temizle, ekle_kampanya, ekle_kampanya_urun, get_client,
@@ -100,8 +101,7 @@ def _yeniden_ac(kid):
 
 
 def _detay_ac(kid):
-    st.session_state["_kmp_sec"] = kid
-    st.session_state["_kmp_ac"] = True
+    B.detay_ac("kmp", kid)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -109,23 +109,9 @@ def _detay_ac(kid):
 # ════════════════════════════════════════════════════════════════════
 def _css():
     return "<style>" + css_tek_satir("""
-[class*="st-key-kmpk_"]{position:relative;gap:0 !important;padding:14px 16px 13px !important;
-  border-radius:12px !important;background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;
-  border-left:3px solid var(--d) !important;transition:border-color .15s ease,background-color .15s ease;}
-[class*="st-key-kmpk_"]:hover{background:color-mix(in srgb,var(--d) 4%,var(--k-yuzey1)) !important;
-  border-color:color-mix(in srgb,var(--d) 45%,transparent) !important;border-left-color:var(--d) !important;}
-[class*="st-key-kmpk_"]:has(button:focus-visible){outline:2px solid var(--k-mor);outline-offset:2px;}
-[class*="st-key-kmpk_"] [data-testid="stMarkdownContainer"]{margin-bottom:0 !important;}
-[class*="st-key-kmpk_"] [data-testid="stElementContainer"]:has(.stButton){position:absolute !important;inset:0 !important;
-  margin:0 !important;z-index:3;width:auto !important;height:auto !important;}
-html body [class*="st-key-kmpk_"] .stButton{width:100% !important;height:100% !important;}
-html body [data-testid="stMain"] [class*="st-key-kmpk_"] [data-testid="stButton"].stButton > button[data-testid]{
-  width:100% !important;height:100% !important;min-height:100% !important;opacity:0 !important;border:0 !important;padding:0 !important;}
 .kmp-ust{display:flex;align-items:flex-start;gap:10px;}
 .kmp-ad{flex:1;min-width:0;font-size:14.5px;font-weight:650;color:var(--k-metin);line-height:1.3;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kmp-cip{flex-shrink:0;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;border-radius:999px;
-  color:var(--d);background:color-mix(in srgb,var(--d) 13%,transparent);white-space:nowrap;}
 .kmp-meta{margin-top:3px;font-size:12px;color:var(--k-soluk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .kmp-zaman{display:flex;align-items:center;gap:10px;margin:12px 0 12px;font-size:12px;color:var(--k-silik);}
 .kmp-cubuk{flex:1;height:5px;border-radius:99px;background:var(--k-ortu2);overflow:hidden;}
@@ -145,7 +131,7 @@ html body [data-testid="stMain"] [class*="st-key-kmpk_"] [data-testid="stButton"
 .kmp-dt .kmp-zaman{margin:2px 0 0;}
 .kmp-bos{font-size:12.5px;color:var(--k-soluk);margin:2px 0 10px;}
 [data-testid="stMarkdownContainer"]:has(> .k-mesaj){margin-bottom:6px !important;}
-[data-testid="stHorizontalBlock"]:has([class*="st-key-kmpk_"]){margin-bottom:2px;}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-tk_kart_kmp"]){margin-bottom:2px;}
 @media (max-width:640px){ .kmp-rakam{grid-template-columns:repeat(2,minmax(0,1fr));} }
 """) + "</style>"
 
@@ -170,7 +156,7 @@ def _kart_html(k, o):
     oran = 1.0 if o["durum"] == "kapali" else o["oran"]
     return (f'<div style="--d:{rv(renk)}">'
             f'<div class="kmp-ust"><div class="kmp-ad" title="{_h.escape(str(k.get("kampanya_adi","")), quote=True)}">'
-            f'{_h.escape(str(k.get("kampanya_adi") or "—"))}</div><span class="kmp-cip">{ad_d}</span></div>'
+            f'{_h.escape(str(k.get("kampanya_adi") or "—"))}</div>{B.cip(ad_d, renk)}</div>'
             f'<div class="kmp-meta">{_h.escape(meta) or "&nbsp;"}</div>'
             f'<div class="kmp-zaman"><span>{_aralik(k)}</span><div class="kmp-cubuk"><i style="width:{oran*100:.0f}%"></i></div>'
             f'<b>{_kalan_metni(o)}</b></div>'
@@ -239,15 +225,13 @@ def render():
                         label_visibility="collapsed")
     _yillar = sorted({str(k.get("baslangic_tarihi") or "")[:4] for k in kamps
                       if str(k.get("baslangic_tarihi") or "")[:4].isdigit()}, reverse=True)
-    _aktif_f = sum(1 for x in ("kmp_f_firma", "kmp_f_kat", "kmp_f_yil")
-                   if st.session_state.get(x, "Tümü") != "Tümü")
-    with c3.popover(f"Filtre{f' · {_aktif_f}' if _aktif_f else ''}", icon=":material/tune:",
-                    use_container_width=True):
-        f_firma = st.selectbox("Müşteri", ["Tümü"] + H.FIRMALAR, key="kmp_f_firma",
-                               format_func=lambda f: f if f in ("Tümü", "DİĞER") else _firma_ad(f))
-        f_kat = st.selectbox("Kategori", ["Tümü"] + _katlar, key="kmp_f_kat",
-                             format_func=lambda x: x if x == "Tümü" else x.capitalize())
-        f_yil = st.selectbox("Yıl", ["Tümü"] + _yillar, key="kmp_f_yil")
+    _f = B.filtre(c3, [
+        {"etiket": "Müşteri", "secenekler": H.FIRMALAR, "key": "kmp_f_firma",
+         "format_func": lambda f: f if f in ("Tümü", "DİĞER") else _firma_ad(f)},
+        {"etiket": "Kategori", "secenekler": _katlar, "key": "kmp_f_kat",
+         "format_func": lambda x: x if x == "Tümü" else x.capitalize()},
+        {"etiket": "Yıl", "secenekler": _yillar, "key": "kmp_f_yil"}])
+    f_firma, f_kat, f_yil = _f["kmp_f_firma"], _f["kmp_f_kat"], _f["kmp_f_yil"]
 
     # ── Süresi dolmuşlar: işin kendisi, uyarıyla başla ──
     if say["bekliyor"] and gorunum in ("guncel", "tumu"):
@@ -277,21 +261,17 @@ def render():
             for col, k in zip(cols, _goster[i:i + 2]):
                 o = oz[k["id"]]
                 with col:
-                    with st.container(key=f"kmpk_{k['id']}"):
-                        st.markdown(_kart_html(k, o), unsafe_allow_html=True)
-                        st.button(f"{k.get('kampanya_adi','')} detayını aç", key=f"kmp_ac_{k['id']}",
-                                  on_click=_detay_ac, args=(k["id"],))
-        st.markdown("<style>" + "".join(
-            f".st-key-kmpk_{k['id']}{{--d:{rv(H.DURUMLAR[oz[k['id']]['durum']][1])};}}" for k in _goster)
-            + "</style>", unsafe_allow_html=True)
+                    B.tiklanir(f"kmp{k['id']}", _kart_html(k, o), _detay_ac, (k["id"],), tur="kart",
+                               renk=H.DURUMLAR[o["durum"]][1], etiket=f"{k.get('kampanya_adi','')} detayını aç")
         if len(liste) > len(_goster):
             if st.button(f"Daha fazla göster ({len(liste) - len(_goster)} kampanya daha)",
                          key="kmp_daha", use_container_width=True, type="tertiary"):
                 st.session_state["kmp_limit"] = int(st.session_state.get("kmp_limit", 24)) + 24
                 st.rerun(scope="fragment")
 
-    if st.session_state.pop("_kmp_ac", False) and st.session_state.get("_kmp_sec"):
-        _detay_dialog(st.session_state["_kmp_sec"])
+    _sec = B.detay_istendi("kmp")
+    if _sec:
+        _detay_dialog(_sec)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -299,12 +279,7 @@ def render():
 # ════════════════════════════════════════════════════════════════════
 def _yenile(kid=None, mesaj_metni=None):
     """Kayıttan sonra: önbellek boşalır, (istenirse) pencere yeniden açılır."""
-    st.cache_data.clear()
-    if mesaj_metni:
-        st.toast(mesaj_metni)
-    if kid:
-        _detay_ac(kid)
-    st.rerun()
+    B.yenile(mesaj_metni, ac=("kmp", kid) if kid else None)
 
 
 @st.dialog("Kampanya detayı", width="large")
@@ -318,15 +293,14 @@ def _detay_dialog(kid):
     _, _, pacal, urunler = _veri()
     o = H.kampanya_ozet(kamp, urunler_k, pacal, bugun)
     ad_d, renk, aciklama = H.DURUMLAR[o["durum"]]
-    cipler = "".join(
-        f'<span class="kmp-cip" style="--d:{rv(r)}">{_h.escape(t)}</span>' for t, r in (
-            (_firma_ad(kamp.get("firma")), "mor2"),
-            ((kamp.get("kampanya_turu") or "").strip(), "cyan"),
-            ((kamp.get("kategori") or "").strip().capitalize(), "pembe")) if t)
+    cipler = "".join(B.cip(t, r) for t, r in (
+        (_firma_ad(kamp.get("firma")), "mor2"),
+        ((kamp.get("kampanya_turu") or "").strip(), "cyan"),
+        ((kamp.get("kategori") or "").strip().capitalize(), "pembe")) if t)
     st.markdown(_css() + (
         f'<div class="kmp-dt" style="--d:{rv(renk)}">'
         f'<div class="kmp-dt-ust"><span class="kmp-ad">{_h.escape(str(kamp.get("kampanya_adi") or ""))}</span>'
-        f'<span class="kmp-cip" title="{aciklama}">{ad_d}</span>{cipler}</div>'
+        f'{B.cip(ad_d, renk, aciklama)}{cipler}</div>'
         f'<div class="kmp-zaman"><span>{_aralik(kamp)}</span><div class="kmp-cubuk">'
         f'<i style="width:{(1.0 if o["durum"] == "kapali" else o["oran"]) * 100:.0f}%"></i></div>'
         f'<b>{_kalan_metni(o)}</b></div></div>'), unsafe_allow_html=True)
@@ -540,9 +514,9 @@ def _sekme_islemler(kamp, o):
 
     st.divider()
     st.markdown("**Sil**")
-    st.caption("Kampanya ve tüm ürün satırları kalıcı olarak silinir; geri alınamaz.")
-    onay_sil = st.checkbox(f"Evet, '{kamp.get('kampanya_adi','')}' kampanyasını sil", key=f"kmp_sil_onay_{kid}")
-    if st.button("Kampanyayı sil", icon=":material/delete:", disabled=not onay_sil, key=f"kmp_sil_{kid}"):
+    if B.onayli_sil(f"Evet, '{kamp.get('kampanya_adi','')}' kampanyasını sil", key=f"kmp_{kid}",
+                    dugme="Kampanyayı sil",
+                    aciklama="Kampanya ve tüm ürün satırları kalıcı olarak silinir; geri alınamaz."):
         sil_kampanya(kid)
         st.session_state.pop("_kmp_sec", None)
         _yenile(None, "Kampanya silindi")

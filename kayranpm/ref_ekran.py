@@ -21,6 +21,7 @@ import streamlit as st
 
 from shared.tasarim import baslik, css_tek_satir, kpi_serit, mesaj, bos_durum, rv, sayi, tr_sayi
 from shared.utils import firma_kisa_ad
+from shared import bilesen as B
 from . import ref_hesap as R
 from . import ref_no as N
 
@@ -56,8 +57,7 @@ def _veri(firmalar):
 
 
 def _ac(rid):
-    st.session_state["_ref_sec"] = rid
-    st.session_state["_ref_ac"] = True
+    B.detay_ac("ref", rid)
 
 
 def _firma_sec(fid):
@@ -66,32 +66,15 @@ def _firma_sec(fid):
 
 
 def _yenile(rid=None, metin=None):
-    st.cache_data.clear()
-    if metin:
-        st.toast(metin)
-    if rid:
-        _ac(rid)
-    st.rerun()
+    B.yenile(metin, ac=("ref", rid) if rid else None)
 
 
 # ════════════════════════════════════════════════════════════════════
 def _css():
     return "<style>" + css_tek_satir("""
-[class*="st-key-reff_"],[class*="st-key-refr_"]{position:relative;gap:0 !important;}
-[class*="st-key-reff_"] [data-testid="stMarkdownContainer"],[class*="st-key-refr_"] [data-testid="stMarkdownContainer"]{margin-bottom:0 !important;}
-:is([class*="st-key-reff_"],[class*="st-key-refr_"]) [data-testid="stElementContainer"]:has(.stButton){position:absolute !important;
-  inset:0 !important;margin:0 !important;z-index:3;width:auto !important;height:auto !important;}
-html body :is([class*="st-key-reff_"],[class*="st-key-refr_"]) .stButton{width:100% !important;height:100% !important;}
-html body [data-testid="stMain"] :is([class*="st-key-reff_"],[class*="st-key-refr_"]) [data-testid="stButton"].stButton > button[data-testid]{
-  width:100% !important;height:100% !important;min-height:100% !important;opacity:0 !important;border:0 !important;padding:0 !important;}
-:is([class*="st-key-reff_"],[class*="st-key-refr_"]):has(button:focus-visible){outline:2px solid var(--k-mor);outline-offset:1px;}
 /* Firma rayı */
 .st-key-ref_ray{gap:2px !important;}
 .st-key-ref_ray > [data-testid="stElementContainer"] [data-testid="stMarkdownContainer"]{margin-bottom:0 !important;}
-[class*="st-key-reff_"]{border-radius:9px;padding:8px 10px !important;transition:background .12s ease;}
-[class*="st-key-reff_"]:hover{background:var(--k-ortu2);}
-.st-key-reff_sec{background:color-mix(in srgb,var(--k-mor) 13%,transparent) !important;}
-.st-key-reff_sec::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--k-mor);}
 .rf-f{display:flex;align-items:center;gap:8px;min-width:0;}
 .rf-f-ad{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--k-metin);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .rf-f-alt{display:flex;gap:6px;align-items:center;margin-top:2px;font-size:11.5px;color:var(--k-silik);}
@@ -100,22 +83,13 @@ html body [data-testid="stMain"] :is([class*="st-key-reff_"],[class*="st-key-ref
   color:var(--k-amber);background:color-mix(in srgb,var(--k-amber) 14%,transparent);}
 .rf-ray-bas{font-size:11.5px;font-weight:600;color:var(--k-silik);margin:2px 10px 4px;}
 /* Dönem grubu + satır */
-.rf-grup{display:flex;align-items:baseline;gap:10px;margin:18px 2px 6px;}
-.rf-grup b{font-size:14px;font-weight:650;color:var(--k-metin);}
-.rf-grup span{font-size:12px;color:var(--k-silik);}
-.rf-grup i{flex:1;height:1px;background:var(--k-kenar);font-style:normal;align-self:center;}
-[class*="st-key-refr_"]{border-radius:10px;padding:9px 14px !important;background:var(--k-yuzey1);
-  border:1px solid var(--k-kenar);border-left:3px solid var(--d);transition:background .12s ease,border-color .12s ease;margin-bottom:-6px;}
-[class*="st-key-refr_"]:hover{background:color-mix(in srgb,var(--d) 5%,var(--k-yuzey1));border-color:color-mix(in srgb,var(--d) 40%,transparent);border-left-color:var(--d);}
 .rf-s{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:4px 16px;align-items:center;}
 .rf-no{font-family:var(--k-mono);font-size:12.5px;font-weight:600;color:var(--k-mor2);letter-spacing:.2px;}
 .rf-durum{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--d);margin-top:2px;}
 .rf-durum::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--d);}
 .rf-ack{min-width:0;font-size:13px;color:var(--k-metin);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rf-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;font-size:11.5px;color:var(--k-silik);}
-.rf-meta > span:not(.rf-cip) + span:not(.rf-cip)::before{content:"·";margin-right:6px;}
-.rf-cip{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;color:var(--k-mor2);
-  background:color-mix(in srgb,var(--k-mor) 12%,transparent);}
+.rf-s .k-meta{margin-top:4px;font-size:11.5px;}
+.rf-s .k-cip{padding:2px 7px;}
 .rf-tut{text-align:right;white-space:nowrap;}
 .rf-tut b{display:block;font-family:var(--k-mono);font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--k-metin);}
 .rf-tut small{font-size:11.5px;color:var(--k-silik);}
@@ -130,7 +104,7 @@ html body [data-testid="stMain"] :is([class*="st-key-reff_"],[class*="st-key-ref
 
 def _satir_html(r, firma_goster, eur=None, tl=None):
     d = r.get("durum") or "beklemede"
-    kat = "".join(f'<span class="rf-cip">{_h.escape(k.capitalize())}</span>' for k in R.kategoriler(r)[:3])
+    kat = "".join(B.cip(k.capitalize()) for k in R.kategoriler(r)[:3])
     fr = (f'<span>{_h.escape(firma_kisa_ad(r.get("_firma")))}</span>' if firma_goster else "")
     parca = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
     kalem = f"<span>{len(parca)} kalem</span>" if len(parca) > 1 else ""
@@ -139,7 +113,7 @@ def _satir_html(r, firma_goster, eur=None, tl=None):
             f'<div class="rf-durum">{R.DURUM_AD.get(d, d)}</div></div>'
             f'<div style="min-width:0"><div class="rf-ack" title="{_h.escape(" · ".join(parca), quote=True)}">'
             f'{_h.escape(" · ".join(parca) or "—")}</div>'
-            f'<div class="rf-meta">{kat}<span>{R.donem_metni(r)}</span>{fr}{kalem}</div></div>'
+            f'<div class="k-meta">{kat}<span>{R.donem_metni(r)}</span>{fr}{kalem}</div></div>'
             f'<div class="rf-tut"><b>{_tutar(r)}</b><small>{_usd_alt(r, eur, tl)}</small></div></div>')
 
 
@@ -200,8 +174,9 @@ def render():
     with sag:
         _sag_panel(kapsam, fmap.get(fid), hepsi)
 
-    if st.session_state.pop("_ref_ac", False) and st.session_state.get("_ref_sec"):
-        r = next((x for x in hepsi if x.get("id") == st.session_state["_ref_sec"]), None)
+    _sec = B.detay_istendi("ref")
+    if _sec:
+        r = next((x for x in hepsi if x.get("id") == _sec), None)
         if r:
             _detay_dialog(r, firmalar)
 
@@ -216,13 +191,11 @@ def _firma_rayi(firmalar, hepsi, fid):
               oz.get(f["id"], {}).get("adet", 0), oz.get(f["id"], {}).get("beklemede", 0)) for f in firmalar],
             key=lambda x: (-x[4], x[1]))
         for i, ad, kod, adet, bek in sira:
-            with st.container(key=("reff_sec" if i == fid else f"reff_{i}")):
-                roz = f'<span class="rf-rozet" title="beklemede">{bek}</span>' if bek else ""
-                kod_h = f'<span class="rf-kod">{_h.escape(kod)}</span>·' if kod else ""
-                st.markdown(f'<div class="rf-f"><div style="min-width:0;flex:1"><div class="rf-f-ad">{_h.escape(ad)}</div>'
-                            f'<div class="rf-f-alt">{kod_h}<span>{adet} ref</span></div></div>{roz}</div>',
-                            unsafe_allow_html=True)
-                st.button(f"{ad} seç", key=f"ref_fsec_{i}", on_click=_firma_sec, args=(i,))
+            roz = f'<span class="rf-rozet" title="beklemede">{bek}</span>' if bek else ""
+            kod_h = f'<span class="rf-kod">{_h.escape(kod)}</span>·' if kod else ""
+            B.tiklanir(f"reff{i}", f'<div class="rf-f"><div style="min-width:0;flex:1"><div class="rf-f-ad">{_h.escape(ad)}</div>'
+                                   f'<div class="rf-f-alt">{kod_h}<span>{adet} ref</span></div></div>{roz}</div>',
+                       _firma_sec, (i,), tur="ray", secili=(i == fid), etiket=f"{ad} seç")
 
 
 def _sag_panel(kapsam, firma, hepsi):
@@ -255,11 +228,11 @@ def _sag_panel(kapsam, firma, hepsi):
                         label_visibility="collapsed")
     katlar = sorted({k for r in kapsam for k in R.kategoriler(r)})
     yillar = sorted({R.donem(r)[:4] for r in kapsam if R.donem(r)}, reverse=True)
-    _n = sum(1 for k in ("ref_f_kat", "ref_f_yil") if st.session_state.get(k, "Tümü") != "Tümü")
-    with c3.popover(f"Filtre{f' · {_n}' if _n else ''}", icon=":material/tune:", use_container_width=True):
-        f_kat = st.selectbox("Kategori", ["Tümü"] + katlar, key="ref_f_kat",
-                             format_func=lambda x: x if x == "Tümü" else x.capitalize())
-        f_yil = st.selectbox("Yıl", ["Tümü"] + yillar, key="ref_f_yil")
+    _f = B.filtre(c3, [
+        {"etiket": "Kategori", "secenekler": katlar, "key": "ref_f_kat",
+         "format_func": lambda x: x if x == "Tümü" else x.capitalize()},
+        {"etiket": "Yıl", "secenekler": yillar, "key": "ref_f_yil"}])
+    f_kat, f_yil = _f["ref_f_kat"], _f["ref_f_yil"]
     with c4:
         mod = st.segmented_control("Görünüm modu", ["Liste", "Tablo"], default="Liste", key="ref_mod",
                                    label_visibility="collapsed", disabled=firma is None,
@@ -284,20 +257,17 @@ def _sag_panel(kapsam, firma, hepsi):
         return
     limit = int(st.session_state.get("ref_limit", 60))
     gosterilen = 0
-    renk_css = []
     for d, grup in R.grupla(liste):
         if gosterilen >= limit:
             break
         tg = R.toplam([r for r in grup if r.get("durum") != "iptal"], eur, tl)
-        st.markdown(f'<div class="rf-grup"><b>{R.donem_adi(d)}</b><span>{len(grup)} ref · ≈ {_usd(tg["usd"])}</span>'
-                    f'<i></i></div>', unsafe_allow_html=True)
+        st.markdown(B.grup_basligi(R.donem_adi(d), f"{len(grup)} ref · ≈ {_usd(tg['usd'])}"),
+                    unsafe_allow_html=True)
         for r in grup[:max(0, limit - gosterilen)]:
-            with st.container(key=f"refr_{r['id']}"):
-                st.markdown(_satir_html(r, firma is None, eur, tl), unsafe_allow_html=True)
-                st.button(f"{r.get('ref_no','')} detay", key=f"ref_ac_{r['id']}", on_click=_ac, args=(r["id"],))
-            renk_css.append(f".st-key-refr_{r['id']}{{--d:{rv(R.DURUM_RENK.get(r.get('durum') or 'beklemede', 'silik'))};}}")
+            B.tiklanir(f"ref{r['id']}", _satir_html(r, firma is None, eur, tl), _ac, (r["id"],), tur="satir",
+                       renk=R.DURUM_RENK.get(r.get("durum") or "beklemede", "silik"),
+                       etiket=f"{r.get('ref_no','')} detay")
             gosterilen += 1
-    st.markdown("<style>" + "".join(renk_css) + "</style>", unsafe_allow_html=True)
     if len(liste) > gosterilen:
         if st.button(f"Daha fazla göster ({len(liste) - gosterilen} ref daha)", key="ref_daha",
                      use_container_width=True, type="tertiary"):
@@ -395,9 +365,8 @@ def _bilgi_formu(r):
                                aylik=aylik)
                 _yenile(rid, "Ref kaydedildi")
     with st.expander("Sil", icon=":material/delete:"):
-        st.caption("Ref kaydı kalıcı olarak silinir; numara tekrar kullanılmaz.")
-        onay = st.checkbox(f"Evet, {r.get('ref_no')} kaydını sil", key=f"ref_sil_onay_{rid}")
-        if st.button("Ref'i sil", icon=":material/delete:", disabled=not onay, key=f"ref_sil_{rid}"):
+        if B.onayli_sil(f"Evet, {r.get('ref_no')} kaydını sil", key=f"ref_{rid}", dugme="Ref'i sil",
+                        aciklama="Ref kaydı kalıcı olarak silinir; numara tekrar kullanılmaz."):
             N.ref_sil(rid)
             st.session_state.pop("_ref_sec", None)
             _yenile(None, f"{r.get('ref_no')} silindi")
@@ -516,8 +485,7 @@ def _firmalar_dialog(firmalar):
 # Alınan destekler (üretici / markadan bize gelen) — Ref No'larla aynı dil
 # ════════════════════════════════════════════════════════════════════
 def _ad_ac(rid):
-    st.session_state["_ad_sec"] = rid
-    st.session_state["_ad_ac"] = True
+    B.detay_ac("ad", rid)
 
 
 def _alinan_gorunum():
@@ -532,10 +500,9 @@ def _alinan_gorunum():
                         label_visibility="collapsed")
     firmalar = sorted({(r.get("firma") or "").strip() for r in kayitlar if (r.get("firma") or "").strip()})
     turler = sorted({(r.get("tur") or "").strip() for r in kayitlar if (r.get("tur") or "").strip()})
-    _n = sum(1 for k in ("ad2_f_firma", "ad2_f_tur") if st.session_state.get(k, "Tümü") != "Tümü")
-    with c2.popover(f"Filtre{f' · {_n}' if _n else ''}", icon=":material/tune:", use_container_width=True):
-        f_firma = st.selectbox("Firma", ["Tümü"] + firmalar, key="ad2_f_firma")
-        f_tur = st.selectbox("Tür", ["Tümü"] + turler, key="ad2_f_tur")
+    _f = B.filtre(c2, [{"etiket": "Firma", "secenekler": firmalar, "key": "ad2_f_firma"},
+                       {"etiket": "Tür", "secenekler": turler, "key": "ad2_f_tur"}])
+    f_firma, f_tur = _f["ad2_f_firma"], _f["ad2_f_tur"]
     if c3.button("Excel", icon=":material/upload_file:", use_container_width=True, key="ad2_excel"):
         _ad_excel_dialog()
     if c4.button("Yeni kayıt", icon=":material/add:", type="primary", use_container_width=True, key="ad2_yeni"):
@@ -570,30 +537,26 @@ def _alinan_gorunum():
     gruplar = {}
     for r in liste:
         gruplar.setdefault(r["donem_"], []).append(r)
-    renk = []
     for d in sorted(gruplar, reverse=True):
         g = gruplar[d]
         tg = R.toplam(g, eur, tl)
-        st.markdown(f'<div class="rf-grup"><b>{R.donem_adi(d)}</b><span>{len(g)} kayıt · ≈ {_usd(tg["usd"])}</span>'
-                    f'<i></i></div>', unsafe_allow_html=True)
-        for r in sorted(g, key=lambda x: -R._f(x.get("tutar"))):
-            with st.container(key=f"refr_ad{r['id']}"):
-                cip = "".join(f'<span class="rf-cip">{_h.escape(x)}</span>' for x in
-                              ((r.get("tur") or "").strip().capitalize(), (r.get("kategori") or "").strip().capitalize()) if x)
-                fat = f'<span>Fatura {_h.escape(str(r.get("fatura_no")))}</span>' if r.get("fatura_no") else ""
-                st.markdown(
-                    f'<div class="rf-s" style="grid-template-columns:150px minmax(0,1fr) auto">'
-                    f'<div><div class="rf-no" style="font-family:inherit;color:var(--k-metin);font-size:13.5px">'
-                    f'{_h.escape((r.get("firma") or "—").strip())}</div></div>'
-                    f'<div style="min-width:0"><div class="rf-ack">{_h.escape(r.get("aciklama") or "—")}</div>'
-                    f'<div class="rf-meta">{cip}{fat}</div></div>'
-                    f'<div class="rf-tut"><b>{_tutar(r)}</b><small>{_usd_alt(r, eur, tl)}</small></div></div>',
+        st.markdown(B.grup_basligi(R.donem_adi(d), f"{len(g)} kayıt · ≈ {_usd(tg['usd'])}"),
                     unsafe_allow_html=True)
-                st.button("Detay", key=f"ad2_ac_{r['id']}", on_click=_ad_ac, args=(r["id"],))
-            renk.append(f".st-key-refr_ad{r['id']}{{--d:var(--k-yesil);}}")
-    st.markdown("<style>" + "".join(renk) + "</style>", unsafe_allow_html=True)
-    if st.session_state.pop("_ad_ac", False):
-        r = next((x for x in kayitlar if x.get("id") == st.session_state.get("_ad_sec")), None)
+        for r in sorted(g, key=lambda x: -R._f(x.get("tutar"))):
+            cip = "".join(B.cip(x) for x in ((r.get("tur") or "").strip().capitalize(),
+                                             (r.get("kategori") or "").strip().capitalize()) if x)
+            fat = f'<span>Fatura {_h.escape(str(r.get("fatura_no")))}</span>' if r.get("fatura_no") else ""
+            B.tiklanir(f"ad{r['id']}",
+                       f'<div class="rf-s" style="grid-template-columns:150px minmax(0,1fr) auto">'
+                       f'<div><div class="rf-no" style="font-family:inherit;color:var(--k-metin);font-size:13.5px">'
+                       f'{_h.escape((r.get("firma") or "—").strip())}</div></div>'
+                       f'<div style="min-width:0"><div class="rf-ack">{_h.escape(r.get("aciklama") or "—")}</div>'
+                       f'<div class="k-meta">{cip}{fat}</div></div>'
+                       f'<div class="rf-tut"><b>{_tutar(r)}</b><small>{_usd_alt(r, eur, tl)}</small></div></div>',
+                       _ad_ac, (r["id"],), tur="satir", renk="yesil", etiket="Detay")
+    _sec = B.detay_istendi("ad")
+    if _sec:
+        r = next((x for x in kayitlar if x.get("id") == _sec), None)
         if r:
             _ad_detay_dialog(r, eur, tl)
 
@@ -610,9 +573,8 @@ def _ad_detay_dialog(r, eur, tl):
             st.markdown(f'<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--k-kenar)">'
                         f'<span style="width:90px;color:var(--k-silik);font-size:12.5px">{etk}</span>'
                         f'<span style="font-size:13px">{_h.escape(str(v))}</span></div>', unsafe_allow_html=True)
-    st.caption("Kayıt düzeltmek için silip yeniden girin (değişiklik geçmişi bozulmasın).")
-    onay = st.checkbox("Evet, bu kaydı sil", key=f"ad2_sil_onay_{r['id']}")
-    if st.button("Kaydı sil", icon=":material/delete:", disabled=not onay, key=f"ad2_sil_{r['id']}"):
+    if B.onayli_sil("Evet, bu kaydı sil", key=f"ad2_{r['id']}", dugme="Kaydı sil",
+                    aciklama="Kayıt düzeltmek için silip yeniden girin (değişiklik geçmişi bozulmasın)."):
         if N.alinan_destek_sil(r["id"]):
             st.session_state.pop("_ad_sec", None)
             _yenile(None, "Kayıt silindi")

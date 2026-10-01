@@ -943,6 +943,48 @@ section[data-testid="stMain"] {_OPT}:has(input:focus-visible){{outline:2px solid
 """
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 7d. ORTAK BİLEŞEN STİLLERİ — shared/bilesen.py ile birlikte çalışır
+#     tiklanir() kapları (kart · satir · ray), k-grup, k-cip, k-meta.
+#     Kampanya Takip ve Ref No'da ayrı ayrı yazılmıştı; tek kaynak burası.
+# ═══════════════════════════════════════════════════════════════════
+_TK = '[class*="st-key-tk_"]'
+_TKA = ':is([data-testid="stMain"],[data-testid="stDialog"])'
+ORTAK_BILESEN_CSS = f"""
+{_TK}{{position:relative;gap:0 !important;}}
+{_TK} [data-testid="stMarkdownContainer"]{{margin-bottom:0 !important;}}
+{_TK} > [data-testid="stElementContainer"]:has(.stButton){{position:absolute !important;inset:0 !important;
+  margin:0 !important;z-index:3;width:auto !important;height:auto !important;}}
+html body {_TK} .stButton{{width:100% !important;height:100% !important;}}
+html body {_TKA} {_TK} [data-testid="stButton"].stButton > button[data-testid]{{width:100% !important;
+  height:100% !important;min-height:100% !important;opacity:0 !important;border:0 !important;padding:0 !important;}}
+{_TK}:has(button:focus-visible){{outline:2px solid var(--k-mor);outline-offset:2px;}}
+[class*="st-key-tk_kart_"]{{padding:14px 16px 13px !important;border-radius:12px !important;
+  background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;
+  border-left:3px solid var(--d,var(--k-kenar2)) !important;transition:border-color .15s ease,background-color .15s ease;}}
+[class*="st-key-tk_kart_"]:hover{{background:color-mix(in srgb,var(--d,var(--k-mor)) 4%,var(--k-yuzey1)) !important;
+  border-color:color-mix(in srgb,var(--d,var(--k-mor)) 45%,transparent) !important;border-left-color:var(--d,var(--k-mor)) !important;}}
+[class*="st-key-tk_satir_"]{{padding:9px 14px !important;border-radius:10px;background:var(--k-yuzey1);
+  border:1px solid var(--k-kenar);border-left:3px solid var(--d,var(--k-kenar2));margin-bottom:-6px;
+  transition:background .12s ease,border-color .12s ease;}}
+[class*="st-key-tk_satir_"]:hover{{background:color-mix(in srgb,var(--d,var(--k-mor)) 5%,var(--k-yuzey1));
+  border-color:color-mix(in srgb,var(--d,var(--k-mor)) 40%,transparent);border-left-color:var(--d,var(--k-mor));}}
+[class*="st-key-tk_ray_"]{{border-radius:9px;padding:8px 10px !important;transition:background .12s ease;}}
+[class*="st-key-tk_ray_"]:hover{{background:var(--k-ortu2);}}
+[class*="st-key-tk_ray_"][class*="__sec"]{{background:color-mix(in srgb,var(--k-mor) 13%,transparent) !important;}}
+[class*="st-key-tk_ray_"][class*="__sec"]::before{{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--k-mor);}}
+.k-grup{{display:flex;align-items:baseline;gap:10px;margin:18px 2px 6px;}}
+.k-grup b{{font-size:14px;font-weight:650;color:var(--k-metin);}}
+.k-grup span{{font-size:12px;color:var(--k-silik);}}
+.k-grup i{{flex:1;height:1px;background:var(--k-kenar);font-style:normal;align-self:center;}}
+.k-cip{{display:inline-block;flex-shrink:0;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;
+  border-radius:999px;white-space:nowrap;color:var(--d);background:color-mix(in srgb,var(--d) 13%,transparent);}}
+.k-meta{{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--k-silik);}}
+.k-meta > span:not(.k-cip) + span:not(.k-cip)::before{{content:"·";margin-right:6px;}}
+"""
+
+
 def sidebar_modul_html(ikon_adi, ad, renk="mor2"):
     """Sol menü üstündeki modül çipi. ikon_adi Material adı ('point_of_sale')
     ya da eski çağrılardan gelen emoji olabilir."""
@@ -973,7 +1015,7 @@ def cekirdek_css(yogunluk=None):
 /* Bu sınıfı taşıyan kapsayıcı AÇIK paleti kullanır (Tasarım Rehberi önizlemesi;
    ileride kullanıcı tema seçimi de aynı değişkenlerle çalışır). */
 .k-tema-acik{{{acik}color:var(--k-metin);}}
-""" + DUGME_CSS + BILESEN_CSS + SIDEBAR_CSS + MOBIL_CSS + f"""
+""" + DUGME_CSS + BILESEN_CSS + SIDEBAR_CSS + ORTAK_BILESEN_CSS + MOBIL_CSS + f"""
 
 .k-grid{{display:flex;gap:var(--k-gap);flex-wrap:wrap;align-items:stretch;margin:0 0 {sa};}}
 
