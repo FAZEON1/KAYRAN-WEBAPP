@@ -873,30 +873,46 @@ _sb_comp.html(
     }
   } catch (e) {}
 
-  if (doc.getElementById('kayran-sb-toggle')) return;
+  // Düğme zaten varsa (her rerun bu betik yeniden çalışır): ÇIKMADAN önce
+  // güncel menüye yeniden bağlan + konumla. Eskiden burada yalnız `return` vardı;
+  // menü yeniden kurulduğunda izleyiciler eski (sayfadan kalkmış) menüde kalıyor,
+  // düğme yanlış yerde (menünün üstünde) takılı kalıyordu.
+  if (doc.getElementById('kayran-sb-toggle')) {
+    try { if (w.__kayranSbYenile) w.__kayranSbYenile(); } catch (e) {}
+    return;
+  }
 
-  const SVG_SOL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-  const SVG_SAG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  const SVG_SOL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  const SVG_SAG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 
   const btn = doc.createElement('button');
   btn.id = 'kayran-sb-toggle';
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Menüyü aç/kapat');
+  // Görünüm: sade, temaya uygun (eskiden parlak sarı halka). KAYMA ANİMASYONU
+  // YOK: konum değişince doğrudan yerine oturur (eskiden 'left' kayıyordu).
   btn.style.cssText = [
     'position:fixed','top:50%','transform:translateY(-50%)','left:10px',
-    'z-index:2147483647','width:34px','height:34px','border-radius:50%',
-    'cursor:pointer','border:2px solid #FBBF24',
-    'background:var(--k-yuzey1,#0D1526)','color:#F59E0B',
+    'z-index:2147483647','width:26px','height:26px','border-radius:50%',
+    'cursor:pointer','border:1px solid var(--k-kenar2,rgba(148,163,184,.18))',
+    'background:var(--k-yuzey1,#0F172A)','color:var(--k-soluk,#94A3B8)',
     'padding:0','display:flex','align-items:center','justify-content:center',
-    'box-shadow:0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)',
-    'transition:left .18s ease, box-shadow .15s ease'
+    'box-shadow:0 1px 3px rgba(0,0,0,0.18)',
+    'transition:color .12s ease, border-color .12s ease, box-shadow .12s ease'
   ].join(';');
   btn.innerHTML = SVG_SOL;
   btn.dataset.yon = 'sol';
-  btn.onmouseenter = () => btn.style.boxShadow =
-    '0 0 0 4px rgba(245,158,11,0.30), 0 2px 12px rgba(0,0,0,0.55)';
-  btn.onmouseleave = () => btn.style.boxShadow =
-    '0 0 0 3px rgba(245,158,11,0.18), 0 2px 10px rgba(0,0,0,0.5)';
+  btn.title = 'Menüyü daralt / genişlet';
+  btn.onmouseenter = () => {
+    btn.style.color = 'var(--k-mor,#818CF8)';
+    btn.style.borderColor = 'var(--k-mor,#818CF8)';
+    btn.style.boxShadow = '0 0 0 3px color-mix(in srgb,var(--k-mor,#818CF8) 18%,transparent)';
+  };
+  btn.onmouseleave = () => {
+    btn.style.color = 'var(--k-soluk,#94A3B8)';
+    btn.style.borderColor = 'var(--k-kenar2,rgba(148,163,184,.18))';
+    btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.18)';
+  };
 
   function sbEl() { return doc.querySelector('section[data-testid="stSidebar"]'); }
 
@@ -945,9 +961,15 @@ _sb_comp.html(
   function konumla() {
     try {
       const sb = sbEl();
+      // Menünün HİÇ olmadığı sayfa (Streamlit boş sidebar'ı kaldırır): düğme işe
+      // yaramaz → gizle. Dialog açıkken de gizli (dialogAcik).
+      const gizle = !sb || dialogAcik();
+      const hedefD = gizle ? 'none' : 'flex';
+      if (btn.style.display !== hedefD) btn.style.display = hedefD;
+      if (gizle) return;
       const acik = gorunurMu();
-      const hedefLeft = (acik && sb)
-        ? Math.max(10, Math.round(sb.getBoundingClientRect().right - 17)) + 'px'
+      const hedefLeft = acik
+        ? Math.max(10, Math.round(sb.getBoundingClientRect().right - 13)) + 'px'
         : '10px';
       if (btn.style.left !== hedefLeft) btn.style.left = hedefLeft;
       const yon = acik ? 'sol' : 'sag';
@@ -958,16 +980,21 @@ _sb_comp.html(
     } catch (e) {}
   }
 
-  function dialogKontrol() {
-    try {
-      const acikD = !!doc.querySelector('div[data-testid="stDialog"]');
-      const hedef = acikD ? 'none' : 'flex';
-      if (btn.style.display !== hedef) {
-        btn.style.display = hedef;
-        if (!acikD) konumla();
-      }
-    } catch (e) {}
+  function dialogAcik() {
+    return !!doc.querySelector('div[data-testid="stDialog"]');
   }
+
+  // Menü yeniden kurulduysa (aynı eleman değilse) boyut izleyicisini YENİ menüye bağla.
+  function bagla() {
+    const sb = sbEl();
+    if (!sb || sb === w.__kayranSbIzlenen || !w.ResizeObserver) return;
+    if (w.__kayranSbRO) { try { w.__kayranSbRO.disconnect(); } catch (e) {} }
+    w.__kayranSbRO = new w.ResizeObserver(() => konumla());
+    w.__kayranSbRO.observe(sb);
+    sb.addEventListener('transitionend', konumla);
+    w.__kayranSbIzlenen = sb;
+  }
+  w.__kayranSbYenile = function () { bagla(); konumla(); };
 
   btn.onclick = function () {
     const sb = sbEl();
@@ -1011,13 +1038,8 @@ _sb_comp.html(
   konumla();
 
   // ── OLAY KAYNAKLARI (yoklama yok) ──
-  const sb0 = sbEl();
-  if (w.ResizeObserver && sb0) {
-    if (w.__kayranSbRO) { try { w.__kayranSbRO.disconnect(); } catch (e) {} }
-    w.__kayranSbRO = new w.ResizeObserver(() => konumla());
-    w.__kayranSbRO.observe(sb0);
-    sb0.addEventListener('transitionend', konumla);
-  }
+  w.__kayranSbIzlenen = null;
+  bagla();
   w.addEventListener('resize', konumla);
 
   let planli = false;
@@ -1027,7 +1049,8 @@ _sb_comp.html(
     planli = true;
     w.requestAnimationFrame(() => {
       planli = false;
-      dialogKontrol();
+      bagla();          // menü yeniden kurulduysa yeni menüye bağlan
+      konumla();        // görünürlük + konum (yalnız değer değişince yazar)
       // Kapalı tercih rerun'da silindiyse yeniden uygula (ucuz string kontrolü)
       if (doc.body.classList.contains('kyr-sb-kapali')) {
         const sb = sbEl();
