@@ -1126,6 +1126,7 @@ def set_ayar(anahtar, deger):
              "deger": _json.dumps(deger, ensure_ascii=False),
              "guncelleme_tarihi": _zaman},
             on_conflict="anahtar").execute()
+        _ayar_ham.clear()
         return True
     except Exception as e:
         try:
@@ -1135,15 +1136,23 @@ def set_ayar(anahtar, deger):
         return False
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _ayar_ham(anahtar):
+    """sistem_ayarlari'ndaki ham değer (önbellekli, 5 dk). Yönetim P&L aynı
+    çizimde 3 ayrı ayarı okuyordu; her tıklamada 3 sorgu. set_ayar temizler."""
+    res = get_client().table("sistem_ayarlari").select("deger").eq("anahtar", anahtar).execute()
+    rows = res.data or []
+    return rows[0]["deger"] if rows else None
+
+
 def get_ayar(anahtar, varsayilan=None):
     """sistem_ayarlari'ndan JSON değer okur."""
     import json as _json
     try:
-        res = get_client().table("sistem_ayarlari").select("deger").eq("anahtar", anahtar).execute()
-        rows = res.data or []
-        if not rows:
+        ham = _ayar_ham(anahtar)
+        if ham is None:
             return varsayilan
-        return _json.loads(rows[0]["deger"])
+        return _json.loads(ham)
     except Exception:
         return varsayilan
 
@@ -1157,13 +1166,16 @@ def kur_kaydet(tarih, kur):
         get_client().table("kur_gunluk").upsert(
             {"tarih": str(tarih)[:10], "usd_try": float(kur)},
             on_conflict="tarih").execute()
+        get_kur.clear()
+        get_kur_araligi.clear()
         return True
     except Exception:
         return False
 
 
+@st.cache_data(ttl=600, show_spinner=False)
 def get_kur(tarih=None):
-    """En güncel USD/TL kuru (bulunamazsa None).
+    """En güncel USD/TL kuru (bulunamazsa None). Önbellekli (10 dk; kur_kaydet temizler).
 
     kayranpm/ref_no.py bu fonksiyonu çağırıyordu ama tanımlı değildi; çağrı
     try/except içinde olduğu için sessizce None dönüyor ve TL→USD çevrimi
@@ -1186,6 +1198,7 @@ def get_kur(tarih=None):
     return None
 
 
+@st.cache_data(ttl=600, show_spinner=False)
 def get_kur_araligi(baslangic, bitis):
     """Dönem [baslangic, bitis] aralığındaki günlük kurları döndürür:
     {'2026-06-28': 38.5, ...}. Tablo yoksa/boşsa {} döner."""
