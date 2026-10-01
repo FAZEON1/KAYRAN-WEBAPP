@@ -481,7 +481,18 @@ def run():
         if st.button('Ayhan Prim', key='tab_ay', type=('primary' if st.session_state.hm_sekme=='prim_ayhan' else 'secondary'), use_container_width=True, icon=":material/payments:"):
             st.session_state.hm_sekme='prim_ayhan'; st.rerun()
     st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-    if st.session_state.hm_sekme == 'karlilik': _urun_karlilik()
-    elif st.session_state.hm_sekme == 'breakeven': _breakeven()
-    elif st.session_state.hm_sekme == 'prim_gokhan': _prim_gokhan()
-    elif st.session_state.hm_sekme == 'prim_ayhan': _prim_ayhan()
+    # ── Sayfa gövdesi: KENDİ İÇİNDE YENİLENEN PARÇA (st.fragment) ───────────
+    # HIZ: Sayfadaki filtre, seçim kutusu, sekme ya da onay kutusu değişince
+    # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
+    # ortak CSS yeniden çalışmaz. Kayıt sonrası st.rerun() çağrıları ESKİSİ
+    # GİBİ tüm sayfayı yeniler (Streamlit 1.64'te parça içi st.rerun() tam
+    # yenilemedir). Blok ile dış kapsamın paylaştığı değişkenler nonlocal ile
+    # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
+    @st.fragment
+    def _sayfa_parcasi():
+        if st.session_state.hm_sekme == 'karlilik': _urun_karlilik()
+        elif st.session_state.hm_sekme == 'breakeven': _breakeven()
+        elif st.session_state.hm_sekme == 'prim_gokhan': _prim_gokhan()
+        elif st.session_state.hm_sekme == 'prim_ayhan': _prim_ayhan()
+
+    _sayfa_parcasi()

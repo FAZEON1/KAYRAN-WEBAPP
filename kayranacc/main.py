@@ -1390,575 +1390,597 @@ def run():
     # 12) ERTELENEN ÖDEMELER
     # ════════════════════════════════════════════════════════════════════
 
-    if sayfa == "📊 Dashboard":
-        st.markdown(_sb("📊 Muhasebe", "Genel Bakış", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
+    # ── Sayfa gövdesi: KENDİ İÇİNDE YENİLENEN PARÇA (st.fragment) ───────────
+    # HIZ: Sayfadaki filtre, seçim kutusu, sekme ya da onay kutusu değişince
+    # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
+    # ortak CSS yeniden çalışmaz. Kayıt sonrası st.rerun() çağrıları ESKİSİ
+    # GİBİ tüm sayfayı yeniler (Streamlit 1.64'te parça içi st.rerun() tam
+    # yenilemedir). Blok ile dış kapsamın paylaştığı değişkenler nonlocal ile
+    # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
+    @st.fragment
+    def _sayfa_parcasi():
+        nonlocal basarili, hafta, k
+        if sayfa == "📊 Dashboard":
+            st.markdown(_sb("📊 Muhasebe", "Genel Bakış", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
     
-        kur = get_kur()
-        odemeler, hafta = get_aktif_odemeler()
-        bankalar = get_bankalar()
+            kur = get_kur()
+            odemeler, hafta = get_aktif_odemeler()
+            bankalar = get_bankalar()
     
-        if not odemeler:
-            st.info("📂 Henüz veri yüklenmemiş. **'Veri Yükleme'** sekmesinden Excel dosyanızı yükleyin veya manuel ödeme ekleyin.")
-            st.stop()
+            if not odemeler:
+                st.info("📂 Henüz veri yüklenmemiş. **'Veri Yükleme'** sekmesinden Excel dosyanızı yükleyin veya manuel ödeme ekleyin.")
+                st.stop()
     
-        # Alarmlar
-        alarmlar = [o for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) in ("bugun", "yarin", "gecmis")]
-        bugun_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "bugun"]
-        yarin_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "yarin"]
-        gecmis_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "gecmis"]
+            # Alarmlar
+            alarmlar = [o for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) in ("bugun", "yarin", "gecmis")]
+            bugun_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "bugun"]
+            yarin_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "yarin"]
+            gecmis_alarmlar = [o for o in alarmlar if vade_durumu(o.get("vade")) == "gecmis"]
     
-        if gecmis_alarmlar:
-            isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-kirmizi);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-kirmizi2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-kirmizi);font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
-        if bugun_alarmlar:
-            isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-left:4px solid var(--k-amber);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-amber);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-amber2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-amber2);font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
-        if yarin_alarmlar:
-            isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-            st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-left:4px solid var(--k-mavi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-mor2);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-mavi);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-mavi);font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            if gecmis_alarmlar:
+                isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-kirmizi);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-kirmizi2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-kirmizi);font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
+            if bugun_alarmlar:
+                isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-left:4px solid var(--k-amber);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-amber);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-amber2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-amber2);font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+            if yarin_alarmlar:
+                isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-left:4px solid var(--k-mavi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-mor2);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-mavi);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-mavi);font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
     
-        # Özet metrikler
-        tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
-        usd_toplam = sum(o["tutar_usd"] or 0 for o in odemeler)
-        odendi_tl = sum(o["tutar_tl"] or 0 for o in odemeler if o["durum"] == "odendi")
-        odendi_usd = sum(o["tutar_usd"] or 0 for o in odemeler if o["durum"] == "odendi")
-        bekleyen_tl = tl_toplam - odendi_tl
-        bekleyen_usd = usd_toplam - odendi_usd
-        odendi_cnt = sum(1 for o in odemeler if o["durum"] == "odendi")
-        banka_tl = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
-        banka_usd = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
-        hafta_sonu_tl = banka_tl - bekleyen_tl - (bekleyen_usd * kur)
-        ilerleme_pct = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
+            # Özet metrikler
+            tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
+            usd_toplam = sum(o["tutar_usd"] or 0 for o in odemeler)
+            odendi_tl = sum(o["tutar_tl"] or 0 for o in odemeler if o["durum"] == "odendi")
+            odendi_usd = sum(o["tutar_usd"] or 0 for o in odemeler if o["durum"] == "odendi")
+            bekleyen_tl = tl_toplam - odendi_tl
+            bekleyen_usd = usd_toplam - odendi_usd
+            odendi_cnt = sum(1 for o in odemeler if o["durum"] == "odendi")
+            banka_tl = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
+            banka_usd = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
+            hafta_sonu_tl = banka_tl - bekleyen_tl - (bekleyen_usd * kur)
+            ilerleme_pct = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
     
-        # ── Bugünün özeti ──
-        today = today_iso()
-        bugun_odemeler = [o for o in odemeler if (o.get("vade") or "")[:10] == today]
-        bugun_tl_toplam  = sum(o.get("tutar_tl") or 0 for o in bugun_odemeler)
-        bugun_usd_toplam = sum(o.get("tutar_usd") or 0 for o in bugun_odemeler)
-        bugun_odendi_tl  = sum(o.get("tutar_tl") or 0 for o in bugun_odemeler if o["durum"] == "odendi")
-        bugun_odendi_usd = sum(o.get("tutar_usd") or 0 for o in bugun_odemeler if o["durum"] == "odendi")
-        bugun_kalan_tl   = bugun_tl_toplam - bugun_odendi_tl
-        bugun_kalan_usd  = bugun_usd_toplam - bugun_odendi_usd
+            # ── Bugünün özeti ──
+            today = today_iso()
+            bugun_odemeler = [o for o in odemeler if (o.get("vade") or "")[:10] == today]
+            bugun_tl_toplam  = sum(o.get("tutar_tl") or 0 for o in bugun_odemeler)
+            bugun_usd_toplam = sum(o.get("tutar_usd") or 0 for o in bugun_odemeler)
+            bugun_odendi_tl  = sum(o.get("tutar_tl") or 0 for o in bugun_odemeler if o["durum"] == "odendi")
+            bugun_odendi_usd = sum(o.get("tutar_usd") or 0 for o in bugun_odemeler if o["durum"] == "odendi")
+            bugun_kalan_tl   = bugun_tl_toplam - bugun_odendi_tl
+            bugun_kalan_usd  = bugun_usd_toplam - bugun_odendi_usd
     
-        # ── Profesyonel Metrik Kartları ──
-        nakit_bg    = trenk("yesil2") if hafta_sonu_tl >= 0 else trenk("kirmizi2")
-        nakit_renk  = trenk("yesil2") if hafta_sonu_tl >= 0 else trenk("kirmizi2")
-        nakit_label = "Hafta Sonu Kalan" if hafta_sonu_tl >= 0 else "Nakit Açığı"
-        nakit_alt   = "Tahmini bakiye" if hafta_sonu_tl >= 0 else "Tahmini açık"
-        nakit_emoji = "✅" if hafta_sonu_tl >= 0 else "⚠️"
+            # ── Profesyonel Metrik Kartları ──
+            nakit_bg    = trenk("yesil2") if hafta_sonu_tl >= 0 else trenk("kirmizi2")
+            nakit_renk  = trenk("yesil2") if hafta_sonu_tl >= 0 else trenk("kirmizi2")
+            nakit_label = "Hafta Sonu Kalan" if hafta_sonu_tl >= 0 else "Nakit Açığı"
+            nakit_alt   = "Tahmini bakiye" if hafta_sonu_tl >= 0 else "Tahmini açık"
+            nakit_emoji = "✅" if hafta_sonu_tl >= 0 else "⚠️"
     
-        st.markdown(f"""
-        <style>
-        /* .kart ailesi ortak katmanın takma adı — HTML değişmedi. */
-        .kart-grid {{ display:flex;flex-wrap:wrap;gap:var(--k-gap);margin-bottom:var(--k-gap) }}
-        .kart {{
-            flex:1;min-width:132px;background:var(--k-yuzey1);
-            border:1px solid var(--k-kenar);border-left:2px solid var(--k-mor);
-            border-radius:var(--k-r);padding:var(--k-pad);text-align:left;
-            transition:background .12s ease,border-color .12s ease;
-        }}
-        .kart:hover {{ background:var(--k-yuzey2);border-color:var(--k-kenar2) }}
-        .kart-label {{ font-size:10px;font-weight:600;letter-spacing:.6px;
-            text-transform:uppercase;color:var(--k-soluk); }}
-        .kart-deger {{ font-size:19px;font-weight:700;font-family:var(--k-mono);
-            font-variant-numeric:tabular-nums;letter-spacing:-0.2px;
-            line-height:1.25;color:var(--k-metin); }}
-        .kart-alt {{ font-size:11px;margin-top:2px;color:var(--k-silik);font-weight:400 }}
-        .section-mini-title {{ font-size:10px;font-weight:600;letter-spacing:.6px;
-            text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px; }}
-        </style>
+            st.markdown(f"""
+            <style>
+            /* .kart ailesi ortak katmanın takma adı — HTML değişmedi. */
+            .kart-grid {{ display:flex;flex-wrap:wrap;gap:var(--k-gap);margin-bottom:var(--k-gap) }}
+            .kart {{
+                flex:1;min-width:132px;background:var(--k-yuzey1);
+                border:1px solid var(--k-kenar);border-left:2px solid var(--k-mor);
+                border-radius:var(--k-r);padding:var(--k-pad);text-align:left;
+                transition:background .12s ease,border-color .12s ease;
+            }}
+            .kart:hover {{ background:var(--k-yuzey2);border-color:var(--k-kenar2) }}
+            .kart-label {{ font-size:10px;font-weight:600;letter-spacing:.6px;
+                text-transform:uppercase;color:var(--k-soluk); }}
+            .kart-deger {{ font-size:19px;font-weight:700;font-family:var(--k-mono);
+                font-variant-numeric:tabular-nums;letter-spacing:-0.2px;
+                line-height:1.25;color:var(--k-metin); }}
+            .kart-alt {{ font-size:11px;margin-top:2px;color:var(--k-silik);font-weight:400 }}
+            .section-mini-title {{ font-size:10px;font-weight:600;letter-spacing:.6px;
+                text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px; }}
+            </style>
     
-        <div class="section-mini-title">Haftalık özet</div>
-        <div class="kart-grid">
+            <div class="section-mini-title">Haftalık özet</div>
+            <div class="kart-grid">
     
-          <div class="kart" style="border-left-color:var(--k-mor2)">
-            <div class="kart-label">Toplam TL</div>
-            <div class="kart-deger">₺{fmt(tl_toplam)}</div>
-            <div class="kart-alt">Ödendi: ₺{fmt(odendi_tl)}</div>
-          </div>
+              <div class="kart" style="border-left-color:var(--k-mor2)">
+                <div class="kart-label">Toplam TL</div>
+                <div class="kart-deger">₺{fmt(tl_toplam)}</div>
+                <div class="kart-alt">Ödendi: ₺{fmt(odendi_tl)}</div>
+              </div>
     
-          <div class="kart" style="border-left-color:var(--k-mor)">
-            <div class="kart-label">Toplam USD</div>
-            <div class="kart-deger">${fmt(usd_toplam)}</div>
-            <div class="kart-alt">≈ ₺{fmt(usd_toplam * kur)}</div>
-          </div>
+              <div class="kart" style="border-left-color:var(--k-mor)">
+                <div class="kart-label">Toplam USD</div>
+                <div class="kart-deger">${fmt(usd_toplam)}</div>
+                <div class="kart-alt">≈ ₺{fmt(usd_toplam * kur)}</div>
+              </div>
     
-          <div class="kart" style="border-left-color:var(--k-yesil)">
-            <div class="kart-label">İlerleme</div>
-            <div class="kart-deger" style="color:var(--k-yesil)">{odendi_cnt} <span style="font-size:14px;color:var(--k-soluk);font-weight:600">/ {len(odemeler)}</span></div>
-            <div style="background:color-mix(in srgb,var(--k-metin) 10%,transparent);border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
-              <div style="background:var(--k-yesil);height:100%;width:{ilerleme_pct}%"></div>
+              <div class="kart" style="border-left-color:var(--k-yesil)">
+                <div class="kart-label">İlerleme</div>
+                <div class="kart-deger" style="color:var(--k-yesil)">{odendi_cnt} <span style="font-size:14px;color:var(--k-soluk);font-weight:600">/ {len(odemeler)}</span></div>
+                <div style="background:color-mix(in srgb,var(--k-metin) 10%,transparent);border-radius:4px;height:5px;margin-top:8px;overflow:hidden">
+                  <div style="background:var(--k-yesil);height:100%;width:{ilerleme_pct}%"></div>
+                </div>
+                <div class="kart-alt" style="margin-top:4px">%{ilerleme_pct} tamamlandı</div>
+              </div>
+    
+              <div class="kart" style="border-left-color:var(--k-amber)">
+                <div class="kart-label">Bekleyen TL</div>
+                <div class="kart-deger">₺{fmt(bekleyen_tl)}</div>
+                <div class="kart-alt">Ödenmesi gereken</div>
+              </div>
+    
+              <div class="kart" style="border-left-color:{trenk('yesil') if hafta_sonu_tl >= 0 else trenk('kirmizi')}
+                <div class="kart-label">{nakit_emoji} {nakit_label}</div>
+                <div class="kart-deger" style="color:{trenk('yesil') if hafta_sonu_tl >= 0 else trenk('kirmizi')}
+                  ₺{fmt(abs(hafta_sonu_tl))}
+                </div>
+                <div class="kart-alt">{nakit_alt}</div>
+              </div>
+    
             </div>
-            <div class="kart-alt" style="margin-top:4px">%{ilerleme_pct} tamamlandı</div>
-          </div>
     
-          <div class="kart" style="border-left-color:var(--k-amber)">
-            <div class="kart-label">Bekleyen TL</div>
-            <div class="kart-deger">₺{fmt(bekleyen_tl)}</div>
-            <div class="kart-alt">Ödenmesi gereken</div>
-          </div>
-    
-          <div class="kart" style="border-left-color:{trenk('yesil') if hafta_sonu_tl >= 0 else trenk('kirmizi')}
-            <div class="kart-label">{nakit_emoji} {nakit_label}</div>
-            <div class="kart-deger" style="color:{trenk('yesil') if hafta_sonu_tl >= 0 else trenk('kirmizi')}
-              ₺{fmt(abs(hafta_sonu_tl))}
+            <div class="section-mini-title">Bugünün bekleyen ödemeleri</div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">
+              <div class="kart" style="border-left-color:var(--k-amber)">
+                <div class="kart-label">Bugün Kalan TL</div>
+                <div class="kart-deger">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
+                <div class="kart-alt">Ödenmemiş TL</div>
+              </div>
+              <div class="kart" style="border-left-color:var(--k-amber)">
+                <div class="kart-label">Bugün Kalan USD</div>
+                <div class="kart-deger">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
+                <div class="kart-alt">Ödenmemiş USD</div>
+              </div>
             </div>
-            <div class="kart-alt">{nakit_alt}</div>
-          </div>
+            """, unsafe_allow_html=True)
     
-        </div>
+            # ── Toplam Varlıklar (Banka Bakiyelerinden) ──
+            banka_eur = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
+            toplam_varlik_tl = banka_tl + (banka_usd * kur)
+            toplam_varlik_usd = banka_usd + (banka_tl / kur if kur > 0 else 0)
+            st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--k-silik);margin-bottom:8px">Toplam Varlıklar</div>', unsafe_allow_html=True)
+            metrik_satiri([
+                {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": trenk("mor"), "alt": "Tüm TL hesaplar"},
+                {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": trenk("mor"), "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
+                {"label": "Toplam Varlık (TL)", "value": f"₺{fmt(toplam_varlik_tl)}", "renk": trenk("mor"), "alt": f"≈ ${fmt(toplam_varlik_usd)}"},
+                {"label": "Toplam Varlık (USD)", "value": f"${fmt(toplam_varlik_usd)}", "renk": trenk("mor"), "alt": f"≈ ₺{fmt(toplam_varlik_tl)}"},
+            ])
     
-        <div class="section-mini-title">Bugünün bekleyen ödemeleri</div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">
-          <div class="kart" style="border-left-color:var(--k-amber)">
-            <div class="kart-label">Bugün Kalan TL</div>
-            <div class="kart-deger">{"₺" + fmt(bugun_kalan_tl) if bugun_kalan_tl else "—"}</div>
-            <div class="kart-alt">Ödenmemiş TL</div>
-          </div>
-          <div class="kart" style="border-left-color:var(--k-amber)">
-            <div class="kart-label">Bugün Kalan USD</div>
-            <div class="kart-deger">{"$" + fmt(bugun_kalan_usd) if bugun_kalan_usd else "—"}</div>
-            <div class="kart-alt">Ödenmemiş USD</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown("---")
     
-        # ── Toplam Varlıklar (Banka Bakiyelerinden) ──
-        banka_eur = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
-        toplam_varlik_tl = banka_tl + (banka_usd * kur)
-        toplam_varlik_usd = banka_usd + (banka_tl / kur if kur > 0 else 0)
-        st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--k-silik);margin-bottom:8px">Toplam Varlıklar</div>', unsafe_allow_html=True)
-        metrik_satiri([
-            {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": trenk("mor"), "alt": "Tüm TL hesaplar"},
-            {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": trenk("mor"), "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
-            {"label": "Toplam Varlık (TL)", "value": f"₺{fmt(toplam_varlik_tl)}", "renk": trenk("mor"), "alt": f"≈ ${fmt(toplam_varlik_usd)}"},
-            {"label": "Toplam Varlık (USD)", "value": f"${fmt(toplam_varlik_usd)}", "renk": trenk("mor"), "alt": f"≈ ₺{fmt(toplam_varlik_tl)}"},
-        ])
+            # Kategori dağılımı ve durum grafikleri
+            col1, col2 = st.columns(2)
     
-        st.markdown("---")
-    
-        # Kategori dağılımı ve durum grafikleri
-        col1, col2 = st.columns(2)
-    
-        with col1:
-            st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Kategori Bazında Ödeme Dağılımı</div>', unsafe_allow_html=True)
-            kat_data = {}
-            for o in odemeler:
-                kat = o.get("kategori") or "diger"
-                label = KATEGORILER.get(kat, {}).get("label", "Diğer")
-                tl = (o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
-                kat_data[label] = kat_data.get(label, 0) + tl
-    
-            if kat_data:
-                fig = go.Figure(go.Pie(
-                    labels=list(kat_data.keys()),
-                    values=list(kat_data.values()),
-                    hole=0.72,                              # ince modern halka
-                    sort=True, direction="clockwise",
-                    marker=dict(
-                        colors=[KATEGORILER.get(k, {}).get("renk", trenk("silik"))
-                                    for k in [next((key for key, v in KATEGORILER.items() if v["label"] == lab), "diger")
-                                              for lab in kat_data.keys()]],
-                        # Dilim arası boşluk hissi: zeminle aynı renkte kalın ayraç
-                        line=dict(color=trenk("yuzey0"), width=3),
-                    ),
-                    # Açık renkli dilim üstünde koyu yazı okunur (eskiden açık mavi
-                    # yazı açık dilimde kayboluyordu).
-                    textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
-                    textposition="inside",
-                    textinfo="percent",
-                    insidetextorientation="horizontal",
-                    hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
-                ))
-                _kat_toplam = sum(kat_data.values())
-                fig.add_annotation(
-                    text=(f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
-                          f"<b>₺{tr_sayi(_kat_toplam/1e6, 1)}M</b>" if _kat_toplam >= 1e6 else
-                          f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
-                          f"<b>₺{tr_sayi(_kat_toplam)}</b>"),
-                    x=0.5, y=0.5, showarrow=False,
-                    font=dict(size=20, family="Inter, sans-serif", color=trenk("metin")),
-                )
-                fig.update_layout(
-                    height=330, margin=dict(t=16, b=8, l=8, r=8),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    showlegend=True,
-                    legend=dict(
-                        font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
-                        orientation="h",
-                        yanchor="top", y=-0.06,
-                        xanchor="center", x=0.5,
-                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
-                        itemsizing="constant", itemwidth=30,
-                    ),
-                    font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                    hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                    font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
-                )
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    
-        with col2:
-            st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme Durumu</div>', unsafe_allow_html=True)
-            odendi_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
-                               for o in odemeler if o["durum"] == "odendi")
-            bekleyen_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
-                                 for o in odemeler if o["durum"] == "bekliyor")
-            # ORTADAKİ YÜZDE HALKAYLA AYNI ÖLÇÜDE olmalı. Eskiden halka TUTARA,
-            # ortadaki "%x TAMAMLANAN" ise ADEDE göre hesaplanıyordu: halka
-            # yarı yeşilken ortada %0 yazabiliyordu. Artık ikisi de tutar.
-            _durum_toplam = odendi_tutar + bekleyen_tutar
-            if _durum_toplam <= 0:
-                st.markdown(
-                    '<div style="height:300px;display:flex;align-items:center;justify-content:center;'
-                    'color:var(--k-soluk);font-size:13px;border:1px dashed color-mix(in srgb,var(--k-soluk) 18%,transparent);'
-                    'border-radius:10px">Bu dönemde ödeme kaydı yok</div>',
-                    unsafe_allow_html=True)
-            else:
-                _odenen_pct = round(odendi_tutar / _durum_toplam * 100)
-                fig2 = go.Figure(go.Pie(
-                    labels=["Ödendi", "Bekliyor"],
-                    values=[odendi_tutar, bekleyen_tutar],
-                    hole=0.72, sort=False, direction="clockwise",
-                    marker=dict(
-                        colors=[trenk("yesil"), trenk("amber")],
-                        line=dict(color=trenk("yuzey0"), width=3),
-                    ),
-                    textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
-                    textposition="inside",
-                    textinfo="percent",
-                    hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
-                ))
-                fig2.add_annotation(
-                    text=(f"<span style='font-size:11px;color:var(--k-soluk)'>ÖDENEN (TUTAR)</span><br>"
-                          f"<b>%{_odenen_pct}</b><br>"
-                          f"<span style='font-size:11px;color:var(--k-soluk)'>{odendi_cnt}/{len(odemeler)} ödeme</span>"),
-                    x=0.5, y=0.5, showarrow=False,
-                    font=dict(size=24, family="Inter, sans-serif", color=trenk("metin")),
-                )
-                fig2.update_layout(
-                    height=330, margin=dict(t=16, b=8, l=8, r=8),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                    showlegend=True,
-                    legend=dict(
-                        font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
-                        orientation="h",
-                        yanchor="top", y=-0.06,
-                        xanchor="center", x=0.5,
-                        bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
-                        itemsizing="constant", itemwidth=30,
-                    ),
-                    hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                    font=dict(family="Inter, sans-serif", color=trenk("metin"))),
-                )
-                st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
-    
-        # Günlük ödeme takvimi özeti (varsayılan kapalı — simge durumunda)
-        from collections import defaultdict
-        by_day = defaultdict(list)
-        for o in odemeler:
-            day = (o.get("vade") or "")[:10] or "?"
-            by_day[day].append(o)
-    
-        tablo_rows = []
-        for day in sorted(by_day.keys()):
-            try:
-                d = pd.to_datetime(day)
-                gun_adi = GUNLER[d.dayofweek + 1] if d.dayofweek < 6 else GUNLER[0]
-                tarih_str = d.strftime("%d.%m.%Y")
-            except Exception:
-                gun_adi = ""
-                tarih_str = day
-    
-            gun_odemeler = by_day[day]
-            gun_tl = sum(o.get("tutar_tl") or 0 for o in gun_odemeler)
-            gun_usd = sum(o.get("tutar_usd") or 0 for o in gun_odemeler)
-            gun_odendi = sum(1 for o in gun_odemeler if o["durum"] == "odendi")
-            vd = vade_durumu(day)
-    
-            tablo_rows.append({
-                "Gün": gun_adi,
-                "Tarih": tarih_str,
-                "Ödeme Sayısı": len(gun_odemeler),
-                "Ödendi": gun_odendi,
-                "Bekliyor": len(gun_odemeler) - gun_odendi,
-                "Tutar TL (₺)": f"₺{fmt(gun_tl)}" if gun_tl else "-",
-                "Tutar USD ($)": f"${fmt(gun_usd)}" if gun_usd else "-",
-                "Firma": ", ".join(sorted(set(o.get("firma") or "-" for o in gun_odemeler))),
-                "Açıklama": " | ".join(o.get("aciklama") or "-" for o in gun_odemeler),
-                "Durum": "⏰ BUGÜN" if vd == "bugun" else ("📅 YARIN" if vd == "yarin" else ("🚨 GECİKMİŞ" if vd == "gecmis" else "—")),
-            })
-    
-        df_tablo = pd.DataFrame(tablo_rows)
-
-        # ── Takvim tablosu: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
-        def render_takvim_tablosu(df):
-            if df.empty:
-                st.info("Veri yok.")
-                return
-            _ROZET = {"GECİKMİŞ": ("🚨 GECİKMİŞ", "kirmizi"), "BUGÜN": ("⏰ BUGÜN", "amber"), "YARIN": ("📅 YARIN", "mavi")}
-
-            def _durum(d):
-                for anahtar, (etiket, renk) in _ROZET.items():
-                    if anahtar in str(d):
-                        return rozet_html(etiket, renk)
-                return None
-
-            def _vurgu(r):
-                for anahtar, (_, renk) in _ROZET.items():
-                    if anahtar in str(r.get("Durum", "")):
-                        return renk
-                return None
-
-            satirlar = []
-            for _, row in df.iterrows():
-                bekliyor = int(row.get("Bekliyor", 0) or 0)
-                satirlar.append({
-                    "Gün": renkli(row.get("Gün", ""), "mavi", kalin=True),
-                    "Tarih": row.get("Tarih", ""),
-                    "Ödeme": int(row.get("Ödeme Sayısı", 0) or 0),
-                    "Ödendi": renkli(int(row.get("Ödendi", 0) or 0), "yesil", kalin=True),
-                    "Bekliyor": renkli(bekliyor, "kirmizi" if bekliyor > 0 else "yesil", kalin=True),
-                    "Tutar TL (₺)": row.get("Tutar TL (₺)", ""),
-                    "Tutar USD ($)": row.get("Tutar USD ($)", ""),
-                    "Firma": kisalt(row.get("Firma", "")),
-                    "Açıklama": kisalt(row.get("Açıklama", "")),
-                    "Durum": _durum(row.get("Durum", "")),
-                })
-            st.html(tablo_html(
-                ["Gün", ("Tarih", "mono"), ("Ödeme", "adet", "$", "orta"), ("Ödendi", "adet", "$", "orta"),
-                 ("Bekliyor", "adet", "$", "orta"), ("Tutar TL (₺)", "mono", "$", "sag"),
-                 ("Tutar USD ($)", "mono", "$", "sag"), "Firma", "Açıklama", ("Durum", "metin", "$", "orta")],
-                satirlar, vurgu=_vurgu))
-
-
-        @st.dialog("📅 Günlük Ödeme Takvimi", width="large")
-        def _dlg_odeme_takvimi():
-            render_takvim_tablosu(df_tablo)
-        if st.button("Günlük Ödeme Takvimi", key="btn_acc_takvim", use_container_width=True, icon=":material/calendar_month:"):
-            _dlg_odeme_takvimi()
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 2) BU HAFTA
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "💳 Bu Hafta":
-        st.markdown(_sb("💳 Muhasebe", "Bu Hafta"), unsafe_allow_html=True)
-    
-        kur = get_kur()
-        odemeler, hafta = get_aktif_odemeler()
-        bankalar = get_bankalar()
-    
-        # Manuel ödeme ekleme formu
-        @st.dialog("➕ Manuel Ödeme Ekle", width="large")
-        def _dlg_manuel_odeme():
-            with st.form("manuel_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    firma = st.text_input("Firma / Kişi Adı *")
-                    aciklama = st.text_input("Açıklama")
-                    vade = st.date_input("Vade Tarihi *", value=tr_today(), format="DD.MM.YYYY")
-                with col2:
-                    kategori = st.selectbox("Kategori", list(KATEGORILER.keys()),
-                                            format_func=lambda k: KATEGORILER[k]["label"])
-                    tutar_tl = st.number_input("Tutar TL (₺)", min_value=0.0, step=100.0)
-                    tutar_usd = st.number_input("Tutar USD ($)", min_value=0.0, step=100.0)
-    
-                ekle_btn = st.form_submit_button("Ekle", type="primary", icon=":material/add:")
-                if ekle_btn:
-                    if not firma:
-                        st.error("Firma adı zorunludur.")
-                    elif tutar_tl == 0 and tutar_usd == 0:
-                        st.error("En az bir tutar girilmelidir.")
-                    else:
-                        if not hafta:
-                            hafta_id = hafta_ekle("Manuel Girişler")
-                        else:
-                            hafta_id = hafta["id"]
-                        odeme_ekle_manuel(
-                            hafta_id, firma, aciklama, "",
-                            vade.isoformat(),
-                            tutar_tl if tutar_tl > 0 else None,
-                            tutar_usd if tutar_usd > 0 else None,
-                            kategori
-                        )
-                        st.success(f"✅ {firma} ödeme olarak eklendi.")
-                        st.rerun()
-        if st.button("Manuel Ödeme Ekle", key="btn_acc_manuel", use_container_width=True, icon=":material/add:"):
-            _dlg_manuel_odeme()
-    
-        if not odemeler:
-            st.info("Veri yok. Veri Yükleme sekmesinden Excel yükleyin veya manuel ödeme ekleyin.")
-            st.stop()
-    
-        # Alarmlar — yan yana pencere kartları (shared/ui standardı)
-        gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
-        bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
-        if gecmis_alarm or bugun_alarm:
-            from shared.ui import RENK as _RENK, pencere_css as _pcss, pencere as _pen, pencere_grid as _pgrid, bos_durum as _bos
-            st.markdown(_pcss(), unsafe_allow_html=True)
-            _gec_html = "".join(
-                f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
-                for o, _ in gecmis_alarm
-            ) or _bos("Gecikmiş ödeme yok")
-            _bug_html = "".join(
-                f'<div class="alarm-box" style="border-color:var(--k-amber);background:color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1));color:var(--k-amber2);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
-                for o, _ in bugun_alarm
-            ) or _bos("Bugün vadeli ödeme yok")
-            st.markdown(_pgrid(
-                _pen("🚨 GECİKMİŞ ÖDEMELER", _RENK["kirmizi"], _gec_html, rozet=f"{len(gecmis_alarm)} ödeme"),
-                _pen("⚠️ BUGÜN VADELİ", _RENK["amber"], _bug_html, rozet=f"{len(bugun_alarm)} ödeme"),
-            ), unsafe_allow_html=True)
-
-       # Özet
-        tl_toplam = sum(o.get("tutar_tl") or 0 for o in odemeler)
-        usd_toplam = sum(o.get("tutar_usd") or 0 for o in odemeler)
-        odendi_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "odendi")
-        odendi_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "odendi")
-        odendi_cnt = sum(1 for o in odemeler if o["durum"] == "odendi")
-        kalan_tl = tl_toplam - odendi_tl
-        ilerleme = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
-    
-        metrik_satiri([
-            {"label": "Toplam TL", "value": f"₺{fmt(tl_toplam)}", "renk": trenk("mavi"), "alt": f"Ödendi: ₺{fmt(odendi_tl)}"},
-            {"label": "Toplam USD", "value": f"${fmt(usd_toplam)}", "renk": trenk("mor"), "alt": f"Ödendi: ${fmt(odendi_usd)}"},
-            {"label": "İlerleme", "value": f"{odendi_cnt}/{len(odemeler)}", "renk": trenk("yesil"), "alt": f"%{ilerleme} tamamlandı"},
-            {"label": "Kalan TL", "value": f"₺{fmt(kalan_tl)}", "renk": trenk("amber"), "alt": "Ödenmesi gereken"},
-        ])
-    
-        st.markdown("---")
-    
-        # ─── KATEGORİ FİLTRESİ (ÇOKLU SEÇİM) ───
-        # Mevcut ödemelerde hangi kategoriler var bul
-        kategori_sayilari = {}
-        for o in odemeler:
-            k = o.get("kategori") or "diger"
-            kategori_sayilari[k] = kategori_sayilari.get(k, 0) + 1
-    
-        # Multiselect için listesi — kullanılan kategoriler önceliğe göre sıralı
-        filter_opts_multi = sorted(
-            kategori_sayilari.keys(),
-            key=lambda k: KATEGORILER.get(k, {"oncelik": 99}).get("oncelik", 99)
-        )
-        filter_labels_multi = {
-            k: f"{KATEGORILER.get(k, {}).get('label', k)} ({kategori_sayilari[k]})"
-            for k in filter_opts_multi
-        }
-    
-        col_filt1, col_filt2 = st.columns([3, 1])
-        with col_filt1:
-            secilen_kategoriler = st.multiselect(
-                f"🏷️ Kategori Filtresi (Boş bırakırsan tümü gösterilir — {len(odemeler)} ödeme)",
-                options=filter_opts_multi,
-                format_func=lambda k: filter_labels_multi[k],
-                key="bu_hafta_kat_multi_v2",
-                placeholder="Bir veya birden fazla kategori seçin (boş = tümü)"
-            )
-        with col_filt2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            sadece_bekleyen = st.checkbox("Sadece bekleyenler", key="bu_hafta_sadece_bekleyen")
-    
-        # Filtre uygula
-        filtrelenmis = odemeler
-        if secilen_kategoriler:  # boş değilse
-            filtrelenmis = [o for o in filtrelenmis if (o.get("kategori") or "diger") in secilen_kategoriler]
-        if sadece_bekleyen:
-            filtrelenmis = [o for o in filtrelenmis if o["durum"] == "bekliyor"]
-    
-        if not filtrelenmis:
-            st.info("🔍 Seçilen filtrelere uygun ödeme bulunamadı. Filtreyi değiştirin.")
-    
-        # Gün bazında grupla (filtre boş olsa bile by_day tanımlı kalır, for loop boş çalışır)
-        from collections import defaultdict
-        by_day = defaultdict(list)
-        for o in filtrelenmis:
-            day = (o.get("vade") or "")[:10] or "?"
-            by_day[day].append(o)
-    
-        # Öncelik sırala
-        def oncelik_sirala(o):
-            kat = o.get("kategori") or "diger"
-            return KATEGORILER.get(kat, {"oncelik": 9})["oncelik"]
-    
-        for day in sorted(by_day.keys()):
-            try:
-                d = pd.to_datetime(day)
-                gun_adi = GUNLER[d.dayofweek + 1] if d.dayofweek < 6 else GUNLER[0]
-                tarih_str = d.strftime("%d %B %Y")
-            except Exception:
-                gun_adi = ""
-                tarih_str = day
-    
-            gun_odemeler = sorted(by_day[day], key=oncelik_sirala)
-            gun_tl = sum(o.get("tutar_tl") or 0 for o in gun_odemeler)
-            gun_usd = sum(o.get("tutar_usd") or 0 for o in gun_odemeler)
-            vd = vade_durumu(day)
-    
-            renk_header = "#0E1A3A" if vd == "bugun" else ("#2D200A" if vd == "yarin" else (trenk("kirmizi") if vd == "gecmis" else trenk("mor2")))
-    
-            etiket = ""
-            if vd == "bugun":
-                etiket = " 🔵 BUGÜN"
-            elif vd == "yarin":
-                etiket = " 🟡 YARIN"
-            elif vd == "gecmis":
-                etiket = " 🔴 GECİKMİŞ"
-    
-            with st.expander(f"**{gun_adi}{etiket}** — {tarih_str}  |  {'₺' + fmt(gun_tl) if gun_tl else ''}  {'$' + fmt(gun_usd) if gun_usd else ''}  ({len(gun_odemeler)} ödeme)", expanded=False):
-                for o in gun_odemeler:
+            with col1:
+                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Kategori Bazında Ödeme Dağılımı</div>', unsafe_allow_html=True)
+                kat_data = {}
+                for o in odemeler:
                     kat = o.get("kategori") or "diger"
-                    kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
-                    is_odendi = o["durum"] == "odendi"
+                    label = KATEGORILER.get(kat, {}).get("label", "Diğer")
+                    tl = (o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
+                    kat_data[label] = kat_data.get(label, 0) + tl
     
-                    col1, col2, col3, col4, col5 = st.columns([0.2, 3.5, 1.5, 3, 1.8])
+                if kat_data:
+                    fig = go.Figure(go.Pie(
+                        labels=list(kat_data.keys()),
+                        values=list(kat_data.values()),
+                        hole=0.72,                              # ince modern halka
+                        sort=True, direction="clockwise",
+                        marker=dict(
+                            colors=[KATEGORILER.get(k, {}).get("renk", trenk("silik"))
+                                        for k in [next((key for key, v in KATEGORILER.items() if v["label"] == lab), "diger")
+                                                  for lab in kat_data.keys()]],
+                            # Dilim arası boşluk hissi: zeminle aynı renkte kalın ayraç
+                            line=dict(color=trenk("yuzey0"), width=3),
+                        ),
+                        # Açık renkli dilim üstünde koyu yazı okunur (eskiden açık mavi
+                        # yazı açık dilimde kayboluyordu).
+                        textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
+                        textposition="inside",
+                        textinfo="percent",
+                        insidetextorientation="horizontal",
+                        hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
+                    ))
+                    _kat_toplam = sum(kat_data.values())
+                    fig.add_annotation(
+                        text=(f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
+                              f"<b>₺{tr_sayi(_kat_toplam/1e6, 1)}M</b>" if _kat_toplam >= 1e6 else
+                              f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
+                              f"<b>₺{tr_sayi(_kat_toplam)}</b>"),
+                        x=0.5, y=0.5, showarrow=False,
+                        font=dict(size=20, family="Inter, sans-serif", color=trenk("metin")),
+                    )
+                    fig.update_layout(
+                        height=330, margin=dict(t=16, b=8, l=8, r=8),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        showlegend=True,
+                        legend=dict(
+                            font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
+                            orientation="h",
+                            yanchor="top", y=-0.06,
+                            xanchor="center", x=0.5,
+                            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                            itemsizing="constant", itemwidth=30,
+                        ),
+                        font=dict(family="Inter, sans-serif", color=trenk("metin")),
+                        hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
+                                        font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
+                    )
+                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     
+            with col2:
+                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme Durumu</div>', unsafe_allow_html=True)
+                odendi_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
+                                   for o in odemeler if o["durum"] == "odendi")
+                bekleyen_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
+                                     for o in odemeler if o["durum"] == "bekliyor")
+                # ORTADAKİ YÜZDE HALKAYLA AYNI ÖLÇÜDE olmalı. Eskiden halka TUTARA,
+                # ortadaki "%x TAMAMLANAN" ise ADEDE göre hesaplanıyordu: halka
+                # yarı yeşilken ortada %0 yazabiliyordu. Artık ikisi de tutar.
+                _durum_toplam = odendi_tutar + bekleyen_tutar
+                if _durum_toplam <= 0:
+                    st.markdown(
+                        '<div style="height:300px;display:flex;align-items:center;justify-content:center;'
+                        'color:var(--k-soluk);font-size:13px;border:1px dashed color-mix(in srgb,var(--k-soluk) 18%,transparent);'
+                        'border-radius:10px">Bu dönemde ödeme kaydı yok</div>',
+                        unsafe_allow_html=True)
+                else:
+                    _odenen_pct = round(odendi_tutar / _durum_toplam * 100)
+                    fig2 = go.Figure(go.Pie(
+                        labels=["Ödendi", "Bekliyor"],
+                        values=[odendi_tutar, bekleyen_tutar],
+                        hole=0.72, sort=False, direction="clockwise",
+                        marker=dict(
+                            colors=[trenk("yesil"), trenk("amber")],
+                            line=dict(color=trenk("yuzey0"), width=3),
+                        ),
+                        textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
+                        textposition="inside",
+                        textinfo="percent",
+                        hovertemplate="<b>%{label}</b><br>₺%{tr_sayi(value)}<br>%{percent}<extra></extra>",
+                    ))
+                    fig2.add_annotation(
+                        text=(f"<span style='font-size:11px;color:var(--k-soluk)'>ÖDENEN (TUTAR)</span><br>"
+                              f"<b>%{_odenen_pct}</b><br>"
+                              f"<span style='font-size:11px;color:var(--k-soluk)'>{odendi_cnt}/{len(odemeler)} ödeme</span>"),
+                        x=0.5, y=0.5, showarrow=False,
+                        font=dict(size=24, family="Inter, sans-serif", color=trenk("metin")),
+                    )
+                    fig2.update_layout(
+                        height=330, margin=dict(t=16, b=8, l=8, r=8),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(family="Inter, sans-serif", color=trenk("metin")),
+                        showlegend=True,
+                        legend=dict(
+                            font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
+                            orientation="h",
+                            yanchor="top", y=-0.06,
+                            xanchor="center", x=0.5,
+                            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
+                            itemsizing="constant", itemwidth=30,
+                        ),
+                        hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
+                                        font=dict(family="Inter, sans-serif", color=trenk("metin"))),
+                    )
+                    st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+    
+            # Günlük ödeme takvimi özeti (varsayılan kapalı — simge durumunda)
+            from collections import defaultdict
+            by_day = defaultdict(list)
+            for o in odemeler:
+                day = (o.get("vade") or "")[:10] or "?"
+                by_day[day].append(o)
+    
+            tablo_rows = []
+            for day in sorted(by_day.keys()):
+                try:
+                    d = pd.to_datetime(day)
+                    gun_adi = GUNLER[d.dayofweek + 1] if d.dayofweek < 6 else GUNLER[0]
+                    tarih_str = d.strftime("%d.%m.%Y")
+                except Exception:
+                    gun_adi = ""
+                    tarih_str = day
+    
+                gun_odemeler = by_day[day]
+                gun_tl = sum(o.get("tutar_tl") or 0 for o in gun_odemeler)
+                gun_usd = sum(o.get("tutar_usd") or 0 for o in gun_odemeler)
+                gun_odendi = sum(1 for o in gun_odemeler if o["durum"] == "odendi")
+                vd = vade_durumu(day)
+    
+                tablo_rows.append({
+                    "Gün": gun_adi,
+                    "Tarih": tarih_str,
+                    "Ödeme Sayısı": len(gun_odemeler),
+                    "Ödendi": gun_odendi,
+                    "Bekliyor": len(gun_odemeler) - gun_odendi,
+                    "Tutar TL (₺)": f"₺{fmt(gun_tl)}" if gun_tl else "-",
+                    "Tutar USD ($)": f"${fmt(gun_usd)}" if gun_usd else "-",
+                    "Firma": ", ".join(sorted(set(o.get("firma") or "-" for o in gun_odemeler))),
+                    "Açıklama": " | ".join(o.get("aciklama") or "-" for o in gun_odemeler),
+                    "Durum": "⏰ BUGÜN" if vd == "bugun" else ("📅 YARIN" if vd == "yarin" else ("🚨 GECİKMİŞ" if vd == "gecmis" else "—")),
+                })
+    
+            df_tablo = pd.DataFrame(tablo_rows)
+
+            # ── Takvim tablosu: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
+            def render_takvim_tablosu(df):
+                if df.empty:
+                    st.info("Veri yok.")
+                    return
+                _ROZET = {"GECİKMİŞ": ("🚨 GECİKMİŞ", "kirmizi"), "BUGÜN": ("⏰ BUGÜN", "amber"), "YARIN": ("📅 YARIN", "mavi")}
+
+                def _durum(d):
+                    for anahtar, (etiket, renk) in _ROZET.items():
+                        if anahtar in str(d):
+                            return rozet_html(etiket, renk)
+                    return None
+
+                def _vurgu(r):
+                    for anahtar, (_, renk) in _ROZET.items():
+                        if anahtar in str(r.get("Durum", "")):
+                            return renk
+                    return None
+
+                satirlar = []
+                for _, row in df.iterrows():
+                    bekliyor = int(row.get("Bekliyor", 0) or 0)
+                    satirlar.append({
+                        "Gün": renkli(row.get("Gün", ""), "mavi", kalin=True),
+                        "Tarih": row.get("Tarih", ""),
+                        "Ödeme": int(row.get("Ödeme Sayısı", 0) or 0),
+                        "Ödendi": renkli(int(row.get("Ödendi", 0) or 0), "yesil", kalin=True),
+                        "Bekliyor": renkli(bekliyor, "kirmizi" if bekliyor > 0 else "yesil", kalin=True),
+                        "Tutar TL (₺)": row.get("Tutar TL (₺)", ""),
+                        "Tutar USD ($)": row.get("Tutar USD ($)", ""),
+                        "Firma": kisalt(row.get("Firma", "")),
+                        "Açıklama": kisalt(row.get("Açıklama", "")),
+                        "Durum": _durum(row.get("Durum", "")),
+                    })
+                st.html(tablo_html(
+                    ["Gün", ("Tarih", "mono"), ("Ödeme", "adet", "$", "orta"), ("Ödendi", "adet", "$", "orta"),
+                     ("Bekliyor", "adet", "$", "orta"), ("Tutar TL (₺)", "mono", "$", "sag"),
+                     ("Tutar USD ($)", "mono", "$", "sag"), "Firma", "Açıklama", ("Durum", "metin", "$", "orta")],
+                    satirlar, vurgu=_vurgu))
+
+
+            @st.dialog("📅 Günlük Ödeme Takvimi", width="large")
+            def _dlg_odeme_takvimi():
+                render_takvim_tablosu(df_tablo)
+            if st.button("Günlük Ödeme Takvimi", key="btn_acc_takvim", use_container_width=True, icon=":material/calendar_month:"):
+                _dlg_odeme_takvimi()
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 2) BU HAFTA
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "💳 Bu Hafta":
+            st.markdown(_sb("💳 Muhasebe", "Bu Hafta"), unsafe_allow_html=True)
+    
+            kur = get_kur()
+            odemeler, hafta = get_aktif_odemeler()
+            bankalar = get_bankalar()
+    
+            # Manuel ödeme ekleme formu
+            @st.dialog("➕ Manuel Ödeme Ekle", width="large")
+            def _dlg_manuel_odeme():
+                with st.form("manuel_form"):
+                    col1, col2 = st.columns(2)
                     with col1:
-                        st.markdown(
-                            f'<div style="width:8px;height:40px;background:{kat_info["renk"]};'
-                            f'border-radius:4px;margin-top:4px;opacity:{"0.3" if is_odendi else "1"}"></div>',
-                            unsafe_allow_html=True
-                        )
-    
+                        firma = st.text_input("Firma / Kişi Adı *")
+                        aciklama = st.text_input("Açıklama")
+                        vade = st.date_input("Vade Tarihi *", value=tr_today(), format="DD.MM.YYYY")
                     with col2:
-                        opacity = "opacity:0.4;" if is_odendi else ""
-                        st.markdown(
-                            f'<div style="{opacity}"><b style="font-size:13px;color:var(--k-metin)">{o["firma"]}</b><br>'
-                            f'<small style="color:var(--k-silik)">{o.get("aciklama") or ""}</small></div>',
-                            unsafe_allow_html=True
-                        )
+                        kategori = st.selectbox("Kategori", list(KATEGORILER.keys()),
+                                                format_func=lambda k: KATEGORILER[k]["label"])
+                        tutar_tl = st.number_input("Tutar TL (₺)", min_value=0.0, step=100.0)
+                        tutar_usd = st.number_input("Tutar USD ($)", min_value=0.0, step=100.0)
     
-                    with col3:
-                        st.markdown(
-                            f'<span style="background:{kat_info["renk"]};color:white;font-size:11px;'
-                            f'padding:0px 8px;border-radius:10px;font-weight:600">{kat_info["label"]}</span>',
-                            unsafe_allow_html=True
-                        )
-    
-                    with col4:
-                        if o.get("tutar_tl"):
-                            tutar_disp = f'<b style="color:var(--k-yesil2);font-size:14px;white-space:nowrap;font-family:monospace">₺{fmt(o["tutar_tl"])}</b>'
-                        elif o.get("tutar_usd"):
-                            tutar_disp = f'<b style="color:var(--k-mavi);font-size:14px;white-space:nowrap;font-family:monospace">${fmt(o["tutar_usd"])}</b>'
+                    ekle_btn = st.form_submit_button("Ekle", type="primary", icon=":material/add:")
+                    if ekle_btn:
+                        if not firma:
+                            st.error("Firma adı zorunludur.")
+                        elif tutar_tl == 0 and tutar_usd == 0:
+                            st.error("En az bir tutar girilmelidir.")
                         else:
-                            tutar_disp = '<b style="color:var(--k-silik);font-size:13px">—</b>'
-                        st.markdown(tutar_disp, unsafe_allow_html=True)
-                        sil_key = f"sil_onay_{o['id']}"
-                        if not is_odendi:
-                            c4b, c4c = st.columns(2)
-                            with c4b:
-                                edit_key = f"edit_tutar_toggle_{o['id']}"
-                                if st.session_state.get(edit_key, False):
-                                    if st.button("Kapat", key=f"open_edit_{o['id']}", use_container_width=True):
-                                        st.session_state[edit_key] = False
-                                        st.rerun()
-                                else:
-                                    if st.button("Duzenle", key=f"open_edit_{o['id']}", use_container_width=True):
-                                        st.session_state[edit_key] = True
-                                        st.rerun()
-                            with c4c:
+                            if not hafta:
+                                hafta_id = hafta_ekle("Manuel Girişler")
+                            else:
+                                hafta_id = hafta["id"]
+                            odeme_ekle_manuel(
+                                hafta_id, firma, aciklama, "",
+                                vade.isoformat(),
+                                tutar_tl if tutar_tl > 0 else None,
+                                tutar_usd if tutar_usd > 0 else None,
+                                kategori
+                            )
+                            st.success(f"✅ {firma} ödeme olarak eklendi.")
+                            st.rerun()
+            if st.button("Manuel Ödeme Ekle", key="btn_acc_manuel", use_container_width=True, icon=":material/add:"):
+                _dlg_manuel_odeme()
+    
+            if not odemeler:
+                st.info("Veri yok. Veri Yükleme sekmesinden Excel yükleyin veya manuel ödeme ekleyin.")
+                st.stop()
+    
+            # Alarmlar — yan yana pencere kartları (shared/ui standardı)
+            gecmis_alarm = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "gecmis"]
+            bugun_alarm  = [(o, vade_durumu(o.get("vade"))) for o in odemeler if o["durum"] == "bekliyor" and vade_durumu(o.get("vade")) == "bugun"]
+            if gecmis_alarm or bugun_alarm:
+                from shared.ui import RENK as _RENK, pencere_css as _pcss, pencere as _pen, pencere_grid as _pgrid, bos_durum as _bos
+                st.markdown(_pcss(), unsafe_allow_html=True)
+                _gec_html = "".join(
+                    f'<div class="alarm-box">🚨 <b>GECİKMİŞ</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                    for o, _ in gecmis_alarm
+                ) or _bos("Gecikmiş ödeme yok")
+                _bug_html = "".join(
+                    f'<div class="alarm-box" style="border-color:var(--k-amber);background:color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1));color:var(--k-amber2);">⚠️ <b>BUGÜN</b> — {o["firma"]} — {"₺"+fmt(o["tutar_tl"]) if o.get("tutar_tl") else "$"+fmt(o["tutar_usd"])}</div>'
+                    for o, _ in bugun_alarm
+                ) or _bos("Bugün vadeli ödeme yok")
+                st.markdown(_pgrid(
+                    _pen("🚨 GECİKMİŞ ÖDEMELER", _RENK["kirmizi"], _gec_html, rozet=f"{len(gecmis_alarm)} ödeme"),
+                    _pen("⚠️ BUGÜN VADELİ", _RENK["amber"], _bug_html, rozet=f"{len(bugun_alarm)} ödeme"),
+                ), unsafe_allow_html=True)
+
+           # Özet
+            tl_toplam = sum(o.get("tutar_tl") or 0 for o in odemeler)
+            usd_toplam = sum(o.get("tutar_usd") or 0 for o in odemeler)
+            odendi_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "odendi")
+            odendi_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "odendi")
+            odendi_cnt = sum(1 for o in odemeler if o["durum"] == "odendi")
+            kalan_tl = tl_toplam - odendi_tl
+            ilerleme = int((odendi_cnt / len(odemeler)) * 100) if odemeler else 0
+    
+            metrik_satiri([
+                {"label": "Toplam TL", "value": f"₺{fmt(tl_toplam)}", "renk": trenk("mavi"), "alt": f"Ödendi: ₺{fmt(odendi_tl)}"},
+                {"label": "Toplam USD", "value": f"${fmt(usd_toplam)}", "renk": trenk("mor"), "alt": f"Ödendi: ${fmt(odendi_usd)}"},
+                {"label": "İlerleme", "value": f"{odendi_cnt}/{len(odemeler)}", "renk": trenk("yesil"), "alt": f"%{ilerleme} tamamlandı"},
+                {"label": "Kalan TL", "value": f"₺{fmt(kalan_tl)}", "renk": trenk("amber"), "alt": "Ödenmesi gereken"},
+            ])
+    
+            st.markdown("---")
+    
+            # ─── KATEGORİ FİLTRESİ (ÇOKLU SEÇİM) ───
+            # Mevcut ödemelerde hangi kategoriler var bul
+            kategori_sayilari = {}
+            for o in odemeler:
+                k = o.get("kategori") or "diger"
+                kategori_sayilari[k] = kategori_sayilari.get(k, 0) + 1
+    
+            # Multiselect için listesi — kullanılan kategoriler önceliğe göre sıralı
+            filter_opts_multi = sorted(
+                kategori_sayilari.keys(),
+                key=lambda k: KATEGORILER.get(k, {"oncelik": 99}).get("oncelik", 99)
+            )
+            filter_labels_multi = {
+                k: f"{KATEGORILER.get(k, {}).get('label', k)} ({kategori_sayilari[k]})"
+                for k in filter_opts_multi
+            }
+    
+            col_filt1, col_filt2 = st.columns([3, 1])
+            with col_filt1:
+                secilen_kategoriler = st.multiselect(
+                    f"🏷️ Kategori Filtresi (Boş bırakırsan tümü gösterilir — {len(odemeler)} ödeme)",
+                    options=filter_opts_multi,
+                    format_func=lambda k: filter_labels_multi[k],
+                    key="bu_hafta_kat_multi_v2",
+                    placeholder="Bir veya birden fazla kategori seçin (boş = tümü)"
+                )
+            with col_filt2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                sadece_bekleyen = st.checkbox("Sadece bekleyenler", key="bu_hafta_sadece_bekleyen")
+    
+            # Filtre uygula
+            filtrelenmis = odemeler
+            if secilen_kategoriler:  # boş değilse
+                filtrelenmis = [o for o in filtrelenmis if (o.get("kategori") or "diger") in secilen_kategoriler]
+            if sadece_bekleyen:
+                filtrelenmis = [o for o in filtrelenmis if o["durum"] == "bekliyor"]
+    
+            if not filtrelenmis:
+                st.info("🔍 Seçilen filtrelere uygun ödeme bulunamadı. Filtreyi değiştirin.")
+    
+            # Gün bazında grupla (filtre boş olsa bile by_day tanımlı kalır, for loop boş çalışır)
+            from collections import defaultdict
+            by_day = defaultdict(list)
+            for o in filtrelenmis:
+                day = (o.get("vade") or "")[:10] or "?"
+                by_day[day].append(o)
+    
+            # Öncelik sırala
+            def oncelik_sirala(o):
+                kat = o.get("kategori") or "diger"
+                return KATEGORILER.get(kat, {"oncelik": 9})["oncelik"]
+    
+            for day in sorted(by_day.keys()):
+                try:
+                    d = pd.to_datetime(day)
+                    gun_adi = GUNLER[d.dayofweek + 1] if d.dayofweek < 6 else GUNLER[0]
+                    tarih_str = d.strftime("%d %B %Y")
+                except Exception:
+                    gun_adi = ""
+                    tarih_str = day
+    
+                gun_odemeler = sorted(by_day[day], key=oncelik_sirala)
+                gun_tl = sum(o.get("tutar_tl") or 0 for o in gun_odemeler)
+                gun_usd = sum(o.get("tutar_usd") or 0 for o in gun_odemeler)
+                vd = vade_durumu(day)
+    
+                renk_header = "#0E1A3A" if vd == "bugun" else ("#2D200A" if vd == "yarin" else (trenk("kirmizi") if vd == "gecmis" else trenk("mor2")))
+    
+                etiket = ""
+                if vd == "bugun":
+                    etiket = " 🔵 BUGÜN"
+                elif vd == "yarin":
+                    etiket = " 🟡 YARIN"
+                elif vd == "gecmis":
+                    etiket = " 🔴 GECİKMİŞ"
+    
+                with st.expander(f"**{gun_adi}{etiket}** — {tarih_str}  |  {'₺' + fmt(gun_tl) if gun_tl else ''}  {'$' + fmt(gun_usd) if gun_usd else ''}  ({len(gun_odemeler)} ödeme)", expanded=False):
+                    for o in gun_odemeler:
+                        kat = o.get("kategori") or "diger"
+                        kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
+                        is_odendi = o["durum"] == "odendi"
+    
+                        col1, col2, col3, col4, col5 = st.columns([0.2, 3.5, 1.5, 3, 1.8])
+    
+                        with col1:
+                            st.markdown(
+                                f'<div style="width:8px;height:40px;background:{kat_info["renk"]};'
+                                f'border-radius:4px;margin-top:4px;opacity:{"0.3" if is_odendi else "1"}"></div>',
+                                unsafe_allow_html=True
+                            )
+    
+                        with col2:
+                            opacity = "opacity:0.4;" if is_odendi else ""
+                            st.markdown(
+                                f'<div style="{opacity}"><b style="font-size:13px;color:var(--k-metin)">{o["firma"]}</b><br>'
+                                f'<small style="color:var(--k-silik)">{o.get("aciklama") or ""}</small></div>',
+                                unsafe_allow_html=True
+                            )
+    
+                        with col3:
+                            st.markdown(
+                                f'<span style="background:{kat_info["renk"]};color:white;font-size:11px;'
+                                f'padding:0px 8px;border-radius:10px;font-weight:600">{kat_info["label"]}</span>',
+                                unsafe_allow_html=True
+                            )
+    
+                        with col4:
+                            if o.get("tutar_tl"):
+                                tutar_disp = f'<b style="color:var(--k-yesil2);font-size:14px;white-space:nowrap;font-family:monospace">₺{fmt(o["tutar_tl"])}</b>'
+                            elif o.get("tutar_usd"):
+                                tutar_disp = f'<b style="color:var(--k-mavi);font-size:14px;white-space:nowrap;font-family:monospace">${fmt(o["tutar_usd"])}</b>'
+                            else:
+                                tutar_disp = '<b style="color:var(--k-silik);font-size:13px">—</b>'
+                            st.markdown(tutar_disp, unsafe_allow_html=True)
+                            sil_key = f"sil_onay_{o['id']}"
+                            if not is_odendi:
+                                c4b, c4c = st.columns(2)
+                                with c4b:
+                                    edit_key = f"edit_tutar_toggle_{o['id']}"
+                                    if st.session_state.get(edit_key, False):
+                                        if st.button("Kapat", key=f"open_edit_{o['id']}", use_container_width=True):
+                                            st.session_state[edit_key] = False
+                                            st.rerun()
+                                    else:
+                                        if st.button("Duzenle", key=f"open_edit_{o['id']}", use_container_width=True):
+                                            st.session_state[edit_key] = True
+                                            st.rerun()
+                                with c4c:
+                                    if st.session_state.get(sil_key, False):
+                                        if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
+                                                     help="Kaydı kalıcı siler", icon=":material/priority_high:"):
+                                            odeme_sil(o["id"])
+                                            st.session_state[sil_key] = False
+                                            st.rerun()
+                                    else:
+                                        if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True, icon=":material/delete:"):
+                                            st.session_state[sil_key] = True
+                                            st.rerun()
+                            else:
+                                # Ödenmiş kayıt için de silme (iki adımlı onay)
                                 if st.session_state.get(sil_key, False):
                                     if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
-                                                 help="Kaydı kalıcı siler", icon=":material/priority_high:"):
+                                                 help="Ödenmiş kaydı kalıcı siler (banka bakiyesi geri YÜKLENMEZ)", icon=":material/priority_high:"):
                                         odeme_sil(o["id"])
                                         st.session_state[sil_key] = False
                                         st.rerun()
@@ -1966,2568 +1988,2558 @@ def run():
                                     if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True, icon=":material/delete:"):
                                         st.session_state[sil_key] = True
                                         st.rerun()
-                        else:
-                            # Ödenmiş kayıt için de silme (iki adımlı onay)
-                            if st.session_state.get(sil_key, False):
-                                if st.button("Onayla", key=f"sil_confirm_{o['id']}", type="primary", use_container_width=True,
-                                             help="Ödenmiş kaydı kalıcı siler (banka bakiyesi geri YÜKLENMEZ)", icon=":material/priority_high:"):
-                                    odeme_sil(o["id"])
-                                    st.session_state[sil_key] = False
+                    
+                        with col5:
+                            if is_odendi:
+                                b_id_col5 = o.get("banka_id")
+                                banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+                                banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
+                                st.markdown(f'<div style="font-size:11px;color:var(--k-soluk);font-weight:600;margin-bottom:0px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
+                                if st.button(f"Geri Al", key=f"geri_{o['id']}", icon=":material/undo:"):
+                                    odeme_durum_guncelle(o["id"], "bekliyor", kur=kur)
                                     st.rerun()
                             else:
-                                if st.button("Sil", key=f"sil_btn_{o['id']}", use_container_width=True, icon=":material/delete:"):
-                                    st.session_state[sil_key] = True
-                                    st.rerun()
-                    
-                    with col5:
-                        if is_odendi:
-                            b_id_col5 = o.get("banka_id")
-                            banka_map_col5 = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
-                            banka_adi_col5 = banka_map_col5.get(b_id_col5, "—") if b_id_col5 else "—"
-                            st.markdown(f'<div style="font-size:11px;color:var(--k-soluk);font-weight:600;margin-bottom:0px;text-align:center">{banka_adi_col5}</div>', unsafe_allow_html=True)
-                            if st.button(f"Geri Al", key=f"geri_{o['id']}", icon=":material/undo:"):
-                                odeme_durum_guncelle(o["id"], "bekliyor", kur=kur)
-                                st.rerun()
-                        else:
-                            banka_options = {f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
-                            banka_options = {"— Seçiniz —": None} | banka_options
-                            sec_banka = st.selectbox("Banka Seç", list(banka_options.keys()),
-                                                     key=f"banka_{o['id']}", label_visibility="collapsed")
-                            c5a, c5b = st.columns([1.3, 1])
-                            with c5a:
-                                if st.button(f"Ödendi", key=f"od_{o['id']}", type="primary", use_container_width=True, icon=":material/check_circle:"):
-                                    banka_id = banka_options.get(sec_banka)
-                                    odeme_durum_guncelle(o["id"], "odendi", banka_id, kur)
-                                    st.rerun()
-                            with c5b:
-                                _kk = f"kismi_toggle_{o['id']}"
-                                if st.button("Kısmi", key=f"kismi_btn_{o['id']}", use_container_width=True,
-                                             help="Tutarın bir kısmını öde — kalan bekliyor olarak devam eder", icon=":material/payments:"):
-                                    st.session_state[_kk] = not st.session_state.get(_kk, False)
-                                    st.rerun()
+                                banka_options = {f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
+                                banka_options = {"— Seçiniz —": None} | banka_options
+                                sec_banka = st.selectbox("Banka Seç", list(banka_options.keys()),
+                                                         key=f"banka_{o['id']}", label_visibility="collapsed")
+                                c5a, c5b = st.columns([1.3, 1])
+                                with c5a:
+                                    if st.button(f"Ödendi", key=f"od_{o['id']}", type="primary", use_container_width=True, icon=":material/check_circle:"):
+                                        banka_id = banka_options.get(sec_banka)
+                                        odeme_durum_guncelle(o["id"], "odendi", banka_id, kur)
+                                        st.rerun()
+                                with c5b:
+                                    _kk = f"kismi_toggle_{o['id']}"
+                                    if st.button("Kısmi", key=f"kismi_btn_{o['id']}", use_container_width=True,
+                                                 help="Tutarın bir kısmını öde — kalan bekliyor olarak devam eder", icon=":material/payments:"):
+                                        st.session_state[_kk] = not st.session_state.get(_kk, False)
+                                        st.rerun()
 
-                    # ─── 💸 KISMİ ÖDEME paneli (bekleyenler için) ───
-                    if not is_odendi and st.session_state.get(f"kismi_toggle_{o['id']}", False):
-                        st.markdown(
-                            '<div style="background:color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1));border:1px solid var(--k-yesil);'
-                            'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
-                            '<b style="color:var(--k-yesil2);font-size:13px">💸 Kısmi Ödeme — ödenen kısım ayrı '
-                            '"ödendi" kaydı olur, kalan bekler</b>',
-                            unsafe_allow_html=True)
-                        kp1, kp2, kp3 = st.columns([2, 2, 1.3])
-                        _mev_tl = float(o.get("tutar_tl") or 0)
-                        _mev_usd = float(o.get("tutar_usd") or 0)
-                        _ks_tl = kp1.number_input(f"Ödenen TL (mevcut ₺{fmt(_mev_tl)})",
-                                                  min_value=0.0, max_value=max(0.0, _mev_tl),
-                                                  value=0.0, step=100.0, format="%.4f",
-                                                  key=f"kismi_tl_{o['id']}",
-                                                  disabled=_mev_tl <= 0)
-                        _ks_usd = kp2.number_input(f"Ödenen USD (mevcut ${fmt(_mev_usd)})",
-                                                   min_value=0.0, max_value=max(0.0, _mev_usd),
-                                                   value=0.0, step=100.0, format="%.4f",
-                                                   key=f"kismi_usd_{o['id']}",
-                                                   disabled=_mev_usd <= 0)
-                        with kp3:
-                            st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                            if st.button("Kısmi Öde", key=f"kismi_kaydet_{o['id']}", type="primary",
-                                         use_container_width=True, disabled=(_ks_tl <= 0 and _ks_usd <= 0), icon=":material/payments:"):
-                                _bid = ({f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
-                                        .get(st.session_state.get(f"banka_{o['id']}", ""), None))
-                                _ok_k, _msg_k = odeme_kismi_ode(o["id"], _ks_tl, _ks_usd, _bid, kur)
-                                if _ok_k:
-                                    st.session_state[f"kismi_toggle_{o['id']}"] = False
-                                    st.success(_msg_k)
-                                    st.rerun()
-                                else:
-                                    st.error(_msg_k)
-                        st.caption("Banka düşümü için yukarıdaki **Banka Seç** kutusundan banka seç "
-                                   "(seçmezsen bakiye düşülmez). Girilen tutar mevcut tutarı aşamaz.")
-                        st.markdown('</div>', unsafe_allow_html=True)
-    
-                    # ─── Tutar + Kategori Revize Etme (sadece bekleyenler için) ───
-                    if not is_odendi and st.session_state.get(f"edit_tutar_toggle_{o['id']}", False):
-                        st.markdown(
-                            '<div style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);border:1px solid var(--k-amber2);'
-                            'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
-                                                        '<b style="color:var(--k-amber2);font-size:13px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
-                            unsafe_allow_html=True
-                        )
-                        col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
-                        with col_tl:
-                            yeni_tl = st.number_input(
-                                "TL (₺)",
-                                value=float(o.get("tutar_tl") or 0),
-                                min_value=0.0,
-                                step=0.01,
-                                format="%.4f",
-                                key=f"edit_tl_{o['id']}"
-                            )
-                        with col_usd:
-                            yeni_usd = st.number_input(
-                                "USD ($)",
-                                value=float(o.get("tutar_usd") or 0),
-                                min_value=0.0,
-                                step=0.01,
-                                format="%.4f",
-                                key=f"edit_usd_{o['id']}"
-                            )
-                        with col_kat:
-                            # Kategori seçimi
-                            kat_keys = list(KATEGORILER.keys())
-                            mevcut_kat = o.get("kategori") or "diger"
-                            try:
-                                kat_idx = kat_keys.index(mevcut_kat)
-                            except ValueError:
-                                kat_idx = kat_keys.index("diger")
-                            yeni_kat = st.selectbox(
-                                "Kategori",
-                                kat_keys,
-                                index=kat_idx,
-                                format_func=lambda k: KATEGORILER.get(k, {}).get("label", k),
-                                key=f"edit_kat_{o['id']}"
-                            )
-                        with col_tarih:
-                            mevcut_vade_dt = None
-                            if o.get("vade"):
-                                try:
-                                    parsed_dt = pd.to_datetime(o.get("vade"))
-                                    if pd.notna(parsed_dt):
-                                        mevcut_vade_dt = parsed_dt.date()
-                                except Exception:
-                                    pass
-                            yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}", format="DD.MM.YYYY")
-                        with col_aciklama:
-                            yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_acik_{o['id']}")
-                        with col_kaydet:
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            if st.button("Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
-                                if yeni_tl <= 0 and yeni_usd <= 0:
-                                    st.error("En az bir tutar (TL veya USD) 0'dan büyük olmalı.")
-                                else:
-                                    odeme_tutar_guncelle(
-                                        o["id"],
-                                        tutar_tl=yeni_tl,
-                                        tutar_usd=yeni_usd
-                                    )
-                                    # Kategori değiştiyse onu da güncelle
-                                    if yeni_kat != mevcut_kat:
-                                        odeme_kategori_guncelle(o["id"], yeni_kat)
-                                    # Vade güncelle
-                                    if yeni_tarih and str(yeni_tarih) != str(o.get("vade", ""))[:10]:
-                                        odeme_vade_guncelle(o["id"], str(yeni_tarih))
-                                    # Açıklama güncelle
-                                    if yeni_aciklama.strip() != (o.get("aciklama") or "").strip():
-                                        odeme_aciklama_guncelle(o["id"], yeni_aciklama.strip())
-    
-                    # ─── Vade Öteleme (sadece bekleyenler için) ───
-                    if not is_odendi:
-                        # Güvenli vade parse
-                        mevcut_vade = tr_today()
-                        if o.get("vade"):
-                            try:
-                                parsed = pd.to_datetime(o.get("vade"))
-                                if pd.notna(parsed):
-                                    mevcut_vade = parsed.date()
-                            except Exception:
-                                pass
-    
-                        # Expander yerine toggle (checkbox) — expander içinde expander yasak
-                        otele_goster = st.checkbox(
-                            "📅 Vadeyi Ötele",
-                            key=f"vade_toggle_{o['id']}",
-                            value=False
-                        )
-                        if otele_goster:
+                        # ─── 💸 KISMİ ÖDEME paneli (bekleyenler için) ───
+                        if not is_odendi and st.session_state.get(f"kismi_toggle_{o['id']}", False):
                             st.markdown(
-                                '<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);'
-                                'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">',
-                                unsafe_allow_html=True
-                            )
-                            col_tarih, col_kaydet = st.columns([3, 1])
-                            with col_tarih:
-                                yeni_vade = st.date_input(
-                                    "Yeni vade tarihi",
-                                    value=mevcut_vade,
-                                    key=f"vade_{o['id']}",
-                                    label_visibility="collapsed", format="DD.MM.YYYY"
-                                )
-                            with col_kaydet:
-                                if st.button("Ötele", key=f"vade_save_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
-                                    kayit_erteleme(o, mevcut_vade, yeni_vade)
-                                    odeme_vade_guncelle(o["id"], yeni_vade)
-                                    st.success(f"Vade {yeni_vade.strftime('%d.%m.%Y')} olarak güncellendi.")
-                                    st.rerun()
-    
-                            # Hızlı öteleme butonları
-                            col_h1, col_h2, col_h3, col_h4 = st.columns(4)
-                            with col_h1:
-                                if st.button("+1 gün", key=f"v1_{o['id']}", use_container_width=True):
-                                    yeni_t = mevcut_vade + timedelta(days=1)
-                                    kayit_erteleme(o, mevcut_vade, yeni_t)
-                                    odeme_vade_guncelle(o["id"], yeni_t)
-                                    st.rerun()
-                            with col_h2:
-                                if st.button("+3 gün", key=f"v3_{o['id']}", use_container_width=True):
-                                    yeni_t = mevcut_vade + timedelta(days=3)
-                                    kayit_erteleme(o, mevcut_vade, yeni_t)
-                                    odeme_vade_guncelle(o["id"], yeni_t)
-                                    st.rerun()
-                            with col_h3:
-                                if st.button("+7 gün", key=f"v7_{o['id']}", use_container_width=True):
-                                    yeni_t = mevcut_vade + timedelta(days=7)
-                                    kayit_erteleme(o, mevcut_vade, yeni_t)
-                                    odeme_vade_guncelle(o["id"], yeni_t)
-                                    st.rerun()
-                            with col_h4:
-                                if st.button("+30 gün", key=f"v30_{o['id']}", use_container_width=True):
-                                    yeni_t = mevcut_vade + timedelta(days=30)
-                                    kayit_erteleme(o, mevcut_vade, yeni_t)
-                                    odeme_vade_guncelle(o["id"], yeni_t)
-                                    st.rerun()
+                                '<div style="background:color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1));border:1px solid var(--k-yesil);'
+                                'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
+                                '<b style="color:var(--k-yesil2);font-size:13px">💸 Kısmi Ödeme — ödenen kısım ayrı '
+                                '"ödendi" kaydı olur, kalan bekler</b>',
+                                unsafe_allow_html=True)
+                            kp1, kp2, kp3 = st.columns([2, 2, 1.3])
+                            _mev_tl = float(o.get("tutar_tl") or 0)
+                            _mev_usd = float(o.get("tutar_usd") or 0)
+                            _ks_tl = kp1.number_input(f"Ödenen TL (mevcut ₺{fmt(_mev_tl)})",
+                                                      min_value=0.0, max_value=max(0.0, _mev_tl),
+                                                      value=0.0, step=100.0, format="%.4f",
+                                                      key=f"kismi_tl_{o['id']}",
+                                                      disabled=_mev_tl <= 0)
+                            _ks_usd = kp2.number_input(f"Ödenen USD (mevcut ${fmt(_mev_usd)})",
+                                                       min_value=0.0, max_value=max(0.0, _mev_usd),
+                                                       value=0.0, step=100.0, format="%.4f",
+                                                       key=f"kismi_usd_{o['id']}",
+                                                       disabled=_mev_usd <= 0)
+                            with kp3:
+                                st.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+                                if st.button("Kısmi Öde", key=f"kismi_kaydet_{o['id']}", type="primary",
+                                             use_container_width=True, disabled=(_ks_tl <= 0 and _ks_usd <= 0), icon=":material/payments:"):
+                                    _bid = ({f"{b['hesap_adi']} ({b['para_birimi']})": b["id"] for b in bankalar}
+                                            .get(st.session_state.get(f"banka_{o['id']}", ""), None))
+                                    _ok_k, _msg_k = odeme_kismi_ode(o["id"], _ks_tl, _ks_usd, _bid, kur)
+                                    if _ok_k:
+                                        st.session_state[f"kismi_toggle_{o['id']}"] = False
+                                        st.success(_msg_k)
+                                        st.rerun()
+                                    else:
+                                        st.error(_msg_k)
+                            st.caption("Banka düşümü için yukarıdaki **Banka Seç** kutusundan banka seç "
+                                       "(seçmezsen bakiye düşülmez). Girilen tutar mevcut tutarı aşamaz.")
                             st.markdown('</div>', unsafe_allow_html=True)
     
-                    st.divider()
+                        # ─── Tutar + Kategori Revize Etme (sadece bekleyenler için) ───
+                        if not is_odendi and st.session_state.get(f"edit_tutar_toggle_{o['id']}", False):
+                            st.markdown(
+                                '<div style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);border:1px solid var(--k-amber2);'
+                                'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">'
+                                                            '<b style="color:var(--k-amber2);font-size:13px">🔶 Tutar / Tarih / Kategori / Açıklama Revize</b>',
+                                unsafe_allow_html=True
+                            )
+                            col_tl, col_usd, col_kat, col_tarih, col_aciklama, col_kaydet = st.columns([2, 2, 2, 2, 3, 1])
+                            with col_tl:
+                                yeni_tl = st.number_input(
+                                    "TL (₺)",
+                                    value=float(o.get("tutar_tl") or 0),
+                                    min_value=0.0,
+                                    step=0.01,
+                                    format="%.4f",
+                                    key=f"edit_tl_{o['id']}"
+                                )
+                            with col_usd:
+                                yeni_usd = st.number_input(
+                                    "USD ($)",
+                                    value=float(o.get("tutar_usd") or 0),
+                                    min_value=0.0,
+                                    step=0.01,
+                                    format="%.4f",
+                                    key=f"edit_usd_{o['id']}"
+                                )
+                            with col_kat:
+                                # Kategori seçimi
+                                kat_keys = list(KATEGORILER.keys())
+                                mevcut_kat = o.get("kategori") or "diger"
+                                try:
+                                    kat_idx = kat_keys.index(mevcut_kat)
+                                except ValueError:
+                                    kat_idx = kat_keys.index("diger")
+                                yeni_kat = st.selectbox(
+                                    "Kategori",
+                                    kat_keys,
+                                    index=kat_idx,
+                                    format_func=lambda k: KATEGORILER.get(k, {}).get("label", k),
+                                    key=f"edit_kat_{o['id']}"
+                                )
+                            with col_tarih:
+                                mevcut_vade_dt = None
+                                if o.get("vade"):
+                                    try:
+                                        parsed_dt = pd.to_datetime(o.get("vade"))
+                                        if pd.notna(parsed_dt):
+                                            mevcut_vade_dt = parsed_dt.date()
+                                    except Exception:
+                                        pass
+                                yeni_tarih = st.date_input("Tarih", value=mevcut_vade_dt or tr_today(), key=f"edit_tarih_{o['id']}", format="DD.MM.YYYY")
+                            with col_aciklama:
+                                yeni_aciklama = st.text_input("Açıklama", value=o.get("aciklama") or "", key=f"edit_acik_{o['id']}")
+                            with col_kaydet:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button("Kaydet", key=f"save_tutar_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
+                                    if yeni_tl <= 0 and yeni_usd <= 0:
+                                        st.error("En az bir tutar (TL veya USD) 0'dan büyük olmalı.")
+                                    else:
+                                        odeme_tutar_guncelle(
+                                            o["id"],
+                                            tutar_tl=yeni_tl,
+                                            tutar_usd=yeni_usd
+                                        )
+                                        # Kategori değiştiyse onu da güncelle
+                                        if yeni_kat != mevcut_kat:
+                                            odeme_kategori_guncelle(o["id"], yeni_kat)
+                                        # Vade güncelle
+                                        if yeni_tarih and str(yeni_tarih) != str(o.get("vade", ""))[:10]:
+                                            odeme_vade_guncelle(o["id"], str(yeni_tarih))
+                                        # Açıklama güncelle
+                                        if yeni_aciklama.strip() != (o.get("aciklama") or "").strip():
+                                            odeme_aciklama_guncelle(o["id"], yeni_aciklama.strip())
     
-        # Export butonları
-        col1, col2 = st.columns(2)
-        with col1:
-            excel_buf = export_excel(odemeler, hafta["hafta_adi"] if hafta else "", kur)
-            st.download_button(
-                "Excel İndir",
-                data=excel_buf,
-                file_name=f"odeme_listesi_{tr_today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True, icon=":material/move_to_inbox:"
-            )
+                        # ─── Vade Öteleme (sadece bekleyenler için) ───
+                        if not is_odendi:
+                            # Güvenli vade parse
+                            mevcut_vade = tr_today()
+                            if o.get("vade"):
+                                try:
+                                    parsed = pd.to_datetime(o.get("vade"))
+                                    if pd.notna(parsed):
+                                        mevcut_vade = parsed.date()
+                                except Exception:
+                                    pass
     
+                            # Expander yerine toggle (checkbox) — expander içinde expander yasak
+                            otele_goster = st.checkbox(
+                                "📅 Vadeyi Ötele",
+                                key=f"vade_toggle_{o['id']}",
+                                value=False
+                            )
+                            if otele_goster:
+                                st.markdown(
+                                    '<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);'
+                                    'border-radius:10px;padding:12px 16px;margin:4px 0 8px 24px;">',
+                                    unsafe_allow_html=True
+                                )
+                                col_tarih, col_kaydet = st.columns([3, 1])
+                                with col_tarih:
+                                    yeni_vade = st.date_input(
+                                        "Yeni vade tarihi",
+                                        value=mevcut_vade,
+                                        key=f"vade_{o['id']}",
+                                        label_visibility="collapsed", format="DD.MM.YYYY"
+                                    )
+                                with col_kaydet:
+                                    if st.button("Ötele", key=f"vade_save_{o['id']}", type="primary", use_container_width=True, icon=":material/save:"):
+                                        kayit_erteleme(o, mevcut_vade, yeni_vade)
+                                        odeme_vade_guncelle(o["id"], yeni_vade)
+                                        st.success(f"Vade {yeni_vade.strftime('%d.%m.%Y')} olarak güncellendi.")
+                                        st.rerun()
     
-    # ════════════════════════════════════════════════════════════════════
-    # 3) BANKA BAKİYELERİ
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🏦 Banka Bakiyeleri":
-        st.markdown(_sb("🏦 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
+                                # Hızlı öteleme butonları
+                                col_h1, col_h2, col_h3, col_h4 = st.columns(4)
+                                with col_h1:
+                                    if st.button("+1 gün", key=f"v1_{o['id']}", use_container_width=True):
+                                        yeni_t = mevcut_vade + timedelta(days=1)
+                                        kayit_erteleme(o, mevcut_vade, yeni_t)
+                                        odeme_vade_guncelle(o["id"], yeni_t)
+                                        st.rerun()
+                                with col_h2:
+                                    if st.button("+3 gün", key=f"v3_{o['id']}", use_container_width=True):
+                                        yeni_t = mevcut_vade + timedelta(days=3)
+                                        kayit_erteleme(o, mevcut_vade, yeni_t)
+                                        odeme_vade_guncelle(o["id"], yeni_t)
+                                        st.rerun()
+                                with col_h3:
+                                    if st.button("+7 gün", key=f"v7_{o['id']}", use_container_width=True):
+                                        yeni_t = mevcut_vade + timedelta(days=7)
+                                        kayit_erteleme(o, mevcut_vade, yeni_t)
+                                        odeme_vade_guncelle(o["id"], yeni_t)
+                                        st.rerun()
+                                with col_h4:
+                                    if st.button("+30 gün", key=f"v30_{o['id']}", use_container_width=True):
+                                        yeni_t = mevcut_vade + timedelta(days=30)
+                                        kayit_erteleme(o, mevcut_vade, yeni_t)
+                                        odeme_vade_guncelle(o["id"], yeni_t)
+                                        st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
     
-        kur = get_kur()
-        bankalar = get_bankalar()
-        odemeler, hafta = get_aktif_odemeler()
+                        st.divider()
     
-        bekleyen_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "bekliyor")
-        bekleyen_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "bekliyor")
-    
-        # Hesap kartları — kompakt, ortak tema (para birimine göre renkli sol şerit)
-        if bankalar:
-            _renk_pb = {"USD": trenk("mavi"), "TL": trenk("mor"), "EUR": trenk("mor")}
-            _banka_cards = []
-            for b in bankalar:
-                sym = "$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺")
-                if b["para_birimi"] == "TL":
-                    net = b["bakiye"] - bekleyen_tl - (bekleyen_usd * kur)
-                    net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ₺{fmt(net)}"
-                elif b["para_birimi"] == "USD":
-                    net = b["bakiye"] - bekleyen_usd
-                    net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ${fmt(net)}"
-                else:
-                    net_str = ""
-                _banka_cards.append({
-                    "label": b["hesap_adi"],
-                    "value": f"{sym}{fmt(b['bakiye'])}",
-                    "renk": _renk_pb.get(b["para_birimi"], trenk("mor")),
-                    "alt": net_str,
-                })
-            metrik_satiri(_banka_cards)
-        # === TOPLAM BAKIYE OZETI ===
-        if bankalar:
-            toplam_tl_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
-            toplam_usd_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
-            toplam_eur_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
-            toplam_usd_esde = toplam_usd_hesap + (toplam_tl_hesap / kur) + (toplam_eur_hesap * 1.08)
-            toplam_html = (
-                '<div style="background:linear-gradient(135deg,var(--k-yuzey1) 0%,var(--k-yuzey3) 100%);border:1px solid color-mix(in srgb,var(--k-mor) 30%,transparent);border-radius:14px;padding:16px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
-                '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">🏦</span>'
-                '<span style="font-size:14px;font-weight:700;color:var(--k-metin)">TOPLAM BAKİYE</span></div>'
-                '<div style="display:flex;gap:24px;flex-wrap:wrap">'
-                f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:var(--k-yesil);font-family:monospace">₺{tr_sayi(toplam_tl_hesap, 2)}</div></div>'
-                f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace">${tr_sayi(toplam_usd_hesap, 2)}</div></div>'
-                f'<div style="text-align:right;border-left:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);padding-left:20px"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:var(--k-mor);font-family:monospace">${tr_sayi(toplam_usd_esde, 2)}</div></div>'
-                '</div></div>'
-            )
-            st.markdown(toplam_html, unsafe_allow_html=True)
-
-        else:
-            st.info("Henüz banka hesabı eklenmemiş.")
-
-        # ── 💰 Gelen Tahsilat (bankaya para girişi) ──
-        if bankalar:
-            @st.dialog("💰 Tahsilat Ekle — Bankaya Para Girişi", width="large")
-            def _dlg_tahsilat():
-                st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
-                _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b
-                         for b in bankalar}
-                _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
-                _bank = _opts[_sec]
-                _pb = _bank["para_birimi"]
-                _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
-
-                with st.form("tahsilat_form"):
-                    _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
-                    _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
-                    _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
-                    _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
-                    _onay = st.form_submit_button(f"{_sym} Tahsilatı İşle", type="primary", use_container_width=True, icon=":material/payments:")
-                    if _onay:
-                        if _tutar <= 0:
-                            st.error("Tutar 0'dan büyük olmalı.")
-                        else:
-                            ok, msg = tahsilat_ekle(_bank["id"], _tutar, _kaynak, _acik, _tarih)
-                            if ok:
-                                st.success(msg)
-                                st.rerun()
-                            else:
-                                st.error(msg)
-
-                # Son tahsilatlar — geri alma imkânıyla
-                _son = get_tahsilatlar(limit=8)
-                if _son:
-                    st.markdown("---")
-                    st.markdown("**Son tahsilatlar**")
-                    for t in _son:
-                        _ts = "$" if t.get("para_birimi") == "USD" else ("€" if t.get("para_birimi") == "EUR" else "₺")
-                        c1, c2 = st.columns([5, 1])
-                        _knk = f" · {t['kaynak']}" if t.get("kaynak") else ""
-                        c1.markdown(
-                            f"<div style='font-size:13px'>{str(t.get('tarih',''))[:10]} — "
-                            f"<b>{_ts}{tr_sayi(float(t.get('tutar') or 0), 2)}</b> → {t.get('hesap_adi','')}"
-                            f"<span style='color:var(--k-soluk)'>{_knk}</span></div>",
-                            unsafe_allow_html=True)
-                        if c2.button("", key=f"tahsilat_geri_{t['id']}", help="Geri al", icon=":material/undo:"):
-                            ok, msg = tahsilat_geri_al(t["id"])
-                            st.toast(msg)
-                            st.rerun()
-
-            if st.button("Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary", icon=":material/payments:"):
-                _dlg_tahsilat()
-
-    
-        st.markdown("---")
-    
-        # Hesap ekle / düzenle
-        col1, col2 = st.columns(2)
-    
-        with col1:
-            st.markdown("**➕ Yeni Hesap Ekle**")
-            with st.form("banka_ekle"):
-                hesap_adi = st.text_input("Hesap Adı", placeholder="Örn: YKB TL Hesabı")
-                bakiye = st.number_input("Bakiye", min_value=0.0, step=0.0001, format="%.4f")
-                para_birimi = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
-                if st.form_submit_button("Ekle", type="primary", icon=":material/add:"):
-                    if hesap_adi:
-                        banka_ekle(hesap_adi, bakiye, para_birimi)
-                        st.success("✅ Hesap eklendi.")
-                        st.rerun()
-    
-        with col2:
-            if bankalar:
-                st.markdown("**✏️ Hesap Düzenle / Sil**")
-                secim = st.selectbox("Hesap seçin", [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar])
-                sec_idx = [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar].index(secim)
-                sec_banka = bankalar[sec_idx]
-    
-                with st.form("banka_duzenle"):
-                    yeni_ad = st.text_input("Hesap Adı", value=sec_banka["hesap_adi"])
-                    yeni_bakiye = st.number_input("Bakiye", value=float(sec_banka["bakiye"]), step=0.0001, format="%.4f")
-                    yeni_pb = st.selectbox("Para Birimi", ["TL", "USD", "EUR"],
-                                           index=["TL", "USD", "EUR"].index(sec_banka["para_birimi"]))
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        if st.form_submit_button("Kaydet", type="primary", icon=":material/save:"):
-                            banka_guncelle(sec_banka["id"], yeni_ad, yeni_bakiye, yeni_pb)
-                            st.success("✅ Güncellendi.")
-                            st.rerun()
-                    with col_b:
-                        if st.form_submit_button("Sil", icon=":material/delete:"):
-                            banka_sil(sec_banka["id"])
-                            st.success("Silindi.")
-                            st.rerun()
+            # Export butonları
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_buf = export_excel(odemeler, hafta["hafta_adi"] if hafta else "", kur)
+                st.download_button(
+                    "Excel İndir",
+                    data=excel_buf,
+                    file_name=f"odeme_listesi_{tr_today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, icon=":material/move_to_inbox:"
+                )
     
     
-    # ════════════════════════════════════════════════════════════════════
-    # 4) NAKİT AKIŞ
-    # ════════════════════════════════════════════════════════════════════
-        st.markdown("---")
-
-        # ─── ARBİTRAJ: aynı banka içinde TL ↔ USD çevrimi ───
-        # Mekanik olarak virman ile aynı yola gider (virman_yap bakiyeleri
-        # günceller ve 'virmanlar' tablosuna kayıt atar). Ayrı bir veri yolu
-        # AÇILMADI — tek kayıt kaynağı korunur. Fark arayüzde: banka bir kez
-        # seçilir, yön düğmeyle belirlenir, karşılık anında hesaplanır.
-        # ─── ARBİTRAJ: aynı banka içinde TL / USD / EUR çevrimi ───
-        # Altı yönün hepsi desteklenir: TL↔USD, TL↔EUR, USD↔EUR.
-        #
-        # KUR YORUMU — tek kural: "1 <güçlü birim> = kur <zayıf birim>".
-        # Güçlülük sırası EUR > USD > TL. Böylece kullanıcı kuru her zaman
-        # piyasada konuşulduğu gibi girer (1 USD = 48,68 TL / 1 EUR = 1,08 USD)
-        # ve yön karışıklığı olmaz. Hesaplanan karşılık virman_yap'a AÇIKÇA
-        # hedef_tutar olarak geçilir — çevrim tek yerde, burada yapılır.
-        _PB_SIRA = {"TL": 0, "TRY": 0, "USD": 1, "EUR": 2}
-        _PB_SIM = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
-
-        def _pb_std(p):
-            p = str(p or "").upper()
-            return "TL" if p == "TRY" else p
-
-        @st.dialog("💱 Arbitraj — Aynı Banka (TL / USD / EUR)", width="large")
-        def _dlg_arbitraj():
-            _bnk = get_bankalar() or []
-            if not _bnk:
-                st.warning("Kayıtlı banka hesabı yok.")
-                return
-
-            def _kok(ad):
-                """'YAPI KREDİ BANKASI - USD' → 'YAPI KREDİ BANKASI'."""
-                s = str(ad or "").strip()
-                for _ayr in (" - ", " – ", " — ", " -", "- "):
-                    if _ayr in s:
-                        s = s.split(_ayr)[0]
-                        break
-                for _son in ("USD", "TRY", "TL", "EUR", "$", "₺", "€"):
-                    if s.upper().endswith(_son):
-                        s = s[: -len(_son)]
-                return " ".join(s.split()).rstrip("-–— ").strip()
-
-            # Aynı bankanın TL / USD / EUR hesaplarını grupla
-            _grup = {}
-            for b in _bnk:
-                _pb = _pb_std(b.get("para_birimi"))
-                if _pb in _PB_SIRA:
-                    _grup.setdefault(_kok(b.get("hesap_adi")), {})[_pb] = b
-
-            # En az İKİ farklı para birimi olan bankalar
-            _uygun = {k: v for k, v in _grup.items() if len(v) >= 2}
-            if not _uygun:
-                st.warning("Arbitraj için aynı bankada **en az iki farklı para "
-                           "biriminde** hesap gerekiyor (TL / USD / EUR).")
-                st.caption("Hesap adları 'BANKA ADI - TL', 'BANKA ADI - USD' "
-                           "biçiminde olursa otomatik eşleşir.")
-                return
-
-            _banka_ad = st.selectbox("🏦 Banka", sorted(_uygun.keys()), key="arb_banka")
-            _hesaplar = _uygun[_banka_ad]
-
-            # Mevcut bakiyeler
-            _mcols = st.columns(len(_hesaplar))
-            for _c, _pb in zip(_mcols, sorted(_hesaplar, key=lambda x: _PB_SIRA[x])):
-                _c.metric(f"{_pb} Hesap",
-                          f"{tr_sayi(float(_hesaplar[_pb].get('bakiye') or 0), 2)} {_PB_SIM[_pb]}")
-
-            _pblar = sorted(_hesaplar.keys(), key=lambda x: _PB_SIRA[x])
-            y1, y2 = st.columns(2)
-            _kpb = y1.selectbox("Bozulacak (kaynak)", _pblar, key="arb_kaynak_pb")
-            _hedefler = [p for p in _pblar if p != _kpb]
-            _hpb = y2.selectbox("Alınacak (hedef)", _hedefler, key="arb_hedef_pb")
-
-            _kaynak, _hedef = _hesaplar[_kpb], _hesaplar[_hpb]
-            _k_bak = float(_kaynak.get("bakiye") or 0)
-            _h_bak = float(_hedef.get("bakiye") or 0)
-
-            # Kur her zaman güçlü birim üzerinden sorulur
-            _guclu, _zayif = (_kpb, _hpb) if _PB_SIRA[_kpb] > _PB_SIRA[_hpb] else (_hpb, _kpb)
-            _usd_tl = float(get_kur() or 1)
-            _vars = {("USD", "TL"): _usd_tl, ("EUR", "TL"): _usd_tl * 1.08,
-                     ("EUR", "USD"): 1.08}.get((_guclu, _zayif), 1.0)
-
-            a1, a2 = st.columns([2, 1])
-            _tutar = a1.number_input(
-                f"Bozulacak tutar ({_kpb})", min_value=0.0, step=0.01, format="%.4f",
-                max_value=max(_k_bak, 0.01), key="arb_tutar", disabled=(_k_bak <= 0))
-            _kur = a2.number_input(f"Kur — 1 {_guclu} = ? {_zayif}", min_value=0.0001,
-                                   step=0.01, format="%.4f", value=float(_vars),
-                                   key=f"arb_kur_{_guclu}_{_zayif}",
-                                   help="Bankanın uyguladığı gerçek kuru gir")
-            if _k_bak <= 0:
-                st.caption(f"⚠️ {_kpb} hesabının bakiyesi 0 veya negatif.")
-
-            # Zayıf → güçlü ise BÖL, güçlü → zayıf ise ÇARP
-            _karsilik = (_tutar / _kur) if _PB_SIRA[_kpb] < _PB_SIRA[_hpb] else (_tutar * _kur)
-
-            if _tutar > 0:
-                st.success(f"➡️ **{tr_sayi(_tutar, 2)} {_kpb}** bozulacak, "
-                           f"**{tr_sayi(_karsilik, 2)} {_hpb}** alınacak  ·  "
-                           f"1 {_guclu} = {tr_sayi(_kur, 4)} {_zayif}")
-                z1, z2 = st.columns(2)
-                z1.metric(f"{_kpb} Hesap (sonra)", f"{tr_sayi(_k_bak - _tutar, 2)} {_PB_SIM[_kpb]}",
-                          delta=f"{-_tutar:+,.2f}")
-                z2.metric(f"{_hpb} Hesap (sonra)", f"{tr_sayi(_h_bak + _karsilik, 2)} {_PB_SIM[_hpb]}",
-                          delta=f"{_karsilik:+,.2f}")
-
-            _not = st.text_input("Açıklama", key="arb_not",
-                                 placeholder="örn. 14.09 arbitraj, banka kuru 48,92")
-
-            if st.button("Arbitrajı Gerçekleştir", type="primary",
-                         use_container_width=True, key="arb_btn",
-                         disabled=(_tutar <= 0 or _k_bak <= 0), icon=":material/currency_exchange:"):
-                _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
-                        f"1 {_guclu}={tr_sayi(_kur, 4)} {_zayif}"
-                        + (f" · {_not.strip()}" if (_not or "").strip() else ""))
-                # Karşılık BURADA hesaplandı; virman_yap'a açıkça geçiliyor ki
-                # çevrim iki yerde ayrı ayrı yapılmasın.
-                _ok, _msg = virman_yap(_kaynak["id"], _hedef["id"], float(_tutar),
-                                       _ack, float(_kur), hedef_tutar=float(_karsilik))
-                if _ok:
-                    st.success(f"✅ {_msg}")
-                    st.rerun()
-                else:
-                    st.error(f"❌ {_msg}")
-
-        _vb1, _vb2 = st.columns(2)
-        if _vb1.button("Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True, icon=":material/sync_alt:"):
-            _dlg_virman()
-        if _vb2.button("Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True, icon=":material/currency_exchange:"):
-            _dlg_arbitraj()
-    elif sayfa == "💸 Nakit Akış":
-        st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
+        # ════════════════════════════════════════════════════════════════════
+        # 3) BANKA BAKİYELERİ
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "🏦 Banka Bakiyeleri":
+            st.markdown(_sb("🏦 Muhasebe", "Banka Bakiyeleri"), unsafe_allow_html=True)
     
-        kur = get_kur()
-        odemeler, hafta = get_aktif_odemeler()
-        bankalar = get_bankalar()
-    
-        if not odemeler:
-            st.info("Veri yok.")
-            st.stop()
-    
-        banka_tl = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
-        banka_usd = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
-    
-        from collections import defaultdict
-        by_day = defaultdict(list)
-        for o in odemeler:
-            if o["durum"] == "bekliyor":
-                day = (o.get("vade") or "")[:10] or "?"
-                by_day[day].append(o)
-    
-        kum_tl = 0
-        kum_usd = 0
-        tablo_rows = []
-    
-        for day in sorted(by_day.keys()):
-            gun_tl = sum(o.get("tutar_tl") or 0 for o in by_day[day])
-            gun_usd = sum(o.get("tutar_usd") or 0 for o in by_day[day])
-            kum_tl += gun_tl
-            kum_usd += gun_usd
-            kalan = banka_tl - kum_tl - (kum_usd * kur)
-    
-            tablo_rows.append({
-                "Tarih": day,
-                "Günlük TL (₺)": gun_tl or None,
-                "Günlük USD ($)": gun_usd or None,
-                "Kümülatif TL (₺)": kum_tl,
-                "Kümülatif USD ($)": kum_usd,
-                "TL Bakiye Kalan (₺)": kalan,
-                "_kalan": kalan,
-            })
-    
-        net_tl = banka_tl - kum_tl - (kum_usd * kur)
-        tablo_rows.append({
-            "Tarih": "TOPLAM",
-            "Günlük TL (₺)": kum_tl,
-            "Günlük USD ($)": kum_usd,
-            "Kümülatif TL (₺)": kum_tl,
-            "Kümülatif USD ($)": kum_usd,
-            "TL Bakiye Kalan (₺)": net_tl,
-            "_kalan": net_tl,
-        })
-    
-        df_nakit = pd.DataFrame(tablo_rows)
-    
-        def nakit_rengi(row):
-            k = row.get("_kalan", 0)
-            if row["Tarih"] == "TOPLAM":
-                return ["background-color:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);font-weight:700" if k >= 0
-                        else "background-color:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);font-weight:700"] * len(row)
-            return ["background-color:var(--k-kirmizi);color:var(--k-kirmizi2)" if k < 0 else ""] * len(row)
-    
-        # --- Nakit Akış tablosu: ortak tablo_html (Aşama 4b) ---
-        def _kalan_hucre(v, kalin=False):
-            return renkli(_tpara(v, "₺", 2), "yesil" if (v or 0) >= 0 else "kirmizi", kalin=kalin)
-
-        _nk_kol = [("Tarih", "mono"), ("Günlük TL", "para", "₺"), ("Günlük USD", "para", "$"),
-                   ("Küm. TL", "para", "₺"), ("Küm. USD", "para", "$"), ("TL Bakiye", "para", "₺")]
-        _nk_satir, _nk_toplam = [], None
-        for row in tablo_rows:
-            kayit = {
-                "Tarih": row["Tarih"] if row["Tarih"] == "TOPLAM" else fmt_tarih(row["Tarih"]),
-                "Günlük TL": row.get("Günlük TL (₺)") or None,
-                "Günlük USD": row.get("Günlük USD ($)") or None,
-                "Küm. TL": row.get("Kümülatif TL (₺)") or None,
-                "Küm. USD": row.get("Kümülatif USD ($)") or None,
-                "TL Bakiye": _kalan_hucre(row.get("_kalan") or 0, kalin=row["Tarih"] == "TOPLAM"),
-            }
-            if row["Tarih"] == "TOPLAM":
-                kayit["Tarih"] = "Σ TOPLAM"
-                _nk_toplam = kayit
-            else:
-                _nk_satir.append(kayit)
-        st.html(tablo_html(_nk_kol, _nk_satir, toplam=_nk_toplam,
-                           vurgu=lambda r: "kirmizi" if "k-kirmizi" in str(r["TL Bakiye"]) else None))
-    
-        # Grafik
-        df_grafik = pd.DataFrame([r for r in tablo_rows if r["Tarih"] != "TOPLAM"])
-        if len(df_grafik) > 1:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=df_grafik["Tarih"],
-                y=df_grafik["Günlük TL (₺)"].fillna(0),
-                name="Günlük TL Ödemesi",
-                marker_color="rgba(99,102,241,0.85)",
-                marker_line=dict(color="rgba(0,0,0,0)", width=0),
-                hovertemplate="<b>%{x}</b><br>Günlük: ₺%{tr_sayi(y)}<extra></extra>",
-            ))
-            fig.add_trace(go.Scatter(
-                x=df_grafik["Tarih"],
-                y=df_grafik["TL Bakiye Kalan (₺)"],
-                name="Kalan Bakiye",
-                mode="lines+markers",
-                line=dict(color=trenk("yesil"), width=2.5, shape="spline", smoothing=0.6),
-                marker=dict(size=7, color=trenk("yesil"), line=dict(color=trenk("yuzey0"), width=2)),
-                yaxis="y2",
-                hovertemplate="<b>%{x}</b><br>Kalan: ₺%{tr_sayi(y)}<extra></extra>",
-            ))
-            fig.update_layout(
-                title=dict(
-                    text="<b>Günlük Ödeme ve Kalan Bakiye</b>",
-                    font=dict(family="Inter, sans-serif", size=15, color=trenk("metin")),
-                    x=0.01, xanchor="left",
-                ),
-                xaxis=dict(
-                    title=dict(text="Tarih", font=dict(family="Inter, sans-serif", size=12, color=trenk("silik"))),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                    gridcolor="rgba(148,163,184,0.10)",
-                    linecolor="rgba(148,163,184,0.18)",
-                    showline=True,
-                ),
-                yaxis=dict(
-                    title=dict(text="Ödeme TL (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("mor"))),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                    gridcolor="rgba(148,163,184,0.10)",
-                    linecolor="rgba(148,163,184,0.18)",
-                    showline=True,
-                    zeroline=True,
-                    zerolinecolor="rgba(148,163,184,0.22)",
-                ),
-                yaxis2=dict(
-                    title=dict(text="Kalan Bakiye (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("yesil"))),
-                    tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                    overlaying="y",
-                    side="right",
-                    showgrid=False,
-                    linecolor="rgba(148,163,184,0.18)",
-                    showline=True,
-                ),
-                height=420,
-                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                hovermode="x unified",
-                hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
-                bargap=0.45, barcornerradius=6,
-                font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                legend=dict(
-                    font=dict(family="Inter, sans-serif", size=12, color=trenk("metin")),
-                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    bgcolor="rgba(255,255,255,0)",
-                ),
-                margin=dict(t=60, b=60, l=70, r=70),
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 5) FİRMA ÇEKLERİ
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📋 Firma Çekleri":
-        st.markdown(_sb("📋 Muhasebe", "Firma Çekleri", aciklama="TL ve USD bazında çek takibi"), unsafe_allow_html=True)
-    
-        def cek_ozet_kart(cekler, cur):
-            if not cekler:
-                return
-            sym = "$" if cur == "USD" else "₺"
-    
-            toplam_meblagh = toplam_odenen = toplam_kalan = 0.0
-            odendi_cnt = bekleyen_cnt = 0
-            for c in cekler:
-                t = cek_tutarlari(c)          # tablo ve arşivle AYNI kural
-                toplam_meblagh += t["meblag"]
-                toplam_odenen += t["odenen"]
-                toplam_kalan += t["kalan"]
-                if t["odendi"]:
-                    odendi_cnt += 1
-                else:
-                    bekleyen_cnt += 1
-    
-            metrik_satiri([
-                {"label": "Toplam Meblağ", "value": f"{sym}{fmt(toplam_meblagh)}", "renk": trenk("mavi"), "alt": f"{len(cekler)} çek (tümü)"},
-                {"label": "Toplam Ödenen", "value": f"{sym}{fmt(toplam_odenen)}", "renk": trenk("yesil"), "alt": f"{odendi_cnt} adet ödendi"},
-                {"label": "Toplam Kalan", "value": f"{sym}{fmt(toplam_kalan)}", "renk": trenk("amber"), "alt": f"{bekleyen_cnt} bekleyen/ciro"},
-            ])
-    
-        def cek_tablo(cekler, cur):
-            if not cekler:
-                st.info(f"{cur} çeki bulunamadı.")
-                return
-            sym = "$" if cur == "USD" else "₺"
-    
-            cek_ozet_kart(cekler, cur)
-    
-            rows = []
-            for c in cekler:
-                vd = vade_durumu(c.get("vade"))
-                _t = cek_tutarlari(c)
-                rows.append({
-                    "Ref No":       c.get("ref_no") or c.get("ref", ""),
-                    "Çek No":       c.get("cek_no", ""),
-                    "Tarih":        fmt_tarih(c.get("tarih")),
-                    "Vade Tarihi":  fmt_tarih(c.get("vade")),
-                    f"Meblağ ({sym})": c.get("meblagh", 0),
-                    f"Ödenen ({sym})": _t["odenen"],
-                    f"Kalan ({sym})":  _t["kalan"],
-                    "_odendi":      _t["odendi"],
-                    "Son Pozisyon": c.get("durum", "Bekliyor"),
-                    "C/H Kodu":     c.get("ch_kodu", ""),
-                    "C/H İsmi":     c.get("ch_ismi", ""),
-                    "Banka":        c.get("banka", ""),
-                    "Şube":         c.get("sube", ""),
-                    "Hesap No":     c.get("hesap_no", ""),
-                    "_vd": vd,
-                })
-            # --- Firma Çekleri tablosu: ortak tablo_html (Aşama 4b) ---
-            def _durum_rozet(pozisyon, ham):
-                if pozisyon == "odendi":
-                    return rozet_html("✓ ÖDENDİ", "yesil")
-                if "bekliyor" in pozisyon:
-                    return rozet_html("⏳ BEKLİYOR", "amber")
-                if "gecmis" in pozisyon:
-                    return rozet_html("⚠ GECİKMİŞ", "kirmizi")
-                return rozet_html(ham or "—", "soluk")
-
-            def _vurgu(row):
-                """Gecikmiş → kırmızı · bugün vadeli → sarı · ödenmiş → yeşil.
-                (vade_durumu() sonucu; eskiden bugünün tarih METNİYLE karşılaştırılıyordu,
-                'gecmis' < '2026-…' hep yanlış → gecikmiş çek hiç kırmızı olmuyordu.)"""
-                if row["_odendi"]:
-                    return "yesil"
-                if row["_kalan"] > 0 and row["_vd"] == "gecmis":
-                    return "kirmizi"
-                if row["_kalan"] > 0 and row["_vd"] == "bugun":
-                    return "amber"
-                return None
-
-            satirlar = []
-            for row in rows:
-                pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))   # 'Ödendi' → 'odendi'
-                kalan_v = row.get(f"Kalan ({sym})", 0) or 0
-                satirlar.append({
-                    "Ref No": renkli(row.get("Ref No", ""), "mavi", kalin=True),
-                    "Çek No": row.get("Çek No", ""),
-                    "Tarih": row.get("Tarih", ""),
-                    "Vade": row.get("Vade Tarihi", ""),
-                    "Meblağ": row.get(f"Meblağ ({sym})", 0) or None,
-                    "Ödenen": row.get(f"Ödenen ({sym})", 0) or None,
-                    "Kalan": renkli(_tpara(kalan_v, sym, 2), "kirmizi" if kalan_v > 0 else "yesil", kalin=True) if kalan_v else None,
-                    "Durum": _durum_rozet(pozisyon, row.get("Son Pozisyon", "")),
-                    "_odendi": bool(row.get("_odendi")), "_kalan": kalan_v, "_vd": row.get("_vd", ""),
-                })
-            st.html(tablo_html(
-                ["Ref No", ("Çek No", "mono"), ("Tarih", "mono"), ("Vade", "mono"),
-                 ("Meblağ", "para", sym), ("Ödenen", "para", sym), ("Kalan", "para", sym),
-                 ("Durum", "metin", "$", "orta")],
-                satirlar, vurgu=_vurgu))
-    
-        tab1, tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
-        with tab1:
-            cek_tablo(get_cekler("TL"), "TL")
-        with tab2:
-            cek_tablo(get_cekler("USD"), "USD")
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 6) ÖDENENLEr
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🕐 Ödenenler & Geçmiş":
-        st.markdown(_sb("🕐 Muhasebe", "Ödenenler & Geçmiş", aciklama="Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi"), unsafe_allow_html=True)
-        _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
-        with _tab_odenen:
-    
-            odemeler, hafta = get_aktif_odemeler()
-            odenenler = [o for o in odemeler if o["durum"] == "odendi"]
-    
-            if not odenenler:
-                st.info("Bu haftada henüz ödendi olarak işaretlenmiş ödeme yok.")
-                st.stop()
-    
-            tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
-            usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
-    
-            metrik_satiri([
-                {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": trenk("yesil")},
-                {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": trenk("mavi")},
-                {"label": "Ödeme Adedi", "value": f"{tr_sayi(len(odenenler))}", "renk": trenk("mor"), "alt": "tamamlanan ödeme"},
-            ])
-    
-            # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
+            kur = get_kur()
             bankalar = get_bankalar()
-            banka_map = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+            odemeler, hafta = get_aktif_odemeler()
     
-            rows = []
-            for o in sorted(odenenler, key=lambda x: x.get("vade") or ""):
-                kat = KATEGORILER.get(o.get("kategori") or "diger", KATEGORILER["diger"])
-                banka_adi = "—"
-                b_id = o.get("banka_id")
-                if b_id:
-                    banka_adi = banka_map.get(b_id, f"ID: {b_id} (silinmiş?)")
-                rows.append({
-                    "Firma": o["firma"],
-                    "Açıklama": o.get("aciklama") or "",
-                    "Kategori": kat["label"],
-                    "Vade": fmt_tarih(o.get("vade")),
-                    "Tutar TL (₺)": o.get("tutar_tl"),
-                    "Tutar USD ($)": o.get("tutar_usd"),
-                    "Ödendiği Banka": banka_adi,
-                    "Ödendi Tarihi": o.get("odendi_tarih") or "",
-                    "ID": o["id"],
-                })
+            bekleyen_tl = sum(o.get("tutar_tl") or 0 for o in odemeler if o["durum"] == "bekliyor")
+            bekleyen_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "bekliyor")
     
-            # --- Ödenenler tablosu: ortak tablo_html (Aşama 4b). Kuruşlar korunur. ---
-            st.html(tablo_html(
-                ["Firma", "Açıklama", ("Kategori", "metin", "$", "orta"), ("Vade", "mono"),
-                 ("Tutar TL", "para", "₺"), ("Tutar USD", "para", "$"), "Ödendiği Banka", ("Ödendi Tarihi", "mono")],
-                [{
-                    "Firma": renkli(r.get("Firma") or "—", "mavi", kalin=True),
-                    "Açıklama": kisalt(r.get("Açıklama") or "", 60),
-                    "Kategori": rozet_html(r.get("Kategori") or "—", "mor"),
-                    "Vade": r.get("Vade") or None,
-                    "Tutar TL": r.get("Tutar TL (₺)") or None,
-                    "Tutar USD": r.get("Tutar USD ($)") or None,
-                    "Ödendiği Banka": r.get("Ödendiği Banka") or None,
-                    "Ödendi Tarihi": fmt_tarih(r.get("Ödendi Tarihi")) or None,
-                } for r in rows]))
-    
-            st.markdown("---")
-            st.markdown("**Geri almak istediğin ödeme:**")
-            geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
-            if st.button("Geri Al", type="secondary", icon=":material/undo:"):
-                idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
-                kur_now = get_kur()
-                odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
-                st.success("Geri alındı.")
-                st.rerun()
-    
-    
-        # ════════════════════════════════════════════════════════════════════
-        # 7) GEÇMİŞ
-        # ════════════════════════════════════════════════════════════════════
-    
-    
-        # ── TAB 1: Geçmiş Haftalar ────────────────────────────────
-        with gecmis_tab1:
-            haftalar = get_tum_haftalar()
-    
-            if not haftalar:
-                st.info("Henüz geçmiş hafta yok.")
+            # Hesap kartları — kompakt, ortak tema (para birimine göre renkli sol şerit)
+            if bankalar:
+                _renk_pb = {"USD": trenk("mavi"), "TL": trenk("mor"), "EUR": trenk("mor")}
+                _banka_cards = []
+                for b in bankalar:
+                    sym = "$" if b["para_birimi"] == "USD" else ("€" if b["para_birimi"] == "EUR" else "₺")
+                    if b["para_birimi"] == "TL":
+                        net = b["bakiye"] - bekleyen_tl - (bekleyen_usd * kur)
+                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ₺{fmt(net)}"
+                    elif b["para_birimi"] == "USD":
+                        net = b["bakiye"] - bekleyen_usd
+                        net_str = f"{'🟢' if net >= 0 else '🔴'} Hafta sonu: ${fmt(net)}"
+                    else:
+                        net_str = ""
+                    _banka_cards.append({
+                        "label": b["hesap_adi"],
+                        "value": f"{sym}{fmt(b['bakiye'])}",
+                        "renk": _renk_pb.get(b["para_birimi"], trenk("mor")),
+                        "alt": net_str,
+                    })
+                metrik_satiri(_banka_cards)
+            # === TOPLAM BAKIYE OZETI ===
+            if bankalar:
+                toplam_tl_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
+                toplam_usd_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
+                toplam_eur_hesap = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
+                toplam_usd_esde = toplam_usd_hesap + (toplam_tl_hesap / kur) + (toplam_eur_hesap * 1.08)
+                toplam_html = (
+                    '<div style="background:linear-gradient(135deg,var(--k-yuzey1) 0%,var(--k-yuzey3) 100%);border:1px solid color-mix(in srgb,var(--k-mor) 30%,transparent);border-radius:14px;padding:16px 24px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">'
+                    '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px">🏦</span>'
+                    '<span style="font-size:14px;font-weight:700;color:var(--k-metin)">TOPLAM BAKİYE</span></div>'
+                    '<div style="display:flex;gap:24px;flex-wrap:wrap">'
+                    f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam TL</div><div style="font-size:19px;font-weight:700;color:var(--k-yesil);font-family:monospace">₺{tr_sayi(toplam_tl_hesap, 2)}</div></div>'
+                    f'<div style="text-align:right"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD</div><div style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace">${tr_sayi(toplam_usd_hesap, 2)}</div></div>'
+                    f'<div style="text-align:right;border-left:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);padding-left:20px"><div style="font-size:11px;color:var(--k-soluk);margin-bottom:0px">Toplam USD Değeri</div><div style="font-size:19px;font-weight:700;color:var(--k-mor);font-family:monospace">${tr_sayi(toplam_usd_esde, 2)}</div></div>'
+                    '</div></div>'
+                )
+                st.markdown(toplam_html, unsafe_allow_html=True)
+
             else:
-                aktif = get_aktif_hafta()
-                aktif_id = aktif["id"] if aktif else None
-    
-                for h in haftalar:
-                    ozet = get_hafta_ozet(h["id"])
-                    is_aktif = h["id"] == aktif_id
-    
-                    renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
-                    border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
-    
-                    col1, col2 = st.columns([5, 1])
-                    with col1:
-                        aktif_badge = '<span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:4px;margin-left:8px;font-weight:700">AKTİF</span>' if is_aktif else ''
-                        gecmis_html = (
-                            f'<div style="background:{renk};border:{border};border-radius:10px;padding:16px 16px;margin-bottom:8px">'
-                            f'<div style="font-size:14px;font-weight:700;color:var(--k-metin)">{h["hafta_adi"]}{aktif_badge}</div>'
-                            f'<div style="font-size:13px;color:var(--k-silik);margin-top:4px">{ozet["toplam"]} ödeme · {ozet["odendi"]}/{ozet["toplam"]} ödendi · Yüklendi: {h["yuklendi_tarih"]}</div>'
-                            f'<div style="margin-top:8px"><span class="tag-yesil">₺{fmt(ozet["tl_toplam"])}</span>&nbsp;<span class="tag-mavi">${fmt(ozet["usd_toplam"])}</span></div>'
-                            '</div>'
-                        )
-                        st.markdown(gecmis_html, unsafe_allow_html=True)
-    
-                    with col2:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if not is_aktif:
-                            if st.button("Aç", key=f"ac_{h['id']}", icon=":material/folder_open:"):
-                                hafta_aktif_yap(h["id"])
-                                st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
+                st.info("Henüz banka hesabı eklenmemiş.")
+
+            # ── 💰 Gelen Tahsilat (bankaya para girişi) ──
+            if bankalar:
+                @st.dialog("💰 Tahsilat Ekle — Bankaya Para Girişi", width="large")
+                def _dlg_tahsilat():
+                    st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
+                    _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b
+                             for b in bankalar}
+                    _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
+                    _bank = _opts[_sec]
+                    _pb = _bank["para_birimi"]
+                    _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
+
+                    with st.form("tahsilat_form"):
+                        _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
+                        _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
+                        _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
+                        _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
+                        _onay = st.form_submit_button(f"{_sym} Tahsilatı İşle", type="primary", use_container_width=True, icon=":material/payments:")
+                        if _onay:
+                            if _tutar <= 0:
+                                st.error("Tutar 0'dan büyük olmalı.")
+                            else:
+                                ok, msg = tahsilat_ekle(_bank["id"], _tutar, _kaynak, _acik, _tarih)
+                                if ok:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+
+                    # Son tahsilatlar — geri alma imkânıyla
+                    _son = get_tahsilatlar(limit=8)
+                    if _son:
+                        st.markdown("---")
+                        st.markdown("**Son tahsilatlar**")
+                        for t in _son:
+                            _ts = "$" if t.get("para_birimi") == "USD" else ("€" if t.get("para_birimi") == "EUR" else "₺")
+                            c1, c2 = st.columns([5, 1])
+                            _knk = f" · {t['kaynak']}" if t.get("kaynak") else ""
+                            c1.markdown(
+                                f"<div style='font-size:13px'>{str(t.get('tarih',''))[:10]} — "
+                                f"<b>{_ts}{tr_sayi(float(t.get('tutar') or 0), 2)}</b> → {t.get('hesap_adi','')}"
+                                f"<span style='color:var(--k-soluk)'>{_knk}</span></div>",
+                                unsafe_allow_html=True)
+                            if c2.button("", key=f"tahsilat_geri_{t['id']}", help="Geri al", icon=":material/undo:"):
+                                ok, msg = tahsilat_geri_al(t["id"])
+                                st.toast(msg)
                                 st.rerun()
-                        if st.button("Sil", key=f"sil_{h['id']}", icon=":material/delete:"):
-                            hafta_sil(h["id"])
-                            st.success("Silindi.")
-                            st.rerun()
-    
-        # ── TAB 2: Firma Çekleri Arşivi ───────────────────────────
-        with gecmis_tab2:
-            st.markdown('<div style="font-size:13px;color:var(--k-silik);margin-bottom:16px;">Firma çeklerinin tamamını burada görüntüleyebilir ve silebilirsiniz.</div>', unsafe_allow_html=True)
-    
-            cek_tab1, cek_tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
-    
-            def cek_arsiv_goster(para_birimi):
-                cekler = get_cekler(para_birimi)
-                sym = "$" if para_birimi == "USD" else "₺"
-    
-                if not cekler:
-                    st.info(f"Kayıtlı {para_birimi} çeki yok.")
-                    return
-    
-                # Toplu silme butonu
-                col_sil1, col_sil2, col_sil3 = st.columns([2, 2, 2])
-                with col_sil1:
-                    st.markdown(
-                        f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-radius:10px;'
-                        f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-silik);'
-                        f'letter-spacing:.5px;text-transform:uppercase;">Toplam</span><br>'
-                        f'<span style="font-size:19px;font-weight:700;color:var(--k-metin);font-family:monospace;">{len(cekler)} çek</span></div>',
-                        unsafe_allow_html=True
-                    )
-                with col_sil2:
-                    toplam_meblagh = sum(c.get("meblagh") or 0 for c in cekler)
-                    st.markdown(
-                        f'<div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:10px;'
-                        f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-mavi);'
-                        f'letter-spacing:.5px;text-transform:uppercase;">Toplam Meblağ</span><br>'
-                        f'<span style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
-                        unsafe_allow_html=True
-                    )
-                with col_sil3:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    # Onay checkbox'lı toplu silme
-                    onay_key = f"toplu_sil_onay_{para_birimi}"
-                    if st.session_state.get(onay_key, False):
-                        if st.button(f"EVET, TÜM {para_birimi} ÇEKLERİNİ SİL", key=f"toplu_sil_exec_{para_birimi}", type="primary", use_container_width=True, icon=":material/warning:"):
-                            cek_sil_hepsi(para_birimi)
-                            st.session_state[onay_key] = False
-                            st.success(f"Tüm {para_birimi} çekleri silindi.")
-                            st.rerun()
-                        if st.button("Vazgeç", key=f"toplu_sil_iptal_{para_birimi}", use_container_width=True):
-                            st.session_state[onay_key] = False
-                            st.rerun()
-                    else:
-                        if st.button(f"Tüm {para_birimi} Çeklerini Sil", key=f"toplu_sil_btn_{para_birimi}", use_container_width=True, icon=":material/delete:"):
-                            st.session_state[onay_key] = True
-                            st.rerun()
-    
-                st.markdown("<br>", unsafe_allow_html=True)
-    
-                # Arama
-                arama = st.text_input("🔍 Ara (firma, çek no, ref no)", key=f"cek_ara_{para_birimi}", placeholder="Aramak istediğiniz kelimeyi yazın...")
-    
-                # Filtrele
-                filtre_cekler = cekler
-                if arama:
-                    a = arama.lower()
-                    filtre_cekler = [c for c in cekler if
-                                     a in str(c.get("ch_ismi", "")).lower() or
-                                     a in str(c.get("cek_no", "")).lower() or
-                                     a in str(c.get("ref_no", "")).lower() or
-                                     a in str(c.get("banka", "")).lower()]
-                    st.caption(f"{len(filtre_cekler)} / {len(cekler)} çek gösteriliyor")
-    
-                # Çek listesi (her biri silinebilir)
-                for c in filtre_cekler:
-                    _t = cek_tutarlari(c)
-                    durum_str = cek_durum_norm(c.get("durum"))
-                    vd = vade_durumu(c.get("vade"))
-    
-                    # Zeminler tema duyarlı (eskiden koyu sabit hex → açık temada okunmuyordu;
-                    # varsayılan kart ise açık mavi zemin + metin rengiydi, iki temada da okunmuyordu)
-                    if _t["odendi"]:
-                        kart_bg = "color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1))"; kart_border = trenk("yesil2"); durum_renk = trenk("yesil2")
-                    elif "ciro" in durum_str:
-                        kart_bg = "color-mix(in srgb,var(--k-mavi) 9%,var(--k-yuzey1))"; kart_border = trenk("mavi"); durum_renk = trenk("mavi")
-                    elif vd == "gecmis":
-                        kart_bg = "color-mix(in srgb,var(--k-kirmizi) 9%,var(--k-yuzey1))"; kart_border = trenk("kirmizi2"); durum_renk = trenk("kirmizi2")
-                    elif vd == "bugun":
-                        kart_bg = "color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1))"; kart_border = trenk("amber2"); durum_renk = trenk("amber2")
-                    else:
-                        kart_bg = "var(--k-yuzey1)"; kart_border = "var(--k-kenar2)"; durum_renk = trenk("soluk")
-    
-                    col_a, col_b = st.columns([9, 1])
-                    with col_a:
-                        st.markdown(f"""
-                        <div style="background:{kart_bg};border:1px solid {kart_border};border-radius:10px;padding:12px 16px;margin-bottom:8px">
-                            <div style="display:grid;grid-template-columns:1.5fr 1.5fr 1fr 1.5fr 1fr;gap:12px;align-items:center">
-                                <div>
-                                    <div style="font-size:13px;color:var(--k-silik);font-weight:600">ÇEK NO</div>
-                                    <div style="font-size:13px;font-weight:700;color:var(--k-metin);font-family:monospace">{c.get('cek_no') or '-'}</div>
-                                    <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Ref: {c.get('ref_no') or '-'}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size:13px;color:var(--k-silik);font-weight:600">CARİ/FİRMA</div>
-                                    <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{c.get('ch_ismi') or '-'}</div>
-                                    <div style="font-size:11px;color:var(--k-silik);margin-top:0px">{c.get('ch_kodu') or ''}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size:13px;color:var(--k-silik);font-weight:600">VADE</div>
-                                    <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{fmt_tarih(c.get('vade')) or '-'}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size:13px;color:var(--k-silik);font-weight:600">MEBLAĞ / KALAN</div>
-                                    <div style="font-size:14px;font-weight:700;color:var(--k-metin);font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
-                                    <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Kalan: {sym}{fmt(_t['kalan'])}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size:13px;color:var(--k-silik);font-weight:600">DURUM</div>
-                                    <div style="font-size:13px;font-weight:700;color:{durum_renk};text-transform:uppercase;letter-spacing:.3px">{c.get('durum') or 'Bekliyor'}</div>
-                                </div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with col_b:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("", key=f"cek_sil_{c.get('id')}", help="Bu çeki sil", icon=":material/delete:"):
-                            cek_sil(c.get("id"))
-                            st.success("Silindi.")
-                            st.rerun()
-    
-            with cek_tab1:
-                cek_arsiv_goster("TL")
-            with cek_tab2:
-                cek_arsiv_goster("USD")
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "💵 Gelenler Geçmişi":
-        st.markdown(_sb("💵 Muhasebe", "Gelenler Geçmişi", aciklama="Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri"), unsafe_allow_html=True)
 
-        _tahsilatlar = get_tahsilatlar(limit=2000)
-        if not _tahsilatlar:
-            st.info("Henüz tahsilat (para girişi) kaydı yok. Banka Bakiyeleri sayfasından "
-                    "**💰 Tahsilat Ekle** ile giriş yapabilirsin.")
-            st.stop()
+                if st.button("Tahsilat Ekle (Para Girişi)", use_container_width=True, type="primary", icon=":material/payments:"):
+                    _dlg_tahsilat()
 
-        import pandas as _pd
-        _gdf = _pd.DataFrame([{
-            "Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce"),
-            "Kaynak (Kimden)": (t.get("kaynak") or "—").strip() or "—",
-            "Banka": t.get("hesap_adi", "—"),
-            "Döviz": t.get("para_birimi", ""),
-            "Tutar": float(t.get("tutar", 0) or 0),
-            "Açıklama": (t.get("aciklama") or "").strip(),
-        } for t in _tahsilatlar])
-
-        # ── Filtreler ──
-        f1, f2, f3 = st.columns([1.3, 1.3, 1])
-        _kaynaklar = ["Tümü"] + sorted([k for k in _gdf["Kaynak (Kimden)"].unique() if k and k != "—"])
-        _bankalar_f = ["Tümü"] + sorted(_gdf["Banka"].unique().tolist())
-        _sec_kaynak = f1.selectbox("Kaynak (kimden)", _kaynaklar, key="gg_kaynak")
-        _sec_banka = f2.selectbox("Banka", _bankalar_f, key="gg_banka")
-        _sec_doviz = f3.selectbox("Döviz", ["Tümü"] + sorted([d for d in _gdf["Döviz"].unique() if d]), key="gg_doviz")
-
-        _f = _gdf.copy()
-        if _sec_kaynak != "Tümü":
-            _f = _f[_f["Kaynak (Kimden)"] == _sec_kaynak]
-        if _sec_banka != "Tümü":
-            _f = _f[_f["Banka"] == _sec_banka]
-        if _sec_doviz != "Tümü":
-            _f = _f[_f["Döviz"] == _sec_doviz]
-
-        # ── Özet metrikler (döviz bazında toplam) ──
-        _tl = _f[_f["Döviz"] == "TL"]["Tutar"].sum()
-        _usd = _f[_f["Döviz"] == "USD"]["Tutar"].sum()
-        _eur = _f[_f["Döviz"] == "EUR"]["Tutar"].sum()
-        metrik_satiri([
-            {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": trenk("yesil")},
-            {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": trenk("mavi")},
-            {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": trenk("amber")},
-            {"label": "Kayıt Adedi", "value": f"{tr_sayi(len(_f))}", "renk": trenk("mor"), "alt": "para girişi"},
-        ])
-
-        # ── Kimden ne kadar gelmiş (kaynak bazında özet) ──
-        with st.expander("👥 Kimden ne kadar gelmiş (kaynak bazında toplam)", expanded=False):
-            _ozet = (_f.groupby(["Kaynak (Kimden)", "Döviz"])["Tutar"]
-                     .sum().reset_index().sort_values("Tutar", ascending=False))
-            st.dataframe(_ozet, hide_index=True, use_container_width=True,
-                         column_config=tablo_kolonlari(_ozet, para="accounting"),
-                         height=tablo_h(len(_ozet), maks=420))
-
-        # ── Detay tablo ──
-        # Döviz artık tutarın içine yapıştırılmıyor — yapışınca kolon metin
-        # oluyor ve sıralama alfabetik bozuluyordu.
-        _goster = _f.copy()
-        st.dataframe(_goster, hide_index=True, use_container_width=True,
-                     column_config=tablo_kolonlari(_goster, para="accounting"),
-                     height=tablo_h(len(_goster), maks=560))
-        st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
-                   "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
-
-
-    # ════════════════════════════════════════════════════════════════════
-    # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📚 e-Defter":
-        st.markdown(_sb("💰 Muhasebe", "e-Defter"), unsafe_allow_html=True)
-        from kayranacc.edefter import render as _edefter_render
-        _edefter_render()
-
-
-    # ════════════════════════════════════════════════════════════════════
-    # 8) VERİ YÜKLEME
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📂 Veri Yükleme":
-        st.markdown(_sb("📂 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
-    
-        # Son yüklenenler (Recents)
-        haftalar = get_tum_haftalar()
-        if haftalar:
-            st.markdown("### 🕐 Son Yüklenenler")
-            aktif = get_aktif_hafta()
-            aktif_id = aktif["id"] if aktif else None
-    
-            cols = st.columns(min(len(haftalar), 4))
-            for i, h in enumerate(haftalar[:8]):
-                ozet = get_hafta_ozet(h["id"])
-                is_aktif = h["id"] == aktif_id
-                with cols[i % 4]:
-                    renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
-                    border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
-                    aktif_badge = '<br><span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
-                    recent_html = (
-                        f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 16px;margin-bottom:8px;min-height:100px">'
-                        f'<div style="font-size:13px;font-weight:700;color:var(--k-metin);line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
-                        f'<div style="font-size:11px;color:var(--k-soluk);margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
-                        f'<div style="font-size:11px"><span style="color:var(--k-yesil2)">₺{fmt(ozet["tl_toplam"])}</span></div>'
-                        f'<div style="font-size:11px;color:var(--k-soluk)">{h["yuklendi_tarih"]}</div>'
-                        '</div>'
-                    )
-                    st.markdown(recent_html, unsafe_allow_html=True)
-                    if not is_aktif:
-                        if st.button("Aç", key=f"recent_ac_{h['id']}", use_container_width=True):
-                            hafta_aktif_yap(h["id"])
-                            st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
-                            st.rerun()
     
             st.markdown("---")
     
-        st.markdown("### 📤 Yeni Hafta Yükle")
-        st.markdown(
-            '<div style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);border:1px solid var(--k-amber2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--k-amber2)">'
-            '<b>Excel sutun sirasi:</b> A=HAFTA | B=FIRMA | C=ACIKLAMA | D=(bos) | E=VADE | F=TUTAR TL | G=TUTAR USD | <b>H=KATEGORI (opsiyonel)</b>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+            # Hesap ekle / düzenle
+            col1, col2 = st.columns(2)
     
-        col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**➕ Yeni Hesap Ekle**")
+                with st.form("banka_ekle"):
+                    hesap_adi = st.text_input("Hesap Adı", placeholder="Örn: YKB TL Hesabı")
+                    bakiye = st.number_input("Bakiye", min_value=0.0, step=0.0001, format="%.4f")
+                    para_birimi = st.selectbox("Para Birimi", ["TL", "USD", "EUR"])
+                    if st.form_submit_button("Ekle", type="primary", icon=":material/add:"):
+                        if hesap_adi:
+                            banka_ekle(hesap_adi, bakiye, para_birimi)
+                            st.success("✅ Hesap eklendi.")
+                            st.rerun()
     
-        with col1:
-            st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
-            odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
-            if odeme_file:
-                st.success(f"✅ {odeme_file.name} seçildi")
+            with col2:
+                if bankalar:
+                    st.markdown("**✏️ Hesap Düzenle / Sil**")
+                    secim = st.selectbox("Hesap seçin", [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar])
+                    sec_idx = [f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar].index(secim)
+                    sec_banka = bankalar[sec_idx]
     
-        with col2:
-            st.markdown("**2. Firma Çekleri Dökümü (XLSX) — Opsiyonel**")
-            cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
-            if cek_file:
-                st.success(f"✅ {cek_file.name} seçildi")
-    
-        col_a, col_b = st.columns(2)
-        with col_a:
-            yukle_btn = st.button("Verileri İşle ve Yükle", type="primary", use_container_width=True, icon=":material/check_circle:")
-        with col_b:
-            ornek = create_sample_excel()
-            st.download_button(
-                "Örnek Excel İndir",
-                data=ornek,
-                file_name="ornek_odeme_listesi.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True, icon=":material/move_to_inbox:"
-            )
-    
-        if yukle_btn:
-            if not odeme_file and not cek_file:
-                st.error("Lütfen en az bir dosya seçin.")
-            else:
-                mesajlar = []
-    
-                if odeme_file:
-                    try:
-                        file_bytes = odeme_file.read()
-                        hafta_adi, odemeler, hatalar = excel_yukle_odeme_listesi(file_bytes)
-    
-                        if hatalar:
-                            for h in hatalar:
-                                st.warning(h)
-    
-                        if odemeler:
-                            hafta_id = hafta_ekle(hafta_adi or f"Hafta {len(get_tum_haftalar()) + 1}")
-                            hafta_aktif_yap(hafta_id)
-                            odeme_ekle_bulk(hafta_id, odemeler)
-                            mesajlar.append(f"✅ {len(odemeler)} ödeme yüklendi — '{hafta_adi}'")
-                        else:
-                            mesajlar.append("⚠️ Ödeme listesinde işlenebilir veri bulunamadı.")
-                    except Exception as e:
-                        st.error(f"❌ Ödeme yükleme hatası: {e}")
-    
-                if cek_file:
-                    try:
-                        file_bytes = cek_file.read()
-                        tl_cekler, usd_cekler, hatalar = excel_yukle_cek_listesi(file_bytes)
-    
-                        if hatalar:
-                            for h in hatalar:
-                                st.warning(h)
-    
-                        if tl_cekler or usd_cekler:
-                            if tl_cekler:
-                                cek_ekle_bulk(tl_cekler, "TL")
-                            if usd_cekler:
-                                cek_ekle_bulk(usd_cekler, "USD")
-                            mesajlar.append(f"✅ Çekler yüklendi: TL {len(tl_cekler)} · USD {len(usd_cekler)}")
-                        else:
-                            mesajlar.append("⚠️ Çek dosyasında veri bulunamadı.")
-                    except Exception as e:
-                        st.error(f"❌ Çek yükleme hatası: {e}")
-    
-                for m in mesajlar:
-                    st.success(m) if m.startswith("✅") else st.warning(m)
-    
-                if any(m.startswith("✅") for m in mesajlar):
-                    st.balloons()
-                    st.rerun()
+                    with st.form("banka_duzenle"):
+                        yeni_ad = st.text_input("Hesap Adı", value=sec_banka["hesap_adi"])
+                        yeni_bakiye = st.number_input("Bakiye", value=float(sec_banka["bakiye"]), step=0.0001, format="%.4f")
+                        yeni_pb = st.selectbox("Para Birimi", ["TL", "USD", "EUR"],
+                                               index=["TL", "USD", "EUR"].index(sec_banka["para_birimi"]))
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if st.form_submit_button("Kaydet", type="primary", icon=":material/save:"):
+                                banka_guncelle(sec_banka["id"], yeni_ad, yeni_bakiye, yeni_pb)
+                                st.success("✅ Güncellendi.")
+                                st.rerun()
+                        with col_b:
+                            if st.form_submit_button("Sil", icon=":material/delete:"):
+                                banka_sil(sec_banka["id"])
+                                st.success("Silindi.")
+                                st.rerun()
     
     
-    # ════════════════════════════════════════════════════════════════════
-    # 9) RAPORLAR
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "📄 Raporlar & Bildirim":
-        st.markdown(_sb("📄 Muhasebe", "Raporlar & Bildirim", aciklama="Excel ve PDF formatında haftalık raporlar"), unsafe_allow_html=True)
-        _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
-        with _tab_rapor:
+        # ════════════════════════════════════════════════════════════════════
+        # 4) NAKİT AKIŞ
+        # ════════════════════════════════════════════════════════════════════
+            st.markdown("---")
+
+            # ─── ARBİTRAJ: aynı banka içinde TL ↔ USD çevrimi ───
+            # Mekanik olarak virman ile aynı yola gider (virman_yap bakiyeleri
+            # günceller ve 'virmanlar' tablosuna kayıt atar). Ayrı bir veri yolu
+            # AÇILMADI — tek kayıt kaynağı korunur. Fark arayüzde: banka bir kez
+            # seçilir, yön düğmeyle belirlenir, karşılık anında hesaplanır.
+            # ─── ARBİTRAJ: aynı banka içinde TL / USD / EUR çevrimi ───
+            # Altı yönün hepsi desteklenir: TL↔USD, TL↔EUR, USD↔EUR.
+            #
+            # KUR YORUMU — tek kural: "1 <güçlü birim> = kur <zayıf birim>".
+            # Güçlülük sırası EUR > USD > TL. Böylece kullanıcı kuru her zaman
+            # piyasada konuşulduğu gibi girer (1 USD = 48,68 TL / 1 EUR = 1,08 USD)
+            # ve yön karışıklığı olmaz. Hesaplanan karşılık virman_yap'a AÇIKÇA
+            # hedef_tutar olarak geçilir — çevrim tek yerde, burada yapılır.
+            _PB_SIRA = {"TL": 0, "TRY": 0, "USD": 1, "EUR": 2}
+            _PB_SIM = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
+
+            def _pb_std(p):
+                p = str(p or "").upper()
+                return "TL" if p == "TRY" else p
+
+            @st.dialog("💱 Arbitraj — Aynı Banka (TL / USD / EUR)", width="large")
+            def _dlg_arbitraj():
+                _bnk = get_bankalar() or []
+                if not _bnk:
+                    st.warning("Kayıtlı banka hesabı yok.")
+                    return
+
+                def _kok(ad):
+                    """'YAPI KREDİ BANKASI - USD' → 'YAPI KREDİ BANKASI'."""
+                    s = str(ad or "").strip()
+                    for _ayr in (" - ", " – ", " — ", " -", "- "):
+                        if _ayr in s:
+                            s = s.split(_ayr)[0]
+                            break
+                    for _son in ("USD", "TRY", "TL", "EUR", "$", "₺", "€"):
+                        if s.upper().endswith(_son):
+                            s = s[: -len(_son)]
+                    return " ".join(s.split()).rstrip("-–— ").strip()
+
+                # Aynı bankanın TL / USD / EUR hesaplarını grupla
+                _grup = {}
+                for b in _bnk:
+                    _pb = _pb_std(b.get("para_birimi"))
+                    if _pb in _PB_SIRA:
+                        _grup.setdefault(_kok(b.get("hesap_adi")), {})[_pb] = b
+
+                # En az İKİ farklı para birimi olan bankalar
+                _uygun = {k: v for k, v in _grup.items() if len(v) >= 2}
+                if not _uygun:
+                    st.warning("Arbitraj için aynı bankada **en az iki farklı para "
+                               "biriminde** hesap gerekiyor (TL / USD / EUR).")
+                    st.caption("Hesap adları 'BANKA ADI - TL', 'BANKA ADI - USD' "
+                               "biçiminde olursa otomatik eşleşir.")
+                    return
+
+                _banka_ad = st.selectbox("🏦 Banka", sorted(_uygun.keys()), key="arb_banka")
+                _hesaplar = _uygun[_banka_ad]
+
+                # Mevcut bakiyeler
+                _mcols = st.columns(len(_hesaplar))
+                for _c, _pb in zip(_mcols, sorted(_hesaplar, key=lambda x: _PB_SIRA[x])):
+                    _c.metric(f"{_pb} Hesap",
+                              f"{tr_sayi(float(_hesaplar[_pb].get('bakiye') or 0), 2)} {_PB_SIM[_pb]}")
+
+                _pblar = sorted(_hesaplar.keys(), key=lambda x: _PB_SIRA[x])
+                y1, y2 = st.columns(2)
+                _kpb = y1.selectbox("Bozulacak (kaynak)", _pblar, key="arb_kaynak_pb")
+                _hedefler = [p for p in _pblar if p != _kpb]
+                _hpb = y2.selectbox("Alınacak (hedef)", _hedefler, key="arb_hedef_pb")
+
+                _kaynak, _hedef = _hesaplar[_kpb], _hesaplar[_hpb]
+                _k_bak = float(_kaynak.get("bakiye") or 0)
+                _h_bak = float(_hedef.get("bakiye") or 0)
+
+                # Kur her zaman güçlü birim üzerinden sorulur
+                _guclu, _zayif = (_kpb, _hpb) if _PB_SIRA[_kpb] > _PB_SIRA[_hpb] else (_hpb, _kpb)
+                _usd_tl = float(get_kur() or 1)
+                _vars = {("USD", "TL"): _usd_tl, ("EUR", "TL"): _usd_tl * 1.08,
+                         ("EUR", "USD"): 1.08}.get((_guclu, _zayif), 1.0)
+
+                a1, a2 = st.columns([2, 1])
+                _tutar = a1.number_input(
+                    f"Bozulacak tutar ({_kpb})", min_value=0.0, step=0.01, format="%.4f",
+                    max_value=max(_k_bak, 0.01), key="arb_tutar", disabled=(_k_bak <= 0))
+                _kur = a2.number_input(f"Kur — 1 {_guclu} = ? {_zayif}", min_value=0.0001,
+                                       step=0.01, format="%.4f", value=float(_vars),
+                                       key=f"arb_kur_{_guclu}_{_zayif}",
+                                       help="Bankanın uyguladığı gerçek kuru gir")
+                if _k_bak <= 0:
+                    st.caption(f"⚠️ {_kpb} hesabının bakiyesi 0 veya negatif.")
+
+                # Zayıf → güçlü ise BÖL, güçlü → zayıf ise ÇARP
+                _karsilik = (_tutar / _kur) if _PB_SIRA[_kpb] < _PB_SIRA[_hpb] else (_tutar * _kur)
+
+                if _tutar > 0:
+                    st.success(f"➡️ **{tr_sayi(_tutar, 2)} {_kpb}** bozulacak, "
+                               f"**{tr_sayi(_karsilik, 2)} {_hpb}** alınacak  ·  "
+                               f"1 {_guclu} = {tr_sayi(_kur, 4)} {_zayif}")
+                    z1, z2 = st.columns(2)
+                    z1.metric(f"{_kpb} Hesap (sonra)", f"{tr_sayi(_k_bak - _tutar, 2)} {_PB_SIM[_kpb]}",
+                              delta=f"{-_tutar:+,.2f}")
+                    z2.metric(f"{_hpb} Hesap (sonra)", f"{tr_sayi(_h_bak + _karsilik, 2)} {_PB_SIM[_hpb]}",
+                              delta=f"{_karsilik:+,.2f}")
+
+                _not = st.text_input("Açıklama", key="arb_not",
+                                     placeholder="örn. 14.09 arbitraj, banka kuru 48,92")
+
+                if st.button("Arbitrajı Gerçekleştir", type="primary",
+                             use_container_width=True, key="arb_btn",
+                             disabled=(_tutar <= 0 or _k_bak <= 0), icon=":material/currency_exchange:"):
+                    _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
+                            f"1 {_guclu}={tr_sayi(_kur, 4)} {_zayif}"
+                            + (f" · {_not.strip()}" if (_not or "").strip() else ""))
+                    # Karşılık BURADA hesaplandı; virman_yap'a açıkça geçiliyor ki
+                    # çevrim iki yerde ayrı ayrı yapılmasın.
+                    _ok, _msg = virman_yap(_kaynak["id"], _hedef["id"], float(_tutar),
+                                           _ack, float(_kur), hedef_tutar=float(_karsilik))
+                    if _ok:
+                        st.success(f"✅ {_msg}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {_msg}")
+
+            _vb1, _vb2 = st.columns(2)
+            if _vb1.button("Bankalar Arası Virman", key="btn_acc_virman", use_container_width=True, icon=":material/sync_alt:"):
+                _dlg_virman()
+            if _vb2.button("Arbitraj (TL ↔ USD)", key="btn_acc_arbitraj", use_container_width=True, icon=":material/currency_exchange:"):
+                _dlg_arbitraj()
+        elif sayfa == "💸 Nakit Akış":
+            st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
     
-            kur      = get_kur()
+            kur = get_kur()
             odemeler, hafta = get_aktif_odemeler()
             bankalar = get_bankalar()
     
             if not odemeler:
-                st.info("Rapor oluşturmak için önce veri yükleyin.")
+                st.info("Veri yok.")
                 st.stop()
     
-            hafta_adi = hafta["hafta_adi"] if hafta else "Haftalık Rapor"
+            banka_tl = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "TL")
+            banka_usd = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "USD")
     
-            st.markdown(f"**Aktif hafta:** `{hafta_adi}` — {len(odemeler)} ödeme")
-            st.markdown("---")
+            from collections import defaultdict
+            by_day = defaultdict(list)
+            for o in odemeler:
+                if o["durum"] == "bekliyor":
+                    day = (o.get("vade") or "")[:10] or "?"
+                    by_day[day].append(o)
     
-            # ── TAB: Excel / HTML ──
-            tab1, tab2, tab3 = st.tabs(["📊 Tam Excel Raporu", "🖨️ PDF / Yazdır", "💸 Nakit Akış Excel"])
+            kum_tl = 0
+            kum_usd = 0
+            tablo_rows = []
     
-            with tab1:
-                st.markdown("**Özet + Günlük Detay + Kategori Analizi** üç sayfalı Excel dosyası.")
-                st.markdown("")
+            for day in sorted(by_day.keys()):
+                gun_tl = sum(o.get("tutar_tl") or 0 for o in by_day[day])
+                gun_usd = sum(o.get("tutar_usd") or 0 for o in by_day[day])
+                kum_tl += gun_tl
+                kum_usd += gun_usd
+                kalan = banka_tl - kum_tl - (kum_usd * kur)
     
-                tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
-                usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
-                odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
+                tablo_rows.append({
+                    "Tarih": day,
+                    "Günlük TL (₺)": gun_tl or None,
+                    "Günlük USD ($)": gun_usd or None,
+                    "Kümülatif TL (₺)": kum_tl,
+                    "Kümülatif USD ($)": kum_usd,
+                    "TL Bakiye Kalan (₺)": kalan,
+                    "_kalan": kalan,
+                })
+    
+            net_tl = banka_tl - kum_tl - (kum_usd * kur)
+            tablo_rows.append({
+                "Tarih": "TOPLAM",
+                "Günlük TL (₺)": kum_tl,
+                "Günlük USD ($)": kum_usd,
+                "Kümülatif TL (₺)": kum_tl,
+                "Kümülatif USD ($)": kum_usd,
+                "TL Bakiye Kalan (₺)": net_tl,
+                "_kalan": net_tl,
+            })
+    
+            df_nakit = pd.DataFrame(tablo_rows)
+    
+            def nakit_rengi(row):
+                k = row.get("_kalan", 0)
+                if row["Tarih"] == "TOPLAM":
+                    return ["background-color:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);font-weight:700" if k >= 0
+                            else "background-color:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);font-weight:700"] * len(row)
+                return ["background-color:var(--k-kirmizi);color:var(--k-kirmizi2)" if k < 0 else ""] * len(row)
+    
+            # --- Nakit Akış tablosu: ortak tablo_html (Aşama 4b) ---
+            def _kalan_hucre(v, kalin=False):
+                return renkli(_tpara(v, "₺", 2), "yesil" if (v or 0) >= 0 else "kirmizi", kalin=kalin)
+
+            _nk_kol = [("Tarih", "mono"), ("Günlük TL", "para", "₺"), ("Günlük USD", "para", "$"),
+                       ("Küm. TL", "para", "₺"), ("Küm. USD", "para", "$"), ("TL Bakiye", "para", "₺")]
+            _nk_satir, _nk_toplam = [], None
+            for row in tablo_rows:
+                kayit = {
+                    "Tarih": row["Tarih"] if row["Tarih"] == "TOPLAM" else fmt_tarih(row["Tarih"]),
+                    "Günlük TL": row.get("Günlük TL (₺)") or None,
+                    "Günlük USD": row.get("Günlük USD ($)") or None,
+                    "Küm. TL": row.get("Kümülatif TL (₺)") or None,
+                    "Küm. USD": row.get("Kümülatif USD ($)") or None,
+                    "TL Bakiye": _kalan_hucre(row.get("_kalan") or 0, kalin=row["Tarih"] == "TOPLAM"),
+                }
+                if row["Tarih"] == "TOPLAM":
+                    kayit["Tarih"] = "Σ TOPLAM"
+                    _nk_toplam = kayit
+                else:
+                    _nk_satir.append(kayit)
+            st.html(tablo_html(_nk_kol, _nk_satir, toplam=_nk_toplam,
+                               vurgu=lambda r: "kirmizi" if "k-kirmizi" in str(r["TL Bakiye"]) else None))
+    
+            # Grafik
+            df_grafik = pd.DataFrame([r for r in tablo_rows if r["Tarih"] != "TOPLAM"])
+            if len(df_grafik) > 1:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=df_grafik["Tarih"],
+                    y=df_grafik["Günlük TL (₺)"].fillna(0),
+                    name="Günlük TL Ödemesi",
+                    marker_color="rgba(99,102,241,0.85)",
+                    marker_line=dict(color="rgba(0,0,0,0)", width=0),
+                    hovertemplate="<b>%{x}</b><br>Günlük: ₺%{tr_sayi(y)}<extra></extra>",
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df_grafik["Tarih"],
+                    y=df_grafik["TL Bakiye Kalan (₺)"],
+                    name="Kalan Bakiye",
+                    mode="lines+markers",
+                    line=dict(color=trenk("yesil"), width=2.5, shape="spline", smoothing=0.6),
+                    marker=dict(size=7, color=trenk("yesil"), line=dict(color=trenk("yuzey0"), width=2)),
+                    yaxis="y2",
+                    hovertemplate="<b>%{x}</b><br>Kalan: ₺%{tr_sayi(y)}<extra></extra>",
+                ))
+                fig.update_layout(
+                    title=dict(
+                        text="<b>Günlük Ödeme ve Kalan Bakiye</b>",
+                        font=dict(family="Inter, sans-serif", size=15, color=trenk("metin")),
+                        x=0.01, xanchor="left",
+                    ),
+                    xaxis=dict(
+                        title=dict(text="Tarih", font=dict(family="Inter, sans-serif", size=12, color=trenk("silik"))),
+                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
+                        gridcolor="rgba(148,163,184,0.10)",
+                        linecolor="rgba(148,163,184,0.18)",
+                        showline=True,
+                    ),
+                    yaxis=dict(
+                        title=dict(text="Ödeme TL (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("mor"))),
+                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
+                        gridcolor="rgba(148,163,184,0.10)",
+                        linecolor="rgba(148,163,184,0.18)",
+                        showline=True,
+                        zeroline=True,
+                        zerolinecolor="rgba(148,163,184,0.22)",
+                    ),
+                    yaxis2=dict(
+                        title=dict(text="Kalan Bakiye (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("yesil"))),
+                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
+                        overlaying="y",
+                        side="right",
+                        showgrid=False,
+                        linecolor="rgba(148,163,184,0.18)",
+                        showline=True,
+                    ),
+                    height=420,
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    hovermode="x unified",
+                    hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
+                                    font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
+                    bargap=0.45, barcornerradius=6,
+                    font=dict(family="Inter, sans-serif", color=trenk("metin")),
+                    legend=dict(
+                        font=dict(family="Inter, sans-serif", size=12, color=trenk("metin")),
+                        orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        bgcolor="rgba(255,255,255,0)",
+                    ),
+                    margin=dict(t=60, b=60, l=70, r=70),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 5) FİRMA ÇEKLERİ
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "📋 Firma Çekleri":
+            st.markdown(_sb("📋 Muhasebe", "Firma Çekleri", aciklama="TL ve USD bazında çek takibi"), unsafe_allow_html=True)
+    
+            def cek_ozet_kart(cekler, cur):
+                if not cekler:
+                    return
+                sym = "$" if cur == "USD" else "₺"
+    
+                toplam_meblagh = toplam_odenen = toplam_kalan = 0.0
+                odendi_cnt = bekleyen_cnt = 0
+                for c in cekler:
+                    t = cek_tutarlari(c)          # tablo ve arşivle AYNI kural
+                    toplam_meblagh += t["meblag"]
+                    toplam_odenen += t["odenen"]
+                    toplam_kalan += t["kalan"]
+                    if t["odendi"]:
+                        odendi_cnt += 1
+                    else:
+                        bekleyen_cnt += 1
+    
                 metrik_satiri([
-                    {"label": "Toplam TL", "value": f"₺{fmt(tl_top)}", "renk": trenk("mor")},
-                    {"label": "Toplam USD", "value": f"${fmt(usd_top)}", "renk": trenk("yesil")},
-                    {"label": "Ödendi", "value": f"{odendi}/{len(odemeler)}", "renk": trenk("amber")},
+                    {"label": "Toplam Meblağ", "value": f"{sym}{fmt(toplam_meblagh)}", "renk": trenk("mavi"), "alt": f"{len(cekler)} çek (tümü)"},
+                    {"label": "Toplam Ödenen", "value": f"{sym}{fmt(toplam_odenen)}", "renk": trenk("yesil"), "alt": f"{odendi_cnt} adet ödendi"},
+                    {"label": "Toplam Kalan", "value": f"{sym}{fmt(toplam_kalan)}", "renk": trenk("amber"), "alt": f"{bekleyen_cnt} bekleyen/ciro"},
                 ])
     
-                st.markdown("")
-                try:
-                    excel_buf = haftalik_excel_raporu(odemeler, hafta_adi, bankalar, kur)
-                    st.download_button(
-                        label="📥 Excel Raporu İndir",
-                        data=excel_buf,
-                        file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="primary",
-                        use_container_width=True,
-                    )
-                except Exception as e:
-                    st.error(f"Excel oluşturulamadı: {e}")
+            def cek_tablo(cekler, cur):
+                if not cekler:
+                    st.info(f"{cur} çeki bulunamadı.")
+                    return
+                sym = "$" if cur == "USD" else "₺"
     
+                cek_ozet_kart(cekler, cur)
+    
+                rows = []
+                for c in cekler:
+                    vd = vade_durumu(c.get("vade"))
+                    _t = cek_tutarlari(c)
+                    rows.append({
+                        "Ref No":       c.get("ref_no") or c.get("ref", ""),
+                        "Çek No":       c.get("cek_no", ""),
+                        "Tarih":        fmt_tarih(c.get("tarih")),
+                        "Vade Tarihi":  fmt_tarih(c.get("vade")),
+                        f"Meblağ ({sym})": c.get("meblagh", 0),
+                        f"Ödenen ({sym})": _t["odenen"],
+                        f"Kalan ({sym})":  _t["kalan"],
+                        "_odendi":      _t["odendi"],
+                        "Son Pozisyon": c.get("durum", "Bekliyor"),
+                        "C/H Kodu":     c.get("ch_kodu", ""),
+                        "C/H İsmi":     c.get("ch_ismi", ""),
+                        "Banka":        c.get("banka", ""),
+                        "Şube":         c.get("sube", ""),
+                        "Hesap No":     c.get("hesap_no", ""),
+                        "_vd": vd,
+                    })
+                # --- Firma Çekleri tablosu: ortak tablo_html (Aşama 4b) ---
+                def _durum_rozet(pozisyon, ham):
+                    if pozisyon == "odendi":
+                        return rozet_html("✓ ÖDENDİ", "yesil")
+                    if "bekliyor" in pozisyon:
+                        return rozet_html("⏳ BEKLİYOR", "amber")
+                    if "gecmis" in pozisyon:
+                        return rozet_html("⚠ GECİKMİŞ", "kirmizi")
+                    return rozet_html(ham or "—", "soluk")
+
+                def _vurgu(row):
+                    """Gecikmiş → kırmızı · bugün vadeli → sarı · ödenmiş → yeşil.
+                    (vade_durumu() sonucu; eskiden bugünün tarih METNİYLE karşılaştırılıyordu,
+                    'gecmis' < '2026-…' hep yanlış → gecikmiş çek hiç kırmızı olmuyordu.)"""
+                    if row["_odendi"]:
+                        return "yesil"
+                    if row["_kalan"] > 0 and row["_vd"] == "gecmis":
+                        return "kirmizi"
+                    if row["_kalan"] > 0 and row["_vd"] == "bugun":
+                        return "amber"
+                    return None
+
+                satirlar = []
+                for row in rows:
+                    pozisyon = cek_durum_norm(row.get("Son Pozisyon", ""))   # 'Ödendi' → 'odendi'
+                    kalan_v = row.get(f"Kalan ({sym})", 0) or 0
+                    satirlar.append({
+                        "Ref No": renkli(row.get("Ref No", ""), "mavi", kalin=True),
+                        "Çek No": row.get("Çek No", ""),
+                        "Tarih": row.get("Tarih", ""),
+                        "Vade": row.get("Vade Tarihi", ""),
+                        "Meblağ": row.get(f"Meblağ ({sym})", 0) or None,
+                        "Ödenen": row.get(f"Ödenen ({sym})", 0) or None,
+                        "Kalan": renkli(_tpara(kalan_v, sym, 2), "kirmizi" if kalan_v > 0 else "yesil", kalin=True) if kalan_v else None,
+                        "Durum": _durum_rozet(pozisyon, row.get("Son Pozisyon", "")),
+                        "_odendi": bool(row.get("_odendi")), "_kalan": kalan_v, "_vd": row.get("_vd", ""),
+                    })
+                st.html(tablo_html(
+                    ["Ref No", ("Çek No", "mono"), ("Tarih", "mono"), ("Vade", "mono"),
+                     ("Meblağ", "para", sym), ("Ödenen", "para", sym), ("Kalan", "para", sym),
+                     ("Durum", "metin", "$", "orta")],
+                    satirlar, vurgu=_vurgu))
+    
+            tab1, tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
+            with tab1:
+                cek_tablo(get_cekler("TL"), "TL")
             with tab2:
-                st.markdown("Tarayıcınızda açılır — **Ctrl+P / Cmd+P** ile yazdırabilir ya da PDF olarak kaydedebilirsiniz.")
-                st.markdown("")
-    
-                try:
-                    html_bytes = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
-                    st.download_button(
-                        label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
-                        data=html_bytes,
-                        file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
-                        mime="text/html",
-                        type="primary",
-                        use_container_width=True,
-                    )
-                    st.markdown("")
-                    st.markdown(
-                        '<div class="info-box">💡 <b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
-                        unsafe_allow_html=True
-                    )
-                except Exception as e:
-                    st.error(f"HTML rapor oluşturulamadı: {e}")
-    
-                # Önizleme
-                @st.dialog("👁️ Rapor Önizleme", width="large")
-                def _dlg_rapor_onizleme():
-                    try:
-                        preview = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
-                        st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
-                    except Exception as e:
-                        st.warning(f"Önizleme yüklenemedi: {e}")
-                if st.button("Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True, icon=":material/visibility:"):
-                    _dlg_rapor_onizleme()
-    
-            with tab3:
-                st.markdown("Nakit akış tablosunu Excel dosyası olarak indirin.")
-                st.markdown("")
-                try:
-                    nakit_buf = nakit_akis_excel(odemeler, bankalar, hafta_adi, kur)
-                    st.download_button(
-                        label="📥 Nakit Akış Excel İndir",
-                        data=nakit_buf,
-                        file_name=f"MuhasebeFin_NakitAkis_{tr_today()}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="primary",
-                        use_container_width=True,
-                    )
-                except Exception as e:
-                    st.error(f"Nakit akış raporu oluşturulamadı: {e}")
+                cek_tablo(get_cekler("USD"), "USD")
     
     
         # ════════════════════════════════════════════════════════════════════
-        # 10) BİLDİRİM AYARLARI
+        # 6) ÖDENENLEr
         # ════════════════════════════════════════════════════════════════════
-        with _tab_bildirim:
-            st.markdown(_sb("🔔", "Bildirim Ayarları", aciklama="Vade yaklaşan ödemeler için email bildirimleri"), unsafe_allow_html=True)
+        elif sayfa == "🕐 Ödenenler & Geçmiş":
+            st.markdown(_sb("🕐 Muhasebe", "Ödenenler & Geçmiş", aciklama="Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi"), unsafe_allow_html=True)
+            _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
+            with _tab_odenen:
     
-            ayarlar  = get_bildirim_ayarlari()
-            odemeler, hafta = get_aktif_odemeler()
-            bankalar = get_bankalar()
+                odemeler, hafta = get_aktif_odemeler()
+                odenenler = [o for o in odemeler if o["durum"] == "odendi"]
     
-            # Secrets konfigürasyonu
-            @st.dialog("⚙️ SMTP Ayarları (Streamlit Secrets)", width="large")
-            def _dlg_smtp_ayar():
-                st.markdown(
-                    "Email bildirimleri icin Streamlit Cloud > Settings > Secrets bolumune ekleyin:\n\n"
-                    "```toml\n[bildirim]\nsmtp_host = \"smtp.gmail.com\"\nsmtp_port = 587\n"
-                    "smtp_user = \"sizin@gmail.com\"\nsmtp_pass = \"uygulama-sifresi\"\n"
-                    "alici_email = \"alici@firma.com\"\naktif = true\n```"
-                )
-                st.markdown(
-                    '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
-                    unsafe_allow_html=True
-                )
-            if st.button("SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True, icon=":material/settings:"):
-                _dlg_smtp_ayar()
+                if not odenenler:
+                    st.info("Bu haftada henüz ödendi olarak işaretlenmiş ödeme yok.")
+                    st.stop()
     
-            # Mevcut ayar durumu
-            st.markdown("---")
+                tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
+                usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
+    
+                metrik_satiri([
+                    {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": trenk("yesil")},
+                    {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": trenk("mavi")},
+                    {"label": "Ödeme Adedi", "value": f"{tr_sayi(len(odenenler))}", "renk": trenk("mor"), "alt": "tamamlanan ödeme"},
+                ])
+    
+                # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
+                bankalar = get_bankalar()
+                banka_map = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
+    
+                rows = []
+                for o in sorted(odenenler, key=lambda x: x.get("vade") or ""):
+                    kat = KATEGORILER.get(o.get("kategori") or "diger", KATEGORILER["diger"])
+                    banka_adi = "—"
+                    b_id = o.get("banka_id")
+                    if b_id:
+                        banka_adi = banka_map.get(b_id, f"ID: {b_id} (silinmiş?)")
+                    rows.append({
+                        "Firma": o["firma"],
+                        "Açıklama": o.get("aciklama") or "",
+                        "Kategori": kat["label"],
+                        "Vade": fmt_tarih(o.get("vade")),
+                        "Tutar TL (₺)": o.get("tutar_tl"),
+                        "Tutar USD ($)": o.get("tutar_usd"),
+                        "Ödendiği Banka": banka_adi,
+                        "Ödendi Tarihi": o.get("odendi_tarih") or "",
+                        "ID": o["id"],
+                    })
+    
+                # --- Ödenenler tablosu: ortak tablo_html (Aşama 4b). Kuruşlar korunur. ---
+                st.html(tablo_html(
+                    ["Firma", "Açıklama", ("Kategori", "metin", "$", "orta"), ("Vade", "mono"),
+                     ("Tutar TL", "para", "₺"), ("Tutar USD", "para", "$"), "Ödendiği Banka", ("Ödendi Tarihi", "mono")],
+                    [{
+                        "Firma": renkli(r.get("Firma") or "—", "mavi", kalin=True),
+                        "Açıklama": kisalt(r.get("Açıklama") or "", 60),
+                        "Kategori": rozet_html(r.get("Kategori") or "—", "mor"),
+                        "Vade": r.get("Vade") or None,
+                        "Tutar TL": r.get("Tutar TL (₺)") or None,
+                        "Tutar USD": r.get("Tutar USD ($)") or None,
+                        "Ödendiği Banka": r.get("Ödendiği Banka") or None,
+                        "Ödendi Tarihi": fmt_tarih(r.get("Ödendi Tarihi")) or None,
+                    } for r in rows]))
+    
+                st.markdown("---")
+                st.markdown("**Geri almak istediğin ödeme:**")
+                geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
+                if st.button("Geri Al", type="secondary", icon=":material/undo:"):
+                    idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
+                    kur_now = get_kur()
+                    odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
+                    st.success("Geri alındı.")
+                    st.rerun()
+    
+    
+            # ════════════════════════════════════════════════════════════════════
+            # 7) GEÇMİŞ
+            # ════════════════════════════════════════════════════════════════════
+    
+    
+            # ── TAB 1: Geçmiş Haftalar ────────────────────────────────
+            with gecmis_tab1:
+                haftalar = get_tum_haftalar()
+    
+                if not haftalar:
+                    st.info("Henüz geçmiş hafta yok.")
+                else:
+                    aktif = get_aktif_hafta()
+                    aktif_id = aktif["id"] if aktif else None
+    
+                    for h in haftalar:
+                        ozet = get_hafta_ozet(h["id"])
+                        is_aktif = h["id"] == aktif_id
+    
+                        renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
+                        border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
+    
+                        col1, col2 = st.columns([5, 1])
+                        with col1:
+                            aktif_badge = '<span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:4px;margin-left:8px;font-weight:700">AKTİF</span>' if is_aktif else ''
+                            gecmis_html = (
+                                f'<div style="background:{renk};border:{border};border-radius:10px;padding:16px 16px;margin-bottom:8px">'
+                                f'<div style="font-size:14px;font-weight:700;color:var(--k-metin)">{h["hafta_adi"]}{aktif_badge}</div>'
+                                f'<div style="font-size:13px;color:var(--k-silik);margin-top:4px">{ozet["toplam"]} ödeme · {ozet["odendi"]}/{ozet["toplam"]} ödendi · Yüklendi: {h["yuklendi_tarih"]}</div>'
+                                f'<div style="margin-top:8px"><span class="tag-yesil">₺{fmt(ozet["tl_toplam"])}</span>&nbsp;<span class="tag-mavi">${fmt(ozet["usd_toplam"])}</span></div>'
+                                '</div>'
+                            )
+                            st.markdown(gecmis_html, unsafe_allow_html=True)
+    
+                        with col2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if not is_aktif:
+                                if st.button("Aç", key=f"ac_{h['id']}", icon=":material/folder_open:"):
+                                    hafta_aktif_yap(h["id"])
+                                    st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
+                                    st.rerun()
+                            if st.button("Sil", key=f"sil_{h['id']}", icon=":material/delete:"):
+                                hafta_sil(h["id"])
+                                st.success("Silindi.")
+                                st.rerun()
+    
+            # ── TAB 2: Firma Çekleri Arşivi ───────────────────────────
+            with gecmis_tab2:
+                st.markdown('<div style="font-size:13px;color:var(--k-silik);margin-bottom:16px;">Firma çeklerinin tamamını burada görüntüleyebilir ve silebilirsiniz.</div>', unsafe_allow_html=True)
+    
+                cek_tab1, cek_tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
+    
+                def cek_arsiv_goster(para_birimi):
+                    cekler = get_cekler(para_birimi)
+                    sym = "$" if para_birimi == "USD" else "₺"
+    
+                    if not cekler:
+                        st.info(f"Kayıtlı {para_birimi} çeki yok.")
+                        return
+    
+                    # Toplu silme butonu
+                    col_sil1, col_sil2, col_sil3 = st.columns([2, 2, 2])
+                    with col_sil1:
+                        st.markdown(
+                            f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-radius:10px;'
+                            f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-silik);'
+                            f'letter-spacing:.5px;text-transform:uppercase;">Toplam</span><br>'
+                            f'<span style="font-size:19px;font-weight:700;color:var(--k-metin);font-family:monospace;">{len(cekler)} çek</span></div>',
+                            unsafe_allow_html=True
+                        )
+                    with col_sil2:
+                        toplam_meblagh = sum(c.get("meblagh") or 0 for c in cekler)
+                        st.markdown(
+                            f'<div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:10px;'
+                            f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-mavi);'
+                            f'letter-spacing:.5px;text-transform:uppercase;">Toplam Meblağ</span><br>'
+                            f'<span style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
+                            unsafe_allow_html=True
+                        )
+                    with col_sil3:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        # Onay checkbox'lı toplu silme
+                        onay_key = f"toplu_sil_onay_{para_birimi}"
+                        if st.session_state.get(onay_key, False):
+                            if st.button(f"EVET, TÜM {para_birimi} ÇEKLERİNİ SİL", key=f"toplu_sil_exec_{para_birimi}", type="primary", use_container_width=True, icon=":material/warning:"):
+                                cek_sil_hepsi(para_birimi)
+                                st.session_state[onay_key] = False
+                                st.success(f"Tüm {para_birimi} çekleri silindi.")
+                                st.rerun()
+                            if st.button("Vazgeç", key=f"toplu_sil_iptal_{para_birimi}", use_container_width=True):
+                                st.session_state[onay_key] = False
+                                st.rerun()
+                        else:
+                            if st.button(f"Tüm {para_birimi} Çeklerini Sil", key=f"toplu_sil_btn_{para_birimi}", use_container_width=True, icon=":material/delete:"):
+                                st.session_state[onay_key] = True
+                                st.rerun()
+    
+                    st.markdown("<br>", unsafe_allow_html=True)
+    
+                    # Arama
+                    arama = st.text_input("🔍 Ara (firma, çek no, ref no)", key=f"cek_ara_{para_birimi}", placeholder="Aramak istediğiniz kelimeyi yazın...")
+    
+                    # Filtrele
+                    filtre_cekler = cekler
+                    if arama:
+                        a = arama.lower()
+                        filtre_cekler = [c for c in cekler if
+                                         a in str(c.get("ch_ismi", "")).lower() or
+                                         a in str(c.get("cek_no", "")).lower() or
+                                         a in str(c.get("ref_no", "")).lower() or
+                                         a in str(c.get("banka", "")).lower()]
+                        st.caption(f"{len(filtre_cekler)} / {len(cekler)} çek gösteriliyor")
+    
+                    # Çek listesi (her biri silinebilir)
+                    for c in filtre_cekler:
+                        _t = cek_tutarlari(c)
+                        durum_str = cek_durum_norm(c.get("durum"))
+                        vd = vade_durumu(c.get("vade"))
+    
+                        # Zeminler tema duyarlı (eskiden koyu sabit hex → açık temada okunmuyordu;
+                        # varsayılan kart ise açık mavi zemin + metin rengiydi, iki temada da okunmuyordu)
+                        if _t["odendi"]:
+                            kart_bg = "color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1))"; kart_border = trenk("yesil2"); durum_renk = trenk("yesil2")
+                        elif "ciro" in durum_str:
+                            kart_bg = "color-mix(in srgb,var(--k-mavi) 9%,var(--k-yuzey1))"; kart_border = trenk("mavi"); durum_renk = trenk("mavi")
+                        elif vd == "gecmis":
+                            kart_bg = "color-mix(in srgb,var(--k-kirmizi) 9%,var(--k-yuzey1))"; kart_border = trenk("kirmizi2"); durum_renk = trenk("kirmizi2")
+                        elif vd == "bugun":
+                            kart_bg = "color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1))"; kart_border = trenk("amber2"); durum_renk = trenk("amber2")
+                        else:
+                            kart_bg = "var(--k-yuzey1)"; kart_border = "var(--k-kenar2)"; durum_renk = trenk("soluk")
+    
+                        col_a, col_b = st.columns([9, 1])
+                        with col_a:
+                            st.markdown(f"""
+                            <div style="background:{kart_bg};border:1px solid {kart_border};border-radius:10px;padding:12px 16px;margin-bottom:8px">
+                                <div style="display:grid;grid-template-columns:1.5fr 1.5fr 1fr 1.5fr 1fr;gap:12px;align-items:center">
+                                    <div>
+                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">ÇEK NO</div>
+                                        <div style="font-size:13px;font-weight:700;color:var(--k-metin);font-family:monospace">{c.get('cek_no') or '-'}</div>
+                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Ref: {c.get('ref_no') or '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">CARİ/FİRMA</div>
+                                        <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{c.get('ch_ismi') or '-'}</div>
+                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">{c.get('ch_kodu') or ''}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">VADE</div>
+                                        <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{fmt_tarih(c.get('vade')) or '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">MEBLAĞ / KALAN</div>
+                                        <div style="font-size:14px;font-weight:700;color:var(--k-metin);font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
+                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Kalan: {sym}{fmt(_t['kalan'])}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">DURUM</div>
+                                        <div style="font-size:13px;font-weight:700;color:{durum_renk};text-transform:uppercase;letter-spacing:.3px">{c.get('durum') or 'Bekliyor'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with col_b:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("", key=f"cek_sil_{c.get('id')}", help="Bu çeki sil", icon=":material/delete:"):
+                                cek_sil(c.get("id"))
+                                st.success("Silindi.")
+                                st.rerun()
+    
+                with cek_tab1:
+                    cek_arsiv_goster("TL")
+                with cek_tab2:
+                    cek_arsiv_goster("USD")
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "💵 Gelenler Geçmişi":
+            st.markdown(_sb("💵 Muhasebe", "Gelenler Geçmişi", aciklama="Kimden · ne kadar · hangi bankaya · ne zaman gelmiş — tüm para girişleri"), unsafe_allow_html=True)
+
+            _tahsilatlar = get_tahsilatlar(limit=2000)
+            if not _tahsilatlar:
+                st.info("Henüz tahsilat (para girişi) kaydı yok. Banka Bakiyeleri sayfasından "
+                        "**💰 Tahsilat Ekle** ile giriş yapabilirsin.")
+                st.stop()
+
+            import pandas as _pd
+            _gdf = _pd.DataFrame([{
+                "Tarih": _pd.to_datetime(str(t.get("tarih", ""))[:10], errors="coerce"),
+                "Kaynak (Kimden)": (t.get("kaynak") or "—").strip() or "—",
+                "Banka": t.get("hesap_adi", "—"),
+                "Döviz": t.get("para_birimi", ""),
+                "Tutar": float(t.get("tutar", 0) or 0),
+                "Açıklama": (t.get("aciklama") or "").strip(),
+            } for t in _tahsilatlar])
+
+            # ── Filtreler ──
+            f1, f2, f3 = st.columns([1.3, 1.3, 1])
+            _kaynaklar = ["Tümü"] + sorted([k for k in _gdf["Kaynak (Kimden)"].unique() if k and k != "—"])
+            _bankalar_f = ["Tümü"] + sorted(_gdf["Banka"].unique().tolist())
+            _sec_kaynak = f1.selectbox("Kaynak (kimden)", _kaynaklar, key="gg_kaynak")
+            _sec_banka = f2.selectbox("Banka", _bankalar_f, key="gg_banka")
+            _sec_doviz = f3.selectbox("Döviz", ["Tümü"] + sorted([d for d in _gdf["Döviz"].unique() if d]), key="gg_doviz")
+
+            _f = _gdf.copy()
+            if _sec_kaynak != "Tümü":
+                _f = _f[_f["Kaynak (Kimden)"] == _sec_kaynak]
+            if _sec_banka != "Tümü":
+                _f = _f[_f["Banka"] == _sec_banka]
+            if _sec_doviz != "Tümü":
+                _f = _f[_f["Döviz"] == _sec_doviz]
+
+            # ── Özet metrikler (döviz bazında toplam) ──
+            _tl = _f[_f["Döviz"] == "TL"]["Tutar"].sum()
+            _usd = _f[_f["Döviz"] == "USD"]["Tutar"].sum()
+            _eur = _f[_f["Döviz"] == "EUR"]["Tutar"].sum()
+            metrik_satiri([
+                {"label": "Gelen TL", "value": f"₺{fmt(_tl)}", "renk": trenk("yesil")},
+                {"label": "Gelen USD", "value": f"${fmt(_usd)}", "renk": trenk("mavi")},
+                {"label": "Gelen EUR", "value": f"€{fmt(_eur)}", "renk": trenk("amber")},
+                {"label": "Kayıt Adedi", "value": f"{tr_sayi(len(_f))}", "renk": trenk("mor"), "alt": "para girişi"},
+            ])
+
+            # ── Kimden ne kadar gelmiş (kaynak bazında özet) ──
+            with st.expander("👥 Kimden ne kadar gelmiş (kaynak bazında toplam)", expanded=False):
+                _ozet = (_f.groupby(["Kaynak (Kimden)", "Döviz"])["Tutar"]
+                         .sum().reset_index().sort_values("Tutar", ascending=False))
+                st.dataframe(_ozet, hide_index=True, use_container_width=True,
+                             column_config=tablo_kolonlari(_ozet, para="accounting"),
+                             height=tablo_h(len(_ozet), maks=420))
+
+            # ── Detay tablo ──
+            # Döviz artık tutarın içine yapıştırılmıyor — yapışınca kolon metin
+            # oluyor ve sıralama alfabetik bozuluyordu.
+            _goster = _f.copy()
+            st.dataframe(_goster, hide_index=True, use_container_width=True,
+                         column_config=tablo_kolonlari(_goster, para="accounting"),
+                         height=tablo_h(len(_goster), maks=560))
+            st.caption(f"Toplam {len(_f)} para girişi kaydı. Yeni tahsilat için: "
+                       "**Banka Bakiyeleri → 💰 Tahsilat Ekle**.")
+
+
+        # ════════════════════════════════════════════════════════════════════
+        # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "📚 e-Defter":
+            st.markdown(_sb("💰 Muhasebe", "e-Defter"), unsafe_allow_html=True)
+            from kayranacc.edefter import render as _edefter_render
+            _edefter_render()
+
+
+        # ════════════════════════════════════════════════════════════════════
+        # 8) VERİ YÜKLEME
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "📂 Veri Yükleme":
+            st.markdown(_sb("📂 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
+    
+            # Son yüklenenler (Recents)
+            haftalar = get_tum_haftalar()
+            if haftalar:
+                st.markdown("### 🕐 Son Yüklenenler")
+                aktif = get_aktif_hafta()
+                aktif_id = aktif["id"] if aktif else None
+    
+                cols = st.columns(min(len(haftalar), 4))
+                for i, h in enumerate(haftalar[:8]):
+                    ozet = get_hafta_ozet(h["id"])
+                    is_aktif = h["id"] == aktif_id
+                    with cols[i % 4]:
+                        renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
+                        border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
+                        aktif_badge = '<br><span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
+                        recent_html = (
+                            f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 16px;margin-bottom:8px;min-height:100px">'
+                            f'<div style="font-size:13px;font-weight:700;color:var(--k-metin);line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
+                            f'<div style="font-size:11px;color:var(--k-soluk);margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
+                            f'<div style="font-size:11px"><span style="color:var(--k-yesil2)">₺{fmt(ozet["tl_toplam"])}</span></div>'
+                            f'<div style="font-size:11px;color:var(--k-soluk)">{h["yuklendi_tarih"]}</div>'
+                            '</div>'
+                        )
+                        st.markdown(recent_html, unsafe_allow_html=True)
+                        if not is_aktif:
+                            if st.button("Aç", key=f"recent_ac_{h['id']}", use_container_width=True):
+                                hafta_aktif_yap(h["id"])
+                                st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
+                                st.rerun()
+    
+                st.markdown("---")
+    
+            st.markdown("### 📤 Yeni Hafta Yükle")
+            st.markdown(
+                '<div style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);border:1px solid var(--k-amber2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--k-amber2)">'
+                '<b>Excel sutun sirasi:</b> A=HAFTA | B=FIRMA | C=ACIKLAMA | D=(bos) | E=VADE | F=TUTAR TL | G=TUTAR USD | <b>H=KATEGORI (opsiyonel)</b>'
+                '</div>',
+                unsafe_allow_html=True
+            )
     
             col1, col2 = st.columns(2)
+    
             with col1:
-                st.markdown("**Mevcut Konfigürasyon**")
-                if ayarlar.get("smtp_user"):
-                    st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
+                st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
+                odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
+                if odeme_file:
+                    st.success(f"✅ {odeme_file.name} seçildi")
     
             with col2:
-                st.markdown("**Bağlantı Testi**")
-                if ayarlar.get("smtp_user"):
-                    if st.button("Bağlantıyı Test Et", use_container_width=True, icon=":material/power:"):
-                        with st.spinner("Test ediliyor..."):
-                            basarili, mesaj = baglanti_test(ayarlar)
-                        if basarili:
-                            st.success(mesaj)
-                        else:
-                            st.error(mesaj)
+                st.markdown("**2. Firma Çekleri Dökümü (XLSX) — Opsiyonel**")
+                cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
+                if cek_file:
+                    st.success(f"✅ {cek_file.name} seçildi")
+    
+            col_a, col_b = st.columns(2)
+            with col_a:
+                yukle_btn = st.button("Verileri İşle ve Yükle", type="primary", use_container_width=True, icon=":material/check_circle:")
+            with col_b:
+                ornek = create_sample_excel()
+                st.download_button(
+                    "Örnek Excel İndir",
+                    data=ornek,
+                    file_name="ornek_odeme_listesi.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, icon=":material/move_to_inbox:"
+                )
+    
+            if yukle_btn:
+                if not odeme_file and not cek_file:
+                    st.error("Lütfen en az bir dosya seçin.")
                 else:
-                    st.info("Önce SMTP ayarlarını yapılandırın.")
+                    mesajlar = []
     
-            st.markdown("---")
-            st.markdown("### 📨 Manuel Bildirim Gönder")
+                    if odeme_file:
+                        try:
+                            file_bytes = odeme_file.read()
+                            hafta_adi, odemeler, hatalar = excel_yukle_odeme_listesi(file_bytes)
     
-            if not ayarlar.get("smtp_user"):
-                st.warning("Email göndermek için önce SMTP ayarlarını yapılandırın.")
-            elif not odemeler:
-                st.info("Göndermek için önce veri yükleyin.")
-            else:
-                hafta_adi = hafta["hafta_adi"] if hafta else "Bu Hafta"
+                            if hatalar:
+                                for h in hatalar:
+                                    st.warning(h)
     
-                tab1, tab2 = st.tabs(["⚠️ Vade Uyarısı", "📊 Haftalık Özet"])
+                            if odemeler:
+                                hafta_id = hafta_ekle(hafta_adi or f"Hafta {len(get_tum_haftalar()) + 1}")
+                                hafta_aktif_yap(hafta_id)
+                                odeme_ekle_bulk(hafta_id, odemeler)
+                                mesajlar.append(f"✅ {len(odemeler)} ödeme yüklendi — '{hafta_adi}'")
+                            else:
+                                mesajlar.append("⚠️ Ödeme listesinde işlenebilir veri bulunamadı.")
+                        except Exception as e:
+                            st.error(f"❌ Ödeme yükleme hatası: {e}")
+    
+                    if cek_file:
+                        try:
+                            file_bytes = cek_file.read()
+                            tl_cekler, usd_cekler, hatalar = excel_yukle_cek_listesi(file_bytes)
+    
+                            if hatalar:
+                                for h in hatalar:
+                                    st.warning(h)
+    
+                            if tl_cekler or usd_cekler:
+                                if tl_cekler:
+                                    cek_ekle_bulk(tl_cekler, "TL")
+                                if usd_cekler:
+                                    cek_ekle_bulk(usd_cekler, "USD")
+                                mesajlar.append(f"✅ Çekler yüklendi: TL {len(tl_cekler)} · USD {len(usd_cekler)}")
+                            else:
+                                mesajlar.append("⚠️ Çek dosyasında veri bulunamadı.")
+                        except Exception as e:
+                            st.error(f"❌ Çek yükleme hatası: {e}")
+    
+                    for m in mesajlar:
+                        st.success(m) if m.startswith("✅") else st.warning(m)
+    
+                    if any(m.startswith("✅") for m in mesajlar):
+                        st.balloons()
+                        st.rerun()
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 9) RAPORLAR
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "📄 Raporlar & Bildirim":
+            st.markdown(_sb("📄 Muhasebe", "Raporlar & Bildirim", aciklama="Excel ve PDF formatında haftalık raporlar"), unsafe_allow_html=True)
+            _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
+            with _tab_rapor:
+    
+                kur      = get_kur()
+                odemeler, hafta = get_aktif_odemeler()
+                bankalar = get_bankalar()
+    
+                if not odemeler:
+                    st.info("Rapor oluşturmak için önce veri yükleyin.")
+                    st.stop()
+    
+                hafta_adi = hafta["hafta_adi"] if hafta else "Haftalık Rapor"
+    
+                st.markdown(f"**Aktif hafta:** `{hafta_adi}` — {len(odemeler)} ödeme")
+                st.markdown("---")
+    
+                # ── TAB: Excel / HTML ──
+                tab1, tab2, tab3 = st.tabs(["📊 Tam Excel Raporu", "🖨️ PDF / Yazdır", "💸 Nakit Akış Excel"])
     
                 with tab1:
-                    konu, html_icerik = vade_bildirimi_olustur(odemeler, hafta_adi)
-                    if not konu:
-                        st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
+                    st.markdown("**Özet + Günlük Detay + Kategori Analizi** üç sayfalı Excel dosyası.")
+                    st.markdown("")
+    
+                    tl_top = sum(o.get("tutar_tl")  or 0 for o in odemeler)
+                    usd_top = sum(o.get("tutar_usd") or 0 for o in odemeler)
+                    odendi = sum(1 for o in odemeler if o.get("durum") == "odendi")
+                    metrik_satiri([
+                        {"label": "Toplam TL", "value": f"₺{fmt(tl_top)}", "renk": trenk("mor")},
+                        {"label": "Toplam USD", "value": f"${fmt(usd_top)}", "renk": trenk("yesil")},
+                        {"label": "Ödendi", "value": f"{odendi}/{len(odemeler)}", "renk": trenk("amber")},
+                    ])
+    
+                    st.markdown("")
+                    try:
+                        excel_buf = haftalik_excel_raporu(odemeler, hafta_adi, bankalar, kur)
+                        st.download_button(
+                            label="📥 Excel Raporu İndir",
+                            data=excel_buf,
+                            file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            type="primary",
+                            use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.error(f"Excel oluşturulamadı: {e}")
+    
+                with tab2:
+                    st.markdown("Tarayıcınızda açılır — **Ctrl+P / Cmd+P** ile yazdırabilir ya da PDF olarak kaydedebilirsiniz.")
+                    st.markdown("")
+    
+                    try:
+                        html_bytes = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
+                        st.download_button(
+                            label="🖨️ HTML Rapor İndir (Yazdır/PDF)",
+                            data=html_bytes,
+                            file_name=f"MuhasebeFin_{hafta_adi.replace(' ','_')}_{tr_today()}.html",
+                            mime="text/html",
+                            type="primary",
+                            use_container_width=True,
+                        )
+                        st.markdown("")
+                        st.markdown(
+                            '<div class="info-box">💡 <b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
+                            unsafe_allow_html=True
+                        )
+                    except Exception as e:
+                        st.error(f"HTML rapor oluşturulamadı: {e}")
+    
+                    # Önizleme
+                    @st.dialog("👁️ Rapor Önizleme", width="large")
+                    def _dlg_rapor_onizleme():
+                        try:
+                            preview = haftalik_html_raporu(odemeler, hafta_adi, bankalar, kur)
+                            st.components.v1.html(preview.decode("utf-8"), height=500, scrolling=True)
+                        except Exception as e:
+                            st.warning(f"Önizleme yüklenemedi: {e}")
+                    if st.button("Rapor Önizleme", key="btn_acc_rapor_on", use_container_width=True, icon=":material/visibility:"):
+                        _dlg_rapor_onizleme()
+    
+                with tab3:
+                    st.markdown("Nakit akış tablosunu Excel dosyası olarak indirin.")
+                    st.markdown("")
+                    try:
+                        nakit_buf = nakit_akis_excel(odemeler, bankalar, hafta_adi, kur)
+                        st.download_button(
+                            label="📥 Nakit Akış Excel İndir",
+                            data=nakit_buf,
+                            file_name=f"MuhasebeFin_NakitAkis_{tr_today()}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            type="primary",
+                            use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.error(f"Nakit akış raporu oluşturulamadı: {e}")
+    
+    
+            # ════════════════════════════════════════════════════════════════════
+            # 10) BİLDİRİM AYARLARI
+            # ════════════════════════════════════════════════════════════════════
+            with _tab_bildirim:
+                st.markdown(_sb("🔔", "Bildirim Ayarları", aciklama="Vade yaklaşan ödemeler için email bildirimleri"), unsafe_allow_html=True)
+    
+                ayarlar  = get_bildirim_ayarlari()
+                odemeler, hafta = get_aktif_odemeler()
+                bankalar = get_bankalar()
+    
+                # Secrets konfigürasyonu
+                @st.dialog("⚙️ SMTP Ayarları (Streamlit Secrets)", width="large")
+                def _dlg_smtp_ayar():
+                    st.markdown(
+                        "Email bildirimleri icin Streamlit Cloud > Settings > Secrets bolumune ekleyin:\n\n"
+                        "```toml\n[bildirim]\nsmtp_host = \"smtp.gmail.com\"\nsmtp_port = 587\n"
+                        "smtp_user = \"sizin@gmail.com\"\nsmtp_pass = \"uygulama-sifresi\"\n"
+                        "alici_email = \"alici@firma.com\"\naktif = true\n```"
+                    )
+                    st.markdown(
+                        '<div class="info-box">Gmail Uygulama Sifresi: Google Hesabim > Guvenlik > 2 Adimli Dogrulama > Uygulama Sifreleri > Yeni olustur > Posta secin > Kopyalayin.</div>',
+                        unsafe_allow_html=True
+                    )
+                if st.button("SMTP Ayarları (Streamlit Secrets)", key="btn_acc_smtp", use_container_width=True, icon=":material/settings:"):
+                    _dlg_smtp_ayar()
+    
+                # Mevcut ayar durumu
+                st.markdown("---")
+    
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Mevcut Konfigürasyon**")
+                    if ayarlar.get("smtp_user"):
+                        st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
                     else:
-                        bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
-                        yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
-                        gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
+                        st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
     
-                        if gecmis_cnt:
-                            st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
-                        if bugun_cnt:
-                            st.markdown(f'<div class="uyari-box">⚠️ Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
-                        if yarin_cnt:
-                            st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
+                with col2:
+                    st.markdown("**Bağlantı Testi**")
+                    if ayarlar.get("smtp_user"):
+                        if st.button("Bağlantıyı Test Et", use_container_width=True, icon=":material/power:"):
+                            with st.spinner("Test ediliyor..."):
+                                basarili, mesaj = baglanti_test(ayarlar)
+                            if basarili:
+                                st.success(mesaj)
+                            else:
+                                st.error(mesaj)
+                    else:
+                        st.info("Önce SMTP ayarlarını yapılandırın.")
     
-                        st.markdown(f"**Konu:** `{konu}`")
+                st.markdown("---")
+                st.markdown("### 📨 Manuel Bildirim Gönder")
+    
+                if not ayarlar.get("smtp_user"):
+                    st.warning("Email göndermek için önce SMTP ayarlarını yapılandırın.")
+                elif not odemeler:
+                    st.info("Göndermek için önce veri yükleyin.")
+                else:
+                    hafta_adi = hafta["hafta_adi"] if hafta else "Bu Hafta"
+    
+                    tab1, tab2 = st.tabs(["⚠️ Vade Uyarısı", "📊 Haftalık Özet"])
+    
+                    with tab1:
+                        konu, html_icerik = vade_bildirimi_olustur(odemeler, hafta_adi)
+                        if not konu:
+                            st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
+                        else:
+                            bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
+                            yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
+                            gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
+    
+                            if gecmis_cnt:
+                                st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
+                            if bugun_cnt:
+                                st.markdown(f'<div class="uyari-box">⚠️ Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
+                            if yarin_cnt:
+                                st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
+    
+                            st.markdown(f"**Konu:** `{konu}`")
+                            st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
+    
+                            @st.dialog("👁️ Email Önizleme", width="large")
+                            def _dlg_email_on_vade():
+                                st.components.v1.html(html_icerik, height=400, scrolling=True)
+                            if st.button("Email Önizleme", key="btn_acc_eml_vade", use_container_width=True, icon=":material/visibility:"):
+                                _dlg_email_on_vade()
+    
+                            if st.button("Vade Uyarısı Gönder", type="primary", use_container_width=True, icon=":material/send:"):
+                                with st.spinner("Gönderiliyor..."):
+                                    basarili, mesaj = email_gonder(konu, html_icerik, ayarlar)
+                                if basarili:
+                                    st.success(mesaj)
+                                else:
+                                    st.error(mesaj)
+    
+                    with tab2:
+                        konu_ozet, html_ozet = ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi)
+                        st.markdown(f"**Konu:** `{konu_ozet}`")
                         st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
                         @st.dialog("👁️ Email Önizleme", width="large")
-                        def _dlg_email_on_vade():
-                            st.components.v1.html(html_icerik, height=400, scrolling=True)
-                        if st.button("Email Önizleme", key="btn_acc_eml_vade", use_container_width=True, icon=":material/visibility:"):
-                            _dlg_email_on_vade()
+                        def _dlg_email_on_hafta():
+                            st.components.v1.html(html_ozet, height=400, scrolling=True)
+                        if st.button("Email Önizleme", key="btn_acc_eml_hft", use_container_width=True, icon=":material/visibility:"):
+                            _dlg_email_on_hafta()
     
-                        if st.button("Vade Uyarısı Gönder", type="primary", use_container_width=True, icon=":material/send:"):
+                        if st.button("Haftalık Özet Gönder", type="primary", use_container_width=True, icon=":material/send:"):
                             with st.spinner("Gönderiliyor..."):
-                                basarili, mesaj = email_gonder(konu, html_icerik, ayarlar)
+                                basarili, mesaj = email_gonder(konu_ozet, html_ozet, ayarlar)
                             if basarili:
                                 st.success(mesaj)
                             else:
                                 st.error(mesaj)
     
-                with tab2:
-                    konu_ozet, html_ozet = ozet_bildirimi_olustur(odemeler, bankalar, hafta_adi)
-                    st.markdown(f"**Konu:** `{konu_ozet}`")
-                    st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
     
-                    @st.dialog("👁️ Email Önizleme", width="large")
-                    def _dlg_email_on_hafta():
-                        st.components.v1.html(html_ozet, height=400, scrolling=True)
-                    if st.button("Email Önizleme", key="btn_acc_eml_hft", use_container_width=True, icon=":material/visibility:"):
-                        _dlg_email_on_hafta()
+            # ════════════════════════════════════════════════════════════════════
+            # 11) BANKALAR ARASI VİRMAN
+            # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "⏳ Ertelenen Ödemeler":
+            st.markdown(_sb("⏳ Muhasebe", "Ertelenen Ödemeler", aciklama="Bu oturumda vadesi değiştirilmiş ödemeler"), unsafe_allow_html=True)
     
-                    if st.button("Haftalık Özet Gönder", type="primary", use_container_width=True, icon=":material/send:"):
-                        with st.spinner("Gönderiliyor..."):
-                            basarili, mesaj = email_gonder(konu_ozet, html_ozet, ayarlar)
-                        if basarili:
-                            st.success(mesaj)
-                        else:
-                            st.error(mesaj)
+            # ─── Session state'ten ertelemeleri al ───
+            ertelemeler_dict = st.session_state.get("ertelemeler", {})
     
+            # Mevcut ödemelerle eşleştir (silinmiş veya ödenmiş olabilir)
+            odemeler_aktif, _ = get_aktif_odemeler()
+            odeme_lookup = {o["id"]: o for o in odemeler_aktif}
     
-        # ════════════════════════════════════════════════════════════════════
-        # 11) BANKALAR ARASI VİRMAN
-        # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "⏳ Ertelenen Ödemeler":
-        st.markdown(_sb("⏳ Muhasebe", "Ertelenen Ödemeler", aciklama="Bu oturumda vadesi değiştirilmiş ödemeler"), unsafe_allow_html=True)
+            # Ertelenenler listesini oluştur — güncel ödeme verisi ile birleştir
+            ertelenenler = []
+            for odeme_id, kayit in ertelemeler_dict.items():
+                guncel = odeme_lookup.get(odeme_id)
+                if guncel:
+                    # Mevcut ödeme bulundu — durum bilgisini al
+                    ertelenenler.append({
+                        "id": odeme_id,
+                        "firma": guncel.get("firma") or kayit.get("firma", ""),
+                        "aciklama": guncel.get("aciklama") or kayit.get("aciklama", ""),
+                        "kategori": guncel.get("kategori") or kayit.get("kategori") or "diger",
+                        "tutar_tl": guncel.get("tutar_tl"),
+                        "tutar_usd": guncel.get("tutar_usd"),
+                        "vade": guncel.get("vade"),
+                        "durum": guncel.get("durum", "bekliyor"),
+                        "orijinal_vade": kayit.get("orijinal_vade"),
+                        "ertelendi_sayisi": kayit.get("sayi", 1),
+                        "son_erteleme_tarih": kayit.get("son_tarih"),
+                    })
     
-        # ─── Session state'ten ertelemeleri al ───
-        ertelemeler_dict = st.session_state.get("ertelemeler", {})
+            # Üstte temizleme butonu
+            col_baslik, col_temizle = st.columns([5, 1])
+            with col_temizle:
+                if ertelenenler:
+                    if st.button("Geçmişi Temizle", help="Erteleme kayıtlarını sıfırla", use_container_width=True, icon=":material/delete:"):
+                        st.session_state.ertelemeler = {}
+                        st.success("Erteleme geçmişi temizlendi.")
+                        st.rerun()
     
-        # Mevcut ödemelerle eşleştir (silinmiş veya ödenmiş olabilir)
-        odemeler_aktif, _ = get_aktif_odemeler()
-        odeme_lookup = {o["id"]: o for o in odemeler_aktif}
-    
-        # Ertelenenler listesini oluştur — güncel ödeme verisi ile birleştir
-        ertelenenler = []
-        for odeme_id, kayit in ertelemeler_dict.items():
-            guncel = odeme_lookup.get(odeme_id)
-            if guncel:
-                # Mevcut ödeme bulundu — durum bilgisini al
-                ertelenenler.append({
-                    "id": odeme_id,
-                    "firma": guncel.get("firma") or kayit.get("firma", ""),
-                    "aciklama": guncel.get("aciklama") or kayit.get("aciklama", ""),
-                    "kategori": guncel.get("kategori") or kayit.get("kategori") or "diger",
-                    "tutar_tl": guncel.get("tutar_tl"),
-                    "tutar_usd": guncel.get("tutar_usd"),
-                    "vade": guncel.get("vade"),
-                    "durum": guncel.get("durum", "bekliyor"),
-                    "orijinal_vade": kayit.get("orijinal_vade"),
-                    "ertelendi_sayisi": kayit.get("sayi", 1),
-                    "son_erteleme_tarih": kayit.get("son_tarih"),
-                })
-    
-        # Üstte temizleme butonu
-        col_baslik, col_temizle = st.columns([5, 1])
-        with col_temizle:
-            if ertelenenler:
-                if st.button("Geçmişi Temizle", help="Erteleme kayıtlarını sıfırla", use_container_width=True, icon=":material/delete:"):
-                    st.session_state.ertelemeler = {}
-                    st.success("Erteleme geçmişi temizlendi.")
-                    st.rerun()
-    
-        # Bilgi notu
-        st.markdown("""
-        <div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:8px;padding:8px 16px;margin:8px 0;font-size:11px;color:var(--k-mavi)">
-            ℹ️ Erteleme kayıtları bu oturumda tutulur. Tarayıcıyı kapatınca veya çıkış yapınca geçmiş silinir.
-            Kalıcı kayıt için Supabase'e 3 kolon eklenmesi gerekir (opsiyonel).
-        </div>
-        """, unsafe_allow_html=True)
-    
-        if not ertelenenler:
-            st.info("📭 Henüz ertelenmiş ödeme yok.")
+            # Bilgi notu
             st.markdown("""
-            <div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:10px;padding:16px 16px;margin-top:12px">
-                <div style="font-size:13px;color:var(--k-mavi);font-weight:600;margin-bottom:8px">💡 Nasıl ertelerim?</div>
-                <div style="font-size:13px;color:var(--k-mavi);line-height:1.5">
-                    <b>"Bu Hafta"</b> sayfasında bir ödemenin altındaki <b>"📅 Vadeyi Ötele"</b> kutucuğunu işaretle, yeni tarih seç, <b>💾 Ötele</b>'ye bas. Ya da hızlı butonlardan <b>+1, +3, +7, +30 gün</b> kullan. Sonra bu sayfaya geri dön.
-                </div>
+            <div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:8px;padding:8px 16px;margin:8px 0;font-size:11px;color:var(--k-mavi)">
+                ℹ️ Erteleme kayıtları bu oturumda tutulur. Tarayıcıyı kapatınca veya çıkış yapınca geçmiş silinir.
+                Kalıcı kayıt için Supabase'e 3 kolon eklenmesi gerekir (opsiyonel).
             </div>
             """, unsafe_allow_html=True)
-        else:
-            # Özet metrikler — float dönüşümü güvenli
-            def _f(v):
-                try:
-                    return float(v) if v else 0.0
-                except (TypeError, ValueError):
-                    return 0.0
-            toplam_tl = sum(_f(o.get("tutar_tl")) for o in ertelenenler)
-            toplam_usd = sum(_f(o.get("tutar_usd")) for o in ertelenenler)
-            toplam_erteleme = sum(int(o.get("ertelendi_sayisi") or 0) for o in ertelenenler)
-            bekleyen_cnt = sum(1 for o in ertelenenler if o["durum"] == "bekliyor")
     
-            metrik_satiri([
-                {"label": "Ertelenen Adet", "value": f"{tr_sayi(len(ertelenenler))}", "renk": trenk("amber"), "alt": f"{bekleyen_cnt} bekliyor"},
-                {"label": "Toplam Erteleme", "value": f"{tr_sayi(toplam_erteleme)}", "renk": trenk("kirmizi"), "alt": "kez ötelendi"},
-                {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": trenk("mavi")},
-                {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": trenk("mor")},
-            ])
-    
-            # Filtre
-            col_f1, col_f2 = st.columns([3, 1])
-            with col_f1:
-                arama = st.text_input("🔍 Firma adı veya açıklama ara", key="ertelenen_arama")
-            with col_f2:
-                durum_filt = st.selectbox("Durum", ["Tümü", "Bekleyen", "Ödenen"], key="ertelenen_durum")
-    
-            filtrelenmis = ertelenenler
-            if arama:
-                a = arama.lower()
-                filtrelenmis = [o for o in filtrelenmis if a in str(o.get("firma","")).lower() or a in str(o.get("aciklama","")).lower()]
-            if durum_filt == "Bekleyen":
-                filtrelenmis = [o for o in filtrelenmis if o["durum"] == "bekliyor"]
-            elif durum_filt == "Ödenen":
-                filtrelenmis = [o for o in filtrelenmis if o["durum"] == "odendi"]
-    
-            st.markdown(f"**{len(filtrelenmis)}** ödeme gösteriliyor")
-            st.markdown("")
-    
-            # En çok ertelenenlere göre sırala
-            filtrelenmis = sorted(filtrelenmis, key=lambda o: -(o.get("ertelendi_sayisi") or 0))
-    
-            for o in filtrelenmis:
-                kat = o.get("kategori") or "diger"
-                kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
-                is_odendi = o["durum"] == "odendi"
-    
-                # Vade farkı hesapla
-                try:
-                    orjinal = pd.to_datetime(o.get("orijinal_vade")).date()
-                    yeni = pd.to_datetime(o.get("vade")).date()
-                    fark_gun = (yeni - orjinal).days
-                    fark_str = f"+{fark_gun} gün ileri" if fark_gun > 0 else f"{fark_gun} gün"
-                    orjinal_str = orjinal.strftime("%d.%m.%Y")
-                    yeni_str = yeni.strftime("%d.%m.%Y")
-                except Exception:
-                    fark_str = "?"
-                    orjinal_str = "?"
-                    yeni_str = fmt_tarih(o.get("vade"))
-    
-                erteleme_sayisi = o.get("ertelendi_sayisi") or 1
-                son_erteleme = o.get("son_erteleme_tarih") or ""
-    
-                tutar_str = ""
-                if o.get("tutar_tl"):
-                    tutar_str = f"<span style='color:var(--k-yesil2);font-weight:700;font-family:monospace'>₺{fmt(o['tutar_tl'])}</span>"
-                elif o.get("tutar_usd"):
-                    tutar_str = f"<span style='color:var(--k-mavi);font-weight:700;font-family:monospace'>${fmt(o['tutar_usd'])}</span>"
-    
-                durum_badge = (
-                    '<span style="background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">✅ Ödendi</span>'
-                    if is_odendi else
-                    '<span style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);color:var(--k-amber2);padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">⏳ Bekliyor</span>'
-                )
-    
-                opacity = "0.5" if is_odendi else "1"
-    
-                st.markdown(f"""
-                <div style="background:var(--k-yuzey2);border-left:4px solid {kat_info['renk']};border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-radius:10px;padding:16px 16px;margin-bottom:8px;opacity:{opacity}">
-                    <div style="display:grid;grid-template-columns:2.5fr 1.5fr 1.5fr 1fr 1fr;gap:16px;align-items:center">
-                        <div>
-                            <div style="font-size:14px;font-weight:700;color:var(--k-metin)">{o['firma']}</div>
-                            <div style="font-size:11px;color:var(--k-silik);margin-top:0px">{o.get('aciklama') or ''}</div>
-                            <span style="background:{kat_info['renk']};color:white;font-size:11px;padding:0px 8px;border-radius:8px;font-weight:600;margin-top:8px;display:inline-block">{kat_info['label']}</span>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;color:var(--k-soluk);font-weight:600;letter-spacing:.3px">ORİJİNAL VADE</div>
-                            <div style="font-size:13px;color:var(--k-silik);font-weight:600;text-decoration:line-through;font-family:monospace">{orjinal_str}</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;color:var(--k-soluk);font-weight:600;letter-spacing:.3px">YENİ VADE</div>
-                            <div style="font-size:13px;color:var(--k-metin);font-weight:700;font-family:monospace">{yeni_str}</div>
-                            <div style="font-size:11px;color:var(--k-kirmizi);font-weight:600">{fark_str}</div>
-                        </div>
-                        <div style="text-align:center">
-                            <div style="background:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);border-radius:8px;padding:8px 8px;font-size:19px;font-weight:700;font-family:monospace">{erteleme_sayisi}x</div>
-                            <div style="font-size:11px;color:var(--k-soluk);margin-top:0px">erteleme</div>
-                        </div>
-                        <div style="text-align:right">
-                            <div>{tutar_str}</div>
-                            <div style="margin-top:8px">{durum_badge}</div>
-                        </div>
+            if not ertelenenler:
+                st.info("📭 Henüz ertelenmiş ödeme yok.")
+                st.markdown("""
+                <div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:10px;padding:16px 16px;margin-top:12px">
+                    <div style="font-size:13px;color:var(--k-mavi);font-weight:600;margin-bottom:8px">💡 Nasıl ertelerim?</div>
+                    <div style="font-size:13px;color:var(--k-mavi);line-height:1.5">
+                        <b>"Bu Hafta"</b> sayfasında bir ödemenin altındaki <b>"📅 Vadeyi Ötele"</b> kutucuğunu işaretle, yeni tarih seç, <b>💾 Ötele</b>'ye bas. Ya da hızlı butonlardan <b>+1, +3, +7, +30 gün</b> kullan. Sonra bu sayfaya geri dön.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    
-            # Kalıcı kayıt için bilgilendirme
-            with st.expander("💡 Erteleme geçmişini kalıcı yapmak ister misiniz? (opsiyonel)"):
-                st.markdown("""
-                Bu sayfa şu an **oturum bazlı** çalışıyor — tarayıcıyı kapatınca erteleme geçmişi kaybolur.
-    
-                Kalıcı kayıt için Supabase SQL Editor'de bu komutları çalıştırın:
-                """)
-                st.code("""ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS orijinal_vade DATE;
-    ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS ertelendi_sayisi INTEGER DEFAULT 0;
-    ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS son_erteleme_tarih DATE;""", language="sql")
-                st.caption("Bu opsiyoneldir, mevcut özellik onsuz da çalışır.")
-    
-    
-    # ════════════════════════════════════════════════════════════════════
-    # 13) TOPLAM AKTİFLER
-    # ════════════════════════════════════════════════════════════════════
-    elif sayfa == "🧾 Cari Ekstre":
-        st.markdown(_sb("💰 Muhasebe", "Cari Ekstre"), unsafe_allow_html=True)
-        from kayranacc.cari_ekstre import render as _cari_ekstre_render
-        _cari_ekstre_render()
-
-    elif sayfa == "💰 Toplam Aktifler":
-        st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler", aciklama="Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)"), unsafe_allow_html=True)
-        # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
-        aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
-        YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
-        if aktif_kul not in YETKILI_TOPLAM_AKTIFLER:
-            st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
-            st.stop()
-    
-    
-        kur = get_kur()
-    
-        # ─── Yardımcı: Excel parse fonksiyonları ───
-        def parse_stok_excel(file_bytes):
-            """
-            Stok Excel'inden değerleri çıkar.
-            ÖNEMLİ: Excel'in son satırlarında zaten toplam satırı var. Onu kullan.
-            Yoksa elle topla ama "TOPLAM" satırlarını atla.
-            """
-            import pandas as pd
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-            # ─── Sütun 4 = USD SON DURUM STOK DEĞERİ ───
-            # Önce alt taraftaki TOPLAM satırını bul (genelde son ~3 satırda)
-            usd_stok = 0.0
-            toplam_bulundu = False
-            for i in range(len(df) - 1, max(2, len(df) - 10), -1):
-                v = df.iloc[i, 4]
-                if pd.notna(v):
+            else:
+                # Özet metrikler — float dönüşümü güvenli
+                def _f(v):
                     try:
-                        val = float(v)
-                        # Toplam satırı genelde stok kodu boş ama büyük tutar var
-                        stok_kodu = df.iloc[i, 0]
-                        if pd.isna(stok_kodu) or str(stok_kodu).strip() == "" or "TOPLAM" in str(stok_kodu).upper():
-                            usd_stok = val
-                            toplam_bulundu = True
-                            break
-                    except (ValueError, TypeError):
-                        continue
+                        return float(v) if v else 0.0
+                    except (TypeError, ValueError):
+                        return 0.0
+                toplam_tl = sum(_f(o.get("tutar_tl")) for o in ertelenenler)
+                toplam_usd = sum(_f(o.get("tutar_usd")) for o in ertelenenler)
+                toplam_erteleme = sum(int(o.get("ertelendi_sayisi") or 0) for o in ertelenenler)
+                bekleyen_cnt = sum(1 for o in ertelenenler if o["durum"] == "bekliyor")
     
-            # Toplam yoksa elle topla (header'ları atla, son toplam satırlarını da atla)
-            if not toplam_bulundu:
-                for i in range(2, len(df)):
-                    stok_kodu = df.iloc[i, 0]
-                    if pd.isna(stok_kodu) or str(stok_kodu).strip() == "":
-                        continue  # boş satır = muhtemel toplam
-                    if "TOPLAM" in str(stok_kodu).upper():
-                        continue
+                metrik_satiri([
+                    {"label": "Ertelenen Adet", "value": f"{tr_sayi(len(ertelenenler))}", "renk": trenk("amber"), "alt": f"{bekleyen_cnt} bekliyor"},
+                    {"label": "Toplam Erteleme", "value": f"{tr_sayi(toplam_erteleme)}", "renk": trenk("kirmizi"), "alt": "kez ötelendi"},
+                    {"label": "Toplam TL", "value": f"₺{fmt(toplam_tl)}", "renk": trenk("mavi")},
+                    {"label": "Toplam USD", "value": f"${fmt(toplam_usd)}", "renk": trenk("mor")},
+                ])
+    
+                # Filtre
+                col_f1, col_f2 = st.columns([3, 1])
+                with col_f1:
+                    arama = st.text_input("🔍 Firma adı veya açıklama ara", key="ertelenen_arama")
+                with col_f2:
+                    durum_filt = st.selectbox("Durum", ["Tümü", "Bekleyen", "Ödenen"], key="ertelenen_durum")
+    
+                filtrelenmis = ertelenenler
+                if arama:
+                    a = arama.lower()
+                    filtrelenmis = [o for o in filtrelenmis if a in str(o.get("firma","")).lower() or a in str(o.get("aciklama","")).lower()]
+                if durum_filt == "Bekleyen":
+                    filtrelenmis = [o for o in filtrelenmis if o["durum"] == "bekliyor"]
+                elif durum_filt == "Ödenen":
+                    filtrelenmis = [o for o in filtrelenmis if o["durum"] == "odendi"]
+    
+                st.markdown(f"**{len(filtrelenmis)}** ödeme gösteriliyor")
+                st.markdown("")
+    
+                # En çok ertelenenlere göre sırala
+                filtrelenmis = sorted(filtrelenmis, key=lambda o: -(o.get("ertelendi_sayisi") or 0))
+    
+                for o in filtrelenmis:
+                    kat = o.get("kategori") or "diger"
+                    kat_info = KATEGORILER.get(kat, KATEGORILER["diger"])
+                    is_odendi = o["durum"] == "odendi"
+    
+                    # Vade farkı hesapla
+                    try:
+                        orjinal = pd.to_datetime(o.get("orijinal_vade")).date()
+                        yeni = pd.to_datetime(o.get("vade")).date()
+                        fark_gun = (yeni - orjinal).days
+                        fark_str = f"+{fark_gun} gün ileri" if fark_gun > 0 else f"{fark_gun} gün"
+                        orjinal_str = orjinal.strftime("%d.%m.%Y")
+                        yeni_str = yeni.strftime("%d.%m.%Y")
+                    except Exception:
+                        fark_str = "?"
+                        orjinal_str = "?"
+                        yeni_str = fmt_tarih(o.get("vade"))
+    
+                    erteleme_sayisi = o.get("ertelendi_sayisi") or 1
+                    son_erteleme = o.get("son_erteleme_tarih") or ""
+    
+                    tutar_str = ""
+                    if o.get("tutar_tl"):
+                        tutar_str = f"<span style='color:var(--k-yesil2);font-weight:700;font-family:monospace'>₺{fmt(o['tutar_tl'])}</span>"
+                    elif o.get("tutar_usd"):
+                        tutar_str = f"<span style='color:var(--k-mavi);font-weight:700;font-family:monospace'>${fmt(o['tutar_usd'])}</span>"
+    
+                    durum_badge = (
+                        '<span style="background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">✅ Ödendi</span>'
+                        if is_odendi else
+                        '<span style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);color:var(--k-amber2);padding:0px 8px;border-radius:12px;font-size:11px;font-weight:700">⏳ Bekliyor</span>'
+                    )
+    
+                    opacity = "0.5" if is_odendi else "1"
+    
+                    st.markdown(f"""
+                    <div style="background:var(--k-yuzey2);border-left:4px solid {kat_info['renk']};border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-radius:10px;padding:16px 16px;margin-bottom:8px;opacity:{opacity}">
+                        <div style="display:grid;grid-template-columns:2.5fr 1.5fr 1.5fr 1fr 1fr;gap:16px;align-items:center">
+                            <div>
+                                <div style="font-size:14px;font-weight:700;color:var(--k-metin)">{o['firma']}</div>
+                                <div style="font-size:11px;color:var(--k-silik);margin-top:0px">{o.get('aciklama') or ''}</div>
+                                <span style="background:{kat_info['renk']};color:white;font-size:11px;padding:0px 8px;border-radius:8px;font-weight:600;margin-top:8px;display:inline-block">{kat_info['label']}</span>
+                            </div>
+                            <div>
+                                <div style="font-size:11px;color:var(--k-soluk);font-weight:600;letter-spacing:.3px">ORİJİNAL VADE</div>
+                                <div style="font-size:13px;color:var(--k-silik);font-weight:600;text-decoration:line-through;font-family:monospace">{orjinal_str}</div>
+                            </div>
+                            <div>
+                                <div style="font-size:11px;color:var(--k-soluk);font-weight:600;letter-spacing:.3px">YENİ VADE</div>
+                                <div style="font-size:13px;color:var(--k-metin);font-weight:700;font-family:monospace">{yeni_str}</div>
+                                <div style="font-size:11px;color:var(--k-kirmizi);font-weight:600">{fark_str}</div>
+                            </div>
+                            <div style="text-align:center">
+                                <div style="background:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);border-radius:8px;padding:8px 8px;font-size:19px;font-weight:700;font-family:monospace">{erteleme_sayisi}x</div>
+                                <div style="font-size:11px;color:var(--k-soluk);margin-top:0px">erteleme</div>
+                            </div>
+                            <div style="text-align:right">
+                                <div>{tutar_str}</div>
+                                <div style="margin-top:8px">{durum_badge}</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+                # Kalıcı kayıt için bilgilendirme
+                with st.expander("💡 Erteleme geçmişini kalıcı yapmak ister misiniz? (opsiyonel)"):
+                    st.markdown("""
+                    Bu sayfa şu an **oturum bazlı** çalışıyor — tarayıcıyı kapatınca erteleme geçmişi kaybolur.
+    
+                    Kalıcı kayıt için Supabase SQL Editor'de bu komutları çalıştırın:
+                    """)
+                    st.code("""ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS orijinal_vade DATE;
+        ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS ertelendi_sayisi INTEGER DEFAULT 0;
+        ALTER TABLE odemeler ADD COLUMN IF NOT EXISTS son_erteleme_tarih DATE;""", language="sql")
+                    st.caption("Bu opsiyoneldir, mevcut özellik onsuz da çalışır.")
+    
+    
+        # ════════════════════════════════════════════════════════════════════
+        # 13) TOPLAM AKTİFLER
+        # ════════════════════════════════════════════════════════════════════
+        elif sayfa == "🧾 Cari Ekstre":
+            st.markdown(_sb("💰 Muhasebe", "Cari Ekstre"), unsafe_allow_html=True)
+            from kayranacc.cari_ekstre import render as _cari_ekstre_render
+            _cari_ekstre_render()
+
+        elif sayfa == "💰 Toplam Aktifler":
+            st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler", aciklama="Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)"), unsafe_allow_html=True)
+            # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
+            aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
+            YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
+            if aktif_kul not in YETKILI_TOPLAM_AKTIFLER:
+                st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
+                st.stop()
+    
+    
+            kur = get_kur()
+    
+            # ─── Yardımcı: Excel parse fonksiyonları ───
+            def parse_stok_excel(file_bytes):
+                """
+                Stok Excel'inden değerleri çıkar.
+                ÖNEMLİ: Excel'in son satırlarında zaten toplam satırı var. Onu kullan.
+                Yoksa elle topla ama "TOPLAM" satırlarını atla.
+                """
+                import pandas as pd
+                from io import BytesIO
+                df = pd.read_excel(BytesIO(file_bytes), header=None)
+    
+                # ─── Sütun 4 = USD SON DURUM STOK DEĞERİ ───
+                # Önce alt taraftaki TOPLAM satırını bul (genelde son ~3 satırda)
+                usd_stok = 0.0
+                toplam_bulundu = False
+                for i in range(len(df) - 1, max(2, len(df) - 10), -1):
                     v = df.iloc[i, 4]
                     if pd.notna(v):
                         try:
-                            usd_stok += float(v)
-                        except (ValueError, TypeError):
-                            pass
-    
-            # ─── Pazaryeri firmaları: "TOPLAM TUTAR" sütunlarını bul ───
-            # ÖNEMLİ: Excel'de her pazaryerinin altında bir ALT TOPLAM satırı var
-            # (firma kodu boş, ama toplam değer dolu). Bunları atlamak için
-            # firma kodu sütununu (col_idx - 3) kontrol ediyoruz.
-            pazaryerleri = {}
-            try:
-                for col_idx in range(df.shape[1]):
-                    header = df.iloc[1, col_idx]
-                    if pd.notna(header) and isinstance(header, str) and "TOPLAM TUTAR" in header.upper():
-                        # Firma adı için geriye doğru tara
-                        firma_adi = "Bilinmeyen"
-                        blacklist = ["STOK", "SATIŞ", "FIYAT", "FİYAT", "MIKT", "MİKT", "ADET", "İADE", "TOPLAM"]
-                        firma_kod_col = None  # firma kodu sütunu (header'da firma adı olan)
-                        for back in range(1, 5):
-                            check_col = col_idx - back
-                            if check_col < 0:
+                            val = float(v)
+                            # Toplam satırı genelde stok kodu boş ama büyük tutar var
+                            stok_kodu = df.iloc[i, 0]
+                            if pd.isna(stok_kodu) or str(stok_kodu).strip() == "" or "TOPLAM" in str(stok_kodu).upper():
+                                usd_stok = val
+                                toplam_bulundu = True
                                 break
-                            candidate = df.iloc[1, check_col]
-                            if pd.notna(candidate) and isinstance(candidate, str):
-                                cand_str = candidate.strip()
-                                cand_upper = cand_str.upper()
-                                if cand_str and not any(bl in cand_upper for bl in blacklist):
-                                    firma_adi = cand_str
-                                    firma_kod_col = check_col  # ← bu sütun firma stok kodu içerir
+                        except (ValueError, TypeError):
+                            continue
+    
+                # Toplam yoksa elle topla (header'ları atla, son toplam satırlarını da atla)
+                if not toplam_bulundu:
+                    for i in range(2, len(df)):
+                        stok_kodu = df.iloc[i, 0]
+                        if pd.isna(stok_kodu) or str(stok_kodu).strip() == "":
+                            continue  # boş satır = muhtemel toplam
+                        if "TOPLAM" in str(stok_kodu).upper():
+                            continue
+                        v = df.iloc[i, 4]
+                        if pd.notna(v):
+                            try:
+                                usd_stok += float(v)
+                            except (ValueError, TypeError):
+                                pass
+    
+                # ─── Pazaryeri firmaları: "TOPLAM TUTAR" sütunlarını bul ───
+                # ÖNEMLİ: Excel'de her pazaryerinin altında bir ALT TOPLAM satırı var
+                # (firma kodu boş, ama toplam değer dolu). Bunları atlamak için
+                # firma kodu sütununu (col_idx - 3) kontrol ediyoruz.
+                pazaryerleri = {}
+                try:
+                    for col_idx in range(df.shape[1]):
+                        header = df.iloc[1, col_idx]
+                        if pd.notna(header) and isinstance(header, str) and "TOPLAM TUTAR" in header.upper():
+                            # Firma adı için geriye doğru tara
+                            firma_adi = "Bilinmeyen"
+                            blacklist = ["STOK", "SATIŞ", "FIYAT", "FİYAT", "MIKT", "MİKT", "ADET", "İADE", "TOPLAM"]
+                            firma_kod_col = None  # firma kodu sütunu (header'da firma adı olan)
+                            for back in range(1, 5):
+                                check_col = col_idx - back
+                                if check_col < 0:
                                     break
+                                candidate = df.iloc[1, check_col]
+                                if pd.notna(candidate) and isinstance(candidate, str):
+                                    cand_str = candidate.strip()
+                                    cand_upper = cand_str.upper()
+                                    if cand_str and not any(bl in cand_upper for bl in blacklist):
+                                        firma_adi = cand_str
+                                        firma_kod_col = check_col  # ← bu sütun firma stok kodu içerir
+                                        break
     
-                        # Toplama yaparken firma kodu sütunu BOŞ olan satırları atla (alt toplam = duplicate)
-                        toplam = 0.0
-                        for i in range(2, len(df)):
-                            v = df.iloc[i, col_idx]
-                            if pd.notna(v):
-                                # Firma kodu sütunu kontrolü
-                                if firma_kod_col is not None:
-                                    kod = df.iloc[i, firma_kod_col]
-                                    if pd.isna(kod) or str(kod).strip() == "":
-                                        continue  # alt toplam satırı, atla
-                                try:
-                                    toplam += float(v)
-                                except (ValueError, TypeError):
-                                    pass
-                        if firma_adi and firma_adi != "Bilinmeyen":
-                            pazaryerleri[firma_adi] = toplam
-            except Exception:
-                pass
+                            # Toplama yaparken firma kodu sütunu BOŞ olan satırları atla (alt toplam = duplicate)
+                            toplam = 0.0
+                            for i in range(2, len(df)):
+                                v = df.iloc[i, col_idx]
+                                if pd.notna(v):
+                                    # Firma kodu sütunu kontrolü
+                                    if firma_kod_col is not None:
+                                        kod = df.iloc[i, firma_kod_col]
+                                        if pd.isna(kod) or str(kod).strip() == "":
+                                            continue  # alt toplam satırı, atla
+                                    try:
+                                        toplam += float(v)
+                                    except (ValueError, TypeError):
+                                        pass
+                            if firma_adi and firma_adi != "Bilinmeyen":
+                                pazaryerleri[firma_adi] = toplam
+                except Exception:
+                    pass
     
-            return usd_stok, pazaryerleri
+                return usd_stok, pazaryerleri
     
-        def parse_ithalat_excel(file_bytes):
-            """
-            İthalat Excel'inden 'Ödenen / USD' toplamını al.
-            Sütun yapısı:
-            0=Durum, 1=Üretici, 2=PI No, 3=Ürünler, 4=Tahmini Varış, 5=Invoice/USD,
-            6=ÖDENEN/USD ← BU, 7=Kalan/USD, 8=Vergi/TL, 9=Vergi/USD, ...
-            """
-            import pandas as pd
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(file_bytes), header=None)
+            def parse_ithalat_excel(file_bytes):
+                """
+                İthalat Excel'inden 'Ödenen / USD' toplamını al.
+                Sütun yapısı:
+                0=Durum, 1=Üretici, 2=PI No, 3=Ürünler, 4=Tahmini Varış, 5=Invoice/USD,
+                6=ÖDENEN/USD ← BU, 7=Kalan/USD, 8=Vergi/TL, 9=Vergi/USD, ...
+                """
+                import pandas as pd
+                from io import BytesIO
+                df = pd.read_excel(BytesIO(file_bytes), header=None)
     
-            # TOPLAM satırını bul (sütun 0'da "TOPLAM" yazar)
-            for i in range(len(df)):
-                ilk = df.iloc[i, 0]
-                if pd.notna(ilk) and "TOPLAM" in str(ilk).upper():
-                    v = df.iloc[i, 6]  # ÖDENEN sütunu = 6
+                # TOPLAM satırını bul (sütun 0'da "TOPLAM" yazar)
+                for i in range(len(df)):
+                    ilk = df.iloc[i, 0]
+                    if pd.notna(ilk) and "TOPLAM" in str(ilk).upper():
+                        v = df.iloc[i, 6]  # ÖDENEN sütunu = 6
+                        if pd.notna(v):
+                            try:
+                                return float(v)
+                            except (ValueError, TypeError):
+                                pass
+    
+                # TOPLAM yoksa elle topla (header satırları 0,1,2'yi atla)
+                odenen = 0.0
+                for i in range(3, len(df)):
+                    v = df.iloc[i, 6]
                     if pd.notna(v):
                         try:
-                            return float(v)
+                            odenen += float(v)
                         except (ValueError, TypeError):
                             pass
+                return odenen
     
-            # TOPLAM yoksa elle topla (header satırları 0,1,2'yi atla)
-            odenen = 0.0
-            for i in range(3, len(df)):
-                v = df.iloc[i, 6]
-                if pd.notna(v):
-                    try:
-                        odenen += float(v)
-                    except (ValueError, TypeError):
-                        pass
-            return odenen
-    
-        def _cari_isimleri_cikar(file_bytes):
-            """Cari Excel'inden firma (Hesap adı) listesini çıkarır — Satış kanalları
-            ve Ref No 'Yeni Firma Ekle' listesi için.
+            def _cari_isimleri_cikar(file_bytes):
+                """Cari Excel'inden firma (Hesap adı) listesini çıkarır — Satış kanalları
+                ve Ref No 'Yeni Firma Ekle' listesi için.
 
-            ESKİ HATA: sütun 2 sabit okunuyordu. Mikro'nun yeni raporunda sütun 2
-            'Döviz' olduğu için listeye firma adı yerine EUR/TL/USD düşüyordu.
-            Artık sütun BAŞLIK ADINDAN bulunur (aktif_excel ile aynı yöntem)."""
-            try:
-                from kayranacc.aktif_excel import parse_cari as _pc
-                _, _detay = _pc(file_bytes)
-                return list(_detay.get("isimler") or [])
-            except Exception:
-                pass
-            # Yedek yol: başlığı elle ara
-            import pandas as pd
-            from io import BytesIO
-            try:
-                df = pd.read_excel(BytesIO(file_bytes), header=None)
-            except Exception:
-                return []
-            _c = None
-            for r in range(min(8, len(df))):
-                for c in range(df.shape[1]):
-                    v = df.iloc[r, c]
-                    if pd.notna(v) and "hesap ad" in str(v).strip().lower().replace("ı", "i"):
-                        _c = c
-                        break
-                if _c is not None:
-                    break
-            if _c is None:
-                return []
-            isimler = []
-            for i in range(len(df)):
-                ad = df.iloc[i, _c]
-                if pd.notna(ad):
-                    s = str(ad).strip()
-                    if (s and s.lower() not in ("nan", "hesap adı", "hesap adi")
-                            and s not in isimler):
-                        isimler.append(s)
-            return isimler
-
-        def parse_cari_excel(file_bytes):
-            """
-            Cari Excel'inden BORÇ ve ALACAK kalemlerini çıkarır.
-            Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
-            - Negatif bakiye = SEN borçlusun (BORÇ)
-            - Pozitif bakiye = SANA borçlu (ALACAK)
-            Returns: dict{'borc': {usd, tl, eur}, 'alacak': {usd, tl, eur}}
-            """
-            import pandas as pd
-            from io import BytesIO
-            df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-            sonuc = {
-                "borc": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-                "alacak": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-            }
-            for i in range(1, len(df)):
-                tip = df.iloc[i, 0]
-                doviz = df.iloc[i, 3]
-                bakiye = df.iloc[i, 6]
-                if pd.notna(tip) and pd.notna(bakiye) and pd.notna(doviz):
-                    try:
-                        bakiye_val = float(bakiye)
-                        if bakiye_val == 0:
-                            continue
-                        yon = "borc" if bakiye_val < 0 else "alacak"
-                        d = str(doviz).strip().upper()
-                        if d == "USD":
-                            sonuc[yon]["usd"] += abs(bakiye_val)
-                        elif d == "TL":
-                            sonuc[yon]["tl"] += abs(bakiye_val)
-                        elif d == "EUR":
-                            sonuc[yon]["eur"] += abs(bakiye_val)
-                    except (ValueError, TypeError):
-                        pass
-            return sonuc
-    
-        # ─── Session state init + Supabase'den önceki kayıtları yükle ───
-        # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.
-        # Bu yüzden kayıtlar sabit "ortak" anahtarıyla saklanır.
-        gercek_kullanici = (st.session_state.get("aktif_kullanici") or "ibrahim").lower().strip()
-        aktif_kul = "ortak"  # Paylaşımlı veri anahtarı
-    
-        # Paylaşımlı veri HER render'da DB'den okunur — böylece başka bir kullanıcı
-        # (pamuk vb.) yüklediğinde diğer oturumlar da anında en güncel veriyi görür.
-        # (Tek seferlik session cache KULLANILMAZ; aksi halde başkasının yüklemesi yansımaz.)
-        if True:
-            # İlk açılış — Supabase'den önceki kayıtları çek (tablo yoksa None döner, sorun değil)
-            # MIGRATION: "ortak" boşsa "ibrahim"den oku ve "ortak"a kopyala (eski veriler için)
-            try:
-                stok_v = aktif_excel_oku(aktif_kul, "stok")
-                if stok_v is None:
-                    # Eski "ibrahim" kayıtlarını ara
-                    eski = aktif_excel_oku("ibrahim", "stok")
-                    if eski is not None:
-                        aktif_excel_kaydet(aktif_kul, "stok", eski)
-                        stok_v = eski
-                st.session_state.aktif_stok_data = stok_v
-            except Exception:
-                st.session_state.aktif_stok_data = None
-            try:
-                ith_v = aktif_excel_oku(aktif_kul, "ithalat")
-                if ith_v is None:
-                    eski = aktif_excel_oku("ibrahim", "ithalat")
-                    if eski is not None:
-                        aktif_excel_kaydet(aktif_kul, "ithalat", eski)
-                        ith_v = eski
-                st.session_state.aktif_ithalat_data = ith_v
-            except Exception:
-                st.session_state.aktif_ithalat_data = None
-            try:
-                cari_v = aktif_excel_oku(aktif_kul, "cari")
-                if cari_v is None:
-                    eski = aktif_excel_oku("ibrahim", "cari")
-                    if eski is not None:
-                        aktif_excel_kaydet(aktif_kul, "cari", eski)
-                        cari_v = eski
-                st.session_state.aktif_cari_data = cari_v
-            except Exception:
-                st.session_state.aktif_cari_data = None
-    
-            # JSON list olarak gelirse tuple'a çevir (parser tuple bekler)
-            try:
-                if isinstance(st.session_state.aktif_stok_data, list) and len(st.session_state.aktif_stok_data) == 2:
-                    usd_stok_v, pazar_dict = st.session_state.aktif_stok_data
-                    if not isinstance(pazar_dict, dict):
-                        pazar_dict = {}
-                    st.session_state.aktif_stok_data = (float(usd_stok_v or 0), pazar_dict)
-            except Exception:
-                st.session_state.aktif_stok_data = None
-            try:
-                if isinstance(st.session_state.aktif_cari_data, list) and len(st.session_state.aktif_cari_data) == 3:
-                    st.session_state.aktif_cari_data = tuple(float(x or 0) for x in st.session_state.aktif_cari_data)
-            except Exception:
-                st.session_state.aktif_cari_data = None
-            st.session_state.aktif_excel_yuklendi = True
-    
-        # ─── Excel yükleme bölümü — kompakt: durum kartları + pencereden yükleme ───
-    
-        st.markdown(
-            '<style>'
-            '[data-testid="stFileUploaderDropzone"]{padding:10px 16px !important;min-height:0 !important;}'
-            '[data-testid="stFileUploaderDropzone"] button{padding:5px 16px !important;}'
-            '[data-testid="stFileUploaderDropzoneInstructions"] span{font-size:11px !important;}'
-            '[data-testid="stFileUploaderDropzoneInstructions"] small{font-size:11px !important;}'
-            '</style>',
-            unsafe_allow_html=True
-        )
-
-        col1, col2, col3 = st.columns(3)
-    
-        # Meta bilgileri al
-        stok_meta = None
-        ithalat_meta = None
-        cari_meta = None
-        try:
-            stok_meta = aktif_excel_meta_oku("stok")
-            ithalat_meta = aktif_excel_meta_oku("ithalat")
-            cari_meta = aktif_excel_meta_oku("cari")
-        except Exception:
-            pass
-    
-        def _meta_str(meta):
-            """Meta bilgiyi kısa string'e çevir."""
-            if not meta:
-                return ""
-            kim = (meta.get("son_yukleyen") or "?").capitalize()
-            zaman = (meta.get("yukleme_zamani") or "")[:16]
-            return f"👤 {kim} · 🕐 {zaman}"
-    
-        with col1:
-            st.markdown("**1️⃣ Stok Değeri Raporu**")
-            if st.session_state.aktif_stok_data:
+                ESKİ HATA: sütun 2 sabit okunuyordu. Mikro'nun yeni raporunda sütun 2
+                'Döviz' olduğu için listeye firma adı yerine EUR/TL/USD düşüyordu.
+                Artık sütun BAŞLIK ADINDAN bulunur (aktif_excel ile aynı yöntem)."""
                 try:
-                    usd_v, pzr = st.session_state.aktif_stok_data
-                    # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
-                    # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
-                    _ham_v = float(usd_v or 0)
-                    metrik_satiri([{"label": "✅ Yüklendi (KDV dahil)",
-                                    "value": f"${tr_sayi(_ham_v * 1.20)}",
-                                    "renk": trenk("yesil"),
-                                    "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
+                    from kayranacc.aktif_excel import parse_cari as _pc
+                    _, _detay = _pc(file_bytes)
+                    return list(_detay.get("isimler") or [])
+                except Exception:
+                    pass
+                # Yedek yol: başlığı elle ara
+                import pandas as pd
+                from io import BytesIO
+                try:
+                    df = pd.read_excel(BytesIO(file_bytes), header=None)
+                except Exception:
+                    return []
+                _c = None
+                for r in range(min(8, len(df))):
+                    for c in range(df.shape[1]):
+                        v = df.iloc[r, c]
+                        if pd.notna(v) and "hesap ad" in str(v).strip().lower().replace("ı", "i"):
+                            _c = c
+                            break
+                    if _c is not None:
+                        break
+                if _c is None:
+                    return []
+                isimler = []
+                for i in range(len(df)):
+                    ad = df.iloc[i, _c]
+                    if pd.notna(ad):
+                        s = str(ad).strip()
+                        if (s and s.lower() not in ("nan", "hesap adı", "hesap adi")
+                                and s not in isimler):
+                            isimler.append(s)
+                return isimler
+
+            def parse_cari_excel(file_bytes):
+                """
+                Cari Excel'inden BORÇ ve ALACAK kalemlerini çıkarır.
+                Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
+                - Negatif bakiye = SEN borçlusun (BORÇ)
+                - Pozitif bakiye = SANA borçlu (ALACAK)
+                Returns: dict{'borc': {usd, tl, eur}, 'alacak': {usd, tl, eur}}
+                """
+                import pandas as pd
+                from io import BytesIO
+                df = pd.read_excel(BytesIO(file_bytes), header=None)
+    
+                sonuc = {
+                    "borc": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
+                    "alacak": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
+                }
+                for i in range(1, len(df)):
+                    tip = df.iloc[i, 0]
+                    doviz = df.iloc[i, 3]
+                    bakiye = df.iloc[i, 6]
+                    if pd.notna(tip) and pd.notna(bakiye) and pd.notna(doviz):
+                        try:
+                            bakiye_val = float(bakiye)
+                            if bakiye_val == 0:
+                                continue
+                            yon = "borc" if bakiye_val < 0 else "alacak"
+                            d = str(doviz).strip().upper()
+                            if d == "USD":
+                                sonuc[yon]["usd"] += abs(bakiye_val)
+                            elif d == "TL":
+                                sonuc[yon]["tl"] += abs(bakiye_val)
+                            elif d == "EUR":
+                                sonuc[yon]["eur"] += abs(bakiye_val)
+                        except (ValueError, TypeError):
+                            pass
+                return sonuc
+    
+            # ─── Session state init + Supabase'den önceki kayıtları yükle ───
+            # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.
+            # Bu yüzden kayıtlar sabit "ortak" anahtarıyla saklanır.
+            gercek_kullanici = (st.session_state.get("aktif_kullanici") or "ibrahim").lower().strip()
+            aktif_kul = "ortak"  # Paylaşımlı veri anahtarı
+    
+            # Paylaşımlı veri HER render'da DB'den okunur — böylece başka bir kullanıcı
+            # (pamuk vb.) yüklediğinde diğer oturumlar da anında en güncel veriyi görür.
+            # (Tek seferlik session cache KULLANILMAZ; aksi halde başkasının yüklemesi yansımaz.)
+            if True:
+                # İlk açılış — Supabase'den önceki kayıtları çek (tablo yoksa None döner, sorun değil)
+                # MIGRATION: "ortak" boşsa "ibrahim"den oku ve "ortak"a kopyala (eski veriler için)
+                try:
+                    stok_v = aktif_excel_oku(aktif_kul, "stok")
+                    if stok_v is None:
+                        # Eski "ibrahim" kayıtlarını ara
+                        eski = aktif_excel_oku("ibrahim", "stok")
+                        if eski is not None:
+                            aktif_excel_kaydet(aktif_kul, "stok", eski)
+                            stok_v = eski
+                    st.session_state.aktif_stok_data = stok_v
                 except Exception:
                     st.session_state.aktif_stok_data = None
-    
-        with col2:
-            st.markdown("**2️⃣ İthalat Ödeme Takip**")
-            if st.session_state.aktif_ithalat_data:
                 try:
-                    metrik_satiri([{"label": "✅ Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
-                                    "renk": trenk("yesil"), "alt": _meta_str(ithalat_meta)}])
+                    ith_v = aktif_excel_oku(aktif_kul, "ithalat")
+                    if ith_v is None:
+                        eski = aktif_excel_oku("ibrahim", "ithalat")
+                        if eski is not None:
+                            aktif_excel_kaydet(aktif_kul, "ithalat", eski)
+                            ith_v = eski
+                    st.session_state.aktif_ithalat_data = ith_v
                 except Exception:
                     st.session_state.aktif_ithalat_data = None
-    
-        with col3:
-            st.markdown("**3️⃣ Cari Alacaklar Listesi**")
-            if st.session_state.aktif_cari_data:
                 try:
-                    cari = st.session_state.aktif_cari_data
-                    if isinstance(cari, dict) and "borc" in cari:
-                        _b = cari.get("borc", {}) or {}
-                        _a = cari.get("alacak", {}) or {}
-
-                        def _usd_kar(d):
-                            return (float(d.get("usd") or 0)
-                                    + (float(d.get("tl") or 0) / kur if kur > 0 else 0)
-                                    + float(d.get("eur") or 0) * 1.10)
-                        b_tot = _usd_kar(_b)
-                        a_tot = _usd_kar(_a)
-                        metrik_satiri([
-                            {"label": "Borç", "value": f"${tr_sayi(b_tot)}", "renk": trenk("kirmizi"),
-                             "alt": f"USD {tr_sayi(float(_b.get('usd') or 0))} · TL {tr_sayi(float(_b.get('tl') or 0))} · EUR {tr_sayi(float(_b.get('eur') or 0))}"},
-                            {"label": "Alacak", "value": f"${tr_sayi(a_tot)}", "renk": trenk("yesil"),
-                             "alt": f"USD {tr_sayi(float(_a.get('usd') or 0))} · TL {tr_sayi(float(_a.get('tl') or 0))} · EUR {tr_sayi(float(_a.get('eur') or 0))}"},
-                        ])
-                    elif isinstance(cari, (tuple, list)) and len(cari) == 3:
-                        metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${tr_sayi(float(cari[0]))}",
-                                        "renk": trenk("yesil"), "alt": "USD borç"}])
-                    else:
-                        st.session_state.aktif_cari_data = None
-                    if cari_meta:
-                        st.caption(_meta_str(cari_meta))
+                    cari_v = aktif_excel_oku(aktif_kul, "cari")
+                    if cari_v is None:
+                        eski = aktif_excel_oku("ibrahim", "cari")
+                        if eski is not None:
+                            aktif_excel_kaydet(aktif_kul, "cari", eski)
+                            cari_v = eski
+                    st.session_state.aktif_cari_data = cari_v
                 except Exception:
                     st.session_state.aktif_cari_data = None
     
-
-        # ═══ YÜKLEME DİYALOĞU (yeniden tasarlandı) ═══
-        # Eski tasarımın üç sorunu vardı:
-        #  1) Okuyucular sütunları sabit konumdan alıyordu → Mikro sütun sayısı
-        #     değişince sessizce patlıyordu (27.07 cari dosyası: IndexError).
-        #  2) Dosya "işlendi" damgası DENEMEDEN ÖNCE basılıyordu → başarısız bir
-        #     dosya tekrar seçilse bile hiçbir şey olmuyordu ("yüklenmiyor" hissi).
-        #  3) Ekranda ne olduğu görünmüyordu: işleniyor mu, bitti mi, ne okundu?
-        # Yeni tasarım: adım adım durum + okunan değerlerin gözle doğrulanması.
-        from kayranacc.aktif_excel import (parse_cari as _p_cari,
-                                           parse_ithalat as _p_ithalat,
-                                           parse_stok as _p_stok,
-                                           ExcelBicimHatasi as _BicimHatasi)
-
-        def _durum_rozeti(baslik, meta, yuklu, ozet_satir=""):
-            """Kartın üstündeki tek satırlık durum şeridi."""
-            if yuklu:
-                kim = (meta or {}).get("son_yukleyen") or "?"
-                zaman = ((meta or {}).get("yukleme_zamani") or "")[:16]
-                st.markdown(
-                    f'<div style="background:color-mix(in srgb,var(--k-yesil) 10%,transparent);border-left:3px solid var(--k-yesil);'
-                    f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
-                    f'<span style="color:var(--k-yesil);font-weight:700;font-size:13px">✅ {baslik} yüklü</span>'
-                    f'<span style="color:var(--k-soluk);font-size:13px"> — {ozet_satir}</span><br>'
-                    f'<span style="color:var(--k-silik);font-size:11px">👤 {kim.capitalize()} · 🕐 {zaman or "—"}</span>'
-                    f'</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(
-                    f'<div style="background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border-left:3px solid var(--k-kirmizi);'
-                    f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
-                    f'<span style="color:var(--k-kirmizi);font-weight:700;font-size:13px">⭕ {baslik} henüz yüklenmedi</span>'
-                    f'</div>', unsafe_allow_html=True)
-
-        def _yukle_bloku(no, baslik, anahtar, dosya_key, parser, kaydet_fn,
-                         meta, yuklu, ozet_satir="", yardim=""):
-            """Tek dosya için: durum + seçici + işleme + sonuç gösterimi."""
-            st.markdown(f"##### {no} {baslik}")
-            _durum_rozeti(baslik, meta, yuklu, ozet_satir)
-            if yardim:
-                st.caption(yardim)
-
-            f = st.file_uploader(baslik, type=["xls", "xlsx"], key=dosya_key,
-                                 label_visibility="collapsed")
-            _sonuc_key = f"_sonuc_{anahtar}"
-
-            if f is not None:
-                fid = f"{f.name}:{getattr(f, 'size', 0)}"
-                # DAMGA ARTIK SADECE BAŞARIDA BASILIR → hatalı dosya tekrar denenebilir
-                if st.session_state.get(f"_ok_{anahtar}") != fid:
-                    with st.status(f"📄 {f.name} işleniyor…", expanded=True) as durum:
-                        try:
-                            st.write("1/3 · Dosya okunuyor")
-                            ham = f.read()
-                            st.write("2/3 · Sütunlar çözümleniyor")
-                            deger, detay = parser(ham)
-                            st.write("3/3 · Kaydediliyor")
-                            # Detay ÖNCE yazılır: kaydet_fn içinde (örn. cari
-                            # isimleri) kullanılabilsin diye.
-                            st.session_state[_sonuc_key] = detay
-                            kaydet_fn(deger, ham)
-                            st.session_state[f"_ok_{anahtar}"] = fid
-                            durum.update(label=f"✅ {f.name} yüklendi", state="complete")
-                        except _BicimHatasi as e:
-                            durum.update(label=f"❌ {f.name} okunamadı", state="error")
-                            st.error(f"**Dosya biçimi beklenenden farklı.**\n\n{e}")
-                            st.caption("Dosyayı düzeltip tekrar seçebilirsin — aynı dosyayı "
-                                       "yeniden denemen de mümkün.")
-                        except Exception as e:
-                            durum.update(label=f"❌ {f.name} — beklenmedik hata", state="error")
-                            st.error(f"{type(e).__name__}: {e}")
-
-            # Son başarılı okumanın özeti — gözle doğrulama için
-            _d = st.session_state.get(_sonuc_key)
-            if _d:
-                with st.container(border=True):
-                    st.markdown("**Okunan değerler** (kontrol et)")
-                    for satir in _d.get("ozet", []):
-                        st.markdown(f"- {satir}")
-                    if _d.get("satir"):
-                        st.caption(f"{_d['satir']} satır işlendi")
-                    if _d.get("uyari"):
-                        st.warning(_d["uyari"])
-
-        @st.dialog("📤 Excel Dosyalarını Yükle", width="large")
-        def _dlg_aktif_excel():
-            st.caption("Her dosya için durum ve okunan değerler aşağıda görünür. "
-                       "Yükleme bitince pencereyi kapat — kartlar güncellenir.")
-
-            # ── 1) STOK ──
-            def _kaydet_stok(deger, ham):
-                st.session_state.aktif_stok_data = deger
+                # JSON list olarak gelirse tuple'a çevir (parser tuple bekler)
                 try:
-                    usd_v, pazar = deger
-                    aktif_excel_kaydet(aktif_kul, "stok", [float(usd_v), pazar])
+                    if isinstance(st.session_state.aktif_stok_data, list) and len(st.session_state.aktif_stok_data) == 2:
+                        usd_stok_v, pazar_dict = st.session_state.aktif_stok_data
+                        if not isinstance(pazar_dict, dict):
+                            pazar_dict = {}
+                        st.session_state.aktif_stok_data = (float(usd_stok_v or 0), pazar_dict)
                 except Exception:
-                    pass
-            _stok_ozet = ""
+                    st.session_state.aktif_stok_data = None
+                try:
+                    if isinstance(st.session_state.aktif_cari_data, list) and len(st.session_state.aktif_cari_data) == 3:
+                        st.session_state.aktif_cari_data = tuple(float(x or 0) for x in st.session_state.aktif_cari_data)
+                except Exception:
+                    st.session_state.aktif_cari_data = None
+                st.session_state.aktif_excel_yuklendi = True
+    
+            # ─── Excel yükleme bölümü — kompakt: durum kartları + pencereden yükleme ───
+    
+            st.markdown(
+                '<style>'
+                '[data-testid="stFileUploaderDropzone"]{padding:10px 16px !important;min-height:0 !important;}'
+                '[data-testid="stFileUploaderDropzone"] button{padding:5px 16px !important;}'
+                '[data-testid="stFileUploaderDropzoneInstructions"] span{font-size:11px !important;}'
+                '[data-testid="stFileUploaderDropzoneInstructions"] small{font-size:11px !important;}'
+                '</style>',
+                unsafe_allow_html=True
+            )
+
+            col1, col2, col3 = st.columns(3)
+    
+            # Meta bilgileri al
+            stok_meta = None
+            ithalat_meta = None
+            cari_meta = None
             try:
+                stok_meta = aktif_excel_meta_oku("stok")
+                ithalat_meta = aktif_excel_meta_oku("ithalat")
+                cari_meta = aktif_excel_meta_oku("cari")
+            except Exception:
+                pass
+    
+            def _meta_str(meta):
+                """Meta bilgiyi kısa string'e çevir."""
+                if not meta:
+                    return ""
+                kim = (meta.get("son_yukleyen") or "?").capitalize()
+                zaman = (meta.get("yukleme_zamani") or "")[:16]
+                return f"👤 {kim} · 🕐 {zaman}"
+    
+            with col1:
+                st.markdown("**1️⃣ Stok Değeri Raporu**")
                 if st.session_state.aktif_stok_data:
-                    _hs = float(st.session_state.aktif_stok_data[0])
-                    _stok_ozet = f"ham ${tr_sayi(_hs)} · KDV dahil ${tr_sayi(_hs * 1.20)}"
-            except Exception:
-                pass
-            _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
-                         lambda b: _p_stok(b, parse_stok_excel), _kaydet_stok,
-                         stok_meta, bool(st.session_state.aktif_stok_data), _stok_ozet,
-                         "Mikro → Stok → Stok değeri raporu")
-
-            st.divider()
-
-            # ── 2) İTHALAT ──
-            def _kaydet_ithalat(deger, ham):
-                st.session_state.aktif_ithalat_data = deger
-                try:
-                    aktif_excel_kaydet(aktif_kul, "ithalat", float(deger))
-                except Exception:
-                    pass
-            _ith_ozet = ""
-            try:
-                if st.session_state.aktif_ithalat_data:
-                    _ith_ozet = f"${tr_sayi(float(st.session_state.aktif_ithalat_data))} ödenen"
-            except Exception:
-                pass
-            _yukle_bloku("2️⃣", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
-                         _p_ithalat, _kaydet_ithalat,
-                         ithalat_meta, bool(st.session_state.aktif_ithalat_data), _ith_ozet,
-                         "'Ödenen / USD' sütunu içeren takip dosyası")
-
-            st.divider()
-
-            # ── 3) CARİ ──
-            def _kaydet_cari(deger, ham):
-                st.session_state.aktif_cari_data = deger
-                try:
-                    aktif_excel_kaydet(aktif_kul, "cari", deger)
-                except Exception:
-                    pass
-                try:  # cari isimleri — Satış kanalları için
-                    _isim = (st.session_state.get("_sonuc_cari") or {}).get("isimler")
-                    if not _isim:
-                        _isim = _cari_isimleri_cikar(ham)
-                    if _isim:
-                        aktif_excel_kaydet(aktif_kul, "cari_isimler", _isim)
-                except Exception:
-                    pass
-            _cari_ozet = ""
-            try:
-                _c = st.session_state.aktif_cari_data
-                if isinstance(_c, dict) and "borc" in _c:
-                    _cari_ozet = (f"borç USD {tr_sayi(float(_c['borc'].get('usd') or 0))} · "
-                                  f"alacak USD {tr_sayi(float(_c['alacak'].get('usd') or 0))}")
-            except Exception:
-                pass
-            _yukle_bloku("3️⃣", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
-                         _p_cari, _kaydet_cari,
-                         cari_meta, bool(st.session_state.aktif_cari_data), _cari_ozet,
-                         "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
-
-            st.divider()
-            if st.button("Bitir ve Kartları Güncelle", type="primary",
-                         use_container_width=True, key="dlg_bitir", icon=":material/check:"):
-                st.rerun()
-
-        if st.button("Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True, icon=":material/upload:"):
-            _dlg_aktif_excel()
-
-        st.markdown("---")
-    
-        # ─── Hesaplama ───
-        bankalar = get_bankalar()
-        banka_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
-        banka_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
-        banka_usd_eqv = banka_usd + (banka_tl / kur if kur > 0 else 0)
-    
-        # Stok kalemleri
-        usd_stok, pazaryerleri = 0.0, {}
-        try:
-            if st.session_state.aktif_stok_data:
-                data = st.session_state.aktif_stok_data
-                if isinstance(data, (tuple, list)) and len(data) == 2:
-                    usd_stok = float(data[0] or 0)
-                    pazaryerleri = data[1] if isinstance(data[1], dict) else {}
-        except Exception:
-            usd_stok, pazaryerleri = 0.0, {}
-    
-        # %20 KDV dahil stok (formül: değer × 1.20)
-        stok_marjli = usd_stok * 1.20 if usd_stok else 0
-    
-        # İthalat
-        try:
-            odenen_ithalat = float(st.session_state.aktif_ithalat_data or 0)
-        except (TypeError, ValueError):
-            odenen_ithalat = 0.0
-    
-        # Cari Borçlar ve Alacaklar
-        usd_borc = tl_borc = eur_borc = 0.0
-        usd_alacak = tl_alacak = eur_alacak = 0.0
-        try:
-            if st.session_state.aktif_cari_data:
-                cari = st.session_state.aktif_cari_data
-                # Yeni format: dict{'borc': {...}, 'alacak': {...}}
-                if isinstance(cari, dict) and "borc" in cari:
-                    b = cari.get("borc") or {}
-                    a = cari.get("alacak") or {}
-                    usd_borc = float(b.get("usd") or 0)
-                    tl_borc = float(b.get("tl") or 0)
-                    eur_borc = float(b.get("eur") or 0)
-                    usd_alacak = float(a.get("usd") or 0)
-                    tl_alacak = float(a.get("tl") or 0)
-                    eur_alacak = float(a.get("eur") or 0)
-                # Eski format: tuple/list (sadece borçlar) - geriye dönük uyumluluk
-                elif isinstance(cari, (tuple, list)) and len(cari) == 3:
-                    usd_borc = float(cari[0] or 0)
-                    tl_borc = float(cari[1] or 0)
-                    eur_borc = float(cari[2] or 0)
-        except Exception:
-            usd_borc = tl_borc = eur_borc = 0.0
-            usd_alacak = tl_alacak = eur_alacak = 0.0
-    
-        tl_borc_usd = tl_borc / kur if kur > 0 else 0
-        eur_borc_usd = eur_borc * 1.10 if eur_borc > 0 else 0
-        tl_alacak_usd = tl_alacak / kur if kur > 0 else 0
-        eur_alacak_usd = eur_alacak * 1.10 if eur_alacak > 0 else 0
-        toplam_alacak_usd = usd_alacak + tl_alacak_usd + eur_alacak_usd
-    
-        # ─── Çekler (Sistemden) ───
-        cek_tl, cek_usd, cek_adet_tl, cek_adet_usd = get_cek_toplamlari()
-        cek_tl_usd_eqv = cek_tl / kur if kur > 0 else 0
-        cek_toplam_usd = cek_tl_usd_eqv + cek_usd
-    
-        # ─── Manuel Kalemler (Supabase + session_state fallback) ───
-        # Önce Supabase'den dene, başarısızsa session_state kullan
-        if "manuel_kalemler_local" not in st.session_state:
-            st.session_state.manuel_kalemler_local = []
-    
-        manuel_kalemler_db = []
-        try:
-            manuel_kalemler_db = aktif_manuel_listele(aktif_kul) or []
-            # MIGRATION: "ortak"ta yoksa "ibrahim"den çek ve kopyala
-            if not manuel_kalemler_db:
-                eski_kalemler = aktif_manuel_listele("ibrahim") or []
-                for kalem in eski_kalemler:
                     try:
-                        aktif_manuel_ekle(
-                            aktif_kul,
-                            kalem.get("aciklama", ""),
-                            float(kalem.get("tutar") or 0),
-                            kalem.get("para_birimi") or "USD",
-                            kalem.get("tip") or "ekle"
-                        )
+                        usd_v, pzr = st.session_state.aktif_stok_data
+                        # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
+                        # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
+                        _ham_v = float(usd_v or 0)
+                        metrik_satiri([{"label": "✅ Yüklendi (KDV dahil)",
+                                        "value": f"${tr_sayi(_ham_v * 1.20)}",
+                                        "renk": trenk("yesil"),
+                                        "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
+                    except Exception:
+                        st.session_state.aktif_stok_data = None
+    
+            with col2:
+                st.markdown("**2️⃣ İthalat Ödeme Takip**")
+                if st.session_state.aktif_ithalat_data:
+                    try:
+                        metrik_satiri([{"label": "✅ Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
+                                        "renk": trenk("yesil"), "alt": _meta_str(ithalat_meta)}])
+                    except Exception:
+                        st.session_state.aktif_ithalat_data = None
+    
+            with col3:
+                st.markdown("**3️⃣ Cari Alacaklar Listesi**")
+                if st.session_state.aktif_cari_data:
+                    try:
+                        cari = st.session_state.aktif_cari_data
+                        if isinstance(cari, dict) and "borc" in cari:
+                            _b = cari.get("borc", {}) or {}
+                            _a = cari.get("alacak", {}) or {}
+
+                            def _usd_kar(d):
+                                return (float(d.get("usd") or 0)
+                                        + (float(d.get("tl") or 0) / kur if kur > 0 else 0)
+                                        + float(d.get("eur") or 0) * 1.10)
+                            b_tot = _usd_kar(_b)
+                            a_tot = _usd_kar(_a)
+                            metrik_satiri([
+                                {"label": "Borç", "value": f"${tr_sayi(b_tot)}", "renk": trenk("kirmizi"),
+                                 "alt": f"USD {tr_sayi(float(_b.get('usd') or 0))} · TL {tr_sayi(float(_b.get('tl') or 0))} · EUR {tr_sayi(float(_b.get('eur') or 0))}"},
+                                {"label": "Alacak", "value": f"${tr_sayi(a_tot)}", "renk": trenk("yesil"),
+                                 "alt": f"USD {tr_sayi(float(_a.get('usd') or 0))} · TL {tr_sayi(float(_a.get('tl') or 0))} · EUR {tr_sayi(float(_a.get('eur') or 0))}"},
+                            ])
+                        elif isinstance(cari, (tuple, list)) and len(cari) == 3:
+                            metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${tr_sayi(float(cari[0]))}",
+                                            "renk": trenk("yesil"), "alt": "USD borç"}])
+                        else:
+                            st.session_state.aktif_cari_data = None
+                        if cari_meta:
+                            st.caption(_meta_str(cari_meta))
+                    except Exception:
+                        st.session_state.aktif_cari_data = None
+    
+
+            # ═══ YÜKLEME DİYALOĞU (yeniden tasarlandı) ═══
+            # Eski tasarımın üç sorunu vardı:
+            #  1) Okuyucular sütunları sabit konumdan alıyordu → Mikro sütun sayısı
+            #     değişince sessizce patlıyordu (27.07 cari dosyası: IndexError).
+            #  2) Dosya "işlendi" damgası DENEMEDEN ÖNCE basılıyordu → başarısız bir
+            #     dosya tekrar seçilse bile hiçbir şey olmuyordu ("yüklenmiyor" hissi).
+            #  3) Ekranda ne olduğu görünmüyordu: işleniyor mu, bitti mi, ne okundu?
+            # Yeni tasarım: adım adım durum + okunan değerlerin gözle doğrulanması.
+            from kayranacc.aktif_excel import (parse_cari as _p_cari,
+                                               parse_ithalat as _p_ithalat,
+                                               parse_stok as _p_stok,
+                                               ExcelBicimHatasi as _BicimHatasi)
+
+            def _durum_rozeti(baslik, meta, yuklu, ozet_satir=""):
+                """Kartın üstündeki tek satırlık durum şeridi."""
+                if yuklu:
+                    kim = (meta or {}).get("son_yukleyen") or "?"
+                    zaman = ((meta or {}).get("yukleme_zamani") or "")[:16]
+                    st.markdown(
+                        f'<div style="background:color-mix(in srgb,var(--k-yesil) 10%,transparent);border-left:3px solid var(--k-yesil);'
+                        f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
+                        f'<span style="color:var(--k-yesil);font-weight:700;font-size:13px">✅ {baslik} yüklü</span>'
+                        f'<span style="color:var(--k-soluk);font-size:13px"> — {ozet_satir}</span><br>'
+                        f'<span style="color:var(--k-silik);font-size:11px">👤 {kim.capitalize()} · 🕐 {zaman or "—"}</span>'
+                        f'</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        f'<div style="background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border-left:3px solid var(--k-kirmizi);'
+                        f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
+                        f'<span style="color:var(--k-kirmizi);font-weight:700;font-size:13px">⭕ {baslik} henüz yüklenmedi</span>'
+                        f'</div>', unsafe_allow_html=True)
+
+            def _yukle_bloku(no, baslik, anahtar, dosya_key, parser, kaydet_fn,
+                             meta, yuklu, ozet_satir="", yardim=""):
+                """Tek dosya için: durum + seçici + işleme + sonuç gösterimi."""
+                st.markdown(f"##### {no} {baslik}")
+                _durum_rozeti(baslik, meta, yuklu, ozet_satir)
+                if yardim:
+                    st.caption(yardim)
+
+                f = st.file_uploader(baslik, type=["xls", "xlsx"], key=dosya_key,
+                                     label_visibility="collapsed")
+                _sonuc_key = f"_sonuc_{anahtar}"
+
+                if f is not None:
+                    fid = f"{f.name}:{getattr(f, 'size', 0)}"
+                    # DAMGA ARTIK SADECE BAŞARIDA BASILIR → hatalı dosya tekrar denenebilir
+                    if st.session_state.get(f"_ok_{anahtar}") != fid:
+                        with st.status(f"📄 {f.name} işleniyor…", expanded=True) as durum:
+                            try:
+                                st.write("1/3 · Dosya okunuyor")
+                                ham = f.read()
+                                st.write("2/3 · Sütunlar çözümleniyor")
+                                deger, detay = parser(ham)
+                                st.write("3/3 · Kaydediliyor")
+                                # Detay ÖNCE yazılır: kaydet_fn içinde (örn. cari
+                                # isimleri) kullanılabilsin diye.
+                                st.session_state[_sonuc_key] = detay
+                                kaydet_fn(deger, ham)
+                                st.session_state[f"_ok_{anahtar}"] = fid
+                                durum.update(label=f"✅ {f.name} yüklendi", state="complete")
+                            except _BicimHatasi as e:
+                                durum.update(label=f"❌ {f.name} okunamadı", state="error")
+                                st.error(f"**Dosya biçimi beklenenden farklı.**\n\n{e}")
+                                st.caption("Dosyayı düzeltip tekrar seçebilirsin — aynı dosyayı "
+                                           "yeniden denemen de mümkün.")
+                            except Exception as e:
+                                durum.update(label=f"❌ {f.name} — beklenmedik hata", state="error")
+                                st.error(f"{type(e).__name__}: {e}")
+
+                # Son başarılı okumanın özeti — gözle doğrulama için
+                _d = st.session_state.get(_sonuc_key)
+                if _d:
+                    with st.container(border=True):
+                        st.markdown("**Okunan değerler** (kontrol et)")
+                        for satir in _d.get("ozet", []):
+                            st.markdown(f"- {satir}")
+                        if _d.get("satir"):
+                            st.caption(f"{_d['satir']} satır işlendi")
+                        if _d.get("uyari"):
+                            st.warning(_d["uyari"])
+
+            @st.dialog("📤 Excel Dosyalarını Yükle", width="large")
+            def _dlg_aktif_excel():
+                st.caption("Her dosya için durum ve okunan değerler aşağıda görünür. "
+                           "Yükleme bitince pencereyi kapat — kartlar güncellenir.")
+
+                # ── 1) STOK ──
+                def _kaydet_stok(deger, ham):
+                    st.session_state.aktif_stok_data = deger
+                    try:
+                        usd_v, pazar = deger
+                        aktif_excel_kaydet(aktif_kul, "stok", [float(usd_v), pazar])
                     except Exception:
                         pass
-                # Migration sonrası tekrar oku
-                if eski_kalemler:
-                    manuel_kalemler_db = aktif_manuel_listele(aktif_kul) or []
-        except Exception:
-            manuel_kalemler_db = []
-    
-        # Eğer Supabase'den veri geldiyse onu kullan, yoksa session'dan
-        if manuel_kalemler_db:
-            manuel_kalemler = manuel_kalemler_db
-        else:
-            manuel_kalemler = st.session_state.manuel_kalemler_local
-    
-        manuel_ekle_toplam = 0.0
-        manuel_cikar_toplam = 0.0
-        for k in manuel_kalemler:
-            try:
-                tutar = float(k.get("tutar") or 0)
-                pb = (k.get("para_birimi") or "USD").upper()
-                tutar_usd = tutar if pb == "USD" else (tutar / kur if kur > 0 else 0)
-                if k.get("tip") == "ekle":
-                    manuel_ekle_toplam += tutar_usd
-                else:
-                    manuel_cikar_toplam += tutar_usd
-            except (TypeError, ValueError):
-                pass
-    
-        # ─── HAVUZ BÜTÇE KALDIRILDI (27.07.2026) ───
-        # Kayıt türü kullanımdan çıkarıldı; aktiflere artık girmiyor.
-        havuz_butce_usd = 0.0
+                _stok_ozet = ""
+                try:
+                    if st.session_state.aktif_stok_data:
+                        _hs = float(st.session_state.aktif_stok_data[0])
+                        _stok_ozet = f"ham ${tr_sayi(_hs)} · KDV dahil ${tr_sayi(_hs * 1.20)}"
+                except Exception:
+                    pass
+                _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
+                             lambda b: _p_stok(b, parse_stok_excel), _kaydet_stok,
+                             stok_meta, bool(st.session_state.aktif_stok_data), _stok_ozet,
+                             "Mikro → Stok → Stok değeri raporu")
 
-        # TOPLAM AKTİFLER
-        toplam_aktif = (
-            stok_marjli
-            + odenen_ithalat
-            + banka_usd_eqv
-            + toplam_alacak_usd
-            + manuel_ekle_toplam
-            + havuz_butce_usd
-            - usd_borc
-            - tl_borc_usd
-            - eur_borc_usd
-            - cek_toplam_usd
-            - manuel_cikar_toplam
-        )
-    
-        # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
-        # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
-        # yalnızca Yönetim Panosu (P&L) navigasyonunda görüntülenir.
-        _snap_ok = False
-        _snap_hata = ""
-        try:
-            import datetime as _dt_acc
-            _snap_ok = set_ayar("toplam_aktif_snapshot", {
-                "toplam": round(toplam_aktif, 2),
-                "kur": kur,
-                "tarih": str(_dt_acc.date.today()),
-                "stok": round(stok_marjli, 2),
-                "ithalat": round(odenen_ithalat, 2),
-                "banka": round(banka_usd_eqv, 2),
-                "alacak": round(toplam_alacak_usd, 2),
-                "borc": round(usd_borc + tl_borc_usd + eur_borc_usd, 2),
-                "cek": round(cek_toplam_usd, 2),
-                "manuel_ekle": round(manuel_ekle_toplam, 2),
-                "manuel_cikar": round(manuel_cikar_toplam, 2),
-                "havuz": round(havuz_butce_usd, 2),
-            })
-        except Exception as _e:
-            _snap_ok = False
-            _snap_hata = str(_e)[:200]
-        if _snap_ok:
-            st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
-            # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
-            st.markdown(
-                f'<div style="background:linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5);border-radius:16px;'
-                f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
-                f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.78);margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
-                f'<div style="font-size:23px;font-weight:700;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
-                f'<div style="font-size:13px;color:rgba(255,255,255,0.78);margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
-                f'</div>', unsafe_allow_html=True)
-            # Kısa hesap dökümü
-            _dk = [
-                ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
-                ("🏦 Banka (USD)", banka_usd_eqv, "+"), ("📥 Cari alacak", toplam_alacak_usd, "+"),
-                ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
-                ("📤 Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
-                ("🧾 Çekler", cek_toplam_usd, "−"), ("➖ Manuel çıkarma", manuel_cikar_toplam, "−"),
-            ]
-            _chips = "".join(
-                f'<span style="display:inline-flex;gap:4px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
-                f'border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent);border-radius:8px;padding:4px 8px;font-size:13px;margin:4px 4px 4px 0">'
-                f'<span style="color:{trenk("yesil") if y=="+" else trenk("kirmizi")}">{y}</span>'
-                f'<span style="color:var(--k-soluk)">{k}</span>'
-                f'<b style="color:var(--k-metin);font-family:monospace">${tr_sayi(float(v or 0))}</b></span>'
-                for k, v, y in _dk if float(v or 0))
-            st.markdown(f'<div style="display:flex;flex-wrap:wrap;margin-bottom:8px">{_chips}</div>',
-                        unsafe_allow_html=True)
-        else:
-            _h = st.session_state.get("_son_ayar_hata", "") or _snap_hata
-            st.error("⚠️ Veriler işlendi ama sonuç **kaydedilemedi** — bu yüzden Yönetim Panosu'na yansımıyor. "
-                     "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur.")
-            if _h:
-                st.code(_h, language="text")
-                st.caption("☝️ Bu hata mesajını yöneticine ilet — kesin çözüm için bu lazım.")
+                st.divider()
 
-        # ─── Manuel Ekleme/Çıkarma ───
-        st.markdown("---")
-        st.markdown("### ✏️ Manuel Ekleme / Çıkarma")
-        st.caption("Excel'lerde olmayan ek kalemler için manuel giriş yap. Kayıtlar kalıcıdır.")
-    
-        @st.dialog("➕ Yeni Kalem Ekle", width="large")
-        def _dlg_yeni_kalem():
-            col_t, col_a, col_tu, col_pb, col_b = st.columns([1, 3, 1.5, 1, 1])
-            with col_t:
-                yeni_tip = st.selectbox("Tip", ["ekle", "cikar"],
-                                         format_func=lambda x: "➕ Ekle" if x == "ekle" else "➖ Çıkar",
-                                         key="manuel_tip")
-            with col_a:
-                yeni_aciklama = st.text_input("Açıklama", key="manuel_aciklama",
-                                               placeholder="Örn: Kasa nakit, Yatırım fonu, Henüz fatura kesilmemiş alacak")
-            with col_tu:
-                yeni_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f", key="manuel_tutar")
-            with col_pb:
-                yeni_pb = st.selectbox("PB", ["USD", "TL"], key="manuel_pb")
-            with col_b:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Ekle", type="primary", use_container_width=True, key="manuel_kaydet", icon=":material/save:"):
-                    if not yeni_aciklama.strip():
-                        st.error("Açıklama boş olamaz")
-                    elif yeni_tutar <= 0:
-                        st.error("Tutar 0'dan büyük olmalı")
-                    else:
-                        # Önce Supabase'e kaydetmeyi dene
-                        supabase_basarili = False
-                        try:
-                            supabase_basarili = aktif_manuel_ekle(aktif_kul, yeni_aciklama.strip(), yeni_tutar, yeni_pb, yeni_tip)
-                        except Exception:
-                            supabase_basarili = False
-    
-                        # Supabase başarısızsa session_state'e ekle (fallback)
-                        if not supabase_basarili:
-                            import time as _time
-                            st.session_state.manuel_kalemler_local.append({
-                                "id": f"local_{int(_time.time() * 1000)}",
-                                "kullanici": aktif_kul,
-                                "aciklama": yeni_aciklama.strip(),
-                                "tutar": float(yeni_tutar),
-                                "para_birimi": yeni_pb,
-                                "tip": yeni_tip,
-                                "olusturuldu": str(tr_today()),
-                            })
-                            st.warning("⚠️ Supabase'e kaydedilemedi (tablo yok), oturum belleğine kaydedildi.")
-                        else:
-                            st.success("✅ Kalem eklendi (kalıcı)")
-                        st.rerun()
-        if st.button("Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True, icon=":material/add:"):
-            _dlg_yeni_kalem()
+                # ── 2) İTHALAT ──
+                def _kaydet_ithalat(deger, ham):
+                    st.session_state.aktif_ithalat_data = deger
+                    try:
+                        aktif_excel_kaydet(aktif_kul, "ithalat", float(deger))
+                    except Exception:
+                        pass
+                _ith_ozet = ""
+                try:
+                    if st.session_state.aktif_ithalat_data:
+                        _ith_ozet = f"${tr_sayi(float(st.session_state.aktif_ithalat_data))} ödenen"
+                except Exception:
+                    pass
+                _yukle_bloku("2️⃣", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
+                             _p_ithalat, _kaydet_ithalat,
+                             ithalat_meta, bool(st.session_state.aktif_ithalat_data), _ith_ozet,
+                             "'Ödenen / USD' sütunu içeren takip dosyası")
 
-        # ─── Kayıtlı bir kalemi REVİZE et ───
-        # Kalem silinip yeniden eklenmez; id ve oluşturma tarihi korunur.
-        @st.dialog("✏️ Kalemi Düzenle", width="large")
-        def _dlg_kalem_duzenle(_k):
-            _kid = _k["id"]
-            _yerel = isinstance(_kid, str) and str(_kid).startswith("local_")
-            st.caption(f"📅 Oluşturulma: {(_k.get('olusturuldu') or '')[:10]}"
-                       + ("  ·  ⚠️ oturum belleğinde (kalıcı değil)" if _yerel else ""))
-            d1, d2, d3 = st.columns([1, 3, 1])
-            with d1:
-                _d_tip = st.selectbox(
-                    "Tip", ["ekle", "cikar"],
-                    index=0 if (_k.get("tip", "ekle") == "ekle") else 1,
-                    format_func=lambda x: "➕ Ekle" if x == "ekle" else "➖ Çıkar",
-                    key=f"duz_tip_{_kid}")
-            with d2:
-                _d_ack = st.text_input("Açıklama", value=_k.get("aciklama", "") or "",
-                                       key=f"duz_ack_{_kid}")
-            with d3:
-                _d_pb = st.selectbox(
-                    "PB", ["USD", "TL"],
-                    index=0 if (_k.get("para_birimi", "USD") or "USD").upper() == "USD" else 1,
-                    key=f"duz_pb_{_kid}")
-            _d_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f",
-                                       value=float(_k.get("tutar") or 0),
-                                       key=f"duz_tutar_{_kid}")
+                st.divider()
 
-            _eski = float(_k.get("tutar") or 0)
-            if abs(_d_tutar - _eski) > 0.0001:
-                _fark = _d_tutar - _eski
-                st.info(f"Tutar {tr_sayi(_eski, 2)} → **{tr_sayi(_d_tutar, 2)}**  "
-                        f"({'+' if _fark > 0 else ''}{tr_sayi(_fark, 2)})")
+                # ── 3) CARİ ──
+                def _kaydet_cari(deger, ham):
+                    st.session_state.aktif_cari_data = deger
+                    try:
+                        aktif_excel_kaydet(aktif_kul, "cari", deger)
+                    except Exception:
+                        pass
+                    try:  # cari isimleri — Satış kanalları için
+                        _isim = (st.session_state.get("_sonuc_cari") or {}).get("isimler")
+                        if not _isim:
+                            _isim = _cari_isimleri_cikar(ham)
+                        if _isim:
+                            aktif_excel_kaydet(aktif_kul, "cari_isimler", _isim)
+                    except Exception:
+                        pass
+                _cari_ozet = ""
+                try:
+                    _c = st.session_state.aktif_cari_data
+                    if isinstance(_c, dict) and "borc" in _c:
+                        _cari_ozet = (f"borç USD {tr_sayi(float(_c['borc'].get('usd') or 0))} · "
+                                      f"alacak USD {tr_sayi(float(_c['alacak'].get('usd') or 0))}")
+                except Exception:
+                    pass
+                _yukle_bloku("3️⃣", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
+                             _p_cari, _kaydet_cari,
+                             cari_meta, bool(st.session_state.aktif_cari_data), _cari_ozet,
+                             "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
 
-            b1, b2 = st.columns([1, 1])
-            if b1.button("Değişiklikleri Kaydet", type="primary",
-                         use_container_width=True, key=f"duz_kaydet_{_kid}", icon=":material/save:"):
-                if not (_d_ack or "").strip():
-                    st.error("Açıklama boş olamaz.")
-                elif _d_tutar <= 0:
-                    st.error("Tutar 0'dan büyük olmalı.")
-                else:
-                    if _yerel:
-                        for _kk in st.session_state.manuel_kalemler_local:
-                            if _kk.get("id") == _kid:
-                                _kk.update({"aciklama": _d_ack.strip(),
-                                            "tutar": float(_d_tutar),
-                                            "para_birimi": _d_pb, "tip": _d_tip})
-                        st.session_state["_manuel_mesaj"] = "✅ Kalem güncellendi (oturum belleği)."
-                    else:
-                        _ok = False
-                        try:
-                            _ok = aktif_manuel_guncelle(_kid, _d_ack.strip(), _d_tutar,
-                                                        _d_pb, _d_tip)
-                        except Exception:
-                            _ok = False
-                        st.session_state["_manuel_mesaj"] = (
-                            "✅ Kalem güncellendi." if _ok
-                            else "⚠️ Güncellenemedi — kayıt değişmedi.")
-                    st.session_state.pop("_manuel_duzenle_id", None)
+                st.divider()
+                if st.button("Bitir ve Kartları Güncelle", type="primary",
+                             use_container_width=True, key="dlg_bitir", icon=":material/check:"):
                     st.rerun()
-            if b2.button("Vazgeç", use_container_width=True, key=f"duz_vazgec_{_kid}"):
-                st.session_state.pop("_manuel_duzenle_id", None)
-                st.rerun()
 
-        _mmsg = st.session_state.pop("_manuel_mesaj", None)
-        if _mmsg:
-            (st.success if _mmsg.startswith("✅") else st.warning)(_mmsg)
+            if st.button("Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True, icon=":material/upload:"):
+                _dlg_aktif_excel()
 
-        # Düzenleme isteği varsa ilgili kalemi bul ve diyaloğu aç
-        _duz_id = st.session_state.pop("_manuel_duzenle_id", None)
-        if _duz_id is not None:
-            _hedef_k = next((x for x in (manuel_kalemler or [])
-                             if str(x.get("id")) == str(_duz_id)), None)
-            if _hedef_k:
-                _dlg_kalem_duzenle(_hedef_k)
+            st.markdown("---")
     
-        # Mevcut kalemleri listele
-        if manuel_kalemler:
-            st.markdown(f"**📋 Kayıtlı Kalemler ({len(manuel_kalemler)})**")
+            # ─── Hesaplama ───
+            bankalar = get_bankalar()
+            banka_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
+            banka_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
+            banka_usd_eqv = banka_usd + (banka_tl / kur if kur > 0 else 0)
+    
+            # Stok kalemleri
+            usd_stok, pazaryerleri = 0.0, {}
+            try:
+                if st.session_state.aktif_stok_data:
+                    data = st.session_state.aktif_stok_data
+                    if isinstance(data, (tuple, list)) and len(data) == 2:
+                        usd_stok = float(data[0] or 0)
+                        pazaryerleri = data[1] if isinstance(data[1], dict) else {}
+            except Exception:
+                usd_stok, pazaryerleri = 0.0, {}
+    
+            # %20 KDV dahil stok (formül: değer × 1.20)
+            stok_marjli = usd_stok * 1.20 if usd_stok else 0
+    
+            # İthalat
+            try:
+                odenen_ithalat = float(st.session_state.aktif_ithalat_data or 0)
+            except (TypeError, ValueError):
+                odenen_ithalat = 0.0
+    
+            # Cari Borçlar ve Alacaklar
+            usd_borc = tl_borc = eur_borc = 0.0
+            usd_alacak = tl_alacak = eur_alacak = 0.0
+            try:
+                if st.session_state.aktif_cari_data:
+                    cari = st.session_state.aktif_cari_data
+                    # Yeni format: dict{'borc': {...}, 'alacak': {...}}
+                    if isinstance(cari, dict) and "borc" in cari:
+                        b = cari.get("borc") or {}
+                        a = cari.get("alacak") or {}
+                        usd_borc = float(b.get("usd") or 0)
+                        tl_borc = float(b.get("tl") or 0)
+                        eur_borc = float(b.get("eur") or 0)
+                        usd_alacak = float(a.get("usd") or 0)
+                        tl_alacak = float(a.get("tl") or 0)
+                        eur_alacak = float(a.get("eur") or 0)
+                    # Eski format: tuple/list (sadece borçlar) - geriye dönük uyumluluk
+                    elif isinstance(cari, (tuple, list)) and len(cari) == 3:
+                        usd_borc = float(cari[0] or 0)
+                        tl_borc = float(cari[1] or 0)
+                        eur_borc = float(cari[2] or 0)
+            except Exception:
+                usd_borc = tl_borc = eur_borc = 0.0
+                usd_alacak = tl_alacak = eur_alacak = 0.0
+    
+            tl_borc_usd = tl_borc / kur if kur > 0 else 0
+            eur_borc_usd = eur_borc * 1.10 if eur_borc > 0 else 0
+            tl_alacak_usd = tl_alacak / kur if kur > 0 else 0
+            eur_alacak_usd = eur_alacak * 1.10 if eur_alacak > 0 else 0
+            toplam_alacak_usd = usd_alacak + tl_alacak_usd + eur_alacak_usd
+    
+            # ─── Çekler (Sistemden) ───
+            cek_tl, cek_usd, cek_adet_tl, cek_adet_usd = get_cek_toplamlari()
+            cek_tl_usd_eqv = cek_tl / kur if kur > 0 else 0
+            cek_toplam_usd = cek_tl_usd_eqv + cek_usd
+    
+            # ─── Manuel Kalemler (Supabase + session_state fallback) ───
+            # Önce Supabase'den dene, başarısızsa session_state kullan
+            if "manuel_kalemler_local" not in st.session_state:
+                st.session_state.manuel_kalemler_local = []
+    
+            manuel_kalemler_db = []
+            try:
+                manuel_kalemler_db = aktif_manuel_listele(aktif_kul) or []
+                # MIGRATION: "ortak"ta yoksa "ibrahim"den çek ve kopyala
+                if not manuel_kalemler_db:
+                    eski_kalemler = aktif_manuel_listele("ibrahim") or []
+                    for kalem in eski_kalemler:
+                        try:
+                            aktif_manuel_ekle(
+                                aktif_kul,
+                                kalem.get("aciklama", ""),
+                                float(kalem.get("tutar") or 0),
+                                kalem.get("para_birimi") or "USD",
+                                kalem.get("tip") or "ekle"
+                            )
+                        except Exception:
+                            pass
+                    # Migration sonrası tekrar oku
+                    if eski_kalemler:
+                        manuel_kalemler_db = aktif_manuel_listele(aktif_kul) or []
+            except Exception:
+                manuel_kalemler_db = []
+    
+            # Eğer Supabase'den veri geldiyse onu kullan, yoksa session'dan
+            if manuel_kalemler_db:
+                manuel_kalemler = manuel_kalemler_db
+            else:
+                manuel_kalemler = st.session_state.manuel_kalemler_local
+    
+            manuel_ekle_toplam = 0.0
+            manuel_cikar_toplam = 0.0
             for k in manuel_kalemler:
-                tip = k.get("tip", "ekle")
-                renk = trenk("yesil") if tip == "ekle" else trenk("kirmizi")
-                isaret = "+" if tip == "ekle" else "-"
-                sembol = "$" if (k.get("para_birimi") or "USD").upper() == "USD" else "₺"
-                tutar_v = float(k.get("tutar") or 0)
-                col_a, col_b, col_c = st.columns([10, 1, 1])
+                try:
+                    tutar = float(k.get("tutar") or 0)
+                    pb = (k.get("para_birimi") or "USD").upper()
+                    tutar_usd = tutar if pb == "USD" else (tutar / kur if kur > 0 else 0)
+                    if k.get("tip") == "ekle":
+                        manuel_ekle_toplam += tutar_usd
+                    else:
+                        manuel_cikar_toplam += tutar_usd
+                except (TypeError, ValueError):
+                    pass
+    
+            # ─── HAVUZ BÜTÇE KALDIRILDI (27.07.2026) ───
+            # Kayıt türü kullanımdan çıkarıldı; aktiflere artık girmiyor.
+            havuz_butce_usd = 0.0
+
+            # TOPLAM AKTİFLER
+            toplam_aktif = (
+                stok_marjli
+                + odenen_ithalat
+                + banka_usd_eqv
+                + toplam_alacak_usd
+                + manuel_ekle_toplam
+                + havuz_butce_usd
+                - usd_borc
+                - tl_borc_usd
+                - eur_borc_usd
+                - cek_toplam_usd
+                - manuel_cikar_toplam
+            )
+    
+            # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
+            # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
+            # yalnızca Yönetim Panosu (P&L) navigasyonunda görüntülenir.
+            _snap_ok = False
+            _snap_hata = ""
+            try:
+                import datetime as _dt_acc
+                _snap_ok = set_ayar("toplam_aktif_snapshot", {
+                    "toplam": round(toplam_aktif, 2),
+                    "kur": kur,
+                    "tarih": str(_dt_acc.date.today()),
+                    "stok": round(stok_marjli, 2),
+                    "ithalat": round(odenen_ithalat, 2),
+                    "banka": round(banka_usd_eqv, 2),
+                    "alacak": round(toplam_alacak_usd, 2),
+                    "borc": round(usd_borc + tl_borc_usd + eur_borc_usd, 2),
+                    "cek": round(cek_toplam_usd, 2),
+                    "manuel_ekle": round(manuel_ekle_toplam, 2),
+                    "manuel_cikar": round(manuel_cikar_toplam, 2),
+                    "havuz": round(havuz_butce_usd, 2),
+                })
+            except Exception as _e:
+                _snap_ok = False
+                _snap_hata = str(_e)[:200]
+            if _snap_ok:
+                st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
+                # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
+                st.markdown(
+                    f'<div style="background:linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5);border-radius:16px;'
+                    f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
+                    f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.78);margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
+                    f'<div style="font-size:23px;font-weight:700;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
+                    f'<div style="font-size:13px;color:rgba(255,255,255,0.78);margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
+                    f'</div>', unsafe_allow_html=True)
+                # Kısa hesap dökümü
+                _dk = [
+                    ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
+                    ("🏦 Banka (USD)", banka_usd_eqv, "+"), ("📥 Cari alacak", toplam_alacak_usd, "+"),
+                    ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
+                    ("📤 Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
+                    ("🧾 Çekler", cek_toplam_usd, "−"), ("➖ Manuel çıkarma", manuel_cikar_toplam, "−"),
+                ]
+                _chips = "".join(
+                    f'<span style="display:inline-flex;gap:4px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
+                    f'border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent);border-radius:8px;padding:4px 8px;font-size:13px;margin:4px 4px 4px 0">'
+                    f'<span style="color:{trenk("yesil") if y=="+" else trenk("kirmizi")}">{y}</span>'
+                    f'<span style="color:var(--k-soluk)">{k}</span>'
+                    f'<b style="color:var(--k-metin);font-family:monospace">${tr_sayi(float(v or 0))}</b></span>'
+                    for k, v, y in _dk if float(v or 0))
+                st.markdown(f'<div style="display:flex;flex-wrap:wrap;margin-bottom:8px">{_chips}</div>',
+                            unsafe_allow_html=True)
+            else:
+                _h = st.session_state.get("_son_ayar_hata", "") or _snap_hata
+                st.error("⚠️ Veriler işlendi ama sonuç **kaydedilemedi** — bu yüzden Yönetim Panosu'na yansımıyor. "
+                         "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur.")
+                if _h:
+                    st.code(_h, language="text")
+                    st.caption("☝️ Bu hata mesajını yöneticine ilet — kesin çözüm için bu lazım.")
+
+            # ─── Manuel Ekleme/Çıkarma ───
+            st.markdown("---")
+            st.markdown("### ✏️ Manuel Ekleme / Çıkarma")
+            st.caption("Excel'lerde olmayan ek kalemler için manuel giriş yap. Kayıtlar kalıcıdır.")
+    
+            @st.dialog("➕ Yeni Kalem Ekle", width="large")
+            def _dlg_yeni_kalem():
+                col_t, col_a, col_tu, col_pb, col_b = st.columns([1, 3, 1.5, 1, 1])
+                with col_t:
+                    yeni_tip = st.selectbox("Tip", ["ekle", "cikar"],
+                                             format_func=lambda x: "➕ Ekle" if x == "ekle" else "➖ Çıkar",
+                                             key="manuel_tip")
                 with col_a:
-                    st.markdown(
-                        f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
-                        f'<div><b style="color:var(--k-metin);font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:var(--k-soluk)">📅 {(k.get("olusturuldu") or "")[:10]}</div></div>'
-                        f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
+                    yeni_aciklama = st.text_input("Açıklama", key="manuel_aciklama",
+                                                   placeholder="Örn: Kasa nakit, Yatırım fonu, Henüz fatura kesilmemiş alacak")
+                with col_tu:
+                    yeni_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f", key="manuel_tutar")
+                with col_pb:
+                    yeni_pb = st.selectbox("PB", ["USD", "TL"], key="manuel_pb")
                 with col_b:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("", key=f"manuel_duzenle_{k['id']}",
-                                 help="Tutarı / açıklamayı revize et", icon=":material/edit:"):
-                        st.session_state["_manuel_duzenle_id"] = k["id"]
-                        st.rerun()
-                with col_c:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("", key=f"manuel_sil_{k['id']}", help="Sil", icon=":material/delete:"):
-                        kalem_id = k['id']
-                        # Local kalem ise (id "local_" ile başlar) session'dan sil
-                        if isinstance(kalem_id, str) and kalem_id.startswith("local_"):
-                            st.session_state.manuel_kalemler_local = [
-                                kk for kk in st.session_state.manuel_kalemler_local
-                                if kk.get("id") != kalem_id
-                            ]
+                    if st.button("Ekle", type="primary", use_container_width=True, key="manuel_kaydet", icon=":material/save:"):
+                        if not yeni_aciklama.strip():
+                            st.error("Açıklama boş olamaz")
+                        elif yeni_tutar <= 0:
+                            st.error("Tutar 0'dan büyük olmalı")
                         else:
+                            # Önce Supabase'e kaydetmeyi dene
+                            supabase_basarili = False
                             try:
-                                aktif_manuel_sil(kalem_id)
+                                supabase_basarili = aktif_manuel_ekle(aktif_kul, yeni_aciklama.strip(), yeni_tutar, yeni_pb, yeni_tip)
                             except Exception:
-                                pass
+                                supabase_basarili = False
+    
+                            # Supabase başarısızsa session_state'e ekle (fallback)
+                            if not supabase_basarili:
+                                import time as _time
+                                st.session_state.manuel_kalemler_local.append({
+                                    "id": f"local_{int(_time.time() * 1000)}",
+                                    "kullanici": aktif_kul,
+                                    "aciklama": yeni_aciklama.strip(),
+                                    "tutar": float(yeni_tutar),
+                                    "para_birimi": yeni_pb,
+                                    "tip": yeni_tip,
+                                    "olusturuldu": str(tr_today()),
+                                })
+                                st.warning("⚠️ Supabase'e kaydedilemedi (tablo yok), oturum belleğine kaydedildi.")
+                            else:
+                                st.success("✅ Kalem eklendi (kalıcı)")
+                            st.rerun()
+            if st.button("Yeni Kalem Ekle", key="btn_acc_kalem", use_container_width=True, icon=":material/add:"):
+                _dlg_yeni_kalem()
+
+            # ─── Kayıtlı bir kalemi REVİZE et ───
+            # Kalem silinip yeniden eklenmez; id ve oluşturma tarihi korunur.
+            @st.dialog("✏️ Kalemi Düzenle", width="large")
+            def _dlg_kalem_duzenle(_k):
+                _kid = _k["id"]
+                _yerel = isinstance(_kid, str) and str(_kid).startswith("local_")
+                st.caption(f"📅 Oluşturulma: {(_k.get('olusturuldu') or '')[:10]}"
+                           + ("  ·  ⚠️ oturum belleğinde (kalıcı değil)" if _yerel else ""))
+                d1, d2, d3 = st.columns([1, 3, 1])
+                with d1:
+                    _d_tip = st.selectbox(
+                        "Tip", ["ekle", "cikar"],
+                        index=0 if (_k.get("tip", "ekle") == "ekle") else 1,
+                        format_func=lambda x: "➕ Ekle" if x == "ekle" else "➖ Çıkar",
+                        key=f"duz_tip_{_kid}")
+                with d2:
+                    _d_ack = st.text_input("Açıklama", value=_k.get("aciklama", "") or "",
+                                           key=f"duz_ack_{_kid}")
+                with d3:
+                    _d_pb = st.selectbox(
+                        "PB", ["USD", "TL"],
+                        index=0 if (_k.get("para_birimi", "USD") or "USD").upper() == "USD" else 1,
+                        key=f"duz_pb_{_kid}")
+                _d_tutar = st.number_input("Tutar", min_value=0.0, step=0.0001, format="%.4f",
+                                           value=float(_k.get("tutar") or 0),
+                                           key=f"duz_tutar_{_kid}")
+
+                _eski = float(_k.get("tutar") or 0)
+                if abs(_d_tutar - _eski) > 0.0001:
+                    _fark = _d_tutar - _eski
+                    st.info(f"Tutar {tr_sayi(_eski, 2)} → **{tr_sayi(_d_tutar, 2)}**  "
+                            f"({'+' if _fark > 0 else ''}{tr_sayi(_fark, 2)})")
+
+                b1, b2 = st.columns([1, 1])
+                if b1.button("Değişiklikleri Kaydet", type="primary",
+                             use_container_width=True, key=f"duz_kaydet_{_kid}", icon=":material/save:"):
+                    if not (_d_ack or "").strip():
+                        st.error("Açıklama boş olamaz.")
+                    elif _d_tutar <= 0:
+                        st.error("Tutar 0'dan büyük olmalı.")
+                    else:
+                        if _yerel:
+                            for _kk in st.session_state.manuel_kalemler_local:
+                                if _kk.get("id") == _kid:
+                                    _kk.update({"aciklama": _d_ack.strip(),
+                                                "tutar": float(_d_tutar),
+                                                "para_birimi": _d_pb, "tip": _d_tip})
+                            st.session_state["_manuel_mesaj"] = "✅ Kalem güncellendi (oturum belleği)."
+                        else:
+                            _ok = False
+                            try:
+                                _ok = aktif_manuel_guncelle(_kid, _d_ack.strip(), _d_tutar,
+                                                            _d_pb, _d_tip)
+                            except Exception:
+                                _ok = False
+                            st.session_state["_manuel_mesaj"] = (
+                                "✅ Kalem güncellendi." if _ok
+                                else "⚠️ Güncellenemedi — kayıt değişmedi.")
+                        st.session_state.pop("_manuel_duzenle_id", None)
                         st.rerun()
+                if b2.button("Vazgeç", use_container_width=True, key=f"duz_vazgec_{_kid}"):
+                    st.session_state.pop("_manuel_duzenle_id", None)
+                    st.rerun()
+
+            _mmsg = st.session_state.pop("_manuel_mesaj", None)
+            if _mmsg:
+                (st.success if _mmsg.startswith("✅") else st.warning)(_mmsg)
+
+            # Düzenleme isteği varsa ilgili kalemi bul ve diyaloğu aç
+            _duz_id = st.session_state.pop("_manuel_duzenle_id", None)
+            if _duz_id is not None:
+                _hedef_k = next((x for x in (manuel_kalemler or [])
+                                 if str(x.get("id")) == str(_duz_id)), None)
+                if _hedef_k:
+                    _dlg_kalem_duzenle(_hedef_k)
     
-        # ─── Eksik dosya uyarıları ───
-        st.markdown("---")
-        eksikler = []
-        if not st.session_state.aktif_stok_data:
-            eksikler.append("📦 Stok Değeri Raporu yüklenmedi")
-        if not st.session_state.aktif_ithalat_data:
-            eksikler.append("🚢 İthalat Ödeme Takip yüklenmedi")
-        if not st.session_state.aktif_cari_data:
-            eksikler.append("⚠️ Cari Alacaklar Listesi yüklenmedi")
-        if eksikler:
-            st.warning("📭 Eksik dosyalar (sıfır olarak hesaplandı):\n\n" + "\n".join(f"- {e}" for e in eksikler))
+            # Mevcut kalemleri listele
+            if manuel_kalemler:
+                st.markdown(f"**📋 Kayıtlı Kalemler ({len(manuel_kalemler)})**")
+                for k in manuel_kalemler:
+                    tip = k.get("tip", "ekle")
+                    renk = trenk("yesil") if tip == "ekle" else trenk("kirmizi")
+                    isaret = "+" if tip == "ekle" else "-"
+                    sembol = "$" if (k.get("para_birimi") or "USD").upper() == "USD" else "₺"
+                    tutar_v = float(k.get("tutar") or 0)
+                    col_a, col_b, col_c = st.columns([10, 1, 1])
+                    with col_a:
+                        st.markdown(
+                            f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
+                            f'<div><b style="color:var(--k-metin);font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:var(--k-soluk)">📅 {(k.get("olusturuldu") or "")[:10]}</div></div>'
+                            f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                    with col_b:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("", key=f"manuel_duzenle_{k['id']}",
+                                     help="Tutarı / açıklamayı revize et", icon=":material/edit:"):
+                            st.session_state["_manuel_duzenle_id"] = k["id"]
+                            st.rerun()
+                    with col_c:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("", key=f"manuel_sil_{k['id']}", help="Sil", icon=":material/delete:"):
+                            kalem_id = k['id']
+                            # Local kalem ise (id "local_" ile başlar) session'dan sil
+                            if isinstance(kalem_id, str) and kalem_id.startswith("local_"):
+                                st.session_state.manuel_kalemler_local = [
+                                    kk for kk in st.session_state.manuel_kalemler_local
+                                    if kk.get("id") != kalem_id
+                                ]
+                            else:
+                                try:
+                                    aktif_manuel_sil(kalem_id)
+                                except Exception:
+                                    pass
+                            st.rerun()
     
-        # ─── Temizleme ───
-        @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
-        def _dlg_veri_temizle():
-            st.warning("⚠️ Bu işlem **kalıcı kayıtları da siler**. Yeniden Excel yüklemeniz gerekir.")
-            if st.button("Tüm Excel verilerini sıfırla", type="secondary"):
-                st.session_state.aktif_stok_data = None
-                st.session_state.aktif_ithalat_data = None
-                st.session_state.aktif_cari_data = None
-                aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
-                st.success("Temizlendi.")
-                st.rerun()
-        if st.button("Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True, icon=":material/delete:"):
-            _dlg_veri_temizle()
+            # ─── Eksik dosya uyarıları ───
+            st.markdown("---")
+            eksikler = []
+            if not st.session_state.aktif_stok_data:
+                eksikler.append("📦 Stok Değeri Raporu yüklenmedi")
+            if not st.session_state.aktif_ithalat_data:
+                eksikler.append("🚢 İthalat Ödeme Takip yüklenmedi")
+            if not st.session_state.aktif_cari_data:
+                eksikler.append("⚠️ Cari Alacaklar Listesi yüklenmedi")
+            if eksikler:
+                st.warning("📭 Eksik dosyalar (sıfır olarak hesaplandı):\n\n" + "\n".join(f"- {e}" for e in eksikler))
     
-        # ─── Formül açıklaması ───
-        with st.popover("📐 Hesaplama Formülü"):
-            st.markdown(f"""
-            **Toplam Aktifler (USD) =**
+            # ─── Temizleme ───
+            @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
+            def _dlg_veri_temizle():
+                st.warning("⚠️ Bu işlem **kalıcı kayıtları da siler**. Yeniden Excel yüklemeniz gerekir.")
+                if st.button("Tüm Excel verilerini sıfırla", type="secondary"):
+                    st.session_state.aktif_stok_data = None
+                    st.session_state.aktif_ithalat_data = None
+                    st.session_state.aktif_cari_data = None
+                    aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
+                    st.success("Temizlendi.")
+                    st.rerun()
+            if st.button("Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True, icon=":material/delete:"):
+                _dlg_veri_temizle()
     
-            - **G5F Stok Değeri × 1.20** — Stok Excel'inden USD STOK DEĞERİ toplamı (%20 KDV dahil)
-            - **+ İthalat Ödenmiş Tutar** — İthalat Excel "Ödenen / USD" toplamı
-            - **+ Banka Hesapları USD eşdeğeri** — Uygulamadaki TL hesapları kur ile USD'ye çevrilir
-            - **+ Cari Alacaklar** — Cari Excel'inden POZİTİF bakiyeler (size borçlular)
-            - **+ Manuel Eklemeler** — Kullanıcının elle eklediği kalemler
-            - **− Cari Borçlar** — Cari Excel'inden NEGATİF bakiyeler (sizin borçlu olduklarınız)
-            - **− Sistemdeki Çekler** — Uygulamadaki bekleyen + ciro çek kalanları
-            - **− Manuel Çıkarmalar** — Kullanıcının elle çıkardığı kalemler
+            # ─── Formül açıklaması ───
+            with st.popover("📐 Hesaplama Formülü"):
+                st.markdown(f"""
+                **Toplam Aktifler (USD) =**
     
-            Kullanılan kur: **{kur} TL/USD** (sidebar'daki güncel kur — sidebar'da değiştirirsen burası da değişir)
-            """)
+                - **G5F Stok Değeri × 1.20** — Stok Excel'inden USD STOK DEĞERİ toplamı (%20 KDV dahil)
+                - **+ İthalat Ödenmiş Tutar** — İthalat Excel "Ödenen / USD" toplamı
+                - **+ Banka Hesapları USD eşdeğeri** — Uygulamadaki TL hesapları kur ile USD'ye çevrilir
+                - **+ Cari Alacaklar** — Cari Excel'inden POZİTİF bakiyeler (size borçlular)
+                - **+ Manuel Eklemeler** — Kullanıcının elle eklediği kalemler
+                - **− Cari Borçlar** — Cari Excel'inden NEGATİF bakiyeler (sizin borçlu olduklarınız)
+                - **− Sistemdeki Çekler** — Uygulamadaki bekleyen + ciro çek kalanları
+                - **− Manuel Çıkarmalar** — Kullanıcının elle çıkardığı kalemler
+    
+                Kullanılan kur: **{kur} TL/USD** (sidebar'daki güncel kur — sidebar'da değiştirirsen burası da değişir)
+                """)
+
+    _sayfa_parcasi()
