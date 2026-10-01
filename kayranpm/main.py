@@ -8,6 +8,7 @@ Kullanım:
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import df_tablo_html, tablo_html, Ham, rozet_html, renkli, kisalt as _kisalt
+from kayranpm.stok_ara import stok_karti_ara
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import logging
@@ -282,6 +283,76 @@ def run():
         border-right: 1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
     }
     section[data-testid="stSidebar"] * { color: var(--k-metin) !important; }
+    /* ── Stok Kartı kutusu (sol menü) — tek kap: başlık + arama + sonuçlar ──
+       'html body section…' ile güçlendirildi: üstteki sidebar '*' ve düğme
+       kuralları bu kutuyu ezmesin. */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu {
+        background: var(--k-yuzey1) !important; border: 1px solid var(--k-kenar2) !important;
+        border-radius: 12px !important; padding: 12px 10px 8px !important; gap: 6px !important;
+        margin: 6px 0 4px !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-bas {
+        display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px 2px;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-bas-ad {
+        font-size: 13px !important; font-weight: 650 !important; color: var(--k-metin) !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-bas-say,
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt {
+        font-size: 11px !important; color: var(--k-silik) !important; font-weight: 500 !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt { padding: 2px 2px 0; }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-not {
+        font-size: 11.5px !important; line-height: 1.45; color: var(--k-silik) !important; padding: 2px 2px 0;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-not b { color: var(--k-soluk) !important; }
+    /* Arama kutusu */
+    /* Çerçeve DIŞ katmanda (ikon + yazı aynı kutuda); iç alan şeffaf */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stTextInputRootElement"] {
+        background: var(--k-yuzey0) !important; border: 1px solid var(--k-kenar2) !important;
+        border-radius: 9px !important; min-height: 38px !important; padding-left: 10px !important;
+        align-items: center !important; gap: 6px !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stTextInputRootElement"]:focus-within {
+        border-color: var(--k-mor) !important; box-shadow: 0 0 0 3px color-mix(in srgb,var(--k-mor) 18%,transparent) !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu input {
+        font-size: 13px !important; background: transparent !important; border: 0 !important;
+        box-shadow: none !important; padding-left: 0 !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stTextInputIcon"] [data-testid="stIconMaterial"] {
+        color: var(--k-silik) !important; font-size: 18px !important;
+    }
+    /* Sonuç satırları: liste görünümü (düğme değil) — SKU mono+mor, ad tek satır '…' */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton { margin: 0 !important; }
+    /* İki satırlı liste: üstte SKU (mono, mor), altta ürün adı (tek satır '…') */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button {
+        justify-content: flex-start !important; text-align: left !important; min-height: 0 !important;
+        height: auto !important; padding: 5px 8px !important; border: 0 !important; border-radius: 7px !important;
+        background: transparent !important; box-shadow: none !important; gap: 6px !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button:hover {
+        background: var(--k-ortu2) !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button > div,
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button [data-testid="stMarkdownContainer"] {
+        min-width: 0 !important; overflow: hidden !important; width: 100% !important; justify-content: flex-start !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button p {
+        font-size: 12px !important; font-weight: 400 !important; color: var(--k-soluk) !important;
+        white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+        text-align: left !important; margin: 0 !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button code {
+        display: block !important; font-family: var(--k-mono) !important; font-size: 12px !important;
+        font-weight: 600 !important; line-height: 1.35 !important; color: var(--k-mor) !important;
+        background: transparent !important; padding: 0 !important; border: 0 !important;
+    }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button p { line-height: 1.4 !important; }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button [data-testid="stIconMaterial"] {
+        color: var(--k-silik) !important; font-size: 15px !important;
+    }
+
     /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stButton button {
         background: var(--k-yuzey2) !important;
@@ -497,66 +568,61 @@ def run():
         ], label_visibility="collapsed",
            format_func=_me)
 
-        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-        # ── STOK KARTI — hızlı erişim (sık kullanılan eylem, öne çıkarılmış) ──
-        st.markdown(
-            '<div style="background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 14%,transparent),color-mix(in srgb,var(--k-cyan) 5%,transparent) 70%,transparent);'
-            'border:1px solid color-mix(in srgb,var(--k-mor) 28%,transparent);border-radius:12px;padding:10px 12px 12px;margin-bottom:8px">'
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-            '<span style="font-size:14px">🗂️</span>'
-            '<span style="color:var(--k-mor2);font-size:13px;font-weight:700;'
-            'text-transform:uppercase;letter-spacing:.6px">Stok Kartı Görüntüle</span></div>',
-            unsafe_allow_html=True)
-        # ── Kart kapanışını yakala ────────────────────────────────────────
-        # Dialog İÇİ etkileşimler yalnızca dialog'u rerun eder (buraya uğramaz).
-        # Script'in buraya gelmesi + flag'in set olması = kart az önce açıktı ve
-        # bu tam rerun onu kapattı → seçimi "—"a sıfırla ki aynı SKU'yu tekrar
-        # seçmek yeni bir değişiklik sayılsın ve kart yeniden açılabilsin.
-        # ── Stok kartı arama & açma ───────────────────────────────────
-        # BU BÖLÜM YENİDEN YAZILDI. Eski hâlinde iki ayrı hata vardı:
+        # ── STOK KARTI — hızlı erişim (Ürün Yön.'nin en sık kullanılan eylemi) ──
+        # Eskiden başlık ayrı bir HTML kutusuydu; arama kutusu ve sonuçlar onun
+        # DIŞINDA kalıyordu (kopuk görünüm). Şimdi hepsi tek kap (st.container).
         #
-        # 1) YAZILAN İLK KARAKTER SİLİNİYORDU. Kod, selectbox'ın kendi
-        #    widget anahtarına yazıyordu (`st.session_state["stok_karti_sec"]
-        #    = "—"`). Bu, bileşeni yeniden kurduruyor; yazarak arama yapılan
-        #    bir selectbox yeniden kurulunca girilen metin seçili kalıyor ve
-        #    sonraki tuş onu siliyordu.
-        #
-        # 2) İKİNCİ SEFERDE KART AÇILMIYORDU. Kartı kapatmak tam yenileme
-        #    tetiklemediği için `_stok_dialog_acik` bayrağı True kalıyordu.
-        #    Yeni bir SKU seçtiğinde oluşan yenilemede kod ÖNCE bayrağı görüp
-        #    seçimi sıfırlıyor, böylece yeni seçim silinip kart açılmıyordu.
-        #
-        # ÇÖZÜM: bayrak dansı ve selectbox tamamen kaldırıldı. Artık düz bir
-        # metin kutusu + sonuç butonları var. Butona basmak kartı HER ZAMAN
-        # açar — aynı SKU'ya arka arkaya basılsa bile. Durum takibi yok,
-        # dolayısıyla yarış durumu da yok.
+        # Korunan dersler (önceki iki hata — yeniden yaşanmasın):
+        # 1) Selectbox YOK: kendi anahtarına yazınca ilk karakter siliniyordu.
+        # 2) Bayrak dansı YOK: sonuca basmak kartı HER ZAMAN açar.
+        # Yeni: Enter'da tek/tam eşleşme varsa kart doğrudan açılır — ama yalnız
+        # arama METNİ DEĞİŞTİYSE (_sk_acilan): yoksa sonraki her yenilemede açılırdı.
         _skl = get_tum_sku_listesi() or []
         _hedef = st.session_state.pop("_stok_gec_sku", None)   # modal içi geçiş
-
-        _ara = st.text_input(
-            "SKU / model ara", key="stok_karti_ara",
-            placeholder="SKU veya ürün adı yaz — örn. X24F241S",
-            label_visibility="collapsed")
-
-        if not _hedef and (_ara or "").strip():
-            _q = " ".join(_ara.strip().lower().split())
-            _bul = [r for r in _skl
-                    if _q in str(r.get("sku") or "").lower()
-                    or _q in str(r.get("urun_adi") or "").lower()]
-            if not _bul:
-                st.caption("Eşleşen ürün yok.")
-            else:
-                for _r in _bul[:8]:
-                    _ad = (_r.get("urun_adi") or "").strip()
-                    if st.button(f"{_r['sku']}" + (f" — {_ad[:44]}" if _ad else ""),
-                                 key=f"stok_ac_{_r['sku']}", use_container_width=True):
-                        _hedef = _r["sku"]
-                if len(_bul) > 8:
-                    st.caption(f"{len(_bul)} sonuç bulundu, ilk 8'i gösteriliyor — "
-                               f"aramayı daraltabilirsin.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(key="stok_karti_kutu"):
+            st.markdown('<div class="sk-bas"><span class="sk-bas-ad">Stok Kartı</span>'
+                        f'<span class="sk-bas-say">{tr_sayi(len(_skl))} ürün</span></div>',
+                        unsafe_allow_html=True)
+            _ara = st.text_input(
+                "Stok kartı ara", key="stok_karti_ara", icon=":material/search:",
+                placeholder="SKU, model ya da ürün adı",
+                label_visibility="collapsed")
+            _q = (_ara or "").strip()
+            if not _hedef and _q:
+                _bul = stok_karti_ara(_skl, _q)
+                if not _bul:
+                    st.markdown('<div class="sk-not">Eşleşen ürün yok. SKU\'nun bir kısmını '
+                                'ya da modeli yazmayı dene.</div>', unsafe_allow_html=True)
+                else:
+                    _tam = [r for r in _bul if str(r.get("sku") or "").strip().upper() == _q.upper()]
+                    _tek = _tam[0] if _tam else (_bul[0] if len(_bul) == 1 else None)
+                    if _tek and st.session_state.get("_sk_acilan") != _q:
+                        st.session_state["_sk_acilan"] = _q           # aynı aramada bir kez
+                        _hedef = _tek["sku"]
+                    for _r in _bul[:6]:
+                        _ad = (_r.get("urun_adi") or "").strip()
+                        if st.button(f"`{_r['sku']}` {_ad}" if _ad else f"`{_r['sku']}`",
+                                     key=f"stok_ac_{_r['sku']}", use_container_width=True,
+                                     help=_ad or None):
+                            _hedef = _r["sku"]
+                    if len(_bul) > 6:
+                        st.markdown(f'<div class="sk-not">+{tr_sayi(len(_bul) - 6)} sonuç daha — '
+                                    f'aramayı daralt.</div>', unsafe_allow_html=True)
+            elif not _hedef:
+                _son = st.session_state.get("_sk_son", [])
+                if _son:
+                    st.markdown('<div class="sk-alt">Son açılanlar</div>', unsafe_allow_html=True)
+                    for _s in _son:
+                        if st.button(f"`{_s}`", key=f"stok_son_{_s}", use_container_width=True,
+                                     icon=":material/history:"):
+                            _hedef = _s
+                else:
+                    st.markdown('<div class="sk-not">Yaz ve <b>Enter</b>\'a bas — tam SKU '
+                                'yazarsan kart doğrudan açılır.</div>', unsafe_allow_html=True)
 
         if _hedef:
+            _son = [x for x in st.session_state.get("_sk_son", []) if x != _hedef]
+            st.session_state["_sk_son"] = ([_hedef] + _son)[:4]
             from kayranpm.stok_karti import goster as _stok_goster
             _stok_goster(_hedef)
 

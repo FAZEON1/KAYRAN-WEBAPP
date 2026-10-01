@@ -155,7 +155,8 @@ def test_menu_ikonlari_yazi_tipi_ezilmiyor():
 
 def test_dugmelerde_emoji_yok():
     """Sayfa içindeki düğmeler tek ikon dilinde: emoji yerine icon=":material/..:".
-    Ok/kapat işaretleri (◀ ▶ ‹ › ✕) tipografik sayılır, serbest."""
+    Ok/kapat işaretleri (◀ ▶ ‹ › ✕) tipografik sayılır, serbest.
+    ` (Markdown satır içi kod — SKU'yu mono göstermek için) emoji değil, serbest."""
     import glob as _g
     bas = re.compile(r"\.(?:button|form_submit_button|download_button)\(\s*f?([\"'])([^\"']*)\1")
     kotu = []
@@ -164,6 +165,6 @@ def test_dugmelerde_emoji_yok():
             continue
         for m in bas.finditer(open(f, encoding="utf-8").read()):
             et = m.group(2)
-            if et and not (et[0].isalnum() or et[0] in " ←→✓✖-+%$₺#.◀▶‹›✕({“‘«"):
+            if et and not (et[0].isalnum() or et[0] in " ←→✓✖-+%$₺#.◀▶‹›✕({“‘«`"):
                 kotu.append(f"{Path(f).relative_to(KOK)}: {et[:30]}")
     assert not kotu, kotu[:10]
