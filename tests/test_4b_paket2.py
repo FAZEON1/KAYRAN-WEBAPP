@@ -34,8 +34,12 @@ def test_moduller_ortak_tabloya_tasindi():
         kod = (KOK / m).read_text(encoding="utf-8")
         assert "<table" not in kod and "</table>" not in kod, m
     pm = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
-    assert "def _pf(" not in pm and '"_nkb": net_kar_birim' in pm     # metin geri ayrıştırma yok
-    assert "df_tablo_html(" in pm and pm.count("tablo_html(") >= 3
+    assert "def _pf(" not in pm                                        # metin geri ayrıştırma yok
+    # Kampanya tablosu Ekim 2026'da kayranpm/kampanya.py'ye taşındı: düzenlenebilir
+    # tablo (st.data_editor) ham sayılarla çalışır; hesap kampanya_hesap.py'de.
+    km = (KOK / "kayranpm/kampanya.py").read_text(encoding="utf-8")
+    assert "<table" not in km and "def _pf(" not in km and "H.urun_hesap(" in km
+    assert "df_tablo_html(" in pm and pm.count("tablo_html(") >= 2
     assert "satir_durum" in pm and '"rk-grn": "yesil"' in pm           # eski durum adları kabul
     it = (KOK / "ithalat/main.py").read_text(encoding="utf-8")
     assert "df_tablo_html(df, para=para, yuzde=yuzde, sol=sol, kisa=kisalt, tam=True)" in it
@@ -43,12 +47,11 @@ def test_moduller_ortak_tabloya_tasindi():
     assert "Servis listesi: ortak tablo_html" in ts and "Ham(_sla_chip(k))" in ts
 
 
-def test_pm_rows_ku_metin_alanlari_korunur():
-    """Seçim etiketi f\"ID:{r['ID']} — {r['Ürün']}\" rows_ku'dan okur; o alanlar duruyor."""
-    pm = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
-    assert "[f\"ID:{r['ID']} — {r['Ürün']}\" for r in rows_ku]" in pm
-    assert '"Satış ($)": f"${satis:.2f}"' in pm
-
+def test_kampanya_urun_tablosu_ham_sayi():
+    """Eski kontrol (rows_ku metin alanları) kampanya ekranı yenilenince anlamını
+    yitirdi. Yerine: düzenlenebilir tablo ham sayı tutar, biçimi sütun verir."""
+    km = (KOK / "kayranpm/kampanya.py").read_text(encoding="utf-8")
+    assert '"Satış": h["satis"]' in km and 'format="dollar"' in km
 
 def test_ts_tarih_gg_aa_yyyy():
     import types, sys
