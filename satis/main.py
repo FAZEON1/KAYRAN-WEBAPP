@@ -338,6 +338,53 @@ def iade_excel_oku(dosya):
     return out, ""
 
 
+def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
+    """İade sayfasının Excel çıktısı (4 sayfa). Sayılar HAM (Excel'de toplanabilir).
+    1 'SKU Net'     : Satış − İade = Net (iade_satis_net_ozet satırları)
+    2 'Firma'       : firma/cari bazında iade adet-tutar-SKU çeşidi
+    3 'SKU + Firma' : her iade satırı (hangi firmadan hangi ürün)
+    4 'Kayıtlar'    : ham iade kayıtları (tarih, depo, kaynak dahil)"""
+    sku_net = pd.DataFrame([{
+        "SKU": x["sku"], "Ürün": x.get("urun_adi") or "",
+        "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
+        "Satış ciro ($)": round(float(x["s_ciro"]), 2), "İade tutar ($)": round(float(x["i_tutar"]), 2),
+        "Net ciro ($)": round(float(x["net_ciro"]), 2), "Satış kârı ($)": round(float(x["s_kar"]), 2),
+    } for x in ozet_satirlar])
+    fb = {}
+    for r in iadeler:
+        f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
+        o = fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
+        o["adet"] += int(r.get("iade_adet") or 0)
+        o["tutar"] += float(r.get("iade_net") or 0)
+        o["sku"].add(r.get("sku"))
+    firma = pd.DataFrame(sorted([{"Firma / Cari": f, "İade adet": v["adet"],
+                                  "İade tutarı ($)": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"])}
+                                 for f, v in fb.items()], key=lambda x: -x["İade adet"]))
+    sku_firma = pd.DataFrame(sorted([{
+        "Firma / Cari": r.get("kanal") or "", "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi") or "",
+        "İade adet": int(r.get("iade_adet") or 0), "İade tutarı ($)": round(float(r.get("iade_net") or 0), 2),
+    } for r in iadeler], key=lambda x: -x["İade adet"]))
+    kayit = pd.DataFrame([{
+        "Tarih": str(r.get("tarih") or "")[:10], "Firma / Cari": r.get("kanal") or "",
+        "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi") or "", "İade adet": int(r.get("iade_adet") or 0),
+        "İade brüt ($)": round(float(r.get("iade_brut") or 0), 2), "İskonto ($)": round(float(r.get("iade_iskonto") or 0), 2),
+        "Masraf ($)": round(float(r.get("iade_masraf") or 0), 2), "İade net ($)": round(float(r.get("iade_net") or 0), 2),
+        "Giren depo": r.get("depo") or "", "Kaynak": r.get("kaynak") or "",
+    } for r in iadeler])
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        for ad, df in (("SKU Net", sku_net), ("Firma", firma), ("SKU + Firma", sku_firma), ("Kayıtlar", kayit)):
+            if df.empty:
+                df = pd.DataFrame({"Bilgi": [f"{bas} – {bit} döneminde kayıt yok"]})
+            df.to_excel(w, index=False, sheet_name=ad)
+            ws = w.sheets[ad]
+            ws.freeze_panes = "A2"
+            for i, kol in enumerate(df.columns, start=1):
+                en = max(len(str(kol)), *(len(str(v)) for v in df[kol].head(200))) if len(df) else len(str(kol))
+                ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = min(en + 3, 44)
+    return buf.getvalue()
+
+
 def run():
     from shared.tasarim import baslik as _sb, tablo_ciz, kpi_serit, sayi, tablo_h, tablo_kolonlari
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
@@ -2259,6 +2306,17 @@ def run():
         st.markdown("---")
         _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
         _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
+        # Excel çıktısı: ekrandaki özet + kırılımlar + ham kayıtlar, tek dosyada 4 sayfa
+        _ix1, _ix2 = st.columns([1, 3])
+        _ix_iadeler = get_iadeler(_ib, _ibit)
+        _ix1.download_button(
+            "Excel indir", iade_excel_bytes(_satirlar, _ix_iadeler, _ib, _ibit),
+            f"iade_{str(_ib)[:10]}_{str(_ibit)[:10]}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True, key="iade_dl_xlsx", icon=":material/download:",
+            disabled=not (_satirlar or _ix_iadeler))
+        _ix2.caption(f"📦 {tr_sayi(len(_ix_iadeler))} iade kaydı · {len(_satirlar)} ürün · "
+                     f"4 sayfa: SKU Net · Firma · SKU + Firma · Kayıtlar — sayılar ham, Excel'de toplanabilir.")
         if not _satirlar:
             st.info("Bu dönemde satış/iade kaydı yok.")
         else:
