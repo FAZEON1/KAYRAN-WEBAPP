@@ -56,3 +56,16 @@ def test_ust_menu_tek_serit():
     assert ":has(.st-key-top_yonetim){{margin-left:6px" in g                                    # grup ayracı
     assert ":has(.st-key-top_hesap_makinesi){{margin-left:auto" in g                            # sağa yaslı
     assert "flex:0 0 auto !important" in g and "flex:1 0 auto" not in g                          # eşit genişlik yok
+
+
+def test_stok_karti_yazilar_ust_uste_binmez():
+    """Canlıda başlık arama kutusunun altında kalıyor, 'Son açılanlar' listeye
+    yapışıyor, sonuçlar ayrı kutular gibi görünüyordu (01.10.2026)."""
+    kod = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
+    # Streamlit'in -1rem telafi boşluğu kutudaki yazı bloklarında sıfır
+    assert ('.st-key-stok_karti_kutu [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] {\n'
+            '        margin-bottom: 0 !important;') in kod
+    # İpucu kabı (tam ürün adı) zemin/çerçeve almıyor
+    assert '.st-key-stok_karti_kutu [data-testid="stTooltipIcon"],' in kod
+    i = kod.index('.st-key-stok_karti_kutu [data-testid="stTooltipIcon"],')
+    assert "background: transparent !important; border: 0 !important;" in kod[i:i + 400]

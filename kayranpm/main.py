@@ -288,11 +288,25 @@ def run():
        kuralları bu kutuyu ezmesin. */
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu {
         background: var(--k-yuzey1) !important; border: 1px solid var(--k-kenar2) !important;
-        border-radius: 12px !important; padding: 12px 10px 8px !important; gap: 6px !important;
+        border-radius: 12px !important; padding: 12px 10px 10px !important; gap: 2px !important;
         margin: 6px 0 4px !important;
     }
+    /* Streamlit metnin altına -1rem koyar (paragraf boşluğunu telafi için); genel
+       kural paragraf boşluğunu sıfırladığından başlık 16px "kısalıyor", arama kutusu
+       başlığın ÜSTÜNE biniyordu. Bu kutudaki yazı blokları için sıfırla. */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] {
+        margin-bottom: 0 !important;
+    }
+    /* Sonuç satırındaki ipucu (tam ürün adı) kabı: genel kural ona zemin+çerçeve
+       veriyordu → her satır ayrı kutu gibi görünüyordu. Şeffaf, tam genişlik. */
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stTooltipIcon"],
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stTooltipHoverTarget"] {
+        background: transparent !important; border: 0 !important; padding: 0 !important;
+        border-radius: 0 !important; box-shadow: none !important; display: block !important; width: 100% !important;
+    }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-bas {
-        display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px 2px;
+        display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px 8px;
+        line-height: 1.3 !important;
     }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-bas-ad {
         font-size: 13px !important; font-weight: 650 !important; color: var(--k-metin) !important;
@@ -301,9 +315,12 @@ def run():
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt {
         font-size: 11px !important; color: var(--k-silik) !important; font-weight: 500 !important;
     }
-    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt { padding: 2px 2px 0; }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt {
+        padding: 10px 2px 4px; text-transform: uppercase; letter-spacing: .5px; font-size: 10.5px !important;
+        font-weight: 600 !important; line-height: 1.2 !important;
+    }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-not {
-        font-size: 11.5px !important; line-height: 1.45; color: var(--k-silik) !important; padding: 2px 2px 0;
+        font-size: 11.5px !important; line-height: 1.5 !important; color: var(--k-silik) !important; padding: 8px 2px 0;
     }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-not b { color: var(--k-soluk) !important; }
     /* Arama kutusu */
@@ -325,6 +342,9 @@ def run():
     }
     /* Sonuç satırları: liste görünümü (düğme değil) — SKU mono+mor, ad tek satır '…' */
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton { margin: 0 !important; }
+    html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) {
+        margin-bottom: 4px !important;
+    }
     /* İki satırlı liste: üstte SKU (mono, mor), altta ürün adı (tek satır '…') */
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .stButton button {
         justify-content: flex-start !important; text-align: left !important; min-height: 0 !important;
