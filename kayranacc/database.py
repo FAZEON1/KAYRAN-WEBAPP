@@ -371,15 +371,41 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
     return True, f"💸 {_p} ödendi · kalan {_k} bekliyor."
 
 
-def odeme_vade_guncelle(odeme_id, yeni_vade):
-    """Sadece vadeyi günceller. Erteleme tracking app.py'de session_state ile yapılır."""
+def odeme_vade_guncelle(odeme_id, yeni_vade, ertele=False, eski_vade=None):
+    """Vadeyi günceller. Döner: True / False.
+
+    ertele=True (Vadeyi ötele): erteleme KALICI kaydedilir — ilk vade
+    (orijinal_vade), kaç kez ertelendiği ve son erteleme zamanı ödeme
+    kaydında tutulur (veritabani/07_odeme_erteleme.sql). Sütunlar yoksa
+    yalnız vade yazılır, program çalışmaya devam eder.
+
+    DÜZELTME (Ekim 2026): önbellek temizleme satırı yanlışlıkla hata bloğunun
+    İÇİNDEYDİ — başarılı ötelemeden sonra önbellek temizlenmiyor, ödeme bir süre
+    eski vadesiyle görünüyordu; hata da sessizce yutuluyordu.
+    """
+    from shared.hata_log import kaydet
     sb = get_client()
-    vade_str = yeni_vade.isoformat() if hasattr(yeni_vade, "isoformat") else str(yeni_vade)
+    vade_str = yeni_vade.isoformat() if hasattr(yeni_vade, "isoformat") else str(yeni_vade)[:10]
     try:
         sb.table("odemeler").update({"vade": vade_str}).eq("id", odeme_id).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        kaydet("muhasebe.vade_guncelle", e, kritik=True)
         _cache_temizle()
+        return False
+    if ertele:
+        try:
+            r = (sb.table("odemeler").select("orijinal_vade,ertelendi_sayisi")
+                 .eq("id", odeme_id).execute().data or [{}])[0]
+            ilk = r.get("orijinal_vade") or (str(eski_vade)[:10] if eski_vade else None)
+            sb.table("odemeler").update({
+                "orijinal_vade": ilk,
+                "ertelendi_sayisi": int(r.get("ertelendi_sayisi") or 0) + 1,
+                "son_erteleme_tarih": tr_now().isoformat(),
+            }).eq("id", odeme_id).execute()
+        except Exception as e:  # sütunlar henüz eklenmemiş olabilir — vade yine yazıldı
+            kaydet("muhasebe.erteleme_kaydi", e)
+    _cache_temizle()
+    return True
 
 
 @st.cache_data(ttl=300, show_spinner=False)

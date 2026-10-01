@@ -1965,7 +1965,8 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
             _kacis = (metin.replace("&", "&amp;").replace('"', "&quot;")
                       .replace("<", "&lt;").replace(">", "&gt;"))
             _ip = f' title="{_kacis}"'
-        return f'<td{f" class=\"{sinif}\"" if sinif else ""}{ds}{_ip}>{metin}</td>'
+        _cls = f' class="{sinif}"' if sinif else ""      # Python 3.11: f-string içinde ters bölü yok
+        return f'<td{_cls}{ds}{_ip}>{metin}</td>'
 
     bas_html = "".join(
         f'<th data-k="{i}" style="text-align:{"right" if tipler[k] else "left"}'
