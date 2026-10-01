@@ -408,6 +408,17 @@ def odeme_vade_guncelle(odeme_id, yeni_vade, ertele=False, eski_vade=None):
     return True
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def erteleme_sutunlari_var():
+    """veritabani/07_odeme_erteleme.sql çalıştırılmış mı? Yeni sütunları okumayı dener.
+    Ertelenen Ödemeler sayfası bunu ekranda gösterir (kullanıcı tek bakışta görsün)."""
+    try:
+        get_client().table("odemeler").select("orijinal_vade,ertelendi_sayisi,son_erteleme_tarih").limit(1).execute()
+        return True
+    except Exception:
+        return False
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_ertelenen_odemeler():
     """

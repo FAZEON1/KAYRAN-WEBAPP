@@ -46,8 +46,11 @@ def _usd(v):
 KOVALAR = ["Vadesi gelmemiş", "0-30 gün", "31-60 gün", "61-90 gün", "90+ gün"]
 
 
+from kayranacc.odeme_hesap import KATEGORI_AD as _KAT_AD   # ham anahtar ("kart") yerine ad
+
+
 def render():
-    st.markdown('<div class="baslik">🧾 Cari Ekstre & Vade Yaşlandırma</div>', unsafe_allow_html=True)
+    # Başlık main.py'de (_sb) basılıyor; burada ikinci kez basılıyordu.
     st.caption("Ödenecekler (tedarikçi/gider) tarafı — ödeme kayıtlarından üretilir. "
                "Müşteri alacağı için satışlara tahsilat takibi gerekir (henüz yok).")
 
@@ -91,9 +94,10 @@ def render():
         df = pd.DataFrame([{
             "Vade": gun_ay_yil(o.get("vade")),
             "Açıklama": o.get("aciklama", "") or "—",
-            "Kategori": o.get("kategori", "") or "—",
-            "Tutar (TL)": round(_f(o.get("tutar_tl")), 2),
-            "Tutar (USD)": round(_f(o.get("tutar_usd")), 2),
+            "Kategori": _KAT_AD.get(o.get("kategori") or "", o.get("kategori") or "—"),
+            # 0 tutar boş bırakılır (TL kalemde "$0,00" gürültüsü olmasın)
+            "Tutar (TL)": round(_f(o.get("tutar_tl")), 2) or None,
+            "Tutar (USD)": round(_f(o.get("tutar_usd")), 2) or None,
             "Durum": "✅ Ödendi" if o.get("durum") == "odendi" else "⏳ Bekliyor",
         } for o in kayitlar])
         st.dataframe(df, hide_index=True, use_container_width=True)

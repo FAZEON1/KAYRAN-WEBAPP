@@ -403,10 +403,7 @@ def _uyari_banner():
 
 
 def render():
-    st.markdown('<div class="baslik"><span class="baslik-ikon">📚</span>e-Defter (Genel Muhasebe)</div>',
-                unsafe_allow_html=True)
-    st.markdown('<div class="alt-baslik">Faz 1: hesap planı · muhasebe fişi · yevmiye · kebir · mizan</div>',
-                unsafe_allow_html=True)
+    # Başlık main.py'de (_sb) basılıyor; burada ikinci kez basılıyordu.
     _uyari_banner()
 
     plan = edf_hesap_plani()
@@ -486,8 +483,11 @@ def render():
             {"label": "Toplam Borç", "value": f"{tr_sayi(_tb, 2)}", "renk": trenk("mavi")},
             {"label": "Toplam Alacak", "value": f"{tr_sayi(_ta, 2)}", "renk": trenk("yesil")},
             {"label": "Fark", "value": f"{tr_sayi(_fark, 2)}",
-             "renk": trenk("yesil") if _fark == 0 and _tb > 0 else trenk("kirmizi"),
-             "alt": "✓ dengede" if _fark == 0 and _tb > 0 else "borç = alacak olmalı"},
+             # Boş fiş nötr (eskiden boşken de kırmızıydı), dengede yeşil, dengesiz kırmızı
+             "renk": (trenk("soluk") if _tb == 0 and _ta == 0 else
+                      trenk("yesil") if _fark == 0 else trenk("kirmizi")),
+             "alt": ("satır gir" if _tb == 0 and _ta == 0 else
+                     "✓ dengede" if _fark == 0 else "borç = alacak olmalı")},
         ])
 
         if st.button("Fişi Kaydet", type="primary", use_container_width=True,

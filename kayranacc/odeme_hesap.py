@@ -8,6 +8,11 @@ Hafta sonu tahmini (Genel Bakış ile AYNI formül):
 from datetime import date, timedelta
 
 GUN = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+# Ödeme kategorisi anahtarı → ekranda görünen ad (main.KATEGORILER ile aynı).
+# Cari Ekstre gibi ekranlar ham anahtarı ("kart") gösteriyordu.
+KATEGORI_AD = {"cek": "Çek", "kredi": "Kredi", "kart": "K.Kartı", "vergi": "Vergi", "sgk": "SGK",
+               "kira": "Kira", "sabit": "Sabit Gider", "cari": "Cari Hesap", "ithalat": "İthalat",
+               "ihracat": "İhracat", "masraf": "Masraf", "maas": "Maaş", "diger": "Diğer"}
 # Kısaltma: ilk 3 harf DEĞİL (Pazartesi ve Pazar ikisi de "Paz" olurdu)
 GUN_KISA = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 AY = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",

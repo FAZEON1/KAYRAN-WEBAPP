@@ -90,9 +90,10 @@ def test_uyari_kutusu_tek_katman():
     assert "div.stAlert:has(" not in acc
 
 
-def test_toplam_aktifler_karti_beyaz_yazi():
+def test_toplam_aktifler_karti_ortak_kart():
+    """Ekim 2026: mavi degrade + sabit beyaz yazılı kutu yerine ortak k-kart
+    (renkler temadan; eksik dosyada 'eksik hesap' turuncu)."""
     acc = _oku("kayranacc/main.py")
-    i = acc.index("💎 TOPLAM AKTİFLER (GENEL TOPLAM)")
-    blok = acc[i - 400:i + 600]
-    assert "var(--k-metin)" not in blok and "var(--k-mor2)" not in blok
-    assert "color:#FFFFFF" in blok
+    assert "💎 TOPLAM AKTİFLER (GENEL TOPLAM)" not in acc
+    assert "linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5)" not in acc
+    assert '"etiket": "Toplam aktifler" + (" (eksik hesap)" if _snap_eksik else "")' in acc
