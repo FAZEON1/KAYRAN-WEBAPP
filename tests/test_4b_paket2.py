@@ -43,8 +43,10 @@ def test_moduller_ortak_tabloya_tasindi():
     assert "satir_durum" in pm and '"rk-grn": "yesil"' in pm           # eski durum adları kabul
     it = (KOK / "ithalat/main.py").read_text(encoding="utf-8")
     assert "df_tablo_html(df, para=para, yuzde=yuzde, sol=sol, kisa=kisalt, tam=True)" in it
-    ts = (KOK / "teknikservis/main.py").read_text(encoding="utf-8")
-    assert "Servis listesi: ortak tablo_html" in ts and "Ham(_sla_chip(k))" in ts
+    # Teknik Servis listesi Ekim 2026'da tıklanır satırlara geçti (ts_ekran.py);
+    # tablo ortak bileşenlerle çiziliyor, elle <table> yazılmıyor.
+    te = (KOK / "teknikservis/ts_ekran.py").read_text(encoding="utf-8")
+    assert "<table" not in te and "B.tiklanir(" in te
 
 
 def test_kampanya_urun_tablosu_ham_sayi():
