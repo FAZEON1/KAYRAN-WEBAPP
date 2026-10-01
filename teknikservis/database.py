@@ -275,12 +275,47 @@ def sla_bitis_tarihi(kayit_id, mevcut_durum):
     return None
 
 
-def sla_is_gunu(kayit):
+def sla_bitis_haritasi(kayitlar):
+    """Listedeki bitmiş kayıtların bitiş tarihlerini TEK seferde çeker (Ekim 2026).
+    Eskiden sla_is_gunu her bitmiş kayıt için ts_gecmis'e ayrı sorgu atıyordu;
+    listede bir kayıt 3-4 kez hesaplandığından yüzlerce sorgu çıkıyordu.
+    Döner: {kayit_id: {durum: ilk geçiş tarihi}} → sla_is_gunu(kayit, harita)."""
+    ids = sorted({k.get("id") for k in kayitlar or []
+                  if k.get("id") is not None and k.get("mevcut_durum") in BITMIS_DURUMLAR})
+    if not ids:
+        return {}
+    return _sla_bitis_haritasi_cek(tuple(ids))
+
+
+_SLA_PARCA = 150    # URL uzunluğu sınırı: in_() listesi parça parça
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _sla_bitis_haritasi_cek(ids):
+    from .ts_hesap import ilk_gecis_haritasi
+    rows = []
+    try:
+        for i in range(0, len(ids), _SLA_PARCA):
+            rows += _rows(get_client().table("ts_gecmis").select("kayit_id, durum, tarih")
+                          .in_("kayit_id", list(ids[i:i + _SLA_PARCA]))
+                          .in_("durum", sorted(BITMIS_DURUMLAR))
+                          .order("tarih").execute())
+    except Exception:
+        return {}
+    return ilk_gecis_haritasi(rows)
+
+
+def sla_is_gunu(kayit, harita=None):
     """Kaydın SLA iş günü sayısı. Bitmemişse mal kabulden BUGÜNE; bitmişse mal kabulden
-    ilgili bitiş durumuna GEÇİŞ tarihine kadar (depo hareketindeki gerçek tarih)."""
+    ilgili bitiş durumuna GEÇİŞ tarihine kadar (depo hareketindeki gerçek tarih).
+    harita (sla_bitis_haritasi) verilirse veritabanına gidilmez — listelerde böyle çağır."""
     _bas = kayit.get("mal_kabul_tarihi")
     _durum = kayit.get("mevcut_durum")
-    _bitis = sla_bitis_tarihi(kayit.get("id"), _durum) if kayit.get("id") else None
+    if harita is not None:
+        _bitis = (harita.get(kayit.get("id"), {}).get(str(_durum or ""))
+                  if _durum in BITMIS_DURUMLAR else None)
+    else:
+        _bitis = sla_bitis_tarihi(kayit.get("id"), _durum) if kayit.get("id") else None
     return is_gunu_farki(_bas, _bitis)
 
 
@@ -503,15 +538,37 @@ def kayit_guncelle(kayit_id, alanlar):
 
 def sil_kayit(kayit_id):
     """Teknik servis kaydını ve tüm durum geçmişini KALICI siler.
-    Hatalı / mükerrer kayıtları temizlemek için. Döner: (ok, hata)."""
+    Hatalı / mükerrer kayıtları temizlemek için. Döner: (ok, hata).
+    Geçmiş önce silinir (ts_gecmis → ts_kayitlar yabancı anahtarı varsa sıra şart);
+    kayıt silinemezse geçmiş GERİ YAZILIR — eskiden kayıt geçmişsiz kalıyordu."""
     try:
         sb = get_client()
+        yedek = _rows(sb.table("ts_gecmis").select("*").eq("kayit_id", kayit_id).execute())
         sb.table("ts_gecmis").delete().eq("kayit_id", kayit_id).execute()
-        sb.table("ts_kayitlar").delete().eq("id", kayit_id).execute()
-        _cache_temizle()
-        return True, ""
     except Exception as e:
         return False, f"{type(e).__name__}: {str(e)[:160]}"
+    try:
+        sb.table("ts_kayitlar").delete().eq("id", kayit_id).execute()
+    except Exception as e:
+        geri = _gecmis_geri_yaz(sb, yedek)
+        _cache_temizle()
+        return False, (f"{type(e).__name__}: {str(e)[:160]}"
+                       + ("" if geri else " · DİKKAT: işlem geçmişi geri yazılamadı"))
+    _cache_temizle()
+    return True, ""
+
+
+def _gecmis_geri_yaz(sb, yedek):
+    """Silinen geçmiş satırlarını aynen geri yazar; id sütunu elle yazılamıyorsa id'siz."""
+    if not yedek:
+        return True
+    for veri in (yedek, [{k: v for k, v in r.items() if k != "id"} for r in yedek]):
+        try:
+            sb.table("ts_gecmis").insert(veri).execute()
+            return True
+        except Exception:
+            continue
+    return False
 
 
 @st.cache_data(ttl=120, show_spinner=False)
