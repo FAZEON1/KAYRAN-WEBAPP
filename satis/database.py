@@ -1451,6 +1451,20 @@ def iade_kanal_ozet(baslangic=None, bitis=None):
     return out
 
 
+def get_siparis_kalemleri(siparis_no=None, satis_id=None):
+    """Bir siparişin TÜM kalemleri (tarih filtresiz, taze — önbelleksiz).
+    Sipariş detay penceresi düzenleme yaparken listedeki önbellekli veriye
+    değil, kaydın güncel haline bakar. Sipariş no'su olmayan kalem için satis_id."""
+    try:
+        q = _get_client().table("satislar").select("*")
+        q = q.eq("siparis_no", siparis_no) if siparis_no else q.eq("id", satis_id)
+        return _rows(q.order("id").execute())
+    except Exception as e:  # noqa: BLE001
+        from shared.hata_log import kaydet
+        kaydet("satis.siparis_kalemleri", e)
+        return []
+
+
 def get_satislar_kanal_ara(q):
     """TARİH FİLTRESİZ satış arama — kanal/müşteri adında geçen kayıtları döner.
     Tarihi NULL/bozuk olduğu için normal listede görünmeyen 'hayalet' kayıtları
