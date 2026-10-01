@@ -77,10 +77,9 @@ def test_eur_kuru_onbellekli():
 
 
 def test_ekran_silmeleri_onayli():
-    """Ref, alınan destek ve firma silme düğmeleri onay kutusu işaretlenmeden pasif."""
-    import re
+    """Ref ve alınan destek silme ortak onaylı düğmeyle (shared/bilesen.onayli_sil);
+    firma silme onay kutusu işaretlenmeden pasif."""
     src = (KOK / "kayranpm/ref_ekran.py").read_text(encoding="utf-8")
-    for anahtar in ("ref_sil_", "ad2_sil_", "ref_fy_sil"):
-        m = re.search(r'st\.button\((?:(?!st\.button\().)*?disabled=not onay(?:(?!st\.button\().)*?key=f?"'
-                      + anahtar, src, re.S)
-        assert m, anahtar
+    assert 'B.onayli_sil(f"Evet, {r.get(\'ref_no\')} kaydını sil", key=f"ref_{rid}"' in src
+    assert 'B.onayli_sil("Evet, bu kaydı sil", key=f"ad2_{r[\'id\']}"' in src
+    assert "disabled=not onay or (adet and not refsil)" in src
