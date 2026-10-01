@@ -586,6 +586,9 @@ BILESEN_CSS = """
 .k-tb .sayi{font-family:var(--k-mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
 .k-tb .neg{color:var(--k-kirmizi);} .k-tb .silik{color:var(--k-silik);}
 .k-tb td.kisa{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.k-tb.sik thead th{padding:6px 8px;font-size:10.5px;letter-spacing:.2px;}
+.k-tb.sik tbody td{padding:5px 8px;font-size:11.5px;}
+.k-tb.sik td.kisa{max-width:170px;}
 .k-tb tfoot td{padding:8px 12px;font-weight:700;background:var(--k-yuzey2);
   border-top:2px solid var(--k-kenar2);position:sticky;bottom:0;}
 .k-tb .k-rz{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
@@ -1213,20 +1216,36 @@ def kisalt(metin, n=42):
 
 
 
-_TB_HIZA = {"para": "sag", "adet": "sag", "oran": "sag", "mono": "sol"}
+_TB_HIZA = {"para": "sag", "adet": "sag", "oran": "sag", "tam": "sag", "sayi": "sag", "mono": "sol"}
 
 
-def tablo_html(kolonlar, satirlar, toplam=None, vurgu=None, yukseklik=None, bos_mesaj="Gösterilecek veri yok."):
+def _tr_tam(v, max_ond=6):
+    """YUVARLAMADAN, sondaki sıfırları atarak TR biçimi: 1234 → '1.234', 1234.5678 → '1.234,5678'.
+    İthalat mal bedeli/masraf gibi tutarlar yukarı-aşağı yuvarlanmadan görünür."""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return ""
+    neg = x < 0
+    sayi = f"{abs(x):.{max_ond}f}".rstrip("0").rstrip(".")
+    tam, _, ond = sayi.partition(".")
+    tam = f"{int(tam):,}".replace(",", ".")
+    return ("-" if neg else "") + tam + ("," + ond if ond else "")
+
+
+def tablo_html(kolonlar, satirlar, toplam=None, vurgu=None, yukseklik=None, bos_mesaj="Gösterilecek veri yok.",
+               sik=False):
     """ORTAK salt-okur tablo (HTML). Modüllerin kendi <table> yazması yerine bu.
 
     kolonlar: ["Firma", ("Tutar", "para", "₺"), {"ad": "Adet", "tip": "adet"}]
-        tip: metin (varsayılan) · para · adet · oran · mono (sabit genişlik yazı)
+        tip: metin (varsayılan) · para · adet · oran · sayi (en çok 2 hane) · tam (yuvarlamasız) · mono
         birim: para için ₺ / $ (tip para ise 3. eleman ya da "birim" anahtarı)
         hiza: sol / sag / orta (varsayılan: sayı → sağ, diğer → sol)
     satirlar: [{kolon_adi: değer}]  değer: sayı, metin, None ("—") ya da Ham (hazır HTML)
     toplam:   {kolon_adi: değer} — kalın alt satır (tfoot)
     vurgu:    satır → renk anahtarı ("kirmizi"/"amber"/"yesil"/…) ya da None
     yukseklik: px verilirse kaydırmalı olur, başlık yapışkan kalır.
+    sik:      çok sütunlu tablolar için dar boşluk + küçük yazı (15 sütun ekrana sığsın).
 
     Kaçış: Ham olmayan her hücre html.escape'ten geçer.
     Kullanım: st.html(tablo_html(...))  (st.markdown da olur)
@@ -1261,11 +1280,15 @@ def tablo_html(kolonlar, satirlar, toplam=None, vurgu=None, yukseklik=None, bos_
             metin = _tr_adet(v); sinif.append("sayi")
         elif k["tip"] == "oran":
             metin = _tr_oran(v); sinif.append("sayi")
+        elif k["tip"] == "tam":
+            metin = _tr_tam(v); sinif.append("sayi")
+        elif k["tip"] == "sayi":                      # 12 → '12', 12,5 → '12,5', 12,345 → '12,35'
+            metin = _tr_tam(v, 2); sinif.append("sayi")
         elif k["tip"] == "mono":
             metin = _h.escape(str(v)); sinif.append("sayi")
         else:
             metin = _h.escape(str(v))
-        if k["tip"] in ("para", "adet", "oran") and not isinstance(v, Ham):
+        if k["tip"] in ("para", "adet", "oran", "tam", "sayi") and not isinstance(v, Ham):
             try:
                 if float(v) < 0:
                     sinif.append("neg")
@@ -1285,8 +1308,73 @@ def tablo_html(kolonlar, satirlar, toplam=None, vurgu=None, yukseklik=None, bos_
     if toplam:
         alt = "<tfoot><tr>" + "".join(hucre(k, toplam.get(k["ad"])) for k in kol) + "</tr></tfoot>"
     sarmal = f' style="max-height:{int(yukseklik)}px"' if yukseklik else ""
-    return (f'<div class="k-tbw"{sarmal}><table class="k-tb"><thead><tr>{bas}</tr></thead>'
+    return (f'<div class="k-tbw"{sarmal}><table class="k-tb{" sik" if sik else ""}"><thead><tr>{bas}</tr></thead>'
             f'<tbody>{"".join(govde)}</tbody>{alt}</table></div>')
+
+
+def df_tablo_html(df, para=None, yuzde=None, kar=None, sol=None, kisa=None, gizle=None,
+                  satir_vurgu=None, birim="$", tam=False, bos_mesaj="Gösterilecek veri yok.", sik=False):
+    """DataFrame → tablo_html. Modüllerin kendi 'render_renkli_tablo' / '_tablo'
+    yardımcılarının ORTAK karşılığı (Aşama 4b).
+
+    para/yuzde: kolon adları (para: birim ile, yuzde: %x,x) · kar: + yeşil / − kırmızı
+    sol: sayısal olsa da sola yaslanacak kolonlar · kisa: {kolon: en çok karakter}
+    gizle: gösterilmeyecek kolonlar · satir_vurgu: (kolon, {değer: renk}) → satır rengi
+    tam=True: para ve sayılar yuvarlanmadan (İthalat tutarları)
+    """
+    try:
+        import pandas as _pd
+    except ImportError:            # pandas yoksa düz metin
+        _pd = None
+    para = set(para or []); yuzde = set(yuzde or []); kar = set(kar or [])
+    sol = set(sol or []); kisa = kisa or {}; gizle = set(gizle or [])
+    if df is None or len(df) == 0:
+        return bos(bos_mesaj)
+    kolonlar = [c for c in df.columns if c not in gizle]
+
+    def _sayisal(c):
+        try:
+            return bool(_pd and _pd.api.types.is_numeric_dtype(df[c]))
+        except Exception:
+            return False
+
+    kol = []
+    for c in kolonlar:
+        if c in sol and c not in para and c not in yuzde:
+            kol.append((c, "metin")); continue
+        if c in para:
+            kol.append((c, "tam" if tam else "para", birim, "sol" if c in sol else "sag"))
+        elif c in yuzde:
+            kol.append((c, "oran", "$", "sol" if c in sol else "sag"))
+        elif _sayisal(c):
+            kol.append((c, "tam" if tam else "sayi", "$", "sol" if c in sol else "sag"))
+        else:
+            kol.append((c, "metin"))
+    vk, vharita = (satir_vurgu or (None, {}))
+
+    satirlar = []
+    for _, r in df.iterrows():
+        kayit = {}
+        for c in kolonlar:
+            v = r[c]
+            if _pd is not None and v is not None and not isinstance(v, str):
+                try:
+                    if _pd.isna(v):
+                        v = None
+                except (TypeError, ValueError):
+                    pass
+            if c in kar and v is not None:
+                try:
+                    f = float(v)
+                    v = renkli(_tr_para(f, birim), "yesil2" if f > 0 else ("kirmizi" if f < 0 else "metin"), kalin=f != 0)
+                except (TypeError, ValueError):
+                    pass
+            elif c in kisa and v is not None:
+                v = kisalt(v, kisa[c])
+            kayit[c] = v
+        satirlar.append(kayit)
+    vurgu = (lambda r: vharita.get(str(r.get(vk, "")))) if vk else None
+    return tablo_html(kol, satirlar, vurgu=vurgu, bos_mesaj=bos_mesaj, sik=sik)
 
 
 def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",

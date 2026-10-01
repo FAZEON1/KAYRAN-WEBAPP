@@ -5,6 +5,7 @@ KAYRAN — İthalat Modülü
   🔍 Model Sorgu       : SKU yaz → geçmiş tüm alımlar (firma/adet/fiyat/dosya % maliyeti/final maliyet)
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.tasarim import df_tablo_html
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import io
 from datetime import date
@@ -230,65 +231,9 @@ def _form_css():
 
 
 def _tablo(df, para=None, yuzde=None, sol=None, kisalt=None):
-    """DataFrame'i KAYRAN renkli HTML tablosunda çizer (salt-okunur)."""
-    para = set(para or []); yuzde = set(yuzde or []); sol = set(sol or []); kisalt = kisalt or {}
-    if df is None or len(df) == 0:
-        st.info("Gösterilecek veri yok.")
-        return
-    kolonlar = list(df.columns)
-
-    def _isnum(c):
-        try:
-            return pd.api.types.is_numeric_dtype(df[c])
-        except Exception:
-            return False
-
-    def _sag(c):
-        return (c in para or c in yuzde or _isnum(c)) and c not in sol
-
-    def _fmt(c, v):
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            return "\u2014"
-        try:
-            if c in para:
-                return _tam(v)
-            if c in yuzde:
-                return f"%{tr_sayi(float(v), 2)}"
-            if _isnum(c):
-                fv = float(v)
-                return _tam(fv)
-        except Exception:
-            pass
-        s = str(v); mx = kisalt.get(c)
-        return (s[:mx-1] + "\u2026") if (mx and len(s) > mx) else s
-
-    rows_html = ""
-    for _, row in df.iterrows():
-        tds = ""
-        for c in kolonlar:
-            v = row[c]
-            cls = "rk-num" if _sag(c) else "rk-txt"
-            full = str(v); mx = kisalt.get(c)
-            ttl = f' title="{full.replace(chr(34), "&quot;")}"' if (mx and len(full) > mx) else ""
-            tds += f'<td class="{cls}"{ttl}>{_fmt(c, v)}</td>'
-        rows_html += f"<tr>{tds}</tr>"
-    ths = "".join(f'<th class="{"" if _sag(c) else "l"}">{c}</th>' for c in kolonlar)
-    css = (
-        "<style>"
-        ".itw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
-        ".itt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-        ".itt thead tr{background:linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1))}"
-        ".itt thead th{padding:8px 12px;color:var(--k-mavi);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
-        ".itt thead th.l{text-align:left}"
-        ".itt tbody{background:var(--k-yuzey2)}"
-        ".itt td{padding:8px 12px;font-size:11px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-        ".itt tbody tr{border-bottom:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)}"
-        ".itt tbody tr:hover{background:color-mix(in srgb,var(--k-mor) 6%,transparent)}"
-        ".rk-txt{text-align:left;color:var(--k-mavi)}"
-        ".rk-num{text-align:right;color:var(--k-mavi);font-family:'JetBrains Mono',monospace}"
-        "</style>"
-    )
-    st.html(css + f'<div class="itw"><table class="itt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
+    """DataFrame'i ORTAK tabloda çizer (Aşama 4b — shared.tasarim.df_tablo_html).
+    Tutarlar yuvarlanmadan (tam=True) görünür; eski _tam() davranışı korunur."""
+    st.html(df_tablo_html(df, para=para, yuzde=yuzde, sol=sol, kisa=kisalt, tam=True))
 
 
 def _excel_sablon_bytes():

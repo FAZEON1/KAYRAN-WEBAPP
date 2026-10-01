@@ -7,6 +7,7 @@ Kullanım:
     run()
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.tasarim import df_tablo_html, tablo_html, Ham, rozet_html, renkli, kisalt as _kisalt
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import logging
@@ -46,86 +47,20 @@ from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
                             excel_yukle_haftalik_stok_satis, excel_yukle_stok_kartlari)
 
 
+_RK_RENK = {"rk-grn": "yesil", "rk-red": "kirmizi", "rk-yel": "amber", "rk-org": "amber", "rk-dim": None}
+
+
 def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
                         kisalt=None, gizle=None, satir_durum=None):
-    """Bir DataFrame'i KAYRAN renkli HTML tablo temasinda (salt-okunur) cizer."""
-    para = set(para or []); yuzde = set(yuzde or []); kar = set(kar or [])
-    sol = set(sol or []); kisalt = kisalt or {}; gizle = set(gizle or [])
-    if df is None or len(df) == 0:
-        st.info("Gosterilecek veri yok.")
-        return
-    durum_kolon, durum_harita = (satir_durum or (None, {}))
-    kolonlar = [c for c in df.columns if c not in gizle]
-
-    def _isnum(c):
-        try:
-            return pd.api.types.is_numeric_dtype(df[c])
-        except Exception:
-            return False
-
-    def _sag(c):
-        return (c in para or c in yuzde or _isnum(c)) and c not in sol
-
-    def _fmt(c, v):
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            return "\u2014"
-        try:
-            if c in para:
-                return f"${tr_sayi(float(v), 2)}"
-            if c in yuzde:
-                return f"%{tr_sayi(float(v), 1)}"
-            if _isnum(c):
-                fv = float(v)
-                return f"{tr_sayi(int(fv))}" if fv == int(fv) else f"{tr_sayi(fv, 2)}"
-        except Exception:
-            pass
-        s = str(v)
-        mx = kisalt.get(c)
-        return (s[:mx-1] + "\u2026") if (mx and len(s) > mx) else s
-
-    rows_html = ""
-    for _, row in df.iterrows():
-        drenk = durum_harita.get(str(row.get(durum_kolon, "")), "") if durum_kolon else ""
-        tds = ""
-        for c in kolonlar:
-            v = row[c]
-            base = "rk-num" if _sag(c) else "rk-txt"
-            cls = base
-            if c in kar:
-                try:
-                    fv = float(v)
-                    cls = "rk-pos" if fv > 0 else ("rk-neg" if fv < 0 else "rk-num")
-                except Exception:
-                    cls = "rk-num"
-            elif drenk:
-                cls = base + " " + drenk
-            full = str(v)
-            mx = kisalt.get(c)
-            ttl = f' title="{full.replace(chr(34), "&quot;")}"' if (mx and len(full) > mx) else ""
-            tds += f'<td class="{cls}"{ttl}>{_fmt(c, v)}</td>'
-        rows_html += f"<tr>{tds}</tr>"
-
-    ths = "".join(f'<th class="{"" if _sag(c) else "l"}">{c}</th>' for c in kolonlar)
-    css = (
-        "<style>"
-        ".rkw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
-        ".rkt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-        ".rkt thead tr{background:linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1))}"
-        ".rkt thead th{padding:8px 12px;color:var(--k-mavi);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
-        ".rkt thead th.l{text-align:left}"
-        ".rkt tbody{background:var(--k-yuzey2)}"
-        ".rkt td{padding:8px 12px;font-size:11px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-        ".rkt tbody tr{border-bottom:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)}"
-        ".rkt tbody tr:hover{background:color-mix(in srgb,var(--k-mor) 6%,transparent)}"
-        ".rk-txt{text-align:left;color:var(--k-mavi)}"
-        ".rk-num{text-align:right;color:var(--k-mavi);font-family:'JetBrains Mono',monospace}"
-        ".rk-pos{text-align:right;color:var(--k-yesil2) !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
-        ".rk-neg{text-align:right;color:var(--k-kirmizi) !important;font-weight:700;font-family:'JetBrains Mono',monospace}"
-        ".rk-red{color:var(--k-kirmizi) !important;font-weight:600}.rk-org{color:var(--k-amber) !important;font-weight:600}"
-        ".rk-yel{color:var(--k-amber2) !important;font-weight:600}.rk-grn{color:var(--k-yesil2) !important;font-weight:600}.rk-dim{color:var(--k-silik) !important}"
-        "</style>"
-    )
-    st.html(css + f'<div class="rkw"><table class="rkt"><thead><tr>{ths}</tr></thead><tbody>' + rows_html + "</tbody></table></div>")
+    """DataFrame'i ORTAK tabloda çizer (Aşama 4b — shared.tasarim.df_tablo_html).
+    satir_durum: (kolon, {değer: "rk-grn"/"rk-red"/"rk-yel"}) eski adlar da kabul edilir
+    → satır zemini yeşil/kırmızı/sarı vurgulanır."""
+    vurgu = None
+    if satir_durum:
+        kol, harita = satir_durum
+        vurgu = (kol, {k: _RK_RENK.get(v, v) for k, v in harita.items()})
+    st.html(df_tablo_html(df, para=para, yuzde=yuzde, kar=kar, sol=sol, kisa=kisalt,
+                          gizle=gizle, satir_vurgu=vurgu))
 
 
 def run():
@@ -1107,150 +1042,58 @@ def run():
             if df_oz.empty:
                 st.info("Henüz ürün yok.")
             else:
-                def _fmt_para(v):
-                    try:
-                        return f"${tr_sayi(float(v), 2)}" if v not in (None, "") and float(v) != 0 else "—"
-                    except Exception:
-                        return "—"
-                def _fmt_int(v):
-                    try:
-                        return f"{tr_sayi(int(v))}" if v not in (None, "") else "0"
-                    except Exception:
-                        return "0"
-                def _fmt_pct(v):
-                    try:
-                        return f"%{tr_sayi(float(v), 1)}" if v not in (None, "") else "—"
-                    except Exception:
-                        return "—"
-                def _stok_cls(v):
-                    try:
-                        return "c-num" if (v and int(v) > 0) else "c-muted"
-                    except Exception:
-                        return "c-muted"
+                # ── Ürün tablosu: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
+                _YAS_RENK = {"yesil": "yesil2", "sari": "amber", "turuncu": "amber", "kirmizi": "kirmizi"}
 
-                satir_html = ""
+                def _para_h(v, renk="metin", kalin=False):
+                    """0/boş → '—' (silik); doluysa $ TR biçimi."""
+                    try:
+                        f = float(v)
+                    except (TypeError, ValueError):
+                        return None
+                    return renkli(f"${tr_sayi(f, 2)}", renk, kalin=kalin) if f else None
+
+                def _isaret_h(v, bicim):
+                    """+ yeşil · − kırmızı · 0 düz · None '—'."""
+                    if v is None:
+                        return None
+                    renk = "yesil2" if v > 0 else ("kirmizi" if v < 0 else "mavi")
+                    return renkli(bicim(v), renk, kalin=v != 0)
+
+                satirlar = []
                 for r in rows_oz:
-                    ad = str(r.get("Ürün Adı", "") or "")
-                    ad_kisa = ad if len(ad) <= 46 else ad[:45] + "…"
-                    ad_title = ad.replace(chr(34), "&quot;")
                     nk = r.get("Net Kar ($)")
-                    if nk is None:
-                        nk_cls, nk_txt = "c-muted", "—"
-                    elif nk > 0:
-                        nk_cls, nk_txt = "c-pos", f"${tr_sayi(nk, 2)}"
-                    elif nk < 0:
-                        nk_cls, nk_txt = "c-neg", f"${tr_sayi(nk, 2)}"
-                    else:
-                        nk_cls, nk_txt = "c-num", f"${tr_sayi(nk, 2)}"
-                    nm = r.get("Net Marj (%)")
-                    if nm is None:
-                        nm_cls, nm_txt = "c-muted", "—"
-                    elif nm > 0:
-                        nm_cls, nm_txt = "c-pos", f"%{tr_sayi(nm, 1)}"
-                    elif nm < 0:
-                        nm_cls, nm_txt = "c-neg", f"%{tr_sayi(nm, 1)}"
-                    else:
-                        nm_cls, nm_txt = "c-num", f"%{tr_sayi(nm, 1)}"
-                    tot = r.get("Toplam") or 0
-                    tot_cls = "c-tot" if tot else "c-muted"
-                    fcp_raw = r.get("Final Cost ($)")
-                    fcp = fcp_raw or 0
-                    fcp_cls = "c-fcp" if fcp else "c-muted"
-                    fob_raw = r.get("FOB ($)")
-                    fob_v = fob_raw or 0
-                    fob_cls = "c-num" if fob_v else "c-muted"
-                    son_fob_raw = r.get("Son FOB ($)")
-                    son_fob_v = son_fob_raw or 0
-                    son_fob_cls = "c-num" if son_fob_v else "c-muted"
-                    son_fcp_raw = r.get("Son Maliyet ($)")
-                    son_fcp_v = son_fcp_raw or 0
-                    son_fcp_cls = "c-fcp" if son_fcp_v else "c-muted"
-                    satis = r.get("Satış ($)") or 0
-                    satis_cls = "c-money" if satis else "c-muted"
-                    mal = r.get("Maliyet %")
-                    mal_cls = "c-mal" if (mal is not None) else "c-muted"
-                    _kanallar = []
-                    for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN")):
-                        _kv = r.get(_kn) or 0
-                        if _kv:
-                            _kanallar.append(f"{_kl}:{int(_kv)}")
-                    kanal_str = " · ".join(_kanallar) if _kanallar else "—"
-                    kanal_title = kanal_str.replace(chr(34), "&quot;")
-                    _loss = (nk is not None and nk < 0)
-                    _tr_attr = ' style="background:color-mix(in srgb,var(--k-kirmizi) 7%,transparent);box-shadow:inset 3px 0 0 var(--k-kirmizi)"' if _loss else ""
-                    _yas_v = r.get("_stok_yas")
+                    _kanallar = [f"{_kl}:{int(r.get(_kn) or 0)}"
+                                 for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN"))
+                                 if r.get(_kn)]
                     _yas_renk = r.get("_stok_renk", "yok")
-                    _yas_renk_map = {"yesil": trenk("yesil2"), "sari": trenk("amber"), "turuncu": trenk("amber"), "kirmizi": trenk("kirmizi")}
-                    if _yas_renk in _yas_renk_map:
-                        _yas_col = _yas_renk_map[_yas_renk]
-                        _yas_txt = f"{int(_yas_v or 0)}g"
-                    else:
-                        _yas_col = trenk("silik")
-                        _yas_txt = "—"
-                    satir_html += (
-                        f"<tr{_tr_attr}>"
-                        f'<td class="c-sku">{r.get("SKU","")}</td>'
-                        f'<td class="c-name" title="{ad_title}">{ad_kisa}</td>'
-                        f'<td class="c-kat">{r.get("Kategori","")}</td>'
-                        f'<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:{_yas_col};font-weight:600">{_yas_txt}</td>'
-                        f'<td class="{_stok_cls(r.get("G5F Depo"))}">{_fmt_int(r.get("G5F Depo"))}</td>'
-                        f'<td class="c-kanal" title="{kanal_title}">{kanal_str}</td>'
-                        f'<td class="{tot_cls}">{_fmt_int(tot)}</td>'
-                        f'<td class="{fob_cls}">{_fmt_para(fob_v) if fob_raw is not None else "—"}</td>'
-                        f'<td class="{son_fob_cls}">{_fmt_para(son_fob_v) if son_fob_raw is not None else "—"}</td>'
-                        f'<td class="{mal_cls}">{_fmt_pct(mal)}</td>'
-                        f'<td class="{fcp_cls}">{_fmt_para(fcp) if fcp_raw is not None else "—"}</td>'
-                        f'<td class="{son_fcp_cls}">{_fmt_para(son_fcp_v) if son_fcp_raw is not None else "—"}</td>'
-                        f'<td class="{satis_cls}">{_fmt_para(satis)}</td>'
-                        f'<td class="{nm_cls}">{nm_txt}</td>'
-                        f'<td class="{nk_cls}">{nk_txt}</td>'
-                        "</tr>"
-                    )
-                css = (
-                    "<style>"
-                    ".urun-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,0.25);margin-top:8px}"
-                    ".urun-tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:Inter,sans-serif}"
-                    ".urun-tbl thead tr{background:linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1))}"
-                    ".urun-tbl thead th{padding:8px 8px;color:var(--k-mavi);font-size:11px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:normal;line-height:1.2;text-align:center;vertical-align:middle}"
-                    ".urun-tbl thead th.l{text-align:left}"
-                    ".urun-tbl tbody{background:var(--k-yuzey2)}"
-                    ".urun-tbl td{padding:8px 8px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                    ".urun-tbl tbody tr{border-bottom:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)}"
-                    ".urun-tbl tbody tr:hover{background:color-mix(in srgb,var(--k-mor) 6%,transparent)}"
-                    ".c-sku{color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                    ".c-name{color:var(--k-mavi);max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                    ".c-kat{color:var(--k-soluk);font-size:11px}"
-                    ".c-kanal{text-align:left;color:var(--k-soluk);font-family:'JetBrains Mono',monospace;font-size:11px;max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                    ".c-num{text-align:right;color:var(--k-mavi);font-family:'JetBrains Mono',monospace}"
-                    ".c-dim{text-align:right;color:var(--k-soluk);font-family:'JetBrains Mono',monospace}"
-                    ".c-money{text-align:right;color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-weight:600}"
-                    ".c-mal{text-align:right;color:var(--k-mor);font-family:'JetBrains Mono',monospace}"
-                    ".c-pos{text-align:right;color:var(--k-yesil2);font-weight:700;font-family:'JetBrains Mono',monospace}"
-                    ".c-neg{text-align:right;color:var(--k-kirmizi);font-weight:700;font-family:'JetBrains Mono',monospace}"
-                    ".c-fcp{text-align:right;color:var(--k-amber);font-weight:600;font-family:'JetBrains Mono',monospace}"
-                    ".c-tot{text-align:right;color:var(--k-mavi);font-weight:700;font-family:'JetBrains Mono',monospace}"
-                    ".c-muted{text-align:right;color:var(--k-silik);font-family:'JetBrains Mono',monospace}"
-                    "</style>"
-                )
-                thead = (
-                    '<div class="urun-wrap"><table class="urun-tbl">'
-                    '<colgroup>'
-                    '<col style="width:6%"><col style="width:12%"><col style="width:6%"><col style="width:5%">'
-                    '<col style="width:5%"><col style="width:9%"><col style="width:5%">'
-                    '<col style="width:6%"><col style="width:6%"><col style="width:6%">'
-                    '<col style="width:7%"><col style="width:7%"><col style="width:6%">'
-                    '<col style="width:6%"><col style="width:6%">'
-                    '</colgroup>'
-                    '<thead><tr>'
-                    '<th class="l">SKU</th><th class="l">Ürün Adı</th><th class="l">Kategori</th>'
-                    '<th>📅 Stok Yaşı</th>'
-                    '<th>G5F</th><th class="l">Kanal Stok</th><th>Toplam</th>'
-                    "<th>Paçal FOB</th><th>Son FOB</th><th>Maliyet %</th>"
-                    "<th>⭐ Paçal Maliyet</th><th>Son Maliyet</th><th>Satış</th>"
-                    "<th>📊 Net Marj %</th><th>💰 Net Kâr $</th>"
-                    "</tr></thead><tbody>"
-                )
-                st.html(css + thead + satir_html + "</tbody></table></div>")
+                    satirlar.append({
+                        "SKU": renkli(r.get("SKU", ""), "metin", kalin=True),
+                        "Ürün Adı": _kisalt(r.get("Ürün Adı", ""), 46),
+                        "Kategori": r.get("Kategori", "") or None,
+                        "Stok Yaşı": renkli(f"{int(r.get('_stok_yas') or 0)}g", _YAS_RENK[_yas_renk], kalin=True)
+                                     if _yas_renk in _YAS_RENK else None,
+                        "G5F": int(r.get("G5F Depo") or 0) or None,
+                        "Kanal Stok": _kisalt(" · ".join(_kanallar), 28) if _kanallar else None,
+                        "Toplam": renkli(tr_sayi(int(r.get("Toplam") or 0)), "mavi", kalin=True) if r.get("Toplam") else None,
+                        "Paçal FOB": _para_h(r.get("FOB ($)"), "mavi"),
+                        "Son FOB": _para_h(r.get("Son FOB ($)"), "mavi"),
+                        "Maliyet %": renkli(f"%{tr_sayi(float(r['Maliyet %']), 1)}", "mor") if r.get("Maliyet %") is not None else None,
+                        "⭐ Paçal Maliyet": _para_h(r.get("Final Cost ($)"), "amber", kalin=True),
+                        "Son Maliyet": _para_h(r.get("Son Maliyet ($)"), "amber", kalin=True),
+                        "Satış": _para_h(r.get("Satış ($)"), "metin", kalin=True),
+                        "📊 Net Marj %": _isaret_h(r.get("Net Marj (%)"), lambda v: f"%{tr_sayi(v, 1)}"),
+                        "💰 Net Kâr $": _isaret_h(nk, lambda v: f"${tr_sayi(v, 2)}"),
+                        "_zarar": nk is not None and nk < 0,
+                    })
+                st.html(tablo_html(
+                    ["SKU", "Ürün Adı", "Kategori", ("Stok Yaşı", "metin", "$", "sag"), ("G5F", "adet"),
+                     ("Kanal Stok", "mono"), ("Toplam", "metin", "$", "sag"), ("Paçal FOB", "metin", "$", "sag"),
+                     ("Son FOB", "metin", "$", "sag"), ("Maliyet %", "metin", "$", "sag"),
+                     ("⭐ Paçal Maliyet", "metin", "$", "sag"), ("Son Maliyet", "metin", "$", "sag"),
+                     ("Satış", "metin", "$", "sag"), ("📊 Net Marj %", "metin", "$", "sag"), ("💰 Net Kâr $", "metin", "$", "sag")],
+                    satirlar, sik=True,
+                    vurgu=lambda r: "kirmizi" if r["_zarar"] else None))
             st.caption("💡 FOB/Maliyet iki türlü: Paçal = adet-ağırlıklı ortalama (kâr/marj buna göre) · Son = en yeni ithalat dosyası · Net Kâr $ = Satış − Paçal Maliyet")
 
             # ── 📤 Rapor Al — Excel / PDF (ekrandaki filtreye göre) ──
@@ -2566,71 +2409,37 @@ def run():
                                     "Toplam Destek ($)": f"${toplam_destek_urun:.0f}",
                                     "Toplam Net Kar ($)": f"${toplam_net_urun:.0f}",
                                     "Notlar": ku.get("notlar","") or "",
+                                    # Ham sayılar: tablo bunları TR biçimiyle basar (metin alanları
+                                    # seçim etiketi vb. için olduğu gibi kalır)
+                                    "_pacal": pacal, "_satis": satis, "_fd": fd, "_ed": ed,
+                                    "_nkb": net_kar_birim, "_marj": net_marj,
+                                    "_tdestek": toplam_destek_urun, "_tnet": toplam_net_urun,
                                 })
     
-                            def _pf(x):
-                                try:
-                                    return float(str(x).replace("$", "").replace("%", "").replace(",", "").strip())
-                                except Exception:
-                                    return 0.0
-                            k_rows = ""
-                            for rk in rows_ku:
-                                urun = str(rk.get("Ürün", "") or "")
-                                urun_k = urun if len(urun) <= 40 else urun[:39] + "…"
-                                urun_t = urun.replace(chr(34), "&quot;")
-                                nkb = _pf(rk.get("Net Kar/Adet ($)"))
-                                nkb_cls = "kc-pos" if nkb > 0 else ("kc-neg" if nkb < 0 else "kc-num")
-                                tnk = _pf(rk.get("Toplam Net Kar ($)"))
-                                tnk_cls = "kc-pos" if tnk > 0 else ("kc-neg" if tnk < 0 else "kc-num")
-                                notlar = str(rk.get("Notlar", "") or "")
-                                notlar_k = notlar if len(notlar) <= 24 else notlar[:23] + "…"
-                                notlar_t = notlar.replace(chr(34), "&quot;")
-                                k_rows += (
-                                    "<tr>"
-                                    f'<td class="kc-sku">{rk.get("SKU","")}</td>'
-                                    f'<td class="kc-name" title="{urun_t}">{urun_k}</td>'
-                                    f'<td class="kc-gold">{rk.get("⭐ Paçal ($)","")}</td>'
-                                    f'<td class="kc-money">{rk.get("Satış ($)","")}</td>'
-                                    f'<td class="kc-dim">{rk.get("Firma Destek ($)","")}</td>'
-                                    f'<td class="kc-dim">{rk.get("Ek Destek ($)","")}</td>'
-                                    f'<td class="{nkb_cls}">{rk.get("Net Kar/Adet ($)","")}</td>'
-                                    f'<td class="kc-dim">{rk.get("Net Marj (%)","")}</td>'
-                                    f'<td class="kc-num">{rk.get("Satılan Adet","")}</td>'
-                                    f'<td class="kc-dim">{rk.get("Toplam Destek ($)","")}</td>'
-                                    f'<td class="{tnk_cls}">{rk.get("Toplam Net Kar ($)","")}</td>'
-                                    f'<td class="kc-note" title="{notlar_t}">{notlar_k}</td>'
-                                    "</tr>"
-                                )
-                            k_css = (
-                                "<style>"
-                                ".kw{overflow-x:auto;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,0.25);margin:4px 0}"
-                                ".kt{width:100%;border-collapse:collapse;font-family:Inter,sans-serif}"
-                                ".kt thead tr{background:linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1))}"
-                                ".kt thead th{padding:8px 12px;color:var(--k-mavi);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;text-align:right}"
-                                ".kt thead th:nth-child(1),.kt thead th:nth-child(2),.kt thead th:last-child{text-align:left}"
-                                ".kt tbody{background:var(--k-yuzey2)}"
-                                ".kt td{padding:8px 12px;font-size:11px}"
-                                ".kt tbody tr{border-bottom:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)}"
-                                ".kt tbody tr:hover{background:color-mix(in srgb,var(--k-mor) 6%,transparent)}"
-                                ".kc-sku{color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}"
-                                ".kc-name{color:var(--k-mavi);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
-                                ".kc-note{color:var(--k-silik);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}"
-                                ".kc-num{text-align:right;color:var(--k-mavi);font-family:'JetBrains Mono',monospace}"
-                                ".kc-dim{text-align:right;color:var(--k-soluk);font-family:'JetBrains Mono',monospace}"
-                                ".kc-money{text-align:right;color:var(--k-metin);font-family:'JetBrains Mono',monospace;font-weight:600}"
-                                ".kc-gold{text-align:right;color:var(--k-amber2);font-weight:600;font-family:'JetBrains Mono',monospace}"
-                                ".kc-pos{text-align:right;color:var(--k-yesil2);font-weight:700;font-family:'JetBrains Mono',monospace}"
-                                ".kc-neg{text-align:right;color:var(--k-kirmizi);font-weight:700;font-family:'JetBrains Mono',monospace}"
-                                "</style>"
-                            )
-                            k_head = (
-                                '<div class="kw"><table class="kt"><thead><tr>'
-                                "<th>SKU</th><th>Ürün</th><th>⭐ Paçal</th><th>Satış</th><th>Firma Destek</th>"
-                                "<th>Ek Destek</th><th>Net Kar/Adet</th><th>Net Marj</th><th>Satılan</th>"
-                                "<th>Toplam Destek</th><th>Toplam Net Kar</th><th>Notlar</th>"
-                                "</tr></thead><tbody>"
-                            )
-                            st.html(k_css + k_head + k_rows + "</tbody></table></div>")
+                            # ── Kampanya tablosu: ortak tablo_html (Aşama 4b). Eskiden metin
+                            #    hücreler _pf() ile geri ayrıştırılıyordu; artık ham sayılar var.
+                            def _isaretli(v):
+                                return renkli(f"${tr_sayi(v, 2)}", "yesil2" if v > 0 else ("kirmizi" if v < 0 else "mavi"), kalin=v != 0)
+
+                            st.html(tablo_html(
+                                ["SKU", "Ürün", ("⭐ Paçal", "metin", "$", "sag"), ("Satış", "para", "$"),
+                                 ("Firma Destek", "para", "$"), ("Ek Destek", "para", "$"),
+                                 ("Net Kar/Adet", "metin", "$", "sag"), ("Net Marj", "oran"), ("Satılan", "adet"),
+                                 ("Toplam Destek", "para", "$"), ("Toplam Net Kar", "metin", "$", "sag"), "Notlar"],
+                                [{
+                                    "SKU": renkli(rk.get("SKU", ""), "metin", kalin=True),
+                                    "Ürün": _kisalt(rk.get("Ürün", ""), 40),
+                                    "⭐ Paçal": renkli(f"${tr_sayi(rk['_pacal'], 2)}", "amber2", kalin=True) if rk.get("_pacal") else None,
+                                    "Satış": rk.get("_satis"),
+                                    "Firma Destek": rk.get("_fd") or None,
+                                    "Ek Destek": rk.get("_ed") or None,
+                                    "Net Kar/Adet": _isaretli(rk.get("_nkb") or 0),
+                                    "Net Marj": rk.get("_marj"),
+                                    "Satılan": rk.get("Satılan Adet"),
+                                    "Toplam Destek": rk.get("_tdestek") or None,
+                                    "Toplam Net Kar": _isaretli(rk.get("_tnet") or 0),
+                                    "Notlar": _kisalt(rk.get("Notlar", ""), 24) if rk.get("Notlar") else None,
+                                } for rk in rows_ku], sik=True))
     
                             # Kampanya özet metrikleri (+ Spiff kampanya maliyeti)
                             _spiff_tl_p = float(kamp.get("spiff_tl") or 0)

@@ -52,6 +52,7 @@ def test_vurgu_ve_toplam():
     assert h.count("data-vurgu=") == 1 and 'data-vurgu="kirmizi" style="--v:var(--k-kirmizi)"' in h
     assert "<tfoot><tr><td>Σ</td>" in h and "₺3,00" in h
     assert 'style="max-height:300px"' in tablo_html(["A"], [{"A": 1}], yukseklik=300)
+    assert '<table class="k-tb sik">' in tablo_html(["A"], [{"A": 1}], sik=True)    # dar düzen
 
 
 def test_tablo_css_tema_degiskenli():
