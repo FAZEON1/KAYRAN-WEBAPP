@@ -11,6 +11,7 @@ Mimari:
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
@@ -873,6 +874,34 @@ _sb_comp.html(
     }
   } catch (e) {}
 
+  // ── Klavye kısayolu: Ctrl+K (Mac'te ⌘K) ya da "/" → aramaya atla ──
+  // Her sayfadan çalışır: arama kutusu ekrandaysa ona odaklanır, değilse üst
+  // menüdeki "Arama" sekmesini açar ve kutu belirince imleci içine koyar.
+  // "/" yalnız bir kutuya YAZMIYORKEN çalışır (yazılan metne karışmasın).
+  // Dinleyici sayfa başına BİR kez kurulur; her basışta güncel DOM'a bakar.
+  try {
+    if (!w.__kayranKisayol) {
+      w.__kayranKisayol = true;
+      const kutu = () => doc.querySelector('[class*="st-key-global_arama_"] input');
+      const odakla = (n) => {
+        const i = kutu();
+        if (i) { i.focus(); try { i.select(); } catch (e) {} return; }
+        if (n > 0) w.setTimeout(() => odakla(n - 1), 120);
+      };
+      doc.addEventListener("keydown", (e) => {
+        const a = doc.activeElement, t = ((a && a.tagName) || "").toUpperCase();
+        const yaziyor = t === "INPUT" || t === "TEXTAREA" || (a && a.isContentEditable);
+        const ctrlK = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K");
+        const egik = e.key === "/" && !yaziyor && !e.ctrlKey && !e.metaKey && !e.altKey;
+        if (!ctrlK && !egik) return;
+        e.preventDefault();
+        if (kutu()) { odakla(0); return; }
+        const d = doc.querySelector(".st-key-top_arama button");
+        if (d) { d.click(); odakla(25); }
+      }, true);
+    }
+  } catch (e) {}
+
   // Düğme zaten varsa (her rerun bu betik yeniden çalışır): ÇIKMADAN önce
   // güncel menüye yeniden bağlan + konumla. Eskiden burada yalnız `return` vardı;
   // menü yeniden kurulduğunda izleyiciler eski (sayfadan kalkmış) menüde kalıyor,
@@ -1293,148 +1322,83 @@ KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" x
 # CSS — Login + Portal
 # ─────────────────────────────────────────────────────────────────────
 def login_css():
-    return """
-    <style>
-    /* Font @import kaldırıldı — tek kaynak config.toml */
-
-    .stApp {
-        background: var(--k-yuzey0) !important;
-        font-family: 'Inter', -apple-system, sans-serif !important;
-    }
-    [data-testid="stHeader"] { background: transparent !important; height: 0 !important; }
-    section[data-testid="stSidebar"] { display: none !important; }
-    .main .block-container { padding-top: 0 !important; max-width: 100% !important; }
-    .stDeployButton { display: none !important; }
-    footer { display: none !important; }
-    #MainMenu { display: none !important; }
-
-    .kayran-bg {
-        position: fixed; top: 0; left: 0;
-        width: 100vw; height: 100vh; z-index: -1;
-        background: var(--k-yuzey0); overflow: hidden;
-    }
-    .kayran-bg::before, .kayran-bg::after {
-        content: ''; position: absolute;
-        width: 800px; height: 800px;
-        border-radius: 50%; filter: blur(120px);
-        opacity: 0.45;
-        animation: blobMove 20s ease-in-out infinite;
-    }
-    .kayran-bg::before {
-        background: radial-gradient(circle, var(--k-mor2), transparent 70%);
-        top: -200px; left: -150px;
-    }
-    .kayran-bg::after {
-        background: radial-gradient(circle, var(--k-pembe), transparent 70%);
-        bottom: -200px; right: -150px;
-        animation-delay: -10s;
-    }
-    @keyframes blobMove {
-        0%, 100% { transform: translate(0,0) scale(1); }
-        33% { transform: translate(100px, 80px) scale(1.1); }
-        66% { transform: translate(-80px, 60px) scale(0.95); }
-    }
-    @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .duyuru-band {
-        position: fixed; top: 0; left: 0; right: 0;
-        background: linear-gradient(90deg, color-mix(in srgb,var(--k-mavi) 15%,transparent), color-mix(in srgb,var(--k-mor) 15%,transparent), color-mix(in srgb,var(--k-pembe) 15%,transparent));
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);
-        padding: 8px 24px; text-align: center;
-        color: var(--k-mor2); font-size:13px; font-weight:400;
-        z-index: 100;
-    }
-
-    .stButton > button, .stFormSubmitButton > button,
-    button[kind="primaryFormSubmit"] {
-        background: linear-gradient(135deg, var(--k-mor) 0%, var(--k-mor) 100%) !important;
-        color: white !important;
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
-        box-shadow: 0 4px 20px color-mix(in srgb,var(--k-mor) 35%,transparent) !important;
-        transition: all 0.3s !important;
-    }
-    .stButton > button:hover, .stFormSubmitButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 28px color-mix(in srgb,var(--k-mor) 50%,transparent) !important;
-    }
-
-    .stTextInput > div > div > input {
-        background: color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
-        border: 1px solid color-mix(in srgb,var(--k-metin) 10%,transparent) !important;
-        border-radius: 12px !important;
-        color: white !important;
-        font-family: 'Inter', sans-serif !important;
-        padding: 12px 16px !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: var(--k-mor) !important;
-        box-shadow: 0 0 0 3px color-mix(in srgb,var(--k-mor) 15%,transparent) !important;
-    }
-    .stTextInput label {
-        color: var(--k-mavi) !important;
-        font-size:13px !important;
-        font-weight:400 !important;
-        letter-spacing: 0.5px !important;
-        text-transform: uppercase !important;
-    }
-
-    /* ── STREAMLIT TOOLBAR FIX (sağ üstteki Deploy, menü vb. butonlar) ── */
-    /* Default rengi koyu gri (#313143) — koyu zeminde okunmaz, beyaza çeviriyoruz */
-    header[data-testid="stHeader"] *,
-    .stAppToolbar *,
-    .stAppDeployButton *,
-    .stMainMenu *,
-    [data-testid="stToolbar"] * {
-        color: color-mix(in srgb,var(--k-metin) 65%,transparent) !important;
-    }
-    header[data-testid="stHeader"] button:hover,
-    .stAppToolbar button:hover,
-    .stAppDeployButton button:hover {
-        color: var(--k-metin) !important;
-        background: color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
-    }
-    header[data-testid="stHeader"] svg,
-    .stAppToolbar svg,
-    .stMainMenu svg {
-        fill: color-mix(in srgb,var(--k-metin) 65%,transparent) !important;
-    }
-    /* Material Icons ligature fix */
-    button[data-testid="stBaseButton-headerNoPadding"] span:not(.material-symbols-rounded):not(.material-symbols-outlined),
-    [data-testid="stSidebarCollapsedControl"] span:not(.material-symbols-rounded):not(.material-symbols-outlined) {
-        font-size: 0 !important;
-    }
-    button[data-testid="stBaseButton-headerNoPadding"] svg,
-    [data-testid="stSidebarCollapsedControl"] svg {
-        width: 18px !important;
-        height: 18px !important;
-    }
-
-    /* ── SCROLLBAR — koyu tema ── */
-    ::-webkit-scrollbar { width: 10px; height: 10px; }
-    ::-webkit-scrollbar-track { background: color-mix(in srgb,var(--k-metin) 2%,transparent); }
-    ::-webkit-scrollbar-thumb {
-        background: color-mix(in srgb,var(--k-metin) 15%,transparent);
-        border-radius: 6px;
-        border: 2px solid transparent;
-        background-clip: padding-box;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: color-mix(in srgb,var(--k-metin) 25%,transparent);
-        background-clip: padding-box;
-    }
-    
-    </style>
-    <div class="kayran-bg"></div>
-    """
+    """Giriş ekranı. Arka plan: muhasebe defteri çizgileri + solda ince kırmızı
+    'kenar boşluğu' çizgisi (defter sayfası) — konuya ait, kenarlara doğru
+    silinen sakin bir doku. Eskiden iki büyük renk lekesi vardı ama z-index:-1
+    yüzünden sayfa zemininin ARKASINDA kalıyor, hiç görünmüyordu.
+    Düğme ve kutular ortak tasarım dilinden gelir (DUGME_CSS); burada yalnız
+    sahne ve kart tanımlanır."""
+    from shared.tasarim import css_tek_satir
+    return "<style>" + css_tek_satir("""
+html,body{background:var(--k-yuzey0) !important;}
+.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:transparent !important;}
+[data-testid="stAppViewContainer"]{position:relative;z-index:1;}
+[data-testid="stHeader"]{background:transparent !important;height:0 !important;}
+[data-testid="stToolbar"],[data-testid="stDecoration"],.stDeployButton,#MainMenu,footer{display:none !important;}
+section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important;}
+.stApp [data-testid="stMainBlockContainer"]{padding-top:0 !important;padding-bottom:0 !important;max-width:1180px !important;}
+.kayran-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--k-yuzey0);}
+.kayran-bg::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(to bottom,color-mix(in srgb,var(--k-metin) 7%,transparent) 1px,transparent 1px);
+  background-size:100% 34px;
+  -webkit-mask-image:radial-gradient(ellipse 70% 65% at 32% 45%,#000 0%,transparent 75%);
+          mask-image:radial-gradient(ellipse 70% 65% at 32% 45%,#000 0%,transparent 75%);}
+.kayran-bg::after{content:"";position:absolute;top:0;bottom:0;left:max(24px,calc(50% - 560px));width:1px;
+  background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--k-kirmizi) 35%,transparent) 30%,
+  color-mix(in srgb,var(--k-kirmizi) 35%,transparent) 70%,transparent);}
+.st-key-giris_sahne{min-height:100vh;justify-content:center;padding:40px 0;}
+.st-key-giris_sahne > [data-testid="stHorizontalBlock"]{align-items:center !important;}
+.k-gr-sol{padding:0 28px 0 18px;animation:k-gr-belir .6s cubic-bezier(.2,.7,.2,1) both;}
+.k-gr-marka{display:flex;align-items:center;gap:14px;margin-bottom:40px;}
+.k-gr-marka svg{width:48px;height:48px;}
+.k-gr-marka b{display:block;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--k-metin);line-height:1;}
+.k-gr-marka span{display:block;font-size:12px;color:var(--k-silik);margin-top:6px;}
+.stApp h1.k-gr-baslik{font-size:clamp(28px,3.4vw,40px) !important;font-weight:650 !important;letter-spacing:-1px !important;
+  line-height:1.1 !important;color:var(--k-metin) !important;margin:0 0 14px !important;padding:0 !important;max-width:15ch;}
+.k-gr-metin{font-size:14px;line-height:1.65;color:var(--k-soluk);max-width:46ch;margin:0 0 30px;}
+.k-gr-moduller{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;max-width:540px;}
+.k-gr-mod{display:flex;gap:11px;align-items:flex-start;min-width:0;}
+.k-gr-mod .k-ikon{font-size:20px;color:var(--c);margin-top:1px;flex-shrink:0;}
+.k-gr-mod b{display:block;font-size:13px;font-weight:600;color:var(--k-metin);line-height:1.3;}
+.k-gr-mod span{display:block;font-size:12px;color:var(--k-silik);line-height:1.4;margin-top:1px;}
+.k-gr-imza{margin-top:40px;font-size:12px;color:var(--k-silik);}
+.k-gr-imza b{color:var(--k-soluk);font-weight:600;}
+.st-key-giris_kart{background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar2) !important;
+  border-radius:16px !important;padding:30px 30px 24px !important;gap:0 !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.10),0 24px 60px -28px rgba(15,23,42,.40);
+  animation:k-gr-belir .6s .08s cubic-bezier(.2,.7,.2,1) both;}
+@keyframes k-gr-belir{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){.k-gr-sol,.st-key-giris_kart{animation:none;}}
+.k-gr-kart-bas b{display:block;font-size:20px;font-weight:650;letter-spacing:-.3px;color:var(--k-metin);}
+.k-gr-kart-bas span{display:block;font-size:13px;color:var(--k-soluk);margin:4px 0 22px;}
+.st-key-giris_kart [data-testid="stForm"]{border:0 !important;padding:0 !important;background:transparent !important;}
+.st-key-giris_kart [data-testid="stWidgetLabel"] p{font-size:13px !important;font-weight:500 !important;color:var(--k-soluk) !important;}
+.st-key-giris_kart input{font-size:14px !important;}
+.st-key-giris_kart [data-testid="stMarkdownContainer"]{margin-bottom:0 !important;}
+.st-key-giris_kart [data-testid="stTextInputRootElement"]{min-height:42px;border-radius:10px !important;
+  background:var(--k-yuzey0) !important;border:1px solid var(--k-kenar2) !important;
+  transition:border-color .12s ease,box-shadow .12s ease;}
+.st-key-giris_kart [data-testid="stTextInputRootElement"] *{background:transparent !important;}
+.st-key-giris_kart [data-testid="stTextInputRootElement"]:focus-within{border-color:var(--k-mor) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--k-mor) 22%,transparent) !important;}
+.st-key-giris_kart [data-testid="stFormSubmitButton"] button,.st-key-giris_kart .stFormSubmitButton button{
+  min-height:44px !important;font-size:14px !important;margin-top:6px;}
+.k-gr-guven{display:flex;flex-direction:column;gap:6px;margin-top:22px;padding-top:16px;border-top:1px solid var(--k-kenar);}
+.k-gr-guven div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--k-silik);}
+.k-gr-guven .k-ikon{font-size:16px;color:var(--k-yesil);}
+.duyuru-band{position:fixed;top:0;left:0;right:0;z-index:100;padding:9px 24px;text-align:center;font-size:13px;
+  color:var(--k-metin);background:color-mix(in srgb,var(--k-mor) 14%,var(--k-yuzey1));border-bottom:1px solid var(--k-kenar2);}
+.k-gr-mobil-marka{display:none;align-items:center;gap:10px;margin-bottom:22px;}
+.k-gr-mobil-marka svg{width:30px;height:30px;}
+.k-gr-mobil-marka b{font-size:15px;font-weight:700;letter-spacing:2.5px;color:var(--k-metin);}
+@media (max-width:820px){
+  .k-gr-sol{display:none;}
+  .k-gr-mobil-marka{display:flex;}
+  .st-key-giris_sahne{padding:24px 0;}
+  .st-key-giris_kart{padding:24px 20px 20px !important;}
+  .kayran-bg::after{display:none;}
+}
+""") + '</style><div class="kayran-bg"></div>'
 
 
 def portal_css():
@@ -1452,68 +1416,7 @@ def portal_css():
     footer { display: none !important; }
     #MainMenu { display: none !important; }
 
-    /* ── STREAMLIT SIDEBAR — Custom KAYRAN Stil ── */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, var(--k-yuzey1) 0%, var(--k-yuzey0) 100%) !important;
-        border-right: 1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
-        padding-top: 0 !important;
-    }
-    section[data-testid="stSidebar"] > div:first-child {
-        padding-top: 0 !important;
-    }
-    section[data-testid="stSidebar"] .block-container {
-        padding-top: 1.5rem !important;
-        padding-left: 1.25rem !important;
-        padding-right: 1.25rem !important;
-    }
-
-    /* Sidebar içindeki butonlar */
-    section[data-testid="stSidebar"] .stButton > button {
-        background: transparent !important;
-        color: var(--k-mavi) !important;
-        border: 1px solid transparent !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        text-align: left !important;
-        font-size: 13px !important;
-        font-weight:400 !important;
-        font-family: 'Inter', sans-serif !important;
-        box-shadow: none !important;
-        transition: all 0.2s !important;
-        margin-bottom: 4px !important;
-        justify-content: flex-start !important;
-        width: 100% !important;
-    }
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background: color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
-        color: var(--k-metin) !important;
-        transform: none !important;
-        box-shadow: none !important;
-        border-color: color-mix(in srgb,var(--k-mor) 20%,transparent) !important;
-    }
-    /* Aktif buton */
-    section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, color-mix(in srgb,var(--k-mor) 25%,transparent), color-mix(in srgb,var(--k-mor) 15%,transparent)) !important;
-        color: var(--k-metin) !important;
-        border: 1px solid color-mix(in srgb,var(--k-mor) 40%,transparent) !important;
-        box-shadow: 0 0 0 1px color-mix(in srgb,var(--k-mor) 10%,transparent) inset !important;
-    }
-    /* Disabled (yetkisiz) butonlar */
-    section[data-testid="stSidebar"] .stButton > button:disabled {
-        background: transparent !important;
-        color: var(--k-silik) !important;
-        cursor: not-allowed !important;
-        border-color: transparent !important;
-    }
-    section[data-testid="stSidebar"] .stButton > button:disabled:hover {
-        background: transparent !important;
-    }
-
-    /* Sidebar markdown stilleri */
-    section[data-testid="stSidebar"] hr {
-        border-color: color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
-        margin: 12px 0 !important;
-    }
+    /* Sol menü: shared/tasarim.SIDEBAR_CSS (tek kaynak) */
 
     /* ── STREAMLIT TOOLBAR (sağ üstteki Deploy, Share, kebab menü) ── */
     header[data-testid="stHeader"] *,
@@ -1576,8 +1479,11 @@ def portal_css():
         background-clip: padding-box;
     }
 
-    /* ── TOOLTIP & POPOVER ── */
-    [role="tooltip"], .stTooltipIcon, [data-baseweb="tooltip"] {
+    /* ── TOOLTIP & POPOVER ──
+       .stTooltipIcon BURADA YOK: help= verilen her düğmenin etiketi o kaba
+       sarılır; çerçeve kuralı üst menüdeki sekmeleri ana sayfada kutu kutu
+       gösteriyordu (modüllerde çerçevesizdi). Yalnız açılan baloncuk boyanır. */
+    [role="tooltip"], [data-baseweb="tooltip"] {
         background: var(--k-yuzey2) !important;
         color: var(--k-metin) !important;
         border: 1px solid color-mix(in srgb,var(--k-metin) 10%,transparent) !important;
@@ -1589,59 +1495,80 @@ def portal_css():
         max-width: 1200px !important;
     }
 
-    /* Animasyonlu arka plan blob'ları (sadece ana sayfada) */
-    .anasayfa-bg-blob1, .anasayfa-bg-blob2 {
-        position: fixed;
-        border-radius: 50%;
-        filter: blur(120px);
-        opacity: 0.3;
-        z-index: -1;
-        pointer-events: none;
-    }
-    .anasayfa-bg-blob1 {
-        background: radial-gradient(circle, var(--k-mor2), transparent 70%);
-        top: -100px; right: -100px;
-        width: 500px; height: 500px;
-        animation: blobMove 25s ease-in-out infinite;
-    }
-    .anasayfa-bg-blob2 {
-        background: radial-gradient(circle, var(--k-pembe), transparent 70%);
-        bottom: -100px; left: 300px;
-        width: 500px; height: 500px;
-        animation: blobMove 25s ease-in-out infinite -12s;
-    }
-    @keyframes blobMove {
-        0%, 100% { transform: translate(0,0) scale(1); }
-        33% { transform: translate(80px, 60px) scale(1.1); }
-        66% { transform: translate(-60px, 40px) scale(0.95); }
-    }
+    /* Arka plan 'blob' animasyonu kaldırıldı: z-index:-1 yüzünden sayfa
+       zemininin ARKASINDA kalıyor, hiç görünmüyordu — ama 120px bulanıklıkla
+       sürekli oynayarak işlemciyi boşuna yoruyordu. */
     @keyframes fadeUp {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Genel buton stili (ana içerik alanı) ── */
-    .main .stButton > button {
-        background: linear-gradient(135deg, var(--k-mor) 0%, var(--k-mor) 100%) !important;
-        color: white !important;
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
-        box-shadow: 0 4px 20px color-mix(in srgb,var(--k-mor) 35%,transparent) !important;
-        transition: all 0.3s !important;
-    }
-    .main .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 28px color-mix(in srgb,var(--k-mor) 50%,transparent) !important;
-    }
-    
     </style>
-    <div class="anasayfa-bg-blob1"></div>
-    <div class="anasayfa-bg-blob2"></div>
     """
+
+
+def _ana_css():
+    """Ana sayfaya özel sınıflar: karşılama, piyasa şeridi, bölüm başlıkları,
+    modül kartları, alt bilgi. Renkler yalnız tema değişkenlerinden."""
+    from shared.tasarim import css_tek_satir
+    return "<style>" + css_tek_satir("""
+.k-ana-karsila{margin:4px 0 6px;animation:k-belir .55s cubic-bezier(.2,.7,.2,1) both;}
+@keyframes k-belir{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){.k-ana-karsila{animation:none;}}
+.k-ana-bas{display:flex;align-items:baseline;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
+.stApp .k-ana-bas h1{font-size:clamp(24px,3vw,30px) !important;font-weight:650 !important;
+  letter-spacing:-.6px !important;line-height:1.15 !important;margin:0 !important;padding:0 !important;
+  color:var(--k-metin) !important;}
+.k-ana-bas > span{color:var(--k-soluk);font-size:13px;white-space:nowrap;}
+.k-ana-serit{display:flex;flex-wrap:wrap;margin-top:14px;background:var(--k-yuzey1);
+  border:1px solid var(--k-kenar);border-radius:12px;overflow:hidden;}
+.k-ana-hucre{flex:1 1 150px;min-width:0;padding:10px 16px 11px;display:flex;flex-direction:column;gap:1px;
+  border-left:1px solid var(--k-kenar);margin-left:-1px;}
+.k-ana-hucre span,.k-ana-hucre small{font-size:11.5px;line-height:1.35;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;}
+.k-ana-hucre span{color:var(--k-silik);}
+.k-ana-hucre small{color:var(--k-soluk);}
+.k-ana-hucre b{font-family:var(--k-mono);font-variant-numeric:tabular-nums;font-size:17px;font-weight:600;
+  letter-spacing:-.3px;color:var(--k-metin);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.k-ana-bolum{display:flex;align-items:baseline;gap:10px;margin:26px 0 10px;font-size:15px;font-weight:650;
+  letter-spacing:-.1px;color:var(--k-metin);}
+.k-ana-bolum span{font-size:12.5px;font-weight:400;color:var(--k-silik);}
+.k-ana-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
+.k-ana-kpi .k-kart{padding:11px 14px;}
+.k-ana-kpi-ad{font-size:12px;font-weight:500;color:var(--k-soluk);line-height:1.3;}
+.k-ana-kpi .k-deger{font-size:20px;margin-top:4px;}
+[class*="st-key-hz_"]{position:relative;gap:0 !important;min-height:138px;padding:14px 16px 16px !important;
+  border-radius:12px !important;background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;
+  transition:border-color .15s ease,background-color .15s ease;}
+[class*="st-key-hz_"]:hover{border-color:color-mix(in srgb,var(--c) 55%,transparent) !important;
+  background:color-mix(in srgb,var(--c) 5%,var(--k-yuzey1)) !important;}
+[class*="st-key-hz_"]:has(button:focus-visible){outline:2px solid var(--c);outline-offset:2px;}
+[class*="st-key-hz_"] [data-testid="stMarkdownContainer"]{margin-bottom:0 !important;}
+[class*="st-key-hz_"] [data-testid="stElementContainer"]:has(.stButton){position:absolute !important;inset:0 !important;
+  margin:0 !important;z-index:3;width:auto !important;height:auto !important;}
+html body [class*="st-key-hz_"] .stButton{width:100% !important;height:100% !important;}
+html body [data-testid="stMain"] [class*="st-key-hz_"] [data-testid="stButton"].stButton > button[data-testid]{
+  width:100% !important;height:100% !important;min-height:100% !important;opacity:0 !important;cursor:pointer;
+  border:0 !important;padding:0 !important;}
+.k-hz-ust{display:flex;align-items:center;gap:8px;}
+.k-hz-ust i{width:36px;height:36px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-style:normal;background:color-mix(in srgb,var(--c) 14%,transparent);}
+.k-hz-ust i .k-ikon{color:var(--c);}
+.k-hz-ust em{font-style:normal;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;border-radius:999px;
+  color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);white-space:nowrap;}
+.k-hz-ust > .k-ikon{margin-left:auto;color:var(--k-silik);transition:transform .18s ease,color .18s ease;}
+[class*="st-key-hz_"]:hover .k-hz-ust > .k-ikon{transform:translateX(3px);color:var(--c);}
+.k-hz-ad{margin-top:14px;font-size:14px;font-weight:650;color:var(--k-metin);line-height:1.3;}
+.k-hz-ac{margin-top:3px;font-size:12.5px;color:var(--k-soluk);line-height:1.45;}
+.k-ana-alt{display:flex;justify-content:space-between;align-items:center;gap:8px 16px;flex-wrap:wrap;
+  margin:36px 0 4px;padding-top:14px;border-top:1px solid var(--k-kenar);font-size:12px;color:var(--k-silik);}
+.k-ana-alt a{color:var(--k-soluk) !important;text-decoration:none;margin-left:16px;}
+.k-ana-alt a:hover{color:var(--k-metin) !important;}
+@media (max-width:640px){
+  .k-ana-hucre{flex:1 1 45%;}
+  [class*="st-key-hz_"]{min-height:0;}
+}
+""") + "</style>"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1649,170 +1576,96 @@ def portal_css():
 # ─────────────────────────────────────────────────────────────────────
 def giris_ekrani():
     st.markdown(login_css(), unsafe_allow_html=True)
-    # ─── Login mobil: sol panel gizle ───
-    st.markdown(
-        """<style>
-@media (max-width: 768px) {
-    .main .block-container { padding-top: 1rem !important; }
-}
-@media (max-width: 640px) {
-    [data-testid="column"]:first-child { display: none !important; }
-    [data-testid="column"]:last-child { flex: 1 1 100% !important; max-width: 100% !important; }
-    input { font-size: 16px !important; }
-}
-</style>""",
-        unsafe_allow_html=True
-    )
     _duyuru_aktif2, _duyuru_metni2 = get_duyuru()
     if _duyuru_aktif2 and _duyuru_metni2:
         st.markdown(f'<div class="duyuru-band">{_duyuru_metni2}</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
+    # Modül listesi: kutusuz, sakin; ikon + ad + kısa açıklama. İkonlar ve
+    # renkler üst menü / ana sayfa kartlarıyla AYNI (tasarim.MODUL_IKON/RENK).
+    _moduller = [
+        ("kayranacc", "Muhasebe & Finans", "Nakit akış, banka, cari"),
+        ("satis", "Satış", "Kâr / P&L, marj, iade"),
+        ("ithalat", "İthalat", "Dosya, masraf, paçal maliyet"),
+        ("kayranpm", "Ürün Yönetimi", "Stok, sipariş önerisi, kampanya"),
+        ("depo", "Depo", "Depo stoku, sevk, irsaliye"),
+        ("teknikservis", "Teknik Servis", "Arıza kaydı, servis formu"),
+        ("yonetim", "Yönetim", "Toplam aktifler, özet"),
+        ("hesap_makinesi", "Hesap Makinesi", "Maliyet ve fiyat"),
+    ]
+    _liste = "".join(
+        f'<div class="k-gr-mod" style="--c:{rv(MODUL_RENK.get(_k, "mor"))}">'
+        f'{k_ikon(MODUL_IKON.get(_k, "apps"), 20)}<div><b>{_ad}</b><span>{_alt}</span></div></div>'
+        for _k, _ad, _alt in _moduller)
 
-    col_l, col_r = st.columns([1.1, 0.9], gap="large")
-
-    # ── SOL PANEL: Marka + yetenekler + canlı sistem bilgisi ──
-    with col_l:
-        # Modül listesi artık gerçek uygulamayı yansıtıyor (eski liste 4 modül
-        # gösteriyordu; uygulama 8 modüle çıktı). İki sütuna alındı ki dikey
-        # boşluk azalsın, sağdaki giriş kartıyla hizalansın.
-        _moduller = [
-            ("💰", trenk("mor"), "Muhasebe & Finans", "Nakit akış · banka · cari"),
-            ("🧾", trenk("yesil"), "Satış & Kâr Analizi", "P&L merdiveni · marj · iade"),
-            ("🚢", trenk("mavi"), "İthalat", "Dosya · masraf · paçal maliyet"),
-            ("📦", trenk("pembe"), "Ürün & Stok", "Depo kırılımı · sayım senkronu"),
-            ("🏬", trenk("amber"), "Depo & Sevkiyat", "Bekleyen sevk · irsaliye"),
-            ("🔗", trenk("cyan"), "Ref No & Destekler", "Sellout · rebate · marketing"),
-            ("🛠️", trenk("mor"), "Teknik Servis", "Arıza kaydı · servis formu"),
-            ("📊", trenk("kirmizi"), "Yönetim Panosu", "Toplam aktifler · özet"),
-        ]
-        _kartlar = "".join(
-            '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 11px;'
-            'background:color-mix(in srgb,var(--k-metin) 2%,transparent);border:1px solid color-mix(in srgb,var(--k-soluk) 9%,transparent);'
-            'border-radius:10px">'
-            f'<div style="width:30px;height:30px;border-radius:8px;background:{_r}1A;'
-            f'border:1px solid {_r}33;display:flex;align-items:center;justify-content:center;'
-            f'flex-shrink:0;font-size:13px">{_ik}</div>'
-            f'<div style="min-width:0"><div style="color:var(--k-metin);font-size:13px;'
-            f'font-weight:600;line-height:1.25">{_ad}</div>'
-            f'<div style="color:var(--k-silik);font-size:11px;margin-top:2px;line-height:1.3">{_alt}</div></div>'
-            '</div>' for _ik, _r, _ad, _alt in _moduller)
-
-        st.markdown(
-            '<div style="padding:8px 26px 8px 6px;animation:fadeUp .6s ease-out">'
-            # ── Marka ──
-            '<div style="display:flex;align-items:center;gap:15px;margin-bottom:26px">'
-            f'{KAYRAN_LOGO_BIG}'
-            '<div>'
-            '<div style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;'
-            'color:var(--k-metin);letter-spacing:5px;line-height:1">KAYRAN</div>'
-            '<div style="font-size:10px;color:var(--k-mor);letter-spacing:3.4px;'
-            'text-transform:uppercase;font-weight:700;margin-top:5px">Workspace</div>'
-            '</div></div>'
-            # ── Başlık ──
-            '<h2 style="font-family:Inter,sans-serif;font-size:23px;font-weight:700;'
-            'color:var(--k-metin);line-height:1.25;margin:0 0 10px;letter-spacing:-.5px">'
-            'Tek ekrandan '
-            '<span style="background:linear-gradient(90deg,var(--k-mavi),var(--k-mor));'
-            '-webkit-background-clip:text;-webkit-text-fill-color:transparent;'
-            'background-clip:text">tüm operasyon</span>'
-            '</h2>'
-            '<p style="color:var(--k-soluk);font-size:13px;line-height:1.65;margin:0 0 22px;'
-            'max-width:520px">Satıştan ithalata, stoktan muhasebeye kadar sekiz modül '
-            'aynı veriyle çalışır — rakamlar her yerde birbirini tutar.</p>'
-            # ── Modül ızgarası ──
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:22px">'
-            + _kartlar +
-            '</div>'
-            # ── Alt bilgi ──
-            '<div style="display:flex;align-items:center;gap:9px;padding-top:15px;'
-            'border-top:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)">'
-            '<div style="width:6px;height:6px;border-radius:50%;background:var(--k-yesil);'
-            'box-shadow:0 0 8px var(--k-yesil);flex-shrink:0"></div>'
-            '<span style="color:var(--k-silik);font-size:11px;font-weight:400;line-height:1.5">'
-            'Bir <b style="color:var(--k-soluk)">G5F Teknoloji</b> &amp; '
-            '<b style="color:var(--k-soluk)">Fazeon</b> projesi · '
-            'İbrahim Kayran tarafından geliştirildi</span>'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-    # ── SAĞ PANEL: Giriş Kartı ──
-    with col_r:
-        with st.container(border=True):
+    with st.container(key="giris_sahne"):
+        col_l, col_r = st.columns([1.15, 0.85], gap="large")
+        with col_l:
             st.markdown(
-                '<div style="text-align:center;margin-bottom:18px">'
-                '<div style="width:46px;height:46px;border-radius:13px;'
-                'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 22%,transparent),rgba(167,139,250,.14));'
-                'border:1px solid color-mix(in srgb,var(--k-mor) 28%,transparent);display:flex;align-items:center;'
-                'justify-content:center;font-size:16px;margin:0 auto 14px">🔐</div>'
-                '<div style="color:var(--k-metin);font-size:16px;font-weight:700;letter-spacing:-.2px;'
-                'margin-bottom:6px">Oturum Aç</div>'
-                '<div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;'
-                'font-weight:700;color:var(--k-silik)">Yetkili personel erişimi</div>'
+                '<div class="k-gr-sol">'
+                f'<div class="k-gr-marka">{KAYRAN_LOGO_BIG}<div><b>KAYRAN</b><span>Workspace</span></div></div>'
+                '<h1 class="k-gr-baslik">Satıştan muhasebeye, tek defter.</h1>'
+                '<p class="k-gr-metin">Sekiz modül aynı veriyle çalışır: bir satış girildiğinde stok, '
+                'kâr ve cari aynı anda güncellenir; rakamlar her ekranda birbirini tutar.</p>'
+                f'<div class="k-gr-moduller">{_liste}</div>'
+                '<div class="k-gr-imza"><b>G5F Teknoloji</b> ve <b>Fazeon</b> için, '
+                'İbrahim Kayran tarafından geliştirildi.</div>'
                 '</div>',
-                unsafe_allow_html=True
-            )
-            with st.form("giris_form", clear_on_submit=False):
-                kullanici = st.text_input("Kullanıcı Adı", placeholder="kullanici_adi",
-                                          key="login_user")
-                sifre = st.text_input("Şifre", type="password", placeholder="••••••••••••",
-                                      key="login_pass")
-                st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-                giris_btn = st.form_submit_button("Giriş Yap  →", type="primary",
-                                                  use_container_width=True)
+                unsafe_allow_html=True)
 
-            # GÜVENLİK NOTU — yalnızca GERÇEKTEN uygulanan korumalar yazılır.
-            # (Eski metin "256-bit SSL" diyordu; uygulama HTTP üzerinden de
-            #  çalışabildiği için bu iddia yanıltıcıydı. Alan adı + HTTPS
-            #  kurulduğunda buraya bağlantı şifrelemesi de eklenebilir.)
-            st.markdown(
-                '<div style="margin-top:18px;padding-top:14px;'
-                'border-top:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent)">'
-                '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">'
-                + "".join(
-                    f'<div style="display:flex;align-items:center;gap:6px">'
-                    f'<span style="color:{_r};font-size:11px">{_ik}</span>'
-                    f'<span style="color:var(--k-silik);font-size:11px">{_t}</span></div>'
-                    for _ik, _r, _t in [
-                        ("✓", trenk("yesil"), "PBKDF2 şifre koruması"),
-                        ("✓", trenk("yesil"), "Hatalı denemede kilit"),
-                        ("✓", trenk("yesil"), "İşlem kayıt altında"),
-                    ])
-                + '</div></div>',
-                unsafe_allow_html=True
-            )
+        with col_r:
+            with st.container(key="giris_kart"):
+                st.markdown('<div class="k-gr-mobil-marka">' + KAYRAN_LOGO_SVG + '<b>KAYRAN</b></div>'
+                            '<div class="k-gr-kart-bas"><b>Oturum aç</b>'
+                            '<span>KAYRAN hesabınla devam et.</span></div>',
+                            unsafe_allow_html=True)
+                with st.form("giris_form", clear_on_submit=False, border=False):
+                    kullanici = st.text_input("Kullanıcı adı", placeholder="kullanici_adi",
+                                              key="login_user")
+                    sifre = st.text_input("Şifre", type="password", placeholder="Şifren",
+                                          key="login_pass")
+                    giris_btn = st.form_submit_button("Giriş yap", type="primary",
+                                                      use_container_width=True)
+                # GÜVENLİK NOTU — yalnızca GERÇEKTEN uygulanan korumalar yazılır.
+                # (Eski metin "256-bit SSL" diyordu; uygulama HTTP üzerinden de
+                #  çalışabildiği için bu iddia yanıltıcıydı.)
+                st.markdown(
+                    '<div class="k-gr-guven">'
+                    + "".join(f'<div>{k_ikon("check_circle", 16)}{_t}</div>' for _t in (
+                        "Şifreler PBKDF2 ile şifrelenerek saklanır",
+                        "Art arda hatalı denemede hesap geçici kilitlenir",
+                        "Her işlem kimin yaptığıyla kayda geçer"))
+                    + '</div>',
+                    unsafe_allow_html=True)
 
-        if giris_btn:
-            try:
-                kullanicilar = st.secrets.get("kullanicilar", {})
-                if not kullanicilar:
-                    st.warning("⚠️ Kullanıcı ayarları yapılandırılmamış.")
-                    return
-                from shared.auth import giris_kontrol, giris_basarisiz, giris_basarili
-                _izin, _kalan = giris_kontrol(kullanici)
-                if not _izin:
-                    st.error(f"🔒 Çok fazla hatalı deneme. Lütfen {_kalan // 60} dk {_kalan % 60} sn sonra tekrar deneyin.")
-                elif kullanici_dogrula_v2(kullanici, sifre, kullanicilar):
-                    giris_basarili(kullanici)
-                    st.session_state.giris_yapildi = True
-                    st.session_state.aktif_kullanici = kullanici
-                    st.session_state["salt_okur"] = salt_okur_mu(kullanici)
-                    st.session_state.aktif_uygulama = "anasayfa"
-                    _oturum_ac(kullanici)
-                    st.rerun()
-                else:
-                    _sayi, _kilit = giris_basarisiz(kullanici)
-                    _kalan_hak = max(0, 5 - _sayi)
-                    if _kilit > 0:
-                        st.error(f"🔒 Çok fazla hatalı deneme. Hesap {_kilit // 60} dakika kilitlendi.")
-                    elif _sayi >= 3:
-                        st.error(f"❌ Kullanıcı adı veya şifre hatalı. {_kalan_hak} deneme hakkınız kaldı.")
+            if giris_btn:
+                try:
+                    kullanicilar = st.secrets.get("kullanicilar", {})
+                    if not kullanicilar:
+                        st.warning("⚠️ Kullanıcı ayarları yapılandırılmamış.")
+                        return
+                    from shared.auth import giris_kontrol, giris_basarisiz, giris_basarili
+                    _izin, _kalan = giris_kontrol(kullanici)
+                    if not _izin:
+                        st.error(f"🔒 Çok fazla hatalı deneme. Lütfen {_kalan // 60} dk {_kalan % 60} sn sonra tekrar deneyin.")
+                    elif kullanici_dogrula_v2(kullanici, sifre, kullanicilar):
+                        giris_basarili(kullanici)
+                        st.session_state.giris_yapildi = True
+                        st.session_state.aktif_kullanici = kullanici
+                        st.session_state["salt_okur"] = salt_okur_mu(kullanici)
+                        st.session_state.aktif_uygulama = "anasayfa"
+                        _oturum_ac(kullanici)
+                        st.rerun()
                     else:
-                        st.error("❌ Kullanıcı adı veya şifre hatalı.")
-            except Exception as e:
-                st.error(f"Giriş sistemi hatası: {e}")
+                        _sayi, _kilit = giris_basarisiz(kullanici)
+                        _kalan_hak = max(0, 5 - _sayi)
+                        if _kilit > 0:
+                            st.error(f"🔒 Çok fazla hatalı deneme. Hesap {_kilit // 60} dakika kilitlendi.")
+                        elif _sayi >= 3:
+                            st.error(f"❌ Kullanıcı adı veya şifre hatalı. {_kalan_hak} deneme hakkınız kaldı.")
+                        else:
+                            st.error("❌ Kullanıcı adı veya şifre hatalı.")
+                except Exception as e:
+                    st.error(f"Giriş sistemi hatası: {e}")
 
 
 def ust_navigasyon():
@@ -1895,22 +1748,7 @@ def ust_navigasyon():
         {N} button{{padding:0 12px !important;}}
     }}
 
-    /* === ANA İÇERİK radyoları → modern segmented/pill (TÜM sayfalarda: Yönetim dahil) === */
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"]{{gap:8px !important;align-items:center;}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label{{
-        background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
-        border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent) !important;
-        border-radius:11px !important;padding:8px 18px !important;margin:0 !important;cursor:pointer;
-        transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease;}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:hover{{
-        background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;border-color:color-mix(in srgb,var(--k-mor) 55%,transparent) !important;transform:translateY(-1px);}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label > div:first-child{{display:none !important;}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked){{
-        background:linear-gradient(135deg,var(--k-mor),var(--k-mor)) !important;border-color:var(--k-mor) !important;
-        box-shadow:0 4px 14px color-mix(in srgb,var(--k-mor) 38%,transparent) !important;}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] label p{{
-        font-family:Inter,sans-serif !important;font-weight:600 !important;letter-spacing:-0.1px !important;font-size:14px !important;}}
-    [data-testid="stMainBlockContainer"] div[role="radiogroup"] > label:has(input:checked) p{{color:var(--k-metin) !important;font-weight:700 !important;}}
+    /* Sayfa içi radyolar: shared/tasarim.SIDEBAR_CSS (iki Streamlit yapısını da tanır) */
 
     /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
     /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */
@@ -1957,8 +1795,6 @@ def portal_sidebar(kompakt=False):
     except Exception:
         pass
     yetkiler = kullanici_yetkileri(aktif_kullanici)
-    ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
-
     st.markdown(
         """<style>
 @media (max-width: 768px) {
@@ -1973,115 +1809,8 @@ input, textarea, select { font-size: 16px !important; }
     )
     st.markdown(
         '<style>'
-        'section[data-testid="stSidebar"]{'
-        'background:linear-gradient(180deg,var(--k-yuzey1) 0%,var(--k-yuzey0) 100%) !important;'
-        'border-right:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important;'
-        '}'
-        'section[data-testid="stSidebar"] *{'
-        'color:var(--k-mavi) !important;'
-        '}'
-        'section[data-testid="stSidebar"] h1,'
-        'section[data-testid="stSidebar"] h2,'
-        'section[data-testid="stSidebar"] h3,'
-        'section[data-testid="stSidebar"] strong{'
-        'color:var(--k-metin) !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button{'
-        'background:color-mix(in srgb,var(--k-metin) 2%,transparent) !important;'
-        'color:var(--k-metin) !important;'
-        'border:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important;'
-        'border-left:3px solid var(--k-mor) !important;'
-        'border-radius:13px !important;'
-        'padding:10px 14px !important;'
-        'font-size:14px !important;'
-        'font-weight:600 !important;'
-        'font-family:\'Inter\',sans-serif !important;'
-        'line-height:1.2 !important;'
-        'letter-spacing:0 !important;'
-        'text-transform:none !important;'
-        'box-shadow:none !important;'
-        'transition:background 0.2s,border-color 0.2s,color 0.2s !important;'
-        'margin-bottom:4px !important;'
-        'min-height:40px !important;'
-        'width:100% !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button > div,'
-        'section[data-testid="stSidebar"] .stButton > button [class*="e12tamyi22"]{'
-        'justify-content:flex-start !important;'
-        'align-items:center !important;'
-        'width:100% !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button span,'
-        'section[data-testid="stSidebar"] .stButton > button p,'
-        'section[data-testid="stSidebar"] .stButton > button div{'
-        'text-align:left !important;'
-        'justify-content:flex-start !important;'
-        'font-size:14px !important;'
-        'font-weight:600 !important;'
-        'letter-spacing:0.2px !important;'
-        'font-family:\'Inter\',sans-serif !important;'
-        'color:inherit !important;'
-        'line-height:1.2 !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button:hover{'
-        'background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;'
-        'color:var(--k-metin) !important;'
-        'border-color:color-mix(in srgb,var(--k-mor) 20%,transparent) !important;'
-        'transform:none !important;'
-        'box-shadow:none !important;'
-        '}'
-        'section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"]{'
-        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 30%,transparent),color-mix(in srgb,var(--k-mor) 18%,transparent)) !important;'
-        'color:var(--k-metin) !important;'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 55%,transparent) !important;'
-        'border-left:3px solid var(--k-mor) !important;'
-        'border-radius:13px !important;'
-        'box-shadow:0 2px 14px color-mix(in srgb,var(--k-mor) 25%,transparent) !important;'
-        'font-size:14px !important;'
-        'font-weight:700 !important;'
-        'font-family:\'Inter\',sans-serif !important;'
-        'padding:10px 14px !important;'
-        '}'
-        'section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"] > div{'
-        'justify-content:flex-start !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button:disabled{'
-        'background:transparent !important;'
-        'color:var(--k-silik) !important;'
-        'cursor:not-allowed !important;'
-        'border-color:transparent !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button:disabled:hover{'
-        'background:transparent !important;'
-        'transform:none !important;'
-        'box-shadow:none !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton [data-testid="stMarkdownContainer"],'
-        'section[data-testid="stSidebar"] .stButton [data-testid="stMarkdownContainer"] *{'
-        'text-align:left !important;'
-        'justify-content:flex-start !important;'
-        '}'
-        'section[data-testid="stSidebar"] [data-testid="stBaseButton-primary"],'
-        'section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"]{'
-        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 25%,transparent),color-mix(in srgb,var(--k-mor) 15%,transparent)) !important;'
-        'color:var(--k-metin) !important;'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 40%,transparent) !important;'
-        'font-size:13px !important;'
-        'font-weight:400 !important;'
-        '}'
-        'section[data-testid="stSidebar"] .stButton > button:disabled,'
-        'section[data-testid="stSidebar"] .stButton > button:disabled:hover{'
-        'background:transparent !important;'
-        'color:var(--k-silik) !important;'
-        'cursor:not-allowed !important;'
-        'border-color:transparent !important;'
-        'transform:none !important;'
-        'box-shadow:none !important;'
-        '}'
-        'section[data-testid="stSidebar"] [data-testid="stRadio"] label,'
-        'section[data-testid="stSidebar"] [data-testid="stRadio"] p{'
-        'color:var(--k-mavi) !important;'
-        '}'
+        # Sol menü zemini, yazı rengi ve düğmeleri: shared/tasarim.SIDEBAR_CSS
+        # (eskiden burada her yazı mavi boyanıyordu: '* {color:mavi}').
         'button[data-testid="stBaseButton-headerNoPadding"],'
         '[data-testid="stSidebarCollapsedControl"]{'
         'background:color-mix(in srgb,var(--k-metin) 5%,transparent) !important;'
@@ -2119,17 +1848,10 @@ input, textarea, select { font-size: 16px !important; }
     )
 
     with st.sidebar:
-        # Logo + KAYRAN basligi
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:10px;padding:2px 0 12px;margin-bottom:10px">'
-            + KAYRAN_LOGO_SVG +
-            '<div style="display:flex;align-items:baseline;gap:6px">'
-            '<span style="font-family:Inter,sans-serif;font-size:16px;font-weight:700;color:var(--k-metin);letter-spacing:1.5px;line-height:1">KAYRAN</span>'
-            '<span style="font-size:10px;color:var(--k-silik);letter-spacing:1.2px;text-transform:uppercase;font-weight:600">Workspace</span>'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        # Logo + KAYRAN başlığı (stil: tasarim.SIDEBAR_CSS → .k-sb-marka)
+        st.markdown('<div class="k-sb-marka">' + KAYRAN_LOGO_SVG +
+                    '<div><b>KAYRAN</b><br><span>Workspace</span></div></div>',
+                    unsafe_allow_html=True)
 
 
         # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
@@ -2163,20 +1885,13 @@ input, textarea, select { font-size: 16px !important; }
         st.markdown(_lh, unsafe_allow_html=True)
 
         if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi"):
-            st.markdown(
-                '<div style="font-size:11px;color:var(--k-silik);letter-spacing:2px;font-weight:700;text-transform:uppercase;margin:4px 0 8px;padding-left:8px">HESAP</div>',
-                unsafe_allow_html=True
-            )
-            st.markdown(
-                '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent);border-radius:10px;margin-bottom:8px">'
-                '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--k-mor),var(--k-mor));display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px">' + ilk_harf + '</div>'
-                '<div style="overflow:hidden">'
-                '<div style="color:var(--k-soluk);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;line-height:1">Oturum</div>'
-                '<div style="color:var(--k-metin);font-weight:600;font-size:13px;margin-top:0px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + aktif_kullanici.capitalize() + '</div>'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+            # Kişi satırı + çıkış (modül sol menüleriyle AYNI düzen: shared.utils.sidebar_ust)
+            from shared.utils import sidebar_kullanici as _sb_kisi
+            _kc1, _kc2 = st.columns([3, 1.4], gap="small", vertical_alignment="center")
+            _kc1.markdown(_sb_kisi(aktif_kullanici), unsafe_allow_html=True)
+            if _kc2.button("Çıkış", key="nav_cikis", icon=":material/logout:", use_container_width=True):
+                from shared.oturum import cikis_yap
+                cikis_yap()
 
             # Görünüm: koyu / açık (kullanıcı bazlı, kullanici_tercih tablosu)
             from shared.tasarim import aktif_tema as _aktif_tema
@@ -2190,6 +1905,8 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state["tema"] = _tema_yeni
                 _tema_yaz(aktif_kullanici, _tema_yeni)
                 st.rerun()
+
+            st.markdown('<div class="k-sb-baslik">Hesap</div>', unsafe_allow_html=True)
 
             if st.button(
                 "Şifremi Değiştir", icon=":material/key:",
@@ -2227,9 +1944,6 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state.aktif_uygulama = "tasarim_rehberi"
                 st.rerun()
 
-            if st.button("Çıkış Yap", key="nav_cikis", icon=":material/logout:", use_container_width=True):
-                from shared.oturum import cikis_yap
-                cikis_yap()
         else:
             uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ürün Yönetimi", "depo": "Depo Yönetimi", "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış", "hesap_makinesi": "Hesap Makinesi"}
             uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
@@ -2245,7 +1959,7 @@ def _arama_kutusu(yer="anasayfa"):
     terim = st.text_input(
         "🔍 Ara",
         key=f"global_arama_{yer}",
-        placeholder="SKU, ürün, firma, sipariş no, seri no, tedarikçi…",
+        placeholder="Ara: SKU, ürün, firma, sipariş no, seri no, tedarikçi…   (Ctrl+K)",
         label_visibility="collapsed",
     )
     if not terim or len(terim.strip()) < 2:
@@ -2337,9 +2051,7 @@ def _bugun_panel(aktif_kullanici, yetkiler):
              ) if _maddeler else "her şey yolunda"
     st.markdown(_bgn.css(), unsafe_allow_html=True)
     st.markdown(
-        '<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 8px">'
-        '<span style="color:var(--k-metin);font-size:15px;font-weight:700">Bugün</span>'
-        f'<span style="color:var(--k-silik);font-size:12px">{_ozet}</span></div>',
+        f'<div class="k-ana-bolum">Bugün<span>{_ozet}</span></div>',
         unsafe_allow_html=True)
     with st.container(key="bugun_panel"):
         if not _maddeler:
@@ -2350,17 +2062,14 @@ def _bugun_panel(aktif_kullanici, yetkiler):
             if _m["hedef"] == "talep":
                 # Talep Merkezi her sayfada sağ alttaki ✉️ düğmesinde açılır
                 _c2.markdown('<div style="color:var(--k-silik);font-size:11px;text-align:center">'
-                             'sağ alttaki ✉️</div>', unsafe_allow_html=True)
+                             'sağ alttaki Talep</div>', unsafe_allow_html=True)
             elif _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
                             use_container_width=True):
                 st.session_state.aktif_uygulama = _m["hedef"]
                 st.rerun()
-    st.markdown('<div style="height:20px"></div>', unsafe_allow_html=True)
 
 
 def anasayfa():
-    G5F_LOGO_SVG = '<svg width="100" height="44" viewBox="0 0 220 90" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="10" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" style="fill:var(--k-metin)">G</text><text x="78" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" style="fill:var(--k-amber)">5</text><text x="142" y="72" font-family="Inter, sans-serif" font-size="80" font-weight="900" style="fill:var(--k-metin)">F</text></svg>'
-    FAZEON_LOGO_SVG = '<svg width="170" height="32" viewBox="0 0 360 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block"><text x="0" y="44" font-family="Inter, sans-serif" font-size="44" font-weight="300" style="fill:var(--k-metin)" letter-spacing="6">FAZEON</text></svg>'
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
 
@@ -2394,7 +2103,7 @@ def anasayfa():
         def _zorunlu_bildirim_modal():
             st.markdown(f"**{len(_bildirimler)} okunmamış bildirimin var — lütfen oku:**")
             for _bm in _bildirimler:
-                _gnd = str(_bm.get("gonderen") or "Sistem").capitalize()
+                _gnd = kisi_adi(_bm.get("gonderen") or "Sistem")
                 st.markdown(
                     '<div style="background:color-mix(in srgb,var(--k-mor) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:10px;padding:12px 16px;margin:8px 0">'
                     f'<div style="color:var(--k-metin);font-size:13px;line-height:1.6">{_bm.get("mesaj","")}</div>'
@@ -2428,52 +2137,19 @@ def anasayfa():
     # (📬 Gelen Talepler — aşağıya, istatistik kartlarının altına taşındı ve kapalı panel yapıldı)
 
     # ─────────────────────────────────────────────────────────────────────
-    # ─── HERO BÖLÜMÜ ───
+    # ─── KARŞILAMA: selam + tarih + günün piyasa şeridi ───
+    # Sayfanın TEK hareketli anı burası: oturumun ilk açılışında selam ve
+    # şerit bir kez yumuşakça belirir (Streamlit aynı öğeyi yeniden çizmez,
+    # sonraki tıklamalarda tekrar oynamaz). Eskiden her bölüm ayrı ayrı
+    # kayarak geliyordu.
     _gunler_tr = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     _aylar_tr = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
                  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
     _now_h = _ist_now
-    _tarih_str = f"{_now_h.day} {_aylar_tr[_now_h.month-1]} {_now_h.year} · {_gunler_tr[_now_h.weekday()]}"
-    # Tanıtım satırları (geliştirici imzası, "Ana Sayfa" rozeti,
-    # açıklama cümlesi) kaldırıldı: yer kaplıyor, bilgi vermiyordu.
-    st.markdown(
-        '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;'
-        'flex-wrap:wrap;margin:4px 0 14px">'
-        f'<h1 style="font-family:Inter,sans-serif;font-size:clamp(22px,4vw,30px);font-weight:700;color:var(--k-metin);letter-spacing:-0.4px;line-height:1.15;margin:0">'
-        f'{selamlama}, '
-        f'<span style="color:var(--k-mor2)">{aktif_kullanici.capitalize()}</span>'
-        '</h1>'
-        f'<span style="color:var(--k-silik);font-size:13px;font-weight:400">{_tarih_str}</span>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+    _tarih_str = f"{_now_h.day} {_aylar_tr[_now_h.month-1]} {_now_h.year}, {_gunler_tr[_now_h.weekday()]}"
+    st.markdown(_ana_css(), unsafe_allow_html=True)
 
-    # ─── 🔒 SALT-OKUR ŞERİDİ ───
-    if st.session_state.get("salt_okur"):
-        st.markdown(
-            '<div style="background:linear-gradient(90deg,var(--k-yuzey3),var(--k-yuzey1));'
-            'border:1px solid color-mix(in srgb,var(--k-amber) 35%,transparent);border-radius:10px;'
-            'padding:8px 16px;margin:0 0 12px;font-size:13px;color:var(--k-amber)">'
-            '🔒 <b>Salt-okur oturum</b> — tüm modülleri görüntüleyebilirsin, '
-            'veri ekleme/değiştirme/silme kapalıdır.</div>',
-            unsafe_allow_html=True)
-
-    # ─── 📋 BUGÜN — dikkat gerektiren işler (D2) ───
-    _bugun_panel(aktif_kullanici, yetkiler)
-
-    # ─── 👑 PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
-    _patron_gor = ozel_yetki(aktif_kullanici, "patron_panel")
-    if _patron_gor:
-        try:
-            from shared.ui import (patron_verisi_topla, patron_panosu_html,
-                                   pencere_css as _pp_css)
-            st.markdown(_pp_css(), unsafe_allow_html=True)
-            _pv = patron_verisi_topla()
-            st.markdown(patron_panosu_html(_pv), unsafe_allow_html=True)
-        except Exception:
-            pass
-
-    # ─── GÜNLÜK BİLGİ ŞERİDİ (döviz · altın · hava · günün sözü) ───
+    # Günün kuru / altın / hava / tatil (şeritte gösterilir)
     try:
         from gunluk import get_doviz, get_gram_altin, get_hava, get_yaklasan_tatil
         _dv = get_doviz()
@@ -2483,8 +2159,9 @@ def anasayfa():
                 from kayranacc.database import kur_kaydet
                 from shared.utils import tr_today
                 kur_kaydet(tr_today(), _dv["USD"])
-        except Exception:
-            pass
+        except Exception as _ke:
+            from shared.hata_log import kaydet as _hk
+            _hk("anasayfa.kur_kaydet", _ke)
         _altin = get_gram_altin()
         _hava = get_hava()
         _tatil = get_yaklasan_tatil()
@@ -2493,47 +2170,70 @@ def anasayfa():
         _hk("anasayfa.gunluk", _ge)
         _dv, _altin, _hava, _tatil = {}, None, None, None
 
-    def _g_card(ust, buyuk, alt, accent, ikon):
-        return (f'<div style="background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid {accent}2e;border-radius:16px;'
-                f'padding:16px 20px;flex:1;min-width:150px">'
-                f'<div style="font-size:11px;color:var(--k-soluk);letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{ikon} {ust}</div>'
-                f'<div style="color:var(--k-metin);font-size:23px;font-weight:700;line-height:1;font-family:JetBrains Mono,monospace">{buyuk}</div>'
-                f'<div style="color:{accent};font-size:13px;font-weight:600;margin-top:8px">{alt}</div></div>')
+    def _hucre(ad, deger, alt="", baslik=""):
+        _t = f' title="{baslik}"' if baslik else ""
+        _a = f"<small>{alt}</small>" if alt else ""
+        return f'<div class="k-ana-hucre"{_t}><span>{ad}</span><b>{deger}</b>{_a}</div>'
 
-    # "Bugün · saat" kartı kaldırıldı: tarih zaten selamlamanın yanında.
-    _gunluk_kartlar = []
+    _serit = []
     if _dv.get("USD"):
-        _usd_s = f"₺{_dv['USD']:.2f}".replace(".", ",")
-        _eur_alt = (f"EUR ₺{_dv['EUR']:.2f}".replace(".", ",")) if _dv.get("EUR") else "USD/TRY"
-        _gunluk_kartlar.append(_g_card("Dolar", _usd_s, _eur_alt, trenk("yesil"), "💱"))
+        _serit.append(_hucre("Dolar", f"₺{tr_sayi(_dv['USD'], 2)}",
+                             f"Euro ₺{tr_sayi(_dv['EUR'], 2)}" if _dv.get("EUR") else ""))
     if _altin:
-        _gunluk_kartlar.append(_g_card("Gram Altın", f"₺{_altin:,.0f}".replace(",", "."), "Anlık fiyat", trenk("amber"), "🥇"))
+        _serit.append(_hucre("Gram altın", f"₺{tr_sayi(_altin)}"))
     if _hava and _hava.get("sicaklik") is not None:
-        _gunluk_kartlar.append(_g_card("Hava", f"{_hava['sicaklik']}°",
-                                       f"{_hava['ikon']} {_hava['durum']} · {_hava['sehir']}", trenk("mavi"), "🌤️"))
+        _serit.append(_hucre("Hava", f"{_hava['sicaklik']}°",
+                             f"{_hava.get('durum', '')} · {_hava.get('sehir', '')}".strip(" ·")))
     if _tatil:
         _td = _tatil["tarih"]
-        _ttar = f"{_td.day} {_aylar_tr[_td.month-1][:3]}"
+        _ttar = f"{_td.day} {_aylar_tr[_td.month-1]}"
         if _tatil["bugun"]:
-            _gunluk_kartlar.append(_g_card("Bugün Tatil", "🎉", _tatil["ad"], trenk("kirmizi"), "🗓️"))
+            _serit.append(_hucre("Bugün tatil", _tatil["ad"]))
         else:
-            _gunluk_kartlar.append(_g_card("Yaklaşan Tatil", f"{_tatil['kalan_gun']} gün",
-                                           f"{_tatil['ad']} · {_ttar}", trenk("kirmizi"), "🗓️"))
-    if _gunluk_kartlar:
-        st.markdown(
-            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;animation:fadeUp 0.6s ease-out">'
-            + "".join(_gunluk_kartlar) + '</div>', unsafe_allow_html=True)
-    # Günün sözü ve su/mola hatırlatması kaldırıldı (D2: dekor → iş).
+            _serit.append(_hucre(_tatil["ad"], f"{_tatil['kalan_gun']} gün", _ttar,
+                                 baslik=f"{_tatil['ad']} · {_ttar}"))
+    st.markdown(
+        '<div class="k-ana-karsila">'
+        f'<div class="k-ana-bas"><h1>{selamlama}, {kisi_adi(aktif_kullanici)}</h1>'
+        f'<span>{_tarih_str}</span></div>'
+        + (f'<div class="k-ana-serit">{"".join(_serit)}</div>' if _serit else "")
+        + '</div>',
+        unsafe_allow_html=True)
+
+    # ─── SALT-OKUR ŞERİDİ ───
+    if st.session_state.get("salt_okur"):
+        from shared.tasarim import mesaj as _mesaj
+        st.markdown(_mesaj("uyari", "Salt-okur oturum: tüm modülleri görebilirsin; "
+                                    "veri ekleme, değiştirme ve silme kapalı."),
+                    unsafe_allow_html=True)
+
+    # ─── BUGÜN — dikkat gerektiren işler (D2) ───
+    _bugun_panel(aktif_kullanici, yetkiler)
+
+    # ─── PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
+    _patron_gor = ozel_yetki(aktif_kullanici, "patron_panel")
+    if _patron_gor:
+        try:
+            from shared.ui import (patron_verisi_topla, patron_panosu_html,
+                                   pencere_css as _pp_css)
+            st.markdown(_pp_css(), unsafe_allow_html=True)
+            _pv = patron_verisi_topla()
+            st.markdown(patron_panosu_html(_pv), unsafe_allow_html=True)
+        except Exception as _pe:
+            from shared.hata_log import kaydet as _hk
+            _hk("anasayfa.patron_panosu", _pe)
 
     # ─────────────────────────────────────────────────────────────────────
     # ─── İŞ KPI KARTLARI (gerçek veriden, yetkiye göre, güvenli) ───
 
     def _kpi_card(label, value, sub, accent):
-        return (f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid {accent}33;border-radius:12px;'
-                f'padding:12px 16px;backdrop-filter:blur(10px)">'
-                f'<div style="font-size:11px;color:var(--k-silik);letter-spacing:1.2px;text-transform:uppercase;font-weight:700;margin-bottom:8px">{label}</div>'
-                f'<div style="color:var(--k-metin);font-size:19px;font-weight:700;font-family:JetBrains Mono,monospace;line-height:1">{value}</div>'
-                f'<div style="color:{accent};font-size:11px;font-weight:400;margin-top:4px">{sub}</div></div>')
+        # Ortak KPI kartı (tasarim.kpi_serit ile aynı dil: k-kart + renkli sol şerit).
+        # `accent` RENK anahtarıdır ("yesil"); tema değişince renk de değişir.
+        _c = rv(accent)
+        return (f'<div class="k-kart" data-akscent style="border-left-color:{_c}">'
+                f'<div class="k-ana-kpi-ad">{label}</div>'
+                f'<div class="k-deger">{value}</div>'
+                f'<div class="k-alt" style="color:var(--k-soluk)">{sub}</div></div>')
 
     import datetime as _kdt
     _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
@@ -2558,12 +2258,11 @@ def anasayfa():
             except Exception:
                 _ad_usd = 0.0
             _genel_kar = _top["net_kar"] + _ad_usd
-            _r = trenk("yesil") if _genel_kar >= 0 else trenk("kirmizi")
             _alt = f"Ciro ${tr_sayi(_top['ciro'])} · %{tr_sayi(_top['marj'], 1)}"
             if _ad_usd:
-                _alt += f" · 📥 destek ${tr_sayi(_ad_usd)} dahil"
-            kpi_html.append(_kpi_card("Satış · Bu Ay Net Kâr", f"${tr_sayi(_genel_kar)}",
-                                      _alt, _r))
+                _alt += f" · destek ${tr_sayi(_ad_usd)} dahil"
+            kpi_html.append(_kpi_card("Bu ay net kâr", f"${tr_sayi(_genel_kar)}",
+                                      _alt, "yesil" if _genel_kar >= 0 else "kirmizi"))
         except Exception:
             pass
     if yetkiler.get("ithalat"):
@@ -2575,7 +2274,7 @@ def anasayfa():
                 from ithalat.database import get_dosyalar
                 _yol = sum(1 for d in get_dosyalar()
                            if str(d.get("durum", "")).strip() in IN_TRANSIT_DURUMLAR)
-            kpi_html.append(_kpi_card("İthalat", f"{_yol}", "🚢 Yolda dosya", trenk("mavi")))
+            kpi_html.append(_kpi_card("Yoldaki ithalat", f"{_yol}", "dosya yolda", "mavi"))
             if _yol:
                 _rozet["ithalat"] = f"{_yol} yolda"
         except Exception:
@@ -2586,7 +2285,7 @@ def anasayfa():
             if _ts_n is None:
                 from teknikservis.database import get_kayitlar
                 _ts_n = len(get_kayitlar())
-            kpi_html.append(_kpi_card("Teknik Servis", f"{_ts_n}", "🛠️ Açık kayıt", trenk("mor")))
+            kpi_html.append(_kpi_card("Teknik servis", f"{_ts_n}", "açık kayıt", "kirmizi2"))
             if _ts_n:
                 _rozet["teknikservis"] = f"{_ts_n} açık"
         except Exception:
@@ -2597,19 +2296,16 @@ def anasayfa():
             if _kmp_n is None:
                 from kayranpm.database import get_kampanyalar
                 _kmp_n = len(get_kampanyalar(durum='aktif'))
-            kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "🎯 Aktif kampanya", trenk("pembe")))
+            kpi_html.append(_kpi_card("Kampanya", f"{_kmp_n}", "aktif kampanya", "pembe"))
             if _kmp_n:
                 _rozet["kayranpm"] = f"{_kmp_n} kampanya"
         except Exception:
             pass
 
     if kpi_html:
-        st.markdown(
-            '<div style="font-size:11px;color:var(--k-silik);letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 0 8px">İş özeti</div>'
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:8px;margin-bottom:28px;animation:fadeUp 0.75s ease-out">'
-            + "".join(kpi_html) + '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="k-ana-bolum">İş özeti</div>'
+                    '<div class="k-ana-kpi">' + "".join(kpi_html) + '</div>',
+                    unsafe_allow_html=True)
 
     if _bildirimler:
         if True:
@@ -2631,7 +2327,7 @@ def anasayfa():
                     f'<div style="color:var(--k-metin);font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
                     f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px;display:flex;align-items:center;gap:8px">'
                     f'<span style="width:5px;height:5px;border-radius:50%;background:var(--k-mor);display:inline-block"></span>'
-                    f'{str(_b.get("gonderen") or "Sistem").capitalize()} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
+                    f'{kisi_adi(_b.get("gonderen") or "Sistem")} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
                     f'</div>'
                     f'</div>'
                 )
@@ -2641,133 +2337,56 @@ def anasayfa():
                 tumunu_okundu_isaretle(aktif_kullanici)
                 st.rerun()
 
-    # ── Otomatik bildirim izleyici: yeni talep/bildirim gelince sayfa kendiliğinden yenilenir ──
-    # ─── HIZLI ERİŞİM — tıklanabilir modül kartları ───
+    # ─── MODÜLLER — kartın TAMAMI tıklanır ───
+    # Eskiden her kartın altında ayrı bir "Aç →" düğmesi vardı (7 düğme alt
+    # alta, hepsi aynı ağırlıkta). Artık kartın kendisi düğme: görünmez bir
+    # düğme kartı kaplar (klavyeyle Tab + Enter de çalışır), üstüne gelince
+    # kart modül renginde belirginleşir ve ok ileri kayar.
     _mod_meta = [
-        ("kayranpm", "📦", "Ürün Yönetimi", "Stok · sipariş önerisi · kampanya · rapor"),
-        ("depo", "🏬", "Depo", "Depo bazlı stok · depolar arası sevk"),
-        ("ithalat", "🚢", "İthalat", "Dosya · masraf · paçal maliyet · teslim"),
-        ("satis", "💰", "Satış", "Sipariş · kâr / P&L · kârlılık"),
-        ("kayranacc", "💵", "Muhasebe & Finans", "Ödeme · çek · banka · cari · aktifler"),
-        ("teknikservis", "🛠️", "Teknik Servis", "Servis · iade · değişim · depo"),
-        ("hesap_makinesi", "🧮", "Hesap Makinesi", "Hızlı hesaplama araçları"),
+        ("kayranacc", "Muhasebe & Finans", "Ödeme, çek, banka, cari ve aktifler"),
+        ("satis", "Satış", "Sipariş girişi, kâr / P&L ve iade"),
+        ("kayranpm", "Ürün Yönetimi", "Stok, sipariş önerisi, kampanya ve rapor"),
+        ("ithalat", "İthalat", "Dosya, masraf, paçal maliyet ve teslim"),
+        ("depo", "Depo", "Depo bazlı stok ve depolar arası sevk"),
+        ("teknikservis", "Teknik Servis", "Servis, iade, değişim ve servis deposu"),
+        ("yonetim", "Yönetim", "Toplam aktifler ve yönetim P&L"),
+        ("hesap_makinesi", "Hesap Makinesi", "Maliyet ve fiyat hesapları"),
     ]
-    _acik_mod = [m for m in _mod_meta if yetkiler.get(m[0])]
+    _yonetim_gor = ozel_yetki(aktif_kullanici, "yonetim")
+    _acik_mod = [m for m in _mod_meta
+                 if (_yonetim_gor if m[0] == "yonetim" else yetkiler.get(m[0]))]
     if _acik_mod:
-        st.markdown('<div style="color:var(--k-soluk);font-size:13px;font-weight:700;letter-spacing:1.5px;'
-                    'text-transform:uppercase;margin:0px 0 16px">⚡ Hızlı Erişim</div>', unsafe_allow_html=True)
-        for _ri in range(0, len(_acik_mod), 3):
-            _satir_mod = _acik_mod[_ri:_ri + 3]
-            _cols = st.columns(3)
-            for _ci, (_mk, _ic, _ad, _ds) in enumerate(_satir_mod):
+        st.markdown('<div class="k-ana-bolum">Modüller</div>', unsafe_allow_html=True)
+        st.markdown("<style>" + "".join(
+            f".st-key-hz_{_mk}{{--c:{rv(MODUL_RENK.get(_mk, 'mor'))};}}" for _mk, _, _ in _acik_mod)
+            + "</style>", unsafe_allow_html=True)
+        _sutun = 4
+        for _ri in range(0, len(_acik_mod), _sutun):
+            _cols = st.columns(_sutun, gap="small")
+            for _ci, (_mk, _ad, _ds) in enumerate(_acik_mod[_ri:_ri + _sutun]):
                 with _cols[_ci]:
-                    with st.container(border=True):
+                    with st.container(border=True, key=f"hz_{_mk}"):
                         _rz = _rozet.get(_mk)
-                        _rz_html = (f'<span style="background:color-mix(in srgb,var(--k-mavi) 15%,transparent);color:var(--k-mavi);font-size:11px;'
-                                    f'font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap">{_rz}</span>'
-                                    ) if _rz else ''
                         st.markdown(
-                            f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
-                            f'<div style="font-size:23px;line-height:1">{_ic}</div>{_rz_html}</div>'
-                            f'<div style="color:var(--k-mavi);font-size:14px;font-weight:700;margin-top:8px">{_ad}</div>'
-                            f'<div style="color:var(--k-silik);font-size:11px;margin:4px 0 8px;min-height:30px;line-height:1.4">{_ds}</div>',
+                            '<div class="k-hz-ust">'
+                            f'<i>{k_ikon(MODUL_IKON.get(_mk, "apps"), 20)}</i>'
+                            + (f'<em>{_rz}</em>' if _rz else "")
+                            + f'{k_ikon("arrow_forward", 18)}</div>'
+                            f'<div class="k-hz-ad">{_ad}</div><div class="k-hz-ac">{_ds}</div>',
                             unsafe_allow_html=True)
-                        if st.button("Aç →", key=f"home_open_{_mk}", use_container_width=True):
+                        if st.button(f"{_ad} modülünü aç", key=f"home_open_{_mk}"):
                             st.session_state.aktif_uygulama = _mk
                             st.rerun()
-        # Sabit "servisler aktif" yeşil ışığı kaldırıldı: hiçbir şeyi kontrol
-        # etmeden her zaman yeşil yanıyordu — yanıltıcıydı.
-        st.markdown('<div style="height:32px"></div>', unsafe_allow_html=True)
-    # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI (panel + kayıt +
-    # liderlik sorguları) — ana sayfa açılışını da hızlandırır.
-
-    # 📬 Gelen Talepler artık HER SAYFADA sağ alttaki ✉️ düğmesinde
-    # (_talep_merkezi → "Gelen Talepler" sekmesi). Rozet açık talep sayısını
-    # gösterir, böylece ana sayfaya dönmeye gerek kalmaz.
-
-    # ─── KURUMSAL — G5F & FAZEON (kapalı panel, kompakt) ───
-    with st.expander("🏢 Kurumsal · G5F Teknoloji & Fazeon", expanded=False):
-        _bk1, _bk2 = st.columns(2, gap="medium")
-        with _bk1:
-            st.markdown(
-                '<div style="background:linear-gradient(135deg,var(--k-yuzey2) 0%,var(--k-yuzey1) 100%);'
-                'border:1px solid rgba(232,132,32,0.2);border-left:3px solid var(--k-amber);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
-                f'<div style="height:46px;display:flex;align-items:center;margin-bottom:8px">{G5F_LOGO_SVG}</div>'
-                '<div style="font-size:14px;font-weight:700;color:var(--k-metin);margin-bottom:0px">G5F Teknoloji</div>'
-                '<div style="font-size:11px;color:var(--k-amber);letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Distribütör · Teknoloji Çözümleri</div>'
-                '<div style="font-size:13px;line-height:1.6;color:var(--k-mavi);margin-bottom:16px">Yüksek kaliteli teknoloji ürünlerini hızlı tedarik ve güvenilir hizmetle sunan distribütör.</div>'
-                '<a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(0,0,0,0.4);border:1px solid rgba(232,132,32,0.5);border-radius:9px;color:var(--k-amber);text-decoration:none;font-size:11px;font-weight:600">🌐 g5fteknoloji.com →</a>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-        with _bk2:
-            st.markdown(
-                '<div style="background:color-mix(in srgb,var(--k-mor) 7%,var(--k-yuzey1));'
-                'border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-left:3px solid var(--k-mor);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;min-height:200px">'
-                f'<div style="height:46px;display:flex;align-items:center;margin-bottom:8px">{FAZEON_LOGO_SVG}</div>'
-                '<div style="font-size:14px;font-weight:700;color:var(--k-metin);margin-bottom:0px">Fazeon</div>'
-                '<div style="font-size:11px;color:var(--k-mor);letter-spacing:1px;font-weight:600;text-transform:uppercase;margin-bottom:8px">Gaming · Monitors · Cases · Coolers</div>'
-                '<div style="font-size:13px;line-height:1.6;color:var(--k-mavi);margin-bottom:16px">Yüksek performanslı oyuncu monitörleri, PC kasaları ve verimli soğutma sistemleri.</div>'
-                '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 20%,transparent),color-mix(in srgb,var(--k-mor) 15%,transparent));border:1px solid color-mix(in srgb,var(--k-mor) 40%,transparent);border-radius:9px;color:var(--k-mor);text-decoration:none;font-size:11px;font-weight:600">🌐 fazeon.com →</a>'
-                '</div>',
-                unsafe_allow_html=True
-            )
-
-    # ─── DESTEK · TALEP / GERİ BİLDİRİM (kompakt, kapalı panel) ───
-    st.markdown(
-        '<style>'
-        '[data-testid="stTextInput"] input,[data-testid="stTextArea"] textarea{'
-        'background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent) !important;'
-        'color:var(--k-metin) !important;border-radius:10px !important;}'
-        '[data-testid="stTextInput"] input::placeholder,[data-testid="stTextArea"] textarea::placeholder{color:var(--k-silik) !important;}'
-        '[data-testid="stTextInput"] input:focus,[data-testid="stTextArea"] textarea:focus{'
-        'border-color:var(--k-mor) !important;box-shadow:0 0 0 3px color-mix(in srgb,var(--k-mor) 15%,transparent) !important;}'
-        '</style>',
-        unsafe_allow_html=True
-    )
-    # Talep formu artık HER SAYFADA sağ alttaki ✉️ düğmesinde (_talep_merkezi).
-    # Ana sayfadaki kopya kaldırıldı ki iki ayrı yerden aynı iş yapılmasın.
-    st.caption("💬 Talep veya geri bildirim için sağ alttaki ✉️ düğmesini kullanabilirsin.")
-
-    # ─── ALT BİLGİ ŞERİDİ (sade tek satır) ───
-    st.markdown(
-        '<div style="margin:40px 0 0;padding:16px 0;border-top:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent);text-align:center;color:var(--k-silik);font-size:11px;line-height:1.9;animation:fadeUp 1.1s ease-out">'
-        '⚡ Sol menüden tek tıkla erişim &nbsp;·&nbsp; 🔐 Yetki bazlı güvenli oturum &nbsp;·&nbsp; ☁️ Gerçek zamanlı bulut senkronizasyonu'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # ─── COPYRIGHT ───
-    yil = datetime.now().year
-    st.markdown(
-        f'<div style="margin:32px 0 20px;text-align:center;animation:fadeUp 1.2s ease-out">'
-        '<div style="display:inline-flex;align-items:center;gap:16px;padding:8px 16px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 4%,transparent);border-radius:30px">'
-        '<div style="display:flex;align-items:center;gap:8px">'
-        '<div style="width:6px;height:6px;border-radius:50%;background:var(--k-yesil);box-shadow:0 0 8px var(--k-yesil)"></div>'
-        '<span style="color:var(--k-yesil);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Sistem Aktif</span>'
-        '</div>'
-        '<span style="color:var(--k-silik);font-size:11px">•</span>'
-        f'<span style="color:var(--k-silik);font-size:11px;font-family:JetBrains Mono,monospace">KAYRAN v2.0.0</span>'
-        '<span style="color:var(--k-silik);font-size:11px">•</span>'
-        f'<span style="color:var(--k-silik);font-size:11px;font-weight:400">© {yil} G5F Teknoloji</span>'
-        '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI.
+    # 📬 Gelen Talepler HER SAYFADA sağ alttaki Talep düğmesinde (_talep_merkezi).
 
     # ─── YÖNETİM (sadece ibrahim) — kompakt kapalı paneller ───
     if aktif_kullanici.lower() == "ibrahim":
-        st.markdown("---")
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:8px;margin:8px 0 12px">'
-            '<span style="font-size:13px;color:var(--k-silik);letter-spacing:2px;text-transform:uppercase;font-weight:700">⚙️ Yönetim</span>'
-            '<div style="height:1px;flex:1;background:linear-gradient(90deg,color-mix(in srgb,var(--k-metin) 10%,transparent),transparent)"></div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="k-ana-bolum">Yönetici araçları</div>', unsafe_allow_html=True)
 
         # 1) Aktif kullanıcılar & son giriş zamanları
-        with st.expander("👥 Aktif kullanıcılar & son giriş zamanları", expanded=False):
+        with st.expander("Aktif kullanıcılar ve son girişler", expanded=False, icon=":material/group:"):
             online_listesi = get_online_kullanicilar()
             try:
                 import datetime as _dt2
@@ -2793,11 +2412,12 @@ def anasayfa():
                         zaman_str = f"{fark_sn}sn önce" if fark_sn < 60 else f"{fark_sn // 60}dk önce"
                     except Exception:
                         zaman_str = "az önce"
-                    ilk = k_adi[0].upper() if k_adi else "?"
+                    from shared.tasarim import bas_harf as _bh
+                    ilk = _bh(k_adi)
                     cards_html += (
                         f'<div style="background:color-mix(in srgb,var(--k-yesil) 6%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 20%,transparent);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px">'
                         f'<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--k-yesil),var(--k-yesil));display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:13px;flex-shrink:0">{ilk}</div>'
-                        f'<div style="overflow:hidden"><div style="color:var(--k-metin);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{k_adi.capitalize()}</div>'
+                        f'<div style="overflow:hidden"><div style="color:var(--k-metin);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{kisi_adi(k_adi)}</div>'
                         f'<div style="color:var(--k-yesil2);font-size:11px;font-weight:400">● {zaman_str}</div></div></div>'
                     )
                 cards_html += '</div>'
@@ -2825,14 +2445,14 @@ def anasayfa():
                     _border = "rgba(16,185,129,0.15)" if _online_su else "rgba(255,255,255,0.06)"
                     sg_html += (
                         f'<div style="background:{_bg};border:1px solid {_border};border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">'
-                        f'<span style="color:var(--k-metin);font-size:13px;font-weight:600">{_kg.capitalize()}</span>'
+                        f'<span style="color:var(--k-metin);font-size:13px;font-weight:600">{kisi_adi(_kg)}</span>'
                         f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:JetBrains Mono,monospace;white-space:nowrap">{_zs}</span></div>'
                     )
                 sg_html += '</div></div>'
                 st.markdown(sg_html, unsafe_allow_html=True)
 
         # 2) Sistem duyurusu
-        with st.expander("📢 Sistem duyurusu", expanded=False):
+        with st.expander("Sistem duyurusu", expanded=False, icon=":material/campaign:"):
             _mevcut_aktif, _mevcut_metni = get_duyuru()
             _durum_etiketi = "🟢 Aktif" if _mevcut_aktif else "🔴 Kapalı"
             st.caption(f"Durum: {_durum_etiketi}" + ((" — " + _mevcut_metni[:60] + ("..." if len(_mevcut_metni) > 60 else "")) if _mevcut_metni else ""))
@@ -2848,7 +2468,7 @@ def anasayfa():
                         st.error("❌ Kayıt başarısız.")
 
         # 3) Bildirim gönder
-        with st.expander("🔔 Bildirim gönder", expanded=False):
+        with st.expander("Bildirim gönder", expanded=False, icon=":material/notifications:"):
             _tum_kullanicilar = sorted(tum_kullanicilar() - {(aktif_kullanici or "").strip().lower()})
             with st.form("bildirim_form", clear_on_submit=True):
                 _alici_sec = st.selectbox("Alıcı", ["Herkese Gönder"] + [k.capitalize() for k in _tum_kullanicilar])
@@ -2868,6 +2488,20 @@ def anasayfa():
                             st.success(f"✅ Bildirim {_alici_str} gönderildi!")
                         else:
                             st.error("❌ Bildirim gönderilemedi.")
+
+    # ─── ALT BİLGİ — tek sakin satır ───
+    # Kaldırılanlar: "Sistem Aktif" yeşil ışığı (hiçbir şeyi ölçmeden hep
+    # yeşil yanıyordu — yanıltıcıydı), tanıtım cümleleri şeridi, kurumsal
+    # açılır panel (iki bağlantısı buraya alındı) ve "✉️ düğmesini kullan" notu.
+    yil = datetime.now().year
+    st.markdown(
+        '<div class="k-ana-alt">'
+        f'<span>KAYRAN Workspace · © {yil} G5F Teknoloji</span>'
+        '<span><a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer">g5fteknoloji.com</a>'
+        '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer">fazeon.com</a></span>'
+        '</div>',
+        unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5) KAYRANTS&W — YAKINDA SİZLERLE
@@ -3096,7 +2730,8 @@ def kullanici_yonetimi():
 def sifre_degistir():
     """Kullanıcının kendi şifresini değiştirebileceği sayfa."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
-    ilk_harf = aktif_kullanici[0].upper() if aktif_kullanici else "U"
+    from shared.tasarim import bas_harf as _bh
+    ilk_harf = _bh(aktif_kullanici) if aktif_kullanici else "U"
 
     st.markdown(portal_css(), unsafe_allow_html=True)
 
@@ -3138,7 +2773,7 @@ def sifre_degistir():
             f'padding-bottom:16px;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)">'
             f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--k-mor),var(--k-mor));'
             f'display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:14px">{ilk_harf}</div>'
-            f'<div><div style="color:var(--k-metin);font-weight:600;font-size:14px">{aktif_kullanici.capitalize()}</div>'
+            f'<div><div style="color:var(--k-metin);font-weight:600;font-size:14px">{kisi_adi(aktif_kullanici)}</div>'
             f'<div style="color:var(--k-silik);font-size:11px">Şifre değiştirme</div></div>'
             f'</div>'
             '</div>',
@@ -3291,23 +2926,30 @@ def _talep_merkezi():
 
     st.markdown(
         "<style>"
-        ".st-key-fab_talep{position:fixed !important;right:26px;bottom:26px;z-index:9990;width:auto !important;}"
-        ".st-key-fab_talep button{border-radius:50px !important;min-height:56px !important;"
-        "padding:0 22px !important;font-size:20px !important;font-weight:700 !important;"
-        "background:linear-gradient(135deg,#F59E0B,var(--k-amber)) !important;color:#1E293B !important;"
-        "border:none !important;box-shadow:0 8px 24px color-mix(in srgb,var(--k-amber) 45%,transparent) !important;"
+        # Talep düğmesi: marka renginde sakin bir hap (eskiden turuncu degrade +
+        # emoji). İpucu kabı (stTooltipIcon) şeffaf: arkada köşeli kutu kalmasın.
+        ".st-key-fab_talep{position:fixed !important;right:24px;bottom:24px;z-index:9990;width:auto !important;}"
+        ".st-key-fab_talep :is([data-testid=stTooltipIcon],[data-testid=stTooltipHoverTarget]){"
+        "background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;}"
+        ".st-key-fab_talep button{border-radius:999px !important;min-height:44px !important;height:44px !important;"
+        "padding:0 18px 0 14px !important;gap:6px !important;background:var(--k-dolgu) !important;"
+        "color:var(--k-dolgu-metin) !important;border:1px solid color-mix(in srgb,#fff 18%,transparent) !important;"
+        "box-shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px color-mix(in srgb,var(--k-dolgu) 40%,transparent) !important;"
         "transition:transform .15s ease,box-shadow .15s ease !important;}"
-        ".st-key-fab_talep button:hover{transform:translateY(-2px) scale(1.04) !important;"
-        "box-shadow:0 12px 30px color-mix(in srgb,var(--k-amber) 60%,transparent) !important;}"
+        ".st-key-fab_talep button p{font-size:13px !important;font-weight:600 !important;color:inherit !important;}"
+        ".st-key-fab_talep button [data-testid=stIconMaterial]{font-size:19px !important;color:inherit !important;}"
+        ".st-key-fab_talep button:hover{transform:translateY(-1px) !important;"
+        "box-shadow:0 2px 4px rgba(0,0,0,.25),0 12px 28px color-mix(in srgb,var(--k-dolgu) 50%,transparent) !important;}"
+        ".st-key-fab_talep button:focus-visible{outline:2px solid var(--k-mor2) !important;outline-offset:2px !important;}"
         "@media(max-width:640px){.st-key-fab_talep{right:14px;bottom:14px;}}"
         "</style>",
         unsafe_allow_html=True)
 
-    _etiket = f"✉️  {_acik}" if (_yonetici and _acik) else "✉️"
+    _etiket = f"{_acik} açık talep" if (_yonetici and _acik) else "Talep"
     _ipucu = (f"Talep Merkezi — {_acik} açık talep" if (_yonetici and _acik)
               else "Talep / geri bildirim gönder")
 
-    @st.dialog("✉️ Talep Merkezi", width="large")
+    @st.dialog("Talep Merkezi", width="large")
     def _dlg_talep():
         from kayranpm.database import (ekle_talep, get_talepler,
                                        get_talepler_kullanici, guncelle_talep_cevap)
@@ -3445,7 +3087,7 @@ def _talep_merkezi():
                             except Exception as _e:
                                 st.error(f"❌ {type(_e).__name__}")
 
-    if st.button(_etiket, key="fab_talep", help=_ipucu):
+    if st.button(_etiket, key="fab_talep", help=_ipucu, icon=":material/forum:"):
         _dlg_talep()
 
 

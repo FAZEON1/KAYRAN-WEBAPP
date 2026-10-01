@@ -644,9 +644,9 @@ MOBIL_CSS = f"""
   [data-testid="stNumberInputStepDown"], [data-testid="stNumberInputStepUp"]{{
     min-width:44px !important;min-height:44px !important;}}
   [data-testid="stCheckbox"] label, [data-testid="stToggle"] label,
-  [data-testid="stMain"] [role="radiogroup"] > label{{min-height:40px !important;align-items:center !important;}}
+  [data-testid="stMain"] :is([role="radiogroup"] > label,[data-testid="stRadioOption"]){{min-height:40px !important;align-items:center !important;}}
   [data-testid="stExpander"] summary{{min-height:48px !important;align-items:center !important;}}
-  section[data-testid="stSidebar"] [role="radiogroup"] > label{{min-height:42px !important;align-items:center !important;}}
+  html body section[data-testid="stSidebar"] :is([role="radiogroup"] > label,[data-testid="stRadioOption"]){{min-height:42px !important;align-items:center !important;}}
 
   /* Sekmeler: sığmazsa yana kaysın, sekme yüksekliği parmağa uygun */
   [data-baseweb="tab-list"]{{overflow-x:auto !important;scrollbar-width:none;flex-wrap:nowrap !important;}}
@@ -693,6 +693,198 @@ MOBIL_CSS = f"""
 """
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 7b. KİŞİ ADI — Türkçe büyük harf. 'ibrahim'.capitalize() → 'Ibrahim'
+#     (noktasız I) çıkıyordu; selamlamada ve sol menüde her gün görünüyordu.
+#     YALNIZ GÖSTERİM içindir: veri anahtarı olarak kullanılan yerlerde
+#     (talep sorgusu, bildirim alıcısı) eski biçim korunur.
+# ═══════════════════════════════════════════════════════════════════
+def _tr_ust(c):
+    return {"i": "İ", "ı": "I"}.get(c, c.upper())
+
+
+def kisi_adi(kullanici):
+    """'ibrahim' → 'İbrahim', 'ayşe nur' → 'Ayşe Nur', 'IŞIL' → 'Işıl'."""
+    s = str(kullanici or "").strip()
+    if not s:
+        return ""
+    kucuk = s.replace("İ", "i").replace("I", "ı").lower()
+    return " ".join((_tr_ust(w[0]) + w[1:]) if w else w for w in kucuk.split(" "))
+
+
+def bas_harf(kullanici):
+    """Avatar harfi: 'ibrahim' → 'İ' (eskiden 'I')."""
+    s = str(kullanici or "").strip()
+    return _tr_ust(s[0].replace("İ", "i").replace("I", "ı").lower()) if s else "?"
+
+
+# ── Modül → menü ikonu (Material Symbols). Üst menü, sol menü çipi ve ana
+#    sayfa kartları AYNI ikonu kullanır; emoji yalnız eski verilerde kalır. ──
+MODUL_IKON = {
+    "anasayfa": "home", "arama": "search", "yonetim": "monitoring",
+    "kayranacc": "account_balance_wallet", "ithalat": "directions_boat",
+    "kayranpm": "inventory_2", "depo": "warehouse", "satis": "point_of_sale",
+    "teknikservis": "construction", "hesap_makinesi": "calculate",
+}
+
+
+def ikon(ad, boyut=18, renk=None):
+    """Satır içi Material Symbols ikonu (HTML). Streamlit bu yazı tipini zaten
+    yüklüyor (:material/..: ikonları için); ek indirme yok."""
+    import html as _h
+    stil = f"font-size:{int(boyut)}px;" + (f"color:{renk};" if renk else "")
+    return (f'<span class="k-ikon" aria-hidden="true" style="{stil}">'
+            f'{_h.escape(str(ad))}</span>')
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 7c. SOL MENÜ KABUĞU + MENÜ SEÇENEKLERİ (tek kaynak)
+#
+#   NEDEN BURADA: Streamlit 1.64 radyo düğmesinin iç yapısını değiştirdi
+#   (her seçenek artık bir kabın içinde: radiogroup > div > label). Eski
+#   kurallar 'radiogroup > label' aradığı için HİÇBİRİ tutmuyordu: sol
+#   menülerde form gibi yuvarlak seçim düğmeleri çıkıyor, seçili sayfa öne
+#   çıkmıyordu. Seçiciler artık İKİ yapıyı da tanır (eski: > label, yeni:
+#   [data-testid=stRadioOption]); test_radyo_secici bunu denetler.
+#
+#   Ayrıca her modül sol menüye kendi rengini basıyordu (Satış'ta her yazı
+#   mavi, Muhasebe'de beyaz; çıkış düğmesi üç ayrı biçimde). Buradaki
+#   kurallar 'html body' ile güçlendirildi: modül kuralları bunları ezemez,
+#   böylece her modülde sol menü AYNI görünür.
+# ═══════════════════════════════════════════════════════════════════
+_SB = 'html body section[data-testid="stSidebar"]'
+# Radyo seçeneği: eski yapı (> label) + 1.64 yapısı (stRadioOption)
+_OPT = ':is([data-testid="stRadio"] [role="radiogroup"] > label,[data-testid="stRadioOption"])'
+# Seçenek önündeki yuvarlak: eskide label'ın ilk div'i, 1.64'te iç kabın ilk div'i
+_DAIRE = (':is([data-testid="stRadio"] [role="radiogroup"] > label > div:first-child,'
+          '[data-testid="stRadioOption"] > div > div:first-child:not([data-testid]))')
+
+SIDEBAR_CSS = f"""
+{_SB}{{background:var(--k-yuzey1) !important;border-right:1px solid var(--k-kenar) !important;}}
+{_SB} hr{{border-color:var(--k-kenar) !important;margin:12px 0 !important;}}
+.k-ikon,{_SB} .k-ikon{{font-family:"Material Symbols Rounded" !important;font-weight:normal;font-style:normal;line-height:1;
+  letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;
+  font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;}}
+
+/* ── Marka ── */
+{_SB} .k-sb-marka{{display:flex;align-items:center;gap:10px;padding:2px 2px 14px;}}
+{_SB} .k-sb-marka svg{{width:28px;height:28px;flex-shrink:0;}}
+{_SB} .k-sb-marka b{{font-size:15px;font-weight:700;letter-spacing:1.4px;color:var(--k-metin) !important;line-height:1;}}
+{_SB} .k-sb-marka span{{font-size:11px;font-weight:500;color:var(--k-silik) !important;line-height:1;}}
+
+/* ── Modül çipi: renkli ikon karosu + ad ── */
+{_SB} .k-sb-modul{{display:flex;align-items:center;gap:10px;padding:0 2px 12px;margin-bottom:10px;
+  border-bottom:1px solid var(--k-kenar);}}
+{_SB} .k-sb-modul i{{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-style:normal;background:color-mix(in srgb,var(--c) 16%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 28%,transparent);font-size:14px;}}
+{_SB} .k-sb-modul i .k-ikon{{color:var(--c) !important;font-size:18px;}}
+{_SB} .k-sb-modul b{{font-size:14px;font-weight:650;letter-spacing:-.1px;color:var(--k-metin) !important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+
+/* ── Kişi satırı: avatar + ad (çıkış düğmesi yanında) ── */
+{_SB} .k-sb-kisi{{display:flex;align-items:center;gap:9px;min-width:0;}}
+{_SB} .k-sb-kisi i{{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-style:normal;font-size:13px;font-weight:700;
+  background:color-mix(in srgb,var(--k-mor) 20%,var(--k-yuzey1));color:var(--k-mor2) !important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k-mor) 35%,transparent);}}
+{_SB} .k-sb-kisi b{{font-size:13px;font-weight:600;color:var(--k-metin) !important;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}}
+{_SB} .k-sb-kisi small{{display:block;font-size:11px;color:var(--k-silik) !important;font-weight:400;line-height:1.3;}}
+{_SB} .k-sb-baslik{{font-size:11px;font-weight:600;color:var(--k-silik) !important;margin:14px 2px 6px;}}
+
+/* ── Sol menüdeki sıradan düğmeler: sakin, kenarlı (Güncel Kur, Yenile…) ── */
+{_SB} :is(.stButton,.stDownloadButton) > button{{min-height:34px !important;border-radius:8px !important;
+  background:transparent !important;border:1px solid var(--k-kenar2) !important;color:var(--k-metin) !important;
+  font-size:13px !important;font-weight:500 !important;box-shadow:none !important;transform:none !important;
+  padding:0 12px !important;transition:background .12s ease,border-color .12s ease !important;}}
+{_SB} :is(.stButton,.stDownloadButton) > button:hover{{background:var(--k-ortu2) !important;border-color:var(--k-mor) !important;}}
+{_SB} :is(.stButton,.stDownloadButton) > button p{{font-size:13px !important;font-weight:500 !important;color:inherit !important;}}
+
+/* ── Gezinme düğmeleri (ana sayfa sol menüsü: Şifremi Değiştir, Kullanıcı
+      Yönetimi…) radyo menüsüyle AYNI görünür ── */
+{_SB} [class*="st-key-nav_"]:not(.st-key-nav_cikis) .stButton > button{{
+  border:0 !important;justify-content:flex-start !important;color:var(--k-soluk) !important;
+  padding:0 10px !important;font-weight:500 !important;}}
+{_SB} [class*="st-key-nav_"]:not(.st-key-nav_cikis) .stButton > button > div{{justify-content:flex-start !important;}}
+{_SB} [class*="st-key-nav_"]:not(.st-key-nav_cikis) .stButton > button [data-testid="stIconMaterial"]{{
+  color:var(--k-silik) !important;font-size:18px !important;}}
+{_SB} [class*="st-key-nav_"] .stButton > button:hover{{background:var(--k-ortu2) !important;color:var(--k-metin) !important;}}
+{_SB} [class*="st-key-nav_"] .stButton > button[data-testid="stBaseButton-primary"]{{
+  background:color-mix(in srgb,var(--k-mor) 13%,transparent) !important;color:var(--k-metin) !important;font-weight:600 !important;}}
+{_SB} [class*="st-key-nav_"] .stButton > button[data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"]{{color:var(--k-mor) !important;}}
+
+/* ── Çıkış: kişi satırının yanında küçük, sessiz düğme ── */
+{_SB} :is([class*="st-key-cikis_"],.st-key-nav_cikis) .stButton > button{{border-color:transparent !important;
+  color:var(--k-silik) !important;padding:0 8px !important;min-height:30px !important;}}
+{_SB} :is([class*="st-key-cikis_"],.st-key-nav_cikis) .stButton > button:hover{{
+  color:var(--k-kirmizi) !important;border-color:color-mix(in srgb,var(--k-kirmizi) 35%,transparent) !important;
+  background:color-mix(in srgb,var(--k-kirmizi) 8%,transparent) !important;}}
+{_SB} [data-testid="stHorizontalBlock"]:has(.k-sb-kisi){{align-items:center !important;gap:6px !important;
+  flex-direction:row !important;flex-wrap:nowrap !important;}}
+{_SB} [data-testid="stHorizontalBlock"]:has(.k-sb-kisi) [data-testid="stMarkdownContainer"]{{margin-bottom:0 !important;}}
+{_SB} [data-testid="stHorizontalBlock"]:has(.k-sb-kisi) > [data-testid="stColumn"]:first-child{{
+  flex:1 1 auto !important;width:auto !important;min-width:0 !important;}}
+{_SB} [data-testid="stHorizontalBlock"]:has(.k-sb-kisi) > [data-testid="stColumn"]:last-child{{
+  flex:0 0 auto !important;width:auto !important;min-width:0 !important;}}
+
+/* ── Sol menü sayfa listesi (radyo) → gezinme menüsü ── */
+{_SB} [data-testid="stElementContainer"]:has(> [data-testid="stRadio"]),
+{_SB} [data-testid="stRadio"],{_SB} [data-testid="stRadio"] [role="radiogroup"]{{width:100% !important;}}
+{_SB} [data-testid="stRadio"] [role="radiogroup"]{{display:flex !important;flex-direction:column !important;gap:1px !important;}}
+{_SB} [data-testid="stRadio"] [role="radiogroup"] > div{{width:100% !important;}}
+{_SB} {_OPT}{{position:relative;display:flex !important;align-items:center !important;width:100% !important;
+  box-sizing:border-box !important;min-height:34px;margin:0 !important;padding:6px 10px 6px 12px !important;
+  border-radius:8px !important;background:transparent !important;border:0 !important;cursor:pointer;
+  transition:background .12s ease;}}
+{_SB} {_DAIRE}{{display:none !important;}}
+{_SB} {_OPT} p{{display:flex !important;align-items:center;gap:10px;margin:0 !important;font-size:13px !important;
+  font-weight:500 !important;letter-spacing:0 !important;line-height:1.3 !important;color:var(--k-soluk) !important;}}
+{_SB} {_OPT} p [role="img"]{{font-size:18px !important;color:var(--k-silik) !important;width:18px;flex-shrink:0;}}
+{_SB} {_OPT}:hover{{background:var(--k-ortu2) !important;}}
+{_SB} {_OPT}:hover p{{color:var(--k-metin) !important;}}
+{_SB} {_OPT}:has(input:checked){{background:color-mix(in srgb,var(--k-mor) 13%,transparent) !important;}}
+{_SB} {_OPT}:has(input:checked)::before{{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--k-mor);}}
+{_SB} {_OPT}:has(input:checked) p{{color:var(--k-metin) !important;font-weight:600 !important;}}
+{_SB} {_OPT}:has(input:checked) p [role="img"]{{color:var(--k-mor) !important;}}
+{_SB} {_OPT}:has(input:focus-visible){{outline:2px solid var(--k-mor);outline-offset:-2px;}}
+
+/* ── Sayfa içi radyolar (Dönem, Filtre…) → hap düğmeler ── */
+section[data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"]{{gap:6px !important;align-items:center;flex-wrap:wrap;}}
+section[data-testid="stMain"] {_OPT}{{display:flex !important;align-items:center !important;margin:0 !important;
+  min-height:32px;padding:4px 14px !important;border-radius:8px !important;cursor:pointer;
+  background:transparent !important;border:1px solid var(--k-kenar2) !important;
+  transition:background .12s ease,border-color .12s ease;}}
+section[data-testid="stMain"] {_DAIRE}{{display:none !important;}}
+section[data-testid="stMain"] {_OPT} p{{margin:0 !important;font-size:13px !important;font-weight:500 !important;
+  color:var(--k-soluk) !important;}}
+section[data-testid="stMain"] {_OPT}:hover{{background:var(--k-ortu2) !important;border-color:var(--k-mor) !important;}}
+section[data-testid="stMain"] {_OPT}:has(input:checked){{background:var(--k-vurgu) !important;
+  border-color:color-mix(in srgb,var(--k-mor) 60%,transparent) !important;}}
+section[data-testid="stMain"] {_OPT}:has(input:checked) p{{color:var(--k-metin) !important;font-weight:600 !important;}}
+section[data-testid="stMain"] {_OPT}:has(input:focus-visible){{outline:2px solid var(--k-mor);outline-offset:1px;}}
+"""
+
+
+def sidebar_modul_html(ikon_adi, ad, renk="mor2"):
+    """Sol menü üstündeki modül çipi. ikon_adi Material adı ('point_of_sale')
+    ya da eski çağrılardan gelen emoji olabilir."""
+    import html as _h
+    ic = str(ikon_adi or "")
+    ic_html = ikon(ic) if ic.replace("_", "").isalnum() and ic.isascii() else _h.escape(ic)
+    return (f'<div class="k-sb-modul" style="--c:{rv(renk)}"><i>{ic_html}</i>'
+            f'<b>{_h.escape(str(ad))}</b></div>')
+
+
+def sidebar_kisi_html(kullanici, alt=""):
+    """Avatar + Türkçe doğru büyük harfli ad."""
+    import html as _h
+    a = f"<small>{_h.escape(alt)}</small>" if alt else ""
+    return (f'<div class="k-sb-kisi"><i>{_h.escape(bas_harf(kullanici))}</i>'
+            f'<div style="min-width:0"><b>{_h.escape(kisi_adi(kullanici))}</b>{a}</div></div>')
+
+
 def cekirdek_css(yogunluk=None):
     R, F = RENK, FONT
     kp, kr, gg, sa, sp, kmin = (_y("kart_pad", yogunluk), _y("kart_r", yogunluk),
@@ -705,7 +897,7 @@ def cekirdek_css(yogunluk=None):
 /* Bu sınıfı taşıyan kapsayıcı AÇIK paleti kullanır (Tasarım Rehberi önizlemesi;
    ileride kullanıcı tema seçimi de aynı değişkenlerle çalışır). */
 .k-tema-acik{{{acik}color:var(--k-metin);}}
-""" + DUGME_CSS + BILESEN_CSS + MOBIL_CSS + f"""
+""" + DUGME_CSS + BILESEN_CSS + SIDEBAR_CSS + MOBIL_CSS + f"""
 
 .k-grid{{display:flex;gap:var(--k-gap);flex-wrap:wrap;align-items:stretch;margin:0 0 {sa};}}
 

@@ -396,134 +396,29 @@ def secim_serit(etiket, secenekler, index=0, key=None, help=None,
 
 
 def sidebar_stil() -> str:
-    """Sidebar navigasyonu — 'sessiz lüks' tasarım (tüm modüllerde ortak).
-    Pasif maddeler sakin ve çerçevesiz; aktif madde gradyan aksan çubuğu,
-    yumuşak dolgu ve parıltıyla öne çıkar. Ana içerik radyoları segmented pill."""
-    SB = 'section[data-testid="stSidebar"] div[role="radiogroup"]'
-    return _css1(f"""
-    <style>
-    {SB}{{ display:flex; flex-direction:column; gap:3px; padding:2px 0; margin-top:14px !important; }}
-    {SB} > label{{
-        position:relative;
-        background:transparent !important;
-        border:none !important;
-        border-radius:10px !important;
-        padding:9px 12px 9px 16px !important;
-        margin:0 !important;
-        width:100% !important;
-        box-sizing:border-box !important;
-        display:flex !important;
-        align-items:center !important;
-        cursor:pointer;
-        transition:background .18s ease, transform .18s ease, box-shadow .18s ease;
-    }}
-    /* Sol aksan çubuğu — pasifte gizli, aktifte gradyanla yaylanarak açılır */
-    {SB} > label::before{{
-        content:""; position:absolute; left:3px; top:24%; bottom:24%;
-        width:3px; border-radius:2px;
-        background:linear-gradient(180deg,var(--k-mor),var(--k-cyan));
-        opacity:0; transform:scaleY(.3);
-        transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.4,.64,1);
-    }}
-    {SB} > label:hover{{
-        background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
-        transform:translateX(2px);
-    }}
-    {SB} > label > div:first-child{{ display:none !important; }}
-    {SB} label p{{
-        font-family:Inter,sans-serif !important;
-        font-size:13px !important;
-        font-weight:600 !important;
-        letter-spacing:0 !important;
-        color:var(--k-soluk) !important;
-        font-variant-numeric:tabular-nums;
-        transition:color .18s ease;
-    }}
-    {SB} > label:hover p{{ color:var(--k-metin) !important; }}
-    {SB} > label:has(input:checked){{
-        background:linear-gradient(90deg,color-mix(in srgb,var(--k-mor) 18%,transparent),color-mix(in srgb,var(--k-cyan) 6%,transparent) 65%,transparent) !important;
-        box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k-mor) 28%,transparent), 0 2px 12px color-mix(in srgb,var(--k-mor) 18%,transparent);
-        transform:translateX(2px);
-    }}
-    {SB} > label:has(input:checked)::before{{ opacity:1; transform:scaleY(1); }}
-    {SB} > label:has(input:checked) p{{
-        color:var(--k-metin) !important; font-weight:700 !important;
-    }}
-    section[data-testid="stSidebar"] [data-testid="stButton"] button{{
-        border-radius:10px !important; font-weight:600 !important;
-    }}
-    section[data-testid="stSidebar"] hr{{
-        margin:10px 0 !important;
-        border-color:color-mix(in srgb,var(--k-soluk) 12%,transparent) !important;
-    }}
-    </style>
-    <style>
-    /* ── ANA İÇERİK radyoları → modern segmented/pill (tüm modüllerde ortak).
-       stMain ile kapsanır: Streamlit varsayılanını yener, sidebar etkilenmez. ── */
-    section[data-testid="stMain"] div[role="radiogroup"]{{ gap:8px !important; align-items:center; }}
-    section[data-testid="stMain"] div[role="radiogroup"] > label{{
-        background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;
-        border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent) !important;
-        border-radius:11px !important;
-        padding:8px 18px !important;
-        margin:0 !important;
-        cursor:pointer;
-        transition:background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
-    }}
-    section[data-testid="stMain"] div[role="radiogroup"] > label:hover{{
-        background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
-        border-color:color-mix(in srgb,var(--k-mor) 55%,transparent) !important;
-        transform:translateY(-1px);
-    }}
-    section[data-testid="stMain"] div[role="radiogroup"] > label > div:first-child{{ display:none !important; }}
-    section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked){{
-        background:linear-gradient(135deg,var(--k-mor),var(--k-mor)) !important;
-        border-color:var(--k-mor) !important;
-        box-shadow:0 4px 14px color-mix(in srgb,var(--k-mor) 38%,transparent) !important;
-    }}
-    section[data-testid="stMain"] div[role="radiogroup"] label p{{
-        font-family:Inter,sans-serif !important; font-weight:600 !important;
-        letter-spacing:-0.1px !important; font-size:14px !important;
-    }}
-    section[data-testid="stMain"] div[role="radiogroup"] > label:has(input:checked) p{{
-        color:var(--k-metin) !important; font-weight:700 !important;
-    }}
-    </style>
-    """)
+    """Geriye uyumluluk. Sol menü kuralları artık shared/tasarim.py →
+    SIDEBAR_CSS içinde (cekirdek_css ile her sayfada bir kez basılır).
+
+    Eski kurallar 'radiogroup > label' arıyordu; Streamlit 1.64'te seçenekler
+    bir kabın içine alındığı için hiçbiri tutmuyordu (menüde yuvarlak seçim
+    düğmeleri görünüyordu). Tek kaynakta iki yapıyı da tanıyan seçici var."""
+    return "<style>/* sol menü: shared/tasarim.SIDEBAR_CSS */</style>"
 
 
-def sidebar_baslik(ikon: str, ad: str, alt: str = "") -> str:
-    """İnce modül kimlik çipi — tek satır: küçük ikon karosu + modül adı.
-    (Eski dev blok: 52px ikon + gradyan başlık + alt yazı → kaldırıldı;
-    `alt` parametresi geriye uyumluluk için duruyor, görselde kullanılmıyor.)"""
-    return (
-        '<div style="display:flex;align-items:center;gap:10px;padding:2px 2px 10px;'
-        'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent);margin-bottom:10px">'
-        '<div style="width:26px;height:26px;border-radius:8px;flex-shrink:0;'
-        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 35%,transparent),color-mix(in srgb,var(--k-mor) 25%,transparent));'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 35%,transparent);display:flex;align-items:center;'
-        f'justify-content:center;font-size:13px">{ikon}</div>'
-        '<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:700;'
-        f'letter-spacing:-0.2px;color:var(--k-metin);white-space:nowrap;overflow:hidden;'
-        f'text-overflow:ellipsis">{ad}</div>'
-        '</div>'
-    )
+def sidebar_baslik(ikon: str, ad: str, alt: str = "", anahtar: str = "") -> str:
+    """İnce modül kimlik çipi — renkli ikon karosu + modül adı.
+    `anahtar` verilirse ikon ve renk modülün ortak kimliğinden gelir
+    (üst menüyle aynı ikon). `alt` geriye uyumluluk için duruyor."""
+    from shared.tasarim import sidebar_modul_html, MODUL_IKON, MODUL_RENK
+    return sidebar_modul_html(MODUL_IKON.get(anahtar, ikon), ad, MODUL_RENK.get(anahtar, "mor2"))
 
 
 def sidebar_kullanici(kullanici: str) -> str:
-    """Sade tek satır kullanıcı kimliği: küçük avatar + isim.
-    ('OTURUM AÇIK' etiketi ve kutu kaldırıldı — oturum zaten açık, söylemeye gerek yok.)"""
+    """Avatar + ad. Ad Türkçe doğru büyür: 'ibrahim' → 'İbrahim' (eskiden 'Ibrahim')."""
     if not kullanici:
         return ""
-    bas = kullanici[0].upper()
-    return (
-        '<div style="display:flex;align-items:center;gap:9px;padding:2px 2px;margin-bottom:8px">'
-        '<div style="width:24px;height:24px;border-radius:50%;flex-shrink:0;'
-        'background:linear-gradient(135deg,var(--k-mor),var(--k-mor));display:flex;align-items:center;'
-        f'justify-content:center;font-size:11px;font-weight:700;color:#fff">{bas}</div>'
-        f'<div style="font-size:13px;color:var(--k-mor2);font-weight:600">{kullanici.capitalize()}</div>'
-        '</div>'
-    )
+    from shared.tasarim import sidebar_kisi_html
+    return sidebar_kisi_html(kullanici)
 
 
 def sidebar_ust(ikon: str, ad: str, anahtar: str) -> None:
@@ -533,18 +428,20 @@ def sidebar_ust(ikon: str, ad: str, anahtar: str) -> None:
     kimi emojili kimi değil; ve 5'i ÇIKIŞI YANLIŞ yapıyordu (oturum anahtarı
     yakılmıyor, yenileyince geri içeri alınıyordu). Artık hepsi burayı çağırır.
     `with st.sidebar:` bloğunun İÇİNDE çağrılmalı.
+
+    Düzen: [modül çipi] / [avatar + ad ........ Çıkış] — kişi ve çıkış tek satır.
     """
     import streamlit as st
-    st.markdown(sidebar_stil(), unsafe_allow_html=True)
-    st.markdown(sidebar_baslik(ikon, ad), unsafe_allow_html=True)
+    st.markdown(sidebar_baslik(ikon, ad, anahtar=anahtar), unsafe_allow_html=True)
     _k = st.session_state.get("aktif_kullanici", "")
     if _k:
-        st.markdown(sidebar_kullanici(_k), unsafe_allow_html=True)
-        if st.button("Çıkış Yap", key=f"cikis_{anahtar}", icon=":material/logout:",
-                     use_container_width=True):
+        _c1, _c2 = st.columns([3, 1.4], gap="small", vertical_alignment="center")
+        _c1.markdown(sidebar_kullanici(_k), unsafe_allow_html=True)
+        if _c2.button("Çıkış", key=f"cikis_{anahtar}", icon=":material/logout:",
+                      use_container_width=True):
             from shared.oturum import cikis_yap
             cikis_yap()
-    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════

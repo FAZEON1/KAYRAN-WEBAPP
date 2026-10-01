@@ -387,49 +387,10 @@ def run():
         margin: 12px 0 !important;
     }
 
-    /* ── SIDEBAR AÇ/KAPAT DÜĞMESİ (koyu zeminde görünür olsun) ───────────── */
-    /* Kapalıyken görünen "aç" oku + sidebar içindeki "kapat" oku — tüm
-       Streamlit sürümlerini kapsayacak şekilde birden çok testid hedeflenir */
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="stExpandSidebarButton"],
-    button[data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapseButton"] {
-        background: linear-gradient(135deg,var(--k-mavi),var(--k-mavi)) !important;
-        color: var(--k-metin) !important;
-        border: 1px solid color-mix(in srgb,var(--k-metin) 35%,transparent) !important;
-        border-radius: 10px !important;
-        box-shadow: 0 2px 10px rgba(21,101,192,0.55) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    /* İçindeki ok ikonunu net beyaz yap */
-    [data-testid="collapsedControl"] svg,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stExpandSidebarButton"] svg,
-    [data-testid="stSidebarCollapseButton"] svg,
-    [data-testid="collapsedControl"] span,
-    [data-testid="stSidebarCollapseButton"] span {
-        color: var(--k-metin) !important;
-        fill: var(--k-metin) !important;
-        opacity: 1 !important;
-    }
-    [data-testid="collapsedControl"]:hover,
-    [data-testid="stSidebarCollapsedControl"]:hover,
-    [data-testid="stExpandSidebarButton"]:hover,
-    [data-testid="stSidebarCollapseButton"]:hover {
-        background: linear-gradient(135deg,var(--k-mavi),var(--k-mavi)) !important;
-        transform: scale(1.05);
-    }
-    /* Kapalıyken oku ekranın sol üstünde sabit ve büyükçe tut */
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] {
-        top: 12px !important;
-        left: 12px !important;
-        padding: 6px !important;
-        z-index: 999999 !important;
-    }
-    
+    /* Sol menü aç/kapat düğmesi: app.py'deki ortak düğme (tema renkli, sade).
+       Burada eskiden parlak mavi kare + gölge veriliyordu; yalnız bu modülde
+       sol üstte mavi bir kutu çıkıyordu. */
+
     /* ── BUTONLAR ────────────────────────────────────────────────────────── */
     .stButton > button {
         border-radius: 8px !important;
