@@ -558,8 +558,8 @@ def run():
             _vf = "22px" if vurgulu else "18px"
             _vr = renk if vurgulu else RENK["metin"]
             return (f'<div style="flex:1;min-width:116px;text-align:center;padding:12px 8px;{_st}">'
-                    f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1.2px;'
-                    f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{etiket}</div>'
+                    f'<div style="font-size:12px;color:{RENK["soluk"]};'
+                    f'font-weight:500;margin-bottom:4px">{etiket}</div>'
                     f'<div style="color:{_vr};font-size:{_vf};font-weight:700;'
                     f'font-family:JetBrains Mono,monospace;line-height:1.1">{deger}</div>'
                     f'<div style="color:{renk};font-size:11px;font-weight:600;margin-top:4px">{alt}</div></div>')
@@ -580,7 +580,7 @@ def run():
             + _op("−") + _hucre("Giderler", _usd(gider_usd), "işletme (TL→USD)", RENK["amber2"])
             + (_op("+") + _hucre("ALINAN DESTEK", _usd(alinan_destek_usd), "sellout/mkt/rebate", trenk("yesil"))
                if alinan_destek_usd else "")
-            + _op("=") + _hucre("NET KÂR", _usd(net_kar), f"net marj {_pct(net_marj)}", _nrenk, vurgulu=True)
+            + _op("=") + _hucre("Net kâr", _usd(net_kar), f"net marj {_pct(net_marj)}", _nrenk, vurgulu=True)
             + '</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="color:var(--k-silik);font-size:11px;margin:0 2px 10px">📅 {baslangic} → {bitis}'
                     + (f' · ℹ️ TL destekler fatura günü kuruyla çevrildi (eksik günlerde ~{_usdtry:.2f}₺)' if _tl_uyari else '')
@@ -813,8 +813,8 @@ def run():
                 + "".join(
                     f'<div style="flex:1;min-width:130px;text-align:center;padding:12px 8px;'
                     f'background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid {c}2E;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.30)">'
-                    f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
-                    f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
+                    f'<div style="font-size:12px;color:{RENK["soluk"]};'
+                    f'font-weight:500;margin-bottom:4px">{lbl}</div>'
                     f'<div style="color:{c};font-size:19px;font-weight:700;'
                     f'font-family:JetBrains Mono,monospace">{val}{dl}</div></div>'
                     for lbl, val, c, dl in [

@@ -232,12 +232,85 @@ EMOJI_IKON = {
     "🔍": "search", "🏭": "factory", "📥": "move_to_inbox", "↩️": "undo",
     "↩": "undo", "➕": "add_circle", "🔧": "build", "🔑": "key",
     "👥": "group", "🏠": "home", "🚢": "directions_boat", "🛒": "shopping_cart",
+    # Pencere / bölüm başlıklarında geçenler (ui.pencere, tasarim.kart, baslik)
+    "🚨": "notification_important", "⚠": "warning", "💎": "diamond", "🛍": "shopping_bag",
+    "🔔": "notifications", "🚀": "rocket_launch", "📉": "trending_down", "🧩": "extension",
+    "🎨": "palette", "📤": "outbox", "🗓": "calendar_month", "📅": "calendar_month",
+    "✅": "check_circle", "🔒": "lock", "🔗": "link", "🛠": "construction", "🧮": "calculate",
+    "📢": "campaign", "📌": "push_pin", "💱": "currency_exchange", "🏢": "domain",
+    "🔄": "sync", "📝": "edit_note", "🗂": "folder_open", "⏱": "timer", "🏷": "sell",
 }
 
 
 # Menüde görünen İngilizce ad → Türkçe. DEĞER aynı kalır (kod "📊 Dashboard"
 # ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
 MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
+
+
+def emoji_ayir(metin):
+    """'⚠️ YAKLAŞAN' → ('warning', 'YAKLAŞAN'). Baştaki emoji (değişken seçici
+    U+FE0F ve birleştirici dahil) atılır; tanınırsa Material ikon adı döner,
+    tanınmazsa None. Emoji yoksa (None, metin)."""
+    s = str(metin or "").strip()
+    i = 0
+    while i < len(s) and not s[i].isalnum() and s[i] not in "(%$₺€#\"'«":
+        i += 1
+    if i == 0:
+        return None, s
+    bas = s[:i].replace("\ufe0f", "").replace("\u200d", "").strip()
+    return EMOJI_IKON.get(bas) or EMOJI_IKON.get(bas[:1]), s[i:].strip()
+
+
+# Büyük harfle yazılmış başlık/etiketlerde KORUNAN kısaltmalar
+KISALTMA = {"SKU", "KDV", "USD", "EUR", "TL", "TRY", "P&L", "FOB", "CIF", "DIO", "PI",
+            "SLA", "SGK", "KPI", "ID", "AB", "ABD", "PDF", "API", "B2B", "B2C", "E-DEFTER",
+            "IBAN", "ÖTV", "GTİP", "ETA", "ETD", "CRM", "ERP", "ÜTS", "ÜY"}
+
+
+def cumle_duzeni(metin):
+    """TAMAMI BÜYÜK yazılmış etiketi Türkçe cümle düzenine çevirir:
+    'BU AY NET KÂR' → 'Bu ay net kâr', 'TOPLAM AKTİF (USD)' → 'Toplam aktif (USD)',
+    '30 GÜN İÇİNDE SİPARİŞ' → '30 gün içinde sipariş', "SKU'LAR" → "SKU'lar".
+    Karışık yazılmış metne (zaten bilinçli yazılmış) dokunmaz. Kısaltmalar korunur.
+    NEDEN: 10px, aralıklı BÜYÜK HARF etiketler her kartta bağırıyordu ve
+    Türkçe'de I/İ sorunu çıkarıyordu; programın yeni dili cümle düzeni."""
+    s = str(metin or "")
+    harf = [c for c in s if c.isalpha()]
+    if not harf or any(c.islower() for c in harf):
+        return s
+
+    def _kucuk(w):
+        return w.replace("İ", "i").replace("I", "ı").lower()
+
+    parcalar = []
+    for w in s.split(" "):
+        cekirdek = w.strip("()[]:,.·—-/")
+        kok, ek = (cekirdek.split("'", 1) + [""])[:2] if "'" in cekirdek else (cekirdek, None)
+        if kok.upper() in KISALTMA or (len(kok) <= 3 and any(ch.isdigit() for ch in kok)):
+            if ek is None:
+                parcalar.append(w)
+            else:                                   # SKU'LAR → SKU'lar
+                i = w.index("'")
+                parcalar.append(w[:i + 1] + _kucuk(w[i + 1:]))
+            continue
+        parcalar.append(_kucuk(w))
+    out = " ".join(parcalar)
+    # İlk harf yalnız metin HARFLE başlıyorsa büyür ('30 gün…' rakamla başlar,
+    # '(USD) …' parantezle — onlara dokunulmaz). Baştaki boşluk/tırnak atlanır.
+    for j, c in enumerate(out):
+        if c in " \"'«“":
+            continue
+        if c.isalpha():
+            out = out[:j] + _tr_ust(c) + out[j + 1:]
+        break
+    return out
+
+
+def kpi_etiketi(metin):
+    """KPI kartı etiketi: baştaki emoji atılır ('🔴 Acil Sipariş' → 'Acil Sipariş';
+    kartın renkli sol çizgisi durumu zaten söylüyor), BÜYÜK HARF cümle düzenine iner."""
+    _, govde = emoji_ayir(metin)
+    return cumle_duzeni(govde)
 
 
 def menu_etiketi(metin):
@@ -441,9 +514,9 @@ div[data-testid="stMetric"]{{
   padding:{y['kart_pad']} !important;}}
 div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p,
 div[data-testid="stMetricLabel"] div{{
-  font-size:{F['etiket']} !important;color:var(--k-soluk) !important;
-  font-weight:{A['vurgu']} !important;letter-spacing:{T['etiket']} !important;
-  text-transform:uppercase !important;line-height:1.3 !important;
+  font-size:12px !important;color:var(--k-soluk) !important;
+  font-weight:500 !important;letter-spacing:0 !important;
+  text-transform:none !important;line-height:1.3 !important;
   white-space:normal !important;overflow:visible !important;}}
 div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] div{{
   font-size:{F['deger']} !important;color:var(--k-metin) !important;
@@ -573,7 +646,7 @@ BILESEN_CSS = """
   background:var(--k-yuzey1);}
 .k-tb{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;color:var(--k-metin);}
 .k-tb thead th{position:sticky;top:0;z-index:2;background:var(--k-yuzey2);color:var(--k-soluk);
-  font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;
+  font-size:12px;font-weight:600;letter-spacing:0;white-space:nowrap;
   padding:9px 12px;border-bottom:1px solid var(--k-kenar2);text-align:left;}
 .k-tb tbody td{padding:7px 12px;border-bottom:1px solid var(--k-kenar);vertical-align:middle;
   line-height:1.4;word-break:normal;}
@@ -586,7 +659,7 @@ BILESEN_CSS = """
 .k-tb .sayi{font-family:var(--k-mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
 .k-tb .neg{color:var(--k-kirmizi);} .k-tb .silik{color:var(--k-silik);}
 .k-tb td.kisa{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.k-tb.sik thead th{padding:6px 8px;font-size:10.5px;letter-spacing:.2px;}
+.k-tb.sik thead th{padding:6px 8px;font-size:11.5px;}
 .k-tb.sik tbody td{padding:5px 8px;font-size:11.5px;}
 .k-tb.sik td.kisa{max-width:170px;}
 .k-tb tfoot td{padding:8px 12px;font-weight:700;background:var(--k-yuzey2);
@@ -735,6 +808,9 @@ def ikon(ad, boyut=18, renk=None):
     stil = f"font-size:{int(boyut)}px;" + (f"color:{renk};" if renk else "")
     return (f'<span class="k-ikon" aria-hidden="true" style="{stil}">'
             f'{_h.escape(str(ad))}</span>')
+
+
+ikon_html = ikon   # başlık/kart içinde 'ikon' adlı yerel değişkenle çakışmasın
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -908,8 +984,8 @@ def cekirdek_css(yogunluk=None):
 .k-kart:hover{{background:var(--k-yuzey2);border-color:var(--k-kenar2);}}
 .k-kart[data-akscent]{{border-left-width:2px;border-radius:var(--k-r);}}
 
-.k-etiket{{font-size:{F['etiket']};color:var(--k-soluk);
-  font-weight:{AGIRLIK['vurgu']};letter-spacing:{TRACKING['etiket']};text-transform:uppercase;white-space:nowrap;
+.k-etiket{{font-size:12px;color:var(--k-soluk);
+  font-weight:500;letter-spacing:0;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;line-height:1.2;}}
 .k-deger{{font-size:{F['deger']};color:var(--k-metin);font-weight:{AGIRLIK['baslik']};
   font-family:var(--k-mono);font-variant-numeric:tabular-nums;
@@ -932,14 +1008,16 @@ def cekirdek_css(yogunluk=None):
 .k-baslik{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   padding:0 0 7px;margin:0 0 11px;
   border-bottom:1px solid var(--k-kenar);}}
-.k-baslik-ikon{{width:22px;height:22px;border-radius:6px;flex-shrink:0;
-  background:var(--k-yuzey2);border:1px solid var(--k-kenar2);
+.k-baslik-ikon{{width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  background:color-mix(in srgb,var(--c,var(--k-mor2)) 15%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c,var(--k-mor2)) 28%,transparent);
   display:flex;align-items:center;justify-content:center;font-size:12px;}}
+.k-baslik-ikon .k-ikon{{color:var(--c,var(--k-mor2));}}
 .k-baslik-mod{{font-size:{F['orta']};color:var(--k-soluk);font-weight:{AGIRLIK['vurgu']};}}
 .k-baslik-ayrac{{color:var(--k-silik);font-size:{F['orta']};}}
 .k-baslik-ad{{font-size:{F['baslik']};color:var(--k-metin);
   font-weight:{AGIRLIK['baslik']};letter-spacing:{TRACKING['baslik']};}}
-.k-baslik-aciklama{{flex-basis:100%;order:9;margin:3px 0 0 30px;
+.k-baslik-aciklama{{flex-basis:100%;order:9;margin:3px 0 0 34px;
   font-size:12.5px;color:var(--k-soluk);line-height:1.45;}}
 .k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:var(--k-silik);
   font-family:var(--k-mono);white-space:nowrap;}}
@@ -947,8 +1025,8 @@ def cekirdek_css(yogunluk=None):
 .k-rozet{{display:inline-block;padding:2px 7px;border-radius:999px;
   font-size:{F['kucuk']};font-weight:{AGIRLIK['vurgu']};line-height:1.4;white-space:nowrap;}}
 
-.k-pencere-basi{{display:flex;align-items:center;gap:8px;margin-bottom:6px;
-  flex-shrink:0;font-size:{F['govde']};font-weight:{AGIRLIK['baslik']};}}
+.k-pencere-basi{{display:flex;align-items:center;gap:8px;margin-bottom:8px;
+  flex-shrink:0;font-size:{F['orta']};font-weight:650;color:var(--k-metin);}}
 .k-pencere-ic{{overflow-y:auto;padding-right:6px;}}
 .k-pencere-ic::-webkit-scrollbar{{width:5px;}}
 .k-pencere-ic::-webkit-scrollbar-track{{background:transparent;}}
@@ -1010,8 +1088,18 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     """
     ikon = ""
     if modul and not modul[0].isalnum():
-        ikon = f'<div class="k-baslik-ikon">{modul[0]}</div>'
-        modul = modul[1:].strip()
+        # Baştaki emoji → aynı sayfanın sol menüdeki ikonu (Material), modülün
+        # kimlik renginde karo. Eskiden emoji olduğu gibi basılıyordu; sol
+        # menü ve üst menü çizgi ikonken başlıkta renkli emoji kalıyordu.
+        _ik, modul = emoji_ayir(modul)
+        _renk = "mor2"
+        try:
+            import streamlit as _st
+            _renk = MODUL_RENK.get(_st.session_state.get("aktif_uygulama", ""), "mor2")
+        except Exception:  # noqa: BLE001 — test ortamı: streamlit yok
+            pass
+        if _ik:
+            ikon = f'<div class="k-baslik-ikon" style="--c:{rv(_renk)}">{ikon_html(_ik, 15)}</div>'
     alt_html = f'<div class="k-baslik-alt">{alt}</div>' if alt else ""
     ack_html = f'<div class="k-baslik-aciklama">{aciklama}</div>' if aciklama else ""
     ttl = f' title="{ipucu}"' if ipucu else ""
@@ -1035,7 +1123,7 @@ def kpi_serit(kalemler, yogunluk=None):
         alt = f'<div class="k-alt">{k["alt"]}</div>' if k.get("alt") else ""
         hucreler += (
             f'<div class="k-kart" data-akscent style="border-left-color:{c}"{ttl}>'
-            f'<div class="k-etiket">{k["etiket"]}</div>'
+            f'<div class="k-etiket">{kpi_etiketi(k["etiket"])}</div>'
             f'<div class="k-deger" style="color:{c}">{k["deger"]}</div>'
             f'{alt}</div>')
     return f'<div class="k-grid">{hucreler}</div>'
@@ -1045,9 +1133,11 @@ def kart(baslik_metni, renk, icerik_html, rozet_metni="", yukseklik=170):
     """İç kaydırmalı pencere kartı. `renk` RENK anahtarı."""
     c = rv(renk)
     roz = rozet(rozet_metni, renk) if rozet_metni else ""
+    _ik, _bas = emoji_ayir(baslik_metni)
+    _ik_html = ikon_html(_ik, 16, c) if _ik else ""
     return (f'<div class="k-kart" data-akscent style="border-left-color:{c}">'
-            f'<div class="k-pencere-basi" style="color:{c}">'
-            f'<span>{baslik_metni}</span>{roz}</div>'
+            f'<div class="k-pencere-basi">{_ik_html}'
+            f'<span>{cumle_duzeni(_bas)}</span>{roz}</div>'
             f'<div class="k-pencere-ic" style="max-height:{yukseklik}px">'
             f'{icerik_html}</div></div>')
 
@@ -1599,7 +1689,7 @@ def tablo_ciz(satirlar, birim="$", yukseklik=None, toplam_isaret="Σ",
     # ── Başlık ──
     if _acik:
         _bas_stil = (f'font-size:{F["kucuk"]};font-weight:{A["vurgu"]};'
-                     f'color:{R["silik"]};letter-spacing:.6px;text-transform:uppercase;'
+                     f'color:{R["silik"]};letter-spacing:0;'
                      f'padding:0 12px 8px;border-bottom:1px solid {R["kenar2"]};'
                      f'background:transparent')
     else:
@@ -1763,7 +1853,7 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
 #{_id} table{{width:100%;border-collapse:collapse{'' if _acik else f';background:{R["yuzey1"]}'}}}
 #{_id} th{{font-size:{F["kucuk"]};font-weight:{A["vurgu"]};white-space:nowrap;
    position:sticky;top:0;z-index:1;cursor:pointer;user-select:none;
-   {f'color:{R["silik"]};letter-spacing:.6px;text-transform:uppercase;padding:0 12px 8px;background:{R["yuzey0"]};border-bottom:1px solid {R["kenar2"]}'
+   {f'color:{R["silik"]};letter-spacing:0;padding:0 12px 8px;background:{R["yuzey0"]};border-bottom:1px solid {R["kenar2"]}'
      if _acik else
      f'color:{R["soluk"]};letter-spacing:.3px;padding:8px 11px;background:{R["yuzey2"]};border-bottom:1px solid {R["kenar2"]}'}}}
 #{_id} th:hover{{color:{R["metin"]}}}
