@@ -2,6 +2,8 @@
 """Teknik Servis / İade modülü — arayüz (V1)."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.tasarim import tablo_html, Ham, renkli, kisalt
+import html as _html_mod
 from datetime import datetime, date
 from io import BytesIO
 
@@ -121,7 +123,8 @@ def _tarih_kisa(v):
     s = str(v)
     try:
         dt = datetime.fromisoformat(s[:19])
-        return dt.strftime("%d-%m-%Y %H:%M")
+        # GG.AA.YYYY (saat yalnız gerçekten varsa; mal kabul tarihi gün bazlıdır)
+        return dt.strftime("%d.%m.%Y %H:%M") if (dt.hour or dt.minute) else dt.strftime("%d.%m.%Y")
     except Exception:
         return s[:16]
 
@@ -878,37 +881,28 @@ def _liste(arayuz):
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key=f"ts_rapor_{arayuz}", icon=":material/download:")
 
-    # HTML tablo
-    satirlar = ""
-    for k in goster:
-        satirlar += (
-            "<tr>"
-            f'<td style="font-weight:700;color:var(--k-kirmizi)">{_g(k, "servis_form_no")}</td>'
-            f'<td>{_g(k, "stok_kodu")}</td>'
-            f'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "stok_adi", "")}">{_g(k, "stok_adi")}</td>'
-            f'<td>{_g(k, "seri_no")}</td>'
-            f'<td>{_g(k, "firma_bilgisi")}</td>'
-            # Madde 4: firma ile fatura durumu arasına mağaza bilgisi
-            f'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_g(k, "musteri_adi", "")}">{_g(k, "musteri_adi")}</td>'
-            f'<td style="padding:8px 8px;border-top:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent);text-align:center;font-weight:700;color:{trenk("yesil") if _fm_of(k) else trenk("kirmizi")}">{"✓" if _fm_of(k) else "✗"}</td>'
-            f'<td>{_durum_chip(k.get("mevcut_durum", ""))}'
-            + ((f' <span style="color:var(--k-soluk);font-size:11px">({k.get("sonuc_durumu")})</span>')
-               if k.get("mevcut_durum") == "gönderildi" and (k.get("sonuc_durumu") or "").strip()
-               else "") + '</td>'
-            f'<td>{_sla_chip(k)}</td>'
-            f'<td style="color:var(--k-soluk);font-size:11px">{_tarih_kisa(k.get("mal_kabul_tarihi"))}</td>'
-            "</tr>"
-        )
-    st.html(
-        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-        '<thead><tr style="text-align:left;color:var(--k-silik);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">'
-        '<th style="padding:8px 8px">Servis No</th><th>Stok Kodu</th><th>Stok Adı</th>'
-        '<th>Seri No</th><th>Firma</th><th>Mağaza</th><th>Fatura</th><th>Durum</th><th>SLA</th><th>Mal Kabül</th>'
-        '</tr></thead>'
-        '<tbody style="color:var(--k-metin)">'
-        + satirlar.replace("<td>", '<td style="padding:8px 8px;border-top:1px solid color-mix(in srgb,var(--k-metin) 5%,transparent)">')
-        + '</tbody></table></div>'
-    )
+    # ── Servis listesi: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
+    def _durum_h(k):
+        h = _durum_chip(k.get("mevcut_durum", ""))
+        if k.get("mevcut_durum") == "gönderildi" and (k.get("sonuc_durumu") or "").strip():
+            h += f' <span style="color:var(--k-soluk);font-size:11px">({_html_mod.escape(str(k.get("sonuc_durumu")))})</span>'
+        return Ham(h)
+
+    st.html(tablo_html(
+        ["Servis No", ("Stok Kodu", "mono"), "Stok Adı", ("Seri No", "mono"), "Firma", "Mağaza",
+         ("Fatura", "metin", "$", "orta"), "Durum", "SLA", ("Mal Kabül", "mono")],
+        [{
+            "Servis No": renkli(_g(k, "servis_form_no"), "kirmizi", kalin=True),
+            "Stok Kodu": _g(k, "stok_kodu"),
+            "Stok Adı": kisalt(_g(k, "stok_adi", ""), 44) if k.get("stok_adi") else None,
+            "Seri No": _g(k, "seri_no"),
+            "Firma": kisalt(_g(k, "firma_bilgisi", ""), 26) if k.get("firma_bilgisi") else None,
+            "Mağaza": kisalt(_g(k, "musteri_adi", ""), 30) if k.get("musteri_adi") else None,   # firma ile fatura arasında
+            "Fatura": renkli("✓", "yesil", kalin=True) if _fm_of(k) else renkli("✗", "kirmizi", kalin=True),
+            "Durum": _durum_h(k),
+            "SLA": Ham(_sla_chip(k)),
+            "Mal Kabül": _tarih_kisa(k.get("mal_kabul_tarihi")),
+        } for k in goster], sik=True))
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
     if goster:
