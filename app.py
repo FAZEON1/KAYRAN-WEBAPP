@@ -151,7 +151,9 @@ try:
                 t = ((v or {}).get("type_config") or {}).get("type")
                 if t in _OZEL_KOLON:
                     return None
-            return df.where(_pd.notna(df), None).to_dict("records")
+            # Önce object: sayı sütununda where(..., None) NaN'ı None'a ÇEVİRMİYOR
+            # (pandas 2.3 / 3.0) ve boş hücrede "nan" yazıyordu (Happy Life "Fark").
+            return df.astype(object).where(_pd.notna(df), None).to_dict("records")
         except Exception:
             return None
 
