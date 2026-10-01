@@ -30,16 +30,27 @@ def run():
                            label_visibility="collapsed", key="depo_sayfa",
                            format_func=_me)
 
-    if _dsayfa == "🏬 Depo Stok":
-        _sayfa_stok()
-    elif _dsayfa == "🚚 Depolar Arası Sevk":
-        _sayfa_sevk()
-    elif _dsayfa == "📦 Bekleyen Sevk Takibi":
-        _sayfa_bekleyen()
-    elif _dsayfa == "🔎 SKU Hareketleri":
-        _sayfa_sku()
-    else:
-        _sayfa_happylife()
+    # ── Sayfa gövdesi: KENDİ İÇİNDE YENİLENEN PARÇA (st.fragment) ───────────
+    # HIZ: Sayfadaki filtre, seçim kutusu, sekme ya da onay kutusu değişince
+    # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
+    # ortak CSS yeniden çalışmaz. Kayıt sonrası st.rerun() çağrıları ESKİSİ
+    # GİBİ tüm sayfayı yeniler (Streamlit 1.64'te parça içi st.rerun() tam
+    # yenilemedir). Blok ile dış kapsamın paylaştığı değişkenler nonlocal ile
+    # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
+    @st.fragment
+    def _sayfa_parcasi():
+        if _dsayfa == "🏬 Depo Stok":
+            _sayfa_stok()
+        elif _dsayfa == "🚚 Depolar Arası Sevk":
+            _sayfa_sevk()
+        elif _dsayfa == "📦 Bekleyen Sevk Takibi":
+            _sayfa_bekleyen()
+        elif _dsayfa == "🔎 SKU Hareketleri":
+            _sayfa_sku()
+        else:
+            _sayfa_happylife()
+
+    _sayfa_parcasi()
 
 
 # ═════════════════════════ 🏬 DEPO STOK ═════════════════════════

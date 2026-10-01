@@ -2075,11 +2075,22 @@ def run():
             format_func=_me,
         )
 
-    if sayfa == "📋  Geçmiş İthalatlar":
-        _gecmis_ithalatlar()
-    elif sayfa == "➕  Yeni İthalat":
-        _yeni_ithalat()
-    elif sayfa == "🔍  Model Sorgu":
-        _model_sorgu()
-    else:
-        _masraf_detaylari()
+    # ── Sayfa gövdesi: KENDİ İÇİNDE YENİLENEN PARÇA (st.fragment) ───────────
+    # HIZ: Sayfadaki filtre, seçim kutusu, sekme ya da onay kutusu değişince
+    # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
+    # ortak CSS yeniden çalışmaz. Kayıt sonrası st.rerun() çağrıları ESKİSİ
+    # GİBİ tüm sayfayı yeniler (Streamlit 1.64'te parça içi st.rerun() tam
+    # yenilemedir). Blok ile dış kapsamın paylaştığı değişkenler nonlocal ile
+    # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
+    @st.fragment
+    def _sayfa_parcasi():
+        if sayfa == "📋  Geçmiş İthalatlar":
+            _gecmis_ithalatlar()
+        elif sayfa == "➕  Yeni İthalat":
+            _yeni_ithalat()
+        elif sayfa == "🔍  Model Sorgu":
+            _model_sorgu()
+        else:
+            _masraf_detaylari()
+
+    _sayfa_parcasi()
