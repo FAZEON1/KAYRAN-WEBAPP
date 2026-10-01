@@ -325,6 +325,27 @@ TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
 
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE KULLANICI TAKİP
+def _sayfaya_git(mod):
+    """Düğme on_click'i: hedef sayfayı oturuma yazar. Streamlit bunu betik
+    çalışmadan önce çağırır, sayfa tek seferde doğru çizilir (st.rerun yok)."""
+    st.session_state.aktif_uygulama = mod
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_son_girisler():
+    """{kullanici: son_aktivite} — Yönetici araçları paneli için (60 sn önbellekli)."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return {}
+        res = sb.table("kullanici_durum").select("kullanici_adi, son_aktivite").execute()
+        return {r["kullanici_adi"]: r["son_aktivite"] for r in (res.data or [])}
+    except Exception as e:
+        from shared.hata_log import kaydet as _hk
+        _hk("anasayfa.son_girisler", e)
+        return {}
+
+
 # ─────────────────────────────────────────────────────────────────────
 def online_durum_guncelle(kullanici_adi: str):
     """Kullanıcının son aktivite zamanını Supabase'e kaydeder (en fazla 60 sn'de bir)."""
@@ -1507,6 +1528,27 @@ def portal_css():
     """
 
 
+@st.cache_resource(show_spinner=False)
+def _kur_kayit_zamani():
+    """Süreç (sunucu) başına tek sözlük: son kur kaydının zamanı."""
+    return {"t": 0.0}
+
+
+def _kur_kaydi_gerekli(aralik_sn=3600):
+    """Günün kuru en fazla SAATTE BİR yazılsın.
+
+    HIZ: Eskiden ana sayfa her çizildiğinde (her tıklamada, herkes için)
+    kur_gunluk'a upsert + audit_log'a insert gidiyordu — 2 yazma, ~2 ağ
+    gidiş-dönüşü ve günde yüzlerce gereksiz denetim kaydı. Kur gün içinde
+    güncellenmeye devam eder (saatte bir), tarihsel kur kaybolmaz."""
+    import time as _t
+    _z = _kur_kayit_zamani()
+    if _t.time() - _z["t"] < aralik_sn:
+        return False
+    _z["t"] = _t.time()
+    return True
+
+
 def _ana_css():
     """Ana sayfaya özel sınıflar: karşılama, piyasa şeridi, bölüm başlıkları,
     modül kartları, alt bilgi. Renkler yalnız tema değişkenlerinden."""
@@ -1778,11 +1820,12 @@ def ust_navigasyon():
     with st.container(key="ustnav"):
         cols = st.columns(len(moduller), gap="small")
         for c, (ad, mod, ikon) in zip(cols, moduller):
-            if c.button(ad, key=f"top_{mod}", icon=ikon, help=ad,
-                        type="primary" if aktif == mod else "secondary",
-                        use_container_width=True):
-                st.session_state.aktif_uygulama = mod
-                st.rerun()
+            # on_click: tıklama, sayfa çizilmeden ÖNCE işlenir → hedef sayfa
+            # TEK çalışmada çizilir. Eskiden düğme ardından yeniden çalıştırma deseni her
+            # geçişte programı iki kez baştan sona çalıştırıyordu.
+            c.button(ad, key=f"top_{mod}", icon=ikon, help=ad,
+                     type="primary" if aktif == mod else "secondary",
+                     use_container_width=True, on_click=_sayfaya_git, args=(mod,))
 
 def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
@@ -1908,41 +1951,25 @@ input, textarea, select { font-size: 16px !important; }
 
             st.markdown('<div class="k-sb-baslik">Hesap</div>', unsafe_allow_html=True)
 
-            if st.button(
-                "Şifremi Değiştir", icon=":material/key:",
-                key="nav_sifre_degistir",
-                type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "sifre_degistir"
-                st.rerun()
+            # on_click → tek çalışmada sayfa değişir (st.rerun yok)
+            st.button("Şifremi Değiştir", icon=":material/key:", key="nav_sifre_degistir",
+                      type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
+                      use_container_width=True, on_click=_sayfaya_git, args=("sifre_degistir",))
 
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
-                "Kullanıcı Yönetimi", icon=":material/group:",
-                key="nav_kullanici_yonetimi",
-                type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "kullanici_yonetimi"
-                st.rerun()
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+                st.button("Kullanıcı Yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi",
+                          type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
+                          use_container_width=True, on_click=_sayfaya_git, args=("kullanici_yonetimi",))
 
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
-                "Sistem Kayıtları", icon=":material/receipt_long:",
-                key="nav_sistem_kayitlari",
-                type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "sistem_kayitlari"
-                st.rerun()
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+                st.button("Sistem Kayıtları", icon=":material/receipt_long:", key="nav_sistem_kayitlari",
+                          type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
+                          use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
 
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi") and st.button(
-                "Tasarım Rehberi", icon=":material/palette:",
-                key="nav_tasarim_rehberi",
-                type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
-                use_container_width=True
-            ):
-                st.session_state.aktif_uygulama = "tasarim_rehberi"
-                st.rerun()
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+                st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi",
+                          type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
+                          use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
 
         else:
             uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ürün Yönetimi", "depo": "Depo Yönetimi", "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış", "hesap_makinesi": "Hesap Makinesi"}
@@ -1955,7 +1982,17 @@ input, textarea, select { font-size: 16px !important; }
 
 
 def _arama_kutusu(yer="anasayfa"):
-    """Global arama kutusu + gruplu sonuçlar (özet + git/stok kartı)."""
+    """Global arama kutusu + gruplu sonuçlar (özet + git/stok kartı).
+
+    HIZ: Arama kendi içinde yenilenen bir parça (st.fragment). Eskiden kutuya
+    her yazışta TÜM program baştan çalışıyordu (menü, sidebar, ana sayfa
+    kartları, Bugün paneli…); artık yalnız arama sonuçları yenilenir.
+    Sonuçtan bir modüle geçiş tüm sayfayı yeniler (st.rerun(scope="app"))."""
+    _arama_parcasi(yer)
+
+
+@st.fragment
+def _arama_parcasi(yer):
     terim = st.text_input(
         "🔍 Ara",
         key=f"global_arama_{yer}",
@@ -1977,7 +2014,7 @@ def _arama_kutusu(yer="anasayfa"):
 
     def _git(modul):
         st.session_state.aktif_uygulama = modul
-        st.rerun()
+        st.rerun(scope="app")      # parça içinden: tüm sayfa yeni modülle çizilsin
 
     # 📦 Ürünler — özet + Stok Kartı (modal)
     if sonuclar.get("urunler"):
@@ -2063,10 +2100,9 @@ def _bugun_panel(aktif_kullanici, yetkiler):
                 # Talep Merkezi her sayfada sağ alttaki ✉️ düğmesinde açılır
                 _c2.markdown('<div style="color:var(--k-silik);font-size:11px;text-align:center">'
                              'sağ alttaki Talep</div>', unsafe_allow_html=True)
-            elif _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
-                            use_container_width=True):
-                st.session_state.aktif_uygulama = _m["hedef"]
-                st.rerun()
+            else:
+                _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
+                           use_container_width=True, on_click=_sayfaya_git, args=(_m["hedef"],))
 
 
 def anasayfa():
@@ -2155,7 +2191,7 @@ def anasayfa():
         _dv = get_doviz()
         # Tarihsel kur için: o günün USD/TL kurunu kaydet (idempotent, günde 1)
         try:
-            if _dv.get("USD"):
+            if _dv.get("USD") and _kur_kaydi_gerekli():
                 from kayranacc.database import kur_kaydet
                 from shared.utils import tr_today
                 kur_kaydet(tr_today(), _dv["USD"])
@@ -2374,9 +2410,8 @@ def anasayfa():
                             + f'{k_ikon("arrow_forward", 18)}</div>'
                             f'<div class="k-hz-ad">{_ad}</div><div class="k-hz-ac">{_ds}</div>',
                             unsafe_allow_html=True)
-                        if st.button(f"{_ad} modülünü aç", key=f"home_open_{_mk}"):
-                            st.session_state.aktif_uygulama = _mk
-                            st.rerun()
+                        st.button(f"{_ad} modülünü aç", key=f"home_open_{_mk}",
+                                  on_click=_sayfaya_git, args=(_mk,))
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
     # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI.
     # 📬 Gelen Talepler HER SAYFADA sağ alttaki Talep düğmesinde (_talep_merkezi).
@@ -2388,15 +2423,9 @@ def anasayfa():
         # 1) Aktif kullanıcılar & son giriş zamanları
         with st.expander("Aktif kullanıcılar ve son girişler", expanded=False, icon=":material/group:"):
             online_listesi = get_online_kullanicilar()
-            try:
-                import datetime as _dt2
-                sb2 = _get_supabase()
-                _son_giris_map = {}
-                if sb2:
-                    _sg_res = sb2.table("kullanici_durum").select("kullanici_adi, son_aktivite").execute()
-                    _son_giris_map = {r["kullanici_adi"]: r["son_aktivite"] for r in (_sg_res.data or [])}
-            except Exception:
-                _son_giris_map = {}
+            # Kapalı açılır panelin içi de her çizimde çalışır; bu sorgu her
+            # ana sayfa tıklamasında gidiyordu → 60 sn önbellekli.
+            _son_giris_map = get_son_girisler()
             if not online_listesi:
                 st.caption("Şu an aktif kullanıcı yok.")
             else:

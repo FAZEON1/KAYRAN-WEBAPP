@@ -120,6 +120,19 @@ def sirala(maddeler):
 
 
 # ── VERİ TOPLAMA (Supabase) ─────────────────────────────────────────
+def _basarisiz_stok_hareketleri():
+    """Başarısız stok hareketleri — 60 sn önbellekli. Ana sayfa her açıldığında
+    (her tıklamada) bu sorgu gidiyordu. streamlit burada içe aktarılır: test
+    ortamında (streamlit yok) modülün kendisi yüklenebilsin."""
+    import streamlit as st
+
+    @st.cache_data(ttl=60, show_spinner=False)
+    def _oku():
+        from shared.stok_defteri import gecmis
+        return gecmis(limit=200, yalniz_basarisiz=True)
+    return _oku()
+
+
 def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
     """Kullanıcının yetkisi olan kaynaklardan maddeleri toplar."""
     from shared.hata_log import kaydet
@@ -153,8 +166,7 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
 
     if sistem_yoneticisi:
         try:
-            from shared.stok_defteri import gecmis
-            m += maddeler_stok_hatasi(gecmis(limit=200, yalniz_basarisiz=True), bugun.isoformat())
+            m += maddeler_stok_hatasi(_basarisiz_stok_hareketleri(), bugun.isoformat())
         except Exception as e:  # noqa: BLE001
             kaydet("bugun.stok_hata", e)
 

@@ -28,8 +28,10 @@ KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "KANAL", "Trendyol", "Direkt", "
 _MANUEL_KANAL_ANAHTAR = "satis_manuel_kanallar"
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_manuel_kanallar():
-    """Elle eklenmiş kanal/cari isimleri (sistem_ayarlari → JSON liste)."""
+    """Elle eklenmiş kanal/cari isimleri (sistem_ayarlari → JSON liste).
+    Önbellekli (5 dk); ekle/sil sonrası _manuel_kanal_yaz temizler."""
     import json as _json
     try:
         rows = _rows(_get_client().table("sistem_ayarlari").select("deger")
@@ -52,6 +54,7 @@ def _manuel_kanal_yaz(liste):
                               ensure_ascii=False),
          "guncelleme_tarihi": _zaman},
         on_conflict="anahtar").execute()
+    get_manuel_kanallar.clear()
 
 
 def ekle_manuel_kanal(ad):
@@ -86,7 +89,6 @@ def sil_manuel_kanal(ad):
         return False
 
 
-@st.cache_data(ttl=120, show_spinner=False)
 # ── Kanal adı kanonikleştirme ────────────────────────────────────────
 # SORUN: Aynı cari birden fazla yazımla kaydedilebiliyor. Gerçek örnek:
 #   "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ"                (Excel)
@@ -109,6 +111,12 @@ def kanal_kok(ad):
     return s.strip()
 
 
+# HIZ + HATA: Bu dekoratör eskiden araya giren yorum bloğu yüzünden
+# kanal_kok'un üstünde kalmıştı. get_kanallar HİÇ önbelleklenmiyordu (her
+# tıklamada satış tablosunun tamamı indiriliyordu) ve get_kanallar.clear()
+# AttributeError verdiği için "Yeni kanal ekle" kaydı yapıp ekrana
+# "Kaydedilemedi" yazıyordu. test_hiz.py bunu denetler.
+@st.cache_data(ttl=300, show_spinner=False)
 def get_kanallar():
     """Kanal/firma listesi: Muhasebe cari isimleri + SATIŞLARDA fiilen geçen
     firmalar (birleşik). Böylece cari listesinde olmasa bile satış yapılmış
@@ -176,8 +184,12 @@ def kanal_bolunmeleri():
         return []
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def _kanallar_satistan():
-    """satislar tablosundaki distinct kanal isimleri (sayfalı, hafif)."""
+    """satislar tablosundaki distinct kanal isimleri (sayfalı, hafif).
+    Önbellekli: tüm satış tablosunun kanal sütununu indirir; eskiden her
+    tıklamada (Satış Girişi + kanal bölünme kontrolü = 2 kez) çekiliyordu.
+    Satış yazıldığında _temizle() siler."""
     # HIZ: sayfalama merkezi katmanda PARALEL (shared/audit)
     rows = _rows(_get_client().table("satislar").select("kanal").order("id").execute())
     out = {str(x.get("kanal") or "").strip() for x in rows}
@@ -983,7 +995,7 @@ def _temizle():
                 get_mevcut_siparis_nolar, get_mevcut_satis_anahtarlari,
                 get_satislar_yalin, iade_satis_net_ozet, _urunler_hepsi, get_kanallar, get_pacal_map, get_urunler,
                 get_sku_kategori, kampanya_destek_bul, get_satis_pnl_view,
-                get_gunluk_pnl, get_kanal_buyume):
+                get_gunluk_pnl, get_kanal_buyume, _kanallar_satistan, get_manuel_kanallar):
         try:
             _fn.clear()
         except Exception:
