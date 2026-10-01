@@ -55,16 +55,44 @@ def run():
 
 # ═════════════════════════ 🏬 DEPO STOK ═════════════════════════
 def _sayfa_stok():
+    """Depo içeriği + Yazdır. Ekrandaki liste ile kâğıttaki liste AYNIDIR:
+    arama ve sıralama ikisine birden uygulanır (depo/yazdir.liste_hazirla)."""
+    from depo.yazdir import liste_hazirla, depo_stok_pdf, SIRALAMALAR
+    from shared.utils import tr_buyuk as _tb
+    from shared.tasarim import kisi_adi
     _baslik("🏬 Depo Stok", "Depo bazlı stok · özet kartlar · depo içeriği")
     _depolar = get_depo_listesi()
-    _di_depo = st.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
-    _di_urunler = get_depo_stok(_di_depo) if _di_depo else []
-    if _di_urunler:
-        from shared.utils import tr_buyuk as _tb
-        _df = pd.DataFrame([{"SKU": _tb(u["sku"]), "Ürün": _tb(u["urun_adi"]), "Adet": u["adet"]}
-                           for u in _di_urunler])
-        st.caption(f"{len(_di_urunler)} çeşit · {tr_sayi(sum(u['adet'] for u in _di_urunler))} adet")
+    c1, c2, c3, c4 = st.columns([2.2, 2.4, 1.6, 1.25], vertical_alignment="bottom")
+    _di_depo = c1.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
+    _ara = c2.text_input("Ara", key="dpo_ara", placeholder="SKU ya da ürün adı…")
+    _sira = c3.selectbox("Sıralama", list(SIRALAMALAR), format_func=SIRALAMALAR.get, key="dpo_sira")
+    _ham = get_depo_stok(_di_depo) if _di_depo else []
+    _liste = liste_hazirla([{"sku": _tb(u["sku"]), "urun_adi": _tb(u["urun_adi"]), "adet": u["adet"]}
+                            for u in _ham], _ara, _sira)
+
+    # ── Yazdır: seçenekler + PDF (yalnız tıklanınca üretilir) ──
+    with c4.popover("Yazdır", icon=":material/print:", use_container_width=True, disabled=not _liste):
+        st.markdown(f"**{_di_depo}** · {len(_liste)} çeşit · {tr_sayi(sum(u['adet'] for u in _liste))} adet"
+                    + (f" · arama: “{_ara}”" if _ara.strip() else ""))
+        _sayim = st.checkbox("Sayım için boş sütun ekle (Sayılan · Fark)", key="dpo_pdf_sayim",
+                             help="Depo sayımında kâğıda elle yazmak için")
+        _not = st.text_input("Sayfa notu", key="dpo_pdf_not", placeholder="isteğe bağlı, örn. Ekim sayımı")
+        _kim = kisi_adi(st.session_state.get("aktif_kullanici", ""))
+
+        def _pdf():
+            return depo_stok_pdf(_di_depo, _liste, _kim, sayim_sutunu=_sayim, not_metni=_not.strip())
+        st.download_button("PDF'i indir", data=_pdf, file_name=f"depo_stok_{'_'.join(str(_di_depo).split())}_{date.today():%Y%m%d}.pdf",
+                           mime="application/pdf", type="primary", icon=":material/download:",
+                           use_container_width=True, on_click="ignore", key="dpo_pdf_indir")
+        st.caption("A4, yazdırmaya hazır. Her sayfada başlık ve sayfa numarası; sonda toplam ve imza alanı.")
+
+    if _liste:
+        _df = pd.DataFrame([{"SKU": u["sku"], "Ürün": u["urun_adi"], "Adet": u["adet"]} for u in _liste])
+        st.caption(f"{len(_liste)} çeşit · {tr_sayi(sum(u['adet'] for u in _liste))} adet"
+                   + (f" · {len(_ham)} çeşitten aramaya uyanlar" if _ara.strip() else ""))
         st.dataframe(_df, use_container_width=True, hide_index=True)
+    elif _ham:
+        st.info("Aramaya uyan ürün yok.")
     else:
         st.info("Bu depoda stoklu ürün yok.")
 
