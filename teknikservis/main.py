@@ -813,6 +813,7 @@ def _liste(arayuz):
             _kontrol_paneli(_k)
             return
         E.birak(on_ek)                            # silinmiş kayıt
+    E.geri_yukle(_filtre_keys)                    # detaydan dönüşte filtreler yerinde
 
     _dep_key = f"ts_depdahil_{arayuz}"
     dep_dahil = bool(st.session_state.get(_dep_key, False))
@@ -1733,6 +1734,7 @@ def _depolar():
             _depo_detay(_k)
             return
         E.birak("ts_depo")                        # silinmiş ya da depodan çıkmış
+    E.geri_yukle(_filtre_keys)                    # detaydan dönüşte filtreler yerinde
 
     _ozet_serit()          # madde 9: performans / adet takibi
     if not kayitlar:

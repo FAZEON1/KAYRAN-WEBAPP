@@ -634,6 +634,15 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
 
 
 @st.cache_data(ttl=300, show_spinner=False)
+def sil_firma_stok_tarihi(tarih):
+    """Veri Yükleme › bir yükleme tarihinin TÜM firma stok satırlarını siler.
+    Döner: silinen satır sayısı. Önbellek boşaltılır (eskiden boşaltılmıyordu;
+    Dashboard ve Sipariş Önerisi silinmiş veriyi göstermeye devam ediyordu)."""
+    res = get_client().table("firma_stok").delete().eq("yukleme_tarihi", tarih).execute()
+    st.cache_data.clear()
+    return len(getattr(res, "data", None) or [])
+
+
 def get_firma_listesi():
     """firma_stok'taki benzersiz müşteri/firma adları (alfabetik)."""
     rows = _hepsi("firma_stok", "firma", "yukleme_tarihi")

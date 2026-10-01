@@ -39,7 +39,10 @@ def test_moduller_ortak_tabloya_tasindi():
     # tablo (st.data_editor) ham sayılarla çalışır; hesap kampanya_hesap.py'de.
     km = (KOK / "kayranpm/kampanya.py").read_text(encoding="utf-8")
     assert "<table" not in km and "def _pf(" not in km and "H.urun_hesap(" in km
-    assert "df_tablo_html(" in pm and pm.count("tablo_html(") >= 2
+    assert "df_tablo_html(" in pm                   # render_renkli_tablo ortak tabloyu kullanır
+    # Tüm Ürünler listesi Ekim 2026'da tıklanır satırlara geçti (urunler_ekran.py)
+    ue = (KOK / "kayranpm/urunler_ekran.py").read_text(encoding="utf-8")
+    assert "<table" not in ue and "B.tiklanir(" in ue
     assert "satir_durum" in pm and '"rk-grn": "yesil"' in pm           # eski durum adları kabul
     it = (KOK / "ithalat/main.py").read_text(encoding="utf-8")
     assert "df_tablo_html(df, para=para, yuzde=yuzde, sol=sol, kisa=kisalt, tam=True)" in it

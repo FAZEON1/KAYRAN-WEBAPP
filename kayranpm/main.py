@@ -27,6 +27,9 @@ import plotly.express as px
 import os, sys
 from datetime import datetime, date
 from io import BytesIO
+from functools import partial
+from shared import bilesen as B
+from .urun_hesap import (dashboard_filtrele, editor_anahtari, tarih_tr, yukleme_ozeti, KANAL_AD)
 
 # Modül bazlı importlar (relative)
 from .database import (initialize_db, onayla_siparis, reddet_siparis,
@@ -107,8 +110,7 @@ def run():
         color: var(--k-soluk) !important;
         font-size: 11px !important;
         font-weight: 600 !important;
-        letter-spacing: .5px !important;
-        text-transform: uppercase !important;
+        letter-spacing: .2px !important;
     }
     div[data-testid="stMetricValue"] {
         color: var(--k-mavi) !important;
@@ -186,7 +188,7 @@ def run():
     [data-testid="stMetricLabel"],
     [data-testid="stMetricLabel"] * {
         color: var(--k-silik) !important; font-size:11px !important; font-weight:700 !important;
-        letter-spacing:0.5px; text-transform:uppercase;
+        letter-spacing:0.2px;
         white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important;
     }
     [data-testid="stMetricValue"],
@@ -316,7 +318,7 @@ def run():
         font-size: 11px !important; color: var(--k-silik) !important; font-weight: 500 !important;
     }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-alt {
-        padding: 10px 2px 4px; text-transform: uppercase; letter-spacing: .5px; font-size: 10.5px !important;
+        padding: 10px 2px 4px; letter-spacing: .2px; font-size: 11px !important;
         font-weight: 600 !important; line-height: 1.2 !important;
     }
     html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu .sk-not {
@@ -637,7 +639,7 @@ def run():
             except Exception as e:
                 _log.error("Dashboard veri hatası: %s", e)
                 st.error(f"Veri yüklenemedi: {e}")
-                st.stop()
+                return
 
             # Filtreler
             _kat_list_d = sorted({tr_kucuk(u.get("kategori")) for u in veri if tr_kucuk(u.get("kategori"))})
@@ -652,41 +654,19 @@ def run():
                     st.cache_data.clear()
                     st.rerun()
     
-            # Filtrele
-            gosterilecek = []
-            for urun in veri:
-                # Stoku olan firmalar
-                firmali_satirlar = [fd for fd in urun["firma_detay"] if fd.get("stok", 0) > 0]
-    
-                # Firma filtresi varsa sadece o firmayı göster
-                if filtre_firma != "Tüm Firmalar":
-                    hedef = filtre_firma.replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")
-                    firmali_satirlar = [fd for fd in firmali_satirlar if hedef in fd["firma"].replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")]
-    
-                # Kategori filtresi
-                if filtre_kat != "Tüm Kategoriler" and tr_kucuk(urun.get("kategori")) != filtre_kat:
-                    continue
-    
-                if firmali_satirlar:
-                    # Firmada stok var — her firma için ayrı satır
-                    for fd in firmali_satirlar:
-                        gosterilecek.append((urun, fd))
-                else:
-                    # Hiçbir firmada stok yok — ürünü yine de göster (sadece G5F depo bilgisiyle)
-                    if filtre_firma == "Tüm Firmalar":
-                        # Boş bir firma satırı oluştur
-                        bos_fd = {"firma": "—", "stok": 0, "haftalik_satis": 0,
-                                  "siparis_uyarisi": False, "muadil_gerekli": False}
-                        gosterilecek.append((urun, bos_fd))
-    
+            # Filtreler metriklere ve pencerelere uygulanır (eskiden süzülen liste
+            # hesaplanıp HİÇ kullanılmıyordu; filtre seçmek ekranda bir şey değiştirmiyordu).
+            _dveri = dashboard_filtrele(veri, filtre_firma, filtre_kat)
+            if len(_dveri) != len(veri):
+                st.caption(f"{tr_sayi(len(_dveri))} / {tr_sayi(len(veri))} ürün · filtre uygulandı"
+                           + (" (firma: o firmada stoğu olan ürünler)" if filtre_firma != "Tüm Firmalar" else ""))
+
             # İstatistik kartları
-            toplam_sku = len(set(u["sku"] for u in veri))
-            acil_urunler = [u for u in veri if u.get("siparis_durum") == "acil"]
-            yaklasan_urunler = [u for u in veri if u.get("siparis_durum") == "yaklasıyor"]
-            planlama_urunler = [u for u in veri if u.get("siparis_durum") == "planlama"]
-            uyari_sayisi = sum(1 for u, fd in gosterilecek if fd.get("siparis_uyarisi"))
-            kritik_sayisi = sum(1 for u in veri if u.get("stok_renk") == "kirmizi")
-    
+            toplam_sku = len(set(u["sku"] for u in _dveri))
+            acil_urunler = [u for u in _dveri if u.get("siparis_durum") == "acil"]
+            yaklasan_urunler = [u for u in _dveri if u.get("siparis_durum") == "yaklasıyor"]
+            planlama_urunler = [u for u in _dveri if u.get("siparis_durum") == "planlama"]
+
             metrik_satiri([
                 {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(toplam_sku)}", "renk": trenk("mor")},
                 {"label": "🔴 Acil Sipariş", "value": f"{tr_sayi(len(acil_urunler))}", "renk": trenk("kirmizi")},
@@ -727,9 +707,9 @@ def run():
             yak_html = "".join(yak_items_list) or bos_durum("30 gün içinde sipariş gereken ürün yok")
 
             st.markdown(pencere_grid(
-                pencere("🚨 ACİL SİPARİŞ", RENK["kirmizi"], acil_html,
+                pencere("🚨 Acil sipariş", RENK["kirmizi"], acil_html,
                         rozet=f"{len(acil_urunler)} ürün"),
-                pencere("⚠️ 30 GÜN İÇİNDE SİPARİŞ", RENK["amber"], yak_html,
+                pencere("⚠️ 30 gün içinde sipariş", RENK["amber"], yak_html,
                         rozet=f"{len(yaklasan_urunler)} ürün"),
             ), unsafe_allow_html=True)
     
@@ -790,8 +770,8 @@ def run():
                             "Tür": (k.get("kampanya_turu") or "—"),
                             "Firma": k.get("firma", "") or "",
                             "Kategori": k.get("kategori", "") or "",
-                            "Başlangıç": str(k.get("baslangic_tarihi", "") or "")[:10],
-                            "Bitiş": str(k.get("bitis_tarihi", "") or "")[:10],
+                            "Başlangıç": tarih_tr(k.get("baslangic_tarihi")),
+                            "Bitiş": tarih_tr(k.get("bitis_tarihi")),
                             "Kalan (gün)": _kalan,
                             "Durum": _durum_k,
                             "Spiff ₺": (f"{tr_sayi(_sp)}" if _sp else ""),
@@ -801,7 +781,7 @@ def run():
                 _dlg_dash_kampanyalar()
 
         elif sayfa == "📋  Tüm Ürünler":
-            st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="FOB Price · Cost · Cost Price · Final Cost Price (Paçal) · Stok Dağılımı"), unsafe_allow_html=True)
+            st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
             st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
             # Ürün verilerini yükle
@@ -810,55 +790,59 @@ def run():
             except Exception as e:
                 _log.error("Hata: %s", e)
                 st.error(f"Veri yüklenemedi: {e}")
-                st.stop()
+                return
     
             if not urun_data:
-                st.info("Henüz ürün yüklenmemiş. 'Veri Yükleme' sekmesinden G5F STOK dosyasını yükleyin.")
-                st.stop()
+                st.info("Henüz ürün yüklenmemiş. 'Veri Yükleme' sayfasından G5F stok dosyasını yükleyin.")
+                return
     
-            # Özet metrikler
-            toplam_stok_degeri = sum(u.get("stok_degeri_fcp", 0) for u in urun_data)
-            toplam_satis_degeri = sum(u.get("stok_degeri_satis", 0) for u in urun_data)
-            toplam_genel_stok = sum(u.get("toplam_stok", u.get("bizim_stok", 0)) for u in urun_data)
+            # ── Liste ↔ sayfa içi detay (Ekim 2026) ──
+            # Sayfa artık LİSTE: satıra tıklayınca bu ürünün detayı açılır, düzenleme
+            # de aynı ürün için yapılır (eskiden iki ayrı ürün seçici vardı).
+            _sec_u = B.secili("pm_urun")
+            secilen = next((u for u in urun_data if u["sku"] == _sec_u), None) if _sec_u else None
+            if secilen is None:
+                B.birak("pm_urun")
+                from .urunler_ekran import FILTRE_KEYS as _UFK
+                B.geri_yukle(_UFK + ["pm_ul_limit"])     # detaydan dönüşte filtreler yerinde
+                # Özet metrikler
+                toplam_stok_degeri = sum(u.get("stok_degeri_fcp", 0) for u in urun_data)
+                toplam_satis_degeri = sum(u.get("stok_degeri_satis", 0) for u in urun_data)
+                toplam_genel_stok = sum(u.get("toplam_stok", u.get("bizim_stok", 0)) for u in urun_data)
     
-            metrik_satiri([
-                {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(len(urun_data))}", "renk": trenk("mor")},
-                {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{tr_sayi(toplam_genel_stok)} adet", "renk": trenk("cyan")},
-                {"label": "💰 Depo Stok Değeri (Maliyet)", "value": f"${tr_sayi(toplam_stok_degeri)}", "renk": trenk("amber")},
-                {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${tr_sayi(toplam_satis_degeri)}", "renk": trenk("yesil")},
-            ])
+                metrik_satiri([
+                    {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(len(urun_data))}", "renk": trenk("mor")},
+                    {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{tr_sayi(toplam_genel_stok)} adet", "renk": trenk("cyan")},
+                    {"label": "💰 Depo Stok Değeri (Maliyet)", "value": f"${tr_sayi(toplam_stok_degeri)}", "renk": trenk("amber")},
+                    {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${tr_sayi(toplam_satis_degeri)}", "renk": trenk("yesil")},
+                ])
 
-            # 🩺 Veri sağlığı (tek satır · eksik alanlar)
-            _eksik_kat = sum(1 for u in urun_data if not (u.get("kategori") or "").strip())
-            _eksik_mar = sum(1 for u in urun_data if not (u.get("marka") or "").strip())
-            _eksik_fiy = sum(1 for u in urun_data if not (u.get("satis_fiyati") or 0))
-            _eksik_mal = sum(1 for u in urun_data if not (u.get("final_cost_price") or 0))
-            _sg = []
-            if _eksik_kat: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_kat} kategorisiz</span>')
-            if _eksik_mar: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_mar} markasız</span>')
-            if _eksik_fiy: _sg.append(f'<span style="color:var(--k-kirmizi)">⚠ {_eksik_fiy} satış fiyatsız</span>')
-            if _eksik_mal: _sg.append(f'<span style="color:var(--k-soluk)">{_eksik_mal} İthalat maliyeti yok</span>')
-            if _sg:
-                st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> '
-                            + '  ·  '.join(_sg)
-                            + ' <span style="color:var(--k-silik)">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
-                            unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
-                            unsafe_allow_html=True)
+                # 🩺 Veri sağlığı (tek satır · eksik alanlar)
+                _eksik_kat = sum(1 for u in urun_data if not (u.get("kategori") or "").strip())
+                _eksik_mar = sum(1 for u in urun_data if not (u.get("marka") or "").strip())
+                _eksik_fiy = sum(1 for u in urun_data if not (u.get("satis_fiyati") or 0))
+                _eksik_mal = sum(1 for u in urun_data if not (u.get("final_cost_price") or 0))
+                _sg = []
+                if _eksik_kat: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_kat} kategorisiz</span>')
+                if _eksik_mar: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_mar} markasız</span>')
+                if _eksik_fiy: _sg.append(f'<span style="color:var(--k-kirmizi)">⚠ {_eksik_fiy} satış fiyatsız</span>')
+                if _eksik_mal: _sg.append(f'<span style="color:var(--k-soluk)">{_eksik_mal} İthalat maliyeti yok</span>')
+                if _sg:
+                    st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> '
+                                + '  ·  '.join(_sg)
+                                + ' <span style="color:var(--k-silik)">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
+                                unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
+                                unsafe_allow_html=True)
+                from .urunler_ekran import liste as _urun_liste
+                _urun_liste(urun_data)
+                return
 
-            st.markdown("---")
-    
-            # SKU arama + ürün seçimi
-            st.markdown('<div style="font-size:11px;font-weight:700;color:var(--k-soluk);letter-spacing:1px;text-transform:uppercase;margin:0px 0 8px;text-align:center;">🔎 Ürün Ara / Seç</div>', unsafe_allow_html=True)
-            _sl_tu, col_sec, _sr_tu = st.columns([1.6, 2.0, 1.6])
-            with col_sec:
-                sku_secenekler = {u['sku']: u['sku'] for u in urun_data}
-                secim = st.selectbox("Ürün Seç", list(sku_secenekler.keys()),
-                                     label_visibility="collapsed", key="tu_sku")
-    
-            secilen_sku = sku_secenekler[secim]
-            secilen = next(u for u in urun_data if u["sku"] == secilen_sku)
+            from .urunler_ekran import FILTRE_KEYS as _UFK
+            B.koru(_UFK + ["pm_ul_limit"])
+            B.listeye_don("pm_urun")
+            secilen_sku = secilen["sku"]
             firma_st = secilen.get("firma_stoklari", {})
     
             # ── Ürün Başlığı (modern kart) ──
@@ -874,13 +858,13 @@ def run():
             toplam = secilen.get("toplam_stok", bizim_stok + toplam_firma)
     
             # Stok kartları — ortak tema (renkli sol şeritli kart)
-            _stok_cards = [{"label": "G5F DEPO", "value": f"{tr_sayi(bizim_stok)}", "alt": "adet", "renk": trenk("mavi")}]
+            _stok_cards = [{"label": "G5F depo", "value": f"{tr_sayi(bizim_stok)}", "alt": "adet", "renk": trenk("mavi")}]
             for firma, adet in firma_st.items():
                 if adet > 0:
-                    _stok_cards.append({"label": firma, "value": f"{tr_sayi(adet)}", "alt": "adet"})
+                    _stok_cards.append({"label": KANAL_AD.get(firma, firma), "value": f"{tr_sayi(adet)}", "alt": "adet"})
             st.markdown(
                 f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
-                f'<span style="color:var(--k-soluk); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;">STOK DAĞILIMI</span>'
+                f'<span style="color:var(--k-metin); font-size:14px; font-weight:700;">Stok dağılımı</span>'
                 f'<span style="color:var(--k-amber); font-size:19px; font-weight:700;">{tr_sayi(toplam)} adet</span>'
                 f'</div>',
                 unsafe_allow_html=True)
@@ -898,7 +882,7 @@ def run():
                 st.markdown(
                     f'<div style="margin:0px 0 12px">'
                     f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-                    f'<span style="color:var(--k-soluk);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px">🏬 G5F DEPO KIRILIMI</span>'
+                    f'<span style="color:var(--k-metin);font-size:14px;font-weight:700">🏬 G5F depo kırılımı</span>'
                     f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                     f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
                     f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Sipariş önerisinde kullanılan stok '
@@ -920,30 +904,30 @@ def run():
             if fob > 0 or fcp > 0:
                 _son_alt = f"En yeni dosya · {son_tarih}" if son_tarih else "En yeni ithalat dosyası"
                 _fiyat_cards = [
-                    {"label": "PAÇAL FOB", "value": f"${tr_sayi(fob, 2)}", "renk": trenk("mavi"),
+                    {"label": "Paçal FOB", "value": f"${tr_sayi(fob, 2)}", "renk": trenk("mavi"),
                      "alt": "Adet-ağırlıklı ortalama"},
-                    {"label": "SON FOB", "value": f"${tr_sayi(son_fob, 2)}" if son_fob else "—", "renk": trenk("mavi"),
+                    {"label": "Son FOB", "value": f"${tr_sayi(son_fob, 2)}" if son_fob else "—", "renk": trenk("mavi"),
                      "alt": _son_alt},
-                    {"label": f"MALİYET (%{tr_sayi(mal_y, 1)})", "value": f"${tr_sayi(cost, 2)}", "renk": trenk("amber")},
-                    {"label": "⭐ PAÇAL MALİYET", "value": f"${tr_sayi(fcp, 2)}", "renk": trenk("amber"),
+                    {"label": f"Maliyet (%{tr_sayi(mal_y, 1)})", "value": f"${tr_sayi(cost, 2)}", "renk": trenk("amber")},
+                    {"label": "⭐ Paçal maliyet", "value": f"${tr_sayi(fcp, 2)}", "renk": trenk("amber"),
                      "alt": "Landed · İthalat"},
-                    {"label": "SON MALİYET", "value": f"${tr_sayi(son_fcp, 2)}" if son_fcp else "—", "renk": trenk("amber2"),
+                    {"label": "Son maliyet", "value": f"${tr_sayi(son_fcp, 2)}" if son_fcp else "—", "renk": trenk("amber2"),
                      "alt": _son_alt},
                 ]
                 if satis > 0:
-                    _fiyat_cards.append({"label": "SATIŞ FİYATI", "value": f"${tr_sayi(satis, 2)}", "renk": trenk("cyan")})
+                    _fiyat_cards.append({"label": "Satış fiyatı", "value": f"${tr_sayi(satis, 2)}", "renk": trenk("cyan")})
                     if fcp > 0:
                         _kar = satis - fcp
                         _marj = (_kar / satis * 100) if satis else 0
                         if _kar >= 0:
-                            _fiyat_cards.append({"label": "KÂR", "value": f"${tr_sayi(_kar, 2)}",
+                            _fiyat_cards.append({"label": "Kâr", "value": f"${tr_sayi(_kar, 2)}",
                                                  "renk": trenk("yesil"), "alt": f"Marj %{tr_sayi(_marj, 1)} · paçala göre"})
                         else:
-                            _fiyat_cards.append({"label": "⚠️ ZARAR", "value": f"${tr_sayi(_kar, 2)}",
+                            _fiyat_cards.append({"label": "⚠️ Zarar", "value": f"${tr_sayi(_kar, 2)}",
                                                  "renk": trenk("kirmizi"), "alt": "Satış, paçal maliyetin altında"})
                 st.markdown(
                     f'<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px">'
-                    f'<div style="color:var(--k-mavi);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px">FİYAT ANALİZİ</div>'
+                    f'<div style="color:var(--k-metin);font-size:14px;font-weight:700">Fiyat analizi</div>'
                     f'<div style="color:var(--k-yesil2);font-size:11px;font-weight:600;background:color-mix(in srgb,var(--k-yesil) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 25%,transparent);border-radius:6px;padding:4px 8px">🚢 İthalat · {ithalat_dosya} parti</div></div>',
                     unsafe_allow_html=True)
                 metrik_satiri(_fiyat_cards)
@@ -961,7 +945,7 @@ def run():
             # Müşteri bazlı satış fiyat listesi
             _fl = secilen.get("satis_fiyat_listesi") or {}
             if _fl:
-                st.markdown('<div style="color:var(--k-mavi);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:8px 0 8px">🏷️ Müşteri Bazlı Satış Fiyatları</div>', unsafe_allow_html=True)
+                st.markdown(B.grup_basligi("🏷️ Müşteri bazlı satış fiyatları"), unsafe_allow_html=True)
                 metrik_satiri([{"label": _m, "value": f"${tr_sayi(_v, 2)}", "renk": trenk("cyan")}
                                for _m, _v in _fl.items()])
 
@@ -974,7 +958,6 @@ def run():
             except Exception:
                 urun = secilen
             # Üst bilgi kartları
-            c1, c2, c3, c4, c5 = st.columns(5)
             toplam_stok_ud = urun.get("toplam_stok", urun.get("bizim_stok", 0))
             stok_bitis = urun.get('stok_bitis_gun')
             stok_bitis_str = f"{stok_bitis} gün" if stok_bitis is not None and stok_bitis != 0 else "Veri yok"
@@ -1008,206 +991,30 @@ def run():
     
             st.markdown("---")
     
-            # Tüm ürünler özet tablosu
-            @st.dialog("📊 Tüm Ürünler Özet — filtrele, sırala, incele", width="large")
-            def _dlg_urunler_ozet():
-                _kat_oz = sorted({tr_kucuk(u.get("kategori")) for u in urun_data if tr_kucuk(u.get("kategori"))})
-                _mar_oz = sorted({(u.get("marka") or "").strip() for u in urun_data if (u.get("marka") or "").strip()})
-                _ozf0, _ozf1, _ozf2, _ozf3, _ozf4 = st.columns([1.6, 1.2, 1.2, 1.5, 1.0])
-                _sku_ad_map_oz = {}
-                for _uu in urun_data:
-                    _ss = str(_uu.get("sku", "") or "").strip()
-                    if _ss and _ss not in _sku_ad_map_oz:
-                        _sku_ad_map_oz[_ss] = _uu.get("urun_adi", "") or ""
-                _sku_secenek_oz = ["Tümü"] + [f"{s} — {a}" if a else s for s, a in sorted(_sku_ad_map_oz.items())]
-                with _ozf0:
-                    f_ara_oz = st.selectbox(f"🔍 SKU / Ürün ({len(_sku_ad_map_oz)} model · yazarak ara)",
-                                            _sku_secenek_oz, key="oz_ara")
-                with _ozf1:
-                    f_kat_oz = st.selectbox("Kategori", ["Tümü"] + _kat_oz, key="oz_kat")
-                with _ozf2:
-                    f_mar_oz = st.selectbox("Marka", ["Tümü"] + _mar_oz, key="oz_mar")
-                with _ozf3:
-                    f_sira_oz = st.selectbox("Sırala", ["Stok Yaşı (gün)", "Net Kâr ($)", "Net Marj (%)", "Maliyet %", "Toplam Stok", "Satış ($)", "FOB ($)", "Risk Skoru", "SKU (A-Z)"], key="oz_sira")
-                with _ozf4:
-                    f_yon_oz = st.selectbox("Yön", ["Azalan", "Artan"], key="oz_yon")
-                _sadece_zarar = st.checkbox("⚠️ Sadece zararına satılanlar (satış < paçal maliyet)", value=False, key="oz_zarar")
-                _sira_map_oz = {"Stok Yaşı (gün)": "_stok_yas", "Net Kâr ($)": "Net Kar ($)", "Net Marj (%)": "Net Marj (%)", "Maliyet %": "Maliyet %", "Toplam Stok": "Toplam", "Satış ($)": "Satış ($)", "FOB ($)": "FOB ($)", "Risk Skoru": "_risk", "SKU (A-Z)": "SKU"}
-                rows_oz = []
-                for u in urun_data:
-                    fs = u.get("firma_stoklari", {})
-                    satis = u.get('satis_fiyati') or 0
-                    ith_var = (u.get("ithalat_dosya_sayisi", 0) or 0) > 0
-                    fcp = (u.get('final_cost_price') or 0) if ith_var else 0
-                    fob = (u.get('fob_price') or 0) if ith_var else 0
-                    son_fob = (u.get('son_fob') or 0) if ith_var else 0
-                    son_fcp = (u.get('son_final') or 0) if ith_var else 0
-                    maliyet_yuzde = ((fcp / fob - 1) * 100) if (fob > 0 and fcp > 0) else None
-                    net_kar = (satis - fcp) if (satis > 0 and fcp > 0) else None
-                    net_marj = ((net_kar / satis) * 100) if (net_kar is not None and satis > 0) else None
-                    rows_oz.append({
-                        "SKU": u["sku"],
-                        "Ürün Adı": u.get("urun_adi", ""),
-                        "Kategori": u.get("kategori", ""),
-                        "Marka": u.get("marka", ""),
-                        "_stok_yas": int(u.get("stok_gun", 0) or 0),
-                        "_stok_renk": u.get("stok_renk", "yok"),
-                        "_risk": float(u.get("risk_skor", 0) or 0),
-                        "G5F Depo": int(u.get("bizim_stok", 0) or 0),
-                        "ITOPYA": int(fs.get("ITOPYA", 0) or 0),
-                        "HB": int(fs.get("HB", 0) or 0),
-                        "VATAN": int(fs.get("VATAN", 0) or 0),
-                        "MONDAY": int(fs.get("MONDAY", 0) or 0),
-                        "KANAL": int(fs.get("KANAL", 0) or 0),
-                        "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
-                        "FOB ($)": (float(fob) if ith_var else None),
-                        "Son FOB ($)": (float(son_fob) if (ith_var and son_fob) else None),
-                        "Maliyet %": float(maliyet_yuzde) if maliyet_yuzde is not None else None,
-                        "Final Cost ($)": (float(fcp) if ith_var else None),
-                        "Son Maliyet ($)": (float(son_fcp) if (ith_var and son_fcp) else None),
-                        "Satış ($)": float(satis or 0),
-                        "Net Marj (%)": float(net_marj) if net_marj is not None else None,
-                        "Net Kar ($)": float(net_kar) if net_kar is not None else None,
-                    })
-                _toplam_oz = len(rows_oz)
-                _zarar_say = sum(1 for r in rows_oz
-                                 if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0)
-                # Filtre + sıralama uygula
-                if f_ara_oz and f_ara_oz != "Tümü":
-                    _sel_sku = f_ara_oz.split(" — ")[0].strip()
-                    rows_oz = [r for r in rows_oz if str(r.get("SKU") or "").strip() == _sel_sku]
-                if f_kat_oz != "Tümü":
-                    rows_oz = [r for r in rows_oz if tr_kucuk(r.get("Kategori")) == f_kat_oz]
-                if f_mar_oz != "Tümü":
-                    rows_oz = [r for r in rows_oz if (r.get("Marka") or "").strip() == f_mar_oz]
-                if _sadece_zarar:
-                    rows_oz = [r for r in rows_oz
-                               if r.get("Net Kar ($)") is not None and r.get("Net Kar ($)") < 0]
-                _sk_oz = _sira_map_oz.get(f_sira_oz, "_stok_yas")
-                _rev_oz = (f_yon_oz == "Azalan")
-                if _sk_oz == "SKU":
-                    rows_oz.sort(key=lambda r: str(r.get("SKU") or "").lower(), reverse=_rev_oz)
-                else:
-                    _dolu = [r for r in rows_oz if r.get(_sk_oz) not in (None, "")]
-                    _bos = [r for r in rows_oz if r.get(_sk_oz) in (None, "")]
-                    _dolu.sort(key=lambda r: float(r.get(_sk_oz) or 0), reverse=_rev_oz)
-                    rows_oz = _dolu + _bos
+            st.markdown(B.grup_basligi("🚢 Yoldaki ürün durumu"), unsafe_allow_html=True)
+            _yr = urun.get("yol_renk", "yok")
+            _ymik = urun.get("yol_miktar", 0)
+            _ymsg = urun.get("yol_mesaj", "")
+            _yol_map = {"yesil": ("rgba(34,197,94,0.10)", trenk("yesil2"), "🟢", f"{_ymik} adet yolda · {_ymsg}"), "sari": ("rgba(245,158,11,0.10)", trenk("amber"), "🟡", f"{_ymik} adet yolda · {_ymsg}"), "kirmizi": ("rgba(239,68,68,0.10)", trenk("kirmizi"), "🔴", _ymsg)}
+            _yb, _yc, _yi, _yt = _yol_map.get(_yr, ("rgba(148,163,184,0.08)", trenk("soluk"), "⚪", "Yolda ürün kaydı bulunmuyor."))
+            st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:8px 12px;font-size:13px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
 
-                st.caption(f"📦 {len(rows_oz)} / {_toplam_oz} ürün gösteriliyor"
-                           + (f"  ·  ⚠️ {_zarar_say} ürün zararına satılıyor (satış < paçal)" if _zarar_say else ""))
-                df_oz = pd.DataFrame(rows_oz)
-                if df_oz.empty:
-                    st.info("Henüz ürün yok.")
-                else:
-                    # ── Ürün tablosu: ortak tablo_html (Aşama 4b — elle yazılmış HTML kaldırıldı) ──
-                    _YAS_RENK = {"yesil": "yesil2", "sari": "amber", "turuncu": "amber", "kirmizi": "kirmizi"}
-
-                    def _para_h(v, renk="metin", kalin=False):
-                        """0/boş → '—' (silik); doluysa $ TR biçimi."""
-                        try:
-                            f = float(v)
-                        except (TypeError, ValueError):
-                            return None
-                        return renkli(f"${tr_sayi(f, 2)}", renk, kalin=kalin) if f else None
-
-                    def _isaret_h(v, bicim):
-                        """+ yeşil · − kırmızı · 0 düz · None '—'."""
-                        if v is None:
-                            return None
-                        renk = "yesil2" if v > 0 else ("kirmizi" if v < 0 else "mavi")
-                        return renkli(bicim(v), renk, kalin=v != 0)
-
-                    satirlar = []
-                    for r in rows_oz:
-                        nk = r.get("Net Kar ($)")
-                        _kanallar = [f"{_kl}:{int(r.get(_kn) or 0)}"
-                                     for _kn, _kl in (("ITOPYA", "IT"), ("HB", "HB"), ("VATAN", "VT"), ("MONDAY", "MN"), ("KANAL", "KN"))
-                                     if r.get(_kn)]
-                        _yas_renk = r.get("_stok_renk", "yok")
-                        satirlar.append({
-                            "SKU": renkli(r.get("SKU", ""), "metin", kalin=True),
-                            "Ürün Adı": _kisalt(r.get("Ürün Adı", ""), 46),
-                            "Kategori": r.get("Kategori", "") or None,
-                            "Stok Yaşı": renkli(f"{int(r.get('_stok_yas') or 0)}g", _YAS_RENK[_yas_renk], kalin=True)
-                                         if _yas_renk in _YAS_RENK else None,
-                            "G5F": int(r.get("G5F Depo") or 0) or None,
-                            "Kanal Stok": _kisalt(" · ".join(_kanallar), 28) if _kanallar else None,
-                            "Toplam": renkli(tr_sayi(int(r.get("Toplam") or 0)), "mavi", kalin=True) if r.get("Toplam") else None,
-                            "Paçal FOB": _para_h(r.get("FOB ($)"), "mavi"),
-                            "Son FOB": _para_h(r.get("Son FOB ($)"), "mavi"),
-                            "Maliyet %": renkli(f"%{tr_sayi(float(r['Maliyet %']), 1)}", "mor") if r.get("Maliyet %") is not None else None,
-                            "⭐ Paçal Maliyet": _para_h(r.get("Final Cost ($)"), "amber", kalin=True),
-                            "Son Maliyet": _para_h(r.get("Son Maliyet ($)"), "amber", kalin=True),
-                            "Satış": _para_h(r.get("Satış ($)"), "metin", kalin=True),
-                            "📊 Net Marj %": _isaret_h(r.get("Net Marj (%)"), lambda v: f"%{tr_sayi(v, 1)}"),
-                            "💰 Net Kâr $": _isaret_h(nk, lambda v: f"${tr_sayi(v, 2)}"),
-                            "_zarar": nk is not None and nk < 0,
-                        })
-                    st.html(tablo_html(
-                        ["SKU", "Ürün Adı", "Kategori", ("Stok Yaşı", "metin", "$", "sag"), ("G5F", "adet"),
-                         ("Kanal Stok", "mono"), ("Toplam", "metin", "$", "sag"), ("Paçal FOB", "metin", "$", "sag"),
-                         ("Son FOB", "metin", "$", "sag"), ("Maliyet %", "metin", "$", "sag"),
-                         ("⭐ Paçal Maliyet", "metin", "$", "sag"), ("Son Maliyet", "metin", "$", "sag"),
-                         ("Satış", "metin", "$", "sag"), ("📊 Net Marj %", "metin", "$", "sag"), ("💰 Net Kâr $", "metin", "$", "sag")],
-                        satirlar, sik=True,
-                        vurgu=lambda r: "kirmizi" if r["_zarar"] else None))
-                st.caption("💡 FOB/Maliyet iki türlü: Paçal = adet-ağırlıklı ortalama (kâr/marj buna göre) · Son = en yeni ithalat dosyası · Net Kâr $ = Satış − Paçal Maliyet")
-
-                # ── 📤 Rapor Al — Excel / PDF (ekrandaki filtreye göre) ──
-                if rows_oz:
-                    _rapor_meta = (f"Kategori: {f_kat_oz} · Marka: {f_mar_oz} · "
-                                   f"Sıra: {f_sira_oz} ({f_yon_oz})"
-                                   + (" · Sadece zararına" if _sadece_zarar else ""))
-                    with st.expander(f"📤 Rapor Al — Excel / PDF  ·  {len(rows_oz)} ürün (filtreye göre)", expanded=False):
-                        st.caption(f"Aktif filtre → {_rapor_meta}")
-                        _rr1, _rr2 = st.columns(2)
-                        with _rr1:
-                            if st.button("Excel Oluştur", use_container_width=True, type="primary", key="oz_rapor_excel", icon=":material/table_view:"):
-                                from .rapor import tum_urunler_excel
-                                import tempfile
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
-                                    _tp = _tmp.name
-                                _ok, _msg = tum_urunler_excel(rows_oz, _tp, _rapor_meta)
-                                if _ok:
-                                    with open(_tp, "rb") as _f:
-                                        st.download_button("Excel İndir", _f.read(),
-                                            f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx",
-                                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                            use_container_width=True, key="oz_rapor_excel_dl", icon=":material/download:")
-                                    os.unlink(_tp)
-                                else:
-                                    st.error(_msg)
-                        with _rr2:
-                            if st.button("PDF Oluştur", use_container_width=True, key="oz_rapor_pdf", icon=":material/picture_as_pdf:"):
-                                from .rapor import tum_urunler_pdf
-                                import tempfile
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
-                                    _tp = _tmp.name
-                                _ok, _msg = tum_urunler_pdf(rows_oz, _tp, _rapor_meta)
-                                if _ok:
-                                    with open(_tp, "rb") as _f:
-                                        st.download_button("PDF İndir", _f.read(),
-                                            f"Tum_Urunler_{tr_now().strftime('%Y%m%d_%H%M')}.pdf",
-                                            mime="application/pdf",
-                                            use_container_width=True, key="oz_rapor_pdf_dl", icon=":material/download:")
-                                    os.unlink(_tp)
-                                else:
-                                    st.error(_msg)
-            if st.button("Tüm Ürünler Özet — filtrele, sırala, incele", key="btn_urun_ozet", use_container_width=True, icon=":material/table_view:"):
-                _dlg_urunler_ozet()
+            # Ayrıntılı geçmiş (alım, satış, kampanya, iade, stok hareketleri) Stok Kartı'nda
+            if st.button("Stok kartını aç · alım, satış, kampanya geçmişi", key="pm_urun_stok_karti",
+                         icon=":material/inventory_2:"):
+                from kayranpm.stok_karti import goster as _sk_ac
+                _sk_ac(secilen_sku)
+            st.markdown("---")
 
             # KALICI PANEL — @st.dialog DEĞİL.
             # Dialog, st.rerun() çağrıldığında kapanıyordu; her kayıttan sonra
             # düğmeye basıp yeniden açmak gerekiyordu. Normal panel açık kalır,
             # kaydettikten sonra listeden başka ürün seçip devam edebilirsin.
             def _dlg_urun_duzenle():
-                st.caption("Açılır listeden ürünü seç, alanları düzenle, **Kaydet**'e bas. "
-                           "Panel açık kalır — arka arkaya birden çok ürün düzenleyebilirsin.")
-                _sec_list = {f'{u["sku"]} — {(u.get("urun_adi") or "")[:50]}': u["sku"] for u in urun_data}
-                if _sec_list:
-                    _sec_label = st.selectbox("Düzenlenecek ürün", list(_sec_list.keys()), key="urun_duzen_sec")
-                    _sec_sku = _sec_list[_sec_label]
-                    _u = next((x for x in urun_data if x["sku"] == _sec_sku), {})
+                st.caption("Alanları düzenle, **Kaydet**'e bas. Başka ürünü düzenlemek için listeye dön.")
+                _sec_sku = secilen_sku
+                _u = secilen
+                if _u:
                     with st.form("urun_duzen_form"):
                         fc1, fc2, fc3, fc4 = st.columns([3, 1.5, 1.2, 1])
                         with fc1:
@@ -1322,9 +1129,9 @@ def run():
                         try:
                             _sil_urun(_sec_sku)
                             st.cache_data.clear()
-                            st.session_state["urun_duz_acik"] = True
                             st.session_state.pop("_urun_duz_son", None)   # silinen ürünü unutma
-                            st.session_state.pop("urun_duzen_sec", None)
+                            st.session_state["urun_duz_acik"] = False
+                            B.birak("pm_urun")                             # listeye dön
                             st.toast(f"🗑️ {_sec_sku} silindi", icon="🗑️")
                             st.rerun()
                         except Exception as _e:
@@ -1339,18 +1146,6 @@ def run():
             if st.session_state.get("urun_duz_acik"):
                 with st.container(border=True):
                     _dlg_urun_duzenle()
-    
-    
-    
-            st.markdown("---")
-            st.markdown('<div style="font-size:13px;font-weight:700;color:var(--k-soluk);letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:8px"><span style="width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,var(--k-mavi),var(--k-mavi));display:inline-block"></span>🚢 Yoldaki Ürün Durumu</div>', unsafe_allow_html=True)
-            _yr = urun.get("yol_renk", "yok")
-            _ymik = urun.get("yol_miktar", 0)
-            _ymsg = urun.get("yol_mesaj", "")
-            _yol_map = {"yesil": ("rgba(34,197,94,0.10)", trenk("yesil2"), "🟢", f"{_ymik} adet yolda · {_ymsg}"), "sari": ("rgba(245,158,11,0.10)", trenk("amber"), "🟡", f"{_ymik} adet yolda · {_ymsg}"), "kirmizi": ("rgba(239,68,68,0.10)", trenk("kirmizi"), "🔴", _ymsg)}
-            _yb, _yc, _yi, _yt = _yol_map.get(_yr, ("rgba(148,163,184,0.08)", trenk("soluk"), "⚪", "Yolda ürün kaydı bulunmuyor."))
-            st.markdown(f'<div style="background:{_yb};border-left:3px solid {_yc};border-radius:7px;padding:8px 12px;font-size:13px;color:{_yc};font-weight:600;display:inline-block">{_yi} {_yt}</div>', unsafe_allow_html=True)
-
 
         elif sayfa == "💵  Maliyet Girişi":
             st.markdown(_sb("💵 Ürün Yönetimi", "Maliyet Girişi"), unsafe_allow_html=True)
@@ -1435,9 +1230,20 @@ def run():
                                if _ara_m in (r["SKU"] + " " + r["Ürün"] + " " + r["Kategori"]).lower()]
 
                 st.caption("{} ürün gösteriliyor".format(tr_sayi(len(_goster))))
+                # Kaydedilmeden arama / "yalnız eksikler" değişince Streamlit (1.64)
+                # düzenleyicideki değişiklikleri SESSİZCE siler; kullanıcı yazdığı
+                # maliyetlerin kaybolduğunu fark etmiyordu. Anahtar gösterilen listeye
+                # bağlı (sürümden bağımsız sıfırlanır) ve sıfırlanınca uyarı çıkar.
+                _mal_key = editor_anahtari("mal_editor", [r["SKU"] for r in _goster])
+                _mal_onceki = st.session_state.get("_mal_editor_son")
+                if _mal_onceki and _mal_onceki != _mal_key and \
+                        (st.session_state.get(_mal_onceki) or {}).get("edited_rows"):
+                    st.warning("⚠️ Liste değiştiği için kaydedilmemiş maliyet değişikliklerin sıfırlandı. "
+                               "Değişiklik yaptıktan sonra aramayı ya da filtreyi değiştirmeden önce kaydet.")
+                st.session_state["_mal_editor_son"] = _mal_key
                 _duz = st.data_editor(
                     pd.DataFrame(_goster), use_container_width=True, hide_index=True,
-                    key="mal_editor", num_rows="fixed",
+                    key=_mal_key, num_rows="fixed",
                     column_config={
                         "SKU": st.column_config.TextColumn("SKU", disabled=True),
                         "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
@@ -1473,8 +1279,7 @@ def run():
                             _hata.append("{}: {}".format(_sk4, str(_e4)[:60]))
                     st.cache_data.clear()
                     if _n:
-                        st.success("✅ {} ürünün maliyeti güncellendi. "
-                                   "Raporlar yeni maliyete göre hesaplanacak.".format(tr_sayi(_n)))
+                        st.toast("✅ {} ürünün maliyeti güncellendi".format(tr_sayi(_n)), icon="✅")
                     if _hata:
                         st.error("Yazılamayan {} kayıt:\n\n".format(len(_hata))
                                  + "\n".join("- " + h for h in _hata[:10]))
@@ -1500,16 +1305,18 @@ def run():
             if not _rows:
                 st.info("Bu filtrelerle haftalık satış kaydı bulunamadı.")
             else:
+                # "Satış adedi": tek başına "Satış" adlı sütunu ortak tablo PARA sanıp
+                # adetleri "$12" gösteriyordu (shared.tasarim._tablo_kolon_tipi).
                 _df = pd.DataFrame([{
-                    "Tarih": str(r.get("yukleme_tarihi", ""))[:10],
+                    "Tarih": tarih_tr(r.get("yukleme_tarihi")),
                     "Müşteri": firma_gorunen_ad(r.get("firma", "")),
                     "SKU": r.get("sku", ""),
                     "Ürün": (r.get("urun_adi", "") or "")[:45],
-                    "Satış": int(r.get("haftalik_satis", 0) or 0) + int(r.get("satis_magaza", 0) or 0),
+                    "Satış adedi": int(r.get("haftalik_satis", 0) or 0) + int(r.get("satis_magaza", 0) or 0),
                     "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
                 } for r in _rows])
                 metrik_satiri([
-                    {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{tr_sayi(int(_df['Satış'].sum()))}", "renk": trenk("mor")},
+                    {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{tr_sayi(int(_df['Satış adedi'].sum()))}", "renk": trenk("mor")},
                     {"label": "📦 Toplam Stok", "value": f"{tr_sayi(int(_df['Stok'].sum()))}", "renk": trenk("cyan")},
                     {"label": "👥 Müşteri Sayısı", "value": f"{tr_sayi(int(_df['Müşteri'].nunique()))}", "renk": trenk("yesil")},
                 ])
@@ -1517,7 +1324,7 @@ def run():
                 # ── MÜŞTERİ BAZINDA ÖZET (her müşteri = 1 satır: toplam satış + stok) ──
                 st.markdown('<div class="alt-baslik">👥 Müşteri Bazında Özet — her müşteri tek satır (toplam satış + stok)</div>', unsafe_allow_html=True)
                 _ozet = (_df.groupby("Müşteri")
-                         .agg(**{"Toplam Satış": ("Satış", "sum"),
+                         .agg(**{"Toplam Satış": ("Satış adedi", "sum"),
                                  "Toplam Stok": ("Stok", "sum"),
                                  "SKU Çeşidi": ("SKU", "nunique")})
                          .reset_index()
@@ -1556,7 +1363,7 @@ def run():
 
                 _ind2.download_button(
                     "Excel indir (Özet + Detay)",
-                    _mhs_excel(_ozet, _df),
+                    partial(_mhs_excel, _ozet.copy(), _df.copy()),      # yalnız tıklanınca üretilir
                     f"musteri_satislari_{_bas}_{_bit}.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="mhs_xlsx", type="primary", use_container_width=True, icon=":material/download:")
@@ -1581,10 +1388,7 @@ def run():
                 _hss_bas = st.button("Haftalık STOK+SATIŞ Yükle", type="primary",
                                      use_container_width=True, key="mhs_hss_btn",
                                      disabled=not _dosya_hss, icon=":material/upload:")
-                if _hss_bas:
-                    if not _dosya_hss:
-                        st.error("Önce dosya seçin.")
-                        st.stop()
+                if _hss_bas and _dosya_hss:
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb2:
                         _tb2.write(_dosya_hss.read())
@@ -1613,154 +1417,10 @@ def run():
             _kampanya_ekrani()
 
         elif sayfa == "📦  Sipariş Önerisi":
-            from .database import get_uretim_suresi, set_uretim_suresi
-            _esik = get_uretim_suresi()
-            st.markdown(_sb("📦 Ürün Yönetimi", "Sipariş Önerisi", aciklama=f"{_esik} günden az stok kalan ürünler · Otomatik öneri"), unsafe_allow_html=True)
-            st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
+            # Ekran: kayranpm/siparis_ekran.py (satır içi onay/red, geçmiş her zaman görünür)
+            from .siparis_ekran import render as _siparis_ekrani
+            _siparis_ekrani(_sb)
 
-            with st.popover(f"⚙️ Sipariş eşiği (üretim/tedarik süresi) — şu an {_esik} gün", use_container_width=False):
-                st.caption("Stok bu kadar günde biteceği zaman 'sipariş ver' uyarısı çıkar. "
-                           "Üretim/tedarik sürenize göre ayarlayın (varsayılan 135 gün).")
-                _e1, _e2 = st.columns([2, 1])
-                _yeni_esik = _e1.number_input("Eşik (gün)", min_value=1, max_value=730, value=int(_esik),
-                                              step=5, key="uretim_suresi_input")
-                _e2.markdown("<br>", unsafe_allow_html=True)
-                if _e2.button("Kaydet", use_container_width=True, key="uretim_suresi_kaydet", icon=":material/save:"):
-                    if set_uretim_suresi(int(_yeni_esik)):
-                        st.cache_data.clear()
-                        st.toast(f"✅ Sipariş eşiği {int(_yeni_esik)} güne ayarlandı", icon="✅")
-                        st.rerun()
-                    else:
-                        st.error("Kaydedilemedi. 'pm_ayarlar' tablosu eksik olabilir — Supabase'de şu SQL'i çalıştırın:")
-                        st.code("create table if not exists pm_ayarlar (anahtar text primary key, deger text);\n"
-                                "alter table pm_ayarlar disable row level security;", language="sql")
-
-            try:
-                siparis_listesi = siparis_onerisi_listesi()
-                urun_data = tum_urunler_listesi()
-                urun_dict = {u["sku"]: u for u in urun_data}
-            except Exception as e:
-                _log.error("Hata: %s", e)
-                st.error(f"Veri yüklenemedi: {e}")
-                st.stop()
-    
-            if not siparis_listesi:
-                st.success(f"✅ Tüm ürünlerde {_esik} günden fazla stok var, sipariş gerekmiyor!")
-                st.stop()
-    
-            # Özet
-            acil = [u for u in siparis_listesi if u.get("siparis_durum") == "acil"]
-            yaklasan = [u for u in siparis_listesi if u.get("siparis_durum") == "yaklasıyor"]
-            planlama = [u for u in siparis_listesi if u.get("siparis_durum") == "planlama"]
-    
-            metrik_satiri([
-                {"label": "🔴 ACİL", "value": f"{tr_sayi(len(acil))}", "renk": trenk("kirmizi")},
-                {"label": "🟠 Yaklaşıyor (30 gün)", "value": f"{tr_sayi(len(yaklasan))}", "renk": trenk("amber")},
-                {"label": "🟡 Planlama (60 gün)", "value": f"{tr_sayi(len(planlama))}", "renk": trenk("amber")},
-            ])
-
-            st.markdown("---")
-    
-            for urun in siparis_listesi:
-                durum = urun.get("siparis_durum","")
-                mesaj = urun.get("siparis_mesaj","")
-                oneri = urun.get("oneri_miktar",0)
-                oneri_mesaj = urun.get("oneri_mesaj","")
-                sku = urun["sku"]
-                ud = urun_dict.get(sku, {})
-                fcp = ud.get("final_cost_price", 0)
-                satis = ud.get("satis_fiyati", 0)
-    
-                # Stoku olan firmaları (kompakt)
-                firma_detay = urun.get("firma_detay", [])
-                firma_kisa = " · ".join(f'{fd["firma"]}:{fd["stok"]}' for fd in firma_detay if fd.get("stok", 0) > 0)
-
-                if durum == "acil":
-                    brd, ik, dt = "rgba(239,68,68,0.6)", "🔴", "rgba(239,68,68,0.07)"
-                elif durum == "yaklasıyor":
-                    brd, ik, dt = "rgba(245,158,11,0.6)", "🟠", "rgba(245,158,11,0.06)"
-                else:
-                    brd, ik, dt = "rgba(234,179,8,0.55)", "🟡", "rgba(234,179,8,0.06)"
-
-                alt = [f'📅 {mesaj}', f'G5F: {urun["bizim_stok"]}', f'Hft: {urun.get("ortalama_haftalik_satis",0):.1f}']
-                if firma_kisa:
-                    alt.append(firma_kisa)
-                if fcp > 0:
-                    alt.append(f'💵 ${tr_sayi(fcp)}→${tr_sayi(satis)}')
-                alt_str = "  ·  ".join(alt)
-
-                c1, c2, c3 = st.columns([6, 1.2, 1.7])
-                with c1:
-                    st.markdown(
-                        f'<div style="background:{dt};border-left:3px solid {brd};border-radius:8px;padding:8px 12px;">'
-                        f'<div style="font-size:13px;font-weight:600;color:var(--k-metin);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-                        f'{ik} {urun["urun_adi"]} <span style="color:var(--k-soluk);font-size:11px;font-family:monospace;">{sku}</span></div>'
-                        f'<div style="font-size:11px;color:var(--k-soluk);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-                        f'{alt_str}  ·  <span style="color:var(--k-amber);font-weight:600;">💡 {oneri} adet</span></div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                with c2:
-                    miktar = st.number_input("Miktar", min_value=1, value=max(oneri, 1),
-                                             key=f"sp_miktar_{sku}", label_visibility="collapsed")
-                with c3:
-                    if st.button("Sipariş Ekle", key=f"sp_btn_{sku}", use_container_width=True, icon=":material/inventory_2:"):
-                        from .database import ekle_siparis_onerisi
-                        ekle_siparis_onerisi("G5F", sku, urun["urun_adi"], miktar)
-                        st.cache_data.clear()
-                        st.toast(f"✅ {urun['urun_adi']} için {miktar} adet sipariş önerisi oluşturuldu!")
-                        st.rerun()
-    
-            # Onaylanan/Bekleyen geçmiş
-            st.markdown("---")
-            st.markdown("#### 📋 Sipariş Önerisi Geçmişi")
-            from .database import get_siparis_onerileri
-            onceki = get_siparis_onerileri()
-            if onceki:
-                rows_sp = []
-                for sp in onceki:
-                    rows_sp.append({
-                        "ID": sp["id"],
-                        "SKU": sp["sku"],
-                        "Ürün": sp.get("urun_adi",""),
-                        "Miktar": sp["oneri_miktari"],
-                        "Durum": sp["durum"],
-                        "Tarih": sp["olusturma_tarihi"],
-                        "Onay": sp.get("onay_tarihi","") or "",
-                    })
-                df_sp = pd.DataFrame(rows_sp)
-    
-                def sp_rengi(row):
-                    d = row.get("Durum","")
-                    if d == "onaylandi":   return ["background-color:color-mix(in srgb,var(--k-yesil) 25%,transparent); color:var(--k-yesil2)"]*len(row)
-                    if d == "reddedildi":  return ["background-color:color-mix(in srgb,var(--k-kirmizi) 25%,transparent); color:var(--k-kirmizi)"]*len(row)
-                    return ["background-color:color-mix(in srgb,var(--k-amber) 35%,transparent); color:var(--k-amber2)"]*len(row)
-    
-                render_renkli_tablo(
-                    df_sp,
-                    kisalt={"Ürün": 42},
-                    satir_durum=("Durum", {"onaylandi": "rk-grn", "reddedildi": "rk-red", "bekliyor": "rk-yel"}),
-                    gizle=["ID"],
-                )
-    
-                col_o1, col_o2 = st.columns(2)
-                with col_o1:
-                    onayla_id = st.number_input("Onaylanacak ID", min_value=1, step=1, key="onayla_id")
-                    if st.button("Onayla", key="onayla_btn", use_container_width=True, icon=":material/check_circle:"):
-                        from .database import onayla_siparis
-                        onayla_siparis(int(onayla_id))
-                        st.toast("Onaylandı!")
-                        st.rerun()
-                with col_o2:
-                    reddet_id = st.number_input("Reddedilecek ID", min_value=1, step=1, key="reddet_id")
-                    if st.button("Reddet", key="reddet_btn", use_container_width=True, icon=":material/close:"):
-                        from .database import reddet_siparis
-                        reddet_siparis(int(reddet_id))
-                        st.warning("Reddedildi.")
-                        st.rerun()
-
-    
-    
         elif sayfa == "🔖  Ref No Takibi":
             from .ref_no import render as _ref_render
             _ref_render()
@@ -1803,7 +1463,7 @@ def run():
                         st.session_state["_satis_oneri"] = _on
                         st.session_state["_satis_oneri_v"] = st.session_state.get("_satis_oneri_v", 0) + 1
                         st.toast(f"🪄 {len(_on)} ürün için satış fiyatı önerildi (marj %{tr_sayi(_hedef_marj)})", icon="🪄")
-                        st.rerun()
+                        st.rerun(scope="fragment")      # pencere açık kalsın (tam yenileme kapatıyordu)
                     _son = st.session_state.get("_satis_oneri", {})
                     st.caption("💡 Satış ($) hücresini elle de değiştirebilirsin. Paçal = İthalat maliyeti · "
                                "Marj % satışı değiştirince kaydederken yeniden hesaplanır.")
@@ -1882,7 +1542,7 @@ def run():
                     st.session_state["_marka_oneri"] = _onm
                     st.session_state["_kat_oneri_v"] = st.session_state.get("_kat_oneri_v", 0) + 1
                     st.toast(f"🪄 {len(_onk)} kategori · {len(_onm)} marka önerildi", icon="🪄")
-                    st.rerun()
+                    st.rerun(scope="fragment")      # pencere açık kalsın
                 if _kc3.button("Kategori Standartlaştır", use_container_width=True, key="kat_std_btn",
                                help="Aynı kategorinin farklı yazımlarını tek biçime indirger (MONİTÖR / Monitör → monitör).", icon=":material/shuffle:"):
                     with st.spinner("Birleştiriliyor..."):
@@ -1892,7 +1552,7 @@ def run():
                         st.toast(f"🔀 {_ds} ürün standart yazıma çevrildi", icon="🔀")
                     else:
                         st.session_state["_kat_std_ozet"] = "Zaten standart — birleştirilecek bir şey yok."
-                    st.rerun()
+                    st.rerun(scope="fragment")      # pencere açık kalsın
                 if st.session_state.get("_kat_std_ozet"):
                     st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
                 _onk = st.session_state.get("_kat_oneri", {})
@@ -1990,53 +1650,30 @@ def run():
 
             with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
                 st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:8px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
-                sablon_bytes = create_sample_excel_bytes()
-                st.download_button("Şablonu İndir", sablon_bytes, "SABLON_STOK_TAKIP.xlsx",
+                st.download_button("Şablonu İndir", create_sample_excel_bytes, "SABLON_STOK_TAKIP.xlsx",
                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", icon=":material/move_to_inbox:")
     
             st.markdown("---")
     
-            # Disa Aktar (eski Raporlar)
-            @st.dialog("📤 Dışa Aktar — Excel / PDF Rapor", width="large")
-            def _dlg_disa_aktar():
-                _de1, _de2 = st.columns(2)
-                with _de1:
-                    st.markdown('<div style="color:var(--k-mavi);font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📊 EXCEL RAPORU</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="color:var(--k-soluk);font-size:11px;line-height:1.6;margin-bottom:8px">Dashboard, Stok Yayılımı ve Sipariş Önerileri — 3 sekme, renkli.</div>', unsafe_allow_html=True)
-                    if st.button("Excel Raporu Oluştur", use_container_width=True, type="primary", key="vy_excel_rapor", icon=":material/table_view:"):
-                        from .rapor import excel_rapor_olustur
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tmp:
-                            _tmp_path = _tmp.name
-                        _ok, _msg = excel_rapor_olustur(_tmp_path)
-                        if _ok:
-                            with open(_tmp_path, "rb") as _f:
-                                st.download_button("Excel İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="vy_excel_dl", icon=":material/download:")
-                            os.unlink(_tmp_path)
-                        else:
-                            st.error(_msg)
-                with _de2:
-                    st.markdown('<div style="color:var(--k-pembe);font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:4px">📑 PDF RAPORU</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="color:var(--k-soluk);font-size:11px;line-height:1.6;margin-bottom:8px">A4 yatay, yazdırmaya hazır özet rapor.</div>', unsafe_allow_html=True)
-                    if st.button("PDF Raporu Oluştur", use_container_width=True, key="vy_pdf_rapor", icon=":material/picture_as_pdf:"):
-                        from .rapor import pdf_rapor_olustur
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as _tmp:
-                            _tmp_path = _tmp.name
-                        _ok, _msg = pdf_rapor_olustur(_tmp_path)
-                        if _ok:
-                            with open(_tmp_path, "rb") as _f:
-                                st.download_button("PDF İndir", _f.read(), f"Stok_Raporu_{tr_now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", use_container_width=True, key="vy_pdf_dl", icon=":material/download:")
-                            os.unlink(_tmp_path)
-                        else:
-                            st.error(_msg)
-            if st.button("Dışa Aktar — Excel / PDF Rapor", key="btn_disa_akt", use_container_width=True, icon=":material/upload:"):
-                _dlg_disa_aktar()
+            # Dışa aktar — tek adım: dosya yalnız indir'e basılınca üretilir
+            # (eskiden "Oluştur" → "İndir" iki adımdı).
+            from .rapor import excel_rapor_olustur, pdf_rapor_olustur
+            from .urunler_ekran import uretilen_bayt as _ub
+            st.markdown(B.grup_basligi("📤 Dışa aktar"), unsafe_allow_html=True)
+            _zaman = tr_now().strftime('%Y%m%d_%H%M')
+            _de1, _de2 = st.columns(2)
+            _de1.download_button("Excel raporu", data=partial(_ub, ".xlsx", excel_rapor_olustur),
+                                 file_name=f"Stok_Raporu_{_zaman}.xlsx", key="vy_excel_dl",
+                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                 use_container_width=True, icon=":material/download:",
+                                 help="Dashboard, stok yayılımı ve sipariş önerileri — 3 sekme")
+            _de2.download_button("PDF raporu", data=partial(_ub, ".pdf", pdf_rapor_olustur),
+                                 file_name=f"Stok_Raporu_{_zaman}.pdf", key="vy_pdf_dl", mime="application/pdf",
+                                 use_container_width=True, icon=":material/download:",
+                                 help="A4 yatay, yazdırmaya hazır özet")
 
-            st.markdown("---")
-            st.markdown("---")
-            st.markdown('<div style="font-size:13px;font-weight:700;color:var(--k-mor2);letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:8px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--k-mavi),var(--k-mor));display:inline-block"></span>🏬 G5F Stok · Depo Kırılımlı (Bizim Depo)</div>', unsafe_allow_html=True)
-            st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:var(--k-mavi)">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:var(--k-mavi)">DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
+            st.markdown(B.grup_basligi("🏬 G5F stok · depo kırılımlı (bizim depo)"), unsafe_allow_html=True)
+            st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:var(--k-mavi)">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:var(--k-mavi)">Depo adı · Stok kodu · Stok ismi · Miktar</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
             dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
             st.warning("📌 **Hareket bazlı stok (Model B) aktif:** İthalat teslimi, satış ve iadeler depo stoğunu "
@@ -2059,57 +1696,43 @@ def run():
                         st.error(mesaj_g)
 
             st.markdown("---")
-            st.markdown('<div style="font-size:13px;font-weight:700;color:var(--k-mor2);letter-spacing:1px;text-transform:uppercase;margin:8px 0 8px;display:flex;align-items:center;gap:8px"><span style="width:5px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--k-mor),var(--k-mor));display:inline-block"></span>📅 Geçmiş Yüklemeler</div>', unsafe_allow_html=True)
+            st.markdown(B.grup_basligi("📅 Geçmiş yüklemeler"), unsafe_allow_html=True)
             st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:8px">Hangi tarihlerde veri yüklendiğini gör, gerekirse sil.</div>', unsafe_allow_html=True)
     
             try:
                 sb_vy = get_client()
     
-                # Firma stok yükleme tarihleri
                 firma_tarihler = sb_vy.table("firma_stok").select("yukleme_tarihi, firma").execute().data or []
-                tarih_firma = {}
-                for r in firma_tarihler:
-                    t = r["yukleme_tarihi"]
-                    if t not in tarih_firma:
-                        tarih_firma[t] = set()
-                    tarih_firma[t].add(r["firma"])
-    
-                # Ürün yükleme tarihleri
                 urun_tarihler = sb_vy.table("urunler").select("guncelleme_tarihi").execute().data or []
-                urun_tarih_set = set(r["guncelleme_tarihi"] for r in urun_tarihler if r.get("guncelleme_tarihi"))
-    
-                if not tarih_firma and not urun_tarih_set:
+                # Tek geçişte sayım (eskiden her tarih için tüm satırlar yeniden taranıyordu)
+                rows_vy = yukleme_ozeti(firma_tarihler, urun_tarihler)
+                if not rows_vy:
                     st.info("Henüz veri yüklenmemiş.")
                 else:
-                    tum_tarihler = sorted(set(list(tarih_firma.keys()) + list(urun_tarih_set)), reverse=True)
-    
-                    rows_vy = []
-                    for t in tum_tarihler:
-                        firmalar = ", ".join(sorted(tarih_firma.get(t, [])))
-                        urun_sayisi = len([r for r in urun_tarihler if r.get("guncelleme_tarihi") == t])
-                        firma_kayit = sum(1 for r in firma_tarihler if r["yukleme_tarihi"] == t)
-                        rows_vy.append({
-                            "Tarih": t,
-                            "Yüklenen Ürün": urun_sayisi,
-                            "Firma Kayıt Sayısı": firma_kayit,
-                            "Firmalar": firmalar or "—",
-                        })
-    
-                    df_vy = pd.DataFrame(rows_vy)
-                    render_renkli_tablo(df_vy, sol=["Firmalar"], kisalt={"Firmalar": 60})
-    
-                    # Tarih seçip sil
-                    @st.dialog("🗑️ Belirli Bir Tarihin Firma Stok Verisini Sil", width="large")
-                    def _dlg_tarih_sil():
-                        st.caption("⚠️ Seçilen tarihe ait firma stok verileri silinir. Ürün listesi ve satın alma geçmişi etkilenmez.")
-                        sil_tarih = st.selectbox("Silinecek Tarih", sorted(tarih_firma.keys(), reverse=True), key="vy_sil_tarih")
-                        if st.button("Bu Tarihin Verisini Sil", type="secondary", key="vy_sil_btn", icon=":material/delete:"):
-                            sb_vy.table("firma_stok").delete().eq("yukleme_tarihi", sil_tarih).execute()
-                            st.toast(f"✅ {sil_tarih} tarihli firma stok verisi silindi.")
-                            st.rerun()
-                    if st.button("Belirli Bir Tarihin Firma Stok Verisini Sil", key="btn_tarih_sil", use_container_width=True, icon=":material/delete:"):
-                        _dlg_tarih_sil()
-    
+                    render_renkli_tablo(pd.DataFrame(rows_vy).drop(columns=["_ham"]),
+                                        sol=["Firmalar"], kisalt={"Firmalar": 60})
+
+                    # Bir tarihin firma stok verisini sil — ONAYLI (eskiden tek tıkla
+                    # siliniyor, önbellek de boşaltılmıyordu)
+                    _sil_sec = [r for r in rows_vy if r["Firma Kayıt Sayısı"]]
+                    if _sil_sec:
+                        with st.expander("🗑️ Bir tarihin firma stok verisini sil"):
+                            st.caption("Seçilen tarihe ait firma stok satırları silinir. Ürün listesi ve "
+                                       "satın alma geçmişi etkilenmez. Geri alınamaz.")
+                            _sil_r = st.selectbox(
+                                "Silinecek tarih", _sil_sec, key="vy_sil_tarih",
+                                format_func=lambda r: f'{r["Tarih"]} · {tr_sayi(r["Firma Kayıt Sayısı"])} kayıt · {r["Firmalar"]}')
+                            if B.onayli_sil(f'{_sil_r["Tarih"]} tarihli {tr_sayi(_sil_r["Firma Kayıt Sayısı"])} '
+                                            f'firma stok kaydını kalıcı olarak sil',
+                                            # Onay anahtarı TARİHE bağlı: silmeden sonra seçici sıradaki
+                                            # tarihe geçince onay kutusu işaretli kalıyordu (görüldü)
+                                            key=f"vy_tarih_{_sil_r['_ham']}",
+                                            dugme="Bu tarihin verisini sil"):
+                                from .database import sil_firma_stok_tarihi
+                                _n_sil = sil_firma_stok_tarihi(_sil_r["_ham"])
+                                st.toast(f'🗑️ {_sil_r["Tarih"]} · {tr_sayi(_n_sil)} kayıt silindi')
+                                st.rerun()
+
             except Exception as e:
                 _log.warning("Hata: %s", e)
                 st.warning(f"Geçmiş yüklemeler yüklenemedi: {e}")

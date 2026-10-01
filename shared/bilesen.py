@@ -131,3 +131,42 @@ def yenile(toast=None, ac=None):
     if ac:
         detay_ac(*ac)
     st.rerun()
+
+
+# ── Sayfa içi detay (pencere DEĞİL) ─────────────────────────────────
+# Detayın içinden başka pencere açılıyorsa detay pencere olamaz (Streamlit
+# pencere içinden pencere açtırmaz). Satıra tıklayınca liste yerine detay
+# çizilir; "Listeye dön" geri getirir. Örnek: teknikservis, kayranpm Tüm Ürünler.
+def sec(on_ek, deger):
+    """on_click için: detayı açar."""
+    st.session_state[f"_{on_ek}_secili"] = deger
+
+
+def secili(on_ek):
+    return st.session_state.get(f"_{on_ek}_secili")
+
+
+def birak(on_ek):
+    st.session_state.pop(f"_{on_ek}_secili", None)
+
+
+def listeye_don(on_ek):
+    st.button("Listeye dön", key=f"{on_ek}_geri", icon=":material/arrow_back:", type="tertiary",
+              on_click=birak, args=(on_ek,))
+
+
+def koru(keys):
+    """Detay açıkken: çizilmeyen filtre kutularının değerini gölge anahtara kopyalar.
+    Listeye dönünce geri_yukle() kutular oluşmadan ÖNCE geri yazar.
+    (Değeri kendi anahtarına yeniden atama hilesi 1.64'te değeri oturumda tutuyor
+    ama yeniden çizilen kutu BOŞ görünüyordu — tarayıcıda görüldü.)"""
+    for k in keys:
+        if k in st.session_state:
+            st.session_state[f"_koru_{k}"] = st.session_state[k]
+
+
+def geri_yukle(keys):
+    """Liste çizilmeden önce çağır: koru() ile saklanan değerleri kutulara geri yazar."""
+    for k in keys:
+        if f"_koru_{k}" in st.session_state:
+            st.session_state[k] = st.session_state.pop(f"_koru_{k}")
