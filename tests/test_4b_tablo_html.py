@@ -66,9 +66,13 @@ def test_tablo_css_tema_degiskenli():
 def test_muhasebe_tablolari_ortak_araca_tasindi():
     kod = (KOK / "kayranacc/main.py").read_text(encoding="utf-8")
     assert "<table" not in kod and "</table>" not in kod and "<tbody" not in kod
-    assert kod.count("tablo_html(") >= 4
+    assert kod.count("tablo_html(") >= 3
     for isaret in ("def render_takvim_tablosu", "Nakit Akış tablosu: ortak tablo_html",
-                   "Firma Çekleri tablosu: ortak tablo_html", "Ödenenler tablosu: ortak tablo_html"):
+                   "Firma Çekleri tablosu: ortak tablo_html"):
         assert isaret in kod, isaret
+    # Ödenenler (Ekim 2026): kayranacc/gecmis_ekran.py — tablo yerine ortak tıklanır
+    # satırlar (shared/bilesen.tiklanir); elle yazılmış <table> yok.
+    g = (KOK / "kayranacc/gecmis_ekran.py").read_text(encoding="utf-8")
+    assert "<table" not in g and "B.tiklanir(" in g
     # Ödenenler: eskiden satır zemini yazı rengiyle (trenk("metin")) boyanıyordu
     assert 'bg = trenk("metin") if idx2 % 2 == 0' not in kod

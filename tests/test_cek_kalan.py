@@ -51,8 +51,10 @@ def test_ekranlar_ortak_kurali_kullanir():
     assert "cek_tutarlari(c)" in sayfa
     # tablo ham "kalan"/"odenen" sütununu basmıyor
     assert not re.search(r'c\.get\("(kalan|odenen)"', sayfa)
-    # arşiv kartı da ortak kuraldan
-    assert "Kalan: {sym}{fmt(_t['kalan'])}" in kod
+    # arşiv (Ekim 2026: kayranacc/gecmis_ekran.py) da ortak kuraldan
+    g = (KOK / "kayranacc/gecmis_ekran.py").read_text(encoding="utf-8")
+    assert "ct = cek_tutarlari(c)" in g and "ct['kalan']" in g
+    assert not re.search(r'c\.get\("(kalan|odenen)"', g)
     assert "fmt(c.get('kalan')" not in kod
     # ÖDENDİ rozetinde zemin ile yazı aynı renk değil
     assert "background:var(--k-yesil2);color:var(--k-yesil2)" not in kod

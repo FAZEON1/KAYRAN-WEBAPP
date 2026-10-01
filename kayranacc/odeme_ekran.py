@@ -351,6 +351,15 @@ def render_ertelenenler(kategoriler):
     st.markdown(_css(), unsafe_allow_html=True)
     B.baslik_eylem("⏳ Muhasebe", "Ertelenen Ödemeler",
                    aciklama="Vadesi ötelenmiş ödemeler: ilk vade, kaç kez ertelendiği, şimdiki durumu.")
+    from .database import erteleme_sutunlari_var
+    if erteleme_sutunlari_var():
+        st.markdown('<div style="font-size:12px;color:var(--k-yesil);margin:-4px 0 10px">✓ Veritabanı güncel: '
+                    'erteleme geçmişi kalıcı olarak tutuluyor (07_odeme_erteleme.sql uygulanmış).</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(mesaj("uyari", "Veritabanında erteleme sütunları yok: veritabani/07_odeme_erteleme.sql henüz "
+                                   "çalıştırılmamış. Ötelemeler yapılır ama geçmişi tutulmaz. Supabase → SQL Editor'de "
+                                   "bir kez çalıştırın."), unsafe_allow_html=True)
     liste = get_ertelenen_odemeler() or []
     if not liste:
         st.markdown(bos_durum("Ertelenmiş ödeme yok",

@@ -167,11 +167,11 @@ def run():
     }
     [data-testid="stMetricLabel"],
     [data-testid="stMetricLabel"] * {
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        letter-spacing: .6px !important;
-        text-transform: uppercase !important;
-        color: var(--k-silik) !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0 !important;
+        text-transform: none !important;
+        color: var(--k-soluk) !important;
     }
     [data-testid="stMetricValue"],
     [data-testid="stMetricValue"] * {
@@ -1419,13 +1419,13 @@ def run():
     
             if gecmis_alarmlar:
                 isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-kirmizi);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-kirmizi2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Gecikmiş Ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-kirmizi);font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-kirmizi);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-kirmizi2);font-family:Inter,sans-serif">Gecikmiş ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-kirmizi);font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
             if bugun_alarmlar:
                 isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-left:4px solid var(--k-amber);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-amber);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-amber2);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Bugün Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-amber2);font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-left:4px solid var(--k-amber);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-amber);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-amber2);font-family:Inter,sans-serif">Bugün vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-amber2);font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
             if yarin_alarmlar:
                 isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-left:4px solid var(--k-mavi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-mor2);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:11px;font-weight:700;color:var(--k-mavi);letter-spacing:0.6px;text-transform:uppercase;font-family:Inter,sans-serif">Yarın Vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-mavi);font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-left:4px solid var(--k-mavi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-mor2);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-mavi);font-family:Inter,sans-serif">Yarın vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-mavi);font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
     
             # Özet metrikler
             tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)
@@ -1468,14 +1468,12 @@ def run():
                 transition:background .12s ease,border-color .12s ease;
             }}
             .kart:hover {{ background:var(--k-yuzey2);border-color:var(--k-kenar2) }}
-            .kart-label {{ font-size:10px;font-weight:600;letter-spacing:.6px;
-                text-transform:uppercase;color:var(--k-soluk); }}
+            .kart-label {{ font-size:12px;font-weight:500;color:var(--k-soluk); }}
             .kart-deger {{ font-size:19px;font-weight:700;font-family:var(--k-mono);
                 font-variant-numeric:tabular-nums;letter-spacing:-0.2px;
                 line-height:1.25;color:var(--k-metin); }}
             .kart-alt {{ font-size:11px;margin-top:2px;color:var(--k-silik);font-weight:400 }}
-            .section-mini-title {{ font-size:10px;font-weight:600;letter-spacing:.6px;
-                text-transform:uppercase;color:var(--k-soluk);margin:14px 0 6px; }}
+            .section-mini-title {{ font-size:14px;font-weight:650;color:var(--k-metin);margin:18px 0 8px; }}
             </style>
     
             <div class="section-mini-title">Haftalık özet</div>
@@ -1535,7 +1533,7 @@ def run():
             banka_eur = sum(b["bakiye"] for b in bankalar if b["para_birimi"] == "EUR")
             toplam_varlik_tl = banka_tl + (banka_usd * kur)
             toplam_varlik_usd = banka_usd + (banka_tl / kur if kur > 0 else 0)
-            st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--k-silik);margin-bottom:8px">Toplam Varlıklar</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-mini-title">Toplam varlıklar</div>', unsafe_allow_html=True)
             metrik_satiri([
                 {"label": "Toplam TL Varlık", "value": f"₺{fmt(banka_tl)}", "renk": trenk("mor"), "alt": "Tüm TL hesaplar"},
                 {"label": "Toplam USD Varlık", "value": f"${fmt(banka_usd)}", "renk": trenk("mor"), "alt": f"≈ ₺{fmt(banka_usd * kur)}"},
@@ -1549,7 +1547,7 @@ def run():
             col1, col2 = st.columns(2)
     
             with col1:
-                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Kategori Bazında Ödeme Dağılımı</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Kategoriye göre ödemeler</div>', unsafe_allow_html=True)
                 kat_data = {}
                 for o in odemeler:
                     kat = o.get("kategori") or "diger"
@@ -1607,7 +1605,7 @@ def run():
                     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     
             with col2:
-                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme Durumu</div>', unsafe_allow_html=True)
+                st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme durumu</div>', unsafe_allow_html=True)
                 odendi_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
                                    for o in odemeler if o["durum"] == "odendi")
                 bekleyen_tutar = sum((o.get("tutar_tl") or 0) + (o.get("tutar_usd") or 0) * kur
@@ -2267,251 +2265,13 @@ def run():
         # 6) ÖDENENLEr
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "🕐 Ödenenler & Geçmiş":
-            st.markdown(_sb("🕐 Muhasebe", "Ödenenler & Geçmiş", aciklama="Bu haftanın ödenenleri · geçmiş haftalar · çek arşivi"), unsafe_allow_html=True)
-            _tab_odenen, gecmis_tab1, gecmis_tab2 = st.tabs(["✅ Ödenen Ödemeler", "📅 Geçmiş Haftalar", "📋 Firma Çekleri Arşivi"])
-            with _tab_odenen:
-    
-                odemeler, hafta = get_aktif_odemeler()
-                odenenler = [o for o in odemeler if o["durum"] == "odendi"]
-    
-                if not odenenler:
-                    st.info("Bu haftada henüz ödendi olarak işaretlenmiş ödeme yok.")
-                    st.stop()
-    
-                tl_top = sum(o.get("tutar_tl") or 0 for o in odenenler)
-                usd_top = sum(o.get("tutar_usd") or 0 for o in odenenler)
-    
-                metrik_satiri([
-                    {"label": "Ödenen TL", "value": f"₺{fmt(tl_top)}", "renk": trenk("yesil")},
-                    {"label": "Ödenen USD", "value": f"${fmt(usd_top)}", "renk": trenk("mavi")},
-                    {"label": "Ödeme Adedi", "value": f"{tr_sayi(len(odenenler))}", "renk": trenk("mor"), "alt": "tamamlanan ödeme"},
-                ])
-    
-                # Banka bilgilerini al (banka_id -> hesap_adi eşleştirmesi için)
-                bankalar = get_bankalar()
-                banka_map = {b["id"]: f"{b['hesap_adi']} ({b['para_birimi']})" for b in bankalar}
-    
-                rows = []
-                for o in sorted(odenenler, key=lambda x: x.get("vade") or ""):
-                    kat = KATEGORILER.get(o.get("kategori") or "diger", KATEGORILER["diger"])
-                    banka_adi = "—"
-                    b_id = o.get("banka_id")
-                    if b_id:
-                        banka_adi = banka_map.get(b_id, f"ID: {b_id} (silinmiş?)")
-                    rows.append({
-                        "Firma": o["firma"],
-                        "Açıklama": o.get("aciklama") or "",
-                        "Kategori": kat["label"],
-                        "Vade": fmt_tarih(o.get("vade")),
-                        "Tutar TL (₺)": o.get("tutar_tl"),
-                        "Tutar USD ($)": o.get("tutar_usd"),
-                        "Ödendiği Banka": banka_adi,
-                        "Ödendi Tarihi": o.get("odendi_tarih") or "",
-                        "ID": o["id"],
-                    })
-    
-                # --- Ödenenler tablosu: ortak tablo_html (Aşama 4b). Kuruşlar korunur. ---
-                st.html(tablo_html(
-                    ["Firma", "Açıklama", ("Kategori", "metin", "$", "orta"), ("Vade", "mono"),
-                     ("Tutar TL", "para", "₺"), ("Tutar USD", "para", "$"), "Ödendiği Banka", ("Ödendi Tarihi", "mono")],
-                    [{
-                        "Firma": renkli(r.get("Firma") or "—", "mavi", kalin=True),
-                        "Açıklama": kisalt(r.get("Açıklama") or "", 60),
-                        "Kategori": rozet_html(r.get("Kategori") or "—", "mor"),
-                        "Vade": r.get("Vade") or None,
-                        "Tutar TL": r.get("Tutar TL (₺)") or None,
-                        "Tutar USD": r.get("Tutar USD ($)") or None,
-                        "Ödendiği Banka": r.get("Ödendiği Banka") or None,
-                        "Ödendi Tarihi": fmt_tarih(r.get("Ödendi Tarihi")) or None,
-                    } for r in rows]))
-    
-                st.markdown("---")
-                st.markdown("**Geri almak istediğin ödeme:**")
-                geri_sec = st.selectbox("Ödeme seç", [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler])
-                if st.button("Geri Al", type="secondary", icon=":material/undo:"):
-                    idx = [f"{o['firma']} — {fmt_tarih(o.get('vade'))}" for o in odenenler].index(geri_sec)
-                    kur_now = get_kur()
-                    odeme_durum_guncelle(odenenler[idx]["id"], "bekliyor", kur=kur_now)
-                    st.success("Geri alındı.")
-                    st.rerun()
-    
-    
-            # ════════════════════════════════════════════════════════════════════
-            # 7) GEÇMİŞ
-            # ════════════════════════════════════════════════════════════════════
-    
-    
-            # ── TAB 1: Geçmiş Haftalar ────────────────────────────────
-            with gecmis_tab1:
-                haftalar = get_tum_haftalar()
-    
-                if not haftalar:
-                    st.info("Henüz geçmiş hafta yok.")
-                else:
-                    aktif = get_aktif_hafta()
-                    aktif_id = aktif["id"] if aktif else None
-    
-                    for h in haftalar:
-                        ozet = get_hafta_ozet(h["id"])
-                        is_aktif = h["id"] == aktif_id
-    
-                        renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
-                        border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
-    
-                        col1, col2 = st.columns([5, 1])
-                        with col1:
-                            aktif_badge = '<span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:4px;margin-left:8px;font-weight:700">AKTİF</span>' if is_aktif else ''
-                            gecmis_html = (
-                                f'<div style="background:{renk};border:{border};border-radius:10px;padding:16px 16px;margin-bottom:8px">'
-                                f'<div style="font-size:14px;font-weight:700;color:var(--k-metin)">{h["hafta_adi"]}{aktif_badge}</div>'
-                                f'<div style="font-size:13px;color:var(--k-silik);margin-top:4px">{ozet["toplam"]} ödeme · {ozet["odendi"]}/{ozet["toplam"]} ödendi · Yüklendi: {h["yuklendi_tarih"]}</div>'
-                                f'<div style="margin-top:8px"><span class="tag-yesil">₺{fmt(ozet["tl_toplam"])}</span>&nbsp;<span class="tag-mavi">${fmt(ozet["usd_toplam"])}</span></div>'
-                                '</div>'
-                            )
-                            st.markdown(gecmis_html, unsafe_allow_html=True)
-    
-                        with col2:
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            if not is_aktif:
-                                if st.button("Aç", key=f"ac_{h['id']}", icon=":material/folder_open:"):
-                                    hafta_aktif_yap(h["id"])
-                                    st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
-                                    st.rerun()
-                            if st.button("Sil", key=f"sil_{h['id']}", icon=":material/delete:"):
-                                hafta_sil(h["id"])
-                                st.success("Silindi.")
-                                st.rerun()
-    
-            # ── TAB 2: Firma Çekleri Arşivi ───────────────────────────
-            with gecmis_tab2:
-                st.markdown('<div style="font-size:13px;color:var(--k-silik);margin-bottom:16px;">Firma çeklerinin tamamını burada görüntüleyebilir ve silebilirsiniz.</div>', unsafe_allow_html=True)
-    
-                cek_tab1, cek_tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
-    
-                def cek_arsiv_goster(para_birimi):
-                    cekler = get_cekler(para_birimi)
-                    sym = "$" if para_birimi == "USD" else "₺"
-    
-                    if not cekler:
-                        st.info(f"Kayıtlı {para_birimi} çeki yok.")
-                        return
-    
-                    # Toplu silme butonu
-                    col_sil1, col_sil2, col_sil3 = st.columns([2, 2, 2])
-                    with col_sil1:
-                        st.markdown(
-                            f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-radius:10px;'
-                            f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-silik);'
-                            f'letter-spacing:.5px;text-transform:uppercase;">Toplam</span><br>'
-                            f'<span style="font-size:19px;font-weight:700;color:var(--k-metin);font-family:monospace;">{len(cekler)} çek</span></div>',
-                            unsafe_allow_html=True
-                        )
-                    with col_sil2:
-                        toplam_meblagh = sum(c.get("meblagh") or 0 for c in cekler)
-                        st.markdown(
-                            f'<div style="background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-radius:10px;'
-                            f'padding:8px 16px;"><span style="font-size:11px;font-weight:600;color:var(--k-mavi);'
-                            f'letter-spacing:.5px;text-transform:uppercase;">Toplam Meblağ</span><br>'
-                            f'<span style="font-size:19px;font-weight:700;color:var(--k-mavi);font-family:monospace;">{sym}{fmt(toplam_meblagh)}</span></div>',
-                            unsafe_allow_html=True
-                        )
-                    with col_sil3:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        # Onay checkbox'lı toplu silme
-                        onay_key = f"toplu_sil_onay_{para_birimi}"
-                        if st.session_state.get(onay_key, False):
-                            if st.button(f"EVET, TÜM {para_birimi} ÇEKLERİNİ SİL", key=f"toplu_sil_exec_{para_birimi}", type="primary", use_container_width=True, icon=":material/warning:"):
-                                cek_sil_hepsi(para_birimi)
-                                st.session_state[onay_key] = False
-                                st.success(f"Tüm {para_birimi} çekleri silindi.")
-                                st.rerun()
-                            if st.button("Vazgeç", key=f"toplu_sil_iptal_{para_birimi}", use_container_width=True):
-                                st.session_state[onay_key] = False
-                                st.rerun()
-                        else:
-                            if st.button(f"Tüm {para_birimi} Çeklerini Sil", key=f"toplu_sil_btn_{para_birimi}", use_container_width=True, icon=":material/delete:"):
-                                st.session_state[onay_key] = True
-                                st.rerun()
-    
-                    st.markdown("<br>", unsafe_allow_html=True)
-    
-                    # Arama
-                    arama = st.text_input("🔍 Ara (firma, çek no, ref no)", key=f"cek_ara_{para_birimi}", placeholder="Aramak istediğiniz kelimeyi yazın...")
-    
-                    # Filtrele
-                    filtre_cekler = cekler
-                    if arama:
-                        a = arama.lower()
-                        filtre_cekler = [c for c in cekler if
-                                         a in str(c.get("ch_ismi", "")).lower() or
-                                         a in str(c.get("cek_no", "")).lower() or
-                                         a in str(c.get("ref_no", "")).lower() or
-                                         a in str(c.get("banka", "")).lower()]
-                        st.caption(f"{len(filtre_cekler)} / {len(cekler)} çek gösteriliyor")
-    
-                    # Çek listesi (her biri silinebilir)
-                    for c in filtre_cekler:
-                        _t = cek_tutarlari(c)
-                        durum_str = cek_durum_norm(c.get("durum"))
-                        vd = vade_durumu(c.get("vade"))
-    
-                        # Zeminler tema duyarlı (eskiden koyu sabit hex → açık temada okunmuyordu;
-                        # varsayılan kart ise açık mavi zemin + metin rengiydi, iki temada da okunmuyordu)
-                        if _t["odendi"]:
-                            kart_bg = "color-mix(in srgb,var(--k-yesil) 9%,var(--k-yuzey1))"; kart_border = trenk("yesil2"); durum_renk = trenk("yesil2")
-                        elif "ciro" in durum_str:
-                            kart_bg = "color-mix(in srgb,var(--k-mavi) 9%,var(--k-yuzey1))"; kart_border = trenk("mavi"); durum_renk = trenk("mavi")
-                        elif vd == "gecmis":
-                            kart_bg = "color-mix(in srgb,var(--k-kirmizi) 9%,var(--k-yuzey1))"; kart_border = trenk("kirmizi2"); durum_renk = trenk("kirmizi2")
-                        elif vd == "bugun":
-                            kart_bg = "color-mix(in srgb,var(--k-amber) 10%,var(--k-yuzey1))"; kart_border = trenk("amber2"); durum_renk = trenk("amber2")
-                        else:
-                            kart_bg = "var(--k-yuzey1)"; kart_border = "var(--k-kenar2)"; durum_renk = trenk("soluk")
-    
-                        col_a, col_b = st.columns([9, 1])
-                        with col_a:
-                            st.markdown(f"""
-                            <div style="background:{kart_bg};border:1px solid {kart_border};border-radius:10px;padding:12px 16px;margin-bottom:8px">
-                                <div style="display:grid;grid-template-columns:1.5fr 1.5fr 1fr 1.5fr 1fr;gap:12px;align-items:center">
-                                    <div>
-                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">ÇEK NO</div>
-                                        <div style="font-size:13px;font-weight:700;color:var(--k-metin);font-family:monospace">{c.get('cek_no') or '-'}</div>
-                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Ref: {c.get('ref_no') or '-'}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">CARİ/FİRMA</div>
-                                        <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{c.get('ch_ismi') or '-'}</div>
-                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">{c.get('ch_kodu') or ''}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">VADE</div>
-                                        <div style="font-size:13px;font-weight:600;color:var(--k-metin)">{fmt_tarih(c.get('vade')) or '-'}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">MEBLAĞ / KALAN</div>
-                                        <div style="font-size:14px;font-weight:700;color:var(--k-metin);font-family:monospace">{sym}{fmt(c.get('meblagh') or 0)}</div>
-                                        <div style="font-size:11px;color:var(--k-silik);margin-top:0px">Kalan: {sym}{fmt(_t['kalan'])}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size:13px;color:var(--k-silik);font-weight:600">DURUM</div>
-                                        <div style="font-size:13px;font-weight:700;color:{durum_renk};text-transform:uppercase;letter-spacing:.3px">{c.get('durum') or 'Bekliyor'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        with col_b:
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            if st.button("", key=f"cek_sil_{c.get('id')}", help="Bu çeki sil", icon=":material/delete:"):
-                                cek_sil(c.get("id"))
-                                st.success("Silindi.")
-                                st.rerun()
-    
-                with cek_tab1:
-                    cek_arsiv_goster("TL")
-                with cek_tab2:
-                    cek_arsiv_goster("USD")
-    
-    
+            # Ekim 2026: kayranacc/gecmis_ekran.py — sekme yerine görünüm seçici
+            # (eskiden ödenen yoksa st.stop() diğer sekmeleri de boş bırakıyordu);
+            # hafta ve çek silme ONAYLI (eskiden tek tıkla, hafta tüm ödemeleriyle gidiyordu).
+            from .gecmis_ekran import render_gecmis
+            render_gecmis()
+
+
         # ════════════════════════════════════════════════════════════════════
         # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
         # ════════════════════════════════════════════════════════════════════
@@ -2526,7 +2286,9 @@ def run():
         # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "📚 e-Defter":
-            st.markdown(_sb("💰 Muhasebe", "e-Defter"), unsafe_allow_html=True)
+            st.markdown(_sb("📚 Muhasebe", "e-Defter",
+                            aciklama="Faz 1: hesap planı · muhasebe fişi · yevmiye · kebir · mizan"),
+                        unsafe_allow_html=True)
             from kayranacc.edefter import render as _edefter_render
             _edefter_render()
 
@@ -2882,7 +2644,8 @@ def run():
             render_ertelenenler(KATEGORILER)
 
         elif sayfa == "🧾 Cari Ekstre":
-            st.markdown(_sb("💰 Muhasebe", "Cari Ekstre"), unsafe_allow_html=True)
+            st.markdown(_sb("🧾 Muhasebe", "Cari Ekstre", aciklama="Firma bazında ödeme ekstresi ve vade yaşlandırma"),
+                        unsafe_allow_html=True)
             from kayranacc.cari_ekstre import render as _cari_ekstre_render
             _cari_ekstre_render()
 
@@ -3550,9 +3313,23 @@ def run():
             # yalnızca Yönetim Panosu (P&L) navigasyonunda görüntülenir.
             _snap_ok = False
             _snap_hata = ""
+            # DÜZELTME (Ekim 2026): eskiden sayfa HER açılışta sonucu Yönetim
+            # Panosu'na yazıyordu — Excel'ler eksikken de (eksikler 0 sayılıyordu).
+            # Dosyasız açmak, panodaki toplam aktifi eksik değerle eziyor ve yine
+            # "✅ işlendi ve kaydedildi" diyordu. Artık: dosya eksikse YAZILMAZ
+            # (eski doğru kayıt korunur); tamsa yalnız rakam değiştiyse yazılır.
+            _snap_eksik = [ad for ad, v in (("Stok Değeri Raporu", st.session_state.get("aktif_stok_data")),
+                                            ("İthalat Ödeme Takip", st.session_state.get("aktif_ithalat_data")),
+                                            ("Cari Alacaklar Listesi", st.session_state.get("aktif_cari_data")))
+                           if not v]
+            _snap_eski = get_ayar("toplam_aktif_snapshot", {}) or {}
+            _snap_ayni = (round(float(_snap_eski.get("toplam") or 0), 2) == round(toplam_aktif, 2)
+                          and str(_snap_eski.get("tarih")) == str(__import__("datetime").date.today()))
             try:
                 import datetime as _dt_acc
-                _snap_ok = set_ayar("toplam_aktif_snapshot", {
+                if _snap_eksik:
+                    raise RuntimeError("eksik dosya: " + ", ".join(_snap_eksik))
+                _snap_ok = True if _snap_ayni else set_ayar("toplam_aktif_snapshot", {
                     "toplam": round(toplam_aktif, 2),
                     "kur": kur,
                     "tarih": str(_dt_acc.date.today()),
@@ -3569,16 +3346,25 @@ def run():
             except Exception as _e:
                 _snap_ok = False
                 _snap_hata = str(_e)[:200]
-            if _snap_ok:
-                st.success("✅ Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı.")
+            if _snap_eksik:
+                _tarih_eski = _snap_eski.get("tarih")
+                from shared.tasarim import mesaj as _mesaj_kutu
+                from shared.utils import gun_ay_yil as _gay
+                st.markdown(_mesaj_kutu("uyari", "Eksik dosya var (" + ", ".join(_snap_eksik) + "): aşağıdaki toplam eksik "
+                                  "hesaplandı ve Yönetim Panosu'na KAYDEDİLMEDİ. "
+                                  + (f"Panoda {_gay(_tarih_eski)} tarihli son tam hesap duruyor."
+                                     if _tarih_eski else "Panoda henüz kayıtlı toplam yok.")),
+                            unsafe_allow_html=True)
+            if _snap_ok or _snap_eksik:
+                if _snap_ok:
+                    st.success("Veriler işlendi; Yönetim Panosu güncel.")
                 # ── 💎 Genel toplam BURADA da göster (Yönetim Panosu'na gitmeye gerek yok) ──
-                st.markdown(
-                    f'<div style="background:linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5);border-radius:16px;'
-                    f'padding:24px 24px;text-align:center;margin:8px 0 8px;box-shadow:0 10px 28px rgba(30,64,175,0.28)">'
-                    f'<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.78);margin-bottom:8px">💎 TOPLAM AKTİFLER (GENEL TOPLAM)</div>'
-                    f'<div style="font-size:23px;font-weight:700;color:#FFFFFF;font-family:JetBrains Mono,monospace;letter-spacing:-1px;line-height:1.1">${tr_sayi(toplam_aktif)}</div>'
-                    f'<div style="font-size:13px;color:rgba(255,255,255,0.78);margin-top:8px;font-family:JetBrains Mono,monospace">≈ ₺{tr_sayi((toplam_aktif*kur))} (kur: {kur:g})</div>'
-                    f'</div>', unsafe_allow_html=True)
+                from shared.tasarim import kpi_serit as _ks_ta
+                st.markdown(_ks_ta([
+                    {"etiket": "Toplam aktifler" + (" (eksik hesap)" if _snap_eksik else ""),
+                     "deger": f"${tr_sayi(toplam_aktif)}", "renk": "amber" if _snap_eksik else "mor",
+                     "alt": f"≈ ₺{tr_sayi(toplam_aktif * kur)} · kur {tr_sayi(kur, 4)}"},
+                ]), unsafe_allow_html=True)
                 # Kısa hesap dökümü
                 _dk = [
                     ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
@@ -3783,8 +3569,8 @@ def run():
                 eksikler.append("🚢 İthalat Ödeme Takip yüklenmedi")
             if not st.session_state.aktif_cari_data:
                 eksikler.append("⚠️ Cari Alacaklar Listesi yüklenmedi")
-            if eksikler:
-                st.warning("📭 Eksik dosyalar (sıfır olarak hesaplandı):\n\n" + "\n".join(f"- {e}" for e in eksikler))
+            # Eksik dosyalar artık sonucun hemen üstünde (Yönetim Panosu'na yazılmadığı
+            # bilgisiyle birlikte) gösteriliyor; burada ikinci kez yazılmıyor.
     
             # ─── Temizleme ───
             @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
