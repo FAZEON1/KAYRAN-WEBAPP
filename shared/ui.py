@@ -155,20 +155,28 @@ def pencere(baslik: str, renk: str, icerik_html: str,
     """Başlık + (isteğe bağlı rozet) + iç scroll'lu içerik alanı olan kart.
 
     `pencere_grid()` içine konur; yan yana dizilir, dar ekranda alta sarar.
+    Başlıktaki emoji ('🚨 ACİL SİPARİŞ') ikon karosuna çevrilir, BÜYÜK HARF
+    başlık cümle düzenine iner ('Acil sipariş'); ortak k-kart görünümü
+    (eskiden degrade zemin, 16px köşe, gölge ve renkli büyük harf başlık).
     """
+    from shared.tasarim import emoji_ayir, cumle_duzeni, ikon_html
+    _ik, _bas = emoji_ayir(baslik)
+    _ik_html = ""
+    if _ik:
+        _ik_html = (f'<span style="width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;'
+                    f'align-items:center;justify-content:center;'
+                    f'background:color-mix(in srgb,{renk} 15%,transparent)">{ikon_html(_ik, 16, renk)}</span>')
     roz = ""
     if rozet:
-        roz = (f'<span style="background:{renk}26;color:{renk};padding:4px 8px;'
-               f'border-radius:20px;font-size:11px;font-weight:700;">{rozet}</span>')
+        roz = (f'<span style="background:color-mix(in srgb,{renk} 14%,transparent);color:{renk};'
+               f'padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;'
+               f'white-space:nowrap">{rozet}</span>')
     return (
-        f'<div class="kyr-kart" style="flex:1;min-width:{min_genislik}px;'
-        f'background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});'
-        f'border:1px solid {renk}33;border-left:3px solid {renk};border-radius:16px;'
-        f'padding:12px 16px;display:flex;flex-direction:column;'
-        f'box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]},box-shadow {GECIS["hizli"]};">'
-        f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-shrink:0;">'
-        f'<span style="font-size:13px;font-weight:700;color:{renk};letter-spacing:.3px;">{baslik}</span>'
-        f'{roz}</div>'
+        f'<div class="kyr-kart k-kart" data-akscent style="flex:1;min-width:{min_genislik}px;'
+        f'border-left-color:{renk};padding:12px 16px;">'
+        f'<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0;">'
+        f'{_ik_html}<span style="font-size:14px;font-weight:650;color:var(--k-metin);'
+        f'letter-spacing:-.1px">{cumle_duzeni(_bas)}</span>{roz}</div>'
         f'<div class="kyr-pencere-icerik" style="max-height:{yukseklik}px;">{icerik_html}</div>'
         f'</div>'
     )
