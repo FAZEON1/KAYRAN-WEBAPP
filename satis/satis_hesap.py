@@ -102,3 +102,25 @@ def toplam(siparisler):
     ns = t["ciro"] - t["destek"]
     t["marj"] = (t["net_kar"] / ns * 100) if ns > 0 else None
     return t
+
+
+def aylik_seyir(satislar, satir_kar):
+    """[(‘YYYY-AA’, ciro, brüt kâr, adet)] — ay sırasıyla. Kâr/P&L'deki aylık
+    seyir grafiği için (satır bazlı kâr; Ref No / alınan destek ay ay dağıtılmaz)."""
+    g = {}
+    for s in satislar or []:
+        ay = str(s.get("tarih") or "")[:7]
+        if len(ay) != 7:
+            continue
+        k = satir_kar(s)
+        o = g.setdefault(ay, [0.0, 0.0, 0])
+        o[0] += float(k["ciro"] or 0)
+        o[1] += float(k["net_kar"] or 0)
+        o[2] += int(k["adet"] or 0)
+    return [(ay, v[0], v[1], v[2]) for ay, v in sorted(g.items())]
+
+
+def maliyetsiz_say(satislar):
+    """Birim maliyeti 0 olan (ve satış fiyatı olan) satış satırı sayısı."""
+    return sum(1 for s in satislar or []
+               if float(s.get("birim_maliyet") or 0) <= 0 and float(s.get("birim_satis") or 0) > 0)
