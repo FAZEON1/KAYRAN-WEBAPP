@@ -1266,8 +1266,13 @@ def get_ithalat_yolda_ozet():
                 "durumlar": sorted(a["durumlar"]),
             }
         return out
-    except Exception:
-        return {}
+    except Exception as e:
+        # Eskiden {} dönülüyordu: hata görünmüyor, boş sonuç 2 dk önbellekte kalıyor,
+        # antrepodaki mal sipariş önerisinde sıfır sayılıyordu. Şimdi kayda geçer ve
+        # yeniden fırlatılır (st.cache_data hatayı önbelleğe ALMAZ → sonraki açılış yeniden dener).
+        from shared.hata_log import kaydet
+        kaydet("ithalat.get_ithalat_yolda_ozet", e, "İthalat yolda/antrepo özeti okunamadı")
+        raise
 
 
 @st.cache_data(ttl=300, show_spinner=False)

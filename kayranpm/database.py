@@ -392,7 +392,9 @@ def set_uretim_suresi(gun):
         return False
 
 @st.cache_data(ttl=300, show_spinner=False)
-def get_all_dashboard_data():
+def _dashboard_ham():
+    """Veritabanından ham panel verisi (5 dk önbellek). İthalat yolda/antrepo
+    eklemesi BURADA DEĞİL, get_all_dashboard_data'da yapılır (bkz. orası)."""
     sb = get_client()
     # Sayfalama şart: 1000+ üründe panel toplamları sessizce eksik çıkıyordu
     urunler = _hepsi("urunler", "*", "urun_adi")
@@ -413,11 +415,34 @@ def get_all_dashboard_data():
             firma_data[firma] = {}
     stok_yas_data = {r["sku"]: r for r in _rows(sb.table("stok_yas").select("*").execute())}
     yoldaki_data = {r["sku"]: r for r in _rows(sb.table("yoldaki_urunler").select("*").execute())}
+    tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
+    gecmis_satislar = defaultdict(list)
+    for row in tum_firma_rows:
+        gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)
+    return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
+
+
+def get_all_dashboard_data():
+    """Panel verisi + İthalat'tan yolda/antrepo miktarı (ÖNBELLEKSİZ katman).
+
+    Neden ayrı: ekleme önbellekli fonksiyonun içindeyken İthalat okunamazsa
+    "yoldakisiz" eksik sonuç 5 dk saklanıyor, antrepodaki mal sipariş önerisinde
+    sıfır sayılıyordu. Ham veri ve İthalat özeti kendi önbelleklerinde; bu katman
+    yalnız birleştirir, hatalı turu saklamaz → sonraki açılış yeniden dener.
+    """
+    urunler, firma_data, stok_yas_data, yoldaki_data, gecmis_satislar = _dashboard_ham()
     # İthalat'tan gelen yolda (Üretimde/Yolda/Gümrükte/Antrepoda) miktarını mevcut elle veriye EKLE
     try:
         from ithalat.database import get_ithalat_yolda_ozet
         _ith_yolda = get_ithalat_yolda_ozet() or {}
-    except Exception:
+    except Exception as e:
+        # Sayfa açılmaya devam etsin ama SESSİZ kalmasın: yoldaki/antrepodaki mal bu
+        # turda sayılamadı → sipariş önerisi yanlış "ACİL" diyebilir. Sistem Kayıtları'na
+        # yazılır ve sipariş kararını etkilediği için Telegram'a bildirilir (kritik).
+        from shared.hata_log import kaydet
+        kaydet("kayranpm.get_all_dashboard_data", e,
+               "İthalat yolda/antrepo miktarı okunamadı — sipariş önerisi bu turda yoldakini saymıyor",
+               kritik=True)
         _ith_yolda = {}
     for _sku, _iy in _ith_yolda.items():
         _mev = yoldaki_data.get(_sku)
@@ -435,11 +460,7 @@ def get_all_dashboard_data():
                 "_ithalat_yolda": _iy["yoldaki_miktar"],
                 "_ithalat_durumlar": _iy.get("durumlar", []),
             }
-    tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
-    gecmis_satislar = defaultdict(list)
-    for row in tum_firma_rows:
-        gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)
-    return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
+    return urunler, firma_data, stok_yas_data, yoldaki_data, gecmis_satislar
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_urun_detay(sku):
