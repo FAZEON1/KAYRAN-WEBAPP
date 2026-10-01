@@ -1805,11 +1805,11 @@ def ust_navigasyon():
                 ("Yönetim", "yonetim", ":material/monitoring:"),
                 ("Muhasebe", "kayranacc", ":material/account_balance_wallet:"),
                 ("İthalat", "ithalat", ":material/directions_boat:"),
-                ("Ürün Yön.", "kayranpm", ":material/inventory_2:"),
+                ("Ürün Yönetimi", "kayranpm", ":material/inventory_2:"),
                 ("Depo", "depo", ":material/warehouse:"),
                 ("Satış", "satis", ":material/point_of_sale:"),
                 ("Teknik Servis", "teknikservis", ":material/construction:"),
-                ("Hesap Mak.", "hesap_makinesi", ":material/calculate:")]
+                ("Hesap Makinesi", "hesap_makinesi", ":material/calculate:")]
 
     # ── Üst menü stili ─────────────────────────────────────────────────
     # TEK SATIR · her modülde AYNI aktif renk · mobilde yatay kaydırmalı şerit.
@@ -1817,44 +1817,59 @@ def ust_navigasyon():
     # renkleri (Muhasebe mor degrade, Ürün Yön. mavi…) artık menüyü EZEMEZ.
     N = 'html body .st-key-ustnav'
     st.markdown(f"""<style>
-    {N} [data-testid="stHorizontalBlock"]{{gap:6px !important;margin:0 !important;
-        flex-wrap:nowrap !important;overflow-x:auto !important;scrollbar-width:none;
-        -webkit-overflow-scrolling:touch;}}
+    /* Tek ŞERİT + çerçevesiz sekmeler (eskiden 10 ayrı çerçeveli kutu, eşit
+       genişlikte → kalabalık ve amatör görünüyordu). Gruplar: [Ana Sayfa · Arama]
+       | [modüller] ......... [Hesap Makinesi] (yardımcı araç, sağa yaslı). */
+    {N} [data-testid="stHorizontalBlock"]{{gap:2px !important;margin:0 !important;padding:4px !important;
+        flex-wrap:nowrap !important;overflow-x:auto !important;scrollbar-width:none;align-items:center !important;
+        -webkit-overflow-scrolling:touch;background:var(--k-yuzey2) !important;
+        border:1px solid var(--k-kenar) !important;border-radius:12px !important;}}
     {N} [data-testid="stHorizontalBlock"]::-webkit-scrollbar{{display:none;}}
-    /* Sütunlar yazının genişliğini alır, kalan yer eşit paylaşılır.
-       Hiçbir etiket "Ana Sa…" gibi KESİLMEZ; sığmazsa şerit yana kayar. */
-    {N} [data-testid="stColumn"]{{padding:0 !important;flex:1 0 auto !important;
+    /* Sütun yazının genişliğini alır (eşit dağıtım yok); hiçbir etiket KESİLMEZ,
+       sığmazsa şerit yana kayar. */
+    {N} [data-testid="stColumn"]{{padding:0 !important;flex:0 0 auto !important;
         width:auto !important;min-width:max-content !important;}}
+    /* Grup ayracı: modüllerden önce ince dikey çizgi · Hesap Makinesi en sağda */
+    {N} [data-testid="stColumn"]:has(.st-key-top_yonetim){{margin-left:6px !important;padding-left:8px !important;
+        border-left:1px solid var(--k-kenar2) !important;}}
+    {N} [data-testid="stColumn"]:has(.st-key-top_hesap_makinesi){{margin-left:auto !important;}}
     {N} button{{
-        min-height:36px !important;height:36px !important;padding:0 12px !important;
-        border-radius:9px !important;font-size:12.5px !important;font-weight:600 !important;
-        letter-spacing:.1px !important;line-height:1 !important;white-space:nowrap !important;
-        justify-content:center !important;
-        border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent) !important;
-        background:color-mix(in srgb,var(--k-metin) 2%,transparent) !important;color:var(--k-soluk) !important;
-        box-shadow:none !important;transform:none !important;
-        transition:background .15s ease,border-color .15s ease,color .15s ease !important;}}
-    {N} button p{{font-size:12.5px !important;white-space:nowrap !important;
-        overflow:visible !important;text-overflow:clip !important;margin:0 !important;}}
-    {N} button:hover{{border-color:color-mix(in srgb,var(--k-mor) 45%,transparent) !important;
-        background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;color:var(--k-metin) !important;
-        transform:none !important;}}
+        min-height:34px !important;height:34px !important;padding:0 12px !important;gap:6px !important;
+        border-radius:8px !important;font-size:13px !important;font-weight:500 !important;
+        letter-spacing:0 !important;line-height:1 !important;white-space:nowrap !important;
+        justify-content:center !important;border:0 !important;background:transparent !important;
+        color:var(--k-soluk) !important;box-shadow:none !important;transform:none !important;
+        transition:background .12s ease,color .12s ease !important;}}
+    {N} button p{{font-size:13px !important;font-weight:inherit !important;white-space:nowrap !important;
+        overflow:visible !important;text-overflow:clip !important;margin:0 !important;color:inherit !important;}}
+    {N} button [data-testid="stIconMaterial"]{{font-size:17px !important;color:var(--k-silik) !important;}}
+    {N} button:hover{{background:var(--k-ortu2) !important;color:var(--k-metin) !important;transform:none !important;}}
+    {N} button:hover [data-testid="stIconMaterial"]{{color:var(--k-soluk) !important;}}
+    {N} button:focus-visible{{outline:2px solid var(--k-mor) !important;outline-offset:1px !important;}}
+    /* Seçili sekme: hafif mor zemin + ince mor çerçeve + mor ikon (dolgu düğme değil) */
     {N} button[kind="primary"], {N} button[data-testid="stBaseButton-primary"]{{
-        background:var(--k-dolgu) !important;border-color:var(--k-dolgu) !important;color:#FFFFFF !important;
-        box-shadow:0 2px 10px color-mix(in srgb,var(--k-mor) 35%,transparent) !important;}}
+        background:color-mix(in srgb,var(--k-mor) 13%,var(--k-yuzey1)) !important;color:var(--k-metin) !important;
+        font-weight:650 !important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k-mor) 32%,transparent) !important;}}
     {N} button[kind="primary"] p, {N} button[data-testid="stBaseButton-primary"] p{{
-        color:#FFFFFF !important;}}
+        color:var(--k-metin) !important;font-weight:650 !important;}}
+    {N} button[kind="primary"] [data-testid="stIconMaterial"],
+    {N} button[data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"]{{color:var(--k-mor) !important;}}
     /* Dar ekranlarda ikonları gizle. İkonun KUTUSU da gizlenmeli; yalnız
        ikon gizlenince boş kutu yazıyı sağa itip "…" ile kesiyordu. */
-    @media (max-width:1700px){{
+    @media (max-width:1500px){{
         {N} button span:has(> [data-testid="stIconMaterial"]),
-        {N} button [data-testid="stIconMaterial"]{{display:none !important;}} }}
+        {N} button [data-testid="stIconMaterial"]{{display:none !important;}}
+        {N} button{{padding:0 9px !important;}} }}
+    @media (max-width:1300px){{
+        {N} button{{padding:0 7px !important;}}
+        {N} button p{{font-size:12.5px !important;}} }}
     /* Mobil: Streamlit sütunları alt alta dizer (10 düğme = yarım ekran).
        Bunun yerine tek satırlık, yana kaydırılan bir şerit. */
     @media (max-width:640px){{
-        {N} [data-testid="stHorizontalBlock"]{{flex-direction:row !important;padding-bottom:2px;}}
+        {N} [data-testid="stHorizontalBlock"]{{flex-direction:row !important;}}
         {N} [data-testid="stColumn"]{{flex:0 0 auto !important;width:auto !important;}}
-        {N} button{{padding:0 14px !important;}}
+        {N} [data-testid="stColumn"]:has(.st-key-top_hesap_makinesi){{margin-left:0 !important;}}
+        {N} button{{padding:0 12px !important;}}
     }}
 
     /* === ANA İÇERİK radyoları → modern segmented/pill (TÜM sayfalarda: Yönetim dahil) === */
@@ -1889,9 +1904,8 @@ def ust_navigasyon():
     [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"]{{overflow:visible !important;}}
     [data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > div:has(.st-key-ustnav),
     .st-key-ustnav{{position:sticky !important;top:0 !important;z-index:999 !important;
-        background:var(--k-yuzey1) !important;}}
-    .st-key-ustnav{{padding:6px 0 8px !important;margin-bottom:10px !important;
-        border-bottom:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent) !important;}}
+        background:var(--k-yuzey0) !important;}}
+    .st-key-ustnav{{padding:8px 0 10px !important;margin-bottom:8px !important;}}
     /* Sol sidebar: üstteki collapse-header boşluğunu kaldır */
     [data-testid="stSidebarHeader"]{{padding-top:0.4rem !important;padding-bottom:0 !important;
         min-height:0 !important;height:auto !important;}}
