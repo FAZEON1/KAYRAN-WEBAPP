@@ -28,6 +28,7 @@ Kullanım:
 # ─────────────────────────────────────────────────────────────────────
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi, TemaRenk  # TR sayı biçimi · tema duyarlı sözlük
+from shared.tasarim import kisi_adi as _kisi_adi  # Türkçe büyük harf (ibrahim → İbrahim)
 # Tema duyarlı: RENK["x"] aktif temanın rengini verir (bkz. tasarim.TemaRenk)
 RENK = TemaRenk({
     "mor":      "#818CF8",   # birincil vurgu / marka / nötr metrik
@@ -425,7 +426,7 @@ def patron_verisi_topla():
             if _onemli:
                 _kritik.append({
                     "zaman": str(l.get("zaman", ""))[:16],
-                    "kullanici": (l.get("kullanici", "") or "?").capitalize(),
+                    "kullanici": _kisi_adi(l.get("kullanici", "") or "?"),
                     "islem": l.get("islem", ""),
                     "modul": l.get("modul", "") or l.get("tablo", ""),
                     "detay": _detay[:60],
@@ -469,19 +470,18 @@ def patron_panosu_html(v):
     # ── Üst şerit: iş nabzı (4 metrik) ──
     _nabiz = []
     if "ay_ciro" in v:
-        _kr = RENK["yesil"] if v.get("ay_kar", 0) >= 0 else RENK["kirmizi"]
-        _nabiz.append(("BU AY CİRO", f"${_fmt(v['ay_ciro'])}", RENK["mor2"]))
-        _nabiz.append(("BU AY NET KÂR", f"${_fmt(v['ay_kar'])}", _kr))
-        _nabiz.append(("MARJ", f"%{tr_sayi(v.get('ay_marj', 0), 1)}", _kr))
+        _kr = "yesil" if v.get("ay_kar", 0) >= 0 else "kirmizi"
+        _nabiz.append(("Bu ay ciro", f"${_fmt(v['ay_ciro'])}", "mor"))
+        _nabiz.append(("Bu ay net kâr", f"${_fmt(v['ay_kar'])}", _kr))
+        _nabiz.append(("Marj", f"%{tr_sayi(v.get('ay_marj', 0), 1)}", _kr))
     if "toplam_aktif" in v:
-        _nabiz.append(("TOPLAM AKTİF", f"${_fmt(v['toplam_aktif'])}", RENK["cyan"]))
+        _nabiz.append(("Toplam aktif", f"${_fmt(v['toplam_aktif'])}", "cyan"))
+    # Ana sayfadaki "İş özeti" kartlarıyla AYNI kart: sola yaslı etiket,
+    # renkli sol şerit, tabular rakam (eskiden ortalı, büyük harfli, degrade).
     _nabiz_html = "".join(
-        f'<div class="kyr-kart" style="flex:1;min-width:120px;text-align:center;padding:12px 8px;'
-        f'background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {c}2E;border-radius:12px;box-shadow:{GOLGE["kart"]};transition:transform {GECIS["hizli"]}">'
-        f'<div style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;'
-        f'text-transform:uppercase;font-weight:700;margin-bottom:4px">{lbl}</div>'
-        f'<div style="color:{c};font-size:23px;font-weight:700;'
-        f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{val}</div></div>'
+        f'<div class="k-kart" data-akscent style="border-left-color:var(--k-{c})">'
+        f'<div class="k-ana-kpi-ad">{lbl}</div>'
+        f'<div class="k-deger" style="color:var(--k-{c})">{val}</div></div>'
         for lbl, val, c in _nabiz)
 
     def _pencere(baslik, renk, ic, rozet=""):
@@ -525,7 +525,7 @@ def patron_panosu_html(v):
                 f'<span style="color:{RENK["silik"]};font-size:11px">{k["zaman"]}</span>')
             for k in v["kritik_liste"])
         _kritik_html = pencere_grid(
-            pencere("🔔 SON 24 SAAT — KRİTİK İŞLEMLER", RENK["cyan"], _kr_ic,
+            pencere("Son 24 saat: kritik işlemler", RENK["cyan"], _kr_ic,
                     rozet=f"{v.get('kritik_sayi', 0)} işlem", yukseklik=170))
 
     # ── 📈 30 günlük ciro trendi (sparkline + değer etiketleri) ──
@@ -580,8 +580,7 @@ def patron_panosu_html(v):
             f'<div class="kyr-kart" style="background:linear-gradient(180deg,{RENK["yuzey2"]},{RENK["yuzey1"]});border:1px solid {RENK["kenar2"]};'
             f'border-radius:16px;padding:12px 16px;margin:4px 0 12px;box-shadow:{GOLGE["kart"]}">'
             f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-            f'<span style="font-size:11px;color:{RENK["soluk"]};letter-spacing:1px;text-transform:uppercase;'
-            f'font-weight:700">📈 Son 30 Gün — Günlük Ciro</span>{_delta_html}</div>'
+            f'<span style="font-size:12px;color:{RENK["soluk"]};font-weight:500">Son 30 gün, günlük ciro</span>{_delta_html}</div>'
             f'<svg viewBox="0 0 {_W} {_H}" preserveAspectRatio="xMidYMid meet" '
             f'style="display:block;width:100%;height:auto">'
             f'<defs><linearGradient id="kyr-trend-g" x1="0" y1="0" x2="0" y2="1">'
@@ -597,12 +596,9 @@ def patron_panosu_html(v):
     # 🚀/📉 Büyüyen-Gerileyen firma kartları kullanıcı talebiyle kaldırıldı.
 
     return (
-        '<div style="margin:0 0 24px">'
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
-        f'<span style="font-size:19px;font-weight:700;color:{RENK["metin"]}">👑 Patron Panosu</span>'
-        f'<span style="color:{RENK["silik"]};font-size:11px">yalnızca sana özel · sabah kokpiti</span>'
-        '</div>'
-        + (f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">{_nabiz_html}</div>'
+        '<div>'
+        '<div class="k-ana-bolum">Patron panosu<span>yalnız sana görünür</span></div>'
+        + (f'<div class="k-ana-kpi">{_nabiz_html}</div>'
            if _nabiz_html else "")
         + _trend_html
         + _hata_html
