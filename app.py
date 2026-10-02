@@ -1740,6 +1740,7 @@ def ust_navigasyon():
     /* Tek ŞERİT + çerçevesiz sekmeler (eskiden 10 ayrı çerçeveli kutu, eşit
        genişlikte → kalabalık ve amatör görünüyordu). Gruplar: [Ana Sayfa · Arama]
        | [modüller] ......... [Hesap Makinesi] (yardımcı araç, sağa yaslı). */
+    html body .st-key-ustnav{{container-type:inline-size;container-name:ustnav;}}
     {N} [data-testid="stHorizontalBlock"]{{gap:2px !important;margin:0 !important;padding:4px !important;
         flex-wrap:nowrap !important;overflow-x:auto !important;scrollbar-width:none;align-items:center !important;
         -webkit-overflow-scrolling:touch;background:var(--k-yuzey2) !important;
@@ -1763,6 +1764,11 @@ def ust_navigasyon():
     {N} .st-key-ust_talep button p{{color:var(--k-mor2) !important;}}
     {N} .st-key-ust_talep button span:has(> [data-testid="stIconMaterial"]){{display:inline-flex !important;}}
     {N} .st-key-ust_talep button [data-testid="stIconMaterial"]{{display:inline !important;color:var(--k-mor2) !important;}}
+    /* Talep HER genişlikte şeridin sağ ucuna yapışık: sekmeler sığmayıp şerit
+       kaydığında bile görünür (eskiden yalnız telefonda; küçük monitörde kesiliyordu). */
+    {N} [data-testid="stColumn"]:has(.st-key-ust_talep){{position:sticky !important;right:-4px !important;
+        z-index:2 !important;background:var(--k-yuzey2) !important;padding-right:4px !important;
+        box-shadow:-10px 0 10px -6px var(--k-yuzey2) !important;}}
     {N} button{{
         min-height:34px !important;height:34px !important;padding:0 12px !important;gap:6px !important;
         border-radius:8px !important;font-size:13px !important;font-weight:500 !important;
@@ -1784,13 +1790,17 @@ def ust_navigasyon():
         color:var(--k-metin) !important;font-weight:650 !important;}}
     {N} button[kind="primary"] [data-testid="stIconMaterial"],
     {N} button[data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"]{{color:var(--k-mor) !important;}}
-    /* Dar ekranlarda ikonları gizle. İkonun KUTUSU da gizlenmeli; yalnız
-       ikon gizlenince boş kutu yazıyı sağa itip "…" ile kesiyordu. */
-    @media (max-width:1500px){{
+    /* Dar şeritte ikonları gizle. İkonun KUTUSU da gizlenmeli; yalnız
+       ikon gizlenince boş kutu yazıyı sağa itip "…" ile kesiyordu.
+       Eşikler EKRANA değil ŞERİDİN kendi genişliğine bakar (container query):
+       kenar çubuğu açıkken şerit ekrandan dardır; ekran genişliğine bakan eski
+       kural küçük monitörde ikonları gösterip şeridi taşırıyordu.
+       Ölçülen içerik: ikonlu ≈1195 px, ikonsuz ≈955 px. */
+    @container ustnav (max-width:1260px){{
         {N} button span:has(> [data-testid="stIconMaterial"]),
         {N} button [data-testid="stIconMaterial"]{{display:none !important;}}
         {N} button{{padding:0 9px !important;}} }}
-    @media (max-width:1300px){{
+    @container ustnav (max-width:1020px){{
         {N} button{{padding:0 7px !important;}}
         {N} button p{{font-size:12.5px !important;}} }}
     /* Mobil: Streamlit sütunları alt alta dizer (10 düğme = yarım ekran).
@@ -1800,10 +1810,6 @@ def ust_navigasyon():
         {N} [data-testid="stColumn"]{{flex:0 0 auto !important;width:auto !important;}}
         {N} [data-testid="stColumn"]:has(.st-key-top_hesap_makinesi){{margin-left:0 !important;}}
         {N} button{{padding:0 12px !important;}}
-        /* Kayan şeridin sağ ucuna yapışık: kaydırmadan da görünür */
-        {N} [data-testid="stColumn"]:has(.st-key-ust_talep){{position:sticky !important;right:-4px !important;
-            z-index:2 !important;background:var(--k-yuzey2) !important;padding-right:4px !important;
-            box-shadow:-10px 0 10px -6px var(--k-yuzey2) !important;}}
     }}
 
     /* Sayfa içi radyolar: shared/tasarim.SIDEBAR_CSS (iki Streamlit yapısını da tanır) */
