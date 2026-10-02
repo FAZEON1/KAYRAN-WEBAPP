@@ -709,6 +709,8 @@ YEDEK_TABLOLAR = [
     "edefter_ayarlar", "edefter_donem_kilit", "edefter_fisler", "edefter_fis_satirlari", "edefter_hesap_plani",
     # Teknik servis
     "ts_kayitlar", "ts_gecmis",
+    # Hesap Makinesi (prim ödeme geçmişi — tek tırnakla yazıldığı için denetimden kaçıyordu)
+    "prim_gecmis",
     # Ortak
     "siparis_onerileri", "talepler", "gorevler", "bildirimler",
     "sistem_ayarlari", "pm_ayarlar", "kullanici_yetkileri", "kullanici_tercih", "gunluk_giris",

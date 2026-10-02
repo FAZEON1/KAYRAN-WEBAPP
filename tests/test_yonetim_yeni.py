@@ -126,8 +126,9 @@ def _kodda_kullanilan_tablolar():
         if "tests" in f.parts or ".git" in f.parts:
             continue
         s = f.read_text(encoding="utf-8", errors="ignore")
-        adlar |= set(re.findall(r'table\(\s*"([a-z_0-9]+)"\s*\)', s))
-        adlar |= set(re.findall(r'^\w*TABLO\s*=\s*"([a-z_0-9]+)"', s, re.M))
+        # tek ve çift tırnak (prim_gecmis tek tırnakla yazıldığı için gözden kaçıyordu)
+        adlar |= set(re.findall(r'table\(\s*["\']([a-z_0-9]+)["\']\s*\)', s))
+        adlar |= set(re.findall(r'^\w*TABLO\s*=\s*["\']([a-z_0-9]+)["\']', s, re.M))
     return adlar
 
 
