@@ -663,10 +663,13 @@ def run():
                 toplam_stok_degeri = sum(u.get("stok_degeri_fcp", 0) for u in urun_data)
                 toplam_satis_degeri = sum(u.get("stok_degeri_satis", 0) for u in urun_data)
                 toplam_genel_stok = sum(u.get("toplam_stok", u.get("bizim_stok", 0)) for u in urun_data)
+                toplam_kanal_stok = sum(u.get("kanal_stok", 0) or 0 for u in urun_data)
     
                 metrik_satiri([
                     {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(len(urun_data))}", "renk": trenk("mor")},
-                    {"label": "🏭 Toplam Stok (Tüm Kanallar)", "value": f"{tr_sayi(toplam_genel_stok)} adet", "renk": trenk("cyan")},
+                    {"label": "🏭 Toplam Stok", "value": f"{tr_sayi(toplam_genel_stok)} adet", "renk": trenk("cyan"),
+                     "alt": (f"Merkez + Happy Life · kanallarda {tr_sayi(toplam_kanal_stok)}" if toplam_kanal_stok
+                             else "Merkez + Happy Life")},
                     {"label": "💰 Depo Stok Değeri (Maliyet)", "value": f"${tr_sayi(toplam_stok_degeri)}", "renk": trenk("amber")},
                     {"label": "💵 Depo Stok Değeri (Satış)", "value": f"${tr_sayi(toplam_satis_degeri)}", "renk": trenk("yesil")},
                 ])
@@ -709,18 +712,21 @@ def run():
     
             bizim_stok = secilen.get("bizim_stok", 0)
             toplam_firma = secilen.get("toplam_firma_stok", 0)
-            toplam = secilen.get("toplam_stok", bizim_stok + toplam_firma)
+            toplam = secilen.get("toplam_stok", bizim_stok)          # bizim satılabilir (stok_hesap)
+            _zincir = secilen.get("zincir_stok", bizim_stok + toplam_firma)
     
             # Stok kartları — ortak tema (renkli sol şeritli kart)
             _stok_cards = [{"label": "G5F depo", "value": f"{tr_sayi(bizim_stok)}", "alt": "adet", "renk": trenk("mavi")}]
             for firma, adet in firma_st.items():
                 if adet > 0:
-                    _stok_cards.append({"label": KANAL_AD.get(firma, firma), "value": f"{tr_sayi(adet)}", "alt": "adet"})
+                    _stok_cards.append({"label": KANAL_AD.get(firma, firma), "value": f"{tr_sayi(adet)}", "alt": "adet · kanalda"})
             st.markdown(
                 f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
                 f'<span style="color:var(--k-metin); font-size:14px; font-weight:700;">Stok dağılımı</span>'
-                f'<span style="color:var(--k-amber); font-size:19px; font-weight:700;">{tr_sayi(toplam)} adet</span>'
-                f'</div>',
+                f'<span><span style="color:var(--k-amber); font-size:19px; font-weight:700;">{tr_sayi(toplam)} adet</span>'
+                + (f'<span style="color:var(--k-silik); font-size:12px;"> · kanal dahil {tr_sayi(_zincir)}</span>'
+                   if toplam_firma else '')
+                + '</span></div>',
                 unsafe_allow_html=True)
             metrik_satiri(_stok_cards)
 
@@ -739,8 +745,8 @@ def run():
                     f'<span style="color:var(--k-metin);font-size:14px;font-weight:700">🏬 G5F depo kırılımı</span>'
                     f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                     f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
-                    f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Sipariş önerisinde kullanılan stok '
-                    f'(Merkez + Happy Life): <b style="color:var(--k-mavi)">{tr_sayi(bizim_stok)}</b></div>'
+                    f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Satılabilir '
+                    f'(Merkez + Happy Life) = toplam stok: <b style="color:var(--k-mavi)">{tr_sayi(bizim_stok)}</b></div>'
                     f'</div>', unsafe_allow_html=True)
     
             # Fiyat ve karlılık kartı
@@ -821,7 +827,7 @@ def run():
                 {"label": "📦 Toplam Stok", "value": f"{tr_sayi(toplam_stok_ud)}", "renk": trenk("mor")},
                 {"label": "📊 Ort. Hft. Satış", "value": f"{tr_sayi(round(urun.get('ortalama_haftalik_satis', 0)))}", "renk": trenk("cyan")},
                 {"label": "⚡ Risk Skoru", "value": f"{_risk}/100", "renk": _risk_renk},
-                {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": trenk("mor")},
+                {"label": "📅 Stok Biter", "value": stok_bitis_str, "renk": trenk("mor"), "alt": "kanal dahil stokla"},
                 {"label": "📦 Sipariş Önerisi", "value": f"{urun.get('oneri_miktar',0)} adet", "renk": trenk("amber")},
             ])
     

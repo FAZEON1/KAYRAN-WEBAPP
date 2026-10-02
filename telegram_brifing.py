@@ -94,7 +94,6 @@ def satis_blogu_kur(pnl):
     """Saf fonksiyon: satış/kârlılık özetinden Telegram bloğu üretir.
     pnl = {'dun','hafta','ay'} — her biri ozet_hesapla çıktısı (top, kanal, urun)
     ya da None. Para birimi USD (uygulamadaki P&L ile aynı)."""
-    e = html.escape
     L = ["", "━━━━━━━━━━━━━━", "💹 <b>SATIŞ & KÂRLILIK</b>"]
 
     def ozet_satir(etiket, veri):

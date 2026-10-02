@@ -435,14 +435,11 @@ def tum_urunler_listesi():
     # Tüm firma stoklarını tek sorguda al (en son tarih bazında)
     tum_firma_rows = sb.table("firma_stok").select("firma, sku, stok_miktari, yukleme_tarihi").execute().data or []
 
-    # Her firma+sku için en son tarihin stok miktarını bul
-    firma_stok_map = {}  # (firma, sku) -> stok_miktari
-    tarih_map = {}  # (firma, sku) -> en_son_tarih
-    for r in tum_firma_rows:
-        key = (r["firma"], r["sku"])
-        if key not in tarih_map or r["yukleme_tarihi"] > tarih_map[key]:
-            tarih_map[key] = r["yukleme_tarihi"]
-            firma_stok_map[key] = r["stok_miktari"] or 0
+    # Her kanalın SON raporu (stok_hesap.kanal_stoklari — pano ve stok kartıyla
+    # aynı kural). Eskiden ürünün en son görüldüğü satır alınıyordu: kanalın son
+    # raporundan düşen ürün eski haftanın adediyle sayılıyordu (625 / 614).
+    from .stok_hesap import kanal_stoklari, stok_ozeti
+    _kanal = kanal_stoklari(tum_firma_rows)
 
     kayit_map = {}  # satın-alma geçmişi İthalat'a taşındı
 
@@ -456,13 +453,14 @@ def tum_urunler_listesi():
         bizim_stok = u.get("bizim_stok") or 0
 
         # Firma stoklarını map'ten al (sorgu yok)
-        firma_stoklari = {firma: firma_stok_map.get((firma, sku), 0) for firma in FIRMALAR}
+        firma_stoklari = {firma: _kanal.get(firma, {}).get(sku, 0) for firma in FIRMALAR}
 
         # Satın alma geçmişini map'ten al (sorgu yok)
         kayitlar = kayit_map.get(sku, [])
 
-        toplam_firma_stok = sum(firma_stoklari.values())
-        toplam_stok = bizim_stok + toplam_firma_stok
+        _oz = stok_ozeti(bizim_stok, firma_stoklari)
+        toplam_firma_stok = _oz["kanal_stok"]
+        toplam_stok = _oz["toplam_stok"]          # bizim satılabilir (kanal hariç)
 
         # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
         # ithalat partisi yoksa ürünün ilk giriş tarihine düşer
@@ -514,6 +512,8 @@ def tum_urunler_listesi():
             "firma_stoklari": firma_stoklari,
             "toplam_firma_stok": toplam_firma_stok,
             "toplam_stok": toplam_stok,
+            "kanal_stok": _oz["kanal_stok"],
+            "zincir_stok": _oz["zincir_stok"],
             "stok_gun": stok_gun,
             "stok_renk": stok_renk,
             "ilk_giris": ilk_giris,
@@ -641,11 +641,16 @@ def dashboard_hesapla():
         kategori = urun.get("kategori", "")
 
         # Firma stok toplamı
-        toplam_firma_stok = sum(
-            (firma_data.get(f, {}).get(sku, {}) or {}).get("stok_miktari", 0) or 0
-            for f in FIRMA_LISTESI
-        )
-        toplam_stok = bizim_stok + toplam_firma_stok
+        # firma_data zaten her kanalın SON raporu (stok_hesap ile aynı kural).
+        # Sipariş/risk/kapsama hesabı KANAL DAHİL stokla (zincir_stok) yapılır:
+        # satış hızı kanalların son kullanıcıya satışıdır. Gösterilen toplam_stok
+        # ise bizim satılabilir stoktur.
+        from .stok_hesap import stok_ozeti
+        _oz = stok_ozeti(bizim_stok, {
+            f: (firma_data.get(f, {}).get(sku, {}) or {}).get("stok_miktari", 0) or 0
+            for f in FIRMA_LISTESI})
+        toplam_firma_stok = _oz["kanal_stok"]
+        zincir_stok = _oz["zincir_stok"]
 
         # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
         # ithalat partisi yoksa eski yönteme (ilk görülen tarih) düşer
@@ -675,8 +680,8 @@ def dashboard_hesapla():
                 satis_karsilastirma.append((firma, f_satis))
                 continue
 
-            gun_sayisi, gun_renk = kac_gunluk_satis(toplam_stok, f_satis)
-            uyari = siparis_uyarisi_kontrol(sku, firma, firma_data, toplam_stok)
+            gun_sayisi, gun_renk = kac_gunluk_satis(zincir_stok, f_satis)
+            uyari = siparis_uyarisi_kontrol(sku, firma, firma_data, zincir_stok)
             muadil_gerekli = False
             satis_karsilastirma.append((firma, f_satis))
 
@@ -710,22 +715,22 @@ def dashboard_hesapla():
         yol = yoldaki_data.get(sku, {})
         yoldaki_miktar = yol.get("yoldaki_miktar", 0) or 0
 
-        # Sipariş takvimi — TOPLAM STOK + YOLDAKİ baz alınır
+        # Sipariş takvimi — KANAL DAHİL STOK + YOLDAKİ baz alınır
         # (yoldaki = üretimde/yolda/gümrükte/antrepoda; yeni siparişten önce gelir)
         stok_bitis_gun, siparis_son_gun, siparis_durum, siparis_mesaj = siparis_takvimi_hesapla(
-            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us,
+            zincir_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis, _us,
             yoldaki_miktar
         )
 
-        # Sipariş miktarı önerisi — TOPLAM STOK baz alınır
+        # Sipariş miktarı önerisi — KANAL DAHİL STOK baz alınır
         oneri_miktar, oneri_mesaj = siparis_miktari_oneri(
-            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis,
+            zincir_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis,
             trend_yon, trend_yuzdesi, yoldaki_miktar, _us
         )
 
-        # Risk skoru — TOPLAM STOK baz alınır
+        # Risk skoru — KANAL DAHİL STOK baz alınır
         risk_skor, risk_etiketi = risk_skoru_hesapla(
-            toplam_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis,
+            zincir_stok, ortalama_satis if ortalama_satis > 0 else toplam_satis,
             stok_gun, siparis_son_gun, trend_yon
         )
 
@@ -766,7 +771,9 @@ def dashboard_hesapla():
             "ithalat_son_tarih": (_ith.get("son_tarih", "") or "" if _ith else ""),
             "ithalat_dosya_sayisi": (_ith.get("dosya_sayisi", 0) if _ith else 0),
             "bizim_stok": bizim_stok,
-            "toplam_stok": toplam_stok,
+            "toplam_stok": _oz["toplam_stok"],
+            "kanal_stok": _oz["kanal_stok"],
+            "zincir_stok": zincir_stok,
             "toplam_firma_stok": toplam_firma_stok,
             "trendyol_stok": trendyol_stok,
             "stok_gun": stok_gun,

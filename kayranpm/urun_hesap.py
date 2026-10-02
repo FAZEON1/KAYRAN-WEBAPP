@@ -92,7 +92,9 @@ def urun_satiri(u):
     for k in KANALLAR:
         r[k] = int(fs.get(k, 0) or 0)
     r.update({
-        "Toplam": int(u.get("toplam_stok", u.get("bizim_stok", 0)) or 0),
+        # Toplam stok = G5F Depo (bizim satılabilir). Kanaldaki mal dahil sayı ayrı
+        # sütunda; sipariş hesabının kullandığı stok budur (stok_hesap.zincir_stok).
+        "Kanal dahil": int(u.get("zincir_stok", u.get("toplam_stok", u.get("bizim_stok", 0))) or 0),
         "FOB ($)": fob if ith_var else None,
         "Son FOB ($)": son_fob if (ith_var and son_fob) else None,
         "Maliyet %": maliyet_yuzde,
@@ -106,7 +108,7 @@ def urun_satiri(u):
 
 
 SIRALAR = {"Stok yaşı (gün)": "_stok_yas", "Net kâr ($)": "Net Kar ($)", "Net marj (%)": "Net Marj (%)",
-           "Maliyet %": "Maliyet %", "Toplam stok": "Toplam", "Satış ($)": "Satış ($)",
+           "Maliyet %": "Maliyet %", "Toplam stok": "G5F Depo", "Satış ($)": "Satış ($)",
            "FOB ($)": "FOB ($)", "Risk skoru": "_risk", "SKU (A-Z)": "SKU"}
 
 

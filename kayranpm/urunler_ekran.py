@@ -32,7 +32,7 @@ SIRALAMA = [
     ("Net kâr · düşükten", "Net Kar ($)", False),
     ("Net marj · yüksekten", "Net Marj (%)", True),
     ("Net marj · düşükten", "Net Marj (%)", False),
-    ("Toplam stok · çoktan", "Toplam", True),
+    ("Toplam stok · çoktan", "G5F Depo", True),
     ("Satış fiyatı · yüksekten", "Satış ($)", True),
     ("Maliyet % · yüksekten", "Maliyet %", True),
     ("Risk skoru · yüksekten", "_risk", True),
@@ -105,7 +105,7 @@ def _satir(r):
         f"{ON_EK}_{_k}",
         f'<div class="pu-sr"><div class="pu-sol"><div style="font-family:var(--k-mono);font-size:12.5px;'
         f'font-weight:700;color:var(--k-mor2);overflow:hidden;text-overflow:ellipsis">{_e(sku)}</div>'
-        f'<div style="font-size:11.5px;color:var(--k-silik)">stok {tr_sayi(r.get("Toplam") or 0)}</div></div>'
+        f'<div style="font-size:11.5px;color:var(--k-silik)">stok {tr_sayi(r.get("G5F Depo") or 0)}</div></div>'
         f'<div class="pu-orta"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
         f'text-overflow:ellipsis">{_e(r.get("Ürün Adı")) or _e(sku)}</div>{meta}</div>'
         f'<div class="pu-sag"><div style="font-family:var(--k-mono);font-size:13px;font-weight:600">{fiyat}</div>'
