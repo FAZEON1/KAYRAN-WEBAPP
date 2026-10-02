@@ -9,6 +9,7 @@ Havuz Bütçe mantığı:
   - Kalan havuz    = toplam giriş − toplam harcama
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import re
 import pandas as pd
@@ -723,7 +724,8 @@ def _senkronize_firmalar():
             try:
                 sb.table("ref_kayitlari").update({"firma_id": hedef_id}).eq("firma_id", f["id"]).execute()
                 sb.table("ref_butce").update({"firma_id": hedef_id}).eq("firma_id", f["id"]).execute()
-                sb.table("ref_firmalar").delete().eq("id", f["id"]).execute()
+                with cop_kutusu_kapali():
+                    sb.table("ref_firmalar").delete().eq("id", f["id"]).execute()
                 degisti = True
             except Exception:
                 pass
@@ -1112,7 +1114,8 @@ def butce_excel_ice_aktar(firma_id, df, temizle=False):
                            "Güvenlik için hiçbir mevcut kayıt silinmedi."), 0
         # Geçerli satır var → (istenirse) önce temizle, sonra ekle
         if temizle:
-            sb.table("ref_butce").delete().eq("firma_id", firma_id).execute()
+            with cop_kutusu_kapali():
+                sb.table("ref_butce").delete().eq("firma_id", firma_id).execute()
         for i in range(0, len(rows), 200):
             sb.table("ref_butce").insert(rows[i:i + 200]).execute()
         _cache_temizle()
@@ -2518,11 +2521,19 @@ def _render_butce(fid, firma):
     if st.button("Değişiklikleri Kaydet", type="primary", key=f"butce_save_{fid}", icon=":material/save:"):
         orijinal = {r["id"]: r for r in goster}
         silinen = degisen = 0
+        # Silinemeyen kayıtlar. Eskiden bu liste HİÇ oluşturulmuyordu: her kaydetmede
+        # NameError — değişiklik yoksa sayfa çöküyor, varsa güncelleme yazılıp önbellek
+        # temizlenmeden hata veriyordu.
+        _sil_hata = []
         for _, row in edited.iterrows():
             rid = row["id"]
             if bool(row.get("Sil?")):
                 if butce_sil(rid):
                     silinen += 1
+                else:
+                    _o = orijinal.get(rid, {})
+                    _sil_hata.append(f"{_o.get('aciklama') or _o.get('tur') or 'kayıt'} "
+                                     f"({_o.get('fatura_no') or rid})")
                 continue
             o = orijinal.get(rid, {})
             n_tur = str(row.get("Tür", "") or "")

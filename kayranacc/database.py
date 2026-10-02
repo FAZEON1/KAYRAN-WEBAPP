@@ -1,4 +1,5 @@
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 import os
 import math
 import streamlit as st
@@ -612,7 +613,8 @@ def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
 
     # 1) Önce bu para birimindeki eski kayıtları temizle
     if temizle_onceki:
-        sb.table("cekler").delete().eq("para_birimi", para_birimi).execute()
+        with cop_kutusu_kapali():
+            sb.table("cekler").delete().eq("para_birimi", para_birimi).execute()
 
     # 2) Sonra yeni kayıtları ekle
     rows = []

@@ -1,4 +1,5 @@
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 import pandas as pd
 from datetime import datetime
 from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik, get_today
@@ -829,8 +830,9 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
         # ── SNAPSHOT DEĞİŞTİR: bu firmanın bu RAPOR HAFTASINA ait kayıtlarını
         #    önce temizle (aynı haftanın dosyası tekrar yüklenirse şişmesin). ──
         try:
-            get_client().table("firma_stok").delete() \
-                .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute()
+            with cop_kutusu_kapali():
+                get_client().table("firma_stok").delete() \
+                    .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute()
         except Exception:
             pass
 

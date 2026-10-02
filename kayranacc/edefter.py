@@ -10,6 +10,7 @@
 # ══════════════════════════════════════════════════════════════════════
 
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
@@ -150,7 +151,8 @@ def edf_donem_kilit_ac(yil, ay, personel=""):
     donem = f"{int(yil)}-{int(ay):02d}"
     try:
         sb = get_client()
-        sb.table("edefter_donem_kilit").delete().eq("donem", donem).execute()
+        with cop_kutusu_kapali():
+            sb.table("edefter_donem_kilit").delete().eq("donem", donem).execute()
         import calendar
         bas = f"{donem}-01"
         son = f"{donem}-{calendar.monthrange(int(yil), int(ay))[1]:02d}"
@@ -286,7 +288,8 @@ def edf_fis_ekle(tarih, tur, aciklama, belge_no, satirlar, personel=""):
         try:
             sb.table("edefter_fis_satirlari").insert(rows).execute()
         except Exception as ke:
-            sb.table("edefter_fisler").delete().eq("id", fid).execute()
+            with cop_kutusu_kapali():
+                sb.table("edefter_fisler").delete().eq("id", fid).execute()
             return False, f"❌ Satırlar yazılamadı, fiş geri alındı: {str(ke)[:120]}", None
         try:
             edf_get_fisler.clear()
@@ -694,7 +697,8 @@ def edf_ayar_kaydet(data):
         except Exception:
             # upsert yoksa: sil + ekle
             try:
-                get_client().table("edefter_ayarlar").delete().eq("id", 1).execute()
+                with cop_kutusu_kapali():
+                    get_client().table("edefter_ayarlar").delete().eq("id", 1).execute()
             except Exception:
                 pass
             get_client().table("edefter_ayarlar").insert(_p).execute()
