@@ -2343,6 +2343,8 @@ def run():
     
             with col1:
                 st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
+                from shared.yukleme_takvimi import serit as _yt_serit
+                _yt_serit("odeme_listesi")
                 odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
                 if odeme_file:
                     st.success(f"✅ {odeme_file.name} seçildi")
@@ -2385,6 +2387,9 @@ def run():
                                 hafta_id = hafta_ekle(hafta_adi or f"Hafta {len(get_tum_haftalar()) + 1}")
                                 hafta_aktif_yap(hafta_id)
                                 odeme_ekle_bulk(hafta_id, odemeler)
+                                from shared.yukleme_takvimi import kaydet as _yt_kaydet
+                                _yt_kaydet("odeme_listesi", st.session_state.get("aktif_kullanici", ""),
+                                           len(odemeler))
                                 mesajlar.append(f"✅ {len(odemeler)} ödeme yüklendi — '{hafta_adi}'")
                             else:
                                 mesajlar.append("⚠️ Ödeme listesinde işlenebilir veri bulunamadı.")
@@ -3049,6 +3054,8 @@ def run():
                 """Tek dosya için: durum + seçici + işleme + sonuç gösterimi."""
                 st.markdown(f"##### {no} {baslik}")
                 _durum_rozeti(baslik, meta, yuklu, ozet_satir)
+                from shared.yukleme_takvimi import serit as _yt_serit
+                _yt_serit(f"aktif_{anahtar}")     # aktif_stok · aktif_ithalat · aktif_cari
                 if yardim:
                     st.caption(yardim)
 
@@ -3072,6 +3079,8 @@ def run():
                                 st.session_state[_sonuc_key] = detay
                                 kaydet_fn(deger, ham)
                                 st.session_state[f"_ok_{anahtar}"] = fid
+                                from shared.yukleme_takvimi import _temizle as _yt_tazele
+                                _yt_tazele()          # geri sayım yeni yükleme zamanını görsün
                                 durum.update(label=f"✅ {f.name} yüklendi", state="complete")
                             except _BicimHatasi as e:
                                 durum.update(label=f"❌ {f.name} okunamadı", state="error")

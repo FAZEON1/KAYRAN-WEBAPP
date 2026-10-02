@@ -75,7 +75,10 @@ def test_satir_html_kacirir():
 
 
 def test_topla_hic_yetki_yoksa_bos_ve_cokmez():
-    assert B.topla({}, False, False) == []
+    """Ekim 2026: dönemsel yükleme hatırlatmaları HERKESE gider (yetkiden bağımsız).
+    Yetkisiz kullanıcıya yalnız onlar düşer; ödeme / sipariş / talep maddeleri düşmez."""
+    m = B.topla({}, False, False)
+    assert all(x["anahtar"].startswith("yt_") for x in m), [x["anahtar"] for x in m]
 
 
 def test_anasayfa_bugun_paneli_ve_dekor_temizligi():

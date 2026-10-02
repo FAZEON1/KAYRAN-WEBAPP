@@ -510,6 +510,8 @@ def hl_get_stok(rapor_tarihi=None):
 def _sayfa_happylife():
     _baslik("🏭 Happy Life Kiralık Depo",
             "Palet bazlı stok · stok yaşı tarihe göre canlı hesaplanır (kira takibi)")
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("happylife")                       # dönemsel rapor: geri sayım şeridi
 
     # ── Excel yükleme ──
     with st.expander("📥 Günlük Excel Yükle (G5F_Stok)", expanded=False):
@@ -534,6 +536,8 @@ def _sayfa_happylife():
                     except Exception:
                         pass
                     if ok:
+                        from shared.yukleme_takvimi import _temizle as _yt_tazele
+                        _yt_tazele()
                         st.toast(msg)          # rerun'dan önce basılan mesaj kayboluyordu
                         st.rerun()
                     else:

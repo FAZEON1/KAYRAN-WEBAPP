@@ -717,6 +717,8 @@ def run():
         # ═════════ ARAÇLAR — 4 pencere butonu ═════════
         @st.dialog(f"📤 {_yil} Gider Tablosu Yükle", width="large")
         def _dlg_gider_yukle():
+            from shared.yukleme_takvimi import serit as _yt_serit
+            _yt_serit("gider_tablosu")
             st.markdown("Boş taslağı muhasebene gönder; **sabit / değişken / yarı değişken** kalemleri "
                         "12 ay için doldurulup buraya `.xlsx` olarak yüklenir. Aynı yılı tekrar yüklersen güncellenir.")
             _gf = st.file_uploader("Doldurulmuş Gider Tablosu (.xlsx / .xls)", type=["xlsx", "xls"],
@@ -738,6 +740,8 @@ def run():
                             _kayit = {"kat": _katp, "detay": _detayp, "tarih": str(dt.date.today())}
                             if _sa3:
                                 _sa3(_gider_anahtar, _kayit)
+                                from shared.yukleme_takvimi import _temizle as _yt_tazele
+                                _yt_tazele()                      # geri sayım yeni ayı görsün
                             st.success(f"✅ {len(_detayp)} kalem · yıllık ₺{tr_sayi(_yillik_top)} kaydedildi.")
                             st.rerun()
                     except Exception as e:

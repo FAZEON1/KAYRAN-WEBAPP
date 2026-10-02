@@ -2107,6 +2107,84 @@ def _bugun_panel(aktif_kullanici, yetkiler):
                            use_container_width=True, on_click=_sayfaya_git, args=(_m["hedef"],))
 
 
+def _veri_guncelligi(aktif_kullanici, yetkiler):
+    """Dönemsel Excel yüklemeleri: her kaynak için geri sayım kartı — HERKES görür.
+    Veri ve hesap shared/yukleme_takvimi.py'de; burada yalnız çizim ve iki eylem:
+    'bu dönem veri yok' (modül yetkilisi / sistem yöneticisi) ve ayarlar (sistem yöneticisi)."""
+    try:
+        from shared import yukleme_takvimi as _yt
+        _bg = _yt._bugun()
+        _dl = _yt.tum_durumlar(_bg.isoformat())
+    except Exception as _e:  # noqa: BLE001
+        try:
+            from shared.hata_log import kaydet as _hk
+            _hk("anasayfa.veri_guncelligi", _e)
+        except Exception:
+            pass
+        return
+    if not _dl:
+        return
+    _say = {s: sum(1 for d in _dl if d["seviye"] == s) for s in ("gecikti", "yaklasiyor", "guncel")}
+    _oz = " · ".join(p for p in (
+        f'<span style="color:var(--k-kirmizi)">{_say["gecikti"]} gecikti</span>' if _say["gecikti"] else "",
+        f'<span style="color:var(--k-amber)">{_say["yaklasiyor"]} yaklaşıyor</span>' if _say["yaklasiyor"] else "",
+        f'{_say["guncel"]} güncel' if _say["guncel"] else "") if p)
+    st.markdown(f'<div class="k-ana-bolum">Veri güncelliği<span>{_oz}</span></div>', unsafe_allow_html=True)
+    _sira = {"gecikti": 0, "yaklasiyor": 1, "guncel": 2}
+    _dl = sorted(_dl, key=lambda d: (_sira[d["seviye"]], d.get("kalan_gun") or 0))
+    _kol = st.columns(3)
+    for _i, _d in enumerate(_dl):
+        _kol[_i % 3].markdown(_yt.kart_html(_d), unsafe_allow_html=True)
+
+    _sistem = ozel_yetki(aktif_kullanici, "kullanici_yonetimi")
+    _e1, _e2, _ = st.columns([1.3, 1, 2.2])
+    _isaretlenebilir = [d for d in _dl if d["seviye"] == "gecikti" and (_sistem or yetkiler.get(d["modul"]))]
+    if _isaretlenebilir:
+        with _e1.popover("Bu dönem veri yok", icon=":material/event_busy:", use_container_width=True):
+            st.caption("Bir dönemde gerçekten yüklenecek veri yoksa (ör. o ay iade olmadı) işaretle; "
+                       "o dönem eksik sayılmaz, hatırlatma kalkar.")
+            _sec = st.selectbox("Kaynak", _isaretlenebilir, key="yt_atla_kaynak",
+                                format_func=lambda d: d["ad"])
+            _don = st.selectbox("Dönem", _sec["eksik"], key=f"yt_atla_donem_{_sec['anahtar']}",
+                                format_func=lambda p: _yt.donem_adi(_sec["siklik"], p))
+            if st.button("Veri yok olarak işaretle", key="yt_atla_btn", type="primary",
+                         use_container_width=True):
+                _yt.atla(_sec["anahtar"], _don)
+                st.toast(f'{_sec["ad"]} · {_yt.donem_adi(_sec["siklik"], _don)}: veri yok olarak işaretlendi')
+                st.rerun()
+    if _sistem:
+        # Pencere: açılır menü dar kalıyor, tablonun "Takipte" sütunu kesiliyordu
+        @st.dialog("Veri güncelliği · takvim ayarları", width="large")
+        def _yt_ayar_penceresi():
+            st.caption("Sıklık ve son gün. Haftalık: son gün hafta günü · aylık / çeyreklik: ayın kaçı (1–28).")
+            import pandas as _pd
+            _ay = _yt._ayar(_yt.AYAR_ANAHTAR, {})
+            _df = _pd.DataFrame([{
+                "anahtar": k["anahtar"], "Kaynak": k["ad"],
+                "Sıklık": _yt.SIKLIKLAR[_yt.kaynak_ayari(k["anahtar"], _ay)["siklik"]],
+                "Son gün": int(_yt.kaynak_ayari(k["anahtar"], _ay)["son_gun"]),
+                "Takipte": _yt.kaynak_ayari(k["anahtar"], _ay)["aktif"]} for k in _yt.KAYNAKLAR])
+            _ed = st.data_editor(
+                _df, hide_index=True, key="yt_ayar_editor", use_container_width=True,
+                column_order=["Kaynak", "Sıklık", "Son gün", "Takipte"],
+                column_config={
+                    "Kaynak": st.column_config.TextColumn(disabled=True),
+                    "Sıklık": st.column_config.SelectboxColumn(options=list(_yt.SIKLIKLAR.values()), required=True),
+                    "Son gün": st.column_config.NumberColumn(min_value=0, max_value=28, step=1,
+                                                             help="Haftalık: 0=Pazartesi … 6=Pazar"),
+                    "Takipte": st.column_config.CheckboxColumn()})
+            if st.button("Kaydet", key="yt_ayar_kaydet", type="primary", icon=":material/save:"):
+                _ters = {v: k for k, v in _yt.SIKLIKLAR.items()}
+                _yt.ayar_kaydet({r["anahtar"]: {"siklik": _ters.get(r["Sıklık"], "aylik"),
+                                                "son_gun": int(r["Son gün"] or 0), "aktif": bool(r["Takipte"])}
+                                 for _, r in _ed.iterrows()})
+                st.toast("Takvim ayarları kaydedildi")
+                st.rerun()
+
+        if _e2.button("Takvim ayarları", icon=":material/tune:", use_container_width=True, key="yt_ayar_ac"):
+            _yt_ayar_penceresi()
+
+
 def anasayfa():
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
@@ -2247,6 +2325,9 @@ def anasayfa():
 
     # ─── BUGÜN — dikkat gerektiren işler (D2) ───
     _bugun_panel(aktif_kullanici, yetkiler)
+
+    # ─── VERİ GÜNCELLİĞİ — dönemsel Excel'ler, geri sayım (herkes görür) ───
+    _veri_guncelligi(aktif_kullanici, yetkiler)
 
     # ─── PATRON PANOSU — yalnızca yetkili kullanıcıya (sabah kokpiti) ───
     _patron_gor = ozel_yetki(aktif_kullanici, "patron_panel")

@@ -2096,6 +2096,8 @@ def run():
             st.markdown(_sb("🧾 Satış", "Geçmiş Satışları İçe Aktar",
                             aciklama="Mikro fatura bazlı satış dökümü. Maliyet güncel paçaldan gelir; "
                                      "daha önce kaydedilmiş faturalar atlanır."), unsafe_allow_html=True)
+            from shared.yukleme_takvimi import serit as _yt_serit
+            _yt_serit("satis_dokumu")            # dönemsel yükleme: geri sayım şeridi
             _adim_yer = st.empty()
             _dosya = st.file_uploader("Fatura dökümü (.xls / .xlsx)", type=["xls", "xlsx"],
                                       key="satis_ice_aktar")
@@ -2201,6 +2203,9 @@ def run():
                         if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                             st.error(f"❌ {_sonuc['hata']}")
                         else:
+                            from shared.yukleme_takvimi import kaydet as _yt_kaydet
+                            _yt_kaydet("satis_dokumu", st.session_state.get("aktif_kullanici", ""),
+                                       _sonuc.get("eklendi"))
                             _msg = f"✅ {tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
                             if _sonuc.get("silinen_fatura"):
                                 _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
@@ -2369,11 +2374,16 @@ def run():
                             if _r.get("hata"):
                                 st.error(f"Hata: {_r['hata']}")
                             else:
-                                st.success(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
+                                from shared.yukleme_takvimi import kaydet as _yt_kaydet
+                                _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""),
+                                           _r.get("eklendi"))
+                                st.toast(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                                 st.cache_data.clear()
                                 st.rerun()
             if _iey.get("btn_sat_tiade"):
                 _dlg_toplu_iade()
+            from shared.yukleme_takvimi import serit as _yt_serit
+            _yt_serit("iade_aylik")              # aylık iade Excel'i: geri sayım şeridi
 
             _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
             _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
