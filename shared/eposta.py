@@ -19,8 +19,10 @@ import smtplib
 import ssl
 import threading
 from datetime import timedelta
+import re
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid
 
 UYGULAMA_URL = "https://kayran-corporate.streamlit.app"
 ADRES_ANAHTAR = "kullanici_eposta"            # {kullanici: adres}
@@ -67,12 +69,7 @@ def gonder(alicilar, konu, html, cc=None):
     if not a["user"] or not a["pass"]:
         return False, "smtp_yok"
     try:
-        msg = MIMEText(html, "html", "utf-8")
-        msg["Subject"] = konu
-        msg["From"] = formataddr(("KAYRAN Workspace", a["user"]))
-        msg["To"] = ", ".join(alicilar)
-        if cc:
-            msg["Cc"] = ", ".join(cc)
+        msg = mesaj_olustur(a["user"], alicilar, konu, html, cc)
         with smtplib.SMTP(a["host"], a["port"], timeout=15) as s:
             s.starttls(context=ssl.create_default_context())
             s.login(a["user"], a["pass"])
@@ -82,6 +79,31 @@ def gonder(alicilar, konu, html, cc=None):
         return False, "SMTP kimlik doğrulama hatası (kullanıcı adı / uygulama şifresi)"
     except Exception as e:  # noqa: BLE001
         return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+
+def duz_metin(html):
+    """HTML'den okunur düz metin (bağlantılar parantez içinde korunur)."""
+    t = re.sub(r'<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>', r"\2 (\1)", html, flags=re.S)
+    t = re.sub(r"<(br|/p|/div|/tr|/h2|hr)[^>]*>", "\n", t)
+    t = _h.unescape(re.sub(r"<[^>]+>", "", t))
+    return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", t)).strip()
+
+
+def mesaj_olustur(gonderen, alicilar, konu, html, cc=None):
+    """Spam filtrelerinin aradığı başlıklarla: Date, Message-ID, düz metin + HTML (multipart/alternative).
+    Eskiden yalnız HTML'di, Date ve Message-ID yoktu — üçü de spam puanını artırır."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = konu
+    msg["From"] = formataddr(("KAYRAN Workspace", gonderen))
+    msg["To"] = ", ".join(alicilar)
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    msg["Reply-To"] = gonderen
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=(gonderen.split("@")[-1] or None))
+    msg.attach(MIMEText(duz_metin(html), "plain", "utf-8"))    # önce düz metin, sonra HTML (RFC 2046)
+    msg.attach(MIMEText(html, "html", "utf-8"))
+    return msg
 
 
 def arka_planda(alicilar, konu, html, cc=None):

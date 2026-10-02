@@ -152,3 +152,17 @@ def test_sabah_isi():
     assert "if: always()" in w[w.rindex("- name:", 0, i):i]          # Telegram düşse de çalışır
     s = _oku("otonom/eposta_hatirlatma.py")
     assert "gonderilecekler(" in s and "hatirlatma_mailleri(" in s
+
+
+def test_spam_basliklari_ve_duz_metin():
+    """Date ve Message-ID yoktu, mail yalnız HTML'di — üçü de spam puanını artırır."""
+    import email as _em
+    from shared.eposta import mesaj_olustur, hatirlatma_mailleri
+    p = hatirlatma_mailleri([_d("a", "derya", "gecikti", gecikme=3)], date(2026, 10, 1), ADR)[0]
+    m = _em.message_from_string(mesaj_olustur("bot@g5fteknoloji.com", p["kime"], p["konu"], p["html"]).as_string())
+    assert m["Date"] and m["Message-ID"].endswith("@g5fteknoloji.com>") and m["Reply-To"] == "bot@g5fteknoloji.com"
+    assert m.get_content_type() == "multipart/alternative"
+    turler = [x.get_content_type() for x in m.get_payload()]
+    assert turler == ["text/plain", "text/html"]
+    duz = m.get_payload()[0].get_payload(decode=True).decode("utf-8")
+    assert "Merhaba" in duz and "<" not in duz and "?s=kayranpm" in duz          # bağlantı düz metinde de var
