@@ -37,7 +37,9 @@ AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağu
 YAKLASIYOR_GUN = 2          # son 2 gün (bugün dahil) sarı
 GERIYE_BAKIS = 6            # en fazla bu kadar eksik dönem listelenir
 
-AYAR_ANAHTAR = "yukleme_takvimi_ayar"      # {anahtar: {siklik, son_gun, aktif}}
+# v2 (Ekim 2026): sorumlular ve yeni takvim verildi; eski anahtarda kayıtlı ayar varsa
+# yeni varsayılanları ezmesin diye ayrı anahtar.
+AYAR_ANAHTAR = "yukleme_takvimi_ayar_v2"   # {anahtar: {siklik, son_gun, aktif, sorumlu}}
 KAYIT_ANAHTAR = "yukleme_takvimi_kayit"    # {anahtar: {tarih, kim, adet}}
 ATLA_ANAHTAR = "yukleme_takvimi_atla"      # {anahtar: [dönem iso, ...]}
 
@@ -45,25 +47,31 @@ ATLA_ANAHTAR = "yukleme_takvimi_atla"      # {anahtar: [dönem iso, ...]}
 KAYNAKLAR = [
     dict(anahtar="musteri_haftalik", ad="Haftalık müşteri stok + satış", modul="kayranpm",
          sayfa="Ürün Yönetimi › Müşteri Satışları", siklik="haftalik", son_gun=0, yon="geri",
-         tarih_turu="veri"),
+         tarih_turu="veri", sorumlu="derya"),
     dict(anahtar="iade_aylik", ad="İade Excel'i", modul="satis", sayfa="Satış › İade",
-         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri"),
+         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="gokhan"),
+    # Takip DIŞI: gerektiğinde zaman zaman yapılıyor — atama ve uyarı yok (ayarlardan açılabilir)
     dict(anahtar="satis_dokumu", ad="Satış fatura dökümü", modul="satis", sayfa="Satış › İçe Aktar",
-         siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme"),
+         siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme", sorumlu="", aktif=False),
+    # Toplam aktiflerin üç dosyası birlikte, HER PAZARTESİ yükleniyor
     dict(anahtar="aktif_stok", ad="Toplam aktifler · stok değeri", modul="kayranacc",
-         sayfa="Muhasebe › Toplam Aktifler", siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme"),
+         sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
+         sorumlu="serdar"),
     dict(anahtar="aktif_ithalat", ad="Toplam aktifler · ithalat ödeme takip", modul="kayranacc",
-         sayfa="Muhasebe › Toplam Aktifler", siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme"),
+         sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
+         sorumlu="serdar"),
     dict(anahtar="aktif_cari", ad="Toplam aktifler · cari alacaklar", modul="kayranacc",
-         sayfa="Muhasebe › Toplam Aktifler", siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme"),
+         sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
+         sorumlu="serdar"),
     dict(anahtar="odeme_listesi", ad="Haftalık ödeme listesi", modul="kayranacc",
-         sayfa="Muhasebe › Veri Yükleme", siklik="haftalik", son_gun=0, yon="ileri", tarih_turu="yukleme"),
+         sayfa="Muhasebe › Veri Yükleme", siklik="haftalik", son_gun=0, yon="ileri", tarih_turu="yukleme",
+         sorumlu="serdar"),
     dict(anahtar="happylife", ad="Happy Life stok raporu", modul="depo", sayfa="Depo › Happy Life Kiralık Depo",
-         siklik="haftalik", son_gun=0, yon="geri", tarih_turu="veri"),
+         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="samet"),
     dict(anahtar="gider_tablosu", ad="Aylık gider tablosu", modul="yonetim", sayfa="Yönetim › Gider tablosu",
-         siklik="aylik", son_gun=10, yon="geri", tarih_turu="veri"),
+         siklik="aylik", son_gun=10, yon="geri", tarih_turu="veri", sorumlu="serdar"),
     dict(anahtar="g5f_sayim", ad="G5F stok sayımı", modul="kayranpm", sayfa="Ürün Yönetimi › Veri Yükleme",
-         siklik="ceyreklik", son_gun=15, yon="geri", tarih_turu="yukleme"),
+         siklik="ceyreklik", son_gun=15, yon="geri", tarih_turu="yukleme", sorumlu="gokhan"),
 ]
 _KAYNAK = {k["anahtar"]: k for k in KAYNAKLAR}
 
@@ -184,8 +192,26 @@ def kaynak_ayari(anahtar, ayarlar):
             k["son_gun"] = int(a["son_gun"])
     except (TypeError, ValueError):
         pass
-    k["aktif"] = a.get("aktif", True) is not False
+    k["aktif"] = (a["aktif"] is not False) if "aktif" in a else (_KAYNAK[anahtar].get("aktif", True) is not False)
+    if "sorumlu" in a:
+        k["sorumlu"] = str(a.get("sorumlu") or "").strip()
+    k.setdefault("sorumlu", "")
     return k
+
+
+# Kullanıcı adı → ekranda görünen ad (Türkçe harflerle). Listede yoksa baş harf büyür.
+SORUMLU_AD = {"gokhan": "Gökhan", "cagla": "Çağla", "caglar": "Çağlar", "ibrahim": "İbrahim",
+              "yilmaz": "Yılmaz"}
+
+
+def sorumlu_adi(kim):
+    kim = str(kim or "").strip()
+    if not kim:
+        return ""
+    if kim.lower() in SORUMLU_AD:
+        return SORUMLU_AD[kim.lower()]
+    ilk = {"i": "İ", "ı": "I"}.get(kim[0], kim[0].upper())
+    return ilk + kim[1:]
 
 
 def gider_son_ay(yil, kat):
@@ -326,6 +352,7 @@ def durumlar(bugun=None):
         d = durum(k, son, bugun, atla.get(a) or [], son_donem=son_donem)
         d["baslangic"] = baslangic
         d.update(anahtar=a, ad=k["ad"], modul=k["modul"], sayfa=k["sayfa"], siklik=k["siklik"],
+                 sorumlu=k["sorumlu"], sorumlu_ad=sorumlu_adi(k["sorumlu"]),
                  son_gun=k["son_gun"], yon=k["yon"], son_tarih=son, kim=kayit.get("kim", ""),
                  eksik_adlar=[donem_adi(k["siklik"], p) for p in d["eksik"]],
                  sonraki_adi=donem_adi(k["siklik"], d["sonraki_donem"]),
@@ -394,11 +421,23 @@ def ayar_kaydet(yeni):
 SEVIYE_RENK = {"guncel": "yesil", "yaklasiyor": "amber", "gecikti": "kirmizi"}
 
 
+_BIRIM = {"haftalik": "hafta", "aylik": "ay", "ceyreklik": "çeyrek"}
+
+
+def eksik_ozeti(adlar, siklik=None):
+    """En çok 2 dönem: tek tek. Daha fazlası aralık olarak: '5 hafta: Hafta 35 – Hafta 39'
+    (uzun gecikmede dönemler tek tek listelenince kart ve uyarı kalabalıklaşıyordu)."""
+    adlar = list(adlar or [])
+    if len(adlar) <= 2:
+        return ", ".join(adlar)
+    kisa = [a.split(" (")[0] for a in (adlar[0], adlar[-1])]
+    return f"{len(adlar)} {_BIRIM.get(siklik, 'dönem')}: {kisa[0]} – {kisa[1]}"
+
+
 def ozet_metni(d):
     if d["seviye"] == "gecikti":
-        e = d["eksik_adlar"]
         return (("Henüz hiç yüklenmedi · " if d.get("hic") else "")
-                + f"{', '.join(e)} eksik · {d['gecikme_gun']} gün gecikti")
+                + f"{eksik_ozeti(d['eksik_adlar'], d.get('siklik'))} eksik · {d['gecikme_gun']} gün gecikti")
     if d["kalan_gun"] == 0:
         return f"{d['sonraki_adi']} için son gün bugün"
     return f"{d['sonraki_adi']} · {d['vade_metni']} · {d['kalan_gun']} gün kaldı"
@@ -419,7 +458,9 @@ def serit(anahtar):
             f'border-left:3px solid var(--k-{r});background:color-mix(in srgb,var(--k-{r}) 9%,transparent);'
             f'border-radius:8px;padding:7px 12px;margin:2px 0 10px">'
             f'<b style="color:var(--k-{r})">{"⏰" if d["seviye"] != "guncel" else "🗓"} {ozet_metni(d)}</b>'
-            f'<span style="color:var(--k-soluk)">{SIKLIKLAR[d["siklik"]].lower()} · {son}</span></div>',
+            f'<span style="color:var(--k-soluk)">{SIKLIKLAR[d["siklik"]].lower()} · {son}'
+            + (f' · sorumlu <b style="color:var(--k-metin)">{d["sorumlu_ad"]}</b>' if d.get("sorumlu_ad") else "")
+            + '</span></div>',
             unsafe_allow_html=True)
     except Exception:  # noqa: BLE001
         pass
@@ -432,14 +473,16 @@ def kart_html(d):
     cip = {"guncel": "güncel", "yaklasiyor": "yaklaşıyor", "gecikti": "gecikti"}[d["seviye"]]
     if d["seviye"] == "gecikti":
         buyuk = f'{d["gecikme_gun"]} gün'
-        alt = f'gecikti · {", ".join(d["eksik_adlar"])} eksik'
+        alt = f'gecikti · {eksik_ozeti(d["eksik_adlar"], d.get("siklik"))} eksik'
     elif d["kalan_gun"] == 0:
         buyuk, alt = "bugün", f'son gün · {d["sonraki_adi"]}'
     else:
         buyuk, alt = f'{d["kalan_gun"]} gün', f'kaldı · {d["sonraki_adi"]} · {d["vade_metni"]}'
     son = ("takip yeni başladı · ilk yükleme bekleniyor" if d.get("baslangic")
            else (d["son_adi"] or "henüz kayıt yok"))
-    kim = f' · {_h.escape(str(d["kim"]))}' if d.get("kim") else ""
+    kim = f' · son yükleyen {_h.escape(str(d["kim"]))}' if d.get("kim") else ""
+    sor = (f'<div style="font-size:12px;color:var(--k-metin);margin-top:4px">👤 {_h.escape(d["sorumlu_ad"])}</div>'
+           if d.get("sorumlu_ad") else "")
     return (f'<div style="border:1px solid var(--k-kenar2);border-left:3px solid var(--k-{r});border-radius:10px;'
             f'padding:10px 12px;margin-bottom:8px;background:var(--k-yuzey1);min-height:104px">'
             f'<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">'
@@ -449,4 +492,4 @@ def kart_html(d):
             f'{buyuk}</div>'
             f'<div style="font-size:12px;color:var(--k-soluk);line-height:1.35">{_h.escape(alt)}</div>'
             f'<div style="font-size:11.5px;color:var(--k-silik);margin-top:4px">{SIKLIKLAR[d["siklik"]]} · '
-            f'son: {_h.escape(son)}{kim}</div></div>')
+            f'son: {_h.escape(son)}{kim}</div>{sor}</div>')
