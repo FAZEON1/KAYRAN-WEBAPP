@@ -34,11 +34,11 @@ def test_urun_etiketi_html_kacirir():
 
 
 def test_acil_siparis_listesi_urun_etiketi_kullanir():
-    src = _oku("kayranpm/main.py")
-    bas = src.index("acil_items_list = []")
-    govde = src[bas:src.index("st.markdown(pencere_grid(", bas)]
-    assert govde.count("urun_etiketi(") == 2
-    assert "[:46]" not in govde
+    # Ekim 2026: Genel Bakış yeniden tasarlandı (kayranpm/genel_bakis.py); ürün
+    # satırları (yapılacaklar, eğilim, yoldakiler) yine urun_etiketi ile basılır.
+    src = _oku("kayranpm/genel_bakis.py")
+    assert src.count("urun_etiketi(") >= 3
+    assert "[:46]" not in src
 
 
 # ── D4 · firma adları ────────────────────────────────────────────────

@@ -1753,6 +1753,16 @@ def ust_navigasyon():
     {N} [data-testid="stColumn"]:has(.st-key-top_yonetim){{margin-left:6px !important;padding-left:8px !important;
         border-left:1px solid var(--k-kenar2) !important;}}
     {N} [data-testid="stColumn"]:has(.st-key-top_hesap_makinesi){{margin-left:auto !important;}}
+    /* Talep: en sağda, ince ayraçla; mor çerçeve + ikon her genişlikte görünür
+       (eskiden sağ altta yüzüyordu ve Streamlit Cloud'un "Manage app" rozetinin
+       arkasında kalıyordu — rozet uygulamanın dışında çizildiği için gizlenemez). */
+    {N} [data-testid="stColumn"]:has(.st-key-ust_talep){{margin-left:6px !important;padding-left:8px !important;
+        border-left:1px solid var(--k-kenar2) !important;}}
+    {N} .st-key-ust_talep button{{color:var(--k-mor2) !important;font-weight:600 !important;
+        box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--k-mor) 34%,transparent) !important;}}
+    {N} .st-key-ust_talep button p{{color:var(--k-mor2) !important;}}
+    {N} .st-key-ust_talep button span:has(> [data-testid="stIconMaterial"]){{display:inline-flex !important;}}
+    {N} .st-key-ust_talep button [data-testid="stIconMaterial"]{{display:inline !important;color:var(--k-mor2) !important;}}
     {N} button{{
         min-height:34px !important;height:34px !important;padding:0 12px !important;gap:6px !important;
         border-radius:8px !important;font-size:13px !important;font-weight:500 !important;
@@ -1790,6 +1800,10 @@ def ust_navigasyon():
         {N} [data-testid="stColumn"]{{flex:0 0 auto !important;width:auto !important;}}
         {N} [data-testid="stColumn"]:has(.st-key-top_hesap_makinesi){{margin-left:0 !important;}}
         {N} button{{padding:0 12px !important;}}
+        /* Kayan şeridin sağ ucuna yapışık: kaydırmadan da görünür */
+        {N} [data-testid="stColumn"]:has(.st-key-ust_talep){{position:sticky !important;right:-4px !important;
+            z-index:2 !important;background:var(--k-yuzey2) !important;padding-right:4px !important;
+            box-shadow:-10px 0 10px -6px var(--k-yuzey2) !important;}}
     }}
 
     /* Sayfa içi radyolar: shared/tasarim.SIDEBAR_CSS (iki Streamlit yapısını da tanır) */
@@ -1820,7 +1834,7 @@ def ust_navigasyon():
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
-        cols = st.columns(len(moduller), gap="small")
+        cols = st.columns(len(moduller) + 1, gap="small")
         for c, (ad, mod, ikon) in zip(cols, moduller):
             # on_click: tıklama, sayfa çizilmeden ÖNCE işlenir → hedef sayfa
             # TEK çalışmada çizilir. Eskiden düğme ardından yeniden çalıştırma deseni her
@@ -1828,6 +1842,8 @@ def ust_navigasyon():
             c.button(ad, key=f"top_{mod}", icon=ikon, help=ad,
                      type="primary" if aktif == mod else "secondary",
                      use_container_width=True, on_click=_sayfaya_git, args=(mod,))
+        with cols[-1]:
+            _talep_dugmesi()            # Talep Merkezi: üst menünün en sağında
 
 def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
@@ -3013,53 +3029,26 @@ def _global_hata_kart(uygulama_adi, hata):
 # 5) ANA ROUTING
 # ─────────────────────────────────────────────────────────────────────
 def _talep_merkezi():
-    """Her sayfada sağ altta duran talep düğmesi ve talep merkezi.
+    """Talep merkezi penceresi (düğmesi üst menünün en sağında: _talep_dugmesi).
 
     · Herkes: talep gönderir ve KENDİ taleplerinin durumunu görür.
     · Yönetici: gelen tüm talepleri görür, cevaplar, durum değiştirir.
       Rozet açık talep sayısını gösterir — hangi sayfada olursa olsun.
 
-    Düğme CSS ile sabitlenir (position:fixed). Streamlit 1.39+ sürümlerinde
-    key verilen her bileşene 'st-key-<key>' sınıfı eklendiği için düğmeyi
-    o sınıf üzerinden konumlandırabiliyoruz.
+    Ekim 2026: düğme eskiden sağ altta yüzüyordu (position:fixed) ve Streamlit
+    Cloud'un "Manage app" rozetinin arkasında kalıyordu; üst menüye taşındı.
     """
     _kul = st.session_state.get("aktif_kullanici", "") or ""
     if not _kul:
         return
     _yonetici = ozel_yetki(_kul, "talep_yonetici")
-
-    _acik = 0
+    _acik = 0                                   # "Gelen Talepler (N)" sekme başlığı için
     if _yonetici:
         try:
             from kayranpm.database import acik_talep_sayisi
             _acik = acik_talep_sayisi()
         except Exception:
             _acik = 0
-
-    st.markdown(
-        "<style>"
-        # Talep düğmesi: marka renginde sakin bir hap (eskiden turuncu degrade +
-        # emoji). İpucu kabı (stTooltipIcon) şeffaf: arkada köşeli kutu kalmasın.
-        ".st-key-fab_talep{position:fixed !important;right:24px;bottom:24px;z-index:9990;width:auto !important;}"
-        ".st-key-fab_talep :is([data-testid=stTooltipIcon],[data-testid=stTooltipHoverTarget]){"
-        "background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;}"
-        ".st-key-fab_talep button{border-radius:999px !important;min-height:44px !important;height:44px !important;"
-        "padding:0 18px 0 14px !important;gap:6px !important;background:var(--k-dolgu) !important;"
-        "color:var(--k-dolgu-metin) !important;border:1px solid color-mix(in srgb,#fff 18%,transparent) !important;"
-        "box-shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px color-mix(in srgb,var(--k-dolgu) 40%,transparent) !important;"
-        "transition:transform .15s ease,box-shadow .15s ease !important;}"
-        ".st-key-fab_talep button p{font-size:13px !important;font-weight:600 !important;color:inherit !important;}"
-        ".st-key-fab_talep button [data-testid=stIconMaterial]{font-size:19px !important;color:inherit !important;}"
-        ".st-key-fab_talep button:hover{transform:translateY(-1px) !important;"
-        "box-shadow:0 2px 4px rgba(0,0,0,.25),0 12px 28px color-mix(in srgb,var(--k-dolgu) 50%,transparent) !important;}"
-        ".st-key-fab_talep button:focus-visible{outline:2px solid var(--k-mor2) !important;outline-offset:2px !important;}"
-        "@media(max-width:640px){.st-key-fab_talep{right:14px;bottom:14px;}}"
-        "</style>",
-        unsafe_allow_html=True)
-
-    _etiket = f"{_acik} açık talep" if (_yonetici and _acik) else "Talep"
-    _ipucu = (f"Talep Merkezi — {_acik} açık talep" if (_yonetici and _acik)
-              else "Talep / geri bildirim gönder")
 
     @st.dialog("Talep Merkezi", width="large")
     def _dlg_talep():
@@ -3199,8 +3188,31 @@ def _talep_merkezi():
                             except Exception as _e:
                                 st.error(f"❌ {type(_e).__name__}")
 
-    if st.button(_etiket, key="fab_talep", help=_ipucu, icon=":material/forum:"):
+    # Pencere üst menüdeki düğmenin bayrağıyla, sayfa çizildikten SONRA açılır
+    # (modül hata verse bile talep açılabilsin).
+    if st.session_state.pop("_talep_ac", False):
         _dlg_talep()
+
+
+def _talep_ac_isaretle():
+    st.session_state["_talep_ac"] = True
+
+
+def _talep_dugmesi():
+    """Üst menünün en sağındaki Talep düğmesi. Yönetici açık talep sayısını görür."""
+    _kul = st.session_state.get("aktif_kullanici", "") or ""
+    if not _kul:
+        return
+    _acik = 0
+    if ozel_yetki(_kul, "talep_yonetici"):
+        try:
+            from kayranpm.database import acik_talep_sayisi
+            _acik = acik_talep_sayisi()
+        except Exception:
+            _acik = 0
+    st.button(f"Talep · {_acik}" if _acik else "Talep", key="ust_talep", icon=":material/forum:",
+              help=(f"Talep Merkezi — {_acik} açık talep" if _acik else "Talep / geri bildirim gönder"),
+              on_click=_talep_ac_isaretle)
 
 
 def main():

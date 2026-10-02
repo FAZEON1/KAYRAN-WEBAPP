@@ -56,9 +56,13 @@ def test_dashboard_filtrele():
 
 
 def test_dashboard_filtre_metriklere_uygulanir():
-    m = _govde(_oku(MAIN), 'if sayfa == "📊  Dashboard":')
-    assert "dashboard_filtrele(" in m and "gosterilecek" not in m
-    assert 'acil_urunler = [u for u in _dveri' in m
+    # Ekim 2026: Genel Bakış kayranpm/genel_bakis.py'ye taşındı; süzülen liste (d)
+    # sayı kartlarına, yapılacaklara ve diğer bölümlerin hepsine verilir.
+    e = _oku("kayranpm/genel_bakis.py")
+    assert "d = dashboard_filtrele(veri, firma, kategori)" in e and "gosterilecek" not in e
+    for cagri in ("kpi(d,", "yapilacaklar(d)", "trend_listeleri(d)", "kapsama_dagilimi(d)",
+                  "kategori_ozeti(d)", "kanal_ozeti(d)", "yaklasan_varislar(d,"):
+        assert cagri in e, cagri
 
 
 # ── 2. Maliyet Girişi düzenleyici anahtarı ──────────────────────────

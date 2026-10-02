@@ -549,7 +549,7 @@ def run():
             "🔖  Ref No Takibi",
             "📂  Veri Yükleme",
         ], label_visibility="collapsed",
-           format_func=_me)
+           format_func=_me, key="pm_sayfa")    # anahtar: Genel Bakış'tan sayfaya geçiş
 
         # ── STOK KARTI — hızlı erişim (Ürün Yön.'nin en sık kullanılan eylemi) ──
         # Eskiden başlık ayrı bir HTML kutusuydu; arama kutusu ve sonuçlar onun
@@ -630,155 +630,9 @@ def run():
     def _sayfa_parcasi():
         nonlocal _yeni
         if sayfa == "📊  Dashboard":
-            st.markdown(_sb("📊 Ürün Yönetimi", "Genel Bakış", aciklama="Stok durumu · Satış performansı · Uyarılar"), unsafe_allow_html=True)
-            st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
-    
-            # Veri yükle (seçici için SKU listesi gerekli)
-            try:
-                veri = dashboard_hesapla()
-            except Exception as e:
-                _log.error("Dashboard veri hatası: %s", e)
-                st.error(f"Veri yüklenemedi: {e}")
-                return
-
-            # Filtreler
-            _kat_list_d = sorted({tr_kucuk(u.get("kategori")) for u in veri if tr_kucuk(u.get("kategori"))})
-            col_f1, col_f2, col_f3 = st.columns([1.6, 1.6, 0.9])
-            with col_f1:
-                filtre_firma = st.selectbox("Firma Filtresi", ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"], format_func=firma_gorunen_ad)
-            with col_f2:
-                filtre_kat = st.selectbox("Kategori", ["Tüm Kategoriler"] + _kat_list_d, key="dash_kat")
-            with col_f3:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Yenile", use_container_width=True, icon=":material/refresh:"):
-                    st.cache_data.clear()
-                    st.rerun()
-    
-            # Filtreler metriklere ve pencerelere uygulanır (eskiden süzülen liste
-            # hesaplanıp HİÇ kullanılmıyordu; filtre seçmek ekranda bir şey değiştirmiyordu).
-            _dveri = dashboard_filtrele(veri, filtre_firma, filtre_kat)
-            if len(_dveri) != len(veri):
-                st.caption(f"{tr_sayi(len(_dveri))} / {tr_sayi(len(veri))} ürün · filtre uygulandı"
-                           + (" (firma: o firmada stoğu olan ürünler)" if filtre_firma != "Tüm Firmalar" else ""))
-
-            # İstatistik kartları
-            toplam_sku = len(set(u["sku"] for u in _dveri))
-            acil_urunler = [u for u in _dveri if u.get("siparis_durum") == "acil"]
-            yaklasan_urunler = [u for u in _dveri if u.get("siparis_durum") == "yaklasıyor"]
-            planlama_urunler = [u for u in _dveri if u.get("siparis_durum") == "planlama"]
-
-            metrik_satiri([
-                {"label": "📦 Toplam Ürün", "value": f"{tr_sayi(toplam_sku)}", "renk": trenk("mor")},
-                {"label": "🔴 Acil Sipariş", "value": f"{tr_sayi(len(acil_urunler))}", "renk": trenk("kirmizi")},
-                {"label": "🟠 Yaklaşıyor", "value": f"{tr_sayi(len(yaklasan_urunler))}", "renk": trenk("amber")},
-                {"label": "🟡 Planlama", "value": f"{tr_sayi(len(planlama_urunler))}", "renk": trenk("amber")},
-            ])
-    
-            # ── UYARI PENCERELERİ — shared/ui.py standardı: yan yana kart + iç scroll ──
-            from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
-            from shared.tasarim import urun_etiketi
-            st.markdown(pencere_css(), unsafe_allow_html=True)
-
-            acil_items_list = []
-            for u in acil_urunler:
-                gun = u.get('stok_bitis_gun', '?')
-                toplam = u.get('toplam_stok', u.get('bizim_stok', 0))
-                acil_items_list.append(
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;'
-                    f'padding:4px 8px;margin:4px 0;border-radius:6px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));">'
-                    f'{urun_etiketi(u.get("urun_adi"), u.get("sku"), kalin=True)}'
-                    f'<div style="display:flex;gap:12px;flex-shrink:0;margin-left:8px;">'
-                    f'<span style="color:var(--k-soluk);font-size:11px;">📦 {tr_sayi(toplam)}</span>'
-                    f'<span style="color:var(--k-kirmizi);font-size:11px;font-weight:700;">{gun}g</span>'
-                    f'</div></div>'
-                )
-            acil_html = "".join(acil_items_list) or bos_durum("Acil sipariş gerektiren ürün yok")
-
-            yak_items_list = []
-            for u in yaklasan_urunler:
-                gun = u.get('siparis_son_gun', u.get('stok_bitis_gun', '?'))
-                yak_items_list.append(
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;'
-                    f'padding:4px 8px;margin:4px 0;border-radius:6px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));">'
-                    f'{urun_etiketi(u.get("urun_adi"), u.get("sku"))}'
-                    f'<span style="color:var(--k-amber);font-size:11px;font-weight:600;flex-shrink:0;margin-left:8px;">'
-                    f'{gun}g içinde</span></div>'
-                )
-            yak_html = "".join(yak_items_list) or bos_durum("30 gün içinde sipariş gereken ürün yok")
-
-            st.markdown(pencere_grid(
-                pencere("🚨 Acil sipariş", RENK["kirmizi"], acil_html,
-                        rozet=f"{len(acil_urunler)} ürün"),
-                pencere("⚠️ 30 gün içinde sipariş", RENK["amber"], yak_html,
-                        rozet=f"{len(yaklasan_urunler)} ürün"),
-            ), unsafe_allow_html=True)
-    
-    
-            st.markdown("---")
-    
-            # ── GÜNCEL KAMPANYA ÖZETİ (kapalı panel + tablo) ──
-            try:
-                from .database import get_kampanyalar as _get_kmp
-                _kmps = _get_kmp(durum="aktif") or []
-            except Exception:
-                _kmps = []
-            import datetime as _kdt2
-
-            def _bts(k):
-                try:
-                    return _kdt2.date.fromisoformat(str(k.get("bitis_tarihi"))[:10])
-                except Exception:
-                    return _kdt2.date.max
-
-            _bg = _kdt2.date.today()
-            @st.dialog(f"🎯 Güncel Kampanyalar ({len(_kmps)} aktif)", width="large")
-            def _dlg_dash_kampanyalar():
-                if not _kmps:
-                    st.info("Şu an aktif kampanya yok. Kampanya eklemek için **Kampanya Takip** sayfasını kullan.")
-                else:
-                    _tur_say = {}
-                    for k in _kmps:
-                        _t = (k.get("kampanya_turu") or "").strip() or "Belirsiz"
-                        _tur_say[_t] = _tur_say.get(_t, 0) + 1
-                    _dagilim = " · ".join(f"{v} {t}" for t, v in sorted(_tur_say.items(), key=lambda x: -x[1]))
-                    _yakin = sum(1 for k in _kmps if _bts(k) != _kdt2.date.max and 0 <= (_bts(k) - _bg).days <= 7)
-                    _ozet = f'<b style="color:var(--k-mor2)">{len(_kmps)} aktif kampanya</b>'
-                    if _dagilim:
-                        _ozet += f' · <span style="color:var(--k-soluk)">{_dagilim}</span>'
-                    if _yakin:
-                        _ozet += f' · <span style="color:var(--k-amber)">⏳ {_yakin} tanesi 7 gün içinde bitiyor</span>'
-                    st.markdown(f'<div style="font-size:13px;margin-bottom:8px">{_ozet}</div>', unsafe_allow_html=True)
-
-                    _rows_k = []
-                    for k in sorted(_kmps, key=_bts):
-                        _bt = _bts(k)
-                        if _bt == _kdt2.date.max:
-                            _kalan = ""
-                            _durum_k = "—"
-                        else:
-                            _kg = (_bt - _bg).days
-                            _kalan = _kg
-                            _durum_k = ("Süresi doldu" if _kg < 0 else
-                                        "Bugün bitiyor" if _kg == 0 else
-                                        "Yakında bitiyor" if _kg <= 7 else "Aktif")
-                        try:
-                            _sp = float(k.get("spiff_tl") or 0)
-                        except Exception:
-                            _sp = 0.0
-                        _rows_k.append({
-                            "Kampanya": k.get("kampanya_adi", "—"),
-                            "Tür": (k.get("kampanya_turu") or "—"),
-                            "Firma": k.get("firma", "") or "",
-                            "Kategori": k.get("kategori", "") or "",
-                            "Başlangıç": tarih_tr(k.get("baslangic_tarihi")),
-                            "Bitiş": tarih_tr(k.get("bitis_tarihi")),
-                            "Kalan (gün)": _kalan,
-                            "Durum": _durum_k,
-                            "Spiff ₺": (f"{tr_sayi(_sp)}" if _sp else ""),
-                        })
-                    st.dataframe(pd.DataFrame(_rows_k), hide_index=True, use_container_width=True, height=tablo_h(len(_rows_k)))
-            if st.button(f"Güncel Kampanyalar ({len(_kmps)} aktif)", key="btn_dash_kmp", use_container_width=True, icon=":material/track_changes:"):
-                _dlg_dash_kampanyalar()
+            # Ekran: kayranpm/genel_bakis.py (yeniden tasarım, Ekim 2026)
+            from .genel_bakis import render as _genel_bakis
+            _genel_bakis(_sb)
 
         elif sayfa == "📋  Tüm Ürünler":
             st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
