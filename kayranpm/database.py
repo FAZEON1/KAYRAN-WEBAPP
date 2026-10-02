@@ -2,6 +2,7 @@
 KAYRAN — Veritabanı Katmanı (Supabase PostgreSQL)
 """
 import streamlit as st
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import tr_kucuk
@@ -726,7 +727,8 @@ def sku_fazeon_temizle_uygula():
                 hatalar.append(f"{tablo}/{esku}: {str(e)[:50]}")
         try:
             if yeni in urun_skular and yeni != esku:
-                sb.table("urunler").delete().eq("sku", esku).execute()
+                with cop_kutusu_kapali():
+                    sb.table("urunler").delete().eq("sku", esku).execute()
                 birlesti += 1
             else:
                 sb.table("urunler").update({"sku": yeni}).eq("sku", esku).execute()
@@ -835,9 +837,10 @@ def upsert_firma_stok(firma, sku, urun_adi, stok_miktari, haftalik_satis,
             if not _constraint_yok:
                 raise  # başka bir hata (kolon vs) → üst katman ele alsın
         # Constraint yok → aynı anahtarı sil, sonra ekle (upsert taklidi)
-        cl.table("firma_stok").delete() \
-            .eq("firma", kayit["firma"]).eq("sku", kayit["sku"]) \
-            .eq("yukleme_tarihi", kayit["yukleme_tarihi"]).execute()
+        with cop_kutusu_kapali():
+            cl.table("firma_stok").delete() \
+                .eq("firma", kayit["firma"]).eq("sku", kayit["sku"]) \
+                .eq("yukleme_tarihi", kayit["yukleme_tarihi"]).execute()
         cl.table("firma_stok").insert(kayit).execute()
 
     try:
@@ -1773,7 +1776,8 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
                         continue  # aynı upper — birazdan silinecek
                 # Diğer kartları sil
                 for d in digerleri:
-                    sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
+                    with cop_kutusu_kapali():
+                        sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
                     silinen += 1
                 # Ana kartı büyük SKU ile yeniden yaz (eski küçük kaydı sil, yeni ekle)
                 _ana_full = {k: ana.get(k) for k in ("urun_adi", "kategori", "marka", "barkod",
@@ -1782,7 +1786,8 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
                              if ana.get(k) is not None}
                 _ana_full.update(payload)
                 _ana_full["sku"] = hedef_sku
-                sb.table("urunler").delete().eq("sku", ana.get("sku")).execute()
+                with cop_kutusu_kapali():
+                    sb.table("urunler").delete().eq("sku", ana.get("sku")).execute()
                 try:
                     sb.table("urunler").insert(_ana_full).execute()
                 except Exception:
@@ -1792,7 +1797,8 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
                 # Ana SKU zaten büyük — sadece güncelle + diğerlerini sil
                 sb.table("urunler").update(payload).eq("sku", ana.get("sku")).execute()
                 for d in digerleri:
-                    sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
+                    with cop_kutusu_kapali():
+                        sb.table("urunler").delete().eq("sku", d.get("sku")).execute()
                     silinen += 1
             birlesen += 1
             _tekil = int(sum(birlesik_dk.values()))

@@ -11,6 +11,7 @@ Maliyet mantığı:
   • final_birim_maliyet = birim_fob * (1 + dosya_yuzde/100)
 """
 import streamlit as st
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from supabase import create_client, Client
 
 
@@ -835,13 +836,15 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                         sb.table("ithalat_kalemleri").insert(rows).execute()
                     except Exception as ke2:
                         try:
-                            sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
+                            with cop_kutusu_kapali():
+                                sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
                         except Exception:
                             pass
                         return False, f"❌ Kalemler eklenemedi, dosya geri alındı: {str(ke2)[:150]}"
                 else:
                     try:
-                        sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
+                        with cop_kutusu_kapali():
+                            sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
                     except Exception:
                         pass
                     return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
@@ -941,7 +944,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
         _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
         _yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
-        sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
+        with cop_kutusu_kapali():
+            sb.table("ithalat_kalemleri").delete().eq("dosya_id", dosya_id).execute()
         rows = []
         for k in (kalemler or []):
             sku = (str(k.get("sku") or "")).strip()

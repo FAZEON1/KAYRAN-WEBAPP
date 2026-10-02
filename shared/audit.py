@@ -174,6 +174,15 @@ class _LoggingTable:
         if self._islem and salt_okur_mu():
             _salt_okur_engelle(self._islem, self._tablo)
         res = self._b.execute(*a, **k)
+        # ÇÖP KUTUSU: silinen satırlar (Supabase silmede onları döndürür) 30 gün saklanır.
+        # Birleştirme / sil-yeniden-yaz blokları cop_kutusu_kapali() ile dışarıda kalır.
+        # sakla() hiçbir koşulda hata fırlatmaz — silme her zaman tamamlanır.
+        if self._islem == "sil":
+            try:
+                from shared.cop_kutusu import sakla
+                sakla(self._tablo, getattr(res, "data", None), self._modul)
+            except Exception:
+                pass
         if self._islem and self._tablo != "audit_log":
             try:
                 log_yaz(self._islem, self._tablo, _kayit_id(self._filtre, res),

@@ -12,6 +12,7 @@ Kâr (USD):
   marj %   = net_kar / ciro * 100
 """
 from datetime import datetime, timezone, timedelta
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 
 import streamlit as st
 from supabase import create_client, Client
@@ -1339,7 +1340,8 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                      for x in _eski_i], yon=-1)
             except Exception:
                 pass
-            cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
+            with cop_kutusu_kapali():
+                cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
         rows, atlandi = [], 0
         for s in satirlar:
             sku = str(s.get("sku") or "").strip()

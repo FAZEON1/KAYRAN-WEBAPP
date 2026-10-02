@@ -1,6 +1,7 @@
 """Depo Yönetimi modülü — sidebar sayfaları: Depo Stok · Depolar Arası Sevk ·
 Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
@@ -461,7 +462,8 @@ def hl_kaydet(kayitlar, rapor_tarihi=None):
     except Exception:
         yedek = []
     try:
-        sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()
+        with cop_kutusu_kapali():
+            sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()
     except Exception:
         pass
     rows = [dict(k, rapor_tarihi=rapor) for k in kayitlar]
@@ -472,7 +474,8 @@ def hl_kaydet(kayitlar, rapor_tarihi=None):
     except Exception as e:
         hata = f"{type(e).__name__}: {str(e)[:140]}"
         try:
-            sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()   # yarım yazılanı at
+            with cop_kutusu_kapali():
+                sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()   # yarım yazılanı at
             for i in range(0, len(yedek), 200):
                 sb.table(_HL_TABLO).insert(yedek[i:i + 200]).execute()
             return False, f"❌ Yükleme yarıda kaldı ({hata}); önceki {len(yedek)} kayıt geri yazıldı."
