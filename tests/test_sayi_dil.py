@@ -84,11 +84,11 @@ def test_menude_ingilizce_yok():
 
 
 def test_patron_panosu_turkce_rakam():
-    from shared.ui import patron_panosu_html
-    h = patron_panosu_html({"ay_ciro": 678033, "ay_kar": 209639, "ay_marj": 30.94,
-                            "toplam_aktif": 849220})
+    # Ekim 2026: pano shared/patron.py'ye taşındı (yeniden tasarım); kart yine Türkçe rakamlı
+    from shared.patron import kart_html
+    h = kart_html("Ciro", 678033, 600000, "para", [], "mor")
     assert "678.033" in h and "678,033" not in h
-    assert "%30,9" in h
+    assert "%30,9" in kart_html("Marj", 30.94, 30.0, "yuzde", [], "yesil")
 
 
 def test_tablo_sutunlari_turkce_bicimde():
