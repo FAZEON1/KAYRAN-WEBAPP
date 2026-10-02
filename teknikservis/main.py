@@ -1884,7 +1884,8 @@ def _depolar():
                             _o2, _m2 = _stok.satis_kaydi_yaz(
                                 _kk, _t_fiyat, tarih=_t_tarih,
                                 notlar=(_t_firma or "").strip(), bedelsiz=bool(_t_bedelsiz))
-                            if not _o2:
+                            # Paçalı bilinmeyen ürün de uyarıya (maliyet 0 yazıldı → %100 marj görünür)
+                            if not _o2 or "paçal" in (_m2 or ""):
                                 _uyari.append(f"{_kk.get('servis_form_no','')}: {_m2}")
                         _ok_n += 1
                         _bar.progress(_i / len(_secili), text=f"İşleniyor… {_i}/{len(_secili)}")
