@@ -170,3 +170,16 @@ def test_stok_tukendi_metni():
     from kayranpm.genel_hesap import yapilacaklar
     g = yapilacaklar([_u("Z", siparis_durum="acil", stok_bitis_gun=0)])
     assert g[0]["urunler"][0][1].startswith("stok tükendi")              # "0 günde biter" değil
+
+
+def test_talep_kucuk_monitorde_de_gorunur():
+    """Küçük monitörde (kenar çubuğu açık) şerit taşıyor, Talep kesiliyordu: eşikler
+    ekrana bakıyordu ve Talep yalnız telefonda sağa yapışıktı."""
+    a = _oku("app.py")
+    nav = a[a.index("def ust_navigasyon"):a.index('with st.container(key="ustnav"):')]
+    assert "container-name:ustnav" in nav and "@container ustnav" in nav
+    assert "@media (max-width:1500px)" not in nav and "@media (max-width:1300px)" not in nav
+    mob = nav[nav.index("@media (max-width:640px)"):]
+    genel = nav[:nav.index("@media (max-width:640px)")]
+    assert "position:sticky" in genel and ".st-key-ust_talep){{position:sticky" in genel
+    assert ".st-key-ust_talep){{position:sticky" not in mob            # yalnız telefona özel değil
