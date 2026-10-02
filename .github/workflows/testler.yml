@@ -37,7 +37,7 @@ jobs:
       # tests/conftest.py) yalnız pytest + pandas yeter. Bu, CI'yı 30 sn'de
       # tutar; tam requirements kurulsaydı 2-3 dk sürerdi.
       - name: Bağımlılıklar
-        run: pip install --quiet pytest pandas openpyxl
+        run: pip install --quiet pytest pandas openpyxl plotly
 
       - name: Sözdizimi kontrolü (tüm canlı .py dosyaları)
         run: |
