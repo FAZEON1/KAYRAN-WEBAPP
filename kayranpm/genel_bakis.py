@@ -71,8 +71,8 @@ def _kartlar(k):
                      if k["degisim"] is not None else "adet · son hafta")
     metrik_satiri([
         {"label": "Toplam stok", "value": tr_sayi(k['stok']), "renk": trenk("mor"),
-         "alt": (f"adet · ~{tr_sayi(k['kapsama_hafta'], 1)} haftalık satış" if k["kapsama_hafta"]
-                 else "adet · tüm kanallar")},
+         "alt": (f"adet · kanal dahil ~{tr_sayi(k['kapsama_hafta'], 1)} hafta" if k["kapsama_hafta"]
+                 else "adet · bizim depolar")},
         {"label": "Haftalık satış", "value": satis, "renk": trenk("cyan"), "alt": satis_alt},
         {"label": "Stok değeri", "value": f"${tr_sayi(k['stok_degeri'])}", "renk": trenk("amber"),
          "alt": "G5F stok × paçal"},

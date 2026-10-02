@@ -50,7 +50,9 @@ def _tr_bas(s):
 
 # ── Sayı kartları ───────────────────────────────────────────────────
 def kpi(rows, seri, bugun):
-    stok = sum(int(_f(r.get("toplam_stok"))) for r in rows)
+    stok = sum(int(_f(r.get("toplam_stok"))) for r in rows)            # bizim satılabilir
+    # Kapsama kanalların satış hızına bölünür → kanaldaki mal da dahil (stok_hesap)
+    kanal_dahil = sum(int(_f(r.get("zincir_stok", r.get("toplam_stok")))) for r in rows)
     son = seri[-1][1] if seri else None
     onceki = seri[-2][1] if len(seri) >= 2 else None
     degisim = (round((son - onceki) / onceki * 100, 1) if (son is not None and onceki) else None)
@@ -58,10 +60,11 @@ def kpi(rows, seri, bugun):
                 if d and d >= bugun]
     return {
         "stok": stok,
+        "kanal_dahil": kanal_dahil,
         "hafta_satis": son,
         "onceki_satis": onceki,
         "degisim": degisim,
-        "kapsama_hafta": round(stok / son, 1) if son else None,
+        "kapsama_hafta": round(kanal_dahil / son, 1) if son else None,
         "stok_degeri": round(sum(_f(r.get("bizim_stok")) * _f(r.get("ithalat_final")) for r in rows), 2),
         "yolda": int(sum(_f(r.get("yol_miktar")) for r in rows)),
         "en_yakin_varis": min(varislar) if varislar else None,
@@ -140,8 +143,9 @@ def kategori_ozeti(rows):
     for k, rs in gr.items():
         satis = sum(_f(r.get("toplam_haftalik_satis")) for r in rs)
         stok = sum(_f(r.get("toplam_stok")) for r in rs)
+        zincir = sum(_f(r.get("zincir_stok", r.get("toplam_stok"))) for r in rs)   # kapsama kanal dahil
         out.append({"Kategori": _tr_bas(k), "Ürün": len(rs), "Stok": int(stok), "Adet / hafta": int(satis),   # "Haftalık satış" para sayılırdı
-                    "Kapsama (hft)": round(stok / satis, 1) if satis else None,
+                    "Kapsama (hft)": round(zincir / satis, 1) if satis else None,
                     "Acil": sum(1 for r in rs if _acil(r)),
                     "Ölü / yavaş": sum(1 for r in rs if r.get("olu_stok_durum") in ("olu", "yavas"))})
     return sorted(out, key=lambda x: -x["Stok"])

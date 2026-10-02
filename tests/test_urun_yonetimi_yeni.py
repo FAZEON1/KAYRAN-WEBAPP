@@ -185,10 +185,10 @@ def test_toplu_dialog_oner_pencereyi_kapatmaz():
 def test_urun_satiri_hesap():
     from kayranpm.urun_hesap import urun_satiri
     r = urun_satiri({"sku": "A", "urun_adi": "Kasa", "satis_fiyati": 120, "final_cost_price": 100,
-                     "fob_price": 80, "ithalat_dosya_sayisi": 2, "toplam_stok": 7,
+                     "fob_price": 80, "ithalat_dosya_sayisi": 2, "zincir_stok": 7,
                      "firma_stoklari": {"VATAN": 4}})
     assert r["Net Kar ($)"] == 20 and round(r["Net Marj (%)"], 2) == 16.67
-    assert r["Maliyet %"] == 25 and r["VATAN"] == 4 and r["Toplam"] == 7
+    assert r["Maliyet %"] == 25 and r["VATAN"] == 4 and r["Kanal dahil"] == 7
     r2 = urun_satiri({"sku": "B", "satis_fiyati": 50, "final_cost_price": 40, "ithalat_dosya_sayisi": 0})
     assert r2["Final Cost ($)"] is None and r2["Net Kar ($)"] is None     # ithalat yoksa paçal yok
 

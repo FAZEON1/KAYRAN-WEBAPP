@@ -197,7 +197,9 @@ def goster(sku):
         st.warning("SKU seçilmedi.")
         return
 
-    from kayranpm.database import get_client, get_urun_detay, get_uretim_suresi, canli_stok
+    from kayranpm.database import (get_client, get_urun_detay, get_uretim_suresi, canli_stok,
+                                   firma_son_tarihleri)
+    from kayranpm.stok_hesap import kanal_stoklari
     sb = get_client()
     urun = get_urun_detay(sku) or {}
 
@@ -272,27 +274,29 @@ def goster(sku):
     _depo_kirilim = urun.get("depo_kirilim") if isinstance(urun.get("depo_kirilim"), dict) else {}
     _g5f_toplam = sum(_f(v) for v in _depo_kirilim.values())
     _g5f_satilabilir = _f(urun.get("bizim_stok"))
-    # Müşteri stoğu: her firmanın SON yüklemesi (snapshot). firma_stok'ta eski
-    # haftaların kayıtları da durur; hepsini toplamak stoğu katlıyordu (rozette
-    # 866 gibi şişkin değerler görünmüştü). Müşteri penceresiyle aynı mantık.
-    _fs_son = {}
-    for r in firma_stok:
-        _fa = str(r.get("firma") or "")
-        _ft = str(r.get("yukleme_tarihi") or "")[:10]
-        if (_fa not in _fs_son) or (_ft > _fs_son[_fa][0]):
-            _fs_son[_fa] = (_ft, _f(r.get("stok_miktari")))
-    _firma_toplam = sum(v[1] for v in _fs_son.values())
-    # Üst rozet + stok değeri için FİZİKİ toplam (bizim depolar + müşteri stoğu).
+    # Kanal (müşteri) stoğu: her kanalın GENEL son raporu (stok_hesap — liste ve
+    # panoyla aynı kural). Bu ürünün son görüldüğü satır DEĞİL: kanalın son
+    # raporunda olmayan ürün satılıp bitmiştir, o kanalda 0'dır.
+    try:
+        _son_tarih = firma_son_tarihleri()
+    except Exception:
+        _son_tarih = None                 # okunamazsa satırların kendi son tarihi
+    _kanal_stok = kanal_stoklari(firma_stok, son_tarih=_son_tarih)
+    firma_stok_son = [r for r in firma_stok
+                      if str(r.get("yukleme_tarihi") or "")[:10] == (_son_tarih or {}).get(r.get("firma"))] \
+        if _son_tarih is not None else firma_stok
+    # Üst rozet + stok değeri: TOPLAM STOK = bizim satılabilir depolar (Merkez +
+    # Happy Life), Tüm Ürünler ve Genel Bakış'la aynı tanım (stok_hesap). Kanaldaki
+    # mal satılmıştır, stok değerine girmez; iade / ikinci el depo da girmez.
     # NOT: Eskiden burada canlı hesap (_cs["canli"]) gösteriliyordu; müşteri stok
     # dosyası henüz yüklenmemişken satış girilince eksiye düşüyor ve rozette
     # '-700 adet' gibi kafa karıştıran değerler çıkıyordu (kullanıcı talebi:
     # eksiler yazmasın). Canlı hesap Analiz tarafında yaşamaya devam eder;
     # rozet ve stok değeri artık elle tutulur fiziki stoğu gösterir.
-    toplam_stok = _g5f_toplam + _firma_toplam
+    toplam_stok = _g5f_satilabilir
     if toplam_stok <= 0 and _cs.get("var"):
         toplam_stok = max(_f(_cs.get("canli")), 0)
     yolda_adet = sum(_f(r.get("yoldaki_miktar")) for r in yolda_rows)
-    haftalik_statik = sum(_f(r.get("haftalik_satis")) for r in firma_stok)
     liste_fiyat = _f(urun.get("satis_fiyati"))
     stok_degeri = toplam_stok * pacal_final
     ilk_gorulen = (yas_rows[0].get("ilk_gorulen_tarih") if yas_rows else "") or ""
@@ -359,20 +363,21 @@ def goster(sku):
         # Panel verileri
         _dagilim_dolu = {d: _f(m) for d, m in (_depo_kirilim or {}).items() if _f(m) != 0}
         _firma_son = {}
-        for r in firma_stok:
+        for r in firma_stok_son:
             _fa = firma_gorunen_ad(r.get("firma", "")) or "—"
             _ft = str(r.get("yukleme_tarihi") or "")[:10]
             if (_fa not in _firma_son) or (_ft > _firma_son[_fa][0]):
                 _firma_son[_fa] = (_ft, _f(r.get("stok_miktari")), _f(r.get("haftalik_satis")))
-        _musteri_toplam = sum(v[1] for v in _firma_son.values())
+        _musteri_toplam = sum(sum(_f(v) for v in d.values()) for d in _kanal_stok.values())
 
-        _kart1 = (_kart("Bizim Stok", f"{tr_sayi(_g5f_toplam)}",
-                        f"{tr_sayi(_g5f_satilabilir)} satılabilir", trenk("yesil"))
+        _kart1 = (_kart("Toplam Stok", f"{tr_sayi(toplam_stok)}",
+                        (f"satılabilir · tüm depolar {tr_sayi(_g5f_toplam)}"
+                         if _g5f_toplam != toplam_stok else "satılabilir"), trenk("yesil"))
                   if _g5f_toplam > 0 else
                   _kart("Canlı Stok", f"{tr_sayi(toplam_stok)}", _yeter, trenk("yesil")))
         _kart_satiri([
             _kart1,
-            _kart("Stok Değeri", _usd(stok_degeri), "paçal × canlı stok", trenk("mavi")),
+            _kart("Stok Değeri", _usd(stok_degeri), "paçal × satılabilir stok", trenk("mavi")),
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", trenk("kirmizi")),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", trenk("mor2")),
         ])
@@ -422,10 +427,10 @@ def goster(sku):
         st.markdown(pencere_grid(_p_depo, _p_mus, alt_bosluk=2), unsafe_allow_html=True)
 
         # Genel toplam şeridi
-        _genel = _g5f_toplam + _musteri_toplam
-        _serit = (f'<span style="color:{RENK["metin"]};font-weight:700">GENEL TOPLAM '
+        _genel = toplam_stok + _musteri_toplam
+        _serit = (f'<span style="color:{RENK["metin"]};font-weight:700">Kanal dahil '
                   f'<span style="font-family:JetBrains Mono,monospace">{tr_sayi(_genel)}</span></span>'
-                  f'<span style="color:{RENK["silik"]}"> = bizim {tr_sayi(_g5f_toplam)} + müşteri {tr_sayi(_musteri_toplam)}</span>')
+                  f'<span style="color:{RENK["silik"]}"> = satılabilir {tr_sayi(toplam_stok)} + kanallarda {tr_sayi(_musteri_toplam)}</span>')
         # NOT: 'canlı hesap' ibaresi kullanıcı talebiyle şeritten kaldırıldı
         # (müşteri stok dosyası beklenirken eksi görünüp kafa karıştırıyordu).
         if haftalik_gercek > 0:

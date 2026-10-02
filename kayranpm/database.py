@@ -393,6 +393,21 @@ def set_uretim_suresi(gun):
         return False
 
 @st.cache_data(ttl=300, show_spinner=False)
+def firma_son_tarihleri():
+    """{firma: 'YYYY-MM-DD'} — her kanalın en son rapor tarihi (tüm ürünler).
+    Tek ürünün satırlarını okuyan ekranlar (stok kartı) kanal stoğunu bu
+    tarihle süzer: son raporda olmayan ürün o kanalda 0 (bkz. stok_hesap)."""
+    sb = get_client()
+    out = {}
+    for firma in ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]:
+        son = _row(sb.table("firma_stok").select("yukleme_tarihi").eq("firma", firma)
+                   .order("yukleme_tarihi", desc=True).limit(1).execute())
+        if son and son.get("yukleme_tarihi"):
+            out[firma] = str(son["yukleme_tarihi"])[:10]
+    return out
+
+
+@st.cache_data(ttl=300, show_spinner=False)
 def _dashboard_ham():
     """Veritabanından ham panel verisi (5 dk önbellek). İthalat yolda/antrepo
     eklemesi BURADA DEĞİL, get_all_dashboard_data'da yapılır (bkz. orası)."""

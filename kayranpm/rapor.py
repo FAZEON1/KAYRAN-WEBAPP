@@ -259,7 +259,7 @@ TUM_URUN_KOLONLAR = [
     ("Marka", "Marka"),
     ("Stok Yaşı (gün)", "_stok_yas"),
     ("G5F Depo", "G5F Depo"),
-    ("Toplam Stok", "Toplam"),
+    ("Kanal Dahil Stok", "Kanal dahil"),
     ("Paçal FOB ($)", "FOB ($)"),
     ("Son FOB ($)", "Son FOB ($)"),
     ("Maliyet %", "Maliyet %"),
@@ -295,7 +295,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
 
         para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Son Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
         pct_kol = {"Maliyet %", "Net Marj (%)"}
-        sayi_kol = {"G5F Depo", "Toplam Stok", "Stok Yaşı (gün)"}
+        sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)"}
 
         for ri, r in enumerate(rows, start=hdr_row + 1):
             stok_renk = r.get("_stok_renk", "yok")
@@ -318,7 +318,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 elif b in pct_kol:
                     c.number_format = '0.0"%"'
                     c.alignment = Alignment(horizontal="right")
-                elif b in ("G5F Depo", "Toplam Stok"):
+                elif b in ("G5F Depo", "Kanal Dahil Stok"):
                     c.alignment = Alignment(horizontal="right")
                 if b == "Stok Yaşı (gün)":
                     c.alignment = Alignment(horizontal="center")
@@ -356,7 +356,7 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
         ]
         pdf_kol = [
             ("SKU", "SKU"), ("Ürün", "Ürün Adı"), ("Kat.", "Kategori"),
-            ("Yaş", "_stok_yas"), ("G5F", "G5F Depo"), ("Top.", "Toplam"),
+            ("Yaş", "_stok_yas"), ("G5F", "G5F Depo"), ("+Kanal", "Kanal dahil"),
             ("PaçFOB$", "FOB ($)"), ("SonFOB$", "Son FOB ($)"),
             ("Paçal$", "Final Cost ($)"), ("SonMal$", "Son Maliyet ($)"),
             ("Satış$", "Satış ($)"),
