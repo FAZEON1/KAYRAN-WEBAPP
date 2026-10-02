@@ -170,28 +170,44 @@ def satis_cikisi(kayit):
     return _uygula(sku, ad, depo, -1)
 
 
+def _pacal(sku):
+    """Ürünün ithalat paçalı (yoksa ürün kartındaki yurt içi alış) — satis.get_pacal_map
+    ile, SKU 'Fazeon …' yazılı olsa bile normalize eşleşir. Okunamazsa 0."""
+    try:
+        from satis.database import get_pacal_map
+        from shared.utils import sku_anahtar
+        return float((get_pacal_map() or {}).get(sku_anahtar(sku), 0) or 0)
+    except Exception:
+        return 0.0
+
+
 def satis_kaydi_yaz(kayit, birim_satis, tarih=None, notlar="", bedelsiz=False):
     """satislar tablosuna kayıt açar — P&L'de AYRI kanal olarak görünür.
-    Maliyet 0 yazılır: ikinci el / outlet ürünün maliyeti orijinal alışta
-    zaten giderleşmiştir, tekrar maliyet yazmak çift sayım olur.
-    Döner: (ok, mesaj)."""
+    Birim maliyet: ithalat PAÇALI (Ekim 2026). Eskiden 0 yazılıyordu ("orijinal alışta
+    giderleşti, tekrar yazmak çift sayım" gerekçesiyle); oysa bu depolara gelen ürünler
+    çoğunlukla iade/değişim ürünü — iade ilk satışın maliyetini geri alıyor, ürün
+    maliyetiyle stoğa dönüyor. Maliyet yazılmazsa satış %100 marjlı görünüyordu.
+    Bedelsiz verilen ürünün de maliyeti yazılır (zarar olarak görünür).
+    Paçal bilinmiyorsa 0 yazılır ve mesajda söylenir. Döner: (ok, mesaj)."""
     try:
         from satis.database import ekle_satis
         from datetime import date as _date
         sku, ad = _sku_ad(kayit)
         if not sku:
             return False, "stok kodu boş — satış kaydı açılmadı"
+        maliyet = _pacal(sku)
         ekle_satis(
             tarih=str(tarih or _date.today())[:10],
             kanal=TS_SATIS_KANALI,
             sku=sku, urun_adi=ad,
             adet=1,
             birim_satis=0.0 if bedelsiz else float(birim_satis or 0),
-            birim_maliyet=0.0,
+            birim_maliyet=maliyet,
             notlar=(f"{kayit.get('servis_form_no','')} · "
                     f"{kayit.get('depo','')} · seri {kayit.get('seri_no','')}"
                     + (f" · {notlar}" if notlar else ""))[:400],
         )
-        return True, f"{sku} satış kaydı açıldı ({TS_SATIS_KANALI})"
+        return True, (f"{sku} satış kaydı açıldı ({TS_SATIS_KANALI})"
+                      + ("" if maliyet > 0 else " · paçal maliyet bulunamadı, maliyet 0 yazıldı"))
     except Exception as e:
         return False, f"satış kaydı açılamadı ({type(e).__name__}: {str(e)[:80]})"
