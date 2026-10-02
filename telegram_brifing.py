@@ -139,6 +139,24 @@ def satis_blogu_kur(pnl):
     return "\n".join(L)
 
 
+def yukleme_blogu_kur(durumlar):
+    """Dönemsel Excel yüklemeleri: gecikenler + son 2 günü kalanlar. Hepsi
+    güncelse None (mesaj kalabalıklaşmasın). Veri: shared.yukleme_takvimi."""
+    e = html.escape
+    gec = [d for d in durumlar if d.get("seviye") == "gecikti"]
+    yak = [d for d in durumlar if d.get("seviye") == "yaklasiyor"]
+    if not (gec or yak):
+        return None
+    L = ["", "📥 <b>Veri güncelliği</b>"]
+    for d in gec:
+        L.append(f"🔴 {e(d['ad'])} — {e(', '.join(d.get('eksik_adlar') or []))} eksik, "
+                 f"{d.get('gecikme_gun', 0)} gün gecikti")
+    for d in yak:
+        ne = "bugün son gün" if d.get("kalan_gun") == 0 else f"{d.get('kalan_gun')} gün kaldı"
+        L.append(f"🟡 {e(d['ad'])} — {e(d.get('sonraki_adi', ''))}: {ne}")
+    return "\n".join(L)
+
+
 def gonder(mesaj):
     """Mesajı TELEGRAM_CHAT_ID içindeki tüm alıcılara gönderir."""
     import requests
@@ -210,6 +228,15 @@ def main():
             mesaj += "\n" + blok
     except Exception as ex:
         print("satış bloğu atlandı:", type(ex).__name__, str(ex)[:120])
+
+    # ── Veri güncelliği: dönemsel Excel'ler (hata olursa atlanır) ──
+    try:
+        from shared.yukleme_takvimi import durumlar
+        _yb = yukleme_blogu_kur(durumlar(simdi.date()))
+        if _yb:
+            mesaj += "\n" + _yb
+    except Exception as ex:
+        print("veri güncelliği bloğu atlandı:", type(ex).__name__, str(ex)[:120])
 
     mesaj += "\n\n— KAYRAN Workspace"
     print("── MESAJ ──\n" + mesaj + "\n───────────")

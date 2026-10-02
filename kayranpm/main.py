@@ -1292,6 +1292,8 @@ def run():
             from shared.tarih import hizli_tarih_araligi
             st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Haftalık Satışları", aciklama="Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır"), unsafe_allow_html=True)
             st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
+            from shared.yukleme_takvimi import serit as _yt_serit
+            _yt_serit("musteri_haftalik")        # haftalık müşteri dosyası: geri sayım şeridi
             _bas, _bit = hizli_tarih_araligi(
                 "mhs", varsayilan="Geçen hafta",
                 secenekler=["Geçen hafta", "Bu ay", "Geçen ay", "Son 30 gün",
@@ -1406,7 +1408,7 @@ def run():
                             os.unlink(_tbp2)
                         except Exception:
                             pass
-                    st.cache_data.clear()
+                    st.cache_data.clear()          # geri sayım da tazelenir (önbellekli)
                     (st.success if _ok2 else st.error)(_msg2)
             if st.button("Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True, icon=":material/upload:"):
                 _dlg_musteri_yukle()
@@ -1673,6 +1675,8 @@ def run():
                                  help="A4 yatay, yazdırmaya hazır özet")
 
             st.markdown(B.grup_basligi("🏬 G5F stok · depo kırılımlı (bizim depo)"), unsafe_allow_html=True)
+            from shared.yukleme_takvimi import serit as _yt_serit
+            _yt_serit("g5f_sayim")
             st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:var(--k-mavi)">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:var(--k-mavi)">Depo adı · Stok kodu · Stok ismi · Miktar</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
 
             dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
@@ -1691,6 +1695,8 @@ def run():
                     os.unlink(tmpg_path)
                     st.cache_data.clear()
                     if basari_g:
+                        from shared.yukleme_takvimi import kaydet as _yt_kaydet
+                        _yt_kaydet("g5f_sayim", st.session_state.get("aktif_kullanici", ""))
                         st.success(mesaj_g)
                     else:
                         st.error(mesaj_g)

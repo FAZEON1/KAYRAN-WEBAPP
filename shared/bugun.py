@@ -115,6 +115,37 @@ def maddeler_talep(talepler):
                    _isimler(acik, "konu"), len(acik), "talep", "talep")]
 
 
+def maddeler_yukleme(durumlar):
+    """Dönemsel Excel yüklemeleri (shared/yukleme_takvimi). Geciken kırmızı,
+    son 2 günü kalan sarı; güncel olanlar panele girmez (kartlarda görünür).
+    Aynı sayfadaki birden çok geciken dosya TEK maddede birleşir (toplam
+    aktiflerin üç dosyası üç ayrı madde olarak paneli kalabalıklaştırıyordu)."""
+    m, yak = [], []
+    gec = {}
+    for d in durumlar or []:
+        if d.get("seviye") == "gecikti":
+            gec.setdefault(d["sayfa"], []).append(d)
+        elif d.get("seviye") == "yaklasiyor":
+            ne_zaman = "bugün son gün" if d.get("kalan_gun") == 0 else f"{d.get('kalan_gun')} gün kaldı"
+            yak.append(_madde("uyari", f"{d['ad']} — {ne_zaman}",
+                            f"{d.get('sonraki_adi', '')} · {d['sayfa']}",
+                            max(0, int(d.get("kalan_gun") or 0)), d["modul"], f"yt_{d['anahtar']}"))
+    for sayfa, ds in gec.items():
+        en = max(int(x.get("gecikme_gun") or 0) for x in ds)
+        eksik = sorted({e for x in ds for e in (x.get("eksik_adlar") or [])})
+        if len(ds) == 1:
+            d = ds[0]
+            m.append(_madde("kritik", f"{d['ad']} yüklenmedi",
+                            f"{', '.join(eksik)} eksik · {en} gün gecikti · {sayfa}",
+                            max(1, len(eksik)), d["modul"], f"yt_{d['anahtar']}"))
+        else:
+            adlar = ", ".join(x["ad"].split(" · ")[-1] for x in ds)
+            m.append(_madde("kritik", f"{sayfa}: {len(ds)} dosya yüklenmedi",
+                            f"{adlar} · {', '.join(eksik)} eksik · {en} gün gecikti",
+                            len(ds), ds[0]["modul"], "yt_" + "_".join(x["anahtar"] for x in ds)))
+    return m + yak
+
+
 def sirala(maddeler):
     return sorted(maddeler, key=lambda m: (ONCELIK_SIRA.get(m["oncelik"], 9), -m["sayi"]))
 
@@ -143,6 +174,13 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
         bugun = tr_today()
     except Exception as e:  # noqa: BLE001 — saat dilimi yoksa sunucu tarihi yeter
         kaydet("bugun.tarih", e)
+
+    # Dönemsel yüklemeler: HERKES görür (yetkiye göre süzülmez — Ekim 2026 kararı)
+    try:
+        from shared.yukleme_takvimi import tum_durumlar
+        m += maddeler_yukleme(tum_durumlar(bugun.isoformat()))
+    except Exception as e:  # noqa: BLE001
+        kaydet("bugun.yukleme_takvimi", e)
 
     if yetkiler.get("kayranacc"):
         try:
