@@ -323,7 +323,7 @@ def tum_kullanicilar():
 # ─────────────────────────────────────────────────────────────────────
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
-TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"
+TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"   # hiçbir talep yöneticisinin adresi yoksa yedek alıcı
 
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE KULLANICI TAKİP
@@ -666,49 +666,8 @@ TALEP_KATEGORILERI = ["🐞 Hata bildirimi", "✨ Yeni özellik", "⚡ İyileşt
                       "❓ Soru / destek", "📊 Rapor talebi", "🔧 Diğer"]
 
 
-def talep_gonder(gonderen_ad, konu, mesaj):
-    """Talebi SMTP ile sabit alıcıya (TALEP_ALICI) gönderir.
-    SMTP bilgileri: st.secrets['bildirim'] (smtp_host/port/user/pass).
-    Döner: (basarili: bool, kod: str). 'smtp_yok' = SMTP yapılandırılmamış."""
-    try:
-        b = st.secrets.get("bildirim", {})
-    except Exception:
-        b = {}
-    smtp_host = b.get("smtp_host", "smtp.gmail.com")
-    smtp_port = int(b.get("smtp_port", 587))
-    smtp_user = b.get("smtp_user", "")
-    smtp_pass = b.get("smtp_pass", "")
-
-    if not smtp_user or not smtp_pass:
-        return False, "smtp_yok"
-
-    html = (
-        "<div style='font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#0f172a;line-height:1.6'>"
-        "<h2 style='color:#4338CA;margin:0 0 12px'>📨 KAYRAN Workspace — Yeni Talep / Geri Bildirim</h2>"
-        f"<p style='margin:4px 0'><b>Gönderen:</b> {gonderen_ad}</p>"
-        f"<p style='margin:4px 0'><b>Konu:</b> {konu}</p>"
-        "<hr style='border:none;border-top:1px solid #e2e8f0;margin:12px 0'>"
-        f"<div style='white-space:pre-wrap'>{mesaj}</div>"
-        "<hr style='border:none;border-top:1px solid #e2e8f0;margin:12px 0'>"
-        "<p style='color:#7B8AA0;font-size:13px'>Bu mesaj KAYRAN Workspace ana sayfasındaki talep formundan gönderildi.</p>"
-        "</div>"
-    )
-    try:
-        msg = MIMEText(html, "html", "utf-8")
-        msg["Subject"] = f"[KAYRAN Talep] {konu}"
-        msg["From"] = formataddr(("KAYRAN Workspace", smtp_user))
-        msg["To"] = TALEP_ALICI
-        msg["Reply-To"] = smtp_user
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=12) as server:
-            server.starttls(context=context)
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [TALEP_ALICI], msg.as_string())
-        return True, "ok"
-    except smtplib.SMTPAuthenticationError:
-        return False, "❌ SMTP kimlik doğrulama hatası (kullanıcı adı/şifre)."
-    except Exception as e:
-        return False, f"❌ Gönderim hatası: {type(e).__name__}: {str(e)[:200]}"
+# Talep e-postaları shared/eposta.py'de (Ekim 2026). Eskiden burada talep_gonder()
+# vardı ama HİÇ çağrılmıyordu — yeni talepte kimseye mail gitmiyordu.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2811,6 +2770,55 @@ def kullanici_yonetimi():
                      + ", ".join(d[0] for d in degisen))
             st.rerun()
 
+    # ── 2) E-posta bildirimleri (Ekim 2026) ──────────────────────────
+    # Adresler kodda değil veritabanında; yükleme hatırlatmaları ve talep
+    # bildirimleri bu adreslere gider (shared/eposta.py).
+    st.markdown("---")
+    st.markdown("#### E-posta bildirimleri")
+    st.caption("Yükleme hatırlatmaları (sorumluya; 5 iş günü gecikmede yöneticiye kopya) ve talep "
+               "bildirimleri (yeni talep → talep yöneticileri, yanıt → talep sahibi) bu adreslere gider.")
+    from shared import eposta as _E
+    _sa = _E.ayarlar()
+    if _sa["user"] and _sa["pass"]:
+        st.markdown(f'<div style="font-size:13px;color:var(--k-yesil)">✓ SMTP ayarlı · {_sa["user"]} · '
+                    f'{_sa["host"]}:{_sa["port"]}</div>', unsafe_allow_html=True)
+    else:
+        st.warning("SMTP ayarlı değil: uygulama sırlarına `[bildirim]` bölümünde `smtp_user` ve `smtp_pass` "
+                   "eklenmeli (Google Workspace için uygulama şifresi). Sabah hatırlatmaları için GitHub "
+                   "sırlarına `SMTP_USER` ve `SMTP_PASS` eklenmeli.")
+    _adr = _E.adresler()
+    _edf = pd.DataFrame([{"Kullanıcı": k, "E-posta": _adr.get(k, "")} for k in sorted(db)])
+    _eed = st.data_editor(_edf, hide_index=True, use_container_width=True, key="ky_eposta",
+                          column_config={"Kullanıcı": st.column_config.TextColumn(disabled=True),
+                                         "E-posta": st.column_config.TextColumn(width="large")},
+                          height=min(560, 42 + 35 * len(_edf)))
+    if st.button("E-posta adreslerini kaydet", key="ky_eposta_kaydet", icon=":material/save:"):
+        _yeni = {r["Kullanıcı"]: str(r["E-posta"] or "").strip() for _, r in _eed.iterrows()}
+        _hatali = [f"{k}: {v}" for k, v in _yeni.items() if v and not _E.adres_gecerli_mi(v)]
+        if _hatali:
+            st.error("Geçersiz adres — kaydedilmedi: " + " · ".join(_hatali))
+        else:
+            _ok = _E.adres_kaydet(_yeni)
+            st.session_state["_ky_mesaj"] = ("✅ E-posta adresleri kaydedildi" if _ok
+                                              else "❌ E-posta adresleri kaydedilemedi")
+            st.rerun()
+    _dk = [k for k in sorted(db) if _adr.get(k)]
+    if _dk:
+        d1, d2 = st.columns([2, 1], vertical_alignment="bottom")
+        _dkim = d1.selectbox("Deneme maili gönderilecek kişi", _dk, key="ky_deneme_kisi",
+                             format_func=lambda k: f"{k} · {_adr[k]}")
+        if d2.button("Deneme maili gönder", key="ky_deneme", use_container_width=True, icon=":material/send:"):
+            with st.spinner("Gönderiliyor…"):
+                _ok, _kod = _E.gonder([_adr[_dkim]], "KAYRAN · deneme maili",
+                                      _E.sablon("Deneme maili", "<p>E-posta bildirimleri çalışıyor. "
+                                                "Yükleme hatırlatmaları ve talep bildirimleri bu adrese gelecek.</p>"))
+            if _ok:
+                st.success(f"✅ Gönderildi: {_adr[_dkim]} — gelen kutusunu (ve gereksiz klasörünü) kontrol et.")
+            elif _kod == "smtp_yok":
+                st.error("SMTP ayarlı değil — yukarıdaki uyarıya bak.")
+            else:
+                st.error(f"Gönderilemedi: {_kod}")
+
     st.markdown("---")
     c1, c2 = st.columns(2)
 
@@ -3121,6 +3129,18 @@ def _talep_merkezi():
                                              f"· {_kul.capitalize()} ({_onc})")
                                 except Exception:
                                     pass
+                        # E-posta: talep yöneticilerine (arka planda; gidemese de talep kayıtlı)
+                        try:
+                            from shared.eposta import adresler, talep_yeni_mail, arka_planda
+                            _adr = adresler()
+                            _alici = [_adr[y] for y in talep_yoneticileri()
+                                      if y != _kul.lower() and _adr.get(y)] or [TALEP_ALICI]
+                            from shared.yukleme_takvimi import sorumlu_adi as _tad   # gokhan → Gökhan
+                            _mk, _mh = talep_yeni_mail(_tad(_kul), _mesaj.strip(), _konu.strip(),
+                                                       _kat, _onc)
+                            arka_planda(_alici, _mk, _mh)
+                        except Exception:
+                            pass
                         st.success("✅ Talebin kaydedildi. Teşekkürler!")
                     else:
                         st.error("❌ Kaydedilemedi, tekrar dener misin?")
@@ -3199,7 +3219,19 @@ def _talep_merkezi():
                                                   f"{_t.get('konu') or 'Talep'}")
                                     except Exception:
                                         pass
-                                st.success("✅ Kaydedildi.")
+                                # E-posta: talep sahibine (yanıt geldiyse ya da durum değiştiyse)
+                                _degisti = (_cev.strip() != (_t.get("cevap") or "").strip()
+                                            or _dur != str(_t.get("durum") or "bekliyor"))
+                                if _gnd and _degisti and _gnd != (_kul or "").lower():
+                                    try:
+                                        from shared.eposta import adresler, talep_yanit_mail, arka_planda
+                                        _ga = adresler().get(_gnd)
+                                        if _ga:
+                                            _mk, _mh = talep_yanit_mail(_t.get("konu") or "Talep", _cev.strip(), _dur)
+                                            arka_planda([_ga], _mk, _mh)
+                                    except Exception:
+                                        pass
+                                st.toast("✅ Kaydedildi")      # rerun'dan önce basılan success kayboluyordu
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"❌ {type(_e).__name__}")
