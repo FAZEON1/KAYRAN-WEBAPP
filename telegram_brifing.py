@@ -148,12 +148,15 @@ def yukleme_blogu_kur(durumlar):
     if not (gec or yak):
         return None
     L = ["", "📥 <b>Veri güncelliği</b>"]
+    def kim(d):
+        return f" · 👤 <b>{e(d['sorumlu_ad'])}</b>" if d.get("sorumlu_ad") else ""
     for d in gec:
-        L.append(f"🔴 {e(d['ad'])} — {e(', '.join(d.get('eksik_adlar') or []))} eksik, "
-                 f"{d.get('gecikme_gun', 0)} gün gecikti")
+        from shared.yukleme_takvimi import eksik_ozeti
+        L.append(f"🔴 {e(d['ad'])} — {e(eksik_ozeti(d.get('eksik_adlar'), d.get('siklik')))} eksik, "
+                 f"{d.get('gecikme_gun', 0)} gün gecikti{kim(d)}")
     for d in yak:
         ne = "bugün son gün" if d.get("kalan_gun") == 0 else f"{d.get('kalan_gun')} gün kaldı"
-        L.append(f"🟡 {e(d['ad'])} — {e(d.get('sonraki_adi', ''))}: {ne}")
+        L.append(f"🟡 {e(d['ad'])} — {e(d.get('sonraki_adi', ''))}: {ne}{kim(d)}")
     return "\n".join(L)
 
 

@@ -115,6 +115,11 @@ def maddeler_talep(talepler):
                    _isimler(acik, "konu"), len(acik), "talep", "talep")]
 
 
+def _kim(d):
+    """Uyarı başlığında sorumlunun adı (Ekim 2026: her yüklemenin bir sorumlusu var)."""
+    return f" · 👤 {d['sorumlu_ad']}" if d.get("sorumlu_ad") else ""
+
+
 def maddeler_yukleme(durumlar):
     """Dönemsel Excel yüklemeleri (shared/yukleme_takvimi). Geciken kırmızı,
     son 2 günü kalan sarı; güncel olanlar panele girmez (kartlarda görünür).
@@ -127,21 +132,25 @@ def maddeler_yukleme(durumlar):
             gec.setdefault(d["sayfa"], []).append(d)
         elif d.get("seviye") == "yaklasiyor":
             ne_zaman = "bugün son gün" if d.get("kalan_gun") == 0 else f"{d.get('kalan_gun')} gün kaldı"
-            yak.append(_madde("uyari", f"{d['ad']} — {ne_zaman}",
+            yak.append(_madde("uyari", f"{d['ad']} — {ne_zaman}{_kim(d)}",
                             f"{d.get('sonraki_adi', '')} · {d['sayfa']}",
                             max(0, int(d.get("kalan_gun") or 0)), d["modul"], f"yt_{d['anahtar']}"))
     for sayfa, ds in gec.items():
         en = max(int(x.get("gecikme_gun") or 0) for x in ds)
-        eksik = sorted({e for x in ds for e in (x.get("eksik_adlar") or [])})
+        from shared.yukleme_takvimi import eksik_ozeti
+        en_cok = max(ds, key=lambda x: len(x.get("eksik_adlar") or []))
+        eksik_m = eksik_ozeti(en_cok.get("eksik_adlar"), en_cok.get("siklik"))
         if len(ds) == 1:
             d = ds[0]
-            m.append(_madde("kritik", f"{d['ad']} yüklenmedi",
-                            f"{', '.join(eksik)} eksik · {en} gün gecikti · {sayfa}",
-                            max(1, len(eksik)), d["modul"], f"yt_{d['anahtar']}"))
+            m.append(_madde("kritik", f"{d['ad']} yüklenmedi{_kim(d)}",
+                            f"{eksik_m} eksik · {en} gün gecikti · {sayfa}",
+                            max(1, len(d.get("eksik_adlar") or [])), d["modul"], f"yt_{d['anahtar']}"))
         else:
             adlar = ", ".join(x["ad"].split(" · ")[-1] for x in ds)
-            m.append(_madde("kritik", f"{sayfa}: {len(ds)} dosya yüklenmedi",
-                            f"{adlar} · {', '.join(eksik)} eksik · {en} gün gecikti",
+            kimler = sorted({x.get("sorumlu_ad") for x in ds if x.get("sorumlu_ad")})
+            m.append(_madde("kritik", f"{sayfa}: {len(ds)} dosya yüklenmedi"
+                            + (f" · 👤 {', '.join(kimler)}" if kimler else ""),
+                            f"{adlar} · {eksik_m} eksik · {en} gün gecikti",
                             len(ds), ds[0]["modul"], "yt_" + "_".join(x["anahtar"] for x in ds)))
     return m + yak
 

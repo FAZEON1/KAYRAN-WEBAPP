@@ -2160,7 +2160,8 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
 
     _sistem = ozel_yetki(aktif_kullanici, "kullanici_yonetimi")
     _e1, _e2, _ = st.columns([1.3, 1, 2.2])
-    _isaretlenebilir = [d for d in _dl if d["seviye"] == "gecikti" and (_sistem or yetkiler.get(d["modul"]))]
+    _isaretlenebilir = [d for d in _dl if d["seviye"] == "gecikti"
+                        and (_sistem or yetkiler.get(d["modul"]) or d.get("sorumlu") == aktif_kullanici)]
     if _isaretlenebilir:
         with _e1.popover("Bu dönem veri yok", icon=":material/event_busy:", use_container_width=True):
             st.caption("Bir dönemde gerçekten yüklenecek veri yoksa (ör. o ay iade olmadı) işaretle; "
@@ -2178,27 +2179,32 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
         # Pencere: açılır menü dar kalıyor, tablonun "Takipte" sütunu kesiliyordu
         @st.dialog("Veri güncelliği · takvim ayarları", width="large")
         def _yt_ayar_penceresi():
-            st.caption("Sıklık ve son gün. Haftalık: son gün hafta günü · aylık / çeyreklik: ayın kaçı (1–28).")
+            st.caption("Sıklık, son gün ve sorumlu. Haftalık: son gün hafta günü (0 = Pazartesi) · aylık / "
+                       "çeyreklik: ayın kaçı (1–28). Sorumlunun adı uyarılarda görünür; sorumlu kendi "
+                       "kaynağı için \"bu dönem veri yok\" işaretleyebilir.")
             import pandas as _pd
             _ay = _yt._ayar(_yt.AYAR_ANAHTAR, {})
             _df = _pd.DataFrame([{
                 "anahtar": k["anahtar"], "Kaynak": k["ad"],
                 "Sıklık": _yt.SIKLIKLAR[_yt.kaynak_ayari(k["anahtar"], _ay)["siklik"]],
                 "Son gün": int(_yt.kaynak_ayari(k["anahtar"], _ay)["son_gun"]),
+                "Sorumlu": _yt.kaynak_ayari(k["anahtar"], _ay)["sorumlu"],
                 "Takipte": _yt.kaynak_ayari(k["anahtar"], _ay)["aktif"]} for k in _yt.KAYNAKLAR])
             _ed = st.data_editor(
                 _df, hide_index=True, key="yt_ayar_editor", use_container_width=True,
-                column_order=["Kaynak", "Sıklık", "Son gün", "Takipte"],
+                column_order=["Kaynak", "Sıklık", "Son gün", "Sorumlu", "Takipte"],
                 column_config={
                     "Kaynak": st.column_config.TextColumn(disabled=True),
                     "Sıklık": st.column_config.SelectboxColumn(options=list(_yt.SIKLIKLAR.values()), required=True),
                     "Son gün": st.column_config.NumberColumn(min_value=0, max_value=28, step=1,
                                                              help="Haftalık: 0=Pazartesi … 6=Pazar"),
+                    "Sorumlu": st.column_config.TextColumn(help="Kullanıcı adı (ör. serdar) — uyarılarda adı görünür"),
                     "Takipte": st.column_config.CheckboxColumn()})
             if st.button("Kaydet", key="yt_ayar_kaydet", type="primary", icon=":material/save:"):
                 _ters = {v: k for k, v in _yt.SIKLIKLAR.items()}
                 _yt.ayar_kaydet({r["anahtar"]: {"siklik": _ters.get(r["Sıklık"], "aylik"),
-                                                "son_gun": int(r["Son gün"] or 0), "aktif": bool(r["Takipte"])}
+                                                "son_gun": int(r["Son gün"] or 0), "aktif": bool(r["Takipte"]),
+                                                "sorumlu": str(r["Sorumlu"] or "").strip().lower()}
                                  for _, r in _ed.iterrows()})
                 st.toast("Takvim ayarları kaydedildi")
                 st.rerun()

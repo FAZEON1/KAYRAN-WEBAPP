@@ -211,7 +211,8 @@ def test_gecmisi_olmayan_kaynak_ilk_gun_alarm_vermez(monkeypatch):
               "happylife", "gider_tablosu"):
         monkeypatch.setitem(Y._OKUYUCU, a, lambda b: None)
     dl = {d["anahtar"]: d for d in Y.durumlar(date(2026, 10, 9))}
-    for a in ("satis_dokumu", "odeme_listesi", "g5f_sayim"):
+    # satis_dokumu Ekim 2026'dan beri varsayılan olarak takip dışı (zaman zaman yapılıyor)
+    for a in ("odeme_listesi", "g5f_sayim"):
         assert dl[a]["seviye"] != "gecikti" and dl[a]["baslangic"], a
     assert dl["iade_aylik"]["seviye"] == "gecikti"                  # veriden okunan kaynak alarm verir
 
@@ -237,3 +238,79 @@ def test_ayni_sayfanin_gecikenleri_tek_madde():
     m = maddeler_yukleme(ds)
     assert len(m) == 1 and m[0]["sayi"] == 2 and "2 dosya" in m[0]["baslik"]
     assert "stok, cari" in m[0]["detay"] and "27 gün" in m[0]["detay"]
+
+
+# ── Sorumlular (Ekim 2026) ──────────────────────────────────────────
+ATAMA = {"musteri_haftalik": "derya", "iade_aylik": "gokhan", "aktif_stok": "serdar",
+         "aktif_ithalat": "serdar", "aktif_cari": "serdar", "odeme_listesi": "serdar",
+         "happylife": "samet", "gider_tablosu": "serdar", "g5f_sayim": "gokhan"}
+
+
+def test_varsayilan_sorumlular_ve_takvim():
+    Y = _yt()
+    k = {x["anahtar"]: x for x in Y.KAYNAKLAR}
+    for a, kim in ATAMA.items():
+        assert k[a]["sorumlu"] == kim, a
+    for a in ("aktif_stok", "aktif_ithalat", "aktif_cari"):
+        assert (k[a]["siklik"], k[a]["son_gun"]) == ("haftalik", 0), a        # her Pazartesi
+    assert (k["happylife"]["siklik"], k["happylife"]["son_gun"]) == ("aylik", 5)
+    assert k["satis_dokumu"]["aktif"] is False and not k["satis_dokumu"].get("sorumlu")   # takip dışı
+    assert Y.AYAR_ANAHTAR == "yukleme_takvimi_ayar_v2"                  # eski kayıtlı ayar ezmesin
+
+
+def test_ayar_sorumlu_ve_takip_ezer():
+    Y = _yt()
+    k = Y.kaynak_ayari("happylife", {"happylife": {"sorumlu": "derya"}})
+    assert k["sorumlu"] == "derya" and k["siklik"] == "aylik"
+    assert Y.kaynak_ayari("satis_dokumu", {})["aktif"] is False
+    assert Y.kaynak_ayari("satis_dokumu", {"satis_dokumu": {"aktif": True}})["aktif"] is True
+
+
+def test_sorumlu_adi():
+    Y = _yt()
+    assert Y.sorumlu_adi("gokhan") == "Gökhan" and Y.sorumlu_adi("derya") == "Derya"
+    assert Y.sorumlu_adi("ali") == "Ali" and Y.sorumlu_adi("") == ""
+
+
+def test_takip_disi_kaynak_durumlarda_yok(monkeypatch):
+    Y = _yt()
+    monkeypatch.setattr(Y, "_ayar", lambda a, v: v)
+    monkeypatch.setattr(Y, "_takip_baslangici", lambda a, b: b)
+    for a in list(Y._OKUYUCU):
+        monkeypatch.setitem(Y._OKUYUCU, a, lambda b: None)
+    dl = {d["anahtar"]: d for d in Y.durumlar(date(2026, 10, 9))}
+    assert "satis_dokumu" not in dl
+    assert dl["iade_aylik"]["sorumlu"] == "gokhan" and dl["iade_aylik"]["sorumlu_ad"] == "Gökhan"
+
+
+def test_uyarilarda_isim():
+    from shared.bugun import maddeler_yukleme
+    Y = _yt()
+    d = {"anahtar": "iade_aylik", "ad": "İade Excel'i", "modul": "satis", "sayfa": "Satış › İade",
+         "seviye": "gecikti", "gecikme_gun": 4, "eksik_adlar": ["Eylül 2026"], "sorumlu_ad": "Gökhan"}
+    assert "Gökhan" in maddeler_yukleme([d])[0]["baslik"]
+    y = dict(d, seviye="yaklasiyor", kalan_gun=1, sonraki_adi="Ekim 2026")
+    assert "Gökhan" in maddeler_yukleme([y])[0]["baslik"]
+    grup = [dict(d, anahtar=f"aktif_{t}", ad=f"Toplam aktifler · {t}", sayfa="Muhasebe › Toplam Aktifler",
+                 sorumlu_ad="Serdar") for t in ("stok", "cari")]
+    assert "Serdar" in maddeler_yukleme(grup)[0]["baslik"]
+    kart = Y.kart_html(dict(d, siklik="aylik", kalan_gun=0, son_adi="Ağustos 2026", sonraki_adi="Eylül 2026",
+                            vade_metni="05.10 Pzt", eksik=[]))
+    assert "Gökhan" in kart
+    import telegram_brifing as T
+    assert "Gökhan" in T.yukleme_blogu_kur([d])
+
+
+def test_ayar_penceresinde_sorumlu_ve_sorumlu_isaretleyebilir():
+    a = _oku("app.py")
+    g = a[a.index("def _veri_guncelligi("):a.index("def anasayfa():")]
+    assert '"Sorumlu"' in g
+    assert 'd.get("sorumlu") == aktif_kullanici' in g                  # sorumlu "veri yok" diyebilir
+
+
+def test_uzun_gecikme_ozetlenir():
+    Y = _yt()
+    adlar = [f"Hafta {i} (01.01–07.01)" for i in range(35, 40)]
+    assert Y.eksik_ozeti(adlar, "haftalik") == "5 hafta: Hafta 35 – Hafta 39"
+    assert Y.eksik_ozeti(adlar[:2], "haftalik") == "Hafta 35 (01.01–07.01), Hafta 36 (01.01–07.01)"
+    assert Y.eksik_ozeti(["Temmuz 2026", "Ağustos 2026", "Eylül 2026"], "aylik") == "3 ay: Temmuz 2026 – Eylül 2026"
