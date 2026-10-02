@@ -46,17 +46,15 @@ def test_muhasebe_tarih_bicimi():
 
 
 def test_ciro_grafigi_tr_ondalik():
-    """_kfmt ana sayfa fonksiyonunun İÇİNDE; kaynaktan ast ile çıkarıp çalıştır."""
-    kaynak = _oku("shared/ui.py")
-    fn = next(d for d in ast.walk(ast.parse(kaynak))
-              if isinstance(d, ast.FunctionDef) and d.name == "_kfmt")
-    ns = {}
-    exec("from shared.tasarim import tr_sayi\n" + textwrap.dedent(ast.get_source_segment(kaynak, fn)), ns)
-    f = ns["_kfmt"]
-    assert f(6800) == "6,8K"
-    assert f(44200) == "44,2K"
-    assert f(2000) == "2K"
-    assert f(980) == "980"
+    """Ekim 2026: patron panosu grafiği shared/patron.py'de (plotly). Nokta üstü kısaltılmış
+    etiketler (eski _kfmt: '6,8K') kalabalık yaptığı için kaldırıldı; eksen ve üzerine
+    gelme kutusu Türkçe biçimli olmalı."""
+    from datetime import date
+    from shared.patron import _grafik
+    fg = _grafik([(date(2026, 9, 1), 6800.5, 1234.0), (date(2026, 9, 2), 44200.0, -50.0)])
+    assert fg.layout.separators == ",."                                # 6.800 / 6,8
+    hov = list(fg.data[0].customdata)
+    assert "ciro $6.800" in hov[0] and "net kâr $1.234" in hov[0] and "01.09 Sal" in hov[0]
 
 
 def test_edefter_bos_hesap_none_yazmaz():

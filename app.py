@@ -2361,11 +2361,10 @@ def anasayfa():
     _patron_gor = ozel_yetki(aktif_kullanici, "patron_panel")
     if _patron_gor:
         try:
-            from shared.ui import (patron_verisi_topla, patron_panosu_html,
-                                   pencere_css as _pp_css)
-            st.markdown(_pp_css(), unsafe_allow_html=True)
-            _pv = patron_verisi_topla()
-            st.markdown(patron_panosu_html(_pv), unsafe_allow_html=True)
+            # Yeniden tasarım (Ekim 2026): shared/patron.py — tek kaynak, kıyaslı kartlar,
+            # takvim günlü grafik, kanal payı, tıklanır veri kalitesi
+            from shared.patron import render as _patron_panosu
+            _patron_panosu(_sayfaya_git)
         except Exception as _pe:
             from shared.hata_log import kaydet as _hk
             _hk("anasayfa.patron_panosu", _pe)
