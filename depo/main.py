@@ -447,10 +447,14 @@ def hl_excel_parse(dosya):
     return kayitlar, None
 
 
-def hl_kaydet(kayitlar, rapor_tarihi=None):
+def hl_kaydet(kayitlar, rapor_tarihi=None, dosya_adi=""):
     """Kayıtları DB'ye yazar. Aynı rapor tarihindeki eski kayıtları silip
-    yeniden yazar (idempotent) → aynı günü iki kez yüklersen mükerrer olmaz."""
+    yeniden yazar (idempotent) → aynı günü iki kez yüklersen mükerrer olmaz.
+    Yükleme geçmişine yazılır (shared.yukleme_gecmisi) ve oradan geri alınabilir."""
+    from shared.yukleme_gecmisi import Kayit as _YKayit
     rapor = str(rapor_tarihi or date.today().isoformat())[:10]
+    _yk = _YKayit("happylife", dosya_adi)
+    _yk.anahtar(rapor)
     try:
         sb = get_client()
     except Exception as e:
@@ -461,6 +465,8 @@ def hl_kaydet(kayitlar, rapor_tarihi=None):
         yedek = sb.table(_HL_TABLO).select("*").eq("rapor_tarihi", rapor).execute().data or []
     except Exception:
         yedek = []
+        _yk.iptal("eski satırlar okunamadı")
+    _yk.onceki(_HL_TABLO, yedek)
     try:
         with cop_kutusu_kapali():
             sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()
@@ -469,7 +475,9 @@ def hl_kaydet(kayitlar, rapor_tarihi=None):
     rows = [dict(k, rapor_tarihi=rapor) for k in kayitlar]
     try:
         for i in range(0, len(rows), 200):
-            sb.table(_HL_TABLO).insert(rows[i:i + 200]).execute()
+            _yk.eklenen(_HL_TABLO, sb.table(_HL_TABLO).insert(rows[i:i + 200]).execute().data,
+                        beklenen=len(rows[i:i + 200]))
+        _yk.kaydet(len(rows))
         return True, f"✅ {len(rows)} palet kaydı yüklendi ({tarih_tr(rapor)})."
     except Exception as e:
         hata = f"{type(e).__name__}: {str(e)[:140]}"
@@ -533,7 +541,7 @@ def _sayfa_happylife():
                 st.success(f"📄 {len(kayitlar)} palet satırı okundu.")
                 if st.button("Veritabanına Kaydet", type="primary", key="hl_kaydet_btn",
                              use_container_width=True, icon=":material/save:"):
-                    ok, msg = hl_kaydet(kayitlar, _rapor.isoformat())
+                    ok, msg = hl_kaydet(kayitlar, _rapor.isoformat(), dosya_adi=up.name)
                     try:
                         hl_rapor_tarihleri.clear(); hl_get_stok.clear()
                     except Exception:

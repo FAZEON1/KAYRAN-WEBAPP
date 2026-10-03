@@ -1136,7 +1136,7 @@ def run():
                         _tbp2 = _tb2.name
                     try:
                         with st.spinner("⏳ İçe aktarılıyor…"):
-                            _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2)
+                            _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2, dosya_adi=_dosya_hss.name)
                     except Exception as _he:
                         import traceback
                         _ok2 = False
@@ -1438,6 +1438,8 @@ def run():
                     if basari_g:
                         from shared.yukleme_takvimi import kaydet as _yt_kaydet
                         _yt_kaydet("g5f_sayim", st.session_state.get("aktif_kullanici", ""))
+                        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                        _yg_kaydet("g5f_sayim", 0, dosya_g.name)
                         st.success(mesaj_g)
                     else:
                         st.error(mesaj_g)

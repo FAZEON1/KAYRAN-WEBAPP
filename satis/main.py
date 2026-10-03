@@ -789,7 +789,7 @@ def run():
                         pass
                     return _sec
 
-                def _sg_kaydet(_gecerli, _temizle=False, _depo=None):
+                def _sg_kaydet(_gecerli, _temizle=False, _depo=None, _dosya_adi=""):
                     # Excel'de depo kolonu yok; kullanıcı yükleme ekranından seçer.
                     # Kalemde depo yoksa buradaki seçim yazılır — stok O DEPODAN düşer.
                     # Satırın KENDİ deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu)
@@ -801,6 +801,8 @@ def run():
                     if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                         st.error(f"❌ {_sonuc['hata']}")
                     else:
+                        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                        _yg_kaydet("siparis_excel", _sonuc.get("eklendi"), _dosya_adi)
                         _m = f"✅ {tr_sayi(_sonuc['eklendi'])} kalem kaydedildi."
                         if _sonuc["atlandi"]:
                             _m += f" {tr_sayi(_sonuc['atlandi'])} atlandı (zaten kayıtlı)."
@@ -897,7 +899,7 @@ def run():
                             _depo_k = _sg_depo_sec(_key, _gecerli)
                             if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
                                          key=f"sg_kaydet_{_key}", disabled=not _gecerli, icon=":material/move_to_inbox:"):
-                                _sg_kaydet(_gecerli, _uz, _depo_k)
+                                _sg_kaydet(_gecerli, _uz, _depo_k, _dosya.name)
                     if _sadece_govde:
                         # Ekim 2026: Satış Girişi kartından doğrudan açılan pencerenin içi
                         _kanal_blok_govde()
@@ -950,7 +952,7 @@ def run():
                                 _depo_v = _sg_depo_sec("vatan", _gecerli)
                                 if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
                                              key="sg_kaydet_vatan", disabled=not _gecerli, icon=":material/move_to_inbox:"):
-                                    _sg_kaydet(_gecerli, _uzv, _depo_v)
+                                    _sg_kaydet(_gecerli, _uzv, _depo_v, _dv.name)
 
                 _eera_knl = next((k for k in _kanallar
                                   if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
@@ -2152,6 +2154,8 @@ def run():
                             from shared.yukleme_takvimi import kaydet as _yt_kaydet
                             _yt_kaydet("satis_dokumu", st.session_state.get("aktif_kullanici", ""),
                                        _sonuc.get("eklendi"))
+                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                            _yg_kaydet("mikro_fatura", _sonuc.get("eklendi"), _dosya.name)
                             _msg = f"✅ {tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
                             if _sonuc.get("silinen_fatura"):
                                 _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
@@ -2323,6 +2327,8 @@ def run():
                                 from shared.yukleme_takvimi import kaydet as _yt_kaydet
                                 _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""),
                                            _r.get("eklendi"))
+                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                                _yg_kaydet("iade_excel", _r.get("eklendi"), _ie_dosya.name)
                                 st.toast(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                                 st.cache_data.clear()
                                 st.rerun()

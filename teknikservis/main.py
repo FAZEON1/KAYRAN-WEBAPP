@@ -305,6 +305,9 @@ def _mal_kabul():
                             _bar.progress(_n / len(_gecerli),
                                           text=f"Kaydediliyor… {_n}/{len(_gecerli)}")
                         _bar.empty()
+                        if _ok_s:
+                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                            _yg_kaydet("toplu_mal_kabul", _ok_s, _tyk.name)
                         st.success(f"✅ {_ok_s} mal kabul kaydı oluşturuldu."
                                    + (f" ⚠️ {len(_hata_s)} satır yazılamadı." if _hata_s else ""))
                         if _hata_s:

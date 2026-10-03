@@ -1807,7 +1807,7 @@ input, textarea, select { font-size: 16px !important; }
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi", "cop_kutusu"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi", "cop_kutusu", "yukleme_gecmisi"):
             # Kişi satırı + çıkış (modül sol menüleriyle AYNI düzen: shared.utils.sidebar_ust)
             from shared.utils import sidebar_kullanici as _sb_kisi
             _kc1, _kc2 = st.columns([3, 1.4], gap="small", vertical_alignment="center")
@@ -1840,6 +1840,11 @@ input, textarea, select { font-size: 16px !important; }
             st.button("Çöp kutusu", icon=":material/delete:", key="nav_cop_kutusu",
                       type="primary" if aktif_sayfa == "cop_kutusu" else "secondary",
                       use_container_width=True, on_click=_sayfaya_git, args=("cop_kutusu",))
+
+            # Yükleme geçmişi: herkes KENDİ yüklemelerini, sistem yöneticisi herkesinkini görür / geri alır
+            st.button("Yükleme geçmişi", icon=":material/history:", key="nav_yukleme_gecmisi",
+                      type="primary" if aktif_sayfa == "yukleme_gecmisi" else "secondary",
+                      use_container_width=True, on_click=_sayfaya_git, args=("yukleme_gecmisi",))
 
             if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
                 st.button("Kullanıcı Yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi",
@@ -3237,7 +3242,7 @@ def main():
         "depo": "Depo Yönetimi",
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
-        "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu",
+        "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3300,6 +3305,10 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
+        elif aktif == "yukleme_gecmisi":
+            from shared.yukleme_gecmisi import sayfa as _yukleme_gecmisi_sayfa
+            _yg_kul = st.session_state.get("aktif_kullanici", "")
+            _yukleme_gecmisi_sayfa(_yg_kul, ozel_yetki(_yg_kul, "kullanici_yonetimi"))
         elif aktif == "cop_kutusu":
             from shared.cop_kutusu import sayfa as _cop_kutusu_sayfa
             _ck_kul = st.session_state.get("aktif_kullanici", "")

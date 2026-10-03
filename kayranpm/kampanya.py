@@ -813,6 +813,8 @@ def _excel_dialog(urun_data_k, _kt_kat_list):
                             _on += 1
                         except Exception:
                             pass
+                    from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                    _yg_kaydet("kampanya_sablon", _on, _kfile.name)
                     st.cache_data.clear()
                     st.success(f"✅ '{_o_ad.strip()}' kampanyası oluşturuldu ve {_on} ürün eklendi "
                                f"(Firma: {_o_firma.strip()} · Tür: {_o_turu} · {_o_bas}→{_o_bit}).")

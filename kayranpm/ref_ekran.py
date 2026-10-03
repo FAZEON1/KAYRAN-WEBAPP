@@ -650,4 +650,6 @@ def _ad_excel_dialog():
             for h in hatalar[:5]:
                 st.error(h)
             if eklenen:
+                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                _yg_kaydet("alinan_destek", eklenen, up.name)
                 _yenile(None, f"{eklenen} kayıt eklendi" + (f", {atlanan} satır atlandı" if atlanan else ""))

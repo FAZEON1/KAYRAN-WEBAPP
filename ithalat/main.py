@@ -1874,6 +1874,9 @@ def _yeni_ithalat():
                         else:
                             hata += 1
                             mesajlar.append(f"{dno_s}: {msg}")
+                if basari or guncellenen:
+                    from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                    _yg_kaydet("ithalat_rapor", basari + guncellenen, up.name)
                 if basari:
                     st.success(f"✅ {basari} yeni dosya içe aktarıldı (⏳ masraf bekliyor).")
                 if guncellenen:

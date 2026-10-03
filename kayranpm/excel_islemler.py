@@ -720,7 +720,7 @@ def _hss_kolon(df, *adaylar):
     return None
 
 
-def excel_yukle_haftalik_stok_satis(dosya_yolu):
+def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
     """Firma başına AYRI 'X STOK' + 'X SATIŞ' sekmeleri olan haftalık dosyayı yükler.
     Her firmanın PORTAL formatı desteklenir (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu...).
     Satışlar SKU ile stok satırlarının yanına bağlanır → firma_stok'a tek özet yazılır.
@@ -732,6 +732,10 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
     yazma da SKU başına tek tek değil, TOPLU (chunk) yapılır.
     """
     import gc as _gc
+    # Yükleme geçmişi (shared.yukleme_gecmisi): silinen eski satırlar + eklenen kimlikler
+    # saklanır → Yükleme geçmişi ekranından tek işlemde geri alınabilir.
+    from shared.yukleme_gecmisi import Kayit as _YKayit
+    _yk = _YKayit("musteri_haftalik", dosya_adi)
     try:
         _xls = pd.ExcelFile(dosya_yolu)
         _sayfa_adlari = list(_xls.sheet_names)
@@ -860,12 +864,18 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
 
         # ── SNAPSHOT DEĞİŞTİR: bu firmanın bu RAPOR HAFTASINA ait kayıtlarını
         #    önce temizle (aynı haftanın dosyası tekrar yüklenirse şişmesin). ──
+        _yk.anahtar(kod, _rapor_tarihi)
+        try:
+            _yk.onceki("firma_stok", get_client().table("firma_stok").select("*")
+                       .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute().data or [])
+        except Exception as _oe:
+            _yk.iptal(f"eski satırlar okunamadı: {type(_oe).__name__}")
         try:
             with cop_kutusu_kapali():
                 get_client().table("firma_stok").delete() \
                     .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute()
-        except Exception:
-            pass
+        except Exception as _de:
+            _yk.iptal(f"eski satırlar silinemedi: {type(_de).__name__}")
 
         # ── Özet yaz (kategori bizim ürün kartından gelir; dosyadan beklenmez) ──
         # TOPLU YAZMA: eskiden her SKU için ayrı HTTP isteği atılıyordu (binlerce
@@ -886,7 +896,9 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
             try:
                 _cl = get_client()
                 for _i in range(0, len(_satirlar), 400):      # 400'lük parçalar
-                    _cl.table("firma_stok").insert(_satirlar[_i:_i + 400]).execute()
+                    _parca = _satirlar[_i:_i + 400]
+                    _yk.eklenen("firma_stok", _cl.table("firma_stok").insert(_parca).execute().data,
+                                beklenen=len(_parca))
                 _toplu_oldu = True
                 _n_sku = len(_satirlar)
                 _t_stok = sum(r["stok_miktari"] + r["stok_magaza"] for r in _satirlar)
@@ -899,6 +911,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                     yazma_hatasi["ilk"] = f"{kod} toplu yazma: {type(_be).__name__}: {str(_be)[:120]}"
 
         if not _toplu_oldu:
+            _yk.iptal("toplu yazma tutmadı, satır satır yazıldı (kimlikler bilinmiyor)")
             for sku, o in agg.items():
                 try:
                     try:
@@ -945,6 +958,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
                        + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
     ozet = " · ".join(f"{k}: {n} SKU (stok {tr_sayi(s)} / satış {tr_sayi(v)})"
                       for k, (n, s, v) in firma_ozet.items())
+    _yk.kaydet(basarili)
     _dd = "/".join(str(_rapor_tarihi)[:10].split("-")[::-1])  # gg/aa/yyyy
     msg = f"✅ Haftalık stok+satış yüklendi (rapor haftası: {_dd}) → {ozet}."
     if atlanan_sayfa:

@@ -114,7 +114,8 @@ TABLO_AD = {"satislar": "Satış", "iadeler": "İade", "odemeler": "Ödeme", "ha
             "ref_firmalar": "Ref firması", "ref_kayitlari": "Ref kaydı", "ref_butce": "Ref bütçesi",
             "ts_kayitlar": "Teknik servis kaydı", "ts_gecmis": "Teknik servis geçmişi",
             "depo_manuel_takip": "Bekleyen sevk takibi", "edefter_fisler": "e-Defter fişi",
-            "edefter_fis_satirlari": "e-Defter fiş satırı", "prim_gecmis": "Prim ödemesi", "gorevler": "Görev"}
+            "edefter_fis_satirlari": "e-Defter fiş satırı", "prim_gecmis": "Prim ödemesi", "gorevler": "Görev",
+            "happylife_stok": "Happy Life palet satırı"}
 
 # Özet için tabloya göre en anlamlı alanlar (ilk dolu olanlar kullanılır)
 _OZET_ALAN = ["servis_form_no", "siparis_no", "pi_no", "kampanya_adi", "firma", "firma_adi", "cari", "sku",

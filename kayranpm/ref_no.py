@@ -1071,7 +1071,7 @@ def butce_temizle(firma_id):
         return False
 
 
-def butce_excel_ice_aktar(firma_id, df, temizle=False):
+def butce_excel_ice_aktar(firma_id, df, temizle=False, dosya_adi=""):
     """ITOPYA_HAVUZ_BÜTÇE formatı (konuma göre):
     TÜR|MARKA|AÇIKLAMA|HAKEDİŞ BÜTÇE|TUTAR|DÖVİZ|FATURA NO|FATURA TARİH|FİRMA|REF NO|AÇIKLAMA(kişi)
     temizle=True ise mevcut kayıtlar SADECE geçerli yeni satır varsa silinir (veri kaybını önler)."""
@@ -1112,12 +1112,23 @@ def butce_excel_ice_aktar(firma_id, df, temizle=False):
         if not rows:
             return False, ("❌ Excel'de geçerli bütçe satırı bulunamadı (TÜR sütunu boş/yanlış olabilir). "
                            "Güvenlik için hiçbir mevcut kayıt silinmedi."), 0
+        # Yükleme geçmişi (shared.yukleme_gecmisi): silinen eski bütçe + eklenen kimlikler → geri alınabilir.
+        # Anahtar firma: aynı firmaya sonradan başka bir yükleme yapıldıysa önce o geri alınır.
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk = _YKayit("havuz_butce", dosya_adi)
+        _yk.anahtar(firma_id)
         # Geçerli satır var → (istenirse) önce temizle, sonra ekle
         if temizle:
+            try:
+                _yk.onceki("ref_butce", sb.table("ref_butce").select("*").eq("firma_id", firma_id).execute().data or [])
+            except Exception:
+                _yk.iptal("eski bütçe satırları okunamadı")
             with cop_kutusu_kapali():
                 sb.table("ref_butce").delete().eq("firma_id", firma_id).execute()
         for i in range(0, len(rows), 200):
-            sb.table("ref_butce").insert(rows[i:i + 200]).execute()
+            _yk.eklenen("ref_butce", sb.table("ref_butce").insert(rows[i:i + 200]).execute().data,
+                        beklenen=len(rows[i:i + 200]))
+        _yk.kaydet(len(rows))
         _cache_temizle()
         return True, f"✅ {len(rows)} bütçe kaydı içe aktarıldı.", len(rows)
     except Exception as e:
@@ -1584,6 +1595,8 @@ def _render_refler(fid, fkod):
                         ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
                         (st.success if ok else st.error)(msg)
                         if ok:
+                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                            _yg_kaydet("ref_excel", _n, up.name)
                             st.rerun()
                 except Exception as e:
                     st.error(f"Excel okunamadı: {e}")
@@ -1872,7 +1885,7 @@ def _render_butce(fid, firma):
                 df_b = pd.read_excel(upb)
                 st.dataframe(df_b.head(15), use_container_width=True, height=200)
                 if st.button("İçe Aktar", type="primary", key=f"butce_imp_{fid}", icon=":material/move_to_inbox:"):
-                    ok, msg, _n = butce_excel_ice_aktar(fid, df_b, temizle=temizle)
+                    ok, msg, _n = butce_excel_ice_aktar(fid, df_b, temizle=temizle, dosya_adi=upb.name)
                     (st.success if ok else st.error)(msg)
                     if ok:
                         st.rerun()

@@ -2254,6 +2254,8 @@ def run():
                                 from shared.yukleme_takvimi import kaydet as _yt_kaydet
                                 _yt_kaydet("odeme_listesi", st.session_state.get("aktif_kullanici", ""),
                                            len(odemeler))
+                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                                _yg_kaydet("odeme_listesi", len(odemeler), odeme_file.name)
                                 mesajlar.append(f"✅ {len(odemeler)} ödeme yüklendi — '{hafta_adi}'")
                             else:
                                 mesajlar.append("⚠️ Ödeme listesinde işlenebilir veri bulunamadı.")
@@ -2270,10 +2272,13 @@ def run():
                                     st.warning(h)
     
                             if tl_cekler or usd_cekler:
+                                from shared.yukleme_gecmisi import Kayit as _YKayit
+                                _yk_cek = _YKayit("cek_listesi", cek_file.name)   # TL + USD tek kayıt
                                 if tl_cekler:
-                                    cek_ekle_bulk(tl_cekler, "TL")
+                                    cek_ekle_bulk(tl_cekler, "TL", yukleme=_yk_cek)
                                 if usd_cekler:
-                                    cek_ekle_bulk(usd_cekler, "USD")
+                                    cek_ekle_bulk(usd_cekler, "USD", yukleme=_yk_cek)
+                                _yk_cek.kaydet(len(tl_cekler) + len(usd_cekler))
                                 mesajlar.append(f"✅ Çekler yüklendi: TL {len(tl_cekler)} · USD {len(usd_cekler)}")
                             else:
                                 mesajlar.append("⚠️ Çek dosyasında veri bulunamadı.")
@@ -2873,6 +2878,8 @@ def run():
                                 st.session_state[_sonuc_key] = detay
                                 kaydet_fn(deger, ham)
                                 st.session_state[f"_ok_{anahtar}"] = fid
+                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                                _yg_kaydet("aktif_excel", 1, f"{anahtar}: {f.name}")
                                 from shared.yukleme_takvimi import _temizle as _yt_tazele
                                 _yt_tazele()          # geri sayım yeni yükleme zamanını görsün
                                 durum.update(label=f"✅ {f.name} yüklendi", state="complete")
