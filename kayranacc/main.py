@@ -2989,7 +2989,7 @@ def run():
                             b_tot = _usd_kar(_b)
                             a_tot = _usd_kar(_a)
                             metrik_satiri([
-                                {"label": "Borç", "value": f"${tr_sayi(b_tot)}", "renk": trenk("kirmizi"),
+                                {"label": "Borç", "value": f"${tr_sayi(b_tot)}", "renk": trenk("kirmizi"), "anlam": "notr",
                                  "alt": f"USD {tr_sayi(float(_b.get('usd') or 0))} · TL {tr_sayi(float(_b.get('tl') or 0))} · EUR {tr_sayi(float(_b.get('eur') or 0))}"},
                                 {"label": "Alacak", "value": f"${tr_sayi(a_tot)}", "renk": trenk("yesil"),
                                  "alt": f"USD {tr_sayi(float(_a.get('usd') or 0))} · TL {tr_sayi(float(_a.get('tl') or 0))} · EUR {tr_sayi(float(_a.get('eur') or 0))}"},

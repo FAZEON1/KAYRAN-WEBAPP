@@ -49,7 +49,11 @@ def test_cekirdek_bilesenleri_degisken_kullanir():
 
 
 def test_bilesenler_tema_degiskeniyle():
-    assert "var(--k-yesil)" in T.kpi_serit([{"etiket": "a", "deger": "1", "renk": "yesil"}])
+    # Ekim 2026: kartta renk yalnız anlam taşır (kırmızı → k-kotu, CSS'te var(--k-kirmizi));
+    # yeşil/mor… nötr. Amaç aynı: çıktıda sabit hex yok, renk tema değişkeninden gelir.
+    _k = T.kpi_serit([{"etiket": "a", "deger": "1", "renk": "kirmizi"}])
+    assert "k-kotu" in _k and "#" not in _k
+    assert ".k-yeni.k-kotu .k-deger{color:var(--k-kirmizi);}" in T.cekirdek_css()
     assert "var(--k-amber)" in T.rozet("x", "amber")
     assert "#" not in T.rozet("x", "amber").split("style=")[1].split(">")[0]
     assert T.rv("yok_boyle") == "var(--k-mor)"

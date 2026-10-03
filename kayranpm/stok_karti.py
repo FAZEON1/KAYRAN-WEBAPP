@@ -34,7 +34,10 @@ def _usd(v):
     return f"${tr_sayi(_f(v), 2)}"
 
 
-def _kart(baslik, deger, alt="", renk="#A5B4FC"):
+def _kart(baslik, deger, alt="", renk="#A5B4FC", anlam=None):
+    from shared.tasarim import KART_YENI, kart_hucresi
+    if KART_YENI:       # ortak kart (başlık eskiden CSS ile BÜYÜK HARF yapılıyordu)
+        return kart_hucresi({"etiket": baslik, "deger": deger, "alt": alt, "renk": renk, "anlam": anlam})
     return (
         f'<div style="flex:1;min-width:150px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
         f'border:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);border-left:3px solid {renk};'
@@ -46,7 +49,7 @@ def _kart(baslik, deger, alt="", renk="#A5B4FC"):
 
 
 def _kart_satiri(kartlar):
-    st.markdown('<div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 14px">'
+    st.markdown('<div class="k-grid" style="margin:6px 0 14px">'
                 + "".join(kartlar) + '</div>', unsafe_allow_html=True)
 
 
@@ -378,7 +381,7 @@ def goster(sku):
         _kart_satiri([
             _kart1,
             _kart("Stok Değeri", _usd(stok_degeri), "paçal × satılabilir stok", trenk("mavi")),
-            _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", trenk("kirmizi")),
+            _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", trenk("kirmizi"), anlam="notr"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", trenk("mor2")),
         ])
 
@@ -464,7 +467,7 @@ def goster(sku):
             _kart_satiri([
                 _kart("Toplam Alınan", f"{tr_sayi(_adet_t)}", f"{len(alimlar)} parti", trenk("yesil")),
                 _kart("Son Alım FOB", _usd(son_fob), gun_ay_yil(son_tarih), trenk("amber")),
-                _kart("Paçal (Final)", _usd(pacal_final), "tüm partiler", trenk("kirmizi")),
+                _kart("Paçal (Final)", _usd(pacal_final), "tüm partiler", trenk("kirmizi"), anlam="notr"),
             ])
             # Maliyet trendi
             if len(alimlar) >= 2:
@@ -759,7 +762,7 @@ def _hareket_sekmesi(sku):
     _kart_satiri([
         _kart("Kayıt", f"{tr_sayi(len(rows))}", "son 300 hareket"),
         _kart("Toplam Giriş", f"+{tr_sayi(_giris)}", "adet", trenk("yesil")),
-        _kart("Toplam Çıkış", f"{tr_sayi(_cikis)}", "adet", trenk("kirmizi")),
+        _kart("Toplam Çıkış", f"{tr_sayi(_cikis)}", "adet", trenk("kirmizi"), anlam="notr"),
         _kart("Başarısız", f"{tr_sayi(len(_hatali))}", "işlem", trenk("amber") if _hatali else trenk("silik")),
     ])
     _depolar = sorted({r.get("depo") or "" for r in rows} - {""})

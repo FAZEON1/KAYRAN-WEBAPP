@@ -1043,6 +1043,21 @@ def cekirdek_css(yogunluk=None):
 .k-alt{{font-size:{F['kucuk']};color:var(--k-silik);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 
+/* ── Yeni kartlar (KART_YENI): nötr değer, renk yalnız anlam ── */
+.k-kart.k-yeni{{border-left-width:1px;}}
+.k-yeni .k-deger-satir{{display:flex;align-items:baseline;gap:8px;min-width:0;margin-top:2px;}}
+.k-yeni .k-deger{{font-family:inherit;color:var(--k-metin);font-weight:600;margin-top:0;min-width:0;}}
+.k-yeni.k-kotu .k-deger{{color:var(--k-kirmizi);}}
+.k-yeni.k-iyi .k-deger{{color:var(--k-yesil);}}
+.k-yeni.k-dikkat .k-deger{{color:var(--k-amber);}}
+.k-kart.k-vurgu{{flex:1.7;}}
+.k-vurgu .k-deger{{font-size:28px;letter-spacing:-0.5px;line-height:1.15;}}
+.k-rozet{{flex:0 0 auto;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;white-space:nowrap;
+  background:var(--k-ortu2);color:var(--k-soluk);font-variant-numeric:tabular-nums;}}
+.k-rozet.k-iyi{{background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil);}}
+.k-rozet.k-kotu{{background:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi);}}
+.k-spark{{display:block;width:100%;height:28px;margin-top:6px;}}
+
 /* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
    Sayfaya eklenen yalnız-<style> blokları ve yüksekliği 0 olan script
    iframe'leri görünmez, ama Streamlit her birinin arasına 16px boşluk koyar.
@@ -1158,12 +1173,100 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
             f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}{ack_html}</div>')
 
 
+# ── Sayı kartları (Ekim 2026) ───────────────────────────────────────
+# True : tek görünüm, renk yalnız anlam taşıdığında (kırmızı = sorun); ana kart,
+#        değişim rozeti ve eğilim çizgisi isteğe bağlı.
+# False: eski renkli şeritli kartlar. Geri almak için YALNIZ bu satırı değiştir.
+KART_YENI = True
+
+_KOTU_ANAHTAR = ("kirmizi", "kirmizi2")
+
+
+def kart_anlami(renk):
+    """Eski 'renk' alanı → anlam. Yalnız kırmızı 'kötü'dür; mor/cyan/mavi/amber/yeşil
+    çoğunlukla süs olarak kullanılmıştı (sayım: 80 süs, 11 kırmızı) → nötr."""
+    if not renk:
+        return None
+    r = str(renk).strip()
+    if r in _KOTU_ANAHTAR or any(f"--k-{k})" in r for k in _KOTU_ANAHTAR):
+        return "kotu"
+    u = r.upper()
+    if ESKI_RENK_ESLEME.get(u) in _KOTU_ANAHTAR:
+        return "kotu"
+    for palet in TEMALAR.values():
+        if any(str(palet.get(k, "")).upper() == u for k in _KOTU_ANAHTAR):
+            return "kotu"
+    return None
+
+
+def degisim_rozeti(simdi, onceki, artis_iyi=True):
+    """(metin, anlam) — '▼ %40,0', 'kotu'. Önceki yoksa / sıfırsa None."""
+    try:
+        s, o = float(simdi), float(onceki)
+    except (TypeError, ValueError):
+        return None
+    if not o:
+        return None
+    d = (s - o) / abs(o) * 100
+    if abs(d) < 0.05:
+        return (f"■ %{tr_sayi(0, 1)}", None)
+    yukari = d > 0
+    anlam = "iyi" if (yukari == bool(artis_iyi)) else "kotu"
+    return (f"{'▲' if yukari else '▼'} %{tr_sayi(abs(d), 1)}", anlam)
+
+
+def spark_svg(seri, anlam=None):
+    """Küçük eğilim çizgisi (son nokta anlam rengiyle). 2'den az noktada boş."""
+    try:
+        v = [float(x) for x in (seri or []) if x is not None]
+    except (TypeError, ValueError):
+        return ""
+    if len(v) < 2:
+        return ""
+    lo, hi = min(v), max(v)
+    ara = (hi - lo) or 1.0
+    n = len(v) - 1
+    pts = [(i / n * 100, 24 - (x - lo) / ara * 20) for i, x in enumerate(v)]
+    nok = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    son = {"iyi": "yesil", "kotu": "kirmizi", "dikkat": "amber"}.get(anlam, "soluk")
+    return (f'<svg class="k-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">'
+            f'<polyline fill="none" style="stroke:var(--k-soluk)" stroke-width="1.5" '
+            f'vector-effect="non-scaling-stroke" points="{nok}"/>'
+            f'<circle cx="{pts[-1][0]:.1f}" cy="{pts[-1][1]:.1f}" r="2.2" style="fill:var(--k-{son})"/></svg>')
+
+
+def kart_hucresi(k):
+    """Tek kart HTML'i. k: etiket, deger (HTML olabilir), alt?, ipucu?, renk? (eski;
+    yalnız kırmızı anlam taşır), anlam? (iyi/kotu/dikkat — renkten önce gelir),
+    vurgu? (ana kart), simdi?+onceki? (değişim rozeti), artis_iyi? (varsayılan True),
+    seri? (eğilim çizgisi), bilgi? (ⓘ)."""
+    anlam = k.get("anlam") or kart_anlami(k.get("renk"))
+    if anlam == "notr":             # renk süs olarak kırmızı verilmiş (ör. paçal, borç)
+        anlam = None
+    roz = degisim_rozeti(k.get("simdi"), k.get("onceki"), k.get("artis_iyi", True)) \
+        if k.get("onceki") is not None else None
+    sinif = "k-kart k-yeni" + (" k-vurgu" if k.get("vurgu") else "") + (f" k-{anlam}" if anlam else "")
+    ip = k.get("ipucu") or ""
+    ttl = f' title="{_html.escape(str(ip), quote=True)}"' if ip else ""
+    im = ' <span style="opacity:.6">ⓘ</span>' if k.get("bilgi") else ""
+    rz = (f'<span class="k-rozet{" k-" + roz[1] if roz[1] else ""}">{roz[0]}</span>' if roz else "")
+    alt = f'<div class="k-alt">{k["alt"]}</div>' if k.get("alt") else ""
+    sp = spark_svg(k.get("seri"), roz[1] if roz else anlam) if k.get("seri") else ""
+    return (f'<div class="{sinif}"{ttl}>'
+            f'<div class="k-etiket">{kpi_etiketi(k.get("etiket", ""))}{im}</div>'
+            f'<div class="k-deger-satir"><span class="k-deger">{k.get("deger", "")}</span>{rz}</div>'
+            f'{alt}{sp}</div>')
+
+
 def kpi_serit(kalemler, yogunluk=None):
     """KPI kartı şeridi — programdaki TEK metrik bileşeni.
 
     kalemler = [{"etiket","deger","renk"?,"alt"?,"ipucu"?,"tam"?}]
     `renk` RENK anahtarıdır ("yesil"), hex DEĞİL.
     """
+    if KART_YENI:
+        return '<div class="k-grid">' + "".join(
+            kart_hucresi(dict(k, ipucu=k.get("ipucu") or k.get("tam") or "")) for k in kalemler) + '</div>'
     hucreler = ""
     for k in kalemler:
         c = rv(k.get("renk", "mor"))
@@ -1862,6 +1965,7 @@ SIRALANABILIR_SINIR = 3000
 # Her tabloya benzersiz kimlik: st.html iframe DEĞİL, sayfaya doğrudan yazıyor.
 # Sabit id kullanılsa aynı sayfadaki tablolar birbirinin CSS'ini ve scriptini
 # ezerdi. Bu sayaç her çizimde artar.
+import html as _html
 import itertools as _it
 _TABLO_SAYAC = _it.count(1)
 

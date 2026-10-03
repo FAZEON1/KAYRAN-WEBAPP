@@ -233,7 +233,9 @@ def _kart(satirlar):
         satirlar = _km(satirlar)
     except Exception:
         pass
-    from shared.tasarim import RENK, ESKI_RENK_ESLEME
+    from shared.tasarim import RENK, ESKI_RENK_ESLEME, KART_YENI, kart_hucresi
+    if KART_YENI:       # ortak kart: nötr değer, kırmızı = sorun (shared/tasarim.kart_hucresi)
+        return "".join(kart_hucresi({"etiket": l, "deger": v, "renk": c}) for l, v, c in satirlar)
     hucreler = ""
     for l, v, c in satirlar:
         tok = ESKI_RENK_ESLEME.get(str(c).upper())
