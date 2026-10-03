@@ -166,3 +166,24 @@ def test_spam_basliklari_ve_duz_metin():
     assert turler == ["text/plain", "text/html"]
     duz = m.get_payload()[0].get_payload(decode=True).decode("utf-8")
     assert "Merhaba" in duz and "<" not in duz and "?s=kayranpm" in duz          # bağlantı düz metinde de var
+
+
+def test_sabah_isi_tek_kayittan_mail_hesabi():
+    """Mail hesabı GitHub'a TEK kayıt olarak girilebilir (BILDIRIM, uygulamadaki [bildirim] biçimi):
+    smtp_host = "..." / smtp_port = "587" / smtp_user = "..." / smtp_pass = "...".
+    İş bunu sırlar dosyasına [bildirim] bölümü olarak ekler; ayarlar() oradan okur."""
+    w = _oku(".github/workflows/telegram-brifing.yml")
+    i = w.index("python otonom/eposta_hatirlatma.py")
+    adim = w[w.rindex("- name:", 0, i):i]
+    assert "BILDIRIM: ${{ secrets.BILDIRIM }}" in adim
+    assert "[bildirim]" in adim and ".streamlit/secrets.toml" in adim
+    assert "${{ secrets.BILDIRIM }}" not in adim.split("run:", 1)[1]     # betiğe gömülmez, ortamdan okunur
+
+
+def test_ayarlar_metin_port(monkeypatch):
+    import shared.eposta as E
+    for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(E, "_secrets", lambda: {"smtp_host": "smtp.gmail.com", "smtp_port": "587",
+                                                "smtp_user": "a@b.com", "smtp_pass": "x"})
+    assert E.ayarlar() == {"host": "smtp.gmail.com", "port": 587, "user": "a@b.com", "pass": "x"}
