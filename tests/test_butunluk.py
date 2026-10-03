@@ -154,7 +154,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
                      "salt_okur", "kullanici_kaydi", "kaydet"],
-    "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul"],
+    "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
     "shared.utils": ["sidebar_ust", "sidebar_baslik", "sidebar_kullanici",

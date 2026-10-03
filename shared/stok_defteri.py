@@ -18,13 +18,33 @@ KURALLAR
     (500 SKU'luk Excel aktarımı 500 ek istek yapmasın).
   · Tampon oturum/iş parçacığı başınadır — iki kullanıcının kayıtları
     birbirine karışmaz.
+  · yukleme(kod) bağlamındaki her hareket o yüklemenin koduyla işaretlenir
+    (yukleme_kodu sütunu, veritabani/13_yukleme_kodu.sql). Böylece bir Excel
+    yüklemesinin stok etkisi sonradan tam olarak bulunup ters çevrilebilir
+    (shared/yukleme_gecmisi). Sütun yoksa işaretsiz yazılır, defter durmaz.
 """
 import contextlib
+import contextvars
 import inspect
 import threading
 
 TABLO = "stok_hareketleri"
 _yerel = threading.local()
+_YUKLEME = contextvars.ContextVar("stok_defteri_yukleme_kodu", default="")
+
+
+@contextlib.contextmanager
+def yukleme(kod):
+    """Bu blok içindeki bütün stok hareketleri 'kod' ile işaretlenir (yükleme geçmişi)."""
+    tok = _YUKLEME.set(str(kod or "")[:40])
+    try:
+        yield
+    finally:
+        _YUKLEME.reset(tok)
+
+
+def aktif_yukleme():
+    return _YUKLEME.get()
 
 # Bu dosyalardaki çerçeveler "kaynak" sayılmaz (asıl çağıranı bul).
 # Yol SONU ile karşılaştırılır — alt dize eşleşmesi 'test_stok_defteri.py'
@@ -89,6 +109,8 @@ def yaz(sku, depo, once, sonra, tur, aciklama="", basarili=True, hata="", kaynak
             "kullanici": _kullanici()[:40],
             "basarili": bool(basarili), "hata": str(hata or "")[:500],
         }
+        if _YUKLEME.get():
+            satir["yukleme_kodu"] = _YUKLEME.get()
         t = _tampon()
         if t is not None:
             t.append(satir)
@@ -114,7 +136,15 @@ def _gonder(satirlar):
         if not sb:
             return
         for i in range(0, len(satirlar), 500):
-            sb.table(TABLO).insert(satirlar[i:i + 500]).execute()
+            parca = satirlar[i:i + 500]
+            try:
+                sb.table(TABLO).insert(parca).execute()
+            except Exception as e1:
+                # yukleme_kodu sütunu henüz yoksa işaretsiz yaz (defter durmasın)
+                if "yukleme_kodu" not in str(e1) or not any("yukleme_kodu" in r for r in parca):
+                    raise
+                sb.table(TABLO).insert([{k: v for k, v in r.items() if k != "yukleme_kodu"}
+                                        for r in parca]).execute()
     except Exception as e:
         # Defter yazılamadı — bunu hata kaydına düş (tablo yoksa ilk seferde görünür)
         try:

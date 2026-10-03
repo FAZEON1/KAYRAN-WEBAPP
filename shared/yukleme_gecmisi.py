@@ -69,8 +69,11 @@ class Kayit:
     kayıt yine yazılır ama geri alınamaz."""
 
     def __init__(self, tur, dosya_adi=""):
+        import uuid
         self.tur, self.dosya_adi = tur, str(dosya_adi or "")
         self.anahtarlar, self.degisiklik, self._iptal = [], {}, ""
+        # Stok hareketlerini bu yüklemeyle işaretleyen kod (stok_defteri.yukleme(k.kod)).
+        self.kod = uuid.uuid4().hex
 
     def anahtar(self, *parcalar):
         a = "|".join(str(p) for p in parcalar)
@@ -100,10 +103,20 @@ class Kayit:
 
     def kaydet(self, satir_sayisi):
         return kaydet(self.tur, satir_sayisi, self.dosya_adi, self.anahtarlar,
-                      self.degisiklik if self.geri_alinabilir else None)
+                      self.degisiklik if self.geri_alinabilir else None, kod=self.kod)
+
+    def stok(self):
+        """Bu blok içindeki stok hareketleri bu yüklemeyle işaretlenir:
+            with k.stok(): ice_aktar_satislar(...)"""
+        try:
+            from shared.stok_defteri import yukleme
+            return yukleme(self.kod)
+        except Exception:  # noqa: BLE001
+            import contextlib
+            return contextlib.nullcontext()
 
 
-def kaydet(tur, satir_sayisi, dosya_adi="", anahtarlar=(), degisiklik=None):
+def kaydet(tur, satir_sayisi, dosya_adi="", anahtarlar=(), degisiklik=None, kod=""):
     """Geçmişe bir yükleme yazar. degisiklik verilirse geri alınabilir. Döner: id ya da None.
     ASLA hata fırlatmaz — yükleme her koşulda tamamlanmış sayılır."""
     try:
@@ -112,7 +125,15 @@ def kaydet(tur, satir_sayisi, dosya_adi="", anahtarlar=(), degisiklik=None):
                  "satir_sayisi": int(satir_sayisi or 0), "anahtarlar": list(anahtarlar or []),
                  "geri_alinabilir": bool(degisiklik),
                  "degisiklik": json.loads(json.dumps(degisiklik or {}, default=str))}
-        r = _ham().table(TABLO).insert(satir).execute()
+        if kod:
+            satir["kod"] = str(kod)[:40]
+        try:
+            r = _ham().table(TABLO).insert(satir).execute()
+        except Exception as e1:                       # kod sütunu henüz yoksa onsuz yaz
+            if "kod" not in satir or "kod" not in str(e1):
+                raise
+            satir.pop("kod")
+            r = _ham().table(TABLO).insert(satir).execute()
         return ((r.data or [{}])[0]).get("id")
     except Exception as e:  # noqa: BLE001
         try:
