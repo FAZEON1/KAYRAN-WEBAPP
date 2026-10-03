@@ -10,7 +10,8 @@ from .database import (get_all_dashboard_data,
                       get_client, get_uretim_suresi)
 
 from shared.utils import FIRMA_KODLARI_DIGER
-FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # tek liste: shared.utils (Faz 4)
+FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # ANA firmalar + DİĞER (yedek liste)
+# Gerçek firma listesi VERİDEN gelir (KANAL kaldırıldı, Ekim 2026): firma_sirala(firma_data).
 
 def stok_yasi_hesapla(ilk_giris_tarihi_str):
     """Stok yaşını gün olarak hesaplar ve renk döndürür"""
@@ -100,8 +101,9 @@ def satis_performansi(satis_listesi):
 
 def stok_yayilimi(urun_sku, firma_data):
     """Ürünün tüm kanallardaki stok dağılımını döndürür"""
+    from shared.utils import firma_sirala
     yayilim = {}
-    for firma in FIRMA_LISTESI:
+    for firma in firma_sirala(list(firma_data or {})):
         if urun_sku in firma_data.get(firma, {}):
             yayilim[firma] = firma_data[firma][urun_sku]["stok_miktari"]
         else:
@@ -369,17 +371,21 @@ def tum_urunler_listesi():
     except Exception:
         pass
 
-    FIRMALAR = FIRMA_LISTESI
+    from shared.utils import firma_sirala
 
     # Toplu sorgular — her ürün için ayrı sorgu yerine tek seferde çek
     # Tüm firma stoklarını tek sorguda al (en son tarih bazında)
-    tum_firma_rows = sb.table("firma_stok").select("firma, sku, stok_miktari, yukleme_tarihi").execute().data or []
+    # SAYFALI (_hepsi): eskiden tek sorgu → Supabase 1000 satır sınırı → tablo büyüyünce kanal
+    # stokları sessizce EKSİK hesaplanıyordu.
+    from .database import _hepsi as _hepsi_fs
+    tum_firma_rows = _hepsi_fs("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi") or []
 
     # Her kanalın SON raporu (stok_hesap.kanal_stoklari — pano ve stok kartıyla
     # aynı kural). Eskiden ürünün en son görüldüğü satır alınıyordu: kanalın son
     # raporundan düşen ürün eski haftanın adediyle sayılıyordu (625 / 614).
     from .stok_hesap import kanal_stoklari, stok_ozeti
     _kanal = kanal_stoklari(tum_firma_rows)
+    FIRMALAR = firma_sirala(list(FIRMA_LISTESI) + list(_kanal))   # veride görünen her firma
 
     kayit_map = {}  # satın-alma geçmişi İthalat'a taşındı
 
@@ -560,6 +566,8 @@ def siparis_uyarisi_kontrol(sku, firma, firma_data, bizim_stok):
 def dashboard_hesapla():
     """Tüm dashboard verilerini hesaplar ve döndürür"""
     urunler, firma_data, stok_yaslar, yoldaki_data, gecmis_satislar_raw = get_all_dashboard_data()
+    from shared.utils import firma_sirala
+    _firmalar = firma_sirala(list(FIRMA_LISTESI) + list(firma_data or {}))   # veriden (KANAL yok)
     _us = get_uretim_suresi()  # sipariş eşiği (gün) — bir kez oku, tüm ürünlere uygula
     # gecmis_satislar_raw: {sku: [satis1, satis2, ...]} — trend_hesapla formatına çevir
     gecmis_satislar = {}
@@ -595,7 +603,7 @@ def dashboard_hesapla():
         from .stok_hesap import stok_ozeti
         _oz = stok_ozeti(bizim_stok, {
             f: (firma_data.get(f, {}).get(sku, {}) or {}).get("stok_miktari", 0) or 0
-            for f in FIRMA_LISTESI})
+            for f in _firmalar})
         toplam_firma_stok = _oz["kanal_stok"]
         zincir_stok = _oz["zincir_stok"]
 
@@ -613,7 +621,7 @@ def dashboard_hesapla():
         firma_satirlari = []
         satis_karsilastirma = []
 
-        for firma in FIRMA_LISTESI:
+        for firma in _firmalar:
             firma_urun = firma_data.get(firma, {}).get(sku)
             if firma_urun:
                 f_stok = firma_urun.get("stok_miktari", 0) or 0

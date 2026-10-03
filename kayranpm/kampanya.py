@@ -80,6 +80,16 @@ def _firma_ad(kod):
         return str(kod or "")
 
 
+def _firma_secenekleri(kamps=()):
+    """Firma seçenekleri VERİDEN (KANAL yok, her firma kendi adıyla — Ekim 2026)."""
+    try:
+        from .database import get_firma_listesi
+        veri = list(get_firma_listesi() or [])
+    except Exception:  # noqa: BLE001
+        veri = []
+    return H.firma_secenekleri(veri + [k.get("firma") for k in (kamps or ())])
+
+
 def _veri():
     """Kampanyalar, ürünleri ve güncel paçallar (hepsi önbellekli kaynaklardan)."""
     kamps = get_kampanyalar() or []
@@ -231,7 +241,7 @@ def render():
     _yillar = sorted({str(k.get("baslangic_tarihi") or "")[:4] for k in kamps
                       if str(k.get("baslangic_tarihi") or "")[:4].isdigit()}, reverse=True)
     _f = B.filtre(c3, [
-        {"etiket": "Müşteri", "secenekler": H.FIRMALAR, "key": "kmp_f_firma",
+        {"etiket": "Müşteri", "secenekler": _firma_secenekleri(kamps), "key": "kmp_f_firma",
          "format_func": lambda f: f if f in ("Tümü", "DİĞER") else _firma_ad(f)},
         {"etiket": "Kategori", "secenekler": _katlar, "key": "kmp_f_kat",
          "format_func": lambda x: x if x == "Tümü" else _kat_ad(x)},
@@ -444,11 +454,13 @@ def _sekme_bilgiler(kamp):
     _tur = (kamp.get("kampanya_turu") or "").strip()
     if _tur and _tur not in _turler:
         _turler.append(_tur)
-    _firma = kamp.get("firma") if kamp.get("firma") in H.FIRMALAR else H.FIRMALAR[-1]
+    _fs = _firma_secenekleri([kamp])
+    from shared.utils import firma_kanonik as _fkn
+    _firma = next((f for f in _fs if _fkn(f) == _fkn(kamp.get("firma"))), _fs[-1])   # eski KANAL → DİĞER
     with st.form(f"kmp_bilgi_{kid}", border=False):
         a1, a2 = st.columns([2, 1])
         ad = a1.text_input("Kampanya adı", value=kamp.get("kampanya_adi") or "")
-        firma = a2.selectbox("Firma", H.FIRMALAR, index=H.FIRMALAR.index(_firma), format_func=_firma_ad)
+        firma = a2.selectbox("Firma", _fs, index=_fs.index(_firma), format_func=_firma_ad)
         b1, b2, b3, b4 = st.columns(4)
         bas = b1.date_input("Başlangıç", value=H._tarih(kamp.get("baslangic_tarihi")) or tr_today(), format="DD.MM.YYYY")
         bit = b2.date_input("Bitiş", value=H._tarih(kamp.get("bitis_tarihi")) or tr_today(), format="DD.MM.YYYY")
@@ -537,7 +549,7 @@ def _yeni_dialog(katlar):
     with st.form("kmp_yeni_form", border=False):
         ad = st.text_input("Kampanya adı", placeholder="örn. Hepsiburada Kasım Monitör Haftası")
         a1, a2, a3 = st.columns(3)
-        firma = a1.selectbox("Firma", H.FIRMALAR, index=None, placeholder="Seç…", format_func=_firma_ad)
+        firma = a1.selectbox("Firma", _firma_secenekleri(), index=None, placeholder="Seç…", format_func=_firma_ad)
         tur = a2.selectbox("Tür", H.KAMPANYA_TURLERI, index=None, placeholder="Seç (isteğe bağlı)")
         kat = a3.selectbox("Kategori", katlar, index=None, placeholder="Genel / karışık",
                            format_func=_kat_ad)
@@ -570,7 +582,7 @@ def _yeni_dialog(katlar):
 # ════════════════════════════════════════════════════════════════════
 @st.dialog("Excel şablonundan kampanya oluştur", width="large")
 def _excel_dialog(urun_data_k, _kt_kat_list):
-    FIRMA_LISTESI_K = H.FIRMALAR
+    FIRMA_LISTESI_K = _firma_secenekleri()
     KAMPANYA_TURLERI = ["(Seçilmedi)"] + H.KAMPANYA_TURLERI
     urun_dict_k = {u["sku"]: u for u in urun_data_k}
     _KMP_TAM_KOL = ["FİRMA ADI", "MARKA", "KATEGORİ", "STOK KODU", "STOK ADI", "BARKOD",

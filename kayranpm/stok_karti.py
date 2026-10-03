@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek yazım (Eki 2026)
+from shared.utils import firma_kanonik   # eski 'KANAL' → DİĞER (Eki 2026)
 
 try:
     from shared.utils import gun_ay_yil, tr_today, firma_gorunen_ad
@@ -307,7 +308,7 @@ def goster(sku):
         _son_tarih = None                 # okunamazsa satırların kendi son tarihi
     _kanal_stok = kanal_stoklari(firma_stok, son_tarih=_son_tarih)
     firma_stok_son = [r for r in firma_stok
-                      if str(r.get("yukleme_tarihi") or "")[:10] == (_son_tarih or {}).get(r.get("firma"))] \
+                      if str(r.get("yukleme_tarihi") or "")[:10] == (_son_tarih or {}).get(firma_kanonik(r.get("firma")))] \
         if _son_tarih is not None else firma_stok
     # Üst rozet + stok değeri: TOPLAM STOK = bizim satılabilir depolar (Merkez +
     # Happy Life), Tüm Ürünler ve Genel Bakış'la aynı tanım (stok_hesap). Kanaldaki

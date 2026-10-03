@@ -390,15 +390,30 @@ def _firma_normalize(s):
             .replace("Ş", "S").replace("Ç", "C").replace("Ö", "O"))
 
 
-def _firma_coz(firma_ham):
-    """Excel'deki firma adını/kodunu standart koda çözer (ITOPYA/HB/VATAN/MONDAY/KANAL/DIGER).
-    Doğrudan kod, ref_no tespit anahtarları (HEPSİBURADA→HB, EERA→ITOPYA, D-MARKET→HB...)
-    ve önek üzerinden eşleştirir. Çözülemezse None döner."""
+def _cari_listesi():
+    """Muhasebe cari isimleri (yeni firmaların tanınması için). Okunamazsa []."""
+    try:
+        from kayranacc.database import get_cari_isimler
+        return list(get_cari_isimler() or [])
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _firma_coz(firma_ham, cariler=None):
+    """Excel'deki firma adını firma_stok'a yazılacak değere çözer.
+    Sıra: ana kodlar (ITOPYA/HB/VATAN/MONDAY/DIGER) · eşler ('KANAL' → DIGER, 'TEKNOKLİK…' →
+    MONDAY) · ref_no tespit anahtarları (HEPSİBURADA→HB, EERA→ITOPYA, D-MARKET→HB...) ·
+    MUHASEBE CARİ LİSTESİ (yeni firmalar CARİ ADIYLA kaydedilir — KANAL kaldırıldı, Ekim 2026).
+    Çözülemezse None (yükleyici durur, hiçbir şey yazmaz). cariler verilmezse gerekince okunur."""
     fn = _firma_normalize(firma_ham)
     if not fn:
         return None
     if fn in FIRMA_LISTESI:
         return fn
+    if fn == "KANAL":
+        return "DIGER"                       # eski genel tanım: firması belli değil
+    if fn.startswith("TEKNOKLIK"):
+        return "MONDAY"                      # cari adı 'TEKNOKLİK - MONDAY' (kullanıcı, 3 Ekim)
     try:
         from .ref_no import FIRMA_ESLESME
         for rol, cfg in FIRMA_ESLESME.items():
@@ -411,7 +426,8 @@ def _firma_coz(firma_ham):
         pass
     if fn in ("DIGER", "DIĞER"):
         return "DIGER"
-    return None
+    from shared.utils import cari_eslestir
+    return cari_eslestir(firma_ham, _cari_listesi() if cariler is None else cariler)
 
 
 def excel_yukle_firma_birlesik(dosya_yolu):
@@ -466,7 +482,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
         _satis_mgz_metin = _metin_mi("SATIS_MAGAZA")
         _kirilim_modu = _stok_mgz_metin or _satis_mgz_metin
 
-        gecerli_firmalar = {f: f for f in FIRMA_LISTESI}  # normalize edilmiş hâlleri
+        _cariler = _cari_listesi()                        # yeni firmalar için, dosya başına bir kez
         basarili, atlanan = 0, 0
         firma_sayac = {}
         _firma_satir = {}
@@ -484,7 +500,7 @@ def excel_yukle_firma_birlesik(dosya_yolu):
                 if firma_n in ("GSF STOK", "G5F STOK", "YOLDAKI", "YOLDAKİ", "BIZIM STOK", "DEPO"):
                     atlanan += 1
                     continue
-                firma = _firma_coz(firma_ham)
+                firma = _firma_coz(firma_ham, _cariler)
                 if not firma:
                     atlanan += 1
                     atlanan_firma.add(firma_ham)
@@ -529,6 +545,15 @@ def excel_yukle_firma_birlesik(dosya_yolu):
                         _o["urun_adi"] = urun_adi
             except Exception:
                 atlanan += 1
+
+        # Tanınmayan firma varsa HİÇBİR ŞEY YAZILMAZ (kullanıcı kuralı, Ekim 2026): eskiden o satırlar
+        # sessizce atlanıp gerisi yükleniyordu; firma 'KANAL' gibi genel bir kovaya da konmaz.
+        if atlanan_firma:
+            return False, ("Yükleme yapılmadı — Muhasebe cari listesinde bulunamayan firma(lar): "
+                           + ", ".join(sorted(atlanan_firma)[:8])
+                           + (" …" if len(atlanan_firma) > 8 else "")
+                           + ". Excel'deki firma adını cari adıyla aynı yaz ya da cariyi Muhasebe'ye "
+                             "ekle, sonra yeniden yükle.")
 
         for (firma, sku), _o in _agg.items():
             try:
@@ -672,7 +697,9 @@ def excel_yukle_g5f_depolar(dosya_yolu):
 _HSS_FIRMA_TOKEN = [("ITOPYA", "ITOPYA"), ("EERA", "ITOPYA"),
                     ("VATAN", "VATAN"),
                     ("HEPSIBURADA", "HB"), ("HEPSİBURADA", "HB"), ("HB", "HB"),
-                    ("MONDAY", "MONDAY"), ("KANAL", "KANAL"), ("DIGER", "DIGER"), ("DİĞER", "DIGER")]
+                    ("MONDAY", "MONDAY"), ("TEKNOKLIK", "MONDAY"), ("TEKNOKLİK", "MONDAY"),
+                    ("KANAL", "DIGER"),             # KANAL kaldırıldı (Ekim 2026): eski sekme → DİĞER
+                    ("DIGER", "DIGER"), ("DİĞER", "DIGER")]
 
 
 def _hss_kolon(df, *adaylar):
@@ -721,21 +748,36 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
     # firma → {"stok": df, "satis": df}
     # Sekmeler TEK TEK okunur (hepsi birden değil) → bellek sıçraması olmaz.
     gruplar = {}
+    _tanimsiz, _cariler = set(), None
     for ad in _sayfa_adlari:
-        kod = _sayfa_firma(ad)
-        if not kod:
-            continue                       # ilgisiz sekme → hiç okuma, belleğe alma
         _u = tr_upper(str(ad))
         tur = "satis" if ("SATIS" in _u.replace("Ş", "S") or "SATIŞ" in _u) else \
               ("stok" if "STOK" in _u else None)
         if not tur:
-            continue
+            continue                       # ilgisiz sekme → hiç okuma, belleğe alma
+        kod = _sayfa_firma(ad)
+        if not kod:
+            # Yeni firma: sekme adından STOK/SATIŞ atılır, kalan ad Muhasebe cari listesinde aranır
+            # (KANAL kaldırıldı, Ekim 2026 — her firma kendi adıyla).
+            import re as _re
+            _firma_ad = _re.sub(r"\b(STOK|SATIŞ|SATIS)\b", " ", _u).strip(" -_")
+            if _cariler is None:
+                _cariler = _cari_listesi()
+            kod = _firma_coz(_firma_ad, _cariler)
+            if not kod:
+                _tanimsiz.add(str(ad))
+                continue
         try:
             df = pd.read_excel(_xls, sheet_name=ad)
         except Exception:
             continue
         gruplar.setdefault(kod, {})[tur] = df
 
+    if _tanimsiz:
+        return False, ("Yükleme yapılmadı — sekmedeki firma Muhasebe cari listesinde bulunamadı: "
+                       + ", ".join(sorted(_tanimsiz)[:8])
+                       + ". Sekme adını 'CARİ ADI STOK' / 'CARİ ADI SATIŞ' biçiminde yaz ya da cariyi "
+                         "Muhasebe'ye ekle, sonra yeniden yükle.")
     if not gruplar:
         return False, ("❌ Firma sekmesi bulunamadı. Sekme adları 'VATAN STOK', 'VATAN SATIŞ' "
                        "gibi FİRMA + STOK/SATIŞ içermeli.")
