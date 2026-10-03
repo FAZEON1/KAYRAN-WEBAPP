@@ -10,11 +10,12 @@ from pathlib import Path
 KOK = Path(__file__).resolve().parent.parent
 
 
-def _sutunlar(dosya, satir_araligi):
+def _sutunlar(dosya, sutun):
+    """Tabloyu SÜTUN ADIYLA bulur (satır numarasıyla bulmak kırılgandı: dosya kısalınca kaydı)."""
     src = (KOK / dosya).read_text(encoding="utf-8")
     t = ast.parse(src)
     ed = next(n for n in ast.walk(t) if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "data_editor"
-              and satir_araligi[0] <= n.lineno <= satir_araligi[1])
+              and f'"{sutun}"' in (ast.get_source_segment(src, n) or ""))
     out = {}
     for k in ed.keywords:
         if k.arg == "column_config" and isinstance(k.value, ast.Dict):
@@ -24,7 +25,7 @@ def _sutunlar(dosya, satir_araligi):
 
 
 def test_urun_yonetimi_toplu_fiyat():
-    s = _sutunlar("kayranpm/main.py", (1340, 1370))
+    s = _sutunlar("kayranpm/main.py", "Satış ($)")
     assert 'format="dollar"' in s["Satış ($)"] and "step=0.01" in s["Satış ($)"]   # step=1 → "$6" (kuruş kayboluyordu)
     assert 'format="localized"' in s["Marj %"] and "step=0.1" in s["Marj %"]
 
@@ -35,7 +36,7 @@ def test_satis_girisi_adet():
 
 
 def test_marka_kategori_ata_ciro_kar_sayi():
-    s = _sutunlar("satis/main.py", (1820, 1850))
+    s = _sutunlar("satis/main.py", "Kategori")
     assert "NumberColumn" in s["Ciro"] and 'format="dollar"' in s["Ciro"]
     assert "NumberColumn" in s["Kâr"] and 'format="dollar"' in s["Kâr"]
     assert 'format="localized"' in s["Adet"] and "step=1" in s["Adet"]

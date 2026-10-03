@@ -20,7 +20,6 @@ import html as _h
 import streamlit as st
 
 from shared.tasarim import baslik, css_tek_satir, kpi_serit, mesaj, bos_durum, rv, sayi, tr_sayi
-from shared.utils import firma_kisa_ad
 from shared import bilesen as B
 from . import ref_hesap as R
 from . import ref_no as N
@@ -105,7 +104,7 @@ def _css():
 def _satir_html(r, firma_goster, eur=None, tl=None):
     d = r.get("durum") or "beklemede"
     kat = "".join(B.cip(k.capitalize()) for k in R.kategoriler(r)[:3])
-    fr = (f'<span>{_h.escape(firma_kisa_ad(r.get("_firma")))}</span>' if firma_goster else "")
+    fr = (f'<span>{_h.escape(r.get("_firma") or "")}</span>' if firma_goster else "")
     parca = [x.strip() for x in str(r.get("aciklama") or "").split("·") if x.strip()]
     kalem = f"<span>{len(parca)} kalem</span>" if len(parca) > 1 else ""
     return (f'<div class="rf-s" style="--d:{rv(R.DURUM_RENK.get(d, "silik"))}">'
@@ -187,7 +186,7 @@ def _firma_rayi(firmalar, hepsi, fid):
     with st.container(key="ref_ray"):
         st.markdown('<div class="rf-ray-bas">Firmalar</div>', unsafe_allow_html=True)
         sira = [(0, "Tüm firmalar", "", len(hepsi), tum_bek)] + sorted(
-            [(f["id"], firma_kisa_ad(f.get("firma_adi")), f.get("firma_kodu", ""),
+            [(f["id"], (f.get("firma_adi") or ''), f.get("firma_kodu", ""),
               oz.get(f["id"], {}).get("adet", 0), oz.get(f["id"], {}).get("beklemede", 0)) for f in firmalar],
             key=lambda x: (-x[4], x[1]))
         for i, ad, kod, adet, bek in sira:
@@ -381,9 +380,9 @@ def _yeni_dialog(firmalar):
     from datetime import date
     fmap = {f["id"]: f for f in firmalar}
     vars_ = st.session_state.get("ref_firma_id") or None
-    ids = [f["id"] for f in sorted(firmalar, key=lambda f: firma_kisa_ad(f.get("firma_adi")))]
+    ids = [f["id"] for f in sorted(firmalar, key=lambda f: (f.get("firma_adi") or ''))]
     fid = st.selectbox("Firma", ids, index=ids.index(vars_) if vars_ in ids else None,
-                       placeholder="Firma seç…", format_func=lambda i: firma_kisa_ad(fmap[i].get("firma_adi")),
+                       placeholder="Firma seç…", format_func=lambda i: (fmap[i].get("firma_adi") or ''),
                        key="ref_yeni_firma")
     if not fid:
         st.caption("Numara firmanın ref kodundan üretilir: FZ + kod + RF + yıl + sıra.")
@@ -452,7 +451,7 @@ def _firmalar_dialog(firmalar):
             st.caption("Kayıtlı firma yok.")
             return
         f = st.selectbox("Firma", firmalar, key="ref_fy_sec",
-                         format_func=lambda x: f"{firma_kisa_ad(x.get('firma_adi'))} · {x.get('firma_kodu','')}")
+                         format_func=lambda x: f"{(x.get('firma_adi') or '')} · {x.get('firma_kodu','')}")
         gecerli, msg = N.kod_dogrula(f.get("firma_kodu", ""))
         if not gecerli:
             st.markdown(mesaj("hata", f"Bu firmanın ref kodu bozuk: {msg}"), unsafe_allow_html=True)
@@ -471,7 +470,7 @@ def _firmalar_dialog(firmalar):
         st.divider()
         st.markdown(f"**Firmayı sil** · bağlı {adet} ref")
         refsil = st.checkbox(f"Bağlı {adet} ref'i de sil", key="ref_fy_refsil", disabled=not adet)
-        onay = st.checkbox(f"Evet, {firma_kisa_ad(f.get('firma_adi'))} firmasını sil", key="ref_fy_onay")
+        onay = st.checkbox(f"Evet, {(f.get('firma_adi') or '')} firmasını sil", key="ref_fy_onay")
         if st.button("Firmayı sil", icon=":material/delete:", disabled=not onay or (adet and not refsil),
                      key="ref_fy_sil"):
             ok, m = N.firma_sil(f["id"], refleri_de_sil=refsil)

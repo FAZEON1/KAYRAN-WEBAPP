@@ -16,7 +16,6 @@ _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import secim_serit, tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import tr_kucuk
-from shared.utils import firma_gorunen_ad
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
 from shared.ui import tablo_h
@@ -29,7 +28,7 @@ from datetime import datetime, date
 from io import BytesIO
 from functools import partial
 from shared import bilesen as B
-from .urun_hesap import (dashboard_filtrele, editor_anahtari, tarih_tr, yukleme_ozeti, KANAL_AD)
+from .urun_hesap import (dashboard_filtrele, editor_anahtari, yukleme_ozeti, KANAL_AD)
 
 # Modül bazlı importlar (relative)
 from .database import (initialize_db, onayla_siparis, reddet_siparis,
@@ -42,7 +41,6 @@ from .database import (initialize_db, onayla_siparis, reddet_siparis,
                       get_tum_sku_listesi, get_client,
                       get_gecmis_satis_tum_firmalar,
                       get_kampanya_destek_ortalamalari,
-                      get_firma_listesi, get_musteri_haftalik_satis,
                       sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
 from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
 from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
@@ -1156,95 +1154,9 @@ def run():
                         st.rerun()
 
         elif sayfa == "📈  Müşteri Satışları":
-            from shared.tarih import hizli_tarih_araligi
-            st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Haftalık Satışları", aciklama="Müşteri (firma) bazında haftalık satış geçmişi · aynı haftada yalnız en güncel yükleme sayılır · geniş aralık seçersen toplam, aralıktaki HAFTALARIN toplamıdır"), unsafe_allow_html=True)
-            st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
+            st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Satışları", aciklama="Müşteri raporlarından haftalık satış ve kanal stoğu · müşteriye, markaya, ürüne ya da kategoriye göre · aynı haftada yalnız en güncel yükleme sayılır"), unsafe_allow_html=True)
             from shared.yukleme_takvimi import serit as _yt_serit
             _yt_serit("musteri_haftalik")        # haftalık müşteri dosyası: geri sayım şeridi
-            _bas, _bit = hizli_tarih_araligi(
-                "mhs", varsayilan="Geçen hafta",
-                secenekler=["Geçen hafta", "Bu ay", "Geçen ay", "Son 30 gün",
-                            "Son 90 gün", "Bu yıl", "Geçen yıl", "Tümü", "Özel…"])
-            _mc1, _mc2 = st.columns([1, 1.4])
-            _firmalar = ["Tümü"] + get_firma_listesi()
-            _f = _mc1.selectbox("Müşteri", _firmalar, key="mhs_firma", format_func=firma_gorunen_ad)
-            _sku_ara = _mc2.text_input("Ürün / SKU ara", key="mhs_sku",
-                                       placeholder="SKU veya ürün adı ile filtrele…")
-            _rows = get_musteri_haftalik_satis(_bas, _bit, _f, _sku_ara)
-            if not _rows:
-                st.info("Bu filtrelerle haftalık satış kaydı bulunamadı.")
-            else:
-                # "Satış adedi": tek başına "Satış" adlı sütunu ortak tablo PARA sanıp
-                # adetleri "$12" gösteriyordu (shared.tasarim._tablo_kolon_tipi).
-                _df = pd.DataFrame([{
-                    "Tarih": tarih_tr(r.get("yukleme_tarihi")),
-                    "Müşteri": firma_gorunen_ad(r.get("firma", "")),
-                    "SKU": r.get("sku", ""),
-                    "Ürün": (r.get("urun_adi", "") or "")[:45],
-                    "Satış adedi": int(r.get("haftalik_satis", 0) or 0) + int(r.get("satis_magaza", 0) or 0),
-                    "Stok": int(r.get("stok_miktari", 0) or 0) + int(r.get("stok_magaza", 0) or 0),
-                } for r in _rows])
-                metrik_satiri([
-                    {"label": "📈 Toplam Satış (seçili aralık)", "value": f"{tr_sayi(int(_df['Satış adedi'].sum()))}", "renk": trenk("mor")},
-                    {"label": "📦 Toplam Stok", "value": f"{tr_sayi(int(_df['Stok'].sum()))}", "renk": trenk("cyan")},
-                    {"label": "👥 Müşteri Sayısı", "value": f"{tr_sayi(int(_df['Müşteri'].nunique()))}", "renk": trenk("yesil")},
-                ])
-
-                # ── MÜŞTERİ BAZINDA ÖZET (her müşteri = 1 satır: toplam satış + stok) ──
-                st.markdown('<div class="alt-baslik">Müşteri Bazında Özet — her müşteri tek satır (toplam satış + stok)</div>', unsafe_allow_html=True)
-                _ozet = (_df.groupby("Müşteri")
-                         .agg(**{"Toplam Satış": ("Satış adedi", "sum"),
-                                 "Toplam Stok": ("Stok", "sum"),
-                                 "SKU Çeşidi": ("SKU", "nunique")})
-                         .reset_index()
-                         .sort_values("Toplam Satış", ascending=False))
-                st.dataframe(_ozet, hide_index=True, use_container_width=True,
-                             height=min(60 + len(_ozet) * 36, 420),
-                             column_config={
-                                 "Toplam Satış": st.column_config.NumberColumn("Toplam Satış", format="localized", step=1),
-                                 "Toplam Stok": st.column_config.NumberColumn("Toplam Stok", format="localized", step=1),
-                                 "SKU Çeşidi": st.column_config.NumberColumn("SKU Çeşidi", format="localized", step=1),
-                             })
-                _ind1, _ind2 = st.columns(2)
-                _ind1.download_button("Özet CSV indir",
-                                      _ozet.to_csv(index=False).encode("utf-8-sig"),
-                                      "musteri_ozet.csv", "text/csv", key="mhs_ozet_csv",
-                                      use_container_width=True, icon=":material/download:")
-
-                # ── EXCEL (tek dosya, iki sayfa: Özet + Ham Detay) ──
-                def _mhs_excel(ozet_df, detay_df):
-                    import io as _io
-                    _buf = _io.BytesIO()
-                    with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
-                        ozet_df.to_excel(_w, index=False, sheet_name="Müşteri Özet")
-                        detay_df.to_excel(_w, index=False, sheet_name="Ham Detay")
-                        # sütun genişliklerini içeriğe göre ayarla (okunabilirlik)
-                        for _sn, _d in (("Müşteri Özet", ozet_df), ("Ham Detay", detay_df)):
-                            _ws = _w.sheets[_sn]
-                            for _i, _kol in enumerate(_d.columns, start=1):
-                                _uzun = max([len(str(_kol))] +
-                                            [len(str(_v)) for _v in _d[_kol].head(200)])
-                                _ws.column_dimensions[
-                                    _ws.cell(row=1, column=_i).column_letter
-                                ].width = min(max(_uzun + 2, 10), 48)
-                            _ws.freeze_panes = "A2"       # başlık satırı sabit
-                    return _buf.getvalue()
-
-                _ind2.download_button(
-                    "Excel indir (Özet + Detay)",
-                    partial(_mhs_excel, _ozet.copy(), _df.copy()),      # yalnız tıklanınca üretilir
-                    f"musteri_satislari_{_bas}_{_bit}.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="mhs_xlsx", type="primary", use_container_width=True, icon=":material/download:")
-
-                # ── HAM DETAY (isteyen SKU kırılımını görsün) ──
-                with st.expander(f"🔎 Ham detay — SKU bazında tüm satırlar ({tr_sayi(len(_df))} kayıt)", expanded=False):
-                    st.dataframe(_df, hide_index=True, use_container_width=True, height=460)
-                    st.download_button("Detay CSV indir",
-                                       _df.to_csv(index=False).encode("utf-8-sig"),
-                                       "musteri_haftalik_satis.csv", "text/csv", key="mhs_csv", icon=":material/download:")
-
-            st.markdown("---")
             @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
             def _dlg_musteri_yukle():
                 st.markdown("**Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
@@ -1277,8 +1189,9 @@ def run():
                             pass
                     st.cache_data.clear()          # geri sayım da tazelenir (önbellekli)
                     (st.success if _ok2 else st.error)(_msg2)
-            if st.button("Müşteri Satış / Stok Verisi Yükle", key="btn_mus_yuk", use_container_width=True, icon=":material/upload:"):
-                _dlg_musteri_yukle()
+            # Liste + detay ekranı (Ekim 2026): kayranpm/musteri_ekran.py · hesap: musteri_hesap.py
+            from .musteri_ekran import render as _musteri_ekrani
+            _musteri_ekrani(yukle_penceresi=_dlg_musteri_yukle)
 
         elif sayfa == "🎯  Kampanya Takip":
             # Yeni ekran: kayranpm/kampanya.py (hesaplar kampanya_hesap.py'de, testli)
