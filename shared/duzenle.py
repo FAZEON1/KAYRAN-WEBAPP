@@ -310,7 +310,7 @@ th .ok{color:var(--k-mor2);font-size:11px;margin:0 3px}
 th .duz{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--k-mor);opacity:.7;margin:0 0 2px 6px;vertical-align:middle}
 td{padding:7px 14px;border-bottom:1px solid var(--k-kenar);vertical-align:middle;white-space:nowrap}
 td.sag{text-align:right} td.orta{text-align:center}
-td.yazi{max-width:380px;overflow:hidden;text-overflow:ellipsis;padding-top:12px;padding-bottom:12px}
+td.yazi{max-width:520px;overflow:hidden;text-overflow:ellipsis;padding-top:12px;padding-bottom:12px}
 td.soluk{color:var(--k-soluk)}
 td .alt{display:block;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--k-silik);margin-top:3px}
 td.idx{color:var(--k-silik);font-size:12px}
