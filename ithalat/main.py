@@ -528,8 +528,8 @@ def _gecmis_ithalatlar():
         # Ortak tablo (shared/tablo.py), çoklu seçim: satıra tıkla seç / bırak (kutucuk yok).
         # Seçim DOSYA KİMLİĞİNE bağlı: süzgeç/sıra değişince başka belgeye kaymaz (eskiden
         # sıra numarasıyla tutuluyordu; toplu "Teslim alındı" yanlış belgeye gidebilirdi).
-        from shared.tablo import tablo as _tablo
-        _sel = _tablo([{
+        from shared.tablo import tablo as _ortak_tablo
+        _sel = _ortak_tablo([{
             "Belge No": s["Belge No"], "Aşama": s["Aşama"], "Takip No": s["Takip No"] or "—",
             "SAS No": s["SAS No"] or "—",
             "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
