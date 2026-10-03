@@ -122,7 +122,31 @@ def tablo_veri(satirlar, birim="$", pay=None, toplam_isaret="Σ", arama=None):
             v = x["s"][pay_i]
             x["pay"] = round(max(float(v), 0.0) / tp * 100, 2) if (tp and isinstance(v, (int, float))) else 0
     return {"kolonlar": kolonlar, "satirlar": govde, "toplam": toplam, "pay": pay_i,
-            "arama": (len(govde) >= ARAMA_ESIK) if arama is None else bool(arama)}
+            "arama": (len(govde) >= ARAMA_ESIK) if arama is None else bool(arama),
+            **sade_ek(adlar)}
+
+
+_URUN_AD = ("ürün", "urun", "ürün adı", "urun adi", "ürün adi", "model")
+
+
+def sade_ek(adlar):
+    """Sade görünüm (TABLO_SADE) bilgisi. SAF — test edilir.
+    birlesik: SKU sütunu ürün adının altına küçük satır olarak yazılır (sütun gizlenir; CSV'de kalır).
+    soluk: birim maliyet gibi ikincil sütunlar soluk yazılır."""
+    try:
+        from shared.tasarim import TABLO_SADE
+    except Exception:  # noqa: BLE001
+        TABLO_SADE = False
+    if not TABLO_SADE:
+        return {"sade": False}
+    kucuk = [str(a).strip().lower() for a in adlar]
+    birlesik = None
+    if "sku" in kucuk:
+        urun = next((i for i, a in enumerate(kucuk) if a in _URUN_AD), None)
+        if urun is not None:
+            birlesik = {"ad": urun, "sku": kucuk.index("sku")}
+    soluk = [i for i, a in enumerate(kucuk) if "maliyet" in a and "toplam" not in a]
+    return {"sade": True, "birlesik": birlesik, "soluk": soluk}
 
 
 def secim_coz(secim, satirlar):
@@ -250,6 +274,15 @@ tfoot td:first-child{left:0;z-index:3}
 .ust.yuzer .say{display:none}
 .ust.yuzer .btn{height:26px;min-width:26px;background:var(--k-yuzey2)}
 .bos{padding:18px;text-align:center;color:var(--k-silik)}
+/* Sade görünüm (TABLO_SADE): başlık bandı yok, ferah satır, ürün altında SKU, soluk ikincil sütun */
+.kt.sade{font-size:14px}
+.kt.sade th{background:var(--k-yuzey1);color:var(--k-silik);font-weight:600;font-size:12px;padding:11px 16px;border-bottom:1px solid var(--k-kenar)}
+.kt.sade td{padding:12px 16px}
+.kt.sade td .alt{display:block;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--k-silik);margin-top:3px;letter-spacing:-.01em}
+.kt.sade td.soluk{color:var(--k-soluk)}
+.kt.sade tbody tr:hover td{background:var(--k-yuzey2)}
+.kt.sade tfoot td,.kt.sade tfoot td:first-child{background:var(--k-yuzey1);border-top:1px solid var(--k-kenar2)}
+.kt.sade th.gizli,.kt.sade td.gizli{display:none}
 .kt.kompakt{container-name:kt-kompakt}
 .kt.kompakt td,.kt.kompakt th{padding-left:8px;padding-right:8px}
 /* Dar sütunda sayılar sabit genişlik, metin kalan alanı paylaşır ve "…" ile kısalır
@@ -303,6 +336,8 @@ export default function(component){
   let kok = parentElement.querySelector(".kt");
   if (!kok){ kok = document.createElement("div"); kok.className = "kt"; parentElement.appendChild(kok); }
   kok.classList.toggle("kompakt", !!D.kompakt);
+  kok.classList.toggle("sade", !!D.sade);
+  const BIR = D.sade ? D.birlesik : null, SOLUK = new Set(D.sade ? (D.soluk || []) : []);
   const es = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const ARA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   const INDIR = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>';
@@ -317,17 +352,19 @@ export default function(component){
       '<button class="btn" type="button" title="Excel için indir (CSV)" aria-label="İndir">'+INDIR+'</button>' +
     '</div>' +
     '<div class="kap' + (D.secilebilir ? ' sec' : '') + '" style="max-height:' + (D.maks || 520) + 'px">' +
-      '<table><thead><tr>' + K.map((k,i)=>'<th data-i="'+i+'" class="'+(k.hiza==="sag"?"sag":"")+'">'+(k.hiza==="sag" ? '<span class="ok"></span>'+es(k.ad) : es(k.ad)+'<span class="ok"></span>')+'</th>').join("") +
+      '<table><thead><tr>' + K.map((k,i)=>'<th data-i="'+i+'" class="'+(k.hiza==="sag"?"sag":"")+((BIR && i===BIR.sku)?" gizli":"")+'">'+(k.hiza==="sag" ? '<span class="ok"></span>'+es(k.ad) : es(k.ad)+'<span class="ok"></span>')+'</th>').join("") +
       '</tr></thead><tbody></tbody><tfoot></tfoot></table>' +
     '</div>';
   const govde = kok.querySelector("tbody"), alt = kok.querySelector("tfoot"), say = kok.querySelector(".say");
   const hucre = (r,j,kok_) => {
     const k = K[j], m = r.h[j];
     let ic = es(m);
-    if (k.rozet && r.rz[j]) ic = '<span class="rz '+r.rz[j]+'">'+es(m)+'</span>';
+    if (k.rozet && r.rz[j] && !D.sade) ic = '<span class="rz '+r.rz[j]+'">'+es(m)+'</span>';
+    if (BIR && j===BIR.ad && r.h[BIR.sku]) ic += '<span class="alt">'+es(r.h[BIR.sku])+'</span>';
     if (j===0 && r.etiket) ic += '<span class="et">'+es(r.etiket)+'</span>';
     if (D.pay===j && r.pay !== undefined && !kok_) ic += '<div class="cubuk"><i style="width:'+Math.max(r.pay,1.5)+'%"></i></div>';
-    const cls = [k.hiza==="sag"?"sag":"", (r.neg[j] && !k.rozet)?"neg":""].join(" ").trim();
+    const cls = [k.hiza==="sag"?"sag":"", (r.neg[j] && (!k.rozet || D.sade))?"neg":"",
+                 SOLUK.has(j)?"soluk":"", (BIR && j===BIR.sku)?"gizli":""].join(" ").trim();
     const ip = (j===0 && r.ipucu) ? r.ipucu : (!k.tip && String(m).length>28 ? m : "");
     return '<td data-l="'+es(k.ad)+'"'+(cls?' class="'+cls+'"':'')+(ip?' title="'+es(ip)+'"':'')+'>'+ic+'</td>';
   };
