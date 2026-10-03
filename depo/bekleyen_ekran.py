@@ -95,7 +95,7 @@ def _yeni_kayit(acik):
 
 
 # ── Liste ───────────────────────────────────────────────────────────
-def _satir(r):
+def _satir(r, secili=False):
     fa, se, bek, oran = bekleyen_ozet(r)
     renk = "amber" if bek else "yesil"
     meta = B.meta(f'<span style="font-family:var(--k-mono)">{_e(r.get("sku"))}</span>',
@@ -107,7 +107,8 @@ def _satir(r):
              f'</div></div>')
     B.tiklanir(
         f"{ON_EK}{r['id']}",
-        f'<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center">'
+        '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center'
+        + (';box-shadow:inset 3px 0 0 var(--k-mor);margin-left:-8px;padding-left:8px' if secili else '') + '">'
         f'<div style="min-width:0"><div style="font-size:13.5px;font-weight:600">{_e(r.get("firma"))}</div>'
         f'{meta}{cubuk}</div>'
         f'<div style="text-align:right;white-space:nowrap"><div style="font-family:var(--k-mono);font-size:15px;'
@@ -117,8 +118,11 @@ def _satir(r):
         B.sec, (ON_EK, r["id"]), tur="satir", renk=renk, etiket="Kaydı aç")
 
 
-def _liste(mt):
-    B.geri_yukle(FILTRE_KEYS)
+def _liste(mt, dar=False, secili=None):
+    """dar=True: detayın yanındaki sütun — süzgeç yedeği geri yazılmaz (liste canlı, yazılırsa
+    kullanıcının o an seçtiği firma ezilirdi) ve alttaki hareket tablosu çizilmez."""
+    if not dar:
+        B.geri_yukle(FILTRE_KEYS)
     firmalar = sorted({(r.get("firma") or "").strip() for r in mt if (r.get("firma") or "").strip()})
     c1, c2 = st.columns([1.4, 3], vertical_alignment="bottom")
     ff = c1.selectbox("Firma", ["Tümü"] + firmalar, key="mt_ff")
@@ -135,12 +139,13 @@ def _liste(mt):
     if acik:
         st.markdown(B.grup_basligi("Sevk bekleyenler", f"{len(acik)} kayıt"), unsafe_allow_html=True)
         for r in sorted(acik, key=lambda r: -bekleyen_ozet(r)[2]):
-            _satir(r)
+            _satir(r, secili=(r.get("id") == secili))
     if biten:
         st.markdown(B.grup_basligi("Tamamı sevk edilenler", f"{len(biten)} kayıt"), unsafe_allow_html=True)
         for r in biten:
-            _satir(r)
-    _tum_hareketler(mt)
+            _satir(r, secili=(r.get("id") == secili))
+    if not dar:
+        _tum_hareketler(mt)
 
 
 def _tum_hareketler(mt):
@@ -182,6 +187,9 @@ def _detay(r, mt):
     from depo.belge import fis_no_uret, sevk_fisi_pdf
     B.koru(FILTRE_KEYS)
     B.listeye_don(ON_EK)
+    from shared.tasarim import YAN_YANA
+    if YAN_YANA:
+        B.kapat(ON_EK)
     kid = r.get("id")
     _son_fis(kid)
     fa, se, bek, oran = bekleyen_ozet(r)
@@ -272,7 +280,17 @@ def render(mt):
     sec = B.secili(ON_EK)
     kayit = next((r for r in mt if r.get("id") == sec), None) if sec is not None else None
     if kayit:
-        _detay(kayit, mt)
+        from shared.tasarim import YAN_YANA
+        if YAN_YANA:
+            # Liste ve detay yan yana (Tüm Ürünler ile aynı düzen; shared.bilesen.yan_yana_css)
+            st.markdown(B.yan_yana_css(ON_EK), unsafe_allow_html=True)
+            sol, sag = st.columns([1, 1.35], gap="medium")
+            with sol, st.container(key=f"{ON_EK}_liste_sol"):
+                _liste(mt, dar=True, secili=kayit.get("id"))
+            with sag:
+                _detay(kayit, mt)
+        else:
+            _detay(kayit, mt)
         return
     B.birak(ON_EK)
     st.session_state.pop("mt_son_fis", None)

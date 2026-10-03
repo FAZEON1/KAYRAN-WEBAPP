@@ -705,8 +705,7 @@ def run():
             with _sag_kap:
                 B.listeye_don("pm_urun")
                 if _yy:
-                    st.button("Kapat", key="pm_urun_kapat", icon=":material/close:", type="tertiary",
-                              on_click=B.birak, args=("pm_urun",))
+                    B.kapat("pm_urun")
                 secilen_sku = secilen["sku"]
                 firma_st = secilen.get("firma_stoklari", {})
     

@@ -166,6 +166,23 @@ def listeye_don(on_ek):
               on_click=birak, args=(on_ek,))
 
 
+def kapat(on_ek):
+    """Yan yana düzende detayı kapatır (geniş ekranda; dar ekranda "Listeye dön" görünür)."""
+    st.button("Kapat", key=f"{on_ek}_kapat", icon=":material/close:", type="tertiary",
+              on_click=birak, args=(on_ek,))
+
+
+def yan_yana_css(on_ek, liste_key=None):
+    """Liste ve detay yan yana (shared.tasarim.YAN_YANA): 900 px altında sol liste gizlenir,
+    "Kapat" yerine "Listeye dön" görünür — sunucu ekran genişliğini bilmediği için ikisi de
+    çizilir, hangisinin görüneceğine CSS karar verir."""
+    sol = liste_key or f"{on_ek}_liste_sol"
+    return (f"<style>.st-key-{on_ek}_geri{{display:none !important}}"
+            f"@media (max-width:900px){{[data-testid=\"stColumn\"]:has(.st-key-{sol}),.st-key-{sol}"
+            f"{{display:none !important}}.st-key-{on_ek}_kapat{{display:none !important}}"
+            f".st-key-{on_ek}_geri{{display:block !important}}}}</style>")
+
+
 def koru(keys):
     """Detay açıkken: çizilmeyen filtre kutularının değerini gölge anahtara kopyalar.
     Listeye dönünce geri_yukle() kutular oluşmadan ÖNCE geri yazar.
