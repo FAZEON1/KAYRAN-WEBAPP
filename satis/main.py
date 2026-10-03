@@ -1271,8 +1271,11 @@ def run():
                 from shared.utils import firma_kisa_ad as _fka
                 _p_kanal_f = _pf1.selectbox("Firma", ["Tümü"] + _p_kanallar, key="pnl_kanal",
                                             format_func=lambda x: x if x == "Tümü" else _fka(x))
-                _p_katlar = sorted({(_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip()
-                                    for s in satislar} - {""})
+                # Tek yazım (shared.ana_veri): 'monitör' ve 'Monitör' kartları AYRI seçenek
+                # olmasın; süzme yazıma değil kategori anahtarına göre.
+                from shared.ana_veri import kategori_ad as _p_kat_ad, kategori_anahtar as _p_kat_anh
+                _p_katlar = sorted({_p_kat_ad(_pkatmap.get(str(s.get("sku") or "").strip(), ""))
+                                    for s in satislar} - {""}, key=lambda x: x.lower())
                 _p_kat_f = _pf2.selectbox("Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
                 _kat_destek_f = 0.0
                 _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
@@ -1280,7 +1283,8 @@ def run():
                     satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
                 if _p_kat_f != "Tümü":
                     satislar = [s for s in satislar
-                                if (_pkatmap.get(str(s.get("sku") or "").strip(), "") or "").strip() == _p_kat_f]
+                                if _p_kat_anh(_pkatmap.get(str(s.get("sku") or "").strip(), ""))
+                                == _p_kat_anh(_p_kat_f)]
                 if not satislar:
                     st.info("Bu filtrede satış yok.")
                     st.stop()
@@ -1744,8 +1748,16 @@ def run():
                                     # Ref No desteği verilen destektir (−).
                                     # 2 haneye yuvarlanır: ham kur çevirisi "$20.982,7772" gibi
                                     # 4 haneli tutarlar gösteriyordu.
+                                    # Görünen ad tek yazımla (shared.ana_veri); iç anahtar ('MONITÖR')
+                                    # yalnız gruplamada. DİĞER kovası olduğu gibi kalır.
+                                    from shared.ana_veri import kategori_ad as _gk_ad, marka_ad as _gm_ad
+
+                                    def _gorunen(k, _marka=(_kol == "Marka")):
+                                        if k in ("DİĞER", "GENEL"):
+                                            return k
+                                        return (_gm_ad(k) if _marka else _gk_ad(k)) or k
                                     _tablo = [{
-                                        _kol: r["_ad"], "Adet": r["Adet"],
+                                        _kol: _gorunen(r["_ad"]), "Adet": r["Adet"],
                                         "Ciro": round(r["Ciro"], 2),
                                         "Alınan destek": round(r["_destek"], 2),
                                         "Ref No desteği": -round(r["_ref"], 2) if r["_ref"] else 0.0,

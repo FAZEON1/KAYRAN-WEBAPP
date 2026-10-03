@@ -139,7 +139,7 @@ def test_kisa_parca_yanlis_eslesmez():
 
 def test_sku_tutmazsa_urun_adi_ile_bulur():
     m = _mh([_r("VTN-998877", "KASPERSKY  total security")])
-    assert m["VTN-998877"]["kart_sku"] == "AV1" and m["VTN-998877"]["kategori"] == "Anti virüs"
+    assert m["VTN-998877"]["kart_sku"] == "AV1" and m["VTN-998877"]["kategori"] == "Anti Virüs"   # kural listesinde (Faz 1)
 
 
 def test_kartta_kategori_bossa_addan_tahmin():

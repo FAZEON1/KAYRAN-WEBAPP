@@ -8,6 +8,7 @@ from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek yazım (Eki 2026)
 
 try:
     from shared.utils import gun_ay_yil, tr_today, firma_gorunen_ad
@@ -336,8 +337,8 @@ def goster(sku):
         f'📦 {tr_sayi(toplam_stok)} adet</span></div>'
         f'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;'
         f'font-size:11px;color:var(--k-silik)">'
-        f'<span>Marka: <b style="color:var(--k-soluk)">{urun.get("marka") or "—"}</b></span>'
-        f'<span>Kategori: <b style="color:var(--k-soluk)">{urun.get("kategori") or "—"}</b></span>'
+        f'<span>Marka: <b style="color:var(--k-soluk)">{_marka_ad(urun.get("marka")) or "—"}</b></span>'
+        f'<span>Kategori: <b style="color:var(--k-soluk)">{_kat_ad(urun.get("kategori")) or "—"}</b></span>'
         f'<span>Barkod: <b style="color:var(--k-soluk)">{urun.get("barkod") or "—"}</b></span>'
         f'</div></div>', unsafe_allow_html=True)
 
@@ -617,7 +618,7 @@ def goster(sku):
                     f'<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--k-soluk)">'
                     f'<span>Firma: <b style="color:var(--k-mavi)">{_k.get("firma") or "—"}</b></span>'
                     f'<span>Tür: <b style="color:var(--k-mavi)">{_k.get("kampanya_turu") or "—"}</b></span>'
-                    f'<span>Kategori: <b style="color:var(--k-mavi)">{_k.get("kategori") or "—"}</b></span>'
+                    f'<span>Kategori: <b style="color:var(--k-mavi)">{_kat_ad(_k.get("kategori")) or "—"}</b></span>'
                     f'<span>Tarih: <b style="color:var(--k-mavi)">{gun_ay_yil(_k.get("baslangic_tarihi"))} → '
                     f'{gun_ay_yil(_k.get("bitis_tarihi"))}</b></span></div></div>',
                     unsafe_allow_html=True)

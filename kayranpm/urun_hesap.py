@@ -11,6 +11,8 @@
   tarih_tr             ISO tarih → GG.AA.YYYY
 """
 import hashlib
+
+from shared.ana_veri import kategori_anahtar, kategori_ad, marka_anahtar, marka_ad   # tek kaynak (Eki 2026)
 from collections import Counter, defaultdict
 
 _ASCII = str.maketrans("İIĞÜŞÇÖığüşçö", "IIGUSCOigusco")
@@ -40,7 +42,7 @@ def dashboard_filtrele(veri, firma, kategori, tum_firma="Tüm Firmalar", tum_kat
     out = []
     hedef = _asc(firma)
     for u in veri or []:
-        if kategori != tum_kat and _kucuk(u.get("kategori")) != _kucuk(kategori):
+        if kategori != tum_kat and kategori_anahtar(u.get("kategori")) != kategori_anahtar(kategori):
             continue
         if firma != tum_firma and not any(
                 (fd.get("stok") or 0) > 0 and hedef in _asc(fd.get("firma"))
@@ -81,8 +83,8 @@ def urun_satiri(u):
     r = {
         "SKU": u.get("sku", ""),
         "Ürün Adı": u.get("urun_adi", "") or "",
-        "Kategori": u.get("kategori", "") or "",
-        "Marka": u.get("marka", "") or "",
+        "Kategori": kategori_ad(u.get("kategori", "") or ""),     # tek yazım (shared.ana_veri)
+        "Marka": marka_ad(u.get("marka", "") or ""),
         "_stok_yas": int(u.get("stok_gun", 0) or 0),
         "_stok_renk": u.get("stok_renk", "yok"),
         "_risk": float(u.get("risk_skor", 0) or 0),
@@ -119,9 +121,9 @@ def urun_filtrele_sirala(rows, ara="", kategori="Tümü", marka="Tümü", sadece
     for r in rows:
         if q and q not in f"{r.get('SKU', '')} {r.get('Ürün Adı', '')}".lower():
             continue
-        if kategori != "Tümü" and _kucuk(r.get("Kategori")) != _kucuk(kategori):
+        if kategori != "Tümü" and kategori_anahtar(r.get("Kategori")) != kategori_anahtar(kategori):
             continue
-        if marka != "Tümü" and str(r.get("Marka") or "").strip() != marka:
+        if marka != "Tümü" and marka_anahtar(r.get("Marka")) != marka_anahtar(marka):
             continue
         if sadece_zarar and not (r.get("Net Kar ($)") is not None and r["Net Kar ($)"] < 0):
             continue

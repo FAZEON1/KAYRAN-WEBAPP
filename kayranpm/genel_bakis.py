@@ -23,7 +23,7 @@ import streamlit as st
 from shared import bilesen as B
 from shared.tasarim import tr_sayi, urun_etiketi
 from shared.tasarim import renk as trenk
-from shared.utils import metrik_satiri, firma_gorunen_ad, tr_kucuk
+from shared.utils import metrik_satiri, firma_gorunen_ad
 
 from .genel_hesap import (kpi, yapilacaklar, kapsama_dagilimi, kategori_ozeti, kanal_ozeti,
                           haftalik_seri, trend_listeleri, yaklasan_varislar, KAPSAMA_DILIM)
@@ -254,7 +254,9 @@ def render(_sb):
         return
     bugun = tr_today()
 
-    kat = sorted({tr_kucuk(u.get("kategori")) for u in veri if tr_kucuk(u.get("kategori"))})
+    from shared.ana_veri import kategori_ad as _kat_ad
+    # Yalnız verideki kategoriler, tabloyla AYNI tek yazımla (shared.ana_veri)
+    kat = sorted({_kat_ad(u.get("kategori")) for u in veri} - {""}, key=lambda x: x.lower())
     f1, f2, f3 = st.columns([1.6, 1.6, 0.8], vertical_alignment="bottom")
     firma = f1.selectbox("Firma", FIRMALAR, format_func=firma_gorunen_ad, key="gb_firma")
     kategori = f2.selectbox("Kategori", ["Tüm Kategoriler"] + kat, key="dash_kat")
@@ -294,7 +296,7 @@ def render(_sb):
     with sol:
         _stok_sagligi(kapsama_dagilimi(d))
     with sag:
-        _bolum("Kategori özeti", f"{len({tr_kucuk(r.get('kategori')) for r in d})} kategori")
+        _bolum("Kategori özeti", f"{len(kategori_ozeti(d))} kategori")
         import pandas as pd
         st.dataframe(pd.DataFrame(kategori_ozeti(d)), hide_index=True, use_container_width=True)
 

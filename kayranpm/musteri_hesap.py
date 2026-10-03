@@ -72,35 +72,20 @@ def _kat_kucuk(s):
 
 
 def kategori_etiketi(kat, kategori_liste=()):
-    """Aynı kategorinin farklı yazımlarını tek etikete indirger.
-    Kural listesindeki yazım öncelikli ('KABLO/KONNEKTÖR' → 'Kablo/Konnektör');
-    listede yoksa Türkçe-doğru baş harf büyük ('MİCROSD KART' → 'Microsd kart')."""
-    k = _kat_kucuk(kat)
-    if not k:
-        return ""
-    for x in kategori_liste or ():
-        if _kat_kucuk(x) == k:
-            return x
-    return {"i": "İ", "ı": "I"}.get(k[0], k[0].upper()) + k[1:]
+    """Tek yazım — shared.ana_veri.kategori_ad'a devreder (tek kaynak, Ekim 2026)."""
+    from shared.ana_veri import kategori_ad
+    return kategori_ad(kat, kural_liste=list(kategori_liste or ()))
 
 
 def _marka_anahtar(s):
-    """Marka karşılaştırma anahtarı: marka adları Latin ('MIO' Türkçe küçültmede 'mıo' olur,
-    'Mio' ile tutmaz) → ı/i ayrımı yok sayılır."""
-    return _kat_kucuk(s).replace("ı", "i")
+    from shared.ana_veri import marka_anahtar
+    return marka_anahtar(s)
 
 
 def marka_etiketi(marka, marka_liste=()):
-    """'Fazeon' / 'FAZEON' / 'fazeon' → tek etiket. Kural listesindeki yazım öncelikli
-    ('MIO' → 'Mio'); listede yoksa BÜYÜK harf ('kaspersky' → 'KASPERSKY')."""
-    m = " ".join(str(marka or "").split())
-    if not m:
-        return ""
-    k = _marka_anahtar(m)
-    for x in marka_liste or ():
-        if _marka_anahtar(x) == k:
-            return x
-    return m.replace("i", "İ").replace("ı", "I").upper()
+    """Tek yazım — shared.ana_veri.marka_ad'a devreder (tek kaynak, Ekim 2026)."""
+    from shared.ana_veri import marka_ad
+    return marka_ad(marka, kural_liste=list(marka_liste or ()))
 
 
 def _model_parcalari(metin):

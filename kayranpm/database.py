@@ -186,9 +186,12 @@ KATEGORI_KURALLAR = [
     ("Mouse Pad",       r"MOUSE\s*PAD|MOUSEPAD"),
     ("Klavye/Mouse",    r"KLAVYE|MOUSE|\bFARE\b|KEYBOARD"),
     ("Kulaklık",        r"KULAKLIK|HEADSET|EARBUD"),
+    # Micro SD SSD'den ÖNCE: "MICRO SD" adı SSD kuralına takılmaz ama sıra açık olsun.
+    ("Micro SD Kart",   r"MICRO\s*SD|MİCRO\s*SD|\bMICROSD|\bSD\s*KART|HAFIZA KARTI|MEMORY CARD"),
     ("SSD",             r"\bSSD\b|\bNVME\b|\bM\.2\b"),
     ("RAM",             r"\bRAM\b|\bDDR[345]\b|\bDIMM\b|SODIMM"),
     ("Yedek Parça",     r"YEDEK\s*PARÇA|YEDEK\s*PARCA|SPARE\s*PART"),
+    ("Anti Virüs",      r"ANTİ\s*VİRÜS|ANTI\s*VIRUS|ANTIVIRUS|KASPERSKY|BITDEFENDER|NORTON|\bESET\b|TOTAL SECURITY|INTERNET SECURITY"),
 ]
 KATEGORI_LISTE = [k for k, _ in KATEGORI_KURALLAR]
 

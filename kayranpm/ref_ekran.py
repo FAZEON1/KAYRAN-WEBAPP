@@ -25,6 +25,13 @@ from . import ref_hesap as R
 from . import ref_no as N
 
 
+def _ref_kat_ad(k):
+    """Ref No kategorisi ekranda tek yazımla (shared.ana_veri); GENEL kovası olduğu gibi."""
+    from shared.ana_veri import kategori_ad
+    s = str(k or "").strip()
+    return s if s.upper() == "GENEL" else kategori_ad(s)
+
+
 # ════════════════════════════════════════════════════════════════════
 def _usd(v):
     return "—" if v is None else sayi(v, "$")
@@ -544,7 +551,7 @@ def _alinan_gorunum():
                     unsafe_allow_html=True)
         for r in sorted(g, key=lambda x: -R._f(x.get("tutar"))):
             cip = "".join(B.cip(x) for x in ((r.get("tur") or "").strip().capitalize(),
-                                             (r.get("kategori") or "").strip().capitalize()) if x)
+                                             _ref_kat_ad(r.get("kategori"))) if x)
             fat = f'<span>Fatura {_h.escape(str(r.get("fatura_no")))}</span>' if r.get("fatura_no") else ""
             B.tiklanir(f"ad{r['id']}",
                        f'<div class="rf-s" style="grid-template-columns:150px minmax(0,1fr) auto">'
@@ -586,15 +593,17 @@ def _ad_detay_dialog(r, eur, tl):
 def _ad_yeni_dialog(firmalar):
     from datetime import date
     try:
-        from satis.database import get_sku_kategori
-        katlar = sorted({(v or "").strip().upper() for v in get_sku_kategori().values() if (v or "").strip()})
+        # Seçenekler TEK havuzdan (shared.ana_veri); kayıt Ref No'nun büyük harf yazımıyla.
+        from shared.ana_veri import get_kategori_havuzu, tr_buyuk_harf
+        katlar = [tr_buyuk_harf(k) for k in get_kategori_havuzu()]
     except Exception:  # noqa: BLE001
         katlar = []
     with st.form("ad2_yeni_form", border=False):
         a1, a2, a3 = st.columns(3)
         firma = a1.text_input("Firma / marka", placeholder="örn. FAZEON, MSI")
         tur = a2.selectbox("Tür", N.ALINAN_TURLER)
-        kat = a3.selectbox("Kategori", ["GENEL"] + katlar, help="Hangi ürün kategorisi için? Dağıtılamıyorsa GENEL.")
+        kat = a3.selectbox("Kategori", ["GENEL"] + katlar, format_func=_ref_kat_ad,
+                           help="Hangi ürün kategorisi için? Dağıtılamıyorsa GENEL.")
         b1, b2, b3, b4 = st.columns([1, 1.3, 0.9, 1.3])
         ay = b1.selectbox("Ay", list(range(1, 13)), index=date.today().month - 1, format_func=lambda m: R.AY_AD[m])
         yil = b2.number_input("Yıl", min_value=2020, max_value=2100, step=1, value=date.today().year)

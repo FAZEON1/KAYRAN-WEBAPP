@@ -24,6 +24,7 @@ from shared import bilesen as B
 from shared.kar_gizle import kar_gorunur
 from shared.tasarim import kpi_serit, mesaj, bos_durum, tr_sayi, sayi
 from shared.utils import firma_kisa_ad
+from shared.ana_veri import kategori_ad as _kat_ad   # tek yazım (Eki 2026)
 from . import satis_hesap as H
 from .database import (get_satislar_yalin, get_siparis_kalemleri, get_satislar_kanal_ara,
                        guncelle_satis, sil_satis, sil_siparis, satir_kar, get_sku_kategori, get_urunler)
@@ -284,7 +285,8 @@ def _kalem_tablosu(kalemler):
         k = satir_kar(s)
         r = {"Tarih": str(s.get("tarih") or "")[:10], "Sipariş No": s.get("siparis_no") or "—",
              "Firma": firma_kisa_ad(s.get("kanal")), "SKU": s.get("sku", ""),
-             "Ürün": (s.get("urun_adi") or "")[:34], "Kategori": katmap.get(str(s.get("sku") or "").strip(), "") or "—",
+             "Ürün": (s.get("urun_adi") or "")[:34],
+             "Kategori": _kat_ad(katmap.get(str(s.get("sku") or "").strip(), "")) or "—",   # tek yazım
              "Adet": int(k["adet"] or 0), "Birim satış": round(float(s.get("birim_satis") or 0), 4),
              "Ciro": round(k["ciro"], 2)}
         if kar_ok:
@@ -328,7 +330,7 @@ def _indir(kalemler, bas, bit, firma):
         r = {"Tarih": str(s.get("tarih") or ""), "Sipariş No": s.get("siparis_no") or "",
              "Kanal": s.get("kanal") or "", "SKU": sku,
              "Ürün": (s.get("urun_adi") or "") or admap.get(sku.strip(), ""),
-             "Kategori": katmap.get(sku.strip(), "") or "", "Adet": int(k["adet"] or 0),
+             "Kategori": _kat_ad(katmap.get(sku.strip(), "")), "Adet": int(k["adet"] or 0),
              "Birim Satış": round(float(s.get("birim_satis") or 0), 2), "Birim Destek": round(bd, 2),
              "Ciro": round(k["ciro"], 2), "Destek": round(k["destek"], 2)}
         if kar_ok:
