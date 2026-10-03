@@ -54,7 +54,7 @@ FIRMA_GORUNEN_AD = {
     "ITOPYA": "EERA",
     "HB": "D-MARKET",
     "VATAN": "VATAN",
-    "MONDAY": "TEKNOKLİK - MONDAY",                   # kullanıcı (3 Ekim 2026)
+    "MONDAY": "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ",   # kullanıcı (3 Ekim 2026, revize)
     "DIGER": "DİĞER",
 }
 
