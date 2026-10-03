@@ -34,6 +34,14 @@ def _usd(v):
     return f"${tr_sayi(_f(v), 2)}"
 
 
+
+def _cari_ad(kod):
+    try:
+        from shared.utils import firma_gorunen_ad
+        return firma_gorunen_ad(kod, kisa=False) if kod else ""
+    except Exception:  # noqa: BLE001
+        return str(kod or "")
+
 def _kart(baslik, deger, alt="", renk="#A5B4FC", anlam=None):
     from shared.tasarim import KART_YENI, kart_hucresi
     if KART_YENI:       # ortak kart (başlık eskiden CSS ile BÜYÜK HARF yapılıyordu)
@@ -568,7 +576,7 @@ def goster(sku):
                 _rows.append({
                     "Durum": "🟢 Devam" if _durum == "devam" else "🔴 Bitti",
                     "Kampanya": _k.get("kampanya_adi", "") or f"#{ku.get('kampanya_id')}",
-                    "Firma": _k.get("firma", "") or "—",
+                    "Firma": _cari_ad(_k.get("firma", "")) or "—",   # cari kartındaki tam ad
                     "Tür": _k.get("kampanya_turu", "") or "—",
                     "Başlangıç": gun_ay_yil(_k.get("baslangic_tarihi")),
                     "Bitiş": gun_ay_yil(_k.get("bitis_tarihi")),

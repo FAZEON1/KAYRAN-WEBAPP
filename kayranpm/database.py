@@ -506,6 +506,18 @@ def get_tum_sku_listesi():
     return _rws
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_urun_marka_kategori():
+    """{sku: {"marka", "kategori", "urun_adi"}} — Müşteri Satışları'nın marka/kategori
+    kırılımı için (sayfalı; 1000 satır sınırına takılmaz)."""
+    try:
+        return {str(r.get("sku") or "").strip(): {"marka": r.get("marka") or "", "kategori": r.get("kategori") or "",
+                                                  "urun_adi": r.get("urun_adi") or ""}
+                for r in _hepsi("urunler", "sku, urun_adi, marka, kategori", "sku")}
+    except Exception:  # noqa: BLE001 — kırılım "Markasız/Kategorisiz" görünür, sayfa çalışır
+        return {}
+
+
 # ── İTHALAT SENKRONİZASYONU ─────────────────────────────────────────
 def ithalat_sku_ozet():
     """İthalat'taki distinct SKU'lar → {sku: {'urun_adi':..., 'adet':...}}."""

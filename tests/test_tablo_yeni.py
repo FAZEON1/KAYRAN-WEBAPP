@@ -219,3 +219,16 @@ def test_kalan_izgaralar_ortak_tabloda():
         assert "on_select=" not in s, d
     assert "coklu=True" in (K / "ithalat/main.py").read_text(encoding="utf-8")
     assert (K / "kayranpm/stok_karti.py").read_text(encoding="utf-8").count("kalici=True") == 3
+
+
+def test_kompakt_tablo_kart_gorunumune_gecmez():
+    """Yan yana düzende dar sütun (~330 px) masaüstünde de kart yığınına dönüyordu
+    (Müşteri Satışları'nda tarayıcıda görüldü). kompakt=True → tablo kalır."""
+    import inspect
+    from shared import tablo as T
+    assert "kompakt" in inspect.signature(T.tablo).parameters
+    assert "container-name:kt" in T._CSS and "@container kt (max-width:560px)" in T._CSS
+    assert ".kt.kompakt{container-name:kt-kompakt" in T._CSS
+    assert 'classList.toggle("kompakt", !!D.kompakt)' in T._JS
+    i = T._CSS.index("@media (max-width:640px){")                 # telefonda yine kart listesi
+    assert ".kt.kompakt thead{display:none}" in T._CSS[i:]

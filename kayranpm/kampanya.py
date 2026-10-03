@@ -74,7 +74,7 @@ def _kalan_metni(o):
 
 def _firma_ad(kod):
     try:
-        return firma_gorunen_ad(kod) or str(kod or "")
+        return firma_gorunen_ad(kod, kisa=False) or str(kod or "")   # cari kartındaki tam ad
     except Exception:  # noqa: BLE001 — eşleme tablosu yoksa kodu göster
         return str(kod or "")
 

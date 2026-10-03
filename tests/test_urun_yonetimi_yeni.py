@@ -128,9 +128,9 @@ def test_musteri_satis_adet_sutunu():
     from shared.tasarim import _tablo_kolon_tipi
     assert _tablo_kolon_tipi("Satış") == "para"          # tuzak: tek başına "Satış" para sayılır
     assert _tablo_kolon_tipi("Satış adedi") == "adet"
-    m = _govde(_oku(MAIN), 'elif sayfa == "📈  Müşteri Satışları":')
-    assert '"Satış": int(r.get("haftalik_satis"' not in m and '"Satış adedi":' in m
-    assert "_mhs_excel(_ozet, _df)," not in m             # Excel her yenilemede üretilmez
+    m = _oku("kayranpm/musteri_ekran.py")                  # Ekim 2026: ekran ayrı dosyada
+    assert '"Satış":' not in m and '"Satış adedi":' in m
+    assert "partial(_excel," in m                         # Excel her yenilemede üretilmez (tıklanınca)
 
 
 # ── 8-13. Genel ─────────────────────────────────────────────────────

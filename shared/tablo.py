@@ -200,7 +200,7 @@ def kisa_unvan(tam):
 # ── Bileşen ─────────────────────────────────────────────────────────
 _CSS = r"""
 :host{display:block}
-.kt{container-type:inline-size;font-size:13px;color:var(--k-metin);font-variant-numeric:tabular-nums}
+.kt{container-type:inline-size;container-name:kt;font-size:13px;color:var(--k-metin);font-variant-numeric:tabular-nums}
 .ust{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .ara{flex:1;min-width:0;position:relative}
 .ara input{width:100%;box-sizing:border-box;height:32px;padding:0 10px 0 30px;border-radius:8px;
@@ -250,7 +250,14 @@ tfoot td:first-child{left:0;z-index:3}
 .ust.yuzer .say{display:none}
 .ust.yuzer .btn{height:26px;min-width:26px;background:var(--k-yuzey2)}
 .bos{padding:18px;text-align:center;color:var(--k-silik)}
-@container (max-width:560px){
+.kt.kompakt{container-name:kt-kompakt}
+.kt.kompakt td,.kt.kompakt th{padding-left:8px;padding-right:8px}
+/* Dar sütunda sayılar sabit genişlik, metin kalan alanı paylaşır ve "…" ile kısalır
+   (uzun cari adı sütunu "Son stok"u görünmez yapıyordu) */
+.kt.kompakt table{table-layout:fixed}
+.kt.kompakt th.sag,.kt.kompakt td.sag{width:72px}
+.kt.kompakt td{max-width:none}
+@container kt (max-width:560px){
   .sirala{display:block}
   .ust{flex-wrap:wrap}
   .ust .ara{flex-basis:100%}
@@ -266,6 +273,24 @@ tfoot td:first-child{left:0;z-index:3}
   .cubuk{display:none}
   tfoot td{position:static}
 }
+@media (max-width:640px){.kt.kompakt th.sag,.kt.kompakt td.sag{width:auto}}
+/* Kompakt tablo (yan yana düzen): dar SÜTUNDA tablo kalır, TELEFONDA kart listesine döner */
+@media (max-width:640px){
+  .kt.kompakt .sirala{display:block}
+  .kt.kompakt .ust{flex-wrap:wrap}
+  .kt.kompakt .ust .ara{flex-basis:100%}
+  .kt.kompakt .kap{border:none;background:transparent;overflow:visible;max-height:none !important}
+  .kt.kompakt table,.kt.kompakt tbody,.kt.kompakt tfoot,.kt.kompakt tr,.kt.kompakt td{display:block;width:auto}
+  .kt.kompakt thead{display:none}
+  .kt.kompakt tbody tr,.kt.kompakt tfoot tr{border:1px solid var(--k-kenar);border-radius:12px;background:var(--k-yuzey1);margin:0 0 8px;padding:6px 0}
+  .kt.kompakt tfoot tr{background:var(--k-yuzey2)}
+  .kt.kompakt td{position:static !important;display:flex;justify-content:space-between;align-items:center;gap:12px;
+     border:none;padding:4px 12px;max-width:none;white-space:normal;text-align:right !important;background:transparent !important}
+  .kt.kompakt td:first-child{font-weight:600;font-size:14px;text-align:left !important;justify-content:flex-start;padding-top:6px;box-shadow:none !important}
+  .kt.kompakt td:not(:first-child)::before{content:attr(data-l);color:var(--k-silik);font-size:12px;font-weight:400;text-align:left}
+  .kt.kompakt .cubuk{display:none}
+  .kt.kompakt tfoot td{position:static}
+}
 """
 
 _JS = r"""
@@ -277,6 +302,7 @@ export default function(component){
   const coklu = !!D.coklu, kalici = !!D.kalici;
   let kok = parentElement.querySelector(".kt");
   if (!kok){ kok = document.createElement("div"); kok.className = "kt"; parentElement.appendChild(kok); }
+  kok.classList.toggle("kompakt", !!D.kompakt);
   const es = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const ARA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   const INDIR = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>';
@@ -414,7 +440,7 @@ def _oto_anahtar(veri):
 
 
 def tablo(satirlar, *, key=None, secilebilir=False, kalici=False, coklu=False, pay=None, arama=None,
-          birim="$", maks_yukseklik=520, kap=None, dosya_adi="tablo", toplam_isaret="Σ"):
+          birim="$", maks_yukseklik=520, kap=None, dosya_adi="tablo", toplam_isaret="Σ", kompakt=False):
     """Tabloyu çizer. Dönüş:
       secilebilir=True → tıklanan satırın sırası, yalnız tıklandığı çalıştırmada (pencere açmak için)
       kalici=True      → seçili satırın sırası ya da None; seçim sonraki çalıştırmalarda da durur
@@ -434,6 +460,7 @@ def tablo(satirlar, *, key=None, secilebilir=False, kalici=False, coklu=False, p
     anahtar = key or _oto_anahtar(veri)
     _onceki = st.session_state.get(anahtar, {}) or {}
     veri.update({"secilebilir": bool(secilebilir), "kalici": bool(kalici), "coklu": bool(coklu),
+                 "kompakt": bool(kompakt),   # dar sütunda (yan yana düzen) kart görünümüne geçmesin
                  "maks": int(maks_yukseklik), "dosya": dosya_adi,
                  "secili": _onceki.get("secili") if secilebilir else None,
                  "secililer": list(_onceki.get("secililer") or []) if coklu else []})
