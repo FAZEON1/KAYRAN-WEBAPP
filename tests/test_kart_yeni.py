@@ -174,3 +174,35 @@ def test_patron_ortak_kart():
     g = src[src.index("def kart_html"):]
     g = g[:g.index("\ndef ", 10)]
     assert "kart_hucresi(" in g and "KART_YENI" in g
+
+
+# ── Muhasebe › Genel bakış ──────────────────────────────────────────
+def _ozet(**kw):
+    from kayranacc.genel_kartlar import haftalik_ozet_kartlari
+    v = dict(tl_toplam=100000, odendi_tl=40000, usd_toplam=2000, kur=40.0, odendi_cnt=3, toplam_cnt=5,
+             bekleyen_tl=60000, hafta_sonu_tl=25000, fmt=lambda x: f"{x:,.0f}".replace(",", "."))
+    v.update(kw)
+    return haftalik_ozet_kartlari(**v)
+
+
+def test_muhasebe_ana_kart_nakit():
+    k = _ozet()
+    assert k[0]["label"] == "Hafta sonu kalan" and k[0]["vurgu"] is True
+    assert k[0]["value"] == "₺25.000" and k[0].get("anlam") is None
+
+
+def test_muhasebe_nakit_acigi_kirmizi():
+    k = _ozet(hafta_sonu_tl=-12000)
+    assert k[0]["label"] == "Nakit açığı" and k[0]["value"] == "₺12.000" and k[0]["anlam"] == "kotu"
+
+
+def test_muhasebe_ilerleme_cubugu_alt_satirda():
+    k = {c["label"]: c for c in _ozet()}
+    assert "3 / 5" in k["İlerleme"]["value"] and "%60" in k["İlerleme"]["alt"] and "width:60%" in k["İlerleme"]["alt"]
+
+
+def test_muhasebe_genel_bakis_ortak_kart():
+    src = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
+    i = src.index('if sayfa == "📊 Dashboard":')
+    g = src[i:i + 12000]
+    assert "haftalik_ozet_kartlari(" in g and "KART_YENI" in g

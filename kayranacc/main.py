@@ -1444,8 +1444,22 @@ def run():
             nakit_label = "Hafta Sonu Kalan" if hafta_sonu_tl >= 0 else "Nakit Açığı"
             nakit_alt   = "Tahmini bakiye" if hafta_sonu_tl >= 0 else "Tahmini açık"
             nakit_emoji = "✅" if hafta_sonu_tl >= 0 else "⚠️"
-    
-            st.markdown(f"""
+
+            from shared.tasarim import KART_YENI as _kart_yeni
+            if _kart_yeni:
+                # Ortak kartlar (Ekim 2026): ana kart hafta sonu kalan / nakit açığı
+                from kayranacc.genel_kartlar import haftalik_ozet_kartlari, bugun_kartlari
+                st.markdown('<style>.section-mini-title{font-size:14px;font-weight:650;color:var(--k-metin);'
+                            'margin:18px 0 8px;}</style><div class="section-mini-title">Haftalık özet</div>',
+                            unsafe_allow_html=True)
+                metrik_satiri(haftalik_ozet_kartlari(
+                    tl_toplam=tl_toplam, odendi_tl=odendi_tl, usd_toplam=usd_toplam, kur=kur,
+                    odendi_cnt=odendi_cnt, toplam_cnt=len(odemeler), bekleyen_tl=bekleyen_tl,
+                    hafta_sonu_tl=hafta_sonu_tl, fmt=fmt))
+                st.markdown('<div class="section-mini-title">Bugünün bekleyen ödemeleri</div>', unsafe_allow_html=True)
+                metrik_satiri(bugun_kartlari(bugun_kalan_tl=bugun_kalan_tl, bugun_kalan_usd=bugun_kalan_usd, fmt=fmt))
+            else:
+              st.markdown(f"""
             <style>
             /* .kart ailesi ortak katmanın takma adı — HTML değişmedi. */
             .kart-grid {{ display:flex;flex-wrap:wrap;gap:var(--k-gap);margin-bottom:var(--k-gap) }}
