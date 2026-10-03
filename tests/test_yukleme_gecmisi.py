@@ -25,9 +25,9 @@ KOK = Path(__file__).resolve().parent.parent
 @pytest.fixture
 def yazilan(monkeypatch):
     out = []
-    monkeypatch.setattr(Y, "kaydet", lambda tur, n, dosya="", anahtarlar=(), degisiklik=None:
+    monkeypatch.setattr(Y, "kaydet", lambda tur, n, dosya="", anahtarlar=(), degisiklik=None, kod="":
                         out.append({"tur": tur, "n": n, "dosya": dosya, "anahtarlar": list(anahtarlar),
-                                    "degisiklik": degisiklik}) or 1)
+                                    "degisiklik": degisiklik, "kod": kod}) or 1)
     return out
 
 

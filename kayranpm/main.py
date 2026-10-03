@@ -1431,15 +1431,17 @@ def run():
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpg:
                         tmpg.write(dosya_g.read())
                         tmpg_path = tmpg.name
-                    with st.spinner("🏬 G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"):
+                    from shared.yukleme_gecmisi import Kayit as _YKayit
+                    _yk_g5f = _YKayit("g5f_sayim", dosya_g.name)
+                    with st.spinner("🏬 G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"), \
+                            _yk_g5f.stok():          # stok hareketleri bu yüklemeyle işaretlenir
                         basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
                     os.unlink(tmpg_path)
                     st.cache_data.clear()
                     if basari_g:
                         from shared.yukleme_takvimi import kaydet as _yt_kaydet
                         _yt_kaydet("g5f_sayim", st.session_state.get("aktif_kullanici", ""))
-                        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                        _yg_kaydet("g5f_sayim", 0, dosya_g.name)
+                        _yk_g5f.kaydet(0)
                         st.success(mesaj_g)
                     else:
                         st.error(mesaj_g)

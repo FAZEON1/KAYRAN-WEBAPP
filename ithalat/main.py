@@ -1852,11 +1852,20 @@ def _yeni_ithalat():
                         # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
                         eski_masraf = _masraf_dict(mevcut_kayit)
                         eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
+                        # Excel'de olmayan alanlar MEVCUT kayıttan korunur (Ekim 2026): eskiden durum,
+                        # teslim deposu, tahmini varış ve fatura indirimi boşa yazılıyordu — teslim
+                        # alınmış dosya "durumsuz" kalıyor, sonra elle yeniden "Teslim Alındı" yapılınca
+                        # mal stoğa İKİNCİ KEZ ekleniyordu.
                         ok, msg = guncelle_dosya(
                             mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
                             dov, eski_kur, eski_masraf, notlar, kalemler,
                             ithalat_takip_no=takip_no,
-                            teslim_tarihi=(str(teslim)[:10] if teslim else ""),
+                            durum=str(mevcut_kayit.get("durum") or ""),
+                            teslim_deposu=str(mevcut_kayit.get("teslim_deposu") or ""),
+                            tahmini_varis=mevcut_kayit.get("tahmini_varis") or "",
+                            fatura_indirim=mevcut_kayit.get("fatura_indirim") or 0,
+                            teslim_tarihi=(str(teslim)[:10] if teslim
+                                           else str(mevcut_kayit.get("teslim_tarihi") or "")[:10]),
                             teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
                             sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
                         if ok:

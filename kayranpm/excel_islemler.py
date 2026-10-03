@@ -643,45 +643,45 @@ def excel_yukle_g5f_depolar(dosya_yolu):
         basarili, toplam_adet, eslesen, yeni = 0, 0, 0, 0
         from .database import _defter as _defter_al
         _sd = _defter_al()
-        _defter = _sd.toplu()          # yüzlerce SKU'nun defter satırı tek istekte yazılsın
-        _defter.__enter__()
-        for sku, dd in kirilim.items():
-            gercek_sku = mevcut_sku_map.get(sku, sku)   # mevcut varsa onun yazımıyla güncelle
-            if sku in mevcut_sku_map:
-                eslesen += 1
-            else:
-                yeni += 1
-            satilabilir = sum(m for d, m in dd.items()
-                              if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
-            upsert_g5f_stok(gercek_sku, adlar.get(sku, ""), satilabilir, dd)
-            basarili += 1
-            toplam_adet += sum(dd.values())
+        # Yüzlerce SKU'nun defter satırı tek istekte yazılsın. 'with': güncelleme döngüsünde hata
+        # çıksa da tampon kapanır (eskiden tampon elle açılıp kapatılıyordu; döngüde hata olursa
+        # tampon açık kalıyor, o işlemin ve aynı iş parçacığındaki sonraki işlemlerin defteri yazılmıyordu).
+        with _sd.toplu():
+            for sku, dd in kirilim.items():
+                gercek_sku = mevcut_sku_map.get(sku, sku)   # mevcut varsa onun yazımıyla güncelle
+                if sku in mevcut_sku_map:
+                    eslesen += 1
+                else:
+                    yeni += 1
+                satilabilir = sum(m for d, m in dd.items()
+                                  if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
+                upsert_g5f_stok(gercek_sku, adlar.get(sku, ""), satilabilir, dd)
+                basarili += 1
+                toplam_adet += sum(dd.values())
 
-        # ── BİREBİR SENKRON: Excel'de OLMAYAN ürünlerin eski kırılımını sıfırla ──
-        # Böylece sistemdeki depo stoğu, yüklenen dosyanın birebir aynısı olur;
-        # sonraki ithalat teslimleri (Model B) bu temiz tabanın ÜZERİNE işlemeye devam eder.
-        sifirlanan = 0
-        try:
-            _tum = get_client().table("urunler").select("sku, depo_kirilim").execute().data or []
-            for _r in _tum:
-                _gs = str(_r.get("sku") or "").strip()
-                _dk = _r.get("depo_kirilim") or {}
-                if not _gs or not isinstance(_dk, dict) or not any(safe_int(v) for v in _dk.values()):
-                    continue
-                if normalize_sku(_gs) not in kirilim:
-                    get_client().table("urunler").update(
-                        {"depo_kirilim": {}, "bizim_stok": 0}).eq("sku", _gs).execute()
-                    _sd.yaz_fark(_gs, _dk, {}, "sifirlama",
-                                 "Excel'de yok — birebir senkron sıfırlama")
-                    sifirlanan += 1
-        except Exception as _e:
+            # ── BİREBİR SENKRON: Excel'de OLMAYAN ürünlerin eski kırılımını sıfırla ──
+            # Böylece sistemdeki depo stoğu, yüklenen dosyanın birebir aynısı olur;
+            # sonraki ithalat teslimleri (Model B) bu temiz tabanın ÜZERİNE işlemeye devam eder.
+            sifirlanan = 0
             try:
-                from shared.hata_log import kaydet
-                kaydet("excel_islemler.senkron_sifirlama", _e, kritik=True)
-            except Exception:
-                pass
-        finally:
-            _defter.__exit__(None, None, None)
+                _tum = get_client().table("urunler").select("sku, depo_kirilim").execute().data or []
+                for _r in _tum:
+                    _gs = str(_r.get("sku") or "").strip()
+                    _dk = _r.get("depo_kirilim") or {}
+                    if not _gs or not isinstance(_dk, dict) or not any(safe_int(v) for v in _dk.values()):
+                        continue
+                    if normalize_sku(_gs) not in kirilim:
+                        get_client().table("urunler").update(
+                            {"depo_kirilim": {}, "bizim_stok": 0}).eq("sku", _gs).execute()
+                        _sd.yaz_fark(_gs, _dk, {}, "sifirlama",
+                                     "Excel'de yok — birebir senkron sıfırlama")
+                        sifirlanan += 1
+            except Exception as _e:
+                try:
+                    from shared.hata_log import kaydet
+                    kaydet("excel_islemler.senkron_sifirlama", _e, kritik=True)
+                except Exception:
+                    pass
 
         depo_liste = ", ".join(sorted(depolar_set))
         _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"

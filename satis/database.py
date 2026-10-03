@@ -683,7 +683,10 @@ def sil_siparisler(siparis_nolar):
                         _geri[_s] = _geri.get(_s, 0) + _i(_r.get("adet"))
             except Exception:
                 pass
-            cli.table("satislar").delete().in_("siparis_no", _parca).execute()
+            # Sil-yeniden-yaz (Excel "üzerine yaz"): çöp kutusuna DÜŞMEZ. Düşünce oradan geri alınan
+            # satış stoğa yeniden işlenmiyordu (stok iade edilmiş ama satış geri gelmiş olurdu).
+            with cop_kutusu_kapali():
+                cli.table("satislar").delete().in_("siparis_no", _parca).execute()
         _stok_uygula(_geri, +1, "satis_sil")   # MODEL B: silinen satış depoya geri döner
         _temizle()
         return len(nolar), None

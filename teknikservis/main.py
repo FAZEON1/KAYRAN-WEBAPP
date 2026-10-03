@@ -295,19 +295,21 @@ def _mal_kabul():
                         _bar = st.progress(0.0, text="Kaydediliyor…")
                         _ok_s, _hata_s = 0, []
                         _prs = st.session_state.get("aktif_kullanici", "") or ""
+                        from shared.yukleme_gecmisi import Kayit as _YKayit
+                        _yk_ts = _YKayit("toplu_mal_kabul", _tyk.name)
                         for _n, _g in enumerate(_gecerli, 1):
                             _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
                             if _okk:
                                 _ok_s += 1
-                                _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
+                                with _yk_ts.stok():          # stok hareketi bu yüklemeyle işaretlenir
+                                    _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
                             else:
                                 _hata_s.append(f"{_g['veri']['seri_no']}: {_msgk[:60]}")
                             _bar.progress(_n / len(_gecerli),
                                           text=f"Kaydediliyor… {_n}/{len(_gecerli)}")
                         _bar.empty()
                         if _ok_s:
-                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                            _yg_kaydet("toplu_mal_kabul", _ok_s, _tyk.name)
+                            _yk_ts.kaydet(_ok_s)
                         st.success(f"✅ {_ok_s} mal kabul kaydı oluşturuldu."
                                    + (f" ⚠️ {len(_hata_s)} satır yazılamadı." if _hata_s else ""))
                         if _hata_s:

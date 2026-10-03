@@ -797,12 +797,14 @@ def run():
                     if _depo:
                         _gecerli = [dict(_g, depo=(str(_g.get("depo") or "").strip() or _depo))
                                     for _g in _gecerli]
-                    _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
+                    from shared.yukleme_gecmisi import Kayit as _YKayit
+                    _yk = _YKayit("siparis_excel", _dosya_adi)
+                    with _yk.stok():                 # stok hareketleri bu yüklemeyle işaretlenir
+                        _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
                     if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                         st.error(f"❌ {_sonuc['hata']}")
                     else:
-                        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                        _yg_kaydet("siparis_excel", _sonuc.get("eklendi"), _dosya_adi)
+                        _yk.kaydet(_sonuc.get("eklendi"))
                         _m = f"✅ {tr_sayi(_sonuc['eklendi'])} kalem kaydedildi."
                         if _sonuc["atlandi"]:
                             _m += f" {tr_sayi(_sonuc['atlandi'])} atlandı (zaten kayıtlı)."
@@ -2145,8 +2147,11 @@ def run():
                             except Exception:
                                 pass
 
-                        _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=True,
-                                                    temizle_once=_temizle_once, ilerleme=_ilerle)
+                        from shared.yukleme_gecmisi import Kayit as _YKayit
+                        _yk = _YKayit("mikro_fatura", _dosya.name)
+                        with _yk.stok():             # stok hareketleri bu yüklemeyle işaretlenir
+                            _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=True,
+                                                        temizle_once=_temizle_once, ilerleme=_ilerle)
                         _pb.empty()
                         if _sonuc["hata"] and _sonuc["eklendi"] == 0:
                             st.error(f"❌ {_sonuc['hata']}")
@@ -2154,8 +2159,7 @@ def run():
                             from shared.yukleme_takvimi import kaydet as _yt_kaydet
                             _yt_kaydet("satis_dokumu", st.session_state.get("aktif_kullanici", ""),
                                        _sonuc.get("eklendi"))
-                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                            _yg_kaydet("mikro_fatura", _sonuc.get("eklendi"), _dosya.name)
+                            _yk.kaydet(_sonuc.get("eklendi"))
                             _msg = f"✅ {tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
                             if _sonuc.get("silinen_fatura"):
                                 _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
@@ -2317,18 +2321,20 @@ def run():
 
                         if st.button("İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
                                      disabled=not (_cak_onay and _trh_onay) or not _plan, icon=":material/upload:"):
-                            _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10],
-                                                   temizle_once=_ie_temizle,
-                                                   donem_bas=str(_ie_bas)[:10],
-                                                   varsayilan_depo=_ie_depo)
+                            from shared.yukleme_gecmisi import Kayit as _YKayit
+                            _yk = _YKayit("iade_excel", _ie_dosya.name)
+                            with _yk.stok():         # stok hareketleri bu yüklemeyle işaretlenir
+                                _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10],
+                                                       temizle_once=_ie_temizle,
+                                                       donem_bas=str(_ie_bas)[:10],
+                                                       varsayilan_depo=_ie_depo)
                             if _r.get("hata"):
                                 st.error(f"Hata: {_r['hata']}")
                             else:
                                 from shared.yukleme_takvimi import kaydet as _yt_kaydet
                                 _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""),
                                            _r.get("eklendi"))
-                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                                _yg_kaydet("iade_excel", _r.get("eklendi"), _ie_dosya.name)
+                                _yk.kaydet(_r.get("eklendi"))
                                 st.toast(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
                                 st.cache_data.clear()
                                 st.rerun()
