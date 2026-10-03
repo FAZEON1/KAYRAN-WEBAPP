@@ -585,12 +585,15 @@ def _sayfa_happylife():
                "ise satış anında düşer (çıkış deposu Happy Life seçildiyse). Fark eksi ise "
                "son Excel'den beri satış/çıkış yapılmış demektir — bir sonraki Excel'de "
                "iki sayı yeniden eşitlenir.")
+    # SKU eşleştirme tek kural: shared.utils.sku_anahtar (Faz 3). Eskiden 'FAZEON ' önekini
+    # atmıyordu: Excel'de 'Fazeon X24F165S', kartta 'X24F165S' → canlı stok boş görünüyordu.
+    from shared.utils import sku_anahtar as _hl_norm_sku
     # KAYRAN canlı stok (urunler.depo_kirilim → HAPPY LIFE) — tek toplu okuma
     _canli = {}
     try:
         from kayranpm.database import get_depo_stok as _gds
         for _r in (_gds("HAPPY LIFE") or []):
-            _k = " ".join(str(_r.get("sku") or "").strip().upper().split())
+            _k = _hl_norm_sku(_r.get("sku"))
             if _k:
                 _canli[_k] = _canli.get(_k, 0) + int(_r.get("adet") or 0)
     except Exception:
@@ -603,8 +606,6 @@ def _sayfa_happylife():
         o["palet"] += 1
         if (k["_yas"] or 0) > o["max_yas"]:
             o["max_yas"] = k["_yas"] or 0
-    def _hl_norm_sku(s):
-        return " ".join(str(s or "").strip().upper().split())
     _ozet_df = pd.DataFrame([{
         "SKU": _tb(sku), "SKU Tanımı": _tb(o["tanim"]),
         "Excel Miktarı": int(o["miktar2"]), "Birim": o["birim2"],

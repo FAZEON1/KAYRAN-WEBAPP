@@ -233,9 +233,10 @@ def goster(sku):
         # Satış kaydı SKU'su farklı yazımda olabilir (büyük/küçük harf ya da 'Fazeon ' öneki).
         # → esnek ara, normalize ile kesin doğrula (yanlış eşleşmeyi eler).
         try:
-            from kayranpm.excel_islemler import normalize_sku as _nsku
+            from shared.utils import sku_anahtar as _nsku     # tek kural (Faz 3)
             _skn = _nsku(sku)
-            _cand = (sb.table("satislar").select("*").ilike("sku", f"%{sku}")
+            # Öneksiz anahtarla ara: kart 'Fazeon X', satış 'X' olsa da bulunur (eskiden %{sku})
+            _cand = (sb.table("satislar").select("*").ilike("sku", f"%{_skn}")
                      .order("tarih", desc=True).execute().data or [])
             satislar = [r for r in _cand if _nsku(r.get("sku", "")) == _skn]
         except Exception:
@@ -246,9 +247,9 @@ def goster(sku):
     iadeler = _sel("iadeler", order="tarih", desc=True)
     if not iadeler:
         try:
-            from kayranpm.excel_islemler import normalize_sku as _nsku2
+            from shared.utils import sku_anahtar as _nsku2    # tek kural (Faz 3)
             _skn2 = _nsku2(sku)
-            _cand2 = (sb.table("iadeler").select("*").ilike("sku", f"%{sku}")
+            _cand2 = (sb.table("iadeler").select("*").ilike("sku", f"%{_skn2}")
                       .order("tarih", desc=True).execute().data or [])
             iadeler = [r for r in _cand2 if _nsku2(r.get("sku", "")) == _skn2]
         except Exception:

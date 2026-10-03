@@ -40,14 +40,27 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
     filtreli = (kanal_f != "Tümü" or kat_f != "Tümü")
     katmap = kaynak.katmap() or {}
 
+    from shared.utils import sku_anahtar
+
     def _kat(sku):
-        return (katmap.get(str(sku or "").strip(), "") or "").strip()
+        return (katmap.get(sku_anahtar(sku), "") or "").strip()   # anahtar normalize (Faz 3)
+
+    # Kategori süzgeci YAZIMDAN BAĞIMSIZ (shared.ana_veri): sayfa seçenekleri tek yazımla
+    # ('Kasa') gelir, kartta 'KASA' / 'kasa', destek kırılımında 'MONITÖR' olabilir.
+    from shared.ana_veri import kategori_anahtar
+    _kat_anh = kategori_anahtar(kat_f) if kat_f != "Tümü" else ""
+
+    def _kat_tutar(sku):
+        return kategori_anahtar(_kat(sku)) == _kat_anh
+
+    def _kat_topla(sozluk):
+        return sum(float(v or 0) for k, v in (sozluk or {}).items() if kategori_anahtar(k) == _kat_anh)
 
     sat = list(satislar if satislar is not None else (kaynak.satislar(bas, bit) or []))
     if kanal_f != "Tümü":
         sat = [s for s in sat if (s.get("kanal") or "").strip() == kanal_f]
     if kat_f != "Tümü":
-        sat = [s for s in sat if _kat(s.get("sku")) == kat_f]
+        sat = [s for s in sat if _kat_tutar(s.get("sku"))]
     if not sat:
         return {"bos": True, "eksikler": eksik}
 
@@ -77,7 +90,7 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
                 sku = str(ir.get("sku") or "").strip()
                 if kanal_f != "Tümü" and kn != kanal_f:
                     continue
-                if kat_f != "Tümü" and _kat(sku) != kat_f:
+                if kat_f != "Tümü" and not _kat_tutar(sku):
                     continue
                 net = float(ir.get("iade_net") or 0)
                 adet = int(ir.get("iade_adet") or 0)
@@ -97,7 +110,7 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
     if kat_f != "Tümü" and kanal_f == "Tümü":
         try:
             _, adk, _ = kaynak.alinan_kirilim(bas, bit)
-            kat_destek = float((adk or {}).get(_tr_upper(kat_f.strip()), 0.0))
+            kat_destek = _kat_topla(adk)
         except Exception as e:  # noqa: BLE001
             eksik.append(f"Kategori desteği okunamadı ({type(e).__name__}) — kâra eklenmedi")
 
@@ -143,7 +156,7 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
     if kat_f != "Tümü":
         try:
             rk = kaynak.ref_kirilim(bas, bit) or {}
-            ref_kat = float((rk.get("kategori") or {}).get(_tr_upper(kat_f.strip()), 0.0))
+            ref_kat = _kat_topla(rk.get("kategori"))
             ref_dagitilmayan = rk.get("dagitilmayan") or []
         except Exception as e:  # noqa: BLE001
             eksik.append(f"Ref No kategori kırılımı okunamadı ({type(e).__name__}) — kategoriye düşülmedi")

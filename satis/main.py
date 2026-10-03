@@ -1274,7 +1274,8 @@ def run():
                 # Tek yazım (shared.ana_veri): 'monitör' ve 'Monitör' kartları AYRI seçenek
                 # olmasın; süzme yazıma değil kategori anahtarına göre.
                 from shared.ana_veri import kategori_ad as _p_kat_ad, kategori_anahtar as _p_kat_anh
-                _p_katlar = sorted({_p_kat_ad(_pkatmap.get(str(s.get("sku") or "").strip(), ""))
+                from shared.utils import sku_anahtar as _skn_pk      # get_sku_kategori anahtarı (Faz 3)
+                _p_katlar = sorted({_p_kat_ad(_pkatmap.get(_skn_pk(s.get("sku")), ""))
                                     for s in satislar} - {""}, key=lambda x: x.lower())
                 _p_kat_f = _pf2.selectbox("Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
                 _kat_destek_f = 0.0
@@ -1283,7 +1284,7 @@ def run():
                     satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
                 if _p_kat_f != "Tümü":
                     satislar = [s for s in satislar
-                                if _p_kat_anh(_pkatmap.get(str(s.get("sku") or "").strip(), ""))
+                                if _p_kat_anh(_pkatmap.get(_skn_pk(s.get("sku")), ""))
                                 == _p_kat_anh(_p_kat_f)]
                 if not satislar:
                     st.info("Bu filtrede satış yok.")

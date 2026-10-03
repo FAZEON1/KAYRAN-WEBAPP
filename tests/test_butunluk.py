@@ -149,7 +149,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
-    "shared.utils": ["sidebar_ust", "sidebar_baslik", "sidebar_kullanici"],
+    "shared.utils": ["sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
+                     "sku_anahtar"],                     # SKU eşleştirme tek kural (Faz 3)
 }
 
 

@@ -99,8 +99,11 @@ def sat_hepsi():
 
 
 def _nsku(x):
-    import re
-    return re.sub(r"[^A-Z0-9]", "", str(x or "").upper())
+    """Ölçüm uygulamayla AYNI eşleştirmeyi kullanır: shared.utils.sku_anahtar (Faz 3).
+    Eskiden tire/boşluk siliyordu ('X24-F165S' = 'X24F165S'), 'FAZEON ' önekini atmıyordu;
+    ölçüm uygulamanın yapmadığı eşleşmeleri sayıyor, yaptıklarını kaçırıyordu."""
+    from shared.utils import sku_anahtar
+    return sku_anahtar(x)
 
 
 def maliyetsiz():
