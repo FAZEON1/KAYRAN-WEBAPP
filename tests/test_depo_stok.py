@@ -233,3 +233,37 @@ def test_ekranlar_kirilimi_depo_dagilimi_ile_ciziyor():
     kart = (kok / "stok_karti.py").read_text(encoding="utf-8")
     assert "depo_dagilimi(" in main and "sorted(_dk.items()" not in main
     assert "depo_dagilimi(" in kart and "for d, m in (_depo_kirilim or {}).items() if _f(m) != 0" not in kart
+
+
+# ═══════════════════════════════════════════════════════════
+#  satilabilir_kontrol — kırılım ↔ kayıtlı bizim_stok (Ekim 2026)
+#  Tüm Ürünler'deki "Satılabilir (Merkez + Happy Life) = toplam stok" notu
+#  kırılımdan değil kayıtlı bizim_stok'tan geliyordu; ikisi ayrı zamanda
+#  yazılınca rozetlerle tutmayan sayı sessizce gösteriliyordu.
+# ═══════════════════════════════════════════════════════════
+
+def test_satilabilir_kontrol_tutarsa_fark_sifir():
+    from kayranpm.database import satilabilir_kontrol
+    k = satilabilir_kontrol({"MERKEZ": 40, "MERKEZ DEPO": 310, "HAPPY LIFE": 1892, "İADE": 7}, 2242)
+    assert k == {"hesap": 2242, "kayitli": 2242, "fark": 0}            # İADE satılabilir değil
+
+
+def test_satilabilir_kontrol_farki_isaretli_doner():
+    from kayranpm.database import satilabilir_kontrol
+    assert satilabilir_kontrol({"HAPPY LIFE": 100, "ASEL": 50}, 130) == {"hesap": 100, "kayitli": 130, "fark": -30}
+    assert satilabilir_kontrol({"MERKEZ": "12.0"}, "10") == {"hesap": 12, "kayitli": 10, "fark": 2}
+
+
+def test_satilabilir_kontrol_kirilim_yoksa_fark_aranmaz():
+    """Kırılım hiç yüklenmemişse karşılaştıracak şey yok → fark None (uyarı çıkmaz)."""
+    from kayranpm.database import satilabilir_kontrol
+    assert satilabilir_kontrol({}, 50) == {"hesap": None, "kayitli": 50, "fark": None}
+    assert satilabilir_kontrol(None, None) == {"hesap": None, "kayitli": 0, "fark": None}
+
+
+def test_ekranlar_satilabilir_farkini_gosteriyor():
+    import pathlib
+    kok = pathlib.Path(__file__).resolve().parent.parent / "kayranpm"
+    for ad in ("main.py", "stok_karti.py"):
+        s = (kok / ad).read_text(encoding="utf-8")
+        assert "import satilabilir_kontrol as _sat_kontrol" in s and "_sat_kontrol(" in s, ad

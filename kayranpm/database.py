@@ -1346,6 +1346,22 @@ def _bizim_stok_hesapla(depo_kirilim):
                    if depo_kanonik(d) in _SATILABILIR_DEPOLAR))
 
 
+def satilabilir_kontrol(depo_kirilim, kayitli):
+    """Kırılımdan hesaplanan satılabilir stok (Merkez + Happy Life) ↔ kayıtlı bizim_stok.
+    Ekranlar kayıtlı değeri gösterir; ikisi ayrı zamanda yazıldıysa tutmayabilir —
+    bu fonksiyon farkı görünür kılar, hiçbir şey YAZMAZ (hangisi doğru, sayım söyler).
+    Döner: {"hesap": int | None, "kayitli": int, "fark": hesap − kayitli | None}.
+    Kırılım yoksa hesap/fark None (karşılaştıracak veri yok, uyarı çıkmamalı)."""
+    try:
+        k = int(float(kayitli or 0))
+    except (TypeError, ValueError):
+        k = 0
+    if not isinstance(depo_kirilim, dict) or not depo_kirilim:
+        return {"hesap": None, "kayitli": k, "fark": None}
+    h = _bizim_stok_hesapla(_kirilim_kanonik(depo_kirilim))
+    return {"hesap": h, "kayitli": k, "fark": h - k}
+
+
 def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
     """SAF hesap: kaynak depodan hedefe 'adet' taşır. Yazmaz.
     Kaynak/hedef ve kırılım kanonikleştirilir (yazım farkı sorun olmaz).
