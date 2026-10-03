@@ -23,7 +23,7 @@ import streamlit as st
 from shared.tasarim import (baslik, css_tek_satir, kpi_serit, mesaj, bos_durum,
                             rv, sayi, tr_sayi)
 from shared.utils import firma_gorunen_ad, tr_kucuk, tr_today
-from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh   # tek kaynak (Eki 2026)
+from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh, urun_ad as _urun_ad   # tek kaynak (Eki 2026)
 from shared import bilesen as B
 from . import kampanya_hesap as H
 from .analitik import tum_urunler_listesi
@@ -348,7 +348,7 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
         for u in urunler_k:
             h = H.urun_hesap(u, pacal.get(u.get("sku"), 0))
             satirlar.append({
-                "_id": u["id"], "SKU": u.get("sku", ""), "Ürün": u.get("urun_adi", ""),
+                "_id": u["id"], "SKU": u.get("sku", ""), "Ürün": _urun_ad(u.get("sku"), u.get("urun_adi")),
                 "Paçal": h["pacal"] or None, "Satış": h["satis"], "Firma desteği": h["fd"],
                 "Ek destek": h["ed"], "Satılan": h["adet"],
                 "Net kâr/adet": h["net_kar"], "Net marj %": h["marj"], "Toplam net": h["t_net"] if h["net_kar"] is not None else None,

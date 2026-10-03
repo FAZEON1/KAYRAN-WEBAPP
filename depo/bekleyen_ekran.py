@@ -16,6 +16,7 @@ import streamlit as st
 
 from shared import bilesen as B
 from shared.tasarim import tr_sayi
+from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
 
 from .depo_hesap import bekleyen_ozet, fis_anahtari, toplam_satiri, tarih_tr
 
@@ -154,7 +155,7 @@ def _tum_hareketler(mt):
         for h in (r.get("hareketler") or []):
             duz.append({"_t": str(h.get("tarih") or ""), "Tarih": tarih_tr(h.get("tarih")),
                         "Firma": r.get("firma", ""), "SKU": r.get("sku", ""),
-                        "Ürün": (r.get("urun_adi") or "")[:28], "Adet": int(h.get("adet") or 0),
+                        "Ürün": urun_ad(r.get("sku"), r.get("urun_adi"))[:28], "Adet": int(h.get("adet") or 0),
                         "Fiş No": h.get("fis_no", "") or "", "e-İrsaliye": h.get("e_irsaliye_no", "") or "",
                         "Belge No": h.get("belge_no", "") or "", "Açıklama": (h.get("aciklama") or "")[:30],
                         "Kullanıcı": h.get("kullanici", "") or ""})

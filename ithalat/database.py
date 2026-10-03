@@ -523,7 +523,7 @@ def get_sku_kategori_map():
             kat = (r.get("kategori") or "").strip()
             k = _skn(r.get("sku"))
             if k and kat and k not in out:
-                out[k] = kat.upper()
+                out[k] = kat            # yazım _kategori_doldur'da dosyaya göre belirlenir
         return out
     except Exception:
         return {}
@@ -534,6 +534,14 @@ def _kategori_doldur(kalemler):
 
     Kalemde açıkça yazılmış bir değer varsa ona DOKUNULMAZ — dosyaya özel
     gruplama (örn. aynı SKU'yu farklı kategoride ele alma) korunur.
+
+    YAZIM (Ekim 2026, ana veri): masraf dağıtımı grup adının BİREBİR eşleşmesine dayanır.
+    Doldurulan değer, O DOSYADA zaten geçen yazımı alır — kalemlerde elle yazılmış grup,
+    masraf atamasındaki (grup_masraf_atama) ve hacim (grup_cbm) bilgisindeki grup adları.
+    Eskiden kartın kategorisi Python .upper() ile yazılıyordu: 'monitör' → noktasız
+    'MONITÖR'; aynı dosyada elle girilmiş 'MONİTÖR' ayrı grup sayılıyor, doldurulan
+    kalemler kendi grubunun oranı yerine dosya ortalamasını alıyordu. Dosyada hiç yoksa
+    Türkçe-doğru büyük harf (tr_buyuk_harf). Var olan atama yazımı her zaman korunur.
     """
     if not kalemler:
         return kalemler
@@ -543,14 +551,31 @@ def _kategori_doldur(kalemler):
         from shared.utils import sku_anahtar as _skn
     except Exception:
         _skn = lambda x: str(x or "").strip().upper()
+    from shared.ana_veri import kayit_degeri, tr_buyuk_harf
     kmap = get_sku_kategori_map()
     if not kmap:
         return kalemler
+    # Dosya başına mevcut yazımlar: önce masraf ataması + hacim (kaydedilmiş kararlar), sonra
+    # kalemlerde elle yazılmış gruplar.
+    yazim = {}
+    try:
+        _dmap = {d.get("id"): d for d in (get_dosyalar() or [])}
+    except Exception:  # noqa: BLE001
+        _dmap = {}
+    for did in {k.get("dosya_id") for k in kalemler}:
+        d = _dmap.get(did) or {}
+        y = [str(v) for v in _grup_atama_dict(d).values() if v and not str(v).startswith("__")]
+        y += [str(g) for g in ((d.get("grup_cbm") or {}) if isinstance(d.get("grup_cbm"), dict) else {})]
+        yazim[did] = y
+    for k in kalemler:
+        g = str(k.get("urun_grubu") or "").strip()
+        if g:
+            yazim.setdefault(k.get("dosya_id"), []).append(g)
     for k in kalemler:
         if not (str(k.get("urun_grubu") or "").strip()):
             kat = kmap.get(_skn(k.get("sku")))
             if kat:
-                k["urun_grubu"] = kat
+                k["urun_grubu"] = kayit_degeri(kat, yazim.get(k.get("dosya_id"), []), tr_buyuk_harf)
     return kalemler
 
 

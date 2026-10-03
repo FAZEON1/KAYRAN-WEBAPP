@@ -24,7 +24,7 @@ from shared import bilesen as B
 from shared.kar_gizle import kar_gorunur
 from shared.tasarim import kpi_serit, mesaj, bos_durum, tr_sayi, sayi
 from shared.utils import firma_kisa_ad
-from shared.ana_veri import kategori_ad as _kat_ad   # tek yazım (Eki 2026)
+from shared.ana_veri import kategori_ad as _kat_ad, urun_ad   # tek yazım / ürün adı = kart (Eki 2026)
 from shared.utils import sku_anahtar                   # get_sku_kategori anahtarı normalize (Faz 3)
 from . import satis_hesap as H
 from .database import (get_satislar_yalin, get_siparis_kalemleri, get_satislar_kanal_ara,
@@ -160,7 +160,7 @@ def siparis_dialog(anahtar):
     satirlar = []
     for s in kalemler:
         k = satir_kar(s)
-        r = {"_id": s["id"], "SKU": s.get("sku", ""), "Ürün": s.get("urun_adi", "") or "",
+        r = {"_id": s["id"], "SKU": s.get("sku", ""), "Ürün": urun_ad(s.get("sku"), s.get("urun_adi")),
              "Adet": int(s.get("adet") or 0), "Birim satış": float(s.get("birim_satis") or 0)}
         if kar_ok:
             r.update({"Birim maliyet": float(s.get("birim_maliyet") or 0), "Kâr": k["net_kar"],
@@ -286,7 +286,7 @@ def _kalem_tablosu(kalemler):
         k = satir_kar(s)
         r = {"Tarih": str(s.get("tarih") or "")[:10], "Sipariş No": s.get("siparis_no") or "—",
              "Firma": firma_kisa_ad(s.get("kanal")), "SKU": s.get("sku", ""),
-             "Ürün": (s.get("urun_adi") or "")[:34],
+             "Ürün": urun_ad(s.get("sku"), s.get("urun_adi"))[:34],
              "Kategori": _kat_ad(katmap.get(sku_anahtar(s.get("sku")), "")) or "—",   # tek yazım
              "Adet": int(k["adet"] or 0), "Birim satış": round(float(s.get("birim_satis") or 0), 4),
              "Ciro": round(k["ciro"], 2)}
@@ -330,7 +330,7 @@ def _indir(kalemler, bas, bit, firma):
         bd = float(s.get("birim_firma_destek") or 0) + float(s.get("birim_ek_destek") or 0)
         r = {"Tarih": str(s.get("tarih") or ""), "Sipariş No": s.get("siparis_no") or "",
              "Kanal": s.get("kanal") or "", "SKU": sku,
-             "Ürün": (s.get("urun_adi") or "") or admap.get(sku.strip(), ""),
+             "Ürün": urun_ad(sku, (s.get("urun_adi") or "") or admap.get(sku.strip(), "")),
              "Kategori": _kat_ad(katmap.get(sku_anahtar(sku), "")), "Adet": int(k["adet"] or 0),
              "Birim Satış": round(float(s.get("birim_satis") or 0), 2), "Birim Destek": round(bd, 2),
              "Ciro": round(k["ciro"], 2), "Destek": round(k["destek"], 2)}

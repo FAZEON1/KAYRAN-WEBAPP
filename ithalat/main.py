@@ -866,7 +866,7 @@ def _gecmis_ithalatlar():
         # yüzdesini alır; dosya ortalaması artık her satıra uygulanmıyor.
         _ymap = kategori_yuzde_map(d, kal)
         _ind_oran = (h.get("indirim", 0.0) / h["mal_bedeli"]) if h.get("mal_bedeli", 0) > 0 else 0.0
-        from shared.ana_veri import kategori_ad as _kat_ad
+        from shared.ana_veri import kategori_ad as _kat_ad, urun_ad as _urun_ad
         krows = []
         for k in kal:
             y = kalem_yuzde(_ymap, k) / 100
@@ -875,7 +875,7 @@ def _gecmis_ithalatlar():
             st_tutar = adet * bf
             krows.append({
                 "SKU": k.get("sku", ""),
-                "Ürün": (k.get("urun_adi", "") or katalog.get(k.get("sku", ""), "")),
+                "Ürün": _urun_ad(k.get("sku"), k.get("urun_adi", "") or katalog.get(k.get("sku", ""), "")),
                 "Adet": adet,
                 "Birim FOB": bf,
                 "Satır Tutar": st_tutar,

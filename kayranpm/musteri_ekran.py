@@ -14,6 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from shared.tasarim import tr_sayi
+from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
 from . import musteri_hesap as H
 
 # "Ürün" görünümü kaldırıldı (Eki 2026): ürünler marka/kategori seçilince sağdaki detayda listeleniyor.
@@ -36,8 +37,9 @@ def _satirlar(gruplar, kirilim, ust_ad, mod="tam"):
     out = []
     for g in gruplar:
         if kirilim == "urun":
-            r = ({"SKU": g["anahtar"], "Ürün": g["urun_adi"] or "—"} if mod == "tam"
-                 else {"Ürün": f'{g["anahtar"]} · {g["urun_adi"]}' if g["urun_adi"] else g["anahtar"]})
+            _ad = urun_ad(g["anahtar"], g["urun_adi"])          # kartın adı (shared.ana_veri)
+            r = ({"SKU": g["anahtar"], "Ürün": _ad or "—"} if mod == "tam"
+                 else {"Ürün": f'{g["anahtar"]} · {_ad}' if _ad else g["anahtar"]})
         else:
             r = {ust_ad: g["ad"]}
         r.update({"Satış adedi": g["satis"], "Son stok": g["stok"]})
@@ -143,7 +145,7 @@ def render(yukle_penceresi=None):
 
     # Excel: bu görünümün özeti + ham satırlar (yalnız tıklanınca üretilir)
     ham = pd.DataFrame([{"Rapor": str(r.get("yukleme_tarihi") or "")[:10], "Müşteri": _cari(r.get("firma")),
-                         "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi", ""),
+                         "SKU": r.get("sku", ""), "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")),
                          "Marka": (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka", ""),
                          "Marka kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
                              (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka_kaynak"), "—"),
@@ -177,7 +179,7 @@ def render(yukle_penceresi=None):
     with sag:
         if not secili:
             return
-        baslik = secili["ad"] if kir != "urun" else f"{secili['anahtar']} · {secili['urun_adi']}"
+        baslik = secili["ad"] if kir != "urun" else f"{secili['anahtar']} · {urun_ad(secili['anahtar'], secili['urun_adi'])}"
         st.markdown(f'<div style="font-weight:600;font-size:14.5px;margin:2px 0 0">{baslik}</div>'
                     f'<div style="font-size:12px;color:var(--k-silik);margin-bottom:4px">'
                     f'{tr_sayi(secili["satis"])} adet satış · son stok {tr_sayi(secili["stok"])} · '
