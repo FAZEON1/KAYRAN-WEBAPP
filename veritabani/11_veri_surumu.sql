@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS veri_surumu (
 );
 ALTER TABLE veri_surumu ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_veri_surumu ON veri_surumu;
-CREATE POLICY allow_all_veri_surumu ON veri_surumu FOR ALL TO public USING (true) WITH CHECK (true);
+-- İzin kuralı YOK (Ekim 2026, 15_dis_erisim_kapat.sql): uygulama service_role ile bağlanır,
+-- RLS'ye takılmaz; herkese açık anahtar bu tabloya erişemez.
 
 CREATE OR REPLACE FUNCTION veri_surumu_artir() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$

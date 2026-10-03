@@ -20,4 +20,5 @@ CREATE TABLE IF NOT EXISTS sku_eslesme (
 -- kural yoksa uygulama tabloyu okuyamaz/yazamaz (3 Ekim'de canlıda böyle kuruldu, kural eklendi).
 ALTER TABLE sku_eslesme ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_sku_eslesme ON sku_eslesme;
-CREATE POLICY allow_all_sku_eslesme ON sku_eslesme FOR ALL TO public USING (true) WITH CHECK (true);
+-- İzin kuralı YOK (Ekim 2026, 15_dis_erisim_kapat.sql): uygulama service_role ile bağlanır,
+-- RLS'ye takılmaz; herkese açık anahtar bu tabloya erişemez.
