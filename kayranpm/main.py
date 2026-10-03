@@ -21,7 +21,8 @@ import pandas as pd
 import os
 from functools import partial
 from shared import bilesen as B
-from .urun_hesap import (editor_anahtari, yukleme_ozeti, KANAL_AD)
+from .urun_hesap import (editor_anahtari, yukleme_ozeti)
+from shared.utils import firma_gorunen_ad   # kanal = cari adı (Faz 4)
 
 # Modül bazlı importlar (relative)
 from .database import (initialize_db, get_tum_sku_listesi, get_client,
@@ -669,7 +670,7 @@ def run():
                 _stok_cards = [{"label": "G5F depo", "value": f"{tr_sayi(bizim_stok)}", "alt": "adet", "renk": trenk("mavi")}]
                 for firma, adet in firma_st.items():
                     if adet > 0:
-                        _stok_cards.append({"label": KANAL_AD.get(firma, firma), "value": f"{tr_sayi(adet)}", "alt": "adet · kanalda"})
+                        _stok_cards.append({"label": firma_gorunen_ad(firma), "ozel_ad": True, "value": f"{tr_sayi(adet)}", "alt": "adet · kanalda"})
                 st.markdown(
                     f'<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 8px;">'
                     f'<span style="color:var(--k-metin); font-size:14px; font-weight:700;">Stok dağılımı</span>'

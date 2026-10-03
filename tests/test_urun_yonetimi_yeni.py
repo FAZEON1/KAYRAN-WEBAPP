@@ -237,10 +237,13 @@ def test_detaydan_donuste_filtreler_geri_yuklenir():
 
 
 def test_kanal_kart_adlari_bozulmaz():
-    """Metrik etiketleri cümle düzenine iner; kanal kodu verilirse 'HB' → 'Hb' olurdu."""
-    from shared.tasarim import kpi_etiketi
-    from kayranpm.urun_hesap import KANAL_AD, KANALLAR
-    assert kpi_etiketi("HB") == "Hb"                                  # tuzak
-    for k in KANALLAR:
-        assert kpi_etiketi(KANAL_AD[k]) == KANAL_AD[k]
-    assert 'KANAL_AD.get(firma, firma)' in _oku(MAIN)
+    """Metrik etiketleri cümle düzenine iner: 'HB' → 'Hb', 'D-MARKET' → 'D-market' olurdu.
+    Faz 4 (Ekim 2026): kanal kartı CARİ adıyla (firma_gorunen_ad) ve ozel_ad=True ile basılır;
+    etiket olduğu gibi kalır. Eskiden KANAL_AD'ın karışık harfli 'Hepsiburada' adıyla çözülüyordu."""
+    from shared.tasarim import kpi_etiketi, kart_hucresi, _kart_etiket
+    assert kpi_etiketi("D-MARKET") == "D-market"                     # tuzak
+    assert _kart_etiket({"etiket": "D-MARKET", "ozel_ad": True}) == "D-MARKET"
+    assert _kart_etiket({"etiket": "Acil Sipariş"}) == kpi_etiketi("Acil Sipariş")
+    assert ">D-MARKET<" in kart_hucresi({"etiket": "D-MARKET", "deger": "5", "ozel_ad": True})
+    m = _oku(MAIN)
+    assert '"label": firma_gorunen_ad(firma), "ozel_ad": True' in m and "KANAL_AD" not in m

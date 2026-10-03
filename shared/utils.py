@@ -34,8 +34,15 @@ def normalize_tr(s) -> str:
     return s.upper()
 
 
-# Firma stok kodu → gerçek/görünen ad. Veri/sorgu KODU korur (ITOPYA), bu yalnız GÖSTERİM içindir.
-# Kaynak: kayranpm/ref_no.py FIRMA_ESLESME ile aynı eşleme.
+# Kanal (müşteri) stok kodları — TEK LİSTE (Ekim 2026, ana veri Faz 4). firma_stok tablosunda
+# bu KODLAR tutulur; ekranda firma_gorunen_ad ile cari adı gösterilir (kullanıcı kararı:
+# 'D-MARKET', 'EERA' — mağaza adı 'Hepsiburada' / 'İtopya' DEĞİL). Eskiden 8 yerde ayrı yazılıydı.
+FIRMA_KODLARI = ("ITOPYA", "HB", "VATAN", "MONDAY", "KANAL")
+DIGER_KODU = "DIGER"                                  # firma_stok'taki kayıt yazımı (noktasız)
+FIRMA_KODLARI_DIGER = FIRMA_KODLARI + (DIGER_KODU,)
+
+# Firma stok kodu → cari öneki. Veri/sorgu KODU korur (ITOPYA), bu yalnız GÖSTERİM içindir.
+# TEK KAYNAK: kayranpm/ref_no.py FIRMA_ESLESME 'onek'leri buradan alır (eskiden iki kopya).
 FIRMA_GORUNEN_AD = {
     "ITOPYA": "EERA",
     "HB": "D-MARKET",
@@ -453,7 +460,7 @@ def metrik_satiri(cards):
         im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
         alt = f'<div class="k-alt">{c["alt"]}</div>' if c.get("alt") else ""
         hucreler += (f'<div class="k-kart" data-akscent style="border-left-color:{renk}"{ttl}>'
-                     f'<div class="k-etiket">{kpi_etiketi(c["label"])}{im}</div>'
+                     f'<div class="k-etiket">{(str(c["label"]) if c.get("ozel_ad") else kpi_etiketi(c["label"]))}{im}</div>'
                      f'<div class="k-deger" style="color:{renk}">{_val}</div>{alt}</div>')
     st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
 

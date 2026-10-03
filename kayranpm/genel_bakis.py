@@ -29,7 +29,8 @@ from .genel_hesap import (kpi, yapilacaklar, kapsama_dagilimi, kategori_ozeti, k
                           haftalik_seri, trend_listeleri, yaklasan_varislar, KAPSAMA_DILIM)
 from .urun_hesap import dashboard_filtrele, tarih_tr
 
-FIRMALAR = ["Tüm Firmalar", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"]
+from shared.utils import FIRMA_KODLARI as _FK   # tek liste (Faz 4); DİĞER bu ekranın seçenek yazımı
+FIRMALAR = ["Tüm Firmalar", *_FK, "DİĞER"]
 HAFTA = 8
 GRUP_ILK = 5
 

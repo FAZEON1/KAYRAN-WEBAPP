@@ -17,7 +17,7 @@ import streamlit as st
 from shared import bilesen as B
 from shared.tasarim import tr_sayi
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
-from shared.utils import metrik_satiri
+from shared.utils import metrik_satiri, firma_gorunen_ad   # kanal = cari adı (Faz 4)
 
 from .urun_hesap import bekleyen_haritasi, siparis_durum_adi, tarih_tr
 
@@ -78,7 +78,7 @@ def _oneriler(esik, bekleyen):
         d = u.get("siparis_durum", "")
         ud = urun_dict.get(sku, {})
         fcp, satis = ud.get("final_cost_price") or 0, ud.get("satis_fiyati") or 0
-        firma_kisa = " · ".join(f'{fd["firma"]} {fd["stok"]}' for fd in u.get("firma_detay", [])
+        firma_kisa = " · ".join(f'{firma_gorunen_ad(fd["firma"])} {fd["stok"]}' for fd in u.get("firma_detay", [])
                                 if fd.get("stok", 0) > 0)
         meta = B.meta(
             B.cip(_DURUM_AD.get(d, d or "—"), _DURUM_RENK.get(d, "silik")),

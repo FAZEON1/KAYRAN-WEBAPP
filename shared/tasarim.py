@@ -316,6 +316,13 @@ def cumle_duzeni(metin):
     return out
 
 
+def _kart_etiket(k):
+    """Kart etiketi: varsayılan cümle düzeni (kpi_etiketi). ozel_ad=True → OLDUĞU GİBİ:
+    cari adı / marka gibi özel adlar ('D-MARKET' → 'D-market' olmasın). (Ekim 2026, Faz 4)"""
+    e = k.get("etiket", "") if isinstance(k, dict) else k
+    return str(e or "") if (isinstance(k, dict) and k.get("ozel_ad")) else kpi_etiketi(e)
+
+
 def kpi_etiketi(metin):
     """KPI kartı etiketi: baştaki emoji atılır ('🔴 Acil Sipariş' → 'Acil Sipariş';
     kartın renkli sol çizgisi durumu zaten söylüyor), BÜYÜK HARF cümle düzenine iner."""
@@ -1328,7 +1335,7 @@ def kart_hucresi(k):
     alt = f'<div class="k-alt">{k["alt"]}</div>' if k.get("alt") else ""
     sp = spark_svg(k.get("seri"), roz[1] if roz else anlam) if k.get("seri") else ""
     return (f'<div class="{sinif}"{ttl}>'
-            f'<div class="k-etiket">{kpi_etiketi(k.get("etiket", ""))}{im}</div>'
+            f'<div class="k-etiket">{_kart_etiket(k)}{im}</div>'
             f'<div class="k-deger-satir"><span class="k-deger">{k.get("deger", "")}</span>{rz}</div>'
             f'{alt}{sp}</div>')
 
@@ -1354,7 +1361,7 @@ def kpi_serit(kalemler, yogunluk=None):
         alt = f'<div class="k-alt">{k["alt"]}</div>' if k.get("alt") else ""
         hucreler += (
             f'<div class="k-kart" data-akscent style="border-left-color:{c}"{ttl}>'
-            f'<div class="k-etiket">{kpi_etiketi(k["etiket"])}</div>'
+            f'<div class="k-etiket">{_kart_etiket(k)}</div>'
             f'<div class="k-deger" style="color:{c}">{k["deger"]}</div>'
             f'{alt}</div>')
     return f'<div class="k-grid">{hucreler}</div>'
