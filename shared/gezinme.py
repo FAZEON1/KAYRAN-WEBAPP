@@ -34,6 +34,14 @@ MODULLER = [
          ("📂 Veri Yükleme", "veri_yukleme", "Veri yükleme", None),
          ("📄 Raporlar & Bildirim", "raporlar", "Raporlar ve bildirim", None),
          ("📚 e-Defter", "edefter", "e-Defter", None),
+     ],
+     # 13 sayfa tek sekme satırına sığmıyordu → iki katlı: grup + o grubun sayfaları
+     "gruplar": [
+         ("genel", "Genel bakış", ["genel_bakis"]),
+         ("odemeler", "Ödemeler", ["bu_hafta", "cekler", "ertelenen", "odenenler"]),
+         ("nakit", "Nakit", ["banka", "nakit_akis", "toplam_aktifler", "gelenler"]),
+         ("cari", "Cari", ["cari_ekstre"]),
+         ("veri", "Veri ve raporlar", ["veri_yukleme", "raporlar", "edefter"]),
      ]},
     {"kod": "ithalat", "ad": "İthalat", "ikon": "directions_boat", "anahtar": "ith_sayfa",
      "sayfalar": [
@@ -290,13 +298,73 @@ def _serit():
     return getattr(c, "_kayran_sayfa_seridi", None) if c is not None else None
 
 
+def grup_yapisi(mod, secenekler):
+    """[(grup adı, [seçenek…])] — yalnız verilen (yetkiyle süzülmüş) seçenekler;
+    boş kalan grup atlanır. Grup tanımı yoksa []."""
+    m = _MOD.get(mod, {})
+    kod_sec = {s[1]: s[0] for s in m.get("sayfalar", [])}
+    izin = set(secenekler)
+    out = []
+    for _gk, ad, kodlar in m.get("gruplar") or []:
+        ss = [kod_sec[k] for k in kodlar if kod_sec.get(k) in izin]
+        if ss:
+            out.append((ad, ss))
+    return out
+
+
+def grup_adi(mod, secenek):
+    for ad, ss in grup_yapisi(mod, secenekler(mod)):
+        if secenek in ss:
+            return ad
+    return None
+
+
 def sayfa_menusu(etiket, secenekler, *, modul, key, format_func=None, **kw):
     """Modüllerin sayfa menüsü — st.radio ile aynı çağrı + modul=.
     MENU_UST açıksa şeridin altında yatay sekme; kapalıysa (ya da şerit
-    kurulmamışsa) çağrıldığı yerde (kenar çubuğu) eskisi gibi liste."""
+    kurulmamışsa) çağrıldığı yerde (kenar çubuğu) eskisi gibi liste.
+    Modülün grubu tanımlıysa iki katlı: üstte grup, altta o grubun sayfaları."""
     import streamlit as st
     kap = _serit() if MENU_UST else None
     if kap is None:
         return st.radio(etiket, secenekler, key=key, format_func=format_func or str, **kw)
-    return kap.radio(etiket, secenekler, key=key, horizontal=True, label_visibility="collapsed",
-                     format_func=lambda s: sekme_adi(modul, s))
+    yapi = grup_yapisi(modul, secenekler)
+    if not yapi:
+        return kap.radio(etiket, secenekler, key=key, horizontal=True, label_visibility="collapsed",
+                         format_func=lambda s: sekme_adi(modul, s))
+    return _iki_katli(kap, modul, key, secenekler, yapi)
+
+
+def _iki_katli(kap, modul, key, secenekler, yapi):
+    """Grup sekmeleri + seçili grubun sayfa düğmeleri.
+
+    Seçili SAYFA st.session_state[key]'de DÜZ değer olarak tutulur (bileşen anahtarı
+    değil): tek sayfalı grupta alt satır çizilmez ve Streamlit çizilmeyen bileşenin
+    değerini silerdi. Palet ve adres çubuğu da aynı anahtara yazar. Grup her
+    çalıştırmada sayfadan türetilir; böylece paletten başka gruba gidince üst sekme de
+    doğru grubu gösterir."""
+    import streamlit as st
+    sayfa = st.session_state.get(key)
+    if sayfa not in secenekler:
+        sayfa = secenekler[0]
+    st.session_state[key] = sayfa
+    gruplar = [ad for ad, _ in yapi]
+    grubu = dict(yapi)
+    g_key, s_key = f"{key}__grup", f"{key}__alt"
+    st.session_state[g_key] = next(ad for ad, ss in yapi if sayfa in ss)
+
+    def _grup_degisti():
+        st.session_state[key] = grubu[st.session_state[g_key]][0]       # grubun ilk sayfası
+
+    def _sayfa_degisti():
+        st.session_state[key] = st.session_state[s_key]
+
+    kap.radio("Bölüm", gruplar, key=g_key, horizontal=True, label_visibility="collapsed",
+              on_change=_grup_degisti)
+    ss = grubu[st.session_state[g_key]]
+    if len(ss) > 1:
+        st.session_state[s_key] = sayfa
+        with kap.container(key="sayfa_alt"):
+            st.radio("Sayfa", ss, key=s_key, horizontal=True, label_visibility="collapsed",
+                     format_func=lambda x: sekme_adi(modul, x), on_change=_sayfa_degisti)
+    return sayfa

@@ -1801,7 +1801,22 @@ def ust_navigasyon():
         background:transparent !important;}}
     html body .st-key-sayfa_seridi {_OPT}:has(input:checked) *{{background:transparent !important;}}
     html body .st-key-sayfa_seridi {_OPT}:has(input:checked) p{{color:var(--k-metin) !important;font-weight:600 !important;}}
-    html body .st-key-sayfa_seridi {_OPT}:focus-within{{outline:2px solid var(--k-mor);outline-offset:-2px;}}
+    /* Odak çerçevesi yok: fareyle tıklanınca da (Chrome radyoda :focus-visible sayıyor)
+       sekmede kutu kalıyordu. Radyo grubunda ok tuşları seçimi anında değiştirir;
+       seçili sekmenin alt çizgisi klavye odağını da gösterir. */
+    html body .st-key-sayfa_seridi {_OPT},html body .st-key-sayfa_seridi {_OPT} *{{outline:none !important;}}
+    html body .st-key-sayfa_seridi [data-testid="stElementContainer"]{{width:100% !important;}}
+    /* İki katlı (çok sayfalı modül): altta seçili grubun sayfaları — hap düğmeler */
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt{{margin-top:8px !important;}}
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt [role="radiogroup"]{{border-bottom:0 !important;gap:6px !important;
+        -webkit-mask-image:none !important;mask-image:none !important;padding:0 2px !important;}}
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt {_OPT}{{padding:5px 12px !important;border-radius:999px !important;
+        border:1px solid var(--k-kenar2) !important;box-shadow:none !important;}}
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt {_OPT} p{{font-size:12.5px !important;}}
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt {_OPT}:has(input:checked){{box-shadow:none !important;
+        background:color-mix(in srgb,var(--k-mor) 16%,transparent) !important;
+        border-color:color-mix(in srgb,var(--k-mor) 40%,transparent) !important;}}
+    html body .st-key-sayfa_seridi .st-key-sayfa_alt {_OPT}:has(input:checked) p{{color:var(--k-metin) !important;}}
 
     /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
     /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */

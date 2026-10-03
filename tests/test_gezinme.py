@@ -201,3 +201,54 @@ def test_app_seridi_kurar():
     src = (KOK / "app.py").read_text(encoding="utf-8")
     assert 'key="sayfa_seridi"' in src and "serit_kur(" in src
     assert ".st-key-sayfa_seridi" in src
+
+
+# ── 3. paket: çok sayfalı modülde iki katlı sekme (grup + sayfa) ────
+SEKME_SINIRI = 8
+
+
+def test_cok_sayfali_modul_gruplanmis():
+    """8'den fazla sayfa tek satıra sığmaz (Muhasebe 13 sayfa kesiliyordu)."""
+    g = _g()
+    for m in g.MODULLER:
+        if len(m.get("sayfalar") or []) > SEKME_SINIRI:
+            assert m.get("gruplar"), m["kod"]
+
+
+def test_her_sayfa_tek_grupta():
+    g = _g()
+    for m in g.MODULLER:
+        if not m.get("gruplar"):
+            continue
+        kodlar = [s[1] for s in m["sayfalar"]]
+        gruptaki = [k for _, _, ks in m["gruplar"] for k in ks]
+        assert sorted(gruptaki) == sorted(kodlar), m["kod"]
+        assert len(m["gruplar"]) <= 6
+
+
+def test_muhasebe_gruplari():
+    g = _g()
+    y = g.grup_yapisi("kayranacc", g.secenekler("kayranacc"))
+    assert [a for a, _ in y] == ["Genel bakış", "Ödemeler", "Nakit", "Cari", "Veri ve raporlar"]
+    assert dict(y)["Ödemeler"] == ["💳 Bu Hafta", "📋 Firma Çekleri", "⏳ Ertelenen Ödemeler", "🕐 Ödenenler & Geçmiş"]
+
+
+def test_yetkisiz_sayfa_gruptan_duser():
+    """Toplam aktifler yetkisi yoksa modül o sayfayı listeden çıkarır; grup boşalmaz."""
+    g = _g()
+    sec = [s for s in g.secenekler("kayranacc") if s != "💰 Toplam Aktifler"]
+    y = dict(g.grup_yapisi("kayranacc", sec))
+    assert "💰 Toplam Aktifler" not in y["Nakit"] and len(y["Nakit"]) == 3
+
+
+def test_bos_grup_gosterilmez():
+    g = _g()
+    y = g.grup_yapisi("kayranacc", ["📊 Dashboard", "🧾 Cari Ekstre"])
+    assert [a for a, _ in y] == ["Genel bakış", "Cari"]
+
+
+def test_sayfanin_grubu():
+    g = _g()
+    assert g.grup_adi("kayranacc", "🧾 Cari Ekstre") == "Cari"
+    assert g.grup_adi("kayranacc", "💸 Nakit Akış") == "Nakit"
+    assert g.grup_adi("kayranpm", "📋  Tüm Ürünler") is None      # gruplanmamış modül
