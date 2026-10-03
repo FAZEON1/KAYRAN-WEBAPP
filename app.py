@@ -3309,7 +3309,8 @@ def main():
                 st.rerun()
     except Exception as hata:
         # Bayat modül koruması (shared/modul_tazele): güncelleme sonrası bellekte eski kalan bir
-        # proje modülü 'cannot import name' verdiyse modülleri tazeleyip BİR KEZ yeniden çalıştır.
+        # proje modülü 'cannot import name' / eksik ad / çağrı imzası hatası verdiyse modülleri tazeleyip
+        # BİR KEZ yeniden çalıştır.
         try:
             import os as _os_mt, sys as _sys_mt
             from shared.modul_tazele import tazelenmeli, proje_modullerini_sil
