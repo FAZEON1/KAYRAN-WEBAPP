@@ -767,16 +767,6 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu):
     _SATIS_ADAY = ("MIKTAR", "MİKTAR", "ADET", "SIPARIŞ MIKTARI", "SİPARİŞ MİKTARI", "SATIŞ MIKTAR", "SATIS MIKTAR")
     _KANAL_ADAY = ("MAĞAZA", "MAGAZA", "DEPO")
 
-    def _mgz_mi(ad):
-        _u = tr_upper(str(ad))
-        return any(k in _u for k in ("MAGAZA", "MAĞAZA", "TESHIR", "TEŞHIR", "PAZARLAMA", "SHOWROOM"))
-
-    def _online_mi(ad):
-        _u = tr_upper(str(ad)).strip()
-        return (not _u or _u in ("0", "NAN", "GENEL")
-                or "INTERNET" in _u or "İNTERNET" in _u or "ONLINE" in _u
-                or "E-TICARET" in _u or "ETICARET" in _u)
-
     firma_ozet, atlanan_sayfa = {}, []
     basarili = 0
     yazma_hatasi = {"ilk": "", "sayi": 0}

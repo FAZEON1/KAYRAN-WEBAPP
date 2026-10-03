@@ -112,32 +112,6 @@ def tr_buyuk(s) -> str:
     return s.upper().strip()
 
 
-def tr_baslik(s) -> str:
-    """'Her Kelime Baş Harfi Büyük' (Title Case), Türkçe karakterleri koruyarak.
-    Marka/model kısaltmalarını bozmamak için standart büyük/küçük kullanılır
-    (I→I, i→i korunur; yalnızca İ/ı gibi Türkçe'ye özgü noktalı harfler doğru eşlenir).
-    'MIO MIVUE 802' → 'Mio Mivue 802', 'FAZEON SOĞUTUCU' → 'Fazeon Soğutucu',
-    'AGI 1TB SSD' → 'Agi 1TB SSD' (tamamı büyük kısa kelimeler korunur)."""
-    def _kelime(w):
-        if not w:
-            return w
-        # Rakam İÇEREN model kodları (935W, C595WD, 1TB, X24) olduğu gibi korunur
-        if any(c.isdigit() for c in w):
-            return w
-        # İlk harf büyük (İ/ı doğru), kalanı küçük (marka bozulmasın diye I→ı yapılmaz)
-        ilk = w[0]
-        if ilk == "i":
-            ilk = "İ"
-        elif ilk == "ı":
-            ilk = "I"
-        else:
-            ilk = ilk.upper()
-        kalan = w[1:].lower().replace("i̇", "i")
-        return ilk + kalan
-    s = str(s or "").strip()
-    return " ".join(_kelime(w) for w in s.split(" "))
-
-
 def tr_kucuk(s) -> str:
     """Türkçe-doğru küçük harf çevrimi. İ→i, I→ı yapıp küçültür; Türkçe karakter KORUNUR.
     Serbest metinleri (kategori vb.) tek biçime indirger:
@@ -327,11 +301,6 @@ class Zamanlayici:
                 kayitlar.append((ad, (_t.perf_counter() - _b) * 1000.0))
         return _olc()
 
-    def not_ekle(self, metin):
-        """Panelin altına serbest bir bilgi satırı ekler (sayaç gibi)."""
-        if self.aktif:
-            self.notlar = getattr(self, "notlar", []) + [str(metin)]
-
     def ciz(self, baslik="⏱ Zamanlama"):
         if not self.aktif or not self.kayitlar:
             return
@@ -487,11 +456,6 @@ def metrik_satiri(cards):
                      f'<div class="k-etiket">{kpi_etiketi(c["label"])}{im}</div>'
                      f'<div class="k-deger" style="color:{renk}">{_val}</div>{alt}</div>')
     st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
-
-
-def metrik_karti(label, value, renk="#818CF8", alt="", help=""):
-    """Tek bir kartı satır olarak çizer (metrik_satiri kısayolu)."""
-    metrik_satiri([{"label": label, "value": value, "renk": renk, "alt": alt, "help": help}])
 
 
 def metric_css(renk="#818CF8") -> str:

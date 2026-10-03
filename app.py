@@ -390,87 +390,6 @@ def get_online_kullanicilar():
 # ─────────────────────────────────────────────────────────────────────
 # GÜNLÜK GİRİŞ / SERİ / LİDERLİK
 # ─────────────────────────────────────────────────────────────────────
-def _gunluk_giris_seri(tarih_set):
-    """Bugün veya dün ile biten ardışık gün serisi."""
-    import datetime as _dt
-    if not tarih_set:
-        return 0
-    bugun = _dt.date.today()
-    if bugun in tarih_set:
-        cur = bugun
-    elif (bugun - _dt.timedelta(days=1)) in tarih_set:
-        cur = bugun - _dt.timedelta(days=1)
-    else:
-        return 0
-    seri = 0
-    while cur in tarih_set:
-        seri += 1
-        cur = cur - _dt.timedelta(days=1)
-    return seri
-
-def gunluk_giris_yap(kullanici_adi):
-    """Bugün için giriş kaydı ekler (zaten varsa False).
-    Session-guard: aynı oturumda aynı gün için Supabase'e İKİNCİ kez gitmez."""
-    try:
-        import datetime as _dt
-        _gg_key = f"_gg_{kullanici_adi}_{_dt.date.today().isoformat()}"
-        if st.session_state.get(_gg_key):
-            return False
-        st.session_state[_gg_key] = True
-        sb = _get_supabase()
-        if not sb or not kullanici_adi:
-            return False
-        bugun = _dt.date.today().isoformat()
-        mevcut = sb.table("gunluk_giris").select("id").eq("kullanici_adi", kullanici_adi).eq("tarih", bugun).limit(1).execute()
-        if mevcut.data:
-            return False
-        sb.table("gunluk_giris").insert({"kullanici_adi": kullanici_adi, "tarih": bugun}).execute()
-        return True
-    except Exception:
-        return False
-
-def get_giris_durum(kullanici_adi):
-    """{bugun, seri, toplam} döner."""
-    try:
-        import datetime as _dt
-        sb = _get_supabase()
-        if not sb or not kullanici_adi:
-            return {"bugun": False, "seri": 0, "toplam": 0}
-        res = sb.table("gunluk_giris").select("tarih").eq("kullanici_adi", kullanici_adi).execute()
-        tset = set()
-        for r in (res.data or []):
-            try:
-                tset.add(_dt.date.fromisoformat(str(r["tarih"])[:10]))
-            except Exception:
-                pass
-        return {"bugun": _dt.date.today() in tset, "seri": _gunluk_giris_seri(tset), "toplam": len(tset)}
-    except Exception:
-        return {"bugun": False, "seri": 0, "toplam": 0}
-
-def get_giris_liderlik(limit=8):
-    """Tüm kullanıcılar: seri + toplam, seriye göre azalan."""
-    try:
-        import datetime as _dt
-        sb = _get_supabase()
-        if not sb:
-            return []
-        res = sb.table("gunluk_giris").select("kullanici_adi, tarih").execute()
-        per = {}
-        for r in (res.data or []):
-            k = r.get("kullanici_adi")
-            if not k:
-                continue
-            try:
-                d = _dt.date.fromisoformat(str(r["tarih"])[:10])
-            except Exception:
-                continue
-            per.setdefault(k, set()).add(d)
-        lider = [{"kullanici": k, "seri": _gunluk_giris_seri(v), "toplam": len(v)} for k, v in per.items()]
-        lider.sort(key=lambda x: (x["seri"], x["toplam"]), reverse=True)
-        return lider[:limit]
-    except Exception:
-        return []
-
 # ─────────────────────────────────────────────────────────────────────
 # DUYURU YÖNETİMİ — Supabase'den oku / yaz
 # ─────────────────────────────────────────────────────────────────────
@@ -546,20 +465,6 @@ def get_okunmamis_bildirimler(kullanici_adi: str):
     except Exception:
         return []
 
-def bildirim_okundu_isaretle(bildirim_id: int):
-    """Bildirimi okundu olarak işaretle."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return
-        sb.table("bildirimler").update({"okundu": True}).eq("id", bildirim_id).execute()
-    except Exception:
-        pass
-    try:
-        get_okunmamis_bildirimler.clear()
-    except Exception:
-        pass
-
 def tumunu_okundu_isaretle(kullanici_adi: str):
     """Kullanıcının tüm bildirimlerini okundu yap."""
     try:
@@ -574,95 +479,9 @@ def tumunu_okundu_isaretle(kullanici_adi: str):
     except Exception:
         pass
 
-def get_tum_bildirimler_ibrahim():
-    """Ibrahim'in gönderdiği tüm bildirimleri döner."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return []
-        res = sb.table("bildirimler").select("*").order("olusturma_tarihi", desc=True).limit(100).execute()
-        return res.data if res.data else []
-    except Exception:
-        return []
-
-
-
-
-
-
-
 # ─────────────────────────────────────────────────────────────────────
 # GÖREV ATAMA VE TAKİP SİSTEMİ
 # ─────────────────────────────────────────────────────────────────────
-def gorev_ata(atanan: str, baslik: str, aciklama: str, oncelik: str, bitis_tarihi):
-    """Ibrahim tarafindan kullaniciya gorev atar."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return False
-        row = {
-            "atayan": "ibrahim",
-            "atanan": atanan,
-            "baslik": baslik,
-            "aciklama": aciklama or "",
-            "oncelik": oncelik,
-            "durum": "bekliyor",
-        }
-        if bitis_tarihi:
-            row["bitis_tarihi"] = str(bitis_tarihi)
-        sb.table("gorevler").insert(row).execute()
-        return True
-    except Exception:
-        return False
-
-def get_kullanici_gorevleri(kullanici_adi: str):
-    """Kullanicinin aktif (tamamlanmamis) gorevlerini getirir."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return []
-        res = sb.table("gorevler").select("*").eq("atanan", kullanici_adi).neq("durum", "tamamlandi").order("olusturma_tarihi", desc=True).execute()
-        return res.data if res.data else []
-    except Exception:
-        return []
-
-def get_tum_gorevler_ibrahim():
-    """Ibrahim icin tum gorevleri getirir."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return []
-        res = sb.table("gorevler").select("*").order("olusturma_tarihi", desc=True).limit(200).execute()
-        return res.data if res.data else []
-    except Exception:
-        return []
-
-def gorev_durum_guncelle(gorev_id: int, yeni_durum: str):
-    """Kullanicinin gorev durumunu gunceller."""
-    try:
-        import datetime as _dt
-        sb = _get_supabase()
-        if not sb:
-            return False
-        row = {"durum": yeni_durum, "guncelleme_tarihi": _dt.datetime.utcnow().isoformat()}
-        if yeni_durum == "tamamlandi":
-            row["tamamlanma_tarihi"] = _dt.datetime.utcnow().isoformat()
-        sb.table("gorevler").update(row).eq("id", gorev_id).execute()
-        return True
-    except Exception:
-        return False
-
-def gorev_sil(gorev_id: int):
-    """Ibrahim gorev siler."""
-    try:
-        sb = _get_supabase()
-        if not sb:
-            return False
-        sb.table("gorevler").delete().eq("id", gorev_id).execute()
-        return True
-    except Exception:
-        return False
-
 # ── Talep Merkezi sabitleri ──────────────────────────────────────────
 # Gelen talepleri görebilen ve cevaplayabilen kullanıcılar (küçük harf).
 TALEP_YONETICILERI = {"ibrahim"}
@@ -1188,11 +1007,6 @@ def _oturum_ac(kullanici):
         pass
 
 
-def _oturum_kapat():
-    from shared.oturum import oturum_kapat
-    oturum_kapat()
-
-
 def oturumlari_sonlandir(kullanici):
     """Kullanıcının bu sunucudaki TÜM açık oturum token'larını yakar.
     Hesap pasife alındığında ya da şifresi sıfırlandığında çağrılır."""
@@ -1226,16 +1040,6 @@ def _oturum_token(kullanici):
     return hmac.new(_oturum_secret().encode(),
                     (kullanici or "").lower().strip().encode(),
                     hashlib.sha256).hexdigest()[:32]
-
-
-def _oturum_dogrula(kullanici, token):
-    import hmac
-    if not kullanici or not token:
-        return False
-    try:
-        return hmac.compare_digest(_oturum_token(kullanici), str(token))
-    except Exception:
-        return False
 
 
 if "giris_yapildi" not in st.session_state:

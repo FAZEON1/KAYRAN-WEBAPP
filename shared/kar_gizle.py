@@ -86,19 +86,6 @@ def df_maskele(df):
         return df
 
 
-def kayit_maskele(kayitlar):
-    """[{...}, …] sözlük listesindeki kâr/marj alanlarını maskeler."""
-    if kar_gorunur():
-        return kayitlar
-    out = []
-    for r in (kayitlar or []):
-        if isinstance(r, dict):
-            out.append({k: (MASKE if _gizli_mi(k) else v) for k, v in r.items()})
-        else:
-            out.append(r)
-    return out
-
-
 def deger(etiket, deger_str):
     """Tek bir değeri etiketine göre maskeler."""
     return MASKE if (not kar_gorunur() and _gizli_mi(etiket)) else deger_str

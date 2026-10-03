@@ -26,7 +26,6 @@ Kullanım:
 # ─────────────────────────────────────────────────────────────────────
 # RENK TOKENLARI — serbest hex yerine daima buradan
 # ─────────────────────────────────────────────────────────────────────
-import streamlit as st
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi, TemaRenk  # TR sayı biçimi · tema duyarlı sözlük
 from shared.tasarim import kisi_adi as _kisi_adi  # Türkçe büyük harf (ibrahim → İbrahim)
@@ -256,18 +255,6 @@ div[data-testid="stApp"][data-test-script-state="running"]::after{
   font-family:Inter,sans-serif;
   animation:kyr-puls 1.3s ease-in-out infinite;}
 </style>"""
-
-
-def tema_tipi() -> str:
-    """Aktif tema: 'light' | 'dark'. Kullanıcının ⋮ → Settings seçimini
-    st.context.theme ile algılar (Streamlit ≥1.46). Algılanamazsa 'dark'."""
-    try:
-        _t = getattr(st.context, "theme", None)
-        if _t is not None and getattr(_t, "type", "dark") == "light":
-            return "light"
-    except Exception:
-        pass
-    return "dark"
 
 
 def token_css() -> str:

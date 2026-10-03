@@ -243,29 +243,6 @@ def kategori_oner(urun_adi):
     return ""
 
 
-def set_kategori(sku, kategori):
-    """Tek bir ürünün kategorisini günceller."""
-    try:
-        get_client().table("urunler").update({"kategori": kategori or ""}).eq("sku", str(sku)).execute()
-        return True
-    except Exception:
-        return False
-
-
-def toplu_kategori_kaydet(sku_kategori):
-    """{sku: kategori} sözlüğüyle toplu günceller. (guncellenen_sayisi, hata_sayisi) döner."""
-    ok, hata = 0, 0
-    sb = get_client()
-    for sku, kat in (sku_kategori or {}).items():
-        try:
-            sb.table("urunler").update({"kategori": (kat or "").strip()}).eq("sku", str(sku)).execute()
-            ok += 1
-        except Exception:
-            hata += 1
-    _cache_temizle()
-    return ok, hata
-
-
 # ── Marka önerisi ──────────────────────────────────────────────────
 MARKA_KURALLAR = [
     ("FAZEON",    r"\bFAZEON\b"),
@@ -554,37 +531,6 @@ def ithalat_senkron_onizleme():
             ith_skus & mevcut_skus, ith, mevcut_map)
 
 
-def senkronize_urunler_ithalattan(sil_eski=True):
-    """urunler tablosunu İthalat SKU'larına eşitler.
-    - İthalat'ta olup üründe olmayanları EKLER (urun_adi İthalat'tan, diğer alanlar boş/0).
-    - sil_eski=True ise üründe olup İthalat'ta olmayanları SİLER (eski modeller).
-    - Ortak SKU'lar dokunulmaz (satış/stok/hedef korunur).
-    Döner: dict(eklendi, silindi, korundu, hata, eklenenler, silinenler, hatalar)."""
-    eklenecek, silinecek, korunan, ith, _ = ithalat_senkron_onizleme()
-    eklendi, hata, hatalar = 0, 0, []
-    for sku in eklenecek:
-        try:
-            _ad = ith.get(sku, {}).get("urun_adi", "") or ""
-            upsert_urun(sku, _ad, kategori_oner(_ad), marka_oner(_ad))
-            eklendi += 1
-        except Exception as e:
-            hata += 1
-            if len(hatalar) < 5:
-                hatalar.append(f"{sku}: {type(e).__name__}: {str(e)[:80]}")
-    silindi = 0
-    if sil_eski:
-        for sku in silinecek:
-            try:
-                sil_urun(sku)
-                silindi += 1
-            except Exception:
-                pass
-    _cache_temizle()
-    return {"eklendi": eklendi, "silindi": silindi, "korundu": len(korunan),
-            "hata": hata, "eklenenler": sorted(eklenecek), "silinenler": sorted(silinecek),
-            "hatalar": hatalar}
-
-
 def ithalat_eksikleri_ekle():
     """İthalat'ta olup üründe olmayan SKU'ları TEK upsert ile ekler (hızlı · silme YOK).
     Otomatik senkron için kullanılır. Döner: eklenen sayısı."""
@@ -669,12 +615,6 @@ def sil_firma_stok_tarihi(tarih):
     res = get_client().table("firma_stok").delete().eq("yukleme_tarihi", tarih).execute()
     st.cache_data.clear()
     return len(getattr(res, "data", None) or [])
-
-
-def get_firma_listesi():
-    """firma_stok'taki benzersiz müşteri/firma adları (alfabetik)."""
-    rows = _hepsi("firma_stok", "firma", "yukleme_tarihi")
-    return sorted({(r.get("firma") or "").strip() for r in rows if (r.get("firma") or "").strip()})
 
 
 # ── SKU TEMİZLEME · 'Fazeon' önekli kodları öneksiz kodla birleştir ──────────
@@ -1682,11 +1622,6 @@ def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None, ac
     return uygulanan, atlanan
 
 
-def stok_hareket(sku, delta, depo=None):
-    """Tek SKU için hareket (bkz. stok_hareket_coklu)."""
-    return stok_hareket_coklu({sku: delta}, depo)
-
-
 # ═══════════ MÜKERRER SKU BİRLEŞTİRME (büyük/küçük harf farkı) ═══════════
 def _ad_norm(s):
     """Ürün adını karşılaştırma için sadeleştirir: boşluk/harf/Türkçe farkını yok sayar."""
@@ -1834,32 +1769,6 @@ def mukerrer_sku_birlestir(kanonik_uppercase=None):
             mesajlar.append(f"❌ {hedef_sku}: birleştirilemedi — {type(e).__name__}: {str(e)[:90]}")
     _cache_temizle()
     return birlesen, silinen, mesajlar
-
-
-def urun_adlari_kucuk_harf():
-    """Tüm ürün kartlarının adını 'Her Kelime Baş Harfi Büyük' (Title Case) biçimine getirir.
-    Türkçe karakter korunur, rakamlı model kodları (935W, X24) olduğu gibi kalır.
-    SKU/fiyat/stok gibi alanlara dokunmaz; yalnız 'urun_adi'. Zaten uygunsa atlar.
-    Döner: (degisen_sayisi, ornekler[list])."""
-    from shared.utils import tr_baslik
-    sb = get_client()
-    degisen, ornekler = 0, []
-    for u in _hepsi("urunler", "sku, urun_adi"):
-        sku = str(u.get("sku") or "").strip()
-        ad = str(u.get("urun_adi") or "")
-        if not sku or not ad.strip():
-            continue
-        yeni = tr_baslik(ad)
-        if yeni != ad:
-            try:
-                sb.table("urunler").update({"urun_adi": yeni}).eq("sku", sku).execute()
-                degisen += 1
-                if len(ornekler) < 6:
-                    ornekler.append(f"{ad} → {yeni}")
-            except Exception:
-                pass
-    _cache_temizle()
-    return degisen, ornekler
 
 
 @st.cache_data(ttl=120, show_spinner=False)

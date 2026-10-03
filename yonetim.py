@@ -76,13 +76,6 @@ def _num(x):
         return None
 
 
-def _read_excel_any(file):
-    import pandas as pd
-    name = (getattr(file, "name", "") or "").lower()
-    eng = "xlrd" if name.endswith(".xls") else "openpyxl"
-    return pd.read_excel(file, engine=eng, header=None)
-
-
 GIDER_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
                "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
