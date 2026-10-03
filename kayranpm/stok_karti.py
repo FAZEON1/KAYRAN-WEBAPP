@@ -212,7 +212,7 @@ def goster(sku):
         return
 
     from kayranpm.database import (get_client, get_urun_detay, get_uretim_suresi, canli_stok,
-                                   firma_son_tarihleri, firma_stok_satirlari)
+                                   firma_son_tarihleri, firma_stok_satirlari, sku_satirlari)
     from kayranpm.stok_hesap import kanal_stoklari
     sb = get_client()
     urun = get_urun_detay(sku) or {}
@@ -229,32 +229,14 @@ def goster(sku):
     firma_stok = firma_stok_satirlari(sku)          # SKU yazımından bağımsız ('MIO …' = 'Mio …')
     yas_rows = _sel("stok_yas")
     yolda_rows = _sel("yoldaki_urunler")
-    satislar = _sel("satislar", order="tarih", desc=True)
-    if not satislar:
-        # Satış kaydı SKU'su farklı yazımda olabilir (büyük/küçük harf ya da 'Fazeon ' öneki).
-        # → esnek ara, normalize ile kesin doğrula (yanlış eşleşmeyi eler).
-        try:
-            from shared.utils import sku_anahtar as _nsku     # tek kural (Faz 3)
-            _skn = _nsku(sku)
-            # Öneksiz anahtarla ara: kart 'Fazeon X', satış 'X' olsa da bulunur (eskiden %{sku})
-            _cand = (sb.table("satislar").select("*").ilike("sku", f"%{_skn}")
-                     .order("tarih", desc=True).execute().data or [])
-            satislar = [r for r in _cand if _nsku(r.get("sku", "")) == _skn]
-        except Exception:
-            pass
+    # Satış / iade satırları SKU yazımından bağımsız (sku_satirlari: ilike + sku_anahtar doğrulaması).
+    # Eskiden esnek arama yalnız birebir eşleşme HİÇ yoksa yapılıyordu: 'Mio MiVue J30' kartında
+    # 'MIO MIVUE J30' yazılı satışlar görünmüyordu (27 satışın 22'si listede) (Ekim 2026).
+    satislar = sku_satirlari("satislar", sku, order="tarih", desc=True)
     kampanya_urun = _sel("kampanya_urunler")
 
-    # İadeler — SKU bazlı (satışlardaki esnek eşleşme kalıbıyla)
-    iadeler = _sel("iadeler", order="tarih", desc=True)
-    if not iadeler:
-        try:
-            from shared.utils import sku_anahtar as _nsku2    # tek kural (Faz 3)
-            _skn2 = _nsku2(sku)
-            _cand2 = (sb.table("iadeler").select("*").ilike("sku", f"%{_skn2}")
-                      .order("tarih", desc=True).execute().data or [])
-            iadeler = [r for r in _cand2 if _nsku2(r.get("sku", "")) == _skn2]
-        except Exception:
-            pass
+    # İadeler — SKU yazımından bağımsız ('Fazeon X24F200' iadeleri 'X24F200' kartında)
+    iadeler = sku_satirlari("iadeler", sku, order="tarih", desc=True)
 
     # Alımlar (ithalat) — paçal buradan hesaplanır (ayrı maliyet sorgusu yok = hızlı)
     alimlar = []

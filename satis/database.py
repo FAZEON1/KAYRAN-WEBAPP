@@ -1128,6 +1128,23 @@ def siparis_no_var_mi(sipno):
 
 
 # ── İADELER · satışı bozmadan ayrı tutulur; rapor Satış / İade / Net ─────────
+def _kart_sku_haritasi():
+    try:
+        from kayranpm.database import kart_sku_haritasi
+        return kart_sku_haritasi()
+    except Exception:  # noqa: BLE001 — kartlar okunamazsa sku_anahtar yazılır
+        return {}
+
+
+def _kart_sku(sku, harita=None):
+    """İade kaydına yazılacak SKU: kartın yazımı, kart yoksa sku_anahtar. Eskiden ham yazılıyordu:
+    'Fazeon X24F200' iadeleri (98 satır) stok kartında ve stok hareketinde karta bağlanmıyordu."""
+    from shared.utils import sku_anahtar
+    h = _kart_sku_haritasi() if harita is None else harita
+    k = sku_anahtar(sku)
+    return h.get(k, k)
+
+
 def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
               iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0,
               depo=None, kaynak="manuel"):
@@ -1139,8 +1156,9 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
     """
     try:
         _depo = (str(depo or "").strip() or "MERKEZ DEPO")
+        sku = _kart_sku(sku)              # 'Fazeon X' → kartın yazımı (Ekim 2026)
         _kayit = {
-            "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": (sku or "").strip(),
+            "tarih": str(tarih)[:10], "kanal": kanal or "", "sku": sku,
             "urun_adi": urun_adi or "", "iade_adet": _i(iade_adet),
             "iade_brut": _f(iade_brut), "iade_iskonto": _f(iade_iskonto),
             "iade_masraf": _f(iade_masraf), "iade_net": _f(iade_net),
@@ -1152,7 +1170,7 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
             # depo/kaynak kolonları henüz eklenmemişse eski biçimde yaz
             _get_client().table("iadeler").insert(
                 {k: v for k, v in _kayit.items() if k not in ("depo", "kaynak")}).execute()
-        _stok_uygula_depolu([((sku or "").strip(), _i(iade_adet), _depo)], yon=+1)
+        _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1)
         _temizle()
         return True, f"✅ İade kaydedildi → {_depo}"
     except Exception as e:
@@ -1337,8 +1355,9 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
             with cop_kutusu_kapali():
                 cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
         rows, atlandi = [], 0
+        _harita = _kart_sku_haritasi()
         for s in satirlar:
-            sku = str(s.get("sku") or "").strip()
+            sku = _kart_sku(s.get("sku"), _harita)   # 'Fazeon X' / 'MIO …' → kartın yazımı
             adet = _i(s.get("iade_adet"))
             if not sku or adet <= 0:
                 atlandi += 1
@@ -1385,13 +1404,16 @@ def iade_satis_net_ozet(baslangic=None, bitis=None):
     """SKU bazında Satış / İade / Net özeti. İade kârı paçal maliyetinden hesaplanır.
     Döner: (satirlar:list, toplam:dict)."""
     pacal = get_pacal_map()
+    # Gruplama anahtarı kartın yazımı (_kart_sku): 'X24F200' satışı ile 'Fazeon X24F200' iadesi,
+    # 'Mio MiVue J30' ile 'MIO MIVUE J30' TEK satır. Eskiden ham SKU'ydu, ürün ikiye bölünüyordu.
+    _harita = _kart_sku_haritasi()
     sat = {}
     # YALIN okuma: burada da get_satislar_pnl kullanılıyor. Aksi halde P&L
     # sayfası aynı veriyi İKİ KEZ çeker (biri yalın, biri tam kolonlu) ve
     # sayfa süresi iki katına çıkar. Gereken kolonların hepsi yalın kümede:
     # sku, urun_adi + satir_kar'ın okudukları.
     for s in get_satislar_yalin(baslangic, bitis):
-        sku = str(s.get("sku") or "").strip()
+        sku = _kart_sku(s.get("sku"), _harita)
         if not sku:
             continue
         k = satir_kar(s)
@@ -1402,7 +1424,7 @@ def iade_satis_net_ozet(baslangic=None, bitis=None):
             o["urun_adi"] = s.get("urun_adi", "") or ""
     iad = {}
     for r in get_iadeler(baslangic, bitis):
-        sku = str(r.get("sku") or "").strip()
+        sku = _kart_sku(r.get("sku"), _harita)
         if not sku:
             continue
         adet = _i(r.get("iade_adet"))
