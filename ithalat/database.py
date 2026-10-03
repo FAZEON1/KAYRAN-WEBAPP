@@ -993,11 +993,13 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
         _yeniT = str(durum or "").strip() == "Teslim Alındı"
         _yeni_agg = _dosya_kalem_agg(kalemler)
         _eski_agg = _dosya_kalem_agg(_eski_kalem)
-        if not _eskiT and _yeniT:
+        if not _eskiT and _yeniT and _eski_islendi is not True:
             _dosya_stok_uygula(dosya_id, +1, kalem_agg=_yeni_agg, depo=teslim_deposu)
         elif _eskiT and not _yeniT and _eski_islendi is True:
             _dosya_stok_uygula(dosya_id, -1, kalem_agg=_eski_agg, depo=_eski_depo)
-        elif _eskiT and _yeniT and _eski_islendi is True:
+        elif _eskiT and not _yeniT and _eski_islendi is None and "stok_islendi" in _md:
+            _islendi_yaz(sb, dosya_id, True)   # kayıtsız eski dosya: stok yerinde bırakıldı
+        elif _yeniT and _eski_islendi is True:     # stok depoda → yalnız adet farkı
             _delta = {}
             for _s in set(_yeni_agg) | set(_eski_agg):
                 _d = _yeni_agg.get(_s, 0) - _eski_agg.get(_s, 0)
@@ -1479,7 +1481,10 @@ def _dosya_kalem_agg(kalemler):
 
 def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
     """MODEL B: dosya kalemlerini depoya işler (yon=+1) / geri çeker (yon=-1).
-    stok_islendi bayrağıyla çift işleme önlenir (kolon yoksa sessiz devam)."""
+    stok_islendi kaydıyla çift işleme önlenir (veritabani/17; sütun yoksa sessiz devam):
+    True = stok depoda, False = işlenmedi / geri çekildi, boş = bilinmiyor (kayıttan önceki dosya).
+    Kaydı boş dosya geri alınırken stoğa DOKUNULMAZ (nasıl girdiği bilinmiyor) ve True işaretlenir
+    → yeniden teslimde ikinci kez eklenmez."""
     try:
         sb = _get_client()
         try:
@@ -1496,72 +1501,74 @@ def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
             if yon > 0 and islendi is True:
                 return  # zaten işlenmiş
             if yon < 0 and islendi is not True:
-                return  # hiç işlenmemişi geri çekme (eski/legacy dosyalar)
+                if islendi is None and "stok_islendi" in d:
+                    _islendi_yaz(sb, dosya_id, True)   # stok yerinde bırakıldı
+                return  # hiç işlenmemişi geri çekme
             kalem_agg = _dosya_kalem_agg(get_kalemler(dosya_id))
         if not kalem_agg:
             return
         _depo = (depo or d.get("teslim_deposu") or "").strip() or "MERKEZ DEPO"
         from kayranpm.database import stok_hareket_coklu
-        stok_hareket_coklu({s: yon * a for s, a in kalem_agg.items()}, _depo)
         try:
-            sb.table("ithalat_dosyalari").update({"stok_islendi": (yon > 0)}).eq("id", dosya_id).execute()
+            stok_hareket_coklu({s: yon * a for s, a in kalem_agg.items()}, _depo)
         except Exception:
-            pass  # kolon henüz eklenmemişse bayraksız devam
+            if yon > 0:
+                _islendi_yaz(sb, dosya_id, False)    # bekleyenlerde görünsün
+            return
+        _islendi_yaz(sb, dosya_id, yon > 0)
     except Exception:
         pass
 
 
-@st.cache_data(ttl=120, show_spinner=False)
-def teslim_stok_bekleyenler(gercek_stok_kontrol=True):
-    """'Teslim Alındı' olup stoğa İŞLENMEMİŞ dosyaları listeler.
-    gercek_stok_kontrol=True: stok_islendi bayrağı True olsa BİLE, kalemlerin
-    hiçbiri teslim deposunda görünmüyorsa 'işlenmemiş' sayar (yarım kalan/başarısız
-    önceki işlemleri de yakalar). Döner: [{id, dosya_no, teslim_deposu, kalem_sayisi, toplam_adet}]."""
-    out = []
-    _depo_stok_cache = {}
-
-    def _depoda_var_mi(depo, skular):
-        depo = (depo or "").strip()
-        if not depo:
-            return False
-        if depo not in _depo_stok_cache:
-            try:
-                from kayranpm.database import get_depo_stok
-                _depo_stok_cache[depo] = {str(x.get("sku") or "").strip().upper()
-                                          for x in (get_depo_stok(depo) or [])}
-            except Exception:
-                _depo_stok_cache[depo] = set()
-        _set = _depo_stok_cache[depo]
-        return any(str(s).strip().upper() in _set for s in skular)
-
-    # Tüm kalemleri TEK sorguda çek, dosya_id'ye göre grupla (N+1 sorgusu yerine)
-    _kalem_map = {}
+def _islendi_yaz(sb, dosya_id, deger):
     try:
-        for _k in (get_tum_kalemler() or []):
-            _kalem_map.setdefault(_k.get("dosya_id"), []).append(_k)
+        sb.table("ithalat_dosyalari").update({"stok_islendi": deger}).eq("id", dosya_id).execute()
     except Exception:
-        _kalem_map = None
-    for d in (get_dosyalar() or []):
+        pass  # sütun henüz eklenmemişse (veritabani/17) kayıtsız devam
+
+
+def _teslim_ayir(dosyalar, kalem_map):
+    """'Teslim Alındı' ve kalemi olan dosyaları işlenme kaydına göre ayırır →
+    (bekleyen: kayıt False, kayitsiz: kayıt boş / sütun yok). True = stok depoda, listelenmez."""
+    bekleyen, kayitsiz = [], []
+    for d in (dosyalar or []):
         if str(d.get("durum") or "").strip() != "Teslim Alındı":
             continue
-        _kalemler_d = (_kalem_map.get(d["id"], []) if _kalem_map is not None
-                       else get_kalemler(d["id"]))
-        _agg = _dosya_kalem_agg(_kalemler_d)
+        _agg = _dosya_kalem_agg(kalem_map.get(d.get("id"), []))
         if not _agg:
             continue
-        _islendi = d.get("stok_islendi") is True
-        if _islendi and gercek_stok_kontrol:
-            # Bayrak True ama stok gerçekten var mı? Yoksa yine bekleyen say.
-            if _depoda_var_mi(d.get("teslim_deposu"), _agg.keys()):
-                continue  # gerçekten stokta → tamam
-        elif _islendi:
+        _islendi = d.get("stok_islendi")
+        if _islendi is True:
             continue
-        out.append({
+        (bekleyen if _islendi is False else kayitsiz).append({
             "id": d["id"], "dosya_no": d.get("dosya_no", ""),
             "teslim_deposu": (d.get("teslim_deposu") or "").strip(),
             "kalem_sayisi": len(_agg), "toplam_adet": int(sum(_agg.values())),
         })
-    return out
+    return bekleyen, kayitsiz
+
+
+def _teslim_dosya_kalem():
+    _kalem_map = {}
+    for _k in (get_tum_kalemler() or []):
+        _kalem_map.setdefault(_k.get("dosya_id"), []).append(_k)
+    return _teslim_ayir(get_dosyalar(), _kalem_map)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def teslim_stok_bekleyenler(gercek_stok_kontrol=True):
+    """'Teslim Alındı' olup stoğa işlenmediği KAYITLI dosyalar (stok_islendi = False: işleme hatası).
+    Kaydı boş dosyalar (sütundan önce teslim alınmış; stoğun nasıl girdiği bilinmiyor) burada YOK —
+    teslim_stok_kayitsiz. Eskiden kayıt sütunu canlıda olmadığı için 129 dosyanın hepsi "bekleyen"
+    çıkıyordu; işlenseydi stok ikinci kez girecekti (tests/test_teslim_stok.py).
+    gercek_stok_kontrol: eski imza için duruyor, etkisiz.
+    Döner: [{id, dosya_no, teslim_deposu, kalem_sayisi, toplam_adet}]."""
+    return _teslim_dosya_kalem()[0]
+
+
+def teslim_stok_kayitsiz():
+    """'Teslim Alındı' olup işlenme kaydı olmayan dosyalar (bilgi; stoğa işlenmez)."""
+    return _teslim_dosya_kalem()[1]
 
 
 def teslim_stok_isle(dosya_idler=None):

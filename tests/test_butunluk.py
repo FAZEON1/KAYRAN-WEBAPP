@@ -130,12 +130,15 @@ KRITIK_FONKSIYONLAR = {
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
     "ithalat.database": ["get_parti_satirlari", "get_sku_maliyet_ozet", "get_sku_alim_detay",
-                         "_kategori_doldur", "_parti_satirlari_hesapla"],   # paçal önbelleği (Eki 2026)
+                         "_kategori_doldur", "_parti_satirlari_hesapla",   # paçal önbelleği (Eki 2026)
+                         "teslim_stok_bekleyenler", "teslim_stok_kayitsiz", "_teslim_ayir",
+                         "_islendi_yaz"],   # stok işlenme kaydı (Eki 2026)
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
     "shared.veri_surumu": ["tazelik_kontrol", "bagimlilari_temizle", "imza"],   # önbellek tazeliği (Eki 2026)
-    "shared.veri_sagligi": ["sayfa", "gorunur_kontroller", "maliyetsiz_satislar", "satilabilir_farklari", "eslesmeyen_rapor_kodlari"],   # veri sağlığı sayfası (Eki 2026)
+    "shared.veri_sagligi": ["sayfa", "gorunur_kontroller", "maliyetsiz_satislar", "satilabilir_farklari", "eslesmeyen_rapor_kodlari",
+                           "teslim_notu"],   # veri sağlığı sayfası (Eki 2026)
     "shared.duzenle": ["duzenle", "duzenle_veri", "uygula", "gecerli_durum", "destekli_mi"],   # sade düzenlenebilir tablo (Eki 2026)
     "shared.izgara": ["izgara_ayar", "izgara_sonuc", "dataframe_hazirla", "kur"],   # ortak ızgara görünümü (Eki 2026)
     "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
