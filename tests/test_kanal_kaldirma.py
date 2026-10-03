@@ -172,3 +172,14 @@ def test_app_hata_kartindan_once_tazeler():
     a = (pathlib.Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
     i, j = a.index("from shared.modul_tazele import"), a.index("_global_hata_kart(ad, hata)")
     assert i < j and 'st.session_state.get("_modul_tazelendi")' in a
+
+
+def test_app_sayfa_cokmesini_hata_kaydina_yazar():
+    """3 Ekim: Müşteri Satışları çöktü, hata_kayitlari boştu — sayfa çökmeleri hiç yazılmıyordu.
+    Hata kartı gösterilmeden önce hata_log.kaydet çağrılmalı (tazeleme denemesinden sonra)."""
+    import pathlib
+    a = (pathlib.Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
+    kart = a.index("_global_hata_kart(ad, hata)")
+    blok = a[a.rindex("except Exception as hata:", 0, kart):kart]
+    assert 'kaydet(f"sayfa.{aktif}", hata)' in blok
+    assert blok.index("from shared.modul_tazele import") < blok.index('kaydet(f"sayfa.{aktif}", hata)')
