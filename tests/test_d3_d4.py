@@ -73,7 +73,7 @@ def test_odeme_durumu_halkasi_tutarla_tutarli():
     """Halka tutara göre çizilir; ortadaki yüzde de tutar olmalı
     (eskiden adetti: halka yarı doluyken ortada %0 yazıyordu)."""
     src = _oku("kayranacc/main.py")
-    assert "ÖDENEN (TUTAR)" in src
+    assert '"Ödenen (tutar)"' in src            # Ekim 2026: cümle düzeni (ortak halka, shared/grafik.py)
     assert "_odenen_pct = round(odendi_tutar / _durum_toplam * 100)" in src
     assert "TAMAMLANAN</span>" not in src
 

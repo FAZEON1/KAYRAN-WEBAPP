@@ -1415,24 +1415,17 @@ def run():
                         _ax = [f"{_SHp.AY[int(a[5:7])][:3]} {a[2:4]}" for a, *_ in _aylar]
                         _fg = _pgo.Figure()
                         # Üzerine gelince çıkan kutu Türkçe biçimli (hazır metin, customdata)
+                        from shared.grafik import goster as _goster, rol as _rol, isaretli as _isaretli
                         _fg.add_bar(x=_ax, y=[c for _, c, _k, _a in _aylar], name="Ciro",
-                                    marker_color=trenk("mor"), opacity=0.55,
+                                    marker_color=_rol("ana"), opacity=0.35,
                                     customdata=[f"${tr_sayi(c)}" for _, c, _k, _a in _aylar],
                                     hovertemplate="%{x}<br>Ciro %{customdata}<extra></extra>")
                         _fg.add_bar(x=_ax, y=[_k for _, c, _k, _a in _aylar], name="Brüt kâr",
-                                    marker_color=trenk("yesil"),
+                                    marker_color=_isaretli([_k for _, c, _k, _a in _aylar], "ana"),   # eksi ay kırmızı
                                     customdata=[f"${tr_sayi(_k)}" for _, c, _k, _a in _aylar],
                                     hovertemplate="%{x}<br>Brüt kâr %{customdata}<extra></extra>")
-                        _fg.update_layout(barmode="overlay", bargap=0.35, height=300,
-                                          margin=dict(t=8, b=4, l=4, r=4),
-                                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                          font=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                                          legend=dict(orientation="h", y=1.08, x=0, bgcolor="rgba(0,0,0,0)"),
-                                          yaxis=dict(tickprefix="$", gridcolor=trenk("kenar"), zeroline=False),
-                                          xaxis=dict(showgrid=False),
-                                          hoverlabel=dict(bgcolor=trenk("yuzey2"), font=dict(color=trenk("metin"))))
-                        st.plotly_chart(_fg, use_container_width=True, config={"displayModeBar": False},
-                                        key="pnl_aylik")
+                        _goster(_fg, key="pnl_aylik", yukseklik=300, barmode="overlay", bargap=0.35,
+                                yaxis=dict(tickprefix="$"))
                     else:
                         st.caption("Aylık seyir için dönem en az iki ay kapsamalı.")
 
