@@ -129,7 +129,7 @@ KRITIK_FONKSIYONLAR = {
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
     "ithalat.database": ["get_parti_satirlari", "get_sku_maliyet_ozet", "get_sku_alim_detay",
-                         "_kategori_doldur"],
+                         "_kategori_doldur", "_parti_satirlari_hesapla"],   # paçal önbelleği (Eki 2026)
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
