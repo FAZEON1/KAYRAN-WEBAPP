@@ -203,3 +203,33 @@ def test_sevk_satilabilir_stogu_dogru_degistirir():
 
     iade, _ = _sevk_uygula(kirilim, "MERKEZ DEPO", "IADE DEPO", 4)
     assert _bizim_stok_hesapla(iade) == 6        # iade satılabilir değil
+
+
+# ═══════════════════════════════════════════════════════════
+#  depo_dagilimi — G5F depo kırılımı rozetleri (Ekim 2026)
+#  Tüm Ürünler detayı ve stok kartı kırılımı HAM adlarla çiziyordu:
+#  'MERKEZ' + 'MERKEZ DEPO' iki ayrı rozet; Tüm Ürünler'de int("3.0") → çökme.
+# ═══════════════════════════════════════════════════════════
+
+def test_depo_dagilimi_ayni_depoyu_birlestirir_sirali_doner():
+    from kayranpm.database import depo_dagilimi
+    satirlar, toplam = depo_dagilimi({"MERKEZ": 5, "Merkez Depo": "3.0", "HAPPY LIFE": 12, "ASEL": 0})
+    assert satirlar == [("HAPPY LIFE", 12), ("MERKEZ DEPO", 8)]     # sıfır depo yok, adede göre azalan
+    assert toplam == 20
+
+
+def test_depo_dagilimi_bozuk_ve_bos_deger_cokertmez():
+    from kayranpm.database import depo_dagilimi
+    assert depo_dagilimi({"MERKEZ": "abc", "HAPPY LIFE": None, "ASEL": "4"}) == ([("ASEL DEPO", 4)], 4)
+    assert depo_dagilimi(None) == ([], 0)
+    assert depo_dagilimi("bozuk") == ([], 0)
+
+
+def test_ekranlar_kirilimi_depo_dagilimi_ile_ciziyor():
+    """Ham sözlük üzerinde dönen rozet kodu geri gelmesin (çift depo + int('3.0') çökmesi)."""
+    import pathlib
+    kok = pathlib.Path(__file__).resolve().parent.parent / "kayranpm"
+    main = (kok / "main.py").read_text(encoding="utf-8")
+    kart = (kok / "stok_karti.py").read_text(encoding="utf-8")
+    assert "depo_dagilimi(" in main and "sorted(_dk.items()" not in main
+    assert "depo_dagilimi(" in kart and "for d, m in (_depo_kirilim or {}).items() if _f(m) != 0" not in kart

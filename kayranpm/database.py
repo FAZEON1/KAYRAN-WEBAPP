@@ -1315,6 +1315,18 @@ def _kirilim_kanonik(depo_kirilim):
     return out
 
 
+def depo_dagilimi(depo_kirilim):
+    """G5F depo kırılımı rozetleri için TEK kaynak (Tüm Ürünler detayı + stok kartı).
+    Adları kanonikleştirip aynı depoyu toplar ('MERKEZ' + 'MERKEZ DEPO' tek rozet),
+    sıfır depoları atar, adede göre azalan sıralar. Bozuk değer çökertmez (0 sayılır).
+    Döner: ([(depo, adet), ...], toplam)."""
+    if not isinstance(depo_kirilim, dict):
+        return [], 0
+    dk = _kirilim_kanonik(depo_kirilim)
+    satirlar = sorted(((d, a) for d, a in dk.items() if a), key=lambda x: (-x[1], x[0]))
+    return satirlar, sum(a for _, a in satirlar)
+
+
 # "Satılabilir" sayılan depolar — bizim_stok toplamı ve depo listesindeki
 # satilabilir işareti bunu kullanır. TANIMLI DEĞİLDİ: _bizim_stok_hesapla ve
 # depo_ozet çağrıldığında NameError atıyor, Depolar Arası Sevk sayfası
