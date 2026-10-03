@@ -72,7 +72,7 @@ def _tum_urun_yaz(uret, rows, meta, yol):
     return uret(rows, yol, meta)
 
 
-def _satir(r):
+def _satir(r, secili=False):
     sku = r["SKU"]
     nk, marj, fcp, satis = r.get("Net Kar ($)"), r.get("Net Marj (%)"), r.get("Final Cost ($)"), r.get("Satış ($)")
     yas_renk = _YAS_RENK.get(r.get("_stok_renk"))
@@ -103,7 +103,7 @@ def _satir(r):
     _k = hashlib.md5(str(sku).encode("utf-8")).hexdigest()[:12]
     B.tiklanir(
         f"{ON_EK}_{_k}",
-        f'<div class="pu-sr"><div class="pu-sol"><div style="font-family:var(--k-mono);font-size:12.5px;'
+        f'<div class="pu-sr{" secili" if secili else ""}"><div class="pu-sol"><div style="font-family:var(--k-mono);font-size:12.5px;'
         f'font-weight:700;color:var(--k-mor2);overflow:hidden;text-overflow:ellipsis">{_e(sku)}</div>'
         f'<div style="font-size:11.5px;color:var(--k-silik)">stok {tr_sayi(r.get("G5F Depo") or 0)}</div></div>'
         f'<div class="pu-orta"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
@@ -117,10 +117,23 @@ SATIR_CSS = (
     "<style>.pu-sr{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:4px 16px;align-items:center}"
     ".pu-orta{min-width:0}.pu-sol{min-width:0}.pu-sag{text-align:right;white-space:nowrap}"
     "@media (max-width:640px){.pu-sr{grid-template-columns:minmax(0,1fr) auto}"
-    ".pu-sag{order:2}.pu-orta{order:3;grid-column:1 / -1}}</style>")
+    ".pu-sag{order:2}.pu-orta{order:3;grid-column:1 / -1}}"
+    ".pu-sr.secili{box-shadow:inset 3px 0 0 var(--k-mor);margin-left:-8px;padding-left:8px}</style>")
+
+# Liste ve detay yan yana (shared.tasarim.YAN_YANA): dar sütunda satır telefon düzenine
+# geçer; 900 px altında liste gizlenir ve eskisi gibi "Listeye dön" görünür.
+YAN_YANA_CSS = (
+    "<style>.st-key-pm_liste_sol{container-type:inline-size}"
+    "@container (max-width:620px){.st-key-pm_liste_sol .pu-sr{grid-template-columns:minmax(0,1fr) auto}"
+    ".st-key-pm_liste_sol .pu-sag{order:2}.st-key-pm_liste_sol .pu-orta{order:3;grid-column:1 / -1}}"
+    ".st-key-pm_urun_geri{display:none !important}"
+    "@media (max-width:900px){[data-testid=\"stColumn\"]:has(.st-key-pm_liste_sol),.st-key-pm_liste_sol"
+    "{display:none !important}.st-key-pm_urun_kapat{display:none !important}"
+    ".st-key-pm_urun_geri{display:block !important}}</style>")
 
 
-def liste(urun_data):
+def liste(urun_data, dar=False, secili=None):
+    """dar=True: detayın yanındaki sütun (Excel/PDF düğmeleri yok); secili: vurgulanacak SKU."""
     tum = [urun_satiri(u) for u in urun_data]
     kategoriler = sorted({str(r["Kategori"]).strip() for r in tum if str(r["Kategori"]).strip()},
                          key=str.lower)
@@ -138,12 +151,13 @@ def liste(urun_data):
     zarar_say = sum(1 for r in tum if r.get("Net Kar ($)") is not None and r["Net Kar ($)"] < 0)
 
     r1, r2, r3, r4 = st.columns([2.4, 1.5, 1.05, 1.05], vertical_alignment="center")
-    sadece_zarar = r1.toggle(f"Yalnız zararına satılanlar ({zarar_say})", key="pm_ul_zarar",
+    sadece_zarar = r1.toggle((f"Zararına ({zarar_say})" if dar else f"Yalnız zararına satılanlar ({zarar_say})"),
+                             key="pm_ul_zarar",
                              help="Satış fiyatı paçal maliyetin altında olan ürünler")
     goster = urun_filtrele_sirala(tum, ara=ara, kategori=ff["pm_ul_kat"], marka=ff["pm_ul_mar"],
                                   sadece_zarar=sadece_zarar, sira=alan, azalan=azalan)
     r2.caption(f"{tr_sayi(len(goster))} / {tr_sayi(len(tum))} ürün")
-    if goster:
+    if goster and not dar:
         from .rapor import tum_urunler_excel, tum_urunler_pdf
         meta = (f"Kategori: {ff['pm_ul_kat']} · Marka: {ff['pm_ul_mar']} · Sıra: {sira_et}"
                 + (" · Yalnız zararına" if sadece_zarar else ""))
@@ -156,14 +170,14 @@ def liste(urun_data):
         r4.download_button("PDF", data=partial(uretilen_bayt, ".pdf", partial(_tum_urun_yaz, tum_urunler_pdf, list(goster), meta)),
                            file_name=f"Tum_Urunler_{zaman}.pdf", key="pm_ul_pdf", mime="application/pdf",
                            icon=":material/download:", use_container_width=True)
-    else:
+    if not goster:
         st.info("Filtreyle eşleşen ürün yok.")
         return
 
     st.markdown(SATIR_CSS, unsafe_allow_html=True)
     limit = int(st.session_state.get("pm_ul_limit", ADIM))
     for r in goster[:limit]:
-        _satir(r)
+        _satir(r, secili=(secili is not None and r["SKU"] == secili))
     if len(goster) > limit:
         st.button(f"Daha fazla göster ({tr_sayi(len(goster) - limit)} ürün daha)", key="pm_ul_daha",
                   type="tertiary", use_container_width=True, on_click=_arttir)

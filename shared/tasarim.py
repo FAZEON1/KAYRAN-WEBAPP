@@ -1208,6 +1208,10 @@ IKON_YENI = True
 # False: bütün pencereler eskisi gibi ortada. Geri almak için YALNIZ bu satırı değiştir.
 YAN_PANEL = True
 
+# True : sayfa içi detaylarda (Tüm Ürünler) geniş ekranda liste solda, detay sağda.
+# False: eskisi gibi yalnız detay + "Listeye dön". Geri almak için YALNIZ bu satırı değiştir.
+YAN_YANA = True
+
 
 def panel_isareti(genislik="orta"):
     """Pencereye basılan görünmez işaret; CSS :has(.k-panel) bu pencereyi sağa alır.
