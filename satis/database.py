@@ -237,7 +237,7 @@ def _bugun():
 
 
 # ── Maliyet (paçal) ve ürün katalogu — İthalat / Ürün Yönetimi'nden ──
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_pacal_map():
     """{KANONİK sku: birim maliyet USD} — TÜM maliyetlerin tek kapısı.
 
@@ -284,19 +284,15 @@ def get_pacal_map():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _urunler_hepsi(secim):
-    """Supabase'in 1000 satır limitini aşarak urunler tablosunun TAMAMINI çeker.
-    Sayfalama olmadan ürün sayısı 1000'i geçtiğinde sorgu sessizce kesilir ve
-    kesilen SKU'lar P&L kırılımlarında 'DİĞER' grubuna düşer."""
-    cli = _get_client()
-    tum, bas = [], 0
-    while True:
-        chunk = _rows(cli.table("urunler").select(secim)
-                      .order("sku").range(bas, bas + 999).execute())
-        tum.extend(chunk)
-        if len(chunk) < 1000:
-            break
-        bas += 1000
-    return tum
+    """urunler tablosunun TAMAMI, yalnız istenen sütunlar ('sku, alis_fiyati'), SKU sıralı.
+    Kaynak kayranpm.database.urunler_skuya_gore (sayfalı, tek ortak okuma — Ekim 2026); eskiden
+    her sütun seçimi ayrı sorguydu."""
+    from kayranpm.database import urunler_skuya_gore
+    kolonlar = [c.strip() for c in str(secim or "*").split(",") if c.strip()]
+    rows = urunler_skuya_gore() or []
+    if kolonlar == ["*"]:
+        return rows
+    return [{c: r.get(c) for c in kolonlar} for r in rows]
 
 
 @st.cache_data(ttl=120, show_spinner=False)

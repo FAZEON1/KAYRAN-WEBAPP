@@ -348,7 +348,7 @@ def kategori_standartlastir():
 
 
 # ── Ayarlar (sipariş eşiği) ─────────────────────────────────────────
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_uretim_suresi():
     """Sipariş eşiği = üretim/tedarik süresi (gün). pm_ayarlar tablosu yoksa varsayılan 135."""
     try:
@@ -396,13 +396,13 @@ def get_firma_listesi():
     return firma_sirala(list(FIRMA_KODLARI_DIGER) + gorulen)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def _dashboard_ham():
     """Veritabanından ham panel verisi (5 dk önbellek). İthalat yolda/antrepo
     eklemesi BURADA DEĞİL, get_all_dashboard_data'da yapılır (bkz. orası)."""
     sb = get_client()
     # Sayfalama şart: 1000+ üründe panel toplamları sessizce eksik çıkıyordu
-    urunler = _hepsi("urunler", "*", "urun_adi")
+    urunler = urunler_ada_gore()
     from shared.utils import tr_buyuk as _tb_ad
     for _u in urunler:
         if _u.get("urun_adi"):
@@ -545,12 +545,25 @@ def sil_urun(sku):
         sb.table(tablo).delete().eq("sku", sku).execute()
         _cache_temizle()
 
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
+def urunler_ada_gore():
+    """urunler tablosunun TAMAMI (*), ürün adına göre sıralı (veritabanı sıralaması). Tüm Ürünler
+    ve Genel bakış buradan okur. Eskiden her biri ayrı okuyordu (sayfa başına 4 urunler sorgusu)."""
+    return _hepsi("urunler", "*", "urun_adi")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
+def urunler_skuya_gore():
+    """urunler tablosunun TAMAMI (*), SKU'ya göre sıralı. SKU listesi, marka/kategori haritası ve
+    satis._urunler_hepsi buradan türer (sıralama veritabanında — Python sıralaması farklıdır)."""
+    return _hepsi("urunler", "*", "sku")
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tum_sku_listesi():
-    # SAYFALAMA ŞART: Supabase tek sorguda en fazla 1000 satır döndürür.
-    # _hepsi() olmadan ürün sayısı 1000'i geçtiğinde liste sessizce kesilir;
-    # kesilen SKU'lar Satış → P&L'de "ürün kartı yok" gibi görünür.
-    _rws = _hepsi("urunler", "sku, urun_adi, marka", "sku")
+    # SAYFALAMA ŞART: Supabase tek sorguda en fazla 1000 satır döndürür (urunler_skuya_gore sayfalı).
+    _rws = [{"sku": r.get("sku"), "urun_adi": r.get("urun_adi"), "marka": r.get("marka")}
+            for r in urunler_skuya_gore()]
     from shared.utils import tr_buyuk as _tb_ad
     for _r in _rws:
         if _r.get("urun_adi"):
@@ -565,7 +578,7 @@ def get_urun_marka_kategori():
     try:
         return {str(r.get("sku") or "").strip(): {"marka": r.get("marka") or "", "kategori": r.get("kategori") or "",
                                                   "urun_adi": r.get("urun_adi") or ""}
-                for r in _hepsi("urunler", "sku, urun_adi, marka, kategori", "sku")}
+                for r in urunler_skuya_gore()}
     except Exception:  # noqa: BLE001 — kırılım "Markasız/Kategorisiz" görünür, sayfa çalışır
         return {}
 

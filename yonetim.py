@@ -714,6 +714,7 @@ YEDEK_HARIC = [
     "kullanici_sifreler", "kullanici_durum", "giris_denemeleri",
     "aktif_excel_verileri", "audit_log", "hata_kayitlari",
     "cop_kutusu",          # silinenlerin 30 günlük kopyası; gece yedeği asıl tabloları zaten alıyor
+    "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
     "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
 ]
 

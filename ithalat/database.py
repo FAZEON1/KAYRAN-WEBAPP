@@ -477,7 +477,7 @@ def get_kategoriler():
 
 
 # ── İthalat dosyaları / kalemleri ──
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_dosyalar():
     try:
         sb = _get_client()
@@ -494,7 +494,7 @@ def get_dosyalar():
         return []
 
 
-@st.cache_data(ttl=300, show_spinner=False)   # iki kez sarılıydı (60 + 300 sn), tek önbellek yeter
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_sku_kategori_map():
     """{normalize_sku: kategori} — urunler tablosundan.
 
@@ -587,7 +587,7 @@ def get_kalemler(dosya_id):
         return []
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_tum_kalemler():
     try:
         sb = _get_client()
@@ -690,7 +690,7 @@ def get_sku_maliyet_ozet():
         return {}
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_sku_ithalat_partileri():
     """Her SKU için ithalat partileri (FIFO için), belge tarihine göre ESKİ→YENİ.
     Dönen: {sku: [{"tarih": "YYYY-MM-DD", "adet": float}, ...]}
@@ -1110,7 +1110,7 @@ def dagit_ortak_masraf(dosya_ids, ortak_masraflar, kur=None, sil=None):
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:200]}"
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_ithalat_yolda_ozet():
     """Yolda sayılan (Teslim Alınmamış) ithalat dosyalarının SKU bazında toplam miktarı
     + en yakın tahmini varış tarihi.
@@ -1397,7 +1397,7 @@ def get_parti_satirlari():
         return []
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def _parti_satirlari_hesapla():
     """get_parti_satirlari'nin önbellekli gövdesi; hata FIRLATIR (önbelleğe girmesin diye)."""
     dosyalar = {d.get("id"): d for d in (get_dosyalar() or [])}
