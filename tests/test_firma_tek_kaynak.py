@@ -43,3 +43,22 @@ def test_magaza_adi_kalkti_ham_kod_basilmiyor():
     assert "KANAL_AD = {" not in _oku("kayranpm/urun_hesap.py") and "\"HB\": \"Hepsiburada\"" not in _oku("kayranpm/urun_hesap.py")
     assert '{firma_gorunen_ad(_k.get("firma"))' in _oku("kayranpm/stok_karti.py")
     assert "{firma_gorunen_ad(fd[\"firma\"])}" in _oku("kayranpm/siparis_ekran.py")
+
+
+def test_satis_excel_ve_tablolarinda_kanal_sutunu_yok():
+    """Kullanıcı (3 Ekim): Satış Excel'inde 'Kanal' olmasın, firma adı yazsın; 'Kanal' diye
+    bir kategori görünmesin. Veri alanı (satislar.kanal) aynı, yalnız sütun/etiket."""
+    for y in ("satis/satislar_ekran.py", "satis/main.py"):
+        s = _oku(y)
+        assert '"Kanal":' not in s, f"{y}: 'Kanal' sütunu geri gelmiş"
+        assert '"Alan": "Kanal"' not in s and "Kanal / Cari" not in s and "Firma / Kanal" not in s, y
+    assert '"Firma": firma_kisa_ad(s.get("kanal"))' in _oku("satis/satislar_ekran.py")
+    m = _oku("satis/main.py")
+    assert '"Firma": _fka(s2.get("kanal"))' in m and m.count('_ksat.append({"Firma":') == 2
+
+
+def test_tum_urunler_listesi_ve_raporu_firma_adi():
+    assert "firma_gorunen_ad(k)} {r[k]}" in _oku("kayranpm/urunler_ekran.py")
+    r = _oku("kayranpm/rapor.py")
+    assert r.count('firma_gorunen_ad(fd["firma"])') == 2 and 'firma_gorunen_ad(sp["firma"])' in r
+    assert '"KANAL", "DİĞER", "Toplam Kanal Stok"' not in r and "for k in FIRMA_KODLARI" in r

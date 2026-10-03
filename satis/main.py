@@ -4,6 +4,7 @@ from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from shared.tasarim import mesaj  # ortak uyarı kutusu
 from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
+from shared.utils import firma_kisa_ad as _fka_s   # özetlerde firma adı (Eki 2026)
 from datetime import date, timedelta, datetime
 import io
 
@@ -622,7 +623,7 @@ def run():
         with st.expander(f"⚠️ {len(_bolunme)} cari birden fazla isimle kayıtlı — "
                          f"P&L'de cirosu bölünüyor", expanded=False):
             st.caption("Aşağıdaki cariler `satislar` tablosunda farklı yazımlarla "
-                       "duruyor. Kanal bazlı raporlar bunları AYRI firma sayar, "
+                       "duruyor. Firma bazlı raporlar bunları AYRI firma sayar, "
                        "dolayısıyla toplam ciroları eksik görünür. Yeni satışlarda "
                        "artık tek seçenek gösteriliyor; geçmiş kayıtların "
                        "birleştirilmesi için SQL ile tek seferlik düzeltme gerekir.")
@@ -852,7 +853,7 @@ def run():
                             # Firma OTOMATİK gelmesin — boş başlar, kullanıcı bilinçli seçer
                             # (alfabetik ilk cari yanlışlıkla seçili kalıp yanlış firmaya
                             # sipariş yazılmasın diye).
-                            _knl = st.selectbox("Firma / Kanal (cari)", _kanallar,
+                            _knl = st.selectbox("Firma (cari)", _kanallar,
                                                 index=None, key=f"sg_kanal_{_key}",
                                                 placeholder="— Firma seç (zorunlu) —")
                             if not _knl:
@@ -881,7 +882,7 @@ def run():
                                 return
                             _adet = sum(s["adet"] for s in _tum)
                             _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                            st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Kanal: **{_knl}**")
+                            st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_knl)}**")
                             if not _sno:
                                 st.error("⛔ **Sipariş No boş** — bu yüzden kaydet butonu "
                                          "pasif. Yukarıdaki Sipariş No kutusunu doldur.")
@@ -937,7 +938,7 @@ def run():
                             else:
                                 _adet = sum(s["adet"] for s in _tum)
                                 _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                                st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Kanal: **{_vk}**")
+                                st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_vk)}**")
                                 _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
                                 _eksik = len(_tum) - len(_gecerli)
                                 if _eksik:
@@ -970,7 +971,7 @@ def run():
                 # ── Manuel Satış Girişi — AÇILIR PENCERE ──
 
                 # ── ➕ MANUEL KANAL / CARİ EKLE ──────────────────────────────
-                @st.dialog("➕ Yeni Kanal / Cari Ekle", width="small")
+                @st.dialog("➕ Yeni Firma (Cari) Ekle", width="small")
                 def _kanal_ekle_dialog():
                     from satis.database import (ekle_manuel_kanal as _mk_ekle,
                                                 get_manuel_kanallar as _mk_liste,
@@ -978,7 +979,7 @@ def run():
                     st.caption("Cari listesinde olmayan yeni bir satış kanalı / firma ekle. "
                                "Eklenen isim tüm kanal seçim kutularında anında görünür "
                                "(manuel giriş, Excel yükleme, filtreler).")
-                    _yeni_ad = st.text_input("Kanal / Cari adı", key="mk_yeni_ad",
+                    _yeni_ad = st.text_input("Firma (cari) adı", key="mk_yeni_ad",
                                              placeholder="örn. PAZARAMA, N11, AMAZON TR...",
                                              max_chars=60)
                     # Benzer isim uyarısı — TRENDYOL / Trendyol gibi mükerrerleri önle
@@ -1032,7 +1033,7 @@ def run():
                     with st.container(border=True):
                         st.markdown("##### 🧾 Sipariş Bilgileri")
                         h2, h3 = st.columns([1.6, 1])
-                        g_kanal = h2.selectbox("Kanal / Cari", _kanallar, key="s_kanal",
+                        g_kanal = h2.selectbox("Firma (cari)", _kanallar, key="s_kanal",
                                                help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
                         g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
                         # Tarih: varsayılan BUGÜN (takvim gizli). Farklı tarih gerekiyorsa kutucukla aç.
@@ -1495,7 +1496,8 @@ def run():
                         # 2) Filtre bilgisi — rapor hangi koşullarla alındı
                         pd.DataFrame([
                             {"Alan": "Dönem", "Değer": f"{_pbas} → {_pbit}"},
-                            {"Alan": "Kanal", "Değer": _p_kanal_f},
+                            {"Alan": "Firma", "Değer": (_p_kanal_f if _p_kanal_f == "Tümü"
+                                                        else _fka(_p_kanal_f))},
                             {"Alan": "Kategori", "Değer": _p_kat_f},
                             {"Alan": "Satır sayısı", "Değer": len(satislar)},
                             {"Alan": "Rapor tarihi",
@@ -1519,7 +1521,7 @@ def run():
                         # 4) Ham satışlar — Excel'de pivot çekilebilsin
                         if satislar:
                             pd.DataFrame([{
-                                "Tarih": s2.get("tarih"), "Kanal": s2.get("kanal"),
+                                "Tarih": s2.get("tarih"), "Firma": _fka(s2.get("kanal")),
                                 "Sipariş No": s2.get("siparis_no"), "SKU": s2.get("sku"),
                                 "Ürün": s2.get("urun_adi"), "Adet": _in(s2.get("adet")),
                                 "Birim Satış": _fl(s2.get("birim_satis")),
@@ -1907,12 +1909,12 @@ def run():
                 for kn, v in _kr:
                     _nc, _nk, _nm = _kn_net(kn, v)
                     _ad, _tur = kisa_unvan(kn)
-                    _ksat.append({"Kanal": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
+                    _ksat.append({"Firma": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
                                   "Net Kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
                     _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
                     _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
                 if len(_ksat) > 1:
-                    _ksat.append({"Kanal": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
+                    _ksat.append({"Firma": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
                                   "Net Kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
                                   "_etiket": "", "_ipucu": ""})
                 _kanal_tik = _ortak_tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
@@ -2185,7 +2187,7 @@ def run():
                 ig1, ig2, ig3 = st.columns(3)
                 _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
                                           min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY")
-                _i_kanal = ig2.selectbox("Kanal / Cari", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
+                _i_kanal = ig2.selectbox("Firma (cari)", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
                 _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
                 ig4, ig5, ig6, ig7 = st.columns(4)
                 _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")

@@ -20,6 +20,7 @@ from shared.tasarim import tr_sayi
 from shared.utils import tr_now
 
 from .urun_hesap import urun_satiri, urun_filtrele_sirala, KANALLAR
+from shared.utils import firma_gorunen_ad   # kanal kodu → firma (cari) adı
 
 ON_EK = "pm_urun"
 ADIM = 50
@@ -76,7 +77,7 @@ def _satir(r, secili=False):
     sku = r["SKU"]
     nk, marj, fcp, satis = r.get("Net Kar ($)"), r.get("Net Marj (%)"), r.get("Final Cost ($)"), r.get("Satış ($)")
     yas_renk = _YAS_RENK.get(r.get("_stok_renk"))
-    kanallar = " · ".join(f"{k} {r[k]}" for k in KANALLAR if r.get(k))
+    kanallar = " · ".join(f"{firma_gorunen_ad(k)} {r[k]}" for k in KANALLAR if r.get(k))   # kod değil firma adı
     meta = B.meta(
         B.cip(f"{r['_stok_yas']} gün", yas_renk, title="Stok yaşı") if yas_renk else "",
         f"G5F {tr_sayi(r['G5F Depo'])}" if r.get("G5F Depo") else "",

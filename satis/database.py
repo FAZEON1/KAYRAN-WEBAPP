@@ -62,9 +62,9 @@ def ekle_manuel_kanal(ad):
     """Yeni kanal/cari ekler. Döner: (True, mesaj) | (False, hata)."""
     ad = str(ad or "").strip()
     if not ad:
-        return False, "Kanal adı boş olamaz."
+        return False, "Firma adı boş olamaz."
     if len(ad) > 60:
-        return False, "Kanal adı çok uzun (en fazla 60 karakter)."
+        return False, "Firma adı çok uzun (en fazla 60 karakter)."
     try:
         mevcut_hepsi = {k.strip().lower() for k in (get_kanallar() or [])}
         if ad.lower() in mevcut_hepsi:
