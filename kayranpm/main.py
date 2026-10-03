@@ -604,7 +604,7 @@ def run():
 
         st.markdown(f"""
         <div style="text-align:center; margin-top:20px; padding-bottom:8px;">
-            <div style="color:var(--k-silik); font-size:11px;">🕐 {tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
+            <div style="color:var(--k-silik); font-size:11px;">{tr_now().strftime('%d.%m.%Y  %H:%M')}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -677,12 +677,12 @@ def run():
                 if _eksik_fiy: _sg.append(f'<span style="color:var(--k-kirmizi)">⚠ {_eksik_fiy} satış fiyatsız</span>')
                 if _eksik_mal: _sg.append(f'<span style="color:var(--k-soluk)">{_eksik_mal} İthalat maliyeti yok</span>')
                 if _sg:
-                    st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> '
+                    st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px"><b>Veri sağlığı:</b> '
                                 + '  ·  '.join(_sg)
-                                + ' <span style="color:var(--k-silik)">— Veri Yükleme’deki 🏷️/💲 toplu araçlardan doldurabilirsin</span></div>',
+                                + ' <span style="color:var(--k-silik)">— Veri Yükleme’deki toplu düzenleme araçlarından doldurabilirsin</span></div>',
                                 unsafe_allow_html=True)
                 else:
-                    st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:8px 0 0px">🩺 <b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
+                    st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:8px 0 0px"><b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
                                 unsafe_allow_html=True)
                 from .urunler_ekran import liste as _urun_liste
                 _urun_liste(urun_data)
@@ -734,7 +734,7 @@ def run():
                 st.markdown(
                     f'<div style="margin:0px 0 12px">'
                     f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-                    f'<span style="color:var(--k-metin);font-size:14px;font-weight:700">🏬 G5F depo kırılımı</span>'
+                    f'<span style="color:var(--k-metin);font-size:14px;font-weight:700">G5F depo kırılımı</span>'
                     f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                     f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
                     f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Satılabilir '
@@ -780,11 +780,11 @@ def run():
                 st.markdown(
                     f'<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 8px">'
                     f'<div style="color:var(--k-metin);font-size:14px;font-weight:700">Fiyat analizi</div>'
-                    f'<div style="color:var(--k-yesil2);font-size:11px;font-weight:600;background:color-mix(in srgb,var(--k-yesil) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 25%,transparent);border-radius:6px;padding:4px 8px">🚢 İthalat · {ithalat_dosya} parti</div></div>',
+                    f'<div style="color:var(--k-yesil2);font-size:11px;font-weight:600;background:color-mix(in srgb,var(--k-yesil) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 25%,transparent);border-radius:6px;padding:4px 8px">İthalat · {ithalat_dosya} parti</div></div>',
                     unsafe_allow_html=True)
                 metrik_satiri(_fiyat_cards)
             else:
-                st.markdown('<div style="background:color-mix(in srgb,var(--k-soluk) 6%,transparent);border:1px dashed color-mix(in srgb,var(--k-soluk) 25%,transparent);border-radius:12px;padding:16px;text-align:center;color:var(--k-soluk);font-size:13px;margin-bottom:16px">🚢 Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
+                st.markdown('<div style="background:color-mix(in srgb,var(--k-soluk) 6%,transparent);border:1px dashed color-mix(in srgb,var(--k-soluk) 25%,transparent);border-radius:12px;padding:16px;text-align:center;color:var(--k-soluk);font-size:13px;margin-bottom:16px">Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
 
             # EOL rozeti
             if secilen.get("eol"):
@@ -927,7 +927,7 @@ def run():
                         _liste_df = pd.DataFrame(
                             [{"Müşteri": m, "Fiyat ($)": float(_mevcut_liste.get(m, 0) or 0)} for m in _musteriler]
                         )
-                        st.markdown("**🏷️ Satış Fiyat Listesi (müşteri bazlı)** — ana müşteriler hazır gelir; "
+                        st.markdown("**Satış Fiyat Listesi (müşteri bazlı)** — ana müşteriler hazır gelir; "
                                     "müşteriye özel fiyat gir. **Satır ekleyip** yeni müşteri de yazabilirsin (0 bıraktığın satır kaydedilmez).")
                         _liste_edit = st.data_editor(
                             _liste_df, num_rows="dynamic", use_container_width=True, key="urun_fiyat_liste",
@@ -1176,7 +1176,7 @@ def run():
                 ])
 
                 # ── MÜŞTERİ BAZINDA ÖZET (her müşteri = 1 satır: toplam satış + stok) ──
-                st.markdown('<div class="alt-baslik">👥 Müşteri Bazında Özet — her müşteri tek satır (toplam satış + stok)</div>', unsafe_allow_html=True)
+                st.markdown('<div class="alt-baslik">Müşteri Bazında Özet — her müşteri tek satır (toplam satış + stok)</div>', unsafe_allow_html=True)
                 _ozet = (_df.groupby("Müşteri")
                          .agg(**{"Toplam Satış": ("Satış adedi", "sum"),
                                  "Toplam Stok": ("Stok", "sum"),
@@ -1232,7 +1232,7 @@ def run():
             st.markdown("---")
             @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
             def _dlg_musteri_yukle():
-                st.markdown("**📅 Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
+                st.markdown("**Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
                 st.caption("Sekmeler: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` · "
                            "`HEPSİBURADA STOK/SATIŞ` · `MONDAY STOK/SATIŞ`. Her firmanın **kendi portal başlıkları** "
                            "olduğu gibi kalır (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu…). Satışlar SKU ile stokun yanına "
@@ -1319,7 +1319,7 @@ def run():
                         st.toast(f"🪄 {len(_on)} ürün için satış fiyatı önerildi (marj %{tr_sayi(_hedef_marj)})", icon="🪄")
                         st.rerun(scope="fragment")      # pencere açık kalsın (tam yenileme kapatıyordu)
                     _son = st.session_state.get("_satis_oneri", {})
-                    st.caption("💡 Satış ($) hücresini elle de değiştirebilirsin. Paçal = İthalat maliyeti · "
+                    st.caption("Satış ($) hücresini elle de değiştirebilirsin. Paçal = İthalat maliyeti · "
                                "Marj % satışı değiştirince kaydederken yeniden hesaplanır.")
                     _liste_s = [u for u in _ur_s if not (u.get("satis_fiyati") or 0)] if _sadece_fiyatsiz else _ur_s
                     _rows_s = []
@@ -1411,7 +1411,7 @@ def run():
                     st.caption("🔀 " + st.session_state.pop("_kat_std_ozet"))
                 _onk = st.session_state.get("_kat_oneri", {})
                 _onm = st.session_state.get("_marka_oneri", {})
-                st.caption("💡 **Kategori ve Marka hücrelerine tıklayıp serbestçe yazabilirsin.** "
+                st.caption("**Kategori ve Marka hücrelerine tıklayıp serbestçe yazabilirsin.** "
                            "🪄 Otomatik Öner bilinenleri doldurur; üzerine kendi değerini yazabilirsin.")
                 if _sadece_bos:
                     _liste = [u for u in _ur_kat

@@ -1137,7 +1137,7 @@ def render():
 
 def _render_eski():
     """Eski ekran (yalnız geri dönüş için duruyor, çağrılmıyor)."""
-    st.markdown('<div class="baslik">🔖 Ref No Takibi</div>', unsafe_allow_html=True)
+    st.markdown('<div class="baslik">Ref No Takibi</div>', unsafe_allow_html=True)
     st.markdown('<div class="alt-baslik">Firma bazlı ref no atama + havuz bütçe takibi</div>',
                 unsafe_allow_html=True)
 
@@ -1159,7 +1159,7 @@ def _render_eski():
         _secilebilir = [c for c in _cariler if _norm(c) not in _mevcut]
 
         if _secilebilir:
-            st.caption(f"📇 {len(_secilebilir)} firma seçilebilir — muhasebe carileri, "
+            st.caption(f"{len(_secilebilir)} firma seçilebilir — muhasebe carileri, "
                        "satış kanalları ve ithalat tedarikçilerinden derlendi. "
                        "Listede yoksa elle de yazabilirsin.")
         else:
@@ -1337,7 +1337,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
         _yeni_liste = []
 
     # ── Yeni kalem ekle ──
-    st.markdown("**➕ Yeni kalem**")
+    st.markdown("**Yeni kalem**")
     _c1, _c2 = st.columns([3, 1])
     _y_ack = _c1.text_input("Açıklama", key=f"refkal_ack_{_rid}",
                             placeholder="örn. TEMMUZ FAZEON SELLOUT EK DESTEK")
@@ -1373,7 +1373,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
         st.caption("📅 " + " · ".join(f"**{a}** {_sm}{tr_sayi(v)}"
                                       for a, v in sorted(_t["aylik"].items())))
     if _t["kategori_tutar"]:
-        st.caption("🏷️ " + " · ".join(f"**{k}** {_sm}{tr_sayi(v)}" for k, v in
+        st.caption("️ " + " · ".join(f"**{k}** {_sm}{tr_sayi(v)}" for k, v in
                                       sorted(_t["kategori_tutar"].items(),
                                              key=lambda x: -x[1])))
     _aysiz = [k for k in _yeni_liste if not k["ay"]]
@@ -1407,7 +1407,7 @@ def kategori_dagit_dialog(r, firma_adi=""):
 
     _oneri = ref_kategori_onerisi(r.get("aciklama"), _kats)
     if _oneri:
-        st.caption("💡 Açıklamada geçen kategoriler: " + " · ".join(f"`{k}`" for k in _oneri))
+        st.caption("Açıklamada geçen kategoriler: " + " · ".join(f"`{k}`" for k in _oneri))
 
     _mevcut = r.get("kategori_tutar") or {}
     if isinstance(_mevcut, str):
@@ -1497,7 +1497,7 @@ def _ref_detay_govde(r, firma_adi=""):
                 _kt = {}
         _dagitildi = sum(_f(v) for v in (_kt or {}).values()) > 0.005
         if _dagitildi:
-            st.caption("🏷️ Kategori dağılımı: " + " · ".join(
+            st.caption("Kategori dağılımı: " + " · ".join(
                 f"**{k}** {_sm}{tr_sayi(_f(v))}" for k, v in _kt.items() if _f(v) > 0))
         else:
             st.warning(f"🏷️ Bu kayıt **{len(_kats)} kategori** taşıyor ama tutar "
@@ -1828,11 +1828,11 @@ def _render_ref_merkez(firmalar):
         st.session_state[_sk] = _sayfa + 1
         st.rerun()
     if _tekil:
-        a4.caption(f"🏢 **{_tekil.get('firma_adi','')}** · sıradaki numara: "
+        a4.caption(f"**{_tekil.get('firma_adi','')}** · sıradaki numara: "
                    f"`{ref_uret(_tekil.get('firma_kodu',''), _yil(), _sonraki_sira(_tekil['id']))}`"
                    + (f" · sayfa {_sayfa}/{_tsayfa}" if _tsayfa > 1 else ""))
     else:
-        a4.caption("💡 Düzenlemek, yeni ref atamak veya Excel yüklemek için "
+        a4.caption("Düzenlemek, yeni ref atamak veya Excel yüklemek için "
                    "yukarıdan **bir firma seç**."
                    + (f" · sayfa {_sayfa}/{_tsayfa}" if _tsayfa > 1 else ""))
 
@@ -2070,7 +2070,7 @@ def _render_tumu(firmalar):
                 st.caption("Düzeltmek için: yukarıdan firmayı seç → Ref No'lar tablosunda "
                            "Ay/Yıl ya da Tutar hücresini düzelt → Kaydet.")
 
-    st.caption("👆 Detayını görmek istediğin satıra tıkla — açıklama, kategori ve "
+    st.caption("Detayını görmek istediğin satıra tıkla — açıklama, kategori ve "
                "aylık kırılım aşağıda açılır. Bu görünüm salt-okunurdur; ekleme · "
                "düzenleme · silme için yukarıdan **tek bir firma** seç.")
 
@@ -2162,7 +2162,7 @@ def _render_refler(fid, fkod):
             if up is not None:
                 try:
                     df_imp = pd.read_excel(up)
-                    st.caption(f"📄 Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
+                    st.caption(f"Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
                     st.dataframe(df_imp, hide_index=True, use_container_width=True,
                                  height=min(38 + 35 * len(df_imp), 460))
                     imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
@@ -2183,7 +2183,7 @@ def _render_refler(fid, fkod):
         if st.button("Excel'den İçe Aktar", key="btn_ref_ice", use_container_width=True, icon=":material/move_to_inbox:"):
             _dlg_ref_ice_aktar()
 
-    st.markdown("**📋 Geçmiş Ref No'lar**")
+    st.markdown("**Geçmiş Ref No'lar**")
     if not refler:
         st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'den içe aktarabilirsiniz.")
         return
@@ -2362,7 +2362,7 @@ def _render_refler(fid, fkod):
     # ── Toplu sil (görünen kayıtlar / firmanın tümü) ──
     @st.dialog("🗑 Toplu Sil — filtredeki kayıtları veya tüm ref no'ları sil", width="large")
     def _dlg_ref_toplu_sil():
-        st.caption("⚠️ Silme geri alınamaz. 'Görünenleri sil' yalnızca yukarıdaki durum filtresine uyan "
+        st.caption("Silme geri alınamaz. 'Görünenleri sil' yalnızca yukarıdaki durum filtresine uyan "
                    "kayıtları siler; ya da bu firmanın tüm ref no kayıtlarını temizle. "
                    "(Tek tek silmek için tablodaki 'Sil?' kutusunu işaretleyip Kaydet'e de basabilirsin.)")
         _rs1, _rs2 = st.columns(2)
@@ -2567,7 +2567,7 @@ def _render_butce(fid, firma):
     st.markdown("---")
     @st.dialog("🗑 Toplu Sil — arama sonucundaki kayıtları veya tüm bütçeyi sil", width="large")
     def _dlg_butce_sil():
-        st.caption("⚠️ Silme geri alınamaz. Önce yukarıdaki arama ile daralt → 'görünenleri sil' yalnızca "
+        st.caption("Silme geri alınamaz. Önce yukarıdaki arama ile daralt → 'görünenleri sil' yalnızca "
                    "filtrelenen kayıtları siler; ya da bu firmanın tüm havuz bütçe kayıtlarını temizle.")
         _bs1, _bs2 = st.columns(2)
         with _bs1:

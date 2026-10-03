@@ -81,7 +81,18 @@ def _filtre_temizle(keys, tumu):
 # ── Küçük HTML parçaları ────────────────────────────────────────────
 def grup_basligi(baslik, ozet=""):
     o = f"<span>{_h.escape(str(ozet))}</span>" if ozet else ""
-    return f'<div class="k-grup"><b>{_h.escape(str(baslik))}</b>{o}<i></i></div>'
+    ik = ""
+    try:                                   # baştaki emoji → çizgi ikon (shared/ikon.py, IKON_YENI)
+        from shared.tasarim import IKON_YENI, ikon_html
+        if IKON_YENI:
+            from shared.ikon import bas_emoji
+            ad, kalan = bas_emoji(str(baslik))
+            if kalan is not baslik and kalan != str(baslik):
+                baslik = kalan
+                ik = ikon_html(ad, 16) + " " if ad else ""
+    except Exception:  # noqa: BLE001
+        pass
+    return f'<div class="k-grup"><b>{ik}{_h.escape(str(baslik))}</b>{o}<i></i></div>'
 
 
 def cip(metin, renk="mor2", title=""):

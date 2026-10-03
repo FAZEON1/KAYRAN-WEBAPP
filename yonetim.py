@@ -510,7 +510,7 @@ def run():
             _satirlar.append(_trow)
             st.dataframe(_pd_g.DataFrame(_satirlar), hide_index=True, use_container_width=True,
                          height=tablo_h(len(_satirlar)))
-            st.caption(f"📅 Yüklenme: {_tr_tarih(_gider.get('tarih'))} · Tutarlar TL · yatay kaydırılabilir.")
+            st.caption(f"Yüklenme: {_tr_tarih(_gider.get('tarih'))} · Tutarlar TL · yatay kaydırılabilir.")
 
         @st.dialog("🗂️ Değişiklik Günlüğü (Audit Log)", width="large")
         def _dlg_audit():
@@ -595,7 +595,7 @@ def run():
             _veri_durumu(_r["eksikler"])
             import pandas as _pd
             if _r["kanal"]:
-                st.markdown("**🛒 Kanal Kırılımı**")
+                st.markdown("**Kanal Kırılımı**")
                 st.dataframe(_pd.DataFrame([{
                     "Kanal": k["kanal"], "Adet": k["adet"], "Ciro": round(k["ciro"], 2),
                     "Net Kâr": round(k["net_kar"], 2), "Marj (%)": round(k["marj"], 1),
@@ -605,14 +605,14 @@ def run():
             _cc1, _cc2 = st.columns(2)
             if _r["urun_top"]:
                 with _cc1:
-                    st.markdown("**🏆 En Kârlı Ürünler**")
+                    st.markdown("**En Kârlı Ürünler**")
                     st.dataframe(_pd.DataFrame([{
                         "Ürün": u["urun"], "Adet": u["adet"], "Net Kâr": round(u["net_kar"], 2),
                     } for u in _r["urun_top"]]), hide_index=True, use_container_width=True,
                         height=min(260, 40 + 35 * len(_r["urun_top"])))
             if _r["urun_zarar"]:
                 with _cc2:
-                    st.markdown("**📉 Zarardaki Ürünler**")
+                    st.markdown("**Zarardaki Ürünler**")
                     st.dataframe(_pd.DataFrame([{
                         "Ürün": u["urun"], "Adet": u["adet"], "Net Kâr": round(u["net_kar"], 2),
                     } for u in _r["urun_zarar"]]), hide_index=True, use_container_width=True,

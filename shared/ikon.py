@@ -18,6 +18,8 @@ import re
 _EMO = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF\u2139\u24C2\u21A9\u21AA]")
 _TIPO = set("✓✗✕✖✔︎•●○■□▲▼◆◇★☆")
 _EK = "\ufe0f\u200d\u20e3"
+# Durum noktaları rengiyle anlam taşır (acil talep, aktif/kapalı) → dokunulmaz
+_DURUM = set("🔴🟠🟡🟢🔵🟣⚪⚫🟤")
 
 _MESAJ_IKON = {"success": "check_circle", "info": "info", "warning": "warning", "error": "error"}
 
@@ -32,7 +34,7 @@ def bas_emoji(metin):
     if not isinstance(metin, str) or not metin:
         return None, metin
     s = metin.lstrip()
-    if not s or not _emoji_mi(s[0]):
+    if not s or not _emoji_mi(s[0]) or s[0] in _DURUM:
         return None, metin
     i = 0
     while i < len(s) and (_emoji_mi(s[i]) or s[i] in _EK):

@@ -258,11 +258,22 @@ def css():
 </style>"""
 
 
+def _kisi_ikonu(metin):
+    """Başlıktaki sorumlu işareti (· 👤 Ad) → çizgi kişi ikonu (IKON_YENI)."""
+    try:
+        from shared.tasarim import IKON_YENI, ikon_html
+        if IKON_YENI:
+            return metin.replace("👤", ikon_html("person", 14))
+    except Exception:  # noqa: BLE001
+        pass
+    return metin
+
+
 def satir_html(m):
     r = ONCELIK_RENK.get(m["oncelik"], "var(--k-soluk)")
     return (f'<div class="bgn-satir" style="--r:{r}">'
             f'<div class="bgn-sayi">{m["sayi"]}</div>'
-            f'<div class="bgn-metin"><div class="bgn-baslik">{_h.escape(m["baslik"])}'
+            f'<div class="bgn-metin"><div class="bgn-baslik">{_kisi_ikonu(_h.escape(m["baslik"]))}'
             f'<span class="bgn-rozet">{ONCELIK_ETIKET.get(m["oncelik"], "")}</span></div>'
             f'<div class="bgn-detay" title="{_h.escape(m["detay"], quote=True)}">{_h.escape(m["detay"])}</div>'
             f'</div></div>')

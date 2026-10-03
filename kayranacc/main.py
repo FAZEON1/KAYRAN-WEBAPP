@@ -1111,7 +1111,7 @@ def run():
         st.markdown("---")
     
         # Kur paneli
-        st.markdown("**💱 USD/TL Kur**")
+        st.markdown("**USD/TL Kur**")
     
         # get_kur() çağır — session yeni ise otomatik API'den çekilir
         mevcut_kur = get_kur()
@@ -1148,12 +1148,12 @@ def run():
             else:
                 st.error("❌ Bağlanamadı, manuel girin.")
     
-        st.markdown(f"<small>🕐 {tr_now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
+        st.markdown(f"<small>{tr_now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
     
         st.markdown("---")
     
         # ── Uygulamayı Yenile (Browser cache'i temizle + veri yenile) ──
-        st.markdown("**⚙️ Sistem**")
+        st.markdown("**Sistem**")
         if st.button("Uygulamayı Yenile", use_container_width=True, help="Verileri ve arayüzü tazele", icon=":material/refresh:"):
             # Session state'i temizle (kullanıcı bilgisi hariç)
             korunacak = {"giris_yapildi", "aktif_kullanici"}
@@ -1215,7 +1215,7 @@ def run():
             '<div style="background:color-mix(in srgb,var(--k-mor) 6%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);'
             'border-radius:10px;padding:8px 16px;margin:8px 0 16px;display:flex;gap:24px;flex-wrap:wrap;'
             'align-items:center;font-size:13px">'
-            '<span style="color:var(--k-soluk);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">🏦 Toplam</span>'
+            '<span style="color:var(--k-soluk);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">Toplam</span>'
             f'<span style="color:var(--k-mor)">TL <b style="color:var(--k-metin);font-family:monospace">₺{tr_sayi(_v_tl, 2)}</b></span>'
             f'<span style="color:var(--k-mavi)">USD <b style="color:var(--k-metin);font-family:monospace">${tr_sayi(_v_usd, 2)}</b></span>'
             + (f'<span style="color:var(--k-mor)">EUR <b style="color:var(--k-metin);font-family:monospace">€{tr_sayi(_v_eur, 2)}</b></span>' if _v_eur else '')
@@ -1260,7 +1260,7 @@ def run():
                 disabled=(kaynak_bakiye_val <= 0)
             )
             if kaynak_bakiye_val <= 0:
-                st.caption("⚠️ Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
+                st.caption("Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
         with col_k:
             if farkli_pb:
                 kullanilan_kur = st.number_input(
@@ -1939,7 +1939,7 @@ def run():
                                        key=f"arb_kur_{_guclu}_{_zayif}",
                                        help="Bankanın uyguladığı gerçek kuru gir")
                 if _k_bak <= 0:
-                    st.caption(f"⚠️ {_kpb} hesabının bakiyesi 0 veya negatif.")
+                    st.caption(f"{_kpb} hesabının bakiyesi 0 veya negatif.")
 
                 # Zayıf → güçlü ise BÖL, güçlü → zayıf ise ÇARP
                 _karsilik = (_tutar / _kur) if _PB_SIRA[_kpb] < _PB_SIRA[_hpb] else (_tutar * _kur)
@@ -2493,7 +2493,7 @@ def run():
                         )
                         st.markdown("")
                         st.markdown(
-                            '<div class="info-box">💡 <b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
+                            '<div class="info-box"><b>Nasıl PDF yapılır?</b><br>HTML dosyasını indirip tarayıcıda açın - Ctrl+P (veya Cmd+P) - "Hedef" olarak <b>PDF Olarak Kaydet</b> secin - Kaydet.</div>',
                             unsafe_allow_html=True
                         )
                     except Exception as e:
@@ -2560,9 +2560,9 @@ def run():
                 with col1:
                     st.markdown("**Mevcut Konfigürasyon**")
                     if ayarlar.get("smtp_user"):
-                        st.markdown(f'<div class="ok-box">✅ SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>👤 Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>📧 Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ok-box">SMTP: {ayarlar["smtp_host"]}:{ayarlar["smtp_port"]}<br>Kullanıcı: {mask_email(ayarlar["smtp_user"])}<br>Alıcı: {mask_email(ayarlar["alici_email"])}</div>', unsafe_allow_html=True)
                     else:
-                        st.markdown('<div class="uyari-box">⚠️ SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="uyari-box">SMTP ayarları henüz yapılandırılmamış.<br>Secrets bölümünden ekleyin.</div>', unsafe_allow_html=True)
     
                 with col2:
                     st.markdown("**Bağlantı Testi**")
@@ -2592,18 +2592,18 @@ def run():
                     with tab1:
                         konu, html_icerik = vade_bildirimi_olustur(odemeler, hafta_adi)
                         if not konu:
-                            st.markdown('<div class="ok-box">✅ Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
+                            st.markdown('<div class="ok-box">Bugün ve yarın vadeli bekleyen ödeme yok. Bildirim gönderilecek bir durum yok.</div>', unsafe_allow_html=True)
                         else:
                             bugun_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == tr_today_iso())
                             yarin_cnt  = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] == (tr_today() + timedelta(days=1)).isoformat())
                             gecmis_cnt = sum(1 for o in odemeler if o.get("durum") != "odendi" and (o.get("vade") or "")[:10] < tr_today_iso() and (o.get("vade") or "")[:10])
     
                             if gecmis_cnt:
-                                st.markdown(f'<div class="alarm-box">🚨 {gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="alarm-box">{gecmis_cnt} gecikmiş ödeme!</div>', unsafe_allow_html=True)
                             if bugun_cnt:
-                                st.markdown(f'<div class="uyari-box">⚠️ Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="uyari-box">Bugün vadeli: {bugun_cnt} ödeme</div>', unsafe_allow_html=True)
                             if yarin_cnt:
-                                st.markdown(f'<div class="info-box">📅 Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="info-box">Yarın vadeli: {yarin_cnt} ödeme</div>', unsafe_allow_html=True)
     
                             st.markdown(f"**Konu:** `{konu}`")
                             st.markdown(f"**Alıcı:** `{mask_email(ayarlar['alici_email'])}`")
@@ -3040,15 +3040,15 @@ def run():
                     st.markdown(
                         f'<div style="background:color-mix(in srgb,var(--k-yesil) 10%,transparent);border-left:3px solid var(--k-yesil);'
                         f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
-                        f'<span style="color:var(--k-yesil);font-weight:700;font-size:13px">✅ {baslik} yüklü</span>'
+                        f'<span style="color:var(--k-yesil);font-weight:700;font-size:13px">{baslik} yüklü</span>'
                         f'<span style="color:var(--k-soluk);font-size:13px"> — {ozet_satir}</span><br>'
-                        f'<span style="color:var(--k-silik);font-size:11px">👤 {kim.capitalize()} · 🕐 {zaman or "—"}</span>'
+                        f'<span style="color:var(--k-silik);font-size:11px">{kim.capitalize()} · 🕐 {zaman or "—"}</span>'
                         f'</div>', unsafe_allow_html=True)
                 else:
                     st.markdown(
                         f'<div style="background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border-left:3px solid var(--k-kirmizi);'
                         f'border-radius:6px;padding:8px 12px;margin:2px 0 8px">'
-                        f'<span style="color:var(--k-kirmizi);font-weight:700;font-size:13px">⭕ {baslik} henüz yüklenmedi</span>'
+                        f'<span style="color:var(--k-kirmizi);font-weight:700;font-size:13px">{baslik} henüz yüklenmedi</span>'
                         f'</div>', unsafe_allow_html=True)
 
             def _yukle_bloku(no, baslik, anahtar, dosya_key, parser, kaydet_fn,
@@ -3399,7 +3399,7 @@ def run():
                          "Genellikle `sistem_ayarlari` tablosu eksik/yanlış olduğunda olur.")
                 if _h:
                     st.code(_h, language="text")
-                    st.caption("☝️ Bu hata mesajını yöneticine ilet — kesin çözüm için bu lazım.")
+                    st.caption("Bu hata mesajını yöneticine ilet — kesin çözüm için bu lazım.")
 
             # ─── Manuel Ekleme/Çıkarma ───
             st.markdown("---")
@@ -3460,7 +3460,7 @@ def run():
             def _dlg_kalem_duzenle(_k):
                 _kid = _k["id"]
                 _yerel = isinstance(_kid, str) and str(_kid).startswith("local_")
-                st.caption(f"📅 Oluşturulma: {(_k.get('olusturuldu') or '')[:10]}"
+                st.caption(f"Oluşturulma: {(_k.get('olusturuldu') or '')[:10]}"
                            + ("  ·  ⚠️ oturum belleğinde (kalıcı değil)" if _yerel else ""))
                 d1, d2, d3 = st.columns([1, 3, 1])
                 with d1:
@@ -3532,7 +3532,7 @@ def run():
     
             # Mevcut kalemleri listele
             if manuel_kalemler:
-                st.markdown(f"**📋 Kayıtlı Kalemler ({len(manuel_kalemler)})**")
+                st.markdown(f"**Kayıtlı Kalemler ({len(manuel_kalemler)})**")
                 for k in manuel_kalemler:
                     tip = k.get("tip", "ekle")
                     renk = trenk("yesil") if tip == "ekle" else trenk("kirmizi")
@@ -3543,7 +3543,7 @@ def run():
                     with col_a:
                         st.markdown(
                             f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
-                            f'<div><b style="color:var(--k-metin);font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:var(--k-soluk)">📅 {(k.get("olusturuldu") or "")[:10]}</div></div>'
+                            f'<div><b style="color:var(--k-metin);font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:var(--k-soluk)">{(k.get("olusturuldu") or "")[:10]}</div></div>'
                             f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
                             f'</div>',
                             unsafe_allow_html=True

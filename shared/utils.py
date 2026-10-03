@@ -213,7 +213,7 @@ def sayfa_error_handler(sayfa_adi: str, hata: Exception) -> None:
         '<div style="background:var(--k-kirmizi);border:1px solid var(--k-kirmizi2);border-left:4px solid var(--k-kirmizi);'
         'border-radius:12px;padding:20px 24px;margin:20px 0">'
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-        '<span style="font-size:23px">⚠️</span>'
+        '<span style="font-size:23px">️</span>'
         f'<b style="color:var(--k-kirmizi);font-size:16px">{sayfa_adi} Sayfasında Bir Sorun Oluştu</b>'
         '</div>'
         '<div style="color:var(--k-kirmizi);font-size:13px;line-height:1.6;margin-bottom:14px">'

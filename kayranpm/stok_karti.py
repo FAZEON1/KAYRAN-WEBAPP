@@ -95,7 +95,7 @@ def _alim_detay(a):
         f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-left:3px solid var(--k-mor);'
         f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
         f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">📄 Alım Detayı</span>'
+        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">Alım Detayı</span>'
         f'<span style="font-size:13px;font-weight:700;color:var(--k-mor2);'
         f'font-family:JetBrains Mono,monospace">{a.get("belge_no") or "—"}</span></div>'
         f'</div>', unsafe_allow_html=True)
@@ -158,7 +158,7 @@ def _satis_detay(s, satir_kar):
         f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-left:3px solid var(--k-mor);'
         f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
         f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">📄 Satış Detayı</span>'
+        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">Satış Detayı</span>'
         f'<span style="font-size:13px;font-weight:700;color:var(--k-mor2);font-family:Inter">'
         f'{gun_ay_yil(s.get("tarih"))} · {s.get("kanal") or "—"}</span></div></div>',
         unsafe_allow_html=True)
@@ -188,9 +188,9 @@ def _satis_detay(s, satir_kar):
         f'</div>', unsafe_allow_html=True)
 
     if s.get("kampanya_id"):
-        st.caption(f"🎯 Kampanya ID: {s.get('kampanya_id')}")
+        st.caption(f"Kampanya ID: {s.get('kampanya_id')}")
     if s.get("notlar"):
-        st.caption(f"📝 Not: {s.get('notlar')}")
+        st.caption(f"Not: {s.get('notlar')}")
 
 
 @st.dialog("📦 Stok Kartı", width="large")
@@ -487,7 +487,7 @@ def goster(sku):
             } for a in alimlar])
             _ev = st.dataframe(_df, hide_index=True, use_container_width=True,
                                on_select="rerun", selection_mode="single-row", key="alim_tablo")
-            st.caption("👆 Detayını görmek için bir satıra tıkla.")
+            st.caption("Detayını görmek için bir satıra tıkla.")
             if _ev.selection.rows:
                 _alim_detay(alimlar[_ev.selection.rows[0]])
         else:
@@ -529,7 +529,7 @@ def goster(sku):
             st.markdown("**Satış Hareketleri**")
             _sev = st.dataframe(pd.DataFrame(_rows), hide_index=True, use_container_width=True,
                                 on_select="rerun", selection_mode="single-row", key="satis_tablo")
-            st.caption("👆 Detayını görmek için bir satıra tıkla.")
+            st.caption("Detayını görmek için bir satıra tıkla.")
             if _sev.selection.rows:
                 _satis_detay(satislar[_sev.selection.rows[0]], satir_kar)
         else:
@@ -619,7 +619,7 @@ def goster(sku):
                 _sp_kur = _f(_k.get("spiff_kur"))
                 if _sp_tl:
                     _sp_usd = (f" (≈ ${tr_sayi(_sp_tl / _sp_kur, 2)})" if _sp_kur else "")
-                    st.caption(f"💸 Spiff: ₺{tr_sayi(_sp_tl, 2)}{_sp_usd}"
+                    st.caption(f"Spiff: ₺{tr_sayi(_sp_tl, 2)}{_sp_usd}"
                                + ("  · faturalı" if _k.get("spiff_fatura") else ""))
                 if _k.get("notlar"):
                     st.markdown(f"**Not:** {_k.get('notlar')}")
@@ -650,7 +650,7 @@ def goster(sku):
                 _kart("Stok Devir (DIO)", f"{_tukenme:.0f} gün", "elde kalma", trenk("mavi")),
             ])
             st.markdown(
-                f"📦 **Yeniden sipariş noktası:** Üretim/tedarik süresi {uretim_suresi} gün. "
+                f"**Yeniden sipariş noktası:** Üretim/tedarik süresi {uretim_suresi} gün. "
                 f"Stok **{tr_sayi(_reorder)} adet**'e inince sipariş ver "
                 f"(şu an {tr_sayi(toplam_stok)}, yolda {tr_sayi(yolda_adet)})."
             )
@@ -671,7 +671,7 @@ def goster(sku):
             _abc = "A" if _cp >= 5 else ("B" if _cp >= 1 else "C")
             _renk = {"A": trenk("yesil"), "B": trenk("amber"), "C": trenk("soluk")}[_abc]
             st.markdown(
-                f"<div style='margin:8px 0'>🏷️ <b style='color:{_renk}'>ABC Sınıfı: {_abc}</b> — "
+                f"<div style='margin:8px 0'>️ <b style='color:{_renk}'>ABC Sınıfı: {_abc}</b> — "
                 f"Toplam cironun %{tr_sayi(_cp, 1)}'i, toplam kârın %{tr_sayi(_kp, 1)}'i bu üründen.</div>",
                 unsafe_allow_html=True)
 
@@ -726,7 +726,7 @@ def goster(sku):
                 "Tarih": gun_ay_yil(r.get("tarih")), "Cari / Firma": (r.get("kanal") or "—")[:40],
                 "Adet": _f(r.get("iade_adet")), "İade Tutarı": _usd(_f(r.get("iade_net"))),
             } for r in iadeler]), hide_index=True, use_container_width=True)
-            st.caption("↩️ İade edilen mal stoğa döner ve tekrar satılabilir; kâr/marj brüt satıştan "
+            st.caption("İade edilen mal stoğa döner ve tekrar satılabilir; kâr/marj brüt satıştan "
                        "hesaplanır, iade kârdan düşülmez.")
 
     # ── 📜 Stok hareket defteri ──

@@ -22,7 +22,7 @@ def test_bas_emoji():
     assert I.bas_emoji("✅ Kaydedildi") == ("check_circle", "Kaydedildi")
     assert I.bas_emoji("⚠️ Dosya açıldı") == ("warning", "Dosya açıldı")
     assert I.bas_emoji("❌ Hata") == ("cancel", "Hata")
-    assert I.bas_emoji("🟢 Tamam") == (None, "Tamam")           # tanınmayan emoji atılır
+    assert I.bas_emoji("🧿 Tamam") == (None, "Tamam")           # tanınmayan emoji atılır
     assert I.bas_emoji("💾  Veri yedekleme") == ("save", "Veri yedekleme")
 
 
@@ -37,6 +37,15 @@ def test_donus_oku_emoji_ama_oklar_degil():
     I = _i()
     assert I.bas_emoji("↩️ İade") == ("undo", "İade")
     assert I.bas_emoji("→ Muhasebe") == (None, "→ Muhasebe")
+
+
+def test_durum_noktasi_korunur():
+    """🔴 / 🟢 rengiyle anlam taşır (acil talep, aktif/kapalı). Katman dokunmaz —
+    1. adımda açılır bölümlerdeki 🔴 atılıyordu, acil işareti kayboluyordu."""
+    I = _i()
+    for m in ("🔴 Acil konu", "🟢 Aktif", "🟡 Bekliyor"):
+        assert I.bas_emoji(m) == (None, m)
+        assert I.acilir(m, None) == (m, None) and I.sekme(m) == m
 
 
 def test_yalniz_emoji():
@@ -70,7 +79,7 @@ def test_toast_ikonu_emojiden():
 def test_etiket_ikonu():
     I = _i()
     assert I.etiket("🔧 Teknik detay", None) == ("Teknik detay", ":material/build:")
-    assert I.etiket("🟢 Durum", None) == ("Durum", None)
+    assert I.etiket("🧿 Durum", None) == ("Durum", None)
     assert I.etiket("📅 Tarih", ":material/event:") == ("Tarih", ":material/event:")
     assert I.etiket("Düz", None) == ("Düz", None)
 
@@ -86,7 +95,7 @@ def test_acilir_bolum_ikon_almaz():
 def test_sekme_etiketi_markdown_ikon():
     I = _i()
     assert I.sekme("📊 Özet") == ":material/dashboard: Özet"
-    assert I.sekme("🟢 Açık") == "Açık"
+    assert I.sekme("🧿 Açık") == "Açık"
     assert I.sekme("Düz") == "Düz"
 
 
