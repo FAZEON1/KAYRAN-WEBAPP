@@ -264,7 +264,6 @@ def alinan_destek_sil(rid):
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-@st.cache_data(ttl=3600, show_spinner=False)
 def _eur_usd_kur():
     """1 EUR kaç USD — mevcut kur API'sinden (open.er-api.com). Alınamazsa 1.08.
     HIZ: saatlik önbellek. Eskiden EUR kaydı olan her ekran çiziminde internete
