@@ -89,6 +89,72 @@ def _egilim(seri, haftalar, key):
            xaxis=dict(type="category"), yaxis=dict(tickformat=",d"))
 
 
+_KART_KAYNAK = {"sku": "SKU birebir", "tablo": "Onaylı eşleme", "kural": "Ürün adı / model kodu",
+                "belirsiz": "Belirsiz, onay bekliyor"}
+
+
+def _eslesme_bolumu(rows, meta, kartlar, eslesme_satir):
+    """Kart eşleşmesi bekleyen rapor kodları: belirsiz (birden çok aday) ve hiç bulunamayanlar.
+    Kullanıcı kartı seçip onaylar → sku_eslesme. Koruma musteri_hesap.eslesme_dogrula'da:
+    kendisi kart SKU'su olan kod (F11PA650BWM) başka bir karta (F11PA650BBM) bağlanamaz."""
+    from .database import SKU_ESLESME_SQL, sku_eslesme_kaydet, sku_eslesme_sil
+    bekleyen = sorted((k for k, m in meta.items() if m.get("kart_kaynak") in ("belirsiz", "")),
+                      key=lambda k: (meta[k].get("kart_kaynak") != "belirsiz", k))
+    n_bel = sum(1 for k in bekleyen if meta[k].get("kart_kaynak") == "belirsiz")
+    with st.expander(f"Kart eşleşmesi bekleyen kodlar ({len(bekleyen)})", icon=":material/link:"):
+        st.caption("Rapordaki kod hiçbir stok kartına bağlanamadı ya da birden çok karta uyuyor "
+                   f"({n_bel} belirsiz). Belirsizde program seçim yapmaz; doğru kartı sen onaylarsın. "
+                   "Kendi stok kartı olan bir kod başka bir karta bağlanamaz.")
+        if eslesme_satir is None:
+            st.info("Onaylı eşlemeler için 'sku_eslesme' tablosu henüz yok. Supabase → SQL Editor'de "
+                    "bir kez çalıştırın (veritabani/10_sku_eslesme.sql):")
+            st.code(SKU_ESLESME_SQL, language="sql")
+            return
+        adlar = {}
+        for r in rows:
+            adlar.setdefault(str(r.get("sku") or "").strip(), str(r.get("urun_adi") or "").strip())
+
+        def _kart_etiket(ks):
+            ad = (kartlar.get(ks) or {}).get("urun_adi") or ""
+            return f"{ks} · {ad}" if ad else ks
+
+        if bekleyen:
+            c1, c2, c3 = st.columns([1.2, 1.2, 0.6], vertical_alignment="bottom")
+            dis = c1.selectbox(
+                "Rapordaki kod", bekleyen, key="mhs_es_dis",
+                format_func=lambda k: f"{k} · {adlar.get(k) or '—'}" + (
+                    f" · {len(meta[k]['adaylar'])} aday" if meta[k].get("adaylar") else ""))
+            aday = list(meta[dis].get("adaylar") or [])
+            secenek = aday + sorted(k for k in kartlar if k not in aday)
+            kart = c2.selectbox("Stok kartı", secenek, index=None, key=f"mhs_es_kart_{dis}",
+                                placeholder="Aday kartlar başta", format_func=_kart_etiket)
+            if c3.button("Eşlemeyi kaydet", key="mhs_es_kaydet", icon=":material/link:",
+                         disabled=not kart, use_container_width=True):
+                ok, msg = sku_eslesme_kaydet(dis, kart, st.session_state.get("aktif_kullanici", ""))
+                if ok:
+                    st.toast(msg)
+                    st.rerun()
+                st.error(msg)
+        else:
+            st.caption("Bu aralıkta bekleyen kod yok.")
+        if eslesme_satir:
+            st.markdown("**Onaylı eşlemeler**")
+            st.dataframe(pd.DataFrame([{"Rapordaki kod": r.get("dis_kod"), "Stok kartı": _kart_etiket(r.get("kart_sku")),
+                                        "Onaylayan": r.get("onaylayan") or "—",
+                                        "Tarih": str(r.get("created_at") or "")[:10]} for r in eslesme_satir]),
+                         hide_index=True, use_container_width=True)
+            k1, k2 = st.columns([2.4, 0.6], vertical_alignment="bottom")
+            sil = k1.selectbox("Kaldırılacak eşleme", [r.get("dis_kod") for r in eslesme_satir], index=None,
+                               key="mhs_es_sil", placeholder="Seç")
+            if k2.button("Kaldır", key="mhs_es_sil_btn", icon=":material/link_off:", disabled=not sil,
+                         use_container_width=True):
+                ok, msg = sku_eslesme_sil(sil)
+                if ok:
+                    st.toast(msg)
+                    st.rerun()
+                st.error(msg)
+
+
 def render(yukle_penceresi=None):
     from shared.tarih import hizli_tarih_araligi
     from shared.utils import metrik_satiri
@@ -116,10 +182,13 @@ def render(yukle_penceresi=None):
     # Kart eşleştirme + kategori çözümü (musteri_hesap.meta_hazirla): ham SKU tutmasa da
     # normalize SKU / SKU parçası / ürün adıyla kart bulunur; kartta kategori boşsa addan tahmin.
     from shared.utils import sku_anahtar
-    from .database import kategori_oner, marka_oner, KATEGORI_LISTE, MARKA_KURALLAR
-    meta = H.meta_hazirla(rows, get_urun_marka_kategori() or {}, sku_fn=sku_anahtar,
+    from .database import kategori_oner, marka_oner, KATEGORI_LISTE, MARKA_KURALLAR, get_sku_eslesme
+    kartlar = get_urun_marka_kategori() or {}
+    eslesme_satir = get_sku_eslesme()               # None: tablo kurulmamış (kurallar yine çalışır)
+    meta = H.meta_hazirla(rows, kartlar, sku_fn=sku_anahtar,
                           oner=kategori_oner, kategori_liste=KATEGORI_LISTE,
-                          marka_oner=marka_oner, marka_liste=[m for m, _ in MARKA_KURALLAR])
+                          marka_oner=marka_oner, marka_liste=[m for m, _ in MARKA_KURALLAR],
+                          eslesme={r.get("dis_kod"): r.get("kart_sku") for r in (eslesme_satir or [])})
     oz = H.ozet(rows)
 
     # Önceki eşit dönem (satış karşılaştırması). Okunamazsa rozet çıkmaz, sayfa çalışır.
@@ -152,6 +221,9 @@ def render(yukle_penceresi=None):
                          "Kategori": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori", ""),
                          "Kategori kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
                              (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori_kaynak"), "—"),
+                         "Stok kartı": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_sku", ""),
+                         "Kart eşleşmesi": _KART_KAYNAK.get(
+                             (meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_kaynak"), "—"),
                          "Satış adedi": H.satis(r), "Stok": H.stok(r)} for r in rows])
     ozet_df = pd.DataFrame([{k: v for k, v in s.items() if not k.startswith("_")}
                             for s in _satirlar(gruplar, kir, ust_ad, mod="tam")])          # Excel: tüm sütunlar
@@ -175,6 +247,7 @@ def render(yukle_penceresi=None):
                     + "Kalıcı yapmak için: Ürün Yönetimi → Toplu Kategori & Marka.",
                     help=("Tahmin: " + ", ".join(_tah[:30]) + (" …" if len(_tah) > 30 else "") if _tah else "")
                     + (("\n\nEşleşmeyen: " + ", ".join(_yok[:30]) + (" …" if len(_yok) > 30 else "")) if _yok else ""))
+        _eslesme_bolumu(rows, meta, kartlar, eslesme_satir)
     secili = gruplar[sec] if sec is not None else (gruplar[0] if gruplar else None)
     with sag:
         if not secili:

@@ -18,7 +18,7 @@ import pandas as pd
 from supabase import create_client
 
 YEDEK_TABLOLAR = [
-    "urunler", "firma_stok", "stok_yas", "yoldaki_urunler",
+    "urunler", "firma_stok", "stok_yas", "yoldaki_urunler", "sku_eslesme",
     "kampanyalar", "kampanya_urunler",
     "ref_kayitlari", "ref_butce", "ref_firmalar",
     "ithalat_dosyalari", "ithalat_kalemleri",

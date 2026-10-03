@@ -122,6 +122,7 @@ KRITIK_FONKSIYONLAR = {
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
         "depo_dagilimi", "satilabilir_kontrol",   # G5F kırılım rozetleri + satılabilir farkı (Eki 2026)
         "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
+        "get_sku_eslesme", "sku_eslesme_kaydet", "sku_eslesme_sil",   # onaylı SKU eşleme (Eki 2026)
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
@@ -130,7 +131,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
-    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
+    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu

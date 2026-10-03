@@ -514,6 +514,56 @@ def get_urun_marka_kategori():
         return {}
 
 
+# ── SKU EŞLEME (onaylı rapor kodu → stok kartı, Ekim 2026) ──────────
+# Kural ve koruma: kayranpm.musteri_hesap (meta_hazirla, eslesme_dogrula). Tablo kurulumu:
+# veritabani/10_sku_eslesme.sql. Program bu tabloya tahminle yazmaz; yalnız kullanıcı onayı.
+SKU_ESLESME_SQL = ("create table if not exists sku_eslesme (dis_kod text primary key, "
+                   "kart_sku text not null, onaylayan text, created_at timestamptz not null default now());\n"
+                   "alter table sku_eslesme disable row level security;")
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_sku_eslesme():
+    """[{dis_kod, kart_sku, onaylayan, created_at}] — tablo yoksa None (ekran kurulum SQL'ini gösterir)."""
+    try:
+        return _hepsi("sku_eslesme", "dis_kod, kart_sku, onaylayan, created_at", "dis_kod")
+    except Exception:  # noqa: BLE001 — tablo henüz kurulmadı; eşleştirme kurallarla sürer
+        return None
+
+
+def sku_eslesme_kaydet(dis_kod, kart_sku, onaylayan=""):
+    """Onaylı eşleme yazar. Döner: (ok, mesaj). Önce musteri_hesap.eslesme_dogrula denetler:
+    kart SKU'su başka karta eşlenemez, olmayan karta eşlenemez, başka karta eşli kod ezilmez."""
+    from shared.utils import sku_anahtar
+    from .musteri_hesap import eslesme_dogrula
+    mevcut = {r.get("dis_kod"): r.get("kart_sku") for r in (get_sku_eslesme() or [])}
+    ok, msg, kayit = eslesme_dogrula(dis_kod, kart_sku, get_urun_marka_kategori() or {},
+                                     sku_fn=sku_anahtar, mevcut=mevcut)
+    if not ok:
+        return False, msg
+    try:
+        get_client().table("sku_eslesme").upsert(
+            dict(kayit, onaylayan=str(onaylayan or "")), on_conflict="dis_kod").execute()
+    except Exception as e:  # noqa: BLE001
+        return False, f"Kaydedilemedi: {e}"
+    _cache_temizle()
+    return True, f"{kayit['dis_kod']} → {kayit['kart_sku']} eşlemesi kaydedildi."
+
+
+def sku_eslesme_sil(dis_kod):
+    """Onaylı eşlemeyi kaldırır (satış/stok verisine dokunmaz). Döner: (ok, mesaj)."""
+    from shared.utils import sku_anahtar
+    dk = sku_anahtar(dis_kod)
+    if not dk:
+        return False, "Dış kod boş."
+    try:
+        get_client().table("sku_eslesme").delete().eq("dis_kod", dk).execute()
+    except Exception as e:  # noqa: BLE001
+        return False, f"Kaldırılamadı: {e}"
+    _cache_temizle()
+    return True, f"{dk} eşlemesi kaldırıldı."
+
+
 # ── İTHALAT SENKRONİZASYONU ─────────────────────────────────────────
 def ithalat_sku_ozet():
     """İthalat'taki distinct SKU'lar → {sku: {'urun_adi':..., 'adet':...}}."""
