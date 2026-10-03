@@ -877,6 +877,8 @@ _sb_comp.html(
         const egik = e.key === "/" && !yaziyor && !e.ctrlKey && !e.metaKey && !e.altKey;
         if (!ctrlK && !egik) return;
         e.preventDefault();
+        // Komut paleti varsa onu aç (shared/palet.py); yoksa eski arama kutusu
+        if (w.__kayranPaletAc) { w.__kayranPaletAc(); return; }
         if (kutu()) { odakla(0); return; }
         const d = doc.querySelector(".st-key-top_arama button");
         if (d) { d.click(); odakla(25); }
@@ -1290,6 +1292,8 @@ if "aktif_uygulama" not in st.session_state:
         st.session_state.aktif_uygulama = st.query_params.get("s") or "anasayfa"
     except Exception:
         st.session_state.aktif_uygulama = "anasayfa"
+    from shared.gezinme import adres_oku
+    adres_oku()                     # ?p= → modül menüsü o sayfada açılır
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1679,8 +1683,8 @@ def ust_navigasyon():
     # Herkes TÜM modülleri görür; yetkisi olmayan tıklarsa yönlendirmede
     # "🔒 ... erişim yetkiniz yok" uyarısı alır (dispatch guard'ları).
     # (etiket, modül_kodu, material ikon) — emoji değil gerçek vektör ikon
+    # Arama artık modül değil: "Ana Sayfa"nın yanında komut paleti (shared/palet.py)
     moduller = [("Ana Sayfa", "anasayfa", ":material/home:"),
-                ("Arama", "arama", ":material/search:"),
                 ("Yönetim", "yonetim", ":material/monitoring:"),
                 ("Muhasebe", "kayranacc", ":material/account_balance_wallet:"),
                 ("İthalat", "ithalat", ":material/directions_boat:"),
@@ -1799,8 +1803,14 @@ def ust_navigasyon():
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
-        cols = st.columns(len(moduller) + 1, gap="small")
-        for c, (ad, mod, ikon) in zip(cols, moduller):
+        cols = st.columns(len(moduller) + 2, gap="small")
+        _yer = [moduller[0], None] + moduller[1:]          # None = komut paleti
+        for c, m in zip(cols, _yer):
+            if m is None:
+                with c:
+                    _palet_ciz(ak, yet)
+                continue
+            ad, mod, ikon = m
             # on_click: tıklama, sayfa çizilmeden ÖNCE işlenir → hedef sayfa
             # TEK çalışmada çizilir. Eskiden düğme ardından yeniden çalıştırma deseni her
             # geçişte programı iki kez baştan sona çalıştırıyordu.
@@ -1809,6 +1819,33 @@ def ust_navigasyon():
                      use_container_width=True, on_click=_sayfaya_git, args=(mod,))
         with cols[-1]:
             _talep_dugmesi()            # Talep Merkezi: üst menünün en sağında
+
+
+def _palet_kosul(kosul, kullanici):
+    """Kayıt defterindeki koşullu sayfalar (shared/gezinme.py) — modüllerin kendi
+    menü süzgeçleriyle aynı kural."""
+    try:
+        if kosul == "kar":
+            from shared.kar_gizle import kar_gorunur
+            return bool(kar_gorunur())
+        if kosul == "toplam_aktifler":
+            from kayranacc.main import _toplam_aktifler_yetkilileri
+            return str(kullanici or "").lower().strip() in _toplam_aktifler_yetkilileri()
+    except Exception:
+        return False
+    return True
+
+
+def _palet_ciz(ak, yet):
+    """Ctrl+K komut paleti (shared/palet.py). Çizilemezse eski Arama sekmesi."""
+    try:
+        from shared.palet import palet
+        _ozel = {o for o in ("yonetim", "kullanici_yonetimi") if ozel_yetki(ak, o)}
+        palet(yet, _ozel, ak, _palet_kosul)
+    except Exception:
+        st.button("Arama", key="top_arama", icon=":material/search:",
+                  type="primary" if st.session_state.get("aktif_uygulama") == "arama" else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=("arama",))
 
 def portal_sidebar(kompakt=False):
     """Streamlit'in resmi sidebar'ina KAYRAN'in navigasyonunu cizer."""
@@ -1820,6 +1857,8 @@ def portal_sidebar(kompakt=False):
             st.query_params["s"] = aktif_sayfa
     except Exception:
         pass
+    from shared.gezinme import adres_yaz
+    adres_yaz(aktif_sayfa)          # ?p= seçili sayfa (shared/gezinme.py)
     yetkiler = kullanici_yetkileri(aktif_kullanici)
     st.markdown(
         """<style>

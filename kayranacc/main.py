@@ -1094,21 +1094,8 @@ def run():
         YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
         KISITLI_SAYFALAR = ["💰 Toplam Aktifler"]
     
-        tum_sayfalar = [
-            "📊 Dashboard",
-            "💳 Bu Hafta",
-            "🏦 Banka Bakiyeleri",
-            "💰 Toplam Aktifler",
-            "💸 Nakit Akış",
-            "📋 Firma Çekleri",
-            "🕐 Ödenenler & Geçmiş",
-            "💵 Gelenler Geçmişi",
-            "⏳ Ertelenen Ödemeler",
-            "🧾 Cari Ekstre",
-            "📂 Veri Yükleme",
-            "📄 Raporlar & Bildirim",
-            "📚 e-Defter",
-        ]
+        from shared.gezinme import secenekler
+        tum_sayfalar = secenekler("kayranacc")
     
         # Yetkili olmayan kullanıcılar için kısıtlı sayfaları menüden çıkar
         if aktif_kullanici_lower not in YETKILI_KULLANICILAR_TOPLAM_AKTIFLER:
@@ -1118,7 +1105,7 @@ def run():
     
         from shared.tasarim import menu_etiketi as _me
         sayfa = st.radio("Sayfa", gosterilen_sayfalar, label_visibility="collapsed",
-                         format_func=_me)
+                         format_func=_me, key="acc_sayfa")     # palet / adres çubuğu bu anahtarla gider
     
         st.markdown("---")
     
