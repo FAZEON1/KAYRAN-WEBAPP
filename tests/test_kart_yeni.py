@@ -115,3 +115,62 @@ def test_sus_kirmizisi_notr():
         src = (KOK / d).read_text(encoding="utf-8")
         i = src.index(metin)
         assert 'anlam="notr"' in src[i:i + 200] or '"anlam": "notr"' in src[i:i + 200], (d, metin)
+
+
+# ── 3. adım: ana kartlar ────────────────────────────────────────────
+def test_rozet_disaridan_verilebilir():
+    """Patron panosunda marj farkı yüzde değil 'puan' — rozet hazır verilir."""
+    T = _t()
+    h = T.kart_hucresi({"etiket": "Marj", "deger": "%19,2", "rozet": ("▲ 1,4 puan", "iyi")})
+    assert "▲ 1,4 puan" in h and "k-rozet k-iyi" in h
+
+
+def test_genel_bakis_kpi_seri_tasir():
+    from kayranpm.genel_hesap import kpi
+    seri = [(f"H{i}", v) for i, v in enumerate([2, 3, 4, 5, 6, 7, 8, 9, 5, 3])]
+    k = kpi([], seri, None)
+    assert k["seri"] == [4, 5, 6, 7, 8, 9, 5, 3]          # son 8 hafta
+    assert k["hafta_satis"] == 3 and k["onceki_satis"] == 5
+
+
+def test_genel_bakis_ana_kart_haftalik_satis():
+    src = (KOK / "kayranpm" / "genel_bakis.py").read_text(encoding="utf-8")
+    g = src[src.index("def _kartlar"):]
+    g = g[:g.index("\ndef ", 10)]
+    i = g.index('"Haftalık satış"')
+    assert i < g.index('"Toplam stok"')                         # ana kart solda
+    blok = g[i:i + 400]
+    assert '"vurgu": True' in blok and '"onceki"' in blok and '"seri"' in blok
+
+
+def test_satis_girisi_onceki_ay_ayni_gun():
+    from satis.satis_hesap import onceki_ay_araligi
+    from datetime import date
+    assert onceki_ay_araligi(date(2026, 10, 3)) == (date(2026, 9, 1), date(2026, 9, 3))
+    assert onceki_ay_araligi(date(2026, 3, 31)) == (date(2026, 2, 1), date(2026, 2, 28))   # kısa ay
+    assert onceki_ay_araligi(date(2026, 1, 15)) == (date(2025, 12, 1), date(2025, 12, 15))
+
+
+def test_satis_girisi_ana_kart():
+    src = (KOK / "satis" / "main.py").read_text(encoding="utf-8")
+    g = src[src.index("def _sg_acilis"):]
+    g = g[:g.index("\ndef ", 10)]
+    i = g.index('"Bu ay ciro"')
+    assert i < g.index('"etiket": "Bugün"')
+    assert '"vurgu": True' in g[i:i + 500] and '"onceki"' in g[i:i + 500]
+    assert "onceki_ay_araligi(" in g
+
+
+def test_pnl_net_kar_ana_kart_anlamli():
+    src = (KOK / "satis" / "main.py").read_text(encoding="utf-8")
+    i = src.index("# ── Üst şerit: yalnız 4 ana gösterge ──")
+    g = src[i:i + 1400]
+    assert g.index('"NET KÂR"') < g.index('"NET CİRO"')
+    assert '"vurgu": True' in g and '"anlam": _anlam' in g
+
+
+def test_patron_ortak_kart():
+    src = (KOK / "shared" / "patron.py").read_text(encoding="utf-8")
+    g = src[src.index("def kart_html"):]
+    g = g[:g.index("\ndef ", 10)]
+    assert "kart_hucresi(" in g and "KART_YENI" in g

@@ -54,19 +54,24 @@ def _sg_acilis(dlg_vatan, dlg_eera, dlg_diger):
     from . import satis_hesap as SH
     from .satislar_ekran import siparis_listesi
     bugun = date.today()
-    son = get_satislar_yalin(str(bugun - timedelta(days=31)), str(bugun)) or []
+    _ob, _os = SH.onceki_ay_araligi(bugun)
+    # Okuma geçen ayın 1'inden: "bu ay ciro" geçen ayın aynı günüyle karşılaştırılır
+    son = get_satislar_yalin(str(min(_ob, bugun - timedelta(days=31))), str(bugun)) or []
     sip = SH.siparis_grupla(son, satir_kar)
     tb = SH.toplam([o for o in sip if o["tarih"] == str(bugun)])
     ta = SH.toplam([o for o in sip if o["tarih"][:7] == str(bugun)[:7]])
-    kal = [{"etiket": "Bugün", "deger": f"{tr_sayi(tb['siparis'])} sipariş", "renk": "mor",
+    to = SH.toplam([o for o in sip if str(_ob) <= o["tarih"][:10] <= str(_os)])
+    kal = [{"etiket": "Bu ay ciro", "deger": sayi(ta["ciro"], "$"), "vurgu": True,
+            "simdi": ta["ciro"], "onceki": to["ciro"] or None,
+            "alt": ((f"kâr {sayi(ta['net_kar'], '$')} · %{tr_sayi(ta['marj'], 1)} · "
+                     if kar_gorunur() and ta["marj"] is not None else "")
+                    + f"geçen ayın 1–{_os.day}'ine göre")},
+           {"etiket": "Bugün", "deger": f"{tr_sayi(tb['siparis'])} sipariş", "renk": "mor",
             "alt": f"{tr_sayi(tb['adet'])} adet"},
            {"etiket": "Bugün ciro", "deger": sayi(tb["ciro"], "$"), "renk": "cyan",
             "alt": (f"kâr {sayi(tb['net_kar'], '$')}" if kar_gorunur() and tb["siparis"] else "")},
            {"etiket": f"Bu ay · {SH.AY[bugun.month]}", "deger": f"{tr_sayi(ta['siparis'])} sipariş", "renk": "mor",
-            "alt": f"{tr_sayi(ta['adet'])} adet"},
-           {"etiket": "Bu ay ciro", "deger": sayi(ta["ciro"], "$"), "renk": "cyan",
-            "alt": (f"kâr {sayi(ta['net_kar'], '$')} · %{tr_sayi(ta['marj'], 1)}"
-                    if kar_gorunur() and ta["marj"] is not None else "")}]
+            "alt": f"{tr_sayi(ta['adet'])} adet"}]
     st.markdown(kpi_serit(kal), unsafe_allow_html=True)
 
     st.markdown("<style>" + css_tek_satir("""
@@ -1391,16 +1396,19 @@ def run():
                 # ── Üst şerit: yalnız 4 ana gösterge ──
                 _kt = "yesil" if _nihai > 0 else "kirmizi"
                 _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
+                # Ana kart: net kâr. Renk anlam taşır (artı yeşil / eksi kırmızı); önceki dönem
+                # karşılaştırması bu hesap fonksiyona ayrılınca eklenecek (iki kopya hesap olmasın).
+                _anlam = "iyi" if _nihai > 0 else ("kotu" if _nihai < 0 else None)
                 st.markdown(kpi_serit([
+                    {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"), "vurgu": True,
+                     "renk": _kt, "anlam": _anlam, "tam": f"${tr_sayi(_nihai, 2)}"},
                     {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
                      "renk": "metin", "tam": f"${tr_sayi(_net_ciro, 2)}"},
                     {"etiket": "NET ADET",
                      "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
                      "renk": "mavi"},
-                    {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"),
-                     "renk": _kt, "tam": f"${tr_sayi(_nihai, 2)}"},
                     {"etiket": "NET MARJ",
-                     "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt},
+                     "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt, "anlam": _anlam},
                 ]), unsafe_allow_html=True)
 
                 # ── Kâr merdiveni ──

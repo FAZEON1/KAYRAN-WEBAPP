@@ -1050,13 +1050,16 @@ def cekirdek_css(yogunluk=None):
 .k-yeni.k-kotu .k-deger{{color:var(--k-kirmizi);}}
 .k-yeni.k-iyi .k-deger{{color:var(--k-yesil);}}
 .k-yeni.k-dikkat .k-deger{{color:var(--k-amber);}}
+.k-yeni .k-alt{{white-space:normal;overflow:visible;line-height:1.35;}}
 .k-kart.k-vurgu{{flex:1.7;}}
 .k-vurgu .k-deger{{font-size:28px;letter-spacing:-0.5px;line-height:1.15;}}
 .k-rozet{{flex:0 0 auto;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;white-space:nowrap;
   background:var(--k-ortu2);color:var(--k-soluk);font-variant-numeric:tabular-nums;}}
 .k-rozet.k-iyi{{background:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil);}}
 .k-rozet.k-kotu{{background:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi);}}
-.k-spark{{display:block;width:100%;height:28px;margin-top:6px;}}
+.k-spark{{display:block;width:100% !important;height:28px !important;margin-top:6px;}}
+.k-yeni .k-deger-satir{{flex-wrap:wrap;row-gap:2px;}}
+@media (max-width:640px){{ .k-kart.k-vurgu{{flex-basis:100%;}} }}
 
 /* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
    Sayfaya eklenen yalnız-<style> blokları ve yüksekliği 0 olan script
@@ -1228,11 +1231,10 @@ def spark_svg(seri, anlam=None):
     n = len(v) - 1
     pts = [(i / n * 100, 24 - (x - lo) / ara * 20) for i, x in enumerate(v)]
     nok = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-    son = {"iyi": "yesil", "kotu": "kirmizi", "dikkat": "amber"}.get(anlam, "soluk")
+    # Çizgi enine esnetildiği için uç noktası elipse dönüşüyordu → nokta yok; yönü rozet söyler.
     return (f'<svg class="k-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">'
             f'<polyline fill="none" style="stroke:var(--k-soluk)" stroke-width="1.5" '
-            f'vector-effect="non-scaling-stroke" points="{nok}"/>'
-            f'<circle cx="{pts[-1][0]:.1f}" cy="{pts[-1][1]:.1f}" r="2.2" style="fill:var(--k-{son})"/></svg>')
+            f'vector-effect="non-scaling-stroke" points="{nok}"/></svg>')
 
 
 def kart_hucresi(k):
@@ -1243,8 +1245,8 @@ def kart_hucresi(k):
     anlam = k.get("anlam") or kart_anlami(k.get("renk"))
     if anlam == "notr":             # renk süs olarak kırmızı verilmiş (ör. paçal, borç)
         anlam = None
-    roz = degisim_rozeti(k.get("simdi"), k.get("onceki"), k.get("artis_iyi", True)) \
-        if k.get("onceki") is not None else None
+    roz = k.get("rozet") or (degisim_rozeti(k.get("simdi"), k.get("onceki"), k.get("artis_iyi", True))
+                             if k.get("onceki") is not None else None)
     sinif = "k-kart k-yeni" + (" k-vurgu" if k.get("vurgu") else "") + (f" k-{anlam}" if anlam else "")
     ip = k.get("ipucu") or ""
     ttl = f' title="{_html.escape(str(ip), quote=True)}"' if ip else ""
@@ -1269,6 +1271,10 @@ def kpi_serit(kalemler, yogunluk=None):
             kart_hucresi(dict(k, ipucu=k.get("ipucu") or k.get("tam") or "")) for k in kalemler) + '</div>'
     hucreler = ""
     for k in kalemler:
+        if k.get("onceki") is not None:          # eski görünümde rozet yok → bilgiyi alt satıra yaz
+            _rz = degisim_rozeti(k.get("simdi"), k.get("onceki"), k.get("artis_iyi", True))
+            if _rz:
+                k = dict(k, alt=f'{_rz[0]} · {k.get("alt") or ""}'.rstrip(" ·"))
         c = rv(k.get("renk", "mor"))
         ipucu = k.get("ipucu") or k.get("tam") or ""
         ttl = f' title="{ipucu}"' if ipucu else ""

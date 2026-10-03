@@ -62,18 +62,20 @@ def _sayfaya(hedef):
 
 # ── Sayı kartları ───────────────────────────────────────────────────
 def _kartlar(k):
+    # Ana kart: haftalık satış — önceki haftaya göre rozet + son 8 haftanın eğilimi
     if k["hafta_satis"] is None:
         satis, satis_alt = "—", "haftalık veri yok"
     else:
         satis = tr_sayi(k['hafta_satis'])
-        satis_alt = ("adet · önceki haftaya " + (f"▲ %{tr_sayi(k['degisim'], 1)}" if k["degisim"] >= 0
-                                                  else f"▼ %{tr_sayi(abs(k['degisim']), 1)}")
-                     if k["degisim"] is not None else "adet · son hafta")
+        satis_alt = ("adet · önceki haftaya göre" if k.get("onceki_satis") else "adet · son hafta")
+        if len(k.get("seri") or []) >= 2:
+            satis_alt += f" · son {len(k['seri'])} hafta"
     metrik_satiri([
+        {"label": "Haftalık satış", "value": satis, "alt": satis_alt, "vurgu": True,
+         "simdi": k["hafta_satis"], "onceki": k.get("onceki_satis"), "seri": k.get("seri")},
         {"label": "Toplam stok", "value": tr_sayi(k['stok']), "renk": trenk("mor"),
          "alt": (f"adet · kanal dahil ~{tr_sayi(k['kapsama_hafta'], 1)} hafta" if k["kapsama_hafta"]
                  else "adet · bizim depolar")},
-        {"label": "Haftalık satış", "value": satis, "renk": trenk("cyan"), "alt": satis_alt},
         {"label": "Stok değeri", "value": f"${tr_sayi(k['stok_degeri'])}", "renk": trenk("amber"),
          "alt": "G5F stok × paçal"},
         {"label": "Yolda", "value": tr_sayi(k['yolda']), "renk": trenk("mavi"),

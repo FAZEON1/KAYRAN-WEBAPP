@@ -165,6 +165,18 @@ def kart_html(baslik, deger, onceki, tur, seri, renk, kiyas="önceki döneme gö
         else:
             alt = f"{'▲' if d > 0 else ('▼' if d < 0 else '■')} %{tr_sayi(abs(d), 1)} · {kiyas}"
             r = "yesil" if d > 0 else ("kirmizi" if d < 0 else "silik")
+    from shared.tasarim import KART_YENI, kart_hucresi
+    if KART_YENI:
+        # Ortak kart: büyük değer, ▲/▼ rozeti (hesap yukarıda, marjda "puan"), eğilim çizgisi.
+        # Renk anlam taşır: net kâr eksiye düşerse değer kırmızı.
+        rz = None
+        if alt and alt[0] in "▲▼■":
+            parca = alt.split(" · ", 1)
+            rz = (parca[0], {"yesil": "iyi", "kirmizi": "kotu"}.get(r))
+            alt = parca[1] if len(parca) > 1 else ""
+        return kart_hucresi({"etiket": baslik, "deger": val, "vurgu": True, "rozet": rz,
+                             "alt": _h.escape(alt) + (" · son 30 gün" if len(seri or []) >= 2 else ""),
+                             "seri": seri, "anlam": "kotu" if renk == "kirmizi" else None})
     return (f'<div class="pp-kart" style="--pp-r:var(--k-{renk})">'
             f'<div class="pp-ad">{_h.escape(baslik)}</div>'
             f'<div class="pp-deger">{val}</div>'
@@ -329,6 +341,13 @@ def _firma_ad(kod):
 def render(sayfaya_git):
     """Ana sayfada çağrılır. sayfaya_git(modul): veri kalitesi çiplerinden geçiş."""
     st.markdown(CSS, unsafe_allow_html=True)
+    from shared.tasarim import KART_YENI
+    if KART_YENI:
+        # "Toplam aktif" kartı (pp-kart) ortak kartla aynı yüzeyde: degrade ve üst şerit yok
+        st.markdown('<style>.pp-kart{background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;}'
+                    '.pp-kart::before{display:none !important;}'
+                    '.pp-deger{font-family:inherit !important;font-size:28px !important;font-weight:600 !important;}'
+                    '.pp-kartlar .k-kart{min-width:0;}</style>', unsafe_allow_html=True)
 
     @st.fragment
     def _govde():
