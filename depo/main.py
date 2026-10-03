@@ -3,6 +3,7 @@ Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -226,7 +227,7 @@ def _sayfa_sevk():
         _gdf = pd.DataFrame([{
             "Kayıt": tarih_tr(g.get("tarih"), saat=True), "Sevk Tarihi": tarih_tr(g.get("sevk_tarihi")),
             "Belge No": g.get("belge_no", "") or "", "SKU": g.get("sku", ""),
-            "Ürün": g.get("urun_adi", ""), "Kaynak": g.get("kaynak_depo", ""),
+            "Ürün": urun_ad(g.get("sku"), g.get("urun_adi")), "Kaynak": g.get("kaynak_depo", ""),
             "Hedef": g.get("hedef_depo", ""), "Adet": g.get("adet", ""),
             "Kullanıcı": g.get("kullanici", ""),
         } for g in _gec])

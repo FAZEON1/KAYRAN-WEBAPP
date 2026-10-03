@@ -200,3 +200,30 @@ def get_marka_havuzu():
     except Exception:  # noqa: BLE001
         pass
     return marka_secenekleri(kart)
+
+
+# ── Ürün adı (Ekim 2026, ana veri Faz 4b) ───────────────────────────
+@_onbellek(300)
+def get_urun_ad_haritasi():
+    """{sku_anahtar: KART adı (tr_buyuk)} — ürün adının tek kaynağı stok kartıdır."""
+    try:
+        from kayranpm.database import get_urun_marka_kategori
+        from shared.utils import sku_anahtar, tr_buyuk
+        out = {}
+        for sku, m in (get_urun_marka_kategori() or {}).items():
+            k, ad = sku_anahtar(sku), tr_buyuk((m or {}).get("urun_adi"))
+            if k and ad and k not in out:
+                out[k] = ad
+        return out
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def urun_ad(sku, yedek="", harita=None):
+    """Ekranda gösterilecek ürün adı: kartı varsa KARTIN adı (BÜYÜK harf — mevcut karar),
+    yoksa satırın kendi adı (yedek, BÜYÜK harf). Satış kaydı / müşteri raporu / ithalat
+    kalemi kendi yazdığı adı taşır; aynı ürün ekrandan ekrana farklı adla görünüyordu.
+    SKU eşleşmesi sku_anahtar ile ('Fazeon X' kartı 'X' satırını da bulur)."""
+    from shared.utils import sku_anahtar, tr_buyuk
+    h = get_urun_ad_haritasi() if harita is None else harita
+    return h.get(sku_anahtar(sku)) or tr_buyuk(yedek)

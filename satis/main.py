@@ -3,6 +3,7 @@
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from shared.tasarim import mesaj  # ortak uyarı kutusu
+from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
 from datetime import date, timedelta, datetime
 import io
 
@@ -529,7 +530,7 @@ def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
     3 'SKU + Firma' : her iade satırı (hangi firmadan hangi ürün)
     4 'Kayıtlar'    : ham iade kayıtları (tarih, depo, kaynak dahil)"""
     sku_net = pd.DataFrame([{
-        "SKU": x["sku"], "Ürün": x.get("urun_adi") or "",
+        "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x.get("urun_adi")),
         "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
         "Satış ciro ($)": round(float(x["s_ciro"]), 2), "İade tutar ($)": round(float(x["i_tutar"]), 2),
         "Net ciro ($)": round(float(x["net_ciro"]), 2), "Satış kârı ($)": round(float(x["s_kar"]), 2),
@@ -545,12 +546,12 @@ def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
                                   "İade tutarı ($)": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"])}
                                  for f, v in fb.items()], key=lambda x: -x["İade adet"]))
     sku_firma = pd.DataFrame(sorted([{
-        "Firma / Cari": r.get("kanal") or "", "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi") or "",
+        "Firma / Cari": r.get("kanal") or "", "SKU": r.get("sku", ""), "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")),
         "İade adet": int(r.get("iade_adet") or 0), "İade tutarı ($)": round(float(r.get("iade_net") or 0), 2),
     } for r in iadeler], key=lambda x: -x["İade adet"]))
     kayit = pd.DataFrame([{
         "Tarih": str(r.get("tarih") or "")[:10], "Firma / Cari": r.get("kanal") or "",
-        "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi") or "", "İade adet": int(r.get("iade_adet") or 0),
+        "SKU": r.get("sku", ""), "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")), "İade adet": int(r.get("iade_adet") or 0),
         "İade brüt ($)": round(float(r.get("iade_brut") or 0), 2), "İskonto ($)": round(float(r.get("iade_iskonto") or 0), 2),
         "Masraf ($)": round(float(r.get("iade_masraf") or 0), 2), "İade net ($)": round(float(r.get("iade_net") or 0), 2),
         "Giren depo": r.get("depo") or "", "Kaynak": r.get("kaynak") or "",
@@ -1113,7 +1114,7 @@ def run():
                     else:
                         st.markdown("##### 🛒 Sipariş Kalemleri — düzenle / sil")
                         _df = pd.DataFrame([{
-                            "Sil": False, "SKU": k["sku"], "Ürün": (k["urun_adi"] or "")[:26],
+                            "Sil": False, "SKU": k["sku"], "Ürün": urun_ad(k["sku"], k["urun_adi"])[:26],
                             "Depo": k.get("depo", "MERKEZ DEPO"),
                             "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
                             "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
@@ -1979,7 +1980,7 @@ def run():
                     if _sec_sip != "(seç)":
                         _kdf = pd.DataFrame([{
                             "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
-                            "Ürün": (s.get("urun_adi", "") or "")[:38],
+                            "Ürün": urun_ad(s.get("sku"), s.get("urun_adi"))[:38],
                             "Adet": int(satir_kar(s)["adet"] or 0),
                             "B.Satış": float(s.get("birim_satis") or 0),
                             "B.Maliyet": float(s.get("birim_maliyet") or 0),
@@ -2275,7 +2276,7 @@ def run():
                         _tnet = sum(x["iade_net"] for x in _ie_satir)
                         st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd_md(_tnet)} bulundu.")
                         st.dataframe(_kar_df(pd.DataFrame([{
-                            "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:40], "Adet": x["iade_adet"],
+                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"])[:40], "Adet": x["iade_adet"],
                             "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
                         } for x in _ie_satir[:200]])), use_container_width=True, hide_index=True)
                         # ── MANUEL AVANS MUTABAKATI ──
@@ -2371,7 +2372,7 @@ def run():
                         _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
                         st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
                         st.dataframe(_kar_df(pd.DataFrame([{
-                            "SKU": x["sku"], "Ürün": (x["urun_adi"] or "")[:36],
+                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"])[:36],
                             "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
                             # Ham sayı: ortak tablo "ciro/tutar/kâr" sütununu kendisi biçimler.
                             # Eskiden hazır metin ("$7.29") gidiyordu, sayıya çevrilemediği
@@ -2402,7 +2403,7 @@ def run():
                         else:  # SKU + Firma
                             _rows = sorted([{
                                 "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
-                                "Ürün": (r.get("urun_adi") or "")[:30], "İade adet": int(r.get("iade_adet") or 0),
+                                "Ürün": urun_ad(r.get("sku"), r.get("urun_adi"))[:30], "İade adet": int(r.get("iade_adet") or 0),
                                 "İade tutarı": round(float(r.get("iade_net") or 0), 2),
                             } for r in _iadeler], key=lambda x: -x["İade adet"])
                             st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")

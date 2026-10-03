@@ -139,3 +139,22 @@ def test_kategori_yazimi_capitalize_ile_yapilmiyor():
     """.capitalize() 'cpu soğutucu' → 'Cpu soğutucu', 'İŞLEMCİ' → 'İşlemci̇' yapar; tek yazım değil."""
     for y in ("kayranpm/kampanya.py", "kayranpm/ref_ekran.py"):
         assert not re.search(r'get\("kategori"\).*\.capitalize\(\)', _oku(y)), y
+
+
+# ═══════════════════════════════════════════════════════════
+#  Ürün adı — kart adı tek kaynak (Faz 4b)
+# ═══════════════════════════════════════════════════════════
+def test_urun_ad_kart_adi_oncelikli():
+    from shared.ana_veri import urun_ad
+    h = {"X24F165S": "FAZEON 24 INÇ MONITÖR", "K1": "KASA K1"}
+    assert urun_ad("Fazeon X24F165S", "fazeon monitor 24 hepsiburada", harita=h) == "FAZEON 24 INÇ MONITÖR"
+    assert urun_ad(" x24f165s ", "", harita=h) == "FAZEON 24 INÇ MONITÖR"
+    assert urun_ad("YOK1", "Satırdaki Ad", harita=h) == "SATIRDAKI AD"      # kart yok → satır adı, BÜYÜK
+    assert urun_ad("YOK2", None, harita=h) == "" and urun_ad(None, "", harita={}) == ""
+
+
+def test_ekranlar_urun_adini_karttan_aliyor():
+    zorunlu = {"satis/satislar_ekran.py": 3, "satis/main.py": 8, "depo/main.py": 1, "depo/bekleyen_ekran.py": 1,
+               "ithalat/main.py": 1, "kayranpm/musteri_ekran.py": 3, "kayranpm/kampanya.py": 1}
+    eksik = {y: n for y, n in zorunlu.items() if len(re.findall(r"\b_?urun_ad\(", _oku(y))) < n}
+    assert not eksik, f"Ürün adı yeniden satırdan basılıyor (eski sürüm mü yüklendi?): {eksik}"
