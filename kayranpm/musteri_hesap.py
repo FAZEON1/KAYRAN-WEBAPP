@@ -47,6 +47,92 @@ def haftalar(rows):
     return sorted({_hafta(r) for r in rows if _hafta(r)})
 
 
+# ── Stok kartı eşleştirme + kategori çözümü ─────────────────────────
+# SORUN: kırılım meta'yı HAM SKU ile arıyordu. Müşteri raporundaki SKU
+# 'Fazeon X24F165S' / 'x24f165s ' yazılınca kart ('X24F165S') bulunamıyor,
+# ürün 'Kategorisiz' + 'Markasız' görünüyordu. Ayrıca 'MONİTÖR' / 'monitör'
+# ayrı kategori sayılıyordu.
+# ÇÖZÜM: meta_hazirla() rapordaki her SKU için kartı sırayla arar:
+#   1) birebir SKU  2) normalize SKU (sku_fn)  3) SKU'daki bir parça bir kart
+#   SKU'suna eşitse (≥5 karakter)  4) ürün adı birebir (boşluk/harf farkı yok sayılır)
+# Kategori: kartın kategorisi; kart yok ya da kategorisi boşsa ürün adından
+# tahmin (oner = kayranpm.database.kategori_oner). Kaynak 'kart' / 'tahmin' /
+# '' olarak işaretlenir; ekran tahmin edilenleri sayar, Excel'de görünür.
+
+def _sku_varsayilan(s):
+    return str(s or "").strip().upper()
+
+
+def _ad_norm(s):
+    return " ".join(str(s or "").upper().replace("İ", "I").split())
+
+
+def _kat_kucuk(s):
+    return str(s or "").replace("İ", "i").replace("I", "ı").lower().strip()
+
+
+def kategori_etiketi(kat, kategori_liste=()):
+    """Aynı kategorinin farklı yazımlarını tek etikete indirger.
+    Kural listesindeki yazım öncelikli ('KABLO/KONNEKTÖR' → 'Kablo/Konnektör');
+    listede yoksa Türkçe-doğru baş harf büyük ('MİCROSD KART' → 'Microsd kart')."""
+    k = _kat_kucuk(kat)
+    if not k:
+        return ""
+    for x in kategori_liste or ():
+        if _kat_kucuk(x) == k:
+            return x
+    return {"i": "İ", "ı": "I"}.get(k[0], k[0].upper()) + k[1:]
+
+
+def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=()):
+    """{ham rapor SKU'su: {marka, kategori, kategori_kaynak, kart_sku}} — rows'taki HER SKU için.
+    kartlar: get_urun_marka_kategori() çıktısı {kart_sku: {marka, kategori, urun_adi}}."""
+    skn = sku_fn or _sku_varsayilan
+    kartlar = kartlar or {}
+    norm, ad_idx = {}, {}
+    for ks, m in kartlar.items():
+        n = skn(ks)
+        if n and n not in norm:
+            norm[n] = ks
+        a = _ad_norm((m or {}).get("urun_adi"))
+        if a and a not in ad_idx:
+            ad_idx[a] = ks
+
+    def _kart_bul(ham, urun_adi):
+        if ham in kartlar:
+            return ham
+        n = skn(ham)
+        if n in norm:
+            return norm[n]
+        for parca in n.replace("-", " ").replace("_", " ").replace("/", " ").split():
+            if len(parca) >= 5 and parca in norm:
+                return norm[parca]
+        return ad_idx.get(_ad_norm(urun_adi))
+
+    out = {}
+    for r in rows or []:
+        ham = _sku(r)
+        if ham in out:
+            continue
+        ks = _kart_bul(ham, r.get("urun_adi"))
+        m = kartlar.get(ks) or {}
+        kat, kaynak = str(m.get("kategori") or "").strip(), "kart"
+        if not kat and oner:
+            for ad in (m.get("urun_adi"), r.get("urun_adi"), ham):
+                try:
+                    kat = (oner(ad) or "").strip()
+                except Exception:  # noqa: BLE001
+                    kat = ""
+                if kat:
+                    kaynak = "tahmin"
+                    break
+        out[ham] = {"marka": str(m.get("marka") or "").strip(),
+                    "kategori": kategori_etiketi(kat, kategori_liste),
+                    "kategori_kaynak": kaynak if kat else "",
+                    "kart_sku": ks or ""}
+    return out
+
+
 def _anahtar(r, kirilim, meta):
     sku = _sku(r)
     if kirilim == "musteri":

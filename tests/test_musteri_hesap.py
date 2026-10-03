@@ -83,3 +83,97 @@ def test_sayfa_yeni_ekrana_bagli():
     for ad in ("Müşteri", "Marka", "Ürün", "Kategori"):
         assert f'"{ad}"' in e
     assert "kalici=True" in e
+
+
+# ═══════════════════════════════════════════════════════════
+#  meta_hazirla — kategori stok kartından (Ekim 2026)
+#  Eskiden meta HAM SKU ile aranıyordu: rapor 'Fazeon X24F165S' yazınca kart
+#  ('X24F165S') bulunamıyor, ürün 'Kategorisiz' görünüyordu.
+# ═══════════════════════════════════════════════════════════
+
+KARTLAR = {
+    "X24F165S": {"marka": "FAZEON", "kategori": "MONİTÖR", "urun_adi": "Fazeon 24 inç 165Hz Monitör"},
+    "K100":     {"marka": "Fazeon", "kategori": "kasa", "urun_adi": "Fazeon K100 Kasa"},
+    "F12":      {"marka": "", "kategori": "", "urun_adi": "Fazeon 120mm RGB FAN"},
+    "AV1":      {"marka": "Kaspersky", "kategori": "Anti Virüs", "urun_adi": "Kaspersky Total Security"},
+    "KBL1":     {"marka": "X", "kategori": "KABLO/KONNEKTÖR", "urun_adi": "Kablo"},
+}
+
+
+def _mh(rows, oner=True):
+    from shared.utils import sku_anahtar
+    from kayranpm.database import kategori_oner, KATEGORI_LISTE
+    from kayranpm.musteri_hesap import meta_hazirla
+    return meta_hazirla(rows, KARTLAR, sku_fn=sku_anahtar, oner=kategori_oner if oner else None,
+                        kategori_liste=KATEGORI_LISTE)
+
+
+def _r(sku, ad="", satis=1):
+    return {"firma": "VATAN", "sku": sku, "urun_adi": ad, "haftalik_satis": satis,
+            "stok_miktari": 0, "yukleme_tarihi": "2026-09-28"}
+
+
+def test_birebir_sku_karttan_kategori_alir():
+    m = _mh([_r("K100")])
+    assert m["K100"]["kategori"] == "Kasa" and m["K100"]["kategori_kaynak"] == "kart"
+    assert m["K100"]["kart_sku"] == "K100"
+
+
+def test_onekli_ve_kucuk_harf_sku_karti_bulur():
+    m = _mh([_r("Fazeon X24F165S"), _r(" x24f165s ")])
+    for k in ("Fazeon X24F165S", "x24f165s"):
+        assert m[k]["kategori"] == "Monitör" and m[k]["marka"] == "FAZEON"
+        assert m[k]["kart_sku"] == "X24F165S"
+
+
+def test_sku_parcasi_karti_bulur():
+    m = _mh([_r("X24F165S-SIYAH")])
+    assert m["X24F165S-SIYAH"]["kart_sku"] == "X24F165S"
+
+
+def test_kisa_parca_yanlis_eslesmez():
+    """≥5 karakter kuralı: kısa kodlar (ör. 'F12') başka bir SKU'nun parçası diye yanlış karta bağlanmaz."""
+    m = _mh([_r("ABC F12")], oner=False)
+    assert m["ABC F12"]["kart_sku"] == ""
+
+
+def test_sku_tutmazsa_urun_adi_ile_bulur():
+    m = _mh([_r("VTN-998877", "KASPERSKY  total security")])
+    assert m["VTN-998877"]["kart_sku"] == "AV1" and m["VTN-998877"]["kategori"] == "Anti virüs"
+
+
+def test_kartta_kategori_bossa_addan_tahmin():
+    m = _mh([_r("F12")])
+    assert m["F12"]["kategori"] == "Fan" and m["F12"]["kategori_kaynak"] == "tahmin"
+
+
+def test_kart_hic_yoksa_rapor_adindan_tahmin():
+    m = _mh([_r("YENI1", "Gaming Mouse Pad XL")])
+    assert m["YENI1"]["kategori"] == "Mouse Pad" and m["YENI1"]["kategori_kaynak"] == "tahmin"
+
+
+def test_hicbir_yol_tutmazsa_kategorisiz_kalir():
+    from kayranpm.musteri_hesap import grupla
+    rows = [_r("ZZZ999", "Tanımsız ürün")]
+    m = _mh(rows)
+    assert m["ZZZ999"]["kategori"] == "" and m["ZZZ999"]["kategori_kaynak"] == ""
+    assert grupla(rows, "kategori", m)[0]["anahtar"] == "Kategorisiz"
+
+
+def test_yazim_farklari_tek_kategoride_birlesir():
+    from kayranpm.musteri_hesap import grupla, kategori_etiketi
+    from kayranpm.database import KATEGORI_LISTE
+    assert kategori_etiketi("KABLO/KONNEKTÖR", KATEGORI_LISTE) == "Kablo/Konnektör"
+    assert kategori_etiketi("İŞLEMCİ") == "İşlemci"
+    kartlar = {"A1": {"kategori": "MONİTÖR"}, "A2": {"kategori": "monitör"}, "A3": {"kategori": "Monitör"}}
+    from kayranpm.musteri_hesap import meta_hazirla
+    rows = [_r("A1", satis=1), _r("A2", satis=2), _r("A3", satis=3)]
+    g = grupla(rows, "kategori", meta_hazirla(rows, kartlar, kategori_liste=KATEGORI_LISTE))
+    assert [(x["anahtar"], x["satis"]) for x in g] == [("Monitör", 6)]
+
+
+def test_kategori_kirilimi_onekli_skuyu_dogru_gruba_koyar():
+    from kayranpm.musteri_hesap import grupla
+    rows = [_r("Fazeon X24F165S", satis=4), _r("X24F165S", satis=6), _r("K100", satis=1)]
+    g = {x["anahtar"]: x["satis"] for x in grupla(rows, "kategori", _mh(rows))}
+    assert g == {"Monitör": 10, "Kasa": 1}
