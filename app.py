@@ -3321,6 +3321,13 @@ def main():
                 st.rerun()
         except ImportError:
             pass
+        # Sayfa çökmesi hata kaydına (hata_kayitlari, Sistem Kayıtları) — eskiden yalnız ekranda
+        # görünüyordu, sonradan iz kalmıyordu. kaydet aynı hatayı kısa sürede bir kez yazar.
+        try:
+            from shared.hata_log import kaydet
+            kaydet(f"sayfa.{aktif}", hata)
+        except Exception:  # noqa: BLE001
+            pass
         ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
     else:
