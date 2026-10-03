@@ -1127,7 +1127,7 @@ def run():
                                 "SKU": st.column_config.TextColumn("SKU", disabled=True),
                                 "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
                                 "Depo": st.column_config.TextColumn("📦 Depo", disabled=True),
-                                "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1),
+                                "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
                                 "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="localized", step=0.0001),
                                 "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
                                 "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="localized", step=0.0001),
@@ -1837,9 +1837,10 @@ def run():
                                     column_config={
                                         "SKU": st.column_config.TextColumn(disabled=True),
                                         "Ürün Adı": st.column_config.TextColumn(disabled=True, width="large"),
-                                        "Adet": st.column_config.NumberColumn(disabled=True),
-                                        "Ciro": st.column_config.TextColumn(disabled=True),
-                                        "Kâr": st.column_config.TextColumn(disabled=True),
+                                        "Adet": st.column_config.NumberColumn(disabled=True, format="localized", step=1),
+                                        # Değer sayı; TextColumn ham "12345.67" gösteriyordu
+                                        "Ciro": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
+                                        "Kâr": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
                                         "Marka": st.column_config.TextColumn(
                                             help="FAZEON, INNO3D, NZXT, AGI, MIO... serbest yaz"),
                                         "Kategori": st.column_config.TextColumn(

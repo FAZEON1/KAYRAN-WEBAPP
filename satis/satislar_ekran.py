@@ -177,9 +177,9 @@ def siparis_dialog(anahtar):
                        "Ürün": st.column_config.TextColumn("Ürün", width="medium"),
                        "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
                        "Birim satış": para("Birim satış", 0.0001), "Birim maliyet": para("Birim maliyet", 0.0001),
-                       "Kâr": st.column_config.NumberColumn("Kâr", format="dollar"),
+                       "Kâr": st.column_config.NumberColumn("Kâr", format="dollar", step=0.01),
                        "Marj %": st.column_config.NumberColumn("Marj %", format="localized", step=0.1),
-                       "Ciro": st.column_config.NumberColumn("Ciro", format="dollar"),
+                       "Ciro": st.column_config.NumberColumn("Ciro", format="dollar", step=0.01),
                        "Sil": st.column_config.CheckboxColumn("Sil", width="small",
                                                               help="İşaretle ve kaydet: kalem silinir, stoğu geri döner")})
     if salt:
@@ -296,8 +296,8 @@ def _kalem_tablosu(kalemler):
                  column_config={"Tarih": st.column_config.DateColumn("Tarih", format="DD.MM.YYYY"),
                                 "Birim satış": st.column_config.NumberColumn("Birim satış", format="dollar", step=0.0001),
                                 "Birim maliyet": st.column_config.NumberColumn("Birim maliyet", format="dollar", step=0.0001),
-                                "Ciro": st.column_config.NumberColumn("Ciro", format="dollar"),
-                                "Net kâr": st.column_config.NumberColumn("Net kâr", format="dollar"),
+                                "Ciro": st.column_config.NumberColumn("Ciro", format="dollar", step=0.01),
+                                "Net kâr": st.column_config.NumberColumn("Net kâr", format="dollar", step=0.01),
                                 "Marj %": st.column_config.NumberColumn("Marj %", format="localized", step=0.1)})
 
 
