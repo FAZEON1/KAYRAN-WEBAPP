@@ -494,8 +494,7 @@ def get_dosyalar():
         return []
 
 
-@st.cache_data(ttl=60, show_spinner=False)
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)   # iki kez sarılıydı (60 + 300 sn), tek önbellek yeter
 def get_sku_kategori_map():
     """{normalize_sku: kategori} — urunler tablosundan.
 
@@ -1385,36 +1384,48 @@ def get_parti_satirlari():
     fob/final get_sku_maliyet_ozet ve get_sku_alim_detay ile AYNI kuralla (net FOB =
     indirim düşülmüş; final = FOB × (1 + kalemin kendi kategorisinin masraf yüzdesi)).
     yolda: dosya durumu IN_TRANSIT_DURUMLAR'da. Paçal karşılaştırması (ithalat/pacal_hesap)
-    bunu kullanır — Faz 2a, salt okunur. Okunamazsa []."""
+    bunu kullanır — Faz 2a, salt okunur. Okunamazsa [].
+
+    HIZ (Ekim 2026): hesap _parti_satirlari_hesapla'da önbellekli (60 sn, girdileri get_dosyalar
+    ve get_tum_kalemler ile aynı süre). Eskiden önbelleksizdi: Tüm Ürünler / Genel bakış her
+    açılışta bütün ithalat dosyalarını 2-3 kez baştan hesaplıyordu (get_sku_maliyet_ozet hem
+    _ithalat_maliyet_map hem get_pacal_map içinden). Hata önbelleğe girmez: hesap patlarsa
+    burada [] döner, bir sonraki açılış yeniden dener."""
     try:
-        dosyalar = {d.get("id"): d for d in (get_dosyalar() or [])}
-        kalemler = get_tum_kalemler() or []
-        by_dosya = {}
-        for k in kalemler:
-            by_dosya.setdefault(k.get("dosya_id"), []).append(k)
-        dosya_yuzde, dosya_indirim = {}, {}
-        for did, ks in by_dosya.items():
-            _h = dosya_hesapla(dosyalar.get(did, {}), ks)
-            dosya_yuzde[did] = kategori_yuzde_map(dosyalar.get(did, {}), ks)
-            _brut = _h.get("mal_bedeli", 0.0)
-            dosya_indirim[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
-        out = []
-        for k in kalemler:
-            sku = str(k.get("sku") or "").strip()
-            adet = _f(k.get("adet"))
-            if not sku or adet <= 0:
-                continue
-            did = k.get("dosya_id")
-            d = dosyalar.get(did, {}) or {}
-            fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim.get(did, 0.0))
-            yuzde = kalem_yuzde(dosya_yuzde.get(did), k)
-            out.append({"sku": sku, "dosya_id": did, "adet": adet, "fob": fob,
-                        "final": fob * (1 + yuzde / 100.0),
-                        "yolda": str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR,
-                        "tarih": str(d.get("tarih") or "")[:10]})
-        return out
+        return _parti_satirlari_hesapla()
     except Exception:
         return []
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _parti_satirlari_hesapla():
+    """get_parti_satirlari'nin önbellekli gövdesi; hata FIRLATIR (önbelleğe girmesin diye)."""
+    dosyalar = {d.get("id"): d for d in (get_dosyalar() or [])}
+    kalemler = get_tum_kalemler() or []
+    by_dosya = {}
+    for k in kalemler:
+        by_dosya.setdefault(k.get("dosya_id"), []).append(k)
+    dosya_yuzde, dosya_indirim = {}, {}
+    for did, ks in by_dosya.items():
+        _h = dosya_hesapla(dosyalar.get(did, {}), ks)
+        dosya_yuzde[did] = kategori_yuzde_map(dosyalar.get(did, {}), ks)
+        _brut = _h.get("mal_bedeli", 0.0)
+        dosya_indirim[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
+    out = []
+    for k in kalemler:
+        sku = str(k.get("sku") or "").strip()
+        adet = _f(k.get("adet"))
+        if not sku or adet <= 0:
+            continue
+        did = k.get("dosya_id")
+        d = dosyalar.get(did, {}) or {}
+        fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim.get(did, 0.0))
+        yuzde = kalem_yuzde(dosya_yuzde.get(did), k)
+        out.append({"sku": sku, "dosya_id": did, "adet": adet, "fob": fob,
+                    "final": fob * (1 + yuzde / 100.0),
+                    "yolda": str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR,
+                    "tarih": str(d.get("tarih") or "")[:10]})
+    return out
 
 
 # ═══════════ MODEL B — Teslim Alındı ⇄ depo stoğu ═══════════

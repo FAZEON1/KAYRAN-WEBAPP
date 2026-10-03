@@ -409,7 +409,9 @@ def _dashboard_ham():
             _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
     stok_yas_data = {r["sku"]: r for r in _rows(sb.table("stok_yas").select("*").execute())}
     yoldaki_data = {r["sku"]: r for r in _rows(sb.table("yoldaki_urunler").select("*").execute())}
-    tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
+    # Yalnız kullanılan sütunlar (eskiden *: id ve ürün adı da bütün geçmişle okunuyordu)
+    tum_firma_rows = _hepsi("firma_stok", "firma, sku, stok_miktari, haftalik_satis, stok_magaza, "
+                                          "satis_magaza, yukleme_tarihi", "yukleme_tarihi")
     # Firma verisi: her firmanın SON raporu (stok_hesap — kanal_stoklari ile aynı kural). Firma
     # listesi veriden gelir (KANAL kaldırıldı, Ekim 2026); eski 'KANAL' satırları DİĞER'e katılır.
     # Eskiden sabit 6 kod için firma başına 2 sorgu atılıyordu; liste dışı firmalar hiç görünmüyordu.
@@ -733,11 +735,12 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
     _cache_temizle()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
 def sil_firma_stok_tarihi(tarih):
     """Veri Yükleme › bir yükleme tarihinin TÜM firma stok satırlarını siler.
     Döner: silinen satır sayısı. Önbellek boşaltılır (eskiden boşaltılmıyordu;
-    Dashboard ve Sipariş Önerisi silinmiş veriyi göstermeye devam ediyordu)."""
+    Dashboard ve Sipariş Önerisi silinmiş veriyi göstermeye devam ediyordu).
+    Önbelleğe ALINMAZ (Ekim 2026): @st.cache_data ile sarılıydı; aynı tarih 5 dk içinde
+    yeniden yüklenip yeniden silinince silme çalışmadan eski sayı dönebiliyordu."""
     res = get_client().table("firma_stok").delete().eq("yukleme_tarihi", tarih).execute()
     st.cache_data.clear()
     return len(getattr(res, "data", None) or [])
