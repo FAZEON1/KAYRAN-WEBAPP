@@ -401,7 +401,7 @@ def tum_urunler_listesi():
         bizim_stok = u.get("bizim_stok") or 0
 
         # Firma stoklarını map'ten al (sorgu yok)
-        firma_stoklari = {firma: _kanal.get(firma, {}).get(sku, 0) for firma in FIRMALAR}
+        firma_stoklari = {firma: _kanal.get(firma, {}).get(_skn_a(sku), 0) for firma in FIRMALAR}
 
         # Satın alma geçmişini map'ten al (sorgu yok)
         kayitlar = kayit_map.get(sku, [])
@@ -590,6 +590,7 @@ def dashboard_hesapla():
 
     for urun in urunler:
         sku = urun["sku"]
+        _k = _skn_a(sku)                       # firma_data / geçmiş satış anahtarı (sku_anahtar)
         urun_adi = urun["urun_adi"]
         bizim_stok = urun.get("bizim_stok", 0) or 0
         trendyol_stok = urun.get("trendyol_stok", 0) or 0
@@ -602,7 +603,7 @@ def dashboard_hesapla():
         # ise bizim satılabilir stoktur.
         from .stok_hesap import stok_ozeti
         _oz = stok_ozeti(bizim_stok, {
-            f: (firma_data.get(f, {}).get(sku, {}) or {}).get("stok_miktari", 0) or 0
+            f: (firma_data.get(f, {}).get(_k, {}) or {}).get("stok_miktari", 0) or 0
             for f in _firmalar})
         toplam_firma_stok = _oz["kanal_stok"]
         zincir_stok = _oz["zincir_stok"]
@@ -622,7 +623,7 @@ def dashboard_hesapla():
         satis_karsilastirma = []
 
         for firma in _firmalar:
-            firma_urun = firma_data.get(firma, {}).get(sku)
+            firma_urun = firma_data.get(firma, {}).get(_k)
             if firma_urun:
                 f_stok = firma_urun.get("stok_miktari", 0) or 0
                 f_satis = firma_urun.get("haftalik_satis", 0) or 0
@@ -636,7 +637,7 @@ def dashboard_hesapla():
                 continue
 
             gun_sayisi, gun_renk = kac_gunluk_satis(zincir_stok, f_satis)
-            uyari = siparis_uyarisi_kontrol(sku, firma, firma_data, zincir_stok)
+            uyari = siparis_uyarisi_kontrol(_k, firma, firma_data, zincir_stok)
             muadil_gerekli = False
             satis_karsilastirma.append((firma, f_satis))
 
@@ -656,14 +657,14 @@ def dashboard_hesapla():
             fs["performans"] = performans_map.get(fs["firma"], "veri yok")
 
         # Stok yayılımı
-        yayilim = stok_yayilimi(sku, firma_data)
+        yayilim = stok_yayilimi(_k, firma_data)
         yayilim["TRENDYOL"] = trendyol_stok
 
         # Toplam haftalık satış
         toplam_satis = sum(fd["satis"] for fd in firma_satirlari)
 
         # Trend hesaplama (geçmiş 4 hafta)
-        gecmis = gecmis_satislar.get(sku, [])
+        gecmis = gecmis_satislar.get(_k, [])
         trend_yon, trend_yuzdesi, ortalama_satis, trend_mesaji = trend_hesapla(gecmis)
 
         # Yoldaki miktar

@@ -212,7 +212,7 @@ def goster(sku):
         return
 
     from kayranpm.database import (get_client, get_urun_detay, get_uretim_suresi, canli_stok,
-                                   firma_son_tarihleri)
+                                   firma_son_tarihleri, firma_stok_satirlari)
     from kayranpm.stok_hesap import kanal_stoklari
     sb = get_client()
     urun = get_urun_detay(sku) or {}
@@ -226,7 +226,7 @@ def goster(sku):
         except Exception:
             return []
 
-    firma_stok = _sel("firma_stok")
+    firma_stok = firma_stok_satirlari(sku)          # SKU yazımından bağımsız ('MIO …' = 'Mio …')
     yas_rows = _sel("stok_yas")
     yolda_rows = _sel("yoldaki_urunler")
     satislar = _sel("satislar", order="tarih", desc=True)

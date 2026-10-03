@@ -159,3 +159,56 @@ def test_stok_karti_ortak_kurali_kullanir():
 def test_detay_yanlis_siparis_notu_yok():
     src = (KOK / "kayranpm" / "main.py").read_text(encoding="utf-8")
     assert "Sipariş önerisinde kullanılan stok" not in src
+
+
+# ── SKU yazım farkı (Ekim 2026) ─────────────────────────────────────
+# Müşteri raporu yüklenirken SKU sku_anahtar ile BÜYÜK harfe çevrilir ('MIO MIVUE J30');
+# Mio kartları karışık harfle kayıtlı ('Mio MiVue J30'). Liste, pano ve stok kartı kanal
+# stoğunu ham SKU ile aradığı için VATAN'daki Mio stoğu 0 görünüyordu (canlıda 10 ürün, 172 adet).
+URUNLER_MIO = [{"sku": "Mio MiVue J30", "urun_adi": "Mio J30", "bizim_stok": 10, "trendyol_stok": 0,
+                "depo_kirilim": {"MERKEZ DEPO": 10}}]
+FIRMA_STOK_MIO = [
+    {"firma": "VATAN", "sku": "MIO MIVUE J30", "stok_miktari": 40, "haftalik_satis": 2, "yukleme_tarihi": "2026-09-20"},
+    {"firma": "VATAN", "sku": "MIO MIVUE J30", "stok_miktari": 45, "haftalik_satis": 3, "yukleme_tarihi": "2026-09-27"},
+]
+
+
+@pytest.fixture
+def sahte_db_mio(monkeypatch):
+    from kayranpm import analitik, database
+    ist = _Istemci({"urunler": URUNLER_MIO, "firma_stok": FIRMA_STOK_MIO})
+    monkeypatch.setattr(database, "get_client", lambda: ist)
+    monkeypatch.setattr(analitik, "get_client", lambda: ist)
+    monkeypatch.setattr(analitik, "get_all_dashboard_data", database._dashboard_ham)
+    monkeypatch.setattr(analitik, "_ithalat_maliyet_map", lambda: {})
+    monkeypatch.setattr(analitik, "_ithalat_partiler_map", lambda: {})
+    return analitik
+
+
+def test_liste_kanal_stogu_sku_yazimindan_bagimsiz(sahte_db_mio):
+    r = _bul(sahte_db_mio.tum_urunler_listesi(), "Mio MiVue J30")
+    assert r["firma_stoklari"]["VATAN"] == 45
+    assert r["kanal_stok"] == 45 and r["zincir_stok"] == 55
+
+
+def test_pano_kanal_stogu_ve_satis_gecmisi_sku_yazimindan_bagimsiz(sahte_db_mio):
+    r = _bul(sahte_db_mio.dashboard_hesapla(), "Mio MiVue J30")
+    assert r["kanal_stok"] == 45 and r["zincir_stok"] == 55
+    assert [h["satis"] for h in r["gecmis_satislar"]] == [2, 3]
+
+
+def test_stok_karti_firma_stok_satirlari_sku_yazimindan_bagimsiz(monkeypatch):
+    from kayranpm import database
+
+    class _S(_Sorgu):
+        def ilike(self, kol, desen):
+            import re
+            rx = "^" + re.escape(desen).replace("%", ".*").replace("_", ".") + "$"
+            self._s = [r for r in self._s if re.match(rx, str(r.get(kol) or ""), re.I)]
+            return self
+
+    diger = [{"firma": "VATAN", "sku": "MIO MIVUE J300", "stok_miktari": 9, "yukleme_tarihi": "2026-09-27"}]
+    monkeypatch.setattr(database, "get_client",
+                        lambda: type("I", (), {"table": lambda s, ad: _S(FIRMA_STOK_MIO + diger)})())
+    rows = database.firma_stok_satirlari("Mio MiVue J30")
+    assert sorted(r["stok_miktari"] for r in rows) == [40, 45]

@@ -38,14 +38,17 @@ def kanal_stoklari(rows, son_tarih=None):
 
     son_tarih verilmezse satırların kendisinden çıkarılır; bu yalnız TÜM
     firma_stok tablosu okunduğunda doğrudur. Tek ürünün satırlarıyla
-    çalışırken (stok kartı) kanalların genel son tarihi verilmelidir."""
+    çalışırken (stok kartı) kanalların genel son tarihi verilmelidir.
+    SKU anahtarı shared.utils.sku_anahtar: rapor 'MIO MIVUE J30' yazar, kart 'Mio MiVue J30';
+    arayan da sku_anahtar(kart_sku) ile bakmalı (Ekim 2026)."""
+    from shared.utils import sku_anahtar
     son = son_tarih if son_tarih is not None else kanal_son_tarihleri(rows)
     out = {}
     for r in rows or []:
         f = _firma(r)
         if not f or _tarih(r) != son.get(f):
             continue
-        sku = r.get("sku")
+        sku = sku_anahtar(r.get("sku"))
         out.setdefault(f, {})
         out[f][sku] = out[f].get(sku, 0) + (r.get("stok_miktari") or 0)
     return out

@@ -413,7 +413,9 @@ def _dashboard_ham():
     # Firma verisi: her firmanın SON raporu (stok_hesap — kanal_stoklari ile aynı kural). Firma
     # listesi veriden gelir (KANAL kaldırıldı, Ekim 2026); eski 'KANAL' satırları DİĞER'e katılır.
     # Eskiden sabit 6 kod için firma başına 2 sorgu atılıyordu; liste dışı firmalar hiç görünmüyordu.
-    from shared.utils import firma_kanonik, FIRMA_KODLARI_DIGER
+    # Anahtar sku_anahtar (Ekim 2026): rapor 'MIO MIVUE J30', kart 'Mio MiVue J30' yazar; ham
+    # SKU ile bakınca Mio ürünlerinin kanal stoğu ve satış geçmişi boş görünüyordu.
+    from shared.utils import firma_kanonik, FIRMA_KODLARI_DIGER, sku_anahtar
     from .stok_hesap import kanal_son_tarihleri
     _son = kanal_son_tarihleri(tum_firma_rows)
     firma_data = {f: {} for f in FIRMA_KODLARI_DIGER}
@@ -421,17 +423,33 @@ def _dashboard_ham():
         f = firma_kanonik(r.get("firma"))
         if f and str(r.get("yukleme_tarihi") or "")[:10] == _son.get(f):
             _fd = firma_data.setdefault(f, {})
-            if r["sku"] in _fd:               # aynı tarihte 'KANAL' + 'DİĞER' aynı ürün → TOPLA
-                _o = dict(_fd[r["sku"]])
+            _k = sku_anahtar(r["sku"])
+            if _k in _fd:                     # aynı tarihte 'KANAL' + 'DİĞER' / iki yazım → TOPLA
+                _o = dict(_fd[_k])
                 for _a in ("stok_miktari", "haftalik_satis", "stok_magaza", "satis_magaza"):
                     _o[_a] = (_o.get(_a) or 0) + (r.get(_a) or 0)
-                _fd[r["sku"]] = _o
+                _fd[_k] = _o
             else:
-                _fd[r["sku"]] = r
+                _fd[_k] = r
     gecmis_satislar = defaultdict(list)
     for row in tum_firma_rows:
-        gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)
+        gecmis_satislar[sku_anahtar(row["sku"])].append(row.get("haftalik_satis", 0) or 0)
     return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
+
+
+def firma_stok_satirlari(sku):
+    """Bir ürünün TÜM firma_stok satırları, SKU yazımından bağımsız (stok kartı).
+    Rapor 'MIO MIVUE J30', kart 'Mio MiVue J30' yazar; .eq("sku") Mio'da hiç satır bulmuyordu.
+    Geniş ara (ilike), sku_anahtar ile kesin doğrula ('J300' gibi yanlış adaylar elenir)."""
+    from shared.utils import sku_anahtar
+    k = sku_anahtar(sku)
+    if not k:
+        return []
+    try:
+        rows = _rows(get_client().table("firma_stok").select("*").ilike("sku", f"%{k}").execute())
+    except Exception:  # noqa: BLE001 — stok kartı kanal bölümü boş görünür, kart açılır
+        return []
+    return [r for r in rows if sku_anahtar(r.get("sku")) == k]
 
 
 def get_all_dashboard_data():
