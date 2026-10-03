@@ -70,7 +70,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
     for _d in ("database.py", "utils.py", "auth.py", "ui.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
-               "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py"):
+               "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
+               "musteri_hesap.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -119,7 +120,9 @@ KRITIK_FONKSIYONLAR = {
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
+        "kategori_oner",                          # Müşteri Satışları kategori tahmini buna dayanır
     ],
+    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu

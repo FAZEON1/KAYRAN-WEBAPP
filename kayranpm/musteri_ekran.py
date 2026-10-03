@@ -108,7 +108,12 @@ def render(yukle_penceresi=None):
     if not rows:
         st.info("Bu aralıkta haftalık satış raporu yok. Aralığı genişlet ya da veri yükle.")
         return
-    meta = get_urun_marka_kategori() or {}
+    # Kart eşleştirme + kategori çözümü (musteri_hesap.meta_hazirla): ham SKU tutmasa da
+    # normalize SKU / SKU parçası / ürün adıyla kart bulunur; kartta kategori boşsa addan tahmin.
+    from shared.utils import sku_anahtar
+    from .database import kategori_oner, KATEGORI_LISTE
+    meta = H.meta_hazirla(rows, get_urun_marka_kategori() or {}, sku_fn=sku_anahtar,
+                          oner=kategori_oner, kategori_liste=KATEGORI_LISTE)
     oz = H.ozet(rows)
 
     # Önceki eşit dönem (satış karşılaştırması). Okunamazsa rozet çıkmaz, sayfa çalışır.
@@ -137,6 +142,8 @@ def render(yukle_penceresi=None):
                          "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi", ""),
                          "Marka": (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka", ""),
                          "Kategori": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori", ""),
+                         "Kategori kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
+                             (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori_kaynak"), "—"),
                          "Satış adedi": H.satis(r), "Stok": H.stok(r)} for r in rows])
     ozet_df = pd.DataFrame([{k: v for k, v in s.items() if not k.startswith("_")}
                             for s in _satirlar(gruplar, kir, ust_ad, mod="tam")])          # Excel: tüm sütunlar
@@ -149,6 +156,16 @@ def render(yukle_penceresi=None):
     with sol:
         sec = tablo(satirlar, key=f"mhs_liste_{kir}", kalici=True, pay="Satış adedi", kompakt=True,
                     dosya_adi=f"musteri_satislari_{kir}")
+        if kir == "kategori":
+            _tah = sorted(k for k, m in meta.items() if m.get("kategori_kaynak") == "tahmin")
+            _yok = sorted(k for k, m in meta.items() if not m.get("kategori"))
+            if _tah or _yok:
+                st.caption(
+                    (f"{len(_tah)} ürünün stok kartında kategori boş; ürün adından tahmin edildi. " if _tah else "")
+                    + (f"{len(_yok)} ürün hâlâ kategorisiz. " if _yok else "")
+                    + "Kalıcı yapmak için: Ürün Yönetimi → Toplu Kategori & Marka.",
+                    help=("Tahmin: " + ", ".join(_tah[:30]) + (" …" if len(_tah) > 30 else "") if _tah else "")
+                    + (("\n\nKategorisiz: " + ", ".join(_yok[:30]) + (" …" if len(_yok) > 30 else "")) if _yok else ""))
     secili = gruplar[sec] if sec is not None else (gruplar[0] if gruplar else None)
     with sag:
         if not secili:
@@ -170,4 +187,5 @@ def render(yukle_penceresi=None):
             st.caption("Ürüne tıkla: stok kartı açılır.")
             if tik is not None and 0 <= int(tik) < len(alt):
                 from .stok_karti import goster as _stok_karti
-                _stok_karti(alt[int(tik)]["anahtar"])
+                _sk = alt[int(tik)]["anahtar"]
+                _stok_karti((meta.get(_sk) or {}).get("kart_sku") or _sk)   # rapor SKU'su ≠ kart SKU'su olabilir
