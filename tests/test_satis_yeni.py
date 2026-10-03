@@ -77,7 +77,7 @@ def test_3_markdown_metinde_dolar_kacirilir():
     src = _oku("satis/main.py")
     assert "def _usd_md(" in src
     for parca in ("GENEL destek: **{_usd_md(_genel_dst)}**", "toplam kâr **{_usd_md(",
-                  "{_usd_md(_ciro)} • Kanal:"):
+                  "{_usd_md(_ciro)} • Firma:"):   # etiket Kanal → Firma (Eki 2026)
         assert parca in src, parca
     assert "GENEL destek: **{_usd(" not in src
 

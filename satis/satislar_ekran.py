@@ -329,7 +329,7 @@ def _indir(kalemler, bas, bit, firma):
         sku = str(s.get("sku") or "")
         bd = float(s.get("birim_firma_destek") or 0) + float(s.get("birim_ek_destek") or 0)
         r = {"Tarih": str(s.get("tarih") or ""), "Sipariş No": s.get("siparis_no") or "",
-             "Kanal": s.get("kanal") or "", "SKU": sku,
+             "Firma": firma_kisa_ad(s.get("kanal")), "SKU": sku,   # 'Kanal' sütunu yok: firma adı (Eki 2026)
              "Ürün": urun_ad(sku, (s.get("urun_adi") or "") or admap.get(sku.strip(), "")),
              "Kategori": _kat_ad(katmap.get(sku_anahtar(sku), "")), "Adet": int(k["adet"] or 0),
              "Birim Satış": round(float(s.get("birim_satis") or 0), 2), "Birim Destek": round(bd, 2),

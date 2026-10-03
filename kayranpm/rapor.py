@@ -9,6 +9,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.units import cm
 from datetime import datetime
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek kaynak (Eki 2026)
+from shared.utils import firma_gorunen_ad, FIRMA_KODLARI   # kanal kodu → firma (cari) adı; tek liste
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
 from shared.utils import tr_today, tr_now, tr_today_iso, pdf_turkce_font, pdf_stilleri_turkcele
@@ -76,7 +77,7 @@ def excel_rapor_olustur(kayit_yolu):
                     urun["bizim_stok"],
                     urun["trendyol_stok"],
                     urun["stok_gun"],
-                    fd["firma"],
+                    firma_gorunen_ad(fd["firma"]),
                     fd["stok"],
                     fd["satis"],
                     fd["gun_sayisi"] if fd["gun_sayisi"] is not None else "-",
@@ -107,7 +108,10 @@ def excel_rapor_olustur(kayit_yolu):
         
         # ---- SHEET 2: STOK YAYILIMI ----
         ws2 = wb.create_sheet("Stok Yayılımı")
-        yayilim_baslik = ["SKU", "Ürün Adı", "Bizim Stok", "TRENDYOL", "ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER", "Toplam Kanal Stok"]
+        # Başlıklar firma (cari) adıyla — kod ('ITOPYA', 'HB', 'KANAL') değil (Eki 2026)
+        yayilim_baslik = (["SKU", "Ürün Adı", "Bizim Stok", "TRENDYOL"]
+                          + [firma_gorunen_ad(k) for k in FIRMA_KODLARI]
+                          + ["Diğer", "Toplam Firma Stoku"])
         for i, b in enumerate(yayilim_baslik, 1):
             cell = ws2.cell(row=1, column=i, value=b)
             cell.font = baslik_font
@@ -120,8 +124,7 @@ def excel_rapor_olustur(kayit_yolu):
             toplam = sum(y.values())
             row_data = [
                 urun["sku"], urun["urun_adi"], urun["bizim_stok"],
-                y.get("TRENDYOL", 0), y.get("ITOPYA", 0), y.get("HB", 0),
-                y.get("VATAN", 0), y.get("MONDAY", 0), y.get("KANAL", 0),
+                y.get("TRENDYOL", 0), *[y.get(k, 0) for k in FIRMA_KODLARI],   # başlıkla aynı sıra
                 y.get("DIGER", 0), toplam
             ]
             for j, val in enumerate(row_data, 1):
@@ -143,7 +146,7 @@ def excel_rapor_olustur(kayit_yolu):
         
         onerileri = get_siparis_onerileri()
         for satir_no, sp in enumerate(onerileri, 2):
-            row_data = [sp["id"], sp["firma"], sp["sku"], sp["urun_adi"],
+            row_data = [sp["id"], firma_gorunen_ad(sp["firma"]), sp["sku"], sp["urun_adi"],
                         sp["oneri_miktari"], sp["durum"], sp["olusturma_tarihi"], sp.get("onay_tarihi", "")]
             for j, val in enumerate(row_data, 1):
                 cell = ws3.cell(row=satir_no, column=j, value=val)
@@ -202,7 +205,7 @@ def pdf_rapor_olustur(kayit_yolu):
                     urun["urun_adi"][:25] + ("..." if len(urun["urun_adi"]) > 25 else ""),
                     str(urun["bizim_stok"]),
                     f"{urun['stok_gun']}g",
-                    fd["firma"],
+                    firma_gorunen_ad(fd["firma"]),
                     str(fd["stok"]),
                     str(fd["satis"]),
                     f"{fd['gun_sayisi']}g" if fd["gun_sayisi"] is not None else "-",
