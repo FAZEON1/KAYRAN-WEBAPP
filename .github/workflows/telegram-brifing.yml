@@ -40,9 +40,17 @@ jobs:
 
       - name: Yükleme hatırlatma e-postaları
         if: always()   # Telegram adımı düşse de çalışır
+        # Mail hesabı iki yoldan biriyle verilir: dört ayrı sır (SMTP_HOST/PORT/USER/PASS) ya da
+        # TEK sır BILDIRIM — uygulamadaki [bildirim] biçiminde alt alta:
+        #   smtp_host = "smtp.gmail.com" / smtp_port = "587" / smtp_user = "..." / smtp_pass = "..."
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: python otonom/eposta_hatirlatma.py
+          BILDIRIM: ${{ secrets.BILDIRIM }}
+        run: |
+          if [ -n "$BILDIRIM" ]; then
+            printf '\n[bildirim]\n%s\n' "$BILDIRIM" >> .streamlit/secrets.toml
+          fi
+          python otonom/eposta_hatirlatma.py
