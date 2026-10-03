@@ -68,3 +68,27 @@ jobs:
         if: always()
         working-directory: tests
         run: python -m pytest test_butunluk.py -q --tb=line -p no:cacheprovider || true
+
+  # Sayfa testi (tests/duman): uygulama GERÇEK Streamlit'le, bellekteki boş bir sahte veritabanıyla
+  # açılır; her modülün her sayfası çizilir. Çöken sayfa (cannot import name, ad hatası, boş veride
+  # çökme) PR aşamasında kırmızı olur. Ayrı iş: yukarıdaki testler sahte streamlit ister, bu gerçeğini.
+  sayfalar:
+    name: Sayfa testi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Uygulamanın requirements.txt sınırlarıyla (supabase hariç — test sahtesini kullanır)
+      - name: Bağımlılıklar
+        run: pip install --quiet "streamlit>=1.40,<2" "pandas>=1.5,<3" "openpyxl>=3.0.10,<4" "plotly>=5,<7" "reportlab>=3.6,<5" "xlrd>=2,<3" "requests>=2.28,<3" pytest
+
+      - name: Her sayfa çökmeden açılıyor mu
+        working-directory: tests
+        run: python -m pytest duman -q --tb=short -p no:cacheprovider -W ignore

@@ -58,6 +58,12 @@ pip install pytest pandas openpyxl plotly pyflakes
 python -m pytest -q
 ```
 
+**Sayfa testi** (`tests/duman`, CI'da ayrı iş "Sayfa testi"): her modülün her sayfası gerçek Streamlit'le,
+boş sahte veritabanıyla açılır; çöken sayfa kırmızı. Ayrı bir ortamda çalıştır (gerçek streamlit yukarıdaki
+testleri bozar): `pip install "streamlit<2" "pandas<3" plotly openpyxl reportlab xlrd pytest` →
+`cd tests && python -m pytest duman -q -W ignore`. Yeni sayfa `shared/gezinme.MODULLER`'e eklenince teste
+kendiliğinden girer.
+
 Yerelde Supabase bilgisi yoksa ekran canlı veriyle açılmaz; davranış kanıtı main'deki kodu aynı
 veriyle çalıştırıp sayıları yan yana koyarak verilir.
 
