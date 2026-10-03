@@ -1107,6 +1107,11 @@ def run():
                     if _n:
                         st.rerun()
 
+            # Ana veri entegrasyonu Faz 2a — SALT OKUNUR karşılaştırma (kayranpm/pacal_ekran.py)
+            with st.expander("Paçal tutarlılık kontrolü — üç ekranın paçalı yan yana"):
+                from .pacal_ekran import goster as _pacal_kars
+                _pacal_kars()
+
         elif sayfa == "📈  Müşteri Satışları":
             st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Satışları", aciklama="Müşteri raporlarından haftalık satış ve kanal stoğu · müşteriye, markaya, ürüne ya da kategoriye göre · aynı haftada yalnız en güncel yükleme sayılır"), unsafe_allow_html=True)
             from shared.yukleme_takvimi import serit as _yt_serit

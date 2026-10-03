@@ -1410,6 +1410,43 @@ def get_sku_alim_detay(sku):
         return []
 
 
+def get_parti_satirlari():
+    """Her ithalat kalemi bir parti satırı: {sku, dosya_id, yolda, adet, fob, final, tarih}.
+    fob/final get_sku_maliyet_ozet ve get_sku_alim_detay ile AYNI kuralla (net FOB =
+    indirim düşülmüş; final = FOB × (1 + kalemin kendi kategorisinin masraf yüzdesi)).
+    yolda: dosya durumu IN_TRANSIT_DURUMLAR'da. Paçal karşılaştırması (ithalat/pacal_hesap)
+    bunu kullanır — Faz 2a, salt okunur. Okunamazsa []."""
+    try:
+        dosyalar = {d.get("id"): d for d in (get_dosyalar() or [])}
+        kalemler = get_tum_kalemler() or []
+        by_dosya = {}
+        for k in kalemler:
+            by_dosya.setdefault(k.get("dosya_id"), []).append(k)
+        dosya_yuzde, dosya_indirim = {}, {}
+        for did, ks in by_dosya.items():
+            _h = dosya_hesapla(dosyalar.get(did, {}), ks)
+            dosya_yuzde[did] = kategori_yuzde_map(dosyalar.get(did, {}), ks)
+            _brut = _h.get("mal_bedeli", 0.0)
+            dosya_indirim[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
+        out = []
+        for k in kalemler:
+            sku = str(k.get("sku") or "").strip()
+            adet = _f(k.get("adet"))
+            if not sku or adet <= 0:
+                continue
+            did = k.get("dosya_id")
+            d = dosyalar.get(did, {}) or {}
+            fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim.get(did, 0.0))
+            yuzde = kalem_yuzde(dosya_yuzde.get(did), k)
+            out.append({"sku": sku, "dosya_id": did, "adet": adet, "fob": fob,
+                        "final": fob * (1 + yuzde / 100.0),
+                        "yolda": str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR,
+                        "tarih": str(d.get("tarih") or "")[:10]})
+        return out
+    except Exception:
+        return []
+
+
 # ═══════════ MODEL B — Teslim Alındı ⇄ depo stoğu ═══════════
 def _dosya_kalem_agg(kalemler):
     agg = {}
