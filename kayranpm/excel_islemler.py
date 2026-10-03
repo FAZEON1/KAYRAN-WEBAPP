@@ -37,13 +37,11 @@ def tr_upper(s):
     return str(s).strip().upper().replace("İ","I").replace("Ğ","G").replace("Ü","U").replace("Ş","S").replace("Ç","C").replace("Ö","O")
 
 def normalize_sku(sku):
-    """Fazeon/FAZEON gibi marka prefix'lerini SKU'dan temizler ve büyük harfe çevirir."""
-    sku = str(sku).strip()
-    for prefix in ["FAZEON ", "Fazeon ", "fazeon "]:
-        if sku.startswith(prefix):
-            sku = sku[len(prefix):]
-            break
-    return sku.strip().upper()
+    """Excel yüklemelerinde yazılacak SKU — shared.utils.sku_anahtar'a DEVREDER (tek kural,
+    Ekim 2026, ana veri Faz 3). Eskiden ayrı kopyaydı: 'FaZeOn X' önekini atmıyor, boş
+    hücreyi 'NONE' yazıyordu. Diğer bütün girdilerde sonuç birebir aynıdır."""
+    from shared.utils import sku_anahtar
+    return sku_anahtar(sku)
 
 
 FIRMA_LISTESI = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]

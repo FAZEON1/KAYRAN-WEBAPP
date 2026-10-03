@@ -155,3 +155,25 @@ def test_net_adet_firma_suzgecinde():
 
 def test_net_adet_kategori_suzgecinde():
     assert _p(kat="FAN")["itop"]["net_adet"] == 20
+
+
+# ── Kategori süzgeci yazımdan bağımsız (Ekim 2026, Faz 1 sonrası düzeltme) ──
+# Faz 1'de P&L filtresinin seçenekleri tek yazıma ('Kasa') çevrildi; satis_pnl ise
+# süzgeci kart yazımıyla ('KASA' / 'kasa') BİREBİR karşılaştırıyordu → filtre boş dönüyordu.
+@pytest.mark.parametrize("secim", ["Kasa", "KASA", "kasa"])
+def test_kategori_suzgeci_yazimdan_bagimsiz(secim):
+    r = _p(kat=secim, katmap={"K1": "kasa", "F1": "FAN"},
+           alinan_kirilim=({}, {"KASA": 12.5}, 0.0),
+           ref_kirilim={"kategori": {"KASA": 3.0}, "dagitilmayan": []})
+    assert not r.get("bos"), "kategori seçimi kart yazımıyla tutmadı, P&L boş döndü"
+    t = _ozet([SAT[0]])
+    assert r["kat_destek"] == pytest.approx(12.5)
+    assert r["nihai"] == pytest.approx(t["net_kar"] - 20 + 12.5 - 3.0)
+
+
+def test_kategori_destek_anahtari_farkli_yazim():
+    """Alınan destek / Ref kırılım anahtarı 'MONITÖR' (noktasız) olsa da 'Monitör' seçimi bulur."""
+    r = _p(kat="Monitör", katmap={"K1": "monitör", "F1": "FAN"},
+           alinan_kirilim=({}, {"MONITÖR": 5.0}, 0.0),
+           ref_kirilim={"kategori": {"MONITÖR": 2.0}, "dagitilmayan": []})
+    assert not r.get("bos") and r["kat_destek"] == pytest.approx(5.0)

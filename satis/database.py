@@ -317,10 +317,18 @@ def get_urunler():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_sku_kategori():
-    """{SKU: kategori} haritası (satış listesinde Kategori kolonu için)."""
+    """{sku_anahtar(SKU): kategori} haritası. Anahtar NORMALİZE (Ekim 2026, ana veri Faz 3):
+    satış kaydında 'X24F165S', kartta 'Fazeon X24F165S' yazsa da kategori bulunur.
+    Arayan taraf da sku_anahtar ile aramalı. Aynı anahtarda boş olmayan ilk kategori kazanır."""
     try:
+        from shared.utils import sku_anahtar
         rows = _urunler_hepsi("sku, kategori")
-        return {str(r.get("sku") or "").strip(): (r.get("kategori") or "") for r in rows}
+        out = {}
+        for r in rows:
+            k, kat = sku_anahtar(r.get("sku")), (r.get("kategori") or "")
+            if k and (k not in out or (not out[k] and kat)):
+                out[k] = kat
+        return out
     except Exception:
         return {}
 
@@ -1004,17 +1012,11 @@ def _temizle():
 
 
 def _normalize_sku_yerel(s):
-    """SKU'yu paçal eşleştirmesi için normalize eder ('Fazeon X24F165S' → 'X24F165S')."""
-    try:
-        from kayranpm.excel_islemler import normalize_sku
-        return normalize_sku(s)
-    except Exception:
-        s = str(s or "").strip()
-        for p in ("FAZEON ", "Fazeon ", "fazeon "):
-            if s.startswith(p):
-                s = s[len(p):]
-                break
-        return s.strip().upper()
+    """SKU'yu satış kaydı / paçal eşleştirmesi için normalize eder ('Fazeon X24F165S' →
+    'X24F165S'). Tek kural: shared.utils.sku_anahtar (Ekim 2026, ana veri Faz 3).
+    Eskiden excel_islemler.normalize_sku'ya gidiyor, içe aktarma düşerse None dönüyordu."""
+    from shared.utils import sku_anahtar
+    return sku_anahtar(s)
 
 
 def satis_maliyet_tazele_onizle(sadece_sifir=True):
