@@ -1751,141 +1751,143 @@ def _yeni_ithalat():
 
             if st.button("İçe Aktar", type="primary", key="ith_excel_import", icon=":material/move_to_inbox:"):
                 basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
-                for dno, g in gruplar:
-                    dno_s = str(dno).strip()
-                    if not dno_s or dno_s.lower() == "nan":
-                        continue
-                    ilk = g.iloc[0]
-                    kalemler = []
-                    for _, r in g.iterrows():
-                        sku = str(r.get(kol["sku"], "") or "").strip()
-                        if not sku or sku.lower() == "nan":
+                from shared.yukleme_gecmisi import Kayit as _YKayit
+                _yk_ith = _YKayit("ithalat_rapor", up.name)
+                with _yk_ith.stok():   # eklenen / güncellenen dosyalar bu yüklemeye bildirilir (geri alma)
+                    for dno, g in gruplar:
+                        dno_s = str(dno).strip()
+                        if not dno_s or dno_s.lower() == "nan":
                             continue
-                        adet = _sf(r.get(kol["adet"]))
-                        if adet <= 0:
+                        ilk = g.iloc[0]
+                        kalemler = []
+                        for _, r in g.iterrows():
+                            sku = str(r.get(kol["sku"], "") or "").strip()
+                            if not sku or sku.lower() == "nan":
+                                continue
+                            adet = _sf(r.get(kol["adet"]))
+                            if adet <= 0:
+                                continue
+                            fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
+                            if fob <= 0 and "birim_fiyat" in kol:
+                                fob = _sf(r.get(kol["birim_fiyat"]))
+                            # 0 fiyatlı (bedelsiz/yedek) satırı ATLAMA: adeti paçala dahil et,
+                            # maliyet toplam tutara bölünerek düşer (ör. 707 adet, 700'ü fiyatlı).
+                            if fob <= 0:
+                                bedelsiz += 1
+                            ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
+                            _ug = str(r.get(kol["urun_grubu"], "") or "").strip() if "urun_grubu" in kol else ""
+                            kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
+                                             "urun_grubu": _ug,
+                                             "adet": adet, "birim_fob": fob})
+                        if not kalemler:
+                            atlanan += 1
+                            mesajlar.append(f"{dno_s}: kalem yok, atlandı.")
                             continue
-                        fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
-                        if fob <= 0 and "birim_fiyat" in kol:
-                            fob = _sf(r.get(kol["birim_fiyat"]))
-                        # 0 fiyatlı (bedelsiz/yedek) satırı ATLAMA: adeti paçala dahil et,
-                        # maliyet toplam tutara bölünerek düşer (ör. 707 adet, 700'ü fiyatlı).
-                        if fob <= 0:
-                            bedelsiz += 1
-                        ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
-                        _ug = str(r.get(kol["urun_grubu"], "") or "").strip() if "urun_grubu" in kol else ""
-                        kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
-                                         "urun_grubu": _ug,
-                                         "adet": adet, "birim_fob": fob})
-                    if not kalemler:
-                        atlanan += 1
-                        mesajlar.append(f"{dno_s}: kalem yok, atlandı.")
-                        continue
-                    if sum(k["adet"] * k["birim_fob"] for k in kalemler) <= 0:
-                        atlanan += 1
-                        mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
-                        continue
-                    # Belge no(lar) — bir takip no altında birden çok belge olabilir
-                    if "pi_no" in kol:
-                        _belgeler = sorted({str(x).strip() for x in g[kol["pi_no"]].tolist()
+                        if sum(k["adet"] * k["birim_fob"] for k in kalemler) <= 0:
+                            atlanan += 1
+                            mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
+                            continue
+                        # Belge no(lar) — bir takip no altında birden çok belge olabilir
+                        if "pi_no" in kol:
+                            _belgeler = sorted({str(x).strip() for x in g[kol["pi_no"]].tolist()
+                                                if str(x).strip() and str(x).strip().lower() != "nan"})
+                        else:
+                            _belgeler = []
+                        belge_no = _belgeler[0] if _belgeler else dno_s
+                        if "dosya_no" in kol:
+                            _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
                                             if str(x).strip() and str(x).strip().lower() != "nan"})
-                    else:
-                        _belgeler = []
-                    belge_no = _belgeler[0] if _belgeler else dno_s
-                    if "dosya_no" in kol:
-                        _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
-                                        if str(x).strip() and str(x).strip().lower() != "nan"})
-                    else:
-                        _sips = []
-                    # SAS No — Satın Alım Raporu'nda "Sipariş no" kolonu SAS numarasını taşır
-                    sas_no_val = ", ".join(_sips) if _sips else ""
-                    _not_parts = []
-                    if len(_belgeler) > 1:
-                        _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
-                    notlar = " · ".join(_not_parts)
-                    # İthalat takip no (varsa) — dosya bununla dosyalanır; boşsa boş kalır
-                    takip_no = str(ilk.get(kol["takip_no"], "") or "").strip() if "takip_no" in kol else ""
-                    if takip_no.lower() == "nan":
-                        takip_no = ""
-                    tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
-                    teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
-                    ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
-                    dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
-                    # Teslim türü (Incoterm) — Excel'den; INCOTERM listesine uydur
-                    teslim_sekli_val = ""
-                    if "teslim_sekli" in kol:
-                        _ts_raw = str(ilk.get(kol["teslim_sekli"], "") or "").strip()
-                        if _ts_raw and _ts_raw.lower() != "nan":
-                            _ts_up = _ts_raw.upper()
-                            teslim_sekli_val = _ts_up if _ts_up in INCOTERM_SECENEKLER else _ts_raw
+                        else:
+                            _sips = []
+                        # SAS No — Satın Alım Raporu'nda "Sipariş no" kolonu SAS numarasını taşır
+                        sas_no_val = ", ".join(_sips) if _sips else ""
+                        _not_parts = []
+                        if len(_belgeler) > 1:
+                            _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
+                        notlar = " · ".join(_not_parts)
+                        # İthalat takip no (varsa) — dosya bununla dosyalanır; boşsa boş kalır
+                        takip_no = str(ilk.get(kol["takip_no"], "") or "").strip() if "takip_no" in kol else ""
+                        if takip_no.lower() == "nan":
+                            takip_no = ""
+                        tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
+                        teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
+                        ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
+                        dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
+                        # Teslim türü (Incoterm) — Excel'den; INCOTERM listesine uydur
+                        teslim_sekli_val = ""
+                        if "teslim_sekli" in kol:
+                            _ts_raw = str(ilk.get(kol["teslim_sekli"], "") or "").strip()
+                            if _ts_raw and _ts_raw.lower() != "nan":
+                                _ts_up = _ts_raw.upper()
+                                teslim_sekli_val = _ts_up if _ts_up in INCOTERM_SECENEKLER else _ts_raw
 
-                    # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
-                    # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
-                    mevcut_kayit = _dosya_map.get(dno_s)
-                    if mevcut_kayit:
-                        if not _guncelle:
-                            # "Sadece yenileri ekle": mevcut dosya atlanır AMA boş alanlar
-                            # (takip no, teslim tarihi) Excel'den doldurulur — dolu olan ASLA değişmez.
-                            _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
-                            _dolduruldu = []
-                            if takip_no and not _mt:
-                                set_dosya_takip_no(mevcut_kayit["id"], takip_no)
-                                _dolduruldu.append(f"takip no {takip_no}")
-                            _mtes = str(mevcut_kayit.get("teslim_tarihi", "") or "").strip()
-                            if teslim and not _mtes:
-                                set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
-                                _dolduruldu.append(f"teslim {str(teslim)[:10]}")
-                            _msas = str(mevcut_kayit.get("sas_no", "") or "").strip()
-                            if sas_no_val and not _msas:
-                                set_dosya_sas(mevcut_kayit["id"], sas_no_val)
-                                _dolduruldu.append(f"SAS {sas_no_val}")
-                            _minc = str(mevcut_kayit.get("teslim_sekli", "") or "").strip()
-                            if teslim_sekli_val and not _minc:
-                                set_dosya_teslim_sekli(mevcut_kayit["id"], teslim_sekli_val)
-                                _dolduruldu.append(f"Incoterm {teslim_sekli_val}")
-                            if _dolduruldu:
+                        # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
+                        # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
+                        mevcut_kayit = _dosya_map.get(dno_s)
+                        if mevcut_kayit:
+                            if not _guncelle:
+                                # "Sadece yenileri ekle": mevcut dosya atlanır AMA boş alanlar
+                                # (takip no, teslim tarihi) Excel'den doldurulur — dolu olan ASLA değişmez.
+                                _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
+                                _dolduruldu = []
+                                if takip_no and not _mt:
+                                    set_dosya_takip_no(mevcut_kayit["id"], takip_no)
+                                    _dolduruldu.append(f"takip no {takip_no}")
+                                _mtes = str(mevcut_kayit.get("teslim_tarihi", "") or "").strip()
+                                if teslim and not _mtes:
+                                    set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
+                                    _dolduruldu.append(f"teslim {str(teslim)[:10]}")
+                                _msas = str(mevcut_kayit.get("sas_no", "") or "").strip()
+                                if sas_no_val and not _msas:
+                                    set_dosya_sas(mevcut_kayit["id"], sas_no_val)
+                                    _dolduruldu.append(f"SAS {sas_no_val}")
+                                _minc = str(mevcut_kayit.get("teslim_sekli", "") or "").strip()
+                                if teslim_sekli_val and not _minc:
+                                    set_dosya_teslim_sekli(mevcut_kayit["id"], teslim_sekli_val)
+                                    _dolduruldu.append(f"Incoterm {teslim_sekli_val}")
+                                if _dolduruldu:
+                                    guncellenen += 1
+                                    mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
+                                else:
+                                    atlanan += 1
+                                    mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
+                                continue
+                            # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
+                            eski_masraf = _masraf_dict(mevcut_kayit)
+                            eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
+                            # Excel'de olmayan alanlar MEVCUT kayıttan korunur (Ekim 2026): eskiden durum,
+                            # teslim deposu, tahmini varış ve fatura indirimi boşa yazılıyordu — teslim
+                            # alınmış dosya "durumsuz" kalıyor, sonra elle yeniden "Teslim Alındı" yapılınca
+                            # mal stoğa İKİNCİ KEZ ekleniyordu.
+                            ok, msg = guncelle_dosya(
+                                mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
+                                dov, eski_kur, eski_masraf, notlar, kalemler,
+                                ithalat_takip_no=takip_no,
+                                durum=str(mevcut_kayit.get("durum") or ""),
+                                teslim_deposu=str(mevcut_kayit.get("teslim_deposu") or ""),
+                                tahmini_varis=mevcut_kayit.get("tahmini_varis") or "",
+                                fatura_indirim=mevcut_kayit.get("fatura_indirim") or 0,
+                                teslim_tarihi=(str(teslim)[:10] if teslim
+                                               else str(mevcut_kayit.get("teslim_tarihi") or "")[:10]),
+                                teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
+                                sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
+                            if ok:
                                 guncellenen += 1
-                                mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
                             else:
-                                atlanan += 1
-                                mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
-                            continue
-                        # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
-                        eski_masraf = _masraf_dict(mevcut_kayit)
-                        eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
-                        # Excel'de olmayan alanlar MEVCUT kayıttan korunur (Ekim 2026): eskiden durum,
-                        # teslim deposu, tahmini varış ve fatura indirimi boşa yazılıyordu — teslim
-                        # alınmış dosya "durumsuz" kalıyor, sonra elle yeniden "Teslim Alındı" yapılınca
-                        # mal stoğa İKİNCİ KEZ ekleniyordu.
-                        ok, msg = guncelle_dosya(
-                            mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
-                            dov, eski_kur, eski_masraf, notlar, kalemler,
-                            ithalat_takip_no=takip_no,
-                            durum=str(mevcut_kayit.get("durum") or ""),
-                            teslim_deposu=str(mevcut_kayit.get("teslim_deposu") or ""),
-                            tahmini_varis=mevcut_kayit.get("tahmini_varis") or "",
-                            fatura_indirim=mevcut_kayit.get("fatura_indirim") or 0,
-                            teslim_tarihi=(str(teslim)[:10] if teslim
-                                           else str(mevcut_kayit.get("teslim_tarihi") or "")[:10]),
-                            teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
-                            sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
-                        if ok:
-                            guncellenen += 1
+                                hata += 1
+                                mesajlar.append(f"{dno_s}: {msg}")
                         else:
-                            hata += 1
-                            mesajlar.append(f"{dno_s}: {msg}")
-                    else:
-                        ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
-                                             pi_no=belge_no, ithalat_takip_no=takip_no,
-                                             teslim_tarihi=(str(teslim)[:10] if teslim else ""),
-                                             teslim_sekli=teslim_sekli_val, sas_no=sas_no_val)
-                        if ok:
-                            basari += 1
-                        else:
-                            hata += 1
-                            mesajlar.append(f"{dno_s}: {msg}")
+                            ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
+                                                 pi_no=belge_no, ithalat_takip_no=takip_no,
+                                                 teslim_tarihi=(str(teslim)[:10] if teslim else ""),
+                                                 teslim_sekli=teslim_sekli_val, sas_no=sas_no_val)
+                            if ok:
+                                basari += 1
+                            else:
+                                hata += 1
+                                mesajlar.append(f"{dno_s}: {msg}")
                 if basari or guncellenen:
-                    from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                    _yg_kaydet("ithalat_rapor", basari + guncellenen, up.name)
+                    _yk_ith.kaydet(basari + guncellenen)
                 if basari:
                     st.success(f"✅ {basari} yeni dosya içe aktarıldı (⏳ masraf bekliyor).")
                 if guncellenen:
