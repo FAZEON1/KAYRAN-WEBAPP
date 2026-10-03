@@ -9,6 +9,11 @@ Saf fonksiyonlar (test edilir): secenekler, sayfa_kodu, secenek_kodundan,
 palet_ogeleri, arama_ogeleri, hedef.
 """
 
+# ── Sayfa menüsünün yeri ────────────────────────────────────────────
+# True : modül şeridinin altında sekme satırı (Ekim 2026)
+# False: eskisi gibi kenar çubuğunda. Geri almak için YALNIZ bu satırı değiştir.
+MENU_UST = True
+
 # kod · ad (cümle düzeni) · ikon (material) · anahtar (modül menüsünün session anahtarı)
 # sayfalar: (seçenek metni, url kodu, ad, koşul)
 MODULLER = [
@@ -245,3 +250,53 @@ def adres_yaz(aktif):
             del st.query_params["p"]
     except Exception:
         pass
+
+
+# ── Sayfa menüsü (üstte sekme / kenar çubuğunda liste) ──────────────
+def sekme_adi(mod, secenek):
+    """Sekme metni: kayıt defterindeki cümle düzenli ad; yoksa ikon/emoji atılmış metin."""
+    for s in _MOD.get(mod, {}).get("sayfalar", []):
+        if s[0] == secenek:
+            return s[2]
+    try:
+        from shared.tasarim import menu_etiketi
+        e = menu_etiketi(secenek)
+        return e.split(": ", 1)[1] if e.startswith(":material/") else e
+    except Exception:
+        return str(secenek)
+
+
+def _ctx():
+    try:
+        from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
+        return get_script_run_ctx()
+    except Exception:
+        return None
+
+
+def serit_kur(kap):
+    """app.py, modül şeridinin hemen altındaki boş kabı verir. Oturuma (çalışma
+    bağlamına) yazılır; modül global değişkeni oturumlar arasında karışırdı."""
+    c = _ctx()
+    if c is not None:
+        try:
+            setattr(c, "_kayran_sayfa_seridi", kap)
+        except Exception:
+            pass
+
+
+def _serit():
+    c = _ctx()
+    return getattr(c, "_kayran_sayfa_seridi", None) if c is not None else None
+
+
+def sayfa_menusu(etiket, secenekler, *, modul, key, format_func=None, **kw):
+    """Modüllerin sayfa menüsü — st.radio ile aynı çağrı + modul=.
+    MENU_UST açıksa şeridin altında yatay sekme; kapalıysa (ya da şerit
+    kurulmamışsa) çağrıldığı yerde (kenar çubuğu) eskisi gibi liste."""
+    import streamlit as st
+    kap = _serit() if MENU_UST else None
+    if kap is None:
+        return st.radio(etiket, secenekler, key=key, format_func=format_func or str, **kw)
+    return kap.radio(etiket, secenekler, key=key, horizontal=True, label_visibility="collapsed",
+                     format_func=lambda s: sekme_adi(modul, s))

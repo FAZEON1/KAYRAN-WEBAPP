@@ -27,8 +27,8 @@ def run():
         from shared.utils import sidebar_ust
         sidebar_ust("🏬", "Depo", "depo")
         from shared.tasarim import menu_etiketi as _me
-        from shared.gezinme import secenekler
-        _dsayfa = st.radio("Sayfa", secenekler("depo"),
+        from shared.gezinme import secenekler, sayfa_menusu
+        _dsayfa = sayfa_menusu("Sayfa", secenekler("depo"), modul="depo",
                            label_visibility="collapsed", key="depo_sayfa",
                            format_func=_me)
 

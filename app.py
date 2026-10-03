@@ -1699,6 +1699,7 @@ def ust_navigasyon():
     # Seçiciler 'html body' ile güçlendirildi: modüllerin kendi birincil düğme
     # renkleri (Muhasebe mor degrade, Ürün Yön. mavi…) artık menüyü EZEMEZ.
     N = 'html body .st-key-ustnav'
+    from shared.tasarim import _OPT, _DAIRE          # radyo seçicileri (eski + 1.64 yapısı)
     st.markdown(f"""<style>
     /* Tek ŞERİT + çerçevesiz sekmeler (eskiden 10 ayrı çerçeveli kutu, eşit
        genişlikte → kalabalık ve amatör görünüyordu). Gruplar: [Ana Sayfa · Arama]
@@ -1777,6 +1778,31 @@ def ust_navigasyon():
 
     /* Sayfa içi radyolar: shared/tasarim.SIDEBAR_CSS (iki Streamlit yapısını da tanır) */
 
+    /* ── Sayfa sekmeleri (modül şeridinin altı) — radyo, sekme gibi çizilir ──
+       Daire gizli; seçili sekmenin altında mor çizgi. Sığmazsa satır yana kayar.
+       Seçiciler eski yapıyı (> label) ve 1.64 yapısını (stRadioOption) birlikte tanır
+       — shared/tasarim._OPT / _DAIRE ile aynı kalıp. */
+    html body .st-key-sayfa_seridi{{margin:-4px 0 12px !important;}}
+    html body .st-key-sayfa_seridi [role="radiogroup"]{{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;
+        gap:2px !important;border-bottom:1px solid var(--k-kenar);padding:0 28px 0 2px;-webkit-overflow-scrolling:touch;
+        width:100% !important;box-sizing:border-box;
+        -webkit-mask-image:linear-gradient(to right,var(--k-metin) calc(100% - 36px),transparent);
+        mask-image:linear-gradient(to right,var(--k-metin) calc(100% - 36px),transparent);}}
+    html body .st-key-sayfa_seridi [data-testid="stRadio"],html body .st-key-sayfa_seridi [data-testid="stRadio"] > div{{width:100% !important;}}
+    html body .st-key-sayfa_seridi [role="radiogroup"]::-webkit-scrollbar{{display:none;}}
+    html body .st-key-sayfa_seridi {_OPT}{{margin:0 !important;padding:9px 12px 10px !important;
+        border-radius:0 !important;background:transparent !important;border:0 !important;cursor:pointer;
+        white-space:nowrap;flex:0 0 auto;box-shadow:none !important;min-height:0 !important;}}
+    html body .st-key-sayfa_seridi {_DAIRE}{{display:none !important;}}
+    html body .st-key-sayfa_seridi {_OPT} p{{font-size:13.5px !important;color:var(--k-soluk) !important;
+        font-weight:500 !important;margin:0 !important;white-space:nowrap !important;}}
+    html body .st-key-sayfa_seridi {_OPT}:hover p{{color:var(--k-metin) !important;}}
+    html body .st-key-sayfa_seridi {_OPT}:has(input:checked){{box-shadow:inset 0 -2px 0 var(--k-mor) !important;
+        background:transparent !important;}}
+    html body .st-key-sayfa_seridi {_OPT}:has(input:checked) *{{background:transparent !important;}}
+    html body .st-key-sayfa_seridi {_OPT}:has(input:checked) p{{color:var(--k-metin) !important;font-weight:600 !important;}}
+    html body .st-key-sayfa_seridi {_OPT}:focus-within{{outline:2px solid var(--k-mor);outline-offset:-2px;}}
+
     /* === Üstteki ve sidebar'daki fazla boşlukları komple kaldır === */
     /* Streamlit üst barı/araç çubuğu/dekorasyon: gizle */
     header[data-testid="stHeader"]{{display:none !important;height:0 !important;}}
@@ -1819,6 +1845,12 @@ def ust_navigasyon():
                      use_container_width=True, on_click=_sayfaya_git, args=(mod,))
         with cols[-1]:
             _talep_dugmesi()            # Talep Merkezi: üst menünün en sağında
+
+    # Sayfa sekmeleri: modüllerin sayfa menüsü buraya çizilir (shared/gezinme.sayfa_menusu).
+    # Geri almak için shared/gezinme.py → MENU_UST = False (menüler kenar çubuğuna döner).
+    from shared.gezinme import serit_kur, MENU_UST
+    if MENU_UST:
+        serit_kur(st.container(key="sayfa_seridi"))
 
 
 def _palet_kosul(kosul, kullanici):

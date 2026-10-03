@@ -46,7 +46,8 @@ def test_her_modul_menusunun_anahtari_var():
             assert m.get("anahtar"), m["kod"]
     src = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
     t = ast.parse(src)
-    radyolar = [n for n in ast.walk(t) if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "radio"
+    radyolar = [n for n in ast.walk(t) if isinstance(n, ast.Call)
+                and (getattr(n.func, "attr", "") == "radio" or getattr(n.func, "id", "") == "sayfa_menusu")
                 and any(k.arg == "label_visibility" for k in n.keywords)]
     assert any(any(k.arg == "key" and getattr(k.value, "value", None) == "acc_sayfa" for k in r.keywords)
                for r in radyolar)
@@ -149,3 +150,54 @@ def test_ctrl_k_paleti_acar():
 def test_adres_cubugunda_sayfa():
     src = (KOK / "app.py").read_text(encoding="utf-8")
     assert "adres_yaz(" in src and "adres_oku(" in src
+
+
+# ── 2. paket: sayfa menüsü üstte (geri alınabilir) ──────────────────
+MENU_MODULLERI = {"kayranpm": "kayranpm/main.py", "depo": "depo/main.py", "ithalat": "ithalat/main.py",
+                  "teknikservis": "teknikservis/main.py", "satis": "satis/main.py", "kayranacc": "kayranacc/main.py"}
+
+
+def test_geri_alma_anahtari_tek_satir():
+    """Beğenilmezse GitHub web düzenleyicisinde tek satır: MENU_UST = False."""
+    src = (KOK / "shared" / "gezinme.py").read_text(encoding="utf-8")
+    import re
+    assert len(re.findall(r"^MENU_UST = (True|False)\s", src, re.M)) == 1
+
+
+def test_moduller_ortak_menuyu_kullanir():
+    for mod, d in MENU_MODULLERI.items():
+        src = (KOK / d).read_text(encoding="utf-8")
+        assert "sayfa_menusu(" in src and f'modul="{mod}"' in src, d
+        t = ast.parse(src)
+        for n in ast.walk(t):
+            if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "radio" and n.args \
+                    and isinstance(n.args[0], ast.Constant) and n.args[0].value == "Sayfa":
+                raise AssertionError(f"{d}: sayfa menüsü hâlâ doğrudan st.radio")
+
+
+def test_sekme_adlari_kayit_defterinden():
+    g = _g()
+    assert g.sekme_adi("kayranpm", "📋  Tüm Ürünler") == "Tüm ürünler"
+    assert g.sekme_adi("satis", "📊 Kâr / P&L") == "Kâr / P&L"
+    assert g.sekme_adi("yok", "🧾 Bilinmeyen") == "Bilinmeyen"      # kayıtta yoksa ikon/emoji atılır
+
+
+def test_menu_kapaliyken_kenar_cubugu(monkeypatch):
+    """MENU_UST = False → eskisi gibi çağıranın yerine (kenar çubuğu) çizilir."""
+    import streamlit as st
+    g = _g()
+    cagri = {}
+
+    def sahte_radio(etiket, secenekler, **kw):
+        cagri.update(kw, etiket=etiket)
+        return secenekler[0]
+    monkeypatch.setattr(st, "radio", sahte_radio, raising=False)
+    monkeypatch.setattr(g, "MENU_UST", False)
+    assert g.sayfa_menusu("Sayfa", ["a", "b"], key="k", modul="depo", label_visibility="collapsed") == "a"
+    assert cagri["key"] == "k" and cagri["label_visibility"] == "collapsed" and "horizontal" not in cagri
+
+
+def test_app_seridi_kurar():
+    src = (KOK / "app.py").read_text(encoding="utf-8")
+    assert 'key="sayfa_seridi"' in src and "serit_kur(" in src
+    assert ".st-key-sayfa_seridi" in src
