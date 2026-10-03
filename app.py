@@ -39,9 +39,11 @@ _CACHE_CLEAR_ORJINAL = st.cache_data.clear
 
 # Klasör → temizlenecek modül grupları (çapraz bağımlılıklar dahil)
 _CACHE_GRUPLARI = {
-    "satis":          ("satis", "kayranpm", "shared"),
-    "kayranpm":       ("kayranpm", "satis", "depo", "shared"),
-    "depo":           ("depo", "kayranpm", "satis", "shared"),
+    # ithalat: ürün kartı (urunler) değişince İthalat'ın ürün önbellekleri de (katalog, kategori,
+    # barkod haritası, paçal) temizlensin — eskiden kayranpm/satis/depo yazmaları onları atlıyordu.
+    "satis":          ("satis", "kayranpm", "ithalat", "shared"),
+    "kayranpm":       ("kayranpm", "satis", "depo", "ithalat", "shared"),
+    "depo":           ("depo", "kayranpm", "satis", "ithalat", "shared"),
     "ithalat":        ("ithalat", "kayranpm", "satis", "shared"),
     "kayranacc":      ("kayranacc", "satis", "shared"),
     "teknikservis":   ("teknikservis", "shared"),
@@ -3243,6 +3245,14 @@ def main():
         _tb = _sekme_basliklari.get(aktif, "Workspace")
         _comp.html(f"<script>window.parent.document.title={_json.dumps(_tb + ' | KAYRAN')};</script>",
                    height=0)
+    except Exception:
+        pass
+
+    # Veri sürümü (shared/veri_surumu): izlenen tablolar değiştiyse ağır önbellekleri (Tüm Ürünler,
+    # Genel bakış, paçal) temizle — en fazla 15 sn'de bir küçük bir sorgu, hata fırlatmaz.
+    try:
+        from shared.veri_surumu import tazelik_kontrol
+        tazelik_kontrol()
     except Exception:
         pass
 

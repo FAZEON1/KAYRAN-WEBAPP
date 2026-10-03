@@ -78,7 +78,6 @@ def sahte_db(monkeypatch):
     from kayranpm import analitik, database
     ist = _Istemci({"urunler": URUNLER, "firma_stok": FIRMA_STOK})
     monkeypatch.setattr(database, "get_client", lambda: ist)
-    monkeypatch.setattr(analitik, "get_client", lambda: ist)
     monkeypatch.setattr(analitik, "get_all_dashboard_data", database._dashboard_ham)
     monkeypatch.setattr(analitik, "_ithalat_maliyet_map", lambda: {})
     monkeypatch.setattr(analitik, "_ithalat_partiler_map", lambda: {})
@@ -178,7 +177,6 @@ def sahte_db_mio(monkeypatch):
     from kayranpm import analitik, database
     ist = _Istemci({"urunler": URUNLER_MIO, "firma_stok": FIRMA_STOK_MIO})
     monkeypatch.setattr(database, "get_client", lambda: ist)
-    monkeypatch.setattr(analitik, "get_client", lambda: ist)
     monkeypatch.setattr(analitik, "get_all_dashboard_data", database._dashboard_ham)
     monkeypatch.setattr(analitik, "_ithalat_maliyet_map", lambda: {})
     monkeypatch.setattr(analitik, "_ithalat_partiler_map", lambda: {})

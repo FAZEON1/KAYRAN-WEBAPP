@@ -7,7 +7,7 @@ _log = logging.getLogger(__name__)
 from .database import (get_all_dashboard_data,
                       ekle_siparis_onerisi, get_yoldaki_urunler,
                       get_tum_gecmis_satislar, get_gecmis_satis_firma_bazli,
-                      get_client, get_uretim_suresi)
+                      get_uretim_suresi)
 
 from shared.utils import FIRMA_KODLARI_DIGER
 FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # ANA firmalar + DİĞER (yedek liste)
@@ -358,11 +358,11 @@ def olu_stok_tespiti(sku, bizim_stok, gecmis_satislar, stok_gun):
         return "normal", ""
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def tum_urunler_listesi():
     """Tüm ürünlerin stok, fiyat ve FINAL COST PRICE hesabını döndürür."""
-    sb = get_client()
-    urunler = sb.table("urunler").select("*").order("urun_adi").execute().data or []
+    from .database import urunler_ada_gore
+    urunler = urunler_ada_gore() or []
     try:
         from shared.utils import tr_buyuk as _tb_ad
         for _u in urunler:
@@ -562,7 +562,7 @@ def siparis_uyarisi_kontrol(sku, firma, firma_data, bizim_stok):
     esik = (haftalik_satis * 2) if haftalik_satis > 0 else 5
     return firma_stok <= esik
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def dashboard_hesapla():
     """Tüm dashboard verilerini hesaplar ve döndürür"""
     urunler, firma_data, stok_yaslar, yoldaki_data, gecmis_satislar_raw = get_all_dashboard_data()

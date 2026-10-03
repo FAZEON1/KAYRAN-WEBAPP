@@ -67,7 +67,8 @@ def test_kod_yapisi():
     pm = (KOK / "kayranpm/database.py").read_text(encoding="utf-8")
     i = pm.index("def get_all_dashboard_data():")
     assert "@st.cache_data" not in pm[i - 60:i]                # dış katman önbelleksiz
-    assert '@st.cache_data(ttl=300, show_spinner=False)\ndef _dashboard_ham():' in pm
+    import re as _re
+    assert _re.search(r'@st\.cache_data\(ttl=\d+, show_spinner=False\)[^\n]*\ndef _dashboard_ham\(\):', pm)
     it = (KOK / "ithalat/database.py").read_text(encoding="utf-8")
     j = it.index("def get_ithalat_yolda_ozet():")
     govde = it[j:it.index("\n@st.cache_data", j)]
