@@ -1149,7 +1149,8 @@ div[data-testid="stCaptionContainer"] p{{color:var(--k-soluk) !important;}}
   .k-kart{{min-width:110px;}}
   .k-baslik-alt{{display:none;}}
 }}
-""" + _streamlit_normalize() + (TABLO_YENI_CSS if TABLO_YENI else "")) + "</style>"
+""" + _streamlit_normalize() + (TABLO_YENI_CSS if TABLO_YENI else "")
+        + (PENCERE_GENIS_CSS if PENCERE_GENIS else "")) + "</style>"
 
 
 def islem_gosterge_css():
@@ -1268,6 +1269,29 @@ def yan_panel(genislik="orta"):
         return
     import streamlit as _st
     _st.markdown(panel_isareti(genislik), unsafe_allow_html=True)
+
+
+# ── Geniş pencere (Ekim 2026, kullanıcının seçtiği "A") ──────────────
+# True : tablolu pencereler (yan_panel "orta" / "genis": sipariş, firma sipariş geçmişi, Ref,
+#        kampanya, stok kartı) ortada, ekranın neredeyse tamamı (en çok 1.280 px) açılır; tablo
+#        yana kaydırmadan sığar. Kısa bilgi pencereleri ("dar": iade, ödeme, çek) sağda kalır.
+#        Telefonda tam ekran.
+# False: hepsi sağdan panel (680 / 860 px). Geri almak için YALNIZ bu satırı değiştir.
+PENCERE_GENIS = True
+
+PENCERE_GENIS_CSS = """
+[data-testid="stDialog"]:has(.k-panel-orta) [role="dialog"],
+[data-testid="stDialog"]:has(.k-panel-genis) [role="dialog"]{position:fixed !important;top:3vh !important;bottom:3vh !important;
+  left:0 !important;right:0 !important;margin:0 auto !important;width:min(1280px,96vw) !important;max-width:96vw !important;
+  height:auto !important;max-height:94vh !important;max-height:94dvh !important;border-radius:18px !important;
+  border:1px solid var(--k-kenar2) !important;box-shadow:0 24px 70px rgba(0,0,0,.5) !important;animation:k-genis-gir .16s ease-out;}
+@keyframes k-genis-gir{from{transform:scale(.985);opacity:.4}to{transform:none;opacity:1}}
+@media (max-width:640px){
+  [data-testid="stDialog"]:has(.k-panel-orta) [role="dialog"],
+  [data-testid="stDialog"]:has(.k-panel-genis) [role="dialog"]{top:0 !important;bottom:0 !important;width:100vw !important;
+    max-width:100vw !important;max-height:100dvh !important;border-radius:0 !important;border:none !important;}
+}
+"""
 
 
 # ── Sayı kartları (Ekim 2026) ───────────────────────────────────────

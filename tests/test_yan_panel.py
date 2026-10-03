@@ -63,3 +63,30 @@ def test_formlar_ortada():
 def test_geri_alma_anahtari_tek_satir():
     src = (KOK / "shared" / "tasarim.py").read_text(encoding="utf-8")
     assert len(re.findall(r"^YAN_PANEL = (True|False)\s", src, re.M)) == 1
+
+
+# ── Geniş pencere (Ekim 2026, PENCERE_GENIS) ────────────────────────
+# Tablolu pencereler sağdan 680 / 860 px açılıyordu; 9 sütunlu sipariş tablosu sığmıyor, sürekli yana
+# kaydırmak gerekiyordu. Kullanıcı "A"yı seçti: orta / geniş işaretli pencereler ortada, ekranın
+# neredeyse tamamı (en çok 1.280 px); dar olanlar sağda kalır. Tarayıcıda 1440 / 390 px denendi.
+def test_genis_pencere_css():
+    from shared.tasarim import cekirdek_css
+    css = cekirdek_css()
+    i = css.index(':has(.k-panel-orta) [role="dialog"],')
+    blok = css[i:i + 700]
+    assert ":has(.k-panel-genis)" in blok and "width:min(1280px,96vw)" in blok
+    assert "margin:0 auto" in blok and "left:0 !important;right:0 !important" in blok
+    assert css.index(':has(.k-panel-orta) [role="dialog"],') > css.index(':has(.k-panel-orta) [role="dialog"]{')  # sonra gelir, ezer
+    assert ":has(.k-panel-dar)" not in blok                              # kısa bilgi pencereleri sağda
+
+
+def test_genis_pencere_geri_alma_anahtari():
+    import shared.tasarim as T
+    src = (KOK / "shared" / "tasarim.py").read_text(encoding="utf-8")
+    assert len(re.findall(r"^PENCERE_GENIS = (True|False)\s", src, re.M)) == 1
+    eski = T.PENCERE_GENIS
+    try:
+        T.PENCERE_GENIS = False
+        assert "width:min(1280px,96vw)" not in T.cekirdek_css()
+    finally:
+        T.PENCERE_GENIS = eski
