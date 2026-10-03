@@ -263,7 +263,16 @@ def goster(sku):
     except Exception:
         pass
     _adet_t = sum(_f(a["adet"]) for a in alimlar)
-    pacal_final = (sum(_f(a["final_birim"]) * _f(a["adet"]) for a in alimlar) / _adet_t) if _adet_t else 0.0
+    # Paçal TEK KAPIDAN (satis.get_pacal_map — Faz 2b, kullanıcı onaylı). Eskiden burada
+    # alımların kendi ortalaması alınıyordu: YOLDAKİ partiler de giriyordu (13.08'de İthalat
+    # özetinde düzeltilen hata buraya ulaşmamıştı), yurt içi alış yoktu. Artık Tüm Ürünler,
+    # P&L ve Teknik Servis ile aynı rakam.
+    try:
+        from satis.database import get_pacal_map as _gpm
+        from shared.utils import sku_anahtar as _skn_p
+        pacal_final = float((_gpm() or {}).get(_skn_p(sku), 0) or 0)
+    except Exception:  # noqa: BLE001
+        pacal_final = 0.0
     son = next((a for a in alimlar if _f(a.get("birim_fob")) > 0), (alimlar[0] if alimlar else {}))
     son_fob = _f(son.get("birim_fob"))
     son_final = _f(son.get("final_birim"))
@@ -486,7 +495,7 @@ def goster(sku):
             _kart_satiri([
                 _kart("Toplam Alınan", f"{tr_sayi(_adet_t)}", f"{len(alimlar)} parti", trenk("yesil")),
                 _kart("Son Alım FOB", _usd(son_fob), gun_ay_yil(son_tarih), trenk("amber")),
-                _kart("Paçal (Final)", _usd(pacal_final), "tüm partiler", trenk("kirmizi"), anlam="notr"),
+                _kart("Paçal (Final)", _usd(pacal_final), "teslim alınan partiler", trenk("kirmizi"), anlam="notr"),
             ])
             # Maliyet trendi
             if len(alimlar) >= 2:

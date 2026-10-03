@@ -145,7 +145,7 @@ def karsilastir(satirlar, kartlar, sku_fn, esik_yuzde=0.5):
         for etk, _ in sebepler:
             sebep_say[etk] = sebep_say.get(etk, 0) + 1
         out.append({"SKU": ham_kart or (yz[0] if yz else k), "Ürün": kart.get("urun_adi") or "",
-                    "Tüm Ürünler maliyeti": a, "Ürün kartı maliyeti": b, "P&L maliyeti": c, "Yeni maliyet": y,
+                    "Önceki Tüm Ürünler maliyeti": a, "Önceki ürün kartı maliyeti": b, "Önceki P&L maliyeti": c, "Şimdiki maliyet": y,
                     "En büyük sapma %": round(sapma, 1),
                     "Sebep": " · ".join(f"{e} ({d})" if d else e for e, d in sebepler)})
     out.sort(key=lambda r: -r["En büyük sapma %"])

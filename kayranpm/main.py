@@ -1108,7 +1108,7 @@ def run():
                         st.rerun()
 
             # Ana veri entegrasyonu Faz 2a — SALT OKUNUR karşılaştırma (kayranpm/pacal_ekran.py)
-            with st.expander("Paçal tutarlılık kontrolü — üç ekranın paçalı yan yana"):
+            with st.expander("Paçal: önceki ↔ şimdiki — tek tanıma geçişte rakamı değişen ürünler"):
                 from .pacal_ekran import goster as _pacal_kars
                 _pacal_kars()
 
@@ -1174,6 +1174,7 @@ def run():
             @st.dialog("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", width="large")
             def _dlg_toplu_fiyat():
                 from .database import toplu_satis_kaydet as _satis_kaydet, _hepsi as _hepsi_s
+                from shared.utils import sku_anahtar as _skn_tf       # özet anahtarı normalize (Faz 2b)
                 try:
                     from ithalat.database import get_sku_maliyet_ozet as _ith_maliyet
                     _pacal_map = _ith_maliyet() or {}
@@ -1198,7 +1199,7 @@ def run():
                     if _sc3.button("Marj'dan Satış Öner", use_container_width=True, key="satis_oner", icon=":material/auto_fix_high:"):
                         _on = {}
                         for u in _ur_s:
-                            _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
+                            _p = (_pacal_map.get(_skn_tf(u["sku"]), {}) or {}).get("pacal_final", 0) or 0
                             if _p > 0:
                                 _on[u["sku"]] = round(_p * (1 + _hedef_marj / 100.0), 2)
                         st.session_state["_satis_oneri"] = _on
@@ -1211,8 +1212,8 @@ def run():
                     _liste_s = [u for u in _ur_s if not (u.get("satis_fiyati") or 0)] if _sadece_fiyatsiz else _ur_s
                     _rows_s = []
                     for u in _liste_s:
-                        _p = (_pacal_map.get(u["sku"], {}) or {}).get("pacal_final", 0) or 0
-                        _ps = (_pacal_map.get(u["sku"], {}) or {}).get("son_final", 0) or 0
+                        _p = (_pacal_map.get(_skn_tf(u["sku"]), {}) or {}).get("pacal_final", 0) or 0
+                        _ps = (_pacal_map.get(_skn_tf(u["sku"]), {}) or {}).get("son_final", 0) or 0
                         _satis = _son.get(u["sku"]) if u["sku"] in _son else (u.get("satis_fiyati") or 0)
                         _marj = ((_satis / _p - 1) * 100) if (_p > 0 and _satis) else 0.0
                         _rows_s.append({

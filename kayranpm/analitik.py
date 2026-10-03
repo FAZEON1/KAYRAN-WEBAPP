@@ -275,6 +275,16 @@ def _ithalat_maliyet_map():
         return {}
 
 
+def _pacal_map():
+    """Paçal TEK KAPI: satis.get_pacal_map (ithalat paçalı, yoksa yurt içi alış; anahtar
+    sku_anahtar). Tüm Ürünler'in paçal sütunu ve kâr marjı buradan (Faz 2b)."""
+    try:
+        from satis.database import get_pacal_map
+        return get_pacal_map() or {}
+    except Exception:
+        return {}
+
+
 def _ithalat_partiler_map():
     """İthalat modülünden SKU bazlı FIFO parti haritası (güvenli)."""
     try:
@@ -373,7 +383,9 @@ def tum_urunler_listesi():
     kayit_map = {}  # satın-alma geçmişi İthalat'a taşındı
 
     sonuclar = []
-    _ith_map = _ithalat_maliyet_map()
+    _ith_map = _ithalat_maliyet_map()          # FOB / son değerler (anahtar sku_anahtar)
+    _pcl_map = _pacal_map()                    # paçal maliyet tek kapı (Faz 2b)
+    from shared.utils import sku_anahtar as _skn_a
     _ith_partiler = _ithalat_partiler_map()
     for u in urunler:
         sku = u["sku"]
@@ -402,7 +414,7 @@ def tum_urunler_listesi():
 
         # FINAL COST PRICE — İthalat paçal (adet-ağırlıklı landed maliyet)
         # + SON FOB / SON MALİYET (en yeni ithalat dosyasından) — yalnızca gösterim için
-        _ith = _ith_map.get(sku)
+        _ith = _ith_map.get(_skn_a(sku))     # anahtar normalize: 'Fazeon X' kartı da bulunur
         if _ith and _ith.get("toplam_adet", 0) > 0:
             fob_price = _ith["pacal_fob"]
             final_cost_price = _ith["pacal_final"]
@@ -419,6 +431,9 @@ def tum_urunler_listesi():
             son_tarih = ""
             toplam_adet = 0
             ithalat_dosya_sayisi = 0
+        # Paçal TEK KAPIDAN: ithalatlı üründe aynı değer; ithalatı olmayanda yurt içi alış
+        # (eskiden 0 görünüyordu — marj %100).
+        final_cost_price = float(_pcl_map.get(_skn_a(sku), final_cost_price) or 0)
         mal_yuzde = ((final_cost_price / fob_price - 1) * 100) if fob_price > 0 else 0
         cost = final_cost_price - fob_price
         cost_price = final_cost_price
@@ -559,7 +574,9 @@ def dashboard_hesapla():
             stok_yas_map[sku] = v or ""
 
     dashboard_satirlar = []
-    _ith_map = _ithalat_maliyet_map()
+    _ith_map = _ithalat_maliyet_map()          # FOB / son değerler (anahtar sku_anahtar)
+    _pcl_map = _pacal_map()                    # paçal maliyet tek kapı (Faz 2b)
+    from shared.utils import sku_anahtar as _skn_a
     _ith_partiler = _ithalat_partiler_map()
 
     for urun in urunler:
@@ -665,8 +682,8 @@ def dashboard_hesapla():
 
         # Kar marjı
         satis_f = urun.get("satis_fiyati") or urun.get("fiyat") or 0
-        _ith = _ith_map.get(sku)
-        alis_f = _ith["pacal_final"] if (_ith and _ith.get("toplam_adet", 0) > 0) else 0
+        _ith = _ith_map.get(_skn_a(sku))                     # FOB / son değerler (aşağıda)
+        alis_f = float(_pcl_map.get(_skn_a(sku), 0) or 0)   # paçal tek kapı (Faz 2b)
         kar_marji, kar_tl, kar_durum, kar_renk = kar_marji_hesapla(satis_f, alis_f)
 
         # Ölü stok tespiti
