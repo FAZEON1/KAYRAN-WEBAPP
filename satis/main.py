@@ -570,7 +570,7 @@ def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
 
 
 def run():
-    from shared.tasarim import baslik as _sb, tablo_ciz, kpi_serit, sayi, tablo_h, tablo_kolonlari
+    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h, tablo_kolonlari
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     # Sayfa genişliği artık app.py'de tek yerden.
 
@@ -1780,13 +1780,11 @@ def run():
                                         "Marj": ((_t_kar / _t_ciro * 100)
                                                  if _t_ciro > 0 else None),
                                     })
-                                    # HTML özet tablosu: st.dataframe canvas'a
-                                    # çizildiği için görünümü (satır yüksekliği,
-                                    # zebra, hizalama, TR sayı biçimi, negatifi
-                                    # kırmızı) değiştirilemiyordu. Bu tablo kısa ve
-                                    # salt-okur olduğu için sıralama kaybı sorun değil.
-                                    _bk.markdown(tablo_ciz(_tablo, stil="rozet"),
-                                                 unsafe_allow_html=True)
+                                    # Ortak tablo (shared/tablo.py): Σ satırı alt bilgide
+                                    # sabit, marj rozetli, sıralama/arama/CSV ile.
+                                    from shared.tablo import tablo as _ortak_tablo
+                                    _ortak_tablo(_tablo, kap=_bk, key=f"pnl_kirilim_{_kol}",
+                                                 dosya_adi=f"kirilim_{_kol}")
                                     _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
                                                 f"Marj: %{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0, 1)}")
                         _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
