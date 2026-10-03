@@ -54,9 +54,9 @@ def haftalar(rows):
 # 'Fazeon X24F165S' / 'x24f165s ' yazılınca kart ('X24F165S') bulunamıyor,
 # ürün 'Kategorisiz' + 'Markasız' görünüyordu. Ayrıca 'MONİTÖR' / 'monitör'
 # ayrı kategori sayılıyordu.
-# ÇÖZÜM: meta_hazirla() rapordaki her SKU için kartı sırayla arar:
-#   1) birebir SKU  2) normalize SKU (sku_fn)  3) SKU'daki bir parça bir kart
-#   SKU'suna eşitse (≥5 karakter)  4) ürün adı birebir (boşluk/harf farkı yok sayılır)
+# ÇÖZÜM: meta_hazirla() rapordaki her SKU için kartı sırayla arar (ayrıntı docstring'de):
+#   birebir / normalize SKU → onaylı eşleme tablosu → tahmin adımları (SKU parçası, ürün adı,
+#   addaki model kodu, önek). Tahminde birden çok aday çıkarsa kart BAĞLANMAZ ('belirsiz').
 # Kategori/marka: kartın değeri; kart yok ya da alan boşsa ürün adından
 # tahmin (kategori_oner / marka_oner). Kaynak 'kart' / 'tahmin' /
 # '' olarak işaretlenir; ekran tahmin edilenleri sayar, Excel'de görünür.
@@ -102,16 +102,24 @@ def _model_parcalari(metin):
     return out
 
 
-def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka_oner=None, marka_liste=()):
-    """{ham rapor SKU'su: {marka, kategori, marka_kaynak, kategori_kaynak, kart_sku}} — rows'taki HER SKU.
-    kartlar: get_urun_marka_kategori() çıktısı {kart_sku: {marka, kategori, urun_adi}}.
+def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka_oner=None, marka_liste=(),
+                 eslesme=None):
+    """{ham rapor SKU'su: {marka, kategori, marka_kaynak, kategori_kaynak, kart_sku, kart_kaynak, adaylar}}
+    — rows'taki HER SKU. kartlar: get_urun_marka_kategori() çıktısı {kart_sku: {marka, kategori, urun_adi}}.
+    eslesme: onaylı eşleme tablosu {dış kod: kart SKU'su} (sku_eslesme; anahtar sku_fn ile normalize edilir).
 
     Kart arama sırası:
-      1) birebir SKU  2) normalize SKU  3) SKU'daki bir parça = kart SKU'su
-      4) ürün adı birebir  5) ADDAKİ model kodu = kart SKU'su (pazaryeri kodu SKU
-         olarak gelince: 'HBCV0000G0F6K6' · 'Fazeon 23.8' X24F180 …' → X24F180)
-      6) addaki model kodu bir kart SKU'sunun ÖNEKİ ise (renk eki: X27F300 → X27F300S/B)
-         — yalnız tüm adaylar aynı marka + kategoriye çıkıyorsa (yanlış karta bağlamaz).
+      1) birebir SKU  2) normalize SKU  (kart_kaynak 'sku')
+      3) onaylı eşleme tablosu  (kart_kaynak 'tablo'; kartı silinmişse yok sayılır)
+      Tahmin adımları — her adımda TEK aday varsa bağlanır (kart_kaynak 'kural'); BİRDEN ÇOK
+      aday varsa durulur, kart bağlanmaz (kart_kaynak 'belirsiz', adaylar listelenir):
+      4) SKU'daki parça = kart SKU'su (≥5 karakter)  5) ürün adı birebir
+      6) ADDAKİ model kodu = kart SKU'su (pazaryeri kodu SKU olarak gelince: 'HBCV0000G0F6K6' ·
+         'Fazeon 23.8' X24F180 …' → X24F180)
+      7) addaki model kodu bir kart SKU'sunun ÖNEKİ (≥6 karakter; renk eki: X27F300 → X27F300S)
+    Eskiden 7. adım birden çok aday aynı marka + kategorideyse alfabetik ilkini seçiyordu:
+    'F11PA650B' adlı beyaz ürün F11PA650BBM (siyah) kartına bağlanıyordu (Ekim 2026).
+    Belirsizde adayların hepsi aynı marka + kategorideyse o değerler kullanılır (kırılım değişmez).
     Kart yoksa ya da alan boşsa marka/kategori addan tahmin edilir (kaynak 'tahmin')."""
     skn = sku_fn or _sku_varsayilan
     kartlar = kartlar or {}
@@ -121,41 +129,42 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
         if n and n not in norm:
             norm[n] = ks
         a = _ad_norm((m or {}).get("urun_adi"))
-        if a and a not in ad_idx:
-            ad_idx[a] = ks
+        if a:
+            ad_idx.setdefault(a, set()).add(ks)
+    tablo = {}
+    for dk, ks in (eslesme or {}).items():
+        kn = skn(ks)
+        if skn(dk) and kn in norm:
+            tablo[skn(dk)] = norm[kn]
 
     def _imza(ks):
         m = kartlar.get(ks) or {}
         return (_kat_kucuk(m.get("marka")), _kat_kucuk(m.get("kategori")))
 
-    def _onek_bul(parca):
-        if len(parca) < 6:
-            return None
-        aday = sorted(ks for n, ks in norm.items() if n.startswith(parca))
-        if aday and len({_imza(k) for k in aday}) == 1:
-            return aday[0]
-        return None
-
     def _kart_bul(ham, urun_adi):
+        """(kart SKU'su | None, kart_kaynak, adaylar)."""
         if ham in kartlar:
-            return ham
+            return ham, "sku", []
         n = skn(ham)
         if n in norm:
-            return norm[n]
-        for parca in n.replace("-", " ").replace("_", " ").replace("/", " ").split():
-            if len(parca) >= 5 and parca in norm:
-                return norm[parca]
-        if _ad_norm(urun_adi) in ad_idx:
-            return ad_idx[_ad_norm(urun_adi)]
+            return norm[n], "sku", []
+        if n in tablo:
+            return tablo[n], "tablo", []
         parcalar = _model_parcalari(urun_adi)
-        for parca in parcalar:
-            if parca in norm:
-                return norm[parca]
-        for parca in parcalar:
-            ks = _onek_bul(parca)
-            if ks:
-                return ks
-        return None
+        adimlar = (
+            lambda: {norm[p] for p in n.replace("-", " ").replace("_", " ").replace("/", " ").split()
+                     if len(p) >= 5 and p in norm},
+            lambda: set(ad_idx.get(_ad_norm(urun_adi), ())),
+            lambda: {norm[p] for p in parcalar if p in norm},
+            lambda: {ks for p in parcalar if len(p) >= 6 for nk, ks in norm.items() if nk.startswith(p)},
+        )
+        for adim in adimlar:
+            aday = sorted(adim())
+            if len(aday) == 1:
+                return aday[0], "kural", []
+            if aday:
+                return None, "belirsiz", aday
+        return None, "", []
 
     def _tahmin(fn, adaylar):
         if not fn:
@@ -176,8 +185,10 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
         ham = _sku(r)
         if ham in out:
             continue
-        ks = _kart_bul(ham, r.get("urun_adi"))
+        ks, kk, aday = _kart_bul(ham, r.get("urun_adi"))
         m = kartlar.get(ks) or {}
+        if not ks and aday and len({_imza(k) for k in aday}) == 1:
+            m = {k: (kartlar.get(aday[0]) or {}).get(k) for k in ("marka", "kategori")}
         adlar = (m.get("urun_adi"), r.get("urun_adi"))
         kat = str(m.get("kategori") or "").strip()
         kat_k = "kart" if kat else ""
@@ -198,8 +209,37 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
         out[ham] = {"marka": marka_etiketi(mar, marka_liste),
                     "kategori": kategori_etiketi(kat, kategori_liste),
                     "marka_kaynak": mar_k, "kategori_kaynak": kat_k,
-                    "kart_sku": ks or ""}
+                    "kart_sku": ks or "", "kart_kaynak": kk, "adaylar": aday}
     return out
+
+
+def eslesme_dogrula(dis_kod, kart_sku, kartlar, sku_fn=None, mevcut=None):
+    """Eşleme tablosuna yazmadan önce koruma. Döner: (ok, mesaj, {dis_kod, kart_sku} | None).
+    Kurallar:
+      - dış kod boş olamaz; kart SKU'su stok kartlarında bulunmalı;
+      - dış kod KENDİSİ bir kart SKU'suysa başka bir karta eşlenemez (F11PA650BWM ≠ F11PA650BBM:
+        iki ayrı ürün; kod yazım farkı değil);
+      - dış kod zaten başka bir karta eşliyse önce o eşleme kaldırılmalı.
+    Anahtarlar sku_fn ile normalize edilir ('Fazeon x' = 'X')."""
+    skn = sku_fn or _sku_varsayilan
+    norm = {}
+    for ks in (kartlar or {}):
+        norm.setdefault(skn(ks), ks)
+    dis, kn = skn(dis_kod), skn(kart_sku)
+    if not dis:
+        return False, "Dış kod boş.", None
+    if kn not in norm:
+        return False, f"{str(kart_sku or '').strip() or '(boş)'} stok kartlarında yok.", None
+    kart = norm[kn]
+    if dis in norm:
+        if norm[dis] == kart:
+            return False, f"{dis} zaten {kart} kartının kendi kodu; eşleme gerekmez.", None
+        return False, (f"{dis} kendi stok kartı olan bir kod; {kart} kartına bağlanamaz "
+                       "(ayrı ürünler)."), None
+    onceki = {skn(k): v for k, v in (mevcut or {}).items()}.get(dis)
+    if onceki and skn(onceki) != kn:
+        return False, f"{dis} zaten {onceki} kartına eşli; önce o eşlemeyi kaldır.", None
+    return True, "", {"dis_kod": dis, "kart_sku": kart}
 
 
 def _anahtar(r, kirilim, meta):

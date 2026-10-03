@@ -687,7 +687,7 @@ def _audit_render():
 YEDEK_TABLOLAR = [
     # Ürün / stok
     "urunler", "firma_stok", "stok_yas", "yoldaki_urunler", "stok_hareketleri",
-    "depo_manuel_takip", "depo_sevk_log", "happylife_stok",
+    "depo_manuel_takip", "depo_sevk_log", "happylife_stok", "sku_eslesme",
     # Kampanya / ref / destek
     "kampanyalar", "kampanya_urunler", "ref_kayitlari", "ref_butce", "ref_firmalar", "ref_no",
     "alinan_destekler",
