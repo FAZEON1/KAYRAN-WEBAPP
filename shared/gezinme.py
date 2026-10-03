@@ -93,6 +93,7 @@ MODULLER = [
 SISTEM = [
     ("cop_kutusu", "Çöp kutusu", "delete", None),
     ("yukleme_gecmisi", "Yükleme geçmişi", "history", None),
+    ("veri_sagligi", "Veri sağlığı", "health_and_safety", None),
     ("sifre_degistir", "Şifremi değiştir", "key", None),
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),

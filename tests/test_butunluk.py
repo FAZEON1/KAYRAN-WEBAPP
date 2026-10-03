@@ -71,7 +71,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
-               "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py"):
+               "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -135,6 +135,7 @@ KRITIK_FONKSIYONLAR = {
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
     "shared.veri_surumu": ["tazelik_kontrol", "bagimlilari_temizle", "imza"],   # önbellek tazeliği (Eki 2026)
+    "shared.veri_sagligi": ["sayfa", "gorunur_kontroller", "maliyetsiz_satislar", "satilabilir_farklari", "eslesmeyen_rapor_kodlari"],   # veri sağlığı sayfası (Eki 2026)
     "shared.duzenle": ["duzenle", "duzenle_veri", "uygula", "gecerli_durum", "destekli_mi"],   # sade düzenlenebilir tablo (Eki 2026)
     "shared.izgara": ["izgara_ayar", "izgara_sonuc", "dataframe_hazirla", "kur"],   # ortak ızgara görünümü (Eki 2026)
     "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
