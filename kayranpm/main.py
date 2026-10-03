@@ -7,46 +7,28 @@ Kullanım:
     run()
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
-from shared.tasarim import df_tablo_html, tablo_html, Ham, rozet_html, renkli, kisalt as _kisalt
+from shared.tasarim import df_tablo_html
 from kayranpm.stok_ara import stok_karti_ara
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import logging
 _log = logging.getLogger(__name__)
 # Türkiye saat dilimi için ortak yardımcılar
-from shared.utils import secim_serit, tr_today, tr_now, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
-from shared.utils import tr_kucuk
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
-from shared.utils import metrik_satiri, metric_css
-from shared.ui import tablo_h
+from shared.utils import tr_now
+from shared.utils import metrik_satiri
 from shared.tasarim import baslik as _sb
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-import os, sys
-from datetime import datetime, date
-from io import BytesIO
+import os
 from functools import partial
 from shared import bilesen as B
-from .urun_hesap import (dashboard_filtrele, editor_anahtari, yukleme_ozeti, KANAL_AD)
+from .urun_hesap import (editor_anahtari, yukleme_ozeti, KANAL_AD)
 
 # Modül bazlı importlar (relative)
-from .database import (initialize_db, onayla_siparis, reddet_siparis,
-                      get_siparis_onerileri, ekle_siparis_onerisi,
-                      get_gecmis_satis_firma_bazli, get_urun_detay,
-                      ekle_kampanya, get_kampanyalar, get_kampanya,
-                      guncelle_kampanya, kapat_kampanya, sil_kampanya,
-                      ekle_kampanya_urun, get_kampanya_urunler, get_tum_kampanya_urunler,
-                      guncelle_kampanya_urun, sil_kampanya_urun,
-                      get_tum_sku_listesi, get_client,
-                      get_gecmis_satis_tum_firmalar,
-                      get_kampanya_destek_ortalamalari,
+from .database import (initialize_db, get_tum_sku_listesi, get_client,
                       sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
-from .analitik import dashboard_hesapla, tum_urunler_listesi, siparis_onerisi_listesi
-from .excel_islemler import (excel_yukle_ana_stok, excel_yukle_firma_stoklari,
-                            excel_yukle_yoldaki_urunler, create_sample_excel_bytes,
-                            excel_yukle_firma_birlesik, excel_yukle_g5f_depolar,
-                            excel_yukle_haftalik_stok_satis, excel_yukle_stok_kartlari)
+from .analitik import dashboard_hesapla, tum_urunler_listesi
+from .excel_islemler import (create_sample_excel_bytes, excel_yukle_g5f_depolar,
+                            excel_yukle_haftalik_stok_satis)
 
 
 _RK_RENK = {"rk-grn": "yesil", "rk-red": "kirmizi", "rk-yel": "amber", "rk-org": "amber", "rk-dim": None}
@@ -494,17 +476,9 @@ def run():
     """, unsafe_allow_html=True)
     
     # ── Yardımcı fonksiyonlar ────────────────────────────────────────────
-    YOL_ETIKET = {
-        "yesil":   "🟢",
-        "sari":    "🟡",
-        "kirmizi": "🔴",
-        "yok":     "—",
-    }
-    
     # ── Sidebar navigasyon ───────────────────────────────────────────────
     with st.sidebar:
         st.markdown('<script>var sidebarEl=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(sidebarEl)sidebarEl.scrollTop=0;</script>', unsafe_allow_html=True)
-        aktif_kullanici = st.session_state.get("aktif_kullanici", "")
         from shared.utils import sidebar_ust
         sidebar_ust("📦", "Ürün Yönetimi", "kayranpm")
         from shared.tasarim import menu_etiketi as _me
@@ -737,7 +711,6 @@ def run():
                 # Fiyat ve karlılık kartı
                 fob = secilen.get("fob_price") or 0
                 cost = secilen.get("cost") or 0
-                cost_price = secilen.get("cost_price") or 0
                 fcp = secilen.get("final_cost_price") or 0
                 son_fob = secilen.get("son_fob") or 0
                 son_fcp = secilen.get("son_final") or 0
@@ -1001,7 +974,6 @@ def run():
                 'tüm satış raporlarına yansır.</div>',
                 unsafe_allow_html=True)
 
-            from shared.utils import sku_anahtar as _skn_m
             from .database import (get_yurtici_kategoriler as _gyk,
                                    set_yurtici_kategoriler as _syk)
             # ÖLÇÜT: KATEGORİ. "İthalatta geçiyor mu" ölçütü tek başına yetmedi
