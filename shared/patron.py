@@ -289,8 +289,10 @@ def _kritik(dun_iso):
 
 # ── Grafik ──────────────────────────────────────────────────────────
 def _grafik(seri):
+    """Günlük ciro (ana renk) · 7 günlük ortalama (silik, kesikli) · net kâr (nötr; eksi gün
+    kırmızı nokta). Düzen: shared/grafik.py."""
     import plotly.graph_objects as go
-    from shared.tasarim import renk as trenk
+    from shared.grafik import duzen, rol
     x = [g.strftime("%d.%m") for g, _, _ in seri]
     ciro = [c for _, c, _ in seri]
     nk = [n for _, _, n in seri]
@@ -298,23 +300,16 @@ def _grafik(seri):
     hov = [f"{g:%d.%m} {GUN_KISA[g.weekday()]} · ciro ${tr_sayi(c)} · net kâr ${tr_sayi(n)}"
            + (f" · marj %{tr_sayi(n / c * 100, 1)}" if c else "") for g, c, n in seri]
     fg = go.Figure()
-    fg.add_bar(x=x, y=ciro, name="Ciro", marker=dict(color=trenk("mor"), opacity=.55, line=dict(width=0)),
+    fg.add_bar(x=x, y=ciro, name="Ciro", marker=dict(color=rol("ana"), opacity=.75, line=dict(width=0)),
                customdata=hov, hovertemplate="%{customdata}<extra></extra>")
-    fg.add_scatter(x=x, y=ort, name="7 günlük ortalama", mode="lines", line=dict(color=trenk("cyan"), width=2.4),
-                   hoverinfo="skip")
-    fg.add_scatter(x=x, y=nk, name="Net kâr", mode="lines", line=dict(color=trenk("yesil"), width=1.6, dash="dot"),
-                   hoverinfo="skip")
+    fg.add_scatter(x=x, y=ort, name="7 günlük ortalama", mode="lines",
+                   line=dict(color=rol("silik"), width=1.6, dash="dash"), hoverinfo="skip")
+    fg.add_scatter(x=x, y=nk, name="Net kâr", mode="lines+markers", line=dict(color=rol("ikincil"), width=1.6),
+                   marker=dict(size=[7 if (n or 0) < 0 else 0 for n in nk], color=rol("kotu")), hoverinfo="skip")
     adim = max(1, len(x) // 8)
-    fg.update_layout(
-        height=260, margin=dict(t=8, b=4, l=4, r=4), bargap=.25, hovermode="x",
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", separators=",.",
-        font=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-        legend=dict(orientation="h", y=1.08, x=0, font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
-        xaxis=dict(type="category", showgrid=False, tickmode="array", tickvals=x[::adim]),
-        yaxis=dict(gridcolor=trenk("kenar"), zeroline=False, tickprefix="$", tickformat=",.0f"),
-        hoverlabel=dict(bgcolor=trenk("yuzey2"), font=dict(color=trenk("metin"))))
-    return fg
-
+    return duzen(fg, yukseklik=260, bargap=.25, hovermode="x",
+                 xaxis=dict(type="category", tickmode="array", tickvals=x[::adim]),
+                 yaxis=dict(tickprefix="$", tickformat=",.0f"))
 
 def _kanal_html(kp):
     if not kp:
@@ -390,8 +385,8 @@ def render(sayfaya_git):
         with g1:
             st.markdown(f'<div class="pp-kb">Günlük ciro ve net kâr<span>{tarih_tr(grafik_bas.isoformat())} – '
                         f'{tarih_tr(bugun.isoformat())} · {len(seri)} gün</span></div>', unsafe_allow_html=True)
-            st.plotly_chart(_grafik(seri), use_container_width=True, config={"displayModeBar": False},
-                            key="pp_grafik")
+            from shared.grafik import goster as _goster
+            _goster(_grafik(seri), key="pp_grafik")
         with g2:
             st.markdown(f'<div class="pp-kb">Kanal payı<span>{secim.lower()}</span></div>'
                         + _kanal_html(kanal_payi(_aralikta(rows, d["bas"], d["bit"]), ad_fn=_firma_ad)),

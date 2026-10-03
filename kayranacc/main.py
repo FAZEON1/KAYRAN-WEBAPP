@@ -1580,31 +1580,12 @@ def run():
                         hovertemplate="<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>",
                     ))
                     _kat_toplam = sum(kat_data.values())
-                    fig.add_annotation(
-                        text=(f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
-                              f"<b>₺{tr_sayi(_kat_toplam/1e6, 1)}M</b>" if _kat_toplam >= 1e6 else
-                              f"<span style='font-size:11px;color:var(--k-soluk)'>TOPLAM</span><br>"
-                              f"<b>₺{tr_sayi(_kat_toplam)}</b>"),
-                        x=0.5, y=0.5, showarrow=False,
-                        font=dict(size=20, family="Inter, sans-serif", color=trenk("metin")),
-                    )
-                    fig.update_layout(
-                        height=330, margin=dict(t=16, b=8, l=8, r=8),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        showlegend=True,
-                        legend=dict(
-                            font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
-                            orientation="h",
-                            yanchor="top", y=-0.06,
-                            xanchor="center", x=0.5,
-                            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
-                            itemsizing="constant", itemwidth=30,
-                        ),
-                        font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                        hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                        font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
-                    )
-                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                    # Ortak halka düzeni (shared/grafik.py). Kategori renkleri korunur: burada
+                    # renk kategoriyi ayırır (renk kuralının tek istisnası).
+                    from shared.grafik import halka as _halka, goster as _goster
+                    _halka(fig, "Toplam", (f"₺{tr_sayi(_kat_toplam/1e6, 1)}M" if _kat_toplam >= 1e6
+                                           else f"₺{tr_sayi(_kat_toplam)}"), yukseklik=330)
+                    _goster(fig)
     
             with col2:
                 st.markdown('<div class="section-mini-title" style="margin:4px 0 2px">Ödeme durumu</div>', unsafe_allow_html=True)
@@ -1629,8 +1610,7 @@ def run():
                         values=[odendi_tutar, bekleyen_tutar],
                         hole=0.72, sort=False, direction="clockwise",
                         marker=dict(
-                            colors=[trenk("yesil"), trenk("amber")],
-                            line=dict(color=trenk("yuzey0"), width=3),
+                            colors=[trenk("yesil"), trenk("amber")],   # anlam: ödenen / bekleyen
                         ),
                         textfont=dict(family="Inter, sans-serif", size=12, color=trenk("yuzey0")),
                         textposition="inside",
@@ -1638,30 +1618,10 @@ def run():
                         customdata=[f"₺{tr_sayi(v, 2)}" for v in (odendi_tutar, bekleyen_tutar)],
                         hovertemplate="<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>",
                     ))
-                    fig2.add_annotation(
-                        text=(f"<span style='font-size:11px;color:var(--k-soluk)'>ÖDENEN (TUTAR)</span><br>"
-                              f"<b>%{_odenen_pct}</b><br>"
-                              f"<span style='font-size:11px;color:var(--k-soluk)'>{odendi_cnt}/{len(odemeler)} ödeme</span>"),
-                        x=0.5, y=0.5, showarrow=False,
-                        font=dict(size=24, family="Inter, sans-serif", color=trenk("metin")),
-                    )
-                    fig2.update_layout(
-                        height=330, margin=dict(t=16, b=8, l=8, r=8),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                        showlegend=True,
-                        legend=dict(
-                            font=dict(family="Inter, sans-serif", size=11, color=trenk("mor2")),
-                            orientation="h",
-                            yanchor="top", y=-0.06,
-                            xanchor="center", x=0.5,
-                            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0)",
-                            itemsizing="constant", itemwidth=30,
-                        ),
-                        hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                        font=dict(family="Inter, sans-serif", color=trenk("metin"))),
-                    )
-                    st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+                    from shared.grafik import halka as _halka, goster as _goster
+                    _halka(fig2, "Ödenen (tutar)", f"%{_odenen_pct}", f"{odendi_cnt}/{len(odemeler)} ödeme",
+                           yukseklik=330)
+                    _goster(fig2)
     
             # Günlük ödeme takvimi özeti (varsayılan kapalı — simge durumunda)
             from collections import defaultdict
@@ -2081,74 +2041,31 @@ def run():
                 _x = [_gx(t) for t in df_grafik["Tarih"]]
                 _gun_tl = df_grafik["Günlük TL (₺)"].fillna(0)
                 _kalan = df_grafik["TL Bakiye Kalan (₺)"]
+                # Ortak grafik dili (shared/grafik.py): ödeme çubukları ana renk, kalan bakiye
+                # nötr çizgi; bakiye eksiye düştüğü gün kırmızı nokta (nakit açığı).
+                from shared.grafik import goster as _goster, rol as _rol
+                st.markdown('<div class="section-mini-title">Günlük ödeme ve kalan bakiye</div>',
+                            unsafe_allow_html=True)
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
-                    x=_x,
-                    y=_gun_tl,
-                    name="Günlük TL Ödemesi",
-                    marker_color="rgba(99,102,241,0.85)",
-                    marker_line=dict(color="rgba(0,0,0,0)", width=0),
+                    x=_x, y=_gun_tl, name="Günlük TL ödemesi",
+                    marker_color=_rol("ana"), marker_line=dict(width=0),
                     customdata=[f"₺{tr_sayi(v, 2)}" for v in _gun_tl],
-                    hovertemplate="<b>%{x}</b><br>Günlük: %{customdata}<extra></extra>",
+                    hovertemplate="Günlük: %{customdata}<extra></extra>",
                 ))
+                _kal = list(_kalan.fillna(0))
                 fig.add_trace(go.Scatter(
-                    x=_x,
-                    y=_kalan,
-                    name="Kalan Bakiye",
-                    mode="lines+markers",
-                    line=dict(color=trenk("yesil"), width=2.5, shape="spline", smoothing=0.6),
-                    marker=dict(size=7, color=trenk("yesil"), line=dict(color=trenk("yuzey0"), width=2)),
-                    yaxis="y2",
-                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _kalan.fillna(0)],
-                    hovertemplate="<b>%{x}</b><br>Kalan: %{customdata}<extra></extra>",
+                    x=_x, y=_kalan, name="Kalan bakiye", mode="lines+markers", yaxis="y2",
+                    line=dict(color=_rol("ikincil"), width=2),
+                    marker=dict(size=[8 if v < 0 else 5 for v in _kal],
+                                color=[_rol("kotu") if v < 0 else _rol("ikincil") for v in _kal]),
+                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _kal],
+                    hovertemplate="Kalan: %{customdata}<extra></extra>",
                 ))
-                fig.update_layout(
-                    title=dict(
-                        text="<b>Günlük Ödeme ve Kalan Bakiye</b>",
-                        font=dict(family="Inter, sans-serif", size=15, color=trenk("metin")),
-                        x=0.01, xanchor="left",
-                    ),
-                    xaxis=dict(
-                        type="category",
-                        title=dict(text="Tarih", font=dict(family="Inter, sans-serif", size=12, color=trenk("silik"))),
-                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                        gridcolor="rgba(148,163,184,0.10)",
-                        linecolor="rgba(148,163,184,0.18)",
-                        showline=True,
-                    ),
-                    yaxis=dict(
-                        title=dict(text="Ödeme TL (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("mor"))),
-                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                        gridcolor="rgba(148,163,184,0.10)",
-                        linecolor="rgba(148,163,184,0.18)",
-                        showline=True,
-                        zeroline=True,
-                        zerolinecolor="rgba(148,163,184,0.22)",
-                    ),
-                    yaxis2=dict(
-                        title=dict(text="Kalan Bakiye (₺)", font=dict(family="Inter, sans-serif", size=12, color=trenk("yesil"))),
-                        tickfont=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                        overlaying="y",
-                        side="right",
-                        showgrid=False,
-                        linecolor="rgba(148,163,184,0.18)",
-                        showline=True,
-                    ),
-                    height=420,
-                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                    hovermode="x unified",
-                    hoverlabel=dict(bgcolor=trenk("yuzey2"), bordercolor="rgba(129,140,248,0.4)",
-                                    font=dict(family="Inter, sans-serif", color=trenk("mavi"))),
-                    bargap=0.45, barcornerradius=6,
-                    font=dict(family="Inter, sans-serif", color=trenk("metin")),
-                    legend=dict(
-                        font=dict(family="Inter, sans-serif", size=12, color=trenk("metin")),
-                        orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                        bgcolor="rgba(255,255,255,0)",
-                    ),
-                    margin=dict(t=60, b=60, l=70, r=70),
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                _goster(fig, key="nakit_akis_grafik", yukseklik=380, hovermode="x unified", bargap=0.45,
+                        barcornerradius=4, xaxis=dict(type="category"), yaxis=dict(tickprefix="₺"),
+                        yaxis2=dict(overlaying="y", side="right", showgrid=False, zeroline=False,
+                                    tickprefix="₺", tickfont=dict(size=11, color=_rol("ikincil"))))
     
     
         # ════════════════════════════════════════════════════════════════════

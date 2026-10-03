@@ -138,20 +138,15 @@ def _egilim(seri, yuk, dus):
     else:
         import plotly.graph_objects as go
         x = [h.strftime("%d.%m") for h, _ in seri]          # Türkçe etiket (tarih ekseni İngilizce çıkar)
+        from shared.grafik import goster as _goster, rol as _rol, saydam as _saydam
         fg = go.Figure()
-        fg.add_scatter(x=x, y=[v for _, v in seri], mode="lines+markers", line=dict(color=trenk("cyan"), width=2.5),
-                       marker=dict(size=6), fill="tozeroy",
-                       fillcolor="rgba(34,211,238,0.10)",
+        fg.add_scatter(x=x, y=[v for _, v in seri], mode="lines+markers", line=dict(color=_rol("ana"), width=2.2),
+                       marker=dict(size=5), fill="tozeroy",
+                       fillcolor=_saydam(_rol("ana"), 0.10),
                        customdata=[f"{h:%d.%m}–{(h + timedelta(days=6)):%d.%m} · {tr_sayi(v)} adet" for h, v in seri],
                        hovertemplate="%{customdata}<extra></extra>")
-        fg.update_layout(height=220, margin=dict(t=6, b=4, l=4, r=4), showlegend=False,
-                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                         font=dict(family="Inter, sans-serif", size=11, color=trenk("soluk")),
-                         yaxis=dict(gridcolor=trenk("kenar"), zeroline=False, tickformat=",d"),
-                         xaxis=dict(showgrid=False, type="category"),
-                         separators=",.",
-                         hoverlabel=dict(bgcolor=trenk("yuzey2"), font=dict(color=trenk("metin"))))
-        st.plotly_chart(fg, use_container_width=True, config={"displayModeBar": False}, key="gb_egilim")
+        _goster(fg, key="gb_egilim", yukseklik=220, aciklama=False,
+                yaxis=dict(tickformat=",d"), xaxis=dict(type="category"))
 
     def _liste(baslik, rs, renk, isaret):
         st.markdown(f'<div style="font-size:12.5px;font-weight:650;margin:4px 0 2px">{baslik}</div>',
