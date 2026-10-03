@@ -525,28 +525,24 @@ def _gecmis_ithalatlar():
         dosyalar_goster = [d for d, s in _pairs_sorted]
         satirlar_goster = [s for d, s in _pairs_sorted]
 
-        _df_show = pd.DataFrame([{
+        # Ortak tablo (shared/tablo.py), çoklu seçim: satıra tıkla seç / bırak (kutucuk yok).
+        # Seçim DOSYA KİMLİĞİNE bağlı: süzgeç/sıra değişince başka belgeye kaymaz (eskiden
+        # sıra numarasıyla tutuluyordu; toplu "Teslim alındı" yanlış belgeye gidebilirdi).
+        from shared.tablo import tablo as _tablo
+        _sel = _tablo([{
             "Belge No": s["Belge No"], "Aşama": s["Aşama"], "Takip No": s["Takip No"] or "—",
             "SAS No": s["SAS No"] or "—",
             "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
             "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
-            "Mal Bedeli": f"${_tam(s['Mal Bedeli'])}", "Masraf": f"${_tam(s['Toplam Masraf'])}",
-            "% Maliyet": f"%{tr_sayi(s['% Maliyet'], 2)}", "Kalem": s["Kalem"],
+            "Mal Bedeli": s["Mal Bedeli"], "Masraf": s["Toplam Masraf"],
+            "% Maliyet": s["% Maliyet"], "Kalem": s["Kalem"],
             "Teslim Şekli": s.get("Teslim Şekli", "—"),
             "Teslim Deposu": s.get("Teslim Deposu", "—"),
-            "Durum": s["Durum"],
-        } for s in satirlar_goster])
-        _evt = st.dataframe(
-            _df_show, hide_index=True, height=420,
-            on_select="rerun", selection_mode="multi-row", key="ith_gecmis_df",
-        )
-        st.caption("**1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (kutucuklarla) "
+            "Durum": s["Durum"], "_id": d["id"],
+        } for d, s in zip(dosyalar_goster, satirlar_goster)], key="ith_gecmis_df", coklu=True,
+            maks_yukseklik=420, dosya_adi="ithalat_dosyalari")
+        st.caption("**1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (satırlara tıklayarak) "
                    "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
-
-        try:
-            _sel = list(_evt.selection.rows)
-        except Exception:
-            _sel = []
         # Güvenlik: liste değiştiyse (silme/filtre/dağıtım sonrası) eski seçim indeksleri
         # mevcut listenin dışına taşabilir → IndexError'ı önlemek için geçerli aralığa filtrele.
         _sel = [i for i in _sel if isinstance(i, int) and 0 <= i < len(dosyalar_goster)]

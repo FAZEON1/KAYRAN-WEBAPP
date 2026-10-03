@@ -101,13 +101,14 @@ def tablo_veri(satirlar, birim="$", pay=None, toplam_isaret="Σ", arama=None):
     govde, toplam = [], None
     for i, r in enumerate(kayit):
         h, s, neg, rz = [], [], [], []
+        rb = r.get("_birim") or birim                     # satır başına para birimi (karışık döviz)
         for ad, k in zip(adlar, kolonlar):
-            m, ham = _metin(r.get(ad), k["tip"], birim)
+            m, ham = _metin(r.get(ad), k["tip"], rb)
             h.append(m)
             s.append(ham if ham is not None else m)
             neg.append(bool(ham is not None and ham < 0))
             rz.append(marj_sinifi(ham) if k["rozet"] and ham is not None else "")
-        satir = {"i": i, "h": h, "s": s, "neg": neg, "rz": rz,
+        satir = {"i": i, "id": str(r.get("_id", i)), "h": h, "s": s, "neg": neg, "rz": rz,
                  "etiket": str(r.get("_etiket") or ""), "ipucu": str(r.get("_ipucu") or "")}
         if h and str(h[0]).strip().startswith(toplam_isaret):
             toplam = satir
@@ -122,6 +123,17 @@ def tablo_veri(satirlar, birim="$", pay=None, toplam_isaret="Σ", arama=None):
             x["pay"] = round(max(float(v), 0.0) / tp * 100, 2) if (tp and isinstance(v, (int, float))) else 0
     return {"kolonlar": kolonlar, "satirlar": govde, "toplam": toplam, "pay": pay_i,
             "arama": (len(govde) >= ARAMA_ESIK) if arama is None else bool(arama)}
+
+
+def secim_coz(secim, satirlar):
+    """Bileşenin tuttuğu kimlik(ler) → GÜNCEL listedeki sıra(lar). Listede artık olmayan
+    kimlik düşer (süzgeç değişince seçim başka satıra kaymaz)."""
+    if secim is None or secim == "":
+        return []
+    ids = [str(x) for x in (secim if isinstance(secim, (list, tuple)) else [secim])]
+    kayit = _kayitlar(satirlar)
+    konum = {str(r.get("_id", i)): i for i, r in enumerate(kayit)}
+    return [konum[x] for x in ids if x in konum]
 
 
 # ── Ünvan kısaltma ──────────────────────────────────────────────────
@@ -196,6 +208,9 @@ _CSS = r"""
 .ara input:focus{border-color:var(--k-mor)}
 .ara svg{position:absolute;left:9px;top:9px;opacity:.55}
 .say{font-size:11px;color:var(--k-silik);white-space:nowrap;margin-left:auto}
+.cs{font-size:12px;color:var(--k-soluk);white-space:nowrap}
+.cs b{color:var(--k-mor2);font-weight:600}
+.cs a{color:var(--k-soluk)}
 .sirala{display:none;height:32px;border-radius:8px;border:1px solid var(--k-kenar2);background:var(--k-yuzey1);
   color:var(--k-metin);font:inherit;font-size:12px;padding:0 6px;max-width:44%}
 .btn{height:30px;min-width:30px;border-radius:8px;border:1px solid var(--k-kenar2);background:transparent;
@@ -257,8 +272,9 @@ _JS = r"""
 export default function(component){
   const {data, setTriggerValue, setStateValue, parentElement} = component;
   const D = data || {}, K = D.kolonlar || [];
-  const durum = parentElement.__kt || (parentElement.__kt = {q:"", sk:null, sy:-1, sec:D.secili});
-  if (D.secili !== undefined && D.secili !== null && durum.sec === undefined) durum.sec = D.secili;
+  const durum = parentElement.__kt || (parentElement.__kt = {q:"", sk:null, sy:-1, sec:(D.secili ?? null),
+                                                              secs:new Set((D.secililer || []).map(String))});
+  const coklu = !!D.coklu, kalici = !!D.kalici;
   let kok = parentElement.querySelector(".kt");
   if (!kok){ kok = document.createElement("div"); kok.className = "kt"; parentElement.appendChild(kok); }
   const es = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -270,6 +286,7 @@ export default function(component){
       (D.arama ? '<select class="sirala" aria-label="Sırala"><option value="">Sırala</option>' +
         K.map((k,i)=>'<option value="'+i+':-1">'+es(k.ad)+(k.tip?' · büyükten':' · Z→A')+'</option><option value="'+i+':1">'+es(k.ad)+(k.tip?' · küçükten':' · A→Z')+'</option>').join("") +
         '</select>' : '') +
+      (coklu ? '<span class="cs"></span>' : '') +
       '<span class="say"></span>' +
       '<button class="btn" type="button" title="Excel için indir (CSV)" aria-label="İndir">'+INDIR+'</button>' +
     '</div>' +
@@ -304,11 +321,18 @@ export default function(component){
                                           (r.etiket||"").toLocaleLowerCase("tr").includes(q));
     gorunen = sirala(R);
     govde.innerHTML = gorunen.length ? gorunen.map(r =>
-      '<tr data-i="'+r.i+'"'+(durum.sec===r.i?' class="secili"':'')+'>'+K.map((_,j)=>hucre(r,j,false)).join("")+'</tr>').join("")
+      '<tr data-i="'+r.i+'" data-id="'+es(r.id)+'"'+((coklu ? durum.secs.has(r.id) : durum.sec===r.id)?' class="secili"':'')+'>'
+      +K.map((_,j)=>hucre(r,j,false)).join("")+'</tr>').join("")
       : '<tr><td class="bos" colspan="'+K.length+'">Eşleşen satır yok</td></tr>';
     alt.innerHTML = D.toplam ? '<tr>'+K.map((_,j)=>hucre(D.toplam,j,true)).join("")+'</tr>' : "";
     const n = (D.satirlar||[]).length;
     say.textContent = q ? (gorunen.length+" / "+n+" satır") : (n+" satır");
+    const cs = kok.querySelector(".cs");
+    if (cs){
+      cs.innerHTML = durum.secs.size ? '<b>'+durum.secs.size+' seçili</b> · <a href="#" class="temizle">temizle</a>' : 'satıra tıkla: seç / bırak';
+      const t = cs.querySelector(".temizle");
+      if (t) t.addEventListener("click", e => { e.preventDefault(); durum.secs.clear(); setStateValue("secililer", []); ciz(); });
+    }
     kok.querySelectorAll("th").forEach(th => {
       const i = +th.dataset.i; th.querySelector(".ok").textContent = durum.sk===i ? (durum.sy>0?"↑":"↓") : "";
     });
@@ -330,9 +354,18 @@ export default function(component){
   if (giris){ giris.value = durum.q; giris.addEventListener("input", e => { durum.q = e.target.value; ciz(); }); }
   if (D.secilebilir) govde.addEventListener("click", e => {
     const tr = e.target.closest("tr[data-i]"); if (!tr) return;
-    durum.sec = +tr.dataset.i; ciz();
+    const id = tr.dataset.id;
+    if (coklu){                                       // çoklu: tıkla seç / bırak
+      durum.secs.has(id) ? durum.secs.delete(id) : durum.secs.add(id); ciz();
+      setStateValue("secililer", [...durum.secs]); return;
+    }
+    if (kalici){                                      // kalıcı tekli: aynı satıra tekrar tık = bırak
+      durum.sec = (durum.sec === id) ? null : id; ciz();
+      setStateValue("secili", durum.sec); return;
+    }
+    durum.sec = id; ciz();
     setStateValue("secili", durum.sec);
-    setTriggerValue("tik", durum.sec);
+    setTriggerValue("tik", +tr.dataset.i);
   });
   kok.querySelector(".btn").addEventListener("click", () => {
     const hucreCsv = (r,j) => { const v=r.s[j]; const t = typeof v==="number" ? String(v).replace(".",",") : String(r.h[j]??"");
@@ -380,10 +413,17 @@ def _oto_anahtar(veri):
     return taban if n == 0 else f"{taban}_{n}"
 
 
-def tablo(satirlar, *, key=None, secilebilir=False, pay=None, arama=None, birim="$",
-          maks_yukseklik=520, kap=None, dosya_adi="tablo", toplam_isaret="Σ"):
-    """Tabloyu çizer. secilebilir=True ise tıklanan satırın özgün sırasını döndürür
-    (yalnız tıklandığı çalıştırmada; sonra None)."""
+def tablo(satirlar, *, key=None, secilebilir=False, kalici=False, coklu=False, pay=None, arama=None,
+          birim="$", maks_yukseklik=520, kap=None, dosya_adi="tablo", toplam_isaret="Σ"):
+    """Tabloyu çizer. Dönüş:
+      secilebilir=True → tıklanan satırın sırası, yalnız tıklandığı çalıştırmada (pencere açmak için)
+      kalici=True      → seçili satırın sırası ya da None; seçim sonraki çalıştırmalarda da durur
+                          (altta açılan ayrıntı için). Aynı satıra tekrar tık = bırak.
+      coklu=True       → seçili satırların sıraları (liste); satıra tıkla seç / bırak.
+    kalici/coklu seçim satır KİMLİĞİNE (_id, yoksa sıra) bağlıdır; liste değişince seçim
+    başka satıra kaymaz (secim_coz)."""
+    if kalici or coklu:
+        secilebilir = True
     import streamlit as st
     veri = tablo_veri(satirlar, birim=birim, pay=pay, toplam_isaret=toplam_isaret, arama=arama)
     hedef = kap if kap is not None else st
@@ -392,10 +432,13 @@ def tablo(satirlar, *, key=None, secilebilir=False, pay=None, arama=None, birim=
         return None
     bil = _bilesen()
     anahtar = key or _oto_anahtar(veri)
-    veri.update({"secilebilir": bool(secilebilir), "maks": int(maks_yukseklik), "dosya": dosya_adi,
-                 "secili": st.session_state.get(anahtar, {}).get("secili") if secilebilir else None})
-    yuk = dict(key=anahtar, data=veri, default={"secili": None}, height="content",
-               on_tik_change=lambda: None, on_secili_change=lambda: None)
+    _onceki = st.session_state.get(anahtar, {}) or {}
+    veri.update({"secilebilir": bool(secilebilir), "kalici": bool(kalici), "coklu": bool(coklu),
+                 "maks": int(maks_yukseklik), "dosya": dosya_adi,
+                 "secili": _onceki.get("secili") if secilebilir else None,
+                 "secililer": list(_onceki.get("secililer") or []) if coklu else []})
+    yuk = dict(key=anahtar, data=veri, default={"secili": None, "secililer": []}, height="content",
+               on_tik_change=lambda: None, on_secili_change=lambda: None, on_secililer_change=lambda: None)
     if kap is not None:
         with kap:
             sonuc = bil(**yuk)
@@ -403,8 +446,15 @@ def tablo(satirlar, *, key=None, secilebilir=False, pay=None, arama=None, birim=
         sonuc = bil(**yuk)
     if not secilebilir:
         return None
-    try:
-        tik = sonuc.tik
-    except Exception:
-        tik = getattr(sonuc, "get", lambda *_: None)("tik")
-    return tik
+
+    def _al(ad):
+        try:
+            return getattr(sonuc, ad)
+        except Exception:
+            return getattr(sonuc, "get", lambda *_: None)(ad)
+    if coklu:
+        return secim_coz(_al("secililer"), satirlar)
+    if kalici:
+        s = secim_coz(_al("secili"), satirlar)
+        return s[0] if s else None
+    return _al("tik")
