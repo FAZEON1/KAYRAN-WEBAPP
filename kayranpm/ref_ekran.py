@@ -327,7 +327,6 @@ def _durum_yaz(r, yeni):
 
 
 def _bilgi_formu(r):
-    import json
     rid = r["id"]
     kat_opts = N._kategori_listesi([r])
     kat_cur = (R.kategoriler(r) or [""])[0]
@@ -364,7 +363,7 @@ def _bilgi_formu(r):
             else:
                 aylik = None
                 if tek_ay:
-                    aylik = json.dumps({f"{int(yil)}-{ay:02d}": tutar}) if ay else ""
+                    aylik = {f"{int(yil)}-{ay:02d}": tutar} if ay else {}
                 N.ref_guncelle(rid, ref_no, ack.strip(), r.get("durum") or "beklemede",
                                (str(r.get("tarih") or "")[:10] or None), r.get("paylasim_tarihi"),
                                tutar=tutar, doviz=dvz,
