@@ -1356,10 +1356,10 @@ def run():
                         column_config={
                             "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                             "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
-                            "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="dollar"),
-                            "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="dollar", help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
-                            "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=1.0, format="$%.2f"),
-                            "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="%.1f%%"),
+                            "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="dollar", step=0.01),
+                            "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="dollar", step=0.01, help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
+                            "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=0.01, format="dollar"),   # step = gösterilen hane (kuruş)
+                            "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="localized", step=0.1),
                         },
                     )
                     if st.button("Satış Fiyatlarını Kaydet", type="primary", key="satis_kaydet_btn", icon=":material/save:"):
