@@ -71,7 +71,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
-               "musteri_hesap.py", "ana_veri.py"):
+               "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -123,6 +123,9 @@ KRITIK_FONKSIYONLAR = {
         "depo_dagilimi", "satilabilir_kontrol",   # G5F kırılım rozetleri + satılabilir farkı (Eki 2026)
         "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
     ],
+    "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
+                            "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
+    "ithalat.database": ["get_parti_satirlari", "get_sku_maliyet_ozet", "get_sku_alim_detay"],
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu"],   # tek kaynak (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
