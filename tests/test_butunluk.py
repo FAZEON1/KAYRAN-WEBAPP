@@ -123,6 +123,7 @@ KRITIK_FONKSIYONLAR = {
         "depo_dagilimi", "satilabilir_kontrol",   # G5F kırılım rozetleri + satılabilir farkı (Eki 2026)
         "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
         "get_sku_eslesme", "sku_eslesme_kaydet", "sku_eslesme_sil",   # onaylı SKU eşleme (Eki 2026)
+        "firma_stok_satirlari",                   # stok kartı kanal stoğu, SKU yazımından bağımsız
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
