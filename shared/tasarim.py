@@ -1142,7 +1142,7 @@ div[data-testid="stCaptionContainer"] p{{color:var(--k-soluk) !important;}}
   .k-kart{{min-width:110px;}}
   .k-baslik-alt{{display:none;}}
 }}
-""" + _streamlit_normalize()) + "</style>"
+""" + _streamlit_normalize() + (TABLO_YENI_CSS if TABLO_YENI else "")) + "</style>"
 
 
 def islem_gosterge_css():
@@ -1202,6 +1202,27 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
 #        başındaki emoji Material ikona çevrilir (shared/ikon.py, app.py'de kurulur).
 # False: emojiler eskisi gibi. Geri almak için YALNIZ bu satırı değiştir.
 IKON_YENI = True
+
+# ── Tablo çekirdeği görünümü (Ekim 2026) ────────────────────────────
+# True : tablo_html / df_tablo_html (Muhasebe, İthalat, Veri yükleme tabloları) ortak
+#        tablo bileşeniyle (shared/tablo.py) aynı görünümde: zebra yok, sayılar normal yazı
+#        tipinde, hap rozet. Satır vurgusu aynen.
+# False: eski görünüm. Geri almak için YALNIZ bu satırı değiştir.
+TABLO_YENI = True
+
+TABLO_YENI_CSS = """
+/* ── Tablo çekirdeği (tablo_html) ortak görünümde (TABLO_YENI) ── */
+.k-tbw{border-radius:12px !important;}
+.k-tb thead th{font-weight:500;padding:9px 12px;}
+.k-tb tbody td{padding:9px 12px;}
+.k-tb tbody tr:nth-child(even) td{background:transparent;}
+.k-tb tbody tr[data-vurgu] td{background:color-mix(in srgb,var(--v) 10%,transparent);}
+.k-tb .sayi{font-family:inherit;font-variant-numeric:tabular-nums;}
+.k-tb tfoot td{font-weight:600;border-top:1px solid var(--k-kenar2);}
+.k-tb.sik thead th{padding:6px 8px;} .k-tb.sik tbody td{padding:6px 8px;}
+.k-tb .k-rz{border:0;border-radius:999px;font-size:12px;font-weight:500;padding:1px 8px;letter-spacing:0;}
+"""
+
 
 # ── Yan panel (Ekim 2026) ───────────────────────────────────────────
 # True : yan_panel() çağıran okuma pencereleri (detaylar) sağdan tam boy panel açılır.
