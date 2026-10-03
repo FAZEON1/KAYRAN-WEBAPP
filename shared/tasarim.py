@@ -1217,6 +1217,13 @@ IKON_YENI = True
 # False: eski görünüm. Geri almak için YALNIZ bu satırı değiştir.
 TABLO_YENI = True
 
+# ── Streamlit ızgarası (Ekim 2026) ──────────────────────────────────
+# True : düzenlenebilir tablolar ve uzun / seçimli st.dataframe ortak ayarla (shared/izgara.py):
+#        ferah satır, "$149,00" (4 ondalık "$149,0000" değil), Türkçe sayı, geniş ürün sütunu,
+#        çok sütunlu tabloda SKU solda sabit. Kayıt hassasiyeti değişmez.
+# False: eski görünüm. Geri almak için YALNIZ bu satırı değiştir.
+IZGARA_YENI = True
+
 TABLO_YENI_CSS = """
 /* ── Tablo çekirdeği (tablo_html) ortak görünümde (TABLO_YENI) ── */
 .k-tbw{border-radius:12px !important;}

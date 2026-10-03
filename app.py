@@ -104,8 +104,8 @@ st.cache_data.clear = _akilli_cache_clear
 #         alfabetik bozuluyordu.
 # ÇÖZÜM : st.dataframe sarmalanır; kolon adına göre biçim otomatik verilir.
 #         ELLE yazılmış column_config her zaman kazanır (ezilmez), yalnız
-#         eksik kolonlar tamamlanır. st.data_editor'a DOKUNULMAZ — düzenleme
-#         alanlarında ham değer gerekir.
+#         eksik kolonlar tamamlanır. Native kalan tablolar ve st.data_editor
+#         ortak ızgara ayarıyla çizilir (shared/izgara.py; kayıt değerleri aynı).
 # ─────────────────────────────────────────────────────────────────────
 # TÜM BLOK try İÇİNDE: burada atılan bir istisna uygulamayı TAMAMEN çökertir.
 # İlk sürümde `st.dataframe.__self__` yazmıştım; bazı Streamlit sürümlerinde
@@ -172,7 +172,12 @@ try:
             if kayitlar is not None:
                 tablo_sirali(kayitlar, kap=self)
                 return None
-            kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
+            from shared.tasarim import IZGARA_YENI
+            if IZGARA_YENI:          # ortak ızgara ayarı (shared/izgara.py)
+                from shared.izgara import dataframe_hazirla
+                dataframe_hazirla(data, kw)
+            else:
+                kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
         except Exception:
             pass          # biçimlendirme/çeviri başarısızsa tablo yine çizilsin
         return _ORIJ_DATAFRAME(self, data, *a, **kw)
@@ -191,6 +196,9 @@ except Exception:
 # shared/tasarim.py → IKON_YENI = False. Modüller içe aktarılmadan ÖNCE kurulmalı.
 from shared.ikon import kur as _ikon_kur
 _ikon_kur(st)
+# Düzenlenebilir tablolar (st.data_editor) ortak ızgara ayarıyla. Geri alma: IZGARA_YENI = False.
+from shared.izgara import kur as _izgara_kur
+_izgara_kur(st)
 
 
 # ─────────────────────────────────────────────────────────────────────
