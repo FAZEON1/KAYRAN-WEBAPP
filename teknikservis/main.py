@@ -108,14 +108,6 @@ def _durum_chip(durum):
             f'border-radius:6px;padding:0px 8px;font-size:11px;font-weight:700;white-space:nowrap">{durum}</span>')
 
 
-def _sla_chip(kayit, harita=None):
-    bitmis = kayit.get("mevcut_durum") in BITMIS_DURUMLAR
-    g = sla_is_gunu(kayit, sla_bitis_haritasi([kayit]) if harita is None else harita)
-    renk, txt = sla_renk(g, bitmis)
-    return (f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};'
-            f'border-radius:6px;padding:0px 8px;font-size:11px;font-weight:700;white-space:nowrap">{txt}</span>')
-
-
 def _tarih_kisa(v):
     if not v:
         return "—"

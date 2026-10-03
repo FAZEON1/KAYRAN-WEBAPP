@@ -10,12 +10,10 @@ from pathlib import Path
 
 KOK = Path(__file__).resolve().parent.parent
 
-PANEL = [  # (dosya, pencere başlığı parçası, genişlik)
+PANEL = [  # (dosya, pencere başlığı parçası, genişlik) — ref_no.py'deki iki eski pencere ölü koddu, Ekim 2026'da silindi
     ("satis/main.py", "Firma Sipariş Geçmişi", "orta"),
     ("kayranpm/stok_karti.py", "📦 Stok Kartı", "genis"),
-    ("kayranpm/ref_no.py", "🔎 Ref No Detayı", "orta"),
     ("kayranpm/ref_ekran.py", '"Ref no detayı"', "orta"),
-    ("kayranpm/ref_no.py", "🔎 Alınan Destek Detayı", "orta"),
     ("kayranpm/kampanya.py", '"Kampanya detayı"', "orta"),
     ("satis/satislar_ekran.py", '@st.dialog("Sipariş"', "orta"),
     ("kayranacc/gecmis_ekran.py", '"Ödenmiş ödeme"', "dar"),

@@ -494,41 +494,12 @@ def run():
     """, unsafe_allow_html=True)
     
     # ── Yardımcı fonksiyonlar ────────────────────────────────────────────
-    STOK_YAS_ETIKET = {
-        "kirmizi": '<span class="tag-kirmizi">🔴 {g} gün</span>',
-        "turuncu": '<span class="tag-turuncu">🟠 {g} gün</span>',
-        "sari":    '<span class="tag-sari">🟡 {g} gün</span>',
-        "yesil":   '<span class="tag-yesil">🟢 {g} gün</span>',
-        "yok":     '<span class="tag-gri">—</span>',
-    }
-    GUN_ETIKET = {
-        "kirmizi": '<span class="tag-kirmizi">🔴 {g} gün</span>',
-        "turuncu": '<span class="tag-turuncu">🟠 {g} gün</span>',
-        "yesil":   '<span class="tag-yesil">🟢 {g} gün</span>',
-        "yok":     '<span class="tag-gri">—</span>',
-    }
-    PERF_ETIKET = {
-        "Çok İyi": '<span class="tag-yesil">⭐ Çok İyi</span>',
-        "İyi":     '<span class="tag-sari">👍 İyi</span>',
-        "Düşük":   '<span class="tag-kirmizi">📉 Düşük</span>',
-        "veri yok":'<span class="tag-gri">—</span>',
-    }
     YOL_ETIKET = {
         "yesil":   "🟢",
         "sari":    "🟡",
         "kirmizi": "🔴",
         "yok":     "—",
     }
-    
-    def stok_yas_html(renk, gun):
-        return STOK_YAS_ETIKET.get(renk, STOK_YAS_ETIKET["yok"]).format(g=gun)
-    
-    def gun_html(renk, gun):
-        if gun is None: return '<span class="tag-gri">—</span>'
-        return GUN_ETIKET.get(renk, GUN_ETIKET["yok"]).format(g=gun)
-    
-    def perf_html(perf):
-        return PERF_ETIKET.get(perf, PERF_ETIKET["veri yok"])
     
     # ── Sidebar navigasyon ───────────────────────────────────────────────
     with st.sidebar:

@@ -59,7 +59,9 @@ def test_firma_ozeti_bekleyen_sayisi():
 
 def test_ref_no_render_yeni_ekrana_gider():
     src = (KOK / "kayranpm/ref_no.py").read_text(encoding="utf-8")
-    g = src[src.index("def render():"):src.index("def _render_eski():")]
+    import ast
+    fn = next(n for n in ast.parse(src).body if isinstance(n, ast.FunctionDef) and n.name == "render")
+    g = ast.get_source_segment(src, fn)               # eski ekran (_render_eski) Ekim 2026'da silindi
     assert "from .ref_ekran import render" in g
 
 

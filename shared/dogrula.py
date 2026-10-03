@@ -20,12 +20,3 @@ def gecerli_sku(sku, sku_listesi):
     """SKU, geçerli ürün listesinde mi?"""
     return bool(sku) and sku in set(sku_listesi or [])
 
-
-def pozitif_mi(deger):
-    """Değer 0'dan büyük mü?"""
-    return _f(deger) > 0
-
-
-def zorunlu_dolu(*degerler):
-    """Verilen tüm alanlar dolu mu (boş string/None değil)?"""
-    return all((v is not None and str(v).strip() != "") for v in degerler)

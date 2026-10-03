@@ -923,54 +923,6 @@ def run():
         return tr_today_iso()
     
     
-    def tomorrow_iso():
-        return (tr_today() + timedelta(days=1)).isoformat()
-    
-    
-    def kayit_erteleme(odeme, eski_vade, yeni_vade):
-        """
-        Ertelemeyi session_state'te takip eder. Supabase kolonu gerekmez.
-        Sayfa yenilense bile session içinde kalır, kapatınca silinir.
-        """
-        if "ertelemeler" not in st.session_state:
-            st.session_state.ertelemeler = {}  # {odeme_id: {orijinal_vade, son_vade, sayi, son_tarih}}
-    
-        odeme_id = odeme["id"]
-        eski_str = str(eski_vade)[:10] if eski_vade else None
-        yeni_str = str(yeni_vade)[:10] if yeni_vade else None
-    
-        # Aynı tarih ise tracking yapma
-        if eski_str == yeni_str:
-            return
-    
-        if odeme_id not in st.session_state.ertelemeler:
-            # İlk erteleme — orijinal vadeyi kaydet
-            st.session_state.ertelemeler[odeme_id] = {
-                "odeme_id": odeme_id,
-                "firma": odeme.get("firma", ""),
-                "aciklama": odeme.get("aciklama", ""),
-                "kategori": odeme.get("kategori") or "diger",
-                "tutar_tl": odeme.get("tutar_tl"),
-                "tutar_usd": odeme.get("tutar_usd"),
-                "orijinal_vade": eski_str,
-                "son_vade": yeni_str,
-                "sayi": 1,
-                "son_tarih": tr_today_iso(),
-            }
-        else:
-            # Tekrar erteleme — sayıyı artır, son_vade'yi güncelle
-            kayit = st.session_state.ertelemeler[odeme_id]
-            kayit["son_vade"] = yeni_str
-            kayit["sayi"] = kayit.get("sayi", 1) + 1
-            kayit["son_tarih"] = tr_today_iso()
-            # Tutar/firma değişmiş olabilir, güncelle
-            kayit["firma"] = odeme.get("firma", kayit.get("firma", ""))
-            kayit["aciklama"] = odeme.get("aciklama", kayit.get("aciklama", ""))
-            kayit["kategori"] = odeme.get("kategori") or kayit.get("kategori") or "diger"
-            kayit["tutar_tl"] = odeme.get("tutar_tl")
-            kayit["tutar_usd"] = odeme.get("tutar_usd")
-    
-    
     def get_kur():
         """
         USD/TL Kurunu döndürür.
@@ -1992,13 +1944,6 @@ def run():
     
             df_nakit = pd.DataFrame(tablo_rows)
     
-            def nakit_rengi(row):
-                k = row.get("_kalan", 0)
-                if row["Tarih"] == "TOPLAM":
-                    return ["background-color:color-mix(in srgb,var(--k-yesil) 15%,transparent);color:var(--k-yesil2);font-weight:700" if k >= 0
-                            else "background-color:color-mix(in srgb,var(--k-kirmizi) 15%,transparent);color:var(--k-kirmizi2);font-weight:700"] * len(row)
-                return ["background-color:var(--k-kirmizi);color:var(--k-kirmizi2)" if k < 0 else ""] * len(row)
-    
             # --- Nakit Akış tablosu: ortak tablo_html (Aşama 4b) ---
             def _kalan_hucre(v, kalin=False):
                 return renkli(_tpara(v, "₺", 2), "yesil" if (v or 0) >= 0 else "kirmizi", kalin=kalin)
@@ -2676,39 +2621,6 @@ def run():
     
                 return usd_stok, pazaryerleri
     
-            def parse_ithalat_excel(file_bytes):
-                """
-                İthalat Excel'inden 'Ödenen / USD' toplamını al.
-                Sütun yapısı:
-                0=Durum, 1=Üretici, 2=PI No, 3=Ürünler, 4=Tahmini Varış, 5=Invoice/USD,
-                6=ÖDENEN/USD ← BU, 7=Kalan/USD, 8=Vergi/TL, 9=Vergi/USD, ...
-                """
-                import pandas as pd
-                from io import BytesIO
-                df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-                # TOPLAM satırını bul (sütun 0'da "TOPLAM" yazar)
-                for i in range(len(df)):
-                    ilk = df.iloc[i, 0]
-                    if pd.notna(ilk) and "TOPLAM" in str(ilk).upper():
-                        v = df.iloc[i, 6]  # ÖDENEN sütunu = 6
-                        if pd.notna(v):
-                            try:
-                                return float(v)
-                            except (ValueError, TypeError):
-                                pass
-    
-                # TOPLAM yoksa elle topla (header satırları 0,1,2'yi atla)
-                odenen = 0.0
-                for i in range(3, len(df)):
-                    v = df.iloc[i, 6]
-                    if pd.notna(v):
-                        try:
-                            odenen += float(v)
-                        except (ValueError, TypeError):
-                            pass
-                return odenen
-    
             def _cari_isimleri_cikar(file_bytes):
                 """Cari Excel'inden firma (Hesap adı) listesini çıkarır — Satış kanalları
                 ve Ref No 'Yeni Firma Ekle' listesi için.
@@ -2750,43 +2662,6 @@ def run():
                             isimler.append(s)
                 return isimler
 
-            def parse_cari_excel(file_bytes):
-                """
-                Cari Excel'inden BORÇ ve ALACAK kalemlerini çıkarır.
-                Sütun yapısı: 0=Tip, 1=Kod, 2=Hesap adı, 3=Döviz, 4=Borç, 5=Alacak, 6=Bakiye
-                - Negatif bakiye = SEN borçlusun (BORÇ)
-                - Pozitif bakiye = SANA borçlu (ALACAK)
-                Returns: dict{'borc': {usd, tl, eur}, 'alacak': {usd, tl, eur}}
-                """
-                import pandas as pd
-                from io import BytesIO
-                df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-                sonuc = {
-                    "borc": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-                    "alacak": {"usd": 0.0, "tl": 0.0, "eur": 0.0},
-                }
-                for i in range(1, len(df)):
-                    tip = df.iloc[i, 0]
-                    doviz = df.iloc[i, 3]
-                    bakiye = df.iloc[i, 6]
-                    if pd.notna(tip) and pd.notna(bakiye) and pd.notna(doviz):
-                        try:
-                            bakiye_val = float(bakiye)
-                            if bakiye_val == 0:
-                                continue
-                            yon = "borc" if bakiye_val < 0 else "alacak"
-                            d = str(doviz).strip().upper()
-                            if d == "USD":
-                                sonuc[yon]["usd"] += abs(bakiye_val)
-                            elif d == "TL":
-                                sonuc[yon]["tl"] += abs(bakiye_val)
-                            elif d == "EUR":
-                                sonuc[yon]["eur"] += abs(bakiye_val)
-                        except (ValueError, TypeError):
-                            pass
-                return sonuc
-    
             # ─── Session state init + Supabase'den önceki kayıtları yükle ───
             # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.
             # Bu yüzden kayıtlar sabit "ortak" anahtarıyla saklanır.

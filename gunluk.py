@@ -184,11 +184,6 @@ _SOZLER = [
 ]
 
 
-def get_gunun_sozu():
-    """Güne göre değişen kısa motivasyon cümlesi."""
-    return _SOZLER[_dt.date.today().toordinal() % len(_SOZLER)]
-
-
 # Türkiye resmi tatilleri — 1. günleri (dini bayram tarihleri 2026-2028 için doğrulandı)
 _TATILLER = [
     ("2026-07-15", "Demokrasi ve Millî Birlik Günü"),
@@ -228,22 +223,3 @@ def get_yaklasan_tatil():
             return {"ad": ad, "tarih": d, "kalan_gun": (d - bugun).days, "bugun": d == bugun}
     return None
 
-
-def get_mola_ipucu():
-    """Saate göre kısa mola / su / wellness hatırlatması."""
-    h = _dt.datetime.now().hour
-    if h < 6:
-        return "Geç oldu, dinlenmeyi unutma 🌙"
-    if h < 10:
-        return "Güne bir bardak su ile başla 💧"
-    if h < 12:
-        return "Kısa bir ara ver, biraz su iç 💧"
-    if h < 14:
-        return "Öğle molası — biraz hareket et 🚶"
-    if h < 16:
-        return "Gözlerini dinlendir: 20 saniye uzağa bak 👀"
-    if h < 18:
-        return "Bir bardak su daha, dinç kal 💧"
-    if h < 22:
-        return "Gününü topla, derin bir nefes al 🌿"
-    return "Geç oldu, dinlenmeyi unutma 🌙"

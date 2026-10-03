@@ -105,11 +105,6 @@ def edf_kilitli_donemler():
         return set()
 
 
-def edf_donem_kilitli_mi(yil, ay):
-    """Belirli bir ay kilitli mi?"""
-    return f"{int(yil)}-{int(ay):02d}" in edf_kilitli_donemler()
-
-
 def _tarih_kilitli_mi(tarih):
     """Bir fiş tarihinin ait olduğu ay kilitli mi? (YYYY-MM-DD)."""
     t = str(tarih or "")[:7]  # YYYY-MM

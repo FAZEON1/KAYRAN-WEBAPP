@@ -1188,15 +1188,6 @@ def sil_iade(iade_id):
     except Exception:
         return False
 
-def guncelle_iade(iade_id, alanlar):
-    try:
-        _get_client().table("iadeler").update(alanlar).eq("id", iade_id).execute()
-        _temizle()
-        return True
-    except Exception:
-        return False
-
-
 @st.cache_data(ttl=120, show_spinner=False)
 def get_iade_partileri():
     """Mevcut iade partileri: her benzersiz 'tarih' bir partidir.
@@ -1538,16 +1529,6 @@ def get_gunluk_pnl(gun_sayisi=30):
         return rows if rows is not None else []
     except Exception:
         return None
-
-
-def gunluk_pnl_tazele():
-    """Materialized view'i tazeler (RPC). Gece Action / manuel tetik için.
-    Döner: (ok:bool, mesaj:str)."""
-    try:
-        _r = _get_client().rpc("mv_gunluk_pnl_tazele").execute()
-        return True, str(_r.data or "ok")
-    except Exception as e:
-        return False, f"{type(e).__name__}: {str(e)[:120]}"
 
 
 @st.cache_data(ttl=300, show_spinner=False)

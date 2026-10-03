@@ -1896,9 +1896,6 @@ def _model_sorgu():
     for k in tum_kalem:
         kalem_by_dosya[k.get("dosya_id")].append(k)
 
-    def _dosya_yuzde(did):
-        return dosya_hesapla(dosyalar.get(did, {}), kalem_by_dosya.get(did, []))["maliyet_yuzde"]
-
     kayitlar = [k for k in tum_kalem if k.get("sku") == sku]
     satirlar = []
     for k in kayitlar:
