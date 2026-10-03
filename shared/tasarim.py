@@ -1224,6 +1224,13 @@ TABLO_YENI = True
 # False: eski görünüm. Geri almak için YALNIZ bu satırı değiştir.
 IZGARA_YENI = True
 
+# ── Sade tablo (Ekim 2026, kullanıcının seçtiği "I" tasarımı, renklendirmesiz) ─────
+# True : ortak tablo (shared/tablo.py) ve düzenlenebilir tablolar (shared/duzenle.py) aynı
+#        sade görünümde: ürün adının altında SKU, başlık bandı yok, ferah satır, kâr/marj/ciro
+#        renksiz, birim maliyet soluk. Düzenlenebilir tablolar hücre içinde düzeltilir.
+# False: eski görünüm ve Streamlit'in düzenleme tablosu. Geri almak için YALNIZ bu satırı değiştir.
+TABLO_SADE = True
+
 TABLO_YENI_CSS = """
 /* ── Tablo çekirdeği (tablo_html) ortak görünümde (TABLO_YENI) ── */
 .k-tbw{border-radius:12px !important;}

@@ -213,6 +213,18 @@ def kur(st):
             orij = DG.data_editor
 
         def data_editor(self, data, *a, **kw):
+            # Sade tablo (TABLO_SADE): hücre içinde düzenlenen kendi tablomuz; desteklemediği
+            # durumda (bilinmeyen sütun türü, on_change…) Streamlit'in tablosu aşağıda devam eder.
+            try:
+                from shared.tasarim import TABLO_SADE
+                if TABLO_SADE and not a:
+                    from shared import duzenle as _dz
+                    if _dz.destekli_mi(data, kw):
+                        import streamlit as _st
+                        kok_mu = self is getattr(_st, "_main", None)   # st.data_editor → o anki bağlam
+                        return _dz.duzenle(data, kap=None if kok_mu else self, **kw)
+            except Exception:  # noqa: BLE001
+                pass
             yuvarla = {}
             try:
                 cfg, yuvarla = izgara_ayar(data, kw.get("column_config"), duzenleme=True,
