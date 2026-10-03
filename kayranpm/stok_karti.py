@@ -421,6 +421,13 @@ def goster(sku):
                       RENK["yesil"] if _satilabilir_mi(d) else RENK["soluk"],
                       alt=("satılabilir" if _satilabilir_mi(d) else "fiziksel takip"))
                 for d, m in sorted(_dagilim_dolu.items(), key=lambda x: -x[1]))
+            # Kayıtlı bizim_stok (Toplam Stok kartı) kırılımla tutmuyorsa fark yazılır (değer değiştirilmez)
+            from .database import satilabilir_kontrol as _sat_kontrol
+            _sk = _sat_kontrol(urun.get("depo_kirilim"), urun.get("bizim_stok"))
+            if _sk["fark"]:
+                _depo_html += (f'<div style="color:{RENK["amber"]};font-size:11px;margin-top:6px">'
+                               f'Satılabilir kayıtlı {tr_sayi(_sk["kayitli"])}, kırılıma göre {tr_sayi(_sk["hesap"])} '
+                               f'(fark {"+" if _sk["fark"] > 0 else "−"}{tr_sayi(abs(_sk["fark"]))}) — G5F sayımını yeniden yükle</div>')
         else:
             _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,

@@ -711,6 +711,13 @@ def run():
                 from .database import depo_dagilimi as _depo_dagilimi
                 _dk_satir, _dk_toplam = _depo_dagilimi(secilen.get("depo_kirilim"))
                 if _dk_satir:
+                    # Kayıtlı bizim_stok kırılımla tutmuyorsa fark yazılır (değer değiştirilmez)
+                    from .database import satilabilir_kontrol as _sat_kontrol
+                    _sk = _sat_kontrol(secilen.get("depo_kirilim"), bizim_stok)
+                    _sat_fark_html = (
+                        f' <span style="color:var(--k-amber);font-weight:600">· kırılıma göre {tr_sayi(_sk["hesap"])}, '
+                        f'fark {"+" if _sk["fark"] > 0 else "−"}{tr_sayi(abs(_sk["fark"]))} — G5F sayımını yeniden yükle</span>'
+                        if _sk["fark"] else "")
                     _chips = "".join(
                         f'<span style="display:inline-flex;gap:8px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
                         f'border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);border-radius:8px;padding:4px 12px;font-size:13px;color:var(--k-mavi)">'
@@ -723,8 +730,9 @@ def run():
                         f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                         f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
                         f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Satılabilir '
-                        f'(Merkez + Happy Life) = toplam stok: <b style="color:var(--k-mavi)">{tr_sayi(bizim_stok)}</b></div>'
-                        f'</div>', unsafe_allow_html=True)
+                        f'(Merkez + Happy Life) = toplam stok: <b style="color:var(--k-mavi)">{tr_sayi(bizim_stok)}</b>'
+                        + _sat_fark_html +
+                        '</div></div>', unsafe_allow_html=True)
     
                 # Fiyat ve karlılık kartı
                 fob = secilen.get("fob_price") or 0
