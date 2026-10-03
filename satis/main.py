@@ -1960,14 +1960,23 @@ def run():
                     _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
                     _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
                     return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
-                _kdf_kanal = _kar_df(pd.DataFrame([{
-                    "Kanal": kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
-                    "Net Kâr": _kn_net(kn, v)[1], "Marj": _kn_net(kn, v)[2],
-                } for kn, v in _kr]))
-                _kanal_evt = st.dataframe(
-                    _kdf_kanal, hide_index=True, use_container_width=True,
-                    column_config=tablo_kolonlari(_kdf_kanal),
-                    on_select="rerun", selection_mode="single-row", key="pnl_kanal_df")
+                # Ortak tablo (shared/tablo.py): satır tıklaması pencereyi açar, kutucuk
+                # sütunu yok. Uzun ünvan kısa ad + tür etiketi; tamamı ipucunda.
+                from shared.tablo import tablo as _tablo, kisa_unvan
+                _ksat, _t = [], {"adet": 0, "ciro": 0.0, "kar": 0.0, "ns": 0.0}
+                for kn, v in _kr:
+                    _nc, _nk, _nm = _kn_net(kn, v)
+                    _ad, _tur = kisa_unvan(kn)
+                    _ksat.append({"Kanal": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
+                                  "Net Kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
+                    _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
+                    _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
+                if len(_ksat) > 1:
+                    _ksat.append({"Kanal": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
+                                  "Net Kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
+                                  "_etiket": "", "_ipucu": ""})
+                _kanal_tik = _tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
+                                    pay="Ciro", dosya_adi="firma_kirilimi")
 
                 @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
                 def _dlg_firma_gecmis(_fkn):
@@ -2043,14 +2052,8 @@ def run():
                                      column_config=tablo_kolonlari(_kdf_g),
                                      height=min(300, 40 + 35 * len(_kdf)))
 
-                _psel = list(_kanal_evt.selection.rows)
-                if _psel:
-                    _sec_kn = _kr[_psel[0]][0]
-                    if st.session_state.get("_pnl_firma_sec") != _sec_kn:
-                        st.session_state["_pnl_firma_sec"] = _sec_kn
-                        _dlg_firma_gecmis(_sec_kn)
-                    else:
-                        st.session_state.pop("_pnl_firma_sec", None)
+                if _kanal_tik is not None and 0 <= int(_kanal_tik) < len(_kr):
+                    _dlg_firma_gecmis(_kr[int(_kanal_tik)][0])     # tetik yalnız tıklandığı çalıştırmada gelir
 
                 @st.dialog("Maliyeti 0 olan satışları paçaldan düzelt", width="large")
                 def _dlg_maliyet_fix():
