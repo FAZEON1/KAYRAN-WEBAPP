@@ -437,19 +437,55 @@ def _dashboard_ham():
     return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
 
 
-def firma_stok_satirlari(sku):
-    """Bir ürünün TÜM firma_stok satırları, SKU yazımından bağımsız (stok kartı).
-    Rapor 'MIO MIVUE J30', kart 'Mio MiVue J30' yazar; .eq("sku") Mio'da hiç satır bulmuyordu.
-    Geniş ara (ilike), sku_anahtar ile kesin doğrula ('J300' gibi yanlış adaylar elenir)."""
+def sku_satirlari(tablo, sku, order=None, desc=False):
+    """Bir ürünün bir tablodaki TÜM satırları, SKU yazımından bağımsız (stok kartı).
+    Rapor/Excel 'MIO MIVUE J30' ya da 'Fazeon X24F200', kart 'Mio MiVue J30' / 'X24F200' yazar;
+    .eq("sku") bu satırları bulmuyordu. Geniş ara (ilike), sku_anahtar ile kesin doğrula
+    ('J300' gibi yanlış adaylar elenir). Okunamazsa boş liste (kart yine açılır)."""
     from shared.utils import sku_anahtar
     k = sku_anahtar(sku)
     if not k:
         return []
     try:
-        rows = _rows(get_client().table("firma_stok").select("*").ilike("sku", f"%{k}").execute())
-    except Exception:  # noqa: BLE001 — stok kartı kanal bölümü boş görünür, kart açılır
+        q = get_client().table(tablo).select("*").ilike("sku", f"%{k}")
+        if order:
+            q = q.order(order, desc=desc)
+        rows = _rows(q.execute())
+    except Exception:  # noqa: BLE001
         return []
     return [r for r in rows if sku_anahtar(r.get("sku")) == k]
+
+
+def firma_stok_satirlari(sku):
+    """Bir ürünün TÜM firma_stok satırları, SKU yazımından bağımsız (stok kartı kanal stoğu)."""
+    return sku_satirlari("firma_stok", sku)
+
+
+def kart_sku_haritasi():
+    """{sku_anahtar: kart SKU'su} — yalnız anahtarı TEK karta çıkanlar (iki kart aynı anahtara
+    düşerse hiçbiri seçilmez, yanlış karta yazılmaz)."""
+    from shared.utils import sku_anahtar
+    say, h = {}, {}
+    for ks in (get_urun_marka_kategori() or {}):
+        k = sku_anahtar(ks)
+        if k:
+            say[k] = say.get(k, 0) + 1
+            h[k] = ks
+    return {k: v for k, v in h.items() if say[k] == 1}
+
+
+def kart_sku_coz(sku, harita=None):
+    """Kayda yazılacak SKU: aynı anahtarlı stok kartı varsa KARTIN yazımı ('Fazeon X24F200' →
+    'X24F200', 'MIO MIVUE J30' → 'Mio MiVue J30'), yoksa sku_anahtar. Kart okunamazsa sku_anahtar."""
+    from shared.utils import sku_anahtar
+    k = sku_anahtar(sku)
+    if not k:
+        return ""
+    try:
+        h = kart_sku_haritasi() if harita is None else harita
+    except Exception:  # noqa: BLE001
+        h = {}
+    return h.get(k, k)
 
 
 def get_all_dashboard_data():
@@ -709,7 +745,8 @@ def sil_firma_stok_tarihi(tarih):
 
 # ── SKU TEMİZLEME · 'Fazeon' önekli kodları öneksiz kodla birleştir ──────────
 _SKU_TABLOLARI = ["urunler", "satislar", "firma_stok", "kampanya_urunler",
-                  "yoldaki_urunler", "stok_yas", "ithalat_kalemleri", "siparis_onerileri"]
+                  "yoldaki_urunler", "stok_yas", "ithalat_kalemleri", "siparis_onerileri",
+                  "iadeler", "depo_manuel_takip"]   # iadeler: 98 önekli satır kalmıştı (Eki 2026)
 
 
 def _fazeon_hedef(sku):
@@ -1704,6 +1741,11 @@ def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None, ac
                 u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku).execute())
                 if not u and sku != sku.upper():
                     u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
+                if not u:
+                    # Yazım farkı: 'MIO MIVUE J30' → kart 'Mio MiVue J30', 'Fazeon X' → 'X' (Ekim 2026)
+                    _ks = kart_sku_coz(sku)
+                    if _ks and _ks not in (sku, sku.upper()):
+                        u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", _ks).execute())
                 if not u:
                     if kart_ac:
                         # Otomatik boş kart aç (fiyat/paçal 0, sadece stok tutulur)

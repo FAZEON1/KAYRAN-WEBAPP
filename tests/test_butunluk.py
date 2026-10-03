@@ -124,6 +124,7 @@ KRITIK_FONKSIYONLAR = {
         "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
         "get_sku_eslesme", "sku_eslesme_kaydet", "sku_eslesme_sil",   # onaylı SKU eşleme (Eki 2026)
         "firma_stok_satirlari",                   # stok kartı kanal stoğu, SKU yazımından bağımsız
+        "sku_satirlari", "kart_sku_haritasi", "kart_sku_coz",   # SKU yazımı: okuma + yazma (Eki 2026)
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
