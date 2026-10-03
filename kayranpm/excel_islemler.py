@@ -44,7 +44,8 @@ def normalize_sku(sku):
     return sku_anahtar(sku)
 
 
-FIRMA_LISTESI = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
+from shared.utils import FIRMA_KODLARI_DIGER
+FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # tek liste: shared.utils (Faz 4)
 
 def excel_yukle_ana_stok(dosya_yolu):
     """
@@ -284,7 +285,7 @@ def create_sample_excel_bytes():
     for col in ws1.columns:
         ws1.column_dimensions[col[0].column_letter].width = 18
 
-    for firma in ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]:
+    for firma in FIRMA_LISTESI:
         ws = wb.create_sheet(firma)
         for i, b in enumerate(["SKU", "Ürün Adı", "Stok Miktarı", "Haftalık Satış"], 1):
             cell = ws.cell(row=1, column=i, value=b)
@@ -341,7 +342,7 @@ def create_sample_excel():
         ws1.column_dimensions[col[0].column_letter].width = 18
     
     # Firma sekmeleri
-    firma_listesi_tr = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
+    firma_listesi_tr = FIRMA_LISTESI
     for firma in firma_listesi_tr:
         ws = wb.create_sheet(firma)
         firma_basliklar = ["SKU", "Ürün Adı", "Stok Miktarı", "Haftalık Satış"]

@@ -540,10 +540,11 @@ def firma_sil(fid, refleri_de_sil=False):
 
 # ── CARİ EŞLEŞTİRME (firma adları muhasebe cari isimlerinden gelir) ───
 # rol → tespit anahtarları (ad/kod), cari ismi öneki, döviz tercihi
+from shared.utils import FIRMA_GORUNEN_AD   # cari önekleri tek kaynak (Faz 4)
 FIRMA_ESLESME = {
-    "ITOPYA": {"tespit": ("ITOPYA", "ITP", "EERA"),     "onek": "EERA",     "doviz": None},
-    "HB":     {"tespit": ("HB", "D-MARKET", "DMARKET", "HEPSIBURADA", "HEPSİBURADA"), "onek": "D-MARKET", "doviz": None},
-    "VATAN":  {"tespit": ("VATAN", "VTN"),              "onek": "VATAN",    "doviz": "USD"},
+    "ITOPYA": {"tespit": ("ITOPYA", "ITP", "EERA"),     "onek": FIRMA_GORUNEN_AD["ITOPYA"], "doviz": None},
+    "HB":     {"tespit": ("HB", "D-MARKET", "DMARKET", "HEPSIBURADA", "HEPSİBURADA"), "onek": FIRMA_GORUNEN_AD["HB"], "doviz": None},
+    "VATAN":  {"tespit": ("VATAN", "VTN"),              "onek": FIRMA_GORUNEN_AD["VATAN"], "doviz": "USD"},
 }
 
 

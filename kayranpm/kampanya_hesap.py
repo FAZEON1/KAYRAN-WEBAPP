@@ -26,7 +26,8 @@ from datetime import date
 from shared.ana_veri import kategori_anahtar   # tek kaynak (Eki 2026)
 
 KAMPANYA_TURLERI = ["Sellout", "Rebate", "Marketing", "Spiff"]
-FIRMALAR = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"]
+from shared.utils import FIRMA_KODLARI as _FK   # tek liste (Faz 4)
+FIRMALAR = [*_FK, "DİĞER"]                      # 'DİĞER' kampanyalarda bu yazımla kayıtlı
 
 # Durum: tarihten hesaplanır (kayıttaki 'durum' yalnız aktif/kapalı tutar)
 DURUMLAR = {
@@ -135,7 +136,7 @@ def filtrele(kampanyalar, bugun, durum_sec="tumu", firma="Tümü", kategori="Tü
             continue
         f = str(k.get("firma") or "").strip().upper()
         if firma != "Tümü":
-            if firma == "DİĞER" and f in {"HB", "VATAN", "ITOPYA", "MONDAY", "KANAL"}:
+            if firma == "DİĞER" and f in set(_FK):
                 continue
             if firma != "DİĞER" and f != firma:
                 continue

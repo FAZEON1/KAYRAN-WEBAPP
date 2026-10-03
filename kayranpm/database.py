@@ -379,7 +379,8 @@ def firma_son_tarihleri():
     tarihle süzer: son raporda olmayan ürün o kanalda 0 (bkz. stok_hesap)."""
     sb = get_client()
     out = {}
-    for firma in ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]:
+    from shared.utils import FIRMA_KODLARI_DIGER
+    for firma in FIRMA_KODLARI_DIGER:                       # tek liste (Faz 4)
         son = _row(sb.table("firma_stok").select("yukleme_tarihi").eq("firma", firma)
                    .order("yukleme_tarihi", desc=True).limit(1).execute())
         if son and son.get("yukleme_tarihi"):
@@ -398,7 +399,8 @@ def _dashboard_ham():
     for _u in urunler:
         if _u.get("urun_adi"):
             _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
-    firma_listesi = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
+    from shared.utils import FIRMA_KODLARI_DIGER
+    firma_listesi = list(FIRMA_KODLARI_DIGER)                # tek liste (Faz 4)
     firma_data = {}
     for firma in firma_listesi:
         son = _row(sb.table("firma_stok").select("yukleme_tarihi").eq("firma", firma)

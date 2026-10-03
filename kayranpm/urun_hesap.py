@@ -62,11 +62,10 @@ def editor_anahtari(onek, skular):
 
 
 # ── Tüm Ürünler ─────────────────────────────────────────────────────
-KANALLAR = ("ITOPYA", "HB", "VATAN", "MONDAY", "KANAL")
-# Kart etiketleri cümle düzenine indirilir (shared.tasarim.kpi_etiketi): "HB" → "Hb".
-# Küçük harf içeren ad olduğu gibi kalır.
-KANAL_AD = {"ITOPYA": "İtopya", "HB": "Hepsiburada", "VATAN": "Vatan", "MONDAY": "Monday",
-            "KANAL": "Kanal", "DIGER": "Diğer"}
+from shared.utils import FIRMA_KODLARI as KANALLAR   # tek liste (Faz 4)
+# KANAL_AD ('Hepsiburada', 'İtopya') KALDIRILDI (Ekim 2026, Faz 4): kanal her yerde CARİ adıyla
+# görünür (kullanıcı kararı) — shared.utils.firma_gorunen_ad. Kart etiketi ozel_ad=True ile
+# cümle düzenine indirilmez ('D-MARKET' → 'D-market' olmasın).
 
 
 def urun_satiri(u):

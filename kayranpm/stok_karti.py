@@ -626,7 +626,7 @@ def goster(sku):
                     f'<span style="font-size:11px;font-weight:700;color:{_renk};'
                     f'background:{_renk}1A;padding:4px 12px;border-radius:999px">{_durum_txt}</span></div>'
                     f'<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--k-soluk)">'
-                    f'<span>Firma: <b style="color:var(--k-mavi)">{_k.get("firma") or "—"}</b></span>'
+                    f'<span>Firma: <b style="color:var(--k-mavi)">{firma_gorunen_ad(_k.get("firma")) or "—"}</b></span>'
                     f'<span>Tür: <b style="color:var(--k-mavi)">{_k.get("kampanya_turu") or "—"}</b></span>'
                     f'<span>Kategori: <b style="color:var(--k-mavi)">{_kat_ad(_k.get("kategori")) or "—"}</b></span>'
                     f'<span>Tarih: <b style="color:var(--k-mavi)">{gun_ay_yil(_k.get("baslangic_tarihi"))} → '

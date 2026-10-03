@@ -9,7 +9,8 @@ from .database import (get_all_dashboard_data,
                       get_tum_gecmis_satislar, get_gecmis_satis_firma_bazli,
                       get_client, get_uretim_suresi)
 
-FIRMA_LISTESI = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
+from shared.utils import FIRMA_KODLARI_DIGER
+FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # tek liste: shared.utils (Faz 4)
 
 def stok_yasi_hesapla(ilk_giris_tarihi_str):
     """Stok yaşını gün olarak hesaplar ve renk döndürür"""
@@ -368,7 +369,7 @@ def tum_urunler_listesi():
     except Exception:
         pass
 
-    FIRMALAR = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DIGER"]
+    FIRMALAR = FIRMA_LISTESI
 
     # Toplu sorgular — her ürün için ayrı sorgu yerine tek seferde çek
     # Tüm firma stoklarını tek sorguda al (en son tarih bazında)
