@@ -185,6 +185,11 @@ try:
 except Exception:
     pass          # zaten yamalıysa ya da kurulamazsa: tablolar çalışmaya devam
 
+# Emoji → çizgi ikon (mesaj, pencere, sekme, açılır bölüm, düğme). Geri alma:
+# shared/tasarim.py → IKON_YENI = False. Modüller içe aktarılmadan ÖNCE kurulmalı.
+from shared.ikon import kur as _ikon_kur
+_ikon_kur(st)
+
 
 # ─────────────────────────────────────────────────────────────────────
 # HAFİF SAYIM SORGULARI (ana sayfa rozetleri)

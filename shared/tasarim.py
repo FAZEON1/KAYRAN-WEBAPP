@@ -239,6 +239,16 @@ EMOJI_IKON = {
     "✅": "check_circle", "🔒": "lock", "🔗": "link", "🛠": "construction", "🧮": "calculate",
     "📢": "campaign", "📌": "push_pin", "💱": "currency_exchange", "🏢": "domain",
     "🔄": "sync", "📝": "edit_note", "🗂": "folder_open", "⏱": "timer", "🏷": "sell",
+    # Mesaj, düğme, sekme ve pencere başlıklarında sık geçenler (shared/ikon.py, Ekim 2026)
+    "❌": "cancel", "⛔": "block", "🚫": "block", "🗑": "delete", "✏": "edit", "💾": "save",
+    "🔁": "repeat", "📜": "history_edu", "🧯": "bug_report", "ℹ": "info", "✔": "check",
+    "🖨": "print", "📧": "mail", "📨": "mail", "👤": "person", "🆕": "fiber_new", "⬇": "download",
+    "⬆": "upload", "💡": "lightbulb", "📍": "place", "🧹": "cleaning_services", "🧪": "science",
+    "⚙": "settings", "🌐": "language", "📁": "folder", "📞": "call", "🎁": "redeem",
+    "🔥": "local_fire_department", "⏭": "skip_next", "📆": "calendar_month", "💼": "work",
+    "🏪": "store", "📱": "smartphone", "💻": "computer", "🖥": "desktop_windows", "🔐": "lock",
+    "🔓": "lock_open", "📣": "campaign", "🛡": "shield", "🔙": "arrow_back", "💬": "chat",
+    "⌛": "hourglass_bottom", "🔢": "pin", "🧭": "explore", "🎉": "celebration", "👁": "visibility",
 }
 
 
@@ -1175,6 +1185,12 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     return (f'<div class="k-baslik"{ttl}>{ikon}{mod_html}'
             f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}{ack_html}</div>')
 
+
+# ── Emoji → çizgi ikon (Ekim 2026) ──────────────────────────────────
+# True : mesaj kutusu, pencere başlığı, sekme, açılır bölüm ve düğme etiketlerinin
+#        başındaki emoji Material ikona çevrilir (shared/ikon.py, app.py'de kurulur).
+# False: emojiler eskisi gibi. Geri almak için YALNIZ bu satırı değiştir.
+IKON_YENI = True
 
 # ── Sayı kartları (Ekim 2026) ───────────────────────────────────────
 # True : tek görünüm, renk yalnız anlam taşıdığında (kırmızı = sorun); ana kart,
