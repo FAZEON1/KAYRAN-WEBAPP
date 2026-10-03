@@ -479,8 +479,8 @@ def goster(sku):
                         st.warning(f"📈 Maliyet **artıyor**: son alım {_usd(son_final)} vs önceki ort. {_usd(_oort)}")
                     elif son_final < _oort * 0.98:
                         st.success(f"📉 Maliyet **düşüyor**: son alım {_usd(son_final)} vs önceki ort. {_usd(_oort)}")
-            from shared.tablo import tablo as _tablo
-            _ai = _tablo([{
+            from shared.tablo import tablo as _ortak_tablo
+            _ai = _ortak_tablo([{
                 "Tarih": gun_ay_yil(a["tarih"]), "Belge": a["belge_no"],
                 "Tedarikçi": a["tedarikci"], "Ülke": a["ulke"], "Döviz": a["doviz"],
                 "Adet": _f(a["adet"]), "Birim FOB": round(_f(a["birim_fob"]), 2),
@@ -527,8 +527,8 @@ def goster(sku):
             } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])]),
                 hide_index=True, use_container_width=True)
             st.markdown("**Satış Hareketleri**")
-            from shared.tablo import tablo as _tablo
-            _si = _tablo(_rows, key="satis_tablo", kalici=True, dosya_adi=f"satislar_{sku}")
+            from shared.tablo import tablo as _ortak_tablo
+            _si = _ortak_tablo(_rows, key="satis_tablo", kalici=True, dosya_adi=f"satislar_{sku}")
             st.caption("Detayını görmek için bir satıra tıkla (tekrar tıkla: kapat).")
             if _si is not None:
                 _satis_detay(satislar[_si], satir_kar)
@@ -578,8 +578,8 @@ def goster(sku):
                 _detay.append((ku, _k))
 
             st.caption("Detay için bir kampanya satırına tıkla ↓")
-            from shared.tablo import tablo as _tablo
-            _ki = _tablo(_rows, key=f"kamp_tbl_{sku}", kalici=True, dosya_adi=f"kampanyalar_{sku}")
+            from shared.tablo import tablo as _ortak_tablo
+            _ki = _ortak_tablo(_rows, key=f"kamp_tbl_{sku}", kalici=True, dosya_adi=f"kampanyalar_{sku}")
             st.caption(f"Bu SKU {len(kampanya_urun)} kampanyada yer almış.")
 
             # ── Seçilen kampanyanın detay paneli (tablonun altında açılır) ──

@@ -1896,7 +1896,7 @@ def run():
                     return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
                 # Ortak tablo (shared/tablo.py): satır tıklaması pencereyi açar, kutucuk
                 # sütunu yok. Uzun ünvan kısa ad + tür etiketi; tamamı ipucunda.
-                from shared.tablo import tablo as _tablo, kisa_unvan
+                from shared.tablo import tablo as _ortak_tablo, kisa_unvan
                 _ksat, _t = [], {"adet": 0, "ciro": 0.0, "kar": 0.0, "ns": 0.0}
                 for kn, v in _kr:
                     _nc, _nk, _nm = _kn_net(kn, v)
@@ -1909,7 +1909,7 @@ def run():
                     _ksat.append({"Kanal": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
                                   "Net Kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
                                   "_etiket": "", "_ipucu": ""})
-                _kanal_tik = _tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
+                _kanal_tik = _ortak_tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
                                     pay="Ciro", dosya_adi="firma_kirilimi")
 
                 @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
