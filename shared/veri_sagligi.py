@@ -5,8 +5,8 @@ SALT OKUNUR: hiçbir kaydı değiştirmez. Her kontrol uygulamadaki MEVCUT fonks
 (kendi hesabını yazmaz); her kartın "Düzelt" düğmesi o sorunun düzeltildiği mevcut ekrana götürür.
 Herkes yalnız yetkili olduğu modüllerin kontrollerini görür; sistem kontrolleri yalnız yöneticiye.
 
-Hazır olup ekranı olmayan iki onarım aracı (mükerrer kart birleştirme, teslim alınmış ithalatı
-stoğa işleme) burada yalnız LİSTELENİR — stok rakamını değiştirdikleri için düğmeleri ayrı onay ister.
+Hazır olup ekranı olmayan onarım aracı (mükerrer kart birleştirme) burada yalnız LİSTELENİR —
+stok rakamını değiştirdiği için düğmesi ayrı onay ister.
 
 Kontroller saf fonksiyonlardır (veriyi alır, sorunlu satırları döndürür) — tests/test_veri_sagligi.py.
 """
@@ -224,6 +224,19 @@ def _k_teslim():
     return teslim_bekleyen(teslim_stok_bekleyenler())
 
 
+def teslim_notu(kayitsiz_sayi):
+    if not kayitsiz_sayi:
+        return ""
+    from shared.tasarim import tr_sayi
+    return (f"İşlenme kaydı olmayan {tr_sayi(kayitsiz_sayi, 0)} teslim dosyası listelenmez: kayıt tutulmaya "
+            "başlamadan önce teslim alınmışlar, stoklarının nasıl girdiği bilinmiyor.")
+
+
+def _n_teslim():
+    from ithalat.database import teslim_stok_kayitsiz
+    return teslim_notu(len(teslim_stok_kayitsiz() or []))
+
+
 def _k_sistem():
     from shared.hata_log import son_hatalar
     from shared.stok_defteri import gecmis
@@ -236,7 +249,8 @@ def _k_sistem():
     return sorted(out, key=lambda r: r["Zaman"], reverse=True)
 
 
-# kod, başlık, modül (yetki), açıklama, (düzelt hedefi, düğme), hesap, not
+# kod, başlık, modül (yetki), açıklama, (düzelt hedefi, düğme), hesap, not (metin: sorun varsa;
+# fonksiyon: her zaman, boş değilse)
 KONTROLLER = [
     ("kategori", "Kategorisi ya da markası boş ürün", "kayranpm",
      "Raporlarda 'Kategorisiz' / 'DİĞER' satırına düşer.", ("kayranpm/veri_yukleme", "Toplu kategori ve marka"),
@@ -267,8 +281,8 @@ KONTROLLER = [
      "Kayıtlı stok, depo kırılımından hesaplanan satılabilir stokla tutmuyor.", ("depo/stok", "Depo stok"),
      _k_satilabilir, "Genellikle son G5F sayımını yeniden yüklemek düzeltir."),
     ("teslim", "Teslim alındı ama stoğa girmemiş ithalat", "ithalat",
-     "Dosya 'Teslim Alındı' ama kalemleri teslim deposunda görünmüyor.", ("ithalat/gecmis", "Geçmiş ithalatlar"),
-     _k_teslim, "Stoğa işleme aracı hazır ama stok rakamını değiştirdiği için ayrı onayla açılacak."),
+     "Dosya 'Teslim Alındı' ama kalemleri depoya işlenirken hata olmuş.", ("ithalat/gecmis", "Geçmiş ithalatlar"),
+     _k_teslim, _n_teslim),
     ("sistem", f"Son {SISTEM_GUN} günde başarısız stok hareketi ya da hata kaydı", "sistem",
      "Uygulamanın kaydettiği hatalar.", ("sistem/sistem_kayitlari", "Sistem kayıtları"), _k_sistem, ""),
 ]
@@ -339,8 +353,15 @@ def sayfa(aktif_kullanici, yetkiler, yonetici):
                               use_container_width=True, help="Düzeltmenin yapıldığı ekrana git"):
                     from shared.palet import git
                     git(duzelt[0])
+            if callable(notu):
+                try:
+                    _n = notu()
+                except Exception:  # noqa: BLE001
+                    _n = ""
+                if _n:
+                    st.caption(_n)
             if satirlar:
-                if notu:
+                if notu and not callable(notu):
                     st.caption(notu)
                 with st.expander(f"Listeyi göster ({len(satirlar)})"):
                     tablo(satirlar[:1000], key=f"vs_tablo_{kod}", dosya_adi=f"veri_sagligi_{kod}")

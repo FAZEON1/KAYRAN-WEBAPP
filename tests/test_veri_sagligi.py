@@ -108,3 +108,11 @@ def test_sayfa_kayitli():
     assert any(x[0] == "veri_sagligi" for x in SISTEM)
     a = (KOK / "app.py").read_text(encoding="utf-8")
     assert 'args=("veri_sagligi",)' in a and 'elif aktif == "veri_sagligi":' in a
+
+
+def test_teslim_notu_kayitsiz_dosyalar():
+    assert V.teslim_notu(0) == ""
+    n = V.teslim_notu(1290)
+    assert "1.290 teslim dosyası listelenmez" in n
+    k = next(x for x in V.KONTROLLER if x[0] == "teslim")
+    assert callable(k[6]) and "teslim deposunda görünmüyor" not in k[3]

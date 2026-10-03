@@ -1593,8 +1593,8 @@ def get_depo_stok(depo):
 
     # NOT: Eski sürüm burada "Teslim Alındı" ithalat kalemlerinin ÖMÜRLÜK toplamını
     # ekliyordu — satışlar düşülmediği için stok şişiyordu. Miktarın tek gerçek
-    # kaynağı artık ürün kartındaki depo_kirilim'dir. İşlenmemiş teslim dosyaları
-    # için Depo modülündeki "stoğu işlenmemiş" paneli teslim_stok_isle'yi çağırır.
+    # kaynağı artık ürün kartındaki depo_kirilim'dir. İşlenmemiş teslim dosyaları:
+    # ithalat.database.teslim_stok_bekleyenler (Veri sağlığı sayfasında listelenir).
 
     out = [{"sku": goster.get(s, s), "urun_adi": adlar.get(s, ""), "adet": a}
            for s, a in stok.items() if a > 0]
