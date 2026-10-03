@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Paçal tutarlılık kontrolü — ana veri entegrasyonu Faz 2a (Ekim 2026). SALT OKUNUR.
+"""Paçal: önceki ↔ şimdiki — ana veri entegrasyonu Faz 2a/2b (Ekim 2026). SALT OKUNUR.
 
 Üç ekranın bugün gösterdiği paçalı (Tüm Ürünler · stok kartı · P&L) önerilen tek
 tanımla yan yana koyar; farklı olan ürünleri sebebiyle listeler. Hiçbir hesabı
@@ -13,12 +13,10 @@ from shared.tasarim import tr_sayi
 
 def goster():
     st.caption(
-        "Aynı ürünün paçalı bugün üç ayrı yoldan hesaplanıyor. **Tüm Ürünler** yoldaki partileri "
-        "saymıyor ama SKU'yu birebir eşliyor; **ürün (stok) kartı** yoldaki (masrafı henüz girilmemiş) "
-        "partileri de sayıyor; **P&L** SKU yazımlarını eşliyor ama yalnız birini alıyor ve yurt içi "
-        "alışı kullanıyor. **Yeni maliyet** sütunu önerilen tek tanım: yoldaki hariç, aynı ürünün bütün SKU "
-        "yazımları birleşik, ithalatı yoksa yurt içi alış. Bu tablo yalnız gösterir; hiçbir rakamı "
-        "değiştirmez.")
+        "Faz 2b ile **Tüm Ürünler, ürün (stok) kartı, P&L ve Teknik Servis aynı paçalı gösteriyor**: "
+        "yoldaki partiler hariç, aynı ürünün bütün SKU yazımları birleşik, ithalatı yoksa yurt içi alış. "
+        "Bu tablo, bu değişiklikle rakamı değişen ürünleri gösterir — 'Önceki' sütunları ekranların "
+        "değişiklikten önce gösterdiği değer, 'Şimdiki' artık her yerde görünen değer. Hiçbir şey yazmaz.")
     if not st.button("Karşılaştır", key="pacal_kars_btn", icon=":material/compare_arrows:"):
         return
     from ithalat.database import get_parti_satirlari
@@ -37,7 +35,7 @@ def goster():
         return
     rows, oz = karsilastir(satirlar, kartlar, sku_anahtar)
     st.markdown(f"**{tr_sayi(oz['urun'])}** ürünün **{tr_sayi(oz['farkli'])}** tanesinde en az bir ekran "
-                f"yeni değerden %0,5'ten fazla sapıyor.")
+                f"şimdiki değerden %0,5'ten fazla farklıydı.")
     if oz["sebep"]:
         st.markdown("  \n".join(f"• {s}: **{tr_sayi(n)}** ürün"
                                 for s, n in sorted(oz["sebep"].items(), key=lambda x: -x[1])))

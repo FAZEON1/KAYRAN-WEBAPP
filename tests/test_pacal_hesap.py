@@ -48,12 +48,22 @@ def test_parti_satirlari_yolda_isareti_ve_final(veri):
     assert x1 == [(False, 10.0), (True, 6.0)]
 
 
-def test_eski_tum_urunler_get_sku_maliyet_ozet_ile_birebir(veri):
+def test_eski_tum_urunler_onceki_rakamlar(veri):
+    """Faz 2b'den ÖNCEKİ Tüm Ürünler davranışı (ham SKU, yoldaki hariç) — karşılaştırma
+    tablosunun 'önceki' sütunu bunu gösterir; değerler sabit tutulur."""
+    assert P.eski_tum_urunler(veri) == pytest.approx({"X1": 10.0, "Fazeon X24": 20.0, "X24": 15.0})
+
+
+def test_ozet_artik_yeni_tanimi_veriyor(veri):
+    """Faz 2b: get_sku_maliyet_ozet tek tanım — anahtar sku_anahtar, yazımlar birleşik."""
     ozet = idb.get_sku_maliyet_ozet()
-    eski = P.eski_tum_urunler(veri)
-    assert set(eski) == set(ozet)
-    for sku in ozet:
-        assert eski[sku] == pytest.approx(ozet[sku]["pacal_final"])
+    yeni = P.yeni_pacal(veri, {}, sku_anahtar)
+    assert set(ozet) == set(yeni) == {"X1", "X24"}
+    for k in yeni:
+        assert ozet[k]["pacal_final"] == pytest.approx(yeni[k])
+    assert ozet["X24"]["toplam_adet"] == 300 and ozet["X24"]["dosya_sayisi"] == 2
+    assert ozet["X24"]["son_tarih"] == "2026-02-01" and ozet["X24"]["son_final"] == pytest.approx(20.0)
+    assert ozet["X1"]["toplam_adet"] == 100                  # yoldaki 100 adet yok
 
 
 def test_eski_stok_karti_alim_detay_ortalamasiyla_birebir(veri):
@@ -64,15 +74,22 @@ def test_eski_stok_karti_alim_detay_ortalamasiyla_birebir(veri):
         assert P.eski_stok_karti(veri)[sku] == pytest.approx(beklenen)
 
 
-def test_eski_pnl_get_pacal_map_ile_birebir(veri, monkeypatch):
+def test_eski_pnl_onceki_rakamlar(veri):
+    """Faz 2b'den ÖNCEKİ P&L: yazımlardan yalnız ilki ('Fazeon X24' → 20) + yurt içi."""
+    eski = P.eski_pnl(veri, {"AV1": 7.0, "X1": 99.0}, sku_anahtar)
+    assert eski == pytest.approx({"X1": 10.0, "X24": 20.0, "AV1": 7.0})
+
+
+def test_get_pacal_map_yeni_tanimla_birebir(veri, monkeypatch):
+    """Faz 2b: P&L / Teknik Servis / Tüm Ürünler / ürün kartı = tek tanım."""
     import satis.database as sdb
     kartlar = [{"sku": "AV1", "alis_fiyati": 7.0}, {"sku": "X1", "alis_fiyati": 99.0}]
     monkeypatch.setattr(sdb, "_urunler_hepsi", lambda secim: kartlar)
     gercek = sdb.get_pacal_map()
-    eski = P.eski_pnl(veri, {k["sku"]: k["alis_fiyati"] for k in kartlar}, sku_anahtar)
-    assert set(eski) == set(gercek)
-    for k in gercek:
-        assert eski[k] == pytest.approx(gercek[k])
+    yeni = P.yeni_pacal(veri, {k["sku"]: k["alis_fiyati"] for k in kartlar}, sku_anahtar)
+    assert set(gercek) == set(yeni)
+    for k in yeni:
+        assert gercek[k] == pytest.approx(yeni[k])
 
 
 def test_yeni_tanim(veri):
@@ -88,11 +105,11 @@ def test_karsilastirma_sebepleri(veri):
                {"sku": "AV1", "urun_adi": "Kaspersky", "alis_fiyati": 7.0}]
     rows, oz = P.karsilastir(veri, kartlar, sku_anahtar)
     r = {x["SKU"]: x for x in rows}
-    assert r["X1"]["Ürün kartı maliyeti"] == pytest.approx(8.0) and r["X1"]["Tüm Ürünler maliyeti"] == pytest.approx(10.0)
+    assert r["X1"]["Önceki ürün kartı maliyeti"] == pytest.approx(8.0) and r["X1"]["Önceki Tüm Ürünler maliyeti"] == pytest.approx(10.0)
     assert P.SEBEP_YOLDA in r["X1"]["Sebep"] and "100 adet" in r["X1"]["Sebep"]
     assert P.SEBEP_YAZIM in r["X24"]["Sebep"] and "Fazeon X24 · X24" in r["X24"]["Sebep"]
-    assert r["X24"]["Tüm Ürünler maliyeti"] == pytest.approx(15.0) and r["X24"]["Yeni maliyet"] == pytest.approx(50 / 3)
-    assert P.SEBEP_YURTICI in r["AV1"]["Sebep"] and r["AV1"]["Tüm Ürünler maliyeti"] is None
+    assert r["X24"]["Önceki Tüm Ürünler maliyeti"] == pytest.approx(15.0) and r["X24"]["Şimdiki maliyet"] == pytest.approx(50 / 3)
+    assert P.SEBEP_YURTICI in r["AV1"]["Sebep"] and r["AV1"]["Önceki Tüm Ürünler maliyeti"] is None
     assert oz["urun"] == 3 and oz["farkli"] == 3 and oz["sebep"][P.SEBEP_YOLDA] == 1
 
 
@@ -107,7 +124,7 @@ def test_kart_sku_yazimi_farkli(monkeypatch):
     monkeypatch.setattr(idb, "get_dosyalar", lambda: [_dosya(1, "Teslim Alındı", {"navlun": 100.0})])
     monkeypatch.setattr(idb, "get_tum_kalemler", lambda: [_kalem(1, "X24F165S", 10, 10.0)])
     rows, _ = P.karsilastir(idb.get_parti_satirlari(), [{"sku": "x24f165s ", "urun_adi": "m"}], sku_anahtar)
-    assert rows[0]["Tüm Ürünler maliyeti"] is None and rows[0]["Yeni maliyet"] == pytest.approx(20.0)
+    assert rows[0]["Önceki Tüm Ürünler maliyeti"] is None and rows[0]["Şimdiki maliyet"] == pytest.approx(20.0)
     assert P.SEBEP_KART in rows[0]["Sebep"]
 
 
@@ -115,3 +132,17 @@ def test_maliyet_girisi_sayfasinda_karsilastirma_var():
     import pathlib
     m = (pathlib.Path(__file__).resolve().parent.parent / "kayranpm" / "main.py").read_text(encoding="utf-8")
     assert "from .pacal_ekran import goster as _pacal_kars" in m
+
+
+def test_paçal_tek_kapi_korumasi():
+    """Faz 2b: ekranlar paçalı kendileri hesaplamasın, tek kapıdan alsın."""
+    import pathlib
+    kok = pathlib.Path(__file__).resolve().parent.parent
+    kart = (kok / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
+    assert 'sum(_f(a["final_birim"]) * _f(a["adet"]) for a in alimlar)' not in kart   # yoldakiler dahil eski ortalama
+    assert "get_pacal_map" in kart
+    ana = (kok / "kayranpm" / "analitik.py").read_text(encoding="utf-8")
+    assert ana.count("_pcl_map.get(_skn_a(sku)") == 2 and "_ith_map.get(sku)" not in ana
+    ith = (kok / "ithalat" / "database.py").read_text(encoding="utf-8")
+    oz = ith[ith.index("def get_sku_maliyet_ozet"):ith.index("def get_sku_ithalat_partileri")]
+    assert "get_parti_satirlari()" in oz and "sku_anahtar" in oz

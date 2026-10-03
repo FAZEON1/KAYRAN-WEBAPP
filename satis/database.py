@@ -256,7 +256,7 @@ def get_pacal_map():
         out = {}
         for sku, v in ozet.items():
             _k = _skn(sku)
-            if _k and _k not in out:      # ilk (öneksiz/gerçek) kayıt öncelikli
+            if _k and _k not in out:      # özet zaten sku_anahtar'lı ve yazımlar birleşik (Faz 2b)
                 out[_k] = _f(v.get("pacal_final"))
 
         # ── YURT İÇİ ALIM MALİYETİ (ithalatı olmayan ürünler) ──

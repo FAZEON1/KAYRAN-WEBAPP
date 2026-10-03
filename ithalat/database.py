@@ -611,109 +611,54 @@ def kalem_yuzde(ymap, kalem):
 
 def get_sku_maliyet_ozet():
     """
-    Her SKU için ithalat verisinden PAÇAL (adet-ağırlıklı ortalama) + SON (en yeni dosya) maliyet.
-    Dönen: {sku: {pacal_fob, pacal_final, son_fob, son_final, son_tarih, toplam_adet, dosya_sayisi}}
-      • yüzde = KATEGORİ bazında (çoklu dosyada her kategori kendi oranını alır;
-        tek kategorili dosyada dosya ortalaması)
-      • birim landed = birim_fob * (1 + yüzde/100)
-      • paçal = tüm partilerdeki landed/fob değerlerinin adet-ağırlıklı ortalaması
-      • son   = en yeni TARİHLİ dosyadaki landed/fob (aynı dosyada birden çok kalem varsa
-                o dosya içinde adet-ağırlıklı ortalama)
-    Not: Tüm tutarların aynı para biriminde (USD) olduğu varsayılır.
+    Her ÜRÜN için ithalat PAÇALI (adet-ağırlıklı) + SON (en yeni dosya) maliyet.
+    Dönen: {sku_anahtar: {pacal_fob, pacal_final, son_fob, son_final, son_tarih, toplam_adet, dosya_sayisi}}
+
+    TEK TANIM (Ekim 2026, ana veri entegrasyonu Faz 2b — kullanıcı onaylı):
+      • parti satırları get_parti_satirlari()'den (net FOB, kalemin kendi kategorisinin
+        masraf yüzdesi) — eskiden aynı hesap burada, alım detayında ve parti satırlarında
+        üç kopyaydı.
+      • YOLDAKİ PARTİLER PAÇALA GİRMEZ (13.08.2026): Üretimde/Yolda/Gümrükte/Antrepoda
+        dosyalarda masraflar henüz girilmemiştir, final = çıplak FOB olur ve paçalı aşağı
+        çeker. Durumu BOŞ eski kayıtlar hariç tutulmaz.
+      • ANAHTAR sku_anahtar: aynı ürünün bütün SKU yazımları ('Fazeon X24' + 'X24') TEK
+        üründür, partileri birleşik ortalanır. Eskiden ham SKU anahtardı; Tüm Ürünler iki
+        yazımı iki ürün sayıyor, P&L yalnız birini alıyordu.
+      • son = yoldaki olmayan partiler içinde en yeni TARİHLİ dosya (o dosyada birden çok
+        kalem varsa dosya içi adet-ağırlıklı).
+    Arayan taraf sku_anahtar ile aramalı. Tutarların USD olduğu varsayılır.
     """
     try:
-        dosyalar = get_dosyalar()
-        kalemler = get_tum_kalemler()
-        if not kalemler:
-            return {}
-
-        # ── YOLDAKİ PARTİLER PAÇALA GİRMEZ (13.08.2026) ──
-        # SORUN: durum filtresi yoktu; "Üretimde/Yolda/Gümrükte/Antrepoda"
-        # dosyalar teslim alınmış gibi ortalamaya giriyordu. O aşamada ardiye,
-        # antrepo beyannamesi, gümrük müşavirliği gibi masraflar HENÜZ
-        # GİRİLMEMİŞ oluyor → dosya yüzdesi 0 → final = FOB. Yani parti,
-        # landed maliyeti olmadan, çıplak FOB ile paçalı AŞAĞI çekiyordu;
-        # maliyet düşük, kâr olduğundan yüksek görünüyordu.
-        # KURAL: yalnız depoya girmiş mal maliyet ortalamasına katılır.
-        # DİKKAT: durumu BOŞ olan eski kayıtlar HARİÇ TUTULMAZ — durum alanı
-        # sonradan eklendi, geçmiş dosyaların çoğu boş. Onları elemek paçalı
-        # tamamen boşaltırdı. Yalnız açıkça yolda olanlar elenir.
-        _yoldaki_dosyalar = {
-            d.get("id") for d in (dosyalar or [])
-            if str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR
-        }
-        if _yoldaki_dosyalar:
-            kalemler = [k for k in kalemler
-                        if k.get("dosya_id") not in _yoldaki_dosyalar]
-            if not kalemler:
-                return {}
-
-        # Kalemleri dosyaya göre grupla
-        by_dosya = {}
-        for k in kalemler:
-            by_dosya.setdefault(k.get("dosya_id"), []).append(k)
-        # Her dosyanın masraf yüzdesi (NET üzerinden) + indirim oranı + tarihi
-        dosya_map = {d.get("id"): d for d in dosyalar}
-        dosya_yuzde = {}       # {dosya_id: {kategori: yuzde, "__vars__": ortalama}}
-        dosya_indirim_orani = {}  # indirim / brüt mal bedeli (0..1)
-        dosya_tarih = {}
-        for did, ks in by_dosya.items():
-            _h = dosya_hesapla(dosya_map.get(did, {}), ks)
-            # Kategori bazlı oran haritası — çoklu dosyada her kategori kendi oranını alır
-            dosya_yuzde[did] = kategori_yuzde_map(dosya_map.get(did, {}), ks)
-            _brut = _h.get("mal_bedeli", 0.0)
-            dosya_indirim_orani[did] = (_h.get("indirim", 0.0) / _brut) if _brut > 0 else 0.0
-            dosya_tarih[did] = str((dosya_map.get(did, {}) or {}).get("tarih") or "")[:10]
-        # SKU bazında ağırlıklı topla (paçal) + dosya kırılımı (son için)
-        agg = {}
-        son_agg = {}  # {sku: {dosya_id: {"fob_x","final_x","adet"}}}
-        for k in kalemler:
-            sku = (str(k.get("sku") or "")).strip()
-            if not sku:
+        from shared.utils import sku_anahtar
+        agg, son_agg = {}, {}
+        for p in get_parti_satirlari() or []:
+            if p.get("yolda"):
                 continue
-            adet = _f(k.get("adet"))
-            fob = _f(k.get("birim_fob")) * (1.0 - dosya_indirim_orani.get(k.get("dosya_id"), 0.0))  # NET birim FOB
-            if adet <= 0:
+            k = sku_anahtar(p.get("sku"))
+            adet = _f(p.get("adet"))
+            if not k or adet <= 0:
                 continue
-            did = k.get("dosya_id")
-            yuzde = kalem_yuzde(dosya_yuzde.get(did), k)   # kalemin KENDİ kategorisi
-            final = fob * (1 + yuzde / 100.0)
-            a = agg.setdefault(sku, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0, "dosyalar": set()})
-            a["fob_x"] += fob * adet
-            a["final_x"] += final * adet
+            a = agg.setdefault(k, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0, "dosyalar": set()})
+            a["fob_x"] += p["fob"] * adet
+            a["final_x"] += p["final"] * adet
             a["adet"] += adet
-            a["dosyalar"].add(did)
-            # Son için: SKU+dosya kırılımında ağırlıklı topla
-            sd = son_agg.setdefault(sku, {}).setdefault(did, {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0})
-            sd["fob_x"] += fob * adet
-            sd["final_x"] += final * adet
+            a["dosyalar"].add(p.get("dosya_id"))
+            sd = son_agg.setdefault(k, {}).setdefault(p.get("dosya_id"),
+                                                     {"fob_x": 0.0, "final_x": 0.0, "adet": 0.0,
+                                                      "tarih": p.get("tarih") or ""})
+            sd["fob_x"] += p["fob"] * adet
+            sd["final_x"] += p["final"] * adet
             sd["adet"] += adet
         sonuc = {}
-        for sku, a in agg.items():
-            ad = a["adet"]
-            if ad <= 0:
-                continue
-            # SON: en yeni tarihli dosyayı seç (tarih boşsa en geriye düşer)
-            son_fob = son_final = 0.0
-            son_tarih = ""
-            best_did = best_tarih = None
-            for did in son_agg.get(sku, {}):
-                t = dosya_tarih.get(did, "") or ""
-                if best_tarih is None or t > best_tarih:
-                    best_tarih, best_did = t, did
-            if best_did is not None:
-                sd = son_agg[sku][best_did]
-                if sd["adet"] > 0:
-                    son_fob = sd["fob_x"] / sd["adet"]
-                    son_final = sd["final_x"] / sd["adet"]
-                    son_tarih = dosya_tarih.get(best_did, "")
-            sonuc[sku] = {
-                "pacal_fob": a["fob_x"] / ad,
-                "pacal_final": a["final_x"] / ad,
-                "son_fob": son_fob,
-                "son_final": son_final,
-                "son_tarih": son_tarih,
-                "toplam_adet": ad,
+        for k, a in agg.items():
+            son = max(son_agg[k].values(), key=lambda d: d["tarih"]) if son_agg.get(k) else None
+            sonuc[k] = {
+                "pacal_fob": a["fob_x"] / a["adet"],
+                "pacal_final": a["final_x"] / a["adet"],
+                "son_fob": (son["fob_x"] / son["adet"]) if son and son["adet"] > 0 else 0.0,
+                "son_final": (son["final_x"] / son["adet"]) if son and son["adet"] > 0 else 0.0,
+                "son_tarih": son["tarih"] if son else "",
+                "toplam_adet": a["adet"],
                 "dosya_sayisi": len(a["dosyalar"]),
             }
         return sonuc
