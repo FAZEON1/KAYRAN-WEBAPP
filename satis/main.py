@@ -11,14 +11,13 @@ import streamlit as st
 
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit, gun_ay_yil
 from shared.tarih import hizli_tarih_araligi
-from kayranpm.ref_no import havuz_destek_donem
 from .database import (
     KANALLAR, get_kanallar, get_pacal_map, get_urunler, kampanya_destek_bul,
     ekle_satis, ekle_siparis, get_satislar, get_satislar_yalin, sil_satis, sil_siparis, guncelle_satis,
     satir_kar, ozet_hesapla, TR_TZ,
     ice_aktar_satislar, get_mevcut_siparis_nolar,
     satis_maliyet_tazele_onizle, satis_maliyet_tazele_uygula,
-    ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet, iade_kanal_ozet,
+    ekle_iade, get_iadeler, sil_iade, ice_aktar_iadeler, iade_satis_net_ozet,
     iade_manuel_donem, iade_fark_plani,
 )
 
@@ -1285,123 +1284,48 @@ def run():
                     st.info("Bu filtrede satış yok.")
                     st.stop()
 
-                top, kanal, urun = ozet_hesapla(satislar)
-                _isat, _itop = iade_satis_net_ozet(_pbas, _pbit)
-                _ikan = iade_kanal_ozet(_pbas, _pbit)
-                _sku_iade = {r["sku"]: r for r in _isat}
+                # ── Hesap: satis/pnl_hesap.satis_pnl — TEK fonksiyon (Ekim 2026) ──
+                # Önceki dönem aynı fonksiyonla; okunamayan kalem eksiklere yazılır (sessiz 0
+                # yok); Ref No'nun TL tutarları kaydın tarihindeki kurla (Yönetim ile aynı).
+                from satis.pnl_hesap import satis_pnl, onceki_donem, Kaynak as _PnlKaynak
+                _pk = _PnlKaynak(oturum_kuru=st.session_state.get("kur") or 0)
+                _P = satis_pnl(_pbas, _pbit, _p_kanal_f, _p_kat_f, _pk, satislar=satislar)
+                _ob, _obit = onceki_donem(_pbas, _pbit)
+                try:
+                    _PO = satis_pnl(_ob, _obit, _p_kanal_f, _p_kat_f, _pk)
+                except Exception:  # noqa: BLE001 — karşılaştırma yoksa rozet çıkmaz, hesap etkilenmez
+                    _PO = {"bos": True}
+                top, kanal, urun = _P["top"], _P["kanal"], _P["urun"]
+                _itop, _ikan, _sku_iade = _P["itop"], _P["ikan"], _P["sku_iade"]
+                _kat_destek_f = _P["kat_destek"]
+                _net_ciro, _net_kar, _net_satis = _P["net_ciro"], _P["net_kar"], _P["net_satis"]
+                _ref_usd, _alinan_usd = _P["ref_usd"], _P["alinan_usd"]
+                _ref_dagitilmayan, _ref_g = _P["ref_dagitilmayan"], _P["ref_g"]
+                _nihai, _nihai_marj = _P["nihai"], _P["nihai_marj"]
                 if _p_filtreli:
-                    # İade toplamlarını da aynı filtreyle hesapla (kanal + kategori)
-                    _pacal_p = get_pacal_map()
-                    _fi_tutar = _fi_kar = 0.0
-                    for _ir in (get_iadeler(_pbas, _pbit) or []):
-                        _ikn = (_ir.get("kanal") or "").strip()
-                        _isku = str(_ir.get("sku") or "").strip()
-                        if _p_kanal_f != "Tümü" and _ikn != _p_kanal_f:
-                            continue
-                        if _p_kat_f != "Tümü" and (_pkatmap.get(_isku, "") or "").strip() != _p_kat_f:
-                            continue
-                        _inet = float(_ir.get("iade_net") or 0)
-                        _iadet = int(_ir.get("iade_adet") or 0)
-                        _fi_tutar += _inet
-                        _fi_kar += _inet - _iadet * _pacal_p.get(_isku.upper(), _pacal_p.get(_isku, 0.0))
-                    _itop = dict(_itop)
-                    _itop["i_tutar"], _itop["i_kar"] = _fi_tutar, _fi_kar
                     _pf3.caption("Tüm kartlar ve merdiven bu filtreye göre. Ref No destekleri kategoriye "
                                  "dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.")
-                    # Kategori filtresi + kanal 'Tümü' → o kategorinin ALINAN desteği kâra dahil edilir
-                    if _p_kat_f != "Tümü" and _p_kanal_f == "Tümü":
-                        try:
-                            from kayranpm.ref_no import alinan_destek_kirilim_usd
-                            _, _adk_f, _ = alinan_destek_kirilim_usd(_pbas, _pbit)
-                            # ARTIK top["net_kar"]'a gizlice eklenmiyor. Eskiden öyleydi ve
-                            # destek "Brüt Kâr"ın içinde kaybolduğu için merdivenin
-                            # aritmetiği tutmuyordu (Net Ciro − COGS ≠ Brüt Kâr).
-                            # Şimdi kendi satırı olarak merdivene giriyor.
-                            # TÜRKÇE BÜYÜK HARF: "monitör".upper() → "MONITÖR"
-                            # (noktasız I) ama anahtar "MONİTÖR" (noktalı İ).
-                            # Python'ın upper()'ı Türkçe bilmez; _tr_upper kullanılmalı.
-                            from kayranpm.ref_no import _tr_upper as _tu
-                            _kat_destek_f = float(_adk_f.get(_tu(_p_kat_f.strip()), 0.0))
-                        except Exception:
-                            pass
-                # Net (iade sonrası) ciro/kâr/marj — marj = kâr / (ciro − destek − iade)
-                _net_ciro = top["ciro"] - _itop["i_tutar"]
-                _net_kar = top["net_kar"] - _itop["i_kar"]
-                _net_satis = top["ciro"] - top["destek"] - _itop["i_tutar"]
-                _net_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
-                _hav = havuz_destek_donem(_pbas, _pbit)
-                _hav_verilen = _hav.get("verilen", 0.0)
-                _net_havuzlu = _net_kar - _hav_verilen
-                # Ref No destekleri (dönem/firma bazlı) — Yönetim Panosu ile AYNI kaynak
-                _ref_usd = 0.0
-                try:
-                    from kayranpm.ref_no import get_tum_ref_tutarlari
-                    _usdtry_s = 0.0
-                    try:
-                        _usdtry_s = float(st.session_state.get("kur") or 0)
-                    except Exception:
-                        _usdtry_s = 0.0
-                    if not _usdtry_s or _usdtry_s <= 1:
-                        try:
-                            from gunluk import get_doviz
-                            _usdtry_s = float(get_doviz().get("USD") or 0)
-                        except Exception:
-                            _usdtry_s = 0.0
-                    for _rr in (get_tum_ref_tutarlari(_pbas, _pbit) or []):
-                        _rt = float(_rr.get("tutar") or 0)
-                        _rdv = (_rr.get("doviz") or "USD").strip().upper()
-                        if _rdv in ("TL", "TRY", "₺", "TRL"):
-                            if _usdtry_s and _usdtry_s > 1:
-                                _ref_usd += _rt / _usdtry_s
-                        else:
-                            _ref_usd += _rt
-                except Exception:
-                    _ref_usd = 0.0
-                # ═══════════════════════════════════════════════════════════
-                # KOMPAKT P&L GÖRÜNÜMÜ
-                # Eski tasarımda 6 ayrı kart satırı ve BİRBİRİNİ TAKİP ETMEYEN dört
-                # farklı "net kâr" vardı (havuz sonrası / genel / destek sonrası) —
-                # hiçbiri nihai sonucu göstermiyordu. Artık: 4 ana KPI + tek dikey
-                # kâr merdiveni. Zincir tek yönde akar, en altta GERÇEK net kâr durur.
-                # ═══════════════════════════════════════════════════════════
-                _alinan_usd = 0.0
-                if not _p_filtreli:
-                    try:
-                        from kayranpm.ref_no import alinan_destek_aralik_usd
-                        _alinan_usd = float(alinan_destek_aralik_usd(_pbas, _pbit) or 0)
-                    except Exception:
-                        _alinan_usd = 0.0
-
-                _hav_g = 0.0   # HAVUZ KALDIRILDI (27.07.2026) — kâra girmez
-                # Kategori filtresi açıkken Ref No desteğinin O KATEGORİYE düşen payı
-                # kullanılır. Dağıtılmamış (çok kategorili, tutarı bölünmemiş) kayıtlar
-                # GENEL'de kalır ve merdivende ayrıca raporlanır.
-                _ref_kat, _ref_dagitilmayan = 0.0, []
-                if _p_kat_f != "Tümü":
-                    try:
-                        from kayranpm.ref_no import ref_destek_kirilim_usd
-                        _rk = ref_destek_kirilim_usd(_pbas, _pbit)
-                        from kayranpm.ref_no import _tr_upper as _tu2
-                        _ref_kat = float(_rk["kategori"].get(_tu2(_p_kat_f.strip()), 0.0))
-                        _ref_dagitilmayan = _rk.get("dagitilmayan") or []
-                    except Exception:
-                        _ref_kat, _ref_dagitilmayan = 0.0, []
-                _ref_g = (_ref_kat if _p_kat_f != "Tümü"
-                          else (_ref_usd if (_ref_usd > 0.005 and not _p_filtreli) else 0.0))
-                _nihai = _net_kar - _hav_g - _ref_g + _alinan_usd + _kat_destek_f
-                _nihai_marj = (_nihai / _net_satis * 100) if _net_satis > 0 else 0.0
+                if _P["eksikler"]:
+                    st.warning("Eksik veri — " + " · ".join(_P["eksikler"]), icon=":material/warning:")
                 _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
                 _nr = trenk("yesil") if _nihai > 0 else trenk("kirmizi")
 
                 # ── Üst şerit: yalnız 4 ana gösterge ──
                 _kt = "yesil" if _nihai > 0 else "kirmizi"
                 _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
-                # Ana kart: net kâr. Renk anlam taşır (artı yeşil / eksi kırmızı); önceki dönem
-                # karşılaştırması bu hesap fonksiyona ayrılınca eklenecek (iki kopya hesap olmasın).
+                # Ana kart: net kâr. Renk anlam taşır (artı yeşil / eksi kırmızı); rozet aynı
+                # süzgeçlerle, aynı uzunluktaki önceki dönemin net kârına göre (satis_pnl).
                 _anlam = "iyi" if _nihai > 0 else ("kotu" if _nihai < 0 else None)
+                from shared.tasarim import KART_YENI as _KART_YENI
                 st.markdown(kpi_serit([
-                    {"etiket": "NET KÂR", "deger": f"{_ok} " + sayi(_nihai, "$"), "vurgu": True,
-                     "renk": _kt, "anlam": _anlam, "tam": f"${tr_sayi(_nihai, 2)}"},
+                    # Yeni kartta değerin önündeki ▲/▼ yok: rozetteki değişim okuyla çelişiyordu
+                    # ("▲ $5.252  ▼ %59,8"). İşareti renk ve eksi değerdeki "-" taşır.
+                    {"etiket": "NET KÂR", "deger": (sayi(_nihai, "$") if _KART_YENI else f"{_ok} " + sayi(_nihai, "$")),
+                     "vurgu": True,
+                     "renk": _kt, "anlam": _anlam, "tam": f"${tr_sayi(_nihai, 2)}",
+                     "simdi": _nihai, "onceki": (None if _PO.get("bos") else _PO["nihai"]),
+                     "alt": ("önceki dönem yok" if _PO.get("bos")
+                             else f"önceki dönem ({_ob:%d.%m}–{_obit:%d.%m.%Y}): {sayi(_PO['nihai'], '$')}")},
                     {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
                      "renk": "metin", "tam": f"${tr_sayi(_net_ciro, 2)}"},
                     {"etiket": "NET ADET",

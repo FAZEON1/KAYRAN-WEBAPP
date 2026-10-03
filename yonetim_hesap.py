@@ -53,6 +53,17 @@ def _ay_listesi(adlar):
     return ", ".join(adlar)
 
 
+def tl_usd(tutar, doviz, tarih, kmap, yedek):
+    """TL tutarı kaydın TARİHİNDEKİ kurla USD'ye çevirir (yoksa yedek kur).
+    USD ise olduğu gibi. Kur hiç yoksa None — çağıran eksiklere yazar.
+    Yönetim P&L ve Satış P&L aynı kuralı kullanır (aynı destek iki ekranda aynı tutar)."""
+    tutar = float(tutar or 0)
+    if str(doviz or "USD").strip().upper() not in _TL:
+        return tutar
+    k = (kmap or {}).get(str(tarih or "")[:10]) or (yedek if (yedek or 0) > 1 else 0)
+    return tutar / k if k else None
+
+
 def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None):
     bugun = bugun or date.today()
     eksik = []
@@ -92,15 +103,13 @@ def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None):
     kur_eksik = []
 
     def _usd(tutar, doviz, tarih, ne):
-        tutar = float(tutar or 0)
-        if str(doviz or "USD").strip().upper() not in _TL:
-            return tutar
-        k = kmap.get(str(tarih or "")[:10]) or yedek
-        if not k:
+        u = tl_usd(tutar, doviz, tarih, kmap, yedek)
+        tl = str(doviz or "USD").strip().upper() in _TL
+        if u is None:
             kur_eksik.append(ne)
-            return None
-        r["tl_cevrildi"] = True
-        return tutar / k
+        elif tl:
+            r["tl_cevrildi"] = True
+        return u
 
     # ── Destekler ──
     try:
