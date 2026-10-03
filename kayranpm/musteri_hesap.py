@@ -40,7 +40,9 @@ def _sku(r):
 
 
 def _firma(r):
-    return str(r.get("firma") or "").strip()
+    """Kanonik firma (shared.utils.firma_kanonik): eski 'KANAL' kayıtları DİĞER'e katılır."""
+    from shared.utils import firma_kanonik
+    return firma_kanonik(r.get("firma"))
 
 
 def haftalar(rows):

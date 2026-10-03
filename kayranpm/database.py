@@ -377,15 +377,23 @@ def firma_son_tarihleri():
     """{firma: 'YYYY-MM-DD'} — her kanalın en son rapor tarihi (tüm ürünler).
     Tek ürünün satırlarını okuyan ekranlar (stok kartı) kanal stoğunu bu
     tarihle süzer: son raporda olmayan ürün o kanalda 0 (bkz. stok_hesap)."""
-    sb = get_client()
-    out = {}
-    from shared.utils import FIRMA_KODLARI_DIGER
-    for firma in FIRMA_KODLARI_DIGER:                       # tek liste (Faz 4)
-        son = _row(sb.table("firma_stok").select("yukleme_tarihi").eq("firma", firma)
-                   .order("yukleme_tarihi", desc=True).limit(1).execute())
-        if son and son.get("yukleme_tarihi"):
-            out[firma] = str(son["yukleme_tarihi"])[:10]
-    return out
+    # Firma listesi SABİT DEĞİL (KANAL kaldırıldı, Ekim 2026): veride görünen her firma.
+    # stok_hesap ile aynı kural (firma_kanonik; eski 'KANAL' → DİĞER).
+    from .stok_hesap import kanal_son_tarihleri
+    return kanal_son_tarihleri(_hepsi("firma_stok", "firma, yukleme_tarihi"))
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_firma_listesi():
+    """Ekranlardaki firma seçenekleri: veride görünen firmalar + ana firmalar, firma_sirala
+    sırasıyla (EERA, D-MARKET, VATAN, MONDAY, diğer cariler, DİĞER). Kodlar; görünen ad için
+    shared.utils.firma_gorunen_ad."""
+    from shared.utils import firma_sirala, FIRMA_KODLARI_DIGER
+    try:
+        gorulen = list(firma_son_tarihleri())
+    except Exception:  # noqa: BLE001
+        gorulen = []
+    return firma_sirala(list(FIRMA_KODLARI_DIGER) + gorulen)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -399,21 +407,27 @@ def _dashboard_ham():
     for _u in urunler:
         if _u.get("urun_adi"):
             _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
-    from shared.utils import FIRMA_KODLARI_DIGER
-    firma_listesi = list(FIRMA_KODLARI_DIGER)                # tek liste (Faz 4)
-    firma_data = {}
-    for firma in firma_listesi:
-        son = _row(sb.table("firma_stok").select("yukleme_tarihi").eq("firma", firma)
-                   .order("yukleme_tarihi", desc=True).limit(1).execute())
-        if son:
-            rows = _rows(sb.table("firma_stok").select("*")
-                        .eq("firma", firma).eq("yukleme_tarihi", son["yukleme_tarihi"]).execute())
-            firma_data[firma] = {r["sku"]: r for r in rows}
-        else:
-            firma_data[firma] = {}
     stok_yas_data = {r["sku"]: r for r in _rows(sb.table("stok_yas").select("*").execute())}
     yoldaki_data = {r["sku"]: r for r in _rows(sb.table("yoldaki_urunler").select("*").execute())}
     tum_firma_rows = _hepsi("firma_stok", "*", "yukleme_tarihi")
+    # Firma verisi: her firmanın SON raporu (stok_hesap — kanal_stoklari ile aynı kural). Firma
+    # listesi veriden gelir (KANAL kaldırıldı, Ekim 2026); eski 'KANAL' satırları DİĞER'e katılır.
+    # Eskiden sabit 6 kod için firma başına 2 sorgu atılıyordu; liste dışı firmalar hiç görünmüyordu.
+    from shared.utils import firma_kanonik, FIRMA_KODLARI_DIGER
+    from .stok_hesap import kanal_son_tarihleri
+    _son = kanal_son_tarihleri(tum_firma_rows)
+    firma_data = {f: {} for f in FIRMA_KODLARI_DIGER}
+    for r in tum_firma_rows:
+        f = firma_kanonik(r.get("firma"))
+        if f and str(r.get("yukleme_tarihi") or "")[:10] == _son.get(f):
+            _fd = firma_data.setdefault(f, {})
+            if r["sku"] in _fd:               # aynı tarihte 'KANAL' + 'DİĞER' aynı ürün → TOPLA
+                _o = dict(_fd[r["sku"]])
+                for _a in ("stok_miktari", "haftalik_satis", "stok_magaza", "satis_magaza"):
+                    _o[_a] = (_o.get(_a) or 0) + (r.get(_a) or 0)
+                _fd[r["sku"]] = _o
+            else:
+                _fd[r["sku"]] = r
     gecmis_satislar = defaultdict(list)
     for row in tum_firma_rows:
         gecmis_satislar[row["sku"]].append(row.get("haftalik_satis", 0) or 0)

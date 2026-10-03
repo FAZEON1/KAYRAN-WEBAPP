@@ -20,7 +20,8 @@ from supabase import create_client, Client
 TR_TZ = timezone(timedelta(hours=3))
 
 # Satış kanalları (firma/pazar) — varsayılan; Muhasebe carileri varsa onlar kullanılır.
-KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "KANAL", "Trendyol", "Direkt", "DİGER"]
+# 'KANAL' çıkarıldı (Ekim 2026): her firma kendi adıyla anılır, genel 'KANAL' tanımı yok.
+KANALLAR = ["İTOPYA", "HB", "VATAN", "MONDAY", "Trendyol", "Direkt", "DİGER"]
 
 
 # ── MANUEL KANAL / CARİ ──────────────────────────────────────────────

@@ -39,13 +39,14 @@ def tarih_tr(v, saat=False):
 # ── Dashboard ───────────────────────────────────────────────────────
 def dashboard_filtrele(veri, firma, kategori, tum_firma="Tüm Firmalar", tum_kat="Tüm Kategoriler"):
     """Firma seçiliyse: o firmada stoğu olan ürünler. Kategori seçiliyse: o kategori."""
+    from shared.utils import firma_kanonik
     out = []
-    hedef = _asc(firma)
+    hedef = firma_kanonik(firma)        # TAM eşleşme: alt dize 'VATAN' ⊂ 'VATANSEVER LTD' yakalardı
     for u in veri or []:
         if kategori != tum_kat and kategori_anahtar(u.get("kategori")) != kategori_anahtar(kategori):
             continue
         if firma != tum_firma and not any(
-                (fd.get("stok") or 0) > 0 and hedef in _asc(fd.get("firma"))
+                (fd.get("stok") or 0) > 0 and firma_kanonik(fd.get("firma")) == hedef
                 for fd in (u.get("firma_detay") or [])):
             continue
         out.append(u)
@@ -62,7 +63,6 @@ def editor_anahtari(onek, skular):
 
 
 # ── Tüm Ürünler ─────────────────────────────────────────────────────
-from shared.utils import FIRMA_KODLARI as KANALLAR   # tek liste (Faz 4)
 # KANAL_AD ('Hepsiburada', 'İtopya') KALDIRILDI (Ekim 2026, Faz 4): kanal her yerde CARİ adıyla
 # görünür (kullanıcı kararı) — shared.utils.firma_gorunen_ad. Kart etiketi ozel_ad=True ile
 # cümle düzenine indirilmez ('D-MARKET' → 'D-market' olmasın).
@@ -90,8 +90,12 @@ def urun_satiri(u):
         "_eol": bool(u.get("eol")),
         "G5F Depo": int(u.get("bizim_stok", 0) or 0),
     }
-    for k in KANALLAR:
-        r[k] = int(fs.get(k, 0) or 0)
+    # Firma stokları: veride görünen HER firma, firma_sirala sırasıyla (KANAL yok — Ekim 2026).
+    # [(kod, adet)] — ekranda kod yerine firma_gorunen_ad.
+    from shared.utils import firma_sirala
+    r["_kanal_stok"] = [(k, int(fs.get(k, 0) or 0)) for k in firma_sirala(fs)]
+    for k, a in r["_kanal_stok"]:
+        r[k] = a                         # firma kodu sütunu (geriye uyum)
     r.update({
         # Toplam stok = G5F Depo (bizim satılabilir). Kanaldaki mal dahil sayı ayrı
         # sütunda; sipariş hesabının kullandığı stok budur (stok_hesap.zincir_stok).

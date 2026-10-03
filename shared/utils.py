@@ -37,9 +37,16 @@ def normalize_tr(s) -> str:
 # Kanal (müşteri) stok kodları — TEK LİSTE (Ekim 2026, ana veri Faz 4). firma_stok tablosunda
 # bu KODLAR tutulur; ekranda firma_gorunen_ad ile cari adı gösterilir (kullanıcı kararı:
 # 'D-MARKET', 'EERA' — mağaza adı 'Hepsiburada' / 'İtopya' DEĞİL). Eskiden 8 yerde ayrı yazılıydı.
-FIRMA_KODLARI = ("ITOPYA", "HB", "VATAN", "MONDAY", "KANAL")
+# 'KANAL' KALDIRILDI (Ekim 2026, kullanıcı kararı): EERA / VATAN / D-MARKET / MONDAY dışındaki
+# firmalar için kullanılan genel tanımdı. Artık her firma KENDİ adıyla (Muhasebe cari adı) kaydedilir;
+# hangi firmaya ait olduğu belli olmayan eski 'KANAL' kayıtları okunurken DİĞER sayılır (firma_kanonik).
+# Firma listesi SABİT DEĞİL: veride görünen firmalardan üretilir (firma_sirala) — bu dört kod
+# yalnız sıralamada başa gelir.
+FIRMA_ANA = ("ITOPYA", "HB", "VATAN", "MONDAY")
+FIRMA_KODLARI = FIRMA_ANA
 DIGER_KODU = "DIGER"                                  # firma_stok'taki kayıt yazımı (noktasız)
 FIRMA_KODLARI_DIGER = FIRMA_KODLARI + (DIGER_KODU,)
+_DIGER_ESLERI = {"DIGER", "KANAL"}                    # normalize_tr hâlleri → DİĞER
 
 # Firma stok kodu → cari öneki. Veri/sorgu KODU korur (ITOPYA), bu yalnız GÖSTERİM içindir.
 # TEK KAYNAK: kayranpm/ref_no.py FIRMA_ESLESME 'onek'leri buradan alır (eskiden iki kopya).
@@ -47,7 +54,53 @@ FIRMA_GORUNEN_AD = {
     "ITOPYA": "EERA",
     "HB": "D-MARKET",
     "VATAN": "VATAN",
+    "MONDAY": "TEKNOKLİK - MONDAY",                   # kullanıcı (3 Ekim 2026)
+    "DIGER": "DİĞER",
 }
+
+
+def firma_kanonik(f) -> str:
+    """firma_stok / kampanya firma değerini tek biçime indirir (KARŞILAŞTIRMA ve GRUPLAMA için).
+    'KANAL' / 'DİĞER' / 'diger' → 'DIGER'; ana kodlar ('itopya ') → 'ITOPYA'; diğer firmalar
+    (cari adı) olduğu gibi (boşluk kırpılmış). Kayıtlı veri DEĞİŞTİRİLMEZ."""
+    s = " ".join(str(f or "").split())
+    if not s:
+        return ""
+    n = normalize_tr(s)
+    if n in _DIGER_ESLERI:
+        return DIGER_KODU
+    if n in FIRMA_ANA:
+        return n
+    return s
+
+
+def cari_eslestir(ad, cariler):
+    """Excel'deki firma adını Muhasebe cari listesinde bulur (kullanıcı kuralı, Ekim 2026):
+    1) birebir (Türkçe/büyük-küçük/boşluk farkı yok sayılır)  2) ad, TEK bir carinin başı ise
+    ('AYKON' → 'AYKON BİLGİSAYAR LTD. ŞTİ.'). Birden çok cari uyarsa ya da hiçbiri uymazsa None —
+    bir yazım hatası yanlışlıkla yeni firma açmasın, yükleme durup sorsun."""
+    a = " ".join(normalize_tr(ad).split())
+    if not a:
+        return None
+    norm = [(c, " ".join(normalize_tr(c).split())) for c in (cariler or ()) if str(c or "").strip()]
+    for c, n in norm:
+        if n == a:
+            return str(c).strip()
+    aday = {str(c).strip() for c, n in norm if n.startswith(a + " ")}
+    return aday.pop() if len(aday) == 1 else None
+
+
+def firma_sirala(firmalar) -> list:
+    """Firma listesi: kanonik, tekil; önce ana firmalar (EERA, D-MARKET, VATAN, MONDAY) bu sırayla,
+    sonra diğer cariler alfabetik, DİĞER en sonda. Sabit liste yerine VERİDEN üretilir."""
+    gor = []
+    for f in firmalar or ():
+        k = firma_kanonik(f)
+        if k and k not in gor:
+            gor.append(k)
+    ana = [f for f in FIRMA_ANA if f in gor]
+    diger = sorted((f for f in gor if f not in FIRMA_ANA and f != DIGER_KODU), key=normalize_tr)
+    return ana + diger + ([DIGER_KODU] if DIGER_KODU in gor else [])
 
 
 # Resmî ünvanın ekranda gereksiz kısmı. Normalize (normalize_tr) hâliyle
@@ -99,15 +152,20 @@ def firma_gorunen_ad(kod, kisa=True) -> str:
     Sadece ekranda gösterim için — veri/sorguda firma kodu kullanılır."""
     if not kod:
         return ""
+    k = firma_kanonik(kod)
+    if k == DIGER_KODU:                       # eski 'KANAL' de buraya düşer — 'KANAL' yazılmaz
+        return FIRMA_GORUNEN_AD[DIGER_KODU]
     try:
         from kayranpm.ref_no import firma_tam_cari_adi
-        ad = firma_tam_cari_adi(kod)
-        if ad:
+        ad = firma_tam_cari_adi(k)
+        if ad and ad != k:                    # cari listesinde bulundu
             return firma_kisa_ad(ad) if kisa else ad
     except Exception:
         pass
-    k = normalize_tr(kod).strip()
-    return FIRMA_GORUNEN_AD.get(k, str(kod).strip())
+    if k in FIRMA_GORUNEN_AD:                 # eşleme tablosu (cari listesi okunamazsa da)
+        ad = FIRMA_GORUNEN_AD[k]
+        return firma_kisa_ad(ad) if kisa else ad
+    return firma_kisa_ad(k) if kisa else k    # yeni firmalar: kayıtlı ad zaten cari adı
 
 
 def tr_buyuk(s) -> str:

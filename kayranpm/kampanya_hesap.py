@@ -26,8 +26,15 @@ from datetime import date
 from shared.ana_veri import kategori_anahtar   # tek kaynak (Eki 2026)
 
 KAMPANYA_TURLERI = ["Sellout", "Rebate", "Marketing", "Spiff"]
-from shared.utils import FIRMA_KODLARI as _FK   # tek liste (Faz 4)
-FIRMALAR = [*_FK, "DİĞER"]                      # 'DİĞER' kampanyalarda bu yazımla kayıtlı
+from shared.utils import FIRMA_KODLARI as _FK   # ANA firmalar (KANAL yok — Ekim 2026)
+FIRMALAR = [*_FK, "DİĞER"]                      # yedek liste; 'DİĞER' kampanyalarda bu yazımla kayıtlı
+
+
+def firma_secenekleri(ek=()):
+    """Kampanya firma seçenekleri: ana firmalar + verideki/kayıtlı diğer cariler (firma_sirala
+    sırası) + en sonda 'DİĞER'. Eski 'KANAL' kayıtları DİĞER'dir; 'KANAL' seçenek olmaz."""
+    from shared.utils import firma_sirala, DIGER_KODU
+    return [f for f in firma_sirala([*_FK, *(ek or ())]) if f != DIGER_KODU] + ["DİĞER"]
 
 # Durum: tarihten hesaplanır (kayıttaki 'durum' yalnız aktif/kapalı tutar)
 DURUMLAR = {
@@ -134,11 +141,14 @@ def filtrele(kampanyalar, bugun, durum_sec="tumu", firma="Tümü", kategori="Tü
     for k in kampanyalar:
         if durum_sec != "tumu" and durum(k, bugun) != durum_sec:
             continue
-        f = str(k.get("firma") or "").strip().upper()
+        # Firma süzgeci kanonik (shared.utils.firma_kanonik): 'DİĞER' = firması belli olmayan
+        # (eski 'KANAL' dahil). Yeni cariler kendi adıyla süzülür, DİĞER'e düşmez (Ekim 2026).
+        from shared.utils import firma_kanonik, DIGER_KODU
+        fk = firma_kanonik(k.get("firma"))
         if firma != "Tümü":
-            if firma == "DİĞER" and f in set(_FK):
+            if firma == "DİĞER" and fk != DIGER_KODU:
                 continue
-            if firma != "DİĞER" and f != firma:
+            if firma != "DİĞER" and fk != firma_kanonik(firma):
                 continue
         if kategori != "Tümü" and kategori_anahtar(k.get("kategori")) != kategori_anahtar(kategori):
             continue

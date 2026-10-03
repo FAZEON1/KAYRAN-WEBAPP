@@ -13,6 +13,12 @@ adediyle saymaya devam ediyordu (liste 625 / pano 614).
 """
 
 
+def _firma(r):
+    """Firma kanonik (shared.utils.firma_kanonik): eski 'KANAL' kayıtları DİĞER'e katılır."""
+    from shared.utils import firma_kanonik
+    return firma_kanonik(r.get("firma"))
+
+
 def _tarih(r):
     return str(r.get("yukleme_tarihi") or "")[:10]
 
@@ -21,7 +27,7 @@ def kanal_son_tarihleri(rows):
     """{firma: 'YYYY-MM-DD'} — verilen satırlardaki en yeni rapor tarihi."""
     son = {}
     for r in rows or []:
-        f, t = r.get("firma"), _tarih(r)
+        f, t = _firma(r), _tarih(r)
         if f and t and t > son.get(f, ""):
             son[f] = t
     return son
@@ -36,7 +42,7 @@ def kanal_stoklari(rows, son_tarih=None):
     son = son_tarih if son_tarih is not None else kanal_son_tarihleri(rows)
     out = {}
     for r in rows or []:
-        f = r.get("firma")
+        f = _firma(r)
         if not f or _tarih(r) != son.get(f):
             continue
         sku = r.get("sku")

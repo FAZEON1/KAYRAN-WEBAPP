@@ -3308,8 +3308,22 @@ def main():
             if st.button("← Ana Sayfaya Dön"):
                 st.rerun()
     except Exception as hata:
+        # Bayat modül koruması (shared/modul_tazele): güncelleme sonrası bellekte eski kalan bir
+        # proje modülü 'cannot import name' verdiyse modülleri tazeleyip BİR KEZ yeniden çalıştır.
+        try:
+            import os as _os_mt, sys as _sys_mt
+            from shared.modul_tazele import tazelenmeli, proje_modullerini_sil
+            _kok_mt = _os_mt.path.dirname(_os_mt.path.abspath(__file__))
+            if tazelenmeli(hata, _kok_mt) and not st.session_state.get("_modul_tazelendi"):
+                st.session_state["_modul_tazelendi"] = True
+                proje_modullerini_sil(_sys_mt.modules, _kok_mt)
+                st.rerun()
+        except ImportError:
+            pass
         ad = "KAYRAN" if aktif == "kayranacc" else ("KAYRAN" if aktif == "kayranpm" else aktif)
         _global_hata_kart(ad, hata)
+    else:
+        st.session_state.pop("_modul_tazelendi", None)   # sayfa sorunsuz çizildi → koruma yeniden kurulur
 
     # Talep düğmesi HER SAYFADA görünür — sayfa içeriği çizildikten sonra
     # eklenir ki modül hata verse bile erişilebilir kalsın.

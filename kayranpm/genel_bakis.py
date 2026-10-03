@@ -30,7 +30,7 @@ from .genel_hesap import (kpi, yapilacaklar, kapsama_dagilimi, kategori_ozeti, k
 from .urun_hesap import dashboard_filtrele, tarih_tr
 
 from shared.utils import FIRMA_KODLARI as _FK   # tek liste (Faz 4); DİĞER bu ekranın seçenek yazımı
-FIRMALAR = ["Tüm Firmalar", *_FK, "DİĞER"]
+FIRMALAR = ["Tüm Firmalar", *_FK, "DIGER"]            # yedek liste; ekranda veriden üretilir
 HAFTA = 8
 GRUP_ILK = 5
 
@@ -259,7 +259,12 @@ def render(_sb):
     # Yalnız verideki kategoriler, tabloyla AYNI tek yazımla (shared.ana_veri)
     kat = sorted({_kat_ad(u.get("kategori")) for u in veri} - {""}, key=lambda x: x.lower())
     f1, f2, f3 = st.columns([1.6, 1.6, 0.8], vertical_alignment="bottom")
-    firma = f1.selectbox("Firma", FIRMALAR, format_func=firma_gorunen_ad, key="gb_firma")
+    # Firma seçenekleri VERİDEN (KANAL yok; her firma kendi adıyla — Ekim 2026)
+    from shared.utils import firma_sirala
+    _firmalar = ["Tüm Firmalar"] + firma_sirala(
+        list(FIRMALAR[1:]) + [fd.get("firma") for u in veri for fd in (u.get("firma_detay") or [])])
+    firma = f1.selectbox("Firma", _firmalar,
+                         format_func=lambda f: f if f == "Tüm Firmalar" else firma_gorunen_ad(f), key="gb_firma")
     kategori = f2.selectbox("Kategori", ["Tüm Kategoriler"] + kat, key="dash_kat")
     if f3.button("Yenile", use_container_width=True, icon=":material/refresh:", key="gb_yenile"):
         st.cache_data.clear()

@@ -23,12 +23,13 @@ def test_kanal_kodu_listesi_tek_yerde():
 
 
 def test_listeler_ayni_kaynaktan():
+    """KANAL kaldırıldı (Ekim 2026): sabit listeler yalnız ANA firmalar + DİĞER; gerçek liste veriden."""
     from shared.utils import FIRMA_KODLARI, FIRMA_KODLARI_DIGER
-    from kayranpm import analitik, excel_islemler, urun_hesap, kampanya_hesap, genel_bakis
+    from kayranpm import analitik, excel_islemler, kampanya_hesap, genel_bakis
+    assert "KANAL" not in FIRMA_KODLARI_DIGER
     assert tuple(analitik.FIRMA_LISTESI) == tuple(excel_islemler.FIRMA_LISTESI) == FIRMA_KODLARI_DIGER
-    assert tuple(urun_hesap.KANALLAR) == FIRMA_KODLARI
     assert kampanya_hesap.FIRMALAR == [*FIRMA_KODLARI, "DİĞER"]
-    assert genel_bakis.FIRMALAR == ["Tüm Firmalar", *FIRMA_KODLARI, "DİĞER"]
+    assert genel_bakis.FIRMALAR == ["Tüm Firmalar", *FIRMA_KODLARI, "DIGER"]
 
 
 def test_cari_onekleri_tek_kaynak():
@@ -58,7 +59,7 @@ def test_satis_excel_ve_tablolarinda_kanal_sutunu_yok():
 
 
 def test_tum_urunler_listesi_ve_raporu_firma_adi():
-    assert "firma_gorunen_ad(k)} {r[k]}" in _oku("kayranpm/urunler_ekran.py")
+    assert "firma_gorunen_ad(k)} {a}\" for k, a in r.get(\"_kanal_stok\"" in _oku("kayranpm/urunler_ekran.py")
     r = _oku("kayranpm/rapor.py")
     assert r.count('firma_gorunen_ad(fd["firma"])') == 2 and 'firma_gorunen_ad(sp["firma"])' in r
-    assert '"KANAL", "DİĞER", "Toplam Kanal Stok"' not in r and "for k in FIRMA_KODLARI" in r
+    assert '"KANAL", "DİĞER", "Toplam Kanal Stok"' not in r and "for k in _yay_firmalar" in r

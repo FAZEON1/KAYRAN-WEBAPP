@@ -9,7 +9,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.units import cm
 from datetime import datetime
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek kaynak (Eki 2026)
-from shared.utils import firma_gorunen_ad, FIRMA_KODLARI   # kanal kodu → firma (cari) adı; tek liste
+from shared.utils import firma_gorunen_ad, firma_sirala   # firma (cari) adı; liste veriden
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
 from shared.utils import tr_today, tr_now, tr_today_iso, pdf_turkce_font, pdf_stilleri_turkcele
@@ -108,10 +108,11 @@ def excel_rapor_olustur(kayit_yolu):
         
         # ---- SHEET 2: STOK YAYILIMI ----
         ws2 = wb.create_sheet("Stok Yayılımı")
-        # Başlıklar firma (cari) adıyla — kod ('ITOPYA', 'HB', 'KANAL') değil (Eki 2026)
+        # Sütunlar VERİDE görünen firmalar, firma (cari) adıyla — KANAL yok (Ekim 2026)
+        _yay_firmalar = firma_sirala([k for _u in data for k in (_u.get("yayilim") or {})])
         yayilim_baslik = (["SKU", "Ürün Adı", "Bizim Stok", "TRENDYOL"]
-                          + [firma_gorunen_ad(k) for k in FIRMA_KODLARI]
-                          + ["Diğer", "Toplam Firma Stoku"])
+                          + [firma_gorunen_ad(k) for k in _yay_firmalar]
+                          + ["Toplam Firma Stoku"])
         for i, b in enumerate(yayilim_baslik, 1):
             cell = ws2.cell(row=1, column=i, value=b)
             cell.font = baslik_font
@@ -124,8 +125,8 @@ def excel_rapor_olustur(kayit_yolu):
             toplam = sum(y.values())
             row_data = [
                 urun["sku"], urun["urun_adi"], urun["bizim_stok"],
-                y.get("TRENDYOL", 0), *[y.get(k, 0) for k in FIRMA_KODLARI],   # başlıkla aynı sıra
-                y.get("DIGER", 0), toplam
+                y.get("TRENDYOL", 0), *[y.get(k, 0) for k in _yay_firmalar],   # başlıkla aynı sıra
+                toplam
             ]
             for j, val in enumerate(row_data, 1):
                 cell = ws2.cell(row=satir_no, column=j, value=val)
