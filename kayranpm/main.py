@@ -539,8 +539,8 @@ def run():
         from shared.utils import sidebar_ust
         sidebar_ust("📦", "Ürün Yönetimi", "kayranpm")
         from shared.tasarim import menu_etiketi as _me
-        from shared.gezinme import secenekler
-        sayfa = st.radio("Sayfa", secenekler("kayranpm"), label_visibility="collapsed",
+        from shared.gezinme import secenekler, sayfa_menusu
+        sayfa = sayfa_menusu("Sayfa", secenekler("kayranpm"), modul="kayranpm", label_visibility="collapsed",
            format_func=_me, key="pm_sayfa")    # anahtar: Genel Bakış'tan sayfaya geçiş
 
         # ── STOK KARTI — hızlı erişim (Ürün Yön.'nin en sık kullanılan eylemi) ──

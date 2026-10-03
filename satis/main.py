@@ -576,7 +576,8 @@ def run():
         from shared.gezinme import secenekler
         _sayfalar = [s for s in secenekler("satis") if s != "📊 Kâr / P&L" or _kar_ok()]
         from shared.tasarim import menu_etiketi as _me
-        _ssayfa = st.radio("Sayfa", _sayfalar, format_func=_me,
+        from shared.gezinme import sayfa_menusu
+        _ssayfa = sayfa_menusu("Sayfa", _sayfalar, modul="satis", format_func=_me,
                            label_visibility="collapsed", key="satis_sayfa")
 
 

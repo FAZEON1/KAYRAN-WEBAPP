@@ -2103,11 +2103,11 @@ def run():
     with st.sidebar:
         from shared.utils import sidebar_ust
         sidebar_ust("🚢", "İthalat", "ithalat")
-        from shared.gezinme import secenekler
+        from shared.gezinme import secenekler, sayfa_menusu
         from shared.tasarim import menu_etiketi as _me
-        sayfa = st.radio(
+        sayfa = sayfa_menusu(
             "Sayfa",
-            secenekler("ithalat"),
+            secenekler("ithalat"), modul="ithalat",
             label_visibility="collapsed", key="ith_sayfa",
             format_func=_me,
         )

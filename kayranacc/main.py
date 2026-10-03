@@ -1104,7 +1104,8 @@ def run():
             gosterilen_sayfalar = tum_sayfalar
     
         from shared.tasarim import menu_etiketi as _me
-        sayfa = st.radio("Sayfa", gosterilen_sayfalar, label_visibility="collapsed",
+        from shared.gezinme import sayfa_menusu
+        sayfa = sayfa_menusu("Sayfa", gosterilen_sayfalar, modul="kayranacc", label_visibility="collapsed",
                          format_func=_me, key="acc_sayfa")     # palet / adres çubuğu bu anahtarla gider
     
         st.markdown("---")
