@@ -795,9 +795,9 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
         if (kategori or "").strip():
             _kayit["kategori"] = kategori_kanonik(kategori)
         if donem_ay:
-            import json as _json
+            # NESNE olarak yazılır (json.dumps ile metin yazılıyordu → v_destek_donem okuyamıyordu)
             _dy = int(donem_yil or yil)
-            _kayit["aylik"] = _json.dumps({f"{_dy}-{int(donem_ay):02d}": _f(tutar)})
+            _kayit["aylik"] = {f"{_dy}-{int(donem_ay):02d}": _f(tutar)}
         try:
             sb.table("ref_kayitlari").insert(_kayit).execute()
         except Exception:
@@ -809,6 +809,21 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
         return True, f"✅ {ref_no} atandı."
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+
+
+def _aylik_nesne(aylik):
+    """Aylık dağılım her zaman NESNE yazılsın: JSON metni açılır, "" → {} (dağılım yok).
+    Metin olarak yazılan dağılımı v_destek_donem okuyamıyordu (Ekim 2026)."""
+    if isinstance(aylik, str):
+        if not aylik.strip():
+            return {}
+        try:
+            import json
+            v = json.loads(aylik)
+            return v if isinstance(v, dict) else {}
+        except Exception:  # noqa: BLE001
+            return {}
+    return aylik if isinstance(aylik, dict) else {}
 
 
 def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, tutar=None, doviz=None,
@@ -827,7 +842,7 @@ def ref_guncelle(ref_id, ref_no, aciklama, durum, tarih, paylasim_tarihi=None, t
         if kategori is not None:
             _d["kategori"] = kategori_kanonik(kategori)
         if aylik is not None:
-            _d["aylik"] = aylik  # "" = temizle, JSON string = dönem ata
+            _d["aylik"] = _aylik_nesne(aylik)  # "" / {} = temizle; dict ya da JSON metni = dönem ata
         if kategori_tutar is not None:
             _d["kategori_tutar"] = kategori_tutar   # {} = temizle
         try:
@@ -1740,10 +1755,9 @@ def _render_refler(fid, fkod):
                 _ay_no = _ay_no_coz(n_ay)
                 _yil_i = "".join(ch for ch in n_yil if ch.isdigit())[:4]
                 if _ay_no and len(_yil_i) == 4:
-                    import json as _json
-                    aylik_yeni = _json.dumps({f"{_yil_i}-{_ay_no:02d}": n_tutar})
+                    aylik_yeni = {f"{_yil_i}-{_ay_no:02d}": n_tutar}
                 elif not n_ay and not n_yil:
-                    aylik_yeni = ""  # ikisi de boşaltıldı → dönem temizle
+                    aylik_yeni = {}  # ikisi de boşaltıldı → dönem temizle
 
             # ── REF NO artık düzenlenebilir — ama önce doğrula ──
             _o_ref = str(o.get("ref_no") or "").strip()
@@ -2431,9 +2445,12 @@ def get_destek_donem(baslangic, bitis):
     eski Python hesabına düşer (sıfır riskli geçiş)."""
     try:
         sb = get_client()
+        # Satırın geçerli aralığı (aylık Ref: ayın 1–28'i, yıllık: yılın tamamı, havuz: fatura günü)
+        # seçilen dönemle KESİŞİYORSA dahil — yedek Python hesabıyla (get_tum_ref_tutarlari) aynı kural.
+        # Eski görünümde bu sütunlar yoksa sorgu hata verir → None → yedek hesap (rakam değişmez).
         rows = (sb.table("v_destek_donem").select("*")
-                .gte("donem", str(baslangic)[:10])
-                .lte("donem", str(bitis)[:10])
+                .lte("donem_bas", str(bitis)[:10])
+                .gte("donem_bit", str(baslangic)[:10])
                 .limit(20000).execute().data)
         return rows if rows is not None else []
     except Exception:
