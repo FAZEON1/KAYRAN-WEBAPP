@@ -120,9 +120,9 @@ KRITIK_FONKSIYONLAR = {
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
-        "kategori_oner",                          # Müşteri Satışları kategori tahmini buna dayanır
+        "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
     ],
-    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
+    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu

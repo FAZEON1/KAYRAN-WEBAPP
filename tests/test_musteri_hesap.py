@@ -177,3 +177,77 @@ def test_kategori_kirilimi_onekli_skuyu_dogru_gruba_koyar():
     rows = [_r("Fazeon X24F165S", satis=4), _r("X24F165S", satis=6), _r("K100", satis=1)]
     g = {x["anahtar"]: x["satis"] for x in grupla(rows, "kategori", _mh(rows))}
     assert g == {"Monitör": 10, "Kasa": 1}
+
+
+# ═══════════════════════════════════════════════════════════
+#  Markasız (Ekim 2026, 2. tur) — pazaryeri kodu SKU olarak geliyor
+#  Hepsiburada raporunda SKU 'HBCV0000G0F6K6', model kodu yalnız ADDA:
+#  'Fazeon 23.8' X24F180 …'. Kart SKU'su da adı da tutmadığı için ürün
+#  'Markasız' + 'Kategorisiz' kalıyordu (ekranda 278 adet).
+# ═══════════════════════════════════════════════════════════
+
+KARTLAR2 = {
+    "X24F180":  {"marka": "FAZEON", "kategori": "monitör", "urun_adi": "FAZEON X24F180 23.8 MONİTÖR"},
+    "X27F300S": {"marka": "Fazeon", "kategori": "Monitör", "urun_adi": "Fazeon X27F300 Siyah"},
+    "X27F300B": {"marka": "Fazeon", "kategori": "Monitör", "urun_adi": "Fazeon X27F300 Beyaz"},
+    "X32F240S": {"marka": "", "kategori": "", "urun_adi": "X32F240S"},
+    "AB12345":  {"marka": "Mio", "kategori": "Araç Kamerası", "urun_adi": "Mio A"},
+    "AB12399":  {"marka": "NZXT", "kategori": "Kasa", "urun_adi": "NZXT B"},
+}
+
+
+def _mh2(rows):
+    from shared.utils import sku_anahtar
+    from kayranpm.database import kategori_oner, marka_oner, KATEGORI_LISTE, MARKA_KURALLAR
+    from kayranpm.musteri_hesap import meta_hazirla
+    return meta_hazirla(rows, KARTLAR2, sku_fn=sku_anahtar, oner=kategori_oner, kategori_liste=KATEGORI_LISTE,
+                        marka_oner=marka_oner, marka_liste=[m for m, _ in MARKA_KURALLAR])
+
+
+def test_pazaryeri_kodu_adindaki_model_koduyla_eslesir():
+    m = _mh2([_r("HBCV0000G0F6K6", "Fazeon 23.8' X24F180 FHD 180Hz Monitör")])["HBCV0000G0F6K6"]
+    assert m["kart_sku"] == "X24F180" and m["marka"] == "FAZEON" and m["kategori"] == "Monitör"
+    assert m["marka_kaynak"] == "kart"
+
+
+def test_adda_renk_eki_olmayan_model_tek_markaya_cikiyorsa_eslesir():
+    """'X27F300' → X27F300S ve X27F300B; ikisi de Fazeon/Monitör → belirsizlik zararsız."""
+    m = _mh2([_r("HBCV00007TAN7S", "FAZEON X27F300 27 inç")])["HBCV00007TAN7S"]
+    assert m["marka"] == "FAZEON" and m["kategori"] == "Monitör"
+
+
+def test_onek_adaylari_farkli_markaya_cikiyorsa_eslesmez():
+    """'AB123' iki farklı markalı karta uyuyor → tahmine düşer, yanlış karta bağlanmaz."""
+    m = _mh2([_r("HB1", "Ürün AB123 xx")])["HB1"]
+    assert m["kart_sku"] == "" and m["marka"] != "Mio" and m["marka"] != "NZXT"
+
+
+def test_kartta_marka_bossa_addan_tahmin():
+    m = _mh2([_r("HBCV0000EIYXVR", "Fazeon X32F240S 32 inç")])["HBCV0000EIYXVR"]
+    assert m["kart_sku"] == "X32F240S"
+    assert m["marka"] == "FAZEON" and m["marka_kaynak"] == "tahmin"
+
+
+def test_kart_yoksa_marka_addan_tahmin():
+    m = _mh2([_r("HB-YOK", "INNO3D GeForce RTX 4060")])["HB-YOK"]
+    assert m["marka"] == "INNO3D" and m["marka_kaynak"] == "tahmin" and m["kategori"] == "Ekran Kartı"
+
+
+def test_marka_yazimlari_tek_satirda_birlesir():
+    from kayranpm.musteri_hesap import grupla, marka_etiketi
+    assert marka_etiketi("fazeon", ["FAZEON", "Mio"]) == "FAZEON"
+    assert marka_etiketi("MIO", ["FAZEON", "Mio"]) == "Mio"
+    assert marka_etiketi("kaspersky") == "KASPERSKY"
+    rows = [_r("X27F300S", satis=2), _r("X24F180", satis=3)]
+    g = grupla(rows, "marka", _mh2(rows))
+    assert [(x["anahtar"], x["satis"]) for x in g] == [("FAZEON", 5)]
+
+
+def test_urun_gorunumu_kaldirildi_detay_duruyor():
+    """'Ürün' seçeneği kalktı; marka/kategori detayında ürün listesi sürüyor."""
+    import pathlib, re
+    s = (pathlib.Path(__file__).resolve().parent.parent / "kayranpm" / "musteri_ekran.py").read_text(encoding="utf-8")
+    gor = re.search(r"^GORUNUM = (\{.*\})$", s, re.M).group(1)
+    assert "Ürün" not in gor and "Marka" in gor and "Kategori" in gor
+    from kayranpm.musteri_hesap import ALT
+    assert ALT["marka"] == "urun" and ALT["kategori"] == "urun"
