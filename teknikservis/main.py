@@ -2092,11 +2092,11 @@ def run():
         _git = st.session_state.pop("_ts_git", None)
         if _git:
             st.session_state["ts_sayfa"] = _git
+        from shared.gezinme import secenekler
         from shared.tasarim import menu_etiketi as _me
         sayfa = st.radio(
             "Sayfa",
-            ["📥  Mal Kabül", "📋  Evraksız Ürün Kayıt", "🔧  Teknik Servis", "↩️  İade",
-             "🚚  İrsaliye", "📦  Depolar"],
+            secenekler("teknikservis"),
             label_visibility="collapsed", key="ts_sayfa",
             format_func=_me,
         )

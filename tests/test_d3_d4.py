@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """D3 (renk/ikon/grafik) + D4 (tablolar) — geri alınmasınlar diye."""
-import ast
 import re
 import sys
 from pathlib import Path
@@ -102,36 +101,16 @@ def test_sidebar_menuleri_ikon_dili_kullanir():
         assert "format_func=_me" in src and "menu_etiketi as _me" in src, p
 
 
-def _menu_secenekleri(src):
-    """Dosyadaki sidebar sayfa listelerinin seçenek metinleri."""
-    agac = ast.parse(src)
-    listeler = []
-    for n in ast.walk(agac):
-        if (isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "radio"
-                and n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value == "Sayfa"
-                and len(n.args) > 1 and isinstance(n.args[1], ast.List)):
-            listeler.append(n.args[1])
-        hedef = getattr(n, "targets", None) or ([n.target] if isinstance(n, ast.AugAssign) else [])
-        if any(getattr(t, "id", "") in ("tum_sayfalar", "_sayfalar") for t in hedef) \
-                and isinstance(n.value, ast.List):
-            listeler.append(n.value)
-        if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "append" \
-                and getattr(n.func.value, "id", "") == "_sayfalar":
-            listeler.append(ast.List(elts=n.args))
-    return [e.value for l in listeler for e in l.elts
-            if isinstance(e, ast.Constant) and isinstance(e.value, str)]
-
-
 def test_tum_menu_emojileri_ikona_donusur():
     """Menülerdeki her seçeneğin emojisi EMOJI_IKON'da olmalı; yoksa ikon
     yerine çıplak metin görünür ve menü karışık durur."""
+    # Ekim 2026: menü listeleri modül dosyalarından shared/gezinme.py kayıt defterine taşındı.
+    from shared.gezinme import MODULLER, secenekler as _sec
     toplam = 0
-    for p in MENU_DOSYALARI:
-        secenekler = _menu_secenekleri(_oku(p))
-        assert secenekler, f"{p}: sayfa listesi bulunamadı"
-        for sec in secenekler:
-            assert menu_etiketi(sec).startswith(":material/"), (p, sec)
-        toplam += len(secenekler)
+    for m in MODULLER:
+        for sec in _sec(m["kod"]):
+            assert menu_etiketi(sec).startswith(":material/"), (m["kod"], sec)
+            toplam += 1
     assert toplam >= 40
     assert menu_etiketi("↩️  İade") == ":material/undo: İade"
     assert menu_etiketi("⭐ Bilinmeyen") == "Bilinmeyen"

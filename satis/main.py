@@ -573,10 +573,8 @@ def run():
         # KÂR GİZLEME: Kâr/P&L sayfası tamamen kâr odaklı olduğundan yetkisiz
         # kullanıcıya sekme olarak da gösterilmez (maskelenmiş boş sayfa yerine).
         from shared.kar_gizle import kar_gorunur as _kar_ok
-        _sayfalar = ["🧾 Satış Girişi", "📋 Satışlar"]
-        if _kar_ok():
-            _sayfalar.append("📊 Kâr / P&L")
-        _sayfalar += ["📥 İçe Aktar", "↩️ İade"]
+        from shared.gezinme import secenekler
+        _sayfalar = [s for s in secenekler("satis") if s != "📊 Kâr / P&L" or _kar_ok()]
         from shared.tasarim import menu_etiketi as _me
         _ssayfa = st.radio("Sayfa", _sayfalar, format_func=_me,
                            label_visibility="collapsed", key="satis_sayfa")
