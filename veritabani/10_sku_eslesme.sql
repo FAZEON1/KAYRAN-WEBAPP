@@ -16,4 +16,8 @@ CREATE TABLE IF NOT EXISTS sku_eslesme (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE sku_eslesme DISABLE ROW LEVEL SECURITY;
+-- Erişim: urunler / firma_stok ile aynı kural. Supabase SQL Editor RLS'yi açık bırakabiliyor;
+-- kural yoksa uygulama tabloyu okuyamaz/yazamaz (3 Ekim'de canlıda böyle kuruldu, kural eklendi).
+ALTER TABLE sku_eslesme ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_sku_eslesme ON sku_eslesme;
+CREATE POLICY allow_all_sku_eslesme ON sku_eslesme FOR ALL TO public USING (true) WITH CHECK (true);

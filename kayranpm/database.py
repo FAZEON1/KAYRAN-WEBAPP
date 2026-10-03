@@ -519,7 +519,10 @@ def get_urun_marka_kategori():
 # veritabani/10_sku_eslesme.sql. Program bu tabloya tahminle yazmaz; yalnız kullanıcı onayı.
 SKU_ESLESME_SQL = ("create table if not exists sku_eslesme (dis_kod text primary key, "
                    "kart_sku text not null, onaylayan text, created_at timestamptz not null default now());\n"
-                   "alter table sku_eslesme disable row level security;")
+                   "alter table sku_eslesme enable row level security;\n"
+                   "drop policy if exists allow_all_sku_eslesme on sku_eslesme;\n"
+                   "create policy allow_all_sku_eslesme on sku_eslesme for all to public "
+                   "using (true) with check (true);")
 
 
 @st.cache_data(ttl=300, show_spinner=False)

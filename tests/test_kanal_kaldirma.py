@@ -126,6 +126,47 @@ def test_modul_tazele(tmp_path):
     assert proje_modullerini_sil(mods, kok) == ["shared.ana_veri"] and set(mods) == {"pandas", "__main__"}
 
 
+def _proje_dosyasindan_hata(tmp_path, govde):
+    """tmp_path/kayranpm/ekran.py içinde 'govde'yi çalıştırıp çıkan hatayı döndürür."""
+    import importlib.util
+    (tmp_path / "kayranpm").mkdir(exist_ok=True)
+    p = tmp_path / "kayranpm" / "ekran.py"
+    p.write_text("def f(a):\n    return a\n\ndef calis(mod):\n    " + govde + "\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("kayranpm_ekran_test", p)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    hesap = __import__("types").ModuleType("kayranpm.musteri_hesap")
+    hesap.__file__ = str(tmp_path / "kayranpm" / "musteri_hesap.py")
+    try:
+        m.calis(hesap)
+    except Exception as e:  # noqa: BLE001
+        return e
+    raise AssertionError("hata çıkmadı")
+
+
+def test_modul_tazele_bayat_imza_ve_ad(tmp_path):
+    """Yeni ekran, bellekte eski kalan fonksiyonu yeni parametreyle çağırırsa TypeError çıkar
+    (3 Ekim Müşteri Satışları hatasının muhtemel sebebi); koruma yalnız ImportError'a bakıyordu."""
+    from shared.modul_tazele import tazelenmeli
+    kok = str(tmp_path)
+    assert tazelenmeli(_proje_dosyasindan_hata(tmp_path, "return f(1, eslesme={})"), kok) is True
+    assert tazelenmeli(_proje_dosyasindan_hata(tmp_path, "return f()"), kok) is True
+    assert tazelenmeli(_proje_dosyasindan_hata(tmp_path, "return mod.meta_hazirla"), kok) is True
+
+
+def test_modul_tazele_gercek_hatada_tazelemez(tmp_path):
+    from shared.modul_tazele import tazelenmeli
+    kok = str(tmp_path)
+    assert tazelenmeli(_proje_dosyasindan_hata(tmp_path, "return 'a' + 1"), kok) is False      # tür hatası, imza değil
+    assert tazelenmeli(_proje_dosyasindan_hata(tmp_path, "return None.x"), kok) is False      # modül değil
+    try:
+        int(x=1)                                                                               # proje dışı çağrı
+    except TypeError as e:
+        assert tazelenmeli(e, kok) is False
+    import pandas
+    assert tazelenmeli(AttributeError("x", name="yok", obj=pandas), kok) is False             # proje dışı modül
+
+
 def test_app_hata_kartindan_once_tazeler():
     import pathlib
     a = (pathlib.Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
