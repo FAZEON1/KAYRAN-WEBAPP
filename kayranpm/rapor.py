@@ -8,6 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.units import cm
 from datetime import datetime
+from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek kaynak (Eki 2026)
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
 from shared.utils import tr_today, tr_now, tr_today_iso, pdf_turkce_font, pdf_stilleri_turkcele
@@ -70,8 +71,8 @@ def excel_rapor_olustur(kayit_yolu):
                 degerler = [
                     urun["sku"],
                     urun["urun_adi"],
-                    urun["kategori"],
-                    urun["marka"],
+                    _kat_ad(urun["kategori"]),          # tek yazım (shared.ana_veri)
+                    _marka_ad(urun["marka"]),
                     urun["bizim_stok"],
                     urun["trendyol_stok"],
                     urun["stok_gun"],

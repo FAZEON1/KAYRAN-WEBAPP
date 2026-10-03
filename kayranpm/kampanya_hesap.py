@@ -23,6 +23,8 @@ açılınca paçal sessizce güncelleniyordu: bakmak kaydı değiştiriyordu).
 """
 from datetime import date
 
+from shared.ana_veri import kategori_anahtar   # tek kaynak (Eki 2026)
+
 KAMPANYA_TURLERI = ["Sellout", "Rebate", "Marketing", "Spiff"]
 FIRMALAR = ["ITOPYA", "HB", "VATAN", "MONDAY", "KANAL", "DİĞER"]
 
@@ -137,7 +139,7 @@ def filtrele(kampanyalar, bugun, durum_sec="tumu", firma="Tümü", kategori="Tü
                 continue
             if firma != "DİĞER" and f != firma:
                 continue
-        if kategori != "Tümü" and tr_kucuk(k.get("kategori")) != kategori:
+        if kategori != "Tümü" and kategori_anahtar(k.get("kategori")) != kategori_anahtar(kategori):
             continue
         if yil != "Tümü" and str(k.get("baslangic_tarihi") or "")[:4] != str(yil):
             continue

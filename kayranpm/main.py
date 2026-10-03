@@ -992,15 +992,18 @@ def run():
                 _tum_u = []
                 st.error("Ürün listesi alınamadı: {}".format(str(_e_m)[:120]))
             _satirlar = []
-            _kat_norm = {str(k).strip().lower() for k in _yurtici_kat}
+            # Anahtar karşılaştırması (shared.ana_veri): ayarda 'anti virüs', kartta 'Anti Virüs'
+            # ya da 'ANTİ VİRÜS' yazsa da eşleşir. Eskiden .lower() 'İ'yi 'i̇' yapıyordu.
+            from shared.ana_veri import kategori_anahtar as _kanh, kategori_ad as _kad
+            _kat_norm = {_kanh(k) for k in _yurtici_kat}
             for _u3 in _tum_u:
                 _sk = _u3.get("sku", "")
-                if str(_u3.get("kategori", "") or "").strip().lower() not in _kat_norm:
+                if _kanh(_u3.get("kategori")) not in _kat_norm:
                     continue                       # yurt içi kategorisinde değil
                 _satirlar.append({
                     "SKU": _sk,
                     "Ürün": _u3.get("urun_adi", "") or "",
-                    "Kategori": _u3.get("kategori", "") or "",
+                    "Kategori": _kad(_u3.get("kategori")),            # tek yazım
                     "Maliyet ($)": float(_u3.get("alis_fiyati", 0) or 0),
                 })
             _satirlar.sort(key=lambda r: (r["Maliyet ($)"] > 0, r["Kategori"], r["SKU"]))
@@ -1008,10 +1011,9 @@ def run():
             with st.expander("⚙️ Hangi kategoriler yurt içi? ({} seçili)".format(len(_yurtici_kat))):
                 st.caption("Yeni bir yurt içi ürün grubu aldığında buraya ekle — "
                            "kodu değiştirmeye gerek yok.")
-                _tum_kat = sorted({str(u.get("kategori", "") or "").strip()
-                                   for u in _tum_u if str(u.get("kategori", "") or "").strip()})
+                _tum_kat = sorted({_kad(u.get("kategori")) for u in _tum_u} - {""}, key=lambda x: x.lower())
                 _sec_kat = st.multiselect("Yurt içi kategoriler", _tum_kat,
-                                          default=[k for k in _yurtici_kat if k in _tum_kat],
+                                          default=[k for k in _tum_kat if _kanh(k) in _kat_norm],
                                           key="mal_kat_sec")
                 if st.button("Kategori seçimini kaydet", key="mal_kat_kaydet", icon=":material/save:"):
                     if _syk(_sec_kat):

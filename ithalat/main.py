@@ -866,6 +866,7 @@ def _gecmis_ithalatlar():
         # yüzdesini alır; dosya ortalaması artık her satıra uygulanmıyor.
         _ymap = kategori_yuzde_map(d, kal)
         _ind_oran = (h.get("indirim", 0.0) / h["mal_bedeli"]) if h.get("mal_bedeli", 0) > 0 else 0.0
+        from shared.ana_veri import kategori_ad as _kat_ad
         krows = []
         for k in kal:
             y = kalem_yuzde(_ymap, k) / 100
@@ -881,7 +882,7 @@ def _gecmis_ithalatlar():
                 "Dağıtılan Masraf": st_tutar * y,
                 "Final Birim Maliyet": bf * (1 + y),
                 "% Maliyet": y * 100,
-                "Kategori": (k.get("urun_grubu", "") or ""),
+                "Kategori": _kat_ad(k.get("urun_grubu", "") or ""),     # tek yazım (shared.ana_veri)
             })
         if _ind_oran > 0:
             st.caption(f"Fatura altı indirim (%{tr_sayi(_ind_oran*100, 2)}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
@@ -1218,10 +1219,15 @@ def _gecmis_ithalatlar():
                            "Boş bırakılan satırlar yok sayılır.")
                 _manuel_yeni = []
                 _mver = st.session_state.setdefault(f"ith_edit_mver_{did}", 0)
-                _kat_havuz = get_kategoriler()
+                # Seçenekler TEK havuzdan (shared.ana_veri): kural listesi + stok kartları + ithalat.
+                # Eskiden yalnız eski ithalat kalemlerinden geliyordu → hiç ithal edilmemiş
+                # kategori (ör. Ekran Kartı) seçilemiyordu. Kayıt İthalat'ın kendi yazımıyla.
+                from shared.ana_veri import get_kategori_havuzu, kayit_degeri, tr_buyuk_harf
+                _kat_havuz = get_kategori_havuzu()
+                # Önce BU dosyanın yazımları: masraf grubu dosya içinde birebir eşleşir; geçmişte
+                # 'MONİTÖR' ve 'MONITÖR' ikisi de varsa dosyadaki hangisiyse o seçilmeli.
+                _ith_kat_yazim = [str(_k.get("urun_grubu") or "") for _k in (kal or [])] + get_kategoriler()
                 _YENI_KAT = "➕ Yeni kategori…"
-                if _kat_havuz:
-                    st.caption("Mevcut kategoriler: " + " · ".join(f"`{_k}`" for _k in _kat_havuz))
                 for _mi in range(2):
                     _mc1, _mc2, _mc3, _mc6, _mc4, _mc5 = st.columns([1.1, 1.7, 1, 1.3, 0.7, 0.9])
                     _msku = _mc1.text_input("Manuel SKU", key=f"ith_edit_msku_{did}_{_mi}_{_mver}",
@@ -1245,7 +1251,10 @@ def _gecmis_ithalatlar():
                     if _mkat_sec == _YENI_KAT:
                         _mkat = _mc6.text_input(
                             "Yeni kategori adı", key=f"ith_edit_mkatyeni_{did}_{_mi}_{_mver}",
-                            placeholder="örn. SOĞUTUCU", label_visibility="collapsed").strip().upper()
+                            placeholder="örn. SOĞUTUCU", label_visibility="collapsed").strip()
+                    # Masraf dağıtımı adın BİREBİR eşleşmesine dayanır: ithalatta aynı kategori
+                    # başka yazımla varsa AYNEN o yazılır (grup bölünmez); yoksa TR büyük harf.
+                    _mkat = kayit_degeri(_mkat, _ith_kat_yazim, tr_buyuk_harf)
                     if _msku.strip() and _madet > 0:
                         _manuel_yeni.append({"sku": _msku.strip(), "urun_adi": _mad.strip(),
                                              "barkod": _mbk.strip(), "adet": float(_madet),
@@ -1441,7 +1450,10 @@ def _yeni_ithalat():
                     st.session_state[f"m_uad_{i}_{_fv}"] = katalog.get(_sv, "")
                     st.session_state[f"m_bk_{i}_{_fv}"] = _barkod_map.get(_sv, "")
 
-            _kat_havuz = get_kategoriler()
+            # Seçenekler TEK havuzdan (shared.ana_veri) — bkz. düzenleme formu.
+            from shared.ana_veri import get_kategori_havuzu, kayit_degeri, tr_buyuk_harf
+            _kat_havuz = get_kategori_havuzu()
+            _ith_kat_yazim = get_kategoriler()
             _YENI_KAT = "➕ Yeni…"
             _kat_secenek = ["(yok)"] + _kat_havuz + [_YENI_KAT]
 
@@ -1474,7 +1486,8 @@ def _yeni_ithalat():
                 if _katsec == _YENI_KAT:
                     _kat = _c_kat.text_input("katyeni", key=f"m_katyeni_{i}_{_fv}",
                                              label_visibility="collapsed",
-                                             placeholder="yeni kategori").strip().upper()
+                                             placeholder="yeni kategori").strip()
+                _kat = kayit_degeri(_kat, _ith_kat_yazim, tr_buyuk_harf)   # ithalatın kayıt yazımı
                 _adet = _c_adet.number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
                                              min_value=0, step=1, value=0)
                 _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",

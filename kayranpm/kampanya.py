@@ -23,6 +23,7 @@ import streamlit as st
 from shared.tasarim import (baslik, css_tek_satir, kpi_serit, mesaj, bos_durum,
                             rv, sayi, tr_sayi)
 from shared.utils import firma_gorunen_ad, tr_kucuk, tr_today
+from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh   # tek kaynak (Eki 2026)
 from shared import bilesen as B
 from . import kampanya_hesap as H
 from .analitik import tum_urunler_listesi
@@ -141,7 +142,7 @@ def _css():
 # ════════════════════════════════════════════════════════════════════
 def _kart_html(k, o):
     ad_d, renk, _ = H.DURUMLAR[o["durum"]]
-    meta = " · ".join(x for x in (_firma_ad(k.get("firma")), (k.get("kategori") or "").strip().capitalize(),
+    meta = " · ".join(x for x in (_firma_ad(k.get("firma")), _kat_ad(k.get("kategori")),
                                    (k.get("kampanya_turu") or "").strip()) if x)
     if o["adet"] > 0:
         net_sinif = "poz" if o["net"] >= 0 else "neg"
@@ -175,8 +176,12 @@ def render():
     st.markdown(_css(), unsafe_allow_html=True)
     bugun = tr_today()
     kamps, ku_map, pacal, urunler = _veri()
-    _katlar = sorted({tr_kucuk(u.get("kategori")) for u in urunler if tr_kucuk(u.get("kategori"))}
-                     | {tr_kucuk(k.get("kategori")) for k in kamps if tr_kucuk(k.get("kategori"))})
+    # Kayıt değeri (küçük harf) aynı kalır; seçenekler anahtara göre TEKİL, ekranda tek yazım.
+    _kv = {}
+    for _v in [u.get("kategori") for u in urunler] + [k.get("kategori") for k in kamps]:
+        if tr_kucuk(_v):
+            _kv.setdefault(_kat_anh(_v), tr_kucuk(_v))
+    _katlar = sorted(_kv.values(), key=lambda x: _kat_ad(x).lower())
     # Başlık + iki ana eylem aynı satırda
     h1, h2, h3 = st.columns([5.2, 1.25, 1.55], vertical_alignment="center")
     h1.markdown(baslik("🎯 Ürün Yönetimi", "Kampanya Takip",
@@ -229,7 +234,7 @@ def render():
         {"etiket": "Müşteri", "secenekler": H.FIRMALAR, "key": "kmp_f_firma",
          "format_func": lambda f: f if f in ("Tümü", "DİĞER") else _firma_ad(f)},
         {"etiket": "Kategori", "secenekler": _katlar, "key": "kmp_f_kat",
-         "format_func": lambda x: x if x == "Tümü" else x.capitalize()},
+         "format_func": lambda x: x if x == "Tümü" else _kat_ad(x)},
         {"etiket": "Yıl", "secenekler": _yillar, "key": "kmp_f_yil"}])
     f_firma, f_kat, f_yil = _f["kmp_f_firma"], _f["kmp_f_kat"], _f["kmp_f_yil"]
 
@@ -297,7 +302,7 @@ def _detay_dialog(kid):
     cipler = "".join(B.cip(t, r) for t, r in (
         (_firma_ad(kamp.get("firma")), "mor2"),
         ((kamp.get("kampanya_turu") or "").strip(), "cyan"),
-        ((kamp.get("kategori") or "").strip().capitalize(), "pembe")) if t)
+        (_kat_ad(kamp.get("kategori")), "pembe")) if t)
     st.markdown(_css() + (
         f'<div class="kmp-dt" style="--d:{rv(renk)}">'
         f'<div class="kmp-dt-ust"><span class="kmp-ad">{_h.escape(str(kamp.get("kampanya_adi") or ""))}</span>'
@@ -535,7 +540,7 @@ def _yeni_dialog(katlar):
         firma = a1.selectbox("Firma", H.FIRMALAR, index=None, placeholder="Seç…", format_func=_firma_ad)
         tur = a2.selectbox("Tür", H.KAMPANYA_TURLERI, index=None, placeholder="Seç (isteğe bağlı)")
         kat = a3.selectbox("Kategori", katlar, index=None, placeholder="Genel / karışık",
-                           format_func=lambda x: x.capitalize())
+                           format_func=_kat_ad)
         b1, b2 = st.columns(2)
         bas = b1.date_input("Başlangıç", value=tr_today(), format="DD.MM.YYYY")
         bit = b2.date_input("Bitiş", value=tr_today(), format="DD.MM.YYYY")
@@ -590,8 +595,8 @@ def _excel_dialog(urun_data_k, _kt_kat_list):
         _cariler = [c for c in (_get_cariler() or []) if str(c).strip()]
     except Exception:
         _cariler = []
-    _markalar = sorted({(u.get("marka") or "").strip() for u in urun_data_k
-                        if (u.get("marka") or "").strip()})
+    from shared.ana_veri import marka_ad as _marka_ad
+    _markalar = sorted({_marka_ad(u.get("marka")) for u in urun_data_k} - {""}, key=str.upper)   # tekil, tek yazım
     _turler = [t for t in KAMPANYA_TURLERI if not str(t).startswith("(")]
     _katlar = list(_kt_kat_list)
     try:

@@ -137,15 +137,20 @@ def kapsama_dagilimi(rows):
 
 
 def kategori_ozeti(rows):
-    gr = {}
+    """Kategori anahtarıyla gruplar (MONİTÖR = Monitör = monitör), tek yazımla gösterir
+    (shared.ana_veri). Boş kategori 'Kategorisiz'."""
+    from shared.ana_veri import kategori_anahtar, kategori_ad
+    gr, ad = {}, {}
     for r in rows:
-        gr.setdefault(_kucuk(r.get("kategori")), []).append(r)
+        a = kategori_anahtar(r.get("kategori"))
+        gr.setdefault(a, []).append(r)
+        ad.setdefault(a, kategori_ad(r.get("kategori")) or "Kategorisiz")
     out = []
     for k, rs in gr.items():
         satis = sum(_f(r.get("toplam_haftalik_satis")) for r in rs)
         stok = sum(_f(r.get("toplam_stok")) for r in rs)
         zincir = sum(_f(r.get("zincir_stok", r.get("toplam_stok"))) for r in rs)   # kapsama kanal dahil
-        out.append({"Kategori": _tr_bas(k), "Ürün": len(rs), "Stok": int(stok), "Adet / hafta": int(satis),   # "Haftalık satış" para sayılırdı
+        out.append({"Kategori": ad[k], "Ürün": len(rs), "Stok": int(stok), "Adet / hafta": int(satis),   # "Haftalık satış" para sayılırdı
                     "Kapsama (hft)": round(zincir / satis, 1) if satis else None,
                     "Acil": sum(1 for r in rs if _acil(r)),
                     "Ölü / yavaş": sum(1 for r in rs if r.get("olu_stok_durum") in ("olu", "yavas"))})
