@@ -71,6 +71,7 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
         try:
             pacal = kaynak.pacal() or {}
             ft = fk = 0.0
+            fa = 0
             for ir in kaynak.iadeler(bas, bit) or []:
                 kn = (ir.get("kanal") or "").strip()
                 sku = str(ir.get("sku") or "").strip()
@@ -81,10 +82,14 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
                 net = float(ir.get("iade_net") or 0)
                 adet = int(ir.get("iade_adet") or 0)
                 ft += net
+                fa += adet
                 fk += net - adet * pacal.get(sku.upper(), pacal.get(sku, 0.0))
             itop["i_tutar"], itop["i_kar"] = ft, fk
+            # Net adet de süzgece göre (eskiden süzgeçsiz toplam kalıyordu: firma seçilse de 7.061)
+            itop["i_adet"], itop["net_adet"] = fa, int(top.get("adet") or 0) - fa
         except Exception as e:  # noqa: BLE001
             itop["i_tutar"] = itop["i_kar"] = 0.0
+            itop["i_adet"], itop["net_adet"] = 0, int(top.get("adet") or 0)
             eksik.append(f"Süzgeçli iadeler okunamadı ({type(e).__name__}) — iadeler düşmüyor")
 
     # ── Kategori desteği (kategori süzgeci + firma "Tümü") ──

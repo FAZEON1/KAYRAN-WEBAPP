@@ -23,7 +23,7 @@ SAT = [
 class Sahte:
     def __init__(self, **kw):
         self.v = dict(satislar=SAT, katmap={"K1": "KASA", "F1": "FAN"},
-                      iade_ozet=([{"sku": "K1"}], {"i_tutar": 50.0, "i_kar": 20.0}),
+                      iade_ozet=([{"sku": "K1"}], {"i_tutar": 50.0, "i_kar": 20.0, "i_adet": 1, "net_adet": 29}),
                       iade_kanal={}, iadeler=[{"kanal": "VATAN", "sku": "K1", "iade_net": 50, "iade_adet": 1}],
                       pacal={"K1": 30.0}, ref=[], alinan=0.0, alinan_kirilim=({}, {}, 0.0),
                       ref_kirilim={"kategori": {}, "dagitilmayan": []}, kmap={}, yedek=40.0)
@@ -144,3 +144,14 @@ def test_sayfa_tek_hesabi_kullanir():
     i = src.index("# ── Üst şerit: yalnız 4 ana gösterge ──")
     g = src[i:i + 1600]
     assert '"onceki"' in g and '"simdi"' in g
+
+
+# ── Net adet süzgece uyar (eskiden süzgeçsiz toplamı gösteriyordu) ──
+def test_net_adet_firma_suzgecinde():
+    assert _p(kanal="EERA")["itop"]["net_adet"] == 20            # EERA: 20 adet, iadesi yok
+    r = _p(kanal="VATAN")
+    assert r["itop"]["i_adet"] == 1 and r["itop"]["net_adet"] == 10 - 1
+
+
+def test_net_adet_kategori_suzgecinde():
+    assert _p(kat="FAN")["itop"]["net_adet"] == 20
