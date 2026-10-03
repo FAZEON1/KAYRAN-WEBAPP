@@ -707,14 +707,15 @@ def run():
                 metrik_satiri(_stok_cards)
 
                 # G5F depo kırılımı (tüm depolar) — bizim deponun depo bazlı dağılımı + genel toplam
-                _dk = secilen.get("depo_kirilim") or {}
-                if isinstance(_dk, dict) and _dk:
-                    _dk_toplam = sum(int(v or 0) for v in _dk.values())
+                # depo_dagilimi: aynı depo tek rozet (MERKEZ = MERKEZ DEPO), "3.0" gibi değer çökertmez
+                from .database import depo_dagilimi as _depo_dagilimi
+                _dk_satir, _dk_toplam = _depo_dagilimi(secilen.get("depo_kirilim"))
+                if _dk_satir:
                     _chips = "".join(
                         f'<span style="display:inline-flex;gap:8px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
                         f'border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);border-radius:8px;padding:4px 12px;font-size:13px;color:var(--k-mavi)">'
-                        f'{_d} <b style="color:var(--k-mavi);font-family:monospace">{tr_sayi(int(_v or 0))}</b></span>'
-                        for _d, _v in sorted(_dk.items(), key=lambda x: -int(x[1] or 0)))
+                        f'{_d} <b style="color:var(--k-mavi);font-family:monospace">{tr_sayi(_v)}</b></span>'
+                        for _d, _v in _dk_satir)
                     st.markdown(
                         f'<div style="margin:0px 0 12px">'
                         f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'

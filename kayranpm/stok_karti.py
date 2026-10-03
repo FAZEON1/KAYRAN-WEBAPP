@@ -283,8 +283,9 @@ def goster(sku):
     # Canlı (perpetual) stok: başlangıç snapshot + teslim alınan ithalat − satışlar
     _cs = canli_stok(sku)
     # G5F bizim depo (kullanıcının yüklediği fiziksel depo sayımı) — depo kırılımı
-    _depo_kirilim = urun.get("depo_kirilim") if isinstance(urun.get("depo_kirilim"), dict) else {}
-    _g5f_toplam = sum(_f(v) for v in _depo_kirilim.values())
+    # depo_dagilimi: aynı deponun farklı yazımları tek satır, sıfır depolar yok (Tüm Ürünler ile aynı kaynak)
+    from .database import depo_dagilimi as _depo_dagilimi
+    _depo_satir, _g5f_toplam = _depo_dagilimi(urun.get("depo_kirilim"))
     _g5f_satilabilir = _f(urun.get("bizim_stok"))
     # Kanal (müşteri) stoğu: her kanalın GENEL son raporu (stok_hesap — liste ve
     # panoyla aynı kural). Bu ürünün son görüldüğü satır DEĞİL: kanalın son
@@ -373,7 +374,7 @@ def goster(sku):
                   if haftalik_gercek > 0 else "satış verisi yok")
 
         # Panel verileri
-        _dagilim_dolu = {d: _f(m) for d, m in (_depo_kirilim or {}).items() if _f(m) != 0}
+        _dagilim_dolu = dict(_depo_satir)                 # zaten kanonik, sıfırsız, adede göre sıralı
         _firma_son = {}
         for r in firma_stok_son:
             _fa = firma_gorunen_ad(r.get("firma", "")) or "—"
