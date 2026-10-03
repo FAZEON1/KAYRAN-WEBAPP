@@ -135,7 +135,7 @@ KRITIK_FONKSIYONLAR = {
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
     "shared.veri_surumu": ["tazelik_kontrol", "bagimlilari_temizle", "imza"],   # önbellek tazeliği (Eki 2026)
-    "shared.yukleme_gecmisi": ["Kayit", "kaydet", "geri_alma_engeli", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
+    "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu

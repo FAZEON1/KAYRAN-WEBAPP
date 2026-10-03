@@ -298,11 +298,12 @@ def _mal_kabul():
                         from shared.yukleme_gecmisi import Kayit as _YKayit
                         _yk_ts = _YKayit("toplu_mal_kabul", _tyk.name)
                         for _n, _g in enumerate(_gecerli, 1):
-                            _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
+                            with _yk_ts.stok():   # kayıt + stok hareketi bu yüklemeyle işaretlenir
+                                _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
+                                if _okk:
+                                    _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
                             if _okk:
                                 _ok_s += 1
-                                with _yk_ts.stok():          # stok hareketi bu yüklemeyle işaretlenir
-                                    _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
                             else:
                                 _hata_s.append(f"{_g['veri']['seri_no']}: {_msgk[:60]}")
                             _bar.progress(_n / len(_gecerli),

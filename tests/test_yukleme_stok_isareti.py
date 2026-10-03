@@ -104,7 +104,8 @@ def test_stok_degistiren_bes_yol_isaretli():
 
 def test_ithalat_guncelle_mevcut_durumu_korur():
     src = (KOK / "ithalat" / "main.py").read_text(encoding="utf-8")
-    i = src.index("ok, msg = guncelle_dosya(\n                            mevcut_kayit")
+    i = src.index("ok, msg = guncelle_dosya(")
+    i = src.index("ok, msg = guncelle_dosya(", i + 1) if "mevcut_kayit[\"id\"]" not in src[i:i + 200] else i
     cagri = src[i:i + 1200]
     for alan in ("durum=", "teslim_deposu=", "tahmini_varis=", "fatura_indirim="):
         assert alan in cagri and "mevcut_kayit.get" in cagri.split(alan, 1)[1][:80], alan

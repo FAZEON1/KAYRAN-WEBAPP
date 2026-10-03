@@ -664,6 +664,15 @@ def get_mevcut_satis_anahtarlari():
         return set()
 
 
+def _aktif_yukleme():
+    """Sürmekte olan Excel yüklemesinin kaydı (shared.yukleme_gecmisi.aktif) ya da None."""
+    try:
+        from shared.yukleme_gecmisi import aktif
+        return aktif()
+    except Exception:
+        return None
+
+
 def sil_siparisler(siparis_nolar):
     """Verilen sipariş numaralarına ait TÜM satış satırlarını siler (toplu)."""
     nolar = [s for s in {str(x).strip() for x in (siparis_nolar or [])} if s]
@@ -673,8 +682,17 @@ def sil_siparisler(siparis_nolar):
         cli = _get_client()
         B = 100
         _geri = {}
+        _yk = _aktif_yukleme()          # Excel yüklemesi içindeyse silinen satırlar geri alma için saklanır
         for i in range(0, len(nolar), B):
             _parca = nolar[i:i + B]
+            if _yk is not None:
+                try:
+                    _yk.onceki("satislar", _rows(cli.table("satislar").select("*")
+                                                 .in_("siparis_no", _parca).execute()))
+                    for _sno in _parca:
+                        _yk.anahtar(f"satislar:{_sno}")
+                except Exception:
+                    _yk.iptal("silinecek eski satışlar okunamadı")
             try:  # MODEL B: silinecek satırların stok karşılığını topla
                 for _r in _rows(cli.table("satislar").select("sku,adet")
                                 .in_("siparis_no", _parca).execute()):
@@ -830,17 +848,25 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     B = 200
     eklendi, hatali, ilk_hata = 0, 0, None
     _ins_rows = []   # MODEL B: gerçekten eklenen satırlar (stok düşümü için)
+    _yk = _aktif_yukleme()   # Excel yüklemesi içindeyse eklenen kimlikler geri alma için saklanır
+    if _yk is not None:
+        for _sno in sorted({str(r.get("siparis_no") or "").strip() for r in rows} - {""}):
+            _yk.anahtar(f"satislar:{_sno}")
     for i in range(0, len(rows), B):
         chunk = rows[i:i + B]
         try:
-            cli.table("satislar").insert(chunk).execute()
+            _res = cli.table("satislar").insert(chunk).execute()
+            if _yk is not None:
+                _yk.eklenen("satislar", getattr(_res, "data", None), beklenen=len(chunk))
             eklendi += len(chunk)
             _ins_rows.extend(chunk)
         except Exception:
             # Grup patladı → satır satır dene, sorunlu satırı izole et
             for row in chunk:
                 try:
-                    cli.table("satislar").insert(row).execute()
+                    _res = cli.table("satislar").insert(row).execute()
+                    if _yk is not None:
+                        _yk.eklenen("satislar", getattr(_res, "data", None), beklenen=1)
                     eklendi += 1
                     _ins_rows.append(row)
                 except Exception as e2:
@@ -1341,16 +1367,22 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
         if temizle_once and tarih:
             try:  # MODEL B: silinecek iadelerin stok karşılığını geri çek
                 try:
-                    _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet,depo")
+                    # '*': Excel yüklemesi içindeyse silinen satırlar TAM hâliyle geri alma için saklanır
+                    _eski_i = _rows(cli.table("iadeler").select("*")
                                     .eq("tarih", str(tarih)[:10]).execute())
+                    if _aktif_yukleme() is not None:
+                        _aktif_yukleme().onceki("iadeler", _eski_i)
                 except Exception:
+                    if _aktif_yukleme() is not None:
+                        _aktif_yukleme().iptal("silinecek eski iadeler tam okunamadı")
                     _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet")
                                     .eq("tarih", str(tarih)[:10]).execute())
                 _stok_uygula_depolu(
                     [(x.get("sku"), _i(x.get("iade_adet")), x.get("depo") or "MERKEZ DEPO")
                      for x in _eski_i], yon=-1)
             except Exception:
-                pass
+                if _aktif_yukleme() is not None:
+                    _aktif_yukleme().iptal("silinecek eski iadeler okunamadı")
             with cop_kutusu_kapali():
                 cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
         rows, atlandi = [], 0
@@ -1373,6 +1405,9 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                 "kaynak": "excel",
             })
         eklendi = 0
+        _yk = _aktif_yukleme()   # Excel yüklemesi içindeyse eklenen kimlikler geri alma için saklanır
+        if _yk is not None:
+            _yk.anahtar(f"iadeler:{str(tarih)[:10]}")
         _donemsiz = None  # donem kolonları DB'de yoksa: bir kez soyup tekrar dene
         for i in range(0, len(rows), 500):
             chunk = rows[i:i + 500]
@@ -1380,13 +1415,15 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
             if _donemsiz:
                 chunk = [{k: v for k, v in r.items() if k not in _soy} for r in chunk]
             try:
-                cli.table("iadeler").insert(chunk).execute()
+                _res = cli.table("iadeler").insert(chunk).execute()
             except Exception:
                 if _donemsiz:
                     raise
                 _donemsiz = True  # kolonlar yok → soyup yaz (davranış eskisi gibi)
                 chunk = [{k: v for k, v in r.items() if k not in _soy} for r in chunk]
-                cli.table("iadeler").insert(chunk).execute()
+                _res = cli.table("iadeler").insert(chunk).execute()
+            if _yk is not None:
+                _yk.eklenen("iadeler", getattr(_res, "data", None), beklenen=len(chunk))
             eklendi += len(chunk)
         # MODEL B: iade stoğa döner — her satır KENDİ deposuna
         _stok_uygula_depolu(

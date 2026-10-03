@@ -25,9 +25,10 @@ KOK = Path(__file__).resolve().parent.parent
 @pytest.fixture
 def yazilan(monkeypatch):
     out = []
-    monkeypatch.setattr(Y, "kaydet", lambda tur, n, dosya="", anahtarlar=(), degisiklik=None, kod="":
+    monkeypatch.setattr(Y, "kaydet", lambda tur, n, dosya="", anahtarlar=(), degisiklik=None, kod="",
+                        geri_alinabilir=None:
                         out.append({"tur": tur, "n": n, "dosya": dosya, "anahtarlar": list(anahtarlar),
-                                    "degisiklik": degisiklik, "kod": kod}) or 1)
+                                    "degisiklik": degisiklik, "kod": kod, "geri": geri_alinabilir}) or 1)
     return out
 
 
@@ -55,8 +56,8 @@ def test_iptal_ve_gecmis_turu_geri_alinamaz(yazilan):
     k.eklenen("happylife_stok", [{"id": 1}], beklenen=1)
     k.iptal("satır satır yazıldı")
     k.kaydet(1)
-    k2 = Y.Kayit("g5f_sayim")
-    k2.eklenen("urunler", [{"id": 1}])
+    k2 = Y.Kayit("ref_excel")                              # geçmiş türü: yalnız geçmişte görünür
+    k2.eklenen("ref_kayitlari", [{"id": 1}])
     k2.kaydet(1)
     assert yazilan[0]["degisiklik"] is None and yazilan[1]["degisiklik"] is None
 
@@ -130,9 +131,10 @@ def test_her_yukleme_turu_kodda_kullaniliyor():
 
 
 def test_sql_izin_listesi_ayni():
-    sql = (KOK / "veritabani" / "12_yuklemeler.sql").read_text(encoding="utf-8")
-    izin = re.search(r"IF t NOT IN \(([^)]+)\)", sql).group(1)
-    assert set(re.findall(r"'(\w+)'", izin)) == set(Y.GERI_ALINABILIR.values())
+    sql = (KOK / "veritabani" / "14_yukleme_satir_geri_al.sql").read_text(encoding="utf-8")
+    sil = re.search(r"sil_sira\s+text\[\] := ARRAY\[([^\]]+)\]", sql).group(1)
+    yaz = re.search(r"yaz_sira\s+text\[\] := ARRAY\[([^\]]+)\]", sql).group(1)
+    assert set(re.findall(r"'(\w+)'", sil)) == set(re.findall(r"'(\w+)'", yaz)) == set(Y.SATIR_TABLOLARI)
 
 
 def test_sayfa_baglantilari():

@@ -744,6 +744,35 @@ def _yaz_graceful(islem, payload):
     return islem(p)
 
 
+def _aktif_yukleme():
+    """Sürmekte olan Excel yüklemesinin kaydı (shared.yukleme_gecmisi.aktif) ya da None."""
+    try:
+        from shared.yukleme_gecmisi import aktif
+        return aktif()
+    except Exception:
+        return None
+
+
+def _yukleme_bildir(dosya_id, payload, eski_baslik=None, eski_kalemler=None):
+    """Excel satın alma raporu yüklemesi içindeyse dosyayı geri alınabilir olarak bildirir.
+    Yeni dosya: geri almada silinir (kalemleri zincirleme). Güncellenen dosya: başlığın ve
+    kalemlerin eski hâli geri yazılır. Dosyaya sonradan masraf girilir ya da durumu / kuru
+    değişirse geri alma engellenir (kontrol)."""
+    _yk = _aktif_yukleme()
+    if _yk is None:
+        return
+    try:
+        _yk.anahtar(f"ithalat:{dosya_id}")
+        _yk.eklenen("ithalat_dosyalari", [{"id": dosya_id}], beklenen=1)
+        if eski_baslik is not None:
+            _yk.onceki("ithalat_dosyalari", [eski_baslik])
+            _yk.onceki("ithalat_kalemleri", eski_kalemler or [])
+        _yk.kontrol("ithalat_dosyalari", dosya_id, durum=payload.get("durum", ""),
+                    masraflar=payload.get("masraflar") or {}, kur=payload.get("kur"))
+    except Exception:
+        _yk.iptal("ithalat dosyası bildirilemedi")
+
+
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
                grup_masraf_atama=None,
@@ -821,6 +850,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             _dosya_stok_uygula(dosya_id, +1,
                                kalem_agg=_dosya_kalem_agg(kalemler),
                                depo=teslim_deposu)
+        _yukleme_bildir(dosya_id, _payload)   # Excel yüklemesi içindeyse: geri alınabilir yeni dosya
         _temizle()
         return True, f"✅ '{dosya_no}' dosyası {len(rows)} kalem ile eklendi."
     except Exception as e:
@@ -911,6 +941,13 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             _payload["masraf_grup_dagilim"] = _temiz_dag
         # TELAFİ için eski kalemleri silmeden ÖNCE yedekle (yeni yazma başarısız olursa geri yüklenir)
         _eski_kalem = _rows(sb.table("ithalat_kalemleri").select("*").eq("dosya_id", dosya_id).execute())
+        _eski_baslik = None
+        if _aktif_yukleme() is not None:      # Excel yüklemesi: başlığın eski hâli de saklanır
+            try:
+                _eski_baslik = (_rows(sb.table("ithalat_dosyalari").select("*").eq("id", dosya_id).execute())
+                                or [None])[0]
+            except Exception:
+                _aktif_yukleme().iptal("dosyanın eski hâli okunamadı")
         _yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").update(p).eq("id", dosya_id).execute(), _payload)
         with cop_kutusu_kapali():
@@ -969,6 +1006,7 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
             if _delta:
                 _dosya_stok_uygula(dosya_id, +1, kalem_agg=_delta,
                                    depo=(teslim_deposu or _eski_depo))
+        _yukleme_bildir(dosya_id, _payload, eski_baslik=_eski_baslik, eski_kalemler=_eski_kalem)
         _temizle()
         return True, f"✅ Dosya güncellendi ({len(rows)} kalem)."
     except Exception as e:

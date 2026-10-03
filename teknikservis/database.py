@@ -444,12 +444,27 @@ def ekle_kayit(data, personel=""):
             kayit = {k: v for k, v in kayit.items() if k not in _YENI_KOLONLAR}
             res = sb.table("ts_kayitlar").insert(kayit).execute()
         yeni = _row(res)
+        _gecmis = 0
         if yeni:
             sb.table("ts_gecmis").insert({
                 "kayit_id": yeni["id"], "durum": "mal kabül",
                 "aciklama": "Mal kabül yapıldı", "personel": personel or "",
                 "tarih": simdi,
             }).execute()
+            _gecmis = 1
+        # Excel toplu mal kabul içindeyse (shared.yukleme_gecmisi): kayıt geri alınabilsin; kayıt
+        # sonradan işlem görürse (durum / geçmiş değişirse) geri alma engellenir — emek kaybolmasın.
+        try:
+            from shared.yukleme_gecmisi import aktif as _yk_aktif
+            _yk = _yk_aktif()
+            if _yk is not None:
+                if yeni:
+                    _yk.eklenen("ts_kayitlar", [yeni], beklenen=1)
+                    _yk.kontrol("ts_kayitlar", yeni["id"], mevcut_durum="mal kabül", _gecmis_sayisi=_gecmis)
+                else:
+                    _yk.iptal("servis kaydının kimliği dönmedi")
+        except Exception:
+            pass
         _cache_temizle()
         return True, f"✅ Kayıt oluşturuldu — Servis No: {form_no}", form_no
     except Exception as e:

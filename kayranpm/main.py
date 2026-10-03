@@ -1433,6 +1433,7 @@ def run():
                         tmpg_path = tmpg.name
                     from shared.yukleme_gecmisi import Kayit as _YKayit
                     _yk_g5f = _YKayit("g5f_sayim", dosya_g.name)
+                    _yk_g5f.anahtar("g5f")   # sonraki sayım öncekini geçersiz kılar (sayım mutlak değer yazar)
                     with st.spinner("🏬 G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"), \
                             _yk_g5f.stok():          # stok hareketleri bu yüklemeyle işaretlenir
                         basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
