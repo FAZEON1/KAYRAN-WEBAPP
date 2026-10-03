@@ -338,7 +338,7 @@ def _gecmis_ithalatlar():
         if st.button(f"Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", key="btn_ith_depoata", use_container_width=True, icon=":material/warning:"):
             _dlg_depo_ata()
     if not dosyalar:
-        st.info("Henüz ithalat kaydı yok. '➕ Yeni İthalat' sayfasından ekleyebilirsin.")
+        st.info("Henüz ithalat kaydı yok. 'Yeni ithalat' sekmesinden ekleyebilirsin.")
         return
 
     katalog = get_urun_katalog()
@@ -540,7 +540,7 @@ def _gecmis_ithalatlar():
             _df_show, hide_index=True, height=420,
             on_select="rerun", selection_mode="multi-row", key="ith_gecmis_df",
         )
-        st.caption("👆 **1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (kutucuklarla) "
+        st.caption("**1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (kutucuklarla) "
                    "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
 
         try:
@@ -561,7 +561,7 @@ def _gecmis_ithalatlar():
         # ── Toplu aşama: seçilenleri 'Teslim Alındı' yap (teslim tarihine dokunmaz) ──
         _bekleyen_teslim = [d for d in _sec_dosyalar
                             if str(d.get("durum", "") or "").strip() != "Teslim Alındı"]
-        st.caption(f"📦 Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
+        st.caption(f"Seçili {len(_sec_dosyalar)} belgeden **{len(_bekleyen_teslim)}** tanesi henüz "
                    "'Teslim Alındı' değil. Yalnızca aşama güncellenir; teslim tarihine dokunulmaz. "
                    "**Teslim deposu seçimi zorunludur** — deposuz hiçbir dosya 'Teslim Alındı' yapılamaz.")
         _tc1, _tc2 = st.columns([2, 1])
@@ -589,7 +589,7 @@ def _gecmis_ithalatlar():
         _mevcut_takipler = sorted({str(_d.get("ithalat_takip_no", "") or "").strip()
                                    for _d in _sec_dosyalar if str(_d.get("ithalat_takip_no", "") or "").strip()})
         _takip_durum = ("Mevcut: " + ", ".join(_mevcut_takipler)) if _mevcut_takipler else "Seçili belgelerde takip no yok."
-        st.caption(f"🔗 Seçili {len(_sec_dosyalar)} belgeye ortak **İthalat Takip No** ata (hepsine birden yazılır). {_takip_durum}")
+        st.caption(f"Seçili {len(_sec_dosyalar)} belgeye ortak **İthalat Takip No** ata (hepsine birden yazılır). {_takip_durum}")
         _kc1, _kc2 = st.columns([2, 1])
         _onceki_takip = _mevcut_takipler[0] if len(_mevcut_takipler) == 1 else ""
         _toplu_takip = _kc1.text_input("İthalat Takip No (seçili belgelerin hepsine)",
@@ -642,7 +642,7 @@ def _gecmis_ithalatlar():
             {"label": "Belge Sayısı", "value": f"{len(_sec_dosyalar)}", "renk": trenk("mor")},
         ])
         if _takipler_sec:
-            st.caption("🔗 Takip No: " + ", ".join(sorted(_takipler_sec)))
+            st.caption("Takip No: " + ", ".join(sorted(_takipler_sec)))
         if len(_dovizler_sec) > 1:
             st.warning(f"⚠️ Seçili belgelerde farklı para birimleri var ({', '.join(sorted(_dovizler_sec))}). "
                        "Ortak masraf tek para biriminde girilmeli — dağıtım döviz farkı gözetmez.")
@@ -741,8 +741,8 @@ def _gecmis_ithalatlar():
                 f'<div style="font-size:19px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_proj_yuzde, 2)}</div>'
                 '</div>', unsafe_allow_html=True)
             if len(_kurlar_sec) > 1:
-                st.caption("⚠️ Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
-        st.caption("ℹ️ **Kaydet**, girilen masrafları seçili belgelere FOB payına göre **kuruş-doğru** yazar ve **kuru** kaydeder. "
+                st.caption("Seçili belgelerin kuru farklı; kaydedince hepsine yukarıdaki kur yazılır.")
+        st.caption("**Kaydet**, girilen masrafları seçili belgelere FOB payına göre **kuruş-doğru** yazar ve **kuru** kaydeder. "
                    "Dolu bir kalemi **boşaltıp Kaydet** → o masraf seçili belgelerin **hepsinden silinir**. "
                    "**Tek bir belgenin masrafını birebir düzenlemek** için o belgeyi **tek başına seç**.")
         if st.button("Kaydet (masraf FOB payına göre + kur)", type="primary",
@@ -794,7 +794,7 @@ def _gecmis_ithalatlar():
             _cur = str(d.get("doviz", "USD") or "USD")
             st.markdown(
                 '<div style="color:var(--k-mor);font-size:13px;font-weight:700;'
-                'letter-spacing:0.8px;margin:6px 0 8px">🧩 Çoklu Ürün Grubu — Grup Bazlı Maliyet</div>',
+                'letter-spacing:0.8px;margin:6px 0 8px">Çoklu Ürün Grubu — Grup Bazlı Maliyet</div>',
                 unsafe_allow_html=True)
             _gk = list(_ck["gruplar"].items())
             _cols = st.columns(min(len(_gk), 3)) if _gk else []
@@ -814,8 +814,8 @@ def _gecmis_ithalatlar():
                         f'<div style="font-size:16px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_gd["yuzde"], 2)}</div>'
                         f'<div style="font-size:10px;color:var(--k-silik);margin-top:4px">{int(_gd["adet"])} adet · birim +maliyet ×{1+_gd["birim_ek_maliyet_orani"]:.4f}</div>'
                         f'</div>', unsafe_allow_html=True)
-            st.caption("ℹ️ Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
-                       "elle atandıkları gruba yazıldı. Atamaları **✏️ Düzenle** bölümünden değiştirebilirsin.")
+            st.caption("Ortak masraflar gruplara **FOB payına göre** dağıtıldı · özel masraflar "
+                       "elle atandıkları gruba yazıldı. Atamaları **Düzenle** bölümünden değiştirebilirsin.")
 
 
         # ── Yanlış / boş açılan ithalatı sil (onaylı) ──
@@ -888,7 +888,7 @@ def _gecmis_ithalatlar():
                 "Kategori": (k.get("urun_grubu", "") or ""),
             })
         if _ind_oran > 0:
-            st.caption(f"ℹ️ Fatura altı indirim (%{tr_sayi(_ind_oran*100, 2)}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
+            st.caption(f"Fatura altı indirim (%{tr_sayi(_ind_oran*100, 2)}) uygulandı — Birim FOB ve maliyetler **net** (indirimli) gösteriliyor.")
         _tablo(pd.DataFrame(krows),
                para=["Birim FOB", "Satır Tutar", "Dağıtılan Masraf", "Final Birim Maliyet"],
                yuzde=["% Maliyet"], sol=["SKU", "Ürün"], kisalt={"Ürün": 42})
@@ -1029,9 +1029,9 @@ def _gecmis_ithalatlar():
                     '<div style="font-size:12px;color:var(--k-soluk);">% Maliyet</div>'
                     f'<div style="font-size:19px;font-weight:700;color:var(--k-amber2);font-family:monospace">%{tr_sayi(_yuzde_v, 2)}</div>'
                     '</div>', unsafe_allow_html=True)
-            st.caption("ℹ️ Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
+            st.caption("Masraf · kur · indirim **canlı**dır — yazdıkça sağdaki % maliyet güncellenir. "
                        "Ürün/adet/FOB · durum · teslim alanlarını aşağıdan düzenleyip **Kaydet**'e bas; hepsi birlikte kaydedilir.")
-            st.caption("🧹 **Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
+            st.caption("**Bir masrafı silmek için** kutunun içini tamamen boşalt (kutu boş/‘0,00’ görünür), sonra **Kaydet**'e bas — "
                        "artık geri gelmez. *(bu satırı görüyorsan güncel sürüm yüklüdür)*")
             _md_dolu = {s: v for s, v in _masraf_dict(d).items() if v}
             if _md_dolu:
@@ -1103,7 +1103,7 @@ def _gecmis_ithalatlar():
                     _hacme_atanan = [MASRAF_ETIKET.get(_s, _s)
                                      for _s, _h in e_grup_atama.items() if _h == HACIM_GRUP]
                     if _hacme_atanan:
-                        st.markdown("**📦 Grup hacimleri (cbm / cfeet)** — "
+                        st.markdown("**Grup hacimleri (cbm / cfeet)** — "
                                     + ", ".join(f"**{_x}**" for _x in _hacme_atanan)
                                     + " bu orana göre bölünür")
                         _cbm_kayitli = d.get("grup_cbm") if isinstance(d.get("grup_cbm"), dict) else {}
@@ -1167,8 +1167,8 @@ def _gecmis_ithalatlar():
                     else:
                         e_tahmini_varis = None
                         st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
-                        st.caption("✅ Teslim alındı — tahmini varış gerekmez.")
-                st.caption("📦 Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
+                        st.caption("Teslim alındı — tahmini varış gerekmez.")
+                st.caption("Üretimde/Yolda/Gümrükte/Antrepoda → Ürün Yönetimi'nde **yolda** görünür ve sipariş "
                            "önerisine girer. **Teslim Alındı** seçilince yolda sayılmaz.")
 
                 _alt_baslik("📦 Teslim — ürün depoya girdiğinde doldur (stok yaşı bu tarihten sayılır)")
@@ -1187,7 +1187,7 @@ def _gecmis_ithalatlar():
                 e_teslim_deposu = "" if str(_e_td_sec).startswith("(") else _e_td_sec
 
                 _alt_baslik("📦 Ürün Kalemleri · satır ekle/sil/düzenle")
-                st.caption("💡 **Çoklu ürün grubu** için: farklı ürünlere farklı **Ürün Grubu** yaz "
+                st.caption("**Çoklu ürün grubu** için: farklı ürünlere farklı **Ürün Grubu** yaz "
                            "(örn. SSD / RAM). 2+ grup olunca sistem grup-bazlı maliyet dağıtımına geçer. "
                            "Tek grup (ya da boş) bırakırsan normal tek-maliyet sistemi çalışır.")
                 _kdf = pd.DataFrame([
@@ -1213,7 +1213,7 @@ def _gecmis_ithalatlar():
                             "🗑 Sil", help="İşaretle → Kaydet'e basınca bu satır silinir", default=False),
                     },
                 )
-                st.caption("🗑 Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
+                st.caption("Bir satırı silmek için **Sil** kutusunu işaretle ve aşağıdan **Kaydet**'e bas. "
                            "(Alternatif: satırın solundaki kutucuğu seçip klavyeden **Delete**.)")
 
                 _alt_baslik("🆕 Yeni Stok Kartı ile Satır Ekle · katalogda olmayan ürün")
@@ -1255,7 +1255,7 @@ def _gecmis_ithalatlar():
                                              "barkod": _mbk.strip(), "adet": float(_madet),
                                              "birim_fob": float(_mfob), "urun_grubu": _mkat})
 
-                st.caption("💸 Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
+                st.caption("Masraf · kur · indirim **yukarıdaki canlı bölümde** girilir; aşağıdaki Kaydet hepsini birlikte kaydeder.")
 
                 if st.form_submit_button("Değişiklikleri Kaydet", type="primary", use_container_width=True, icon=":material/save:"):
                     if e_durum == "Teslim Alındı" and not (e_teslim_deposu or "").strip():
@@ -1398,9 +1398,9 @@ def _yeni_ithalat():
                 else:
                     tahmini_varis = None
                     st.markdown('<div class="ith-th" style="margin-bottom:4px">Tahmini Varış</div>', unsafe_allow_html=True)
-                    st.caption("✅ Teslim aşaması — tahmini varış gerekmez.")
+                    st.caption("Teslim aşaması — tahmini varış gerekmez.")
             if durum in IN_TRANSIT_DURUMLAR:
-                st.caption(f"📦 **'{durum}'** → kalemler Ürün Yönetimi'nde *yolda* sayılır; teslim tarihi bu aşamada girilmez.")
+                st.caption(f"**'{durum}'** → kalemler Ürün Yönetimi'nde *yolda* sayılır; teslim tarihi bu aşamada girilmez.")
                 teslim_tarihi_m, teslim_deposu_m = "", ""
             else:
 
@@ -1500,7 +1500,7 @@ def _yeni_ithalat():
             if ec1.button("Satır ekle", key=f"m_satir_ekle_{_fv}", use_container_width=True, icon=":material/add:"):
                 st.session_state.m_satir_n = n_satir + 1
                 st.rerun()
-            _ec2.caption("🗑 satırı temizler · SKU'suz satırlar kaydedilmez.")
+            _ec2.caption("satırı temizler · SKU'suz satırlar kaydedilmez.")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
 
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
@@ -1531,7 +1531,7 @@ def _yeni_ithalat():
             '<div style="font-size:12px;color:var(--k-soluk);">Net Mal Bedeli (FOB)</div>'
             f'<div style="font-size:14px;font-weight:700;color:var(--k-yesil);font-family:monospace">{_tam(_net_mal)} <span style="font-size:11px;color:var(--k-silik)">{doviz}</span></div></div>'
             '<div style="flex:2;min-width:200px;background:color-mix(in srgb,var(--k-amber) 6%,transparent);border:1px dashed color-mix(in srgb,var(--k-amber) 28%,transparent);border-radius:12px;padding:12px 16px;display:flex;align-items:center">'
-            '<div style="font-size:11px;color:var(--k-amber);line-height:1.45">⏳ Masraf 2. aşamada (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal masraf girilince oluşur.</div></div>'
+            '<div style="font-size:11px;color:var(--k-amber);line-height:1.45">Masraf 2. aşamada (Geçmiş İthalatlar → ✏️ Düzenle). Maliyet & paçal masraf girilince oluşur.</div></div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -1588,7 +1588,7 @@ def _yeni_ithalat():
         )
 
         st.markdown("---")
-        st.markdown("**📄 Standart Satın Alım Raporu (tek grup — normal akış)**")
+        st.markdown("**Standart Satın Alım Raporu (tek grup — normal akış)**")
         st.download_button(
             "Örnek şablonu indir", data=_excel_sablon_bytes(),
             file_name="ithalat_satin_alim_sablon.xlsx",
@@ -1733,10 +1733,10 @@ def _yeni_ithalat():
             )
             _guncelle = guncelle_mod.startswith("Güncelle")
             if _guncelle:
-                st.caption("⚠ Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
+                st.caption("Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
                            "Daha önce elle girdiğin **masraflar korunur** (silinmez).")
             else:
-                st.caption("ℹ Sadece yenileri ekle: mevcut dosyaların ürün/adet/FOB'una **dokunulmaz**. "
+                st.caption("Sadece yenileri ekle: mevcut dosyaların ürün/adet/FOB'una **dokunulmaz**. "
                            "Yalnızca **boş** olan SAS No, Incoterm, takip no ve teslim tarihi Excel'den doldurulur. "
                            "→ Sadece eksik SAS No / Incoterm'i tamamlamak için aynı Excel'i bu modda tekrar yükle.")
 
@@ -1929,7 +1929,7 @@ def _model_sorgu():
 
     ad = katalog.get(sku, "")
     st.markdown(
-        f'<div style="color:var(--k-mor2);font-size:14px;margin:0px 0 12px">📦 <b>{sku}</b>{(" — " + _tr_upper(ad)) if ad else ""}</div>',
+        f'<div style="color:var(--k-mor2);font-size:14px;margin:0px 0 12px"><b>{sku}</b>{(" — " + _tr_upper(ad)) if ad else ""}</div>',
         unsafe_allow_html=True,
     )
 

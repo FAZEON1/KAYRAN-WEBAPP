@@ -341,12 +341,12 @@ def _mal_kabul_dialog():
     if arayuz == "teknik":
         st.markdown('<div style="background:rgba(167,139,250,.15);border:1px solid var(--k-mor);'
                     'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:var(--k-mor);'
-                    'font-weight:700;font-size:13px">🔧 TEKNİK SERVİS kaydı oluşturuyorsun</div>',
+                    'font-weight:700;font-size:13px">TEKNİK SERVİS kaydı oluşturuyorsun</div>',
                     unsafe_allow_html=True)
     else:
         st.markdown('<div style="background:rgba(244,114,182,.15);border:1px solid var(--k-pembe);'
                     'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:var(--k-pembe);'
-                    'font-weight:700;font-size:13px">↩️ İADE kaydı oluşturuyorsun</div>',
+                    'font-weight:700;font-size:13px">İADE kaydı oluşturuyorsun</div>',
                     unsafe_allow_html=True)
 
     # 📦 İthalat'tan model seç — seçince stok kodu + stok adı dolar
@@ -420,7 +420,7 @@ def _mal_kabul_dialog():
                                  placeholder="örn. ÖRNEK TEKNOLOJİ ANONİM ŞİRKETİ")
     _son_kullanici = (firma_sec == "SON KULLANICI")
     if _son_kullanici:
-        st.caption("👤 **SON KULLANICI:** mağaza ve belge (fatura/irsaliye) istenmez. "
+        st.caption("**SON KULLANICI:** mağaza ve belge (fatura/irsaliye) istenmez. "
                    "İade onayı sonrası fatura, kayıt üzerinden **Fatura geldi ✓** ile "
                    "muhasebe tarafından sonradan işlenir.")
 
@@ -952,7 +952,7 @@ def _kontrol_paneli(kayit):
         f'<div><div style="color:var(--k-kirmizi);font-size:19px;font-weight:700">{_g(kayit, "servis_form_no")}</div>'
         f'<div style="color:var(--k-soluk);font-size:13px;margin-top:0px">{ARAYUZ_ETIKET.get(kayit.get("arayuz",""),"")} · {_g(kayit,"stok_kodu")} · Seri {_g(kayit,"seri_no")}</div></div>'
         f'<div style="display:flex;gap:8px;align-items:center">{_durum_chip(kayit.get("mevcut_durum",""))}'
-        f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700">⏱ {sla_txt}</span></div>'
+        f'<span style="background:{renk}22;border:1px solid {renk}55;color:{renk};border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700">{sla_txt}</span></div>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
@@ -973,7 +973,7 @@ def _kontrol_paneli(kayit):
             _fm = bool((kayit.get("fatura_no") or "").strip())
         if _fm:
             _fx1, _fx2 = st.columns([2, 1])
-            _fx1.markdown('<div style="padding:8px 0;color:var(--k-yesil);font-size:13px;font-weight:700">🧾 Fatura: ✓ Mevcut</div>',
+            _fx1.markdown('<div style="padding:8px 0;color:var(--k-yesil);font-size:13px;font-weight:700">Fatura: ✓ Mevcut</div>',
                           unsafe_allow_html=True)
             # Madde 12 (muhasebe talebi): yanlış işaretlenen "fatura geldi" düzenlenebilir/geri alınabilir
             with _fx2.popover("✏️ Düzenle", use_container_width=True):
@@ -1139,7 +1139,7 @@ def _kontrol_paneli(kayit):
             if yeni_durum == "gönderildi" and str(st.session_state.get(f"ts_sevk_{kid}", "")) == "Kargo":
                 _gk = (kayit.get("gelis_kargo_no") or "").strip()
                 if _gk:
-                    st.caption(f"📥 Geliş kargo takip no: **{_gk}** — bu numara korunur, silinmez.")
+                    st.caption(f"Geliş kargo takip no: **{_gk}** — bu numara korunur, silinmez.")
                 _ts_kargo = st.text_input("📤 Kargo Takip No (gidiş)", key=f"ts_kargo_{kid}",
                                           placeholder="ürünün geri gönderildiği kargo takip numarası")
 
@@ -1147,7 +1147,7 @@ def _kontrol_paneli(kayit):
             _dg = {}
             if yeni_durum == "ürün değişimi":
                 st.markdown('<div style="color:var(--k-amber);font-size:13px;font-weight:700;'
-                            'margin:8px 0 0px">🔄 Değişim yapılan ürün</div>', unsafe_allow_html=True)
+                            'margin:8px 0 0px">Değişim yapılan ürün</div>', unsafe_allow_html=True)
                 dg1, dg2 = st.columns(2)
                 st.session_state.setdefault(f"ts_dgsk_{kid}", kayit.get("degisim_stok_kodu", "") or "")
                 _dg["degisim_stok_kodu"] = dg1.text_input("Stok Kodu", key=f"ts_dgsk_{kid}")
@@ -1480,7 +1480,7 @@ def _irsaliye():
     _kalemler = [_harita[l] for l in _secili_lbl]
 
     if not _kalemler:
-        st.caption("👆 En az bir ürün seç.")
+        st.caption("En az bir ürün seç.")
         return
 
     st.success(f"✅ **{len(_kalemler)} kalem** seçildi — hepsi tek irsaliyede toplanacak.")
@@ -1634,7 +1634,7 @@ def _ozet_serit():
 
     with st.container(border=True):
         _b1, _b2 = st.columns([2.2, 2.8], vertical_alignment="center")
-        _b1.markdown('<div style="color:var(--k-amber);font-size:14px;font-weight:700">📊 İşlem özeti</div>',
+        _b1.markdown('<div style="color:var(--k-amber);font-size:14px;font-weight:700">İşlem özeti</div>',
                      unsafe_allow_html=True)
         donem = _b2.segmented_control("Dönem", ["Bugün", "Bu hafta", "Bu ay", "Tümü"], default="Bugün",
                                       key="depo_ozet_donem_seg", label_visibility="collapsed") or "Bugün"

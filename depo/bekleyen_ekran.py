@@ -52,7 +52,7 @@ def _son_fis(kid):
     h = son["hareket"]
     with st.container(border=True):
         fc1, fc2, fc3 = st.columns([2.6, 1.3, 0.5], vertical_alignment="center")
-        fc1.markdown(f'✅ **{tr_sayi(h.get("adet") or 0)} adet** sevk kaydedildi · fiş no '
+        fc1.markdown(f'**{tr_sayi(h.get("adet") or 0)} adet** sevk kaydedildi · fiş no '
                      f'**{_e(h.get("fis_no"))}**')
         fc2.download_button("Sevk fişini indir", data=partial(sevk_fisi_pdf, son["kayit"], h),
                             file_name=f'{h.get("fis_no") or "sevk"}.pdf', mime="application/pdf",

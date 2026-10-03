@@ -457,13 +457,35 @@ def serit(anahtar):
             f'<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:13px;'
             f'border-left:3px solid var(--k-{r});background:color-mix(in srgb,var(--k-{r}) 9%,transparent);'
             f'border-radius:8px;padding:7px 12px;margin:2px 0 10px">'
-            f'<b style="color:var(--k-{r})">{"⏰" if d["seviye"] != "guncel" else "🗓"} {ozet_metni(d)}</b>'
+            f'<b style="color:var(--k-{r});display:inline-flex;align-items:center;gap:5px">'
+            f'{_seviye_ikonu(d["seviye"])} {ozet_metni(d)}</b>'
             f'<span style="color:var(--k-soluk)">{SIKLIKLAR[d["siklik"]].lower()} · {son}'
             + (f' · sorumlu <b style="color:var(--k-metin)">{d["sorumlu_ad"]}</b>' if d.get("sorumlu_ad") else "")
             + '</span></div>',
             unsafe_allow_html=True)
     except Exception:  # noqa: BLE001
         pass
+
+
+def _kisi():
+    try:
+        from shared.tasarim import IKON_YENI, ikon_html
+        if IKON_YENI:
+            return ikon_html("person", 14)
+    except Exception:  # noqa: BLE001
+        pass
+    return "👤"
+
+
+def _seviye_ikonu(seviye):
+    """Gecikme/yaklaşma: saat; güncel: takvim. Eskiden ⏰ / 🗓 emoji."""
+    try:
+        from shared.tasarim import IKON_YENI, ikon_html
+        if IKON_YENI:
+            return ikon_html("schedule" if seviye != "guncel" else "event", 15)
+    except Exception:  # noqa: BLE001
+        pass
+    return "⏰" if seviye != "guncel" else "🗓"
 
 
 def kart_html(d):
@@ -481,7 +503,8 @@ def kart_html(d):
     son = ("takip yeni başladı · ilk yükleme bekleniyor" if d.get("baslangic")
            else (d["son_adi"] or "henüz kayıt yok"))
     kim = f' · son yükleyen {_h.escape(str(d["kim"]))}' if d.get("kim") else ""
-    sor = (f'<div style="font-size:12px;color:var(--k-metin);margin-top:4px">👤 {_h.escape(d["sorumlu_ad"])}</div>'
+    sor = (f'<div style="font-size:12px;color:var(--k-metin);margin-top:4px;display:flex;align-items:center;gap:4px">'
+           f'{_kisi()} {_h.escape(d["sorumlu_ad"])}</div>'
            if d.get("sorumlu_ad") else "")
     return (f'<div style="border:1px solid var(--k-kenar2);border-left:3px solid var(--k-{r});border-radius:10px;'
             f'padding:10px 12px;margin-bottom:8px;background:var(--k-yuzey1);min-height:104px">'

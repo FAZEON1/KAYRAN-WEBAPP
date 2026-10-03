@@ -2097,7 +2097,7 @@ def _arama_parcasi(yer):
 
     # 📦 Ürünler — özet + Stok Kartı (modal)
     if sonuclar.get("urunler"):
-        st.markdown(f"**📦 Ürünler ({len(sonuclar['urunler'])})**")
+        st.markdown(f"**Ürünler ({len(sonuclar['urunler'])})**")
         for u in sonuclar["urunler"]:
             c1, c2 = st.columns([5, 1])
             c1.markdown(f"`{u.get('sku','')}` — {u.get('urun_adi','') or '—'}  ·  "
@@ -2111,7 +2111,7 @@ def _arama_parcasi(yer):
 
     # 🏢 Cariler → Muhasebe
     if sonuclar.get("cariler"):
-        st.markdown(f"**🏢 Cariler ({len(sonuclar['cariler'])})**")
+        st.markdown(f"**Cariler ({len(sonuclar['cariler'])})**")
         for f in sonuclar["cariler"]:
             c1, c2 = st.columns([5, 1])
             c1.markdown(f"{f.get('firma_adi','') or '—'}  ·  kod: {f.get('firma_kodu','') or '—'}")
@@ -2121,7 +2121,7 @@ def _arama_parcasi(yer):
 
     # 🧾 Satışlar → Satış
     if sonuclar.get("satislar"):
-        st.markdown(f"**🧾 Satışlar ({len(sonuclar['satislar'])})**")
+        st.markdown(f"**Satışlar ({len(sonuclar['satislar'])})**")
         for s in sonuclar["satislar"]:
             c1, c2 = st.columns([5, 1])
             c1.markdown(f"{str(s.get('tarih',''))[:10]} · {s.get('kanal','') or '—'} · "
@@ -2132,7 +2132,7 @@ def _arama_parcasi(yer):
 
     # 🚢 İthalat → İthalat
     if sonuclar.get("ithalat"):
-        st.markdown(f"**🚢 İthalat ({len(sonuclar['ithalat'])})**")
+        st.markdown(f"**İthalat ({len(sonuclar['ithalat'])})**")
         for d in sonuclar["ithalat"]:
             c1, c2 = st.columns([5, 1])
             _belge = d.get("pi_no") or d.get("dosya_no") or d.get("ithalat_takip_no") or "—"
@@ -2143,7 +2143,7 @@ def _arama_parcasi(yer):
 
     # 🔧 Servis → Teknik Servis
     if sonuclar.get("servis"):
-        st.markdown(f"**🔧 Teknik Servis ({len(sonuclar['servis'])})**")
+        st.markdown(f"**Teknik Servis ({len(sonuclar['servis'])})**")
         for t in sonuclar["servis"]:
             c1, c2 = st.columns([5, 1])
             c1.markdown(f"servis: {t.get('servis_form_no','') or '—'} · seri: {t.get('seri_no','') or '—'} · "
@@ -2982,7 +2982,7 @@ def sifre_degistir():
     st.markdown(
         '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
         '<div style="display:inline-block;padding:8px 16px;background:color-mix(in srgb,var(--k-mor) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:20px;margin-bottom:16px">'
-        '<span style="color:var(--k-mor2);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">🔑 Güvenlik</span>'
+        '<span style="color:var(--k-mor2);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Güvenlik</span>'
         '</div>'
         '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,36px);font-weight:700;color:var(--k-metin);margin:0">Şifremi Değiştir</h1>'
         '<p style="color:var(--k-soluk);font-size:14px;margin-top:8px">Yeni şifren Supabase&#39;de güvenli şekilde saklanır &mdash; Streamlit Secrets&#39;tan bağımsızdır.</p>'
@@ -3057,7 +3057,7 @@ def sifre_degistir():
         st.markdown(
             '<div style="margin-top:16px;padding:12px 16px;background:color-mix(in srgb,var(--k-mor) 8%,transparent);'
             'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-radius:10px">'
-            '<div style="color:var(--k-mor2);font-size:11px;font-weight:600;margin-bottom:4px">💡 Bilgi</div>'
+            '<div style="color:var(--k-mor2);font-size:11px;font-weight:600;margin-bottom:4px">Bilgi</div>'
             '<div style="color:var(--k-soluk);font-size:11px;line-height:1.6">'
             'Yeni şifren Supabase&#39;de güvenli hash olarak saklanır. '
             'Sadece sen değiştirebilirsin &mdash; yönetici dahil kimse eski şifreni göremez.'
@@ -3116,7 +3116,7 @@ def _global_hata_kart(uygulama_adi, hata):
     st.markdown(
         '<div style="background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:12px;padding:24px 28px;margin:30px auto;max-width:700px">'
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
-        '<span style="font-size:23px">⚠️</span>'
+        '<span style="font-size:23px">️</span>'
         f'<b style="color:var(--k-kirmizi2);font-size:19px">{uygulama_adi} Uygulamasında Bir Sorun Oluştu</b>'
         '</div>'
         '<div style="color:var(--k-kirmizi);font-size:14px;line-height:1.6;margin-bottom:16px">'
@@ -3278,13 +3278,13 @@ def _talep_merkezi():
                     if str(_t.get("oncelik") or "").lower() in ("acil", "yüksek"):
                         _bas = "🔴 " + _bas
                     with st.expander(_bas):
-                        _ust = [f"👤 {_t.get('gonderen') or '?'}"]
+                        _ust = [f":material/person: {_t.get('gonderen') or '?'}"]
                         if _t.get("kategori"):
-                            _ust.append(f"🏷️ {_t['kategori']}")
+                            _ust.append(f":material/sell: {_t['kategori']}")
                         if _t.get("oncelik"):
-                            _ust.append(f"⚡ {_t['oncelik']}")
+                            _ust.append(f":material/bolt: {_t['oncelik']}")
                         if _t.get("olusturma_tarihi"):
-                            _ust.append(f"📅 {str(_t['olusturma_tarihi'])[:10]}")
+                            _ust.append(f":material/calendar_month: {str(_t['olusturma_tarihi'])[:10]}")
                         st.caption(" · ".join(_ust))
                         st.markdown(_t.get("mesaj") or "—")
                         _c1, _c2 = st.columns([3, 1])

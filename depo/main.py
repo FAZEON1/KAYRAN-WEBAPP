@@ -308,7 +308,7 @@ def _sayfa_sku():
     except Exception:
         _part = []
     with c1:
-        st.markdown("**🚢 İthalat**")
+        st.markdown("**İthalat**")
         if _part:
             st.dataframe(pd.DataFrame([
                 {"Tarih": tarih_tr(p.get("tarih")), "Adet": int(p.get("adet") or 0)} for p in _part]
@@ -326,7 +326,7 @@ def _sayfa_sku():
     except Exception:
         _sat, _iad = [], []
     with c2:
-        st.markdown("**💰 Satış**")
+        st.markdown("**Satış**")
         if _sat:
             st.dataframe(pd.DataFrame([{
                 "Tarih": tarih_tr(s.get("tarih")),
@@ -339,7 +339,7 @@ def _sayfa_sku():
         else:
             st.caption("Satış kaydı yok.")
     with c3:
-        st.markdown("**↩️ İade**")
+        st.markdown("**İade**")
         if _iad:
             st.dataframe(pd.DataFrame([{
                 "Tarih": tarih_tr(r.get("tarih")),
@@ -579,8 +579,8 @@ def _sayfa_happylife():
     ])
 
     # ── SKU ÖZET (Sayfa1 gibi: SKU · toplam miktar · en yüksek yaş) ──
-    st.markdown("**📊 SKU Bazında Özet** — her SKU'nun toplam stoğu ve en yaşlı paletinin yaşı")
-    st.caption("ℹ️ **İki ayrı sayı gösterilir:** *Excel Miktarı* Happy Life'ın gönderdiği "
+    st.markdown("**SKU Bazında Özet** — her SKU'nun toplam stoğu ve en yaşlı paletinin yaşı")
+    st.caption("**İki ayrı sayı gösterilir:** *Excel Miktarı* Happy Life'ın gönderdiği "
                "son rapordur ve yalnız yeni Excel yüklenince değişir. *KAYRAN Canlı Stok* "
                "ise satış anında düşer (çıkış deposu Happy Life seçildiyse). Fark eksi ise "
                "son Excel'den beri satış/çıkış yapılmış demektir — bir sonraki Excel'de "
@@ -627,13 +627,13 @@ def _sayfa_happylife():
                  })
     _f_neg = int((_ozet_df["Fark"].dropna() < 0).sum()) if len(_ozet_df) else 0
     if _f_neg:
-        st.caption(f"⚠️ {_f_neg} SKU'da canlı stok Excel'in altında — son rapordan beri "
+        st.caption(f"{_f_neg} SKU'da canlı stok Excel'in altında — son rapordan beri "
                    "satış/çıkış yapılmış. Palet detayı bir sonraki Excel'le güncellenir.")
     st.download_button("Özet CSV", _ozet_df.to_csv(index=False).encode("utf-8-sig"),
                        f"happylife_ozet_{_sec_tarih}.csv", "text/csv", key="hl_ozet_csv", icon=":material/download:")
 
     # ── DETAY (istenen 8 kolon) ──
-    st.markdown("**📋 Palet Detayı** — talep edilen kolonlar")
+    st.markdown("**Palet Detayı** — talep edilen kolonlar")
     _detay_df = pd.DataFrame([{
         "SKU Kodu": _tb(k["sku"]), "SKU Tanımı": _tb(k["sku_tanim"]),
         "Giriş Tarihi": _hl_gun_ay_yil(k.get("giris_tarihi")),

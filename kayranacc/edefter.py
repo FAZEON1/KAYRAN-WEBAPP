@@ -537,7 +537,7 @@ def render():
                     st.dataframe(_sdf, hide_index=True, use_container_width=True,
                                  height=min(60 + len(_sdf) * 35, 300))
                     if _tarih_kilitli_mi(f.get("tarih")):
-                        st.caption("🔒 Bu dönem kilitli — fiş silinemez/değiştirilemez.")
+                        st.caption("Bu dönem kilitli — fiş silinemez/değiştirilemez.")
                     elif st.button("Fişi Sil", key=f"edf_sil_{f['id']}", icon=":material/delete:"):
                         ok, msg = edf_fis_sil(f["id"])
                         (st.success if ok else st.error)(msg)
@@ -600,7 +600,7 @@ def render():
 
         # ── 🔒 DÖNEM KİLİDİ ──
         st.markdown("---")
-        st.markdown("**🔒 Dönem Kilidi**")
+        st.markdown("**Dönem Kilidi**")
         st.caption("GİB'e defteri verdiğin dönemi kilitle: o aya artık fiş eklenemez, "
                    "silinemez, değiştirilemez. Bu, verilen defterle sistemdeki kaydın "
                    "birebir aynı kalmasını (yasal tutarlılık) güvence altına alır.")
@@ -1045,13 +1045,13 @@ def _render_edefter_xml():
                                use_container_width=True, key="edf_xml_dl", icon=":material/download:")
             with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
                 st.code(sonuc.decode("utf-8")[:3000], language="xml")
-            st.caption("📁 GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
+            st.caption("GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
                        "+ XSLT'ler. ⚠️ Beratların imza/hash alanları Faz 3'te mali mühürle "
                        "doldurulacak.")
 
     # ── 📦 TÜM DEFTERLERİ PAKETLE (ZIP — GİB dizin yapısı) ──
     st.markdown("---")
-    st.markdown("**📦 Tüm Defterleri Paketle (GİB dizin yapısında ZIP)**")
+    st.markdown("**Tüm Defterleri Paketle (GİB dizin yapısında ZIP)**")
     st.caption("Seçili ayın Y + K + YB + KB defterlerini tek seferde üretip GİB'in istediği "
                "`VKN/hesap-dönemi/ay/` klasör yapısında, görüntüleme XSLT'leriyle birlikte ZIP'ler. "
                "Üretimden önce GİB iş kuralları otomatik denetlenir.")
@@ -1070,13 +1070,13 @@ def _render_edefter_xml():
             st.markdown(f"**Dizin:** `{psonuc['dizin']}/`")
             st.markdown("**İçerik:** " + " · ".join(f"`{d}`" for d in psonuc["dosyalar"]))
             if psonuc["xslt"]:
-                st.caption("🎨 Görüntüleme XSLT'leri dahil edildi: " + ", ".join(psonuc["xslt"]))
+                st.caption("Görüntüleme XSLT'leri dahil edildi: " + ", ".join(psonuc["xslt"]))
             else:
                 st.warning("⚠️ XSLT görüntüleyiciler bulunamadı (kayranacc/edefter_xslt/ boş). "
                            "Paket XML'leri geçerli ama görüntüleme şablonları eksik.")
             st.download_button("e-Defter Paketi (ZIP) İndir", psonuc["zip"], padi,
                                "application/zip", use_container_width=True, key="edf_paket_dl", icon=":material/download:")
-            st.caption("⚠️ Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
+            st.caption("Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
                        "doldurulacak) — bu haliyle GİB'e yüklenemez, yapı testi amaçlıdır.")
 
     # ── ✂️ ÇOK PARÇALI DEFTER BÖLME (GİB onay testi Senaryo 5 & 6) ──

@@ -631,7 +631,7 @@ def _excel_dialog(urun_data_k, _kt_kat_list):
         _tbuf = BytesIO()
         with pd.ExcelWriter(_tbuf, engine="openpyxl") as _w:
             pd.DataFrame(columns=_KMP_TAM_KOL).to_excel(_w, index=False, sheet_name="Kampanya")
-    st.caption(f"⬇️ Şablonda Firma Adı ({len(_cariler)}) · Kategori ({len(_katlar)}) · "
+    st.caption(f"Şablonda Firma Adı ({len(_cariler)}) · Kategori ({len(_katlar)}) · "
                f"Marka ({len(_markalar)}) · Kampanya Türü açılır listeden seçilir.")
     st.download_button("Kampanya şablonu indir", _tbuf.getvalue(),
                        "KAMPANYA_OLUSTUR_SABLONU.xlsx",
@@ -734,7 +734,7 @@ def _excel_dialog(urun_data_k, _kt_kat_list):
             _o_firma = _of2.selectbox("Firma *", FIRMA_LISTESI_K, index=_firma_idx,
                                       format_func=firma_gorunen_ad, key="kmp_o_firma")
             if _xl_firma:
-                st.caption(f"🏢 Dosyadaki firma: **{_xl_firma[:44]}** → "
+                st.caption(f"Dosyadaki firma: **{_xl_firma[:44]}** → "
                            + (f"**{_o_firma}** koduyla eşlendi." if _fk
                               else "otomatik eşlenemedi — yukarıdan doğru firmayı seç."))
             _of3, _of4, _of5 = st.columns(3)
@@ -753,7 +753,7 @@ def _excel_dialog(urun_data_k, _kt_kat_list):
                     st.caption(f"≈ ${tr_sayi((_o_spiff_tl / _o_spiff_kur), 2)} USD spiff maliyeti (tahmini)")
             _o_bas = _of4.date_input("Başlangıç Tarihi *", value=(_xl_bas or tr_today()), key="kmp_o_bas", format="DD.MM.YYYY")
             _o_bit = _of5.date_input("Bitiş Tarihi *", value=(_xl_bit or tr_today()), key="kmp_o_bit", format="DD.MM.YYYY")
-            st.caption(f"🏷️ Kategori (dosyadan): **{_kat_final or '—'}**"
+            st.caption(f"Kategori (dosyadan): **{_kat_final or '—'}**"
                        + ("" if (not _kat_final or _kat_final == _xl_kat)
                           else f"  · mevcut '{_kat_final}' ile eşleştirildi (yeni mükerrer açılmadı)"))
 

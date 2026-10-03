@@ -761,7 +761,7 @@ def run():
                         _ihtiyac[_hedef][_sk] = _ihtiyac[_hedef].get(_sk, 0) + float(_k.get("adet") or 0)
 
                     if _kendi:
-                        st.caption(f"ℹ️ {_kendi} satır Excel'deki kendi deposundan düşecek"
+                        st.caption(f"{_kendi} satır Excel'deki kendi deposundan düşecek"
                                    + (f", {_varsayilan} satır **{_sec}** deposundan."
                                       if _varsayilan else " — bu seçim onlara uygulanmaz."))
 
@@ -939,7 +939,7 @@ def run():
                                 _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
                                 _eksik = len(_tum) - len(_gecerli)
                                 if _eksik:
-                                    st.caption(f"⚠️ {_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+                                    st.caption(f"{_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
                                 _uzv = st.checkbox(
                                     "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
                                     key="sg_uz_vatan",
@@ -1045,7 +1045,7 @@ def run():
                                                     help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
                         else:
                             g_tarih = date.today()
-                            st.caption(f"📅 Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
+                            st.caption(f"Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
                         g_not = st.text_input("Sipariş notu (ops.)", key="s_not")
 
                     # ── Kalem ekle ──
@@ -1556,10 +1556,10 @@ def run():
                     _d2.metric("İade tutarı", _usd(_itop["i_tutar"]))
                     _d3.metric("Brüt adet", f"{tr_sayi(int(top['adet']))}")
                     if _alinan_usd > 0.005:
-                        st.caption("📥 **Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
+                        st.caption("**Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
                                    "marketing, rebate gelirleri (Ref No Takip → Alınan Destekler).")
                     if _ref_g:
-                        st.caption("🎯 **Ref No desteği** = dönem içinde firma bazlı verilen destekler.")
+                        st.caption("**Ref No desteği** = dönem içinde firma bazlı verilen destekler.")
 
 
                 # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
@@ -1791,7 +1791,7 @@ def run():
                         _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
                                          float(_ad_marka.get("GENEL", 0) or 0))
                         if abs(_genel_dst) > 0.005:
-                            st.caption(f"ℹ️ Σ TOPLAM satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
+                            st.caption(f"Σ TOPLAM satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
                                        f"Kırılıma dağıtılmayan GENEL destek: **{_usd_md(_genel_dst)}** — "
                                        f"bu eklenince genel toplam kâr **{_usd_md(_t_kar_ort + _genel_dst)}** olur. "
                                        f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
@@ -1823,7 +1823,7 @@ def run():
                                 st.caption(
                                     "Bu SKU'ların **Ürün Yönetimi → ürünler** tablosunda `marka` alanı boş. "
                                     "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
-                                    + (f"⚠️ {_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
+                                    + (f"{_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
                                        if _dg_kartsiz else ""))
                                 # Marka/Kategori hücreleri DÜZENLENEBİLİR — yaz, kaydet, bitti.
                                 _dg_df = pd.DataFrame([{
@@ -1949,7 +1949,7 @@ def run():
                                     ("Kârlılık", f"%{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro else 0, 1)}",
                                      trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
                                 ]) + '</div>', unsafe_allow_html=True)
-                    st.markdown("**📦 Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
+                    st.markdown("**Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
                     def _sku_ozet(g):
                         _sk = sorted(g["skular"])
                         if not _sk:
@@ -2101,11 +2101,11 @@ def run():
                         st.warning(f"🩺 **Veri sağlığı — {tr_sayi(_sag['temiz'])}/{tr_sayi(_sag['toplam'])} satır temiz.** "
                                    "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
                         if _sag["tarihsiz_ornek"]:
-                            st.caption("📅 Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
+                            st.caption("Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
                         if _sag.get("anormal_ornek"):
-                            st.caption("⏰ Anormal tarih örnekleri: " + " · ".join(_sag["anormal_ornek"]))
+                            st.caption("Anormal tarih örnekleri: " + " · ".join(_sag["anormal_ornek"]))
                         if _sag["maliyetsiz_ornek"]:
-                            st.caption("💰 Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
+                            st.caption("Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
 
                     _onay = True
                     if _sorunlu > 0:
