@@ -475,6 +475,11 @@ def metrik_satiri(cards):
         else:
             renk = RENK[KART_TOKEN[i % len(KART_TOKEN)]]
         _val = str(c["value"])
+        if c.get("onceki") is not None:          # eski görünümde rozet yok → bilgiyi alt satıra yaz
+            from shared.tasarim import degisim_rozeti as _dr
+            _rz = _dr(c.get("simdi"), c.get("onceki"), c.get("artis_iyi", True))
+            if _rz:
+                c = dict(c, alt=f'{_rz[0]} · {c.get("alt") or ""}'.rstrip(" ·"))
         ttl = f' title="{c.get("help") or _val}"'
         im = ' <span style="opacity:.6">ⓘ</span>' if c.get("help") else ""
         alt = f'<div class="k-alt">{c["alt"]}</div>' if c.get("alt") else ""

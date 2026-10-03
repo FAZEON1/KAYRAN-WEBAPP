@@ -64,6 +64,7 @@ def kpi(rows, seri, bugun):
         "hafta_satis": son,
         "onceki_satis": onceki,
         "degisim": degisim,
+        "seri": [v for _, v in (seri or [])][-8:],          # ana kartın eğilim çizgisi (son 8 hafta)
         "kapsama_hafta": round(kanal_dahil / son, 1) if son else None,
         "stok_degeri": round(sum(_f(r.get("bizim_stok")) * _f(r.get("ithalat_final")) for r in rows), 2),
         "yolda": int(sum(_f(r.get("yol_miktar")) for r in rows)),

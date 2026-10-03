@@ -9,6 +9,14 @@ Kâr hesabı satis.database.satir_kar ile AYNIDIR (parametre olarak verilir):
 destekler satış fiyatından düşülür → net satış; marj = net kâr / net satış.
 """
 from datetime import date
+import calendar as _cal
+
+
+def onceki_ay_araligi(bugun):
+    """Geçen ayın 1'i → geçen ayın 'aynı günü' (kısa ayda ay sonu). Bu ay ciro kartı
+    geçen ayın aynı noktasıyla karşılaştırılır (ay başında tüm ayla kıyas yanıltır)."""
+    y, a = (bugun.year - 1, 12) if bugun.month == 1 else (bugun.year, bugun.month - 1)
+    return date(y, a, 1), date(y, a, min(bugun.day, _cal.monthrange(y, a)[1]))
 
 AY = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
       "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
