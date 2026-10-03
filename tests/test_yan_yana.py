@@ -50,3 +50,31 @@ def test_dar_listede_disa_aktarma_yok_secili_vurgulu():
     assert "pu-sr secili" in s2 or "secili" in s2
     from kayranpm.urunler_ekran import SATIR_CSS
     assert ".pu-sr.secili" in SATIR_CSS
+
+
+# ── Ortak yardımcı + Depo › Bekleyen sevk takibi ───────────────────
+def test_ortak_yan_yana_css():
+    from shared.bilesen import yan_yana_css
+    c = yan_yana_css("dpo_mt")
+    assert ".st-key-dpo_mt_liste_sol" in c and ".st-key-dpo_mt_kapat" in c and ".st-key-dpo_mt_geri" in c
+    assert "@media (max-width:900px)" in c
+    assert ".st-key-pm_liste_sol" in yan_yana_css("pm_urun", liste_key="pm_liste_sol")
+
+
+def test_tum_urunler_ortak_css_kullanir():
+    assert "yan_yana_css(" in _oku("kayranpm/urunler_ekran.py")
+
+
+def test_bekleyen_sevk_yan_yana():
+    s = _oku("depo/bekleyen_ekran.py")
+    r = s[s.index("def render("):]
+    assert "YAN_YANA" in r and "st.columns(" in r and '_liste_sol"' in r and "dar=True" in r
+    d = s[s.index("def _detay("):s.index("def render(")]
+    assert "B.kapat(ON_EK)" in d
+
+
+def test_bekleyen_dar_listede_suzgec_ezilmez_hareket_tablosu_yok():
+    s = _oku("depo/bekleyen_ekran.py")
+    g = s[s.index("def _liste("):s.index("def _tum_hareketler(")]
+    assert "dar=False" in g and "if not dar:\n        B.geri_yukle(FILTRE_KEYS)" in g
+    assert "if not dar:\n        _tum_hareketler(mt)" in g

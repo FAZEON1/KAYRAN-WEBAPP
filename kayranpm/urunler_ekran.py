@@ -125,11 +125,8 @@ SATIR_CSS = (
 YAN_YANA_CSS = (
     "<style>.st-key-pm_liste_sol{container-type:inline-size}"
     "@container (max-width:620px){.st-key-pm_liste_sol .pu-sr{grid-template-columns:minmax(0,1fr) auto}"
-    ".st-key-pm_liste_sol .pu-sag{order:2}.st-key-pm_liste_sol .pu-orta{order:3;grid-column:1 / -1}}"
-    ".st-key-pm_urun_geri{display:none !important}"
-    "@media (max-width:900px){[data-testid=\"stColumn\"]:has(.st-key-pm_liste_sol),.st-key-pm_liste_sol"
-    "{display:none !important}.st-key-pm_urun_kapat{display:none !important}"
-    ".st-key-pm_urun_geri{display:block !important}}</style>")
+    ".st-key-pm_liste_sol .pu-sag{order:2}.st-key-pm_liste_sol .pu-orta{order:3;grid-column:1 / -1}}</style>"
+    + B.yan_yana_css("pm_urun", liste_key="pm_liste_sol"))
 
 
 def liste(urun_data, dar=False, secili=None):
