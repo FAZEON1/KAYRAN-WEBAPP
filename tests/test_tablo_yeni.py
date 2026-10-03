@@ -174,3 +174,48 @@ def test_firma_kirilimi_yeni_bilesende():
     assert 'key="pnl_kanal_df"' in blok
     assert "on_select=" not in blok and "secilebilir=True" in blok
     assert "kisa_unvan(" in blok
+
+
+# ── 2. adım: kalıcı / çoklu seçim, satır kimliği, satır para birimi ──
+def test_satir_para_birimi():
+    from shared.tablo import tablo_veri
+    v = tablo_veri([{"Ref No": "R1", "Tutar": 1500.0, "_birim": "₺"},
+                    {"Ref No": "R2", "Tutar": 200.0}])
+    assert v["satirlar"][0]["h"][1].startswith("₺") and v["satirlar"][1]["h"][1].startswith("$")
+
+
+def test_satir_kimligi_secim_icin():
+    """Seçim sıraya değil kimliğe bağlı: süzgeç değişince seçili satır başka belgeye kaymaz."""
+    from shared.tablo import tablo_veri
+    v = tablo_veri([{"Belge": "A", "_id": 41}, {"Belge": "B", "_id": "x-7"}])
+    assert [r["id"] for r in v["satirlar"]] == ["41", "x-7"]
+    v2 = tablo_veri([{"Belge": "A"}, {"Belge": "B"}])
+    assert [r["id"] for r in v2["satirlar"]] == ["0", "1"]
+
+
+def test_secim_cozumu():
+    from shared.tablo import secim_coz
+    v = [{"_id": 41}, {"_id": 7}]
+    assert secim_coz(["7"], v) == [1]                       # kimlik → güncel sıra
+    assert secim_coz(["99"], v) == []                       # artık listede yok → düşer
+    assert secim_coz("41", v) == [0] and secim_coz(None, v) == []
+
+
+def test_bilesen_kalici_ve_coklu_secim():
+    import inspect
+    from shared import tablo as T
+    p = inspect.signature(T.tablo).parameters
+    assert "kalici" in p and "coklu" in p
+    assert 'setStateValue("secililer"' in T._JS and 'setStateValue("secili"' in T._JS
+
+
+def test_kalan_izgaralar_ortak_tabloda():
+    from pathlib import Path
+    K = Path(__file__).resolve().parent.parent
+    # kayranpm/ref_no.py'deki on_select'li tablo (_render_tumu) 28.07.2026'dan beri çağrılmıyor
+    # (ekran ref_ekran.py'ye taşındı) — ölü kod, taşınmadı.
+    for d in ("ithalat/main.py", "kayranpm/stok_karti.py"):
+        s = (K / d).read_text(encoding="utf-8")
+        assert "on_select=" not in s, d
+    assert "coklu=True" in (K / "ithalat/main.py").read_text(encoding="utf-8")
+    assert (K / "kayranpm/stok_karti.py").read_text(encoding="utf-8").count("kalici=True") == 3
