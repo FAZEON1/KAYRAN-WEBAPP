@@ -2420,7 +2420,7 @@ def _render_butce(fid, firma):
 
     metrik_satiri([
         {"label": "Toplam Bütçe (giriş)", "value": f"${tr_sayi(giris, 2)}", "renk": trenk("yesil")},
-        {"label": "Toplam Harcama", "value": f"${tr_sayi(harcama, 2)}", "renk": trenk("kirmizi")},
+        {"label": "Toplam Harcama", "value": f"${tr_sayi(harcama, 2)}", "renk": trenk("kirmizi"), "anlam": "notr"},
         {"label": "Kalan Havuz", "value": f"${tr_sayi(kalan, 2)}", "renk": trenk("mor2")},
         {"label": "Atanan Ref No (USD)", "value": f"${tr_sayi(ref_usd, 2)}", "renk": trenk("mor")},
     ])

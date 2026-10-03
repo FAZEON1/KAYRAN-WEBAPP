@@ -376,7 +376,7 @@ def render_ertelenenler(kategoriler):
          "alt": (f"+ {_usd(sum(H._f(o.get('tutar_usd')) for o in bek))}"
                  if sum(H._f(o.get('tutar_usd')) for o in bek) else "")},
         {"etiket": "En çok ertelenen", "deger": f"{max(int(o.get('ertelendi_sayisi') or 1) for o in liste)} kez",
-         "renk": "kirmizi"},
+         "renk": "kirmizi", "anlam": "notr"},
     ]), unsafe_allow_html=True)
     for o in sorted(liste, key=lambda x: (H.odendi_mi(x), str(x.get("vade") or ""))):
         ilk = H._tarih(o.get("orijinal_vade"))

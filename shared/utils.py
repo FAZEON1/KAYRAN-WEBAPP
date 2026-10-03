@@ -457,7 +457,15 @@ def metrik_satiri(cards):
     DEĞİŞEN: değerin uzunluğuna göre fontu 20/17/15/13/12 px arasında
     küçülten mantık kaldırıldı; yan yana kartlar farklı puntoda oluyordu.
     """
-    from shared.tasarim import RENK, KART_TOKEN, ESKI_RENK_ESLEME, kpi_etiketi
+    from shared.tasarim import RENK, KART_TOKEN, ESKI_RENK_ESLEME, kpi_etiketi, KART_YENI, kart_hucresi
+    if KART_YENI:
+        # Yeni alanlar (isteğe bağlı): vurgu, simdi+onceki (▲/▼), artis_iyi, seri, anlam
+        hucreler = "".join(kart_hucresi(dict(c, etiket=c.get("label", ""), deger=str(c.get("value", "")),
+                                              ipucu=c.get("help") or str(c.get("value", "")),
+                                              bilgi=bool(c.get("help"))))
+                           for c in cards)
+        st.markdown(f'<div class="k-grid">{hucreler}</div>', unsafe_allow_html=True)
+        return
     hucreler = ""
     for i, c in enumerate(cards):
         ham = c.get("renk")

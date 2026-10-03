@@ -78,7 +78,7 @@ def render():
         c1, c2, c3 = st.columns(3)
         from shared.utils import metrik_satiri as _ms
         _ms([
-            {"label": "📤 Açık Borç (TL)", "value": _tl(acik_tl), "renk": trenk("kirmizi")},
+            {"label": "📤 Açık Borç (TL)", "value": _tl(acik_tl), "renk": trenk("kirmizi"), "anlam": "notr"},
             {"label": "💵 Açık Borç (USD)", "value": _usd(acik_usd), "renk": "#FB923C"},
             {"label": "✅ Ödenmiş (TL)", "value": _tl(odenen_tl), "renk": trenk("yesil"), "alt": f"USD: {_usd(odenen_usd)}"},
         ])
