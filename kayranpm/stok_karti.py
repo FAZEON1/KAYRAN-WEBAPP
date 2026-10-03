@@ -195,6 +195,7 @@ def _satis_detay(s, satir_kar):
 
 @st.dialog("📦 Stok Kartı", width="large")
 def goster(sku):
+    from shared.tasarim import yan_panel; yan_panel("genis")   # sağ panel (okuma)
     sku = str(sku or "").strip()
     if not sku:
         st.warning("SKU seçilmedi.")

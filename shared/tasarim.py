@@ -1053,6 +1053,17 @@ def cekirdek_css(yogunluk=None):
 .k-alt{{font-size:{F['kucuk']};color:var(--k-silik);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
 
+/* ── Yan panel: yan_panel() işaretli pencere sağdan tam boy (liste arkada görünür) ── */
+[data-testid="stDialog"]:has(.k-panel) [role="dialog"]{{position:fixed !important;top:0 !important;right:0 !important;
+  left:auto !important;bottom:0 !important;margin:0 !important;height:100vh !important;height:100dvh !important;
+  max-height:100dvh !important;width:min(680px,100vw) !important;max-width:100vw !important;border-radius:0 !important;
+  overflow:auto !important;border-left:1px solid var(--k-kenar2) !important;background:var(--k-yuzey1) !important;
+  box-shadow:-16px 0 40px rgba(0,0,0,.35) !important;animation:k-panel-gir .18s ease-out;}}
+[data-testid="stDialog"]:has(.k-panel-orta) [role="dialog"]{{width:min(680px,100vw) !important;}}
+[data-testid="stDialog"]:has(.k-panel-dar) [role="dialog"]{{width:min(520px,100vw) !important;}}
+[data-testid="stDialog"]:has(.k-panel-genis) [role="dialog"]{{width:min(860px,100vw) !important;}}
+@keyframes k-panel-gir{{from{{transform:translateX(28px);opacity:.5}}to{{transform:none;opacity:1}}}}
+
 /* ── Yeni kartlar (KART_YENI): nötr değer, renk yalnız anlam ── */
 .k-kart.k-yeni{{border-left-width:1px;}}
 .k-yeni .k-deger-satir{{display:flex;align-items:baseline;gap:8px;min-width:0;margin-top:2px;}}
@@ -1191,6 +1202,27 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
 #        başındaki emoji Material ikona çevrilir (shared/ikon.py, app.py'de kurulur).
 # False: emojiler eskisi gibi. Geri almak için YALNIZ bu satırı değiştir.
 IKON_YENI = True
+
+# ── Yan panel (Ekim 2026) ───────────────────────────────────────────
+# True : yan_panel() çağıran okuma pencereleri (detaylar) sağdan tam boy panel açılır.
+# False: bütün pencereler eskisi gibi ortada. Geri almak için YALNIZ bu satırı değiştir.
+YAN_PANEL = True
+
+
+def panel_isareti(genislik="orta"):
+    """Pencereye basılan görünmez işaret; CSS :has(.k-panel) bu pencereyi sağa alır.
+    <style> öğesi: ortak CSS, yalnız-stil öğelerini akıştan çıkardığı için boşluk bırakmaz."""
+    return f'<style class="k-panel k-panel-{genislik}"></style>'
+
+
+def yan_panel(genislik="orta"):
+    """Pencere fonksiyonunun ilk satırı: bu pencere sağ panel olsun (dar / orta / genis).
+    Yalnız okumaya dönük detaylar için; formlar ortada kalır."""
+    if not YAN_PANEL:
+        return
+    import streamlit as _st
+    _st.markdown(panel_isareti(genislik), unsafe_allow_html=True)
+
 
 # ── Sayı kartları (Ekim 2026) ───────────────────────────────────────
 # True : tek görünüm, renk yalnız anlam taşıdığında (kırmızı = sorun); ana kart,

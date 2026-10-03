@@ -280,6 +280,7 @@ def _sag_panel(kapsam, firma, hepsi):
 # ════════════════════════════════════════════════════════════════════
 @st.dialog("Ref no detayı", width="large")
 def _detay_dialog(r, firmalar):
+    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
     rid, d = r["id"], (r.get("durum") or "beklemede")
     st.markdown(_css() + f'<div class="rf-dt" style="--d:{rv(R.DURUM_RENK.get(d, "silik"))}">'
                 f'<span class="rf-no">{_h.escape(str(r.get("ref_no") or ""))}</span>'

@@ -162,6 +162,7 @@ def _iade_kayit_listesi(bas, bit):
 
 @st.dialog("İade kaydı", width="medium")
 def _iade_detay_dialog(r):
+    from shared.tasarim import yan_panel; yan_panel("dar")   # sağ panel (okuma)
     from shared import bilesen as B
     from shared.utils import firma_kisa_ad
     import html as _h
@@ -1913,6 +1914,7 @@ def run():
 
                 @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
                 def _dlg_firma_gecmis(_fkn):
+                    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
                     st.markdown(f'<div style="font-size:14px;font-weight:700;color:var(--k-metin);'
                                 f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
                     st.caption(f"Dönem: {_pbas} → {_pbit}")

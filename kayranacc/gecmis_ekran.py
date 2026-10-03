@@ -113,6 +113,7 @@ def _odenenler():
 
 @st.dialog("Ödenmiş ödeme", width="medium")
 def _odenen_dialog(o, bmap):
+    from shared.tasarim import yan_panel; yan_panel("dar")   # sağ panel (okuma)
     st.markdown(f'<div style="font-size:18px;font-weight:650">{_h.escape(o.get("firma") or "")}</div>'
                 f'<div style="font-family:var(--k-mono);font-size:20px;font-weight:600;margin:4px 0 12px">{_tutar(o)}</div>',
                 unsafe_allow_html=True)
@@ -249,6 +250,7 @@ def _cek_arsivi():
 
 @st.dialog("Çek", width="medium")
 def _cek_dialog(c, sym):
+    from shared.tasarim import yan_panel; yan_panel("dar")   # sağ panel (okuma)
     ct = cek_tutarlari(c)
     st.markdown(f'<div style="font-size:18px;font-weight:650">{_h.escape(c.get("ch_ismi") or "—")}</div>'
                 f'<div style="font-family:var(--k-mono);font-size:20px;font-weight:600;margin:4px 0 12px">'

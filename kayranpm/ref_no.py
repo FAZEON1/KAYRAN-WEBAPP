@@ -1859,6 +1859,7 @@ def _render_ref_merkez(firmalar):
 
 @st.dialog("🔎 Ref No Detayı", width="large")
 def _dlg_ref_detay_merkez(kayit):
+    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
     st.markdown(f"### {kayit.get('ref_no','')}")
     _ref_detay_govde(kayit, kayit.get("_firma", ""))
 
@@ -3088,6 +3089,7 @@ def _ad_kart_html(r):
 
 @st.dialog("🔎 Alınan Destek Detayı", width="large")
 def _dlg_ad_detay(r, eur_kur=1.0, tl_kur=None):
+    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
     from shared.ui import RENK
     _dv = (r.get("doviz") or "USD").strip().upper()
     _tut = _f(r.get("tutar"))

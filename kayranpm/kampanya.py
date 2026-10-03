@@ -284,6 +284,7 @@ def _yenile(kid=None, mesaj_metni=None):
 
 @st.dialog("Kampanya detayı", width="large")
 def _detay_dialog(kid):
+    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
     bugun = tr_today()
     kamp = next((k for k in (get_kampanyalar() or []) if k.get("id") == kid), None)
     if not kamp:

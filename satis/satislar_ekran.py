@@ -127,6 +127,7 @@ def siparis_detay_kontrol():
 # ════════════════════════════════════════════════════════════════════
 @st.dialog("Sipariş", width="large")
 def siparis_dialog(anahtar):
+    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
     if str(anahtar).startswith("#kalem-"):
         kalemler = get_siparis_kalemleri(satis_id=int(str(anahtar)[7:]))
         sno = ""
