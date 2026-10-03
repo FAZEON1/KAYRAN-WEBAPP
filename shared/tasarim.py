@@ -1884,6 +1884,15 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
     if not satirlar:
         _k.markdown(bos(" Gösterilecek veri yok."), unsafe_allow_html=True)
         return
+    # Ekim 2026: tek görünüm shared/tablo.py'de (arama, Σ alt bilgi, mobil kart,
+    # indirme). components v2 yoksa (eski Streamlit) aşağıdaki eski çizim kalır.
+    try:
+        from shared.tablo import tablo
+        tablo(satirlar, birim=birim, toplam_isaret=toplam_isaret,
+              maks_yukseklik=maks_yukseklik, kap=kap)
+        return
+    except Exception:          # bileşen yok ya da çizilemedi → tablo kaybolmasın
+        pass
     R, F, A = RENK, FONT, AGIRLIK
     kolonlar = list(satirlar[0].keys())
     tipler = {k: _tablo_kolon_tipi(k) for k in kolonlar}
