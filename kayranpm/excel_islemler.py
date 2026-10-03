@@ -401,7 +401,7 @@ def _cari_listesi():
 
 def _firma_coz(firma_ham, cariler=None):
     """Excel'deki firma adını firma_stok'a yazılacak değere çözer.
-    Sıra: ana kodlar (ITOPYA/HB/VATAN/MONDAY/DIGER) · eşler ('KANAL' → DIGER, 'TEKNOKLİK…' →
+    Sıra: ana kodlar (ITOPYA/HB/VATAN/MONDAY/DIGER) · eşler ('KANAL' → DIGER, 'MONDAY …' →
     MONDAY) · ref_no tespit anahtarları (HEPSİBURADA→HB, EERA→ITOPYA, D-MARKET→HB...) ·
     MUHASEBE CARİ LİSTESİ (yeni firmalar CARİ ADIYLA kaydedilir — KANAL kaldırıldı, Ekim 2026).
     Çözülemezse None (yükleyici durur, hiçbir şey yazmaz). cariler verilmezse gerekince okunur."""
@@ -412,8 +412,8 @@ def _firma_coz(firma_ham, cariler=None):
         return fn
     if fn == "KANAL":
         return "DIGER"                       # eski genel tanım: firması belli değil
-    if fn.startswith("TEKNOKLIK"):
-        return "MONDAY"                      # cari adı 'TEKNOKLİK - MONDAY' (kullanıcı, 3 Ekim)
+    if fn.startswith("MONDAY "):
+        return "MONDAY"                      # cari adı 'MONDAY BİLİŞİM SANAYİ VE TİCARET A.Ş.' (kullanıcı)
     try:
         from .ref_no import FIRMA_ESLESME
         for rol, cfg in FIRMA_ESLESME.items():
@@ -697,7 +697,7 @@ def excel_yukle_g5f_depolar(dosya_yolu):
 _HSS_FIRMA_TOKEN = [("ITOPYA", "ITOPYA"), ("EERA", "ITOPYA"),
                     ("VATAN", "VATAN"),
                     ("HEPSIBURADA", "HB"), ("HEPSİBURADA", "HB"), ("HB", "HB"),
-                    ("MONDAY", "MONDAY"), ("TEKNOKLIK", "MONDAY"), ("TEKNOKLİK", "MONDAY"),
+                    ("MONDAY", "MONDAY"),
                     ("KANAL", "DIGER"),             # KANAL kaldırıldı (Ekim 2026): eski sekme → DİĞER
                     ("DIGER", "DIGER"), ("DİĞER", "DIGER")]
 

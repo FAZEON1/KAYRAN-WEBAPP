@@ -5,7 +5,7 @@ Kurallar (kullanıcı, 3 Ekim):
   1) Yüklemede firma adı Muhasebe cari listesinde eşleşirse CARİ ADIYLA kaydedilir; eşleşmezse
      yükleme durur, hiçbir şey yazılmaz (yazım hatası yeni firma açmasın).
   2) Hangi firmaya ait olduğu belli olmayan eski 'KANAL' kayıtları DİĞER olarak kalır.
-  3) MONDAY'in cari adı 'TEKNOKLİK - MONDAY'.
+  3) MONDAY'in cari adı 'MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ' (revize; ilk 'TEKNOKLİK - MONDAY').
 """
 import pandas as pd
 import pytest
@@ -26,7 +26,8 @@ def test_firma_kanonik_ve_sirala():
 def test_gorunen_ad_kanal_yok_monday_teknoklik():
     from shared.utils import firma_gorunen_ad, FIRMA_KODLARI_DIGER
     assert firma_gorunen_ad("KANAL") == firma_gorunen_ad("DIGER") == "DİĞER"
-    assert "MONDAY" in firma_gorunen_ad("MONDAY", kisa=False) and "TEKNOKL" in firma_gorunen_ad("MONDAY", kisa=False)
+    assert firma_gorunen_ad("MONDAY", kisa=False) == "MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ"
+    assert firma_gorunen_ad("MONDAY") == "MONDAY BİLİŞİM"              # kısa biçim (ünvan ekleri atılır)
     assert "KANAL" not in FIRMA_KODLARI_DIGER
     assert firma_gorunen_ad("AYKON BİLGİSAYAR LTD. ŞTİ.", kisa=False) == "AYKON BİLGİSAYAR LTD. ŞTİ."
 
@@ -42,7 +43,8 @@ def test_cari_eslestir():
 # ── Yükleme: firma çözümü ────────────────────────────────────────────
 @pytest.mark.parametrize("ham,beklenen", [
     ("ITOPYA", "ITOPYA"), ("EERA", "ITOPYA"), ("Hepsiburada", "HB"), ("D-MARKET", "HB"),
-    ("KANAL", "DIGER"), ("Diğer", "DIGER"), ("TEKNOKLİK - MONDAY", "MONDAY"), ("Monday", "MONDAY"),
+    ("KANAL", "DIGER"), ("Diğer", "DIGER"), ("MONDAY BİLİŞİM SANAYİ VE TİCARET ANONİM ŞİRKETİ", "MONDAY"), ("Monday Bilişim", "MONDAY"),
+    ("Monday", "MONDAY"), ("TEKNOKLİK - MONDAY", None),
     ("Aykon", "AYKON BİLGİSAYAR LTD. ŞTİ."), ("Teknosa", None), ("Bilinmeyen Ltd", None)])
 def test_firma_coz(ham, beklenen):
     from kayranpm.excel_islemler import _firma_coz
@@ -72,7 +74,7 @@ def test_birlesik_yukleme_yeni_cari_ve_kanal(tmp_path, monkeypatch):
     yazilan = []
     monkeypatch.setattr(X, "upsert_firma_stok", lambda firma, sku, *a, **k: yazilan.append((firma, sku)))
     monkeypatch.setattr(X, "_cari_listesi", lambda: CARILER)
-    ok, _ = X.excel_yukle_firma_birlesik(_birlesik_excel(tmp_path, ["Aykon", "KANAL", "Teknoklik - Monday"]))
+    ok, _ = X.excel_yukle_firma_birlesik(_birlesik_excel(tmp_path, ["Aykon", "KANAL", "Monday Bilişim Sanayi ve Ticaret Anonim Şirketi"]))
     assert ok is True
     assert {f for f, _ in yazilan} == {"AYKON BİLGİSAYAR LTD. ŞTİ.", "DIGER", "MONDAY"}   # 'KANAL' yazılmaz
 
