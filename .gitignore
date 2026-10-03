@@ -1,0 +1,8 @@
+# Python derleme çıktıları — repoya girmez (Ekim 2026)
+__pycache__/
+*.pyc
+
+# Yerel ortam
+.venv/
+.streamlit/secrets.toml
+.pytest_cache/
