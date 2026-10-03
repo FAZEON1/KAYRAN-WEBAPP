@@ -595,9 +595,13 @@ def cek_sil(cek_id):
     _cache_temizle()
 
 
-def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
+def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True, yukleme=None):
     """
     Çekleri toplu ekler.
+
+    yukleme: shared.yukleme_gecmisi.Kayit — verilirse silinen eski çekler ve eklenen
+    kimlikler ona yazılır (bir dosyanın TL + USD çekleri tek yükleme kaydı olur; kaydeden
+    çağıran). Verilmezse kendi kaydını açıp kaydeder. Yükleme geçmişinden geri alınabilir.
 
     ÖNEMLİ: Varsayılan olarak (temizle_onceki=True), yüklemeden önce aynı
     para birimindeki TÜM eski çekleri siler. Bu sayede aynı Excel'i
@@ -611,8 +615,16 @@ def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
     if not cekler:
         return
 
+    from shared.yukleme_gecmisi import Kayit as _YKayit
+    _yk = yukleme if yukleme is not None else _YKayit("cek_listesi")
+    _yk.anahtar(para_birimi)
+
     # 1) Önce bu para birimindeki eski kayıtları temizle
     if temizle_onceki:
+        try:
+            _yk.onceki("cekler", sb.table("cekler").select("*").eq("para_birimi", para_birimi).execute().data or [])
+        except Exception:
+            _yk.iptal("eski çekler okunamadı")
         with cop_kutusu_kapali():
             sb.table("cekler").delete().eq("para_birimi", para_birimi).execute()
 
@@ -637,8 +649,11 @@ def cek_ekle_bulk(cekler, para_birimi="TL", temizle_onceki=True):
         })
     BATCH = 25
     for i in range(0, len(rows), BATCH):
-        sb.table("cekler").insert(rows[i:i+BATCH]).execute()
+        _yk.eklenen("cekler", sb.table("cekler").insert(rows[i:i+BATCH]).execute().data,
+                    beklenen=len(rows[i:i+BATCH]))
         _cache_temizle()
+    if yukleme is None:
+        _yk.kaydet(len(rows))
 
 
 # ════════════════════════════════════════════════════════════════════

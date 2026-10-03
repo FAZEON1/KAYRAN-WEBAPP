@@ -92,6 +92,7 @@ MODULLER = [
 # Ana sayfanın kenar çubuğundaki hesap sayfaları (modül değil, tek sayfa)
 SISTEM = [
     ("cop_kutusu", "Çöp kutusu", "delete", None),
+    ("yukleme_gecmisi", "Yükleme geçmişi", "history", None),
     ("sifre_degistir", "Şifremi değiştir", "key", None),
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),

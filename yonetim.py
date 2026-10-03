@@ -473,6 +473,8 @@ def run():
                             _kayit = {"kat": _katp, "detay": _detayp, "tarih": _bugun().isoformat()}
                             if _sa3:
                                 _sa3(_gider_anahtar, _kayit)
+                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+                                _yg_kaydet("gider_tablosu", len(_detayp), _gf.name)
                                 from shared.yukleme_takvimi import _temizle as _yt_tazele
                                 _yt_tazele()                      # geri sayım yeni ayı görsün
                             # toast: rerun'dan önce basılan st.success görünmeden kayboluyordu
@@ -715,6 +717,7 @@ YEDEK_HARIC = [
     "aktif_excel_verileri", "audit_log", "hata_kayitlari",
     "cop_kutusu",          # silinenlerin 30 günlük kopyası; gece yedeği asıl tabloları zaten alıyor
     "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
+    "yuklemeler",          # yükleme geçmişi + geri alma kopyaları; asıl tablolar zaten yedekte
     "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
 ]
 
