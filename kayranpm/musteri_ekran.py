@@ -16,7 +16,8 @@ import streamlit as st
 from shared.tasarim import tr_sayi
 from . import musteri_hesap as H
 
-GORUNUM = {"Müşteri": "musteri", "Marka": "marka", "Ürün": "urun", "Kategori": "kategori"}
+# "Ürün" görünümü kaldırıldı (Eki 2026): ürünler marka/kategori seçilince sağdaki detayda listeleniyor.
+GORUNUM = {"Müşteri": "musteri", "Marka": "marka", "Kategori": "kategori"}
 
 
 def _cari(kod):
@@ -97,6 +98,8 @@ def render(yukle_penceresi=None):
         secenekler=["Geçen hafta", "Bu ay", "Geçen ay", "Son 30 gün", "Son 90 gün", "Bu yıl", "Geçen yıl",
                     "Tümü", "Özel…"])
     c1, c2, c3 = st.columns([3.2, 1, 1], vertical_alignment="bottom")
+    if st.session_state.get("mhs_gorunum") not in GORUNUM:       # eski oturumda "Ürün" seçiliyse
+        st.session_state.pop("mhs_gorunum", None)
     gor = c1.segmented_control("Görünüm", list(GORUNUM), default="Müşteri", key="mhs_gorunum",
                                label_visibility="collapsed") or "Müşteri"
     kir = GORUNUM[gor]
@@ -111,9 +114,10 @@ def render(yukle_penceresi=None):
     # Kart eşleştirme + kategori çözümü (musteri_hesap.meta_hazirla): ham SKU tutmasa da
     # normalize SKU / SKU parçası / ürün adıyla kart bulunur; kartta kategori boşsa addan tahmin.
     from shared.utils import sku_anahtar
-    from .database import kategori_oner, KATEGORI_LISTE
+    from .database import kategori_oner, marka_oner, KATEGORI_LISTE, MARKA_KURALLAR
     meta = H.meta_hazirla(rows, get_urun_marka_kategori() or {}, sku_fn=sku_anahtar,
-                          oner=kategori_oner, kategori_liste=KATEGORI_LISTE)
+                          oner=kategori_oner, kategori_liste=KATEGORI_LISTE,
+                          marka_oner=marka_oner, marka_liste=[m for m, _ in MARKA_KURALLAR])
     oz = H.ozet(rows)
 
     # Önceki eşit dönem (satış karşılaştırması). Okunamazsa rozet çıkmaz, sayfa çalışır.
@@ -141,6 +145,8 @@ def render(yukle_penceresi=None):
     ham = pd.DataFrame([{"Rapor": str(r.get("yukleme_tarihi") or "")[:10], "Müşteri": _cari(r.get("firma")),
                          "SKU": r.get("sku", ""), "Ürün": r.get("urun_adi", ""),
                          "Marka": (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka", ""),
+                         "Marka kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
+                             (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka_kaynak"), "—"),
                          "Kategori": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori", ""),
                          "Kategori kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
                              (meta.get(str(r.get("sku") or "").strip()) or {}).get("kategori_kaynak"), "—"),
@@ -156,16 +162,17 @@ def render(yukle_penceresi=None):
     with sol:
         sec = tablo(satirlar, key=f"mhs_liste_{kir}", kalici=True, pay="Satış adedi", kompakt=True,
                     dosya_adi=f"musteri_satislari_{kir}")
-        if kir == "kategori":
-            _tah = sorted(k for k, m in meta.items() if m.get("kategori_kaynak") == "tahmin")
-            _yok = sorted(k for k, m in meta.items() if not m.get("kategori"))
+        if kir in ("kategori", "marka"):
+            _alan = _ad = kir
+            _tah = sorted(k for k, m in meta.items() if m.get(f"{_alan}_kaynak") == "tahmin")
+            _yok = sorted(k for k, m in meta.items() if not m.get(_alan))
             if _tah or _yok:
                 st.caption(
-                    (f"{len(_tah)} ürünün stok kartında kategori boş; ürün adından tahmin edildi. " if _tah else "")
-                    + (f"{len(_yok)} ürün hâlâ kategorisiz. " if _yok else "")
+                    (f"{len(_tah)} ürünün {_ad} bilgisi stok kartında yok; ürün adından tahmin edildi. " if _tah else "")
+                    + (f"{len(_yok)} ürün hâlâ {'kategorisiz' if kir == 'kategori' else 'markasız'}. " if _yok else "")
                     + "Kalıcı yapmak için: Ürün Yönetimi → Toplu Kategori & Marka.",
                     help=("Tahmin: " + ", ".join(_tah[:30]) + (" …" if len(_tah) > 30 else "") if _tah else "")
-                    + (("\n\nKategorisiz: " + ", ".join(_yok[:30]) + (" …" if len(_yok) > 30 else "")) if _yok else ""))
+                    + (("\n\nEşleşmeyen: " + ", ".join(_yok[:30]) + (" …" if len(_yok) > 30 else "")) if _yok else ""))
     secili = gruplar[sec] if sec is not None else (gruplar[0] if gruplar else None)
     with sag:
         if not secili:

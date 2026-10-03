@@ -55,8 +55,8 @@ def haftalar(rows):
 # ÇÖZÜM: meta_hazirla() rapordaki her SKU için kartı sırayla arar:
 #   1) birebir SKU  2) normalize SKU (sku_fn)  3) SKU'daki bir parça bir kart
 #   SKU'suna eşitse (≥5 karakter)  4) ürün adı birebir (boşluk/harf farkı yok sayılır)
-# Kategori: kartın kategorisi; kart yok ya da kategorisi boşsa ürün adından
-# tahmin (oner = kayranpm.database.kategori_oner). Kaynak 'kart' / 'tahmin' /
+# Kategori/marka: kartın değeri; kart yok ya da alan boşsa ürün adından
+# tahmin (kategori_oner / marka_oner). Kaynak 'kart' / 'tahmin' /
 # '' olarak işaretlenir; ekran tahmin edilenleri sayar, Excel'de görünür.
 
 def _sku_varsayilan(s):
@@ -84,9 +84,48 @@ def kategori_etiketi(kat, kategori_liste=()):
     return {"i": "İ", "ı": "I"}.get(k[0], k[0].upper()) + k[1:]
 
 
-def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=()):
-    """{ham rapor SKU'su: {marka, kategori, kategori_kaynak, kart_sku}} — rows'taki HER SKU için.
-    kartlar: get_urun_marka_kategori() çıktısı {kart_sku: {marka, kategori, urun_adi}}."""
+def _marka_anahtar(s):
+    """Marka karşılaştırma anahtarı: marka adları Latin ('MIO' Türkçe küçültmede 'mıo' olur,
+    'Mio' ile tutmaz) → ı/i ayrımı yok sayılır."""
+    return _kat_kucuk(s).replace("ı", "i")
+
+
+def marka_etiketi(marka, marka_liste=()):
+    """'Fazeon' / 'FAZEON' / 'fazeon' → tek etiket. Kural listesindeki yazım öncelikli
+    ('MIO' → 'Mio'); listede yoksa BÜYÜK harf ('kaspersky' → 'KASPERSKY')."""
+    m = " ".join(str(marka or "").split())
+    if not m:
+        return ""
+    k = _marka_anahtar(m)
+    for x in marka_liste or ():
+        if _marka_anahtar(x) == k:
+            return x
+    return m.replace("i", "İ").replace("ı", "I").upper()
+
+
+def _model_parcalari(metin):
+    """Ad/SKU içindeki model kodu adayları: harf+rakam içeren, ≥5 karakterlik parçalar.
+    'Fazeon 23.8' X24F180 FHD 180Hz' → ['X24F180']  (180HZ: 5 karakter ama rakam+harf → aday,
+    kart SKU'su olmadığı için zararsız)."""
+    import re
+    out = []
+    for p in re.split(r"[^0-9A-Z]+", str(metin or "").upper().replace("İ", "I")):
+        if len(p) >= 5 and any(c.isdigit() for c in p) and any(c.isalpha() for c in p):
+            out.append(p)
+    return out
+
+
+def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka_oner=None, marka_liste=()):
+    """{ham rapor SKU'su: {marka, kategori, marka_kaynak, kategori_kaynak, kart_sku}} — rows'taki HER SKU.
+    kartlar: get_urun_marka_kategori() çıktısı {kart_sku: {marka, kategori, urun_adi}}.
+
+    Kart arama sırası:
+      1) birebir SKU  2) normalize SKU  3) SKU'daki bir parça = kart SKU'su
+      4) ürün adı birebir  5) ADDAKİ model kodu = kart SKU'su (pazaryeri kodu SKU
+         olarak gelince: 'HBCV0000G0F6K6' · 'Fazeon 23.8' X24F180 …' → X24F180)
+      6) addaki model kodu bir kart SKU'sunun ÖNEKİ ise (renk eki: X27F300 → X27F300S/B)
+         — yalnız tüm adaylar aynı marka + kategoriye çıkıyorsa (yanlış karta bağlamaz).
+    Kart yoksa ya da alan boşsa marka/kategori addan tahmin edilir (kaynak 'tahmin')."""
     skn = sku_fn or _sku_varsayilan
     kartlar = kartlar or {}
     norm, ad_idx = {}, {}
@@ -98,6 +137,18 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=()):
         if a and a not in ad_idx:
             ad_idx[a] = ks
 
+    def _imza(ks):
+        m = kartlar.get(ks) or {}
+        return (_kat_kucuk(m.get("marka")), _kat_kucuk(m.get("kategori")))
+
+    def _onek_bul(parca):
+        if len(parca) < 6:
+            return None
+        aday = sorted(ks for n, ks in norm.items() if n.startswith(parca))
+        if aday and len({_imza(k) for k in aday}) == 1:
+            return aday[0]
+        return None
+
     def _kart_bul(ham, urun_adi):
         if ham in kartlar:
             return ham
@@ -107,7 +158,31 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=()):
         for parca in n.replace("-", " ").replace("_", " ").replace("/", " ").split():
             if len(parca) >= 5 and parca in norm:
                 return norm[parca]
-        return ad_idx.get(_ad_norm(urun_adi))
+        if _ad_norm(urun_adi) in ad_idx:
+            return ad_idx[_ad_norm(urun_adi)]
+        parcalar = _model_parcalari(urun_adi)
+        for parca in parcalar:
+            if parca in norm:
+                return norm[parca]
+        for parca in parcalar:
+            ks = _onek_bul(parca)
+            if ks:
+                return ks
+        return None
+
+    def _tahmin(fn, adaylar):
+        if not fn:
+            return ""
+        for ad in adaylar:
+            if not ad:
+                continue
+            try:
+                v = (fn(ad) or "").strip()
+            except Exception:  # noqa: BLE001
+                v = ""
+            if v:
+                return v
+        return ""
 
     out = {}
     for r in rows or []:
@@ -116,19 +191,26 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=()):
             continue
         ks = _kart_bul(ham, r.get("urun_adi"))
         m = kartlar.get(ks) or {}
-        kat, kaynak = str(m.get("kategori") or "").strip(), "kart"
-        if not kat and oner:
-            for ad in (m.get("urun_adi"), r.get("urun_adi"), ham):
-                try:
-                    kat = (oner(ad) or "").strip()
-                except Exception:  # noqa: BLE001
-                    kat = ""
-                if kat:
-                    kaynak = "tahmin"
-                    break
-        out[ham] = {"marka": str(m.get("marka") or "").strip(),
+        adlar = (m.get("urun_adi"), r.get("urun_adi"))
+        kat = str(m.get("kategori") or "").strip()
+        kat_k = "kart" if kat else ""
+        if not kat:
+            kat = _tahmin(oner, adlar + (ham,))
+            kat_k = "tahmin" if kat else ""
+        mar = str(m.get("marka") or "").strip()
+        mar_k = "kart" if mar else ""
+        if not mar and marka_oner:
+            # Önce BİLİNEN markaya çıkan tahmin (kart adı ya da rapor adı); bulunamazsa
+            # marka_oner'in "ilk kelime" tahmini — rakam içeriyorsa model kodudur, marka değil
+            # (kart adı yalnız 'X32F240S' ise marka 'X32F240S' yazılıyordu). Ham SKU'dan tahmin yok.
+            bilinen = {_marka_anahtar(x) for x in marka_liste or ()}
+            tahminler = [_tahmin(marka_oner, (ad,)) for ad in adlar]
+            mar = next((t for t in tahminler if t and _marka_anahtar(t) in bilinen), "") or \
+                next((t for t in tahminler if t and not any(c.isdigit() for c in t)), "")
+            mar_k = "tahmin" if mar else ""
+        out[ham] = {"marka": marka_etiketi(mar, marka_liste),
                     "kategori": kategori_etiketi(kat, kategori_liste),
-                    "kategori_kaynak": kaynak if kat else "",
+                    "marka_kaynak": mar_k, "kategori_kaynak": kat_k,
                     "kart_sku": ks or ""}
     return out
 
