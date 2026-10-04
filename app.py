@@ -23,7 +23,7 @@ except Exception:  # noqa: BLE001  (koruma hiçbir zaman uygulamayı durdurmaz)
     pass
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
-from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv, mesaj as k_mesaj, kayran_logo_svg
+from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv, mesaj as k_mesaj, kayran_logo_svg, kayran_logo_uri
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
@@ -1714,6 +1714,15 @@ def ust_navigasyon():
     section[data-testid="stSidebar"] .block-container{{padding-top:0.6rem !important;}}
     section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{{gap:0.5rem !important;}}
     {_KENARSIZ_CSS if MENU_UST else ""}
+    /* Logo (Ekim 2026): şeridin sol başı. Ana sayfa düğmesi logodur — tıklayınca ana sayfa;
+       "Ana Sayfa" adı ipucunda ve ekran okuyucuda kalır. Logo tek kaynaktan (kayran_logo_uri). */
+    {N} .st-key-top_anasayfa button[kind]{{width:42px !important;min-width:42px !important;padding:0 !important;
+        background-image:url("{kayran_logo_uri(28)}") !important;background-repeat:no-repeat !important;
+        background-position:center !important;background-size:28px 28px !important;}}
+    {N} .st-key-top_anasayfa button[kind] span:has(> [data-testid="stIconMaterial"]){{display:none !important;}}
+    {N} .st-key-top_anasayfa button[kind] p{{position:absolute !important;width:1px !important;height:1px !important;
+        overflow:hidden !important;clip:rect(0 0 0 0) !important;white-space:nowrap !important;}}
+    {N} [data-testid="stColumn"]:has(.st-key-top_anasayfa){{margin-right:4px !important;}}
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):

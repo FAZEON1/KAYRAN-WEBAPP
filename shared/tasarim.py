@@ -929,6 +929,12 @@ def kayran_logo_svg(boyut=40, etiket=False):
             f'stroke="#2A3345" stroke-width="1.5"/>{kareler}</svg>')
 
 
+
+def kayran_logo_uri(boyut=28):
+    """Aynı logo, CSS arka planı için data: adresi (üst şeritteki ana sayfa düğmesi)."""
+    from urllib.parse import quote
+    return "data:image/svg+xml," + quote(kayran_logo_svg(boyut))
+
 # ═══════════════════════════════════════════════════════════════════
 # 7c. SOL MENÜ KABUĞU + MENÜ SEÇENEKLERİ (tek kaynak)
 #
