@@ -65,13 +65,19 @@ def _sayfa_stok():
     from shared.tasarim import kisi_adi
     _baslik("🏬 Depo Stok", "Depo içeriği · arama · sıralama · yazdır")
     _depolar = get_depo_listesi()
+    # Telefonda ürün kutusunun barkodu kamerayla okunur (okuyucu kutudan ÖNCE çizilmeli;
+    # düğme bilgisayarda gizli — el okuyucusu kutuya zaten yazar). Okunan EAN → SKU.
+    from shared.barkod import barkod_okuyucu
+    from ithalat.database import get_barkod_map
+    from depo.depo_hesap import barkoddan_sku
+    barkod_okuyucu("dpo_ara", etiket="Barkodu kamerayla okut")
     c1, c2, c3, c4 = st.columns([2.2, 2.4, 1.6, 1.25], vertical_alignment="bottom")
     _di_depo = c1.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
-    _ara = c2.text_input("Ara", key="dpo_ara", placeholder="SKU ya da ürün adı…")
+    _ara = c2.text_input("Ara", key="dpo_ara", placeholder="SKU, ürün adı ya da barkod…")
     _sira = c3.selectbox("Sıralama", list(SIRALAMALAR), format_func=SIRALAMALAR.get, key="dpo_sira")
     _ham = get_depo_stok(_di_depo) if _di_depo else []
     _liste = liste_hazirla([{"sku": _tb(u["sku"]), "urun_adi": _tb(u["urun_adi"]), "adet": u["adet"]}
-                            for u in _ham], _ara, _sira)
+                            for u in _ham], barkoddan_sku(_ara, get_barkod_map()), _sira)
 
     # ── Yazdır: seçenekler + PDF (yalnız tıklanınca üretilir) ──
     with c4.popover("Yazdır", icon=":material/print:", use_container_width=True, disabled=not _liste):

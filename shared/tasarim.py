@@ -841,6 +841,20 @@ MOBIL_CSS = f"""
   [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p{{font-size:.72rem !important;}}
   .stApp h1{{font-size:1.3rem !important;}} .stApp h2{{font-size:1.12rem !important;}}
   .stApp h3{{font-size:1rem !important;}}
+
+  /* Üst şerit: Talep yalnız ikon — yazısı modül adlarını sağdan kesiyordu ("Muh…"). */
+  html body div.st-key-ustnav .st-key-ust_talep button p{{display:none !important;}}
+  html body div.st-key-ustnav .st-key-ust_talep button{{padding:0 10px !important;}}
+
+  /* Şeridin üstündeki görünmez bileşenler (çeviri, ipucu, işlem göstergesi) yükseklikleri 0
+     olsa da sütun aralığı (2 × 16 px) bırakıyordu; akıştan çıkarılır, çalışmaya devam eder. */
+  .stApp :is(.st-key-kayran_ceviri,.st-key-kayran_ipucu,.st-key-kayran_islem_gos){{
+    position:absolute !important;width:0 !important;height:0 !important;overflow:hidden !important;}}
+}}
+
+/* Kamerayla barkod okutma yalnız telefonda: bilgisayarda el okuyucusu kutuya zaten yazar. */
+@media (min-width:641px){{
+  .stApp .st-key-bk_dpo_ara_ac{{display:none !important;}}
 }}
 """
 
