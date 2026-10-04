@@ -6,6 +6,7 @@
   bekleyen_ozet   (faturalanan, sevk edilen, bekleyen, oran)
   toplam_satiri   Ortak tablonun alt bilgiye sabitlediği "Σ Toplam" satırı
   tarih_tr        ISO → GG.AA.YYYY (kayranpm.urun_hesap ile aynı)
+  barkoddan_sku   Okutulan EAN → ürün kartının SKU'su (arama SKU / ad üzerinden çalışır)
 """
 from kayranpm.urun_hesap import tarih_tr  # noqa: F401  (tek tanım)
 
@@ -50,3 +51,15 @@ def toplam_satiri(kolonlar, toplamlar, ozet=None):
     r.update(ozet or {})
     r.update(toplamlar)
     return r
+
+
+def barkoddan_sku(ara, barkod_map):
+    """Arama metni bir ürün kartının barkoduysa (kameradan / el okuyucusundan EAN) o kartın SKU'su;
+    değilse arama olduğu gibi. barkod_map: {sku: barkod} (ithalat.database.get_barkod_map)."""
+    a = str(ara or "").strip()
+    if not a:
+        return ara
+    for sku, bk in (barkod_map or {}).items():
+        if bk and str(bk).strip() == a:
+            return sku
+    return ara

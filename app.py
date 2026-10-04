@@ -523,7 +523,7 @@ st.set_page_config(
     page_title="KAYRAN | Workspace",
     page_icon="🏢",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",          # telefonda kapalı, bilgisayarda açık
 )
 
 # ══════════════════════════════════════════════════════════════════════
