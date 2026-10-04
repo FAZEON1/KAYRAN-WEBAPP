@@ -74,7 +74,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
-               "soru.py", "soru_cevap.py", "soru_ekran.py"):
+               "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -142,7 +142,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
-    "shared.veri_surumu": ["tazelik_kontrol", "bagimlilari_temizle", "imza"],   # önbellek tazeliği (Eki 2026)
+    "shared.veri_surumu": ["tazelik_kontrol", "bagimlilari_temizle", "imza", "satis_imza"],   # önbellek tazeliği (Eki 2026)
     "shared.veri_sagligi": ["sayfa", "gorunur_kontroller", "maliyetsiz_satislar", "satilabilir_farklari", "eslesmeyen_rapor_kodlari",
                            "teslim_notu"],   # veri sağlığı sayfası (Eki 2026)
     "shared.duzenle": ["duzenle", "duzenle_veri", "uygula", "gecerli_durum", "destekli_mi"],   # sade düzenlenebilir tablo (Eki 2026)
@@ -161,11 +161,13 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
+        "_ayarlar_hepsi", "_tum_kurlar",          # tek istekte ayarlar / kurlar (hızlandırma)
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu
         "virman_yap",
     ],
     "satis.database": [
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
+        "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
         "ice_aktar_satislar", "ekle_siparis",
     ],
@@ -185,6 +187,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru": ["coz", "parcalar", "donem_bul", "sade", "firma_bul", "sku_bul"],
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
+    "shared.paralel": ["basla", "hepsi"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
                             "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",

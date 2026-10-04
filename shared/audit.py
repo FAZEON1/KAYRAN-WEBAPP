@@ -216,7 +216,9 @@ class _LoggingTable:
                                                "data", None) or []
                             except Exception:
                                 return None          # hata → ardışık yola düş
-                        _bas, _dalga, _hata = 1000, 8, False
+                        # İlk dalga 2 sayfa (tabloların çoğu 3.000 satırın altında: firma_stok,
+                        # ödemeler, servis geçmişi → 9 yerine 3 istek), sonrakiler 8'erli.
+                        _bas, _dalga, _hata = 1000, 2, False
                         while _bas <= 500_000:
                             _arlk = [(_bas + _i * 1000, _bas + (_i + 1) * 1000 - 1)
                                      for _i in range(_dalga)]
@@ -234,6 +236,7 @@ class _LoggingTable:
                             if _hata or _kisa:
                                 break
                             _bas += _dalga * 1000
+                            _dalga = 8
                     else:
                         _hata = True                 # fabrika yok → ardışık yol
                     if self._yeniden is None or _hata:

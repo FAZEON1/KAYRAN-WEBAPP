@@ -64,6 +64,23 @@ BAGIMLILAR = (
 )
 
 
+# Satış grubu (Ekim 2026, hızlandırma): satış ve iade tabloları AYRI izlenir; her satışta ürün
+# önbellekleri (yukarıdaki grup) boşuna temizlenmesin. Tetikleyici: veritabani/22_satis_surumu.sql.
+# Sayaç satırı yoksa (SQL kurulmamış) bu grup eskisi gibi kısa aralıkla temizlenir (SATIS_YEDEK_SN).
+SATIS_TABLOLARI = ("satislar", "iadeler")
+SATIS_YEDEK_SN = 120     # eski satış önbelleği süresi (2 dk)
+SATIS_BAGIMLILAR = (
+    ("satis.database", "_tum_satislar_yalin"),
+    ("satis.database", "_satislar_yalin_aralik"),
+    ("satis.database", "get_satislar"),
+    ("satis.database", "_tum_iadeler"),
+    ("satis.database", "_iadeler_aralik"),
+    ("satis.database", "iade_satis_net_ozet"),
+    ("satis.database", "get_satis_pnl_view"),
+    ("satis.database", "_kanallar_satistan"),
+)
+
+
 def _onbellek(ttl):
     try:
         import streamlit as st
@@ -105,11 +122,12 @@ def imza(surumler):
     return tuple(int(s.get(t, 0)) for t in IZLENEN_TABLOLAR)
 
 
-def bagimlilari_temizle():
-    """BAGIMLILAR'ı temizler (yalnız yüklenmiş modüllerde). Döner: temizlenen sayısı."""
+def bagimlilari_temizle(liste=None):
+    """BAGIMLILAR'ı (ya da verilen listeyi) temizler (yalnız yüklenmiş modüllerde).
+    Döner: temizlenen sayısı."""
     import sys
     n = 0
-    for mod_adi, ad in BAGIMLILAR:
+    for mod_adi, ad in (BAGIMLILAR if liste is None else liste):
         fn = getattr(sys.modules.get(mod_adi), ad, None)
         if fn is not None and hasattr(fn, "clear"):
             try:
@@ -120,6 +138,30 @@ def bagimlilari_temizle():
     return n
 
 
+def satis_imza(surumler):
+    """Satış grubunun imzası; sayaç satırı hiç yoksa None (SQL 22 kurulmamış)."""
+    s = surumler or {}
+    if not any(t in s for t in SATIS_TABLOLARI):
+        return None
+    return tuple(int(s.get(t, 0)) for t in SATIS_TABLOLARI)
+
+
+def _satis_tazelik(s, d, simdi):
+    """Satış grubu: sayaç değiştiyse temizle; sayaç yoksa eski 2 dk aralığıyla temizle."""
+    yeni = satis_imza(s)
+    if yeni is None:
+        if simdi - d.get("satis_temizlik", simdi) >= SATIS_YEDEK_SN:
+            bagimlilari_temizle(SATIS_BAGIMLILAR)
+            d["satis_temizlik"] = simdi
+        d.setdefault("satis_temizlik", simdi)
+        return
+    if d.get("satis_surum") is None:
+        d["satis_surum"] = yeni
+    elif yeni != d["satis_surum"]:
+        bagimlilari_temizle(SATIS_BAGIMLILAR)
+        d["satis_surum"] = yeni
+
+
 def tazelik_kontrol(simdi=None):
     """Her sayfa çiziminde çağrılır. Döner: "degisti" | "ayni" | "ilk" | "yedek" | "bekle".
     Hiçbir koşulda hata fırlatmaz (sayfa çizimi bunun yüzünden durmaz)."""
@@ -127,6 +169,10 @@ def tazelik_kontrol(simdi=None):
         simdi = time.time() if simdi is None else simdi
         d = _surec_durumu()
         s = _surumler()
+        try:
+            _satis_tazelik(s, d, simdi)
+        except Exception:  # noqa: BLE001
+            pass
         if s is None:                                   # tablo yok → eski 5 dk davranışı
             if simdi - d["temizlik"] >= YEDEK_SURE_SN:
                 bagimlilari_temizle()

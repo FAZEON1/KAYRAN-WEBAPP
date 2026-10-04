@@ -68,10 +68,10 @@ def _tum_satis_ozeti():
     """ABC / kâr katkısı için: tüm satışlardan SKU bazlı kâr+ciro toplamı.
     Dönen: {toplam_kar, toplam_ciro, sku_kar:{}, sku_ciro:{}}"""
     try:
-        from satis.database import get_satislar, satir_kar
+        from satis.database import get_satislar_yalin, satir_kar
         sku_kar, sku_ciro = {}, {}
         tk = tc = 0.0
-        for s in (get_satislar() or []):
+        for s in (get_satislar_yalin() or []):
             k = satir_kar(s)
             sku = str(s.get("sku", "")).strip()
             sku_kar[sku] = sku_kar.get(sku, 0.0) + _f(k.get("net_kar"))

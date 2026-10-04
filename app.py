@@ -2309,8 +2309,8 @@ def anasayfa():
 
     if _finans_gor and not _patron_gor:
         try:
-            from satis.database import get_satislar, ozet_hesapla
-            _top, _, _ = ozet_hesapla(get_satislar(_ay_ilk, _bugun_iso))
+            from satis.database import get_satislar_yalin, ozet_hesapla
+            _top, _, _ = ozet_hesapla(get_satislar_yalin(_ay_ilk, _bugun_iso))
             # + Alınan destekler (sellout/marketing/rebate — ay bazlı gelir)
             _ad_usd = 0.0
             try:
@@ -3237,6 +3237,18 @@ def main():
         giris_ekrani()
         return
 
+    # Hızlandırma (Ekim 2026): her sayfada gereken küçük okumalar AYNI ANDA (shared/paralel).
+    # Program ABD'de, veritabanı Frankfurt'ta; her istek ~0,2-0,3 sn. Önbellek süresi dolduğunda
+    # bunlar sırayla ~1-1,5 sn tutuyordu. Hepsi önbellekli: aşağıdaki asıl çağrılar sonucu hazır bulur.
+    try:
+        from shared.paralel import hepsi as _paralel
+        from shared.yetki import yetki_tablosu as _yt
+        from shared.veri_surumu import _surumler as _vs
+        from kayranpm.database import get_talepler as _gt
+        _paralel([_yt, _vs, _gt, (get_okunmamis_bildirimler, st.session_state.aktif_kullanici)])
+    except Exception:  # noqa: BLE001
+        pass
+
     # Hesap açık oturum SIRASINDA pasife alındıysa hemen çıkış yaptır.
     # (Eskiden pasif kontrolü yalnız girişte yapılıyordu; tarayıcısı açık olan
     # kullanıcı erişmeye devam ediyordu. Yetki tablosu 60 sn önbellekli —
@@ -3256,8 +3268,12 @@ def main():
     # Sidebar her zaman görünür (login sonrası)
     portal_sidebar()
 
-    # Aktif kullanıcının online durumunu güncelle
-    online_durum_guncelle(st.session_state.aktif_kullanici)
+    # Aktif kullanıcının online durumunu güncelle — arka planda (yazma; sayfa beklemesin)
+    try:
+        from shared.paralel import basla as _arkada
+        _arkada([(online_durum_guncelle, st.session_state.aktif_kullanici)])
+    except Exception:  # noqa: BLE001
+        online_durum_guncelle(st.session_state.aktif_kullanici)
 
     aktif = st.session_state.aktif_uygulama
     yetkiler = kullanici_yetkileri(st.session_state.aktif_kullanici)

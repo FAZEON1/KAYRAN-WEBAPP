@@ -97,7 +97,8 @@ def test_uzun_onbellekli_her_fonksiyon_izleniyor():
     """Uzun önbellek yalnız veri sürümüyle tazelenen fonksiyonda olabilir."""
     uzun = _uzun_onbellekli()
     assert len(uzun) >= 10
-    assert not (uzun - set(V.BAGIMLILAR)), sorted(uzun - set(V.BAGIMLILAR))
+    izlenen = set(V.BAGIMLILAR) | set(V.SATIS_BAGIMLILAR)
+    assert not (uzun - izlenen), sorted(uzun - izlenen)
     for mod, ad in uzun:
         src = (KOK / (mod.replace(".", "/") + ".py")).read_text(encoding="utf-8")
         assert re.search(rf"ttl={V.UZUN_TTL}, show_spinner=False\)[^\n]*\ndef {ad}\(", src), (mod, ad)
