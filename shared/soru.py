@@ -58,8 +58,8 @@ def _var(metin, *kaliplar):
 
 
 def _ek_tolerans(kelime, kok):
-    """'monitorler' / 'monitoru' / 'monitorde' → 'monitor' kökü. Kök en az 3 harf; ek en çok 6 harf."""
-    return len(kok) >= 3 and kelime.startswith(kok) and len(kelime) - len(kok) <= 6
+    """'monitorler' / 'monitoru' / 'monitorde' → 'monitor' kökü. Kök en az 3 harf; ek en çok 8 harf."""
+    return len(kok) >= 3 and kelime.startswith(kok) and len(kelime) - len(kok) <= 8   # 'kartlarının
 
 
 # ── Dönem ───────────────────────────────────────────────────────────
@@ -134,15 +134,21 @@ def donem_bul(m, bugun):
 
 
 # ── Ad eşleştirme (veriden) ─────────────────────────────────────────
-def firma_bul(m, firmalar):
+def firma_bul(m, firmalar, haric=()):
     """firmalar: {görünen ad: [kanal adı…]}. Görünen adın ilk kelimesi (ya da eş adı) metinde
-    geçiyorsa o firma. Döner: (görünen ad, [kanal…]) ya da (None, [])."""
+    geçiyorsa o firma. Aynı ilk kelimeli cariler BİRLİKTE sayılır (eski / yeni unvan, TL / USD
+    carisi). İlk kelimesi sıradan kelime ya da kategori / marka adı olan cari ('TEKNİK SERVİS',
+    'MONİTÖR …') firma sayılmaz. Döner: (görünen ad, [kanal…]) ya da (None, [])."""
     kel = _kelimeler(m)
     esle = {}
     for ad, kanallar in (firmalar or {}).items():
         ilk = sade(ad).split(" ")[0] if ad else ""
-        if len(ilk) >= 2:
-            esle.setdefault(ilk, (ad, kanallar))
+        if len(ilk) < 2 or ilk in _YASAK or ilk in haric:
+            continue
+        if ilk in esle:
+            esle[ilk] = (esle[ilk][0], list(esle[ilk][1]) + [k for k in kanallar if k not in esle[ilk][1]])
+        else:
+            esle[ilk] = (ad, list(kanallar))
     for k in kel:
         hedef = FIRMA_ESLERI.get(k, k)
         if hedef in esle:
@@ -153,8 +159,28 @@ def firma_bul(m, firmalar):
     return None, []
 
 
+_KISA_EK = {"ler", "lar", "leri", "lari", "de", "da", "te", "ta", "in", "un", "nin", "nun", "e", "a", "i", "u"}
+
+
+def _kok(s):
+    """İyelik ekini at: 'kamerasi' → 'kamera', 'karti' → 'kart' ('kameralari', 'kartlar' de uysun)."""
+    for ek in ("si", "i", "u"):
+        if s.endswith(ek) and len(s) - len(ek) >= 3:
+            return s[: -len(ek)]
+    return s
+
+
+def _kelime_uyar(k, s):
+    if k == s:
+        return True
+    if len(s) == 3:                                    # ssd, ram, mio: yalnız bilinen kısa ekler
+        return k.startswith(s) and k[3:] in _KISA_EK
+    return _ek_tolerans(k, _kok(s)) and len(_kok(s)) >= 3
+
+
 def _ad_bul(m, adlar, haric=()):
-    """Metinde geçen ilk ad (kategori / marka). En uzun eşleşme kazanır ('oyuncu koltuğu' > 'koltuk')."""
+    """Metinde geçen ilk ad (kategori / marka). En uzun eşleşme kazanır ('oyuncu koltuğu' > 'koltuk').
+    Çok kelimeli adda son kelime çekimli olabilir ('araç kameraları', 'ekran kartları')."""
     kel = _kelimeler(m)
     en, en_uz = None, 0
     for ad in adlar or ():
@@ -163,13 +189,14 @@ def _ad_bul(m, adlar, haric=()):
             continue
         parca = s.split(" ")
         if len(parca) > 1:
-            if re.search(r"(?:^|\s)" + re.escape(s), m) and len(s) > en_uz:
-                en, en_uz = ad, len(s)
+            for i in range(len(kel) - len(parca) + 1):
+                if kel[i:i + len(parca) - 1] == parca[:-1] and _kelime_uyar(kel[i + len(parca) - 1], parca[-1]):
+                    if len(s) > en_uz:
+                        en, en_uz = ad, len(s)
             continue
         for k in kel:
-            if k == s or (_ek_tolerans(k, s) and len(s) >= 4):
-                if len(s) > en_uz:
-                    en, en_uz = ad, len(s)
+            if _kelime_uyar(k, s) and len(s) > en_uz:
+                en, en_uz = ad, len(s)
     return en
 
 
@@ -199,7 +226,9 @@ def coz(metin, sozluk=None, bugun=None):
         return n
 
     n["donem"] = donem_bul(m, bugun)
-    n["firma"], n["kanallar"] = firma_bul(m, sozluk.get("firmalar"))
+    _adlar = {sade(x) for x in list(sozluk.get("kategoriler") or []) + list(sozluk.get("markalar") or [])}
+    _adlar |= {"teknik", "servis", "donanim", "bilgisayar", "elektronik", "teknoloji", "bilisim"}
+    n["firma"], n["kanallar"] = firma_bul(m, sozluk.get("firmalar"), haric=_adlar)
     n["kategori"] = _ad_bul(m, sozluk.get("kategoriler"))
     _kat_s = sade(n["kategori"]) if n["kategori"] else ""
     n["marka"] = _ad_bul(m, sozluk.get("markalar"), haric={_kat_s} | {sade(n["firma"] or "").split(" ")[0]})
@@ -285,7 +314,7 @@ def coz(metin, sozluk=None, bugun=None):
         n["kirilim"] = "urun" if n["tip"] != "stok" or n["sira"] or n["limit"] else None
     if n["tip"] in ("satis", "iade", "ariza", "yasli_stok", "stok") and n["kirilim"]:
         n["sira"] = n["sira"] or "azalan"
-        if n["kirilim"] == "urun":
+        if n["kirilim"] == "urun" and n["tip"] != "yasli_stok":      # yaşlı stok: listenin tamamı
             n["limit"] = n["limit"] or 10
     if n["tip"] == "urun" or (n["sku"] and n["tip"] in ("stok", "satis") and not n["kirilim"]):
         n["tip"] = "urun" if not n["olcu"] or n["tip"] == "stok" else n["tip"]

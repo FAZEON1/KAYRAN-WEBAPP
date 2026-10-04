@@ -509,7 +509,7 @@ def _yasli(n, izin, v):
         satirlar = list(reversed(satirlar))
     k = [_kart("Yaşlı adet", _sayi(adet), f"{len(rows)} ürün"), _kart("Yaşlı değer", _para(deger), "paçal ile"),
          _kart("Eşik", f"{esik} gün", "depoya girişten, FIFO")]
-    return {"baslik": _baslik(n), "kartlar": k, "satirlar": satirlar[:200],
+    return {"baslik": _baslik(n), "kartlar": k, "satirlar": satirlar[:n.get("limit") or 200],
             "grafik": {"x": [str(r.get("SKU"))[:28] for r in satirlar][:15],
                        "y": [r.get("Yaşlı değer ($)") or 0 for r in satirlar][:15], "etiket": "Yaşlı değer ($)"},
             "kaynak": "Ürün yönetimi › Stok yaşı ile aynı hesap (FIFO, satılabilir depolar).",

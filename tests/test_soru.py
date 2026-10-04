@@ -90,9 +90,34 @@ def test_turkce_harf_ve_ek_toleransi():
     assert _c("monitorlerde en cok kar")["kategori"] == "MONİTÖR"
 
 
+@pytest.mark.parametrize("metin, kat", [
+    ("bu yıl araç kameraları cirosu", "Araç kamerası"), ("ekran kartlarının kârı", "Ekran kartı"),
+    ("cpu soğutucular en çok satan", "CPU soğutucu"), ("ssdler stok", "SSD"), ("ram stoğu", "RAM"),
+    ("kasaların marjı", "Kasa"), ("mouse pad satışları", "Mouse pad"),
+])
+def test_gercek_kategori_adlari_cekimli(metin, kat):
+    from shared.soru import coz
+    s = dict(SOZLUK, kategoriler=["Kasa", "Monitör", "Ekran kartı", "Araç kamerası", "CPU soğutucu", "SSD",
+                                  "RAM", "Mouse pad", "Ekran koruyucu", "Diğer"])
+    assert coz(metin, s, BUGUN)["kategori"] == kat
+
+
 def test_siradan_kelime_kategori_sanilmaz():
     # 'DİĞER' kategori adı ama sıradan kelime: "diğer firmalar" kategori süzgeci kurmamalı
     assert _c("diğer firmalara göre ciro")["kategori"] is None
+
+
+def test_ayni_ilk_kelimeli_cariler_birlikte():
+    from shared.soru import coz
+    s = dict(SOZLUK, firmalar={"EERA BİLGİSAYAR": ["EERA BİLGİSAYAR LTD. ŞTİ."],
+                               "EERA ELEKTRONİK": ["EERA ELEKTRONİK TİCARET A.Ş."],
+                               "TEKNİK SERVİS / 2.EL": ["TEKNİK SERVİS / 2.EL"],
+                               "MONİTÖR DÜNYASI": ["MONİTÖR DÜNYASI LTD."]})
+    n = coz("eera bu yıl ciro", s, BUGUN)
+    assert sorted(n["kanallar"]) == ["EERA BİLGİSAYAR LTD. ŞTİ.", "EERA ELEKTRONİK TİCARET A.Ş."]
+    assert coz("teknik servis iadeleri", s, BUGUN)["firma"] is None        # sıradan kelime
+    n = coz("monitör satışları", s, BUGUN)
+    assert n["firma"] is None and n["kategori"] == "MONİTÖR"                # kategori adı firma sanılmaz
 
 
 def test_parcalar_okunur():
