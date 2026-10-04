@@ -61,7 +61,7 @@ export default function(component){
     gk.innerHTML = '<style>' + (P.D.css || "") + '</style>' +
       '<div class="ort" role="dialog" aria-modal="true" aria-label="Komut paleti"><div class="kutu">' +
         '<div class="ust"><span class="mi">search</span><input type="text" autocomplete="off" spellcheck="false" ' +
-        'placeholder="Sayfa, işlem, SKU, firma, sipariş no…" aria-label="Ara"><kbd class="kapat">Esc</kbd></div>' +
+        'placeholder="Sayfa, işlem, SKU, firma ya da soru: geçen ay en çok satan 5 ürün" aria-label="Ara"><kbd class="kapat">Esc</kbd></div>' +
         '<div class="liste" role="listbox"></div>' +
         '<div class="alt"><span>↑↓ seç</span><span>Enter git</span><span>Esc kapat</span></div>' +
       '</div></div>';
@@ -111,6 +111,7 @@ export default function(component){
     } else {
       const sy = sirala(sabit.filter(o => o.tur === "sayfa" && uy(o))).slice(0, 8);
       const isl = sirala(sabit.filter(o => o.tur === "islem" && uy(o))).slice(0, 5);
+      if (D.sonuc_q && sade(D.sonuc_q) === q && (D.sonuc || []).some(o => o.tur === "soru")) gr.unshift(["Soru", (D.sonuc || []).filter(o => o.tur === "soru")]);
       if (sy.length) gr.push(["Sayfalar", sy]);
       if (isl.length) gr.push(["İşlemler", isl]);
       const ad = {urun:"Ürünler", cari:"Cariler", satis:"Satışlar", ithalat:"İthalat", servis:"Teknik servis"};
@@ -153,6 +154,11 @@ def _bilesen():
 def git(oge_id):
     """Paletten seçilen öğeye git. Sayfa: oturuma yaz + uygulamayı yeniden çiz.
     Ürün: stok kartını aç (bulunduğun sayfada kalır)."""
+    if str(oge_id or "").startswith("soru:"):
+        from shared.soru_ekran import sor
+        sor(str(oge_id)[5:])
+        st.rerun(scope="app")
+        return
     from shared.gezinme import hedef
     h = hedef(oge_id)
     if not h:
@@ -183,6 +189,13 @@ def palet(yetkiler, ozel, kullanici, kosul):
             sonuc = arama_ogeleri(ara(q))
         except Exception:
             sonuc = []
+        try:                                   # soru gibi okunuyorsa en üstte "Sor" (shared/soru_ekran)
+            from shared.soru_ekran import anlasilir_mi
+            if anlasilir_mi(q):
+                sonuc = [{"tur": "soru", "id": "soru:" + q.strip(), "ad": "Sor: " + q.strip(),
+                          "yol": "cevap programın hesaplarından", "ikon": "forum"}] + sonuc
+        except Exception:  # noqa: BLE001
+            pass
     veri = {"css": _CSS, "ogeler": palet_ogeleri(yetkiler, ozel, kullanici, kosul),
             "sonuc": sonuc, "sonuc_q": q if len(q.strip()) >= 2 else ""}
     r = _bilesen()(key="kayran_palet", data=veri, default={}, height="content",

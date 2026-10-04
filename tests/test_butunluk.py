@@ -73,7 +73,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
-               "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py"):
+               "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
+               "soru.py", "soru_cevap.py", "soru_ekran.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -181,6 +182,9 @@ KRITIK_FONKSIYONLAR = {
                      "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
     "shared.ceviri": ["kur"],
     "shared.ipucu": ["kur"],
+    "shared.soru": ["coz", "parcalar", "donem_bul", "sade", "firma_bul", "sku_bul"],
+    "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
+    "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
                             "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",

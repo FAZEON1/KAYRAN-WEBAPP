@@ -1836,7 +1836,7 @@ input, textarea, select { font-size: 16px !important; }
                 'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
         st.markdown(_lh, unsafe_allow_html=True)
 
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi", "cop_kutusu", "yukleme_gecmisi", "veri_sagligi"):
+        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi", "cop_kutusu", "yukleme_gecmisi", "veri_sagligi", "soru"):
             # Kişi satırı + çıkış (modül sol menüleriyle AYNI düzen: shared.utils.sidebar_ust)
             from shared.utils import sidebar_kullanici as _sb_kisi
             _kc1, _kc2 = st.columns([3, 1.4], gap="small", vertical_alignment="center")
@@ -1857,6 +1857,11 @@ input, textarea, select { font-size: 16px !important; }
                 st.session_state["tema"] = _tema_yeni
                 _tema_yaz(aktif_kullanici, _tema_yeni)
                 st.rerun()
+
+            # Soru sor: Türkçe soru → programın kendi hesaplarından cevap (shared/soru_ekran)
+            st.button("Soru sor", icon=":material/forum:", key="nav_soru",
+                      type="primary" if aktif_sayfa == "soru" else "secondary",
+                      use_container_width=True, on_click=_sayfaya_git, args=("soru",))
 
             st.markdown('<div class="k-sb-baslik">Hesap</div>', unsafe_allow_html=True)
 
@@ -1920,9 +1925,19 @@ def _arama_parcasi(yer):
     terim = st.text_input(
         "🔍 Ara",
         key=f"global_arama_{yer}",
-        placeholder="Ara: SKU, ürün, firma, sipariş no, seri no, tedarikçi…   (Ctrl+K)",
+        placeholder="Ara ya da sor: SKU, firma, sipariş no… ya da 'geçen ay en çok satan 5 ürün'   (Ctrl+K)",
         label_visibility="collapsed",
     )
+    if terim and yer == "anasayfa":
+        # Soru gibi okunuyorsa: önce "Programa sor" (shared/soru_ekran), veri araması altta sürer
+        from shared.soru_ekran import anlasilir_mi, sor
+        if anlasilir_mi(terim):
+            _q1, _q2 = st.columns([5, 1.4], vertical_alignment="center")
+            _q1.caption("Bu bir soru gibi görünüyor; program kendi hesaplarından cevaplayabilir.")
+            if _q2.button("Programa sor", icon=":material/forum:", key=f"ara_sor_{yer}", type="primary",
+                          use_container_width=True):
+                sor(terim)
+                st.rerun(scope="app")
     if not terim or len(terim.strip()) < 2:
         if yer == "sayfa":
             st.caption("En az 2 karakter yazın. Ürün (SKU/ad/barkod), cari, sipariş no, "
@@ -3294,6 +3309,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
+        "soru": "Soru sor",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3364,6 +3380,11 @@ def main():
             from shared.veri_sagligi import sayfa as _veri_sagligi_sayfa
             _vs_kul = st.session_state.get("aktif_kullanici", "")
             _veri_sagligi_sayfa(_vs_kul, kullanici_yetkileri(_vs_kul), ozel_yetki(_vs_kul, "kullanici_yonetimi"))
+        elif aktif == "soru":
+            from shared.soru_ekran import sayfa as _soru_sayfa
+            from shared.kar_gizle import kar_gorunur as _kar_gorunur
+            _sq_kul = st.session_state.get("aktif_kullanici", "")
+            _soru_sayfa(_sq_kul, kullanici_yetkileri(_sq_kul), _kar_gorunur())
         elif aktif == "cop_kutusu":
             from shared.cop_kutusu import sayfa as _cop_kutusu_sayfa
             _ck_kul = st.session_state.get("aktif_kullanici", "")
