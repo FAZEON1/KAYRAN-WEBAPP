@@ -22,7 +22,7 @@ import streamlit as st
 
 from shared.tasarim import (baslik, css_tek_satir, kpi_serit, mesaj, bos_durum,
                             rv, sayi, tr_sayi)
-from shared.utils import firma_gorunen_ad, tr_kucuk, tr_today
+from shared.utils import firma_gorunen_ad, normalize_tr, tr_kucuk, tr_today
 from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh, urun_ad as _urun_ad   # tek kaynak (Eki 2026)
 from shared import bilesen as B
 from . import kampanya_hesap as H
@@ -704,13 +704,8 @@ def kapi_kampanya(dosya, kapi):
             return 0.0
 
     def _tarih(_v):
-        try:
-            if _v is None or (isinstance(_v, float) and pd.isna(_v)):
-                return None
-            _t = pd.to_datetime(_v, errors="coerce", dayfirst=True)
-            return _t.date() if pd.notna(_t) else None
-        except Exception:
-            return None
+        from shared.utils import tarih_metni
+        return tarih_metni(_v)
 
     st.dataframe(_kdf.head(15), use_container_width=True, height=200)
     _xl_ad = _xl_firma = _xl_kat = _xl_tur = ""
@@ -801,9 +796,18 @@ def kapi_kampanya(dosya, kapi):
                             "satis": _knum(_gv(_r, "fiyat", "satis")), "fd": _knum(_gv(_r, "sellout")),
                             "ed": _knum(_gv(_r, "ek sellout"))})
     st.caption(f"Şablonda **{len(_urun_satir)}** geçerli ürün satırı bulundu.")
+    # Aynı şablon ikinci kez yüklenirse ikinci bir kampanya açılırdı (destekler iki kez sayılır)
+    _ayni = [k for k in kamps if normalize_tr(str(k.get("kampanya_adi") or "")) == normalize_tr(_o_ad)
+             and normalize_tr(str(k.get("firma") or "")) == normalize_tr(_o_firma)
+             and str(k.get("baslangic_tarihi") or "")[:10] == str(_o_bas)]
+    _ayni_onay = True
+    if _ayni and _o_ad.strip():
+        st.warning(f"**{_o_ad.strip()}** adında, aynı firma ve başlangıç tarihli bir kampanya zaten var. "
+                   "Aynı şablonu ikinci kez yüklersen ikinci bir kampanya açılır.")
+        _ayni_onay = st.checkbox("Bu farklı bir kampanya — yine de oluştur", key=kapi.anahtar("kmp_o_ayni"))
     if st.button("Şablondan Kampanya Oluştur ve Ürünleri Ekle", type="primary", use_container_width=True,
                  key=kapi.anahtar("kmp_o_olustur"),
-                 disabled=(not _o_ad.strip() or not _o_firma.strip() or not _urun_satir),
+                 disabled=(not _o_ad.strip() or not _o_firma.strip() or not _urun_satir or not _ayni_onay),
                  icon=":material/rocket_launch:"):
         _ohata, _oyid = None, None
         try:

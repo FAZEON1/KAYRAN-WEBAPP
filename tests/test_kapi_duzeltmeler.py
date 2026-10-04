@@ -13,11 +13,14 @@ canlıda olan şu hatalar bulundu ve düzeltildi:
 5. Çek dökümü: mevcut çekler onay sorulmadan siliniyordu (artık kayıttan önce gösterilip onaylanır).
 """
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
 import shared.yukleme_gecmisi as Y
+
+KOK = Path(__file__).resolve().parent.parent
 
 
 class _Q:
@@ -219,3 +222,112 @@ def test_alinan_destek_kendi_sablonunu_okur(monkeypatch):
     firma, tur, donem, tutar, doviz, fatura, aciklama, kategori = eklenen[0]
     assert (firma, tur, tutar, doviz, fatura, aciklama, kategori) == (
         "FAZEON", "SELLOUT", 1500.0, "USD", "F-1", "Eylül", "MONİTÖR")
+
+
+# ── Çekişmeli inceleme bulguları (Ekim 2026) ─────────────────────────────
+class _Yuklenen:
+    def __init__(self, ad, veri):
+        self.name, self._v = ad, veri
+
+    def getvalue(self):
+        return self._v
+
+
+def test_ayni_dosya_iki_kez_eklenmez(monkeypatch):
+    """Ana sayfaya bırakılıp kapıda yeniden seçilen dosya iki kez listeye giriyordu: kampanya ve mal kabul
+    iki kez kaydedilebilirdi."""
+    import streamlit as st
+    from kapi_ornekleri import ORNEKLER
+    from shared import dosya_kapisi as dk
+    monkeypatch.setattr(st, "session_state", {})
+    ad, veri = ORNEKLER["kampanya_sablon"]()
+    dk.dosyalari_ekle([_Yuklenen(ad, veri)], {"kayranpm": True})
+    dk.dosyalari_ekle([_Yuklenen("kopya.xlsx", veri), _Yuklenen(ad, veri)], {"kayranpm": True})
+    assert len(st.session_state["_kapi_dosyalar"]) == 1
+    assert len(st.session_state["_kapi_atlanan"]) == 2
+
+
+def test_buyuk_dosya_eklenmez(monkeypatch):
+    import streamlit as st
+    from shared import dosya_kapisi as dk
+    monkeypatch.setattr(st, "session_state", {})
+    dk.dosyalari_ekle([_Yuklenen("dev.xlsx", b"x" * (dk.EN_BUYUK_MB * 1024 * 1024 + 1))], {})
+    assert st.session_state["_kapi_dosyalar"] == []
+    assert "MB" in st.session_state["_kapi_atlanan"][0]
+
+
+def test_kapi_onbellegi_bir_kez_okur_kopya_doner():
+    from shared.dosya_kapisi import Kapi
+    k = Kapi({"id": "a", "ad": "x.xlsx", "veri": b""})
+    sayac = []
+
+    def oku():
+        sayac.append(1)
+        return [{"satir": 1}]
+
+    ilk = k.onbellek("oku", oku)
+    ilk[0]["satir"] = 99                      # gövde sonucu değiştirse de saklanan bozulmaz
+    assert k.onbellek("oku", oku) == [{"satir": 1}]
+    assert len(sayac) == 1
+
+
+def test_pencere_x_ile_kapanmaz_kapat_dugmesi_her_ekranda():
+    """X tam yenileme başlatıp süren kaydı yarıda kesiyordu (satışlar yazılır, stok düşülmez)."""
+    s = (KOK / "shared" / "dosya_kapisi.py").read_text(encoding="utf-8")
+    assert 'dismissible=False' in s and "on_dismiss" not in s.split("def _pencere_kalibi")[1].split("def ")[0]
+    for govde in ("def _liste_ciz", "def _govde_ciz"):
+        assert "_kapat_dugmesi(" in s.split(govde)[1].split("\ndef ")[0], govde
+
+
+def test_kapi_sayfadan_once_cizilir():
+    """Sayfa st.stop() ile durunca (Ödemeler 'veri yok', P&L 'satış yok') sonradan çizilen kapı açılmıyordu."""
+    a = (KOK / "app.py").read_text(encoding="utf-8")
+    assert a.index("_kapi_acik = _dk.ciz(") < a.index("    # Sayfa dispatch\n")
+
+
+@pytest.mark.parametrize("ad, ilk_satir, beklenen", [
+    ("gider_2025.xlsx", None, 2025),
+    ("gider.xlsx", "2025 GİDER TABLOSU", 2025),
+    ("gider.xlsx", "GİDER TABLOSU", None),
+    ("gider_1999.xlsx", None, None),          # bugünden çok uzak sayı yıl sayılmaz
+    ("rapor 20260101.xlsx", None, None),      # tarih parçası yıl sanılmaz
+])
+def test_gider_yili_dosyadan(ad, ilk_satir, beklenen):
+    from datetime import date
+    from io import BytesIO
+    import pandas as pd
+    from yonetim_hesap import gider_yili_bul
+    veri = None
+    if ilk_satir:
+        b = BytesIO()
+        pd.DataFrame([[ilk_satir, None], ["KATEGORİ", "KALEM"]]).to_excel(b, index=False, header=False)
+        veri = b.getvalue()
+    assert gider_yili_bul(ad, veri, date(2026, 1, 5)) == beklenen
+
+
+def test_odeme_listesi_aktif_hafta_en_son():
+    """Ödemeler yazılamazsa bütün haftalar pasife alınmış kalıyordu."""
+    s = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
+    g = s.split("def kapi_odeme_listesi")[1].split("\ndef ")[0]
+    assert "if hafta_id is None" in g
+    assert g.index("odeme_ekle_bulk(hafta_id") < g.index("hafta_aktif_yap(hafta_id)")
+    assert "hafta_sil(hafta_id)" in g
+
+
+@pytest.mark.parametrize("v, beklenen", [
+    ("2026-10-01", (2026, 10, 1)), ("2026-10-01 00:00:00", (2026, 10, 1)), ("01.10.2026", (2026, 10, 1)),
+    ("1/10/2026", (2026, 10, 1)), (pd.Timestamp("2026-10-01"), (2026, 10, 1)), ("", None), (None, None),
+    ("tarih yok", None),
+])
+def test_excel_tarih_metni_ay_gun_karismaz(v, beklenen):
+    """Kampanya şablonu / sipariş Excel'inde "2026-10-01" metni 10 Ocak okunuyordu."""
+    from datetime import date
+    from shared.utils import tarih_metni
+    assert tarih_metni(v) == (date(*beklenen) if beklenen else None)
+
+
+def test_satis_ve_kampanya_tarihi_ortak_okuyucudan():
+    from datetime import date
+    from satis.main import _to_date
+    assert _to_date("2026-10-01") == date(2026, 10, 1)
+    assert _to_date(46296) == date(2026, 10, 1)            # Excel seri numarası

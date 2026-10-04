@@ -166,8 +166,20 @@ def kapi_odeme_listesi(dosya, kapi):
     if st.button("Yükle ve aktif hafta yap", type="primary", use_container_width=True, disabled=not onay,
                  key=kapi.anahtar("odeme_yukle"), icon=":material/check_circle:"):
         hafta_id = hafta_ekle(ad)
+        if hafta_id is None:
+            st.error("Hafta oluşturulamadı (veritabanı kayıt döndürmedi); hiçbir şey değiştirilmedi.")
+            return
+        # Önce ödemeler, EN SON aktif hafta: yazım yarıda kalırsa eski aktif hafta yerinde kalır ve
+        # yarım hafta silinir (eskiden önce bütün haftalar pasife alınıyordu).
+        try:
+            odeme_ekle_bulk(hafta_id, odemeler)
+        except Exception:
+            try:
+                hafta_sil(hafta_id)
+            except Exception:  # noqa: BLE001
+                pass
+            raise
         hafta_aktif_yap(hafta_id)
-        odeme_ekle_bulk(hafta_id, odemeler)
         from shared.yukleme_takvimi import kaydet as _yt_kaydet
         _yt_kaydet("odeme_listesi", st.session_state.get("aktif_kullanici", ""), len(odemeler))
         from shared.yukleme_gecmisi import kaydet as _yg_kaydet

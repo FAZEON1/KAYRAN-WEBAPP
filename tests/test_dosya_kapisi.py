@@ -156,3 +156,19 @@ def test_kampanya_urun_hatasi_yutulmaz():
             raise RuntimeError("kolon yok")
     n, hatalar = urunleri_ekle(7, satir, ekle=ekle)
     assert n == 2 and hatalar == [{"SKU": "B", "Hata": "RuntimeError: kolon yok"}]
+
+
+def test_xls_adli_xlsx_icerik_de_taninir():
+    """Bazı programlar .xlsx içeriği .xls adıyla verir; okuyucular içeriğe bakar, tanıma da bakmalı
+    (eskiden ada bakıp .xls okuyucusunu zorluyordu: "Excel olarak açılamadı")."""
+    ad, veri = ORNEKLER["mikro_fatura"]()
+    assert [(x["tur"], x["guven"]) for x in tani("FaturaDokum.xls", veri)] == [("mikro_fatura", KESIN)]
+
+
+def test_gider_okuyucusu_xls_adli_xlsx_okur():
+    import io
+    from yonetim import gider_tablosu_parse
+    f = io.BytesIO(ORNEKLER["gider_tablosu"]()[1])
+    f.name = "gider_2026.xls"
+    kat, detay = gider_tablosu_parse(f)
+    assert len(detay) == 2 and sum(sum(v) for v in kat.values()) == 1500000

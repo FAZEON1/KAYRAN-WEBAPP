@@ -1578,7 +1578,10 @@ def kapi_ithalat_rapor(dosya, kapi):
             _dosya_map.setdefault(_pn, _d)
         if _tk:
             _dosya_map.setdefault(_tk, _d)
-    gruplar = list(df.groupby("_grup"))
+    gruplar = [(k, g) for k, g in df.groupby("_grup") if str(k).strip() and str(k).strip().lower() != "nan"]
+    if not gruplar:
+        st.warning("Dosyada belge / sipariş numaralı satır yok; kayıt yapılmaz.")
+        return
     _grup_ad = "belge" if _belge_col else "kayıt"
     st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — her belge ayrı dosya olur "
                f"ve Excel'deki İthalat Takip No'su ile etiketlenir.")
@@ -1629,10 +1632,14 @@ def kapi_ithalat_rapor(dosya, kapi):
                         if set_dosya_takip_no(_id, _t):
                             _n += 1
                     st.cache_data.clear()
-                    st.success(f"{_n} dosyaya takip no atandı.")
+                    # Mesaj yenilemeden sonra gösterilir (hemen yazılınca yenilemede kayboluyordu)
+                    st.session_state[kapi.anahtar("ith_takip_mesaj")] = f"{_n} dosyaya takip no atandı."
                     kapi.yenile()
             else:
                 st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
+        _takip_mesaj = st.session_state.pop(kapi.anahtar("ith_takip_mesaj"), None)
+        if _takip_mesaj:
+            st.success(_takip_mesaj)
         if st.toggle("Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)",
                      key=kapi.anahtar("tgl_ith_takip")):
             with st.container(border=True):
