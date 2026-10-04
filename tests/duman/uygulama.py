@@ -37,7 +37,7 @@ if os.environ.get("DUMAN_ONBELLEK_TEMIZLE"):
 
 # Bileşenler (components v2) ilk çağrıda bir kez kaydedilip modülde tutulur; kayıt Streamlit
 # örneğine bağlı. Canlıda tek örnek var; test her sayfa için yeni örnek açtığından kayıt yenilenir.
-for _ad in ("shared.palet", "shared.tablo", "shared.duzenle", "shared.ceviri", "shared.islem"):
+for _ad in ("shared.palet", "shared.tablo", "shared.duzenle", "shared.ceviri", "shared.ipucu", "shared.islem"):
     _m = sys.modules.get(_ad)
     if _m is not None and hasattr(_m, "_BILESEN"):
         _m._BILESEN = None
