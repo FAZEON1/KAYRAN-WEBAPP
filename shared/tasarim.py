@@ -256,7 +256,7 @@ EMOJI_IKON = {
 # ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
 MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
 # Emojisiz yeni menü seçenekleri (Ekim 2026): emoji yerine ikon adı burada (ekranda emoji sayısı artmaz).
-MENU_IKON = {"Stok Yaşı": "hourglass_bottom"}
+MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot"}
 
 
 def emoji_ayir(metin):
