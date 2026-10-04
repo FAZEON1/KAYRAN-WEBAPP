@@ -365,8 +365,16 @@ def goster(sku):
     with t1:
         from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
         st.markdown(pencere_css(), unsafe_allow_html=True)
-        _yeter = (f"~{toplam_stok / haftalik_gercek:.0f} hafta yeter"
-                  if haftalik_gercek > 0 else "satış verisi yok")
+        # "satış verisi yok" yalnız HİÇ satışı olmayan üründe. Eskiden son 90 güne bakıyordu: satışları
+        # Ocak'ta biten FAZE4 (1.215 adet, tamamı satıldı) "satış verisi yok" görünüyordu (Ekim 2026).
+        _son_satis = max((str(s.get("tarih") or "")[:10] for s in satislar), default="")
+        if haftalik_gercek > 0 and toplam_stok > 0:
+            _yeter = f"~{toplam_stok / haftalik_gercek:.0f} hafta yeter"
+        elif satislar:
+            _yeter = (("stokta yok" if toplam_stok <= 0 else "son 90 günde satış yok")
+                      + (f" · son satış {gun_ay_yil(_son_satis)}" if _son_satis else ""))
+        else:
+            _yeter = "satış verisi yok"
 
         # Panel verileri
         _dagilim_dolu = dict(_depo_satir)                 # zaten kanonik, sıfırsız, adede göre sıralı

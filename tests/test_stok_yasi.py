@@ -140,3 +140,10 @@ def test_kenar_arama_dugmesinde_ipucu_yok_ve_pencerede_ipucu_gizli():
     assert "help=" not in d
     t = (kok / "shared" / "tasarim.py").read_text(encoding="utf-8")
     assert 'body:has(div[role="dialog"]) [data-baseweb="tooltip"]' in t
+
+
+def test_satisi_eski_urunde_satis_verisi_yok_yazmaz():
+    from pathlib import Path
+    k = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
+    g = k[k.index("_son_satis = max("):k.index('_yeter = "satış verisi yok"')]
+    assert "elif satislar:" in g and "stokta yok" in g and "son satış" in g
