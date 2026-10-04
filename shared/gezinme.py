@@ -108,6 +108,7 @@ MODULLER = [
 
 # Ana sayfanın kenar çubuğundaki hesap sayfaları (modül değil, tek sayfa)
 SISTEM = [
+    ("soru", "Soru sor", "forum", None),
     ("cop_kutusu", "Çöp kutusu", "delete", None),
     ("yukleme_gecmisi", "Yükleme geçmişi", "history", None),
     ("veri_sagligi", "Veri sağlığı", "health_and_safety", None),

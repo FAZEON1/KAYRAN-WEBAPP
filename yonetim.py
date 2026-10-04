@@ -773,6 +773,7 @@ YEDEK_HARIC = [
     "cop_kutusu",          # silinenlerin 30 günlük kopyası; gece yedeği asıl tabloları zaten alıyor
     "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
     "yuklemeler",          # yükleme geçmişi + geri alma kopyaları; asıl tablolar zaten yedekte
+    "soru_kayitlari",      # soru kutusuna sorulan sorular (kalıp geliştirme için), iş verisi değil
     "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
 ]
 
