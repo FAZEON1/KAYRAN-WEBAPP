@@ -698,6 +698,25 @@ BILESEN_CSS = """
 .k-tb td.kisa{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .k-tb.sik thead th{padding:6px 8px;font-size:11.5px;}
 .k-tb.sik tbody td{padding:5px 8px;font-size:11.5px;}
+.k-detay{border:1px solid var(--k-kenar2);border-radius:var(--k-r);background:var(--k-yuzey1);
+  margin:16px 0 12px;overflow:hidden;}
+.k-detay-bas{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:12px 16px;border-bottom:1px solid var(--k-kenar);background:var(--k-yuzey2);}
+.k-detay-baslik{font-size:14px;font-weight:650;color:var(--k-metin);}
+.k-detay-ek{font-size:12.5px;color:var(--k-soluk);font-variant-numeric:tabular-nums;}
+.k-detay-govde{display:flex;gap:24px;flex-wrap:wrap;padding:8px 16px 14px;}
+.k-detay-sutun{flex:1;min-width:210px;}
+.k-detay-satir{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:6px 0;border-bottom:1px solid var(--k-kenar);font-size:13px;}
+.k-detay-satir:last-child{border-bottom:0;}
+.k-detay-satir > span:first-child{color:var(--k-soluk);font-size:12px;}
+.k-detay-satir > span:last-child{color:var(--k-metin);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;}
+.k-detay-ana{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--k-ortu2);
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
+.k-detay-ana > span:first-child{color:var(--k-soluk);font-size:12px;}
+.k-detay-ana > span:last-child{color:var(--k-metin);font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;}
+.k-detay-ana.k-iyi > span:last-child{color:var(--k-yesil);}
+.k-detay-ana.k-kotu > span:last-child{color:var(--k-kirmizi);}
 .k-tb.sik td.kisa{max-width:170px;}
 .k-tb tfoot td{padding:8px 12px;font-weight:700;background:var(--k-yuzey2);
   border-top:2px solid var(--k-kenar2);position:sticky;bottom:0;}
@@ -717,17 +736,40 @@ def bos_durum(baslik, aciklama="", ikon="inbox"):
             f'<div class="k-bosd-baslik">{_h.escape(baslik)}</div>{ac}</div>')
 
 
+def detay_karti(baslik, ek="", sol=(), sag=(), ana=None):
+    """Kayıt detayı kartı: başlık şeridi + iki sütun etiket/değer + (isteğe bağlı) öne çıkan değer.
+
+    sol / sag: [(etiket, deger_html), ...]   ana: (etiket, deger_html, anlam?)  anlam: iyi | kotu | None
+    Değerler hazır HTML'dir (kaçış uygulanmaz) — kullanıcı girdisini html.escape'ten geçirerek ver."""
+    def _sutun(satirlar):
+        return ('<div class="k-detay-sutun">'
+                + "".join(f'<div class="k-detay-satir"><span>{e}</span><span>{d}</span></div>' for e, d in satirlar)
+                + '</div>')
+    ana_html = ""
+    if ana:
+        _an = ana[2] if len(ana) > 2 else None
+        ana_html = (f'<div class="k-detay-ana{" k-" + _an if _an else ""}">'
+                    f'<span>{ana[0]}</span><span>{ana[1]}</span></div>')
+    sag_html = _sutun(sag)
+    if ana_html:
+        sag_html = sag_html[:-len('</div>')] + ana_html + '</div>'
+    ek_html = f'<span class="k-detay-ek">{ek}</span>' if ek else ""
+    return (f'<div class="k-detay"><div class="k-detay-bas"><span class="k-detay-baslik">{baslik}</span>{ek_html}</div>'
+            f'<div class="k-detay-govde">{_sutun(sol)}{sag_html}</div></div>')
+
+
 _MESAJ = {"bilgi": ("cyan", "info"), "basari": ("yesil", "check_circle"),
           "uyari": ("amber", "warning"), "hata": ("kirmizi", "error")}
 
 
-def mesaj(tur, metin):
-    """Satır içi bilgi / başarı / uyarı / hata kutusu (HTML). tur: bilgi|basari|uyari|hata"""
+def mesaj(tur, metin, ham=False):
+    """Satır içi bilgi / başarı / uyarı / hata kutusu (HTML). tur: bilgi|basari|uyari|hata
+    ham=True: metin hazır HTML'dir (<b> vurgusu için); kaçış uygulanmaz — kullanıcı girdisi koyma."""
     import html as _h
     renk, ikon = _MESAJ.get(tur, _MESAJ["bilgi"])
     return (f'<div class="k-mesaj" style="--m:var(--k-{renk})">'
             f'<span class="k-mesaj-ikon" aria-hidden="true">{ikon}</span>'
-            f'<div>{_h.escape(metin)}</div></div>')
+            f'<div>{metin if ham else _h.escape(metin)}</div></div>')
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1478,6 +1520,129 @@ def tablo_h(n_satir, maks=320):
     except (TypeError, ValueError):
         n = 1
     return int(min(maks, 38 + 35 * n))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 6b. ESKİ shared/ui.py BİLEŞENLERİ (Ekim 2026'da buraya katıldı)
+#     sayfa_baslik: modül adını oturumdan bulan baslik() sarmalayıcısı.
+#     pencere: başlık + rozet + iç kaydırmalı kart (pencere_grid içinde).
+#     genel_tema_css: dialog, st.dataframe ve sekme cilası (app.py bir kez basar).
+# ═══════════════════════════════════════════════════════════════════
+_MODUL_ADI = {"kayranacc": "Muhasebe", "kayranpm": "Ürün Yönetimi", "depo": "Depo",
+              "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış",
+              "yonetim": "Yönetim", "hesap_makinesi": "Hesap Makinesi"}
+
+
+def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
+    """Sayfa başlığı — artık TEK STANDART: shared/tasarim.baslik.
+
+    Eskiden iki ayrı başlık bileşeni vardı (bu büyük olan + tasarim.baslik
+    kompakt olan); modüller karışık kullandığı için her sayfa farklı
+    görünüyordu, Muhasebe'de ikisi birden çıkıyordu. Bu fonksiyon geriye
+    uyumluluk için duruyor ve standart başlığı üretiyor: "ikon Modül › Sayfa",
+    altında açıklama satırı."""
+    import streamlit as st
+    _mod = _MODUL_ADI.get(st.session_state.get("aktif_uygulama", ""), "")
+    return baslik(f"{ikon} {_mod}".strip() if ikon else _mod, ad, aciklama=alt)
+
+
+def pencere_css() -> str:
+    """Pencere içi ince scrollbar stili — sayfada bir kez basılır."""
+    return """<style>
+.kyr-pencere-icerik{overflow-y:auto;padding-right:8px;}
+.kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
+.kyr-pencere-icerik::-webkit-scrollbar-track{background:color-mix(in srgb,var(--k-metin) 3%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--k-soluk) 35%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--k-soluk) 55%,transparent);}
+</style>"""
+
+
+def pencere(baslik: str, renk: str, icerik_html: str,
+            rozet: str = "", yukseklik: int = 250, min_genislik: int = 300) -> str:
+    """Başlık + (isteğe bağlı rozet) + iç scroll'lu içerik alanı olan kart.
+
+    `pencere_grid()` içine konur; yan yana dizilir, dar ekranda alta sarar.
+    Başlıktaki emoji ('🚨 ACİL SİPARİŞ') ikon karosuna çevrilir, BÜYÜK HARF
+    başlık cümle düzenine iner ('Acil sipariş'); ortak k-kart görünümü
+    (eskiden degrade zemin, 16px köşe, gölge ve renkli büyük harf başlık).
+    """
+    _ik, _bas = emoji_ayir(baslik)
+    _ik_html = ""
+    if _ik:
+        _ik_html = (f'<span style="width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;'
+                    f'align-items:center;justify-content:center;'
+                    f'background:color-mix(in srgb,{renk} 15%,transparent)">{ikon_html(_ik, 16, renk)}</span>')
+    roz = ""
+    if rozet:
+        roz = (f'<span style="background:color-mix(in srgb,{renk} 14%,transparent);color:{renk};'
+               f'padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;'
+               f'white-space:nowrap">{rozet}</span>')
+    return (
+        f'<div class="kyr-kart k-kart" data-akscent style="flex:1;min-width:{min_genislik}px;'
+        f'border-left-color:{renk};padding:12px 16px;">'
+        f'<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0;">'
+        f'{_ik_html}<span style="font-size:14px;font-weight:650;color:var(--k-metin);'
+        f'letter-spacing:-.1px">{cumle_duzeni(_bas)}</span>{roz}</div>'
+        f'<div class="kyr-pencere-icerik" style="max-height:{yukseklik}px;">{icerik_html}</div>'
+        f'</div>'
+    )
+
+
+def pencere_grid(*penceler: str, alt_bosluk: int = 4) -> str:
+    """Pencereleri yan yana dizen esnek kapsayıcı (dar ekranda alta sarar)."""
+    return (f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;'
+            f'margin:8px 0 {alt_bosluk}px;">' + "".join(penceler) + '</div>')
+
+
+def pencere_bos(mesaj: str) -> str:
+    """Pencere boşken düzeni koruyan sakin placeholder."""
+    return (f'<div style="color:var(--k-silik);font-size:13px;'
+            f'padding:12px 4px;">✓ {mesaj}</div>')
+
+
+def genel_tema_css() -> str:
+    """Uygulama geneli görsel cila — app.py'de bir kez basılır.
+    • Dialog başlıkları: zarif, kompakt, tutarlı
+    • st.dataframe kapsayıcısı: kart hissi (yuvarlak köşe + ince çerçeve)
+    • Sekme ve caption rafinesi
+    Tablo İÇİ font/renk/grid çizgileri .streamlit/config.toml temasından gelir
+    (canvas tabanlı olduğu için CSS ile değil tema ile yönetilir)."""
+    return """<style>
+/* ── Kart hover: hafif yükselme + gölge derinleşmesi (micro-interaction) ── */
+.kyr-kart:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
+}
+/* ── Dialog başlıkları ── */
+div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
+div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
+  font-family:Inter,sans-serif !important;
+  font-size:16px !important; font-weight:700 !important;
+  letter-spacing:-0.2px !important; color:var(--k-metin) !important;
+  padding-bottom:0px !important;
+}
+div[data-testid="stDialog"] > div:first-child{
+  border:1px solid color-mix(in srgb,var(--k-mor) 22%,transparent) !important;
+  border-radius:18px !important;
+  box-shadow:0 24px 64px rgba(0,0,0,0.55) !important;
+}
+/* ── Tablolar: kapsayıcıya kart hissi ── */
+div[data-testid="stDataFrame"]{
+  border-radius:12px !important;
+  overflow:hidden !important;
+  border:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent) !important;
+}
+/* ── Sekmeler: alt çizgi yerine yumuşak aktif dolgu ── */
+button[data-baseweb="tab"]{
+  font-family:Inter,sans-serif !important; font-weight:600 !important;
+  border-radius:9px 9px 0 0 !important;
+}
+button[data-baseweb="tab"][aria-selected="true"]{
+  background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
+}
+/* ── Caption'lar biraz daha okunur ── */
+div[data-testid="stCaptionContainer"] p{ color:var(--k-soluk) !important; }
+</style>"""
 
 
 # ═══════════════════════════════════════════════════════════════════

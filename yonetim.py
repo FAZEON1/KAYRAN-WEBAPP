@@ -402,20 +402,20 @@ def _kanal_cubuklari(kanal):
     return h
 
 
-def _toplam_aktif_penceresi(RENK, pencere, bos_durum, buyuk=False):
+def _toplam_aktif_penceresi(RENK, pencere, pencere_bos, buyuk=False):
     try:
         from kayranacc.database import get_ayar
         snap = get_ayar("toplam_aktif_snapshot")
     except Exception:  # noqa: BLE001
         snap = None
     if not snap:
-        return pencere("Toplam aktifler", RENK["mor"], bos_durum("Muhasebe → Toplam Aktifler işlenince burada görünür"),
+        return pencere("Toplam aktifler", RENK["mor"], pencere_bos("Muhasebe → Toplam Aktifler işlenince burada görünür"),
                        yukseklik=60)
     return pencere("Toplam aktifler", RENK["mor"], _toplam_aktif_html(snap, RENK, buyuk=buyuk),
                    rozet=_tr_tarih(snap.get("tarih"), saat=True), yukseklik=320 if buyuk else 300)
 
 
-def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, bos_durum):
+def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, pencere_bos):
     from yonetim_pano import kiyas_donemleri, devam_ediyor, trend_aylari, degisim as _dg
     kiyas = []
     for anahtar, etiket, ky, kd, kb, kt, ka in kiyas_donemleri(yil, donem, bugun):
@@ -453,9 +453,9 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, bos_durum):
     except Exception as e:  # noqa: BLE001
         st.caption(f"12 aylık seyir hesaplanamadı: {type(e).__name__}")
     _k = _kanal_cubuklari(r["kanal"])
-    _p_kanal = pencere("Kanal katkısı · net kâr", RENK["mor"], _k or bos_durum("Bu dönemde satış kaydı yok"),
+    _p_kanal = pencere("Kanal katkısı · net kâr", RENK["mor"], _k or pencere_bos("Bu dönemde satış kaydı yok"),
                        rozet=f"{len(r['kanal'])} kanal", yukseklik=300)
-    st.markdown(pencere_grid(_p_kanal, _toplam_aktif_penceresi(RENK, pencere, bos_durum)), unsafe_allow_html=True)
+    st.markdown(pencere_grid(_p_kanal, _toplam_aktif_penceresi(RENK, pencere, pencere_bos)), unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -669,7 +669,7 @@ def run():
     # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
     @st.fragment
     def _sayfa_parcasi():
-        from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
+        from shared.tasarim import RENK, pencere_css, pencere, pencere_grid, pencere_bos
         from shared.tasarim import baslik
         # KÂR GİZLEME: Kâr/zarar analizleri (ciro−COGS−destek−gider) girilmemiş
         # destek ve masraflar nedeniyle henüz doğru sonuç vermiyor → yalnız yetkiliye.
@@ -686,7 +686,7 @@ def run():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
             uyari_ciz()
-            st.markdown(_toplam_aktif_penceresi(RENK, pencere, bos_durum, buyuk=True), unsafe_allow_html=True)
+            st.markdown(_toplam_aktif_penceresi(RENK, pencere, pencere_bos, buyuk=True), unsafe_allow_html=True)
             return
         st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu",
                            aciklama="Ciro − COGS − destekler − giderler = net kâr · tüm tutarlar USD"),
@@ -725,7 +725,7 @@ def run():
         elif _bolum == "Destekler ve giderler":
             _destek_gider(_r, _yil, _donem)
         else:
-            _ozet(_r, _yil, _donem, _bg, _oturum_kur, RENK, pencere, pencere_grid, bos_durum)
+            _ozet(_r, _yil, _donem, _bg, _oturum_kur, RENK, pencere, pencere_grid, pencere_bos)
 
     _sayfa_parcasi()
 

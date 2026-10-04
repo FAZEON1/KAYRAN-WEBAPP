@@ -67,7 +67,7 @@ def _ust_duzey_isimler(dosya):
 # ═══════════════════════════════════════════════════════════════════════
 _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared"):
-    for _d in ("database.py", "utils.py", "auth.py", "ui.py", "tasarim.py", "irsaliye.py",
+    for _d in ("database.py", "utils.py", "auth.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
@@ -188,6 +188,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
+    "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
+                       "genel_tema_css", "detay_karti", "mesaj"],   # shared/ui.py buraya katıldı (Eki 2026)
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],

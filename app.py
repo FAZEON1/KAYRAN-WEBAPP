@@ -23,7 +23,7 @@ except Exception:  # noqa: BLE001  (koruma hiçbir zaman uygulamayı durdurmaz)
     pass
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
-from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv
+from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv, mesaj as k_mesaj
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
@@ -573,7 +573,7 @@ if not st.session_state.get("_db_saglik_ok"):
 
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
 from shared.tasarim import cekirdek_css, islem_gosterge_css
-from shared.ui import genel_tema_css
+from shared.tasarim import genel_tema_css
 # token_css() kaldırıldı — CSS değişkenlerini cekirdek_css() basıyor.
 
 # ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
@@ -2128,6 +2128,15 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
             _yt_ayar_penceresi()
 
 
+
+def _bildirim_karti(b):
+    """Tek bildirim kartı — açılır pencere ve ana sayfa listesi aynı görünümü kullanır."""
+    _gnd = kisi_adi(b.get("gonderen") or "Sistem")
+    _zmn = str(b.get("olusturma_tarihi", ""))[:16].replace("T", " ")
+    return (f'<div class="k-kart" style="margin:8px 0;padding:12px 16px">'
+            f'<div style="color:var(--k-metin);font-size:13px;line-height:1.6">{b.get("mesaj", "")}</div>'
+            f'<div class="k-alt" style="margin-top:8px">{_gnd} · {_zmn}</div></div>')
+
 def anasayfa():
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     yetkiler = kullanici_yetkileri(aktif_kullanici)
@@ -2162,12 +2171,7 @@ def anasayfa():
         def _zorunlu_bildirim_modal():
             st.markdown(f"**{len(_bildirimler)} okunmamış bildirimin var — lütfen oku:**")
             for _bm in _bildirimler:
-                _gnd = kisi_adi(_bm.get("gonderen") or "Sistem")
-                st.markdown(
-                    '<div style="background:color-mix(in srgb,var(--k-mor) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:10px;padding:12px 16px;margin:8px 0">'
-                    f'<div style="color:var(--k-metin);font-size:13px;line-height:1.6">{_bm.get("mesaj","")}</div>'
-                    f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">{_gnd} · {str(_bm.get("olusturma_tarihi",""))[:16].replace("T"," ")}</div>'
-                    '</div>', unsafe_allow_html=True)
+                st.markdown(_bildirim_karti(_bm), unsafe_allow_html=True)
             if st.button("✓ Okudum, kapat", type="primary", use_container_width=True, key="_modal_okundu_btn"):
                 tumunu_okundu_isaretle(aktif_kullanici)
                 st.rerun()
@@ -2382,16 +2386,7 @@ def anasayfa():
                 f'</div>'
             )
             for _b in _bildirimler:
-                _bil_html += (
-                    f'<div style="background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);'
-                    f'border-radius:10px;padding:12px 16px;margin-bottom:8px">'
-                    f'<div style="color:var(--k-metin);font-size:13px;line-height:1.6">{_b.get("mesaj","")}</div>'
-                    f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px;display:flex;align-items:center;gap:8px">'
-                    f'<span style="width:5px;height:5px;border-radius:50%;background:var(--k-mor);display:inline-block"></span>'
-                    f'{kisi_adi(_b.get("gonderen") or "Sistem")} · {str(_b.get("olusturma_tarihi",""))[:16].replace("T"," ")}'
-                    f'</div>'
-                    f'</div>'
-                )
+                _bil_html += _bildirim_karti(_b)
             _bil_html += '</div>'
             st.markdown(_bil_html, unsafe_allow_html=True)
             if st.button("✓ Tümünü Okundu İşaretle", key="okundu_btn", use_container_width=False):
@@ -2885,17 +2880,9 @@ def sifre_degistir():
                 except Exception as e:
                     st.error(f"❌ Bir hata oluştu: {e}")
 
-        st.markdown(
-            '<div style="margin-top:16px;padding:12px 16px;background:color-mix(in srgb,var(--k-mor) 8%,transparent);'
-            'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-radius:10px">'
-            '<div style="color:var(--k-mor2);font-size:11px;font-weight:600;margin-bottom:4px">Bilgi</div>'
-            '<div style="color:var(--k-soluk);font-size:11px;line-height:1.6">'
-            'Yeni şifren Supabase&#39;de güvenli hash olarak saklanır. '
-            'Sadece sen değiştirebilirsin &mdash; yönetici dahil kimse eski şifreni göremez.'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(k_mesaj("bilgi", "Yeni şifren Supabase'de güvenli hash olarak saklanır. Sadece sen "
+                                     "değiştirebilirsin — yönetici dahil kimse eski şifreni göremez."),
+                    unsafe_allow_html=True)
 
 def kayrantsw_yakinda():
     """KAYRANTS&W modülü için 'Yakında Sizlerle' bilgilendirme sayfası."""
@@ -3352,7 +3339,7 @@ def main():
                 st.error(_uyari + " Ana sayfaya yönlendirildiniz.")
             anasayfa()
         elif aktif == "arama":
-            from shared.ui import sayfa_baslik as _sb_ara
+            from shared.tasarim import sayfa_baslik as _sb_ara
             st.markdown(_sb_ara("🔍", "Arama", "Tüm modüllerde ara — sonuç kartına tıkla, ilgili modüle git"), unsafe_allow_html=True)
             _arama_kutusu("sayfa")
         elif aktif == "kayranacc":
