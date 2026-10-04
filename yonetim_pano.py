@@ -127,7 +127,7 @@ def urun_satirlari(urun, adlar=None):
 
 def destek_satirlari(tur_usd):
     top = sum(float(v or 0) for v in (tur_usd or {}).values())
-    rows = [{"_id": t, "Destek türü": t, "Tutar ($)": round(float(v or 0), 2),
+    rows = [{"_id": t, "Tür": t, "Tutar ($)": round(float(v or 0), 2),
              "Pay (%)": round(float(v or 0) / top * 100, 1) if top else 0.0}
             for t, v in (tur_usd or {}).items()]
     rows.sort(key=lambda r: -r["Tutar ($)"])
@@ -157,9 +157,10 @@ def pnl_satirlari(r, kiyaslar=()):
                 ("İşletme giderleri", "gider"), ("Alınan destek", "alinan"), ("Net kâr", "net_kar")]
     rows = []
     for ad, k in kalemler:
-        row = {"Kalem": ad, "Dönem ($)": round(float(r.get(k, 0) or 0), 2)}
+        # Sütun adları shared.tablo biçim kuralına göre: "Kalem" adet sayılırdı, "tutar" para
+        row = {"Hesap": ad, "Tutar ($)": round(float(r.get(k, 0) or 0), 2)}
         for etiket, rk in kiyaslar:
-            row[f"{etiket} ($)"] = round(float(rk.get(k, 0) or 0), 2)
+            row[f"{etiket} tutarı ($)"] = round(float(rk.get(k, 0) or 0), 2)
         rows.append(row)
     return rows
 

@@ -587,7 +587,7 @@ def _ay_kapanis():
                 f"önceki ay ({_rp['ay']}) ile kıyaslı · tüm tutarlar USD")
     metrik_satiri([
         {"label": "Ciro", "value": _usd(_r["ciro"]), "alt": _alt("ciro")},
-        {"label": "COGS", "value": _usd(_r["cogs"]), "alt": _alt("cogs", True)},
+        {"label": "Ürün maliyeti", "value": _usd(_r["cogs"]), "alt": _alt("cogs", True)},
         {"label": "Net kâr", "value": _usd(_r["net_kar"]), "alt": _alt("net_kar"),
          "renk": "yesil" if _r["net_kar"] >= 0 else "kirmizi"},
         {"label": "Net marj", "value": _pct(_r["marj"])},
@@ -604,13 +604,16 @@ def _ay_kapanis():
     if kanal:
         st.markdown("**Kanal kırılımı**")
         tablo(kanal, key="ayrap_kanal", dosya_adi="kapanis_kanallar")
-    _cc1, _cc2 = st.columns(2)
-    with _cc1:
-        st.markdown("**En kârlı ürünler**")
-        tablo(top, key="ayrap_top", dosya_adi="kapanis_karli") if top else st.caption("Kayıt yok.")
-    with _cc2:
-        st.markdown("**Zarardaki ürünler**")
-        tablo(zarar, key="ayrap_zarar", dosya_adi="kapanis_zarar") if zarar else st.caption("Zararda ürün yok.")
+    st.markdown("**En kârlı ürünler**")
+    if top:
+        tablo(top, key="ayrap_top", dosya_adi="kapanis_karli")
+    else:
+        st.caption("Kayıt yok.")
+    st.markdown("**Zarardaki ürünler**")
+    if zarar:
+        tablo(zarar, key="ayrap_zarar", dosya_adi="kapanis_zarar")
+    else:
+        st.caption("Zararda ürün yok.")
     st.download_button("Excel: kapanış raporu",
                        excel_bytes({"Gelir tablosu": gelir, "Kanallar": kanal, "En kârlı": top, "Zararda": zarar,
                                     "Eksikler": [{"Not": e} for e in _r["eksikler"]]}),

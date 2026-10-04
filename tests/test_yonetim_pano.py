@@ -57,13 +57,17 @@ def test_tablo_satirlari():
                           "B": {"urun_adi": "Ürün B", "ciro": 50, "net_kar": 10, "adet": 2}})
     assert [x["SKU"] for x in u] == ["B", "A"]
     d = P.destek_satirlari({"SELLOUT": 300, "Ref No": 100})
-    assert d[0] == {"_id": "SELLOUT", "Destek türü": "SELLOUT", "Tutar ($)": 300.0, "Pay (%)": 75.0}
+    assert d[0] == {"_id": "SELLOUT", "Tür": "SELLOUT", "Tutar ($)": 300.0, "Pay (%)": 75.0}
     g, top = P.gider_satirlari({"Sabit": [10] * 12, "Değişken": [5] * 6})
     assert g[-1]["Kategori"] == "Toplam" and g[-1]["Ocak"] == 15 and g[-1]["Aralık"] == 10
     assert g[-1]["Yıllık"] == 150 and top[0] == 15
     p = P.pnl_satirlari({"ciro": 900, "cogs": 540, "brut": 360, "destek": 150, "gider": 200, "alinan": 25,
                          "net_kar": 35}, [("Ağustos", {"ciro": 800, "net_kar": 20})])
-    assert p[0] == {"Kalem": "Ciro", "Dönem ($)": 900.0, "Ağustos ($)": 800.0} and p[-1]["Dönem ($)"] == 35.0
+    assert p[0] == {"Hesap": "Ciro", "Tutar ($)": 900.0, "Ağustos tutarı ($)": 800.0} and p[-1]["Tutar ($)"] == 35.0
+    # shared.tablo sütun adından biçim çıkarır: metin sütunu sayı, tutar sütunu para sayılmamalı
+    from shared.tasarim import _tablo_kolon_tipi
+    assert _tablo_kolon_tipi("Hesap") is None and _tablo_kolon_tipi("Tür") is None
+    assert {_tablo_kolon_tipi(k) for k in p[0] if k != "Hesap"} == {"para"}
 
 
 def test_kucuk_trend_svg():
