@@ -423,6 +423,10 @@ def goster(sku):
                 _depo_html += (f'<div style="color:{RENK["amber"]};font-size:11px;margin-top:6px">'
                                f'Satılabilir kayıtlı {tr_sayi(_sk["kayitli"])}, kırılıma göre {tr_sayi(_sk["hesap"])} '
                                f'(fark {"+" if _sk["fark"] > 0 else "−"}{tr_sayi(abs(_sk["fark"]))}) — G5F sayımını yeniden yükle</div>')
+        elif alimlar or satislar or isinstance(urun.get("depo_kirilim"), dict):
+            # Alımı / satışı olan ürün: depolarda adet kalmamış (satılmış ya da sevk edilmiş). Eskiden
+            # burada da "sayım yüklenmemiş" yazıyordu (FAZE4: yurt içi alımın tamamı satıldı, Ekim 2026).
+            _depo_html = bos_durum("Bizim depolarda stok yok — alınan mal satılmış ya da sevk edilmiş")
         else:
             _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
@@ -457,7 +461,8 @@ def goster(sku):
             f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);'
             f'border-radius:10px;padding:8px 16px;margin:0 0 10px;font-size:13px">{_serit}</div>',
             unsafe_allow_html=True)
-        if not _dagilim_dolu and not _cs.get("var") and _g5f_toplam <= 0:
+        if not _dagilim_dolu and not _cs.get("var") and _g5f_toplam <= 0 \
+                and not (alimlar or satislar or isinstance(urun.get("depo_kirilim"), dict)):
             st.warning("⚠️ Başlangıç stoğu (Excel) yüklenmemiş — canlı stok için bir kez mevcut stoğu yükle. "
                        "Şimdilik gösterilen değer ham snapshot.")
         # Yolda detay
