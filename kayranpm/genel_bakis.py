@@ -249,7 +249,9 @@ def render(_sb):
     st.markdown(_sb("📊 Ürün Yönetimi", "Genel Bakış",
                     aciklama="Ürünlerin durumu · bugün yapılacaklar · satış eğilimi"), unsafe_allow_html=True)
     try:
-        veri = dashboard_hesapla()
+        from shared.islem import bekle
+        with bekle("Genel bakış hazırlanıyor…"):
+            veri = dashboard_hesapla()
     except Exception as e:  # noqa: BLE001
         st.error(f"Veri yüklenemedi: {e}")
         return

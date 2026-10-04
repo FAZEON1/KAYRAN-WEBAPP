@@ -645,6 +645,8 @@ st.markdown(
 st.markdown(cekirdek_css(), unsafe_allow_html=True)      # TEK tasarım kaynağı (aktif temayla)
 _css_tema = st.session_state.get("tema") or "koyu"      # oturum yüklenince farklıysa rerun (aşağıda)
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
+from shared.islem import kur as _islem_kur              # yükleniyor / işlem sürüyor kapsülü (Ekim 2026)
+_islem_kur()
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
 # Sayfa genişliği TEK yerden — modül başına farklı max-width, modüller arası
 # geçişte sayfanın gözle görülür şekilde daralmasına yol açıyordu.

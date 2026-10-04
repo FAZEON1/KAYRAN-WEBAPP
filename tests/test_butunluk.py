@@ -72,7 +72,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
-               "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py"):
+               "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -148,7 +148,8 @@ KRITIK_FONKSIYONLAR = {
                            "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku"],   # stok yaşı FIFO (Eki 2026)
     "kayranpm.stok_yasi_ekran": ["goster", "kart_bolumu"],
     "kayranpm.yurtici_hesap": ["maliyet_hesapla", "dogrula", "kayit_argumanlari", "formdan", "belge_no", "usd"],
-    "kayranpm.yurtici_ekran": ["goster"],                                                    # yurt içi alış (Eki 2026)
+    "kayranpm.yurtici_ekran": ["goster"],
+    "shared.islem": ["kur", "bekle"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu

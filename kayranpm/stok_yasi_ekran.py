@@ -70,7 +70,9 @@ def kart_bolumu(sku):
     """Stok kartı › Stok yaşı sekmesi: bizim stok + her müşterideki stok."""
     from shared.utils import sku_anahtar, metrik_satiri
     try:
-        v = Y.hesapla()
+        from shared.islem import bekle
+        with bekle("Stok yaşı hesaplanıyor…"):
+            v = Y.hesapla()
     except Exception as e:  # noqa: BLE001
         st.error(f"Stok yaşı hesaplanamadı: {type(e).__name__}: {str(e)[:120]}")
         return
@@ -152,7 +154,9 @@ def goster():
             Y.hesapla.clear()
         st.rerun()
     try:
-        v = Y.hesapla()
+        from shared.islem import bekle
+        with bekle("Stok yaşı hesaplanıyor…"):
+            v = Y.hesapla()
     except Exception as e:  # noqa: BLE001
         st.error(f"Stok yaşı hesaplanamadı: {type(e).__name__}: {str(e)[:120]}")
         return

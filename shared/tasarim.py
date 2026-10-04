@@ -1169,6 +1169,7 @@ div[data-testid="stApp"][data-test-script-state="running"]::before{{
   background-size:200% 100%;animation:k-akan 1.1s linear infinite;}}
 div[data-testid="stStatusWidget"]{{display:none !important;}}
 div[data-stale="true"]{{opacity:.5 !important;transition:opacity .2s ease;}}
+.st-key-kayran_islem_gostergesi{{position:absolute !important;height:0 !important;overflow:hidden !important;margin:0 !important;}}
 """) + "</style>"
 
 

@@ -575,7 +575,9 @@ def run():
     
             # Ürün verilerini yükle
             try:
-                urun_data = tum_urunler_listesi()
+                from shared.islem import bekle as _bekle
+                with _bekle("Ürün listesi hazırlanıyor…"):
+                    urun_data = tum_urunler_listesi()
             except Exception as e:
                 _log.error("Hata: %s", e)
                 st.error(f"Veri yüklenemedi: {e}")
