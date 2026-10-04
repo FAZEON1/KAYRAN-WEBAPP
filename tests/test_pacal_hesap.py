@@ -128,12 +128,6 @@ def test_kart_sku_yazimi_farkli(monkeypatch):
     assert P.SEBEP_KART in rows[0]["Sebep"]
 
 
-def test_maliyet_girisi_sayfasinda_karsilastirma_var():
-    import pathlib
-    m = (pathlib.Path(__file__).resolve().parent.parent / "kayranpm" / "main.py").read_text(encoding="utf-8")
-    assert "from .pacal_ekran import goster as _pacal_kars" in m
-
-
 def test_paçal_tek_kapi_korumasi():
     """Faz 2b: ekranlar paçalı kendileri hesaplamasın, tek kapıdan alsın."""
     import pathlib

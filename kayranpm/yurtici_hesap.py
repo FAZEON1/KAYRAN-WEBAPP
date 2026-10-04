@@ -128,3 +128,48 @@ def formdan(dosya, kalemler):
             "masraflar": {s: round(giris_tutari(m.get(s), para, kur), 4) for s, _a in MASRAFLAR},
             "kalemler": [{"sku": k.get("sku") or "", "adet": _f(k.get("adet")),
                           "fiyat": round(giris_tutari(k.get("birim_fob"), para, kur), 4)} for k in kalemler or []]}
+
+
+# ── Alış tarihinin kuru (Ekim 2026) ─────────────────────────────────
+# Uygulamanın kur tablosu (kur_gunluk) 28.06.2026'dan beri tutuluyor; daha eski bir alışta form
+# BUGÜNÜN kurunu getiriyordu (Aralık 2025 alımına 49,14). Artık alış tarihinin kuru aranır:
+# TCMB döviz satış (o gün yayın yoksa — hafta sonu / tatil — önceki iş günü), yoksa kur tablosunun
+# O GÜNKÜ kaydı. Hiçbiri yoksa 0 döner ve kullanıcı faturadaki kuru girer; bugünün kuru KULLANILMAZ.
+def tcmb_url(gun):
+    """TCMB günlük kur dosyası: https://www.tcmb.gov.tr/kurlar/202512/01122025.xml"""
+    return f"https://www.tcmb.gov.tr/kurlar/{gun:%Y%m}/{gun:%d%m%Y}.xml"
+
+
+def tcmb_usd_satis(xml_metni):
+    """TCMB XML'inden USD döviz satış kuru (yoksa None)."""
+    import xml.etree.ElementTree as ET
+    try:
+        kok = ET.fromstring(xml_metni)
+    except ET.ParseError:
+        return None
+    for c in kok.iter("Currency"):
+        if (c.get("CurrencyCode") or c.get("Kod")) == "USD":
+            for alan in ("ForexSelling", "BanknoteSelling"):
+                v = _f((c.findtext(alan) or "").replace(",", "."))
+                if v > 0:
+                    return v / (_f(c.findtext("Unit")) or 1.0)
+    return None
+
+
+def tarihli_kur(tarih, tcmb_getir, tablo_kuru, geri_gun=7):
+    """(kur, kaynak açıklaması). tcmb_getir(date) → XML metni | None; tablo_kuru('YYYY-MM-DD') → kur | None."""
+    from datetime import date, timedelta
+    try:
+        g0 = date.fromisoformat(str(tarih)[:10])
+    except ValueError:
+        return 0.0, ""
+    for i in range(geri_gun + 1):
+        g = g0 - timedelta(days=i)
+        xml = tcmb_getir(g)
+        k = tcmb_usd_satis(xml) if xml else None
+        if k:
+            return round(k, 4), f"TCMB döviz satış {g:%d.%m.%Y}"
+    k = _f(tablo_kuru(g0.isoformat()))
+    if k > 0:
+        return round(k, 4), f"uygulamanın kur kaydı {g0:%d.%m.%Y}"
+    return 0.0, ""
