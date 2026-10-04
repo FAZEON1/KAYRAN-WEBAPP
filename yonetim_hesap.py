@@ -64,7 +64,9 @@ def tl_usd(tutar, doviz, tarih, kmap, yedek):
     return tutar / k if k else None
 
 
-def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None):
+def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None, aylar=None):
+    """aylar=(i0, i1): gider aylarını açıkça verir (yılbaşından bugüne kıyası: geçen yılın
+    yalnız aynı ayları). Verilmezse dönemden çıkar (ay_araligi) — bütün eski çağrılar aynı."""
     bugun = bugun or date.today()
     eksik = []
     r = {"yil": yil, "donem": donem, "bas": bas, "bit": bit, "ciro": 0.0, "cogs": 0.0,
@@ -124,7 +126,7 @@ def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None):
         eksik.append(f"Destekler okunamadı ({type(e).__name__}) — net kâr destekleri düşmüyor")
 
     # ── İşletme giderleri ──
-    i0, i1 = ay_araligi(donem)
+    i0, i1 = aylar if aylar else ay_araligi(donem)
     try:
         kat = kaynak.gider_kat(yil) or {}
     except Exception as e:  # noqa: BLE001

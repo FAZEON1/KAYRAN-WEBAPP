@@ -208,6 +208,7 @@ def test_ay_raporu_panoyla_ayni_kaynagi_kullanir():
     """Rapor kaynağı kursuz kuruyordu: pano oturum kurunu kullanırken rapor TL desteği
     atlıyordu (tarayıcıda: pano ≠ rapor). İkisi de oturum kurlu kaynakla çağrılmalı."""
     y = _oku("yonetim.py")
-    g = y[y.index('@st.dialog("📄 Ay Kapanış Raporu"'):]
+    g = y[y.index("def _ay_kapanis():"):]
+    g = g[:g.index("\ndef ", 1)]
     assert "_PnlKaynak(_okur)" in g and g.count("kaynak=_kyn") == 2
     assert "_PnlKaynak(_oturum_kur)" in y
