@@ -23,7 +23,7 @@ except Exception:  # noqa: BLE001  (koruma hiçbir zaman uygulamayı durdurmaz)
     pass
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
-from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv, mesaj as k_mesaj
+from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv, mesaj as k_mesaj, kayran_logo_svg
 import streamlit as st
 from datetime import datetime, timedelta
 import traceback
@@ -524,7 +524,7 @@ TALEP_KATEGORILERI = ["🐞 Hata bildirimi", "✨ Yeni özellik", "⚡ İyileşt
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="KAYRAN | Workspace",
-    page_icon="🏢",
+    page_icon=kayran_logo_svg(64),
     layout="wide",
     initial_sidebar_state="auto",          # telefonda kapalı, bilgisayarda açık
 )
@@ -1142,9 +1142,9 @@ if "aktif_uygulama" not in st.session_state:
 # ─────────────────────────────────────────────────────────────────────
 # KURUMSAL KIMLIK
 # ─────────────────────────────────────────────────────────────────────
-KAYRAN_LOGO_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgS" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#818CF8"/><stop offset="50%" stop-color="#818CF8"/><stop offset="100%" stop-color="#A5B4FC"/></linearGradient></defs><rect width="40" height="40" rx="10" fill="url(#kgS)"/><polygon points="9,8 15,8 15,19 24,8 32,8 21,21 32,32 24,32 15,21 15,32 9,32" fill="white"/></svg>'
+KAYRAN_LOGO_SVG = kayran_logo_svg(40)
 
-KAYRAN_LOGO_BIG = '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="kgB" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#818CF8"/><stop offset="50%" stop-color="#818CF8"/><stop offset="100%" stop-color="#A5B4FC"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#kgB)"/><polygon points="14,13 24,13 24,30 38,13 51,13 34,34 51,51 38,51 24,34 24,51 14,51" fill="white"/></svg>'
+KAYRAN_LOGO_BIG = kayran_logo_svg(64, etiket=True)
 
 
 # ─────────────────────────────────────────────────────────────────────

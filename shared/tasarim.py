@@ -906,6 +906,29 @@ def ikon(ad, boyut=18, renk=None):
 ikon_html = ikon   # başlık/kart içinde 'ikon' adlı yerel değişkenle çakışmasın
 
 
+# ── Kurumsal logo (Ekim 2026, seçenek 03 "Modüler ızgara"): 3×3 karede K.
+#    Her kare bir modül; ortadaki kehribar kare merkez. Koyu zemin kendi
+#    içinde olduğu için açık ve koyu temada aynı görünür. Giriş ekranı, sol
+#    menü ve sekme simgesi (page_icon) bunu kullanır — kopyasını yazma. ──
+_LOGO_KARELER = (   # (sütun, satır, renk)
+    (0, 0, "#FFFFFF"), (0, 1, "#FFFFFF"), (0, 2, "#FFFFFF"),
+    (1, 0, "#263042"), (1, 1, "#F5A524"), (1, 2, "#263042"),
+    (2, 0, "#FFFFFF"), (2, 1, "#263042"), (2, 2, "#FFFFFF"),
+)
+
+
+def kayran_logo_svg(boyut=40, etiket=False):
+    """KAYRAN logosu (satır içi SVG). etiket=True: ekran okuyucuya 'KAYRAN'."""
+    b = int(boyut)
+    erisim = 'role="img" aria-label="KAYRAN"' if etiket else 'aria-hidden="true"'
+    kareler = "".join(f'<rect x="{10 + 16 * s}" y="{10 + 16 * r}" width="12" height="12" rx="3" fill="{c}"/>'
+                      for s, r, c in _LOGO_KARELER)
+    return (f'<svg width="{b}" height="{b}" viewBox="0 0 64 64" fill="none" '
+            f'xmlns="http://www.w3.org/2000/svg" {erisim}>'
+            '<rect x="0.75" y="0.75" width="62.5" height="62.5" rx="15" fill="#111827" '
+            f'stroke="#2A3345" stroke-width="1.5"/>{kareler}</svg>')
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 7c. SOL MENÜ KABUĞU + MENÜ SEÇENEKLERİ (tek kaynak)
 #
