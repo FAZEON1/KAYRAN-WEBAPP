@@ -74,7 +74,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
-               "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py"):
+               "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -188,6 +188,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
+    "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
+                              "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
                             "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",

@@ -654,6 +654,10 @@ def goster(sku):
 
     # ═══ ANALİZ ═══
     with t5:
+        # Ürün karnesi (Ekim 2026): A–F not ve öneri — kayranpm/urun_karnesi.py
+        from kayranpm.urun_karnesi import ciz as _karne_ciz
+        _karne_ciz(sku)
+
         # Marj sağlığı
         if pacal_final > 0 and liste_fiyat > 0:
             _marj = (liste_fiyat - pacal_final) / liste_fiyat * 100
