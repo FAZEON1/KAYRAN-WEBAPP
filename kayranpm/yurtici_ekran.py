@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Ürün Yönetimi › Yurt içi alış — yurt içi satın alma ve yerli üretim girişi (Ekim 2026).
+"""Ürün Yönetimi › Yurt içi alış — yurt içi satın alma girişi (Ekim 2026).
 
-İthalat girer gibi: alış tarihi, depoya giriş tarihi, firma, belge no, kalemler (adet, KDV hariç
+Yalnız yurt içi satın alma girilir (yerli üretim seçeneği kaldırıldı, Ekim 2026); eski kayıtların türü
+korunur. İthalat girer gibi: alış tarihi, depoya giriş tarihi, firma, belge no, kalemler (adet, KDV hariç
 birim fiyat), masraflar. Kayıt ithalat dosyalarıyla aynı tablolara alim_turu ile yazılır
 (veritabani/18); paçal maliyet, Kâr/P&L, stok kartı alımları, Model sorgu ve FIFO stok yaşı
 bu alımları kendiliğinden kullanır. Hesap ve doğrulama: kayranpm/yurtici_hesap.py.
@@ -37,12 +38,27 @@ def _kartlar():
         return {}
 
 
-def _kur(tarih):
+def _tcmb_getir(gun):
+    try:
+        import requests
+        r = requests.get(H.tcmb_url(gun), timeout=6)
+        return r.text if r.status_code == 200 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _tablo_kuru(tarih):
     try:
         from kayranacc.database import get_kur
-        return get_kur(str(tarih)[:10]) or get_kur() or 0.0
+        return get_kur(tarih)            # yalnız O GÜNÜN kaydı; bugünün kuruna düşmez
     except Exception:  # noqa: BLE001
-        return 0.0
+        return None
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _kur(tarih):
+    """(kur, kaynak) — alış tarihinin kuru (yurtici_hesap.tarihli_kur)."""
+    return H.tarihli_kur(tarih, _tcmb_getir, _tablo_kuru)
 
 
 def _alimlar():
@@ -58,13 +74,12 @@ def _form(on, v, kartlar):
     """Alım formu. on: widget anahtar öneki; v: varsayılanlar (düzenlemede kayıttan)."""
     import pandas as pd
     c1, c2, c3 = st.columns(3)
-    turler = list(H.TURLER)
-    tur = c1.radio("Alım türü", turler, format_func=H.TURLER.get, horizontal=True, key=f"{on}_tur",
-                   index=turler.index(v.get("tur")) if v.get("tur") in turler else 0)
+    tur = v.get("tur") if v.get("tur") in H.TURLER else "yurtici"     # yeni alım: yalnız yurt içi satın alma
+    c1.text_input("Alım türü", value=H.TURLER[tur], disabled=True, key=f"{on}_tur_ad")
     belge = c2.text_input("Fatura / belge no", value=v.get("belge", ""), key=f"{on}_belge",
                           placeholder="boş bırakılırsa YI-tarih")
     firma = c3.text_input("Satın alınan firma", value=v.get("firma", ""), key=f"{on}_firma",
-                          placeholder="yerli üretimde üretici / fason firma")
+                          placeholder="faturayı kesen firma")
     d1, d2, d3 = st.columns(3)
     _bug = date.today()
     alis = d1.date_input("Alış tarihi", value=date.fromisoformat(v["alis_tarihi"]) if v.get("alis_tarihi") else _bug,
@@ -80,10 +95,17 @@ def _form(on, v, kartlar):
                     index=0 if str(v.get("para") or "TL").upper() == "TL" else 1)
     kur = 1.0
     if para == "TL":
+        kayitli = float(v.get("kur") or 0) if str(v.get("para") or "").upper() == "TL" else 0.0
+        oneri, kaynak = (kayitli, "kayıtlı kur") if kayitli > 1 else _kur(alis.isoformat())
         kur = p2.number_input("Kur (TL / USD)", min_value=0.0, step=0.0001, format="%.4f",
                               key=f"{on}_kur_{alis.isoformat()}",          # tarih değişince o günün kuru gelir
-                              value=float(v.get("kur") or _kur(alis) or 0.0),
-                              help="Alış tarihinin kuru otomatik gelir; faturadaki kurla değiştirebilirsin.")
+                              value=float(oneri or 0.0),
+                              help="Alış tarihinin TCMB döviz satış kuru otomatik gelir; faturadaki kurla "
+                                   "değiştirebilirsin.")
+        if oneri and kaynak:
+            _p3.caption(f"Önerilen: {kaynak}. Faturadaki kur farklıysa değiştir.")
+        else:
+            _p3.warning("Bu tarihin kuru bulunamadı; faturadaki kuru gir.")
 
     st.markdown(f"**Kalemler** · birim fiyat KDV hariç, {para}")
     skular = sorted(kartlar)
@@ -157,7 +179,7 @@ def _kayitli(kartlar, kolon):
     from ithalat.database import _masraf_dict
     dos, kal = _alimlar()
     if not dos:
-        st.info("Henüz yurt içi alış ya da yerli üretim kaydı yok.")
+        st.info("Henüz yurt içi alış kaydı yok.")
         return
     dos = sorted(dos, key=lambda d: str(d.get("teslim_tarihi") or d.get("tarih") or ""), reverse=True)
     satirlar = []
@@ -219,15 +241,14 @@ def _kayitli(kartlar, kolon):
 
 
 def goster():
-    """Yeni alım + kayıtlı alımlar. Üçüncü sekme (yedek maliyet) main.py'de çizilir: döner."""
+    """Yeni alım + kayıtlı alımlar."""
     kolon = _kolon_var()
     if not kolon:
         st.warning("Kayıt için veritabanında 'alım türü' sütunu gerekiyor (veritabani/18_alim_turu.sql). "
-                   "Kurulana kadar alım kaydedilemez; aşağıdaki yedek maliyet çalışır.")
+                   "Kurulana kadar alım kaydedilemez.")
     kartlar = _kartlar()
-    t1, t2, t3 = st.tabs(["Yeni alım", "Kayıtlı alımlar", "Yedek maliyet (alım kaydı olmayanlar)"])
+    t1, t2 = st.tabs(["Yeni alım", "Kayıtlı alımlar"])
     with t1:
         _yeni(kartlar, kolon)
     with t2:
         _kayitli(kartlar, kolon)
-    return t3

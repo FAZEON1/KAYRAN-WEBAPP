@@ -73,13 +73,6 @@ def test_editor_anahtari_listeye_bagli():
     assert a != editor_anahtari("mal", ["X2", "X1"]) != editor_anahtari("mal", ["X1"])
 
 
-def test_maliyet_editoru_sabit_anahtarla_cizilmiyor():
-    m = _govde(_oku(MAIN), 'elif sayfa == "💵  Yurt İçi Alış":')
-    assert 'key="mal_editor"' not in m and "editor_anahtari(" in m
-    assert "kaydedilmemiş" in m                                        # sıfırlanınca uyarı
-    assert 'st.success("✅ {} ürünün maliyeti' not in m               # rerun'dan önce kaybolurdu
-
-
 # ── 3-5. Sipariş Önerisi ────────────────────────────────────────────
 def test_siparis_satir_ici_onay_ve_gecmis_her_zaman():
     s = _oku("kayranpm/siparis_ekran.py")

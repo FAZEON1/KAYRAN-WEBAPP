@@ -125,7 +125,6 @@ def test_ekranlar_tek_yazim_kullaniyor():
         "kayranpm/kampanya.py": "kategori_ad",
         "kayranpm/kampanya_hesap.py": "kategori_anahtar",
         "kayranpm/ref_ekran.py": "get_kategori_havuzu",
-        "kayranpm/main.py": "kategori_anahtar",
         "kayranpm/rapor.py": "kategori_ad",
         "satis/satislar_ekran.py": "kategori_ad",
         "satis/main.py": "kategori_anahtar",

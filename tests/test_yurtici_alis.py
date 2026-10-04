@@ -156,3 +156,42 @@ def test_menu_ve_sayfalar():
 def test_sql_dosyasi():
     s = (KOK / "veritabani" / "18_alim_turu.sql").read_text(encoding="utf-8").lower()
     assert "add column if not exists alim_turu text" in s and "update " not in s
+
+
+# ── Alış tarihinin kuru (Ekim 2026: eski tarihte bugünün kuru geliyordu) ──
+_TCMB = ('<?xml version="1.0" encoding="UTF-8"?><Tarih_Date Tarih="28.11.2025"><Currency CrossOrder="0" Kod="USD" '
+         'CurrencyCode="USD"><Unit>1</Unit><ForexBuying>42.3950</ForexBuying><ForexSelling>42.4714</ForexSelling>'
+         '</Currency><Currency Kod="JPY" CurrencyCode="JPY"><Unit>100</Unit><ForexSelling>27.1</ForexSelling>'
+         '</Currency></Tarih_Date>')
+
+
+def test_tcmb_usd_satis():
+    assert H.tcmb_usd_satis(_TCMB) == 42.4714
+    assert H.tcmb_usd_satis("bozuk") is None and H.tcmb_usd_satis("<a/>") is None
+    assert H.tcmb_url(__import__("datetime").date(2025, 12, 1)) == "https://www.tcmb.gov.tr/kurlar/202512/01122025.xml"
+
+
+def test_hafta_sonu_onceki_is_gunu_tcmb():
+    istenen = []
+
+    def getir(g):
+        istenen.append(g.isoformat())
+        return _TCMB if g.isoformat() == "2025-11-28" else None    # 29-30 Kasım hafta sonu
+    assert H.tarihli_kur("2025-11-30", getir, lambda t: 49.13) == (42.4714, "TCMB döviz satış 28.11.2025")
+    assert istenen == ["2025-11-30", "2025-11-29", "2025-11-28"]
+
+
+def test_tcmb_yoksa_ayni_gunun_kaydi_o_da_yoksa_bos_bugunun_kuru_degil():
+    assert H.tarihli_kur("2026-07-01", lambda g: None, lambda t: {"2026-07-01": 46.667118}.get(t)) == \
+        (46.6671, "uygulamanın kur kaydı 01.07.2026")
+    assert H.tarihli_kur("2025-12-01", lambda g: None, lambda t: None) == (0.0, "")
+    s = (KOK / "kayranpm" / "yurtici_ekran.py").read_text(encoding="utf-8")
+    assert "get_kur()" not in s                                   # tarihsiz çağrı = bugünün kuru
+
+
+def test_yeni_alimda_yalniz_yurt_ici_ve_yedek_sekme_yok():
+    s = (KOK / "kayranpm" / "yurtici_ekran.py").read_text(encoding="utf-8")
+    assert '"Alım türü", turler' not in s and "Yedek maliyet" not in s
+    m = (KOK / "kayranpm" / "main.py").read_text(encoding="utf-8")
+    g = m[m.index('elif sayfa == "💵  Yurt İçi Alış":'):m.index('elif sayfa == "📈  Müşteri Satışları":')]
+    assert "data_editor" not in g and "_yurtici()" in g
