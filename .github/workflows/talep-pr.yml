@@ -6,7 +6,7 @@ name: Talep PR Bildirimi
 # Başlıkta "Talep #" yoksa iş YİNE çalışır ama adımları atlar ve başarılı biter.
 on:
   pull_request:
-    types: [opened, reopened, closed]
+    types: [opened, reopened, synchronize, closed]   # synchronize: PR güncellenince de (talepte işlem yok)
     branches: [main]
 
 jobs:
