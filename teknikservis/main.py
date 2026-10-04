@@ -96,7 +96,7 @@ def _icerik_multiselect(st_col, etiket, secenekler, kayit_deger, key):
 
 # ── Başlık yardımcıları (portal teması) ──────────────────────────────
 def _baslik(ikon, ad, alt):
-    from shared.ui import sayfa_baslik as _sb
+    from shared.tasarim import sayfa_baslik as _sb
     st.markdown(_sb(ikon, ad, alt), unsafe_allow_html=True)
 
 def _alt_baslik(t):

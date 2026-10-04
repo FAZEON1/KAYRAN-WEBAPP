@@ -8,12 +8,13 @@ Kullanım:
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+import html as _html
 import streamlit as st
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
-from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h, tablo_html, Ham, rozet_html, renkli, kisalt
+from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h, tablo_html, Ham, rozet_html, renkli, kisalt, mesaj as k_mesaj
 from shared.tasarim import para as _tpara
 import pandas as pd
 import plotly.graph_objects as go
@@ -1215,15 +1216,7 @@ def run():
     
         # İlk otomatik çekim olduysa küçük bildirim
         if st.session_state.get("kur_otomatik_cekildi") and not st.session_state.get("kur_bildirim_gosterildi"):
-            st.markdown(
-                f'<div style="background:color-mix(in srgb,var(--k-yesil) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-yesil) 30%,transparent);'
-                f'border-radius:8px;padding:8px 8px;margin-bottom:8px;font-size:11px;color:var(--k-yesil2);'
-                f'display:flex;align-items:center;gap:8px;">'
-                f'<span style="font-size:13px;">✓</span>'
-                f'<span>Güncel kur otomatik alındı</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown(k_mesaj("basari", "Güncel kur otomatik alındı"), unsafe_allow_html=True)
             st.session_state.kur_bildirim_gosterildi = True
     
         yeni_kur = st.number_input("USD/TL Kur",
@@ -1504,13 +1497,16 @@ def run():
     
             if gecmis_alarmlar:
                 isimler = ", ".join(o["firma"] for o in gecmis_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 25%,transparent);border-left:4px solid var(--k-kirmizi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-kirmizi);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-kirmizi2);font-family:Inter,sans-serif">Gecikmiş ödeme</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-kirmizi);font-family:Inter,sans-serif">{len(gecmis_alarmlar)} ödeme vadesi geçmiş: {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(k_mesaj("hata", f"<b>Gecikmiş ödeme</b> · {len(gecmis_alarmlar)} ödeme vadesi geçmiş: {_html.escape(isimler)}", ham=True),
+                            unsafe_allow_html=True)
             if bugun_alarmlar:
                 isimler = ", ".join(o["firma"] for o in bugun_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 25%,transparent);border-left:4px solid var(--k-amber);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-amber);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">!</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-amber2);font-family:Inter,sans-serif">Bugün vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-amber2);font-family:Inter,sans-serif">{len(bugun_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(k_mesaj("uyari", f"<b>Bugün vadeli</b> · {len(bugun_alarmlar)} ödeme — {_html.escape(isimler)}", ham=True),
+                            unsafe_allow_html=True)
             if yarin_alarmlar:
                 isimler = ", ".join(o["firma"] for o in yarin_alarmlar[:3])
-                st.markdown(f'''<div style="display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--k-mavi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-mavi) 25%,transparent);border-left:4px solid var(--k-mavi);border-radius:10px;padding:12px 16px;margin-bottom:8px"><div style="width:18px;height:18px;min-width:18px;background:var(--k-mor2);border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:11px;font-weight:700">i</span></div><div><span style="font-size:13px;font-weight:700;color:var(--k-mavi);font-family:Inter,sans-serif">Yarın vadeli</span>&nbsp;&nbsp;<span style="font-size:13px;color:var(--k-mavi);font-family:Inter,sans-serif">{len(yarin_alarmlar)} ödeme — {isimler}</span></div></div>''', unsafe_allow_html=True)
+                st.markdown(k_mesaj("bilgi", f"<b>Yarın vadeli</b> · {len(yarin_alarmlar)} ödeme — {_html.escape(isimler)}", ham=True),
+                            unsafe_allow_html=True)
     
             # Özet metrikler
             tl_toplam = sum(o["tutar_tl"] or 0 for o in odemeler)

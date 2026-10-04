@@ -1340,7 +1340,7 @@ def kategori_dagit_dialog(r, firma_adi=""):
 
 def _ref_detay_govde(r, firma_adi=""):
     """Ref kaydının kırılımı — tutarlı tipografiyle."""
-    from shared.ui import RENK
+    from shared.tasarim import RENK
     _dv = (r.get("doviz") or "USD").strip().upper()
     _sm = {"USD": "$", "TL": "₺", "TRY": "₺", "EUR": "€"}.get(_dv, "")
     _durum = r.get("durum", "") or ""
@@ -1483,7 +1483,7 @@ def _sayi_css(renk, boyut=19):
 
 def _dt_baslik(ana, rozet="", rozet_renk="#818CF8", alt=""):
     """Detay penceresi başlık bandı."""
-    from shared.ui import RENK
+    from shared.tasarim import RENK
     _r = (f'<span style="background:{rozet_renk}1F;color:{rozet_renk};padding:3px 10px;'
           f'border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;'
           f'white-space:nowrap">{rozet}</span>' if rozet else "")
@@ -1498,7 +1498,7 @@ def _dt_baslik(ana, rozet="", rozet_renk="#818CF8", alt=""):
 
 def _dt_kutular(kalemler):
     """Detay penceresi üst metrikleri — st.metric yerine tutarlı tipografi."""
-    from shared.ui import RENK
+    from shared.tasarim import RENK
     ic = "".join(
         f'<div style="flex:1;min-width:112px;background:color-mix(in srgb,var(--k-metin) 2%,transparent);'
         f'border:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent);border-radius:10px;padding:10px 14px">'
@@ -1510,7 +1510,7 @@ def _dt_kutular(kalemler):
 
 def _dt_alan(etiket, deger, mono=False):
     """Detay penceresi etiket/değer satırı."""
-    from shared.ui import RENK
+    from shared.tasarim import RENK
     _st = (f"font-family:{_MONO};font-size:13px;font-variant-numeric:tabular-nums"
            if mono else "font-size:13px")
     return (f'<div style="margin-bottom:13px">'

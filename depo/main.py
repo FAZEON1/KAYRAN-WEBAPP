@@ -19,7 +19,7 @@ def _baslik(t, alt):
     # Baştaki emoji'yi ayır → ikon karosunda göster (tek standart başlık tasarımı)
     _parca = t.split(" ", 1)
     _ikon, _ad = (_parca[0], _parca[1]) if len(_parca) == 2 else ("", t)
-    from shared.ui import sayfa_baslik as _sb
+    from shared.tasarim import sayfa_baslik as _sb
     st.markdown(_sb(_ikon, _ad, alt), unsafe_allow_html=True)
 
 

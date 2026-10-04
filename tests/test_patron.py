@@ -86,7 +86,7 @@ def test_ana_sayfa_yeni_panoyu_kullanir():
     a = _oku("app.py")
     g = a[a.index("# ─── PATRON PANOSU"):a.index("# ─── İŞ KPI KARTLARI")]
     assert "from shared.patron import render" in g and "patron_panosu_html" not in g
-    u = _oku("shared/ui.py")
+    u = _oku("shared/tasarim.py")
     p0 = _oku("shared/patron.py")
     assert "def patron_panosu_html" not in u and "get_gunluk_pnl" not in p0 and 'table("mv_gunluk_pnl")' not in p0
     p = _oku("shared/patron.py")

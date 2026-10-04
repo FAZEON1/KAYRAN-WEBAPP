@@ -84,7 +84,7 @@ def test_dusuk_kontrastli_gri_geri_gelmedi():
     ekran = ["app.py", "yonetim.py", "hesap_makinesi/main.py", "ithalat/main.py",
              "kayranacc/main.py", "kayranpm/main.py", "kayranpm/ref_no.py",
              "kayranpm/stok_karti.py", "satis/main.py", "shared/kar_gizle.py",
-             "shared/ui.py", "teknikservis/main.py", "depo/main.py"]
+             "teknikservis/main.py", "depo/main.py"]
     for p in ekran:
         bul = re.findall(r"#(64748B|6B7280|7C8AA0|8B97A8|8B98B8)\b", _oku(p), re.I)
         assert not bul, f"{p}: {bul}"
