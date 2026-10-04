@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Talep PR'ı değil — atlandı
         if: env.TALEP_PR != 'true'
-        run: echo "Başlıkta 'Talep #' yok; yapılacak bir şey yok."
+        run: echo "Talep PR'ı değil; yapılacak bir şey yok."
 
       - name: Kodu indir (main — PR'daki kod değil)
         if: env.TALEP_PR == 'true'

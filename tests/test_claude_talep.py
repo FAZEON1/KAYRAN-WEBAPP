@@ -146,17 +146,21 @@ def test_is_akisi_talimat_ve_ekran():
 
 
 def test_is_akislarinda_tirnaksiz_diyez_yok():
-    """Tırnaksız YAML değerinde " #" yorum başlatır: "${{ ... 'Talep #') }}" ifadesi kesilir, GitHub
-    dosyayı geçersiz sayar ve her push'ta "No jobs were run" maili gelir (Ekim 2026, talep-pr.yml)."""
+    """Tırnaksız YAML değerinde " #" yorum başlatır ve satırın kalanı silinir. Açık bir tırnağın
+    içinde kalırsa ifade / komut yarıda kesilir: "${{ ... 'Talep #') }}" GitHub'ın dosyayı geçersiz
+    saymasına, echo "... 'Talep #' ..." kabuğun "eşleşen tırnak yok" hatasına yol açtı (Ekim 2026)."""
     import re
     for f in (KOK / ".github" / "workflows").glob("*.yml"):
         for no, satir in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if satir.lstrip().startswith("#") or "${{" not in satir:
+            if satir.lstrip().startswith("#"):
                 continue
             m = re.match(r"\s*(?:-\s*)?[\w-]+:\s*(.*)$", satir)
             deger = m.group(1) if m else ""
-            if " #" in deger and not deger.startswith(("'", '"')):
-                raise AssertionError(f"{f.name}:{no} tırnaksız değerde ' #': {satir.strip()}")
+            if " #" not in deger or deger.startswith(("'", '"')):
+                continue
+            once = deger.split(" #", 1)[0]
+            assert once.count("'") % 2 == 0 and once.count('"') % 2 == 0, \
+                f"{f.name}:{no} ' #' açık tırnağın içinde (YAML yorum sayar): {satir.strip()}"
 
 # ── Rutinin veritabanı aracı (otonom/talep_db.py): rutinlerde Supabase bağlayıcısı yok ──
 def test_talep_db_karar_sira_mesgul_bayat():
