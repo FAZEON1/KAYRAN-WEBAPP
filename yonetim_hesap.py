@@ -176,9 +176,9 @@ class Kaynak:
         self._oturum_kuru = float(oturum_kuru or 0)
 
     def satis(self, bas, bit):
-        from satis.database import get_satislar, ozet_hesapla, get_satis_pnl_view, ozet_from_view
+        from satis.database import get_satislar_yalin, ozet_hesapla, get_satis_pnl_view, ozet_from_view
         v = get_satis_pnl_view(bas, bit)
-        return ozet_from_view(v) if v is not None else ozet_hesapla(get_satislar(bas, bit))
+        return ozet_from_view(v) if v is not None else ozet_hesapla(get_satislar_yalin(bas, bit))
 
     def iade(self, bas, bit):
         from satis.database import iade_satis_net_ozet

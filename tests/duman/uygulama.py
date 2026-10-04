@@ -32,8 +32,12 @@ _hl.kaydet = _kaydet
 # önbelleği temizletir; temizlik AppTest çalışma zamanının içinde yapılmalı.
 if os.environ.get("DUMAN_ONBELLEK_TEMIZLE"):
     st.cache_data.clear()
-    from shared.veri_surumu import bagimlilari_temizle   # uygulamanın kendi tazelik listesi
+    from shared.veri_surumu import bagimlilari_temizle, SATIS_BAGIMLILAR   # uygulamanın kendi tazelik listeleri
     bagimlilari_temizle()
+    bagimlilari_temizle(SATIS_BAGIMLILAR)
+    from kayranacc.database import _ayarlar_hepsi, _tum_kurlar
+    _ayarlar_hepsi.clear()
+    _tum_kurlar.clear()
 
 # Bileşenler (components v2) ilk çağrıda bir kez kaydedilip modülde tutulur; kayıt Streamlit
 # örneğine bağlı. Canlıda tek örnek var; test her sayfa için yeni örnek açtığından kayıt yenilenir.

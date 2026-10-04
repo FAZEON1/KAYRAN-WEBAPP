@@ -319,8 +319,8 @@ def _sayfa_sku():
             st.caption("İthalat kaydı yok.")
     # Satış / İade (adet · tarih · firma)
     try:
-        from satis.database import get_satislar, get_iadeler
-        _sat = [s for s in (get_satislar() or [])
+        from satis.database import get_satislar_yalin, get_iadeler
+        _sat = [s for s in (get_satislar_yalin() or [])
                 if str(s.get("sku") or "").strip().upper() == _shu]
         _iad = [r for r in (get_iadeler() or [])
                 if str(r.get("sku") or "").strip().upper() == _shu]

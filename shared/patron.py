@@ -232,9 +232,9 @@ def _satirlar(bas_iso, bit_iso):
     v = get_satis_pnl_view(bas_iso, bit_iso)
     if v is not None:
         return [{k: r.get(k) for k in ("tarih", "kanal", "ciro", "net_kar", "destek", "adet")} for r in v]
-    from satis.database import get_satislar, ozet_hesapla
+    from satis.database import get_satislar_yalin, ozet_hesapla
     gr = {}
-    for s in get_satislar(bas_iso, bit_iso) or []:
+    for s in get_satislar_yalin(bas_iso, bit_iso) or []:
         gr.setdefault((str(s.get("tarih"))[:10], s.get("kanal") or "—"), []).append(s)
     out = []
     for (t, k), ss in gr.items():
@@ -250,13 +250,13 @@ def _veri_kalitesi(yil_bas_iso, bugun_iso):
     import re
     v = {}
     try:
-        from satis.database import get_satislar, get_pacal_map
+        from satis.database import get_satislar_yalin, get_pacal_map
 
         def _n(x):
             return re.sub(r"[^A-Z0-9]", "", str(x or "").upper())
         pacal = {_n(k): p for k, p in (get_pacal_map() or {}).items()}
         on = ith = 0
-        for s in get_satislar(yil_bas_iso, bugun_iso) or []:
+        for s in get_satislar_yalin(yil_bas_iso, bugun_iso) or []:
             if _f(s.get("birim_maliyet")) <= 0 and int(_f(s.get("adet"))) > 0:
                 if _f(pacal.get(_n(s.get("sku")))) > 0:
                     on += 1

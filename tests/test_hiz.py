@@ -65,9 +65,13 @@ def test_satis_kanal_listesi_onbellekli():
 # ── 3. Muhasebe: ayar ve kur okumaları önbellekli, yazınca tazelenir ─────
 def test_ayar_ve_kur_onbellekli_ve_tazelenir():
     f = _fonksiyonlar("kayranacc/database.py")
-    for ad in ("_ayar_ham", "get_kur", "get_kur_araligi"):
+    for ad in ("_ayarlar_hepsi", "get_kur", "_tum_kurlar"):
         assert _onbellekli(f[ad]), ad
+    # Ekim 2026: ayarlar tek istekte (_ayarlar_hepsi); _ayar_ham ondan okur, .clear'ı onu temizler
+    assert "_ayarlar_hepsi().get(anahtar)" in _govde("kayranacc/database.py", "_ayar_ham")
+    assert "_ayar_ham.clear = _ayarlar_hepsi.clear" in _oku("kayranacc/database.py")
     assert "_ayar_ham.clear()" in _govde("kayranacc/database.py", "set_ayar")
+    assert "get_kur_araligi.clear = _tum_kurlar.clear" in _oku("kayranacc/database.py")
     kk = _govde("kayranacc/database.py", "kur_kaydet")
     assert "get_kur.clear()" in kk and "get_kur_araligi.clear()" in kk
 

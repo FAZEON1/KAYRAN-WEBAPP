@@ -262,6 +262,26 @@ def _ay_ozeti(yil, ay_idx, kur):
                                                   "net_kar", "marj")}
 
 
+def _on_isit(yil, donem, bugun, kur, ozet=True):
+    """Hızlandırma (Ekim 2026): dönem hesabından ÖNCE ortak okumalar (satış, iade, kur) aynı anda
+    ısıtılır; Özet'te kıyas dönemleri ve 12 aylık trend de arka planda hesaplanmaya başlar, ana dönem
+    bu arada hesaplanır. Hepsi önbellekli fonksiyonlar: sayfa aynı çağrıları yaptığında sonuç hazır.
+    Eskiden ana dönem, iki kıyas ve trend sırayla, her biri 5-6 sıralı istekle hesaplanıyordu.
+    Ortak okumalar önce: 12 iş parçacığı aynı anda boş önbelleğe çarpıp tabloyu 12 kez indirmesin.
+    Döner: bekle() — kıyas/trend işlerinin bitmesini bekler."""
+    from shared.paralel import hepsi, basla
+    from satis.database import _tum_satislar_yalin, _tum_iadeler, get_pacal_map
+    from kayranacc.database import _tum_kurlar
+    hepsi([_tum_satislar_yalin, _tum_iadeler, _tum_kurlar, get_pacal_map])
+    if not ozet:
+        return lambda: None
+    from yonetim_pano import kiyas_donemleri, trend_aylari
+    isler = [(_pnl_onbellekli, ky, kd, kb, kt, tuple(ka), kur)
+             for _a, _e, ky, kd, kb, kt, ka in kiyas_donemleri(yil, donem, bugun)]
+    isler += [(_ay_ozeti, y, i, kur) for y, i in trend_aylari(yil, donem, bugun)]
+    return basla(isler)
+
+
 def _trend(aylar, kur):
     """[(yıl, ay_idx, özet)] — 12 ay paralel hesaplanır (her ay ayrı önbellekte; geçmiş aylar
     sonraki açılışlarda veritabanına gitmez)."""
@@ -441,11 +461,11 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, bos_durum):
 @st.cache_data(ttl=600, show_spinner=False)
 def _kanal_urunleri(bas, bit, kanal):
     """Bir kanalın ürün kırılımı — P&L ile aynı satış kaynağı (görünüm, yoksa satışlar)."""
-    from satis.database import get_satis_pnl_view, ozet_from_view, get_satislar, ozet_hesapla
+    from satis.database import get_satis_pnl_view, ozet_from_view, get_satislar_yalin, ozet_hesapla
     v = get_satis_pnl_view(bas, bit)
     if v is not None:
         return ozet_from_view([x for x in v if (x.get("kanal") or "—") == kanal])[2]
-    return ozet_hesapla([x for x in (get_satislar(bas, bit) or []) if (x.get("kanal") or "—") == kanal])[2]
+    return ozet_hesapla([x for x in (get_satislar_yalin(bas, bit) or []) if (x.get("kanal") or "—") == kanal])[2]
 
 
 def _kanal_urun(r):
@@ -691,7 +711,10 @@ def run():
 
         # ── P&L — TEK HESAP (yonetim_hesap.pnl_topla; Ay Kapanış Raporu da bunu kullanır) ──
         _oturum_kur = _oturum_kuru()
+        _kiyas_bekle = _on_isit(_yil, _donem, _bg, _oturum_kur, ozet=(_bolum not in ("Kanal ve ürün",
+                                                                                  "Destekler ve giderler")))
         _r = pnl_topla(_yil, _donem, baslangic, bitis, _PnlKaynak(_oturum_kur), bugun=_bg)
+        _kiyas_bekle()
         if _bolum == "Kanal ve ürün":
             _kanal_urun(_r)
         elif _bolum == "Destekler ve giderler":

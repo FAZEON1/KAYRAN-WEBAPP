@@ -192,8 +192,9 @@ def _kanallar_satistan():
     Önbellekli: tüm satış tablosunun kanal sütununu indirir; eskiden her
     tıklamada (Satış Girişi + kanal bölünme kontrolü = 2 kez) çekiliyordu.
     Satış yazıldığında _temizle() siler."""
-    # HIZ: sayfalama merkezi katmanda PARALEL (shared/audit)
-    rows = _rows(_get_client().table("satislar").select("kanal").order("id").execute())
+    # HIZ (Ekim 2026): tablonun kanal sütununu ayrıca indirmek yerine ortak tam okumadan
+    # (_tum_satislar_yalin — P&L, stok yaşı, arıza zaten okuyor). Eskiden 16 ayrı istekti.
+    rows = _tum_satislar_yalin()
     out = {str(x.get("kanal") or "").strip() for x in rows}
     out.discard("")
     return sorted(out, key=lambda s: s.lower())
@@ -968,7 +969,7 @@ def sil_siparis(siparis_no):
         return False
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler
 def get_satislar(baslangic=None, bitis=None):
     """Tarih aralığına göre satışlar (yeni→eski).
     HIZ: sayfalama artık merkezi katmanda (shared/audit) 8'erli dalgalar
@@ -992,26 +993,45 @@ _SATIS_KOLON = ("id,tarih,kanal,sku,urun_adi,adet,birim_satis,birim_maliyet,"
                 "birim_firma_destek,birim_ek_destek,siparis_no")
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar) tazeler
+def _tum_satislar_yalin():
+    """BÜTÜN satışlar, yalın 11 kolon — TEK ortak okuma (Ekim 2026, hızlandırma).
+
+    Eskiden her tarih aralığı ayrı sorguydu (Yönetim 14 dönem = 14 sorgu) ve tam tablo üç ayrı
+    fonksiyonla ayrı ayrı indiriliyordu; önbellek 2 dk'ydı. Program ABD'de, veritabanı Frankfurt'ta:
+    her istek ~0,2-0,3 sn. Artık tablo bir kez okunur, aralıklar bellekte süzülür; önbellek veri
+    değişince tazelenir (shared.veri_surumu: satislar sayacı; uygulama içi kayıt _temizle ile anında).
+    Hata fırlatır (önbelleğe boş liste yazılmasın); çağıran yakalar.
+    Sıralama tarih + id: sayfalı okumada eşit tarihli satırlar sayfalar arasında kaymasın."""
+    q = _get_client().table("satislar").select(_SATIS_KOLON)
+    return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
+
+
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar) tazeler
+def _satislar_yalin_aralik(baslangic=None, bitis=None):
+    b = str(baslangic)[:10] if baslangic else ""
+    e = str(bitis)[:10] if bitis else ""
+    return [r for r in _tum_satislar_yalin()
+            if (not b or str(r.get("tarih") or "")[:10] >= b) and (not e or str(r.get("tarih") or "")[:10] <= e)]
+
+
 def get_satislar_yalin(baslangic=None, bitis=None):
     """YALIN satış okuması — ekranların gerçekten okuduğu 11 kolon.
 
     get_satislar(*) ile aynı satırları döner ama notlar/olusturma_tarihi/
     kampanya_id taşımaz. P&L bu üçünü okumuyor (kod taramasıyla doğrulandı:
     ozet_hesapla → kanal/sku/urun_adi · satir_kar → adet + 4 birim alanı ·
-    sayfa → tarih/siparis_no).
+    sayfa → tarih/siparis_no). Kaynak: _tum_satislar_yalin (tek ortak okuma).
 
-    DİKKAT: yeni bir kolon okunmaya başlanırsa _PNL_KOLON'a eklenmeli.
+    DİKKAT: yeni bir kolon okunmaya başlanırsa _SATIS_KOLON'a eklenmeli.
     """
     try:
-        q = _get_client().table("satislar").select(_SATIS_KOLON)
-        if baslangic:
-            q = q.gte("tarih", str(baslangic)[:10])
-        if bitis:
-            q = q.lte("tarih", str(bitis)[:10])
-        return _rows(q.order("tarih", desc=True).execute())
+        return _satislar_yalin_aralik(baslangic, bitis)
     except Exception:
         return []
+
+
+get_satislar_yalin.clear = lambda: (_satislar_yalin_aralik.clear(), _tum_satislar_yalin.clear())
 
 
 def _temizle():
@@ -1050,7 +1070,7 @@ def satis_maliyet_tazele_onizle(sadece_sifir=True):
     sadece_sifir=True → yalnız maliyeti 0/eksik olup paçalı bulunan satışlar.
     HİÇBİR ŞEY YAZMAZ. Döner: list[{sku, urun, satir, adet, yeni_birim}] (SKU bazında özet)."""
     pacal = get_pacal_map()
-    satislar = get_satislar()
+    satislar = get_satislar_yalin()
     sku_ozet = {}
     for s in satislar:
         nsku = _normalize_sku_yerel(s.get("sku"))
@@ -1077,7 +1097,7 @@ def satis_maliyet_tazele_uygula(sadece_sifir=True):
     Döner: (ok, mesaj)."""
     sb = _get_client()
     pacal = get_pacal_map()
-    satislar = get_satislar()
+    satislar = get_satislar_yalin()
     # Benzersiz HAM SKU → paçal (normalize ile eşleştir). Aynı SKU'nun tüm satırları aynı maliyeti alır.
     ham_pacal = {}
     for s in satislar:
@@ -1202,18 +1222,31 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}"
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler
+def _tum_iadeler():
+    """BÜTÜN iadeler — tek ortak okuma (Ekim 2026, hızlandırma; tablo küçük, ~300 satır).
+    Eskiden her tarih aralığı ayrı sorguydu (Yönetim 14 dönem = 14 sorgu). Hata fırlatır."""
+    q = _get_client().table("iadeler").select("*")
+    return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
+
+
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler
+def _iadeler_aralik(baslangic=None, bitis=None):
+    b = str(baslangic)[:10] if baslangic else ""
+    e = str(bitis)[:10] if bitis else ""
+    return [r for r in _tum_iadeler()
+            if (not b or str(r.get("tarih") or "")[:10] >= b) and (not e or str(r.get("tarih") or "")[:10] <= e)]
+
+
 def get_iadeler(baslangic=None, bitis=None):
+    """İadeler (tarih aralığı isteğe bağlı) — ortak okumadan süzülür (_tum_iadeler)."""
     try:
-        # HIZ: sayfalama merkezi katmanda PARALEL (shared/audit)
-        q = _get_client().table("iadeler").select("*")
-        if baslangic:
-            q = q.gte("tarih", str(baslangic)[:10])
-        if bitis:
-            q = q.lte("tarih", str(bitis)[:10])
-        return _rows(q.order("tarih", desc=True).order("id", desc=True).execute())
+        return _iadeler_aralik(baslangic, bitis)
     except Exception:
         return []
+
+
+get_iadeler.clear = lambda: (_iadeler_aralik.clear(), _tum_iadeler.clear())
 
 
 def sil_iade(iade_id):
@@ -1435,7 +1468,7 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
         return {"eklendi": 0, "atlandi": 0, "hata": f"{type(e).__name__}: {str(e)[:140]}"}
 
 
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler
 def iade_satis_net_ozet(baslangic=None, bitis=None):
     """SKU bazında Satış / İade / Net özeti. İade kârı paçal maliyetinden hesaplanır.
     Döner: (satirlar:list, toplam:dict)."""
@@ -1538,7 +1571,7 @@ def get_satislar_kanal_ara(q):
 # ════════════════════════════════════════════════════════════════════
 #  TEK KAYNAK: v_satis_pnl SQL VIEW (gün · kanal · SKU)
 # ════════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=120, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler
 def get_satis_pnl_view(baslangic=None, bitis=None):
     """v_satis_pnl'den P&L satırları. View yoksa None → çağıran Python'a düşer."""
     try:

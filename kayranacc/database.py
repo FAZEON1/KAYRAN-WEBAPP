@@ -1191,12 +1191,20 @@ def set_ayar(anahtar, deger):
 
 
 @st.cache_data(ttl=300, show_spinner=False)
+def _ayarlar_hepsi():
+    """sistem_ayarlari'nın TAMAMI {anahtar: ham değer} — tek istek (Ekim 2026, hızlandırma).
+    Tablo küçük (~11 satır, ~10 kB); eskiden her anahtar ayrı istekti, sayfa başına 7-8 istek.
+    Hata fırlatır (önbelleğe boş sözlük yazılmasın)."""
+    res = get_client().table("sistem_ayarlari").select("anahtar, deger").execute()
+    return {r.get("anahtar"): r.get("deger") for r in (res.data or [])}
+
+
 def _ayar_ham(anahtar):
-    """sistem_ayarlari'ndaki ham değer (önbellekli, 5 dk). Yönetim P&L aynı
-    çizimde 3 ayrı ayarı okuyordu; her tıklamada 3 sorgu. set_ayar temizler."""
-    res = get_client().table("sistem_ayarlari").select("deger").eq("anahtar", anahtar).execute()
-    rows = res.data or []
-    return rows[0]["deger"] if rows else None
+    """sistem_ayarlari'ndaki ham değer (önbellekli, 5 dk; set_ayar temizler)."""
+    return _ayarlar_hepsi().get(anahtar)
+
+
+_ayar_ham.clear = _ayarlar_hepsi.clear
 
 
 def get_ayar(anahtar, varsayilan=None):
@@ -1253,17 +1261,24 @@ def get_kur(tarih=None):
 
 
 @st.cache_data(ttl=600, show_spinner=False)
+def _tum_kurlar():
+    """kur_gunluk'un TAMAMI {tarih: kur} — tek istek (Ekim 2026, hızlandırma; tablo küçük, günde
+    bir satır). Eskiden her dönem ayrı sorguydu (Yönetim 14 dönem = 14 sorgu). Hata fırlatır."""
+    res = get_client().table("kur_gunluk").select("tarih,usd_try").execute()
+    return {str(r["tarih"])[:10]: float(r["usd_try"]) for r in (res.data or []) if r.get("usd_try")}
+
+
 def get_kur_araligi(baslangic, bitis):
     """Dönem [baslangic, bitis] aralığındaki günlük kurları döndürür:
     {'2026-06-28': 38.5, ...}. Tablo yoksa/boşsa {} döner."""
     try:
-        res = get_client().table("kur_gunluk").select("tarih,usd_try") \
-            .gte("tarih", str(baslangic)[:10]).lte("tarih", str(bitis)[:10]).execute()
-        rows = res.data or []
-        return {str(r["tarih"])[:10]: float(r["usd_try"])
-                for r in rows if r.get("usd_try")}
+        b, e = str(baslangic)[:10], str(bitis)[:10]
+        return {t: k for t, k in _tum_kurlar().items() if b <= t <= e}
     except Exception:
         return {}
+
+
+get_kur_araligi.clear = _tum_kurlar.clear
 
 
 @st.cache_data(ttl=300, show_spinner=False)

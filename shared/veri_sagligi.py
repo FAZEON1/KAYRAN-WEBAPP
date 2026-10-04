@@ -172,15 +172,15 @@ def _k_ithalat_kartsiz():
 
 
 def _k_maliyetsiz():
-    from satis.database import get_satislar, get_pacal_map
+    from satis.database import get_satislar_yalin, get_pacal_map
     from shared.utils import sku_anahtar
     pacal = {sku_anahtar(k): v for k, v in (get_pacal_map() or {}).items()}
-    return maliyetsiz_satislar(get_satislar() or [], pacal, sku_anahtar)
+    return maliyetsiz_satislar(get_satislar_yalin() or [], pacal, sku_anahtar)
 
 
 def _k_tarih():
-    from satis.database import get_satislar
-    return anormal_tarihli_satislar(get_satislar() or [], _bugun())
+    from satis.database import get_satislar_yalin
+    return anormal_tarihli_satislar(get_satislar_yalin() or [], _bugun())
 
 
 def _k_zararina():

@@ -390,11 +390,11 @@ def _musteri_oku():
     """(kanal stokları {firma: {sku: adet}}, müşteri partileri)."""
     from kayranpm.database import _hepsi
     from kayranpm.stok_hesap import kanal_stoklari
-    from satis.database import get_satislar
+    from satis.database import get_satislar_yalin
     from shared.utils import sku_anahtar, firma_gorunen_ad, normalize_tr
     kanal = kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi"))
     bul = firma_cozucu(list(kanal), lambda k: firma_gorunen_ad(k, kisa=False), normalize_tr)
-    return kanal, musteri_partileri(get_satislar() or [], bul, sku_anahtar)
+    return kanal, musteri_partileri(get_satislar_yalin() or [], bul, sku_anahtar)
 
 
 def hesapla():
