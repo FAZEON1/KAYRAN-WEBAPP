@@ -19,6 +19,25 @@ import traceback
 TURKIYE_TZ = zoneinfo.ZoneInfo("Europe/Istanbul")
 
 
+def tarih_metni(v):
+    """Excel'den gelen tarih (Timestamp / date / metin) → date; okunamazsa None.
+    "2026-10-01" gibi YIL ÖNCE metin ISO okunur; "01.10.2026" gün önce. Yalnız dayfirst=True ile
+    okununca ISO metnin ayı ile günü yer değiştiriyordu (1 Ekim → 10 Ocak)."""
+    import re
+    import pandas as pd
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    try:
+        if isinstance(v, str):
+            m = re.match(r"\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", v)
+            if m:
+                return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        t = pd.to_datetime(v, errors="coerce", dayfirst=True)
+        return t.date() if pd.notna(t) else None
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 # ─────────────────────────────────────────────────────────────────────
 # METİN — Türkçe karakter normalizasyonu (string eşleştirme için)
 # ─────────────────────────────────────────────────────────────────────

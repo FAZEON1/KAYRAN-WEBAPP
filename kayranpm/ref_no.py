@@ -356,10 +356,8 @@ def alinan_destek_ay_usd(yyyy_mm=None):
     return alinan_destek_aralik_usd(d, d)
 
 
-def alinan_destek_excel_ice_aktar(df):
-    """Kolon ADIYLA eşleşen esnek içe aktarım.
-    Beklenen başlıklar (büyük/küçük duyarsız): FİRMA | TÜR | DÖNEM | TUTAR |
-    DÖVİZ | FATURA NO | AÇIKLAMA. Returns (eklenen, atlanan, hatalar[])."""
+def alinan_destek_kolonlari(df):
+    """Alınan destekler Excel'inin kolon eşlemesi → (kolmap, eksik zorunlu kolonlar)."""
     kolmap = {}
     for c in df.columns:
         # normalize_tr BÜYÜK harf döndürür; aramalar küçük harf → .lower() (Ekim 2026: bu olmadan hiçbir
@@ -381,7 +379,14 @@ def alinan_destek_excel_ice_aktar(df):
             kolmap["kategori"] = c
         elif "aciklama" in n:
             kolmap["aciklama"] = c
-    eksik = [k for k in ("firma", "donem", "tutar") if k not in kolmap]
+    return kolmap, [k for k in ("firma", "donem", "tutar") if k not in kolmap]
+
+
+def alinan_destek_excel_ice_aktar(df):
+    """Kolon ADIYLA eşleşen esnek içe aktarım.
+    Beklenen başlıklar (büyük/küçük duyarsız): FİRMA | TÜR | DÖNEM | TUTAR |
+    DÖVİZ | FATURA NO | AÇIKLAMA. Returns (eklenen, atlanan, hatalar[])."""
+    kolmap, eksik = alinan_destek_kolonlari(df)
     if eksik:
         return 0, 0, [f"Zorunlu kolon(lar) yok: {', '.join(eksik).upper()}"]
     eklenen, atlanan, hatalar = 0, 0, []
@@ -2440,6 +2445,14 @@ def kapi_ref(dosya, kapi):
         df_imp = pd.read_excel(dosya)
     except Exception as e:
         st.error(f"Excel okunamadı: {e}")
+        return
+    df_imp = df_imp.dropna(how="all")
+    if not any("ref" in normalize_tr(str(c)).lower() for c in df_imp.columns):
+        st.error("REF NUMARASI sütunu bulunamadı (beklenen başlıklar: NUMARA · REF NUMARASI · AÇIKLAMA · "
+                 "TUTAR · DÖVİZ).")
+        return
+    if df_imp.empty:
+        st.warning("Dosyada ref satırı yok; kayıt yapılmaz.")
         return
     st.caption(f"Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
     st.dataframe(df_imp, hide_index=True, use_container_width=True, height=min(38 + 35 * len(df_imp), 460))

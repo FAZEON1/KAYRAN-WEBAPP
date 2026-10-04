@@ -196,6 +196,8 @@ KRITIK_FONKSIYONLAR = {
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
+    "yonetim_hesap": ["gider_yili_bul"],
+    "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar"],
     "shared.dosya_kapisi": ["ac", "acik", "kapat", "ciz", "izinli", "izinli_turler", "gorunur",
                             "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani"],
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],
@@ -209,7 +211,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
-    "shared.utils": ["sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
+    "shared.utils": ["tarih_metni", "sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
                      "sku_anahtar"],                     # SKU eşleştirme tek kural (Faz 3)
 }
 

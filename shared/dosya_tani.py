@@ -53,19 +53,21 @@ def sayfalari_oku(veri, ad="", satir=20):
     """{sayfa adı: [[hücre metni, …], …]} — her sayfanın yalnız ilk `satir` satırı.
     Okunamazsa (bozuk / şifreli / desteklenmeyen biçim) None."""
     import pandas as pd
-    motor = "xlrd" if str(ad).lower().endswith(".xls") else None
     try:
-        xls = pd.ExcelFile(BytesIO(veri), engine=motor)
+        # Biçim (xls / xlsx) İÇERİKTEN anlaşılır: bazı programlar .xlsx içeriği .xls adıyla verir;
+        # okuyucular da içeriğe bakar (eskiden ada bakılıp .xls okuyucusu zorlanıyordu).
+        xls = pd.ExcelFile(BytesIO(veri))
     except Exception:  # noqa: BLE001
         return None
     out = {}
-    for sn in xls.sheet_names:
-        try:
-            df = pd.read_excel(xls, sheet_name=sn, header=None, nrows=satir)
-        except Exception:  # noqa: BLE001
-            out[str(sn)] = []
-            continue
-        out[str(sn)] = [[_hucre(v) for v in r] for r in df.values.tolist()]
+    with xls:                   # çok dosya art arda tanınır: her dosyanın okuyucusu kapansın
+        for sn in xls.sheet_names:
+            try:
+                df = pd.read_excel(xls, sheet_name=sn, header=None, nrows=satir)
+            except Exception:  # noqa: BLE001
+                out[str(sn)] = []
+                continue
+            out[str(sn)] = [[_hucre(v) for v in r] for r in df.values.tolist()]
     return out
 
 

@@ -640,6 +640,15 @@ def kapi_alinan_destek(dosya, kapi):
     except Exception as e:  # noqa: BLE001
         st.error(f"Dosya okunamadı: {e}")
         return
+    _kol, _eksik = N.alinan_destek_kolonlari(df)
+    if _eksik:
+        st.error("Zorunlu sütun(lar) yok: " + ", ".join(k.upper() for k in _eksik)
+                 + " (beklenen başlıklar: FİRMA · DÖNEM · TUTAR).")
+        return
+    df = df.dropna(how="all")
+    if df.empty:
+        st.warning("Dosyada kayıt satırı yok; kayıt yapılmaz.")
+        return
     st.dataframe(df.head(10), use_container_width=True, hide_index=True)
     st.caption(f"{len(df)} satır bulundu; ilk 10 gösteriliyor.")
     if st.button("İçe aktar", type="primary", icon=":material/move_to_inbox:", key=kapi.anahtar("ad2_imp")):

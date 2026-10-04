@@ -12,7 +12,12 @@ Pencere kuralları (Streamlit):
   açılırken başka pencerelerin bekleyen bayrakları silinir.
 - Kayıttan sonra gövde kapi.bitti(...) çağırır: sonuç kapıda gösterilir, sayfa da tazelenir
   (st.rerun sonrası kaybolan st.success sorunu yok).
+- Pencere X / Esc / dışarı tıklamayla KAPANMAZ (dismissible=False), her ekranda "Kapat" düğmesi
+  vardır: X tam yenileme başlatır ve sürmekte olan kaydı yarıda keserdi (satışlar yazılır, stok
+  düşülmez, geri alma kaydı oluşmaz). Pencere içindeki düğmeler yalnız pencereyi yeniler, kaydı kesmez.
 """
+import copy
+import hashlib
 import uuid
 from io import BytesIO
 
@@ -22,8 +27,16 @@ from shared.dosya_tani import tani, KESIN
 
 _ACIK, _DOSYALAR, _AKTIF, _SONUC, _SURUM = ("_kapi_acik", "_kapi_dosyalar", "_kapi_aktif",
                                             "_kapi_sonuc", "_kapi_surum")
-# Kapı açılırken kapanan diğer pencerelerin bayrakları (bir çalışmada tek pencere)
-_DIGER_PENCERELER = ("_talep_ac", "_mk_dialog_ac", "_ms_dialog_ac")
+_ATLANAN = "_kapi_atlanan"
+# Kapı açılırken kapanan diğer pencerelerin bayrakları (bir çalışmada tek pencere). Sayfaların
+# pencere bayrakları "_<ad>_ac" kalıbındadır (shared.bilesen.detay_ac, _talep_ac, _mk_dialog_ac,
+# _ms_dialog_ac, _mlyt_ac …): hepsi temizlenir — tek tek sayılınca Kâr / P&L'nin _mlyt_ac'ı unutulmuştu.
+def _pencere_bayragi_mi(k):
+    return isinstance(k, str) and k.startswith("_") and k.endswith("_ac")
+
+# Bir dosyanın en büyük boyutu ve listedeki en çok dosya: dosyalar oturum belleğinde tutulur
+EN_BUYUK_MB = 30
+EN_COK_DOSYA = 20
 
 MODUL_AD = {"satis": "Satış", "kayranacc": "Muhasebe", "kayranpm": "Ürün Yönetimi", "depo": "Depo",
             "ithalat": "İthalat", "teknikservis": "Teknik Servis", "yonetim": "Yönetim"}
@@ -130,6 +143,15 @@ class Kapi:
         """Dosyaya özgü widget anahtarı: ikinci dosyada ilk dosyanın girdileri kalmasın."""
         return f"{ad}__kp{self.id}"
 
+    def onbellek(self, ad, fonk):
+        """Dosyadan okunan sonucu bu dosya için bir kez hesapla. Pencere içindeki her tıklama
+        gövdeyi yeniden çalıştırır; büyük Excel'in her tuşta baştan okunmaması için. Kopya döner
+        (gövde sonucu değiştirse de saklanan bozulmaz)."""
+        d = self.kayit.setdefault("_onbellek", {})
+        if ad not in d:
+            d[ad] = fonk()
+        return copy.deepcopy(d[ad])
+
     def yenile(self):
         """Yalnız pencerenin içini yeniden çiz (ara adım: ör. takip no atandı, içe aktarma sürüyor)."""
         _yenile()
@@ -149,7 +171,7 @@ def ac():
     """Kapıyı aç (düğmenin on_click'i). Bekleyen başka pencere bayrakları silinir."""
     ss = st.session_state
     ss[_ACIK] = True
-    for b in _DIGER_PENCERELER:
+    for b in [k for k in list(ss.keys()) if _pencere_bayragi_mi(k)]:
         ss.pop(b, None)
 
 
@@ -159,7 +181,7 @@ def acik():
 
 def kapat():
     ss = st.session_state
-    for k in (_ACIK, _DOSYALAR, _AKTIF, _SONUC):
+    for k in (_ACIK, _DOSYALAR, _AKTIF, _SONUC, _ATLANAN):
         ss.pop(k, None)
 
 
@@ -207,7 +229,22 @@ def ciz(yetkiler):
     return True
 
 
-@st.dialog("Dosya kapısı", width="large", on_dismiss=kapat)
+def _pencere_kalibi():
+    """X / Esc ile kapanmayan pencere (modül başındaki not: kaydı yarıda kesmesin); kapatma her
+    ekrandaki "Kapat" düğmesiyle. Eski Streamlit dismissible'ı tanımıyorsa onsuz kurulur."""
+    try:
+        return st.dialog("Dosya kapısı", width="large", dismissible=False)
+    except TypeError:
+        return st.dialog("Dosya kapısı", width="large")
+
+
+def _kapat_dugmesi(yer=None, anahtar="kapi_kapat_ust"):
+    if (yer or st).button("Kapat", key=anahtar, icon=":material/close:", use_container_width=True):
+        kapat()
+        st.rerun()
+
+
+@_pencere_kalibi()
 def _pencere(yetkiler):
     try:
         _ic(yetkiler)
@@ -221,9 +258,12 @@ def _pencere(yetkiler):
             pass
         st.error(f"Bu dosya işlenirken hata oluştu ({type(e).__name__}: {str(e)[:160]}). "
                  "Hiçbir şey yarım kaydedilmediyse dosyayı yeniden deneyebilirsin; hata kaydı tutuldu.")
-        if st.button("Dosyalara dön", key="kapi_hata_don", icon=":material/arrow_back:"):
+        c1, c2 = st.columns(2)
+        if c1.button("Dosyalara dön", key="kapi_hata_don", icon=":material/arrow_back:",
+                     use_container_width=True):
             st.session_state.pop(_AKTIF, None)
             _yenile()
+        _kapat_dugmesi(c2, "kapi_hata_kapat")
 
 
 def _ic(yetkiler):
@@ -261,14 +301,26 @@ def _sonuc_ciz(s):
 def _govde_ciz(kayit, yetkiler):
     tur = kayit.get("secim")
     t = TURLER.get(tur)
-    c1, c2 = st.columns([1, 4], vertical_alignment="center")
+    c1, c2, c3 = st.columns([1, 4, 1], vertical_alignment="center")
     if c1.button("Dosyalar", key="kapi_geri", icon=":material/arrow_back:"):
         st.session_state.pop(_AKTIF, None)
         _yenile()
     c2.markdown(f"**{t['ad']}** · `{kayit['ad']}`" if t else f"`{kayit['ad']}`")
+    _kapat_dugmesi(c3)
     if not t or not izinli(tur, yetkiler):
         st.error("Bu dosya türü için yetkin yok.")
         return
+    # Elle seçilen tür, tanımanın bulduğu türlerden değilse: yanlış akışa giren dosya yanlış yere
+    # yazılabilir (ör. sipariş Excel'i "stok değeri raporu" seçilince sütun sayıları stok değeri
+    # sanılıyordu). Önce uyarı + bilinçli onay.
+    taninan = [a["tur"] for a in kayit.get("adaylar") or [] if a.get("tur")]
+    if tur not in taninan:
+        st.warning(f"Bu dosya **{t['ad']}** türüne benzemiyor"
+                   + (f" (tanıma: {', '.join(TURLER[x]['ad'] for x in taninan if x in TURLER)})." if taninan
+                      else " (tanınmadı).")
+                   + " Yanlış tür seçildiyse kayıt yanlış yere yazılır; dosyayı ve türü kontrol et.")
+        if not st.checkbox("Dosyanın bu türde olduğundan eminim, devam et", key=f"kapi_tur_onay_{kayit['id']}"):
+            return
     _k = Kapi(kayit)
     _fonksiyon(t["govde"])(_k.dosya(), _k)
 
@@ -286,12 +338,15 @@ def _liste_ciz(yetkiler):
     if yeni:
         dosyalari_ekle(yeni, yetkiler)
         _yenile()
+    for m in ss.pop(_ATLANAN, None) or []:
+        st.warning(m)
 
     izin = izinli_turler(yetkiler)
     for d in list(ss[_DOSYALAR]):
         _dosya_satiri(d, izin, yetkiler)
     if not ss[_DOSYALAR]:
         _sablonlar(yetkiler)
+    _kapat_dugmesi()
 
 
 def dosyalari_ekle(dosyalar, yetkiler):
@@ -299,11 +354,25 @@ def dosyalari_ekle(dosyalar, yetkiler):
     ss = st.session_state
     ss.setdefault(_DOSYALAR, [])
     ss[_SURUM] = ss.get(_SURUM, 0) + 1          # yükleme kutusu boşalsın; dosyalar listede
+    atlanan = []
     for f in dosyalar:
         veri = f.getvalue()
+        ozet = hashlib.sha1(veri).hexdigest()
+        if any(d.get("ozet") == ozet for d in ss[_DOSYALAR]):
+            # Aynı dosya iki kez eklenirse iki kez kaydedilebilirdi (kampanya, mal kabul mükerrer olurdu)
+            atlanan.append(f"{f.name}: bu dosya listede zaten var, ikinci kez eklenmedi.")
+            continue
+        if len(veri) > EN_BUYUK_MB * 1024 * 1024:
+            atlanan.append(f"{f.name}: dosya {EN_BUYUK_MB} MB'tan büyük, eklenmedi.")
+            continue
+        if len(ss[_DOSYALAR]) >= EN_COK_DOSYA:
+            atlanan.append(f"{f.name}: listede en çok {EN_COK_DOSYA} dosya olabilir; önce bekleyenleri kaydet.")
+            continue
         adaylar = [a for a in tani(f.name, veri) if a.get("tur")]
-        ss[_DOSYALAR].append({"id": uuid.uuid4().hex[:8], "ad": f.name, "veri": veri, "adaylar": adaylar,
-                              "secim": adaylar[0]["tur"] if adaylar else None})
+        ss[_DOSYALAR].append({"id": uuid.uuid4().hex[:8], "ad": f.name, "veri": veri, "ozet": ozet,
+                              "adaylar": adaylar, "secim": adaylar[0]["tur"] if adaylar else None})
+    if atlanan:
+        ss[_ATLANAN] = atlanan
     if len(ss[_DOSYALAR]) == 1 and _tek_kesin(ss[_DOSYALAR][0], yetkiler):
         ss[_AKTIF] = ss[_DOSYALAR][0]["id"]     # tek ve kesin tanınan dosya: doğrudan aç
 

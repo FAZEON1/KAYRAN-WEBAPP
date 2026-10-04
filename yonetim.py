@@ -161,8 +161,8 @@ def gider_tablosu_parse(file):
     Ay kolonları BAŞLIK SATIRINDAN dinamik bulunur (kolon eklenmiş/kaymışsa da çalışır);
     başlık bulunamazsa eski sabit düzen (C..N) kullanılır. Veri içeren İLK sayfa işlenir."""
     import pandas as pd
-    name = (getattr(file, "name", "") or "").lower()
-    eng = "xlrd" if name.endswith(".xls") else "openpyxl"
+    # Biçim içerikten (pandas): .xls adlı .xlsx içerik de okunur (eskiden ada bakılıyordu)
+    eng = None
     try:
         _sheets = pd.read_excel(file, engine=eng, header=None, sheet_name=None)
     except Exception:
@@ -551,7 +551,17 @@ def kapi_gider(dosya, kapi):
     st.markdown("Muhasebenin doldurduğu tablo: **sabit / değişken / yarı değişken** kalemler, 12 ay. "
                 "Aynı yılı tekrar yüklersen o yılın tablosu güncellenir.")
     _bu = _bugun().year
-    yil = st.selectbox("Hangi yılın gider tablosu?", [_bu - 1, _bu, _bu + 1], index=1, key=kapi.anahtar("gider_yil"))
+    _yillar = [_bu - 1, _bu, _bu + 1]
+    # Yıl dosyadan (ad / başlık) gelir; bulunamazsa boş başlar ve seçilmeden kayıt yapılmaz — "bu yıl"
+    # varsayılanı Ocak'ta geçen yılın tablosunu yeni yıla yazardı.
+    from yonetim_hesap import gider_yili_bul
+    _dy = gider_yili_bul(dosya.name, dosya.getvalue(), _bugun())
+    yil = st.selectbox("Hangi yılın gider tablosu?", _yillar, index=_yillar.index(_dy) if _dy in _yillar else None,
+                       key=kapi.anahtar("gider_yil"), placeholder="Yıl seç",
+                       help="Dosyanın adından ya da başlığından okunur; bulunamazsa sen seç.")
+    if yil is None:
+        st.info("Dosyada yıl bulunamadı; tablonun hangi yıla ait olduğunu seç.")
+        return
     _gider_anahtar = f"gider_tablosu_{yil}"
     try:
         with st.spinner("Gider tablosu işleniyor…"):
@@ -573,10 +583,12 @@ def kapi_gider(dosya, kapi):
     except Exception:  # noqa: BLE001
         st.error("Ayar tablosuna erişilemiyor; kayıt yapılamaz.")
         return
+    _onay = True
     if _ga(_gider_anahtar):
-        st.caption(f"{yil} için kayıtlı bir tablo var; kaydedince yerine bu dosya geçer.")
+        _onay = st.checkbox(f"{yil} için kayıtlı bir tablo var; yerine bu dosyayı yaz",
+                            key=kapi.anahtar("gider_uzerine"))
     if st.button("Kaydet", key=kapi.anahtar("gider_kaydet"), type="primary", use_container_width=True,
-                 icon=":material/save:"):
+                 icon=":material/save:", disabled=not _onay):
         _sa3(_gider_anahtar, {"kat": _katp, "detay": _detayp, "tarih": _bugun().isoformat()})
         from shared.yukleme_gecmisi import kaydet as _yg_kaydet
         _yg_kaydet("gider_tablosu", len(_detayp), dosya.name)

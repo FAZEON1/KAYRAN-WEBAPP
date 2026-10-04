@@ -533,9 +533,13 @@ def kapi_happylife(dosya, kapi):
     _rapor = st.date_input("Rapor tarihi", value=date.today(), key=kapi.anahtar("hl_rapor_t"),
                            help="Bu yüklemenin ait olduğu gün. Aynı günü tekrar yüklersen "
                                 "önceki kayıt güncellenir (mükerrer olmaz).", format="DD.MM.YYYY")
-    kayitlar, hata = hl_excel_parse(dosya)
+    kayitlar, hata = kapi.onbellek("oku", lambda: hl_excel_parse(dosya))
     if hata:
         st.error(hata)
+        return
+    if not kayitlar:
+        # Boş dosya kaydedilseydi o günün kayıtları silinip yerine hiçbir şey yazılmazdı
+        st.warning("Dosyada palet satırı yok; kayıt yapılmaz.")
         return
     st.success(f"{len(kayitlar)} palet satırı okundu.")
     if st.button("Veritabanına Kaydet", type="primary", key=kapi.anahtar("hl_kaydet_btn"),
