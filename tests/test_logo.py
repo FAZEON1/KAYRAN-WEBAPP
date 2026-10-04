@@ -41,3 +41,21 @@ def test_uygulama_logoyu_kullanir():
     assert "818CF8\"/><stop" not in a          # eski degrade logo kalmadı
     assert "KAYRAN_LOGO_SVG = kayran_logo_svg(" in a
     assert "KAYRAN_LOGO_BIG = kayran_logo_svg(" in a
+
+
+def test_logo_veri_adresi():
+    """CSS arka planı için: aynı SVG, data: adresi olarak (tek kaynak)."""
+    from urllib.parse import unquote
+    from shared.tasarim import kayran_logo_svg, kayran_logo_uri
+    u = kayran_logo_uri(28)
+    assert u.startswith("data:image/svg+xml,")
+    assert unquote(u[len("data:image/svg+xml,"):]) == kayran_logo_svg(28)
+
+
+def test_logo_ust_seritte_ana_sayfa_dugmesi():
+    """Kenar çubuğu kalkınca (Eki 2026) logo uygulama içinden kaybolmuştu. Yeri: üst şeridin sol
+    başı — ana sayfa düğmesi logodur (tıklayınca ana sayfa), adı ipucu ve ekran okuyucuda kalır."""
+    a = (KOK / "app.py").read_text(encoding="utf-8")
+    g = a[a.index("def ust_navigasyon"):a.index("\ndef ", a.index("def ust_navigasyon") + 10)]
+    assert "kayran_logo_uri(" in g and ".st-key-top_anasayfa" in g
+    assert '("Ana Sayfa", "anasayfa"' in g          # düğme ve adı duruyor (ipucu / erişilebilirlik)
