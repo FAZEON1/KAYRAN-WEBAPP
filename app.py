@@ -659,6 +659,8 @@ _css_tema = st.session_state.get("tema") or "koyu"      # oturum yüklenince far
 st.markdown(islem_gosterge_css(), unsafe_allow_html=True)
 from shared.islem import kur as _islem_kur              # yükleniyor / işlem sürüyor kapsülü (Ekim 2026)
 _islem_kur()
+from shared.ceviri import kur as _ceviri_kur            # Streamlit'in İngilizce kalıp yazıları → Türkçe
+_ceviri_kur()
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
 # Sayfa genişliği TEK yerden — modül başına farklı max-width, modüller arası
 # geçişte sayfanın gözle görülür şekilde daralmasına yol açıyordu.
@@ -2548,11 +2550,13 @@ def sistem_kayitlari():
     from shared.stok_defteri import gecmis
     from shared.hata_log import son_hatalar
 
-    st.markdown("## 🧾 Sistem Kayıtları")
-    st.caption("Stok neden değişti, hangi işlem başarısız oldu, sistem nerede hata verdi — "
-               "hepsi burada. Kayıtlar kurulumdan sonraki olayları kapsar.")
+    from shared.tasarim import baslik as _bsl
+    st.markdown(_bsl(":material/receipt_long: Sistem kayıtları", "Stok ve hata kayıtları",
+                     aciklama="Stok neden değişti, hangi işlem başarısız oldu, sistem nerede hata verdi · "
+                              "kayıtlar kurulumdan sonraki olayları kapsar"), unsafe_allow_html=True)
 
-    t1, t2, t3 = st.tabs(["⚠️ Başarısız stok işlemleri", "📜 Stok hareketleri", "🧯 Hatalar"])
+    t1, t2, t3 = st.tabs([":material/warning: Başarısız stok işlemleri", ":material/history: Stok hareketleri",
+                          ":material/bug_report: Hatalar"])
 
     def _tablo(rows):
         return pd.DataFrame([{
@@ -2618,9 +2622,10 @@ def kullanici_yonetimi():
         st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
         return
 
-    st.markdown("## 👥 Kullanıcı Yönetimi")
-    st.caption("Yetkiler veritabanında tutulur — değişiklik anında geçerli olur, "
-               "kod yüklemeleri etkilemez.")
+    from shared.tasarim import baslik as _bsl
+    st.markdown(_bsl(":material/group: Kullanıcı yönetimi", "Yetkiler ve kullanıcılar",
+                     aciklama="Yetkiler veritabanında tutulur · değişiklik anında geçerli olur, "
+                              "kod yüklemeleri etkilemez"), unsafe_allow_html=True)
 
     if not tablo_var_mi():
         st.error("⚠️ `kullanici_yetkileri` tablosu henüz oluşturulmamış. Supabase SQL "
@@ -2753,15 +2758,15 @@ def kullanici_yonetimi():
 
     # ── 2) Yeni kullanıcı ────────────────────────────────────────────
     with c1:
-        st.markdown("#### ➕ Yeni kullanıcı")
+        st.markdown("#### Yeni kullanıcı")
         with st.form("ky_yeni", clear_on_submit=True):
             ad = st.text_input("Kullanıcı adı", placeholder="örn. serdar",
                                help="Küçük harf, rakam ve _ ; 2-20 karakter")
             s1 = st.text_input("Şifre", type="password",
                                help="En az 8 karakter, harf ve rakam içermeli")
             s2 = st.text_input("Şifre (tekrar)", type="password")
-            mod = st.multiselect("Modüller", MODULLER, format_func=MODUL_ADI.get)
-            oz = st.multiselect("Özel yetkiler", OZEL, format_func=OZEL_ADI.get)
+            mod = st.multiselect("Modüller", MODULLER, format_func=MODUL_ADI.get, placeholder="Modül seç…")
+            oz = st.multiselect("Özel yetkiler", OZEL, format_func=OZEL_ADI.get, placeholder="Yetki seç…")
             gonder = st.form_submit_button("Kullanıcıyı oluştur", type="primary")
         if gonder:
             ad_n = (ad or "").strip().lower()
@@ -2783,7 +2788,7 @@ def kullanici_yonetimi():
 
     # ── 3) Şifre sıfırla ─────────────────────────────────────────────
     with c2:
-        st.markdown("#### 🔑 Şifre sıfırla")
+        st.markdown("#### Şifre sıfırla")
         with st.form("ky_sifre", clear_on_submit=True):
             kim = st.selectbox("Kullanıcı", sorted(db))
             y1 = st.text_input("Yeni şifre", type="password")
@@ -2815,57 +2820,25 @@ def sifre_degistir():
     ilk_harf = _bh(aktif_kullanici) if aktif_kullanici else "U"
 
     st.markdown(portal_css(), unsafe_allow_html=True)
-
-    # ─── BAŞLIK ───────────────────────────────────────────────────────────────
-    st.markdown(
-        '<div style="margin-bottom:32px;animation:fadeUp 0.6s ease-out">'
-        '<div style="display:inline-block;padding:8px 16px;background:color-mix(in srgb,var(--k-mor) 12%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:20px;margin-bottom:16px">'
-        '<span style="color:var(--k-mor2);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Güvenlik</span>'
-        '</div>'
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(24px,5vw,36px);font-weight:700;color:var(--k-metin);margin:0">Şifremi Değiştir</h1>'
-        '<p style="color:var(--k-soluk);font-size:14px;margin-top:8px">Yeni şifren Supabase&#39;de güvenli şekilde saklanır &mdash; Streamlit Secrets&#39;tan bağımsızdır.</p>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # ─── FORM CSS ─────────────────────────────────────────────────────────────
-    st.markdown(
-        '<style>'
-        '[data-testid="stTextInput"] label{color:var(--k-mavi) !important;font-weight:600 !important;'
-        'font-size:13px !important;letter-spacing:.5px !important;text-transform:uppercase !important;}'
-        '[data-testid="stTextInput"] input{background:color-mix(in srgb,var(--k-metin) 4%,transparent) !important;'
-        'border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent) !important;color:var(--k-metin) !important;border-radius:12px !important;}'
-        '[data-testid="stTextInput"] input:focus{border-color:var(--k-mor) !important;'
-        'box-shadow:0 0 0 3px color-mix(in srgb,var(--k-mor) 15%,transparent) !important;}'
-        '.stFormSubmitButton>button{background:linear-gradient(135deg,var(--k-mor),var(--k-mor)) !important;'
-        'color:#fff !important;border:none !important;border-radius:12px !important;'
-        'font-weight:600 !important;box-shadow:0 4px 20px color-mix(in srgb,var(--k-mor) 35%,transparent) !important;}'
-        '</style>',
-        unsafe_allow_html=True
-    )
+    from shared.tasarim import baslik as _bsl
+    st.markdown(_bsl(":material/key: Hesap", "Şifremi değiştir",
+                     aciklama="Yeni şifren Supabase'de güvenli şekilde saklanır; Streamlit Secrets'tan bağımsızdır"),
+                unsafe_allow_html=True)
 
     # ─── FORM ─────────────────────────────────────────────────────────────────
     col_l, col_c, col_r = st.columns([1, 1.4, 1])
     with col_c:
         st.markdown(
-            '<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent);'
-            'border-radius:20px;padding:32px 28px;">'
-            f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;'
-            f'padding-bottom:16px;border-bottom:1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)">'
-            f'<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--k-mor),var(--k-mor));'
-            f'display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:14px">{ilk_harf}</div>'
-            f'<div><div style="color:var(--k-metin);font-weight:600;font-size:14px">{kisi_adi(aktif_kullanici)}</div>'
-            f'<div style="color:var(--k-silik);font-size:11px">Şifre değiştirme</div></div>'
-            f'</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
+            f'<div style="display:flex;align-items:center;gap:10px;margin:4px 0 10px">'
+            f'<div style="width:30px;height:30px;border-radius:8px;background:var(--k-mor);display:flex;'
+            f'align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px">{ilk_harf}</div>'
+            f'<div style="color:var(--k-metin);font-weight:600;font-size:14px">{kisi_adi(aktif_kullanici)}</div></div>',
+            unsafe_allow_html=True)
         with st.form("sifre_degistir_form", clear_on_submit=True):
-            mevcut = st.text_input("Mevcut Şifre", type="password", placeholder="Mevcut şifrenizi girin")
-            yeni   = st.text_input("Yeni Şifre",   type="password", placeholder="En az 6 karakter")
-            tekrar = st.text_input("Yeni Şifre (Tekrar)", type="password", placeholder="Yeni şifreyi tekrar girin")
-            kaydet = st.form_submit_button("Şifreyi Güncelle", type="primary", use_container_width=True, icon=":material/key:")
+            mevcut = st.text_input("Mevcut şifre", type="password", placeholder="Mevcut şifrenizi girin")
+            yeni   = st.text_input("Yeni şifre",   type="password", placeholder="En az 6 karakter")
+            tekrar = st.text_input("Yeni şifre (tekrar)", type="password", placeholder="Yeni şifreyi tekrar girin")
+            kaydet = st.form_submit_button("Şifreyi güncelle", type="primary", use_container_width=True, icon=":material/key:")
 
         if kaydet:
             # Validasyonlar

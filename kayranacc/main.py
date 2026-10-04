@@ -2118,7 +2118,7 @@ def run():
                      ("Durum", "metin", "$", "orta")],
                     satirlar, vurgu=_vurgu))
     
-            tab1, tab2 = st.tabs(["💴 TL Çekleri", "💵 USD Çekleri"])
+            tab1, tab2 = st.tabs([":material/payments: TL çekleri", ":material/attach_money: USD çekleri"])
             with tab1:
                 cek_tablo(get_cekler("TL"), "TL")
             with tab2:
@@ -2195,7 +2195,7 @@ def run():
     
                 st.markdown("---")
     
-            st.markdown("### 📤 Yeni Hafta Yükle")
+            st.markdown("#### Yeni hafta yükle")
             st.markdown(
                 '<div style="background:color-mix(in srgb,var(--k-amber) 15%,transparent);border:1px solid var(--k-amber2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--k-amber2)">'
                 '<b>Excel sutun sirasi:</b> A=HAFTA | B=FIRMA | C=ACIKLAMA | D=(bos) | E=VADE | F=TUTAR TL | G=TUTAR USD | <b>H=KATEGORI (opsiyonel)</b>'
@@ -2761,7 +2761,7 @@ def run():
                 return f"👤 {kim} · 🕐 {zaman}"
     
             with col1:
-                st.markdown("**1️⃣ Stok Değeri Raporu**")
+                st.markdown("**1 · Stok Değeri Raporu**")
                 if st.session_state.aktif_stok_data:
                     try:
                         usd_v, pzr = st.session_state.aktif_stok_data
@@ -2776,7 +2776,7 @@ def run():
                         st.session_state.aktif_stok_data = None
     
             with col2:
-                st.markdown("**2️⃣ İthalat Ödeme Takip**")
+                st.markdown("**2 · İthalat Ödeme Takip**")
                 if st.session_state.aktif_ithalat_data:
                     try:
                         metrik_satiri([{"label": "✅ Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
@@ -2785,7 +2785,7 @@ def run():
                         st.session_state.aktif_ithalat_data = None
     
             with col3:
-                st.markdown("**3️⃣ Cari Alacaklar Listesi**")
+                st.markdown("**3 · Cari Alacaklar Listesi**")
                 if st.session_state.aktif_cari_data:
                     try:
                         cari = st.session_state.aktif_cari_data
@@ -2924,7 +2924,7 @@ def run():
                         _stok_ozet = f"ham ${tr_sayi(_hs)} · KDV dahil ${tr_sayi(_hs * 1.20)}"
                 except Exception:
                     pass
-                _yukle_bloku("1️⃣", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
+                _yukle_bloku("1 ·", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
                              lambda b: _p_stok(b, parse_stok_excel), _kaydet_stok,
                              stok_meta, bool(st.session_state.aktif_stok_data), _stok_ozet,
                              "Mikro → Stok → Stok değeri raporu")
@@ -2944,7 +2944,7 @@ def run():
                         _ith_ozet = f"${tr_sayi(float(st.session_state.aktif_ithalat_data))} ödenen"
                 except Exception:
                     pass
-                _yukle_bloku("2️⃣", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
+                _yukle_bloku("2 ·", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
                              _p_ithalat, _kaydet_ithalat,
                              ithalat_meta, bool(st.session_state.aktif_ithalat_data), _ith_ozet,
                              "'Ödenen / USD' sütunu içeren takip dosyası")
@@ -2974,7 +2974,7 @@ def run():
                                       f"alacak USD {tr_sayi(float(_c['alacak'].get('usd') or 0))}")
                 except Exception:
                     pass
-                _yukle_bloku("3️⃣", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
+                _yukle_bloku("3 ·", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
                              _p_cari, _kaydet_cari,
                              cari_meta, bool(st.session_state.aktif_cari_data), _cari_ozet,
                              "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
@@ -3202,7 +3202,7 @@ def run():
 
             # ─── Manuel Ekleme/Çıkarma ───
             st.markdown("---")
-            st.markdown("### ✏️ Manuel Ekleme / Çıkarma")
+            st.markdown("#### Manuel ekleme / çıkarma")
             st.caption("Excel'lerde olmayan ek kalemler için manuel giriş yap. Kayıtlar kalıcıdır.")
     
             @st.dialog("➕ Yeni Kalem Ekle", width="large")

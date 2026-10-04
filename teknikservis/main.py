@@ -352,7 +352,7 @@ def _mal_kabul_dialog():
     _modeller = ithalat_model_listesi()
     if _modeller:
         _opts = ["— İthalat'tan model seç —"] + [(f"{s} — {a}" if a else s) for s, a in _modeller]
-        _sec_model = st.selectbox(f"📦 İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
+        _sec_model = st.selectbox(f"İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
                                   _opts, key="mk_model_sec")
         if _sec_model != _opts[0] and st.session_state.get("_mk_model_son") != _sec_model:
             st.session_state["_mk_model_son"] = _sec_model
@@ -644,7 +644,7 @@ def _evraksiz_kayit():
     _modeller = ithalat_model_listesi()
     if _modeller:
         _opts = ["— İthalat'tan model seç (opsiyonel) —"] + [(f"{s} — {a}" if a else s) for s, a in _modeller]
-        _sec = st.selectbox(f"📦 İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
+        _sec = st.selectbox(f"İthalat modeli seç ({len(_modeller)} model · yazarak ara)",
                             _opts, key="ev_model_sec")
         if _sec != _opts[0] and st.session_state.get("_ev_model_son") != _sec:
             st.session_state["_ev_model_son"] = _sec

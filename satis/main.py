@@ -145,7 +145,7 @@ def _iade_kayit_listesi(bas, bit):
                        f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{_h.escape(str(r.get("sku") or ""))} · '
                        f'{_h.escape(str(r.get("urun_adi") or "")[:48])}</div>'
                        f'{B.meta(firma_kisa_ad(r.get("kanal")) or "cari belirsiz", r.get("depo") or "", r.get("kaynak") or "")}</div>'
-                       f'<div style="text-align:right;white-space:nowrap"><b style="font-family:var(--k-mono);font-size:14px">'
+                       f'<div style="text-align:right;white-space:nowrap"><b style="font-variant-numeric:tabular-nums;font-size:14px">'
                        f'{sayi(float(r.get("iade_net") or 0), "$")}</b><div style="font-size:11.5px;color:var(--k-silik)">'
                        f'{tr_sayi(int(r.get("iade_adet") or 0))} adet</div></div></div>',
                        _iade_ac, (r["id"],), tur="satir", renk="amber", etiket="İade ayrıntısı")
@@ -1368,16 +1368,16 @@ def run():
                             f'<span style="color:{el};font-size:{"13px" if ton in ("ara","son") else "12.5px"};'
                             f'font-weight:{_fw};letter-spacing:.3px">{isaret} {etiket}{_oran}</span>'
                             f'<span style="color:{dr};font-size:{_fs};font-weight:{_fw};'
-                            f'font-family:JetBrains Mono,monospace">{tutar}</span></div>')
+                            f'font-variant-numeric:tabular-nums">{tutar}</span></div>')
 
-                _adim = _mrd("Brüt Ciro", _usd(top["ciro"]))
+                _adim = _mrd("Brüt ciro", _usd(top["ciro"]))
                 if _itop["i_tutar"] > 0.005:
                     _adim += _mrd("İadeler", "− " + _usd(_itop["i_tutar"]), "−", "eksi")
-                    _adim += _mrd("Net Ciro", _usd(_net_ciro), "=", "ara")
+                    _adim += _mrd("Net ciro", _usd(_net_ciro), "=", "ara")
                 if top["destek"] > 0.005:
                     _adim += _mrd("Destek (satır bazlı)", "− " + _usd(top["destek"]), "−", "eksi")
                 _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
-                _adim += _mrd("Brüt Kâr", _usd(_net_kar), "=", "ara", _brut_marj)
+                _adim += _mrd("Brüt kâr", _usd(_net_kar), "=", "ara", _brut_marj)
                 if _ref_g:
                     _adim += _mrd(
                         f"Ref No desteği — {_p_kat_f}" if _p_kat_f != "Tümü" else "Ref No desteği (dönem)",
@@ -1393,7 +1393,7 @@ def run():
                 elif _p_kanal_f != "Tümü" and _p_kat_f == "Tümü" and _ref_usd > 0.005:
                     _adim += _mrd("Ref No desteği (firma geneli — kanala bölünemez)",
                                   "hariç " + _usd(_ref_usd), "•", "eksi")
-                _adim += _mrd("NET KÂR", _usd(_nihai), "=", "son", _nihai_marj)
+                _adim += _mrd("Net kâr", _usd(_nihai), "=", "son", _nihai_marj)
 
                 # ── Maliyeti 0 satışlar: yalnız GERÇEKTEN varsa, sayısıyla ──
                 from . import satis_hesap as _SHp
@@ -1785,7 +1785,7 @@ def run():
                                     st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
                                     _xl_kirilim[_kol] = list(_tablo)
                                     _tablo.append({
-                                        _kol: "Σ TOPLAM", "Adet": _t_adet,
+                                        _kol: "Σ Toplam", "Adet": _t_adet,
                                         "Ciro": round(_t_ciro, 2),
                                         "Alınan destek": round(_t_ad, 2),
                                         "Ref No desteği": -round(_t_rf, 2) if _t_rf else 0.0,
@@ -1798,15 +1798,15 @@ def run():
                                     from shared.tablo import tablo as _ortak_tablo
                                     _ortak_tablo(_tablo, kap=_bk, key=f"pnl_kirilim_{_kol}",
                                                  dosya_adi=f"kirilim_{_kol}")
-                                    _bk.caption(f"Σ TOPLAM = {len(_rows)} satırın toplamı · "
+                                    _bk.caption(f"Σ Toplam = {len(_rows)} satırın toplamı · "
                                                 f"Marj: %{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0, 1)}")
                         _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
                                          float(_ad_marka.get("GENEL", 0) or 0))
                         if abs(_genel_dst) > 0.005:
-                            st.caption(f"Σ TOPLAM satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
+                            st.caption(f"Σ Toplam satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
                                        f"Kırılıma dağıtılmayan GENEL destek: **{_usd_md(_genel_dst)}** — "
                                        f"bu eklenince genel toplam kâr **{_usd_md(_t_kar_ort + _genel_dst)}** olur. "
-                                       f"Bu yüzden Σ TOPLAM, yukarıdaki GENEL NET KÂR kartından düşüktür.")
+                                       f"Bu yüzden Σ Toplam, yukarıdaki net kâr kartından düşüktür.")
 
                         # ── 🔍 "DİĞER" içinde ne var? (markası bulunamayan SKU'lar) ──
                         _diger_skus = []
@@ -1914,12 +1914,12 @@ def run():
                     _nc, _nk, _nm = _kn_net(kn, v)
                     _ad, _tur = kisa_unvan(kn)
                     _ksat.append({"Firma": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
-                                  "Net Kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
+                                  "Net kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
                     _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
                     _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
                 if len(_ksat) > 1:
                     _ksat.append({"Firma": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
-                                  "Net Kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
+                                  "Net kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
                                   "_etiket": "", "_ipucu": ""})
                 _kanal_tik = _ortak_tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
                                     pay="Ciro", dosya_adi="firma_kirilimi")
@@ -1974,7 +1974,7 @@ def run():
                     _sdf = pd.DataFrame([{
                         "Tarih": g["tarih"], "Sipariş No": sno,
                         "SKU": _sku_ozet(g), "Kalem": g["kalem"],
-                        "Adet": g["adet"], "Ciro": g["ciro"], "Net Kâr": g["kar"],
+                        "Adet": g["adet"], "Ciro": g["ciro"], "Net kâr": g["kar"],
                         "Kârlılık": (g["kar"] / g["ciro"] * 100) if g["ciro"] else 0.0,
                     } for sno, g in sorted(_sipler.items(),
                                            key=lambda x: x[1]["tarih"], reverse=True)])
@@ -1991,7 +1991,7 @@ def run():
                             "B.Satış": float(s.get("birim_satis") or 0),
                             "B.Maliyet": float(s.get("birim_maliyet") or 0),
                             "Ciro": satir_kar(s)["ciro"],
-                            "Net Kâr": satir_kar(s)["net_kar"],
+                            "Net kâr": satir_kar(s)["net_kar"],
                             "Kârlılık": satir_kar(s)["marj"],
                         } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip])
                         _kdf_g = _kar_df(_kdf)
@@ -2380,8 +2380,8 @@ def run():
                             unsafe_allow_html=True)
                 with st.container():
                     _kirilim = secim_serit("Kırılım",
-                                        ["🏷️ SKU bazlı (net)", "🏢 Firma bazlı", "🔗 SKU + Firma"], index=2, key="iade_kirilim")
-                    if _kirilim == "🏷️ SKU bazlı (net)":
+                                        ["SKU bazlı (net)", "Firma bazlı", "SKU + Firma"], index=2, key="iade_kirilim")
+                    if _kirilim == "SKU bazlı (net)":
                         _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
                         _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
                         st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
@@ -2398,7 +2398,7 @@ def run():
                         _iadeler = get_iadeler(_ib, _ibit)
                         if not _iadeler:
                             st.info("Bu dönemde iade kaydı yok.")
-                        elif _kirilim == "🏢 Firma bazlı":
+                        elif _kirilim == "Firma bazlı":
                             _fb = {}
                             for r in _iadeler:
                                 f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"

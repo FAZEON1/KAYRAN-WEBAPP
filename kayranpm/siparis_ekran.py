@@ -182,7 +182,6 @@ def render(_sb):
     esik = get_uretim_suresi()
     st.markdown(_sb("📦 Ürün Yönetimi", "Sipariş Önerisi",
                     aciklama=f"{esik} günden az stok kalan ürünler · otomatik öneri"), unsafe_allow_html=True)
-    st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     _esik_ayari(esik)
     try:
         onceki = get_siparis_onerileri() or []

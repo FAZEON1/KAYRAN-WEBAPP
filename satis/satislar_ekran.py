@@ -65,8 +65,8 @@ def _css():
 .sp-firma{font-size:13px;font-weight:600;color:var(--k-metin);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sp-s .k-meta{margin-top:3px;font-size:11.5px;}
 .sp-tut{text-align:right;white-space:nowrap;}
-.sp-tut b{display:block;font-family:var(--k-mono);font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--k-metin);}
-.sp-tut small{font-size:11.5px;color:var(--k-silik);font-family:var(--k-mono);}
+.sp-tut b{display:block;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--k-metin);}
+.sp-tut small{font-size:11.5px;color:var(--k-silik);font-variant-numeric:tabular-nums;}
 .sp-tut small.poz{color:var(--k-yesil);} .sp-tut small.neg{color:var(--k-kirmizi);}
 .sp-dt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:-4px 0 2px;}
 .sp-dt .sp-no{font-size:19px;color:var(--k-metin);}

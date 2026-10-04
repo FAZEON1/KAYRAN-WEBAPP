@@ -189,7 +189,7 @@ def goster():
     from shared.tasarim import baslik as _sb
     from shared.tablo import tablo
     from shared.utils import metrik_satiri
-    st.markdown(_sb("Ürün Yönetimi", "Stok yaşı",
+    st.markdown(_sb(":material/hourglass_bottom: Ürün Yönetimi", "Stok yaşı",
                     aciklama="FIFO · yaş depoya giriş tarihinden · satılabilir depolar ve müşterilerdeki stok"),
                 unsafe_allow_html=True)
     c1, c2 = st.columns([5, 1], vertical_alignment="center")

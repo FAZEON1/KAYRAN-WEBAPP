@@ -135,13 +135,13 @@ def _toplam_aktif_html(snap, RENK, buyuk=False):
         f'border-radius:6px;background:color-mix(in srgb,var(--k-metin) 3%,transparent)">'
         f'<span style="color:{RENK["metin"]};font-size:{fs}">{a}</span>'
         f'<span style="color:{(RENK["yesil"] if y == "+" else RENK["kirmizi"])};font-size:{fs};'
-        f'font-weight:700;font-family:JetBrains Mono,monospace">{y} &#36;{tr_sayi(float(v or 0))}</span></div>'
+        f'font-weight:700;font-variant-numeric:tabular-nums">{y} &#36;{tr_sayi(float(v or 0))}</span></div>'
         for a, v, y in _kal if float(v or 0))
     return (f'<div style="text-align:center;padding:{"10px 0 14px" if buyuk else "8px 0 12px"};margin-bottom:8px;'
             f'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent)">'
             f'<div style="font-size:23px;font-weight:700;color:var(--k-metin);'
-            f'font-family:JetBrains Mono,monospace;letter-spacing:-1px">&#36;{tr_sayi(_t)}</div>'
-            f'<div style="font-size:{fs};color:{RENK["mor2"]};font-family:JetBrains Mono,monospace;'
+            f'font-variant-numeric:tabular-nums;letter-spacing:-1px">&#36;{tr_sayi(_t)}</div>'
+            f'<div style="font-size:{fs};color:{RENK["mor2"]};font-variant-numeric:tabular-nums;'
             f'margin-top:4px">≈ ₺{tr_sayi(_t * _k)} · kur {_k:g}</div></div>' + satirlar)
 
 
@@ -240,9 +240,6 @@ def gider_tablosu_parse(file):
     return _en_iyi or ({"Sabit": [0.0] * 12, "Değişken": [0.0] * 12, "Yarı Değişken": [0.0] * 12}, [])
 
 
-BOLUMLER = ["Özet", "Kanal ve ürün", "Destekler ve giderler", "Ay kapanışı", "Sistem"]
-
-
 def _oturum_kuru():
     try:
         return float(st.session_state.get("kur") or 0)
@@ -293,19 +290,21 @@ def _cip(d, bos=""):
     renk = "yesil" if d["iyi"] else "kirmizi"
     ok = "▲" if d["oran"] >= 0 else "▼"
     return (f'<span style="display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;'
-            f'font-family:JetBrains Mono,monospace;color:var(--k-{renk});'
+            f'font-variant-numeric:tabular-nums;color:var(--k-{renk});'
             f'background:color-mix(in srgb,var(--k-{renk}) 14%,transparent)">{ok} %{tr_sayi(abs(d["oran"]), 1)}</span>')
 
 
 def _hucre(etiket, deger, alt, renk="metin", vurgulu=False):
+    """P&L şeridi hücresi — ortak metrik kartıyla aynı dil: solda etiket, altında rakam
+    (görünüm birliği #20, Ekim 2026; eskiden ortalanmış ve daktilo yazılıydı)."""
     _st = (f"background:color-mix(in srgb,var(--k-{renk}) 8%,var(--k-yuzey1));"
            f"border-color:color-mix(in srgb,var(--k-{renk}) 45%,transparent);" if vurgulu else "")
-    return (f'<div style="flex:1;min-width:112px;text-align:center;padding:10px 6px;border-radius:10px;'
+    return (f'<div style="flex:1;min-width:112px;padding:9px 12px;border-radius:10px;'
             f'border:1px solid var(--k-kenar);background:var(--k-yuzey1);{_st}">'
-            f'<div style="font-size:12px;color:var(--k-soluk);margin-bottom:2px">{etiket}</div>'
-            f'<div style="color:var(--k-{renk if vurgulu else "metin"});font-size:{"20px" if vurgulu else "17px"};'
-            f'font-weight:700;font-family:JetBrains Mono,monospace;line-height:1.2">{deger}</div>'
-            f'<div style="font-size:11px;color:var(--k-soluk);margin-top:4px;min-height:16px">{alt}</div></div>')
+            f'<div style="font-size:12px;color:var(--k-soluk);white-space:nowrap">{etiket}</div>'
+            f'<div style="color:var(--k-{renk if vurgulu else "metin"});font-size:19px;font-weight:600;'
+            f'font-variant-numeric:tabular-nums;line-height:1.3;margin-top:2px;white-space:nowrap">{deger}</div>'
+            f'<div style="font-size:11px;color:var(--k-silik);margin-top:3px;min-height:16px">{alt}</div></div>')
 
 
 def _op(s):
@@ -349,7 +348,7 @@ def _kucuk_kartlar(trend):
                  f'border-radius:12px;padding:10px 12px">'
                  f'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
                  f'<span style="font-size:12px;color:var(--k-soluk)">{ad}</span>'
-                 f'<b style="font:700 15px JetBrains Mono,monospace;color:var(--k-metin)">{bicim(v[-1])}</b></div>'
+                 f'<b style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;color:var(--k-metin)">{bicim(v[-1])}</b></div>'
                  f'<div style="margin:6px 0 2px">{kucuk_trend_svg(v, et, rk, bicim)}</div>'
                  f'<div style="font-size:11px;color:var(--k-silik)">{et[0]} – {et[-1]}</div></div>')
     return f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px">{html}</div>'
@@ -377,7 +376,7 @@ def _kanal_cubuklari(kanal):
               f'{x["Kanal"]}</span><div style="display:flex;align-items:center;gap:8px;min-width:0">'
               f'<div style="height:16px;border-radius:4px;width:{max(2, abs(nk) / mx * 70):.1f}%;'
               f'background:color-mix(in srgb,var(--k-{renk}) 75%,transparent)"></div>'
-              f'<span style="font:700 12px JetBrains Mono,monospace;color:var(--k-metin);white-space:nowrap">{_usd(nk)}'
+              f'<span style="font-weight:700;font-size:12px;font-variant-numeric:tabular-nums;color:var(--k-metin);white-space:nowrap">{_usd(nk)}'
               f'<span style="color:var(--k-silik);font-weight:500"> · %{tr_sayi(x["Kâr payı (%)"], 0)}</span></span>'
               f'</div></div>')
     return h
@@ -390,7 +389,8 @@ def _toplam_aktif_penceresi(RENK, pencere, bos_durum, buyuk=False):
     except Exception:  # noqa: BLE001
         snap = None
     if not snap:
-        return pencere("Toplam aktifler", RENK["mor"], bos_durum("Muhasebe → Toplam Aktifler işlenince burada görünür"))
+        return pencere("Toplam aktifler", RENK["mor"], bos_durum("Muhasebe → Toplam Aktifler işlenince burada görünür"),
+                       yukseklik=60)
     return pencere("Toplam aktifler", RENK["mor"], _toplam_aktif_html(snap, RENK, buyuk=buyuk),
                    rozet=_tr_tarih(snap.get("tarih"), saat=True), yukseklik=320 if buyuk else 300)
 
@@ -405,23 +405,26 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, bos_durum):
             kiyas.append((anahtar, etiket, None))
     k1 = kiyas[0][2] if kiyas else None
     st.markdown(_serit(r, k1), unsafe_allow_html=True)
-    _not = (f"{_tr_tarih(r['bas'])} – {_tr_tarih(r['bit'])} · değişim: {kiyas[0][1]} ile"
-            if kiyas else f"{_tr_tarih(r['bas'])} – {_tr_tarih(r['bit'])}")
+    # Tek bilgi satırı: dönem · kıyas · geçen yıl · veri durumu (eskiden üç ayrı satırdı)
+    parca = [f"{_tr_tarih(r['bas'])} – {_tr_tarih(r['bit'])}"]
+    if kiyas:
+        parca.append(f"değişim: {kiyas[0][1]} ile")
     if devam_ediyor(yil, donem, bugun) and donem in GIDER_AYLAR + ["Q1", "Q2", "Q3", "Q4"]:
-        _not += " · dönem sürüyor, kıyas tam dönemle"
-    if r.get("tl_cevrildi"):
-        _not += " · TL tutarlar o günün kuruyla çevrildi"
-    st.caption(_not)
-    # Geçen yılın aynı dönemi (aylık / çeyreklik görünümde ikinci kıyas)
+        parca.append("dönem sürüyor, kıyas tam dönemle")
     gecen = next((x for x in kiyas if x[0] == "gecen"), None)
     if gecen and gecen[2] and len(kiyas) > 1:
         g = gecen[2]
-        st.markdown(
-            f'<div style="font-size:13px;color:var(--k-soluk);margin:0 2px 6px">Geçen yıl ({gecen[1]}): '
-            f'ciro <b class="k-rakam" style="color:var(--k-metin)">{_usd(g["ciro"])}</b> {_cip(_dg(r["ciro"], g["ciro"]))}'
-            f' · net kâr <b style="color:var(--k-metin)">{_usd(g["net_kar"])}</b> {_cip(_dg(r["net_kar"], g["net_kar"]))}'
-            f' · net marj {_pct(g["marj"])}</div>', unsafe_allow_html=True)
-    _veri_durumu(r["eksikler"])
+        parca.append(f'geçen yıl ({gecen[1]}): ciro <b style="color:var(--k-metin)">{_usd(g["ciro"])}</b> '
+                     f'{_cip(_dg(r["ciro"], g["ciro"]))}, net kâr <b style="color:var(--k-metin)">'
+                     f'{_usd(g["net_kar"])}</b> {_cip(_dg(r["net_kar"], g["net_kar"]))}')
+    if r.get("tl_cevrildi"):
+        parca.append("TL tutarlar o günün kuruyla çevrildi")
+    if not r["eksikler"]:
+        parca.append('<span style="color:var(--k-yesil)">tüm bileşenler okundu</span>')
+    st.markdown(f'<div style="font-size:12px;color:var(--k-silik);margin:2px 2px 8px;line-height:1.7">'
+                f'{" · ".join(parca)}</div>', unsafe_allow_html=True)
+    if r["eksikler"]:
+        _veri_durumu(r["eksikler"])
     try:
         from shared.islem import bekle
         with bekle("Son 12 ay hesaplanıyor…"):
@@ -630,6 +633,13 @@ def _sistem():
 
 
 def run():
+    with st.sidebar:
+        from shared.utils import sidebar_ust
+        sidebar_ust("", "Yönetim", "yonetim")
+        from shared.gezinme import secenekler, sayfa_menusu
+        from shared.tasarim import menu_etiketi as _me
+        _bolum = sayfa_menusu("Bölüm", secenekler("yonetim"), modul="yonetim", key="yon_sayfa", format_func=_me)
+
     # ── Sayfa gövdesi: KENDİ İÇİNDE YENİLENEN PARÇA (st.fragment) ───────────
     # HIZ: Sayfadaki filtre, seçim kutusu, sekme ya da onay kutusu değişince
     # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
@@ -648,15 +658,14 @@ def run():
         from shared.kar_gizle import kar_gorunur, uyari_ciz
         st.markdown(pencere_css(), unsafe_allow_html=True)
         if not kar_gorunur():
-            st.markdown(baslik("Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
+            st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
             uyari_ciz()
             st.markdown(_toplam_aktif_penceresi(RENK, pencere, bos_durum, buyuk=True), unsafe_allow_html=True)
             return
-        st.markdown(baslik("Yönetim", "Yönetim panosu",
+        st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu",
                            aciklama="Ciro − COGS − destekler − giderler = net kâr · tüm tutarlar USD"),
                     unsafe_allow_html=True)
-        _bolum = secim_serit("Bölüm", BOLUMLER, index=0, key="yon_bolum", label_visibility="collapsed")
         if _bolum == "Ay kapanışı":
             _ay_kapanis()
             return
@@ -666,7 +675,7 @@ def run():
 
         # ── Dönem seçimi — tek kompakt satır ──
         _bg = _bugun()
-        c1, c2, c3 = st.columns([0.8, 1.6, 1.6])
+        c1, c2, c3, _c4 = st.columns([0.8, 1.6, 1.3, 2.3])
         with c1:
             _yil = st.selectbox("Yıl", list(range(_bg.year + 1, _bg.year - 4, -1)), index=1, key="yon_yil")
         with c2:
@@ -678,9 +687,6 @@ def run():
                 _donem = secim_serit("Çeyrek", ["Q1", "Q2", "Q3", "Q4"], index=(_bg.month - 1) // 3, key="yon_ceyrek")
             else:
                 _donem = "Tüm Yıl"
-                st.markdown('<div style="color:var(--k-silik);font-size:13px;margin-top:32px">'
-                            + "Tüm yıl görünümü" + '</div>',
-                            unsafe_allow_html=True)
         baslangic, bitis = _donem_tarih(_yil, _donem)
 
         # ── P&L — TEK HESAP (yonetim_hesap.pnl_topla; Ay Kapanış Raporu da bunu kullanır) ──

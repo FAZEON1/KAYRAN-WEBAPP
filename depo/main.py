@@ -220,8 +220,8 @@ def _sayfa_sevk():
         st.caption("Liste boş — yukarıdan ürün seçip **Listeye ekle** ile sevk listesi oluştur.")
 
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-mor2);margin:4px 0 8px">'
-                '🕓 Son sevkler</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:14px;font-weight:700;color:var(--k-metin);margin:4px 0 8px">'
+                'Son sevkler</div>', unsafe_allow_html=True)
     _gec = get_depo_sevk_gecmisi(50)
     if _gec:
         _gdf = pd.DataFrame([{

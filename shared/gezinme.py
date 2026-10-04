@@ -18,7 +18,14 @@ MENU_UST = True
 # sayfalar: (seçenek metni, url kodu, ad, koşul)
 MODULLER = [
     {"kod": "anasayfa", "ad": "Ana sayfa", "ikon": "home"},
-    {"kod": "yonetim", "ad": "Yönetim", "ikon": "monitoring", "ozel": "yonetim"},
+    {"kod": "yonetim", "ad": "Yönetim", "ikon": "monitoring", "ozel": "yonetim", "anahtar": "yon_sayfa",
+     "sayfalar": [
+         ("Özet", "ozet", "Özet", None),
+         ("Kanal ve ürün", "kanal_urun", "Kanal ve ürün", None),
+         ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
+         ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
+         ("Sistem", "sistem", "Sistem", None),
+     ]},
     {"kod": "kayranacc", "ad": "Muhasebe", "ikon": "account_balance_wallet", "anahtar": "acc_sayfa",
      "sayfalar": [
          ("📊 Dashboard", "genel_bakis", "Genel bakış", None),

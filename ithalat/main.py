@@ -110,7 +110,6 @@ def _alt_baslik(t):
     st.markdown(
         f'<div style="font-size:14px;font-weight:650;color:var(--k-metin);'
         f'margin:0px 0 12px;display:flex;align-items:center;gap:8px">'
-        f'<span style="width:5px;height:14px;border-radius:3px;background:linear-gradient(180deg,var(--k-mor),var(--k-mor));display:inline-block"></span>'
         f'{t}</div>',
         unsafe_allow_html=True,
     )
@@ -186,12 +185,10 @@ def _form_css():
         }
 
         /* ── Özel ürün tablosu başlık hücreleri ── */
-        .ith-th {
-            background: linear-gradient(135deg,var(--k-yuzey3),var(--k-yuzey1));
-            color: var(--k-mavi); font-size: 10px; font-weight: 700; letter-spacing: .4px;
-             padding: 8px 12px; border-radius: 8px;
-            font-family: Inter, sans-serif; white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis;
+        .ith-th {   /* ortak tablo başlığı gibi: zeminsiz, soluk, küçük (görünüm birliği #18) */
+            color: var(--k-soluk); font-size: 12px; font-weight: 600;
+            padding: 4px 2px 6px; border-bottom: 1px solid var(--k-kenar2);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
         /* ── Kart kapsayıcılar (st.container border=True) ── */
@@ -1437,10 +1434,10 @@ def _yeni_ithalat():
             if _manuel_mod:
                 _oran = [1.6, 1.0, 1.4, 1.0, 1.25, 0.7, 0.9, 0.45]
                 _basliklar = ["Ürün (katalogdan)", "Manuel SKU", "Ürün Adı", "Barkod",
-                              "Kategori", "Adet", "Birim FOB", "🗑"]
+                              "Kategori", "Adet", "Birim FOB", "Sil"]
             else:
                 _oran = [2.6, 1.25, 0.75, 0.95, 0.45]
-                _basliklar = ["Ürün (katalogdan)", "Kategori", "Adet", "Birim FOB", "🗑"]
+                _basliklar = ["Ürün (katalogdan)", "Kategori", "Adet", "Birim FOB", "Sil"]
             hcols = st.columns(_oran)
             for hc, ht in zip(hcols, _basliklar):
                 hc.markdown(f'<div class="ith-th">{ht}</div>', unsafe_allow_html=True)
@@ -2062,7 +2059,8 @@ def _masraf_detaylari():
     _dov_lbl = list(_dovizler)[0] if len(_dovizler) == 1 else "karışık"
     from shared.tasarim import kpi_serit as _ks
     st.markdown(_ks([
-        {"etiket": "Toplam masraf", "deger": f"{_tam(_toplam)} {_dov_lbl}", "renk": "amber"},
+        {"etiket": "Toplam masraf", "deger": (f"${_tam(_toplam)}" if _dov_lbl == "USD" else f"{_tam(_toplam)} {_dov_lbl}"),
+         "renk": "amber"},
         {"etiket": "Masraf kalemi", "deger": tr_sayi(len(_flt)), "renk": "mor",
          "alt": f"{len({s['Masraf Türü'] for s in _flt})} farklı tür"},
         {"etiket": "Belge", "deger": tr_sayi(len({s['Belge No'] for s in _flt})), "renk": "yesil"},
@@ -2072,14 +2070,18 @@ def _masraf_detaylari():
     _tur_ozet = {}
     for s in _flt:
         _tur_ozet[s["Masraf Türü"]] = _tur_ozet.get(s["Masraf Türü"], 0.0) + s["Tutar"]
-    @st.dialog("📊 Masraf Türüne Göre Toplam", width="large")
+    @st.dialog("Masraf türüne göre toplam", width="large")
     def _dlg_masraf_top():
         st.dataframe(
             pd.DataFrame([{"Tür": k, "Tutar": round(v, 2)}
                           for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
             hide_index=True, use_container_width=True)
-    if st.button("Masraf Türüne Göre Toplam", key="btn_ith_masraf", use_container_width=True, icon=":material/table_view:"):
+    # Araç düğmeleri tek sıkı satırda (eskiden ikisi de sayfa genişliğindeydi · görünüm birliği #17)
+    _md1, _md2, _ = st.columns([1.3, 1, 3])
+    if _md1.button("Masraf türüne göre toplam", key="btn_ith_masraf", use_container_width=True,
+                   icon=":material/table_view:"):
         _dlg_masraf_top()
+    _md_csv = _md2.empty()
 
     # Ana liste
     _flt_sirali = sorted(_flt, key=lambda x: (x["Belge No"], x["Masraf Türü"]))
@@ -2102,8 +2104,8 @@ def _masraf_detaylari():
         "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
         "Tutar": round(s["Tutar"], 2), "Döviz": s["Döviz"],
     } for s in _flt_sirali]).to_csv(index=False).encode("utf-8-sig")
-    st.download_button("CSV indir", _csv, "ithalat_masraf_detaylari.csv",
-                       mime="text/csv", use_container_width=True, key="md_csv", icon=":material/download:")
+    _md_csv.download_button("CSV indir", _csv, "ithalat_masraf_detaylari.csv",
+                            mime="text/csv", use_container_width=True, key="md_csv", icon=":material/download:")
 
 
 def run():

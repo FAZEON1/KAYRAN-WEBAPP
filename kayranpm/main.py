@@ -572,7 +572,6 @@ def run():
 
         elif sayfa == "📋  Tüm Ürünler":
             st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
-            st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
     
             # Ürün verilerini yükle
             try:
@@ -618,9 +617,9 @@ def run():
                 _eksik_fiy = sum(1 for u in urun_data if not (u.get("satis_fiyati") or 0))
                 _eksik_mal = sum(1 for u in urun_data if not (u.get("final_cost_price") or 0))
                 _sg = []
-                if _eksik_kat: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_kat} kategorisiz</span>')
-                if _eksik_mar: _sg.append(f'<span style="color:var(--k-amber)">⚠ {_eksik_mar} markasız</span>')
-                if _eksik_fiy: _sg.append(f'<span style="color:var(--k-kirmizi)">⚠ {_eksik_fiy} satış fiyatsız</span>')
+                if _eksik_kat: _sg.append(f'<span style="color:var(--k-amber)">{_eksik_kat} kategorisiz</span>')
+                if _eksik_mar: _sg.append(f'<span style="color:var(--k-amber)">{_eksik_mar} markasız</span>')
+                if _eksik_fiy: _sg.append(f'<span style="color:var(--k-kirmizi)">{_eksik_fiy} satış fiyatsız</span>')
                 if _eksik_mal: _sg.append(f'<span style="color:var(--k-soluk)">{_eksik_mal} İthalat maliyeti yok</span>')
                 if _sg:
                     st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px"><b>Veri sağlığı:</b> '
@@ -1036,7 +1035,6 @@ def run():
 
         elif sayfa == "📂  Veri Yükleme":
             st.markdown(_sb("📂 Ürün Yönetimi", "Veri Yükleme", aciklama="Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet"), unsafe_allow_html=True)
-            st.markdown('<div class="sayfa-baslik-cizgi"></div>', unsafe_allow_html=True)
 
             # 💲 Toplu Satış Fiyatı & Marj
             @st.dialog("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", width="large")
