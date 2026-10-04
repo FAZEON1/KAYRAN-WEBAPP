@@ -189,140 +189,146 @@ def _mal_kabul():
         st.rerun()
     _mk2.caption("Servise/iadeye gelen ürünü kaydetmek için butona bas — açılır pencerede doldur.")
 
-    # ── 📥 TOPLU MAL KABUL (Excel) — VATAN gibi 50-100'lük toplu iadeler için ──
-    with st.expander("📥 Toplu Mal Kabul — Excel ile (50-100 kaydı tek seferde al)"):
-        _TK = ["İşlem Türü (Teknik/İade)", "Stok Kodu", "Stok Adı", "Ürün Grubu",
-               "Seri No", "Arıza", "Firma (Cari Unvan)", "Mağaza / Müşteri Adı",
-               "Telefon", "Mail", "Adres", "Sevk / Teslim Şekli", "Kargo Takip No",
-               "Fatura No", "İrsaliye No", "Firma Servis Form No", "Fiziksel Durum"]
-        _tb = BytesIO()
-        with pd.ExcelWriter(_tb, engine="openpyxl") as _tw:
-            pd.DataFrame(columns=_TK).to_excel(_tw, index=False, sheet_name="MalKabul")
-        st.download_button("Boş şablonu indir", _tb.getvalue(), "toplu_mal_kabul_sablon.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           key="tmk_sablon", icon=":material/content_copy:")
-        st.caption("Zorunlu sütunlar: **İşlem Türü, Stok Kodu, Seri No** (yoksa NO SERIAL NUMBER yaz), "
-                   "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur.")
-        _tyk = st.file_uploader("Doldurulmuş Excel'i yükle", type=["xlsx", "xls"], key="tmk_yukle")
-        if _tyk is not None:
-            try:
-                _tdf = pd.read_excel(_tyk, dtype=str).fillna("")
-                _tdf.columns = [str(c).strip() for c in _tdf.columns]
-                _kolmap = {c.lower(): c for c in _tdf.columns}
-
-                def _tv(r, ad, *alt):
-                    for a in (ad,) + alt:
-                        c = _kolmap.get(a.lower())
-                        if c is not None:
-                            v = str(r.get(c, "") or "").strip()
-                            if v:
-                                return v
-                    return ""
-                _mevcut_seri = tum_seriler()
-                _gecerli, _hatali = [], []
-                _dosya_seri = set()
-                for _i, _r in _tdf.iterrows():
-                    # Türkçe 'İ' tuzağı: "İade".lower() bozuk karakter üretir → önce I'ya çevir
-                    _tur_h = (_tv(_r, "İşlem Türü (Teknik/İade)", "İşlem Türü", "Tür")
-                              .replace("İ", "I").replace("ı", "i").lower())
-                    _tur = "teknik" if "tek" in _tur_h else ("iade" if "iade" in _tur_h else "")
-                    _sk_t = _tv(_r, "Stok Kodu", "SKU")
-                    _seri_t = _tv(_r, "Seri No", "Seri") or "NO SERIAL NUMBER"
-                    _ariza_t = _tv(_r, "Arıza")
-                    _firma_t = _tv(_r, "Firma (Cari Unvan)", "Firma")
-                    _sorunlar = []
-                    if not _tur:
-                        _sorunlar.append("İşlem Türü (Teknik/İade)")
-                    if not _sk_t:
-                        _sorunlar.append("Stok Kodu")
-                    if not _ariza_t:
-                        _sorunlar.append("Arıza")
-                    if not _firma_t:
-                        _sorunlar.append("Firma")
-                    if _sorunlar:
-                        _hatali.append(f"Satır {_i + 2}: eksik → {', '.join(_sorunlar)}")
-                        continue
-                    _ad_t, _grp_t = _tv(_r, "Stok Adı"), _tv(_r, "Ürün Grubu")
-                    if not _ad_t or not _grp_t:
-                        try:
-                            _u_t = urun_getir(_sk_t) or {}
-                            _ad_t = _ad_t or _u_t.get("stok_adi", "")
-                            _grp_t = _grp_t or _u_t.get("urun_grubu", "")
-                        except Exception:
-                            pass
-                    _seri_u = _seri_t.upper()
-                    _muk = (_seri_u not in {"NO SERIAL NUMBER", "N/A", "YOK", "-"} and
-                            (_seri_u in _mevcut_seri or _seri_u in _dosya_seri))
-                    _dosya_seri.add(_seri_u)
-                    _sevk_t = _tv(_r, "Sevk / Teslim Şekli", "Sevk")
-                    _kargo_t = _tv(_r, "Kargo Takip No", "Kargo No")
-                    if _kargo_t:
-                        _sevk_t = (f"{_sevk_t} · Takip No: {_kargo_t}").strip(" ·")
-                    _fno_t = _tv(_r, "Fatura No")
-                    _gecerli.append({"_muk": _muk, "veri": {
-                        "arayuz": _tur, "stok_kodu": _sk_t, "stok_adi": _ad_t,
-                        "urun_grubu": _grp_t, "seri_no": _seri_t, "ariza": _ariza_t,
-                        "firma_bilgisi": _firma_t, "sevk_kargo_bilgisi": _sevk_t,
-                        "musteri_adi": _tv(_r, "Mağaza / Müşteri Adı", "Müşteri", "Mağaza"),
-                        "musteri_tel": _tv(_r, "Telefon"), "musteri_mail": _tv(_r, "Mail"),
-                        "musteri_adres": _tv(_r, "Adres"),
-                        "fatura_no": _fno_t, "irsaliye_no": _tv(_r, "İrsaliye No"),
-                        "fatura_mevcut": bool(_fno_t),
-                        "firma_servis_form_no": _tv(_r, "Firma Servis Form No"),
-                        "fiziksel_durum": _tv(_r, "Fiziksel Durum"),
-                    }})
-                _muk_say = sum(1 for g in _gecerli if g["_muk"])
-                st.markdown(f"**{len(_gecerli)}** geçerli satır · **{len(_hatali)}** hatalı"
-                            + (f" · ⚠️ **{_muk_say}** mükerrer seri" if _muk_say else ""))
-                if _hatali:
-                    st.error("Düzeltilmesi gerekenler:\n\n" + "\n".join("• " + h for h in _hatali[:15])
-                             + ("" if len(_hatali) <= 15 else f"\n• … +{len(_hatali) - 15} satır daha"))
-                if _gecerli:
-                    st.dataframe(pd.DataFrame([{
-                        "Tür": ("🔧" if g["veri"]["arayuz"] == "teknik" else "↩️"),
-                        "Stok": g["veri"]["stok_kodu"], "Ad": g["veri"]["stok_adi"][:36],
-                        "Seri": g["veri"]["seri_no"], "Firma": g["veri"]["firma_bilgisi"][:28],
-                        "Arıza": g["veri"]["ariza"][:32],
-                        "Mükerrer": "⚠️" if g["_muk"] else "",
-                    } for g in _gecerli[:100]]), hide_index=True, use_container_width=True,
-                        height=min(320, 60 + 36 * min(len(_gecerli), 8)))
-                    _muk_ok = True
-                    if _muk_say:
-                        _muk_ok = st.checkbox(f"⚠️ {_muk_say} mükerrer seriye RAĞMEN hepsini kaydet",
-                                              key="tmk_muk_ok")
-                    if st.button(f"{len(_gecerli)} kaydı içeri al", type="primary",
-                                 use_container_width=True, key="tmk_kaydet",
-                                 disabled=not (_gecerli and _muk_ok), icon=":material/check_circle:"):
-                        _bar = st.progress(0.0, text="Kaydediliyor…")
-                        _ok_s, _hata_s = 0, []
-                        _prs = st.session_state.get("aktif_kullanici", "") or ""
-                        from shared.yukleme_gecmisi import Kayit as _YKayit
-                        _yk_ts = _YKayit("toplu_mal_kabul", _tyk.name)
-                        for _n, _g in enumerate(_gecerli, 1):
-                            with _yk_ts.stok():   # kayıt + stok hareketi bu yüklemeyle işaretlenir
-                                _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
-                                if _okk:
-                                    _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
-                            if _okk:
-                                _ok_s += 1
-                            else:
-                                _hata_s.append(f"{_g['veri']['seri_no']}: {_msgk[:60]}")
-                            _bar.progress(_n / len(_gecerli),
-                                          text=f"Kaydediliyor… {_n}/{len(_gecerli)}")
-                        _bar.empty()
-                        if _ok_s:
-                            _yk_ts.kaydet(_ok_s)
-                        st.success(f"✅ {_ok_s} mal kabul kaydı oluşturuldu."
-                                   + (f" ⚠️ {len(_hata_s)} satır yazılamadı." if _hata_s else ""))
-                        if _hata_s:
-                            st.caption(" · ".join(_hata_s[:5]))
-                        st.balloons()
-            except Exception as _te:
-                st.error(f"Excel okunamadı: {type(_te).__name__}: {str(_te)[:150]}")
-
     if st.session_state.pop("_mk_dialog_ac", False):
         _mal_kabul_dialog()
 
+
+
+_TOPLU_MAL_KABUL_KOL = ["İşlem Türü (Teknik/İade)", "Stok Kodu", "Stok Adı", "Ürün Grubu",
+                        "Seri No", "Arıza", "Firma (Cari Unvan)", "Mağaza / Müşteri Adı",
+                        "Telefon", "Mail", "Adres", "Sevk / Teslim Şekli", "Kargo Takip No",
+                        "Fatura No", "İrsaliye No", "Firma Servis Form No", "Fiziksel Durum"]
+
+
+def sablon_mal_kabul():
+    _tb = BytesIO()
+    with pd.ExcelWriter(_tb, engine="openpyxl") as _tw:
+        pd.DataFrame(columns=_TOPLU_MAL_KABUL_KOL).to_excel(_tw, index=False, sheet_name="MalKabul")
+    return _tb.getvalue(), "toplu_mal_kabul_sablon.xlsx"
+
+
+def kapi_mal_kabul(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): toplu mal kabul — VATAN gibi 50-100'lük toplu iadeler için
+    (eskiden Mal Kabül sayfasındaki açılır bölüm)."""
+    st.caption("Zorunlu sütunlar: **İşlem Türü, Stok Kodu, Seri No** (yoksa NO SERIAL NUMBER yaz), "
+               "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur.")
+    try:
+        _tdf = pd.read_excel(dosya, dtype=str).fillna("")
+        _tdf.columns = [str(c).strip() for c in _tdf.columns]
+        _kolmap = {c.lower(): c for c in _tdf.columns}
+
+        def _tv(r, ad, *alt):
+            for a in (ad,) + alt:
+                c = _kolmap.get(a.lower())
+                if c is not None:
+                    v = str(r.get(c, "") or "").strip()
+                    if v:
+                        return v
+            return ""
+        _mevcut_seri = tum_seriler()
+        _gecerli, _hatali = [], []
+        _dosya_seri = set()
+        for _i, _r in _tdf.iterrows():
+            # Türkçe 'İ' tuzağı: "İade".lower() bozuk karakter üretir → önce I'ya çevir
+            _tur_h = (_tv(_r, "İşlem Türü (Teknik/İade)", "İşlem Türü", "Tür")
+                      .replace("İ", "I").replace("ı", "i").lower())
+            _tur = "teknik" if "tek" in _tur_h else ("iade" if "iade" in _tur_h else "")
+            _sk_t = _tv(_r, "Stok Kodu", "SKU")
+            _seri_t = _tv(_r, "Seri No", "Seri") or "NO SERIAL NUMBER"
+            _ariza_t = _tv(_r, "Arıza")
+            _firma_t = _tv(_r, "Firma (Cari Unvan)", "Firma")
+            _sorunlar = []
+            if not _tur:
+                _sorunlar.append("İşlem Türü (Teknik/İade)")
+            if not _sk_t:
+                _sorunlar.append("Stok Kodu")
+            if not _ariza_t:
+                _sorunlar.append("Arıza")
+            if not _firma_t:
+                _sorunlar.append("Firma")
+            if _sorunlar:
+                _hatali.append(f"Satır {_i + 2}: eksik → {', '.join(_sorunlar)}")
+                continue
+            _ad_t, _grp_t = _tv(_r, "Stok Adı"), _tv(_r, "Ürün Grubu")
+            if not _ad_t or not _grp_t:
+                try:
+                    _u_t = urun_getir(_sk_t) or {}
+                    _ad_t = _ad_t or _u_t.get("stok_adi", "")
+                    _grp_t = _grp_t or _u_t.get("urun_grubu", "")
+                except Exception:
+                    pass
+            _seri_u = _seri_t.upper()
+            _muk = (_seri_u not in {"NO SERIAL NUMBER", "N/A", "YOK", "-"} and
+                    (_seri_u in _mevcut_seri or _seri_u in _dosya_seri))
+            _dosya_seri.add(_seri_u)
+            _sevk_t = _tv(_r, "Sevk / Teslim Şekli", "Sevk")
+            _kargo_t = _tv(_r, "Kargo Takip No", "Kargo No")
+            if _kargo_t:
+                _sevk_t = (f"{_sevk_t} · Takip No: {_kargo_t}").strip(" ·")
+            _fno_t = _tv(_r, "Fatura No")
+            _gecerli.append({"_muk": _muk, "veri": {
+                "arayuz": _tur, "stok_kodu": _sk_t, "stok_adi": _ad_t,
+                "urun_grubu": _grp_t, "seri_no": _seri_t, "ariza": _ariza_t,
+                "firma_bilgisi": _firma_t, "sevk_kargo_bilgisi": _sevk_t,
+                "musteri_adi": _tv(_r, "Mağaza / Müşteri Adı", "Müşteri", "Mağaza"),
+                "musteri_tel": _tv(_r, "Telefon"), "musteri_mail": _tv(_r, "Mail"),
+                "musteri_adres": _tv(_r, "Adres"),
+                "fatura_no": _fno_t, "irsaliye_no": _tv(_r, "İrsaliye No"),
+                "fatura_mevcut": bool(_fno_t),
+                "firma_servis_form_no": _tv(_r, "Firma Servis Form No"),
+                "fiziksel_durum": _tv(_r, "Fiziksel Durum"),
+            }})
+        _muk_say = sum(1 for g in _gecerli if g["_muk"])
+        st.markdown(f"**{len(_gecerli)}** geçerli satır · **{len(_hatali)}** hatalı"
+                    + (f" · ⚠️ **{_muk_say}** mükerrer seri" if _muk_say else ""))
+        if _hatali:
+            st.error("Düzeltilmesi gerekenler:\n\n" + "\n".join("• " + h for h in _hatali[:15])
+                     + ("" if len(_hatali) <= 15 else f"\n• … +{len(_hatali) - 15} satır daha"))
+        if _gecerli:
+            st.dataframe(pd.DataFrame([{
+                "Tür": ("Teknik" if g["veri"]["arayuz"] == "teknik" else "İade"),
+                "Stok": g["veri"]["stok_kodu"], "Ad": g["veri"]["stok_adi"][:36],
+                "Seri": g["veri"]["seri_no"], "Firma": g["veri"]["firma_bilgisi"][:28],
+                "Arıza": g["veri"]["ariza"][:32],
+                "Mükerrer": "evet" if g["_muk"] else "",
+            } for g in _gecerli[:100]]), hide_index=True, use_container_width=True,
+                height=min(320, 60 + 36 * min(len(_gecerli), 8)))
+            _muk_ok = True
+            if _muk_say:
+                _muk_ok = st.checkbox(f"⚠️ {_muk_say} mükerrer seriye RAĞMEN hepsini kaydet",
+                                      key=kapi.anahtar("tmk_muk_ok"))
+            if st.button(f"{len(_gecerli)} kaydı içeri al", type="primary",
+                         use_container_width=True, key=kapi.anahtar("tmk_kaydet"),
+                         disabled=not (_gecerli and _muk_ok), icon=":material/check_circle:"):
+                _bar = st.progress(0.0, text="Kaydediliyor…")
+                _ok_s, _hata_s = 0, []
+                _prs = st.session_state.get("aktif_kullanici", "") or ""
+                from shared.yukleme_gecmisi import Kayit as _YKayit
+                _yk_ts = _YKayit("toplu_mal_kabul", dosya.name)
+                for _n, _g in enumerate(_gecerli, 1):
+                    with _yk_ts.stok():   # kayıt + stok hareketi bu yüklemeyle işaretlenir
+                        _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
+                        if _okk:
+                            _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
+                    if _okk:
+                        _ok_s += 1
+                    else:
+                        _hata_s.append(f"{_g['veri']['seri_no']}: {_msgk[:60]}")
+                    _bar.progress(_n / len(_gecerli),
+                                  text=f"Kaydediliyor… {_n}/{len(_gecerli)}")
+                _bar.empty()
+                if not _ok_s:
+                    st.error("Hiçbir kayıt yazılamadı: " + " · ".join(_hata_s[:5]))
+                else:
+                    _yk_ts.kaydet(_ok_s)
+                    # Kapı kapanır: eskiden dosya ekranda kaldığı için aynı düğmeye ikinci kez
+                    # basılıp aynı kayıtlar yeniden açılabiliyordu
+                    st.cache_data.clear()
+                    kapi.bitti(f"{_ok_s} mal kabul kaydı oluşturuldu."
+                               + (f" {len(_hata_s)} satır yazılamadı (liste aşağıda)." if _hata_s else ""),
+                               tablo=[{"Satır": h} for h in _hata_s], uyari=bool(_hata_s))
+    except Exception as _te:
+        st.error(f"Excel okunamadı: {type(_te).__name__}: {str(_te)[:150]}")
 
 @st.dialog("📥 Yeni Mal Kabül", width="large")
 def _mal_kabul_dialog():

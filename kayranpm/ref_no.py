@@ -362,7 +362,9 @@ def alinan_destek_excel_ice_aktar(df):
     DÖVİZ | FATURA NO | AÇIKLAMA. Returns (eklenen, atlanan, hatalar[])."""
     kolmap = {}
     for c in df.columns:
-        n = normalize_tr(str(c))
+        # normalize_tr BÜYÜK harf döndürür; aramalar küçük harf → .lower() (Ekim 2026: bu olmadan hiçbir
+        # başlık eşleşmiyor, programın kendi şablonu dahil her dosya "Zorunlu kolon yok" diye reddediliyordu)
+        n = normalize_tr(str(c)).lower()
         if "firma" in n or "marka" in n:
             kolmap["firma"] = c
         elif n.startswith("tur") or "tür" in str(c).lower():
@@ -1553,7 +1555,7 @@ def _render_refler(fid, fkod):
     _onizleme = ref_uret(fkod, _yil(), _siradaki)
 
     # ── Ekleme + içe aktarma tek kompakt panelde (varsayılan kapalı) ──
-    with st.expander(f"➕ Yeni Ref No Ata / Excel İçe Aktar  ·  sıradaki: {_onizleme}", expanded=False):
+    with st.expander(f"➕ Yeni Ref No Ata  ·  sıradaki: {_onizleme}", expanded=False):
         with st.form("ref_ekle_form", clear_on_submit=True):
             rc1, rc2 = st.columns([2.4, 1.2])
             yeni_ack = rc1.text_input("Açıklama *", placeholder="örn. TEMMUZ MONİTÖR SELLOUT")
@@ -1589,38 +1591,11 @@ def _render_refler(fid, fkod):
                     if ok:
                         st.rerun()
 
-        @st.dialog("📥 Excel'den İçe Aktar (NUMARA · REF NUMARASI · AÇIKLAMA)", width="large")
-        def _dlg_ref_ice_aktar():
-            up = st.file_uploader("Bu firmanın ref Excel'i", type=["xlsx", "xls"], key=f"ref_up_{fid}")
-            if up is not None:
-                try:
-                    df_imp = pd.read_excel(up)
-                    st.caption(f"Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
-                    st.dataframe(df_imp, hide_index=True, use_container_width=True,
-                                 height=min(38 + 35 * len(df_imp), 460))
-                    imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR,
-                                             format_func=lambda d: DURUM_ETIKET[d], index=1,
-                                             key=f"ref_imp_durum_{fid}")
-                    imp_guncelle = st.checkbox(
-                        "🔁 Mevcut ref'leri de güncelle (döviz/tutar/açıklamayı düzelt)",
-                        key=f"ref_imp_guncelle_{fid}",
-                        help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
-                             "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
-                    if st.button("İçe Aktar", type="primary", key=f"ref_imp_btn_{fid}", icon=":material/move_to_inbox:"):
-                        ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
-                        (st.success if ok else st.error)(msg)
-                        if ok:
-                            from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                            _yg_kaydet("ref_excel", _n, up.name)
-                            st.rerun()
-                except Exception as e:
-                    st.error(f"Excel okunamadı: {e}")
-        if st.button("Excel'den İçe Aktar", key="btn_ref_ice", use_container_width=True, icon=":material/move_to_inbox:"):
-            _dlg_ref_ice_aktar()
 
     st.markdown("**Geçmiş Ref No'lar**")
     if not refler:
-        st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'den içe aktarabilirsiniz.")
+        st.info("Bu firma için henüz ref no yok. Yukarıdan atayabilir veya Excel'i üst menüdeki Dosya "
+                "düğmesinden içe aktarabilirsiniz.")
         return
 
     _ff1, _ff2, _ff3, _ff4 = st.columns(4)
@@ -1888,25 +1863,6 @@ def _render_butce(fid, firma):
         _dlg_butce_yeni()
 
     # ── Excel içe aktar ──
-    @st.dialog("📥 Excel'den İçe Aktar (Havuz Bütçe formatı)", width="large")
-    def _dlg_butce_ice():
-        st.caption("Sütunlar: TÜR · MARKA · AÇIKLAMA · HAKEDİŞ BÜTÇE · TUTAR · DÖVİZ · FATURA NO · FATURA TARİH · FİRMA · REF NO · AÇIKLAMA(kişi)")
-        upb = st.file_uploader("Havuz bütçe Excel'i", type=["xlsx", "xls"], key=f"butce_up_{fid}")
-        temizle = st.checkbox("Önce mevcut bütçe kayıtlarını sil (güncel listeyi baştan yükle)",
-                              key=f"butce_temizle_{fid}")
-        if upb is not None:
-            try:
-                df_b = pd.read_excel(upb)
-                st.dataframe(df_b.head(15), use_container_width=True, height=200)
-                if st.button("İçe Aktar", type="primary", key=f"butce_imp_{fid}", icon=":material/move_to_inbox:"):
-                    ok, msg, _n = butce_excel_ice_aktar(fid, df_b, temizle=temizle, dosya_adi=upb.name)
-                    (st.success if ok else st.error)(msg)
-                    if ok:
-                        st.rerun()
-            except Exception as e:
-                st.error(f"Excel okunamadı: {e}")
-    if st.button("Excel'den İçe Aktar (Havuz Bütçe formatı)", key="btn_but_ice", use_container_width=True, icon=":material/move_to_inbox:"):
-        _dlg_butce_ice()
 
     if not kayitlar:
         st.info("Bu firma için henüz havuz bütçe kaydı yok. Yukarıdan ekleyebilir veya Excel'den içe aktarabilirsiniz.")
@@ -2463,3 +2419,41 @@ _AD_TUR_RENK = {
     "BEDELSİZ ÜRÜN": "#7DD3FC", "DİĞER": "#94A3B8",
 }
 
+
+def kapi_ref(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): firmanın ref Excel'i (eskiden Ref No › Tablo görünümündeki pencere).
+    Firma artık burada seçilir (eskiden soldaki firma rayından gelirdi)."""
+    firmalar = get_firmalar()
+    if not firmalar:
+        st.warning("Önce Ref No Takibi'nde bir firma ekle.")
+        return
+    _ids = [f["id"] for f in firmalar]
+    _secili = st.session_state.get("ref_firma_id")
+    fid = st.selectbox("Firma", _ids, index=_ids.index(_secili) if _secili in _ids else None,
+                       key=kapi.anahtar("ref_firma"), placeholder="— Firma seç (zorunlu) —",
+                       format_func=lambda i: next((f"{f.get('firma_adi', '')} ({f.get('firma_kodu', '')})"
+                                                   for f in firmalar if f["id"] == i), str(i)))
+    if fid is None:
+        st.info("Ref'lerin yazılacağı firmayı seç.")
+        return
+    try:
+        df_imp = pd.read_excel(dosya)
+    except Exception as e:
+        st.error(f"Excel okunamadı: {e}")
+        return
+    st.caption(f"Dosyada **{len(df_imp)} satır** var — tamamı aşağıda (kaydırarak görebilirsin).")
+    st.dataframe(df_imp, hide_index=True, use_container_width=True, height=min(38 + 35 * len(df_imp), 460))
+    imp_durum = st.selectbox("İçe aktarılan kayıtların durumu", DURUMLAR, format_func=lambda d: DURUM_ETIKET[d],
+                             index=1, key=kapi.anahtar("ref_imp_durum"))
+    imp_guncelle = st.checkbox(
+        "Mevcut ref'leri de güncelle (döviz/tutar/açıklamayı düzelt)", key=kapi.anahtar("ref_imp_guncelle"),
+        help="İşaretli: sistemde zaten olan ref no'ların döviz ve tutarı Excel'e göre güncellenir "
+             "(ör. yanlış USD → TL). İşaretsiz: mevcut ref'ler atlanır, sadece yeniler eklenir.")
+    if st.button("İçe Aktar", type="primary", key=kapi.anahtar("ref_imp_btn"), icon=":material/move_to_inbox:"):
+        ok, msg, _n = excel_ice_aktar(fid, df_imp, imp_durum, guncelle_mevcut=imp_guncelle)
+        if not ok:
+            st.error(msg)
+            return
+        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+        _yg_kaydet("ref_excel", _n, dosya.name)
+        kapi.bitti(msg)

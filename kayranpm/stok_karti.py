@@ -379,7 +379,7 @@ def goster(sku):
             _depo_html = "".join(_srow(d, 0, 0, RENK["soluk"], alt="satılabilir")
                                  for d in ("MERKEZ DEPO", "HAPPY LIFE"))
         else:
-            _depo_html = pencere_bos("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
+            _depo_html = pencere_bos("G5F depo sayımı yüklenmemiş — üst menüdeki Dosya düğmesinden yükle")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
                           rozet=(f"{tr_sayi(_g5f_toplam)} adet" if _g5f_toplam else ""), yukseklik=200)
 

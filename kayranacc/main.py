@@ -27,7 +27,7 @@ from .database import (
     initialize_db, get_tum_haftalar, get_aktif_hafta,
     hafta_ekle, hafta_aktif_yap, hafta_sil,
     get_hafta_odemeler, odeme_ekle_bulk, odeme_ekle_manuel,
-        odeme_durum_guncelle, odeme_sil, odeme_kismi_ode, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle, get_hafta_ozet,
+        odeme_durum_guncelle, odeme_sil, odeme_kismi_ode, odeme_vade_guncelle, odeme_tutar_guncelle, odeme_kategori_guncelle, odeme_aciklama_guncelle,
     get_bankalar, banka_ekle, banka_guncelle, banka_sil,
     get_cekler, cek_ekle_bulk, cek_sil, cek_sil_hepsi, cek_tutarlari, cek_durum_norm,
     get_ertelenen_odemeler, get_virmanlar, virman_yap, virman_geri_al,
@@ -64,6 +64,151 @@ def _toplam_aktifler_yetkilileri():
         return ozel_sahipleri("toplam_aktifler", TOPLAM_AKTIFLER_YETKILI)
     except Exception:
         return set(TOPLAM_AKTIFLER_YETKILI)
+
+
+# ══════════════════ DOSYA KAPISI GÖVDELERİ (Ekim 2026) ══════════════════
+# Ödeme listesi ve çek dökümü (eskiden "Veri Yükleme" sayfası) ile Toplam Aktifler'in üç Excel'i
+# (eskiden sayfadaki yükleme penceresi) artık üst menüdeki Dosya kapısında (shared/dosya_kapisi)
+# yüklenir. Okuyucular aynı; düzeltmeler: aynı adlı hafta iki kez açılmadan önce onay, çeklerin
+# yerine konacağı kayıttan ÖNCE gösterilip onaylanır, Toplam Aktifler dosyası seçilir seçilmez
+# değil "Kaydet" ile yazılır ve son yükleyen gerçek kullanıcı olarak kaydedilir.
+
+
+def sablon_odeme_listesi():
+    return create_sample_excel(), "ornek_odeme_listesi.xlsx"
+
+
+_AKTIF_TURLER = {
+    "stok": ("Stok değeri raporu", "Mikro → Stok → Stok değeri raporu"),
+    "ithalat": ("İthalat ödeme takip", "'Ödenen / USD' sütunu içeren takip dosyası"),
+    "cari": ("Cari alacaklar listesi", "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)"),
+}
+
+
+def _kapi_aktif(dosya, kapi, tip):
+    from kayranacc.aktif_excel import (parse_cari, parse_ithalat, parse_stok, ExcelBicimHatasi,
+                                       parse_stok_excel, aktif_kaydet)
+    from shared.yukleme_takvimi import serit as _yt_serit
+    baslik, yardim = _AKTIF_TURLER[tip]
+    _yt_serit(f"aktif_{tip}")     # aktif_stok · aktif_ithalat · aktif_cari
+    st.caption(yardim)
+    parser = {"stok": lambda b: parse_stok(b, parse_stok_excel), "ithalat": parse_ithalat,
+              "cari": parse_cari}[tip]
+    ham = dosya.getvalue()
+    try:
+        deger, detay = parser(ham)
+    except ExcelBicimHatasi as e:
+        st.error(f"**Dosya biçimi beklenenden farklı.**\n\n{e}")
+        return
+    with st.container(border=True):
+        st.markdown("**Okunan değerler** (kaydetmeden önce kontrol et)")
+        for satir in (detay or {}).get("ozet", []):
+            st.markdown(f"- {satir}")
+        if (detay or {}).get("satir"):
+            st.caption(f"{detay['satir']} satır işlendi")
+        if (detay or {}).get("uyari"):
+            st.warning(detay["uyari"])
+    if st.button("Kaydet", type="primary", use_container_width=True, key=kapi.anahtar(f"aktif_{tip}_kaydet"),
+                 icon=":material/save:"):
+        _kul = st.session_state.get("aktif_kullanici", "") or "?"
+        if not aktif_kaydet(tip, deger, ham, _kul, detay):
+            st.error("Kaydedilemedi (veritabanına yazılamadı). Bağlantıyı kontrol edip yeniden dene.")
+            return
+        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+        _yg_kaydet("aktif_excel", 1, f"{tip}: {dosya.name}")
+        from shared.yukleme_takvimi import _temizle as _yt_tazele
+        _yt_tazele()          # geri sayım yeni yükleme zamanını görsün
+        kapi.bitti(f"{baslik} kaydedildi; Toplam Aktifler kartları güncellendi.",
+                   ayrinti=" · ".join((detay or {}).get("ozet", [])))
+
+
+def kapi_aktif_stok(dosya, kapi):
+    _kapi_aktif(dosya, kapi, "stok")
+
+
+def kapi_aktif_ithalat(dosya, kapi):
+    _kapi_aktif(dosya, kapi, "ithalat")
+
+
+def kapi_aktif_cari(dosya, kapi):
+    _kapi_aktif(dosya, kapi, "cari")
+
+
+def kapi_odeme_listesi(dosya, kapi):
+    """Haftalık ödeme listesi → yeni hafta + ödemeler; hafta aktif yapılır."""
+    from shared.yukleme_takvimi import serit as _yt_serit
+    from .excel_islemler import ayni_hafta
+    _yt_serit("odeme_listesi")
+    st.caption("Sütun sırası: A=HAFTA · B=FİRMA · C=AÇIKLAMA · D=CARİ BANKA / IBAN · E=VADE · F=TUTAR TL · "
+               "G=TUTAR USD · H=KATEGORİ (isteğe bağlı). Hafta adı A1 hücresinden alınır.")
+    hafta_adi, odemeler, hatalar = excel_yukle_odeme_listesi(dosya.getvalue())
+    for h in hatalar:
+        st.warning(h)
+    if not odemeler:
+        st.warning("Ödeme listesinde işlenebilir veri bulunamadı.")
+        return
+    haftalar = get_tum_haftalar() or []
+    ad = hafta_adi or f"Hafta {len(haftalar) + 1}"
+    _tl = sum(float(o.get("tl") or 0) for o in odemeler)
+    _usd = sum(float(o.get("usd") or 0) for o in odemeler)
+    _vadeler = sorted(str(o.get("vade") or "") for o in odemeler if o.get("vade"))
+    st.success(f"**{ad}** · {len(odemeler)} ödeme · ₺{tr_sayi(_tl)} · ${tr_sayi(_usd)}"
+               + (f" · vade {_vadeler[0]} – {_vadeler[-1]}" if _vadeler else ""))
+    st.dataframe(pd.DataFrame([{"Firma": o["firma"], "Açıklama": o.get("aciklama", ""), "Vade": o.get("vade"),
+                                "TL": o.get("tl"), "USD": o.get("usd"), "Kategori": o.get("kategori")}
+                               for o in odemeler[:200]]), hide_index=True, use_container_width=True, height=240)
+    onay = True
+    _ayni = ayni_hafta(ad, haftalar)
+    if _ayni:
+        st.warning(f"**'{ad}'** adında bir hafta zaten var ({_ayni.get('yuklendi_tarih') or 'tarih yok'} yüklendi). "
+                   "Aynı listeyi ikinci kez yüklersen ödemeler iki ayrı haftada görünür.")
+        onay = st.checkbox("Bu farklı bir liste — yine de yeni hafta olarak yükle", key=kapi.anahtar("odeme_ayni_onay"))
+    if st.button("Yükle ve aktif hafta yap", type="primary", use_container_width=True, disabled=not onay,
+                 key=kapi.anahtar("odeme_yukle"), icon=":material/check_circle:"):
+        hafta_id = hafta_ekle(ad)
+        hafta_aktif_yap(hafta_id)
+        odeme_ekle_bulk(hafta_id, odemeler)
+        from shared.yukleme_takvimi import kaydet as _yt_kaydet
+        _yt_kaydet("odeme_listesi", st.session_state.get("aktif_kullanici", ""), len(odemeler))
+        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+        _yg_kaydet("odeme_listesi", len(odemeler), dosya.name)
+        kapi.bitti(f"{len(odemeler)} ödeme yüklendi — '{ad}' aktif hafta yapıldı.")
+
+
+def kapi_cek_listesi(dosya, kapi):
+    """Firma çek dökümü. Dosyadaki para birimlerinin MEVCUT çekleri silinip dosyadakiler yazılır
+    (döküm her seferinde tam liste; aynı dosya iki kez yüklenince çift kayıt olmasın diye)."""
+    tl_cekler, usd_cekler, hatalar = excel_yukle_cek_listesi(dosya.getvalue())
+    for h in hatalar:
+        st.warning(h)
+    if not (tl_cekler or usd_cekler):
+        st.warning("Çek dosyasında veri bulunamadı.")
+        return
+    from .excel_islemler import cek_degisim_ozeti
+    oz = cek_degisim_ozeti(tl_cekler, usd_cekler,
+                           {pb: get_cekler(pb) for pb, c in (("TL", tl_cekler), ("USD", usd_cekler)) if c})
+    st.success(" · ".join(f"{pb}: dosyada {o['yeni']} çek ({tr_sayi(o['yeni_tutar'])})" for pb, o in oz.items()))
+    st.dataframe(pd.DataFrame([{"Para": pb, "Çek No": c.get("cek_no"), "Vade": c.get("vade"),
+                                "Meblağ": c.get("meblagh"), "Kalan": c.get("kalan"), "C/H": c.get("ch_ismi")}
+                               for pb, cl in (("TL", tl_cekler), ("USD", usd_cekler)) for c in cl[:150]]),
+                 hide_index=True, use_container_width=True, height=220)
+    onay = True
+    silinecek = {pb: o for pb, o in oz.items() if o["mevcut"]}
+    if silinecek:
+        st.warning("Kaydedince şu çekler **silinip** dosyadakilerle değiştirilir: "
+                   + " · ".join(f"{pb}: {o['mevcut']} çek ({tr_sayi(o['mevcut_tutar'])})" for pb, o in silinecek.items())
+                   + ". Yanlış dosyaysa Yükleme geçmişinden geri alınabilir.")
+        onay = st.checkbox("Mevcut çeklerin bu dosyayla değiştirileceğini gördüm", key=kapi.anahtar("cek_onay"))
+    if st.button("Çekleri kaydet", type="primary", use_container_width=True, disabled=not onay,
+                 key=kapi.anahtar("cek_kaydet"), icon=":material/save:"):
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk_cek = _YKayit("cek_listesi", dosya.name)   # TL + USD tek kayıt
+        if tl_cekler:
+            cek_ekle_bulk(tl_cekler, "TL", yukleme=_yk_cek)
+        if usd_cekler:
+            cek_ekle_bulk(usd_cekler, "USD", yukleme=_yk_cek)
+        _yk_cek.kaydet(len(tl_cekler) + len(usd_cekler))
+        kapi.bitti(f"Çekler yüklendi: TL {len(tl_cekler)} · USD {len(usd_cekler)}.")
 
 
 def run():
@@ -1341,7 +1486,7 @@ def run():
             bankalar = get_bankalar()
     
             if not odemeler:
-                st.info("📂 Henüz veri yüklenmemiş. **'Veri Yükleme'** sekmesinden Excel dosyanızı yükleyin veya manuel ödeme ekleyin.")
+                st.info("📂 Henüz veri yüklenmemiş. üst menüdeki **Dosya** düğmesinden Excel dosyanızı yükleyin veya manuel ödeme ekleyin.")
                 st.stop()
     
             # Alarmlar
@@ -2154,139 +2299,6 @@ def run():
 
 
         # ════════════════════════════════════════════════════════════════════
-        # 8) VERİ YÜKLEME
-        # ════════════════════════════════════════════════════════════════════
-        elif sayfa == "📂 Veri Yükleme":
-            st.markdown(_sb("📂 Muhasebe", "Veri Yükleme"), unsafe_allow_html=True)
-    
-            # Son yüklenenler (Recents)
-            haftalar = get_tum_haftalar()
-            if haftalar:
-                st.markdown("### 🕐 Son Yüklenenler")
-                aktif = get_aktif_hafta()
-                aktif_id = aktif["id"] if aktif else None
-    
-                cols = st.columns(min(len(haftalar), 4))
-                for i, h in enumerate(haftalar[:8]):
-                    ozet = get_hafta_ozet(h["id"])
-                    is_aktif = h["id"] == aktif_id
-                    with cols[i % 4]:
-                        renk = "color-mix(in srgb,var(--k-mor) 10%,var(--k-yuzey1))" if is_aktif else "var(--k-ortu)"
-                        border = "2px solid var(--k-mor2)" if is_aktif else "1px solid color-mix(in srgb,var(--k-metin) 6%,transparent)"
-                        aktif_badge = '<br><span style="background:var(--k-mor2);color:white;font-size:11px;padding:0px 8px;border-radius:3px">AKTİF</span>' if is_aktif else ''
-                        recent_html = (
-                            f'<div style="background:{renk};border:{border};border-radius:10px;padding:12px 16px;margin-bottom:8px;min-height:100px">'
-                            f'<div style="font-size:13px;font-weight:700;color:var(--k-metin);line-height:1.3">{h["hafta_adi"]}{aktif_badge}</div>'
-                            f'<div style="font-size:11px;color:var(--k-soluk);margin:4px 0">{ozet["odendi"]}/{ozet["toplam"]} ödendi</div>'
-                            f'<div style="font-size:11px"><span style="color:var(--k-yesil2)">₺{fmt(ozet["tl_toplam"])}</span></div>'
-                            f'<div style="font-size:11px;color:var(--k-soluk)">{h["yuklendi_tarih"]}</div>'
-                            '</div>'
-                        )
-                        st.markdown(recent_html, unsafe_allow_html=True)
-                        if not is_aktif:
-                            if st.button("Aç", key=f"recent_ac_{h['id']}", use_container_width=True):
-                                hafta_aktif_yap(h["id"])
-                                st.success(f"'{h['hafta_adi']}' aktif yapıldı.")
-                                st.rerun()
-    
-                st.markdown("---")
-    
-            st.markdown("#### Yeni hafta yükle")
-            st.markdown(k_mesaj("uyari", "<b>Excel sütun sırası:</b> A=HAFTA | B=FİRMA | C=AÇIKLAMA | D=(boş) | E=VADE | "
-                                       "F=TUTAR TL | G=TUTAR USD | <b>H=KATEGORİ (isteğe bağlı)</b>", ham=True),
-                        unsafe_allow_html=True)
-    
-            col1, col2 = st.columns(2)
-    
-            with col1:
-                st.markdown("**1. Haftalık Ödeme Listesi (XLSX)**")
-                from shared.yukleme_takvimi import serit as _yt_serit
-                _yt_serit("odeme_listesi")
-                odeme_file = st.file_uploader("Ödeme Listesi Excel", type=["xlsx", "xls"], key="odeme_upload", label_visibility="collapsed")
-                if odeme_file:
-                    st.success(f"✅ {odeme_file.name} seçildi")
-    
-            with col2:
-                st.markdown("**2. Firma Çekleri Dökümü (XLSX) — Opsiyonel**")
-                cek_file = st.file_uploader("Çek Dökümü Excel", type=["xlsx", "xls"], key="cek_upload", label_visibility="collapsed")
-                if cek_file:
-                    st.success(f"✅ {cek_file.name} seçildi")
-    
-            col_a, col_b = st.columns(2)
-            with col_a:
-                yukle_btn = st.button("Verileri İşle ve Yükle", type="primary", use_container_width=True, icon=":material/check_circle:")
-            with col_b:
-                ornek = create_sample_excel()
-                st.download_button(
-                    "Örnek Excel İndir",
-                    data=ornek,
-                    file_name="ornek_odeme_listesi.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True, icon=":material/move_to_inbox:"
-                )
-    
-            if yukle_btn:
-                if not odeme_file and not cek_file:
-                    st.error("Lütfen en az bir dosya seçin.")
-                else:
-                    mesajlar = []
-    
-                    if odeme_file:
-                        try:
-                            file_bytes = odeme_file.read()
-                            hafta_adi, odemeler, hatalar = excel_yukle_odeme_listesi(file_bytes)
-    
-                            if hatalar:
-                                for h in hatalar:
-                                    st.warning(h)
-    
-                            if odemeler:
-                                hafta_id = hafta_ekle(hafta_adi or f"Hafta {len(get_tum_haftalar()) + 1}")
-                                hafta_aktif_yap(hafta_id)
-                                odeme_ekle_bulk(hafta_id, odemeler)
-                                from shared.yukleme_takvimi import kaydet as _yt_kaydet
-                                _yt_kaydet("odeme_listesi", st.session_state.get("aktif_kullanici", ""),
-                                           len(odemeler))
-                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                                _yg_kaydet("odeme_listesi", len(odemeler), odeme_file.name)
-                                mesajlar.append(f"✅ {len(odemeler)} ödeme yüklendi — '{hafta_adi}'")
-                            else:
-                                mesajlar.append("⚠️ Ödeme listesinde işlenebilir veri bulunamadı.")
-                        except Exception as e:
-                            st.error(f"❌ Ödeme yükleme hatası: {e}")
-    
-                    if cek_file:
-                        try:
-                            file_bytes = cek_file.read()
-                            tl_cekler, usd_cekler, hatalar = excel_yukle_cek_listesi(file_bytes)
-    
-                            if hatalar:
-                                for h in hatalar:
-                                    st.warning(h)
-    
-                            if tl_cekler or usd_cekler:
-                                from shared.yukleme_gecmisi import Kayit as _YKayit
-                                _yk_cek = _YKayit("cek_listesi", cek_file.name)   # TL + USD tek kayıt
-                                if tl_cekler:
-                                    cek_ekle_bulk(tl_cekler, "TL", yukleme=_yk_cek)
-                                if usd_cekler:
-                                    cek_ekle_bulk(usd_cekler, "USD", yukleme=_yk_cek)
-                                _yk_cek.kaydet(len(tl_cekler) + len(usd_cekler))
-                                mesajlar.append(f"✅ Çekler yüklendi: TL {len(tl_cekler)} · USD {len(usd_cekler)}")
-                            else:
-                                mesajlar.append("⚠️ Çek dosyasında veri bulunamadı.")
-                        except Exception as e:
-                            st.error(f"❌ Çek yükleme hatası: {e}")
-    
-                    for m in mesajlar:
-                        st.success(m) if m.startswith("✅") else st.warning(m)
-    
-                    if any(m.startswith("✅") for m in mesajlar):
-                        st.balloons()
-                        st.rerun()
-    
-    
-        # ════════════════════════════════════════════════════════════════════
         # 9) RAPORLAR
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "📄 Raporlar & Bildirim":
@@ -2529,141 +2541,9 @@ def run():
             kur = get_kur()
     
             # ─── Yardımcı: Excel parse fonksiyonları ───
-            def parse_stok_excel(file_bytes):
-                """
-                Stok Excel'inden değerleri çıkar.
-                ÖNEMLİ: Excel'in son satırlarında zaten toplam satırı var. Onu kullan.
-                Yoksa elle topla ama "TOPLAM" satırlarını atla.
-                """
-                import pandas as pd
-                from io import BytesIO
-                df = pd.read_excel(BytesIO(file_bytes), header=None)
-    
-                # ─── Sütun 4 = USD SON DURUM STOK DEĞERİ ───
-                # Önce alt taraftaki TOPLAM satırını bul (genelde son ~3 satırda)
-                usd_stok = 0.0
-                toplam_bulundu = False
-                for i in range(len(df) - 1, max(2, len(df) - 10), -1):
-                    v = df.iloc[i, 4]
-                    if pd.notna(v):
-                        try:
-                            val = float(v)
-                            # Toplam satırı genelde stok kodu boş ama büyük tutar var
-                            stok_kodu = df.iloc[i, 0]
-                            if pd.isna(stok_kodu) or str(stok_kodu).strip() == "" or "TOPLAM" in str(stok_kodu).upper():
-                                usd_stok = val
-                                toplam_bulundu = True
-                                break
-                        except (ValueError, TypeError):
-                            continue
-    
-                # Toplam yoksa elle topla (header'ları atla, son toplam satırlarını da atla)
-                if not toplam_bulundu:
-                    for i in range(2, len(df)):
-                        stok_kodu = df.iloc[i, 0]
-                        if pd.isna(stok_kodu) or str(stok_kodu).strip() == "":
-                            continue  # boş satır = muhtemel toplam
-                        if "TOPLAM" in str(stok_kodu).upper():
-                            continue
-                        v = df.iloc[i, 4]
-                        if pd.notna(v):
-                            try:
-                                usd_stok += float(v)
-                            except (ValueError, TypeError):
-                                pass
-    
-                # ─── Pazaryeri firmaları: "TOPLAM TUTAR" sütunlarını bul ───
-                # ÖNEMLİ: Excel'de her pazaryerinin altında bir ALT TOPLAM satırı var
-                # (firma kodu boş, ama toplam değer dolu). Bunları atlamak için
-                # firma kodu sütununu (col_idx - 3) kontrol ediyoruz.
-                pazaryerleri = {}
-                try:
-                    for col_idx in range(df.shape[1]):
-                        header = df.iloc[1, col_idx]
-                        if pd.notna(header) and isinstance(header, str) and "TOPLAM TUTAR" in header.upper():
-                            # Firma adı için geriye doğru tara
-                            firma_adi = "Bilinmeyen"
-                            blacklist = ["STOK", "SATIŞ", "FIYAT", "FİYAT", "MIKT", "MİKT", "ADET", "İADE", "TOPLAM"]
-                            firma_kod_col = None  # firma kodu sütunu (header'da firma adı olan)
-                            for back in range(1, 5):
-                                check_col = col_idx - back
-                                if check_col < 0:
-                                    break
-                                candidate = df.iloc[1, check_col]
-                                if pd.notna(candidate) and isinstance(candidate, str):
-                                    cand_str = candidate.strip()
-                                    cand_upper = cand_str.upper()
-                                    if cand_str and not any(bl in cand_upper for bl in blacklist):
-                                        firma_adi = cand_str
-                                        firma_kod_col = check_col  # ← bu sütun firma stok kodu içerir
-                                        break
-    
-                            # Toplama yaparken firma kodu sütunu BOŞ olan satırları atla (alt toplam = duplicate)
-                            toplam = 0.0
-                            for i in range(2, len(df)):
-                                v = df.iloc[i, col_idx]
-                                if pd.notna(v):
-                                    # Firma kodu sütunu kontrolü
-                                    if firma_kod_col is not None:
-                                        kod = df.iloc[i, firma_kod_col]
-                                        if pd.isna(kod) or str(kod).strip() == "":
-                                            continue  # alt toplam satırı, atla
-                                    try:
-                                        toplam += float(v)
-                                    except (ValueError, TypeError):
-                                        pass
-                            if firma_adi and firma_adi != "Bilinmeyen":
-                                pazaryerleri[firma_adi] = toplam
-                except Exception:
-                    pass
-    
-                return usd_stok, pazaryerleri
-    
-            def _cari_isimleri_cikar(file_bytes):
-                """Cari Excel'inden firma (Hesap adı) listesini çıkarır — Satış kanalları
-                ve Ref No 'Yeni Firma Ekle' listesi için.
-
-                ESKİ HATA: sütun 2 sabit okunuyordu. Mikro'nun yeni raporunda sütun 2
-                'Döviz' olduğu için listeye firma adı yerine EUR/TL/USD düşüyordu.
-                Artık sütun BAŞLIK ADINDAN bulunur (aktif_excel ile aynı yöntem)."""
-                try:
-                    from kayranacc.aktif_excel import parse_cari as _pc
-                    _, _detay = _pc(file_bytes)
-                    return list(_detay.get("isimler") or [])
-                except Exception:
-                    pass
-                # Yedek yol: başlığı elle ara
-                import pandas as pd
-                from io import BytesIO
-                try:
-                    df = pd.read_excel(BytesIO(file_bytes), header=None)
-                except Exception:
-                    return []
-                _c = None
-                for r in range(min(8, len(df))):
-                    for c in range(df.shape[1]):
-                        v = df.iloc[r, c]
-                        if pd.notna(v) and "hesap ad" in str(v).strip().lower().replace("ı", "i"):
-                            _c = c
-                            break
-                    if _c is not None:
-                        break
-                if _c is None:
-                    return []
-                isimler = []
-                for i in range(len(df)):
-                    ad = df.iloc[i, _c]
-                    if pd.notna(ad):
-                        s = str(ad).strip()
-                        if (s and s.lower() not in ("nan", "hesap adı", "hesap adi")
-                                and s not in isimler):
-                            isimler.append(s)
-                return isimler
-
             # ─── Session state init + Supabase'den önceki kayıtları yükle ───
             # NOT: Toplam Aktifler verileri paylaşımlıdır — yetki verilen tüm kullanıcılar (ibrahim, cem) aynı veriyi görür.
             # Bu yüzden kayıtlar sabit "ortak" anahtarıyla saklanır.
-            gercek_kullanici = (st.session_state.get("aktif_kullanici") or "ibrahim").lower().strip()
             aktif_kul = "ortak"  # Paylaşımlı veri anahtarı
     
             # Paylaşımlı veri HER render'da DB'den okunur — böylece başka bir kullanıcı
@@ -2722,16 +2602,6 @@ def run():
     
             # ─── Excel yükleme bölümü — kompakt: durum kartları + pencereden yükleme ───
     
-            st.markdown(
-                '<style>'
-                '[data-testid="stFileUploaderDropzone"]{padding:10px 16px !important;min-height:0 !important;}'
-                '[data-testid="stFileUploaderDropzone"] button{padding:5px 16px !important;}'
-                '[data-testid="stFileUploaderDropzoneInstructions"] span{font-size:11px !important;}'
-                '[data-testid="stFileUploaderDropzoneInstructions"] small{font-size:11px !important;}'
-                '</style>',
-                unsafe_allow_html=True
-            )
-
             col1, col2, col3 = st.columns(3)
     
             # Meta bilgileri al
@@ -2809,169 +2679,8 @@ def run():
                         st.session_state.aktif_cari_data = None
     
 
-            # ═══ YÜKLEME DİYALOĞU (yeniden tasarlandı) ═══
-            # Eski tasarımın üç sorunu vardı:
-            #  1) Okuyucular sütunları sabit konumdan alıyordu → Mikro sütun sayısı
-            #     değişince sessizce patlıyordu (27.07 cari dosyası: IndexError).
-            #  2) Dosya "işlendi" damgası DENEMEDEN ÖNCE basılıyordu → başarısız bir
-            #     dosya tekrar seçilse bile hiçbir şey olmuyordu ("yüklenmiyor" hissi).
-            #  3) Ekranda ne olduğu görünmüyordu: işleniyor mu, bitti mi, ne okundu?
-            # Yeni tasarım: adım adım durum + okunan değerlerin gözle doğrulanması.
-            from kayranacc.aktif_excel import (parse_cari as _p_cari,
-                                               parse_ithalat as _p_ithalat,
-                                               parse_stok as _p_stok,
-                                               ExcelBicimHatasi as _BicimHatasi)
-
-            def _durum_rozeti(baslik, meta, yuklu, ozet_satir=""):
-                """Kartın üstündeki tek satırlık durum şeridi."""
-                if yuklu:
-                    kim = (meta or {}).get("son_yukleyen") or "?"
-                    zaman = ((meta or {}).get("yukleme_zamani") or "")[:16]
-                    st.markdown(k_mesaj("basari", f"<b>{baslik} yüklü</b> — {ozet_satir}<br>"
-                                                f'<span style="color:var(--k-silik);font-size:12px">'
-                                                f'{_html.escape(kim.capitalize())} · {zaman or "—"}</span>', ham=True),
-                                unsafe_allow_html=True)
-                else:
-                    st.markdown(k_mesaj("hata", f"<b>{baslik} henüz yüklenmedi</b>", ham=True), unsafe_allow_html=True)
-
-            def _yukle_bloku(no, baslik, anahtar, dosya_key, parser, kaydet_fn,
-                             meta, yuklu, ozet_satir="", yardim=""):
-                """Tek dosya için: durum + seçici + işleme + sonuç gösterimi."""
-                st.markdown(f"##### {no} {baslik}")
-                _durum_rozeti(baslik, meta, yuklu, ozet_satir)
-                from shared.yukleme_takvimi import serit as _yt_serit
-                _yt_serit(f"aktif_{anahtar}")     # aktif_stok · aktif_ithalat · aktif_cari
-                if yardim:
-                    st.caption(yardim)
-
-                f = st.file_uploader(baslik, type=["xls", "xlsx"], key=dosya_key,
-                                     label_visibility="collapsed")
-                _sonuc_key = f"_sonuc_{anahtar}"
-
-                if f is not None:
-                    fid = f"{f.name}:{getattr(f, 'size', 0)}"
-                    # DAMGA ARTIK SADECE BAŞARIDA BASILIR → hatalı dosya tekrar denenebilir
-                    if st.session_state.get(f"_ok_{anahtar}") != fid:
-                        with st.status(f"📄 {f.name} işleniyor…", expanded=True) as durum:
-                            try:
-                                st.write("1/3 · Dosya okunuyor")
-                                ham = f.read()
-                                st.write("2/3 · Sütunlar çözümleniyor")
-                                deger, detay = parser(ham)
-                                st.write("3/3 · Kaydediliyor")
-                                # Detay ÖNCE yazılır: kaydet_fn içinde (örn. cari
-                                # isimleri) kullanılabilsin diye.
-                                st.session_state[_sonuc_key] = detay
-                                kaydet_fn(deger, ham)
-                                st.session_state[f"_ok_{anahtar}"] = fid
-                                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                                _yg_kaydet("aktif_excel", 1, f"{anahtar}: {f.name}")
-                                from shared.yukleme_takvimi import _temizle as _yt_tazele
-                                _yt_tazele()          # geri sayım yeni yükleme zamanını görsün
-                                durum.update(label=f"✅ {f.name} yüklendi", state="complete")
-                            except _BicimHatasi as e:
-                                durum.update(label=f"❌ {f.name} okunamadı", state="error")
-                                st.error(f"**Dosya biçimi beklenenden farklı.**\n\n{e}")
-                                st.caption("Dosyayı düzeltip tekrar seçebilirsin — aynı dosyayı "
-                                           "yeniden denemen de mümkün.")
-                            except Exception as e:
-                                durum.update(label=f"❌ {f.name} — beklenmedik hata", state="error")
-                                st.error(f"{type(e).__name__}: {e}")
-
-                # Son başarılı okumanın özeti — gözle doğrulama için
-                _d = st.session_state.get(_sonuc_key)
-                if _d:
-                    with st.container(border=True):
-                        st.markdown("**Okunan değerler** (kontrol et)")
-                        for satir in _d.get("ozet", []):
-                            st.markdown(f"- {satir}")
-                        if _d.get("satir"):
-                            st.caption(f"{_d['satir']} satır işlendi")
-                        if _d.get("uyari"):
-                            st.warning(_d["uyari"])
-
-            @st.dialog("📤 Excel Dosyalarını Yükle", width="large")
-            def _dlg_aktif_excel():
-                st.caption("Her dosya için durum ve okunan değerler aşağıda görünür. "
-                           "Yükleme bitince pencereyi kapat — kartlar güncellenir.")
-
-                # ── 1) STOK ──
-                def _kaydet_stok(deger, ham):
-                    st.session_state.aktif_stok_data = deger
-                    try:
-                        usd_v, pazar = deger
-                        aktif_excel_kaydet(aktif_kul, "stok", [float(usd_v), pazar])
-                    except Exception:
-                        pass
-                _stok_ozet = ""
-                try:
-                    if st.session_state.aktif_stok_data:
-                        _hs = float(st.session_state.aktif_stok_data[0])
-                        _stok_ozet = f"ham ${tr_sayi(_hs)} · KDV dahil ${tr_sayi(_hs * 1.20)}"
-                except Exception:
-                    pass
-                _yukle_bloku("1 ·", "Stok Değeri Raporu", "stok", "aktif_stok_upload",
-                             lambda b: _p_stok(b, parse_stok_excel), _kaydet_stok,
-                             stok_meta, bool(st.session_state.aktif_stok_data), _stok_ozet,
-                             "Mikro → Stok → Stok değeri raporu")
-
-                st.divider()
-
-                # ── 2) İTHALAT ──
-                def _kaydet_ithalat(deger, ham):
-                    st.session_state.aktif_ithalat_data = deger
-                    try:
-                        aktif_excel_kaydet(aktif_kul, "ithalat", float(deger))
-                    except Exception:
-                        pass
-                _ith_ozet = ""
-                try:
-                    if st.session_state.aktif_ithalat_data:
-                        _ith_ozet = f"${tr_sayi(float(st.session_state.aktif_ithalat_data))} ödenen"
-                except Exception:
-                    pass
-                _yukle_bloku("2 ·", "İthalat Ödeme Takip", "ithalat", "aktif_ithalat_upload",
-                             _p_ithalat, _kaydet_ithalat,
-                             ithalat_meta, bool(st.session_state.aktif_ithalat_data), _ith_ozet,
-                             "'Ödenen / USD' sütunu içeren takip dosyası")
-
-                st.divider()
-
-                # ── 3) CARİ ──
-                def _kaydet_cari(deger, ham):
-                    st.session_state.aktif_cari_data = deger
-                    try:
-                        aktif_excel_kaydet(aktif_kul, "cari", deger)
-                    except Exception:
-                        pass
-                    try:  # cari isimleri — Satış kanalları için
-                        _isim = (st.session_state.get("_sonuc_cari") or {}).get("isimler")
-                        if not _isim:
-                            _isim = _cari_isimleri_cikar(ham)
-                        if _isim:
-                            aktif_excel_kaydet(aktif_kul, "cari_isimler", _isim)
-                    except Exception:
-                        pass
-                _cari_ozet = ""
-                try:
-                    _c = st.session_state.aktif_cari_data
-                    if isinstance(_c, dict) and "borc" in _c:
-                        _cari_ozet = (f"borç USD {tr_sayi(float(_c['borc'].get('usd') or 0))} · "
-                                      f"alacak USD {tr_sayi(float(_c['alacak'].get('usd') or 0))}")
-                except Exception:
-                    pass
-                _yukle_bloku("3 ·", "Cari Alacaklar Listesi", "cari", "aktif_cari_upload",
-                             _p_cari, _kaydet_cari,
-                             cari_meta, bool(st.session_state.aktif_cari_data), _cari_ozet,
-                             "Mikro → Cari → Alacaklar listesi (Döviz + Bakiye sütunlu)")
-
-                st.divider()
-                if st.button("Bitir ve Kartları Güncelle", type="primary",
-                             use_container_width=True, key="dlg_bitir", icon=":material/check:"):
-                    st.rerun()
-
-            if st.button("Excel Dosyalarını Yükle / Güncelle", key="btn_aktif_excel", use_container_width=True, icon=":material/upload:"):
-                _dlg_aktif_excel()
+            st.caption("Stok değeri raporu, ithalat ödeme takip ve cari alacaklar listesi üst menüdeki "
+                       "**Dosya** düğmesinden yüklenir; kartlar kayıttan hemen sonra güncellenir.")
 
             st.markdown("---")
     

@@ -918,6 +918,9 @@ def aktif_excel_kaydet(kullanici, dosya_tipi, veri_json):
                 "yukleme_zamani": str(tr_now()),
             }),
         }).execute()
+        # Okuma önbelleği (aktif_excel_oku 5 dk, meta 2 dk) yalnız hatada temizleniyordu:
+        # yüklemeden sonra kartlar 5 dakikaya kadar ESKİ rakamı gösteriyordu (Ekim 2026).
+        _cache_temizle()
         return True
     except Exception:
         _cache_temizle()

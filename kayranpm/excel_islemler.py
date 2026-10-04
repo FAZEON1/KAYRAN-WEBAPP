@@ -583,11 +583,16 @@ def excel_yukle_firma_birlesik(dosya_yolu):
 G5F_SATILABILIR_DEPOLAR = {"MERKEZ DEPO", "HAPPY LIFE"}
 
 
-def excel_yukle_g5f_depolar(dosya_yolu):
+def excel_yukle_g5f_depolar(dosya_yolu, onizle=False, ozet=None):
     """G5F (bizim depo) çok-depolu stok şablonu.
     Beklenen sütunlar: DEPO ADI · STOK KODU · STOK İSMİ · MİKTAR
     Her SKU için depo kırılımı saklanır (TÜM depolar). bizim_stok (analitik) =
-    satılabilir depolar (Merkez + Happy Life) toplamı. Fiyat/kategori/marka KORUNUR."""
+    satılabilir depolar (Merkez + Happy Life) toplamı. Fiyat/kategori/marka KORUNUR.
+
+    onizle=True (Dosya kapısı, Ekim 2026): hiçbir şey yazmadan (True, özet) döner — ürün sayısı,
+    eşleşen / yeni, depolar, toplam adet ve Excel'de olmadığı için SIFIRLANACAK ürünler.
+    ozet (dict): yazmada kaç ürünün güncellendiği ("guncellenen") buraya yazılır; yükleme yarıda
+    koparsa çağıran yine yükleme kaydını tutar (yazılanlar geri alınabilsin)."""
     try:
         from collections import defaultdict
         df = pd.read_excel(dosya_yolu, sheet_name=0)
@@ -640,7 +645,26 @@ def excel_yukle_g5f_depolar(dosya_yolu):
         except Exception:
             pass
 
+        if onizle:
+            _sifir = []
+            try:
+                for _r in get_client().table("urunler").select("sku, depo_kirilim").execute().data or []:
+                    _gs = str(_r.get("sku") or "").strip()
+                    _dk = _r.get("depo_kirilim") or {}
+                    if (_gs and isinstance(_dk, dict) and any(safe_int(v) for v in _dk.values())
+                            and normalize_sku(_gs) not in kirilim):
+                        _sifir.append(_gs)
+            except Exception:
+                pass
+            _es = sum(1 for k in kirilim if k in mevcut_sku_map)
+            return True, {"urun": len(kirilim), "eslesen": _es, "yeni": len(kirilim) - _es,
+                          "depolar": sorted(depolar_set), "atlanan": atlanan,
+                          "toplam_adet": sum(sum(dd.values()) for dd in kirilim.values()),
+                          "sifirlanacak": sorted(_sifir)}
+
         basarili, toplam_adet, eslesen, yeni = 0, 0, 0, 0
+        if ozet is not None:
+            ozet["guncellenen"] = 0
         from .database import _defter as _defter_al
         _sd = _defter_al()
         # Yüzlerce SKU'nun defter satırı tek istekte yazılsın. 'with': güncelleme döngüsünde hata
@@ -655,8 +679,22 @@ def excel_yukle_g5f_depolar(dosya_yolu):
                     yeni += 1
                 satilabilir = sum(m for d, m in dd.items()
                                   if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
-                upsert_g5f_stok(gercek_sku, adlar.get(sku, ""), satilabilir, dd)
+                try:
+                    upsert_g5f_stok(gercek_sku, adlar.get(sku, ""), satilabilir, dd)
+                except Exception as _ue:
+                    # Yarıda koptu: yazılanlar yazıldı. Eskiden bu hata "Dosya okunamadı" diye
+                    # gösteriliyor, yükleme kaydı da tutulmuyordu (geri alınamıyordu).
+                    try:
+                        from shared.hata_log import kaydet
+                        kaydet("excel_islemler.g5f_yarida", _ue, kritik=True)
+                    except Exception:
+                        pass
+                    return False, (f"Yükleme yarıda kaldı: {basarili} ürün güncellendi, sonra yazma hatası "
+                                   f"({type(_ue).__name__}: {str(_ue)[:120]}). Güncellenenler Yükleme "
+                                   "geçmişinden geri alınabilir; dosyayı yeniden yüklemek de sayımı tamamlar.")
                 basarili += 1
+                if ozet is not None:
+                    ozet["guncellenen"] = basarili
                 toplam_adet += sum(dd.values())
 
             # ── BİREBİR SENKRON: Excel'de OLMAYAN ürünlerin eski kırılımını sıfırla ──
@@ -720,7 +758,7 @@ def _hss_kolon(df, *adaylar):
     return None
 
 
-def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
+def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
     """Firma başına AYRI 'X STOK' + 'X SATIŞ' sekmeleri olan haftalık dosyayı yükler.
     Her firmanın PORTAL formatı desteklenir (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu...).
     Satışlar SKU ile stok satırlarının yanına bağlanır → firma_stok'a tek özet yazılır.
@@ -730,6 +768,11 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
     Streamlit Cloud'un bellek sınırını aşıp süreci çökertiyordu ('Segmentation fault').
     Bu yüzden sekmeler TEK TEK okunur ve işlendikçe bellekten atılır; veritabanına
     yazma da SKU başına tek tek değil, TOPLU (chunk) yapılır.
+
+    onizle=True (Dosya kapısı, Ekim 2026): hiçbir şey yazmadan (True, özet) döner — rapor haftası,
+    firma başına SKU / stok / satış ve o hafta için zaten kayıtlı satır sayısı (değiştirilecek).
+    Yazma tutmazsa (toplu da satır satır da) o firmanın eski haftası GERİ YAZILIR: eskiden silinip
+    boş kalıyordu ve geri alma kaydı da oluşmuyordu.
     """
     import gc as _gc
     # Yükleme geçmişi (shared.yukleme_gecmisi): silinen eski satırlar + eklenen kimlikler
@@ -813,6 +856,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
     _KANAL_ADAY = ("MAĞAZA", "MAGAZA", "DEPO")
 
     firma_ozet, atlanan_sayfa = {}, []
+    onizleme, geri_yazilan, kayip = {}, [], []
     basarili = 0
     yazma_hatasi = {"ilk": "", "sayi": 0}
     for kod, g in gruplar.items():
@@ -862,18 +906,33 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
                     # toplanır (DEPO/kanal kırılımı yalnız bazı firmalarda mevcut).
                     o["satis"] += adet
 
+        if onizle:
+            try:
+                _mev = len(get_client().table("firma_stok").select("id").eq("firma", kod)
+                           .eq("yukleme_tarihi", _rapor_tarihi).execute().data or [])
+            except Exception:
+                _mev = None
+            onizleme[kod] = {"sku": len(agg), "stok": sum(o["stok"] + o["stok_magaza"] for o in agg.values()),
+                             "satis": sum(o["satis"] + o["satis_magaza"] for o in agg.values()), "mevcut": _mev}
+            agg.clear()
+            g.clear()
+            continue
+
         # ── SNAPSHOT DEĞİŞTİR: bu firmanın bu RAPOR HAFTASINA ait kayıtlarını
         #    önce temizle (aynı haftanın dosyası tekrar yüklenirse şişmesin). ──
         _yk.anahtar(kod, _rapor_tarihi)
+        _eski_satirlar, _silindi = None, False
         try:
-            _yk.onceki("firma_stok", get_client().table("firma_stok").select("*")
-                       .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute().data or [])
+            _eski_satirlar = (get_client().table("firma_stok").select("*")
+                              .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute().data or [])
+            _yk.onceki("firma_stok", _eski_satirlar)
         except Exception as _oe:
             _yk.iptal(f"eski satırlar okunamadı: {type(_oe).__name__}")
         try:
             with cop_kutusu_kapali():
                 get_client().table("firma_stok").delete() \
                     .eq("firma", kod).eq("yukleme_tarihi", _rapor_tarihi).execute()
+            _silindi = True
         except Exception as _de:
             _yk.iptal(f"eski satırlar silinemedi: {type(_de).__name__}")
 
@@ -942,6 +1001,20 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
 
         if _n_sku:
             firma_ozet[kod] = (_n_sku, _t_stok, _t_satis)
+        elif _silindi and _eski_satirlar:
+            # Hiçbir satır yazılamadı ama eski hafta silindi → eski satırları GERİ YAZ (veri kaybı yok).
+            # Bu yükleme kaydı artık geri alınamaz sayılır (eski satırlar zaten yerinde).
+            _yk.iptal(f"{kod} yazılamadı, eski haftası geri yazıldı")
+            try:
+                get_client().table("firma_stok").insert(_eski_satirlar).execute()
+                geri_yazilan.append(kod)
+            except Exception as _ge:
+                kayip.append(kod)
+                try:
+                    from shared.hata_log import kaydet as _hk
+                    _hk("excel_islemler.haftalik_geri_yaz", _ge, kritik=True)
+                except Exception:
+                    pass
 
         # bu firmanın verilerini bellekten at (sonraki firmaya temiz gir)
         agg.clear()
@@ -949,13 +1022,17 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
         g.clear()
         _gc.collect()
 
+    if onizle:
+        return True, {"rapor_tarihi": _rapor_tarihi, "firmalar": onizleme, "atlanan": atlanan_sayfa}
+    _geri = ((f" Yazılamayan firmaların eski haftası geri yazıldı: {', '.join(geri_yazilan)}." if geri_yazilan else "")
+             + (f" DİKKAT: {', '.join(kayip)} için eski hafta geri yazılamadı; dosyayı yeniden yükle." if kayip else ""))
     if not basarili:
         _detay = ""
         if yazma_hatasi["ilk"]:
             _detay = f" İlk hata → {yazma_hatasi['ilk']}"
         return False, ("❌ Hiç kayıt yazılamadı. Sekmeler tanındı ama veritabanına yazılamadı."
                        + _detay
-                       + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else ""))
+                       + (f" Atlanan: {', '.join(atlanan_sayfa)}" if atlanan_sayfa else "") + _geri)
     ozet = " · ".join(f"{k}: {n} SKU (stok {tr_sayi(s)} / satış {tr_sayi(v)})"
                       for k, (n, s, v) in firma_ozet.items())
     _yk.kaydet(basarili)
@@ -963,7 +1040,7 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi=""):
     msg = f"✅ Haftalık stok+satış yüklendi (rapor haftası: {_dd}) → {ozet}."
     if atlanan_sayfa:
         msg += f" ⚠️ Atlanan sekme: {', '.join(atlanan_sayfa)}."
-    msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)."
+    msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)." + _geri
     return True, msg
 
 
