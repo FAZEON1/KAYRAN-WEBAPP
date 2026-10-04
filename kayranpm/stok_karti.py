@@ -363,7 +363,7 @@ def goster(sku):
 
     # ═══ ÖZET ═══
     with t1:
-        from shared.ui import RENK, pencere_css, pencere, pencere_grid, bos_durum
+        from shared.tasarim import RENK, pencere_css, pencere, pencere_grid, pencere_bos
         st.markdown(pencere_css(), unsafe_allow_html=True)
         # "satış verisi yok" yalnız HİÇ satışı olmayan üründe. Eskiden son 90 güne bakıyordu: satışları
         # Ocak'ta biten FAZE4 (1.215 adet, tamamı satıldı) "satış verisi yok" görünüyordu (Ekim 2026).
@@ -438,7 +438,7 @@ def goster(sku):
             _depo_html = "".join(_srow(d, 0, 0, RENK["soluk"], alt="satılabilir")
                                  for d in ("MERKEZ DEPO", "HAPPY LIFE"))
         else:
-            _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
+            _depo_html = pencere_bos("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
                           rozet=(f"{tr_sayi(_g5f_toplam)} adet" if _g5f_toplam else ""), yukseklik=200)
 
@@ -449,7 +449,7 @@ def goster(sku):
                       alt=f"haftalık satış {tr_sayi(v[2])} · {gun_ay_yil(v[0]) or v[0] or '—'}")
                 for fa, v in sorted(_firma_son.items(), key=lambda x: -x[1][1]))
         else:
-            _mus_html = bos_durum("Müşterilerde stok kaydı yok")
+            _mus_html = pencere_bos("Müşterilerde stok kaydı yok")
         _p_mus = pencere("🛍️ MÜŞTERİ STOĞU", RENK["mor"], _mus_html,
                          rozet=(f"{tr_sayi(_musteri_toplam)} adet" if _musteri_toplam else ""), yukseklik=200)
 

@@ -34,10 +34,11 @@ def test_renk_sozlugu_temaya_gore_cevap_verir(monkeypatch):
     assert "--k-metin:#0F172A" in T.cekirdek_css()
 
 
-def test_ui_renk_de_tema_duyarli(monkeypatch):
-    monkeypatch.setitem(sys.modules, "streamlit", _sahte_st("acik"))
-    from shared import ui
-    assert ui.RENK["metin"] == "#0F172A"
+def test_ikinci_tasarim_dosyasi_yok():
+    """shared/ui.py tasarim.py'ye katıldı (Eki 2026); renk ve bileşen tek kaynaktan."""
+    assert not (KOK / "shared" / "ui.py").exists()
+    kaynaklar = [p for p in KOK.rglob("*.py") if ".venv" not in p.parts and "tests" not in p.parts]
+    assert not [p for p in kaynaklar if re.search(r"from shared\.ui import|from shared import ui\b", p.read_text(encoding="utf-8"))]
 
 
 def test_karisim():
@@ -87,7 +88,7 @@ def _ekran_dosyalari():
 
 def test_sabit_renkler_geri_gelmedi():
     """Ekran dosyalarındaki sabit renk kodu sayısı düşürüldü (1.750 → ~60).
-    Kalanlar (97): varsayılan parametreler, modül sabitleri (shared/ui RENK paleti,
+    Kalanlar (97): varsayılan parametreler, modül sabitleri (RENK paleti,
     KART_PALET), marka gradyanları, e-posta ve JS içindekiler.
     Yeni kod var(--k-…) / trenk("…") / RENK["…"] kullanmalı."""
     n = sum(len(re.findall(r"#[0-9A-Fa-f]{6}(?![0-9A-Za-z_])", _oku(f))) for f in _ekran_dosyalari())

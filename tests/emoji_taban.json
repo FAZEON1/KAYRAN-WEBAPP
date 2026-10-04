@@ -42,7 +42,6 @@
  "shared/patron.py": 3,
  "shared/rehber.py": 1,
  "shared/tasarim.py": 105,
- "shared/ui.py": 1,
  "shared/utils.py": 3,
  "shared/yukleme_takvimi.py": 3,
  "teknikservis/database.py": 9,

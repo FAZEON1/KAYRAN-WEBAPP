@@ -64,7 +64,7 @@ def test_ortak_stillerde_buyuk_harf_yok():
 
 
 def test_pencere_ortak_kart_ve_cumle_duzeni():
-    ui = (KOK / "shared/ui.py").read_text(encoding="utf-8")
+    ui = (KOK / "shared/tasarim.py").read_text(encoding="utf-8")
     govde = ui[ui.index("def pencere(baslik"):ui.index("def pencere_grid(")]
     assert "emoji_ayir" in govde and "cumle_duzeni" in govde
     assert "linear-gradient" not in govde, "pencere kartında eski degrade zemin"

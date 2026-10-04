@@ -126,7 +126,7 @@ def test_stogu_biten_urunde_sayim_uyarisi_yok():
     from pathlib import Path
     k = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
     i = k.index('elif alimlar or satislar or isinstance(urun.get("depo_kirilim"), dict):')
-    j = k.index('bos_durum("G5F depo sayımı yüklenmemiş')
+    j = k.index('pencere_bos("G5F depo sayımı yüklenmemiş')
     assert i < j and '_srow(d, 0, 0' in k[i:j] and "Bizim depolarda stok yok" not in k
     w = k[k.index("Başlangıç stoğu (Excel) yüklenmemiş") - 400:k.index("Başlangıç stoğu (Excel) yüklenmemiş")]
     assert "not (alimlar or satislar" in w

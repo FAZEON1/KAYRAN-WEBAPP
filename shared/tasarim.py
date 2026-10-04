@@ -1481,6 +1481,129 @@ def tablo_h(n_satir, maks=320):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# 6b. ESKİ shared/ui.py BİLEŞENLERİ (Ekim 2026'da buraya katıldı)
+#     sayfa_baslik: modül adını oturumdan bulan baslik() sarmalayıcısı.
+#     pencere: başlık + rozet + iç kaydırmalı kart (pencere_grid içinde).
+#     genel_tema_css: dialog, st.dataframe ve sekme cilası (app.py bir kez basar).
+# ═══════════════════════════════════════════════════════════════════
+_MODUL_ADI = {"kayranacc": "Muhasebe", "kayranpm": "Ürün Yönetimi", "depo": "Depo",
+              "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış",
+              "yonetim": "Yönetim", "hesap_makinesi": "Hesap Makinesi"}
+
+
+def sayfa_baslik(ikon: str, ad: str, alt: str = "") -> str:
+    """Sayfa başlığı — artık TEK STANDART: shared/tasarim.baslik.
+
+    Eskiden iki ayrı başlık bileşeni vardı (bu büyük olan + tasarim.baslik
+    kompakt olan); modüller karışık kullandığı için her sayfa farklı
+    görünüyordu, Muhasebe'de ikisi birden çıkıyordu. Bu fonksiyon geriye
+    uyumluluk için duruyor ve standart başlığı üretiyor: "ikon Modül › Sayfa",
+    altında açıklama satırı."""
+    import streamlit as st
+    _mod = _MODUL_ADI.get(st.session_state.get("aktif_uygulama", ""), "")
+    return baslik(f"{ikon} {_mod}".strip() if ikon else _mod, ad, aciklama=alt)
+
+
+def pencere_css() -> str:
+    """Pencere içi ince scrollbar stili — sayfada bir kez basılır."""
+    return """<style>
+.kyr-pencere-icerik{overflow-y:auto;padding-right:8px;}
+.kyr-pencere-icerik::-webkit-scrollbar{width:6px;}
+.kyr-pencere-icerik::-webkit-scrollbar-track{background:color-mix(in srgb,var(--k-metin) 3%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--k-soluk) 35%,transparent);border-radius:3px;}
+.kyr-pencere-icerik::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--k-soluk) 55%,transparent);}
+</style>"""
+
+
+def pencere(baslik: str, renk: str, icerik_html: str,
+            rozet: str = "", yukseklik: int = 250, min_genislik: int = 300) -> str:
+    """Başlık + (isteğe bağlı rozet) + iç scroll'lu içerik alanı olan kart.
+
+    `pencere_grid()` içine konur; yan yana dizilir, dar ekranda alta sarar.
+    Başlıktaki emoji ('🚨 ACİL SİPARİŞ') ikon karosuna çevrilir, BÜYÜK HARF
+    başlık cümle düzenine iner ('Acil sipariş'); ortak k-kart görünümü
+    (eskiden degrade zemin, 16px köşe, gölge ve renkli büyük harf başlık).
+    """
+    _ik, _bas = emoji_ayir(baslik)
+    _ik_html = ""
+    if _ik:
+        _ik_html = (f'<span style="width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;'
+                    f'align-items:center;justify-content:center;'
+                    f'background:color-mix(in srgb,{renk} 15%,transparent)">{ikon_html(_ik, 16, renk)}</span>')
+    roz = ""
+    if rozet:
+        roz = (f'<span style="background:color-mix(in srgb,{renk} 14%,transparent);color:{renk};'
+               f'padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;'
+               f'white-space:nowrap">{rozet}</span>')
+    return (
+        f'<div class="kyr-kart k-kart" data-akscent style="flex:1;min-width:{min_genislik}px;'
+        f'border-left-color:{renk};padding:12px 16px;">'
+        f'<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-shrink:0;">'
+        f'{_ik_html}<span style="font-size:14px;font-weight:650;color:var(--k-metin);'
+        f'letter-spacing:-.1px">{cumle_duzeni(_bas)}</span>{roz}</div>'
+        f'<div class="kyr-pencere-icerik" style="max-height:{yukseklik}px;">{icerik_html}</div>'
+        f'</div>'
+    )
+
+
+def pencere_grid(*penceler: str, alt_bosluk: int = 4) -> str:
+    """Pencereleri yan yana dizen esnek kapsayıcı (dar ekranda alta sarar)."""
+    return (f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;'
+            f'margin:8px 0 {alt_bosluk}px;">' + "".join(penceler) + '</div>')
+
+
+def pencere_bos(mesaj: str) -> str:
+    """Pencere boşken düzeni koruyan sakin placeholder."""
+    return (f'<div style="color:var(--k-silik);font-size:13px;'
+            f'padding:12px 4px;">✓ {mesaj}</div>')
+
+
+def genel_tema_css() -> str:
+    """Uygulama geneli görsel cila — app.py'de bir kez basılır.
+    • Dialog başlıkları: zarif, kompakt, tutarlı
+    • st.dataframe kapsayıcısı: kart hissi (yuvarlak köşe + ince çerçeve)
+    • Sekme ve caption rafinesi
+    Tablo İÇİ font/renk/grid çizgileri .streamlit/config.toml temasından gelir
+    (canvas tabanlı olduğu için CSS ile değil tema ile yönetilir)."""
+    return """<style>
+/* ── Kart hover: hafif yükselme + gölge derinleşmesi (micro-interaction) ── */
+.kyr-kart:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb,var(--k-metin) 6%,transparent) !important;
+}
+/* ── Dialog başlıkları ── */
+div[data-testid="stDialog"] h1, div[data-testid="stDialog"] h2,
+div[data-testid="stDialog"] h3, div[data-testid="stDialog"] [data-testid="stHeading"]{
+  font-family:Inter,sans-serif !important;
+  font-size:16px !important; font-weight:700 !important;
+  letter-spacing:-0.2px !important; color:var(--k-metin) !important;
+  padding-bottom:0px !important;
+}
+div[data-testid="stDialog"] > div:first-child{
+  border:1px solid color-mix(in srgb,var(--k-mor) 22%,transparent) !important;
+  border-radius:18px !important;
+  box-shadow:0 24px 64px rgba(0,0,0,0.55) !important;
+}
+/* ── Tablolar: kapsayıcıya kart hissi ── */
+div[data-testid="stDataFrame"]{
+  border-radius:12px !important;
+  overflow:hidden !important;
+  border:1px solid color-mix(in srgb,var(--k-soluk) 10%,transparent) !important;
+}
+/* ── Sekmeler: alt çizgi yerine yumuşak aktif dolgu ── */
+button[data-baseweb="tab"]{
+  font-family:Inter,sans-serif !important; font-weight:600 !important;
+  border-radius:9px 9px 0 0 !important;
+}
+button[data-baseweb="tab"][aria-selected="true"]{
+  background:color-mix(in srgb,var(--k-mor) 10%,transparent) !important;
+}
+/* ── Caption'lar biraz daha okunur ── */
+div[data-testid="stCaptionContainer"] p{ color:var(--k-soluk) !important; }
+</style>"""
+
+
+# ═══════════════════════════════════════════════════════════════════
 # 7. TABLO KOLONLARI
 #    Sorun: para değerleri DataFrame'e METİN olarak giriyordu ("$1.170.000").
 #    Sonuç: sola yaslanıyor VE başlığa tıklayınca alfabetik sıralanıyor —

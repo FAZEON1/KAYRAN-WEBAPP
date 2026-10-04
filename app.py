@@ -573,7 +573,7 @@ if not st.session_state.get("_db_saglik_ok"):
 
 # ── Global işlem göstergesi: her işlemde üstte progress bar + "İşleniyor" kapsülü ──
 from shared.tasarim import cekirdek_css, islem_gosterge_css
-from shared.ui import genel_tema_css
+from shared.tasarim import genel_tema_css
 # token_css() kaldırıldı — CSS değişkenlerini cekirdek_css() basıyor.
 
 # ── GLOBAL PLOTLY TEMASI: tüm modüllerdeki grafikler bu görünümü miras alır ──
@@ -3352,7 +3352,7 @@ def main():
                 st.error(_uyari + " Ana sayfaya yönlendirildiniz.")
             anasayfa()
         elif aktif == "arama":
-            from shared.ui import sayfa_baslik as _sb_ara
+            from shared.tasarim import sayfa_baslik as _sb_ara
             st.markdown(_sb_ara("🔍", "Arama", "Tüm modüllerde ara — sonuç kartına tıkla, ilgili modüle git"), unsafe_allow_html=True)
             _arama_kutusu("sayfa")
         elif aktif == "kayranacc":

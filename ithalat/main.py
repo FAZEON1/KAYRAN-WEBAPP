@@ -77,7 +77,7 @@ def _tr_upper(s):
 
 
 def _baslik(ikon, ad, alt):
-    from shared.ui import sayfa_baslik as _sb
+    from shared.tasarim import sayfa_baslik as _sb
     st.markdown(_sb(ikon, ad, alt), unsafe_allow_html=True)
 
 def _metrik_satiri(cards):
