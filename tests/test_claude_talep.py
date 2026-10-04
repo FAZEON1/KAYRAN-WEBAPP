@@ -133,10 +133,51 @@ def test_is_akisi_talimat_ve_ekran():
     assert "python otonom/talep_pr.py" in w and "contains(github.event.pull_request.title, 'Talep #')" in w
     assert "PR_BASLIK: ${{ github.event.pull_request.title }}" in w and "ref: main" in w
     g = (KOK / "otonom" / "claude_talep_gorevi.md").read_text(encoding="utf-8")
-    for kural in ("Talep #<id>: <kısa konu>", "claude_durum='calisiyor'", "Rakam değiştiren",
+    for kural in ("Talep #<id>: <kısa konu>", "talep_db.py sonraki", "talep_db.py ustlen", "Rakam değiştiren",
                   "main'e push", "Onaylı talep yok."):
         assert kural in g, kural
     a = (KOK / "app.py").read_text(encoding="utf-8")
     assert "_claude_bolumu(_t, _kul)" in a and "C.onaylayabilir_mi(kul, ozel_yetki)" in a
     s = (KOK / "veritabani" / "19_talep_claude.sql").read_text(encoding="utf-8")
     assert "ADD COLUMN IF NOT EXISTS claude_durum" in s and "claude_pr_url" in s
+
+
+# ── Rutinin veritabanı aracı (otonom/talep_db.py): rutinlerde Supabase bağlayıcısı yok ──
+def test_talep_db_karar_sira_mesgul_bayat():
+    import otonom.talep_db as D
+    from datetime import timezone, timedelta
+    s = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
+    on = [{"id": 2, "claude_durum": "onaylandi", "claude_onay_tarihi": "2026-10-05T09:00:00+00:00"},
+          {"id": 1, "claude_durum": "onaylandi", "claude_onay_tarihi": "2026-10-04T09:00:00+00:00"}]
+    assert D.karar([], s) == ("YOK", None, [])
+    assert D.karar(on, s) == ("AL", 1, [])
+    taze = {"id": 3, "claude_durum": "calisiyor", "claude_guncelleme": (s - timedelta(hours=1)).isoformat()}
+    assert D.karar(on + [taze], s) == ("MESGUL", None, [])
+    eski = dict(taze, id=4, claude_guncelleme=(s - timedelta(hours=5)).isoformat())
+    assert D.karar(on + [eski], s) == ("AL", 1, [4])
+
+
+def test_talep_db_yalniz_talepler_ve_claude_alanlari(monkeypatch):
+    import io
+    import json
+    import pytest
+    import otonom.talep_db as D
+    istekler = []
+
+    def _ac(r, timeout=0):
+        istekler.append((r.get_method(), r.full_url, json.loads(r.data) if r.data else None))
+        return io.BytesIO(b'[{"id": 9, "konu": "x", "claude_durum": "calisiyor"}]')
+    monkeypatch.setenv("SUPABASE_URL", "https://p.supabase.co/")
+    monkeypatch.setenv("SUPABASE_KEY", "k")
+    monkeypatch.setattr(D.urllib.request, "urlopen", _ac)
+    assert D.ustlen(9)["konu"] == "x"
+    assert D.yaz(9, "pr_hazir", "tamam", "https://github.com/x/y/pull/3")
+    for yontem, url, govde in istekler:
+        assert url.startswith("https://p.supabase.co/rest/v1/talepler?")
+        assert all(k.startswith("claude_") for k in govde or {})
+    assert "claude_durum=eq.onaylandi" in istekler[0][1]           # atomik üstlenme
+    assert istekler[1][2]["claude_pr_url"].endswith("/3")
+    with pytest.raises(ValueError):
+        D.yazilacak("yayinda")                                     # yayına alma iş akışının işi
+    with pytest.raises(ValueError):
+        D.ustlen("9; drop")
