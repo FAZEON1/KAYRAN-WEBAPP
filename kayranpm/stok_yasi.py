@@ -173,6 +173,85 @@ def toplam_ozet(ozetler):
             "ort_gun": (agirlik / kapsanan) if kapsanan > 0 else None, "gruplar": gruplar}
 
 
+# ── Saf: liste ve Excel satırları (Stok yaşı sayfası) ───────────────
+TUR_AD = {"ithalat": "İthalat", "yurtici": "Yurt içi", "yerli": "Yerli üretim"}
+
+
+def _yuvarla(v):
+    return None if v is None else round(v)
+
+
+def urun_satirlari(bizim, pacal, grup=None):
+    """Ürün listesi. grup verilirse yalnız o yaş grubunda adedi olan ürünler, o gruptaki adet ve
+    değeriyle (KAYITSIZ: giriş kaydı olmayan adet). bizim: hesapla()['bizim']; pacal: {sku: $}."""
+    out = []
+    for k, (oz, _kal, u) in (bizim or {}).items():
+        p = float(pacal.get(k, 0) or 0)
+        r = {"_id": k, "SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "", "Kategori": u.get("kategori") or ""}
+        if grup is not None:
+            a = oz["gruplar"].get(grup, 0) if grup != KAYITSIZ else oz["kapsanmayan"]
+            if a <= 0:
+                continue
+            r.update({"Bu yaştaki adet": a, "Bu yaştaki değer ($)": round(a * p, 2)})
+        r.update({"Toplam stok": oz["stok"], "Ort. yaş (gün)": _yuvarla(oz["ort_gun"]),
+                  "En eski (gün)": oz["en_eski_gun"]})
+        if grup is None:
+            for g, _a, _u in GRUPLAR:
+                r[g] = oz["gruplar"].get(g, 0)
+            r[KAYITSIZ] = oz["kapsanmayan"]
+        r["Toplam değer ($)"] = round(oz["stok"] * p, 2)
+        out.append(r)
+    if grup is None:
+        out.sort(key=lambda r: (-(r["Ort. yaş (gün)"] or -1), r["SKU"]))
+    else:
+        out.sort(key=lambda r: (-r["Bu yaştaki adet"], r["SKU"]))
+    return out
+
+
+def parti_satirlari(bizim, bugun, grup=None, skular=None):
+    """Elde kalan her parti bir satır (Excel 'Partiler' sayfası). grup: yalnız o yaş grubundaki
+    partiler; skular: yalnız bu ürünler."""
+    out = []
+    for k, (_oz, kal, u) in (bizim or {}).items():
+        if skular is not None and k not in skular:
+            continue
+        for p in reversed(kal):
+            g = _gun(p.get("tarih"), bugun)
+            ga = grup_adi(g or 0)
+            if grup is not None and ga != grup:
+                continue
+            out.append({"SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "", "Belge": p.get("belge") or "",
+                        "Tür": TUR_AD.get(p.get("tur"), ""), "Depoya giriş": str(p.get("tarih"))[:10],
+                        "Kalan adet": p.get("kalan"), "Yaş (gün)": g, "Yaş grubu": ga})
+    return out
+
+
+def musteri_satirlari(musteri, firma_ad=lambda f: f):
+    out = []
+    for firma, skular in (musteri or {}).items():
+        for sku, (oz, _kal) in skular.items():
+            r = {"Müşteri": firma_ad(firma), "SKU": sku, "Stok": oz["stok"],
+                 "Ort. yaş (gün)": _yuvarla(oz["ort_gun"]), "En eski (gün)": oz["en_eski_gun"]}
+            for g, _a, _u in GRUPLAR:
+                r[g] = oz["gruplar"].get(g, 0)
+            r["Kaydı yok"] = oz["kapsanmayan"]
+            out.append(r)
+    out.sort(key=lambda r: (r["Müşteri"], -(r["Ort. yaş (gün)"] or -1)))
+    return out
+
+
+def excel_bytes(sayfalar):
+    """{sayfa adı: satırlar} → .xlsx baytları. '_' ile başlayan sütunlar yazılmaz."""
+    import io
+    import pandas as pd
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        for ad, rows in sayfalar.items():
+            temiz = [{k: v for k, v in r.items() if not str(k).startswith("_")} for r in (rows or [])]
+            pd.DataFrame(temiz or [{"Bilgi": "Kayıt yok"}]).to_excel(w, index=False, sheet_name=str(ad)[:31])
+    return buf.getvalue()
+
+
 # ── Okuma (önbellekli) ──────────────────────────────────────────────
 def _bugun():
     try:
