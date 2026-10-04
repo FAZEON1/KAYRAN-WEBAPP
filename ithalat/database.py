@@ -37,6 +37,24 @@ MASRAF_TANIM = [
     ("diger",                  "Diğer"),
 ]
 MASRAF_ETIKET = dict(MASRAF_TANIM)
+MASRAF_ETIKET.setdefault("nakliye", "Nakliye")   # yurt içi alış masrafı (ithalat formlarında yok)
+
+# ── Alım türü (veritabani/18_alim_turu.sql, Ekim 2026) ──
+# Yurt içi satın alma ve yerli üretim ithalat dosyalarıyla AYNI tablolarda tutulur; paçal, stok
+# kartı alımları, Model sorgu ve stok yaşı onları kendiliğinden kullanır. İthalat LİSTELERİ
+# (Geçmiş ithalatlar, Masraf detayları, Excel eşleştirme) yalnız ithalatı gösterir: ithalat_mi.
+# Tutarlar ithalatta olduğu gibi USD saklanır; 'doviz' girişin para birimi, 'kur' TL/USD.
+ALIM_TURLERI = {"ithalat": "İthalat", "yurtici": "Yurt içi satın alma", "yerli": "Yerli üretim"}
+
+
+def alim_turu(dosya):
+    """'ithalat' | 'yurtici' | 'yerli' — boş ya da tanınmayan değer ithalattır (eski kayıtlar)."""
+    t = str((dosya or {}).get("alim_turu") or "").strip().lower()
+    return t if t in ALIM_TURLERI else "ithalat"
+
+
+def ithalat_mi(dosya):
+    return alim_turu(dosya) == "ithalat"
 # Eski sürüm (5 sabit kolon) — geriye dönük okuma için
 _ESKI_MASRAF = ["navlun", "gumruk", "sigorta", "nakliye", "diger"]
 
@@ -129,7 +147,7 @@ def masraf_dokumu(dosya):
     bilinen = {s for s, _ in MASRAF_TANIM}
     for k, v in m.items():
         if k not in bilinen and v:
-            sirali.append((k, v))
+            sirali.append((MASRAF_ETIKET.get(k, k), v))
     return sirali
 
 
@@ -776,13 +794,19 @@ def _yukleme_bildir(dosya_id, payload, eski_baslik=None, eski_kalemler=None):
 def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                masraflar, notlar, kalemler, pi_no="", ithalat_takip_no="",
                grup_masraf_atama=None,
-               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no=""):
+               durum="", tahmini_varis="", fatura_indirim=0, teslim_tarihi="", teslim_deposu="", teslim_sekli="", sas_no="",
+               alim_turu="", stok_ekle=True):
     """Bir ithalat dosyası + kalemlerini ekler.
     masraflar: {slug: tutar}  (örn. {'navlun': 1200, 'damga_vergisi': 80})
     kalemler:  list[dict(sku, urun_adi, adet, birim_fob)]
     durum:     "Üretimde"|"Yolda"|"Gümrükte"|"Antrepoda"|"Teslim Alındı"
     tahmini_varis: "YYYY-MM-DD" (gecikme riski hesabı için)
     fatura_indirim: fatura altı indirim tutarı (dosya para biriminde)
+    alim_turu: 'yurtici' | 'yerli' (yurt içi alış sayfası); boş = ithalat. Sütun yoksa
+               (veritabani/18) kayıt HATA verir — sessizce ithalat diye yazılmasın.
+    stok_ekle: 'Teslim Alındı' dosyada kalemler stoğa eklensin mi. False = geçmiş alım
+               sonradan giriliyor, mal zaten depoda: stoğa DOKUNULMAZ, işlenme kaydı boş kalır
+               (sonraki düzeltmeler de stoğu değiştirmez).
     Döner: (ok: bool, mesaj: str)."""
     sb = _get_client()
     try:
@@ -803,6 +827,8 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
             "teslim_deposu": teslim_deposu or "",
             "teslim_sekli": teslim_sekli or "",
         }
+        if str(alim_turu or "").strip().lower() in ("yurtici", "yerli"):
+            _payload["alim_turu"] = str(alim_turu).strip().lower()   # opsiyonel DEĞİL: düşerse ithalat olur
         d = _rows(_yaz_graceful(
             lambda p: sb.table("ithalat_dosyalari").insert(p).execute(), _payload))
         if not d:
@@ -846,7 +872,7 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                     except Exception:
                         pass
                     return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
-        if str(durum or "").strip() == "Teslim Alındı":
+        if str(durum or "").strip() == "Teslim Alındı" and stok_ekle:
             _dosya_stok_uygula(dosya_id, +1,
                                kalem_agg=_dosya_kalem_agg(kalemler),
                                depo=teslim_deposu)
@@ -1024,6 +1050,26 @@ def sil_dosya(dosya_id):
         return True
     except Exception:
         return False
+
+
+def yurtici_sil(dosya_id):
+    """Yurt içi alışı siler. Stoğa EKLENMİŞ alım (işlenme kaydı True) önce stoktan geri çekilir;
+    'mal zaten depodaydı' diye girilmiş alımın (kayıt boş) stoğuna dokunulmaz. Döner (ok, mesaj)."""
+    try:
+        sb = _get_client()
+        d = (_rows(sb.table("ithalat_dosyalari").select("*").eq("id", dosya_id).execute()) or [None])[0]
+        if not d:
+            return False, "Kayıt bulunamadı."
+        if ithalat_mi(d):
+            return False, "Bu bir ithalat dosyası; İthalat modülünden silinir."
+        geri = d.get("stok_islendi") is True
+        if geri:
+            _dosya_stok_uygula(dosya_id, -1)
+        if not sil_dosya(dosya_id):
+            return False, "Silinemedi."
+        return True, ("Silindi; kalemler stoktan geri çekildi." if geri else "Silindi; stoğa dokunulmadı.")
+    except Exception as e:
+        return False, f"Hata: {type(e).__name__}: {str(e)[:150]}"
 
 
 def set_dosya_takip_no(dosya_id, takip_no):
@@ -1213,7 +1259,7 @@ def get_tedarikciler():
     """Mevcut ithalatlardaki benzersiz tedarikçi adları (alfabetik) — yeni ithalatta seçim için."""
     try:
         adlar = {str(d.get("tedarikci", "") or "").strip()
-                 for d in get_dosyalar() if str(d.get("tedarikci", "") or "").strip()}
+                 for d in get_dosyalar() if str(d.get("tedarikci", "") or "").strip() and ithalat_mi(d)}
         return sorted(adlar, key=lambda x: x.lower())
     except Exception:
         return []
@@ -1410,6 +1456,7 @@ def get_sku_alim_detay(sku):
                 "durum": d.get("durum") or "",
                 "siparis_tarih": str(d.get("tarih") or "")[:10],
                 "teslim_tarih": str(d.get("teslim_tarihi") or "")[:10],
+                "alim_turu": alim_turu(d),
                 "indirim_orani": dosya_indirim.get(did, 0.0),
                 "_dosya": d,
             })
@@ -1540,6 +1587,8 @@ def _teslim_ayir(dosyalar, kalem_map):
         _islendi = d.get("stok_islendi")
         if _islendi is True:
             continue
+        if _islendi is None and not ithalat_mi(d):
+            continue            # yurt içi alış 'mal zaten depoda' girildi: bilerek stoğa işlenmedi
         (bekleyen if _islendi is False else kayitsiz).append({
             "id": d["id"], "dosya_no": d.get("dosya_no", ""),
             "teslim_deposu": (d.get("teslim_deposu") or "").strip(),

@@ -28,6 +28,13 @@ def _kaydet(yer, hata=None, *a, **k):
 
 _hl.kaydet = _kaydet
 
+# Örnek veriyle çalışan testler (test_stok_yasi_veri) önceki sayfaların BOŞ veriyle doldurduğu
+# önbelleği temizletir; temizlik AppTest çalışma zamanının içinde yapılmalı.
+if os.environ.get("DUMAN_ONBELLEK_TEMIZLE"):
+    st.cache_data.clear()
+    from shared.veri_surumu import bagimlilari_temizle   # uygulamanın kendi tazelik listesi
+    bagimlilari_temizle()
+
 # Bileşenler (components v2) ilk çağrıda bir kez kaydedilip modülde tutulur; kayıt Streamlit
 # örneğine bağlı. Canlıda tek örnek var; test her sayfa için yeni örnek açtığından kayıt yenilenir.
 for _ad in ("shared.palet", "shared.tablo", "shared.duzenle"):

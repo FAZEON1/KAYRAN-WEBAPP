@@ -22,6 +22,7 @@ from .database import (
     get_tedarikciler, teslim_tarihleri_uygula, set_dosya_teslim, set_dosya_durum,
     set_dosya_sas, set_dosya_teslim_sekli,
     get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
+    ithalat_mi,
 )
 
 
@@ -303,7 +304,7 @@ def _masraf_karti(d, h):
 # ─────────────────────────────────────────────────────────────────────
 def _gecmis_ithalatlar():
     _baslik("📋", "Geçmiş İthalatlar", "Dosya başı toplam masraf ve FOB üzerine binen % maliyet")
-    dosyalar = get_dosyalar()
+    dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]      # yurt içi alışlar Ürün Yönetimi'nde
 
     # ── ⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları — hızlı depo atama ──
     _depo_eksik = [d for d in (dosyalar or [])
@@ -1664,7 +1665,7 @@ def _yeni_ithalat():
                 return str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
             df = df.copy()
             df["_grup"] = df.apply(_grup_key, axis=1)
-            _dosyalar = get_dosyalar()
+            _dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]   # yurt içi belge no eşleşmesin
             # Mevcut dosya haritası: belge/dosya no VEYA takip no ile bul
             _dosya_map = {}
             for _d in _dosyalar:
@@ -2000,7 +2001,7 @@ def _model_sorgu():
 # ─────────────────────────────────────────────────────────────────────
 def _masraf_detaylari():
     _baslik("💸", "Masraf Detayları", "Tüm ithalatlarda girilmiş her masraf kalemi — belge · masraf türü · tutar")
-    dosyalar = get_dosyalar()
+    dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]
     if not dosyalar:
         st.info("Henüz ithalat kaydı yok.")
         return

@@ -255,6 +255,8 @@ EMOJI_IKON = {
 # Menüde görünen İngilizce ad → Türkçe. DEĞER aynı kalır (kod "📊 Dashboard"
 # ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
 MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
+# Emojisiz yeni menü seçenekleri (Ekim 2026): emoji yerine ikon adı burada (ekranda emoji sayısı artmaz).
+MENU_IKON = {"Stok Yaşı": "hourglass_bottom"}
 
 
 def emoji_ayir(metin):
@@ -335,6 +337,8 @@ def menu_etiketi(metin):
     st.radio(..., format_func=menu_etiketi) ile kullanılır. Tanınmayan emoji
     atılır (menüde yarı emoji yarı ikon karışımı olmasın)."""
     s = str(metin or "").strip()
+    if s in MENU_IKON:
+        return f":material/{MENU_IKON[s]}: {s}"
     for emo in sorted(EMOJI_IKON, key=len, reverse=True):
         if s.startswith(emo):
             ad = s[len(emo):].strip()

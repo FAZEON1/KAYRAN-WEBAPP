@@ -74,7 +74,7 @@ def test_editor_anahtari_listeye_bagli():
 
 
 def test_maliyet_editoru_sabit_anahtarla_cizilmiyor():
-    m = _govde(_oku(MAIN), 'elif sayfa == "💵  Maliyet Girişi":')
+    m = _govde(_oku(MAIN), 'elif sayfa == "💵  Yurt İçi Alış":')
     assert 'key="mal_editor"' not in m and "editor_anahtari(" in m
     assert "kaydedilmemiş" in m                                        # sıfırlanınca uyarı
     assert 'st.success("✅ {} ürünün maliyeti' not in m               # rerun'dan önce kaybolurdu

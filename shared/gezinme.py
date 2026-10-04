@@ -54,12 +54,21 @@ MODULLER = [
      "sayfalar": [
          ("📊  Dashboard", "genel_bakis", "Genel bakış", None),
          ("📋  Tüm Ürünler", "tum_urunler", "Tüm ürünler", None),
+         ("Stok Yaşı", "stok_yasi", "Stok yaşı", None),
          ("📈  Müşteri Satışları", "musteri_satislari", "Müşteri satışları", None),
          ("🎯  Kampanya Takip", "kampanya", "Kampanya takip", None),
          ("📦  Sipariş Önerisi", "siparis_onerisi", "Sipariş önerisi", None),
-         ("💵  Maliyet Girişi", "maliyet", "Maliyet girişi", None),
+         ("💵  Yurt İçi Alış", "maliyet", "Yurt içi alış", None),
          ("🔖  Ref No Takibi", "ref_no", "Ref No takibi", None),
          ("📂  Veri Yükleme", "veri_yukleme", "Veri yükleme", None),
+     ],
+     # 9 sayfa tek sekme satırına sığmıyor → iki katlı (Stok yaşı eklenince, Ekim 2026)
+     "gruplar": [
+         ("genel", "Genel bakış", ["genel_bakis"]),
+         ("urunler", "Ürün ve stok", ["tum_urunler", "stok_yasi", "maliyet"]),
+         ("musteri", "Müşteri ve kampanya", ["musteri_satislari", "kampanya", "ref_no"]),
+         ("siparis", "Sipariş", ["siparis_onerisi"]),
+         ("veri", "Veri yükleme", ["veri_yukleme"]),
      ]},
     {"kod": "depo", "ad": "Depo", "ikon": "warehouse", "anahtar": "depo_sayfa",
      "sayfalar": [

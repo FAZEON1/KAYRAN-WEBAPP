@@ -44,6 +44,7 @@ BAGIMLILAR = (
     ("kayranpm.analitik", "tum_urunler_listesi"),
     ("kayranpm.analitik", "dashboard_hesapla"),
     ("kayranpm.analitik", "siparis_onerisi_listesi"),
+    ("kayranpm.stok_yasi", "hesapla"),
     ("satis.database", "_urunler_hepsi"),
     ("satis.database", "get_urunler"),
     ("satis.database", "get_sku_kategori"),

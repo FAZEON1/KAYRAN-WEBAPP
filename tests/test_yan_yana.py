@@ -17,7 +17,7 @@ def _oku(p):
 def _tum_urunler_detay():
     s = _oku("kayranpm/main.py")
     i = s.index('elif sayfa == "📋  Tüm Ürünler":')
-    j = s.index('elif sayfa == "💵  Maliyet Girişi":')
+    j = s.index('elif sayfa == "💵  Yurt İçi Alış":')
     g = s[i:j]
     return g[g.index("B.koru("):]                       # detay dalı
 

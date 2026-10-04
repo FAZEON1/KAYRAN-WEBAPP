@@ -16,7 +16,7 @@ def test_modul_sayfa_listeleri_kayit_defterinden():
     """Modüllerin menü seçenekleri kayıt defteriyle AYNI kalmalı; elle liste yazılırsa
     palet ve adres çubuğu o sayfayı bulamaz."""
     g = _g()
-    beklenen = {"kayranpm": ("kayranpm/main.py", 8), "depo": ("depo/main.py", 5),
+    beklenen = {"kayranpm": ("kayranpm/main.py", 9), "depo": ("depo/main.py", 5),
                 "ithalat": ("ithalat/main.py", 4), "teknikservis": ("teknikservis/main.py", 6),
                 "satis": ("satis/main.py", 5), "kayranacc": ("kayranacc/main.py", 13)}
     for mod, (dosya, n) in beklenen.items():
@@ -251,4 +251,6 @@ def test_sayfanin_grubu():
     g = _g()
     assert g.grup_adi("kayranacc", "🧾 Cari Ekstre") == "Cari"
     assert g.grup_adi("kayranacc", "💸 Nakit Akış") == "Nakit"
-    assert g.grup_adi("kayranpm", "📋  Tüm Ürünler") is None      # gruplanmamış modül
+    assert g.grup_adi("kayranpm", "📋  Tüm Ürünler") == "Ürün ve stok"   # 9 sayfa: gruplu (Ekim 2026)
+    assert g.grup_adi("kayranpm", "Stok Yaşı") == "Ürün ve stok"
+    assert g.grup_adi("depo", "🏬 Depo Stok") is None             # gruplanmamış modül
