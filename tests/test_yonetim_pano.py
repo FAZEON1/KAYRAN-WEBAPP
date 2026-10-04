@@ -97,7 +97,8 @@ def test_pnl_topla_aylar_gider_ayini_sinirlar():
 def test_ekran_yapisi():
     y = (KOK / "yonetim.py").read_text(encoding="utf-8")
     from shared.gezinme import secenekler
-    assert secenekler("yonetim") == ["Özet", "Kanal ve ürün", "Destekler ve giderler", "Ay kapanışı", "Sistem"]
+    assert secenekler("yonetim") == ["Özet", "Para haritası", "Kanal ve ürün", "Destekler ve giderler",
+                                     "Ay kapanışı", "Sistem"]
     assert 'sayfa_menusu("Bölüm", secenekler("yonetim"), modul="yonetim", key="yon_sayfa"' in y
     for f in ("def _ozet(", "def _kanal_urun(", "def _destek_gider(", "def _ay_kapanis(", "def _sistem(",
               "def _trend(", "add_script_run_ctx"):

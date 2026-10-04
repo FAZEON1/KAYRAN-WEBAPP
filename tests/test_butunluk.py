@@ -78,7 +78,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
-for _d in ("yonetim_hesap.py", "yonetim_pano.py"):               # kökteki modüller
+for _d in ("yonetim_hesap.py", "yonetim_pano.py", "yonetim_para.py"):   # kökteki modüller
     _TARANAN_MODULLER[_d[:-3]] = _ust_duzey_isimler(KOK / _d)
 
 
@@ -188,6 +188,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
+    "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
