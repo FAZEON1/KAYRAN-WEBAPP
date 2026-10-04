@@ -677,6 +677,11 @@ def run():
         # gelir ve doğrudur → herkese gösterilir.
         from shared.kar_gizle import kar_gorunur, uyari_ciz
         st.markdown(pencere_css(), unsafe_allow_html=True)
+        if _bolum == "Para haritası":
+            # Kâr verisi değil (varlık / borç): Yönetim yetkisi olan herkes görür — kâr gizlemeden önce
+            from yonetim_para import sayfa as _para_haritasi
+            _para_haritasi()
+            return
         if not kar_gorunur():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)

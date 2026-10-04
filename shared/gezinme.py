@@ -21,6 +21,7 @@ MODULLER = [
     {"kod": "yonetim", "ad": "Yönetim", "ikon": "monitoring", "ozel": "yonetim", "anahtar": "yon_sayfa",
      "sayfalar": [
          ("Özet", "ozet", "Özet", None),
+         ("Para haritası", "para_haritasi", "Para haritası", None),
          ("Kanal ve ürün", "kanal_urun", "Kanal ve ürün", None),
          ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
          ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
