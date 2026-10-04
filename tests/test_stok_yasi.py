@@ -77,3 +77,45 @@ def test_urun_yasi_ve_toplam():
     t = Y.toplam_ozet([o1, o2])
     assert t["stok"] == 65 and t["kapsanmayan"] == 5 and t["gruplar"]["180+ gün"] == 20
     assert round(t["ort_gun"], 2) == round(o1["ort_gun"], 2)
+
+
+# ── Sayfa: yaş grubuna tıklayınca ürünler, Excel (Ekim 2026) ────────
+def _bizim():
+    o1, k1 = Y.urun_yasi(60, [{"tarih": "2026-09-04", "adet": 40, "belge": "D2", "tur": "ithalat"},
+                              {"tarih": "2026-03-08", "adet": 40, "belge": "D1", "tur": "ithalat"}], BUGUN)
+    o2, k2 = Y.urun_yasi(15, [{"tarih": "2026-09-20", "adet": 10, "belge": "YI-1", "tur": "yurtici"}], BUGUN)
+    return {"A": (o1, k1, {"sku": "A", "urun_adi": "Ürün A", "kategori": "Monitör"}),
+            "B": (o2, k2, {"sku": "B", "urun_adi": "Ürün B", "kategori": "Mouse pad"})}
+
+
+def test_grup_secilince_yalniz_o_gruptaki_urunler():
+    b, pacal = _bizim(), {"A": 10.0, "B": 2.0}
+    r = Y.urun_satirlari(b, pacal, grup="180+ gün")
+    assert [(x["SKU"], x["Bu yaştaki adet"], x["Bu yaştaki değer ($)"]) for x in r] == [("A", 20, 200.0)]
+    r = Y.urun_satirlari(b, pacal, grup="0–30 gün")
+    assert [(x["SKU"], x["Bu yaştaki adet"]) for x in r] == [("A", 40), ("B", 10)]
+    r = Y.urun_satirlari(b, pacal, grup=Y.KAYITSIZ)
+    assert [(x["SKU"], x["Bu yaştaki adet"]) for x in r] == [("B", 5)]
+    tum = Y.urun_satirlari(b, pacal)
+    assert len(tum) == 2 and tum[0]["180+ gün"] == 20 and tum[1][Y.KAYITSIZ] == 5
+
+
+def test_parti_satirlari_grup_suzgeci():
+    b = _bizim()
+    p = Y.parti_satirlari(b, BUGUN, grup="180+ gün")
+    assert p == [{"SKU": "A", "Ürün": "Ürün A", "Belge": "D1", "Tür": "İthalat", "Depoya giriş": "2026-03-08",
+                  "Kalan adet": 20, "Yaş (gün)": 210, "Yaş grubu": "180+ gün"}]
+    assert {x["Belge"] for x in Y.parti_satirlari(b, BUGUN)} == {"D1", "D2", "YI-1"}
+
+
+def test_excel_sayfalari():
+    import io
+    import openpyxl
+    b = _bizim()
+    xb = Y.excel_bytes({"Ürünler": Y.urun_satirlari(b, {}, grup="180+ gün"), "Boş": []})
+    wb = openpyxl.load_workbook(io.BytesIO(xb))
+    assert wb.sheetnames == ["Ürünler", "Boş"]
+    ws = wb["Ürünler"]
+    basliklar = [c.value for c in ws[1]]
+    assert "_id" not in basliklar and basliklar[:3] == ["SKU", "Ürün", "Kategori"]
+    assert ws.cell(2, 1).value == "A" and wb["Boş"].cell(1, 1).value == "Bilgi"

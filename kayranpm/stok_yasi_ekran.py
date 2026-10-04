@@ -44,7 +44,7 @@ def _grup_tablosu(oz, pacal_birim=None, key="sy_grup"):
         if pacal_birim is not None:
             r["Değer ($)"] = round(a * pacal_birim.get(g, 0.0), 2)
         satir.append(r)
-    tablo(satir, key=key, dosya_adi="stok_yasi_gruplar", kompakt=True)
+    tablo(satir, key=key, dosya_adi="stok_yasi_gruplar", arama=True)
 
 
 def _parti_tablosu(kalanlar, bugun, key, musteri=False):
@@ -63,7 +63,7 @@ def _parti_tablosu(kalanlar, bugun, key, musteri=False):
         if not musteri:
             r["Tür"] = tur.get(k.get("tur"), "")
         rows.append(r)
-    tablo(rows, key=key, dosya_adi="stok_yasi_partiler", kompakt=True)
+    tablo(rows, key=key, dosya_adi="stok_yasi_partiler", arama=True)
 
 
 def kart_bolumu(sku):
@@ -112,23 +112,6 @@ def kart_bolumu(sku):
         st.caption("Müşterilerin son raporlarında bu ürün yok.")
 
 
-def _urun_satirlari(bizim, pacal, bugun):
-    rows, ozetler = [], []
-    for k, (oz, _kal, u) in bizim.items():
-        ozetler.append(oz)
-        p = float(pacal.get(k, 0) or 0)
-        r = {"_id": k, "SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "", "Kategori": u.get("kategori") or "",
-             "Stok": oz["stok"], "Ort. yaş (gün)": None if oz["ort_gun"] is None else round(oz["ort_gun"]),
-             "En eski (gün)": oz["en_eski_gun"]}
-        for g, _a, _u in Y.GRUPLAR:
-            r[g] = oz["gruplar"].get(g, 0)
-        r[Y.KAYITSIZ] = oz["kapsanmayan"]
-        r["Değer ($)"] = round(oz["stok"] * p, 2)
-        rows.append(r)
-    rows.sort(key=lambda r: (-(r["Ort. yaş (gün)"] or -1), r["SKU"]))
-    return rows, ozetler
-
-
 def _grup_degerleri(bizim, pacal):
     """{grup: değer $} — her ürünün grup adedi × paçal."""
     out = {}
@@ -163,11 +146,11 @@ def goster():
     pacal, bugun = _pacal(), v["bugun"]
     t1, t2 = st.tabs(["Bizim stok", "Müşterilerdeki stok"])
     with t1:
-        rows, ozetler = _urun_satirlari(v["bizim"], pacal, bugun)
+        rows = Y.urun_satirlari(v["bizim"], pacal)
         if not rows:
             st.info("Satılabilir depolarda stok yok.")
         else:
-            top = Y.toplam_ozet(ozetler)
+            top = Y.toplam_ozet([oz for oz, _k, _u in v["bizim"].values()])
             gd = _grup_degerleri(v["bizim"], pacal)
             yasli = sum(top["gruplar"].get(g, 0) for g in ("91–180 gün", "180+ gün"))
             metrik_satiri([
@@ -177,14 +160,35 @@ def goster():
                  "alt": f"$ {tr_sayi(gd.get('91–180 gün', 0) + gd.get('180+ gün', 0), 0)}"},
                 {"label": Y.KAYITSIZ, "value": tr_sayi(top["kapsanmayan"])},
             ])
-            sira = [g for g, _a, _u in Y.GRUPLAR] + [Y.KAYITSIZ]
-            tablo([{"Yaş": g, "Adet": top["gruplar"].get(g, 0),
-                    "Pay (%)": round(top["gruplar"].get(g, 0) / top["stok"] * 100, 1) if top["stok"] else 0.0,
-                    "Değer ($)": round(gd.get(g, 0.0), 2)} for g in sira if top["gruplar"].get(g, 0)],
-                  key="sy_toplam_grup", dosya_adi="stok_yasi_ozet", kompakt=True)
+            sira = [g for g in [g for g, _a, _u in Y.GRUPLAR] + [Y.KAYITSIZ] if top["gruplar"].get(g, 0)]
+            ozet = [{"_id": g, "Yaş": g, "Adet": top["gruplar"].get(g, 0),
+                     "Pay (%)": round(top["gruplar"].get(g, 0) / top["stok"] * 100, 1) if top["stok"] else 0.0,
+                     "Değer ($)": round(gd.get(g, 0.0))} for g in sira]
+            gsec = tablo(ozet, key="sy_toplam_grup", kalici=True, arama=True, dosya_adi="stok_yasi_ozet")
+            grup = ozet[gsec]["_id"] if gsec is not None and gsec < len(ozet) else None
+            tum = {"Özet": ozet, "Ürünler": rows, "Partiler": Y.parti_satirlari(v["bizim"], bugun),
+                   "Müşteriler": Y.musteri_satirlari(v["musteri"], _firma_ad)}
+            e1, e2 = st.columns(2)
+            e2.download_button("Excel: tümü", Y.excel_bytes(tum), file_name=f"stok_yasi_{bugun}.xlsx",
+                               icon=":material/download:", key="sy_xl_tum", use_container_width=True,
+                               help="Özet, ürünler, elde kalan partiler ve müşteri stokları ayrı sayfalarda.")
+            if grup is None:
+                e1.caption("Bir yaş grubuna tıkla: o gruptaki ürünler altta listelenir ve ayrıca indirilebilir.")
+            else:
+                g_rows = Y.urun_satirlari(v["bizim"], pacal, grup=grup)
+                g_part = Y.parti_satirlari(v["bizim"], bugun, grup=grup) if grup != Y.KAYITSIZ else []
+                e1.download_button(f"Excel: {grup}", Y.excel_bytes({"Ürünler": g_rows, "Partiler": g_part}),
+                                   file_name=f"stok_yasi_{grup.replace(' ', '_').replace('–', '-')}_{bugun}.xlsx",
+                                   icon=":material/download:", key="sy_xl_grup", use_container_width=True)
+                with st.container(border=True):
+                    st.markdown(f"**{grup}** · {tr_sayi(len(g_rows))} ürün · "
+                                f"{tr_sayi(sum(r['Bu yaştaki adet'] for r in g_rows))} adet · "
+                                f"$ {tr_sayi(sum(r['Bu yaştaki değer ($)'] for r in g_rows), 0)}")
+                    tablo(g_rows, key=f"sy_grup_urun_{grup}", arama=True, dosya_adi="stok_yasi_grup")
             if top["kapsanmayan"] > 0:
                 st.caption(f"{tr_sayi(top['kapsanmayan'])} adedin giriş kaydı yok (yurt içinden alınmış olabilir); "
                            "Yurt içi alış sayfasından alımı girince yaşı hesaplanır.")
+            st.markdown("**Tüm ürünler**")
             sec = tablo(rows, key="sy_urunler", kalici=True, arama=True, dosya_adi="stok_yasi_urunler")
             if sec is not None:
                 k = rows[sec]["_id"]
@@ -207,7 +211,11 @@ def goster():
                                "90 günden yaşlı": sum(top["gruplar"].get(g, 0) for g in ("91–180 gün", "180+ gün")),
                                "Kaydı yok": top["kapsanmayan"]})
         ozet_satir.sort(key=lambda r: -r["Stok"])
-        tablo(ozet_satir, key="sy_musteri_ozet", dosya_adi="stok_yasi_musteriler", kompakt=True)
+        tablo(ozet_satir, key="sy_musteri_ozet", dosya_adi="stok_yasi_musteriler", arama=True)
+        st.download_button("Excel: tüm müşteriler", Y.excel_bytes({"Müşteri özeti": ozet_satir,
+                                                                    "Müşteri × ürün": Y.musteri_satirlari(mus, _firma_ad)}),
+                           file_name=f"stok_yasi_musteriler_{bugun}.xlsx", icon=":material/download:",
+                           key="sy_xl_musteri")
         firmalar = sorted(mus, key=lambda f: -sum(oz["stok"] for oz, _k in mus[f].values()))
         firma = st.selectbox("Müşteri", firmalar, format_func=_firma_ad, key="sy_firma")
         satir = []

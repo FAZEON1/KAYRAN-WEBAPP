@@ -82,6 +82,8 @@ def test_stok_yasi_sayfasi_veriyle():
     assert "Satılabilir stok" in m and "Ağırlıklı ort. yaş" in m
     assert "180" in m or "gün" in m
     assert [t.label for t in at.tabs][:2] == ["Bizim stok", "Müşterilerdeki stok"]
+    etiket = [d.label for d in at.get("download_button")]
+    assert "Excel: tümü" in etiket and "Excel: tüm müşteriler" in etiket
 
 
 def test_yurtici_alis_sayfasi_veriyle():
