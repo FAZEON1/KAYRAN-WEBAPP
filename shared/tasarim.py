@@ -579,8 +579,9 @@ div[data-testid="stExpander"] summary p{{
   font-size:{F['govde']} !important;font-weight:{A['vurgu']} !important;}}
 /* Açılır bölümün zemini (yuzey1) giriş kutularının zeminiyle aynı: kutular görünmüyordu
    (Bekleyen sevk, Hesap makinesi · görünüm birliği #11-12). İçeride bir ton açık zemin + çerçeve. */
-div[data-testid="stExpander"] :is([data-baseweb="input"],[data-baseweb="textarea"],
-  [data-baseweb="base-input"],[data-baseweb="select"] > div){{
+div[data-testid="stExpander"] :is([data-testid="stTextInputRootElement"],[data-testid="stNumberInputContainer"],
+  [data-testid="stTextAreaRootElement"],[data-testid="stDateInputField"],[data-testid="stSelectbox"] div[role="group"],
+  [data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"] > div){{
   background:var(--k-yuzey2) !important;border-color:var(--k-kenar2) !important;}}
 
 /* ── Caption · ayraç · sekme ── */

@@ -45,7 +45,7 @@ def test_tarih_noktali():
 def test_ortak_css():
     t = _oku("shared/tasarim.py")
     assert ':has(> [data-testid="stColumn"]:first-child .k-baslik):has(button)' in t      # #7 başlık çizgisi
-    assert 'div[data-testid="stExpander"] :is([data-baseweb="input"]' in t                  # #11-12 kutusuz alan
+    assert 'div[data-testid="stExpander"] :is([data-testid="stTextInputRootElement"]' in t  # #11-12 kutusuz alan
 
 
 def test_sayfaya_ozel():
