@@ -48,7 +48,7 @@ def test_stok_karti_kutusu_yapisi():
     assert '"_sk_son"' in blok and "[:4]" in blok                     # son açılanlar
     # Kenar çubuğu kalktı (Eki 2026): kutu her sayfanın sağ üstünde, sonuçlar açılır liste
     assert 'html body .st-key-stok_karti_kutu {' in kod and 'html body .st-key-sk_sonuc {' in kod
-    assert '_pm_arac = st.container(key="pm_arac"' in kod
+    assert '_pm_arac = (_serit_kabi() or st).container(key="pm_arac"' in kod     # sekme şeridinin sağında
 
 
 def test_ust_menu_tek_serit():

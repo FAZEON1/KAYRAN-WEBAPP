@@ -438,6 +438,50 @@ def run():
         color: var(--k-silik) !important; font-size: 15px !important;
     }
 
+    /* ── Stok kartı: sekme şeridinin sağ ucunda, sekmelerle aynı hizada (Ekim 2026) ── */
+    html body .st-key-sayfa_seridi { position: relative !important; }
+    html body .st-key-pm_arac { margin: 0 0 6px !important; }
+    @media (min-width: 1100px) {
+        html body .st-key-sayfa_seridi .st-key-pm_arac {
+            position: absolute !important; top: 18px; right: 0; width: 360px !important; z-index: 20 !important; margin: 0 !important;
+        }
+    }
+    html body div.st-key-stok_karti_kutu { width: 360px !important; }
+    @media (max-width: 1099px) { html body div.st-key-stok_karti_kutu { width: 100% !important; } }
+    html body div.st-key-stok_karti_kutu [data-testid="stTextInputRootElement"] {
+        background: var(--k-yuzey1) !important; border: 1px solid var(--k-kenar2) !important;
+        border-radius: 10px !important; min-height: 36px !important; height: 36px !important;
+    }
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu input[data-testid="stTextInputField"] {
+        font-size: 13px !important; border: 0 !important; background: transparent !important; box-shadow: none !important;
+    }
+    html body div.st-key-stok_karti_kutu input::placeholder { color: var(--k-silik) !important; opacity: 1 !important; }
+    /* Açılır liste satırları: çerçevesiz, SKU etiketi + ad tek satır, üzerine gelince vurgu */
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu .st-key-sk_sonuc.st-key-sk_sonuc .stButton.stButton button[kind][data-testid] {
+        border: 0 !important; background: transparent !important; box-shadow: none !important;
+        min-height: 34px !important; height: auto !important; padding: 6px 10px !important;
+        border-radius: 8px !important; justify-content: flex-start !important;
+    }
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu .st-key-sk_sonuc.st-key-sk_sonuc .stButton.stButton button[kind][data-testid]:hover {
+        background: var(--k-vurgu) !important;
+    }
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu .st-key-sk_sonuc.st-key-sk_sonuc .stButton.stButton button[kind][data-testid] p {
+        font-size: 13px !important; color: var(--k-metin) !important; font-weight: 500 !important;
+        white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+    }
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu .st-key-sk_sonuc.st-key-sk_sonuc .stButton.stButton button[kind][data-testid] code {
+        font-family: var(--k-mono) !important; font-size: 11.5px !important; color: var(--k-mor2) !important;
+        background: color-mix(in srgb,var(--k-mor) 12%,transparent) !important; border: 0 !important;
+        padding: 1px 6px !important; border-radius: 5px !important; margin-right: 8px !important;
+        display: inline-block !important; width: auto !important; vertical-align: 1px;
+    }
+    html body div.st-key-stok_karti_kutu.st-key-stok_karti_kutu .st-key-sk_sonuc.st-key-sk_sonuc .stButton.stButton button[kind][data-testid] p { display: block !important; }
+    html body div.st-key-stok_karti_kutu .st-key-sk_sonuc .sk-alt {
+        padding: 2px 10px 6px !important; font-size: 11px !important; color: var(--k-silik) !important;
+        font-weight: 600 !important; letter-spacing: .2px;
+    }
+    html body div.st-key-stok_karti_kutu .st-key-sk_sonuc .sk-not { padding: 6px 10px 4px !important; }
+
     /* Sidebar nav stili shared/utils.py → sidebar_stil() tarafından yönetilir */
     section[data-testid="stSidebar"] .stButton button {
         background: var(--k-yuzey2) !important;
@@ -561,7 +605,8 @@ def run():
     # ── Yardımcı fonksiyonlar ────────────────────────────────────────────
     # ── Sidebar navigasyon ───────────────────────────────────────────────
     # Stok kartı kutusunun yeri: sayfanın sağ üstü (kenar çubuğu kalktı, Ekim 2026)
-    _pm_arac = st.container(key="pm_arac", horizontal=True, horizontal_alignment="right")
+    from shared.gezinme import serit_kabi as _serit_kabi
+    _pm_arac = (_serit_kabi() or st).container(key="pm_arac", horizontal=True, horizontal_alignment="right")
     with st.sidebar:
         st.markdown('<script>var sidebarEl=window.parent.document.querySelector("[data-testid=stSidebar] > div");if(sidebarEl)sidebarEl.scrollTop=0;</script>', unsafe_allow_html=True)
         from shared.utils import sidebar_ust
@@ -582,10 +627,10 @@ def run():
         # arama METNİ DEĞİŞTİYSE (_sk_acilan): yoksa sonraki her yenilemede açılırdı.
         _skl = get_tum_sku_listesi() or []
         _hedef = st.session_state.pop("_stok_gec_sku", None)   # modal içi geçiş
-        with _pm_arac, st.container(key="stok_karti_kutu", width=440):
+        with _pm_arac, st.container(key="stok_karti_kutu"):
             _ara = st.text_input(
                 "Stok kartı ara", key="stok_karti_ara", icon=":material/search:",
-                placeholder=f"Stok kartı · SKU, model ya da ürün adı ({tr_sayi(len(_skl))} ürün)",
+                placeholder="Stok kartı aç · SKU, model ya da ürün adı",
                 label_visibility="collapsed")
             with st.container(key="sk_sonuc"):        # açılır liste (CSS: odak / yazı varken)
                 _q = (_ara or "").strip()
@@ -600,6 +645,7 @@ def run():
                         if _tek and st.session_state.get("_sk_acilan") != _q:
                             st.session_state["_sk_acilan"] = _q           # aynı aramada bir kez
                             _hedef = _tek["sku"]
+                        st.markdown(f'<div class="sk-alt">{tr_sayi(len(_bul))} sonuç</div>', unsafe_allow_html=True)
                         for _r in _bul[:6]:
                             _ad = (_r.get("urun_adi") or "").strip()
                             # help (ipucu) YOK: tıklanınca stok kartı penceresi açılıyor, Streamlit'in
@@ -619,8 +665,8 @@ def run():
                                          icon=":material/history:"):
                                 _hedef = _s
                     else:
-                        st.markdown('<div class="sk-not">Yaz ve <b>Enter</b>\'a bas — tam SKU '
-                                    'yazarsan kart doğrudan açılır.</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="sk-not">{tr_sayi(len(_skl))} ürün içinde ara. Tam SKU yazıp '
+                                    '<b>Enter</b>\'a basarsan kart doğrudan açılır.</div>', unsafe_allow_html=True)
 
         if _hedef:
             _son = [x for x in st.session_state.get("_sk_son", []) if x != _hedef]

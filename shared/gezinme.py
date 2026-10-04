@@ -321,6 +321,12 @@ def _serit():
     return getattr(c, "_kayran_sayfa_seridi", None) if c is not None else None
 
 
+
+def serit_kabi():
+    """Sayfa sekmeleri şeridinin kabı (yoksa None). Modül, şeridin sağ ucuna kendi aracını
+    koyabilir (Ürün Yönetimi: stok kartı araması)."""
+    return _serit() if MENU_UST else None
+
 def grup_yapisi(mod, secenekler):
     """[(grup adı, [seçenek…])] — yalnız verilen (yetkiyle süzülmüş) seçenekler;
     boş kalan grup atlanır. Grup tanımı yoksa []."""
