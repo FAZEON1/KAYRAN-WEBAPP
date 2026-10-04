@@ -70,6 +70,9 @@ def kapi_musteri_haftalik(dosya, kapi):
                 "(aynı haftanın dosyası tekrar yüklenince şişmesin). Yükleme geçmişinden geri alınabilir.")
     if oz.get("atlanan"):
         st.warning("Atlanacak sekmeler: " + ", ".join(oz["atlanan"]))
+    if not sum(v["sku"] for v in oz["firmalar"].values()):
+        st.warning("Sekmelerde ürün satırı yok; kayıt yapılmaz.")
+        return
     if st.button("Haftalık stok + satışı kaydet", type="primary", use_container_width=True,
                  key=kapi.anahtar("mhs_hss_btn"), disabled=not oz["firmalar"], icon=":material/upload:"):
         dosya.seek(0)
@@ -94,6 +97,10 @@ def kapi_g5f(dosya, kapi):
     ok, oz = excel_yukle_g5f_depolar(dosya, onizle=True)
     if not ok:
         st.error(oz)
+        return
+    if not oz["urun"]:
+        # Boş sayım kaydedilseydi Excel'de olmayan BÜTÜN ürünlerin depo stoğu sıfırlanırdı
+        st.warning("Dosyada ürün satırı yok; kayıt yapılmaz (boş bir sayım bütün depo stoğunu sıfırlardı).")
         return
     st.success(f"{oz['urun']} ürün · {oz['eslesen']} mevcut güncellenecek, {oz['yeni']} yeni · "
                f"{len(oz['depolar'])} depo ({', '.join(oz['depolar'])}) · toplam {tr_sayi(oz['toplam_adet'])} adet")

@@ -237,10 +237,8 @@ def _to_date(v):
             return (pd.Timestamp("1899-12-30") + pd.Timedelta(days=float(v))).date()
         except Exception:
             return None
-    try:
-        return pd.to_datetime(v, dayfirst=True).date()
-    except Exception:
-        return None
+    from shared.utils import tarih_metni
+    return tarih_metni(v)
 
 
 def _parse_mikro_satislar(dosya):
@@ -739,7 +737,7 @@ def kapi_siparis_vatan(dosya, kapi):
     if urun_map is None:
         return
     _kanallar = get_kanallar()
-    _sayfalar, _hata = _siparis_excel_oku(dosya)
+    _sayfalar, _hata = kapi.onbellek("oku", lambda: _siparis_excel_oku(dosya))
     if _hata:
         st.error(_hata)
         return
@@ -789,7 +787,7 @@ def kapi_siparis_itopya(dosya, kapi):
                           min_value=date(2024, 1, 1), max_value=date.today(),
                           help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
     _sno = _c2.text_input("Sipariş No", key=kapi.anahtar("sg_sno"), placeholder="örn. 2026-06-30").strip()
-    _sayfalar, _hata = _siparis_excel_oku(dosya)
+    _sayfalar, _hata = kapi.onbellek("oku", lambda: _siparis_excel_oku(dosya))
     if _hata:
         st.error(_hata)
         return
@@ -824,7 +822,7 @@ def kapi_mikro_fatura(dosya, kapi):
     _yt_serit("satis_dokumu")            # dönemsel yükleme: geri sayım şeridi
     _adim_yer = st.empty()
     _adim_yer.markdown(_adim_gostergesi(1), unsafe_allow_html=True)
-    _satirlar, _ozet, _hata = _parse_mikro_satislar(dosya)
+    _satirlar, _ozet, _hata = kapi.onbellek("oku", lambda: _parse_mikro_satislar(dosya))
     if _satirlar and not _hata:
         _adim_yer.markdown(_adim_gostergesi(2), unsafe_allow_html=True)
     if _hata:

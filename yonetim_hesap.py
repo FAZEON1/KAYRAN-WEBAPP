@@ -38,6 +38,37 @@ def ay_araligi(donem):
     return _CEYREK.get(donem, (0, 12))
 
 
+def gider_yili_bul(ad, veri=None, bugun=None):
+    """Gider tablosunun yılı: önce dosya adı ("gider_2026.xlsx"), sonra ilk sayfanın ilk satırları
+    ("2026 GİDER TABLOSU"). Bulunamazsa None (yıl elle seçilir). Ocak'ta geçen yılın tablosu
+    "bu yıl" diye kaydedilmesin diye; bugün±2 yıl dışındaki sayılar yıl sayılmaz."""
+    import re
+    yil_bu = (bugun or date.today()).year
+
+    def _ara(metin):
+        for m in re.findall(r"(?<!\d)(20\d{2})(?!\d)", str(metin or "")):
+            if abs(int(m) - yil_bu) <= 2:
+                return int(m)
+        return None
+
+    y = _ara(ad)
+    if y or not veri:
+        return y
+    try:
+        from io import BytesIO
+        import pandas as pd
+        df = pd.read_excel(BytesIO(veri), header=None, nrows=3)
+    except Exception:  # noqa: BLE001
+        return None
+    for r in df.values.tolist():
+        for v in r:
+            if isinstance(v, str):
+                y = _ara(v)
+                if y:
+                    return y
+    return None
+
+
 def onceki_ay(bugun):
     """Ay Kapanış Raporu varsayılanı: (yıl, ay_idx). Ocak'ta önceki yılın Aralık'ı
     (eskiden max(0, ay-2) Ocak'ı seçiyordu)."""

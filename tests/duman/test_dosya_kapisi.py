@@ -39,7 +39,7 @@ def _anahtar(ad):
     return f"{ad}__kp{ID}"
 
 
-def _kapida(tur):
+def _kapida(tur, ad=None, veri=None, adaylar=None, tablolar=None):
     import sahte_db
     from streamlit.testing.v1 import AppTest
     os.environ["DUMAN_ONBELLEK_TEMIZLE"] = "1"
@@ -48,15 +48,19 @@ def _kapida(tur):
     for t, rows in VERI.items():
         sahte_db.TABLOLAR[t] = [dict(r) for r in rows]
     sahte_db.TABLOLAR["ref_firmalar"] = [{"id": 7, "firma_adi": "VATAN", "firma_kodu": "VT"}]
+    for t, rows in (tablolar or {}).items():
+        sahte_db.TABLOLAR[t] = [dict(r) for r in rows]
     at = AppTest.from_file(BETIK, default_timeout=SURE)
     at.secrets["supabase"] = {"url": "http://sahte.local", "key": "sahte", "service_role_key": "sahte"}
     at.session_state["giris_yapildi"] = True
     at.session_state["aktif_kullanici"] = sahte_db.KULLANICI
     at.session_state["aktif_uygulama"] = "anasayfa"
-    ad, veri = ORNEKLER[tur]()
+    if veri is None:
+        ad, veri = ORNEKLER[tur]()
+    if adaylar is None:
+        adaylar = [{"tur": tur, "guven": "kesin", "gerekce": "test"}]
     at.session_state["_kapi_acik"] = True
-    at.session_state["_kapi_dosyalar"] = [{"id": ID, "ad": ad, "veri": veri, "secim": tur,
-                                          "adaylar": [{"tur": tur, "guven": "kesin", "gerekce": "test"}]}]
+    at.session_state["_kapi_dosyalar"] = [{"id": ID, "ad": ad, "veri": veri, "secim": tur, "adaylar": adaylar}]
     at.session_state["_kapi_aktif"] = ID
     try:
         at.run()
@@ -73,8 +77,8 @@ def _sorunlar(at):
 
 
 @pytest.mark.parametrize("tur", sorted(ORNEKLER))
-def test_kapida_akis_ve_kayit(tur):
-    at = _kapida(tur)
+def test_kapida_akis_ve_kayit(tur, ad=None, veri=None):
+    at = _kapida(tur, ad=ad, veri=veri)
     assert not _sorunlar(at), _sorunlar(at)
     # Zorunlu seçimler: firma (EERA şablonu, ref)
     if tur == "siparis_itopya":

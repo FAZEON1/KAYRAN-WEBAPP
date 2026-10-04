@@ -3378,6 +3378,25 @@ def main():
     except Exception:
         pass
 
+    # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede. Sayfadan ÖNCE açılır:
+    # sayfa st.stop() ile dursa da (ör. Ödemeler "veri yok", P&L "bu filtrede satış yok") kapı
+    # görünsün — sayfadan sonra çizilince o sayfalarda Dosya düğmesi hiçbir şey açmıyordu. Sayfa
+    # hata verse de kapı kullanılabilir. Bir çalışmada tek pencere açılabildiği için kapı açıkken
+    # Talep Merkezi penceresi bu çalışmada açılmaz.
+    _kapi_acik = False
+    try:
+        from shared import dosya_kapisi as _dk
+        if _dk.acik():
+            _kapi_acik = _dk.ciz(_kapi_yetkileri(st.session_state.get("aktif_kullanici", "")))
+    except Exception as _e:  # noqa: BLE001
+        if type(_e).__name__ in ("RerunException", "StopException"):
+            raise
+        try:
+            from shared.hata_log import kaydet
+            kaydet("dosya_kapisi.ciz", _e)
+        except Exception:  # noqa: BLE001
+            pass
+
     # Sayfa dispatch
     try:
         if aktif == "anasayfa":
@@ -3477,23 +3496,6 @@ def main():
         _global_hata_kart(ad, hata)
     else:
         st.session_state.pop("_modul_tazelendi", None)   # sayfa sorunsuz çizildi → koruma yeniden kurulur
-
-    # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede. Sayfa çizildikten SONRA
-    # açılır (modül hata verse bile kullanılabilsin). Bir çalışmada tek pencere açılabildiği için
-    # kapı açıkken Talep Merkezi penceresi bu çalışmada açılmaz.
-    _kapi_acik = False
-    try:
-        from shared import dosya_kapisi as _dk
-        if _dk.acik():
-            _kapi_acik = _dk.ciz(_kapi_yetkileri(st.session_state.get("aktif_kullanici", "")))
-    except Exception as _e:  # noqa: BLE001
-        if type(_e).__name__ in ("RerunException", "StopException"):
-            raise
-        try:
-            from shared.hata_log import kaydet
-            kaydet("dosya_kapisi.ciz", _e)
-        except Exception:  # noqa: BLE001
-            pass
 
     # Talep düğmesi HER SAYFADA görünür — sayfa içeriği çizildikten sonra
     # eklenir ki modül hata verse bile erişilebilir kalsın.
