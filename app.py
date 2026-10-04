@@ -653,6 +653,9 @@ st.markdown(
     'ul[data-testid="stSelectboxVirtualDropdown"], [data-baseweb="menu"]{'
     'z-index:2147483000 !important;'
     '}'
+    # Pencere (st.dialog) açıkken kenar çubuğu aç/kapat düğmesi görünmesin. Betik de gizler
+    # (dialogAcik); bu kural betik eskimiş/çalışmıyor olsa bile geçerli.
+    'body:has(div[data-testid="stDialog"]) #kayran-sb-toggle{display:none !important;}'
     "</style>", unsafe_allow_html=True)
 st.markdown(cekirdek_css(), unsafe_allow_html=True)      # TEK tasarım kaynağı (aktif temayla)
 _css_tema = st.session_state.get("tema") or "koyu"      # oturum yüklenince farklıysa rerun (aşağıda)
@@ -661,6 +664,8 @@ from shared.islem import kur as _islem_kur              # yükleniyor / işlem s
 _islem_kur()
 from shared.ceviri import kur as _ceviri_kur            # Streamlit'in İngilizce kalıp yazıları → Türkçe
 _ceviri_kur()
+from shared.ipucu import kur as _ipucu_kur              # tıklamadan sonra takılı kalan ipucu kutuları
+_ipucu_kur()
 st.markdown(genel_tema_css(), unsafe_allow_html=True)
 # Sayfa genişliği TEK yerden — modül başına farklı max-width, modüller arası
 # geçişte sayfanın gözle görülür şekilde daralmasına yol açıyordu.
