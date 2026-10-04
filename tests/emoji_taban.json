@@ -47,6 +47,5 @@
  "shared/yukleme_takvimi.py": 3,
  "teknikservis/database.py": 9,
  "teknikservis/main.py": 96,
- "teknikservis/stok.py": 1,
- "yonetim.py": 28
+ "teknikservis/stok.py": 1
 }

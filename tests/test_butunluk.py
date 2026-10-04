@@ -77,6 +77,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
+for _d in ("yonetim_hesap.py", "yonetim_pano.py"):               # kökteki modüller
+    _TARANAN_MODULLER[_d[:-3]] = _ust_duzey_isimler(KOK / _d)
 
 
 def _kirik_importlar():
@@ -174,6 +176,9 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
+    "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
+                     "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
+                     "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
                             "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
