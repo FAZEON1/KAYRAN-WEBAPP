@@ -23,6 +23,7 @@ from .database import (
 )
 from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
 from . import stok as _stok
+from . import ariza_orani as _AO
 from . import ts_ekran as E
 from .ts_hesap import sla_gruplari, sayi_ya_da_bos, excel_bayt
 from shared import bilesen as B
@@ -1030,6 +1031,8 @@ def _kontrol_paneli(kayit):
         _satir("Müşteri Şikayet", _g(kayit, "ariza"))
         _satir("Detay", _g(kayit, "detay"))
         _satir("Yapılan İşlem", _g(kayit, "yapilan_islem"))
+        _ao_s, _ao_t = _AO.sonuc(kayit)
+        _satir("Arıza Sonucu", f"{_ao_s} (tahmini)" if _ao_t else _ao_s)
         _satir("Test Süreci", _g(kayit, "test_sureci"))
 
         _alt_baslik("Müşteri / Firma")
@@ -1131,6 +1134,17 @@ def _kontrol_paneli(kayit):
             yapilan = st.text_input("Yapılan İşlem / Açıklama",
                                     placeholder="örn: güç kaynağı değiştirildi")
             test = st.text_area("Test Süreci (opsiyonel)", height=60)
+            # Arıza sonucu (Ekim 2026): arıza oranı bu alandan hesaplanır (teknikservis/ariza_orani.py).
+            # Teknik / iade kaydı işlem görmüş bir duruma geçerken zorunlu.
+            _as_opts = ["(Seçilmedi)"] + _AO.SONUCLAR
+            _as_kayitli = kayit.get("ariza_sonucu") or ""
+            _as = st.selectbox(
+                "Arıza sonucu", _as_opts,
+                index=_as_opts.index(_as_kayitli) if _as_kayitli in _as_opts else 0, key=f"ts_as_{kid}",
+                help="Arıza oranı yalnız \"Arıza doğrulandı\" kayıtlarından hesaplanır. Koli/kargo hasarı, "
+                     "cayma ve arıza bulunamayanlar arıza sayılmaz.")
+            if _as_kayitli not in _AO.SONUCLAR:
+                st.caption(f"Metinden tahmin: {_AO.tahmin(kayit)}")
 
             # "gönderildi" + Kargo → Kargo Takip No
             _ts_kargo = ""
@@ -1176,6 +1190,7 @@ def _kontrol_paneli(kayit):
                                    key=f"ts_dt_{kid}", height=68)
 
             if st.form_submit_button("Durumu Güncelle", type="primary", use_container_width=True, icon=":material/save:"):
+                _as_eksik = _AO.sonuc_zorunlu(kayit.get("arayuz"), yeni_durum) and _as not in _AO.SONUCLAR
                 ekstra = {
                     "icerik_durumu": d_icerik.strip(),
                     "eksik_icerik": d_eksik.strip(),
@@ -1184,6 +1199,8 @@ def _kontrol_paneli(kayit):
                 }
                 for _dk, _dv in _dg.items():
                     ekstra[_dk] = (_dv or "").strip() if isinstance(_dv, str) else _dv
+                if _as in _AO.SONUCLAR:
+                    ekstra["ariza_sonucu"] = _as
                 if yapilan.strip():
                     ekstra["yapilan_islem"] = yapilan.strip()
                 if test.strip():
@@ -1197,7 +1214,9 @@ def _kontrol_paneli(kayit):
                         ekstra["gidis_sevk_sekli"] = _sv
                     if _ts_kargo.strip():
                         ekstra["gidis_kargo_no"] = _ts_kargo.strip()
-                if durum_guncelle(kid, yeni_durum, personel.strip(), yapilan.strip(), ekstra):
+                if _as_eksik:
+                    st.error("Arıza sonucu seçilmeli (arıza oranı bu alandan hesaplanır).")
+                elif durum_guncelle(kid, yeni_durum, personel.strip(), yapilan.strip(), ekstra):
                     # ── Stok hareketleri ──
                     _smsgs = []
                     _onceki = kayit.get("mevcut_durum", "")
@@ -2118,6 +2137,9 @@ def run():
             _liste("iade")
         elif sayfa == "🚚  İrsaliye":
             _irsaliye()
+        elif sayfa == "Arıza Oranı":
+            from .ariza_ekran import goster as _ariza_orani
+            _ariza_orani()
         else:
             _depolar()
 

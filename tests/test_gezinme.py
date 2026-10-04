@@ -17,7 +17,7 @@ def test_modul_sayfa_listeleri_kayit_defterinden():
     palet ve adres çubuğu o sayfayı bulamaz."""
     g = _g()
     beklenen = {"kayranpm": ("kayranpm/main.py", 9), "depo": ("depo/main.py", 5),
-                "ithalat": ("ithalat/main.py", 4), "teknikservis": ("teknikservis/main.py", 6),
+                "ithalat": ("ithalat/main.py", 4), "teknikservis": ("teknikservis/main.py", 7),
                 "satis": ("satis/main.py", 5), "kayranacc": ("kayranacc/main.py", 13)}
     for mod, (dosya, n) in beklenen.items():
         assert len(g.secenekler(mod)) == n, mod

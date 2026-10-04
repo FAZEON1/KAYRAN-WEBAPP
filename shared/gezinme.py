@@ -94,6 +94,7 @@ MODULLER = [
          ("↩️  İade", "iade", "İade", None),
          ("🚚  İrsaliye", "irsaliye", "İrsaliye", None),
          ("📦  Depolar", "depolar", "Depolar", None),
+         ("Arıza Oranı", "ariza_orani", "Arıza oranı", None),
      ]},
     {"kod": "hesap_makinesi", "ad": "Hesap makinesi", "ikon": "calculate"},
 ]
