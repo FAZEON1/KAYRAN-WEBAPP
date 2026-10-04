@@ -3,8 +3,7 @@ name: Talep PR Bildirimi
 # Claude'un talepten açtığı PR (başlık "Talep #<id>: ...") açılınca / birleşince / kapanınca talep
 # kaydını günceller ve mail atar. Akış: shared/claude_talep.py, otonom/claude_talep_gorevi.md.
 #
-# Başlıkta "Talep #" yoksa iş YİNE çalışır ama adımları atlar ve başarılı biter. İş düzeyinde `if`
-# kullanılınca her başka PR'da "No jobs were run" sonucu ve GitHub'dan uyarı maili geliyordu.
+# Başlıkta "Talep #" yoksa iş YİNE çalışır ama adımları atlar ve başarılı biter.
 on:
   pull_request:
     types: [opened, reopened, closed]
@@ -15,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      TALEP_PR: ${{ contains(github.event.pull_request.title, 'Talep #') }}
+      # Tırnak ŞART: tırnaksız YAML'da " #" yorum başlatır, ifade "'Talep" diye kesilir ve GitHub
+      # dosyayı geçersiz sayıp her push'ta "No jobs were run" hatası verir (Ekim 2026).
+      TALEP_PR: "${{ contains(github.event.pull_request.title, 'Talep #') }}"
     steps:
       - name: Talep PR'ı değil — atlandı
         if: env.TALEP_PR != 'true'
