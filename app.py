@@ -9,6 +9,18 @@ Mimari:
   Yetkisiz uygulamalar gri + 🔒 görünür, tıklanamaz
   Hamburger ile sidebar açılır-kapanır
 """
+# Bayat modül koruması (shared/modul_tazele.bayatlari_tazele): güncellemeden sonra bellekte eski
+# kalan proje modülleri, başka hiçbir şey içe aktarılmadan ÖNCE tazelenir. Kayıt sys üzerinde
+# tutulur (proje modülleri silinse de süreç boyunca yaşar).
+import sys as _sys_bt, os as _os_bt  # noqa: E401
+try:
+    from shared.modul_tazele import bayatlari_tazele as _bayatlari_tazele
+    if not hasattr(_sys_bt, "_kayran_modul_zaman"):
+        _sys_bt._kayran_modul_zaman = {}
+    _bayatlari_tazele(_sys_bt.modules, _os_bt.path.dirname(_os_bt.path.abspath(__file__)),
+                      _sys_bt._kayran_modul_zaman)
+except Exception:  # noqa: BLE001  (koruma hiçbir zaman uygulamayı durdurmaz)
+    pass
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from shared.tasarim import kisi_adi, ikon as k_ikon, MODUL_IKON, MODUL_RENK, rv
@@ -3428,3 +3440,11 @@ if __name__ == "__main__":
     main()
 else:
     main()
+
+# Bayat modül koruması: bu çalıştırmada yüklenen proje modüllerinin dosya zamanı (başta tazele).
+try:
+    from shared.modul_tazele import yuklenenleri_kaydet as _yuklenenleri_kaydet
+    _yuklenenleri_kaydet(_sys_bt.modules, _os_bt.path.dirname(_os_bt.path.abspath(__file__)),
+                         getattr(_sys_bt, "_kayran_modul_zaman", {}))
+except Exception:  # noqa: BLE001
+    pass

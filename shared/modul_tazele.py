@@ -68,3 +68,44 @@ def proje_modullerini_sil(moduller, kok):
             moduller.pop(ad, None)
             silinen.append(ad)
     return silinen
+
+
+# ── Hatasız bayat modül (Ekim 2026) ─────────────────────────────────
+# Yukarıdaki koruma yalnız HATA çıkınca çalışıyordu. Güncellemeden sonra bellekte eski kalan bir
+# modül hata vermeden ESKİ davranışı sürdürüyordu: PR #117 / #118 birleşti, kod doğruydu, canlıdaki
+# stok kartı hâlâ eski mesajı gösteriyordu (Reboot gerekiyordu). Artık her çalıştırmada yüklü
+# proje modüllerinin dosya zamanı kontrol edilir; biri değiştiyse BÜTÜN proje modülleri bellekten
+# silinir (birbirinden içe aktardıkları eski nesneler de gitsin) ve bu çalıştırma yeni koddan yükler.
+def degisen_moduller(moduller, kok, kayit):
+    """Yüklü proje modüllerinden dosyası, ilk görüldüğü andan sonra değişenler.
+    kayit: {modül adı: dosya zamanı} — süreç boyunca yaşamalı (proje modülü silinse de)."""
+    degisen = []
+    for ad, m in list(moduller.items()):
+        if ad == "__main__" or m is None:
+            continue
+        f = getattr(m, "__file__", None)
+        if not _proje_icinde(f, kok):
+            continue
+        try:
+            mt = os.path.getmtime(f)
+        except OSError:
+            continue
+        eski = kayit.setdefault(ad, mt)
+        if mt != eski:
+            degisen.append(ad)
+    return degisen
+
+
+def yuklenenleri_kaydet(moduller, kok, kayit):
+    """Çalıştırmanın SONUNDA: bu çalıştırmada yüklenen modüllerin dosya zamanını kaydeder.
+    Kayıt yalnız başta alınsaydı, bir modül yüklendikten sonra ve bir sonraki çalıştırmadan önce
+    gelen güncelleme 'ilk görüş' sayılıp kaçardı (yerel denemede yakalandı)."""
+    degisen_moduller(moduller, kok, kayit)
+
+
+def bayatlari_tazele(moduller, kok, kayit):
+    """Değişen dosya varsa proje modüllerini siler ve kaydı sıfırlar; silinen adları döndürür."""
+    if not degisen_moduller(moduller, kok, kayit):
+        return []
+    kayit.clear()
+    return proje_modullerini_sil(moduller, kok)
