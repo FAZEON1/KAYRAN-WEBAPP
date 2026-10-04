@@ -39,13 +39,16 @@ def test_stok_karti_kutusu_yapisi():
     kod = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
     i = kod.index("# ── STOK KARTI — hızlı erişim")
     blok = kod[i:kod.index("_stok_goster(_hedef)", i)]
-    assert 'with st.container(key="stok_karti_kutu"):' in blok      # tek kap (kopuk başlık yok)
+    assert 'st.container(key="stok_karti_kutu"' in blok             # tek kap (kopuk başlık yok)
+    assert 'with st.container(key="sk_sonuc"):' in blok             # sonuçlar açılır listede (Eki 2026)
     assert "st.selectbox" not in blok                               # eski hata 1: ilk karakter siliniyordu
     assert 'icon=":material/search:"' in blok
     # Enter'da otomatik açılış yalnız arama METNİ değiştiyse (yoksa her yenilemede açılır)
     assert 'st.session_state.get("_sk_acilan") != _q' in blok and 'st.session_state["_sk_acilan"] = _q' in blok
     assert '"_sk_son"' in blok and "[:4]" in blok                     # son açılanlar
-    assert 'html body section[data-testid="stSidebar"] .st-key-stok_karti_kutu {' in kod
+    # Kenar çubuğu kalktı (Eki 2026): kutu her sayfanın sağ üstünde, sonuçlar açılır liste
+    assert 'html body .st-key-stok_karti_kutu {' in kod and 'html body .st-key-sk_sonuc {' in kod
+    assert '_pm_arac = (_serit_kabi() or st).container(key="pm_arac"' in kod     # sekme şeridinin sağında
 
 
 def test_ust_menu_tek_serit():

@@ -1518,8 +1518,37 @@ def giris_ekrani():
                     st.error(f"Giriş sistemi hatası: {e}")
 
 
+# ── Kenarsız düzen (Ekim 2026) ─────────────────────────────────────
+# Sayfa menüleri üst şeride taşındıktan sonra sol kenar çubuğunda yalnız modül adı ve
+# kullanıcı kalmıştı; her sayfada 300 px yer kaplıyordu (içerik 980 px → 1.280 px).
+# Kullanıcı / Çıkış / tema / hesap → üst şeritteki kişi menüsü (_kisi_menusu).
+# Muhasebe'nin kur ve hafta bilgisi sayfanın üstünde. Stok kartı araması: Ara (Ctrl K).
+# Geri almak için shared/gezinme.py → MENU_UST = False (menüler ve kenar çubuğu geri gelir).
+_KENARSIZ_CSS = """
+    section[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"],
+    #kayran-sb-toggle{display:none !important;}
+    /* Kişi menüsü: şeridin düğmeleriyle aynı görünüm */
+    html body .st-key-ustnav .st-key-ust_sag{flex-wrap:nowrap !important;gap:4px !important;align-items:center !important;}
+    html body .st-key-ustnav .st-key-ust_kisi button{min-height:34px !important;height:34px !important;padding:0 10px !important;
+      border:0 !important;background:transparent !important;color:var(--k-soluk) !important;box-shadow:none !important;
+      border-radius:8px !important;font-size:13px !important;white-space:nowrap !important;}
+    html body .st-key-ustnav .st-key-ust_kisi button:hover{background:var(--k-ortu2) !important;color:var(--k-metin) !important;}
+    html body .st-key-ustnav .st-key-ust_kisi button p{font-size:13px !important;margin:0 !important;color:inherit !important;}
+    html body .st-key-ustnav .st-key-ust_kisi button [data-testid="stIconMaterial"]{display:inline !important;font-size:18px !important;}
+    html body .st-key-ustnav .st-key-ust_kisi button span:has(> [data-testid="stIconMaterial"]){display:inline-flex !important;}
+    /* Sekmeli sayfada "Modül › Sayfa" başlığı üçüncü kez aynı adı yazıyordu: yalnız açıklama kalır */
+    [data-testid="stMain"]:has(.st-key-sayfa_seridi [role="radiogroup"]) .k-baslik
+      :is(.k-baslik-ikon,.k-baslik-mod,.k-baslik-ayrac,.k-baslik-ad){display:none !important;}
+    [data-testid="stMain"]:has(.st-key-sayfa_seridi [role="radiogroup"]) .k-baslik .k-baslik-aciklama{margin:0 !important;}
+    @media (max-width:640px){
+      html body .st-key-ustnav .st-key-ust_kisi button p{display:none !important;}
+    }
+"""
+
 def ust_navigasyon():
     """Modüller arası geçiş — sayfanın üstünde kompakt, modern yatay şerit (yetkiye göre)."""
+    from shared.gezinme import MENU_UST          # kenarsız düzen yalnız üst menüyle
     aktif = st.session_state.get("aktif_uygulama", "anasayfa")
     ak = st.session_state.get("aktif_kullanici", "")
     yet = kullanici_yetkileri(ak)
@@ -1602,12 +1631,12 @@ def ust_navigasyon():
        Eşikler EKRANA değil ŞERİDİN kendi genişliğine bakar (container query):
        kenar çubuğu açıkken şerit ekrandan dardır; ekran genişliğine bakan eski
        kural küçük monitörde ikonları gösterip şeridi taşırıyordu.
-       Ölçülen içerik: ikonlu ≈1195 px, ikonsuz ≈955 px. */
-    @container ustnav (max-width:1260px){{
+       Ölçülen içerik (Eki 2026, Dosya + kişi menüsüyle): ikonlu ≈1424 px, ikonsuz ≈1185 px. */
+    @container ustnav (max-width:1440px){{
         {N} button span:has(> [data-testid="stIconMaterial"]),
         {N} button [data-testid="stIconMaterial"]{{display:none !important;}}
         {N} button{{padding:0 9px !important;}} }}
-    @container ustnav (max-width:1020px){{
+    @container ustnav (max-width:1200px){{
         {N} button{{padding:0 7px !important;}}
         {N} button p{{font-size:12.5px !important;}} }}
     /* Mobil: Streamlit sütunları alt alta dizer (10 düğme = yarım ekran).
@@ -1684,6 +1713,7 @@ def ust_navigasyon():
     [data-testid="stSidebarUserContent"]{{padding-top:0.4rem !important;}}
     section[data-testid="stSidebar"] .block-container{{padding-top:0.6rem !important;}}
     section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{{gap:0.5rem !important;}}
+    {_KENARSIZ_CSS if MENU_UST else ""}
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
@@ -1706,7 +1736,10 @@ def ust_navigasyon():
                      type="primary" if aktif == mod else "secondary",
                      use_container_width=True, on_click=_sayfaya_git, args=(mod,))
         with cols[-1]:
-            _talep_dugmesi()            # Talep Merkezi: üst menünün en sağında
+            # Talep Merkezi ve kişi menüsü: üst menünün en sağında, yan yana
+            with st.container(horizontal=True, gap="small", key="ust_sag"):
+                _talep_dugmesi()
+                _kisi_menusu()
 
     # Sayfa sekmeleri: modüllerin sayfa menüsü buraya çizilir (shared/gezinme.sayfa_menusu).
     # Geri almak için shared/gezinme.py → MENU_UST = False (menüler kenar çubuğuna döner).
@@ -1828,52 +1861,21 @@ input, textarea, select { font-size: 16px !important; }
         unsafe_allow_html=True
     )
 
-    with st.sidebar:
-        # Logo + KAYRAN başlığı (stil: tasarim.SIDEBAR_CSS → .k-sb-marka)
-        st.markdown('<div class="k-sb-marka">' + KAYRAN_LOGO_SVG +
-                    '<div><b>KAYRAN</b><br><span>Workspace</span></div></div>',
-                    unsafe_allow_html=True)
+    # Kenar çubuğu kalktı (Ekim 2026): kullanıcı, Çıkış, tema ve hesap sayfaları üst şeridin
+    # sağındaki kişi menüsünde (_kisi_menusu). Gizleme kuralı: ust_navigasyon CSS'i.
 
 
-        # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
-        _u = aktif_kullanici
-        _t = _oturum_token(_u)
-        # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
-        _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
-                       ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
-                       ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
-                       ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
-                       ("🔧 Teknik Servis", "teknikservis")]
-        _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:var(--k-silik);'
-               'font-size:11px;font-weight:600;letter-spacing:.4px;'
-               'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
-               '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
-        # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
-        # geçersiz sayar; link artık MEVCUT oturum token'ıyla (?t=...) üretilir.
-        # Böylece yeni sekme, aynı tarayıcıda TEKRAR GİRİŞ İSTEMEDEN açılır.
-        _tok_aktif = ""
-        try:
-            _tok_aktif = st.query_params.get("t", "")
-        except Exception:
-            pass
-        for _ad, _mod in _yeni_sekme:
-            _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
-                    f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-                    f'border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);border-radius:8px;color:var(--k-mor2);'
-                    f'text-decoration:none;font-size:13px;font-weight:400">{_ad} ↗</a>')
-        _lh += ('</div><div style="color:var(--k-silik);font-size:11px;margin-top:8px;padding:0 8px;'
-                'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
-        st.markdown(_lh, unsafe_allow_html=True)
-
-        if aktif_sayfa in ("anasayfa", "kayrantsw", "sifre_degistir", "hesap_makinesi", "kullanici_yonetimi", "sistem_kayitlari", "tasarim_rehberi", "cop_kutusu", "yukleme_gecmisi", "veri_sagligi", "soru"):
-            # Kişi satırı + çıkış (modül sol menüleriyle AYNI düzen: shared.utils.sidebar_ust)
-            from shared.utils import sidebar_kullanici as _sb_kisi
-            _kc1, _kc2 = st.columns([3, 1.4], gap="small", vertical_alignment="center")
-            _kc1.markdown(_sb_kisi(aktif_kullanici), unsafe_allow_html=True)
-            if _kc2.button("Çıkış", key="nav_cikis", icon=":material/logout:", use_container_width=True):
-                from shared.oturum import cikis_yap
-                cikis_yap()
-
+def _kisi_menusu():
+    """Üst şeridin en sağında kişi menüsü: ad, görünüm, Soru sor, hesap sayfaları, yeni sekme, Çıkış.
+    Eskiden bunlar sol kenar çubuğundaydı; kenar çubuğu her sayfada 300 px yer kaplıyordu."""
+    aktif_kullanici = st.session_state.get("aktif_kullanici", "")
+    if not aktif_kullanici:
+        return
+    aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
+    from shared.tasarim import kisi_adi as _kisi_adi
+    with st.container(key="ust_kisi"):
+        with st.popover(_kisi_adi(aktif_kullanici), icon=":material/account_circle:",
+                        help="Hesap · görünüm · çıkış"):
             # Görünüm: koyu / açık (kullanıcı bazlı, kullanici_tercih tablosu)
             from shared.tasarim import aktif_tema as _aktif_tema
             _tema_sec = st.segmented_control(
@@ -1892,7 +1894,7 @@ input, textarea, select { font-size: 16px !important; }
                       type="primary" if aktif_sayfa == "soru" else "secondary",
                       use_container_width=True, on_click=_sayfaya_git, args=("soru",))
 
-            st.markdown('<div class="k-sb-baslik">Hesap</div>', unsafe_allow_html=True)
+            st.caption("Hesap")
 
             # on_click → tek çalışmada sayfa değişir (st.rerun yok)
             st.button("Şifremi Değiştir", icon=":material/key:", key="nav_sifre_degistir",
@@ -1929,14 +1931,41 @@ input, textarea, select { font-size: 16px !important; }
                           type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
                           use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
 
-        else:
-            uyg_adi_map = {"kayranacc": "Muhasebe & Finans", "kayranpm": "Ürün Yönetimi", "depo": "Depo Yönetimi", "ithalat": "İthalat", "teknikservis": "Teknik Servis", "satis": "Satış", "hesap_makinesi": "Hesap Makinesi"}
-            uyg_adi = uyg_adi_map.get(aktif_sayfa, aktif_sayfa.capitalize())
-            uyg_renk_map = {"kayranacc": trenk("mor2"), "kayranpm": trenk("pembe"), "depo": trenk("yesil2"), "ithalat": trenk("mavi"), "teknikservis": trenk("kirmizi"), "hesap_makinesi": trenk("amber2")}
-            uyg_renk = uyg_renk_map.get(aktif_sayfa, trenk("mor2"))
-            # Modül adı artık modülün kendi kimlik çipinde — mükerrer etiket kaldırıldı
-            # Modüle tıklayınca soldaki menünün kayacağı hedef
-            st.markdown('<div id="kayran-submenu-anchor"></div>', unsafe_allow_html=True)
+
+            # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
+            _u = aktif_kullanici
+            _t = _oturum_token(_u)
+            # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
+            _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
+                           ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
+                           ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
+                           ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
+                           ("🔧 Teknik Servis", "teknikservis")]
+            _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:var(--k-silik);'
+                   'font-size:11px;font-weight:600;letter-spacing:.4px;'
+                   'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
+                   '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
+            # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
+            # geçersiz sayar; link artık MEVCUT oturum token'ıyla (?t=...) üretilir.
+            # Böylece yeni sekme, aynı tarayıcıda TEKRAR GİRİŞ İSTEMEDEN açılır.
+            _tok_aktif = ""
+            try:
+                _tok_aktif = st.query_params.get("t", "")
+            except Exception:
+                pass
+            for _ad, _mod in _yeni_sekme:
+                _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
+                        f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
+                        f'border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);border-radius:8px;color:var(--k-mor2);'
+                        f'text-decoration:none;font-size:13px;font-weight:400">{_ad} ↗</a>')
+            _lh += ('</div><div style="color:var(--k-silik);font-size:11px;margin-top:8px;padding:0 8px;'
+                    'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
+            st.markdown(_lh, unsafe_allow_html=True)
+
+
+            if st.button("Çıkış", key="nav_cikis", icon=":material/logout:", use_container_width=True):
+                from shared.oturum import cikis_yap
+                cikis_yap()
 
 
 def _arama_kutusu(yer="anasayfa"):

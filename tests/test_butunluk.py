@@ -74,7 +74,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
-               "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py",
+               "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -189,6 +189,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
+    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler"],   # şerit sağında modül aracı (Eki 2026)
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
                        "genel_tema_css", "detay_karti", "mesaj",   # shared/ui.py buraya katıldı (Eki 2026)
                        "kayran_logo_svg"],   # logo tek kaynak (Eki 2026)

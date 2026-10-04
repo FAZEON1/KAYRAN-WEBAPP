@@ -1182,22 +1182,6 @@ def run():
         sidebar_ust("💳", "Muhasebe & Finans", "kayranacc")
         aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     
-        # Aktif hafta göster
-        hafta = get_aktif_hafta()
-        if hafta:
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:8px;
-                background:rgba(37,99,235,0.10);
-                border:1px solid color-mix(in srgb,var(--k-mavi) 22%,transparent);
-                border-radius:999px;
-                padding:6px 12px;margin-bottom:12px;">
-                <span style="font-size:13px">📅</span>
-                <span style="font-size:11px;color:var(--k-mavi);font-weight:600;
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                    letter-spacing:.2px">{hafta['hafta_adi'].title()}</span>
-            </div>
-            """, unsafe_allow_html=True)
-    
         # ─── Sayfa listesi (kullanıcıya göre dinamik) ───
         aktif_kullanici_lower = st.session_state.get("aktif_kullanici", "").lower().strip()
         # Toplam Aktifler sayfasına yetkili kullanıcılar (yeni eklemek için bu set'e ekle)
@@ -1218,75 +1202,96 @@ def run():
         sayfa = sayfa_menusu("Sayfa", gosterilen_sayfalar, modul="kayranacc", label_visibility="collapsed",
                          format_func=_me, key="acc_sayfa")     # palet / adres çubuğu bu anahtarla gider
     
-        st.markdown("---")
     
-        # Kur paneli
-        st.markdown("**USD/TL Kur**")
     
-        # get_kur() çağır — session yeni ise otomatik API'den çekilir
-        mevcut_kur = get_kur()
-    
-        # İlk otomatik çekim olduysa küçük bildirim
-        if st.session_state.get("kur_otomatik_cekildi") and not st.session_state.get("kur_bildirim_gosterildi"):
-            st.markdown(k_mesaj("basari", "Güncel kur otomatik alındı"), unsafe_allow_html=True)
-            st.session_state.kur_bildirim_gosterildi = True
-    
-        yeni_kur = st.number_input("USD/TL Kur",
-            value=float(mevcut_kur),
-            step=0.01,
-            min_value=1.0,
-            format="%.4f",
-            label_visibility="collapsed",
-        )
-        st.session_state.kur = yeni_kur
-    
-        if st.button("Güncel Kur", use_container_width=True, icon=":material/refresh:"):
-            with st.spinner("Alınıyor..."):
-                kur_cekilen, basarili = fetch_kur_live()
-            if basarili:
-                st.session_state.kur = kur_cekilen
-                st.success(f"✅ {kur_cekilen} ₺")
-                st.rerun()
-            else:
-                st.error("❌ Bağlanamadı, manuel girin.")
-    
-        st.markdown(f"<small>{tr_now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
-    
-        st.markdown("---")
-    
-        # ── Uygulamayı Yenile (Browser cache'i temizle + veri yenile) ──
-        st.markdown("**Sistem**")
-        if st.button("Uygulamayı Yenile", use_container_width=True, help="Verileri ve arayüzü tazele", icon=":material/refresh:"):
-            # Session state'i temizle (kullanıcı bilgisi hariç)
-            korunacak = {"giris_yapildi", "aktif_kullanici"}
-            for k in list(st.session_state.keys()):
-                if k not in korunacak:
-                    del st.session_state[k]
-            # Streamlit cache'lerini temizle
-            try:
-                st.cache_data.clear()
-            except Exception:
-                pass
-            # JavaScript ile tarayıcı hard-reload (cache bypass)
-            st.markdown("""
-            <script>
-                if (window.parent && window.parent.location) {
-                    window.parent.location.reload(true);
-                } else {
-                    location.reload(true);
-                }
-            </script>
+
+    # ── Araç satırı (Ekim 2026, kenarsız düzen) — eskiden sol kenar çubuğundaydı ──
+    # Aktif hafta + USD/TL kur (açılır pencerede: elle kur · güncel kur · uygulamayı yenile).
+    # Kur her çalıştırmada okunur (number_input pencere kapalıyken de çalışır → st.session_state.kur).
+    from shared.gezinme import MENU_UST as _menu_ust
+    _arac_kap = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center",
+                             gap="small", key="acc_arac") if _menu_ust else st.sidebar
+    with _arac_kap:
+        # Aktif hafta göster
+        hafta = get_aktif_hafta()
+        if hafta:
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:8px;
+                background:rgba(37,99,235,0.10);
+                border:1px solid color-mix(in srgb,var(--k-mavi) 22%,transparent);
+                border-radius:999px;
+                padding:6px 12px;margin:0;">
+                <span style="font-size:13px">📅</span>
+                <span style="font-size:11px;color:var(--k-mavi);font-weight:600;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    letter-spacing:.2px">{hafta['hafta_adi'].title()}</span>
+            </div>
             """, unsafe_allow_html=True)
-            st.rerun()
     
-        # Versiyon bilgisi (küçük, alt köşe)
-        st.markdown(
-            f'<div style="font-size:11px;color:var(--k-silik);margin-top:8px;text-align:center;'
-            f'letter-spacing:.5px;font-family:monospace;opacity:0.6;">v{APP_VERSION}</div>',
-            unsafe_allow_html=True
-        )
+        with st.popover(f"USD/TL {tr_sayi(float(st.session_state.get('kur') or get_kur()), 4)}",
+                        icon=":material/currency_exchange:", help="Kur · güncel kur · uygulamayı yenile"):
+            # Kur paneli
     
+            # get_kur() çağır — session yeni ise otomatik API'den çekilir
+            mevcut_kur = get_kur()
     
+            # İlk otomatik çekim olduysa küçük bildirim
+            if st.session_state.get("kur_otomatik_cekildi") and not st.session_state.get("kur_bildirim_gosterildi"):
+                st.markdown(k_mesaj("basari", "Güncel kur otomatik alındı"), unsafe_allow_html=True)
+                st.session_state.kur_bildirim_gosterildi = True
+    
+            yeni_kur = st.number_input("USD/TL Kur",
+                value=float(mevcut_kur),
+                step=0.01,
+                min_value=1.0,
+                format="%.4f",
+                label_visibility="collapsed",
+            )
+            st.session_state.kur = yeni_kur
+    
+            if st.button("Güncel Kur", use_container_width=True, icon=":material/refresh:"):
+                with st.spinner("Alınıyor..."):
+                    kur_cekilen, basarili = fetch_kur_live()
+                if basarili:
+                    st.session_state.kur = kur_cekilen
+                    st.success(f"✅ {kur_cekilen} ₺")
+                    st.rerun()
+                else:
+                    st.error("❌ Bağlanamadı, manuel girin.")
+    
+            st.markdown(f"<small>{tr_now().strftime('%d.%m.%Y %H:%M')}</small>", unsafe_allow_html=True)
+    
+            # ── Uygulamayı Yenile (Browser cache'i temizle + veri yenile) ──
+            if st.button("Uygulamayı Yenile", use_container_width=True, help="Verileri ve arayüzü tazele", icon=":material/refresh:"):
+                # Session state'i temizle (kullanıcı bilgisi hariç)
+                korunacak = {"giris_yapildi", "aktif_kullanici"}
+                for k in list(st.session_state.keys()):
+                    if k not in korunacak:
+                        del st.session_state[k]
+                # Streamlit cache'lerini temizle
+                try:
+                    st.cache_data.clear()
+                except Exception:
+                    pass
+                # JavaScript ile tarayıcı hard-reload (cache bypass)
+                st.markdown("""
+                <script>
+                    if (window.parent && window.parent.location) {
+                        window.parent.location.reload(true);
+                    } else {
+                        location.reload(true);
+                    }
+                </script>
+                """, unsafe_allow_html=True)
+                st.rerun()
+    
+            # Versiyon bilgisi (küçük, alt köşe)
+            st.markdown(
+                f'<div style="font-size:11px;color:var(--k-silik);margin-top:8px;text-align:center;'
+                f'letter-spacing:.5px;font-family:monospace;opacity:0.6;">v{APP_VERSION}</div>',
+                unsafe_allow_html=True
+            )
+
     # ════════════════════════════════════════════════════════════════════
     # 1) DASHBOARD
     # ════════════════════════════════════════════════════════════════════

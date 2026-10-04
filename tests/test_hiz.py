@@ -43,7 +43,7 @@ def test_ana_sayfa_ve_sol_menu_dugmeleri_on_click():
     src = _oku("app.py")
     # 'aktif_uygulama = X' hemen ardından st.rerun() — eski çift çalışma deseni
     desen = re.compile(r'if [^\n]*\.button\([^\n]*\n(?:[^\n]*\n){0,4}?\s*st\.session_state\.aktif_uygulama = [^\n]+\n\s*st\.rerun\(\)')
-    for ad in ("anasayfa", "portal_sidebar", "_bugun_panel"):
+    for ad in ("anasayfa", "_kisi_menusu", "_bugun_panel"):   # sol menü → kişi menüsü (Eki 2026)
         g = _govde("app.py", ad)
         assert not desen.search(g), f"{ad}: düğme → st.rerun() çift çalışma deseni"
         assert "on_click=_sayfaya_git" in g, ad
