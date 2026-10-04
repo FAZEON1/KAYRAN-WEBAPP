@@ -42,16 +42,12 @@ def _usd(x, max_ond=2):
     return ("-" if f < 0 else "") + "$" + tam.replace(",", ".") + "," + ond
 
 
-def _sg_xl_sec(anahtar):
-    st.session_state["_sg_xl"] = anahtar
-
-
-def _sg_acilis(dlg_vatan, dlg_eera, dlg_diger):
-    """Satış Girişi açılışı (Ekim 2026): bugün / bu ay özeti, firma başına
-    Excel kartı (doğrudan ilgili pencere açılır), son 7 günün siparişleri."""
+def _sg_acilis():
+    """Satış Girişi açılışı (Ekim 2026): bugün / bu ay özeti ve son 7 günün siparişleri.
+    Excel ile toplu sipariş artık üst menüdeki Dosya kapısından (shared/dosya_kapisi)."""
     from shared import bilesen as B
     from shared.kar_gizle import kar_gorunur
-    from shared.tasarim import kpi_serit, sayi, ikon, css_tek_satir
+    from shared.tasarim import kpi_serit, sayi
     from . import satis_hesap as SH
     from .satislar_ekran import siparis_listesi
     bugun = date.today()
@@ -74,27 +70,6 @@ def _sg_acilis(dlg_vatan, dlg_eera, dlg_diger):
            {"etiket": f"Bu ay · {SH.AY[bugun.month]}", "deger": f"{tr_sayi(ta['siparis'])} sipariş", "renk": "mor",
             "alt": f"{tr_sayi(ta['adet'])} adet"}]
     st.markdown(kpi_serit(kal), unsafe_allow_html=True)
-
-    st.markdown("<style>" + css_tek_satir("""
-.sg-x{display:flex;gap:12px;align-items:flex-start;min-height:52px;}
-.sg-x i{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-style:normal;background:color-mix(in srgb,var(--k-mor) 14%,transparent);}
-.sg-x i .k-ikon{color:var(--k-mor);}
-.sg-x b{display:block;font-size:14px;font-weight:650;color:var(--k-metin);}
-.sg-x span{display:block;font-size:12.5px;color:var(--k-soluk);line-height:1.45;margin-top:2px;}
-""") + "</style>" + B.grup_basligi("Excel ile toplu sipariş", "şablonu indir · doldur · yükle · önizle · kaydet"),
-        unsafe_allow_html=True)
-    kartlar = [("vatan", "VATAN", "Sipariş no ve tarih dosyadan gelir.", "storefront"),
-               ("eera", "EERA (İtopya)", "Firma sabit; tarih ve sipariş no'yu sen girersin.", "store"),
-               ("diger", "Diğer firmalar", "Firmayı listeden seçersin; şablon EERA ile aynı.", "domain")]
-    for col, (k, ad, ack, ik) in zip(st.columns(3, gap="small"), kartlar):
-        with col:
-            B.tiklanir(f"sgx_{k}", f'<div class="sg-x"><i>{ikon(ik, 20)}</i><div><b>{ad}</b><span>{ack}</span></div></div>',
-                       _sg_xl_sec, (k,), tur="kart", renk="mor", etiket=f"{ad} Excel penceresini aç")
-    secilen = st.session_state.pop("_sg_xl", None)
-    if secilen:
-        st.cache_data.clear()
-        {"vatan": dlg_vatan, "eera": dlg_eera, "diger": dlg_diger}[secilen]()
 
     yedi = [o for o in sip if o["tarih"] >= str(bugun - timedelta(days=6))]
     st.markdown(B.grup_basligi("Son siparişler", "son 7 gün · tıkla: kalemleri gör, düzelt ya da sil"),
@@ -571,6 +546,494 @@ def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
     return buf.getvalue()
 
 
+# ══════════════════ DOSYA KAPISI GÖVDELERİ (Ekim 2026) ══════════════════
+# Excel ile toplu sipariş (VATAN · EERA/İtopya · diğer firmalar), Mikro fatura dökümü ve toplu
+# iade artık üst menüdeki Dosya kapısında (shared/dosya_kapisi) çalışır. Gövdeler eskiden Satış
+# Girişi / İçe Aktar / İade ekranlarındaydı; ayrıştırıcı, önizleme, kontroller ve kayıt kodu AYNI.
+# Fark: dosya yükleme kutusundan değil kapıdan gelir (dosya), kayıttan sonra kapi.bitti(...).
+IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+# EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
+# DEPOTANIM (EERA/DİĞER/İTOPYA) ve "Depo Tanım" (VATAN) = BİZİM hangi depomuzdan mal çıkacağı.
+# Satır bazlı olduğu için tek Excel'de farklı depolardan çıkış yapılabilir. Boş bırakılan
+# satırlar yükleme ekranındaki varsayılan depodan düşer.
+_EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU", "SONALFIYAT", "MIKTAR"]
+_VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu", "Birim Fiyat", "Miktar", "Depo Tanım"]
+
+
+def _sg_sablon_bytes(_kolonlar, _sheet):
+    """İndirilebilir şablon. ÇIKIŞ DEPOSU kolonuna, SİSTEMDE KAYITLI depolardan açılır liste
+    konur — yeni depo açıldığında şablon kendiliğinden günceldir."""
+    try:
+        from kayranpm.database import get_satis_depolari as _gsd
+        _depolar = [str(d) for d in (_gsd() or []) if str(d).strip()]
+    except Exception:
+        _depolar = ["MERKEZ DEPO", "HAPPY LIFE"]
+    _b = io.BytesIO()
+    with pd.ExcelWriter(_b, engine="openpyxl") as _w:
+        pd.DataFrame(columns=_kolonlar).to_excel(_w, index=False, sheet_name=_sheet)
+        try:
+            from openpyxl.styles import Font, PatternFill, Alignment
+            from openpyxl.utils import get_column_letter
+            from openpyxl.worksheet.datavalidation import DataValidation
+            _ws = _w.book[_sheet]
+            for _c in _ws[1]:
+                _c.font = Font(bold=True, color="FFFFFF")
+                _c.fill = PatternFill("solid", fgColor="1E3A5F")
+                _c.alignment = Alignment(horizontal="center")
+            for _i, _ad in enumerate(_kolonlar, 1):
+                _h = get_column_letter(_i)
+                _ws.column_dimensions[_h].width = max(14, len(str(_ad)) + 6)
+                if str(_ad).strip().upper().replace(" ", "") not in ("DEPOTANIM", "ÇIKIŞDEPOSU"):
+                    continue
+                # Excel'in liste formülü 255 karakteri aşamaz
+                _fml = '"' + ",".join(_depolar) + '"'
+                if len(_fml) <= 255:
+                    _dv = DataValidation(type="list", formula1=_fml, allow_blank=True)
+                    _dv.promptTitle = "DEPO TANIM (çıkış deposu)"
+                    _dv.prompt = ("Bizim hangi depomuzdan düşecek? "
+                                  "Boş bırakırsan varsayılan depo kullanılır.")
+                    _ws.add_data_validation(_dv)
+                    _dv.add(f"{_h}2:{_h}2000")
+                for _r in range(2, 40):
+                    _ws[f"{_h}{_r}"].fill = PatternFill("solid", fgColor="FEF3C7")
+            _ws.freeze_panes = "A2"
+        except Exception:
+            pass          # biçimlendirme başarısızsa şablon yine insin
+    return _b.getvalue()
+
+
+def sablon_siparis_vatan():
+    return _sg_sablon_bytes(_VATAN_KOL, "VATAN"), "SIPARIS_SABLON_VATAN.xlsx"
+
+
+def sablon_siparis_itopya():
+    return _sg_sablon_bytes(_EERA_KOL, "EERA"), "SIPARIS_SABLON_EERA.xlsx"
+
+
+def _sg_depo_sec(_anahtar, _kalemler=None):
+    """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir.
+
+    Stok uyarısı SATIR BAZLI depoyu dikkate alır: Excel'de DEPOTANIM dolu olan satırlar KENDİ
+    deposundan düşer, yalnız boş bırakılanlar buradaki varsayılanı kullanır."""
+    try:
+        from kayranpm.database import get_satis_depolari
+        _dl = get_satis_depolari()
+    except Exception:
+        _dl = ["MERKEZ DEPO", "HAPPY LIFE"]
+    _sec = st.selectbox("Varsayılan çıkış deposu", _dl, key=_anahtar,
+                        help="Excel'de **DEPOTANIM** kolonu doldurulmuş satırlar KENDİ deposundan "
+                             "düşer. Bu seçim yalnız o kolonu boş bırakılan satırlar için. "
+                             "İade/ikinci el dahil TÜM depolar seçilebilir.")
+    _kalemler = _kalemler or []
+    _ihtiyac = {}          # {depo: {sku: adet}} — satırların GERÇEKTEN düşeceği depo
+    _kendi, _varsayilan = 0, 0
+    for _k in _kalemler:
+        _sk = str(_k.get("sku") or "").strip()
+        if not _sk:
+            continue
+        _kd = str(_k.get("depo") or "").strip()
+        if _kd:
+            _kendi += 1
+        else:
+            _varsayilan += 1
+        _hedef = _kd or _sec
+        _ihtiyac.setdefault(_hedef, {})
+        _ihtiyac[_hedef][_sk] = _ihtiyac[_hedef].get(_sk, 0) + float(_k.get("adet") or 0)
+    if _kendi:
+        st.caption(f"{_kendi} satır Excel'deki kendi deposundan düşecek"
+                   + (f", {_varsayilan} satır **{_sec}** deposundan."
+                      if _varsayilan else " — bu seçim onlara uygulanmaz."))
+    try:
+        from kayranpm.database import get_sku_depo_dagilim
+        _uyarilar = []
+        for _depo, _skular in _ihtiyac.items():
+            _yetersiz = []
+            for _sk, _ad in list(_skular.items())[:60]:
+                _dag = get_sku_depo_dagilim(_sk) or {}
+                _mev = float(_dag.get(_depo, 0) or 0)
+                if _ad > _mev:
+                    _yetersiz.append(f"{_sk} ({_mev:.0f} var, {_ad:.0f} gerek)")
+            if _yetersiz:
+                _uyarilar.append("**{}**: {}{}".format(
+                    _depo, ", ".join(_yetersiz[:6]), " …" if len(_yetersiz) > 6 else ""))
+        if _uyarilar:
+            st.warning("Yetersiz stok — " + " · ".join(_uyarilar)
+                       + "\n\nKayıt yine de yapılabilir; stok eksiye düşer.")
+    except Exception:
+        pass
+    return _sec
+
+
+_ATLANAN_ACIKLAMA = ("Atlanan satırlar zaten kayıtlı olduğu için eklenmedi. Gerçekten YENİ bir sipariş "
+                     "giriyorsan Sipariş No'yu değiştir (örn. sonuna -2 ekle) ve tekrar yükle. Mevcut "
+                     "kaydı DÜZELTMEK istiyorsan ÜZERİNE YAZ kutusunu işaretle — ama o, aynı Sipariş "
+                     "No'daki TÜM kayıtları siler, dikkatli ol.")
+
+
+def _sg_kaydet(_gecerli, _temizle, _depo, _dosya_adi, kapi):
+    # Kalemde depo yoksa yükleme ekranındaki seçim yazılır — stok O DEPODAN düşer. Satırın KENDİ
+    # deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu) ona dokunulmaz.
+    if _depo:
+        _gecerli = [dict(_g, depo=(str(_g.get("depo") or "").strip() or _depo)) for _g in _gecerli]
+    from shared.yukleme_gecmisi import Kayit as _YKayit
+    _yk = _YKayit("siparis_excel", _dosya_adi)
+    with _yk.stok():                 # stok hareketleri bu yüklemeyle işaretlenir
+        _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
+    if _sonuc["hata"] and _sonuc["eklendi"] == 0:
+        st.error(f"Kaydedilemedi: {_sonuc['hata']}")
+        return
+    _yk.kaydet(_sonuc.get("eklendi"))
+    _m = f"{tr_sayi(_sonuc['eklendi'])} kalem kaydedildi."
+    _uyari = False
+    _atlanan = []
+    if _sonuc["atlandi"]:
+        _m += f" {tr_sayi(_sonuc['atlandi'])} atlandı (zaten kayıtlı)."
+        # Atlanan satırlar SEBEBİYLE gösterilir — "neden girmedi" tahmine kalmasın
+        _atlanan = [{"Ürün": a.get("sku", ""), "Mağaza": a.get("magaza", "—"), "Adet": a.get("adet", 0),
+                     "Sipariş No": a.get("siparis_no", ""), "Sebep": a.get("sebep", "")}
+                    for a in (_sonuc.get("atlanan_detay") or [])]
+        _uyari = True
+    if _sonuc["maliyetsiz"]:
+        _m += (f" {tr_sayi(_sonuc['maliyetsiz'])} kalemde paçal maliyet yok → maliyet 0 "
+               "(bu ürünler %100 marj görünür; ithalatı girip 'Kâr/P&L → Maliyeti 0 düzelt' ile onar).")
+        _uyari = True
+    if _sonuc.get("hatali"):
+        _m += f" {tr_sayi(_sonuc['hatali'])} kalem yazılamadı."
+        _uyari = True
+    # Stok aşımı UYARISI (engellemez): kaydedilen SKU'larda canlı stok kontrolü
+    if _sonuc["eklendi"] > 0:
+        try:
+            from kayranpm.database import canli_stok
+            _sku_top = {}
+            for _g in _gecerli:
+                _sk2 = str(_g.get("sku") or "").strip()
+                if _sk2:
+                    _sku_top[_sk2] = _sku_top.get(_sk2, 0) + int(_g.get("adet") or 0)
+            _asim = []
+            for _sk2, _ad2 in list(_sku_top.items())[:60]:
+                _cs2 = canli_stok(_sk2)
+                if _cs2.get("var") and _cs2["canli"] < 0:
+                    _asim.append(f"{_sk2} (depomuzda {_cs2['canli']:.0f})")
+            if _asim:
+                _m += (" Stok uyarısı — canlı stok eksiye düştü: " + ", ".join(_asim[:8])
+                       + (" …" if len(_asim) > 8 else ""))
+                _uyari = True
+        except Exception:
+            pass
+    st.cache_data.clear()
+    kapi.bitti(_m, tablo=_atlanan, uyari=_uyari, ayrinti=_ATLANAN_ACIKLAMA if _atlanan else "")
+
+
+def _sg_urun_map():
+    """Sipariş satırlarına ürün adı için {sku: kart}; ürün/maliyet yoksa None (eski koşul)."""
+    urun_map = {u["sku"]: u for u in (get_urunler() or []) if u.get("sku")}
+    if not (set(urun_map) | set(get_pacal_map() or {})):
+        st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
+        return None
+    return urun_map
+
+
+def kapi_siparis_vatan(dosya, kapi):
+    """VATAN sipariş Excel'i — sipariş no ve tarih dosyadan gelir."""
+    urun_map = _sg_urun_map()
+    if urun_map is None:
+        return
+    _kanallar = get_kanallar()
+    _sayfalar, _hata = _siparis_excel_oku(dosya)
+    if _hata:
+        st.error(_hata)
+        return
+    _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
+    _tum = []
+    for _sf in (_sayfalar or []):
+        _df = _sf["df"]
+        if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
+            _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
+    if not _tum:
+        st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
+        return
+    _adet = sum(s["adet"] for s in _tum)
+    _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+    st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_vk)}**")
+    _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+    _eksik = len(_tum) - len(_gecerli)
+    if _eksik:
+        st.caption(f"{_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
+    _uzv = st.checkbox("Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                       key=kapi.anahtar("sg_uz_vatan"),
+                       help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
+    _depo_v = _sg_depo_sec(kapi.anahtar("sg_depo_vatan"), _gecerli)
+    if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
+                 key=kapi.anahtar("sg_kaydet_vatan"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
+        _sg_kaydet(_gecerli, _uzv, _depo_v, dosya.name, kapi)
+
+
+def kapi_siparis_itopya(dosya, kapi):
+    """EERA (İtopya) şablonu — EERA ve diğer firmalar aynı şablonu kullanır; firma seçilir."""
+    urun_map = _sg_urun_map()
+    if urun_map is None:
+        return
+    _kanallar = get_kanallar()
+    _eera = next((k for k in _kanallar if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), None)
+    # Firma OTOMATİK gelmesin — boş başlar, kullanıcı bilinçli seçer (alfabetik ilk cari yanlışlıkla
+    # seçili kalıp yanlış firmaya sipariş yazılmasın). EERA listenin başında.
+    _liste = ([_eera] if _eera else []) + [k for k in _kanallar if k != _eera]
+    _knl = st.selectbox("Firma (cari)", _liste, index=None, key=kapi.anahtar("sg_kanal"),
+                        placeholder="— Firma seç (zorunlu) —",
+                        help="EERA (İtopya) ve diğer firmalar aynı şablonu kullanır; dosyadan ayırt edilemez.")
+    if not _knl:
+        st.info("Devam etmek için önce firma / kanal seç.")
+        return
+    _c1, _c2 = st.columns(2)
+    _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=kapi.anahtar("sg_tar"),
+                          min_value=date(2024, 1, 1), max_value=date.today(),
+                          help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
+    _sno = _c2.text_input("Sipariş No", key=kapi.anahtar("sg_sno"), placeholder="örn. 2026-06-30").strip()
+    _sayfalar, _hata = _siparis_excel_oku(dosya)
+    if _hata:
+        st.error(_hata)
+        return
+    _tum = []
+    for _sf in (_sayfalar or []):
+        _df = _sf["df"]
+        if {"STOKKODU", "SONALFIYAT", "MIKTAR"}.issubset(set(_df.columns)):
+            _tum.extend(_itopya_satirlar(_df, _knl, _tar.isoformat(), _sno, urun_map))
+    if not _tum:
+        st.warning("Uygun satır bulunamadı (STOKKODU · SONALFIYAT · MIKTAR sütunları gerekli).")
+        return
+    _adet = sum(s["adet"] for s in _tum)
+    _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
+    st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_knl)}**")
+    if not _sno:
+        st.error("**Sipariş No boş** — bu yüzden kaydet düğmesi pasif. Yukarıdaki Sipariş No kutusunu doldur.")
+    _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
+    _uz = st.checkbox("Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
+                      key=kapi.anahtar("sg_uz"),
+                      help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
+                           "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
+    # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı kendi deposuna karşı kontrol etsin
+    _depo_k = _sg_depo_sec(kapi.anahtar("sg_depo"), _gecerli)
+    if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
+                 key=kapi.anahtar("sg_kaydet"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
+        _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi)
+
+
+def kapi_mikro_fatura(dosya, kapi):
+    """Mikro fatura bazlı satış dökümü. Maliyet güncel paçaldan; kayıtlı faturalar atlanır."""
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("satis_dokumu")            # dönemsel yükleme: geri sayım şeridi
+    _adim_yer = st.empty()
+    _adim_yer.markdown(_adim_gostergesi(1), unsafe_allow_html=True)
+    _satirlar, _ozet, _hata = _parse_mikro_satislar(dosya)
+    if _satirlar and not _hata:
+        _adim_yer.markdown(_adim_gostergesi(2), unsafe_allow_html=True)
+    if _hata:
+        st.error(_hata)
+        return
+    if not _satirlar:
+        st.warning("Dosyada geçerli satış satırı bulunamadı.")
+        return
+    _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}" if _ozet["tarih_min"] else "—")
+    from shared.tasarim import kpi_serit as _ks2
+    st.markdown(_ks2([
+        {"etiket": "Satır", "deger": tr_sayi(_ozet["satir"]), "renk": "mavi"},
+        {"etiket": "Fatura", "deger": tr_sayi(_ozet["fatura"]), "renk": "mor"},
+        {"etiket": "Toplam ciro", "deger": _usd(_ozet["ciro"]), "renk": "yesil"},
+        {"etiket": "Tarih aralığı", "deger": _ta, "renk": "amber"},
+    ]), unsafe_allow_html=True)
+    _mevcut = get_mevcut_siparis_nolar()
+    _cakisan = _ozet["fatura_set"] & _mevcut
+    if _cakisan:
+        st.info(f"Bu dosyadaki **{len(_cakisan)}** fatura zaten sistemde kayıtlı. "
+                "Varsayılan olarak atlanır (yalnızca yeni faturalar eklenir).")
+    _pacal = get_pacal_map()
+    _maliyetsiz_sku = sorted({s["sku"] for s in _satirlar if float(_pacal.get(s["sku"], 0) or 0) <= 0})
+    if _maliyetsiz_sku:
+        with st.expander(f"Paçal maliyeti olmayan {len(_maliyetsiz_sku)} ürün "
+                         "(bu satırlarda maliyet 0 → net kâr = ciro)"):
+            st.caption(", ".join(_maliyetsiz_sku))
+    with st.expander("İlk satırları gör (önizleme)"):
+        st.dataframe(_kar_df(pd.DataFrame(_satirlar[:8])), hide_index=True, use_container_width=True)
+    # VERİ SAĞLIĞI ÖNİZLEME — kaydetmeden önce sorunlu satırları göster
+    from satis.database import ice_aktar_onizle as _ic_onizle
+    _sag = _ic_onizle(_satirlar)
+    _sorunlu = (_sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"]
+                + _sag["skusuz"] + _sag.get("anormal_tarih", 0))
+    if _sorunlu == 0:
+        st.success(f"Veri sağlığı: {tr_sayi(_sag['toplam'])} satırın tamamı temiz.")
+    else:
+        _uyari = []
+        if _sag["tarihsiz"]:
+            _uyari.append(f"**{tr_sayi(_sag['tarihsiz'])}** satırda tarih yok → **kaydedilmeyecek** "
+                          "(hayalet kayda dönüşmesin diye)")
+        if _sag.get("anormal_tarih"):
+            _uyari.append(f"**{tr_sayi(_sag['anormal_tarih'])}** satırda tarih GELECEKTE veya 3+ yıl "
+                          "eski → büyük ihtimalle yıl yazım hatası; bu satırlar dönem "
+                          "raporlarında **görünmez**, önce Excel'de düzeltmen önerilir")
+        if _sag["maliyetsiz"]:
+            _uyari.append(f"**{tr_sayi(_sag['maliyetsiz'])}** satırda paçal maliyet yok → maliyet 0 "
+                          "yazılır (**%100 marj** görünür); ithalatı girince 'Maliyeti 0 düzelt' ile onarılır")
+        if _sag["adetsiz"]:
+            _uyari.append(f"**{tr_sayi(_sag['adetsiz'])}** satırda adet 0/eksik → kaydedilmeyecek")
+        if _sag["skusuz"]:
+            _uyari.append(f"**{tr_sayi(_sag['skusuz'])}** satırda SKU yok → kaydedilmeyecek")
+        st.warning(f"**Veri sağlığı — {tr_sayi(_sag['temiz'])}/{tr_sayi(_sag['toplam'])} satır temiz.** "
+                   "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
+        if _sag["tarihsiz_ornek"]:
+            st.caption("Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
+        if _sag.get("anormal_ornek"):
+            st.caption("Anormal tarih örnekleri: " + " · ".join(_sag["anormal_ornek"]))
+        if _sag["maliyetsiz_ornek"]:
+            st.caption("Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
+    _onay = True
+    if _sorunlu > 0:
+        _onay = st.checkbox(f"Yukarıdaki {tr_sayi(_sorunlu)} sorunlu satırı gördüm — yine de temiz satırları "
+                            "içe aktar", key=kapi.anahtar("satis_ice_onay"))
+    _mod = st.radio("Yükleme modu",
+                    ["Bu dosyadaki faturaları sıfırla ve yeniden yükle (önerilen)",
+                     "Mevcut kayıtların üzerine ekle (zaten kayıtlı faturaları atla)"],
+                    key=kapi.anahtar("satis_ice_mod"))
+    _temizle_once = _mod.startswith("Bu dosyadaki")
+    if _temizle_once and _cakisan:
+        st.caption(f"Bu dosyadaki {len(_cakisan)} fatura önce silinip yeniden yazılacak "
+                   "(eksik/kısmi kalan kayıtlar temizlenir).")
+    if st.button("İçe Aktar ve Kaydet", type="primary", use_container_width=True,
+                 key=kapi.anahtar("satis_ice_btn"), disabled=not _onay, icon=":material/move_to_inbox:"):
+        _adim_yer.markdown(_adim_gostergesi(3), unsafe_allow_html=True)
+        _pb = st.progress(0.0, text="Kaydediliyor…")
+
+        def _ilerle(yapilan, toplam):
+            try:
+                _pb.progress(min(1.0, yapilan / toplam), text=f"Kaydediliyor… {yapilan}/{toplam}")
+            except Exception:
+                pass
+
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk = _YKayit("mikro_fatura", dosya.name)
+        with _yk.stok():             # stok hareketleri bu yüklemeyle işaretlenir
+            _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=True,
+                                        temizle_once=_temizle_once, ilerleme=_ilerle)
+        _pb.empty()
+        if _sonuc["hata"] and _sonuc["eklendi"] == 0:
+            st.error(f"Kaydedilemedi: {_sonuc['hata']}")
+            return
+        from shared.yukleme_takvimi import kaydet as _yt_kaydet
+        _yt_kaydet("satis_dokumu", st.session_state.get("aktif_kullanici", ""), _sonuc.get("eklendi"))
+        _yk.kaydet(_sonuc.get("eklendi"))
+        _msg = f"{tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
+        if _sonuc.get("silinen_fatura"):
+            _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
+        if _sonuc["atlandi"]:
+            _msg += f" {tr_sayi(_sonuc['atlandi'])} satır atlandı (zaten kayıtlı)."
+        if _sonuc["maliyetsiz"]:
+            _msg += f" {tr_sayi(_sonuc['maliyetsiz'])} satırda paçal maliyet yok (maliyet 0)."
+        if _sonuc.get("hatali"):
+            _msg += f" {tr_sayi(_sonuc['hatali'])} satır yazılamadı ({_sonuc.get('hata')})."
+        # Tüm önbelleği temizle ki P&L/Satışlar taze veriyi göstersin
+        st.cache_data.clear()
+        kapi.bitti(_msg, uyari=bool(_sonuc.get("hatali") or _sonuc["maliyetsiz"]))
+
+
+def kapi_iade(dosya, kapi):
+    """Mikro 'iadeli satışlar' raporu → toplu iade (yalnız iade kolonları alınır)."""
+    st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
+               "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
+    _ie_aralik = st.date_input("Bu rapor hangi dönemi kapsıyor? (başlangıç – bitiş)",
+                               value=(date.today(), date.today()), key=kapi.anahtar("iade_excel_tarih"),
+                               format="DD.MM.YYYY")
+    if isinstance(_ie_aralik, (list, tuple)) and len(_ie_aralik) == 2:
+        _ie_bas, _ie_bit = _ie_aralik
+    elif isinstance(_ie_aralik, (list, tuple)) and _ie_aralik:
+        _ie_bas = _ie_bit = _ie_aralik[0]
+    else:
+        _ie_bas = _ie_bit = _ie_aralik
+    _ie_tarih = _ie_bit
+    st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
+    _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
+                              value=True, key=kapi.anahtar("iade_excel_temizle"))
+    # DÖNEM KİLİDİ: mevcut partiler + çakışma kontrolü (5.199'luk kaza: aynı dönem iki kez sayıldı)
+    from satis.database import get_iade_partileri, iade_cakisma_bul
+    _partiler = get_iade_partileri()
+    if _partiler:
+        with st.expander(f"Kayıtlı iade partileri ({len(_partiler)})", expanded=False):
+            st.dataframe(_kar_df(pd.DataFrame([{
+                "Parti tarihi": p["tarih"],
+                "Dönem": (f'{p["donem_bas"]} → {p["donem_bit"]}'
+                          if p.get("donem_bas") else "— (eski yükleme, dönem kaydı yok)"),
+                "Satır": p["satir"], "Adet": p["adet"],
+            } for p in _partiler])), use_container_width=True, hide_index=True)
+    _cakisan_p = iade_cakisma_bul(_ie_bas, _ie_bit, temizlenecek_tarih=_ie_tarih if _ie_temizle else None)
+    _cak_onay = True
+    if _cakisan_p:
+        st.error("**Dönem çakışması:** yüklemek istediğin aralık şu partilerle kesişiyor → "
+                 + " · ".join(f'{p["tarih"]} ({tr_sayi(p["adet"])} adet)' for p in _cakisan_p)
+                 + ". Aynı iadeler iki kez sayılabilir. Ya farklı bir dönem seç, ya da "
+                   "eski partiyi bilerek yanına ekliyorsan aşağıyı onayla.")
+        _cak_onay = st.checkbox("Çakışmayı biliyorum, dönemler gerçekten farklı iadeler içeriyor — yine de yükle",
+                                key=kapi.anahtar("iade_cakisma_onay"))
+    # ANORMAL TARİH KORUMASI
+    _trh_onay = True
+    if str(_ie_bit) > str(date.today()):
+        st.error(f"Dönem bitişi ({_ie_bit}) **gelecekte** — büyük ihtimalle yıl yazım hatası.")
+        _trh_onay = st.checkbox("Tarih doğru, bilerek seçtim", key=kapi.anahtar("iade_trh_onay"))
+    elif str(_ie_bas) < "2024-01-01":
+        st.warning(f"Dönem başlangıcı ({_ie_bas}) 2024 öncesi — emin misin?")
+    try:
+        _ie_satir, _ie_hata = iade_excel_oku(dosya)
+    except Exception as e:
+        _ie_satir, _ie_hata = [], f"{type(e).__name__}: {e}"
+    if _ie_hata:
+        st.error(f"Okunamadı: {_ie_hata}")
+        return
+    if not _ie_satir:
+        st.warning("Dosyada iadesi olan satır bulunamadı.")
+        return
+    _tadet = sum(x["iade_adet"] for x in _ie_satir)
+    _tnet = sum(x["iade_net"] for x in _ie_satir)
+    st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd_md(_tnet)} bulundu.")
+    st.dataframe(_kar_df(pd.DataFrame([{
+        "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"])[:40], "Adet": x["iade_adet"],
+        "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
+    } for x in _ie_satir[:200]])), use_container_width=True, hide_index=True)
+    # MANUEL AVANS MUTABAKATI
+    _man = iade_manuel_donem(str(_ie_bas)[:10], str(_ie_bit)[:10])
+    _plan, _uyus = iade_fark_plani(_ie_satir, _man)
+    if _man:
+        _mtop = sum(v["adet"] for v in _man.values())
+        st.info(f"Bu dönemde **{len(_man)} kalemde {tr_sayi(_mtop)} adet** manuel iade "
+                f"zaten girilmiş. Aşağıdaki tabloda yalnız **fark** yazılacak.")
+        _onizle = [{"SKU": p["sku"], "Cari": (p.get("kanal") or "")[:24],
+                    "Excel": p["_excel_adet"], "Manuel": p["_manuel_adet"], "Yazılacak": p["iade_adet"],
+                    "Depo": p.get("depo") or "(varsayılan)"} for p in _plan if p["_manuel_adet"]]
+        if _onizle:
+            st.dataframe(pd.DataFrame(_onizle), use_container_width=True, hide_index=True)
+    if _uyus:
+        st.warning("**Excel manuel girişten az** — bu kalemler yazılmayacak, elle kontrol et:\n\n"
+                   + "\n".join(f"- `{u['sku']}` / {u['kanal']}: manuel **{u['manuel']}**, "
+                               f"Excel **{u['excel']}**" for u in _uyus))
+    _ie_depo = st.selectbox("Manuel eşleşmesi olmayan satırlar hangi depoya girsin?", IADE_DEPOLAR,
+                            key=kapi.anahtar("iade_excel_depo"),
+                            help="Excel'de depo bilgisi yok. Manuel karşılığı olan satırlar "
+                                 "kendi deposunu korur; kalanlar buraya yazılır.")
+    _yaz_adet = sum(p["iade_adet"] for p in _plan)
+    st.caption(f"Yazılacak: **{len(_plan)} satır · {tr_sayi(_yaz_adet)} adet** (Excel toplamı {tr_sayi(_tadet)})")
+    if st.button("İadeleri İçe Aktar", type="primary", key=kapi.anahtar("iade_excel_btn"),
+                 disabled=not (_cak_onay and _trh_onay) or not _plan, icon=":material/upload:"):
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk = _YKayit("iade_excel", dosya.name)
+        with _yk.stok():         # stok hareketleri bu yüklemeyle işaretlenir
+            _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10], temizle_once=_ie_temizle,
+                                   donem_bas=str(_ie_bas)[:10], varsayilan_depo=_ie_depo)
+        if _r.get("hata"):
+            st.error(f"Hata: {_r['hata']}")
+            return
+        from shared.yukleme_takvimi import kaydet as _yt_kaydet
+        _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""), _r.get("eklendi"))
+        _yk.kaydet(_r.get("eklendi"))
+        st.cache_data.clear()
+        kapi.bitti(f"{_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
+
+
 def run():
     from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h, tablo_kolonlari
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
@@ -589,28 +1052,6 @@ def run():
         _ssayfa = sayfa_menusu("Sayfa", _sayfalar, modul="satis", format_func=_me,
                            label_visibility="collapsed", key="satis_sayfa")
 
-
-    _ice_mesaj = st.session_state.pop("_ice_mesaj", None)
-    if _ice_mesaj:
-        st.success(_ice_mesaj)
-    # Atlanan satırların SEBEBİ — hangi satır neden girmedi, tahmin gerekmesin
-    _ice_atlanan = st.session_state.pop("_ice_atlanan", None)
-    if _ice_atlanan:
-        with st.expander(f"⏭️ Atlanan {len(_ice_atlanan)} satır — neden girmediler?",
-                         expanded=True):
-            st.caption("Bu satırlar zaten kayıtlı olduğu için eklenmedi. Gerçekten YENİ "
-                       "bir sipariş giriyorsan **Sipariş No'yu değiştir** (örn. sonuna "
-                       "`-2` ekle) ve tekrar yükle. Mevcut kaydı DÜZELTMEK istiyorsan "
-                       "**ÜZERİNE YAZ** kutusunu işaretle — ama o, aynı Sipariş No'daki "
-                       "TÜM kayıtları siler, dikkatli ol.")
-            st.dataframe(
-                pd.DataFrame([{"Ürün": a.get("sku", ""), "Mağaza": a.get("magaza", "—"),
-                               "Adet": a.get("adet", 0),
-                               "Sipariş No": a.get("siparis_no", ""),
-                               "Sebep": a.get("sebep", "")} for a in _ice_atlanan]),
-                hide_index=True, use_container_width=True)
-        st.caption("Kâr/P&L sekmesinde tarih aralığını **01.01.2025 – 31.12.2025** seçerek "
-                   "tüm yılı görebilirsin (varsayılan sadece son 30 gün).")
 
     _kanallar = get_kanallar()
     # Aynı cari birden fazla yazımla kayıtlıysa P&L'de ciro bölünür — uyar.
@@ -666,311 +1107,6 @@ def run():
             if not tum_sku:
                 st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
             else:
-                # ── Excel ile toplu sipariş girişi — 3 ayrı upload: VATAN · EERA · DİĞER ──
-                # EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
-                # DEPOTANIM (EERA/DİĞER/İTOPYA) ve "Depo Tanım" (VATAN) = BİZİM
-                # hangi depomuzdan mal çıkacağı. Satır bazlı olduğu için tek
-                # Excel'de farklı depolardan çıkış yapılabilir. Boş bırakılan
-                # satırlar yükleme ekranındaki varsayılan depodan düşer.
-                # Yazım serbest: "MERKEZ" → MERKEZ DEPO, "HAPPY LİFE" → HAPPY LIFE.
-                _EERA_KOL = ["TARİH", "DEPOTANIM", "MAĞAZALAR", "STOKKODU",
-                             "SONALFIYAT", "MIKTAR"]
-                _VATAN_KOL = ["Sipariş Numarası", "Sipariş Tarih", "Stok Kodu",
-                              "Birim Fiyat", "Miktar", "Depo Tanım"]
-                _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-                def _sg_sablon_bytes(_kolonlar, _sheet):
-                    """İndirilebilir şablon. ÇIKIŞ DEPOSU kolonuna, SİSTEMDE KAYITLI
-                    depolardan açılır liste konur — yeni depo açıldığında şablon
-                    kendiliğinden günceldir, kodu değiştirmek gerekmez."""
-                    try:
-                        from kayranpm.database import get_satis_depolari as _gsd
-                        _depolar = [str(d) for d in (_gsd() or []) if str(d).strip()]
-                    except Exception:
-                        _depolar = ["MERKEZ DEPO", "HAPPY LIFE"]
-                    _b = io.BytesIO()
-                    with pd.ExcelWriter(_b, engine="openpyxl") as _w:
-                        pd.DataFrame(columns=_kolonlar).to_excel(
-                            _w, index=False, sheet_name=_sheet)
-                        try:
-                            from openpyxl.styles import Font, PatternFill, Alignment
-                            from openpyxl.utils import get_column_letter
-                            from openpyxl.worksheet.datavalidation import DataValidation
-                            _ws = _w.book[_sheet]
-                            for _c in _ws[1]:
-                                _c.font = Font(bold=True, color="FFFFFF")
-                                _c.fill = PatternFill("solid", fgColor="1E3A5F")
-                                _c.alignment = Alignment(horizontal="center")
-                            for _i, _ad in enumerate(_kolonlar, 1):
-                                _h = get_column_letter(_i)
-                                _ws.column_dimensions[_h].width = max(14, len(str(_ad)) + 6)
-                                if str(_ad).strip().upper().replace(" ", "") not in (
-                                        "DEPOTANIM", "ÇIKIŞDEPOSU"):
-                                    continue
-                                # Excel'in liste formülü 255 karakteri aşamaz
-                                _fml = '"' + ",".join(_depolar) + '"'
-                                if len(_fml) <= 255:
-                                    _dv = DataValidation(type="list", formula1=_fml,
-                                                         allow_blank=True)
-                                    _dv.promptTitle = "DEPO TANIM (çıkış deposu)"
-                                    _dv.prompt = ("Bizim hangi depomuzdan düşecek? "
-                                                  "Boş bırakırsan varsayılan depo kullanılır.")
-                                    _ws.add_data_validation(_dv)
-                                    _dv.add(f"{_h}2:{_h}2000")
-                                for _r in range(2, 40):
-                                    _ws[f"{_h}{_r}"].fill = PatternFill(
-                                        "solid", fgColor="FEF3C7")
-                            _ws.freeze_panes = "A2"
-                        except Exception:
-                            pass          # biçimlendirme başarısızsa şablon yine insin
-                    return _b.getvalue()
-
-                def _sg_depo_sec(_anahtar, _kalemler=None):
-                    """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir.
-
-                    Stok uyarısı SATIR BAZLI depoyu dikkate alır: Excel'de DEPOTANIM
-                    dolu olan satırlar KENDİ deposundan düşer, yalnız boş bırakılanlar
-                    buradaki varsayılanı kullanır. Eski sürüm tüm SKU'ları seçili
-                    depoya karşı kontrol ediyor, MERKEZ DEPO'dan çıkacak satırlar için
-                    "HAPPY LIFE'ta yetersiz stok" gibi YANLIŞ uyarı basıyordu.
-                    """
-                    try:
-                        from kayranpm.database import get_satis_depolari
-                        _dl = get_satis_depolari()
-                    except Exception:
-                        _dl = ["MERKEZ DEPO", "HAPPY LIFE"]
-                    _sec = st.selectbox("📦 Varsayılan çıkış deposu", _dl,
-                                        key=f"sg_depo_{_anahtar}",
-                                        help="Excel'de **DEPOTANIM** kolonu doldurulmuş "
-                                             "satırlar KENDİ deposundan düşer. Bu seçim "
-                                             "yalnız o kolonu boş bırakılan satırlar için. "
-                                             "İade/ikinci el dahil TÜM depolar seçilebilir.")
-
-                    _kalemler = _kalemler or []
-                    # Satırları GERÇEKTEN düşecekleri depoya göre grupla
-                    _ihtiyac = {}          # {depo: {sku: adet}}
-                    _kendi, _varsayilan = 0, 0
-                    for _k in _kalemler:
-                        _sk = str(_k.get("sku") or "").strip()
-                        if not _sk:
-                            continue
-                        _kd = str(_k.get("depo") or "").strip()
-                        if _kd:
-                            _kendi += 1
-                        else:
-                            _varsayilan += 1
-                        _hedef = _kd or _sec
-                        _ihtiyac.setdefault(_hedef, {})
-                        _ihtiyac[_hedef][_sk] = _ihtiyac[_hedef].get(_sk, 0) + float(_k.get("adet") or 0)
-
-                    if _kendi:
-                        st.caption(f"{_kendi} satır Excel'deki kendi deposundan düşecek"
-                                   + (f", {_varsayilan} satır **{_sec}** deposundan."
-                                      if _varsayilan else " — bu seçim onlara uygulanmaz."))
-
-                    try:
-                        from kayranpm.database import get_sku_depo_dagilim
-                        _uyarilar = []
-                        for _depo, _skular in _ihtiyac.items():
-                            _yetersiz = []
-                            for _sk, _ad in list(_skular.items())[:60]:
-                                _dag = get_sku_depo_dagilim(_sk) or {}
-                                _mev = float(_dag.get(_depo, 0) or 0)
-                                if _ad > _mev:
-                                    _yetersiz.append(f"{_sk} ({_mev:.0f} var, {_ad:.0f} gerek)")
-                            if _yetersiz:
-                                _uyarilar.append("**{}**: {}{}".format(
-                                    _depo, ", ".join(_yetersiz[:6]),
-                                    " …" if len(_yetersiz) > 6 else ""))
-                        if _uyarilar:
-                            st.warning("⚠️ Yetersiz stok — " + " · ".join(_uyarilar)
-                                       + "\n\nKayıt yine de yapılabilir; stok eksiye düşer.")
-                    except Exception:
-                        pass
-                    return _sec
-
-                def _sg_kaydet(_gecerli, _temizle=False, _depo=None, _dosya_adi=""):
-                    # Excel'de depo kolonu yok; kullanıcı yükleme ekranından seçer.
-                    # Kalemde depo yoksa buradaki seçim yazılır — stok O DEPODAN düşer.
-                    # Satırın KENDİ deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu)
-                    # ona dokunulmaz; yalnız boş olanlara varsayılan yazılır.
-                    if _depo:
-                        _gecerli = [dict(_g, depo=(str(_g.get("depo") or "").strip() or _depo))
-                                    for _g in _gecerli]
-                    from shared.yukleme_gecmisi import Kayit as _YKayit
-                    _yk = _YKayit("siparis_excel", _dosya_adi)
-                    with _yk.stok():                 # stok hareketleri bu yüklemeyle işaretlenir
-                        _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
-                    if _sonuc["hata"] and _sonuc["eklendi"] == 0:
-                        st.error(f"❌ {_sonuc['hata']}")
-                    else:
-                        _yk.kaydet(_sonuc.get("eklendi"))
-                        _m = f"✅ {tr_sayi(_sonuc['eklendi'])} kalem kaydedildi."
-                        if _sonuc["atlandi"]:
-                            _m += f" {tr_sayi(_sonuc['atlandi'])} atlandı (zaten kayıtlı)."
-                            # Atlanan satırlar SEBEBİYLE gösterilir — "neden girmedi"
-                            # sorusunu tahmine bırakmamak için.
-                            st.session_state["_ice_atlanan"] = _sonuc.get("atlanan_detay") or []
-                        if _sonuc["maliyetsiz"]:
-                            _m += (f" ⚠️ {tr_sayi(_sonuc['maliyetsiz'])} kalemde paçal maliyet yok → maliyet 0 "
-                                   "(bu ürünler %100 marj görünür; ithalatı girip 'Kâr/P&L → Maliyeti 0 düzelt' ile onar).")
-                        if _sonuc.get("hatali"):
-                            _m += f" ⚠️ {tr_sayi(_sonuc['hatali'])} kalem yazılamadı."
-                        # 📦 Stok aşımı UYARISI (engellemez): kaydedilen SKU'larda canlı stok kontrolü
-                        if _sonuc["eklendi"] > 0:
-                            try:
-                                from kayranpm.database import canli_stok
-                                _sku_top = {}
-                                for _g in _gecerli:
-                                    _sk2 = str(_g.get("sku") or "").strip()
-                                    if _sk2:
-                                        _sku_top[_sk2] = _sku_top.get(_sk2, 0) + int(_g.get("adet") or 0)
-                                _asim = []
-                                for _sk2, _ad2 in list(_sku_top.items())[:60]:
-                                    _cs2 = canli_stok(_sk2)
-                                    if _cs2.get("var") and _cs2["canli"] < 0:
-                                        _asim.append(f"{_sk2} (depomuzda {_cs2['canli']:.0f})")
-                                if _asim:
-                                    _m += (" · 📦 Stok uyarısı — canlı stok eksiye düştü: "
-                                           + ", ".join(_asim[:8])
-                                           + (" …" if len(_asim) > 8 else ""))
-                            except Exception:
-                                pass
-                        st.session_state["_ice_mesaj"] = _m
-                        try:
-                            st.cache_data.clear()
-                        except Exception:
-                            pass
-                        st.cache_data.clear()
-                        st.rerun()
-
-                def _sg_itopya_blok(_baslik, _key, _sabit_kanal, _kanal_secilebilir, _ic_pencere=False,
-                                    _sadece_govde=False):
-                    """EERA/DİĞER şablonu (STOKKODU·SONALFIYAT·MIKTAR·DEPOTANIM). Kanal: sabit ya da dropdown.
-                    _ic_pencere=True → zaten bir dialog içindeyiz, iç içe dialog yerine toggle ile aç."""
-                    def _kanal_blok_govde():
-                        st.download_button("Şablon indir", _sg_sablon_bytes(_EERA_KOL, _key.upper()),
-                                           f"SIPARIS_SABLON_{_key.upper()}.xlsx", mime=_XLSX_MIME,
-                                           key=f"sg_sablon_{_key}", icon=":material/download:")
-                        _knl = _sabit_kanal
-                        if _kanal_secilebilir:
-                            # Firma OTOMATİK gelmesin — boş başlar, kullanıcı bilinçli seçer
-                            # (alfabetik ilk cari yanlışlıkla seçili kalıp yanlış firmaya
-                            # sipariş yazılmasın diye).
-                            _knl = st.selectbox("Firma (cari)", _kanallar,
-                                                index=None, key=f"sg_kanal_{_key}",
-                                                placeholder="— Firma seç (zorunlu) —")
-                            if not _knl:
-                                st.info("👆 Devam etmek için önce firma / kanal seç.")
-                                return
-                        _c1, _c2 = st.columns(2)
-                        _tar = _c1.date_input("Sipariş Tarihi", value=date.today(), key=f"sg_tar_{_key}",
-                                              min_value=date(2024, 1, 1), max_value=date.today(),
-                                              help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
-                        _sno = _c2.text_input("Sipariş No", key=f"sg_sno_{_key}",
-                                              placeholder="örn. 2026-06-30").strip()
-                        _dosya = st.file_uploader("Sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"],
-                                                  key=f"sg_up_{_key}")
-                        if _dosya is not None:
-                            _sayfalar, _hata = _siparis_excel_oku(_dosya)
-                            if _hata:
-                                st.error(_hata)
-                                return
-                            _tum = []
-                            for _sf in (_sayfalar or []):
-                                _df = _sf["df"]
-                                if {"STOKKODU", "SONALFIYAT", "MIKTAR"}.issubset(set(_df.columns)):
-                                    _tum.extend(_itopya_satirlar(_df, _knl, _tar.isoformat(), _sno, urun_map))
-                            if not _tum:
-                                st.warning("Uygun satır bulunamadı (STOKKODU · SONALFIYAT · MIKTAR sütunları gerekli).")
-                                return
-                            _adet = sum(s["adet"] for s in _tum)
-                            _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                            st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_knl)}**")
-                            if not _sno:
-                                st.error("⛔ **Sipariş No boş** — bu yüzden kaydet butonu "
-                                         "pasif. Yukarıdaki Sipariş No kutusunu doldur.")
-                            _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
-                            _uz = st.checkbox(
-                                "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
-                                key=f"sg_uz_{_key}",
-                                help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
-                                     "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
-                            # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı
-                            # kendi deposuna karşı kontrol etsin (satır bazlı DEPOTANIM).
-                            _depo_k = _sg_depo_sec(_key, _gecerli)
-                            if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
-                                         key=f"sg_kaydet_{_key}", disabled=not _gecerli, icon=":material/move_to_inbox:"):
-                                _sg_kaydet(_gecerli, _uz, _depo_k, _dosya.name)
-                    if _sadece_govde:
-                        # Ekim 2026: Satış Girişi kartından doğrudan açılan pencerenin içi
-                        _kanal_blok_govde()
-                        return
-                    if _ic_pencere:
-                        # Zaten bir dialog içindeyiz → toggle ile aynı pencerede aç (iç içe dialog yasak)
-                        if st.toggle(_baslik, key=f"tgl_kanal_{_key}"):
-                            _kanal_blok_govde()
-                    else:
-                        @st.dialog(_baslik, width="large")
-                        def _dlg_kanal_blok():
-                            _kanal_blok_govde()
-                        if st.button(_baslik, key=f"btn_kanal_{_key}", use_container_width=True):
-                            _dlg_kanal_blok()
-
-                # ── Excel ile toplu sipariş: firma başına DOĞRUDAN açılan pencere ──
-                # Ekim 2026: eskiden tek "Excel ile Toplu Satış" penceresinin içinde üç
-                # aç-kapa anahtarı vardı (VATAN · EERA · DİĞER). Artık Satış Girişi'ndeki
-                # kart doğrudan ilgili pencereyi açar. Ayrıştırıcı ve kayıt kodu aynı.
-                def _vatan_toplu_govde():
-                    st.download_button("VATAN şablonu indir", _sg_sablon_bytes(_VATAN_KOL, "VATAN"),
-                                       "SIPARIS_SABLON_VATAN.xlsx", mime=_XLSX_MIME, key="sg_sablon_vatan", icon=":material/download:")
-                    st.caption("VATAN şablonunda sipariş no ve tarih Excel'den gelir.")
-                    _dv = st.file_uploader("VATAN sipariş Excel'i (.xlsx / .xls)", type=["xlsx", "xls"], key="sg_up_vatan")
-                    if _dv is not None:
-                        _sayfalar, _hata = _siparis_excel_oku(_dv)
-                        if _hata:
-                            st.error(_hata)
-                        else:
-                            _vk = next((k for k in _kanallar if "VATAN" in k.upper()), "VATAN")
-                            _tum = []
-                            for _sf in (_sayfalar or []):
-                                _df = _sf["df"]
-                                if {"Sipariş Numarası", "Stok Kodu", "Birim Fiyat", "Miktar"}.issubset(set(_df.columns)):
-                                    _tum.extend(_vatan_satirlar(_df, _vk, urun_map))
-                            if not _tum:
-                                st.warning("Uygun VATAN satırı bulunamadı (Sipariş Numarası · Stok Kodu · Birim Fiyat · Miktar).")
-                            else:
-                                _adet = sum(s["adet"] for s in _tum)
-                                _ciro = sum(s["adet"] * s["birim_satis"] for s in _tum)
-                                st.caption(f"{len(_tum)} kalem • {tr_sayi(_adet)} adet • {_usd_md(_ciro)} • Firma: **{_fka_s(_vk)}**")
-                                _gecerli = [s for s in _tum if s.get("siparis_no") and s.get("tarih")]
-                                _eksik = len(_tum) - len(_gecerli)
-                                if _eksik:
-                                    st.caption(f"{_eksik} kalem sipariş no/tarih eksik — kaydedilmeyecek.")
-                                _uzv = st.checkbox(
-                                    "🔁 Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
-                                    key="sg_uz_vatan",
-                                    help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
-                                _depo_v = _sg_depo_sec("vatan", _gecerli)
-                                if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
-                                             key="sg_kaydet_vatan", disabled=not _gecerli, icon=":material/move_to_inbox:"):
-                                    _sg_kaydet(_gecerli, _uzv, _depo_v, _dv.name)
-
-                _eera_knl = next((k for k in _kanallar
-                                  if any(x in k.upper() for x in ("EERA", "ITOPYA", "İTOPYA"))), "EERA")
-
-                @st.dialog("VATAN siparişleri · Excel", width="large")
-                def _dlg_xl_vatan():
-                    _vatan_toplu_govde()
-
-                @st.dialog("EERA (İtopya) siparişleri · Excel", width="large")
-                def _dlg_xl_eera():
-                    _sg_itopya_blok("EERA", "eera", _eera_knl, False, _sadece_govde=True)
-
-                @st.dialog("Diğer firmaların siparişleri · Excel", width="large")
-                def _dlg_xl_diger():
-                    _sg_itopya_blok("DİĞER", "diger", (_kanallar[0] if _kanallar else "DİGER"), True,
-                                    _sadece_govde=True)
 
                 # ── Manuel Satış Girişi — AÇILIR PENCERE ──
 
@@ -1234,7 +1370,7 @@ def run():
                             st.rerun()
 
                 # ── Açılış: bugünün özeti · Excel kartları · son siparişler ──
-                _sg_acilis(_dlg_xl_vatan, _dlg_xl_eera, _dlg_xl_diger)
+                _sg_acilis()
 
                 if st.session_state.pop("_ms_dialog_ac", False):
                     _satis_manuel_dialog()
@@ -2041,154 +2177,15 @@ def run():
                 if st.session_state.pop("_mlyt_ac", False):
                     _dlg_maliyet_fix()
 
-        # ───────────────────────── İÇE AKTAR (Excel) ─────────────────────────
-        elif _ssayfa == "📥 İçe Aktar":
-            st.markdown(_sb("🧾 Satış", "Geçmiş Satışları İçe Aktar",
-                            aciklama="Mikro fatura bazlı satış dökümü. Maliyet güncel paçaldan gelir; "
-                                     "daha önce kaydedilmiş faturalar atlanır."), unsafe_allow_html=True)
-            from shared.yukleme_takvimi import serit as _yt_serit
-            _yt_serit("satis_dokumu")            # dönemsel yükleme: geri sayım şeridi
-            _adim_yer = st.empty()
-            _dosya = st.file_uploader("Fatura dökümü (.xls / .xlsx)", type=["xls", "xlsx"],
-                                      key="satis_ice_aktar")
-            _adim_yer.markdown(_adim_gostergesi(1), unsafe_allow_html=True)
-            if _dosya is not None:
-                _satirlar, _ozet, _hata = _parse_mikro_satislar(_dosya)
-                if _satirlar and not _hata:
-                    _adim_yer.markdown(_adim_gostergesi(2), unsafe_allow_html=True)
-                if _hata:
-                    st.error(_hata)
-                elif not _satirlar:
-                    st.warning("Dosyada geçerli satış satırı bulunamadı.")
-                else:
-                    _ta = (f"{_ozet['tarih_min']:%d.%m.%Y} – {_ozet['tarih_max']:%d.%m.%Y}"
-                           if _ozet["tarih_min"] else "—")
-                    from shared.tasarim import kpi_serit as _ks2
-                    st.markdown(_ks2([
-                        {"etiket": "Satır", "deger": tr_sayi(_ozet["satir"]), "renk": "mavi"},
-                        {"etiket": "Fatura", "deger": tr_sayi(_ozet["fatura"]), "renk": "mor"},
-                        {"etiket": "Toplam ciro", "deger": _usd(_ozet["ciro"]), "renk": "yesil"},
-                        {"etiket": "Tarih aralığı", "deger": _ta, "renk": "amber"},
-                    ]), unsafe_allow_html=True)
-
-                    _mevcut = get_mevcut_siparis_nolar()
-                    _cakisan = _ozet["fatura_set"] & _mevcut
-                    if _cakisan:
-                        st.info(f"ℹ️ Bu dosyadaki **{len(_cakisan)}** fatura zaten sistemde kayıtlı. "
-                                "Varsayılan olarak atlanır (yalnızca yeni faturalar eklenir).")
-
-                    _pacal = get_pacal_map()
-                    _maliyetsiz_sku = sorted({s["sku"] for s in _satirlar
-                                              if float(_pacal.get(s["sku"], 0) or 0) <= 0})
-                    if _maliyetsiz_sku:
-                        with st.expander(f"⚠️ Paçal maliyeti olmayan {len(_maliyetsiz_sku)} ürün "
-                                         "(bu satırlarda maliyet 0 → net kâr = ciro)"):
-                            st.caption(", ".join(_maliyetsiz_sku))
-
-                    with st.expander("İlk satırları gör (önizleme)"):
-                        st.dataframe(_kar_df(pd.DataFrame(_satirlar[:8])), hide_index=True,
-                                     use_container_width=True)
-
-                    # ── 🩺 VERİ SAĞLIĞI ÖNİZLEME — kaydetmeden önce sorunlu satırları göster ──
-                    from satis.database import ice_aktar_onizle as _ic_onizle
-                    _sag = _ic_onizle(_satirlar)
-                    _sorunlu = (_sag["tarihsiz"] + _sag["maliyetsiz"] + _sag["adetsiz"]
-                                + _sag["skusuz"] + _sag.get("anormal_tarih", 0))
-                    if _sorunlu == 0:
-                        st.success(f"🩺 Veri sağlığı: ✓ {tr_sayi(_sag['toplam'])} satırın tamamı temiz.")
-                    else:
-                        _uyari = []
-                        if _sag["tarihsiz"]:
-                            _uyari.append(f"📅 **{tr_sayi(_sag['tarihsiz'])}** satırda tarih yok → **kaydedilmeyecek** "
-                                          "(hayalet kayda dönüşmesin diye)")
-                        if _sag.get("anormal_tarih"):
-                            _uyari.append(f"⏰ **{tr_sayi(_sag['anormal_tarih'])}** satırda tarih GELECEKTE veya 3+ yıl "
-                                          "eski → büyük ihtimalle yıl yazım hatası; bu satırlar dönem "
-                                          "raporlarında **görünmez**, önce Excel'de düzeltmen önerilir")
-                        if _sag["maliyetsiz"]:
-                            _uyari.append(f"💰 **{tr_sayi(_sag['maliyetsiz'])}** satırda paçal maliyet yok → maliyet 0 "
-                                          "yazılır (**%100 marj** görünür); ithalatı girince 'Maliyeti 0 düzelt' ile onarılır")
-                        if _sag["adetsiz"]:
-                            _uyari.append(f"🔢 **{tr_sayi(_sag['adetsiz'])}** satırda adet 0/eksik → kaydedilmeyecek")
-                        if _sag["skusuz"]:
-                            _uyari.append(f"🏷️ **{tr_sayi(_sag['skusuz'])}** satırda SKU yok → kaydedilmeyecek")
-                        st.warning(f"🩺 **Veri sağlığı — {tr_sayi(_sag['temiz'])}/{tr_sayi(_sag['toplam'])} satır temiz.** "
-                                   "Aşağıdakilere dikkat:\n\n- " + "\n- ".join(_uyari))
-                        if _sag["tarihsiz_ornek"]:
-                            st.caption("Tarihsiz örnekler: " + " · ".join(_sag["tarihsiz_ornek"]))
-                        if _sag.get("anormal_ornek"):
-                            st.caption("Anormal tarih örnekleri: " + " · ".join(_sag["anormal_ornek"]))
-                        if _sag["maliyetsiz_ornek"]:
-                            st.caption("Maliyetsiz örnekler: " + " · ".join(_sag["maliyetsiz_ornek"]))
-
-                    _onay = True
-                    if _sorunlu > 0:
-                        _onay = st.checkbox(
-                            f"⚠️ Yukarıdaki {tr_sayi(_sorunlu)} sorunlu satırı gördüm — yine de temiz satırları içe aktar",
-                            key="satis_ice_onay")
-
-                    _mod = st.radio(
-                        "Yükleme modu",
-                        ["Bu dosyadaki faturaları sıfırla ve yeniden yükle (önerilen)",
-                         "Mevcut kayıtların üzerine ekle (zaten kayıtlı faturaları atla)"],
-                        key="satis_ice_mod")
-                    _temizle_once = _mod.startswith("Bu dosyadaki")
-                    if _temizle_once and _cakisan:
-                        st.caption(f"↻ Bu dosyadaki {len(_cakisan)} fatura önce silinip yeniden yazılacak "
-                                   "(eksik/kısmi kalan kayıtlar temizlenir).")
-                    if st.button("İçe Aktar ve Kaydet", type="primary",
-                                 use_container_width=True, key="satis_ice_btn", disabled=not _onay, icon=":material/move_to_inbox:"):
-                        _pb = st.progress(0.0, text="Kaydediliyor…")
-
-                        def _ilerle(yapilan, toplam):
-                            try:
-                                _pb.progress(min(1.0, yapilan / toplam),
-                                             text=f"Kaydediliyor… {yapilan}/{toplam}")
-                            except Exception:
-                                pass
-
-                        from shared.yukleme_gecmisi import Kayit as _YKayit
-                        _yk = _YKayit("mikro_fatura", _dosya.name)
-                        with _yk.stok():             # stok hareketleri bu yüklemeyle işaretlenir
-                            _sonuc = ice_aktar_satislar(_satirlar, atla_mevcut=True,
-                                                        temizle_once=_temizle_once, ilerleme=_ilerle)
-                        _pb.empty()
-                        if _sonuc["hata"] and _sonuc["eklendi"] == 0:
-                            st.error(f"❌ {_sonuc['hata']}")
-                        else:
-                            from shared.yukleme_takvimi import kaydet as _yt_kaydet
-                            _yt_kaydet("satis_dokumu", st.session_state.get("aktif_kullanici", ""),
-                                       _sonuc.get("eklendi"))
-                            _yk.kaydet(_sonuc.get("eklendi"))
-                            _msg = f"✅ {tr_sayi(_sonuc['eklendi'])} satış kaydedildi."
-                            if _sonuc.get("silinen_fatura"):
-                                _msg += f" {tr_sayi(_sonuc['silinen_fatura'])} eski fatura temizlendi."
-                            if _sonuc["atlandi"]:
-                                _msg += f" {tr_sayi(_sonuc['atlandi'])} satır atlandı (zaten kayıtlı)."
-                            if _sonuc["maliyetsiz"]:
-                                _msg += f" {tr_sayi(_sonuc['maliyetsiz'])} satırda paçal maliyet yok (maliyet 0)."
-                            if _sonuc.get("hatali"):
-                                _msg += f" ⚠️ {tr_sayi(_sonuc['hatali'])} satır yazılamadı ({_sonuc.get('hata')})."
-                            # Tüm önbelleği temizle + sayfayı yenile ki P&L/Satışlar taze veriyi göstersin
-                            st.session_state["_ice_mesaj"] = _msg
-                            try:
-                                st.cache_data.clear()
-                            except Exception:
-                                pass
-                            st.cache_data.clear()
-                            st.rerun()
-
         # ───────────────────────── İADE ─────────────────────────
         elif _ssayfa == "↩️ İade":
             from shared import bilesen as _B3
             _iey = _B3.baslik_eylem(
                 "🧾 Satış", "İade Yönetimi",
                 aciklama="İadeler satıştan ayrı tutulur; mal stoğa döner, kâr brüt satıştan hesaplanır.",
-                eylemler=[{"etiket": "Excel ile toplu", "key": "btn_sat_tiade", "icon": ":material/upload_file:",
-                           "help": "Mikro 'iadeli satışlar' raporundan toplu iade (yalnız iade kolonları alınır)"},
-                          {"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
+                eylemler=[{"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
 
-            _IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+            _IADE_DEPOLAR = IADE_DEPOLAR
 
             @st.dialog("Manuel iade girişi", width="large")
             def _dlg_manuel_iade():
@@ -2221,125 +2218,6 @@ def run():
             if _iey.get("btn_sat_miade"):
                 _dlg_manuel_iade()
 
-            @st.dialog("Excel ile toplu iade · Mikro 'iadeli satışlar' raporu", width="large")
-            def _dlg_toplu_iade():
-                st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
-                           "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
-                _ie_dosya = st.file_uploader("İade Excel'i (.xls / .xlsx)", type=["xls", "xlsx"], key="iade_excel")
-                _ie_aralik = st.date_input("Bu rapor hangi dönemi kapsıyor? (başlangıç – bitiş)",
-                                           value=(date.today(), date.today()), key="iade_excel_tarih", format="DD.MM.YYYY")
-                if isinstance(_ie_aralik, (list, tuple)) and len(_ie_aralik) == 2:
-                    _ie_bas, _ie_bit = _ie_aralik
-                elif isinstance(_ie_aralik, (list, tuple)) and _ie_aralik:
-                    _ie_bas = _ie_bit = _ie_aralik[0]
-                else:
-                    _ie_bas = _ie_bit = _ie_aralik
-                _ie_tarih = _ie_bit
-                st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
-                _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
-                                          value=True, key="iade_excel_temizle")
-
-                # ── DÖNEM KİLİDİ: mevcut partiler + çakışma kontrolü ──
-                # (5.199'luk kaza: Ocak–Haziran raporu 01.07 tarihiyle yüklendi, sonra aynı
-                #  dönem Q1+Q2 olarak tekrar geldi → aynı iadeler iki kez sayıldı. Artık
-                #  yeni dönem mevcut bir partiyle kesişiyorsa yükleme bilinçli onay ister.)
-                from satis.database import get_iade_partileri, iade_cakisma_bul
-                _partiler = get_iade_partileri()
-                if _partiler:
-                    with st.expander(f"📚 Kayıtlı iade partileri ({len(_partiler)})", expanded=False):
-                        st.dataframe(_kar_df(pd.DataFrame([{
-                            "Parti tarihi": p["tarih"],
-                            "Dönem": (f'{p["donem_bas"]} → {p["donem_bit"]}'
-                                      if p.get("donem_bas") else "— (eski yükleme, dönem kaydı yok)"),
-                            "Satır": p["satir"], "Adet": p["adet"],
-                        } for p in _partiler])), use_container_width=True, hide_index=True)
-                _cakisan_p = iade_cakisma_bul(_ie_bas, _ie_bit,
-                                              temizlenecek_tarih=_ie_tarih if _ie_temizle else None)
-                _cak_onay = True
-                if _cakisan_p:
-                    st.error("⛔ **Dönem çakışması:** yüklemek istediğin aralık şu partilerle kesişiyor → "
-                             + " · ".join(f'{p["tarih"]} ({tr_sayi(p["adet"])} adet)' for p in _cakisan_p)
-                             + ". Aynı iadeler iki kez sayılabilir. Ya farklı bir dönem seç, ya da "
-                               "eski partiyi bilerek yanına ekliyorsan aşağıyı onayla.")
-                    _cak_onay = st.checkbox("Çakışmayı biliyorum, dönemler gerçekten farklı iadeler "
-                                            "içeriyor — yine de yükle", key="iade_cakisma_onay")
-
-                # ── ANORMAL TARİH KORUMASI ──
-                from datetime import date as _d
-                _trh_onay = True
-                if str(_ie_bit) > str(_d.today()):
-                    st.error(f"⛔ Dönem bitişi ({_ie_bit}) **gelecekte** — büyük ihtimalle yıl yazım hatası.")
-                    _trh_onay = st.checkbox("Tarih doğru, bilerek seçtim", key="iade_trh_onay")
-                elif str(_ie_bas) < "2024-01-01":
-                    st.warning(f"⚠️ Dönem başlangıcı ({_ie_bas}) 2024 öncesi — emin misin?")
-                if _ie_dosya is not None:
-                    try:
-                        _ie_satir, _ie_hata = iade_excel_oku(_ie_dosya)
-                    except Exception as e:
-                        _ie_satir, _ie_hata = [], f"{type(e).__name__}: {e}"
-                    if _ie_hata:
-                        st.error(f"Okunamadı: {_ie_hata}")
-                    elif not _ie_satir:
-                        st.warning("Dosyada iadesi olan satır bulunamadı.")
-                    else:
-                        _tadet = sum(x["iade_adet"] for x in _ie_satir)
-                        _tnet = sum(x["iade_net"] for x in _ie_satir)
-                        st.success(f"{len(_ie_satir)} iade kalemi · {tr_sayi(_tadet)} adet · {_usd_md(_tnet)} bulundu.")
-                        st.dataframe(_kar_df(pd.DataFrame([{
-                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"])[:40], "Adet": x["iade_adet"],
-                            "İade Net": _usd(x["iade_net"]), "Cari": (x["kanal"] or "")[:30],
-                        } for x in _ie_satir[:200]])), use_container_width=True, hide_index=True)
-                        # ── MANUEL AVANS MUTABAKATI ──
-                        _man = iade_manuel_donem(str(_ie_bas)[:10], str(_ie_bit)[:10])
-                        _plan, _uyus = iade_fark_plani(_ie_satir, _man)
-                        if _man:
-                            _mtop = sum(v["adet"] for v in _man.values())
-                            st.info(f"🔁 Bu dönemde **{len(_man)} kalemde {tr_sayi(_mtop)} adet** manuel iade "
-                                    f"zaten girilmiş. Aşağıdaki tabloda yalnız **fark** yazılacak.")
-                            _onizle = [{
-                                "SKU": p["sku"], "Cari": (p.get("kanal") or "")[:24],
-                                "Excel": p["_excel_adet"], "Manuel": p["_manuel_adet"],
-                                "Yazılacak": p["iade_adet"],
-                                "Depo": p.get("depo") or "(varsayılan)",
-                            } for p in _plan if p["_manuel_adet"]]
-                            if _onizle:
-                                st.dataframe(pd.DataFrame(_onizle), use_container_width=True,
-                                             hide_index=True)
-                        if _uyus:
-                            st.warning("⚠️ **Excel manuel girişten az** — bu kalemler yazılmayacak, "
-                                       "elle kontrol et:\n\n"
-                                       + "\n".join(f"- `{u['sku']}` / {u['kanal']}: manuel **{u['manuel']}**, "
-                                                    f"Excel **{u['excel']}**" for u in _uyus))
-                        _ie_depo = st.selectbox(
-                            "Manuel eşleşmesi olmayan satırlar hangi depoya girsin?",
-                            _IADE_DEPOLAR, key="iade_excel_depo",
-                            help="Excel'de depo bilgisi yok. Manuel karşılığı olan satırlar "
-                                 "kendi deposunu korur; kalanlar buraya yazılır.")
-                        _yaz_adet = sum(p["iade_adet"] for p in _plan)
-                        st.caption(f"Yazılacak: **{len(_plan)} satır · {tr_sayi(_yaz_adet)} adet** "
-                                   f"(Excel toplamı {tr_sayi(_tadet)})")
-
-                        if st.button("İadeleri İçe Aktar", type="primary", key="iade_excel_btn",
-                                     disabled=not (_cak_onay and _trh_onay) or not _plan, icon=":material/upload:"):
-                            from shared.yukleme_gecmisi import Kayit as _YKayit
-                            _yk = _YKayit("iade_excel", _ie_dosya.name)
-                            with _yk.stok():         # stok hareketleri bu yüklemeyle işaretlenir
-                                _r = ice_aktar_iadeler(_plan, str(_ie_tarih)[:10],
-                                                       temizle_once=_ie_temizle,
-                                                       donem_bas=str(_ie_bas)[:10],
-                                                       varsayilan_depo=_ie_depo)
-                            if _r.get("hata"):
-                                st.error(f"Hata: {_r['hata']}")
-                            else:
-                                from shared.yukleme_takvimi import kaydet as _yt_kaydet
-                                _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""),
-                                           _r.get("eklendi"))
-                                _yk.kaydet(_r.get("eklendi"))
-                                st.toast(f"✅ {_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
-                                st.cache_data.clear()
-                                st.rerun()
-            if _iey.get("btn_sat_tiade"):
-                _dlg_toplu_iade()
             from shared.yukleme_takvimi import serit as _yt_serit
             _yt_serit("iade_aylik")              # aylık iade Excel'i: geri sayım şeridi
 

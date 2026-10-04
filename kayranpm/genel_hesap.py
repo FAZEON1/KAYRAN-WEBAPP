@@ -113,7 +113,7 @@ def yapilacaklar(rows):
                   urunler=[(r, f"zarar %{tr_sayi(abs(_f(r.get('kar_marji'))), 1)}") for r in zarar]))
 
     eksik = [r for r in rows if r.get("kar_durum") in ("fiyat_yok", "alis_yok") and _f(r.get("toplam_stok")) > 0]
-    g.append(dict(anahtar="eksik_veri", baslik="Fiyat / maliyet eksik", renk="silik", hedef="📂  Veri Yükleme",
+    g.append(dict(anahtar="eksik_veri", baslik="Fiyat / maliyet eksik", renk="silik", hedef="Toplu İşlemler",
                   aciklama="Kâr ve marj hesaplanamıyor",
                   urunler=[(r, "satış fiyatı yok" if r.get("kar_durum") == "fiyat_yok"
                                else "paçal maliyet yok (ithalat ya da maliyet girişi)") for r in eksik]))

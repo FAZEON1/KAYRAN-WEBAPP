@@ -154,6 +154,11 @@ def _bilesen():
 def git(oge_id):
     """Paletten seçilen öğeye git. Sayfa: oturuma yaz + uygulamayı yeniden çiz.
     Ürün: stok kartını aç (bulunduğun sayfada kalır)."""
+    if str(oge_id or "") == "kapi":           # Dosya kapısı: bütün Excel yüklemeleri tek pencerede
+        from shared.dosya_kapisi import ac
+        ac()
+        st.rerun(scope="app")
+        return
     if str(oge_id or "").startswith("soru:"):
         from shared.soru_ekran import sor
         sor(str(oge_id)[5:])

@@ -509,17 +509,15 @@ def _destek_gider(r, yil, donem):
         st.caption("Bu dönemde destek / harcama kaydı yok.")
     _gider_anahtar = f"gider_tablosu_{yil}"
     try:
-        from kayranacc.database import get_ayar as _ga, set_ayar as _sa
+        from kayranacc.database import get_ayar as _ga
     except Exception:  # noqa: BLE001
-        _ga = _sa = None
+        _ga = None
     _gider = _ga(_gider_anahtar) if _ga else None
-    c1, c2 = st.columns([4, 1], vertical_alignment="center")
-    c1.markdown(f"**İşletme giderleri** · {yil} · TL"
+    st.markdown(f"**İşletme giderleri** · {yil} · TL"
                 + (f" · dönemde ≈ {_usd(r['gider'])} · yüklenme {_tr_tarih(_gider.get('tarih'))}" if _gider else ""))
-    if c2.button(f"Gider yükle ({yil})", key="btn_yon_gider", use_container_width=True, icon=":material/upload:"):
-        _gider_yukle_dialog(yil, _gider_anahtar, _sa)
     if not _gider:
-        st.info(f"{yil} gider tablosu yüklenmedi. Sağdaki düğmeyle yükleyebilirsin.")
+        st.info(f"{yil} gider tablosu yüklenmedi. Doldurulmuş tabloyu üst menüdeki **Dosya** düğmesinden "
+                "yükleyebilirsin.")
         return
     grows, gtop = gider_satirlari(_gider.get("kat") or {})
     try:
@@ -545,42 +543,48 @@ def _destek_gider(r, yil, donem):
                        file_name=f"yonetim_destek_gider_{yil}.xlsx", icon=":material/download:", key="yon_xl_gider")
 
 
-@st.dialog("Gider tablosu yükle", width="large")
-def _gider_yukle_dialog(yil, _gider_anahtar, _sa3):
+def kapi_gider(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): aylık gider tablosu. Eskiden Destekler ve giderler sayfasındaki
+    'Gider yükle' penceresiydi; yıl o sayfanın yıl seçiminden gelirdi, artık burada seçilir."""
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("gider_tablosu")
-    st.markdown(f"{yil} için boş taslağı muhasebene gönder; **sabit / değişken / yarı değişken** kalemleri "
-                "12 ay için doldurulup buraya `.xlsx` olarak yüklenir. Aynı yılı tekrar yüklersen güncellenir.")
-    _gf = st.file_uploader("Doldurulmuş Gider Tablosu (.xlsx / .xls)", type=["xlsx", "xls"],
-                           key=f"gf_{_gider_anahtar}")
-    if st.button("İşle ve kaydet", key=f"gider_kaydet_{_gider_anahtar}", type="primary"):
-        if not _gf:
-            st.error("Önce doldurulmuş tabloyu yükle.")
-            return
-        try:
-            with st.spinner("Gider tablosu işleniyor…"):
-                _katp, _detayp = gider_tablosu_parse(_gf)
-            _yillik_top = sum(sum(v) for v in _katp.values())
-            if not _detayp or _yillik_top <= 0:
-                st.warning("Dosya açıldı ama **hiç gider değeri okunamadı**, kayıt yapılmadı. "
-                           "Kontrol et: (1) tutarlar ay kolonlarına (Ocak…Aralık) girilmiş mi, "
-                           "(2) hücreler sayı mı (formül sonucu da olur), "
-                           "(3) veriler dosyanın ilk sayfasında, aynı düzende mi.")
-                return
-            _kayit = {"kat": _katp, "detay": _detayp, "tarih": _bugun().isoformat()}
-            if _sa3:
-                _sa3(_gider_anahtar, _kayit)
-                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                _yg_kaydet("gider_tablosu", len(_detayp), _gf.name)
-                from shared.yukleme_takvimi import _temizle as _yt_tazele
-                _yt_tazele()                      # geri sayım yeni ayı görsün
-            _pnl_onbellekli.clear()
-            _ay_ozeti.clear()
-            # toast: rerun'dan önce basılan st.success görünmeden kayboluyordu
-            st.toast(f"{len(_detayp)} kalem · yıllık ₺{tr_sayi(_yillik_top)} kaydedildi")
-            st.rerun()
-        except Exception as e:  # noqa: BLE001
-            st.error(f"Dosya işlenemedi: {e}")
+    st.markdown("Muhasebenin doldurduğu tablo: **sabit / değişken / yarı değişken** kalemler, 12 ay. "
+                "Aynı yılı tekrar yüklersen o yılın tablosu güncellenir.")
+    _bu = _bugun().year
+    yil = st.selectbox("Hangi yılın gider tablosu?", [_bu - 1, _bu, _bu + 1], index=1, key=kapi.anahtar("gider_yil"))
+    _gider_anahtar = f"gider_tablosu_{yil}"
+    try:
+        with st.spinner("Gider tablosu işleniyor…"):
+            _katp, _detayp = gider_tablosu_parse(dosya)
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Dosya işlenemedi: {e}")
+        return
+    _yillik_top = sum(sum(v) for v in _katp.values())
+    if not _detayp or _yillik_top <= 0:
+        st.warning("Dosya açıldı ama **hiç gider değeri okunamadı**, kayıt yapılmaz. "
+                   "Kontrol et: (1) tutarlar ay kolonlarına (Ocak…Aralık) girilmiş mi, "
+                   "(2) hücreler sayı mı (formül sonucu da olur), "
+                   "(3) veriler dosyanın ilk sayfasında, aynı düzende mi.")
+        return
+    st.success(f"{len(_detayp)} kalem · yıllık ₺{tr_sayi(_yillik_top)} okundu · "
+               + " · ".join(f"{k} ₺{tr_sayi(sum(v))}" for k, v in _katp.items()))
+    try:
+        from kayranacc.database import get_ayar as _ga, set_ayar as _sa3
+    except Exception:  # noqa: BLE001
+        st.error("Ayar tablosuna erişilemiyor; kayıt yapılamaz.")
+        return
+    if _ga(_gider_anahtar):
+        st.caption(f"{yil} için kayıtlı bir tablo var; kaydedince yerine bu dosya geçer.")
+    if st.button("Kaydet", key=kapi.anahtar("gider_kaydet"), type="primary", use_container_width=True,
+                 icon=":material/save:"):
+        _sa3(_gider_anahtar, {"kat": _katp, "detay": _detayp, "tarih": _bugun().isoformat()})
+        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+        _yg_kaydet("gider_tablosu", len(_detayp), dosya.name)
+        from shared.yukleme_takvimi import _temizle as _yt_tazele
+        _yt_tazele()                      # geri sayım yeni ayı görsün
+        _pnl_onbellekli.clear()
+        _ay_ozeti.clear()
+        kapi.bitti(f"{yil} gider tablosu kaydedildi: {len(_detayp)} kalem · yıllık ₺{tr_sayi(_yillik_top)}.")
 
 
 def _ay_kapanis():

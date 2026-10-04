@@ -524,46 +524,45 @@ def hl_get_stok(rapor_tarihi=None):
         return []
 
 
+def kapi_happylife(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): Happy Life günlük stok Excel'i (eskiden bu sayfadaki açılır bölüm)."""
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("happylife")
+    st.caption("Happy Life'tan gelen günlük stok Excel'i. Stok yaşı, Excel'deki sabit sayı yerine "
+               "**giriş tarihine göre her gün otomatik güncellenir** — yani yüklemesen bile yaş bugüne göre doğru kalır.")
+    _rapor = st.date_input("Rapor tarihi", value=date.today(), key=kapi.anahtar("hl_rapor_t"),
+                           help="Bu yüklemenin ait olduğu gün. Aynı günü tekrar yüklersen "
+                                "önceki kayıt güncellenir (mükerrer olmaz).", format="DD.MM.YYYY")
+    kayitlar, hata = hl_excel_parse(dosya)
+    if hata:
+        st.error(hata)
+        return
+    st.success(f"{len(kayitlar)} palet satırı okundu.")
+    if st.button("Veritabanına Kaydet", type="primary", key=kapi.anahtar("hl_kaydet_btn"),
+                 use_container_width=True, icon=":material/save:"):
+        ok, msg = hl_kaydet(kayitlar, _rapor.isoformat(), dosya_adi=dosya.name)
+        try:
+            hl_rapor_tarihleri.clear(); hl_get_stok.clear()
+        except Exception:
+            pass
+        if not ok:
+            st.error(msg)
+            return
+        from shared.yukleme_takvimi import _temizle as _yt_tazele
+        _yt_tazele()
+        kapi.bitti(msg)
+
+
 def _sayfa_happylife():
     _baslik("🏭 Happy Life Kiralık Depo",
             "Palet bazlı stok · stok yaşı tarihe göre canlı hesaplanır (kira takibi)")
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("happylife")                       # dönemsel rapor: geri sayım şeridi
 
-    # ── Excel yükleme ──
-    with st.expander("📥 Günlük Excel Yükle (G5F_Stok)", expanded=False):
-        st.caption("Happy Life'tan gelen günlük stok Excel'ini yükle. Stok yaşı, Excel'deki "
-                   "sabit sayı yerine **giriş tarihine göre her gün otomatik güncellenir** — "
-                   "yani yüklemesen bile yaş bugüne göre doğru kalır.")
-        up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="hl_upload")
-        _rapor = st.date_input("Rapor tarihi", value=date.today(), key="hl_rapor_t",
-                               help="Bu yüklemenin ait olduğu gün. Aynı günü tekrar yüklersen "
-                                    "önceki kayıt güncellenir (mükerrer olmaz).", format="DD.MM.YYYY")
-        if up is not None:
-            kayitlar, hata = hl_excel_parse(up)
-            if hata:
-                st.error(hata)
-            else:
-                st.success(f"📄 {len(kayitlar)} palet satırı okundu.")
-                if st.button("Veritabanına Kaydet", type="primary", key="hl_kaydet_btn",
-                             use_container_width=True, icon=":material/save:"):
-                    ok, msg = hl_kaydet(kayitlar, _rapor.isoformat(), dosya_adi=up.name)
-                    try:
-                        hl_rapor_tarihleri.clear(); hl_get_stok.clear()
-                    except Exception:
-                        pass
-                    if ok:
-                        from shared.yukleme_takvimi import _temizle as _yt_tazele
-                        _yt_tazele()
-                        st.toast(msg)          # rerun'dan önce basılan mesaj kayboluyordu
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
     # ── Rapor tarihi seçimi ──
     _tarihler = hl_rapor_tarihleri()
     if not _tarihler:
-        st.info("Henüz veri yok. Yukarıdan Happy Life Excel'ini yükle.")
+        st.info("Henüz veri yok. Happy Life Excel'ini üst menüdeki Dosya düğmesinden yükle.")
         return
     c1, c2 = st.columns([1, 3])
     _sec_tarih = c1.selectbox("Rapor tarihi", _tarihler, index=0, key="hl_sec_tarih", format_func=tarih_tr)

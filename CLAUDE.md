@@ -40,6 +40,16 @@ PR'lar aynı dosyalara dokunabilir.
 **Tek iş, tek PR.** Bir istek parça parça PR'larla teslim edilmez; envanter, tüm düzeltmeler ve
 testler bitince tek PR. İstisna: canlıda çalışmayan bir şey (kullanıcıya sorarak ayrı PR).
 
+**Aynı anda birden çok oturum çalışır — çakışma kuralı.** Kullanıcı başka oturumlarda da iş yapar;
+PR'lar aynı dosyalara dokunabilir ve biri birleşince diğeri "birleştirilemez" olur.
+- İşe başlamadan açık PR'lara bak; aynı dosyalara dokunan varsa kullanıcıya baştan söyle.
+- Push etmeden ve PR linkini vermeden hemen önce `git fetch origin main` ve main'i dala birleştir
+  (merge; başkasının dalında rebase / force-push yok). Çakışmada iki tarafın amacını da koru,
+  testleri (pytest + sayfa testi) yeniden çalıştır, sonra gönder.
+- PR açıkken main değişirse her bildirimde / kontrolde PR'ın birleştirilebilir durumuna bak;
+  çakışma varsa kullanıcı söylemeden çöz ve push et. "Birleştirmeye hazır" demeden önce CI'ın yeşil
+  VE çakışmanın olmadığını doğrula.
+
 ## Çalışma düzeni
 
 - **Envanter → plan → onay.** Yeni işte kod yazmadan önce bulgular (tablo) ve sıralı plan;

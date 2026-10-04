@@ -51,7 +51,7 @@ KAYNAKLAR = [
     dict(anahtar="iade_aylik", ad="İade Excel'i", modul="satis", sayfa="Satış › İade",
          siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="gokhan"),
     # Takip DIŞI: gerektiğinde zaman zaman yapılıyor — atama ve uyarı yok (ayarlardan açılabilir)
-    dict(anahtar="satis_dokumu", ad="Satış fatura dökümü", modul="satis", sayfa="Satış › İçe Aktar",
+    dict(anahtar="satis_dokumu", ad="Satış fatura dökümü", modul="satis", sayfa="Satış › Satışlar",
          siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme", sorumlu="", aktif=False),
     # Toplam aktiflerin üç dosyası birlikte, HER PAZARTESİ yükleniyor
     dict(anahtar="aktif_stok", ad="Toplam aktifler · stok değeri", modul="kayranacc",
@@ -64,13 +64,13 @@ KAYNAKLAR = [
          sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
          sorumlu="serdar"),
     dict(anahtar="odeme_listesi", ad="Haftalık ödeme listesi", modul="kayranacc",
-         sayfa="Muhasebe › Veri Yükleme", siklik="haftalik", son_gun=0, yon="ileri", tarih_turu="yukleme",
+         sayfa="Muhasebe › Bu hafta", siklik="haftalik", son_gun=0, yon="ileri", tarih_turu="yukleme",
          sorumlu="serdar"),
     dict(anahtar="happylife", ad="Happy Life stok raporu", modul="depo", sayfa="Depo › Happy Life Kiralık Depo",
          siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="samet"),
-    dict(anahtar="gider_tablosu", ad="Aylık gider tablosu", modul="yonetim", sayfa="Yönetim › Gider tablosu",
+    dict(anahtar="gider_tablosu", ad="Aylık gider tablosu", modul="yonetim", sayfa="Yönetim › Destekler ve giderler",
          siklik="aylik", son_gun=10, yon="geri", tarih_turu="veri", sorumlu="serdar"),
-    dict(anahtar="g5f_sayim", ad="G5F stok sayımı", modul="kayranpm", sayfa="Ürün Yönetimi › Veri Yükleme",
+    dict(anahtar="g5f_sayim", ad="G5F stok sayımı", modul="kayranpm", sayfa="Ürün Yönetimi › Tüm ürünler",
          siklik="ceyreklik", son_gun=15, yon="geri", tarih_turu="yukleme", sorumlu="gokhan"),
 ]
 _KAYNAK = {k["anahtar"]: k for k in KAYNAKLAR}

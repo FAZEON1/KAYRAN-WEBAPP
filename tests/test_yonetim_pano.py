@@ -103,7 +103,8 @@ def test_ekran_yapisi():
     for f in ("def _ozet(", "def _kanal_urun(", "def _destek_gider(", "def _ay_kapanis(", "def _sistem(",
               "def _trend(", "add_script_run_ctx"):
         assert f in y, f
-    assert "@st.dialog" in y and y.count("@st.dialog") == 1                     # yalnız gider yükleme penceresi
+    # Gider yükleme penceresi Ekim 2026'da Dosya kapısına taşındı (kapi_gider, düz fonksiyon)
+    assert "@st.dialog" not in y and "def kapi_gider(dosya, kapi)" in y
     assert "excel_bytes(" in y and '"Kanallar": krows' in y
     # rakamlar tek hesaptan: kıyaslar da pnl_topla
     assert "pnl_topla(yil, donem, bas, bit, _PnlKaynak(kur), bugun=_bugun(), aylar=tuple(aylar))" in y

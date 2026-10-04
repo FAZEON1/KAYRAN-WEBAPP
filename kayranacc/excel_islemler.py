@@ -448,3 +448,36 @@ def create_sample_excel():
     wb.save(buf)
     buf.seek(0)
     return buf
+
+
+def _hafta_anahtar(ad):
+    return " ".join(str(ad or "").strip().casefold().split())
+
+
+def ayni_hafta(hafta_adi, haftalar):
+    """Aynı adla kayıtlı hafta (yoksa None). Ödeme listesi her yüklemede YENİ hafta açar; aynı
+    dosya ikinci kez yüklenince ödemeler iki haftada görünüyordu (Ekim 2026: önce onay)."""
+    a = _hafta_anahtar(hafta_adi)
+    if not a:
+        return None
+    return next((h for h in (haftalar or []) if _hafta_anahtar(h.get("hafta_adi")) == a), None)
+
+
+def cek_degisim_ozeti(tl_cekler, usd_cekler, mevcut):
+    """Çek dökümü kaydından önce gösterilecek özet: dosyada kaç çek var, hangi MEVCUT çekler
+    silinip yerine konacak. mevcut: {para birimi: [çek]} (yalnız dosyada olan para birimleri)."""
+    def _top(cl):
+        t = 0.0
+        for c in cl or []:
+            try:
+                t += float(c.get("meblagh") or 0)
+            except (TypeError, ValueError):
+                pass
+        return t
+    out = {}
+    for pb, yeni in (("TL", tl_cekler), ("USD", usd_cekler)):
+        if not yeni:
+            continue
+        m = (mevcut or {}).get(pb) or []
+        out[pb] = {"yeni": len(yeni), "yeni_tutar": _top(yeni), "mevcut": len(m), "mevcut_tutar": _top(m)}
+    return out

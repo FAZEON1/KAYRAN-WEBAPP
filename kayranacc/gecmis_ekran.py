@@ -135,7 +135,7 @@ def _odenen_dialog(o, bmap):
 def _haftalar():
     haftalar = get_tum_haftalar() or []
     if not haftalar:
-        st.markdown(bos_durum("Henüz hafta yok", "Haftalık ödeme listesi Veri Yükleme sayfasından yüklenir.",
+        st.markdown(bos_durum("Henüz hafta yok", "Haftalık ödeme listesi üst menüdeki Dosya düğmesinden yüklenir.",
                               "calendar_month"), unsafe_allow_html=True)
         return
     aktif = get_aktif_hafta()
@@ -206,7 +206,7 @@ def _cek_arsivi():
     cekler = get_cekler(pb) or []
     sym = SEMBOL[pb]
     if not cekler:
-        st.markdown(bos_durum(f"Kayıtlı {pb} çeki yok", "Çek dökümü Veri Yükleme sayfasından yüklenir.", "receipt"),
+        st.markdown(bos_durum(f"Kayıtlı {pb} çeki yok", "Çek dökümü üst menüdeki Dosya düğmesinden yüklenir.", "receipt"),
                     unsafe_allow_html=True)
         return
     from shared.utils import tr_kucuk

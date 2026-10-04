@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Ürün Yönetimi › Müşteri Satışları — ekran (Ekim 2026). Hesap: musteri_hesap.py (saf, testli).
 
-Üstte aralık + görünüm (Müşteri · Marka · Ürün · Kategori) + Veri yükle / Excel.
+Üstte aralık + görünüm (Müşteri · Marka · Ürün · Kategori) + Excel. Haftalık dosya üst menüdeki Dosya kapısından yüklenir.
 Kartlar: satış (önceki eşit döneme göre ▲/▼), kanal stoğu (son raporlar), haftalık
 ortalama, kapsama. Altta yan yana: solda seçilen kırılımın listesi, sağda seçili satırın
 haftalık eğilimi ve alt kırılımı (müşteri → ürünler, ürün → müşteriler, marka/kategori →
@@ -155,7 +155,7 @@ def _eslesme_bolumu(rows, meta, kartlar, eslesme_satir):
                 st.error(msg)
 
 
-def render(yukle_penceresi=None):
+def render():
     from shared.tarih import hizli_tarih_araligi
     from shared.utils import metrik_satiri
     from shared.tablo import tablo
@@ -165,19 +165,16 @@ def render(yukle_penceresi=None):
         "mhs", varsayilan="Geçen hafta",
         secenekler=["Geçen hafta", "Bu ay", "Geçen ay", "Son 30 gün", "Son 90 gün", "Bu yıl", "Geçen yıl",
                     "Tümü", "Özel…"])
-    c1, c2, c3 = st.columns([3.2, 1, 1], vertical_alignment="bottom")
+    c1, c3 = st.columns([4.2, 1], vertical_alignment="bottom")
     if st.session_state.get("mhs_gorunum") not in GORUNUM:       # eski oturumda "Ürün" seçiliyse
         st.session_state.pop("mhs_gorunum", None)
     gor = c1.segmented_control("Görünüm", list(GORUNUM), default="Müşteri", key="mhs_gorunum",
                                label_visibility="collapsed") or "Müşteri"
     kir = GORUNUM[gor]
-    if yukle_penceresi and c2.button("Veri yükle", key="btn_mus_yuk", icon=":material/upload:",
-                                     use_container_width=True):
-        yukle_penceresi()
 
     rows = get_musteri_haftalik_satis(bas, bit) or []
     if not rows:
-        st.info("Bu aralıkta haftalık satış raporu yok. Aralığı genişlet ya da veri yükle.")
+        st.info("Bu aralıkta haftalık satış raporu yok. Aralığı genişlet ya da haftalık dosyayı üst menüdeki Dosya düğmesinden yükle.")
         return
     # Kart eşleştirme + kategori çözümü (musteri_hesap.meta_hazirla): ham SKU tutmasa da
     # normalize SKU / SKU parçası / ürün adıyla kart bulunur; kartta kategori boşsa addan tahmin.

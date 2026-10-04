@@ -176,7 +176,7 @@ def test_kayit_kancalari():
 
 
 def test_yukleme_ekranlarinda_serit():
-    assert 'serit(f"aktif_{anahtar}")' in _oku("kayranacc/main.py")   # üç aktif dosyası ortak blokta
+    assert 'serit(f"aktif_{tip}")' in _oku("kayranacc/main.py")   # üç aktif dosyası ortak gövdede (Dosya kapısı)
     for y, a in (("kayranpm/main.py", "musteri_haftalik"), ("satis/main.py", "iade_aylik"),
                  ("satis/main.py", "satis_dokumu"),
                  ("kayranacc/main.py", "odeme_listesi"), ("depo/main.py", "happylife"),
