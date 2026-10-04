@@ -71,7 +71,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
-               "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py"):
+               "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
+               "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -132,7 +133,8 @@ KRITIK_FONKSIYONLAR = {
     "ithalat.database": ["get_parti_satirlari", "get_sku_maliyet_ozet", "get_sku_alim_detay",
                          "_kategori_doldur", "_parti_satirlari_hesapla",   # paçal önbelleği (Eki 2026)
                          "teslim_stok_bekleyenler", "teslim_stok_kayitsiz", "_teslim_ayir",
-                         "_islendi_yaz"],   # stok işlenme kaydı (Eki 2026)
+                         "_islendi_yaz",   # stok işlenme kaydı (Eki 2026)
+                         "alim_turu", "ithalat_mi", "yurtici_sil", "ALIM_TURLERI"],   # yurt içi alış (Eki 2026)
     "shared.ana_veri": ["kategori_anahtar", "kategori_ad", "kategori_secenekleri", "kayit_degeri",
                         "tr_buyuk_harf", "marka_anahtar", "marka_ad", "get_kategori_havuzu",
                         "urun_ad", "get_urun_ad_haritasi"],   # tek kaynak (Eki 2026)
@@ -142,6 +144,11 @@ KRITIK_FONKSIYONLAR = {
     "shared.duzenle": ["duzenle", "duzenle_veri", "uygula", "gecerli_durum", "destekli_mi"],   # sade düzenlenebilir tablo (Eki 2026)
     "shared.izgara": ["izgara_ayar", "izgara_sonuc", "dataframe_hazirla", "kur"],   # ortak ızgara görünümü (Eki 2026)
     "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
+    "kayranpm.stok_yasi": ["fifo_kalan", "yas_ozeti", "bizim_partiler", "musteri_partileri", "firma_cozucu",
+                           "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku"],   # stok yaşı FIFO (Eki 2026)
+    "kayranpm.stok_yasi_ekran": ["goster", "kart_bolumu"],
+    "kayranpm.yurtici_hesap": ["maliyet_hesapla", "dogrula", "kayit_argumanlari", "formdan", "belge_no", "usd"],
+    "kayranpm.yurtici_ekran": ["goster"],                                                    # yurt içi alış (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu

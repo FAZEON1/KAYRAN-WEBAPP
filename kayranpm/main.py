@@ -966,152 +966,170 @@ def run():
                     with st.container(border=True):
                         _dlg_urun_duzenle()
 
-        elif sayfa == "💵  Maliyet Girişi":
-            st.markdown(_sb("💵 Ürün Yönetimi", "Maliyet Girişi"), unsafe_allow_html=True)
-            st.markdown(
-                '<div class="alt-baslik">Yurt içinden alınan ürünlerin birim maliyeti. '
-                'İthal ettiğin ürünler burada <b>yok</b> — onların maliyeti ithalat '
-                'paçalından otomatik gelir. Girdiğin maliyet Kâr/P&L, kırılımlar ve '
-                'tüm satış raporlarına yansır.</div>',
-                unsafe_allow_html=True)
+        elif sayfa == "Stok Yaşı":
+            from .stok_yasi_ekran import goster as _stok_yasi
+            _stok_yasi()
 
-            from .database import (get_yurtici_kategoriler as _gyk,
-                                   set_yurtici_kategoriler as _syk)
-            # ÖLÇÜT: KATEGORİ. "İthalatta geçiyor mu" ölçütü tek başına yetmedi
-            # çünkü bazı ürünlerin SKU yazımı iki tarafta farklı (F11PA650BWM ↔
-            # F11PA650BBM) ve o ürünler yanlışlıkla listeye düşüyordu.
-            _yurtici_kat = _gyk()
+        elif sayfa == "💵  Yurt İçi Alış":
+            st.markdown(_sb("💵 Ürün Yönetimi", "Yurt içi alış",
+                            aciklama="yurt içi satın alma ve yerli üretim · ithalat gibi girilir · paçal, stok kartı ve stok yaşı buradan beslenir"), unsafe_allow_html=True)
+            from .yurtici_ekran import goster as _yurtici
+            _t_yedek = _yurtici()
+            with _t_yedek:
+                st.caption("Alım kaydı olmayan yurt içi ürünlerin birim maliyeti (yedek). Ürünün yurt içi alımı girildiğinde paçal alımdan hesaplanır, buradaki rakam kullanılmaz.")
 
-            # get_urunler() bu modülde YOK (satis modülünde). Ham urunler
-            # tablosunu doğrudan çekiyoruz — upsert için alis_fiyati, bizim_stok,
-            # satis_fiyat_listesi gibi TÜM alanlar gerekiyor.
-            try:
-                from .database import get_client as _gc_m
-                _tum_u = (_gc_m().table("urunler").select("*")
-                          .order("urun_adi").execute().data) or []
-            except Exception as _e_m:
-                _tum_u = []
-                st.error("Ürün listesi alınamadı: {}".format(str(_e_m)[:120]))
-            _satirlar = []
-            # Anahtar karşılaştırması (shared.ana_veri): ayarda 'anti virüs', kartta 'Anti Virüs'
-            # ya da 'ANTİ VİRÜS' yazsa da eşleşir. Eskiden .lower() 'İ'yi 'i̇' yapıyordu.
-            from shared.ana_veri import kategori_anahtar as _kanh, kategori_ad as _kad
-            _kat_norm = {_kanh(k) for k in _yurtici_kat}
-            for _u3 in _tum_u:
-                _sk = _u3.get("sku", "")
-                if _kanh(_u3.get("kategori")) not in _kat_norm:
-                    continue                       # yurt içi kategorisinde değil
-                _satirlar.append({
-                    "SKU": _sk,
-                    "Ürün": _u3.get("urun_adi", "") or "",
-                    "Kategori": _kad(_u3.get("kategori")),            # tek yazım
-                    "Maliyet ($)": float(_u3.get("alis_fiyati", 0) or 0),
-                })
-            _satirlar.sort(key=lambda r: (r["Maliyet ($)"] > 0, r["Kategori"], r["SKU"]))
+                from .database import (get_yurtici_kategoriler as _gyk,
+                                       set_yurtici_kategoriler as _syk)
+                # ÖLÇÜT: KATEGORİ. "İthalatta geçiyor mu" ölçütü tek başına yetmedi
+                # çünkü bazı ürünlerin SKU yazımı iki tarafta farklı (F11PA650BWM ↔
+                # F11PA650BBM) ve o ürünler yanlışlıkla listeye düşüyordu.
+                _yurtici_kat = _gyk()
 
-            with st.expander("⚙️ Hangi kategoriler yurt içi? ({} seçili)".format(len(_yurtici_kat))):
-                st.caption("Yeni bir yurt içi ürün grubu aldığında buraya ekle — "
-                           "kodu değiştirmeye gerek yok.")
-                _tum_kat = sorted({_kad(u.get("kategori")) for u in _tum_u} - {""}, key=lambda x: x.lower())
-                _sec_kat = st.multiselect("Yurt içi kategoriler", _tum_kat,
-                                          default=[k for k in _tum_kat if _kanh(k) in _kat_norm],
-                                          key="mal_kat_sec")
-                if st.button("Kategori seçimini kaydet", key="mal_kat_kaydet", icon=":material/save:"):
-                    if _syk(_sec_kat):
-                        st.cache_data.clear()
-                        st.success("✅ Kaydedildi.")
-                        st.rerun()
-                    else:
-                        st.error("Kaydedilemedi (pm_ayarlar tablosu yok olabilir).")
-
-            _eksik = [r for r in _satirlar if r["Maliyet ($)"] <= 0]
-            metrik_satiri([
-                {"label": "📋 Yurt içi ürün", "value": f"{tr_sayi(len(_satirlar))}", "renk": trenk("mor")},
-                {"label": "⚠️ Maliyeti girilmemiş", "value": f"{tr_sayi(len(_eksik))}", "renk": trenk("kirmizi")},
-                {"label": "✅ Maliyeti girilmiş",
-                 "value": f"{tr_sayi(len(_satirlar) - len(_eksik))}", "renk": trenk("yesil")},
-            ])
-
-            if not _satirlar:
-                st.info("Tüm ürünlerin ithalat maliyeti var — bu ekranda düzenlenecek ürün yok.")
-            else:
-                if _eksik:
-                    st.warning(
-                        "⚠️ **{} ürünün maliyeti girilmemiş.** Bu ürünlerin satışları "
-                        "raporlarda **%100 marj** gösterir. Aşağıdaki tabloda "
-                        "**Maliyet ($)** kolonunu doldurup kaydet.".format(tr_sayi(len(_eksik))))
-
-                _sadece_eksik = st.checkbox("Yalnız maliyeti girilmemiş ürünleri göster",
-                                            value=bool(_eksik), key="mal_sadece_eksik")
-                _goster = _eksik if _sadece_eksik else _satirlar
-                _ara_m = st.text_input("🔍 Ara (SKU / ürün / kategori)", key="mal_ara").strip().lower()
-                if _ara_m:
-                    _goster = [r for r in _goster
-                               if _ara_m in (r["SKU"] + " " + r["Ürün"] + " " + r["Kategori"]).lower()]
-
-                st.caption("{} ürün gösteriliyor".format(tr_sayi(len(_goster))))
-                # Kaydedilmeden arama / "yalnız eksikler" değişince Streamlit (1.64)
-                # düzenleyicideki değişiklikleri SESSİZCE siler; kullanıcı yazdığı
-                # maliyetlerin kaybolduğunu fark etmiyordu. Anahtar gösterilen listeye
-                # bağlı (sürümden bağımsız sıfırlanır) ve sıfırlanınca uyarı çıkar.
-                _mal_key = editor_anahtari("mal_editor", [r["SKU"] for r in _goster])
-                _mal_onceki = st.session_state.get("_mal_editor_son")
-                if _mal_onceki and _mal_onceki != _mal_key and \
-                        (st.session_state.get(_mal_onceki) or {}).get("edited_rows"):
-                    st.warning("⚠️ Liste değiştiği için kaydedilmemiş maliyet değişikliklerin sıfırlandı. "
-                               "Değişiklik yaptıktan sonra aramayı ya da filtreyi değiştirmeden önce kaydet.")
-                st.session_state["_mal_editor_son"] = _mal_key
-                _duz = st.data_editor(
-                    pd.DataFrame(_goster), use_container_width=True, hide_index=True,
-                    key=_mal_key, num_rows="fixed",
-                    column_config={
-                        "SKU": st.column_config.TextColumn("SKU", disabled=True),
-                        "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
-                        "Kategori": st.column_config.TextColumn("Kategori", disabled=True),
-                        "Maliyet ($)": st.column_config.NumberColumn(
-                            "Maliyet ($)", min_value=0.0, step=0.0001, format="localized",
-                            help="Birim başına, nakliye dahil"),
+                # get_urunler() bu modülde YOK (satis modülünde). Ham urunler
+                # tablosunu doğrudan çekiyoruz — upsert için alis_fiyati, bizim_stok,
+                # satis_fiyat_listesi gibi TÜM alanlar gerekiyor.
+                try:
+                    from .database import get_client as _gc_m
+                    _tum_u = (_gc_m().table("urunler").select("*")
+                              .order("urun_adi").execute().data) or []
+                except Exception as _e_m:
+                    _tum_u = []
+                    st.error("Ürün listesi alınamadı: {}".format(str(_e_m)[:120]))
+                _satirlar = []
+                # Anahtar karşılaştırması (shared.ana_veri): ayarda 'anti virüs', kartta 'Anti Virüs'
+                # ya da 'ANTİ VİRÜS' yazsa da eşleşir. Eskiden .lower() 'İ'yi 'i̇' yapıyordu.
+                from shared.ana_veri import kategori_anahtar as _kanh, kategori_ad as _kad
+                _kat_norm = {_kanh(k) for k in _yurtici_kat}
+                # Alım kaydı (ithalat ya da yurt içi alış) olan ürünün maliyeti alımdan gelir; burada
+                # yedek rakam girmeye gerek yok, listelenmez (Ekim 2026).
+                try:
+                    from ithalat.database import get_sku_maliyet_ozet as _gsmo
+                    from shared.utils import sku_anahtar as _skn_y
+                    _alimli = {k for k, _v in (_gsmo() or {}).items() if float(_v.get("pacal_final") or 0) > 0}
+                except Exception:
+                    _alimli, _skn_y = set(), (lambda x: x)
+                _alim_kayitli = 0
+                for _u3 in _tum_u:
+                    _sk = _u3.get("sku", "")
+                    if _kanh(_u3.get("kategori")) not in _kat_norm:
+                        continue                       # yurt içi kategorisinde değil
+                    if _skn_y(_sk) in _alimli:
+                        _alim_kayitli += 1
+                        continue                       # maliyeti alım kaydından geliyor
+                    _satirlar.append({
+                        "SKU": _sk,
+                        "Ürün": _u3.get("urun_adi", "") or "",
+                        "Kategori": _kad(_u3.get("kategori")),            # tek yazım
+                        "Maliyet ($)": float(_u3.get("alis_fiyati", 0) or 0),
                     })
+                _satirlar.sort(key=lambda r: (r["Maliyet ($)"] > 0, r["Kategori"], r["SKU"]))
+                if _alim_kayitli:
+                    st.caption("{} yurt içi ürünün alım kaydı var; maliyetleri alımlardan hesaplanıyor, "
+                               "bu listede gösterilmez.".format(tr_sayi(_alim_kayitli)))
 
-                if st.button("Maliyetleri Kaydet", type="primary",
-                             use_container_width=True, key="mal_kaydet", icon=":material/save:"):
-                    from .database import upsert_urun as _upsert_m
-                    _eski_map = {r["SKU"]: r["Maliyet ($)"] for r in _goster}
-                    _u_map = {u.get("sku"): u for u in _tum_u}
-                    _n, _hata = 0, []
-                    for _, _r4 in _duz.iterrows():
-                        _sk4 = str(_r4.get("SKU", "") or "").strip()
-                        _yeni = float(_r4.get("Maliyet ($)", 0) or 0)
-                        if not _sk4 or abs(_yeni - float(_eski_map.get(_sk4, 0))) < 0.00005:
-                            continue               # değişmeyen satıra dokunma
-                        _uu = _u_map.get(_sk4) or {}
-                        try:
-                            _upsert_m(
-                                _sk4, _uu.get("urun_adi", "") or "", _uu.get("kategori", "") or "",
-                                _uu.get("marka", "") or "", float(_uu.get("satis_fiyati", 0) or 0),
-                                _yeni, float(_uu.get("hedef_kar_marji", 0) or 0),
-                                _uu.get("ozellikler", "") or "", int(_uu.get("bizim_stok", 0) or 0),
-                                int(_uu.get("trendyol_stok", 0) or 0),
-                                satis_fiyat_listesi=_uu.get("satis_fiyat_listesi") or {},
-                                eol=bool(_uu.get("eol")))
-                            _n += 1
-                        except Exception as _e4:
-                            _hata.append("{}: {}".format(_sk4, str(_e4)[:60]))
-                    st.cache_data.clear()
-                    if _n:
-                        st.toast("✅ {} ürünün maliyeti güncellendi".format(tr_sayi(_n)), icon="✅")
-                    if _hata:
-                        st.error("Yazılamayan {} kayıt:\n\n".format(len(_hata))
-                                 + "\n".join("- " + h for h in _hata[:10]))
-                    if not _n and not _hata:
-                        st.info("Değişiklik yok.")
-                    if _n:
-                        st.rerun()
+                with st.expander("⚙️ Hangi kategoriler yurt içi? ({} seçili)".format(len(_yurtici_kat))):
+                    st.caption("Yeni bir yurt içi ürün grubu aldığında buraya ekle — "
+                               "kodu değiştirmeye gerek yok.")
+                    _tum_kat = sorted({_kad(u.get("kategori")) for u in _tum_u} - {""}, key=lambda x: x.lower())
+                    _sec_kat = st.multiselect("Yurt içi kategoriler", _tum_kat,
+                                              default=[k for k in _tum_kat if _kanh(k) in _kat_norm],
+                                              key="mal_kat_sec")
+                    if st.button("Kategori seçimini kaydet", key="mal_kat_kaydet", icon=":material/save:"):
+                        if _syk(_sec_kat):
+                            st.cache_data.clear()
+                            st.success("✅ Kaydedildi.")
+                            st.rerun()
+                        else:
+                            st.error("Kaydedilemedi (pm_ayarlar tablosu yok olabilir).")
 
-            # Ana veri entegrasyonu Faz 2a — SALT OKUNUR karşılaştırma (kayranpm/pacal_ekran.py)
-            with st.expander("Paçal: önceki ↔ şimdiki — tek tanıma geçişte rakamı değişen ürünler"):
-                from .pacal_ekran import goster as _pacal_kars
-                _pacal_kars()
+                _eksik = [r for r in _satirlar if r["Maliyet ($)"] <= 0]
+                metrik_satiri([
+                    {"label": "📋 Yurt içi ürün", "value": f"{tr_sayi(len(_satirlar))}", "renk": trenk("mor")},
+                    {"label": "⚠️ Maliyeti girilmemiş", "value": f"{tr_sayi(len(_eksik))}", "renk": trenk("kirmizi")},
+                    {"label": "✅ Maliyeti girilmiş",
+                     "value": f"{tr_sayi(len(_satirlar) - len(_eksik))}", "renk": trenk("yesil")},
+                ])
+
+                if not _satirlar:
+                    st.info("Tüm ürünlerin ithalat maliyeti var — bu ekranda düzenlenecek ürün yok.")
+                else:
+                    if _eksik:
+                        st.warning(
+                            "⚠️ **{} ürünün maliyeti girilmemiş.** Bu ürünlerin satışları "
+                            "raporlarda **%100 marj** gösterir. Aşağıdaki tabloda "
+                            "**Maliyet ($)** kolonunu doldurup kaydet.".format(tr_sayi(len(_eksik))))
+
+                    _sadece_eksik = st.checkbox("Yalnız maliyeti girilmemiş ürünleri göster",
+                                                value=bool(_eksik), key="mal_sadece_eksik")
+                    _goster = _eksik if _sadece_eksik else _satirlar
+                    _ara_m = st.text_input("🔍 Ara (SKU / ürün / kategori)", key="mal_ara").strip().lower()
+                    if _ara_m:
+                        _goster = [r for r in _goster
+                                   if _ara_m in (r["SKU"] + " " + r["Ürün"] + " " + r["Kategori"]).lower()]
+
+                    st.caption("{} ürün gösteriliyor".format(tr_sayi(len(_goster))))
+                    # Kaydedilmeden arama / "yalnız eksikler" değişince Streamlit (1.64)
+                    # düzenleyicideki değişiklikleri SESSİZCE siler; kullanıcı yazdığı
+                    # maliyetlerin kaybolduğunu fark etmiyordu. Anahtar gösterilen listeye
+                    # bağlı (sürümden bağımsız sıfırlanır) ve sıfırlanınca uyarı çıkar.
+                    _mal_key = editor_anahtari("mal_editor", [r["SKU"] for r in _goster])
+                    _mal_onceki = st.session_state.get("_mal_editor_son")
+                    if _mal_onceki and _mal_onceki != _mal_key and \
+                            (st.session_state.get(_mal_onceki) or {}).get("edited_rows"):
+                        st.warning("⚠️ Liste değiştiği için kaydedilmemiş maliyet değişikliklerin sıfırlandı. "
+                                   "Değişiklik yaptıktan sonra aramayı ya da filtreyi değiştirmeden önce kaydet.")
+                    st.session_state["_mal_editor_son"] = _mal_key
+                    _duz = st.data_editor(
+                        pd.DataFrame(_goster), use_container_width=True, hide_index=True,
+                        key=_mal_key, num_rows="fixed",
+                        column_config={
+                            "SKU": st.column_config.TextColumn("SKU", disabled=True),
+                            "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
+                            "Kategori": st.column_config.TextColumn("Kategori", disabled=True),
+                            "Maliyet ($)": st.column_config.NumberColumn(
+                                "Maliyet ($)", min_value=0.0, step=0.0001, format="localized",
+                                help="Birim başına, nakliye dahil"),
+                        })
+
+                    if st.button("Maliyetleri Kaydet", type="primary",
+                                 use_container_width=True, key="mal_kaydet", icon=":material/save:"):
+                        from .database import upsert_urun as _upsert_m
+                        _eski_map = {r["SKU"]: r["Maliyet ($)"] for r in _goster}
+                        _u_map = {u.get("sku"): u for u in _tum_u}
+                        _n, _hata = 0, []
+                        for _, _r4 in _duz.iterrows():
+                            _sk4 = str(_r4.get("SKU", "") or "").strip()
+                            _yeni = float(_r4.get("Maliyet ($)", 0) or 0)
+                            if not _sk4 or abs(_yeni - float(_eski_map.get(_sk4, 0))) < 0.00005:
+                                continue               # değişmeyen satıra dokunma
+                            _uu = _u_map.get(_sk4) or {}
+                            try:
+                                _upsert_m(
+                                    _sk4, _uu.get("urun_adi", "") or "", _uu.get("kategori", "") or "",
+                                    _uu.get("marka", "") or "", float(_uu.get("satis_fiyati", 0) or 0),
+                                    _yeni, float(_uu.get("hedef_kar_marji", 0) or 0),
+                                    _uu.get("ozellikler", "") or "", int(_uu.get("bizim_stok", 0) or 0),
+                                    int(_uu.get("trendyol_stok", 0) or 0),
+                                    satis_fiyat_listesi=_uu.get("satis_fiyat_listesi") or {},
+                                    eol=bool(_uu.get("eol")))
+                                _n += 1
+                            except Exception as _e4:
+                                _hata.append("{}: {}".format(_sk4, str(_e4)[:60]))
+                        st.cache_data.clear()
+                        if _n:
+                            st.toast("✅ {} ürünün maliyeti güncellendi".format(tr_sayi(_n)), icon="✅")
+                        if _hata:
+                            st.error("Yazılamayan {} kayıt:\n\n".format(len(_hata))
+                                     + "\n".join("- " + h for h in _hata[:10]))
+                        if not _n and not _hata:
+                            st.info("Değişiklik yok.")
+                        if _n:
+                            st.rerun()
+
+                # Ana veri entegrasyonu Faz 2a — SALT OKUNUR karşılaştırma (kayranpm/pacal_ekran.py)
+                with st.expander("Paçal: önceki ↔ şimdiki — tek tanıma geçişte rakamı değişen ürünler"):
+                    from .pacal_ekran import goster as _pacal_kars
+                    _pacal_kars()
 
         elif sayfa == "📈  Müşteri Satışları":
             st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Satışları", aciklama="Müşteri raporlarından haftalık satış ve kanal stoğu · müşteriye, markaya, ürüne ya da kategoriye göre · aynı haftada yalnız en güncel yükleme sayılır"), unsafe_allow_html=True)

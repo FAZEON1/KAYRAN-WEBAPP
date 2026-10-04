@@ -358,7 +358,8 @@ def goster(sku):
             st.session_state["_stok_gec_sku"] = _gec_map[_gec_sec]
             st.rerun()
 
-    t1, t2, t3, t4, t5, t6, t7 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade", "📜 Stok Hareketleri"])
+    t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(["📊 Özet", "📥 Alımlar", "📤 Satışlar", "🎯 Kampanya", "📈 Analiz", "↩️ İade",
+                                              "📜 Stok Hareketleri", "Stok yaşı"])
 
     # ═══ ÖZET ═══
     with t1:
@@ -492,6 +493,7 @@ def goster(sku):
             from shared.tablo import tablo as _ortak_tablo
             _ai = _ortak_tablo([{
                 "Tarih": gun_ay_yil(a["tarih"]), "Belge": a["belge_no"],
+                "Tür": {"yurtici": "Yurt içi", "yerli": "Yerli üretim"}.get(a.get("alim_turu"), "İthalat"),
                 "Tedarikçi": a["tedarikci"], "Ülke": a["ulke"], "Döviz": a["doviz"],
                 "Adet": _f(a["adet"]), "Birim FOB": round(_f(a["birim_fob"]), 2),
                 "% Maliyet": round(_f(a["maliyet_yuzde"]), 1),
@@ -739,6 +741,11 @@ def goster(sku):
     # ── 📜 Stok hareket defteri ──
     with t7:
         _hareket_sekmesi(sku)
+
+    # ═══ STOK YAŞI (FIFO, depoya girişten — kayranpm/stok_yasi.py) ═══
+    with t8:
+        from .stok_yasi_ekran import kart_bolumu
+        kart_bolumu(sku)
 
     st.divider()
     if st.button("Kapat", use_container_width=True):

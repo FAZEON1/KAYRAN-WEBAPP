@@ -77,6 +77,8 @@ veriyle çalıştırıp sayıları yan yana koyarak verilir.
 | Paçal maliyet | `satis.database.get_pacal_map` (yoldaki parti hariç, SKU yazımları birleşik, yurt içi alış yedek) |
 | Firma | `shared.utils`: `firma_kanonik`, `firma_sirala`, `firma_gorunen_ad`, `cari_eslestir`. Liste VERİDEN; "KANAL" yok (eski KANAL → DİĞER). Ekranda cari adı (D-MARKET, EERA, MONDAY BİLİŞİM). |
 | Depo kırılımı | `kayranpm.database.depo_dagilimi`, `satilabilir_kontrol` |
+| Alımlar | ithalat + yurt içi + yerli üretim aynı tabloda (`ithalat_dosyalari.alim_turu`); ithalat listeleri `ithalat.database.ithalat_mi` ile süzer |
+| Stok yaşı | `kayranpm.stok_yasi` (FIFO, depoya giriş tarihinden; satılabilir depolar + müşteri stoğu) |
 
 ## Tuzaklar
 

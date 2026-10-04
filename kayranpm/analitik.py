@@ -289,10 +289,13 @@ def _pacal_map():
 
 
 def _ithalat_partiler_map():
-    """İthalat modülünden SKU bazlı FIFO parti haritası (güvenli)."""
+    """{sku_anahtar: partiler ESKİ→YENİ} — stok yaşı FIFO'su (güvenli).
+    Ekim 2026: yalnız DEPOYA GİRMİŞ ('Teslim Alındı') alımlar, teslim tarihiyle; yurt içi alış ve
+    yerli üretim dahil (kayranpm/stok_yasi). Eskiden yoldaki / antrepodaki dosyaların belge tarihi
+    de parti sayılıyordu ve anahtar ham SKU'ydu."""
     try:
-        from ithalat.database import get_sku_ithalat_partileri
-        return get_sku_ithalat_partileri() or {}
+        from .stok_yasi import _bizim_partiler_oku
+        return {k: sorted(v, key=lambda p: p["tarih"]) for k, v in (_bizim_partiler_oku() or {}).items()}
     except Exception:
         return {}
 
@@ -412,7 +415,7 @@ def tum_urunler_listesi():
 
         # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
         # ithalat partisi yoksa ürünün ilk giriş tarihine düşer
-        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(sku, []), bizim_stok)
+        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(_skn_a(sku), []), bizim_stok)
         if _fifo_gun is not None:
             stok_gun, stok_renk, ilk_giris = _fifo_gun, _fifo_renk, _fifo_anchor
         else:
@@ -610,7 +613,7 @@ def dashboard_hesapla():
 
         # Stok yaşı — FIFO (ithalat belge tarihleri), bizim depo stoğu bazlı;
         # ithalat partisi yoksa eski yönteme (ilk görülen tarih) düşer
-        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(sku, []), bizim_stok)
+        _fifo_gun, _fifo_renk, _fifo_anchor = fifo_stok_yasi(_ith_partiler.get(_skn_a(sku), []), bizim_stok)
         if _fifo_gun is not None:
             stok_gun, stok_renk = _fifo_gun, _fifo_renk
             ilk_tarih = _fifo_anchor

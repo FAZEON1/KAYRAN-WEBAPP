@@ -70,9 +70,11 @@ class _Sorgu:
             self.db.tablolar[self.tablo] = [r for r in t if not self._uyar(r)]
             return _Sonuc([])
         if self.islem == "insert":
+            yeni = []
             for r in self.veri:
-                t.append(dict(r, id=len(t) + 1000))
-            return _Sonuc(self.veri)
+                yeni.append(dict(r, id=r.get("id", len(t) + 1000)))
+                t.append(yeni[-1])
+            return _Sonuc([dict(r) for r in yeni])
         return _Sonuc([dict(r) for r in t if self._uyar(r)])
 
 
@@ -89,8 +91,8 @@ class _Db:
         return next(d for d in self.tablolar["ithalat_dosyalari"] if d["id"] == i)
 
 
-@pytest.fixture
-def ortam(monkeypatch):
+def sahte_ortam(monkeypatch):
+    """Sahte ithalat veritabanı + stok hareketi kaydı (tests/test_yurtici_alis.py de kullanır)."""
     hareket = []
 
     def kur(dosyalar, kalemler, kolonsuz=False):
@@ -115,6 +117,11 @@ def ortam(monkeypatch):
         return db
     kur.hareket = hareket
     return kur
+
+
+@pytest.fixture
+def ortam(monkeypatch):
+    return sahte_ortam(monkeypatch)
 
 
 def _stok(hareket):
