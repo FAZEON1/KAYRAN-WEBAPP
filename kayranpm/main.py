@@ -520,9 +520,10 @@ def run():
                         _hedef = _tek["sku"]
                     for _r in _bul[:6]:
                         _ad = (_r.get("urun_adi") or "").strip()
+                        # help (ipucu) YOK: tıklanınca stok kartı penceresi açılıyor, Streamlit'in
+                        # ipucu pencerenin üstünde takılı kalıyordu (Ekim 2026). Ad zaten düğmede.
                         if st.button(f"`{_r['sku']}` {_ad}" if _ad else f"`{_r['sku']}`",
-                                     key=f"stok_ac_{_r['sku']}", use_container_width=True,
-                                     help=_ad or None):
+                                     key=f"stok_ac_{_r['sku']}", use_container_width=True):
                             _hedef = _r["sku"]
                     if len(_bul) > 6:
                         st.markdown(f'<div class="sk-not">+{tr_sayi(len(_bul) - 6)} sonuç daha — '

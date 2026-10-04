@@ -1170,6 +1170,7 @@ div[data-testid="stApp"][data-test-script-state="running"]::before{{
 div[data-testid="stStatusWidget"]{{display:none !important;}}
 div[data-stale="true"]{{opacity:.5 !important;transition:opacity .2s ease;}}
 .st-key-kayran_islem_gostergesi{{position:absolute !important;height:0 !important;overflow:hidden !important;margin:0 !important;}}
+body:has(div[role="dialog"]) [data-baseweb="tooltip"]{{display:none !important;}}
 """) + "</style>"
 
 

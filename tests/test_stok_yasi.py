@@ -119,3 +119,24 @@ def test_excel_sayfalari():
     basliklar = [c.value for c in ws[1]]
     assert "_id" not in basliklar and basliklar[:3] == ["SKU", "Ürün", "Kategori"]
     assert ws.cell(2, 1).value == "A" and wb["Boş"].cell(1, 1).value == "Bilgi"
+
+
+# ── Stok kartı: stoğu biten ürün "sayım yüklenmemiş" demesin; ipucu takılmasın (Ekim 2026) ──
+def test_stogu_biten_urunde_sayim_uyarisi_yok():
+    from pathlib import Path
+    k = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
+    i = k.index('elif alimlar or satislar or isinstance(urun.get("depo_kirilim"), dict):')
+    j = k.index('bos_durum("G5F depo sayımı yüklenmemiş')
+    assert i < j and "Bizim depolarda stok yok" in k[i:j]
+    w = k[k.index("Başlangıç stoğu (Excel) yüklenmemiş") - 400:k.index("Başlangıç stoğu (Excel) yüklenmemiş")]
+    assert "not (alimlar or satislar" in w
+
+
+def test_kenar_arama_dugmesinde_ipucu_yok_ve_pencerede_ipucu_gizli():
+    from pathlib import Path
+    kok = Path(__file__).resolve().parent.parent
+    m = (kok / "kayranpm" / "main.py").read_text(encoding="utf-8")
+    d = m[m.index('key=f"stok_ac_{_r[\'sku\']}"') - 200:m.index('key=f"stok_ac_{_r[\'sku\']}"') + 120]
+    assert "help=" not in d
+    t = (kok / "shared" / "tasarim.py").read_text(encoding="utf-8")
+    assert 'body:has(div[role="dialog"]) [data-baseweb="tooltip"]' in t
