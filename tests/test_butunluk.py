@@ -146,7 +146,9 @@ KRITIK_FONKSIYONLAR = {
     "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
     "kayranpm.stok_yasi": ["fifo_kalan", "yas_ozeti", "bizim_partiler", "musteri_partileri", "firma_cozucu",
                            "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku",
-                           "urun_satirlari", "parti_satirlari", "musteri_satirlari", "excel_bytes"],   # stok yaşı FIFO (Eki 2026)
+                           "urun_satirlari", "parti_satirlari", "musteri_satirlari", "excel_bytes",
+                           "ayar_birlestir", "ayar_oku", "haric_mi", "kategori_sorumlulari", "yasli_satirlar",
+                           "kisi_listeleri", "mail_html"],   # stok yaşı FIFO (Eki 2026)
     "kayranpm.stok_yasi_ekran": ["goster", "kart_bolumu"],
     "kayranpm.yurtici_hesap": ["maliyet_hesapla", "dogrula", "kayit_argumanlari", "formdan", "belge_no", "usd"],
     "kayranpm.yurtici_ekran": ["goster"],
