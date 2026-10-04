@@ -2,6 +2,9 @@ name: Talep PR Bildirimi
 
 # Claude'un talepten açtığı PR (başlık "Talep #<id>: ...") açılınca / birleşince / kapanınca talep
 # kaydını günceller ve mail atar. Akış: shared/claude_talep.py, otonom/claude_talep_gorevi.md.
+#
+# Başlıkta "Talep #" yoksa iş YİNE çalışır ama adımları atlar ve başarılı biter. İş düzeyinde `if`
+# kullanılınca her başka PR'da "No jobs were run" sonucu ve GitHub'dan uyarı maili geliyordu.
 on:
   pull_request:
     types: [opened, reopened, closed]
@@ -9,24 +12,33 @@ on:
 
 jobs:
   talep:
-    if: contains(github.event.pull_request.title, 'Talep #')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      TALEP_PR: ${{ contains(github.event.pull_request.title, 'Talep #') }}
     steps:
+      - name: Talep PR'ı değil — atlandı
+        if: env.TALEP_PR != 'true'
+        run: echo "Başlıkta 'Talep #' yok; yapılacak bir şey yok."
+
       - name: Kodu indir (main — PR'daki kod değil)
+        if: env.TALEP_PR == 'true'
         uses: actions/checkout@v4
         with:
           ref: main
 
       - name: Python kur
+        if: env.TALEP_PR == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Bağımlılıkları kur
+        if: env.TALEP_PR == 'true'
         run: pip install --quiet streamlit supabase requests
 
       - name: Supabase ve mail erişimini hazırla
+        if: env.TALEP_PR == 'true'
         env:
           BILDIRIM: ${{ secrets.BILDIRIM }}
         run: |
@@ -42,6 +54,7 @@ jobs:
           fi
 
       - name: Talebi güncelle, mail at
+        if: env.TALEP_PR == 'true'
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}

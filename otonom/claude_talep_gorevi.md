@@ -1,6 +1,6 @@
 # Claude talep görevi — zamanlanmış oturum talimatı
 
-Bu dosyayı claude.ai'deki zamanlanmış görev (hafta içi 09–18, saat başı) her çalışmada okur ve
+Bu dosyayı claude.ai'deki zamanlanmış görev (7 gün 24 saat, saat başı) her çalışmada okur ve
 uygular. Akışın tamamı: `shared/claude_talep.py`. Proje kuralları: kökteki `CLAUDE.md` — hepsi
 geçerli (tek iş tek PR, önce test, pyflakes artmaz, emoji yok, Türkçe).
 

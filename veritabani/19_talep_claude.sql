@@ -1,7 +1,7 @@
 -- 19 · Talepten Claude'a: onaylı geliştirme akışı (Ekim 2026)
 --
 -- Talep Merkezi'nde yönetici (İbrahim) bir talebi "Claude'a gönder" ile onaylar; claude.ai'deki
--- zamanlanmış görev (hafta içi 09–18, saat başı) onaylı talebi alır, kodlar, PR açar. PR'ı
+-- zamanlanmış görev (7 gün 24 saat, saat başı) onaylı talebi alır, kodlar, PR açar. PR'ı
 -- birleştirmek yine kullanıcıdadır. Ayrıntı: otonom/claude_talep_gorevi.md, shared/claude_talep.py.
 --
 --   claude_durum        onaylandi → calisiyor → pr_hazir → yayinda   (ya da soru / hata / kapandi)

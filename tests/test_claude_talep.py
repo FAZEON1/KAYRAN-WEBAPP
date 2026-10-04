@@ -131,6 +131,8 @@ def test_betik_talep_basligi_yoksa_dokunmaz(monkeypatch):
 def test_is_akisi_talimat_ve_ekran():
     w = (KOK / ".github" / "workflows" / "talep-pr.yml").read_text(encoding="utf-8")
     assert "python otonom/talep_pr.py" in w and "contains(github.event.pull_request.title, 'Talep #')" in w
+    # İş düzeyinde if yok: başka PR'larda "No jobs were run" uyarı maili gelmesin; adımlar atlanır.
+    assert "    if: contains(" not in w and w.count("if: env.TALEP_PR == 'true'") == 5
     assert "PR_BASLIK: ${{ github.event.pull_request.title }}" in w and "ref: main" in w
     g = (KOK / "otonom" / "claude_talep_gorevi.md").read_text(encoding="utf-8")
     for kural in ("Talep #<id>: <kısa konu>", "talep_db.py sonraki", "talep_db.py ustlen", "Rakam değiştiren",
