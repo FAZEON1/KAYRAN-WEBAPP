@@ -190,7 +190,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
-                       "genel_tema_css", "detay_karti", "mesaj"],   # shared/ui.py buraya katıldı (Eki 2026)
+                       "genel_tema_css", "detay_karti", "mesaj",   # shared/ui.py buraya katıldı (Eki 2026)
+                       "kayran_logo_svg"],   # logo tek kaynak (Eki 2026)
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
