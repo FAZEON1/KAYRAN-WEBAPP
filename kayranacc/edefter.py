@@ -411,14 +411,15 @@ def render():
     # (data_editor/date_input) olduğunda Streamlit sekmeleri tarayıcıda
     # yanlış hizalayıp içerik karışabiliyordu. Radio ile aynı anda YALNIZ
     # bir bölüm render edilir → karışma fiziksel olarak imkânsız.
-    _bolumler = ["🧾 Fiş Girişi", "📒 Yevmiye", "📖 Kebir", "⚖️ Mizan",
-                 "🗂 Hesap Planı", "📤 e-Defter XML", "⚙️ Kurum Ayarları"]
-    secili = secim_serit("e-Defter bölümü", _bolumler,
-                      label_visibility="collapsed", key="edf_bolum")
+    _bolumler = ["Fiş girişi", "Yevmiye", "Kebir", "Mizan",
+                 "Hesap planı", "e-Defter XML", "Kurum ayarları"]
+    _ikon = {"Fiş girişi": "receipt", "Yevmiye": "menu_book", "Kebir": "auto_stories", "Mizan": "balance", "Hesap planı": "account_tree", "e-Defter XML": "upload_file", "Kurum ayarları": "settings"}
+    secili = secim_serit("e-Defter bölümü", _bolumler, label_visibility="collapsed", key="edf_bolum",
+                         format_func=lambda b: f":material/{_ikon.get(b, 'circle')}: {b}")
     st.markdown("---")
 
     # ── 🗂 HESAP PLANI ──
-    if secili == "🗂 Hesap Planı":
+    if secili == "Hesap planı":
         if not plan:
             st.info("Hesap planı boş. Tekdüzen ana hesapları tek tıkla yükleyebilirsin.")
         c1, c2 = st.columns([1, 2])
@@ -443,7 +444,7 @@ def render():
                          height=min(60 + len(_pdf) * 35, 520))
 
     # ── 🧾 FİŞ GİRİŞİ ──
-    elif secili == "🧾 Fiş Girişi":
+    elif secili == "Fiş girişi":
         if not plan:
             st.warning("Önce **Hesap Planı** sekmesinden Tekdüzen hesaplarını yükle.")
         f1, f2, f3, f4 = st.columns([1, 1, 2, 1])
@@ -508,7 +509,7 @@ def render():
                 st.error(msg)
 
     # ── 📒 YEVMİYE ──
-    elif secili == "📒 Yevmiye":
+    elif secili == "Yevmiye":
         y1, y2 = st.columns(2)
         _yb = y1.date_input("Başlangıç", value=date.today().replace(day=1), key="edf_yb", format="DD.MM.YYYY")
         _ye = y2.date_input("Bitiş", value=date.today(), key="edf_ye", format="DD.MM.YYYY")
@@ -540,7 +541,7 @@ def render():
                             st.rerun()
 
     # ── 📖 KEBİR ──
-    elif secili == "📖 Kebir":
+    elif secili == "Kebir":
         if not plan:
             st.info("Önce hesap planını yükle.")
         else:
@@ -568,7 +569,7 @@ def render():
                              height=min(60 + len(_kdf2) * 35, 520))
 
     # ── ⚖️ MİZAN ──
-    elif secili == "⚖️ Mizan":
+    elif secili == "Mizan":
         m1, m2 = st.columns(2)
         _mb = m1.date_input("Başlangıç", value=date.today().replace(month=1, day=1), key="edf_mb", format="DD.MM.YYYY")
         _me = m2.date_input("Bitiş", value=date.today(), key="edf_me", format="DD.MM.YYYY")
@@ -634,11 +635,11 @@ def render():
                             st.rerun()
 
     # ── 📤 e-DEFTER XML (Yevmiye üretimi) ──
-    elif secili == "📤 e-Defter XML":
+    elif secili == "e-Defter XML":
         _render_edefter_xml()
 
     # ── ⚙️ KURUM AYARLARI ──
-    elif secili == "⚙️ Kurum Ayarları":
+    elif secili == "Kurum ayarları":
         _render_kurum_ayarlari()
 
 

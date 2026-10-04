@@ -57,7 +57,7 @@ def goster():
     from shared.tasarim import baslik as _sb
     from shared.tablo import tablo
     from shared.utils import metrik_satiri, tr_now
-    st.markdown(_sb("Teknik Servis", "Arıza oranı",
+    st.markdown(_sb(":material/troubleshoot: Teknik Servis", "Arıza oranı",
                     aciklama="SKU bazında: son kullanıcıya ulaşan ürünlerin kaçı arızalı olarak servise geldi"),
                 unsafe_allow_html=True)
     bugun = tr_now().date()
@@ -73,13 +73,13 @@ def goster():
         _veri.clear()
         _ilk_kayit_tarihi.clear()
         st.rerun()
-    st.caption(
-        "Son kullanıcıya ulaşan = bitiş tarihine kadar müşterilere net satılan (bütün satış geçmişi) − müşterinin "
-        "son stok raporundaki stok (raporu olmayan müşteriye satılanın tamamı ulaşmış sayılır). Arızalı = dönemde "
-        "servise gelip arıza sonucu \"Arıza doğrulandı\" olan, aynı seri numarası bir kez. Arıza sonucu girilmemiş "
-        "eski kayıtlarda sonuç metinden tahmin edilir. Servis kayıtları "
-        f"{('%s.%s.%s' % (ilk[8:10], ilk[5:7], ilk[:4])) if ilk else '—'} tarihinde başlıyor; daha önceki "
-        "arızalar sistemde olmadığı için oran şimdilik bir alt sınırdır.")
+    _ilk_tr = ('%s.%s.%s' % (ilk[8:10], ilk[5:7], ilk[:4])) if ilk else '—'
+    st.caption(f"Arıza oranı = arızalı ÷ son kullanıcıya ulaşan · servis kayıtları {_ilk_tr}'den beri, "
+               "oran şimdilik alt sınır",
+               help="Son kullanıcıya ulaşan = bitiş tarihine kadar müşterilere net satılan (bütün satış geçmişi) − "
+                    "müşterinin son stok raporundaki stok (raporu olmayan müşteriye satılanın tamamı ulaşmış sayılır). "
+                    "Arızalı = dönemde servise gelip arıza sonucu \"Arıza doğrulandı\" olan, aynı seri numarası bir kez. "
+                    "Arıza sonucu girilmemiş eski kayıtlarda sonuç metinden tahmin edilir.")
     try:
         from shared.islem import bekle
         with bekle("Arıza oranı hesaplanıyor…"):

@@ -111,7 +111,7 @@ def _yapilacaklar(gruplar):
             f'<div style="margin-top:6px"><div style="display:flex;align-items:center;gap:8px;white-space:nowrap">'
             f'<span style="width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--k-{g["renk"]})"></span>'
             f'<b style="font-size:14px">{_e(g["baslik"])}</b>'
-            f'<span style="font-family:var(--k-mono);font-size:12px;color:var(--k-{g["renk"]})">{n}</span></div>'
+            f'<span style="font-variant-numeric:tabular-nums;font-size:12px;color:var(--k-{g["renk"]})">{n}</span></div>'
             f'<div style="font-size:12px;color:var(--k-silik);margin-left:16px">{_e(g["aciklama"])}</div></div>',
             unsafe_allow_html=True)
         if g["hedef"]:
@@ -158,7 +158,7 @@ def _egilim(seri, yuk, dus):
         st.markdown("".join(
             f'<div style="display:flex;align-items:center;gap:8px;padding:3px 0;min-width:0">'
             f'<div style="display:flex;min-width:0;flex:1">{urun_etiketi(r.get("urun_adi"), r.get("sku"))}</div>'
-            f'<span style="font-family:var(--k-mono);font-size:12px;color:var(--k-{renk});white-space:nowrap">'
+            f'<span style="font-variant-numeric:tabular-nums;font-size:12px;color:var(--k-{renk});white-space:nowrap">'
             f'{isaret} %{tr_sayi(abs(float(r.get("trend_yuzdesi") or 0)), 0)}</span></div>' for r in rs),
             unsafe_allow_html=True)
 
@@ -184,7 +184,7 @@ def _stok_sagligi(dag):
             f'<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0">'
             f'<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;'
             f'background:var(--k-{renk[et]})"></span>{et}</span>'
-            f'<span style="font-family:var(--k-mono);color:var(--k-soluk)">{n} ürün · %{tr_sayi(n / toplam * 100, 0)}'
+            f'<span style="font-variant-numeric:tabular-nums;color:var(--k-soluk)">{n} ürün · %{tr_sayi(n / toplam * 100, 0)}'
             f' · {tr_sayi(s)} adet</span></div>' for et, n, s in dag),
         unsafe_allow_html=True)
 
@@ -196,7 +196,7 @@ def _kanallar(kn):
     st.markdown("".join(
         f'<div style="padding:4px 0"><div style="display:flex;justify-content:space-between;font-size:13px">'
         f'<span>{_e(firma_gorunen_ad(x["kanal"]) if x["kanal"] != "G5F depo" else "G5F depo")}</span>'
-        f'<span style="font-family:var(--k-mono);color:var(--k-soluk)">{tr_sayi(x["stok"])} stok · '
+        f'<span style="font-variant-numeric:tabular-nums;color:var(--k-soluk)">{tr_sayi(x["stok"])} stok · '
         f'{tr_sayi(x["satis"])} satış/hafta</span></div>'
         f'<div style="height:5px;border-radius:3px;background:var(--k-kenar2);margin-top:4px;overflow:hidden">'
         f'<div style="height:100%;width:{x["stok"] / mx * 100:.0f}%;background:var(--k-mor)"></div></div></div>'
@@ -213,7 +213,7 @@ def _yolda_kampanya(varis, bugun):
         st.markdown(
             f'<div style="display:flex;align-items:center;gap:8px;padding:3px 0;min-width:0">'
             f'<div style="display:flex;min-width:0;flex:1">{urun_etiketi(r.get("urun_adi"), r.get("sku"))}</div>'
-            f'<span style="font-family:var(--k-mono);font-size:12px;color:var(--k-soluk);white-space:nowrap">'
+            f'<span style="font-variant-numeric:tabular-nums;font-size:12px;color:var(--k-soluk);white-space:nowrap">'
             f'{tr_sayi(int(r.get("yol_miktar") or 0))} adet · {tarih_tr(r["yol_varis"])} · {g} gün</span></div>',
             unsafe_allow_html=True)
     try:

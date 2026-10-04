@@ -109,7 +109,7 @@ def _satir(r, secili=False):
         f'<div style="font-size:11.5px;color:var(--k-silik)">stok {tr_sayi(r.get("G5F Depo") or 0)}</div></div>'
         f'<div class="pu-orta"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
         f'text-overflow:ellipsis">{_e(r.get("Ürün Adı")) or _e(sku)}</div>{meta}</div>'
-        f'<div class="pu-sag"><div style="font-family:var(--k-mono);font-size:13px;font-weight:600">{fiyat}</div>'
+        f'<div class="pu-sag"><div style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">{fiyat}</div>'
         f'{alt}</div></div>',
         B.sec, (ON_EK, sku), tur="satir", renk=serit, etiket="Ürünü aç")
 

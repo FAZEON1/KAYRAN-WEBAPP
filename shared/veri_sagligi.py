@@ -316,7 +316,7 @@ def sayfa(aktif_kullanici, yetkiler, yonetici):
     from shared.tasarim import baslik as _sb
     from shared.tablo import tablo
 
-    st.markdown(_sb("Veri sağlığı", "Kontroller",
+    st.markdown(_sb(":material/health_and_safety: Veri sağlığı", "Kontroller",
                     aciklama="verideki tutarsızlıklar tek ekranda · salt okunur · düzeltme ilgili ekranda"),
                 unsafe_allow_html=True)
     liste = gorunur_kontroller(yetkiler, yonetici)
@@ -346,7 +346,7 @@ def sayfa(aktif_kullanici, yetkiler, yonetici):
         kod, ad, _mod, aciklama, duzelt, _fn, notu = k
         satirlar, hata = sonuc[kod]
         with st.container(border=True):
-            sol, sag = st.columns([5, 1.4], vertical_alignment="center")
+            sol, sag = st.columns([4, 1.8], vertical_alignment="center")
             sol.markdown(_kart_html(ad, aciklama, satirlar, hata), unsafe_allow_html=True)
             if duzelt and satirlar:
                 if sag.button(f"{duzelt[1]}", key=f"vs_git_{kod}", icon=":material/arrow_forward:",

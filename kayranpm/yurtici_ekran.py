@@ -148,7 +148,7 @@ def _onizleme(f, kartlar):
 
 def _yeni(kartlar, kolon):
     f = _form("yi_yeni", {}, kartlar)
-    stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok",
+    stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok", horizontal=True,
                     help="Geçmiş bir alımı sonradan giriyorsan ve mal depoda zaten sayılıysa ikinciyi seç; "
                          "yoksa stok iki kez girer.")
     _onizleme(f, kartlar)

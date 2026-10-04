@@ -256,7 +256,10 @@ EMOJI_IKON = {
 # ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
 MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
 # Emojisiz yeni menü seçenekleri (Ekim 2026): emoji yerine ikon adı burada (ekranda emoji sayısı artmaz).
-MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot"}
+MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot",
+             # Yönetim bölümleri (Ekim 2026)
+             "Özet": "dashboard", "Kanal ve ürün": "storefront", "Destekler ve giderler": "receipt_long",
+             "Ay kapanışı": "event_available", "Sistem": "settings"}
 
 
 def emoji_ayir(metin):
@@ -574,6 +577,11 @@ div[data-testid="stExpander"] summary{{
 div[data-testid="stExpander"] summary:hover{{color:var(--k-metin) !important;}}
 div[data-testid="stExpander"] summary p{{
   font-size:{F['govde']} !important;font-weight:{A['vurgu']} !important;}}
+/* Açılır bölümün zemini (yuzey1) giriş kutularının zeminiyle aynı: kutular görünmüyordu
+   (Bekleyen sevk, Hesap makinesi · görünüm birliği #11-12). İçeride bir ton açık zemin + çerçeve. */
+div[data-testid="stExpander"] :is([data-baseweb="input"],[data-baseweb="textarea"],
+  [data-baseweb="base-input"],[data-baseweb="select"] > div){{
+  background:var(--k-yuzey2) !important;border-color:var(--k-kenar2) !important;}}
 
 /* ── Caption · ayraç · sekme ── */
 div[data-testid="stCaptionContainer"] p,.stApp small{{
@@ -1120,6 +1128,12 @@ def cekirdek_css(yogunluk=None):
   font-size:12.5px;color:var(--k-soluk);line-height:1.45;}}
 .k-baslik-alt{{margin-left:auto;font-size:{F['kucuk']};color:var(--k-silik);
   font-family:var(--k-mono);white-space:nowrap;}}
+/* Başlık + sağda düğmeler aynı satırdaysa alt çizgi bütün satırın altına (görünüm birliği #7,
+   Ekim 2026): çizgi yalnız başlık sütununda kalıp düğmelerin altında kesiliyordu. */
+[data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:first-child .k-baslik):has(button){{
+  border-bottom:1px solid var(--k-kenar);padding-bottom:7px;margin-bottom:11px;align-items:center;}}
+[data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:first-child .k-baslik):has(button) .k-baslik{{
+  border-bottom:none;margin-bottom:0;padding-bottom:0;}}
 
 .k-rozet{{display:inline-block;padding:2px 7px;border-radius:999px;
   font-size:{F['kucuk']};font-weight:{AGIRLIK['vurgu']};line-height:1.4;white-space:nowrap;}}
@@ -1189,7 +1203,20 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     ipucu  : uzun açıklama. Piksel harcamaz, üstüne gelince görünür.
     """
     ikon = ""
-    if modul and not modul[0].isalnum():
+    _mat = None
+    if modul and modul.startswith(":material/") and ":" in modul[10:]:
+        # ":material/monitoring: Yönetim" — emojisiz sayfalar için doğrudan Material ikon adı
+        _mat, modul = modul[10:].split(":", 1)
+        modul = modul.strip()
+    if _mat:
+        _renk = "mor2"
+        try:
+            import streamlit as _st
+            _renk = MODUL_RENK.get(_st.session_state.get("aktif_uygulama", ""), "mor2")
+        except Exception:  # noqa: BLE001 — test ortamı: streamlit yok
+            pass
+        ikon = f'<div class="k-baslik-ikon" style="--c:{rv(_renk)}">{ikon_html(_mat, 15)}</div>'
+    elif modul and not modul[0].isalnum():
         # Baştaki emoji → aynı sayfanın sol menüdeki ikonu (Material), modülün
         # kimlik renginde karo. Eskiden emoji olduğu gibi basılıyordu; sol
         # menü ve üst menü çizgi ikonken başlıkta renkli emoji kalıyordu.

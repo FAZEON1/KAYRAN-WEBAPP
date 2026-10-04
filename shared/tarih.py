@@ -235,7 +235,7 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
         _ofs = st.session_state[_kk]
         _ek = f" · {_ofs:+d} dönem" if _ofs else ""
         st.markdown(
-            f'<div style="font-size:12px;font-family:JetBrains Mono,monospace;'
+            f'<div style="font-size:12px;font-variant-numeric:tabular-nums;'
             f'color:var(--k-soluk);white-space:nowrap;padding-top:2px">'
             f'{_tr(bas)} – {_tr(bit)}<br>'
             f'<span style="color:var(--k-silik)">{tr_sayi(_gun)} gün{_ek}</span></div>',

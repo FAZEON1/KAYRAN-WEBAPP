@@ -438,7 +438,7 @@ def sayfa(aktif_kullanici, yonetici):
     from shared.tasarim import baslik as _sb
     from shared.yukleme_takvimi import sorumlu_adi
 
-    st.markdown(_sb("Yükleme geçmişi", "Excel yüklemeleri",
+    st.markdown(_sb(":material/history: Yükleme geçmişi", "Excel yüklemeleri",
                     aciklama="kim · ne zaman · hangi dosya · geri alınabilenlerde tek tıkla geri al · "
                              + ("tüm kullanıcılar" if yonetici else "yalnız senin yüklemelerin")),
                 unsafe_allow_html=True)
