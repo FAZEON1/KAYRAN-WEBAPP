@@ -122,6 +122,69 @@ def _grup_degerleri(bizim, pacal):
     return out
 
 
+def _yonetici_mi():
+    try:
+        from shared.yetki import ozel_yetki
+        return ozel_yetki(st.session_state.get("aktif_kullanici"), "yonetim", {"ibrahim"})
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _ayar_bolumu(v, pacal):
+    """İstisna kategoriler, yaşlı stok eşiği ve haftalık mail alıcıları (yalnız yönetim yetkisi)."""
+    if not _yonetici_mi():
+        return
+    import pandas as pd
+    a = v.get("ayar") or Y.ayar_oku()
+    with st.expander("Ayarlar · istisna kategoriler ve haftalık yaşlı stok maili"):
+        try:
+            from shared.ana_veri import get_kategori_havuzu
+            havuz = sorted({str(k) for k in (get_kategori_havuzu() or [])} | set(a["haric_kategoriler"])
+                           | set(a["sorumlular"]))
+        except Exception:  # noqa: BLE001
+            havuz = sorted(set(a["haric_kategoriler"]) | set(a["sorumlular"]))
+        haric = st.multiselect("Stok yaşında gösterilmeyen kategoriler (satış için değil)", havuz,
+                               default=[k for k in a["haric_kategoriler"] if k in havuz], key="sy_ayar_haric")
+        esik = st.number_input("Maile girecek yaş (gün, bundan yaşlı)", min_value=1, max_value=720,
+                               value=int(a["esik_gun"]), step=15, key="sy_ayar_esik")
+        st.caption("Her pazartesi sabah, her kişiye yalnız kendi kategorilerinin yaşlı stoğu gider (Excel ekli). "
+                   "Listede olmayan kategoriler 'Diğer kategoriler' satırındaki kişilere gider. "
+                   "Alıcılar kullanıcı adıyla, virgülle ayrılır.")
+        satir = [{"Kategori": k, "Alıcılar": ", ".join(u)} for k, u in sorted(a["sorumlular"].items())]
+        satir.append({"Kategori": "(Diğer kategoriler)", "Alıcılar": ", ".join(a["varsayilan_sorumlular"])})
+        duz = st.data_editor(pd.DataFrame(satir), num_rows="dynamic", hide_index=True, use_container_width=True,
+                             key="sy_ayar_alici")
+        if st.button("Ayarları kaydet", icon=":material/save:", key="sy_ayar_kaydet"):
+            yeni = {"haric_kategoriler": haric, "esik_gun": int(esik), "sorumlular": {},
+                    "varsayilan_sorumlular": a["varsayilan_sorumlular"]}
+            for r in duz.to_dict("records"):
+                kat = str(r.get("Kategori") or "").strip()
+                kisiler = [x.strip().lower() for x in str(r.get("Alıcılar") or "").split(",") if x.strip()]
+                if not kat:
+                    continue
+                if kat == "(Diğer kategoriler)":
+                    yeni["varsayilan_sorumlular"] = kisiler
+                else:
+                    yeni["sorumlular"][kat] = kisiler
+            from kayranacc.database import set_ayar
+            if set_ayar(Y.AYAR_ANAHTAR, yeni):
+                if hasattr(Y.hesapla, "clear"):
+                    Y.hesapla.clear()
+                st.toast("Ayarlar kaydedildi.", icon=":material/check_circle:")
+                st.rerun()
+            st.error("Kaydedilemedi.")
+        satirlar = Y.yasli_satirlar(v["bizim"], pacal, v["bugun"], a["esik_gun"])
+        kisiler = Y.kisi_listeleri(satirlar, a)
+        st.markdown("**Bu hafta kime ne gider** (bugünkü veriyle)")
+        if kisiler:
+            from shared.tablo import tablo
+            tablo([{"Kişi": k, "Ürün": len(r), "Yaşlı adet": sum(x[f"{a['esik_gun']}+ gün adet"] for x in r),
+                    "Yaşlı değer ($)": round(sum(x["Yaşlı değer ($)"] for x in r))}
+                   for k, r in sorted(kisiler.items())], key="sy_ayar_onizleme", arama=True)
+        else:
+            st.caption(f"{a['esik_gun']} günden yaşlı stok yok; bu hafta mail gitmez.")
+
+
 def goster():
     from shared.tasarim import baslik as _sb
     from shared.tablo import tablo
@@ -144,6 +207,7 @@ def goster():
         st.error(f"Stok yaşı hesaplanamadı: {type(e).__name__}: {str(e)[:120]}")
         return
     pacal, bugun = _pacal(), v["bugun"]
+    _ayar_bolumu(v, pacal)
     t1, t2 = st.tabs(["Bizim stok", "Müşterilerdeki stok"])
     with t1:
         rows = Y.urun_satirlari(v["bizim"], pacal)

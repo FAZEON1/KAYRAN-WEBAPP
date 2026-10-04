@@ -173,6 +173,125 @@ def toplam_ozet(ozetler):
             "ort_gun": (agirlik / kapsanan) if kapsanan > 0 else None, "gruplar": gruplar}
 
 
+# ── Ayar: istisna kategoriler ve yaşlı stok maili (Ekim 2026) ───────
+# sistem_ayarlari 'stok_yasi_ayar'; Stok yaşı sayfasındaki ayar bölümünden (yönetim yetkisi) değişir.
+AYAR_ANAHTAR = "stok_yasi_ayar"
+MAIL_SON_ANAHTAR = "yasli_stok_mail_son"         # {kullanici: 'YYYY-MM-DD'} — aynı gün ikinci mail yok
+_HERKES = ["ibrahim", "serkan", "korkut"]
+VARSAYILAN_AYAR = {
+    # Satış için değil (kullanıcı kararı): stok yaşı listelerinde, Excel'de ve mailde görünmez
+    "haric_kategoriler": ["yedek parça"],
+    "esik_gun": 90,                               # bundan yaşlı stok maile girer; 180+ ayrıca vurgulanır
+    "sorumlular": {                               # kategori → alıcılar (kullanıcı listesi, Ekim 2026)
+        "ekran kartı": _HERKES + ["derya"], "monitör": _HERKES + ["derya"], "mouse pad": _HERKES + ["derya"],
+    },
+    "varsayilan_sorumlular": _HERKES + ["gokhan"],    # listede olmayan / yeni / boş kategori
+}
+
+
+def ayar_birlestir(kayitli):
+    """Kayıtlı ayar + varsayılanlar (bozuk alanlar yok sayılır)."""
+    a = {k: (list(v) if isinstance(v, list) else dict(v) if isinstance(v, dict) else v)
+         for k, v in VARSAYILAN_AYAR.items()}
+    k = kayitli if isinstance(kayitli, dict) else {}
+    if isinstance(k.get("haric_kategoriler"), list):
+        a["haric_kategoriler"] = [str(x) for x in k["haric_kategoriler"] if str(x).strip()]
+    try:
+        if k.get("esik_gun") is not None and int(k["esik_gun"]) > 0:
+            a["esik_gun"] = int(k["esik_gun"])
+    except (TypeError, ValueError):
+        pass
+    if isinstance(k.get("sorumlular"), dict):
+        a["sorumlular"] = {str(kat): [str(u).lower() for u in (us or []) if str(u).strip()]
+                           for kat, us in k["sorumlular"].items()}
+    if isinstance(k.get("varsayilan_sorumlular"), list):
+        a["varsayilan_sorumlular"] = [str(u).lower() for u in k["varsayilan_sorumlular"] if str(u).strip()]
+    return a
+
+
+def _kat_anahtar(k):
+    from shared.ana_veri import kategori_anahtar
+    return kategori_anahtar(k)
+
+
+def haric_mi(kategori, ayar):
+    return _kat_anahtar(kategori) in {_kat_anahtar(x) for x in ayar.get("haric_kategoriler") or []}
+
+
+def kategori_sorumlulari(kategori, ayar):
+    sor = {_kat_anahtar(k): v for k, v in (ayar.get("sorumlular") or {}).items()}
+    return sor.get(_kat_anahtar(kategori)) or list(ayar.get("varsayilan_sorumlular") or [])
+
+
+def yasli_satirlar(bizim, pacal, bugun, esik_gun=90):
+    """Eşikten yaşlı stoğu olan ürünler: [{SKU, Ürün, Kategori, 'N+ gün adet', '180+ gün adet',
+    'Yaşlı değer ($)', 'Toplam stok', 'En eski (gün)', 'En eski parti'}] — yaşlı adede göre azalan."""
+    out = []
+    for k, (oz, kal, u) in (bizim or {}).items():
+        yasli = sum(_f(p.get("kalan")) for p in kal if (_gun(p.get("tarih"), bugun) or 0) > esik_gun)
+        if yasli <= 0:
+            continue
+        cok = sum(_f(p.get("kalan")) for p in kal if (_gun(p.get("tarih"), bugun) or 0) > 180)
+        pp = float(pacal.get(k, 0) or 0)
+        out.append({"_id": k, "SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "",
+                    "Kategori": u.get("kategori") or "", f"{esik_gun}+ gün adet": yasli, "180+ gün adet": cok,
+                    "Yaşlı değer ($)": round(yasli * pp, 2), "Toplam stok": oz["stok"],
+                    "En eski (gün)": oz["en_eski_gun"], "En eski parti": oz["en_eski_tarih"]})
+    out.sort(key=lambda r: (-r["Yaşlı değer ($)"], r["SKU"]))
+    return out
+
+
+def kisi_listeleri(satirlar, ayar):
+    """{kullanıcı: o kişinin kategorilerindeki satırlar} — kategori sorumlulara göre dağıtılır."""
+    out = {}
+    for r in satirlar:
+        for kisi in kategori_sorumlulari(r.get("Kategori"), ayar):
+            out.setdefault(kisi, []).append(r)
+    return out
+
+
+def mail_html(satirlar, esik_gun, bugun):
+    """Kişinin yaşlı stok maili (gövde): özet + ilk 25 ürün tablosu; tam liste Excel ekinde."""
+    import html as _h
+    from shared.eposta import sablon
+    from shared.tasarim import tr_sayi
+    anahtar = f"{esik_gun}+ gün adet"
+    adet = sum(r[anahtar] for r in satirlar)
+    cok = sum(r["180+ gün adet"] for r in satirlar)
+    deger = sum(r["Yaşlı değer ($)"] for r in satirlar)
+    satir_html = "".join(
+        f'<tr style="border-top:1px solid #e2e8f0{";background:#fef2f2" if r["180+ gün adet"] else ""}">'
+        f'<td style="padding:6px 8px"><b>{_h.escape(str(r["SKU"]))}</b><br>'
+        f'<span style="color:#64748b;font-size:12px">{_h.escape(str(r["Ürün"]))[:60]}</span></td>'
+        f'<td style="padding:6px 8px">{_h.escape(str(r["Kategori"]))}</td>'
+        f'<td style="padding:6px 8px;text-align:right">{tr_sayi(r[anahtar])}</td>'
+        f'<td style="padding:6px 8px;text-align:right">{tr_sayi(r["180+ gün adet"])}</td>'
+        f'<td style="padding:6px 8px;text-align:right">$ {tr_sayi(r["Yaşlı değer ($)"], 0)}</td>'
+        f'<td style="padding:6px 8px;text-align:right">{tr_sayi(r["En eski (gün)"] or 0)}</td></tr>'
+        for r in satirlar[:25])
+    govde = (f'<p>{esik_gun} günden uzun süredir depoda bekleyen satılabilir stok '
+             f'(FIFO, depoya giriş tarihinden): <b>{tr_sayi(len(satirlar))} ürün · {tr_sayi(adet)} adet · '
+             f'$ {tr_sayi(deger, 0)}</b>. Bunun <b>{tr_sayi(cok)} adedi 180 günü geçti</b> (kırmızı satırlar).</p>'
+             '<table style="border-collapse:collapse;width:100%;font-size:13px">'
+             '<tr style="color:#64748b;text-align:left"><th style="padding:6px 8px">Ürün</th>'
+             '<th style="padding:6px 8px">Kategori</th>'
+             f'<th style="padding:6px 8px;text-align:right">{esik_gun}+ gün</th>'
+             '<th style="padding:6px 8px;text-align:right">180+ gün</th>'
+             '<th style="padding:6px 8px;text-align:right">Değer</th>'
+             '<th style="padding:6px 8px;text-align:right">En eski (gün)</th></tr>'
+             f'{satir_html}</table>'
+             + ('<p style="color:#64748b;font-size:12px">İlk 25 ürün gösteriliyor; tam liste ve partiler '
+                'ekteki Excel dosyasında.</p>' if len(satirlar) > 25 else
+                '<p style="color:#64748b;font-size:12px">Partiler ekteki Excel dosyasında.</p>'))
+    try:
+        from shared.eposta import baglanti
+        url = baglanti("kayranpm")
+    except Exception:  # noqa: BLE001
+        url = None
+    return sablon(f"Yaşlı stok · {bugun:%d.%m.%Y}", govde, buton="Stok yaşı sayfasını aç" if url else None,
+                  url=url, alt="Bu liste her pazartesi, yalnız sorumlu olduğun kategoriler için gönderilir.")
+
+
 # ── Saf: liste ve Excel satırları (Stok yaşı sayfası) ───────────────
 TUR_AD = {"ithalat": "İthalat", "yurtici": "Yurt içi", "yerli": "Yerli üretim"}
 
@@ -285,10 +404,14 @@ def hesapla():
     from shared.utils import sku_anahtar
     bugun = _bugun()
     part = _bizim_partiler_oku()
-    stoklar, kartlar = {}, {}
+    ayar = ayar_oku()
+    stoklar, kartlar, haric = {}, {}, set()
     for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, bizim_stok"):
         stok = _f(u.get("bizim_stok"))
         k = sku_anahtar(u.get("sku"))
+        if k and haric_mi(u.get("kategori"), ayar):
+            haric.add(k)                          # satış için değil (yedek parça): listelerde yok
+            continue
         if stok <= 0 or not k:
             continue
         stoklar[k] = stoklar.get(k, 0.0) + stok          # aynı anahtarlı iki kart: stok toplanır
@@ -301,11 +424,19 @@ def hesapla():
     musteri = {}
     for firma, skular in kanal.items():
         for sku, adet in skular.items():
-            if _f(adet) <= 0:
+            if _f(adet) <= 0 or sku in haric:
                 continue
             oz, kal = urun_yasi(adet, mpart.get(firma, {}).get(sku, []), bugun)
             musteri.setdefault(firma, {})[sku] = (oz, kal)
-    return {"bizim": bizim, "musteri": musteri, "bugun": bugun}
+    return {"bizim": bizim, "musteri": musteri, "bugun": bugun, "ayar": ayar}
+
+
+def ayar_oku():
+    try:
+        from kayranacc.database import get_ayar
+        return ayar_birlestir(get_ayar(AYAR_ANAHTAR, {}))
+    except Exception:  # noqa: BLE001
+        return ayar_birlestir({})
 
 
 try:                                      # 5 dk önbellek (veri değişince sayfa Yenile temizler)

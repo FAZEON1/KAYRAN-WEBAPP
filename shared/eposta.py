@@ -59,8 +59,9 @@ def ayarlar():
             "pass": os.environ.get("SMTP_PASS") or s.get("smtp_pass") or ""}
 
 
-def gonder(alicilar, konu, html, cc=None):
-    """Döner: (ok, kod) — kod: 'ok' · 'alici_yok' · 'smtp_yok' · hata metni."""
+def gonder(alicilar, konu, html, cc=None, ekler=None):
+    """Döner: (ok, kod) — kod: 'ok' · 'alici_yok' · 'smtp_yok' · hata metni.
+    ekler: [(dosya adı, bayt, mime türü)] — ör. yaşlı stok maili Excel eki."""
     alicilar = [a for a in (alicilar or []) if a]
     cc = [a for a in (cc or []) if a and a not in alicilar]
     if not alicilar:
@@ -69,7 +70,7 @@ def gonder(alicilar, konu, html, cc=None):
     if not a["user"] or not a["pass"]:
         return False, "smtp_yok"
     try:
-        msg = mesaj_olustur(a["user"], alicilar, konu, html, cc)
+        msg = mesaj_olustur(a["user"], alicilar, konu, html, cc, ekler=ekler)
         with smtplib.SMTP(a["host"], a["port"], timeout=15) as s:
             s.starttls(context=ssl.create_default_context())
             s.login(a["user"], a["pass"])
@@ -89,10 +90,22 @@ def duz_metin(html):
     return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", t)).strip()
 
 
-def mesaj_olustur(gonderen, alicilar, konu, html, cc=None):
+def mesaj_olustur(gonderen, alicilar, konu, html, cc=None, ekler=None):
     """Spam filtrelerinin aradığı başlıklarla: Date, Message-ID, düz metin + HTML (multipart/alternative).
     Eskiden yalnız HTML'di, Date ve Message-ID yoktu — üçü de spam puanını artırır."""
-    msg = MIMEMultipart("alternative")
+    govde = MIMEMultipart("alternative")
+    govde.attach(MIMEText(duz_metin(html), "plain", "utf-8"))    # önce düz metin, sonra HTML (RFC 2046)
+    govde.attach(MIMEText(html, "html", "utf-8"))
+    if ekler:                              # ekli mail: mixed = [alternative gövde, ekler…]
+        from email.mime.application import MIMEApplication
+        msg = MIMEMultipart("mixed")
+        msg.attach(govde)
+        for ad, bayt, mime in ekler:
+            parca = MIMEApplication(bayt, _subtype=(mime or "octet-stream").split("/")[-1])
+            parca.add_header("Content-Disposition", "attachment", filename=("utf-8", "", ad))
+            msg.attach(parca)
+    else:
+        msg = govde
     msg["Subject"] = konu
     msg["From"] = formataddr(("KAYRAN Workspace", gonderen))
     msg["To"] = ", ".join(alicilar)
@@ -101,8 +114,6 @@ def mesaj_olustur(gonderen, alicilar, konu, html, cc=None):
     msg["Reply-To"] = gonderen
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=(gonderen.split("@")[-1] or None))
-    msg.attach(MIMEText(duz_metin(html), "plain", "utf-8"))    # önce düz metin, sonra HTML (RFC 2046)
-    msg.attach(MIMEText(html, "html", "utf-8"))
     return msg
 
 
