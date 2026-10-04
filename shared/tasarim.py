@@ -698,6 +698,25 @@ BILESEN_CSS = """
 .k-tb td.kisa{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .k-tb.sik thead th{padding:6px 8px;font-size:11.5px;}
 .k-tb.sik tbody td{padding:5px 8px;font-size:11.5px;}
+.k-detay{border:1px solid var(--k-kenar2);border-radius:var(--k-r);background:var(--k-yuzey1);
+  margin:16px 0 12px;overflow:hidden;}
+.k-detay-bas{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:12px 16px;border-bottom:1px solid var(--k-kenar);background:var(--k-yuzey2);}
+.k-detay-baslik{font-size:14px;font-weight:650;color:var(--k-metin);}
+.k-detay-ek{font-size:12.5px;color:var(--k-soluk);font-variant-numeric:tabular-nums;}
+.k-detay-govde{display:flex;gap:24px;flex-wrap:wrap;padding:8px 16px 14px;}
+.k-detay-sutun{flex:1;min-width:210px;}
+.k-detay-satir{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:6px 0;border-bottom:1px solid var(--k-kenar);font-size:13px;}
+.k-detay-satir:last-child{border-bottom:0;}
+.k-detay-satir > span:first-child{color:var(--k-soluk);font-size:12px;}
+.k-detay-satir > span:last-child{color:var(--k-metin);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;}
+.k-detay-ana{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--k-ortu2);
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
+.k-detay-ana > span:first-child{color:var(--k-soluk);font-size:12px;}
+.k-detay-ana > span:last-child{color:var(--k-metin);font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;}
+.k-detay-ana.k-iyi > span:last-child{color:var(--k-yesil);}
+.k-detay-ana.k-kotu > span:last-child{color:var(--k-kirmizi);}
 .k-tb.sik td.kisa{max-width:170px;}
 .k-tb tfoot td{padding:8px 12px;font-weight:700;background:var(--k-yuzey2);
   border-top:2px solid var(--k-kenar2);position:sticky;bottom:0;}
@@ -717,17 +736,40 @@ def bos_durum(baslik, aciklama="", ikon="inbox"):
             f'<div class="k-bosd-baslik">{_h.escape(baslik)}</div>{ac}</div>')
 
 
+def detay_karti(baslik, ek="", sol=(), sag=(), ana=None):
+    """Kayıt detayı kartı: başlık şeridi + iki sütun etiket/değer + (isteğe bağlı) öne çıkan değer.
+
+    sol / sag: [(etiket, deger_html), ...]   ana: (etiket, deger_html, anlam?)  anlam: iyi | kotu | None
+    Değerler hazır HTML'dir (kaçış uygulanmaz) — kullanıcı girdisini html.escape'ten geçirerek ver."""
+    def _sutun(satirlar):
+        return ('<div class="k-detay-sutun">'
+                + "".join(f'<div class="k-detay-satir"><span>{e}</span><span>{d}</span></div>' for e, d in satirlar)
+                + '</div>')
+    ana_html = ""
+    if ana:
+        _an = ana[2] if len(ana) > 2 else None
+        ana_html = (f'<div class="k-detay-ana{" k-" + _an if _an else ""}">'
+                    f'<span>{ana[0]}</span><span>{ana[1]}</span></div>')
+    sag_html = _sutun(sag)
+    if ana_html:
+        sag_html = sag_html[:-len('</div>')] + ana_html + '</div>'
+    ek_html = f'<span class="k-detay-ek">{ek}</span>' if ek else ""
+    return (f'<div class="k-detay"><div class="k-detay-bas"><span class="k-detay-baslik">{baslik}</span>{ek_html}</div>'
+            f'<div class="k-detay-govde">{_sutun(sol)}{sag_html}</div></div>')
+
+
 _MESAJ = {"bilgi": ("cyan", "info"), "basari": ("yesil", "check_circle"),
           "uyari": ("amber", "warning"), "hata": ("kirmizi", "error")}
 
 
-def mesaj(tur, metin):
-    """Satır içi bilgi / başarı / uyarı / hata kutusu (HTML). tur: bilgi|basari|uyari|hata"""
+def mesaj(tur, metin, ham=False):
+    """Satır içi bilgi / başarı / uyarı / hata kutusu (HTML). tur: bilgi|basari|uyari|hata
+    ham=True: metin hazır HTML'dir (<b> vurgusu için); kaçış uygulanmaz — kullanıcı girdisi koyma."""
     import html as _h
     renk, ikon = _MESAJ.get(tur, _MESAJ["bilgi"])
     return (f'<div class="k-mesaj" style="--m:var(--k-{renk})">'
             f'<span class="k-mesaj-ikon" aria-hidden="true">{ikon}</span>'
-            f'<div>{_h.escape(metin)}</div></div>')
+            f'<div>{metin if ham else _h.escape(metin)}</div></div>')
 
 
 # ═══════════════════════════════════════════════════════════════════

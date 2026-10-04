@@ -5,6 +5,7 @@ Veriyi ürün/stok (kayranpm), ithalat ve satış modüllerinden birleştirir.
 Performans: satışlar SKU bazlı çekilir, paçal alım partilerinden hesaplanır."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+import html as _h
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
@@ -34,6 +35,11 @@ def _f(v, d=0.0):
 
 def _usd(v):
     return f"${tr_sayi(_f(v), 2)}"
+
+
+def _usd_md(v):
+    """Markdown mesajı için: iki "$" arası LaTeX formülü sanılmasın."""
+    return _usd(v).replace("$", "\\$")
 
 
 
@@ -83,64 +89,23 @@ def _tum_satis_ozeti():
         return {"toplam_kar": 0.0, "toplam_ciro": 0.0, "sku_kar": {}, "sku_ciro": {}}
 
 
-def _detay_satir(etiket, deger, renk="#E2E8F0"):
-    """Tek bir etiket:değer satırı (hizalı, profesyonel)."""
-    return (f'<div style="display:flex;justify-content:space-between;align-items:baseline;'
-            f'padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--k-soluk) 8%,transparent)">'
-            f'<span style="color:var(--k-soluk);font-size:11px;font-weight:600">{etiket}</span>'
-            f'<span style="color:{renk};font-size:13px;font-weight:700;'
-            f'font-family:JetBrains Mono,monospace">{deger}</span></div>')
-
-
 def _alim_detay(a):
+    from shared.tasarim import detay_karti
     _ind = _f(a.get("indirim_orani")) * 100
-    _fob = _usd(a.get("birim_fob"))
-    _final = _usd(a.get("final_birim"))
     _mas_yuzde = _f(a.get("maliyet_yuzde"))
-    _adet = _f(a.get("adet"))
-
-    # ── Başlık şeridi ──
-    st.markdown(
-        f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-        f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-left:3px solid var(--k-mor);'
-        f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
-        f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">Alım Detayı</span>'
-        f'<span style="font-size:13px;font-weight:700;color:var(--k-mor2);'
-        f'font-family:JetBrains Mono,monospace">{a.get("belge_no") or "—"}</span></div>'
-        f'</div>', unsafe_allow_html=True)
-
-    # ── Bilgi + hesap iki sütun ──
-    _sol = (
-        _detay_satir("Sipariş Tarihi", gun_ay_yil(a.get("siparis_tarih")) or "—")
-        + _detay_satir("Teslim Tarihi", gun_ay_yil(a.get("teslim_tarih")) or "—")
-        + _detay_satir("Tedarikçi",
-                       f'<span style="font-family:Inter">{(a.get("tedarikci") or "—")[:26]}</span>')
-        + _detay_satir("Takip No", a.get("takip_no") or "—")
-        + _detay_satir("Döviz / Kur", f'{a.get("doviz")} · {_f(a.get("kur")):.2f}')
-        + _detay_satir("Durum",
-                       f'<span style="color:var(--k-yesil);font-family:Inter">{a.get("durum") or "—"}</span>'))
-
     _indirim_str = f' · indirim %{tr_sayi(_ind, 1)}' if _ind else ''
-    _sag = (
-        _detay_satir("Adet", f"{tr_sayi(_adet)}", trenk("mavi"))
-        + _detay_satir("Birim FOB", _fob, trenk("mavi"))
-        + _detay_satir("Masraf Payı", f"%{tr_sayi(_mas_yuzde, 1)}{_indirim_str}", trenk("amber"))
-        + f'<div style="margin-top:10px;padding:12px 14px;background:color-mix(in srgb,var(--k-yesil) 8%,transparent);'
-          f'border:1px solid color-mix(in srgb,var(--k-yesil) 28%,transparent);border-radius:12px;text-align:center">'
-          f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;'
-          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Final Birim Maliyet</div>'
-          f'<div style="font-size:23px;font-weight:700;color:var(--k-yesil);'
-          f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_final}</div></div>')
-
-    st.markdown(
-        f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-        f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-top:none;'
-        f'border-radius:0 0 16px 16px;padding:14px 18px 16px;margin-bottom:12px;'
-        f'display:flex;gap:24px;flex-wrap:wrap">'
-        f'<div style="flex:1;min-width:220px">{_sol}</div>'
-        f'<div style="flex:1;min-width:200px">{_sag}</div>'
-        f'</div>', unsafe_allow_html=True)
+    st.markdown(detay_karti(
+        "Alım detayı", a.get("belge_no") or "—",
+        sol=[("Sipariş tarihi", gun_ay_yil(a.get("siparis_tarih")) or "—"),
+             ("Teslim tarihi", gun_ay_yil(a.get("teslim_tarih")) or "—"),
+             ("Tedarikçi", _h.escape((a.get("tedarikci") or "—")[:26])),
+             ("Takip no", _h.escape(str(a.get("takip_no") or "—"))),
+             ("Döviz / kur", f'{a.get("doviz")} · {_f(a.get("kur")):.2f}'),
+             ("Durum", _h.escape(str(a.get("durum") or "—")))],
+        sag=[("Adet", tr_sayi(_f(a.get("adet")))),
+             ("Birim FOB", _usd(a.get("birim_fob"))),
+             ("Masraf payı", f"%{tr_sayi(_mas_yuzde, 1)}{_indirim_str}")],
+        ana=("Final birim maliyet", _usd(a.get("final_birim")))), unsafe_allow_html=True)
 
     # ── Masraf dökümü ──
     try:
@@ -161,41 +126,17 @@ def _satis_detay(s, satir_kar):
     _destek = _f(s.get("birim_firma_destek")) + _f(s.get("birim_ek_destek"))
     _marj = _f(k.get("marj"))
     _nk = _f(k.get("net_kar"))
-    _nk_renk = trenk("yesil") if _nk >= 0 else trenk("kirmizi")
-
-    st.markdown(
-        f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-        f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-left:3px solid var(--k-mor);'
-        f'border-radius:16px 16px 0 0;padding:14px 18px 12px;margin-top:16px">'
-        f'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
-        f'<span style="font-size:14px;font-weight:700;color:var(--k-metin)">Satış Detayı</span>'
-        f'<span style="font-size:13px;font-weight:700;color:var(--k-mor2);font-family:Inter">'
-        f'{gun_ay_yil(s.get("tarih"))} · {s.get("kanal") or "—"}</span></div></div>',
+    from shared.tasarim import detay_karti
+    st.markdown(detay_karti(
+        "Satış detayı", f'{gun_ay_yil(s.get("tarih"))} · {_h.escape(str(s.get("kanal") or "—"))}',
+        sol=[("Sipariş no", _h.escape(str(s.get("siparis_no") or "—"))),
+             ("Adet", tr_sayi(_f(k.get("adet") or s.get("adet")))),
+             ("Birim satış", _usd(s.get("birim_satis"))),
+             ("Birim maliyet", _usd(s.get("birim_maliyet")))],
+        sag=[("Birim destek", _usd(_destek)),
+             ("Ciro", _usd(k.get("ciro")))],
+        ana=(f"Net kâr · marj %{tr_sayi(_marj, 1)}", _usd(_nk), "iyi" if _nk >= 0 else "kotu")),
         unsafe_allow_html=True)
-
-    _sol = (
-        _detay_satir("Sipariş No", s.get("siparis_no") or "—")
-        + _detay_satir("Adet", f"{tr_sayi(_f(k.get('adet') or s.get('adet')))}", trenk("mavi"))
-        + _detay_satir("Birim Satış", _usd(s.get("birim_satis")), trenk("mavi"))
-        + _detay_satir("Birim Maliyet", _usd(s.get("birim_maliyet")), trenk("amber")))
-    _sag = (
-        _detay_satir("Birim Destek", _usd(_destek), trenk("mor"))
-        + _detay_satir("Ciro", _usd(k.get("ciro")), trenk("mavi"))
-        + f'<div style="margin-top:10px;padding:12px 14px;background:color-mix(in srgb,var(--k-yesil) 6%,transparent);'
-          f'border:1px solid {_nk_renk}44;border-radius:12px;text-align:center">'
-          f'<div style="font-size:10px;color:var(--k-soluk);text-transform:uppercase;'
-          f'letter-spacing:1px;font-weight:700;margin-bottom:2px">Net Kâr · Marj %{tr_sayi(_marj, 1)}</div>'
-          f'<div style="font-size:23px;font-weight:700;color:{_nk_renk};'
-          f'font-family:JetBrains Mono,monospace;letter-spacing:-0.5px">{_usd(_nk)}</div></div>')
-
-    st.markdown(
-        f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-        f'border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);border-top:none;'
-        f'border-radius:0 0 16px 16px;padding:14px 18px 16px;margin-bottom:12px;'
-        f'display:flex;gap:24px;flex-wrap:wrap">'
-        f'<div style="flex:1;min-width:220px">{_sol}</div>'
-        f'<div style="flex:1;min-width:200px">{_sag}</div>'
-        f'</div>', unsafe_allow_html=True)
 
     if s.get("kampanya_id"):
         st.caption(f"Kampanya ID: {s.get('kampanya_id')}")
@@ -502,9 +443,9 @@ def goster(sku):
                 _oort = (sum(_onceki) / len(_onceki)) if _onceki else 0.0
                 if _oort > 0 and son_final > 0:
                     if son_final > _oort * 1.02:
-                        st.warning(f"📈 Maliyet **artıyor**: son alım {_usd(son_final)} vs önceki ort. {_usd(_oort)}")
+                        st.warning(f"📈 Maliyet **artıyor**: son alım {_usd_md(son_final)} vs önceki ort. {_usd_md(_oort)}")
                     elif son_final < _oort * 0.98:
-                        st.success(f"📉 Maliyet **düşüyor**: son alım {_usd(son_final)} vs önceki ort. {_usd(_oort)}")
+                        st.success(f"📉 Maliyet **düşüyor**: son alım {_usd_md(son_final)} vs önceki ort. {_usd_md(_oort)}")
             from shared.tablo import tablo as _ortak_tablo
             _ai = _ortak_tablo([{
                 "Tarih": gun_ay_yil(a["tarih"]), "Belge": a["belge_no"],
@@ -662,7 +603,7 @@ def goster(sku):
         if pacal_final > 0 and liste_fiyat > 0:
             _marj = (liste_fiyat - pacal_final) / liste_fiyat * 100
             if liste_fiyat <= pacal_final:
-                st.error(f"⚠️ **Zarar riski:** Liste satış ({_usd(liste_fiyat)}) ≤ paçal maliyet ({_usd(pacal_final)}).")
+                st.error(f"⚠️ **Zarar riski:** Liste satış ({_usd_md(liste_fiyat)}) ≤ paçal maliyet ({_usd_md(pacal_final)}).")
             elif _marj < 10:
                 st.warning(f"⚠️ **Düşük marj:** Teorik marj sadece %{tr_sayi(_marj, 1)}.")
             else:
@@ -710,7 +651,7 @@ def goster(sku):
                 _k2.setdefault(s.get("kanal", "") or "—", [0.0])[0] += _f(satir_kar(s).get("net_kar"))
             if _k2:
                 _en = max(_k2.items(), key=lambda x: x[1][0])
-                st.info(f"🏆 **En kârlı kanal:** {_en[0]} ({_usd(_en[1][0])} toplam kâr).")
+                st.info(f"🏆 **En kârlı kanal:** {_en[0]} ({_usd_md(_en[1][0])} toplam kâr).")
 
         # Tedarikçi karşılaştırması
         if len(alimlar) > 1:

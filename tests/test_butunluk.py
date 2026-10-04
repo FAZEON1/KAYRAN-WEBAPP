@@ -189,7 +189,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
-                       "genel_tema_css"],   # shared/ui.py buraya katıldı (Eki 2026)
+                       "genel_tema_css", "detay_karti", "mesaj"],   # shared/ui.py buraya katıldı (Eki 2026)
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
