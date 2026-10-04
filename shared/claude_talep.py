@@ -4,7 +4,7 @@
   1. Çalışan Talep Merkezi'nden talep gönderir (bugünkü gibi).
   2. Onaycı (İbrahim) talebi açar, isterse not yazar, "Claude'a gönder"e basar
      → claude_durum = 'onaylandi'. Onaysız talebe Claude dokunmaz.
-  3. claude.ai'deki zamanlanmış görev (hafta içi 09–18, saat başı) en eski onaylı talebi alır
+  3. claude.ai'deki zamanlanmış görev (7 gün 24 saat, saat başı) en eski onaylı talebi alır
      ('calisiyor'), otonom/claude_talep_gorevi.md'deki kurallarla kodlar, PR açar. Rakam değiştiren
      ya da belirsiz işte kod yazmaz, soru yazar ('soru'); onaycı cevabı nota yazıp yeniden gönderir.
   4. PR açılınca / birleşince GitHub iş akışı (talep-pr.yml → otonom/talep_pr.py) durumu günceller
