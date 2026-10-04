@@ -27,16 +27,6 @@ Ayrıca `gh auth status` ile GitHub CLI girişini doğrula.
 6. Birleşmeden sonra canlıda "cannot import name …" görülürse: uygulama bayat modülü kendisi
    tazeler (`shared/modul_tazele.py`); sürerse Streamlit Cloud → ⋮ → Reboot app.
 
-**Aynı anda birden çok oturum (kalıcı kural).** Bu depoda aynı anda başka Claude oturumları da çalışır;
-PR'lar aynı dosyalara dokunabilir.
-1. İşe başlamadan açık PR'lara bak; aynı dosyalara dokunan varsa kullanıcıya söyle (dosya ve satır bölgesi).
-2. Push etmeden ve PR linkini vermeden hemen önce: `git fetch origin main` ve main'i dala **merge** et
-   (başkasının dalında rebase / force-push yok). Çakışma varsa iki tarafın amacını da koru, testleri
-   yeniden çalıştır, sonra gönder.
-3. PR açıkken main değişirse (başka PR birleşirse) PR'ın birleştirilebilir durumunu kontrol et; çakışma
-   varsa kullanıcı söylemeden çöz ve push et. "Birleştirmeye hazır" demeden önce hem CI'ın yeşil hem
-   çakışmanın olmadığını doğrula.
-
 **Tek iş, tek PR.** Bir istek parça parça PR'larla teslim edilmez; envanter, tüm düzeltmeler ve
 testler bitince tek PR. İstisna: canlıda çalışmayan bir şey (kullanıcıya sorarak ayrı PR).
 
