@@ -182,7 +182,10 @@ try:
             from shared.tasarim import otomatik_kolonlar, tablo_sirali
             kayitlar = _html_uygun_mu(data, kw)
             if kayitlar is not None:
-                tablo_sirali(kayitlar, kap=self)
+                # st.dataframe (modül düzeyi) kök sayfa kabına bağlı: kap olarak verilirse tablo
+                # "with kök:" ile SAYFAYA yazılıyor, pencere (st.dialog) içindeyken pencerede değil
+                # arkadaki sayfada çıkıyordu. Kök kapta kap=None → tablo bulunduğu yere çizilir.
+                tablo_sirali(kayitlar, kap=None if self is globals().get("_kok_dg") else self)
                 return None
             from shared.tasarim import IZGARA_YENI
             if IZGARA_YENI:          # ortak ızgara ayarı (shared/izgara.py)
@@ -1684,12 +1687,16 @@ def ust_navigasyon():
     </style>""", unsafe_allow_html=True)
 
     with st.container(key="ustnav"):
-        cols = st.columns(len(moduller) + 2, gap="small")
-        _yer = [moduller[0], None] + moduller[1:]          # None = komut paleti
+        cols = st.columns(len(moduller) + 3, gap="small")
+        _yer = [moduller[0], None, "dosya"] + moduller[1:]  # None = komut paleti · "dosya" = Dosya kapısı
         for c, m in zip(cols, _yer):
             if m is None:
                 with c:
                     _palet_ciz(ak, yet)
+                continue
+            if m == "dosya":
+                with c:
+                    _dosya_dugmesi(ak, yet)
                 continue
             ad, mod, ikon = m
             # on_click: tıklama, sayfa çizilmeden ÖNCE işlenir → hedef sayfa
@@ -1721,6 +1728,28 @@ def _palet_kosul(kosul, kullanici):
     except Exception:
         return False
     return True
+
+
+def _kapi_yetkileri(ak, yet=None, tam=True):
+    """Dosya kapısının yetki sözlüğü (modül yetkileri + Yönetim + kâr + Toplam Aktifler)."""
+    from shared.dosya_kapisi import yetkiler_topla
+    return yetkiler_topla(ak, yet if yet is not None else kullanici_yetkileri(ak), ozel_yetki, tam=tam)
+
+
+def _dosya_dugmesi(ak, yet):
+    """Üst menü · Ara'nın yanında: bütün Excel yüklemeleri tek pencerede (shared/dosya_kapisi)."""
+    try:
+        from shared import dosya_kapisi as _dk
+        if st.session_state.get("salt_okur") or not _dk.gorunur(_kapi_yetkileri(ak, yet, tam=False)):
+            return
+        st.button("Dosya", key="ust_dosya", icon=":material/upload_file:", on_click=_dk.ac,
+                  help="Excel dosyası yükle — türü kendiliğinden tanınır, ilgili yükleme aynı pencerede açılır")
+    except Exception as _e:  # noqa: BLE001
+        try:
+            from shared.hata_log import kaydet
+            kaydet("ust.dosya_dugmesi", _e)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _palet_ciz(ak, yet):
@@ -2039,6 +2068,11 @@ def _bugun_panel(aktif_kullanici, yetkiler):
                 # Talep Merkezi her sayfada sağ alttaki ✉️ düğmesinde açılır
                 _c2.markdown('<div style="color:var(--k-silik);font-size:11px;text-align:center">'
                              'sağ alttaki Talep</div>', unsafe_allow_html=True)
+            elif str(_m["anahtar"]).startswith("yt_") and not st.session_state.get("salt_okur"):
+                # Yüklenmemiş dönemsel dosya: düğme doğrudan Dosya kapısını açar (Ekim 2026)
+                from shared.dosya_kapisi import ac as _kapi_ac
+                _c2.button("Yükle", key=f"bgn_{_m['anahtar']}", icon=":material/upload_file:",
+                           use_container_width=True, on_click=_kapi_ac)
             else:
                 _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
                            use_container_width=True, on_click=_sayfaya_git, args=(_m["hedef"],))
@@ -2067,6 +2101,19 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
         f'<span style="color:var(--k-amber)">{_say["yaklasiyor"]} yaklaşıyor</span>' if _say["yaklasiyor"] else "",
         f'{_say["guncel"]} güncel' if _say["guncel"] else "") if p)
     st.markdown(f'<div class="k-ana-bolum">Veri güncelliği<span>{_oz}</span></div>', unsafe_allow_html=True)
+    # Dosya kapısı: geciken yüklemelerin hemen üstünde bırakma alanı (bırakılınca kapı açılır)
+    try:
+        from shared.dosya_kapisi import ana_sayfa_alani
+        if not st.session_state.get("salt_okur"):
+            ana_sayfa_alani(_kapi_yetkileri(aktif_kullanici, yetkiler, tam=False))
+    except Exception as _e:  # noqa: BLE001
+        if type(_e).__name__ in ("RerunException", "StopException"):
+            raise
+        try:
+            from shared.hata_log import kaydet as _hk2
+            _hk2("anasayfa.dosya_kapisi", _e)
+        except Exception:  # noqa: BLE001
+            pass
     _sira = {"gecikti": 0, "yaklasiyor": 1, "guncel": 2}
     _dl = sorted(_dl, key=lambda d: (_sira[d["seviye"]], d.get("kalan_gun") or 0))
     _kol = st.columns(3)
@@ -3444,12 +3491,30 @@ def main():
     else:
         st.session_state.pop("_modul_tazelendi", None)   # sayfa sorunsuz çizildi → koruma yeniden kurulur
 
+    # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede. Sayfa çizildikten SONRA
+    # açılır (modül hata verse bile kullanılabilsin). Bir çalışmada tek pencere açılabildiği için
+    # kapı açıkken Talep Merkezi penceresi bu çalışmada açılmaz.
+    _kapi_acik = False
+    try:
+        from shared import dosya_kapisi as _dk
+        if _dk.acik():
+            _kapi_acik = _dk.ciz(_kapi_yetkileri(st.session_state.get("aktif_kullanici", "")))
+    except Exception as _e:  # noqa: BLE001
+        if type(_e).__name__ in ("RerunException", "StopException"):
+            raise
+        try:
+            from shared.hata_log import kaydet
+            kaydet("dosya_kapisi.ciz", _e)
+        except Exception:  # noqa: BLE001
+            pass
+
     # Talep düğmesi HER SAYFADA görünür — sayfa içeriği çizildikten sonra
     # eklenir ki modül hata verse bile erişilebilir kalsın.
-    try:
-        _talep_merkezi()
-    except Exception:
-        pass
+    if not _kapi_acik:
+        try:
+            _talep_merkezi()
+        except Exception:
+            pass
 
     # Modül değiştiyse soldaki menüyü ilgili "SAYFALARI" alt menüsüne kaydır
     if st.session_state.pop("_sidebar_kaydir", False):

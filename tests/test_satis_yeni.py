@@ -119,11 +119,14 @@ def test_satis_silme_onayli_ve_yeni_ekran():
     assert "get_siparis_kalemleri(" in e          # detay düzenlemesi taze kayda bakar
 
 
-def test_satis_girisi_dogrudan_pencereler():
+def test_satis_girisi_excel_dosya_kapisinda():
+    """Ekim 2026: Excel ile toplu sipariş (VATAN · EERA · diğer) Satış Girişi'ndeki kartlardan
+    çıkıp üst menüdeki Dosya kapısına taşındı; gövdeler modül düzeyinde, pencere değil."""
     m = _oku("satis/main.py")
-    for d in ("def _dlg_xl_vatan", "def _dlg_xl_eera", "def _dlg_xl_diger", "def _sg_acilis("):
+    for d in ("def kapi_siparis_vatan(dosya, kapi)", "def kapi_siparis_itopya(dosya, kapi)", "def _sg_acilis("):
         assert d in m, d
     assert "_satis_excel_dialog" not in m and 'key="tgl_sat_vatan"' not in m
+    assert "def _dlg_xl_vatan" not in m and 'B.tiklanir(f"sgx_' not in m
 
 
 # ── 2. paket: Kâr/P&L · İade · İçe Aktar ────────────────────────────

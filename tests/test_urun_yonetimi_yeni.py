@@ -95,7 +95,7 @@ def test_bekleyen_haritasi_ve_durum_adi():
 
 # ── 6. Veri Yükleme: onaylı silme ───────────────────────────────────
 def test_tarih_silme_onayli_ve_onbellek():
-    m = _govde(_oku(MAIN), 'elif sayfa == "📂  Veri Yükleme":', "\n    _sayfa_parcasi()")
+    m = _govde(_oku(MAIN), 'elif sayfa == "Toplu İşlemler":', "\n    _sayfa_parcasi()")
     assert 'table("firma_stok").delete()' not in m
     assert "B.onayli_sil(" in m and "sil_firma_stok_tarihi(" in m
     assert 'key=f"vy_tarih_{_sil_r[\'_ham\']}"' in m      # onay bir sonraki tarihe taşınmaz
@@ -167,7 +167,7 @@ def test_bos_sutun_satiri_ve_cift_ayrac_yok():
 
 
 def test_toplu_dialog_oner_pencereyi_kapatmaz():
-    m = _govde(_oku(MAIN), 'elif sayfa == "📂  Veri Yükleme":', "\n    _sayfa_parcasi()")
+    m = _govde(_oku(MAIN), 'elif sayfa == "Toplu İşlemler":', "\n    _sayfa_parcasi()")
     for anahtar in ('key="satis_oner"', 'key="kat_oto"', 'key="kat_std_btn"'):
         g = m[m.index(anahtar):]
         g = g[:g.index("st.rerun(") + 40]

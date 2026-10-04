@@ -18,7 +18,6 @@ from shared.utils import tr_now
 from shared.utils import metrik_satiri
 from shared.tasarim import baslik as _sb
 import pandas as pd
-import os
 from functools import partial
 from shared import bilesen as B
 from .urun_hesap import yukleme_ozeti
@@ -28,8 +27,7 @@ from shared.utils import firma_gorunen_ad   # kanal = cari adı (Faz 4)
 from .database import (initialize_db, get_tum_sku_listesi, get_client,
                       sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
 from .analitik import dashboard_hesapla, tum_urunler_listesi
-from .excel_islemler import (create_sample_excel_bytes, excel_yukle_g5f_depolar,
-                            excel_yukle_haftalik_stok_satis)
+from .excel_islemler import excel_yukle_g5f_depolar, excel_yukle_haftalik_stok_satis
 
 
 _RK_RENK = {"rk-grn": "yesil", "rk-red": "kirmizi", "rk-yel": "amber", "rk-org": "amber", "rk-dim": None}
@@ -46,6 +44,82 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
         vurgu = (kol, {k: _RK_RENK.get(v, v) for k, v in harita.items()})
     st.html(df_tablo_html(df, para=para, yuzde=yuzde, kar=kar, sol=sol, kisa=kisalt,
                           gizle=gizle, satir_vurgu=vurgu))
+
+
+# ══════════════════ DOSYA KAPISI GÖVDELERİ (Ekim 2026) ══════════════════
+# Haftalık müşteri stok + satış (eskiden Müşteri Satışları'ndaki pencere) ve G5F depo sayımı
+# (eskiden Veri Yükleme sayfası) artık üst menüdeki Dosya kapısında (shared/dosya_kapisi).
+# İkisi de eskiden önizlemesiz yazıyordu; artık önce salt okunur özet, sonra Kaydet.
+def kapi_musteri_haftalik(dosya, kapi):
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("musteri_haftalik")        # haftalık müşteri dosyası: geri sayım şeridi
+    st.caption("Firma başına iki sekme: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` … "
+               "Her firmanın kendi portal başlıkları olduğu gibi kalır (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu…). "
+               "Satışlar SKU ile stokun yanına bağlanır; kategori dosyada gerekmez, ürün kartından eşlenir.")
+    ok, oz = excel_yukle_haftalik_stok_satis(dosya, dosya_adi=dosya.name, onizle=True)
+    if not ok:
+        st.error(oz)
+        return
+    _dd = "/".join(str(oz["rapor_tarihi"])[:10].split("-")[::-1])
+    st.success(f"Rapor haftası **{_dd}** · {len(oz['firmalar'])} firma")
+    st.dataframe(pd.DataFrame([{"Firma": firma_gorunen_ad(k), "SKU": v["sku"], "Stok": v["stok"], "Satış": v["satis"],
+                                "Bu haftada kayıtlı satır": v["mevcut"] if v["mevcut"] is not None else "?"}
+                               for k, v in oz["firmalar"].items()]), hide_index=True, use_container_width=True)
+    if any(v["mevcut"] for v in oz["firmalar"].values()):
+        st.info("Bu hafta için kayıtlı satırı olan firmalarda eski satırlar dosyadakilerle değiştirilir "
+                "(aynı haftanın dosyası tekrar yüklenince şişmesin). Yükleme geçmişinden geri alınabilir.")
+    if oz.get("atlanan"):
+        st.warning("Atlanacak sekmeler: " + ", ".join(oz["atlanan"]))
+    if st.button("Haftalık stok + satışı kaydet", type="primary", use_container_width=True,
+                 key=kapi.anahtar("mhs_hss_btn"), disabled=not oz["firmalar"], icon=":material/upload:"):
+        dosya.seek(0)
+        with st.spinner("İçe aktarılıyor…"):
+            _ok2, _msg2 = excel_yukle_haftalik_stok_satis(dosya, dosya_adi=dosya.name)
+        st.cache_data.clear()          # geri sayım da tazelenir (önbellekli)
+        if _ok2:
+            kapi.bitti(_msg2.replace("✅ ", ""), uyari="⚠️" in _msg2)
+        else:
+            st.error(_msg2)
+
+
+def kapi_g5f(dosya, kapi):
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("g5f_sayim")
+    st.caption("Bizim depo stoğu — tek sayfa, her satır bir depo-ürün: Depo adı · Stok kodu · Stok ismi · Miktar. "
+               "Genel toplam ve depo kırılımı tüm depolardan; \"bizim stok\" = Merkez depo + Happy Life. "
+               "Fiyat / kategori / marka bilgisine dokunmaz.")
+    st.warning("**Bu yükleme SAYIM / DÜZELTMEDİR:** ithalat teslimi, satış ve iadeler depo stoğunu zaten "
+               "otomatik günceller. Bu dosya canlı stoğu Excel'deki değerlere **eşitler** (üzerine yazar); "
+               "yalnız fiziksel sayımdan sonra ya da düzeltme için yükle.")
+    ok, oz = excel_yukle_g5f_depolar(dosya, onizle=True)
+    if not ok:
+        st.error(oz)
+        return
+    st.success(f"{oz['urun']} ürün · {oz['eslesen']} mevcut güncellenecek, {oz['yeni']} yeni · "
+               f"{len(oz['depolar'])} depo ({', '.join(oz['depolar'])}) · toplam {tr_sayi(oz['toplam_adet'])} adet")
+    if oz["sifirlanacak"]:
+        with st.expander(f"Excel'de olmayan {len(oz['sifirlanacak'])} ürünün depo stoğu SIFIRLANACAK", expanded=True):
+            st.caption(", ".join(oz["sifirlanacak"][:300]))
+    if st.button("G5F sayımını kaydet", type="primary", use_container_width=True,
+                 key=kapi.anahtar("g5f_depo_btn"), icon=":material/upload:"):
+        dosya.seek(0)
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk_g5f = _YKayit("g5f_sayim", dosya.name)
+        _yk_g5f.anahtar("g5f")   # sonraki sayım öncekini geçersiz kılar (sayım mutlak değer yazar)
+        _oz = {}
+        with st.spinner("G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"), \
+                _yk_g5f.stok():          # stok hareketleri bu yüklemeyle işaretlenir
+            basari_g, mesaj_g = excel_yukle_g5f_depolar(dosya, ozet=_oz)
+        st.cache_data.clear()
+        if basari_g or _oz.get("guncellenen"):
+            # Yarıda kalsa da güncellenenler kayda geçer → Yükleme geçmişinden geri alınabilir
+            _yk_g5f.kaydet(_oz.get("guncellenen", 0))
+        if basari_g:
+            from shared.yukleme_takvimi import kaydet as _yt_kaydet
+            _yt_kaydet("g5f_sayim", st.session_state.get("aktif_kullanici", ""))
+            kapi.bitti(mesaj_g.replace("✅ ", ""))
+        else:
+            st.error(mesaj_g)
 
 
 def run():
@@ -584,7 +658,7 @@ def run():
                 return
     
             if not urun_data:
-                st.info("Henüz ürün yüklenmemiş. 'Veri Yükleme' sayfasından G5F stok dosyasını yükleyin.")
+                st.info("Henüz ürün yüklenmemiş. üst menüdeki Dosya düğmesinden G5F stok dosyasını yükleyin.")
                 return
     
             # ── Liste ↔ sayfa içi detay (Ekim 2026) ──
@@ -624,7 +698,7 @@ def run():
                 if _sg:
                     st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:8px 0 0px"><b>Veri sağlığı:</b> '
                                 + '  ·  '.join(_sg)
-                                + ' <span style="color:var(--k-silik)">— Veri Yükleme’deki toplu düzenleme araçlarından doldurabilirsin</span></div>',
+                                + ' <span style="color:var(--k-silik)">— Toplu İşlemler’deki düzenleme araçlarından doldurabilirsin</span></div>',
                                 unsafe_allow_html=True)
                 else:
                     st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:8px 0 0px"><b>Veri sağlığı:</b> ✓ tüm alanlar dolu</div>',
@@ -983,41 +1057,9 @@ def run():
             st.markdown(_sb("📈 Ürün Yönetimi", "Müşteri Satışları", aciklama="Müşteri raporlarından haftalık satış ve kanal stoğu · müşteriye, markaya, ürüne ya da kategoriye göre · aynı haftada yalnız en güncel yükleme sayılır"), unsafe_allow_html=True)
             from shared.yukleme_takvimi import serit as _yt_serit
             _yt_serit("musteri_haftalik")        # haftalık müşteri dosyası: geri sayım şeridi
-            @st.dialog("📤 Müşteri Satış / Stok Verisi Yükle", width="large")
-            def _dlg_musteri_yukle():
-                st.markdown("**Haftalık STOK + SATIŞ · Firma Başına 2 Sekme (portal formatları)**")
-                st.caption("Sekmeler: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` · "
-                           "`HEPSİBURADA STOK/SATIŞ` · `MONDAY STOK/SATIŞ`. Her firmanın **kendi portal başlıkları** "
-                           "olduğu gibi kalır (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu…). Satışlar SKU ile stokun yanına "
-                           "bağlanıp tek özet oluşturulur. **Kategori dosyada gerekmez** — bizim ürün kartından eşlenir; "
-                           "boş bırakılan kategori kolonları hata vermez.")
-                _dosya_hss = st.file_uploader("Haftalık STOK+SATIŞ Excel'i Seç", type=["xlsx", "xls"], key="mhs_hss_dosya")
-                _hss_bas = st.button("Haftalık STOK+SATIŞ Yükle", type="primary",
-                                     use_container_width=True, key="mhs_hss_btn",
-                                     disabled=not _dosya_hss, icon=":material/upload:")
-                if _hss_bas and _dosya_hss:
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as _tb2:
-                        _tb2.write(_dosya_hss.read())
-                        _tbp2 = _tb2.name
-                    try:
-                        with st.spinner("⏳ İçe aktarılıyor…"):
-                            _ok2, _msg2 = excel_yukle_haftalik_stok_satis(_tbp2, dosya_adi=_dosya_hss.name)
-                    except Exception as _he:
-                        import traceback
-                        _ok2 = False
-                        _msg2 = f"❌ Beklenmedik hata: {type(_he).__name__}: {str(_he)[:200]}"
-                        st.code(traceback.format_exc()[-1500:])
-                    finally:
-                        try:
-                            os.unlink(_tbp2)
-                        except Exception:
-                            pass
-                    st.cache_data.clear()          # geri sayım da tazelenir (önbellekli)
-                    (st.success if _ok2 else st.error)(_msg2)
             # Liste + detay ekranı (Ekim 2026): kayranpm/musteri_ekran.py · hesap: musteri_hesap.py
             from .musteri_ekran import render as _musteri_ekrani
-            _musteri_ekrani(yukle_penceresi=_dlg_musteri_yukle)
+            _musteri_ekrani()      # dosya yükleme: üst menüdeki Dosya kapısı (kapi_musteri_haftalik)
 
         elif sayfa == "🎯  Kampanya Takip":
             # Yeni ekran: kayranpm/kampanya.py (hesaplar kampanya_hesap.py'de, testli)
@@ -1033,8 +1075,8 @@ def run():
             from .ref_no import render as _ref_render
             _ref_render()
 
-        elif sayfa == "📂  Veri Yükleme":
-            st.markdown(_sb("📂 Ürün Yönetimi", "Veri Yükleme", aciklama="Excel yükle · Geçmiş yüklemeleri gör · Veriyi yönet"), unsafe_allow_html=True)
+        elif sayfa == "Toplu İşlemler":
+            st.markdown(_sb("📂 Ürün Yönetimi", "Toplu İşlemler", aciklama="Toplu fiyat, kategori ve SKU düzenleme · dışa aktar · geçmiş yüklemeler. Excel dosyaları üst menüdeki Dosya düğmesinden yüklenir."), unsafe_allow_html=True)
 
             # 💲 Toplu Satış Fiyatı & Marj
             @st.dialog("💲 Toplu Satış Fiyatı & Marj — paçal maliyetten fiyat öner", width="large")
@@ -1256,12 +1298,6 @@ def run():
                          key="btn_fz_sku", use_container_width=True, icon=":material/cleaning_services:"):
                 _dlg_fazeon_sku()
 
-            with st.expander("📋 Excel Şablonunu İndir (ilk kez kullanıyorsanız buradan başlayın)", expanded=False):
-                st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:8px">Aşağıdaki butona tıklayıp örnek şablonu indir, doldur ve yükle.</div>', unsafe_allow_html=True)
-                st.download_button("Şablonu İndir", create_sample_excel_bytes, "SABLON_STOK_TAKIP.xlsx",
-                                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", icon=":material/move_to_inbox:")
-    
-            st.markdown("---")
     
             # Dışa aktar — tek adım: dosya yalnız indir'e basılınca üretilir
             # (eskiden "Oluştur" → "İndir" iki adımdı).
@@ -1279,38 +1315,6 @@ def run():
                                  file_name=f"Stok_Raporu_{_zaman}.pdf", key="vy_pdf_dl", mime="application/pdf",
                                  use_container_width=True, icon=":material/download:",
                                  help="A4 yatay, yazdırmaya hazır özet")
-
-            st.markdown(B.grup_basligi("🏬 G5F stok · depo kırılımlı (bizim depo)"), unsafe_allow_html=True)
-            from shared.yukleme_takvimi import serit as _yt_serit
-            _yt_serit("g5f_sayim")
-            st.markdown('<div style="color:var(--k-soluk);font-size:13px;line-height:1.6;margin-bottom:12px">Bizim depo stoğu — <b style="color:var(--k-mavi)">tek sayfa</b>, her satır bir depo-ürün. Sütunlar: <b style="color:var(--k-mavi)">Depo adı · Stok kodu · Stok ismi · Miktar</b>. Bir SKU birden çok depoda olabilir; <b>genel toplam</b> ve <b>depo kırılımı</b> tüm depolardan; sipariş önerisindeki <b>"bizim stok"</b> = Merkez depo + Happy Life. (Ürünün fiyat/kategori/marka bilgisine dokunmaz.)</div>', unsafe_allow_html=True)
-
-            dosya_g = st.file_uploader("G5F Stok Excel'ini Seç", type=["xlsx", "xls"], key="g5f_depo_dosya")
-            st.warning("📌 **Hareket bazlı stok (Model B) aktif:** İthalat teslimi, satış ve iadeler depo stoğunu "
-                       "otomatik günceller. Bu G5F yüklemesi artık **SAYIM / DÜZELTMEDİR** — canlı takip edilen stoğu "
-                       "Excel'deki değerlere **eşitler** (üzerine yazar). Yalnızca fiziksel sayım sonrası ya da "
-                       "düzeltme amacıyla yükle.")
-            if dosya_g:
-                if st.button("G5F Stok Yükle (Depo Kırılımlı)", type="primary", use_container_width=True, key="g5f_depo_btn", icon=":material/upload:"):
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmpg:
-                        tmpg.write(dosya_g.read())
-                        tmpg_path = tmpg.name
-                    from shared.yukleme_gecmisi import Kayit as _YKayit
-                    _yk_g5f = _YKayit("g5f_sayim", dosya_g.name)
-                    _yk_g5f.anahtar("g5f")   # sonraki sayım öncekini geçersiz kılar (sayım mutlak değer yazar)
-                    with st.spinner("🏬 G5F depo kırılımlı stok işleniyor — ürünler senkronlanıyor…"), \
-                            _yk_g5f.stok():          # stok hareketleri bu yüklemeyle işaretlenir
-                        basari_g, mesaj_g = excel_yukle_g5f_depolar(tmpg_path)
-                    os.unlink(tmpg_path)
-                    st.cache_data.clear()
-                    if basari_g:
-                        from shared.yukleme_takvimi import kaydet as _yt_kaydet
-                        _yt_kaydet("g5f_sayim", st.session_state.get("aktif_kullanici", ""))
-                        _yk_g5f.kaydet(0)
-                        st.success(mesaj_g)
-                    else:
-                        st.error(mesaj_g)
 
             st.markdown("---")
             st.markdown(B.grup_basligi("📅 Geçmiş yüklemeler"), unsafe_allow_html=True)

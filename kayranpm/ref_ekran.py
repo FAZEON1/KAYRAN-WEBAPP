@@ -249,8 +249,8 @@ def _sag_panel(kapsam, firma, hepsi):
         st.caption(f"{firma.get('firma_adi','')} · ref kodu {firma.get('firma_kodu','')} · sıradaki numara {siradaki}")
 
     if mod == "Tablo" and firma is not None:
-        st.caption("Toplu düzenleme: hücreleri değiştir, 'Değişiklikleri kaydet'e bas. Excel içe aktarma ve "
-                   "toplu silme de burada.")
+        st.caption("Toplu düzenleme: hücreleri değiştir, 'Değişiklikleri kaydet'e bas. Toplu silme de burada; "
+                   "Excel içe aktarma üst menüdeki Dosya düğmesinden.")
         N._render_refler(firma["id"], firma.get("firma_kodu", ""))
         return
 
@@ -258,8 +258,8 @@ def _sag_panel(kapsam, firma, hepsi):
     if not liste:
         st.markdown(bos_durum("Bu görünümde ref yok" if kapsam else "Bu firmada henüz ref yok",
                               "Filtreyi ya da aramayı değiştir." if kapsam else
-                              "Sağ üstteki 'Yeni ref no' ile ilk numarayı ata ya da Tablo görünümünden "
-                              "Excel içe aktar.", "receipt_long"), unsafe_allow_html=True)
+                              "Sağ üstteki 'Yeni ref no' ile ilk numarayı ata ya da Excel'i üst menüdeki "
+                              "Dosya düğmesinden içe aktar.", "receipt_long"), unsafe_allow_html=True)
         return
     limit = int(st.session_state.get("ref_limit", 60))
     gosterilen = 0
@@ -498,7 +498,7 @@ def _alinan_gorunum():
     from datetime import date
     eur, tl = _kurlar()
     bugun = date.today()
-    c0, c1, c2, c3, c4 = st.columns([1.0, 2.6, 1.0, 1.05, 1.35], vertical_alignment="bottom")
+    c0, c1, c2, c4 = st.columns([1.0, 3.2, 1.0, 1.35], vertical_alignment="bottom")
     yil = c0.selectbox("Yıl", [bugun.year, bugun.year - 1, bugun.year + 1], key="ad2_yil",
                        label_visibility="collapsed")
     kayitlar = [dict(r, donem_=str(r.get("donem") or "")[:7]) for r in (N.get_alinan_destekler(yil) or [])]
@@ -509,8 +509,6 @@ def _alinan_gorunum():
     _f = B.filtre(c2, [{"etiket": "Firma", "secenekler": firmalar, "key": "ad2_f_firma"},
                        {"etiket": "Tür", "secenekler": turler, "key": "ad2_f_tur"}])
     f_firma, f_tur = _f["ad2_f_firma"], _f["ad2_f_tur"]
-    if c3.button("Excel", icon=":material/upload_file:", use_container_width=True, key="ad2_excel"):
-        _ad_excel_dialog()
     if c4.button("Yeni kayıt", icon=":material/add:", type="primary", use_container_width=True, key="ad2_yeni"):
         _ad_yeni_dialog(firmalar)
 
@@ -537,7 +535,7 @@ def _alinan_gorunum():
             f"{R.SEMBOL.get(d, d)}{tr_sayi(v)}" for d, v in t["cevrilmeyen"].items())), unsafe_allow_html=True)
     if not liste:
         st.markdown(bos_durum("Bu dönemde alınan destek yok" if not kayitlar else "Filtreye uyan kayıt yok",
-                              "'Yeni kayıt' ile ekle ya da Excel şablonuyla toplu yükle." if not kayitlar
+                              "'Yeni kayıt' ile ekle ya da Excel'i üst menüdeki Dosya düğmesinden toplu yükle." if not kayitlar
                               else "Filtreyi ya da aramayı değiştir.", "savings"), unsafe_allow_html=True)
         return
     gruplar = {}
@@ -621,34 +619,37 @@ def _ad_yeni_dialog(firmalar):
                 st.error(msg)
 
 
-@st.dialog("Excel ile toplu yükleme", width="large")
-def _ad_excel_dialog():
+def sablon_alinan_destek():
     import io
     import pandas as pd
     from datetime import date
-    st.caption("Başlıklar: FİRMA · TÜR · DÖNEM · TUTAR · DÖVİZ · FATURA NO · AÇIKLAMA · KATEGORİ — "
-               "sıra önemli değil, ada göre eşleşir. DÖNEM: 2026-07, 07.2026 ya da tarih.")
     sab = pd.DataFrame([{"FİRMA": "FAZEON", "TÜR": "SELLOUT", "DÖNEM": f"{date.today():%Y-%m}", "TUTAR": 1500.00,
                          "DÖVİZ": "USD", "KATEGORİ": "MONİTÖR", "FATURA NO": "", "AÇIKLAMA": "Örnek satır"}])
     buf = io.BytesIO()
     sab.to_excel(buf, index=False)
-    st.download_button("Şablonu indir", buf.getvalue(), file_name="alinan_destek_sablon.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                       icon=":material/download:")
-    up = st.file_uploader("Excel dosyası", type=["xlsx", "xls"], key="ad2_up")
-    if up is not None:
-        try:
-            df = pd.read_excel(up)
-        except Exception as e:  # noqa: BLE001
-            st.error(f"Dosya okunamadı: {e}")
-            return
-        st.dataframe(df.head(10), use_container_width=True, hide_index=True)
-        st.caption(f"{len(df)} satır bulundu; ilk 10 gösteriliyor.")
-        if st.button("İçe aktar", type="primary", icon=":material/move_to_inbox:", key="ad2_imp"):
-            eklenen, atlanan, hatalar = N.alinan_destek_excel_ice_aktar(df)
+    return buf.getvalue(), "alinan_destek_sablon.xlsx"
+
+
+def kapi_alinan_destek(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): alınan destekler Excel'i (eskiden bu sayfadaki 'Excel' penceresi)."""
+    import pandas as pd
+    st.caption("Başlıklar: FİRMA · TÜR · DÖNEM · TUTAR · DÖVİZ · FATURA NO · AÇIKLAMA · KATEGORİ — "
+               "sıra önemli değil, ada göre eşleşir. DÖNEM: 2026-07, 07.2026 ya da tarih.")
+    try:
+        df = pd.read_excel(dosya)
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Dosya okunamadı: {e}")
+        return
+    st.dataframe(df.head(10), use_container_width=True, hide_index=True)
+    st.caption(f"{len(df)} satır bulundu; ilk 10 gösteriliyor.")
+    if st.button("İçe aktar", type="primary", icon=":material/move_to_inbox:", key=kapi.anahtar("ad2_imp")):
+        eklenen, atlanan, hatalar = N.alinan_destek_excel_ice_aktar(df)
+        if not eklenen:
             for h in hatalar[:5]:
                 st.error(h)
-            if eklenen:
-                from shared.yukleme_gecmisi import kaydet as _yg_kaydet
-                _yg_kaydet("alinan_destek", eklenen, up.name)
-                _yenile(None, f"{eklenen} kayıt eklendi" + (f", {atlanan} satır atlandı" if atlanan else ""))
+            st.warning("Hiç kayıt eklenmedi.")
+            return
+        from shared.yukleme_gecmisi import kaydet as _yg_kaydet
+        _yg_kaydet("alinan_destek", eklenen, dosya.name)
+        kapi.bitti(f"{eklenen} kayıt eklendi" + (f", {atlanan} satır atlandı" if atlanan else "") + ".",
+                   tablo=[{"Hata": h} for h in hatalar[:50]], uyari=bool(hatalar))

@@ -423,7 +423,7 @@ def test_ithalat_ve_servis_yuklemeleri_baglam_icinde():
     assert '_YKayit("ithalat_rapor", up.name)' in ith and "with _yk_ith.stok():" in ith
     ts = (KOK / "teknikservis" / "main.py").read_text(encoding="utf-8")
     g = ts[ts.index("with _yk_ts.stok():"):]
-    assert g.index("ekle_kayit(") < g.index("mal_kabul_girisi(") < g.index("if _okk:\n                                _ok_s")
+    assert g.index("ekle_kayit(") < g.index("mal_kabul_girisi(") < g.index("if _okk:\n                        _ok_s")
 
 
 # ── SQL 14 gerçek PostgreSQL'de (yalnız yerelde; CI'da atlanır) ────

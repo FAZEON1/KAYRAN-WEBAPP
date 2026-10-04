@@ -39,7 +39,6 @@ MODULLER = [
          ("💵 Gelenler Geçmişi", "gelenler", "Gelenler geçmişi", None),
          ("⏳ Ertelenen Ödemeler", "ertelenen", "Ertelenen ödemeler", None),
          ("🧾 Cari Ekstre", "cari_ekstre", "Cari ekstre", None),
-         ("📂 Veri Yükleme", "veri_yukleme", "Veri yükleme", None),
          ("📄 Raporlar & Bildirim", "raporlar", "Raporlar ve bildirim", None),
          ("📚 e-Defter", "edefter", "e-Defter", None),
      ],
@@ -49,7 +48,7 @@ MODULLER = [
          ("odemeler", "Ödemeler", ["bu_hafta", "cekler", "ertelenen", "odenenler"]),
          ("nakit", "Nakit", ["banka", "nakit_akis", "toplam_aktifler", "gelenler"]),
          ("cari", "Cari", ["cari_ekstre"]),
-         ("veri", "Veri ve raporlar", ["veri_yukleme", "raporlar", "edefter"]),
+         ("veri", "Veri ve raporlar", ["raporlar", "edefter"]),
      ]},
     {"kod": "ithalat", "ad": "İthalat", "ikon": "directions_boat", "anahtar": "ith_sayfa",
      "sayfalar": [
@@ -68,7 +67,7 @@ MODULLER = [
          ("📦  Sipariş Önerisi", "siparis_onerisi", "Sipariş önerisi", None),
          ("💵  Yurt İçi Alış", "maliyet", "Yurt içi alış", None),
          ("🔖  Ref No Takibi", "ref_no", "Ref No takibi", None),
-         ("📂  Veri Yükleme", "veri_yukleme", "Veri yükleme", None),
+         ("Toplu İşlemler", "veri_yukleme", "Toplu işlemler", None),
      ],
      # 9 sayfa tek sekme satırına sığmıyor → iki katlı (Stok yaşı eklenince, Ekim 2026)
      "gruplar": [
@@ -76,7 +75,7 @@ MODULLER = [
          ("urunler", "Ürün ve stok", ["tum_urunler", "stok_yasi", "maliyet"]),
          ("musteri", "Müşteri ve kampanya", ["musteri_satislari", "kampanya", "ref_no"]),
          ("siparis", "Sipariş", ["siparis_onerisi"]),
-         ("veri", "Veri yükleme", ["veri_yukleme"]),
+         ("veri", "Toplu işlemler", ["veri_yukleme"]),
      ]},
     {"kod": "depo", "ad": "Depo", "ikon": "warehouse", "anahtar": "depo_sayfa",
      "sayfalar": [
@@ -91,7 +90,6 @@ MODULLER = [
          ("🧾 Satış Girişi", "giris", "Satış girişi", None),
          ("📋 Satışlar", "satislar", "Satışlar", None),
          ("📊 Kâr / P&L", "pnl", "Kâr / P&L", "kar"),
-         ("📥 İçe Aktar", "ice_aktar", "İçe aktar", None),
          ("↩️ İade", "iade", "İade", None),
      ]},
     {"kod": "teknikservis", "ad": "Teknik servis", "ikon": "construction", "anahtar": "ts_sayfa",
@@ -124,10 +122,10 @@ ISLEMLER = [
     ("Yeni satış girişi", "satis/giris", "add_shopping_cart"),
     ("Yeni ithalat", "ithalat/yeni", "add_box"),
     ("Depolar arası sevk", "depo/sevk", "local_shipping"),
-    ("Satış dosyası içe aktar", "satis/ice_aktar", "upload_file"),
-    ("Ürün verisi yükle", "kayranpm/veri_yukleme", "upload"),
-    ("Muhasebe verisi yükle", "kayranacc/veri_yukleme", "upload"),
+    ("Toplu fiyat, kategori ve SKU düzenleme", "kayranpm/veri_yukleme", "edit_note"),
 ]
+# Bütün Excel yüklemeleri tek pencerede (shared/dosya_kapisi, Ekim 2026): paletteki öğenin kimliği
+DOSYA_KAPISI = "kapi"
 
 _MOD = {m["kod"]: m for m in MODULLER}
 _HARF = str.maketrans("çğıöşüÇĞİIÖŞÜâÂîÎ", "cgiosuCGIIOSUaAiI")
@@ -197,6 +195,10 @@ def palet_ogeleri(yetkiler, ozel, kullanici, kosul):
     for ad, hid, ikon in ISLEMLER:
         if hid in acik:
             out.append({"tur": "islem", "id": hid, "ad": ad, "yol": "", "ikon": ikon, "ara": _sade(ad)})
+    if any(v for k, v in (yetkiler or {}).items() if k != "hesap_makinesi"):
+        _ad = "Dosya yükle (Excel)"
+        out.append({"tur": "islem", "id": DOSYA_KAPISI, "ad": _ad, "yol": "", "ikon": "upload_file",
+                    "ara": _sade(_ad + " excel yukle ice aktar dosya kapisi")})
     for kod, ad, ikon, oz in SISTEM:
         if oz and oz not in ozel:
             continue

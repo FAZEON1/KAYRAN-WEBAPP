@@ -65,7 +65,7 @@ def harita(v, kur):
         varlik.append(_blok("Depoda · giriş kaydı yok", kayitsiz, "silik", "kayranpm/stok_yasi",
                             "stok × paçal", "Mal (depo)"))
     if v.get("alacak") is None:
-        eksik.append("Müşteri alacağı: cari Excel'i yüklenmemiş (Toplam Aktifler › Veri yükle).")
+        eksik.append("Müşteri alacağı: cari Excel'i yüklenmemiş (üst menü › Dosya ile yüklenir).")
         alacak = 0.0
     else:
         alacak = usd(v["alacak"], kur, EUR_CARI)

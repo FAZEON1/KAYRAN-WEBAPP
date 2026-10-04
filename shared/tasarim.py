@@ -256,7 +256,7 @@ EMOJI_IKON = {
 # ile karşılaştırmaya devam eder); yalnız ekranda Türkçe yazılır.
 MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
 # Emojisiz yeni menü seçenekleri (Ekim 2026): emoji yerine ikon adı burada (ekranda emoji sayısı artmaz).
-MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot",
+MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot", "Toplu İşlemler": "edit_note",
              # Yönetim bölümleri (Ekim 2026)
              "Özet": "dashboard", "Para haritası": "account_tree", "Kanal ve ürün": "storefront", "Destekler ve giderler": "receipt_long",
              "Ay kapanışı": "event_available", "Sistem": "settings"}

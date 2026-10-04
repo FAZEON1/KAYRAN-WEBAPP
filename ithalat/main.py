@@ -1352,9 +1352,10 @@ def _gecmis_ithalatlar():
 
     _dlg_dosya_detay()
 def _yeni_ithalat():
-    _baslik("➕", "Yeni İthalat", "Manuel form veya Excel ile dosya + kalem girişi")
+    _baslik("➕", "Yeni İthalat", "Manuel form ile dosya + kalem girişi · satın alım raporu Excel'i üst menüdeki "
+                                 "Dosya düğmesinden yüklenir")
     katalog = get_urun_katalog()
-    sekme1, sekme2 = st.tabs(["📝 Manuel Giriş", "📑 Excel ile Toplu"])
+    sekme1 = st.container()
 
     # ── Manuel ──
     with sekme1:
@@ -1575,329 +1576,321 @@ def _yeni_ithalat():
                     st.cache_data.clear()
                     st.rerun()
 
-    # ── Excel ──
-    with sekme2:
-        # ═══════════════════════════════════════════════════════════════
-        # Çoklu-grup MALİYET yükleyicisi buradan KALDIRILDI.
-        # Sebep: yeni bir ithalat dosyası oluşturuyordu. Oysa ithalat zaten
-        # sisteme girilmiş oluyor ve yalnız masraf tarafı eksik kalıyor —
-        # bu da mükerrer kayıt üretiyordu (bkz. silinen id=573).
-        # Doğru yer: Geçmiş İthalatlar → dosyayı aç → Düzenle →
-        #            "📥 MALİYET Excel'inden masrafları doldur"
-        # ═══════════════════════════════════════════════════════════════
-        st.info(
-            "🧩 **Çoklu ürün gruplu MALİYET dosyası mı yükleyeceksin?**\n\n"
-            "Bu bölümden değil — burası **yeni** ithalat açar ve mükerrer kayıt oluşur. "
-            "İthalat zaten sistemdeyse: **Geçmiş İthalatlar** → dosyayı aç → **Düzenle** → "
-            "**📥 MALİYET Excel'inden masrafları doldur** panelinden yükle. "
-            "Genel masraflar, grup-özel vergiler (KBF/GV/ÖTV/TSE) ve atamalar otomatik yazılır; "
-            "ürün kalemlerine ve stoğa dokunulmaz."
-        )
 
-        st.markdown("---")
-        st.markdown("**Standart Satın Alım Raporu (tek grup — normal akış)**")
-        st.download_button(
-            "Örnek şablonu indir", data=_excel_sablon_bytes(),
-            file_name="ithalat_satin_alim_sablon.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="ith_sablon_dl", icon=":material/download:"
-        )
-        up = st.file_uploader("Satın Alım Raporu Excel'ini yükle", type=["xlsx", "xls"], key="ith_excel_up")
-        if up is not None:
-            try:
-                df = pd.read_excel(up)
-            except Exception as e:
-                st.error(f"Excel okunamadı: {e}")
-                return
 
-            def _norm(h):
-                h = str(h).strip().lower().replace("i̇", "i")
-                for a, b in (("ı", "i"), ("ş", "s"), ("ğ", "g"), ("ü", "u"), ("ö", "o"), ("ç", "c")):
-                    h = h.replace(a, b)
-                return h
+def sablon_ithalat():
+    return _excel_sablon_bytes(), "ithalat_satin_alim_sablon.xlsx"
 
-            eslesme = {
-                "ithalat takip no": "takip_no",
-                "siparis tarihi": "tarih", "siparis no": "dosya_no", "belge no": "pi_no",
-                "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
-                "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
-                "doviz": "doviz", "teslim tarihi": "teslim_tarihi",
-                "teslim turu": "teslim_sekli", "teslim sekli": "teslim_sekli", "incoterm": "teslim_sekli",
-                "urun grubu": "urun_grubu", "ürün grubu": "urun_grubu", "grup": "urun_grubu",
-                "mal grubu": "urun_grubu", "kategori": "urun_grubu",
-            }
-            kol = {}
-            for c in df.columns:
-                alan = eslesme.get(_norm(c))
-                if alan and alan not in kol:
-                    kol[alan] = c
 
-            eksik = [a for a in ("sku", "adet") if a not in kol]
-            if "pi_no" not in kol and "dosya_no" not in kol:
-                eksik.append("belge no / sipariş no")
-            if "net_fiyat" not in kol and "birim_fiyat" not in kol:
-                eksik.append("net fiyat / birim fiyat")
-            if eksik:
-                st.error("Şu sütunlar bulunamadı: " + ", ".join(eksik) +
-                         ". Beklenen başlıklar: Belge no, Sipariş no, Cari hesap adı, Stok kodu, "
-                         "Stok ismi, Miktar, Net fiyat (veya Birim Fiyat), Döviz.")
-                return
+def kapi_ithalat_rapor(dosya, kapi):
+    """Dosya kapısı (Ekim 2026): standart satın alım raporu (tek grup). Eskiden Yeni İthalat ›
+    "Excel ile Toplu" sekmesiydi; okuma, eşleştirme ve kayıt kodu aynı."""
+    up = dosya
+    katalog = get_urun_katalog()
+    st.caption("Her belge no ayrı ithalat dosyası olur ve Excel'deki İthalat Takip No'su ile etiketlenir. "
+               "Çoklu ürün gruplu MALİYET dosyası için değil: o, mevcut dosyanın masraflarını doldurur.")
+    try:
+        df = pd.read_excel(up)
+    except Exception as e:
+        st.error(f"Excel okunamadı: {e}")
+        return
 
-            st.markdown("**Önizleme**")
-            st.dataframe(df.head(30), use_container_width=True, height=240)
+    def _norm(h):
+        h = str(h).strip().lower().replace("i̇", "i")
+        for a, b in (("ı", "i"), ("ş", "s"), ("ğ", "g"), ("ü", "u"), ("ö", "o"), ("ç", "c")):
+            h = h.replace(a, b)
+        return h
 
-            # Gruplama anahtarı: BELGE NO (yoksa Sipariş no, yoksa Takip no).
-            # Bir belge no = bir ithalat dosyası; her dosya kendi İthalat Takip No'su ile etiketlenir.
-            # (Aynı takip no farklı belgelerde olabilir; her belge ayrı satır kalır.)
-            _takip_col = kol.get("takip_no")
-            _belge_col = kol.get("pi_no")
-            _sip_col = kol.get("dosya_no")
-            def _grup_key(r):
-                b = str(r.get(_belge_col, "") or "").strip() if _belge_col else ""
-                if b and b.lower() != "nan":
-                    return b
-                s = str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
-                if s and s.lower() != "nan":
-                    return s
-                return str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
-            df = df.copy()
-            df["_grup"] = df.apply(_grup_key, axis=1)
-            _dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]   # yurt içi belge no eşleşmesin
-            # Mevcut dosya haritası: belge/dosya no VEYA takip no ile bul
-            _dosya_map = {}
+    eslesme = {
+        "ithalat takip no": "takip_no",
+        "siparis tarihi": "tarih", "siparis no": "dosya_no", "belge no": "pi_no",
+        "cari hesap adi": "tedarikci", "stok kodu": "sku", "stok ismi": "urun_adi",
+        "miktar": "adet", "net fiyat": "net_fiyat", "birim fiyat": "birim_fiyat",
+        "doviz": "doviz", "teslim tarihi": "teslim_tarihi",
+        "teslim turu": "teslim_sekli", "teslim sekli": "teslim_sekli", "incoterm": "teslim_sekli",
+        "urun grubu": "urun_grubu", "ürün grubu": "urun_grubu", "grup": "urun_grubu",
+        "mal grubu": "urun_grubu", "kategori": "urun_grubu",
+    }
+    kol = {}
+    for c in df.columns:
+        alan = eslesme.get(_norm(c))
+        if alan and alan not in kol:
+            kol[alan] = c
+
+    eksik = [a for a in ("sku", "adet") if a not in kol]
+    if "pi_no" not in kol and "dosya_no" not in kol:
+        eksik.append("belge no / sipariş no")
+    if "net_fiyat" not in kol and "birim_fiyat" not in kol:
+        eksik.append("net fiyat / birim fiyat")
+    if eksik:
+        st.error("Şu sütunlar bulunamadı: " + ", ".join(eksik) +
+                 ". Beklenen başlıklar: Belge no, Sipariş no, Cari hesap adı, Stok kodu, "
+                 "Stok ismi, Miktar, Net fiyat (veya Birim Fiyat), Döviz.")
+        return
+
+    st.markdown("**Önizleme**")
+    st.dataframe(df.head(30), use_container_width=True, height=240)
+
+    # Gruplama anahtarı: BELGE NO (yoksa Sipariş no, yoksa Takip no).
+    # Bir belge no = bir ithalat dosyası; her dosya kendi İthalat Takip No'su ile etiketlenir.
+    # (Aynı takip no farklı belgelerde olabilir; her belge ayrı satır kalır.)
+    _takip_col = kol.get("takip_no")
+    _belge_col = kol.get("pi_no")
+    _sip_col = kol.get("dosya_no")
+    def _grup_key(r):
+        b = str(r.get(_belge_col, "") or "").strip() if _belge_col else ""
+        if b and b.lower() != "nan":
+            return b
+        s = str(r.get(_sip_col, "") or "").strip() if _sip_col else ""
+        if s and s.lower() != "nan":
+            return s
+        return str(r.get(_takip_col, "") or "").strip() if _takip_col else ""
+    df = df.copy()
+    df["_grup"] = df.apply(_grup_key, axis=1)
+    _dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]   # yurt içi belge no eşleşmesin
+    # Mevcut dosya haritası: belge/dosya no VEYA takip no ile bul
+    _dosya_map = {}
+    for _d in _dosyalar:
+        _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
+        _dn = str(_d.get("dosya_no", "") or "").strip()
+        _pn = str(_d.get("pi_no", "") or "").strip()
+        if _dn:
+            _dosya_map.setdefault(_dn, _d)
+        if _pn:
+            _dosya_map.setdefault(_pn, _d)
+        if _tk:
+            _dosya_map.setdefault(_tk, _d)
+    gruplar = list(df.groupby("_grup"))
+    _grup_ad = "belge" if _belge_col else "kayıt"
+    st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — her belge ayrı dosya olur "
+               f"ve Excel'deki İthalat Takip No'su ile etiketlenir.")
+
+    # 🔗 Mevcut dosyalara Excel'den Takip No ata/eşle (eski/boş kayıtlar için)
+    if _takip_col:
+        # Eskiden ayrı pencereydi; kapı zaten bir pencere (iç içe pencere açılamaz) → aç-kapa bölüm
+        def _takip_ata_bolumu():
+            st.caption("Excel'de aynı İthalat Takip No birden çok belge/sipariş içerir. "
+                       "Bu araç, sistemdeki dosyalara — Belge No (PI) veya Sipariş No eşleşmesine göre — "
+                       "Excel'deki takip no'yu atar. Mevcut içe aktarma akışını değiştirmez.")
+            _ust = st.checkbox("Dolu olan takip no'ları da güncelle (üzerine yaz)", key=kapi.anahtar("ith_takip_ust"))
+            # Excel'den eşleme haritaları
+            _belge_takip, _sip_takip = {}, {}
+            for _, _r in df.iterrows():
+                _t = str(_r.get(_takip_col, "") or "").strip()
+                if not _t or _t.lower() == "nan":
+                    continue
+                if _belge_col:
+                    _b = str(_r.get(_belge_col, "") or "").strip()
+                    if _b and _b.lower() != "nan":
+                        _belge_takip.setdefault(_b, _t)
+                if _sip_col:
+                    _s = str(_r.get(_sip_col, "") or "").strip()
+                    if _s and _s.lower() != "nan":
+                        _sip_takip.setdefault(_s, _t)
+            # Aday dosyalar
+            _adaylar = []
             for _d in _dosyalar:
-                _tk = str(_d.get("ithalat_takip_no", "") or "").strip()
+                _mevcut_t = str(_d.get("ithalat_takip_no", "") or "").strip()
+                if _mevcut_t and not _ust:
+                    continue
+                _pi = str(_d.get("pi_no", "") or "").strip()
                 _dn = str(_d.get("dosya_no", "") or "").strip()
-                _pn = str(_d.get("pi_no", "") or "").strip()
-                if _dn:
-                    _dosya_map.setdefault(_dn, _d)
-                if _pn:
-                    _dosya_map.setdefault(_pn, _d)
-                if _tk:
-                    _dosya_map.setdefault(_tk, _d)
-            gruplar = list(df.groupby("_grup"))
-            _grup_ad = "belge" if _belge_col else "kayıt"
-            st.caption(f"{len(gruplar)} {_grup_ad} (ithalat dosyası) bulundu — her belge ayrı dosya olur "
-                       f"ve Excel'deki İthalat Takip No'su ile etiketlenir.")
-
-            # 🔗 Mevcut dosyalara Excel'den Takip No ata/eşle (eski/boş kayıtlar için)
-            if _takip_col:
-                @st.dialog("🔗 Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", width="large")
-                def _dlg_takip_ata():
-                    st.caption("Excel'de aynı İthalat Takip No birden çok belge/sipariş içerir. "
-                               "Bu araç, sistemdeki dosyalara — Belge No (PI) veya Sipariş No eşleşmesine göre — "
-                               "Excel'deki takip no'yu atar. Mevcut içe aktarma akışını değiştirmez.")
-                    _ust = st.checkbox("Dolu olan takip no'ları da güncelle (üzerine yaz)", key="ith_takip_ust")
-                    # Excel'den eşleme haritaları
-                    _belge_takip, _sip_takip = {}, {}
-                    for _, _r in df.iterrows():
-                        _t = str(_r.get(_takip_col, "") or "").strip()
-                        if not _t or _t.lower() == "nan":
-                            continue
-                        if _belge_col:
-                            _b = str(_r.get(_belge_col, "") or "").strip()
-                            if _b and _b.lower() != "nan":
-                                _belge_takip.setdefault(_b, _t)
-                        if _sip_col:
-                            _s = str(_r.get(_sip_col, "") or "").strip()
-                            if _s and _s.lower() != "nan":
-                                _sip_takip.setdefault(_s, _t)
-                    # Aday dosyalar
-                    _adaylar = []
-                    for _d in _dosyalar:
-                        _mevcut_t = str(_d.get("ithalat_takip_no", "") or "").strip()
-                        if _mevcut_t and not _ust:
-                            continue
-                        _pi = str(_d.get("pi_no", "") or "").strip()
-                        _dn = str(_d.get("dosya_no", "") or "").strip()
-                        _yeni_t = (_belge_takip.get(_pi) or _belge_takip.get(_dn)
-                                   or _sip_takip.get(_dn))
-                        if _yeni_t and _yeni_t != _mevcut_t:
-                            _adaylar.append((_d["id"], _dn or _pi, _mevcut_t or "—", _yeni_t))
-                    st.caption(f"Eşleşen / atanacak dosya: {len(_adaylar)}")
-                    if _adaylar:
-                        st.dataframe(
-                            pd.DataFrame([{"Dosya": a[1], "Eski Takip": a[2], "Atanacak Takip No": a[3]}
-                                         for a in _adaylar]),
-                            use_container_width=True, height=220, hide_index=True)
-                        if st.button("Takip No'ları Ata", type="primary", key="ith_takip_ata", icon=":material/link:"):
-                            _n = 0
-                            for _id, _, _, _t in _adaylar:
-                                if set_dosya_takip_no(_id, _t):
-                                    _n += 1
-                            st.success(f"✅ {_n} dosyaya takip no atandı.")
-                            st.rerun()
-                    else:
-                        st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
-                if st.button("Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)", key="btn_ith_takip", use_container_width=True, icon=":material/link:"):
-                    _dlg_takip_ata()
-
-            guncelle_mod = st.radio(
-                "Sistemde zaten olan takip no'lar için:",
-                ["Sadece yenileri ekle (mevcut atlanır · boş SAS/Incoterm/takip/teslim doldurulur)",
-                 "Güncelle — Excel'i sisteme uygula (kalemleri yenile · masrafları KORU)"],
-                key="ith_excel_mod",
-            )
-            _guncelle = guncelle_mod.startswith("Güncelle")
-            if _guncelle:
-                st.caption("Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
-                           "Daha önce elle girdiğin **masraflar korunur** (silinmez).")
+                _yeni_t = (_belge_takip.get(_pi) or _belge_takip.get(_dn)
+                           or _sip_takip.get(_dn))
+                if _yeni_t and _yeni_t != _mevcut_t:
+                    _adaylar.append((_d["id"], _dn or _pi, _mevcut_t or "—", _yeni_t))
+            st.caption(f"Eşleşen / atanacak dosya: {len(_adaylar)}")
+            if _adaylar:
+                st.dataframe(
+                    pd.DataFrame([{"Dosya": a[1], "Eski Takip": a[2], "Atanacak Takip No": a[3]}
+                                 for a in _adaylar]),
+                    use_container_width=True, height=220, hide_index=True)
+                if st.button("Takip No'ları Ata", type="primary", key=kapi.anahtar("ith_takip_ata"), icon=":material/link:"):
+                    _n = 0
+                    for _id, _, _, _t in _adaylar:
+                        if set_dosya_takip_no(_id, _t):
+                            _n += 1
+                    st.cache_data.clear()
+                    st.success(f"{_n} dosyaya takip no atandı.")
+                    kapi.yenile()
             else:
-                st.caption("Sadece yenileri ekle: mevcut dosyaların ürün/adet/FOB'una **dokunulmaz**. "
-                           "Yalnızca **boş** olan SAS No, Incoterm, takip no ve teslim tarihi Excel'den doldurulur. "
-                           "→ Sadece eksik SAS No / Incoterm'i tamamlamak için aynı Excel'i bu modda tekrar yükle.")
+                st.info("Excel'de eşleşen (takip no atanacak) dosya bulunamadı.")
+        if st.toggle("Mevcut dosyalara Takip No ata (Excel'deki belge/sipariş eşleşmesiyle)",
+                     key=kapi.anahtar("tgl_ith_takip")):
+            with st.container(border=True):
+                _takip_ata_bolumu()
 
-            if st.button("İçe Aktar", type="primary", key="ith_excel_import", icon=":material/move_to_inbox:"):
-                basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
-                from shared.yukleme_gecmisi import Kayit as _YKayit
-                _yk_ith = _YKayit("ithalat_rapor", up.name)
-                with _yk_ith.stok():   # eklenen / güncellenen dosyalar bu yüklemeye bildirilir (geri alma)
-                    for dno, g in gruplar:
-                        dno_s = str(dno).strip()
-                        if not dno_s or dno_s.lower() == "nan":
-                            continue
-                        ilk = g.iloc[0]
-                        kalemler = []
-                        for _, r in g.iterrows():
-                            sku = str(r.get(kol["sku"], "") or "").strip()
-                            if not sku or sku.lower() == "nan":
-                                continue
-                            adet = _sf(r.get(kol["adet"]))
-                            if adet <= 0:
-                                continue
-                            fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
-                            if fob <= 0 and "birim_fiyat" in kol:
-                                fob = _sf(r.get(kol["birim_fiyat"]))
-                            # 0 fiyatlı (bedelsiz/yedek) satırı ATLAMA: adeti paçala dahil et,
-                            # maliyet toplam tutara bölünerek düşer (ör. 707 adet, 700'ü fiyatlı).
-                            if fob <= 0:
-                                bedelsiz += 1
-                            ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
-                            _ug = str(r.get(kol["urun_grubu"], "") or "").strip() if "urun_grubu" in kol else ""
-                            kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
-                                             "urun_grubu": _ug,
-                                             "adet": adet, "birim_fob": fob})
-                        if not kalemler:
-                            atlanan += 1
-                            mesajlar.append(f"{dno_s}: kalem yok, atlandı.")
-                            continue
-                        if sum(k["adet"] * k["birim_fob"] for k in kalemler) <= 0:
-                            atlanan += 1
-                            mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
-                            continue
-                        # Belge no(lar) — bir takip no altında birden çok belge olabilir
-                        if "pi_no" in kol:
-                            _belgeler = sorted({str(x).strip() for x in g[kol["pi_no"]].tolist()
-                                                if str(x).strip() and str(x).strip().lower() != "nan"})
-                        else:
-                            _belgeler = []
-                        belge_no = _belgeler[0] if _belgeler else dno_s
-                        if "dosya_no" in kol:
-                            _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
-                                            if str(x).strip() and str(x).strip().lower() != "nan"})
-                        else:
-                            _sips = []
-                        # SAS No — Satın Alım Raporu'nda "Sipariş no" kolonu SAS numarasını taşır
-                        sas_no_val = ", ".join(_sips) if _sips else ""
-                        _not_parts = []
-                        if len(_belgeler) > 1:
-                            _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
-                        notlar = " · ".join(_not_parts)
-                        # İthalat takip no (varsa) — dosya bununla dosyalanır; boşsa boş kalır
-                        takip_no = str(ilk.get(kol["takip_no"], "") or "").strip() if "takip_no" in kol else ""
-                        if takip_no.lower() == "nan":
-                            takip_no = ""
-                        tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
-                        teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
-                        ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
-                        dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
-                        # Teslim türü (Incoterm) — Excel'den; INCOTERM listesine uydur
-                        teslim_sekli_val = ""
-                        if "teslim_sekli" in kol:
-                            _ts_raw = str(ilk.get(kol["teslim_sekli"], "") or "").strip()
-                            if _ts_raw and _ts_raw.lower() != "nan":
-                                _ts_up = _ts_raw.upper()
-                                teslim_sekli_val = _ts_up if _ts_up in INCOTERM_SECENEKLER else _ts_raw
+    guncelle_mod = st.radio(
+        "Sistemde zaten olan takip no'lar için:",
+        ["Sadece yenileri ekle (mevcut atlanır · boş SAS/Incoterm/takip/teslim doldurulur)",
+         "Güncelle — Excel'i sisteme uygula (kalemleri yenile · masrafları KORU)"],
+        key=kapi.anahtar("ith_excel_mod"),
+    )
+    _guncelle = guncelle_mod.startswith("Güncelle")
+    if _guncelle:
+        st.caption("Güncelle modu: mevcut takip no'ların ürün/adet/fiyatı Excel'e göre yenilenir. "
+                   "Daha önce elle girdiğin **masraflar korunur** (silinmez).")
+    else:
+        st.caption("Sadece yenileri ekle: mevcut dosyaların ürün/adet/FOB'una **dokunulmaz**. "
+                   "Yalnızca **boş** olan SAS No, Incoterm, takip no ve teslim tarihi Excel'den doldurulur. "
+                   "→ Sadece eksik SAS No / Incoterm'i tamamlamak için aynı Excel'i bu modda tekrar yükle.")
 
-                        # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
-                        # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
-                        mevcut_kayit = _dosya_map.get(dno_s)
-                        if mevcut_kayit:
-                            if not _guncelle:
-                                # "Sadece yenileri ekle": mevcut dosya atlanır AMA boş alanlar
-                                # (takip no, teslim tarihi) Excel'den doldurulur — dolu olan ASLA değişmez.
-                                _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
-                                _dolduruldu = []
-                                if takip_no and not _mt:
-                                    set_dosya_takip_no(mevcut_kayit["id"], takip_no)
-                                    _dolduruldu.append(f"takip no {takip_no}")
-                                _mtes = str(mevcut_kayit.get("teslim_tarihi", "") or "").strip()
-                                if teslim and not _mtes:
-                                    set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
-                                    _dolduruldu.append(f"teslim {str(teslim)[:10]}")
-                                _msas = str(mevcut_kayit.get("sas_no", "") or "").strip()
-                                if sas_no_val and not _msas:
-                                    set_dosya_sas(mevcut_kayit["id"], sas_no_val)
-                                    _dolduruldu.append(f"SAS {sas_no_val}")
-                                _minc = str(mevcut_kayit.get("teslim_sekli", "") or "").strip()
-                                if teslim_sekli_val and not _minc:
-                                    set_dosya_teslim_sekli(mevcut_kayit["id"], teslim_sekli_val)
-                                    _dolduruldu.append(f"Incoterm {teslim_sekli_val}")
-                                if _dolduruldu:
-                                    guncellenen += 1
-                                    mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
-                                else:
-                                    atlanan += 1
-                                    mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
-                                continue
-                            # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
-                            eski_masraf = _masraf_dict(mevcut_kayit)
-                            eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
-                            # Excel'de olmayan alanlar MEVCUT kayıttan korunur (Ekim 2026): eskiden durum,
-                            # teslim deposu, tahmini varış ve fatura indirimi boşa yazılıyordu — teslim
-                            # alınmış dosya "durumsuz" kalıyor, sonra elle yeniden "Teslim Alındı" yapılınca
-                            # mal stoğa İKİNCİ KEZ ekleniyordu.
-                            ok, msg = guncelle_dosya(
-                                mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
-                                dov, eski_kur, eski_masraf, notlar, kalemler,
-                                ithalat_takip_no=takip_no,
-                                durum=str(mevcut_kayit.get("durum") or ""),
-                                teslim_deposu=str(mevcut_kayit.get("teslim_deposu") or ""),
-                                tahmini_varis=mevcut_kayit.get("tahmini_varis") or "",
-                                fatura_indirim=mevcut_kayit.get("fatura_indirim") or 0,
-                                teslim_tarihi=(str(teslim)[:10] if teslim
-                                               else str(mevcut_kayit.get("teslim_tarihi") or "")[:10]),
-                                teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
-                                sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
-                            if ok:
-                                guncellenen += 1
-                            else:
-                                hata += 1
-                                mesajlar.append(f"{dno_s}: {msg}")
+    if st.button("İçe Aktar", type="primary", key=kapi.anahtar("ith_excel_import"), icon=":material/move_to_inbox:"):
+        basari, guncellenen, atlanan, bedelsiz, hata, mesajlar = 0, 0, 0, 0, 0, []
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk_ith = _YKayit("ithalat_rapor", up.name)
+        with _yk_ith.stok():   # eklenen / güncellenen dosyalar bu yüklemeye bildirilir (geri alma)
+            for dno, g in gruplar:
+                dno_s = str(dno).strip()
+                if not dno_s or dno_s.lower() == "nan":
+                    continue
+                ilk = g.iloc[0]
+                kalemler = []
+                for _, r in g.iterrows():
+                    sku = str(r.get(kol["sku"], "") or "").strip()
+                    if not sku or sku.lower() == "nan":
+                        continue
+                    adet = _sf(r.get(kol["adet"]))
+                    if adet <= 0:
+                        continue
+                    fob = _sf(r.get(kol["net_fiyat"])) if "net_fiyat" in kol else 0.0
+                    if fob <= 0 and "birim_fiyat" in kol:
+                        fob = _sf(r.get(kol["birim_fiyat"]))
+                    # 0 fiyatlı (bedelsiz/yedek) satırı ATLAMA: adeti paçala dahil et,
+                    # maliyet toplam tutara bölünerek düşer (ör. 707 adet, 700'ü fiyatlı).
+                    if fob <= 0:
+                        bedelsiz += 1
+                    ad = str(r.get(kol["urun_adi"], "") or "").strip() if "urun_adi" in kol else ""
+                    _ug = str(r.get(kol["urun_grubu"], "") or "").strip() if "urun_grubu" in kol else ""
+                    kalemler.append({"sku": sku, "urun_adi": ad or katalog.get(sku, ""),
+                                     "urun_grubu": _ug,
+                                     "adet": adet, "birim_fob": fob})
+                if not kalemler:
+                    atlanan += 1
+                    mesajlar.append(f"{dno_s}: kalem yok, atlandı.")
+                    continue
+                if sum(k["adet"] * k["birim_fob"] for k in kalemler) <= 0:
+                    atlanan += 1
+                    mesajlar.append(f"{dno_s}: tüm satırlar 0 fiyatlı (maliyet bazı yok), atlandı.")
+                    continue
+                # Belge no(lar) — bir takip no altında birden çok belge olabilir
+                if "pi_no" in kol:
+                    _belgeler = sorted({str(x).strip() for x in g[kol["pi_no"]].tolist()
+                                        if str(x).strip() and str(x).strip().lower() != "nan"})
+                else:
+                    _belgeler = []
+                belge_no = _belgeler[0] if _belgeler else dno_s
+                if "dosya_no" in kol:
+                    _sips = sorted({str(x).strip() for x in g[kol["dosya_no"]].tolist()
+                                    if str(x).strip() and str(x).strip().lower() != "nan"})
+                else:
+                    _sips = []
+                # SAS No — Satın Alım Raporu'nda "Sipariş no" kolonu SAS numarasını taşır
+                sas_no_val = ", ".join(_sips) if _sips else ""
+                _not_parts = []
+                if len(_belgeler) > 1:
+                    _not_parts.append("Belge(ler): " + ", ".join(_belgeler))
+                notlar = " · ".join(_not_parts)
+                # İthalat takip no (varsa) — dosya bununla dosyalanır; boşsa boş kalır
+                takip_no = str(ilk.get(kol["takip_no"], "") or "").strip() if "takip_no" in kol else ""
+                if takip_no.lower() == "nan":
+                    takip_no = ""
+                tarih = _sd(ilk.get(kol["tarih"])) if "tarih" in kol else None
+                teslim = _sd(ilk.get(kol["teslim_tarihi"])) if "teslim_tarihi" in kol else None
+                ted = str(ilk.get(kol["tedarikci"], "") or "").strip() if "tedarikci" in kol else ""
+                dov = str(ilk.get(kol["doviz"], "USD") or "USD").strip() if "doviz" in kol else "USD"
+                # Teslim türü (Incoterm) — Excel'den; INCOTERM listesine uydur
+                teslim_sekli_val = ""
+                if "teslim_sekli" in kol:
+                    _ts_raw = str(ilk.get(kol["teslim_sekli"], "") or "").strip()
+                    if _ts_raw and _ts_raw.lower() != "nan":
+                        _ts_up = _ts_raw.upper()
+                        teslim_sekli_val = _ts_up if _ts_up in INCOTERM_SECENEKLER else _ts_raw
+
+                # Eşleştirme SADECE belge/dosya no ile (aynı takip no farklı belgelerde
+                # olabileceğinden takip no ile eşleştirme yapılmaz — birleşmeyi önler).
+                mevcut_kayit = _dosya_map.get(dno_s)
+                if mevcut_kayit:
+                    if not _guncelle:
+                        # "Sadece yenileri ekle": mevcut dosya atlanır AMA boş alanlar
+                        # (takip no, teslim tarihi) Excel'den doldurulur — dolu olan ASLA değişmez.
+                        _mt = str(mevcut_kayit.get("ithalat_takip_no", "") or "").strip()
+                        _dolduruldu = []
+                        if takip_no and not _mt:
+                            set_dosya_takip_no(mevcut_kayit["id"], takip_no)
+                            _dolduruldu.append(f"takip no {takip_no}")
+                        _mtes = str(mevcut_kayit.get("teslim_tarihi", "") or "").strip()
+                        if teslim and not _mtes:
+                            set_dosya_teslim(mevcut_kayit["id"], teslim_tarihi=str(teslim)[:10])
+                            _dolduruldu.append(f"teslim {str(teslim)[:10]}")
+                        _msas = str(mevcut_kayit.get("sas_no", "") or "").strip()
+                        if sas_no_val and not _msas:
+                            set_dosya_sas(mevcut_kayit["id"], sas_no_val)
+                            _dolduruldu.append(f"SAS {sas_no_val}")
+                        _minc = str(mevcut_kayit.get("teslim_sekli", "") or "").strip()
+                        if teslim_sekli_val and not _minc:
+                            set_dosya_teslim_sekli(mevcut_kayit["id"], teslim_sekli_val)
+                            _dolduruldu.append(f"Incoterm {teslim_sekli_val}")
+                        if _dolduruldu:
+                            guncellenen += 1
+                            mesajlar.append(f"{dno_s}: zaten kayıtlı — boş alan dolduruldu ({', '.join(_dolduruldu)}).")
                         else:
-                            ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
-                                                 pi_no=belge_no, ithalat_takip_no=takip_no,
-                                                 teslim_tarihi=(str(teslim)[:10] if teslim else ""),
-                                                 teslim_sekli=teslim_sekli_val, sas_no=sas_no_val)
-                            if ok:
-                                basari += 1
-                            else:
-                                hata += 1
-                                mesajlar.append(f"{dno_s}: {msg}")
-                if basari or guncellenen:
-                    _yk_ith.kaydet(basari + guncellenen)
-                if basari:
-                    st.success(f"✅ {basari} yeni dosya içe aktarıldı (⏳ masraf bekliyor).")
-                if guncellenen:
-                    st.success(f"🔄 {guncellenen} mevcut dosya güncellendi (kalemler yenilendi, masraflar korundu).")
-                if bedelsiz:
-                    st.info(f"ℹ️ {bedelsiz} satır 0 fiyatlı (bedelsiz/yedek) — adetleri paçala dahil edildi, birim maliyet toplam tutara göre düştü.")
-                if atlanan:
-                    st.warning("Atlananlar:\n" + "\n".join(m for m in mesajlar if "atlandı" in m))
-                if hata:
-                    st.error("Hatalı dosyalar:\n" + "\n".join(m for m in mesajlar if "atlandı" not in m))
-                if basari or guncellenen:
-                    st.rerun()
+                            atlanan += 1
+                            mesajlar.append(f"{dno_s}: zaten kayıtlı, atlandı.")
+                        continue
+                    # GÜNCELLE — masrafları ve kuru koru, kalemleri yenile, teslim tarihini de yaz
+                    eski_masraf = _masraf_dict(mevcut_kayit)
+                    eski_kur = _sf(mevcut_kayit.get("kur"), 1) or 1
+                    # Excel'de olmayan alanlar MEVCUT kayıttan korunur (Ekim 2026): eskiden durum,
+                    # teslim deposu, tahmini varış ve fatura indirimi boşa yazılıyordu — teslim
+                    # alınmış dosya "durumsuz" kalıyor, sonra elle yeniden "Teslim Alındı" yapılınca
+                    # mal stoğa İKİNCİ KEZ ekleniyordu.
+                    ok, msg = guncelle_dosya(
+                        mevcut_kayit["id"], dno_s, belge_no, tarih, ted, "",
+                        dov, eski_kur, eski_masraf, notlar, kalemler,
+                        ithalat_takip_no=takip_no,
+                        durum=str(mevcut_kayit.get("durum") or ""),
+                        teslim_deposu=str(mevcut_kayit.get("teslim_deposu") or ""),
+                        tahmini_varis=mevcut_kayit.get("tahmini_varis") or "",
+                        fatura_indirim=mevcut_kayit.get("fatura_indirim") or 0,
+                        teslim_tarihi=(str(teslim)[:10] if teslim
+                                       else str(mevcut_kayit.get("teslim_tarihi") or "")[:10]),
+                        teslim_sekli=(teslim_sekli_val or str(mevcut_kayit.get("teslim_sekli", "") or "")),
+                        sas_no=(sas_no_val or str(mevcut_kayit.get("sas_no", "") or "")))
+                    if ok:
+                        guncellenen += 1
+                    else:
+                        hata += 1
+                        mesajlar.append(f"{dno_s}: {msg}")
+                else:
+                    ok, msg = ekle_dosya(dno_s, tarih, ted, "", dov, 1, {}, notlar, kalemler,
+                                         pi_no=belge_no, ithalat_takip_no=takip_no,
+                                         teslim_tarihi=(str(teslim)[:10] if teslim else ""),
+                                         teslim_sekli=teslim_sekli_val, sas_no=sas_no_val)
+                    if ok:
+                        basari += 1
+                    else:
+                        hata += 1
+                        mesajlar.append(f"{dno_s}: {msg}")
+        if basari or guncellenen:
+            _yk_ith.kaydet(basari + guncellenen)
+        _ozet = []
+        if basari:
+            _ozet.append(f"{basari} yeni dosya içe aktarıldı (masraf bekliyor).")
+        if guncellenen:
+            _ozet.append(f"{guncellenen} mevcut dosya güncellendi (kalemler yenilendi, masraflar korundu).")
+        if bedelsiz:
+            _ozet.append(f"{bedelsiz} satır 0 fiyatlı (bedelsiz/yedek) — adetleri paçala dahil edildi, "
+                         "birim maliyet toplam tutara göre düştü.")
+        _tablo = [{"Belge": m.split(":")[0], "Durum": m.split(":", 1)[-1].strip()} for m in mesajlar]
+        if basari or guncellenen:
+            st.cache_data.clear()
+            kapi.bitti(" ".join(_ozet), tablo=_tablo, uyari=bool(atlanan or hata))
+        else:
+            if atlanan:
+                st.warning("Atlananlar:\n" + "\n".join(m for m in mesajlar if "atlandı" in m))
+            if hata:
+                st.error("Hatalı dosyalar:\n" + "\n".join(m for m in mesajlar if "atlandı" not in m))
 
 
 # ─────────────────────────────────────────────────────────────────────

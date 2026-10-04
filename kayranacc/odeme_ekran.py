@@ -110,7 +110,7 @@ def render_bu_hafta(kategoriler, export_excel, kur):
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
     if not odemeler:
-        st.markdown(bos_durum("Bu hafta ödeme yok", "Veri Yükleme'den haftanın Excel'ini yükle ya da "
+        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle ya da "
                               "'Manuel ödeme' ile tek tek ekle.", "payments"), unsafe_allow_html=True)
         return
 
