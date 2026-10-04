@@ -72,7 +72,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
-               "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py"):
+               "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
+               "claude_talep.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -170,6 +171,8 @@ KRITIK_FONKSIYONLAR = {
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler"],
+    "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
+                            "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],

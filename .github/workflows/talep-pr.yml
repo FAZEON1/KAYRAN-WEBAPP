@@ -1,0 +1,54 @@
+name: Talep PR Bildirimi
+
+# Claude'un talepten açtığı PR (başlık "Talep #<id>: ...") açılınca / birleşince / kapanınca talep
+# kaydını günceller ve mail atar. Akış: shared/claude_talep.py, otonom/claude_talep_gorevi.md.
+on:
+  pull_request:
+    types: [opened, reopened, closed]
+    branches: [main]
+
+jobs:
+  talep:
+    if: contains(github.event.pull_request.title, 'Talep #')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Kodu indir (main — PR'daki kod değil)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: pip install --quiet streamlit supabase requests
+
+      - name: Supabase ve mail erişimini hazırla
+        env:
+          BILDIRIM: ${{ secrets.BILDIRIM }}
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml << SECRETS
+          [supabase]
+          url = "${{ secrets.SUPABASE_URL }}"
+          key = "${{ secrets.SUPABASE_KEY }}"
+          service_role_key = "${{ secrets.SUPABASE_KEY }}"
+          SECRETS
+          if [ -n "$BILDIRIM" ]; then
+            printf '\n[bildirim]\n%s\n' "$BILDIRIM" >> .streamlit/secrets.toml
+          fi
+
+      - name: Talebi güncelle, mail at
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          PR_BASLIK: ${{ github.event.pull_request.title }}
+          PR_OLAY: ${{ github.event.action }}
+          PR_BIRLESTI: ${{ github.event.pull_request.merged }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: python otonom/talep_pr.py

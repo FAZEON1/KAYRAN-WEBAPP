@@ -3097,6 +3097,9 @@ def _talep_merkezi():
                         st.markdown(_t.get("mesaj") or "—")
                         if (_t.get("cevap") or "").strip():
                             st.success(f"**Cevap:** {_t['cevap']}")
+                        _claude_et = _claude_etiket(_t)
+                        if _claude_et:
+                            st.caption(f":material/smart_toy: Geliştirme: {_claude_et}")
 
         # ── Yönetici: gelen talepler ──
         if _yonetici:
@@ -3164,11 +3167,54 @@ def _talep_merkezi():
                                 st.rerun()
                             except Exception as _e:
                                 st.error(f"❌ {type(_e).__name__}")
+                        _claude_bolumu(_t, _kul)
 
     # Pencere üst menüdeki düğmenin bayrağıyla, sayfa çizildikten SONRA açılır
     # (modül hata verse bile talep açılabilsin).
     if st.session_state.pop("_talep_ac", False):
         _dlg_talep()
+
+
+def _claude_etiket(t):
+    try:
+        from shared.claude_talep import etiket
+        return etiket(t)
+    except Exception:
+        return ""
+
+
+def _claude_bolumu(t, kul):
+    """Gelen talepler: Claude durumu, notu, PR linki ve onaycıya "Claude'a gönder" (Ekim 2026).
+    Akış: shared/claude_talep.py — onaylanan talebi zamanlanmış Claude görevi kodlar, PR açar."""
+    from shared import claude_talep as C
+    _et = C.etiket(t)
+    if _et:
+        _sat = f":material/smart_toy: Claude: {_et}"
+        if t.get("claude_pr_url"):
+            _sat += f" · [PR'ı aç]({t['claude_pr_url']})"
+        st.caption(_sat)
+    if (t.get("claude_not") or "").strip():
+        st.info(f"Claude'un notu: {t['claude_not']}")
+    if not C.onaylayabilir_mi(kul, ozel_yetki) or not C.gonderilebilir_mi(t):
+        return
+    _tid = t.get("id")
+    _ilk = not C.claude_durumu(t)
+    _not = st.text_area("Claude'a not (isteğe bağlı)" if _ilk else "Claude'a cevap / yeni not",
+                        value="" if _ilk else (t.get("claude_onay_notu") or ""),
+                        key=f"claude_not_{_tid}", height=80,
+                        placeholder="Örn: yalnız Satış sayfasında olsun; mevcut rakamlar değişmesin")
+    if st.button("Claude'a gönder", key=f"claude_gonder_{_tid}", icon=":material/send:",
+                 help="Claude bir saat içinde başlar, PR açar; PR hazır olunca mail gelir. "
+                      "Birleştirmeyi sen yaparsın."):
+        from kayranpm.database import get_client
+        from shared.utils import tr_now
+        _ok, _msj = C.onaya_gonder(get_client(), _tid, kul, _not, tr_now())
+        if _ok:
+            st.cache_data.clear()
+            st.toast(_msj)
+            st.rerun()
+        else:
+            st.error(_msj)
 
 
 def _talep_ac_isaretle():
