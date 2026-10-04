@@ -392,7 +392,7 @@ def goster(sku):
 
         # ── İKİZ STOK PANELİ — solda bizim depolar, sağda müşteriler ──
         def _srow(ad, adet, maks, renk, alt=""):
-            _w = max(2.0, min(100.0, (adet / maks * 100) if maks else 0))
+            _w = 0.0 if adet <= 0 else max(2.0, min(100.0, (adet / maks * 100) if maks else 0))
             _alt = (f'<div style="color:{RENK["silik"]};font-size:11px;margin-top:0px">{alt}</div>'
                     if alt else "")
             return (f'<div style="padding:4px 12px;margin:3px 0;border-radius:6px;'
@@ -426,7 +426,9 @@ def goster(sku):
         elif alimlar or satislar or isinstance(urun.get("depo_kirilim"), dict):
             # Alımı / satışı olan ürün: depolarda adet kalmamış (satılmış ya da sevk edilmiş). Eskiden
             # burada da "sayım yüklenmemiş" yazıyordu (FAZE4: yurt içi alımın tamamı satıldı, Ekim 2026).
-            _depo_html = bos_durum("Bizim depolarda stok yok — alınan mal satılmış ya da sevk edilmiş")
+            # Kullanıcı isteği: ayrı mesaj yerine normal kartlardaki gibi satılabilir depolar 0 adetle.
+            _depo_html = "".join(_srow(d, 0, 0, RENK["soluk"], alt="satılabilir")
+                                 for d in ("MERKEZ DEPO", "HAPPY LIFE"))
         else:
             _depo_html = bos_durum("G5F depo sayımı yüklenmemiş — Ürün Yönetimi → Veri Yükleme")
         _p_depo = pencere("🏬 BİZİM DEPOLAR", RENK["yesil"], _depo_html,
