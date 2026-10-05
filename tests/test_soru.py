@@ -144,6 +144,12 @@ KARTLAR = {"K1": {"sku": "K1", "urun_adi": "Oyun kasası", "kategori": "KASA", "
 PACAL = {"K1": 30.0, "F1": 6.0, "M1": 150.0}
 
 
+
+def _gun(fark):
+    """Bugünden fark gün sonrası (ISO) — test verisi tarihe bağlı kalmasın."""
+    from datetime import date, timedelta
+    return (date.today() + timedelta(days=fark)).isoformat()
+
 class SahteKaynak:
     """satis.pnl_hesap.Kaynak yerine (test_satis_pnl ile aynı biçim)."""
     def satislar(self, bas, bit): return SAT
@@ -196,15 +202,16 @@ class SahteVeri:
                    "satilan_adet": 10, "pacal_maliyet": 30}]}
         return k, ku, PACAL
 
+    # Vadeler BUGÜNE göre: sabit tarih (2026-10-04) ertesi gün "gecikmiş" sayılıp testi kırıyordu.
     def odemeler(self, kapsam):
-        return [{"firma": "AYKON", "vade": "2026-09-30", "tutar_tl": 1000, "tutar_usd": 0, "durum": "bekliyor"},
-                {"firma": "BANKA", "vade": "2026-10-04", "tutar_tl": 0, "tutar_usd": 300, "durum": "bekliyor"},
-                {"firma": "ESKI", "vade": "2026-09-01", "tutar_tl": 999, "tutar_usd": 0, "durum": "odendi"}]
+        return [{"firma": "AYKON", "vade": _gun(-5), "tutar_tl": 1000, "tutar_usd": 0, "durum": "bekliyor"},
+                {"firma": "BANKA", "vade": _gun(0), "tutar_tl": 0, "tutar_usd": 300, "durum": "bekliyor"},
+                {"firma": "ESKI", "vade": _gun(-35), "tutar_tl": 999, "tutar_usd": 0, "durum": "odendi"}]
 
     def cekler(self):
-        return [{"ch_ismi": "AYKON", "vade": "2026-11-01", "meblagh": 5000, "odenen": 0, "kalan": 5000,
+        return [{"ch_ismi": "AYKON", "vade": _gun(28), "meblagh": 5000, "odenen": 0, "kalan": 5000,
                  "durum": "Bekliyor", "_pb": "TL"},
-                {"ch_ismi": "ESKI", "vade": "2026-08-01", "meblagh": 100, "odenen": 100, "kalan": 0,
+                {"ch_ismi": "ESKI", "vade": _gun(-65), "meblagh": 100, "odenen": 100, "kalan": 0,
                  "durum": "Ödendi", "_pb": "TL"}]
 
 
