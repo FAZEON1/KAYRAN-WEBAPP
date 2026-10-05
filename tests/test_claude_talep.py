@@ -7,6 +7,8 @@ Onaycı "Claude'a gönder" der → zamanlanmış Claude görevi kodlar, "Talep #
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 import shared.claude_talep as C
 
 KOK = Path(__file__).resolve().parent.parent
@@ -220,12 +222,12 @@ def test_gonderince_rutin_hemen_tetiklenir():
         cagri.append((url, kw))
         return _Yanit(200)
 
-    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "gizli-anahtar"}})
+    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "sk-ant-oat01-gizli-anahtar"}})
     ok, msj = C.onaya_gonder(_Db({7: {"id": 7}}), 7, "ibrahim", "", SIMDI,
                              tetikle=lambda tid: C.rutini_tetikle(tid, ayar, post=post))
     assert ok and "şimdi başlıyor" in msj
     url, kw = cagri[0]
-    assert url == _URL and kw["headers"]["Authorization"] == "Bearer gizli-anahtar"
+    assert url == _URL and kw["headers"]["Authorization"] == "Bearer sk-ant-oat01-gizli-anahtar"
     assert kw["headers"]["anthropic-beta"] == C.RUTIN_BETA and kw["headers"]["anthropic-version"] == "2023-06-01"
     assert kw["json"] == {"text": "Talep #7 Claude'a gönderildi."} and kw["timeout"]
 
@@ -249,14 +251,58 @@ def test_rutin_ayari_ve_hata_metninde_anahtar_yok():
     assert C.rutin_ayari({}) is None
     assert C.rutin_ayari({"claude_rutin": {"url": _URL}}) is None                       # anahtar yok
     assert C.rutin_ayari({"claude_rutin": {"url": "https://baska.site/fire", "token": "x"}}) is None
-    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "gizli-anahtar"}})
+    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "sk-ant-oat01-gizli-anahtar"}})
     assert C.rutini_tetikle(7, None) == (False, "rutin ayarı yok")
     for post in (lambda url, **kw: _Yanit(401), lambda url, **kw: (_ for _ in ()).throw(OSError("ağ"))):
         ok, aciklama = C.rutini_tetikle(7, ayar, post=post)
-        assert not ok and "gizli-anahtar" not in aciklama
+        assert not ok and "sk-ant-oat01-gizli-anahtar" not in aciklama
 
 
 def test_uygulama_gonder_dugmesi_rutini_tetikler():
     a = (KOK / "app.py").read_text(encoding="utf-8")
     g = a.split("def _claude_bolumu")[1].split("\ndef ")[0]
-    assert "C.rutini_tetikle(tid, C.rutin_ayari())" in g and "tetikle=_tetikle" in g
+    assert "C.rutini_tetikle(tid, C.rutin_ayari_coz())" in g and "tetikle=_tetikle" in g
+
+
+# ── Kurulum hatası görünür, küçük yazım farkları tolere edilir (Ekim 2026) ──
+# Canlıda kurulumdan sonra "Bir saat içinde başlar" çıktı; ayar okunamadığı halde sebebi hiçbir yerde
+# görünmüyordu (hata kaydına da yazılmıyordu).
+_TOK = "sk-ant-oat01-gizli"
+
+
+@pytest.mark.parametrize("secrets", [
+    {"claude_rutin": {"url": _URL, "token": _TOK}},
+    {"CLAUDE_RUTIN": {"URL": _URL, "Token": _TOK}},                       # büyük harf
+    {"claude_rutin": {"url": _URL + "/", "token": "Bearer " + _TOK}},     # sondaki / ve "Bearer "
+    {"claude_rutin": {"url": " trig_01ABC ", "token": f" {_TOK} "}},      # yalnız rutin kimliği
+])
+def test_rutin_ayari_kucuk_yazim_farklarini_tolere_eder(secrets):
+    ayar, sorun = C.rutin_ayari_coz(secrets)
+    assert ayar == {"url": _URL, "token": _TOK} and sorun == ""
+
+
+@pytest.mark.parametrize("secrets, parca", [
+    ({}, "rutin ayarı yok"),
+    ({"claude-rutin": {"url": _URL, "token": _TOK}}, "[claude_rutin]"),
+    ({"claude_rutin": {"token": _TOK}}, "url satırı yok"),
+    ({"claude_rutin": {"url": "https://claude.ai/code/routines/trig_01ABC", "token": _TOK}}, "url tanınmadı"),
+    ({"claude_rutin": {"url": _URL}}, "token satırı yok"),
+    ({"claude_rutin": {"url": _URL, "token": "trig_01ABC"}}, "token tanınmadı"),
+])
+def test_bozuk_ayarin_sebebi_soylenir(secrets, parca):
+    ayar, sorun = C.rutin_ayari_coz(secrets)
+    assert ayar is None and parca in sorun and _TOK not in sorun
+
+
+def test_ayar_okunamazsa_sebep_ekranda_gorunur():
+    db = _Db({7: {"id": 7}})
+    coz = C.rutin_ayari_coz({"claude_rutin": {"url": _URL}})
+    ok, msj = C.onaya_gonder(db, 7, "ibrahim", "", SIMDI, tetikle=lambda tid: C.rutini_tetikle(tid, coz))
+    assert ok and "Bir saat içinde başlar" in msj and "Anında başlatılamadı: [claude_rutin] içinde token" in msj
+    ok, msj = C.onaya_gonder(db, 7, "ibrahim", "", SIMDI,
+                             tetikle=lambda tid: C.rutini_tetikle(tid, C.rutin_ayari_coz({})))
+    assert "[claude_rutin] ayarı bulunamadı" in msj
+    ok, msj = C.onaya_gonder(db, 7, "ibrahim", "", SIMDI,
+                             tetikle=lambda tid: C.rutini_tetikle(tid, ({"url": _URL, "token": _TOK}, ""),
+                                                                  post=lambda url, **kw: _Yanit(401)))
+    assert "Anında başlatılamadı: HTTP 401" in msj and _TOK not in msj
