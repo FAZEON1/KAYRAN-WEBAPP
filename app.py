@@ -3169,6 +3169,10 @@ def _claude_bolumu(t, kul):
         st.caption(_sat)
     if (t.get("claude_not") or "").strip():
         st.info(f"Claude'un notu: {t['claude_not']}")
+    # Gönderildikten sonra talep "gönderildi" durumuna geçer ve düğme kalkar: kurulum uyarısı önce gösterilir
+    _sorun = st.session_state.pop(f"_claude_tetik_sorun_{t.get('id')}", None)
+    if _sorun:
+        st.warning(_sorun)
     if not C.onaylayabilir_mi(kul, ozel_yetki) or not C.gonderilebilir_mi(t):
         return
     _tid = t.get("id")
@@ -3184,7 +3188,7 @@ def _claude_bolumu(t, kul):
         from shared.utils import tr_now
 
         def _tetikle(tid):
-            sonuc = C.rutini_tetikle(tid, C.rutin_ayari())
+            sonuc = C.rutini_tetikle(tid, C.rutin_ayari_coz())
             if not sonuc[0] and sonuc[1] != "rutin ayarı yok":
                 try:
                     from shared.hata_log import kaydet
@@ -3197,6 +3201,8 @@ def _claude_bolumu(t, kul):
         if _ok:
             st.cache_data.clear()
             st.toast(_msj)
+            if "Anında başlatılamadı" in _msj:     # kurulum sorunu: kısa bildirimde kaybolmasın
+                st.session_state[f"_claude_tetik_sorun_{_tid}"] = _msj
             st.rerun()
         else:
             st.error(_msj)

@@ -81,15 +81,20 @@ def onaya_gonder(client, talep_id, kullanici, not_, simdi, tetikle=None):
         if "claude_" in str(e):
             return False, SQL_EKSIK
         return False, f"Kaydedilemedi: {type(e).__name__}"
-    basladi = False
+    basladi, sebep = False, ""
     if tetikle is not None:
         try:
-            basladi = bool(tetikle(talep_id)[0])
-        except Exception:  # noqa: BLE001 — tetikleme tutmazsa saat başı çalışma alır
-            basladi = False
+            basladi, sebep = tetikle(talep_id)[:2]
+        except Exception as e:  # noqa: BLE001 — tetikleme tutmazsa saat başı çalışma alır
+            basladi, sebep = False, f"tetiklenemedi ({type(e).__name__})"
     if basladi:
         return True, "Talep Claude'a gönderildi, Claude şimdi başlıyor; PR hazır olunca mail gelir."
-    return True, "Talep Claude'a gönderildi. Bir saat içinde başlar; PR hazır olunca mail gelir."
+    msj = "Talep Claude'a gönderildi. Bir saat içinde başlar; PR hazır olunca mail gelir."
+    if sebep:                                         # kurulum hatası görünsün (anahtar asla yazılmaz)
+        if sebep == "rutin ayarı yok":
+            sebep = "Streamlit Secrets'ta [claude_rutin] ayarı bulunamadı"
+        msj += f" Anında başlatılamadı: {sebep}."
+    return True, msj
 
 
 # ── Rutini anında tetikleme (Claude Code routines · API tetikleyici) ─────────
@@ -103,20 +108,53 @@ RUTIN_BETA = "experimental-cc-routine-2026-04-01"
 _RUTIN_ADRES = re.compile(r"^https://api\.anthropic\.com/v1/claude_code/routines/[A-Za-z0-9_]+/fire$")
 
 
-def rutin_ayari(secrets=None):
-    """{'url', 'token'} ya da None (ayar yok / biçim yanlış)."""
+def _kucuk_anahtarli(d):
+    try:
+        return {str(k).strip().lower(): v for k, v in dict(d).items()}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def rutin_ayari_coz(secrets=None):
+    """Döner ({'url', 'token'} | None, sorun). sorun: ayar okunamadıysa kullanıcıya gösterilecek kısa
+    sebep (anahtarın kendisi asla geçmez); ayar hiç yoksa "rutin ayarı yok".
+    Küçük yazım farkları tolere edilir: bölüm / alan adında büyük harf, anahtarın başında "Bearer ",
+    adres yerine yalnız rutin kimliği (trig_...)."""
     try:
         if secrets is None:
             import streamlit as st
             secrets = st.secrets
-        b = secrets.get("claude_rutin") or {}
-        url = str(b.get("url") or "").strip()
-        token = str(b.get("token") or "").strip()
+        ust = _kucuk_anahtarli(secrets)
     except Exception:  # noqa: BLE001 — secrets dosyası yok
-        return None
-    if not token or not _RUTIN_ADRES.match(url):
-        return None
-    return {"url": url, "token": token}
+        return None, "rutin ayarı yok"
+    if "claude_rutin" not in ust:
+        if any("rutin" in k for k in ust):
+            return None, "Secrets'ta bölüm adı tam olarak [claude_rutin] olmalı"
+        return None, "rutin ayarı yok"
+    b = _kucuk_anahtarli(ust["claude_rutin"])
+    if not b:
+        return None, "[claude_rutin] bölümü boş ya da biçimi bozuk (url = \"...\" ve token = \"...\" satırları)"
+    url = str(b.get("url") or "").strip().strip('"').strip("'").rstrip("/")
+    token = str(b.get("token") or "").strip().strip('"').strip("'")
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if re.fullmatch(r"trig_[A-Za-z0-9]+", url):
+        url = f"https://api.anthropic.com/v1/claude_code/routines/{url}/fire"
+    if not url:
+        return None, "[claude_rutin] içinde url satırı yok"
+    if not _RUTIN_ADRES.match(url):
+        return None, ("url tanınmadı: https://api.anthropic.com/v1/claude_code/routines/<trig_...>/fire "
+                      "biçiminde olmalı")
+    if not token:
+        return None, "[claude_rutin] içinde token satırı yok"
+    if not token.startswith("sk-ant-"):
+        return None, "token tanınmadı: Generate token ile üretilen sk-ant-... anahtarı olmalı"
+    return {"url": url, "token": token}, ""
+
+
+def rutin_ayari(secrets=None):
+    """{'url', 'token'} ya da None (ayar yok / biçim yanlış)."""
+    return rutin_ayari_coz(secrets)[0]
 
 
 def rutini_tetikle(talep_id, ayar, post=None):
@@ -124,6 +162,10 @@ def rutini_tetikle(talep_id, ayar, post=None):
     Rutinin kendi istemi talebi veritabanından seçer; gönderilen metin yalnız bilgi amaçlıdır."""
     if not ayar:
         return False, "rutin ayarı yok"
+    if isinstance(ayar, tuple):              # rutin_ayari_coz sonucu: (ayar, sorun)
+        if not ayar[0]:
+            return False, ayar[1] or "rutin ayarı yok"
+        ayar = ayar[0]
     if post is None:
         import requests
         post = requests.post
