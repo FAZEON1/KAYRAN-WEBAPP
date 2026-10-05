@@ -101,3 +101,22 @@ def test_kanal_payi_gorunen_ada_gore_birlesir():
     k = P.kanal_payi(rows, ad_fn=lambda x: "EERA" if x in ("ITOPYA", "EERA") else x)
     assert [(a, c) for a, c, _ in k] == [("EERA", 100), ("VATAN", 100)] or \
            [(a, c) for a, c, _ in k] == [("VATAN", 100), ("EERA", 100)]
+
+
+def test_toplam_aktif_bilesenleri_kaynak_sayfaya_gider():
+    """Talep #32: toplam aktif kartındaki rakamlara tıklayınca Toplam Aktifler (Muhasebe)
+    değil, rakamı veren sayfa açılır."""
+    from shared import gezinme
+    P = _P()
+    snap = {"stok": 1000, "ithalat": 500, "banka": 250, "alacak": 0}
+    d = P.aktif_dugmeleri(snap)
+    assert [(k, mod, sayfa) for k, _, mod, sayfa in d] == [
+        ("stok", "kayranpm", "tum_urunler"), ("ithalat", "ithalat", "gecmis"),
+        ("banka", "kayranacc", "banka")]                                  # sıfır bileşen düğme olmaz
+    assert "&#36;1.000" in d[0][1] and d[0][1].startswith("Stok")
+    assert P.aktif_dugmeleri(None) == []
+    for _, _, mod, sayfa in P.AKTIF_HEDEFLERI:
+        assert gezinme.secenek_kodundan(mod, sayfa), (mod, sayfa)
+        assert sayfa != "toplam_aktifler"
+    assert "def _sayfaya_git(mod, sayfa=None)" in _oku("app.py")
+    assert "aktif_dugmeleri(snap)" in _oku("shared/patron.py")

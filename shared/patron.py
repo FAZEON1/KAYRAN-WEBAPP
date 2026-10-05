@@ -185,6 +185,24 @@ def kart_html(baslik, deger, onceki, tur, seri, renk, kiyas="önceki döneme gö
                if _spark(seri, renk) else "") + '</div>')
 
 
+# "Toplam aktif" bileşenleri → rakamı veren sayfa (modül, sayfa kodu). Toplam aktifler
+# sayfasına (Muhasebe) değil, rakamın kaynağına gider.
+AKTIF_HEDEFLERI = [
+    ("Stok", "stok", "kayranpm", "tum_urunler"),
+    ("İthalat", "ithalat", "ithalat", "gecmis"),
+    ("Banka", "banka", "kayranacc", "banka"),
+    ("Alacak", "alacak", "kayranacc", "cari_ekstre"),
+]
+
+
+def aktif_dugmeleri(snap):
+    """[(anahtar, etiket, modül, sayfa kodu)]: pozitif bileşenler, '$' tutarıyla."""
+    if not snap:
+        return []
+    return [(k, f"{ad} · {_usd(_f(snap.get(k)))}", mod, sayfa)
+            for ad, k, mod, sayfa in AKTIF_HEDEFLERI if _f(snap.get(k)) > 0]
+
+
 def _aktif_kart(snap):
     if not snap:
         return ('<div class="pp-kart" style="--pp-r:var(--k-cyan)"><div class="pp-ad">Toplam aktif</div>'
@@ -379,6 +397,14 @@ def render(sayfaya_git):
             + kart_html("Marj", simdi["marj"], once["marj"] if once["ciro"] else None, "yuzde", [], "amber",
                         d["kiyas"])
             + _aktif_kart(snap) + "</div>", unsafe_allow_html=True)
+        adlar = aktif_dugmeleri(snap)
+        if adlar:
+            st.markdown('<div class="pp-kb" style="margin-top:2px">Toplam aktif ayrıntısı<span>'
+                        'tıkla, rakamı veren sayfaya git</span></div>', unsafe_allow_html=True)
+            for c, (k, m, mod, sayfa) in zip(st.columns(max(4, len(adlar))), adlar):
+                if c.button(m, key=f"pp_aktif_{k}", use_container_width=True,
+                            on_click=sayfaya_git, args=(mod, sayfa)):
+                    st.rerun()
 
         from kayranpm.urun_hesap import tarih_tr
         g1, g2 = st.columns([2.4, 1], gap="medium")

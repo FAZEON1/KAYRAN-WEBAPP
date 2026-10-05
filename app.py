@@ -266,10 +266,17 @@ TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"   # hiçbir talep yöneticisinin
 
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE KULLANICI TAKİP
-def _sayfaya_git(mod):
+def _sayfaya_git(mod, sayfa=None):
     """Düğme on_click'i: hedef sayfayı oturuma yazar. Streamlit bunu betik
-    çalışmadan önce çağırır, sayfa tek seferde doğru çizilir (st.rerun yok)."""
+    çalışmadan önce çağırır, sayfa tek seferde doğru çizilir (st.rerun yok).
+    sayfa (url kodu) verilirse modülün o sayfası açılır (ör. "banka")."""
     st.session_state.aktif_uygulama = mod
+    if sayfa:
+        from shared.gezinme import secenek_kodundan, _MOD
+        sec = secenek_kodundan(mod, sayfa)
+        anahtar = _MOD.get(mod, {}).get("anahtar")
+        if sec and anahtar:
+            st.session_state[anahtar] = sec
 
 
 @st.cache_data(ttl=60, show_spinner=False)
