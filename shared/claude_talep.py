@@ -4,9 +4,11 @@
   1. Çalışan Talep Merkezi'nden talep gönderir (bugünkü gibi).
   2. Onaycı (İbrahim) talebi açar, isterse not yazar, "Claude'a gönder"e basar
      → claude_durum = 'onaylandi'. Onaysız talebe Claude dokunmaz.
-  3. claude.ai'deki zamanlanmış görev (7 gün 24 saat, saat başı) en eski onaylı talebi alır
-     ('calisiyor'), otonom/claude_talep_gorevi.md'deki kurallarla kodlar, PR açar. Rakam değiştiren
-     ya da belirsiz işte kod yazmaz, soru yazar ('soru'); onaycı cevabı nota yazıp yeniden gönderir.
+  3. claude.ai'deki görev (rutin) en eski onaylı talebi üstlenir ('calisiyor'),
+     otonom/claude_talep_gorevi.md'deki kurallarla kodlar, PR açar. "Claude'a gönder" rutini API ile
+     ANINDA başlatır (rutini_tetikle; Streamlit secrets [claude_rutin] url + token); ayar yoksa ya da
+     tetikleme tutmazsa saat başı çalışma yedektir. Rakam değiştiren ya da belirsiz işte kod yazmaz,
+     soru yazar ('soru'); onaycı cevabı nota yazıp yeniden gönderir.
   4. PR açılınca / birleşince GitHub iş akışı (talep-pr.yml → otonom/talep_pr.py) durumu günceller
      ve mail atar: PR hazır → onaycıya; yayında → talep sahibine. PR'ı birleştirmek kullanıcıdadır.
 
@@ -70,15 +72,71 @@ def onay_kaydi(kullanici, not_, simdi):
             "claude_not": "", "durum": "inceleniyor"}
 
 
-def onaya_gonder(client, talep_id, kullanici, not_, simdi):
-    """Döner (ok, mesaj). Sütunlar yoksa (SQL 19 kurulmamış) anlaşılır uyarı döner."""
+def onaya_gonder(client, talep_id, kullanici, not_, simdi, tetikle=None):
+    """Döner (ok, mesaj). Sütunlar yoksa (SQL 19 kurulmamış) anlaşılır uyarı döner.
+    tetikle(talep_id) → (ok, açıklama): kayıttan sonra rutini hemen başlatır (rutini_tetikle)."""
     try:
         client.table("talepler").update(onay_kaydi(kullanici, not_, simdi)).eq("id", talep_id).execute()
-        return True, "Talep Claude'a gönderildi. Bir saat içinde başlar; PR hazır olunca mail gelir."
     except Exception as e:  # noqa: BLE001
         if "claude_" in str(e):
             return False, SQL_EKSIK
         return False, f"Kaydedilemedi: {type(e).__name__}"
+    basladi = False
+    if tetikle is not None:
+        try:
+            basladi = bool(tetikle(talep_id)[0])
+        except Exception:  # noqa: BLE001 — tetikleme tutmazsa saat başı çalışma alır
+            basladi = False
+    if basladi:
+        return True, "Talep Claude'a gönderildi, Claude şimdi başlıyor; PR hazır olunca mail gelir."
+    return True, "Talep Claude'a gönderildi. Bir saat içinde başlar; PR hazır olunca mail gelir."
+
+
+# ── Rutini anında tetikleme (Claude Code routines · API tetikleyici) ─────────
+# Belge: https://code.claude.com/docs/en/routines (Add an API trigger). Adres ve anahtar rutinin
+# claude.ai'deki düzenleme ekranında üretilir; Streamlit Cloud → Settings → Secrets:
+#   [claude_rutin]
+#   url = "https://api.anthropic.com/v1/claude_code/routines/<rutin kimliği>/fire"
+#   token = "<Generate token ile üretilen anahtar>"
+# Anahtar yalnız bu rutini başlatabilir; hiçbir yere (ekran, kayıt, hata metni) yazılmaz.
+RUTIN_BETA = "experimental-cc-routine-2026-04-01"
+_RUTIN_ADRES = re.compile(r"^https://api\.anthropic\.com/v1/claude_code/routines/[A-Za-z0-9_]+/fire$")
+
+
+def rutin_ayari(secrets=None):
+    """{'url', 'token'} ya da None (ayar yok / biçim yanlış)."""
+    try:
+        if secrets is None:
+            import streamlit as st
+            secrets = st.secrets
+        b = secrets.get("claude_rutin") or {}
+        url = str(b.get("url") or "").strip()
+        token = str(b.get("token") or "").strip()
+    except Exception:  # noqa: BLE001 — secrets dosyası yok
+        return None
+    if not token or not _RUTIN_ADRES.match(url):
+        return None
+    return {"url": url, "token": token}
+
+
+def rutini_tetikle(talep_id, ayar, post=None):
+    """Rutini hemen başlatır. Döner (ok, açıklama); açıklamada anahtar geçmez.
+    Rutinin kendi istemi talebi veritabanından seçer; gönderilen metin yalnız bilgi amaçlıdır."""
+    if not ayar:
+        return False, "rutin ayarı yok"
+    if post is None:
+        import requests
+        post = requests.post
+    try:
+        r = post(ayar["url"], timeout=10, json={"text": f"Talep #{talep_id} Claude'a gönderildi."},
+                 headers={"Authorization": f"Bearer {ayar['token']}", "anthropic-beta": RUTIN_BETA,
+                          "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
+    except Exception as e:  # noqa: BLE001
+        return False, f"bağlanılamadı ({type(e).__name__})"
+    kod = getattr(r, "status_code", 0)
+    if 200 <= kod < 300:
+        return True, "başladı"
+    return False, f"HTTP {kod}"
 
 
 def baslik_talep_id(baslik):

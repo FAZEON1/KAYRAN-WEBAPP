@@ -3178,11 +3178,22 @@ def _claude_bolumu(t, kul):
                         key=f"claude_not_{_tid}", height=80,
                         placeholder="Örn: yalnız Satış sayfasında olsun; mevcut rakamlar değişmesin")
     if st.button("Claude'a gönder", key=f"claude_gonder_{_tid}", icon=":material/send:",
-                 help="Claude bir saat içinde başlar, PR açar; PR hazır olunca mail gelir. "
-                      "Birleştirmeyi sen yaparsın."):
+                 help="Claude hemen başlar (rutin ayarı yoksa bir saat içinde), PR açar; PR hazır olunca "
+                      "mail gelir. Birleştirmeyi sen yaparsın."):
         from kayranpm.database import get_client
         from shared.utils import tr_now
-        _ok, _msj = C.onaya_gonder(get_client(), _tid, kul, _not, tr_now())
+
+        def _tetikle(tid):
+            sonuc = C.rutini_tetikle(tid, C.rutin_ayari())
+            if not sonuc[0] and sonuc[1] != "rutin ayarı yok":
+                try:
+                    from shared.hata_log import kaydet
+                    kaydet("claude_talep.tetikle", RuntimeError(sonuc[1]))
+                except Exception:  # noqa: BLE001
+                    pass
+            return sonuc
+
+        _ok, _msj = C.onaya_gonder(get_client(), _tid, kul, _not, tr_now(), tetikle=_tetikle)
         if _ok:
             st.cache_data.clear()
             st.toast(_msj)
