@@ -198,6 +198,6 @@ def test_ortak_tablo_bos_sayi_nan_yazmaz():
     import pandas as pd
     df = pd.DataFrame([{"Fark": 260}, {"Fark": None}])
     assert df.astype(object).where(pd.notna(df), None).to_dict("records")[1]["Fark"] is None
-    a = _oku("app.py")
-    assert 'df.astype(object).where(_pd.notna(df), None).to_dict("records")' in a
-    assert 'return df.where(_pd.notna(df), None).to_dict("records")' not in a
+    # st.dataframe yaması app.py'den shared/dataframe_yamasi.py'ye taşındı (Ekim 2026): davranışı sına
+    from shared.dataframe_yamasi import html_uygun_mu
+    assert html_uygun_mu(df, {})[1]["Fark"] is None

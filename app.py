@@ -107,105 +107,14 @@ def _akilli_cache_clear():
 st.cache_data.clear = _akilli_cache_clear
 
 
-# ─────────────────────────────────────────────────────────────────────
-# OTOMATİK TABLO BİÇİMİ (tek dosyalık optimizasyon — modüllere dokunmaz)
-#
-# SORUN : 74 st.dataframe çağrısının çoğu ham sayı gösteriyordu —
-#         596699.4595 · 36.9231 · 21813. Binlik ayraç yok, para birimi yok,
-#         sola yaslı, ve sayısal olmayan biçimlendirme yüzünden sıralama da
-#         alfabetik bozuluyordu.
-# ÇÖZÜM : st.dataframe sarmalanır; kolon adına göre biçim otomatik verilir.
-#         ELLE yazılmış column_config her zaman kazanır (ezilmez), yalnız
-#         eksik kolonlar tamamlanır. Native kalan tablolar ve st.data_editor
-#         ortak ızgara ayarıyla çizilir (shared/izgara.py; kayıt değerleri aynı).
-# ─────────────────────────────────────────────────────────────────────
-# TÜM BLOK try İÇİNDE: burada atılan bir istisna uygulamayı TAMAMEN çökertir.
-# İlk sürümde `st.dataframe.__self__` yazmıştım; bazı Streamlit sürümlerinde
-# st.dataframe bağlı metot DEĞİL, düz fonksiyondur ve __self__ yoktur →
-# AttributeError → uygulama hiç açılmaz. Artık varsa kullanılır, yoksa yalnız
-# sınıf yaması uygulanır (kolon/konteyner çağrıları zaten onunla kapsanır).
+# OTOMATİK TABLO BİÇİMİ: st.dataframe yaması (shared/dataframe_yamasi.py). Her çalışmada GÜNCEL kodla
+# kurulur: eskiden "zaten yamalı" denip atlanıyordu ve canlı süreç ilk açılıştaki eski yamayı
+# kullanmaya devam ediyordu (pencere içi tablolar arkadaki sayfaya çiziliyordu).
 try:
-    from streamlit.delta_generator import DeltaGenerator as _DG
-
-    # ÖZYİNELEME KORUMASI — app.py Streamlit'in GİRİŞ BETİĞİ, her etkileşimde
-    # baştan çalışır. Koruma olmadan ikinci çalıştırmada _ORIJ_DATAFRAME
-    # ZATEN YAMALI fonksiyonu yakalıyor ve _akilli_dataframe kendini
-    # çağırıyordu → RecursionError, sayfa hiç açılmıyordu.
-    # İşaret fonksiyonun ÜSTÜNDE tutulur: modül yeniden yüklense de kalır.
-    if getattr(_DG.dataframe, "_kayran_yamali", False):
-        raise RuntimeError("zaten yamalı")   # aşağıdaki except'e düşer, atlanır
-
-    _ORIJ_DATAFRAME = _DG.dataframe
-
-    # Sıralanabilir HTML tabloya çevirmeyi ENGELLEYEN durumlar
-    _OZEL_KOLON = ("link", "image", "progress", "bar_chart", "line_chart",
-                   "area_chart", "button", "checkbox", "selectbox", "multiselect",
-                   "json", "list", "markdown", "audio", "video")
-
-    def _html_uygun_mu(data, kw):
-        """Muhafazakâr uygunluk testi. Şüphe varsa native st.dataframe kalır."""
-        if kw.get("on_select") or kw.get("key") or kw.get("column_order"):
-            return None
-        try:
-            import pandas as _pd
-            # `_pd.io.formats.style.Styler` YAZILAMAZ — alt modül ayrıca içe
-            # aktarılmadan AttributeError verir ve try onu yutup TÜM tabloları
-            # native'e düşürür. Sınıf adıyla test etmek güvenli.
-            if type(data).__name__ == "Styler":
-                return None
-            if isinstance(data, _pd.DataFrame):
-                df = data
-            elif isinstance(data, (list, tuple)) and data and isinstance(data[0], dict):
-                df = _pd.DataFrame(list(data))
-            else:
-                return None
-            if len(df) == 0 or len(df) > 3000:
-                return None
-            for v in (kw.get("column_config") or {}).values():
-                t = ((v or {}).get("type_config") or {}).get("type")
-                if t in _OZEL_KOLON:
-                    return None
-            # Önce object: sayı sütununda where(..., None) NaN'ı None'a ÇEVİRMİYOR
-            # (pandas 2.3 / 3.0) ve boş hücrede "nan" yazıyordu (Happy Life "Fark").
-            return df.astype(object).where(_pd.notna(df), None).to_dict("records")
-        except Exception:
-            return None
-
-    def _akilli_dataframe(self, data=None, *a, **kw):
-        """st.dataframe / kolon.dataframe yerine geçer.
-
-        KISA ve salt-okur tablolar → sıralanabilir HTML (tasarım kontrolü bizde).
-        UZUN, seçimli ya da özel kolonlu tablolar → native st.dataframe.
-        Her iki yolda da sayı biçimleri otomatik tamamlanır.
-        """
-        try:
-            from shared.tasarim import otomatik_kolonlar, tablo_sirali
-            kayitlar = _html_uygun_mu(data, kw)
-            if kayitlar is not None:
-                # st.dataframe (modül düzeyi) kök sayfa kabına bağlı: kap olarak verilirse tablo
-                # "with kök:" ile SAYFAYA yazılıyor, pencere (st.dialog) içindeyken pencerede değil
-                # arkadaki sayfada çıkıyordu. Kök kapta kap=None → tablo bulunduğu yere çizilir.
-                tablo_sirali(kayitlar, kap=None if self is globals().get("_kok_dg") else self)
-                return None
-            from shared.tasarim import IZGARA_YENI
-            if IZGARA_YENI:          # ortak ızgara ayarı (shared/izgara.py)
-                from shared.izgara import dataframe_hazirla
-                dataframe_hazirla(data, kw)
-            else:
-                kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
-        except Exception:
-            pass          # biçimlendirme/çeviri başarısızsa tablo yine çizilsin
-        return _ORIJ_DATAFRAME(self, data, *a, **kw)
-
-    _akilli_dataframe._kayran_yamali = True      # ikinci kez yamalanmasın
-    _DG.dataframe = _akilli_dataframe
-
-    # Modül seviyesindeki st.dataframe'i yeniden bağla — ancak bağlı metotsa.
-    _kok_dg = getattr(st.dataframe, "__self__", None)
-    if _kok_dg is not None:
-        st.dataframe = _akilli_dataframe.__get__(_kok_dg, _DG)
-except Exception:
-    pass          # zaten yamalıysa ya da kurulamazsa: tablolar çalışmaya devam
+    from shared.dataframe_yamasi import kur as _dataframe_yamasi_kur
+    _dataframe_yamasi_kur()
+except Exception:  # noqa: BLE001
+    pass          # kurulamazsa tablolar native çalışmaya devam eder
 
 # Emoji → çizgi ikon (mesaj, pencere, sekme, açılır bölüm, düğme). Geri alma:
 # shared/tasarim.py → IKON_YENI = False. Modüller içe aktarılmadan ÖNCE kurulmalı.

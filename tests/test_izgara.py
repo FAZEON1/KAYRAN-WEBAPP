@@ -149,7 +149,8 @@ def test_uygulamaya_bagli_ve_geri_alinabilir():
     assert T.IZGARA_YENI is True
     a = (KOK / "app.py").read_text(encoding="utf-8")
     assert "from shared.izgara import kur as _izgara_kur" in a and "_izgara_kur(st)" in a
-    assert "dataframe_hazirla(data, kw)" in a
+    assert "_dataframe_yamasi_kur()" in a                       # st.dataframe yaması (Ekim 2026)
+    assert "dataframe_hazirla(data, kw)" in (KOK / "shared" / "dataframe_yamasi.py").read_text(encoding="utf-8")
     src = (KOK / "shared" / "izgara.py").read_text(encoding="utf-8")
     assert "if not IZGARA_YENI:" in src
 
