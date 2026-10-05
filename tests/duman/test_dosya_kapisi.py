@@ -179,3 +179,27 @@ def test_pencere_icindeki_tablo_pencerede_cizilir():
     assert pencere, "pencere yok"
     assert any(getattr(n, "type", None) == "bidi_component" for n in _alt_dugumler(pencere[0])), \
         "önizleme tablosu pencerenin içinde değil"
+
+
+def test_bellekte_eski_dataframe_yamasi_kalsa_da_tablo_pencerede():
+    """Canlı süreç kod güncellense de yeniden başlamıyor: ilk açılışın ESKİ st.dataframe yaması (tabloyu
+    kök kaba, yani pencerenin arkasındaki sayfaya çizen) bellekte kalıyor, app.py de "zaten yamalı"
+    deyip yenisini kurmuyordu. Stok kartı · Satışlar'daki Kanal / Firma Kırılımı böyle kayboldu."""
+    from streamlit.delta_generator import DeltaGenerator as DG
+    from shared import dataframe_yamasi as Y
+    orij = Y.asil_fonksiyon(DG.dataframe)
+    ns = {"_ORIJ_DATAFRAME": orij}
+    exec("def _akilli(self, data=None, *a, **kw):\n"
+         "    from shared.dataframe_yamasi import html_uygun_mu\n"
+         "    from shared.tasarim import tablo_sirali\n"
+         "    k = html_uygun_mu(data, kw)\n"
+         "    if k is not None:\n"
+         "        return tablo_sirali(k, kap=self)\n"
+         "    return _ORIJ_DATAFRAME(self, data, *a, **kw)\n", ns)
+    ns["_akilli"]._kayran_yamali = True
+    DG.dataframe = ns["_akilli"]
+    try:
+        test_pencere_icindeki_tablo_pencerede_cizilir()
+    finally:
+        DG.dataframe = orij
+        Y.kur()
