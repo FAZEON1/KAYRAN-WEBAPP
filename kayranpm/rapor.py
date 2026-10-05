@@ -267,6 +267,8 @@ TUM_URUN_KOLONLAR = [
     ("Kanal Dahil Stok", "Kanal dahil"),
     ("Paçal FOB ($)", "FOB ($)"),
     ("Son FOB ($)", "Son FOB ($)"),
+    ("Son Geliş", "Son Geliş"),
+    ("Alınan Adet", "Alınan Adet"),
     ("Maliyet %", "Maliyet %"),
     ("Paçal Maliyet ($)", "Final Cost ($)"),
     ("Son Maliyet ($)", "Son Maliyet ($)"),
@@ -300,7 +302,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
 
         para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Son Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
         pct_kol = {"Maliyet %", "Net Marj (%)"}
-        sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)"}
+        sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)", "Alınan Adet"}
 
         for ri, r in enumerate(rows, start=hdr_row + 1):
             stok_renk = r.get("_stok_renk", "yok")
@@ -323,7 +325,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 elif b in pct_kol:
                     c.number_format = '0.0"%"'
                     c.alignment = Alignment(horizontal="right")
-                elif b in ("G5F Depo", "Kanal Dahil Stok"):
+                elif b in ("G5F Depo", "Kanal Dahil Stok", "Alınan Adet"):
                     c.alignment = Alignment(horizontal="right")
                 if b == "Stok Yaşı (gün)":
                     c.alignment = Alignment(horizontal="center")
@@ -332,7 +334,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 if b == "Net Kâr ($)" and isinstance(val, (int, float)) and val < 0:
                     c.font = Font(size=10, color="C00000", bold=True)
 
-        for ci, w in enumerate([12, 38, 13, 11, 11, 9, 9, 11, 11, 9, 13, 13, 10, 10, 11], start=1):
+        for ci, w in enumerate([12, 38, 13, 11, 11, 9, 9, 11, 11, 12, 10, 9, 13, 13, 10, 10, 11], start=1):
             ws.column_dimensions[get_column_letter(ci)].width = w
         ws.freeze_panes = "A5"
         wb.save(kayit_yolu)

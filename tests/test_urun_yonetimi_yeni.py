@@ -240,3 +240,29 @@ def test_kanal_kart_adlari_bozulmaz():
     assert ">D-MARKET<" in kart_hucresi({"etiket": "D-MARKET", "deger": "5", "ozel_ad": True})
     m = _oku(MAIN)
     assert '"label": firma_gorunen_ad(firma), "ozel_ad": True' in m and "KANAL_AD" not in m
+
+
+def test_urun_satiri_son_gelis_ve_adet():
+    from kayranpm.urun_hesap import urun_satiri
+    r = urun_satiri({"sku": "A", "ithalat_dosya_sayisi": 2, "son_tarih": "2026-08-14T00:00:00",
+                     "toplam_alinan_adet": 150.0})
+    assert r["Son Geliş"] == "2026-08-14" and r["Alınan Adet"] == 150
+    r2 = urun_satiri({"sku": "B", "ithalat_dosya_sayisi": 0, "son_tarih": "2026-01-01", "toplam_alinan_adet": 5})
+    assert r2["Son Geliş"] is None and r2["Alınan Adet"] is None
+
+
+def test_tum_urunler_excel_gelis_adet_sutunu(tmp_path):
+    import pytest
+    pytest.importorskip("reportlab")           # rapor.py PDF için reportlab ister (birim test ortamında yok)
+    from openpyxl import load_workbook
+    from kayranpm.rapor import tum_urunler_excel
+    from kayranpm.urun_hesap import urun_satiri
+    rows = [urun_satiri({"sku": "A", "satis_fiyati": 120, "final_cost_price": 100, "fob_price": 80,
+                         "ithalat_dosya_sayisi": 1, "son_tarih": "2026-08-14", "toplam_alinan_adet": 150})]
+    yol = str(tmp_path / "t.xlsx")
+    assert tum_urunler_excel(rows, yol)[0]
+    ws = load_workbook(yol).active
+    bas = [c.value for c in ws[4]]
+    satir = [c.value for c in ws[5]]
+    assert satir[bas.index("Son Geliş")] == "2026-08-14" and satir[bas.index("Alınan Adet")] == 150
+    assert satir[bas.index("Paçal FOB ($)")] == 80 and satir[bas.index("Satış ($)")] == 120

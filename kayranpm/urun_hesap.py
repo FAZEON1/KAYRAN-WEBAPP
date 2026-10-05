@@ -105,6 +105,8 @@ def urun_satiri(u):
         "Maliyet %": maliyet_yuzde,
         "Final Cost ($)": fcp if ith_var else None,
         "Son Maliyet ($)": son_fcp if (ith_var and son_fcp) else None,
+        "Son Geliş": (str(u.get("son_tarih") or "")[:10] or None) if ith_var else None,
+        "Alınan Adet": (int(round(float(u.get("toplam_alinan_adet") or 0))) or None) if ith_var else None,
         "Satış ($)": satis,
         "Net Marj (%)": net_marj,
         "Net Kar ($)": net_kar,
