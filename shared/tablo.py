@@ -245,6 +245,13 @@ table{width:100%;border-collapse:separate;border-spacing:0}
 th{position:sticky;top:0;z-index:2;background:var(--k-yuzey2);color:var(--k-soluk);font-weight:500;font-size:12px;
   text-align:left;padding:9px 12px;border-bottom:1px solid var(--k-kenar2);white-space:nowrap;cursor:pointer;user-select:none}
 th.sag,td.sag{text-align:right}
+/* Geniş tablolar (Ekim 2026): sayı başlıkları sığmazsa 2 satıra sarılır, sütunu sayının kendisi belirler */
+th.sag{white-space:normal;vertical-align:bottom;line-height:1.3}
+td.sag{white-space:nowrap}
+/* Ürün adı kesilmez: en çok 2 satır */
+.adm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;
+  min-width:220px;max-width:360px;line-height:1.35}
+td.ad{white-space:normal}
 th:hover{color:var(--k-metin)}
 th .ok{display:inline-block;color:var(--k-mor2);font-size:11px}
 th .ok:not(:empty){margin:0 3px}
@@ -257,6 +264,20 @@ tbody tr.secili td:first-child{box-shadow:inset 2px 0 0 var(--k-mor)}
 th:first-child,td:first-child{position:sticky;left:0;z-index:1;background:var(--k-yuzey1)}
 th:first-child{z-index:3;background:var(--k-yuzey2)}
 tbody tr:hover td:first-child{background:var(--k-yuzey2)}
+/* Sade görünümde SKU gizli → yapışık sütun ürün adı olur */
+.yapis{position:sticky;left:0;z-index:1;background:var(--k-yuzey1)}
+th.yapis{z-index:3}
+tbody tr:hover td.yapis{background:var(--k-yuzey2)}
+/* Sağda gizli sütun varken kenar gölgesi: "devamı var" */
+.kap.devam{box-shadow:inset -22px 0 16px -16px rgba(0,0,0,.55)}
+/* Tam ekran: tablo pencerenin tamamında; Esc ya da düğme kapatır */
+.kt.tam{position:fixed;inset:12px;z-index:2147483000;background:var(--k-yuzey0);padding:12px;
+  border:1px solid var(--k-kenar2);border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;box-sizing:border-box}
+.kt.tam .kap{max-height:none !important;flex:1;min-height:0}
+.kt.tam .ust.yuzer{position:static;opacity:1}
+.kt.tam .ust.yuzer .say{display:inline}
+.kt.tam .btn.tamb{border-color:var(--k-mor);color:var(--k-mor2)}
 .et{color:var(--k-silik);font-size:11px;margin-left:6px}
 .neg{color:var(--k-kirmizi)}
 .cubuk{height:3px;border-radius:2px;background:var(--k-kenar2);margin-top:5px;margin-left:auto;max-width:140px}
@@ -305,6 +326,8 @@ tfoot td:first-child{left:0;z-index:3}
   td:not(:first-child)::before{content:attr(data-l);color:var(--k-silik);font-size:12px;font-weight:400;text-align:left}
   .cubuk{display:none}
   tfoot td{position:static}
+  .adm{min-width:0;max-width:none}
+  .btn.tamb{display:none}
 }
 @media (max-width:640px){.kt.kompakt th.sag,.kt.kompakt td.sag{width:auto}}
 /* Kompakt tablo (yan yana düzen): dar SÜTUNDA tablo kalır, TELEFONDA kart listesine döner */
@@ -340,6 +363,9 @@ export default function(component){
   const BIR = D.sade ? D.birlesik : null, SOLUK = new Set(D.sade ? (D.soluk || []) : []);
   const es = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const ARA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  const TAM = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+  // Sade görünümde ürün sütununun solunda yalnız gizli SKU varsa, yapışık sütun ürün adıdır
+  const YAPIS = (BIR && BIR.ad != null && [...Array(BIR.ad).keys()].every(j => j===BIR.sku)) ? BIR.ad : null;
   const INDIR = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>';
   kok.innerHTML =
     '<div class="ust' + (D.arama ? '' : ' yuzer') + '">' +
@@ -349,22 +375,24 @@ export default function(component){
         '</select>' : '') +
       (coklu ? '<span class="cs"></span>' : '') +
       '<span class="say"></span>' +
-      '<button class="btn" type="button" title="Excel için indir (CSV)" aria-label="İndir">'+INDIR+'</button>' +
+      '<button class="btn tamb" type="button" title="Tam ekran (Esc ile kapanır)" aria-label="Tam ekran">'+TAM+'</button>' +
+      '<button class="btn indir" type="button" title="Excel için indir (CSV)" aria-label="İndir">'+INDIR+'</button>' +
     '</div>' +
     '<div class="kap' + (D.secilebilir ? ' sec' : '') + '" style="max-height:' + (D.maks || 520) + 'px">' +
-      '<table><thead><tr>' + K.map((k,i)=>'<th data-i="'+i+'" class="'+(k.hiza==="sag"?"sag":"")+((BIR && i===BIR.sku)?" gizli":"")+'">'+(k.hiza==="sag" ? '<span class="ok"></span>'+es(k.ad) : es(k.ad)+'<span class="ok"></span>')+'</th>').join("") +
+      '<table><thead><tr>' + K.map((k,i)=>'<th data-i="'+i+'" class="'+(k.hiza==="sag"?"sag":"")+((BIR && i===BIR.sku)?" gizli":"")+(i===YAPIS?" yapis":"")+'">'+(k.hiza==="sag" ? '<span class="ok"></span>'+es(k.ad) : es(k.ad)+'<span class="ok"></span>')+'</th>').join("") +
       '</tr></thead><tbody></tbody><tfoot></tfoot></table>' +
     '</div>';
   const govde = kok.querySelector("tbody"), alt = kok.querySelector("tfoot"), say = kok.querySelector(".say");
   const hucre = (r,j,kok_) => {
     const k = K[j], m = r.h[j];
-    let ic = es(m);
+    let ic = (BIR && j===BIR.ad) ? '<span class="adm">'+es(m)+'</span>' : es(m);
     if (k.rozet && r.rz[j] && !D.sade) ic = '<span class="rz '+r.rz[j]+'">'+es(m)+'</span>';
     if (BIR && j===BIR.ad && r.h[BIR.sku]) ic += '<span class="alt">'+es(r.h[BIR.sku])+'</span>';
     if (j===0 && r.etiket) ic += '<span class="et">'+es(r.etiket)+'</span>';
     if (D.pay===j && r.pay !== undefined && !kok_) ic += '<div class="cubuk"><i style="width:'+Math.max(r.pay,1.5)+'%"></i></div>';
     const cls = [k.hiza==="sag"?"sag":"", (r.neg[j] && (!k.rozet || D.sade))?"neg":"",
-                 SOLUK.has(j)?"soluk":"", (BIR && j===BIR.sku)?"gizli":""].join(" ").trim();
+                 SOLUK.has(j)?"soluk":"", (BIR && j===BIR.sku)?"gizli":"", (BIR && j===BIR.ad)?"ad":"",
+                 j===YAPIS?"yapis":""].join(" ").trim();
     const ip = (j===0 && r.ipucu) ? r.ipucu : (!k.tip && String(m).length>28 ? m : "");
     return '<td data-l="'+es(k.ad)+'"'+(cls?' class="'+cls+'"':'')+(ip?' title="'+es(ip)+'"':'')+'>'+ic+'</td>';
   };
@@ -430,7 +458,19 @@ export default function(component){
     setStateValue("secili", durum.sec);
     setTriggerValue("tik", +tr.dataset.i);
   });
-  kok.querySelector(".btn").addEventListener("click", () => {
+  // Sağda gizli sütun var mı → kenar gölgesi (kaydırınca / boyut değişince güncellenir)
+  const kap = kok.querySelector(".kap");
+  const golge = () => kap.classList.toggle("devam", kap.scrollLeft + kap.clientWidth < kap.scrollWidth - 2);
+  kap.addEventListener("scroll", golge, {passive:true});
+  if (window.ResizeObserver){ if (durum.ro) durum.ro.disconnect(); durum.ro = new ResizeObserver(golge); durum.ro.observe(kap); }
+  // Tam ekran: aynı tablo pencerenin tamamında (sıralama / arama / seçim aynen çalışır)
+  const tamYap = ac => { durum.tam = ac; kok.classList.toggle("tam", ac);
+    const b = kok.querySelector(".tamb"); b.title = ac ? "Küçült (Esc)" : "Tam ekran (Esc ile kapanır)"; golge(); };
+  kok.querySelector(".tamb").addEventListener("click", () => tamYap(!durum.tam));
+  if (!durum.esc){ durum.esc = e => { if (e.key === "Escape" && durum.tam) tamYap(false); };
+                   document.addEventListener("keydown", durum.esc); }
+  if (durum.tam) tamYap(true);
+  kok.querySelector(".indir").addEventListener("click", () => {
     const hucreCsv = (r,j) => { const v=r.s[j]; const t = typeof v==="number" ? String(v).replace(".",",") : String(r.h[j]??"");
                                 return /[;"\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; };
     const satir = r => K.map((_,j)=>hucreCsv(r,j)).join(";");
@@ -440,6 +480,7 @@ export default function(component){
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
   });
   ciz();
+  golge();
 }
 """
 
