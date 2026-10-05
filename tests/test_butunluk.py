@@ -206,6 +206,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
+                            "rutin_ayari", "rutini_tetikle",
                             "baslik_talep_id", "pr_guncellemesi", "pr_mailleri"],
     "shared.yetki": ["yetki_tablosu", "moduller", "ozel_yetki", "ozel_sahipleri",
                      "salt_okur", "kullanici_kaydi", "kaydet"],

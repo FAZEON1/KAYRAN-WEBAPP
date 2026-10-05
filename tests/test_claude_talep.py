@@ -201,3 +201,62 @@ def test_talep_db_yalniz_talepler_ve_claude_alanlari(monkeypatch):
         D.yazilacak("yayinda")                                     # yayına alma iş akışının işi
     with pytest.raises(ValueError):
         D.ustlen("9; drop")
+
+
+# ── Rutini anında tetikleme (Ekim 2026) ──────────────────────────────────
+_URL = "https://api.anthropic.com/v1/claude_code/routines/trig_01ABC/fire"
+
+
+class _Yanit:
+    def __init__(self, kod):
+        self.status_code = kod
+
+
+def test_gonderince_rutin_hemen_tetiklenir():
+    """Eskiden talep saat başı çalışmayı bekliyordu (en çok 1 saat); şimdi gönderince hemen başlar."""
+    cagri = []
+
+    def post(url, **kw):
+        cagri.append((url, kw))
+        return _Yanit(200)
+
+    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "gizli-anahtar"}})
+    ok, msj = C.onaya_gonder(_Db({7: {"id": 7}}), 7, "ibrahim", "", SIMDI,
+                             tetikle=lambda tid: C.rutini_tetikle(tid, ayar, post=post))
+    assert ok and "şimdi başlıyor" in msj
+    url, kw = cagri[0]
+    assert url == _URL and kw["headers"]["Authorization"] == "Bearer gizli-anahtar"
+    assert kw["headers"]["anthropic-beta"] == C.RUTIN_BETA and kw["headers"]["anthropic-version"] == "2023-06-01"
+    assert kw["json"] == {"text": "Talep #7 Claude'a gönderildi."} and kw["timeout"]
+
+
+def test_tetikleme_tutmazsa_kayit_yine_yapilir_saatlik_yedek():
+    db = _Db({7: {"id": 7}})
+    for tetik in (lambda tid: (False, "HTTP 401"), lambda tid: 1 / 0, None):
+        ok, msj = C.onaya_gonder(db, 7, "ibrahim", "", SIMDI, tetikle=tetik)
+        assert ok and "Bir saat içinde başlar" in msj
+    assert len(db.guncel) == 3
+
+
+def test_kayit_tutmazsa_rutin_tetiklenmez():
+    cagri = []
+    ok, _ = C.onaya_gonder(_Db(hata=Exception("zaman aşımı")), 7, "ibrahim", "", SIMDI,
+                           tetikle=lambda tid: cagri.append(tid) or (True, ""))
+    assert not ok and cagri == []
+
+
+def test_rutin_ayari_ve_hata_metninde_anahtar_yok():
+    assert C.rutin_ayari({}) is None
+    assert C.rutin_ayari({"claude_rutin": {"url": _URL}}) is None                       # anahtar yok
+    assert C.rutin_ayari({"claude_rutin": {"url": "https://baska.site/fire", "token": "x"}}) is None
+    ayar = C.rutin_ayari({"claude_rutin": {"url": _URL, "token": "gizli-anahtar"}})
+    assert C.rutini_tetikle(7, None) == (False, "rutin ayarı yok")
+    for post in (lambda url, **kw: _Yanit(401), lambda url, **kw: (_ for _ in ()).throw(OSError("ağ"))):
+        ok, aciklama = C.rutini_tetikle(7, ayar, post=post)
+        assert not ok and "gizli-anahtar" not in aciklama
+
+
+def test_uygulama_gonder_dugmesi_rutini_tetikler():
+    a = (KOK / "app.py").read_text(encoding="utf-8")
+    g = a.split("def _claude_bolumu")[1].split("\ndef ")[0]
+    assert "C.rutini_tetikle(tid, C.rutin_ayari())" in g and "tetikle=_tetikle" in g
