@@ -293,6 +293,58 @@ def render():
 # ════════════════════════════════════════════════════════════════════
 # Detay penceresi
 # ════════════════════════════════════════════════════════════════════
+def _kapat_ve_ref_ac(kamp):
+    """Kampanyayı kapatır; Ref No Takip'e kampanyanın desteğiyle ref açar (kayranpm.kampanya_ref) ve
+    kapatan kişiye + İbrahim'e mail atar. Ref / mail tutmazsa kampanya yine kapanır. Ekran mesajı döner."""
+    kid = kamp["id"]
+    kapat_kampanya(kid)
+    try:
+        from kayranpm import kampanya_ref as KR
+        from kayranpm import ref_no as N
+        urunler = get_client().table("kampanya_urunler").select("*").eq("kampanya_id", kid).execute().data or []
+        sonuc = KR.kapaninca_ref_ac(kamp, urunler, N.get_firmalar(), N.get_refler, N.ref_ekle_no, tr_today())
+    except Exception as e:  # noqa: BLE001
+        from shared.hata_log import kaydet
+        kaydet("kampanya.kapanis_ref", e)
+        return "Kampanya kapatıldı ama ref açılamadı (hata kaydı tutuldu); Ref No Takip'te elle gir."
+    try:
+        from shared import eposta as E
+        alicilar = KR.mail_alicilari(st.session_state.get("aktif_kullanici", ""), E.adresler())
+        if alicilar:
+            konu, html = KR.mail_icerigi(kamp, sonuc, st.session_state.get("aktif_kullanici", ""))
+            E.arka_planda(alicilar, konu, html)
+    except Exception as e:  # noqa: BLE001 — mail gitmese de kapanış ve ref kayıtlı
+        from shared.hata_log import kaydet
+        kaydet("kampanya.kapanis_mail", e)
+    return KR.ekran_mesaji(sonuc)
+
+
+def _ref_onizleme(kamp):
+    """Kapatmadan önce: hangi ref açılacak, aynı ay elle girilmiş ref var mı."""
+    try:
+        from kayranpm import kampanya_ref as KR
+        from kayranpm import ref_no as N
+        o = KR.onizleme(kamp, get_kampanya_urunler(kamp["id"]) or [], N.get_firmalar(), N.get_refler)
+    except Exception:  # noqa: BLE001 — önizleme gösterilemese de kapatma çalışır
+        return
+    if o["mevcut"]:
+        st.caption("Bu kampanyanın ref'i zaten var (" + ", ".join(r.get("ref_no") or "" for r in o["mevcut"])
+                   + "); kapatınca yeni ref açılmaz.")
+        return
+    if o["sorun"]:
+        st.markdown(mesaj("uyari", o["sorun"]), unsafe_allow_html=True)
+        return
+    _ad = o["firma"].get("firma_adi") or ""
+    st.caption("Kapatınca Ref No Takip'e açılacak: " + " · ".join(
+        f"{_ad[:40]} {KR._para(p['tutar'], p['doviz'])} ({p['aciklama']})" for p in o["plan"])
+        + ". Kapatan kişiye ve İbrahim'e mail gider.")
+    if o["benzer"]:
+        st.markdown(mesaj("uyari", "Aynı firma ve ayda elle girilmiş ref var: "
+                                   + ", ".join(r.get("ref_no") or "" for r in o["benzer"][:5])
+                                   + ". Bu kampanyanın desteği orada da varsa P&L'de iki kez sayılır."),
+                    unsafe_allow_html=True)
+
+
 def _yenile(kid=None, mesaj_metni=None):
     """Kayıttan sonra: önbellek boşalır, (istenirse) pencere yeniden açılır."""
     B.yenile(mesaj_metni, ac=("kmp", kid) if kid else None)
@@ -406,8 +458,7 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
             if b2.button("Kaydet ve kampanyayı kapat", icon=":material/task_alt:", use_container_width=True,
                          key=f"kmp_kapat_hizli_{kid}"):
                 _kaydet_urunler(_degisen, _silinen)
-                kapat_kampanya(kid)
-                _yenile(kid, "Kampanya kapatıldı")
+                _yenile(kid, _kapat_ve_ref_ac(kamp))
     else:
         st.markdown('<div class="kmp-bos">Bu kampanyada henüz ürün yok. Aşağıdan ekle ya da '
                     'kampanyayı Excel şablonuyla oluştur.</div>', unsafe_allow_html=True)
@@ -499,9 +550,9 @@ def _sekme_islemler(kamp, o):
             st.markdown(mesaj("uyari", "Hiçbir ürüne satış adedi girilmemiş. Önce Ürünler sekmesinde "
                                        "adetleri gir; adetsiz kapatırsan kâr $0 görünür."), unsafe_allow_html=True)
         onay = st.checkbox("Adet girmeden kapat", key=f"kmp_kapat_onay_{kid}") if _adetsiz else True
+        _ref_onizleme(kamp)
         if st.button("Kampanyayı kapat", icon=":material/task_alt:", disabled=not onay, key=f"kmp_kapat_{kid}"):
-            kapat_kampanya(kid)
-            _yenile(kid, "Kampanya kapatıldı")
+            _yenile(kid, _kapat_ve_ref_ac(kamp))
     else:
         st.markdown("**Kampanyayı yeniden aç**")
         st.caption("Adet ya da fiyat düzeltmek için kampanyayı yeniden açabilirsin.")
