@@ -151,3 +151,23 @@ def test_ayni_kampanya_ikinci_kez_onaysiz_olusmaz():
     assert at.button(key=_anahtar("kmp_o_olustur")).disabled
     at.checkbox(key=_anahtar("kmp_o_ayni")).check().run()
     assert not at.button(key=_anahtar("kmp_o_olustur")).disabled
+
+
+def test_fatura_bazli_iade_dokumu_kapidan_yuklenir():
+    """Mikro fatura bazlı iade dökümü kapıda iade olarak açılır, kaydedilir; depo dosyadan gelir."""
+    from kapi_ornekleri import iade_fatura
+    from shared.dosya_tani import tani
+    import sahte_db
+    ad, veri = iade_fatura()
+    at = _kapida("iade_excel", ad=ad, veri=veri, adaylar=[a for a in tani(ad, veri) if a.get("tur")])
+    assert not _sorunlar(at), _sorunlar(at)
+    assert any("Fatura bazlı iade dökümü" in c.value for c in at.caption)
+    assert any("İADE DEPO 4 adet" in c.value and "MERKEZ DEPO 23 adet" in c.value for c in at.caption)
+    at.button(key=_anahtar(KAYDET["iade_excel"])).click().run()
+    assert not _sorunlar(at), _sorunlar(at)
+    # Aynı SKU + cari + depo toplanır: X24F165S iki faturada (2 + 1) → tek satır; SKU kart yazımıyla (FAZE2)
+    assert at.session_state["_kapi_sonuc"]["mesaj"].startswith("3 iade kaydedildi")
+    yaz = [r for r in sahte_db.TABLOLAR["iadeler"] if r.get("kaynak") == "excel" and r.get("tarih") == "2026-09-30"]
+    assert sorted((r["sku"], r["iade_adet"], r["depo"], r["donem_bas"]) for r in yaz) == sorted([
+        ("FAZE2", 23, "MERKEZ DEPO", "2026-07-24"), ("X24F165S", 3, "İADE DEPO", "2026-07-24"),
+        ("VG27AQ", 1, "İADE DEPO", "2026-07-24")])

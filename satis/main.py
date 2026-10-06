@@ -497,6 +497,78 @@ def iade_excel_oku(dosya):
     return out, ""
 
 
+def iade_fatura_satirlari(dosya):
+    """Mikro FATURA BAZLI iade dökümü (Fatura no · Tarih · Cari kodu · Cari adı · İ N · Stok/hizmet/…
+    kodu · ismi · Miktar · Stok DVZ · Ara toplam · Depo). Fatura başlık satırları (stok kodu boş),
+    "Toplam" ara satırları ve dipnotlar atlanır; her kalem tarihiyle döner.
+    Döner: (kalemler | None, hata, atlanan). None: dosya bu biçimde değil (özet rapor okuyucusu kullanılır).
+    Ara toplam (KDV hariç) iade net tutarıdır; Stok DVZ USD olmayan kalem alınmaz (atlanan)."""
+    from shared.dosya_tani import norm as _n
+    try:
+        df = pd.read_excel(dosya, sheet_name=0)
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}", []
+    try:
+        dosya.seek(0)
+    except Exception:  # noqa: BLE001
+        pass
+    kol = {_n(c): c for c in df.columns}
+    k_sku = next((c for n, c in kol.items() if n.startswith("stok") and n.endswith("kodu")), None)
+    k_ad = next((c for n, c in kol.items() if n.startswith("stok") and n.endswith("ismi")), None)
+    if not ({"fatura no", "tarih", "cari adi", "miktar", "i n"} <= set(kol) and k_sku):
+        return None, "", []
+    k = lambda ad: kol.get(ad)          # noqa: E731
+    from kayranpm.database import depo_kanonik
+    out, atlanan = [], []
+    for _, r in df.iterrows():
+        sku = str(r.get(k_sku) if pd.notna(r.get(k_sku)) else "").strip()
+        fno = str(r.get(k("fatura no")) if pd.notna(r.get(k("fatura no"))) else "").strip()
+        if not sku or not fno:
+            continue                                  # fatura başlığı, Toplam satırı, boşluk, dipnot
+        if _n(r.get(k("i n"))) != "iade":
+            atlanan.append(f"{fno} {sku}: iade değil ({r.get(k('i n'))})")
+            continue
+        try:
+            adet = int(round(float(r.get(k("miktar")) or 0)))
+        except (TypeError, ValueError):
+            adet = 0
+        if adet <= 0:
+            continue
+        dvz = str(r.get(k("stok dvz")) if k("stok dvz") and pd.notna(r.get(k("stok dvz"))) else "USD").strip().upper()
+        if dvz not in ("USD", "$"):
+            atlanan.append(f"{fno} {sku}: para birimi {dvz} (yalnız USD alınır)")
+            continue
+        tarih = _to_date(r.get(k("tarih")))
+        net = float(r.get(k("ara toplam")) or 0) if k("ara toplam") and pd.notna(r.get(k("ara toplam"))) else 0.0
+        cari = " ".join(str(r.get(x) if x and pd.notna(r.get(x)) else "").strip()
+                        for x in (k("cari kodu"), k("cari adi"))).strip()
+        _depo = r.get(k("depo")) if k("depo") else None
+        out.append({"tarih": tarih, "fatura_no": fno, "sku": sku,
+                    "urun_adi": str(r.get(k_ad) if k_ad and pd.notna(r.get(k_ad)) else "").strip(),
+                    "kanal": cari, "iade_adet": adet, "iade_net": round(net, 2),
+                    "depo": depo_kanonik(_depo) if _depo is not None and pd.notna(_depo) and str(_depo).strip() else None})
+    return out, "", atlanan
+
+
+def iade_fatura_ozetle(kalemler, bas=None, bit=None):
+    """Dönem [bas, bit] içindeki kalemleri SKU + cari + depo bazında toplar (özet rapor satırıyla aynı
+    yapı → iade_fark_plani / ice_aktar_iadeler). Döner: (satirlar, donem_disi_kalemler)."""
+    top, disarida = {}, []
+    for x in kalemler or []:
+        t = x.get("tarih")
+        if (bas and t and t < bas) or (bit and t and t > bit):
+            disarida.append(x)
+            continue
+        a = (x["sku"], x["kanal"], x.get("depo"))
+        s = top.setdefault(a, {"sku": x["sku"], "urun_adi": x.get("urun_adi") or "", "kanal": x["kanal"],
+                               "depo": x.get("depo"), "iade_adet": 0, "iade_brut": 0.0, "iade_iskonto": 0.0,
+                               "iade_masraf": 0.0, "iade_net": 0.0})
+        s["iade_adet"] += int(x["iade_adet"])
+        s["iade_net"] = round(s["iade_net"] + float(x.get("iade_net") or 0), 2)
+        s["iade_brut"] = s["iade_net"]
+    return list(top.values()), disarida
+
+
 def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
     """İade sayfasının Excel çıktısı (4 sayfa). Sayılar HAM (Excel'de toplanabilir).
     1 'SKU Net'     : Satış − İade = Net (iade_satis_net_ozet satırları)
@@ -934,10 +1006,29 @@ def kapi_mikro_fatura(dosya, kapi):
 
 def kapi_iade(dosya, kapi):
     """Mikro 'iadeli satışlar' raporu → toplu iade (yalnız iade kolonları alınır)."""
-    st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
-               "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
+    # İki biçim: Mikro "iadeli satışlar" özet raporu ya da FATURA BAZLI iade dökümü (her kalem tarihli)
+    _fat, _fat_hata, _fat_atla = kapi.onbellek("fatura", lambda: iade_fatura_satirlari(dosya))
+    _varsayilan = (date.today(), date.today())
+    if _fat is None:
+        st.caption("Rapordaki **İade** kolonları alınır; satış kolonlarına dokunulmaz. "
+                   "İadesi 0 olan satırlar atlanır. Cari başlıkları otomatik tanınır.")
+    elif _fat:
+        from satis.database import get_iade_partileri as _gip
+        _tmin = min(x["tarih"] for x in _fat if x.get("tarih"))
+        _tmax = max(x["tarih"] for x in _fat if x.get("tarih"))
+        _son = max((str(p.get("donem_bit") or p.get("tarih") or "")[:10] for p in (_gip() or [])), default="")
+        _bas0 = _tmin
+        if _son and _son >= _tmin.isoformat():
+            # Son parti bu dosyanın içinde bitiyor: aynı günler iki kez sayılmasın, ertesi günden başla
+            _bas0 = min(date.fromisoformat(_son) + timedelta(days=1), _tmax)
+        _varsayilan = (_bas0, _tmax)
+        st.caption(f"Fatura bazlı iade dökümü: **{len({x['fatura_no'] for x in _fat})} fatura · {len(_fat)} kalem**, "
+                   f"{_tmin:%d.%m.%Y} – {_tmax:%d.%m.%Y}. Her kalemin deposu dosyadan alınır."
+                   + (f" Son yüklenen iade partisi **{date.fromisoformat(_son):%d.%m.%Y}** tarihinde bitiyor; dönem "
+                      f"başlangıcı **{_bas0:%d.%m.%Y}** önerildi (o güne kadarki faturalar zaten yüklü)."
+                      if _bas0 != _tmin else ""))
     _ie_aralik = st.date_input("Bu rapor hangi dönemi kapsıyor? (başlangıç – bitiş)",
-                               value=(date.today(), date.today()), key=kapi.anahtar("iade_excel_tarih"),
+                               value=_varsayilan, key=kapi.anahtar("iade_excel_tarih"),
                                format="DD.MM.YYYY")
     if isinstance(_ie_aralik, (list, tuple)) and len(_ie_aralik) == 2:
         _ie_bas, _ie_bit = _ie_aralik
@@ -977,7 +1068,20 @@ def kapi_iade(dosya, kapi):
     elif str(_ie_bas) < "2024-01-01":
         st.warning(f"Dönem başlangıcı ({_ie_bas}) 2024 öncesi — emin misin?")
     try:
-        _ie_satir, _ie_hata = iade_excel_oku(dosya)
+        if _fat is not None:
+            _ie_satir, _ie_hata = [], _fat_hata
+            _ie_satir, _disari = iade_fatura_ozetle(_fat, _ie_bas, _ie_bit)
+            if _disari:
+                _gunler = sorted({x["tarih"] for x in _disari if x.get("tarih")})
+                st.info(f"Seçilen dönemin dışında kalan **{len(_disari)} kalem ({tr_sayi(sum(x['iade_adet'] for x in _disari))} "
+                        f"adet)** alınmadı" + (f" ({', '.join(f'{g:%d.%m.%Y}' for g in _gunler[:6])}"
+                                               + (" …" if len(_gunler) > 6 else "") + ")" if _gunler else "")
+                        + ". Bu faturalar da yüklensin istiyorsan dönemi genişlet.")
+            if _fat_atla:
+                st.warning(f"{len(_fat_atla)} kalem alınmadı: " + "; ".join(_fat_atla[:5])
+                           + (" …" if len(_fat_atla) > 5 else ""))
+        else:
+            _ie_satir, _ie_hata = iade_excel_oku(dosya)
     except Exception as e:
         _ie_satir, _ie_hata = [], f"{type(e).__name__}: {e}"
     if _ie_hata:
@@ -1009,7 +1113,13 @@ def kapi_iade(dosya, kapi):
         st.warning("**Excel manuel girişten az** — bu kalemler yazılmayacak, elle kontrol et:\n\n"
                    + "\n".join(f"- `{u['sku']}` / {u['kanal']}: manuel **{u['manuel']}**, "
                                f"Excel **{u['excel']}**" for u in _uyus))
-    _ie_depo = st.selectbox("Manuel eşleşmesi olmayan satırlar hangi depoya girsin?", IADE_DEPOLAR,
+    if _fat is not None:
+        _dep = {}
+        for x in _ie_satir:
+            _dep[x.get("depo") or "(depo yok)"] = _dep.get(x.get("depo") or "(depo yok)", 0) + x["iade_adet"]
+        st.caption("Depolar (dosyadan): " + " · ".join(f"{d} {tr_sayi(a)} adet" for d, a in sorted(_dep.items())))
+    _ie_depo = st.selectbox("Manuel eşleşmesi olmayan satırlar hangi depoya girsin?"
+                            if _fat is None else "Deposu boş satırlar hangi depoya girsin?", IADE_DEPOLAR,
                             key=kapi.anahtar("iade_excel_depo"),
                             help="Excel'de depo bilgisi yok. Manuel karşılığı olan satırlar "
                                  "kendi deposunu korur; kalanlar buraya yazılır.")

@@ -109,6 +109,15 @@ def _iade(s, *_):
     b = {h.lower() for h in _bas(_ilk(s))}
     if ({"Stok kodu".lower(), "SKU".lower()} & b) and ({"İade miktar".lower(), "İade miktarı".lower()} & b):
         return KESIN, "Stok kodu ve İade miktar sütunları"
+    # Mikro fatura bazlı iade dökümü (satis.main.iade_fatura_satirlari): Fatura no · İ N · Cari adı ·
+    # Stok/hizmet/… kodu · Miktar; "İ N" sütununda İade yazar (satış dökümünde Normal)
+    sy = _ilk(s)
+    bas = [norm(h) for h in (sy[0] if sy else [])]
+    if ({"fatura no", "tarih", "cari adi", "miktar", "i n"} <= set(bas)
+            and any(h.startswith("stok") and h.endswith("kodu") for h in bas)):
+        i = bas.index("i n")
+        if any(len(r) > i and norm(r[i]) == "iade" for r in sy[1:]):
+            return KESIN, "Mikro fatura bazlı iade dökümü (Fatura no, İ N = İade, Stok kodu, Miktar)"
     return None
 
 

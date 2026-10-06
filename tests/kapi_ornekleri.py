@@ -48,6 +48,34 @@ def iade():
         "İade iskonto": [None, 0], "İade masraf": [None, 0], "İade net": [None, 240.0]})})
 
 
+def iade_fatura():
+    """Mikro fatura bazlı iade dökümü: fatura başlık satırı (stok kodu boş), kalemler, Toplam satırı,
+    dipnot. Gerçek dosyanın (İADE RAPORU 24 TEMMUZ-30 EYLÜL) sütunları birebir."""
+    kol = ["Fatura no", "Belge No", "Cins", "İ N", "Tarih", "Cari kodu", "Cari adı",
+           "Stok/hizmet/masraf/ demirbaş/ithalat kodu", "Stok/hizmet/masraf/ demirbaş/ithalat ismi", "Miktar",
+           "Stok DVZ", "Ara toplam", "Vergi matrahı", "Toplam vergi", "Toplam", "Depo"]
+    E, V = ("120.02.005", "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ"), \
+        ("120.01.003", "VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI")
+    bos = [None] * 16
+
+    def fat(no, tarih, cari, kalemler):
+        top = sum(k[3] for k in kalemler)
+        r = [[no, no + "B", "Toptan fatura", "İade", tarih, *cari, None, None, None, None, top, top, 0, top,
+              kalemler[0][4]]]
+        r += [[no, no + "B", "Toptan fatura", "İade", tarih, *cari, k[0], k[1], k[2], "USD", k[3], k[3], 0, k[3],
+               k[4]] for k in kalemler]
+        r += [bos, [None] * 5 + ["Toplam"] + [None] * 3 + [sum(k[2] for k in kalemler), None, top, top, 0, top,
+                                                           None], bos]
+        return r
+    satirlar = (fat("ITF-1", "2026-07-24", E, [("Faze2", "Mouse Pad M", 23, 80.5, "Merkez depo")])
+                + fat("VTN-2", "2026-08-05", V, [(SKULAR[0], "Monitör A", 2, 240.0, "İADE DEPO "),
+                                                 (SKULAR[1], "Monitör B", 1, 250.0, "İADE DEPO ")])
+                + fat("VTN-3", "2026-09-30", V, [(SKULAR[0], "Monitör A", 1, 120.0, "İADE DEPO ")])
+                + [["Ortalama belge değeri  :", "571,68"] + [None] * 14, bos,
+                   [None] * 9 + [27, None, 690.5, 690.5, 0, 690.5, None]])
+    return "IADE_RAPORU_24_TEMMUZ-30_EYLUL.xlsx", _xlsx({"İADE RAPORU": pd.DataFrame(satirlar, columns=kol)})
+
+
 def ithalat():
     return "satin_alim.xlsx", _xlsx({"Rapor": pd.DataFrame({
         "İthalat takip no": ["T-77", "T-77"], "Sipariş tarihi": ["2026-09-01", "2026-09-01"],

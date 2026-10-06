@@ -1381,7 +1381,9 @@ def iade_fark_plani(satirlar, manuel_ozet):
         yeni["iade_adet"] = fark
         for _alan in ("iade_brut", "iade_iskonto", "iade_masraf", "iade_net"):
             yeni[_alan] = round(_f(s.get(_alan)) * oran, 2)
-        yeni["depo"] = m.get("depo")      # manuel eşleşme varsa deposunu miras al
+        # manuel eşleşme varsa onun deposu; yoksa satırın kendi deposu (fatura bazlı iade dökümünde
+        # her kalemin deposu yazar; eskiden burada siliniyor, hepsi tek seçilen depoya giriyordu)
+        yeni["depo"] = m.get("depo") or s.get("depo")
         yeni["_excel_adet"] = excel_adet
         yeni["_manuel_adet"] = manuel_adet
         plan.append(yeni)
