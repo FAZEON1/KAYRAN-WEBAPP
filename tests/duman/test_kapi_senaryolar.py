@@ -14,6 +14,7 @@ Yalnız gerçek Streamlit kuruluyken çalışır (CI: "Sayfa testi").
 """
 import io
 import os
+from datetime import date
 
 import pytest
 
@@ -165,9 +166,34 @@ def test_fatura_bazli_iade_dokumu_kapidan_yuklenir():
     assert any("İADE DEPO 4 adet" in c.value and "MERKEZ DEPO 23 adet" in c.value for c in at.caption)
     at.button(key=_anahtar(KAYDET["iade_excel"])).click().run()
     assert not _sorunlar(at), _sorunlar(at)
-    # Aynı SKU + cari + depo toplanır: X24F165S iki faturada (2 + 1) → tek satır; SKU kart yazımıyla (FAZE2)
-    assert at.session_state["_kapi_sonuc"]["mesaj"].startswith("3 iade kaydedildi")
-    yaz = [r for r in sahte_db.TABLOLAR["iadeler"] if r.get("kaynak") == "excel" and r.get("tarih") == "2026-09-30"]
-    assert sorted((r["sku"], r["iade_adet"], r["depo"], r["donem_bas"]) for r in yaz) == sorted([
-        ("FAZE2", 23, "MERKEZ DEPO", "2026-07-24"), ("X24F165S", 3, "İADE DEPO", "2026-07-24"),
-        ("VG27AQ", 1, "İADE DEPO", "2026-07-24")])
+    # Her iade kendi fatura tarihinde; SKU kart yazımıyla (FAZE2); parti dönem sonu (30.09) ile tanınır
+    assert at.session_state["_kapi_sonuc"]["mesaj"].startswith("4 iade kaydedildi")
+    yaz = [r for r in sahte_db.TABLOLAR["iadeler"] if r.get("kaynak") == "excel" and r.get("donem_bit") == "2026-09-30"]
+    assert sorted((r["tarih"], r["sku"], r["iade_adet"], r["depo"]) for r in yaz) == sorted([
+        ("2026-07-24", "FAZE2", 23, "MERKEZ DEPO"), ("2026-08-05", "X24F165S", 2, "İADE DEPO"),
+        ("2026-08-05", "VG27AQ", 1, "İADE DEPO"), ("2026-09-30", "X24F165S", 1, "İADE DEPO")])
+
+
+def test_fatura_bazli_iade_yeniden_yuklenince_eski_parti_degisir():
+    """Aynı dosya tekrar yüklenince: dönem önceki partinin ertesi gününden önerilir (değiştirilecek parti
+    sayılmaz), çakışma uyarısı çıkmaz, eski parti silinip yenisi yazılır."""
+    from kapi_ornekleri import iade_fatura
+    import sahte_db
+    ad, veri = iade_fatura()
+    eski = [{"id": 900, "tarih": "2026-07-24", "sku": "OLD", "iade_adet": 4, "donem_bas": "2026-07-01",
+             "donem_bit": "2026-07-24", "kaynak": "excel"},
+            {"id": 901, "tarih": "2026-09-30", "sku": "X24F165S", "iade_adet": 3, "donem_bas": "2026-07-25",
+             "donem_bit": "2026-09-30", "kaynak": "excel"}]
+    at = _kapida("iade_excel", ad=ad, veri=veri, adaylar=[{"tur": "iade_excel", "guven": "kesin", "gerekce": "t"}],
+                 tablolar={"iadeler": eski})
+    assert not _sorunlar(at), _sorunlar(at)
+    assert any("başlangıcı **25.07.2026** önerildi" in c.value for c in at.caption)
+    assert at.date_input(key=_anahtar("iade_excel_tarih")).value == (date(2026, 7, 25), date(2026, 9, 30))
+    assert not [e for e in at.error if "Dönem çakışması" in e.value]          # değiştirilecek parti hariç
+    at.button(key=_anahtar(KAYDET["iade_excel"])).click().run()
+    assert not _sorunlar(at), _sorunlar(at)
+    # Eski partinin silinmesi birim testte (test_iade_fatura): sahte veritabanı delete işlemez
+    yeni = [r for r in sahte_db.TABLOLAR["iadeler"] if r.get("donem_bas") == "2026-07-25"
+            and r.get("id") not in (900, 901)]
+    assert sorted((r["tarih"], r["sku"]) for r in yeni) == sorted([
+        ("2026-08-05", "X24F165S"), ("2026-08-05", "VG27AQ"), ("2026-09-30", "X24F165S")])
