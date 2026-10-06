@@ -75,7 +75,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
-               "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py"):
+               "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -198,7 +198,9 @@ KRITIK_FONKSIYONLAR = {
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
     "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
     "yonetim_hesap": ["gider_yili_bul"],
-    "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar"],
+    "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no"],
+    "kayranpm.kampanya_ref": ["ref_firmasi_sec", "ref_plani", "mevcut_refler", "elle_benzerler", "onizleme",
+                              "kapaninca_ref_ac", "ekran_mesaji", "mail_icerigi", "mail_alicilari"],
     "shared.dosya_kapisi": ["ac", "acik", "kapat", "ciz", "izinli", "izinli_turler", "gorunur",
                             "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani"],
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],

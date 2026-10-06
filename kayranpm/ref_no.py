@@ -787,6 +787,15 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
     ref'in ait olduğu dönem — verilirse aylik alanına {YYYY-AA: tutar} yazılır
     (Ay/Yıl kolonları dolar). NOT: donem_yil ref NUMARASINI etkilemez;
     numara her zaman içinde bulunulan yıldan (yil) üretilir."""
+    ok, sonuc = ref_ekle_no(firma_id, kod, aciklama, durum, tarih, yil, tutar, doviz, kategori,
+                            donem_ay, donem_yil)
+    return (True, f"✅ {sonuc} atandı.") if ok else (False, f"❌ Hata: {sonuc}")
+
+
+def ref_ekle_no(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD",
+                kategori="", donem_ay=None, donem_yil=None):
+    """ref_ekle'nin kendisi: döner (True, ref_no) ya da (False, hata metni). Kampanya kapanınca otomatik
+    ref (kayranpm.kampanya_ref) açılan numarayı mailde ve ekranda göstermek için bunu çağırır."""
     try:
         sb = get_client()
         sira = _sonraki_sira(firma_id)
@@ -813,9 +822,9 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
                 _kayit.pop(_k, None)
             sb.table("ref_kayitlari").insert(_kayit).execute()
         _cache_temizle()
-        return True, f"✅ {ref_no} atandı."
+        return True, ref_no
     except Exception as e:
-        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
 def _aylik_nesne(aylik):
