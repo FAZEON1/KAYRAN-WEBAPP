@@ -551,16 +551,18 @@ def iade_fatura_satirlari(dosya):
 
 
 def iade_fatura_ozetle(kalemler, bas=None, bit=None):
-    """Dönem [bas, bit] içindeki kalemleri SKU + cari + depo bazında toplar (özet rapor satırıyla aynı
-    yapı → iade_fark_plani / ice_aktar_iadeler). Döner: (satirlar, donem_disi_kalemler)."""
+    """Dönem [bas, bit] içindeki kalemleri fatura TARİHİ + SKU + cari + depo bazında toplar (özet rapor
+    satırıyla aynı yapı + 'tarih' → iade_fark_plani / ice_aktar_iadeler). Her iade kendi fatura
+    tarihine yazılır: ay filtresi ve aylık P&L doğru ayı görür. Döner: (satirlar, donem_disi_kalemler)."""
     top, disarida = {}, []
     for x in kalemler or []:
         t = x.get("tarih")
         if (bas and t and t < bas) or (bit and t and t > bit):
             disarida.append(x)
             continue
-        a = (x["sku"], x["kanal"], x.get("depo"))
-        s = top.setdefault(a, {"sku": x["sku"], "urun_adi": x.get("urun_adi") or "", "kanal": x["kanal"],
+        _t = t.isoformat() if t else None
+        a = (_t, x["sku"], x["kanal"], x.get("depo"))
+        s = top.setdefault(a, {"tarih": _t, "sku": x["sku"], "urun_adi": x.get("urun_adi") or "", "kanal": x["kanal"],
                                "depo": x.get("depo"), "iade_adet": 0, "iade_brut": 0.0, "iade_iskonto": 0.0,
                                "iade_masraf": 0.0, "iade_net": 0.0})
         s["iade_adet"] += int(x["iade_adet"])
@@ -1016,7 +1018,9 @@ def kapi_iade(dosya, kapi):
         from satis.database import get_iade_partileri as _gip
         _tmin = min(x["tarih"] for x in _fat if x.get("tarih"))
         _tmax = max(x["tarih"] for x in _fat if x.get("tarih"))
-        _son = max((str(p.get("donem_bit") or p.get("tarih") or "")[:10] for p in (_gip() or [])), default="")
+        # Dosyayla aynı günde biten parti, bu dosyanın yeniden yüklemesidir (değiştirilecek): sayılmaz
+        _son = max((t for t in (str(p.get("donem_bit") or p.get("tarih") or "")[:10] for p in (_gip() or []))
+                    if t and t < _tmax.isoformat()), default="")
         _bas0 = _tmin
         if _son and _son >= _tmin.isoformat():
             # Son parti bu dosyanın içinde bitiyor: aynı günler iki kez sayılmasın, ertesi günden başla
@@ -1037,8 +1041,12 @@ def kapi_iade(dosya, kapi):
     else:
         _ie_bas = _ie_bit = _ie_aralik
     _ie_tarih = _ie_bit
-    st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
-    _ie_temizle = st.checkbox("Aynı tarihli önceki iadeleri sil (tekrar yüklemede mükerrer olmasın)",
+    if _fat is not None:
+        st.caption("Her iade kendi **fatura tarihine** işlenir (ay filtresi ve aylık P&L doğru ayı görür); "
+                   f"yükleme dönem sonu {_ie_bit:%d.%m.%Y} ile tek parti olarak tanınır.")
+    else:
+        st.caption(f"İadeler dönem **bitiş** tarihine ({_ie_bit}) işlenir; özette bu dönemi seçince görünür.")
+    _ie_temizle = st.checkbox("Aynı dönem sonlu önceki yüklemeyi sil (tekrar yüklemede mükerrer olmasın)",
                               value=True, key=kapi.anahtar("iade_excel_temizle"))
     # DÖNEM KİLİDİ: mevcut partiler + çakışma kontrolü (5.199'luk kaza: aynı dönem iki kez sayıldı)
     from satis.database import get_iade_partileri, iade_cakisma_bul

@@ -1269,7 +1269,8 @@ def sil_iade(iade_id):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_iade_partileri():
-    """Mevcut iade partileri: her benzersiz 'tarih' bir partidir.
+    """Mevcut iade partileri: her yüklemenin DÖNEM SONU (donem_bit; eski kayıtlarda 'tarih') bir
+    partidir. Fatura bazlı yüklemede satırlar kendi fatura tarihlerindedir; parti yine tektir.
     Döner: [{tarih, satir, adet, donem_bas, donem_bit}] (donem kolonları yoksa None).
     Dönem kilidi/çakışma kontrolü bu listeyle yapılır."""
     try:
@@ -1286,7 +1287,7 @@ def get_iade_partileri():
     rows = [r for r in rows if str(r.get("kaynak") or "excel").strip().lower() != "manuel"]
     part = {}
     for r in rows:
-        t = str(r.get("tarih") or "")[:10]
+        t = str(r.get("donem_bit") or r.get("tarih") or "")[:10]
         if not t:
             continue
         p = part.setdefault(t, {"tarih": t, "satir": 0, "adet": 0,
@@ -1361,19 +1362,30 @@ def iade_fark_plani(satirlar, manuel_ozet):
     except Exception:
         _skn = lambda x: str(x or "").strip().upper()
     plan, uyusmazlik = [], []
+    _anh = lambda s: (_skn(str(s.get("sku") or "").strip()), str(s.get("kanal") or "").strip().upper())  # noqa: E731
+    # Fatura bazlı dökümde aynı SKU + cari birden çok satır (farklı fatura tarihleri) olabilir:
+    # manuel avans anahtarın TOPLAMINA karşı bir kez düşülür (satır satır düşülse iki kez düşerdi).
+    _toplam, _kalan, _bildirilen = {}, {}, set()
+    for s in (satirlar or []):
+        if str(s.get("sku") or "").strip() and _i(s.get("iade_adet")) > 0:
+            _toplam[_anh(s)] = _toplam.get(_anh(s), 0) + _i(s.get("iade_adet"))
     for s in (satirlar or []):
         sku = str(s.get("sku") or "").strip()
         excel_adet = _i(s.get("iade_adet"))
         if not sku or excel_adet <= 0:
             continue
-        anahtar = (_skn(sku), str(s.get("kanal") or "").strip().upper())
+        anahtar = _anh(s)
         m = manuel_ozet.get(anahtar) or {}
-        manuel_adet = _i(m.get("adet"))
-        fark = excel_adet - manuel_adet
-        if manuel_adet and fark < 0:
-            uyusmazlik.append({"sku": sku, "kanal": s.get("kanal") or "",
-                               "manuel": manuel_adet, "excel": excel_adet})
+        manuel_top = _i(m.get("adet"))
+        if manuel_top and _toplam[anahtar] < manuel_top:
+            if anahtar not in _bildirilen:
+                _bildirilen.add(anahtar)
+                uyusmazlik.append({"sku": sku, "kanal": s.get("kanal") or "",
+                                   "manuel": manuel_top, "excel": _toplam[anahtar]})
             continue                      # eksiye yazmıyoruz; kararı kullanıcı verir
+        manuel_adet = min(_kalan.setdefault(anahtar, manuel_top), excel_adet)
+        _kalan[anahtar] -= manuel_adet
+        fark = excel_adet - manuel_adet
         if fark == 0:
             continue                      # tamamı manuel girilmiş → atla
         oran = (fark / excel_adet) if excel_adet else 1.0
@@ -1390,10 +1402,27 @@ def iade_fark_plani(satirlar, manuel_ozet):
     return plan, uyusmazlik
 
 
+def _parti_satirlari(cli, donem_sonu, secim):
+    """Dönem sonu `donem_sonu` olan partinin satırları: donem_bit'i bu gün olanlar (fatura bazlı
+    yüklemede satırlar farklı tarihlerdedir) + eski, dönemsiz kayıtlarda tarihi bu gün olanlar."""
+    t = str(donem_sonu)[:10]
+    out = {}
+    try:
+        for r in _rows(cli.table("iadeler").select(secim).eq("donem_bit", t).execute()):
+            out[r.get("id") or id(r)] = r
+    except Exception:  # noqa: BLE001 — donem kolonları yoksa yalnız tarihle
+        pass
+    for r in _rows(cli.table("iadeler").select(secim).eq("tarih", t).execute()):
+        if str(r.get("donem_bit") or t)[:10] == t:      # başka bir partinin o günkü faturası değil
+            out[r.get("id") or id(r)] = r
+    return list(out.values())
+
+
 def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                       varsayilan_depo="MERKEZ DEPO"):
-    """satirlar: [{sku, urun_adi, kanal, iade_adet, ..., depo?}].
-    tarih: dönem tarihi (hepsine yazılır). temizle_once: aynı tarihli iadeleri önce siler.
+    """satirlar: [{sku, urun_adi, kanal, iade_adet, ..., depo?, tarih?}].
+    tarih: dönem SONU (parti kimliği, donem_bit). Satırın kendi 'tarih'i varsa (fatura bazlı döküm)
+    o yazılır, yoksa dönem sonu. temizle_once: aynı dönem sonlu önceki partiyi önce siler.
     varsayilan_depo: satırda depo yoksa kullanılır (Excel'de depo bilgisi olmaz).
     Satırlar kaynak='excel' yazılır; manuel avanslar iade_fark_plani ile önceden düşülür.
     Döner: {eklendi, atlandi}."""
@@ -1403,15 +1432,13 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
             try:  # MODEL B: silinecek iadelerin stok karşılığını geri çek
                 try:
                     # '*': Excel yüklemesi içindeyse silinen satırlar TAM hâliyle geri alma için saklanır
-                    _eski_i = _rows(cli.table("iadeler").select("*")
-                                    .eq("tarih", str(tarih)[:10]).execute())
+                    _eski_i = _parti_satirlari(cli, tarih, "*")
                     if _aktif_yukleme() is not None:
                         _aktif_yukleme().onceki("iadeler", _eski_i)
                 except Exception:
                     if _aktif_yukleme() is not None:
                         _aktif_yukleme().iptal("silinecek eski iadeler tam okunamadı")
-                    _eski_i = _rows(cli.table("iadeler").select("sku,iade_adet")
-                                    .eq("tarih", str(tarih)[:10]).execute())
+                    _eski_i = _parti_satirlari(cli, tarih, "id,sku,iade_adet,tarih,donem_bit")
                 _stok_uygula_depolu(
                     [(x.get("sku"), _i(x.get("iade_adet")), x.get("depo") or "MERKEZ DEPO")
                      for x in _eski_i], yon=-1)
@@ -1419,7 +1446,9 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                 if _aktif_yukleme() is not None:
                     _aktif_yukleme().iptal("silinecek eski iadeler okunamadı")
             with cop_kutusu_kapali():
-                cli.table("iadeler").delete().eq("tarih", str(tarih)[:10]).execute()
+                _sil = [x["id"] for x in _parti_satirlari(cli, tarih, "id,tarih,donem_bit") if x.get("id")]
+                for i in range(0, len(_sil), 200):
+                    cli.table("iadeler").delete().in_("id", _sil[i:i + 200]).execute()
         rows, atlandi = [], 0
         _harita = _kart_sku_haritasi()
         for s in satirlar:
@@ -1429,7 +1458,7 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                 atlandi += 1
                 continue
             rows.append({
-                "tarih": str(tarih)[:10], "kanal": s.get("kanal") or "",
+                "tarih": str(s.get("tarih") or tarih)[:10], "kanal": s.get("kanal") or "",
                 "sku": sku, "urun_adi": s.get("urun_adi") or "",
                 "iade_adet": adet, "iade_brut": _f(s.get("iade_brut")),
                 "iade_iskonto": _f(s.get("iade_iskonto")), "iade_masraf": _f(s.get("iade_masraf")),
