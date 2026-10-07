@@ -919,7 +919,8 @@ def kapi_mikro_fatura(dosya, kapi):
         st.info(f"Bu dosyadaki **{len(_cakisan)}** fatura zaten sistemde kayıtlı. "
                 "Varsayılan olarak atlanır (yalnızca yeni faturalar eklenir).")
     _pacal = get_pacal_map()
-    _maliyetsiz_sku = sorted({s["sku"] for s in _satirlar if float(_pacal.get(s["sku"], 0) or 0) <= 0})
+    from satis.database import pacal_bul
+    _maliyetsiz_sku = sorted({s["sku"] for s in _satirlar if pacal_bul(_pacal, s["sku"]) <= 0})
     if _maliyetsiz_sku:
         with st.expander(f"Paçal maliyeti olmayan {len(_maliyetsiz_sku)} ürün "
                          "(bu satırlarda maliyet 0 → net kâr = ciro)"):
@@ -1216,7 +1217,8 @@ def run():
             pacal = get_pacal_map()
             urunler = get_urunler()
             urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
-            tum_sku = sorted(set(urun_map.keys()) | set(pacal.keys()))
+            from satis.database import pacal_bul, satis_sku_listesi
+            tum_sku = satis_sku_listesi(urun_map, pacal)
             st.session_state.setdefault("satis_kalemler", [])
             kalemler = st.session_state.satis_kalemler
 
@@ -1315,7 +1317,7 @@ def run():
                                             placeholder="SKU / ürün ara")
                         _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
                         _urun = urun_map.get(_sku, {})
-                        _pacal = float(pacal.get(_sku, 0) or 0)
+                        _pacal = pacal_bul(pacal, _sku)      # harita kanonik anahtarlı (sku_anahtar)
                         _liste = _urun.get("satis_fiyat_listesi") or {}
                         if isinstance(_liste, dict):
                             _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)

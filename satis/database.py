@@ -283,6 +283,22 @@ def get_pacal_map():
         return {}
 
 
+def pacal_bul(pacal, sku):
+    """get_pacal_map sonucundan bir SKU'nun birim maliyeti. Harita KANONİK anahtarlıdır (sku_anahtar):
+    kartın yazımıyla ('Mio MiVue J30') doğrudan aranınca bulunmuyor, manuel satış maliyeti 0 yazıyordu."""
+    from shared.utils import sku_anahtar
+    return _f((pacal or {}).get(sku_anahtar(sku), 0))
+
+
+def satis_sku_listesi(urun_map, pacal):
+    """Satış ekranının SKU listesi: ürün kartları (kendi yazımlarıyla) + kartı olmayan maliyetli SKU'lar.
+    Kartın kanonik karşılığı ayrıca eklenmez ('Mio MiVue J30' ve 'MIO MIVUE J30' iki kez çıkıyordu)."""
+    from shared.utils import sku_anahtar
+    kartlar = set(urun_map or {})
+    kanonik = {sku_anahtar(k) for k in kartlar}
+    return sorted(kartlar | {k for k in (pacal or {}) if sku_anahtar(k) not in kanonik})
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _urunler_hepsi(secim):
     """urunler tablosunun TAMAMI, yalnız istenen sütunlar ('sku, alis_fiyati'), SKU sıralı.
