@@ -1852,7 +1852,7 @@ def _kisi_menusu():
                           use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
 
             if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Bilgi İşlem", icon=":material/engineering:", key="nav_bilgi_islem",
+                st.button("Bilgi İşlem · Serkan", icon=":material/engineering:", key="nav_bilgi_islem",
                           type="primary" if aktif_sayfa == "bilgi_islem" else "secondary",
                           use_container_width=True, on_click=_sayfaya_git, args=("bilgi_islem",))
 

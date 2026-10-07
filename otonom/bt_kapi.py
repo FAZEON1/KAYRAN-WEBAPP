@@ -15,8 +15,19 @@ import sys
 import urllib.parse
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared.bt_hesap import BASLIK_ONEKI, DAL_ONEKI, ETIKET, kapi_karari  # noqa: E402
+def _bt_hesap():
+    """shared/bt_hesap.py'yi DOSYADAN yükler: `shared` paketi içe aktarılırken Streamlit'i yükler,
+    GitHub Actions'ta Streamlit yok."""
+    import importlib.util
+    yol = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shared", "bt_hesap.py")
+    spec = importlib.util.spec_from_file_location("bt_hesap", yol)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+_H = _bt_hesap()
+BASLIK_ONEKI, DAL_ONEKI, ETIKET, kapi_karari = _H.BASLIK_ONEKI, _H.DAL_ONEKI, _H.ETIKET, _H.kapi_karari
 
 GEREKEN_KONTROLLER = ("pytest", "Sayfa testi")
 YORUM_ISARETI = "<!-- bt-kapi -->"

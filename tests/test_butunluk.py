@@ -185,7 +185,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "shared.bt_hesap": ["sure_ozeti", "karsilastir", "hata_ozeti", "kapi_karari", "gunluk_seri",
-                        "iyilestirme_satiri"],
+                        "iyilestirme_satiri", "karne"],
     "shared.bt_olcum": ["kaydet", "alt_sayfa", "son_olcumler", "raporlar"],
     "shared.bt_ekran": ["sayfa"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],

@@ -10,12 +10,14 @@ Betik yalnız şu tablolara dokunur — talimattaki sınır kodla da sabit:
 
 Kullanım (otonom/bt_gorevi.md):
   python otonom/bt_db.py ozet                       → JSON: sayfa süreleri (bu hafta / geçen hafta),
-                                                       yavaşlayanlar, hatalar, sonucu ölçülecek iyileştirmeler
+                                                       yavaşlayanlar, hatalar, sonucu ölçülecek iyileştirmeler,
+                                                       Serkan'ın önceki gecelerde yazdığı öğrendikleri
   python otonom/bt_db.py olcum <modul> [sayfa] [--gun N] [--once TARIH]
                                                     → o sayfanın süre özeti (sonuç ölçümü için)
   python otonom/bt_db.py rapor --tur T --baslik B [--ozet .] [--durum .] [--pr URL]
                                 [--olcut .] [--once N] [--sonra N] [--birim .]   → yeni kayıt id
   python otonom/bt_db.py guncelle <id> [--durum .] [--sonra N] [--pr URL] [--ozet .]
+  python otonom/bt_db.py karne [--gun 30]           → Serkan'ın karnesi (haftalık öz değerlendirme)
   python otonom/bt_db.py temizle                    → 60 günden eski ölçümleri siler
 """
 import json
@@ -25,11 +27,22 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared.bt_hesap import hata_ozeti, karsilastir, sure_ozeti  # noqa: E402
+def _bt_hesap():
+    """shared/bt_hesap.py'yi DOSYADAN yükler: `shared` paketi içe aktarılırken Streamlit'i yükler,
+    görev ve GitHub ortamında Streamlit yok."""
+    import importlib.util
+    yol = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shared", "bt_hesap.py")
+    spec = importlib.util.spec_from_file_location("bt_hesap", yol)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+_H = _bt_hesap()
+hata_ozeti, karsilastir, sure_ozeti, karne = _H.hata_ozeti, _H.karsilastir, _H.sure_ozeti, _H.karne
 
 TABLOLAR = {"bt_olcum", "bt_rapor", "hata_kayitlari"}
-TURLER = {"calisma", "iyilestirme", "oneri", "sonuc"}
+TURLER = {"calisma", "iyilestirme", "oneri", "sonuc", "ogrenme", "gelisim"}   # ogrenme: Serkan'ın notu; gelisim: kendi talimat/araç PR'ı
 DURUMLAR = {"acik", "otomatik_birlesti", "birlesti", "reddedildi", "oneri", "bilgi"}
 SAKLAMA_GUN = 60
 
@@ -73,13 +86,15 @@ def ozet(simdi=None):
     hatalar = _hepsi("hata_kayitlari", f"select=zaman,yer,mesaj,kritik&zaman=gte.{_iso(h1)}&order=zaman.desc")
     bekleyen = _istek("GET", "bt_rapor", "select=id,zaman,baslik,olcut,once,birim,pr_url,durum"
                                          "&tur=eq.iyilestirme&sonra=is.null&order=zaman.asc&limit=20")
+    ogren = _istek("GET", "bt_rapor", "select=zaman,baslik,ozet&tur=eq.ogrenme&order=zaman.desc&limit=30")
     en_yavas = sorted(({"modul": k[0], "sayfa": k[1], **v} for k, v in s_bu.items()),
                       key=lambda r: -r["p90"])[:10]
     return {"olcum_adedi": {"bu_hafta": len(bu), "gecen_hafta": len(gecen)},
             "en_yavas_bu_hafta": en_yavas,
             "yavaslayan": [r for r in karsilastir(s_gecen, s_bu) if r["fark_yuzde"] > 15][:10],
             "hatalar_bu_hafta": hata_ozeti(hatalar)[:15],
-            "sonucu_olculecek": bekleyen}
+            "sonucu_olculecek": bekleyen,
+            "ogrendiklerim": ogren}
 
 
 def olcum(modul, sayfa=None, gun=7, once=None):
@@ -154,6 +169,9 @@ def main(argv):
             raise ValueError(f"--durum {sorted(DURUMLAR)}")
         r = _istek("PATCH", "bt_rapor", f"id=eq.{rid}", yama)
         print("TAMAM" if r else "BULUNAMADI")
+    elif k == "karne":
+        r = _hepsi("bt_rapor", "select=zaman,tur,durum,once,sonra,birim&order=zaman.desc")
+        print(json.dumps(karne(r, _arg(args, "--gun", int) or 30), ensure_ascii=False))
     elif k == "temizle":
         sinir = datetime.now(timezone.utc) - timedelta(days=SAKLAMA_GUN)
         r = _istek("DELETE", "bt_olcum", f"zaman=lt.{_iso(sinir)}")

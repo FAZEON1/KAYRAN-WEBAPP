@@ -145,3 +145,24 @@ def iyilestirme_satiri(r):
             "durum": r.get("durum") or "", "olcut": r.get("olcut") or "", "once": once, "sonra": sonra,
             "birim": r.get("birim") or "", "fark_yuzde": fark, "pr_url": r.get("pr_url") or "",
             "ozet": r.get("ozet") or ""}
+
+
+def karne(raporlar, gun=30, simdi=None):
+    """Serkan'ın kendi karnesi (haftalık öz değerlendirme): son `gun` gündeki iyileştirmelerin
+    durumları, sonucu ölçülenlerin ortalama farkı (eksi = iyileşme), öneri ve öğrenme sayısı."""
+    from datetime import datetime, timedelta, timezone
+    simdi = simdi or datetime.now(timezone.utc)
+    sinir = (simdi - timedelta(days=gun)).isoformat()
+    son = [r for r in raporlar or [] if str(r.get("zaman") or "") >= sinir]
+    iyi = [r for r in son if r.get("tur") == "iyilestirme"]
+    durum = {}
+    for r in iyi:
+        durum[r.get("durum") or "—"] = durum.get(r.get("durum") or "—", 0) + 1
+    farklar = [x["fark_yuzde"] for x in (iyilestirme_satiri(r) for r in iyi) if x["fark_yuzde"] is not None]
+    return {"gun": gun, "iyilestirme": len(iyi), "durum": durum,
+            "olculen": len(farklar),
+            "ortalama_fark_yuzde": round(sum(farklar) / len(farklar), 1) if farklar else None,
+            "kotulesen": sum(1 for f in farklar if f > 0),
+            "oneri": sum(1 for r in son if r.get("tur") == "oneri"),
+            "ogrenme": sum(1 for r in son if r.get("tur") == "ogrenme"),
+            "calisma": sum(1 for r in son if r.get("tur") == "calisma")}
