@@ -96,8 +96,10 @@ def test_5_iade_tablolari_ham_sayi():
 
 def test_6_tarih_oklari_ve_pnl_sirasi():
     t = _oku("shared/tarih.py")
-    assert "on_click=_kaydir_tik" in t and "padding:0 !important" in t
-    assert "button[data-testid]" in t            # ipucu kabının içindeki düğme hedeflenir
+    assert "on_click=_kaydir_tik" in t
+    # Ok düğmelerinin stili ortak CSS'te (Ekim 2026 dönem grubu); ipucu kabının içindeki düğme hedeflenir
+    css = _oku("shared/tasarim.py")
+    assert ':is([class*="_geri"],[class*="_ileri"]) button' in css and "padding:0 !important" in css
     src = _oku("satis/main.py")
     i_bas = src.index('_ph1.markdown(_sb("🧾 Satış", "Kâr / P&L"')
     i_tar = src.index('_pbas, _pbit = hizli_tarih_araligi("p_pnl"')

@@ -180,6 +180,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
+    "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",

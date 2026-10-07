@@ -236,18 +236,20 @@ def render_satislar(hizli_tarih_araligi, kanallar):
                                    "help": "Tarihi boş/bozuk olduğu için listede görünmeyen kayıtları bul"}])
     if ey.get("sat_hayalet_btn"):
         _hayalet_dialog()
-    bas, bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
-    ham = get_satislar_yalin(bas, bit) or []
-    firmalar = sorted({(s.get("kanal") or "").strip() for s in ham if (s.get("kanal") or "").strip()})
-
-    c1, c2, c3 = st.columns([1.2, 3.0, 1.0], vertical_alignment="bottom")
-    with c1:
+    # Tek araç çubuğu (Ekim 2026, kullanıcı seçimi A): dönem · arama · görünüm · filtre tek kutuda,
+    # tek satırda. Eskiden dönem hapları ve arama/görünüm/filtre iki ayrı satırdı.
+    with st.container(key="k_cubuk_sat", horizontal=True, vertical_alignment="center", gap="small"):
+        bas, bit = hizli_tarih_araligi("l", varsayilan="Son 30 gün")
+        ham = get_satislar_yalin(bas, bit) or []
+        firmalar = sorted({(s.get("kanal") or "").strip() for s in ham if (s.get("kanal") or "").strip()})
+        aranan = st.text_input("Ara", key="sat_ara", placeholder="Sipariş no, firma, SKU ya da ürün ara",
+                               label_visibility="collapsed", icon=":material/search:")
         gor = st.segmented_control("Görünüm", ["Sipariş", "Kalem"], default="Sipariş", key="sat_gorunum",
-                                   label_visibility="collapsed") or "Sipariş"
-    aranan = c2.text_input("Ara", key="sat_ara", placeholder="Sipariş no, firma, SKU ya da ürün…",
-                           label_visibility="collapsed")
-    f = B.filtre(c3, [{"etiket": "Firma", "secenekler": firmalar, "key": "sat_f_firma",
-                       "format_func": lambda x: x if x == "Tümü" else firma_kisa_ad(x)}])
+                                   required=True, label_visibility="collapsed",
+                                   format_func=lambda x: (":material/view_agenda: " if x == "Sipariş"
+                                                          else ":material/table_rows: ") + x) or "Sipariş"
+        f = B.filtre(st, [{"etiket": "Firma", "secenekler": firmalar, "key": "sat_f_firma",
+                           "format_func": lambda x: x if x == "Tümü" else firma_kisa_ad(x)}], genislik="content")
     siparisler = H.ara(H.siparis_grupla(ham, satir_kar), aranan, f["sat_f_firma"])
     t = H.toplam(siparisler)
     kal = [{"etiket": "Sipariş", "deger": tr_sayi(t["siparis"]), "renk": "mor",

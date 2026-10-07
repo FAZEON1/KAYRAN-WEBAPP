@@ -1,30 +1,20 @@
-"""Pratik tarih aralığı seçici — tek satır, tek tık, kaydırmalı.
+"""Pratik tarih aralığı seçici — tek düğme, kaydırmalı.
 
 Kullanım (değişmedi):
     from shared.tarih import hizli_tarih_araligi
     bas, bit = hizli_tarih_araligi("p", varsayilan="Bu ay")
     satislar = get_satislar(bas, bit)
 
-TASARIM NOTU
-------------
-Eski sürüm st.radio'yu CSS ile hapa dönüştürüyordu:
-    [role="radiogroup"] label>div:first-child{display:none}
-Streamlit iç yapısını değiştirdiğinde bu seçici tutmaz oldu ve radyo
-daireleri görünmeye başladı — bileşen tasarlandığı gibi bile çizilmiyordu.
+TASARIM (Ekim 2026, "tek araç çubuğu" — kullanıcı seçimi A):
+    [‹] [takvim  Bu ay · 1–7 Eki  ▾] [›]
 
-Artık CSS numarası yok. Streamlit 1.40+ ile gelen YERLEŞİK st.pills
-kullanılıyor; sürüm yükseltmelerinde kırılmaz.
-
-Yerleşim (tek satır, ~36 px — eskisi iki sıra ve ~100 px idi):
-    [Bugün|Bu ay|Geçen ay|Son 30 g|Bu yıl]  [Diğer ▾]  [‹ ›]  01.01–29.07 · 210 gün
-
-• Sık kullanılan 5 önayar hap olarak — tek tık.
-• Kalanlar açılır listede — sıra taşması yok.
-• ‹ › okları seçili dönem TÜRÜNDE bir önceki/sonraki döneme atlar.
-  "Bu ay" + ‹ → geçen ay, tekrar ‹ → ondan öncesi. Eskiden geçen aydan
-  öncesine gitmek için Özel takvim açmak gerekiyordu.
-• Çözülmüş aralık her zaman yazılı — "Bu yıl"ın hangi tarihleri kapsadığı
-  eskiden hiç görünmüyordu.
+• Ortadaki düğme bir pencere açar: solda hazır dönemler, sağda takvim (özel aralık).
+  Eskiden 5 hap + "Diğer…" açılır listesi + ayrı tarih yazısı iki satıra yayılıyordu.
+• Düğmenin yazısı dönemi ve çözülmüş aralığı birlikte söyler ("Bu yıl · 1 Oca – 7 Eki").
+• ‹ › okları seçili dönem TÜRÜNDE bir önceki/sonraki döneme atlar:
+  "Bu ay" + ‹ → "Eylül 2026", tekrar ‹ → "Ağustos 2026".
+• Bulunduğu kabın içine çizilir; Satışlar'da arama ve filtreyle aynı çubuğun parçasıdır.
+  Görünüm CSS'i: shared/tasarim.py (st-key-k_donem_*).
 """
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import datetime as _dt
@@ -45,9 +35,6 @@ ONAYARLAR = [
     "Son 30 gün", "Son 90 gün", "Bu yıl", "Geçen yıl", "Tümü", "Özel…",
 ]
 
-# Hap olarak gösterilenler — tek sıraya sığacak kadar
-HIZLI = ["Bugün", "Bu ay", "Geçen ay", "Son 30 gün", "Bu yıl"]
-
 # Kaydırma adımı: (birim, miktar). None → o önayar kaydırılamaz.
 _KAYDIRMA = {
     "Bugün": ("gun", 1), "Dün": ("gun", 1),
@@ -56,9 +43,6 @@ _KAYDIRMA = {
     "Son 30 gün": ("gun", 30), "Son 90 gün": ("gun", 90),
     "Bu yıl": ("yil", 1), "Geçen yıl": ("yil", 1),
 }
-
-_KISA = {"Son 30 gün": "Son 30 g", "Son 90 gün": "Son 90 g"}
-
 
 def _aralik(secim, bugun, min_tarih):
     if secim == "Bugün":
@@ -129,10 +113,67 @@ def _tr(d):
     return d.strftime("%d.%m.%Y") if d else "—"
 
 
-def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, secenekler=None):
-    """Tek satır dönem seçici. Döner: (bas_date, bit_date) — her zaman geçerli.
+AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+AY_UZUN = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim",
+           "Kasım", "Aralık"]
 
-    secenekler: None ise tüm ONAYARLAR; liste verilirse yalnız onlar.
+
+def kisa_aralik(bas, bit, bugun=None):
+    """'1–7 Eki' · '8 Eyl – 7 Eki' · '7 Eki' · başka yıl: '1 Oca 2025 – 7 Eki 2026'."""
+    bugun = bugun or _bugun()
+    if bas.year != bit.year:
+        return f"{bas.day} {AY_KISA[bas.month - 1]} {bas.year} – {bit.day} {AY_KISA[bit.month - 1]} {bit.year}"
+    yil = "" if bit.year == bugun.year else f" {bit.year}"
+    if bas == bit:
+        return f"{bit.day} {AY_KISA[bit.month - 1]}{yil}"
+    if bas.month == bit.month:
+        return f"{bas.day}–{bit.day} {AY_KISA[bit.month - 1]}{yil}"
+    return f"{bas.day} {AY_KISA[bas.month - 1]} – {bit.day} {AY_KISA[bit.month - 1]}{yil}"
+
+
+def donem_coz(secim, kaydir, bugun, min_tarih=None, ozel=None):
+    """Seçim + kaydırma (+ özel aralık) → (bas, bit). Her zaman geçerli aralık döner."""
+    if secim == "Özel…":
+        if isinstance(ozel, (tuple, list)) and ozel:
+            bas, bit = ozel[0], ozel[-1]
+        else:
+            bas, bit = bugun.replace(day=1), bugun
+    else:
+        bas, bit = _kaydir(*_aralik(secim, bugun, min_tarih), secim, kaydir)
+    if min_tarih and bas < min_tarih:
+        bas = min_tarih
+    if bit < bas:
+        bas, bit = bit, bas
+    return bas, bit
+
+
+def donem_etiketi(secim, bas, bit, kaydir=0, bugun=None):
+    """Dönem düğmesinin yazısı: 'Bu ay · 1–7 Eki', kaydırılmış ay 'Eylül 2026', yıl '2025'."""
+    bugun = bugun or _bugun()
+    birim = (_KAYDIRMA.get(secim) or ("", 0))[0]
+    if secim == "Tümü":
+        return "Tümü"
+    if secim == "Özel…":
+        return kisa_aralik(bas, bit, bugun)
+    if kaydir:
+        if birim == "ay":
+            return f"{AY_UZUN[bas.month - 1]} {bas.year}"
+        if birim == "yil":
+            return str(bas.year)
+        return kisa_aralik(bas, bit, bugun)
+    return f"{secim} · {kisa_aralik(bas, bit, bugun)}"
+
+
+def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, secenekler=None):
+    """Dönem seçici (Ekim 2026, "tek araç çubuğu" tasarımı). Döner: (bas_date, bit_date) — her zaman geçerli.
+
+        [‹] [takvim  Bu ay · 1–7 Eki  ▾] [›]
+
+    Ortadaki düğme bir pencere açar: solda hazır dönemler, sağda takvim (özel aralık). Oklar seçili
+    dönem TÜRÜNDE bir önceki/sonraki döneme atlar ("Bu ay" ‹ → "Eylül 2026"). Bulunduğu kabın içine
+    çizilir: Satışlar'daki araç çubuğu gibi yatay bir kabın içinde çağrılırsa o çubuğun parçası olur.
+
+    secenekler: None ise tüm ONAYARLAR; liste verilirse yalnız onlar (+ takvimden özel aralık).
     """
     bugun = _bugun()
     _liste = [o for o in (secenekler or ONAYARLAR) if o in ONAYARLAR]
@@ -143,102 +184,55 @@ def hizli_tarih_araligi(key, varsayilan="Bu ay", min_tarih=None, etiket=None, se
 
     _sk = f"{key}_secim"       # geçerli önayar
     _kk = f"{key}_kaydir"      # dönem kaydırma sayacı
+    _ok = f"{key}_ozel"        # takvim (özel aralık) değeri
     if _sk not in st.session_state:
         st.session_state[_sk] = varsayilan
     if _kk not in st.session_state:
         st.session_state[_kk] = 0
 
-    _haplar = [o for o in HIZLI if o in _liste]
-    _digerler = [o for o in _liste if o not in _haplar]
+    def _guncel():
+        return donem_coz(st.session_state[_sk], st.session_state[_kk], bugun, min_tarih,
+                         st.session_state.get(_ok))
 
-    def _hap_degisti():
-        v = st.session_state.get(f"{key}_hap")
-        if v:
-            st.session_state[_sk] = v
-            st.session_state[_kk] = 0
-            st.session_state[f"{key}_dig"] = None
+    if _ok not in st.session_state:
+        st.session_state[_ok] = _guncel()
 
-    def _dig_degisti():
-        v = st.session_state.get(f"{key}_dig")
-        if v:
-            st.session_state[_sk] = v
-            st.session_state[_kk] = 0
-            st.session_state[f"{key}_hap"] = None
-
-    if etiket:
-        st.caption(etiket)
-
-    _secim = st.session_state[_sk]
-    _kaydirilabilir = _secim in _KAYDIRMA
-
-    c_hap, c_dig, c_geri, c_ileri, c_bilgi = st.columns(
-        [len(_haplar) * 0.62 or 1, 1.05, 0.24, 0.24, 1.6],
-        vertical_alignment="center")
-
-    with c_hap:
-        st.pills("Dönem", _haplar, selection_mode="single",
-                 default=(_secim if _secim in _haplar else None),
-                 format_func=lambda x: _KISA.get(x, x),
-                 key=f"{key}_hap", on_change=_hap_degisti,
-                 label_visibility="collapsed")
-    with c_dig:
-        st.selectbox("Diğer", _digerler,
-                     index=(_digerler.index(_secim) if _secim in _digerler else None),
-                     placeholder="Diğer…", key=f"{key}_dig",
-                     on_change=_dig_degisti, label_visibility="collapsed")
-    # ‹ › : dar sütunda ortak düğme stilinin iç boşluğu işareti dışarı itiyor,
-    # düğmeler BOŞ kutu görünüyordu. Bu iki düğmeye özel sıfır boşluk verilir.
-    # on_click: kaydırma tek çalışmada uygulanır (eskiden düğme → st.rerun()
-    # programı iki kez çalıştırıyordu).
-    # NOT: help= verildiği için düğme bir ipucu kabına (stTooltipIcon) sarılır;
-    # '.stButton > button' tutmaz, kabın içindeki düğme hedeflenir.
-    _ok_sec = ",".join(f'html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
-                       f'[data-testid="stElementContainer"].st-key-{key}_{y}.st-key-{key}_{y} '
-                       f'button[data-testid]' for y in ("geri", "ileri"))
-    st.markdown(f"<style>{_ok_sec}{{padding:0 !important;min-width:0 !important;"
-                f"font-size:18px !important;line-height:1 !important;}}</style>", unsafe_allow_html=True)
+    # Geri çağrılar betikten ÖNCE çalışır: takvim de seçilen döneme eşitlenir (tek çalışma).
+    def _sec(o):
+        st.session_state[_sk] = o
+        st.session_state[_kk] = 0
+        st.session_state[_ok] = _guncel()
 
     def _kaydir_tik(adim):
         st.session_state[_kk] = st.session_state.get(_kk, 0) + adim
+        st.session_state[_ok] = _guncel()
 
-    with c_geri:
-        st.button("‹", key=f"{key}_geri", use_container_width=True, disabled=not _kaydirilabilir,
-                  help="Bir önceki döneme", on_click=_kaydir_tik, args=(-1,))
-    with c_ileri:
-        st.button("›", key=f"{key}_ileri", use_container_width=True, disabled=not _kaydirilabilir,
-                  help="Bir sonraki döneme", on_click=_kaydir_tik, args=(1,))
+    def _ozel_degisti():
+        v = st.session_state.get(_ok)
+        if isinstance(v, (tuple, list)) and len(v) == 2:
+            st.session_state[_sk] = "Özel…"
+            st.session_state[_kk] = 0
 
-    _hesap = _aralik(_secim, bugun, min_tarih)
-
-    if _hesap is None:                      # Özel… → takvim
-        with c_bilgi:
-            st.caption("takvimden seç →")
-        _sec = st.date_input("Özel aralık", value=(bugun.replace(day=1), bugun),
-                             key=f"{key}_ozel", label_visibility="collapsed",
-                             format="DD.MM.YYYY")
-        if isinstance(_sec, (tuple, list)):
-            if len(_sec) == 2:
-                return _sec[0], _sec[1]
-            if len(_sec) == 1:
-                return _sec[0], _sec[0]
-            return bugun, bugun
-        return _sec, _sec
-
-    bas, bit = _kaydir(_hesap[0], _hesap[1], _secim, st.session_state[_kk])
-    if min_tarih and bas < min_tarih:
-        bas = min_tarih
-    if bit < bas:
-        bas, bit = bit, bas
-
-    with c_bilgi:
-        _gun = (bit - bas).days + 1
-        _ofs = st.session_state[_kk]
-        _ek = f" · {_ofs:+d} dönem" if _ofs else ""
-        st.markdown(
-            f'<div style="font-size:12px;font-variant-numeric:tabular-nums;'
-            f'color:var(--k-soluk);white-space:nowrap;padding-top:2px">'
-            f'{_tr(bas)} – {_tr(bit)}<br>'
-            f'<span style="color:var(--k-silik)">{tr_sayi(_gun)} gün{_ek}</span></div>',
-            unsafe_allow_html=True)
-
+    secim = st.session_state[_sk]
+    bas, bit = _guncel()
+    if etiket:
+        st.caption(etiket)
+    kaydirilabilir = secim in _KAYDIRMA
+    with st.container(key=f"k_donem_{key}", horizontal=True, gap=None, width="content",
+                      vertical_alignment="center"):
+        st.button("", key=f"{key}_geri", icon=":material/chevron_left:", help="Bir önceki dönem",
+                  disabled=not kaydirilabilir, on_click=_kaydir_tik, args=(-1,))
+        with st.popover(donem_etiketi(secim, bas, bit, st.session_state[_kk], bugun),
+                        icon=":material/calendar_month:", key=f"{key}_pencere"):
+            sol, sag = st.columns([1, 1.45], gap="medium")
+            with sol.container(key=f"k_donem_liste_{key}", gap=None):
+                for i, o in enumerate(o for o in _liste if o != "Özel…"):
+                    st.button(o, key=f"{key}_o{i}", width="stretch",
+                              type="primary" if o == secim else "tertiary", on_click=_sec, args=(o,))
+            with sag:
+                st.date_input("Özel aralık", key=_ok, format="DD.MM.YYYY", on_change=_ozel_degisti,
+                              min_value=min_tarih)
+                st.caption(f"{_tr(bas)} – {_tr(bit)} · {tr_sayi((bit - bas).days + 1)} gün")
+        st.button("", key=f"{key}_ileri", icon=":material/chevron_right:", help="Bir sonraki dönem",
+                  disabled=not kaydirilabilir, on_click=_kaydir_tik, args=(1,))
     return bas, bit

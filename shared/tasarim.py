@@ -1081,6 +1081,30 @@ section[data-testid="stMain"] {_OPT}:has(input:focus-visible){{outline:2px solid
 _TK = '[class*="st-key-tk_"]'
 _TKA = ':is([data-testid="stMain"],[data-testid="stDialog"])'
 ORTAK_BILESEN_CSS = f"""
+/* ── Dönem seçici (shared/tarih.py): [‹][takvim Dönem · aralık ▾][›] tek parça grup ── */
+html body :is([data-testid="stMain"],[data-testid="stDialog"]) [class*="st-key-k_donem_"][class*="st-key-k_donem_"][class*="st-key-k_donem_"]:not([class*="_liste_"]) :is(.stButton,.stPopover) button[data-testid][data-testid]{{
+  border:0 !important;border-radius:0 !important;box-shadow:none !important;background:transparent !important;
+  min-height:34px !important;height:34px !important;}}
+/* Dönem penceresi: solda sık liste (sola yaslı, ince), sağda takvim; pencere takvim sığacak kadar geniş */
+[data-testid="stPopoverBody"]:has([class*="st-key-k_donem_liste_"]){{min-width:min(470px,92vw) !important;}}
+html body [class*="st-key-k_donem_liste_"] button[data-testid]{{justify-content:flex-start !important;min-height:30px !important;
+  height:30px !important;padding:0 10px !important;border-radius:7px !important;font-weight:500 !important;}}
+html body [class*="st-key-k_donem_liste_"] button[data-testid] > div{{justify-content:flex-start !important;}}
+html body [class*="st-key-k_donem_"]:not([class*="_liste_"]){{border:1px solid var(--k-kenar2);border-radius:9px;overflow:hidden;
+  gap:0 !important;background:var(--k-yuzey1);flex-wrap:nowrap !important;}}
+html body [class*="st-key-k_donem_"]:not([class*="_liste_"]) button{{border:0 !important;border-radius:0 !important;box-shadow:none !important;
+  min-height:34px !important;height:34px !important;background:transparent !important;}}
+html body [class*="st-key-k_donem_"] button:hover:not(:disabled){{background:var(--k-yuzey2) !important;}}
+html body [class*="st-key-k_donem_"]:not([class*="_liste_"]) > div + div{{border-left:1px solid var(--k-kenar2);}}
+html body [class*="st-key-k_donem_"] :is([class*="_geri"],[class*="_ileri"]) button{{width:34px !important;
+  min-width:34px !important;padding:0 !important;color:var(--k-soluk) !important;}}
+html body [class*="st-key-k_donem_"] [data-testid="stPopover"] button{{padding:0 12px !important;font-weight:600 !important;}}
+/* ── Araç çubuğu (Satışlar): dönem · arama · görünüm · filtre tek kutuda ── */
+html body [class*="st-key-k_cubuk_"]{{background:var(--k-yuzey1);border:1px solid var(--k-kenar);border-radius:12px;
+  padding:6px !important;margin-bottom:6px;}}
+html body [class*="st-key-k_cubuk_"] [data-testid="stTextInput"] [data-baseweb="input"]{{background:transparent !important;
+  border-color:transparent !important;}}
+html body [class*="st-key-k_cubuk_"] [data-testid="stTextInput"] [data-baseweb="input"]:focus-within{{border-color:var(--k-kenar2) !important;}}
 {_TK}{{position:relative;gap:0 !important;}}
 {_TK} [data-testid="stMarkdownContainer"]{{margin-bottom:0 !important;}}
 {_TK} > [data-testid="stElementContainer"]:has(.stButton){{position:absolute !important;inset:0 !important;

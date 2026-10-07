@@ -57,5 +57,7 @@ def test_ipuclu_dugmeler_de_ortak_stili_alir():
     # Tıklanır kap kuralı ORTAK_BILESEN_CSS'te, DUGME_CSS'ten sonra basılır
     cek = src.split("def cekirdek_css", 1)[1]
     assert cek.index("DUGME_CSS") < cek.index("ORTAK_BILESEN_CSS")
-    t = _oku("shared/tarih.py")
-    assert '[data-testid="stElementContainer"].st-key-{key}_{y}.st-key-{key}_{y} ' in t
+    # Dönem seçicinin okları da help= taşır (ipucu kabına sarılı): kuralı alt öğe seçicisiyle,
+    # _D'den yüksek özgüllükle ORTAK_BILESEN_CSS'te (Ekim 2026: [‹][dönem ▾][›] tek parça grup)
+    assert ':is(.stButton,.stPopover) button[data-testid][data-testid]' in src
+    assert '[class*="st-key-k_donem_"][class*="st-key-k_donem_"][class*="st-key-k_donem_"]' in src
