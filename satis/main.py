@@ -686,7 +686,9 @@ def _sg_depo_sec(_anahtar, _kalemler=None):
     """Excel yüklemede çıkış deposu seçtirir. Depolar VERİDEN gelir.
 
     Stok uyarısı SATIR BAZLI depoyu dikkate alır: Excel'de DEPOTANIM dolu olan satırlar KENDİ
-    deposundan düşer, yalnız boş bırakılanlar buradaki varsayılanı kullanır."""
+    deposundan düşer, yalnız boş bırakılanlar buradaki varsayılanı kullanır.
+    Döner: (varsayılan_depo, tamamlama_planı) — plan: eksik stoğun hangi depolardan düşeceği
+    (satis.stok_tamamla; boşsa {})."""
     try:
         from kayranpm.database import get_satis_depolari
         _dl = get_satis_depolari()
@@ -715,25 +717,37 @@ def _sg_depo_sec(_anahtar, _kalemler=None):
         st.caption(f"{_kendi} satır Excel'deki kendi deposundan düşecek"
                    + (f", {_varsayilan} satır **{_sec}** deposundan."
                       if _varsayilan else " — bu seçim onlara uygulanmaz."))
+    # Eksik stok: düşeceği depoda yetmeyen ürünler, stoğu olan diğer depolarla birlikte gösterilir;
+    # kullanıcı kalanı hangi depolardan tamamlayacağını tek tek seçer (Ekim 2026, satis.stok_tamamla).
+    _plan = {}
     try:
         from kayranpm.database import get_sku_depo_dagilim
-        _uyarilar = []
-        for _depo, _skular in _ihtiyac.items():
-            _yetersiz = []
-            for _sk, _ad in list(_skular.items())[:60]:
-                _dag = get_sku_depo_dagilim(_sk) or {}
-                _mev = float(_dag.get(_depo, 0) or 0)
-                if _ad > _mev:
-                    _yetersiz.append(f"{_sk} ({_mev:.0f} var, {_ad:.0f} gerek)")
-            if _yetersiz:
-                _uyarilar.append("**{}**: {}{}".format(
-                    _depo, ", ".join(_yetersiz[:6]), " …" if len(_yetersiz) > 6 else ""))
-        if _uyarilar:
-            st.warning("Yetersiz stok — " + " · ".join(_uyarilar)
-                       + "\n\nKayıt yine de yapılabilir; stok eksiye düşer.")
+        from satis.stok_tamamla import eksikler as _eksikler, dagit as _dagit
+        _eks = _eksikler(_ihtiyac, get_sku_depo_dagilim)
     except Exception:
-        pass
-    return _sec
+        _eks = []
+    if _eks:
+        st.markdown(f"**Eksik stok · {len(_eks)} ürün** — kalanı hangi depodan tamamlayalım?")
+        st.caption("Her ürün için stoğu olan depolar adetleriyle listelenir. Seçtiğin sırayla, her depodaki "
+                   "mevcut kadar alınır. Seçmezsen kalan, satırın kendi deposundan düşer ve o depo eksiye iner.")
+        for _n, _e in enumerate(_eks):
+            _sec_d = dict(_e["secenekler"])
+            _etk = (f"**{_e['sku']}** · {_e['hedef']}: {tr_sayi(_e['mevcut'])} var, "
+                    f"{tr_sayi(_e['gerek'])} gerek → **{tr_sayi(_e['eksik'])} eksik**")
+            if not _e["secenekler"]:
+                st.markdown(_etk + " · başka depoda da stok yok")
+                continue
+            _secim = st.multiselect(_etk, [d for d, _ in _e["secenekler"]], key=f"{_anahtar}_tm{_n}",
+                                    format_func=lambda d, _m=_sec_d: f"{d} ({tr_sayi(_m.get(d, 0))} adet)",
+                                    placeholder="Depo seç (isteğe bağlı)")
+            if _secim:
+                _dag, _acik = _dagit(_e["eksik"], _secim, _e["secenekler"])
+                if _dag:
+                    _plan[(_e["hedef"], _e["sku"])] = _dag
+                st.caption("→ " + " + ".join(f"{d} {tr_sayi(a)}" for d, a in _dag)
+                           + (f" · {tr_sayi(_acik)} adet hâlâ eksik, {_e['hedef']} deposundan düşer"
+                              if _acik > 0 else " · eksik tamamlandı"))
+    return _sec, _plan
 
 
 _ATLANAN_ACIKLAMA = ("Atlanan satırlar zaten kayıtlı olduğu için eklenmedi. Gerçekten YENİ bir sipariş "
@@ -742,7 +756,7 @@ _ATLANAN_ACIKLAMA = ("Atlanan satırlar zaten kayıtlı olduğu için eklenmedi.
                      "No'daki TÜM kayıtları siler, dikkatli ol.")
 
 
-def _sg_kaydet(_gecerli, _temizle, _depo, _dosya_adi, kapi):
+def _sg_kaydet(_gecerli, _temizle, _depo, _dosya_adi, kapi, _plan=None):
     # Kalemde depo yoksa yükleme ekranındaki seçim yazılır — stok O DEPODAN düşer. Satırın KENDİ
     # deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu) ona dokunulmaz.
     if _depo:
@@ -750,7 +764,7 @@ def _sg_kaydet(_gecerli, _temizle, _depo, _dosya_adi, kapi):
     from shared.yukleme_gecmisi import Kayit as _YKayit
     _yk = _YKayit("siparis_excel", _dosya_adi)
     with _yk.stok():                 # stok hareketleri bu yüklemeyle işaretlenir
-        _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle)
+        _sonuc = ice_aktar_satislar(_gecerli, atla_mevcut=True, temizle_once=_temizle, tamamla=_plan or None)
     if _sonuc["hata"] and _sonuc["eklendi"] == 0:
         st.error(f"Kaydedilemedi: {_sonuc['hata']}")
         return
@@ -834,10 +848,10 @@ def kapi_siparis_vatan(dosya, kapi):
     _uzv = st.checkbox("Bu Sipariş No zaten kayıtlıysa ÜZERİNE YAZ (önce sil, sonra ekle)",
                        key=kapi.anahtar("sg_uz_vatan"),
                        help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
-    _depo_v = _sg_depo_sec(kapi.anahtar("sg_depo_vatan"), _gecerli)
+    _depo_v, _plan_v = _sg_depo_sec(kapi.anahtar("sg_depo_vatan"), _gecerli)
     if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
                  key=kapi.anahtar("sg_kaydet_vatan"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
-        _sg_kaydet(_gecerli, _uzv, _depo_v, dosya.name, kapi)
+        _sg_kaydet(_gecerli, _uzv, _depo_v, dosya.name, kapi, _plan_v)
 
 
 def kapi_siparis_itopya(dosya, kapi):
@@ -884,10 +898,10 @@ def kapi_siparis_itopya(dosya, kapi):
                       help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir. "
                            "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
     # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı kendi deposuna karşı kontrol etsin
-    _depo_k = _sg_depo_sec(kapi.anahtar("sg_depo"), _gecerli)
+    _depo_k, _plan_k = _sg_depo_sec(kapi.anahtar("sg_depo"), _gecerli)
     if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
                  key=kapi.anahtar("sg_kaydet"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
-        _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi)
+        _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi, _plan_k)
 
 
 def kapi_mikro_fatura(dosya, kapi):

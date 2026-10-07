@@ -5,6 +5,8 @@
 ile biçimliyordu — TL tahsilatlar dolar gibi görünüyordu ("$180.446,16").
 Şimdi: her giriş kendi para birimiyle; aya göre gruplu; tıklayınca ayrıntı
 ve ONAYLI geri alma (tahsilat_geri_al banka bakiyesini de düzeltir).
+Ekim 2026: girişi silmeden DÜZENLEME — tutar, banka, kimden, açıklama, tarih
+(tahsilat_guncelle; tutar/banka değişirse bakiyeler farkla düzelir).
 """
 import html as _h
 
@@ -12,7 +14,7 @@ import streamlit as st
 
 from shared import bilesen as B
 from shared.tasarim import kpi_serit, bos_durum, tr_sayi
-from .database import get_tahsilatlar, tahsilat_geri_al
+from .database import get_bankalar, get_tahsilatlar, tahsilat_bakiye_farki, tahsilat_geri_al, tahsilat_guncelle
 from .odeme_hesap import AY, GUN_KISA
 
 SEMBOL = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
@@ -143,9 +145,52 @@ def _gelen_dialog(t):
     if st.session_state.get("salt_okur"):
         return
     st.markdown("")
+    with st.expander("Düzenle", icon=":material/edit:"):
+        _duzenle(t)
     if B.onayli_sil("Evet, bu girişi geri al", key=f"gel_{t['id']}", dugme="Girişi geri al",
                     aciklama="Kayıt silinir ve tutar banka bakiyesinden düşülür (yanlış girilmiş tahsilat için)."):
         ok, msg = tahsilat_geri_al(t["id"])
+        if ok:
+            B.yenile(msg)
+        else:
+            st.error(msg)
+
+
+def _duzenle(t):
+    """Girişi silmeden düzeltir. Banka ya da tutar değişirse bakiye etkisi kaydetmeden önce yazılır."""
+    from datetime import date
+    tid = t["id"]
+    try:
+        bankalar = get_bankalar() or []
+    except Exception:  # noqa: BLE001
+        bankalar = []
+    if not bankalar:
+        st.caption("Banka listesi okunamadı; düzenleme şu an yapılamıyor.")
+        return
+    ids = [b["id"] for b in bankalar]
+    adlar = {b["id"]: f'{b.get("hesap_adi") or "—"} ({b.get("para_birimi") or "TL"})' for b in bankalar}
+    eski_bid = t.get("banka_id")
+    bid = st.selectbox("Banka", ids, index=ids.index(eski_bid) if eski_bid in ids else 0,
+                       format_func=lambda i: adlar.get(i, str(i)), key=f"gel_d_banka_{tid}")
+    pb = next((b.get("para_birimi") or "TL" for b in bankalar if b["id"] == bid), "TL")
+    c1, c2 = st.columns(2)
+    tutar = c1.number_input(f"Tutar ({pb})", min_value=0.0, step=0.01, format="%.2f",
+                            value=float(t.get("tutar") or 0), key=f"gel_d_tutar_{tid}")
+    try:
+        _t0 = date.fromisoformat(str(t.get("tarih") or "")[:10])
+    except ValueError:
+        _t0 = date.today()
+    tarih = c2.date_input("Tarih", value=_t0, format="DD.MM.YYYY", key=f"gel_d_tarih_{tid}")
+    kaynak = st.text_input("Kimden / Kaynak", value=t.get("kaynak") or "", key=f"gel_d_kaynak_{tid}")
+    aciklama = st.text_input("Açıklama", value=t.get("aciklama") or "", key=f"gel_d_acik_{tid}")
+    fark = tahsilat_bakiye_farki(eski_bid, t.get("tutar"), bid, tutar)
+    if fark:
+        _pb = {b["id"]: b.get("para_birimi") or "TL" for b in bankalar}
+        st.caption("Bakiye etkisi: " + " · ".join(
+            f'{adlar.get(k, k)} {"+" if v > 0 else "−"}{_para(abs(v), _pb.get(k))}' for k, v in fark.items()))
+    if st.button("Değişiklikleri kaydet", type="primary", icon=":material/save:", key=f"gel_d_kaydet_{tid}",
+                 disabled=tutar <= 0, use_container_width=True):
+        ok, msg = tahsilat_guncelle(tid, bid, tutar, kaynak.strip(), aciklama.strip(), tarih)
         if ok:
             B.yenile(msg)
         else:
