@@ -937,7 +937,7 @@ def _gecmis_ithalatlar():
                     # ayraç gösteremediği için okunurluk buradan sağlanıyor.
                     _ev = float(e_masraf[_slug] or 0)
                     _ec.markdown(
-                        f'<div style="padding-top:8px;font-size:13px;font-family:monospace;'
+                        f'<div style="padding-top:8px;font-size:13px;font-family:var(--k-mono);'
                         f'font-variant-numeric:tabular-nums;color:'
                         f'{trenk("metin") if _ev > 0 else trenk("silik")}">{_tam(_ev) if _ev > 0 else "—"}</div>',
                         unsafe_allow_html=True)

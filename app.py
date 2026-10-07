@@ -2496,7 +2496,7 @@ def anasayfa():
                     sg_html += (
                         f'<div style="background:{_bg};border:1px solid {_border};border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">'
                         f'<span style="color:var(--k-metin);font-size:13px;font-weight:600">{kisi_adi(_kg)}</span>'
-                        f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:JetBrains Mono,monospace;white-space:nowrap">{_zs}</span></div>'
+                        f'<span style="color:{_renk};font-size:11px;font-weight:600;font-family:var(--k-mono);white-space:nowrap">{_zs}</span></div>'
                     )
                 sg_html += '</div></div>'
                 st.markdown(sg_html, unsafe_allow_html=True)

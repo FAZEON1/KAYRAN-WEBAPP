@@ -794,7 +794,7 @@ def run():
      <div style="width:48px;height:48px;border-radius:13px;flex-shrink:0;background:linear-gradient(135deg,var(--k-mor),var(--k-mor));display:flex;align-items:center;justify-content:center;font-size:23px;box-shadow:0 6px 18px color-mix(in srgb,var(--k-mor) 35%,transparent);">📦</div>
      <div style="min-width:0;">
      <div style="font-family:'Manrope','Inter',sans-serif;font-size:19px;font-weight:700;color:var(--k-mavi);line-height:1.3;letter-spacing:-0.3px;">{secilen["urun_adi"]}</div>
-     <div style="margin-top:8px;"><span style="display:inline-block;padding:4px 12px;border-radius:7px;background:color-mix(in srgb,var(--k-mor) 15%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);color:var(--k-mor2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
+     <div style="margin-top:8px;"><span style="display:inline-block;padding:4px 12px;border-radius:7px;background:color-mix(in srgb,var(--k-mor) 15%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);color:var(--k-mor2);font-family:var(--k-mono);font-size:11px;font-weight:600;letter-spacing:0.5px;">{secilen["sku"]}</span></div>
      </div></div>""", unsafe_allow_html=True)
     
                 bizim_stok = secilen.get("bizim_stok", 0)
@@ -832,13 +832,13 @@ def run():
                     _chips = "".join(
                         f'<span style="display:inline-flex;gap:8px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
                         f'border:1px solid color-mix(in srgb,var(--k-soluk) 20%,transparent);border-radius:8px;padding:4px 12px;font-size:13px;color:var(--k-mavi)">'
-                        f'{_d} <b style="color:var(--k-mavi);font-family:monospace">{tr_sayi(_v)}</b></span>'
+                        f'{_d} <b style="color:var(--k-mavi);font-family:var(--k-mono)">{tr_sayi(_v)}</b></span>'
                         for _d, _v in _dk_satir)
                     st.markdown(
                         f'<div style="margin:0px 0 12px">'
                         f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
                         f'<span style="color:var(--k-metin);font-size:14px;font-weight:700">G5F depo kırılımı</span>'
-                        f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:monospace">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
+                        f'<span style="color:var(--k-yesil);font-size:14px;font-weight:700;font-family:var(--k-mono)">Tüm depolar: {tr_sayi(_dk_toplam)} adet</span></div>'
                         f'<div style="display:flex;flex-wrap:wrap;gap:8px">{_chips}</div>'
                         f'<div style="color:var(--k-silik);font-size:11px;margin-top:8px">Satılabilir '
                         f'(Merkez + Happy Life) = toplam stok: <b style="color:var(--k-mavi)">{tr_sayi(bizim_stok)}</b>'

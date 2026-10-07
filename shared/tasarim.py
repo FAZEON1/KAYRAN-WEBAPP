@@ -408,17 +408,23 @@ VARSAYILAN_YOGUNLUK = "sik"
 # ═══════════════════════════════════════════════════════════════════
 # 3. TİPOGRAFİ — 6 boyut. Değere göre küçülme YOK.
 #    Uzun sayı kartı taşırmasın diye sayi() kısaltır, font sabit kalır.
+#    Ekim 2026: ölçek bir-iki punto büyüdü (en küçük yazı 12px; gövde 14px; kart rakamı 22px)
+#    ve rakamlar artık kod fontu (JetBrains Mono) değil, metnin kendi fontu Inter —
+#    tabular-nums ile alt alta hizalı. Tablolar (k-tb, 13px) sık kaldı.
 # ═══════════════════════════════════════════════════════════════════
 FONT = {
-    "etiket":  "10px",   # KPI etiketi (uppercase, tracking .6)
-    "kucuk":   "11px",   # rozet · caption · zaman damgası
-    "govde":   "13px",   # liste satırı · tablo · gövde
-    "orta":    "14px",   # alt başlık · vurgulu satır
-    "baslik":  "16px",   # sayfa başlığı
-    "deger":   "19px",   # metrik değeri (mono, tabular)
-    "hero":    "23px",   # SADECE tek başına duran büyük rakam (Toplam Aktifler)
+    "etiket":  "12px",   # kart etiketi (cümle düzeni)
+    "kucuk":   "12px",   # rozet · caption · zaman damgası
+    "govde":   "14px",   # liste satırı · sekme · düğme · gövde
+    "orta":    "15px",   # alt başlık · vurgulu satır
+    "baslik":  "18px",   # sayfa başlığı
+    "deger":   "22px",   # metrik / kart değeri (tabular)
+    "hero":    "28px",   # SADECE tek başına duran büyük rakam (Toplam Aktifler)
 }
-MONO = "'JetBrains Mono', ui-monospace, monospace"
+# Rakam fontu. Adı tarihî (eskiden JetBrains Mono); artık Inter + hizalı rakam. Bütün ekranlar
+# bunu ya da CSS'te var(--k-mono)'yu kullanır — rakam fontu tek yerden değişir. Hizalı rakam
+# (tabular-nums) uygulamanın tamamına _streamlit_normalize'da verilir.
+MONO = "Inter, -apple-system, sans-serif"
 SANS = "Inter, -apple-system, sans-serif"
 
 # ── AĞIRLIK: 3 kademe. Programda 8 farklı ağırlık vardı (450/750/900 dahil)
@@ -522,8 +528,10 @@ def _streamlit_normalize():
     #  için ikinci bloğun içeriği ekrana düz metin olarak basılıyordu.)
     return f"""
 /* ── BAŞLIKLAR: markdown ### ve st.header hep aynı ölçekte ── */
-.stApp h1{{font-size:20px !important;}}
-.stApp h2{{font-size:18px !important;}}
+/* Rakamlar her yerde alt alta hizalı (Inter tabular-nums; eskiden ayrı kod fontuyla sağlanıyordu) */
+.stApp{{font-variant-numeric:tabular-nums;}}
+.stApp h1{{font-size:24px !important;}}
+.stApp h2{{font-size:20px !important;}}
 .stApp h3{{font-size:{F['baslik']} !important;}}
 .stApp h4,.stApp h5,.stApp h6{{font-size:{F['orta']} !important;}}
 .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6{{
@@ -538,7 +546,7 @@ div[data-testid="stMetric"]{{
   padding:{y['kart_pad']} !important;}}
 div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p,
 div[data-testid="stMetricLabel"] div{{
-  font-size:12px !important;color:var(--k-soluk) !important;
+  font-size:13px !important;color:var(--k-soluk) !important;
   font-weight:500 !important;letter-spacing:0 !important;
   text-transform:none !important;line-height:1.3 !important;
   white-space:normal !important;overflow:visible !important;}}
@@ -1148,7 +1156,7 @@ def cekirdek_css(yogunluk=None):
 .k-kart:hover{{background:var(--k-yuzey2);border-color:var(--k-kenar2);}}
 .k-kart[data-akscent]{{border-left-width:2px;border-radius:var(--k-r);}}
 
-.k-etiket{{font-size:12px;color:var(--k-soluk);
+.k-etiket{{font-size:13px;color:var(--k-soluk);
   font-weight:500;letter-spacing:0;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;line-height:1.2;}}
 .k-deger{{font-size:{F['deger']};color:var(--k-metin);font-weight:{AGIRLIK['baslik']};

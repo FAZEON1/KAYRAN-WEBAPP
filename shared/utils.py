@@ -411,7 +411,7 @@ class Zamanlayici:
                     f'border-radius:3px;overflow:hidden">'
                     f'<div style="height:6px;width:{_w}%;background:{_renk}"></div></div>'
                     f'<div style="width:74px;text-align:right;font-size:12px;'
-                    f'font-family:JetBrains Mono,monospace;color:{_renk}">'
+                    f'font-family:var(--k-mono);color:{_renk}">'
                     f'{tr_sayi(v)} ms</div>'
                     f'<div style="width:44px;text-align:right;font-size:11px;color:var(--k-silik)">'
                     f'%{tr_sayi(v / _top * 100)}</div></div>')
