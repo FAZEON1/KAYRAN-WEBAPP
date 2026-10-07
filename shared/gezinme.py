@@ -25,6 +25,7 @@ MODULLER = [
          ("Kanal ve ürün", "kanal_urun", "Kanal ve ürün", None),
          ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
          ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
+         ("Şirket belgeleri", "sirket_belgeleri", "Şirket belgeleri", None),
          ("Sistem", "sistem", "Sistem", None),
      ]},
     {"kod": "kayranacc", "ad": "Muhasebe", "ikon": "account_balance_wallet", "anahtar": "acc_sayfa",

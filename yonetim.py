@@ -698,6 +698,11 @@ def run():
             from yonetim_para import sayfa as _para_haritasi
             _para_haritasi()
             return
+        if _bolum == "Şirket belgeleri":
+            # Kâr verisi değil: Yönetim yetkisi olan herkes (yalnız yöneticiler) görür
+            from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
+            _sirket_belgeleri()
+            return
         if not kar_gorunur():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
@@ -807,6 +812,7 @@ YEDEK_TABLOLAR = [
     "prim_gecmis",
     # Ortak
     "siparis_onerileri", "talepler", "gorevler", "bildirimler",
+    "sirket_belgeleri",    # şirket belgelerinin bilgileri (dosyaların kendisi Supabase dosya alanında)
     "sistem_ayarlari", "pm_ayarlar", "kullanici_yetkileri", "kullanici_tercih", "gunluk_giris",
 ]
 # Bilerek HARİÇ: şifre, oturum, geçici önbellek, loglar; v_ / mv_ ile başlayanlar

@@ -1,6 +1,7 @@
 """Şirket (gönderen) künyesi — yazdırılan belgelerin başlığında kullanılır.
 
-⚠️ BURAYI BİR KEZ DOLDURUN. Değerler Streamlit Secrets'tan da ezilebilir:
+Künye Yönetim › Şirket belgeleri ekranından girilir (Ekim 2026). Değerler Streamlit Secrets'tan da
+verilebilir (ekranda kaydedilen kazanır):
 
     [sirket]
     unvan = "KAYRAN ... A.Ş."
@@ -22,14 +23,18 @@ _VARSAYILAN = {
 
 
 def sirket_bilgi():
-    """Secrets ile birleştirilmiş şirket künyesi (dict)."""
-    bilgi = dict(_VARSAYILAN)
+    """Şirket künyesi (dict). Öncelik (Ekim 2026): Yönetim › Şirket belgeleri'nde kaydedilen >
+    secrets > yukarıdaki varsayılan. Boş alan bir alttakini ezmez."""
+    from shared.sirket_belge_hesap import kunye_birlestir
+    _s, _k = {}, {}
     try:
         import streamlit as st
-        _s = st.secrets.get("sirket", {}) or {}
-        for k in bilgi:
-            if str(_s.get(k, "") or "").strip():
-                bilgi[k] = str(_s[k]).strip()
+        _s = {k: v for k, v in (st.secrets.get("sirket", {}) or {}).items() if k in _VARSAYILAN}
     except Exception:
         pass
-    return bilgi
+    try:
+        from shared.sirket_belge import kunye_oku
+        _k = kunye_oku()
+    except Exception:
+        pass
+    return kunye_birlestir(_VARSAYILAN, _s, _k)
