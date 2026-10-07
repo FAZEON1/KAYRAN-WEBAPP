@@ -148,3 +148,15 @@ def test_baglantilar_yerinde():
     assert f"`{H.BASLIK_ONEKI} <kısa konu>`" in gorev and f"`{H.ETIKET}`" in gorev
     assert "bilgi işlem elemanı" in (KOK / "CLAUDE.md").read_text(encoding="utf-8")
     assert os.path.exists(KOK / "veritabani/23_bilgi_islem.sql")
+
+
+@pytest.mark.parametrize("betik", ["otonom/bt_db.py", "otonom/bt_kapi.py"])
+def test_betikler_streamlitsiz_yuklenir(betik):
+    """Gece görevi ve GitHub kapısı Streamlit'siz ortamda çalışır; `shared` paketi içe aktarılınca
+    Streamlit yüklendiği için betikler bt_hesap'ı dosyadan yüklemeli (ilk kurulumda bu yüzden açılmıyordu)."""
+    import subprocess
+    kod = ("import sys, importlib.util as u; sys.modules['streamlit'] = None; "
+           f"s = u.spec_from_file_location('b', {str(KOK / betik)!r}); m = u.module_from_spec(s); "
+           "s.loader.exec_module(m); print('TAMAM')")
+    r = subprocess.run([sys.executable, "-c", kod], capture_output=True, text=True, timeout=60)
+    assert r.stdout.strip() == "TAMAM", r.stderr[-800:]

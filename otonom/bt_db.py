@@ -25,8 +25,19 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared.bt_hesap import hata_ozeti, karsilastir, sure_ozeti  # noqa: E402
+def _bt_hesap():
+    """shared/bt_hesap.py'yi DOSYADAN yükler: `shared` paketi içe aktarılırken Streamlit'i yükler,
+    görev ve GitHub ortamında Streamlit yok."""
+    import importlib.util
+    yol = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shared", "bt_hesap.py")
+    spec = importlib.util.spec_from_file_location("bt_hesap", yol)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+_H = _bt_hesap()
+hata_ozeti, karsilastir, sure_ozeti = _H.hata_ozeti, _H.karsilastir, _H.sure_ozeti
 
 TABLOLAR = {"bt_olcum", "bt_rapor", "hata_kayitlari"}
 TURLER = {"calisma", "iyilestirme", "oneri", "sonuc"}
