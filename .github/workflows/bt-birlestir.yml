@@ -1,0 +1,47 @@
+name: Bilgi işlem otomatik birleştirme
+
+# Bilgi işlem elemanının (gece çalışan Claude görevi) açtığı KÜÇÜK düzeltme PR'larını, testler
+# yeşilse ve kurallara uyuyorsa birleştirir (kullanıcı kararı, Ekim 2026). Kurallar:
+# shared/bt_hesap.kapi_karari — yalnız 'claude/' dalı + 'Bilgi işlem:' başlığı + 'bt-otomatik' etiketi, en fazla 6 dosya /
+# 200 satır, para/stok/kâr/yetki/veritabanı/otonom/iş akışı dosyalarına dokunmayan. Uymayan PR
+# kullanıcıya kalır; PR'a nedenini yazan bir yorum bırakılır.
+
+on:
+  workflow_run:
+    workflows: ["Testler"]
+    types: [completed]
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: bt-birlestir
+  cancel-in-progress: false
+
+jobs:
+  kapi:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+       && startsWith(github.event.workflow_run.head_branch, 'claude/'))
+      || (github.event_name == 'pull_request' && github.event.label.name == 'bt-otomatik'
+       && startsWith(github.event.pull_request.head.ref, 'claude/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main            # kapı kodu her zaman main'den: PR kendi kapısını değiştiremez
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Kapı
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DAL: ${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python otonom/bt_kapi.py

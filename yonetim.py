@@ -818,6 +818,7 @@ YEDEK_HARIC = [
     "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
     "yuklemeler",          # yükleme geçmişi + geri alma kopyaları; asıl tablolar zaten yedekte
     "soru_kayitlari",      # soru kutusuna sorulan sorular (kalıp geliştirme için), iş verisi değil
+    "bt_olcum", "bt_rapor",   # bilgi işlem: sayfa süresi ölçümü ve görev raporu (kayıt, iş verisi değil)
     "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
 ]
 
