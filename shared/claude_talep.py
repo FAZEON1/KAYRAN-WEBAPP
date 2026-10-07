@@ -108,6 +108,9 @@ RUTIN_BETA = "experimental-cc-routine-2026-04-01"
 _RUTIN_ADRES = re.compile(r"^https://api\.anthropic\.com/v1/claude_code/routines/[A-Za-z0-9_]+/fire$")
 
 
+DIGER_RUTINLER = {"gumruk_rutin"}     # aynı biçimde başka rutinlerin secrets bölümleri (asistanlar)
+
+
 def _kucuk_anahtarli(d):
     try:
         return {str(k).strip().lower(): v for k, v in dict(d).items()}
@@ -115,11 +118,11 @@ def _kucuk_anahtarli(d):
         return {}
 
 
-def rutin_ayari_coz(secrets=None):
+def rutin_ayari_coz(secrets=None, bolum="claude_rutin"):
     """Döner ({'url', 'token'} | None, sorun). sorun: ayar okunamadıysa kullanıcıya gösterilecek kısa
     sebep (anahtarın kendisi asla geçmez); ayar hiç yoksa "rutin ayarı yok".
     Küçük yazım farkları tolere edilir: bölüm / alan adında büyük harf, anahtarın başında "Bearer ",
-    adres yerine yalnız rutin kimliği (trig_...)."""
+    adres yerine yalnız rutin kimliği (trig_...). bolum: secrets bölümü (gümrük danışmanı: "gumruk_rutin")."""
     try:
         if secrets is None:
             import streamlit as st
@@ -127,13 +130,13 @@ def rutin_ayari_coz(secrets=None):
         ust = _kucuk_anahtarli(secrets)
     except Exception:  # noqa: BLE001 — secrets dosyası yok
         return None, "rutin ayarı yok"
-    if "claude_rutin" not in ust:
-        if any("rutin" in k for k in ust):
+    if bolum not in ust:
+        if bolum == "claude_rutin" and any("rutin" in k and k not in DIGER_RUTINLER for k in ust):
             return None, "Secrets'ta bölüm adı tam olarak [claude_rutin] olmalı"
         return None, "rutin ayarı yok"
-    b = _kucuk_anahtarli(ust["claude_rutin"])
+    b = _kucuk_anahtarli(ust[bolum])
     if not b:
-        return None, "[claude_rutin] bölümü boş ya da biçimi bozuk (url = \"...\" ve token = \"...\" satırları)"
+        return None, f"[{bolum}] bölümü boş ya da biçimi bozuk (url = \"...\" ve token = \"...\" satırları)"
     url = str(b.get("url") or "").strip().strip('"').strip("'").rstrip("/")
     token = str(b.get("token") or "").strip().strip('"').strip("'")
     if token.lower().startswith("bearer "):
@@ -141,12 +144,12 @@ def rutin_ayari_coz(secrets=None):
     if re.fullmatch(r"trig_[A-Za-z0-9]+", url):
         url = f"https://api.anthropic.com/v1/claude_code/routines/{url}/fire"
     if not url:
-        return None, "[claude_rutin] içinde url satırı yok"
+        return None, f"[{bolum}] içinde url satırı yok"
     if not _RUTIN_ADRES.match(url):
         return None, ("url tanınmadı: https://api.anthropic.com/v1/claude_code/routines/<trig_...>/fire "
                       "biçiminde olmalı")
     if not token:
-        return None, "[claude_rutin] içinde token satırı yok"
+        return None, f"[{bolum}] içinde token satırı yok"
     if not token.startswith("sk-ant-"):
         return None, "token tanınmadı: Generate token ile üretilen sk-ant-... anahtarı olmalı"
     return {"url": url, "token": token}, ""
@@ -157,7 +160,7 @@ def rutin_ayari(secrets=None):
     return rutin_ayari_coz(secrets)[0]
 
 
-def rutini_tetikle(talep_id, ayar, post=None):
+def rutini_tetikle(talep_id, ayar, post=None, metin=None):
     """Rutini hemen başlatır. Döner (ok, açıklama); açıklamada anahtar geçmez.
     Rutinin kendi istemi talebi veritabanından seçer; gönderilen metin yalnız bilgi amaçlıdır."""
     if not ayar:
@@ -170,7 +173,7 @@ def rutini_tetikle(talep_id, ayar, post=None):
         import requests
         post = requests.post
     try:
-        r = post(ayar["url"], timeout=10, json={"text": f"Talep #{talep_id} Claude'a gönderildi."},
+        r = post(ayar["url"], timeout=10, json={"text": metin or f"Talep #{talep_id} Claude'a gönderildi."},
                  headers={"Authorization": f"Bearer {ayar['token']}", "anthropic-beta": RUTIN_BETA,
                           "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
     except Exception as e:  # noqa: BLE001

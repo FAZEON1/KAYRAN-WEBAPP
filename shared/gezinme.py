@@ -26,6 +26,7 @@ MODULLER = [
          ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
          ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
          ("Şirket belgeleri", "sirket_belgeleri", "Şirket belgeleri", None),
+         ("Asistanlar", "asistanlar", "Asistanlar", None),
          ("Sistem", "sistem", "Sistem", None),
      ]},
     {"kod": "kayranacc", "ad": "Muhasebe", "ikon": "account_balance_wallet", "anahtar": "acc_sayfa",
@@ -57,6 +58,7 @@ MODULLER = [
          ("➕  Yeni İthalat", "yeni", "Yeni ithalat", None),
          ("🔍  Model Sorgu", "model_sorgu", "Model sorgu", None),
          ("💸  Masraf Detayları", "masraf", "Masraf detayları", None),
+         ("Gümrük danışmanı", "gumruk", "Gümrük danışmanı", None),
      ]},
     {"kod": "kayranpm", "ad": "Ürün yönetimi", "ikon": "inventory_2", "anahtar": "pm_sayfa",
      "sayfalar": [

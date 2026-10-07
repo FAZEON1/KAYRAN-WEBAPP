@@ -259,7 +259,9 @@ MENU_CEVIRI = {"Dashboard": "Genel Bakış"}
 MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot", "Toplu İşlemler": "edit_note",
              # Yönetim bölümleri (Ekim 2026)
              "Özet": "dashboard", "Para haritası": "account_tree", "Kanal ve ürün": "storefront", "Destekler ve giderler": "receipt_long",
-             "Ay kapanışı": "event_available", "Şirket belgeleri": "folder_shared", "Sistem": "settings"}
+             "Ay kapanışı": "event_available", "Şirket belgeleri": "folder_shared", "Asistanlar": "smart_toy",
+             "Sistem": "settings",
+             "Gümrük danışmanı": "gavel"}
 
 
 def emoji_ayir(metin):

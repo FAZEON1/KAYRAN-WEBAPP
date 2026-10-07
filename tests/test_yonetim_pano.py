@@ -98,7 +98,7 @@ def test_ekran_yapisi():
     y = (KOK / "yonetim.py").read_text(encoding="utf-8")
     from shared.gezinme import secenekler
     assert secenekler("yonetim") == ["Özet", "Para haritası", "Kanal ve ürün", "Destekler ve giderler",
-                                     "Ay kapanışı", "Şirket belgeleri", "Sistem"]
+                                     "Ay kapanışı", "Şirket belgeleri", "Asistanlar", "Sistem"]
     assert 'sayfa_menusu("Bölüm", secenekler("yonetim"), modul="yonetim", key="yon_sayfa"' in y
     for f in ("def _ozet(", "def _kanal_urun(", "def _destek_gider(", "def _ay_kapanis(", "def _sistem(",
               "def _trend(", "add_script_run_ctx"):

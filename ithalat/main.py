@@ -2068,7 +2068,10 @@ def run():
             _yeni_ithalat()
         elif sayfa == "🔍  Model Sorgu":
             _model_sorgu()
-        else:
+        elif sayfa == "Gümrük danışmanı":
+            from shared.gumruk_ekran import sayfa as _gumruk
+            _gumruk()
+        else:                                   # "💸  Masraf Detayları"
             _masraf_detaylari()
 
     _sayfa_parcasi()

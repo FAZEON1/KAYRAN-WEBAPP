@@ -37,9 +37,14 @@ def _kullanici():
 
 def kar_gorunur():
     """Aktif kullanıcı kâr/marj rakamlarını görebilir mi?"""
+    return kar_gorunur_kullanici(_kullanici())
+
+
+def kar_gorunur_kullanici(kullanici):
+    """Oturumsuz yerler için (Telegram asistanı): bu kullanıcı kâr/marj görebilir mi?"""
     if not KAR_GIZLE_AKTIF:
         return True
-    return _kullanici() in KAR_GOREBILEN
+    return str(kullanici or "").strip().lower() in KAR_GOREBILEN
 
 
 def _gizli_mi(etiket):

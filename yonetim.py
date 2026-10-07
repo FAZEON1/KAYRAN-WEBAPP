@@ -703,6 +703,10 @@ def run():
             from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
             _sirket_belgeleri()
             return
+        if _bolum == "Asistanlar":
+            from shared.asistan_ekran import sayfa as _asistanlar
+            _asistanlar()
+            return
         if not kar_gorunur():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
@@ -812,6 +816,7 @@ YEDEK_TABLOLAR = [
     "prim_gecmis",
     # Ortak
     "siparis_onerileri", "talepler", "gorevler", "bildirimler",
+    "gumruk_sorgulari",    # İthalat › Gümrük danışmanı sorguları ve sonuçları
     "sirket_belgeleri",    # şirket belgelerinin bilgileri (dosyaların kendisi Supabase dosya alanında)
     "sistem_ayarlari", "pm_ayarlar", "kullanici_yetkileri", "kullanici_tercih", "gunluk_giris",
 ]
@@ -824,6 +829,7 @@ YEDEK_HARIC = [
     "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
     "yuklemeler",          # yükleme geçmişi + geri alma kopyaları; asıl tablolar zaten yedekte
     "soru_kayitlari",      # soru kutusuna sorulan sorular (kalıp geliştirme için), iş verisi değil
+    "asistan_rapor",       # pazar araştırmacısının haftalık raporları (web özeti, iş verisi değil)
     "bt_olcum", "bt_rapor",   # bilgi işlem: sayfa süresi ölçümü ve görev raporu (kayıt, iş verisi değil)
     "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
 ]
