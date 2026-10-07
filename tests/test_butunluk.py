@@ -166,7 +166,7 @@ KRITIK_FONKSIYONLAR = {
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu
         "virman_yap",
     ],
-    "satis.database": [
+    "satis.database": ["pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
         "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
