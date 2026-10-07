@@ -81,12 +81,18 @@ def _firma_ad(kod):
 
 
 def _firma_secenekleri(kamps=()):
-    """Firma seçenekleri VERİDEN (KANAL yok, her firma kendi adıyla — Ekim 2026)."""
+    """Firma seçenekleri VERİDEN (KANAL yok, her firma kendi adıyla — Ekim 2026): firma stoğu,
+    Ref No Takip'teki BÜTÜN firmalar (ana firmalar kodla, diğerleri cari adıyla) ve kayıtlı kampanyalar."""
     try:
         from .database import get_firma_listesi
         veri = list(get_firma_listesi() or [])
     except Exception:  # noqa: BLE001
         veri = []
+    try:
+        from .ref_no import get_firmalar, ref_firma_kodu
+        veri += [ref_firma_kodu(f) for f in (get_firmalar() or [])]
+    except Exception:  # noqa: BLE001
+        pass
     return H.firma_secenekleri(veri + [k.get("firma") for k in (kamps or ())])
 
 
