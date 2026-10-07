@@ -147,6 +147,20 @@ def _g(kayit, alan, bos="—"):
     return v if (v not in (None, "")) else bos
 
 
+def _cari_sec(kap, key):
+    """Satışın firması: Satış Girişi'ndeki cari listesi (satis.get_kanallar); listede yoksa
+    yazılır. Seçilen ad satışın firması (satislar.kanal) olur — diğer satışlar gibi."""
+    try:
+        from satis.database import get_kanallar
+        cariler = list(get_kanallar() or [])
+    except Exception:
+        cariler = []
+    v = kap.selectbox("Firma (cari)", cariler, index=None, key=key, accept_new_options=True,
+                      placeholder="Cari seç ya da yaz",
+                      help="Satış bu firma adıyla Satışlar'a ve P&L'e yazılır. Listede yoksa adı yaz.")
+    return str(v or "").strip()
+
+
 # ── Mal Kabül ────────────────────────────────────────────────────────
 def _mal_kabul():
     _baslik("📥", "Mal Kabül", "Servise/iadeye gelen ürünü kaydet · Servis No otomatik üretilir (G5F)")
@@ -1855,15 +1869,16 @@ def _depolar():
     # ── TOPLU SATIŞ ──────────────────────────────────────────────────
     # Stok katmanı seri no tutmadığı için fatura/irsaliye kesildiğinde hangi
     # BİRİMİN satıldığı otomatik anlaşılamaz. Burada birimleri elle seçersin;
-    # sistem hem ts_kayitlar'ı 'satıldı' yapar, hem stoktan düşer, hem de
-    # P&L'e AYRI kanal ("TEKNİK SERVİS / 2.EL") olarak satış kaydı açar.
+    # sistem hem ts_kayitlar'ı 'satıldı' yapar, hem stoktan düşer, hem de diğer
+    # satışlar gibi seçilen CARİ adına tek sipariş olarak satış kaydı açar (Ekim 2026;
+    # "TEKNİK SERVİS / 2.EL" işareti artık satış notunun başında).
     _satilabilir = [k for k in goster if k.get("mevcut_durum") != "satıldı"]
     if _satilabilir:
         with st.expander(f"💰 Toplu Satış — birden fazla ürünü tek seferde sat "
                          f"({len(_satilabilir)} uygun ürün)"):
             st.caption("Fatura/irsaliye kesilen ürünleri işaretle. Stoktan düşer ve "
-                       "P&L'de **TEKNİK SERVİS / 2.EL** kanalı altında görünür — "
-                       "normal satış cirosuna karışmaz.")
+                       "Satışlar'da seçilen cari adına tek sipariş olarak görünür; "
+                       "notunda TEKNİK SERVİS / 2.EL yazar.")
 
             def _ts_etiket(k):
                 return (f'{k.get("servis_form_no","")} · {k.get("stok_kodu","")} · '
@@ -1876,7 +1891,7 @@ def _depolar():
                                      placeholder="Satılan ürünleri işaretle")
             if _secili:
                 ts1, ts2, ts3 = st.columns(3)
-                _t_firma = ts1.text_input("Satış Firma / Kişi", key="ts_toplu_firma")
+                _t_firma = _cari_sec(ts1, "ts_toplu_firma")
                 _t_fiyat = ts2.number_input("Birim Satış Fiyatı ($)", min_value=0.0,
                                             step=1.0, format="%.4f", key="ts_toplu_fiyat")
                 _t_tarih = ts3.date_input("Satış Tarihi", value=date.today(),
@@ -1893,10 +1908,12 @@ def _depolar():
                     _bar = st.progress(0.0, text="İşleniyor…")
                     _ok_n, _uyari = 0, []
                     _prs = st.session_state.get("aktif_kullanici", "")
+                    # Toplu satış tek sipariş: bütün kalemler aynı sipariş no'yu taşır
+                    _t_sipno = _stok.toplu_siparis_no() if len(_secili) > 1 else ""
                     for _i, _lbl in enumerate(_secili, 1):
                         _kk = _tsh[_lbl]
                         durum_guncelle(_kk["id"], "satıldı", _prs, "Toplu satış",
-                                       {"satis_firma": (_t_firma or "").strip(),
+                                       {"satis_firma": _t_firma,
                                         "satis_fiyati": 0.0 if _t_bedelsiz else float(_t_fiyat or 0),
                                         "bedelsiz": bool(_t_bedelsiz),
                                         "satis_tarihi": str(_t_tarih)[:10]})
@@ -1905,8 +1922,8 @@ def _depolar():
                             _uyari.append(f"{_kk.get('servis_form_no','')}: {_m}")
                         if _t_pl:
                             _o2, _m2 = _stok.satis_kaydi_yaz(
-                                _kk, _t_fiyat, tarih=_t_tarih,
-                                notlar=(_t_firma or "").strip(), bedelsiz=bool(_t_bedelsiz))
+                                _kk, _t_fiyat, tarih=_t_tarih, bedelsiz=bool(_t_bedelsiz),
+                                cari=_t_firma, siparis_no=_t_sipno)
                             # Paçalı bilinmeyen ürün de uyarıya (maliyet 0 yazıldı → %100 marj görünür)
                             if not _o2 or "paçal" in (_m2 or ""):
                                 _uyari.append(f"{_kk.get('servis_form_no','')}: {_m2}")
@@ -1964,21 +1981,21 @@ def _depo_detay(k):
         with c3:
             if not satildi:
                 with st.popover("💰 Satıldı", use_container_width=True):
-                    sf = st.text_input("Satış Firma/Kişi", key=f"sf_{kid}")
+                    sf = _cari_sec(st, f"sf_{kid}")
                     sfiyat = st.number_input("Satış Fiyatı ($)", min_value=0.0, step=1.0,
                                              format="%.4f", key=f"sfi_{kid}")
                     bedelsiz = st.checkbox("Bedelsiz", key=f"bd_{kid}")
                     if st.button("Kaydet", key=f"sk_{kid}", type="primary", use_container_width=True):
                         durum_guncelle(kid, "satıldı", st.session_state.get("aktif_kullanici", ""),
                                        "Satış yapıldı",
-                                       {"satis_firma": sf.strip(),
+                                       {"satis_firma": sf,
                                         "satis_fiyati": float(sfiyat or 0),
                                         "bedelsiz": bool(bedelsiz),
                                         "satis_tarihi": date.today().isoformat()})
                         # Stok çıkışı + P&L'de ayrı kanal olarak satış kaydı
                         _o, _m = _stok.satis_cikisi(k)
                         _o2, _m2 = _stok.satis_kaydi_yaz(
-                            k, sfiyat, notlar=sf.strip(), bedelsiz=bool(bedelsiz))
+                            k, sfiyat, bedelsiz=bool(bedelsiz), cari=sf)
                         st.session_state["_ts_depo_bilgi"] = (
                             f"💰 {k.get('servis_form_no','')} satıldı."
                             + (f"\n\n📦 {_m}" if _o and _m else "")

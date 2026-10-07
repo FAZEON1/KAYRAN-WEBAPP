@@ -40,10 +40,23 @@ TS_DEPO_HARITA = {
 # Mal kabulde arayüze göre ürünün gireceği depo
 ARAYUZ_DEPO = {"teknik": "TEKNİK DEPO", "iade": "İADE DEPO"}
 
-# Toplu satışta satislar tablosuna yazılacak kanal adı.
-# P&L kanal bazında kırıldığı için ikinci el / outlet cirosu burada
-# normal satıştan AYRI bir satır olarak görünür.
+# Teknik servis / 2.el satışının işareti. Ekim 2026'ya kadar satislar.kanal'a yazılıyordu
+# (P&L'de ayrı kanal); artık kanal diğer satışlar gibi CARİ adı, bu işaret satış notunun
+# başında durur (ts_satisi_mi). Cari seçilmezse kanal yine bu ad olur.
 TS_SATIS_KANALI = "TEKNİK SERVİS / 2.EL"
+
+
+def ts_satisi_mi(satir):
+    """satislar satırı teknik servis / 2.el satışı mı (eski: kanal, yeni: not başı)."""
+    s = satir or {}
+    return (str(s.get("kanal") or "").strip() == TS_SATIS_KANALI
+            or str(s.get("notlar") or "").startswith(TS_SATIS_KANALI))
+
+
+def toplu_siparis_no(an=None):
+    """Toplu satışın ortak sipariş no'su: 'TS261007-114050' (manuel satıştaki S… gibi)."""
+    from datetime import datetime as _dt
+    return (an or _dt.now()).strftime("TS%y%m%d-%H%M%S")
 
 
 def ts_depo_ad(ts_depo):
@@ -181,8 +194,11 @@ def _pacal(sku):
         return 0.0
 
 
-def satis_kaydi_yaz(kayit, birim_satis, tarih=None, notlar="", bedelsiz=False):
-    """satislar tablosuna kayıt açar — P&L'de AYRI kanal olarak görünür.
+def satis_kaydi_yaz(kayit, birim_satis, tarih=None, notlar="", bedelsiz=False, cari="", siparis_no=""):
+    """satislar tablosuna kayıt açar — diğer satışlar gibi: firma (kanal) = CARİ adı,
+    sipariş no = verilen (toplu satış) ya da servis form no. Teknik servis / 2.el olduğu
+    notun başındaki TS_SATIS_KANALI işaretinden anlaşılır (ts_satisi_mi). Cari boşsa
+    kanal eskisi gibi TS_SATIS_KANALI olur.
     Birim maliyet: ithalat PAÇALI (Ekim 2026). Eskiden 0 yazılıyordu ("orijinal alışta
     giderleşti, tekrar yazmak çift sayım" gerekçesiyle); oysa bu depolara gelen ürünler
     çoğunlukla iade/değişim ürünü — iade ilk satışın maliyetini geri alıyor, ürün
@@ -196,18 +212,21 @@ def satis_kaydi_yaz(kayit, birim_satis, tarih=None, notlar="", bedelsiz=False):
         if not sku:
             return False, "stok kodu boş — satış kaydı açılmadı"
         maliyet = _pacal(sku)
+        kanal = str(cari or "").strip() or TS_SATIS_KANALI
         ekle_satis(
             tarih=str(tarih or _date.today())[:10],
-            kanal=TS_SATIS_KANALI,
+            kanal=kanal,
             sku=sku, urun_adi=ad,
             adet=1,
             birim_satis=0.0 if bedelsiz else float(birim_satis or 0),
             birim_maliyet=maliyet,
-            notlar=(f"{kayit.get('servis_form_no','')} · "
+            notlar=(f"{TS_SATIS_KANALI} · {kayit.get('servis_form_no','')} · "
                     f"{kayit.get('depo','')} · seri {kayit.get('seri_no','')}"
                     + (f" · {notlar}" if notlar else ""))[:400],
+            siparis_no=(str(siparis_no or "").strip()
+                        or str(kayit.get("servis_form_no") or "").strip()),
         )
-        return True, (f"{sku} satış kaydı açıldı ({TS_SATIS_KANALI})"
+        return True, (f"{sku} satış kaydı açıldı ({kanal})"
                       + ("" if maliyet > 0 else " · paçal maliyet bulunamadı, maliyet 0 yazıldı"))
     except Exception as e:
         return False, f"satış kaydı açılamadı ({type(e).__name__}: {str(e)[:80]})"
