@@ -27,12 +27,13 @@ Ayrıca `gh auth status` ile GitHub CLI girişini doğrula.
 6. Birleşmeden sonra canlıda "cannot import name …" görülürse: uygulama bayat modülü kendisi
    tazeler (`shared/modul_tazele.py`); sürerse Streamlit Cloud → ⋮ → Reboot app.
 
-**İstisna — bilgi işlem elemanı (Ekim 2026, kullanıcı kararı).** Her gece çalışan zamanlanmış görev
+**İstisna — bilgi işlem elemanı Serkan (Ekim 2026, kullanıcı kararı).** Her gece çalışan zamanlanmış görev
 (`otonom/bt_gorevi.md`) küçük düzeltmeleri `Bilgi işlem: …` başlıklı PR olarak açar; `bt-otomatik`
 etiketli ve kurallara uyan PR'ları (en fazla 6 dosya / 200 satır; para, stok, kâr, yetki, veritabanı,
 `otonom/`, iş akışlarına dokunmayan; testler yeşil) GitHub iş akışı `bt-birlestir.yml` birleştirir —
 karar `shared/bt_hesap.kapi_karari`'da. Bunun dışındaki her PR'ı yine kullanıcı birleştirir; bu
-istisna normal oturumlara birleştirme yetkisi vermez. Rapor: Sistem › Bilgi İşlem (`bt_rapor`).
+istisna normal oturumlara birleştirme yetkisi vermez. Serkan öğrendiklerini `bt_rapor`'a yazar; kendi
+talimatını değiştiren PR'ları (pazar karnesi) yalnız kullanıcı birleştirir. Rapor: Sistem › Bilgi İşlem.
 
 **Tek iş, tek PR.** Bir istek parça parça PR'larla teslim edilmez; envanter, tüm düzeltmeler ve
 testler bitince tek PR. İstisna: canlıda çalışmayan bir şey (kullanıcıya sorarak ayrı PR).

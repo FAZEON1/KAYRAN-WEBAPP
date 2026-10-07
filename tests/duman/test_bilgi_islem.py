@@ -26,6 +26,10 @@ def _veri():
          "once": 3200, "sonra": 1900, "birim": "ms"},
         {"id": 3, "zaman": (s - timedelta(days=1)).isoformat(), "tur": "oneri", "durum": "oneri",
          "baslik": "Paçal okuması tek sorguya", "ozet": "Rakam değiştirebilir, onay gerekiyor."},
+        {"id": 4, "zaman": (s - timedelta(days=1)).isoformat(), "tur": "ogrenme",
+         "baslik": "Satışlar ölçümünü en az 5 iş günü sonra değerlendir", "ozet": "Hafta sonu ölçüm az."},
+        {"id": 5, "zaman": (s - timedelta(days=2)).isoformat(), "tur": "gelisim", "durum": "bilgi",
+         "baslik": "Haftalık karnem", "ozet": "3 iyileştirme, 2 birleşti; ortalama %-18."},
     ]
     hata = [{"id": 1, "zaman": s.isoformat(), "yer": "satis._stok_akilli_dus", "tur": "ValueError",
              "mesaj": "x", "kritik": False}]
@@ -51,6 +55,8 @@ def test_bilgi_islem_ornek_veriyle():
     metin = " ".join(str(m.value) for m in at.markdown)
     assert "Onayını bekleyen öneriler" in metin and "Paçal okuması tek sorguya" in metin
     assert "İyileştirmeler ve sonuçları" in metin and "En yavaş sayfalar" in metin
+    assert "Serkan kendini geliştiriyor" in metin and "Son haftalık karnesi" in metin
+    assert "1 öğrenme · 1 karne/geliştirme" in metin     # öğrendikleri tablosu st.html ile çizilir (AppTest okumaz)
     tablo = at.dataframe[0].value
     assert list(tablo["Durum"])[:1] == ["Otomatik birleşti"] and list(tablo["Fark"])[:1] == ["%-40,6"]
     import time

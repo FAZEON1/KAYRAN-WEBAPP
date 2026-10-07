@@ -114,7 +114,7 @@ SISTEM = [
     ("sifre_degistir", "Şifremi değiştir", "key", None),
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),
-    ("bilgi_islem", "Bilgi İşlem", "engineering", "kullanici_yonetimi"),
+    ("bilgi_islem", "Bilgi İşlem · Serkan", "engineering", "kullanici_yonetimi"),
     ("tasarim_rehberi", "Tasarım rehberi", "palette", "kullanici_yonetimi"),
 ]
 

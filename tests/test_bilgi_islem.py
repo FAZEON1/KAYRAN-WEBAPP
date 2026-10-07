@@ -160,3 +160,36 @@ def test_betikler_streamlitsiz_yuklenir(betik):
            "s.loader.exec_module(m); print('TAMAM')")
     r = subprocess.run([sys.executable, "-c", kod], capture_output=True, text=True, timeout=60)
     assert r.stdout.strip() == "TAMAM", r.stderr[-800:]
+
+
+
+# ── Serkan: öğrenme ve haftalık karne ──────────────────────────────
+def test_karne_son_otuz_gunu_sayar():
+    from datetime import datetime, timezone
+    simdi = datetime(2026, 10, 30, tzinfo=timezone.utc)
+    r = [{"zaman": "2026-10-20", "tur": "iyilestirme", "durum": "otomatik_birlesti", "once": 1000, "sonra": 700},
+         {"zaman": "2026-10-21", "tur": "iyilestirme", "durum": "reddedildi"},
+         {"zaman": "2026-10-22", "tur": "iyilestirme", "durum": "birlesti", "once": 10, "sonra": 12},
+         {"zaman": "2026-10-23", "tur": "ogrenme"}, {"zaman": "2026-10-24", "tur": "oneri"},
+         {"zaman": "2026-08-01", "tur": "iyilestirme", "durum": "birlesti", "once": 1, "sonra": 9}]
+    k = H.karne(r, 30, simdi)
+    assert k["iyilestirme"] == 3 and k["durum"] == {"otomatik_birlesti": 1, "reddedildi": 1, "birlesti": 1}
+    assert k["olculen"] == 2 and k["ortalama_fark_yuzde"] == -5.0 and k["kotulesen"] == 1
+    assert (k["ogrenme"], k["oneri"]) == (1, 1)
+
+
+def test_ogrenme_ve_gelisim_kaydi_yazilabilir():
+    import bt_db
+    assert {"ogrenme", "gelisim"} <= bt_db.TURLER
+    assert bt_db.rapor_satiri(["--tur", "ogrenme", "--baslik", "Hafta sonu ölçümü az"])["tur"] == "ogrenme"
+
+
+def test_serkan_talimati_kendini_gelistirme_sinirlari():
+    g = (KOK / "otonom/bt_gorevi.md").read_text(encoding="utf-8")
+    assert "Sen **Serkan**'sın" in g and "## 7. Öğren" in g and "## 8. Haftalık karne" in g
+    assert "`ogrendiklerim`" in g and "Bilgi işlem: Serkan kendini geliştiriyor" in g
+    assert "Bu PR'a `bt-otomatik` etiketi EKLEME" in g
+    # Kendi PR'ı otonom/ altında: kapı onu asla otomatik birleştirmez
+    ok, sebep = H.kapi_karari([{"filename": "otonom/bt_gorevi.md", "additions": 5, "deletions": 1}],
+                              "claude/x", ["bt-otomatik"], True, "Bilgi işlem: Serkan kendini geliştiriyor — x")
+    assert not ok and any("otonom/" in s for s in sebep)

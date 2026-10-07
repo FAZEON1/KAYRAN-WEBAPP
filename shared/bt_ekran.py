@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sistem › Bilgi İşlem (Ekim 2026) — gece çalışan bilgi işlem elemanının raporu (yönetici).
+"""Sistem › Bilgi İşlem (Ekim 2026) — bilgi işlem elemanı SERKAN'ın raporu (yönetici).
 
 Eleman (zamanlanmış Claude görevi, otonom/bt_gorevi.md) programı kontrol eder, hata / eksik /
 yavaşlık bulur, küçük düzeltmeleri PR olarak açar (kurala uyanlar GitHub'daki kapıdan otomatik
@@ -7,6 +7,8 @@ birleşir) ve her şeyi bt_rapor tablosuna yazar. Bu sayfa:
   · özet: son çalışma, açık iş, otomatik birleşen, bu haftanın hataları, sayfa hızı (bu / geçen hafta)
   · iyileştirmeler ve sonuçları (önce → sonra), onay bekleyen öneriler
   · günlük sayfa hızı ve hata grafiği, en yavaş sayfalar, çalışma günlüğü
+  · Serkan'ın kendini geliştirmesi: öğrendikleri (her gece) ve haftalık karnesi; kendi talimatını
+    değiştiren PR'ları yalnız kullanıcı onayıyla birleşir
 """
 import html as _h
 from datetime import datetime, timedelta, timezone
@@ -17,6 +19,7 @@ from shared import bilesen as B
 from shared.bt_hesap import gunluk_seri, iyilestirme_satiri, karsilastir, sure_ozeti
 from shared.tasarim import bos_durum, kpi_serit, mesaj, tr_sayi
 
+AD = "Serkan"
 DURUM_AD = {"acik": ("PR açık", "amber"), "otomatik_birlesti": ("Otomatik birleşti", "yesil"),
             "birlesti": ("Birleşti", "yesil"), "reddedildi": ("Reddedildi", "kirmizi"),
             "oneri": ("Onay bekliyor", "mavi"), "bilgi": ("Bilgi", "silik")}
@@ -55,14 +58,14 @@ def sayfa(kullanici, yonetici):
     if not yonetici:
         st.error("Bu sayfaya erişim yetkiniz yok.")
         return
-    B.baslik_eylem("Sistem", "Bilgi İşlem",
-                   aciklama="Gece çalışan bilgi işlem elemanı: hataları, eksikleri ve yavaşlığı arar, küçük "
-                            "düzeltmeleri kendisi yapar, büyükleri öneri olarak bırakır. Sonuçlar burada.")
+    B.baslik_eylem("Sistem", f"Bilgi İşlem · {AD}",
+                   aciklama=f"{AD} her gece programı kontrol eder: hataları, eksikleri ve yavaşlığı arar, küçük "
+                            "düzeltmeleri kendisi yapar, büyükleri öneri olarak bırakır, yaptıklarından öğrenir.")
     olcum, rapor, hatalar = _veri()
     if not olcum and not rapor:
-        st.markdown(bos_durum("Bilgi işlem henüz veri toplamadı",
+        st.markdown(bos_durum(f"{AD} henüz veri toplamadı",
                               "Sayfa süreleri bt_olcum tablosuna yazılır (veritabani/23_bilgi_islem.sql kurulu "
-                              "olmalı). Eleman ilk gece çalışınca rapor burada görünür.", "engineering"),
+                              f"olmalı). {AD} ilk gece çalışınca rapor burada görünür.", "engineering"),
                     unsafe_allow_html=True)
         return
 
@@ -74,6 +77,9 @@ def sayfa(kullanici, yonetici):
     calisma = [r for r in rapor if r.get("tur") == "calisma"]
     iyi = [r for r in rapor if r.get("tur") in ("iyilestirme", "sonuc")]
     oneri = [r for r in rapor if r.get("tur") == "oneri" and r.get("durum") == "oneri"]
+    ogren = [r for r in rapor if r.get("tur") == "ogrenme"]
+    gelisim = [r for r in rapor if r.get("tur") == "gelisim"]
+    gelisim_pr = [r for r in gelisim if r.get("durum") == "acik" and r.get("pr_url")]
     acik = [r for r in iyi if r.get("durum") == "acik"]
     oto = [r for r in iyi if r.get("durum") == "otomatik_birlesti"]
 
@@ -95,6 +101,9 @@ def sayfa(kullanici, yonetici):
         {"etiket": "Onay bekleyen öneri", "deger": tr_sayi(len(oneri)), "renk": "amber" if oneri else "silik"},
     ]), unsafe_allow_html=True)
 
+    for r in gelisim_pr[:3]:
+        st.markdown(mesaj("uyari", f"{AD} kendi talimatını geliştirmek istiyor: {r.get('baslik') or ''}. "
+                                   f"PR'ı inceleyip uygunsa birleştir: {r.get('pr_url')}"), unsafe_allow_html=True)
     if oneri:
         st.markdown(B.grup_basligi("Onayını bekleyen öneriler", f"{len(oneri)} öneri"), unsafe_allow_html=True)
         for r in oneri[:10]:
@@ -133,6 +142,19 @@ def sayfa(kullanici, yonetici):
                       for k, v in yavas], hide_index=True, use_container_width=True)
     else:
         st.caption("Bu hafta ölçüm yok.")
+
+    st.markdown(B.grup_basligi(f"{AD} kendini geliştiriyor", f"{len(ogren)} öğrenme · {len(gelisim)} karne/geliştirme"),
+                unsafe_allow_html=True)
+    karne = next((r for r in gelisim if r.get("baslik") == "Haftalık karnem"), None)
+    if karne:
+        st.markdown(f"**Son haftalık karnesi ({_tr_zaman(karne.get('zaman'), False)}):** "
+                    f"{_h.escape(karne.get('ozet') or '')}")
+    if ogren:
+        st.dataframe([{"Tarih": _tr_zaman(r.get("zaman"), False), "Öğrendiği": r.get("baslik") or "",
+                       "Neden": r.get("ozet") or ""} for r in ogren[:15]],
+                     hide_index=True, use_container_width=True)
+    if not karne and not ogren:
+        st.caption(f"{AD} her gecenin sonunda öğrendiklerini, pazar geceleri de haftalık karnesini buraya yazar.")
 
     if calisma:
         with st.expander(f"Çalışma günlüğü ({len(calisma)})", icon=":material/history:"):
