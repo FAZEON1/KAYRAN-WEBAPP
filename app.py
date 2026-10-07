@@ -1852,6 +1852,11 @@ def _kisi_menusu():
                           use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
 
             if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+                st.button("Bilgi İşlem", icon=":material/engineering:", key="nav_bilgi_islem",
+                          type="primary" if aktif_sayfa == "bilgi_islem" else "secondary",
+                          use_container_width=True, on_click=_sayfaya_git, args=("bilgi_islem",))
+
+            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
                 st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi",
                           type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
                           use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
@@ -3330,7 +3335,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
-        "soru": "Soru sor",
+        "soru": "Soru sor", "bilgi_islem": "Bilgi İşlem",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3369,6 +3374,9 @@ def main():
             pass
 
     # Sayfa dispatch
+    # Süresi bilgi işlem ölçümüne yazılır (shared/bt_olcum, bt_olcum tablosu).
+    import time as _time_bt
+    _bt_bas, _bt_hata = _time_bt.perf_counter(), False
     try:
         if aktif == "anasayfa":
             _uyari = st.session_state.pop("_yetki_uyari", None)
@@ -3412,6 +3420,10 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
+        elif aktif == "bilgi_islem":
+            from shared.bt_ekran import sayfa as _bilgi_islem_sayfa
+            _bi_kul = st.session_state.get("aktif_kullanici", "")
+            _bilgi_islem_sayfa(_bi_kul, ozel_yetki(_bi_kul, "kullanici_yonetimi"))
         elif aktif == "yukleme_gecmisi":
             from shared.yukleme_gecmisi import sayfa as _yukleme_gecmisi_sayfa
             _yg_kul = st.session_state.get("aktif_kullanici", "")
@@ -3443,6 +3455,7 @@ def main():
             if st.button("← Ana Sayfaya Dön"):
                 st.rerun()
     except Exception as hata:
+        _bt_hata = type(hata).__name__ not in ("RerunException", "StopException")
         # Bayat modül koruması (shared/modul_tazele): güncelleme sonrası bellekte eski kalan bir
         # proje modülü 'cannot import name' / eksik ad / çağrı imzası hatası verdiyse modülleri tazeleyip
         # BİR KEZ yeniden çalıştır.
@@ -3467,6 +3480,14 @@ def main():
         _global_hata_kart(ad, hata)
     else:
         st.session_state.pop("_modul_tazelendi", None)   # sayfa sorunsuz çizildi → koruma yeniden kurulur
+    finally:
+        try:
+            from shared import bt_olcum as _bto
+            _bto.kaydet(aktif, _bto.alt_sayfa(aktif, st.session_state),
+                        (_time_bt.perf_counter() - _bt_bas) * 1000, _bt_hata,
+                        st.session_state.get("aktif_kullanici", ""))
+        except Exception:  # noqa: BLE001
+            pass
 
     # Talep düğmesi HER SAYFADA görünür — sayfa içeriği çizildikten sonra
     # eklenir ki modül hata verse bile erişilebilir kalsın.
