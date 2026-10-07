@@ -1,0 +1,57 @@
+name: Telegram asistanı
+
+# Telegram'dan gelen soru (Supabase fonksiyonu telegram-webhook → repository_dispatch) programın soru
+# kutusuyla cevaplanır: otonom/telegram_soru.py. Elle çalıştırma (Actions → Run workflow) yalnız KURULUM
+# yapar: Telegram'a webhook adresini ve gizli değeri bildirir (bir kez, ya da bot değişince).
+
+on:
+  repository_dispatch:
+    types: [telegram_soru]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# concurrency YOK: art arda gelen sorular paralel cevaplanır (yalnız okuma); grup kullanılsa GitHub
+# sıradaki bekleyeni iptal eder ve soru kaybolur.
+
+jobs:
+  cevap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: .github/workflows/telegram-soru.yml
+
+      - name: Bağımlılıklar
+        run: pip install --quiet "streamlit<2" supabase requests "pandas<3" openpyxl plotly
+
+      - name: Supabase erişimi (uygulamanın kendi secrets dosyası)
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml << SECRETS
+          [supabase]
+          url = "${{ secrets.SUPABASE_URL }}"
+          key = "${{ secrets.SUPABASE_KEY }}"
+          service_role_key = "${{ secrets.SUPABASE_KEY }}"
+          SECRETS
+
+      - name: Soruyu cevapla
+        if: github.event_name == 'repository_dispatch'
+        env:
+          # Kullanıcı metni ortam değişkeniyle geçer, komut satırına yazılmaz (enjeksiyon olmaz)
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python otonom/telegram_soru.py
+
+      - name: Kurulum (Telegram webhook)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: python otonom/telegram_soru.py --kurulum

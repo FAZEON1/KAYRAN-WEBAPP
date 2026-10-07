@@ -17,7 +17,7 @@ def test_modul_sayfa_listeleri_kayit_defterinden():
     palet ve adres çubuğu o sayfayı bulamaz."""
     g = _g()
     beklenen = {"kayranpm": ("kayranpm/main.py", 9), "depo": ("depo/main.py", 5),
-                "ithalat": ("ithalat/main.py", 4), "teknikservis": ("teknikservis/main.py", 7),
+                "ithalat": ("ithalat/main.py", 5), "teknikservis": ("teknikservis/main.py", 7),
                 "satis": ("satis/main.py", 4), "kayranacc": ("kayranacc/main.py", 12)}   # İçe aktar ve Veri yükleme
     # sayfaları Ekim 2026'da kalktı: yüklemeler üst menüdeki Dosya kapısında (shared/dosya_kapisi)
     for mod, (dosya, n) in beklenen.items():

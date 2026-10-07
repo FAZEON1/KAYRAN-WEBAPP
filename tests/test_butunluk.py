@@ -77,6 +77,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -194,6 +195,13 @@ KRITIK_FONKSIYONLAR = {
     "shared.sirket_belge": ["listele", "yukle", "guncelle", "sil", "link", "indir", "kunye_oku", "kunye_yaz"],
     "shared.sirket_belge_ekran": ["sayfa"],
     "shared.sirket": ["sirket_bilgi"],
+    "shared.asistan_hesap": ["kimlik_kullanici", "komut", "telegram_yanit", "yardim_metni", "sonuc_dogrula",
+                             "vergi_hesabi", "pazar_ozeti", "brifing_blogu"],
+    "shared.asistan": ["telegram_haritasi", "telegram_haritasi_yaz", "raporlar", "gumruk_sorgulari", "gumruk_ekle",
+                       "gumruk_tetikle", "gumruk_yeniden", "sql_kurulu"],
+    "shared.asistan_ekran": ["sayfa"],
+    "shared.gumruk_ekran": ["sayfa"],
+    "shared.kar_gizle": ["kar_gorunur", "kar_gorunur_kullanici"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",

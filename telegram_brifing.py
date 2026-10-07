@@ -240,9 +240,30 @@ def main():
     except Exception as ex:
         print("veri güncelliği bloğu atlandı:", type(ex).__name__, str(ex)[:120])
 
+    # ── Pazar araştırmacısının yeni raporu (asistan_rapor; hata olursa atlanır) ──
+    pazar_idler = []
+    try:
+        from shared.asistan_hesap import brifing_blogu
+        from shared.auth import _get_supabase
+        _pr = (_get_supabase().table("asistan_rapor").select("id,baslik,ozet")
+               .eq("telegram_gonderildi", False).order("zaman", desc=True).limit(2).execute().data or [])
+        _pb = brifing_blogu(_pr)
+        if _pb:
+            mesaj += "\n\n" + _pb
+            pazar_idler = [r["id"] for r in _pr]
+    except Exception as ex:
+        print("pazar raporu bloğu atlandı:", type(ex).__name__, str(ex)[:120])
+
     mesaj += "\n\n— KAYRAN Workspace"
     print("── MESAJ ──\n" + mesaj + "\n───────────")
     gonder(mesaj)
+    if pazar_idler:            # yalnız brifing gerçekten gittiyse (gonder hata verirse buraya gelinmez)
+        try:
+            from shared.auth import _get_supabase
+            _get_supabase().table("asistan_rapor").update({"telegram_gonderildi": True}).in_(
+                "id", pazar_idler).execute()
+        except Exception as ex:
+            print("pazar raporu işaretlenemedi:", type(ex).__name__, str(ex)[:120])
 
 
 if __name__ == "__main__":
