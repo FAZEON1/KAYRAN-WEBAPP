@@ -2,8 +2,9 @@
 """Kampanya kapanınca otomatik Ref No (Ekim 2026).
 
 Kampanya Takip'te bir kampanya kapatılınca Ref No Takip'e kendiliğinden ref açılır:
-  - Firma: kampanyanın firması → ref firması (ref_no.FIRMA_ESLESME: VATAN, HB, ITOPYA/EERA).
-    Eşleşmeyen firmada (DİĞER) ref açılmaz; ekranda ve mailde "elle girilmeli" denir.
+  - Firma: kampanyanın firması → Ref No Takip firması (ana firmalar rolle: VATAN, HB, ITOPYA/EERA;
+    diğerleri cari adıyla: MONDAY, BİOSİS, RVOTEC …; ref_no.ref_firma_kodu). Eşleşmeyen firmada
+    (DİĞER) ref açılmaz; ekranda ve mailde "elle girilmeli" denir.
   - Tutar: kampanyanın toplam desteği = Σ (firma desteği + ek destek) × satılan adet, USD
     (kampanya_hesap.kampanya_ozet ile aynı hesap). Spiff varsa ayrıca TL ref (spiff_tl).
     Tutar 0 ise o ref açılmaz.
@@ -38,12 +39,18 @@ def _isaret_re(kid):
 
 # ── Saf kurallar ────────────────────────────────────────────────────
 def ref_firmasi_sec(kampanya_firma, firmalar):
-    """Kampanyanın firması (VATAN, HB, ITOPYA, …) → ref firması kaydı ya da None."""
-    from kayranpm.ref_no import _firma_rol
+    """Kampanyanın firması (VATAN, HB, ITOPYA, MONDAY, cari adı …) → ref firması kaydı ya da None.
+    Ana firmalar rolle (EERA = ITOPYA), diğerleri Ref No Takip'teki cari adıyla eşleşir."""
+    from kayranpm.ref_no import _firma_rol, ref_firma_kodu
+    from shared.utils import firma_kanonik
     rol = _firma_rol({"firma_adi": kampanya_firma, "firma_kodu": kampanya_firma})
-    if not rol:
-        return None
-    adaylar = [f for f in (firmalar or []) if _firma_rol(f) == rol]
+    if rol:
+        adaylar = [f for f in (firmalar or []) if _firma_rol(f) == rol]
+    else:
+        hedef = firma_kanonik(kampanya_firma)
+        if not hedef or hedef == "DIGER":
+            return None
+        adaylar = [f for f in (firmalar or []) if firma_kanonik(ref_firma_kodu(f)) == hedef]
     return adaylar[0] if len(adaylar) == 1 else (min(adaylar, key=lambda f: int(f.get("id") or 0))
                                                 if adaylar else None)
 

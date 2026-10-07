@@ -116,3 +116,48 @@ def test_iki_kapatma_dugmesi_de_ref_acar():
     for g in s.split("\ndef ")[1:]:
         if not g.startswith("_kapat_ve_ref_ac"):
             assert "kapat_kampanya(kid)" not in g, g.split("(")[0]
+
+
+# ── Ekim 2026: Ref No Takip'teki BÜTÜN firmalar kampanyada seçilebilir ve ref'i bağlanır ──
+TUM_FIRMALAR = FIRMALAR + [
+    {"id": 7, "firma_adi": "BİOSİS BİLGİSAYAR İLETİŞİM OTOMASYON SANAYİ VE TİCARET ANONİM ŞİRKETİ",
+     "firma_kodu": "BIO"},
+    {"id": 8, "firma_adi": "RVOTEC TEKNOLOJİ SANAYİ TİCARET LİMİTED ŞİRKETİ", "firma_kodu": "RVT"},
+]
+
+
+def test_ref_firmasi_kampanya_yazimina_cevrilir():
+    from kayranpm.ref_no import ref_firma_kodu
+    assert [ref_firma_kodu(f) for f in TUM_FIRMALAR] == [
+        "VATAN", "HB", "ITOPYA", "MONDAY",
+        "BİOSİS BİLGİSAYAR İLETİŞİM OTOMASYON SANAYİ VE TİCARET ANONİM ŞİRKETİ",
+        "RVOTEC TEKNOLOJİ SANAYİ TİCARET LİMİTED ŞİRKETİ"]
+
+
+@pytest.mark.parametrize("firma, kod", [
+    ("MONDAY", "MND"),
+    ("BİOSİS BİLGİSAYAR İLETİŞİM OTOMASYON SANAYİ VE TİCARET ANONİM ŞİRKETİ", "BIO"),
+    ("RVOTEC TEKNOLOJİ SANAYİ TİCARET LİMİTED ŞİRKETİ", "RVT"),
+    ("AVASYA TEKNOLOJİ", None), ("DİĞER", None)])
+def test_ana_olmayan_firmanin_kampanyasi_da_ref_firmasina_baglanir(firma, kod):
+    assert (KR.ref_firmasi_sec(firma, TUM_FIRMALAR) or {}).get("firma_kodu") == kod
+
+
+def test_biosis_kampanyasi_kapaninca_ref_acilir():
+    kayit = _Kayit()
+    kf = TUM_FIRMALAR[4]["firma_adi"]
+    s = KR.kapaninca_ref_ac(dict(KAMP, firma=kf), URUNLER, TUM_FIRMALAR, lambda fid: [], kayit, BUGUN)
+    assert [(c["firma_id"], c["kod"], c["tutar"]) for c in kayit.cagri] == [(7, "BIO", 756.0)]
+    assert s["acilan"] and not s["sorun"]
+
+
+def test_kampanya_firma_listesinde_ref_firmalari(monkeypatch):
+    import kayranpm.database as D
+    import kayranpm.ref_no as N
+    from kayranpm import kampanya
+    monkeypatch.setattr(D, "get_firma_listesi", lambda: ["ITOPYA", "HB", "VATAN", "MONDAY", "DIGER"])
+    monkeypatch.setattr(N, "get_firmalar", lambda: TUM_FIRMALAR)
+    sec = kampanya._firma_secenekleri()
+    assert sec[:4] == ["ITOPYA", "HB", "VATAN", "MONDAY"] and sec[-1] == "DİĞER"
+    assert TUM_FIRMALAR[4]["firma_adi"] in sec and TUM_FIRMALAR[5]["firma_adi"] in sec
+    assert len(sec) == len(set(sec)) == 7                     # ana firmalar ikinci kez eklenmez

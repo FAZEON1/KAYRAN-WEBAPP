@@ -572,6 +572,23 @@ def _firma_rol(f):
     return None
 
 
+def ref_firma_kodu(f):
+    """Ref No Takip firması → kampanya / firma stok yazımı (Ekim 2026): ana firmalar KODU
+    (EERA… → ITOPYA, D-MARKET… → HB, VATAN, MONDAY…), diğerleri cari adı (BİOSİS…, RVOTEC…).
+    Kampanya firma listesi ref firmalarını bununla alır; kapanışta ref firması da bununla bulunur."""
+    from shared.utils import FIRMA_ANA, FIRMA_GORUNEN_AD
+    rol = _firma_rol(f or {})
+    if rol:
+        return rol
+    ad = " ".join(str((f or {}).get("firma_adi") or "").split())
+    n = _norm(ad)
+    for kod in FIRMA_ANA:
+        onek = _norm(FIRMA_GORUNEN_AD.get(kod, ""))
+        if onek and (n == onek or n.startswith(onek + " ") or _norm((f or {}).get("firma_kodu")) == kod):
+            return kod
+    return ad
+
+
 # Cari listesine yanlışlıkla düşmüş, firma OLMAYAN değerler
 # (eski okuyucu 'Döviz' sütununu okuduğu için listeye para birimleri doluyordu)
 _CARI_GECERSIZ = {
