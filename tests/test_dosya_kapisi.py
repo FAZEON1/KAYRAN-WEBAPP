@@ -79,13 +79,15 @@ def _py_dosyalar():
 
 
 def test_yukleme_kutusu_yalniz_kapida():
-    """Programın Excel yüklemeleri tek yerde: kapı dışında st.file_uploader yok (barkod: kamera)."""
+    """Programın Excel yüklemeleri tek yerde: kapı dışında st.file_uploader yok (barkod: kamera;
+    şirket belgeleri: veri değil, PDF/görsel arşivi)."""
     bulunan = []
     for r, p in _py_dosyalar():
         for n in ast.walk(ast.parse(p.read_text(encoding="utf-8"))):
             if isinstance(n, ast.Attribute) and n.attr == "file_uploader":
                 bulunan.append(r)
-    assert set(bulunan) <= {"shared/dosya_kapisi.py", "shared/barkod.py"}, bulunan
+    assert set(bulunan) <= {"shared/dosya_kapisi.py", "shared/barkod.py",
+                            "shared/sirket_belge_ekran.py"}, bulunan
 
 
 def _fonksiyon_dugumu(yol):

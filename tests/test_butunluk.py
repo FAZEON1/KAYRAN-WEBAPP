@@ -76,7 +76,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
-               "bt_olcum.py", "bt_ekran.py", "main.py"):
+               "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -188,6 +189,11 @@ KRITIK_FONKSIYONLAR = {
                         "iyilestirme_satiri", "karne"],
     "shared.bt_olcum": ["kaydet", "alt_sayfa", "son_olcumler", "raporlar"],
     "shared.bt_ekran": ["sayfa"],
+    "shared.sirket_belge_hesap": ["belge_kabul", "depo_yolu", "sure_durumu", "gruplandir", "uyarilar",
+                                  "zip_icerik", "kunye_birlestir", "edefter_kunye", "kunye_metni"],
+    "shared.sirket_belge": ["listele", "yukle", "guncelle", "sil", "link", "indir", "kunye_oku", "kunye_yaz"],
+    "shared.sirket_belge_ekran": ["sayfa"],
+    "shared.sirket": ["sirket_bilgi"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
