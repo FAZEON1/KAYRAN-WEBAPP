@@ -22,7 +22,7 @@ import streamlit as st
 
 from shared.tasarim import (baslik, css_tek_satir, kpi_serit, mesaj, bos_durum,
                             rv, sayi, tr_sayi)
-from shared.utils import firma_gorunen_ad, normalize_tr, tr_kucuk, tr_today
+from shared.utils import firma_gorunen_ad, normalize_tr, sku_anahtar, tr_kucuk, tr_today
 from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh, urun_ad as _urun_ad   # tek kaynak (Eki 2026)
 from shared import bilesen as B
 from . import kampanya_hesap as H
@@ -117,7 +117,9 @@ def _veri():
         from shared.hata_log import kaydet
         kaydet("kampanya.urunler", e)
         urunler = []
-    pacal = {u["sku"]: float(u.get("final_cost_price") or 0) for u in urunler}
+    # Anahtar kanonik (sku_anahtar): kampanya ürününün SKU'su kartla farklı yazılmış olsa da
+    # ('Mio MiVue J30' / 'MIO MIVUE J30', 'Fazeon X…') güncel paçal bulunur (Ekim 2026).
+    pacal = {sku_anahtar(u["sku"]): float(u.get("final_cost_price") or 0) for u in urunler if u.get("sku")}
     return kamps, ku_map, pacal, urunler
 
 
@@ -415,7 +417,7 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
     if urunler_k:
         satirlar = []
         for u in urunler_k:
-            h = H.urun_hesap(u, pacal.get(u.get("sku"), 0))
+            h = H.urun_hesap(u, pacal.get(sku_anahtar(u.get("sku")), 0))
             satirlar.append({
                 "_id": u["id"], "SKU": u.get("sku", ""), "Ürün": _urun_ad(u.get("sku"), u.get("urun_adi")),
                 "Paçal": h["pacal"] or None, "Satış": h["satis"], "Firma desteği": h["fd"],
