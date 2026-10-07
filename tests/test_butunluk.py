@@ -75,7 +75,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
-               "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "main.py"):
+               "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
@@ -165,6 +165,7 @@ KRITIK_FONKSIYONLAR = {
         "_ayarlar_hepsi", "_tum_kurlar",          # tek istekte ayarlar / kurlar (hızlandırma)
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu
         "virman_yap",
+        "tahsilat_guncelle", "tahsilat_bakiye_farki",   # para girişi düzenleme (Ekim 2026)
     ],
     "satis.database": ["pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
@@ -181,6 +182,7 @@ KRITIK_FONKSIYONLAR = {
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
+    "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",

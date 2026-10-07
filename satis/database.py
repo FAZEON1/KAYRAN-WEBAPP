@@ -778,7 +778,7 @@ def ice_aktar_onizle(satirlar):
             "tarihsiz_ornek": tarihsiz_ornek, "maliyetsiz_ornek": maliyetsiz_ornek}
 
 
-def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=None):
+def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=None, tamamla=None):
     """Geçmiş satışları toplu içe aktarır (Excel/Mikro dökümünden).
 
     satirlar: [{tarih, kanal, sku, urun_adi, adet, birim_satis, siparis_no, notlar}, ...]
@@ -786,6 +786,8 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     temizle_once=True : dosyadaki fatura no'ları önce silinir (kısmi/bozuk kayıtları temizler), sonra eklenir.
     atla_mevcut=True  : (temizle_once kapalıyken) zaten kayıtlı fatura no'larını atlar.
     Her grup ayrı yazılır; biri patlarsa satır satır denenir, gerçekte eklenen sayılır.
+    tamamla: {(hedef_depo, sku): [(kaynak_depo, adet)]} — eksik stoğu başka depodan tamamlama planı
+        (satis.stok_tamamla; yükleme ekranında kullanıcı seçer). Yalnız stok düşümünü değiştirir.
     Döner: {eklendi, atlandi, maliyetsiz, silinen_fatura, hatali, hata}.
     """
     pacal = get_pacal_map()
@@ -911,6 +913,9 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
             _g[_sku] = _g.get(_sku, 0) + _ad
         else:
             _deposuz.append(_r)
+    if tamamla:
+        from .stok_tamamla import uygula as _tamamla_uygula
+        _depo_gruplu = _tamamla_uygula(_depo_gruplu, tamamla, _normalize_sku_yerel)
     for _d, _hrk in _depo_gruplu.items():
         _stok_akilli_dus(_hrk, _d)
     if _deposuz:

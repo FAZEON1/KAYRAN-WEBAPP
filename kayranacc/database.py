@@ -851,6 +851,66 @@ def tahsilat_geri_al(tahsilat_id):
         return False, f"Geri alınamadı: {e}"
 
 
+def tahsilat_bakiye_farki(eski_banka_id, eski_tutar, yeni_banka_id, yeni_tutar):
+    """Tahsilat düzeltilince bankalara yansıyacak fark: {banka_id: +/- tutar}.
+    Aynı bankada yalnız tutar farkı; banka değiştiyse eskiden eski tutar düşer, yeniye yeni tutar eklenir."""
+    eski_tutar, yeni_tutar = float(eski_tutar or 0), float(yeni_tutar or 0)
+    if eski_banka_id == yeni_banka_id:
+        fark = round(yeni_tutar - eski_tutar, 6)
+        return {yeni_banka_id: fark} if fark else {}
+    return {eski_banka_id: -eski_tutar, yeni_banka_id: yeni_tutar}
+
+
+def tahsilat_guncelle(tahsilat_id, banka_id, tutar, kaynak="", aciklama="", tarih=None):
+    """Kayıtlı bir tahsilatı (para girişini) DÜZELTİR — silip yeniden girmeden (Ekim 2026).
+    Tutar ya da banka değişirse banka bakiyeleri farkla düzeltilir (tahsilat_bakiye_farki).
+    Önce kayıt güncellenir; bakiye yazılamazsa kayıt eski hâline döner. Döner: (ok, mesaj)."""
+    if not tutar or float(tutar) <= 0:
+        return False, "Tutar 0'dan büyük olmalı"
+    tutar = float(tutar)
+    sb = get_client()
+    try:
+        r = sb.table("tahsilatlar").select("*").eq("id", tahsilat_id).execute()
+        if not r.data:
+            return False, "Tahsilat kaydı bulunamadı"
+        t = r.data[0]
+        b = sb.table("bankalar").select("*").eq("id", banka_id).execute()
+        if not b.data:
+            return False, "Banka bulunamadı"
+        banka = b.data[0]
+    except Exception as e:
+        return False, f"Kayıt okunamadı: {e}"
+    eski = {k: t.get(k) for k in ("banka_id", "hesap_adi", "para_birimi", "tutar", "kaynak", "aciklama", "tarih")}
+    yeni = {"banka_id": banka_id, "hesap_adi": banka["hesap_adi"], "para_birimi": banka["para_birimi"],
+            "tutar": tutar, "kaynak": kaynak or "", "aciklama": aciklama or "",
+            "tarih": str(tarih)[:10] if tarih else (str(t.get("tarih") or "")[:10] or tr_today_iso())}
+    try:
+        sb.table("tahsilatlar").update(yeni).eq("id", tahsilat_id).execute()
+    except Exception as e:
+        return False, f"Kayıt güncellenemedi: {e}"
+    yapilan = []
+    try:
+        for bid, fark in tahsilat_bakiye_farki(t.get("banka_id"), t.get("tutar"), banka_id, tutar).items():
+            br = sb.table("bankalar").select("bakiye").eq("id", bid).execute()
+            if not br.data:
+                continue
+            sb.table("bankalar").update({"bakiye": float(br.data[0]["bakiye"] or 0) + fark}).eq("id", bid).execute()
+            yapilan.append((bid, fark))
+    except Exception as e:
+        # Yarım kalmasın: yazılan bakiye farklarını ve kaydı geri çevir
+        try:
+            for bid, fark in yapilan:
+                br = sb.table("bankalar").select("bakiye").eq("id", bid).execute()
+                sb.table("bankalar").update({"bakiye": float(br.data[0]["bakiye"] or 0) - fark}).eq("id", bid).execute()
+            sb.table("tahsilatlar").update(eski).eq("id", tahsilat_id).execute()
+        except Exception:
+            pass
+        _cache_temizle()
+        return False, f"Bakiye güncellenemedi, değişiklik geri alındı: {e}"
+    _cache_temizle()
+    return True, "Tahsilat düzeltildi" + (" · banka bakiyesi güncellendi" if yapilan else "")
+
+
 def virman_geri_al(virman_id):
     """
     Virmanı geri alır:
