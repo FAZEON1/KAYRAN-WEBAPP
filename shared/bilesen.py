@@ -58,12 +58,13 @@ def baslik_eylem(modul, sayfa, aciklama="", eylemler=()):
 
 
 # ── Filtre düğmesi ──────────────────────────────────────────────────
-def filtre(kap, alanlar, tumu="Tümü"):
+def filtre(kap, alanlar, tumu="Tümü", genislik="stretch"):
     """kap: st.columns sütunu ya da st. alanlar: [{"etiket","secenekler","key","format_func"?}]
-    Her alanın ilk seçeneği 'Tümü'. Döner: {key: seçilen}."""
+    Her alanın ilk seçeneği 'Tümü'. Döner: {key: seçilen}. genislik="content": düğme yazısı kadar
+    (yatay araç çubuğunda arama kutusuna yer bırakır)."""
     n = sum(1 for a in alanlar if st.session_state.get(a["key"], tumu) != tumu)
     out = {}
-    with kap.popover(f"Filtre{f' · {n}' if n else ''}", icon=":material/tune:", use_container_width=True):
+    with kap.popover(f"Filtre{f' · {n}' if n else ''}", icon=":material/tune:", width=genislik):
         for a in alanlar:
             out[a["key"]] = st.selectbox(a["etiket"], [tumu] + list(a["secenekler"]), key=a["key"],
                                          format_func=a.get("format_func") or (lambda x: x))
