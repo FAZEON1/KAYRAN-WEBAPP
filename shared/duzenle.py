@@ -312,7 +312,7 @@ td{padding:7px 14px;border-bottom:1px solid var(--k-kenar);vertical-align:middle
 td.sag{text-align:right} td.orta{text-align:center}
 td.yazi{max-width:520px;overflow:hidden;text-overflow:ellipsis;padding-top:12px;padding-bottom:12px}
 td.soluk{color:var(--k-soluk)}
-td .alt{display:block;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--k-silik);margin-top:3px}
+td .alt{display:block;font-family:var(--k-mono);font-size:11.5px;color:var(--k-silik);margin-top:3px}
 td.idx{color:var(--k-silik);font-size:12px}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--k-yuzey2)}

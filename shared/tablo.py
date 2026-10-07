@@ -299,7 +299,7 @@ tfoot td:first-child{left:0;z-index:3}
 .kt.sade{font-size:14px}
 .kt.sade th{background:var(--k-yuzey1);color:var(--k-silik);font-weight:600;font-size:12px;padding:11px 16px;border-bottom:1px solid var(--k-kenar)}
 .kt.sade td{padding:12px 16px}
-.kt.sade td .alt{display:block;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--k-silik);margin-top:3px;letter-spacing:-.01em}
+.kt.sade td .alt{display:block;font-family:var(--k-mono);font-size:11.5px;color:var(--k-silik);margin-top:3px;letter-spacing:-.01em}
 .kt.sade td.soluk{color:var(--k-soluk)}
 .kt.sade tbody tr:hover td{background:var(--k-yuzey2)}
 .kt.sade tfoot td,.kt.sade tfoot td:first-child{background:var(--k-yuzey1);border-top:1px solid var(--k-kenar2)}

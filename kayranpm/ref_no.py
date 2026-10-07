@@ -1496,10 +1496,10 @@ def _durum_renk(d):
 # ══════════════════════════════════════════════════════════════════
 #  ORTAK TASARIM KATMANI — özet şeridi ve detay pencereleri
 #  Tipografi kuralı: etiketler 9.5px/1.4px aralık/UPPERCASE/700,
-#  sayılar JetBrains Mono + tabular-nums (rakamlar alt alta hizalanır),
+#  sayılar ortak rakam fontu (var(--k-mono) = Inter) + tabular-nums (rakamlar alt alta hizalanır),
 #  metinler sistem fontu. Tüm ölçüler tek yerden yönetilir.
 # ══════════════════════════════════════════════════════════════════
-_MONO = "'JetBrains Mono','SF Mono',ui-monospace,monospace"
+_MONO = "var(--k-mono)"   # shared.tasarim.MONO (Ekim 2026: Inter, hizalı rakam)
 
 
 def _etiket_css(renk):

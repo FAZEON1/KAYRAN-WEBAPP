@@ -190,7 +190,7 @@ def _sayfa_sevk():
                          + (f'<div style="font-size:12px;color:var(--k-kirmizi)">son deneme: {_s["hata"]}</div>'
                             if _s.get("hata") else "") + '</div>',
                          unsafe_allow_html=True)
-            rc2.markdown(f'<div style="padding:4px 0;font-family:monospace;color:var(--k-yesil);font-weight:700">'
+            rc2.markdown(f'<div style="padding:4px 0;font-family:var(--k-mono);color:var(--k-yesil);font-weight:700">'
                          f'{_s["adet"]} adet</div>', unsafe_allow_html=True)
             if rc3.button("", key=f"dpo_sil_{_i}", help="Listeden çıkar", icon=":material/delete:"):
                 _sepet.pop(_i)

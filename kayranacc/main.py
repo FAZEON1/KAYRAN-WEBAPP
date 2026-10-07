@@ -284,7 +284,7 @@ def run():
         border: 1px solid color-mix(in srgb,var(--k-metin) 12%,transparent) !important;
         color: var(--k-mavi) !important;
         border-radius: 8px !important;
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: var(--k-mono) !important;
         font-size:14px !important;
         font-weight: 600 !important;
     }
@@ -333,7 +333,7 @@ def run():
     }
     [data-testid="stMetricValue"],
     [data-testid="stMetricValue"] * {
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: var(--k-mono) !important;
         font-size:23px !important;
         font-weight: 700 !important;
         color: var(--k-metin) !important;
@@ -418,7 +418,7 @@ def run():
         border: 1px solid color-mix(in srgb,var(--k-soluk) 25%,transparent) !important;
         color: var(--k-mavi) !important;
         border-radius: 8px !important;
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: var(--k-mono) !important;
         font-size:14px !important;
         font-weight: 600 !important;
         box-shadow: none !important;
@@ -694,7 +694,7 @@ def run():
     
     /* ── MONO FONT ── */
     .mono {
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: var(--k-mono) !important;
         font-weight: 600 !important;
         letter-spacing: -.3px !important;
     }
@@ -1323,10 +1323,10 @@ def run():
             'border-radius:10px;padding:8px 16px;margin:8px 0 16px;display:flex;gap:24px;flex-wrap:wrap;'
             'align-items:center;font-size:13px">'
             '<span style="color:var(--k-soluk);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:1px">Toplam</span>'
-            f'<span style="color:var(--k-mor)">TL <b style="color:var(--k-metin);font-family:monospace">₺{tr_sayi(_v_tl, 2)}</b></span>'
-            f'<span style="color:var(--k-mavi)">USD <b style="color:var(--k-metin);font-family:monospace">${tr_sayi(_v_usd, 2)}</b></span>'
-            + (f'<span style="color:var(--k-mor)">EUR <b style="color:var(--k-metin);font-family:monospace">€{tr_sayi(_v_eur, 2)}</b></span>' if _v_eur else '')
-            + f'<span style="color:var(--k-yesil)">≈ USD karşılığı <b style="font-family:monospace">${tr_sayi(_v_usd_esde, 2)}</b></span>'
+            f'<span style="color:var(--k-mor)">TL <b style="color:var(--k-metin);font-family:var(--k-mono)">₺{tr_sayi(_v_tl, 2)}</b></span>'
+            f'<span style="color:var(--k-mavi)">USD <b style="color:var(--k-metin);font-family:var(--k-mono)">${tr_sayi(_v_usd, 2)}</b></span>'
+            + (f'<span style="color:var(--k-mor)">EUR <b style="color:var(--k-metin);font-family:var(--k-mono)">€{tr_sayi(_v_eur, 2)}</b></span>' if _v_eur else '')
+            + f'<span style="color:var(--k-yesil)">≈ USD karşılığı <b style="font-family:var(--k-mono)">${tr_sayi(_v_usd_esde, 2)}</b></span>'
             '</div>', unsafe_allow_html=True)
 
         # ─── Yeni Virman Formu ───
@@ -1458,9 +1458,9 @@ def run():
                                 <span style="font-size:13px;font-weight:700;color:var(--k-metin)">{v.get('hedef_hesap_adi','?')}</span>
                             </div>
                             <div style="text-align:right">
-                                <span style="font-family:monospace;color:var(--k-kirmizi);font-weight:600">-{kaynak_sym}{tr_sayi(v_tutar, 2)}</span>
+                                <span style="font-family:var(--k-mono);color:var(--k-kirmizi);font-weight:600">-{kaynak_sym}{tr_sayi(v_tutar, 2)}</span>
                                 &nbsp;&nbsp;
-                                <span style="font-family:monospace;color:var(--k-yesil);font-weight:600">+{hedef_sym}{tr_sayi(v_hedef_tutar, 2)}</span>
+                                <span style="font-family:var(--k-mono);color:var(--k-yesil);font-weight:600">+{hedef_sym}{tr_sayi(v_hedef_tutar, 2)}</span>
                             </div>
                         </div>
                         <div style="font-size:11px;color:var(--k-silik);margin-top:4px">
@@ -2900,7 +2900,7 @@ def run():
                     f'border:1px solid color-mix(in srgb,var(--k-soluk) 18%,transparent);border-radius:8px;padding:4px 8px;font-size:13px;margin:4px 4px 4px 0">'
                     f'<span style="color:{trenk("yesil") if y=="+" else trenk("kirmizi")}">{y}</span>'
                     f'<span style="color:var(--k-soluk)">{k}</span>'
-                    f'<b style="color:var(--k-metin);font-family:monospace">${tr_sayi(float(v or 0))}</b></span>'
+                    f'<b style="color:var(--k-metin);font-family:var(--k-mono)">${tr_sayi(float(v or 0))}</b></span>'
                     for k, v, y in _dk if float(v or 0))
                 st.markdown(f'<div style="display:flex;flex-wrap:wrap;margin-bottom:8px">{_chips}</div>',
                             unsafe_allow_html=True)
@@ -3055,7 +3055,7 @@ def run():
                         st.markdown(
                             f'<div style="background:var(--k-yuzey2);border:1px solid color-mix(in srgb,var(--k-metin) 12%,transparent);border-left:3px solid {renk};border-radius:8px;padding:8px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">'
                             f'<div><b style="color:var(--k-metin);font-size:13px">{k.get("aciklama","")}</b><div style="font-size:11px;color:var(--k-soluk)">{(k.get("olusturuldu") or "")[:10]}</div></div>'
-                            f'<div style="color:{renk};font-weight:700;font-family:monospace;font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
+                            f'<div style="color:{renk};font-weight:700;font-family:var(--k-mono);font-size:14px">{isaret}{sembol}{tr_sayi(tutar_v, 2)}</div>'
                             f'</div>',
                             unsafe_allow_html=True
                         )

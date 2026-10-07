@@ -263,7 +263,7 @@ def goster(sku):
         f'border-radius:16px;padding:14px 18px;margin-bottom:12px">'
         f'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
         f'<span style="font-size:19px;font-weight:700;color:var(--k-metin);'
-        f'font-family:JetBrains Mono,monospace;letter-spacing:-0.3px">{sku}</span>'
+        f'font-family:var(--k-mono);letter-spacing:-0.3px">{sku}</span>'
         f'<span style="font-size:13px;color:var(--k-soluk);flex:1;min-width:180px">'
         f'{(urun.get("urun_adi") or "—")}</span>'
         f'<span style="font-size:11px;font-weight:700;color:{_canli_renk};'
@@ -349,7 +349,7 @@ def goster(sku):
                     f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
                     f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:600">{ad}</span>'
                     f'<span style="color:{RENK["metin"]};font-size:13px;font-weight:700;'
-                    f'font-family:JetBrains Mono,monospace">{tr_sayi(adet)}</span></div>'
+                    f'font-family:var(--k-mono)">{tr_sayi(adet)}</span></div>'
                     f'<div style="height:4px;border-radius:2px;background:color-mix(in srgb,var(--k-metin) 5%,transparent)">'
                     f'<div style="height:4px;border-radius:2px;width:{_w:.1f}%;background:{renk}"></div></div>'
                     f'{_alt}</div>')
@@ -399,7 +399,7 @@ def goster(sku):
         # Genel toplam şeridi
         _genel = toplam_stok + _musteri_toplam
         _serit = (f'<span style="color:{RENK["metin"]};font-weight:700">Kanal dahil '
-                  f'<span style="font-family:JetBrains Mono,monospace">{tr_sayi(_genel)}</span></span>'
+                  f'<span style="font-family:var(--k-mono)">{tr_sayi(_genel)}</span></span>'
                   f'<span style="color:{RENK["silik"]}"> = satılabilir {tr_sayi(toplam_stok)} + kanallarda {tr_sayi(_musteri_toplam)}</span>')
         # NOT: 'canlı hesap' ibaresi kullanıcı talebiyle şeritten kaldırıldı
         # (müşteri stok dosyası beklenirken eksi görünüp kafa karıştırıyordu).
@@ -407,7 +407,7 @@ def goster(sku):
             _serit += f'<span style="color:{RENK["silik"]}"> · {_yeter}</span>'
         if yolda_adet > 0:
             _serit += (f'<span style="color:{RENK["mavi"]}"> · 🚚 yolda '
-                       f'<b style="font-family:JetBrains Mono,monospace">{tr_sayi(yolda_adet)}</b></span>')
+                       f'<b style="font-family:var(--k-mono)">{tr_sayi(yolda_adet)}</b></span>')
         st.markdown(
             f'<div style="background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);'
             f'border-radius:10px;padding:8px 16px;margin:0 0 10px;font-size:13px">{_serit}</div>',
