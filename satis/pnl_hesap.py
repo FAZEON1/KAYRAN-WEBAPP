@@ -96,7 +96,8 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
                 adet = int(ir.get("iade_adet") or 0)
                 ft += net
                 fa += adet
-                fk += net - adet * pacal.get(sku.upper(), pacal.get(sku, 0.0))
+                # Paçal anahtarı kanonik (sku_anahtar): .upper() 'Fazeon …' önekini atmıyordu (Ekim 2026)
+                fk += net - adet * pacal.get(sku_anahtar(sku), pacal.get(sku, 0.0))
             itop["i_tutar"], itop["i_kar"] = ft, fk
             # Net adet de süzgece göre (eskiden süzgeçsiz toplam kalıyordu: firma seçilse de 7.061)
             itop["i_adet"], itop["net_adet"] = fa, int(top.get("adet") or 0) - fa

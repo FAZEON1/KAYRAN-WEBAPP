@@ -384,13 +384,15 @@ def urun_etiketi(ad, sku="", renk=None, kalin=False):
 # ═══════════════════════════════════════════════════════════════════
 # 2. YOĞUNLUK — kompaktlığın kaynağı.
 #    "sik" veri ekranlarının varsayılanı; "genis" sadece giriş formları için.
+#    Ekim 2026: yazı ölçeği büyüyünce (FONT) kartlar sıkışık kaldı; kart iç boşluğu 9/13 → 13/17,
+#    kartlar arası 8 → 12, şerit altı 10 → 16 (kullanıcının örnek panosuna yakın). Satırlar sık kaldı.
 # ═══════════════════════════════════════════════════════════════════
 YOGUNLUK = {
     "sik": {
-        "kart_pad":   "9px 13px",
+        "kart_pad":   "13px 17px",
         "kart_r":     "10px",
-        "grid_gap":   "8px",
-        "serit_alt":  "10px",
+        "grid_gap":   "12px",
+        "serit_alt":  "16px",
         "satir_pad":  "3px 10px",
         "kart_min":   "132px",
     },
@@ -544,19 +546,24 @@ div[data-testid="stMetric"]{{
   background:var(--k-yuzey1) !important;border:1px solid var(--k-kenar) !important;
   border-left:2px solid var(--k-mor) !important;border-radius:{y['kart_r']} !important;
   padding:{y['kart_pad']} !important;}}
-div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p,
-div[data-testid="stMetricLabel"] div{{
+/* Streamlit 1.6x yazıyı stMarkdownContainer > p içine koyuyor; gövde metni kuralı
+   (.stApp [data-testid="stMarkdownContainer"] p, 14px) ondan özgül olduğu için rakam 22px yerine
+   14px, etiket düz metin çıkıyordu (Ekim 2026). Seçiciler .stApp + p ile ondan güçlü. */
+.stApp [data-testid="stMetricLabel"],.stApp [data-testid="stMetricLabel"] :is(p,div,label),
+.stApp [data-testid="stMetricLabel"] [data-testid="stMarkdownContainer"] p{{
   font-size:13px !important;color:var(--k-soluk) !important;
   font-weight:500 !important;letter-spacing:0 !important;
   text-transform:none !important;line-height:1.3 !important;
   white-space:normal !important;overflow:visible !important;}}
-div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] div{{
+.stApp [data-testid="stMetricValue"],.stApp [data-testid="stMetricValue"] :is(p,div),
+.stApp [data-testid="stMetricValue"] [data-testid="stMarkdownContainer"] p{{
   font-size:{F['deger']} !important;color:var(--k-metin) !important;
   font-weight:{A['baslik']} !important;font-family:{MONO} !important;
   font-variant-numeric:tabular-nums !important;letter-spacing:{T['baslik']} !important;
   line-height:1.3 !important;}}
-div[data-testid="stMetricDelta"]{{font-size:{F['kucuk']} !important;
-  font-family:{MONO} !important;}}
+.stApp [data-testid="stMetricDelta"]{{font-size:{F['kucuk']} !important;font-family:{MONO} !important;}}
+.stApp [data-testid="stMetricDelta"] [data-testid="stMarkdownContainer"] p{{font-size:{F['kucuk']} !important;
+  color:inherit !important;}}
 
 /* ── Uyarı kutuları: 745 çağrı, hepsi tek dilde ── */
 /* Çerçeve + zemin TEK katmanda: stAlertContainer (Streamlit zemini orada).
@@ -845,8 +852,10 @@ MOBIL_CSS = f"""
   .k-urun-ad, .bgn-detay{{white-space:normal !important;display:-webkit-box !important;
     -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden !important;}}
 
-  [data-testid="stMetricValue"]{{font-size:1.05rem !important;}}
-  [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p{{font-size:.72rem !important;}}
+  .stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] [data-testid="stMarkdownContainer"] p{{
+    font-size:1.05rem !important;}}
+  .stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] [data-testid="stMarkdownContainer"] p{{
+    font-size:.72rem !important;}}
   .stApp h1{{font-size:1.3rem !important;}} .stApp h2{{font-size:1.12rem !important;}}
   .stApp h3{{font-size:1rem !important;}}
 

@@ -111,9 +111,11 @@ def urun_hesap(ku, guncel_pacal=0.0):
 
 
 def kampanya_ozet(kamp, urunler, pacal_map=None, bugun=None):
-    """Kampanya toplamı. pacal_map: {sku: güncel paçal}."""
+    """Kampanya toplamı. pacal_map: {sku: güncel paçal} — anahtar kanonik (sku_anahtar) ya da ham."""
+    from shared.utils import sku_anahtar
     pacal_map = pacal_map or {}
-    sat = [urun_hesap(u, pacal_map.get(u.get("sku"), 0)) for u in (urunler or [])]
+    sat = [urun_hesap(u, pacal_map.get(sku_anahtar(u.get("sku")), pacal_map.get(u.get("sku"), 0)))
+           for u in (urunler or [])]
     t = lambda k: sum(s[k] for s in sat)
     spf = spiff_usd(kamp)
     net = t("t_net") - spf
