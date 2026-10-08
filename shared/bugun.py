@@ -8,6 +8,11 @@ Bu panel yalnız DİKKAT GEREKTİREN işleri, önem sırasına göre listeler:
   kritik  · vadesi GEÇMİŞ ödemeler · başarısız stok işlemleri
   uyarı   · BUGÜN vadeli ödemeler  · acil sipariş gereken ürünler
   bilgi   · YARIN vadeli ödemeler  · cevap bekleyen talepler
+Rol bazlı (Ekim 2026, yalnız o modülün yetkilisine):
+  teknik servis · 7 günden uzun mal kabulde / teknisyende bekleyen cihaz
+  ithalat       · tahmini varışı geçmiş ve hâlâ gelmemiş dosya · 7 gün içinde gelecek dosya
+  depo          · sevki tamamlanmamış elle takip kaydı
+Madde hedefi "modul" ya da "modul/sayfa_kodu" (shared/gezinme) — Aç düğmesi doğrudan o sayfayı açar.
 
 Her kaynak kendi try bloğunda: biri çökerse panel yine açılır, hata
 Sistem Kayıtları'na düşer (sessizce yutulmaz).
@@ -155,6 +160,76 @@ def maddeler_yukleme(durumlar):
     return m + yak
 
 
+TS_BEKLEYEN = (("mal kabül", "Mal kabulde"), ("teknisyende", "Teknisyende"))
+TS_ESIK_GUN = 7
+ITHALAT_GELDI = "Teslim Alındı"
+
+
+def _gun(v):
+    try:
+        return date.fromisoformat(str(v or "")[:10])
+    except ValueError:
+        return None
+
+
+def maddeler_teknik_servis(kayitlar, bugun, esik=TS_ESIK_GUN):
+    """Mal kabulde ya da teknisyende `esik` günden uzun bekleyen cihazlar (durum başına bir madde)."""
+    m = []
+    for durum, ad in TS_BEKLEYEN:
+        uzun = []
+        for k in kayitlar or []:
+            if str(k.get("mevcut_durum") or "").strip().lower() != durum:
+                continue
+            g = _gun(k.get("mal_kabul_tarihi") or k.get("olusturma_tarihi"))
+            if g and (bugun - g).days > esik:
+                uzun.append(((bugun - g).days, k))
+        if uzun:
+            uzun.sort(key=lambda x: -x[0])
+            m.append(_madde("uyari", f"{ad} {esik} günü geçen cihaz",
+                            f"En eskisi {uzun[0][0]} gündür bekliyor · " + _isimler([k for _, k in uzun], "stok_adi"),
+                            len(uzun), "teknikservis/servis", f"ts_{durum.split()[0]}"))
+    return m
+
+
+def maddeler_ithalat(dosyalar, bugun, gun=7):
+    """Gelmemiş ithalat dosyaları: tahmini varışı geçmiş (uyarı) ve `gun` gün içinde gelecek (bilgi)."""
+    yolda = [d for d in dosyalar or [] if str(d.get("durum") or "").strip() != ITHALAT_GELDI]
+    gec, yakin = [], []
+    for d in yolda:
+        t = _gun(d.get("tahmini_varis"))
+        if t is None:
+            continue
+        if t < bugun:
+            gec.append(d)
+        elif t <= bugun + timedelta(days=gun):
+            yakin.append(d)
+    m = []
+    if gec:
+        durumlar = sorted({str(d.get("durum") or "—") for d in gec})
+        m.append(_madde("uyari", "Tahmini varışı geçmiş ithalat",
+                        f"{', '.join(durumlar)} · " + _isimler(gec, "dosya_no"), len(gec),
+                        "ithalat/gecmis", "ith_gecikmis"))
+    if yakin:
+        m.append(_madde("bilgi", f"{gun} gün içinde gelecek ithalat", _isimler(yakin, "dosya_no"), len(yakin),
+                        "ithalat/gecmis", "ith_yakin"))
+    return m
+
+
+def maddeler_depo_sevk(takip):
+    """Elle takipte faturalanmış ama tamamı sevk edilmemiş kayıtlar."""
+    acik = []
+    for t in takip or []:
+        try:
+            if float(t.get("sevk_edilen") or 0) < float(t.get("fatura_adet") or 0):
+                acik.append(t)
+        except (TypeError, ValueError):
+            continue
+    if not acik:
+        return []
+    return [_madde("bilgi", "Sevki tamamlanmamış kayıt", _isimler(acik, "firma"), len(acik),
+                   "depo/bekleyen", "depo_sevk")]
+
+
 def sirala(maddeler):
     return sorted(maddeler, key=lambda m: (ONCELIK_SIRA.get(m["oncelik"], 9), -m["sayi"]))
 
@@ -171,6 +246,26 @@ def _basarisiz_stok_hareketleri():
         from shared.stok_defteri import gecmis
         return gecmis(limit=200, yalniz_basarisiz=True)
     return _oku()
+
+
+def _oku(tablo, kolonlar, suz=None):
+    """Bugün paneli için hafif okuma (60 sn önbellek; en fazla 2.000 satır)."""
+    import streamlit as st
+
+    @st.cache_data(ttl=60, show_spinner=False)
+    def _o(tablo, kolonlar, suz):
+        from shared.auth import _get_supabase
+        out = []
+        for i in range(0, 2000, 1000):
+            q = _get_supabase().table(tablo).select(kolonlar)
+            if suz:
+                q = q.in_(suz[0], list(suz[1]))
+            r = q.range(i, i + 999).execute().data or []
+            out += r
+            if len(r) < 1000:
+                break
+        return out
+    return _o(tablo, kolonlar, suz)
 
 
 def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
@@ -210,6 +305,25 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
             m += maddeler_acil_siparis(dashboard_hesapla())
         except Exception as e:  # noqa: BLE001
             kaydet("bugun.acil_siparis", e)
+
+    if yetkiler.get("teknikservis"):
+        try:
+            m += maddeler_teknik_servis(_oku("ts_kayitlar", "id,mevcut_durum,mal_kabul_tarihi,olusturma_tarihi,stok_adi",
+                                             ("mevcut_durum", tuple(d for d, _ in TS_BEKLEYEN))), bugun)
+        except Exception as e:  # noqa: BLE001
+            kaydet("bugun.teknik_servis", e)
+
+    if yetkiler.get("ithalat"):
+        try:
+            m += maddeler_ithalat(_oku("ithalat_dosyalari", "id,dosya_no,durum,tahmini_varis"), bugun)
+        except Exception as e:  # noqa: BLE001
+            kaydet("bugun.ithalat", e)
+
+    if yetkiler.get("depo"):
+        try:
+            m += maddeler_depo_sevk(_oku("depo_manuel_takip", "id,firma,fatura_adet,sevk_edilen"))
+        except Exception as e:  # noqa: BLE001
+            kaydet("bugun.depo", e)
 
     if sistem_yoneticisi:
         try:

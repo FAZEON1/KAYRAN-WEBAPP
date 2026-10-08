@@ -53,3 +53,8 @@ style = "normal"
 
 [browser]
 gatherUsageStats = false
+
+# ── Telefona kurulum (Ekim 2026): static/ klasörü /app/static/ altında sunulur —
+#    manifest.json + simgeler (shared/pwa.py sayfaya bağlar). ──
+[server]
+enableStaticServing = true
