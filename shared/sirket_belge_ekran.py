@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Yönetim › Şirket belgeleri (Ekim 2026) — yalnız Yönetim yetkilileri (app.py modül kapısı).
+"""Şirket belgeleri (Ekim 2026; kişi menüsü, eskiden Yönetim altında) — yalnız Yönetim yetkilileri (app.py kapısı).
 
 Şirketin resmi belgeleri (vergi levhası, sicil gazetesi, faaliyet belgesi …): türe göre güncel
 sürüm + eski sürümler, geçerlilik uyarısı, seçilenleri tek ZIP indirme ve şirket künyesi.
@@ -45,7 +45,7 @@ def _mb(n):
 
 def sayfa():
     kayitlar = D.listele()
-    B.baslik_eylem("Yönetim", "Şirket belgeleri",
+    B.baslik_eylem("Yönetici", "Şirket belgeleri",
                    aciklama="Vergi levhası, sicil gazetesi, faaliyet belgesi gibi resmi belgeler ve şirket künyesi. "
                             "Yalnız yöneticiler görür.")
     if kayitlar is None:

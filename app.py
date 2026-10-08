@@ -1925,6 +1925,29 @@ def _kisi_menusu():
             _kisi_menu_icerik()
 
 
+def _grup_seridi(aktif):
+    """Gruplu sayfada (shared.gezinme.SAYFA_GRUPLARI) kardeş sayfalar arasında geçiş: kişi menüsünde tek
+    düğme kalsın diye. Yönetici olmayan Sistem grubunu görmez; Verilerim herkese açık."""
+    from shared.gezinme import sayfa_grubu, SISTEM
+    g = sayfa_grubu(aktif)
+    if not g:
+        return
+    ad, sayfalar = g
+    _ozel = {x[0]: x[3] for x in SISTEM}
+    ak = st.session_state.get("aktif_kullanici", "")
+    sayfalar = [(k, a) for k, a in sayfalar if not _ozel.get(k) or ozel_yetki(ak, _ozel[k])]
+    if len(sayfalar) < 2:
+        return
+    adlar = [a for _k, a in sayfalar]
+    st.session_state["grup_secim"] = dict(sayfalar).get(aktif)
+
+    def _degis():
+        hedef = next((k for k, a in sayfalar if a == st.session_state.get("grup_secim")), None)
+        if hedef and hedef != aktif:
+            _sayfaya_git(hedef)
+    st.segmented_control(ad, adlar, key="grup_secim", on_change=_degis, label_visibility="collapsed")
+
+
 def _kisi_menu_icerik(ek=""):
     """Kişi menüsünün içeriği. ek: aynı menü sayfada iki kez çizilince (üst şerit + telefonda alt menü)
     düğme anahtarları çakışmasın diye eklenen son ek."""
@@ -1960,39 +1983,36 @@ def _kisi_menu_icerik(ek=""):
     st.caption("Hesap")
 
     # on_click → tek çalışmada sayfa değişir (st.rerun yok)
-    st.button("Şifremi Değiştir", icon=":material/key:", key="nav_sifre_degistir" + ek,
+    st.button("Şifremi değiştir", icon=":material/key:", key="nav_sifre_degistir" + ek,
               type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
               use_container_width=True, on_click=_sayfaya_git, args=("sifre_degistir",))
 
-    # Çöp kutusu: herkes KENDİ sildiğini, sistem yöneticisi herkesinkini görür
-    st.button("Çöp kutusu", icon=":material/delete:", key="nav_cop_kutusu" + ek,
-              type="primary" if aktif_sayfa == "cop_kutusu" else "secondary",
-              use_container_width=True, on_click=_sayfaya_git, args=("cop_kutusu",))
+    # Gruplu sayfalar tek düğme (Ekim 2026): Verilerim = yükleme geçmişi · çöp kutusu · veri sağlığı;
+    # Sistem = değişiklik günlüğü · sistem kayıtları · yedekleme · tasarım rehberi (shared.gezinme.SAYFA_GRUPLARI).
+    # Herkes kendi yüklemelerini / sildiklerini görür, sistem yöneticisi herkesinkini.
+    from shared.gezinme import SAYFA_GRUPLARI as _GRUPLAR
+    _yonetici = ozel_yetki(aktif_kullanici, "kullanici_yonetimi")
 
-    # Yükleme geçmişi: herkes KENDİ yüklemelerini, sistem yöneticisi herkesinkini görür / geri alır
-    st.button("Yükleme geçmişi", icon=":material/history:", key="nav_yukleme_gecmisi" + ek,
-              type="primary" if aktif_sayfa == "yukleme_gecmisi" else "secondary",
-              use_container_width=True, on_click=_sayfaya_git, args=("yukleme_gecmisi",))
+    def _grup_dugmesi(ad):
+        _ikon, _kodlar = next((i, k) for a, i, k in _GRUPLAR if a == ad)
+        st.button(ad, icon=f":material/{_ikon}:", key=f"nav_grup_{_kodlar[0]}" + ek,
+                  type="primary" if aktif_sayfa in _kodlar else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=(_kodlar[0],))
+    _grup_dugmesi("Verilerim")
 
-    # Veri sağlığı: herkes yetkili olduğu modüllerin kontrollerini, sistem yöneticisi hepsini görür
-    st.button("Veri sağlığı", icon=":material/health_and_safety:", key="nav_veri_sagligi" + ek,
-              type="primary" if aktif_sayfa == "veri_sagligi" else "secondary",
-              use_container_width=True, on_click=_sayfaya_git, args=("veri_sagligi",))
-
-    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-        st.button("Kullanıcı Yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi" + ek,
+    _belge = ozel_yetki(aktif_kullanici, "yonetim")
+    if _yonetici or _belge:
+        st.caption("Yönetici")
+    if _yonetici:
+        st.button("Kullanıcı yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi" + ek,
                   type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
                   use_container_width=True, on_click=_sayfaya_git, args=("kullanici_yonetimi",))
-
-    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-        st.button("Sistem Kayıtları", icon=":material/receipt_long:", key="nav_sistem_kayitlari" + ek,
-                  type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
-                  use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
-
-    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-        st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi" + ek,
-                  type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
-                  use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
+    if _belge:
+        st.button("Şirket belgeleri", icon=":material/folder_shared:", key="nav_sirket_belgeleri" + ek,
+                  type="primary" if aktif_sayfa == "sirket_belgeleri" else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=("sirket_belgeleri",))
+    if _yonetici:
+        _grup_dugmesi("Sistem")
 
 
     # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
@@ -3468,6 +3488,18 @@ def main():
     if aktif == "bilgi_islem":            # eski adres (Bilgi İşlem · Serkan) → Ekip › Serkan
         st.session_state.aktif_uygulama = aktif = "ekip"
         st.session_state["ekip_sayfa"] = "Serkan"
+    # Yönetim'in eski "Şirket belgeleri" / "Sistem" sayfaları kişi menüsüne taşındı (Ekim 2026)
+    if aktif == "yonetim":
+        from shared.gezinme import YONETIM_TASINAN as _tasinan
+        _yeni_yer = _tasinan.get(st.session_state.get("yon_sayfa"))
+        if _yeni_yer:
+            st.session_state.aktif_uygulama = aktif = _yeni_yer
+            st.session_state.pop("yon_sayfa", None)
+    if aktif == "sirket_belgeleri" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
+        _yetki_reddi("Şirket belgelerine erişim yetkiniz yok.")
+    if aktif in ("degisiklik_gunlugu", "yedekleme") and not ozel_yetki(
+            st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
+        _yetki_reddi("Bu sayfaya erişim yetkiniz yok.")
     if aktif == "ekip" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
         _yetki_reddi("Ekip'e erişim yetkiniz yok.")
     if aktif == "yonetim" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
@@ -3506,6 +3538,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
+        "sirket_belgeleri": "Şirket belgeleri", "degisiklik_gunlugu": "Değişiklik günlüğü", "yedekleme": "Yedekleme",
         "soru": "Soru sor", "ekip": "Ekip",
     }
     try:
@@ -3545,6 +3578,9 @@ def main():
             kaydet("dosya_kapisi.ciz", _e)
         except Exception:  # noqa: BLE001
             pass
+
+    # Gruplu sayfaların (Verilerim, Sistem) üstünde kardeş sayfalara geçiş seçicisi
+    _grup_seridi(aktif)
 
     # Sayfa dispatch
     # Süresi bilgi işlem ölçümüne yazılır (shared/bt_olcum, bt_olcum tablosu).
@@ -3593,6 +3629,21 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
+        elif aktif == "sirket_belgeleri":
+            from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
+            _sirket_belgeleri()
+        elif aktif == "degisiklik_gunlugu":
+            from shared.tasarim import baslik as _bsl_dg
+            from yonetim import _audit_render
+            st.markdown(_bsl_dg(":material/manage_history: Sistem", "Değişiklik günlüğü",
+                                aciklama="Kim, ne zaman, hangi kaydı değiştirdi"), unsafe_allow_html=True)
+            _audit_render()
+        elif aktif == "yedekleme":
+            from shared.tasarim import baslik as _bsl_yd
+            from yonetim import _yedek_render
+            st.markdown(_bsl_yd(":material/backup: Sistem", "Yedekleme",
+                                aciklama="Tüm iş verisi tek Excel dosyasında"), unsafe_allow_html=True)
+            _yedek_render()
         elif aktif == "ekip":
             # Ekip: Serkan (bilgi işlem) + Elif, Kerem, Hakan — shared/ofis_ekran.py
             from shared.ofis_ekran import run as _ofis_run

@@ -139,7 +139,9 @@ def test_sql_izin_listesi_ayni():
 
 def test_sayfa_baglantilari():
     a = (KOK / "app.py").read_text(encoding="utf-8")
-    assert 'args=("yukleme_gecmisi",)' in a and 'elif aktif == "yukleme_gecmisi":' in a
+    from shared.gezinme import SAYFA_GRUPLARI
+    assert SAYFA_GRUPLARI[0][2][0] == "yukleme_gecmisi"          # "Verilerim" düğmesi bunu açar
+    assert 'args=(_kodlar[0],)' in a and 'elif aktif == "yukleme_gecmisi":' in a
 
 
 # ── Geri alınabilir yolların kaydı (sahte veritabanı) ──────────────

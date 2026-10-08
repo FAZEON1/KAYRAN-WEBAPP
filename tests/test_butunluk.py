@@ -218,7 +218,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
-    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler"],   # şerit sağında modül aracı (Eki 2026)
+    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler", "sayfa_grubu"],   # şerit sağında modül aracı (Eki 2026)
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
                        "genel_tema_css", "detay_karti", "mesaj",   # shared/ui.py buraya katıldı (Eki 2026)
                        "kayran_logo_svg", "kayran_logo_uri"],   # logo tek kaynak (Eki 2026)

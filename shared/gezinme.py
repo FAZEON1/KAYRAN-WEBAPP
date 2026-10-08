@@ -25,8 +25,6 @@ MODULLER = [
          ("Kanal ve ürün", "kanal_urun", "Kanal ve ürün", None),
          ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
          ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
-         ("Şirket belgeleri", "sirket_belgeleri", "Şirket belgeleri", None),
-         ("Sistem", "sistem", "Sistem", None),
      ]},
     {"kod": "kayranacc", "ad": "Muhasebe", "ikon": "account_balance_wallet", "anahtar": "acc_sayfa",
      "sayfalar": [
@@ -126,7 +124,29 @@ SISTEM = [
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),
     ("tasarim_rehberi", "Tasarım rehberi", "palette", "kullanici_yonetimi"),
+    # Ekim 2026: Yönetim'in "Şirket belgeleri" ve "Sistem" sayfaları kişi menüsüne taşındı
+    ("sirket_belgeleri", "Şirket belgeleri", "folder_shared", "yonetim"),
+    ("degisiklik_gunlugu", "Değişiklik günlüğü", "manage_history", "kullanici_yonetimi"),
+    ("yedekleme", "Yedekleme", "backup", "kullanici_yonetimi"),
 ]
+
+# Kişi menüsünde tek düğmede toplanan sayfalar (Ekim 2026, menü kısaldı): düğme ilk sayfayı açar,
+# sayfanın üstündeki seçici gruptaki diğerlerine geçirir. Eski adresler (sistem/cop_kutusu…) aynen çalışır.
+SAYFA_GRUPLARI = [
+    ("Verilerim", "folder_managed", ["yukleme_gecmisi", "cop_kutusu", "veri_sagligi"]),
+    ("Sistem", "settings", ["degisiklik_gunlugu", "sistem_kayitlari", "yedekleme", "tasarim_rehberi"]),
+]
+# Eski Yönetim sayfa adresleri → yeni yerleri
+YONETIM_TASINAN = {"Şirket belgeleri": "sirket_belgeleri", "Sistem": "degisiklik_gunlugu"}
+
+
+def sayfa_grubu(kod):
+    """kod bir gruptaysa (grup adı, [(kod, ad)]) döner; değilse None."""
+    adlar = {k: a for k, a, _i, _o in SISTEM}
+    for ad, _ikon, kodlar in SAYFA_GRUPLARI:
+        if kod in kodlar:
+            return ad, [(k, adlar[k]) for k in kodlar]
+    return None
 
 # Fiil ile başlayan kısayollar → bir sayfaya gider
 ISLEMLER = [

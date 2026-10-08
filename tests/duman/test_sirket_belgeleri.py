@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sayfa testi, ÖRNEK VERİYLE: Yönetim › Şirket belgeleri (Ekim 2026). Süre uyarısı, sürümler,
+"""Sayfa testi, ÖRNEK VERİYLE: kişi menüsü › Şirket belgeleri (Ekim 2026; eskiden Yönetim altında). Süre uyarısı, sürümler,
 toplu indirme ve künye (kaydedilmemişse e-Defter ayarlarından dolu) çizilmeli."""
 from datetime import datetime, timedelta, timezone
 
@@ -10,7 +10,7 @@ pytest.importorskip("streamlit.testing.v1")
 from test_sayfalar import BETIK, SURE  # noqa: E402
 
 
-def _calistir(tablolar):
+def _calistir(tablolar, eski_adres=False):
     import sahte_db
     import streamlit as st
     from streamlit.testing.v1 import AppTest
@@ -23,8 +23,11 @@ def _calistir(tablolar):
     at.secrets["supabase"] = {"url": "http://sahte.local", "key": "sahte", "service_role_key": "sahte"}
     at.session_state["giris_yapildi"] = True
     at.session_state["aktif_kullanici"] = sahte_db.KULLANICI
-    at.session_state["aktif_uygulama"] = "yonetim"
-    at.session_state["yon_sayfa"] = "Şirket belgeleri"
+    if eski_adres:                                     # eski Yönetim › Şirket belgeleri adresi yönlenir
+        at.session_state["aktif_uygulama"] = "yonetim"
+        at.session_state["yon_sayfa"] = "Şirket belgeleri"
+    else:
+        at.session_state["aktif_uygulama"] = "sirket_belgeleri"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
     return at
@@ -62,3 +65,34 @@ def test_sirket_belgeleri_kurulmadan_ve_bos():
     at = _calistir({})
     metin = " ".join(str(m.value) for m in at.markdown)
     assert "Henüz belge yok" in metin or "Belge arşivi kurulmamış" in metin
+
+
+def test_eski_yonetim_adresi_yeni_yere_gider():
+    at = _calistir({}, eski_adres=True)
+    assert at.session_state["aktif_uygulama"] == "sirket_belgeleri"
+    assert "Şirket belgeleri" in " ".join(str(m.value) for m in at.markdown)
+
+
+def test_gruplu_sayfa_secicisi():
+    """Kişi menüsündeki "Verilerim" tek düğme: sayfanın üstündeki seçiciyle çöp kutusuna geçilir."""
+    import sahte_db
+    import streamlit as st
+    from streamlit.testing.v1 import AppTest
+    st.cache_data.clear()
+    sahte_db.TABLOLAR.clear()
+    sahte_db.TABLOLAR["kullanici_yetkileri"] = [dict(r) for r in sahte_db.YETKI]
+    at = AppTest.from_file(BETIK, default_timeout=SURE)
+    at.secrets["supabase"] = {"url": "http://sahte.local", "key": "sahte", "service_role_key": "sahte"}
+    at.session_state["giris_yapildi"] = True
+    at.session_state["aktif_kullanici"] = sahte_db.KULLANICI
+    at.session_state["aktif_uygulama"] = "yukleme_gecmisi"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    sec = at.button_group(key="grup_secim")
+    assert [str(o) for o in sec.options] == ["Yükleme geçmişi", "Çöp kutusu", "Veri sağlığı"]
+    sec.set_value("Çöp kutusu").run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["aktif_uygulama"] == "cop_kutusu"
+    # menüde gruplu düğmeler
+    etiketler = [b.label for b in at.button]
+    assert "Verilerim" in etiketler and "Sistem" in etiketler and "Çöp kutusu" not in etiketler
