@@ -182,7 +182,7 @@ KRITIK_FONKSIYONLAR = {
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle",
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
-    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler"],
+    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret"],
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
