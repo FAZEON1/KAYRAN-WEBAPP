@@ -647,14 +647,13 @@ def _personel(c, kullanicilar):
         devir_g = c2.number_input("O tarihteki kalan izin (gün)", value=float(p.get("devir_gun") or 0), step=0.5,
                                   min_value=-60.0, max_value=400.0, key=f"{k}_devir_g")
     notu = st.text_input("Not (isteğe bağlı)", p.get("notu") or "", key=f"{k}_not")
-    eposta = st.text_input("E-posta", p.get("eposta") or adr.get(kod, ""), key=f"{k}_eposta",
-                           placeholder="ad.soyad@g5fteknoloji.com",
-                           help="Kart ilk kaydedildiğinde çalışana bilgilendirme e-postası bu adrese kendiliğinden "
-                                "gider (bir kez). Adres sonradan yazılırsa o kayıtta gider.").strip()
+    # E-posta sorulmaz (kullanıcı kararı: Serdar'a iş çıkmasın). Bilgilendirme yalnız Kullanıcı yönetiminde
+    # kayıtlı adrese gider; adresi kayıtlı olmayana gitmez. Adres karta kopyalanmaz.
+    eposta = p.get("eposta") or ""
+    kayitli = adr.get(kod, "") if kod else ""
+    st.caption(f"Bilgilendirme e-postası kayıtlı adrese gider: {kayitli}" if kayitli else
+               "Kayıtlı e-posta adresi yok; bilgilendirme e-postası gönderilmez.")
     hatalar = personel_denetle(kod, yeni, giris, dogum, devir_t, devir_g, cikis, kartli | set(kartsiz))
-    from shared.eposta import adres_gecerli_mi
-    if eposta and not adres_gecerli_mi(eposta):
-        hatalar.append("E-posta adresi geçersiz görünüyor.")
     if giris and not hatalar:
         on = dict(p, ise_giris=giris, dogum_tarihi=dogum, devir_tarihi=devir_t, devir_gun=devir_g,
                   cikis_tarihi=cikis)
@@ -695,8 +694,8 @@ def _personel(c, kullanicilar):
                     ("uyari", f"{ad or kod} kaydedildi ama bilgilendirme e-postası gönderilemedi ({m}). "
                               "Kart bir sonraki kaydedilişinde yeniden denenir."))
         elif not kayit.get("bilgi_zamani") and not kayit.get("cikis_tarihi"):
-            flas = ("bilgi", f"{ad or kod} kaydedildi. E-posta adresi olmadığı için bilgilendirme gitmedi; "
-                             "adres yazılıp kaydedilince gider.")
+            flas = ("bilgi", f"{ad or kod} kaydedildi. Kayıtlı e-posta adresi olmadığı için bilgilendirme "
+                             "gönderilmedi.")
         st.session_state["izn_bilgi_flas"] = flas
         st.rerun()
 

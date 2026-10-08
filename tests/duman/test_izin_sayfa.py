@@ -146,8 +146,10 @@ def test_kart_ilk_kayitta_bilgilendirme_gider(monkeypatch):
     assert len(giden) == 1 and giden[0][0] == ["veli@g5fteknoloji.com"]
     assert giden[0][1] == "[G5F] Personel izin kartınız açıldı" and giden[0][2]["gomulu"][0][0] == "g5f-logo"
     kart = [p for p in sahte_db.TABLOLAR["personel"] if p["kod"] == "veli"][-1]
-    assert kart["eposta"] == "veli@g5fteknoloji.com"
+    assert kart["eposta"] is None                       # kayıtlı adres karta kopyalanmaz, sorulmaz da
     assert "bilgilendirme e-postası gönderildi" in " ".join(str(m.value) for m in at.markdown)
+    at.selectbox(key="izn_per_sec").set_value("veli").run()
+    assert not [t for t in at.text_input if t.key == "izn_per_veli_eposta"]
 
 
 def test_bilgilendirilmis_kartta_tekrar_gitmez(monkeypatch):
@@ -174,7 +176,7 @@ def test_adres_yoksa_gitmez(monkeypatch):
     monkeypatch.setattr(E, "adresler", lambda: {})
     at = _ac(bolum="Personel")
     _kart_kaydet(at, "ali")
-    assert giden == [] and "E-posta adresi olmadığı için" in " ".join(str(m.value) for m in at.markdown)
+    assert giden == [] and "Kayıtlı e-posta adresi olmadığı için" in " ".join(str(m.value) for m in at.markdown)
 
 
 def test_personel_yetkilisi_onay_veremez_ve_haric_listesi():
@@ -193,3 +195,11 @@ def test_personel_yetkilisi_onay_veremez_ve_haric_listesi():
     assert not any("Ahmet" in str(o) for o in secenek) and any("Serdar" in str(o) for o in secenek)
     at = _ac(kullanici="serdar", bolum="Rapor", tablolar=v)
     assert "İptal et" not in [b.label for b in at.button]              # onaylı izni iptal de onay yetkisi ister
+
+
+def test_eposta_sorulmaz():
+    """Kullanıcı kararı: e-posta alanı yok; yalnız Kullanıcı yönetimindeki kayıtlı adrese gider."""
+    at = _ac(bolum="Personel")
+    at.selectbox(key="izn_per_sec").set_value("ali").run()
+    assert not [t for t in at.text_input if "eposta" in str(t.key)]
+    assert "Kayıtlı e-posta adresi yok; bilgilendirme e-postası gönderilmez." in " ".join(str(c.value) for c in at.caption)
