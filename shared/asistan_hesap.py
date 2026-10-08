@@ -85,10 +85,10 @@ def telegram_yanit(cevap):
 
 def yardim_metni(ornekler, kimlik, kullanici=None):
     if not kullanici:
-        return (f"Merhaba. Bu hesap programda tanımlı değil.\nTelegram kimliğin: <code>{_e(kimlik)}</code>\n"
-                "Bir yönetici Yönetim › Asistanlar sayfasından bu kimliği kullanıcına bağlayınca soru sorabilirsin.")
+        return (f"Merhaba, ben Elif, KAYRAN'ın asistanıyım. Bu hesap programda tanımlı değil.\nTelegram kimliğin: <code>{_e(kimlik)}</code>\n"
+                "Bir yönetici Sistem › Ofis › Elif bölümünden bu kimliği kullanıcına bağlayınca soru sorabilirsin.")
     ornek = "\n".join(f"• {_e(o)}" for o in list(ornekler or [])[:6])
-    return (f"Merhaba {_e(kullanici)}. Türkçe soru yaz, cevabı programın kendi hesaplarından vereyim.\n"
+    return (f"Merhaba {_e(kullanici)}, ben Elif. Türkçe soru yaz, cevabı programın kendi hesaplarından vereyim.\n"
             "Satış, kâr, iade, stok, yaşlı stok, arıza, kampanya, ödeme ve çek sorularını anlarım.\n\n"
             f"Örnekler:\n{ornek}")
 
@@ -201,8 +201,8 @@ def brifing_blogu(raporlar):
         return ""
     s = []
     for r in raporlar[:2]:
-        s.append(f"<b>Pazar raporu · {_e(r.get('baslik') or '')}</b>")
+        s.append(f"<b>Kerem'in pazar raporu · {_e(r.get('baslik') or '')}</b>")
         if r.get("ozet"):
             s.append(_e(r["ozet"]).strip())
-    s.append("<i>Tam rapor: Yönetim › Asistanlar</i>")
+    s.append("<i>Tam rapor: Sistem › Ofis › Kerem</i>")
     return "\n".join(s)

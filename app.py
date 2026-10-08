@@ -1852,7 +1852,7 @@ def _kisi_menusu():
                           use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
 
             if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Bilgi İşlem · Serkan", icon=":material/engineering:", key="nav_bilgi_islem",
+                st.button("Ofis", icon=":material/groups:", key="nav_bilgi_islem",
                           type="primary" if aktif_sayfa == "bilgi_islem" else "secondary",
                           use_container_width=True, on_click=_sayfaya_git, args=("bilgi_islem",))
 
@@ -3335,7 +3335,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
-        "soru": "Soru sor", "bilgi_islem": "Bilgi İşlem",
+        "soru": "Soru sor", "bilgi_islem": "Ofis",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3421,9 +3421,10 @@ def main():
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
         elif aktif == "bilgi_islem":
-            from shared.bt_ekran import sayfa as _bilgi_islem_sayfa
+            # Ofis: Serkan (bilgi işlem) + Elif, Kerem, Hakan — shared/ofis_ekran.py (kod eski adıyla kalır)
+            from shared.ofis_ekran import sayfa as _ofis_sayfa
             _bi_kul = st.session_state.get("aktif_kullanici", "")
-            _bilgi_islem_sayfa(_bi_kul, ozel_yetki(_bi_kul, "kullanici_yonetimi"))
+            _ofis_sayfa(_bi_kul, ozel_yetki(_bi_kul, "kullanici_yonetimi"))
         elif aktif == "yukleme_gecmisi":
             from shared.yukleme_gecmisi import sayfa as _yukleme_gecmisi_sayfa
             _yg_kul = st.session_state.get("aktif_kullanici", "")

@@ -26,7 +26,6 @@ MODULLER = [
          ("Destekler ve giderler", "destek_gider", "Destekler ve giderler", None),
          ("Ay kapanışı", "ay_kapanis", "Ay kapanışı", None),
          ("Şirket belgeleri", "sirket_belgeleri", "Şirket belgeleri", None),
-         ("Asistanlar", "asistanlar", "Asistanlar", None),
          ("Sistem", "sistem", "Sistem", None),
      ]},
     {"kod": "kayranacc", "ad": "Muhasebe", "ikon": "account_balance_wallet", "anahtar": "acc_sayfa",
@@ -117,7 +116,7 @@ SISTEM = [
     ("sifre_degistir", "Şifremi değiştir", "key", None),
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),
-    ("bilgi_islem", "Bilgi İşlem · Serkan", "engineering", "kullanici_yonetimi"),
+    ("bilgi_islem", "Ofis", "groups", "kullanici_yonetimi"),   # Serkan ve asistanlar (kod eski adıyla kalır)
     ("tasarim_rehberi", "Tasarım rehberi", "palette", "kullanici_yonetimi"),
 ]
 

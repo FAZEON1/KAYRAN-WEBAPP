@@ -43,7 +43,7 @@ def test_telegram_yanit_yetki_bos_ve_uzunluk():
 
 def test_yardim_tanimsiz_hesaba_kimligini_soyler():
     m = H.yardim_metni(["a"], 555, None)
-    assert "<code>555</code>" in m and "Asistanlar" in m
+    assert "<code>555</code>" in m and "Sistem › Ofis › Elif" in m and "ben Elif" in m
     assert "Örnekler" in H.yardim_metni(["geçen ay satış"], 555, "ibrahim")
 
 
@@ -131,7 +131,7 @@ def test_pazar_ozeti():
 def test_brifing_blogu():
     assert H.brifing_blogu([]) == ""
     b = H.brifing_blogu([{"baslik": "6-12 Ekim", "ozet": "Panel fiyatı arttı & navlun düştü"}])
-    assert "Pazar raporu · 6-12 Ekim" in b and "&amp;" in b and "Asistanlar" in b
+    assert "Kerem'in pazar raporu · 6-12 Ekim" in b and "&amp;" in b and "Ofis › Kerem" in b
 
 
 # ── Görev aracı ─────────────────────────────────────────────────────
@@ -153,3 +153,27 @@ def test_gorev_talimati_aracla_uyumlu(dosya):
     komutlar = set(re.findall(r"asistan_db\.py ([a-z-]+)", t))
     kaynak = (KOK / "otonom/asistan_db.py").read_text(encoding="utf-8")
     assert komutlar and all(f'k == "{k}"' in kaynak for k in komutlar), komutlar
+
+
+# ── Ofis ────────────────────────────────────────────────────────────
+def test_ofis_calisanlari_ve_durumlari():
+    from shared.ofis import AD, CALISANLAR, durumlar
+    assert [c["ad"] for c in CALISANLAR] == ["Serkan", "Elif", "Kerem", "Hakan"] and AD["hakan"] == "Hakan"
+    d = durumlar([{"tur": "oneri"}, {"tur": "calisma", "zaman": "2026-10-07T23:57:00+00:00"}], {"1": "ibrahim"},
+                 [{"zaman": "2026-10-12T04:10:00+00:00"}],
+                 [{"durum": "tamam", "guncelleme": "2026-10-08T07:00:00+00:00"}, {"durum": "bekliyor"}])
+    assert d["serkan"] == {"durum": "calisiyor", "metin": "Son kontrol 08.10 02:57"}      # TR saati
+    assert d["elif"]["metin"] == "1 hesap bağlı" and d["kerem"]["metin"] == "Son rapor 12.10.2026"
+    assert d["hakan"] == {"durum": "sirada", "metin": "1 sorgu sırada"}
+    b = durumlar([], {}, [], [])
+    assert b["serkan"]["durum"] == "bekliyor" and b["elif"]["durum"] == "kurulum"
+    assert b["kerem"]["metin"] == "İlk rapor pazartesi sabahı" and b["hakan"]["metin"] == "Henüz sorgu yok"
+    assert durumlar(None, None, None, None)["hakan"]["durum"] == "kurulum"
+
+
+def test_ofis_eski_yerleri_kaldirildi():
+    from shared.gezinme import SISTEM, secenekler
+    assert "Asistanlar" not in secenekler("yonetim")
+    assert ("bilgi_islem", "Ofis", "groups", "kullanici_yonetimi") in [tuple(x) for x in SISTEM]
+    app = (KOK / "app.py").read_text(encoding="utf-8")
+    assert "from shared.ofis_ekran import sayfa as _ofis_sayfa" in app
