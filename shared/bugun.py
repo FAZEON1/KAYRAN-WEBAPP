@@ -368,6 +368,12 @@ def css():
   .st-key-bugun_panel [data-testid="stHorizontalBlock"]{{flex-direction:row !important;flex-wrap:nowrap !important}}
   .st-key-bugun_panel [data-testid="stColumn"]:last-child{{flex:0 0 auto !important;width:auto !important;min-width:0 !important}}
   .st-key-bugun_panel [data-testid="stColumn"]:first-child{{flex:1 1 auto !important;min-width:0 !important}}
+  /* Telefonda başlık satırı kayar (sorumlu ve rozet alta geçer); düğmede yalnız simge kalır, metne yer açılır */
+  .bgn-baslik{{flex-wrap:wrap;gap:2px 8px}}
+  .bgn-satir{{padding:9px 11px;gap:10px}}
+  .st-key-bugun_panel .stButton button{{padding:0 10px !important;min-width:44px !important;min-height:44px !important;
+    height:44px !important}}
+  .st-key-bugun_panel .stButton button [data-testid="stMarkdownContainer"]{{display:none !important}}
 }}
 </style>"""
 

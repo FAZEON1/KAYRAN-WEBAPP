@@ -1472,6 +1472,99 @@ _KENARSIZ_CSS = """
     }
 """
 
+ALT_MENU_CSS = """<style>
+/* Telefonda sabit alt menü (Ekim 2026): Ana sayfa · Modüller · Ara · Talep · Ben. Masaüstünde gizli. */
+html body .st-key-alt_menu, html body .k-mobil-ust{display:none !important;}
+@media (max-width:640px){
+  html body .st-key-ustnav{display:none !important;}
+  html body .k-mobil-ust{display:flex !important;align-items:center;gap:10px;margin:2px 0 6px;}
+  .k-mobil-ust b{font-size:17px;font-weight:650;color:var(--k-metin);letter-spacing:-.2px;}
+  html body .st-key-alt_menu{display:flex !important;position:fixed !important;left:0 !important;right:0 !important;
+    bottom:0 !important;z-index:1000 !important;flex-wrap:nowrap !important;gap:0 !important;
+    justify-content:space-around !important;align-items:stretch !important;
+    padding:4px 4px calc(8px + env(safe-area-inset-bottom,0px)) !important;
+    background:color-mix(in srgb,var(--k-yuzey1) 92%,transparent) !important;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border-top:1px solid var(--k-kenar) !important;box-shadow:0 -6px 18px rgba(0,0,0,.18) !important;}
+  /* Beş hücre eşit genişlikte (düğme, açılır menü kabı ve sarmalayıcıları) */
+  html body .st-key-alt_menu > div, html body .st-key-alt_menu [data-testid="stLayoutWrapper"],
+  html body .st-key-alt_menu [data-testid="stElementContainer"], html body .st-key-alt_menu .stPopover,
+  html body .st-key-alt_menu .stPopover > div{flex:1 1 0 !important;min-width:0 !important;width:100% !important;}
+  html body .st-key-alt_menu button{display:flex !important;flex-direction:column !important;align-items:center !important;
+    justify-content:center !important;gap:2px !important;width:100% !important;height:56px !important;
+    min-height:56px !important;padding:4px 2px !important;border:0 !important;box-shadow:none !important;
+    background:transparent !important;color:var(--k-silik) !important;border-radius:12px !important;}
+  html body .st-key-alt_menu button p{font-size:11px !important;font-weight:550 !important;margin:0 !important;
+    white-space:nowrap !important;color:inherit !important;}
+  html body .st-key-alt_menu button [data-testid="stIconMaterial"]{font-size:23px !important;color:inherit !important;
+    display:inline !important;}
+  html body .st-key-alt_menu button span:has(> [data-testid="stIconMaterial"]){display:inline-flex !important;margin:0 !important;}
+  /* Simge üstte, yazı altta (düğmenin iç kabı: span[data-has-shortcut]) */
+  html body .st-key-alt_menu button span[data-has-shortcut]{display:flex !important;flex-direction:column !important;
+    align-items:center !important;gap:3px !important;}
+  html body .st-key-alt_menu button > div, html body .st-key-alt_menu button > div > div{width:100% !important;
+    justify-content:center !important;}
+  html body .st-key-alt_menu button[kind="primary"], html body .st-key-alt_menu button[data-testid="stBaseButton-primary"]{
+    color:var(--k-mor2) !important;background:color-mix(in srgb,var(--k-mor) 12%,transparent) !important;}
+  /* Açılır menülerin (Modüller, Ben) aşağı ok simgesi alt menüde gizli */
+  html body .st-key-alt_menu [data-testid="stPopoverButton"] div[aria-hidden="true"]{display:none !important;}
+  /* Ana sayfa telefonda: karşılama başlığı küçük, ilk ekrana kısayollar ve Bugün sığsın */
+  html body .stApp .k-ana-bas h1{font-size:21px !important;}
+  .k-ana-bas > span{font-size:12px;}
+  .k-ana-karsila{margin:0 0 2px !important;}
+  /* İçerik alt menünün altında kalmasın */
+  .stApp [data-testid="stMainBlockContainer"], .stApp .block-container{padding-bottom:110px !important;}
+}
+</style>"""
+
+
+def _alt_menu():
+    """Telefonda sabit alt menü (Ekim 2026, kullanıcı kararı): Ana sayfa · Modüller · Ara · Talep · Ben.
+    Masaüstünde CSS ile gizli; telefonda üstteki yana kayan modül şeridinin yerini alır. "Modüller"
+    yalnız yetkili modülleri, "Ben" kişi menüsünün aynısını (_kisi_menu_icerik) açar."""
+    ak = st.session_state.get("aktif_kullanici", "")
+    if not ak:
+        return
+    aktif = st.session_state.get("aktif_uygulama", "anasayfa")
+    yet = kullanici_yetkileri(ak)
+    from shared.gezinme import MODULLER
+    from shared.tasarim import MODUL_IKON
+
+    def _gorur(kod):
+        if kod == "yonetim":
+            return ozel_yetki(ak, "yonetim")
+        if kod == "ekip":
+            return ozel_yetki(ak, "kullanici_yonetimi")
+        return bool(yet.get(kod))
+    _mods = [m for m in MODULLER if m["kod"] != "anasayfa" and _gorur(m["kod"])]
+    _mod_aktif = any(m["kod"] == aktif for m in _mods)
+    st.markdown(ALT_MENU_CSS, unsafe_allow_html=True)
+    with st.container(key="alt_menu", horizontal=True):
+        st.button("Ana sayfa", key="alt_anasayfa", icon=":material/home:",
+                  type="primary" if aktif == "anasayfa" else "secondary", on_click=_sayfaya_git, args=("anasayfa",))
+        with st.container(key="alt_moduller"):
+            with st.popover("Modüller", icon=":material/apps:", type="primary" if _mod_aktif else "secondary"):
+                for _m in _mods:
+                    st.button(_m["ad"], key=f"alt_mod_{_m['kod']}", icon=f":material/{MODUL_IKON.get(_m['kod'], 'apps')}:",
+                              type="primary" if aktif == _m["kod"] else "secondary", use_container_width=True,
+                              on_click=_sayfaya_git, args=(_m["kod"],))
+        st.button("Ara", key="alt_ara", icon=":material/search:",
+                  type="primary" if aktif in ("arama", "soru") else "secondary", on_click=_sayfaya_git, args=("arama",))
+        st.button("Talep", key="alt_talep", icon=":material/forum:", on_click=_talep_ac_isaretle)
+        with st.container(key="alt_ben"):
+            with st.popover("Ben", icon=":material/account_circle:"):
+                _kisi_menu_icerik("_alt")
+
+
+def _mobil_ust():
+    """Telefonda üst kısım: logo + bulunduğun bölümün adı (modül şeridi telefonda gizli; ALT_MENU_CSS)."""
+    from shared.gezinme import MODULLER, SISTEM
+    aktif = st.session_state.get("aktif_uygulama", "anasayfa")
+    ad = next((m["ad"] for m in MODULLER if m["kod"] == aktif), None) \
+        or next((x[1] for x in SISTEM if x[0] == aktif), None) or {"arama": "Arama"}.get(aktif, "KAYRAN")
+    st.markdown(f'<div class="k-mobil-ust">{kayran_logo_svg(30)}<b>{ad}</b></div>', unsafe_allow_html=True)
+
+
 def ust_navigasyon():
     """Modüller arası geçiş — sayfanın üstünde kompakt, modern yatay şerit (yetkiye göre)."""
     from shared.gezinme import MENU_UST          # kenarsız düzen yalnız üst menüyle
@@ -1654,6 +1747,7 @@ def ust_navigasyon():
     {N} [data-testid="stColumn"]:has(.st-key-top_anasayfa){{margin-right:4px !important;}}
     </style>""", unsafe_allow_html=True)
 
+    _mobil_ust()                                    # telefonda logo + bölüm adı (şerit gizli)
     with st.container(key="ustnav"):
         cols = st.columns(len(moduller) + 3, gap="small")
         _yer = [moduller[0], None, "dosya"] + moduller[1:]  # None = komut paleti · "dosya" = Dosya kapısı
@@ -1817,111 +1911,124 @@ def _telefon_rehberi():
 
 def _kisi_menusu():
     """Üst şeridin en sağında kişi menüsü: ad, görünüm, Soru sor, hesap sayfaları, yeni sekme, Çıkış.
-    Eskiden bunlar sol kenar çubuğundaydı; kenar çubuğu her sayfada 300 px yer kaplıyordu."""
+    Eskiden bunlar sol kenar çubuğundaydı; kenar çubuğu her sayfada 300 px yer kaplıyordu.
+    İçerik _kisi_menu_icerik'te: telefonda alt menüdeki "Ben" de aynısını açar (_alt_menu)."""
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     if not aktif_kullanici:
         return
-    aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
     if st.session_state.pop("_telefon_rehber", False):
         _telefon_rehberi()
     from shared.tasarim import kisi_adi as _kisi_adi
     with st.container(key="ust_kisi"):
         with st.popover(_kisi_adi(aktif_kullanici), icon=":material/account_circle:",
                         help="Hesap · görünüm · çıkış"):
-            # Görünüm: koyu / açık (kullanıcı bazlı, kullanici_tercih tablosu)
-            from shared.tasarim import aktif_tema as _aktif_tema
-            _tema_sec = st.segmented_control(
-                "Görünüm", ["Koyu", "Açık"], key="tema_secim",
-                default="Açık" if _aktif_tema() == "acik" else "Koyu",
-                label_visibility="collapsed")
-            _tema_yeni = "acik" if _tema_sec == "Açık" else "koyu"
-            if _tema_yeni != _aktif_tema():
-                from shared.tercih import tema_yaz as _tema_yaz
-                st.session_state["tema"] = _tema_yeni
-                _tema_yaz(aktif_kullanici, _tema_yeni)
-                st.rerun()
-
-            # Telefona kur: ana ekrana simgeyle ekleme rehberi (shared/pwa.py)
-            st.button("Telefona kur", icon=":material/install_mobile:", key="nav_telefon",
-                      use_container_width=True, on_click=lambda: st.session_state.update(_telefon_rehber=True))
-
-            # Soru sor: Türkçe soru → programın kendi hesaplarından cevap (shared/soru_ekran)
-            st.button("Soru sor", icon=":material/forum:", key="nav_soru",
-                      type="primary" if aktif_sayfa == "soru" else "secondary",
-                      use_container_width=True, on_click=_sayfaya_git, args=("soru",))
-
-            st.caption("Hesap")
-
-            # on_click → tek çalışmada sayfa değişir (st.rerun yok)
-            st.button("Şifremi Değiştir", icon=":material/key:", key="nav_sifre_degistir",
-                      type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
-                      use_container_width=True, on_click=_sayfaya_git, args=("sifre_degistir",))
-
-            # Çöp kutusu: herkes KENDİ sildiğini, sistem yöneticisi herkesinkini görür
-            st.button("Çöp kutusu", icon=":material/delete:", key="nav_cop_kutusu",
-                      type="primary" if aktif_sayfa == "cop_kutusu" else "secondary",
-                      use_container_width=True, on_click=_sayfaya_git, args=("cop_kutusu",))
-
-            # Yükleme geçmişi: herkes KENDİ yüklemelerini, sistem yöneticisi herkesinkini görür / geri alır
-            st.button("Yükleme geçmişi", icon=":material/history:", key="nav_yukleme_gecmisi",
-                      type="primary" if aktif_sayfa == "yukleme_gecmisi" else "secondary",
-                      use_container_width=True, on_click=_sayfaya_git, args=("yukleme_gecmisi",))
-
-            # Veri sağlığı: herkes yetkili olduğu modüllerin kontrollerini, sistem yöneticisi hepsini görür
-            st.button("Veri sağlığı", icon=":material/health_and_safety:", key="nav_veri_sagligi",
-                      type="primary" if aktif_sayfa == "veri_sagligi" else "secondary",
-                      use_container_width=True, on_click=_sayfaya_git, args=("veri_sagligi",))
-
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Kullanıcı Yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi",
-                          type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
-                          use_container_width=True, on_click=_sayfaya_git, args=("kullanici_yonetimi",))
-
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Sistem Kayıtları", icon=":material/receipt_long:", key="nav_sistem_kayitlari",
-                          type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
-                          use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
-
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi",
-                          type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
-                          use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
+            _kisi_menu_icerik()
 
 
-            # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
-            _u = aktif_kullanici
-            _t = _oturum_token(_u)
-            # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
-            _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
-                           ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
-                           ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
-                           ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
-                           ("🔧 Teknik Servis", "teknikservis")]
-            _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:var(--k-silik);'
-                   'font-size:11px;font-weight:600;letter-spacing:.4px;'
-                   'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
-                   '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
-            # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
-            # geçersiz sayar; link artık MEVCUT oturum token'ıyla (?t=...) üretilir.
-            # Böylece yeni sekme, aynı tarayıcıda TEKRAR GİRİŞ İSTEMEDEN açılır.
-            _tok_aktif = ""
-            try:
-                _tok_aktif = st.query_params.get("t", "")
-            except Exception:
-                pass
-            for _ad, _mod in _yeni_sekme:
-                _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
-                        f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
-                        f'border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);border-radius:8px;color:var(--k-mor2);'
-                        f'text-decoration:none;font-size:13px;font-weight:400">{_ad} ↗</a>')
-            _lh += ('</div><div style="color:var(--k-silik);font-size:11px;margin-top:8px;padding:0 8px;'
-                    'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
-            st.markdown(_lh, unsafe_allow_html=True)
+def _kisi_menu_icerik(ek=""):
+    """Kişi menüsünün içeriği. ek: aynı menü sayfada iki kez çizilince (üst şerit + telefonda alt menü)
+    düğme anahtarları çakışmasın diye eklenen son ek."""
+    aktif_kullanici = st.session_state.get("aktif_kullanici", "")
+    aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
+    # Görünüm: koyu / açık (kullanıcı bazlı, kullanici_tercih tablosu). Seçici her çizimde güncel temayı
+    # gösterir: menü iki yerde (üst şerit + telefonda alt menü) olduğundan eski seçim temayı geri çevirmesin.
+    from shared.tasarim import aktif_tema as _aktif_tema
+    _tema_anahtar = "tema_secim" + ek
+    st.session_state[_tema_anahtar] = "Açık" if _aktif_tema() == "acik" else "Koyu"
+
+    def _tema_degis():
+        _sec = st.session_state.get(_tema_anahtar)
+        if _sec not in ("Koyu", "Açık"):
+            return
+        _yeni = "acik" if _sec == "Açık" else "koyu"
+        if _yeni != _aktif_tema():
+            from shared.tercih import tema_yaz as _tema_yaz
+            st.session_state["tema"] = _yeni
+            _tema_yaz(aktif_kullanici, _yeni)
+    st.segmented_control("Görünüm", ["Koyu", "Açık"], key=_tema_anahtar, on_change=_tema_degis,
+                         label_visibility="collapsed")
+
+    # Telefona kur: ana ekrana simgeyle ekleme rehberi (shared/pwa.py)
+    st.button("Telefona kur", icon=":material/install_mobile:", key="nav_telefon" + ek,
+              use_container_width=True, on_click=lambda: st.session_state.update(_telefon_rehber=True))
+
+    # Soru sor: Türkçe soru → programın kendi hesaplarından cevap (shared/soru_ekran)
+    st.button("Soru sor", icon=":material/forum:", key="nav_soru" + ek,
+              type="primary" if aktif_sayfa == "soru" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("soru",))
+
+    st.caption("Hesap")
+
+    # on_click → tek çalışmada sayfa değişir (st.rerun yok)
+    st.button("Şifremi Değiştir", icon=":material/key:", key="nav_sifre_degistir" + ek,
+              type="primary" if aktif_sayfa == "sifre_degistir" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("sifre_degistir",))
+
+    # Çöp kutusu: herkes KENDİ sildiğini, sistem yöneticisi herkesinkini görür
+    st.button("Çöp kutusu", icon=":material/delete:", key="nav_cop_kutusu" + ek,
+              type="primary" if aktif_sayfa == "cop_kutusu" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("cop_kutusu",))
+
+    # Yükleme geçmişi: herkes KENDİ yüklemelerini, sistem yöneticisi herkesinkini görür / geri alır
+    st.button("Yükleme geçmişi", icon=":material/history:", key="nav_yukleme_gecmisi" + ek,
+              type="primary" if aktif_sayfa == "yukleme_gecmisi" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("yukleme_gecmisi",))
+
+    # Veri sağlığı: herkes yetkili olduğu modüllerin kontrollerini, sistem yöneticisi hepsini görür
+    st.button("Veri sağlığı", icon=":material/health_and_safety:", key="nav_veri_sagligi" + ek,
+              type="primary" if aktif_sayfa == "veri_sagligi" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("veri_sagligi",))
+
+    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+        st.button("Kullanıcı Yönetimi", icon=":material/group:", key="nav_kullanici_yonetimi" + ek,
+                  type="primary" if aktif_sayfa == "kullanici_yonetimi" else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=("kullanici_yonetimi",))
+
+    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+        st.button("Sistem Kayıtları", icon=":material/receipt_long:", key="nav_sistem_kayitlari" + ek,
+                  type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
+
+    if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
+        st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi" + ek,
+                  type="primary" if aktif_sayfa == "tasarim_rehberi" else "secondary",
+                  use_container_width=True, on_click=_sayfaya_git, args=("tasarim_rehberi",))
 
 
-            if st.button("Çıkış", key="nav_cikis", icon=":material/logout:", use_container_width=True):
-                from shared.oturum import cikis_yap
-                cikis_yap()
+    # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
+    _u = aktif_kullanici
+    _t = _oturum_token(_u)
+    # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
+    _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
+                   ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
+                   ("📦 Ürün Yönetimi", "kayranpm"), ("🏬 Depo", "depo"),
+                   ("🚢 İthalat", "ithalat"), ("🛒 Satış", "satis"),
+                   ("🔧 Teknik Servis", "teknikservis")]
+    _lh = ('<details style="margin:0 0 10px"><summary style="cursor:pointer;color:var(--k-silik);'
+           'font-size:11px;font-weight:600;letter-spacing:.4px;'
+           'padding:2px 2px 6px;outline:none;list-style-position:inside">↗ Yeni sekmede aç</summary>'
+           '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">')
+    # ÖNEMLİ: Yeni oturum sistemi ?u parametreli ESKİ linkleri güvenlik gereği
+    # geçersiz sayar; link artık MEVCUT oturum token'ıyla (?t=...) üretilir.
+    # Böylece yeni sekme, aynı tarayıcıda TEKRAR GİRİŞ İSTEMEDEN açılır.
+    _tok_aktif = ""
+    try:
+        _tok_aktif = st.query_params.get("t", "")
+    except Exception:
+        pass
+    for _ad, _mod in _yeni_sekme:
+        _lh += (f'<a href="?t={_tok_aktif}&s={_mod}" target="_blank" '
+                f'style="display:block;padding:8px 12px;background:linear-gradient(180deg,var(--k-yuzey2),var(--k-yuzey1));'
+                f'border:1px solid color-mix(in srgb,var(--k-metin) 7%,transparent);border-radius:8px;color:var(--k-mor2);'
+                f'text-decoration:none;font-size:13px;font-weight:400">{_ad} ↗</a>')
+    _lh += ('</div><div style="color:var(--k-silik);font-size:11px;margin-top:8px;padding:0 8px;'
+            'line-height:1.4">Tek tık veya fare orta tuşu (scroll) ile yeni sekmede açılır.</div></details>')
+    st.markdown(_lh, unsafe_allow_html=True)
+
+
+    if st.button("Çıkış", key="nav_cikis" + ek, icon=":material/logout:", use_container_width=True):
+        from shared.oturum import cikis_yap
+        cikis_yap()
 
 
 def _arama_kutusu(yer="anasayfa"):
@@ -3389,6 +3496,7 @@ def main():
 
     # Üst yatay modül navigasyonu (modüller arası hızlı geçiş)
     ust_navigasyon()
+    _alt_menu()                                     # telefonda sabit alt menü (masaüstünde gizli)
 
     # Tarayıcı sekme başlığı = aktif modül (yeni sekmede hangi bölümde olduğun görünsün)
     _sekme_basliklari = {

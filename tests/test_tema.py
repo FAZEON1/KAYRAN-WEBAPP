@@ -58,7 +58,9 @@ def test_config_acik_tema_paletle_ayni():
 
 def test_tema_secimi_bagli():
     src = _oku("app.py")
-    assert 'st.segmented_control(\n                "Görünüm", ["Koyu", "Açık"]' in src
+    # Seçici her çizimde güncel temayı gösterir; değişiklik on_change ile yazılır (menü iki yerde çizilir)
+    assert 'st.segmented_control("Görünüm", ["Koyu", "Açık"], key=_tema_anahtar, on_change=_tema_degis' in src
+    assert 'st.session_state[_tema_anahtar] = "Açık" if _aktif_tema() == "acik" else "Koyu"' in src
     assert "stActiveTheme-'+w.location.pathname+'-v2'" in src   # Streamlit tarafı eşitlenir
     assert "from shared.tercih import tema_oku" in src
     assert 'w.localStorage.removeItem("kayran-tema")' not in src  # eski temizlik kaldırıldı

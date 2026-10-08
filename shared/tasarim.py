@@ -649,7 +649,7 @@ button[data-baseweb="tab"][aria-selected="true"]{{
 # bağlı özel kurallar (tıklanır kart düğmesi, tarih okları) bundan SONRA ve en
 # az bu özgüllükte yazılır (test_bilesen denetler).
 _D = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
-      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *) '
+      ':is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-alt_menu *) '
       'button[data-testid^="stBaseButton"]')
 _SIL = ('html body :is([data-testid="stMain"],[data-testid="stDialog"]) '
         '[class*="st-key-"][class*="_sil"]:not([class*="iptal"]):not([class*="vazgec"]) '
@@ -831,12 +831,12 @@ MOBIL_CSS = f"""
      (Üst menü, ✉️ ve Bugün paneli kendi düzeninde kalır.) */
   /* Form düğmesinde kapsayıcı ile düğme arasında bir ara katman daha var
      (stElementContainer > div > .stFormSubmitButton) — ikisi de genişlemeli. */
-  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> :is(.stButton,.stDownloadButton,.stFormSubmitButton), > div > .stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep):not(.st-key-bugun_panel *),
+  :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> :is(.stButton,.stDownloadButton,.stFormSubmitButton), > div > .stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep):not(.st-key-alt_menu *):not(.st-key-bugun_panel *),
   :is([data-testid="stMain"],[data-testid="stDialog"]) [data-testid="stElementContainer"]:has(> div > .stFormSubmitButton) > div{{
     width:100% !important;}}
-  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *){{
+  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-alt_menu *):not(.st-key-bugun_panel *){{
     width:100% !important;}}
-  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-bugun_panel *) button[data-testid^="stBaseButton"]{{
+  :is([data-testid="stMain"],[data-testid="stDialog"]) :is(.stButton,.stDownloadButton,.stFormSubmitButton):not(.st-key-ustnav *):not(.st-key-fab_talep *):not(.st-key-alt_menu *):not(.st-key-bugun_panel *) button[data-testid^="stBaseButton"]{{
     width:100% !important;}}
 
   /* Elle yazılmış HTML tablolar: ekranı taşırmasın, kendi içinde yana kaysın.
