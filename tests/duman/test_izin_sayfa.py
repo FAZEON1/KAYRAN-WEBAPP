@@ -175,3 +175,21 @@ def test_adres_yoksa_gitmez(monkeypatch):
     at = _ac(bolum="Personel")
     _kart_kaydet(at, "ali")
     assert giden == [] and "E-posta adresi olmadığı için" in " ".join(str(m.value) for m in at.markdown)
+
+
+def test_personel_yetkilisi_onay_veremez_ve_haric_listesi():
+    """izin_yonetimi (Serdar gibi): Personel ve Rapor var, Onay yok; Ayarlar'da seçilen kullanıcılar (ortaklar)
+    'kart yok' listesine girmez."""
+    v = _veri()
+    v["kullanici_yetkileri"] += [
+        {"id": 5, "kullanici": "serdar", "moduller": ["depo"], "ozel": ["izin_yonetimi"], "salt_okur": False,
+         "aktif": True},
+        {"id": 6, "kullanici": "ahmet", "moduller": [], "ozel": ["yonetim"], "salt_okur": False, "aktif": True}]
+    v["sistem_ayarlari"] = [{"anahtar": "izin_ayar", "deger": '{"cumartesi": false, "haric": ["ahmet"]}'}]
+    at = _ac(kullanici="serdar", bolum="Personel", tablolar=v)
+    assert [str(o) for o in at.button_group(key="izin_bolum").options] == [
+        "İzinlerim", "Takvim", "Rapor", "Personel", "Ayarlar"]
+    secenek = at.selectbox(key="izn_per_sec").options
+    assert not any("Ahmet" in str(o) for o in secenek) and any("Serdar" in str(o) for o in secenek)
+    at = _ac(kullanici="serdar", bolum="Rapor", tablolar=v)
+    assert "İptal et" not in [b.label for b in at.button]              # onaylı izni iptal de onay yetkisi ister

@@ -226,7 +226,8 @@ def _ozel_statik():
     return {"yonetim": YONETIM_KULLANICILAR,
             "patron_panel": PATRON_PANEL_KULLANICILAR,
             "talep_yonetici": TALEP_YONETICILERI,
-            "kullanici_yonetimi": KULLANICI_YONETIMI_KULLANICILAR}
+            "kullanici_yonetimi": KULLANICI_YONETIMI_KULLANICILAR,
+            "izin_onay": KULLANICI_YONETIMI_KULLANICILAR}      # veritabanı okunamazsa yedek
 
 
 def ozel_yetki(kullanici, ad):
@@ -240,16 +241,21 @@ def ozel_yetki(kullanici, ad):
 
 
 def izin_yoneticisi(kullanici):
-    """İzin onaylayan: özel yetki 'izin_yonetimi' (Kullanıcı yönetiminden verilir) ya da sistem yöneticisi."""
+    """Personel kartları, izin raporu ve ayarlar: özel yetki 'izin_yonetimi' ya da sistem yöneticisi.
+    İzin ONAYI ayrı yetkidir (izin_onaylayici)."""
     return ozel_yetki(kullanici, "izin_yonetimi") or ozel_yetki(kullanici, "kullanici_yonetimi")
 
 
+def izin_onaylayici(kullanici):
+    """İzin talebini onaylayan / reddeden: yalnız özel yetki 'izin_onay' (Kullanıcı yönetiminden verilir)."""
+    return ozel_yetki(kullanici, "izin_onay")
+
+
 def izin_yoneticileri():
-    """İzin talebi bildirimi alacaklar."""
+    """Yeni izin talebi bildirimi alacaklar: onay yetkisi olanlar."""
     try:
         from shared.yetki import ozel_sahipleri
-        return set(ozel_sahipleri("izin_yonetimi", set())) | set(
-            ozel_sahipleri("kullanici_yonetimi", KULLANICI_YONETIMI_KULLANICILAR))
+        return set(ozel_sahipleri("izin_onay", KULLANICI_YONETIMI_KULLANICILAR))
     except Exception:
         return set(KULLANICI_YONETIMI_KULLANICILAR)
 
@@ -2206,7 +2212,7 @@ def _bugun_panel(aktif_kullanici, yetkiler):
         yetkiler,
         talep_yoneticisi=ozel_yetki(aktif_kullanici, "talep_yonetici"),
         sistem_yoneticisi=ozel_yetki(aktif_kullanici, "kullanici_yonetimi"),
-        izin_yoneticisi=izin_yoneticisi(aktif_kullanici),
+        izin_yoneticisi=izin_onaylayici(aktif_kullanici),
     )
     _kritik = sum(1 for m in _maddeler if m["oncelik"] == "kritik")
     _ozet = (f'{len(_maddeler)} konu' + (f' · <span style="color:var(--k-kirmizi)">{_kritik} acil</span>' if _kritik else '')
@@ -3651,7 +3657,8 @@ def main():
         elif aktif == "izin":
             from shared.izin_ekran import sayfa as _izin_sayfa
             _iz_kul = st.session_state.get("aktif_kullanici", "")
-            _izin_sayfa(_iz_kul, izin_yoneticisi(_iz_kul), izin_yoneticileri(), tum_kullanicilar())
+            _izin_sayfa(_iz_kul, onay=izin_onaylayici(_iz_kul), yonetim=izin_yoneticisi(_iz_kul),
+                        onaycilar=izin_yoneticileri(), kullanicilar=tum_kullanicilar())
         elif aktif == "sirket_belgeleri":
             from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
             _sirket_belgeleri()

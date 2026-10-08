@@ -21,6 +21,14 @@ from shared.tasarim import bos_durum, kisi_adi, kpi_serit, mesaj
 BOLUM_HERKES = ["İzinlerim", "Takvim"]
 BOLUM_YONETICI = ["İzinlerim", "Onay", "Takvim", "Rapor", "Personel", "Ayarlar"]
 
+
+def bolumler_icin(onay=False, yonetim=False):
+    """Görünen bölümler. onay: izin onaylayan (özel yetki 'izin_onay') · yonetim: personel kartları, rapor ve
+    ayarlar (özel yetki 'izin_yonetimi' ya da Kullanıcı yönetimi). Onay yetkisi olmayan onay veremez."""
+    return [b for b in BOLUM_YONETICI
+            if b in BOLUM_HERKES or (b == "Onay" and onay) or (b == "Rapor" and (onay or yonetim))
+            or (b in ("Personel", "Ayarlar") and yonetim)]
+
 # Takvimde tür renkleri (tema değişkenleri); bekleyen talep soluk ve kesik çerçeveli
 TUR_RENK = {"yillik": "mor", "evlilik": "cyan", "babalik": "cyan", "olum": "cyan", "evlat_edinme": "cyan",
             "engelli_cocuk": "cyan", "rapor": "kirmizi", "dogum": "pembe", "idari": "yesil", "ucretsiz": "amber"}
@@ -60,9 +68,9 @@ def _haber_ver(alicilar, metin, mail=None, gonderen=""):
 
 
 # ── Sayfa ───────────────────────────────────────────────────────────
-def sayfa(kullanici, yonetici=False, yoneticiler=(), kullanicilar=()):
-    """kullanici: oturumdaki kullanıcı · yonetici: izin yöneticisi mi · yoneticiler: bildirim alıcıları ·
-    kullanicilar: programın aktif kullanıcıları (personel kartı açarken öneri)."""
+def sayfa(kullanici, onay=False, yonetim=False, onaycilar=(), kullanicilar=()):
+    """kullanici: oturumdaki kullanıcı · onay: izin onaylayabilir mi · yonetim: personel / rapor / ayar ·
+    onaycilar: yeni talep bildirimi alanlar · kullanicilar: programın aktif kullanıcıları (kart önerisi)."""
     kullanici = str(kullanici or "").strip().lower()
     B.baslik_eylem("Hesap", "İzinler",
                    aciklama="Yıllık izin, mazeret izinleri ve rapor. Hafta sonu ve resmi tatiller izinden düşülmez.")
@@ -77,16 +85,17 @@ def sayfa(kullanici, yonetici=False, yoneticiler=(), kullanicilar=()):
     bugun = _bugun()
     ayar = D.ayar()
     harita = {p["kod"]: p for p in personeller}
-    bolumler = BOLUM_YONETICI if yonetici else BOLUM_HERKES
+    bolumler = bolumler_icin(onay, yonetim)
     bekleyen = [t for t in talepler if t.get("durum") == "bekliyor"]
-    if yonetici and bekleyen:
+    if onay and bekleyen:
         st.markdown(mesaj("uyari", f"{len(bekleyen)} izin talebi onay bekliyor (Onay bölümü)."),
                     unsafe_allow_html=True)
     if st.session_state.get("izin_bolum") not in bolumler:
         st.session_state["izin_bolum"] = bolumler[0]
     bolum = st.segmented_control("Bölüm", bolumler, key="izin_bolum", label_visibility="collapsed") or bolumler[0]
-    ctx = dict(kullanici=kullanici, yonetici=yonetici, yoneticiler=list(yoneticiler), personeller=personeller,
-               harita=harita, talepler=talepler, bugun=bugun, cumartesi=bool(ayar.get("cumartesi")))
+    ctx = dict(kullanici=kullanici, onay=onay, yonetim=yonetim, yonetici=onay or yonetim,
+               yoneticiler=list(onaycilar), personeller=personeller, harita=harita, talepler=talepler, bugun=bugun,
+               cumartesi=bool(ayar.get("cumartesi")), haric=set(ayar.get("haric") or []))
     if bolum == "İzinlerim":
         _izinlerim(ctx)
     elif bolum == "Takvim":
@@ -98,7 +107,7 @@ def sayfa(kullanici, yonetici=False, yoneticiler=(), kullanicilar=()):
     elif bolum == "Personel":
         _personel(ctx, kullanicilar)
     elif bolum == "Ayarlar":
-        _ayarlar(ayar)
+        _ayarlar(ayar, kullanicilar)
 
 
 # ── İzinlerim ───────────────────────────────────────────────────────
@@ -512,7 +521,7 @@ def _rapor(c):
     liste.sort(key=lambda t: (str(t.get("baslangic")), t.get("id") or 0), reverse=True)
     goster = st.session_state.get("izn_kay_n", 20)
     for t in liste[:goster]:
-        _kayit_satiri(c, t, yonetici_eylem=True)
+        _kayit_satiri(c, t, yonetici_eylem=c["onay"])
     if len(liste) > goster:
         st.button(f"Daha fazla göster ({len(liste) - goster} kayıt daha)", key="izn_kay_daha", type="tertiary",
                   on_click=lambda: st.session_state.update(izn_kay_n=goster + 20))
@@ -583,7 +592,8 @@ def _personel(c, kullanicilar):
     if flas:
         st.markdown(mesaj(*flas), unsafe_allow_html=True)
     kartli = {p["kod"] for p in c["personeller"]}
-    kartsiz = sorted({str(k).strip().lower() for k in kullanicilar or [] if k} - kartli)
+    # İzin takibine girmeyen kullanıcılar (ortaklar vb.; Ayarlar'dan seçilir) listelenmez
+    kartsiz = sorted({str(k).strip().lower() for k in kullanicilar or [] if k} - kartli - c["haric"])
     if kartsiz:
         st.markdown(mesaj("bilgi", "Kartı olmayan kullanıcılar: " + ", ".join(kisi_adi(k) for k in kartsiz)
                           + ". Kart açılmadan izin isteyemezler."), unsafe_allow_html=True)
@@ -692,7 +702,19 @@ def _personel(c, kullanicilar):
 
 
 # ── Ayarlar ─────────────────────────────────────────────────────────
-def _ayarlar(ayar):
+def _ayarlar(ayar, kullanicilar=()):
+    st.markdown(B.grup_basligi("İzin takibine girmeyen kullanıcılar"), unsafe_allow_html=True)
+    secenek = sorted({str(k).strip().lower() for k in kullanicilar or [] if k} | set(ayar.get("haric") or []),
+                     key=H.tr_sira)
+    haric = st.multiselect("Kullanıcılar", secenek, default=[k for k in (ayar.get("haric") or []) if k in secenek],
+                           format_func=kisi_adi, key="izn_ayar_haric", label_visibility="collapsed",
+                           placeholder="Kimse seçilmedi",
+                           help="Programı kullanan ama çalışan olmayanlar (ortaklar, dış danışmanlar). Personel "
+                                "bölümündeki \"kart yok\" listesinde görünmezler.")
+    if sorted(haric) != sorted(ayar.get("haric") or []):
+        if st.button("Kaydet", key="izn_ayar_haric_kaydet", type="primary"):
+            ok, h = D.ayar_yaz({**ayar, "haric": sorted(haric)})
+            (st.rerun() if ok else st.error(h))
     st.markdown(B.grup_basligi("Çalışma günleri"), unsafe_allow_html=True)
     cmt = st.toggle("Cumartesi çalışılıyor", bool(ayar.get("cumartesi")), key="izn_ayar_cmt",
                     help="Açıksa Cumartesi iş günü sayılır ve izne denk gelirse izinden düşer.")
