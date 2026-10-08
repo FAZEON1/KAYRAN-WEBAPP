@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Ofis — programın dijital çalışanları tek yerde (Ekim 2026). Saf veri ve hesap; Streamlit'e bağlı değil.
+"""Ekip — programın dijital çalışanları tek yerde (Ekim 2026). Saf veri ve hesap; Streamlit'e bağlı değil.
 
-Sistem › Ofis (shared/ofis_ekran.py) her çalışanın kartını ve kendi bölümünü gösterir. İsimler ve
+Ekip (shared/ofis_ekran.py) her çalışanın kartını ve kendi bölümünü gösterir. İsimler ve
 görev tanımları yalnız burada; görev talimatları (otonom/*.md) ve Telegram mesajları aynı adları kullanır.
 
   CALISANLAR                     kod, ad, unvan, ne zaman çalışır, ne yapar

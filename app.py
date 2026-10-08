@@ -1479,8 +1479,11 @@ def ust_navigasyon():
                 ("Ürün Yönetimi", "kayranpm", ":material/inventory_2:"),
                 ("Depo", "depo", ":material/warehouse:"),
                 ("Satış", "satis", ":material/point_of_sale:"),
-                ("Teknik Servis", "teknikservis", ":material/construction:"),
-                ("Hesap Makinesi", "hesap_makinesi", ":material/calculate:")]
+                ("Teknik Servis", "teknikservis", ":material/construction:")]
+    # Ekip (Serkan ve asistanlar) yalnız yöneticinin şeridinde (shared/ofis_ekran.py)
+    if ozel_yetki(ak, "kullanici_yonetimi"):
+        moduller.append(("Ekip", "ekip", ":material/groups:"))
+    moduller.append(("Hesap Makinesi", "hesap_makinesi", ":material/calculate:"))
 
     # ── Üst menü stili ─────────────────────────────────────────────────
     # TEK SATIR · her modülde AYNI aktif renk · mobilde yatay kaydırmalı şerit.
@@ -1850,11 +1853,6 @@ def _kisi_menusu():
                 st.button("Sistem Kayıtları", icon=":material/receipt_long:", key="nav_sistem_kayitlari",
                           type="primary" if aktif_sayfa == "sistem_kayitlari" else "secondary",
                           use_container_width=True, on_click=_sayfaya_git, args=("sistem_kayitlari",))
-
-            if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
-                st.button("Ofis", icon=":material/groups:", key="nav_bilgi_islem",
-                          type="primary" if aktif_sayfa == "bilgi_islem" else "secondary",
-                          use_container_width=True, on_click=_sayfaya_git, args=("bilgi_islem",))
 
             if ozel_yetki(aktif_kullanici, "kullanici_yonetimi"):
                 st.button("Tasarım Rehberi", icon=":material/palette:", key="nav_tasarim_rehberi",
@@ -3300,6 +3298,11 @@ def main():
         st.session_state.aktif_uygulama = "anasayfa"
         st.rerun()
 
+    if aktif == "bilgi_islem":            # eski adres (Bilgi İşlem · Serkan) → Ekip › Serkan
+        st.session_state.aktif_uygulama = aktif = "ekip"
+        st.session_state["ekip_sayfa"] = "Serkan"
+    if aktif == "ekip" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
+        _yetki_reddi("Ekip'e erişim yetkiniz yok.")
     if aktif == "yonetim" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
         _yetki_reddi("🔒 Yönetim Panosu'na erişim yetkiniz yok.")
     if aktif == "hesap_makinesi" and not yetkiler["hesap_makinesi"]:
@@ -3335,7 +3338,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
-        "soru": "Soru sor", "bilgi_islem": "Ofis",
+        "soru": "Soru sor", "ekip": "Ekip",
     }
     try:
         import streamlit.components.v1 as _comp
@@ -3420,11 +3423,11 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
-        elif aktif == "bilgi_islem":
-            # Ofis: Serkan (bilgi işlem) + Elif, Kerem, Hakan — shared/ofis_ekran.py (kod eski adıyla kalır)
-            from shared.ofis_ekran import sayfa as _ofis_sayfa
-            _bi_kul = st.session_state.get("aktif_kullanici", "")
-            _ofis_sayfa(_bi_kul, ozel_yetki(_bi_kul, "kullanici_yonetimi"))
+        elif aktif == "ekip":
+            # Ekip: Serkan (bilgi işlem) + Elif, Kerem, Hakan — shared/ofis_ekran.py
+            from shared.ofis_ekran import run as _ofis_run
+            _of_kul = st.session_state.get("aktif_kullanici", "")
+            _ofis_run(_of_kul, ozel_yetki(_of_kul, "kullanici_yonetimi"))
         elif aktif == "yukleme_gecmisi":
             from shared.yukleme_gecmisi import sayfa as _yukleme_gecmisi_sayfa
             _yg_kul = st.session_state.get("aktif_kullanici", "")

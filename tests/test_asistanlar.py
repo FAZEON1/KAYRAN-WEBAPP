@@ -43,7 +43,7 @@ def test_telegram_yanit_yetki_bos_ve_uzunluk():
 
 def test_yardim_tanimsiz_hesaba_kimligini_soyler():
     m = H.yardim_metni(["a"], 555, None)
-    assert "<code>555</code>" in m and "Sistem › Ofis › Elif" in m and "ben Elif" in m
+    assert "<code>555</code>" in m and "Ekip › Elif" in m and "ben Elif" in m
     assert "Örnekler" in H.yardim_metni(["geçen ay satış"], 555, "ibrahim")
 
 
@@ -131,7 +131,7 @@ def test_pazar_ozeti():
 def test_brifing_blogu():
     assert H.brifing_blogu([]) == ""
     b = H.brifing_blogu([{"baslik": "6-12 Ekim", "ozet": "Panel fiyatı arttı & navlun düştü"}])
-    assert "Kerem'in pazar raporu · 6-12 Ekim" in b and "&amp;" in b and "Ofis › Kerem" in b
+    assert "Kerem'in pazar raporu · 6-12 Ekim" in b and "&amp;" in b and "Ekip › Kerem" in b
 
 
 # ── Görev aracı ─────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ def test_gorev_talimati_aracla_uyumlu(dosya):
     assert komutlar and all(f'k == "{k}"' in kaynak for k in komutlar), komutlar
 
 
-# ── Ofis ────────────────────────────────────────────────────────────
+# ── Ekip ────────────────────────────────────────────────────────────
 def test_ofis_calisanlari_ve_durumlari():
     from shared.ofis import AD, CALISANLAR, durumlar
     assert [c["ad"] for c in CALISANLAR] == ["Serkan", "Elif", "Kerem", "Hakan"] and AD["hakan"] == "Hakan"
@@ -171,9 +171,12 @@ def test_ofis_calisanlari_ve_durumlari():
     assert durumlar(None, None, None, None)["hakan"]["durum"] == "kurulum"
 
 
-def test_ofis_eski_yerleri_kaldirildi():
+def test_ekip_ust_seritte_yalniz_yoneticiye():
     from shared.gezinme import SISTEM, secenekler
     assert "Asistanlar" not in secenekler("yonetim")
-    assert ("bilgi_islem", "Ofis", "groups", "kullanici_yonetimi") in [tuple(x) for x in SISTEM]
+    assert secenekler("ekip") == ["Çalışanlar", "Serkan", "Elif", "Kerem", "Hakan"]
+    assert not any(k == "bilgi_islem" for k, *_ in SISTEM)
     app = (KOK / "app.py").read_text(encoding="utf-8")
-    assert "from shared.ofis_ekran import sayfa as _ofis_sayfa" in app
+    assert '''    if ozel_yetki(ak, "kullanici_yonetimi"):
+        moduller.append(("Ekip", "ekip", ":material/groups:"))''' in app
+    assert "from shared.ofis_ekran import run as _ofis_run" in app and 'key="nav_bilgi_islem"' not in app

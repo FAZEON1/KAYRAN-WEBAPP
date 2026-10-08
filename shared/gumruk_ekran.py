@@ -39,7 +39,7 @@ def _gtip(g):
 
 
 def sayfa(baslik=True):
-    """baslik=False: Sistem › Ofis'in sekmesi içinde."""
+    """baslik=False: Ekip'in sekmesi içinde."""
     if baslik:
         B.baslik_eylem("İthalat", "Gümrük danışmanı · Hakan",
                        aciklama="Ürünü yaz; Hakan GTİP önerisini, vergi oranlarını, ek vergileri ve gereken "

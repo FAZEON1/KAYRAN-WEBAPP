@@ -104,6 +104,15 @@ MODULLER = [
          ("📦  Depolar", "depolar", "Depolar", None),
          ("Arıza Oranı", "ariza_orani", "Arıza oranı", None),
      ]},
+    # Ekip (Ekim 2026): programın dijital çalışanları — yalnız yöneticiler (shared/ofis_ekran.py)
+    {"kod": "ekip", "ad": "Ekip", "ikon": "groups", "ozel": "kullanici_yonetimi", "anahtar": "ekip_sayfa",
+     "sayfalar": [
+         ("Çalışanlar", "calisanlar", "Çalışanlar", None),
+         ("Serkan", "serkan", "Serkan · Bilgi işlem", None),
+         ("Elif", "elif", "Elif · Telegram asistanı", None),
+         ("Kerem", "kerem", "Kerem · Pazar araştırmacısı", None),
+         ("Hakan", "hakan", "Hakan · Gümrük danışmanı", None),
+     ]},
     {"kod": "hesap_makinesi", "ad": "Hesap makinesi", "ikon": "calculate"},
 ]
 
@@ -116,7 +125,6 @@ SISTEM = [
     ("sifre_degistir", "Şifremi değiştir", "key", None),
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),
-    ("bilgi_islem", "Ofis", "groups", "kullanici_yonetimi"),   # Serkan ve asistanlar (kod eski adıyla kalır)
     ("tasarim_rehberi", "Tasarım rehberi", "palette", "kullanici_yonetimi"),
 ]
 
