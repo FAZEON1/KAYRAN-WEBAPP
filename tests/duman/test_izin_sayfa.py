@@ -123,3 +123,55 @@ def test_bos_veri():
     at = _ac(tablolar={"kullanici_yetkileri": [dict(r) for r in sahte_db.YETKI]})
     m = _metin(at)
     assert "Personel kartın henüz açılmamış" in m
+
+
+def _kart_kaydet(at, kod):
+    at.selectbox(key="izn_per_sec").set_value(kod).run()
+    at.date_input(key=f"izn_per_{kod}_giris").set_value(date(2020, 5, 4)).run()
+    at.button(key=f"izn_per_{kod}_kaydet").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+
+
+def test_kart_ilk_kayitta_bilgilendirme_gider(monkeypatch):
+    import sahte_db
+    import shared.eposta as E
+    giden = []
+    monkeypatch.setattr(E, "gonder", lambda alicilar, konu, html, **k: giden.append((alicilar, konu, k)) or (True, "ok"))
+    monkeypatch.setattr(E, "adresler", lambda: {"veli": "veli@g5fteknoloji.com"})
+    v = _veri()
+    v["kullanici_yetkileri"].append({"id": 3, "kullanici": "veli", "moduller": [], "ozel": [], "salt_okur": False,
+                                     "aktif": True})
+    at = _ac(bolum="Personel", tablolar=v)
+    _kart_kaydet(at, "veli")
+    assert len(giden) == 1 and giden[0][0] == ["veli@g5fteknoloji.com"]
+    assert giden[0][1] == "[G5F] Personel izin kartınız açıldı" and giden[0][2]["gomulu"][0][0] == "g5f-logo"
+    kart = [p for p in sahte_db.TABLOLAR["personel"] if p["kod"] == "veli"][-1]
+    assert kart["eposta"] == "veli@g5fteknoloji.com"
+    assert "bilgilendirme e-postası gönderildi" in " ".join(str(m.value) for m in at.markdown)
+
+
+def test_bilgilendirilmis_kartta_tekrar_gitmez(monkeypatch):
+    import shared.eposta as E
+    giden = []
+    monkeypatch.setattr(E, "gonder", lambda *a, **k: giden.append(a) or (True, "ok"))
+    monkeypatch.setattr(E, "adresler", lambda: {"ali": "ali@g5fteknoloji.com"})
+    v = _veri()
+    for p in v["personel"]:
+        if p["kod"] == "ali":
+            p["bilgi_zamani"] = "2026-10-01T10:00:00+03:00"
+    at = _ac(bolum="Personel", tablolar=v)
+    at.selectbox(key="izn_per_sec").set_value("ali").run()
+    assert "Bilgilendirmeyi tekrar gönder" in [b.label for b in at.button]
+    # (sahte veritabanında upsert yeni satır ekler; gerçek tabloda bilgi_zamani yerinde kalır)
+    _kart_kaydet(at, "ali")
+    assert giden == []
+
+
+def test_adres_yoksa_gitmez(monkeypatch):
+    import shared.eposta as E
+    giden = []
+    monkeypatch.setattr(E, "gonder", lambda *a, **k: giden.append(a) or (True, "ok"))
+    monkeypatch.setattr(E, "adresler", lambda: {})
+    at = _ac(bolum="Personel")
+    _kart_kaydet(at, "ali")
+    assert giden == [] and "E-posta adresi olmadığı için" in " ".join(str(m.value) for m in at.markdown)

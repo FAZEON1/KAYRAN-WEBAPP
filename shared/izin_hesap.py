@@ -467,3 +467,81 @@ def bakiye_tablosu(personeller, talepler, bugun):
                     "Kalan": b["kalan"], f"Diğer izin {bugun.year}": diger,
                     "Sonraki hak": f"{tr_tarih(s['tarih'])} · {s['gun']} gün" if s else "—"})
     return out
+
+
+# ── Kart bilgilendirme e-postası (Ekim 2026) ────────────────────────
+# Kart ilk açıldığında çalışana kendiliğinden gider; o an adresi yoksa karta adres ilk eklendiğinde.
+# Bir kez gider (personel.bilgi_zamani); sonraki düzeltmelerde gitmez, kartta "tekrar gönder" vardır.
+def bilgi_adresi(personel, adresler):
+    """Kartın e-postası; yoksa Kullanıcı yönetiminde kayıtlı adres; geçersizse ''."""
+    from shared.eposta import adres_gecerli_mi
+    for a in (personel.get("eposta"), (adresler or {}).get(str(personel.get("kod") or "").lower())):
+        a = str(a or "").strip()
+        if adres_gecerli_mi(a):
+            return a
+    return ""
+
+
+def bilgi_gerekli(personel, adresler):
+    """Kaydedilen kart için bilgilendirme e-postası şimdi gitmeli mi: daha önce gitmemiş, çalışıyor ve
+    adres var."""
+    return (not personel.get("bilgi_zamani") and not personel.get("cikis_tarihi")
+            and bool(bilgi_adresi(personel, adresler)))
+
+
+def bilgi_durumu(personel, adresler):
+    """Personel listesinde: 'Gönderildi 08.10.2026' · 'Adres yok' · 'Gönderilmedi' · 'Ayrıldı'."""
+    if personel.get("bilgi_zamani"):
+        return "Gönderildi " + tr_tarih(personel["bilgi_zamani"])
+    if personel.get("cikis_tarihi"):
+        return "Ayrıldı"
+    return "Gönderilmedi" if bilgi_adresi(personel, adresler) else "Adres yok"
+
+
+LOGO_CID = "g5f-logo"
+
+
+def mail_bilgilendirme(personel, kisi_talepleri, bugun, yonetici_ad=""):
+    """(konu, html) — çalışana: kartındaki bilgiler, izin bakiyesi ve İzinler sayfasını kullanma adımları.
+    Logo gövdeye gömülü (cid); parola yazılmaz."""
+    from shared.eposta import _e, baglanti
+    b = bakiye(personel, kisi_talepleri, bugun)
+    s = b["sonraki"]
+    ad = personel.get("ad") or personel.get("kod")
+    satirlar = [("Adı soyadı", ad), ("Sicil no", personel.get("sicil_no") or "—"),
+                ("Bölümü", personel.get("departman") or "—"), ("İşe giriş tarihi", tr_tarih(personel.get("ise_giris"))),
+                ("Kıdem", f"{b['kidem'][0]} yıl {b['kidem'][1]} ay"), ("Yıllık izin hakkı", f"{b['bu_yil_hak']} gün"),
+                ("Kalan yıllık izin", tr_gun(b["kalan"]) + f" ({tr_tarih(bugun)} itibarıyla)"),
+                ("Sonraki hak ediş", f"{tr_tarih(s['tarih'])} · {s['gun']} gün" if s else "—")]
+    tablo = "".join(
+        f"<tr><td style='padding:6px 10px;background:#F1F5F9;border:1px solid #E2E8F0;font-weight:600;"
+        f"white-space:nowrap'>{_e(a)}</td><td style='padding:6px 10px;border:1px solid #E2E8F0'>{_e(v)}</td></tr>"
+        for a, v in satirlar)
+    adimlar = "".join(f"<li style='margin:3px 0'>{x}</li>" for x in (
+        "Programa giriş yapın (kullanıcı adınız ve parolanız size ayrıca iletildi).",
+        "Sağ üstte adınıza, telefonda alttaki <b>Ben</b> düğmesine dokunun ve <b>İzinler</b>'i seçin.",
+        "İzin türünü ve tarihleri seçin; program izinden düşecek günü ve işe dönüş tarihinizi gösterir. "
+        "<b>Talep gönder</b>'e basın.",
+        "Onaylanınca bildirim alırsınız. Onaylı iznin yanındaki <b>İzin formu</b> ile antetli formu yazdırıp "
+        "imzalayın."))
+    kim = f"{_e(yonetici_ad)} ile görüşün" if yonetici_ad else "yöneticinize bildirin"
+    url = baglanti("izin")
+    html = (
+        "<div style='font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#0f172a;line-height:1.55;"
+        "max-width:620px'>"
+        f"<img src='cid:{LOGO_CID}' alt='G5F' width='120' style='display:block;margin:0 0 14px'>"
+        f"<h2 style='margin:0 0 12px;font-size:20px;color:#1B2632'>Personel izin kartınız açıldı</h2>"
+        f"<p>Merhaba {_e(ad)},</p>"
+        "<p>Yıllık izinleriniz ve izin talepleriniz artık şirket programı üzerinden takip ediliyor. "
+        "Kartınıza işlenen bilgiler aşağıdadır:</p>"
+        f"<table style='border-collapse:collapse;font-size:14px;margin:6px 0 12px'>{tablo}</table>"
+        f"<p style='font-size:13px;color:#475569'>Bilgilerde hata varsa {kim}; düzeltildikten sonra "
+        "bakiyeniz kendiliğinden güncellenir.</p>"
+        "<h3 style='margin:18px 0 6px;font-size:16px;color:#1B2632'>İzin nasıl istenir?</h3>"
+        f"<ol style='margin:0 0 6px;padding-left:20px'>{adimlar}</ol>"
+        f"<p style='margin:20px 0 6px'><a href='{_e(url)}' style='background:#E5870B;color:#fff;text-decoration:none;"
+        "padding:10px 18px;border-radius:8px;font-weight:600;display:inline-block'>İzinler sayfasını aç</a></p>"
+        "<hr style='border:none;border-top:1px solid #e2e8f0;margin:18px 0 10px'>"
+        "<div style='font-size:12px;color:#94a3b8'>Bu e-posta personel kartınız açıldığı için bir kez gönderildi. "
+        "Yıllık izin hakları 4857 sayılı İş Kanunu md. 53'e göre hesaplanır.</div></div>")
+    return "[G5F] Personel izin kartınız açıldı", html

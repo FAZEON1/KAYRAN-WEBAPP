@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS personel (
     devir_gun     numeric(6,1),
     cikis_tarihi  date,
     notu          text,
+    eposta        text,                   -- bilgilendirme e-postası (yoksa Kullanıcı yönetimindeki adres)
+    bilgi_zamani  timestamptz,            -- kart bilgilendirme e-postasının gittiği an (bir kez)
     guncelleme    timestamptz DEFAULT now()
 );
 
@@ -51,6 +53,8 @@ CREATE TABLE IF NOT EXISTS izin_talepleri (
 ALTER TABLE personel ADD COLUMN IF NOT EXISTS sicil_no text;
 ALTER TABLE izin_talepleri ADD COLUMN IF NOT EXISTS yol_izni smallint NOT NULL DEFAULT 0;
 ALTER TABLE izin_talepleri ADD COLUMN IF NOT EXISTS izin_adresi text;
+ALTER TABLE personel ADD COLUMN IF NOT EXISTS eposta text;
+ALTER TABLE personel ADD COLUMN IF NOT EXISTS bilgi_zamani timestamptz;
 
 CREATE INDEX IF NOT EXISTS izin_talepleri_personel_idx ON izin_talepleri (personel, baslangic);
 CREATE INDEX IF NOT EXISTS izin_talepleri_durum_idx ON izin_talepleri (durum);

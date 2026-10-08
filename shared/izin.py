@@ -64,7 +64,7 @@ def _iso(d):
 
 
 def personel_kaydet(kod, ad, departman="", ise_giris=None, dogum_tarihi=None, devir_tarihi=None,
-                    devir_gun=None, cikis_tarihi=None, notu="", sicil_no=""):
+                    devir_gun=None, cikis_tarihi=None, notu="", sicil_no="", eposta=""):
     """Kartı ekler ya da günceller (kod = kullanıcı adı ya da programa girmeyen çalışan için kısa ad)."""
     kod = str(kod or "").strip().lower()
     if not kod:
@@ -74,11 +74,22 @@ def personel_kaydet(kod, ad, departman="", ise_giris=None, dogum_tarihi=None, de
              "devir_tarihi": _iso(devir_tarihi),
              "devir_gun": float(devir_gun) if (devir_tarihi and devir_gun is not None) else None,
              "cikis_tarihi": _iso(cikis_tarihi), "notu": str(notu or "").strip()[:300],
-             "sicil_no": str(sicil_no or "").strip()[:30], "guncelleme": _simdi()}
+             "sicil_no": str(sicil_no or "").strip()[:30], "eposta": str(eposta or "").strip()[:120] or None,
+             "guncelleme": _simdi()}
     try:
         _istemci().table(PERSONEL).upsert(satir, on_conflict="kod").execute()
     except Exception as e:  # noqa: BLE001
         return False, f"Personel kaydedilemedi: {e}"
+    _tazele()
+    return True, ""
+
+
+def bilgi_isaretle(kod):
+    """Bilgilendirme e-postası gitti: zamanı karta yazar (bir daha kendiliğinden gitmez)."""
+    try:
+        _istemci().table(PERSONEL).update({"bilgi_zamani": _simdi()}).eq("kod", kod).execute()
+    except Exception as e:  # noqa: BLE001
+        return False, str(e)
     _tazele()
     return True, ""
 

@@ -59,9 +59,10 @@ def ayarlar():
             "pass": os.environ.get("SMTP_PASS") or s.get("smtp_pass") or ""}
 
 
-def gonder(alicilar, konu, html, cc=None, ekler=None):
+def gonder(alicilar, konu, html, cc=None, ekler=None, gomulu=None):
     """Döner: (ok, kod) — kod: 'ok' · 'alici_yok' · 'smtp_yok' · hata metni.
-    ekler: [(dosya adı, bayt, mime türü)] — ör. yaşlı stok maili Excel eki."""
+    ekler: [(dosya adı, bayt, mime türü)] — ör. yaşlı stok maili Excel eki.
+    gomulu: [(cid, bayt, alt tür)] — HTML'de <img src="cid:..."> ile gövdede görünen resim (ör. logo)."""
     alicilar = [a for a in (alicilar or []) if a]
     cc = [a for a in (cc or []) if a and a not in alicilar]
     if not alicilar:
@@ -70,7 +71,7 @@ def gonder(alicilar, konu, html, cc=None, ekler=None):
     if not a["user"] or not a["pass"]:
         return False, "smtp_yok"
     try:
-        msg = mesaj_olustur(a["user"], alicilar, konu, html, cc, ekler=ekler)
+        msg = mesaj_olustur(a["user"], alicilar, konu, html, cc, ekler=ekler, gomulu=gomulu)
         with smtplib.SMTP(a["host"], a["port"], timeout=15) as s:
             s.starttls(context=ssl.create_default_context())
             s.login(a["user"], a["pass"])
@@ -90,12 +91,24 @@ def duz_metin(html):
     return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", t)).strip()
 
 
-def mesaj_olustur(gonderen, alicilar, konu, html, cc=None, ekler=None):
+def mesaj_olustur(gonderen, alicilar, konu, html, cc=None, ekler=None, gomulu=None):
     """Spam filtrelerinin aradığı başlıklarla: Date, Message-ID, düz metin + HTML (multipart/alternative).
-    Eskiden yalnız HTML'di, Date ve Message-ID yoktu — üçü de spam puanını artırır."""
+    Eskiden yalnız HTML'di, Date ve Message-ID yoktu — üçü de spam puanını artırır.
+    gomulu: [(cid, bayt, alt tür)] → HTML ve resimler multipart/related içinde (RFC 2387)."""
     govde = MIMEMultipart("alternative")
     govde.attach(MIMEText(duz_metin(html), "plain", "utf-8"))    # önce düz metin, sonra HTML (RFC 2046)
-    govde.attach(MIMEText(html, "html", "utf-8"))
+    if gomulu:
+        from email.mime.image import MIMEImage
+        ilgili = MIMEMultipart("related")
+        ilgili.attach(MIMEText(html, "html", "utf-8"))
+        for cid, bayt, alt in gomulu:
+            r = MIMEImage(bayt, _subtype=alt or "png")
+            r.add_header("Content-ID", f"<{cid}>")
+            r.add_header("Content-Disposition", "inline", filename=f"{cid}.{alt or 'png'}")
+            ilgili.attach(r)
+        govde.attach(ilgili)
+    else:
+        govde.attach(MIMEText(html, "html", "utf-8"))
     if ekler:                              # ekli mail: mixed = [alternative gövde, ekler…]
         from email.mime.application import MIMEApplication
         msg = MIMEMultipart("mixed")
