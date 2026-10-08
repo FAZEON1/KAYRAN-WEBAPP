@@ -660,14 +660,6 @@ def _ay_kapanis():
                        key="ayrap_dl", use_container_width=True)
 
 
-def _sistem():
-    st.markdown("**Değişiklik günlüğü** · kim, ne zaman, hangi kaydı değiştirdi")
-    _audit_render()
-    st.divider()
-    st.markdown("**Yedekleme**")
-    _yedek_render()
-
-
 def run():
     with st.sidebar:
         from shared.utils import sidebar_ust
@@ -698,11 +690,6 @@ def run():
             from yonetim_para import sayfa as _para_haritasi
             _para_haritasi()
             return
-        if _bolum == "Şirket belgeleri":
-            # Kâr verisi değil: Yönetim yetkisi olan herkes (yalnız yöneticiler) görür
-            from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
-            _sirket_belgeleri()
-            return
         if not kar_gorunur():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
@@ -714,9 +701,6 @@ def run():
                     unsafe_allow_html=True)
         if _bolum == "Ay kapanışı":
             _ay_kapanis()
-            return
-        if _bolum == "Sistem":
-            _sistem()
             return
 
         # ── Dönem seçimi — tek kompakt satır ──
@@ -752,7 +736,7 @@ def run():
 
 
 def _audit_render():
-    """Değişiklik günlüğü (audit log) görüntüleme — Yönetim Panosu içinde."""
+    """Değişiklik günlüğü (audit log) görüntüleme — kişi menüsü › Sistem (app.py degisiklik_gunlugu)."""
     import pandas as pd
     from shared.audit import get_loglar
     c1, c2, c3 = st.columns(3)

@@ -1,6 +1,6 @@
 """Şirket (gönderen) künyesi — yazdırılan belgelerin başlığında kullanılır.
 
-Künye Yönetim › Şirket belgeleri ekranından girilir (Ekim 2026). Değerler Streamlit Secrets'tan da
+Künye kişi menüsü › Şirket belgeleri ekranından girilir (Ekim 2026). Değerler Streamlit Secrets'tan da
 verilebilir (ekranda kaydedilen kazanır):
 
     [sirket]
@@ -23,7 +23,7 @@ _VARSAYILAN = {
 
 
 def sirket_bilgi():
-    """Şirket künyesi (dict). Öncelik (Ekim 2026): Yönetim › Şirket belgeleri'nde kaydedilen >
+    """Şirket künyesi (dict). Öncelik (Ekim 2026): Şirket belgeleri ekranında kaydedilen >
     secrets > yukarıdaki varsayılan. Boş alan bir alttakini ezmez."""
     from shared.sirket_belge_hesap import kunye_birlestir
     _s, _k = {}, {}

@@ -107,7 +107,9 @@ def test_sayfa_kayitli():
     from shared.gezinme import SISTEM
     assert any(x[0] == "veri_sagligi" for x in SISTEM)
     a = (KOK / "app.py").read_text(encoding="utf-8")
-    assert 'args=("veri_sagligi",)' in a and 'elif aktif == "veri_sagligi":' in a
+    # kişi menüsünde "Verilerim" düğmesinin grubunda (shared.gezinme.SAYFA_GRUPLARI)
+    from shared.gezinme import sayfa_grubu
+    assert sayfa_grubu("veri_sagligi")[0] == "Verilerim" and 'elif aktif == "veri_sagligi":' in a
 
 
 def test_teslim_notu_kayitsiz_dosyalar():

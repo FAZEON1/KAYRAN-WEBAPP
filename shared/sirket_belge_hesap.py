@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Şirket belgeleri — saf hesaplar (Ekim 2026). Streamlit'e ve veritabanına bağlı değil.
 
-Yönetim › Şirket belgeleri sayfası (yalnız Yönetim yetkilileri) şirketin resmi belgelerini
+Şirket belgeleri sayfası (kişi menüsü) (yalnız Yönetim yetkilileri) şirketin resmi belgelerini
 (vergi levhası, sicil gazetesi, faaliyet belgesi, imza sirküleri …) ve şirket künyesini tutar.
 
   belge_kabul(ad, boyut)        dosya türü ve boyutu uygun mu?
