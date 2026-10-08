@@ -120,6 +120,27 @@ def maddeler_talep(talepler):
                    _isimler(acik, "konu"), len(acik), "talep", "talep")]
 
 
+def maddeler_izin(talepler, personeller, bugun):
+    """İzin yöneticisine: onay bekleyen talepler ve bugün izinde olanlar (shared/izin_ekran)."""
+    ad = {p.get("kod"): p.get("ad") or p.get("kod") for p in personeller or []}
+    m = []
+    bekleyen = [t for t in talepler or [] if t.get("durum") == "bekliyor"]
+    if bekleyen:
+        bekleyen.sort(key=lambda t: str(t.get("baslangic") or ""))
+        m.append(_madde("uyari", "Onay bekleyen izin talebi",
+                        "En yakını " + str(bekleyen[0].get("baslangic") or "")[:10] + " · "
+                        + _isimler([{"a": ad.get(t.get("personel"), t.get("personel"))} for t in bekleyen], "a"),
+                        len(bekleyen), "izin", "izin_onay"))
+    g = bugun.isoformat()
+    izinli = [t for t in talepler or [] if t.get("durum") == "onaylandi"
+              and str(t.get("baslangic") or "")[:10] <= g <= str(t.get("bitis") or "")[:10]]
+    if izinli:
+        m.append(_madde("bilgi", "Bugün izinde",
+                        _isimler([{"a": ad.get(t.get("personel"), t.get("personel"))} for t in izinli], "a"),
+                        len(izinli), "izin", "izin_bugun"))
+    return m
+
+
 def _kim(d):
     """Uyarı başlığında sorumlunun adı (Ekim 2026: her yüklemenin bir sorumlusu var)."""
     return f" · 👤 {d['sorumlu_ad']}" if d.get("sorumlu_ad") else ""
@@ -268,7 +289,7 @@ def _oku(tablo, kolonlar, suz=None):
     return _o(tablo, kolonlar, suz)
 
 
-def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
+def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False, izin_yoneticisi=False):
     """Kullanıcının yetkisi olan kaynaklardan maddeleri toplar."""
     from shared.hata_log import kaydet
     m = []
@@ -330,6 +351,13 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False):
             m += maddeler_stok_hatasi(_basarisiz_stok_hareketleri(), bugun.isoformat())
         except Exception as e:  # noqa: BLE001
             kaydet("bugun.stok_hata", e)
+
+    if izin_yoneticisi:
+        try:
+            from shared.izin import personeller, talepler
+            m += maddeler_izin(talepler(), personeller(), bugun)
+        except Exception as e:  # noqa: BLE001
+            kaydet("bugun.izin", e)
 
     if talep_yoneticisi:
         try:

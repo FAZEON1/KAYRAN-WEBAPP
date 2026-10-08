@@ -121,6 +121,7 @@ SISTEM = [
     ("yukleme_gecmisi", "Yükleme geçmişi", "history", None),
     ("veri_sagligi", "Veri sağlığı", "health_and_safety", None),
     ("sifre_degistir", "Şifremi değiştir", "key", None),
+    ("izin", "İzinler", "event_available", None),      # Ekim 2026: herkes kendi izni; yönetici onay / rapor
     ("kullanici_yonetimi", "Kullanıcı yönetimi", "group", "kullanici_yonetimi"),
     ("sistem_kayitlari", "Sistem kayıtları", "receipt_long", "kullanici_yonetimi"),
     ("tasarim_rehberi", "Tasarım rehberi", "palette", "kullanici_yonetimi"),
