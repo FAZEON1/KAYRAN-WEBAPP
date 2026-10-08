@@ -77,7 +77,8 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
-               "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
+               "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
+               "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -201,6 +202,9 @@ KRITIK_FONKSIYONLAR = {
                        "gumruk_tetikle", "gumruk_yeniden", "sql_kurulu"],
     "shared.asistan_ekran": ["telegram_bolumu", "pazar_bolumu"],
     "shared.ofis": ["durumlar"],
+    "shared.bugun": ["maddeler_teknik_servis", "maddeler_ithalat", "maddeler_depo_sevk", "topla"],
+    "shared.kisayol": ["sec", "oku"],
+    "shared.pwa": ["kurulum_betigi"],
     "shared.ofis_ekran": ["run"],
     "shared.gumruk_ekran": ["sayfa"],
     "shared.kar_gizle": ["kar_gorunur", "kar_gorunur_kullanici"],

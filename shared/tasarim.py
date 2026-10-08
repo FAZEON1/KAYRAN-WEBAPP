@@ -192,6 +192,7 @@ MODUL_RENK = {
     "depo":          "yesil2",
     "teknikservis":  "kirmizi2",
     "yonetim":       "cyan",
+    "ekip":          "mor",
     "hesap_makinesi": "amber2",
 }
 
@@ -912,7 +913,7 @@ MODUL_IKON = {
     "anasayfa": "home", "arama": "search", "yonetim": "monitoring",
     "kayranacc": "account_balance_wallet", "ithalat": "directions_boat",
     "kayranpm": "inventory_2", "depo": "warehouse", "satis": "point_of_sale",
-    "teknikservis": "construction", "hesap_makinesi": "calculate",
+    "teknikservis": "construction", "hesap_makinesi": "calculate", "ekip": "groups",
 }
 
 

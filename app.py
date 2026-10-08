@@ -1333,6 +1333,16 @@ html body [data-testid="stMain"] [class*="st-key-hz_"] [data-testid="stButton"].
 @media (max-width:640px){
   .k-ana-hucre{flex:1 1 45%;}
   [class*="st-key-hz_"]{min-height:0;}
+  /* Telefonda modül kartları iki sütun (Streamlit sütunları tek tek alt alta diziyordu) */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-hz_"]){flex-wrap:wrap !important;gap:8px !important;}
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-hz_"]) > [data-testid="stColumn"]{
+    flex:1 1 calc(50% - 8px) !important;width:calc(50% - 8px) !important;min-width:calc(50% - 8px) !important;}
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-hz_"]) > [data-testid="stColumn"]:empty,
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-hz_"]) > [data-testid="stColumn"]:not(:has(*)){display:none !important;}
+  /* Kısayollar telefonda yana kayan tek satır */
+  .st-key-kisayollar{flex-wrap:nowrap !important;overflow-x:auto !important;scrollbar-width:none;}
+  .st-key-kisayollar::-webkit-scrollbar{display:none;}
+  .st-key-kisayollar button{white-space:nowrap !important;}
 }
 """) + "</style>"
 
@@ -1793,6 +1803,18 @@ input, textarea, select { font-size: 16px !important; }
     # sağındaki kişi menüsünde (_kisi_menusu). Gizleme kuralı: ust_navigasyon CSS'i.
 
 
+@st.dialog("Telefona kur")
+def _telefon_rehberi():
+    """Programı telefonun ana ekranına simgeyle ekleme (shared/pwa.py)."""
+    from shared.pwa import KURULUM_ADIMLARI
+    st.markdown("KAYRAN'ı telefonunun ana ekranına uygulama gibi ekleyebilirsin; simgesine dokununca "
+                "doğrudan açılır.")
+    for _cihaz, _adimlar in KURULUM_ADIMLARI.items():
+        st.markdown(f"**{_cihaz}**\n" + "\n".join(f"{_i}. {_a}" for _i, _a in enumerate(_adimlar, 1)))
+    st.caption("Simgeden açınca giriş ekranı gelebilir; oturum adresteki güvenli anahtarla tutulduğu için "
+               "ana ekrandan her açılışta bir kez giriş yapman gerekebilir.")
+
+
 def _kisi_menusu():
     """Üst şeridin en sağında kişi menüsü: ad, görünüm, Soru sor, hesap sayfaları, yeni sekme, Çıkış.
     Eskiden bunlar sol kenar çubuğundaydı; kenar çubuğu her sayfada 300 px yer kaplıyordu."""
@@ -1800,6 +1822,8 @@ def _kisi_menusu():
     if not aktif_kullanici:
         return
     aktif_sayfa = st.session_state.get("aktif_uygulama", "anasayfa")
+    if st.session_state.pop("_telefon_rehber", False):
+        _telefon_rehberi()
     from shared.tasarim import kisi_adi as _kisi_adi
     with st.container(key="ust_kisi"):
         with st.popover(_kisi_adi(aktif_kullanici), icon=":material/account_circle:",
@@ -1816,6 +1840,10 @@ def _kisi_menusu():
                 st.session_state["tema"] = _tema_yeni
                 _tema_yaz(aktif_kullanici, _tema_yeni)
                 st.rerun()
+
+            # Telefona kur: ana ekrana simgeyle ekleme rehberi (shared/pwa.py)
+            st.button("Telefona kur", icon=":material/install_mobile:", key="nav_telefon",
+                      use_container_width=True, on_click=lambda: st.session_state.update(_telefon_rehber=True))
 
             # Soru sor: Türkçe soru → programın kendi hesaplarından cevap (shared/soru_ekran)
             st.button("Soru sor", icon=":material/forum:", key="nav_soru",
@@ -1999,6 +2027,32 @@ def _arama_parcasi(yer):
                 _git("teknikservis")
 
 
+def _kisayollar(aktif_kullanici, yetkiler):
+    """Ana sayfa 'Kısayollarım' — son 30 günde en çok açılan 6 sayfa (shared/kisayol.py).
+    Yetkisi kalmamış modül listeye girmez; ölçüm yoksa bölüm hiç çizilmez."""
+    from shared import kisayol as _ks
+    from shared.gezinme import SISTEM as _SISTEM
+    _oz_sistem = {k: oz for k, _a, _i, oz in _SISTEM}
+
+    def _izinli(mod):
+        if mod == "yonetim":
+            return ozel_yetki(aktif_kullanici, "yonetim")
+        if mod == "ekip":
+            return ozel_yetki(aktif_kullanici, "kullanici_yonetimi")
+        if mod in _oz_sistem:
+            return not _oz_sistem[mod] or ozel_yetki(aktif_kullanici, _oz_sistem[mod])
+        return bool(yetkiler.get(mod))
+    _liste = _ks.sec(_ks.oku(aktif_kullanici), _izinli)
+    if not _liste:
+        return
+    st.markdown('<div class="k-ana-bolum">Kısayollarım<span>en çok açtığın sayfalar · son 30 gün</span></div>',
+                unsafe_allow_html=True)
+    with st.container(horizontal=True, gap="small", key="kisayollar"):
+        for _k in _liste:
+            st.button(_k["etiket"], key=f"ks_{_k['modul']}_{_k['sayfa'] or ''}", icon=f":material/{_k['ikon']}:",
+                      on_click=_sayfaya_git, args=(_k["modul"], _k["sayfa"]))
+
+
 def _bugun_panel(aktif_kullanici, yetkiler):
     """Ana sayfa 'Bugün' paneli — veri shared/bugun.py'de, burada yalnız çizim.
     Her madde ilgili modülü açan bir düğmeyle gelir."""
@@ -2032,7 +2086,8 @@ def _bugun_panel(aktif_kullanici, yetkiler):
                            use_container_width=True, on_click=_kapi_ac)
             else:
                 _c2.button("Aç", key=f"bgn_{_m['anahtar']}", icon=":material/arrow_forward:",
-                           use_container_width=True, on_click=_sayfaya_git, args=(_m["hedef"],))
+                           use_container_width=True, on_click=_sayfaya_git,
+                           args=tuple(str(_m["hedef"]).split("/", 1)))   # "modul" ya da "modul/sayfa"
 
 
 def _veri_guncelligi(aktif_kullanici, yetkiler):
@@ -2274,7 +2329,10 @@ def anasayfa():
                                     "veri ekleme, değiştirme ve silme kapalı."),
                     unsafe_allow_html=True)
 
-    # ─── BUGÜN — dikkat gerektiren işler (D2) ───
+    # ─── KISAYOLLARIM — kişinin en çok açtığı sayfalar (Ekim 2026) ───
+    _kisayollar(aktif_kullanici, yetkiler)
+
+    # ─── BUGÜN — dikkat gerektiren işler (D2; rol bazlı maddeler Ekim 2026) ───
     _bugun_panel(aktif_kullanici, yetkiler)
 
     # ─── VERİ GÜNCELLİĞİ — dönemsel Excel'ler, geri sayım (herkes görür) ───
@@ -2410,11 +2468,13 @@ def anasayfa():
         ("depo", "Depo", "Depo bazlı stok ve depolar arası sevk"),
         ("teknikservis", "Teknik Servis", "Servis, iade, değişim ve servis deposu"),
         ("yonetim", "Yönetim", "Toplam aktifler ve yönetim P&L"),
+        ("ekip", "Ekip", "Serkan, Elif, Kerem ve Hakan"),
         ("hesap_makinesi", "Hesap Makinesi", "Maliyet ve fiyat hesapları"),
     ]
     _yonetim_gor = ozel_yetki(aktif_kullanici, "yonetim")
+    _ozel_mod = {"yonetim": _yonetim_gor, "ekip": ozel_yetki(aktif_kullanici, "kullanici_yonetimi")}
     _acik_mod = [m for m in _mod_meta
-                 if (_yonetim_gor if m[0] == "yonetim" else yetkiler.get(m[0]))]
+                 if (_ozel_mod[m[0]] if m[0] in _ozel_mod else yetkiler.get(m[0]))]
     if _acik_mod:
         st.markdown('<div class="k-ana-bolum">Modüller</div>', unsafe_allow_html=True)
         st.markdown("<style>" + "".join(
@@ -3344,8 +3404,10 @@ def main():
         import streamlit.components.v1 as _comp
         import json as _json
         _tb = _sekme_basliklari.get(aktif, "Workspace")
-        _comp.html(f"<script>window.parent.document.title={_json.dumps(_tb + ' | KAYRAN')};</script>",
-                   height=0)
+        # + telefona kurulum etiketleri (manifest, simge, tam ekran — shared/pwa.py); aynı çerçevede
+        from shared.pwa import kurulum_betigi as _pwa_betigi
+        _comp.html(f"<script>window.parent.document.title={_json.dumps(_tb + ' | KAYRAN')};</script>"
+                   + _pwa_betigi(), height=0)
     except Exception:
         pass
 
