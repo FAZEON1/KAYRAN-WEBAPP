@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -212,6 +212,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.izin": ["personeller", "talepler", "personel_kaydet", "talep_ekle", "karar_ver", "iptal_et", "ayar",
                     "ayar_yaz", "bildir"],
     "shared.izin_ekran": ["sayfa", "takvim_html", "personel_denetle"],
+    "shared.izin_belge": ["form_icerik", "kayit_belgesi_icerik", "izin_formu_pdf", "kayit_belgesi_pdf", "donus_gunu",
+                          "belge_no"],
     "shared.kisayol": ["sec", "oku"],
     "shared.pwa": ["kurulum_betigi"],
     "shared.ofis_ekran": ["run"],

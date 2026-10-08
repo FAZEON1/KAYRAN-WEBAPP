@@ -15,6 +15,7 @@ import streamlit as st
 from shared import bilesen as B
 from shared import izin as D
 from shared import izin_hesap as H
+from shared.izin_belge import belge_no, donus_gunu, izin_formu_pdf, kayit_belgesi_pdf
 from shared.tasarim import bos_durum, kisi_adi, kpi_serit, mesaj
 
 BOLUM_HERKES = ["İzinlerim", "Takvim"]
@@ -133,6 +134,7 @@ def _izinlerim(c):
         st.markdown(B.grup_basligi("Yeni izin talebi"), unsafe_allow_html=True)
         _talep_formu(c, p, anahtar="izn_k")
     st.markdown(B.grup_basligi("Geçmiş", f"{len(kendi)} kayıt" if kendi else ""), unsafe_allow_html=True)
+    _kayit_belgesi_dugmesi(c, p)
     if not kendi:
         st.caption("Henüz izin kaydın yok.")
     for t in sorted(kendi, key=lambda t: (str(t.get("baslangic")), t.get("id") or 0), reverse=True):
@@ -154,8 +156,17 @@ def _talep_formu(c, p, anahtar, yonetici_girisi=False):
     yarim = False
     if bas and bit and bas == bit:
         yarim = st.checkbox("Yarım gün", key=f"{k}_yarim", help="Tek günlük yarım gün izin (0,5 gün düşer).")
+    yol = 0
+    if tur == "yillik":
+        yol = int(st.number_input("Ücretsiz yol izni (gün)", min_value=0, max_value=4, value=0, step=1,
+                                  key=f"{k}_yol",
+                                  help="İznini işyerinin bulunduğu yer dışında geçirecek olana istenirse toplam "
+                                       "4 güne kadar ücretsiz yol izni verilir (İş Kanunu md. 56). İzin gününe eklenmez; "
+                                       "işe başlama tarihini öteler."))
     aciklama = st.text_input("Açıklama (isteğe bağlı)", key=f"{k}_acik",
                              placeholder="Rapor için tanı yazma; yalnız tarih yeterli." if tur == "rapor" else "")
+    adres = st.text_input("İzin süresince adres / telefon (isteğe bağlı)", key=f"{k}_adres",
+                          help="İzin formuna yazılır; acil durumda ulaşmak için.")
     onayli = False
     if yonetici_girisi:
         onayli = st.checkbox("Onaylı olarak kaydet", value=True, key=f"{k}_onayli",
@@ -172,8 +183,8 @@ def _talep_formu(c, p, anahtar, yonetici_girisi=False):
          "alt": "yıllık izin bakiyesinden" if H.TURLER[tur]["duser"] else "yıllık izinden düşmez"},
         {"etiket": "Takvim günü", "deger": H.tr_gun(H.takvim_gunu(bas, bit)), "renk": "cyan",
          "alt": f"{H.tr_tarih(bas)} – {H.tr_tarih(bit)}"},
-        {"etiket": "İşe dönüş", "deger": H.tr_tarih(_donus(bit, c["cumartesi"])), "renk": "yesil",
-         "alt": "ilk iş günü"},
+        {"etiket": "İşe dönüş", "deger": H.tr_tarih(donus_gunu(bit, c["cumartesi"], yol)), "renk": "yesil",
+         "alt": "ilk iş günü" + (f", {yol} gün yol izniyle" if yol else "")},
     ]), unsafe_allow_html=True)
     dok = [(g, v, nt) for g, v, nt in H.gun_dokumu(bas, bit, c["cumartesi"]) if v < 1]
     if dok and not yarim:
@@ -189,7 +200,7 @@ def _talep_formu(c, p, anahtar, yonetici_girisi=False):
         durum = "onaylandi" if onayli else "bekliyor"
         ok, r = D.talep_ekle(p["kod"], tur, bas, bit, gun, H.takvim_gunu(bas, bit), yarim, aciklama,
                              talep_eden=c["kullanici"], durum=durum,
-                             karar_notu="Yönetici girişi" if onayli else "")
+                             karar_notu="Yönetici girişi" if onayli else "", yol_izni=yol, izin_adresi=adres)
         if not ok:
             st.error(r)
             return
@@ -204,13 +215,41 @@ def _talep_formu(c, p, anahtar, yonetici_girisi=False):
         st.rerun()
 
 
-def _donus(bit, cumartesi):
-    g = bit + timedelta(days=1)
-    for _ in range(30):
-        if H.gun_degeri(g, cumartesi) > 0:
-            return g
-        g += timedelta(days=1)
-    return g
+def _pdf_dugmesi(etiket, anahtar, uret, dosya_adi):
+    """Belgeyi istenince üretir (her çizimde değil), sonra indirme düğmesine döner."""
+    if st.session_state.get(anahtar):
+        st.download_button(etiket, st.session_state[anahtar], file_name=dosya_adi, mime="application/pdf",
+                           key=f"{anahtar}_dl", icon=":material/download:", type="primary")
+    elif st.button(etiket, key=f"{anahtar}_h", icon=":material/print:"):
+        try:
+            st.session_state[anahtar] = uret()
+        except Exception as e:  # noqa: BLE001
+            try:
+                from shared.hata_log import kaydet
+                kaydet("izin.pdf", e)
+            except Exception:  # noqa: BLE001
+                pass
+            st.error(f"Belge hazırlanamadı: {e}")
+            return
+        st.rerun()
+
+
+def _form_dugmesi(c, t):
+    p = c["harita"].get(t.get("personel"))
+    if not p or t.get("durum") not in ("bekliyor", "onaylandi"):
+        return
+    kisi = [x for x in c["talepler"] if x.get("personel") == p["kod"]]
+    _pdf_dugmesi("İzin formu", f"izn_pdf_{t['id']}_{t.get('durum')}",
+                 lambda: izin_formu_pdf(t, p, kisi, c["bugun"], c["cumartesi"]),
+                 f"{belge_no(t)}_{p['kod']}.pdf")
+
+
+def _kayit_belgesi_dugmesi(c, p):
+    if not p or not p.get("ise_giris"):
+        return
+    kisi = [x for x in c["talepler"] if x.get("personel") == p["kod"]]
+    _pdf_dugmesi("Yıllık izin kayıt belgesi", f"izn_kb_{p['kod']}_{len(kisi)}",
+                 lambda: kayit_belgesi_pdf(p, kisi, c["bugun"]), f"izin_kayit_belgesi_{p['kod']}.pdf")
 
 
 def _kayit_satiri(c, t, sahip=False, yonetici_eylem=False):
@@ -231,6 +270,7 @@ def _kayit_satiri(c, t, sahip=False, yonetici_eylem=False):
         if t.get("karar_notu"):
             parca.append(f"Not: {t['karar_notu']}")
         st.markdown(B.meta(*parca), unsafe_allow_html=True)
+        _form_dugmesi(c, t)
         if sahip and durum == "bekliyor":
             if st.button("Talebi geri çek", key=f"izn_geri_{t['id']}", icon=":material/undo:", type="tertiary"):
                 ok, h = D.iptal_et(t["id"], c["kullanici"], "Talep sahibi geri çekti")
@@ -538,7 +578,9 @@ def _personel(c, kullanicilar):
     if not yeni:
         c1.text_input("Kod", sec, disabled=True, key=f"{k}_kod_g")
     ad = c2.text_input("Ad soyad", p.get("ad") or ("" if yeni else kisi_adi(sec)), key=f"{k}_ad")
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns([1, 1, 1])
+    sicil = c3.text_input("Sicil no (isteğe bağlı)", p.get("sicil_no") or "", key=f"{k}_sicil",
+                          help="İzin formunda ve izin kayıt belgesinde yazılır.")
     bolum = c1.text_input("Bölüm", p.get("departman") or "", key=f"{k}_bolum",
                           help="Aynı bölümden iki kişi aynı gün izinliyse uyarı çıkar (ör. Depo, Muhasebe).")
     giris = c2.date_input("İşe giriş tarihi", H.tarih(p.get("ise_giris")), format="DD.MM.YYYY", key=f"{k}_giris",
@@ -572,8 +614,10 @@ def _personel(c, kullanicilar):
                       if bk["sonraki"] else ""))
     for h in hatalar:
         st.markdown(mesaj("hata", h), unsafe_allow_html=True)
+    if p:
+        _kayit_belgesi_dugmesi(c, p)
     if st.button("Kartı kaydet", key=f"{k}_kaydet", type="primary", icon=":material/save:", disabled=bool(hatalar)):
-        ok, h = D.personel_kaydet(kod, ad, bolum, giris, dogum, devir_t, devir_g, cikis, notu)
+        ok, h = D.personel_kaydet(kod, ad, bolum, giris, dogum, devir_t, devir_g, cikis, notu, sicil)
         if ok:
             st.toast(f"{ad or kod} kaydedildi.")
             st.rerun()

@@ -64,7 +64,7 @@ def _iso(d):
 
 
 def personel_kaydet(kod, ad, departman="", ise_giris=None, dogum_tarihi=None, devir_tarihi=None,
-                    devir_gun=None, cikis_tarihi=None, notu=""):
+                    devir_gun=None, cikis_tarihi=None, notu="", sicil_no=""):
     """Kartı ekler ya da günceller (kod = kullanıcı adı ya da programa girmeyen çalışan için kısa ad)."""
     kod = str(kod or "").strip().lower()
     if not kod:
@@ -74,7 +74,7 @@ def personel_kaydet(kod, ad, departman="", ise_giris=None, dogum_tarihi=None, de
              "devir_tarihi": _iso(devir_tarihi),
              "devir_gun": float(devir_gun) if (devir_tarihi and devir_gun is not None) else None,
              "cikis_tarihi": _iso(cikis_tarihi), "notu": str(notu or "").strip()[:300],
-             "guncelleme": _simdi()}
+             "sicil_no": str(sicil_no or "").strip()[:30], "guncelleme": _simdi()}
     try:
         _istemci().table(PERSONEL).upsert(satir, on_conflict="kod").execute()
     except Exception as e:  # noqa: BLE001
@@ -84,11 +84,12 @@ def personel_kaydet(kod, ad, departman="", ise_giris=None, dogum_tarihi=None, de
 
 
 def talep_ekle(personel, tur, baslangic, bitis, gun, takvim_gunu, yarim_gun=False, aciklama="",
-               talep_eden="", durum="bekliyor", karar_notu=""):
+               talep_eden="", durum="bekliyor", karar_notu="", yol_izni=0, izin_adresi=""):
     """Yeni izin kaydı. durum 'onaylandi' ise (yöneticinin doğrudan girdiği kayıt) karar alanları da dolar."""
     satir = {"personel": personel, "tur": tur, "baslangic": _iso(baslangic), "bitis": _iso(bitis),
              "yarim_gun": bool(yarim_gun), "gun": float(gun), "takvim_gunu": int(takvim_gunu),
              "aciklama": str(aciklama or "").strip()[:300], "durum": durum,
+             "yol_izni": max(0, min(4, int(yol_izni or 0))), "izin_adresi": str(izin_adresi or "").strip()[:300],
              "talep_eden": talep_eden, "talep_zamani": _simdi()}
     if durum == "onaylandi":
         satir.update(karar_veren=talep_eden, karar_zamani=_simdi(), karar_notu=str(karar_notu or "")[:300])
