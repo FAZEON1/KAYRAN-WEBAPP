@@ -13,7 +13,7 @@ import streamlit as st
 PERSONEL = "personel"
 TALEP = "izin_talepleri"
 AYAR_ANAHTAR = "izin_ayar"
-VARSAYILAN_AYAR = {"cumartesi": False}
+VARSAYILAN_AYAR = {"cumartesi": False, "haric": []}     # haric: izin takibine girmeyen kullanıcılar
 
 
 def _istemci():

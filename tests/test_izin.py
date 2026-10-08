@@ -282,11 +282,13 @@ def test_baglantilar():
     from shared.gezinme import SISTEM, hedef
     from shared.yetki import OZEL, OZEL_ADI
     assert ("izin", "İzinler", "event_available", None) in SISTEM and hedef("sistem/izin")["modul"] == "izin"
-    assert "izin_yonetimi" in OZEL and OZEL_ADI["izin_yonetimi"] == "İzin yönetimi"
+    assert {"izin_yonetimi", "izin_onay"} <= set(OZEL) and OZEL_ADI["izin_onay"] == "İzin onayı"
     app = (KOK / "app.py").read_text(encoding="utf-8")
     assert 'elif aktif == "izin":' in app and 'args=("izin",)' in app
     assert 'ozel_yetki(kullanici, "izin_yonetimi") or ozel_yetki(kullanici, "kullanici_yonetimi")' in app
-    assert "izin_yoneticisi=izin_yoneticisi(aktif_kullanici)" in app
+    assert "izin_yoneticisi=izin_onaylayici(aktif_kullanici)" in app                 # Bugün: onay bekleyenler
+    assert 'return ozel_yetki(kullanici, "izin_onay")' in app                          # onay ayrı yetki
+    assert 'ozel_sahipleri("izin_onay", KULLANICI_YONETIMI_KULLANICILAR)' in app      # bildirim onaycılara
     from yonetim import YEDEK_TABLOLAR
     assert {"personel", "izin_talepleri"} <= set(YEDEK_TABLOLAR)
     from shared.bt_hesap import YASAK_YOLLAR
@@ -424,3 +426,12 @@ def test_eposta_gomulu_resim():
     assert resim["Content-ID"] == "<logo>" and resim["Content-Disposition"].startswith("inline")
     sade = mesaj_olustur("a@b.com", ["c@d.com"], "Konu", "<p>x</p>")                          # eski davranış aynı
     assert [p.get_content_type() for p in sade.walk()] == ["multipart/alternative", "text/plain", "text/html"]
+
+
+def test_bolumler_yetkiye_gore():
+    """Onay yetkisi (izin_onay) ile personel / rapor yetkisi (izin_yonetimi) ayrı: personeli dolduran onay veremez."""
+    from shared.izin_ekran import bolumler_icin
+    assert bolumler_icin() == ["İzinlerim", "Takvim"]
+    assert bolumler_icin(onay=True) == ["İzinlerim", "Onay", "Takvim", "Rapor"]
+    assert bolumler_icin(yonetim=True) == ["İzinlerim", "Takvim", "Rapor", "Personel", "Ayarlar"]
+    assert bolumler_icin(True, True) == ["İzinlerim", "Onay", "Takvim", "Rapor", "Personel", "Ayarlar"]

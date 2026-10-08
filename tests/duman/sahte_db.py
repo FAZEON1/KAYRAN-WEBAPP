@@ -11,7 +11,7 @@ import types
 
 KULLANICI = "ibrahim"
 _MODULLER = ["kayranacc", "kayranpm", "depo", "ithalat", "teknikservis", "satis", "hesap_makinesi"]
-_OZEL = ["yonetim", "patron_panel", "talep_yonetici", "kullanici_yonetimi", "toplam_aktifler", "kar"]
+_OZEL = ["yonetim", "patron_panel", "talep_yonetici", "kullanici_yonetimi", "toplam_aktifler", "kar", "izin_onay"]
 
 YETKI = [{"id": 1, "kullanici": KULLANICI, "moduller": _MODULLER, "ozel": _OZEL,
           "salt_okur": False, "aktif": True}]
