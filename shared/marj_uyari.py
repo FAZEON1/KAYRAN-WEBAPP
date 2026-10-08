@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""KAYRAN — Zararına satış uyarısı (Telegram).
+"""KAYRAN — Zararına satış uyarısı (Telegram + e-posta).
 
 Yeni sipariş kaydedildiğinde kâr marjı eşiğin altında kalan kalemler için
-TEK bir Telegram mesajı gönderir.
+TEK bir Telegram mesajı gönderir. Zararına kalem varsa aynı uyarı e-postayla
+MAIL_ALICILARI'na da gider (Ekim 2026, kullanıcı kararı; adresler Kullanıcı
+yönetiminde kayıtlı). Yalnız maliyeti bilinmeyen kalem varsa e-posta gitmez.
 
 ═══ TASARIM KARARLARI ══════════════════════════════════════════════════
 1) SİPARİŞ BAŞINA TEK MESAJ.
@@ -28,6 +30,11 @@ TEK bir Telegram mesajı gönderir.
 
 
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
+
+# Zararına satış e-postasını alanlar (kullanıcı adları; adres sistem_ayarlari 'kullanici_eposta')
+MAIL_ALICILARI = ("ibrahim", "korkut", "serkan")
+
+
 def _f(v):
     try:
         return float(v or 0)
@@ -126,19 +133,64 @@ def mesaj_uret(zararli, maliyetsiz, kanal="", siparis_no="", tarih="",
     return "\n".join(sat)
 
 
+def mail_uret(zararli, maliyetsiz, kanal="", siparis_no="", tarih="", kullanici="", kaynak=""):
+    """(konu, html) — zararına satış e-postası (Telegram mesajıyla aynı bilgi, tablo halinde)."""
+    from shared.eposta import _e, baglanti, sablon
+    bilgi = [(a, v) for a, v in (("Cari", kanal), ("Sipariş no", siparis_no), ("Tarih", str(tarih or "")[:10]),
+                                 ("Giren", kullanici), ("Kaynak", kaynak)) if v]
+    ust = "".join(f"<tr><td style='padding:3px 12px 3px 0;color:#64748b'>{_e(a)}</td><td><b>{_e(v)}</b></td></tr>"
+                  for a, v in bilgi)
+    td = "padding:6px 8px;border:1px solid #e2e8f0"
+    satir = "".join(
+        f"<tr><td style='{td}'>{_e(x.get('sku'))}</td><td style='{td};text-align:right'>{x['adet']}</td>"
+        f"<td style='{td};text-align:right'>{tr_sayi(x['maliyet'] / max(x['adet'], 1), 2)}</td>"
+        f"<td style='{td};text-align:right'>{tr_sayi(_f(x.get('birim_satis')), 2)}</td>"
+        f"<td style='{td};text-align:right;color:#b91c1c'><b>{tr_sayi(x['net_kar'], 2)}</b></td>"
+        f"<td style='{td};text-align:right'>%{tr_sayi(x['marj'], 1)}</td></tr>" for x in zararli[:40])
+    bas = "".join(f"<th style='{td};background:#f1f5f9;text-align:left'>{h}</th>"
+                  for h in ("SKU", "Adet", "Birim alış ($)", "Birim satış ($)", "Net kâr ($)", "Marj"))
+    govde = (f"<table style='font-size:14px;margin-bottom:12px'>{ust}</table>"
+             f"<table style='border-collapse:collapse;font-size:13px'>{bas}{satir}</table>")
+    if len(zararli) > 40:
+        govde += f"<p style='font-size:13px;color:#64748b'>… ve {len(zararli) - 40} kalem daha</p>"
+    govde += (f"<p style='margin-top:12px'><b>Toplam etki: {tr_sayi(sum(x['net_kar'] for x in zararli), 2)} $</b></p>")
+    if maliyetsiz:
+        govde += (f"<p style='font-size:13px;color:#92400e'>Ayrıca maliyeti bilinmeyen {len(maliyetsiz)} kalem var "
+                  "(ürün kartı eksik; kâr olduğundan yüksek görünür): "
+                  + _e(", ".join(str(x.get("sku")) for x in maliyetsiz[:15])) + "</p>")
+    konu = f"[KAYRAN] Zararına satış · {kanal or 'cari yok'}" + (f" · {siparis_no}" if siparis_no else "")
+    return konu, sablon(f"Zararına satış: {len(zararli)} kalem", govde, "Satışları aç", baglanti("satis"))
+
+
+def _mail_adresleri():
+    from shared.eposta import adresler
+    a = adresler()
+    return sorted({a[k] for k in MAIL_ALICILARI if a.get(k)})
+
+
 def marj_uyarisi(kalemler, kanal="", siparis_no="", tarih="", kullanici="",
                  kaynak="", esik=None):
-    """Sipariş kaydedildikten SONRA çağrılır. Döner: (gonderildi, aciklama).
+    """Sipariş kaydedildikten SONRA çağrılır. Döner: (gonderildi, aciklama) — Telegram sonucu.
+    Zararına kalem varsa e-posta da arka planda gider (Telegram kapalı olsa bile).
 
     Hiçbir koşulda istisna fırlatmaz.
     """
     try:
-        from shared.telegram_gonder import aktif_mi, gonder
-        if not aktif_mi():
-            return False, "Telegram kapalı/yapılandırılmamış"
         zararli, maliyetsiz = sorunlu_kalemler(kalemler, esik)
         if not zararli and not maliyetsiz:
             return False, "Uyarı gerektiren kalem yok"
+        if zararli:
+            try:
+                alicilar = _mail_adresleri()
+                if alicilar:
+                    from shared.eposta import arka_planda
+                    arka_planda(alicilar, *mail_uret(zararli, maliyetsiz, kanal, siparis_no, tarih, kullanici,
+                                                     kaynak))
+            except Exception:  # noqa: BLE001 — e-posta hatası kaydı ve Telegram'ı bozmaz
+                pass
+        from shared.telegram_gonder import aktif_mi, gonder
+        if not aktif_mi():
+            return False, "Telegram kapalı/yapılandırılmamış"
         return gonder(mesaj_uret(zararli, maliyetsiz, kanal, siparis_no,
                                  tarih, kullanici, kaynak))
     except Exception as e:
