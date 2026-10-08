@@ -18,19 +18,33 @@ TEMA = "#0B1120"
 AD = "KAYRAN"
 
 
+# Streamlit Cloud'un kendi simge / uygulama tanımı etiketleri: telefon önce bunları görüp Streamlit
+# simgesiyle kuruyordu (Ekim 2026, kullanıcı bildirimi). Bizimkiler data-kayran taşır, onlar silinir.
+YABANCI = ('link[rel="manifest"],link[rel~="icon"],link[rel="apple-touch-icon"],'
+           'link[rel="apple-touch-icon-precomposed"],link[rel="mask-icon"],'
+           'meta[name="apple-mobile-web-app-title"],meta[name="application-name"],meta[name="theme-color"]')
+
+
 def kurulum_betigi():
-    """Sayfaya eklenecek <script> (aynı etiketi ikinci kez eklemez, hata verirse sessiz geçer)."""
-    ayar = json.dumps({"tema": TEMA, "ad": AD})
+    """Sayfaya eklenecek <script>: yabancı simge / manifest etiketlerini kaldırır (her çalışmada; geri
+    eklenen olursa bir sonraki çizimde yine kalkar), bizimkileri bir kez ekler. Hata verirse sessiz geçer."""
+    ayar = json.dumps({"tema": TEMA, "ad": AD, "yabanci": YABANCI})
     return ("<script>(function(){try{var A=" + ayar + ";"
             "var app=window.parent;var taban=new URL('app/static/',app.location.href.split('?')[0].replace(/[^/]*$/,''));"
-            "function ekle(d){if(!d||d.getElementById('kayran-manifest'))return;var h=d.head;"
-            "function el(t,o){var e=d.createElement(t);for(var k in o)e.setAttribute(k,o[k]);h.appendChild(e);return e;}"
+            "function temizle(d){d.querySelectorAll(A.yabanci).forEach(function(e){"
+            "if(!e.hasAttribute('data-kayran'))e.remove();});}"
+            "function ekle(d){if(!d||!d.head)return;temizle(d);"
+            "if(d.getElementById('kayran-manifest'))return;var h=d.head;"
+            "function el(t,o){var e=d.createElement(t);e.setAttribute('data-kayran','1');"
+            "for(var k in o)e.setAttribute(k,o[k]);h.appendChild(e);return e;}"
             "el('link',{id:'kayran-manifest',rel:'manifest',href:new URL('manifest.json',taban).href});"
-            "el('link',{rel:'apple-touch-icon',href:new URL('apple-touch-icon.png',taban).href});"
+            "el('link',{rel:'icon',type:'image/png',sizes:'192x192',href:new URL('ikon-192.png',taban).href});"
+            "el('link',{rel:'apple-touch-icon',sizes:'180x180',href:new URL('apple-touch-icon.png',taban).href});"
             "el('meta',{name:'apple-mobile-web-app-capable',content:'yes'});"
             "el('meta',{name:'mobile-web-app-capable',content:'yes'});"
             "el('meta',{name:'apple-mobile-web-app-status-bar-style',content:'black-translucent'});"
             "el('meta',{name:'apple-mobile-web-app-title',content:A.ad});"
+            "el('meta',{name:'application-name',content:A.ad});"
             "el('meta',{name:'theme-color',content:A.tema});}"
             "ekle(app.document);try{if(window.top!==app)ekle(window.top.document);}catch(e){}"
             "}catch(e){}})();</script>")

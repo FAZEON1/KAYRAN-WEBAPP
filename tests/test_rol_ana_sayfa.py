@@ -95,7 +95,12 @@ def test_kurulum_betigi():
     b = kurulum_betigi()
     assert b.startswith("<script>") and b.endswith("</script>")
     for parca in ("rel:'manifest'", "manifest.json", "apple-touch-icon.png", "apple-mobile-web-app-capable",
-                  "theme-color", "app/static/", "getElementById('kayran-manifest')", "window.top"):
+                  "theme-color", "app/static/", "getElementById('kayran-manifest')", "window.top",
+                  "data-kayran", "e.remove()"):
         assert parca in b, parca
+    # Streamlit Cloud'un kendi simge / manifest etiketleri kaldırılır (telefon Streamlit simgesiyle kuruyordu)
+    from shared.pwa import YABANCI
+    for secici in ('link[rel="manifest"]', 'link[rel~="icon"]', 'link[rel="apple-touch-icon"]'):
+        assert secici in YABANCI
     app = (KOK / "app.py").read_text(encoding="utf-8")
     assert "+ _pwa_betigi(), height=0)" in app and 'key="nav_telefon"' in app
