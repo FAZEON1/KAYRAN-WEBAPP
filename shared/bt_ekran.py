@@ -55,7 +55,7 @@ def _veri():
 
 
 def sayfa(kullanici, yonetici, baslik=True):
-    """baslik=False: Sistem › Ofis'in sekmesi içinde (başlığı Ofis çizer)."""
+    """baslik=False: Ekip'in sekmesi içinde (başlığı Ekip çizer)."""
     if not yonetici:
         st.error("Bu sayfaya erişim yetkiniz yok.")
         return

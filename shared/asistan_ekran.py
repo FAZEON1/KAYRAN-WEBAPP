@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sistem › Ofis'te Elif ve Kerem'in bölümleri (Ekim 2026). Sayfayı shared/ofis_ekran.py çizer.
+"""Ekip'te Elif ve Kerem'in bölümleri (Ekim 2026). Sayfayı shared/ofis_ekran.py çizer.
 
   telegram_bolumu() : Elif (Telegram asistanı) — kurulum durumu ve Telegram hesabı ↔ program kullanıcısı
   pazar_bolumu()    : Kerem (pazar araştırmacısı) — haftalık raporlar

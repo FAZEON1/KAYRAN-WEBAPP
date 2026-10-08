@@ -86,7 +86,7 @@ def telegram_yanit(cevap):
 def yardim_metni(ornekler, kimlik, kullanici=None):
     if not kullanici:
         return (f"Merhaba, ben Elif, KAYRAN'ın asistanıyım. Bu hesap programda tanımlı değil.\nTelegram kimliğin: <code>{_e(kimlik)}</code>\n"
-                "Bir yönetici Sistem › Ofis › Elif bölümünden bu kimliği kullanıcına bağlayınca soru sorabilirsin.")
+                "Bir yönetici Ekip › Elif bölümünden bu kimliği kullanıcına bağlayınca soru sorabilirsin.")
     ornek = "\n".join(f"• {_e(o)}" for o in list(ornekler or [])[:6])
     return (f"Merhaba {_e(kullanici)}, ben Elif. Türkçe soru yaz, cevabı programın kendi hesaplarından vereyim.\n"
             "Satış, kâr, iade, stok, yaşlı stok, arıza, kampanya, ödeme ve çek sorularını anlarım.\n\n"
@@ -204,5 +204,5 @@ def brifing_blogu(raporlar):
         s.append(f"<b>Kerem'in pazar raporu · {_e(r.get('baslik') or '')}</b>")
         if r.get("ozet"):
             s.append(_e(r["ozet"]).strip())
-    s.append("<i>Tam rapor: Sistem › Ofis › Kerem</i>")
+    s.append("<i>Tam rapor: Ekip › Kerem</i>")
     return "\n".join(s)

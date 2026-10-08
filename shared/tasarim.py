@@ -261,7 +261,10 @@ MENU_IKON = {"Stok Yaşı": "hourglass_bottom", "Arıza Oranı": "troubleshoot",
              "Özet": "dashboard", "Para haritası": "account_tree", "Kanal ve ürün": "storefront", "Destekler ve giderler": "receipt_long",
              "Ay kapanışı": "event_available", "Şirket belgeleri": "folder_shared",
              "Sistem": "settings",
-             "Gümrük danışmanı": "gavel"}
+             "Gümrük danışmanı": "gavel",
+             # Ekip sekmeleri (Ekim 2026)
+             "Çalışanlar": "groups", "Serkan": "engineering", "Elif": "forum", "Kerem": "travel_explore",
+             "Hakan": "gavel"}
 
 
 def emoji_ayir(metin):

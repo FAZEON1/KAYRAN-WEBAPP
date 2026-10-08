@@ -43,7 +43,7 @@ Sonra kaydet:
 ```
 python otonom/asistan_db.py rapor --baslik "<tarih aralığı + en önemli bulgu, kısa>" --ozet "<3-5 satır; Telegram'a gider>" --icerik-dosya rapor.md
 ```
-Özet sabah brifingiyle Telegram'a gider; tam rapor programda Sistem › Ofis › Kerem bölümünde görünür.
+Özet sabah brifingiyle Telegram'a gider; tam rapor programda Ekip › Kerem bölümünde görünür.
 
 ## Asla
 

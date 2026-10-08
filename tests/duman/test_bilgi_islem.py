@@ -51,7 +51,8 @@ def test_bilgi_islem_ornek_veriyle():
     at.session_state["aktif_uygulama"] = "bilgi_islem"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
-    assert at.session_state["aktif_uygulama"] == "bilgi_islem"
+    assert at.session_state["aktif_uygulama"] == "ekip"          # eski adres Ekip › Serkan'a yönlenir
+    assert at.session_state["ekip_sayfa"] == "Serkan"
     metin = " ".join(str(m.value) for m in at.markdown)
     assert "Onayını bekleyen öneriler" in metin and "Paçal okuması tek sorguya" in metin
     assert "İyileştirmeler ve sonuçları" in metin and "En yavaş sayfalar" in metin
@@ -62,4 +63,4 @@ def test_bilgi_islem_ornek_veriyle():
     import time
     time.sleep(0.5)                                     # ölçüm arka planda yazılır
     assert len(sahte_db.TABLOLAR["bt_olcum"]) > n_once
-    assert sahte_db.TABLOLAR["bt_olcum"][-1]["modul"] == "bilgi_islem"
+    assert sahte_db.TABLOLAR["bt_olcum"][-1]["modul"] == "ekip"

@@ -139,9 +139,11 @@ def test_alt_sayfa_kodu_ve_kayit_hata_firlatmaz(monkeypatch):
 def test_baglantilar_yerinde():
     app = (KOK / "app.py").read_text(encoding="utf-8")
     assert "_bto.kaydet(aktif, _bto.alt_sayfa(aktif, st.session_state)" in app
-    assert 'elif aktif == "bilgi_islem":' in app and 'key="nav_bilgi_islem"' in app
-    from shared.gezinme import SISTEM
-    assert any(k == "bilgi_islem" and oz == "kullanici_yonetimi" for k, _a, _i, oz in SISTEM)
+    # Serkan Ekip modülünde (üst şerit, yalnız yöneticiler); eski bilgi_islem adresi oraya yönlenir
+    assert 'elif aktif == "ekip":' in app and 'if aktif == "bilgi_islem":' in app
+    from shared.gezinme import MODULLER
+    ekip = next(m for m in MODULLER if m["kod"] == "ekip")
+    assert ekip["ozel"] == "kullanici_yonetimi" and "Serkan" in [s[0] for s in ekip["sayfalar"]]
     yml = (KOK / ".github/workflows/bt-birlestir.yml").read_text(encoding="utf-8")
     assert "ref: main" in yml and "python otonom/bt_kapi.py" in yml
     gorev = (KOK / "otonom/bt_gorevi.md").read_text(encoding="utf-8")

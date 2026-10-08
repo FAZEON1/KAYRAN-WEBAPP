@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sayfa testi, ÖRNEK VERİYLE: Sistem › Ofis ve İthalat › Gümrük danışmanı (Ekim 2026)."""
+"""Sayfa testi, ÖRNEK VERİYLE: Ekip modülü ve İthalat › Gümrük danışmanı (Ekim 2026)."""
 from datetime import datetime, timezone
 
 import pytest
@@ -30,10 +30,9 @@ def _calistir(tablolar, uygulama, anahtar, secim):
     return at
 
 
-def test_ofis_ornek_veriyle():
-    """Sistem › Ofis: dört çalışanın kartı ve bölümleri (Serkan, Elif, Kerem, Hakan) tek sayfada."""
+def _ekip_veri():
     s = datetime.now(timezone.utc).isoformat()
-    at = _calistir({
+    return {
         "sistem_ayarlari": [{"anahtar": "telegram_webhook_gizli", "deger": "x" * 64},
                             {"anahtar": "telegram_kullanicilar", "deger": '{"123456789": "ibrahim"}'}],
         "bt_rapor": [{"id": 1, "zaman": s, "tur": "calisma", "baslik": "Gece kontrolü", "durum": "bilgi",
@@ -41,15 +40,27 @@ def test_ofis_ornek_veriyle():
         "asistan_rapor": [{"id": 1, "zaman": s, "asistan": "pazar", "baslik": "6-12 Ekim · panel fiyatı arttı",
                            "ozet": "27 inç panel fiyatı %6 arttı.", "icerik": "## Öne çıkanlar\n- Panel fiyatı arttı"}],
         "gumruk_sorgulari": [{"id": 3, "zaman": s, "urun": "Kablosuz klavye", "mense": "Çin", "durum": "bekliyor"}],
-    }, "bilgi_islem", "_yok", None)
+    }
+
+
+def test_ekip_calisanlar():
+    """Ekip › Çalışanlar: dört çalışanın kartı ve durumu, her birinin sayfasına düğme."""
+    at = _calistir(_ekip_veri(), "ekip", "ekip_sayfa", "Çalışanlar")
     metin = " ".join(str(m.value) for m in at.markdown)
     for ad in ("Serkan", "Elif", "Kerem", "Hakan"):
         assert f'<div class="ofis-ad">{ad}</div>' in metin, ad
     assert "1 hesap bağlı" in metin and "1 sorgu sırada" in metin and "Son rapor" in metin
-    assert [t.label for t in at.tabs][:4] == ["Serkan · Bilgi işlem", "Elif · Telegram asistanı",
-                                              "Kerem · Pazar araştırmacısı", "Hakan · Gümrük danışmanı"]
-    assert "Bağlı hesaplar" in metin and "123456789" in metin and "Öne çıkanlar" in metin
-    assert "Kablosuz klavye" in metin and "Veritabanı kurulumu eksik" not in metin
+    assert sum(1 for b in at.button if b.label == "Sayfayı aç") == 4
+
+
+@pytest.mark.parametrize("secim,beklenen", [
+    ("Serkan", "En yavaş sayfalar"), ("Elif", "Bağlı hesaplar"), ("Kerem", "Öne çıkanlar"),
+    ("Hakan", "Kablosuz klavye")])
+def test_ekip_calisan_sayfalari(secim, beklenen):
+    at = _calistir(_ekip_veri(), "ekip", "ekip_sayfa", secim)
+    metin = " ".join(str(m.value) for m in at.markdown)
+    assert beklenen in metin and f"{secim} · " in metin
+    assert "Veritabanı kurulumu eksik" not in metin
 
 
 def test_gumruk_danismani_ornek_veriyle():

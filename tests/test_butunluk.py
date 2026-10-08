@@ -201,7 +201,7 @@ KRITIK_FONKSIYONLAR = {
                        "gumruk_tetikle", "gumruk_yeniden", "sql_kurulu"],
     "shared.asistan_ekran": ["telegram_bolumu", "pazar_bolumu"],
     "shared.ofis": ["durumlar"],
-    "shared.ofis_ekran": ["sayfa"],
+    "shared.ofis_ekran": ["run"],
     "shared.gumruk_ekran": ["sayfa"],
     "shared.kar_gizle": ["kar_gorunur", "kar_gorunur_kullanici"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],

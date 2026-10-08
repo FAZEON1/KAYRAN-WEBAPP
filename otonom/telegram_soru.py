@@ -6,7 +6,7 @@ repository_dispatch 'telegram_soru' → .github/workflows/telegram-soru.yml → 
 Cevap shared.soru + shared.soru_cevap'tan gelir: programdaki "Soru sor" ile aynı motor, aynı rakam.
 YALNIZ OKUR; hiçbir iş kaydını değiştirmez (soru_kayitlari'na soru metni yazılır).
 
-Güvenlik: yalnız Sistem › Ofis › Elif bölümünde bir program kullanıcısına bağlanmış Telegram kimlikleri cevap
+Güvenlik: yalnız Ekip › Elif bölümünde bir program kullanıcısına bağlanmış Telegram kimlikleri cevap
 alır ve o kullanıcının modül yetkileri / kâr görünürlüğü geçerlidir. Tanımsız kimliğe yalnız kendi
 kimliği söylenir.
 

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Sistem › Ofis (Ekim 2026) — programın dijital çalışanları tek yerde, yalnız yöneticiler.
+"""Ekip (Ekim 2026) — programın dijital çalışanları tek yerde, yalnız yöneticiler.
 
-Üstte her çalışanın kartı (ne yapar, ne zaman çalışır, şu anki durumu), altta her birinin kendi bölümü:
+Üst şeritte modül (yalnız yöneticiler). Sekmeler: Çalışanlar (her çalışanın kartı: ne yapar, ne zaman
+çalışır, şu anki durumu) ve her çalışanın kendi sayfası:
   Serkan · Bilgi işlem          shared.bt_ekran.sayfa
   Elif · Telegram asistanı      shared.asistan_ekran.telegram_bolumu
   Kerem · Pazar araştırmacısı   shared.asistan_ekran.pazar_bolumu
@@ -21,9 +22,8 @@ DURUM_AD = {"calisiyor": "Çalışıyor", "sirada": "İş var", "bekliyor": "Bek
 
 def _css():
     return """<style>
-.ofis-izgara{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:4px 0 14px}
 .ofis-kart{background:var(--k-yuzey1);border:1px solid color-mix(in srgb,var(--k-metin) 10%,transparent);
-  border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+  border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:260px;margin-bottom:6px;box-sizing:border-box}
 .ofis-ust{display:flex;align-items:center;gap:10px}
 .ofis-ikon{font-family:'Material Symbols Rounded';font-size:22px;width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
@@ -55,28 +55,47 @@ def _veri():
     return bt, A.telegram_haritasi(), A.raporlar(), A.gumruk_sorgulari()
 
 
-def sayfa(kullanici, yonetici):
-    if not yonetici:
-        st.error("Bu sayfaya erişim yetkiniz yok.")
-        return
-    B.baslik_eylem("Sistem", "Ofis",
+def _git(secenek):
+    st.session_state["ekip_sayfa"] = secenek
+
+
+def _calisanlar():
+    B.baslik_eylem("Ekip", "Çalışanlar",
                    aciklama="Programın dijital çalışanları. Her biri kendi işini zamanında yapar, raporunu buraya "
                             "bırakır; rakam değiştiren hiçbir şeyi sana sormadan yapmaz.")
     d = durumlar(*_veri())
-    st.markdown(_css() + '<div class="ofis-izgara">' + "".join(_kart(c, d[c["kod"]]) for c in CALISANLAR)
-                + "</div>", unsafe_allow_html=True)
+    st.markdown(_css(), unsafe_allow_html=True)
+    kol = st.columns(len(CALISANLAR))
+    for k, c in zip(kol, CALISANLAR):
+        k.markdown(_kart(c, d[c["kod"]]), unsafe_allow_html=True)
+        k.button("Sayfayı aç", key=f'ekip_git_{c["kod"]}', icon=":material/arrow_forward:", use_container_width=True,
+                 on_click=_git, args=(c["ad"],))
 
-    sekmeler = st.tabs([f'{c["ad"]} · {c["unvan"]}' for c in CALISANLAR])
-    with sekmeler[0]:
+
+def run(kullanici, yonetici):
+    """Üst şeritteki Ekip modülü: sekmeler Çalışanlar · Serkan · Elif · Kerem · Hakan (shared/gezinme)."""
+    if not yonetici:
+        st.error("Bu sayfaya erişim yetkiniz yok.")
+        return
+    from shared.gezinme import sayfa_menusu, secenekler
+    from shared.tasarim import menu_etiketi as _me
+    with st.sidebar:
+        secim = sayfa_menusu("Bölüm", secenekler("ekip"), modul="ekip", key="ekip_sayfa", format_func=_me)
+    c = next((c for c in CALISANLAR if c["ad"] == secim), None)
+    if c is None:
+        _calisanlar()
+        return
+    B.baslik_eylem("Ekip", f'{c["ad"]} · {c["unvan"]}', aciklama=f'{c["is"]} {c["ne_zaman"]}.')
+    if c["kod"] == "serkan":
         from shared.bt_ekran import sayfa as serkan
         serkan(kullanici, yonetici, baslik=False)
-    with sekmeler[1]:
+    elif c["kod"] == "elif":
         from shared.asistan_ekran import telegram_bolumu
         telegram_bolumu()
-    with sekmeler[2]:
+    elif c["kod"] == "kerem":
         from shared.asistan_ekran import pazar_bolumu
         pazar_bolumu()
-    with sekmeler[3]:
+    else:
         from shared.gumruk_ekran import sayfa as hakan
         hakan(baslik=False)
         st.caption("Hakan'a İthalat › Gümrük danışmanı sayfasından da sorulabilir (ithalat yetkisi olanlar).")
