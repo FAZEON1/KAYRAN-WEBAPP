@@ -120,6 +120,12 @@ def maddeler_talep(talepler):
                    _isimler(acik, "konu"), len(acik), "talep", "talep")]
 
 
+def _tr_tarih(v):
+    """'2026-10-19' → '19.10.2026'."""
+    s = str(v or "")[:10]
+    return f"{s[8:10]}.{s[5:7]}.{s[:4]}" if len(s) == 10 and s[4] == "-" else s
+
+
 def maddeler_izin(talepler, personeller, bugun):
     """İzin yöneticisine: onay bekleyen talepler ve bugün izinde olanlar (shared/izin_ekran)."""
     ad = {p.get("kod"): p.get("ad") or p.get("kod") for p in personeller or []}
@@ -128,7 +134,7 @@ def maddeler_izin(talepler, personeller, bugun):
     if bekleyen:
         bekleyen.sort(key=lambda t: str(t.get("baslangic") or ""))
         m.append(_madde("uyari", "Onay bekleyen izin talebi",
-                        "En yakını " + str(bekleyen[0].get("baslangic") or "")[:10] + " · "
+                        "En yakını " + _tr_tarih(bekleyen[0].get("baslangic")) + " · "
                         + _isimler([{"a": ad.get(t.get("personel"), t.get("personel"))} for t in bekleyen], "a"),
                         len(bekleyen), "izin", "izin_onay"))
     g = bugun.isoformat()
