@@ -184,30 +184,11 @@ _SOZLER = [
 ]
 
 
-# Türkiye resmi tatilleri — 1. günleri (dini bayram tarihleri 2026-2028 için doğrulandı)
-_TATILLER = [
-    ("2026-07-15", "Demokrasi ve Millî Birlik Günü"),
-    ("2026-08-30", "Zafer Bayramı"),
-    ("2026-10-29", "Cumhuriyet Bayramı"),
-    ("2027-01-01", "Yılbaşı"),
-    ("2027-03-09", "Ramazan Bayramı"),
-    ("2027-04-23", "Ulusal Egemenlik ve Çocuk Bayramı"),
-    ("2027-05-01", "Emek ve Dayanışma Günü"),
-    ("2027-05-16", "Kurban Bayramı"),
-    ("2027-05-19", "Gençlik ve Spor Bayramı"),
-    ("2027-07-15", "Demokrasi ve Millî Birlik Günü"),
-    ("2027-08-30", "Zafer Bayramı"),
-    ("2027-10-29", "Cumhuriyet Bayramı"),
-    ("2028-01-01", "Yılbaşı"),
-    ("2028-02-27", "Ramazan Bayramı"),
-    ("2028-04-23", "Ulusal Egemenlik ve Çocuk Bayramı"),
-    ("2028-05-01", "Emek ve Dayanışma Günü"),
-    ("2028-05-05", "Kurban Bayramı"),
-    ("2028-05-19", "Gençlik ve Spor Bayramı"),
-    ("2028-07-15", "Demokrasi ve Millî Birlik Günü"),
-    ("2028-08-30", "Zafer Bayramı"),
-    ("2028-10-29", "Cumhuriyet Bayramı"),
-]
+# Türkiye resmi tatilleri — 1. günleri. Tek kaynak shared/tatil.py (izin sayımı da oradan okur;
+# Ekim 2026'da 2028 Ramazan Bayramı 27 Şubat yazılmıştı, Diyanet takvimine göre 26 Şubat).
+from shared.tatil import ilk_gunler as _ilk_gunler
+
+_TATILLER = _ilk_gunler()
 
 
 def get_yaklasan_tatil():

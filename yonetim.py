@@ -798,6 +798,7 @@ YEDEK_TABLOLAR = [
     "siparis_onerileri", "talepler", "gorevler", "bildirimler",
     "gumruk_sorgulari",    # İthalat › Gümrük danışmanı sorguları ve sonuçları
     "sirket_belgeleri",    # şirket belgelerinin bilgileri (dosyaların kendisi Supabase dosya alanında)
+    "personel", "izin_talepleri",   # çalışan izinleri (kişi menüsü › İzinler)
     "sistem_ayarlari", "pm_ayarlar", "kullanici_yetkileri", "kullanici_tercih", "gunluk_giris",
 ]
 # Bilerek HARİÇ: şifre, oturum, geçici önbellek, loglar; v_ / mv_ ile başlayanlar

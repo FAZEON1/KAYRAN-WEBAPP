@@ -79,6 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -202,7 +203,15 @@ KRITIK_FONKSIYONLAR = {
                        "gumruk_tetikle", "gumruk_yeniden", "sql_kurulu"],
     "shared.asistan_ekran": ["telegram_bolumu", "pazar_bolumu"],
     "shared.ofis": ["durumlar"],
-    "shared.bugun": ["maddeler_teknik_servis", "maddeler_ithalat", "maddeler_depo_sevk", "topla"],
+    "shared.bugun": ["maddeler_teknik_servis", "maddeler_ithalat", "maddeler_depo_sevk", "maddeler_izin", "topla"],
+    # Çalışan izinleri (Ekim 2026)
+    "shared.tatil": ["yil_tatilleri", "bilinen_yil", "tatil", "ilk_gunler"],
+    "shared.izin_hesap": ["gun_degeri", "gun_dokumu", "izin_gunu", "takvim_gunu", "yillik_hak", "hak_edisler",
+                          "sonraki_hak", "bakiye", "cakisanlar", "denetle", "ayni_bolumdekiler", "takvim",
+                          "donem_dokumu", "bakiye_tablosu", "talep_ozeti", "mail_yeni", "mail_karar"],
+    "shared.izin": ["personeller", "talepler", "personel_kaydet", "talep_ekle", "karar_ver", "iptal_et", "ayar",
+                    "ayar_yaz", "bildir"],
+    "shared.izin_ekran": ["sayfa", "takvim_html", "personel_denetle"],
     "shared.kisayol": ["sec", "oku"],
     "shared.pwa": ["kurulum_betigi"],
     "shared.ofis_ekran": ["run"],

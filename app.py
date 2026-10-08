@@ -239,6 +239,21 @@ def ozel_yetki(kullanici, ad):
         return (kullanici or "").lower().strip() in statik
 
 
+def izin_yoneticisi(kullanici):
+    """İzin onaylayan: özel yetki 'izin_yonetimi' (Kullanıcı yönetiminden verilir) ya da sistem yöneticisi."""
+    return ozel_yetki(kullanici, "izin_yonetimi") or ozel_yetki(kullanici, "kullanici_yonetimi")
+
+
+def izin_yoneticileri():
+    """İzin talebi bildirimi alacaklar."""
+    try:
+        from shared.yetki import ozel_sahipleri
+        return set(ozel_sahipleri("izin_yonetimi", set())) | set(
+            ozel_sahipleri("kullanici_yonetimi", KULLANICI_YONETIMI_KULLANICILAR))
+    except Exception:
+        return set(KULLANICI_YONETIMI_KULLANICILAR)
+
+
 def talep_yoneticileri():
     try:
         from shared.yetki import ozel_sahipleri
@@ -1998,6 +2013,9 @@ def _kisi_menu_icerik(ek=""):
         st.button(ad, icon=f":material/{_ikon}:", key=f"nav_grup_{_kodlar[0]}" + ek,
                   type="primary" if aktif_sayfa in _kodlar else "secondary",
                   use_container_width=True, on_click=_sayfaya_git, args=(_kodlar[0],))
+    st.button("İzinler", icon=":material/event_available:", key="nav_izin" + ek,
+              type="primary" if aktif_sayfa == "izin" else "secondary",
+              use_container_width=True, on_click=_sayfaya_git, args=("izin",))
     _grup_dugmesi("Verilerim")
 
     _belge = ozel_yetki(aktif_kullanici, "yonetim")
@@ -2188,6 +2206,7 @@ def _bugun_panel(aktif_kullanici, yetkiler):
         yetkiler,
         talep_yoneticisi=ozel_yetki(aktif_kullanici, "talep_yonetici"),
         sistem_yoneticisi=ozel_yetki(aktif_kullanici, "kullanici_yonetimi"),
+        izin_yoneticisi=izin_yoneticisi(aktif_kullanici),
     )
     _kritik = sum(1 for m in _maddeler if m["oncelik"] == "kritik")
     _ozet = (f'{len(_maddeler)} konu' + (f' · <span style="color:var(--k-kirmizi)">{_kritik} acil</span>' if _kritik else '')
@@ -3538,7 +3557,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
-        "sirket_belgeleri": "Şirket belgeleri", "degisiklik_gunlugu": "Değişiklik günlüğü", "yedekleme": "Yedekleme",
+        "sirket_belgeleri": "Şirket belgeleri", "degisiklik_gunlugu": "Değişiklik günlüğü", "yedekleme": "Yedekleme", "izin": "İzinler",
         "soru": "Soru sor", "ekip": "Ekip",
     }
     try:
@@ -3629,6 +3648,10 @@ def main():
             kullanici_yonetimi()
         elif aktif == "sistem_kayitlari":
             sistem_kayitlari()
+        elif aktif == "izin":
+            from shared.izin_ekran import sayfa as _izin_sayfa
+            _iz_kul = st.session_state.get("aktif_kullanici", "")
+            _izin_sayfa(_iz_kul, izin_yoneticisi(_iz_kul), izin_yoneticileri(), tum_kullanicilar())
         elif aktif == "sirket_belgeleri":
             from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
             _sirket_belgeleri()

@@ -19,6 +19,7 @@ YASAK_YOLLAR = (
     "database.py", "_hesap.py", "hesap.py", "pacal", "maliyet", "stok", "kar_", "pnl", "kur",
     "yetki", "auth", "sifre", "eposta", "telegram", "yedek", "cop_kutusu", "yukleme_gecmisi",
     "ice_aktar", "excel_islemler", "dosya_tani", "dosya_kapisi", "tests/test_butunluk.py",
+    "izin", "personel",            # çalışan izinleri: kişisel veri (KVKK), kullanıcı birleştirir
 )
 EN_FAZLA_DOSYA = 6
 EN_FAZLA_SATIR = 200
