@@ -44,3 +44,8 @@ def test_ana_sayfa_rol_bazli():
     for baslik in ("Teknisyende 7 günü geçen cihaz", "Tahmini varışı geçmiş ithalat", "Sevki tamamlanmamış kayıt"):
         assert baslik in metin, baslik
     assert "Telefona kur" in etiketler
+    # Telefon alt menüsü (masaüstünde CSS ile gizli): Ana sayfa · Modüller · Ara · Talep · Ben
+    for d in ("Ana sayfa", "Ara", "Talep"):
+        assert d in etiketler, d
+    assert sum(1 for b in at.button if b.key and b.key.startswith("alt_mod_")) >= 7     # yetkili modüller
+    assert "Telefona kur" in etiketler and etiketler.count("Telefona kur") == 2         # üst + alt menüdeki Ben
