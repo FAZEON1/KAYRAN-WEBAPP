@@ -545,9 +545,43 @@ def personel_denetle(kod, yeni, ise_giris, dogum, devir_t, devir_g, cikis, mevcu
     return h
 
 
+def _adresler():
+    try:
+        from shared.eposta import adresler
+        return adresler()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _bilgilendir(c, p):
+    """Çalışana kart bilgilendirme e-postasını gönderir (bekleyerek; sonucu ekranda söylenir).
+    Döner: (ok, mesaj)."""
+    adres = H.bilgi_adresi(p, _adresler())
+    if not adres:
+        return False, "e-posta adresi yok"
+    from shared.eposta import gonder
+    from shared.izin_belge import LOGO
+    kisi = [t for t in c["talepler"] if t.get("personel") == p["kod"]]
+    konu, html = H.mail_bilgilendirme(p, kisi, c["bugun"], kisi_adi(c["kullanici"]))
+    try:
+        with open(LOGO, "rb") as f:
+            logo = [(H.LOGO_CID, f.read(), "png")]
+    except OSError:
+        logo, html = None, html.replace(f"<img src='cid:{H.LOGO_CID}'", "<img hidden src=''")
+    ok, kod = gonder([adres], konu, html, gomulu=logo)
+    if not ok:
+        return False, {"smtp_yok": "programın e-posta hesabı ayarlı değil"}.get(kod, kod)
+    D.bilgi_isaretle(p["kod"])
+    return True, adres
+
+
 def _personel(c, kullanicilar):
     from shared.tablo import tablo
     b = c["bugun"]
+    adr = _adresler()
+    flas = st.session_state.pop("izn_bilgi_flas", None)
+    if flas:
+        st.markdown(mesaj(*flas), unsafe_allow_html=True)
     kartli = {p["kod"] for p in c["personeller"]}
     kartsiz = sorted({str(k).strip().lower() for k in kullanicilar or [] if k} - kartli)
     if kartsiz:
@@ -562,7 +596,7 @@ def _personel(c, kullanicilar):
                           "İşe giriş": H.tr_tarih(p.get("ise_giris")),
                           "Kıdem": f"{bk['kidem'][0]} yıl {bk['kidem'][1]} ay" if bk else "—",
                           "Yıllık hak": bk["bu_yil_hak"] if bk else 0, "Kalan": bk["kalan"] if bk else 0,
-                          "Durum": "Ayrıldı" if p.get("cikis_tarihi") else "Çalışıyor"})
+                          "Bilgilendirme": H.bilgi_durumu(p, adr)})
         tablo(satir, key="izn_per_liste", dosya_adi="personel", birim="")
 
     st.markdown(B.grup_basligi("Kart aç / düzenle"), unsafe_allow_html=True)
@@ -603,7 +637,14 @@ def _personel(c, kullanicilar):
         devir_g = c2.number_input("O tarihteki kalan izin (gün)", value=float(p.get("devir_gun") or 0), step=0.5,
                                   min_value=-60.0, max_value=400.0, key=f"{k}_devir_g")
     notu = st.text_input("Not (isteğe bağlı)", p.get("notu") or "", key=f"{k}_not")
+    eposta = st.text_input("E-posta", p.get("eposta") or adr.get(kod, ""), key=f"{k}_eposta",
+                           placeholder="ad.soyad@g5fteknoloji.com",
+                           help="Kart ilk kaydedildiğinde çalışana bilgilendirme e-postası bu adrese kendiliğinden "
+                                "gider (bir kez). Adres sonradan yazılırsa o kayıtta gider.").strip()
     hatalar = personel_denetle(kod, yeni, giris, dogum, devir_t, devir_g, cikis, kartli | set(kartsiz))
+    from shared.eposta import adres_gecerli_mi
+    if eposta and not adres_gecerli_mi(eposta):
+        hatalar.append("E-posta adresi geçersiz görünüyor.")
     if giris and not hatalar:
         on = dict(p, ise_giris=giris, dogum_tarihi=dogum, devir_tarihi=devir_t, devir_gun=devir_g,
                   cikis_tarihi=cikis)
@@ -615,13 +656,39 @@ def _personel(c, kullanicilar):
     for h in hatalar:
         st.markdown(mesaj("hata", h), unsafe_allow_html=True)
     if p:
-        _kayit_belgesi_dugmesi(c, p)
-    if st.button("Kartı kaydet", key=f"{k}_kaydet", type="primary", icon=":material/save:", disabled=bool(hatalar)):
-        ok, h = D.personel_kaydet(kod, ad, bolum, giris, dogum, devir_t, devir_g, cikis, notu, sicil)
-        if ok:
-            st.toast(f"{ad or kod} kaydedildi.")
+        durum = H.bilgi_durumu(p, adr)
+        st.caption(f"Bilgilendirme e-postası: {durum.lower() if not durum.startswith('Gönderildi') else durum}")
+        k1, k2 = st.columns(2)
+        with k1:
+            _kayit_belgesi_dugmesi(c, p)
+        if p.get("bilgi_zamani") and H.bilgi_adresi(p, adr) and \
+                k2.button("Bilgilendirmeyi tekrar gönder", key=f"{k}_tekrar", icon=":material/forward_to_inbox:"):
+            ok, m = _bilgilendir(c, p)
+            st.session_state["izn_bilgi_flas"] = (("basari", f"Bilgilendirme e-postası tekrar gönderildi: {m}")
+                                                 if ok else ("uyari", f"E-posta gönderilemedi: {m}"))
             st.rerun()
-        st.error(h)
+    if st.button("Kartı kaydet", key=f"{k}_kaydet", type="primary", icon=":material/save:", disabled=bool(hatalar)):
+        ok, h = D.personel_kaydet(kod, ad, bolum, giris, dogum, devir_t, devir_g, cikis, notu, sicil, eposta)
+        if not ok:
+            st.error(h)
+            return
+        # Kart ilk kez (ya da adres ilk kez) kaydedildi: çalışana bilgilendirme e-postası kendiliğinden gider
+        kayit = dict(p, kod=kod, ad=ad or kod, departman=bolum, sicil_no=sicil, eposta=eposta,
+                     ise_giris=giris.isoformat() if giris else None,
+                     dogum_tarihi=dogum.isoformat() if dogum else None,
+                     devir_tarihi=devir_t.isoformat() if devir_t else None, devir_gun=devir_g,
+                     cikis_tarihi=cikis.isoformat() if cikis else None)
+        flas = ("basari", f"{ad or kod} kaydedildi.")
+        if H.bilgi_gerekli(kayit, adr):
+            gitti, m = _bilgilendir(c, kayit)
+            flas = (("basari", f"{ad or kod} kaydedildi; bilgilendirme e-postası gönderildi: {m}") if gitti else
+                    ("uyari", f"{ad or kod} kaydedildi ama bilgilendirme e-postası gönderilemedi ({m}). "
+                              "Kart bir sonraki kaydedilişinde yeniden denenir."))
+        elif not kayit.get("bilgi_zamani") and not kayit.get("cikis_tarihi"):
+            flas = ("bilgi", f"{ad or kod} kaydedildi. E-posta adresi olmadığı için bilgilendirme gitmedi; "
+                             "adres yazılıp kaydedilince gider.")
+        st.session_state["izn_bilgi_flas"] = flas
+        st.rerun()
 
 
 # ── Ayarlar ─────────────────────────────────────────────────────────

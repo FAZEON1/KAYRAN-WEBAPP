@@ -388,3 +388,39 @@ def test_logo_ve_sql_sutunlari():
               "ALTER TABLE personel ADD COLUMN IF NOT EXISTS sicil_no"):
         assert p in sql, p
     assert "from shared.izin_belge import LOGO, LOGO_ORAN" in (KOK / "depo/belge.py").read_text(encoding="utf-8")
+
+
+# ── Kart bilgilendirme e-postası (kart ilk açıldığında kendiliğinden, bir kez) ──
+def test_bilgi_adresi_ve_kural():
+    adr = {"ali": "ali.veli@g5fteknoloji.com"}
+    assert H.bilgi_adresi(dict(ALI, eposta="ozel@ornek.com"), adr) == "ozel@ornek.com"      # kart önce
+    assert H.bilgi_adresi(ALI, adr) == "ali.veli@g5fteknoloji.com"                         # yoksa kullanıcı adresi
+    assert H.bilgi_adresi(dict(ALI, eposta="bozuk adres"), {}) == ""
+    assert H.bilgi_gerekli(ALI, adr)
+    assert not H.bilgi_gerekli(dict(ALI, bilgi_zamani="2026-10-08T15:00:00+03:00"), adr)    # bir kez
+    assert not H.bilgi_gerekli(ALI, {})                                                      # adres yok
+    assert not H.bilgi_gerekli(dict(ALI, cikis_tarihi="2026-01-31"), adr)                    # ayrılmış
+    assert H.bilgi_durumu(dict(ALI, bilgi_zamani="2026-10-08T15:00:00+03:00"), {}) == "Gönderildi 08.10.2026"
+    assert [H.bilgi_durumu(ALI, adr), H.bilgi_durumu(ALI, {}), H.bilgi_durumu(dict(ALI, cikis_tarihi="2026-01-31"), adr)] \
+        == ["Gönderilmedi", "Adres yok", "Ayrıldı"]
+
+
+def test_bilgilendirme_maili():
+    konu, html = H.mail_bilgilendirme(dict(ALI, sicil_no="0012"), [_t("yillik", d(2026, 6, 1), d(2026, 6, 5), 5)],
+                                      BUGUN, "Serdar")
+    assert konu == "[G5F] Personel izin kartınız açıldı"
+    for p in ("Merhaba Ali Veli", "0012", "15.03.2021", "5 yıl 6 ay", "14 gün", "65 gün (08.10.2026 itibarıyla)",
+              "15.03.2027 · 20 gün", "Serdar ile görüşün", "cid:g5f-logo", "?s=izin", "Talep gönder"):
+        assert p in html, p
+    assert "parola" not in html.lower().replace("parolanız size ayrıca iletildi", "")
+
+
+def test_eposta_gomulu_resim():
+    from shared.eposta import mesaj_olustur
+    m = mesaj_olustur("a@b.com", ["c@d.com"], "Konu", "<img src='cid:logo'><p>x</p>", gomulu=[("logo", b"\x89PNG", "png")])
+    parcalar = [p.get_content_type() for p in m.walk()]
+    assert parcalar[:4] == ["multipart/alternative", "text/plain", "multipart/related", "text/html"]
+    resim = [p for p in m.walk() if p.get_content_type() == "image/png"][0]
+    assert resim["Content-ID"] == "<logo>" and resim["Content-Disposition"].startswith("inline")
+    sade = mesaj_olustur("a@b.com", ["c@d.com"], "Konu", "<p>x</p>")                          # eski davranış aynı
+    assert [p.get_content_type() for p in sade.walk()] == ["multipart/alternative", "text/plain", "text/html"]
