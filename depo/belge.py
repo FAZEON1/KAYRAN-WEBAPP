@@ -79,6 +79,14 @@ def sevk_fisi_pdf(kayit, hareket, sirket=None):
     el = []
 
     # ── Başlık ────────────────────────────────────────────────────────
+    # Şirket logosu (Ekim 2026; izin formu ile aynı dosya, shared/logo/sirket_logo.png)
+    from shared.izin_belge import LOGO, LOGO_ORAN
+    import os as _os
+    if _os.path.exists(LOGO):
+        from reportlab.platypus import Image
+        _logo = Image(LOGO, width=30 * mm, height=30 * mm * LOGO_ORAN)
+        _logo.hAlign = "LEFT"
+        el += [_logo, Spacer(1, 4)]
     _marka = sirket.get("marka") or ""
     _ust = sirket.get("unvan") or "—"
     if _marka and _marka.upper() not in _ust.upper():

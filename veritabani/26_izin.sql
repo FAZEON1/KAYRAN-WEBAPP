@@ -13,6 +13,7 @@
 CREATE TABLE IF NOT EXISTS personel (
     kod           text PRIMARY KEY,
     ad            text NOT NULL,
+    sicil_no      text,                   -- izin kayıt belgesinde (Yıllık Ücretli İzin Yön. md. 20)
     departman     text,
     ise_giris     date,
     dogum_tarihi  date,
@@ -31,6 +32,8 @@ CREATE TABLE IF NOT EXISTS izin_talepleri (
     bitis         date NOT NULL,
     yarim_gun     boolean NOT NULL DEFAULT false,
     gun           numeric(6,1) NOT NULL,
+    yol_izni      smallint NOT NULL DEFAULT 0 CHECK (yol_izni BETWEEN 0 AND 4),  -- ücretsiz, İK md. 56
+    izin_adresi   text,                   -- izin süresince adres / telefon (isteğe bağlı)
     takvim_gunu   integer NOT NULL,
     aciklama      text,
     durum         text NOT NULL DEFAULT 'bekliyor'
@@ -44,6 +47,11 @@ CREATE TABLE IF NOT EXISTS izin_talepleri (
     iptal_zamani  timestamptz,
     CHECK (bitis >= baslangic)
 );
+-- Ekim 2026 eki (izin formu): tablo önceki sürümle kurulduysa sütunlar eklenir
+ALTER TABLE personel ADD COLUMN IF NOT EXISTS sicil_no text;
+ALTER TABLE izin_talepleri ADD COLUMN IF NOT EXISTS yol_izni smallint NOT NULL DEFAULT 0;
+ALTER TABLE izin_talepleri ADD COLUMN IF NOT EXISTS izin_adresi text;
+
 CREATE INDEX IF NOT EXISTS izin_talepleri_personel_idx ON izin_talepleri (personel, baslangic);
 CREATE INDEX IF NOT EXISTS izin_talepleri_durum_idx ON izin_talepleri (durum);
 

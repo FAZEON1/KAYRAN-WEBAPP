@@ -308,3 +308,83 @@ def test_bugun_maddeleri():
         ("Onay bekleyen izin talebi", 2, "izin", "uyari"), ("Bugün izinde", 1, "izin", "bilgi")]
     assert m[0]["detay"].startswith("En yakını 2026-10-14") and m[1]["detay"] == "Ali Veli"
     assert maddeler_izin([], [], BUGUN) == []
+
+
+# ── İzin formu ve izin kayıt belgesi (içerik; PDF çizimi tests/duman/test_izin_formu.py) ──
+def test_form_icerik_yillik():
+    from shared.izin_belge import belge_no, form_icerik
+    p = dict(ALI, sicil_no="0012")
+    t = _t("yillik", d(2026, 10, 19), d(2026, 10, 23), 5, i=7, yol_izni=2, izin_adresi="Trabzon",
+           karar_veren="ibrahim", karar_zamani="2026-10-08T15:20:00+03:00", takvim_gunu=5)
+    onceki = _t("yillik", d(2026, 6, 1), d(2026, 6, 5), 5, i=3)
+    sonraki = _t("yillik", d(2026, 12, 7), d(2026, 12, 11), 5, i=9)              # bu izinden sonra: düşülmez
+    ic = form_icerik(t, p, [t, onceki, sonraki], BUGUN)
+    assert ic["baslik"] == "YILLIK ÜCRETLİ İZİN FORMU" and ic["no"] == belge_no(t) == "IZN-2026-00007"
+    c = dict(ic["calisan"])
+    assert c["Sicil no"] == "0012" and c["İşe giriş tarihi"] == "15.03.2021"
+    assert c["İşyerindeki çalışma süresi"] == "5 yıl 7 ay"
+    z = dict(ic["izin"])
+    assert z["İzin süresi"] == "5 gün (iş günü) · 5 takvim günü" and z["Yol izni (ücretsiz)"] == "2 gün"
+    assert z["İşe başlama tarihi"] == "26.10.2026"                     # Cuma bitiş + 2 gün yol izni → Pazartesi
+    assert z["İzinde bulunacağı adres / telefon"] == "Trabzon"
+    b = dict(ic["bakiye"])
+    assert b["Yıllık izne hak kazanılan son tarih"] == "15.03.2026"
+    assert (b["Bu izinden önceki kalan"], b["Bu izinden sonra kalan"]) == ("65 gün", "60 gün")
+    assert "başka bir işte ücret karşılığı çalışmayacağımı" in ic["beyan"]
+    assert ic["onay"] == "Programda onaylandı: İbrahim, 2026-10-08 15:20"
+    assert [r for r, _a in ic["imzalar"]] == ["İzni isteyen çalışan", "Birim yöneticisi", "İşveren / işveren vekili"]
+
+
+def test_form_icerik_diger_turler():
+    from shared.izin_belge import form_icerik
+    r = form_icerik(_t("rapor", d(2026, 2, 2), d(2026, 2, 3), 2, i=4), ALI, [], BUGUN)
+    assert r["baslik"] == "İZİN FORMU · SAĞLIK RAPORU" and r["bakiye"] is None
+    assert dict(r["izin"])["İzin türü"] == "Sağlık raporu (ödeme SGK'dan)" and "hekim raporum" in r["beyan"]
+    assert "Yol izni (ücretsiz)" not in dict(r["izin"])
+    u = form_icerik(_t("ucretsiz", d(2026, 2, 2), d(2026, 2, 3), 2, "bekliyor", i=5), ALI, [], BUGUN)
+    assert dict(u["izin"])["İzin türü"] == "Ücretsiz izin" and u["onay"] == "Programda onay bekliyor."
+    e = form_icerik(_t("evlilik", d(2026, 2, 2), d(2026, 2, 4), 3, i=6), ALI, [], BUGUN)
+    assert e["baslik"] == "İZİN FORMU · EVLİLİK İZNİ" and e["onay"] == "Programda onaylandı."
+
+
+def test_kayit_belgesi_icerik():
+    from shared.izin_belge import kayit_belgesi_icerik
+    tal = [_t("yillik", d(2026, 10, 19), d(2026, 10, 23), 5, i=7, yol_izni=2),
+           _t("yillik", d(2026, 6, 1), d(2026, 6, 5), 5, i=3),
+           _t("yillik", d(2026, 12, 1), d(2026, 12, 2), 2, "bekliyor", i=8),          # onaysız: girmez
+           _t("rapor", d(2026, 2, 2), d(2026, 2, 3), 2, i=4)]                        # yıllık değil: girmez
+    ic = kayit_belgesi_icerik(dict(ALI, sicil_no="0012"), tal, BUGUN)
+    assert [h["Yıllık izne hak kazanılan tarih"] for h in ic["haklar"]] == [
+        "15.03.2022", "15.03.2023", "15.03.2024", "15.03.2025", "15.03.2026"]
+    assert [(r["Belge no"], r["İzin günleri sayısı"], r["Yol izni günleri sayısı"]) for r in ic["izinler"]] == [
+        ("IZN-2026-00003", 5.0, 0), ("IZN-2026-00007", 5.0, 2)]
+    assert dict(ic["toplam"]) == {"Hak edilen toplam": "70 gün", "Kullanılan (onaylı)": "10 gün",
+                                  "Kalan (08.10.2026)": "60 gün"}
+    dv = kayit_belgesi_icerik(dict(ALI, devir_tarihi="2025-12-31", devir_gun=6.5), tal, BUGUN)
+    assert list(dict(dv["toplam"]))[:2] == ["Devreden izin (31.12.2025 itibarıyla)", "Devirden sonra hak edilen"]
+
+
+def test_donus_gunu_ve_buyuk_harf():
+    from shared.izin_belge import _buyuk, donus_gunu
+    assert donus_gunu(d(2026, 10, 23)) == d(2026, 10, 26)                    # Cuma → Pazartesi
+    assert donus_gunu(d(2026, 10, 27)) == d(2026, 10, 28)                    # arife yarım gün: iş günü
+    assert donus_gunu(d(2026, 10, 28)) == d(2026, 10, 30)                    # 29 Ekim tatil
+    assert donus_gunu(d(2026, 10, 23), cumartesi=True) == d(2026, 10, 24)
+    assert _buyuk("Evlilik izni") == "EVLİLİK İZNİ" and _buyuk("ışık") == "IŞIK"
+
+
+def test_dokum_yol_izni():
+    tal = [_t("yillik", d(2026, 9, 28), d(2026, 10, 2), 5, i=1, yol_izni=3)]
+    assert H.donem_dokumu(tal, d(2026, 10, 1), d(2026, 10, 31), {})[0]["Yol izni (ücretsiz)"] == 3
+    assert H.donem_dokumu(tal, d(2026, 9, 1), d(2026, 9, 30), {})[0]["Yol izni (ücretsiz)"] == 0
+
+
+def test_logo_ve_sql_sutunlari():
+    from shared.izin_belge import LOGO, LOGO_ORAN
+    assert Path(LOGO).read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and abs(LOGO_ORAN - 386 / 900) < 1e-9
+    sql = (KOK / "veritabani/26_izin.sql").read_text(encoding="utf-8")
+    for p in ("sicil_no      text", "yol_izni      smallint NOT NULL DEFAULT 0 CHECK (yol_izni BETWEEN 0 AND 4)",
+              "ALTER TABLE izin_talepleri ADD COLUMN IF NOT EXISTS yol_izni", "ADD COLUMN IF NOT EXISTS izin_adresi",
+              "ALTER TABLE personel ADD COLUMN IF NOT EXISTS sicil_no"):
+        assert p in sql, p
+    assert "from shared.izin_belge import LOGO, LOGO_ORAN" in (KOK / "depo/belge.py").read_text(encoding="utf-8")

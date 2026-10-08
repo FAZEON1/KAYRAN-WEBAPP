@@ -353,7 +353,7 @@ def takvim(yil, ay, personeller, talepler):
 
 def donem_dokumu(talepler, bas, bit, personel_ad, cumartesi=False):
     """Bordro dökümü: dönemle kesişen ONAYLI izinlerin dönem içine düşen kısmı.
-    [{Personel, Tür, Başlangıç, Bitiş, İş günü, Takvim günü, Ücretli}] — İş günü dönem içinden
+    [{Personel, Tür, Başlangıç, Bitiş, İş günü, Takvim günü, Ücretli, Yol izni (ücretsiz)}] — İş günü dönem içinden
     yeniden sayılır (dönem sınırını aşan izin ikiye bölünür)."""
     out = []
     for t in talepler or []:
@@ -368,7 +368,9 @@ def donem_dokumu(talepler, bas, bit, personel_ad, cumartesi=False):
                     "Tür": tur_adi(t.get("tur")), "Başlangıç": kb, "Bitiş": ke,
                     "İş günü": _f(t.get("gun")) if (b == kb and e == ke) else izin_gunu(kb, ke, cumartesi, yarim),
                     "Takvim günü": takvim_gunu(kb, ke),
-                    "Ücretli": "Evet" if TURLER.get(t.get("tur"), {}).get("ucretli") else "Hayır"})
+                    "Ücretli": "Evet" if TURLER.get(t.get("tur"), {}).get("ucretli") else "Hayır",
+                    # yol izni iznin bitişinden sonra kullanılır: bitişin düştüğü dönemde yazılır
+                    "Yol izni (ücretsiz)": int(t.get("yol_izni") or 0) if e <= bit else 0})
     out.sort(key=lambda r: (str(r["Personel"]), r["Başlangıç"]))
     return out
 
