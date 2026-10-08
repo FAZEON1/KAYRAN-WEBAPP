@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sayfa testi, ÖRNEK VERİYLE: Yönetim › Asistanlar ve İthalat › Gümrük danışmanı (Ekim 2026)."""
+"""Sayfa testi, ÖRNEK VERİYLE: Sistem › Ofis ve İthalat › Gümrük danışmanı (Ekim 2026)."""
 from datetime import datetime, timezone
 
 import pytest
@@ -23,25 +23,33 @@ def _calistir(tablolar, uygulama, anahtar, secim):
     at.session_state["giris_yapildi"] = True
     at.session_state["aktif_kullanici"] = sahte_db.KULLANICI
     at.session_state["aktif_uygulama"] = uygulama
-    at.session_state[anahtar] = secim
+    if secim is not None:
+        at.session_state[anahtar] = secim
     at.run()
     assert not at.exception, [e.value for e in at.exception]
     return at
 
 
-def test_asistanlar_ornek_veriyle():
+def test_ofis_ornek_veriyle():
+    """Sistem › Ofis: dört çalışanın kartı ve bölümleri (Serkan, Elif, Kerem, Hakan) tek sayfada."""
     s = datetime.now(timezone.utc).isoformat()
     at = _calistir({
         "sistem_ayarlari": [{"anahtar": "telegram_webhook_gizli", "deger": "x" * 64},
                             {"anahtar": "telegram_kullanicilar", "deger": '{"123456789": "ibrahim"}'}],
+        "bt_rapor": [{"id": 1, "zaman": s, "tur": "calisma", "baslik": "Gece kontrolü", "durum": "bilgi",
+                      "ozet": "Testler geçti."}],
         "asistan_rapor": [{"id": 1, "zaman": s, "asistan": "pazar", "baslik": "6-12 Ekim · panel fiyatı arttı",
                            "ozet": "27 inç panel fiyatı %6 arttı.", "icerik": "## Öne çıkanlar\n- Panel fiyatı arttı"}],
-    }, "yonetim", "yon_sayfa", "Asistanlar")
+        "gumruk_sorgulari": [{"id": 3, "zaman": s, "urun": "Kablosuz klavye", "mense": "Çin", "durum": "bekliyor"}],
+    }, "bilgi_islem", "_yok", None)
     metin = " ".join(str(m.value) for m in at.markdown)
-    assert "Asistanlar" in metin and "Bağlı hesaplar" in metin and "123456789" in metin and "ibrahim" in metin
-    assert "Veritabanı kurulumu eksik" not in metin
-    assert "Öne çıkanlar" in metin and "27 inç panel fiyatı" in metin
-    assert [e.label for e in at.expander][-1].endswith("6-12 Ekim · panel fiyatı arttı")
+    for ad in ("Serkan", "Elif", "Kerem", "Hakan"):
+        assert f'<div class="ofis-ad">{ad}</div>' in metin, ad
+    assert "1 hesap bağlı" in metin and "1 sorgu sırada" in metin and "Son rapor" in metin
+    assert [t.label for t in at.tabs][:4] == ["Serkan · Bilgi işlem", "Elif · Telegram asistanı",
+                                              "Kerem · Pazar araştırmacısı", "Hakan · Gümrük danışmanı"]
+    assert "Bağlı hesaplar" in metin and "123456789" in metin and "Öne çıkanlar" in metin
+    assert "Kablosuz klavye" in metin and "Veritabanı kurulumu eksik" not in metin
 
 
 def test_gumruk_danismani_ornek_veriyle():

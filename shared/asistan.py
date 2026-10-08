@@ -92,8 +92,8 @@ def gumruk_ekle(satir, kullanici=""):
     gumruk_sorgulari.clear()
     basladi, sebep = gumruk_tetikle(r[0].get("id"))
     if basladi:
-        return True, "Danışman şimdi başladı; sonuç birkaç dakika içinde burada görünür."
-    return True, ("Sorgu sıraya alındı. Danışman iş saatlerinde en geç 2 saat içinde çalışır"
+        return True, "Hakan şimdi başladı; sonuç birkaç dakika içinde burada görünür."
+    return True, ("Sorgu sıraya alındı. Hakan iş saatlerinde en geç 2 saat içinde bakar"
                   + (f" (anında başlatılamadı: {sebep})." if sebep and sebep != "rutin ayarı yok" else "."))
 
 

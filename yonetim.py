@@ -703,10 +703,6 @@ def run():
             from shared.sirket_belge_ekran import sayfa as _sirket_belgeleri
             _sirket_belgeleri()
             return
-        if _bolum == "Asistanlar":
-            from shared.asistan_ekran import sayfa as _asistanlar
-            _asistanlar()
-            return
         if not kar_gorunur():
             st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)

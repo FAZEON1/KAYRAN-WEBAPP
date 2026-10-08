@@ -54,13 +54,15 @@ def _veri():
     return son_olcumler(14), raporlar(300), son_hatalar(500)
 
 
-def sayfa(kullanici, yonetici):
+def sayfa(kullanici, yonetici, baslik=True):
+    """baslik=False: Sistem › Ofis'in sekmesi içinde (başlığı Ofis çizer)."""
     if not yonetici:
         st.error("Bu sayfaya erişim yetkiniz yok.")
         return
-    B.baslik_eylem("Sistem", f"Bilgi İşlem · {AD}",
-                   aciklama=f"{AD} her gece programı kontrol eder: hataları, eksikleri ve yavaşlığı arar, küçük "
-                            "düzeltmeleri kendisi yapar, büyükleri öneri olarak bırakır, yaptıklarından öğrenir.")
+    if baslik:
+        B.baslik_eylem("Sistem", f"Bilgi İşlem · {AD}",
+                       aciklama=f"{AD} her gece programı kontrol eder: hataları, eksikleri ve yavaşlığı arar, küçük "
+                                "düzeltmeleri kendisi yapar, büyükleri öneri olarak bırakır, yaptıklarından öğrenir.")
     olcum, rapor, hatalar = _veri()
     if not olcum and not rapor:
         st.markdown(bos_durum(f"{AD} henüz veri toplamadı",

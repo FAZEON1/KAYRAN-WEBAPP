@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Yönetim › Asistanlar (Ekim 2026) — yalnız Yönetim yetkilileri (app.py modül kapısı).
+"""Sistem › Ofis'te Elif ve Kerem'in bölümleri (Ekim 2026). Sayfayı shared/ofis_ekran.py çizer.
 
-  Telegram asistanı : kurulum durumu ve Telegram hesabı ↔ program kullanıcısı eşlemesi
-  Pazar raporları   : haftalık pazar araştırmacısının raporları
-Gümrük danışmanı İthalat modülündedir (shared/gumruk_ekran.py).
+  telegram_bolumu() : Elif (Telegram asistanı) — kurulum durumu ve Telegram hesabı ↔ program kullanıcısı
+  pazar_bolumu()    : Kerem (pazar araştırmacısı) — haftalık raporlar
 """
 from datetime import datetime, timedelta, timezone
 
@@ -32,24 +31,13 @@ def _kullanicilar():
         return []
 
 
-def sayfa():
-    B.baslik_eylem("Yönetim", "Asistanlar",
-                   aciklama="Telegram'dan soru-cevap ve haftalık pazar araştırması. Gümrük danışmanı İthalat "
-                            "modülünde.")
-    t_tg, t_pazar = st.tabs(["Telegram asistanı", "Pazar raporları"])
-    with t_tg:
-        _telegram()
-    with t_pazar:
-        _pazar()
-
-
-def _telegram():
+def telegram_bolumu():
     harita = A.telegram_haritasi()
     kurulu = A.sql_kurulu()
     if not kurulu:
         st.markdown(mesaj("uyari", "Veritabanı kurulumu eksik: veritabani/25_asistanlar.sql Supabase'de bir kez "
                                    "çalıştırılmalı."), unsafe_allow_html=True)
-    st.markdown("Telegram'dan Türkçe soru yaz; cevap programdaki Soru sor ile aynı hesaptan, yaklaşık bir "
+    st.markdown("Elif'e Telegram'dan Türkçe soru yaz; cevap programdaki Soru sor ile aynı hesaptan, yaklaşık bir "
                 "dakikada gelir. Yalnız aşağıda bir kullanıcıya bağlanmış hesaplar cevap alır ve o "
                 "kullanıcının yetkileri geçerlidir (muhasebe yetkisi olmayan ödeme soramaz).")
     with st.expander("Kurulum adımları (bir kez)", icon=":material/checklist:", expanded=not harita):
@@ -91,14 +79,14 @@ def _telegram():
             (st.rerun() if ok else st.error(f"Kaydedilemedi: {h}"))
 
 
-def _pazar():
+def pazar_bolumu():
     r = A.raporlar()
     if r is None:
         st.markdown(bos_durum("Pazar raporu tablosu kurulmamış",
                               "veritabani/25_asistanlar.sql Supabase'de bir kez çalıştırılmalı.", "travel_explore"),
                     unsafe_allow_html=True)
         return
-    st.caption("Pazar araştırmacısı her pazartesi sabahı çok satan ürünlerin rakip fiyatlarını, yeni ürünleri, "
+    st.caption("Kerem her pazartesi sabahı çok satan ürünlerin rakip fiyatlarını, yeni ürünleri, "
                "navlun, kur ve mevzuat haberlerini tarar. Özeti sabah brifingiyle Telegram'a gelir.")
     if not r:
         st.markdown(bos_durum("Henüz rapor yok", "İlk rapor pazartesi sabahı burada görünür.", "travel_explore"),

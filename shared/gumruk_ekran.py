@@ -38,10 +38,12 @@ def _gtip(g):
     return ".".join([g[:4], g[4:6], g[6:8], g[8:10], g[10:12]][:max(1, (len(g) - 4) // 2 + 1)]) if g else "—"
 
 
-def sayfa():
-    B.baslik_eylem("İthalat", "Gümrük danışmanı",
-                   aciklama="Ürünü yaz; danışman GTİP önerisini, vergi oranlarını, ek vergileri ve gereken "
-                            "belgeleri araştırsın. Sonuç öneridir, gümrük müşavirine teyit ettir.")
+def sayfa(baslik=True):
+    """baslik=False: Sistem › Ofis'in sekmesi içinde."""
+    if baslik:
+        B.baslik_eylem("İthalat", "Gümrük danışmanı · Hakan",
+                       aciklama="Ürünü yaz; Hakan GTİP önerisini, vergi oranlarını, ek vergileri ve gereken "
+                                "belgeleri araştırsın. Sonuç öneridir, gümrük müşavirine teyit ettir.")
     sorgular = A.gumruk_sorgulari()
     if sorgular is None:
         st.markdown(bos_durum("Gümrük danışmanı kurulmamış",
@@ -73,7 +75,7 @@ def _form():
         navlun = c5.number_input("Toplam navlun (varsa)", min_value=0.0, step=10.0, format="%.2f")
         sigorta = c6.number_input("Toplam sigorta (varsa)", min_value=0.0, step=1.0, format="%.2f")
         notu = st.text_input("Not (isteğe bağlı)", placeholder="ör. kablosuz özelliği var, AB menşe şahadetnamesi var")
-        if st.form_submit_button("Danışmana sor", type="primary", icon=":material/send:"):
+        if st.form_submit_button("Hakan'a sor", type="primary", icon=":material/send:"):
             if len(urun.strip()) < 4:
                 st.error("Ürünü birkaç kelimeyle tarif et (tür, özellik, model).")
                 return
@@ -95,10 +97,10 @@ def _kart(s):
                     unsafe_allow_html=True)
         k2.markdown(B.cip(DURUM_AD.get(durum, durum), DURUM_RENK.get(durum, "silik")), unsafe_allow_html=True)
         if durum in ("bekliyor", "calisiyor"):
-            st.caption("Danışman araştırıyor; birkaç dakika sonra Yenile'ye bas.")
+            st.caption("Hakan araştırıyor; birkaç dakika sonra Yenile'ye bas.")
             return
         if durum == "hata":
-            st.markdown(mesaj("hata", s.get("ozet") or "Danışman bu ürünü tamamlayamadı."), unsafe_allow_html=True)
+            st.markdown(mesaj("hata", s.get("ozet") or "Hakan bu ürünü tamamlayamadı."), unsafe_allow_html=True)
             if st.button("Yeniden dene", key=f"gm_tekrar_{s['id']}", icon=":material/replay:"):
                 ok, h = A.gumruk_yeniden(s["id"])
                 (st.rerun() if ok else st.error(h))
