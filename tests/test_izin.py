@@ -308,7 +308,7 @@ def test_bugun_maddeleri():
     m = maddeler_izin(tal, [ALI], BUGUN)
     assert [(x["baslik"], x["sayi"], x["hedef"], x["oncelik"]) for x in m] == [
         ("Onay bekleyen izin talebi", 2, "izin", "uyari"), ("Bugün izinde", 1, "izin", "bilgi")]
-    assert m[0]["detay"].startswith("En yakını 2026-10-14") and m[1]["detay"] == "Ali Veli"
+    assert m[0]["detay"].startswith("En yakını 14.10.2026") and m[1]["detay"] == "Ali Veli"
     assert maddeler_izin([], [], BUGUN) == []
 
 

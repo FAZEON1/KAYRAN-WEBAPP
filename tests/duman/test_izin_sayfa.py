@@ -203,3 +203,17 @@ def test_eposta_sorulmaz():
     at.selectbox(key="izn_per_sec").set_value("ali").run()
     assert not [t for t in at.text_input if "eposta" in str(t.key)]
     assert "Kayıtlı e-posta adresi yok; bilgilendirme e-postası gönderilmez." in " ".join(str(c.value) for c in at.caption)
+
+
+def test_haric_kullanicilar_ekranda_gorunmez():
+    """Kullanıcı kararı: izin takibine girmeyenler (ortaklar) hiçbir izin ekranında anılmaz; liste yalnız
+    veritabanında."""
+    v = _veri()
+    v["kullanici_yetkileri"].append({"id": 6, "kullanici": "ahmet", "moduller": [], "ozel": ["yonetim"],
+                                     "salt_okur": False, "aktif": True})
+    v["sistem_ayarlari"] = [{"anahtar": "izin_ayar", "deger": '{"cumartesi": false, "haric": ["ahmet"]}'}]
+    for bolum in ("Ayarlar", "Personel", "Takvim", "Rapor"):
+        at = _ac(bolum=bolum, tablolar=v)
+        metin = _metin(at) + " ".join(str(o) for w in (at.multiselect, at.selectbox) for x in w for o in x.options)
+        assert "Ahmet" not in metin and "ahmet" not in metin, bolum
+        assert not at.multiselect, bolum

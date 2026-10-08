@@ -535,7 +535,7 @@ def personel_denetle(kod, yeni, ise_giris, dogum, devir_t, devir_g, cikis, mevcu
     h = []
     if yeni:
         if not _KOD.match(kod or ""):
-            h.append("Kod 2–30 karakter; küçük harf, rakam, nokta ya da alt çizgi olmalı (ör. ahmet).")
+            h.append("Kod 2–30 karakter; küçük harf, rakam, nokta ya da alt çizgi olmalı (ör. mehmet).")
         elif kod in mevcut_kodlar:
             h.append("Bu kod zaten var (kartlı personel ya da programın kullanıcısı); listeden seç.")
     if not ise_giris:
@@ -618,7 +618,7 @@ def _personel(c, kullanicilar):
     yeni = sec == "__yeni__"
     k = f"izn_per_{sec}"
     c1, c2 = st.columns(2)
-    kod = c1.text_input("Kod", key=f"{k}_kod", placeholder="ör. ahmet").strip().lower() if yeni else sec
+    kod = c1.text_input("Kod", key=f"{k}_kod", placeholder="ör. mehmet").strip().lower() if yeni else sec
     if not yeni:
         c1.text_input("Kod", sec, disabled=True, key=f"{k}_kod_g")
     ad = c2.text_input("Ad soyad", p.get("ad") or ("" if yeni else kisi_adi(sec)), key=f"{k}_ad")
@@ -701,19 +701,9 @@ def _personel(c, kullanicilar):
 
 
 # ── Ayarlar ─────────────────────────────────────────────────────────
-def _ayarlar(ayar, kullanicilar=()):
-    st.markdown(B.grup_basligi("İzin takibine girmeyen kullanıcılar"), unsafe_allow_html=True)
-    secenek = sorted({str(k).strip().lower() for k in kullanicilar or [] if k} | set(ayar.get("haric") or []),
-                     key=H.tr_sira)
-    haric = st.multiselect("Kullanıcılar", secenek, default=[k for k in (ayar.get("haric") or []) if k in secenek],
-                           format_func=kisi_adi, key="izn_ayar_haric", label_visibility="collapsed",
-                           placeholder="Kimse seçilmedi",
-                           help="Programı kullanan ama çalışan olmayanlar (ortaklar, dış danışmanlar). Personel "
-                                "bölümündeki \"kart yok\" listesinde görünmezler.")
-    if sorted(haric) != sorted(ayar.get("haric") or []):
-        if st.button("Kaydet", key="izn_ayar_haric_kaydet", type="primary"):
-            ok, h = D.ayar_yaz({**ayar, "haric": sorted(haric)})
-            (st.rerun() if ok else st.error(h))
+def _ayarlar(ayar, kullanicilar=()):  # noqa: ARG001 — kullanicilar artık gösterilmiyor
+    # İzin takibine girmeyen kullanıcılar (ortaklar) ekranda gösterilmez (kullanıcı kararı, Ekim 2026):
+    # liste yalnız veritabanında, sistem_ayarlari 'izin_ayar' → "haric". Kaydederken korunur ({**ayar}).
     st.markdown(B.grup_basligi("Çalışma günleri"), unsafe_allow_html=True)
     cmt = st.toggle("Cumartesi çalışılıyor", bool(ayar.get("cumartesi")), key="izn_ayar_cmt",
                     help="Açıksa Cumartesi iş günü sayılır ve izne denk gelirse izinden düşer.")
