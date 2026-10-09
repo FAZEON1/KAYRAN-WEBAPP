@@ -70,6 +70,22 @@ def test_tablo_satirlari():
     assert {_tablo_kolon_tipi(k) for k in p[0] if k != "Hesap"} == {"para"}
 
 
+def test_gider_usd_ayin_kuruyla():
+    """USD gider tablosu: her ay o ayın kuruyla (ayın 15'i, yoksa güncel kur) — P&L ile aynı kural."""
+    kmap = {"2026-01-15": 36.0, "2026-01-20": 99.0, "2026-02-15": 40.0}   # Şubat 15 var, Mart yok
+    kur = P.ay_kurlari(2026, kmap, 45.0)
+    assert kur[:3] == [36.0, 40.0, 45.0] and kur[11] == 45.0
+    assert P.ay_kurlari(2026, kmap, 0)[2] is None          # güncel kur da yoksa None
+    kat = {"Sabit": [3600, 4000, 900] + [0] * 9, "Değişken": [360, 0, 0] + [0] * 9}
+    rows, top, eksik = P.gider_usd_satirlari(kat, kur)
+    assert rows[0]["Ocak"] == 100.0 and rows[0]["Şubat"] == 100.0 and rows[0]["Mart"] == 20.0
+    assert rows[1]["Ocak"] == 10.0 and rows[-1]["Kategori"] == "Toplam" and rows[-1]["Ocak"] == 110.0
+    assert rows[-1]["Yıllık"] == 230.0 and top[0] == 110.0 and eksik == []
+    # kuru olmayan ay: 0 yazılır, eksik listesine düşer; tutarı 0 olan ay eksik sayılmaz
+    rows, _, eksik = P.gider_usd_satirlari(kat, [36.0, None, None] + [None] * 9)
+    assert rows[0]["Şubat"] == 0.0 and eksik == ["Şubat", "Mart"]
+
+
 def test_kucuk_trend_svg():
     s = P.kucuk_trend_svg([1, 3, 2], ["Oca", "Şub", "Mar"], "yesil", lambda v: f"${v:g}")
     assert s.startswith("<svg") and "var(--k-yesil)" in s and "<title>Mar: $2</title>" in s
