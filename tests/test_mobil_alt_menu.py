@@ -36,6 +36,8 @@ def test_yalniz_telefonda_ve_ust_serit_gizli():
     assert "html body .st-key-ustnav{display:none !important;}" in tel
     assert "position:fixed !important" in tel and "env(safe-area-inset-bottom" in tel
     assert "padding-bottom:110px !important" in tel                  # içerik menünün altında kalmaz
+    # Sağ altta Streamlit Cloud rozeti (uygulama dışı, gizlenemez): hücreler sola, sağda 112px boşluk
+    assert "padding:4px 112px calc(8px + env(safe-area-inset-bottom,0px)) 4px !important" in tel
     assert "_alt_menu()" in APP and "_mobil_ust()" in APP
 
 

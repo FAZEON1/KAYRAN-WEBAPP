@@ -1503,7 +1503,9 @@ html body .st-key-alt_menu, html body .k-mobil-ust{display:none !important;}
   html body .st-key-alt_menu{display:flex !important;position:fixed !important;left:0 !important;right:0 !important;
     bottom:0 !important;z-index:1000 !important;flex-wrap:nowrap !important;gap:0 !important;
     justify-content:space-around !important;align-items:stretch !important;
-    padding:4px 4px calc(8px + env(safe-area-inset-bottom,0px)) !important;
+    /* Sağda 112px boş: Streamlit Cloud'un "Hosted with Streamlit" rozeti (taç + profil balonu) sağ altta,
+       uygulamanın DIŞINDA çizilir ve gizlenemez; Talep ve Ben hücreleri onun altında kalıyordu (Eki 2026). */
+    padding:4px 112px calc(8px + env(safe-area-inset-bottom,0px)) 4px !important;
     background:color-mix(in srgb,var(--k-yuzey1) 92%,transparent) !important;
     -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
     border-top:1px solid var(--k-kenar) !important;box-shadow:0 -6px 18px rgba(0,0,0,.18) !important;}
@@ -1513,10 +1515,13 @@ html body .st-key-alt_menu, html body .k-mobil-ust{display:none !important;}
   html body .st-key-alt_menu .stPopover > div{flex:1 1 0 !important;min-width:0 !important;width:100% !important;}
   html body .st-key-alt_menu button{display:flex !important;flex-direction:column !important;align-items:center !important;
     justify-content:center !important;gap:2px !important;width:100% !important;height:56px !important;
-    min-height:56px !important;padding:4px 2px !important;border:0 !important;box-shadow:none !important;
+    min-height:56px !important;padding:4px 0 !important;border:0 !important;box-shadow:none !important;
     background:transparent !important;color:var(--k-silik) !important;border-radius:12px !important;}
-  html body .st-key-alt_menu button p{font-size:11px !important;font-weight:550 !important;margin:0 !important;
-    white-space:nowrap !important;color:inherit !important;}
+  html body .stApp .st-key-alt_menu button [data-testid="stMarkdownContainer"] p{font-size:10px !important;
+    font-weight:550 !important;margin:0 !important;letter-spacing:-.15px !important;white-space:nowrap !important;
+    color:inherit !important;display:block !important;line-height:14px !important;}
+  /* Düz düğme ile açılır menü düğmesinin yazı kabı farklı yükseklikte geliyordu (22px / 16px): eşitle */
+  html body .stApp .st-key-alt_menu button [data-testid="stMarkdownContainer"]{line-height:14px !important;}
   html body .st-key-alt_menu button [data-testid="stIconMaterial"]{font-size:23px !important;color:inherit !important;
     display:inline !important;}
   html body .st-key-alt_menu button span:has(> [data-testid="stIconMaterial"]){display:inline-flex !important;margin:0 !important;}
