@@ -151,6 +151,39 @@ def gider_satirlari(kat):
     return rows, top
 
 
+def ay_kurlari(yil, kmap, yedek):
+    """Gider tablosunun aylık kuru (₺/$): P&L ile AYNI kural (yonetim_hesap.pnl_topla → tl_usd):
+    ayın 15'indeki kur, yoksa güncel (yedek) kur, o da yoksa None. 12 elemanlı liste."""
+    out = []
+    for mi in range(12):
+        k = (kmap or {}).get(f"{yil}-{mi + 1:02d}-15") or (yedek if (yedek or 0) > 1 else None)
+        out.append(float(k) if k else None)
+    return out
+
+
+def gider_usd_satirlari(kat, kurlar):
+    """Aylık gider tablosu USD: her ayın TL tutarı o ayın kuruna (ay_kurlari) bölünür; böylece
+    tablo P&L'deki 'dönemde ≈ $' rakamıyla aynı kuru kullanır. Kuru olmayan ay 0 yazılır ve
+    eksik listesine düşer. Dönüş: (satırlar, 12 aylık toplam, kuru eksik aylar)."""
+    kur = (list(kurlar or []) + [None] * 12)[:12]
+    rows, top = [], [0.0] * 12
+    eksik = []
+    for k in ("Sabit", "Değişken", "Yarı Değişken"):
+        v = [float(x or 0) for x in (list((kat or {}).get(k) or []) + [0.0] * 12)[:12]]
+        u = [(t / c) if (c and t) else 0.0 for t, c in zip(v, kur)]
+        eksik += [a for a, t, c in zip(AYLAR, v, kur) if t and not c]
+        top = [a + b for a, b in zip(top, u)]
+        r = {"_id": k, "Kategori": k}
+        r.update({a: round(x, 2) for a, x in zip(AYLAR, u)})
+        r["Yıllık"] = round(sum(u), 2)
+        rows.append(r)
+    r = {"_id": "Σ", "Kategori": "Toplam"}
+    r.update({a: round(x, 2) for a, x in zip(AYLAR, top)})
+    r["Yıllık"] = round(sum(top), 2)
+    rows.append(r)
+    return rows, top, sorted(set(eksik), key=AYLAR.index)
+
+
 def pnl_satirlari(r, kiyaslar=()):
     """Excel / tablo için gelir tablosu: kalem × (dönem, kıyaslar)."""
     kalemler = [("Ciro", "ciro"), ("COGS", "cogs"), ("Brüt kâr", "brut"), ("Destekler", "destek"),

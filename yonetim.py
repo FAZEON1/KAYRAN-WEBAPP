@@ -513,29 +513,52 @@ def _destek_gider(r, yil, donem):
     except Exception:  # noqa: BLE001
         _ga = None
     _gider = _ga(_gider_anahtar) if _ga else None
-    st.markdown(f"**İşletme giderleri** · {yil} · TL"
-                + (f" · dönemde ≈ {_usd(r['gider'])} · yüklenme {_tr_tarih(_gider.get('tarih'))}" if _gider else ""))
     if not _gider:
+        st.markdown(f"**İşletme giderleri** · {yil}")
         st.info(f"{yil} gider tablosu yüklenmedi. Doldurulmuş tabloyu üst menüdeki **Dosya** düğmesinden "
                 "yükleyebilirsin.")
         return
-    grows, gtop = gider_satirlari(_gider.get("kat") or {})
+    from yonetim_pano import ay_kurlari, gider_usd_satirlari
+    _kat = _gider.get("kat") or {}
+    grows, gtop = gider_satirlari(_kat)
+    # Aylık kur: P&L'deki dönüşümle aynı kural (ayın 15'i, yoksa güncel kur) — iki ekran aynı rakamı gösterir
+    try:
+        _kyn = _PnlKaynak(_oturum_kuru())
+        _kurlar = ay_kurlari(yil, _kyn.kur_haritasi(f"{yil}-01-01", f"{yil}-12-31"), _kyn.yedek_kur())
+    except Exception:  # noqa: BLE001
+        _kurlar = [None] * 12
+    urows, utop, _kur_eksik = gider_usd_satirlari(_kat, _kurlar)
+    c1, c2 = st.columns([5, 1.6])
+    c1.markdown(f"**İşletme giderleri** · {yil} · dönemde ≈ {_usd(r['gider'])} · yüklenme "
+                f"{_tr_tarih(_gider.get('tarih'))}")
+    _birim = c2.segmented_control("Para birimi", ["TL", "USD"], default="TL", key="yon_gider_birim",
+                                  label_visibility="collapsed") or "TL"
+    _usdmi = _birim == "USD"
+    rows, _isaret = (urows, "$") if _usdmi else (grows, "₺")
     try:
         import plotly.graph_objects as go
         from shared.grafik import goster, rol
         fg = go.Figure()
         for ad, rk in (("Sabit", "mavi"), ("Değişken", "amber"), ("Yarı Değişken", "mor")):
-            satir = next(x for x in grows if x["_id"] == ad)
+            satir = next(x for x in rows if x["_id"] == ad)
             _yv = [satir[a] for a in GIDER_AYLAR]
             fg.add_bar(x=[a[:3] for a in GIDER_AYLAR], y=_yv, name=ad, marker_color=rol(rk), marker_line_width=0,
-                       customdata=[f"₺{tr_sayi(v)}" for v in _yv],
+                       customdata=[f"{_isaret}{tr_sayi(v)}" for v in _yv],
                        hovertemplate=f"{ad}<br>%{{x}}: %{{customdata}}<extra></extra>")
-        goster(fg, key="yon_gider_grafik", yukseklik=260, barmode="stack", bargap=0.35,
-               yaxis=dict(tickprefix="₺", separatethousands=True))
+        goster(fg, key=f"yon_gider_grafik_{_birim}", yukseklik=260, barmode="stack", bargap=0.35,
+               yaxis=dict(tickprefix=_isaret, separatethousands=True))
     except Exception:  # noqa: BLE001
         pass
-    tablo(grows, key="yon_gider", birim="₺", dosya_adi="yonetim_giderler")
+    tablo(rows, key=f"yon_gider_{_birim}", birim=_isaret, dosya_adi=f"yonetim_giderler_{_birim.lower()}")
+    if _usdmi:
+        _kur_metni = " · ".join(f"{a[:3]} {tr_sayi(k, 2)}" for a, k in zip(GIDER_AYLAR, _kurlar) if k)
+        st.caption("Her ayın TL tutarı o ayın kuruna bölündü (ayın 15'indeki kur, yoksa güncel kur; P&L ile aynı). "
+                   f"Kur (₺/$): {_kur_metni or 'yok'}")
+        if _kur_eksik:
+            st.warning("Kuru bulunamayan aylar 0 görünüyor: " + ", ".join(_kur_eksik))
+    _kur_satiri = [dict({"Ay": a}, **{"Kur (₺/$)": round(k, 4) if k else None}) for a, k in zip(GIDER_AYLAR, _kurlar)]
     st.download_button("Excel: destekler ve giderler", excel_bytes({"Destekler ($)": drows, "Giderler (TL)": grows,
+                                                                    "Giderler ($)": urows, "Kur": _kur_satiri,
                                                                     "Gider kalemleri (TL)": [
                                                                         dict({"Kategori": k, "Kalem": b},
                                                                              **{a: v for a, v in zip(GIDER_AYLAR, ay)})
