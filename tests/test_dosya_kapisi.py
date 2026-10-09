@@ -135,6 +135,9 @@ def test_yetki_kurallari():
     assert izinli("aktif_cari", tam) and not izinli("aktif_cari", dict(tam, toplam_aktifler=False))
     assert izinli("odeme_listesi", dict(tam, toplam_aktifler=False))
     assert izinli("gider_tablosu", tam) and not izinli("gider_tablosu", dict(tam, kar=False))
+    # Muhasebe elemanı: yönetim/kâr yetkisi yok, yalnız 'gider_girisi' özel yetkisi var → gider tablosunu yükler
+    assert izinli("gider_tablosu", {"kayranacc": True, "gider_girisi": True})
+    assert not izinli("gider_tablosu", {"kayranacc": True, "yonetim": True})
     assert not izinli("siparis_vatan", dict(tam, satis=False)) and not izinli("ithalat_rapor", tam)
 
 
