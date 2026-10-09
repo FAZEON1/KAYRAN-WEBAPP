@@ -86,6 +86,19 @@ def test_gider_usd_ayin_kuruyla():
     assert rows[0]["Şubat"] == 0.0 and eksik == ["Şubat", "Mart"]
 
 
+def test_serit_kartlari_bolume_gider():
+    """P&L şeridindeki her kart var olan bir Yönetim bölümüne gider; ekran kodu tıklanır kartı çizer."""
+    from shared.gezinme import secenekler
+    hedefler = {P.serit_hedefi(e) for e in ("Ciro", "COGS", "Brüt kâr", "Destekler", "Giderler", "Alınan destek",
+                                           "Net kâr")}
+    assert None not in hedefler and hedefler <= set(secenekler("yonetim"))
+    assert P.serit_hedefi("Ciro") == "Kanal ve ürün" and P.serit_hedefi("Giderler") == "Destekler ve giderler"
+    assert P.serit_hedefi("Net kâr") == "Ay kapanışı" and P.serit_hedefi("Bilinmeyen") is None
+    y = (KOK / "yonetim.py").read_text(encoding="utf-8")
+    assert "_serit_ciz(r, k1)" in y and 'st.session_state["yon_sayfa"] = hedef' in y
+    assert 'key=f"tk_pnl_{anahtar}"' in y and "on_click=_bolume_git" in y
+
+
 def test_kucuk_trend_svg():
     s = P.kucuk_trend_svg([1, 3, 2], ["Oca", "Şub", "Mar"], "yesil", lambda v: f"${v:g}")
     assert s.startswith("<svg") and "var(--k-yesil)" in s and "<title>Mar: $2</title>" in s

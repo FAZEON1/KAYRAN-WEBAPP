@@ -151,6 +151,17 @@ def gider_satirlari(kat):
     return rows, top
 
 
+# P&L şeridindeki kart → tıklanınca açılan bölüm (shared.gezinme MODULLER 'yonetim' seçenek metni)
+SERIT_HEDEF = {"Ciro": "Kanal ve ürün", "COGS": "Kanal ve ürün", "Brüt kâr": "Kanal ve ürün",
+               "Destekler": "Destekler ve giderler", "Giderler": "Destekler ve giderler",
+               "Alınan destek": "Destekler ve giderler", "Net kâr": "Ay kapanışı"}
+
+
+def serit_hedefi(etiket):
+    """Şerit kartının gittiği bölüm; tanımsız kart için None (tıklanmaz)."""
+    return SERIT_HEDEF.get(etiket)
+
+
 def ay_kurlari(yil, kmap, yedek):
     """Gider tablosunun aylık kuru (₺/$): P&L ile AYNI kural (yonetim_hesap.pnl_topla → tl_usd):
     ayın 15'indeki kur, yoksa güncel (yedek) kur, o da yoksa None. 12 elemanlı liste."""
