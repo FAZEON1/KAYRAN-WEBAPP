@@ -100,12 +100,14 @@ def _fonksiyon(yol):
 
 
 def izinli(tur, yetkiler):
-    """yetkiler: {modül: bool, "yonetim": bool, "kar": bool, "toplam_aktifler": bool} (app.py doldurur)."""
+    """yetkiler: {modül: bool, "yonetim": bool, "kar": bool, "toplam_aktifler": bool, "gider_girisi": bool}
+    (app.py doldurur). Yönetim dosyası (aylık gider tablosu): kâr gören yönetici YA DA 'gider_girisi' özel
+    yetkisi (muhasebe elemanı tabloyu doldurur, kâr rakamlarını görmez)."""
     t = TURLER.get(tur)
     if not t:
         return False
     if t["modul"] == "yonetim":
-        return bool(yetkiler.get("yonetim") and yetkiler.get("kar"))
+        return bool((yetkiler.get("yonetim") and yetkiler.get("kar")) or yetkiler.get("gider_girisi"))
     if t.get("ozel") and not yetkiler.get(t["ozel"]):
         return False            # Toplam Aktifler'in kendi yetki listesi var
     return bool(yetkiler.get(t["modul"]))
@@ -199,6 +201,7 @@ def yetkiler_topla(kullanici, modul_yetkileri, ozel_yetki, tam=True):
     her çalışmada çizilir; o liste yalnız pencere açıkken gerekir)."""
     y = dict(modul_yetkileri or {})
     y["yonetim"] = bool(ozel_yetki(kullanici, "yonetim"))
+    y["gider_girisi"] = bool(ozel_yetki(kullanici, "gider_girisi"))
     try:
         from shared.kar_gizle import kar_gorunur
         y["kar"] = bool(kar_gorunur())
