@@ -27,14 +27,15 @@ MODUL_ADI = {"kayranacc": "Muhasebe", "kayranpm": "Ürün Yön.", "depo": "Depo"
 
 # Modül dışı özel yetkiler
 OZEL = ["yonetim", "patron_panel", "toplam_aktifler", "talep_yonetici",
-        "kullanici_yonetimi", "claude_onay", "izin_yonetimi", "izin_onay", "gider_girisi"]
+        "kullanici_yonetimi", "claude_onay", "izin_yonetimi", "izin_onay", "gider_girisi", "kar"]
 OZEL_ADI = {"yonetim": "Yönetim P&L", "patron_panel": "Patron Panosu",
             "toplam_aktifler": "Toplam Aktifler", "talep_yonetici": "Talep Yöneticisi",
             "kullanici_yonetimi": "Kullanıcı Yönetimi",
             "claude_onay": "Talebi Claude'a gönderme",
             "izin_yonetimi": "İzin yönetimi (personel, rapor)",
             "izin_onay": "İzin onayı",
-            "gider_girisi": "Gider tablosu yükleme"}
+            "gider_girisi": "Gider tablosu yükleme",
+            "kar": "Kâr ve marj görme (Satış P&L)"}
 
 
 def _norm(k):

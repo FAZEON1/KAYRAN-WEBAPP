@@ -9,9 +9,10 @@ doğru.
 TEK NOKTA: gösterim katmanları (kart üreticileri, tablolar) buradan geçer;
 hesaplama mantığına dokunulmaz, yalnız ekrana basılan değer maskelenir.
 
-AYAR: Yetkiyi genişletmek için KAR_GOREBILEN'e kullanıcı adı ekle.
-Rakamlar düzeldiğinde bu dosyadaki KAR_GIZLE_AKTIF = False yapmak
-maskelemeyi komple kapatır (kod değişikliği gerekmez).
+AYAR: Yetki Kullanıcı yönetimi ekranından verilir — özel yetki 'kar'
+("Kâr ve marj görme"; Ekim 2026, Gökhan için). KAR_GOREBILEN koddaki sabit
+yedek: veritabanı okunamasa da bu kullanıcılar görür. Rakamlar düzeldiğinde
+bu dosyadaki KAR_GIZLE_AKTIF = False yapmak maskelemeyi komple kapatır.
 """
 
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
@@ -44,7 +45,14 @@ def kar_gorunur_kullanici(kullanici):
     """Oturumsuz yerler için (Telegram asistanı): bu kullanıcı kâr/marj görebilir mi?"""
     if not KAR_GIZLE_AKTIF:
         return True
-    return str(kullanici or "").strip().lower() in KAR_GOREBILEN
+    k = str(kullanici or "").strip().lower()
+    if k in KAR_GOREBILEN:
+        return True
+    try:
+        from shared.yetki import ozel_yetki
+        return bool(k) and bool(ozel_yetki(k, "kar", KAR_GOREBILEN))
+    except Exception:  # noqa: BLE001 — veritabanı yoksa yalnız sabit liste
+        return False
 
 
 def _gizli_mi(etiket):

@@ -47,9 +47,18 @@ def test_yardim_tanimsiz_hesaba_kimligini_soyler():
     assert "Örnekler" in H.yardim_metni(["geçen ay satış"], 555, "ibrahim")
 
 
-def test_kar_gorunur_kullanici():
+def test_kar_gorunur_kullanici(monkeypatch):
     from shared.kar_gizle import kar_gorunur_kullanici
+    import shared.yetki as Y
+    monkeypatch.setattr(Y, "yetki_tablosu", lambda: None)             # veritabanı yok: sabit liste
     assert kar_gorunur_kullanici("Ibrahim") and not kar_gorunur_kullanici("depocu")
+    # Özel yetki 'kar' Kullanıcı yönetiminden verilir (Gökhan, Ekim 2026); sabit listedekiler yine görür
+    tablo = {"gokhan": {"moduller": ["satis"], "ozel": ["kar"], "salt_okur": False, "aktif": True},
+             "depocu": {"moduller": ["depo"], "ozel": [], "salt_okur": False, "aktif": True},
+             "eski": {"moduller": ["satis"], "ozel": ["kar"], "salt_okur": False, "aktif": False}}
+    monkeypatch.setattr(Y, "yetki_tablosu", lambda: tablo)
+    assert kar_gorunur_kullanici("Gokhan") and kar_gorunur_kullanici("ibrahim")
+    assert not kar_gorunur_kullanici("depocu") and not kar_gorunur_kullanici("eski") and not kar_gorunur_kullanici("")
 
 
 # ── Telegram betiği (GitHub'da çalışır) ─────────────────────────────
