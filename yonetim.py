@@ -332,23 +332,68 @@ def _op(s):
             f'font-weight:700;padding:0 1px">{s}</div>')
 
 
-def _serit(r, k1):
-    """P&L akışı: her kalemin altında önceki döneme göre değişim (k1: önceki dönem sonucu)."""
+def _serit_kartlari(r, k1):
+    """P&L akışının kartları: [(işleç, etiket, html)] — işleç karttan önce gelir (ilk kartta boş).
+    Her kalemin altında önceki döneme göre değişim (k1: önceki dönem sonucu)."""
     from yonetim_pano import degisim as _dg
 
     def d(a, tersi=False):
         return _cip(_dg(r[a], k1.get(a) if k1 else None, tersi))
     _ciro_alt = d("ciro") or (f"iade −{_usd(r['iade_tutar'])}" if r.get("iade_tutar") else "net satış")
-    h = (_hucre("Ciro", _usd(r["ciro"]), _ciro_alt)
-         + _op("−") + _hucre("COGS", _usd(r["cogs"]), d("cogs", True) or "ürün maliyeti")
-         + _op("=") + _hucre("Brüt kâr", _usd(r["brut"]), f"marj {_pct(r['brut_marj'])} {d('brut')}")
-         + _op("−") + _hucre("Destekler", _usd(r["destek"]), d("destek", True) or "ref no destekleri")
-         + _op("−") + _hucre("Giderler", _usd(r["gider"]), d("gider", True) or "işletme (TL→USD)"))
+    k = [("", "Ciro", _hucre("Ciro", _usd(r["ciro"]), _ciro_alt)),
+         ("−", "COGS", _hucre("COGS", _usd(r["cogs"]), d("cogs", True) or "ürün maliyeti")),
+         ("=", "Brüt kâr", _hucre("Brüt kâr", _usd(r["brut"]), f"marj {_pct(r['brut_marj'])} {d('brut')}")),
+         ("−", "Destekler", _hucre("Destekler", _usd(r["destek"]), d("destek", True) or "ref no destekleri")),
+         ("−", "Giderler", _hucre("Giderler", _usd(r["gider"]), d("gider", True) or "işletme (TL→USD)"))]
     if r.get("alinan"):
-        h += _op("+") + _hucre("Alınan destek", _usd(r["alinan"]), d("alinan") or "sellout / mkt / rebate")
+        k.append(("+", "Alınan destek", _hucre("Alınan destek", _usd(r["alinan"]), d("alinan") or "sellout / mkt / rebate")))
     renk = "yesil" if r["net_kar"] >= 0 else "kirmizi"
-    h += _op("=") + _hucre("Net kâr", _usd(r["net_kar"]), f"marj {_pct(r['marj'])} {d('net_kar')}", renk, vurgulu=True)
+    k.append(("=", "Net kâr", _hucre("Net kâr", _usd(r["net_kar"]), f"marj {_pct(r['marj'])} {d('net_kar')}", renk,
+                                     vurgulu=True)))
+    return k
+
+
+def _serit(r, k1):
+    """P&L akışı, düz HTML (tıklanmaz) — Excel/e-posta gibi yalnız görüntü gereken yerler ve testler için."""
+    h = "".join((_op(op) if op else "") + html for op, _e, html in _serit_kartlari(r, k1))
     return f'<div style="display:flex;align-items:stretch;gap:5px;flex-wrap:wrap;margin:4px 0">{h}</div>'
+
+
+def _bolume_git(hedef):
+    """Şerit kartı tıklanınca: Yönetim sayfa menüsünü ilgili bölüme çevirir (kayranpm genel bakış gibi)."""
+    st.session_state["yon_sayfa"] = hedef
+
+
+def _serit_ciz(r, k1):
+    """P&L akışını TIKLANIR kartlarla çizer: Ciro / COGS / Brüt kâr → Kanal ve ürün, Destekler / Giderler /
+    Alınan destek → Destekler ve giderler, Net kâr → Ay kapanışı (yonetim_pano.SERIT_HEDEF). Kartın görünümü
+    düz şeritle aynı; üstüne görünmez düğme biner (shared.bilesen.tiklanir ile aynı CSS, 'pnl' türü)."""
+    from yonetim_pano import serit_hedefi
+    kartlar = _serit_kartlari(r, k1)
+    oran = []
+    for op, _e, _h in kartlar:
+        if op:
+            oran.append(0.16)
+        oran.append(1)
+    kol = st.columns(oran, gap="small", vertical_alignment="center")
+    i = 0
+    for op, etiket, html in kartlar:
+        if op:
+            kol[i].markdown(_op(op), unsafe_allow_html=True)
+            i += 1
+        hedef = serit_hedefi(etiket)
+        with kol[i]:
+            if hedef:
+                anahtar = etiket.lower().replace(" ", "_").replace("ü", "u").replace("â", "a")
+                with st.container(key=f"tk_pnl_{anahtar}"):
+                    st.markdown(html, unsafe_allow_html=True)
+                    if st.button(f"{hedef} bölümünü aç", key=f"tkb_pnl_{anahtar}", on_click=_bolume_git,
+                                 args=(hedef,)):
+                        st.rerun()          # üstteki sayfa menüsü de yeni bölümü göstersin (parça dışı)
+            else:
+                st.markdown(html, unsafe_allow_html=True)
+        i += 1
+    st.caption("Karta tıkla: ilgili bölüm açılır.")
 
 
 def _kucuk_kartlar(trend):
@@ -424,7 +469,7 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, pencere_bos):
         except Exception:  # noqa: BLE001
             kiyas.append((anahtar, etiket, None))
     k1 = kiyas[0][2] if kiyas else None
-    st.markdown(_serit(r, k1), unsafe_allow_html=True)
+    _serit_ciz(r, k1)
     # Tek bilgi satırı: dönem · kıyas · geçen yıl · veri durumu (eskiden üç ayrı satırdı)
     parca = [f"{_tr_tarih(r['bas'])} – {_tr_tarih(r['bit'])}"]
     if kiyas:

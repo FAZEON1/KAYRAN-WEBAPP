@@ -223,7 +223,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
-                     "ay_kurlari", "gider_usd_satirlari",
+                     "ay_kurlari", "gider_usd_satirlari", "serit_hedefi",
                      "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
     "shared.ceviri": ["kur"],
     "shared.ipucu": ["kur"],

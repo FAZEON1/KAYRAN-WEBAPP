@@ -1133,6 +1133,8 @@ html body {_TKA} {_TK} [data-testid="stButton"].stButton > button[data-testid]{{
   border-left:3px solid var(--d,var(--k-kenar2)) !important;transition:border-color .15s ease,background-color .15s ease;}}
 [class*="st-key-tk_kart_"]:hover{{background:color-mix(in srgb,var(--d,var(--k-mor)) 4%,var(--k-yuzey1)) !important;
   border-color:color-mix(in srgb,var(--d,var(--k-mor)) 45%,transparent) !important;border-left-color:var(--d,var(--k-mor)) !important;}}
+[class*="st-key-tk_pnl_"]{{border-radius:10px;transition:box-shadow .12s ease;}}
+[class*="st-key-tk_pnl_"]:hover{{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--k-mor) 60%,transparent);}}
 [class*="st-key-tk_satir_"]{{padding:9px 14px !important;border-radius:10px;background:var(--k-yuzey1);
   border:1px solid var(--k-kenar);border-left:3px solid var(--d,var(--k-kenar2));margin-bottom:-6px;
   transition:background .12s ease,border-color .12s ease;}}
