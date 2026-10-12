@@ -35,9 +35,12 @@ if os.environ.get("DUMAN_ONBELLEK_TEMIZLE"):
     from shared.veri_surumu import bagimlilari_temizle, SATIS_BAGIMLILAR   # uygulamanın kendi tazelik listeleri
     bagimlilari_temizle()
     bagimlilari_temizle(SATIS_BAGIMLILAR)
-    from kayranacc.database import _ayarlar_hepsi, _tum_kurlar
-    _ayarlar_hepsi.clear()
-    _tum_kurlar.clear()
+    # Muhasebe okumaları (hafta, ödeme, banka …) genel temizlikle boşalmıyor (önceki sayfanın boş
+    # verisi kalıyordu — hafta seçici / ertelenen ödeme testleri); modülün bütün önbellekli okumaları tek tek.
+    import kayranacc.database as _acc_db
+    for _fn in vars(_acc_db).values():
+        if type(_fn).__name__ == "CachedFunc":
+            _fn.clear()
 
 # Bileşenler (components v2) ilk çağrıda bir kez kaydedilip modülde tutulur; kayıt Streamlit
 # örneğine bağlı. Canlıda tek örnek var; test her sayfa için yeni örnek açtığından kayıt yenilenir.
