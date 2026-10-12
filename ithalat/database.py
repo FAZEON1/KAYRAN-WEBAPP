@@ -1511,7 +1511,10 @@ def _parti_satirlari_hesapla():
         out.append({"sku": sku, "dosya_id": did, "adet": adet, "fob": fob,
                     "final": fob * (1 + yuzde / 100.0),
                     "yolda": str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR,
-                    "tarih": str(d.get("tarih") or "")[:10]})
+                    "tarih": str(d.get("tarih") or "")[:10],
+                    # canlı paçal (kayranpm.canli_pacal): depoya giriş tarihi ve belge
+                    "giris": str(d.get("teslim_tarihi") or d.get("tarih") or "")[:10],
+                    "belge": str(d.get("dosya_no") or "")})
     return out
 
 

@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -225,6 +225,8 @@ KRITIK_FONKSIYONLAR = {
                           "iade_usd", "kur_bul", "iade_fiyat_metni", "iade_fiyat_guncelle",
                           "dogrudan_giris_mi", "giris_sekli"],
     "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
+    "kayranpm.canli_pacal": ["hesapla", "eldeki_stoklar", "teslim_partileri", "harita_hesapla", "harita",
+                             "bul", "aciklama"],
     "teknikservis.iade_fatura": ["firma_koku", "son_fiyat_haritasi", "fiyat_onerisi", "para_cevir", "kalem_ekle",
                                  "sepet_toplam", "fatura_daha_once", "birim_kayitlari"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",

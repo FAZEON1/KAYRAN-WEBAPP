@@ -395,6 +395,11 @@ def tum_urunler_listesi():
     sonuclar = []
     _ith_map = _ithalat_maliyet_map()          # FOB / son değerler (anahtar sku_anahtar)
     _pcl_map = _pacal_map()                    # paçal maliyet tek kapı (Faz 2b)
+    try:
+        from .canli_pacal import harita as _canli_harita
+        _canli_map = _canli_harita() or {}         # eldeki malın maliyeti (yalnız gösterim)
+    except Exception:  # noqa: BLE001
+        _canli_map = {}
     from shared.utils import sku_anahtar as _skn_a
     _ith_partiler = _ithalat_partiler_map()
     for u in urunler:
@@ -474,6 +479,8 @@ def tum_urunler_listesi():
             "satis_fiyati": satis_fiyati,
             "hedef_marj": hedef_marj,
             "final_cost_price": final_cost_price,
+            "canli_pacal": (_canli_map.get(_skn_a(sku)) or {}).get("pacal") or 0,
+            "canli_pacal_detay": _canli_map.get(_skn_a(sku)),
             "fob_price": fob_price,
             "son_fob": son_fob,
             "son_final": son_final,

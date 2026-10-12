@@ -27,6 +27,7 @@ from shared.utils import firma_gorunen_ad   # kanal = cari adı (Faz 4)
 from .database import (initialize_db, get_tum_sku_listesi, get_client,
                       sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
 from .analitik import dashboard_hesapla, tum_urunler_listesi
+from .canli_pacal import aciklama as _canli_aciklama
 from .excel_islemler import excel_yukle_g5f_depolar, excel_yukle_haftalik_stok_satis
 
 
@@ -866,6 +867,9 @@ def run():
                         {"label": f"Maliyet (%{tr_sayi(mal_y, 1)})", "value": f"${tr_sayi(cost, 2)}", "renk": trenk("amber")},
                         {"label": "⭐ Paçal maliyet", "value": f"${tr_sayi(fcp, 2)}", "renk": trenk("amber"),
                          "alt": "Landed · İthalat"},
+                        {"label": "Canlı paçal maliyet",
+                         "value": f"${tr_sayi(secilen.get('canli_pacal') or 0, 2)}" if secilen.get("canli_pacal") else "—",
+                         "renk": trenk("amber2"), "alt": _canli_aciklama(secilen.get("canli_pacal_detay"))},
                         {"label": "Son maliyet", "value": f"${tr_sayi(son_fcp, 2)}" if son_fcp else "—", "renk": trenk("amber2"),
                          "alt": _son_alt},
                     ]
@@ -1150,6 +1154,11 @@ def run():
                 except Exception:
                     _pacal_map = {}
                 try:
+                    from .canli_pacal import harita as _canli_h
+                    _canli_tf = _canli_h() or {}       # eldeki malın maliyeti (referans; öneri paçala göre)
+                except Exception:
+                    _canli_tf = {}
+                try:
                     _ur_s = _hepsi_s("urunler", "sku, urun_adi, satis_fiyati, hedef_kar_marji",
                                      "urun_adi") or []
                 except Exception as _e_s:
@@ -1187,7 +1196,9 @@ def run():
                         _marj = ((_satis / _p - 1) * 100) if (_p > 0 and _satis) else 0.0
                         _rows_s.append({
                             "SKU": u["sku"], "Ürün Adı": u.get("urun_adi", ""),
-                            "Paçal ($)": round(_p, 2), "Son ($)": round(_ps, 2),
+                            "Paçal ($)": round(_p, 2),
+                            "Canlı paçal ($)": round(float((_canli_tf.get(_skn_tf(u["sku"])) or {}).get("pacal") or 0), 2),
+                            "Son ($)": round(_ps, 2),
                             "Satış ($)": round(float(_satis or 0), 2),
                             "Marj %": round(_marj, 1),
                         })
@@ -1199,6 +1210,7 @@ def run():
                             "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
                             "Ürün Adı": st.column_config.TextColumn("Ürün Adı", disabled=True, width="large"),
                             "Paçal ($)": st.column_config.NumberColumn("Paçal ($)", disabled=True, format="dollar", step=0.01),
+                            "Canlı paçal ($)": st.column_config.NumberColumn("Canlı paçal ($)", disabled=True, format="dollar", step=0.01, help="Eldeki malın (bizim + müşteri stoğu) maliyeti: en yeni teslim alınan partilerden"),
                             "Son ($)": st.column_config.NumberColumn("Son ($)", disabled=True, format="dollar", step=0.01, help="En yeni ithalat dosyasındaki maliyet (referans · öneri paçala göre)"),
                             "Satış ($)": st.column_config.NumberColumn("Satış ($)", min_value=0.0, step=0.01, format="dollar"),   # step = gösterilen hane (kuruş)
                             "Marj %": st.column_config.NumberColumn("Marj %", disabled=True, format="localized", step=0.1),
