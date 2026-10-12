@@ -1212,22 +1212,11 @@ def run():
     _arac_kap = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center",
                              gap="small", key="acc_arac") if _menu_ust else st.sidebar
     with _arac_kap:
-        # Aktif hafta göster
+        # Aktif hafta — TIKLANIR (Ekim 2026): açılan listede bir haftaya basınca o hafta aktif olur
+        # (eskiden yalnız etiketti; geçmiş haftaya geçmek için Ödenenler & Geçmiş'e gitmek gerekiyordu).
         hafta = get_aktif_hafta()
-        if hafta:
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:8px;
-                background:rgba(37,99,235,0.10);
-                border:1px solid color-mix(in srgb,var(--k-mavi) 22%,transparent);
-                border-radius:999px;
-                padding:6px 12px;margin:0;">
-                <span style="font-size:13px">📅</span>
-                <span style="font-size:11px;color:var(--k-mavi);font-weight:600;
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                    letter-spacing:.2px">{hafta['hafta_adi'].title()}</span>
-            </div>
-            """, unsafe_allow_html=True)
-    
+        _hafta_secici(hafta)
+
         with st.popover(f"USD/TL {tr_sayi(float(st.session_state.get('kur') or get_kur()), 4)}",
                         icon=":material/currency_exchange:", help="Kur · güncel kur · uygulamayı yenile"):
             # Kur paneli
@@ -3126,3 +3115,23 @@ def run():
                 """)
 
     _sayfa_parcasi()
+
+
+def _hafta_secici(hafta):
+    """Üst satırdaki hafta düğmesi: aktif haftanın adı; tıklayınca son haftalar listelenir, birine basınca
+    o hafta aktif olur (Bu Hafta sayfası ve banka işlemleri o haftanın ödemeleriyle çalışır)."""
+    from .database import get_tum_haftalar, hafta_aktif_yap
+    from .odeme_hesap import hafta_secenekleri
+    from shared import bilesen as _B
+    etiket = (hafta or {}).get("hafta_adi", "").title() if hafta else "Aktif hafta yok"
+    with st.popover(etiket, icon=":material/calendar_month:", help="Hafta değiştir"):
+        st.caption("Çalışılacak haftayı seç. Bu Hafta sayfası ve banka işlemleri seçilen haftanın ödemelerini gösterir.")
+        salt = bool(st.session_state.get("salt_okur"))
+        for h in hafta_secenekleri(get_tum_haftalar() or [], (hafta or {}).get("id")):
+            if h["aktif"]:
+                st.button(f"{h['ad'].title()} · aktif", key=f"acc_hafta_{h['id']}", disabled=True,
+                          use_container_width=True, icon=":material/check:")
+            elif st.button(h["ad"].title(), key=f"acc_hafta_{h['id']}", disabled=salt, use_container_width=True,
+                           help=f"Yüklendi {h['yuklendi']}" if h["yuklendi"] else None):
+                hafta_aktif_yap(h["id"])
+                _B.yenile(f"'{h['ad'].title()}' aktif yapıldı")
