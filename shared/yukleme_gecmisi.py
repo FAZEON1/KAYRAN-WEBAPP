@@ -45,7 +45,7 @@ GERI_ALINABILIR = {
     "musteri_haftalik": ("firma_stok",), "happylife": ("happylife_stok",),
     "cek_listesi": ("cekler",), "havuz_butce": ("ref_butce",),
     "siparis_excel": ("satislar",), "mikro_fatura": ("satislar",), "iade_excel": ("iadeler",),
-    "g5f_sayim": (), "toplu_mal_kabul": ("ts_kayitlar",),
+    "g5f_sayim": (), "toplu_mal_kabul": ("ts_kayitlar", "iadeler"),   # iade türü: iadeler'e de yazar
     "ithalat_rapor": ("ithalat_dosyalari", "ithalat_kalemleri"),
 }
 SATIR_TABLOLARI = sorted({t for ts in GERI_ALINABILIR.values() for t in ts})

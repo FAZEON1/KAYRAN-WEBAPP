@@ -48,8 +48,9 @@ KAYNAKLAR = [
     dict(anahtar="musteri_haftalik", ad="Haftalık müşteri stok + satış", modul="kayranpm",
          sayfa="Ürün Yönetimi › Müşteri Satışları", siklik="haftalik", son_gun=0, yon="geri",
          tarih_turu="veri", sorumlu="derya"),
-    dict(anahtar="iade_aylik", ad="İade Excel'i", modul="satis", sayfa="Satış › İade",
-         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="gokhan"),
+    # 'iade_aylik' (İade Excel'i, aylık, Gökhan) Ekim 2026'da kaldırıldı: iadeler artık teknik servis
+    # mal kabulünde kaydediliyor (depo seçimi + Satış › İade'ye manuel iade); Excel yüklemesi
+    # Dosya kapısında isteğe bağlı duruyor, görev ve uyarı yok.
     # Takip DIŞI: gerektiğinde zaman zaman yapılıyor — atama ve uyarı yok (ayarlardan açılabilir)
     dict(anahtar="satis_dokumu", ad="Satış fatura dökümü", modul="satis", sayfa="Satış › Satışlar",
          siklik="aylik", son_gun=5, yon="geri", tarih_turu="yukleme", sorumlu="", aktif=False),
@@ -261,10 +262,6 @@ def _oku_musteri_haftalik():
     return _max_kolon("firma_stok", "yukleme_tarihi")
 
 
-def _oku_iade_aylik():
-    return _max_kolon("iadeler", "tarih", {"kaynak": "excel"})
-
-
 def _oku_aktif(tip):
     from kayranacc.database import aktif_excel_meta_oku
     return _tarih((aktif_excel_meta_oku(tip) or {}).get("yukleme_zamani"))
@@ -285,7 +282,6 @@ def _oku_gider(bugun):
 
 _OKUYUCU = {
     "musteri_haftalik": lambda b: _oku_musteri_haftalik(),
-    "iade_aylik": lambda b: _oku_iade_aylik(),
     "aktif_stok": lambda b: _oku_aktif("stok"),
     "aktif_ithalat": lambda b: _oku_aktif("ithalat"),
     "aktif_cari": lambda b: _oku_aktif("cari"),
