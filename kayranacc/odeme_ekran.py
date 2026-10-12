@@ -345,9 +345,11 @@ def _manuel_dialog(kategoriler, hafta):
 
 
 # ════════════════════════════════════════════════════════════════════
-def render_ertelenenler(kategoriler):
+def render_ertelenenler(kategoriler, bankalar=None, kur=0.0):
     """Ertelenen ödemeler — KALICI kayıttan (ödeme kaydındaki orijinal_vade /
-    ertelendi_sayisi). Eskiden yalnız tarayıcı oturumundaki liste okunuyordu."""
+    ertelendi_sayisi). Eskiden yalnız tarayıcı oturumundaki liste okunuyordu.
+    Satıra tıklayınca Bu Hafta'daki ödeme penceresi açılır (öde / kısmi öde / ötele / düzenle) — Ekim 2026;
+    eskiden satırlar yalnız yazıydı, ertelenen ödeme buradan ödenemiyordu."""
     st.markdown(_css(), unsafe_allow_html=True)
     B.baslik_eylem("⏳ Muhasebe", "Ertelenen Ödemeler",
                    aciklama="Vadesi ötelenmiş ödemeler: ilk vade, kaç kez ertelendiği, şimdiki durumu.")
@@ -380,11 +382,16 @@ def render_ertelenenler(kategoriler):
         fark = f"{(simdi - ilk).days} gün kaydı" if ilk and simdi else ""
         kat_lbl = kategoriler.get(o.get("kategori") or "diger", {}).get("label", "")
         ad, renk = _DURUM[H.vade_durumu(o, bugun)]
-        st.markdown(
-            f'<div style="padding:10px 14px;border:1px solid var(--k-kenar);border-left:3px solid var(--k-{renk});'
-            f'border-radius:10px;background:var(--k-yuzey1);margin-bottom:6px">'
+        B.tiklanir(
+            f"ert{o['id']}",
             f'<div class="od-s"><div style="min-width:0"><div class="od-f"><b>{_h.escape(str(o.get("firma") or ""))}</b>'
             f'{B.cip(str(int(o.get("ertelendi_sayisi") or 1)) + "× ertelendi", "amber")}</div>'
             f'{B.meta(kat_lbl, (f"ilk vade {ilk:%d.%m.%Y}" if ilk else ""), (f"şimdi {simdi:%d.%m.%Y}" if simdi else ""), fark)}</div>'
-            f'<div class="od-t" style="--d:var(--k-{renk})"><b>{_tutar(o)}</b><small>{ad}</small></div></div></div>',
-            unsafe_allow_html=True)
+            f'<div class="od-t" style="--d:var(--k-{renk})"><b>{_tutar(o)}</b><small>{ad}</small></div></div>',
+            _ac, (o["id"],), tur="satir", renk=renk, etiket=f"{o.get('firma', '')} ödemesi")
+    sec = B.detay_istendi("od")       # Bu Hafta ile aynı pencere: öde / kısmi öde / ötele / düzenle / sil
+    if sec:
+        o = next((x for x in liste if x.get("id") == sec), None)
+        if o:
+            _odeme_dialog(o, kategoriler, bankalar if bankalar is not None else (get_bankalar() or []),
+                          float(kur or 0))
