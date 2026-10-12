@@ -271,6 +271,7 @@ TUM_URUN_KOLONLAR = [
     ("Alınan Adet", "Alınan Adet"),
     ("Maliyet %", "Maliyet %"),
     ("Paçal Maliyet ($)", "Final Cost ($)"),
+    ("Canlı Paçal Maliyet ($)", "Canlı Paçal ($)"),
     ("Son Maliyet ($)", "Son Maliyet ($)"),
     ("Satış ($)", "Satış ($)"),
     ("Net Marj (%)", "Net Marj (%)"),
@@ -300,7 +301,8 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
             c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             c.border = thin_border()
 
-        para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Son Maliyet ($)", "Satış ($)", "Net Kâr ($)"}
+        para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Canlı Paçal Maliyet ($)", "Son Maliyet ($)",
+                    "Satış ($)", "Net Kâr ($)"}
         pct_kol = {"Maliyet %", "Net Marj (%)"}
         sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)", "Alınan Adet"}
 
@@ -365,11 +367,12 @@ def tum_urunler_pdf(rows, kayit_yolu, meta=""):
             ("SKU", "SKU"), ("Ürün", "Ürün Adı"), ("Kat.", "Kategori"),
             ("Yaş", "_stok_yas"), ("G5F", "G5F Depo"), ("+Kanal", "Kanal dahil"),
             ("PaçFOB$", "FOB ($)"), ("SonFOB$", "Son FOB ($)"),
-            ("Paçal$", "Final Cost ($)"), ("SonMal$", "Son Maliyet ($)"),
+            ("Paçal$", "Final Cost ($)"), ("Canlı$", "Canlı Paçal ($)"), ("SonMal$", "Son Maliyet ($)"),
             ("Satış$", "Satış ($)"),
             ("Marj%", "Net Marj (%)"), ("Net Kâr$", "Net Kar ($)"),
         ]
-        para_keys = {"FOB ($)", "Son FOB ($)", "Final Cost ($)", "Son Maliyet ($)", "Satış ($)", "Net Kar ($)"}
+        para_keys = {"FOB ($)", "Son FOB ($)", "Final Cost ($)", "Canlı Paçal ($)", "Son Maliyet ($)", "Satış ($)",
+                     "Net Kar ($)"}
         pct_keys = {"Net Marj (%)"}
 
         def _f2(v, para=False, pct=False):

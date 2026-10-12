@@ -11,6 +11,7 @@ import pandas as pd
 from datetime import timedelta
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek yazım (Eki 2026)
 from shared.utils import firma_kanonik   # eski 'KANAL' → DİĞER (Eki 2026)
+from kayranpm.canli_pacal import aciklama as _canli_aciklama   # canlı paçal kart alt satırı
 
 try:
     from shared.utils import gun_ay_yil, tr_today, firma_gorunen_ad
@@ -197,6 +198,11 @@ def goster(sku):
         pacal_final = float((_gpm() or {}).get(_skn_p(sku), 0) or 0)
     except Exception:  # noqa: BLE001
         pacal_final = 0.0
+    try:
+        from kayranpm.canli_pacal import bul as _canli_bul
+        canli = _canli_bul(sku)                   # eldeki malın maliyeti (yalnız gösterim)
+    except Exception:  # noqa: BLE001
+        canli = None
     son = next((a for a in alimlar if _f(a.get("birim_fob")) > 0), (alimlar[0] if alimlar else {}))
     son_fob = _f(son.get("birim_fob"))
     son_final = _f(son.get("final_birim"))
@@ -336,6 +342,8 @@ def goster(sku):
             _kart1,
             _kart("Stok Değeri", _usd(stok_degeri), "paçal × satılabilir stok", trenk("mavi")),
             _kart("Paçal Maliyet", _usd(pacal_final), "adet-ağırlıklı", trenk("kirmizi"), anlam="notr"),
+            _kart("Canlı Paçal", _usd(canli["pacal"]) if canli else "—", _canli_aciklama(canli),
+                  trenk("amber"), anlam="notr"),
             _kart("Liste Satış", _usd(liste_fiyat), "güncel", trenk("mor2")),
         ])
 
@@ -436,7 +444,24 @@ def goster(sku):
                 _kart("Toplam Alınan", f"{tr_sayi(_adet_t)}", f"{len(alimlar)} parti", trenk("yesil")),
                 _kart("Son Alım FOB", _usd(son_fob), gun_ay_yil(son_tarih), trenk("amber")),
                 _kart("Paçal (Final)", _usd(pacal_final), "teslim alınan partiler", trenk("kirmizi"), anlam="notr"),
+                _kart("Canlı Paçal", _usd(canli["pacal"]) if canli else "—", _canli_aciklama(canli),
+                      trenk("amber"), anlam="notr"),
             ])
+            if canli and canli.get("kalanlar"):
+                # Eldeki stok hangi partilerden: en yeni partiden geriye (satılan eski partiden çıkmış sayılır)
+                st.markdown("**Eldeki stoğun partileri** · canlı paçal bunların ağırlıklı ortalaması")
+                _kl = [{"Giriş": gun_ay_yil(x["giris"]), "Belge": x["belge"], "Eldeki adet": x["kalan"],
+                        "Birim maliyet ($)": round(x["final"], 2), "Tutar ($)": round(x["kalan"] * x["final"], 2)}
+                       for x in canli["kalanlar"]]
+                if canli.get("kayitsiz"):
+                    _kl.append({"Giriş": "—", "Belge": "giriş kaydı yok (paçalla)", "Eldeki adet": canli["kayitsiz"],
+                                "Birim maliyet ($)": round(pacal_final, 2),
+                                "Tutar ($)": round(canli["kayitsiz"] * pacal_final, 2)})
+                st.dataframe(pd.DataFrame(_kl), hide_index=True, use_container_width=True,
+                             column_config={
+                                 "Eldeki adet": st.column_config.NumberColumn(format="localized", step=1),
+                                 "Birim maliyet ($)": st.column_config.NumberColumn(format="dollar", step=0.01),
+                                 "Tutar ($)": st.column_config.NumberColumn(format="dollar", step=0.01)})
             # Maliyet trendi
             if len(alimlar) >= 2:
                 _onceki = [_f(a["final_birim"]) for a in alimlar[1:] if _f(a["final_birim"]) > 0]

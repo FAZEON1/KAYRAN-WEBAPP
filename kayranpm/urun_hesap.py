@@ -104,6 +104,7 @@ def urun_satiri(u):
         "Son FOB ($)": son_fob if (ith_var and son_fob) else None,
         "Maliyet %": maliyet_yuzde,
         "Final Cost ($)": fcp if ith_var else None,
+        "Canlı Paçal ($)": (float(u.get("canli_pacal") or 0) or None),
         "Son Maliyet ($)": son_fcp if (ith_var and son_fcp) else None,
         "Son Geliş": (str(u.get("son_tarih") or "")[:10] or None) if ith_var else None,
         "Alınan Adet": (int(round(float(u.get("toplam_alinan_adet") or 0))) or None) if ith_var else None,

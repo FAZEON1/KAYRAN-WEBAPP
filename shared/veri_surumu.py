@@ -61,6 +61,7 @@ BAGIMLILAR = (
     ("ithalat.database", "get_ithalat_yolda_ozet"),
     ("shared.ana_veri", "get_kategori_ad_haritasi"),
     ("shared.ana_veri", "get_urun_ad_haritasi"),
+    ("kayranpm.canli_pacal", "harita"),
 )
 
 
