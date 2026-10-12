@@ -164,7 +164,8 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.yurtici_ekran": ["goster"],
     "shared.islem": ["kur", "bekle"],
     "shared.modul_tazele": ["tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
-    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
+    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
+                               "kategori_musteri"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
         "_ayarlar_hepsi", "_tum_kurlar",          # tek istekte ayarlar / kurlar (hızlandırma)

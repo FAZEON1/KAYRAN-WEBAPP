@@ -311,3 +311,40 @@ def ozet(rows):
     return {"satis": s, "stok": st, "hafta": len(hs), "haftalik_ort": ort,
             "kapsama": (st / ort) if ort > 0 else None, "seri": [sum(satis(r) for r in rows if _hafta(r) == h)
                                                                   for h in hs], "haftalar": hs}
+
+
+def kategori_musteri(rows, meta=None, pacal=None, sku_fn=None):
+    """Kategori × müşteri stok tablosu (Ekim 2026): her (müşteri, SKU) için aralıktaki SON rapor stoğu
+    (Kanal stoğu kartıyla aynı kural), kategoriye ve müşteriye göre. Değer = adet × paçal maliyet (USD).
+    pacal: {sku_anahtar: birim maliyet}; ürünün kartı bulunduysa kart SKU'suyla, yoksa rapor SKU'suyla aranır.
+    Döner: {"firmalar": [stoğa göre azalan], "satirlar": [{"kategori", "hucre": {firma: (adet, usd)},
+            "adet", "usd"}] (adede göre azalan), "toplam": {firma: (adet, usd)}, "adet", "usd",
+            "maliyetsiz": [stoğu olup paçalı bulunamayan SKU'lar]}"""
+    sku_fn = sku_fn or (lambda s: str(s or "").strip().upper())
+    pacal = pacal or {}
+    hucre, maliyetsiz = {}, set()
+    for r in _son_raporlar(rows).values():
+        adet = stok(r)
+        if adet <= 0:
+            continue
+        sku = _sku(r)
+        m = (meta or {}).get(sku) or {}
+        kat = (m.get("kategori") or "").strip() or "Kategorisiz"
+        birim = pacal.get(sku_fn(m.get("kart_sku") or sku)) or pacal.get(sku_fn(sku)) or 0.0
+        if not birim:
+            maliyetsiz.add(sku)
+        a, u = hucre.setdefault(kat, {}).get(_firma(r), (0, 0.0))
+        hucre[kat][_firma(r)] = (a + adet, u + adet * float(birim))
+    firma_top = {}
+    for f_h in hucre.values():
+        for f, (a, u) in f_h.items():
+            x = firma_top.get(f, (0, 0.0))
+            firma_top[f] = (x[0] + a, x[1] + u)
+    satirlar = [{"kategori": k, "hucre": h, "adet": sum(a for a, _ in h.values()),
+                 "usd": round(sum(u for _, u in h.values()), 2)} for k, h in hucre.items()]
+    satirlar.sort(key=lambda s: (-s["adet"], s["kategori"]))
+    firmalar = sorted(firma_top, key=lambda f: (-firma_top[f][0], f))
+    return {"firmalar": firmalar, "satirlar": satirlar,
+            "toplam": {f: (a, round(u, 2)) for f, (a, u) in firma_top.items()},
+            "adet": sum(s["adet"] for s in satirlar), "usd": round(sum(s["usd"] for s in satirlar), 2),
+            "maliyetsiz": sorted(maliyetsiz)}
