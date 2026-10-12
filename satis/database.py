@@ -1213,7 +1213,7 @@ def _kart_sku(sku, harita=None):
 
 def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
               iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0,
-              depo=None, kaynak="manuel", stok_isle=True):
+              depo=None, kaynak="manuel", stok_isle=True, kimlik=False):
     """Tek iade kaydı. depo: malın fiziksel olarak girdiği depo.
 
     Eskiden iade her zaman MERKEZ DEPO'ya yazılıyordu; mal başka depoya
@@ -1221,7 +1221,15 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
     kaynak='manuel' → ay sonu toplu import bu satırı 'avans' sayıp mükerrer yazmaz.
     stok_isle=False: stok başka yerde işlendi (teknik servis mal kabulü +1 yazdı), yalnız kayıt.
     Toplu mal kabul yüklemesi içindeyse eklenen satır geri alma için bildirilir.
+    kimlik=True: (ok, mesaj, id) döner — teknik servis kaydı iade satırına bağlansın diye.
     """
+    r = _ekle_iade(tarih, kanal, sku, urun_adi, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net,
+                   depo, kaynak, stok_isle)
+    return r if kimlik else r[:2]
+
+
+def _ekle_iade(tarih, kanal, sku, urun_adi, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net,
+               depo, kaynak, stok_isle):
     try:
         _depo = (str(depo or "").strip() or "MERKEZ DEPO")
         sku = _kart_sku(sku)              # 'Fazeon X' → kartın yazımı (Ekim 2026)
@@ -1244,9 +1252,40 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
         if stok_isle:
             _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1)
         _temizle()
-        return True, f"✅ İade kaydedildi → {_depo}"
+        _id = next((r.get("id") for r in (getattr(_res, "data", None) or []) if isinstance(r, dict)), None)
+        return True, f"✅ İade kaydedildi → {_depo}", _id
     except Exception as e:
-        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}"
+        return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}", None
+
+
+def iade_tutar_guncelle(iade_id, iade_net):
+    """Tek iade satırının tutarını günceller (teknik servis kaydında iade faturası fiyatı sonradan girildi).
+    Yalnız manuel kayıtlar: Excel partisi kendi dosyasından gelir, ona dokunulmaz. Stok değişmez.
+    Döner: (ok, mesaj)."""
+    try:
+        r = (_get_client().table("iadeler").update({"iade_net": _f(iade_net), "iade_brut": _f(iade_net)})
+             .eq("id", iade_id).eq("kaynak", "manuel").execute())
+        _temizle()
+        if not getattr(r, "data", None):
+            return False, "Bağlı iade satırı bulunamadı ya da Excel kaydı (değiştirilmedi)."
+        return True, "İade tutarı güncellendi."
+    except Exception as e:  # noqa: BLE001
+        return False, f"İade tutarı güncellenemedi: {type(e).__name__}: {str(e)[:120]}"
+
+
+def manuel_iade_bul(sku, kanal, tarih, iade_net=None):
+    """Bağlantısı olmayan eski servis kaydı için karşılık gelen manuel iade satırı: aynı SKU (kart yazımı),
+    firma ve gün; tutar verilmişse o da tutmalı. Birden çoksa en eski. Bulunamazsa None."""
+    try:
+        sku = _kart_sku(sku)
+        q = (_get_client().table("iadeler").select("id,iade_net,kanal").eq("sku", sku).eq("tarih", str(tarih)[:10])
+             .eq("kaynak", "manuel"))
+        satirlar = [r for r in _rows(q.order("id").execute()) if str(r.get("kanal") or "") == str(kanal or "")]
+        if iade_net not in (None, ""):
+            satirlar = [r for r in satirlar if abs(_f(r.get("iade_net")) - _f(iade_net)) < 0.005]
+        return satirlar[0]["id"] if satirlar else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 @st.cache_data(ttl=3600, show_spinner=False)   # UZUN: shared.veri_surumu (satislar/iadeler) tazeler

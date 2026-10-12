@@ -66,7 +66,9 @@ _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   # Madde 8: kaydın hangi sevk irsaliyesiyle gönderildiği
                   "irsaliye_no",
                   # Ekim 2026: mal kabulde seçilen giriş deposu (kanonik ad) ve iade net tutarı (USD)
-                  "giris_depo", "iade_net")
+                  "giris_depo", "iade_net",
+                  # Ekim 2026: iade faturası birim fiyatı (asıl para birimiyle), kur ve bağlı iadeler satırı
+                  "iade_fiyat", "iade_pb", "iade_kur", "iade_id")
 
 
 @st.cache_resource
@@ -547,6 +549,25 @@ def kayit_guncelle(kayit_id, alanlar):
         except Exception:
             alanlar = {k: v for k, v in alanlar.items() if k not in _YENI_KOLONLAR}
             sb.table("ts_kayitlar").update(alanlar).eq("id", kayit_id).execute()
+        _cache_temizle()
+        return True
+    except Exception:
+        return False
+
+
+def kayit_guncelle_form(form_no, alanlar):
+    """Servis form no ile güncelle (mal kabul anında kimlik elde yok, form no var). Döner: bool."""
+    if not str(form_no or "").strip():
+        return False
+    try:
+        sb = get_client()
+        try:
+            sb.table("ts_kayitlar").update(alanlar).eq("servis_form_no", form_no).execute()
+        except Exception:
+            alanlar = {k: v for k, v in alanlar.items() if k not in _YENI_KOLONLAR}
+            if not alanlar:
+                return False
+            sb.table("ts_kayitlar").update(alanlar).eq("servis_form_no", form_no).execute()
         _cache_temizle()
         return True
     except Exception:

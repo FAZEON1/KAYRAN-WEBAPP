@@ -133,6 +133,64 @@ def giris_depo_coz(metin, arayuz=""):
     return k if k in MAL_KABUL_DEPOLAR else None
 
 
+# İade faturasındaki birim fiyat (KDV hariç) iki para biriminde girilebilir (Ekim 2026, kullanıcı
+# kararı): USD olduğu gibi; TL, iade tarihindeki kurla USD'ye çevrilir. Raporlar (Satış › İade, P&L)
+# USD okur; asıl tutar ve kullanılan kur servis kaydında saklanır.
+PARA_BIRIMLERI = ["USD", "TL"]
+
+
+def iade_usd(fiyat, para_birimi, kur):
+    """Birim fiyat → USD. USD olduğu gibi; TL kur ile bölünür (kur yoksa / 1'den küçükse None)."""
+    try:
+        f = float(fiyat or 0)
+    except (TypeError, ValueError):
+        return None
+    if str(para_birimi or "USD").strip().upper() in ("TL", "TRY", "₺"):
+        try:
+            k = float(kur or 0)
+        except (TypeError, ValueError):
+            k = 0.0
+        return round(f / k, 4) if k > 1 else None
+    return round(f, 4)
+
+
+def kur_bul(tarih=None):
+    """O günün (yoksa önceki 10 günün en yakın) USD/TL kuru; hiç yoksa güncel kur; o da yoksa None."""
+    from datetime import date as _date, timedelta as _td
+    try:
+        t = _date.fromisoformat(str(tarih or _date.today())[:10])
+    except ValueError:
+        t = _date.today()
+    try:
+        from kayranacc.database import get_kur_araligi
+        kmap = get_kur_araligi((t - _td(days=10)).isoformat(), t.isoformat()) or {}
+        gun = sorted(g for g, k in kmap.items() if k and float(k) > 1)
+        if gun:
+            return float(kmap[gun[-1]])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from gunluk import get_doviz
+        k = float((get_doviz() or {}).get("USD") or 0)
+        return k if k > 1 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def iade_fiyat_metni(kayit):
+    """Servis kaydındaki iade birim fiyatının ekran metni: '$23,53' ya da '₺1.000,00 (kur 42,50 → $23,53)'."""
+    from shared.tasarim import tr_sayi
+    k = kayit or {}
+    usd = k.get("iade_net")
+    if usd in (None, ""):
+        return "—"
+    pb = str(k.get("iade_pb") or "USD").upper()
+    if pb == "TL" and k.get("iade_fiyat") not in (None, ""):
+        return (f"₺{tr_sayi(float(k['iade_fiyat']), 2)} (kur {tr_sayi(float(k.get('iade_kur') or 0), 2)}"
+                f" → ${tr_sayi(float(usd), 2)})")
+    return f"${tr_sayi(float(usd), 2)}"
+
+
 def tutar_coz(metin):
     """Excel hücresindeki tutar: '1.234,56' (TR), '1234.56' (Excel sayısı), '1,5' → float; boş → 0;
     sayı değilse None."""
@@ -168,7 +226,8 @@ def iade_kaydi_yaz(kayit, tarih=None):
     """İade türündeki mal kabul, Satış › İade'deki 'manuel iade' gibi iadeler tablosuna da yazılır:
     P&L iadeyi düşer (net tutar girildiyse), ay sonu iade Excel'i yüklenirse mükerrer sayılmaz
     (kaynak='manuel' → avans). Stok BURADA işlenmez; mal_kabul_girisi zaten işledi (stok_isle=False).
-    Teknik servis kaydı için hiçbir şey yapmaz. Döner: (ok, mesaj)."""
+    Yazılan iade satırının kimliği kayit['iade_id']'ye konur (fiyat sonradan değişince o satır
+    güncellenir). Teknik servis kaydı için hiçbir şey yapmaz. Döner: (ok, mesaj)."""
     k = kayit or {}
     if str(k.get("arayuz") or "").strip().lower() != "iade":
         return True, ""
@@ -182,14 +241,49 @@ def iade_kaydi_yaz(kayit, tarih=None):
             net = float(k.get("iade_net") or 0)
         except (TypeError, ValueError):
             net = 0.0
-        ok, msg = ekle_iade(str(tarih or _date.today())[:10], str(k.get("firma_bilgisi") or "").strip(),
-                            sku, ad, 1, iade_net=net, depo=giris_deposu(k), kaynak="manuel", stok_isle=False)
+        ok, msg, iade_id = ekle_iade(str(tarih or _date.today())[:10], str(k.get("firma_bilgisi") or "").strip(),
+                                     sku, ad, 1, iade_net=net, depo=giris_deposu(k), kaynak="manuel",
+                                     stok_isle=False, kimlik=True)
         if not ok:
             return False, f"iade kaydı açılamadı ({msg})"
+        if iade_id is not None and isinstance(kayit, dict):
+            kayit["iade_id"] = iade_id
         from shared.tasarim import tr_sayi
         return True, (f"{sku} iade kaydı açıldı" + (f" · net ${tr_sayi(net, 2)}" if net else " · tutar girilmedi"))
     except Exception as e:  # noqa: BLE001
         return False, f"iade kaydı açılamadı ({type(e).__name__}: {str(e)[:80]})"
+
+
+def iade_fiyat_guncelle(kayit, fiyat, para_birimi, kur=None):
+    """İade faturası sonradan gelince birim fiyat girilir / düzeltilir. Servis kaydı ve bağlı iade satırı
+    (Satış › İade, P&L) birlikte güncellenir. TL ise kur verilmezse kaydın mal kabul gününün kuru
+    kullanılır. Bağlı iade satırı yoksa (eski kayıt) aynı SKU · firma · gün · eski tutarlı manuel iade
+    aranır; bulunamazsa YENİ satır açılmaz (eski kayıtlar ay sonu Excel'iyle de girmiş olabilir —
+    çift sayılmasın), yalnız servis kaydı güncellenir ve mesaj söyler.
+    Döner: (ok, mesaj, alanlar) — alanlar servis kaydına yazılanlar."""
+    from teknikservis.database import kayit_guncelle
+    from satis.database import iade_tutar_guncelle, manuel_iade_bul
+    k = kayit or {}
+    pb = "TL" if str(para_birimi or "").strip().upper() in ("TL", "TRY", "₺") else "USD"
+    if pb == "TL" and not kur:
+        kur = kur_bul(k.get("mal_kabul_tarihi"))
+    usd = iade_usd(fiyat, pb, kur)
+    if usd is None:
+        return False, "TL fiyat için kur bulunamadı — fiyat kaydedilmedi", {}
+    alanlar = {"iade_fiyat": float(fiyat or 0), "iade_pb": pb, "iade_kur": float(kur) if pb == "TL" else None,
+               "iade_net": usd}
+    iade_id = k.get("iade_id")
+    if not iade_id:
+        iade_id = manuel_iade_bul(_sku_ad(k)[0], str(k.get("firma_bilgisi") or "").strip(),
+                                  str(k.get("mal_kabul_tarihi") or "")[:10], k.get("iade_net"))
+        if iade_id:
+            alanlar["iade_id"] = iade_id
+    if not kayit_guncelle(k.get("id"), alanlar):
+        return False, "servis kaydı güncellenemedi", {}
+    if not iade_id:
+        return True, "Fiyat servis kaydına yazıldı; Satış › İade'de bağlı iade satırı bulunamadı (eski kayıt).", alanlar
+    ok, msg = iade_tutar_guncelle(iade_id, usd)
+    return ok, (f"İade tutarı güncellendi: {iade_fiyat_metni(dict(k, **alanlar))}" if ok else msg), alanlar
 
 
 def gonderildi_cikisi(kayit):
