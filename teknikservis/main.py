@@ -15,7 +15,7 @@ from .database import (
     depo_aciklamalar, ekle_depo_aciklama,
     DEPOLAR, FIRMA_ONERILER, TS_FIRMALAR,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
-    kayit_guncelle, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, sla_bitis_haritasi,
+    kayit_guncelle, kayit_guncelle_form, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, sla_bitis_haritasi,
     ithalat_model_listesi,
     ts_urun_gruplari, servis_formu_pdf,
     depo_etiket_pdf, evraksiz_depo_kayit,
@@ -174,7 +174,7 @@ def _mal_kabul():
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
                    "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay",
-                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net", "mk_iade_pb"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
@@ -196,7 +196,7 @@ def _mal_kabul():
         for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
-                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net", "mk_iade_pb"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
@@ -214,7 +214,7 @@ _TOPLU_MAL_KABUL_KOL = ["İşlem Türü (Teknik/İade)", "Stok Kodu", "Stok Adı
                         "Fatura No", "İrsaliye No", "Firma Servis Form No", "Fiziksel Durum",
                         # Ekim 2026: giriş deposu (boşsa İade → İADE DEPO, Teknik → TEKNİK DEPO) ve
                         # iade net tutarı ($, P&L için; boş = 0)
-                        "Giren Depo", "İade Net Tutar"]
+                        "Giren Depo", "İade Birim Fiyat", "Para Birimi"]
 
 
 def sablon_mal_kabul():
@@ -230,8 +230,9 @@ def kapi_mal_kabul(dosya, kapi):
     st.caption("Zorunlu sütunlar: **İşlem Türü, Stok Kodu, Seri No** (yoksa NO SERIAL NUMBER yaz), "
                "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur. "
                "**Giren Depo** boşsa iade İADE DEPO'ya, teknik TEKNİK DEPO'ya girer; doğrudan satılacak iade için "
-               "MERKEZ DEPO ya da HAPPY LIFE yaz. İade satırları Satış › İade'ye manuel iade olarak da düşer "
-               "(**İade Net Tutar** $, boş = 0).")
+               "MERKEZ DEPO ya da HAPPY LIFE yaz. İade satırları Satış › İade'ye manuel iade olarak da düşer: "
+               "**İade Birim Fiyat** faturadaki KDV hariç birim fiyat (boş = 0), **Para Birimi** USD ya da TL "
+               "(boş = USD; TL bugünün kuruyla çevrilir).")
     try:
         _tdf = pd.read_excel(dosya, dtype=str).fillna("")
         _tdf.columns = [str(c).strip() for c in _tdf.columns]
@@ -248,6 +249,7 @@ def kapi_mal_kabul(dosya, kapi):
         _mevcut_seri = tum_seriler()
         _gecerli, _hatali = [], []
         _dosya_seri = set()
+        _kur_tl = None                       # TL fiyatlı satır varsa bir kez okunur
         for _i, _r in _tdf.iterrows():
             # Türkçe 'İ' tuzağı: "İade".lower() bozuk karakter üretir → önce I'ya çevir
             _tur_h = (_tv(_r, "İşlem Türü (Teknik/İade)", "İşlem Türü", "Tür")
@@ -271,11 +273,23 @@ def kapi_mal_kabul(dosya, kapi):
             if _tur and _depo_t and not _depo_k:
                 _sorunlar.append(f"Giren Depo tanınmadı: {_depo_t} (seçenekler: "
                                  + ", ".join(_stok.MAL_KABUL_DEPOLAR) + ")")
-            _net_t = _tv(_r, "İade Net Tutar", "İade Net", "Net Tutar")
+            _net_t = _tv(_r, "İade Birim Fiyat", "Birim Fiyat", "İade Net Tutar", "İade Net", "Net Tutar")
             _net_v = _stok.tutar_coz(_net_t)
             if _net_v is None:
                 _net_v = 0.0
-                _sorunlar.append(f"İade Net Tutar sayı değil: {_net_t}")
+                _sorunlar.append(f"İade Birim Fiyat sayı değil: {_net_t}")
+            _pb_t = (_tv(_r, "Para Birimi", "Döviz") or "USD").upper().replace("₺", "TL").replace("TRY", "TL")
+            if _pb_t not in _stok.PARA_BIRIMLERI:
+                _sorunlar.append(f"Para Birimi USD ya da TL olmalı: {_pb_t}")
+                _pb_t = "USD"
+            _usd_v = _net_v
+            if _tur == "iade" and _pb_t == "TL" and _net_v:
+                if _kur_tl is None:
+                    _kur_tl = _stok.kur_bul() or 0.0
+                _usd_v = _stok.iade_usd(_net_v, "TL", _kur_tl)
+                if _usd_v is None:
+                    _usd_v = 0.0
+                    _sorunlar.append("TL fiyat için USD kuru bulunamadı")
             if _sorunlar:
                 _hatali.append(f"Satır {_i + 2}: eksik → {', '.join(_sorunlar)}")
                 continue
@@ -307,7 +321,9 @@ def kapi_mal_kabul(dosya, kapi):
                 "fatura_mevcut": bool(_fno_t),
                 "firma_servis_form_no": _tv(_r, "Firma Servis Form No"),
                 "fiziksel_durum": _tv(_r, "Fiziksel Durum"),
-                "giris_depo": _depo_k, "iade_net": _net_v if _tur == "iade" else None,
+                "giris_depo": _depo_k,
+                **({"iade_fiyat": _net_v, "iade_pb": _pb_t, "iade_net": _usd_v,
+                    "iade_kur": (_kur_tl or None) if _pb_t == "TL" else None} if _tur == "iade" else {}),
             }})
         _muk_say = sum(1 for g in _gecerli if g["_muk"])
         st.markdown(f"**{len(_gecerli)}** geçerli satır · **{len(_hatali)}** hatalı"
@@ -321,7 +337,7 @@ def kapi_mal_kabul(dosya, kapi):
                 "Stok": g["veri"]["stok_kodu"], "Ad": g["veri"]["stok_adi"][:36],
                 "Seri": g["veri"]["seri_no"], "Firma": g["veri"]["firma_bilgisi"][:28],
                 "Arıza": g["veri"]["ariza"][:32], "Depo": g["veri"]["giris_depo"] or "",
-                "İade net": g["veri"]["iade_net"] if g["veri"]["arayuz"] == "iade" else None,
+                "İade fiyat": (_stok.iade_fiyat_metni(g["veri"]) if g["veri"]["arayuz"] == "iade" else ""),
                 "Mükerrer": "evet" if g["_muk"] else "",
             } for g in _gecerli[:100]]), hide_index=True, use_container_width=True,
                 height=min(320, 60 + 36 * min(len(_gecerli), 8)))
@@ -343,6 +359,8 @@ def kapi_mal_kabul(dosya, kapi):
                         if _okk:
                             _stok.mal_kabul_girisi(_g["veri"])   # +1 seçilen giriş deposu
                             _stok.iade_kaydi_yaz(_g["veri"])     # iade ise Satış › İade'ye manuel kayıt
+                            if _g["veri"].get("iade_id"):
+                                kayit_guncelle_form(_fnok, {"iade_id": _g["veri"]["iade_id"]})
                     if _okk:
                         _ok_s += 1
                     else:
@@ -583,14 +601,18 @@ def _mal_kabul_dialog():
                                     index=_stok.MAL_KABUL_DEPOLAR.index(_varsayilan_depo), key="mk_giris_depo",
                                     help="Ürün fiziksel olarak hangi depoya girdiyse onu seç; stok o depoya eklenir. "
                                          "Doğrudan satılacak iade için MERKEZ DEPO ya da HAPPY LIFE.")
-        iade_net = 0.0
+        iade_fiyat, iade_pb = 0.0, "USD"
         if arayuz == "iade":
-            iade_net = _gd2.number_input("İade net tutar ($, isteğe bağlı)", min_value=0.0, step=1.0,
-                                         format="%.2f", key="mk_iade_net",
-                                         help="Satış › İade'deki manuel iade gibi kaydedilir; P&L iadeyi bu tutarla "
-                                              "düşer. Bilinmiyorsa 0 bırak.")
+            # İade faturasındaki birim fiyat (KDV hariç), USD ya da TL (TL bugünün kuruyla USD'ye çevrilir)
+            _gf1, _gf2 = _gd2.columns([1.6, 1])
+            iade_fiyat = _gf1.number_input("İade faturası birim fiyatı (KDV hariç)", min_value=0.0, step=1.0,
+                                           format="%.2f", key="mk_iade_net",
+                                           help="Faturadaki birim fiyat. Satış › İade raporu ve P&L iadeyi bu tutarla "
+                                                "düşer. Fatura henüz yoksa 0 bırak; sonradan kayıttan girilir.")
+            iade_pb = _gf2.selectbox("Para birimi", _stok.PARA_BIRIMLERI, key="mk_iade_pb",
+                                     help="TL girilirse bugünün USD kuruyla çevrilir; TL tutar ve kur kayıtta saklanır.")
             st.caption("İade kaydı Satış › İade listesine de düşer (manuel iade); ay sonu iade Excel'i "
-                       "yüklenirse mükerrer sayılmaz.")
+                       "yüklenirse mükerrer sayılmaz. Fatura sonradan gelirse fiyatı kayıttan girebilirsin.")
 
         kaydet = st.form_submit_button("Kayıt Tamamla", type="primary", use_container_width=True, icon=":material/check_circle:")
 
@@ -655,8 +677,16 @@ def _mal_kabul_dialog():
             "fatura_mevcut": bool(fatura_mevcut),
             "firma_servis_form_no": firma_servis_no.strip(),
             "fiziksel_durum": fiziksel.strip(),
-            "giris_depo": giris_depo, "iade_net": float(iade_net or 0) if arayuz == "iade" else None,
+            "giris_depo": giris_depo,
         }
+        if arayuz == "iade":
+            _kur = _stok.kur_bul() if (iade_pb == "TL" and iade_fiyat) else None
+            _usd = _stok.iade_usd(iade_fiyat, iade_pb, _kur)
+            if _usd is None:
+                st.error("TL fiyat için USD kuru bulunamadı. Fiyatı USD gir ya da 0 bırakıp sonradan kayıttan gir.")
+                return
+            data.update({"iade_fiyat": float(iade_fiyat or 0), "iade_pb": iade_pb,
+                         "iade_kur": _kur if iade_pb == "TL" else None, "iade_net": _usd})
         _personel = st.session_state.get("aktif_kullanici", "") or ""
         ok, msg, form_no = ekle_kayit(data, _personel)
         if ok:
@@ -668,6 +698,8 @@ def _mal_kabul_dialog():
             # ── Stok: seçilen giriş deposuna (+1); iade ise Satış › İade'ye de manuel iade kaydı ──
             _sok, _smsg = _stok.mal_kabul_girisi(data)
             _iok, _imsg = _stok.iade_kaydi_yaz(data)
+            if data.get("iade_id"):              # fiyat sonradan değişince bağlı iade satırı güncellensin
+                kayit_guncelle_form(form_no, {"iade_id": data["iade_id"]})
             if _sok and not _iok:
                 _sok, _smsg = False, f"{_smsg} · {_imsg}"
             elif _sok and _imsg:
@@ -844,6 +876,9 @@ def _ts_rapor_bayt(kayitlar, harita, sayfa_adi):
         "Durum": k.get("mevcut_durum", ""), "Sonuç": k.get("sonuc_durumu", ""),
         "SLA İş Günü": sla_is_gunu(k, harita), "Mal Kabül": _tarih_kisa(k.get("mal_kabul_tarihi")),
         "Depo": k.get("depo", ""), "Depo Açıklaması": k.get("depo_aciklama", ""),
+        "Giren Depo": k.get("giris_depo") or "",
+        "İade Birim Fiyat": sayi_ya_da_bos(k.get("iade_fiyat")), "Para Birimi": k.get("iade_pb") or "",
+        "Kur": sayi_ya_da_bos(k.get("iade_kur")), "İade Net ($)": sayi_ya_da_bos(k.get("iade_net")),
         "Fatura No": k.get("fatura_no", ""), "Fatura Mevcut": ("✓" if _fatura_var(k) else "✗"),
         "İrsaliye No": k.get("irsaliye_no", ""),
         "Firma Servis Form No": k.get("firma_servis_form_no", ""),
@@ -1089,6 +1124,32 @@ def _kontrol_paneli(kayit):
         if (_g(kayit, "eksik_icerik") or "").strip():
             _satir("⚠️ Eksik İçerik", _g(kayit, "eksik_icerik"))
         _satir("Fiziksel Durum", _g(kayit, "fiziksel_durum"))
+
+        if kayit.get("arayuz") == "iade":
+            _alt_baslik("İade faturası")
+            _satir("Birim fiyat (KDV hariç)", _stok.iade_fiyat_metni(kayit))
+            _satir("Giren depo", _g(kayit, "giris_depo") or _stok.giris_deposu(kayit) or "—")
+            with st.popover("İade faturası fiyatını gir / düzelt", icon=":material/receipt_long:"):
+                st.caption("Faturadaki KDV hariç birim fiyat. TL girilirse mal kabul gününün kuruyla USD'ye "
+                           "çevrilir; Satış › İade raporu ve P&L bu tutarı kullanır.")
+                _pf1, _pf2 = st.columns([1.6, 1])
+                _pb0 = str(kayit.get("iade_pb") or "USD").upper()
+                _f0 = kayit.get("iade_fiyat") if kayit.get("iade_fiyat") not in (None, "") else kayit.get("iade_net")
+                _yf = _pf1.number_input("Birim fiyat", min_value=0.0, step=1.0, format="%.2f",
+                                        value=float(_f0 or 0), key=f"ts_ifiyat_{kid}")
+                _ypb = _pf2.selectbox("Para birimi", _stok.PARA_BIRIMLERI,
+                                      index=_stok.PARA_BIRIMLERI.index(_pb0) if _pb0 in _stok.PARA_BIRIMLERI else 0,
+                                      key=f"ts_ipb_{kid}")
+                if st.button("Kaydet", key=f"ts_ifiyat_kaydet_{kid}", type="primary", icon=":material/save:"):
+                    _fok, _fmsg, _ = _stok.iade_fiyat_guncelle(kayit, _yf, _ypb)
+                    if _fok:
+                        durum_guncelle(kid, kayit.get("mevcut_durum", "mal kabül"),
+                                       st.session_state.get("aktif_kullanici", ""), f"İade fiyatı: {_fmsg}")
+                        st.session_state["_ts_bilgi"] = _fmsg
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(_fmsg)
 
         _alt_baslik("Arıza / İşlem")
         _satir("Müşteri Şikayet", _g(kayit, "ariza"))

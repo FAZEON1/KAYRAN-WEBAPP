@@ -83,20 +83,22 @@ def test_iade_kaydi_yaz_manuel_iade(monkeypatch):
 
     def _ekle(tarih, kanal, sku, urun_adi, adet, **kw):
         cagri.append((tarih, kanal, sku, urun_adi, adet, kw))
-        return True, "✅"
+        return True, "✅", 501
     monkeypatch.setattr(D, "ekle_iade", _ekle)
     k = {"arayuz": "iade", "stok_kodu": "SKU9", "stok_adi": "Ürün", "firma_bilgisi": "VATAN A.Ş.",
          "giris_depo": "MERKEZ DEPO", "iade_net": "123.4"}
     ok, msg = S.iade_kaydi_yaz(k, tarih="2026-10-12")
     assert ok and "SKU9" in msg and "123,40" in msg
     assert cagri == [("2026-10-12", "VATAN A.Ş.", "SKU9", "Ürün", 1,
-                      {"iade_net": 123.4, "depo": "MERKEZ DEPO", "kaynak": "manuel", "stok_isle": False})]
+                      {"iade_net": 123.4, "depo": "MERKEZ DEPO", "kaynak": "manuel", "stok_isle": False,
+                       "kimlik": True})]
+    assert k["iade_id"] == 501                                          # servis kaydı iade satırına bağlanır
     # teknik servis kaydı: iade değil, hiçbir şey yapmaz
     assert S.iade_kaydi_yaz({"arayuz": "teknik", "stok_kodu": "T"}) == (True, "") and len(cagri) == 1
     # tutar girilmedi: 0 ile yazılır, mesaj söyler
     ok, msg = S.iade_kaydi_yaz({"arayuz": "iade", "stok_kodu": "SKU0", "firma_bilgisi": "X"}, tarih="2026-10-12")
     assert ok and cagri[-1][5]["iade_net"] == 0.0 and "tutar girilmedi" in msg
-    monkeypatch.setattr(D, "ekle_iade", lambda *a, **k: (False, "❌ Hata"))
+    monkeypatch.setattr(D, "ekle_iade", lambda *a, **k: (False, "❌ Hata", None))
     assert not S.iade_kaydi_yaz(k)[0]
 
 
@@ -137,6 +139,7 @@ def test_ekle_iade_stok_isle_kapali_ve_yukleme_bildirimi(monkeypatch):
                         kaynak="manuel", stok_isle=False)
     assert ok and yazilan[-1]["kaynak"] == "manuel" and yazilan[-1]["depo"] == "MERKEZ DEPO"
     assert stok == [] and eklenen == [("iadeler", [77], 1)]
+    assert D.ekle_iade("2026-10-12", "V", "SKU1", "A", 1, stok_isle=False, kimlik=True)[2] == 77   # kimlik isteğe bağlı
     ok, _ = D.ekle_iade("2026-10-12", "VATAN", "SKU1", "A", 2, depo="HAPPY LIFE")   # varsayılan: stok işlenir
     assert ok and stok == [([("SKU1", 2, "HAPPY LIFE")], 1)]
 
@@ -151,7 +154,7 @@ def test_ekran_depo_secimi_ve_iade_kaydi():
     m = _oku("teknikservis/main.py")
     assert 'key="mk_giris_depo"' in m and 'key="mk_iade_net"' in m
     assert '"giris_depo": giris_depo' in m and "_stok.iade_kaydi_yaz(data)" in m
-    assert '"Giren Depo", "İade Net Tutar"' in m                     # toplu Excel şablonu
+    assert '"Giren Depo", "İade Birim Fiyat", "Para Birimi"' in m      # toplu Excel şablonu
     g = m[m.index("def kapi_mal_kabul("):]
     assert g.index("ekle_kayit(") < g.index("mal_kabul_girisi(") < g.index("iade_kaydi_yaz(")
     assert "giris_depo_coz(_depo_t, _tur)" in g and "tutar_coz(_net_t)" in g
@@ -167,3 +170,114 @@ def test_aylik_iade_gorevi_kalkti():
     s = _oku("satis/main.py")
     assert 'serit("iade_aylik")' not in s and 'kaydet("iade_aylik"' not in s
     assert re.search(r'"iade_excel": dict\(', _oku("shared/dosya_kapisi.py"))   # Excel yüklemesi isteğe bağlı kaldı
+
+
+# ── İade faturası birim fiyatı: USD ya da TL (Ekim 2026) ────────────────
+@pytest.mark.parametrize("fiyat, pb, kur, beklenen", [
+    (100, "USD", None, 100.0), (100, "usd", 40, 100.0), (4250, "TL", 42.5, 100.0), (1000, "₺", 40, 25.0),
+    (1000, "TL", 0, None), (1000, "TL", None, None), (0, "TL", 40, 0.0), ("abc", "USD", None, None),
+])
+def test_iade_usd(fiyat, pb, kur, beklenen):
+    from teknikservis.stok import iade_usd
+    assert iade_usd(fiyat, pb, kur) == beklenen
+
+
+def test_iade_fiyat_metni():
+    from teknikservis.stok import iade_fiyat_metni
+    assert iade_fiyat_metni({}) == "—"
+    assert iade_fiyat_metni({"iade_net": 23.5, "iade_pb": "USD", "iade_fiyat": 23.5}) == "$23,50"
+    m = iade_fiyat_metni({"iade_net": 23.53, "iade_pb": "TL", "iade_fiyat": 1000, "iade_kur": 42.5})
+    assert m == "₺1.000,00 (kur 42,50 → $23,53)"
+
+
+def test_kur_bul_gun_ve_yedek(monkeypatch):
+    import teknikservis.stok as S
+    import kayranacc.database as K
+    monkeypatch.setattr(K, "get_kur_araligi", lambda b, e: {"2026-10-08": 41.0, "2026-10-10": 42.0, "2026-10-11": 0})
+    assert S.kur_bul("2026-10-12") == 42.0                              # en yakın geçerli gün
+    monkeypatch.setattr(K, "get_kur_araligi", lambda b, e: {})
+    import gunluk
+    monkeypatch.setattr(gunluk, "get_doviz", lambda: {"USD": 43.0})
+    assert S.kur_bul("2026-10-12") == 43.0                              # güncel kur yedek
+    monkeypatch.setattr(gunluk, "get_doviz", lambda: {})
+    assert S.kur_bul("2026-10-12") is None
+
+
+def _fiyat_ortami(monkeypatch, bul=None):
+    import teknikservis.stok as S
+    import teknikservis.database as T
+    import satis.database as D
+    yazilan, guncel = [], []
+    monkeypatch.setattr(T, "kayit_guncelle", lambda kid, al: (yazilan.append((kid, al)) or True))
+    monkeypatch.setattr(D, "iade_tutar_guncelle", lambda iid, net: (guncel.append((iid, net)) or (True, "ok")))
+    monkeypatch.setattr(D, "manuel_iade_bul", lambda *a: bul)
+    monkeypatch.setattr(S, "kur_bul", lambda t=None: 40.0)
+    return S, yazilan, guncel
+
+
+def test_iade_fiyat_guncelle_bagli_satir(monkeypatch):
+    S, yazilan, guncel = _fiyat_ortami(monkeypatch)
+    k = {"id": 5, "iade_id": 99, "stok_kodu": "A", "firma_bilgisi": "V", "mal_kabul_tarihi": "2026-10-12T10:00"}
+    ok, msg, al = S.iade_fiyat_guncelle(k, 2000, "TL")
+    assert ok and al == {"iade_fiyat": 2000.0, "iade_pb": "TL", "iade_kur": 40.0, "iade_net": 50.0}
+    assert yazilan == [(5, al)] and guncel == [(99, 50.0)] and "₺2.000,00" in msg
+    ok, _, al = S.iade_fiyat_guncelle(k, 75, "USD")
+    assert ok and al["iade_kur"] is None and guncel[-1] == (99, 75.0)
+
+
+def test_iade_fiyat_guncelle_eski_kayit(monkeypatch):
+    """Bağlantısız eski kayıt: eşleşen manuel iade bulunursa bağlanır; bulunamazsa yeni satır AÇILMAZ."""
+    S, yazilan, guncel = _fiyat_ortami(monkeypatch, bul=7)
+    k = {"id": 5, "stok_kodu": "A", "firma_bilgisi": "V", "mal_kabul_tarihi": "2026-10-12", "iade_net": 0}
+    ok, _, al = S.iade_fiyat_guncelle(k, 10, "USD")
+    assert ok and al["iade_id"] == 7 and guncel == [(7, 10.0)]
+    S, yazilan, guncel = _fiyat_ortami(monkeypatch, bul=None)
+    ok, msg, al = S.iade_fiyat_guncelle(k, 10, "USD")
+    assert ok and "iade_id" not in al and guncel == [] and "bulunamadı" in msg
+
+
+def test_iade_fiyat_guncelle_kur_yok(monkeypatch):
+    S, yazilan, guncel = _fiyat_ortami(monkeypatch)
+    monkeypatch.setattr(S, "kur_bul", lambda t=None: None)
+    ok, msg, al = S.iade_fiyat_guncelle({"id": 1, "iade_id": 2}, 100, "TL")
+    assert not ok and "kur" in msg and yazilan == [] and guncel == []
+
+
+def test_iade_tutar_guncelle_yalniz_manuel(monkeypatch):
+    import satis.database as D
+    sorgu = []
+
+    class _Q:
+        def update(self, al):
+            sorgu.append(("update", al))
+            return self
+
+        def eq(self, k, v):
+            sorgu.append((k, v))
+            return self
+
+        def execute(self):
+            class _R:
+                data = [{"id": 3}]
+            return _R()
+
+    class _Cli:
+        def table(self, ad):
+            assert ad == "iadeler"
+            return _Q()
+    monkeypatch.setattr(D, "_get_client", lambda: _Cli())
+    monkeypatch.setattr(D, "_temizle", lambda: None)
+    assert D.iade_tutar_guncelle(3, 12.5)[0]
+    assert sorgu == [("update", {"iade_net": 12.5, "iade_brut": 12.5}), ("id", 3), ("kaynak", "manuel")]
+
+
+def test_ekran_fiyat_alanlari():
+    m = _oku("teknikservis/main.py")
+    assert 'key="mk_iade_pb"' in m and "_stok.iade_usd(iade_fiyat, iade_pb, _kur)" in m
+    assert 'kayit_guncelle_form(form_no, {"iade_id": data["iade_id"]})' in m
+    assert "_stok.iade_fiyat_guncelle(kayit, _yf, _ypb)" in m          # fatura sonradan gelince
+    assert '"İade Birim Fiyat": sayi_ya_da_bos(k.get("iade_fiyat"))' in m   # Excel raporu
+    g = m[m.index("def kapi_mal_kabul("):]
+    assert '_tv(_r, "Para Birimi", "Döviz")' in g and 'kayit_guncelle_form(_fnok' in g
+    sql = _oku("veritabani/28_iade_fiyat.sql")
+    assert all(c in sql for c in ("iade_fiyat", "iade_pb", "iade_kur", "iade_id"))
