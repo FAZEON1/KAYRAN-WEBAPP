@@ -378,6 +378,19 @@ def ithalat_model_listesi():
 
 # ── DB: kayıtlar ─────────────────────────────────────────────────────
 @st.cache_data(ttl=120, show_spinner=False)
+def fatura_kayitlari(fatura_no):
+    """Bu fatura numarasıyla açılmış servis kayıtları (fatura_no, firma_bilgisi) — Fatura ile iade
+    aynı faturanın iki kez girilmesini önlemek için. Okunamazsa boş liste."""
+    no = str(fatura_no or "").strip()
+    if not no:
+        return []
+    try:
+        return _rows(get_client().table("ts_kayitlar").select("id,fatura_no,firma_bilgisi")
+                     .ilike("fatura_no", no).execute())
+    except Exception:
+        return []
+
+
 def get_kayitlar(arayuz=None, depolu=None):
     try:
         q = get_client().table("ts_kayitlar").select("*").order("id", desc=True)
