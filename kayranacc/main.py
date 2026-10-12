@@ -2526,7 +2526,7 @@ def run():
         elif sayfa == "⏳ Ertelenen Ödemeler":
             # Ekim 2026: KALICI kayıttan okunur (eskiden yalnız tarayıcı oturumu).
             from .odeme_ekran import render_ertelenenler
-            render_ertelenenler(KATEGORILER)
+            render_ertelenenler(KATEGORILER, get_bankalar() or [], get_kur())
 
         elif sayfa == "🧾 Cari Ekstre":
             st.markdown(_sb("🧾 Muhasebe", "Cari Ekstre", aciklama="Firma bazında ödeme ekstresi ve vade yaşlandırma"),
