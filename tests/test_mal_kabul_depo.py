@@ -152,7 +152,7 @@ def test_toplu_mal_kabul_geri_alma_iadeleri_kapsar():
 # ── Ekran ve takvim ───────────────────────────────────────────────────
 def test_ekran_depo_secimi_ve_iade_kaydi():
     m = _oku("teknikservis/main.py")
-    assert 'key="mk_giris_depo"' in m and 'key="mk_iade_net"' in m
+    assert 'key="mk_giris_depo"' in m      # birim fiyat artık Fatura ile iade sekmesinde (test_fatura_ile_iade)
     assert '"giris_depo": giris_depo' in m and "_stok.iade_kaydi_yaz(data)" in m
     assert '"Giren Depo", "İade Birim Fiyat", "Para Birimi"' in m      # toplu Excel şablonu
     g = m[m.index("def kapi_mal_kabul("):]
@@ -273,7 +273,6 @@ def test_iade_tutar_guncelle_yalniz_manuel(monkeypatch):
 
 def test_ekran_fiyat_alanlari():
     m = _oku("teknikservis/main.py")
-    assert 'key="mk_iade_pb"' in m and "_stok.iade_usd(iade_fiyat, iade_pb, _kur)" in m
     assert 'kayit_guncelle_form(form_no, {"iade_id": data["iade_id"]})' in m
     assert "_stok.iade_fiyat_guncelle(kayit, _yf, _ypb)" in m          # fatura sonradan gelince
     assert '"İade Birim Fiyat": sayi_ya_da_bos(k.get("iade_fiyat"))' in m   # Excel raporu

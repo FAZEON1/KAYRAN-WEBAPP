@@ -174,10 +174,11 @@ def _mal_kabul():
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
                    "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay",
-                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net", "mk_iade_pb"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
+        _fatura_temizle()
 
     # Bir önceki kaydın başarı mesajı (rerun sonrası kaybolmasın)
     _son_ok = st.session_state.pop("_mk_kayit_ok", None)
@@ -196,10 +197,11 @@ def _mal_kabul():
         for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
-                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net", "mk_iade_pb"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
+        _fatura_temizle()
         st.rerun()
     _mk2.caption("Servise/iadeye gelen ürünü kaydetmek için butona bas — açılır pencerede doldur.")
 
@@ -381,6 +383,212 @@ def kapi_mal_kabul(dosya, kapi):
     except Exception as _te:
         st.error(f"Excel okunamadı: {type(_te).__name__}: {str(_te)[:150]}")
 
+# Fatura ile iade penceresinin oturum anahtarları (yeni pencerede ve kayıttan sonra temizlenir)
+_FATURA_ANAHTARLAR = ("mk_iade_bicim", "mk_fat_kalemler", "mk_fat_firma_sec", "mk_fat_firma_yeni",
+                      "mk_fat_no", "mk_fat_irs", "mk_fat_pb", "mk_fat_depo", "mk_fat_aciklama",
+                      "mk_fat_adet", "mk_fat_onay", "mk_fat_ekle_n")
+
+
+def _fatura_temizle():
+    """Fatura ile iade alanlarını sıfırlar (kalem ve fiyat anahtarları SKU'ya bağlı, önekle silinir)."""
+    for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("mk_fat_")] + list(_FATURA_ANAHTARLAR):
+        st.session_state.pop(_k, None)
+
+
+def _mk_dialog_tut():
+    """Pencere içindeki form dışı bir seçim değişince pencere kapanmasın."""
+    st.session_state["_mk_dialog_ac"] = True
+
+
+def _fatura_iade_formu():
+    """Fatura ile iade (Ekim 2026): iade faturası satış girişi gibi kalem kalem girilir. Ürün listesi
+    bizim stok kartlarımızdan (SKU ya da ad yazarak aranır), yanında bu firmaya son satış fiyatı görünür.
+    Kaydet: her adet için servis kaydı (seri NO SERIAL NUMBER) + seçilen depoya stok + Satış › İade."""
+    from . import iade_fatura as _IF
+    from .database import fatura_kayitlari
+    from satis.database import get_urunler, get_pacal_map, satis_sku_listesi, get_satislar_yalin
+    from datetime import timedelta
+
+    kalemler = st.session_state.setdefault("mk_fat_kalemler", [])
+
+    # ── Fatura bilgileri ──
+    with st.container(border=True):
+        _alt_baslik("Fatura bilgileri")
+        _opts = ["— Firma seç —"] + ts_firmalar_tam()
+        f1, f2 = st.columns(2)
+        _fsec = f1.selectbox("Firma (cari unvan) *", _opts, key="mk_fat_firma_sec", on_change=_mk_dialog_tut)
+        _fyeni = f2.text_input("Firma listede yoksa tam cari unvanı yaz", key="mk_fat_firma_yeni",
+                               on_change=_mk_dialog_tut)
+        firma = (_fyeni or "").strip() or ("" if _fsec == _opts[0] else _fsec)
+        b1, b2, b3 = st.columns([1.3, 1.3, 1])
+        fatura_no = b1.text_input("İade fatura no *", key="mk_fat_no", on_change=_mk_dialog_tut)
+        irsaliye_no = b2.text_input("İrsaliye no", key="mk_fat_irs", on_change=_mk_dialog_tut)
+        pb = b3.selectbox("Para birimi", _stok.PARA_BIRIMLERI, key="mk_fat_pb", on_change=_mk_dialog_tut,
+                          help="Faturadaki para birimi. TL ise bugünün USD kuruyla çevrilir; TL tutar ve kur kayıtta saklanır.")
+        d1, d2 = st.columns(2)
+        giris_depo = d1.selectbox("Giren depo", _stok.MAL_KABUL_DEPOLAR, key="mk_fat_depo",
+                                  on_change=_mk_dialog_tut,
+                                  help="Doğrudan satılacaksa MERKEZ DEPO ya da HAPPY LIFE.")
+        aciklama = d2.text_input("İade sebebi", key="mk_fat_aciklama", on_change=_mk_dialog_tut,
+                                 placeholder=_IF.VARSAYILAN_ACIKLAMA)
+    kur = _stok.kur_bul() if pb == "TL" else None
+    if pb == "TL":
+        st.caption(f"USD kuru: {tr_sayi(kur, 4)}" if kur else "USD kuru bulunamadı; TL fiyatla kayıt yapılamaz.")
+
+    # ── Kalem ekle: SKU yazdıkça listeden tahmin, yanında son satış fiyatı ──
+    urun_map = {u["sku"]: u for u in (get_urunler() or []) if u.get("sku")}
+    tum_sku = satis_sku_listesi(urun_map, get_pacal_map())
+    _bugun = date.today()
+    harita = _IF.son_fiyat_haritasi(
+        get_satislar_yalin(str(_bugun - timedelta(days=_IF.SON_GUN)), str(_bugun)), firma)
+    from shared.utils import sku_anahtar
+
+    def _etiket(sku):
+        ad = (urun_map.get(sku) or {}).get("urun_adi") or ""
+        h = harita.get(sku_anahtar(sku))
+        fiyat = f" · son fiyat ${tr_sayi(h['fiyat'], 2)}" if h else ""
+        return f"{sku} — {ad}".strip(" —") + fiyat
+
+    with st.container(border=True):
+        _alt_baslik("Ürün kalemi ekle")
+        # anahtar her eklemede değişir: seçim boşalır, sıradaki kalem yazılır
+        _n_ekle = int(st.session_state.get("mk_fat_ekle_n", 0))
+        sku = st.selectbox("Ürün (SKU ya da ad yaz)", tum_sku, index=None, key=f"mk_fat_sku_{_n_ekle}",
+                           format_func=_etiket, placeholder="SKU ya da ürün adı yaz",
+                           on_change=_mk_dialog_tut)
+        if sku:
+            _oneri_usd, _kaynak = _IF.fiyat_onerisi(sku, firma, harita, urun_map.get(sku))
+            _oneri = _IF.para_cevir(_oneri_usd, pb, kur)
+            a1, a2, a3 = st.columns([0.8, 1.2, 0.8])
+            adet = a1.number_input("Adet", min_value=1, step=1, value=1, key="mk_fat_adet")
+            # anahtar SKU'ya ve para birimine bağlı: ürün değişince öneri yeniden dolar
+            fiyat = a2.number_input(f"Birim fiyat {pb} (KDV hariç)", min_value=0.0, step=1.0, format="%.2f",
+                                    value=float(_oneri), key=f"mk_fat_fiyat_{sku}_{pb}")
+            a3.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
+            if a3.button("Ekle", use_container_width=True, key="mk_fat_ekle", icon=":material/add:"):
+                if not fiyat:
+                    st.warning("Birim fiyat gir (faturadaki KDV hariç fiyat).")
+                else:
+                    st.session_state["mk_fat_kalemler"] = _IF.kalem_ekle(
+                        kalemler, sku, (urun_map.get(sku) or {}).get("urun_adi") or "", adet, fiyat)
+                    st.session_state["mk_fat_ekle_n"] = _n_ekle + 1
+                    st.session_state["_mk_dialog_ac"] = True
+                    _rerun_app()
+            st.caption(f"Önerilen fiyat: {_kaynak}" + (f" (${tr_sayi(_oneri_usd, 2)})" if pb == "TL" and _oneri_usd else "")
+                       + ". Faturadaki fiyat farklıysa düzelt.")
+
+    # ── Sepet ──
+    if not kalemler:
+        st.info("Henüz kalem yok. Faturadaki her modeli adedi ve birim fiyatıyla ekle.")
+        return
+    _alt_baslik("Fatura kalemleri")
+    _df = pd.DataFrame([{"Sil": False, "SKU": k["sku"], "Ürün": (k.get("ad") or "")[:40],
+                         "Adet": int(k["adet"]), "Birim fiyat": float(k["fiyat"]),
+                         "Tutar": round(int(k["adet"]) * float(k["fiyat"]), 2)} for k in kalemler])
+    _ed = st.data_editor(
+        _df, hide_index=True, use_container_width=True, num_rows="fixed",
+        key=f"mk_fat_sepet_{len(kalemler)}",
+        column_config={
+            "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
+            "SKU": st.column_config.TextColumn("SKU", disabled=True),
+            "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
+            "Adet": st.column_config.NumberColumn("Adet", min_value=1, step=1, format="localized"),
+            "Birim fiyat": st.column_config.NumberColumn(f"Birim fiyat {pb}", min_value=0.0, format="localized", step=0.01),
+            "Tutar": st.column_config.NumberColumn(f"Tutar {pb}", disabled=True, format="localized", step=0.01),
+        })
+    _yeni = []
+    for i, row in _ed.iterrows():
+        if bool(row.get("Sil")):
+            continue
+        k = dict(kalemler[i])
+        k["adet"] = int(row["Adet"] or 0)
+        k["fiyat"] = float(row["Birim fiyat"] or 0)
+        if k["adet"] > 0:
+            _yeni.append(k)
+    if len(_yeni) != len(kalemler):
+        st.session_state["mk_fat_kalemler"] = _yeni
+        st.session_state["_mk_dialog_ac"] = True
+        _rerun_app()
+    kalemler = _yeni
+    st.session_state["mk_fat_kalemler"] = kalemler
+    _top = _IF.sepet_toplam(kalemler, pb, kur)
+    _sym = "₺" if pb == "TL" else "$"
+    st.markdown(f"**{len(kalemler)} model · {_top['adet']} adet · toplam {_sym}{tr_sayi(_top['toplam'], 2)}**"
+                + (f" (${tr_sayi(_top['usd'], 2)})" if pb == "TL" and _top["usd"] is not None else "")
+                + " · KDV hariç")
+    st.caption(f"Kaydedince {_top['adet']} servis kaydı açılır (seri: {_IF.SERISIZ}), ürünler {giris_depo}'ya "
+               "girer ve her biri birim fiyatıyla Satış › İade'ye yazılır.")
+
+    _onceki = _IF.fatura_daha_once(fatura_kayitlari(fatura_no), fatura_no, firma) if fatura_no and firma else 0
+    _onay = True
+    if _onceki:
+        st.warning(f"Bu firma ve {fatura_no} numaralı faturayla daha önce {_onceki} kayıt açılmış.")
+        _onay = st.checkbox("Yine de kaydet (aynı fatura iki kez girilmiyor)", key="mk_fat_onay")
+
+    if st.button(f"{_top['adet']} adet iadeyi kaydet", type="primary", use_container_width=True,
+                 key="mk_fat_kaydet", icon=":material/check_circle:", disabled=not _onay):
+        if not firma:
+            st.error("Firma zorunludur — listeden seç ya da yeni firma yaz.")
+            return
+        if not str(fatura_no or "").strip():
+            st.error("İade fatura no zorunludur.")
+            return
+        if any(not k["fiyat"] for k in kalemler):
+            st.error("Fiyatı 0 olan kalem var — faturadaki birim fiyatı gir ya da kalemi sil.")
+            return
+        _gruplar = {}
+        for k in kalemler:
+            try:
+                _grp = (urun_getir(k["sku"]) or {}).get("urun_grubu") or ""
+                if not _grp:
+                    from kayranpm.database import kategori_oner as _ko
+                    _grp = _ko(k.get("ad") or "") or ""
+                _gruplar[k["sku"]] = _grp
+            except Exception:
+                pass
+        try:
+            birimler = _IF.birim_kayitlari(kalemler, {
+                "firma": firma, "fatura_no": fatura_no, "irsaliye_no": irsaliye_no,
+                "giris_depo": giris_depo, "para_birimi": pb, "aciklama": aciklama}, kur, _gruplar)
+        except ValueError as e:
+            st.error(f"{e}. Fiyatları USD gir.")
+            return
+        _prs = st.session_state.get("aktif_kullanici", "") or ""
+        from shared.yukleme_gecmisi import Kayit as _YKayit
+        _yk = _YKayit("toplu_mal_kabul", f"İade faturası {fatura_no.strip()} · {firma}")
+        _bar = st.progress(0.0, text="Kaydediliyor…")
+        _ok_s, _hata = 0, []
+        for _n, _veri in enumerate(birimler, 1):
+            with _yk.stok():   # servis kaydı + stok + iade satırı bu yüklemeyle işaretlenir (geri alınabilir)
+                _okk, _msgk, _fno = ekle_kayit(_veri, _prs)
+                if _okk:
+                    _sok, _smsg = _stok.mal_kabul_girisi(_veri)
+                    _iok, _imsg = _stok.iade_kaydi_yaz(_veri)
+                    if _veri.get("iade_id"):
+                        kayit_guncelle_form(_fno, {"iade_id": _veri["iade_id"]})
+                    if not (_sok and _iok):
+                        _hata.append(f"{_veri['stok_kodu']} ({_fno}): {_smsg if not _sok else _imsg}"[:90])
+            if _okk:
+                _ok_s += 1
+            else:
+                _hata.append(f"{_veri['stok_kodu']}: {_msgk[:60]}")
+            _bar.progress(_n / len(birimler), text=f"Kaydediliyor… {_n}/{len(birimler)}")
+        _bar.empty()
+        if not _ok_s:
+            st.error("Hiçbir kayıt yazılamadı: " + " · ".join(_hata[:5]))
+            return
+        _yk.kaydet(_ok_s)
+        if (_fyeni or "").strip():
+            ekle_ts_firma(_fyeni.strip())
+        st.cache_data.clear()
+        st.session_state["_mk_kayit_ok"] = f"{fatura_no.strip()} numaralı iade faturası, {_ok_s} adet"
+        st.session_state["_mk_stok_msg"] = (
+            f"📦 Stok: {_ok_s} adet {giris_depo}'ya girdi · Satış › İade'ye {_ok_s} satır yazıldı"
+            if not _hata else "⚠️ Bazı kalemler eksik işlendi — " + " · ".join(_hata[:5]))
+        st.session_state["_mk_temizle"] = True
+        _rerun_app()
+
+
 @st.dialog("📥 Yeni Mal Kabül", width="large")
 def _mal_kabul_dialog():
     # 1️⃣ İşlem türü — en başta ve BELİRGİN (yanlış türde kayıt açılmasın)
@@ -404,6 +612,12 @@ def _mal_kabul_dialog():
                     'border-radius:8px;padding:8px 12px;margin:4px 0 12px;color:var(--k-pembe);'
                     'font-weight:700;font-size:13px">İADE kaydı oluşturuyorsun</div>',
                     unsafe_allow_html=True)
+        # Fatura ile iade (Ekim 2026): faturadaki her model ayrı birim fiyatla, satış girer gibi kalem kalem
+        _bicim = secim_serit("İade nasıl geldi", ["Tek ürün (seri no ile)", "Fatura ile (çok kalem)"],
+                             key="mk_iade_bicim", on_change=_mk_dialog_tut)
+        if _bicim == "Fatura ile (çok kalem)":
+            _fatura_iade_formu()
+            return
 
     # 📦 İthalat'tan model seç — seçince stok kodu + stok adı dolar
     _modeller = ithalat_model_listesi()
@@ -601,18 +815,10 @@ def _mal_kabul_dialog():
                                     index=_stok.MAL_KABUL_DEPOLAR.index(_varsayilan_depo), key="mk_giris_depo",
                                     help="Ürün fiziksel olarak hangi depoya girdiyse onu seç; stok o depoya eklenir. "
                                          "Doğrudan satılacak iade için MERKEZ DEPO ya da HAPPY LIFE.")
-        iade_fiyat, iade_pb = 0.0, "USD"
         if arayuz == "iade":
-            # İade faturasındaki birim fiyat (KDV hariç), USD ya da TL (TL bugünün kuruyla USD'ye çevrilir)
-            _gf1, _gf2 = _gd2.columns([1.6, 1])
-            iade_fiyat = _gf1.number_input("İade faturası birim fiyatı (KDV hariç)", min_value=0.0, step=1.0,
-                                           format="%.2f", key="mk_iade_net",
-                                           help="Faturadaki birim fiyat. Satış › İade raporu ve P&L iadeyi bu tutarla "
-                                                "düşer. Fatura henüz yoksa 0 bırak; sonradan kayıttan girilir.")
-            iade_pb = _gf2.selectbox("Para birimi", _stok.PARA_BIRIMLERI, key="mk_iade_pb",
-                                     help="TL girilirse bugünün USD kuruyla çevrilir; TL tutar ve kur kayıtta saklanır.")
-            st.caption("İade kaydı Satış › İade listesine de düşer (manuel iade); ay sonu iade Excel'i "
-                       "yüklenirse mükerrer sayılmaz. Fatura sonradan gelirse fiyatı kayıttan girebilirsin.")
+            st.caption("İade kaydı Satış › İade listesine de düşer (manuel iade). Faturadaki birim fiyatları "
+                       "girmek için yukarıdan **Fatura ile (çok kalem)** seç; fatura sonradan gelirse fiyatı "
+                       "kayıttan girebilirsin.")
 
         kaydet = st.form_submit_button("Kayıt Tamamla", type="primary", use_container_width=True, icon=":material/check_circle:")
 
@@ -679,14 +885,6 @@ def _mal_kabul_dialog():
             "fiziksel_durum": fiziksel.strip(),
             "giris_depo": giris_depo,
         }
-        if arayuz == "iade":
-            _kur = _stok.kur_bul() if (iade_pb == "TL" and iade_fiyat) else None
-            _usd = _stok.iade_usd(iade_fiyat, iade_pb, _kur)
-            if _usd is None:
-                st.error("TL fiyat için USD kuru bulunamadı. Fiyatı USD gir ya da 0 bırakıp sonradan kayıttan gir.")
-                return
-            data.update({"iade_fiyat": float(iade_fiyat or 0), "iade_pb": iade_pb,
-                         "iade_kur": _kur if iade_pb == "TL" else None, "iade_net": _usd})
         _personel = st.session_state.get("aktif_kullanici", "") or ""
         ok, msg, form_no = ekle_kayit(data, _personel)
         if ok:
