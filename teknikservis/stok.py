@@ -212,6 +212,22 @@ def giris_deposu(kayit):
         str(k.get("arayuz") or "").strip().lower())
 
 
+def dogrudan_giris_mi(kayit):
+    """Mal kabulde varsayılandan farklı bir depoya doğrudan girdi mi (ör. iade → MERKEZ DEPO)?
+    Varsayılan depo (iade → İADE DEPO, teknik → TEKNİK DEPO) ya da seçim yoksa False."""
+    k = kayit or {}
+    secilen = giris_depo_coz(k.get("giris_depo"), k.get("arayuz")) if str(k.get("giris_depo") or "").strip() else None
+    return bool(secilen) and secilen != ARAYUZ_DEPO.get(str(k.get("arayuz") or "").strip().lower())
+
+
+GIRIS_SEKILLERI = ["Mal kabulde doğrudan depoya", "Depoya transfer"]
+
+
+def giris_sekli(kayit):
+    """Depolar listesindeki giriş şekli: doğrudan giriş öncelikli (sonradan transfer edilse de)."""
+    return GIRIS_SEKILLERI[0] if dogrudan_giris_mi(kayit) else GIRIS_SEKILLERI[1]
+
+
 # ── Olay bazlı girişler ──────────────────────────────────────────────
 def mal_kabul_girisi(kayit):
     """Mal kabul: seçilen giriş deposuna, seçilmediyse teknik → TEKNİK DEPO, iade → İADE DEPO. (+1)"""
@@ -338,9 +354,12 @@ def evraksiz_girisi(kayit, hedef_ts_depo):
 
 
 def satis_cikisi(kayit):
-    """Satılan ürün bulunduğu depodan düşer (−1)."""
+    """Satılan ürün bulunduğu depodan düşer (−1): transfer edildiyse o depo, mal kabulde doğrudan
+    depoya girdiyse o depo, ikisi de yoksa OUTLET DEPO (eski davranış)."""
     sku, ad = _sku_ad(kayit)
-    depo = ts_depo_ad(kayit.get("depo")) if (kayit or {}).get("depo") else "OUTLET DEPO"
+    k = kayit or {}
+    depo = (ts_depo_ad(k.get("depo")) if k.get("depo")
+            else (giris_deposu(k) if dogrudan_giris_mi(k) else "OUTLET DEPO"))
     return _uygula(sku, ad, depo, -1)
 
 
