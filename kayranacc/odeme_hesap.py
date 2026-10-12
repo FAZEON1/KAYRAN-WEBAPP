@@ -109,3 +109,15 @@ def gun_toplam(liste):
     return {"tl": sum(_f(o.get("tutar_tl")) for o in liste), "usd": sum(_f(o.get("tutar_usd")) for o in liste),
             "bekleyen": len(bek), "bek_tl": sum(_f(o.get("tutar_tl")) for o in bek),
             "bek_usd": sum(_f(o.get("tutar_usd")) for o in bek)}
+
+
+def hafta_secenekleri(haftalar, aktif_id, sinir=12):
+    """Üst satırdaki hafta seçicisi (Ekim 2026): en yeni önce, en fazla `sinir` hafta.
+    Aktif hafta listede yoksa (eski) yine de başa eklenir. Döner: [{"id", "ad", "aktif", "yuklendi"}]."""
+    sirali = sorted(haftalar or [], key=lambda h: h.get("id") or 0, reverse=True)
+    secilen = sirali[:sinir]
+    if aktif_id is not None and not any(h.get("id") == aktif_id for h in secilen):
+        secilen = [h for h in sirali if h.get("id") == aktif_id] + secilen
+    return [{"id": h.get("id"), "ad": str(h.get("hafta_adi") or "").strip() or f"Hafta {h.get('id')}",
+             "aktif": h.get("id") == aktif_id, "yuklendi": str(h.get("yuklendi_tarih") or "")}
+            for h in secilen]
