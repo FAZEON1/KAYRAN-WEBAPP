@@ -52,11 +52,33 @@ def sla_gruplari(kayitlar, gun_fn, bitmis_fn=lambda k: False):
     return [(ad, ks) for (_s, ad), ks in sorted(gr.items(), key=lambda x: x[0][0])]
 
 
+def depolar_kayitlari(kayitlar):
+    """Depolar sayfasının kayıtları: depoya transfer edilenler + mal kabulde doğrudan depoya girip
+    (ör. iade → MERKEZ DEPO) henüz transfer edilmeyenler. İkinciler kopyalanır ve bulundukları yer
+    '_konum' alanına yazılır (teknik servis depo adı: 'merkez'; listede yoksa kanonik ad: 'HAPPY LIFE')
+    — 'depo' alanı DOLDURULMAZ, kayıt transfer edilmemiş sayılmaya devam eder."""
+    from .stok import TS_DEPO_HARITA, dogrudan_giris_mi, giris_deposu
+    ters = {v: k for k, v in TS_DEPO_HARITA.items()}
+    out = []
+    for k in kayitlar or []:
+        if (k.get("depo") or "").strip():
+            out.append(k)
+        elif dogrudan_giris_mi(k):
+            g = giris_deposu(k)
+            out.append(dict(k, _konum=ters.get(g, g)))
+    return out
+
+
+def konum(k):
+    """Kaydın Depolar'daki yeri: transfer deposu, yoksa doğrudan giriş deposu."""
+    return (k.get("depo") or k.get("_konum") or "").strip()
+
+
 def depo_gruplari(kayitlar, depo_sirasi):
     """[(depo, [kayıt…])] — bilinen depolar verilen sırada, bilinmeyenler sonda."""
     gr = {}
     for k in kayitlar:
-        gr.setdefault((k.get("depo") or "").strip() or "—", []).append(k)
+        gr.setdefault(konum(k) or "—", []).append(k)
     sira = {d: i for i, d in enumerate(depo_sirasi)}
     return sorted(gr.items(), key=lambda x: (sira.get(x[0], len(sira)), x[0]))
 

@@ -281,3 +281,53 @@ def test_ekran_fiyat_alanlari():
     assert '_tv(_r, "Para Birimi", "Döviz")' in g and 'kayit_guncelle_form(_fnok' in g
     sql = _oku("veritabani/28_iade_fiyat.sql")
     assert all(c in sql for c in ("iade_fiyat", "iade_pb", "iade_kur", "iade_id"))
+
+
+# ── Depolar: mal kabulde doğrudan depoya girenler (Ekim 2026) ──────────
+def test_dogrudan_giris_ve_giris_sekli():
+    from teknikservis.stok import dogrudan_giris_mi, giris_sekli, GIRIS_SEKILLERI
+    assert dogrudan_giris_mi({"arayuz": "iade", "giris_depo": "MERKEZ DEPO"})
+    assert dogrudan_giris_mi({"arayuz": "teknik", "giris_depo": "HAPPY LIFE"})
+    assert not dogrudan_giris_mi({"arayuz": "iade", "giris_depo": "İADE DEPO"})     # varsayılan depo
+    assert not dogrudan_giris_mi({"arayuz": "teknik", "giris_depo": "TEKNİK DEPO"})
+    assert not dogrudan_giris_mi({"arayuz": "iade"}) and not dogrudan_giris_mi({})
+    assert not dogrudan_giris_mi({"arayuz": "iade", "giris_depo": "OUTLET DEPO"})   # listede değil
+    assert giris_sekli({"arayuz": "iade", "giris_depo": "MERKEZ DEPO", "depo": "outlet"}) == GIRIS_SEKILLERI[0]
+    assert giris_sekli({"arayuz": "iade", "depo": "outlet"}) == GIRIS_SEKILLERI[1]
+
+
+def test_depolar_kayitlari_ve_gruplar():
+    from teknikservis.ts_hesap import depolar_kayitlari, depo_gruplari, konum
+    kay = [{"id": 1, "depo": "outlet"},
+           {"id": 2, "arayuz": "iade", "giris_depo": "MERKEZ DEPO"},             # doğrudan, transfersiz
+           {"id": 3, "arayuz": "iade", "giris_depo": "HAPPY LIFE"},
+           {"id": 4, "arayuz": "iade", "giris_depo": "İADE DEPO"},               # varsayılan: listede yok
+           {"id": 5, "arayuz": "teknik"},                                         # işlemde: listede yok
+           {"id": 6, "arayuz": "iade", "giris_depo": "MERKEZ DEPO", "depo": "outlet"}]
+    d = depolar_kayitlari(kay)
+    assert [k["id"] for k in d] == [1, 2, 3, 6]
+    assert [konum(k) for k in d] == ["outlet", "merkez", "HAPPY LIFE", "outlet"]
+    assert "depo" not in d[1] and "_konum" not in kay[1]                    # asıl kayıt değişmez
+    gr = dict(depo_gruplari(d, ["merkez", "outlet"]))
+    assert [k["id"] for k in gr["merkez"]] == [2] and [k["id"] for k in gr["HAPPY LIFE"]] == [3]
+
+
+def test_satis_cikisi_dogrudan_giris_deposundan(monkeypatch):
+    import teknikservis.stok as S
+    hareket = []
+    monkeypatch.setattr(S, "_uygula", lambda sku, ad, depo, delta: (hareket.append((depo, delta)) or (True, "")))
+    S.satis_cikisi({"arayuz": "iade", "stok_kodu": "A", "giris_depo": "MERKEZ DEPO"})
+    S.satis_cikisi({"arayuz": "iade", "stok_kodu": "A", "giris_depo": "MERKEZ DEPO", "depo": "outlet"})
+    S.satis_cikisi({"arayuz": "iade", "stok_kodu": "A"})                     # eski davranış
+    assert hareket == [("MERKEZ DEPO", -1), ("OUTLET DEPO", -1), ("OUTLET DEPO", -1)]
+
+
+def test_depolar_ekrani_filtre_ve_excel():
+    m = _oku("teknikservis/main.py")
+    g = m[m.index("def _depolar("):m.index("def _depo_detay(")]
+    assert "kayitlar = depolar_kayitlari(get_kayitlar())" in g
+    assert '"key": "depo_giris_f"' in g and "_stok.giris_sekli(k) != giris_f" in g
+    assert "if depo_f and _konum(k) not in depo_f" in g and '"depo_giris_f"' in g
+    r = m[m.index("def _depo_rapor_bayt("):m.index("def _depolar(")]
+    for s_ in ('"Giriş Şekli": _stok.giris_sekli(k)', '"Giriş Deposu"', '"İade Birim Fiyat"', '"İade Net ($)"'):
+        assert s_ in r, s_

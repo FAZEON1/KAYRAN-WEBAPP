@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -222,7 +222,9 @@ KRITIK_FONKSIYONLAR = {
     "shared.kar_gizle": ["kar_gorunur", "kar_gorunur_kullanici"],
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no", "mal_kabul_girisi",
                           "giris_depo_coz", "giris_deposu", "iade_kaydi_yaz", "tutar_coz",
-                          "iade_usd", "kur_bul", "iade_fiyat_metni", "iade_fiyat_guncelle"],
+                          "iade_usd", "kur_bul", "iade_fiyat_metni", "iade_fiyat_guncelle",
+                          "dogrudan_giris_mi", "giris_sekli"],
+    "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
     "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
                      "ay_kurlari", "gider_usd_satirlari", "serit_hedefi",

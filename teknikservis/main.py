@@ -25,7 +25,7 @@ from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
 from . import stok as _stok
 from . import ariza_orani as _AO
 from . import ts_ekran as E
-from .ts_hesap import sla_gruplari, sayi_ya_da_bos, excel_bayt
+from .ts_hesap import sla_gruplari, sayi_ya_da_bos, excel_bayt, depolar_kayitlari, konum as _konum
 from shared import bilesen as B
 from functools import partial
 
@@ -1830,7 +1830,11 @@ def _depo_rapor_bayt(kayitlar):
         "Adres": k.get("musteri_adres", ""),
         "Sevk / Teslim Şekli": k.get("sevk_kargo_bilgisi", ""),
         "Kaynak": ARAYUZ_ETIKET.get(k.get("arayuz", ""), ""),
-        "Depo": k.get("depo", ""), "Durum": k.get("mevcut_durum", ""),
+        "Depo": _konum(k) or k.get("giris_depo") or "", "Durum": k.get("mevcut_durum", ""),
+        # Ekim 2026: mal kabulde doğrudan depoya giriş + iade faturası fiyatı
+        "Giriş Şekli": _stok.giris_sekli(k), "Giriş Deposu": k.get("giris_depo") or "",
+        "İade Birim Fiyat": sayi_ya_da_bos(k.get("iade_fiyat")), "Para Birimi": k.get("iade_pb") or "",
+        "Kur": sayi_ya_da_bos(k.get("iade_kur")), "İade Net ($)": sayi_ya_da_bos(k.get("iade_net")),
         "Mal Kabül": _tarih_kisa(k.get("mal_kabul_tarihi")),
         # Madde 10: mal kabul tarihinin SAĞINDA depoya transfer tarihi
         "Depoya Transfer": _tarih_kisa(k.get("depo_tarihi")),
@@ -1861,11 +1865,12 @@ def _depolar():
     _depo_uyari = st.session_state.pop("_ts_depo_uyari", None)
     if _depo_uyari:
         _mesaj.warning(_depo_uyari)
-    kayitlar = get_kayitlar(depolu=True)
+    # Depoya transfer edilenler + mal kabulde doğrudan depoya girip henüz transfer edilmeyenler (Ekim 2026)
+    kayitlar = depolar_kayitlari(get_kayitlar())
 
     # ── Sayfa içi detay: satıra tıklanınca liste yerine ürün ayrıntısı ──
     _filtre_keys = ["depo_ara", "depo_filtre_coklu", "depo_sira", "depo_grup_f", "depo_firma_f",
-                    "depo_kaynak_f", "depo_fat_f", "depo_durum_seg", "depo_ozet_donem_seg"]
+                    "depo_kaynak_f", "depo_fat_f", "depo_giris_f", "depo_durum_seg", "depo_ozet_donem_seg"]
     _sec = E.secili("ts_depo")
     if _sec is not None:
         _k = next((k for k in kayitlar or [] if k.get("id") == _sec), None)
@@ -1901,12 +1906,16 @@ def _depolar():
     _ff = B.filtre(f4, [{"etiket": "Ürün grubu", "secenekler": _gruplar, "key": "depo_grup_f"},
                         {"etiket": "Firma", "secenekler": _firmalar, "key": "depo_firma_f"},
                         {"etiket": "Kaynak", "secenekler": ["🔧 Teknik Servis", "↩️ İade"], "key": "depo_kaynak_f"},
-                        {"etiket": "Fatura", "secenekler": ["✓ Mevcut", "✗ Yok"], "key": "depo_fat_f"}])
+                        {"etiket": "Fatura", "secenekler": ["✓ Mevcut", "✗ Yok"], "key": "depo_fat_f"},
+                        {"etiket": "Giriş şekli", "secenekler": _stok.GIRIS_SEKILLERI, "key": "depo_giris_f"}])
     grup_f, firma_f = _ff["depo_grup_f"], _ff["depo_firma_f"]
     kaynak_f, fatura_f = _ff["depo_kaynak_f"], _ff["depo_fat_f"]
+    giris_f = _ff["depo_giris_f"]
 
     def _uy(k):
-        if depo_f and (k.get("depo") or "") not in depo_f:
+        if depo_f and _konum(k) not in depo_f:
+            return False
+        if giris_f != "Tümü" and _stok.giris_sekli(k) != giris_f:
             return False
         if grup_f != "Tümü" and (k.get("urun_grubu") or "").strip() != grup_f:
             return False
@@ -1987,7 +1996,7 @@ def _depolar():
             def _ts_etiket(k):
                 return (f'{k.get("servis_form_no","")} · {k.get("stok_kodu","")} · '
                         f'{(k.get("stok_adi") or "")[:32]} · Seri {k.get("seri_no","")} '
-                        f'· [{k.get("depo","")}]')
+                        f'· [{_konum(k)}]')
 
             _tsh = {_ts_etiket(k): k for k in _satilabilir}
             _secili = st.multiselect("Satılan ürünler", list(_tsh.keys()),
