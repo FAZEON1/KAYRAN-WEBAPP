@@ -37,8 +37,13 @@ TS_DEPO_HARITA = {
     "merkez":        "MERKEZ DEPO",
 }
 
-# Mal kabulde arayüze göre ürünün gireceği depo
+# Mal kabulde arayüze göre ürünün gireceği VARSAYILAN depo
 ARAYUZ_DEPO = {"teknik": "TEKNİK DEPO", "iade": "İADE DEPO"}
+
+# Mal kabulde seçilebilen giriş depoları (Ekim 2026, kullanıcı kararı): müşteriden alınan
+# iade çoğu zaman doğrudan satılacağı için İADE DEPO yerine satılabilir depoya (MERKEZ / HAPPY
+# LIFE) da girebilir. İlk sıradaki, "iade" türünün varsayılanıdır; "teknik" TEKNİK DEPO ile açılır.
+MAL_KABUL_DEPOLAR = ["İADE DEPO", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
 
 # Teknik servis / 2.el satışının işareti. Ekim 2026'ya kadar satislar.kanal'a yazılıyordu
 # (P&L'de ayrı kanal); artık kanal diğer satışlar gibi CARİ adı, bu işaret satış notunun
@@ -114,20 +119,83 @@ def _kart_var(sku):
         return True          # emin değilsek uyarı basma
 
 
+def giris_depo_coz(metin, arayuz=""):
+    """Mal kabulde yazılan / seçilen giriş deposunu kanonik ada çevirir ('merkez' → 'MERKEZ DEPO').
+    Boşsa arayüzün varsayılanı; tanınmayan ya da listede olmayan depo için None (çağıran uyarır)."""
+    m = str(metin or "").strip()
+    if not m:
+        return ARAYUZ_DEPO.get(str(arayuz or "").strip().lower())
+    try:
+        from kayranpm.database import depo_kanonik
+        k = depo_kanonik(m)
+    except Exception:  # noqa: BLE001
+        k = ts_depo_ad(m)
+    return k if k in MAL_KABUL_DEPOLAR else None
+
+
+def tutar_coz(metin):
+    """Excel hücresindeki tutar: '1.234,56' (TR), '1234.56' (Excel sayısı), '1,5' → float; boş → 0;
+    sayı değilse None."""
+    s = str(metin if metin is not None else "").strip().replace("$", "").replace(" ", "")
+    if not s:
+        return 0.0
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def giris_deposu(kayit):
+    """Kaydın girdiği depo: mal kabulde seçilen giris_depo (kanonik), yoksa arayüzün varsayılanı."""
+    k = kayit or {}
+    return giris_depo_coz(k.get("giris_depo"), k.get("arayuz")) or ARAYUZ_DEPO.get(
+        str(k.get("arayuz") or "").strip().lower())
+
+
 # ── Olay bazlı girişler ──────────────────────────────────────────────
 def mal_kabul_girisi(kayit):
-    """Mal kabul: teknik → TEKNİK DEPO, iade → İADE DEPO. (+1)"""
-    depo = ARAYUZ_DEPO.get(str((kayit or {}).get("arayuz") or "").strip().lower())
+    """Mal kabul: seçilen giriş deposuna, seçilmediyse teknik → TEKNİK DEPO, iade → İADE DEPO. (+1)"""
+    depo = giris_deposu(kayit)
     if not depo:
         return False, "arayüz belirsiz — stok işlenmedi"
     sku, ad = _sku_ad(kayit)
     return _uygula(sku, ad, depo, +1)
 
 
+def iade_kaydi_yaz(kayit, tarih=None):
+    """İade türündeki mal kabul, Satış › İade'deki 'manuel iade' gibi iadeler tablosuna da yazılır:
+    P&L iadeyi düşer (net tutar girildiyse), ay sonu iade Excel'i yüklenirse mükerrer sayılmaz
+    (kaynak='manuel' → avans). Stok BURADA işlenmez; mal_kabul_girisi zaten işledi (stok_isle=False).
+    Teknik servis kaydı için hiçbir şey yapmaz. Döner: (ok, mesaj)."""
+    k = kayit or {}
+    if str(k.get("arayuz") or "").strip().lower() != "iade":
+        return True, ""
+    sku, ad = _sku_ad(k)
+    if not sku:
+        return False, "stok kodu boş — iade kaydı açılmadı"
+    try:
+        from satis.database import ekle_iade
+        from datetime import date as _date
+        try:
+            net = float(k.get("iade_net") or 0)
+        except (TypeError, ValueError):
+            net = 0.0
+        ok, msg = ekle_iade(str(tarih or _date.today())[:10], str(k.get("firma_bilgisi") or "").strip(),
+                            sku, ad, 1, iade_net=net, depo=giris_deposu(k), kaynak="manuel", stok_isle=False)
+        if not ok:
+            return False, f"iade kaydı açılamadı ({msg})"
+        from shared.tasarim import tr_sayi
+        return True, (f"{sku} iade kaydı açıldı" + (f" · net ${tr_sayi(net, 2)}" if net else " · tutar girilmedi"))
+    except Exception as e:  # noqa: BLE001
+        return False, f"iade kaydı açılamadı ({type(e).__name__}: {str(e)[:80]})"
+
+
 def gonderildi_cikisi(kayit):
-    """Ürün müşteriye geri gönderildi → bulunduğu servis/iade deposundan (−1)."""
-    depo = (ts_depo_ad(kayit.get("depo")) if (kayit or {}).get("depo")
-            else ARAYUZ_DEPO.get(str((kayit or {}).get("arayuz") or "").strip().lower()))
+    """Ürün müşteriye geri gönderildi → bulunduğu depodan (−1): depoya transfer edildiyse o depo,
+    yoksa mal kabulde girdiği depo."""
+    depo = (ts_depo_ad(kayit.get("depo")) if (kayit or {}).get("depo") else giris_deposu(kayit))
     if not depo:
         return False, "çıkış deposu belirlenemedi — stok işlenmedi"
     sku, ad = _sku_ad(kayit)
@@ -147,8 +215,7 @@ def depoya_transfer(kayit, hedef_ts_depo):
     """İşlemi biten ürün servis/iade deposundan hedef depoya taşınır.
     İki hareket: kaynaktan −1, hedefe +1. Döner: (ok, mesaj)."""
     sku, ad = _sku_ad(kayit)
-    kaynak = (ts_depo_ad(kayit.get("depo")) if (kayit or {}).get("depo")
-              else ARAYUZ_DEPO.get(str((kayit or {}).get("arayuz") or "").strip().lower()))
+    kaynak = (ts_depo_ad(kayit.get("depo")) if (kayit or {}).get("depo") else giris_deposu(kayit))
     hedef = ts_depo_ad(hedef_ts_depo)
     if not hedef:
         return False, "hedef depo belirsiz — stok işlenmedi"

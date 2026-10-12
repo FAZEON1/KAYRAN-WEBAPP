@@ -117,11 +117,11 @@ def test_haftalik_ileri_odeme_listesi():
 def test_kaynaklar_tanimli_ve_tutarli():
     Y = _yt()
     anahtarlar = [k["anahtar"] for k in Y.KAYNAKLAR]
-    assert len(anahtarlar) == len(set(anahtarlar)) >= 10
+    assert len(anahtarlar) == len(set(anahtarlar)) >= 9          # iade_aylik Ekim 2026'da kalktı
     for k in Y.KAYNAKLAR:
         assert k["siklik"] in Y.SIKLIKLAR and k["yon"] in ("geri", "ileri")
         assert k["tarih_turu"] in ("veri", "yukleme") and k["modul"] and k["sayfa"]
-    for a in ("musteri_haftalik", "iade_aylik", "satis_dokumu", "aktif_stok", "aktif_ithalat",
+    for a in ("musteri_haftalik", "satis_dokumu", "aktif_stok", "aktif_ithalat",
               "aktif_cari", "odeme_listesi", "happylife", "gider_tablosu", "g5f_sayim"):
         assert a in anahtarlar, a
 
@@ -170,14 +170,14 @@ def test_herkes_gorur():
 
 def test_kayit_kancalari():
     s = _oku("satis/main.py")
-    assert 'kaydet("satis_dokumu"' in s and 'kaydet("iade_aylik"' in s
+    assert 'kaydet("satis_dokumu"' in s and 'kaydet("iade_aylik"' not in s   # aylık iade görevi kalktı (Eki 2026)
     assert 'kaydet("odeme_listesi"' in _oku("kayranacc/main.py")
     assert 'kaydet("g5f_sayim"' in _oku("kayranpm/main.py")
 
 
 def test_yukleme_ekranlarinda_serit():
     assert 'serit(f"aktif_{tip}")' in _oku("kayranacc/main.py")   # üç aktif dosyası ortak gövdede (Dosya kapısı)
-    for y, a in (("kayranpm/main.py", "musteri_haftalik"), ("satis/main.py", "iade_aylik"),
+    for y, a in (("kayranpm/main.py", "musteri_haftalik"),
                  ("satis/main.py", "satis_dokumu"),
                  ("kayranacc/main.py", "odeme_listesi"), ("depo/main.py", "happylife"),
                  ("yonetim.py", "gider_tablosu"), ("kayranpm/main.py", "g5f_sayim")):
@@ -207,14 +207,14 @@ def test_gecmisi_olmayan_kaynak_ilk_gun_alarm_vermez(monkeypatch):
     Y = _yt()
     monkeypatch.setattr(Y, "_ayar", lambda a, v: v)                 # boş ayar / kayıt
     monkeypatch.setattr(Y, "_takip_baslangici", lambda a, b: b)
-    for a in ("musteri_haftalik", "iade_aylik", "aktif_stok", "aktif_ithalat", "aktif_cari",
+    for a in ("musteri_haftalik", "aktif_stok", "aktif_ithalat", "aktif_cari",
               "happylife", "gider_tablosu"):
         monkeypatch.setitem(Y._OKUYUCU, a, lambda b: None)
     dl = {d["anahtar"]: d for d in Y.durumlar(date(2026, 10, 9))}
     # satis_dokumu Ekim 2026'dan beri varsayılan olarak takip dışı (zaman zaman yapılıyor)
     for a in ("odeme_listesi", "g5f_sayim"):
         assert dl[a]["seviye"] != "gecikti" and dl[a]["baslangic"], a
-    assert dl["iade_aylik"]["seviye"] == "gecikti"                  # veriden okunan kaynak alarm verir
+    assert dl["musteri_haftalik"]["seviye"] == "gecikti"            # veriden okunan kaynak alarm verir
 
 
 def test_takip_baslangici_siradakini_bekler():
@@ -241,7 +241,7 @@ def test_ayni_sayfanin_gecikenleri_tek_madde():
 
 
 # ── Sorumlular (Ekim 2026) ──────────────────────────────────────────
-ATAMA = {"musteri_haftalik": "derya", "iade_aylik": "gokhan", "aktif_stok": "serdar",
+ATAMA = {"musteri_haftalik": "derya", "aktif_stok": "serdar",
          "aktif_ithalat": "serdar", "aktif_cari": "serdar", "odeme_listesi": "serdar",
          "happylife": "samet", "gider_tablosu": "serdar", "g5f_sayim": "gokhan"}
 
@@ -280,7 +280,8 @@ def test_takip_disi_kaynak_durumlarda_yok(monkeypatch):
         monkeypatch.setitem(Y._OKUYUCU, a, lambda b: None)
     dl = {d["anahtar"]: d for d in Y.durumlar(date(2026, 10, 9))}
     assert "satis_dokumu" not in dl
-    assert dl["iade_aylik"]["sorumlu"] == "gokhan" and dl["iade_aylik"]["sorumlu_ad"] == "Gökhan"
+    assert dl["g5f_sayim"]["sorumlu"] == "gokhan" and dl["g5f_sayim"]["sorumlu_ad"] == "Gökhan"
+    assert "iade_aylik" not in dl                                    # aylık iade Excel'i görevi kalktı
 
 
 def test_uyarilarda_isim():

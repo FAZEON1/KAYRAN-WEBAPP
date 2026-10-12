@@ -64,7 +64,9 @@ _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   # Madde 2: geliş / gidiş kargo bilgisi ayrı kolonlarda tutulur
                   "gelis_kargo_no", "gidis_kargo_no", "gidis_sevk_sekli",
                   # Madde 8: kaydın hangi sevk irsaliyesiyle gönderildiği
-                  "irsaliye_no")
+                  "irsaliye_no",
+                  # Ekim 2026: mal kabulde seçilen giriş deposu (kanonik ad) ve iade net tutarı (USD)
+                  "giris_depo", "iade_net")
 
 
 @st.cache_resource

@@ -174,7 +174,7 @@ def _mal_kabul():
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
                    "mk_seri", "mk_seri_yok", "_mk_seri_dup", "mk_dup_onay",
-                   "mk_sk", "_mk_model_son", "mk_model_sec"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
@@ -196,7 +196,7 @@ def _mal_kabul():
         for _k in ("mk_stok_adi", "mk_urun_grubu", "mk_ean", "mk_grup_yeni", "mk_grup_sec",
                    "mk_m_adi", "mk_m_mail", "mk_m_tel", "mk_m_adres", "mk_kargo",
                    "mk_mgz_sec", "_mk_mgz_son", "mk_firma_yeni", "_mk_firma_hedef",
-                   "mk_sk", "_mk_model_son", "mk_model_sec"):
+                   "mk_sk", "_mk_model_son", "mk_model_sec", "mk_giris_depo", "mk_iade_net"):
             st.session_state.pop(_k, None)
         from shared.barkod import barkod_temizle
         barkod_temizle("mk_seri")
@@ -211,7 +211,10 @@ def _mal_kabul():
 _TOPLU_MAL_KABUL_KOL = ["İşlem Türü (Teknik/İade)", "Stok Kodu", "Stok Adı", "Ürün Grubu",
                         "Seri No", "Arıza", "Firma (Cari Unvan)", "Mağaza / Müşteri Adı",
                         "Telefon", "Mail", "Adres", "Sevk / Teslim Şekli", "Kargo Takip No",
-                        "Fatura No", "İrsaliye No", "Firma Servis Form No", "Fiziksel Durum"]
+                        "Fatura No", "İrsaliye No", "Firma Servis Form No", "Fiziksel Durum",
+                        # Ekim 2026: giriş deposu (boşsa İade → İADE DEPO, Teknik → TEKNİK DEPO) ve
+                        # iade net tutarı ($, P&L için; boş = 0)
+                        "Giren Depo", "İade Net Tutar"]
 
 
 def sablon_mal_kabul():
@@ -225,7 +228,10 @@ def kapi_mal_kabul(dosya, kapi):
     """Dosya kapısı (Ekim 2026): toplu mal kabul — VATAN gibi 50-100'lük toplu iadeler için
     (eskiden Mal Kabül sayfasındaki açılır bölüm)."""
     st.caption("Zorunlu sütunlar: **İşlem Türü, Stok Kodu, Seri No** (yoksa NO SERIAL NUMBER yaz), "
-               "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur.")
+               "**Arıza, Firma**. Stok Adı/Ürün Grubu boşsa Ürün Yönetimi'nden otomatik doldurulur. "
+               "**Giren Depo** boşsa iade İADE DEPO'ya, teknik TEKNİK DEPO'ya girer; doğrudan satılacak iade için "
+               "MERKEZ DEPO ya da HAPPY LIFE yaz. İade satırları Satış › İade'ye manuel iade olarak da düşer "
+               "(**İade Net Tutar** $, boş = 0).")
     try:
         _tdf = pd.read_excel(dosya, dtype=str).fillna("")
         _tdf.columns = [str(c).strip() for c in _tdf.columns]
@@ -260,6 +266,16 @@ def kapi_mal_kabul(dosya, kapi):
                 _sorunlar.append("Arıza")
             if not _firma_t:
                 _sorunlar.append("Firma")
+            _depo_t = _tv(_r, "Giren Depo", "Depo")
+            _depo_k = _stok.giris_depo_coz(_depo_t, _tur) if _tur else None
+            if _tur and _depo_t and not _depo_k:
+                _sorunlar.append(f"Giren Depo tanınmadı: {_depo_t} (seçenekler: "
+                                 + ", ".join(_stok.MAL_KABUL_DEPOLAR) + ")")
+            _net_t = _tv(_r, "İade Net Tutar", "İade Net", "Net Tutar")
+            _net_v = _stok.tutar_coz(_net_t)
+            if _net_v is None:
+                _net_v = 0.0
+                _sorunlar.append(f"İade Net Tutar sayı değil: {_net_t}")
             if _sorunlar:
                 _hatali.append(f"Satır {_i + 2}: eksik → {', '.join(_sorunlar)}")
                 continue
@@ -291,6 +307,7 @@ def kapi_mal_kabul(dosya, kapi):
                 "fatura_mevcut": bool(_fno_t),
                 "firma_servis_form_no": _tv(_r, "Firma Servis Form No"),
                 "fiziksel_durum": _tv(_r, "Fiziksel Durum"),
+                "giris_depo": _depo_k, "iade_net": _net_v if _tur == "iade" else None,
             }})
         _muk_say = sum(1 for g in _gecerli if g["_muk"])
         st.markdown(f"**{len(_gecerli)}** geçerli satır · **{len(_hatali)}** hatalı"
@@ -303,7 +320,8 @@ def kapi_mal_kabul(dosya, kapi):
                 "Tür": ("Teknik" if g["veri"]["arayuz"] == "teknik" else "İade"),
                 "Stok": g["veri"]["stok_kodu"], "Ad": g["veri"]["stok_adi"][:36],
                 "Seri": g["veri"]["seri_no"], "Firma": g["veri"]["firma_bilgisi"][:28],
-                "Arıza": g["veri"]["ariza"][:32],
+                "Arıza": g["veri"]["ariza"][:32], "Depo": g["veri"]["giris_depo"] or "",
+                "İade net": g["veri"]["iade_net"] if g["veri"]["arayuz"] == "iade" else None,
                 "Mükerrer": "evet" if g["_muk"] else "",
             } for g in _gecerli[:100]]), hide_index=True, use_container_width=True,
                 height=min(320, 60 + 36 * min(len(_gecerli), 8)))
@@ -323,7 +341,8 @@ def kapi_mal_kabul(dosya, kapi):
                     with _yk_ts.stok():   # kayıt + stok hareketi bu yüklemeyle işaretlenir
                         _okk, _msgk, _fnok = ekle_kayit(_g["veri"], _prs)
                         if _okk:
-                            _stok.mal_kabul_girisi(_g["veri"])   # +1 servis/iade deposu
+                            _stok.mal_kabul_girisi(_g["veri"])   # +1 seçilen giriş deposu
+                            _stok.iade_kaydi_yaz(_g["veri"])     # iade ise Satış › İade'ye manuel kayıt
                     if _okk:
                         _ok_s += 1
                     else:
@@ -555,6 +574,24 @@ def _mal_kabul_dialog():
         _alt_baslik("Ön Kontrol")
         fiziksel = st.text_input("Fiziksel Durum", placeholder="hasarsız / çizik / tozlu / kullanılmış")
 
+        # Giriş deposu (Ekim 2026): iade çoğu zaman doğrudan satılacağı için İADE DEPO yerine MERKEZ /
+        # HAPPY LIFE seçilebilir; ürün satılabilir stoğa girer, ay sonu iade Excel'i gerekmez.
+        _alt_baslik("Depo")
+        _gd1, _gd2 = st.columns(2)
+        _varsayilan_depo = _stok.ARAYUZ_DEPO.get(arayuz, _stok.MAL_KABUL_DEPOLAR[0])
+        giris_depo = _gd1.selectbox("Giren depo", _stok.MAL_KABUL_DEPOLAR,
+                                    index=_stok.MAL_KABUL_DEPOLAR.index(_varsayilan_depo), key="mk_giris_depo",
+                                    help="Ürün fiziksel olarak hangi depoya girdiyse onu seç; stok o depoya eklenir. "
+                                         "Doğrudan satılacak iade için MERKEZ DEPO ya da HAPPY LIFE.")
+        iade_net = 0.0
+        if arayuz == "iade":
+            iade_net = _gd2.number_input("İade net tutar ($, isteğe bağlı)", min_value=0.0, step=1.0,
+                                         format="%.2f", key="mk_iade_net",
+                                         help="Satış › İade'deki manuel iade gibi kaydedilir; P&L iadeyi bu tutarla "
+                                              "düşer. Bilinmiyorsa 0 bırak.")
+            st.caption("İade kaydı Satış › İade listesine de düşer (manuel iade); ay sonu iade Excel'i "
+                       "yüklenirse mükerrer sayılmaz.")
+
         kaydet = st.form_submit_button("Kayıt Tamamla", type="primary", use_container_width=True, icon=":material/check_circle:")
 
     if kaydet:
@@ -618,6 +655,7 @@ def _mal_kabul_dialog():
             "fatura_mevcut": bool(fatura_mevcut),
             "firma_servis_form_no": firma_servis_no.strip(),
             "fiziksel_durum": fiziksel.strip(),
+            "giris_depo": giris_depo, "iade_net": float(iade_net or 0) if arayuz == "iade" else None,
         }
         _personel = st.session_state.get("aktif_kullanici", "") or ""
         ok, msg, form_no = ekle_kayit(data, _personel)
@@ -627,8 +665,13 @@ def _mal_kabul_dialog():
             if (firma_yeni or "").strip():
                 ekle_ts_firma(firma_yeni.strip())
             st.session_state["_mk_kayit_ok"] = form_no or msg
-            # ── Stok: teknik → TEKNİK DEPO, iade → İADE DEPO (+1) ──
+            # ── Stok: seçilen giriş deposuna (+1); iade ise Satış › İade'ye de manuel iade kaydı ──
             _sok, _smsg = _stok.mal_kabul_girisi(data)
+            _iok, _imsg = _stok.iade_kaydi_yaz(data)
+            if _sok and not _iok:
+                _sok, _smsg = False, f"{_smsg} · {_imsg}"
+            elif _sok and _imsg:
+                _smsg = f"{_smsg} · {_imsg}"
             st.session_state["_mk_stok_msg"] = (
                 ("📦 Stok: " + _smsg) if _sok and _smsg
                 else (f"⚠️ Kayıt oluştu ama stok işlenemedi — {_smsg}" if not _sok else ""))
@@ -1954,7 +1997,7 @@ def _depo_detay(k):
             st.markdown(
                 f'<div style="padding:8px 0"><span style="color:var(--k-kirmizi);font-weight:700">{_g(k,"servis_form_no")}</span> · '
                 f'{_g(k,"stok_kodu")} · <span style="color:var(--k-soluk)">{(_g(k,"stok_adi","")[:50])}</span><br>'
-                f'<span style="color:var(--k-silik);font-size:11px">{ARAYUZ_ETIKET.get(k.get("arayuz",""),"")} · Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo")}</span> '
+                f'<span style="color:var(--k-silik);font-size:11px">{ARAYUZ_ETIKET.get(k.get("arayuz",""),"")} · Seri {_g(k,"seri_no")} · Depo: {_g(k,"depo") or _g(k,"giris_depo")}</span> '
                 f'{_durum_chip(k.get("mevcut_durum",""))}</div>',
                 unsafe_allow_html=True)
         with c2:

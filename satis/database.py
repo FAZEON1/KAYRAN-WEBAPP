@@ -1213,12 +1213,14 @@ def _kart_sku(sku, harita=None):
 
 def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
               iade_brut=0, iade_iskonto=0, iade_masraf=0, iade_net=0,
-              depo=None, kaynak="manuel"):
+              depo=None, kaynak="manuel", stok_isle=True):
     """Tek iade kaydı. depo: malın fiziksel olarak girdiği depo.
 
     Eskiden iade her zaman MERKEZ DEPO'ya yazılıyordu; mal başka depoya
     girdiyse stok kırılımı yanlış oluyordu. Artık seçilen depoya işlenir.
     kaynak='manuel' → ay sonu toplu import bu satırı 'avans' sayıp mükerrer yazmaz.
+    stok_isle=False: stok başka yerde işlendi (teknik servis mal kabulü +1 yazdı), yalnız kayıt.
+    Toplu mal kabul yüklemesi içindeyse eklenen satır geri alma için bildirilir.
     """
     try:
         _depo = (str(depo or "").strip() or "MERKEZ DEPO")
@@ -1231,12 +1233,16 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
             "depo": _depo, "kaynak": (kaynak or "manuel"),
         }
         try:
-            _get_client().table("iadeler").insert(_kayit).execute()
+            _res = _get_client().table("iadeler").insert(_kayit).execute()
         except Exception:
             # depo/kaynak kolonları henüz eklenmemişse eski biçimde yaz
-            _get_client().table("iadeler").insert(
+            _res = _get_client().table("iadeler").insert(
                 {k: v for k, v in _kayit.items() if k not in ("depo", "kaynak")}).execute()
-        _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1)
+        _yk = _aktif_yukleme()
+        if _yk is not None:
+            _yk.eklenen("iadeler", getattr(_res, "data", None), beklenen=1)
+        if stok_isle:
+            _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1)
         _temizle()
         return True, f"✅ İade kaydedildi → {_depo}"
     except Exception as e:

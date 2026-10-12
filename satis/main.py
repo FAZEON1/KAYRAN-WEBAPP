@@ -1158,8 +1158,6 @@ def kapi_iade(dosya, kapi):
         if _r.get("hata"):
             st.error(f"Hata: {_r['hata']}")
             return
-        from shared.yukleme_takvimi import kaydet as _yt_kaydet
-        _yt_kaydet("iade_aylik", st.session_state.get("aktif_kullanici", ""), _r.get("eklendi"))
         _yk.kaydet(_r.get("eklendi"))
         st.cache_data.clear()
         kapi.bitti(f"{_r['eklendi']} iade kaydedildi ({_r['atlandi']} atlandı).")
@@ -2350,9 +2348,8 @@ def run():
             if _iey.get("btn_sat_miade"):
                 _dlg_manuel_iade()
 
-            from shared.yukleme_takvimi import serit as _yt_serit
-            _yt_serit("iade_aylik")              # aylık iade Excel'i: geri sayım şeridi
-
+            # Aylık iade Excel'i görevi Ekim 2026'da kaldırıldı: iadeler teknik servis mal kabulünde
+            # kaydediliyor (giriş deposu + manuel iade). Excel yüklemesi Dosya kapısında isteğe bağlı.
             _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
             _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
             # Excel çıktısı: ekrandaki özet + kırılımlar + ham kayıtlar, tek dosyada 4 sayfa
