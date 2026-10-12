@@ -18,7 +18,7 @@ from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki
 from . import musteri_hesap as H
 
 # "Ürün" görünümü kaldırıldı (Eki 2026): ürünler marka/kategori seçilince sağdaki detayda listeleniyor.
-GORUNUM = {"Müşteri": "musteri", "Marka": "marka", "Kategori": "kategori"}
+GORUNUM = {"Müşteri": "musteri", "Marka": "marka", "Kategori": "kategori", "Kategori × Müşteri": "matris"}
 
 
 def _cari(kod):
@@ -74,6 +74,73 @@ def _excel(ozet_df, detay_df, ozet_ad):
                 ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = min(max(uzun + 2, 10), 48)
             ws.freeze_panes = "A2"
     return buf.getvalue()
+
+
+def matris_tablolari(m, ad_fn=None):
+    """kategori_musteri sonucu → (adet tablosu, değer tablosu) satırları; son satır Toplam.
+    Sütunlar: Kategori, her müşteri (görünen ad), Toplam. Ekran ve Excel aynı tabloyu kullanır."""
+    ad_fn = ad_fn or (lambda f: f)
+    adlar = [ad_fn(f) or f for f in m["firmalar"]]
+    adet, deger = [], []
+    for s in m["satirlar"] + [{"kategori": "Toplam", "hucre": m["toplam"], "adet": m["adet"], "usd": m["usd"]}]:
+        ra, rd = {"Kategori": s["kategori"]}, {"Kategori": s["kategori"]}
+        for f, ad in zip(m["firmalar"], adlar):
+            a, u = s["hucre"].get(f, (0, 0.0))
+            ra[ad], rd[ad] = int(a), round(float(u), 2)
+        ra["Toplam"], rd["Toplam"] = int(s["adet"]), round(float(s["usd"]), 2)
+        adet.append(ra)
+        deger.append(rd)
+    return adet, deger
+
+
+def _matris_excel(adet_df, deger_df):
+    import io
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        for ad, d, bicim in (("Adet", adet_df, "#,##0"), ("Değer USD", deger_df, "$#,##0.00")):
+            d.to_excel(w, index=False, sheet_name=ad)
+            ws = w.sheets[ad]
+            for i, kol in enumerate(d.columns, start=1):
+                ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = min(max(len(str(kol)) + 2, 12), 40)
+                if i > 1:
+                    for c in ws.iter_rows(min_row=2, min_col=i, max_col=i):
+                        c[0].number_format = bicim
+            ws.freeze_panes = "B2"
+    return buf.getvalue()
+
+
+def _kategori_musteri(rows, meta, c3, bas, bit):
+    """Müşterilerdeki stok, kategori × müşteri (adet ya da paçal maliyetle USD)."""
+    try:
+        from satis.database import get_pacal_map
+        pacal = get_pacal_map() or {}
+    except Exception:  # noqa: BLE001
+        pacal = {}
+    from shared.utils import sku_anahtar
+    m = H.kategori_musteri(rows, meta, pacal, sku_fn=sku_anahtar)
+    if not m["satirlar"]:
+        st.info("Bu aralıktaki raporlarda müşteri stoğu yok.")
+        return
+    adet, deger = matris_tablolari(m, ad_fn=_cari)
+    adet_df, deger_df = pd.DataFrame(adet), pd.DataFrame(deger)
+    c3.download_button("Excel", partial(_matris_excel, adet_df, deger_df),
+                       f"musteri_stogu_kategori_{bas}_{bit}.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       key="mhs_matris_xlsx", icon=":material/download:", use_container_width=True)
+    birim = st.segmented_control("Birim", ["Adet", "Değer ($)"], default="Adet", key="mhs_matris_birim",
+                                 label_visibility="collapsed") or "Adet"
+    df = adet_df if birim == "Adet" else deger_df
+    bicim = (st.column_config.NumberColumn(format="localized", step=1) if birim == "Adet"
+             else st.column_config.NumberColumn(format="dollar", step=0.01))
+    st.dataframe(df, hide_index=True, use_container_width=True, key=f"mhs_matris_{birim}",
+                 column_config={k: bicim for k in df.columns if k != "Kategori"},
+                 height=min(640, 38 + 35 * len(df)))
+    st.caption(f"Müşterilerdeki stok: {tr_sayi(m['adet'])} adet · ${tr_sayi(m['usd'], 2)} (paçal maliyetle). "
+               "Her müşterinin seçilen aralıktaki son raporu; Kanal stoğu kartıyla aynı kural. "
+               "Kategori stok kartından, kartta yoksa ürün adından tahmin.")
+    if m["maliyetsiz"]:
+        st.caption(f"{len(m['maliyetsiz'])} ürünün paçal maliyeti bulunamadı; değerde 0 sayıldı.",
+                   help=", ".join(m["maliyetsiz"][:40]) + (" …" if len(m["maliyetsiz"]) > 40 else ""))
 
 
 def _egilim(seri, haftalar, key):
@@ -204,6 +271,10 @@ def render():
         {"label": "Kapsama", "value": (f"{tr_sayi(oz['kapsama'], 1)} hafta" if oz["kapsama"] is not None else "—"),
          "alt": "kanal stoğu ÷ haftalık ortalama"},
     ])
+
+    if kir == "matris":                    # Ekim 2026: müşterilerdeki stok, kategori × müşteri
+        _kategori_musteri(rows, meta, c3, bas, bit)
+        return
 
     gruplar = H.grupla(rows, kir, meta, ad_fn=_cari)
     ust_ad = gor
