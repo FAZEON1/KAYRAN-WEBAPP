@@ -10,7 +10,8 @@ from test_dosya_kapisi import _sorunlar  # noqa: E402
 from test_sayfalar import BETIK, SURE  # noqa: E402
 
 
-def test_ertelenen_odeme_tiklaninca_odeme_penceresi_acilir():
+def test_ertelenen_odeme_tiklaninca_odeme_penceresi_acilir(monkeypatch):
+    monkeypatch.setenv("DUMAN_ONBELLEK_TEMIZLE", "1")   # önceki sayfa testlerinin (boş veri) önbelleği örtmesin
     import sahte_db
     from streamlit.testing.v1 import AppTest
     sahte_db.TABLOLAR.clear()

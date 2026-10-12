@@ -11,6 +11,7 @@ from test_sayfalar import BETIK, SURE  # noqa: E402
 
 
 def test_hafta_dugmesi_tek_tikla_haftayi_degistirir(monkeypatch):
+    monkeypatch.setenv("DUMAN_ONBELLEK_TEMIZLE", "1")   # önceki sayfa testlerinin (boş veri) önbelleği örtmesin
     import sahte_db
     from streamlit.testing.v1 import AppTest
     sahte_db.TABLOLAR.clear()
