@@ -345,12 +345,41 @@ def parti_satirlari(bizim, bugun, grup=None, skular=None):
     return out
 
 
-def musteri_satirlari(musteri, firma_ad=lambda f: f):
+KATEGORISIZ = "Kategorisiz"
+
+
+def musteri_kategorileri(musteri, kat_map):
+    """Müşterilerdeki stoğun kategorileri: [(kategori, adet)], adede göre azalan. kat_map: {sku anahtarı:
+    kategori}; kartı / kategorisi olmayan ürün KATEGORISIZ (Ekim 2026: Müşterilerdeki stok süzgeci)."""
+    say = {}
+    for skular in (musteri or {}).values():
+        for sku, (oz, _kal) in skular.items():
+            k = (kat_map or {}).get(sku) or KATEGORISIZ
+            say[k] = say.get(k, 0) + (oz.get("stok") or 0)
+    return sorted(say.items(), key=lambda x: (-x[1], x[0]))
+
+
+def musteri_kategori_suz(musteri, kat_map, kategori=None):
+    """Yalnız seçilen kategorinin ürünleri; ürünü kalmayan müşteri düşer. kategori None: olduğu gibi."""
+    if not kategori:
+        return musteri or {}
+    out = {}
+    for firma, skular in (musteri or {}).items():
+        s = {sku: v for sku, v in skular.items() if ((kat_map or {}).get(sku) or KATEGORISIZ) == kategori}
+        if s:
+            out[firma] = s
+    return out
+
+
+def musteri_satirlari(musteri, firma_ad=lambda f: f, kat_map=None):
     out = []
     for firma, skular in (musteri or {}).items():
         for sku, (oz, _kal) in skular.items():
-            r = {"Müşteri": firma_ad(firma), "SKU": sku, "Stok": oz["stok"],
-                 "Ort. yaş (gün)": _yuvarla(oz["ort_gun"]), "En eski (gün)": oz["en_eski_gun"]}
+            r = {"Müşteri": firma_ad(firma), "SKU": sku}
+            if kat_map is not None:
+                r["Kategori"] = kat_map.get(sku) or KATEGORISIZ
+            r.update({"Stok": oz["stok"],
+                 "Ort. yaş (gün)": _yuvarla(oz["ort_gun"]), "En eski (gün)": oz["en_eski_gun"]})
             for g, _a, _u in GRUPLAR:
                 r[g] = oz["gruplar"].get(g, 0)
             r["Kaydı yok"] = oz["kapsanmayan"]

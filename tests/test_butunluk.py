@@ -158,7 +158,7 @@ KRITIK_FONKSIYONLAR = {
                            "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku",
                            "urun_satirlari", "parti_satirlari", "musteri_satirlari", "excel_bytes",
                            "ayar_birlestir", "ayar_oku", "haric_mi", "kategori_sorumlulari", "yasli_satirlar",
-                           "kisi_listeleri", "mail_html"],   # stok yaşı FIFO (Eki 2026)
+                           "kisi_listeleri", "mail_html", "musteri_kategorileri", "musteri_kategori_suz"],   # stok yaşı FIFO (Eki 2026)
     "kayranpm.stok_yasi_ekran": ["goster", "kart_bolumu"],
     "kayranpm.yurtici_hesap": ["maliyet_hesapla", "dogrula", "kayit_argumanlari", "formdan", "belge_no", "usd"],
     "kayranpm.yurtici_ekran": ["goster"],
