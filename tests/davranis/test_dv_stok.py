@@ -136,14 +136,14 @@ def test_kart_ac_ile_yeni_kart_ve_giris(stokdb):
 # ── Excel toplu satış: akıllı depo düşümü ─────────────────────────────
 def test_akilli_dusum_once_merkez_sonra_coktan_aza(stokdb):
     """A1 kırılımı MERKEZ 3, HAPPY 5, ASEL 8 ; satış 14:
-       1) MERKEZ'den mevcut 3 → 0 ; 2) kalan 11 diğer depolardan stoğu ÇOKTAN AZA: ASEL 8 → 0,
-       HAPPY 5'ten 3 → 2 ; bizim = 0 + 2 = 2.
+       1) MERKEZ'den mevcut 3 → 0 ; 2) kalan 11 diğer SATILABİLİR depolardan (çoktan aza): HAPPY 5 → 0 ;
+       ASEL satılabilir depo değil (bizim_stok'a da girmez) → dokunulmaz, 8 kalır ;
+       3) kalan 6 MERKEZ'e eksi → −6 ; bizim = −6 + 0 = −6. (Ekim 2026 düzeltmesi: eskiden ASEL 8 → 0.)
        K1 (MERKEZ 1, HAPPY 2) satış 5: MERKEZ 1 → 0, HAPPY 2 → 0, kalan 2 MERKEZ'e eksi → −2 ;
-       bizim −2. (İade/hurda deposu olan ve kart yazımı karışık SKU'lar bilinçli olarak kilitlenmedi —
-       rapordaki şüpheli bulgulara bakın.)"""
+       bizim −2."""
     from satis.database import _stok_akilli_dus
     _stok_akilli_dus({"A1": 14, "K1": 5})
-    assert _dagilim(stokdb, "A1") == ({"HAPPY LIFE": 2}, 2)
+    assert _dagilim(stokdb, "A1") == ({"ASEL DEPO": 8, "MERKEZ DEPO": -6}, -6)
     assert _dagilim(stokdb, "K1") == ({"MERKEZ DEPO": -2}, -2)
 
 

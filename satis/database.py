@@ -405,12 +405,22 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
     stok Happy Life gibi başka depodaysa merkez eksiye iniyordu (kullanıcı
     bildirimi). Kural — öngörülebilir ve basit:
       1) MERKEZ DEPO'daki mevcut kadarını merkezden düş,
-      2) kalanı stoğu ÇOKTAN AZA sıralı diğer depolardan düş,
+      2) kalanı stoğu ÇOKTAN AZA sıralı diğer SATILABİLİR depolardan düş (hurda/iade/2.el hariç),
       3) hiçbir depoda kalmadıysa kalan MERKEZ'e eksi yazılır (satış asla
          engellenmez; stok uyarısı zaten ekranda gösteriliyor).
     Hata durumunda sessizce eski davranışa (hepsi merkezden) döner."""
     try:
         from kayranpm.database import get_client as _gc, depo_kanonik, stok_hareket_coklu
+        try:
+            from kayranpm.database import _SATILABILIR_DEPOLAR as _sat_depolar
+        except Exception:
+            _sat_depolar = {"MERKEZ DEPO", "HAPPY LIFE"}
+
+        def _satilabilir_depo(d):
+            try:
+                return depo_kanonik(d) in _sat_depolar
+            except Exception:
+                return str(d or "").strip().upper() in _sat_depolar
         try:
             _merkez = depo_kanonik("MERKEZ DEPO")
         except Exception:
@@ -438,12 +448,20 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
                 kalan = 0
             if not sku or kalan <= 0:
                 continue
-            # SKU'nun depo kırılımını oku
+            # SKU'nun depo kırılımını oku — kartın yazımıyla ('MIO MIVUE J30' → 'Mio MiVue J30').
+            # Eskiden yalnız girilen ve büyük harf yazım deneniyordu; karışık harfli kart bulunamayınca
+            # satışın tamamı merkezden düşüyordu (Ekim 2026).
             kirilim = {}
             try:
                 u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku).execute())
                 if not u and sku != sku.upper():
                     u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku.upper()).execute())
+                if not u:
+                    _ks = _kart_sku(sku)
+                    if _ks and _ks != sku:
+                        u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", _ks).execute())
+                        if u:
+                            sku = _ks
                 _k = (u or {}).get("depo_kirilim") or {}
                 if isinstance(_k, str):
                     import json as _json
@@ -457,10 +475,13 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
                 _d = min(kalan, _m)
                 depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + _d
                 kalan -= _d
-            # 2) diğer depolar (stok çoktan aza)
+            # 2) diğer SATILABİLİR depolar (stok çoktan aza). Hurda / iade / ikinci el / teknik depolar
+            #    satılabilir stok değil: eskiden "en çok stoğu olan" diye önce HURDA'dan düşülüyordu.
             if kalan > 0:
                 for depo, mevcut in sorted(kirilim.items(), key=lambda kv: -kv[1]):
                     if depo == _merkez or mevcut <= 0 or kalan <= 0:
+                        continue
+                    if not _satilabilir_depo(depo):
                         continue
                     _d = min(kalan, mevcut)
                     depo_dus.setdefault(depo, {})[sku] = depo_dus.get(depo, {}).get(sku, 0) + _d
@@ -1333,6 +1354,7 @@ def ozet_hesapla(satislar):
     """Liste için toplam P&L + kanal/SKU kırılımı. Marj = net kâr / (ciro − destek)."""
     top = {"ciro": 0.0, "maliyet": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0}
     kanal, urun = {}, {}
+    _harita = None             # kart SKU haritası — yalnız gerekirse bir kez okunur
     for s in satislar:
         k = satir_kar(s)
         for f in ("ciro", "maliyet", "destek", "net_kar", "adet"):
@@ -1342,6 +1364,11 @@ def ozet_hesapla(satislar):
         kanal[kn]["ciro"] += k["ciro"]; kanal[kn]["destek"] += k["destek"]
         kanal[kn]["net_kar"] += k["net_kar"]; kanal[kn]["adet"] += k["adet"]
         su = s.get("sku", "") or "—"
+        if su != "—":
+            # Ürün kırılımı kartın yazımıyla: eski 'Fazeon X24' kayıtları 'X24' ile tek satır (Ekim 2026).
+            if _harita is None:
+                _harita = _kart_sku_haritasi()
+            su = _kart_sku(su, _harita) or su
         urun.setdefault(su, {"urun_adi": s.get("urun_adi", ""), "ciro": 0.0, "destek": 0.0,
                              "net_kar": 0.0, "adet": 0})
         urun[su]["ciro"] += k["ciro"]; urun[su]["destek"] += k["destek"]

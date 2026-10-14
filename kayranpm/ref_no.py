@@ -266,16 +266,9 @@ def alinan_destek_sil(rid):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _eur_usd_kur():
-    """1 EUR kaç USD — mevcut kur API'sinden (open.er-api.com). Alınamazsa 1.08.
-    HIZ: saatlik önbellek. Eskiden EUR kaydı olan her ekran çiziminde internete
-    gidiyordu (6 sn zaman aşımı; ağ yavaşsa sayfa 6 sn donuyordu)."""
-    try:
-        import requests
-        d = requests.get("https://open.er-api.com/v6/latest/EUR", timeout=6).json()
-        v = float(d["rates"]["USD"])
-        return v if 0.5 < v < 2.5 else 1.08
-    except Exception:
-        return 1.08
+    """1 EUR kaç USD — tek kaynak shared.kur.eur_usd (güncel kur, alınamazsa 1,08). Saatlik önbellek."""
+    from shared.kur import eur_usd
+    return eur_usd()
 
 
 def _alinan_kur():

@@ -342,7 +342,7 @@ def test_eski_kod_yarim_listeydi():
                               capture_output=True, text=True, check=True).stdout
     except Exception:
         pytest.skip("origin/main okunamadı")
-    if "shared.yedek_tablolari" in eski:
+    if "shared.yedek_tablolari" in eski or "YEDEK_TABLOLAR = [" not in eski:
         pytest.skip("main zaten yeni sürümde")
     blok = eski[eski.index("YEDEK_TABLOLAR = ["):]
     blok = blok[:blok.index("]")]

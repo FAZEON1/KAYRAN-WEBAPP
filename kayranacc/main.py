@@ -16,6 +16,7 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared.utils import metrik_satiri, metric_css
 from shared.tasarim import baslik as _sb, tablo_kolonlari, tablo_h, tablo_html, Ham, rozet_html, renkli, kisalt, mesaj as k_mesaj
 from shared.tasarim import para as _tpara
+from shared.kur import eur_usd as _eur_usd   # EUR→USD güncel kur (eskiden sabit 1,08 / 1,10)
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -1317,7 +1318,7 @@ def run():
         _v_tl = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "TL")
         _v_usd = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "USD")
         _v_eur = sum(float(b["bakiye"]) for b in bankalar if b["para_birimi"] == "EUR")
-        _v_usd_esde = _v_usd + (_v_tl / kur if kur else 0) + (_v_eur * 1.08)
+        _v_usd_esde = _v_usd + (_v_tl / kur if kur else 0) + (_v_eur * _eur_usd() if _v_eur else 0)
         st.markdown(
             '<div style="background:color-mix(in srgb,var(--k-mor) 6%,transparent);border:1px solid color-mix(in srgb,var(--k-mor) 20%,transparent);'
             'border-radius:10px;padding:8px 16px;margin:8px 0 16px;display:flex;gap:24px;flex-wrap:wrap;'
@@ -2026,8 +2027,9 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
         # Kur her zaman güçlü birim üzerinden sorulur
         _guclu, _zayif = (_kpb, _hpb) if _PB_SIRA[_kpb] > _PB_SIRA[_hpb] else (_hpb, _kpb)
         _usd_tl = float(get_kur() or 1)
-        _vars = {("USD", "TL"): _usd_tl, ("EUR", "TL"): _usd_tl * 1.08,
-                 ("EUR", "USD"): 1.08}.get((_guclu, _zayif), 1.0)
+        _eu = _eur_usd()
+        _vars = {("USD", "TL"): _usd_tl, ("EUR", "TL"): _usd_tl * _eu,
+                 ("EUR", "USD"): _eu}.get((_guclu, _zayif), 1.0)
 
         a1, a2 = st.columns([2, 1])
         _tutar = a1.number_input(
@@ -2727,7 +2729,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
                     def _usd_kar(d):
                         return (float(d.get("usd") or 0)
                                 + (float(d.get("tl") or 0) / kur if kur > 0 else 0)
-                                + float(d.get("eur") or 0) * 1.10)
+                                + float(d.get("eur") or 0) * _eur_usd())
                     b_tot = _usd_kar(_b)
                     a_tot = _usd_kar(_a)
                     metrik_satiri([
@@ -2804,9 +2806,9 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         usd_alacak = tl_alacak = eur_alacak = 0.0
 
     tl_borc_usd = tl_borc / kur if kur > 0 else 0
-    eur_borc_usd = eur_borc * 1.10 if eur_borc > 0 else 0
+    eur_borc_usd = eur_borc * _eur_usd() if eur_borc > 0 else 0
     tl_alacak_usd = tl_alacak / kur if kur > 0 else 0
-    eur_alacak_usd = eur_alacak * 1.10 if eur_alacak > 0 else 0
+    eur_alacak_usd = eur_alacak * _eur_usd() if eur_alacak > 0 else 0
     toplam_alacak_usd = usd_alacak + tl_alacak_usd + eur_alacak_usd
 
     # ─── Çekler (Sistemden) ───

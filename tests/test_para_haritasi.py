@@ -39,14 +39,14 @@ def test_asamalar_ve_tutarlar():
     assert all(x["ad"] != "Teslim Alındı" for x in h["varlik"])    # teslim alınan depodadır
     assert _b(h, "Depoda · 0–90 gün") == 5500 and _b(h, "Depoda · 91–180 gün") == 2000
     assert _b(h, "Depoda · 180+ gün") == 3000 and _b(h, "Depoda · giriş kaydı yok") == 100
-    assert _b(h, "Müşteri alacağı") == pytest.approx(6000 + 40000 / KUR + 1000 * 1.10)   # Toplam Aktifler kuralı
+    assert _b(h, "Müşteri alacağı") == pytest.approx(6000 + 40000 / KUR + 1000 * 1.08)   # EUR: shared.kur.eur_usd (testte yedek 1,08)
     assert _b(h, "Banka") == pytest.approx(1500 + 80000 / KUR + 100 * 1.08)              # Banka ekranı kuralı
     assert _b(h, "Cari borç") == 2000 and _b(h, "Verilen çekler") == pytest.approx(500 + 20000 / KUR)
 
 
 def test_toplamlar_net_ve_pay():
     h = P.harita(V, KUR)
-    tv = 7000 + 10600 + (6000 + 1000 + 1100) + (1500 + 2000 + 108)
+    tv = 7000 + 10600 + (6000 + 1000 + 1080) + (1500 + 2000 + 108)   # EUR 1.000 × 1,08
     assert h["toplam_varlik"] == pytest.approx(tv)
     assert h["toplam_borc"] == pytest.approx(2000 + 1000)
     assert h["net"] == pytest.approx(tv - 3000)
@@ -57,7 +57,7 @@ def test_toplamlar_net_ve_pay():
 
 def test_kur_yoksa_tl_sayilmaz_ve_yazilir():
     h = P.harita(V, None)
-    assert _b(h, "Banka") == pytest.approx(1500 + 108) and _b(h, "Müşteri alacağı") == pytest.approx(7100)
+    assert _b(h, "Banka") == pytest.approx(1500 + 108) and _b(h, "Müşteri alacağı") == pytest.approx(7080)
     assert any("kur" in e for e in h["eksik"])
 
 
