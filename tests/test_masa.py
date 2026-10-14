@@ -108,3 +108,12 @@ def test_bilesen_tek_kez_kaydedilir_ve_metinleri_kacirir():
 def test_coklu_islem_cubukta_degil_ama_birden_cok_kimlik_alir():
     t, h = M.istek_al(VERI, {"islem": "geri2", "ids": [1, 3]})
     assert h is None and t["ids"] == [1, 3]
+
+
+def test_ozet_bandi_butun_kart_seritlerinde():
+    """Tüm program yeni tasarım: kpi_serit / metrik_satiri kartları tek bant (ödeme masasıyla aynı görünüm)."""
+    from shared import tasarim as T
+    css = T.cekirdek_css()
+    assert ".k-grid:has(> .k-kart.k-yeni){gap:1px;background:var(--k-kenar)" in css
+    assert ".k-grid > .k-kart.k-yeni{border:0;border-radius:0" in css
+    assert 'class="k-grid"' in T.kpi_serit([{"etiket": "A", "deger": "1"}])
