@@ -34,9 +34,10 @@ TANIM (masa(veri) — hepsi Python'da hazırlanır, metinler biçimlenmiş gelir
                 yalniz_toplu: True — yan panelde gösterilmez, yalnız alttaki toplu çubukta
   tik         "panel" (varsayılan) ya da işlem anahtarı — satıra tıklayınca o işlem doğrudan gönderilir
   bos         {liste, suzgec}  · bildirim {n, ok, mesaj, geri?: {islem, ids}} · salt · baslik_ipucu
-  baslangic   {gor, q, sec, ana, sira} — ilk açılış durumu (verilmezse son kullanılan durum geri gelir)
-GÖRÜNÜM DURUMU: görünüm, arama, süzgeç ve sıralama bileşenin "durum" değerinde tutulur; ayrıntı sayfasına
-gidip dönünce (bileşen yeniden kurulunca) aynen geri gelir.
+  baslangic   {gor, q, sec, ana, sira} — ilk açılış durumu (verilmezse bu sekmede son kullanılan durum geri gelir)
+GÖRÜNÜM DURUMU: görünüm, arama, süzgeç ve sıralama tarayıcının oturum belleğinde (sessionStorage, masa anahtarına
+göre) tutulur; ayrıntı sayfasına gidip dönünce aynen geri gelir. Sunucuya gitmez: süzme / sıralama / arama sayfayı
+yeniden çalıştırmaz (Ekim 2026, hızlandırma — eskiden her tıklama tüm sayfayı çalıştırıyordu).
 KOŞUL f: [[alan, op, değer], …] (VE) — op: eq ne in nin gt lt var yok
 """
 import json
@@ -280,14 +281,23 @@ _CSS = r"""
 
 _JS = r"""
 export default function(component){
-  const {data, setTriggerValue, setStateValue, parentElement} = component;
+  const {data, setTriggerValue, parentElement} = component;
   const D = data || {};
-  const R = D.satirlar || [], ISL = D.islemler || [], SUT = D.sutunlar || [], GOR = D.gorunumler || [];
-  const B0 = D.baslangic || {};
+  // satırlar sütun düzeninde gelir (alan adları bir kez — shared/masa.sutun_duzeni); "\u0001" = alan yok
+  const R = D.satirlar_k ? (D.satirlar_v || []).map(v => { const o = {};
+      D.satirlar_k.forEach((k, i) => { if (i < v.length && v[i] !== "\u0001") o[k] = v[i]; }); return o; })
+    : (D.satirlar || []);
+  const ISL = D.islemler || [], SUT = D.sutunlar || [], GOR = D.gorunumler || [];
+  // Görünüm durumu (görünüm, arama, süzgeç, sıralama) tarayıcının oturum belleğinde (Ekim 2026, hızlandırma):
+  // eskiden sunucuya yazılıyordu (setStateValue) ve her çip / tuş / sıralama TÜM sayfayı yeniden çalıştırıyordu.
+  const DK = "kayran_masa:" + (D.anahtar || "");
+  let B0 = D.baslangic || null;
+  if (!B0 && !parentElement.__ms){ try { B0 = JSON.parse(sessionStorage.getItem(DK) || "null"); } catch (_) { B0 = null; } }
+  B0 = B0 || {};
   const S = parentElement.__ms || (parentElement.__ms = {gor:B0.gor || (GOR[0]||{}).k || "", sec:Object.assign({}, B0.sec || {}),
                                                          ana:Object.assign({}, B0.ana || {}), q:B0.q || "", sira:B0.sira || null, secim:new Set(),
                                                          acik:null, sekme:null, odak:0, sonBildirim:null, form:{}, sinir:200});
-  const durumYaz = () => { try { setStateValue("durum", {gor:S.gor, q:S.q, sec:S.sec, ana:S.ana, sira:S.sira}); } catch (_) {} };
+  const durumYaz = () => { try { sessionStorage.setItem(DK, JSON.stringify({gor:S.gor, q:S.q, sec:S.sec, ana:S.ana, sira:S.sira})); } catch (_) {} };
   if (S.gor && !GOR.some(g => g.k === S.gor)) S.gor = (GOR[0]||{}).k || "";
   let kok = parentElement.querySelector(".ms");
   if (!kok){ kok = document.createElement("div"); kok.className = "ms"; parentElement.appendChild(kok); }
@@ -594,8 +604,36 @@ def _jsonlanir(veri):
     return json.loads(json.dumps(veri, ensure_ascii=False, default=str))
 
 
+YOK = "\u0001"     # sütun düzeninde "bu satırda alan yok" (null'dan ayrı: sıralama "x__s yoksa x" der)
+
+
+def sutun_duzeni(veri):
+    """Bileşene giden veride satırlar sütun düzeninde (Ekim 2026, hızlandırma): alan adları bir kez
+    (satirlar_k), her satır yalnız değer listesi (satirlar_v). Satır başına tekrar eden alan adları masanın
+    verisinin yarıdan fazlasıydı. Satırda olmayan alan YOK; sondaki YOK'lar yazılmaz. JS aynı nesneleri kurar."""
+    satirlar = veri.get("satirlar")
+    if not satirlar:
+        return veri
+    anahtarlar, gorulen = [], set()
+    for r in satirlar:
+        for k in r:
+            if k not in gorulen:
+                gorulen.add(k)
+                anahtarlar.append(k)
+    degerler = []
+    for r in satirlar:
+        v = [r.get(k, YOK) if k in r else YOK for k in anahtarlar]
+        while v and v[-1] == YOK:
+            v.pop()
+        degerler.append(v)
+    out = {k: d for k, d in veri.items() if k != "satirlar"}
+    out["satirlar_k"], out["satirlar_v"] = anahtarlar, degerler
+    return out
+
+
 def onceki_durum(key):
-    """Bileşenin son bildirdiği görünüm durumu (görünüm, arama, süzgeç, sıralama) ya da None."""
+    """Eski sürümün sunucuya yazdığı görünüm durumu ya da None. Ekim 2026'dan beri durum tarayıcıda tutulur
+    (sessionStorage, masa JS) — sunucuya yazım her çip tıklamasında sayfayı yeniden çalıştırıyordu."""
     try:
         import streamlit as st
         d = (st.session_state.get(key) or {}).get("durum")
@@ -606,11 +644,11 @@ def onceki_durum(key):
 
 def masa(veri, key):
     """Masayı çizer; kullanıcı bir işlem yaptıysa YALNIZ o çalıştırmada isteği (dict) döner.
-    Görünüm durumu oturumda kalır: bileşen yeniden kurulduğunda (ayrıntıdan dönüş) son durumla açılır."""
-    if "baslangic" not in veri:
-        veri = dict(veri, baslangic=onceki_durum(key))
-    sonuc = _bilesen()(key=key, data=_jsonlanir(veri), default={"durum": None}, height="content",
-                       on_istek_change=lambda: None, on_durum_change=lambda: None)
+    Görünüm durumu tarayıcının oturum belleğinde kalır (anahtara göre): bileşen yeniden kurulduğunda (ayrıntıdan
+    dönüş) son durumla açılır; süzme / sıralama / arama sunucuya gitmez (sayfa yeniden çalışmaz)."""
+    veri = dict(veri, anahtar=key)
+    sonuc = _bilesen()(key=key, data=sutun_duzeni(_jsonlanir(veri)), height="content",
+                       on_istek_change=lambda: None)
     try:
         return getattr(sonuc, "istek")
     except Exception:  # noqa: BLE001

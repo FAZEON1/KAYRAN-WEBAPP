@@ -47,6 +47,26 @@ export default function(component){
   const es = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const harf = {"ç":"c","ğ":"g","ı":"i","ö":"o","ş":"s","ü":"u","â":"a","î":"i","İ":"i","I":"i"};
   const sade = s => String(s||"").replace(/[çğıöşüâîİI]/g, c => harf[c] || c).toLowerCase();
+  // Sayı kutusu tekerleği yutmasın (Ekim 2026): fare odakta olmayan bir sayı kutusunun üstündeyken Streamlit
+  // tekerleği kilitliyor, sayfa kaymıyordu (Yurt içi alış, Yeni ithalat, telefonda Hesap makinesi). Kutuyu içeren
+  // kaydırılabilir alan (sayfa ya da açık pencere) kaydırılır; kutunun değeri değişmez. Palet her sayfada var:
+  // dinleyici pencereye bir kez kurulur.
+  if (!window.__kayranTeker){
+    window.__kayranTeker = true;
+    window.addEventListener("wheel", ev => {
+      const t = ev.target && ev.target.closest ? ev.target.closest('input[type="number"], [data-testid="stNumberInput"] input') : null;
+      if (!t || t === document.activeElement) return;
+      let a = t.parentElement;
+      while (a && a !== document.body){
+        const o = getComputedStyle(a).overflowY;
+        if ((o === "auto" || o === "scroll") && a.scrollHeight > a.clientHeight + 1) break;
+        a = a.parentElement;
+      }
+      const kap = (a && a !== document.body) ? a : (document.querySelector('[data-testid="stMain"]') || document.scrollingElement);
+      ev.preventDefault(); ev.stopPropagation();
+      kap.scrollBy({top: ev.deltaY, left: ev.deltaX});
+    }, {capture: true, passive: false});
+  }
   if (!P.kok){
     const k = document.createElement("div");
     const mac = /Mac|iPhone|iPad/.test(navigator.platform || "");
