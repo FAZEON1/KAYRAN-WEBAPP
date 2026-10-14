@@ -10,6 +10,10 @@ from shared.tasarim import tr_sayi
 
 from . import stok_yasi as Y
 
+# "Tüm ürünler" liste masası (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/stok_yasi_masasi.py).
+# True: salt okur masa. False: eski tablo (sy_urunler) aynen (geri almak için YALNIZ bu satır).
+STOK_YASI_MASASI_YENI = True
+
 
 def _pacal():
     try:
@@ -263,15 +267,21 @@ def goster():
                 st.caption(f"{tr_sayi(top['kapsanmayan'])} adedin giriş kaydı yok (yurt içinden alınmış olabilir); "
                            "Yurt içi alış sayfasından alımı girince yaşı hesaplanır.")
             st.markdown("**Tüm ürünler**")
-            sec = tablo(rows, key="sy_urunler", kalici=True, arama=True, dosya_adi="stok_yasi_urunler")
-            if sec is not None:
-                k = rows[sec]["_id"]
-                oz, kal, u = v["bizim"][k]
-                with st.container(border=True):
-                    st.markdown(f"**{u.get('sku')}** · {u.get('urun_adi') or ''} · elde kalan partiler")
-                    _parti_tablosu(kal, bugun, key=f"sy_secili_{k}")
+            if STOK_YASI_MASASI_YENI:
+                from shared.masa import calistir
+                from . import stok_yasi_masasi as SYM
+                calistir(SYM.masa_verisi(v["bizim"], pacal, bugun), "sy_urun_masasi", SYM.yurutucu())
+                st.caption("Bir ürüne tıkla: yaş grupları ve elde kalan partiler yan panelde.")
             else:
-                st.caption("Partilerini görmek için bir ürüne tıkla.")
+                sec = tablo(rows, key="sy_urunler", kalici=True, arama=True, dosya_adi="stok_yasi_urunler")
+                if sec is not None:
+                    k = rows[sec]["_id"]
+                    oz, kal, u = v["bizim"][k]
+                    with st.container(border=True):
+                        st.markdown(f"**{u.get('sku')}** · {u.get('urun_adi') or ''} · elde kalan partiler")
+                        _parti_tablosu(kal, bugun, key=f"sy_secili_{k}")
+                else:
+                    st.caption("Partilerini görmek için bir ürüne tıkla.")
     with t2:
         mus = v["musteri"]
         if not mus:
