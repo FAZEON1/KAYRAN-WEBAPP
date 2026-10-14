@@ -15,7 +15,7 @@ kontrol ve yürütme sayfanın kendi modülünde, bugünkü veritabanı fonksiyo
 TANIM (masa(veri) — hepsi Python'da hazırlanır, metinler biçimlenmiş gelir):
   ozet        [{k, et, dg, al, renk, suz?, oran?, ipucu?}]   suz: tıklanınca seçilen görünüm
   gorunumler  [{k, ad, f}]                                     ilki varsayılan; f = koşul (aşağıda)
-  secimler    [{alan, ad (hepsi metni), secenekler: [{k, ad}]}] açılır çip (kategori, firma…)
+  secimler    [{alan, ad (hepsi metni), secenekler: [{k, ad}]}] açılır çip (kategori, firma…); satırdaki alan liste ise içeren eşleşir
   anahtarlar  [{k, ad, f}]                                      aç/kapa çip (Yalnız TL…)
   ara         {alanlar: [...], ipucu}
   sutunlar    [{alan, ad, tip, gen, sag?, alt?, alt_renk?, sirala?, dar?}]
@@ -309,12 +309,13 @@ export default function(component){
   function suzulmus(){
     const g = GOR.find(x => x.k === S.gor), q = kucuk(S.q.trim()), ar = (D.ara || {}).alanlar || [];
     let r = R.filter(x => !g || uyar(x, g.f));
-    for (const s of D.secimler || []) if (S.sec[s.alan]) r = r.filter(x => String(x[s.alan]) === S.sec[s.alan]);
+    for (const s of D.secimler || []) if (S.sec[s.alan]) r = r.filter(x => Array.isArray(x[s.alan]) ? x[s.alan].map(String).includes(S.sec[s.alan]) : String(x[s.alan]) === S.sec[s.alan]);
     for (const a of D.anahtarlar || []) if (S.ana[a.k]) r = r.filter(x => uyar(x, a.f));
     if (q) r = r.filter(x => kucuk(ar.map(a => x[a]).join(" ")).includes(q));
     if (S.sira){
       const [a, y] = S.sira, v = x => { const s = x[a + "__s"]; return s !== undefined ? s : (typeof x[a] === "string" ? kucuk(x[a]) : x[a]); };
-      r = r.slice().sort((p, q2) => { const A = v(p), B = v(q2); return (A === B ? 0 : A === null || A === undefined ? 1 : B === null || B === undefined ? -1 : A > B ? 1 : -1) * y; });
+      r = r.slice().sort((p, q2) => { const A = v(p), B = v(q2), bA = A === null || A === undefined || A === "", bB = B === null || B === undefined || B === "";
+        return bA || bB ? (bA === bB ? 0 : bA ? 1 : -1) : (A === B ? 0 : A > B ? 1 : -1) * y; });   // boş değer her yönde sonda
     }
     return r;
   }

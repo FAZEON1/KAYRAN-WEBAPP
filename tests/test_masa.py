@@ -136,3 +136,10 @@ def test_gorunum_durumu_oturumdan_geri_gelir(monkeypatch):
     assert M.onceki_durum("yok_boyle") is None
     js = M._JS
     assert 'setStateValue("durum"' in js and "D.baslangic" in js
+
+
+def test_secim_liste_alani_ve_bos_deger_sonda():
+    """Çok değerli alan (ref kategorileri) açılır süzgeçte 'içerir' ile eşleşir; sıralamada boş değer iki yönde de sonda."""
+    js = M._JS
+    assert "Array.isArray(x[s.alan]) ? x[s.alan].map(String).includes(S.sec[s.alan])" in js
+    assert "bA === bB ? 0 : bA ? 1 : -1" in js
