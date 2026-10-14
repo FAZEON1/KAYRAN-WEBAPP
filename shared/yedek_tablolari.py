@@ -66,6 +66,8 @@ HARIC = {
     "aktif_excel_verileri":  "geçici yükleme önbelleği",
     "kullanici_durum":       "anlık oturum / çevrimiçi durumu",
     "cop_kutusu":            "silinenlerin 30 günlük kopyası; asıl tablolar zaten yedekte",
+    "oturumlar":             "açık oturum özetleri (geçici; geri yüklenmez)",
+    "sema_gecmisi":          "kurulan SQL dosyalarının kaydı (veritabani/uygula.py)",
 }
 
 # Veritabanı GÖRÜNÜMLERİ: veri değil, tablolardan hesaplanır.
