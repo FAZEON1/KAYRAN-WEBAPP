@@ -139,6 +139,36 @@ def css(dar=False, konum=""):
 @media (max-width:768px){{
   html body section[data-testid="stSidebar"]{{display:none !important;}}
 }}
+/* ── Üst çubuğun araç yuvası (Ürün yönetimi: stok kartı araması) ──
+   Masaüstü: çubuğun solunda, konum yazısının yerinde, geniş; çubuk yapışkan olduğu için
+   kaydırınca da görünür. Dar çubukta (ve tablet / telefonda) çubuğun altında tam genişlik. */
+html body .stApp .st-key-ust_arac{{gap:0 !important;}}
+html body .stApp .st-key-ust_arac div.st-key-stok_karti_kutu{{width:100% !important;}}
+html body .stApp .st-key-ust_arac .st-key-pm_arac{{margin:0 !important;width:100% !important;overflow:visible !important;}}
+html body .stApp .st-key-ust_arac [data-testid="stTextInputRootElement"]{{height:38px !important;min-height:38px !important;
+  border-radius:10px !important;background:var(--k-yuzey1) !important;}}
+html body .stApp .st-key-ust_arac input[data-testid="stTextInputField"]{{font-size:14px !important;}}
+{_MASA}{{
+  html body .stApp .st-key-ustnav .st-key-ust_arac{{position:absolute !important;left:0;top:4px;
+    width:min(440px, calc(100% - 420px)) !important;z-index:30 !important;}}
+  /* araç varken konum yazısı boş kalır (yer sol menüde ve sayfa başlığında zaten yazıyor) */
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input) [data-testid="stHorizontalBlock"]:not([class*="st-key-"])::before{{
+    content:"" !important;}}
+}}
+@container ustnav (max-width:760px){{
+  html body .stApp .st-key-ustnav .st-key-ust_arac{{position:static !important;width:100% !important;margin-top:8px !important;}}
+}}
+@media (max-width:768px){{
+  html body .stApp .st-key-ust_arac{{margin-top:8px !important;}}
+}}
+@media (max-width:640px){{
+  /* telefonda üst çubuk gizli (alt menü var); araç varsa yalnız araç görünür, sayfanın en üstünde */
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input){{display:block !important;padding:0 0 8px !important;
+    margin:0 0 6px !important;}}
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input) > [data-testid="stLayoutWrapper"]:has(> [data-testid="stHorizontalBlock"]){{
+    display:none !important;}}
+  html body .stApp .st-key-ust_arac{{margin-top:0 !important;}}
+}}
 [data-testid="stSidebarCollapseButton"],[data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"]{{display:none !important;}}
 {_K}{{gap:1px !important;}}
