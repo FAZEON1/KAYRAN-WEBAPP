@@ -12,7 +12,7 @@ from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok,
                                depo_sevk, get_depo_sevk_gecmisi, get_client)
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared import bilesen as B
-from depo.depo_hesap import sevk_sonucu, toplam_satiri, tarih_tr
+from depo.depo_hesap import sevk_sonucu, tarih_tr
 
 # Ortak liste masası (Ekim 2026; tanım depo/depo_masasi.py). False → eski tablo aynen.
 DEPO_STOK_MASASI_YENI = True
@@ -322,7 +322,6 @@ def _sayfa_sku():
         return
     _shu = _sh_sku.upper()
     _ozet_yer = st.container()          # üç kaynak okunduktan sonra doldurulur
-    c1, c2, c3 = st.columns(3)
     # İthalat (adet · tarih)
     try:
         from ithalat.database import get_sku_ithalat_partileri
@@ -330,15 +329,6 @@ def _sayfa_sku():
         _part = _tum_part.get(_shu, []) or _tum_part.get(_sh_sku, [])
     except Exception:
         _part = []
-    with c1:
-        st.markdown("**İthalat**")
-        if _part:
-            st.dataframe(pd.DataFrame([
-                {"Tarih": tarih_tr(p.get("tarih")), "Adet": int(p.get("adet") or 0)} for p in _part]
-                + [toplam_satiri(["Tarih", "Adet"], {"Adet": int(sum(p.get("adet") or 0 for p in _part))})]),
-                use_container_width=True, hide_index=True)
-        else:
-            st.caption("İthalat kaydı yok.")
     # Satış / İade (adet · tarih · firma)
     try:
         from satis.database import get_satislar_yalin, get_iadeler
@@ -348,32 +338,23 @@ def _sayfa_sku():
                 if str(r.get("sku") or "").strip().upper() == _shu]
     except Exception:
         _sat, _iad = [], []
-    with c2:
-        st.markdown("**Satış**")
-        if _sat:
-            st.dataframe(pd.DataFrame([{
-                "Tarih": tarih_tr(s.get("tarih")),
-                "Firma": (s.get("kanal") or "")[:26],
-                "Adet": int(s.get("adet") or 0),
-            } for s in _sat] + [toplam_satiri(["Tarih", "Firma", "Adet"],
-                                              {"Adet": int(sum(int(s.get('adet') or 0) for s in _sat))},
-                                              ozet={"Firma": f"{len(_sat)} kayıt"})]),
-                use_container_width=True, hide_index=True, height=300)
-        else:
-            st.caption("Satış kaydı yok.")
-    with c3:
-        st.markdown("**İade**")
-        if _iad:
-            st.dataframe(pd.DataFrame([{
-                "Tarih": tarih_tr(r.get("tarih")),
-                "Firma": (r.get("kanal") or "")[:26],
-                "Adet": int(r.get("iade_adet") or 0),
-            } for r in _iad] + [toplam_satiri(["Tarih", "Firma", "Adet"],
-                                              {"Adet": int(sum(int(r.get('iade_adet') or 0) for r in _iad))},
-                                              ozet={"Firma": f"{len(_iad)} kayıt"})]),
-                use_container_width=True, hide_index=True, height=300)
-        else:
-            st.caption("İade kaydı yok.")
+    # Tek liste (Ekim 2026): eskiden üç dar sütunda üç ayrı tablo (İthalat · Satış · İade); şimdi tür çipiyle
+    # süzülen tek masa, en yeni üstte. Adetler aynı kaynaklardan.
+    _hr = ([{"Tür": ("İthalat", "yesil"), "Tarih": p.get("tarih"), "Firma": "—", "Adet": int(p.get("adet") or 0)}
+            for p in _part]
+           + [{"Tür": ("Satış", "mor"), "Tarih": s.get("tarih"), "Firma": s.get("kanal") or "—",
+               "Adet": int(s.get("adet") or 0)} for s in _sat]
+           + [{"Tür": ("İade", "amber"), "Tarih": r.get("tarih"), "Firma": r.get("kanal") or "—",
+               "Adet": int(r.get("iade_adet") or 0)} for r in _iad])
+    _hr.sort(key=lambda x: str(x["Tarih"] or ""), reverse=True)
+    if _hr:
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste(_hr, [_mk("Firma", ana=True, secim=True), _mk("Tür", "durum", secim=True),
+                      _mk("Tarih", "tarih", gen="110px", dar="alt"), _mk("Adet", "adet", gen="90px")],
+                f"sh_hareket_masa_{_shu}", bos="Hareket yok.", baslik_ipucu=f"{_sh_sku} hareketleri",
+                excel=f"sku_hareketleri_{_shu}")
+    else:
+        st.caption("Bu SKU için ithalat, satış ya da iade kaydı yok.")
     _ith = int(sum(p.get("adet") or 0 for p in _part))
     _st = int(sum(int(s.get("adet") or 0) for s in _sat))
     _ia = int(sum(int(r.get("iade_adet") or 0) for r in _iad))

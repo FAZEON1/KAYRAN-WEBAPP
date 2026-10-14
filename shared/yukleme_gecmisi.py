@@ -497,10 +497,12 @@ def sayfa(aktif_kullanici, yonetici):
                     elif not etki:
                         st.caption("Stok: değişecek bir şey yok.")
                     else:
-                        from shared.tasarim import tr_sayi
                         st.caption(f"Stok: {len(etki)} ürün/depo satırı değişecek.")
-                        st.dataframe([{"SKU": s_, "Depo": d_, "Değişim": tr_sayi(v_, 0)} for s_, d_, v_ in etki[:200]],
-                                     hide_index=True, use_container_width=True, height=min(300, 40 + 35 * len(etki[:200])))
+                        from shared.masa_liste import kolon as _mk, ciz as _mliste
+                        _mliste([{"SKU": s_, "Depo": d_, "Değişim": v_} for s_, d_, v_ in etki],
+                                [_mk("SKU", ana=True), _mk("Depo", secim=True, gen="140px"),
+                                 _mk("Değişim", "adet", gen="100px")],
+                                f"yg_etki_masa_{k['id']}", baslik_ipucu="Stok etkisi")
                 if k.get("tur") == "g5f_sayim":
                     st.caption("Sayımın açtığı yeni boş ürün kartları ve stok yaşı tarihleri geri alınmaz.")
                 if engel:

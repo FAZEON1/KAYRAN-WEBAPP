@@ -1176,7 +1176,7 @@ def kapi_iade(dosya, kapi):
 
 
 def run():
-    from shared.tasarim import baslik as _sb, kpi_serit, sayi, tablo_h, tablo_kolonlari
+    from shared.tasarim import baslik as _sb, kpi_serit, sayi
     aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     # Sayfa genişliği artık app.py'de tek yerden.
 
@@ -2276,33 +2276,39 @@ def run():
                         if len(_sk) == 1:
                             return _sk[0]
                         return f"{_sk[0]} +{len(_sk) - 1}"
-                    _sdf = pd.DataFrame([{
+                    from shared.masa_liste import kolon as _mk, ciz as _mliste
+                    _sip_rows = [{
                         "Tarih": g["tarih"], "Sipariş No": sno,
                         "SKU": _sku_ozet(g), "Kalem": g["kalem"],
                         "Adet": g["adet"], "Ciro": g["ciro"], "Net kâr": g["kar"],
                         "Kârlılık": (g["kar"] / g["ciro"] * 100) if g["ciro"] else 0.0,
                     } for sno, g in sorted(_sipler.items(),
-                                           key=lambda x: x[1]["tarih"], reverse=True)])
-                    _sdf_g = _kar_df(_sdf)
-                    st.dataframe(_sdf_g, hide_index=True, use_container_width=True,
-                                 column_config=tablo_kolonlari(_sdf_g), height=tablo_h(len(_sdf_g)))
-                    _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + list(_sdf["Sipariş No"]),
+                                           key=lambda x: x[1]["tarih"], reverse=True)]
+                    # kâr yetkisi yoksa kâr sütunları hiç gitmez (eskiden "•••" maskeliydi)
+                    _kar_k = ([_mk("Net kâr", "usd", gen="110px"), _mk("Kârlılık", "yuzde", gen="90px")]
+                              if _kar_ok() else [])
+                    _mliste(_sip_rows, [_mk("Sipariş No", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                                        _mk("Tarih", "tarih", gen="104px", dar="alt"), _mk("Kalem", "adet", gen="70px"),
+                                        _mk("Adet", "adet", gen="70px"), _mk("Ciro", "usd", gen="120px")] + _kar_k,
+                            "pnl_firma_sip_masa", baslik_ipucu="Firmanın siparişleri", ara_ipucu="Sipariş no ya da SKU")
+                    _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + [r["Sipariş No"] for r in _sip_rows],
                                             key="pnl_firma_sip")
                     if _sec_sip != "(seç)":
-                        _kdf = pd.DataFrame([{
+                        _mliste([{
                             "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
-                            "Ürün": urun_ad(s.get("sku"), s.get("urun_adi"))[:38],
+                            "Ürün": urun_ad(s.get("sku"), s.get("urun_adi")),
                             "Adet": int(satir_kar(s)["adet"] or 0),
                             "B.Satış": float(s.get("birim_satis") or 0),
                             "B.Maliyet": float(s.get("birim_maliyet") or 0),
                             "Ciro": satir_kar(s)["ciro"],
                             "Net kâr": satir_kar(s)["net_kar"],
                             "Kârlılık": satir_kar(s)["marj"],
-                        } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip])
-                        _kdf_g = _kar_df(_kdf)
-                        st.dataframe(_kdf_g, hide_index=True, use_container_width=True,
-                                     column_config=tablo_kolonlari(_kdf_g),
-                                     height=min(300, 40 + 35 * len(_kdf)))
+                        } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip],
+                            [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Adet", "adet", gen="70px"),
+                             _mk("B.Satış", "usd", gen="100px"), _mk("Ciro", "usd", gen="110px")]
+                            + ([_mk("B.Maliyet", "usd", gen="100px", genis=True), _mk("Net kâr", "usd", gen="100px"),
+                                _mk("Kârlılık", "yuzde", gen="90px")] if _kar_ok() else []),
+                            f"pnl_sip_kalem_{_sec_sip}", baslik_ipucu=f"{_sec_sip} kalemleri")
 
                 if _kanal_tik is not None and 0 <= int(_kanal_tik) < len(_kr):
                     _dlg_firma_gecmis(_kr[int(_kanal_tik)][0])     # tetik yalnız tıklandığı çalıştırmada gelir
@@ -2324,14 +2330,17 @@ def run():
                                     "**İthalat dosyasını gir** (paçal oluşsun) ya da **SKU yazımını düzelt**, sonra "
                                     "bu aracı tekrar çalıştır. (Patron Panosu'ndaki 'ithalatsız' sayısı bunlardır.)")
                         else:
-                            _mdf = pd.DataFrame([{
-                                "SKU": x["sku"], "Ürün": (x["urun"] or "")[:34],
+                            from shared.masa_liste import kolon as _mk, ciz as _mliste
+                            _mliste([{
+                                "SKU": x["sku"], "Ürün": x["urun"] or "",
                                 "Satış satırı": x["satir"], "Adet": int(x["adet"]),
                                 "Yeni birim maliyet $": round(x["yeni_birim"], 2),
-                            } for x in _mz])
-                            _mdf_g = _kar_df(_mdf)
-                            st.dataframe(_mdf_g, hide_index=True, use_container_width=True,
-                                         column_config=tablo_kolonlari(_mdf_g), height=300)
+                            } for x in _mz],
+                                [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                                 _mk("Satış satırı", "adet", gen="100px"), _mk("Adet", "adet", gen="80px"),
+                                 _mk("Yeni birim maliyet $", "usd", gen="160px")],
+                                "mlyt_onizle_masa", toplam=["Satış satırı", "Adet"],
+                                baslik_ipucu="Maliyeti düzelecek satışlar")
                             _tsatir = sum(x["satir"] for x in _mz)
                             st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
                                        "(0 → paçal). Geri alınamaz.")

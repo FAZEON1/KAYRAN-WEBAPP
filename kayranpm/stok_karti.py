@@ -7,7 +7,6 @@ from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import html as _h
 import streamlit as st
-import pandas as pd
 from datetime import timedelta
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek yazım (Eki 2026)
 from shared.utils import firma_kanonik   # eski 'KANAL' → DİĞER (Eki 2026)
@@ -119,9 +118,11 @@ def _alim_detay(a):
         if _md:
             st.markdown('<div style="font-size:13px;font-weight:700;color:var(--k-soluk);'
                         'margin:4px 0 6px">Dosya Masraf Dökümü</div>', unsafe_allow_html=True)
-            st.dataframe(pd.DataFrame([{"Masraf": ad, "Tutar": _usd(t)} for ad, t in _md]),
-                         hide_index=True, use_container_width=True,
-                         height=min(320, 40 + 35 * len(_md)))
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{"Masraf": ad, "Tutar": t} for ad, t in _md],
+                    [_mk("Masraf", ana=True), _mk("Tutar", "usd", gen="140px")],
+                    f"sk_masraf_{a.get('dosya_id') or a.get('belge_no') or ''}", toplam=["Tutar"],
+                    baslik_ipucu="Dosya masraf dökümü")
     except Exception:
         pass
 
@@ -303,18 +304,19 @@ def goster(sku):
             if canli and canli.get("kalanlar"):
                 # Eldeki stok hangi partilerden: en yeni partiden geriye (satılan eski partiden çıkmış sayılır)
                 st.markdown("**Eldeki stoğun partileri** · canlı paçal bunların ağırlıklı ortalaması")
-                _kl = [{"Giriş": gun_ay_yil(x["giris"]), "Belge": x["belge"], "Eldeki adet": x["kalan"],
+                _kl = [{"Giriş": (gun_ay_yil(x["giris"]), str(x["giris"] or "")), "Belge": x["belge"], "Eldeki adet": x["kalan"],
                         "Birim maliyet ($)": round(x["final"], 2), "Tutar ($)": round(x["kalan"] * x["final"], 2)}
                        for x in canli["kalanlar"]]
                 if canli.get("kayitsiz"):
                     _kl.append({"Giriş": "—", "Belge": "giriş kaydı yok (paçalla)", "Eldeki adet": canli["kayitsiz"],
                                 "Birim maliyet ($)": round(pacal_final, 2),
                                 "Tutar ($)": round(canli["kayitsiz"] * pacal_final, 2)})
-                st.dataframe(pd.DataFrame(_kl), hide_index=True, use_container_width=True,
-                             column_config={
-                                 "Eldeki adet": st.column_config.NumberColumn(format="localized", step=1),
-                                 "Birim maliyet ($)": st.column_config.NumberColumn(format="dollar", step=0.01),
-                                 "Tutar ($)": st.column_config.NumberColumn(format="dollar", step=0.01)})
+                from shared.masa_liste import kolon as _mk, ciz as _mliste
+                _mliste(_kl, [_mk("Belge", ana=True, alt="Giriş"), _mk("Giriş", gizli=True),
+                              _mk("Eldeki adet", "adet", gen="110px"), _mk("Birim maliyet ($)", "usd", gen="140px"),
+                              _mk("Tutar ($)", "usd", gen="130px")],
+                        f"sk_partiler_{sku}", toplam=["Eldeki adet", "Tutar ($)"],
+                        baslik_ipucu="Eldeki stoğun partileri")
             # Maliyet trendi
             if len(alimlar) >= 2:
                 _onceki = [_f(a["final_birim"]) for a in alimlar[1:] if _f(a["final_birim"]) > 0]
@@ -365,13 +367,17 @@ def goster(sku):
                       trenk("yesil") if _tk >= 0 else trenk("kirmizi")),
             ])
             st.markdown("**Kanal / Firma Kırılımı**")
-            st.dataframe(pd.DataFrame([{
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{
                 "Kanal/Firma": kn, "Adet": v["adet"],
-                "Ort. Birim": _usd(v["ciro"] / v["adet"]) if v["adet"] else _usd(0),
-                "Ciro": _usd(v["ciro"]), "Kâr": _usd(v["kar"]),
-                "Marj": f"%{tr_sayi((v['kar'] / v['ciro'] * 100) if v['ciro'] else 0, 1)}",
-            } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])]),
-                hide_index=True, use_container_width=True)
+                "Ort. Birim": (v["ciro"] / v["adet"]) if v["adet"] else 0,
+                "Ciro": v["ciro"], "Kâr": v["kar"],
+                "Marj": (v["kar"] / v["ciro"] * 100) if v["ciro"] else 0,
+            } for kn, v in sorted(_kanal.items(), key=lambda x: -x[1]["ciro"])],
+                [_mk("Kanal/Firma", ana=True), _mk("Adet", "adet", gen="80px"), _mk("Ort. Birim", "usd", gen="110px"),
+                 _mk("Ciro", "usd", gen="120px", dar="alt"), _mk("Kâr", "usd", gen="110px"),
+                 _mk("Marj", "yuzde", gen="80px")],
+                f"sk_kanal_{sku}", baslik_ipucu="Kanal / firma kırılımı")
             st.markdown("**Satış Hareketleri**")
             from shared.tablo import tablo as _ortak_tablo
             _si = _ortak_tablo(_rows, key="satis_tablo", kalici=True, dosya_adi=f"satislar_{sku}")
@@ -540,11 +546,14 @@ def goster(sku):
                 tt["fob_x"] += _f(a["birim_fob"]) * _f(a["adet"]); tt["adet"] += _f(a["adet"])
             if len(_ted) > 1:
                 st.markdown("**Tedarikçi Karşılaştırması (ort. birim FOB)**")
-                st.dataframe(pd.DataFrame([{
+                from shared.masa_liste import kolon as _mk, ciz as _mliste
+                _mliste([{
                     "Tedarikçi": t, "Toplam Adet": v["adet"],
                     "Ort. Birim FOB": round(v["fob_x"] / v["adet"], 2) if v["adet"] else 0,
-                } for t, v in sorted(_ted.items(), key=lambda x: (x[1]["fob_x"] / x[1]["adet"]) if x[1]["adet"] else 0)]),
-                    hide_index=True, use_container_width=True)
+                } for t, v in sorted(_ted.items(), key=lambda x: (x[1]["fob_x"] / x[1]["adet"]) if x[1]["adet"] else 0)],
+                    [_mk("Tedarikçi", ana=True), _mk("Toplam Adet", "adet", gen="110px"),
+                     _mk("Ort. Birim FOB", "usd", gen="130px")],
+                    f"sk_tedarikci_{sku}", baslik_ipucu="Tedarikçi karşılaştırması")
 
     def _govde_iade():
         if not iadeler:
@@ -564,15 +573,22 @@ def goster(sku):
                 o["adet"] += _f(r.get("iade_adet")); o["tutar"] += _f(r.get("iade_net"))
             if len(_fk) > 1:
                 st.markdown("**Cari / Firma Kırılımı**")
-                st.dataframe(pd.DataFrame([{
-                    "Cari / Firma": (f or "")[:40], "İade Adet": v["adet"], "İade Tutarı": _usd(v["tutar"]),
-                } for f, v in sorted(_fk.items(), key=lambda x: -x[1]["adet"])]),
-                    hide_index=True, use_container_width=True)
+                from shared.masa_liste import kolon as _mk, ciz as _mliste
+                _mliste([{
+                    "Cari / Firma": f or "", "İade Adet": v["adet"], "İade Tutarı": v["tutar"],
+                } for f, v in sorted(_fk.items(), key=lambda x: -x[1]["adet"])],
+                    [_mk("Cari / Firma", ana=True), _mk("İade Adet", "adet", gen="100px"),
+                     _mk("İade Tutarı", "usd", gen="130px")],
+                    f"sk_iade_firma_{sku}", baslik_ipucu="Cari / firma kırılımı")
             st.markdown("**İade Detayı**")
-            st.dataframe(pd.DataFrame([{
-                "Tarih": gun_ay_yil(r.get("tarih")), "Cari / Firma": (r.get("kanal") or "—")[:40],
-                "Adet": _f(r.get("iade_adet")), "İade Tutarı": _usd(_f(r.get("iade_net"))),
-            } for r in iadeler]), hide_index=True, use_container_width=True)
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{
+                "Tarih": r.get("tarih"), "Cari / Firma": r.get("kanal") or "—",
+                "Adet": _f(r.get("iade_adet")), "İade Tutarı": _f(r.get("iade_net")),
+            } for r in iadeler],
+                [_mk("Cari / Firma", ana=True, secim=True), _mk("Tarih", "tarih", gen="104px"),
+                 _mk("Adet", "adet", gen="80px"), _mk("İade Tutarı", "usd", gen="130px")],
+                f"sk_iade_detay_{sku}", toplam=["Adet", "İade Tutarı"], baslik_ipucu="İade detayı")
             st.caption("İade edilen mal stoğa döner ve tekrar satılabilir; kâr/marj brüt satıştan "
                        "hesaplanır, iade kârdan düşülmez.")
 
@@ -798,11 +814,10 @@ def _hareket_sekmesi(sku):
         _kart("Toplam Çıkış", f"{tr_sayi(_cikis)}", "adet", trenk("kirmizi"), anlam="notr"),
         _kart("Başarısız", f"{tr_sayi(len(_hatali))}", "işlem", trenk("amber") if _hatali else trenk("silik")),
     ])
-    _depolar = sorted({r.get("depo") or "" for r in rows} - {""})
-    _sec = st.selectbox("Depo", ["Tümü"] + _depolar, key=f"sh_depo_{sku}")
-    _goster = [r for r in rows if _sec == "Tümü" or r.get("depo") == _sec]
-    st.dataframe(pd.DataFrame([{
-        "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
+    # Depo / tür süzgeci ve arama masada (Ekim 2026; eskiden depo seçim kutusu + eski tablo)
+    from shared.masa_liste import kolon as _mk, ciz as _mliste
+    _mliste([{
+        "Zaman": r.get("zaman"),
         "Tür": _TUR_ADI.get(r.get("tur"), r.get("tur") or ""),
         "Depo": r.get("depo") or "",
         "Önce": _f(r.get("onceki")), "Sonra": _f(r.get("sonraki")),
@@ -811,7 +826,12 @@ def _hareket_sekmesi(sku):
         "Kaynak": r.get("kaynak") or "",
         "Kullanıcı": r.get("kullanici") or "",
         "Hata": r.get("hata") or "",
-    } for r in _goster]), hide_index=True, use_container_width=True,
-        column_config={"Değişim": st.column_config.NumberColumn(format="%+.0f")})
+    } for r in rows],
+        [_mk("Tür", ana=True, alt="Açıklama", secim=True), _mk("Açıklama", gizli=True),
+         _mk("Zaman", "zaman", gen="136px", dar="alt"), _mk("Depo", secim=True, gen="120px"),
+         _mk("Önce", "adet", gen="72px", genis=True), _mk("Sonra", "adet", gen="72px", genis=True),
+         _mk("Değişim", "adet", gen="84px"), _mk("Kaynak", genis=True), _mk("Kullanıcı", secim=True, genis=True),
+         _mk("Hata", genis=True)],
+        f"sk_hareket_{sku}", baslik_ipucu="Stok hareketleri", ara_ipucu="Açıklama, kaynak ya da hata")
     st.caption("Kaynak: stok işlemini başlatan kod (ör. satis/database.py:_stok_uygula_depolu). "
                "Başarısız satırlarda Önce/Sonra 0 görünür — stok o işlemde hiç değişmemiştir.")
