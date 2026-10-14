@@ -80,6 +80,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -309,6 +310,9 @@ KRITIK_FONKSIYONLAR = {
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
     "shared.utils": ["tarih_metni", "sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
                      "sku_anahtar"],                     # SKU eşleştirme tek kural (Faz 3)
+    # Gece yedeği: tablo listesi tek kaynak, sayfalı + sayımla denetlenen okuma (Eki 2026)
+    "shared.yedek_tablolari": ["tum_satirlar", "sayim", "sira_adaylari", "tablo_oku", "tumunu_oku",
+                               "yedek_disi", "excel_degeri", "excel_satirlari", "canli_mi"],
 }
 
 

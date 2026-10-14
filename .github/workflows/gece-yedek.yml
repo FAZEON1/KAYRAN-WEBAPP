@@ -31,5 +31,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kayran-yedek
-          path: "*.xlsx"
+          # Excel (okumak için) + tablo başına gzip JSON ve manifest (asıl yedek; otonom/geri_yukle_tam.py)
+          path: |
+            *.xlsx
+            kayran_yedek_*_json/
           retention-days: 90

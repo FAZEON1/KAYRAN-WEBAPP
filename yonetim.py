@@ -844,67 +844,22 @@ def _audit_render():
 
 
 # ── Veri Yedekleme ──────────────────────────────────────────────────
-# İş verisi yedeklenir. ŞİFRE ve oturum/geçici/log tabloları GÜVENLİK için hariç.
-# tests/test_yonetim_yeni.py kodda kullanılan HER tablonun bu iki listeden birinde
-# olmasını denetler (Ekim 2026: iadeler, tahsilatlar, e-Defter… hiç yedeklenmiyordu).
-YEDEK_TABLOLAR = [
-    # Ürün / stok
-    "urunler", "firma_stok", "stok_yas", "yoldaki_urunler", "stok_hareketleri",
-    "depo_manuel_takip", "depo_sevk_log", "happylife_stok", "sku_eslesme",
-    # Kampanya / ref / destek
-    "kampanyalar", "kampanya_urunler", "ref_kayitlari", "ref_butce", "ref_firmalar", "ref_no",
-    "alinan_destekler",
-    # İthalat
-    "ithalat_dosyalari", "ithalat_kalemleri",
-    # Satış
-    "satislar", "iadeler",
-    # Muhasebe
-    "odemeler", "bankalar", "cekler", "virmanlar", "haftalar", "tahsilatlar", "kur_gunluk",
-    "aktif_manuel_kalemler",
-    # e-Defter
-    "edefter_ayarlar", "edefter_donem_kilit", "edefter_fisler", "edefter_fis_satirlari", "edefter_hesap_plani",
-    # Teknik servis
-    "ts_kayitlar", "ts_gecmis",
-    # Hesap Makinesi (prim ödeme geçmişi — tek tırnakla yazıldığı için denetimden kaçıyordu)
-    "prim_gecmis",
-    # Ortak
-    "siparis_onerileri", "talepler", "gorevler", "bildirimler",
-    "gumruk_sorgulari",    # İthalat › Gümrük danışmanı sorguları ve sonuçları
-    "sirket_belgeleri",    # şirket belgelerinin bilgileri (dosyaların kendisi Supabase dosya alanında)
-    "personel", "izin_talepleri",   # çalışan izinleri (kişi menüsü › İzinler)
-    "sistem_ayarlari", "pm_ayarlar", "kullanici_yetkileri", "kullanici_tercih", "gunluk_giris",
-]
-# Bilerek HARİÇ: şifre, oturum, geçici önbellek, loglar; v_ / mv_ ile başlayanlar
-# veritabanı GÖRÜNÜMÜ (veri değil, tablolardan hesaplanır).
-YEDEK_HARIC = [
-    "kullanici_sifreler", "kullanici_durum", "giris_denemeleri",
-    "aktif_excel_verileri", "audit_log", "hata_kayitlari",
-    "cop_kutusu",          # silinenlerin 30 günlük kopyası; gece yedeği asıl tabloları zaten alıyor
-    "veri_surumu",         # önbellek tazelik sayacı (tetikleyiciyle dolar), veri değil
-    "yuklemeler",          # yükleme geçmişi + geri alma kopyaları; asıl tablolar zaten yedekte
-    "soru_kayitlari",      # soru kutusuna sorulan sorular (kalıp geliştirme için), iş verisi değil
-    "asistan_rapor",       # pazar araştırmacısının haftalık raporları (web özeti, iş verisi değil)
-    "bt_olcum", "bt_rapor",   # bilgi işlem: sayfa süresi ölçümü ve görev raporu (kayıt, iş verisi değil)
-    "v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl",
-]
-
-
-def _tum_satirlar(sb, tablo, sayfa=1000):
-    """Bir tablonun TÜM satırları. Supabase tek sorguda en fazla 1000 satır döndürür;
-    yedek sayfalamayı yapan sarmalayıcıyı atlayan ham bağlantıyla okuduğu için
-    1000'i aşan tablolar sessizce kesiliyordu."""
-    out, bas = [], 0
-    while True:
-        parca = sb.table(tablo).select("*").range(bas, bas + sayfa - 1).execute().data or []
-        out.extend(parca)
-        if len(parca) < sayfa:
-            return out
-        bas += sayfa
+# Tablo listesi, bilerek HARİÇ tutulanlar (şifre/sır, geçici) ve sayfalı + sayımla denetlenen
+# okuma tek kaynakta: shared/yedek_tablolari.py (gece yedeği de aynısını kullanır).
+# tests/test_yonetim_yeni.py ve tests/test_gece_yedek.py kodda kullanılan HER tablonun
+# bu listelerden birinde olmasını denetler.
+from shared.yedek_tablolari import (
+    YEDEK_TABLOLAR, HARIC as _YEDEK_HARIC_SIR, GORUNUMLER as _YEDEK_GORUNUMLER,
+    tum_satirlar as _tum_satirlar, tablo_oku as _yedek_tablo_oku, excel_satirlari as _excel_satirlari,
+)
+# Bilerek HARİÇ: şifre/sır ve geçici tablolar + veritabanı GÖRÜNÜMLERİ (v_ / mv_; veri değil).
+YEDEK_HARIC = list(_YEDEK_HARIC_SIR) + list(_YEDEK_GORUNUMLER)
 
 
 def _yedek_olustur():
     """Tüm iş verisini tek çok-sayfalı Excel (BytesIO bytes) olarak döndürür.
-    Her tablo ayrı sayfa. Hata olan tablo boş sayfa olarak geçer."""
+    Her tablo ayrı sayfa; 1000'lik sayfalarla okunur ve veritabanındaki satır sayısıyla
+    karşılaştırılır. Okunamayan ya da eksik okunan tablo özetin sonunda adıyla yazılır."""
     import io
     import pandas as pd
     from shared.audit import _raw_client
@@ -913,18 +868,20 @@ def _yedek_olustur():
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         for tablo in YEDEK_TABLOLAR:
-            try:
-                rows = _tum_satirlar(sb, tablo)
-            except Exception:
-                rows = []
+            # 1000'lik sayfalarla okur; sayı veritabanındakiyle tutmazsa durum "eksik"
+            s = _yedek_tablo_oku(sb, tablo, oku=lambda _sb, _t, **k: _tum_satirlar(_sb, _t, **k))
+            if s["durum"] == "yok":
+                continue
+            if s["durum"] != "tamam":
                 hatali.append(tablo)
+            rows = _excel_satirlari(s["satirlar"])
             df = pd.DataFrame(rows) if rows else pd.DataFrame()
             # Excel sayfa adı en fazla 31 karakter
             df.to_excel(w, sheet_name=tablo[:31], index=False)
             ozet.append((tablo, len(rows)))
     buf.seek(0)
     if hatali:
-        ozet.append(("Okunamadı: " + ", ".join(hatali), 0))
+        ozet.append(("Okunamadı ya da eksik: " + ", ".join(hatali), 0))
     return buf.getvalue(), ozet
 
 
@@ -945,7 +902,11 @@ def _yedek_render():
     if st.session_state.get("_yedek_data"):
         _ozet = st.session_state.get("_yedek_ozet", [])
         _toplam = sum(n for _, n in _ozet)
-        st.success(f"Yedek hazır — {len(_ozet)} tablo, {tr_sayi(_toplam)} kayıt.")
+        _eksik = [t for t, _ in _ozet if t.startswith("Okunamadı")]
+        if _eksik:
+            st.warning("Yedek EKSİK — " + _eksik[0] + ". Bu dosya tam yedek değildir; tekrar deneyin.")
+        else:
+            st.success(f"Yedek hazır — {len(_ozet)} tablo, {tr_sayi(_toplam)} kayıt.")
         st.download_button(
             "Excel'i İndir",
             data=st.session_state["_yedek_data"],
