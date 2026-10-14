@@ -93,3 +93,18 @@ def test_geri_donus_anahtari_ve_cagri():
     # CSS çizimden sonra basılır: çizim yarıda kalırsa üst şerit gizlenmez
     k = (KOK / "shared" / "sol_menu.py").read_text(encoding="utf-8")
     assert k.index("st.button(s[\"ad\"]") < k.index("st.markdown(css(dar")
+
+
+def test_stok_karti_aramasi_ust_cubukta():
+    """Ürün yönetiminin stok kartı araması sol menü düzeninde üst çubuğun araç yuvasında: masaüstünde çubuğun
+    solunda (sayfa başlığındaki düğmelerin üstüne binmez, kaydırınca da görünür), dar çubukta / telefonda tam genişlik."""
+    app = (KOK / "app.py").read_text(encoding="utf-8")
+    assert 'ust_arac_kur(st.container(key="ust_arac"))' in app
+    g = (KOK / "shared" / "gezinme.py").read_text(encoding="utf-8")
+    assert 'if MENU_SOL and c is not None and getattr(c, "_kayran_ust_arac", None) is not None:' in g
+    c = SM.css(False, "x")
+    masa = c.split("@container ustnav", 1)[0]
+    assert ".st-key-ustnav .st-key-ust_arac{position:absolute !important;left:0;top:4px;" in masa
+    assert ".st-key-ust_arac .st-key-pm_arac{margin:0 !important;width:100% !important;overflow:visible !important;}" in c
+    tel = c.split("@media (max-width:640px){", 1)[1]
+    assert ".st-key-ustnav:has(.st-key-ust_arac input){display:block !important;" in tel

@@ -1848,6 +1848,11 @@ def ust_navigasyon():
             with st.container(horizontal=True, gap="small", key="ust_sag"):
                 _talep_dugmesi()
                 _kisi_menusu()
+        # Sol menü düzeninde modülün sayfa üstü aracı (Ürün yönetimi: stok kartı araması) üst çubukta
+        # (shared/gezinme.serit_kabi; yer ve görünüm shared/sol_menu.css)
+        from shared.gezinme import ust_arac_kur, MENU_SOL as _menu_sol
+        if _menu_sol:
+            ust_arac_kur(st.container(key="ust_arac"))
 
     # Sayfa sekmeleri: modüllerin sayfa menüsü buraya çizilir (shared/gezinme.sayfa_menusu).
     # Geri almak için shared/gezinme.py → MENU_UST = False (menüler kenar çubuğuna döner).

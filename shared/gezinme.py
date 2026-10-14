@@ -357,10 +357,27 @@ def _serit():
 
 
 
+def ust_arac_kur(kap):
+    """app.py, üst çubuğun içindeki araç yuvasını verir (sol menü düzeni, Ekim 2026)."""
+    c = _ctx()
+    if c is not None:
+        try:
+            setattr(c, "_kayran_ust_arac", kap)
+        except Exception:
+            pass
+
+
 def serit_kabi():
-    """Sayfa sekmeleri şeridinin kabı (yoksa None). Modül, şeridin sağ ucuna kendi aracını
-    koyabilir (Ürün Yönetimi: stok kartı araması)."""
-    return _serit() if MENU_UST else None
+    """Modülün sayfa üstü aracının kabı (Ürün Yönetimi: stok kartı araması); yoksa None.
+    Sol menü düzeninde üst çubuğun araç yuvası: masaüstünde çubuğun solunda, kaydırınca da
+    görünür; telefonda / tablette sayfanın en üstünde tam genişlik (shared/sol_menu.css).
+    Eski düzende sekme şeridinin sağ ucu."""
+    if not MENU_UST:
+        return None
+    c = _ctx()
+    if MENU_SOL and c is not None and getattr(c, "_kayran_ust_arac", None) is not None:
+        return c._kayran_ust_arac
+    return _serit()
 
 def grup_yapisi(mod, secenekler):
     """[(grup adı, [seçenek…])] — yalnız verilen (yetkiyle süzülmüş) seçenekler;
