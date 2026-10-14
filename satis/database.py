@@ -492,50 +492,153 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
             _stok_uygula(hareketler, -1, "satis_import_fallback")
 
 
+def _depo_gruplari(depo_map, yon):
+    """[(sku, adet, depo), ...] → [(depo, {sku: yon × toplam_adet}), ...] (depo ilk görülme sırasıyla).
+    Boş SKU / sıfır adet atlanır; depo boşsa MERKEZ DEPO."""
+    gruplar = {}
+    for sku, adet, depo in (depo_map or []):
+        sku = str(sku or "").strip()
+        adet = float(adet or 0)
+        depo = str(depo or "MERKEZ DEPO").strip() or "MERKEZ DEPO"
+        if not sku or not adet:
+            continue
+        gruplar.setdefault(depo, {})
+        gruplar[depo][sku] = gruplar[depo].get(sku, 0) + adet
+    out = []
+    for depo, hareketler in gruplar.items():
+        _h = {k: yon * v for k, v in hareketler.items() if v}
+        if _h:
+            out.append((depo, _h))
+    return out
+
+
+def _stok_sorunu_bildir(yer, atlanan, ayrinti=""):
+    """Stoğa işlenemeyen SKU'lar (çoğunlukla ürün kartı yok): nedeni stok defterinde zaten yazılı
+    (basarili=false); burada kullanıcı mesajına eklenecek kısa metin döner. Sorun yoksa ''.
+    (Gerçek istisnalar ayrıca hata kaydına düşer — _stok_uygula_depolu / stok_hareket_coklu.)"""
+    atlanan = [str(s) for s in (atlanan or []) if str(s or "").strip()]
+    if not atlanan:
+        return ""
+    return (" Stoğa işlenemeyen ürün: " + ", ".join(atlanan[:5]) + (" …" if len(atlanan) > 5 else "")
+            + " (nedeni Stok Kartı › stok hareketlerinde).")
+
+
 def _stok_uygula_depolu(depo_map, yon=-1):
     """MODEL B: satış (−) hareketlerini SEÇİLEN depodan düşer.
-    depo_map: [(sku, adet, depo), ...]. Depoya göre gruplar, her depo için ayrı uygular.
-    Hata durumunda sessiz geçer (satış kaydını asla bozmaz)."""
+    depo_map: [(sku, adet, depo), ...]. Depoya göre gruplar; atomik fonksiyon kuruluysa hepsi tek
+    işlemde, değilse her depo için ayrı uygular.
+    Hata durumunda satış kaydını bozmaz (bugünkü davranış) ama sorun GÖRÜNÜR: hata kaydına yazılır ve
+    kullanıcı mesajına eklenecek metin döner ('' = sorun yok)."""
     try:
-        from kayranpm.database import stok_hareket_coklu
-        # depoya göre grupla: {depo: {sku: toplam_adet}}
-        gruplar = {}
-        for sku, adet, depo in (depo_map or []):
-            sku = str(sku or "").strip()
-            adet = float(adet or 0)
-            depo = str(depo or "MERKEZ DEPO").strip() or "MERKEZ DEPO"
-            if not sku or not adet:
-                continue
-            gruplar.setdefault(depo, {})
-            gruplar[depo][sku] = gruplar[depo].get(sku, 0) + adet
-        for depo, hareketler in gruplar.items():
-            _h = {k: yon * v for k, v in hareketler.items() if v}
-            if _h:
-                stok_hareket_coklu(_h, depo)
+        from kayranpm.database import stok_hareket_gruplu
+        _u, _atl = stok_hareket_gruplu(_depo_gruplari(depo_map, yon))
+        return _stok_sorunu_bildir("satis.stok_yolu", _atl)
     except Exception as _e_stok:
         try:
             from shared.hata_log import kaydet as _hk
             _hk("satis.stok_yolu", _e_stok, kritik=True)
         except Exception:
             pass
+        return " Stok adımı hata verdi (hata kaydına yazıldı); stoğu kontrol edin."
 
 
 def _stok_uygula(hareketler, yon=1, kaynak=""):
     """MODEL B: satış (−) / iade (+) hareketlerini MERKEZ DEPO stoğuna uygular.
-    hareketler: {sku: adet}. Hata durumunda sessiz geçer (satış kaydını asla bozmaz)."""
+    hareketler: {sku: adet}. Hata durumunda satış kaydını bozmaz ama sorun hata kaydına yazılır;
+    kullanıcı mesajına eklenecek metin döner ('' = sorun yok)."""
     try:
         _h = {k: yon * float(v or 0) for k, v in (hareketler or {}).items()
               if k and float(v or 0)}
         if not _h:
-            return
+            return ""
         from kayranpm.database import stok_hareket_coklu
-        stok_hareket_coklu(_h, None)
+        _u, _atl = stok_hareket_coklu(_h, None)
+        return _stok_sorunu_bildir("satis.stok_yolu", _atl, kaynak)
     except Exception as _e_stok:
         try:
             from shared.hata_log import kaydet as _hk
             _hk("satis.stok_yolu", _e_stok, kritik=True)
         except Exception:
             pass
+        return " Stok adımı hata verdi (hata kaydına yazıldı); stoğu kontrol edin."
+
+
+# ── ATOMİK KAYIT (veritabani/29_atomik_stok.sql) ─────────────────────
+# Kayıt (satış / iade ekle-sil-düzenle) + stok + stok defteri TEK veritabanı işleminde. Fonksiyon
+# kurulu değilse her akış bugünkü yoldan yürür. Kurulu ama reddedilirse hiçbir şey yazılmaz ve
+# kullanıcıya açık hata döner (satış "kaydedildi" görünüp stoğu düşmemiş kalamaz).
+# Defterdeki 'kaynak' bugünkü yolla aynı yazılır.
+_KAYNAK_DEPOLU = "satis/database.py:_stok_uygula_depolu"
+_KAYNAK_MERKEZ = "satis/database.py:_stok_uygula"
+
+
+class _AtomikRed(Exception):
+    """Atomik işlem veritabanında reddedildi; hiçbir şey yazılmadı."""
+
+
+def _atomik():
+    try:
+        import kayranpm.database as _pm
+        return _pm
+    except Exception:
+        return None
+
+
+def _atomik_hazir(cli):
+    _pm = _atomik()
+    try:
+        return bool(_pm is not None and _pm.atomik_hazir(cli))
+    except Exception:
+        return False
+
+
+def _atomik_kayit(cli, tablo, sil=None, satirlar=None, gruplar=None, aday_skular=(), kaynak=_KAYNAK_DEPOLU):
+    """kayit_stok_islem: (varsa) sil → ekle → stok, tek işlem. Döner: sonuç sözlüğü | None (fonksiyon
+    kurulu değil → bugünkü yol). Reddedilirse _AtomikRed."""
+    _pm = _atomik()
+    if _pm is None or not _pm.atomik_hazir(cli):
+        return None
+    try:
+        ok, veri = _pm.atomik_rpc(cli, "kayit_stok_islem", {
+            "p_tablo": tablo, "p_sil": sil, "p_satirlar": list(satirlar or []),
+            "p_hareketler": _pm.stok_kalemleri(gruplar or []),
+            "p_aday": _pm.stok_aday_haritasi(aday_skular), "p_ortam": _pm.atomik_ortam(kaynak),
+        })
+    except _pm.AtomikHata as e:
+        try:
+            from shared.hata_log import kaydet as _hk
+            _hk(f"satis.atomik.{tablo}", e, "kayit_stok_islem reddedildi — hiçbir şey yazılmadı")
+        except Exception:
+            pass
+        raise _AtomikRed(e.mesaj[:200]) from e
+    if not ok:
+        return None
+    try:
+        _pm._cache_temizle()
+    except Exception:
+        pass
+    return veri if isinstance(veri, dict) else {}
+
+
+def _atomik_iz(veri, tablo, yer, kayit_id=""):
+    """Atomik çağrı tablo sarmalayıcısından geçmez: çöp kutusu (silinenler; cop_kutusu_kapali içinde
+    çağrılırsa yazılmaz), değişiklik kaydı ve stok sorunu burada. Kullanıcı mesajı eki döner."""
+    _pm = _atomik()
+    silinen = veri.get("silinen") or []
+    eklenen = veri.get("eklenen") or []
+    if silinen:
+        try:
+            from shared.cop_kutusu import sakla
+            sakla(tablo, silinen, "Satış")
+        except Exception:
+            pass
+        _pm.atomik_audit("sil", tablo, kayit_id, f"{len(silinen)} kayıt", "Satış")
+    if eklenen:
+        _pm.atomik_audit("ekle", tablo, (eklenen[0] or {}).get("id", ""), f"{len(eklenen)} kayıt", "Satış")
+    uyg, atl = _pm.stok_atomik_sonuc(veri)
+    if uyg:
+        _pm.atomik_audit("güncelle", "urunler", "", f"stok: {uyg} hareket (tek işlem)", "Satış")
+    return _stok_sorunu_bildir(yer, atl)
 
 
 def _satis_agg(rows, adet_alan="adet"):
@@ -593,12 +696,22 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
     if not rows:
         return False, "Geçerli kalem yok.", 0
     try:
-        _get_client().table("satislar").insert(rows).execute()
-        _stok_uygula_depolu(_depo_map, -1)   # MODEL B: satış SEÇİLEN depodan düşer
+        cli = _get_client()
+        # ATOMİK: satış + stok düşümü tek işlem (fonksiyon kurulu değilse None → bugünkü yol)
+        try:
+            _veri = _atomik_kayit(cli, "satislar", satirlar=rows,
+                                  gruplar=_depo_gruplari(_depo_map, -1), kaynak=_KAYNAK_DEPOLU)
+        except _AtomikRed as e:
+            return False, f"Sipariş kaydedilmedi, stok değişmedi: {e}", 0
+        if _veri is not None:
+            _ek = _atomik_iz(_veri, "satislar", "satis.ekle_siparis")
+        else:
+            cli.table("satislar").insert(rows).execute()
+            _ek = _stok_uygula_depolu(_depo_map, -1) or ""   # MODEL B: satış SEÇİLEN depodan düşer
         _temizle()
         # Zararına satış varsa Telegram uyarısı (kaydı ASLA bozmaz)
         _marj_uyarisi_gonder(rows, kanal, siparis_no, tarih, kaynak="Satış Girişi")
-        return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.", len(rows)
+        return True, f"✅ Sipariş kaydedildi — {len(rows)} kalem.{_ek}", len(rows)
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}", 0
 
@@ -718,11 +831,22 @@ def sil_siparisler(siparis_nolar):
                         _geri[_s] = _geri.get(_s, 0) + _i(_r.get("adet"))
             except Exception:
                 pass
-            # Sil-yeniden-yaz (Excel "üzerine yaz"): çöp kutusuna DÜŞMEZ. Düşünce oradan geri alınan
-            # satış stoğa yeniden işlenmiyordu (stok iade edilmiş ama satış geri gelmiş olurdu).
+        # Sil-yeniden-yaz (Excel "üzerine yaz"): çöp kutusuna DÜŞMEZ. Düşünce oradan geri alınan
+        # satış stoğa yeniden işlenmiyordu (stok iade edilmiş ama satış geri gelmiş olurdu).
+        # ATOMİK: silme + stok iadesi tek işlem (stok karşılığı silinen satırlardan hesaplanır)
+        try:
             with cop_kutusu_kapali():
-                cli.table("satislar").delete().in_("siparis_no", _parca).execute()
-        _stok_uygula(_geri, +1, "satis_sil")   # MODEL B: silinen satış depoya geri döner
+                _veri = _atomik_kayit(cli, "satislar", sil={"kolon": "siparis_no", "degerler": nolar},
+                                      aday_skular=list(_geri), kaynak=_KAYNAK_MERKEZ)
+                if _veri is not None:
+                    _atomik_iz(_veri, "satislar", "satis.sil_siparisler")
+        except _AtomikRed as e:
+            return 0, f"Silinmedi, hiçbir şey değişmedi: {e}"
+        if _veri is None:
+            for i in range(0, len(nolar), B):
+                with cop_kutusu_kapali():
+                    cli.table("satislar").delete().in_("siparis_no", nolar[i:i + B]).execute()
+            _stok_uygula(_geri, +1, "satis_sil")   # MODEL B: silinen satış depoya geri döner
         _temizle()
         return len(nolar), None
     except Exception as e:
@@ -941,11 +1065,37 @@ def guncelle_satis(satis_id, alanlar):
         # (Eski davranış stoğa hiç dokunmuyordu → adet düzeltmeleri stokta iz
         #  bırakmıyordu. Şimdi: eski kaydın stok etkisi geri alınır, yenisi uygulanır.)
         _eski = None
-        if any(k in (alanlar or {}) for k in ("adet", "sku")):
+        _stoklu = any(k in (alanlar or {}) for k in ("adet", "sku"))
+        if _stoklu:
             _eski = _row(cli.table("satislar").select("sku,adet").eq("id", satis_id).execute())
         # Eski değerleri UPDATE'ten önce sabitle (referans paylaşımına karşı güvenli)
         _e_sku = str((_eski or {}).get("sku") or "").strip()
         _e_adet = _i((_eski or {}).get("adet"))
+        # ATOMİK: satır kilitlenir, eski değer kilit altında okunur; güncelleme + stok farkı tek işlem
+        if _atomik_hazir(cli):
+            _pm = _atomik()
+            _y_sku = str(alanlar.get("sku") or "").strip() if "sku" in alanlar else None
+            try:
+                _ok, _veri = _pm.atomik_rpc(cli, "satis_guncelle_stok", {
+                    "p_id": satis_id, "p_alanlar": dict(alanlar), "p_stoklu": _stoklu,
+                    "p_yeni_sku": _y_sku,
+                    "p_yeni_adet": _i(alanlar.get("adet")) if "adet" in alanlar else None,
+                    "p_aday": _pm.stok_aday_haritasi([_e_sku, _y_sku]),
+                    "p_ortam": _pm.atomik_ortam(_KAYNAK_MERKEZ),
+                })
+            except _pm.AtomikHata as e:
+                try:
+                    from shared.hata_log import kaydet as _hk
+                    _hk("satis.guncelle_satis", e, f"id={satis_id} — hiçbir şey yazılmadı")
+                except Exception:
+                    pass
+                return False
+            if _ok:
+                _pm.atomik_audit("güncelle", "satislar", satis_id, str(list(alanlar))[:200], "Satış")
+                _atomik_iz(_veri if isinstance(_veri, dict) else {}, "satislar", "satis.guncelle_satis")
+                _pm._cache_temizle()
+                _temizle()
+                return True
         cli.table("satislar").update(alanlar).eq("id", satis_id).execute()
         if _eski:
             _y_sku = str(alanlar.get("sku", _e_sku) or "").strip()
@@ -965,6 +1115,16 @@ def sil_satis(satis_id):
     try:
         cli = _get_client()
         _r = _rows(cli.table("satislar").select("sku,adet").eq("id", satis_id).execute())
+        # ATOMİK: silme + stok iadesi tek işlem
+        try:
+            _veri = _atomik_kayit(cli, "satislar", sil={"kolon": "id", "degerler": [satis_id]},
+                                  aday_skular=list(_satis_agg(_r)), kaynak=_KAYNAK_MERKEZ)
+        except _AtomikRed:
+            return False
+        if _veri is not None:
+            _atomik_iz(_veri, "satislar", "satis.sil_satis", satis_id)
+            _temizle()
+            return True
         cli.table("satislar").delete().eq("id", satis_id).execute()
         if _r:
             _stok_uygula(_satis_agg(_r), +1, "satis_sil")   # MODEL B
@@ -981,6 +1141,16 @@ def sil_siparis(siparis_no):
     try:
         cli = _get_client()
         _r = _rows(cli.table("satislar").select("sku,adet").eq("siparis_no", siparis_no).execute())
+        # ATOMİK: silme + stok iadesi tek işlem
+        try:
+            _veri = _atomik_kayit(cli, "satislar", sil={"kolon": "siparis_no", "degerler": [siparis_no]},
+                                  aday_skular=list(_satis_agg(_r)), kaynak=_KAYNAK_MERKEZ)
+        except _AtomikRed:
+            return False
+        if _veri is not None:
+            _atomik_iz(_veri, "satislar", "satis.sil_siparis", siparis_no)
+            _temizle()
+            return True
         cli.table("satislar").delete().eq("siparis_no", siparis_no).execute()
         if _r:
             _stok_uygula(_satis_agg(_r), +1, "siparis_sil")   # MODEL B
@@ -1240,20 +1410,33 @@ def _ekle_iade(tarih, kanal, sku, urun_adi, iade_adet, iade_brut, iade_iskonto, 
             "iade_masraf": _f(iade_masraf), "iade_net": _f(iade_net),
             "depo": _depo, "kaynak": (kaynak or "manuel"),
         }
+        # ATOMİK: iade kaydı + stok girişi tek işlem (depo/kaynak kolonu yoksa veritabanında atlanır)
         try:
-            _res = _get_client().table("iadeler").insert(_kayit).execute()
-        except Exception:
-            # depo/kaynak kolonları henüz eklenmemişse eski biçimde yaz
-            _res = _get_client().table("iadeler").insert(
-                {k: v for k, v in _kayit.items() if k not in ("depo", "kaynak")}).execute()
+            _veri = _atomik_kayit(_get_client(), "iadeler", satirlar=[_kayit],
+                                  gruplar=_depo_gruplari([(sku, _i(iade_adet), _depo)], +1) if stok_isle else [],
+                                  kaynak=_KAYNAK_DEPOLU)
+        except _AtomikRed as e:
+            return False, f"İade kaydedilmedi, stok değişmedi: {e}", None
+        _ek = ""
+        if _veri is not None:
+            _eklenen = _veri.get("eklenen") or []
+            _ek = _atomik_iz(_veri, "iadeler", "satis.ekle_iade")
+        else:
+            try:
+                _res = _get_client().table("iadeler").insert(_kayit).execute()
+            except Exception:
+                # depo/kaynak kolonları henüz eklenmemişse eski biçimde yaz
+                _res = _get_client().table("iadeler").insert(
+                    {k: v for k, v in _kayit.items() if k not in ("depo", "kaynak")}).execute()
+            _eklenen = getattr(_res, "data", None)
         _yk = _aktif_yukleme()
         if _yk is not None:
-            _yk.eklenen("iadeler", getattr(_res, "data", None), beklenen=1)
-        if stok_isle:
-            _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1)
+            _yk.eklenen("iadeler", _eklenen, beklenen=1)
+        if stok_isle and _veri is None:
+            _ek = _stok_uygula_depolu([(sku, _i(iade_adet), _depo)], yon=+1) or ""
         _temizle()
-        _id = next((r.get("id") for r in (getattr(_res, "data", None) or []) if isinstance(r, dict)), None)
-        return True, f"✅ İade kaydedildi → {_depo}", _id
+        _id = next((r.get("id") for r in (_eklenen or []) if isinstance(r, dict)), None)
+        return True, f"✅ İade kaydedildi → {_depo}{_ek}", _id
     except Exception as e:
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:140]}", None
 
@@ -1322,6 +1505,17 @@ def sil_iade(iade_id):
             _r = _rows(cli.table("iadeler").select("sku,iade_adet,depo").eq("id", iade_id).execute())
         except Exception:
             _r = _rows(cli.table("iadeler").select("sku,iade_adet").eq("id", iade_id).execute())
+        # ATOMİK: silme + girdiği depodan geri düşüm tek işlem
+        try:
+            _veri = _atomik_kayit(cli, "iadeler", sil={"kolon": "id", "degerler": [iade_id]},
+                                  aday_skular=[str(x.get("sku") or "").strip() for x in _r],
+                                  kaynak=_KAYNAK_DEPOLU)
+        except _AtomikRed:
+            return False
+        if _veri is not None:
+            _atomik_iz(_veri, "iadeler", "satis.sil_iade", iade_id)
+            _temizle()
+            return True
         cli.table("iadeler").delete().eq("id", iade_id).execute()
         if _r:
             # Girdiği depodan geri al — eskiden hep merkezden düşülüyordu
@@ -1484,6 +1678,61 @@ def _parti_satirlari(cli, donem_sonu, secim):
     return list(out.values())
 
 
+def _iade_aktarim_satirlari(satirlar, tarih, donem_bas, varsayilan_depo):
+    """Excel iade satırları → iadeler kayıtları. Döner: (rows, atlandi)."""
+    rows, atlandi = [], 0
+    _harita = _kart_sku_haritasi()
+    for s in satirlar:
+        sku = _kart_sku(s.get("sku"), _harita)   # 'Fazeon X' / 'MIO …' → kartın yazımı
+        adet = _i(s.get("iade_adet"))
+        if not sku or adet <= 0:
+            atlandi += 1
+            continue
+        rows.append({
+            "tarih": str(s.get("tarih") or tarih)[:10], "kanal": s.get("kanal") or "",
+            "sku": sku, "urun_adi": s.get("urun_adi") or "",
+            "iade_adet": adet, "iade_brut": _f(s.get("iade_brut")),
+            "iade_iskonto": _f(s.get("iade_iskonto")), "iade_masraf": _f(s.get("iade_masraf")),
+            "iade_net": _f(s.get("iade_net")),
+            "donem_bas": str(donem_bas)[:10] if donem_bas else None,
+            "donem_bit": str(tarih)[:10],
+            "depo": (str(s.get("depo") or "").strip() or varsayilan_depo or "MERKEZ DEPO"),
+            "kaynak": "excel",
+        })
+    return rows, atlandi
+
+
+def _iadeler_atomik(cli, satirlar, tarih, temizle_once, donem_bas, varsayilan_depo):
+    """ice_aktar_iadeler'in atomik yolu. Fonksiyon kurulu değilse None döner — o ana kadar yalnız
+    OKUMA yapılmıştır (yükleme geçmişine hiçbir şey bildirilmez), bugünkü yol baştan çalışır.
+    Reddedilirse _AtomikRed (hiçbir şey yazılmadı)."""
+    _eski_i, _sil = [], []
+    if temizle_once and tarih:
+        # Silinecek satırların kimlikleri (bugünkü yolla aynı seçim); stok karşılığı ve geri alma için
+        # tam satırlar veritabanının GERÇEKTEN sildiği satırlardan gelir.
+        _eski_i = _parti_satirlari(cli, tarih, "id,sku,tarih,donem_bit")
+        _sil = [x["id"] for x in _eski_i if x.get("id")]
+    rows, atlandi = _iade_aktarim_satirlari(satirlar, tarih, donem_bas, varsayilan_depo)
+    with cop_kutusu_kapali():
+        _veri = _atomik_kayit(
+            cli, "iadeler", sil={"kolon": "id", "degerler": _sil} if _sil else None, satirlar=rows,
+            gruplar=_depo_gruplari([(r["sku"], _i(r.get("iade_adet")), r.get("depo") or varsayilan_depo)
+                                    for r in rows], +1),
+            aday_skular=[str(x.get("sku") or "").strip() for x in _eski_i], kaynak=_KAYNAK_DEPOLU)
+        if _veri is None:
+            return None
+        _atomik_iz(_veri, "iadeler", "satis.ice_aktar_iadeler")
+    _eklenen = _veri.get("eklenen") or []
+    _yk = _aktif_yukleme()   # Excel yüklemesi içindeyse silinen/eklenen satırlar geri alma için saklanır
+    if _yk is not None:
+        if temizle_once and tarih:
+            _yk.onceki("iadeler", _veri.get("silinen") or [])
+        _yk.anahtar(f"iadeler:{str(tarih)[:10]}")
+        _yk.eklenen("iadeler", _eklenen, beklenen=len(rows))
+    _temizle()
+    return {"eklendi": len(_eklenen), "atlandi": atlandi}
+
+
 def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                       varsayilan_depo="MERKEZ DEPO"):
     """satirlar: [{sku, urun_adi, kanal, iade_adet, ..., depo?, tarih?}].
@@ -1494,6 +1743,14 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
     Döner: {eklendi, atlandi}."""
     try:
         cli = _get_client()
+        # ATOMİK: eski partiyi silme + stok geri + yeni satırlar + stok girişi TEK işlem
+        if _atomik_hazir(cli):
+            try:
+                _sonuc = _iadeler_atomik(cli, satirlar, tarih, temizle_once, donem_bas, varsayilan_depo)
+            except _AtomikRed as e:
+                return {"eklendi": 0, "atlandi": 0, "hata": f"İadeler kaydedilmedi, hiçbir şey değişmedi: {e}"}
+            if _sonuc is not None:
+                return _sonuc
         if temizle_once and tarih:
             try:  # MODEL B: silinecek iadelerin stok karşılığını geri çek
                 try:
@@ -1515,25 +1772,7 @@ def ice_aktar_iadeler(satirlar, tarih, temizle_once=False, donem_bas=None,
                 _sil = [x["id"] for x in _parti_satirlari(cli, tarih, "id,tarih,donem_bit") if x.get("id")]
                 for i in range(0, len(_sil), 200):
                     cli.table("iadeler").delete().in_("id", _sil[i:i + 200]).execute()
-        rows, atlandi = [], 0
-        _harita = _kart_sku_haritasi()
-        for s in satirlar:
-            sku = _kart_sku(s.get("sku"), _harita)   # 'Fazeon X' / 'MIO …' → kartın yazımı
-            adet = _i(s.get("iade_adet"))
-            if not sku or adet <= 0:
-                atlandi += 1
-                continue
-            rows.append({
-                "tarih": str(s.get("tarih") or tarih)[:10], "kanal": s.get("kanal") or "",
-                "sku": sku, "urun_adi": s.get("urun_adi") or "",
-                "iade_adet": adet, "iade_brut": _f(s.get("iade_brut")),
-                "iade_iskonto": _f(s.get("iade_iskonto")), "iade_masraf": _f(s.get("iade_masraf")),
-                "iade_net": _f(s.get("iade_net")),
-                "donem_bas": str(donem_bas)[:10] if donem_bas else None,
-                "donem_bit": str(tarih)[:10],
-                "depo": (str(s.get("depo") or "").strip() or varsayilan_depo or "MERKEZ DEPO"),
-                "kaynak": "excel",
-            })
+        rows, atlandi = _iade_aktarim_satirlari(satirlar, tarih, donem_bas, varsayilan_depo)
         eklendi = 0
         _yk = _aktif_yukleme()   # Excel yüklemesi içindeyse eklenen kimlikler geri alma için saklanır
         if _yk is not None:
