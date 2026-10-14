@@ -1242,6 +1242,8 @@ def cekirdek_css(yogunluk=None):
   border-radius:12px;overflow:hidden;}}
 .k-grid > .k-kart.k-yeni{{border:0;border-radius:0;background:var(--k-yuzey1);padding:13px 16px;}}
 .k-grid > .k-kart.k-yeni:hover{{background:var(--k-yuzey2);}}
+/* başlık eylemleri (4+ düğme) başlığın altında tek sıra; telefonda alta kayar (shared/bilesen.baslik_eylem) */
+html body [data-testid="stHorizontalBlock"][class*="st-key-k_eylem_"], html body .st-key-acc_baslik [data-testid="stHorizontalBlock"][class*="st-key-k_eylem_"]{{flex-wrap:wrap !important;}}
 
 /* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
    Sayfaya eklenen yalnız-<style> blokları ve yüksekliği 0 olan script

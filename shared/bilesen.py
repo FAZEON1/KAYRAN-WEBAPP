@@ -79,10 +79,22 @@ def baslik_eylem(modul, sayfa, aciklama="", eylemler=()):
     """eylemler: [{"etiket","key","icon"?,"birincil"?,"help"?,"disabled"?}]
     Döner: {key: tıklandı_mı}. Düğmeler başlığın sağında, aynı satırda (yuva açıksa yuvada)."""
     n = len(eylemler)
-    gen = 1.45 if n > 3 else 1.3          # 4 eylemde etiketler kesilmesin
-    oran = [max(3.6, 5.2 - 0.4 * max(0, n - 2))] + [gen] * n
-    kol = (_yuva_al() or st).columns(oran, vertical_alignment="center")
-    kol[0].markdown(_baslik(modul, sayfa, aciklama=aciklama), unsafe_allow_html=True)
+    kap = _yuva_al() or st
+    if n > 3:
+        # 4+ eylem başlığın yanına sığmıyordu (Banka bakiyeleri: başlık tek kelime genişliğe iniyordu) →
+        # başlık tam satır, düğmeler altında tek sıra
+        kap.markdown(_baslik(modul, sayfa, aciklama=aciklama), unsafe_allow_html=True)
+        sira = kap.container(horizontal=True, gap="small", key=f"k_eylem_{eylemler[0]['key']}")
+        out = {}
+        for e in eylemler:
+            out[e["key"]] = sira.button(e["etiket"], key=e["key"], icon=e.get("icon"), help=e.get("help"),
+                                        type="primary" if e.get("birincil") else "secondary",
+                                        disabled=bool(e.get("disabled")), width="content")
+        return out
+    else:
+        oran = [max(3.6, 5.2 - 0.4 * max(0, n - 2))] + [1.3] * n
+        kol = kap.columns(oran, vertical_alignment="center")
+        kol[0].markdown(_baslik(modul, sayfa, aciklama=aciklama), unsafe_allow_html=True)
     out = {}
     for c, e in zip(kol[1:], eylemler):
         out[e["key"]] = c.button(e["etiket"], key=e["key"], icon=e.get("icon"), help=e.get("help"),
