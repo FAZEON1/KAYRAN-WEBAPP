@@ -92,3 +92,46 @@ jobs:
       - name: Her sayfa çökmeden açılıyor mu
         working-directory: tests
         run: python -m pytest duman -q --tb=short -p no:cacheprovider -W ignore
+
+  # Tarayıcı taraması (tests/tarayici, Ekim 2026): uygulama örnek veriyle GERÇEK tarayıcıda açılır, her sayfa
+  # bilgisayar ve telefon boyutunda denetlenir: kırmızı hata kutusu, içeriğin üstünde görünmez katman (tıklama /
+  # tekerlek yutar), yatay taşma, tekerlekle kaymayan sayfa, konsolda JavaScript hatası. Sorunlu sayfaların
+  # ekran görüntüsü işin "tarama" çıktısında (Actions › bu çalışma › Artifacts).
+  tarayici:
+    name: Tarayıcı taraması
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıklar
+        run: |
+          pip install --quiet "streamlit>=1.40,<2" "pandas>=1.5,<3" "openpyxl>=3.0.10,<4" "plotly>=5,<7" "reportlab>=3.6,<5" "xlrd>=2,<3" "requests>=2.28,<3" playwright
+          python -m playwright install --with-deps chromium
+
+      # Sahte bağlantı bilgisi: uygulama gerçek veritabanına bağlanmaz (tests/duman/sahte_db.py)
+      - name: Uygulamayı örnek veriyle başlat
+        run: |
+          printf '[supabase]\nurl = "http://sahte.local"\nkey = "sahte"\nservice_role_key = "sahte"\n' > .streamlit/secrets.toml
+          nohup streamlit run tests/tarayici/vitrin.py --server.port 8601 --server.headless true > vitrin.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8601/_stcore/health && break; sleep 1; done
+
+      - name: Her sayfa tarayıcıda (bilgisayar + telefon)
+        run: python tests/tarayici/tara.py --cihaz pc tel --cikti tarama.json --goruntu tarama_goruntu
+
+      - name: Tarama çıktısı
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarama
+          path: |
+            tarama.json
+            tarama_goruntu/
+            vitrin.log
+          if-no-files-found: ignore
