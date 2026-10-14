@@ -143,6 +143,10 @@ KRITIK_FONKSIYONLAR = {
         "firma_stok_satirlari",                   # stok kartı kanal stoğu, SKU yazımından bağımsız
         "sku_satirlari", "kart_sku_haritasi", "kart_sku_coz",   # SKU yazımı: okuma + yazma (Eki 2026)
         "urunler_ada_gore", "urunler_skuya_gore",   # tek urunler okuması (Eki 2026)
+        # atomik stok (veritabani/29_atomik_stok.sql, Eki 2026): RPC önce, yoksa bugünkü yol
+        "atomik_rpc", "atomik_hazir", "atomik_ortam", "atomik_audit", "AtomikHata", "stok_kalemleri",
+        "stok_adaylari", "stok_aday_haritasi", "stok_atomik_sonuc", "stok_hareket_gruplu",
+        "_stok_atomik", "_stok_hareket_coklu_eski", "_rpc_yok_mu", "depo_sevk", "_sevk_kart_bul",
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
@@ -184,6 +188,10 @@ KRITIK_FONKSIYONLAR = {
         "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
         "ice_aktar_satislar", "ekle_siparis",
+        # atomik kayıt + stok (veritabani/29_atomik_stok.sql, Eki 2026)
+        "_atomik_kayit", "_atomik_iz", "_depo_gruplari", "_stok_sorunu_bildir", "_iadeler_atomik",
+        "_iade_aktarim_satirlari", "guncelle_satis", "sil_satis", "sil_siparis", "sil_siparisler",
+        "sil_iade", "ice_aktar_iadeler",
     ],
     "teknikservis.database": [
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",

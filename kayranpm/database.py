@@ -1601,59 +1601,89 @@ def get_depo_stok(depo):
     return sorted(out, key=lambda x: -x["adet"])
 
 
+def _sevk_kart_bul(sb, sku):
+    """Sevk edilecek ürün kartı: önce birebir SKU, yoksa harf/boşluk farkıyla eşleşen kart
+    (liste normalize SKU gösteriyor). Döner: (kart | None, kartın gerçek SKU yazımı)."""
+    u = _row(sb.table("urunler").select("sku, urun_adi, depo_kirilim").eq("sku", sku).execute())
+    if not u:
+        _hedef = " ".join(str(sku or "").strip().upper().split())
+        for _u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
+            if " ".join(str(_u.get("sku") or "").strip().upper().split()) == _hedef:
+                u = _u
+                sku = _u.get("sku")  # gerçek yazımla devam et
+                break
+    return u, sku
+
+
+def _sevk_aciklama(kaynak_depo, hedef_depo, belge_no):
+    return (f"{kaynak_depo} → {hedef_depo}"
+            + (f" · belge {belge_no}" if str(belge_no or "").strip() else ""))
+
+
 def depo_sevk(sku, kaynak_depo, hedef_depo, adet, kullanici="", sevk_tarihi="", belge_no=""):
     """Depolar arası sevk: kaynak→hedef 'adet' taşır, bizim_stok'u yeniden
     hesaplar, kalıcı yazar, geçmişe + audit'e ekler. Döner: (ok, mesaj).
-    sevk_tarihi/belge_no: sevk loguna yazılır (kolonlar yoksa otomatik atlanır)."""
+    sevk_tarihi/belge_no: sevk loguna yazılır (kolonlar yoksa otomatik atlanır).
+
+    ATOMİK (veritabani/29_atomik_stok.sql kuruluysa): kart kilitlenir, yeterlilik kilit altında
+    denetlenir; kırılım + stok defteri + sevk geçmişi tek işlemde yazılır (aynı anda iki sevk birbirini
+    ezmez). Fonksiyon kurulu değilse bugünkü yol çalışır — aynı hesap, aynı mesajlar."""
     try:
         sb = get_client()
-        u = _row(sb.table("urunler").select("sku, urun_adi, depo_kirilim").eq("sku", sku).execute())
-        if not u:
-            # Harf/boşluk farkıyla eşleşen kartı bul (liste normalize SKU gösteriyor)
-            _hedef = " ".join(str(sku or "").strip().upper().split())
-            for _u in _hepsi("urunler", "sku, urun_adi, depo_kirilim"):
-                if " ".join(str(_u.get("sku") or "").strip().upper().split()) == _hedef:
-                    u = _u
-                    sku = _u.get("sku")  # gerçek yazımla devam et
-                    break
+        u, sku = _sevk_kart_bul(sb, sku)
         if not u:
             return False, f"❌ Ürün bulunamadı: {sku}"
-        dk = u.get("depo_kirilim") or {}
-        if not isinstance(dk, dict):
-            return False, "❌ Bu ürünün depo kırılımı yok (önce G5F stok yükleyin)."
-        yeni_dk, hata = _sevk_uygula(dk, kaynak_depo, hedef_depo, adet)
-        if hata:
-            return False, f"❌ {hata}"
-        sb.table("urunler").update({
-            "depo_kirilim": yeni_dk,
-            "bizim_stok": _bizim_stok_hesapla(yeni_dk),
-            "guncelleme_tarihi": get_today(),
-        }).eq("sku", sku).execute()
-        try:
-            _sd = _defter()
-            _sd.yaz_fark(sku, dk, yeni_dk, "sevk",
-                         f"{kaynak_depo} → {hedef_depo}"
-                         + (f" · belge {belge_no}" if str(belge_no or "").strip() else ""))
-        except Exception:
-            pass
         _log = {
             "sku": sku, "urun_adi": u.get("urun_adi", ""),
             "kaynak_depo": kaynak_depo, "hedef_depo": hedef_depo,
-            "adet": int(adet), "kullanici": kullanici or "", "tarih": tr_now_str(),
+            "adet": int(adet or 0), "kullanici": kullanici or "", "tarih": tr_now_str(),
         }
+        _log2 = dict(_log)
+        if str(sevk_tarihi or "").strip():
+            _log2["sevk_tarihi"] = str(sevk_tarihi)[:10]
+        if str(belge_no or "").strip():
+            _log2["belge_no"] = str(belge_no).strip()[:60]
+        # ── Atomik yol ──
+        hata, atomik = "", False
         try:
-            _log2 = dict(_log)
-            if str(sevk_tarihi or "").strip():
-                _log2["sevk_tarihi"] = str(sevk_tarihi)[:10]
-            if str(belge_no or "").strip():
-                _log2["belge_no"] = str(belge_no).strip()[:60]
-            try:
-                sb.table("depo_sevk_log").insert(_log2).execute()
-            except Exception:
-                # sevk_tarihi/belge_no kolonları tabloda yoksa temel logla devam et
-                sb.table("depo_sevk_log").insert(_log).execute()
-        except Exception:
-            pass
+            atomik, _ = atomik_rpc(sb, "depo_sevk_islem", {
+                "p_sku": sku, "p_kaynak": depo_kanonik(kaynak_depo), "p_hedef": depo_kanonik(hedef_depo),
+                "p_adet": int(adet or 0), "p_aciklama": _sevk_aciklama(kaynak_depo, hedef_depo, belge_no),
+                "p_log": {k: v for k, v in _log2.items() if k not in ("sku", "urun_adi")},
+                "p_ortam": atomik_ortam(),
+            })
+        except AtomikHata as e:
+            # iş kuralı (yetersiz stok vb.) bugünkü mesajla; diğerleri 'hiçbir şey değişmedi'
+            hata = e.mesaj if e.kod == "P0001" else f"Sevk yapılmadı, hiçbir şey değişmedi: {e.mesaj[:160]}"
+        # ── Bugünkü yol (fonksiyon kurulu değil) ──
+        if not atomik and not hata:
+            dk = u.get("depo_kirilim") or {}
+            if not isinstance(dk, dict):
+                return False, "❌ Bu ürünün depo kırılımı yok (önce G5F stok yükleyin)."
+            yeni_dk, hata = _sevk_uygula(dk, kaynak_depo, hedef_depo, adet)
+            if not hata:
+                sb.table("urunler").update({
+                    "depo_kirilim": yeni_dk,
+                    "bizim_stok": _bizim_stok_hesapla(yeni_dk),
+                    "guncelleme_tarihi": get_today(),
+                }).eq("sku", sku).execute()
+                try:
+                    _sd = _defter()
+                    _sd.yaz_fark(sku, dk, yeni_dk, "sevk", _sevk_aciklama(kaynak_depo, hedef_depo, belge_no))
+                except Exception:
+                    pass
+                try:
+                    try:
+                        sb.table("depo_sevk_log").insert(_log2).execute()
+                    except Exception:
+                        # sevk_tarihi/belge_no kolonları tabloda yoksa temel logla devam et
+                        sb.table("depo_sevk_log").insert(_log).execute()
+                except Exception:
+                    pass
+        if hata:
+            return False, f"❌ {hata}"
+        if atomik:
+            atomik_audit("güncelle", "urunler", sku, "depo_kirilim (sevk, tek işlem)", "kayranpm")
         try:
             from shared.audit import log_yaz
             _ek = (f" · belge:{belge_no}" if str(belge_no or "").strip() else "")
@@ -1707,11 +1737,280 @@ def _defter():
         return _DefterYok
 
 
+# ═══════════ ATOMİK STOK (veritabani/29_atomik_stok.sql) ═══════════
+# Kayıt + stok + defter tek veritabanı işleminde, ürün satırı kilitli yazılır (kayıp güncelleme yok).
+# Fonksiyonlar kurulu DEĞİLSE her yazım bugünkü yoldan yürür — aynı sonuç. Kurulu ama işlem
+# reddedildiyse (AtomikHata) hiçbir şey yazılmamıştır; çağıran kullanıcıya açık hata gösterir.
+class AtomikHata(Exception):
+    """Atomik fonksiyon kurulu, işlem veritabanında reddedildi ve GERİ ALINDI (hiçbir şey yazılmadı)."""
+
+    def __init__(self, mesaj, kod=""):
+        super().__init__(mesaj)
+        self.mesaj = str(mesaj or "")
+        self.kod = str(kod or "")
+
+
+_ATOMIK = {"yok_zaman": 0.0}      # fonksiyon bulunamadıysa ne zaman (bu süre boyunca hiç denenmez)
+_ATOMIK_YOK_SURE = 600            # sn — SQL sonradan kurulursa en geç 10 dk içinde devreye girer
+
+
+def _rpc_hata_bilgi(e):
+    """PostgREST hatasından (kod, mesaj). APIError .code / .message taşır; yoksa metinden."""
+    kod = str(getattr(e, "code", "") or "")
+    msg = str(getattr(e, "message", "") or "")
+    if not kod or not msg:
+        import re as _r
+        t = str(e)
+        if not kod:
+            m = _r.search(r"['\"]code['\"]\s*:\s*['\"]?([A-Za-z0-9]+)", t)
+            kod = m.group(1) if m else ""
+        if not msg:
+            m = _r.search(r"['\"]message['\"]\s*:\s*['\"](.+?)['\"]\s*[,}]", t)
+            msg = m.group(1) if m else t
+    return kod, msg
+
+
+def _rpc_yok_mu(e):
+    """Fonksiyon kurulu değil / çağrılamıyor mu? (O zaman bugünkü yola düşülür; çağrı hiçbir şey
+    yazmamıştır.) PGRST202 = PostgREST şema önbelleğinde yok; 42883 = Postgres'te yok;
+    42501 + function = çalıştırma yetkisi yok; 404 = uç nokta yok."""
+    kod, msg = _rpc_hata_bilgi(e)
+    t = f"{kod} {msg} {e}".lower()
+    return (kod in ("PGRST202", "42883", "404")
+            or "could not find the function" in t
+            or (kod == "42501" and "function" in t))
+
+
+def _json_temiz(v):
+    """RPC parametresi JSON'a sığsın: numpy sayısı (ekran tablosundan gelen kimlik), tarih, Decimal."""
+    import json as _json
+    from decimal import Decimal
+
+    def _donustur(o):
+        if isinstance(o, Decimal):
+            return float(o)
+        if hasattr(o, "item"):
+            try:
+                return o.item()
+            except Exception:
+                pass
+        if hasattr(o, "isoformat"):
+            return o.isoformat()
+        if isinstance(o, (set, frozenset, tuple)):
+            return list(o)
+        return str(o)
+    return _json.loads(_json.dumps(v, default=_donustur))
+
+
+def atomik_hazir(sb):
+    """Atomik yol denenebilir mi? (istemci rpc destekliyor, fonksiyon yakın zamanda 'yok' çıkmadı,
+    hesap salt-okur değil). Hazır değilse çağıranlar yük hazırlamadan bugünkü yola geçer."""
+    import time as _t
+    if _t.time() - _ATOMIK["yok_zaman"] < _ATOMIK_YOK_SURE:
+        return False
+    if not callable(getattr(sb, "rpc", None)):
+        return False
+    try:
+        from shared.audit import salt_okur_mu
+        if salt_okur_mu():
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def atomik_rpc(sb, ad, params):
+    """Atomik fonksiyonu çağırır. Döner: (True, veri) | (False, None) = fonksiyon yok → bugünkü yol.
+    Fonksiyon var ama hata verdiyse AtomikHata (işlem geri alınmıştır). Kilitlenme (40P01) /
+    serileştirme (40001) hatasında bir kez yeniden dener. Salt-okur hesapta denemez (bugünkü yol
+    yazmayı zaten engeller ve uyarır)."""
+    import time as _t
+    if not atomik_hazir(sb):
+        return False, None
+    rpc = sb.rpc
+    params = _json_temiz(params)
+    for _deneme in range(2):
+        try:
+            veri = rpc(ad, params).execute().data
+        except Exception as e:
+            if _rpc_yok_mu(e):
+                _ATOMIK["yok_zaman"] = _t.time()
+                return False, None
+            kod, msg = _rpc_hata_bilgi(e)
+            if kod in ("40P01", "40001") and _deneme == 0:
+                continue
+            raise AtomikHata(msg, kod) from e
+        if not isinstance(veri, dict):
+            # Bizim fonksiyonlarımız her zaman nesne döner; başka bir şey geldiyse bu ad bizim
+            # fonksiyonumuz değildir (ör. sahte istemci) → kurulu sayılmaz, bugünkü yol.
+            _ATOMIK["yok_zaman"] = _t.time()
+            return False, None
+        return True, veri
+    return False, None
+
+
+def atomik_ortam(kaynak=None):
+    """Stok defteri satırlarının ortak alanları (shared/stok_defteri.yaz ile aynı)."""
+    _sd = _defter()
+    try:
+        k = _sd.kaynak_bul() if kaynak is None else kaynak
+    except Exception:
+        k = ""
+    try:
+        kul = _sd._kullanici()
+    except Exception:
+        kul = ""
+    try:
+        yk = _sd.aktif_yukleme()
+    except Exception:
+        yk = ""
+    return {"kaynak": str(k or "")[:120], "kullanici": str(kul or "")[:40],
+            "yukleme_kodu": yk or None, "bugun": get_today()}
+
+
+def atomik_audit(islem, tablo, kayit_id="", detay="", modul=""):
+    """Atomik çağrı tablo sarmalayıcısından geçmez; değişiklik kaydı elle yazılır."""
+    try:
+        from shared.audit import log_yaz
+        log_yaz(islem, tablo, kayit_id, detay, modul)
+    except Exception:
+        pass
+
+
+def stok_adaylari(sku):
+    """Hareketin uygulanacağı kartı bulmak için denenecek SKU yazımları — stok_hareket_coklu'daki
+    sırayla: girilen, BÜYÜK harf (farklıysa), kartın yazımı (kart_sku_coz, öncekilerden farklıysa)."""
+    sku = str(sku or "").strip()
+    out = [sku]
+    if sku != sku.upper():
+        out.append(sku.upper())
+    try:
+        ks = kart_sku_coz(sku)
+    except Exception:
+        ks = ""
+    if ks and ks not in (sku, sku.upper()):
+        out.append(ks)
+    return out
+
+
+def stok_kalemleri(gruplar, aciklama="", kart_ac=False, kart_adlar=None):
+    """[(depo, {sku: delta}), ...] → atomik fonksiyonun hareket listesi. Süzme / depo adı / mesaj
+    kuralları stok_hareket_coklu ile birebir (sku strip, delta 0 ise atla, depo kanonik)."""
+    kart_adlar = kart_adlar or {}
+    out = []
+    for depo, hareketler in (gruplar or []):
+        d = depo_kanonik((depo or "").strip() or "MERKEZ DEPO")
+        for sku, delta in (hareketler or {}).items():
+            sku = str(sku or "").strip()
+            try:
+                delta = float(delta or 0)
+            except Exception:
+                delta = 0
+            if not sku or delta == 0:
+                continue
+            out.append({"sku": sku, "adaylar": stok_adaylari(sku), "depo": d, "delta": delta,
+                        "aciklama": aciklama or "",
+                        "hata_aciklama": aciklama or f"{delta:+g} uygulanamadı",
+                        "kart_ac": bool(kart_ac), "kart_ad": (kart_adlar.get(sku) or "")[:200]})
+    return out
+
+
+def stok_aday_haritasi(skular):
+    """{sku: [aday yazımlar]} — veritabanında türetilen hareketler (silme/düzenleme) için."""
+    out = {}
+    for s in (skular or []):
+        s = str(s or "").strip()
+        if s and s not in out:
+            out[s] = stok_adaylari(s)
+    return out
+
+
+def stok_atomik_sonuc(veri):
+    """Atomik çağrının (uygulanan, atlanan) özeti."""
+    veri = veri if isinstance(veri, dict) else {}
+    try:
+        uyg = int(veri.get("uygulanan") or 0)
+    except Exception:
+        uyg = 0
+    return uyg, [str(s) for s in (veri.get("atlanan") or [])]
+
+
+def _stok_atomik(gruplar, kart_ac=False, kart_adlar=None, aciklama=""):
+    """Hareketleri tek atomik çağrıyla uygular. Fonksiyon yoksa None (çağıran bugünkü yola düşer).
+    Reddedilirse hiçbir şey yazılmamıştır: her SKU deftere başarısız yazılır, kritik hata kaydı
+    düşülür ve (0, tüm SKU'lar) döner — bugünkü 'atlanan' sözleşmesiyle aynı."""
+    _sd = _defter()
+    try:
+        sb = get_client()
+    except Exception:
+        return None                       # bağlantı yok → bugünkü yol kendi hatasını yazar
+    if not atomik_hazir(sb):
+        return None
+    kalemler = stok_kalemleri(gruplar, aciklama, kart_ac, kart_adlar)
+    if not kalemler:
+        return None
+    ortam = atomik_ortam()
+    try:
+        ok, veri = atomik_rpc(sb, "stok_uygula", {"p_hareketler": kalemler, "p_ortam": ortam})
+    except AtomikHata as e:
+        with _sd.toplu():
+            for k in kalemler:
+                _sd.yaz(k["sku"], k["depo"], 0, 0, "hata", k["hata_aciklama"], basarili=False,
+                        hata=f"işlem reddedildi, hiçbir şey yazılmadı: {e.mesaj}"[:500],
+                        kaynak=ortam["kaynak"])
+        try:
+            from shared.hata_log import kaydet
+            kaydet("kayranpm.stok_hareket_coklu", e,
+                   f"atomik stok_uygula reddedildi ({len(kalemler)} hareket) kaynak={ortam['kaynak']}",
+                   kritik=True)
+        except Exception:
+            pass
+        _cache_temizle()
+        return 0, [k["sku"] for k in kalemler]
+    if not ok:
+        return None
+    uyg, atl = stok_atomik_sonuc(veri)
+    for k in kalemler:
+        if k["sku"] not in atl:
+            atomik_audit("güncelle", "urunler", k["sku"], f"depo_kirilim {k['depo']} {k['delta']:+g}",
+                         "kayranpm")
+    _cache_temizle()
+    return uyg, atl
+
+
+def stok_hareket_gruplu(gruplar, aciklama=""):
+    """Birden çok depoya hareket: [(depo, {sku: delta}), ...]. Atomik fonksiyon kuruluysa HEPSİ tek
+    işlemde (ya hepsi ya hiçbiri); değilse her depo için sırayla bugünkü stok_hareket_coklu.
+    Döner: (uygulanan, atlanan)."""
+    gruplar = [(d, h) for d, h in (gruplar or []) if h]
+    sonuc = _stok_atomik(gruplar, aciklama=aciklama)
+    if sonuc is not None:
+        return sonuc
+    uyg, atl = 0, []
+    for depo, h in gruplar:
+        # stok_hareket_coklu üzerinden: atomik yol burada zaten 'yok' çıktı, o da bugünkü yola düşer
+        u, a = stok_hareket_coklu(h, depo, aciklama=aciklama)
+        uyg += u
+        atl.extend(a or [])
+    return uyg, atl
+
+
 def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None, aciklama=""):
     """MODEL B: {sku: delta} hareketlerini urunler.depo_kirilim'e uygular.
     delta + → giriş, − → çıkış. depo verilmezse 'MERKEZ DEPO'.
     kart_ac=True: ürün kartı olmayan SKU için otomatik boş kart açılır (adı kart_adlar[sku]).
     Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan).
+
+    ATOMİK: veritabani/29_atomik_stok.sql kuruluysa kartlar kilitlenip hepsi tek işlemde yazılır
+    (eşzamanlı iki yazım birbirini ezmez). Kurulu değilse aşağıdaki bugünkü yol — aynı hesap."""
+    sonuc = _stok_atomik([(depo, hareketler)], kart_ac, kart_adlar, aciklama)
+    if sonuc is not None:
+        return sonuc
+    return _stok_hareket_coklu_eski(hareketler, depo, kart_ac, kart_adlar, aciklama)
+
+
+def _stok_hareket_coklu_eski(hareketler, depo=None, kart_ac=False, kart_adlar=None, aciklama=""):
+    """Bugünkü yol (atomik fonksiyon kurulu değilken): oku → Python'da değiştir → yaz.
 
     STOK DEFTERİ: her uygulanan hareket VE her başarısız deneme (nedeniyle)
     'stok_hareketleri' tablosuna yazılır. Eskiden başarısız SKU sessizce
