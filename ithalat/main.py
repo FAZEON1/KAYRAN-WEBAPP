@@ -1318,10 +1318,15 @@ def _yeni_ithalat():
     _baslik("➕", "Yeni İthalat", "Manuel form ile dosya + kalem girişi · satın alım raporu Excel'i üst menüdeki "
                                  "Dosya düğmesinden yüklenir")
     katalog = get_urun_katalog()
-    sekme1 = st.container()
+    # Yeni düzen (Ekim 2026, formlar): solda dosya bilgileri + kalemler, sağda (telefonda altta sabit) özet,
+    # fatura altı indirim ve Kaydet. Kayıt ve doğrulama aynı.
+    from shared import form as _F
+    st.markdown(_F.css(), unsafe_allow_html=True)
+    sekme1, _sag = st.columns([2.75, 1], gap="medium")
 
     # ── Manuel ──
     with sekme1:
+        _mesaj_yeri = st.container()
         with st.container(border=True):
             _fv = st.session_state.setdefault("m_form_ver", 0)
             _alt_baslik("📄 Dosya Bilgileri")
@@ -1452,8 +1457,8 @@ def _yeni_ithalat():
                 _kat = kayit_degeri(_kat, _ith_kat_yazim, tr_buyuk_harf)   # ithalatın kayıt yazımı
                 _adet = _c_adet.number_input("adet", key=f"m_adet_{i}_{_fv}", label_visibility="collapsed",
                                              min_value=0, step=1, value=0)
-                _fob = _c_fob.number_input("fob", key=f"m_fob_{i}_{_fv}", label_visibility="collapsed",
-                                           min_value=0.0, step=0.0001, value=0.0, format="%.4f")
+                _fob = _F.sayi_kutusu("fob", f"m_fob_{i}_{_fv}", kap=_c_fob, label_visibility="collapsed",
+                                      placeholder="0,00")
                 if _c_sil.button("", key=f"m_sil_{i}_{_fv}", help="Bu satırı temizle", icon=":material/delete:"):
                     for _rk in (f"m_urun_{i}_{_fv}", f"m_msku_{i}_{_fv}", f"m_uad_{i}_{_fv}",
                                 f"m_bk_{i}_{_fv}", f"m_adet_{i}_{_fv}", f"m_fob_{i}_{_fv}",
@@ -1473,35 +1478,35 @@ def _yeni_ithalat():
                 st.rerun()
             _ec2.caption("satırı temizler · SKU'suz satırlar kaydedilmez.")
         _mal = sum(float(r.get("adet", 0) or 0) * float(r.get("birim_fob", 0) or 0) for r in _kalemler)
-
         # Fatura altı indirim (tutar) — net mal bedeli ve SKU maliyetleri buna göre düşer
         _ic1, _ic2 = st.columns([1, 2])
-        with _ic1:
-            m_indirim = st.number_input(
-                "Fatura Altı İndirim (tutar)", min_value=0.0, value=0.0, step=1.0,
-                format="%.4f", key=f"m_indirim_{_fv}",
-                help="Faturanın altına yazılan toplam indirim (opsiyonel). "
-                     "Net mal bedeli = Brüt − İndirim; SKU birim maliyetleri de bu orana göre düşer.")
-        with _ic2:
-            pass
+        m_indirim = _F.sayi_kutusu(
+            f"Fatura altı indirim ({doviz})", f"m_indirim_{_fv}", basamak=2, kap=_ic1,
+            yardim="Faturanın altına yazılan toplam indirim (opsiyonel). "
+                   "Net mal bedeli = Brüt − İndirim; SKU birim maliyetleri de bu orana göre düşer.")
+
+    with _sag, st.container(key="kf_ozet_ithalat"):
         _net_mal = max(_mal - float(m_indirim or 0), 0.0)
+        _adet_top = sum(float(r.get("adet", 0) or 0) for r in _kalemler)
+        # Canlı özet — Brüt / İndirim / Net mal bedeli (masraf 2. aşamada girilir)
+        st.markdown(_F.ozet_paneli("Dosya özeti", [
+            ("Kalem / adet", f"{len(_kalemler)} · {_tam(_adet_top)}"),
+            ("Brüt mal bedeli", f"{_tam(_mal)} {doviz}"),
+        ] + ([("Fatura altı indirim", f"−{_tam(float(m_indirim or 0))} {doviz}")] if float(m_indirim or 0) > 0 else []),
+            vurgu=("Net mal bedeli (FOB)", f"{_tam(_net_mal)} {doviz}", "metin"),
+            uyarilar=("Masraf 2. aşamada girilir (Geçmiş ithalatlar → Düzenle). "
+                      "Maliyet ve paçal, masraf girilince oluşur.",)), unsafe_allow_html=True)
+        _kaydet = st.button("Dosyayı kaydet", type="primary", key=f"m_kaydet_{_fv}", use_container_width=True,
+                            icon=":material/save:")
 
-        # Canlı özet — Brüt / İndirim / Net Mal Bedeli (masraf 2. aşamada girilir)
-        _metrik_satiri(
-            [{"label": "Brüt mal bedeli", "value": f"{_tam(_mal)} {doviz}"}]
-            + ([{"label": "Fatura altı indirim", "value": f"−{_tam(float(m_indirim or 0))} {doviz}"}]
-               if float(m_indirim or 0) > 0 else [])
-            + [{"label": "Net mal bedeli (FOB)", "value": f"{_tam(_net_mal)} {doviz}"}])
-        st.markdown(mesaj("bilgi", "Masraf 2. aşamada girilir (Geçmiş ithalatlar → Düzenle). "
-                                   "Maliyet ve paçal, masraf girilince oluşur."), unsafe_allow_html=True)
-
-        if st.button("Dosyayı Kaydet", type="primary", key=f"m_kaydet_{_fv}", use_container_width=True, icon=":material/save:"):
+    if _kaydet:
+        with _mesaj_yeri:
             if not dosya_no.strip():
                 st.warning("Dosya / Sipariş No zorunlu.")
             elif not _kalemler:
                 st.warning("En az bir ürün kalemi (SKU + adet) girin.")
             elif durum == "Teslim Alındı" and not (teslim_deposu_m or "").strip():
-                st.error("📦 'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
+                st.error("'Teslim Alındı' için **Teslim Deposu seçimi zorunludur** — depo seçmeden kaydedilemez.")
             else:
                 for r in _kalemler:
                     if not (str(r.get("urun_adi") or "")).strip():

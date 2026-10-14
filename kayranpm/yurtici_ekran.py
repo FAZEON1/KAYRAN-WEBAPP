@@ -77,35 +77,34 @@ def _alimlar():
 def _form(on, v, kartlar):
     """Alım formu. on: widget anahtar öneki; v: varsayılanlar (düzenlemede kayıttan)."""
     import pandas as pd
-    c1, c2, c3 = st.columns(3)
+    from shared import form as F
+    # Yeni düzen (Ekim 2026): belge bilgileri iki sıkı satır; alım türü sabit (yalnız yurt içi satın alma)
     tur = v.get("tur") if v.get("tur") in H.TURLER else "yurtici"     # yeni alım: yalnız yurt içi satın alma
-    c1.text_input("Alım türü", value=H.TURLER[tur], disabled=True, key=f"{on}_tur_ad")
-    belge = c2.text_input("Fatura / belge no", value=v.get("belge", ""), key=f"{on}_belge",
-                          placeholder="boş bırakılırsa YI-tarih")
-    firma = c3.text_input("Satın alınan firma", value=v.get("firma", ""), key=f"{on}_firma",
+    c1, c2, d1, d2 = st.columns([1.1, 1.5, 1, 1])
+    belge = c1.text_input("Fatura / belge no", value=v.get("belge", ""), key=f"{on}_belge",
+                          placeholder="boşsa YI-tarih")
+    firma = c2.text_input("Satın alınan firma", value=v.get("firma", ""), key=f"{on}_firma",
                           placeholder="faturayı kesen firma")
-    d1, d2, d3 = st.columns(3)
     _bug = date.today()
     alis = d1.date_input("Alış tarihi", value=date.fromisoformat(v["alis_tarihi"]) if v.get("alis_tarihi") else _bug,
                          format="DD.MM.YYYY", key=f"{on}_alis")
-    giris = d2.date_input("Depoya giriş tarihi", format="DD.MM.YYYY", key=f"{on}_giris",
+    giris = d2.date_input("Depoya giriş", format="DD.MM.YYYY", key=f"{on}_giris",
                           value=date.fromisoformat(v["giris_tarihi"]) if v.get("giris_tarihi") else alis,
                           help="Stok yaşı bu tarihten başlar.")
+    d3, p1, p2, _p3 = st.columns([1.3, 1, 1, 1.2], vertical_alignment="bottom")
     depolar = H.SATILABILIR_DEPOLAR
     depo = d3.selectbox("Teslim deposu", depolar, key=f"{on}_depo",
                         index=depolar.index(v["depo"]) if v.get("depo") in depolar else 0)
-    p1, p2, _p3 = st.columns(3)
     para = p1.radio("Para birimi", ["TL", "USD"], horizontal=True, key=f"{on}_para",
                     index=0 if str(v.get("para") or "TL").upper() == "TL" else 1)
     kur = 1.0
     if para == "TL":
         kayitli = float(v.get("kur") or 0) if str(v.get("para") or "").upper() == "TL" else 0.0
         oneri, kaynak = (kayitli, "kayıtlı kur") if kayitli > 1 else _kur(alis.isoformat())
-        kur = p2.number_input("Kur (TL / USD)", min_value=0.0, step=0.0001, format="%.4f",
-                              key=f"{on}_kur_{alis.isoformat()}",          # tarih değişince o günün kuru gelir
-                              value=float(oneri or 0.0),
-                              help="Alış tarihinin TCMB döviz satış kuru otomatik gelir; faturadaki kurla "
-                                   "değiştirebilirsin.")
+        kur = F.sayi_kutusu("Kur (TL / USD)", f"{on}_kur_{alis.isoformat()}",   # tarih değişince o günün kuru
+                            float(oneri or 0.0), basamak=4, kap=p2, placeholder="0,0000",
+                            yardim="Alış tarihinin TCMB döviz satış kuru otomatik gelir; faturadaki kurla "
+                                  "değiştirebilirsin.")
         if oneri and kaynak:
             _p3.caption(f"Önerilen: {kaynak}. Faturadaki kur farklıysa değiştir.")
         else:
@@ -129,8 +128,8 @@ def _form(on, v, kartlar):
     mc = st.columns(len(H.MASRAFLAR) + 1)
     masraflar = {}
     for (slug, ad), c in zip(H.MASRAFLAR, mc):
-        masraflar[slug] = c.number_input(ad, min_value=0.0, step=0.01, key=f"{on}_m_{slug}",
-                                         value=float((v.get("masraflar") or {}).get(slug) or 0.0))
+        masraflar[slug] = F.sayi_kutusu(ad, f"{on}_m_{slug}", float((v.get("masraflar") or {}).get(slug) or 0.0),
+                                        kap=c)
     notu = st.text_input("Not", value=v.get("not", ""), key=f"{on}_not")
     return {"tur": tur, "belge": belge, "firma": firma, "alis_tarihi": alis.isoformat(),
             "giris_tarihi": giris.isoformat(), "depo": depo, "para": para, "kur": kur,
@@ -151,30 +150,51 @@ def _onizleme(f, kartlar):
 
 
 def _yeni(kartlar, kolon):
-    f = _form("yi_yeni", {}, kartlar)
-    stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok", horizontal=True,
-                    help="Geçmiş bir alımı sonradan giriyorsan ve mal depoda zaten sayılıysa ikinciyi seç; "
-                         "yoksa stok iki kez girer.")
-    _onizleme(f, kartlar)
+    """Yeni alım (Ekim 2026 düzeni): solda belge + kalemler + masraflar, sağda (telefonda altta sabit) özet,
+    stok seçimi ve Kaydet. Hesap ve kayıt aynı (yurtici_hesap)."""
+    from shared import form as F
+    st.markdown(F.css(), unsafe_allow_html=True)
+    sol, sag = st.columns([2.75, 1], gap="medium")
+    with sol:
+        mesaj_yeri = st.container()
+        f = _form("yi_yeni", {}, kartlar)
+        stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok", horizontal=True,
+                        help="Geçmiş bir alımı sonradan giriyorsan ve mal depoda zaten sayılıysa ikinciyi seç; "
+                             "yoksa stok iki kez girer.")
+        _onizleme(f, kartlar)
     hatalar = H.dogrula(f, kartlar)
-    if st.button("Alımı kaydet", type="primary", icon=":material/save:", key="yi_kaydet",
-                 disabled=not kolon, use_container_width=True):
-        if hatalar:
-            st.error("Kaydedilmedi, eksikler var:\n\n" + "\n".join("- " + x for x in hatalar))
-            return
-        from ithalat.database import ekle_dosya
-        a = H.kayit_argumanlari(f, ad_bul=kartlar.get)
-        ok, msg = ekle_dosya(a["dosya_no"], a["tarih"], a["tedarikci"], "", a["doviz"], a["kur"],
-                             a["masraflar"], a["notlar"], a["kalemler"], durum="Teslim Alındı",
-                             teslim_tarihi=a["teslim_tarihi"], teslim_deposu=a["teslim_deposu"],
-                             alim_turu=a["alim_turu"], stok_ekle=(stok == H.STOK_EKLE))
-        if ok:
-            st.cache_data.clear()
-            for k in [k for k in st.session_state if str(k).startswith("yi_yeni_")]:
-                del st.session_state[k]
-            st.toast(f"Alım kaydedildi: {a['dosya_no']}", icon=":material/check_circle:")
-            st.rerun()
-        st.error(msg)
+    with sag, st.container(key="kf_ozet_yurtici"):
+        h = H.maliyet_hesapla(f["kalemler"], f["masraflar"], f["para"], f["kur"])
+        p = f["para"]
+        _adet = sum(r["adet"] for r in h["satirlar"])
+        st.markdown(F.ozet_paneli("Alım özeti", [
+            ("Kalem / adet", f"{len(h['satirlar'])} · {tr_sayi(_adet)}"),
+            ("Mal bedeli", f"{tr_sayi(h['mal_bedeli'], 2)} {p}"),
+            ("Masraf", f"{tr_sayi(h['masraf'], 2)} {p} · %{tr_sayi(h['oran'], 1)}"),
+        ] + ([("Kur", tr_sayi(f["kur"], 4))] if p == "TL" else []),
+            vurgu=("Toplam", f"{tr_sayi(h['mal_bedeli'] + h['masraf'], 2)} {p}", "metin"),
+            uyarilar=[f"{len(hatalar)} eksik: " + hatalar[0]] if hatalar and h["satirlar"] else ()),
+            unsafe_allow_html=True)
+        _kaydet = st.button("Alımı kaydet", type="primary", icon=":material/save:", key="yi_kaydet",
+                            disabled=not kolon, use_container_width=True)
+    if _kaydet:
+        with mesaj_yeri:
+            if hatalar:
+                st.error("Kaydedilmedi, eksikler var:\n\n" + "\n".join("- " + x for x in hatalar))
+                return
+            from ithalat.database import ekle_dosya
+            a = H.kayit_argumanlari(f, ad_bul=kartlar.get)
+            ok, msg = ekle_dosya(a["dosya_no"], a["tarih"], a["tedarikci"], "", a["doviz"], a["kur"],
+                                 a["masraflar"], a["notlar"], a["kalemler"], durum="Teslim Alındı",
+                                 teslim_tarihi=a["teslim_tarihi"], teslim_deposu=a["teslim_deposu"],
+                                 alim_turu=a["alim_turu"], stok_ekle=(stok == H.STOK_EKLE))
+            if ok:
+                st.cache_data.clear()
+                for k in [k for k in st.session_state if str(k).startswith("yi_yeni_")]:
+                    del st.session_state[k]
+                st.toast(f"Alım kaydedildi: {a['dosya_no']}", icon=":material/check_circle:")
+                st.rerun()
+            st.error(msg)
 
 
 def _kayitli_masa(kartlar, kolon):
