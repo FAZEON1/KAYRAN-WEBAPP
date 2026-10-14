@@ -985,6 +985,11 @@ def oturumlari_sonlandir(kullanici):
         _yak = [t for t, r in list(_st.items()) if str(r.get("u", "")).strip().lower() == k]
         for t in _yak:
             _st.pop(t, None)
+        try:   # kalıcı depodaki (oturumlar tablosu) oturumları da
+            from shared.oturum import kullanici_oturumlarini_sil
+            kullanici_oturumlarini_sil(kullanici)
+        except Exception:
+            pass
         return len(_yak)
     except Exception:
         return 0

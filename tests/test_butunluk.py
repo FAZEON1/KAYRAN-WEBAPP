@@ -335,7 +335,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.kur": ["eur_usd", "usd_try", "banka_karsiligi"],   # kur tek kaynak (Eki 2026)
     "shared.kayit": ["sessiz", "yapilandir", "baslat", "sentry_baslat"],   # yutulan hatalar loga (Eki 2026)
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap",
-                      "oturum_olustur", "oturum_dogrula", "oturum_anahtari"],
+                      "oturum_olustur", "oturum_dogrula", "oturum_anahtari",
+                      "kullanici_oturumlarini_sil"],
     "shared.auth": ["sifre_dogrula", "kullanici_dogrula_v2", "supabase_sifre_kaydet",
                     "giris_kontrol", "giris_basarisiz", "giris_basarili"],
     "shared.audit": ["log_yaz", "wrap_client", "guvenlik_kaydi", "yetki_degisikligi_kaydet"],
