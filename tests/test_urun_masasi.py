@@ -134,3 +134,17 @@ def test_csv_bayt_excel_bicimi():
     b = csv_bayt([{"A": "x;y", "B": 1234.5, "C": 3, "_gizli": 1}, {"A": None, "B": 2.0, "C": True}])
     assert b.startswith("﻿".encode("utf-8"))
     assert b.decode("utf-8")[1:].split("\r\n") == ["A;B;C", '"x;y";1234,5;3', ";2;evet"]
+
+
+def test_musteri_suzgeci_yalniz_stoku_olan_musteriler():
+    """Müşteri süzgeci (Ekim 2026, kullanıcı isteği): ürünün stoğu olan müşteriler — satırın alt yazısındaki firmalar.
+    Firma stokları her firmayı 0 adetle de taşıyabilir; 0 olan firma eşleşmez."""
+    urunler = URUNLER + [_u("E-5", firma_stoklari={"VATAN": 0, "EERA": 4}, kanal_stok=4)]
+    v = M.masa_verisi(urunler, firma_ad=lambda k: FIRMA(k, k))
+    r = {s["id"]: s for s in v["satirlar"]}
+    assert r["A-1"].get("mus") == ["VATAN BİLGİSAYAR"] and r["E-5"].get("mus") == ["EERA"] and r["B-2"].get("mus") == []
+    sec = v["secimler"][2]
+    assert sec["alan"] == "mus" and sec["ad"] == "Tüm müşteriler"
+    assert [o["k"] for o in sec["secenekler"]] == ["EERA", "VATAN BİLGİSAYAR"]
+    # masa liste alanını "içerir" ile süzer (shared/masa.py JS); dar masada da aynı süzgeç
+    assert M.masa_verisi(urunler, dar=True, firma_ad=lambda k: FIRMA(k, k))["secimler"][2]["alan"] == "mus"

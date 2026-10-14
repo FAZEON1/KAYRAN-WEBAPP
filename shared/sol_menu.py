@@ -113,6 +113,12 @@ def css(dar=False, konum=""):
   html body section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{{width:100% !important;
     box-sizing:border-box !important;padding:14px 12px 24px !important;}}
   html body [data-testid="stSidebarHeader"]{{display:none !important;}}
+  /* Streamlit'in genişlik tutamacı kabı kenar çubuğunun ikinci çocuğu: genişlik sabit olduğu için gereksiz; akışta
+     kalınca içeriğin solunu (x 248–496) görünmez biçimde kaplıyor, oradaki tıklamaları ve tekerleği yutuyordu */
+  html body section[data-testid="stSidebar"] > div:not([data-testid="stSidebarContent"]){{position:absolute !important;
+    top:0 !important;right:0 !important;width:0 !important;height:0 !important;overflow:hidden !important;
+    pointer-events:none !important;}}
+  html body [data-testid="stSidebarResizeHandle"]{{display:none !important;}}
   /* üst şeritte modül düğmeleri sol menüde; Ara · Dosya · Talep · kişi kalır */
   {N} [data-testid="stColumn"]:has([class*="st-key-top_"]):not(:has(.st-key-top_arama)){{display:none !important;}}
   /* üst şerit: kutu değil, altı çizgili ince bar; solda konum, sağda Ara · Dosya · Talep · kişi */

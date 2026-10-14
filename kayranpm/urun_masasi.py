@@ -70,6 +70,9 @@ def _satir(r, firma_ad):
         "id": sku, "sku": sku, "ad": str(r.get("Ürün Adı") or "").strip() or sku, "alt": alt,
         "alt_dar": " · ".join(x for x in (sku, kat) if x),
         "kat": kat, "mar": mar,
+        # müşteri süzgeci: ürünün stoğu olan müşteriler (satırın alt yazısındaki firmalarla aynı; _kanal_stok her
+        # firmayı 0 adetle de taşır) — liste alanı, masa "içerir" ile eşler
+        "mus": sorted({firma_ad(k) for k, a in r.get("_kanal_stok", []) if a and firma_ad(k)}),
         "stok_m": tr_sayi(g5f), "stok_m__s": g5f,
         "stok_alt": f"kanal dahil {tr_sayi(zincir)}" if zincir and zincir != g5f else "",
         "fiyat_m": _fiyat_metni(fcp, satis), "fiyat_m__s": float(satis or 0),
@@ -95,6 +98,7 @@ def masa_verisi(urun_data, dar=False, firma_ad=None):
     satirlar = [_satir(r, firma_ad) for r in rows]
     kategoriler = sorted({s["kat"] for s in satirlar if s["kat"]}, key=str.lower)
     markalar = sorted({s["mar"] for s in satirlar if s["mar"]}, key=str.lower)
+    musteriler = sorted({m for s in satirlar for m in s["mus"]}, key=str.lower)
     zarar_say = sum(1 for s in satirlar if s["zarar"])
     if dar:
         sutunlar = [
@@ -122,7 +126,8 @@ def masa_verisi(urun_data, dar=False, firma_ad=None):
     return {
         "ozet": [] if dar else ozet_kartlari(urun_data or []),
         "secimler": [{"alan": "kat", "ad": "Tüm kategoriler", "secenekler": [{"k": k, "ad": k} for k in kategoriler]},
-                     {"alan": "mar", "ad": "Tüm markalar", "secenekler": [{"k": m, "ad": m} for m in markalar]}],
+                     {"alan": "mar", "ad": "Tüm markalar", "secenekler": [{"k": m, "ad": m} for m in markalar]},
+                     {"alan": "mus", "ad": "Tüm müşteriler", "secenekler": [{"k": m, "ad": m} for m in musteriler]}],
         "anahtarlar": [{"k": "zarar", "ad": f"Zararına ({zarar_say})" if dar else f"Yalnız zararına satılanlar ({zarar_say})",
                         "f": [["zarar", "eq", True]]}],
         "ara": {"alanlar": ["sku", "ad"], "ipucu": "SKU ya da ürün adı"},
