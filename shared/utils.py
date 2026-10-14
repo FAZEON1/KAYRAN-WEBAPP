@@ -354,7 +354,7 @@ class Zamanlayici:
     """SIFIR RİSKLİ ölçüm aracı — hiçbir hesabı değiştirmez, yalnız süre biriktirir.
 
     Kullanım:
-        _z = Zamanlayici(aktif=(kullanici == "ibrahim"))
+        _z = Zamanlayici(aktif=sirket_ayar.rol_var_mi(kullanici, sirket_ayar.ROL_YONETICI))
         with _z("veri çekimi"):
             satislar = get_satislar(bas, bit)
         ...

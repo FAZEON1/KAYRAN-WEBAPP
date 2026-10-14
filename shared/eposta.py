@@ -27,7 +27,8 @@ from email.utils import formataddr, formatdate, make_msgid
 UYGULAMA_URL = "https://kayran-corporate.streamlit.app"
 ADRES_ANAHTAR = "kullanici_eposta"            # {kullanici: adres}
 GONDERIM_ANAHTAR = "eposta_hatirlatma_son"    # {kullanici: 'YYYY-MM-DD'}
-YONETICI = "ibrahim"
+from shared import sirket_ayar as _sa                 # yönetici: 'yonetici' rolü (sirket_ayar)
+YONETICI = _sa.VARSAYILAN_KIMLIK["yonetici_kullanici"]   # kod düzeyi varsayılan (eski ad korunur)
 ESKALASYON_IS_GUNU = 5
 TALEP_DURUM_AD = {"bekliyor": "Bekliyor", "inceleniyor": "İnceleniyor", "tamamlandi": "Tamamlandı",
                   "reddedildi": "Reddedildi"}
@@ -228,8 +229,11 @@ def adressizler(durumlar, bugun, adres_haritasi):
     return sorted(k for k in _hatirlatma_gruplari(durumlar, bugun) if not adres_haritasi.get(k))
 
 
-def hatirlatma_mailleri(durumlar, bugun, adres_haritasi, yonetici=YONETICI):
-    """Döner: [{kullanici, kime, cc, konu, html, kalemler}] — kişi başına TEK mail."""
+def hatirlatma_mailleri(durumlar, bugun, adres_haritasi, yonetici=None):
+    """Döner: [{kullanici, kime, cc, konu, html, kalemler}] — kişi başına TEK mail.
+    yonetici verilmezse 'yonetici' rolünden (sirket_ayar; yoksa varsayılan)."""
+    if yonetici is None:
+        yonetici = _sa.yonetici_kullanici()
     out = []
     for kul, ds in sorted(_hatirlatma_gruplari(durumlar, bugun).items()):
         adr = adres_haritasi.get(kul)

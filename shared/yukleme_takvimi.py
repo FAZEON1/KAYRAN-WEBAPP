@@ -29,6 +29,12 @@ Ayarlar / kayıtlar / atlanan dönemler sistem_ayarlari'nda (şema değişikliğ
 """
 from datetime import date, datetime, timedelta
 
+from shared import sirket_ayar as _sa
+
+# Varsayılan sorumlular shared/sirket_ayar.py'de (kişi adları kodda tek yerde). Çalışırken
+# sıra: Veri güncelliği → Ayarlar kaydı > 'yukleme_sorumlusu:<anahtar>' rolü > sistem_ayarlari > bu değer.
+_SV = _sa.VARSAYILAN_YUKLEME
+
 SIKLIKLAR = {"haftalik": "Haftalık", "aylik": "Aylık", "ceyreklik": "Çeyreklik"}
 GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 GUN_KISA = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
@@ -47,7 +53,7 @@ ATLA_ANAHTAR = "yukleme_takvimi_atla"      # {anahtar: [dönem iso, ...]}
 KAYNAKLAR = [
     dict(anahtar="musteri_haftalik", ad="Haftalık müşteri stok + satış", modul="kayranpm",
          sayfa="Ürün Yönetimi › Müşteri Satışları", siklik="haftalik", son_gun=0, yon="geri",
-         tarih_turu="veri", sorumlu="derya"),
+         tarih_turu="veri", sorumlu=_SV["musteri_haftalik"]),
     # 'iade_aylik' (İade Excel'i, aylık, Gökhan) Ekim 2026'da kaldırıldı: iadeler artık teknik servis
     # mal kabulünde kaydediliyor (depo seçimi + Satış › İade'ye manuel iade); Excel yüklemesi
     # Dosya kapısında isteğe bağlı duruyor, görev ve uyarı yok.
@@ -57,22 +63,22 @@ KAYNAKLAR = [
     # Toplam aktiflerin üç dosyası birlikte, HER PAZARTESİ yükleniyor
     dict(anahtar="aktif_stok", ad="Toplam aktifler · stok değeri", modul="kayranacc",
          sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
-         sorumlu="serdar"),
+         sorumlu=_SV["aktif_stok"]),
     dict(anahtar="aktif_ithalat", ad="Toplam aktifler · ithalat ödeme takip", modul="kayranacc",
          sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
-         sorumlu="serdar"),
+         sorumlu=_SV["aktif_ithalat"]),
     dict(anahtar="aktif_cari", ad="Toplam aktifler · cari alacaklar", modul="kayranacc",
          sayfa="Muhasebe › Toplam Aktifler", siklik="haftalik", son_gun=0, yon="geri", tarih_turu="yukleme",
-         sorumlu="serdar"),
+         sorumlu=_SV["aktif_cari"]),
     dict(anahtar="odeme_listesi", ad="Haftalık ödeme listesi", modul="kayranacc",
          sayfa="Muhasebe › Bu hafta", siklik="haftalik", son_gun=0, yon="ileri", tarih_turu="yukleme",
-         sorumlu="serdar"),
+         sorumlu=_SV["odeme_listesi"]),
     dict(anahtar="happylife", ad="Happy Life stok raporu", modul="depo", sayfa="Depo › Happy Life Kiralık Depo",
-         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu="samet"),
+         siklik="aylik", son_gun=5, yon="geri", tarih_turu="veri", sorumlu=_SV["happylife"]),
     dict(anahtar="gider_tablosu", ad="Aylık gider tablosu", modul="yonetim", sayfa="Yönetim › Destekler ve giderler",
-         siklik="aylik", son_gun=10, yon="geri", tarih_turu="veri", sorumlu="serdar"),
+         siklik="aylik", son_gun=10, yon="geri", tarih_turu="veri", sorumlu=_SV["gider_tablosu"]),
     dict(anahtar="g5f_sayim", ad="G5F stok sayımı", modul="kayranpm", sayfa="Ürün Yönetimi › Tüm ürünler",
-         siklik="ceyreklik", son_gun=15, yon="geri", tarih_turu="yukleme", sorumlu="gokhan"),
+         siklik="ceyreklik", son_gun=15, yon="geri", tarih_turu="yukleme", sorumlu=_SV["g5f_sayim"]),
 ]
 _KAYNAK = {k["anahtar"]: k for k in KAYNAKLAR}
 
@@ -196,13 +202,15 @@ def kaynak_ayari(anahtar, ayarlar):
     k["aktif"] = (a["aktif"] is not False) if "aktif" in a else (_KAYNAK[anahtar].get("aktif", True) is not False)
     if "sorumlu" in a:
         k["sorumlu"] = str(a.get("sorumlu") or "").strip()
+    else:   # ekrandan kaydedilmemişse: rol etiketi → sistem_ayarlari → KAYNAKLAR'daki varsayılan
+        k["sorumlu"] = _sa.yukleme_sorumlusu(anahtar, k.get("sorumlu", ""))
     k.setdefault("sorumlu", "")
     return k
 
 
 # Kullanıcı adı → ekranda görünen ad (Türkçe harflerle). Listede yoksa baş harf büyür.
-SORUMLU_AD = {"gokhan": "Gökhan", "cagla": "Çağla", "caglar": "Çağlar", "ibrahim": "İbrahim",
-              "yilmaz": "Yılmaz"}
+SORUMLU_AD = {"gokhan": "Gökhan", "cagla": "Çağla", "caglar": "Çağlar",
+              "yilmaz": "Yılmaz"}   # i ile başlayan ad zaten İ ile büyür (sorumlu_adi)
 
 
 def sorumlu_adi(kim):

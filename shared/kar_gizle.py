@@ -10,14 +10,16 @@ TEK NOKTA: gösterim katmanları (kart üreticileri, tablolar) buradan geçer;
 hesaplama mantığına dokunulmaz, yalnız ekrana basılan değer maskelenir.
 
 AYAR: Yetki Kullanıcı yönetimi ekranından verilir — özel yetki 'kar'
-("Kâr ve marj görme"; Ekim 2026, Gökhan için). KAR_GOREBILEN koddaki sabit
-yedek: veritabanı okunamasa da bu kullanıcılar görür. Rakamlar düzeldiğinde
+("Kâr ve marj görme"; Ekim 2026, Gökhan için). Ayrıca 'kar_gorur' rolünün sahipleri her
+zaman görür; rol shared/sirket_ayar.py'den okunur (rol etiketi → sistem_ayarlari →
+varsayılan), veritabanı okunamasa da varsayılan kullanıcılar görür. Rakamlar düzeldiğinde
 bu dosyadaki KAR_GIZLE_AKTIF = False yapmak maskelemeyi komple kapatır.
 """
 
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
+from shared import sirket_ayar as _sa
 KAR_GIZLE_AKTIF = True
-KAR_GOREBILEN = {"ibrahim"}
+KAR_GOREBILEN = set(_sa.VARSAYILAN_ROLLER[_sa.ROL_KAR])   # kod düzeyi varsayılan (eski ad korunur)
 
 # Etiket/kolon adı bunlardan birini içeriyorsa maskelenir (küçük harf karşılaştırma)
 GIZLI_ANAHTARLAR = (
@@ -46,11 +48,12 @@ def kar_gorunur_kullanici(kullanici):
     if not KAR_GIZLE_AKTIF:
         return True
     k = str(kullanici or "").strip().lower()
-    if k in KAR_GOREBILEN:
+    kar_rolu = _sa.rol_sahipleri(_sa.ROL_KAR)
+    if k and k in kar_rolu:
         return True
     try:
         from shared.yetki import ozel_yetki
-        return bool(k) and bool(ozel_yetki(k, "kar", KAR_GOREBILEN))
+        return bool(k) and bool(ozel_yetki(k, "kar", kar_rolu))
     except Exception:  # noqa: BLE001 — veritabanı yoksa yalnız sabit liste
         return False
 

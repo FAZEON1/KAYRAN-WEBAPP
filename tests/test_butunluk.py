@@ -80,6 +80,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "sirket_ayar.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -183,7 +184,9 @@ KRITIK_FONKSIYONLAR = {
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
-    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret"],
+    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret", "mail_alicilari"],
+    "shared.sirket_ayar": ["rol_sahipleri", "rol_var_mi", "yonetici_kullanici", "talep_onaycisi",
+                           "yukleme_sorumlusu", "kimlik", "talep_eposta", "yedek_liste", "temizle"],
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
