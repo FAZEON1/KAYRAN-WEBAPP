@@ -2145,28 +2145,40 @@ def run():
                 # Ortak grafik dili (shared/grafik.py): ödeme çubukları ana renk, kalan bakiye
                 # nötr çizgi; bakiye eksiye düştüğü gün kırmızı nokta (nakit açığı).
                 from shared.grafik import goster as _goster, rol as _rol
-                st.markdown('<div class="section-mini-title">Günlük ödeme ve kalan bakiye</div>',
-                            unsafe_allow_html=True)
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=_x, y=_gun_tl, name="Günlük TL ödemesi",
-                    marker_color=_rol("ana"), marker_line=dict(width=0),
-                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _gun_tl],
-                    hovertemplate="Günlük: %{customdata}<extra></extra>",
-                ))
+                # Tek eksen (Ekim 2026): eskiden ödeme çubukları ile kalan bakiye çizgisi iki ayrı ölçekli
+                # eksende üst üste çiziliyordu; çizginin hangi eksene ait olduğu okunmuyordu. Artık iki
+                # grafik yan yana: kalan bakiye (sıfır çizgisi + eksi günler kırmızı) ve günlük ödeme.
                 _kal = list(_kalan.fillna(0))
-                fig.add_trace(go.Scatter(
-                    x=_x, y=_kalan, name="Kalan bakiye", mode="lines+markers", yaxis="y2",
-                    line=dict(color=_rol("ikincil"), width=2),
-                    marker=dict(size=[8 if v < 0 else 5 for v in _kal],
-                                color=[_rol("kotu") if v < 0 else _rol("ikincil") for v in _kal]),
-                    customdata=[f"₺{tr_sayi(v, 2)}" for v in _kal],
-                    hovertemplate="Kalan: %{customdata}<extra></extra>",
-                ))
-                _goster(fig, key="nakit_akis_grafik", yukseklik=380, hovermode="x unified", bargap=0.45,
-                        barcornerradius=4, xaxis=dict(type="category"), yaxis=dict(tickprefix="₺"),
-                        yaxis2=dict(overlaying="y", side="right", showgrid=False, zeroline=False,
-                                    tickprefix="₺", tickfont=dict(size=11, color=_rol("ikincil"))))
+                _ilk_eksi = next((x for x, v in zip(_x, _kal) if v < 0), None)
+                _g1, _g2 = st.columns(2, gap="large")
+                with _g1:
+                    st.markdown('<div class="section-mini-title">Kalan TL bakiye</div>', unsafe_allow_html=True)
+                    st.caption(f"Bakiye {_ilk_eksi} günü eksiye düşüyor." if _ilk_eksi
+                               else "Bakiye dönem boyunca artıda kalıyor.")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=_x, y=_kal, name="Kalan bakiye", mode="lines+markers",
+                        line=dict(color=_rol("ikincil"), width=2),
+                        marker=dict(size=[9 if v < 0 else 7 for v in _kal],
+                                    color=[_rol("kotu") if v < 0 else _rol("ikincil") for v in _kal]),
+                        customdata=[f"₺{tr_sayi(v, 2)}" for v in _kal],
+                        hovertemplate="%{x} · kalan %{customdata}<extra></extra>",
+                    ))
+                    fig.add_hline(y=0, line=dict(color=_rol("kotu"), width=1, dash="dot"))
+                    _goster(fig, key="nakit_akis_bakiye", yukseklik=320, aciklama=False,
+                            xaxis=dict(type="category"), yaxis=dict(tickprefix="₺"))
+                with _g2:
+                    st.markdown('<div class="section-mini-title">Günlük TL ödemesi</div>', unsafe_allow_html=True)
+                    st.caption("Vade gününe göre bekleyen ödemeler.")
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=_x, y=_gun_tl, name="Günlük TL ödemesi",
+                        marker_color=_rol("ana"), marker_line=dict(width=0),
+                        customdata=[f"₺{tr_sayi(v, 2)}" for v in _gun_tl],
+                        hovertemplate="%{x} · %{customdata}<extra></extra>",
+                    ))
+                    _goster(fig, key="nakit_akis_grafik", yukseklik=320, aciklama=False, bargap=0.45,
+                            barcornerradius=4, xaxis=dict(type="category"), yaxis=dict(tickprefix="₺"))
     
     
         # ════════════════════════════════════════════════════════════════════
@@ -2639,17 +2651,19 @@ def run():
                     return ""
                 kim = (meta.get("son_yukleyen") or "?").capitalize()
                 zaman = (meta.get("yukleme_zamani") or "")[:16]
-                return f"👤 {kim} · 🕐 {zaman}"
+                return f"{kim} · {zaman}"
     
             with col1:
                 st.markdown("**1 · Stok Değeri Raporu**")
+                if not st.session_state.aktif_stok_data:
+                    st.caption("Yüklenmedi · üst menü › Dosya")
                 if st.session_state.aktif_stok_data:
                     try:
                         usd_v, pzr = st.session_state.aktif_stok_data
                         # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
                         # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
                         _ham_v = float(usd_v or 0)
-                        metrik_satiri([{"label": "✅ Yüklendi (KDV dahil)",
+                        metrik_satiri([{"label": "Yüklendi (KDV dahil)",
                                         "value": f"${tr_sayi(_ham_v * 1.20)}",
                                         "renk": trenk("yesil"),
                                         "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
@@ -2658,15 +2672,19 @@ def run():
     
             with col2:
                 st.markdown("**2 · İthalat Ödeme Takip**")
+                if not st.session_state.aktif_ithalat_data:
+                    st.caption("Yüklenmedi · üst menü › Dosya")
                 if st.session_state.aktif_ithalat_data:
                     try:
-                        metrik_satiri([{"label": "✅ Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
+                        metrik_satiri([{"label": "Yüklendi", "value": f"${tr_sayi(float(st.session_state.aktif_ithalat_data))}",
                                         "renk": trenk("yesil"), "alt": _meta_str(ithalat_meta)}])
                     except Exception:
                         st.session_state.aktif_ithalat_data = None
     
             with col3:
                 st.markdown("**3 · Cari Alacaklar Listesi**")
+                if not st.session_state.aktif_cari_data:
+                    st.caption("Yüklenmedi · üst menü › Dosya")
                 if st.session_state.aktif_cari_data:
                     try:
                         cari = st.session_state.aktif_cari_data
@@ -2687,7 +2705,7 @@ def run():
                                  "alt": f"USD {tr_sayi(float(_a.get('usd') or 0))} · TL {tr_sayi(float(_a.get('tl') or 0))} · EUR {tr_sayi(float(_a.get('eur') or 0))}"},
                             ])
                         elif isinstance(cari, (tuple, list)) and len(cari) == 3:
-                            metrik_satiri([{"label": "✅ Yüklendi (eski format)", "value": f"${tr_sayi(float(cari[0]))}",
+                            metrik_satiri([{"label": "Yüklendi (eski format)", "value": f"${tr_sayi(float(cari[0]))}",
                                             "renk": trenk("yesil"), "alt": "USD borç"}])
                         else:
                             st.session_state.aktif_cari_data = None
@@ -2890,11 +2908,11 @@ def run():
                 ]), unsafe_allow_html=True)
                 # Kısa hesap dökümü
                 _dk = [
-                    ("📦 Stok (×1.20)", stok_marjli, "+"), ("🚢 İthalat (ödenen)", odenen_ithalat, "+"),
-                    ("🏦 Banka (USD)", banka_usd_eqv, "+"), ("📥 Cari alacak", toplam_alacak_usd, "+"),
-                    ("➕ Manuel ekleme", manuel_ekle_toplam, "+"),
-                    ("📤 Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
-                    ("🧾 Çekler", cek_toplam_usd, "−"), ("➖ Manuel çıkarma", manuel_cikar_toplam, "−"),
+                    ("Stok (×1,20)", stok_marjli, "+"), ("İthalat (ödenen)", odenen_ithalat, "+"),
+                    ("Banka (USD)", banka_usd_eqv, "+"), ("Cari alacak", toplam_alacak_usd, "+"),
+                    ("Manuel ekleme", manuel_ekle_toplam, "+"),
+                    ("Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
+                    ("Çekler", cek_toplam_usd, "−"), ("Manuel çıkarma", manuel_cikar_toplam, "−"),
                 ]
                 _chips = "".join(
                     f'<span style="display:inline-flex;gap:4px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'

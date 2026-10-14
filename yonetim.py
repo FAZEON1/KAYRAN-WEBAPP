@@ -324,7 +324,8 @@ def _hucre(etiket, deger, alt, renk="metin", vurgulu=False):
             f'<div style="font-size:12px;color:var(--k-soluk);white-space:nowrap">{etiket}</div>'
             f'<div style="color:var(--k-{renk if vurgulu else "metin"});font-size:19px;font-weight:600;'
             f'font-variant-numeric:tabular-nums;line-height:1.3;margin-top:2px;white-space:nowrap">{deger}</div>'
-            f'<div style="font-size:11px;color:var(--k-silik);margin-top:3px;min-height:16px">{alt}</div></div>')
+            f'<div style="font-size:11px;color:var(--k-silik);margin-top:3px;min-height:16px;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis">{alt}</div></div>')   # tek satır: kartlar aynı boyda
 
 
 def _op(s):
@@ -344,9 +345,9 @@ def _serit_kartlari(r, k1):
          ("−", "COGS", _hucre("COGS", _usd(r["cogs"]), d("cogs", True) or "ürün maliyeti")),
          ("=", "Brüt kâr", _hucre("Brüt kâr", _usd(r["brut"]), f"marj {_pct(r['brut_marj'])} {d('brut')}")),
          ("−", "Destekler", _hucre("Destekler", _usd(r["destek"]), d("destek", True) or "ref no destekleri")),
-         ("−", "Giderler", _hucre("Giderler", _usd(r["gider"]), d("gider", True) or "işletme (TL→USD)"))]
+         ("−", "Giderler", _hucre("Giderler", _usd(r["gider"]), d("gider", True) or "işletme gideri"))]
     if r.get("alinan"):
-        k.append(("+", "Alınan destek", _hucre("Alınan destek", _usd(r["alinan"]), d("alinan") or "sellout / mkt / rebate")))
+        k.append(("+", "Alınan destek", _hucre("Alınan destek", _usd(r["alinan"]), d("alinan") or "sellout · rebate")))
     renk = "yesil" if r["net_kar"] >= 0 else "kirmizi"
     k.append(("=", "Net kâr", _hucre("Net kâr", _usd(r["net_kar"]), f"marj {_pct(r['marj'])} {d('net_kar')}", renk,
                                      vurgulu=True)))
@@ -759,12 +760,14 @@ def run():
             _para_haritasi()
             return
         if not kar_gorunur():
-            st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu", aciklama="Toplam aktifler özeti"),
+            st.markdown(baslik(":material/monitoring: Yönetim", _bolum or "Özet", aciklama="Toplam aktifler özeti"),
                         unsafe_allow_html=True)
             uyari_ciz()
             st.markdown(_toplam_aktif_penceresi(RENK, pencere, pencere_bos, buyuk=True), unsafe_allow_html=True)
             return
-        st.markdown(baslik(":material/monitoring: Yönetim", "Yönetim panosu",
+        # Başlık seçili bölümün adı (Özet, Ay kapanışı…): sayfa başlığı yalnız soldaki menüdeki adla eşleşince
+        # görünür (shared.tasarim.baslik); "Yönetim panosu" eşleşmediği için Yönetim sayfalarında başlık yoktu.
+        st.markdown(baslik(":material/monitoring: Yönetim", _bolum or "Özet",
                            aciklama="Ciro − COGS − destekler − giderler = net kâr · tüm tutarlar USD"),
                     unsafe_allow_html=True)
         if _bolum == "Ay kapanışı":

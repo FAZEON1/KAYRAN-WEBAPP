@@ -307,11 +307,11 @@ def render(_sb):
     with sag:
         _bolum("Kategori özeti", f"{len(kategori_ozeti(d))} kategori")
         from shared.masa_liste import kolon as _mk, ciz as _mliste
-        _mliste(kategori_ozeti(d), [_mk("Kategori", ana=True), _mk("Ürün", "adet", gen="64px", genis=True),
-                                    _mk("Stok", "adet", gen="80px"), _mk("Adet / hafta", "adet", gen="92px", genis=True),
-                                    _mk("Kapsama (hft)", "sayi", basamak=1, gen="96px", dar="alt"),
-                                    _mk("Acil", "adet", gen="56px", genis=True),
-                                    _mk("Ölü / yavaş", "adet", gen="84px", genis=True)],
+        # Yarım sütunda: dört sütun sığar; ürün / acil / ölü sayısı satıra tıklayınca ayrıntıda
+        _mliste(kategori_ozeti(d), [_mk("Kategori", ana=True), _mk("Ürün", "adet", gizli=True),
+                                    _mk("Stok", "adet", gen="72px"), _mk("Adet / hafta", "adet", gen="92px"),
+                                    _mk("Kapsama (hft)", "sayi", basamak=1, gen="104px", dar="alt"),
+                                    _mk("Acil", "adet", gizli=True), _mk("Ölü / yavaş", "adet", gizli=True)],
                 "pm_kat_ozet_masa", baslik_ipucu="Kategori özeti")
 
     sol, sag = st.columns([1.05, 1], gap="large")
