@@ -29,6 +29,7 @@ from . import ts_masasi as _TM
 from .ts_hesap import sla_gruplari, sayi_ya_da_bos, excel_bayt, depolar_kayitlari, konum as _konum
 from shared import bilesen as B
 from functools import partial
+from shared.kayit import sessiz
 
 
 def _rerun_app():
@@ -302,8 +303,8 @@ def kapi_mal_kabul(dosya, kapi):
                     _u_t = urun_getir(_sk_t) or {}
                     _ad_t = _ad_t or _u_t.get("stok_adi", "")
                     _grp_t = _grp_t or _u_t.get("urun_grubu", "")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    sessiz("teknikservis.main.kapi_mal_kabul", _e, "debug")
             _seri_u = _seri_t.upper()
             _muk = (_seri_u not in {"NO SERIAL NUMBER", "N/A", "YOK", "-"} and
                     (_seri_u in _mevcut_seri or _seri_u in _dosya_seri))
@@ -545,8 +546,8 @@ def _fatura_iade_formu():
                     from kayranpm.database import kategori_oner as _ko
                     _grp = _ko(k.get("ad") or "") or ""
                 _gruplar[k["sku"]] = _grp
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("teknikservis.main._fatura_iade_formu", _e, "debug")
         try:
             birimler = _IF.birim_kayitlari(kalemler, {
                 "firma": firma, "fatura_no": fatura_no, "irsaliye_no": irsaliye_no,
@@ -644,8 +645,8 @@ def _mal_kabul_dialog():
                     _grp_oto = _ko_ts(st.session_state.get("mk_stok_adi", "")) or ""
                 if _grp_oto:
                     st.session_state["mk_urun_grubu"] = _grp_oto
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("teknikservis.main._mal_kabul_dialog", _e, "debug")
             st.session_state["_mk_dialog_ac"] = True
             _rerun_app()
 
@@ -953,8 +954,8 @@ def _evraksiz_kayit():
                         _u = urun_getir(_sku_sel)
                         if _u and _u.get("urun_grubu"):
                             st.session_state["ev_urun_grubu"] = _u.get("urun_grubu", "")
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        sessiz("teknikservis.main._evraksiz_kayit", _e, "debug")
                     break
             st.rerun()
 
@@ -1719,8 +1720,8 @@ def _kontrol_paneli(kayit):
                 _u = urun_getir(_sku) or {}
                 if _u.get("urun_grubu"):
                     st.session_state[f"sd_gr_{kid}"] = _u["urun_grubu"]
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("teknikservis.main._kontrol_paneli._dlg_ts_stok_degis._sd_model_uygula", _e, "debug")
 
         if _dmods:
             _opts = ["— İthalat'tan yeni model seç —"] + [(f"{s} — {a}" if a else s)
@@ -2478,8 +2479,8 @@ def _depo_detay(k):
                 st.download_button("PDF Form indir", _pdf,
                                    f'{_g(k, "servis_form_no", "servis_formu")}.pdf',
                                    mime="application/pdf", key=f"depo_pdf_{kid}", icon=":material/description:")
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("teknikservis.main._depo_detay", _e)
 
             # ── Madde 7: hatalı kaydı DÜZELT / SİL ──
             # Evraksız kayıtların 'arayuz' alanı boş olduğu için Teknik Servis

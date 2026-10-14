@@ -20,6 +20,7 @@ yapar. Hata olursa tablo eski ayarlarla çizilir (görünüm katmanı; çalışm
 Geri alma: shared/tasarim.py → IZGARA_YENI = False.
 """
 import copy
+from shared.kayit import sessiz
 
 SATIR_YUKSEKLIGI = 40          # Streamlit varsayılanı 35 px
 _ESKI_SATIR = 35
@@ -223,8 +224,8 @@ def kur(st):
                         import streamlit as _st
                         kok_mu = self is getattr(_st, "_main", None)   # st.data_editor → o anki bağlam
                         return _dz.duzenle(data, kap=None if kok_mu else self, **kw)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as _e:  # noqa: BLE001
+                sessiz("shared.izgara.kur.data_editor", _e, "debug")
             yuvarla = {}
             try:
                 cfg, yuvarla = izgara_ayar(data, kw.get("column_config"), duzenleme=True,
@@ -241,5 +242,5 @@ def kur(st):
         kok = getattr(st.data_editor, "__self__", None)
         if kok is not None:
             st.data_editor = data_editor.__get__(kok, DG)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.izgara.kur", _e)

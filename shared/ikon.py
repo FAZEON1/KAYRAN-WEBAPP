@@ -13,6 +13,7 @@ Düğmeler durumsuzdur; etiket değişince kimliğin değişmesi zararsız.
 Geri alma: shared/tasarim.py → IKON_YENI = False.
 """
 import re
+from shared.kayit import sessiz
 
 # Resimli emoji aralıkları. Oklar (→ ←), ✓ ✗ • gibi tipografik işaretler HARİÇ.
 _EMO = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF\u2139\u24C2\u21A9\u21AA]")
@@ -152,8 +153,8 @@ def kur(st):
             st.toast = _sar_toast(st.toast)
         if not getattr(st.dialog, "_kayran_ikon", False):
             st.dialog = _sar_dialog(st.dialog)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ikon.kur", _e)
 
 
 def _isaretle(f):
@@ -167,8 +168,8 @@ def _sar_sinif(DG):
             def f(self, body, *a, icon=None, **kw):
                 try:
                     body, icon = mesaj(tur, body, icon)
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_sinif._yap.f", _e, "debug")
                 return orij(self, body, *a, icon=icon, **kw)
             return _isaretle(f)
         setattr(DG, tur, _yap(tur, getattr(DG, tur)))
@@ -178,8 +179,8 @@ def _sar_sinif(DG):
     def expander(self, label, *a, **kw):
         try:
             label, _ = acilir(label, None)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.ikon._sar_sinif.expander", _e, "debug")
         return orij_exp(self, label, *a, **kw)
     DG.expander = _isaretle(expander)
 
@@ -192,8 +193,8 @@ def _sar_sinif(DG):
             def f(self, label, *a, icon=None, **kw):
                 try:
                     label, icon = etiket(label, icon)
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_sinif._yap.f", _e, "debug")
                 return orij(self, label, *a, icon=icon, **kw) if icon else orij(self, label, *a, **kw)
             return _isaretle(f)
         setattr(DG, ad, _yap(orij))
@@ -206,8 +207,8 @@ def _sar_sinif(DG):
                 try:
                     key = kw.get("key") or (a[kpos] if len(a) > kpos else None)
                     label, _ = durumlu(label, key)
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_sinif._yap.f", _e, "debug")
                 return orij(self, label, *a, **kw)
             return _isaretle(f)
         setattr(DG, ad, _yap(orij, kpos))
@@ -217,8 +218,8 @@ def _sar_sinif(DG):
     def tabs(self, tabs, *a, **kw):
         try:
             tabs = [sekme(t) for t in tabs]
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.ikon._sar_sinif.tabs", _e, "debug")
         return orij_tabs(self, tabs, *a, **kw)
     DG.tabs = _isaretle(tabs)
 
@@ -227,8 +228,8 @@ def _sar_toast(orij):
     def f(body, *a, icon=None, **kw):
         try:
             body, icon = toast(body, icon)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.ikon._sar_toast.f", _e, "debug")
         return orij(body, *a, icon=icon, **kw)
     return _isaretle(f)
 
@@ -238,8 +239,8 @@ def _sar_dialog(orij):
         try:
             if isinstance(title, str):
                 title = bas_emoji(title)[1] or title
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.ikon._sar_dialog.f", _e, "debug")
         return orij(title, *a, **kw)
     return _isaretle(f)
 
@@ -264,8 +265,8 @@ def _sar_metin(DG):
             def f(self, body, *a, **kw):
                 try:
                     body = metin(body, html=bool(kw.get("unsafe_allow_html")))
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_metin._yap.f", _e, "debug")
                 return orij(self, body, *a, **kw)
             return _isaretle2(f)
         setattr(DG, ad, _yap(orij))
@@ -278,8 +279,8 @@ def _sar_metin(DG):
             def f(self, body, *a, **kw):
                 try:
                     body = metin(body)
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_metin._yap.f", _e, "debug")
                 return orij(self, body, *a, **kw)
             return _isaretle2(f)
         setattr(DG, ad, _yap(orij))
@@ -293,8 +294,8 @@ def _sar_metin(DG):
                 try:
                     if kw.get("key") and isinstance(label, str):
                         label = ic_temizle(bas_emoji(label)[1])
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as _e:  # noqa: BLE001
+                    sessiz("shared.ikon._sar_metin._yap.f", _e, "debug")
                 return orij(self, label, *a, **kw)
             return _isaretle2(f)
         setattr(DG, ad, _yap(orij))

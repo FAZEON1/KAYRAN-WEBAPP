@@ -24,6 +24,7 @@ import html as _h
 from datetime import date, timedelta
 
 from shared.tasarim import MONO
+from shared.kayit import sessiz
 
 ONCELIK_SIRA = {"kritik": 0, "uyari": 1, "bilgi": 2}
 ONCELIK_RENK = {"kritik": "var(--k-kirmizi)", "uyari": "var(--k-amber)", "bilgi": "var(--k-cyan)"}
@@ -436,8 +437,8 @@ def _kisi_ikonu(metin):
         from shared.tasarim import IKON_YENI, ikon_html
         if IKON_YENI:
             return metin.replace("👤", ikon_html("person", 14))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.bugun._kisi_ikonu", _e, "debug")
     return metin
 
 

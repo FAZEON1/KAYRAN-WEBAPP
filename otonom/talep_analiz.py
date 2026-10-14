@@ -22,6 +22,11 @@ import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+try:
+    from shared.kayit import sessiz
+except Exception:  # bağımsız çalıştırmada shared yoksa kayıtsız devam
+    def sessiz(*_a, **_k):
+        return None
 
 TR = timezone(timedelta(hours=3))
 
@@ -285,8 +290,8 @@ def main():
                     "analiz_modul": " · ".join(a["moduller"]),
                 }).eq("id", a["id"]).execute()
                 n += 1
-            except Exception:
-                pass          # kolonlar yoksa sessiz geç — rapor yine üretildi
+            except Exception as _e:
+                sessiz("otonom.talep_analiz.main", _e, "debug")  # kolonlar yoksa sessiz geç — rapor yine üretildi
         print(f"\n{n} talebe analiz işlendi.")
 
 

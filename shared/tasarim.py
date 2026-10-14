@@ -25,6 +25,7 @@ Sonra her modülde:
 GERİYE UYUMLULUK: `RENK` sözlüğünün anahtarları eski `shared/ui.py` ile
 birebir aynı. Eski kod bozulmadan çalışmaya devam eder.
 """
+from shared.kayit import sessiz
 
 # ═══════════════════════════════════════════════════════════════════
 # 1. PALET — tek rampa. Zemin #0B1120 (slate) ailesine kilitli.
@@ -2333,8 +2334,8 @@ def tablo_sirali(satirlar, birim="$", stil="zebra", toplam_isaret="Σ",
         tablo(satirlar, birim=birim, toplam_isaret=toplam_isaret,
               maks_yukseklik=maks_yukseklik, kap=kap)
         return
-    except Exception:          # bileşen yok ya da çizilemedi → tablo kaybolmasın
-        pass
+    except Exception as _e:          # bileşen yok ya da çizilemedi → tablo kaybolmasın
+        sessiz("shared.tasarim.tablo_sirali", _e)
     R, F, A = RENK, FONT, AGIRLIK
     kolonlar = list(satirlar[0].keys())
     tipler = {k: _tablo_kolon_tipi(k) for k in kolonlar}

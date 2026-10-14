@@ -26,6 +26,7 @@ import html as _h
 import streamlit as st
 
 from shared.tasarim import baslik as _baslik, rv
+from shared.kayit import sessiz
 
 
 # ── Tıklanır kap ─────────────────────────────────────────────────────
@@ -137,8 +138,8 @@ def grup_basligi(baslik, ozet=""):
             if kalan is not baslik and kalan != str(baslik):
                 baslik = kalan
                 ik = ikon_html(ad, 16) + " " if ad else ""
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.bilesen.grup_basligi", _e, "debug")
     return f'<div class="k-grup"><b>{ik}{_h.escape(str(baslik))}</b>{o}<i></i></div>'
 
 

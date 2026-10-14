@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 
 from shared.sirket_belge_hesap import UZANTILAR, depo_yolu, uzanti
+from shared.kayit import sessiz
 
 TABLO = "sirket_belgeleri"
 ALAN = "sirket-belgeleri"
@@ -57,8 +58,8 @@ def yukle(veri, ad, tur, belge_tarihi=None, bitis_tarihi=None, notu="", kullanic
     except Exception as e:  # noqa: BLE001
         try:
             sb.storage.from_(ALAN).remove([yol])
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.sirket_belge.yukle", _e)
         return False, f"Belge kaydedilemedi: {e}"
     listele.clear()
     return True, r[0]
@@ -85,8 +86,8 @@ def sil(kayit):
         return False, str(e)
     try:
         sb.storage.from_(ALAN).remove([kayit["yol"]])
-    except Exception:  # noqa: BLE001
-        pass                                   # kayıt silindi; sahipsiz dosya yer kaplar, zarar vermez
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.sirket_belge.sil", _e)  # kayıt silindi; sahipsiz dosya yer kaplar, zarar vermez
     listele.clear()
     return True, ""
 

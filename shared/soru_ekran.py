@@ -11,6 +11,7 @@ from datetime import date
 import streamlit as st
 
 from shared.soru import (coz, parcalar, donem_bul, sade, ORNEKLER, OLCU_AD, KIRILIM_AD, TIP_AD)
+from shared.kayit import sessiz
 
 BEKLEYEN = "_soru_bekleyen"          # paletten / ana sayfadan gelen soru
 
@@ -49,8 +50,8 @@ def _kaydet(kullanici, metin, n):
         get_client().table("soru_kayitlari").insert({
             "kullanici": kullanici, "metin": metin[:500], "anlasildi": bool(n.get("tip")),
             "konu": n.get("tip")}).execute()
-    except Exception:  # noqa: BLE001 — tablo kurulmamışsa kayıt tutulmaz, soru yine cevaplanır
-        pass
+    except Exception as _e:  # noqa: BLE001 — tablo kurulmamışsa kayıt tutulmaz, soru yine cevaplanır
+        sessiz("shared.soru_ekran._kaydet", _e, "debug")
 
 
 def _css():

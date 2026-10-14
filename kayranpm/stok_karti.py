@@ -11,6 +11,7 @@ from datetime import timedelta
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek yazım (Eki 2026)
 from shared.utils import firma_kanonik   # eski 'KANAL' → DİĞER (Eki 2026)
 from kayranpm.canli_pacal import aciklama as _canli_aciklama   # canlı paçal kart alt satırı
+from shared.kayit import sessiz
 
 # Stok kartı penceresinin görünümü (Ekim 2026): True → yeni tasarım (kayranpm/stok_karti_yeni.py; kullanıcı onaylı
 # taslak), False → eski pencere. Hesaplar ve sekme içerikleri iki görünümde de aynı (goster içindeki _govde_*).
@@ -123,8 +124,8 @@ def _alim_detay(a):
                     [_mk("Masraf", ana=True), _mk("Tutar", "usd", gen="140px")],
                     f"sk_masraf_{a.get('dosya_id') or a.get('belge_no') or ''}", toplam=["Tutar"],
                     baslik_ipucu="Dosya masraf dökümü")
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.stok_karti._alim_detay", _e)
 
 
 def _satis_detay(s, satir_kar):
@@ -214,8 +215,8 @@ def goster(sku):
     try:
         from ithalat.database import get_sku_alim_detay
         alimlar = get_sku_alim_detay(sku) or []
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.stok_karti.goster", _e)
     _adet_t = sum(_f(a["adet"]) for a in alimlar)
     # Paçal TEK KAPIDAN (satis.get_pacal_map — Faz 2b, kullanıcı onaylı). Eskiden burada
     # alımların kendi ortalaması alınıyordu: YOLDAKİ partiler de giriyordu (13.08'de İthalat
@@ -396,8 +397,8 @@ def goster(sku):
                 if _kids:
                     _kr = sb.table("kampanyalar").select("*").in_("id", _kids).execute().data or []
                     _kamp_map = {k["id"]: k for k in _kr}
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("kayranpm.stok_karti.goster._govde_kampanya", _e)
 
             # Kampanyanın devam edip etmediğini bitiş tarihinden hesapla
             def _kamp_durum(_k):

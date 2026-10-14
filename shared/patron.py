@@ -20,6 +20,7 @@ from datetime import date, timedelta
 import streamlit as st
 
 from shared.tasarim import tr_sayi
+from shared.kayit import sessiz
 
 DONEMLER = ["Bu ay", "Son 30 gün", "Bu çeyrek"]
 GUN_KISA = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
@@ -281,13 +282,13 @@ def _veri_kalitesi(yil_bas_iso, bugun_iso):
                 else:
                     ith += 1
         v["onarilir"], v["ithalatsiz"] = on, ith
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.patron._veri_kalitesi", _e)
     try:
         from kayranpm.analitik import dashboard_hesapla
         v["eksi_stok"] = sum(1 for u in dashboard_hesapla() or [] if _f(u.get("toplam_stok")) < 0)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.patron._veri_kalitesi", _e)
     return v
 
 

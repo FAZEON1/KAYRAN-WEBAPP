@@ -69,7 +69,7 @@ _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared", "hesap_makinesi"):
     for _d in ("database.py", "utils.py", "auth.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
-               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
+               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "kayit.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
@@ -312,6 +312,7 @@ KRITIK_FONKSIYONLAR = {
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
+    "shared.kayit": ["sessiz", "yapilandir", "baslat", "sentry_baslat"],   # yutulan hatalar loga (Eki 2026)
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap",
                       "oturum_olustur", "oturum_dogrula", "oturum_anahtari"],
     "shared.auth": ["sifre_dogrula", "kullanici_dogrula_v2", "supabase_sifre_kaydet",

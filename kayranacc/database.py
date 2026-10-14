@@ -7,6 +7,7 @@ import streamlit as st
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from supabase import create_client, Client
 from datetime import date
+from shared.kayit import sessiz
 
 
 # ── Supabase bağlantısı — cache ile tek seferlik oluştur ─────────────
@@ -27,8 +28,8 @@ def _cache_temizle():
     Her yazma (ekle/sil/güncelle) işleminden sonra çağrılır."""
     try:
         st.cache_data.clear()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.database._cache_temizle", _e)
 
 
 def initialize_db():
@@ -272,11 +273,11 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
                 # banka_id'yi temizle (varsa)
                 try:
                     sb.table("odemeler").update({"banka_id": None}).eq("id", odeme_id).execute()
-                except Exception:
-                    pass
-    except Exception:
+                except Exception as _e:
+                    sessiz("kayranacc.database.odeme_durum_guncelle.banka_id", _e, "debug")
+    except Exception as _e:
         # Banka güncellemesi başarısız olsa bile ödeme durumu güncellemiş olur
-        pass
+        sessiz("kayranacc.database.odeme_durum_guncelle.banka", _e)
     _cache_temizle()
 
 
@@ -335,8 +336,8 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
     if banka_id and yeni_id:
         try:
             sb.table("odemeler").update({"banka_id": banka_id}).eq("id", yeni_id).execute()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranacc.database.odeme_kismi_ode.banka_id", _e, "debug")
 
     # 2) Orijinal kayıttan düş (kalan bekliyor)
     try:
@@ -362,8 +363,8 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
                 else:
                     yeni_bakiye -= kismi_tl
                 sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranacc.database.odeme_kismi_ode.banka", _e)
     _cache_temizle()
     _p = " + ".join(([f"₺{tr_sayi(kismi_tl, 2)}"] if kismi_tl > 0 else [])
                     + ([f"${tr_sayi(kismi_usd, 2)}"] if kismi_usd > 0 else []))
@@ -435,16 +436,16 @@ def get_ertelenen_odemeler():
         res = sb.table("odemeler").select("*").gt("ertelendi_sayisi", 0).execute()
         if res.data:
             return res.data
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.database.get_ertelenen_odemeler", _e, "debug")
 
     # Yöntem 2: orijinal_vade dolu olanlar (kolon varsa)
     try:
         res = sb.table("odemeler").select("*").not_.is_("orijinal_vade", "null").execute()
         if res.data:
             return res.data
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.database.get_ertelenen_odemeler", _e, "debug")
 
     return []
 
@@ -764,9 +765,9 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
             "aciklama": aciklama,
             "tarih": tr_today_iso(),
         }).execute()
-    except Exception:
+    except Exception as _e:
         # virmanlar tablosu yoksa virman yine yapıldı, sadece kayıt tutulmadı
-        pass
+        sessiz("kayranacc.database.virman_yap", _e)
 
     _cache_temizle()
     return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
@@ -812,9 +813,9 @@ def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
             "aciklama": aciklama or "",
             "tarih": str(tarih)[:10] if tarih else tr_today_iso(),
         }).execute()
-    except Exception:
+    except Exception as _e:
         # tahsilatlar tablosu yoksa tahsilat yine işlendi, sadece kayıt tutulmadı
-        pass
+        sessiz("kayranacc.database.tahsilat_ekle", _e)
 
     _cache_temizle()
     return True, f"✅ {tr_sayi(tutar, 2)} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi"
@@ -903,8 +904,8 @@ def tahsilat_guncelle(tahsilat_id, banka_id, tutar, kaynak="", aciklama="", tari
                 br = sb.table("bankalar").select("bakiye").eq("id", bid).execute()
                 sb.table("bankalar").update({"bakiye": float(br.data[0]["bakiye"] or 0) - fark}).eq("id", bid).execute()
             sb.table("tahsilatlar").update(eski).eq("id", tahsilat_id).execute()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranacc.database.tahsilat_guncelle", _e)
         _cache_temizle()
         return False, f"Bakiye güncellenemedi, değişiklik geri alındı: {e}"
     _cache_temizle()
@@ -1056,8 +1057,8 @@ def aktif_excel_sil(kullanici, dosya_tipi=None):
             if dosya_tipi:
                 q2 = q2.eq("dosya_tipi", dosya_tipi)
             q2.execute()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranacc.database.aktif_excel_sil", _e)
         return True
     except Exception:
         _cache_temizle()
@@ -1224,8 +1225,8 @@ def get_cari_isimler():
         v = aktif_excel_oku("ortak", "cari_isimler")
         if isinstance(v, list):
             return sorted({str(x).strip() for x in v if str(x).strip()}, key=lambda s: s.lower())
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.database.get_cari_isimler", _e)
     return []
 
 
@@ -1318,8 +1319,8 @@ def get_kur(tarih=None):
         if rows and rows[0].get("usd_try"):
             k = float(rows[0]["usd_try"])
             return k if k > 0 else None
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.database.get_kur", _e)
     return None
 
 

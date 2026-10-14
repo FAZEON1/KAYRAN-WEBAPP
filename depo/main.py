@@ -13,6 +13,7 @@ from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok,
 from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared import bilesen as B
 from depo.depo_hesap import sevk_sonucu, tarih_tr
+from shared.kayit import sessiz
 
 # Ortak liste masası (Ekim 2026; tanım depo/depo_masasi.py). False → eski tablo aynen.
 DEPO_STOK_MASASI_YENI = True
@@ -473,8 +474,8 @@ def hl_kaydet(kayitlar, rapor_tarihi=None, dosya_adi=""):
     try:
         with cop_kutusu_kapali():
             sb.table(_HL_TABLO).delete().eq("rapor_tarihi", rapor).execute()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("depo.main.hl_kaydet", _e)
     rows = [dict(k, rapor_tarihi=rapor) for k in kayitlar]
     try:
         for i in range(0, len(rows), 200):
@@ -544,8 +545,8 @@ def kapi_happylife(dosya, kapi):
         ok, msg = hl_kaydet(kayitlar, _rapor.isoformat(), dosya_adi=dosya.name)
         try:
             hl_rapor_tarihleri.clear(); hl_get_stok.clear()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("depo.main.kapi_happylife", _e, "debug")
         if not ok:
             st.error(msg)
             return

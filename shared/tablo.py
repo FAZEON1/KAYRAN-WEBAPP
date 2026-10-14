@@ -23,6 +23,7 @@ import json
 import math
 
 from shared.tasarim import _tablo_kolon_tipi, _tr_para, _tr_adet, _tr_oran, tr_sayi
+from shared.kayit import sessiz
 
 ARAMA_ESIK = 9            # bu kadar ve daha fazla satırda arama kutusu
 _ROZET_AD = ("marj", "kârlılık", "karlilik", "kârlılik")
@@ -201,8 +202,8 @@ def kisa_unvan(tam):
         if " · " in _k:
             doviz = _k.rsplit(" · ", 1)[1]
             s = " ".join(s.split()[:-1])
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("shared.tablo.kisa_unvan", _e, "debug")
     tur = "A.Ş." if ("ANONIM" in n or " A.S" in n) else ("Ltd. Şti." if ("LIMITED" in n or " LTD" in n) else "")
     ascii_ = not any(c in s for c in "İŞĞÜÖÇ")
     tut = []

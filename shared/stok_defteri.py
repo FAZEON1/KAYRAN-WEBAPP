@@ -27,6 +27,7 @@ import contextlib
 import contextvars
 import inspect
 import threading
+from shared.kayit import sessiz
 
 TABLO = "stok_hareketleri"
 _yerel = threading.local()
@@ -77,8 +78,8 @@ def kaynak_bul():
             parca = yol.split("/")
             kisa = "/".join(parca[-2:]) if len(parca) >= 2 else yol
             return f"{kisa}:{fr.function}"[:120]
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("shared.stok_defteri.kaynak_bul", _e, "debug")
     return ""
 
 
@@ -116,8 +117,8 @@ def yaz(sku, depo, once, sonra, tur, aciklama="", basarili=True, hata="", kaynak
             t.append(satir)
         else:
             _gonder([satir])
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("shared.stok_defteri.yaz", _e)
 
 
 def yaz_fark(sku, eski_dk, yeni_dk, tur, aciklama="", kaynak=None):

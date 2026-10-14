@@ -10,6 +10,7 @@ from .database import (get_all_dashboard_data,
                       get_uretim_suresi)
 
 from shared.utils import FIRMA_KODLARI_DIGER
+from shared.kayit import sessiz
 FIRMA_LISTESI = list(FIRMA_KODLARI_DIGER)          # ANA firmalar + DİĞER (yedek liste)
 # Gerçek firma listesi VERİDEN gelir (KANAL kaldırıldı, Ekim 2026): firma_sirala(firma_data).
 
@@ -371,8 +372,8 @@ def tum_urunler_listesi():
         for _u in urunler:
             if _u.get("urun_adi"):
                 _u["urun_adi"] = _tb_ad(_u["urun_adi"])  # gösterim: tüm modüllerde BÜYÜK harf
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.analitik.tum_urunler_listesi", _e, "debug")
 
     from shared.utils import firma_sirala
 

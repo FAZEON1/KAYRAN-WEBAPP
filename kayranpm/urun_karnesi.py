@@ -15,6 +15,7 @@ Pencere: son 12 ay (satış, iade, kampanya, servis). Ağırlık ve eşikler kul
 Saf fonksiyonlar (test edilir): puan, karne, olculer, portfoy_hesapla, baglam.
 """
 from datetime import date, timedelta
+from shared.kayit import sessiz
 
 # (anahtar, ad, ağırlık %, eşik noktaları [(değer, puan)], düşük mü iyi)
 OLCULER = [
@@ -207,16 +208,16 @@ def portfoy(bugun_iso):
             yasli[k] = (0.0, _f(oz.get("stok")))
         for r in yasli_satirlar(h.get("bizim") or {}, pacal, h.get("bugun") or bugun, YAS_ESIK):
             yasli[r["_id"]] = (_f(r.get(f"{YAS_ESIK}+ gün adet")), _f(r.get("Toplam stok")))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("kayranpm.urun_karnesi.portfoy", _e)
     ariza = {}
     try:
         from teknikservis.ariza_ekran import _veri
         for r in (_veri(date.fromisoformat(bas), bugun) or {}).get("satirlar") or []:
             if _f(r.get("Son kullanıcıya ulaşan")) > 0 and r.get("Arıza oranı (%)") is not None:
                 ariza[sku_anahtar(r.get("SKU"))] = _f(r.get("Arıza oranı (%)"))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("kayranpm.urun_karnesi.portfoy", _e)
     kampanya = {}
     try:
         donemde = {kp.get("id") for kp in get_kampanyalar() or []
@@ -225,8 +226,8 @@ def portfoy(bugun_iso):
             if r.get("kampanya_id") in donemde:
                 k = sku_anahtar(r.get("sku"))
                 kampanya[k] = kampanya.get(k, 0.0) + _f(r.get("satilan_adet"))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("kayranpm.urun_karnesi.portfoy", _e)
     return portfoy_hesapla(get_satislar_yalin(bas, bugun_iso) or [], get_iadeler(bas, bugun_iso) or [],
                            kartlar, pacal, yasli, ariza, kampanya, bugun, satir_kar, sku_anahtar)
 
