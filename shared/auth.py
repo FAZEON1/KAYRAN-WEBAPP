@@ -13,7 +13,7 @@ Secrets yapılandırması (.streamlit/secrets.toml):
   derman  = "pbkdf2:sha256:260000$..."
 
 Migration (tek seferlik):
-  python migrate_passwords.py
+  python araclar/migrate_passwords.py
 """
 import hashlib
 import hmac

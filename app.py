@@ -466,6 +466,13 @@ st.set_page_config(
     initial_sidebar_state="auto",          # telefonda kapalı, bilgisayarda açık
 )
 
+# Günlük + (secrets'ta dsn varsa) Sentry — tek seferlik, asla fırlatmaz (shared/kayit.py)
+try:
+    from shared.kayit import baslat as _kayit_baslat
+    _kayit_baslat()
+except Exception:
+    pass
+
 # ══════════════════════════════════════════════════════════════════════
 # AÇILIŞ SAĞLIK KONTROLÜ — "Oh no." beyaz ekranına karşı
 # Streamlit Cloud, uygulama bir süre kullanılmayınca (örn. hafta sonu)

@@ -28,6 +28,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
       - name: Yedeği sakla (indirilebilir artifact)
+        if: always()   # eksik gecede de eldeki dosyalar saklansın (iş yine kırmızı görünür)
         uses: actions/upload-artifact@v4
         with:
           name: kayran-yedek

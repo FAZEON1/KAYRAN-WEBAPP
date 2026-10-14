@@ -11,3 +11,4 @@ __pycache__/
 tarama.json
 tarama_goruntu/
 vitrin.log
+.ruff_cache/

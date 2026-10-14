@@ -49,16 +49,6 @@ except ImportError as e:
 # ya da .gitignore'a ekleyin (şifre içerdiği için).
 MEVCUT_SIFRELER = {
     # "kullanici_adi": "mevcut_sifre",
-    # Örnekler (kendi değerlerinizle değiştirin):
-    # "ibrahim": "1905",
-    # "derman":  "dermanpass",
-    # "cem":     "cempass",
-    # "pamuk":   "pamukpass",
-    # "serkan":  "serkanpass",
-    # "yilmaz":  "yilmazpass",
-    # "korkut":  "korkutpass",
-    # "gokhan":  "gokhanpass",
-    # "derya":   "deryapass",
 }
 # ─────────────────────────────────────────────────────────────────────────────
 

@@ -190,6 +190,12 @@ def kaydet(kullanici, moduller_, ozel_, salt_okur_, aktif_, guncelleyen=""):
             "guncelleme": _dt.datetime.utcnow().isoformat(),
         }, on_conflict="kullanici").execute()
         temizle()
+        try:   # denetim izi (yetki değişikliği); kaydı asla bozmaz
+            from shared.audit import yetki_degisikligi_kaydet
+            yetki_degisikligi_kaydet(k, moduller_, ozel_, salt_okur_, aktif_, guncelleyen)
+        except Exception as _e:
+            from shared.kayit import sessiz
+            sessiz("yetki.kaydet.denetim", _e)
         return True, "Kaydedildi"
     except Exception as e:
         return False, f"{type(e).__name__}: {str(e)[:120]}"
