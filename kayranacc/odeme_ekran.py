@@ -32,6 +32,11 @@ from .database import (get_aktif_odemeler, get_bankalar, hafta_ekle, odeme_ekle_
 
 _BANKASIZ = "__bankasiz__"
 
+# ── Ödeme masası (Ekim 2026, kullanıcı onayı): liste + yan detay paneli + toplu işlem tek bileşende
+# (kayranacc/odeme_masasi.py). True: yeni masa. False: aşağıdaki eski ekran aynen (geri almak için YALNIZ
+# bu satırı değiştir).
+ODEME_MASASI_YENI = True
+
 
 def _tl(v):
     return f"₺{tr_sayi(v, 2)}"
@@ -98,6 +103,8 @@ def _toplu_ac(gun):
 def render_bu_hafta(kategoriler, export_excel, kur):
     """kur: Muhasebe'nin kendi kuru (sol menüdeki USD/TL kutusu) — Genel Bakış ile
     AYNI kaynak, yoksa hafta sonu tahmini iki sayfada farklı çıkar."""
+    if ODEME_MASASI_YENI:
+        return _render_masa(kategoriler, export_excel, kur)
     st.markdown(_css(), unsafe_allow_html=True)
     bugun = tr_today()
     kur = float(kur or 0)
@@ -189,6 +196,40 @@ def render_bu_hafta(kategoriler, export_excel, kur):
         o = next((x for x in odemeler if x.get("id") == sec), None)
         if o:
             _odeme_dialog(o, kategoriler, bankalar, kur)
+
+
+def _render_masa(kategoriler, export_excel, kur):
+    """Yeni ödeme masası. Bileşen yalnız istek gönderir; doğrulama ve yürütme odeme_masasi'nda, iş kuralları
+    bugünkü veritabanı fonksiyonlarında. Sonuç bir sonraki çizimde masanın bildiriminde görünür."""
+    from . import odeme_masasi as OM
+    bugun = tr_today()
+    kur = float(kur or 0)
+    odemeler, hafta = get_aktif_odemeler()
+    bankalar = get_bankalar() or []
+    ey = B.baslik_eylem(":material/credit_card: Muhasebe", "Bu Hafta",
+                        aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
+                        eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
+                                   "birincil": True, "disabled": _salt()}])
+    if ey.get("btn_acc_manuel"):
+        _manuel_dialog(kategoriler, hafta)
+    if not odemeler:
+        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle ya da "
+                              "'Manuel ödeme' ile tek tek ekle.", "payments"), unsafe_allow_html=True)
+        return
+    bildirim = st.session_state.pop("_om_bildirim", None)
+    istek = OM.ciz(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt(), bildirim=bildirim))
+    if istek:
+        t, hata = OM.istek_coz(istek, odemeler, bankalar, kategoriler, salt=_salt(), bugun=bugun)
+        sonuc = {"ok": False, "mesaj": hata, "geri_al": []} if hata else OM.islem_uygula(t, odemeler, kur)
+        st.session_state["_om_bildirim"] = dict(sonuc, n=(istek or {}).get("n"))
+        st.cache_data.clear()
+        st.rerun()
+    e1, e2 = st.columns([1, 3], vertical_alignment="center")
+    e1.download_button("Excel indir", data=lambda: export_excel(odemeler, (hafta or {}).get("hafta_adi", ""), kur),
+                       file_name=f"odeme_listesi_{bugun}.xlsx", on_click="ignore",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       use_container_width=True, icon=":material/download:", key="od_excel")
+    e2.caption("Haftanın tüm ödemeleri; özet, günlük ayrıntı ve kategori analizi sayfalarıyla.")
 
 
 # ════════════════════════════════════════════════════════════════════
