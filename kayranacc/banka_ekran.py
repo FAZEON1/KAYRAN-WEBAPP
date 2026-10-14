@@ -30,7 +30,13 @@ def _para(v, pb):
     return f"{'-' if float(v or 0) < 0 else ''}{SEMBOL.get(pb, '')}{tr_sayi(abs(float(v or 0)), 2)}"
 
 
-def banka_toplam(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0):
+# Hesap listesi ORTAK LİSTE MASASINDA (Ekim 2026, kayranacc/muhasebe_masalari.banka_verisi): True yeni masa;
+# False eski kartlar aynen (geri almak için YALNIZ bu satırı değiştir).
+BANKA_MASASI_YENI = True
+
+
+def banka_ozet_kalemleri(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0):
+    """Toplam şeridinin kalemleri (saf): eski kartlar ve yeni masanın özeti aynı formülden."""
     t = {pb: sum(float(b.get("bakiye") or 0) for b in bankalar if b.get("para_birimi") == pb)
          for pb in ("TL", "USD", "EUR")}
     usd_deger = t["USD"] + (t["TL"] / kur if kur else 0) + t["EUR"] * EUR_USD
@@ -45,7 +51,29 @@ def banka_toplam(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0):
     hs = t["TL"] - bekleyen_tl - bekleyen_usd * float(kur or 0)
     kal.append({"etiket": "Hafta sonu tahmini", "deger": _para(hs, "TL"), "renk": "yesil" if hs >= 0 else "kirmizi",
                 "alt": "TL bankalar − bu haftanın bekleyenleri"})
-    st.markdown(kpi_serit(kal), unsafe_allow_html=True)
+    return kal
+
+
+def banka_toplam(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0):
+    st.markdown(kpi_serit(banka_ozet_kalemleri(bankalar, kur, bekleyen_tl, bekleyen_usd)), unsafe_allow_html=True)
+
+
+def banka_listesi(bankalar, kur, bekleyen_tl, bekleyen_usd):
+    """Sayfanın hesap bölümü: toplamlar + hesaplar. Yeni masada satıra tıklayınca bugünkü hesap penceresi
+    açılır (sayfa, bu fonksiyondan SONRA banka_detay_kontrol'ü çağırır — eskisi gibi)."""
+    if not BANKA_MASASI_YENI:
+        banka_toplam(bankalar, kur, bekleyen_tl, bekleyen_usd)
+        banka_kartlari(bankalar, kur, bekleyen_tl, bekleyen_usd)
+        return
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    try:
+        son = get_tahsilatlar(limit=200) or []
+    except Exception:  # noqa: BLE001 — son giriş sütunu boş kalır
+        son = []
+    calistir(MM.banka_verisi(bankalar, banka_ozet_kalemleri(bankalar, kur, bekleyen_tl, bekleyen_usd), son,
+                             salt=bool(st.session_state.get("salt_okur"))),
+             "banka_masasi", MM.banka_yurutucu(_ac))
 
 
 def _kart_html(b, hs):

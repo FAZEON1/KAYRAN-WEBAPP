@@ -1834,7 +1834,7 @@ def run():
             # Ekim 2026: eylemler başlıkta; hesaplar tıklanır kart (bakiye kesilmez);
             # ekle/düzenle formları pencerede, silme ONAYLI (eskiden onaysızdı).
             from shared import bilesen as _Bb
-            from .banka_ekran import banka_kartlari, banka_toplam, banka_yeni_dialog, banka_detay_kontrol
+            from .banka_ekran import banka_listesi, banka_yeni_dialog, banka_detay_kontrol
             _bey = _Bb.baslik_eylem(
                 "🏦 Muhasebe", "Banka Bakiyeleri",
                 aciklama="Hesap bakiyeleri, hafta sonu tahmini, para girişi ve hesaplar arası transfer.",
@@ -1855,8 +1855,8 @@ def run():
             bekleyen_usd = sum(o.get("tutar_usd") or 0 for o in odemeler if o["durum"] == "bekliyor")
     
             if bankalar:
-                banka_toplam(bankalar, kur, bekleyen_tl, bekleyen_usd)
-                banka_kartlari(bankalar, kur, bekleyen_tl, bekleyen_usd)
+                # Ekim 2026: hesaplar ortak liste masasında (banka_ekran.BANKA_MASASI_YENI; False → eski kartlar)
+                banka_listesi(bankalar, kur, bekleyen_tl, bekleyen_usd)
             else:
                 st.info("Henüz banka hesabı eklenmemiş.")
 
@@ -2274,11 +2274,16 @@ def run():
                      ("Durum", "metin", "$", "orta")],
                     satirlar, vurgu=_vurgu))
     
-            tab1, tab2 = st.tabs([":material/payments: TL çekleri", ":material/attach_money: USD çekleri"])
-            with tab1:
-                cek_tablo(get_cekler("TL"), "TL")
-            with tab2:
-                cek_tablo(get_cekler("USD"), "USD")
+            # Ekim 2026: ortak liste masası (kayranacc/cek_ekran.py); False → aşağıdaki eski sekmeli tablo aynen
+            from .cek_ekran import FIRMA_CEKLERI_MASASI_YENI, render_firma_cekleri
+            if FIRMA_CEKLERI_MASASI_YENI:
+                render_firma_cekleri()
+            else:
+                tab1, tab2 = st.tabs([":material/payments: TL çekleri", ":material/attach_money: USD çekleri"])
+                with tab1:
+                    cek_tablo(get_cekler("TL"), "TL")
+                with tab2:
+                    cek_tablo(get_cekler("USD"), "USD")
     
     
         # ════════════════════════════════════════════════════════════════════
