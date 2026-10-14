@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "hm_hesap.py", "bilesen.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "hm_hesap.py", "bilesen.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -228,7 +228,17 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
     "kayranacc.odeme_hesap": ["hafta_secenekleri", "hafta_etiketi"],   # hafta adı (görünüm cilası)
     "kayranacc.odeme_masasi": ["masa_verisi", "istek_coz", "islem_uygula", "motor_istegi", "yurutucu"],
-    "shared.masa": ["masa", "istek_al", "kosul_uyar", "calistir"],   # ortak liste masası (Eki 2026)   # ödeme masası (Eki 2026)
+    "shared.masa": ["masa", "istek_al", "kosul_uyar", "calistir", "onceki_durum"],   # ortak liste masası (Eki 2026)
+    "satis.satis_masasi": ["siparis_masa_verisi", "siparis_ozeti", "siparis_satirlari", "kalem_masa_verisi",
+                           "iade_masa_verisi", "siparis_yurutucu", "iade_yurutucu", "siparis_anahtari",
+                           "usd_tam", "usd_kisa", "usd_birim"],
+    "teknikservis.ts_masasi": ["kayit_masa_verisi", "kayit_yurutucu", "depo_masa_verisi", "depo_yurutucu",
+                               "depo_ozeti", "durum_uyar", "ara_uyar", "fatura_var", "toplu_etiket",
+                               "transfer_anahtari", "transfer_gunu", "donem_baslangic"],
+    "teknikservis.main": ["_liste_masa", "_depolar_masa", "_toplu_satis_formu", "_dlg_toplu_satis", "_ozet_kirilim"],
+    "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
+    "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],
+    "depo.bekleyen_ekran": ["sevk_dus_kaydet", "takip_sil", "render"],
     "hesap_makinesi.hm_hesap": ["karlilik", "kirilma", "gokhan_prim", "donem_var_mi", "not_ekle", "notlari_ayir"],
     "hesap_makinesi.main": ["run", "prim_not_guncelle"],
     "kayranpm.canli_pacal": ["hesapla", "eldeki_stoklar", "teslim_partileri", "harita_hesapla", "harita",
