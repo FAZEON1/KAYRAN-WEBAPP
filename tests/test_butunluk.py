@@ -78,7 +78,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
-               "bugun.py", "masa.py", "masa_liste.py", "form.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
+               "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
                "main.py"):
         _p = KOK / _mod / _d
@@ -231,6 +231,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.masa": ["masa", "istek_al", "kosul_uyar", "calistir", "onceki_durum", "sutun_duzeni"],   # ortak liste masası (Eki 2026)
     "shared.masa_liste": ["kolon", "bicim", "veri", "excel_bayt", "ciz"],   # salt-okur liste masası (Eki 2026)
     "shared.form": ["tr_sayi_oku", "tr_sayi_yaz", "sayi_kutusu", "ozet_paneli", "css"],   # giriş formları (Eki 2026)
+    "shared.ikon": ["bas_emoji", "ic_temizle", "metin", "mesaj", "toast", "kur"],   # merkezi emoji → ikon (Eki 2026)
     "satis.satis_masasi": ["siparis_masa_verisi", "siparis_ozeti", "siparis_satirlari", "kalem_masa_verisi",
                            "iade_masa_verisi", "siparis_yurutucu", "iade_yurutucu", "siparis_anahtari",
                            "usd_tam", "usd_kisa", "usd_birim"],

@@ -7,6 +7,7 @@ Sayfa testi (tests/duman) Python tarafını dener; bu tarama ekranda görünen h
   tasma     sayfa yatay taşıyor (telefonda sağa kayıyor)
   kaymiyor  içerik uzun ama fare tekerleği sayfayı kaydırmıyor (sayı kutusu tekerleği yutuyordu)
   konsol    tarayıcı konsolunda JavaScript hatası
+  emoji     ekranda resimli emoji (yeni görünümde ikon kullanılır; durum noktaları 🔴🟢 ve ✓ • ▲ hariç)
   zaman     sayfa 40 sn'de bitmedi
 
 Çalıştırma (CI: "Tarayıcı taraması"):
@@ -117,12 +118,20 @@ async def _tekerlek(pg, w, h):
     return kay
 
 
+_EMOJI_JS = r"""() => { const m = document.querySelector('[data-testid=stMain]'); if (!m) return [];
+  const re = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2139}\u{21A9}\u{21AA}]/u;
+  const hayir = new Set([..."🔴🟠🟡🟢🔵🟣⚪⚫🟤✓✗✕✖✔•●○■□▲▼◆◇★☆"]);
+  return m.innerText.split("\n").filter(l => [...l].some(c => re.test(c) && !hayir.has(c)))
+          .map(l => l.trim().slice(0, 60)).slice(0, 3); }"""
+
+
 async def _olc(pg, w, h):
     ham = {"zaman": await _bekle(pg)}
     ham["hata"] = [x[:120] for x in await pg.locator("[data-testid=stException]").all_inner_texts()]
     r = await pg.evaluate(_ORT_JS, [w, h])
     ham["ust"], ham["tasma"] = r["ust"], r["tasma"]
     ham["kaymiyor"] = await _tekerlek(pg, w, h)
+    ham["emoji"] = await pg.evaluate(_EMOJI_JS)
     return ham
 
 
