@@ -1,0 +1,57 @@
+# KAYRAN Workspace — proje metaverisi ve araç ayarları.
+# Bağımlılıkların tek kaynağı requirements.txt (Streamlit Cloud onu kurar); tam sürümler requirements.lock.
+# Burada [build-system] yok: proje paket olarak kurulmaz, yalnız çalıştırılır.
+
+[project]
+name = "kayran-workspace"
+version = "1.0.0"                       # shared/surum.py SURUM ile aynı (tests/test_urun_yuzu.py denetler)
+description = "KAYRAN Workspace — ürün, satış, ithalat, depo, teknik servis ve muhasebe için iç yönetim uygulaması"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "G5F Teknoloji" }]
+
+# Bilerek [tool.pytest.ini_options] YOK: pytest ayarları tests/conftest.py'de; burada bir tablo açmak
+# CI'daki toplama davranışını değiştirirdi.
+
+# ── ruff ────────────────────────────────────────────────────────────────
+# Bugünkü kodla uyumlu dar başlangıç: yalnız pyflakes kuralları (F). CI'da ÇALIŞMAZ; yerelde:
+#   ruff check .
+# Aşağıdaki per-file-ignores bugünkü ihlallerin taban çizgisidir (Ekim 2026, 166 uyarı / 28 dosya):
+# yeni dosyada F uyarısı çıkmaz. Bir dosyayı temizleyince satırını buradan sil.
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [".venv", ".claude", "bekleyen", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["F"]
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["F401", "F811", "F841"]
+"araclar/migrate_passwords.py" = ["F541"]
+"depo/main.py" = ["F401"]
+"ithalat/main.py" = ["F401", "F811", "F841"]
+"kayranacc/bildirim.py" = ["F401"]
+"kayranacc/database.py" = ["F401", "F811", "F841"]
+"kayranacc/excel_islemler.py" = ["F401"]
+"kayranacc/main.py" = ["F401", "F841"]
+"kayranacc/rapor.py" = ["F401", "F841"]
+"kayranpm/analitik.py" = ["F401"]
+"kayranpm/database.py" = ["F401"]
+"kayranpm/excel_islemler.py" = ["F401", "F841"]
+"kayranpm/rapor.py" = ["F401", "F841"]
+"kayranpm/ref_no.py" = ["F541"]
+"otonom/geri_yukle.py" = ["F541"]
+"otonom/onay_uygula.py" = ["F401"]
+"otonom/talep_analiz.py" = ["F401"]
+"satis/main.py" = ["F401", "F841"]
+"shared/__init__.py" = ["F401"]
+"shared/tasarim.py" = ["F841"]
+"teknikservis/main.py" = ["F401", "F841"]
+"tests/test_4b_paket2.py" = ["F401"]
+"tests/test_d3_d4.py" = ["F401"]
+"tests/test_depo_yeni.py" = ["F401"]
+"tests/test_hiz.py" = ["F841"]
+"tests/test_muhasebe_gosterim.py" = ["F401"]
+"tests/test_muhasebe_para.py" = ["F401"]
+"tests/test_ts_satis_maliyet.py" = ["F401"]

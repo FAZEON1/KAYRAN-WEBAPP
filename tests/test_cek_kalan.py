@@ -45,7 +45,7 @@ def test_durum_normu_turkce_harf():
 
 def test_ekranlar_ortak_kurali_kullanir():
     kod = (KOK / "kayranacc/main.py").read_text(encoding="utf-8")
-    i = kod.index('elif sayfa == "📋 Firma Çekleri":')
+    i = kod.index('def _sayfa_firma_cekleri(')
     j = kod.index("# 6) ÖDENENLEr", i)
     sayfa = kod[i:j]
     assert "cek_tutarlari(c)" in sayfa

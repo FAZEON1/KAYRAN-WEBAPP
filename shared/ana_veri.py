@@ -20,6 +20,7 @@ KURAL:
 Saf fonksiyonlar en üstte (test edilir); veritabanı okuyanlar en altta.
 """
 import re
+from shared.kayit import sessiz
 
 _AYRAC = re.compile(r"[^0-9a-zçğıöşü]+")
 
@@ -160,13 +161,13 @@ def _kategori_kaynaklari():
     try:
         from kayranpm.database import get_urun_marka_kategori
         kart = [m.get("kategori") for m in (get_urun_marka_kategori() or {}).values()]
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ana_veri._kategori_kaynaklari", _e)
     try:
         from ithalat.database import get_kategoriler
         ith = get_kategoriler() or []
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ana_veri._kategori_kaynaklari", _e)
     return kart, ith
 
 
@@ -197,8 +198,8 @@ def get_marka_havuzu():
     try:
         from kayranpm.database import get_urun_marka_kategori
         kart = [m.get("marka") for m in (get_urun_marka_kategori() or {}).values()]
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ana_veri.get_marka_havuzu", _e)
     return marka_secenekleri(kart)
 
 

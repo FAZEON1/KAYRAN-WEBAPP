@@ -17,6 +17,7 @@ from shared import izin as D
 from shared import izin_hesap as H
 from shared.izin_belge import belge_no, donus_gunu, izin_formu_pdf, kayit_belgesi_pdf
 from shared.tasarim import bos_durum, kisi_adi, kpi_serit, mesaj
+from shared.kayit import sessiz
 
 BOLUM_HERKES = ["İzinlerim", "Takvim"]
 BOLUM_YONETICI = ["İzinlerim", "Onay", "Takvim", "Rapor", "Personel", "Ayarlar"]
@@ -63,8 +64,8 @@ def _haber_ver(alicilar, metin, mail=None, gonderen=""):
         hedef = sorted({adr[a] for a in alicilar if a in adr and a != gonderen})
         if hedef:
             arka_planda(hedef, mail[0], mail[1])
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.izin_ekran._haber_ver", _e)
 
 
 # ── Sayfa ───────────────────────────────────────────────────────────

@@ -19,6 +19,11 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from shared.kayit import sessiz
+except Exception:  # bağımsız çalıştırmada shared yoksa kayıtsız devam
+    def sessiz(*_a, **_k):
+        return None
 
 KULLANICI_ANAHTAR = "telegram_kullanicilar"
 GIZLI_ANAHTAR = "telegram_webhook_gizli"
@@ -65,8 +70,8 @@ def cevap_uret(metin, kullanici):
     try:
         _sb().table("soru_kayitlari").insert({"kullanici": kullanici, "metin": metin[:500],
                                               "anlasildi": bool(n.get("tip")), "konu": n.get("tip")}).execute()
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("otonom.telegram_soru.cevap_uret", _e, "debug")
     if not n.get("tip"):
         return anlasilmadi_metni()
     izin = moduller(kullanici, {m: False for m in MODULLER})

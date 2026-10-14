@@ -7,6 +7,7 @@ Streamlit'in içinden gelir; Python'dan değiştirilemez. Bu bileşen sayfada bi
 kalıba uymalı. Kullanıcı verisine (ürün adı, açıklama) dokunmaz.
 """
 import json
+from shared.kayit import sessiz
 
 # Tam eşleşme (baştaki/sondaki boşluk yok sayılır)
 SOZLUK = {
@@ -76,5 +77,5 @@ def kur():
             import streamlit.components.v2 as _v2
             _BILESEN = _v2.component("kayran_ceviri", js=_js())
         _BILESEN(key="kayran_ceviri")
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ceviri.kur", _e, "debug")

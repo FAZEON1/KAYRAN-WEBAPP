@@ -151,20 +151,20 @@ def _hizli_sayim(tablo: str, kolon: str = None, degerler=None):
 # ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
-KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar",
-                          "serdar"}
-KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
-HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk",
-                        "serdar"}
-TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet", "serkan", "korkut",
-                             "serdar"}
-SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
-DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet", "berkay", "selcuk", "serdar"}
-YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar", "cem"}
+# Kod düzeyi YEDEK listeler (veritabanı okunamazsa) — kişi adları shared/sirket_ayar.py'de.
+# Her satır kendi başına çalışır (__import__): tests/test_butunluk.py satırları tek tek yürütür.
+from shared import sirket_ayar as _sirket_ayar   # noqa: E402 — roller ve şirket kimliği (tek kaynak)
+KAYRANACC_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kayranacc")
+KAYRANPM_KULLANICILAR  = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kayranpm")
+HESAP_MAKINESI_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("hesap_makinesi")
+ITHALAT_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("ithalat")
+TEKNIKSERVIS_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("teknikservis")
+SATIS_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("satis")
+DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("depo_ek")
+YONETIM_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("yonetim")
 # Patron Panosu — sabah kokpiti YALNIZCA bu kullanıcı(lar)a render edilir.
 # Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
-PATRON_PANEL_KULLANICILAR = {"ibrahim"}
+PATRON_PANEL_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("patron_panel")
 
 # ── SALT-OKUR (read-only) KULLANICILAR ───────────────────────────────
 # Bu kullanicilar TUM modulleri gorur ama hicbir veriyi degistiremez.
@@ -181,7 +181,7 @@ for _k in SALT_OKUR_KULLANICILAR:
 
 
 # Kullanıcı Yönetimi ekranını görebilenler (DB yoksa geçerli sabit liste)
-KULLANICI_YONETIMI_KULLANICILAR = {"ibrahim"}
+KULLANICI_YONETIMI_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kullanici_yonetimi")
 
 
 def salt_okur_mu(kullanici):
@@ -283,7 +283,7 @@ def tum_kullanicilar():
 # ─────────────────────────────────────────────────────────────────────
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
-TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"   # hiçbir talep yöneticisinin adresi yoksa yedek alıcı
+TALEP_ALICI = _sirket_ayar.talep_eposta()   # hiçbir talep yöneticisinin adresi yoksa yedek alıcı (sirket_ayar)
 
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE KULLANICI TAKİP
@@ -466,6 +466,13 @@ st.set_page_config(
     initial_sidebar_state="auto",          # telefonda kapalı, bilgisayarda açık
 )
 
+# Günlük + (secrets'ta dsn varsa) Sentry — tek seferlik, asla fırlatmaz (shared/kayit.py)
+try:
+    from shared.kayit import baslat as _kayit_baslat
+    _kayit_baslat()
+except Exception:
+    pass
+
 # ══════════════════════════════════════════════════════════════════════
 # AÇILIŞ SAĞLIK KONTROLÜ — "Oh no." beyaz ekranına karşı
 # Streamlit Cloud, uygulama bir süre kullanılmayınca (örn. hafta sonu)
@@ -489,13 +496,11 @@ if not st.session_state.get("_db_saglik_ok"):
             '<div style="max-width:640px;margin:80px auto;padding:28px 32px;'
             'background:var(--k-yuzey3);border:1px solid var(--k-kenar2);border-radius:14px;'
             'font-family:Inter,sans-serif;color:var(--k-metin)">'
-            '<div style="font-size:23px;margin-bottom:10px">🔌</div>'
             '<div style="font-size:19px;font-weight:700;margin-bottom:8px">'
-            'Veritabanına bağlanılamadı</div>'
+            'Veritabanına şu an ulaşılamıyor</div>'
             '<div style="color:var(--k-soluk);line-height:1.6;margin-bottom:6px">'
-            'Uygulama bir süre kullanılmadığında uyku moduna geçer; uyanırken '
-            'bağlantı bazen geç kurulur. Genellikle birkaç saniye sonra '
-            '<b>Yeniden Dene</b> demek yeterlidir.</div>'
+            'Kayıtlı verileriniz etkilenmez; yalnız bağlantı kurulamadı. Birkaç saniye sonra '
+            '<b>Yeniden Dene</b> düğmesine basın. Sorun sürerse sistem yöneticinize haber verin.</div>'
             f'<div style="color:var(--k-silik);font-size:13px;font-family:monospace;'
             f'margin-top:10px">{_mesaj}</div></div>',
             unsafe_allow_html=True,
@@ -937,13 +942,6 @@ _sb_comp.html(
 
 
 # Session state defaults
-def _oturum_secret():
-    try:
-        return str(st.secrets["supabase"]["key"])
-    except Exception:
-        return "kayran-oturum-varsayilan-anahtar"
-
-
 def _oturum_store():
     """Sunucu tarafı oturum deposu — artık shared/oturum.py'de (tek kaynak).
     Token yalnız onu oluşturan tarayıcıda geçerlidir (cihaz imzası)."""
@@ -967,10 +965,8 @@ def _cihaz_imzasi():
 
 def _oturum_ac(kullanici):
     """Girişte rastgele oturum token'ı üretir, cihaza bağlar, URL'ye yalnız token yazar."""
-    import secrets as _sec
-    import time as _t
-    tok = _sec.token_urlsafe(24)
-    _oturum_store()[tok] = {"u": kullanici, "cihaz": _cihaz_imzasi(), "ts": _t.time()}
+    from shared.oturum import oturum_olustur
+    tok = oturum_olustur(kullanici, _cihaz_imzasi())
     try:
         st.query_params.clear()
         st.query_params["t"] = tok
@@ -1006,11 +1002,12 @@ def _hesap_hala_aktif_mi(kullanici):
         return True
 
 
-def _oturum_token(kullanici):
-    import hmac, hashlib
-    return hmac.new(_oturum_secret().encode(),
-                    (kullanici or "").lower().strip().encode(),
-                    hashlib.sha256).hexdigest()[:32]
+def _oturum_secret():
+    """Sunucu sırrı: secrets [oturum] secret, yoksa service_role'den türetilmiş; sabit değer
+    yok (bkz. shared.oturum.oturum_anahtari). Bugün URL'deki oturum anahtarı rastgele ve
+    depoda tutulduğu için imzaya ihtiyaç duymaz; bu sır imza gereken yeni işler içindir."""
+    from shared.oturum import oturum_anahtari
+    return oturum_anahtari()
 
 
 if "giris_yapildi" not in st.session_state:
@@ -1021,27 +1018,21 @@ if "salt_okur" not in st.session_state:
     st.session_state["salt_okur"] = False
 
 # Tarayıcı yenilendiğinde (yeni oturum) girişi URL'deki güvenli token'dan geri yükle
-# → otomatik çıkışı önler. Token = HMAC(kullanıcı, sunucu_secret); başkası için taklit edilemez.
+# → otomatik çıkışı önler. Token rastgele, sunucu deposunda tutulur ve tarayıcıya bağlıdır
+# (shared.oturum.oturum_dogrula: süre 7 gün, kayar; başka tarayıcıdan gelirse yakılır).
 if not st.session_state.giris_yapildi:
     try:
-        import time as _t
         if st.query_params.get("u", ""):
             # ESKİ format (u+deterministik t): güvensiz — paylaşılan tüm eski linkler geçersiz.
             st.query_params.clear()
         else:
+            from shared.oturum import oturum_dogrula
             _qt = st.query_params.get("t", "")
-            _rec = _oturum_store().get(_qt) if _qt else None
-            if _rec and (_t.time() - _rec.get("ts", 0) < 7 * 86400):
-                _imza = _cihaz_imzasi()
-                if _rec.get("cihaz") and _imza and _rec["cihaz"] == _imza:
-                    st.session_state.giris_yapildi = True
-                    st.session_state.aktif_kullanici = _rec["u"]
-                    st.session_state["salt_okur"] = salt_okur_mu(_rec["u"])
-                    _rec["ts"] = _t.time()  # kaydır: aktif kullanım süreyi tazeler
-                else:
-                    # Farklı tarayıcı/cihaz → token'ı yak (link paylaşımı girişimi)
-                    _oturum_store().pop(_qt, None)
-                    st.query_params.clear()
+            _qu = oturum_dogrula(_qt, _cihaz_imzasi()) if _qt else None
+            if _qu:
+                st.session_state.giris_yapildi = True
+                st.session_state.aktif_kullanici = _qu
+                st.session_state["salt_okur"] = salt_okur_mu(_qu)
             elif _qt:
                 st.query_params.clear()
     except Exception:
@@ -2105,8 +2096,6 @@ def _kisi_menu_icerik(ek=""):
 
 
     # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
-    _u = aktif_kullanici
-    _t = _oturum_token(_u)
     # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
     _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
                    ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),
@@ -2583,7 +2572,7 @@ def anasayfa():
     _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
     _bugun_iso = _kdt.date.today().isoformat()
     # Finansal rakamları (net kâr, ciro, marj) yalnızca yetkili görür — diğer personele gösterilmez
-    _finans_gor = (aktif_kullanici or "").lower() == "ibrahim"
+    _finans_gor = _sirket_ayar.rol_var_mi(aktif_kullanici, _sirket_ayar.ROL_KAR)
     _rozet = {}
     # "Erişim x/y" kartı kaldırıldı (bilgi değil süs). Net Kâr, Patron
     # Panosu'nda zaten var; aynı rakam iki yerde (üstelik farklı hesapla)
@@ -2717,8 +2706,8 @@ def anasayfa():
     # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI.
     # 📬 Gelen Talepler HER SAYFADA sağ alttaki Talep düğmesinde (_talep_merkezi).
 
-    # ─── YÖNETİM (sadece ibrahim) — kompakt kapalı paneller ───
-    if aktif_kullanici.lower() == "ibrahim":
+    # ─── YÖNETİM (yalnız 'yonetici' rolü; shared/sirket_ayar) — kompakt kapalı paneller ───
+    if _sirket_ayar.rol_var_mi(aktif_kullanici, _sirket_ayar.ROL_YONETICI):
         st.markdown('<div class="k-ana-bolum">Yönetici araçları</div>', unsafe_allow_html=True)
 
         # 1) Aktif kullanıcılar & son giriş zamanları
@@ -2824,9 +2813,10 @@ def anasayfa():
     # yeşil yanıyordu — yanıltıcıydı), tanıtım cümleleri şeridi, kurumsal
     # açılır panel (iki bağlantısı buraya alındı) ve "✉️ düğmesini kullan" notu.
     yil = datetime.now().year
+    from shared.surum import surum_etiketi as _surum_etiketi
     st.markdown(
         '<div class="k-ana-alt">'
-        f'<span>KAYRAN Workspace · © {yil} G5F Teknoloji</span>'
+        f'<span>KAYRAN Workspace · {_surum_etiketi()} · © {yil} G5F Teknoloji</span>'
         '<span><a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer">g5fteknoloji.com</a>'
         '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer">fazeon.com</a></span>'
         '</div>',
@@ -3178,46 +3168,17 @@ def sifre_degistir():
                     unsafe_allow_html=True)
 
 def kayrantsw_yakinda():
-    """KAYRANTS&W modülü için 'Yakında Sizlerle' bilgilendirme sayfası."""
-    st.markdown(portal_css(), unsafe_allow_html=True)
-
-    st.markdown(
-        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        'text-align:center;padding:48px 20px 24px;animation:fadeUp 0.6s ease-out">'
-        # İkon rozeti
-        '<div style="width:96px;height:96px;border-radius:24px;'
-        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 25%,transparent),color-mix(in srgb,var(--k-pembe) 20%,transparent));'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 35%,transparent);display:flex;align-items:center;justify-content:center;'
-        'font-size:23px;margin-bottom:28px;box-shadow:0 10px 40px color-mix(in srgb,var(--k-mor) 25%,transparent)">🚧</div>'
-        # Uygulama adı rozeti
-        '<div style="display:inline-block;padding:8px 16px;background:color-mix(in srgb,var(--k-mor) 12%,transparent);'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:20px;margin-bottom:20px">'
-        '<span style="color:var(--k-mor2);font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
-        '</div>'
-        # Başlık
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:700;color:var(--k-metin);'
-        'letter-spacing:1px;margin:0;line-height:1.1">'
-        '<span style="background:linear-gradient(90deg,var(--k-mavi),var(--k-mor),var(--k-pembe));'
-        '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
-        '</h1>'
-        # Alt açıklama
-        '<p style="color:var(--k-soluk);font-size:14px;margin-top:16px;max-width:480px;line-height:1.7;font-weight:400">'
-        'Depo & Teknik Servis üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
-        'Gelişmelerden haberdar olmak için takipte kalın.'
-        '</p>'
-        # Dekoratif çizgi
-        '<div style="width:80px;height:3px;margin:28px auto 0;'
-        'background:linear-gradient(90deg,var(--k-mor),var(--k-mor),var(--k-pembe));border-radius:2px"></div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # Ana sayfaya dön butonu (ortalı)
-    col_l, col_c, col_r = st.columns([1, 1.2, 1])
-    with col_c:
-        if st.button("Ana Sayfaya Dön", key="tsw_ana_don", use_container_width=True, icon=":material/home:"):
-            st.session_state.aktif_uygulama = "anasayfa"
-            st.rerun()
+    """Eski KAYRANTS&W adresi (?s=kayrantsw). Depo ve Teknik servis artık ayrı modüller; menüde bu sayfa
+    yok, yalnız eski yer imleri buraya düşer → kullanıcıyı var olan modüllere yönlendirir."""
+    st.markdown(k_mesaj("bilgi", "Depo ve teknik servis işleri artık kendi modüllerinde. "
+                                 "Aşağıdan devam edebilirsiniz."), unsafe_allow_html=True)
+    _yt = kullanici_yetkileri(st.session_state.get("aktif_kullanici", ""))
+    _hedefler = [(m, ad, ik) for m, ad, ik in (("depo", "Depo", "warehouse"),
+                                               ("teknikservis", "Teknik servis", "construction"))
+                 if _yt.get(m)] + [("anasayfa", "Ana sayfa", "home")]
+    for _kol, (_m, _ad, _ik) in zip(st.columns(len(_hedefler)), _hedefler):
+        _kol.button(_ad, key=f"tsw_{_m}", icon=f":material/{_ik}:", use_container_width=True,
+                    on_click=_sayfaya_git, args=(_m,))
 
 
 # ─────────────────────────────────────────────────────────────────────

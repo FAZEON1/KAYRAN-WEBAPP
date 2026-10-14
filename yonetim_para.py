@@ -15,6 +15,7 @@ Müşteri raflarındaki mal satılmış sayılır (stok_hesap kuralı): alacak k
 
 Saf fonksiyonlar (test edilir): usd, harita, ozet_cumlesi.
 """
+from shared.kayit import sessiz
 EUR_BANKA = 1.08     # kayranacc.banka_ekran.EUR_USD ile aynı
 EUR_CARI = 1.10      # Toplam Aktifler'in cari kuralı (kayranacc/main.py)
 
@@ -190,8 +191,8 @@ def veri_topla():
         from kayranacc.database import get_tum_odemeler
         bek = [o for o in get_tum_odemeler() or [] if str(o.get("durum") or "") != "odendi"]
         v["odeme"] = (sum(_f(o.get("tutar_tl")) for o in bek), sum(_f(o.get("tutar_usd")) for o in bek))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("yonetim_para.veri_topla", _e)
     return v, notlar
 
 

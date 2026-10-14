@@ -15,6 +15,7 @@ gösterilir ki yüklemenin gerçekten çalıştığı gözle doğrulanabilsin.
 """
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 from io import BytesIO
+from shared.kayit import sessiz
 
 
 class ExcelBicimHatasi(Exception):
@@ -319,8 +320,8 @@ def parse_stok_excel(file_bytes):
                             pass
                 if firma_adi and firma_adi != "Bilinmeyen":
                     pazaryerleri[firma_adi] = toplam
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.aktif_excel.parse_stok_excel", _e)
 
     return usd_stok, pazaryerleri
 
@@ -335,8 +336,8 @@ def _cari_isimleri_cikar(file_bytes):
         from kayranacc.aktif_excel import parse_cari as _pc
         _, _detay = _pc(file_bytes)
         return list(_detay.get("isimler") or [])
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranacc.aktif_excel._cari_isimleri_cikar", _e)
     # Yedek yol: başlığı elle ara
     import pandas as pd
     from io import BytesIO
@@ -381,6 +382,6 @@ def aktif_kaydet(tip, deger, ham, kullanici, detay=None):
             _isim = (detay or {}).get("isimler") or _cari_isimleri_cikar(ham)
             if _isim:
                 _db.aktif_excel_kaydet(kullanici, "cari_isimler", _isim)
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranacc.aktif_excel.aktif_kaydet", _e)
     return ok

@@ -69,7 +69,7 @@ _TARANAN_MODULLER = {}
 for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared", "hesap_makinesi"):
     for _d in ("database.py", "utils.py", "auth.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
-               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
+               "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "kayit.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
                "stok_yasi.py", "stok_yasi_ekran.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
@@ -80,12 +80,16 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
+               "sirket_ayar.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
 for _d in ("yonetim_hesap.py", "yonetim_pano.py", "yonetim_para.py"):   # kökteki modüller
     _TARANAN_MODULLER[_d[:-3]] = _ust_duzey_isimler(KOK / _d)
+_TARANAN_MODULLER["shared.surum"] = _ust_duzey_isimler(KOK / "shared" / "surum.py")   # sürüm tek kaynak
+_TARANAN_MODULLER["veritabani.uygula"] = _ust_duzey_isimler(KOK / "veritabani" / "uygula.py")   # kayıtlı migration
 
 
 def _kirik_importlar():
@@ -127,6 +131,8 @@ def test_kirik_import_yok():
 #    Yeni bir düzeltme eklediğinde buraya da ekle.
 # ═══════════════════════════════════════════════════════════════════════
 KRITIK_FONKSIYONLAR = {
+    "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
+                          "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
     "kayranpm.database": [
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
@@ -137,6 +143,10 @@ KRITIK_FONKSIYONLAR = {
         "firma_stok_satirlari",                   # stok kartı kanal stoğu, SKU yazımından bağımsız
         "sku_satirlari", "kart_sku_haritasi", "kart_sku_coz",   # SKU yazımı: okuma + yazma (Eki 2026)
         "urunler_ada_gore", "urunler_skuya_gore",   # tek urunler okuması (Eki 2026)
+        # atomik stok (veritabani/29_atomik_stok.sql, Eki 2026): RPC önce, yoksa bugünkü yol
+        "atomik_rpc", "atomik_hazir", "atomik_ortam", "atomik_audit", "AtomikHata", "stok_kalemleri",
+        "stok_adaylari", "stok_aday_haritasi", "stok_atomik_sonuc", "stok_hareket_gruplu",
+        "_stok_atomik", "_stok_hareket_coklu_eski", "_rpc_yok_mu", "depo_sevk", "_sevk_kart_bul",
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
@@ -178,12 +188,18 @@ KRITIK_FONKSIYONLAR = {
         "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
         "ice_aktar_satislar", "ekle_siparis",
+        # atomik kayıt + stok (veritabani/29_atomik_stok.sql, Eki 2026)
+        "_atomik_kayit", "_atomik_iz", "_depo_gruplari", "_stok_sorunu_bildir", "_iadeler_atomik",
+        "_iade_aktarim_satirlari", "guncelle_satis", "sil_satis", "sil_siparis", "sil_siparisler",
+        "sil_iade", "ice_aktar_iadeler",
     ],
     "teknikservis.database": [
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
-    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret"],
+    "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret", "mail_alicilari"],
+    "shared.sirket_ayar": ["rol_sahipleri", "rol_var_mi", "yonetici_kullanici", "talep_onaycisi",
+                           "yukleme_sorumlusu", "kimlik", "talep_eposta", "yedek_liste", "temizle"],
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti"],
     "teknikservis.ariza_ekran": ["goster"],
@@ -270,6 +286,7 @@ KRITIK_FONKSIYONLAR = {
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
                      "ay_kurlari", "gider_usd_satirlari", "serit_hedefi",
                      "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
+    "shared.surum": ["SURUM", "surum_etiketi"],          # sürüm tek kaynak (ürün paketi, Eki 2026)
     "shared.ceviri": ["kur"],
     "shared.ipucu": ["kur"],
     "shared.soru": ["coz", "parcalar", "donem_bul", "sade", "firma_bul", "sku_bul"],
@@ -286,7 +303,16 @@ KRITIK_FONKSIYONLAR = {
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
-    "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade"],
+    "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
+                   # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
+                   "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade"],
+    "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",
+                       "_sayfa_firma_cekleri", "_sayfa_odenenler_gecmis", "_sayfa_gelenler_gecmisi",
+                       "_sayfa_e_defter", "_sayfa_raporlar_bildirim", "_sayfa_ertelenen_odemeler",
+                       "_sayfa_cari_ekstre", "_sayfa_toplam_aktifler"],
+    "kayranpm.main": ["run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
+                      "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
+                      "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler"],
     "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
     "yonetim_hesap": ["gider_yili_bul"],
     "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no",
@@ -306,9 +332,17 @@ KRITIK_FONKSIYONLAR = {
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
-    "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
+    "shared.kayit": ["sessiz", "yapilandir", "baslat", "sentry_baslat"],   # yutulan hatalar loga (Eki 2026)
+    "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap",
+                      "oturum_olustur", "oturum_dogrula", "oturum_anahtari"],
+    "shared.auth": ["sifre_dogrula", "kullanici_dogrula_v2", "supabase_sifre_kaydet",
+                    "giris_kontrol", "giris_basarisiz", "giris_basarili"],
+    "shared.audit": ["log_yaz", "wrap_client", "guvenlik_kaydi", "yetki_degisikligi_kaydet"],
     "shared.utils": ["tarih_metni", "sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
                      "sku_anahtar"],                     # SKU eşleştirme tek kural (Faz 3)
+    # Gece yedeği: tablo listesi tek kaynak, sayfalı + sayımla denetlenen okuma (Eki 2026)
+    "shared.yedek_tablolari": ["tum_satirlar", "sayim", "sira_adaylari", "tablo_oku", "tumunu_oku",
+                               "yedek_disi", "excel_degeri", "excel_satirlari", "canli_mi"],
 }
 
 

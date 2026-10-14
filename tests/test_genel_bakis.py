@@ -130,8 +130,8 @@ def test_yaklasan_varislar():
 # ── Ekran ───────────────────────────────────────────────────────────
 def test_sayfa_yeni_ekrana_bagli():
     m = _oku("kayranpm/main.py")
-    a = m.index('if sayfa == "📊  Dashboard":')
-    g = m[a:m.index('elif sayfa == "📋  Tüm Ürünler":')]
+    a = m.index('def _sayfa_dashboard():')
+    g = m[a:m.index('def _sayfa_tum_urunler(')]
     assert "genel_bakis" in g and "acil_items_list" not in g
     e = _oku("kayranpm/genel_bakis.py")
     assert "dashboard_filtrele(" in e                                    # filtre her bölüme

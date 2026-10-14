@@ -18,6 +18,7 @@ from datetime import date, datetime
 
 from .database import get_client, _rows, _cache_temizle
 from shared.utils import metrik_satiri, normalize_tr
+from shared.kayit import sessiz
 
 DURUMLAR = ["beklemede", "paylasildi", "iptal"]
 DOVIZLER = ["USD", "TL", "EUR"]
@@ -517,7 +518,7 @@ def firma_guncelle(fid, adi, kodu):
 def firma_ref_sayisi(fid):
     """Firmaya bağlı ref no adedi — silmeden önce uyarmak için."""
     try:
-        return len(_rows(get_client().table("ref_no").select("id")
+        return len(_rows(get_client().table("ref_kayitlari").select("id")
                          .eq("firma_id", fid).execute()) or [])
     except Exception:
         return 0
@@ -532,7 +533,7 @@ def firma_sil(fid, refleri_de_sil=False):
             return False, (f"Bu firmaya bağlı {_adet} ref no var. Önce onları "
                            "sil ya da 'ref no'ları da sil' kutusunu işaretle.")
         if _adet and refleri_de_sil:
-            sb.table("ref_no").delete().eq("firma_id", fid).execute()
+            sb.table("ref_kayitlari").delete().eq("firma_id", fid).execute()
         sb.table("ref_firmalar").delete().eq("id", fid).execute()
         # Silme gerçekten oldu mu?
         _kalan = _rows(sb.table("ref_firmalar").select("id").eq("id", fid).execute())
@@ -640,20 +641,20 @@ def _cari_isimleri():
     try:
         from kayranacc.database import get_cari_isimler
         _ekle(get_cari_isimler())
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.ref_no._cari_isimleri", _e)
     # 2) Satış kanalları (cari + satışta geçenleri zaten birleştirir)
     try:
         from satis.database import get_kanallar
         _ekle(get_kanallar())
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.ref_no._cari_isimleri", _e)
     # 3) İthalat tedarikçileri
     try:
         from ithalat.database import get_dosyalar
         _ekle([d.get("tedarikci") for d in (get_dosyalar() or [])])
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.ref_no._cari_isimleri", _e)
     return sorted(havuz, key=lambda x: x.lower())
 
 
@@ -738,8 +739,8 @@ def _senkronize_firmalar():
             try:
                 sb.table("ref_firmalar").update({"firma_adi": hedef_ad}).eq("id", hedef_id).execute()
                 degisti = True
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("kayranpm.ref_no._senkronize_firmalar", _e)
 
         # Mükerrer firmaları hedefe birleştir + sil (önce taşı, sonra sil)
         for f in flist:
@@ -751,8 +752,8 @@ def _senkronize_firmalar():
                 with cop_kutusu_kapali():
                     sb.table("ref_firmalar").delete().eq("id", f["id"]).execute()
                 degisti = True
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("kayranpm.ref_no._senkronize_firmalar", _e)
 
     # HB → ITOPYA havuz bütçe taşıma (yanlış girilmiş kayıtlar)
     itopya_id = rol_hedef.get("ITOPYA")
@@ -763,8 +764,8 @@ def _senkronize_firmalar():
             if hb_butce:
                 sb.table("ref_butce").update({"firma_id": itopya_id}).eq("firma_id", hb_id).execute()
                 degisti = True
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("kayranpm.ref_no._senkronize_firmalar", _e)
 
     if degisti:
         _cache_temizle()

@@ -15,6 +15,7 @@ pencerede değil arkadaki sayfada çiziliyordu). Şimdi her çalışmada asıl S
 (_kayran_orij, eski yamalarda modül değişkeni _ORIJ_DATAFRAME) ve yama onun üstüne yeniden kurulur;
 yamanın kendini sarması (özyineleme) bu yüzden olmaz.
 """
+from shared.kayit import sessiz
 
 # Sıralanabilir HTML tabloya çevirmeyi ENGELLEYEN durumlar
 _OZEL_KOLON = ("link", "image", "progress", "bar_chart", "line_chart",
@@ -95,8 +96,8 @@ def kur(st_modul=None, dg_sinif=None):
                     dataframe_hazirla(data, kw)
                 else:
                     kw["column_config"] = otomatik_kolonlar(data, kw.get("column_config"))
-            except Exception:  # noqa: BLE001 — biçimlendirme başarısızsa tablo yine çizilsin
-                pass
+            except Exception as _e:  # noqa: BLE001 — biçimlendirme başarısızsa tablo yine çizilsin
+                sessiz("shared.dataframe_yamasi.kur._akilli_dataframe", _e)
             return orij(self, data, *a, **kw)
 
         _akilli_dataframe._kayran_yamali = True

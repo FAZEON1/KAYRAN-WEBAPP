@@ -9,6 +9,7 @@ Parçacık (st.fragment) içinde çalışır: aramada yalnız palet yenilenir; b
 sayfaya gidince tüm uygulama yeniden çizilir.
 """
 import streamlit as st
+from shared.kayit import sessiz
 
 _CSS = r"""
 :host{display:block}
@@ -219,8 +220,8 @@ def palet(yetkiler, ozel, kullanici, kosul):
             if anlasilir_mi(q):
                 sonuc = [{"tur": "soru", "id": "soru:" + q.strip(), "ad": "Sor: " + q.strip(),
                           "yol": "cevap programın hesaplarından", "ikon": "forum"}] + sonuc
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.palet.palet", _e, "debug")
     veri = {"css": _CSS, "ogeler": palet_ogeleri(yetkiler, ozel, kullanici, kosul),
             "sonuc": sonuc, "sonuc_q": q if len(q.strip()) >= 2 else ""}
     r = _bilesen()(key="kayran_palet", data=veri, default={}, height="content",

@@ -14,6 +14,7 @@ cevapla(niyet, izin, veri) → {baslik, kartlar, satirlar, grafik, kaynak, hedef
 from datetime import date
 
 from shared.soru import OLCU_AD, KIRILIM_AD, KAPSAM_AD, KAMPANYA_AD, AY_AD, sade
+from shared.kayit import sessiz
 
 # Konu → gereken modül yetkisi
 YETKI = {"satis": "satis", "seyir": "satis", "iade": "satis", "stok": "kayranpm", "yasli_stok": "kayranpm",
@@ -104,22 +105,22 @@ def sozluk_kur():
         for k in get_kanallar() or []:
             ad = firma_kisa_ad(k).split(" · ")[0]
             s["firmalar"].setdefault(ad, []).append(k)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.soru_cevap.sozluk_kur", _e)
     try:
         from shared.ana_veri import get_kategori_havuzu, get_marka_havuzu
         s["kategoriler"] = [x for x in get_kategori_havuzu() or [] if x]
         s["markalar"] = [x for x in get_marka_havuzu() or [] if x]
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.soru_cevap.sozluk_kur", _e)
     try:
         from kayranpm.database import get_tum_sku_listesi
         for r in get_tum_sku_listesi() or []:
             sku = str((r.get("sku") if isinstance(r, dict) else r) or "").strip()
             if sku:
                 s["skular"].setdefault(sku_anahtar(sku).replace("-", "").replace(" ", ""), sku)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.soru_cevap.sozluk_kur", _e)
     return s
 
 

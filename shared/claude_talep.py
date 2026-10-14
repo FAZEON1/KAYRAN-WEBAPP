@@ -2,7 +2,7 @@
 """Talepten Claude'a — onaylı geliştirme akışı (Ekim 2026, seçenek A: tek onay).
 
   1. Çalışan Talep Merkezi'nden talep gönderir (bugünkü gibi).
-  2. Onaycı (İbrahim) talebi açar, isterse not yazar, "Claude'a gönder"e basar
+  2. Onaycı ('talep_onaylar' rolü, shared/sirket_ayar.py) talebi açar, isterse not yazar, "Claude'a gönder"e basar
      → claude_durum = 'onaylandi'. Onaysız talebe Claude dokunmaz.
   3. claude.ai'deki görev (rutin) en eski onaylı talebi üstlenir ('calisiyor'),
      otonom/claude_talep_gorevi.md'deki kurallarla kodlar, PR açar. "Claude'a gönder" rutini API ile
@@ -17,7 +17,9 @@ Claude oturumuna göre değişir, ona güvenilmez).
 """
 import re
 
-ONAYCILAR = {"ibrahim"}
+from shared import sirket_ayar as _sa
+
+ONAYCILAR = set(_sa.VARSAYILAN_ROLLER[_sa.ROL_TALEP_ONAY])   # kod düzeyi varsayılan; asıl kaynak rol
 
 CLAUDE_DURUM_AD = {
     "onaylandi": "Claude'a gönderildi",
@@ -39,11 +41,11 @@ _BASLIK = re.compile(r"Talep\s*#\s*(\d+)", re.IGNORECASE)
 
 
 def onaylayabilir_mi(kullanici, ozel_yetki=None):
-    """Talebi Claude'a gönderebilir mi? Sabit onaycılar + (varsa) 'claude_onay' özel yetkisi."""
+    """Talebi Claude'a gönderebilir mi? 'talep_onaylar' rolü + (varsa) 'claude_onay' özel yetkisi."""
     k = str(kullanici or "").strip().lower()
     if not k:
         return False
-    if k in ONAYCILAR:
+    if _sa.rol_var_mi(k, _sa.ROL_TALEP_ONAY):
         return True
     try:
         return bool(ozel_yetki and ozel_yetki(k, "claude_onay"))
@@ -208,7 +210,7 @@ def pr_mailleri(talep, yeni_durum, pr_url):
     from shared import eposta as E
     konu = (talep or {}).get("konu") or "Talep"
     tid = (talep or {}).get("id")
-    onayci = str((talep or {}).get("claude_onaylayan") or "ibrahim").strip().lower()
+    onayci = str((talep or {}).get("claude_onaylayan") or _sa.talep_onaycisi()).strip().lower()
     sahip = str((talep or {}).get("gonderen") or "").strip().lower()
     if yeni_durum == "pr_hazir":
         govde = (f"<p><b>Talep #{tid} · {E._e(konu)}</b> için PR hazır. İnceleyip birleştirdiğinde "

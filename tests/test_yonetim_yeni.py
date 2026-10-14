@@ -136,7 +136,7 @@ def test_yedek_listesi_kodla_uyumlu():
     import yonetim as Y
     eksik = _kodda_kullanilan_tablolar() - set(Y.YEDEK_TABLOLAR) - set(Y.YEDEK_HARIC)
     assert not eksik, f"yedeğe girmeyen tablo: {sorted(eksik)} — YEDEK_TABLOLAR ya da YEDEK_HARIC'e ekle"
-    for t in ("iadeler", "tahsilatlar", "alinan_destekler", "ref_no", "edefter_fisler",
+    for t in ("iadeler", "tahsilatlar", "alinan_destekler", "ref_kayitlari", "edefter_fisler",
               "stok_hareketleri", "kullanici_yetkileri", "happylife_stok"):
         assert t in Y.YEDEK_TABLOLAR, t
     assert "kullanici_sifreler" in Y.YEDEK_HARIC and "kullanici_sifreler" not in Y.YEDEK_TABLOLAR

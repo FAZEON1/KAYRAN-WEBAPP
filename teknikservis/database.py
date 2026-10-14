@@ -13,6 +13,7 @@ from datetime import datetime, date, timedelta, timezone
 
 import streamlit as st
 from supabase import create_client, Client
+from shared.kayit import sessiz
 
 # İstanbul saati (UTC+3) — sunucu UTC olabilir; kayıt saatleri TR'ye sabitlenir
 TR_TZ = timezone(timedelta(hours=3))
@@ -109,8 +110,8 @@ def ekle_ts_firma(ad):
     try:
         _ayar_liste_yaz("ts_manuel_firmalar",
                         _ayar_liste_oku("ts_manuel_firmalar") + [ad])
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("teknikservis.database.ekle_ts_firma", _e)
 
 
 # ── İrsaliye (madde 8) ───────────────────────────────────────────────
@@ -146,8 +147,8 @@ def irsaliye_isle(kayit_idler, irsaliye_no, personel="", aciklama=""):
             try:
                 sb.table("ts_kayitlar").update({"irsaliye_no": irsaliye_no}) \
                     .eq("id", kid).execute()
-            except Exception:
-                pass          # kolon yoksa sessiz geç — geçmiş kaydı yine düşer
+            except Exception as _e:
+                sessiz("teknikservis.database.irsaliye_isle", _e, "debug")  # kolon yoksa sessiz geç — geçmiş kaydı yine düşer
             sb.table("ts_gecmis").insert({
                 "kayit_id": kid, "durum": "irsaliye",
                 "aciklama": (f"Sevk irsaliyesi düzenlendi: {irsaliye_no}"
@@ -197,8 +198,8 @@ def ekle_depo_aciklama(txt):
         _lst = [x for x in _ayar_liste_oku("ts_depo_aciklamalar")
                 if x.lower() != txt.lower()]
         _ayar_liste_yaz("ts_depo_aciklamalar", ([txt] + _lst)[:30])  # en yeni başta, 30 tut
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("teknikservis.database.ekle_depo_aciklama", _e)
 
 
 def get_client() -> Client:
@@ -213,8 +214,8 @@ def get_client() -> Client:
 def _cache_temizle():
     try:
         st.cache_data.clear()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("teknikservis.database._cache_temizle", _e)
 
 
 def _rows(resp):
@@ -480,8 +481,8 @@ def ekle_kayit(data, personel=""):
                     _yk.kontrol("ts_kayitlar", yeni["id"], mevcut_durum="mal kabül", _gecmis_sayisi=_gecmis)
                 else:
                     _yk.iptal("servis kaydının kimliği dönmedi")
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("teknikservis.database.ekle_kayit", _e)
         _cache_temizle()
         return True, f"✅ Kayıt oluşturuldu — Servis No: {form_no}", form_no
     except Exception as e:
@@ -508,8 +509,8 @@ def durum_guncelle(kayit_id, yeni_durum, personel="", aciklama="", ekstra=None):
             for _k, _v in (ekstra or {}).items():
                 try:
                     sb.table("ts_kayitlar").update({_k: _v}).eq("id", kayit_id).execute()
-                except Exception:
-                    pass  # bu kolon tabloda yok — yalnız bunu atla
+                except Exception as _e:
+                    sessiz("teknikservis.database.durum_guncelle", _e, "debug")  # bu kolon tabloda yok — yalnız bunu atla
         sb.table("ts_gecmis").insert({
             "kayit_id": kayit_id, "durum": yeni_durum,
             "aciklama": aciklama or "", "personel": personel or "", "tarih": simdi,
@@ -790,8 +791,8 @@ def depo_etiket_pdf(kayit):
                  .order("tarih", desc=True).limit(1).execute())
             if r.data:
                 tarih = str(r.data[0].get("tarih") or "")[:10]
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("teknikservis.database.depo_etiket_pdf", _e)
     if not tarih:
         tarih = _date.today().isoformat()
     if len(tarih) == 10 and tarih[4] == "-":

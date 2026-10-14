@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
+from shared.kayit import sessiz
 
 PERSONEL = "personel"
 TALEP = "izin_talepleri"
@@ -173,5 +174,5 @@ def bildir(alicilar, mesaj, gonderen):
                 for a in sorted(set(alicilar or [])) if a and a != gonderen]
         if rows:
             _istemci().table("bildirimler").insert(rows).execute()
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.izin.bildir", _e)

@@ -24,6 +24,7 @@ işler. Tek giriş noktası: kayranpm.database.stok_hareket_coklu().
    Geçmiş ts_kayitlar kayıtları için geriye dönük hareket ÜRETİLMEZ —
    mevcut depo_kirilim değerleriyle çift sayım olurdu.
 """
+from shared.kayit import sessiz
 
 # Teknik Servis depo adı → ana stok sistemindeki KANONİK depo adı.
 # 'teknik servis' = 'TEKNİK DEPO': ithalat ve satış-iade modülleri zaten bu
@@ -167,8 +168,8 @@ def kur_bul(tarih=None):
         gun = sorted(g for g, k in kmap.items() if k and float(k) > 1)
         if gun:
             return float(kmap[gun[-1]])
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("teknikservis.stok.kur_bul", _e)
     try:
         from gunluk import get_doviz
         k = float((get_doviz() or {}).get("USD") or 0)

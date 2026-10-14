@@ -16,6 +16,7 @@ köküne data-test-script-state="running" yazar; bileşen bunu izler:
     Sayfadan ayrılma uyarısı YÜKLEMEDE çıkmaz (kullanıcı kararı, seçenek A).
 """
 import streamlit as st
+from shared.kayit import sessiz
 
 YUKLEME_GECIKME_MS = 500      # bundan kısa sürenler için kapsül çıkmaz
 ISLEM_ARA_MS = 600            # işlem bitince bu kadar bekle: st.rerun gelirse aynı işlem
@@ -128,8 +129,8 @@ def kur():
     uygulama çalışır)."""
     try:
         _bilesen()(key="kayran_islem_gostergesi")
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.islem.kur", _e, "debug")
 
 
 def bekle(metin):
