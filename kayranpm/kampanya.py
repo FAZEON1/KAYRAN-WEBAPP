@@ -31,6 +31,7 @@ from .database import (_cache_temizle, ekle_kampanya, ekle_kampanya_urun, get_cl
                        get_kampanyalar, get_kampanya_urunler, get_tum_kampanya_urunler,
                        guncelle_kampanya, guncelle_kampanya_urun, kapat_kampanya,
                        sil_kampanya, sil_kampanya_urun)
+from shared.kayit import sessiz
 
 _AY = ["", "Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
 # Liste masası (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/kampanya_masasi.py). True: yeni masa.
@@ -94,8 +95,8 @@ def _firma_secenekleri(kamps=()):
     try:
         from .ref_no import get_firmalar, ref_firma_kodu
         veri += [ref_firma_kodu(f) for f in (get_firmalar() or [])]
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("kayranpm.kampanya._firma_secenekleri", _e)
     return H.firma_secenekleri(veri + [k.get("firma") for k in (kamps or ())])
 
 

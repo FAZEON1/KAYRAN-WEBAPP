@@ -17,6 +17,7 @@ düşmez. Bu modüldeki yazma fonksiyonları hata fırlatmaz.
 import contextlib
 import contextvars
 from datetime import datetime, timezone
+from shared.kayit import sessiz
 
 TABLO = "yuklemeler"
 
@@ -391,8 +392,8 @@ def geri_al(kayit_id, kullanici, yonetici=False):
             try:   # satır adımı tek işlemdi, hiçbir şey değişmedi → sahiplenmeyi bırak
                 sb.table(TABLO).update({"durum": "aktif", "geri_alan": None}).eq("id", kayit_id) \
                   .eq("durum", "geri_aliniyor").execute()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as _e:  # noqa: BLE001
+                sessiz("shared.yukleme_gecmisi.geri_al", _e)
             m = str(e)
             if "duplicate" in m.lower() or "23505" in m:
                 return False, ("Geri alınamadı: eski satırlardan biri şu an başka bir kayıtla çakışıyor "

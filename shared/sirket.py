@@ -9,6 +9,7 @@ verilebilir (ekranda kaydedilen kazanır):
 
 Secrets'ta karşılığı varsa o kazanır; yoksa aşağıdaki varsayılan kullanılır.
 """
+from shared.kayit import sessiz
 
 _VARSAYILAN = {
     "unvan":  "KAYRAN ELEKTRONİK",          # ← resmî ticari unvan
@@ -35,6 +36,6 @@ def sirket_bilgi():
     try:
         from shared.sirket_belge import kunye_oku
         _k = kunye_oku()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("shared.sirket.sirket_bilgi", _e, "debug")
     return kunye_birlestir(_VARSAYILAN, _s, _k)

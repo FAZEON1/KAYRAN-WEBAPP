@@ -10,6 +10,7 @@ gezilince "Muhasebe", "Depo", "Satış" kutuları birikiyor, açılan pencerenin
 görünür; hedefi etkin olmayan kutu gizlenir. Kutu SİLİNMEZ (Streamlit'in kendi düğümü), yalnız
 görünmez yapılır; aynı hedefin üstüne gelince yeniden görünür.
 """
+from shared.kayit import sessiz
 
 _JS = """
 export default function(component) {
@@ -77,5 +78,5 @@ def kur():
             import streamlit.components.v2 as _v2
             _BILESEN = _v2.component("kayran_ipucu", js=_JS)
         _BILESEN(key="kayran_ipucu")
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.ipucu.kur", _e, "debug")

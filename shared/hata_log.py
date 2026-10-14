@@ -18,6 +18,7 @@ KURALLAR
 import threading
 import time
 import traceback
+from shared.kayit import sessiz
 
 TABLO = "hata_kayitlari"
 _TEKRAR_SN = 300
@@ -68,8 +69,8 @@ def kaydet(yer, hata, ayrinti="", kritik=False):
                     "ayrinti": str(ayrinti or "")[:4000], "kullanici": _kullanici()[:40],
                     "kritik": bool(kritik),
                 }).execute()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("shared.hata_log.kaydet", _e)
         if kritik:
             try:
                 from shared.telegram_gonder import gonder, kacis, aktif_mi
@@ -78,8 +79,8 @@ def kaydet(yer, hata, ayrinti="", kritik=False):
                            f"{kacis(tur)}: {kacis(mesaj[:300])}"
                            + (f"\n👤 {kacis(_kullanici())}" if _kullanici() else ""),
                            sessiz=True)
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("shared.hata_log.kaydet", _e)
         return True
     except Exception:
         return False

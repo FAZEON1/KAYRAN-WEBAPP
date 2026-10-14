@@ -32,6 +32,11 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
+try:
+    from shared.kayit import sessiz
+except Exception:  # bağımsız çalıştırmada shared yoksa kayıtsız devam
+    def sessiz(*_a, **_k):
+        return None
 
 TR = timezone(timedelta(hours=3))
 KOK = pathlib.Path(__file__).resolve().parent.parent
@@ -137,8 +142,8 @@ def tg_komutlar():
     try:
         BEKLEYEN.mkdir(parents=True, exist_ok=True)
         off_dosya.write_text(str(son))
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("otonom.onay_uygula.tg_komutlar", _e)
     return komutlar
 
 
@@ -205,8 +210,8 @@ def yama_uygula(y):
         for yol, icerik in yedek.items():
             try:
                 yol.write_text(icerik, encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("otonom.onay_uygula.yama_uygula", _e)
         return False, str(e)[:200], []
 
 

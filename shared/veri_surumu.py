@@ -20,6 +20,7 @@ Tablo henüz kurulmamışsa (ya da okunamazsa) eski davranış: BAGIMLILAR her
 YEDEK_SURE_SN'de bir temizlenir — bugünkü 5 dk sınırıyla aynı.
 """
 import time
+from shared.kayit import sessiz
 
 IZLENEN_TABLOLAR = ("urunler", "firma_stok", "stok_yas", "yoldaki_urunler",
                     "ithalat_dosyalari", "ithalat_kalemleri", "pm_ayarlar")
@@ -172,8 +173,8 @@ def tazelik_kontrol(simdi=None):
         s = _surumler()
         try:
             _satis_tazelik(s, d, simdi)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _e:  # noqa: BLE001
+            sessiz("shared.veri_surumu.tazelik_kontrol", _e)
         if s is None:                                   # tablo yok → eski 5 dk davranışı
             if simdi - d["temizlik"] >= YEDEK_SURE_SN:
                 bagimlilari_temizle()

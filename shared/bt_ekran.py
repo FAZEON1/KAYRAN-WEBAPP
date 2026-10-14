@@ -18,6 +18,7 @@ import streamlit as st
 from shared import bilesen as B
 from shared.bt_hesap import gunluk_seri, iyilestirme_satiri, karsilastir, sure_ozeti
 from shared.tasarim import bos_durum, kpi_serit, mesaj, tr_sayi
+from shared.kayit import sessiz
 
 AD = "Serkan"
 DURUM_AD = {"acik": ("PR açık", "amber"), "otomatik_birlesti": ("Otomatik birleşti", "yesil"),
@@ -192,5 +193,5 @@ def _grafik(seri):
         G.goster(fig, key="bt_grafik", yukseklik=240, aciklama=False,
                  xaxis=dict(type="category"),        # '07.10' sayı sanılmasın
                  yaxis=dict(title=None, rangemode="tozero", ticksuffix=" sn"))
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.bt_ekran._grafik", _e)

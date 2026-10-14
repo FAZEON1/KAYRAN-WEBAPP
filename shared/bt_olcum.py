@@ -7,6 +7,7 @@ bt_olcum tablosuna yazılır — sayfayı bekletmez. KURALLAR (hata_log ile ayn�
   · Tablo yoksa (veritabani/23_bilgi_islem.sql kurulmadan) sessizce geçer.
 """
 import threading
+from shared.kayit import sessiz
 
 TABLO = "bt_olcum"
 
@@ -30,8 +31,8 @@ def alt_sayfa(modul, oturum):
 def _yaz(istemci, satir):
     try:
         istemci.table(TABLO).insert(satir).execute()
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.bt_olcum._yaz", _e, "debug")
 
 
 def kaydet(modul, sayfa, ms, hata=False, kullanici=""):
@@ -42,8 +43,8 @@ def kaydet(modul, sayfa, ms, hata=False, kullanici=""):
         satir = {"modul": str(modul or "")[:40], "sayfa": str(sayfa or "")[:60], "ms": int(max(ms, 0)),
                  "hata": bool(hata), "kullanici": str(kullanici or "")[:40]}
         threading.Thread(target=_yaz, args=(istemci, satir), daemon=True).start()
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.bt_olcum.kaydet", _e, "debug")
 
 
 def son_olcumler(gun=14, limit=20000):

@@ -13,6 +13,7 @@ Maliyet mantığı:
 import streamlit as st
 from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from supabase import create_client, Client
+from shared.kayit import sessiz
 
 
 # Masraf kalemleri — (slug, görünen ad). Liste değişebilir; masraflar JSONB'de saklanır.
@@ -89,8 +90,8 @@ def _f(v, d=0.0):
 def _temizle():
     try:
         st.cache_data.clear()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("ithalat.database._temizle", _e)
 
 
 def _masraf_dict(dosya):
@@ -862,15 +863,15 @@ def ekle_dosya(dosya_no, tarih, tedarikci, mense_ulke, doviz, kur,
                         try:
                             with cop_kutusu_kapali():
                                 sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
-                        except Exception:
-                            pass
+                        except Exception as _e:
+                            sessiz("ithalat.database.ekle_dosya", _e)
                         return False, f"❌ Kalemler eklenemedi, dosya geri alındı: {str(ke2)[:150]}"
                 else:
                     try:
                         with cop_kutusu_kapali():
                             sb.table("ithalat_dosyalari").delete().eq("id", dosya_id).execute()
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        sessiz("ithalat.database.ekle_dosya", _e)
                     return False, f"❌ Kalemler eklenemedi, dosya geri alındı (yarım kayıt oluşmadı): {str(ke)[:150]}"
         if str(durum or "").strip() == "Teslim Alındı" and stok_ekle:
             _dosya_stok_uygula(dosya_id, +1,
@@ -998,8 +999,8 @@ def guncelle_dosya(dosya_id, dosya_no, pi_no, tarih, tedarikci, mense_ulke, dovi
                     if _eski_kalem:
                         _geri = [{kk: vv for kk, vv in r.items() if kk != "id"} for r in _eski_kalem]
                         sb.table("ithalat_kalemleri").insert(_geri).execute()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    sessiz("ithalat.database.guncelle_dosya._geri_yukle", _e)
             try:
                 sb.table("ithalat_kalemleri").insert(rows).execute()
             except Exception as ke:
@@ -1355,8 +1356,8 @@ def set_barkod(sku, barkod):
             {"sku": sku, "barkod": (str(barkod) or "").strip()}, on_conflict="sku").execute()
         try:
             get_barkod_map.clear()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("ithalat.database.set_barkod", _e, "debug")
         return True
     except Exception:
         return False
@@ -1404,8 +1405,8 @@ def barkod_toplu_yukle(eslesme):
         _get_client().table("urunler").upsert(rows, on_conflict="sku").execute()
         try:
             get_barkod_map.clear()
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("ithalat.database.barkod_toplu_yukle", _e, "debug")
         return len(rows), ""
     except Exception as e:
         return 0, f"{type(e).__name__}: {str(e)[:160]}"
@@ -1566,15 +1567,15 @@ def _dosya_stok_uygula(dosya_id, yon, kalem_agg=None, depo=None):
                 _islendi_yaz(sb, dosya_id, False)    # bekleyenlerde görünsün
             return
         _islendi_yaz(sb, dosya_id, yon > 0)
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("ithalat.database._dosya_stok_uygula", _e)
 
 
 def _islendi_yaz(sb, dosya_id, deger):
     try:
         sb.table("ithalat_dosyalari").update({"stok_islendi": deger}).eq("id", dosya_id).execute()
-    except Exception:
-        pass  # sütun henüz eklenmemişse (veritabani/17) kayıtsız devam
+    except Exception as _e:
+        sessiz("ithalat.database._islendi_yaz", _e, "debug")  # sütun henüz eklenmemişse (veritabani/17) kayıtsız devam
 
 
 def _teslim_ayir(dosyalar, kalem_map):
@@ -1670,8 +1671,8 @@ def teslim_stok_isle(dosya_idler=None):
             try:  # kısmi uygulamayı geri al → dosya olduğu gibi bekleyende kalsın
                 stok_hareket_coklu({s: -a for s, a in _agg.items()
                                     if s not in set(atl)}, _depo)
-            except Exception:
-                pass
+            except Exception as _e:
+                sessiz("ithalat.database.teslim_stok_isle.geri_cekme", _e)
             mesajlar.append(f"❌ {b['dosya_no']}: {len(atl)} SKU işlenemedi "
                             f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — "
                             f"dosya İŞLENMEDİ (ya hep ya hiç), bekleyenlerde duruyor")
@@ -1679,8 +1680,8 @@ def teslim_stok_isle(dosya_idler=None):
         if uyg:
             try:
                 sb.table("ithalat_dosyalari").update({"stok_islendi": True}).eq("id", b["id"]).execute()
-            except Exception:
-                pass  # bayrak kolonu yoksa sorun değil; stok yine de işlendi
+            except Exception as _e:
+                sessiz("ithalat.database.teslim_stok_isle.bayrak", _e)  # bayrak kolonu yoksa sorun değil; stok yine de işlendi
             islenen += 1
             eklenen += uyg
         elif atl:
@@ -1688,6 +1689,6 @@ def teslim_stok_isle(dosya_idler=None):
                             f"({', '.join(atl[:5])}{' …' if len(atl) > 5 else ''}) — bekleyenlerde duruyor")
     try:
         _temizle()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("ithalat.database.teslim_stok_isle.onbellek", _e)
     return islenen, eklenen, mesajlar

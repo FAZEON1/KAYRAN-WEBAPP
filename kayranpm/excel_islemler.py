@@ -5,6 +5,7 @@ from datetime import datetime
 from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik, get_today
 from shared.utils import normalize_tr
 import math
+from shared.kayit import sessiz
 
 def safe_float(val, default=0.0):
     """NaN ve None değerlerini güvenli şekilde float'a çevirir."""
@@ -422,8 +423,8 @@ def _firma_coz(firma_ham, cariler=None):
                     return rol
             if _firma_normalize(cfg.get("onek", "")) == fn:
                 return rol
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.excel_islemler._firma_coz", _e)
     if fn in ("DIGER", "DIĞER"):
         return "DIGER"
     from shared.utils import cari_eslestir
@@ -642,8 +643,8 @@ def excel_yukle_g5f_depolar(dosya_yolu, onizle=False, ozet=None):
                 _gs = str(_r.get("sku") or "").strip()
                 if _gs:
                     mevcut_sku_map[normalize_sku(_gs)] = _gs
-        except Exception:
-            pass
+        except Exception as _se:
+            sessiz("kayranpm.excel_islemler.excel_yukle_g5f_depolar", _se)
 
         if onizle:
             _sifir = []
@@ -654,8 +655,8 @@ def excel_yukle_g5f_depolar(dosya_yolu, onizle=False, ozet=None):
                     if (_gs and isinstance(_dk, dict) and any(safe_int(v) for v in _dk.values())
                             and normalize_sku(_gs) not in kirilim):
                         _sifir.append(_gs)
-            except Exception:
-                pass
+            except Exception as _se:
+                sessiz("kayranpm.excel_islemler.excel_yukle_g5f_depolar", _se)
             _es = sum(1 for k in kirilim if k in mevcut_sku_map)
             return True, {"urun": len(kirilim), "eslesen": _es, "yeni": len(kirilim) - _es,
                           "depolar": sorted(depolar_set), "atlanan": atlanan,
@@ -1164,8 +1165,8 @@ def excel_yukle_stok_kartlari(dosya_yolu):
     try:
         from .database import _cache_temizle
         _cache_temizle()
-    except Exception:
-        pass
+    except Exception as _e:
+        sessiz("kayranpm.excel_islemler.excel_yukle_stok_kartlari", _e)
 
     _dosya_skular = {normalize_sku(r.get(c_sku, "")) for _, r in df.iterrows()}
     _dosyada_olmayan = [s for s in mevcutlar if s and s not in _dosya_skular]

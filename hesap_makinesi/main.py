@@ -21,6 +21,7 @@ from shared.tasarim import renk as trenk
 from shared.utils import metrik_satiri
 
 from .hm_hesap import karlilik, kirilma, gokhan_prim, donem_var_mi, not_ekle, notlari_ayir
+from shared.kayit import sessiz
 
 
 def _tarih_tr(v):
@@ -83,8 +84,8 @@ def _guncel_kur():
         k = _doviz_usd()
         if k > 1:
             return round(k, 2)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _e:  # noqa: BLE001
+        sessiz("hesap_makinesi.main._guncel_kur", _e, "debug")
     return 40.0
 
 

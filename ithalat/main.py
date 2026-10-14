@@ -24,6 +24,7 @@ from .database import (
     get_barkod_map, set_barkod, barkod_toplu_yukle, urun_bilgi_toplu_yukle, sil_dosya,
     ithalat_mi,
 )
+from shared.kayit import sessiz
 
 
 # Teslim deposu seçenekleri (açılır liste)
@@ -1292,8 +1293,8 @@ def _gecmis_ithalatlar():
                                      for m in _manuel_yeni])
                                 if _n:
                                     st.toast(f"🆕 {_n} yeni stok kartı açıldı", icon="🆕")
-                            except Exception:
-                                pass
+                            except Exception as _e:
+                                sessiz("ithalat.main._gecmis_ithalatlar._dlg_dosya_detay._dosya_duzen_govde", _e)
                         for _sk in [k for k in list(st.session_state.keys())
                                     if k in (f"ith_edit_indirim_{did}", f"ith_edit_kur_{did}")
                                     or k.startswith(f"ith_edit_mas_{did}_")

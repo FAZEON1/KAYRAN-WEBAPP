@@ -18,6 +18,11 @@ import html
 
 # Repo kökünü import yoluna ekle (Actions'ta script kökten çalışır ama garanti olsun)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from shared.kayit import sessiz
+except Exception:  # bağımsız çalıştırmada shared yoksa kayıtsız devam
+    def sessiz(*_a, **_k):
+        return None
 
 
 def fmt(n):
@@ -224,8 +229,8 @@ def main():
             _ad = float(alinan_destek_ay_usd() or 0)
             if _ad and blok:
                 blok += f"\n🎁 <b>Alınan destek (bu ay):</b> ${fmt(_ad)}"
-        except Exception:
-            pass
+        except Exception as _e:
+            sessiz("telegram_brifing.main", _e)
         if blok:
             mesaj += "\n" + blok
     except Exception as ex:
