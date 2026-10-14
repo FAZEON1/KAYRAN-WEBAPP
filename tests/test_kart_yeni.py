@@ -203,6 +203,6 @@ def test_muhasebe_ilerleme_cubugu_alt_satirda():
 
 def test_muhasebe_genel_bakis_ortak_kart():
     src = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
-    i = src.index('if sayfa == "📊 Dashboard":')
+    i = src.index('def _sayfa_dashboard(*')
     g = src[i:i + 12000]
     assert "haftalik_ozet_kartlari(" in g and "KART_YENI" in g

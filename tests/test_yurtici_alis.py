@@ -148,7 +148,7 @@ def test_menu_ve_sayfalar():
     assert menu_etiketi("Stok Yaşı") == ":material/hourglass_bottom: Stok Yaşı"
     assert hedef("kayranpm/stok_yasi") and hedef("kayranpm/maliyet")
     m = (KOK / "kayranpm" / "main.py").read_text(encoding="utf-8")
-    assert 'elif sayfa == "Stok Yaşı":' in m and "yurtici_ekran import goster" in m
+    assert '"Stok Yaşı": lambda: _sayfa_stok_yasi(' in m and "yurtici_ekran import goster" in m
     k = (KOK / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
     assert "kart_bolumu(sku)" in k
 
@@ -193,5 +193,5 @@ def test_yeni_alimda_yalniz_yurt_ici_ve_yedek_sekme_yok():
     s = (KOK / "kayranpm" / "yurtici_ekran.py").read_text(encoding="utf-8")
     assert '"Alım türü", turler' not in s and "Yedek maliyet" not in s
     m = (KOK / "kayranpm" / "main.py").read_text(encoding="utf-8")
-    g = m[m.index('elif sayfa == "💵  Yurt İçi Alış":'):m.index('elif sayfa == "📈  Müşteri Satışları":')]
+    g = m[m.index('def _sayfa_yurt_ici_alis('):m.index('def _sayfa_musteri_satislari(')]
     assert "data_editor" not in g and "_yurtici()" in g

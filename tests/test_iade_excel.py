@@ -37,5 +37,5 @@ def test_bos_donem_patlamaz():
 
 def test_iade_sayfasinda_indirme_var():
     kod = (KOK / "satis/main.py").read_text(encoding="utf-8")
-    i = kod.index('elif _ssayfa == "↩️ İade":')
+    i = kod.index('def _sayfa_iade(')
     assert 'key="iade_dl_xlsx"' in kod[i:] and "iade_excel_bytes(_satirlar, _ix_iadeler" in kod[i:]

@@ -76,8 +76,8 @@ def test_ozet():
 def test_sayfa_yeni_ekrana_bagli():
     from pathlib import Path
     s = (Path(__file__).resolve().parent.parent / "kayranpm/main.py").read_text(encoding="utf-8")
-    i = s.index('elif sayfa == "📈  Müşteri Satışları":')
-    g = s[i:s.index('elif sayfa == "🎯  Kampanya Takip":')]
+    i = s.index('def _sayfa_musteri_satislari(')
+    g = s[i:s.index('def _sayfa_kampanya_takip(')]
     assert "musteri_ekran" in g and "Ham detay" not in g and "_df['Stok'].sum()" not in g
     e = (Path(__file__).resolve().parent.parent / "kayranpm/musteri_ekran.py").read_text(encoding="utf-8")
     for ad in ("Müşteri", "Marka", "Ürün", "Kategori"):

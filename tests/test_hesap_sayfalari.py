@@ -16,7 +16,7 @@ def _oku(y):
 
 def _nakit_blogu():
     s = _oku("kayranacc/main.py")
-    return s[s.index('elif sayfa == "💸 Nakit Akış":'):s.index("# 5) FİRMA ÇEKLERİ")]
+    return s[s.index('def _sayfa_nakit_akis('):s.index("# 5) FİRMA ÇEKLERİ")]
 
 
 def test_nakit_akis_tek_eksen_iki_grafik():

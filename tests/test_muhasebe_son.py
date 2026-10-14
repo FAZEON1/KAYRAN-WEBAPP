@@ -54,8 +54,8 @@ def test_edefter_bos_fis_notr():
 
 def test_genel_bakis_buyuk_harf_yok():
     m = _oku("kayranacc/main.py")
-    a = m.index('if sayfa == "📊 Dashboard":')
-    b = m.index('elif sayfa == "💳 Bu Hafta":')
+    a = m.index('def _sayfa_dashboard(*')
+    b = m.index('def _sayfa_bu_hafta(')
     assert "uppercase" not in m[a:b]
     assert "text-transform: uppercase !important" not in m          # stMetricLabel
 
