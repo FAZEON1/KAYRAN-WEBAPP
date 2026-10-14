@@ -31,6 +31,13 @@ from .database import (get_satislar_yalin, get_siparis_kalemleri, get_satislar_k
                        guncelle_satis, sil_satis, sil_siparis, satir_kar, get_sku_kategori, get_urunler)
 
 
+# ── Liste masası (Ekim 2026, tüm program yeni tasarım): sipariş ve kalem listesi ortak masada
+# (shared/masa.py; tanım satis/satis_masasi.py). Satış girişi'ndeki "son siparişler" de aynı
+# siparis_listesi'ni kullandığı için bu bayrağa bağlı. True: yeni masa. False: aşağıdaki eski
+# tıklanır satırlar ve kalem tablosu aynen (geri almak için YALNIZ bu satırı değiştir).
+SATISLAR_MASASI_YENI = True
+
+
 def _usd(v):
     return "—" if v is None else sayi(v, "$")
 
@@ -97,6 +104,8 @@ def _satir_html(o, firma_goster=True):
 def siparis_listesi(siparisler, anahtar="sat", firma_goster=True, sayfa=40, gunluk=True):
     """Siparişleri (güne göre gruplu) tıklanır satırlar olarak çizer; detay penceresi
     çağıranın sonunda siparis_detay_kontrol() ile açılır."""
+    if SATISLAR_MASASI_YENI:
+        return siparis_masasi(siparisler, anahtar, firma_goster=firma_goster, ozet=False)
     st.markdown(_css(), unsafe_allow_html=True)
     lim_k = f"{anahtar}_limit"
     limit = int(st.session_state.get(lim_k, sayfa))
@@ -117,6 +126,24 @@ def siparis_listesi(siparisler, anahtar="sat", firma_goster=True, sayfa=40, gunl
                      type="tertiary", use_container_width=True):
             st.session_state[lim_k] = limit + sayfa
             st.rerun(scope="fragment")
+
+
+def siparis_masasi(siparisler, anahtar="sat", firma_goster=True, ozet=True):
+    """Yeni sipariş listesi (ortak masa): satıra tıklayınca bugünkü sipariş penceresi istenir
+    (B.detay_ac("sip", …)); pencereyi çağıran sayfanın sonundaki siparis_detay_kontrol() açar."""
+    from shared.masa import calistir
+    from . import satis_masasi as SM
+    calistir(SM.siparis_masa_verisi(siparisler, kar_gorunur(), ozet=ozet, firma_goster=firma_goster),
+             f"{anahtar}_masa", SM.siparis_yurutucu())
+
+
+def _kalem_masasi(kalemler):
+    """Yeni kalem görünümü (ortak masa): eski st.dataframe "sat_kalem_tablo" ile aynı sütunlar ve sayılar;
+    satıra tıklayınca o kalemin siparişi açılır."""
+    from shared.masa import calistir
+    from . import satis_masasi as SM
+    calistir(SM.kalem_masa_verisi(kalemler, get_sku_kategori() or {}, kar_gorunur(), satir_kar),
+             "sat_kalem_masa", SM.siparis_yurutucu())
 
 
 def siparis_detay_kontrol():
@@ -251,6 +278,8 @@ def render_satislar(hizli_tarih_araligi, kanallar):
         f = B.filtre(st, [{"etiket": "Firma", "secenekler": firmalar, "key": "sat_f_firma",
                            "format_func": lambda x: x if x == "Tümü" else firma_kisa_ad(x)}], genislik="content")
     siparisler = H.ara(H.siparis_grupla(ham, satir_kar), aranan, f["sat_f_firma"])
+    if SATISLAR_MASASI_YENI:
+        return _satislar_masa(siparisler, ham, gor, bas, bit, f["sat_f_firma"])
     t = H.toplam(siparisler)
     kal = [{"etiket": "Sipariş", "deger": tr_sayi(t["siparis"]), "renk": "mor",
             "alt": f"{tr_sayi(sum(o['kalem'] for o in siparisler))} kalem"},
@@ -277,6 +306,26 @@ def render_satislar(hizli_tarih_araligi, kanallar):
     else:
         _kalem_tablosu(kalemler)
     _indir(kalemler, bas, bit, f["sat_f_firma"])
+    siparis_detay_kontrol()
+
+
+def _satislar_masa(siparisler, ham, gor, bas, bit, firma):
+    """Yeni Satışlar gövdesi: özet bandı ve liste ortak masada. Dönem, arama, görünüm ve firma süzgeci
+    yukarıdaki araç çubuğunda kalır — özet ve Excel/CSV ekrandaki süzgecin aynısından hesaplanır."""
+    maliyetsiz = sum(o["maliyetsiz"] for o in siparisler)
+    if maliyetsiz and kar_gorunur():
+        st.markdown(mesaj("uyari", f"{maliyetsiz} kalemde birim maliyet 0: bu siparişlerin kârı olduğundan "
+                                   "yüksek görünür (Uyarı sütununda işaretli)."), unsafe_allow_html=True)
+    if not siparisler:
+        st.markdown(bos_durum("Bu dönemde satış yok" if not ham else "Aramaya uyan sipariş yok",
+                              "Dönemi genişlet ya da aramayı değiştir.", "receipt_long"), unsafe_allow_html=True)
+        return
+    kalemler = [k for o in siparisler for k in o["kalemler"]]
+    if gor == "Sipariş":
+        siparis_masasi(siparisler, "sat")
+    else:
+        _kalem_masasi(kalemler)
+    _indir(kalemler, bas, bit, firma)
     siparis_detay_kontrol()
 
 
