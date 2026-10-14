@@ -108,3 +108,13 @@ def test_stok_karti_aramasi_ust_cubukta():
     assert ".st-key-ust_arac .st-key-pm_arac{margin:0 !important;width:100% !important;overflow:visible !important;}" in c
     tel = c.split("@media (max-width:640px){", 1)[1]
     assert ".st-key-ustnav:has(.st-key-ust_arac input){display:block !important;" in tel
+
+
+def test_kenar_cubugu_icerigin_ustune_binmez():
+    """Streamlit'in genişlik tutamacı kabı (kenar çubuğunun ikinci çocuğu) akışta kalınca içeriğin solunu (x 248–496)
+    görünmez biçimde kaplıyordu: oradaki çiplere (Tüm markalar, Tüm müşteriler…) tıklanmıyor, tekerlek sayfayı
+    kaydırmıyordu (Ekim 2026, kullanıcı bildirdi). Kap genişliksiz ve tıklamasız olmalı."""
+    masa = SM.css(False, "x").split("@media (max-width:768px){", 1)[0]
+    assert 'section[data-testid="stSidebar"] > div:not([data-testid="stSidebarContent"]){position:absolute !important;' in masa
+    assert "width:0 !important;height:0 !important;overflow:hidden !important;\n    pointer-events:none !important;" in masa
+    assert '[data-testid="stSidebarResizeHandle"]{display:none !important;}' in masa
