@@ -89,6 +89,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
 for _d in ("yonetim_hesap.py", "yonetim_pano.py", "yonetim_para.py"):   # kökteki modüller
     _TARANAN_MODULLER[_d[:-3]] = _ust_duzey_isimler(KOK / _d)
 _TARANAN_MODULLER["shared.surum"] = _ust_duzey_isimler(KOK / "shared" / "surum.py")   # sürüm tek kaynak
+_TARANAN_MODULLER["veritabani.uygula"] = _ust_duzey_isimler(KOK / "veritabani" / "uygula.py")   # kayıtlı migration
 
 
 def _kirik_importlar():
@@ -130,6 +131,8 @@ def test_kirik_import_yok():
 #    Yeni bir düzeltme eklediğinde buraya da ekle.
 # ═══════════════════════════════════════════════════════════════════════
 KRITIK_FONKSIYONLAR = {
+    "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
+                          "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
     "kayranpm.database": [
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
