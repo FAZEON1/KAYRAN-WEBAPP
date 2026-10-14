@@ -16,8 +16,7 @@ Müşteri raflarındaki mal satılmış sayılır (stok_hesap kuralı): alacak k
 Saf fonksiyonlar (test edilir): usd, harita, ozet_cumlesi.
 """
 from shared.kayit import sessiz
-EUR_BANKA = 1.08     # kayranacc.banka_ekran.EUR_USD ile aynı
-EUR_CARI = 1.10      # Toplam Aktifler'in cari kuralı (kayranacc/main.py)
+# EUR→USD: güncel kur (shared.kur.eur_usd). Eskiden banka 1,08, cari 1,10 sabitti (Ekim 2026).
 
 ITH_ASAMA = [("Üretimde", "Üretimde", ("Üretimde",)), ("Yolda", "Yolda", ("Yolda",)),
              ("Gümrük / antrepo", "Gümrük / antrepo", ("Gümrükte", "Antrepoda"))]
@@ -46,10 +45,15 @@ def _blok(ad, tutar, renk, hedef, alt="", grup=""):
     return {"ad": ad, "tutar": max(_f(tutar), 0.0), "renk": renk, "hedef": hedef, "alt": alt, "grup": grup}
 
 
-def harita(v, kur):
+def harita(v, kur, eur=None):
     """v: {ithalat: {durum: $}, depo: {yaş grubu: $}, alacak: {usd,tl,eur}|None, banka: [satır],
     borc: {usd,tl,eur}|None, cek: (tl, usd), odeme: (tl, usd), alacak_tarih, ...}.
+    eur: 1 EUR kaç USD (verilmezse shared.kur.eur_usd — güncel kur).
     Döner: {varlik: [blok], borc: [blok], toplam_varlik, toplam_borc, net, mal_pay, depo, yasli, bilgi, eksik}."""
+    if not eur:
+        from shared import kur as _K
+        eur = _K.eur_usd()
+    EUR_BANKA = EUR_CARI = eur
     eksik = []
     varlik = []
     ith = v.get("ithalat") or {}

@@ -23,7 +23,7 @@ from shared.tasarim import kpi_serit, tr_sayi, mesaj
 from .database import banka_ekle, banka_guncelle, banka_sil, get_bankalar, get_tahsilatlar
 
 SEMBOL = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
-EUR_USD = 1.08     # eski ekranla aynı sabit (toplam USD değerinde)
+# EUR→USD artık güncel kur (shared.kur.eur_usd); eskiden sabit 1,08 idi (Ekim 2026).
 
 
 def _para(v, pb):
@@ -35,11 +35,15 @@ def _para(v, pb):
 BANKA_MASASI_YENI = True
 
 
-def banka_ozet_kalemleri(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0):
-    """Toplam şeridinin kalemleri (saf): eski kartlar ve yeni masanın özeti aynı formülden."""
+def banka_ozet_kalemleri(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0, eur=None):
+    """Toplam şeridinin kalemleri: eski kartlar ve yeni masanın özeti aynı formülden.
+    eur: 1 EUR kaç USD (verilmezse shared.kur.eur_usd — güncel kur)."""
     t = {pb: sum(float(b.get("bakiye") or 0) for b in bankalar if b.get("para_birimi") == pb)
          for pb in ("TL", "USD", "EUR")}
-    usd_deger = t["USD"] + (t["TL"] / kur if kur else 0) + t["EUR"] * EUR_USD
+    if t["EUR"] and not eur:
+        from shared import kur as _K
+        eur = _K.eur_usd()
+    usd_deger = t["USD"] + (t["TL"] / kur if kur else 0) + t["EUR"] * (eur or 0)
     kal = [{"etiket": "Toplam TL", "deger": _para(t["TL"], "TL"), "renk": "mor",
             "alt": f"{sum(1 for b in bankalar if b.get('para_birimi') == 'TL')} hesap"},
            {"etiket": "Toplam USD", "deger": _para(t["USD"], "USD"), "renk": "cyan",

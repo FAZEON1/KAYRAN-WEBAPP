@@ -19,9 +19,13 @@ monkeypatch ile açıkça sahte veri verilir (bkz. test dosyalarındaki
 `_sahte_rows`).
 """
 
+import os
 import sys
 import types
 from pathlib import Path
+
+# Kur API'sine (shared/kur.eur_usd) testlerde çıkılmaz: yedek kur (1,08) kullanılır.
+os.environ.setdefault("KAYRAN_KUR_CEVRIMDISI", "1")
 
 # Repo kökü import yoluna girsin (tests/ alt klasöründen çalıştırılıyor)
 KOK = Path(__file__).resolve().parent.parent

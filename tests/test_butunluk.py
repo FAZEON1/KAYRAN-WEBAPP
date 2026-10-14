@@ -81,7 +81,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
-               "sirket_ayar.py",
+               "sirket_ayar.py", "kur.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -332,6 +332,7 @@ KRITIK_FONKSIYONLAR = {
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
+    "shared.kur": ["eur_usd", "usd_try", "banka_karsiligi"],   # kur tek kaynak (Eki 2026)
     "shared.kayit": ["sessiz", "yapilandir", "baslat", "sentry_baslat"],   # yutulan hatalar loga (Eki 2026)
     "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap",
                       "oturum_olustur", "oturum_dogrula", "oturum_anahtari"],

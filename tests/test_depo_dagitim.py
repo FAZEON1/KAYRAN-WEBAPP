@@ -148,10 +148,11 @@ def test_otomatik_merkez_yetmezse_digerleri_coktan_aza(hareket_kaydi, monkeypatc
         "X1": {"MERKEZ DEPO": 2, "HAPPY LIFE": 3, "ASEL DEPO": 8},
     })
     sdb._stok_akilli_dus({"X1": 9}, None)
-    # 2 merkez + 7 ASEL (8 > 3 olduğu için önce ASEL); HAPPY'e hiç gerek kalmaz
+    # 2 merkez + 3 HAPPY; ASEL satılabilir depo değil (Ekim 2026: eskiden önce ASEL'den 7 düşülüyordu),
+    # kalan 4 merkeze eksi → merkez toplam 6
     assert _dus_toplami(hareket_kaydi) == {
-        "MERKEZ DEPO": {"X1": 2},
-        "ASEL DEPO": {"X1": 7},
+        "MERKEZ DEPO": {"X1": 6},
+        "HAPPY LIFE": {"X1": 3},
     }
 
 

@@ -193,6 +193,25 @@ def odeme_ekle_manuel(hafta_id, firma, aciklama, cari_banka, vade, tutar_tl, tut
     _cache_temizle()
 
 
+def _banka_tutari(pb, tutar_tl, tutar_usd, kur, yer=""):
+    """Ödemenin banka hesabının para birimindeki karşılığı (shared.kur.banka_karsiligi).
+    Kur verilmediyse kur_gunluk'taki son kur. Kur gerekip de hiç yoksa None → bakiye DEĞİŞTİRİLMEZ
+    (eskiden kur 1,0 sayılıyor, 100 USD TL bankadan ₺100 düşülüyordu). EUR hesapta TL+USD toplamının
+    EUR karşılığı düşer (eskiden yalnız TL kısmı). Ekim 2026."""
+    from shared.kur import banka_karsiligi
+    k = float(kur) if kur and float(kur) > 0 else None
+    if k is None and (float(tutar_usd or 0) or float(tutar_tl or 0)):
+        try:
+            k = get_kur()
+        except Exception:
+            k = None
+    d = banka_karsiligi(pb, tutar_tl, tutar_usd, k)
+    if d is None:
+        sessiz(f"kayranacc.database.{yer}.kur_yok",
+               RuntimeError("USD/TL kuru yok; banka bakiyesi güncellenmedi (1:1 düşülmez)"))
+    return d
+
+
 def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     """
     Ödeme durumunu günceller.
@@ -240,36 +259,26 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     try:
         tutar_tl = float(odeme.get("tutar_tl") or 0)
         tutar_usd = float(odeme.get("tutar_usd") or 0)
-        kur_val = float(kur) if kur and float(kur) > 0 else 1.0
-
         # 1) Ödendi → banka bakiyesinden düş (sadece önceki durum "bekliyor" iken)
         # ÖNEMLİ: Eğer zaten "odendi" ise tekrar düşme yapma (çifte düşüm koruması)
         if durum == "odendi" and banka_id and onceki_durum != "odendi":
             banka_res = sb.table("bankalar").select("*").eq("id", banka_id).execute()
             if banka_res.data:
                 banka = banka_res.data[0]
-                yeni_bakiye = float(banka["bakiye"])
-                if banka["para_birimi"] == "TL":
-                    yeni_bakiye -= tutar_tl + (tutar_usd * kur_val)
-                elif banka["para_birimi"] == "USD":
-                    yeni_bakiye -= tutar_usd + (tutar_tl / kur_val)
-                else:
-                    yeni_bakiye -= tutar_tl
-                sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+                _d = _banka_tutari(banka.get("para_birimi"), tutar_tl, tutar_usd, kur, "odeme_durum_guncelle")
+                if _d is not None:
+                    yeni_bakiye = float(banka["bakiye"]) - _d
+                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
 
         # 2) Geri al (odendi → bekliyor): önceki bankaya iade — sadece banka_id kolonu varsa
         elif durum == "bekliyor" and onceki_durum == "odendi" and onceki_banka_id:
             banka_res = sb.table("bankalar").select("*").eq("id", onceki_banka_id).execute()
             if banka_res.data:
                 banka = banka_res.data[0]
-                yeni_bakiye = float(banka["bakiye"])
-                if banka["para_birimi"] == "TL":
-                    yeni_bakiye += tutar_tl + (tutar_usd * kur_val)
-                elif banka["para_birimi"] == "USD":
-                    yeni_bakiye += tutar_usd + (tutar_tl / kur_val)
-                else:
-                    yeni_bakiye += tutar_tl
-                sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", onceki_banka_id).execute()
+                _d = _banka_tutari(banka.get("para_birimi"), tutar_tl, tutar_usd, kur, "odeme_durum_guncelle")
+                if _d is not None:
+                    yeni_bakiye = float(banka["bakiye"]) + _d
+                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", onceki_banka_id).execute()
                 # banka_id'yi temizle (varsa)
                 try:
                     sb.table("odemeler").update({"banka_id": None}).eq("id", odeme_id).execute()
@@ -351,18 +360,13 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
     # 3) Banka bakiyesinden ödenen kısmı düş
     if banka_id:
         try:
-            kur_val = float(kur) if kur and float(kur) > 0 else 1.0
             br = sb.table("bankalar").select("*").eq("id", banka_id).execute()
             if br.data:
                 banka = br.data[0]
-                yeni_bakiye = float(banka["bakiye"])
-                if banka["para_birimi"] == "TL":
-                    yeni_bakiye -= kismi_tl + (kismi_usd * kur_val)
-                elif banka["para_birimi"] == "USD":
-                    yeni_bakiye -= kismi_usd + (kismi_tl / kur_val)
-                else:
-                    yeni_bakiye -= kismi_tl
-                sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+                _d = _banka_tutari(banka.get("para_birimi"), kismi_tl, kismi_usd, kur, "odeme_kismi_ode")
+                if _d is not None:
+                    yeni_bakiye = float(banka["bakiye"]) - _d
+                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
         except Exception as _e:
             sessiz("kayranacc.database.odeme_kismi_ode.banka", _e)
     _cache_temizle()
@@ -1153,6 +1157,7 @@ def get_cek_toplamlari():
     - Tamamen ödenmiş: meblagh ≈ odenen (ya da kalan ≤ 0)
 
     "Ciro Edildi" durumundakiler DAHİL EDİLİR (hala borç anlamında).
+    Çek başına kalan cek_tutarlari'dan (listeyle aynı kural). EUR çekler USD toplamına USD karşılığıyla.
     Returns: (toplam_tl, toplam_usd, adet_tl, adet_usd)
     """
     sb = get_client()
@@ -1174,39 +1179,26 @@ def get_cek_toplamlari():
         toplam_usd = 0.0
         adet_tl = 0
         adet_usd = 0
+        # Çek başına kalan, çek listesiyle AYNI kuraldan (cek_tutarlari). Eskiden burada ayrı kural vardı:
+        # kalan sütunu meblağ−ödenen ile uyuşmasa da kullanılıyordu, kart ile liste farklı toplam
+        # gösterebiliyordu. EUR çek TL toplamına ekleniyordu; artık USD karşılığıyla USD'ye (Ekim 2026).
+        _eur = None
         for c in res.data or []:
             try:
-                # 1) Durumdan tahsil edilmiş/iptal çekleri atla
                 if _tr_norm(c.get("durum")) in ODENDI_SET:
                     continue
-
-                # 2) Tutarları al ve gerçek kalan hesapla
-                meblag = float(c.get("meblagh") or c.get("meblag") or 0)
-                odenen = float(c.get("odenen") or 0)
-                kalan_kolon = c.get("kalan")
-
-                # Gerçek kalan: meblagh - odenen (kalan kolonu yanıltıcı olabilir)
-                gercek_kalan = meblag - odenen
-
-                # 3) Tamamen ödenmiş (1 cent toleransla)
-                if gercek_kalan <= 0.01:
-                    continue
-
-                # Kalan kolon dolu ve mantıklıysa onu kullan, değilse hesapla
-                try:
-                    kalan_v = float(kalan_kolon) if kalan_kolon else gercek_kalan
-                    # Eğer kolon değeri meblag'a eşitse muhtemelen hiç güncellenmemiş — gerçek kalanı kullan
-                    if kalan_v == meblag and odenen > 0:
-                        kalan_v = gercek_kalan
-                except (TypeError, ValueError):
-                    kalan_v = gercek_kalan
-
+                kalan_v = cek_tutarlari(c)["kalan"]
                 if kalan_v <= 0.01:
                     continue
-
                 pb = (c.get("para_birimi") or "TL").upper().strip()
                 if pb == "USD":
                     toplam_usd += kalan_v
+                    adet_usd += 1
+                elif pb == "EUR":
+                    if _eur is None:
+                        from shared.kur import eur_usd
+                        _eur = eur_usd()
+                    toplam_usd += kalan_v * _eur
                     adet_usd += 1
                 else:
                     toplam_tl += kalan_v
