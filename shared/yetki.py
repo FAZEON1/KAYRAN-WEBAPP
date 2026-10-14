@@ -37,6 +37,27 @@ OZEL_ADI = {"yonetim": "Yönetim P&L", "patron_panel": "Patron Panosu",
             "gider_girisi": "Gider tablosu yükleme",
             "kar": "Kâr ve marj görme (Satış P&L)"}
 
+# Kişiye bağlı roller (shared/sirket_ayar.py, Ekim 2026): eskiden kodda kişi adıyla
+# yazılıydı. Etiketi taşıyan kimse yoksa sirket_ayar sistem_ayarlari'na, o da yoksa
+# bugünkü varsayılana düşer — etiket vermeden davranış değişmez.
+from shared import sirket_ayar as _sa   # noqa: E402 — modül düzeyinde proje içe aktarmaz
+
+
+def _yukleme_rol_adlari():
+    try:
+        from shared.yukleme_takvimi import KAYNAKLAR
+        return [(k["anahtar"], k["ad"]) for k in KAYNAKLAR]
+    except Exception:  # noqa: BLE001 — yetki modülü hiçbir koşulda çökmesin
+        return [(a, a) for a in _sa.VARSAYILAN_YUKLEME]
+
+
+for _r in _sa.ROLLER:
+    OZEL.append(_r)
+    OZEL_ADI[_r] = _sa.ROL_ADI[_r]
+for _a, _ad in _yukleme_rol_adlari():
+    OZEL.append(_sa.yukleme_rolu(_a))
+    OZEL_ADI[_sa.yukleme_rolu(_a)] = f"Yükleme sorumlusu: {_ad}"
+
 
 def _norm(k):
     return str(k or "").strip().lower()

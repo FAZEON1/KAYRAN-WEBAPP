@@ -151,20 +151,20 @@ def _hizli_sayim(tablo: str, kolon: str = None, degerler=None):
 # ─────────────────────────────────────────────────────────────────────
 # YETKİ TANIMLARI
 # ─────────────────────────────────────────────────────────────────────
-KAYRANACC_KULLANICILAR = {"ibrahim", "derman", "cem", "pamuk", "serkan", "yilmaz", "korkut", "caglar",
-                          "serdar"}
-KAYRANPM_KULLANICILAR  = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
-HESAP_MAKINESI_KULLANICILAR = {"ibrahim"}
-ITHALAT_KULLANICILAR = {"ibrahim", "kemal", "serkan", "derya", "gokhan", "korkut", "caglar", "cem", "pamuk",
-                        "serdar"}
-TEKNIKSERVIS_KULLANICILAR = {"ibrahim", "berkay", "gokhan", "cem", "pamuk", "derya", "samet", "serkan", "korkut",
-                             "serdar"}
-SATIS_KULLANICILAR = {"ibrahim", "gokhan", "derya", "serkan", "korkut", "caglar"}
-DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | {"samet", "berkay", "selcuk", "serdar"}
-YONETIM_KULLANICILAR = {"ibrahim", "korkut", "serkan", "caglar", "cem"}
+# Kod düzeyi YEDEK listeler (veritabanı okunamazsa) — kişi adları shared/sirket_ayar.py'de.
+# Her satır kendi başına çalışır (__import__): tests/test_butunluk.py satırları tek tek yürütür.
+from shared import sirket_ayar as _sirket_ayar   # noqa: E402 — roller ve şirket kimliği (tek kaynak)
+KAYRANACC_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kayranacc")
+KAYRANPM_KULLANICILAR  = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kayranpm")
+HESAP_MAKINESI_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("hesap_makinesi")
+ITHALAT_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("ithalat")
+TEKNIKSERVIS_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("teknikservis")
+SATIS_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("satis")
+DEPO_KULLANICILAR = KAYRANPM_KULLANICILAR | __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("depo_ek")
+YONETIM_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("yonetim")
 # Patron Panosu — sabah kokpiti YALNIZCA bu kullanıcı(lar)a render edilir.
 # Başka biri girince blok kodu hiç çalışmaz, DOM'a inmez.
-PATRON_PANEL_KULLANICILAR = {"ibrahim"}
+PATRON_PANEL_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("patron_panel")
 
 # ── SALT-OKUR (read-only) KULLANICILAR ───────────────────────────────
 # Bu kullanicilar TUM modulleri gorur ama hicbir veriyi degistiremez.
@@ -181,7 +181,7 @@ for _k in SALT_OKUR_KULLANICILAR:
 
 
 # Kullanıcı Yönetimi ekranını görebilenler (DB yoksa geçerli sabit liste)
-KULLANICI_YONETIMI_KULLANICILAR = {"ibrahim"}
+KULLANICI_YONETIMI_KULLANICILAR = __import__("shared.sirket_ayar", fromlist=["_"]).yedek_liste("kullanici_yonetimi")
 
 
 def salt_okur_mu(kullanici):
@@ -283,7 +283,7 @@ def tum_kullanicilar():
 # ─────────────────────────────────────────────────────────────────────
 # TALEP / GERİ BİLDİRİM — Mail gönderimi
 # ─────────────────────────────────────────────────────────────────────
-TALEP_ALICI = "ibrahim.kayran@g5fteknoloji.com"   # hiçbir talep yöneticisinin adresi yoksa yedek alıcı
+TALEP_ALICI = _sirket_ayar.talep_eposta()   # hiçbir talep yöneticisinin adresi yoksa yedek alıcı (sirket_ayar)
 
 # ─────────────────────────────────────────────────────────────────────
 # ONLINE KULLANICI TAKİP
@@ -2565,7 +2565,7 @@ def anasayfa():
     _ay_ilk = _kdt.date.today().replace(day=1).isoformat()
     _bugun_iso = _kdt.date.today().isoformat()
     # Finansal rakamları (net kâr, ciro, marj) yalnızca yetkili görür — diğer personele gösterilmez
-    _finans_gor = (aktif_kullanici or "").lower() == "ibrahim"
+    _finans_gor = _sirket_ayar.rol_var_mi(aktif_kullanici, _sirket_ayar.ROL_KAR)
     _rozet = {}
     # "Erişim x/y" kartı kaldırıldı (bilgi değil süs). Net Kâr, Patron
     # Panosu'nda zaten var; aynı rakam iki yerde (üstelik farklı hesapla)
@@ -2699,8 +2699,8 @@ def anasayfa():
     # GÜNLÜK GİRİŞ SERİSİ kullanıcı talebiyle KALDIRILDI.
     # 📬 Gelen Talepler HER SAYFADA sağ alttaki Talep düğmesinde (_talep_merkezi).
 
-    # ─── YÖNETİM (sadece ibrahim) — kompakt kapalı paneller ───
-    if aktif_kullanici.lower() == "ibrahim":
+    # ─── YÖNETİM (yalnız 'yonetici' rolü; shared/sirket_ayar) — kompakt kapalı paneller ───
+    if _sirket_ayar.rol_var_mi(aktif_kullanici, _sirket_ayar.ROL_YONETICI):
         st.markdown('<div class="k-ana-bolum">Yönetici araçları</div>', unsafe_allow_html=True)
 
         # 1) Aktif kullanıcılar & son giriş zamanları

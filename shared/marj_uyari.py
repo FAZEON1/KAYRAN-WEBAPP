@@ -31,8 +31,11 @@ yönetiminde kayıtlı). Yalnız maliyeti bilinmeyen kalem varsa e-posta gitmez.
 
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 
-# Zararına satış e-postasını alanlar (kullanıcı adları; adres sistem_ayarlari 'kullanici_eposta')
-MAIL_ALICILARI = ("ibrahim", "korkut", "serkan")
+from shared import sirket_ayar as _sa
+
+# Zararına satış e-postasını alanlar (kullanıcı adları; adres sistem_ayarlari 'kullanici_eposta').
+# Asıl kaynak 'marj_uyari_alir' rolü (shared/sirket_ayar.py); bu sabit kod düzeyi varsayılandır.
+MAIL_ALICILARI = tuple(_sa.VARSAYILAN_ROLLER[_sa.ROL_MARJ_UYARI])
 
 
 def _f(v):
@@ -165,7 +168,12 @@ def mail_uret(zararli, maliyetsiz, kanal="", siparis_no="", tarih="", kullanici=
 def _mail_adresleri():
     from shared.eposta import adresler
     a = adresler()
-    return sorted({a[k] for k in MAIL_ALICILARI if a.get(k)})
+    return sorted({a[k] for k in mail_alicilari() if a.get(k)})
+
+
+def mail_alicilari():
+    """Zararına satış e-postasını alacak kullanıcı adları (rol → sistem_ayarlari → varsayılan)."""
+    return sorted(_sa.rol_sahipleri(_sa.ROL_MARJ_UYARI))
 
 
 def marj_uyarisi(kalemler, kanal="", siparis_no="", tarih="", kullanici="",
