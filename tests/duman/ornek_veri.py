@@ -218,6 +218,17 @@ def doldur(tablolar, bugun=None):
                               "depo": "MERKEZ DEPO", "onceki": 100, "sonraki": 100 - i, "degisim": -i,
                               "tur": "satis", "aciklama": "Satış düşümü", "kaynak": "excel",
                               "kullanici": "ibrahim", "basarili": True} for i in range(1, 15)]
+    T["depo_manuel_takip"] = []                  # bekleyen sevk takibi (faturalandı, depoda bekliyor)
+    for i, (firma, fa, sevkler) in enumerate([("VATAN", 120, [40, 30]), ("MONDAY", 60, [60]),
+                                              ("EERA", 25, []), ("ÖRNEK BİLGİSAYAR", 80, [10])]):
+        sku, ad, *_ = URUNLER[i * 2]
+        hrk = [{"tarih": _g(bugun - timedelta(days=12 - j * 5)), "adet": a, "belge_no": f"FT{i}{j}",
+                "fis_no": f"KYR-{bugun.year}-{i * 3 + j + 1:05d}", "e_irsaliye_no": "", "aciklama": "",
+                "kullanici": "ibrahim"} for j, a in enumerate(sevkler)]
+        T["depo_manuel_takip"].append({"id": i + 1, "firma": firma, "sku": sku, "urun_adi": ad, "fatura_adet": fa,
+                                       "sevk_edilen": sum(sevkler), "hareketler": hrk, "notlar": "",
+                                       "firma_adres": "", "firma_vd": "", "firma_vkn": "",
+                                       "olusturma": _zaman(bugun - timedelta(days=20))})
 
     # ── Teknik servis ──
     T["ts_kayitlar"], T["ts_gecmis"] = [], []
