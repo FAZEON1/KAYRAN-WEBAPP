@@ -24,6 +24,10 @@ from shared.utils import firma_gorunen_ad   # kanal kodu → firma (cari) adı
 
 ON_EK = "pm_urun"
 ADIM = 50
+# Liste masası (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/urun_masasi.py). True: yeni masa.
+# False: aşağıdaki eski liste aynen (geri almak için YALNIZ bu satır).
+URUNLER_MASASI_YENI = True
+MASA_KEY = "pm_urun_masasi"
 FILTRE_KEYS = ["pm_ul_ara", "pm_ul_sira", "pm_ul_kat", "pm_ul_mar", "pm_ul_zarar"]
 
 # (etiket, satır alanı, azalan)
@@ -185,3 +189,87 @@ def liste(urun_data, dar=False, secili=None):
 
 def _arttir():
     st.session_state["pm_ul_limit"] = int(st.session_state.get("pm_ul_limit", ADIM)) + ADIM
+
+
+# ── Yeni liste masası (URUNLER_MASASI_YENI) ─────────────────────────
+# Masa liste görünümünde de ayrıntının yanında da AYNI yerde çizilir (üst kap → sütunlar → ilk sütun →
+# pm_liste_sol): satıra tıklayıp ayrıntıya geçince masadaki arama / süzgeç / sıralama yerinde kalır.
+def _veri_sagligi(urun_data):
+    eksik_kat = sum(1 for u in urun_data if not (u.get("kategori") or "").strip())
+    eksik_mar = sum(1 for u in urun_data if not (u.get("marka") or "").strip())
+    eksik_fiy = sum(1 for u in urun_data if not (u.get("satis_fiyati") or 0))
+    eksik_mal = sum(1 for u in urun_data if not (u.get("final_cost_price") or 0))
+    sg = []
+    if eksik_kat:
+        sg.append(f'<span style="color:var(--k-amber)">{eksik_kat} kategorisiz</span>')
+    if eksik_mar:
+        sg.append(f'<span style="color:var(--k-amber)">{eksik_mar} markasız</span>')
+    if eksik_fiy:
+        sg.append(f'<span style="color:var(--k-kirmizi)">{eksik_fiy} satış fiyatsız</span>')
+    if eksik_mal:
+        sg.append(f'<span style="color:var(--k-soluk)">{eksik_mal} İthalat maliyeti yok</span>')
+    if sg:
+        st.markdown('<div style="font-size:13px;color:var(--k-soluk);margin:0 0 10px"><b>Veri sağlığı:</b> '
+                    + '  ·  '.join(sg)
+                    + ' <span style="color:var(--k-silik)">— Toplu İşlemler’deki düzenleme araçlarından doldurabilirsin</span></div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="font-size:13px;color:var(--k-yesil);margin:0 0 10px"><b>Veri sağlığı:</b> '
+                    'tüm alanlar dolu</div>', unsafe_allow_html=True)
+
+
+def _masa(urun_data, dar):
+    from shared.masa import calistir
+    from . import urun_masasi as UM
+    calistir(UM.masa_verisi(urun_data, dar=dar), MASA_KEY, UM.yurutucu())
+
+
+def _indir(urun_data):
+    """Excel / PDF: masada seçilip "Excel / PDF hazırla" denenler, seçim yoksa tüm ürünler (eski düğmeler)."""
+    from . import urun_masasi as UM
+    from .rapor import tum_urunler_excel, tum_urunler_pdf
+    secili = st.session_state.get(UM.AKTAR_KEY)
+    rows = UM.aktarilacak(urun_data, secili)
+    if secili and not rows:
+        st.session_state.pop(UM.AKTAR_KEY, None)
+        secili, rows = None, UM.aktarilacak(urun_data)
+    if not rows:
+        return
+    meta = ((f"Masada seçilen {tr_sayi(len(rows))} ürün" if secili else "Tüm ürünler")
+            + f" · Sıra: {UM.VARSAYILAN_SIRA[0]}")
+    zaman = tr_now().strftime("%Y%m%d_%H%M")
+    c1, c2, c3, c4 = st.columns([3.2, 1.05, 1.05, 1.1], vertical_alignment="center")
+    c1.caption(f"Dışa aktar: {meta}." + ("" if secili else " Süzülmüş bir listeyi indirmek için masada ürünleri "
+                                         "seç (başlıktaki kutu görünenlerin hepsini seçer), 'Excel / PDF hazırla'."))
+    c2.download_button("Excel", data=partial(uretilen_bayt, ".xlsx", partial(_tum_urun_yaz, tum_urunler_excel, list(rows), meta)),
+                       file_name=f"Tum_Urunler_{zaman}.xlsx", key="pm_ul_xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       icon=":material/download:", use_container_width=True, help="Tüm sütunlar")
+    c3.download_button("PDF", data=partial(uretilen_bayt, ".pdf", partial(_tum_urun_yaz, tum_urunler_pdf, list(rows), meta)),
+                       file_name=f"Tum_Urunler_{zaman}.pdf", key="pm_ul_pdf", mime="application/pdf",
+                       icon=":material/download:", use_container_width=True)
+    if secili:
+        c4.button("Tümüne dön", key="pm_ul_aktar_birak", type="tertiary", icon=":material/close:",
+                  use_container_width=True, on_click=lambda: st.session_state.pop(UM.AKTAR_KEY, None))
+    st.caption("Paçal = adet-ağırlıklı ithalat maliyeti · marj ve kâr paçala göre · "
+               "son FOB/maliyet ve kanal kırılımı Excel'de.")
+
+
+def masa_liste(urun_data):
+    """Liste görünümü: veri sağlığı, masa (özet bandıyla), dışa aktarma."""
+    with st.container():
+        _veri_sagligi(urun_data)
+    sol = st.columns([1], gap="medium")[0]
+    with sol, st.container(key="pm_liste_sol"):
+        _masa(urun_data, dar=False)
+    _indir(urun_data)
+
+
+def masa_yan_yana(urun_data):
+    """Ayrıntı açıkken: solda dar masa, sağda ayrıntı kabı (döner). 900 px altında liste gizlenir."""
+    with st.container():
+        st.markdown(B.yan_yana_css(ON_EK, liste_key="pm_liste_sol"), unsafe_allow_html=True)
+    sol, sag = st.columns([1, 1.35], gap="medium")
+    with sol, st.container(key="pm_liste_sol"):
+        _masa(urun_data, dar=True)
+    return sag.container(key="pm_detay_sag")

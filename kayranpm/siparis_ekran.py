@@ -24,6 +24,9 @@ from .urun_hesap import bekleyen_haritasi, siparis_durum_adi, tarih_tr
 _DURUM_RENK = {"acil": "kirmizi", "yaklasıyor": "amber", "planlama": "amber2"}
 _DURUM_AD = {"acil": "Acil", "yaklasıyor": "30 gün içinde", "planlama": "60 gün içinde"}
 _GECMIS_RENK = {"bekliyor": "amber", "onaylandi": "yesil", "reddedildi": "kirmizi"}
+# Liste masaları (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/siparis_masasi.py). True: yeni masa.
+# False: aşağıdaki eski satırlar aynen (geri almak için YALNIZ bu satır).
+SIPARIS_MASASI_YENI = True
 
 
 def _e(v):
@@ -187,6 +190,49 @@ def render(_sb):
         onceki = get_siparis_onerileri() or []
     except Exception:
         onceki = []
+    if SIPARIS_MASASI_YENI:
+        _masalar(esik, onceki)
+        return
     _bekleyenler(onceki)
     _oneriler(esik, bekleyen_haritasi(onceki))
     _gecmis(onceki)
+
+
+# ── Yeni liste masaları (SIPARIS_MASASI_YENI) ───────────────────────
+def _kayit_masasi(onceki):
+    from shared.masa import calistir
+    from . import siparis_masasi as SM
+    bek = sum(1 for sp in onceki if sp.get("durum") == "bekliyor")
+    st.markdown(B.grup_basligi("Öneri kayıtları", f"{bek} onay bekliyor · {len(onceki)} kayıt"), unsafe_allow_html=True)
+    if not onceki:
+        st.caption("Henüz öneri kaydı yok; önerilen siparişlerde ürüne tıklayıp 'Siparişe ekle' ile oluşturulur.")
+        return
+    calistir(SM.kayit_verisi(onceki), "sp_kayit_masasi", SM.kayit_yurutucu())
+
+
+def _oneri_masasi(esik, bekleyen):
+    from .analitik import siparis_onerisi_listesi, tum_urunler_listesi
+    from shared.masa import calistir
+    from . import siparis_masasi as SM
+    try:
+        liste = siparis_onerisi_listesi()
+        urun_dict = {u["sku"]: u for u in tum_urunler_listesi()}
+    except Exception as e:
+        st.error(f"Veri yüklenemedi: {e}")
+        return
+    st.markdown(B.grup_basligi("Önerilen siparişler", f"{len(liste or [])} ürün"), unsafe_allow_html=True)
+    if not liste:
+        st.success(f"Tüm ürünlerde {esik} günden fazla stok var, sipariş gerekmiyor.", icon=":material/check_circle:")
+        return
+    calistir(SM.oneri_verisi(liste, urun_dict, bekleyen, firma_ad=firma_gorunen_ad), "sp_oneri_masasi",
+             SM.oneri_yurutucu())
+
+
+def _masalar(esik, onceki):
+    """Onay bekleyen varsa kayıtlar önerilerin ÜSTÜNDE (yapılacak iş), yoksa altında (eski sıra)."""
+    bekleyen_var = any(sp.get("durum") == "bekliyor" for sp in onceki)
+    if bekleyen_var:
+        _kayit_masasi(onceki)
+    _oneri_masasi(esik, bekleyen_haritasi(onceki))
+    if not bekleyen_var:
+        _kayit_masasi(onceki)

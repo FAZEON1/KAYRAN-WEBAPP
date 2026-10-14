@@ -18,6 +18,10 @@ from shared.tasarim import tr_sayi
 
 from . import yurtici_hesap as H
 
+# Kayıtlı alımlar liste masası (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/yurtici_masasi.py).
+# True: yeni masa. False: eski tablo (yi_liste) aynen (geri almak için YALNIZ bu satır).
+YURTICI_MASASI_YENI = True
+
 
 def _kolon_var():
     """veritabani/18 kurulu mu (alim_turu sütunu)."""
@@ -173,7 +177,38 @@ def _yeni(kartlar, kolon):
         st.error(msg)
 
 
+def _kayitli_masa(kartlar, kolon):
+    """Yeni liste (YURTICI_MASASI_YENI): ortak masa; Düzenle bugünkü formu masanın altında açar."""
+    from shared.masa import calistir
+    from shared.utils import gun_ay_yil
+    from ithalat.database import _masraf_dict
+    from . import yurtici_masasi as YM
+    from .masa_ortak import csv_bayt
+    dos, kal = _alimlar()
+    if not dos:
+        st.info("Henüz yurt içi alış kaydı yok.")
+        return
+    tablo = YM.tablo_satirlari(dos, kal, _masraf_dict, gun_ay_yil)
+    calistir(YM.masa_verisi(tablo), "yi_masasi", YM.yurutucu())
+    c1, c2 = st.columns([4, 1.2], vertical_alignment="center")
+    c1.caption("Satıra tıkla: ayrıntı, düzenleme ve silme yan panelde. Düzenleme formu masanın altında açılır.")
+    c2.download_button("CSV indir", data=csv_bayt(tablo), file_name="yurtici_alimlar.csv", mime="text/csv",
+                       key="yi_csv", icon=":material/download:", use_container_width=True,
+                       help="Kayıtlı alımlar tablosu (Excel açar)")
+    sec = st.session_state.get(YM.SECIM_KEY)
+    d = next((x for x in dos if x.get("id") == sec), None) if sec is not None else None
+    if d is None:
+        st.session_state.pop(YM.SECIM_KEY, None)
+        return
+    if st.button("Düzenlemeyi kapat", key="yi_duz_kapat", icon=":material/close:", type="tertiary"):
+        st.session_state.pop(YM.SECIM_KEY, None)
+        st.rerun()
+    _duzenle_formu(d, kal.get(d.get("id"), []), kartlar, kolon)
+
+
 def _kayitli(kartlar, kolon):
+    if YURTICI_MASASI_YENI:
+        return _kayitli_masa(kartlar, kolon)
     from shared.tablo import tablo
     from shared.utils import gun_ay_yil
     from ithalat.database import _masraf_dict
@@ -197,7 +232,11 @@ def _kayitli(kartlar, kolon):
         st.caption("Ayrıntı, düzenleme ve silme için bir satıra tıkla.")
         return
     d = dos[sec]
-    ks = kal.get(d.get("id"), [])
+    _duzenle_formu(d, kal.get(d.get("id"), []), kartlar, kolon)
+
+
+def _duzenle_formu(d, ks, kartlar, kolon):
+    """Kayıtlı alımın düzenleme formu ve silme (eski tablo da yeni masa da bunu açar)."""
     with st.container(border=True):
         st.markdown(f"**{d.get('dosya_no')}** · {H.TURLER.get(d.get('alim_turu'), '')}")
         v = H.formdan(d, ks)

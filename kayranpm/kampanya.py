@@ -33,6 +33,9 @@ from .database import (_cache_temizle, ekle_kampanya, ekle_kampanya_urun, get_cl
                        sil_kampanya, sil_kampanya_urun)
 
 _AY = ["", "Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+# Liste masası (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/kampanya_masasi.py). True: yeni masa.
+# False: render'daki eski kart listesi aynen (geri almak için YALNIZ bu satır).
+KAMPANYA_MASASI_YENI = True
 _GORUNUM = {"guncel": "Güncel", "bekliyor": "Kapanmayı bekleyen", "kapali": "Kapalı", "tumu": "Tümü"}
 
 
@@ -212,6 +215,12 @@ def render():
     if h3.button("Yeni kampanya", type="primary", icon=":material/add:", use_container_width=True,
                  key="kmp_yeni_btn"):
         _yeni_dialog(_katlar)
+    if KAMPANYA_MASASI_YENI:
+        _masa_listesi(kamps, ku_map, pacal, bugun, _katlar)
+        _sec = B.detay_istendi("kmp")
+        if _sec:
+            _detay_dialog(_sec)
+        return
     oz = {k["id"]: H.kampanya_ozet(k, ku_map.get(k["id"], []), pacal, bugun) for k in kamps}
     say = {d: sum(1 for o in oz.values() if o["durum"] == d) for d in H.DURUM_SIRA}
 
@@ -296,6 +305,26 @@ def render():
     _sec = B.detay_istendi("kmp")
     if _sec:
         _detay_dialog(_sec)
+
+
+def _masa_listesi(kamps, ku_map, pacal, bugun, katlar):
+    """Yeni liste (KAMPANYA_MASASI_YENI): özet, görünüm, süzgeç ve satırlar ortak masada; satıra tıklayınca
+    bugünkü detay penceresi (render'ın sonunda B.detay_istendi)."""
+    if not kamps:
+        st.markdown(bos_durum("Henüz kampanya yok",
+                              "Sağ üstteki 'Yeni kampanya' ile başla ya da doldurulmuş Excel şablonunu üst "
+                              "menüdeki Dosya düğmesinden yükleyip kampanyayı ürünleriyle birlikte oluştur.", "campaign"),
+                    unsafe_allow_html=True)
+        return
+    from shared.masa import calistir
+    from . import kampanya_masasi as KM
+    veri = KM.masa_verisi(kamps, ku_map, pacal, bugun, katlar, firma_ad=_firma_ad, kat_ad=_kat_ad,
+                          aralik=_aralik, kalan=_kalan_metni)
+    if veri["say"]["bekliyor"]:
+        st.markdown(mesaj("uyari", f"{veri['say']['bekliyor']} kampanyanın süresi doldu ama kapatılmadı. "
+                                   "Satıra tıkla, Ürünler sekmesinde satış adetlerini gir ve kapat — "
+                                   "net kâr ancak o zaman kesinleşir."), unsafe_allow_html=True)
+    calistir(veri, "kmp_masasi", KM.yurutucu())
 
 
 # ════════════════════════════════════════════════════════════════════
