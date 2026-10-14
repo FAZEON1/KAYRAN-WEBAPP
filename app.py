@@ -2838,7 +2838,6 @@ def anasayfa():
 # ─────────────────────────────────────────────────────────────────────
 def sistem_kayitlari():
     """🧾 Sistem Kayıtları — stok hareket defteri + hata kaydı (yönetici)."""
-    import pandas as pd
     ben = (st.session_state.get("aktif_kullanici", "") or "").strip().lower()
     if not ozel_yetki(ben, "kullanici_yonetimi"):
         st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
@@ -2854,14 +2853,23 @@ def sistem_kayitlari():
     t1, t2, t3 = st.tabs([":material/warning: Başarısız stok işlemleri", ":material/history: Stok hareketleri",
                           ":material/bug_report: Hatalar"])
 
-    def _tablo(rows):
-        return pd.DataFrame([{
-            "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
+    from shared.masa_liste import kolon as _mk, ciz as _mliste
+
+    def _tablo(rows, key):
+        _mliste([{
+            "Zaman": r.get("zaman"),
             "SKU": r.get("sku") or "", "Depo": r.get("depo") or "", "Tür": r.get("tur") or "",
             "Önce": r.get("onceki"), "Sonra": r.get("sonraki"), "Değişim": r.get("degisim"),
             "Açıklama": r.get("aciklama") or "", "Kaynak": r.get("kaynak") or "",
             "Kullanıcı": r.get("kullanici") or "", "Hata": r.get("hata") or "",
-        } for r in rows])
+        } for r in rows],
+            [_mk("SKU", ana=True, alt="Açıklama"), _mk("Zaman", "zaman", gen="136px", dar="alt"),
+             _mk("Depo", secim=True, gen="120px"), _mk("Tür", secim=True, gen="96px"),
+             _mk("Önce", "adet", gen="80px", genis=True), _mk("Sonra", "adet", gen="80px", genis=True),
+             _mk("Değişim", "adet", gen="84px"), _mk("Açıklama", gizli=True),
+             _mk("Kaynak", secim=True, genis=True), _mk("Kullanıcı", secim=True, genis=True),
+             _mk("Hata", genis=True)],
+            key, baslik_ipucu="Stok kayıtları", ara_ipucu="SKU, açıklama ya da hata", excel=key)
 
     with t1:
         rows = gecmis(limit=500, yalniz_basarisiz=True)
@@ -2870,7 +2878,7 @@ def sistem_kayitlari():
         else:
             st.error(f"{len(rows)} stok işlemi uygulanamadı — bu satırlarda stok DEĞİŞMEDİ. "
                      "Genellikle ürün kartı eksikliği ya da bağlantı hatasıdır.")
-            st.dataframe(_tablo(rows), hide_index=True, use_container_width=True)
+            _tablo(rows, "sk_basarisiz")
 
     with t2:
         c1, c2 = st.columns([2, 1])
@@ -2882,7 +2890,7 @@ def sistem_kayitlari():
         if not rows:
             st.info("Kayıt yok.")
         else:
-            st.dataframe(_tablo(rows), hide_index=True, use_container_width=True)
+            _tablo(rows, "sk_hareket")
 
     with t3:
         _kr = st.toggle("Yalnız kritik", key="sk_kritik")
@@ -2890,12 +2898,16 @@ def sistem_kayitlari():
         if not rows:
             st.success("✅ Kayıtlı hata yok.")
         else:
-            st.dataframe(pd.DataFrame([{
-                "Zaman": str(r.get("zaman") or "")[:16].replace("T", " "),
-                "Kritik": "🔴" if r.get("kritik") else "",
+            _mliste([{
+                "Zaman": r.get("zaman"),
+                "Önem": ("Kritik", "kirmizi") if r.get("kritik") else ("Normal", "soluk"),
                 "Yer": r.get("yer") or "", "Tür": r.get("tur") or "",
                 "Mesaj": r.get("mesaj") or "", "Kullanıcı": r.get("kullanici") or "",
-            } for r in rows]), hide_index=True, use_container_width=True)
+            } for r in rows],
+                [_mk("Mesaj", ana=True, alt="Yer"), _mk("Zaman", "zaman", gen="136px", dar="alt"),
+                 _mk("Önem", "durum", secim=True), _mk("Yer", secim=True, gizli=True),
+                 _mk("Tür", secim=True, gen="120px"), _mk("Kullanıcı", secim=True, genis=True)],
+                "sk_hatalar", baslik_ipucu="Hatalar", ara_ipucu="Mesaj ya da yer")
             with st.expander("Ayrıntı (son hata)"):
                 st.code(rows[0].get("ayrinti") or "—")
 

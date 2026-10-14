@@ -439,9 +439,10 @@ def render():
                 if ok:
                     st.rerun()
         if plan:
-            _pdf = pd.DataFrame([{"Kod": h["kod"], "Hesap Adı": h["ad"]} for h in plan])
-            st.dataframe(_pdf, hide_index=True, use_container_width=True,
-                         height=min(60 + len(_pdf) * 35, 520))
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{"Kod": h["kod"], "Hesap Adı": h["ad"]} for h in plan],
+                    [_mk("Hesap Adı", ana=True, alt="Kod"), _mk("Kod", ara=True, gizli=True)],
+                    "edf_plan_masa", baslik_ipucu="Hesap planı", ara_ipucu="Hesap kodu ya da adı")
 
     # ── 🧾 FİŞ GİRİŞİ ──
     elif secili == "Fiş girişi":
@@ -555,7 +556,6 @@ def render():
             if not rows:
                 st.info("Bu hesapta hareket yok.")
             else:
-                _kdf2 = pd.DataFrame(rows)
                 son_bakiye = rows[-1]["Bakiye"]
                 metrik_satiri([
                     {"label": "Hareket", "value": f"{tr_sayi(len(rows))}", "renk": trenk("mor")},
@@ -565,8 +565,12 @@ def render():
                      "renk": trenk("yesil") if son_bakiye >= 0 else trenk("kirmizi"),
                      "alt": "borç bakiyesi" if son_bakiye >= 0 else "alacak bakiyesi"},
                 ])
-                st.dataframe(_kdf2, hide_index=True, use_container_width=True,
-                             height=min(60 + len(_kdf2) * 35, 520))
+                from shared.masa_liste import kolon as _mk, ciz as _mliste
+                _mliste(rows, [_mk("Fiş Açıklama", ana=True, alt="Satır Açıklama"),
+                               _mk("Tarih", "tarih", gen="104px", dar="alt"), _mk("Madde No", "adet", gen="90px"),
+                               _mk("Satır Açıklama", gizli=True), _mk("Borç", "sayi", gen="120px"),
+                               _mk("Alacak", "sayi", gen="120px"), _mk("Bakiye", "sayi", gen="130px", dar="sag")],
+                        f"edf_kebir_masa_{_kod}", baslik_ipucu=f"Kebir · {_ksec}", excel=f"kebir_{_kod}")
 
     # ── ⚖️ MİZAN ──
     elif secili == "Mizan":
@@ -586,10 +590,12 @@ def render():
                 {"label": "Hesap Sayısı", "value": f"{tr_sayi(len(rows))}", "renk": trenk("mor")},
             ])
             _mdf = pd.DataFrame(rows)
-            st.dataframe(_mdf, hide_index=True, use_container_width=True,
-                         height=min(60 + len(_mdf) * 35, 560),
-                         column_config={c: st.column_config.NumberColumn(c, format="localized", step=0.0001)
-                                        for c in ["Borç", "Alacak", "Borç Bakiyesi", "Alacak Bakiyesi"]})
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste(rows, [_mk("Hesap Adı", ana=True, alt="Hesap Kodu"), _mk("Hesap Kodu", ara=True, gizli=True),
+                           _mk("Borç", "sayi", gen="130px", genis=True), _mk("Alacak", "sayi", gen="130px", genis=True),
+                           _mk("Borç Bakiyesi", "sayi", gen="130px", dar="sag"),
+                           _mk("Alacak Bakiyesi", "sayi", gen="130px", dar="alt")],
+                    "edf_mizan_masa", baslik_ipucu="Mizan", ara_ipucu="Hesap kodu ya da adı")
             st.download_button("Mizan CSV",
                                _mdf.to_csv(index=False).encode("utf-8-sig"),
                                "mizan.csv", "text/csv", key="edf_mizan_csv", icon=":material/download:")

@@ -239,14 +239,21 @@ def _sayfa_sevk():
                 'Son sevkler</div>', unsafe_allow_html=True)
     _gec = get_depo_sevk_gecmisi(50)
     if _gec:
-        _gdf = pd.DataFrame([{
-            "Kayıt": tarih_tr(g.get("tarih"), saat=True), "Sevk Tarihi": tarih_tr(g.get("sevk_tarihi")),
+        from shared.masa_liste import kolon as _k, ciz as _liste
+        _liste([{
+            "Kayıt": (tarih_tr(g.get("tarih"), saat=True), str(g.get("tarih") or "")),
+            "Sevk Tarihi": g.get("sevk_tarihi"),
             "Belge No": g.get("belge_no", "") or "", "SKU": g.get("sku", ""),
             "Ürün": urun_ad(g.get("sku"), g.get("urun_adi")), "Kaynak": g.get("kaynak_depo", ""),
             "Hedef": g.get("hedef_depo", ""), "Adet": g.get("adet", ""),
             "Kullanıcı": g.get("kullanici", ""),
-        } for g in _gec])
-        st.dataframe(_gdf, use_container_width=True, hide_index=True)
+        } for g in _gec],
+            [_k("Ürün", ana=True, alt="SKU"), _k("SKU", gizli=True), _k("Sevk Tarihi", "tarih", gen="104px"),
+             _k("Kaynak", secim=True, gen="150px"), _k("Hedef", secim=True, gen="150px"), _k("Adet", "adet", gen="80px"),
+             _k("Belge No", genis=True), _k("Kullanıcı", secim=True, genis=True),
+             _k("Kayıt", "zaman", gen="140px", genis=True, dar="gizle")],
+            "dpo_son_sevk_masa", toplam=["Adet"], bos="Henüz sevk kaydı yok.", baslik_ipucu="Son sevkler",
+            ara_ipucu="Ürün, SKU, depo ya da belge no", excel="son_sevkler")
     else:
         st.caption("Henüz sevk kaydı yok (veya 'depo_sevk_log' tablosu henüz oluşturulmamış).")
 
@@ -633,7 +640,7 @@ def _sayfa_happylife():
         o["palet"] += 1
         if (k["_yas"] or 0) > o["max_yas"]:
             o["max_yas"] = k["_yas"] or 0
-    _ozet_df = pd.DataFrame([{
+    _oz_rows = [{
         "SKU": _tb(sku), "SKU Tanımı": _tb(o["tanim"]),
         "Excel Miktarı": int(o["miktar2"]), "Birim": o["birim2"],
         "KAYRAN Canlı Stok": (_canli.get(_hl_norm_sku(sku))
@@ -641,18 +648,17 @@ def _sayfa_happylife():
         "Fark": ((_canli.get(_hl_norm_sku(sku), 0) - int(o["miktar2"]))
                  if _hl_norm_sku(sku) in _canli else None),
         "Palet Sayısı": o["palet"], "En Yüksek Stok Yaşı (gün)": o["max_yas"],
-    } for sku, o in sorted(_ozet.items(), key=lambda kv: -kv[1]["max_yas"])])
-    st.dataframe(_ozet_df, hide_index=True, use_container_width=True,
-                 height=min(60 + len(_ozet_df) * 35, 420),
-                 column_config={
-                     "KAYRAN Canlı Stok": st.column_config.NumberColumn(
-                         "🔄 KAYRAN Canlı Stok",
-                         help="Ürün kartındaki HAPPY LIFE kırılımı — satışta anında düşer"),
-                     "Fark": st.column_config.NumberColumn(
-                         "Δ Fark", help="Canlı − Excel. Eksi: son Excel'den beri çıkış var"),
-                     "En Yüksek Stok Yaşı (gün)": st.column_config.NumberColumn(
-                         "En Yüksek Stok Yaşı (gün)", format="%d 🗓"),
-                 })
+    } for sku, o in sorted(_ozet.items(), key=lambda kv: -kv[1]["max_yas"])]
+    _ozet_df = pd.DataFrame(_oz_rows)
+    from shared.masa_liste import kolon as _kl, ciz as _liste
+    # Canlı stok: ürün kartındaki HAPPY LIFE kırılımı (satışta anında düşer) · Fark = Canlı − Excel
+    _liste(_oz_rows, [_kl("SKU Tanımı", ana=True, alt="SKU"), _kl("SKU", gizli=True),
+                      _kl("Excel Miktarı", "adet", gen="110px"), _kl("Birim", gen="80px", genis=True),
+                      _kl("KAYRAN Canlı Stok", "adet", gen="130px"), _kl("Fark", "adet", gen="90px"),
+                      _kl("Palet Sayısı", "adet", gen="100px", genis=True),
+                      _kl("En Yüksek Stok Yaşı (gün)", "adet", gen="150px", dar="alt")],
+           f"hl_ozet_masa_{_sec_tarih}", toplam=["Excel Miktarı", "Palet Sayısı"],
+           baslik_ipucu="Happy Life SKU özeti", ara_ipucu="SKU ya da tanım")
     _f_neg = int((_ozet_df["Fark"].dropna() < 0).sum()) if len(_ozet_df) else 0
     if _f_neg:
         st.caption(f"{_f_neg} SKU'da canlı stok Excel'in altında — son rapordan beri "
@@ -662,20 +668,23 @@ def _sayfa_happylife():
 
     # ── DETAY (istenen 8 kolon) ──
     st.markdown("**Palet Detayı** — talep edilen kolonlar")
-    _detay_df = pd.DataFrame([{
+    _dt_rows = [{
         "SKU Kodu": _tb(k["sku"]), "SKU Tanımı": _tb(k["sku_tanim"]),
-        "Giriş Tarihi": _hl_gun_ay_yil(k.get("giris_tarihi")),
+        "Giriş Tarihi": (_hl_gun_ay_yil(k.get("giris_tarihi")), str(k.get("giris_tarihi") or "")[:10] or None),
         "Stok Yaşı (gün)": k["_yas"],                    # boşsa boş hücre (sayı sütununda metin yok)
         "Palet Etiketi": k.get("palet_etiketi") or "",
         "Miktar": int(k.get("miktar") or 0), "Birim": k.get("birim") or "",
         "Miktar-2": int(k.get("miktar2") or 0), "Birim-2": k.get("birim2") or "",
-    } for k in sorted(kayitlar, key=lambda x: -(x["_yas"] or 0))])
+    } for k in sorted(kayitlar, key=lambda x: -(x["_yas"] or 0))]
+    _detay_df = pd.DataFrame([dict(r, **{"Giriş Tarihi": r["Giriş Tarihi"][0]}) for r in _dt_rows])
     st.caption(f"{len(_detay_df)} palet · yaşa göre azalan sıralı (en yaşlı üstte)")
-    st.dataframe(_detay_df, hide_index=True, use_container_width=True,
-                 height=min(60 + len(_detay_df) * 35, 640),
-                 column_config={
-                     "Stok Yaşı (gün)": st.column_config.NumberColumn("Stok Yaşı (gün)", format="localized", step=1),
-                 })
+    _liste(_dt_rows, [_kl("SKU Tanımı", ana=True, alt="SKU Kodu"), _kl("SKU Kodu", gizli=True),
+                      _kl("Giriş Tarihi", "tarih", gen="104px"), _kl("Stok Yaşı (gün)", "adet", gen="110px", dar="alt"),
+                      _kl("Palet Etiketi", gen="130px"), _kl("Miktar", "adet", gen="90px", genis=True),
+                      _kl("Birim", gen="70px", genis=True), _kl("Miktar-2", "adet", gen="90px"),
+                      _kl("Birim-2", gen="70px", genis=True)],
+           f"hl_detay_masa_{_sec_tarih}", toplam=["Miktar-2"], baslik_ipucu="Happy Life palet detayı",
+           ara_ipucu="SKU, tanım ya da palet etiketi")
     st.download_button("Detay CSV", _detay_df.to_csv(index=False).encode("utf-8-sig"),
                        f"happylife_detay_{_sec_tarih}.csv", "text/csv", key="hl_detay_csv", icon=":material/download:")
 

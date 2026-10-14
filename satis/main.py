@@ -2404,15 +2404,24 @@ def run():
                         _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
                         _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
                         st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
-                        st.dataframe(_kar_df(pd.DataFrame([{
-                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"])[:36],
+                        from shared.masa_liste import kolon as _mk, ciz as _mliste
+                        _mliste([{
+                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"]),
                             "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
                             # Ham sayı: ortak tablo "ciro/tutar/kâr" sütununu kendisi biçimler.
                             # Eskiden hazır metin ("$7.29") gidiyordu, sayıya çevrilemediği
                             # için hücreler BOŞ görünüyordu.
                             "Satış ciro": round(float(x["s_ciro"]), 2), "İade tutar": round(float(x["i_tutar"]), 2),
                             "Net ciro": round(float(x["net_ciro"]), 2), "Satış kârı": round(float(x["s_kar"]), 2),
-                        } for x in _gor])), use_container_width=True, hide_index=True)
+                        } for x in _gor],
+                            [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                             _mk("Satış adet", "adet", gen="90px", genis=True), _mk("İade adet", "adet", gen="90px"),
+                             _mk("Net adet", "adet", gen="90px", genis=True), _mk("Satış ciro", "usd", genis=True),
+                             _mk("İade tutar", "usd", dar="alt"), _mk("Net ciro", "usd", genis=True)]
+                            # kâr yetkisi yoksa sütun hiç gitmez (eskiden "•••" maskeliydi)
+                            + ([_mk("Satış kârı", "usd", genis=True)] if _kar_ok() else []),
+                            "iade_sku_masa", toplam=["İade adet", "İade tutar"], bos="Bu dönemde satış ya da iade yok.",
+                            baslik_ipucu="SKU bazlı iade", ara_ipucu="Ürün ya da SKU")
                     else:
                         _iadeler = get_iadeler(_ib, _ibit)
                         if not _iadeler:
@@ -2432,15 +2441,24 @@ def run():
                             for _r in _rows:
                                 _r.pop("_t", None)
                             st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
-                            st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
+                            from shared.masa_liste import kolon as _mk, ciz as _mliste
+                            _mliste(_rows, [_mk("Firma / Cari", ana=True), _mk("İade adet", "adet", gen="100px"),
+                                            _mk("İade tutarı", "usd", gen="130px", dar="alt"),
+                                            _mk("SKU çeşidi", "adet", gen="100px", genis=True)],
+                                    "iade_firma_masa", toplam=["İade adet", "İade tutarı"], baslik_ipucu="Firma bazlı iade")
                         else:  # SKU + Firma
                             _rows = sorted([{
-                                "Firma / Cari": (r.get("kanal") or "")[:34], "SKU": r.get("sku", ""),
-                                "Ürün": urun_ad(r.get("sku"), r.get("urun_adi"))[:30], "İade adet": int(r.get("iade_adet") or 0),
+                                "Firma / Cari": (r.get("kanal") or "").strip(), "SKU": r.get("sku", ""),
+                                "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")), "İade adet": int(r.get("iade_adet") or 0),
                                 "İade tutarı": round(float(r.get("iade_net") or 0), 2),
                             } for r in _iadeler], key=lambda x: -x["İade adet"])
                             st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
-                            st.dataframe(_kar_df(pd.DataFrame(_rows)), use_container_width=True, hide_index=True)
+                            from shared.masa_liste import kolon as _mk, ciz as _mliste
+                            _mliste(_rows, [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                                            _mk("Firma / Cari", secim=True), _mk("İade adet", "adet", gen="100px"),
+                                            _mk("İade tutarı", "usd", gen="130px", dar="alt")],
+                                    "iade_sku_firma_masa", toplam=["İade adet", "İade tutarı"],
+                                    baslik_ipucu="SKU ve firma bazlı iade", ara_ipucu="Ürün, SKU ya da firma")
 
             # İade kayıtları: tıklanır liste → detay + ONAYLI silme.
             # Eskiden pencere "Silinecek iade ID" istiyordu ama tabloda ID sütunu

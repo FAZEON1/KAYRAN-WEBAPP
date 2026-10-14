@@ -138,10 +138,16 @@ def sayfa(kullanici, yonetici, baslik=True):
     kars = {(r["modul"], r["sayfa"]): r for r in karsilastir(oz_gecen, oz_bu, en_az_adet=1)}
     yavas = sorted(oz_bu.items(), key=lambda kv: -kv[1]["p90"])[:12]
     if yavas:
-        st.dataframe([{"Modül": k[0], "Sayfa": k[1] or "—", "Açılış": v["adet"], "Ortanca": _sn(v["p50"]),
-                       "Yavaş (p90)": _sn(v["p90"]), "Hata": v["hata"],
-                       "Geçen haftaya göre": ("—" if k not in kars else f"%{tr_sayi(kars[k]['fark_yuzde'], 1)}")}
-                      for k, v in yavas], hide_index=True, use_container_width=True)
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste([{"Modül": k[0], "Sayfa": k[1] or "—", "Açılış": v["adet"], "Ortanca": (_sn(v["p50"]), v["p50"]),
+                  "Yavaş (p90)": (_sn(v["p90"]), v["p90"]), "Hata": v["hata"],
+                  "Geçen haftaya göre": (None if k not in kars else kars[k]["fark_yuzde"])}
+                 for k, v in yavas],
+                [_mk("Sayfa", ana=True, alt="Modül"), _mk("Modül", secim=True, gizli=True),
+                 _mk("Açılış", "adet", gen="80px", genis=True), _mk("Ortanca", "sayi", gen="90px", genis=True),
+                 _mk("Yavaş (p90)", "sayi", gen="100px", dar="sag"), _mk("Hata", "adet", gen="64px", genis=True),
+                 _mk("Geçen haftaya göre", "yuzde", gen="140px", dar="alt")],
+                "bt_yavas_masa", baslik_ipucu="En yavaş sayfalar")
     else:
         st.caption("Bu hafta ölçüm yok.")
 
@@ -152,9 +158,12 @@ def sayfa(kullanici, yonetici, baslik=True):
         st.markdown(f"**Son haftalık karnesi ({_tr_zaman(karne.get('zaman'), False)}):** "
                     f"{_h.escape(karne.get('ozet') or '')}")
     if ogren:
-        st.dataframe([{"Tarih": _tr_zaman(r.get("zaman"), False), "Öğrendiği": r.get("baslik") or "",
-                       "Neden": r.get("ozet") or ""} for r in ogren[:15]],
-                     hide_index=True, use_container_width=True)
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste([{"Tarih": (_tr_zaman(r.get("zaman"), False), str(r.get("zaman") or "")),
+                  "Öğrendiği": r.get("baslik") or "", "Neden": r.get("ozet") or ""} for r in ogren[:15]],
+                [_mk("Öğrendiği", ana=True, alt="Neden"), _mk("Neden", gizli=True),
+                 _mk("Tarih", "tarih", gen="120px", dar="alt")],
+                "bt_ogren_masa", baslik_ipucu="Öğrendikleri")
     if not karne and not ogren:
         st.caption(f"{AD} her gecenin sonunda öğrendiklerini, pazar geceleri de haftalık karnesini buraya yazar.")
 

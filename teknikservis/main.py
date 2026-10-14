@@ -2064,9 +2064,12 @@ def _ozet_kirilim(_donemsel, _aktif, donem):
                              f"Transfer ({donem})": _t,
                              "Aktif (işlemde)": _a})
         if _sat:
-            _kdf = pd.DataFrame(_sat).sort_values(f"Transfer ({donem})", ascending=False)
-            st.dataframe(_kdf, hide_index=True, use_container_width=True,
-                         height=min(300, 45 + 35 * len(_sat)))
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste(sorted(_sat, key=lambda x: -x[f"Transfer ({donem})"]),
+                    [_mk("Kategori", ana=True), _mk(f"Transfer ({donem})", "adet", gen="140px"),
+                     _mk("Aktif (işlemde)", "adet", gen="130px", dar="alt")],
+                    "ts_kat_ozet_masa", toplam=[f"Transfer ({donem})", "Aktif (işlemde)"],
+                    baslik_ipucu="Kategori bazlı özet")
 
     # ── Kişi bazlı: dönem içinde kim kaç ürün tamamladı ──
     _kisiler = {}
