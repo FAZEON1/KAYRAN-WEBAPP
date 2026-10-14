@@ -412,10 +412,13 @@ def _hayalet_dialog():
     if not rows:
         st.caption("Eşleşen kayıt yok.")
         return
-    st.dataframe(pd.DataFrame([{"id": r.get("id"), "Tarih": str(r.get("tarih") or "BOŞ"),
-                                "Firma": r.get("kanal", ""), "SKU": r.get("sku", ""), "Adet": r.get("adet", 0),
-                                "Sipariş": r.get("siparis_no", "") or "—"} for r in rows]),
-                 hide_index=True, use_container_width=True, height=min(280, 40 + 35 * len(rows)), key="l_hayalet_tablo")
+    from shared.masa_liste import kolon as _mk, ciz as _mliste
+    _mliste([{"Kayıt no": r.get("id"), "Tarih": (str(r.get("tarih") or "BOŞ"), str(r.get("tarih") or "")),
+              "Firma": r.get("kanal", ""), "SKU": r.get("sku", ""), "Adet": r.get("adet", 0),
+              "Sipariş": r.get("siparis_no", "") or "—"} for r in rows],
+            [_mk("Firma", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Kayıt no", gen="90px", ara=True),
+             _mk("Tarih", gen="104px"), _mk("Adet", "adet", gen="70px"), _mk("Sipariş", gen="130px")],
+            "l_hayalet_masa", baslik_ipucu="Tarihi boş ya da bozuk kayıtlar")
     sec = st.multiselect("Silinecek kayıt id'leri", [r.get("id") for r in rows], key="l_hayalet_sec")
     if sec and B.onayli_sil(f"Evet, seçili {len(sec)} kaydı sil", key="l_hayalet", dugme=f"{len(sec)} kaydı sil"):
         n = sum(1 for i in sec if sil_satis(i))

@@ -287,11 +287,14 @@ def _gecmis_ithalatlar():
         @st.dialog(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", width="large")
         def _dlg_depo_ata():
             st.caption("Bu dosyalar **Teslim Alındı** ama teslim deposu boş. Aşağıdan seç, depoyu ata.")
-            st.dataframe(pd.DataFrame([{
-                "Belge No": d.get("dosya_no", ""), "Tarih": str(d.get("tarih", ""))[:10],
-                "Tedarikçi": d.get("tedarikci", ""), "Teslim Tarihi": str(d.get("teslim_tarihi", "") or "")[:10],
-            } for d in _depo_eksik]), hide_index=True, use_container_width=True,
-                height=min(38 + 35 * len(_depo_eksik), 240))
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{
+                "Belge No": d.get("dosya_no", ""), "Tarih": d.get("tarih"),
+                "Tedarikçi": d.get("tedarikci", ""), "Teslim Tarihi": d.get("teslim_tarihi"),
+            } for d in _depo_eksik],
+                [_mk("Belge No", ana=True, alt="Tedarikçi"), _mk("Tedarikçi", gizli=True),
+                 _mk("Tarih", "tarih", gen="104px"), _mk("Teslim Tarihi", "tarih", gen="120px", dar="alt")],
+                "ith_depoeksik_masa", baslik_ipucu="Deposu seçilmemiş dosyalar")
             _de1, _de2, _de3 = st.columns([2, 1.4, 1])
             _de_sec = _de1.multiselect(
                 "Dosya(lar)", _depo_eksik,
@@ -403,15 +406,19 @@ def _gecmis_ithalatlar():
                         _silinecek_ids.append(_gd["id"])
                     _rows_dup.append({
                         "Belge No": _bno, "Tarih": gun_ay_yil(_tar) or "—",
-                        "Mal Bedeli": f"${_tam(_hh['mal_bedeli'])}",
+                        "Mal Bedeli": _hh["mal_bedeli"],
                         "Kalem": _hh["kalem_sayisi"],
-                        "Masraf": f"${_tam(_hh['toplam_masraf'])}",
+                        "Masraf": _hh["toplam_masraf"],
                         "Takip No": _dd.get("ithalat_takip_no", "") or "—",
                         "Aşama": _dd.get("durum", "") or "—",
-                        "Kayıt": "✅ TUTULACAK" if _kalan else "🗑️ silinecek",
+                        "Kayıt": ("Tutulacak", "yesil") if _kalan else ("Silinecek", "kirmizi"),
                     })
-            st.dataframe(pd.DataFrame(_rows_dup), use_container_width=True,
-                         height=min(440, 70 + len(_rows_dup) * 36), hide_index=True)
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste(_rows_dup, [_mk("Belge No", ana=True, alt="Takip No"), _mk("Takip No", gizli=True),
+                                _mk("Tarih", gen="104px"), _mk("Mal Bedeli", "usd", gen="120px"),
+                                _mk("Kalem", "adet", gen="70px", genis=True), _mk("Masraf", "usd", gen="110px", genis=True),
+                                _mk("Aşama", gen="110px", genis=True), _mk("Kayıt", "durum", secim=True)],
+                    "ith_dup_masa", baslik_ipucu="Mükerrer ithalat kayıtları")
             _onay = st.checkbox(f"{_toplam_silinecek} fazla kaydı kalıcı olarak silmeyi onaylıyorum",
                                 key="ith_dup_onay")
             if st.button(f"Mükerrerleri Temizle ({_toplam_silinecek} kayıt sil)",
@@ -2031,10 +2038,10 @@ def _masraf_detaylari():
         _tur_ozet[s["Masraf Türü"]] = _tur_ozet.get(s["Masraf Türü"], 0.0) + s["Tutar"]
     @st.dialog("Masraf türüne göre toplam", width="large")
     def _dlg_masraf_top():
-        st.dataframe(
-            pd.DataFrame([{"Tür": k, "Tutar": round(v, 2)}
-                          for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
-            hide_index=True, use_container_width=True)
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste([{"Tür": k, "Tutar": round(v, 2)} for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])],
+                [_mk("Tür", ana=True), _mk("Tutar", "sayi", gen="150px")],     # para birimi karışık olabilir
+                "ith_masraf_tur_masa", toplam=["Tutar"], baslik_ipucu="Masraf türüne göre toplam")
     # Araç düğmeleri tek sıkı satırda (eskiden ikisi de sayfa genişliğindeydi · görünüm birliği #17)
     _md1, _md2, _ = st.columns([1.3, 1, 3])
     if _md1.button("Masraf türüne göre toplam", key="btn_ith_masraf", use_container_width=True,
@@ -2079,10 +2086,10 @@ def _masraf_masasi(satirlar):
 
     @st.dialog("Masraf türüne göre toplam", width="large")
     def _dlg_masraf_top():
-        st.dataframe(
-            pd.DataFrame([{"Tür": k, "Tutar": round(v, 2)}
-                          for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
-            hide_index=True, use_container_width=True)
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste([{"Tür": k, "Tutar": round(v, 2)} for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])],
+                [_mk("Tür", ana=True), _mk("Tutar", "sayi", gen="150px")],     # para birimi karışık olabilir
+                "ith_masraf_tur_masa", toplam=["Tutar"], baslik_ipucu="Masraf türüne göre toplam")
     _md1, _md2, _ = st.columns([1.3, 1, 3])
     if _md1.button("Masraf türüne göre toplam", key="btn_ith_masraf", use_container_width=True,
                    icon=":material/table_view:"):

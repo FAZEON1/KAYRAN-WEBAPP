@@ -37,10 +37,14 @@ if os.environ.get("DUMAN_ONBELLEK_TEMIZLE"):
     bagimlilari_temizle(SATIS_BAGIMLILAR)
     # Muhasebe okumaları (hafta, ödeme, banka …) genel temizlikle boşalmıyor (önceki sayfanın boş
     # verisi kalıyordu — hafta seçici / ertelenen ödeme testleri); modülün bütün önbellekli okumaları tek tek.
+    # SKU hareketleri sayfasının model listesi (teknikservis) ve ithalat partileri de aynı durumda (Ekim 2026).
     import kayranacc.database as _acc_db
-    for _fn in vars(_acc_db).values():
-        if type(_fn).__name__ == "CachedFunc":
-            _fn.clear()
+    import teknikservis.database as _ts_db
+    import ithalat.database as _ith_db
+    for _mod in (_acc_db, _ts_db, _ith_db):
+        for _fn in vars(_mod).values():
+            if type(_fn).__name__ == "CachedFunc":
+                _fn.clear()
 
 # Bileşenler (components v2) ilk çağrıda bir kez kaydedilip modülde tutulur; kayıt Streamlit
 # örneğine bağlı. Canlıda tek örnek var; test her sayfa için yeni örnek açtığından kayıt yenilenir.

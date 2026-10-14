@@ -955,6 +955,7 @@ def _yedek_render():
             key="yedek_indir", icon=":material/save:"
         )
         with st.expander("Tablo özeti", expanded=False):
-            import pandas as pd
-            st.dataframe(pd.DataFrame(_ozet, columns=["Tablo", "Kayıt"]),
-                         hide_index=True, use_container_width=True)
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _mliste([{"Tablo": t, "Kayıt": n} for t, n in _ozet],
+                    [_mk("Tablo", ana=True), _mk("Kayıt", "adet", gen="110px")],
+                    "yedek_ozet_masa", toplam=["Kayıt"], baslik_ipucu="Yedeklenen tablolar")

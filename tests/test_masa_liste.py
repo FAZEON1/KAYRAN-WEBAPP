@@ -126,3 +126,31 @@ def test_sayfalar_masaya_gecti():
 def test_iade_kar_sutunu_yetkiye_bagli():
     s = (KOK / "satis/main.py").read_text(encoding="utf-8")
     assert '+ ([_mk("Satış kârı", "usd", genis=True)] if _kar_ok() else [])' in s
+
+
+# İkinci tur (Ekim 2026): stok kartının eski sekmeleri ve pencere içi tablolar
+PENCERELER = {
+    "kayranpm/stok_karti.py": ("sk_masraf_", "sk_partiler_", "sk_kanal_", "sk_tedarikci_", "sk_iade_firma_",
+                               "sk_iade_detay_", "sk_hareket_"),
+    "satis/main.py": ("pnl_firma_sip_masa", "pnl_sip_kalem_", "mlyt_onizle_masa"),
+    "satis/satislar_ekran.py": ("l_hayalet_masa",),
+    "ithalat/main.py": ("ith_depoeksik_masa", "ith_dup_masa", "ith_masraf_tur_masa"),
+    "yonetim.py": ("yedek_ozet_masa",),
+    "shared/yukleme_gecmisi.py": ("yg_etki_masa_",),
+    "depo/main.py": ("sh_hareket_masa_",),
+}
+
+
+def test_pencere_ici_tablolar_masada():
+    for yol, anahtarlar in PENCERELER.items():
+        s = (KOK / yol).read_text(encoding="utf-8")
+        for a in anahtarlar:
+            assert f'"{a}' in s, (yol, a)
+    sk = (KOK / "kayranpm/stok_karti.py").read_text(encoding="utf-8")
+    assert "st.dataframe(" not in sk                         # stok kartında eski tablo kalmadı
+    assert 'key=f"sh_depo_{sku}"' not in sk                  # depo süzgeci masanın çipinde
+    d = (KOK / "depo/main.py").read_text(encoding="utf-8")
+    blok = d[d.index('_ozet_yer = st.container()'):d.index('_ith = int(sum(p.get("adet") or 0 for p in _part))')]
+    assert "st.dataframe(" not in blok and "c1, c2, c3 = st.columns(3)" not in blok   # üç dar tablo → tek liste
+    i = (KOK / "ithalat/main.py").read_text(encoding="utf-8")
+    assert "✅ TUTULACAK" not in i and '("Silinecek", "kirmizi")' in i
