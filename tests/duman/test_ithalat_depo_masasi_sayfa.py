@@ -89,13 +89,18 @@ def test_bekleyen_sevk_masasi(monkeypatch):
     assert [s["firma"] for s in v["satirlar"]] == ["ÖRNEK BİLGİSAYAR", "VATAN", "EERA", "MONDAY"]
     assert [s["bek"] for s in v["satirlar"]] == [70, 50, 25, 0]
     assert {i["k"] for i in v["islemler"]} == {"dus", "ac", "sil"}
-    assert "mt_h_firma" in at.session_state                        # tüm sevk hareketleri tablosu duruyor
+    # tüm sevk hareketleri de masada (Ekim 2026: firma süzgeci masanın çipinde)
+    hrk = next(x for x in veri if x.get("anahtar") == "mt_hareket_masa")
+    assert hrk["satirlar"] and "mt_h_firma" not in at.session_state
 
 
 def test_bekleyen_sevk_sayfa_ici_detay(monkeypatch):
     at, _db = _ac(monkeypatch, "depo", "depo_sayfa", "📦 Bekleyen Sevk Takibi", {"_dpo_mt_secili": 1})
     assert not _sorunlar(at), _sorunlar(at)
-    assert not _bilesen_verisi(at.main, []), "detay açıkken masa çizilmez"
+    # bekleyen listesi masası çizilmez; kaydın kendi sevk hareketleri salt-okur liste masasında (Ekim 2026)
+    veri = _bilesen_verisi(at.main, [])
+    assert not [v for v in veri if not str(v.get("anahtar", "")).startswith("mt_kayit_hrk_")], \
+        "detay açıkken bekleyen masası çizilmez"
     assert any(b.label == "Düşümü kaydet" for b in at.button)
 
 
@@ -112,4 +117,6 @@ def test_bayrak_kapaliyken_eski_ekran(monkeypatch, modul, anahtar, sayfa):
     monkeypatch.setattr(depo.bekleyen_ekran, "BEKLEYEN_MASASI_YENI", False)
     at, _db = _ac(monkeypatch, modul, anahtar, sayfa)
     assert not _sorunlar(at), _sorunlar(at)
-    assert not _bilesen_verisi(at.main, []), "bayrak kapalıyken masa çizilmemeli"
+    # bekleyen masası çizilmez (tüm sevk hareketleri listesi her iki görünümde salt-okur masada)
+    assert not [v for v in _bilesen_verisi(at.main, []) if v.get("anahtar") != "mt_hareket_masa"], \
+        "bayrak kapalıyken masa çizilmemeli"

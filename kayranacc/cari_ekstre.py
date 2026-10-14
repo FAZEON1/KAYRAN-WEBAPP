@@ -5,7 +5,6 @@ o veri henüz tutulmadığı için burada yer almaz."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 
 try:
@@ -91,16 +90,21 @@ def render():
             st.warning(f"🔴 {len(_gecikmis)} kalemin vadesi geçmiş — toplam {_tl(_gt)} "
                        f"(+ USD kalemler varsa ayrı).")
 
-        df = pd.DataFrame([{
-            "Vade": gun_ay_yil(o.get("vade")),
+        from shared.masa_liste import kolon as _k, ciz as _liste
+        _liste([{
+            "Vade": o.get("vade"),
             "Açıklama": o.get("aciklama", "") or "—",
             "Kategori": _KAT_AD.get(o.get("kategori") or "", o.get("kategori") or "—"),
             # 0 tutar boş bırakılır (TL kalemde "$0,00" gürültüsü olmasın)
             "Tutar (TL)": round(_f(o.get("tutar_tl")), 2) or None,
             "Tutar (USD)": round(_f(o.get("tutar_usd")), 2) or None,
-            "Durum": "✅ Ödendi" if o.get("durum") == "odendi" else "⏳ Bekliyor",
-        } for o in kayitlar])
-        st.dataframe(df, hide_index=True, use_container_width=True)
+            "Durum": ("Ödendi", "yesil") if o.get("durum") == "odendi" else ("Bekliyor", "amber"),
+        } for o in kayitlar],
+            [_k("Açıklama", ana=True, alt="Kategori"), _k("Vade", "tarih", gen="110px"),
+             _k("Kategori", secim=True, gizli=True), _k("Tutar (TL)", "tl", gen="130px"),
+             _k("Tutar (USD)", "usd", gen="120px"), _k("Durum", "durum", secim=True)],
+            "cari_ekstre_masa", bos="Bu cariye ait kalem yok.", baslik_ipucu=f"Cari ekstre · {secili}",
+            excel="cari_ekstre")
         st.caption(f"{len(kayitlar)} kayıt · {secili}")
 
     # ═══ VADE YAŞLANDIRMA ═══
@@ -161,13 +165,14 @@ def render():
                 r[kk] = round(kv[kk], 2)
             r["Toplam"] = round(sum(kv.values()), 2)
             rows.append(r)
-        # Toplam satırı
-        _tsat = {"Cari": "TOPLAM"}
-        for kk in KOVALAR:
-            _tsat[kk] = round(kova_top[kk], 2)
-        _tsat["Toplam"] = round(sum(kova_top.values()), 2)
-        rows.append(_tsat)
 
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        # Eski "TOPLAM" satırı → kova kartları yukarıda; masada firma başına toplam sütunu
+        from shared.masa_liste import kolon as _k, ciz as _liste
+        _tur = "tl" if pb == "TL" else "usd"
+        _liste(rows, [_k("Cari", ana=True)] + [_k(kk, _tur, gen="112px", genis=kk != "Vadesi gelmemiş",
+                                                   dar="gizle")
+                                                for kk in KOVALAR] + [_k("Toplam", _tur, gen="130px", dar="sag")],
+               f"cari_yas_masa_{pb}", toplam=["Toplam"], bos="Açık ödeme yok.", baslik_ipucu="Vade yaşlandırma",
+               excel="vade_yaslandirma")
         st.caption(f"Bugün ({gun_ay_yil(bugun.isoformat())}) itibarıyla, {pb} cinsinden açık ödemeler. "
                    "Gün sayıları vade tarihine göre gecikmedir.")

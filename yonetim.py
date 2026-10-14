@@ -805,7 +805,6 @@ def run():
 
 def _audit_render():
     """Değişiklik günlüğü (audit log) görüntüleme — kişi menüsü › Sistem (app.py degisiklik_gunlugu)."""
-    import pandas as pd
     from shared.audit import get_loglar
     c1, c2, c3 = st.columns(3)
     _modul_f = c1.selectbox("Modül", ["(tümü)", "Muhasebe", "Ürün Yönetimi",
@@ -821,20 +820,23 @@ def _audit_render():
     if not loglar:
         st.info("Henüz kayıt yok ya da audit_log tablosu oluşturulmadı (SQL'i çalıştırın).")
         return
-    _kullanicilar = ["(tümü)"] + sorted({l.get("kullanici", "") for l in loglar if l.get("kullanici")})
-    _kul = st.selectbox("Kullanıcı", _kullanicilar, key="audit_kul")
-    if _kul != "(tümü)":
-        loglar = [l for l in loglar if l.get("kullanici") == _kul]
-    df = pd.DataFrame([{
-        "Zaman": _tr_tarih(l.get("zaman"), saat=True),
+    # Kullanıcı süzgeci, arama ve sıralama masada (tarayıcıda; sayfa yeniden çalışmaz)
+    from shared.masa_liste import kolon as _k, ciz as _liste
+    _liste([{
+        "Zaman": (_tr_tarih(l.get("zaman"), saat=True), str(l.get("zaman") or "")),
         "Kullanıcı": l.get("kullanici", ""),
         "Modül": l.get("modul", ""),
         "İşlem": l.get("islem", ""),
         "Tablo": l.get("tablo", ""),
         "Kayıt No": l.get("kayit_id", ""),
         "Detay": l.get("detay", ""),
-    } for l in loglar])
-    st.dataframe(df, hide_index=True, use_container_width=True)
+    } for l in loglar],
+        [_k("Detay", ana=True, alt="Tablo"), _k("Zaman", "zaman", gen="140px", dar="alt"),
+         _k("Kullanıcı", secim=True, gen="130px", dar="sag"), _k("Modül", secim=True, gen="120px", genis=True),
+         _k("İşlem", secim=True, gen="110px"), _k("Tablo", secim=True, gizli=True),
+         _k("Kayıt No", gen="90px", genis=True)],
+        "audit_masa", bos="Kayıt yok.", baslik_ipucu="Değişiklik günlüğü",
+        ara_ipucu="Detay, tablo ya da kayıt no", excel="degisiklik_gunlugu")
     st.caption(f"{len(loglar)} kayıt gösteriliyor (yeni→eski).")
 
 

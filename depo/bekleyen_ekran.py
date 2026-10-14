@@ -18,7 +18,7 @@ from shared import bilesen as B
 from shared.tasarim import tr_sayi
 from shared.ana_veri import urun_ad   # ürün adı = kart adı, tek kaynak (Eki 2026)
 
-from .depo_hesap import bekleyen_ozet, fis_anahtari, toplam_satiri, tarih_tr
+from .depo_hesap import bekleyen_ozet, fis_anahtari, tarih_tr
 
 ON_EK = "dpo_mt"
 FILTRE_KEYS = ["mt_ff", "mt_h_firma", "mt_h_bas", "mt_h_bit"]
@@ -179,28 +179,32 @@ def _tum_hareketler(mt):
         for h in (r.get("hareketler") or []):
             duz.append({"_t": str(h.get("tarih") or ""), "Tarih": tarih_tr(h.get("tarih")),
                         "Firma": r.get("firma", ""), "SKU": r.get("sku", ""),
-                        "Ürün": urun_ad(r.get("sku"), r.get("urun_adi"))[:28], "Adet": int(h.get("adet") or 0),
+                        "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")), "Adet": int(h.get("adet") or 0),
                         "Fiş No": h.get("fis_no", "") or "", "e-İrsaliye": h.get("e_irsaliye_no", "") or "",
-                        "Belge No": h.get("belge_no", "") or "", "Açıklama": (h.get("aciklama") or "")[:30],
+                        "Belge No": h.get("belge_no", "") or "", "Açıklama": h.get("aciklama") or "",
                         "Kullanıcı": h.get("kullanici", "") or ""})
     st.markdown(B.grup_basligi("📋 Tüm sevk hareketleri", f"{len(duz)} hareket"), unsafe_allow_html=True)
     if not duz:
         st.caption("Henüz sevk hareketi yok — bir kaydı açıp düşüm kaydettiğinde burada listelenir.")
         return
     duz.sort(key=lambda x: x["_t"], reverse=True)
-    h1, h2, h3 = st.columns([1.2, 1, 1])
-    hf = h1.selectbox("Firma", ["Tümü"] + sorted({d["Firma"] for d in duz if d["Firma"]}), key="mt_h_firma")
+    # Firma süzgeci ve arama masada; tarih aralığı burada (masa tarih aralığı süzmez)
+    h2, h3, _ = st.columns([1, 1, 1.2])
     hb = h2.date_input("Başlangıç", value=None, key="mt_h_bas", format="DD.MM.YYYY")
     he = h3.date_input("Bitiş", value=None, key="mt_h_bit", format="DD.MM.YYYY")
-    f = [d for d in duz if (hf == "Tümü" or d["Firma"] == hf)
-         and (not hb or d["_t"] >= str(hb)) and (not he or d["_t"] <= str(he))]
+    f = [d for d in duz if (not hb or d["_t"] >= str(hb)) and (not he or d["_t"] <= str(he))]
     if not f:
-        st.info("Bu filtreye uyan sevk hareketi yok.")
+        st.info("Bu tarih aralığında sevk hareketi yok.")
         return
     gorunur = [{k: v for k, v in d.items() if k != "_t"} for d in f]
-    st.dataframe(pd.DataFrame(gorunur + [toplam_satiri(list(gorunur[0]), {"Adet": sum(d["Adet"] for d in f)},
-                                                       ozet={"Firma": f"{len(f)} hareket"})]),
-                 use_container_width=True, hide_index=True)
+    from shared.masa_liste import kolon as _mk, ciz as _mliste
+    _mliste([dict(d, Tarih=(d["Tarih"], d["_t"])) for d in f],
+           [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Tarih", "tarih", gen="104px"),
+            _mk("Firma", secim=True), _mk("Adet", "adet", gen="80px"), _mk("Fiş No", gen="110px"),
+            _mk("e-İrsaliye", genis=True), _mk("Belge No", genis=True), _mk("Açıklama", genis=True),
+            _mk("Kullanıcı", secim=True, genis=True)],
+           "mt_hareket_masa", toplam=["Adet"], bos="Henüz sevk hareketi yok.",
+           baslik_ipucu="Tüm sevk hareketleri", ara_ipucu="Ürün, SKU, firma ya da fiş no")
     st.download_button("Excel'e aktar", data=partial(_excel_bayt, gorunur),
                        file_name=f"sevk_hareketleri_{date.today()}.xlsx",
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -261,13 +265,15 @@ def _detay(r, mt, yan=True):
     hrk = r.get("hareketler") or []
     st.markdown(B.grup_basligi("Bu kaydın sevk hareketleri", f"{len(hrk)} hareket"), unsafe_allow_html=True)
     if hrk:
-        satirlar = [{"Tarih": tarih_tr(h.get("tarih")), "Adet": int(h.get("adet") or 0),
-                     "Fiş No": h.get("fis_no", ""), "e-İrsaliye": h.get("e_irsaliye_no", ""),
-                     "Belge No": h.get("belge_no", ""), "Açıklama": (h.get("aciklama") or "")[:28],
-                     "Kullanıcı": h.get("kullanici", "")} for h in hrk]
-        st.dataframe(pd.DataFrame(satirlar + [toplam_satiri(list(satirlar[0]),
-                                                            {"Adet": sum(s["Adet"] for s in satirlar)})]),
-                     use_container_width=True, hide_index=True)
+        from shared.masa_liste import kolon as _mk, ciz as _mliste
+        _mliste([{"Tarih": h.get("tarih"), "Adet": int(h.get("adet") or 0),
+                 "Fiş No": h.get("fis_no", ""), "e-İrsaliye": h.get("e_irsaliye_no", ""),
+                 "Belge No": h.get("belge_no", ""), "Açıklama": h.get("aciklama") or "",
+                 "Kullanıcı": h.get("kullanici", "")} for h in hrk],
+               [_mk("Fiş No", ana=True, alt="Açıklama"), _mk("Tarih", "tarih", gen="104px"),
+                _mk("Adet", "adet", gen="80px"), _mk("e-İrsaliye", genis=True), _mk("Belge No", genis=True),
+                _mk("Açıklama", gizli=True), _mk("Kullanıcı", genis=True)],
+               f"mt_kayit_hrk_{kid}", toplam=["Adet"], baslik_ipucu="Bu kaydın sevk hareketleri")
         r1, r2 = st.columns([2.2, 1], vertical_alignment="bottom")
         hsec = r1.selectbox("Fişi yeniden yazdır", list(range(len(hrk))),
                             format_func=lambda i: (f'{tarih_tr(hrk[i].get("tarih"))} · {hrk[i].get("adet", "")} adet · '
