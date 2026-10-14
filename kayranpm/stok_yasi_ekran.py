@@ -31,6 +31,16 @@ def _firma_ad(kod):
         return kod
 
 
+def _kategori_haritasi():
+    """{sku anahtarı: kategori (tek yazım)} — stok kartlarından; okunamazsa {}."""
+    try:
+        from satis.database import get_sku_kategori
+        from shared.ana_veri import kategori_ad
+        return {k: kategori_ad(v) for k, v in (get_sku_kategori() or {}).items() if v}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def _grup_tablosu(oz, pacal_birim=None, key="sy_grup"):
     from shared.tablo import tablo
     stok = oz.get("stok") or 0
@@ -267,6 +277,20 @@ def goster():
         if not mus:
             st.info("Müşteri stok raporu yok.")
             return
+        # Kategori süzgeci (Ekim 2026): seçilince özet, müşteri listesi, ürünler ve Excel o kategoriye iner
+        kat_map = _kategori_haritasi()
+        kats = Y.musteri_kategorileri(mus, kat_map)
+        k1, k2 = st.columns([1.4, 3], vertical_alignment="bottom")
+        kat = k1.selectbox("Kategori", ["Tüm kategoriler"] + [k for k, _a in kats], key="sy_m_kategori",
+                           format_func=lambda k: k if k == "Tüm kategoriler"
+                           else f"{k} ({tr_sayi(dict(kats).get(k, 0))} adet)")
+        if kat != "Tüm kategoriler":
+            mus = Y.musteri_kategori_suz(mus, kat_map, kat)
+            k2.caption(f"Yalnız **{kat}** · {tr_sayi(sum(oz['stok'] for s in mus.values() for oz, _k in s.values()))} adet "
+                       f"· {len(mus)} müşteri. Kategori stok kartından; kartı olmayan ürünler '{Y.KATEGORISIZ}'.")
+        if not mus:
+            st.info("Bu kategoride müşteri stoğu yok.")
+            return
         ozet_satir = []
         for firma, skular in mus.items():
             top = Y.toplam_ozet([oz for oz, _k in skular.values()])
@@ -277,14 +301,15 @@ def goster():
         ozet_satir.sort(key=lambda r: -r["Stok"])
         tablo(ozet_satir, key="sy_musteri_ozet", dosya_adi="stok_yasi_musteriler", arama=True)
         st.download_button("Excel: tüm müşteriler", Y.excel_bytes({"Müşteri özeti": ozet_satir,
-                                                                    "Müşteri × ürün": Y.musteri_satirlari(mus, _firma_ad)}),
-                           file_name=f"stok_yasi_musteriler_{bugun}.xlsx", icon=":material/download:",
+                                                                    "Müşteri × ürün": Y.musteri_satirlari(mus, _firma_ad, kat_map)}),
+                           file_name=(f"stok_yasi_musteriler_{bugun}.xlsx" if kat == "Tüm kategoriler"
+                                      else f"stok_yasi_musteriler_{kat}_{bugun}.xlsx"), icon=":material/download:",
                            key="sy_xl_musteri")
         firmalar = sorted(mus, key=lambda f: -sum(oz["stok"] for oz, _k in mus[f].values()))
-        firma = st.selectbox("Müşteri", firmalar, format_func=_firma_ad, key="sy_firma")
+        firma = st.selectbox("Müşteri", firmalar, format_func=_firma_ad, key=f"sy_firma_{kat}")
         satir = []
         for sku, (oz, _kal) in mus[firma].items():
-            r = {"_id": sku, "SKU": sku, "Stok": oz["stok"],
+            r = {"_id": sku, "SKU": sku, "Kategori": kat_map.get(sku) or Y.KATEGORISIZ, "Stok": oz["stok"],
                  "Ort. yaş (gün)": None if oz["ort_gun"] is None else round(oz["ort_gun"]),
                  "En eski (gün)": oz["en_eski_gun"]}
             for g, _a, _u in Y.GRUPLAR:
@@ -292,7 +317,7 @@ def goster():
             r["Kaydı yok"] = oz["kapsanmayan"]
             satir.append(r)
         satir.sort(key=lambda r: (-(r["Ort. yaş (gün)"] or -1), r["SKU"]))
-        sec = tablo(satir, key=f"sy_m_{firma}", kalici=True, arama=True, dosya_adi=f"stok_yasi_{firma}")
+        sec = tablo(satir, key=f"sy_m_{firma}_{kat}", kalici=True, arama=True, dosya_adi=f"stok_yasi_{firma}")
         st.caption("'Kaydı yok': müşterinin stoğu, bizim kayıtlı satışlarımızdan fazla (eski dönem ya da başka "
                    "kanaldan gelen mal).")
         if sec is not None:
