@@ -1,0 +1,60 @@
+/* KAYRAN tasarım dili (yeni uygulama). Renkler eski uygulamanın shared/tasarim.py RENK sözlüğüyle aynı aile;
+   prototip: https://claude.ai/artifact/QeMhUiHWNK1sYnAtsRjkzW. Bütün renkler belirteçten gelir. */
+:root {
+  --zemin: #0b1120; --yuzey: #0f172a; --yuzey2: #152036; --yuzey3: #1c2a44; --kenar: #1e293b; --kenar2: #2a3852;
+  --metin: #e2e8f0; --soluk: #94a3b8; --silik: #64748b;
+  --vurgu: #6366f1; --vurgu-metin: #a5b4fc; --vurgu-zemin: color-mix(in srgb, #6366f1 16%, transparent);
+  --kirmizi: #f87171; --amber: #fbbf24; --yesil: #34d399;
+  --golge: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --menu-genislik: 236px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="koyu"]) {
+    --zemin: #f4f6fa; --yuzey: #ffffff; --yuzey2: #f1f4f9; --yuzey3: #e8ecf3; --kenar: #dce1ea; --kenar2: #c9d1de;
+    --metin: #0f172a; --soluk: #475569; --silik: #8a96a8;
+    --vurgu: #4f46e5; --vurgu-metin: #4338ca; --vurgu-zemin: color-mix(in srgb, #4f46e5 10%, transparent);
+    --kirmizi: #dc2626; --amber: #b45309; --yesil: #047857; --golge: 0 12px 40px rgba(15, 23, 42, 0.14);
+    color-scheme: light;
+  }
+}
+:root[data-tema="acik"] {
+  --zemin: #f4f6fa; --yuzey: #ffffff; --yuzey2: #f1f4f9; --yuzey3: #e8ecf3; --kenar: #dce1ea; --kenar2: #c9d1de;
+  --metin: #0f172a; --soluk: #475569; --silik: #8a96a8;
+  --vurgu: #4f46e5; --vurgu-metin: #4338ca; --vurgu-zemin: color-mix(in srgb, #4f46e5 10%, transparent);
+  --kirmizi: #dc2626; --amber: #b45309; --yesil: #047857; --golge: 0 12px 40px rgba(15, 23, 42, 0.14);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--zemin); color: var(--metin);
+  font-family: var(--f-govde), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* düğme */
+.dug {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--kenar);
+  background: var(--yuzey); border-radius: 8px; padding: 8px 14px; font-weight: 500; font-size: 13.5px; white-space: nowrap;
+}
+.dug:hover { border-color: var(--kenar2); background: var(--yuzey2); }
+.dug.birincil { background: var(--vurgu); border-color: var(--vurgu); color: #fff; }
+.dug.birincil:hover { filter: brightness(1.08); }
+.dug:disabled { opacity: 0.6; cursor: default; }
+
+/* logo (eski uygulamadaki dokuz noktalı işaret) */
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--yuzey2); border: 1px solid var(--kenar2);
+  display: grid; grid-template-columns: repeat(3, 5px); gap: 3px; place-content: center; flex-shrink: 0; }
+.logo i { width: 5px; height: 5px; border-radius: 1.5px; background: var(--metin); }
+.logo i.t { background: #f59e0b; }
+.logo i.b { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

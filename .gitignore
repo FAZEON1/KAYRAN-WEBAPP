@@ -6,3 +6,7 @@ __pycache__/
 .venv/
 .streamlit/secrets.toml
 .pytest_cache/
+
+# Yeni uygulama (web/ Next.js) — paket ve derleme çıktıları
+node_modules/
+.next/

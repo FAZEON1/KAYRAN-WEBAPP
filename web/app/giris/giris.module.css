@@ -1,0 +1,23 @@
+.sayfa {
+  min-height: 100%; display: grid; place-items: center;
+  padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: radial-gradient(1200px 600px at 20% -10%, var(--vurgu-zemin), transparent 60%), var(--zemin);
+}
+.kart {
+  width: min(400px, 100%); background: var(--yuzey); border: 1px solid var(--kenar); border-radius: 16px;
+  padding: 28px; box-shadow: var(--golge); display: flex; flex-direction: column; gap: 6px;
+}
+.marka { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.marka b { font-size: 15px; letter-spacing: 0.2px; }
+.kart h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.3px; }
+.alt { margin: 0 0 14px; color: var(--soluk); font-size: 13.5px; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--soluk); }
+.form input {
+  border: 1px solid var(--kenar); background: var(--zemin); border-radius: 8px; padding: 10px 12px; font-size: 15px;
+}
+.form input:focus { outline: 2px solid var(--vurgu); outline-offset: 0; border-color: transparent; }
+.form button { margin-top: 4px; padding-block: 10px; }
+.hata { margin: 0; color: var(--kirmizi); font-size: 13px; }
+.guven { list-style: none; margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid var(--kenar);
+  display: flex; flex-direction: column; gap: 6px; color: var(--silik); font-size: 12px; }

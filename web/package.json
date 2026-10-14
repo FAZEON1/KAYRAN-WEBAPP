@@ -1,0 +1,29 @@
+{
+  "name": "kayran-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KAYRAN yeni uygulama ön yüzü (Next.js). API: ../api (FastAPI). Ayrıntı: README.md",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "denetle": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test lib/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "dependencies": {
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@material-symbols/svg-400": "0.47.5",
+    "@types/node": "22.18.8",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

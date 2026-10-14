@@ -92,3 +92,40 @@ jobs:
       - name: Her sayfa çökmeden açılıyor mu
         working-directory: tests
         run: python -m pytest duman -q --tb=short -p no:cacheprovider -W ignore
+
+  # Yeni uygulama (Ekim 2026, tam geçiş Faz 0): api/ (FastAPI, mevcut Python iş kurallarını kullanır) ve
+  # web/ (Next.js). Eski uygulamanın testlerinden bağımsız; ikisi de yeşil olmalı.
+  yeni:
+    name: Yeni uygulama
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: API bağımlılıkları
+        run: pip install --quiet -r api/requirements.txt pytest httpx
+
+      - name: API testleri
+        run: python -m pytest api/tests -q --tb=short -p no:cacheprovider
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Ön yüz bağımlılıkları
+        working-directory: web
+        run: npm ci
+
+      - name: Tür denetimi, birim testleri, derleme
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run denetle && npm test && npm run build

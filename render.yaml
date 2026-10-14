@@ -1,0 +1,26 @@
+# Render "Blueprint": KAYRAN API (yeni uygulama). Render panelinde New → Blueprint → bu depo.
+# Gizli değerler (sync: false) panelde elle girilir; koda ve sohbete YAZILMAZ.
+services:
+  - type: web
+    name: kayran-api
+    runtime: python
+    region: frankfurt
+    plan: starter            # ücretsiz planda 15 dk boşta kalınca uyur, ilk istek ~1 dk sürer
+    rootDir: .
+    buildCommand: pip install -r api/requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /saglik
+    autoDeploy: true         # main'e birleşen her değişiklik kendiliğinden çıkar
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: OTURUM_ANAHTARI
+        generateValue: true  # Render rastgele üretir
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: KULLANICILAR_JSON
+        sync: false          # eski uygulamanın secrets [kullanicilar] bölümü, JSON olarak
+      - key: ESKI_UYGULAMA_URL
+        sync: false          # ör. https://<uygulama>.streamlit.app

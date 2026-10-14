@@ -48,6 +48,21 @@ PR'lar aynı dosyalara dokunabilir ve biri birleşince diğeri "birleştirilemez
   çakışma varsa kullanıcı söylemeden çöz ve push et. "Birleştirmeye hazır" demeden önce CI'ın yeşil
   VE çakışmanın olmadığını doğrula.
 
+## Yeni uygulama — tam geçiş (Ekim 2026, kullanıcı kararı C)
+
+Streamlit uygulaması canlıda kalır; yanında yeni uygulama modül modül büyür, ikisi aynı Supabase'i kullanır.
+- `api/` — FastAPI. Mevcut iş kurallarını (shared/, modül klasörleri) **olduğu gibi** içe aktarır;
+  `api/uyum.py` Streamlit yerine geçer (önbellek, gizli ayarlar ortam değişkeninden). İş kuralı burada yeniden
+  yazılmaz. Testler: `python -m pytest api/tests` (gerçek veritabanına gitmez). Render'a `render.yaml` ile çıkar.
+- `web/` — Next.js (React + TypeScript). Tasarım dili prototipteki gibi
+  (https://claude.ai/artifact/QeMhUiHWNK1sYnAtsRjkzW). Ayrıntı ve kurallar `web/README.md`. Vercel'e çıkar.
+- Giriş eski uygulamayla aynı (kullanici_sifreler + secrets özetleri, deneme kilidi); yetki
+  `kullanici_yetkileri` tablosundan, menü `shared.gezinme.palet_ogeleri` kuralıyla.
+- Faz sırası: 0 temel → 1 Muhasebe › Bu hafta → 2 Muhasebe → 3 Ana sayfa → 4 Ürün yönetimi → 5 diğerleri →
+  6 Streamlit kapanır. Taşınan sayfa `api/menu.py` → `YENI_SAYFALAR`'a eklenir; o modülün yeni işleri yalnız
+  yeni uygulamaya yapılır. Ekrandaki her rakam eski ekranla aynı veride yan yana doğrulanır.
+- CI'da ayrı iş "Yeni uygulama" (API testleri + tür denetimi + birim testleri + derleme).
+
 ## Çalışma düzeni
 
 - **Envanter → plan → onay.** Yeni işte kod yazmadan önce bulgular (tablo) ve sıralı plan;
