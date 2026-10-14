@@ -54,14 +54,45 @@ def _ikon_param(icon):
     return f":material/{ad}:" if ad else icon
 
 
+# Metnin İÇİNDEKİ emoji (2. adım, Ekim 2026): ardından gelen tek boşlukla birlikte atılır ("**📦 Ürünler**" →
+# "**Ürünler**"; boşluk kalsaydı kalın yazı bozulurdu). Durum noktaları ve tipografik işaretler kalır.
+_IC = re.compile("(?:" + _EMO.pattern + "[" + _EK + "]*)+ ?")       # _EMO ile aynı aralıklar
+
+
+def ic_temizle(metin):
+    """Metindeki resimli emojileri atar (durum noktaları 🔴🟢…, ✓ ✗ • ▲ gibi işaretler kalır).
+    Emoji yoksa metnin kendisi döner (hızlı yol)."""
+    if not isinstance(metin, str) or not _EMO.search(metin):
+        return metin
+
+    def _at(m):
+        parca = m.group(0)
+        kalan = "".join(c for c in parca if c in _DURUM or c in _TIPO)
+        return (kalan + " ") if kalan and parca.endswith(" ") else kalan
+    return _IC.sub(_at, metin)
+
+
+def metin(govde, html=False):
+    """st.markdown / st.caption gövdesi: düz markdown'da baştaki emoji Material ikona çevrilir
+    (':material/x:' markdown'da çalışır), HTML'de yalnız atılır; içerdeki emojiler atılır."""
+    if not isinstance(govde, str) or not _EMO.search(govde):
+        return govde
+    if not html:
+        ad, kalan = bas_emoji(govde)
+        if ad and kalan is not govde:
+            return f":material/{ad}: {ic_temizle(kalan)}"
+    return ic_temizle(govde)
+
+
 def mesaj(tur, govde, icon):
     """st.success/info/warning/error: baştaki emoji atılır; ikon kutu türünden."""
     _, kalan = bas_emoji(govde)
-    return kalan, (_ikon_param(icon) if icon else f":material/{_MESAJ_IKON[tur]}:")
+    return ic_temizle(kalan), (_ikon_param(icon) if icon else f":material/{_MESAJ_IKON[tur]}:")
 
 
 def toast(govde, icon):
     ad, kalan = bas_emoji(govde)
+    kalan = ic_temizle(kalan)
     if icon:
         return kalan, _ikon_param(icon)
     return kalan, (f":material/{ad}:" if ad else None)
@@ -107,9 +138,12 @@ def kur(st):
         from streamlit.delta_generator import DeltaGenerator as DG
         if not getattr(DG.success, "_kayran_ikon", False):
             _sar_sinif(DG)
+        if not getattr(DG.markdown, "_kayran_ikon2", False):
+            _sar_metin(DG)
         kok = None
         for ad in ("success", "info", "warning", "error", "expander", "tabs", "button",
-                   "download_button", "popover", "link_button", "checkbox", "toggle", "form_submit_button"):
+                   "download_button", "popover", "link_button", "checkbox", "toggle", "form_submit_button",
+                   "markdown", "caption", "title", "header", "subheader") + _ETIKETLI:
             f = getattr(st, ad, None)
             kok = kok or getattr(f, "__self__", None)
             if kok is not None and getattr(f, "__self__", None) is kok:
@@ -208,3 +242,59 @@ def _sar_dialog(orij):
             pass
         return orij(title, *a, **kw)
     return _isaretle(f)
+
+
+# ── 2. adım (Ekim 2026): metinler ve kutu etiketleri ────────────────
+# Seçim / yazı kutularının ETİKETİ (seçenekleri değil: değerleri kodda karşılaştırılıyor). Yalnız sabit
+# anahtarı olan kutuda: anahtarsız kutunun kimliği etiketten türetilir (etiket değişince değeri sıfırlanırdı).
+_ETIKETLI = ("selectbox", "multiselect", "radio", "text_input", "text_area", "number_input", "date_input",
+             "time_input", "file_uploader", "slider", "select_slider", "color_picker", "segmented_control", "pills")
+
+
+def _isaretle2(f):
+    f._kayran_ikon2 = True
+    return f
+
+
+def _sar_metin(DG):
+    for ad in ("markdown", "caption"):
+        orij = getattr(DG, ad)
+
+        def _yap(orij):
+            def f(self, body, *a, **kw):
+                try:
+                    body = metin(body, html=bool(kw.get("unsafe_allow_html")))
+                except Exception:  # noqa: BLE001
+                    pass
+                return orij(self, body, *a, **kw)
+            return _isaretle2(f)
+        setattr(DG, ad, _yap(orij))
+    for ad in ("title", "header", "subheader"):
+        orij = getattr(DG, ad, None)
+        if orij is None:
+            continue
+
+        def _yap(orij):
+            def f(self, body, *a, **kw):
+                try:
+                    body = metin(body)
+                except Exception:  # noqa: BLE001
+                    pass
+                return orij(self, body, *a, **kw)
+            return _isaretle2(f)
+        setattr(DG, ad, _yap(orij))
+    for ad in _ETIKETLI:
+        orij = getattr(DG, ad, None)
+        if orij is None:
+            continue
+
+        def _yap(orij):
+            def f(self, label, *a, **kw):
+                try:
+                    if kw.get("key") and isinstance(label, str):
+                        label = ic_temizle(bas_emoji(label)[1])
+                except Exception:  # noqa: BLE001
+                    pass
+                return orij(self, label, *a, **kw)
+            return _isaretle2(f)
+        setattr(DG, ad, _yap(orij))

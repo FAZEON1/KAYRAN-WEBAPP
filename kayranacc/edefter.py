@@ -394,7 +394,7 @@ def _uyari_banner():
     st.markdown(
         '<div style="background:color-mix(in srgb,var(--k-amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 35%,transparent);'
         'border-radius:10px;padding:10px 14px;margin:4px 0 14px;font-size:12.5px;color:#FDBA74">'
-        '🚧 <b>Faz 1 — Çift Taraflı Kayıt Çekirdeği (aktif)</b> · GİB uyumluluk onayı '
+        '<b>Faz 1 — Çift Taraflı Kayıt Çekirdeği (aktif)</b> · GİB uyumluluk onayı '
         'alınana kadar buradaki kayıtlar <b>yasal defter yerine geçmez</b>; iç kontrol '
         've e-Defter hazırlık amaçlıdır. Sıradaki fazlar: XBRL-GL üretimi → mali mühür → GİB testleri.'
         '</div>', unsafe_allow_html=True)
