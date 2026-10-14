@@ -32,6 +32,15 @@ from .odeme_hesap import KATEGORI_AD, gun_basligi
 
 SEMBOL = {"TL": "₺", "USD": "$", "EUR": "€"}
 
+# Üç görünüm de ortak liste masasında (Ekim 2026, kayranacc/muhasebe_masalari): True yeni masa; False aşağıdaki
+# eski tıklanır satırlar / kartlar aynen (geri almak için YALNIZ bu satırı değiştir). Pencereler (hafta
+# ödemeleri) ve silme/geri alma çağrıları aynı.
+GECMIS_MASASI_YENI = True
+
+
+def _salt():
+    return bool(st.session_state.get("salt_okur"))
+
 
 def _tl(v):
     return f"₺{tr_sayi(float(v or 0), 2)}"
@@ -76,6 +85,8 @@ def render_gecmis():
 
 # ── Bu hafta ödenenler ──────────────────────────────────────────────
 def _odenenler():
+    if GECMIS_MASASI_YENI:
+        return _odenenler_masa()
     odemeler, hafta = get_aktif_odemeler()
     od = [o for o in odemeler if o.get("durum") == "odendi"]
     if not od:
@@ -133,6 +144,8 @@ def _odenen_dialog(o, bmap):
 
 # ── Geçmiş haftalar ─────────────────────────────────────────────────
 def _haftalar():
+    if GECMIS_MASASI_YENI:
+        return _haftalar_masa()
     haftalar = get_tum_haftalar() or []
     if not haftalar:
         st.markdown(bos_durum("Henüz hafta yok", "Haftalık ödeme listesi üst menüdeki Dosya düğmesinden yüklenir.",
@@ -197,6 +210,8 @@ def _hafta_dialog(h, aktif_mi):
 
 # ── Çek arşivi ──────────────────────────────────────────────────────
 def _cek_arsivi():
+    if GECMIS_MASASI_YENI:
+        return _cek_arsivi_masa()
     c1, c2 = st.columns([1.1, 3.5], vertical_alignment="bottom")
     with c1:
         pb = st.segmented_control("Para birimi", ["TL", "USD"], default="TL", key="gec_cek_pb",
@@ -233,6 +248,16 @@ def _cek_arsivi():
                           f"{sym}{tr_sayi(ct['meblag'], 2)}",
                           f"kalan {sym}{tr_sayi(ct['kalan'], 2)}" if ct["kalan"] else "kapandı"),
                    B.detay_ac, ("geccek", c["id"]), tur="satir", renk=renk, etiket="Çek ayrıntısı")
+    _cek_hepsini_sil(cekler, pb)
+    sec = B.detay_istendi("geccek")
+    if sec:
+        c = next((x for x in cekler if x.get("id") == sec), None)
+        if c:
+            _cek_dialog(c, sym)
+
+
+def _cek_hepsini_sil(cekler, pb):
+    """Bir para biriminin bütün çekleri — onaylı (yeni döküm yüklemeden önce temizlik)."""
     if not st.session_state.get("salt_okur"):
         with st.expander(f"Tüm {pb} çeklerini sil", icon=":material/delete_sweep:"):
             st.markdown(mesaj("uyari", f"{len(cekler)} {pb} çekinin tamamı silinir; yeni döküm yüklemeden önce "
@@ -241,11 +266,6 @@ def _cek_arsivi():
                             dugme=f"Tüm {pb} çeklerini sil"):
                 cek_sil_hepsi(pb)
                 B.yenile(f"Tüm {pb} çekleri silindi")
-    sec = B.detay_istendi("geccek")
-    if sec:
-        c = next((x for x in cekler if x.get("id") == sec), None)
-        if c:
-            _cek_dialog(c, sym)
 
 
 @st.dialog("Çek", width="medium")
@@ -267,3 +287,52 @@ def _cek_dialog(c, sym):
     if B.onayli_sil("Evet, bu çeki sil", key=f"geccek_{c['id']}", dugme="Çeki sil"):
         cek_sil(c["id"])
         B.yenile("Çek silindi")
+
+
+# ── Ortak liste masası (Ekim 2026) ──────────────────────────────────
+def _odenenler_masa():
+    from datetime import date
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    odemeler, _hafta = get_aktif_odemeler()
+    if not any(o.get("durum") == "odendi" for o in odemeler):
+        st.markdown(bos_durum("Bu hafta henüz ödenen yok", "Ödemeler 'Bu Hafta' sayfasından ödendi işaretlenir.",
+                              "task_alt"), unsafe_allow_html=True)
+        return
+    calistir(MM.odenenler_verisi(odemeler, get_bankalar() or [], date.today(), salt=_salt()), "gec_odenen_masasi",
+             MM.odenenler_yurutucu())
+
+
+def _haftalar_masa():
+    """Satıra tıkla → yan panel (aktif yap · onaylı sil); 'Ödemeleri göster' bugünkü hafta penceresini açar."""
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    haftalar = get_tum_haftalar() or []
+    if not haftalar:
+        st.markdown(bos_durum("Henüz hafta yok", "Haftalık ödeme listesi üst menüdeki Dosya düğmesinden yüklenir.",
+                              "calendar_month"), unsafe_allow_html=True)
+        return
+    aktif = get_aktif_hafta()
+    aktif_id = aktif["id"] if aktif else None
+    ozetler = {h["id"]: get_hafta_ozet(h["id"]) for h in haftalar}
+    calistir(MM.haftalar_verisi(haftalar, ozetler, aktif_id, salt=_salt()), "gec_hafta_masasi",
+             MM.haftalar_yurutucu(lambda i: B.detay_ac("gech", i)))
+    sec = B.detay_istendi("gech")
+    if sec:
+        h = next((x for x in haftalar if x.get("id") == sec), None)
+        if h:
+            _hafta_dialog(h, h["id"] == aktif_id)
+
+
+def _cek_arsivi_masa():
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    pb = st.segmented_control("Para birimi", ["TL", "USD"], default="TL", key="gec_cek_pb",
+                              label_visibility="collapsed") or "TL"
+    cekler = get_cekler(pb) or []
+    if not cekler:
+        st.markdown(bos_durum(f"Kayıtlı {pb} çeki yok", "Çek dökümü üst menüdeki Dosya düğmesinden yüklenir.", "receipt"),
+                    unsafe_allow_html=True)
+        return
+    calistir(MM.cek_arsivi_verisi(cekler, pb, salt=_salt()), f"gec_cek_masasi_{pb}", MM.cek_arsivi_yurutucu())
+    _cek_hepsini_sil(cekler, pb)

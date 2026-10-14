@@ -1611,6 +1611,27 @@ def _alt_menu():
                 _kisi_menu_icerik("_alt")
 
 
+def _sol_menu():
+    """Masaüstünde sol menü (shared/sol_menu.py, Ekim 2026): modüller ve sayfaları; üst şeridin modül
+    düğmeleriyle sayfa sekmelerinin yerine geçer. Çizilemezse üst şerit olduğu gibi kalır (CSS menüyle
+    birlikte basılır). Geri almak için shared/gezinme.py → MENU_SOL = False."""
+    from shared.gezinme import MENU_SOL, MENU_UST
+    ak = st.session_state.get("aktif_kullanici", "")
+    if not (MENU_SOL and MENU_UST and ak):
+        return
+    try:
+        from shared import sol_menu as _sm
+        _ozel = {o for o in ("yonetim", "kullanici_yonetimi") if ozel_yetki(ak, o)}
+        _yapi = _sm.menu_yapisi(kullanici_yetkileri(ak), _ozel, ak, _palet_kosul)
+        _sm.ciz(st.session_state.get("aktif_uygulama", "anasayfa"), _sayfaya_git, _yapi, st.session_state)
+    except Exception as _e:  # noqa: BLE001
+        try:
+            from shared.hata_log import kaydet
+            kaydet("ust.sol_menu", _e)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _mobil_ust():
     """Telefonda üst kısım: logo + bulunduğun bölümün adı (modül şeridi telefonda gizli; ALT_MENU_CSS)."""
     from shared.gezinme import MODULLER, SISTEM
@@ -3592,6 +3613,7 @@ def main():
 
     # Üst yatay modül navigasyonu (modüller arası hızlı geçiş)
     ust_navigasyon()
+    _sol_menu()                                     # masaüstünde sol menü (telefonda gizli)
     _alt_menu()                                     # telefonda sabit alt menü (masaüstünde gizli)
 
     # Tarayıcı sekme başlığı = aktif modül (yeni sekmede hangi bölümde olduğun görünsün)

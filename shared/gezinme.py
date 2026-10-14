@@ -13,6 +13,9 @@ palet_ogeleri, arama_ogeleri, hedef.
 # True : modül şeridinin altında sekme satırı (Ekim 2026)
 # False: eskisi gibi kenar çubuğunda. Geri almak için YALNIZ bu satırı değiştir.
 MENU_UST = True
+# Sol menü (Ekim 2026, yeni tasarım): masaüstünde modüller ve sayfalar soldaki menüde (shared/sol_menu.py);
+# üst şeritte yalnız Ara · Dosya · Talep · kişi kalır. Tablet / telefon değişmez. False → bugünkü üst şerit.
+MENU_SOL = True
 
 # kod · ad (cümle düzeni) · ikon (material) · anahtar (modül menüsünün session anahtarı)
 # sayfalar: (seçenek metni, url kodu, ad, koşul)

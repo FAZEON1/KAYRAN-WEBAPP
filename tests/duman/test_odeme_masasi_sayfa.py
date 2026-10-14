@@ -19,7 +19,7 @@ def _bilesen_verisi(dugum, out):
         bc = getattr(p, "bidi_component", None) if p is not None else None
         if bc is None and p is not None and hasattr(p, "component_name") and hasattr(p, "json"):
             bc = p
-        if bc is not None and str(getattr(bc, "component_name", "")).endswith("kayran_odeme_masasi"):
+        if bc is not None and str(getattr(bc, "component_name", "")).endswith("kayran_masa"):
             out.append(json.loads(bc.json) if bc.json else None)
         _bilesen_verisi(c, out)
     return out
@@ -45,6 +45,6 @@ def test_bu_hafta_odeme_masasi_ornek_veriyle(monkeypatch):
     veri = _bilesen_verisi(at.main, [])
     assert veri, "ödeme masası bileşeni çizilmedi"
     v = veri[0]
-    assert v and len(v["odemeler"]) >= 10 and {k["k"] for k in v["ozet"]} == {"bugun", "gecikmis", "kalan", "hafta_sonu"}
-    assert all(set(o) >= {"id", "firma", "durum", "tl_m", "usd_m", "gun"} for o in v["odemeler"])
+    assert v and len(v["satirlar"]) >= 10 and {k["k"] for k in v["ozet"]} == {"bugun", "gecikmis", "kalan", "hafta_sonu"}
+    assert all(set(o) >= {"id", "firma", "durum", "tl_m", "usd_m", "gun"} for o in v["satirlar"])
     assert v["bankalar"] and v["salt"] is False

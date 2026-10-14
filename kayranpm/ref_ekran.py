@@ -24,6 +24,10 @@ from shared import bilesen as B
 from . import ref_hesap as R
 from . import ref_no as N
 
+# Liste masaları (Ekim 2026, ortak masa shared/masa.py; tanım kayranpm/ref_masasi.py). True: yeni masa.
+# False: aşağıdaki eski liste ve alınan destekler ekranı aynen (geri almak için YALNIZ bu satır).
+REF_MASASI_YENI = True
+
 
 def _ref_kat_ad(k):
     """Ref No kategorisi ekranda tek yazımla (shared.ana_veri); GENEL kovası olduğu gibi."""
@@ -204,7 +208,49 @@ def _firma_rayi(firmalar, hepsi, fid):
                        _firma_sec, (i,), tur="ray", secili=(i == fid), etiket=f"{ad} seç")
 
 
+def _sag_masa(kapsam, firma):
+    """Yeni sağ panel (REF_MASASI_YENI): özet, durum, yıl, arama ve satırlar ortak masada; kategori süzgeci
+    ve Liste / Tablo seçimi burada (Python) — bir ref'in birden çok kategorisi olabilir."""
+    from shared.masa import calistir
+    from . import ref_masasi as RM
+    eur, tl = _kurlar()
+    _oz, t_all = RM.ref_ozet(kapsam, eur, tl)
+    if t_all["cevrilmeyen"]:
+        st.markdown(mesaj("uyari", "Kur bulunamadığı için USD toplamına katılmayan: " + " · ".join(
+            f"{R.SEMBOL.get(d, d)}{tr_sayi(v)}" for d, v in t_all["cevrilmeyen"].items())), unsafe_allow_html=True)
+    c1, c3, c4 = st.columns([3.0, 1.0, 1.4], vertical_alignment="center")
+    katlar = sorted({k for r in kapsam for k in R.kategoriler(r)})
+    _f = B.filtre(c3, [{"etiket": "Kategori", "secenekler": katlar, "key": "ref_f_kat",
+                        "format_func": lambda x: x if x == "Tümü" else x.capitalize()}])
+    f_kat = _f["ref_f_kat"]
+    with c4:
+        mod = st.segmented_control("Görünüm modu", ["Liste", "Tablo"], default="Liste", key="ref_mod",
+                                   label_visibility="collapsed", disabled=firma is None,
+                                   help=None if firma else "Tablo düzenleme için soldan bir firma seç") or "Liste"
+    if firma is not None:
+        siradaki = N.ref_uret(firma.get("firma_kodu", ""), N._yil(), N._sonraki_sira(firma["id"]))
+        c1.caption(f"{firma.get('firma_adi','')} · ref kodu {firma.get('firma_kodu','')} · sıradaki numara {siradaki}")
+    else:
+        c1.caption("Tüm firmalar · satıra tıkla: paylaşıldı / iptal yan panelde, düzenleme ve kalemler 'Düzenle'de.")
+    if mod == "Tablo" and firma is not None:
+        st.caption("Toplu düzenleme: hücreleri değiştir, 'Değişiklikleri kaydet'e bas. Toplu silme de burada; "
+                   "Excel içe aktarma üst menüdeki Dosya düğmesinden.")
+        N._render_refler(firma["id"], firma.get("firma_kodu", ""))
+        return
+    liste = R.filtrele(kapsam, "tumu", f_kat, "Tümü", "")
+    if not liste:
+        st.markdown(bos_durum("Bu görünümde ref yok" if kapsam else "Bu firmada henüz ref yok",
+                              "Kategori süzgecini değiştir." if kapsam else
+                              "Sağ üstteki 'Yeni ref no' ile ilk numarayı ata ya da Excel'i üst menüdeki "
+                              "Dosya düğmesinden içe aktar.", "receipt_long"), unsafe_allow_html=True)
+        return
+    calistir(RM.ref_verisi(liste, firma is None, eur, tl, ozet_kaynak=kapsam), "ref_masasi",
+             RM.ref_yurutucu(liste))
+
+
 def _sag_panel(kapsam, firma, hepsi):
+    if REF_MASASI_YENI:
+        return _sag_masa(kapsam, firma)
     eur, tl = _kurlar()
     bek = [r for r in kapsam if (r.get("durum") or "beklemede") == "beklemede"]
     pay = [r for r in kapsam if r.get("durum") == "paylasildi"]
@@ -323,7 +369,7 @@ def _detay_dialog(r, firmalar):
 def _durum_yaz(r, yeni):
     from datetime import date
     pay = str(date.today()) if yeni == "paylasildi" else (r.get("paylasim_tarihi") if yeni == "iptal" else None)
-    N.ref_guncelle(r["id"], r.get("ref_no"), r.get("aciklama"), yeni, (str(r.get("tarih") or "")[:10] or None), pay)
+    return N.ref_guncelle(r["id"], r.get("ref_no"), r.get("aciklama"), yeni, (str(r.get("tarih") or "")[:10] or None), pay)
 
 
 def _bilgi_formu(r):
@@ -494,8 +540,38 @@ def _ad_ac(rid):
     B.detay_ac("ad", rid)
 
 
+def _alinan_masa():
+    """Yeni alınan destekler (REF_MASASI_YENI): yıl ve 'Yeni kayıt' sayfada; liste, firma / tür seçimi,
+    arama ve onaylı silme ortak masada."""
+    from datetime import date
+    from shared.masa import calistir
+    from . import ref_masasi as RM
+    eur, tl = _kurlar()
+    bugun = date.today()
+    c0, _c1, c4 = st.columns([1.0, 4.2, 1.35], vertical_alignment="bottom")
+    yil = c0.selectbox("Yıl", [bugun.year, bugun.year - 1, bugun.year + 1], key="ad2_yil",
+                       label_visibility="collapsed")
+    kayitlar = N.get_alinan_destekler(yil) or []
+    firmalar = sorted({(r.get("firma") or "").strip() for r in kayitlar if (r.get("firma") or "").strip()})
+    if c4.button("Yeni kayıt", icon=":material/add:", type="primary", use_container_width=True, key="ad2_yeni"):
+        _ad_yeni_dialog(firmalar)
+    veri = RM.alinan_verisi(kayitlar, yil, bugun, eur, tl, kat_ad=_ref_kat_ad)
+    if veri["t"]["cevrilmeyen"]:
+        st.markdown(mesaj("uyari", "Kur bulunamadığı için USD toplamına katılmayan: " + " · ".join(
+            f"{R.SEMBOL.get(d, d)}{tr_sayi(v)}" for d, v in veri["t"]["cevrilmeyen"].items())), unsafe_allow_html=True)
+    if not kayitlar:
+        st.markdown(bos_durum("Bu dönemde alınan destek yok",
+                              "'Yeni kayıt' ile ekle ya da Excel'i üst menüdeki Dosya düğmesinden toplu yükle.",
+                              "savings"), unsafe_allow_html=True)
+        return
+    veri.pop("t", None)
+    calistir(veri, "ref_alinan_masasi", RM.alinan_yurutucu())
+
+
 def _alinan_gorunum():
     from datetime import date
+    if REF_MASASI_YENI:
+        return _alinan_masa()
     eur, tl = _kurlar()
     bugun = date.today()
     c0, c1, c2, c4 = st.columns([1.0, 3.2, 1.0, 1.35], vertical_alignment="bottom")

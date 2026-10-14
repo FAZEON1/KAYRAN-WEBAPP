@@ -728,6 +728,13 @@ def run():
             # de aynı ürün için yapılır (eskiden iki ayrı ürün seçici vardı).
             _sec_u = B.secili("pm_urun")
             secilen = next((u for u in urun_data if u["sku"] == _sec_u), None) if _sec_u else None
+            # Liste masası (Ekim 2026): bayrak kayranpm/urunler_ekran.py → URUNLER_MASASI_YENI
+            from .urunler_ekran import URUNLER_MASASI_YENI as _UMY
+            if secilen is None and _UMY:
+                B.birak("pm_urun")
+                from .urunler_ekran import masa_liste as _masa_liste
+                _masa_liste(urun_data)
+                return
             if secilen is None:
                 B.birak("pm_urun")
                 from .urunler_ekran import FILTRE_KEYS as _UFK
@@ -771,10 +778,14 @@ def run():
 
             from .urunler_ekran import FILTRE_KEYS as _UFK
             from shared.tasarim import YAN_YANA as _yy
-            B.koru(_UFK + ["pm_ul_limit"])
+            if not _UMY:
+                B.koru(_UFK + ["pm_ul_limit"])
             # Liste ve detay yan yana (YAN_YANA): geniş ekranda liste solda (her şey tıklanabilir,
             # pencere yok); 900 px altında CSS listeyi gizler, eskisi gibi "Listeye dön".
-            if _yy:
+            if _yy and _UMY:
+                from .urunler_ekran import masa_yan_yana as _masa_yy
+                _sag_kap = _masa_yy(urun_data)
+            elif _yy:
                 from .urunler_ekran import liste as _urun_liste, YAN_YANA_CSS as _YY_CSS
                 st.markdown(_YY_CSS, unsafe_allow_html=True)
                 _sol, _sag = st.columns([1, 1.35], gap="medium")

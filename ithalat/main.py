@@ -31,6 +31,23 @@ DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", 
 # Teslim Şekli (Incoterm) seçenekleri
 INCOTERM_SECENEKLER = ["(Seçilmedi)", "FOB", "EXW", "CIF", "DAP", "DDP", "FCA", "CFR", "CPT", "CIP", "DPU"]
 
+# Ortak liste masası (Ekim 2026): Geçmiş ithalatlar ve Masraf detayları shared/masa.py ile çizilir
+# (tanım ithalat/ithalat_masasi.py). False → eski ekran aynen.
+ITHALAT_MASASI_YENI = True
+
+
+def _ithalat_masasi(dosyalar, hesap_map):
+    """Geçmiş ithalatlar masası. Satırdaki "Ayrıntı" bugünkü detay penceresini ister (B.detay_ac("ith"));
+    pencere masadan sonra, eski akışla aynı çalıştırmada açılır. Döner: (dosyalar, [seçili sıra])."""
+    from shared import bilesen as _B
+    from shared.masa import calistir
+    from .ithalat_masasi import masa_verisi, yurutucu
+    calistir(masa_verisi(dosyalar, hesap_map, date.today(), salt=bool(st.session_state.get("salt_okur"))),
+             "ith_masa", yurutucu(dosyalar))
+    _sec_id = _B.detay_istendi("ith")
+    _sel = [i for i, _d in enumerate(dosyalar) if _d.get("id") == _sec_id] if _sec_id is not None else []
+    return list(dosyalar), _sel
+
 
 def _tam(x, max_ond=6):
     """Tutarı YUVARLAMADAN, gereksiz sondaki sıfırları atarak TR biçiminde gösterir.
@@ -334,17 +351,18 @@ def _gecmis_ithalatlar():
     toplam_masraf = sum(s["Toplam Masraf"] for s in satirlar)
     ort_yuzde = (toplam_masraf / toplam_mal * 100) if toplam_mal > 0 else 0
     from shared.tasarim import kpi_serit as _ks
-    _yolda_d = [d for d in dosyalar if str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR]
-    _yolda_fob = sum(hesap_map[d["id"]][2]["net_mal_bedeli"] for d in _yolda_d)
-    st.markdown(_ks([
-        {"etiket": "Yoldaki dosya", "deger": tr_sayi(len(_yolda_d)), "renk": "cyan",
-         "alt": f"${_tam(_yolda_fob)} mal bedeli"},
-        {"etiket": "Toplam mal bedeli", "deger": f"${_tam(toplam_mal)}", "renk": "yesil",
-         "alt": f"{tr_sayi(len(dosyalar))} dosya"},
-        {"etiket": "Toplam masraf", "deger": f"${_tam(toplam_masraf)}", "renk": "amber"},
-        {"etiket": "Ort. masraf oranı", "deger": f"%{tr_sayi(ort_yuzde, 2)}", "renk": "mor",
-         "alt": "masraf ÷ net mal bedeli"},
-    ]), unsafe_allow_html=True)
+    if not ITHALAT_MASASI_YENI:          # yeni ekranda özet bandı masanın içinde
+        _yolda_d = [d for d in dosyalar if str(d.get("durum") or "").strip() in IN_TRANSIT_DURUMLAR]
+        _yolda_fob = sum(hesap_map[d["id"]][2]["net_mal_bedeli"] for d in _yolda_d)
+        st.markdown(_ks([
+            {"etiket": "Yoldaki dosya", "deger": tr_sayi(len(_yolda_d)), "renk": "cyan",
+             "alt": f"${_tam(_yolda_fob)} mal bedeli"},
+            {"etiket": "Toplam mal bedeli", "deger": f"${_tam(toplam_mal)}", "renk": "yesil",
+             "alt": f"{tr_sayi(len(dosyalar))} dosya"},
+            {"etiket": "Toplam masraf", "deger": f"${_tam(toplam_masraf)}", "renk": "amber"},
+            {"etiket": "Ort. masraf oranı", "deger": f"%{tr_sayi(ort_yuzde, 2)}", "renk": "mor",
+             "alt": "masraf ÷ net mal bedeli"},
+        ]), unsafe_allow_html=True)
 
     # ── 🧹 Mükerrer Belge Temizliği (Belge No + Tarih + Tutar birebir aynı) ──
     def _eklenme_anahtari(_d):
@@ -413,99 +431,114 @@ def _gecmis_ithalatlar():
     # takip · SAS · tedarikçi · SKU) + Filtre düğmesi; görünüm seçici:
     # Akış (aşama sütunları) · Liste (aya göre) · Toplu işlem (eski çoklu seçim tablosu).
     from shared import bilesen as _B
-    _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
-    _vc1, _vc2, _vc3 = st.columns([2.4, 3.0, 1.1], vertical_alignment="bottom")
-    with _vc1:
-        _gor = st.segmented_control("Görünüm", ["Akış", "Liste", "Toplu işlem"], default="Akış",
-                                    key="ith_gorunum", label_visibility="collapsed") or "Akış"
-    _ara = _vc2.text_input("Ara", key="ith_gecmis_ara", label_visibility="collapsed",
-                           placeholder="Belge, takip, SAS no, tedarikçi ya da SKU…").strip().lower()
-    _ff = _B.filtre(_vc3, [{"etiket": "Tedarikçi", "secenekler": _tedarikciler, "key": "ith_f_ted"},
-                           {"etiket": "Aşama", "secenekler": DURUM_SECENEKLER, "key": "ith_f_durum"}])
-    f_ted, f_durum = _ff["ith_f_ted"], _ff["ith_f_durum"]
-    f_takip = f_sku = ""
-
-    def _gecer(s):
-        if _ara and _ara not in (str(s.get("Belge No", "")) + " " +
-                                 str(s.get("Takip No", "")) + " " + str(s.get("SAS No", "")) + " " +
-                                 str(s.get("Tedarikçi", "")) + " " + s.get("_skus", "")).lower():
-            return False
-        if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
-            return False
-        if f_durum != "Tümü" and (s.get("Aşama", "") or "—") != f_durum:
-            return False
-        if f_takip and f_takip not in str(s.get("Takip No", "") or "").lower():
-            return False
-        if f_sku and f_sku not in s.get("_skus", ""):
-            return False
-        return True
-
-    _pairs = [(d, s) for d, s in zip(dosyalar, satirlar) if _gecer(s)]
-    dosyalar_goster = [d for d, s in _pairs]
-    satirlar_goster = [s for d, s in _pairs]
-    if len(satirlar_goster) != len(dosyalar):
-        st.caption(f"{len(satirlar_goster)} / {len(dosyalar)} dosya")
-
-    if not satirlar_goster:
-        st.info("Aramayla eşleşen dosya yok.")
-        return
-
-    if _gor != "Toplu işlem":
-        from .ithalat_ekran import akis as _akis, liste as _liste
-        (_akis if _gor == "Akış" else _liste)(dosyalar_goster, hesap_map)
-        _sec_id = _B.detay_istendi("ith")
-        _sel = [i for i, _d in enumerate(dosyalar_goster) if _d.get("id") == _sec_id] if _sec_id else []
+    _masa_liste = False
+    if ITHALAT_MASASI_YENI:
+        # Ortak liste masası (ithalat/ithalat_masasi.py): Akış ve Liste görünümlerinin yerine tek masa.
+        # Ortak masraf dağıtımı kendi kutularıyla eski Toplu işlem görünümünde kalır.
+        _masa_liste = (st.segmented_control("Görünüm", ["Liste", "Toplu işlem"], default="Liste",
+                                            key="ith_gorunum_masa", label_visibility="collapsed")
+                       or "Liste") == "Liste"
+    if _masa_liste:
+        dosyalar_goster, _sel = _ithalat_masasi(dosyalar, hesap_map)
         if not _sel:
             return
     else:
-        st.caption("Toplu işlem: birden fazla dosyayı kutucuklarla seç → toplu 'Teslim Alındı' ya da "
-                   "ortak masrafı FOB payına göre dağıt. Tek dosya seçersen ayrıntısı açılır.")
-        # ── Sıralama + tıklanabilir tablo (satıra tıkla → detay) ──
-        _sort = st.selectbox("Sırala", [
-            "Sipariş Tarihi (yeni → eski)", "Sipariş Tarihi (eski → yeni)",
-            "Teslim Tarihi (yeni → eski)", "Teslim Tarihi (eski → yeni)",
-            "Mal Bedeli (çok → az)",
-            "Toplam Masraf (çok → az)", "% Maliyet (çok → az)", "Tedarikçi (A → Z)", "Belge No (A → Z)",
-        ], key="ith_sort")
-        _sk = {
-            "Sipariş Tarihi (yeni → eski)": (lambda p: p[1]["Tarih"], True),
-            "Sipariş Tarihi (eski → yeni)": (lambda p: p[1]["Tarih"], False),
-            "Teslim Tarihi (yeni → eski)":  (lambda p: p[1]["Teslim Tarihi"] or "", True),
-            "Teslim Tarihi (eski → yeni)":  (lambda p: p[1]["Teslim Tarihi"] or "", False),
-            "Mal Bedeli (çok → az)":   (lambda p: p[1]["Mal Bedeli"], True),
-            "Toplam Masraf (çok → az)": (lambda p: p[1]["Toplam Masraf"], True),
-            "% Maliyet (çok → az)":    (lambda p: p[1]["% Maliyet"], True),
-            "Tedarikçi (A → Z)":       (lambda p: (p[1]["Tedarikçi"] or "").lower(), False),
-            "Belge No (A → Z)":        (lambda p: (p[1]["Belge No"] or "").lower(), False),
-        }[_sort]
-        _pairs_sorted = sorted(_pairs, key=_sk[0], reverse=_sk[1])
-        dosyalar_goster = [d for d, s in _pairs_sorted]
-        satirlar_goster = [s for d, s in _pairs_sorted]
+        _tedarikciler = sorted({s["Tedarikçi"] for s in satirlar if s["Tedarikçi"]})
+        _vc1, _vc2, _vc3 = st.columns([2.4, 3.0, 1.1], vertical_alignment="bottom")
+        with _vc1:
+            if ITHALAT_MASASI_YENI:          # yeni ekranda bu satır yalnız Toplu işlem görünümüdür
+                _gor = "Toplu işlem"
+            else:
+                _gor = st.segmented_control("Görünüm", ["Akış", "Liste", "Toplu işlem"], default="Akış",
+                                            key="ith_gorunum", label_visibility="collapsed") or "Akış"
+        _ara = _vc2.text_input("Ara", key="ith_gecmis_ara", label_visibility="collapsed",
+                               placeholder="Belge, takip, SAS no, tedarikçi ya da SKU…").strip().lower()
+        _ff = _B.filtre(_vc3, [{"etiket": "Tedarikçi", "secenekler": _tedarikciler, "key": "ith_f_ted"},
+                               {"etiket": "Aşama", "secenekler": DURUM_SECENEKLER, "key": "ith_f_durum"}])
+        f_ted, f_durum = _ff["ith_f_ted"], _ff["ith_f_durum"]
+        f_takip = f_sku = ""
 
-        # Ortak tablo (shared/tablo.py), çoklu seçim: satıra tıkla seç / bırak (kutucuk yok).
-        # Seçim DOSYA KİMLİĞİNE bağlı: süzgeç/sıra değişince başka belgeye kaymaz (eskiden
-        # sıra numarasıyla tutuluyordu; toplu "Teslim alındı" yanlış belgeye gidebilirdi).
-        from shared.tablo import tablo as _ortak_tablo
-        _sel = _ortak_tablo([{
-            "Belge No": s["Belge No"], "Aşama": s["Aşama"], "Takip No": s["Takip No"] or "—",
-            "SAS No": s["SAS No"] or "—",
-            "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
-            "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
-            "Mal Bedeli": s["Mal Bedeli"], "Masraf": s["Toplam Masraf"],
-            "% Maliyet": s["% Maliyet"], "Kalem": s["Kalem"],
-            "Teslim Şekli": s.get("Teslim Şekli", "—"),
-            "Teslim Deposu": s.get("Teslim Deposu", "—"),
-            "Durum": s["Durum"], "_id": d["id"],
-        } for d, s in zip(dosyalar_goster, satirlar_goster)], key="ith_gecmis_df", coklu=True,
-            maks_yukseklik=420, dosya_adi="ithalat_dosyalari")
-        st.caption("**1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (satırlara tıklayarak) "
-                   "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
-        # Güvenlik: liste değiştiyse (silme/filtre/dağıtım sonrası) eski seçim indeksleri
-        # mevcut listenin dışına taşabilir → IndexError'ı önlemek için geçerli aralığa filtrele.
-        _sel = [i for i in _sel if isinstance(i, int) and 0 <= i < len(dosyalar_goster)]
-        if not _sel:
-            st.info("Yukarıdaki tablodan dosya seç. **1 satır** → detay & düzenleme · **2+ satır** → ortak masraf dağıt.")
+        def _gecer(s):
+            if _ara and _ara not in (str(s.get("Belge No", "")) + " " +
+                                     str(s.get("Takip No", "")) + " " + str(s.get("SAS No", "")) + " " +
+                                     str(s.get("Tedarikçi", "")) + " " + s.get("_skus", "")).lower():
+                return False
+            if f_ted != "Tümü" and s.get("Tedarikçi", "") != f_ted:
+                return False
+            if f_durum != "Tümü" and (s.get("Aşama", "") or "—") != f_durum:
+                return False
+            if f_takip and f_takip not in str(s.get("Takip No", "") or "").lower():
+                return False
+            if f_sku and f_sku not in s.get("_skus", ""):
+                return False
+            return True
+
+        _pairs = [(d, s) for d, s in zip(dosyalar, satirlar) if _gecer(s)]
+        dosyalar_goster = [d for d, s in _pairs]
+        satirlar_goster = [s for d, s in _pairs]
+        if len(satirlar_goster) != len(dosyalar):
+            st.caption(f"{len(satirlar_goster)} / {len(dosyalar)} dosya")
+
+        if not satirlar_goster:
+            st.info("Aramayla eşleşen dosya yok.")
             return
+
+        if _gor != "Toplu işlem":
+            from .ithalat_ekran import akis as _akis, liste as _liste
+            (_akis if _gor == "Akış" else _liste)(dosyalar_goster, hesap_map)
+            _sec_id = _B.detay_istendi("ith")
+            _sel = [i for i, _d in enumerate(dosyalar_goster) if _d.get("id") == _sec_id] if _sec_id else []
+            if not _sel:
+                return
+        else:
+            st.caption("Toplu işlem: birden fazla dosyayı kutucuklarla seç → toplu 'Teslim Alındı' ya da "
+                       "ortak masrafı FOB payına göre dağıt. Tek dosya seçersen ayrıntısı açılır.")
+            # ── Sıralama + tıklanabilir tablo (satıra tıkla → detay) ──
+            _sort = st.selectbox("Sırala", [
+                "Sipariş Tarihi (yeni → eski)", "Sipariş Tarihi (eski → yeni)",
+                "Teslim Tarihi (yeni → eski)", "Teslim Tarihi (eski → yeni)",
+                "Mal Bedeli (çok → az)",
+                "Toplam Masraf (çok → az)", "% Maliyet (çok → az)", "Tedarikçi (A → Z)", "Belge No (A → Z)",
+            ], key="ith_sort")
+            _sk = {
+                "Sipariş Tarihi (yeni → eski)": (lambda p: p[1]["Tarih"], True),
+                "Sipariş Tarihi (eski → yeni)": (lambda p: p[1]["Tarih"], False),
+                "Teslim Tarihi (yeni → eski)":  (lambda p: p[1]["Teslim Tarihi"] or "", True),
+                "Teslim Tarihi (eski → yeni)":  (lambda p: p[1]["Teslim Tarihi"] or "", False),
+                "Mal Bedeli (çok → az)":   (lambda p: p[1]["Mal Bedeli"], True),
+                "Toplam Masraf (çok → az)": (lambda p: p[1]["Toplam Masraf"], True),
+                "% Maliyet (çok → az)":    (lambda p: p[1]["% Maliyet"], True),
+                "Tedarikçi (A → Z)":       (lambda p: (p[1]["Tedarikçi"] or "").lower(), False),
+                "Belge No (A → Z)":        (lambda p: (p[1]["Belge No"] or "").lower(), False),
+            }[_sort]
+            _pairs_sorted = sorted(_pairs, key=_sk[0], reverse=_sk[1])
+            dosyalar_goster = [d for d, s in _pairs_sorted]
+            satirlar_goster = [s for d, s in _pairs_sorted]
+
+            # Ortak tablo (shared/tablo.py), çoklu seçim: satıra tıkla seç / bırak (kutucuk yok).
+            # Seçim DOSYA KİMLİĞİNE bağlı: süzgeç/sıra değişince başka belgeye kaymaz (eskiden
+            # sıra numarasıyla tutuluyordu; toplu "Teslim alındı" yanlış belgeye gidebilirdi).
+            from shared.tablo import tablo as _ortak_tablo
+            _sel = _ortak_tablo([{
+                "Belge No": s["Belge No"], "Aşama": s["Aşama"], "Takip No": s["Takip No"] or "—",
+                "SAS No": s["SAS No"] or "—",
+                "Sipariş Tarihi": gun_ay_yil(s["Tarih"]), "Teslim Tarihi": gun_ay_yil(s["Teslim Tarihi"]) or "—",
+                "Tedarikçi": s["Tedarikçi"], "Döviz": s["Döviz"] or "USD",
+                "Mal Bedeli": s["Mal Bedeli"], "Masraf": s["Toplam Masraf"],
+                "% Maliyet": s["% Maliyet"], "Kalem": s["Kalem"],
+                "Teslim Şekli": s.get("Teslim Şekli", "—"),
+                "Teslim Deposu": s.get("Teslim Deposu", "—"),
+                "Durum": s["Durum"], "_id": d["id"],
+            } for d, s in zip(dosyalar_goster, satirlar_goster)], key="ith_gecmis_df", coklu=True,
+                maks_yukseklik=420, dosya_adi="ithalat_dosyalari")
+            st.caption("**1 satır** seç → detay/masraf/düzenleme **penceresi** açılır.  ·  **2+ satır** seç (satırlara tıklayarak) "
+                       "→ seçilenlere **ortak masraf** girip FOB payına göre dağıtabilirsin.  ·  Sütun başlığından sıralayabilirsin.")
+            # Güvenlik: liste değiştiyse (silme/filtre/dağıtım sonrası) eski seçim indeksleri
+            # mevcut listenin dışına taşabilir → IndexError'ı önlemek için geçerli aralığa filtrele.
+            _sel = [i for i in _sel if isinstance(i, int) and 0 <= i < len(dosyalar_goster)]
+            if not _sel:
+                st.info("Yukarıdaki tablodan dosya seç. **1 satır** → detay & düzenleme · **2+ satır** → ortak masraf dağıt.")
+                return
 
     # ── 2+ satır seçili → ORTAK MASRAF (FOB payına göre dağıt) ──
     if len(_sel) >= 2:
@@ -1945,6 +1978,9 @@ def _masraf_detaylari():
         st.info("Henüz hiçbir ithalatta masraf girilmemiş. (Masraf, Geçmiş İthalatlar → belge düzenleme "
                 "veya çoklu seçim → ortak masraf ile girilir.)")
         return
+    if ITHALAT_MASASI_YENI:
+        _masraf_masasi(satirlar)
+        return
 
     # Filtreler + arama
     _turler = sorted({s["Masraf Türü"] for s in satirlar})
@@ -2024,6 +2060,36 @@ def _masraf_detaylari():
     } for s in _flt_sirali]).to_csv(index=False).encode("utf-8-sig")
     _md_csv.download_button("CSV indir", _csv, "ithalat_masraf_detaylari.csv",
                             mime="text/csv", use_container_width=True, key="md_csv", icon=":material/download:")
+
+
+def _masraf_masasi(satirlar):
+    """Masraf detayları — ortak liste masası (salt-okur). Süzgeç ve arama masada; türe göre toplam
+    penceresi ve CSV bütün masraf kalemleri üzerinden (eski ekranla aynı sütunlar)."""
+    from shared.masa import calistir
+    from .ithalat_masasi import masraf_masa_verisi
+    _sirali = sorted(satirlar, key=lambda x: (x["Belge No"], x["Masraf Türü"]))
+    _tur_ozet = {}
+    for s in _sirali:
+        _tur_ozet[s["Masraf Türü"]] = _tur_ozet.get(s["Masraf Türü"], 0.0) + s["Tutar"]
+
+    @st.dialog("Masraf türüne göre toplam", width="large")
+    def _dlg_masraf_top():
+        st.dataframe(
+            pd.DataFrame([{"Tür": k, "Tutar": round(v, 2)}
+                          for k, v in sorted(_tur_ozet.items(), key=lambda x: -x[1])]),
+            hide_index=True, use_container_width=True)
+    _md1, _md2, _ = st.columns([1.3, 1, 3])
+    if _md1.button("Masraf türüne göre toplam", key="btn_ith_masraf", use_container_width=True,
+                   icon=":material/table_view:"):
+        _dlg_masraf_top()
+    _csv = pd.DataFrame([{
+        "Belge No": s["Belge No"], "Takip No": s["Takip No"], "Tarih": gun_ay_yil(s["Tarih"]),
+        "Tedarikçi": s["Tedarikçi"], "Masraf Türü": s["Masraf Türü"],
+        "Tutar": round(s["Tutar"], 2), "Döviz": s["Döviz"],
+    } for s in _sirali]).to_csv(index=False).encode("utf-8-sig")
+    _md2.download_button("CSV indir", _csv, "ithalat_masraf_detaylari.csv",
+                         mime="text/csv", use_container_width=True, key="md_csv", icon=":material/download:")
+    calistir(masraf_masa_verisi(satirlar), "ith_masraf_masa", lambda temiz: {"ok": False, "mesaj": "Salt-okur liste."})
 
 
 def run():

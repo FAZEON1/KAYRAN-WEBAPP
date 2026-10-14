@@ -208,6 +208,28 @@ def doldur(tablolar, bugun=None):
                                           "fatura_no": f"DS{y}{ay:02d}", "aciklama": "",
                                           "created_at": _zaman(bugun)})
 
+    # ── Ürün Yönetimi: sipariş önerisi kayıtları, Ref No takibi ──
+    T["siparis_onerileri"] = [
+        {"firma": "G5F", "sku": sku, "urun_adi": ad, "oneri_miktari": m, "durum": d,
+         "olusturma_tarihi": _g(bugun - timedelta(days=g)), "onay_tarihi": _g(bugun - timedelta(days=g - 1)) if d != "bekliyor" else None}
+        for (sku, ad, *_), m, d, g in ((URUNLER[0], 120, "bekliyor", 2), (URUNLER[5], 40, "bekliyor", 3),
+                                       (URUNLER[3], 200, "onaylandi", 12), (URUNLER[9], 30, "reddedildi", 20))]
+    T["ref_firmalar"] = [{"id": 1, "firma_adi": KANALLAR[4][0], "firma_kodu": "ORN"},
+                         {"id": 2, "firma_adi": KANALLAR[5][0], "firma_kodu": "DNM"}]
+    T["ref_kayitlari"] = []
+    for i, (fid, ack, tutar, dvz, kat, durum, ay) in enumerate([
+            (1, "EYLÜL MONİTÖR SELLOUT", 1850.0, "USD", "MONİTÖR", "beklemede", 1),
+            (1, "EYLÜL SSD SELLOUT · AĞUSTOS SSD FARK", 1240.5, "USD", "SSD", "paylasildi", 1),
+            (1, "AĞUSTOS EKRAN KARTI DESTEK", 96000.0, "TL", "EKRAN KARTI", "beklemede", 2),
+            (2, "TEMMUZ BELLEK REBATE", 780.0, "EUR", "RAM · SSD", "paylasildi", 3),
+            (2, "HAZİRAN KASA DESTEK", 420.0, "USD", "KASA", "iptal", 4)]):
+        d = bugun.replace(day=1) - timedelta(days=28 * ay)
+        T["ref_kayitlari"].append({
+            "id": i + 1, "firma_id": fid, "ref_no": f"FZ{'ORN' if fid == 1 else 'DNM'}RF{d.year}{i + 1:03d}",
+            "sira_no": i + 1, "yil": d.year, "aciklama": ack, "durum": durum, "tarih": _g(d),
+            "paylasim_tarihi": _g(d + timedelta(days=5)) if durum == "paylasildi" else None,
+            "tutar": tutar, "doviz": dvz, "kategori": kat, "aylik": {f"{d:%Y-%m}": tutar}})
+
     # ── Depo ──
     T["depo_sevk_log"] = [{"id": i + 1, "sku": URUNLER[i % 12][0], "urun_adi": URUNLER[i % 12][1],
                            "kaynak_depo": "MERKEZ DEPO", "hedef_depo": ["OUTLET DEPO", "SERVIS DEPO", "İKİNCİ EL DEPO"][i % 3],
@@ -218,6 +240,17 @@ def doldur(tablolar, bugun=None):
                               "depo": "MERKEZ DEPO", "onceki": 100, "sonraki": 100 - i, "degisim": -i,
                               "tur": "satis", "aciklama": "Satış düşümü", "kaynak": "excel",
                               "kullanici": "ibrahim", "basarili": True} for i in range(1, 15)]
+    T["depo_manuel_takip"] = []                  # bekleyen sevk takibi (faturalandı, depoda bekliyor)
+    for i, (firma, fa, sevkler) in enumerate([("VATAN", 120, [40, 30]), ("MONDAY", 60, [60]),
+                                              ("EERA", 25, []), ("ÖRNEK BİLGİSAYAR", 80, [10])]):
+        sku, ad, *_ = URUNLER[i * 2]
+        hrk = [{"tarih": _g(bugun - timedelta(days=12 - j * 5)), "adet": a, "belge_no": f"FT{i}{j}",
+                "fis_no": f"KYR-{bugun.year}-{i * 3 + j + 1:05d}", "e_irsaliye_no": "", "aciklama": "",
+                "kullanici": "ibrahim"} for j, a in enumerate(sevkler)]
+        T["depo_manuel_takip"].append({"id": i + 1, "firma": firma, "sku": sku, "urun_adi": ad, "fatura_adet": fa,
+                                       "sevk_edilen": sum(sevkler), "hareketler": hrk, "notlar": "",
+                                       "firma_adres": "", "firma_vd": "", "firma_vkn": "",
+                                       "olusturma": _zaman(bugun - timedelta(days=20))})
 
     # ── Teknik servis ──
     T["ts_kayitlar"], T["ts_gecmis"] = [], []

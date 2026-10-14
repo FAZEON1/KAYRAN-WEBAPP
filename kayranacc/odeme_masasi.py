@@ -2,9 +2,8 @@
 """Muhasebe › Bu hafta — ÖDEME MASASI (Ekim 2026, hibrit yol B; kullanıcı onayı A).
 
 Prototip: https://claude.ai/artifact/QeMhUiHWNK1sYnAtsRjkzW
-Liste, yan detay paneli ve toplu işlem tek bir JS bileşeninde (Streamlit components v2; iframe yok,
-derleme yok — shared/tablo.py ile aynı altyapı). Bileşen tarayıcıda anında tepki verir; YALNIZ İSTEK
-gönderir: {"tur": "ode", "ids": [12], "banka": 3}. İstek burada doğrulanır (istek_coz) ve bugünkü
+Liste, yan detay paneli ve toplu işlem ORTAK LİSTE MASASINDA (shared/masa.py); bu modül yalnız masanın
+tanımını (masa_verisi), ödemeye özgü kontrolü (istek_coz) ve yürütmeyi (islem_uygula) verir. İstek burada doğrulanır (istek_coz) ve bugünkü
 veritabanı fonksiyonlarıyla yürütülür (islem_uygula) — bakiye düşme/iade, kısmi ödeme, kalıcı erteleme
 kaydı, düzenleme ve silme kuralları DEĞİŞMEDİ (kayranacc/database.py).
 
@@ -71,37 +70,111 @@ def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildiri
          "al": (f"+ {_usd(oz['bekleyen_usd'])} · " if oz["bekleyen_usd"] else "")
                + f"{oz['odendi_adet']}/{oz['adet']} ödendi", "oran": round(oran, 4)},
         {"k": "hafta_sonu", "et": "Hafta sonu tahmini" if hs >= 0 else "Nakit açığı", "dg": _kisa(_tl(abs(hs))),
-         "suz": None, "renk": "yesil" if hs >= 0 else "kirmizi", "al": "TL bankalar − bekleyenler",
+         "suz": None, "renk": "yesil" if hs >= 0 else "kirmizi", "al": "TL bankalar − bekleyenler", "nokta": False,
          "ipucu": f"TL banka bakiyesi − bekleyen TL − bekleyen USD × kur ({tr_sayi(kur, 4)})"},
     ]
     banka_ad = {b.get("id"): str(b.get("hesap_adi") or "") for b in bankalar or []}
     oncelik = {k: v.get("oncelik", 99) for k, v in (kategoriler or {}).items()}
+    renk = {"gecikmis": "kirmizi", "bugun": "amber", "odendi": "yesil", "tarihsiz": "silik"}
+    durum_ad = {"gecikmis": "Gecikmiş", "bugun": "Bugün", "yarin": "Yarın", "ileri": "Bekliyor", "odendi": "Ödendi",
+                "tarihsiz": "Vadesiz"}
     satirlar = []
     for _gun, liste in H.gunlere_bol(odemeler or [], oncelik):
         for o in liste:
             v = H._tarih(o.get("vade"))
             tl, usd = H._f(o.get("tutar_tl")), H._f(o.get("tutar_usd"))
             kat = o.get("kategori") or "diger"
+            d = H.vade_durumu(o, bugun)
+            fark = (v - bugun).days if v else None
+            ban = banka_ad.get(o.get("banka_id"), "") if H.odendi_mi(o) else ""
+            od_t = str(o.get("odendi_tarih") or "")[:10]
+            firma = str(o.get("firma") or "").strip() or "—"
+            kat_ad = (kategoriler or {}).get(kat, {}).get("label") or H.KATEGORI_AD.get(kat, kat)
             satirlar.append({
-                "id": o.get("id"), "firma": str(o.get("firma") or "").strip() or "—",
-                "ack": str(o.get("aciklama") or "").strip(), "kat": kat,
-                "kat_ad": (kategoriler or {}).get(kat, {}).get("label") or H.KATEGORI_AD.get(kat, kat),
-                "vade": v.isoformat() if v else "", "vade_kisa": f"{v:%d.%m}" if v else "—",
-                "gun": H.gun_basligi(o.get("vade"), bugun), "durum": H.vade_durumu(o, bugun),
-                "fark": (v - bugun).days if v else None,
+                "id": o.get("id"), "firma": firma, "ack": str(o.get("aciklama") or "").strip(), "kat": kat,
+                "kat_ad": kat_ad, "vade": v.isoformat() if v else "", "vade_kisa": f"{v:%d.%m}" if v else "—",
+                "vade_kisa__s": (v.isoformat() if v else "9999"),
+                "vade_alt": (ban or "ödendi") if d == "odendi" else ("vadesiz" if fark is None else f"{-fark} gün gecikti"
+                            if fark < 0 else "bugün" if fark == 0 else "yarın" if fark == 1 else f"{fark} gün kaldı"),
+                "vade_renk": renk.get(d, "silik") if d in ("gecikmis", "bugun") else "silik",
+                "gun": H.gun_basligi(o.get("vade"), bugun), "durum": d, "fark": fark,
                 "tl": tl, "usd": usd, "tl_m": _tl(tl) if tl else "", "usd_m": _usd(usd) if usd else "",
-                "tl_try": tl + usd * kur,
-                "banka_ad": banka_ad.get(o.get("banka_id"), "") if H.odendi_mi(o) else "",
-                "odendi_tarih": str(o.get("odendi_tarih") or "")[:10],
+                "tl_m__s": tl, "usd_m__s": usd, "tl_try": tl + usd * kur, "banka_ad": ban, "odendi_tarih": od_t,
+                "_durum": {"ad": durum_ad.get(d, ""), "renk": renk.get(d, "soluk"),
+                           "ek": f"{-fark} gün" if d == "gecikmis" and fark is not None else ""},
+                "_baslik": firma, "_alt": str(o.get("aciklama") or "").strip(),
+                "_buyuk": _tl(tl) if tl else _usd(usd), "_buyuk_alt": f"+ {_usd(usd)}" if tl and usd else "",
+                "_detay": [["Vade", H.gun_basligi(o.get("vade"), bugun)], ["Kategori", kat_ad]]
+                          + ([["TL karşılığı", f"{_tl(tl + usd * kur)} (kur {tr_sayi(kur, 4)})"]] if usd else []),
+                "_not": (f"Ödendi{' · ' + '.'.join(reversed(od_t.split('-'))) if od_t else ''}"
+                         + (f" · {ban} hesabından düşüldü" if ban else " · bakiyeden düşülmedi")) if d == "odendi" else "",
+                "_soluk": d == "odendi",
             })
+    kat_sec = [{"k": k, "ad": v.get("label", k)}
+               for k, v in sorted((kategoriler or {}).items(), key=lambda kv: kv[1].get("oncelik", 99))]
+    banka_sec = [{"k": b.get("id"), "ad": f"{banka_ad.get(b.get('id'), '')} · "
+                                           f"{_bakiye(H._f(b.get('bakiye')), b.get('para_birimi'))}"} for b in bankalar or []]
+    banka_sec.append({"k": BANKASIZ, "ad": "Bakiyeden düşme (yalnız ödendi işaretle)"})
+    bekler = [["durum", "ne", "odendi"]]
     return {
+        # ortak masa (shared/masa.py) tanımı
+        "ozet": ozet,
+        "gorunumler": [{"k": "bekleyen", "ad": "Bekleyen", "f": bekler},
+                       {"k": "gecikmis", "ad": "Gecikmiş", "f": [["durum", "eq", "gecikmis"]]},
+                       {"k": "bugun", "ad": "Bugün", "f": [["durum", "eq", "bugun"]]},
+                       {"k": "odendi", "ad": "Ödendi", "f": [["durum", "eq", "odendi"]]},
+                       {"k": "tum", "ad": "Tümü", "f": []}],
+        "secimler": [{"alan": "kat", "ad": "Tüm kategoriler",
+                      "secenekler": [k for k in kat_sec if any(s["kat"] == k["k"] for s in satirlar)]}],
+        "anahtarlar": [{"k": "tl", "ad": "Yalnız TL", "f": [["tl", "gt", 0]]},
+                       {"k": "usd", "ad": "Yalnız USD", "f": [["usd", "gt", 0]]}],
+        "ara": {"alanlar": ["firma", "ack", "kat_ad", "tl_m", "usd_m"], "ipucu": "Firma, açıklama ya da tutar"},
+        "sutunlar": [
+            {"alan": "vade_kisa", "ad": "Vade", "tip": "metin", "alt": "vade_alt", "alt_renk": "vade_renk", "gen": "96px", "dar": "alt"},
+            {"alan": "firma", "ad": "Firma", "tip": "ana", "alt": "ack"},
+            {"alan": "kat_ad", "ad": "Kategori", "tip": "etiket", "gen": "110px", "genis": True},
+            {"alan": "tl_m", "ad": "TL", "sag": True, "gen": "124px", "dar": "sag"},
+            {"alan": "usd_m", "ad": "USD", "sag": True, "gen": "104px", "genis": True},
+            {"alan": "durum", "ad": "Durum", "tip": "durum", "gen": "116px"},
+        ],
+        "grup": {"alan": "gun", "birim": "ödeme", "toplamlar": [{"alan": "tl", "on": "₺"}, {"alan": "usd", "on": "$"}]},
+        "toplu_toplam": [{"alan": "tl", "on": "₺"}, {"alan": "usd", "on": "$"}],
+        "satirlar": satirlar,
+        "islemler": [
+            {"k": "ode", "ad": "Öde", "dugme": "Öde", "f": bekler, "birincil": True,
+             "ipucu": "Tutarı küçültürseniz kısmi ödeme olur: ödenen kısım ayrı kayıt açılır, kalan aynı vadeyle listede kalır.",
+             "toplu": {"ad": "Seçilenleri öde", "alanlar": ["banka"]},
+             "alanlar": [{"ad": "banka", "et": "Hangi bankadan ödendi?", "tip": "secim", "zorunlu": True, "tam": True,
+                          "bos": "Banka seç…", "secenekler": banka_sec},
+                         {"ad": "tl", "et": "Ödenen TL", "tip": "sayi", "varsayilan_alan": "tl", "en_cok_alan": "tl",
+                          "gizle_sifir": True},
+                         {"ad": "usd", "et": "Ödenen USD", "tip": "sayi", "varsayilan_alan": "usd", "en_cok_alan": "usd",
+                          "gizle_sifir": True}]},
+            {"k": "otele", "ad": "Ötele", "dugme": "Ötele", "f": bekler,
+             "ipucu": "Erteleme kaydı kalıcıdır (Ertelenen ödemeler'de görünür).",
+             "hizli": [{"ad": f"+{g} gün", "degerler": {"gun": g}} for g in (1, 3, 7, 30)],
+             "toplu": {"ad": "+7 gün ötele", "alanlar": [], "degerler": {"gun": 7}},
+             "alanlar": [{"ad": "vade", "et": "Ya da tarih seç", "tip": "tarih", "varsayilan_alan": "vade"},
+                         {"ad": "gun", "tip": "gizli", "sayi": True, "en_az": 1, "en_cok": OTELE_EN_COK_GUN}]},
+            {"k": "duzenle", "ad": "Düzenle", "dugme": "Kaydet", "f": bekler,
+             "alanlar": [{"ad": "tl", "et": "Tutar TL", "tip": "sayi", "varsayilan_alan": "tl"},
+                         {"ad": "usd", "et": "Tutar USD", "tip": "sayi", "varsayilan_alan": "usd"},
+                         {"ad": "kategori", "et": "Kategori", "tip": "secim", "secenekler": kat_sec, "varsayilan_alan": "kat",
+                          "tam": True, "zorunlu": True},
+                         {"ad": "aciklama", "et": "Açıklama", "tip": "metin", "varsayilan_alan": "ack"}]},
+            {"k": "sil", "ad": "Sil", "dugme": "Ödemeyi sil", "f": bekler, "tehlike": True,
+             "ipucu": "Kayıt kalıcı olarak silinir.",
+             "alanlar": [{"ad": "onay", "et": "Evet, {baslik} ödemesini sil", "tip": "onay", "zorunlu": True}]},
+            {"k": "geri_al", "ad": "Geri al", "dugme": "Geri al (bekliyor yap)", "f": [["durum", "eq", "odendi"]], "coklu": True},
+        ],
+        "bos": {"liste": "Bu hafta ödeme yok.",
+                "suzgec": "Bu süzgece uyan ödeme yok. Ödenenleri görmek için 'Ödendi' ya da 'Tümü'."},
+        "baslik_ipucu": "Ödemeler",
+        # sayfanın kendi kullandıkları (bileşen okumaz)
         "bugun": bugun.isoformat(), "salt": bool(salt), "kur": kur, "kur_m": tr_sayi(kur, 4),
-        "ozet": ozet, "odemeler": satirlar,
-        "kategoriler": [{"k": k, "ad": v.get("label", k)}
-                        for k, v in sorted((kategoriler or {}).items(), key=lambda kv: kv[1].get("oncelik", 99))],
+        "kategoriler": kat_sec,
         "bankalar": [{"id": b.get("id"), "ad": banka_ad.get(b.get("id"), ""), "para": b.get("para_birimi") or "",
-                      "bakiye_m": _bakiye(H._f(b.get("bakiye")), b.get("para_birimi"))}
-                     for b in bankalar or []],
+                      "bakiye_m": _bakiye(H._f(b.get("bakiye")), b.get("para_birimi"))} for b in bankalar or []],
         "bildirim": bildirim,
     }
 
@@ -234,418 +307,38 @@ def islem_uygula(t, odemeler, kur):
             "geri_al": []}
 
 
-# ── Bileşen ─────────────────────────────────────────────────────────
-_CSS = r"""
-.om{--om-panel:380px;color:var(--k-metin);font-size:13.5px;line-height:1.45;font-variant-numeric:tabular-nums}
-.om *{box-sizing:border-box}
-.om button,.om input,.om select{font:inherit;color:inherit}
-.om button{cursor:pointer}
-.om :focus-visible{outline:2px solid var(--k-mor);outline-offset:2px}
-.om .govde{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
-.om.detayli .govde{grid-template-columns:minmax(0,1fr) var(--om-panel)}
-.om .ozet{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--k-yuzey1);border:1px solid var(--k-kenar);
-  border-radius:12px;margin-bottom:14px;overflow:hidden}
-.om .ozet>*{all:unset;box-sizing:border-box;padding:13px 16px;border-right:1px solid var(--k-kenar);display:flex;flex-direction:column;gap:2px;min-width:0}
-.om .ozet>*:last-child{border-right:0}
-.om .ozet button{cursor:pointer}.om .ozet button:hover{background:var(--k-ortu2)}
-.om .ozet button[aria-pressed="true"]{box-shadow:inset 0 -2px 0 var(--k-mor)}
-.om .ozet .et{font-size:12px;color:var(--k-soluk);display:flex;align-items:center;gap:6px}
-.om .ozet .dg{font-size:21px;font-weight:650;letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.om .ozet .al{font-size:12px;color:var(--k-silik);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.om .nk{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;flex-shrink:0}
-.om .r-kirmizi{color:var(--k-kirmizi)}.om .r-amber{color:var(--k-amber)}.om .r-yesil{color:var(--k-yesil)}.om .r-silik{color:var(--k-silik)}
-.om .ilr{height:4px;border-radius:2px;background:var(--k-kenar2);overflow:hidden;margin-top:6px}
-.om .ilr i{display:block;height:100%;background:var(--k-yesil)}
-.om .suz{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.om .cip{border:1px solid var(--k-kenar2);background:transparent;border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--k-soluk);
-  display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
-.om .cip:hover{color:var(--k-metin)}
-.om .cip[aria-pressed="true"]{background:var(--k-vurgu);border-color:color-mix(in srgb,var(--k-mor) 55%,transparent);color:var(--k-mor2);font-weight:600}
-.om .cip .s{font-size:11px;opacity:.8}
-.om .ayr{width:1px;height:20px;background:var(--k-kenar2);margin:0 2px}
-.om select.cip{appearance:none;-webkit-appearance:none;padding-right:12px;background:transparent}
-.om select.cip option{color:var(--k-metin);background:var(--k-yuzey1)}
-.om .kutu{display:flex;align-items:center;gap:8px;border:1px solid var(--k-kenar2);background:var(--k-yuzey1);border-radius:8px;
-  padding:5px 10px;margin-left:auto;min-width:220px;flex:0 1 300px}
-.om .kutu input{border:0;background:transparent;outline:0;width:100%;font-size:13px}
-.om .tablo{border:1px solid var(--k-kenar);border-radius:12px;background:var(--k-yuzey1);overflow:hidden}
-.om .sat{display:grid;grid-template-columns:40px 96px minmax(150px,1fr) 104px 124px 104px 104px;align-items:center;
-  border-bottom:1px solid var(--k-kenar);min-height:46px}
-.om.detayli .sat{grid-template-columns:40px 92px minmax(130px,1fr) 118px 104px}
-.om.detayli .c-k,.om.detayli .c-usd{display:none}
-.om .sat>*{padding:0 10px;min-width:0}
-.om .tutar{text-align:right}
-.om .bsat{background:var(--k-yuzey2);min-height:36px;font-size:12px;color:var(--k-soluk);font-weight:500}
-.om .bsat button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
-.om .bsat button:hover{color:var(--k-metin)}
-.om .bsat .tutar button{justify-content:flex-end;width:100%}
-.om .gun{display:flex;align-items:center;gap:10px;padding:12px 14px 6px;font-size:12.5px;color:var(--k-soluk);border-bottom:1px solid var(--k-kenar)}
-.om .gun b{color:var(--k-metin);font-weight:600;font-size:13px}
-.om .gun .num{margin-left:auto}
-.om .satir{cursor:pointer}
-.om .satir:hover{background:var(--k-ortu2)}
-.om .satir.secili{background:var(--k-vurgu)}
-.om .satir.odak{box-shadow:inset 3px 0 0 var(--k-mor)}
-.om .satir.acik{background:var(--k-yuzey2)}
-.om .satir.odendi{opacity:.55}
-.om .satir.odendi .c-tl,.om .satir.odendi .c-usd{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--k-metin) 35%,transparent)}
-.om .firma{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.om .ack{color:var(--k-silik);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.om .vade{font-size:12.5px}.om .vade small{display:block;font-size:11.5px}
-.om .etk{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--k-yuzey2);color:var(--k-soluk);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.om .drm{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap}
-.om .onay{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--k-kenar2);display:grid;place-items:center;background:transparent;padding:0}
-.om .onay[aria-checked="true"],.om .onay[aria-checked="mixed"]{background:var(--k-dolgu);border-color:var(--k-dolgu)}
-.om .onay[aria-checked="true"]::after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
-.om .onay[aria-checked="mixed"]::after{content:"";width:8px;height:2px;background:#fff}
-.om .onay:disabled{opacity:.35;cursor:default}
-.om .bos{padding:40px 20px;text-align:center;color:var(--k-soluk)}
-.om .kisa{display:flex;gap:14px;flex-wrap:wrap;color:var(--k-silik);font-size:12px;margin-top:10px}
-.om kbd{font-family:var(--k-mono,monospace);font-size:11px;border:1px solid var(--k-kenar2);border-radius:4px;padding:0 5px;color:var(--k-soluk)}
-.om .panel{position:sticky;top:8px;border:1px solid var(--k-kenar);border-radius:12px;background:var(--k-yuzey1);
-  max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column}
-.om .pbas{display:flex;align-items:flex-start;gap:10px;padding:16px 18px 12px;border-bottom:1px solid var(--k-kenar)}
-.om .pbas h3{font-size:16px;margin:0;font-weight:650;line-height:1.3}
-.om .pbas p{margin:2px 0 0;color:var(--k-soluk);font-size:12.5px}
-.om .kapat{margin-left:auto;border:0;background:transparent;color:var(--k-silik);border-radius:6px;padding:2px 6px;font-size:18px;line-height:1}
-.om .kapat:hover{color:var(--k-metin);background:var(--k-ortu2)}
-.om .pgov{padding:14px 18px 18px;display:flex;flex-direction:column;gap:16px}
-.om .buyuk{font-size:24px;font-weight:650;letter-spacing:-.5px}
-.om .buyuk small{font-size:13px;color:var(--k-soluk);font-weight:500;margin-left:6px}
-.om dl{display:grid;grid-template-columns:96px 1fr;gap:6px 12px;font-size:13px;margin:0}
-.om dt{color:var(--k-silik)}.om dd{margin:0}
-.om .sekmeler{display:flex;gap:2px;background:var(--k-yuzey2);border-radius:8px;padding:2px}
-.om .sekmeler button{flex:1;border:0;background:transparent;border-radius:6px;padding:6px 8px;font-size:12.5px;color:var(--k-soluk);font-weight:500}
-.om .sekmeler button[aria-pressed="true"]{background:var(--k-yuzey1);color:var(--k-metin);box-shadow:var(--k-golge)}
-.om .form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.om .form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--k-soluk)}
-.om .form .tam{grid-column:1/-1}
-.om .form input,.om .form select{border:1px solid var(--k-kenar2);background:var(--k-yuzey0);border-radius:8px;padding:7px 10px;font-size:13px;width:100%}
-.om .ipucu{font-size:12px;color:var(--k-silik);grid-column:1/-1}
-.om .hata{font-size:12.5px;color:var(--k-kirmizi);grid-column:1/-1}
-.om .eylem{display:flex;gap:8px;flex-wrap:wrap}
-.om .dug{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--k-kenar2);background:var(--k-yuzey1);
-  border-radius:8px;padding:7px 12px;font-weight:500;font-size:13px;white-space:nowrap}
-.om .dug:hover{background:var(--k-ortu2)}
-.om .dug.bir{background:var(--k-dolgu);border-color:var(--k-dolgu);color:var(--k-dolgu-metin)}
-.om .dug.bir:hover{filter:brightness(1.08)}
-.om .dug.teh{color:var(--k-kirmizi)}
-.om .dug:disabled{opacity:.5;cursor:default;filter:none}
-.om .not{font-size:13px;color:var(--k-soluk);background:var(--k-ortu);border-radius:8px;padding:10px 12px}
-.om .toplu{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;
-  background:var(--k-yuzey3);border:1px solid var(--k-kenar2);border-radius:12px;padding:8px 8px 8px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35);
-  z-index:999990;max-width:calc(100% - 32px);flex-wrap:nowrap;white-space:nowrap}
-.om .toplu select{border:1px solid var(--k-kenar2);background:var(--k-yuzey1);border-radius:8px;padding:6px 8px;font-size:13px;width:190px;min-width:0}
-.om .bildirim{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--k-yuzey3);
-  border:1px solid var(--k-kenar2);border-radius:10px;padding:10px 12px 10px 14px;display:flex;gap:12px;align-items:center;
-  box-shadow:0 12px 40px rgba(0,0,0,.35);z-index:999991;font-size:13px;max-width:min(460px,calc(100% - 32px))}
-.om .bildirim.kotu{border-color:color-mix(in srgb,var(--k-kirmizi) 50%,transparent)}
-.om .bildirim button{border:0;background:transparent;color:var(--k-mor2);font-weight:600}
-.om [hidden]{display:none !important}
-@media (prefers-reduced-motion: reduce){.om *{transition:none !important}}
-@media (max-width:900px){
-  .om.detayli .govde{grid-template-columns:minmax(0,1fr)}
-  .om .panel{position:fixed;inset:0;z-index:999980;border-radius:0;max-height:none;border:0}
-  .om .ozet{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .om .ozet>*:nth-child(2){border-right:0}
-  .om .ozet>*:nth-child(-n+2){border-bottom:1px solid var(--k-kenar)}
-  .om .kutu{margin-left:0;flex:1 1 100%;min-width:0}
-  .om .bsat,.om .kisa{display:none}
-  .om .sat,.om.detayli .sat{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"o f t" "o v d";row-gap:2px;padding:9px 0}
-  .om .c-o{grid-area:o}.om .c-f{grid-area:f}.om .c-v{grid-area:v}.om .c-tl{grid-area:t}.om .c-d{grid-area:d;text-align:right}
-  .om .c-k,.om .c-usd{display:none}
-  /* telefonda alttaki menünün (Ana sayfa · Modüller …) üstünde dursun */
-  .om .toplu{bottom:calc(92px + env(safe-area-inset-bottom,0px));flex-wrap:wrap;white-space:normal;left:12px;right:12px;transform:none;max-width:none}
-  .om .toplu select{flex:1 1 100%;width:auto}
-  .om .bildirim{bottom:calc(92px + env(safe-area-inset-bottom,0px));left:12px;right:12px;max-width:none}
-  .om.detayli .toplu{display:none}                      /* ayrıntı tam ekranken alttaki çubuk örtmesin */
-  .om .gun{flex-wrap:wrap;row-gap:2px}
-}
-"""
-
-_JS = r"""
-export default function(component){
-  const {data, setTriggerValue, parentElement} = component;
-  const D = data || {};
-  const S = parentElement.__om || (parentElement.__om = {gor:"bekleyen", kat:"", pb:"", q:"", sira:["vade",1], sec:new Set(),
-                                                         acik:null, sekme:"ode", odak:0, sonBildirim:null, form:{}});
-  let kok = parentElement.querySelector(".om");
-  if (!kok){ kok = document.createElement("div"); kok.className = "om"; parentElement.appendChild(kok); }
-  const O = D.odemeler || [];
-  const varMi = new Set(O.map(o => o.id));
-  for (const i of [...S.sec]) if (!varMi.has(i) || (O.find(o => o.id === i) || {}).durum === "odendi") S.sec.delete(i);
-  if (S.acik !== null && !varMi.has(S.acik)) S.acik = null;
-  const tr = (n, d=2) => Number(n||0).toLocaleString("tr-TR", {minimumFractionDigits:d, maximumFractionDigits:d});
-  const tl = n => n ? "₺" + tr(n) : "", usd = n => n ? "$" + tr(n) : "";
-  const iki = (a, b) => [tl(a), usd(b)].filter(Boolean).join(" + ") || "—";
-  const e = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const kucuk = s => String(s||"").toLocaleLowerCase("tr-TR");
-  const DUR = {gecikmis:["Gecikmiş","r-kirmizi"], bugun:["Bugün","r-amber"], yarin:["Yarın",""], ileri:["Bekliyor",""],
-               odendi:["Ödendi","r-yesil"], tarihsiz:["Vadesiz","r-silik"]};
-  const bekler = o => o.durum !== "odendi";
-  const GOR = [["bekleyen","Bekleyen",bekler], ["gecikmis","Gecikmiş",o => o.durum==="gecikmis"],
-               ["bugun","Bugün",o => o.durum==="bugun"], ["odendi","Ödendi",o => o.durum==="odendi"], ["tum","Tümü",() => true]];
-  const gonder = (istek) => setTriggerValue("islem", {...istek, n: Date.now() + Math.random()});
-
-  function suzulmus(){
-    const g = (GOR.find(x => x[0] === S.gor) || GOR[0])[2], q = kucuk(S.q.trim());
-    let r = O.filter(g).filter(o => !S.kat || o.kat === S.kat)
-             .filter(o => S.pb === "tl" ? o.tl > 0 : S.pb === "usd" ? o.usd > 0 : true)
-             .filter(o => !q || kucuk(`${o.firma} ${o.ack} ${o.kat_ad} ${o.tl_m} ${o.usd_m} ${o.tl} ${o.usd}`).includes(q));
-    const [a, y] = S.sira;
-    if (a !== "vade"){
-      const v = o => a === "firma" ? kucuk(o.firma) : a === "tl" ? o.tl : o.usd;
-      r = r.slice().sort((p, q2) => (v(p) > v(q2) ? 1 : v(p) < v(q2) ? -1 : 0) * y);
-    } else if (y < 0) r = r.slice().reverse();
-    return r;
-  }
-
-  function ozetHtml(){
-    return `<div class="ozet">` + (D.ozet || []).map(k => {
-      const ic = `<span class="et">${k.renk && k.renk !== "silik" && k.k !== "hafta_sonu" ? `<span class="nk r-${k.renk}"></span>` : ""}${e(k.et)}</span>
-        <span class="dg ${k.k === "hafta_sonu" || (k.renk && k.renk !== "silik") ? "r-" + k.renk : ""}">${e(k.dg)}</span>
-        <span class="al" title="${e(k.al)}">${e(k.al)}</span>${k.oran !== undefined ? `<span class="ilr"><i style="width:${Math.round(k.oran*100)}%"></i></span>` : ""}`;
-      return k.suz ? `<button data-suz="${k.suz}" aria-pressed="${S.gor === k.suz}">${ic}</button>` : `<div title="${e(k.ipucu||"")}">${ic}</div>`;
-    }).join("") + `</div>`;
-  }
-
-  function suzHtml(){
-    const say = Object.fromEntries(GOR.map(([k,,f]) => [k, O.filter(f).length]));
-    const katlar = (D.kategoriler || []).filter(k => O.some(o => o.kat === k.k));
-    return `<div class="suz">` + GOR.map(([k, ad]) => `<button class="cip" data-gor="${k}" aria-pressed="${S.gor === k}">${ad} <span class="s">${say[k]}</span></button>`).join("")
-      + `<span class="ayr"></span><select class="cip" data-kat aria-label="Kategori"><option value="">Tüm kategoriler</option>`
-      + katlar.map(k => `<option value="${e(k.k)}" ${S.kat === k.k ? "selected" : ""}>${e(k.ad)}</option>`).join("") + `</select>`
-      + `<button class="cip" data-pb="tl" aria-pressed="${S.pb === "tl"}">Yalnız TL</button><button class="cip" data-pb="usd" aria-pressed="${S.pb === "usd"}">Yalnız USD</button>`
-      + `<label class="kutu"><input data-ara placeholder="Firma, açıklama ya da tutar  ( / )" value="${e(S.q)}" autocomplete="off" aria-label="Ödeme ara"></label></div>`;
-  }
-
-  function tabloHtml(r){
-    const sec = r.filter(bekler);
-    const hepsi = sec.length && sec.every(o => S.sec.has(o.id)), biraz = !hepsi && sec.some(o => S.sec.has(o.id));
-    const ok = a => S.sira[0] === a ? (S.sira[1] > 0 ? " ↑" : " ↓") : "";
-    let h = `<div class="tablo" role="grid" aria-label="Ödemeler"><div class="sat bsat" role="row">
-      <div><button class="onay" data-hepsi role="checkbox" aria-checked="${hepsi ? "true" : biraz ? "mixed" : "false"}" aria-label="Görünen bekleyenlerin hepsini seç" ${D.salt || !sec.length ? "disabled" : ""}></button></div>
-      <div><button data-sira="vade">Vade${ok("vade")}</button></div><div><button data-sira="firma">Firma${ok("firma")}</button></div>
-      <div class="c-k">Kategori</div><div class="tutar"><button data-sira="tl">TL${ok("tl")}</button></div>
-      <div class="tutar c-usd"><button data-sira="usd">USD${ok("usd")}</button></div><div>Durum</div></div>`;
-    if (!r.length) h += `<div class="bos">${S.gor === "bekleyen" && !S.q && !S.kat && !S.pb ? "Bekleyen ödeme kalmadı. Ödenenleri görmek için 'Ödendi' ya da 'Tümü'." : "Bu süzgece uyan ödeme yok."}</div>`;
-    let son = null;
-    r.forEach((o, i) => {
-      if (S.sira[0] === "vade" && o.vade !== son){
-        son = o.vade;
-        const g = r.filter(x => x.vade === o.vade);
-        h += `<div class="gun"><b>${e(o.gun)}</b><span>${g.length} ödeme</span><span class="num">${iki(g.reduce((s,x)=>s+x.tl,0), g.reduce((s,x)=>s+x.usd,0))}</span></div>`;
-      }
-      const [dad, dsn] = DUR[o.durum] || ["", ""];
-      const alt = o.durum === "odendi" ? (o.banka_ad ? e(o.banka_ad) : "ödendi") : o.fark === null ? "vadesiz"
-                : o.fark < 0 ? `${-o.fark} gün gecikti` : o.fark === 0 ? "bugün" : o.fark === 1 ? "yarın" : `${o.fark} gün kaldı`;
-      const altS = o.durum === "gecikmis" ? "r-kirmizi" : o.durum === "bugun" ? "r-amber" : "r-silik";
-      h += `<div class="sat satir ${S.sec.has(o.id) ? "secili" : ""} ${S.acik === o.id ? "acik" : ""} ${i === S.odak ? "odak" : ""} ${o.durum === "odendi" ? "odendi" : ""}"
-             role="row" data-id="${o.id}" data-i="${i}">
-        <div class="c-o"><button class="onay" role="checkbox" aria-checked="${S.sec.has(o.id)}" data-sec="${o.id}" aria-label="Seç: ${e(o.firma)}" ${D.salt || o.durum === "odendi" ? "disabled" : ""}></button></div>
-        <div class="c-v vade">${e(o.vade_kisa)}<small class="${altS}">${alt}</small></div>
-        <div class="c-f"><div class="firma" title="${e(o.firma)}">${e(o.firma)}</div><div class="ack" title="${e(o.ack)}">${e(o.ack)}</div></div>
-        <div class="c-k"><span class="etk">${e(o.kat_ad)}</span></div>
-        <div class="c-tl tutar">${o.tl_m ? e(o.tl_m) : o.durum !== "odendi" && o.usd_m ? `<span class="r-silik">${e(o.usd_m)}</span>` : "<span class='r-silik'>—</span>"}</div>
-        <div class="c-usd tutar">${o.usd_m ? e(o.usd_m) : "<span class='r-silik'>—</span>"}</div>
-        <div class="c-d"><span class="drm ${dsn}"><span class="nk"></span>${dad}</span></div></div>`;
-    });
-    return h + `</div><div class="kisa"><span><kbd>j</kbd> <kbd>k</kbd> satır gez</span><span><kbd>x</kbd> seç</span><span><kbd>Enter</kbd> detay</span><span><kbd>Esc</kbd> kapat</span><span><kbd>/</kbd> ara</span></div>`;
-  }
-
-  function bankaSecenek(sec, para){
-    const b = (D.bankalar || []).slice().sort((x, y) => (x.para !== para) - (y.para !== para));
-    return `<option value="" ${sec === "" ? "selected" : ""} disabled>Banka seç…</option>` + b.map(x =>
-      `<option value="${x.id}" ${String(sec) === String(x.id) ? "selected" : ""}>${e(x.ad)} · ${e(x.bakiye_m)}</option>`).join("")
-      + `<option value="_bankasiz" ${sec === "_bankasiz" ? "selected" : ""}>Bakiyeden düşme (yalnız ödendi işaretle)</option>`;
-  }
-
-  function panelHtml(){
-    const o = O.find(x => x.id === S.acik);
-    if (!o) return "";
-    const [dad, dsn] = DUR[o.durum] || ["", ""];
-    const F = S.form[o.id] || (S.form[o.id] = {banka:"", tl:tr(o.tl).replace(/\./g, ""), usd:tr(o.usd).replace(/\./g, ""), vade:o.vade || D.bugun,
-                                                dtl:tr(o.tl).replace(/\./g, ""), dusd:tr(o.usd).replace(/\./g, ""), kat:o.kat, ack:o.ack, sil:false, hata:""});
-    let ic = "";
-    if (D.salt) ic = `<div class="not">Salt-okur oturum: işlem yapılamaz.</div>`;
-    else if (o.durum === "odendi") ic = `<div class="not">Ödendi${o.odendi_tarih ? " · " + e(o.odendi_tarih.split("-").reverse().join(".")) : ""}${o.banka_ad ? " · " + e(o.banka_ad) + " hesabından düşüldü" : " · bakiyeden düşülmedi"}</div>
-        <div class="eylem"><button class="dug" data-geri="${o.id}">Geri al (bekliyor yap)</button></div>`;
-    else {
-      const sek = [["ode","Öde"],["otele","Ötele"],["duzenle","Düzenle"],["sil","Sil"]];
-      ic = `<div class="sekmeler" role="group" aria-label="İşlem">${sek.map(([k,a]) => `<button data-sekme="${k}" aria-pressed="${S.sekme === k}">${a}</button>`).join("")}</div>`;
-      if (S.sekme === "ode"){
-        const para = o.usd && !o.tl ? "USD" : "TL";
-        ic += `<div class="form">
-          <label class="tam">Hangi bankadan ödendi?<select data-f="banka">${bankaSecenek(F.banka, para)}</select></label>
-          ${o.tl ? `<label>Ödenen TL<input data-f="tl" inputmode="decimal" value="${e(F.tl)}"></label>` : ""}
-          ${o.usd ? `<label>Ödenen USD<input data-f="usd" inputmode="decimal" value="${e(F.usd)}"></label>` : ""}
-          <span class="ipucu">Tutarı küçültürseniz kısmi ödeme olur: ödenen kısım ayrı kayıt açılır, kalan aynı vadeyle listede kalır.</span>
-          ${F.hata ? `<span class="hata" role="alert">${e(F.hata)}</span>` : ""}</div>
-          <div class="eylem"><button class="dug bir" data-yap="ode" ${F.banka ? "" : "disabled"}>Öde</button></div>`;
-      } else if (S.sekme === "otele"){
-        ic += `<div class="eylem">${[1,3,7,30].map(g => `<button class="dug" data-gun="${g}">+${g} gün</button>`).join("")}</div>
-          <div class="form"><label>Ya da tarih seç<input type="date" data-f="vade" value="${e(F.vade)}"></label>
-          <label>&nbsp;<button class="dug bir" data-yap="otele" ${F.vade && F.vade !== o.vade ? "" : "disabled"}>Ötele</button></label>
-          <span class="ipucu">Erteleme kaydı kalıcıdır (Ertelenen ödemeler'de görünür).</span>
-          ${F.hata ? `<span class="hata" role="alert">${e(F.hata)}</span>` : ""}</div>`;
-      } else if (S.sekme === "duzenle"){
-        ic += `<div class="form"><label>Tutar TL<input data-f="dtl" inputmode="decimal" value="${e(F.dtl)}"></label>
-          <label>Tutar USD<input data-f="dusd" inputmode="decimal" value="${e(F.dusd)}"></label>
-          <label class="tam">Kategori<select data-f="kat">${(D.kategoriler || []).map(k => `<option value="${e(k.k)}" ${F.kat === k.k ? "selected" : ""}>${e(k.ad)}</option>`).join("")}</select></label>
-          <label class="tam">Açıklama<input data-f="ack" value="${e(F.ack)}" maxlength="500"></label>
-          ${F.hata ? `<span class="hata" role="alert">${e(F.hata)}</span>` : ""}</div>
-          <div class="eylem"><button class="dug bir" data-yap="duzenle">Kaydet</button></div>`;
-      } else {
-        ic += `<div class="form"><label class="tam" style="flex-direction:row;align-items:center;gap:8px;color:var(--k-metin)">
-          <input type="checkbox" data-f="sil" ${F.sil ? "checked" : ""} style="width:auto">Evet, ${e(o.firma)} ödemesini sil</label>
-          <span class="ipucu">Kayıt kalıcı olarak silinir.</span></div>
-          <div class="eylem"><button class="dug teh" data-yap="sil" ${F.sil ? "" : "disabled"}>Ödemeyi sil</button></div>`;
-      }
-    }
-    return `<aside class="panel" aria-label="Ödeme ayrıntısı">
-      <div class="pbas"><div><h3>${e(o.firma)}</h3><p>${e(o.ack)}</p></div><button class="kapat" data-kapat aria-label="Ayrıntıyı kapat">×</button></div>
-      <div class="pgov">
-        <div><div class="buyuk">${o.tl ? e(o.tl_m) : e(o.usd_m)}${o.tl && o.usd ? `<small>+ ${e(o.usd_m)}</small>` : ""}</div>
-          <span class="drm ${dsn}"><span class="nk"></span>${dad}${o.durum === "gecikmis" ? ` · ${-o.fark} gün` : ""}</span></div>
-        <dl><dt>Vade</dt><dd>${e(o.gun)}</dd><dt>Kategori</dt><dd><span class="etk">${e(o.kat_ad)}</span></dd>
-          ${o.usd ? `<dt>TL karşılığı</dt><dd>${tl(o.tl_try)} <span class="r-silik">(kur ${e(D.kur_m)})</span></dd>` : ""}</dl>
-        ${ic}</div></aside>`;
-  }
-
-  function topluHtml(){
-    const s = O.filter(o => S.sec.has(o.id));
-    if (!s.length || D.salt) return "";
-    const b = S.form.__toplu || (S.form.__toplu = {banka:""});
-    return `<div class="toplu" role="region" aria-label="Seçili ödemeler"><span><b>${s.length} ödeme seçili</b> · ${iki(s.reduce((a,o)=>a+o.tl,0), s.reduce((a,o)=>a+o.usd,0))}</span>
-      <select data-tbanka aria-label="Hangi bankadan">${bankaSecenek(b.banka, "TL")}</select>
-      <button class="dug bir" data-toplu="ode" ${b.banka ? "" : "disabled"}>Seçilenleri öde</button>
-      <button class="dug" data-toplu="otele">+7 gün ötele</button>
-      <button class="kapat" data-tkapat aria-label="Seçimi kaldır">×</button></div>`;
-  }
-
-  function bildirimHtml(){
-    const b = D.bildirim;
-    if (!b || S.sonBildirim === b.n) return "";
-    return `<div class="bildirim ${b.ok ? "" : "kotu"}" role="status"><span>${e(b.mesaj)}</span>${b.geri_al && b.geri_al.length ? `<button data-gerial>Geri al</button>` : ""}</div>`;
-  }
-
-  const sayi = s => { const t = String(s ?? "").trim().replace(/\s/g, "").replace(/\./g, "").replace(",", "."); return t === "" ? 0 : Number(t); };
-
-  function yap(tur, o){
-    const F = S.form[o.id]; F.hata = "";
-    if (tur === "ode"){
-      const btl = o.tl ? sayi(F.tl) : 0, busd = o.usd ? sayi(F.usd) : 0;
-      if (!(btl >= 0) || !(busd >= 0) || (btl === 0 && busd === 0)){ F.hata = "Ödenen tutarı girin."; return ciz(); }
-      if (btl > o.tl + 1e-9 || busd > o.usd + 1e-9){ F.hata = `Ödenen tutar en çok ${iki(o.tl, o.usd)} olabilir.`; return ciz(); }
-      const banka = F.banka === "_bankasiz" ? "_bankasiz" : Number(F.banka);
-      const tam = Math.abs(btl - o.tl) < 0.005 && Math.abs(busd - o.usd) < 0.005;
-      return gonder(tam ? {tur:"ode", ids:[o.id], banka} : {tur:"kismi", ids:[o.id], banka, tl:btl, usd:busd});
-    }
-    if (tur === "otele") return gonder({tur:"otele", ids:[o.id], vade:F.vade});
-    if (tur === "duzenle"){
-      const a = sayi(F.dtl), b = sayi(F.dusd);
-      if (!(a >= 0) || !(b >= 0) || (a === 0 && b === 0)){ F.hata = "En az bir tutar (TL ya da USD) 0'dan büyük olmalı."; return ciz(); }
-      return gonder({tur:"duzenle", ids:[o.id], tl:a, usd:b, kategori:F.kat, aciklama:F.ack});
-    }
-    if (tur === "sil") return gonder({tur:"sil", ids:[o.id]});
-  }
-
-  function ciz(){
-    const r = suzulmus();
-    S.gorunen = r;
-    if (S.odak >= r.length) S.odak = Math.max(0, r.length - 1);
-    kok.classList.toggle("detayli", S.acik !== null);
-    const odakli = document.activeElement && kok.contains(document.activeElement) ? document.activeElement.getAttribute("data-f") || (document.activeElement.hasAttribute("data-ara") ? "ara" : null) : null;
-    kok.innerHTML = ozetHtml() + suzHtml() + `<div class="govde"><div style="min-width:0">${tabloHtml(r)}</div>${panelHtml()}</div>` + topluHtml() + bildirimHtml();
-    if (odakli === "ara"){ const a = kok.querySelector("[data-ara]"); a.focus(); a.setSelectionRange(a.value.length, a.value.length); }
-    else if (odakli){ const a = kok.querySelector(`[data-f="${odakli}"]`); if (a){ a.focus(); if (a.setSelectionRange && a.type !== "date" && a.type !== "checkbox") a.setSelectionRange(a.value.length, a.value.length); } }
-    if (D.bildirim && S.sonBildirim !== D.bildirim.n){
-      const n = D.bildirim.n; clearTimeout(S.bz);
-      S.bz = setTimeout(() => { S.sonBildirim = n; const b = kok.querySelector(".bildirim"); if (b) b.remove(); }, 7000);
-    }
-  }
-
-  kok.onclick = (ev) => {
-    const t = ev.target.closest("button, [data-id]");
-    if (!t || !kok.contains(t)) return;
-    const d = t.dataset;
-    if (d.suz !== undefined){ S.gor = d.suz; S.odak = 0; return ciz(); }
-    if (d.gor !== undefined){ S.gor = d.gor; S.odak = 0; return ciz(); }
-    if (d.pb !== undefined){ S.pb = S.pb === d.pb ? "" : d.pb; return ciz(); }
-    if (d.sira !== undefined){ S.sira = [d.sira, S.sira[0] === d.sira ? -S.sira[1] : 1]; return ciz(); }
-    if (d.hepsi !== undefined){ const g = (S.gorunen || []).filter(bekler); const h = g.every(o => S.sec.has(o.id));
-      g.forEach(o => h ? S.sec.delete(o.id) : S.sec.add(o.id)); return ciz(); }
-    if (d.sec !== undefined){ ev.stopPropagation(); const i = Number(d.sec); S.sec.has(i) ? S.sec.delete(i) : S.sec.add(i); return ciz(); }
-    if (d.kapat !== undefined){ S.acik = null; return ciz(); }
-    if (d.sekme !== undefined){ S.sekme = d.sekme; return ciz(); }
-    if (d.tkapat !== undefined){ S.sec.clear(); return ciz(); }
-    if (d.gerial !== undefined){ S.sonBildirim = D.bildirim.n; return gonder({tur:"geri_al", ids:D.bildirim.geri_al}); }
-    if (d.geri !== undefined) return gonder({tur:"geri_al", ids:[Number(d.geri)]});
-    if (d.gun !== undefined) return gonder({tur:"otele", ids:[S.acik], gun:Number(d.gun)});
-    if (d.yap !== undefined){ const o = O.find(x => x.id === S.acik); if (o) yap(d.yap, o); return; }
-    if (d.toplu !== undefined){
-      const ids = [...S.sec];
-      if (d.toplu === "ode"){ const b = S.form.__toplu.banka; return gonder({tur:"ode", ids, banka: b === "_bankasiz" ? b : Number(b)}); }
-      return gonder({tur:"otele", ids, gun:7});
-    }
-    if (d.id !== undefined){
-      const i = Number(d.id); S.odak = Number(d.i);
-      if (S.acik !== i){ S.acik = i; S.sekme = "ode"; } else S.acik = null;
-      return ciz();
-    }
-  };
-  kok.oninput = (ev) => {
-    const t = ev.target, d = t.dataset;
-    if (d.ara !== undefined){ S.q = t.value; S.odak = 0; return ciz(); }
-    if (d.f !== undefined && S.acik !== null){
-      const F = S.form[S.acik]; F[d.f] = t.type === "checkbox" ? t.checked : t.value; F.hata = "";
-      if (["banka","vade","sil"].includes(d.f)) ciz();
-    }
-  };
-  kok.onchange = (ev) => {
-    const t = ev.target, d = t.dataset;
-    if (d.kat !== undefined){ S.kat = t.value; S.odak = 0; return ciz(); }
-    if (d.tbanka !== undefined){ S.form.__toplu.banka = t.value; return ciz(); }
-    if (d.f === "kat" && S.acik !== null){ S.form[S.acik].kat = t.value; }
-  };
-  S.ciz = ciz;
-  if (!parentElement.__omKlavye){
-    parentElement.__omKlavye = true;
-    document.addEventListener("keydown", (ev) => {
-      const s = parentElement.__om;
-      if (!parentElement.isConnected || !s || !s.ciz) return;
-      const a = document.activeElement, yaz = a && (["INPUT","SELECT","TEXTAREA"].includes(a.tagName) || a.isContentEditable);
-      if (ev.key === "Escape"){ if (yaz && kok.contains(a)) { a.blur(); return; } if (s.acik !== null){ s.acik = null; s.ciz(); } else if (s.sec.size){ s.sec.clear(); s.ciz(); } return; }
-      if (yaz || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-      if (document.querySelector('[role="dialog"]')) return;
-      const r = s.gorunen || [];
-      if (ev.key === "/"){ ev.preventDefault(); const k = parentElement.querySelector("[data-ara]"); if (k) k.focus(); }
-      else if (ev.key === "j" || ev.key === "ArrowDown"){ if (!r.length) return; ev.preventDefault(); s.odak = Math.min(r.length - 1, s.odak + 1); s.ciz(); parentElement.querySelector(".satir.odak")?.scrollIntoView({block:"nearest"}); }
-      else if (ev.key === "k" || ev.key === "ArrowUp"){ if (!r.length) return; ev.preventDefault(); s.odak = Math.max(0, s.odak - 1); s.ciz(); parentElement.querySelector(".satir.odak")?.scrollIntoView({block:"nearest"}); }
-      else if (ev.key === "x" && r[s.odak] && r[s.odak].durum !== "odendi" && !D.salt){ const i = r[s.odak].id; s.sec.has(i) ? s.sec.delete(i) : s.sec.add(i); s.ciz(); }
-      else if (ev.key === "Enter" && r[s.odak]){ s.acik = r[s.odak].id; s.sekme = "ode"; s.ciz(); }
-    });
-  }
-  ciz();
-}
-"""
-
-_BILESEN = None
+# ── Ortak masaya köprü ──────────────────────────────────────────────
+def motor_istegi(temiz):
+    """shared.masa.istek_al çıktısı → bu modülün istek biçimi (istek_coz anlamsal kontrolü yapar).
+    Tek ödemede tutar küçültülmüşse kısmi ödemedir."""
+    d, ids, islem = temiz["degerler"], temiz["ids"], temiz["islem"]
+    if islem == "ode":
+        banka = d.get("banka")
+        if len(ids) == 1 and ("tl" in d or "usd" in d):
+            o = temiz["satirlar"][0]
+            tl = d.get("tl", H._f(o.get("tl"))) if H._f(o.get("tl")) else 0.0
+            usd = d.get("usd", H._f(o.get("usd"))) if H._f(o.get("usd")) else 0.0
+            if abs(tl - H._f(o.get("tl"))) > 0.004 or abs(usd - H._f(o.get("usd"))) > 0.004:
+                return {"tur": "kismi", "ids": ids, "banka": banka, "tl": tl, "usd": usd}
+        return {"tur": "ode", "ids": ids, "banka": banka}
+    if islem == "otele":
+        if "gun" in d:
+            return {"tur": "otele", "ids": ids, "gun": int(d["gun"])}
+        v = d.get("vade")
+        return {"tur": "otele", "ids": ids, "vade": v.isoformat() if v else None}
+    if islem == "duzenle":
+        return {"tur": "duzenle", "ids": ids, "tl": d.get("tl", 0.0), "usd": d.get("usd", 0.0),
+                "kategori": d.get("kategori"), "aciklama": d.get("aciklama", "")}
+    return {"tur": islem, "ids": ids}
 
 
-def _bilesen():
-    global _BILESEN
-    if _BILESEN is None:
-        import streamlit.components.v2 as _v2
-        _BILESEN = _v2.component("kayran_odeme_masasi", css=_CSS, js=_JS)
-    return _BILESEN
-
-
-def ciz(veri, key="odeme_masasi"):
-    """Bileşeni çizer; kullanıcı bir işlem yaptıysa YALNIZ o çalıştırmada isteği (dict) döner."""
-    sonuc = _bilesen()(key=key, data=veri, height="content", on_islem_change=lambda: None)
-    try:
-        return getattr(sonuc, "islem")
-    except Exception:  # noqa: BLE001
-        return getattr(sonuc, "get", lambda *_: None)("islem")
+def yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=False):
+    """shared.masa.calistir için: temiz istek → anlamsal kontrol → veritabanı → bildirim."""
+    def yurut(temiz):
+        t, hata = istek_coz(motor_istegi(temiz), odemeler, bankalar, kategoriler, salt=salt, bugun=bugun)
+        if hata:
+            return {"ok": False, "mesaj": hata}
+        s = islem_uygula(t, odemeler, kur)
+        return {"ok": s["ok"], "mesaj": s["mesaj"],
+                "geri": {"islem": "geri_al", "ids": s["geri_al"]} if s.get("geri_al") else None}
+    return yurut

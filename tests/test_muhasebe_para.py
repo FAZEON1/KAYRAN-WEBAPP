@@ -65,5 +65,7 @@ def test_gelenler_kendi_para_birimiyle():
 
 
 def test_baslik_eylem_dort_dugmede_kesilmez():
+    """4+ eylemde başlık sıkışmasın: başlık tam satır, düğmeler altında (Banka bakiyeleri)."""
     s = _oku("shared/bilesen.py")
-    assert "gen = 1.45 if n > 3 else 1.3" in s
+    assert "if n > 3:" in s and "kap.markdown(_baslik(modul, sayfa, aciklama=aciklama)" in s
+    assert 'key=f"k_eylem_' in s and '[class*="st-key-k_eylem_"]{{flex-wrap:wrap' in _oku("shared/tasarim.py")

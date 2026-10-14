@@ -19,6 +19,10 @@ from .odeme_hesap import AY, GUN_KISA
 
 SEMBOL = {"TL": "₺", "TRY": "₺", "USD": "$", "EUR": "€"}
 
+# Liste ortak liste masasında (Ekim 2026, kayranacc/muhasebe_masalari.gelenler_verisi): süzgeç, arama, aya göre
+# grup, yan panelde düzenle ve onaylı geri al. False: aşağıdaki eski liste ve pencere aynen.
+GELENLER_MASASI_YENI = True
+
 
 def _para(v, pb):
     return f"{SEMBOL.get(pb or 'TL', '')}{tr_sayi(float(v or 0), 2)}"
@@ -46,6 +50,8 @@ def render_gelenler():
         st.markdown(bos_durum("Henüz para girişi yok", "Banka Bakiyeleri sayfasındaki 'Tahsilat' düğmesiyle "
                               "ilk girişi yap.", "payments"), unsafe_allow_html=True)
         return
+    if GELENLER_MASASI_YENI:
+        return _render_masa(kayit)
     c1, c2 = st.columns([3.6, 1.1], vertical_alignment="bottom")
     ara = c1.text_input("Ara", key="gel_ara", placeholder="Kimden, açıklama, banka, tutar…",
                         label_visibility="collapsed")
@@ -195,3 +201,22 @@ def _duzenle(t):
             B.yenile(msg)
         else:
             st.error(msg)
+
+
+def _render_masa(kayit):
+    """Yeni masa: düzenleme tahsilat_guncelle, geri alma tahsilat_geri_al ile (eski pencereyle aynı çağrılar)."""
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    try:
+        bankalar = get_bankalar() or []
+    except Exception:  # noqa: BLE001 — düzenleme sekmesi gösterilmez, geri alma çalışır
+        bankalar = []
+    calistir(MM.gelenler_verisi(kayit, bankalar, salt=bool(st.session_state.get("salt_okur"))), "gelen_masasi",
+             MM.gelenler_yurutucu(bankalar))
+    sira = MM.kimden_ne_kadar(kayit)                  # Kimden ne kadar — döviz ayrı ayrı
+    st.markdown(B.grup_basligi("Kimden ne kadar", f"{len(sira)} kaynak"), unsafe_allow_html=True)
+    st.markdown('<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;margin:0 2px 6px">' + "".join(
+        f'<span><b style="color:var(--k-metin)">{_h.escape(k)}</b> '
+        f'<span style="font-family:var(--k-mono);color:var(--k-soluk)">'
+        f'{" + ".join(_para(v, pb) for pb, v in d.items() if v)}</span></span>' for k, d in sira[:12])
+        + "</div>", unsafe_allow_html=True)

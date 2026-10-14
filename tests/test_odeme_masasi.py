@@ -55,8 +55,8 @@ def test_ozet_rakamlari_odeme_hesap_ile_ayni():
 
 def test_odeme_satirlari_sirasi_durumu_ve_metni():
     v = M.masa_verisi(ODM, BANKA, KAT, 38.5, BUGUN)
-    r = {o["id"]: o for o in v["odemeler"]}
-    assert [o["id"] for o in v["odemeler"]] == [1, 2, 6, 3, 4, 5]          # vade sırası; gün içinde öncelik
+    r = {o["id"]: o for o in v["satirlar"]}
+    assert [o["id"] for o in v["satirlar"]] == [1, 2, 6, 3, 4, 5]          # vade sırası; gün içinde öncelik
     assert r[1]["durum"] == "gecikmis" and r[1]["fark"] == -6 and r[1]["vade_kisa"] == "08.10"
     assert r[1]["tl_m"] == "₺185.000,00" and r[1]["usd_m"] == "$4.490,29" and r[1]["kat_ad"] == "Cari Hesap"
     assert r[3]["durum"] == "bugun" and r[3]["gun"].startswith("Bugün · Çarşamba, 14 Ekim")
@@ -77,9 +77,9 @@ def test_bankalar_ve_kategoriler():
 
 def test_bos_liste_ve_bozuk_alanlar_cokmez():
     v = M.masa_verisi([_o(9, None, None, tl=None, usd="abc", kat=None)], [], KAT, 0, BUGUN)
-    o = v["odemeler"][0]
+    o = v["satirlar"][0]
     assert o["firma"] == "—" and o["durum"] == "tarihsiz" and o["fark"] is None and o["kat"] == "diger"
-    assert M.masa_verisi([], [], KAT, 0, BUGUN)["odemeler"] == []
+    assert M.masa_verisi([], [], KAT, 0, BUGUN)["satirlar"] == []
 
 
 # ── İsteğin doğrulanması ─────────────────────────────────────────────
@@ -200,3 +200,38 @@ def test_sil_ve_geri_al(kayit):
     assert M.islem_uygula({"tur": "sil", "ids": [4]}, ODM, 38.5)["mesaj"] == "Kargo ödemesi silindi"
     s = M.islem_uygula({"tur": "geri_al", "ids": [6]}, ODM, 38.5)
     assert kayit[-1] == ("durum", (6, "bekliyor"), {"kur": 38.5}) and "bekliyor" in s["mesaj"]
+
+
+# ── Ortak masaya köprü ──────────────────────────────────────────────
+def test_masa_tanimi_ortak_bilesenle_dogrulanir():
+    from shared.masa import istek_al
+    v = M.masa_verisi(ODM, BANKA, KAT, 38.5, BUGUN)
+    t, h = istek_al(v, {"islem": "ode", "ids": [3], "degerler": {"banka": "1", "tl": "212000,00".replace(",", ".")}})
+    assert h is None and M.motor_istegi(t) == {"tur": "ode", "ids": [3], "banka": 1}
+    t, h = istek_al(v, {"islem": "ode", "ids": [1], "degerler": {"banka": "_bankasiz", "tl": 100000, "usd": 4490.29}})
+    assert M.motor_istegi(t) == {"tur": "kismi", "ids": [1], "banka": "_bankasiz", "tl": 100000.0, "usd": 4490.29}
+    t, h = istek_al(v, {"islem": "ode", "ids": [1, 3], "degerler": {"banka": 2}})
+    assert M.motor_istegi(t) == {"tur": "ode", "ids": [1, 3], "banka": 2}
+    t, h = istek_al(v, {"islem": "otele", "ids": [1, 2], "degerler": {"gun": 7}})
+    assert h is None and M.motor_istegi(t) == {"tur": "otele", "ids": [1, 2], "gun": 7}
+    t, h = istek_al(v, {"islem": "otele", "ids": [3], "degerler": {"vade": "2026-10-20"}})
+    assert M.motor_istegi(t) == {"tur": "otele", "ids": [3], "vade": "2026-10-20"}
+    t, h = istek_al(v, {"islem": "ode", "ids": [6], "degerler": {"banka": 1}})
+    assert t is None and "uygun değil" in h                                 # ödenmiş ödeme yeniden ödenmez
+    t, h = istek_al(v, {"islem": "geri_al", "ids": [6]})
+    assert h is None and M.motor_istegi(t) == {"tur": "geri_al", "ids": [6]}
+
+
+def test_yurutucu_bildirim_ve_geri_al(kayit):
+    from shared.masa import istek_al
+    v = M.masa_verisi(ODM, BANKA, KAT, 38.5, BUGUN)
+    y = M.yurutucu(ODM, BANKA, KAT, 38.5, BUGUN)
+    t, _ = istek_al(v, {"islem": "ode", "ids": [3, 4], "degerler": {"banka": 1}})
+    s = y(t)
+    assert s == {"ok": True, "mesaj": "2 ödeme ödendi", "geri": {"islem": "geri_al", "ids": [3, 4]}}
+    t, _ = istek_al(v, {"islem": "ode", "ids": [1], "degerler": {"banka": 1, "tl": 185000, "usd": 5000}})
+    assert t is None                                                         # USD kayıttakini aşıyor (ortak kontrol)
+    t, _ = istek_al(v, {"islem": "sil", "ids": [4], "degerler": {"onay": True}})
+    assert y(t)["mesaj"] == "Kargo ödemesi silindi"
+    sy = M.yurutucu(ODM, BANKA, KAT, 38.5, BUGUN, salt=True)
+    assert sy({"islem": "ode", "ids": [3], "degerler": {"banka": 1}, "satirlar": []})["ok"] is False

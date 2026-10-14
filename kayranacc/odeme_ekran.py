@@ -36,6 +36,9 @@ _BANKASIZ = "__bankasiz__"
 # (kayranacc/odeme_masasi.py). True: yeni masa. False: aşağıdaki eski ekran aynen (geri almak için YALNIZ
 # bu satırı değiştir).
 ODEME_MASASI_YENI = True
+# Ertelenen ödemeler de ortak liste masasında (Ekim 2026, kayranacc/muhasebe_masalari.ertelenen_verisi): aynı
+# ödeme işlemleri yan panelde. False: render_ertelenenler'deki eski liste + ödeme penceresi aynen.
+ERTELENEN_MASASI_YENI = True
 
 
 def _tl(v):
@@ -216,14 +219,9 @@ def _render_masa(kategoriler, export_excel, kur):
         st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle ya da "
                               "'Manuel ödeme' ile tek tek ekle.", "payments"), unsafe_allow_html=True)
         return
-    bildirim = st.session_state.pop("_om_bildirim", None)
-    istek = OM.ciz(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt(), bildirim=bildirim))
-    if istek:
-        t, hata = OM.istek_coz(istek, odemeler, bankalar, kategoriler, salt=_salt(), bugun=bugun)
-        sonuc = {"ok": False, "mesaj": hata, "geri_al": []} if hata else OM.islem_uygula(t, odemeler, kur)
-        st.session_state["_om_bildirim"] = dict(sonuc, n=(istek or {}).get("n"))
-        st.cache_data.clear()
-        st.rerun()
+    from shared.masa import calistir
+    calistir(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt()), "odeme_masasi",
+             OM.yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt()))
     e1, e2 = st.columns([1, 3], vertical_alignment="center")
     e1.download_button("Excel indir", data=lambda: export_excel(odemeler, (hafta or {}).get("hafta_adi", ""), kur),
                        file_name=f"odeme_listesi_{bugun}.xlsx", on_click="ignore",
@@ -406,6 +404,8 @@ def render_ertelenenler(kategoriler, bankalar=None, kur=0.0):
                               "Bu Hafta'da bir ödemeye tıkla → 'Vadeyi ötele'.", "event_repeat"),
                     unsafe_allow_html=True)
         return
+    if ERTELENEN_MASASI_YENI:
+        return _render_ertelenen_masa(liste, kategoriler, bankalar, kur)
     bugun = tr_today()
     bek = [o for o in liste if not H.odendi_mi(o)]
     st.markdown(kpi_serit([
@@ -436,3 +436,15 @@ def render_ertelenenler(kategoriler, bankalar=None, kur=0.0):
         if o:
             _odeme_dialog(o, kategoriler, bankalar if bankalar is not None else (get_bankalar() or []),
                           float(kur or 0))
+
+
+def _render_ertelenen_masa(liste, kategoriler, bankalar, kur):
+    """Ertelenen ödemeler masası: öde / kısmi öde / ötele / düzenle / sil / geri al yan panelde — Bu hafta
+    masasıyla aynı doğrulama ve veritabanı çağrıları (odeme_masasi.istek_coz + islem_uygula)."""
+    from shared.masa import calistir
+    from . import muhasebe_masalari as MM
+    bugun = tr_today()
+    bankalar = bankalar if bankalar is not None else (get_bankalar() or [])
+    kur = float(kur or 0)
+    calistir(MM.ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=_salt()), "ertelenen_masasi",
+             MM.ertelenen_yurutucu(liste, bankalar, kategoriler, kur, bugun, salt=_salt()))

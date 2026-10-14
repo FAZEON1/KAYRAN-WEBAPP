@@ -25,6 +25,7 @@ from .irsaliye import SEVK_NEDENLERI, irsaliye_no_uret, sevk_irsaliyesi_pdf
 from . import stok as _stok
 from . import ariza_orani as _AO
 from . import ts_ekran as E
+from . import ts_masasi as _TM
 from .ts_hesap import sla_gruplari, sayi_ya_da_bos, excel_bayt, depolar_kayitlari, konum as _konum
 from shared import bilesen as B
 from functools import partial
@@ -1056,8 +1057,15 @@ def _evraksiz_kayit():
 
 
 def _fatura_var(k):
-    v = k.get("fatura_mevcut")
-    return bool((k.get("fatura_no") or "").strip()) if v is None else bool(v)
+    return _TM.fatura_var(k)          # tek tanım: ts_masasi.fatura_var (masa da aynısını kullanır)
+
+
+# ── Liste masaları (Ekim 2026, tüm program yeni tasarım): Teknik Servis / İade listesi ve Depolar listesi
+# ortak masada (shared/masa.py; tanım teknikservis/ts_masasi.py). Satıra tıklayınca bugünkü sayfa içi
+# ayrıntı (kontrol paneli / depo ayrıntısı, tüm pencereleriyle) açılır. True: yeni masa. False: aşağıdaki
+# eski süzgeçler ve tıklanır satırlar aynen (geri almak için YALNIZ bu satırları değiştir).
+TS_MASASI_YENI = True
+DEPO_MASASI_YENI = True
 
 
 def _ts_rapor_bayt(kayitlar, harita, sayfa_adi):
@@ -1118,6 +1126,9 @@ def _liste(arayuz):
         st.info(f"Henüz {etk.lower()} kaydı yok. "
                 + ("Yukarıdaki anahtarı açıp depodaki kayıtları görebilir veya " if not dep_dahil else "")
                 + "**Mal Kabül**'den ekleyebilirsin.")
+        return
+    if TS_MASASI_YENI:
+        _liste_masa(arayuz, etk, kayitlar, _dep_key)
         return
 
     # Ürünü okutup kaydını bul: okunan seri no arama kutusuna yazılır
@@ -1219,6 +1230,54 @@ def _liste(arayuz):
     else:
         _gruplar = [(durum_f if durum_f != "Tümü" else "Tüm kayıtlar", goster)]
     E.kayit_listesi(_gruplar, _g_of, _bitmis_of, _fatura_var, on_ek)
+
+
+def _okutulan_temizle(key):
+    st.session_state.pop(key, None)
+
+
+def _liste_masa(arayuz, etk, kayitlar, dep_key):
+    """Yeni Teknik Servis / İade listesi (ortak masa). Durum, fatura, firma, gönderim sonucu ve metin araması
+    masada (eski kurallarla); okutulan seri no ve 'depodaki kayıtlar' anahtarı Streamlit'te kalır (veriyi
+    sunucuda süzerler). Satıra tıklayınca bugünkü kontrol paneli (E.sec) açılır."""
+    from shared.masa import calistir
+    on_ek, ara_key = f"ts_{arayuz}", f"ts_ara_{arayuz}"
+    # Ürünü okutup kaydını bul: okunan seri no listeyi süzer (eski arama kutusu kuralıyla)
+    from shared.barkod import barkod_okuyucu
+    barkod_okuyucu(ara_key, etiket="Seri no okutarak ara")
+    okunan = str(st.session_state.get(ara_key) or "").strip()
+    liste = [k for k in kayitlar if _TM.ara_uyar(k, okunan, _TM.TS_ARA_ALANLARI)]
+    if okunan:
+        o1, o2 = st.columns([4, 1], vertical_alignment="center")
+        o1.caption(f"Okutulan: {okunan} · {len(liste)} kayıt")
+        o2.button("Temizle", key=f"{ara_key}_temizle", icon=":material/close:", type="tertiary",
+                  on_click=_okutulan_temizle, args=(ara_key,))
+    harita = sla_bitis_haritasi(liste)
+    gunler = {k.get("id"): sla_is_gunu(k, harita) for k in liste}
+    rc1, rc2, rc3 = st.columns([2.4, 1.6, 1.5], vertical_alignment="center")
+    rc1.toggle("Depodaki (işlemi bitmiş) kayıtları da göster", key=dep_key,
+               help="Tüm ürünler depoya geçmiş olsa bile buradan detay ve geçmişe ulaşmak için aç.")
+    rc2.caption(f"{len(liste)} / {len(kayitlar)} kayıt")
+    if liste:
+        rc3.download_button("Excel raporu", data=partial(_ts_rapor_bayt, list(liste), harita, etk),
+                            file_name=f"{arayuz}_rapor.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"ts_rapor_{arayuz}", icon=":material/download:", use_container_width=True,
+                            help=f"{len(liste)} kayıt · tüm süreç (yalnız süzülenler için: satırları seç → "
+                                 "Seçilenleri Excel'e aktar)")
+    if not liste:
+        st.info("Filtreyle eşleşen kayıt yok.")
+        return
+    calistir(_TM.kayit_masa_verisi(liste, gunler, salt=bool(st.session_state.get("salt_okur"))),
+             f"ts_masa_{arayuz}", _TM.kayit_yurutucu(on_ek, arayuz, E.sec, st.session_state))
+    secilen = set(st.session_state.get(_TM.EXCEL_KAYIT.format(arayuz)) or [])
+    sec_liste = [k for k in liste if k.get("id") in secilen]
+    if sec_liste:
+        st.download_button(f"Seçilen {len(sec_liste)} kaydı Excel'e indir",
+                           data=partial(_ts_rapor_bayt, sec_liste, harita, etk),
+                           file_name=f"{arayuz}_rapor_secilen.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           key=f"ts_rapor_sec_{arayuz}", icon=":material/download:", on_click="ignore")
 
 
 # ── Kontrol Paneli (detay) ───────────────────────────────────────────
@@ -1985,35 +2044,39 @@ def _ozet_serit():
         m1.metric(f"Depoya transfer · {donem}", f"{len(_donemsel)} adet")
         m2.metric("Aktif (işlemi bitmemiş)", f"{len(_aktif)} adet")
         m3.metric("Toplam transfer (tüm zaman)", f"{len(_transferli)} adet")
+        _ozet_kirilim(_donemsel, _aktif, donem)
 
-        # ── Kategori kırılımı: transfer edilen ↔ hâlâ işlemde olan ──
-        def _kat(k):
-            return (k.get("urun_grubu") or "").strip() or "— grupsuz —"
 
-        _katlar = sorted({_kat(k) for k in _donemsel} | {_kat(k) for k in _aktif})
-        if _katlar:
-            _sat = []
-            for _c in _katlar:
-                _t = sum(1 for k in _donemsel if _kat(k) == _c)
-                _a = sum(1 for k in _aktif if _kat(k) == _c)
-                if _t or _a:
-                    _sat.append({"Kategori": _c,
-                                 f"Transfer ({donem})": _t,
-                                 "Aktif (işlemde)": _a})
-            if _sat:
-                _kdf = pd.DataFrame(_sat).sort_values(f"Transfer ({donem})", ascending=False)
-                st.dataframe(_kdf, hide_index=True, use_container_width=True,
-                             height=min(300, 45 + 35 * len(_sat)))
+def _ozet_kirilim(_donemsel, _aktif, donem):
+    """İşlem özetinin kategori (ürün grubu) ve kişi kırılımı — eski şerit ve yeni masa ortak."""
+    # ── Kategori kırılımı: transfer edilen ↔ hâlâ işlemde olan ──
+    def _kat(k):
+        return (k.get("urun_grubu") or "").strip() or "— grupsuz —"
 
-        # ── Kişi bazlı: dönem içinde kim kaç ürün tamamladı ──
-        _kisiler = {}
-        for k in _donemsel:
-            _p = (k.get("personel") or "").strip() or "—"
-            _kisiler[_p] = _kisiler.get(_p, 0) + 1
-        if len(_kisiler) > 1:
-            st.caption("👤 " + " · ".join(f"**{a}**: {s}"
-                                          for a, s in sorted(_kisiler.items(),
-                                                             key=lambda x: -x[1])))
+    _katlar = sorted({_kat(k) for k in _donemsel} | {_kat(k) for k in _aktif})
+    if _katlar:
+        _sat = []
+        for _c in _katlar:
+            _t = sum(1 for k in _donemsel if _kat(k) == _c)
+            _a = sum(1 for k in _aktif if _kat(k) == _c)
+            if _t or _a:
+                _sat.append({"Kategori": _c,
+                             f"Transfer ({donem})": _t,
+                             "Aktif (işlemde)": _a})
+        if _sat:
+            _kdf = pd.DataFrame(_sat).sort_values(f"Transfer ({donem})", ascending=False)
+            st.dataframe(_kdf, hide_index=True, use_container_width=True,
+                         height=min(300, 45 + 35 * len(_sat)))
+
+    # ── Kişi bazlı: dönem içinde kim kaç ürün tamamladı ──
+    _kisiler = {}
+    for k in _donemsel:
+        _p = (k.get("personel") or "").strip() or "—"
+        _kisiler[_p] = _kisiler.get(_p, 0) + 1
+    if len(_kisiler) > 1:
+        st.caption("👤 " + " · ".join(f"**{a}**: {s}"
+                                      for a, s in sorted(_kisiler.items(),
+                                                         key=lambda x: -x[1])))
 
 
 # ── Depolar ──────────────────────────────────────────────────────────
@@ -2079,6 +2142,9 @@ def _depolar():
             return
         E.birak("ts_depo")                        # silinmiş ya da depodan çıkmış
     E.geri_yukle(_filtre_keys)                    # detaydan dönüşte filtreler yerinde
+    if DEPO_MASASI_YENI:
+        _depolar_masa(kayitlar)
+        return
 
     _ozet_serit()          # madde 9: performans / adet takibi
     if not kayitlar:
@@ -2191,66 +2257,121 @@ def _depolar():
                        "Satışlar'da seçilen cari adına tek sipariş olarak görünür; "
                        "notunda TEKNİK SERVİS / 2.EL yazar.")
 
-            def _ts_etiket(k):
-                return (f'{k.get("servis_form_no","")} · {k.get("stok_kodu","")} · '
-                        f'{(k.get("stok_adi") or "")[:32]} · Seri {k.get("seri_no","")} '
-                        f'· [{_konum(k)}]')
-
-            _tsh = {_ts_etiket(k): k for k in _satilabilir}
-            _secili = st.multiselect("Satılan ürünler", list(_tsh.keys()),
-                                     key="ts_toplu_sec",
-                                     placeholder="Satılan ürünleri işaretle")
-            if _secili:
-                ts1, ts2, ts3 = st.columns(3)
-                _t_firma = _cari_sec(ts1, "ts_toplu_firma")
-                _t_fiyat = ts2.number_input("Birim Satış Fiyatı ($)", min_value=0.0,
-                                            step=1.0, format="%.4f", key="ts_toplu_fiyat")
-                _t_tarih = ts3.date_input("Satış Tarihi", value=date.today(),
-                                          key="ts_toplu_tarih", format="DD.MM.YYYY")
-                _t_bedelsiz = st.checkbox("Bedelsiz (ciro 0 yazılır)", key="ts_toplu_bedelsiz")
-                _t_pl = st.checkbox("P&L'e satış kaydı aç (satislar tablosuna yaz)",
-                                    value=True, key="ts_toplu_pl",
-                                    help="Kapatırsan yalnız stok düşer, P&L'e yansımaz.")
-                st.info(f"**{len(_secili)} ürün** · toplam "
-                        f"**${tr_sayi(0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0), 2)}**")
-
-                if st.button(f"{len(_secili)} ürünü satıldı olarak işle",
-                             type="primary", use_container_width=True, key="ts_toplu_btn", icon=":material/payments:"):
-                    _bar = st.progress(0.0, text="İşleniyor…")
-                    _ok_n, _uyari = 0, []
-                    _prs = st.session_state.get("aktif_kullanici", "")
-                    # Toplu satış tek sipariş: bütün kalemler aynı sipariş no'yu taşır
-                    _t_sipno = _stok.toplu_siparis_no() if len(_secili) > 1 else ""
-                    for _i, _lbl in enumerate(_secili, 1):
-                        _kk = _tsh[_lbl]
-                        durum_guncelle(_kk["id"], "satıldı", _prs, "Toplu satış",
-                                       {"satis_firma": _t_firma,
-                                        "satis_fiyati": 0.0 if _t_bedelsiz else float(_t_fiyat or 0),
-                                        "bedelsiz": bool(_t_bedelsiz),
-                                        "satis_tarihi": str(_t_tarih)[:10]})
-                        _o, _m = _stok.satis_cikisi(_kk)
-                        if not _o:
-                            _uyari.append(f"{_kk.get('servis_form_no','')}: {_m}")
-                        if _t_pl:
-                            _o2, _m2 = _stok.satis_kaydi_yaz(
-                                _kk, _t_fiyat, tarih=_t_tarih, bedelsiz=bool(_t_bedelsiz),
-                                cari=_t_firma, siparis_no=_t_sipno)
-                            # Paçalı bilinmeyen ürün de uyarıya (maliyet 0 yazıldı → %100 marj görünür)
-                            if not _o2 or "paçal" in (_m2 or ""):
-                                _uyari.append(f"{_kk.get('servis_form_no','')}: {_m2}")
-                        _ok_n += 1
-                        _bar.progress(_i / len(_secili), text=f"İşleniyor… {_i}/{len(_secili)}")
-                    _bar.empty()
-                    st.session_state["_ts_depo_bilgi"] = (
-                        f"💰 {_ok_n} ürün satıldı olarak işlendi, stoktan düşüldü"
-                        + (" ve P&L'e yazıldı." if _t_pl else "."))
-                    if _uyari:
-                        st.session_state["_ts_depo_uyari"] = ("⚠️ Bazı hareketler işlenemedi: "
-                                                              + " · ".join(_uyari[:5]))
-                    st.session_state.pop("ts_toplu_sec", None)
-                    st.rerun()
+            _toplu_satis_formu(_satilabilir, st.rerun)
 
     E.depo_listesi(goster, DEPOLAR, "ts_depo")
+
+
+def _toplu_satis_formu(_satilabilir, yeniden):
+    """TOPLU SATIŞ formu ve işlemi (eski Depolar expander'ının gövdesi, aynen): ürün seç, cari / fiyat / tarih /
+    bedelsiz / P&L, sonra her ürün için durum_guncelle → _stok.satis_cikisi → _stok.satis_kaydi_yaz.
+    Eski ekranda expander'da, yeni masada 'Toplu sat' penceresinde çağrılır; yeniden: bitince yenileme."""
+    _tsh = {_TM.toplu_etiket(k): k for k in _satilabilir}
+    _secili = st.multiselect("Satılan ürünler", list(_tsh.keys()),
+                             key="ts_toplu_sec",
+                             placeholder="Satılan ürünleri işaretle")
+    if _secili:
+        ts1, ts2, ts3 = st.columns(3)
+        _t_firma = _cari_sec(ts1, "ts_toplu_firma")
+        _t_fiyat = ts2.number_input("Birim Satış Fiyatı ($)", min_value=0.0,
+                                    step=1.0, format="%.4f", key="ts_toplu_fiyat")
+        _t_tarih = ts3.date_input("Satış Tarihi", value=date.today(),
+                                  key="ts_toplu_tarih", format="DD.MM.YYYY")
+        _t_bedelsiz = st.checkbox("Bedelsiz (ciro 0 yazılır)", key="ts_toplu_bedelsiz")
+        _t_pl = st.checkbox("P&L'e satış kaydı aç (satislar tablosuna yaz)",
+                            value=True, key="ts_toplu_pl",
+                            help="Kapatırsan yalnız stok düşer, P&L'e yansımaz.")
+        st.info(f"**{len(_secili)} ürün** · toplam "
+                f"**${tr_sayi(0 if _t_bedelsiz else len(_secili) * float(_t_fiyat or 0), 2)}**")
+
+        if st.button(f"{len(_secili)} ürünü satıldı olarak işle",
+                     type="primary", use_container_width=True, key="ts_toplu_btn", icon=":material/payments:"):
+            _bar = st.progress(0.0, text="İşleniyor…")
+            _ok_n, _uyari = 0, []
+            _prs = st.session_state.get("aktif_kullanici", "")
+            # Toplu satış tek sipariş: bütün kalemler aynı sipariş no'yu taşır
+            _t_sipno = _stok.toplu_siparis_no() if len(_secili) > 1 else ""
+            for _i, _lbl in enumerate(_secili, 1):
+                _kk = _tsh[_lbl]
+                durum_guncelle(_kk["id"], "satıldı", _prs, "Toplu satış",
+                               {"satis_firma": _t_firma,
+                                "satis_fiyati": 0.0 if _t_bedelsiz else float(_t_fiyat or 0),
+                                "bedelsiz": bool(_t_bedelsiz),
+                                "satis_tarihi": str(_t_tarih)[:10]})
+                _o, _m = _stok.satis_cikisi(_kk)
+                if not _o:
+                    _uyari.append(f"{_kk.get('servis_form_no','')}: {_m}")
+                if _t_pl:
+                    _o2, _m2 = _stok.satis_kaydi_yaz(
+                        _kk, _t_fiyat, tarih=_t_tarih, bedelsiz=bool(_t_bedelsiz),
+                        cari=_t_firma, siparis_no=_t_sipno)
+                    # Paçalı bilinmeyen ürün de uyarıya (maliyet 0 yazıldı → %100 marj görünür)
+                    if not _o2 or "paçal" in (_m2 or ""):
+                        _uyari.append(f"{_kk.get('servis_form_no','')}: {_m2}")
+                _ok_n += 1
+                _bar.progress(_i / len(_secili), text=f"İşleniyor… {_i}/{len(_secili)}")
+            _bar.empty()
+            st.session_state["_ts_depo_bilgi"] = (
+                f"💰 {_ok_n} ürün satıldı olarak işlendi, stoktan düşüldü"
+                + (" ve P&L'e yazıldı." if _t_pl else "."))
+            if _uyari:
+                st.session_state["_ts_depo_uyari"] = ("⚠️ Bazı hareketler işlenemedi: "
+                                                      + " · ".join(_uyari[:5]))
+            st.session_state.pop("ts_toplu_sec", None)
+            yeniden()
+
+
+@st.dialog("Toplu satış", width="large")
+def _dlg_toplu_satis(satilabilir):
+    """Yeni masada 'Toplu sat…': masada seçilen ürünler hazır gelir, form ve işlem eskisinin aynısı."""
+    st.caption("Fatura/irsaliye kesilen ürünleri işaretle. Stoktan düşer ve "
+               "Satışlar'da seçilen cari adına tek sipariş olarak görünür; "
+               "notunda TEKNİK SERVİS / 2.EL yazar.")
+    _toplu_satis_formu(satilabilir, _rerun_app)
+
+
+def _depolar_masa(kayitlar):
+    """Yeni Depolar listesi (ortak masa): özet bandı (transfer adetleri), stok durumu görünümleri, ürün grubu /
+    firma / kaynak / fatura / giriş şekli seçimleri ve arama masada; çoklu depo seçimi (aynı anda birden çok
+    depo) Streamlit'te kalır. Satıra tıklayınca bugünkü ürün ayrıntısı; 'Toplu sat…' bugünkü Toplu Satış formu."""
+    from shared.masa import calistir
+    if not kayitlar:
+        st.info("Henüz depoya aktarılmış ürün yok. Bir kaydın kontrol panelinden **Depoya Transfer** yapabilirsin.")
+        return
+    f1, f2, f3 = st.columns([2.6, 1.2, 1.4], vertical_alignment="center")
+    # Madde 11: çoklu depo seçimi — outlet + ikinci el aynı anda görülebilsin; boş = tümü
+    depo_f = f1.multiselect("Depo", DEPOLAR, key="depo_filtre_coklu", label_visibility="collapsed",
+                            placeholder="Bütün depolar")
+    goster = [k for k in kayitlar if not depo_f or _konum(k) in depo_f]
+    f2.caption(f"{len(goster)} / {len(kayitlar)} ürün")
+    if goster:
+        f3.download_button("Excel indir", data=partial(_depo_rapor_bayt, list(goster)),
+                           file_name="depolar.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           key="depo_excel", icon=":material/download:", use_container_width=True,
+                           help="Seçili depolardaki tüm ürünler (yalnız süzülenler için: satırları seç → "
+                                "Seçilenleri Excel'e aktar)")
+    tum = get_kayitlar()
+    calistir(_TM.depo_masa_verisi(goster, tum, DEPOLAR, date.today(), _stok.giris_sekli,
+                                  salt=bool(st.session_state.get("salt_okur"))),
+             "depo_masa", _TM.depo_yurutucu(goster, E.sec, st.session_state))
+    secilen = set(st.session_state.get(_TM.EXCEL_KAYIT.format("depo")) or [])
+    sec_liste = [k for k in goster if k.get("id") in secilen]
+    if sec_liste:
+        st.download_button(f"Seçilen {len(sec_liste)} ürünü Excel'e indir", data=partial(_depo_rapor_bayt, sec_liste),
+                           file_name="depolar_secilen.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           key="depo_excel_sec", icon=":material/download:", on_click="ignore")
+    with st.expander("Kategori ve kişi kırılımı", icon=":material/insights:"):
+        donem = st.segmented_control("Dönem", ["Bugün", "Bu hafta", "Bu ay", "Tümü"], default="Bugün",
+                                     key="depo_ozet_donem_seg", label_visibility="collapsed") or "Bugün"
+        bas = _donem_baslangic(donem)
+        aktif = [k for k in tum or [] if k.get("mevcut_durum") not in BITMIS_DURUMLAR
+                 and not (k.get("depo") or "").strip()]
+        donemsel = [k for k in tum or [] if _transfer_gunu(k) is not None and _transfer_gunu(k) >= bas]
+        _ozet_kirilim(donemsel, aktif, donem)
+    if st.session_state.pop(_TM.TOPLU_AC, False):
+        _dlg_toplu_satis([k for k in goster if k.get("mevcut_durum") != "satıldı"])
 
 
 def _depo_detay(k):

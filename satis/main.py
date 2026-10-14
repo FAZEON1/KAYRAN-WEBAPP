@@ -80,6 +80,12 @@ def _sg_acilis():
         st.caption("Son 7 günde sipariş yok.")
 
 
+# ── İade kayıtları masası (Ekim 2026, tüm program yeni tasarım): liste + yan ayrıntı + onaylı silme ortak
+# masada (shared/masa.py; tanım satis/satis_masasi.py, silme yine sil_iade). True: yeni masa. False: aşağıdaki
+# eski tıklanır liste ve pencere aynen (geri almak için YALNIZ bu satırı değiştir).
+IADE_MASASI_YENI = True
+
+
 def _iade_ac(rid):
     from shared import bilesen as B
     B.detay_ac("iade", rid)
@@ -97,6 +103,12 @@ def _iade_kayit_listesi(bas, bit):
                 unsafe_allow_html=True)
     if not kayitlar:
         st.caption("Bu dönemde iade kaydı yok.")
+        return
+    if IADE_MASASI_YENI:
+        from shared.masa import calistir
+        from . import satis_masasi as SM
+        calistir(SM.iade_masa_verisi(kayitlar, salt=bool(st.session_state.get("salt_okur"))), "iade_masa",
+                 SM.iade_yurutucu())
         return
     gruplar = {}
     for r in sorted(kayitlar, key=lambda r: (str(r.get("tarih") or ""), r.get("id") or 0), reverse=True):
