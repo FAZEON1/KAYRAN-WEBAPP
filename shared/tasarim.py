@@ -1235,6 +1235,13 @@ def cekirdek_css(yogunluk=None):
 .k-spark{{display:block;width:100% !important;height:28px !important;margin-top:6px;}}
 .k-yeni .k-deger-satir{{flex-wrap:wrap;row-gap:2px;}}
 @media (max-width:640px){{ .k-kart.k-vurgu{{flex-basis:100%;}} }}
+/* ── Özet bandı (tüm program yeni tasarım, Ekim 2026): kart şeridi (kpi_serit / metrik_satiri) ayrı
+   kutular yerine TEK BANT — ödeme masasıyla (shared/masa.py) aynı görünüm. 1px aralık + kenar rengi
+   zemin = kartlar arası çizgi; satır kırılınca da çizgi düzgün kalır. */
+.k-grid:has(> .k-kart.k-yeni){{gap:1px;background:var(--k-kenar);border:1px solid var(--k-kenar);
+  border-radius:12px;overflow:hidden;}}
+.k-grid > .k-kart.k-yeni{{border:0;border-radius:0;background:var(--k-yuzey1);padding:13px 16px;}}
+.k-grid > .k-kart.k-yeni:hover{{background:var(--k-yuzey2);}}
 
 /* ── GÖRÜNMEZ ELEMAN BOŞLUĞU ────────────────────────────────────────
    Sayfaya eklenen yalnız-<style> blokları ve yüksekliği 0 olan script
