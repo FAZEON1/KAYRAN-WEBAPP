@@ -1244,7 +1244,11 @@ def cekirdek_css(yogunluk=None):
    display:none DEĞİL — script'ler çalışmaya devam etsin. Seçiciler canlı
    sayfada doğrulandı: görünür hiçbir elemanı yakalamıyor. */
 [data-testid="stElementContainer"]:has([data-testid="stMarkdownContainer"] > style:only-child),
-[data-testid="stElementContainer"][height="0px"]{{
+[data-testid="stElementContainer"][height="0px"],
+/* Görünüm cilası (Ekim 2026): yalnız <meta> taşıyan satır (önbellek başlıkları) ve ekranda yeri
+   olmayan iki yardımcı bileşen (sayı çevirici, ipucu) da sayfanın üstünde 16'şar px kaplıyordu. */
+[data-testid="stElementContainer"]:has([data-testid="stMarkdownContainer"] > meta:first-child),
+[data-testid="stElementContainer"]:is(.st-key-kayran_ceviri,.st-key-kayran_ipucu){{
   position:absolute !important;width:0 !important;height:0 !important;
   margin:0 !important;padding:0 !important;overflow:hidden !important;pointer-events:none;}}
 .k-baslik{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -1326,6 +1330,21 @@ body:has(div[role="dialog"]) [data-baseweb="tooltip"]{{display:none !important;}
 # ═══════════════════════════════════════════════════════════════════
 # 6. BİLEŞENLER — programda "etiketli kutu" artık SADECE burada.
 # ═══════════════════════════════════════════════════════════════════
+def _aktif_sekme():
+    """shared.gezinme.sayfa_menusu'nun bu çalıştırmada yazdığı sekme adı; yoksa None."""
+    try:
+        import streamlit as _st
+        return _st.session_state.get("_k_aktif_sekme")
+    except Exception:  # noqa: BLE001 — test ortamı / oturum yok
+        return None
+
+
+def _ad_kok(ad):
+    """Başlık karşılaştırma kökü: 'Raporlar & Bildirim' ≡ 'Raporlar ve bildirim'."""
+    from shared.utils import normalize_tr
+    return " ".join(normalize_tr(str(ad or "").replace("&", " ve ")).split())
+
+
 def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     """Tek satır kompakt başlık: 34px. Eskisi 85px'ti.
 
@@ -1369,7 +1388,14 @@ def baslik(modul, sayfa, alt="", ipucu="", aciklama=""):
     ttl = f' title="{ipucu}"' if ipucu else ""
     mod_html = (f'<span class="k-baslik-mod">{modul}</span>'
                 f'<span class="k-baslik-ayrac">›</span>') if modul else ""
-    return (f'<div class="k-baslik"{ttl}>{ikon}{mod_html}'
+    # Görünüm cilası (Ekim 2026): sekmeli sayfada sayfanın KENDİ başlığı sekmedeki adla görünür
+    # ("Bu Hafta" → "Bu hafta"); ad sekmeye uymayan ara başlıklar eskisi gibi (app.py CSS'i yalnız
+    # açıklamasını gösterir).
+    sekme = _aktif_sekme()
+    sinif = "k-baslik"
+    if sekme and _ad_kok(sayfa) == _ad_kok(sekme):
+        sayfa, sinif = sekme, "k-baslik k-baslik-sekme"
+    return (f'<div class="{sinif}"{ttl}>{ikon}{mod_html}'
             f'<span class="k-baslik-ad">{sayfa}</span>{alt_html}{ack_html}</div>')
 
 
@@ -1523,6 +1549,29 @@ def spark_svg(seri, anlam=None):
             f'vector-effect="non-scaling-stroke" points="{nok}"/></svg>')
 
 
+_KART_PARA = None
+
+
+def kart_degeri_kisa(deger):
+    """Büyük kart değerinde kuruş yok (görünüm cilası, Ekim 2026): '₺4.109.380,82' → '₺4.109.381'.
+    Yalnız 1.000 ve üstü, 1-2 ondalıklı düz para metni kısalır; yuvarlama yarım yukarı.
+    Küçük tutar ('₺999,50'), 4 ondalık ('$1.234,5678' — paçal), oran, adet ya da HTML aynen kalır.
+    Döner: (gösterilecek, tam_metin | None) — tam metin kartın ipucuna (title) yazılır."""
+    global _KART_PARA
+    import re
+    from decimal import Decimal, ROUND_HALF_UP
+    if _KART_PARA is None:
+        _KART_PARA = re.compile(
+            r"^(?P<isaret>[-−]?)(?P<on>[₺$€£]?)(?P<tam>\d{1,3}(?:\.\d{3})+|\d{4,}),(?P<kurus>\d{1,2})"
+            r"(?P<son>\s?(?:₺|TL|USD|EUR|\$|€)?)$")
+    s = str(deger if deger is not None else "")
+    m = _KART_PARA.match(s.strip())
+    if not m:
+        return s, None
+    n = Decimal(m["tam"].replace(".", "") + "." + m["kurus"]).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return f'{m["isaret"]}{m["on"]}{int(n):,}'.replace(",", ".") + m["son"], s.strip()
+
+
 def kart_hucresi(k):
     """Tek kart HTML'i. k: etiket, deger (HTML olabilir), alt?, ipucu?, renk? (eski;
     yalnız kırmızı anlam taşır), anlam? (iyi/kotu/dikkat — renkten önce gelir),
@@ -1534,7 +1583,8 @@ def kart_hucresi(k):
     roz = k.get("rozet") or (degisim_rozeti(k.get("simdi"), k.get("onceki"), k.get("artis_iyi", True))
                              if k.get("onceki") is not None else None)
     sinif = "k-kart k-yeni" + (" k-vurgu" if k.get("vurgu") else "") + (f" k-{anlam}" if anlam else "")
-    ip = k.get("ipucu") or ""
+    deger, tam = kart_degeri_kisa(k.get("deger", ""))
+    ip = k.get("ipucu") or tam or ""
     ttl = f' title="{_html.escape(str(ip), quote=True)}"' if ip else ""
     im = ' <span style="opacity:.6">ⓘ</span>' if k.get("bilgi") else ""
     rz = (f'<span class="k-rozet{" k-" + roz[1] if roz[1] else ""}">{roz[0]}</span>' if roz else "")
@@ -1542,7 +1592,7 @@ def kart_hucresi(k):
     sp = spark_svg(k.get("seri"), roz[1] if roz else anlam) if k.get("seri") else ""
     return (f'<div class="{sinif}"{ttl}>'
             f'<div class="k-etiket">{_kart_etiket(k)}{im}</div>'
-            f'<div class="k-deger-satir"><span class="k-deger">{k.get("deger", "")}</span>{rz}</div>'
+            f'<div class="k-deger-satir"><span class="k-deger">{deger}</span>{rz}</div>'
             f'{alt}{sp}</div>')
 
 

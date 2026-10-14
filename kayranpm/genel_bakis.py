@@ -266,8 +266,9 @@ def render(_sb):
     _firmalar = ["Tüm Firmalar"] + firma_sirala(
         list(FIRMALAR[1:]) + [fd.get("firma") for u in veri for fd in (u.get("firma_detay") or [])])
     firma = f1.selectbox("Firma", _firmalar,
-                         format_func=lambda f: f if f == "Tüm Firmalar" else firma_gorunen_ad(f), key="gb_firma")
-    kategori = f2.selectbox("Kategori", ["Tüm Kategoriler"] + kat, key="dash_kat")
+                         format_func=lambda f: f if f == "Tüm Firmalar" else firma_gorunen_ad(f), key="gb_firma",
+                         label_visibility="collapsed")   # "Tüm Firmalar" kutunun içinde yazıyor
+    kategori = f2.selectbox("Kategori", ["Tüm Kategoriler"] + kat, key="dash_kat", label_visibility="collapsed")
     if f3.button("Yenile", use_container_width=True, icon=":material/refresh:", key="gb_yenile"):
         st.cache_data.clear()
         st.rerun()

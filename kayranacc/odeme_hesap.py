@@ -121,3 +121,11 @@ def hafta_secenekleri(haftalar, aktif_id, sinir=12):
     return [{"id": h.get("id"), "ad": str(h.get("hafta_adi") or "").strip() or f"Hafta {h.get('id')}",
              "aktif": h.get("id") == aktif_id, "yuklendi": str(h.get("yuklendi_tarih") or "")}
             for h in secilen]
+
+
+def hafta_etiketi(ad):
+    """Hafta adının ekrandaki yazımı (görünüm cilası, Ekim 2026): '12.10.2026 GÜNCEL ÖDEME LİSTESİ' →
+    '12.10.2026 güncel ödeme listesi'. Eskiden str.title() kullanılıyordu; Türkçe 'İ' küçülünce
+    üstüne nokta eklenip 'Li̇stesi̇' çıkıyordu. Karışık yazılmış ada dokunmaz."""
+    from shared.tasarim import cumle_duzeni
+    return cumle_duzeni(str(ad or "").strip())

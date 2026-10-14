@@ -21,7 +21,7 @@ def test_teknik_servis_yedi_gunu_gecenler():
     assert [(x["baslik"], x["sayi"], x["hedef"]) for x in m] == [
         ("Mal kabulde 7 günü geçen cihaz", 1, "teknikservis/servis"),
         ("Teknisyende 7 günü geçen cihaz", 1, "teknikservis/servis")]
-    assert m[0]["detay"].startswith("En eskisi 18 gündür bekliyor · Monitör A")
+    assert m[0]["detay"].startswith("En eskisi 18 gündür bekliyor · MONITÖR A")   # kartın adı / BÜYÜK harf kararı (Eki 2026)
 
 
 def test_ithalat_gecikmis_ve_yakin():

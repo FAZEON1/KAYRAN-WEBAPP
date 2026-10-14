@@ -104,7 +104,7 @@ def render_bu_hafta(kategoriler, export_excel, kur):
     odemeler, hafta = get_aktif_odemeler()
     bankalar = get_bankalar() or []
     ey = B.baslik_eylem("💳 Muhasebe", "Bu Hafta",
-                        aciklama=(hafta or {}).get("hafta_adi") or "Aktif hafta yok",
+                        aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
                         eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
                                    "birincil": True, "disabled": _salt()}])
     if ey.get("btn_acc_manuel"):

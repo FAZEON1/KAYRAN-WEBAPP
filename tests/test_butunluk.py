@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "hm_hesap.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "hm_hesap.py", "bilesen.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -226,7 +226,7 @@ KRITIK_FONKSIYONLAR = {
                           "iade_usd", "kur_bul", "iade_fiyat_metni", "iade_fiyat_guncelle",
                           "dogrudan_giris_mi", "giris_sekli"],
     "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
-    "kayranacc.odeme_hesap": ["hafta_secenekleri"],
+    "kayranacc.odeme_hesap": ["hafta_secenekleri", "hafta_etiketi"],   # hafta adı (görünüm cilası)
     "hesap_makinesi.hm_hesap": ["karlilik", "kirilma", "gokhan_prim", "donem_var_mi", "not_ekle", "notlari_ayir"],
     "hesap_makinesi.main": ["run", "prim_not_guncelle"],
     "kayranpm.canli_pacal": ["hesapla", "eldeki_stoklar", "teslim_partileri", "harita_hesapla", "harita",
@@ -243,10 +243,13 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
-    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler", "sayfa_grubu"],   # şerit sağında modül aracı (Eki 2026)
+    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler", "sayfa_grubu",
+                       "aktif_sekme_yaz"],   # başlık sekme adıyla (görünüm cilası, Eki 2026)   # şerit sağında modül aracı (Eki 2026)
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
                        "genel_tema_css", "detay_karti", "mesaj",   # shared/ui.py buraya katıldı (Eki 2026)
-                       "kayran_logo_svg", "kayran_logo_uri"],   # logo tek kaynak (Eki 2026)
+                       "kayran_logo_svg", "kayran_logo_uri",   # logo tek kaynak (Eki 2026)
+                       "kart_hucresi", "kart_degeri_kisa"],    # kartta kuruşsuz tutar (görünüm cilası)
+    "shared.bilesen": ["baslik_eylem", "baslik_yuvasi_kur", "baslik_yuvasi_ac", "baslik_yaz"],   # başlık yuvası
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],

@@ -1208,9 +1208,17 @@ def run():
     # ── Araç satırı (Ekim 2026, kenarsız düzen) — eskiden sol kenar çubuğundaydı ──
     # Aktif hafta + USD/TL kur (açılır pencerede: elle kur · güncel kur · uygulamayı yenile).
     # Kur her çalıştırmada okunur (number_input pencere kapalıyken de çalışır → st.session_state.kur).
+    # Görünüm cilası (Ekim 2026): araç satırının solu sayfa başlığının yuvası — başlık (ad + açıklama)
+    # solda, hafta / kur sağda, tek satır (shared/bilesen.baslik_yuvasi; gövde parçası yuvayı açar).
     from shared.gezinme import MENU_UST as _menu_ust
-    _arac_kap = st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center",
-                             gap="small", key="acc_arac") if _menu_ust else st.sidebar
+    from shared import bilesen as _Byuva
+    if _menu_ust:
+        _ust_satir = st.container(horizontal=True, vertical_alignment="bottom", gap="small", key="acc_ust")
+        _Byuva.baslik_yuvasi_kur(_ust_satir.container(key="acc_baslik"))
+        _arac_kap = _ust_satir.container(horizontal=True, horizontal_alignment="right",
+                                         vertical_alignment="center", gap="small", key="acc_arac")
+    else:
+        _arac_kap = st.sidebar
     with _arac_kap:
         # Aktif hafta — TIKLANIR (Ekim 2026): açılan listede bir haftaya basınca o hafta aktif olur
         # (eskiden yalnız etiketti; geçmiş haftaya geçmek için Ödenenler & Geçmiş'e gitmek gerekiyordu).
@@ -1484,8 +1492,9 @@ def run():
     @st.fragment
     def _sayfa_parcasi():
         nonlocal basarili, hafta, k
+        _Byuva.baslik_yuvasi_ac()        # gövdenin ilk başlığı araç satırının soluna (görünüm cilası)
         if sayfa == "📊 Dashboard":
-            st.markdown(_sb("📊 Muhasebe", "Genel Bakış", aciklama="Haftalık ödeme durumu ve finansal özet"), unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("📊 Muhasebe", "Genel Bakış", aciklama="Haftalık ödeme durumu ve finansal özet"))
     
             kur = get_kur()
             odemeler, hafta = get_aktif_odemeler()
@@ -2037,7 +2046,7 @@ def run():
             if _bey.get("bnk_arb"):
                 _dlg_arbitraj()
         elif sayfa == "💸 Nakit Akış":
-            st.markdown(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"), unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("💸 Muhasebe", "Nakit Akış", aciklama="Bekleyen ödemeler baz alınmıştır"))
     
             kur = get_kur()
             odemeler, hafta = get_aktif_odemeler()
@@ -2164,7 +2173,7 @@ def run():
         # 5) FİRMA ÇEKLERİ
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "📋 Firma Çekleri":
-            st.markdown(_sb("📋 Muhasebe", "Firma Çekleri", aciklama="TL ve USD bazında çek takibi"), unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("📋 Muhasebe", "Firma Çekleri", aciklama="TL ve USD bazında çek takibi"))
     
             def cek_ozet_kart(cekler, cur):
                 if not cekler:
@@ -2297,9 +2306,8 @@ def run():
         # 7c) e-DEFTER — GİB uyumluluk standartlarına göre (şimdilik PASİF)
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "📚 e-Defter":
-            st.markdown(_sb("📚 Muhasebe", "e-Defter",
-                            aciklama="Faz 1: hesap planı · muhasebe fişi · yevmiye · kebir · mizan"),
-                        unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("📚 Muhasebe", "e-Defter",
+                                  aciklama="Faz 1: hesap planı · muhasebe fişi · yevmiye · kebir · mizan"))
             from kayranacc.edefter import render as _edefter_render
             _edefter_render()
 
@@ -2308,7 +2316,7 @@ def run():
         # 9) RAPORLAR
         # ════════════════════════════════════════════════════════════════════
         elif sayfa == "📄 Raporlar & Bildirim":
-            st.markdown(_sb("📄 Muhasebe", "Raporlar & Bildirim", aciklama="Excel ve PDF formatında haftalık raporlar"), unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("📄 Muhasebe", "Raporlar & Bildirim", aciklama="Excel ve PDF formatında haftalık raporlar"))
             _tab_rapor, _tab_bildirim = st.tabs(["📄 Raporlar", "🔔 Bildirim Ayarları"])
             with _tab_rapor:
     
@@ -2529,13 +2537,12 @@ def run():
             render_ertelenenler(KATEGORILER, get_bankalar() or [], get_kur())
 
         elif sayfa == "🧾 Cari Ekstre":
-            st.markdown(_sb("🧾 Muhasebe", "Cari Ekstre", aciklama="Firma bazında ödeme ekstresi ve vade yaşlandırma"),
-                        unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("🧾 Muhasebe", "Cari Ekstre", aciklama="Firma bazında ödeme ekstresi ve vade yaşlandırma"))
             from kayranacc.cari_ekstre import render as _cari_ekstre_render
             _cari_ekstre_render()
 
         elif sayfa == "💰 Toplam Aktifler":
-            st.markdown(_sb("💰 Muhasebe", "Toplam Aktifler", aciklama="Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)"), unsafe_allow_html=True)
+            _Byuva.baslik_yaz(_sb("💰 Muhasebe", "Toplam Aktifler", aciklama="Stok + Yoldaki Mal + Banka + Alacaklar − Borçlar − Çekler (USD)"))
             # ─── Yetki kontrolü: Sadece yetkili kullanıcılar erişebilir ───
             aktif_kul = st.session_state.get("aktif_kullanici", "").lower().strip()
             YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()
@@ -3121,17 +3128,17 @@ def _hafta_secici(hafta):
     """Üst satırdaki hafta düğmesi: aktif haftanın adı; tıklayınca son haftalar listelenir, birine basınca
     o hafta aktif olur (Bu Hafta sayfası ve banka işlemleri o haftanın ödemeleriyle çalışır)."""
     from .database import get_tum_haftalar, hafta_aktif_yap
-    from .odeme_hesap import hafta_secenekleri
+    from .odeme_hesap import hafta_secenekleri, hafta_etiketi as _hafta_etiketi
     from shared import bilesen as _B
-    etiket = (hafta or {}).get("hafta_adi", "").title() if hafta else "Aktif hafta yok"
+    etiket = _hafta_etiketi((hafta or {}).get("hafta_adi", "")) if hafta else "Aktif hafta yok"
     with st.popover(etiket, icon=":material/calendar_month:", help="Hafta değiştir"):
         st.caption("Çalışılacak haftayı seç. Bu Hafta sayfası ve banka işlemleri seçilen haftanın ödemelerini gösterir.")
         salt = bool(st.session_state.get("salt_okur"))
         for h in hafta_secenekleri(get_tum_haftalar() or [], (hafta or {}).get("id")):
             if h["aktif"]:
-                st.button(f"{h['ad'].title()} · aktif", key=f"acc_hafta_{h['id']}", disabled=True,
+                st.button(f"{_hafta_etiketi(h['ad'])} · aktif", key=f"acc_hafta_{h['id']}", disabled=True,
                           use_container_width=True, icon=":material/check:")
-            elif st.button(h["ad"].title(), key=f"acc_hafta_{h['id']}", disabled=salt, use_container_width=True,
+            elif st.button(_hafta_etiketi(h["ad"]), key=f"acc_hafta_{h['id']}", disabled=salt, use_container_width=True,
                            help=f"Yüklendi {h['yuklendi']}" if h["yuklendi"] else None):
                 hafta_aktif_yap(h["id"])
-                _B.yenile(f"'{h['ad'].title()}' aktif yapıldı")
+                _B.yenile(f"'{_hafta_etiketi(h['ad'])}' aktif yapıldı")

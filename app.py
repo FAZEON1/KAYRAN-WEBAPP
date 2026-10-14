@@ -1484,10 +1484,33 @@ _KENARSIZ_CSS = """
     html body .st-key-ustnav .st-key-ust_kisi button p{font-size:13px !important;margin:0 !important;color:inherit !important;}
     html body .st-key-ustnav .st-key-ust_kisi button [data-testid="stIconMaterial"]{display:inline !important;font-size:18px !important;}
     html body .st-key-ustnav .st-key-ust_kisi button span:has(> [data-testid="stIconMaterial"]){display:inline-flex !important;}
-    /* Sekmeli sayfada "Modül › Sayfa" başlığı üçüncü kez aynı adı yazıyordu: yalnız açıklama kalır */
+    /* Sekmeli sayfada "Modül › Sayfa" başlığı üçüncü kez aynı adı yazıyordu: modül adı ve ikon
+       gizli. Görünüm cilası (Ekim 2026): sayfanın kendi başlığı (k-baslik-sekme, sekmedeki adla)
+       büyük yazılır; sayfa içindeki ara başlıkların yalnız açıklaması kalır (eskisi gibi). */
     [data-testid="stMain"]:has(.st-key-sayfa_seridi [role="radiogroup"]) .k-baslik
-      :is(.k-baslik-ikon,.k-baslik-mod,.k-baslik-ayrac,.k-baslik-ad){display:none !important;}
+      :is(.k-baslik-ikon,.k-baslik-mod,.k-baslik-ayrac){display:none !important;}
+    [data-testid="stMain"]:has(.st-key-sayfa_seridi [role="radiogroup"]) .k-baslik:not(.k-baslik-sekme)
+      .k-baslik-ad{display:none !important;}
     [data-testid="stMain"]:has(.st-key-sayfa_seridi [role="radiogroup"]) .k-baslik .k-baslik-aciklama{margin:0 !important;}
+    [data-testid="stMain"] .k-baslik-sekme .k-baslik-ad{font-size:20px !important;font-weight:650 !important;
+      letter-spacing:-.2px;line-height:1.25;}
+    [data-testid="stMain"] .k-baslik-sekme .k-baslik-aciklama{margin-top:2px !important;font-size:13px !important;}
+    /* Muhasebe: başlık solda, hafta / kur seçicileri sağda, tek satır (shared/bilesen başlık yuvası) */
+    html body .st-key-acc_ust{border-bottom:1px solid var(--k-kenar) !important;padding-bottom:14px !important;
+      margin-bottom:6px !important;}
+    html body .st-key-acc_ust > [data-testid="stLayoutWrapper"]:has(> .st-key-acc_baslik){flex:1 1 320px !important;
+      min-width:0 !important;}
+    html body .st-key-acc_baslik .k-baslik{border-bottom:none !important;margin:0 !important;padding:0 !important;}
+    html body .st-key-acc_baslik [data-testid="stHorizontalBlock"]{border-bottom:none !important;
+      margin-bottom:0 !important;padding-bottom:0 !important;align-items:flex-end !important;
+      flex-wrap:nowrap !important;}
+    /* başlığın eylem düğmesi (Bu hafta › Manuel ödeme) etiketine göre genişler, kesilmez */
+    html body .st-key-acc_baslik [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child{
+      flex:1 1 0% !important;min-width:0 !important;}
+    html body .st-key-acc_baslik [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:not(:first-child){
+      flex:0 0 auto !important;width:auto !important;min-width:150px !important;}
+    html body .st-key-acc_ust > [data-testid="stLayoutWrapper"]:has(> .st-key-acc_arac){flex:0 0 auto !important;width:auto !important;}
+    @media (max-width:640px){ html body .st-key-acc_ust > [data-testid="stLayoutWrapper"]:has(> .st-key-acc_baslik){flex-basis:100% !important;} }
     @media (max-width:640px){
       html body .st-key-ustnav .st-key-ust_kisi button p{display:none !important;}
     }
@@ -1496,7 +1519,13 @@ _KENARSIZ_CSS = """
 ALT_MENU_CSS = """<style>
 /* Telefonda sabit alt menü (Ekim 2026): Ana sayfa · Modüller · Ara · Talep · Ben. Masaüstünde gizli. */
 html body .st-key-alt_menu, html body .k-mobil-ust{display:none !important;}
+/* Görünüm cilası (Ekim 2026): gizli menünün ve başlığın KABI da masaüstünde akıştan çıkar —
+   boş kap araya 16px boşluk koyuyordu (sekmelerin altı, sayfanın üstü). */
+html body [data-testid="stLayoutWrapper"]:has(> .st-key-alt_menu),
+html body [data-testid="stElementContainer"]:has(.k-mobil-ust){display:none !important;}
 @media (max-width:640px){
+  html body [data-testid="stLayoutWrapper"]:has(> .st-key-alt_menu),
+  html body [data-testid="stElementContainer"]:has(.k-mobil-ust){display:block !important;}
   html body .st-key-ustnav{display:none !important;}
   html body .k-mobil-ust{display:flex !important;align-items:center;gap:10px;margin:2px 0 6px;}
   .k-mobil-ust b{font-size:17px;font-weight:650;color:var(--k-metin);letter-spacing:-.2px;}
@@ -1801,9 +1830,14 @@ def ust_navigasyon():
 
     # Sayfa sekmeleri: modüllerin sayfa menüsü buraya çizilir (shared/gezinme.sayfa_menusu).
     # Geri almak için shared/gezinme.py → MENU_UST = False (menüler kenar çubuğuna döner).
-    from shared.gezinme import serit_kur, MENU_UST
+    from shared.gezinme import serit_kur, MENU_UST, aktif_sekme_yaz
     if MENU_UST:
         serit_kur(st.container(key="sayfa_seridi"))
+    # Görünüm cilası (Ekim 2026): önceki çalıştırmanın sekme adı ve başlık yuvası bu çalıştırmaya
+    # taşınmasın (modül değişince bayat kap / ad kalırdı). Parça yeniden çizimi buradan geçmez.
+    from shared.bilesen import baslik_yuvasi_kur
+    aktif_sekme_yaz(None)
+    baslik_yuvasi_kur(None)
 
 
 def _palet_kosul(kosul, kullanici):
