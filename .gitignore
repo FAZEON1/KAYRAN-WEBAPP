@@ -6,3 +6,8 @@ __pycache__/
 .venv/
 .streamlit/secrets.toml
 .pytest_cache/
+
+# Tarayıcı taraması çıktıları (tests/tarayici/tara.py)
+tarama.json
+tarama_goruntu/
+vitrin.log
