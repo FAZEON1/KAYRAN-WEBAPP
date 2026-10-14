@@ -76,18 +76,72 @@ def _salt_okur_engelle(islem, tablo):
     raise SaltOkurHatasi(_msg)
 
 
-def log_yaz(islem, tablo, kayit_id="", detay="", modul=""):
-    """Tek bir değişiklik kaydı yazar. Hata olsa bile sessiz."""
+# ── GİZLİ ALANLAR ─────────────────────────────────────────────────────
+# Şifre, hash, token, secret değerleri denetim izine ASLA yazılmaz. Alan adı bu
+# parçalardan birini içeriyorsa değeri "***" olur; serbest metindeki pbkdf2
+# hash'leri de silinir (son savunma: biri kullanici_sifreler'i sarmalanmış
+# istemciyle yazsa bile hash loga düşmez).
+_GIZLI_ALAN_PARCALARI = ("sifre", "şifre", "parola", "password", "hash", "token", "secret")
+_GIZLI = "***"
+
+
+def gizli_alan_mi(ad):
+    a = str(ad or "").lower()
+    return any(p in a for p in _GIZLI_ALAN_PARCALARI)
+
+
+def _metin_temizle(metin):
+    import re
+    return re.sub(r"pbkdf2:[^\s,;]*", _GIZLI, str(metin or ""))
+
+
+def log_yaz(islem, tablo, kayit_id="", detay="", modul="", kullanici=None):
+    """Tek bir değişiklik kaydı yazar. Hata olsa bile sessiz.
+    kullanici verilmezse oturumdaki aktif kullanıcı yazılır (girişte henüz yoktur)."""
     try:
         _raw_client().table("audit_log").insert({
             "zaman": _tr_now(),
-            "kullanici": _aktif_kullanici(),
+            "kullanici": str(kullanici or _aktif_kullanici())[:64],
             "modul": modul or "",
             "islem": islem or "",
             "tablo": tablo or "",
-            "kayit_id": str(kayit_id or ""),
-            "detay": (detay or "")[:400],
+            "kayit_id": _metin_temizle(kayit_id),
+            "detay": _metin_temizle(detay)[:400],
         }).execute()
+    except Exception:
+        pass
+
+
+def guvenlik_kaydi(islem, kullanici=None, hedef="", detay=None, tablo=""):
+    """Giriş / şifre / yetki olayını audit_log'a yazar (modul='guvenlik').
+    islem: 'giris', 'giris_hatali', 'giris_engellendi', 'sifre_degisti', 'yetki_degisti'.
+    detay: sözlük; gizli alanlar (şifre, hash, token…) '***' olarak yazılır.
+    Hiçbir koşulda hata fırlatmaz."""
+    try:
+        log_yaz(islem, tablo, kayit_id=hedef, detay=_detay_yap(detay) if detay else "",
+                modul="guvenlik", kullanici=kullanici)
+    except Exception:
+        pass
+
+
+def yetki_degisikligi_kaydet(hedef, moduller=None, ozel=None, salt_okur=None, aktif=None,
+                             guncelleyen=""):
+    """Kullanıcı yetkisi değişikliğini denetim izine yazar (shared.yetki.kaydet başarıyla
+    döndükten sonra çağrılmak üzere). Yalnız yetki alanları yazılır; şifre hiç alınmaz."""
+    try:
+        def _l(x):
+            return ",".join(sorted(str(i) for i in x)) if isinstance(x, (list, tuple, set)) else str(x)
+        parca = []
+        if moduller is not None:
+            parca.append(f"moduller={_l(moduller)}")
+        if ozel is not None:
+            parca.append(f"ozel={_l(ozel)}")
+        if salt_okur is not None:
+            parca.append(f"salt_okur={bool(salt_okur)}")
+        if aktif is not None:
+            parca.append(f"aktif={bool(aktif)}")
+        log_yaz("yetki_degisti", "kullanici_yetkileri", kayit_id=hedef, detay="; ".join(parca),
+                modul="guvenlik", kullanici=guncelleyen or None)
     except Exception:
         pass
 
@@ -97,6 +151,9 @@ def _detay_yap(payload):
         if isinstance(payload, dict):
             parts = []
             for k, v in list(payload.items())[:5]:
+                if gizli_alan_mi(k):
+                    parts.append(f"{k}={_GIZLI}")
+                    continue
                 sv = str(v)
                 if len(sv) > 40:
                     sv = sv[:40] + "…"

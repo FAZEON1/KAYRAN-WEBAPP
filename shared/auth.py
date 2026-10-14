@@ -18,6 +18,7 @@ Migration (tek seferlik):
 import hashlib
 import hmac
 import secrets as _secrets
+import threading as _threading
 from typing import Dict
 
 # ─ Sabitler ───────────────────────────────────────────────────────────────────────────
@@ -53,13 +54,12 @@ def sifre_dogrula(sifre_duz: str, hash_str: str) -> bool:
     True → şifre doğru  |  False → şifre yanlış veya format geçersiz
     """
     try:
-        if not hash_str.startswith(_PREFIX + ":"):
-            # Geçiş dönemi: düz metin şifre (migrate edilmemiş)
-            # Sabit zamanlı karşılaştırma yine de uygulanır
-            return hmac.compare_digest(
-                sifre_duz.encode("utf-8"),
-                hash_str.encode("utf-8"),
-            )
+        if not str(hash_str or "").startswith(_PREFIX + ":"):
+            # Düz metin (ya da tanınmayan biçimde) saklı şifre KABUL EDİLMEZ.
+            # Eskiden "geçiş dönemi" diye düz metinle karşılaştırılıyordu; canlıda
+            # kullanici_sifreler'deki bütün kayıtlar pbkdf2 olduğu için yol kaldırıldı
+            # (Ekim 2026). Secrets [kullanicilar] listesi için de aynı kural geçerli.
+            return False
 
         # Format: "pbkdf2:sha256:<iter>$<salt_hex>$<hash_hex>"
         parts = hash_str.split(":", 3)  # ["pbkdf2","sha256","<iter>$<salt>$<hash>"]
@@ -89,7 +89,7 @@ def sifre_dogrula(sifre_duz: str, hash_str: str) -> bool:
 def kullanici_dogrula(kullanici_adi: str, sifre_duz: str, kullanicilar: Dict) -> bool:
     """
     Secrets dict' inden kullanıcıyı doğrular.
-    Hash veya düz metin formatını otomatik algılar (geçiş dönemi uyumlu).
+    Yalnız pbkdf2 biçimli hash kabul edilir; düz metin kayıt reddedilir.
 
     Args:
         kullanici_adi : Giriş formundan gelen kullanıcı adı
@@ -182,9 +182,20 @@ def supabase_sifre_kaydet(kullanici_adi: str, yeni_hash: str) -> bool:
             "sifre_hash": yeni_hash,
             "guncelleme_tarihi": _dt.datetime.utcnow().isoformat(),
         }, on_conflict="kullanici_adi").execute()
-        return True
     except Exception:
         return False
+    # Denetim izi: kimin şifresi, kim tarafından değişti. Hash ASLA yazılmaz.
+    _guvenlik_kaydi("sifre_degisti", hedef=kullanici_adi, tablo="kullanici_sifreler")
+    return True
+
+
+def _guvenlik_kaydi(islem, kullanici=None, hedef="", detay=None, tablo=""):
+    """shared.audit.guvenlik_kaydi'ya ince köprü; denetim yazılamazsa akış bozulmaz."""
+    try:
+        from shared.audit import guvenlik_kaydi
+        guvenlik_kaydi(islem, kullanici=kullanici, hedef=hedef, detay=detay, tablo=tablo)
+    except Exception:
+        pass
 
 
 def kullanici_dogrula_v2(kullanici_adi: str, sifre_duz: str, kullanicilar: dict) -> bool:
@@ -234,8 +245,15 @@ def kullanici_dogrula_v2(kullanici_adi: str, sifre_duz: str, kullanicilar: dict)
 
 # ── Brute-force koruması (kalıcı, kullanıcı bazlı) ───────────────────
 # giris_denemeleri tablosu: kullanici_adi(PK), basarisiz_sayi, son_deneme, kilit_bitis
+# Veritabanı okunamaz/yazılamazsa sayaç bu süreçte BELLEKTE tutulur (aynı eşik ve
+# cezalar, kullanıcı bazlı). Eskiden DB hatasında sınırsız deneme serbestti; şimdi
+# DB yokken de sınır var, ama yalnız hatalı deneme yapan kullanıcı kilitlenir.
 _BF_ESIK = 5                                  # bu sayıdan itibaren kilit devreye girer
 _BF_CEZA_DK = {5: 1, 6: 2, 7: 5, 8: 10}       # hata sayısı → kilit (dk); üstü 15 dk
+_BF_BELLEK_SINIR = 5000                       # bellekte en çok bu kadar kullanıcı adı
+
+_BF_BELLEK = {}                               # k → {"sayi", "kilit", "son", "db_hata"}
+_BF_BELLEK_KILIT = _threading.Lock()
 
 
 def _bf_now():
@@ -251,60 +269,135 @@ def _bf_parse(ts):
         return None
 
 
-def giris_kontrol(kullanici_adi: str):
-    """Kilit durumunu kontrol eder. Dönen: (izin_var: bool, kalan_saniye: int).
-    Hata olursa engellemez (kullanıcıyı yanlışlıkla kilitlememek için)."""
+def _bf_anahtar(kullanici_adi):
+    return (kullanici_adi or "").lower().strip()
+
+
+def _bellek_basarisiz(k):
+    """Süreç içi sayacı artırır. Dönen: (sayi, kilit_saniye)."""
+    import datetime as _dt
+    simdi = _bf_now()
+    with _BF_BELLEK_KILIT:
+        if k not in _BF_BELLEK and len(_BF_BELLEK) >= _BF_BELLEK_SINIR:
+            # En eski kayıtları at (sınırsız büyümesin); kilidi süren kayıtlar korunur
+            _sira = sorted(_BF_BELLEK.items(), key=lambda kv: kv[1]["son"])
+            for _ad, _e in _sira[: max(1, len(_sira) // 10)]:
+                if not (_e.get("kilit") and _e["kilit"] > simdi):
+                    _BF_BELLEK.pop(_ad, None)
+        e = _BF_BELLEK.setdefault(k, {"sayi": 0, "kilit": None, "son": simdi, "db_hata": False})
+        e["sayi"] += 1
+        e["son"] = simdi
+        kilit_saniye = 0
+        if e["sayi"] >= _BF_ESIK:
+            dk = _BF_CEZA_DK.get(e["sayi"], 15)
+            e["kilit"] = simdi + _dt.timedelta(minutes=dk)
+            kilit_saniye = dk * 60
+        return e["sayi"], kilit_saniye
+
+
+def _bellek_kontrol(k):
+    """Dönen: (izin_var, kalan_saniye, db_hata)."""
+    with _BF_BELLEK_KILIT:
+        e = _BF_BELLEK.get(k)
+        if not e:
+            return True, 0, False
+        if e.get("kilit"):
+            kalan = (e["kilit"] - _bf_now()).total_seconds()
+            if kalan > 0:
+                return False, int(kalan), bool(e.get("db_hata"))
+        return True, 0, bool(e.get("db_hata"))
+
+
+def _bellek_db_durumu(k, hata):
+    with _BF_BELLEK_KILIT:
+        if k in _BF_BELLEK:
+            _BF_BELLEK[k]["db_hata"] = bool(hata)
+
+
+def _bellek_sifirla(k):
+    with _BF_BELLEK_KILIT:
+        _BF_BELLEK.pop(k, None)
+
+
+def _giris_kontrol_ic(k):
+    b_izin, b_kalan, b_db_hata = _bellek_kontrol(k)
     try:
-        k = (kullanici_adi or "").lower().strip()
-        if not k:
-            return True, 0
         sb = _get_supabase()
         if not sb:
-            return True, 0
+            raise RuntimeError("veritabanı bağlantısı yok")
         res = sb.table("giris_denemeleri").select("kilit_bitis").eq("kullanici_adi", k).limit(1).execute()
-        if res.data:
-            kb = res.data[0].get("kilit_bitis")
-            kbt = _bf_parse(kb) if kb else None
-            if kbt:
-                kalan = (kbt - _bf_now()).total_seconds()
-                if kalan > 0:
-                    return False, int(kalan)
-        return True, 0
+    except Exception:
+        return b_izin, b_kalan               # DB okunamadı → bellek sayacı karar verir
+    if res.data:
+        kb = res.data[0].get("kilit_bitis")
+        kbt = _bf_parse(kb) if kb else None
+        if kbt:
+            kalan = (kbt - _bf_now()).total_seconds()
+            if kalan > 0:
+                return False, int(kalan)
+    # DB okundu ve kilit yok. Son hatalı deneme DB'ye YAZILAMADIYSA bellek söz sahibi.
+    if not b_izin and b_db_hata:
+        return False, b_kalan
+    return True, 0
+
+
+def giris_kontrol(kullanici_adi: str):
+    """Kilit durumunu kontrol eder. Dönen: (izin_var: bool, kalan_saniye: int).
+    Veritabanı okunamazsa bu süreçteki bellek sayacına bakar (sınırsız deneme yok)."""
+    try:
+        k = _bf_anahtar(kullanici_adi)
+        if not k:
+            return True, 0
+        izin, kalan = _giris_kontrol_ic(k)
+        if not izin:
+            _guvenlik_kaydi("giris_engellendi", kullanici=k[:64], hedef=k[:64],
+                            detay={"kalan_sn": kalan}, tablo="giris_denemeleri")
+        return izin, kalan
     except Exception:
         return True, 0
 
 
 def giris_basarisiz(kullanici_adi: str):
     """Başarısız deneme sayacını artırır, eşikte kilitler.
-    Dönen: (toplam_basarisiz, kilit_saniye)."""
+    Dönen: (toplam_basarisiz, kilit_saniye). DB yazılamazsa bellek sayacının değeri."""
     try:
-        k = (kullanici_adi or "").lower().strip()
+        k = _bf_anahtar(kullanici_adi)
         if not k:
             return 0, 0
-        sb = _get_supabase()
-        if not sb:
-            return 0, 0
-        res = sb.table("giris_denemeleri").select("basarisiz_sayi").eq("kullanici_adi", k).limit(1).execute()
-        sayi = ((res.data[0].get("basarisiz_sayi") or 0) if res.data else 0) + 1
-        kayit = {"kullanici_adi": k, "basarisiz_sayi": sayi, "son_deneme": _bf_now().isoformat()}
-        kilit_saniye = 0
-        if sayi >= _BF_ESIK:
-            import datetime as _dt
-            dk = _BF_CEZA_DK.get(sayi, 15)
-            kilit_saniye = dk * 60
-            kayit["kilit_bitis"] = (_bf_now() + _dt.timedelta(minutes=dk)).isoformat()
-        sb.table("giris_denemeleri").upsert(kayit, on_conflict="kullanici_adi").execute()
+        b_sayi, b_kilit = _bellek_basarisiz(k)
+        try:
+            sb = _get_supabase()
+            if not sb:
+                raise RuntimeError("veritabanı bağlantısı yok")
+            res = sb.table("giris_denemeleri").select("basarisiz_sayi").eq("kullanici_adi", k).limit(1).execute()
+            sayi = ((res.data[0].get("basarisiz_sayi") or 0) if res.data else 0) + 1
+            kayit = {"kullanici_adi": k, "basarisiz_sayi": sayi, "son_deneme": _bf_now().isoformat()}
+            kilit_saniye = 0
+            if sayi >= _BF_ESIK:
+                import datetime as _dt
+                dk = _BF_CEZA_DK.get(sayi, 15)
+                kilit_saniye = dk * 60
+                kayit["kilit_bitis"] = (_bf_now() + _dt.timedelta(minutes=dk)).isoformat()
+            sb.table("giris_denemeleri").upsert(kayit, on_conflict="kullanici_adi").execute()
+            _bellek_db_durumu(k, hata=False)
+        except Exception:
+            _bellek_db_durumu(k, hata=True)
+            sayi, kilit_saniye = b_sayi, b_kilit
+        _guvenlik_kaydi("giris_hatali", kullanici=k[:64], hedef=k[:64],
+                        detay={"deneme": sayi, "kilit_sn": kilit_saniye}, tablo="giris_denemeleri")
         return sayi, kilit_saniye
     except Exception:
         return 0, 0
 
 
 def giris_basarili(kullanici_adi: str):
-    """Başarılı giriş → sayacı ve kilidi sıfırlar."""
+    """Başarılı giriş → sayacı ve kilidi sıfırlar (DB + bellek), denetim izine yazar."""
     try:
-        k = (kullanici_adi or "").lower().strip()
+        k = _bf_anahtar(kullanici_adi)
         if not k:
             return
+        _bellek_sifirla(k)
+        _guvenlik_kaydi("giris", kullanici=k[:64], hedef=k[:64], tablo="giris_denemeleri")
         sb = _get_supabase()
         if not sb:
             return

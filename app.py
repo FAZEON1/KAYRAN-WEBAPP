@@ -935,13 +935,6 @@ _sb_comp.html(
 
 
 # Session state defaults
-def _oturum_secret():
-    try:
-        return str(st.secrets["supabase"]["key"])
-    except Exception:
-        return "kayran-oturum-varsayilan-anahtar"
-
-
 def _oturum_store():
     """Sunucu tarafı oturum deposu — artık shared/oturum.py'de (tek kaynak).
     Token yalnız onu oluşturan tarayıcıda geçerlidir (cihaz imzası)."""
@@ -965,10 +958,8 @@ def _cihaz_imzasi():
 
 def _oturum_ac(kullanici):
     """Girişte rastgele oturum token'ı üretir, cihaza bağlar, URL'ye yalnız token yazar."""
-    import secrets as _sec
-    import time as _t
-    tok = _sec.token_urlsafe(24)
-    _oturum_store()[tok] = {"u": kullanici, "cihaz": _cihaz_imzasi(), "ts": _t.time()}
+    from shared.oturum import oturum_olustur
+    tok = oturum_olustur(kullanici, _cihaz_imzasi())
     try:
         st.query_params.clear()
         st.query_params["t"] = tok
@@ -1004,11 +995,12 @@ def _hesap_hala_aktif_mi(kullanici):
         return True
 
 
-def _oturum_token(kullanici):
-    import hmac, hashlib
-    return hmac.new(_oturum_secret().encode(),
-                    (kullanici or "").lower().strip().encode(),
-                    hashlib.sha256).hexdigest()[:32]
+def _oturum_secret():
+    """Sunucu sırrı: secrets [oturum] secret, yoksa service_role'den türetilmiş; sabit değer
+    yok (bkz. shared.oturum.oturum_anahtari). Bugün URL'deki oturum anahtarı rastgele ve
+    depoda tutulduğu için imzaya ihtiyaç duymaz; bu sır imza gereken yeni işler içindir."""
+    from shared.oturum import oturum_anahtari
+    return oturum_anahtari()
 
 
 if "giris_yapildi" not in st.session_state:
@@ -1019,27 +1011,21 @@ if "salt_okur" not in st.session_state:
     st.session_state["salt_okur"] = False
 
 # Tarayıcı yenilendiğinde (yeni oturum) girişi URL'deki güvenli token'dan geri yükle
-# → otomatik çıkışı önler. Token = HMAC(kullanıcı, sunucu_secret); başkası için taklit edilemez.
+# → otomatik çıkışı önler. Token rastgele, sunucu deposunda tutulur ve tarayıcıya bağlıdır
+# (shared.oturum.oturum_dogrula: süre 7 gün, kayar; başka tarayıcıdan gelirse yakılır).
 if not st.session_state.giris_yapildi:
     try:
-        import time as _t
         if st.query_params.get("u", ""):
             # ESKİ format (u+deterministik t): güvensiz — paylaşılan tüm eski linkler geçersiz.
             st.query_params.clear()
         else:
+            from shared.oturum import oturum_dogrula
             _qt = st.query_params.get("t", "")
-            _rec = _oturum_store().get(_qt) if _qt else None
-            if _rec and (_t.time() - _rec.get("ts", 0) < 7 * 86400):
-                _imza = _cihaz_imzasi()
-                if _rec.get("cihaz") and _imza and _rec["cihaz"] == _imza:
-                    st.session_state.giris_yapildi = True
-                    st.session_state.aktif_kullanici = _rec["u"]
-                    st.session_state["salt_okur"] = salt_okur_mu(_rec["u"])
-                    _rec["ts"] = _t.time()  # kaydır: aktif kullanım süreyi tazeler
-                else:
-                    # Farklı tarayıcı/cihaz → token'ı yak (link paylaşımı girişimi)
-                    _oturum_store().pop(_qt, None)
-                    st.query_params.clear()
+            _qu = oturum_dogrula(_qt, _cihaz_imzasi()) if _qt else None
+            if _qu:
+                st.session_state.giris_yapildi = True
+                st.session_state.aktif_kullanici = _qu
+                st.session_state["salt_okur"] = salt_okur_mu(_qu)
             elif _qt:
                 st.query_params.clear()
     except Exception:
@@ -2103,8 +2089,6 @@ def _kisi_menu_icerik(ek=""):
 
 
     # ── Yeni sekmede aç: native <details> (Streamlit expander ikon fontu sorununu önler) ──
-    _u = aktif_kullanici
-    _t = _oturum_token(_u)
     # Herkes tüm bağlantıları görür; yetkisizler tıklayınca 🔒 uyarısı alır.
     _yeni_sekme = [("🏠 Anasayfa", "anasayfa"), ("🔍 Arama", "arama"),
                    ("📊 Yönetim P&L", "yonetim"), ("💰 Muhasebe", "kayranacc"),

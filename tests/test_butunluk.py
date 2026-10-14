@@ -309,7 +309,11 @@ KRITIK_FONKSIYONLAR = {
                      "salt_okur", "kullanici_kaydi", "kaydet"],
     "shared.stok_defteri": ["yaz", "yaz_fark", "toplu", "gecmis", "kaynak_bul", "yukleme", "aktif_yukleme"],
     "shared.hata_log": ["kaydet", "son_hatalar"],
-    "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap"],
+    "shared.oturum": ["oturum_store", "oturum_kapat", "cikis_yap",
+                      "oturum_olustur", "oturum_dogrula", "oturum_anahtari"],
+    "shared.auth": ["sifre_dogrula", "kullanici_dogrula_v2", "supabase_sifre_kaydet",
+                    "giris_kontrol", "giris_basarisiz", "giris_basarili"],
+    "shared.audit": ["log_yaz", "wrap_client", "guvenlik_kaydi", "yetki_degisikligi_kaydet"],
     "shared.utils": ["tarih_metni", "sidebar_ust", "sidebar_baslik", "sidebar_kullanici",
                      "sku_anahtar"],                     # SKU eşleştirme tek kural (Faz 3)
     # Gece yedeği: tablo listesi tek kaynak, sayfalı + sayımla denetlenen okuma (Eki 2026)
