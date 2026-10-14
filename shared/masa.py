@@ -594,6 +594,10 @@ def masa(veri, key):
 def calistir(veri, key, yurut):
     """Ortak akış. veri'ye bir önceki işlemin bildirimi eklenir, masa çizilir; istek geldiyse istek_al ile
     doğrulanır ve yurut(temiz) çağrılır. yurut → {"ok", "mesaj", "geri"?: {"islem", "ids"}} döner.
+    Ek anahtarlar: "yenileme": False → sayfa yeniden çalışmaz, aynı çalıştırmada devam eder (ör. yurut
+    B.detay_ac(...) çağırdı; sayfa masadan sonra B.detay_istendi(...) ile bugünkü pencereyi açar);
+    "sessiz": True → bildirim gösterilmez; "onbellek": False → yeniden çalıştırmada önbellek boşaltılmaz
+    (yalnız görünüm değişti, ör. B.sec ile sayfa içi ayrıntıya geçiş).
     Sonuç bir sonraki çizimde bildirim olarak görünür. Dönüş: masanın döndürdüğü ham istek (genelde None)."""
     import streamlit as st
     bkey = f"_masa_bildirim_{key}"
@@ -615,6 +619,8 @@ def calistir(veri, key, yurut):
         if not sonuc.get("sessiz"):
             st.session_state[bkey] = dict(sonuc, n=istek.get("n"))
         return istek
-    st.session_state[bkey] = dict(sonuc, n=istek.get("n"))
-    st.cache_data.clear()
+    if not sonuc.get("sessiz"):                  # sessiz: bildirim yok (ör. sayfa içi ayrıntıya geçildi)
+        st.session_state[bkey] = dict(sonuc, n=istek.get("n"))
+    if sonuc.get("onbellek", True):
+        st.cache_data.clear()
     st.rerun()
