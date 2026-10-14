@@ -91,4 +91,6 @@ def test_yurtici_alis_sayfasi_veriyle():
     assert not _sorunlar(at), _sorunlar(at)
     assert [t.label for t in at.tabs][:2] == ["Yeni alım", "Kayıtlı alımlar"]
     assert "Yedek maliyet" not in [t.label for t in at.tabs]
-    assert "Yurt içi satın alma" in [t.value for t in at.text_input]          # tür sabit, seçim yok
+    # tür sabit (yalnız yurt içi satın alma): Ekim 2026 form düzeninde ayrı kutu olarak gösterilmez
+    assert "Alım türü" not in [t.label for t in at.text_input] and not [s for s in at.selectbox if s.label == "Alım türü"]
+    assert any("Alım özeti" in str(m.value) for m in at.markdown)            # sağdaki özet paneli

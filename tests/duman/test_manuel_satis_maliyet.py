@@ -35,10 +35,10 @@ def test_manuel_satista_kart_yazimli_urunun_pacali_gelir():
         sec = at.selectbox(key="s_sku_sec")
         mio = [o for o in sec.options if o.startswith(MIO)]
         assert len(mio) == 1 and not [o for o in sec.options if o.startswith("MIO MIVUE J30")], sec.options
-        assert any("Maliyet (paçal): $41,2" in c.value for c in at.caption)
+        assert any("Paçal $41,2" in c.value for c in at.caption)
         at.session_state["_ms_dialog_ac"] = True
         sec.select(mio[0])
-        at.number_input(key="s_bsat").set_value(57.0)
+        at.text_input(key="s_bsat").input("57,00")          # Türkçe sayı kutusu (shared/form.py)
         at.run()
         at.session_state["_ms_dialog_ac"] = True
         at.button(key="s_ekle").click().run()

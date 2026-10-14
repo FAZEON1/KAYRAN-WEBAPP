@@ -1305,153 +1305,184 @@ def run():
                 if _mk_son and _mk_son in _kanallar:
                     st.session_state["s_kanal"] = _mk_son
                     st.success(f"✅ **{_mk_son}** eklendi ve seçili hale getirildi — "
-                               "✍️ Manuel Satış Girişi'ni açıp devam edebilirsin.")
+                               "Manuel sipariş penceresini açıp devam edebilirsin.")
 
-                @st.dialog("✍️ Manuel Satış Girişi", width="large")
+                @st.dialog("Yeni satış", width="large")
                 def _satis_manuel_dialog():
+                    # Yeni düzen (Ekim 2026, onaylı taslak): üstte belge bilgileri tek satır · solda ürün ekle +
+                    # sepet · sağda özet ve Kaydet (telefonda altta sabit). Hesap, kontrol ve kayıt aynı.
+                    from shared import form as _F
+                    from shared.kar_gizle import kar_gorunur as _kg
+                    from .database import satir_kar as _satir_kar
+                    _kar_acik = _kg()
                     # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
                     kalemler = st.session_state.setdefault("satis_kalemler", [])
-                    # ── Sipariş başlığı ──
-                    with st.container(border=True):
-                        st.markdown("##### 🧾 Sipariş Bilgileri")
-                        h2, h3 = st.columns([1.6, 1])
-                        g_kanal = h2.selectbox("Firma (cari)", _kanallar, key="s_kanal",
-                                               help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
-                        g_sipno = h3.text_input("Sipariş No (ops.)", key="s_sipno", placeholder="boşsa otomatik")
-                        # Tarih: varsayılan BUGÜN (takvim gizli). Farklı tarih gerekiyorsa kutucukla aç.
-                        def _s_tarih_dgs():
-                            st.session_state["_ms_dialog_ac"] = True
-                        _tarih_degistir = st.checkbox("📅 Tarihi değiştir (varsayılan: bugün)",
-                                                      value=False, key="s_tarih_degistir",
-                                                      on_change=_s_tarih_dgs)
-                        if _tarih_degistir:
-                            g_tarih = st.date_input("Sipariş Tarihi", value=date.today(), key="s_tarih",
-                                                    min_value=date(2024, 1, 1), max_value=date.today(),
-                                                    help="Gelecek tarih seçilemez (2027 vakası koruması)", format="DD.MM.YYYY")
-                        else:
-                            g_tarih = date.today()
-                            st.caption(f"Sipariş tarihi: **{g_tarih.strftime('%d.%m.%Y')}** (bugün)")
-                        g_not = st.text_input("Sipariş notu (ops.)", key="s_not")
+                    st.markdown(_F.css(), unsafe_allow_html=True)
+                    # ── Belge bilgileri: tek satır ──
+                    h1, h2, h3, h4 = st.columns([2.2, 1.15, 1.1, 1.3])
+                    g_kanal = h1.selectbox("Firma", _kanallar, key="s_kanal",
+                                           help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
+                    g_tarih = h2.date_input("Tarih", value=date.today(), key="s_tarih",
+                                            min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY",
+                                            help="Varsayılan bugün. Gelecek tarih seçilemez (2027 vakası koruması).")
+                    g_sipno = h3.text_input("Sipariş no", key="s_sipno", placeholder="otomatik")
+                    g_not = h4.text_input("Not", key="s_not", placeholder="isteğe bağlı")
 
-                    # ── Kalem ekle ──
-                    with st.container(border=True):
-                        st.markdown("##### ➕ Ürün Kalemi Ekle")
-                        _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
-                        _sec = st.selectbox("Ürün (SKU ara)", _sku_opts, key="s_sku_sec",
-                                            placeholder="SKU / ürün ara")
-                        _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
-                        _urun = urun_map.get(_sku, {})
-                        _pacal = pacal_bul(pacal, _sku)      # harita kanonik anahtarlı (sku_anahtar)
-                        _liste = _urun.get("satis_fiyat_listesi") or {}
-                        if isinstance(_liste, dict):
-                            _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
-                        else:
-                            _oneri = float(_urun.get("satis_fiyati") or 0)
-                        # 📦 Bu SKU hangi depolarda? — çıkış deposu seçimi
-                        try:
-                            from kayranpm.database import get_sku_depo_dagilim
-                            _sku_depolar = get_sku_depo_dagilim(_sku) if _sku else {}
-                        except Exception:
-                            _sku_depolar = {}
-                        if _sku_depolar:
-                            _depo_opts = [f"{d} ({m} adet)" for d, m in
-                                          sorted(_sku_depolar.items(), key=lambda x: -x[1])]
-                            _depo_keys = [d for d, m in sorted(_sku_depolar.items(), key=lambda x: -x[1])]
-                        else:
-                            _depo_opts = ["MERKEZ DEPO (stok bilgisi yok)"]
-                            _depo_keys = ["MERKEZ DEPO"]
-                        a1, a2, a3, a4 = st.columns([2.2, 0.9, 1.1, 1.1])
-                        _depo_sec_lbl = a1.selectbox("📦 Çıkış Deposu", _depo_opts, key="s_depo_sec")
-                        _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
-                        _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
-                        _bsat = a3.number_input("Birim Satış $", min_value=0.0, step=0.0001, format="%.4f",
-                                                value=round(_oneri, 2) if _oneri > 0 else None, placeholder="Satış $",
-                                                key="s_bsat")
-                        a4.markdown('<div style="height:28px"></div>', unsafe_allow_html=True)
-                        if a4.button("Ekle", use_container_width=True, key="s_ekle", icon=":material/add:"):
-                            if not _bsat or _bsat <= 0:
-                                st.warning("Birim satış fiyatı gir.")
-                            elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
-                                st.warning(f"⚠️ '{_depo_sec}' deposunda {_sku_depolar.get(_depo_sec, 0)} adet var, "
-                                           f"{int(_adet)} adet çıkış yapılamaz. Adeti azalt veya başka depo seç.")
+                    sol, sag = st.columns([2.75, 1], gap="medium")
+                    with sol:
+                        mesaj_yeri = st.container()          # kayıt sonucu ve uyarılar burada (dar sütunda değil)
+                        # ── Ürün ekle ──
+                        with st.container(border=True):
+                            _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
+                            _sec = st.selectbox("Ürün", _sku_opts, key="s_sku_sec", placeholder="SKU / ürün ara")
+                            _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
+                            _urun = urun_map.get(_sku, {})
+                            _pacal = pacal_bul(pacal, _sku)      # harita kanonik anahtarlı (sku_anahtar)
+                            _liste = _urun.get("satis_fiyat_listesi") or {}
+                            if isinstance(_liste, dict):
+                                _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
                             else:
-                                _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
-                                kalemler.append({
-                                    "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
-                                    "adet": int(_adet), "birim_satis": float(_bsat),
-                                    "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
-                                    "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
-                                    "depo": _depo_sec,
-                                })
-                                st.session_state.satis_kalemler = kalemler
+                                _oneri = float(_urun.get("satis_fiyati") or 0)
+                            # Bu SKU hangi depolarda? — çıkış deposu seçimi
+                            try:
+                                from kayranpm.database import get_sku_depo_dagilim
+                                _sku_depolar = get_sku_depo_dagilim(_sku) if _sku else {}
+                            except Exception:
+                                _sku_depolar = {}
+                            if _sku_depolar:
+                                _depo_opts = [f"{d} · {m} adet" for d, m in
+                                              sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                                _depo_keys = [d for d, m in sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                            else:
+                                _depo_opts = ["MERKEZ DEPO · stok bilgisi yok"]
+                                _depo_keys = ["MERKEZ DEPO"]
+                            a1, a2, a3, a4 = st.columns([2.1, 0.9, 1.1, 0.9], vertical_alignment="bottom")
+                            _depo_sec_lbl = a1.selectbox("Çıkış deposu", _depo_opts, key="s_depo_sec")
+                            _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
+                            _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
+                            _bsat = _F.sayi_kutusu("Birim satış $", "s_bsat", round(_oneri, 2) if _oneri > 0 else None,
+                                                   kap=a3, placeholder="satış $")
+                            if a4.button("Ekle", use_container_width=True, key="s_ekle", icon=":material/add:",
+                                         type="primary"):
+                                if not _bsat or _bsat <= 0:
+                                    st.warning("Birim satış fiyatı gir.")
+                                elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
+                                    st.warning(f"'{_depo_sec}' deposunda {_sku_depolar.get(_depo_sec, 0)} adet var, "
+                                               f"{int(_adet)} adet çıkış yapılamaz. Adeti azalt veya başka depo seç.")
+                                else:
+                                    _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
+                                    kalemler.append({
+                                        "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
+                                        "adet": int(_adet), "birim_satis": float(_bsat),
+                                        "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
+                                        "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
+                                        "depo": _depo_sec,
+                                    })
+                                    st.session_state.satis_kalemler = kalemler
+                                    st.session_state.pop("s_bsat", None)     # sonraki ürünün önerisi gelsin
+                                    st.session_state["_ms_dialog_ac"] = True
+                                    st.cache_data.clear()
+                                    st.rerun()
+                            _ipucu = [f"Paçal {_usd(_pacal, 4)}" if _pacal > 0 else ":orange[Paçal maliyet yok — kalemde elle düzelt]"]
+                            if _kar_acik and _pacal > 0 and _bsat and _bsat > 0:
+                                _bm = (_bsat - _pacal) / _bsat * 100
+                                _ipucu.append(f"bu fiyatla brüt marj {':green' if _bm >= 10 else ':orange'}[%{tr_sayi(_bm, 1)}]")
+                            if _sku_depolar:
+                                _ipucu.append(f"{_sku} toplam {tr_sayi(sum(_sku_depolar.values()))} adet "
+                                              f"({len(_sku_depolar)} depoda)")
+                            st.caption(" · ".join(_ipucu))
+
+                        # ── Sepet ──
+                        if not kalemler:
+                            st.caption("Sepet boş — yukarıdan ürün seçip Ekle.")
+                        else:
+                            _sb1, _sb2 = st.columns([3, 1.3], vertical_alignment="center")
+                            _sb1.markdown(f"**Sepet** · {len(kalemler)} kalem · adet ve fiyat tabloda düzeltilir, "
+                                          "silmek için kutuyu işaretle")
+                            # Maliyet / destek düzeltmesi seyrek: sütunlar istenince açılır (tablo pencereye sığsın)
+                            _detay = _sb2.toggle("Maliyet ve destek", key="s_sepet_detay")
+
+                            def _kmarj(k):
+                                _r = _satir_kar(k)
+                                _ns = _r["ciro"] - _r["destek"]
+                                return (_r["net_kar"] / _ns * 100) if _ns > 0 else 0.0
+                            _df = pd.DataFrame([{
+                                "Sil": False, "Ürün": urun_ad(k["sku"], k["urun_adi"]), "SKU": k["sku"],
+                                "Depo": k.get("depo", "MERKEZ DEPO"),
+                                "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
+                                "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
+                                "Ek Destek$": float(k["birim_ek_destek"]),
+                                "Marj": (f"%{tr_sayi(_kmarj(k), 1)}" + (" düşük" if _kmarj(k) < 10 else "")
+                                         if _kar_acik else "•••"),
+                            } for k in kalemler])
+                            _ed = st.data_editor(
+                                _df, hide_index=True, use_container_width=True, num_rows="fixed",
+                                key=f"satis_cart_{len(kalemler)}",
+                                column_order=(["Ürün", "Depo", "Adet", "B.Satış$", "Maliyet$", "Firma Destek$",
+                                               "Ek Destek$", "Marj", "Sil"] if _detay else
+                                              ["Ürün", "Depo", "Adet", "B.Satış$", "Marj", "Sil"]),
+                                column_config={
+                                    "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
+                                    "Ürün": st.column_config.TextColumn("Ürün", disabled=True, width="medium"),
+                                    "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
+                                    "Depo": st.column_config.TextColumn("Depo", disabled=True, width="small"),
+                                    "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
+                                    "B.Satış$": st.column_config.NumberColumn("Birim $", min_value=0.0, format="localized", step=0.0001),
+                                    "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
+                                    "Firma Destek$": st.column_config.NumberColumn("Firma destek $", min_value=0.0, format="localized", step=0.0001),
+                                    "Ek Destek$": st.column_config.NumberColumn("Ek destek $", min_value=0.0, format="localized", step=0.0001),
+                                    "Marj": st.column_config.TextColumn("Marj", disabled=True, width="small"),
+                                },
+                            )
+                            # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
+                            _yeni = []
+                            for i, row in _ed.iterrows():
+                                if bool(row.get("Sil")):
+                                    continue
+                                k = dict(kalemler[i])
+                                k["adet"] = int(row["Adet"] or 0)
+                                k["birim_satis"] = float(row["B.Satış$"] or 0)
+                                k["birim_maliyet"] = float(row["Maliyet$"] or 0)
+                                k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
+                                k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
+                                _yeni.append(k)
+                            if _yeni != kalemler:
+                                st.session_state.satis_kalemler = _yeni
                                 st.session_state["_ms_dialog_ac"] = True
                                 st.cache_data.clear()
                                 st.rerun()
-                        _ipucu = f"Maliyet (paçal): {_usd(_pacal, 4)}" if _pacal > 0 else "⚠️ Paçal maliyet yok — kalemde elle düzelt"
-                        st.caption(_ipucu + (f" · 📦 {_sku} toplam {sum(_sku_depolar.values())} adet "
-                                             f"({len(_sku_depolar)} depoda)" if _sku_depolar else ""))
+                            kalemler = _yeni
 
-                    # ── Sepet (kalemler) ──
-                    if not kalemler:
-                        st.info("Henüz kalem eklenmedi. Yukarıdan ürün ekleyerek siparişi oluştur.")
-                    else:
-                        st.markdown("##### 🛒 Sipariş Kalemleri — düzenle / sil")
-                        _df = pd.DataFrame([{
-                            "Sil": False, "SKU": k["sku"], "Ürün": urun_ad(k["sku"], k["urun_adi"])[:26],
-                            "Depo": k.get("depo", "MERKEZ DEPO"),
-                            "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
-                            "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
-                            "Ek Destek$": float(k["birim_ek_destek"]),
-                        } for k in kalemler])
-                        _ed = st.data_editor(
-                            _df, hide_index=True, use_container_width=True, num_rows="fixed",
-                            key=f"satis_cart_{len(kalemler)}",
-                            column_config={
-                                "Sil": st.column_config.CheckboxColumn("🗑", width="small"),
-                                "SKU": st.column_config.TextColumn("SKU", disabled=True),
-                                "Ürün": st.column_config.TextColumn("Ürün", disabled=True),
-                                "Depo": st.column_config.TextColumn("📦 Depo", disabled=True),
-                                "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
-                                "B.Satış$": st.column_config.NumberColumn("B.Satış $", min_value=0.0, format="localized", step=0.0001),
-                                "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
-                                "Firma Destek$": st.column_config.NumberColumn("Firma Destek $", min_value=0.0, format="localized", step=0.0001),
-                                "Ek Destek$": st.column_config.NumberColumn("Ek Destek $", min_value=0.0, format="localized", step=0.0001),
-                            },
-                        )
-                        # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
-                        _yeni = []
-                        for i, row in _ed.iterrows():
-                            if bool(row.get("Sil")):
-                                continue
-                            k = dict(kalemler[i])
-                            k["adet"] = int(row["Adet"] or 0)
-                            k["birim_satis"] = float(row["B.Satış$"] or 0)
-                            k["birim_maliyet"] = float(row["Maliyet$"] or 0)
-                            k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
-                            k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
-                            _yeni.append(k)
-                        if _yeni != kalemler:
-                            st.session_state.satis_kalemler = _yeni
+                    # ── Sağ: sipariş özeti + Kaydet (telefonda altta sabit) ──
+                    with sag, st.container(key="kf_ozet_satis"):
+                        top, _, _ = ozet_hesapla(kalemler)
+                        _satir = [("Kalem / adet", f"{len(kalemler)} · {tr_sayi(int(top['adet']))}"),
+                                  ("Ciro", _usd(top["ciro"])), ("Maliyet (paçal)", _usd(top["maliyet"])),
+                                  ("Destek", _usd(top["destek"]))]
+                        _vurgu, _uyari = None, []
+                        if _kar_acik:
+                            _satir.append(("Net kârlılık", f"%{tr_sayi(top['marj'], 1)}"))
+                            _vurgu = ("Net kâr", _usd(top["net_kar"]),
+                                      "yesil" if top["net_kar"] > 0 else ("kirmizi" if top["net_kar"] < 0 else "metin"))
+                            _dusuk = [k["sku"] for k in kalemler if _kmarj(k) < 10] if kalemler else []
+                            if _dusuk:
+                                _uyari.append(f"{len(_dusuk)} kalemde marj %10'un altında ({', '.join(_dusuk[:3])}). "
+                                              "Kaydetmeye engel değil.")
+                        else:
+                            _vurgu = ("Ciro", _usd(top["ciro"]), "metin")
+                        st.markdown(_F.ozet_paneli("Sipariş özeti", _satir, vurgu=_vurgu, uyarilar=_uyari),
+                                    unsafe_allow_html=True)
+                        _kaydet = st.button("Siparişi kaydet", type="primary", use_container_width=True, key="s_kaydet",
+                                            icon=":material/save:", disabled=not kalemler)
+                        if st.container(key="kf_ikincil_s").button("Sepeti temizle", use_container_width=True, key="s_temizle",
+                                     icon=":material/cleaning_services:", disabled=not kalemler):
+                            st.session_state.satis_kalemler = []
                             st.session_state["_ms_dialog_ac"] = True
                             st.cache_data.clear()
                             st.rerun()
-                        kalemler = _yeni
 
-                        # ── Sipariş özeti (canlı) ──
-                        top, _, _ = ozet_hesapla(kalemler)
-                        _renk = trenk("yesil") if top["net_kar"] > 0 else (trenk("kirmizi") if top["net_kar"] < 0 else trenk("soluk"))
-                        st.markdown(
-                            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px">' + _kart([
-                                ("Kalem / Adet", f"{len(kalemler)} / {tr_sayi(int(top['adet']))}", trenk("mavi")),
-                                ("Ciro", _usd(top["ciro"]), trenk("mavi")),
-                                ("Maliyet", _usd(top["maliyet"]), trenk("amber")),
-                                ("Destek", _usd(top["destek"]), trenk("mor")),
-                                ("Net Kâr", _usd(top["net_kar"]), _renk),
-                                ("Net Kârlılık", f"%{tr_sayi(top['marj'], 1)}", _renk),
-                            ]) + '</div>', unsafe_allow_html=True)
-
-                        b1, b2 = st.columns([3, 1])
-                        if b1.button("Siparişi Kaydet", type="primary", use_container_width=True, key="s_kaydet", icon=":material/save:"):
+                    if _kaydet:
+                        with mesaj_yeri:
                             gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
                                        and float(k.get("birim_satis", 0)) > 0]
                             if not gecerli:
@@ -1489,15 +1520,16 @@ def run():
 
                                 if _engel:
                                     for _e in _engel:
-                                        st.error("⛔ " + _e)
+                                        st.error(_e)
                                     st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
                                 else:
                                     for _u in _uyari:
-                                        st.warning("⚠️ " + _u)
+                                        st.warning(_u)
                                     sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
                                     ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
                                     if ok:
-                                        st.success(f"{msg} · Sipariş No: {sipno} · Net kâr: {_usd_md(top['net_kar'])}")
+                                        st.success(f"{msg} · Sipariş No: {sipno}"
+                                                   + (f" · Net kâr: {_usd_md(top['net_kar'])}" if _kar_acik else ""))
                                         st.session_state.satis_kalemler = []
                                         for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
                                             st.session_state.pop(_k, None)
@@ -1505,11 +1537,6 @@ def run():
                                             st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
                                     else:
                                         st.error(msg)
-                        if b2.button("Temizle", use_container_width=True, key="s_temizle", icon=":material/cleaning_services:"):
-                            st.session_state.satis_kalemler = []
-                            st.session_state["_ms_dialog_ac"] = True
-                            st.cache_data.clear()
-                            st.rerun()
 
                 # ── Açılış: bugünün özeti · Excel kartları · son siparişler ──
                 _sg_acilis()
