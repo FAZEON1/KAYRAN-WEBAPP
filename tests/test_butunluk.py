@@ -86,6 +86,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
             _TARANAN_MODULLER[f"{_mod}.{_d[:-3]}"] = _ust_duzey_isimler(_p)
 for _d in ("yonetim_hesap.py", "yonetim_pano.py", "yonetim_para.py"):   # kökteki modüller
     _TARANAN_MODULLER[_d[:-3]] = _ust_duzey_isimler(KOK / _d)
+_TARANAN_MODULLER["shared.surum"] = _ust_duzey_isimler(KOK / "shared" / "surum.py")   # sürüm tek kaynak
 
 
 def _kirik_importlar():
@@ -270,6 +271,7 @@ KRITIK_FONKSIYONLAR = {
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
                      "ay_kurlari", "gider_usd_satirlari", "serit_hedefi",
                      "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
+    "shared.surum": ["SURUM", "surum_etiketi"],          # sürüm tek kaynak (ürün paketi, Eki 2026)
     "shared.ceviri": ["kur"],
     "shared.ipucu": ["kur"],
     "shared.soru": ["coz", "parcalar", "donem_bul", "sade", "firma_bul", "sku_bul"],

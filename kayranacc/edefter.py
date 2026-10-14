@@ -394,9 +394,9 @@ def _uyari_banner():
     st.markdown(
         '<div style="background:color-mix(in srgb,var(--k-amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--k-amber) 35%,transparent);'
         'border-radius:10px;padding:10px 14px;margin:4px 0 14px;font-size:12.5px;color:#FDBA74">'
-        '<b>Faz 1 — Çift Taraflı Kayıt Çekirdeği (aktif)</b> · GİB uyumluluk onayı '
-        'alınana kadar buradaki kayıtlar <b>yasal defter yerine geçmez</b>; iç kontrol '
-        've e-Defter hazırlık amaçlıdır. Sıradaki fazlar: XBRL-GL üretimi → mali mühür → GİB testleri.'
+        '<b>Çift taraflı kayıt</b> · Buradaki kayıtlar <b>yasal defter yerine geçmez</b>; iç kontrol '
+        've e-Defter hazırlığı içindir. Üretilen dosyalar mali mühürle imzalanmaz; GİB\'e yükleme '
+        'için mali mühürlü imza gerekir.'
         '</div>', unsafe_allow_html=True)
 
 
@@ -985,8 +985,8 @@ def _render_kurum_ayarlari():
 def _render_edefter_xml():
     st.caption("Bir aya ait fişlerden **Yevmiye (Y)** veya **Kebir (K)** XBRL-GL XML'i üretir. "
                "Üretilen dosya GİB resmi şemasına (edefter.xsd) uygundur. "
-               "⚠️ Mali mühür imzası içermez (Faz 3) — bu haliyle GİB'e yüklenemez, "
-               "yapı/doğrulama testi ve önizleme amaçlıdır.")
+               "Dosya mali mühürle imzalanmaz: GİB'e yükleme için mali mühür gerekir; "
+               "bu dosya önizleme ve yapı denetimi içindir.")
     ayar = edf_ayar_getir()
     eksik = edf_ayar_eksikler(ayar)
     if eksik:
@@ -1048,8 +1048,8 @@ def _render_edefter_xml():
             with st.expander("👁 XML önizleme (ilk 3000 karakter)"):
                 st.code(sonuc.decode("utf-8")[:3000], language="xml")
             st.caption("GİB dizin yapısı: `VKN/hesap-dönemi/ay/` altında Y/K/YB/KB dosyaları "
-                       "+ XSLT'ler. ⚠️ Beratların imza/hash alanları Faz 3'te mali mühürle "
-                       "doldurulacak.")
+                       "+ XSLT'ler. Beratların imza/hash alanları yer tutucudur; GİB'e yükleme için "
+                       "mali mühürle imzalanmaları gerekir.")
 
     # ── 📦 TÜM DEFTERLERİ PAKETLE (ZIP — GİB dizin yapısı) ──
     st.markdown("---")
@@ -1078,8 +1078,8 @@ def _render_edefter_xml():
                            "Paket XML'leri geçerli ama görüntüleme şablonları eksik.")
             st.download_button("e-Defter Paketi (ZIP) İndir", psonuc["zip"], padi,
                                "application/zip", use_container_width=True, key="edf_paket_dl", icon=":material/download:")
-            st.caption("Bu paket imzasızdır (beratların hash/imzası Faz 3'te mali mühürle "
-                       "doldurulacak) — bu haliyle GİB'e yüklenemez, yapı testi amaçlıdır.")
+            st.caption("Bu paket mali mühürle imzalanmamıştır: GİB'e yükleme için mali mühür "
+                       "gerekir; paket önizleme ve yapı denetimi içindir.")
 
     # ── ✂️ ÇOK PARÇALI DEFTER BÖLME (GİB onay testi Senaryo 5 & 6) ──
     st.markdown("---")

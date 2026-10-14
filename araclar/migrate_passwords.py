@@ -6,8 +6,8 @@ Mevcut secrets.toml'daki düz metin şifreleri PBKDF2-SHA256 hash'lerine
 çevirir ve hazır secrets.toml bloğunu terminale yazdırır.
 
 KULLANIM:
-  1) Bu dosyayı proje kökünde çalıştır:
-       python migrate_passwords.py
+  1) Proje kökünden çalıştır:
+       python araclar/migrate_passwords.py
 
   2) Terminaldeki çıktıyı kopyala.
 
@@ -33,14 +33,14 @@ NOT:
 import sys
 import os
 
-# Proje kökünü Python path'ine ekle (shared.auth import için)
-sys.path.insert(0, os.path.dirname(__file__))
+# Proje kökünü Python path'ine ekle (shared.auth import için) — betik araclar/ altında
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from shared.auth import sifre_uret_toplu
 except ImportError as e:
     print(f"HATA: shared/auth.py bulunamadı: {e}")
-    print("Bu script'i proje kökünden çalıştırın: python migrate_passwords.py")
+    print("Bu script'i proje kökünden çalıştırın: python araclar/migrate_passwords.py")
     sys.exit(1)
 
 # ─── BURAYA MEVCUT ŞİFRELERİ GİRİN ──────────────────────────────────────────
@@ -66,7 +66,7 @@ def main():
     if not MEVCUT_SIFRELER:
         print("=" * 60)
         print("HATA: MEVCUT_SIFRELER dict'i boş!")
-        print("migrate_passwords.py dosyasını açıp")
+        print("araclar/migrate_passwords.py dosyasını açıp")
         print("MEVCUT_SIFRELER bölümüne kullanıcı adı/şifre çiftlerini")
         print("girin, ardından tekrar çalıştırın.")
         print("=" * 60)

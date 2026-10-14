@@ -489,13 +489,11 @@ if not st.session_state.get("_db_saglik_ok"):
             '<div style="max-width:640px;margin:80px auto;padding:28px 32px;'
             'background:var(--k-yuzey3);border:1px solid var(--k-kenar2);border-radius:14px;'
             'font-family:Inter,sans-serif;color:var(--k-metin)">'
-            '<div style="font-size:23px;margin-bottom:10px">🔌</div>'
             '<div style="font-size:19px;font-weight:700;margin-bottom:8px">'
-            'Veritabanına bağlanılamadı</div>'
+            'Veritabanına şu an ulaşılamıyor</div>'
             '<div style="color:var(--k-soluk);line-height:1.6;margin-bottom:6px">'
-            'Uygulama bir süre kullanılmadığında uyku moduna geçer; uyanırken '
-            'bağlantı bazen geç kurulur. Genellikle birkaç saniye sonra '
-            '<b>Yeniden Dene</b> demek yeterlidir.</div>'
+            'Kayıtlı verileriniz etkilenmez; yalnız bağlantı kurulamadı. Birkaç saniye sonra '
+            '<b>Yeniden Dene</b> düğmesine basın. Sorun sürerse sistem yöneticinize haber verin.</div>'
             f'<div style="color:var(--k-silik);font-size:13px;font-family:monospace;'
             f'margin-top:10px">{_mesaj}</div></div>',
             unsafe_allow_html=True,
@@ -2824,9 +2822,10 @@ def anasayfa():
     # yeşil yanıyordu — yanıltıcıydı), tanıtım cümleleri şeridi, kurumsal
     # açılır panel (iki bağlantısı buraya alındı) ve "✉️ düğmesini kullan" notu.
     yil = datetime.now().year
+    from shared.surum import surum_etiketi as _surum_etiketi
     st.markdown(
         '<div class="k-ana-alt">'
-        f'<span>KAYRAN Workspace · © {yil} G5F Teknoloji</span>'
+        f'<span>KAYRAN Workspace · {_surum_etiketi()} · © {yil} G5F Teknoloji</span>'
         '<span><a href="https://g5fteknoloji.com" target="_blank" rel="noopener noreferrer">g5fteknoloji.com</a>'
         '<a href="https://fazeon.com" target="_blank" rel="noopener noreferrer">fazeon.com</a></span>'
         '</div>',
@@ -3178,46 +3177,17 @@ def sifre_degistir():
                     unsafe_allow_html=True)
 
 def kayrantsw_yakinda():
-    """KAYRANTS&W modülü için 'Yakında Sizlerle' bilgilendirme sayfası."""
-    st.markdown(portal_css(), unsafe_allow_html=True)
-
-    st.markdown(
-        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        'text-align:center;padding:48px 20px 24px;animation:fadeUp 0.6s ease-out">'
-        # İkon rozeti
-        '<div style="width:96px;height:96px;border-radius:24px;'
-        'background:linear-gradient(135deg,color-mix(in srgb,var(--k-mor) 25%,transparent),color-mix(in srgb,var(--k-pembe) 20%,transparent));'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 35%,transparent);display:flex;align-items:center;justify-content:center;'
-        'font-size:23px;margin-bottom:28px;box-shadow:0 10px 40px color-mix(in srgb,var(--k-mor) 25%,transparent)">🚧</div>'
-        # Uygulama adı rozeti
-        '<div style="display:inline-block;padding:8px 16px;background:color-mix(in srgb,var(--k-mor) 12%,transparent);'
-        'border:1px solid color-mix(in srgb,var(--k-mor) 25%,transparent);border-radius:20px;margin-bottom:20px">'
-        '<span style="color:var(--k-mor2);font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">KAYRANTS&amp;W</span>'
-        '</div>'
-        # Başlık
-        '<h1 style="font-family:Inter,sans-serif;font-size:clamp(26px,5vw,44px);font-weight:700;color:var(--k-metin);'
-        'letter-spacing:1px;margin:0;line-height:1.1">'
-        '<span style="background:linear-gradient(90deg,var(--k-mavi),var(--k-mor),var(--k-pembe));'
-        '-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">YAKINDA SİZLERLE</span>'
-        '</h1>'
-        # Alt açıklama
-        '<p style="color:var(--k-soluk);font-size:14px;margin-top:16px;max-width:480px;line-height:1.7;font-weight:400">'
-        'Depo & Teknik Servis üzerinde çalışıyoruz. Çok yakında bu modül de KAYRAN Workspace ailesine katılacak. '
-        'Gelişmelerden haberdar olmak için takipte kalın.'
-        '</p>'
-        # Dekoratif çizgi
-        '<div style="width:80px;height:3px;margin:28px auto 0;'
-        'background:linear-gradient(90deg,var(--k-mor),var(--k-mor),var(--k-pembe));border-radius:2px"></div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # Ana sayfaya dön butonu (ortalı)
-    col_l, col_c, col_r = st.columns([1, 1.2, 1])
-    with col_c:
-        if st.button("Ana Sayfaya Dön", key="tsw_ana_don", use_container_width=True, icon=":material/home:"):
-            st.session_state.aktif_uygulama = "anasayfa"
-            st.rerun()
+    """Eski KAYRANTS&W adresi (?s=kayrantsw). Depo ve Teknik servis artık ayrı modüller; menüde bu sayfa
+    yok, yalnız eski yer imleri buraya düşer → kullanıcıyı var olan modüllere yönlendirir."""
+    st.markdown(k_mesaj("bilgi", "Depo ve teknik servis işleri artık kendi modüllerinde. "
+                                 "Aşağıdan devam edebilirsiniz."), unsafe_allow_html=True)
+    _yt = kullanici_yetkileri(st.session_state.get("aktif_kullanici", ""))
+    _hedefler = [(m, ad, ik) for m, ad, ik in (("depo", "Depo", "warehouse"),
+                                               ("teknikservis", "Teknik servis", "construction"))
+                 if _yt.get(m)] + [("anasayfa", "Ana sayfa", "home")]
+    for _kol, (_m, _ad, _ik) in zip(st.columns(len(_hedefler)), _hedefler):
+        _kol.button(_ad, key=f"tsw_{_m}", icon=f":material/{_ik}:", use_container_width=True,
+                    on_click=_sayfaya_git, args=(_m,))
 
 
 # ─────────────────────────────────────────────────────────────────────
