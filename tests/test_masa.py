@@ -117,3 +117,22 @@ def test_ozet_bandi_butun_kart_seritlerinde():
     assert ".k-grid:has(> .k-kart.k-yeni){gap:1px;background:var(--k-kenar)" in css
     assert ".k-grid > .k-kart.k-yeni{border:0;border-radius:0" in css
     assert 'class="k-grid"' in T.kpi_serit([{"etiket": "A", "deger": "1"}])
+
+
+def test_istege_bagli_onay_isaretsizse_atlanir():
+    v = {"satirlar": [{"id": 1}], "islemler": [{"k": "x", "alanlar": [{"ad": "bildir", "tip": "onay"}]}]}
+    t, h = M.istek_al(v, {"islem": "x", "ids": [1], "degerler": {"bildir": False}})
+    assert h is None and t["degerler"] == {}
+    t, h = M.istek_al(v, {"islem": "x", "ids": [1], "degerler": {"bildir": True}})
+    assert t["degerler"] == {"bildir": True}
+
+
+def test_gorunum_durumu_oturumdan_geri_gelir(monkeypatch):
+    import streamlit as st
+    monkeypatch.setitem(st.session_state, "kayit_masasi", {"durum": {"gor": "aktif", "q": "ab", "sec": {"firma": "X"}}})
+    assert M.onceki_durum("kayit_masasi") == {"gor": "aktif", "q": "ab", "sec": {"firma": "X"}}
+    monkeypatch.setitem(st.session_state, "kayit_masasi", {"durum": "bozuk"})
+    assert M.onceki_durum("kayit_masasi") is None
+    assert M.onceki_durum("yok_boyle") is None
+    js = M._JS
+    assert 'setStateValue("durum"' in js and "D.baslangic" in js

@@ -31,8 +31,12 @@ TANIM (masa(veri) — hepsi Python'da hazırlanır, metinler biçimlenmiş gelir
                 toplu: {ad, alanlar: [ad…], degerler?} — çoklu seçimde alttaki çubukta
                 okuma: True — salt-okur oturumda da çalışır (ör. ayrıntıyı aç)
                 coklu: True — çubukta görünmez ama birden çok kimlik kabul eder (bildirimdeki Geri al)
+                yalniz_toplu: True — yan panelde gösterilmez, yalnız alttaki toplu çubukta
   tik         "panel" (varsayılan) ya da işlem anahtarı — satıra tıklayınca o işlem doğrudan gönderilir
   bos         {liste, suzgec}  · bildirim {n, ok, mesaj, geri?: {islem, ids}} · salt · baslik_ipucu
+  baslangic   {gor, q, sec, ana, sira} — ilk açılış durumu (verilmezse son kullanılan durum geri gelir)
+GÖRÜNÜM DURUMU: görünüm, arama, süzgeç ve sıralama bileşenin "durum" değerinde tutulur; ayrıntı sayfasına
+gidip dönünce (bileşen yeniden kurulunca) aynen geri gelir.
 KOŞUL f: [[alan, op, değer], …] (VE) — op: eq ne in nin gt lt var yok
 """
 import json
@@ -132,6 +136,8 @@ def istek_al(veri, istek):
                 return None, f"{a.get('et') or ad}: listeden seçin."
             degerler[ad] = gecerli[str(v)]
         elif tip == "onay":
+            if v is False and not a.get("zorunlu"):
+                continue
             if v is not True:
                 return None, f"{a.get('et') or ad}: onay kutusunu işaretleyin."
             degerler[ad] = True
@@ -274,11 +280,14 @@ _CSS = r"""
 
 _JS = r"""
 export default function(component){
-  const {data, setTriggerValue, parentElement} = component;
+  const {data, setTriggerValue, setStateValue, parentElement} = component;
   const D = data || {};
   const R = D.satirlar || [], ISL = D.islemler || [], SUT = D.sutunlar || [], GOR = D.gorunumler || [];
-  const S = parentElement.__ms || (parentElement.__ms = {gor:(GOR[0]||{}).k || "", sec:{}, ana:{}, q:"", sira:null, secim:new Set(),
+  const B0 = D.baslangic || {};
+  const S = parentElement.__ms || (parentElement.__ms = {gor:B0.gor || (GOR[0]||{}).k || "", sec:Object.assign({}, B0.sec || {}),
+                                                         ana:Object.assign({}, B0.ana || {}), q:B0.q || "", sira:B0.sira || null, secim:new Set(),
                                                          acik:null, sekme:null, odak:0, sonBildirim:null, form:{}, sinir:200});
+  const durumYaz = () => { try { setStateValue("durum", {gor:S.gor, q:S.q, sec:S.sec, ana:S.ana, sira:S.sira}); } catch (_) {} };
   if (S.gor && !GOR.some(g => g.k === S.gor)) S.gor = (GOR[0]||{}).k || "";
   let kok = parentElement.querySelector(".ms");
   if (!kok){ kok = document.createElement("div"); kok.className = "ms"; parentElement.appendChild(kok); }
@@ -467,6 +476,9 @@ export default function(component){
   }
 
   function ciz(){
+    const imza = JSON.stringify([S.gor, S.q, S.sec, S.ana, S.sira]);
+    if (S.sonDurum !== imza){ S.sonDurum = imza; if (S.durumKur) durumYaz(); }
+    S.durumKur = true;
     const r = suzulmus();
     S.gorunen = r;
     if (S.odak >= r.length) S.odak = Math.max(0, r.length - 1);
@@ -581,9 +593,23 @@ def _jsonlanir(veri):
     return json.loads(json.dumps(veri, ensure_ascii=False, default=str))
 
 
+def onceki_durum(key):
+    """Bileşenin son bildirdiği görünüm durumu (görünüm, arama, süzgeç, sıralama) ya da None."""
+    try:
+        import streamlit as st
+        d = (st.session_state.get(key) or {}).get("durum")
+    except Exception:  # noqa: BLE001
+        return None
+    return d if isinstance(d, dict) else None
+
+
 def masa(veri, key):
-    """Masayı çizer; kullanıcı bir işlem yaptıysa YALNIZ o çalıştırmada isteği (dict) döner."""
-    sonuc = _bilesen()(key=key, data=_jsonlanir(veri), height="content", on_istek_change=lambda: None)
+    """Masayı çizer; kullanıcı bir işlem yaptıysa YALNIZ o çalıştırmada isteği (dict) döner.
+    Görünüm durumu oturumda kalır: bileşen yeniden kurulduğunda (ayrıntıdan dönüş) son durumla açılır."""
+    if "baslangic" not in veri:
+        veri = dict(veri, baslangic=onceki_durum(key))
+    sonuc = _bilesen()(key=key, data=_jsonlanir(veri), default={"durum": None}, height="content",
+                       on_istek_change=lambda: None, on_durum_change=lambda: None)
     try:
         return getattr(sonuc, "istek")
     except Exception:  # noqa: BLE001
