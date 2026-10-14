@@ -91,4 +91,4 @@ def test_6_ayni_kur_kaynagi():
 def test_ertelenenler_kalici_kayittan():
     m = _oku("kayranacc/main.py")
     assert "from .odeme_ekran import render_ertelenenler" in m
-    assert 'st.session_state.get("ertelemeler", {})' not in m.split('elif sayfa == "⏳ Ertelenen Ödemeler":')[1][:600]
+    assert 'st.session_state.get("ertelemeler", {})' not in m.split('def _sayfa_ertelenen_odemeler(')[1][:600]

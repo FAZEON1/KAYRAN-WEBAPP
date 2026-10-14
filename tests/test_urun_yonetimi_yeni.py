@@ -25,7 +25,7 @@ def _oku(y):
     return (KOK / y).read_text(encoding="utf-8")
 
 
-def _govde(src, bas, son_isaret="\n        elif sayfa == "):
+def _govde(src, bas, son_isaret="\ndef "):
     g = src[src.index(bas):]
     i = g.find(son_isaret, 1)
     return g if i < 0 else g[:i]
@@ -81,7 +81,7 @@ def test_siparis_satir_ici_onay_ve_gecmis_her_zaman():
     r = s[s.index("def render("):]
     r = r[:r.find("\ndef ", 1)] if r.find("\ndef ", 1) > 0 else r
     assert re.search(r"\n    _gecmis\(", r), "geçmiş koşulsuz çizilmeli"
-    assert 'elif sayfa == "📦  Sipariş Önerisi":' in _oku(MAIN) and "siparis_ekran" in _oku(MAIN)
+    assert '"📦  Sipariş Önerisi": lambda: _sayfa_siparis_onerisi(' in _oku(MAIN) and "siparis_ekran" in _oku(MAIN)
 
 
 def test_bekleyen_haritasi_ve_durum_adi():
@@ -95,7 +95,7 @@ def test_bekleyen_haritasi_ve_durum_adi():
 
 # ── 6. Veri Yükleme: onaylı silme ───────────────────────────────────
 def test_tarih_silme_onayli_ve_onbellek():
-    m = _govde(_oku(MAIN), 'elif sayfa == "Toplu İşlemler":', "\n    _sayfa_parcasi()")
+    m = _govde(_oku(MAIN), 'def _sayfa_toplu_islemler(')
     assert 'table("firma_stok").delete()' not in m
     assert "B.onayli_sil(" in m and "sil_firma_stok_tarihi(" in m
     assert 'key=f"vy_tarih_{_sil_r[\'_ham\']}"' in m      # onay bir sonraki tarihe taşınmaz
@@ -163,11 +163,11 @@ def test_tek_adimli_indirme():
 def test_bos_sutun_satiri_ve_cift_ayrac_yok():
     m = _oku(MAIN)
     assert "c1, c2, c3, c4, c5 = st.columns(5)" not in m
-    assert 'st.markdown("---")\n            st.markdown("---")' not in m
+    assert not re.search(r'st\.markdown\("---"\)\n[ ]*st\.markdown\("---"\)', m)   # her girintide
 
 
 def test_toplu_dialog_oner_pencereyi_kapatmaz():
-    m = _govde(_oku(MAIN), 'elif sayfa == "Toplu İşlemler":', "\n    _sayfa_parcasi()")
+    m = _govde(_oku(MAIN), 'def _sayfa_toplu_islemler(')
     for anahtar in ('key="satis_oner"', 'key="kat_oto"', 'key="kat_std_btn"'):
         g = m[m.index(anahtar):]
         g = g[:g.index("st.rerun(") + 40]
@@ -199,7 +199,7 @@ def test_urun_filtrele_sirala():
 
 
 def test_tum_urunler_liste_ve_tek_secici():
-    m = _govde(_oku(MAIN), 'elif sayfa == "📋  Tüm Ürünler":')
+    m = _govde(_oku(MAIN), 'def _sayfa_tum_urunler(')
     assert "_dlg_urunler_ozet" not in m and 'key="tu_sku"' not in m and 'key="urun_duzen_sec"' not in m
     assert 'B.secili("pm_urun")' in m and 'B.listeye_don("pm_urun")' in m
     e = _oku("kayranpm/urunler_ekran.py")

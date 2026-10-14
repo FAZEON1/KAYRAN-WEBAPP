@@ -1177,7 +1177,6 @@ def kapi_iade(dosya, kapi):
 
 def run():
     from shared.tasarim import baslik as _sb, kpi_serit, sayi
-    aktif_kullanici = st.session_state.get("aktif_kullanici", "")
     # Sayfa genişliği artık app.py'de tek yerden.
 
     with st.sidebar:
@@ -1220,1286 +1219,1304 @@ def run():
     # yalnız bu gövde yeniden çizilir; üst menü, sol menü, oturum kontrolü ve
     # ortak CSS yeniden çalışmaz. Kayıt sonrası st.rerun() çağrıları ESKİSİ
     # GİBİ tüm sayfayı yeniler (Streamlit 1.64'te parça içi st.rerun() tam
-    # yenilemedir). Blok ile dış kapsamın paylaştığı değişkenler nonlocal ile
-    # aynen korunur (otomatik hesaplandı; tests/test_parca.py denetler).
+    # yenilemedir). Her sayfanın gövdesi modül düzeyinde kendi _sayfa_* fonksiyonunda;
+    # run()'dan ihtiyaç duyduğu adlar açık parametre olarak geçer (tests/test_mimari.py).
     @st.fragment
     def _sayfa_parcasi():
-        if _ssayfa == "🧾 Satış Girişi":
-            # Ekim 2026: başlık + iki ana eylem tek satırda; altında bugünün özeti,
-            # firma başına Excel kartları ve son siparişler (eskiden yalnız üç düğme).
-            from shared import bilesen as _B
-            _sg_ey = _B.baslik_eylem("🧾 Satış", "Satış Girişi",
-                                     aciklama="Sipariş gir: elle, ya da firmanın Excel'inden toplu.",
-                                     eylemler=[{"etiket": "Yeni kanal", "key": "sg_kanal_btn", "icon": ":material/add_business:",
-                                                "help": "Cari listesinde olmayan yeni satış kanalı / firma ekle"},
-                                               {"etiket": "Manuel sipariş", "key": "sg_manuel_btn", "icon": ":material/edit_note:",
-                                                "birincil": True}])
-            if _sg_ey.get("sg_manuel_btn"):
-                st.session_state["_ms_dialog_ac"] = True
-            if _sg_ey.get("sg_kanal_btn"):
-                st.session_state["_mk_dialog_ac"] = True
-            pacal = get_pacal_map()
-            urunler = get_urunler()
-            urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
-            from satis.database import pacal_bul, satis_sku_listesi
-            tum_sku = satis_sku_listesi(urun_map, pacal)
-            st.session_state.setdefault("satis_kalemler", [])
-            kalemler = st.session_state.satis_kalemler
+        _sayfa_fn = {
+            "🧾 Satış Girişi": lambda: _sayfa_satis_girisi(_kanallar=_kanallar),
+            "📋 Satışlar": lambda: _sayfa_satislar(_kanallar=_kanallar),
+            "📊 Kâr / P&L": lambda: _sayfa_kar_pnl(_kar_ok=_kar_ok, _sb=_sb, kpi_serit=kpi_serit, sayi=sayi),
+            "↩️ İade": lambda: _sayfa_iade(_kanallar=_kanallar, _kar_ok=_kar_ok),
+        }.get(_ssayfa)
+        if _sayfa_fn is not None:
+            _sayfa_fn()
 
-            if not tum_sku:
-                st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
-            else:
+    _sayfa_parcasi()
 
-                # ── Manuel Satış Girişi — AÇILIR PENCERE ──
 
-                # ── ➕ MANUEL KANAL / CARİ EKLE ──────────────────────────────
-                @st.dialog("➕ Yeni Firma (Cari) Ekle", width="small")
-                def _kanal_ekle_dialog():
-                    from satis.database import (ekle_manuel_kanal as _mk_ekle,
-                                                get_manuel_kanallar as _mk_liste,
-                                                sil_manuel_kanal as _mk_sil)
-                    st.caption("Cari listesinde olmayan yeni bir satış kanalı / firma ekle. "
-                               "Eklenen isim tüm kanal seçim kutularında anında görünür "
-                               "(manuel giriş, Excel yükleme, filtreler).")
-                    _yeni_ad = st.text_input("Firma (cari) adı", key="mk_yeni_ad",
-                                             placeholder="örn. PAZARAMA, N11, AMAZON TR...",
-                                             max_chars=60)
-                    # Benzer isim uyarısı — TRENDYOL / Trendyol gibi mükerrerleri önle
-                    _aday = (_yeni_ad or "").strip()
-                    if _aday and len(_aday) >= 2:
-                        _benzer = [k for k in _kanallar
-                                   if _aday.lower() in k.lower() or k.lower() in _aday.lower()]
-                        if _benzer:
-                            st.warning("Benzer kayıt(lar) zaten var: **" + " · ".join(_benzer[:5])
-                                       + "** — aynı firmaysa yenisini ekleme, mevcut olanı seç.")
-                    if st.button("Ekle", type="primary", use_container_width=True,
-                                 key="mk_ekle_btn", disabled=not _aday, icon=":material/save:"):
-                        _ok, _msg = _mk_ekle(_aday)
-                        if _ok:
-                            st.session_state["_mk_son_eklenen"] = _aday
-                            st.toast(f"✅ {_msg}", icon="✅")
-                            st.rerun()
+# ══════════════════ SAYFA GÖVDELERİ — run() içindeki sayfa dallarından taşındı ══════════════════
+# Her sayfa kendi fonksiyonunda; run() yalnız ortak hazırlık + sayfa → fonksiyon eşlemesi.
+# run()'ın yerel adları (yardımcılar, sabitler) açık anahtar sözcük parametresi olarak gelir.
+# Sayfalar run()'daki _sayfa_parcasi (st.fragment) içinden çağrılır; widget anahtarları ve sıra aynı.
+
+
+def _sayfa_satis_girisi(*, _kanallar):
+    # Ekim 2026: başlık + iki ana eylem tek satırda; altında bugünün özeti,
+    # firma başına Excel kartları ve son siparişler (eskiden yalnız üç düğme).
+    from shared import bilesen as _B
+    _sg_ey = _B.baslik_eylem("🧾 Satış", "Satış Girişi",
+                             aciklama="Sipariş gir: elle, ya da firmanın Excel'inden toplu.",
+                             eylemler=[{"etiket": "Yeni kanal", "key": "sg_kanal_btn", "icon": ":material/add_business:",
+                                        "help": "Cari listesinde olmayan yeni satış kanalı / firma ekle"},
+                                       {"etiket": "Manuel sipariş", "key": "sg_manuel_btn", "icon": ":material/edit_note:",
+                                        "birincil": True}])
+    if _sg_ey.get("sg_manuel_btn"):
+        st.session_state["_ms_dialog_ac"] = True
+    if _sg_ey.get("sg_kanal_btn"):
+        st.session_state["_mk_dialog_ac"] = True
+    pacal = get_pacal_map()
+    urunler = get_urunler()
+    urun_map = {u["sku"]: u for u in urunler if u.get("sku")}
+    from satis.database import pacal_bul, satis_sku_listesi
+    tum_sku = satis_sku_listesi(urun_map, pacal)
+    st.session_state.setdefault("satis_kalemler", [])
+
+    if not tum_sku:
+        st.info("Henüz ürün/maliyet verisi yok. Önce İthalat/Ürün Yönetimi'nden ürün ve maliyet girilmeli.")
+    else:
+
+        # ── Manuel Satış Girişi — AÇILIR PENCERE ──
+
+        # ── ➕ MANUEL KANAL / CARİ EKLE ──────────────────────────────
+        @st.dialog("➕ Yeni Firma (Cari) Ekle", width="small")
+        def _kanal_ekle_dialog():
+            from satis.database import (ekle_manuel_kanal as _mk_ekle,
+                                        get_manuel_kanallar as _mk_liste,
+                                        sil_manuel_kanal as _mk_sil)
+            st.caption("Cari listesinde olmayan yeni bir satış kanalı / firma ekle. "
+                       "Eklenen isim tüm kanal seçim kutularında anında görünür "
+                       "(manuel giriş, Excel yükleme, filtreler).")
+            _yeni_ad = st.text_input("Firma (cari) adı", key="mk_yeni_ad",
+                                     placeholder="örn. PAZARAMA, N11, AMAZON TR...",
+                                     max_chars=60)
+            # Benzer isim uyarısı — TRENDYOL / Trendyol gibi mükerrerleri önle
+            _aday = (_yeni_ad or "").strip()
+            if _aday and len(_aday) >= 2:
+                _benzer = [k for k in _kanallar
+                           if _aday.lower() in k.lower() or k.lower() in _aday.lower()]
+                if _benzer:
+                    st.warning("Benzer kayıt(lar) zaten var: **" + " · ".join(_benzer[:5])
+                               + "** — aynı firmaysa yenisini ekleme, mevcut olanı seç.")
+            if st.button("Ekle", type="primary", use_container_width=True,
+                         key="mk_ekle_btn", disabled=not _aday, icon=":material/save:"):
+                _ok, _msg = _mk_ekle(_aday)
+                if _ok:
+                    st.session_state["_mk_son_eklenen"] = _aday
+                    st.toast(f"✅ {_msg}", icon="✅")
+                    st.rerun()
+                else:
+                    st.error(_msg)
+            # Elle eklenmiş kayıtların yönetimi (yalnız manuel olanlar silinebilir;
+            # silmek yalnız listeden çıkarır, geçmiş satış kayıtlarına DOKUNMAZ)
+            _mevcut_mk = _mk_liste()
+            if _mevcut_mk:
+                with st.expander(f"🗂️ Elle eklenenler ({len(_mevcut_mk)})"):
+                    _sil_sec = st.selectbox("Listeden çıkar", ["—"] + _mevcut_mk,
+                                            key="mk_sil_sec", label_visibility="collapsed")
+                    if _sil_sec != "—" and st.button(f"“{_sil_sec}” çıkar",
+                                                     key="mk_sil_btn",
+                                                     use_container_width=True, icon=":material/delete:"):
+                        _mk_sil(_sil_sec)
+                        st.toast(f"🗑️ “{_sil_sec}” listeden çıkarıldı", icon="🗑️")
+                        st.rerun()
+                    st.caption("Silme yalnız seçim listesini etkiler; o kanala girilmiş "
+                               "satışlar durur ve kanal, satışlarda geçtiği sürece "
+                               "listede görünmeye devam eder.")
+
+        if st.session_state.pop("_mk_dialog_ac", False):
+            _kanal_ekle_dialog()
+        # Yeni eklenen kanal, manuel satış penceresinde otomatik SEÇİLİ gelsin
+        _mk_son = st.session_state.pop("_mk_son_eklenen", None)
+        if _mk_son and _mk_son in _kanallar:
+            st.session_state["s_kanal"] = _mk_son
+            st.success(f"✅ **{_mk_son}** eklendi ve seçili hale getirildi — "
+                       "Manuel sipariş penceresini açıp devam edebilirsin.")
+
+        @st.dialog("Yeni satış", width="large")
+        def _satis_manuel_dialog():
+            # Yeni düzen (Ekim 2026, onaylı taslak): üstte belge bilgileri tek satır · solda ürün ekle +
+            # sepet · sağda özet ve Kaydet (telefonda altta sabit). Hesap, kontrol ve kayıt aynı.
+            from shared import form as _F
+            from shared.kar_gizle import kar_gorunur as _kg
+            from .database import satir_kar as _satir_kar
+            _kar_acik = _kg()
+            # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
+            kalemler = st.session_state.setdefault("satis_kalemler", [])
+            st.markdown(_F.css(), unsafe_allow_html=True)
+            # ── Belge bilgileri: tek satır ──
+            h1, h2, h3, h4 = st.columns([2.2, 1.15, 1.1, 1.3])
+            g_kanal = h1.selectbox("Firma", _kanallar, key="s_kanal",
+                                   help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
+            g_tarih = h2.date_input("Tarih", value=date.today(), key="s_tarih",
+                                    min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY",
+                                    help="Varsayılan bugün. Gelecek tarih seçilemez (2027 vakası koruması).")
+            g_sipno = h3.text_input("Sipariş no", key="s_sipno", placeholder="otomatik")
+            g_not = h4.text_input("Not", key="s_not", placeholder="isteğe bağlı")
+
+            sol, sag = st.columns([2.75, 1], gap="medium")
+            with sol:
+                mesaj_yeri = st.container()          # kayıt sonucu ve uyarılar burada (dar sütunda değil)
+                # ── Ürün ekle ──
+                with st.container(border=True):
+                    _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
+                    _sec = st.selectbox("Ürün", _sku_opts, key="s_sku_sec", placeholder="SKU / ürün ara")
+                    _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
+                    _urun = urun_map.get(_sku, {})
+                    _pacal = pacal_bul(pacal, _sku)      # harita kanonik anahtarlı (sku_anahtar)
+                    _liste = _urun.get("satis_fiyat_listesi") or {}
+                    if isinstance(_liste, dict):
+                        _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
+                    else:
+                        _oneri = float(_urun.get("satis_fiyati") or 0)
+                    # Bu SKU hangi depolarda? — çıkış deposu seçimi
+                    try:
+                        from kayranpm.database import get_sku_depo_dagilim
+                        _sku_depolar = get_sku_depo_dagilim(_sku) if _sku else {}
+                    except Exception:
+                        _sku_depolar = {}
+                    if _sku_depolar:
+                        _depo_opts = [f"{d} · {m} adet" for d, m in
+                                      sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                        _depo_keys = [d for d, m in sorted(_sku_depolar.items(), key=lambda x: -x[1])]
+                    else:
+                        _depo_opts = ["MERKEZ DEPO · stok bilgisi yok"]
+                        _depo_keys = ["MERKEZ DEPO"]
+                    a1, a2, a3, a4 = st.columns([2.1, 0.9, 1.1, 0.9], vertical_alignment="bottom")
+                    _depo_sec_lbl = a1.selectbox("Çıkış deposu", _depo_opts, key="s_depo_sec")
+                    _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
+                    _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
+                    _bsat = _F.sayi_kutusu("Birim satış $", "s_bsat", round(_oneri, 2) if _oneri > 0 else None,
+                                           kap=a3, placeholder="satış $")
+                    if a4.button("Ekle", use_container_width=True, key="s_ekle", icon=":material/add:",
+                                 type="primary"):
+                        if not _bsat or _bsat <= 0:
+                            st.warning("Birim satış fiyatı gir.")
+                        elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
+                            st.warning(f"'{_depo_sec}' deposunda {_sku_depolar.get(_depo_sec, 0)} adet var, "
+                                       f"{int(_adet)} adet çıkış yapılamaz. Adeti azalt veya başka depo seç.")
                         else:
-                            st.error(_msg)
-                    # Elle eklenmiş kayıtların yönetimi (yalnız manuel olanlar silinebilir;
-                    # silmek yalnız listeden çıkarır, geçmiş satış kayıtlarına DOKUNMAZ)
-                    _mevcut_mk = _mk_liste()
-                    if _mevcut_mk:
-                        with st.expander(f"🗂️ Elle eklenenler ({len(_mevcut_mk)})"):
-                            _sil_sec = st.selectbox("Listeden çıkar", ["—"] + _mevcut_mk,
-                                                    key="mk_sil_sec", label_visibility="collapsed")
-                            if _sil_sec != "—" and st.button(f"“{_sil_sec}” çıkar",
-                                                             key="mk_sil_btn",
-                                                             use_container_width=True, icon=":material/delete:"):
-                                _mk_sil(_sil_sec)
-                                st.toast(f"🗑️ “{_sil_sec}” listeden çıkarıldı", icon="🗑️")
-                                st.rerun()
-                            st.caption("Silme yalnız seçim listesini etkiler; o kanala girilmiş "
-                                       "satışlar durur ve kanal, satışlarda geçtiği sürece "
-                                       "listede görünmeye devam eder.")
-
-                if st.session_state.pop("_mk_dialog_ac", False):
-                    _kanal_ekle_dialog()
-                # Yeni eklenen kanal, manuel satış penceresinde otomatik SEÇİLİ gelsin
-                _mk_son = st.session_state.pop("_mk_son_eklenen", None)
-                if _mk_son and _mk_son in _kanallar:
-                    st.session_state["s_kanal"] = _mk_son
-                    st.success(f"✅ **{_mk_son}** eklendi ve seçili hale getirildi — "
-                               "Manuel sipariş penceresini açıp devam edebilirsin.")
-
-                @st.dialog("Yeni satış", width="large")
-                def _satis_manuel_dialog():
-                    # Yeni düzen (Ekim 2026, onaylı taslak): üstte belge bilgileri tek satır · solda ürün ekle +
-                    # sepet · sağda özet ve Kaydet (telefonda altta sabit). Hesap, kontrol ve kayıt aynı.
-                    from shared import form as _F
-                    from shared.kar_gizle import kar_gorunur as _kg
-                    from .database import satir_kar as _satir_kar
-                    _kar_acik = _kg()
-                    # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
-                    kalemler = st.session_state.setdefault("satis_kalemler", [])
-                    st.markdown(_F.css(), unsafe_allow_html=True)
-                    # ── Belge bilgileri: tek satır ──
-                    h1, h2, h3, h4 = st.columns([2.2, 1.15, 1.1, 1.3])
-                    g_kanal = h1.selectbox("Firma", _kanallar, key="s_kanal",
-                                           help="Muhasebe'ye yüklediğin cari listesinden gelir (yoksa varsayılan).")
-                    g_tarih = h2.date_input("Tarih", value=date.today(), key="s_tarih",
-                                            min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY",
-                                            help="Varsayılan bugün. Gelecek tarih seçilemez (2027 vakası koruması).")
-                    g_sipno = h3.text_input("Sipariş no", key="s_sipno", placeholder="otomatik")
-                    g_not = h4.text_input("Not", key="s_not", placeholder="isteğe bağlı")
-
-                    sol, sag = st.columns([2.75, 1], gap="medium")
-                    with sol:
-                        mesaj_yeri = st.container()          # kayıt sonucu ve uyarılar burada (dar sütunda değil)
-                        # ── Ürün ekle ──
-                        with st.container(border=True):
-                            _sku_opts = [f"{s} — {urun_map.get(s, {}).get('urun_adi', '') or ''}".strip(" —") for s in tum_sku]
-                            _sec = st.selectbox("Ürün", _sku_opts, key="s_sku_sec", placeholder="SKU / ürün ara")
-                            _sku = tum_sku[_sku_opts.index(_sec)] if _sec in _sku_opts else (tum_sku[0] if tum_sku else "")
-                            _urun = urun_map.get(_sku, {})
-                            _pacal = pacal_bul(pacal, _sku)      # harita kanonik anahtarlı (sku_anahtar)
-                            _liste = _urun.get("satis_fiyat_listesi") or {}
-                            if isinstance(_liste, dict):
-                                _oneri = float(_liste.get(g_kanal) or _liste.get(str(g_kanal).upper()) or _urun.get("satis_fiyati") or 0)
-                            else:
-                                _oneri = float(_urun.get("satis_fiyati") or 0)
-                            # Bu SKU hangi depolarda? — çıkış deposu seçimi
-                            try:
-                                from kayranpm.database import get_sku_depo_dagilim
-                                _sku_depolar = get_sku_depo_dagilim(_sku) if _sku else {}
-                            except Exception:
-                                _sku_depolar = {}
-                            if _sku_depolar:
-                                _depo_opts = [f"{d} · {m} adet" for d, m in
-                                              sorted(_sku_depolar.items(), key=lambda x: -x[1])]
-                                _depo_keys = [d for d, m in sorted(_sku_depolar.items(), key=lambda x: -x[1])]
-                            else:
-                                _depo_opts = ["MERKEZ DEPO · stok bilgisi yok"]
-                                _depo_keys = ["MERKEZ DEPO"]
-                            a1, a2, a3, a4 = st.columns([2.1, 0.9, 1.1, 0.9], vertical_alignment="bottom")
-                            _depo_sec_lbl = a1.selectbox("Çıkış deposu", _depo_opts, key="s_depo_sec")
-                            _depo_sec = _depo_keys[_depo_opts.index(_depo_sec_lbl)] if _depo_sec_lbl in _depo_opts else "MERKEZ DEPO"
-                            _adet = a2.number_input("Adet", min_value=1, step=1, value=1, key="s_adet")
-                            _bsat = _F.sayi_kutusu("Birim satış $", "s_bsat", round(_oneri, 2) if _oneri > 0 else None,
-                                                   kap=a3, placeholder="satış $")
-                            if a4.button("Ekle", use_container_width=True, key="s_ekle", icon=":material/add:",
-                                         type="primary"):
-                                if not _bsat or _bsat <= 0:
-                                    st.warning("Birim satış fiyatı gir.")
-                                elif _sku_depolar and int(_adet) > int(_sku_depolar.get(_depo_sec, 0)):
-                                    st.warning(f"'{_depo_sec}' deposunda {_sku_depolar.get(_depo_sec, 0)} adet var, "
-                                               f"{int(_adet)} adet çıkış yapılamaz. Adeti azalt veya başka depo seç.")
-                                else:
-                                    _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
-                                    kalemler.append({
-                                        "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
-                                        "adet": int(_adet), "birim_satis": float(_bsat),
-                                        "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
-                                        "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
-                                        "depo": _depo_sec,
-                                    })
-                                    st.session_state.satis_kalemler = kalemler
-                                    st.session_state.pop("s_bsat", None)     # sonraki ürünün önerisi gelsin
-                                    st.session_state["_ms_dialog_ac"] = True
-                                    st.cache_data.clear()
-                                    st.rerun()
-                            _ipucu = [f"Paçal {_usd(_pacal, 4)}" if _pacal > 0 else ":orange[Paçal maliyet yok — kalemde elle düzelt]"]
-                            if _kar_acik and _pacal > 0 and _bsat and _bsat > 0:
-                                _bm = (_bsat - _pacal) / _bsat * 100
-                                _ipucu.append(f"bu fiyatla brüt marj {':green' if _bm >= 10 else ':orange'}[%{tr_sayi(_bm, 1)}]")
-                            if _sku_depolar:
-                                _ipucu.append(f"{_sku} toplam {tr_sayi(sum(_sku_depolar.values()))} adet "
-                                              f"({len(_sku_depolar)} depoda)")
-                            st.caption(" · ".join(_ipucu))
-
-                        # ── Sepet ──
-                        if not kalemler:
-                            st.caption("Sepet boş — yukarıdan ürün seçip Ekle.")
-                        else:
-                            _sb1, _sb2 = st.columns([3, 1.3], vertical_alignment="center")
-                            _sb1.markdown(f"**Sepet** · {len(kalemler)} kalem · adet ve fiyat tabloda düzeltilir, "
-                                          "silmek için kutuyu işaretle")
-                            # Maliyet / destek düzeltmesi seyrek: sütunlar istenince açılır (tablo pencereye sığsın)
-                            _detay = _sb2.toggle("Maliyet ve destek", key="s_sepet_detay")
-
-                            def _kmarj(k):
-                                _r = _satir_kar(k)
-                                _ns = _r["ciro"] - _r["destek"]
-                                return (_r["net_kar"] / _ns * 100) if _ns > 0 else 0.0
-                            _df = pd.DataFrame([{
-                                "Sil": False, "Ürün": urun_ad(k["sku"], k["urun_adi"]), "SKU": k["sku"],
-                                "Depo": k.get("depo", "MERKEZ DEPO"),
-                                "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
-                                "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
-                                "Ek Destek$": float(k["birim_ek_destek"]),
-                                "Marj": (f"%{tr_sayi(_kmarj(k), 1)}" + (" düşük" if _kmarj(k) < 10 else "")
-                                         if _kar_acik else "•••"),
-                            } for k in kalemler])
-                            _ed = st.data_editor(
-                                _df, hide_index=True, use_container_width=True, num_rows="fixed",
-                                key=f"satis_cart_{len(kalemler)}",
-                                column_order=(["Ürün", "Depo", "Adet", "B.Satış$", "Maliyet$", "Firma Destek$",
-                                               "Ek Destek$", "Marj", "Sil"] if _detay else
-                                              ["Ürün", "Depo", "Adet", "B.Satış$", "Marj", "Sil"]),
-                                column_config={
-                                    "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
-                                    "Ürün": st.column_config.TextColumn("Ürün", disabled=True, width="medium"),
-                                    "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
-                                    "Depo": st.column_config.TextColumn("Depo", disabled=True, width="small"),
-                                    "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
-                                    "B.Satış$": st.column_config.NumberColumn("Birim $", min_value=0.0, format="localized", step=0.0001),
-                                    "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
-                                    "Firma Destek$": st.column_config.NumberColumn("Firma destek $", min_value=0.0, format="localized", step=0.0001),
-                                    "Ek Destek$": st.column_config.NumberColumn("Ek destek $", min_value=0.0, format="localized", step=0.0001),
-                                    "Marj": st.column_config.TextColumn("Marj", disabled=True, width="small"),
-                                },
-                            )
-                            # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
-                            _yeni = []
-                            for i, row in _ed.iterrows():
-                                if bool(row.get("Sil")):
-                                    continue
-                                k = dict(kalemler[i])
-                                k["adet"] = int(row["Adet"] or 0)
-                                k["birim_satis"] = float(row["B.Satış$"] or 0)
-                                k["birim_maliyet"] = float(row["Maliyet$"] or 0)
-                                k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
-                                k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
-                                _yeni.append(k)
-                            if _yeni != kalemler:
-                                st.session_state.satis_kalemler = _yeni
-                                st.session_state["_ms_dialog_ac"] = True
-                                st.cache_data.clear()
-                                st.rerun()
-                            kalemler = _yeni
-
-                    # ── Sağ: sipariş özeti + Kaydet (telefonda altta sabit) ──
-                    with sag, st.container(key="kf_ozet_satis"):
-                        top, _, _ = ozet_hesapla(kalemler)
-                        _satir = [("Kalem / adet", f"{len(kalemler)} · {tr_sayi(int(top['adet']))}"),
-                                  ("Ciro", _usd(top["ciro"])), ("Maliyet (paçal)", _usd(top["maliyet"])),
-                                  ("Destek", _usd(top["destek"]))]
-                        _vurgu, _uyari = None, []
-                        if _kar_acik:
-                            _satir.append(("Net kârlılık", f"%{tr_sayi(top['marj'], 1)}"))
-                            _vurgu = ("Net kâr", _usd(top["net_kar"]),
-                                      "yesil" if top["net_kar"] > 0 else ("kirmizi" if top["net_kar"] < 0 else "metin"))
-                            _dusuk = [k["sku"] for k in kalemler if _kmarj(k) < 10] if kalemler else []
-                            if _dusuk:
-                                _uyari.append(f"{len(_dusuk)} kalemde marj %10'un altında ({', '.join(_dusuk[:3])}). "
-                                              "Kaydetmeye engel değil.")
-                        else:
-                            _vurgu = ("Ciro", _usd(top["ciro"]), "metin")
-                        st.markdown(_F.ozet_paneli("Sipariş özeti", _satir, vurgu=_vurgu, uyarilar=_uyari),
-                                    unsafe_allow_html=True)
-                        _kaydet = st.button("Siparişi kaydet", type="primary", use_container_width=True, key="s_kaydet",
-                                            icon=":material/save:", disabled=not kalemler)
-                        if st.container(key="kf_ikincil_s").button("Sepeti temizle", use_container_width=True, key="s_temizle",
-                                     icon=":material/cleaning_services:", disabled=not kalemler):
-                            st.session_state.satis_kalemler = []
+                            _kfd, _ked, _kid = kampanya_destek_bul(_sku, g_kanal, str(g_tarih))
+                            kalemler.append({
+                                "sku": _sku, "urun_adi": _urun.get("urun_adi", "") or "",
+                                "adet": int(_adet), "birim_satis": float(_bsat),
+                                "birim_maliyet": round(_pacal, 4), "birim_firma_destek": round(_kfd, 4),
+                                "birim_ek_destek": round(_ked, 4), "kampanya_id": _kid,
+                                "depo": _depo_sec,
+                            })
+                            st.session_state.satis_kalemler = kalemler
+                            st.session_state.pop("s_bsat", None)     # sonraki ürünün önerisi gelsin
                             st.session_state["_ms_dialog_ac"] = True
                             st.cache_data.clear()
                             st.rerun()
+                    _ipucu = [f"Paçal {_usd(_pacal, 4)}" if _pacal > 0 else ":orange[Paçal maliyet yok — kalemde elle düzelt]"]
+                    if _kar_acik and _pacal > 0 and _bsat and _bsat > 0:
+                        _bm = (_bsat - _pacal) / _bsat * 100
+                        _ipucu.append(f"bu fiyatla brüt marj {':green' if _bm >= 10 else ':orange'}[%{tr_sayi(_bm, 1)}]")
+                    if _sku_depolar:
+                        _ipucu.append(f"{_sku} toplam {tr_sayi(sum(_sku_depolar.values()))} adet "
+                                      f"({len(_sku_depolar)} depoda)")
+                    st.caption(" · ".join(_ipucu))
 
-                    if _kaydet:
-                        with mesaj_yeri:
-                            gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
-                                       and float(k.get("birim_satis", 0)) > 0]
-                            if not gecerli:
-                                st.warning("Kaydedilecek geçerli kalem yok (adet ve satış > 0 olmalı).")
-                            else:
-                                # ── Akıllı kontroller: geçersiz SKU engeller; stok/zarar/mükerrer uyarır ──
-                                from shared.dogrula import zararina_mi, gecerli_sku
-                                _engel, _uyari, _sku_adet = [], [], {}
-                                for k in gecerli:
-                                    _sku_adet[k["sku"]] = _sku_adet.get(k["sku"], 0) + int(k.get("adet", 0))
-                                    if not gecerli_sku(k["sku"], tum_sku):
-                                        _engel.append(f"Geçersiz SKU: {k['sku']}")
-                                    if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
-                                        _uyari.append(f"Zararına satış: {k['sku']} "
-                                                      f"(satış {_usd_md(k['birim_satis'], 4)} < maliyet {_usd_md(k['birim_maliyet'], 4)})")
-                                try:
-                                    from kayranpm.database import canli_stok
-                                    for _sk, _ad in _sku_adet.items():
-                                        _cs = canli_stok(_sk)
-                                        # canli = BİZİM depolarımızdaki satılabilir stok.
-                                        # Müşterideki mal (firma_stok) buna DAHİL DEĞİL.
-                                        if _cs.get("var") and _ad > _cs["canli"]:
-                                            _uyari.append(f"Stok yetersiz: {_sk} "
-                                                          f"(depomuzda {_cs['canli']:.0f}, satılacak {_ad}"
-                                                          + (f", müşteride {_cs.get('musteri', 0):.0f}"
-                                                             if _cs.get("musteri") else "") + ")")
-                                except Exception:
-                                    pass
-                                try:
-                                    from satis.database import siparis_no_var_mi
-                                    if (g_sipno or "").strip() and siparis_no_var_mi(g_sipno):
-                                        _uyari.append(f"Sipariş no '{(g_sipno or '').strip()}' daha önce kullanılmış.")
-                                except Exception:
-                                    pass
+                # ── Sepet ──
+                if not kalemler:
+                    st.caption("Sepet boş — yukarıdan ürün seçip Ekle.")
+                else:
+                    _sb1, _sb2 = st.columns([3, 1.3], vertical_alignment="center")
+                    _sb1.markdown(f"**Sepet** · {len(kalemler)} kalem · adet ve fiyat tabloda düzeltilir, "
+                                  "silmek için kutuyu işaretle")
+                    # Maliyet / destek düzeltmesi seyrek: sütunlar istenince açılır (tablo pencereye sığsın)
+                    _detay = _sb2.toggle("Maliyet ve destek", key="s_sepet_detay")
 
-                                if _engel:
-                                    for _e in _engel:
-                                        st.error(_e)
-                                    st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
-                                else:
-                                    for _u in _uyari:
-                                        st.warning(_u)
-                                    sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
-                                    ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
-                                    if ok:
-                                        st.success(f"{msg} · Sipariş No: {sipno}"
-                                                   + (f" · Net kâr: {_usd_md(top['net_kar'])}" if _kar_acik else ""))
-                                        st.session_state.satis_kalemler = []
-                                        for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
-                                            st.session_state.pop(_k, None)
-                                        if not _uyari:
-                                            st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
-                                    else:
-                                        st.error(msg)
+                    def _kmarj(k):
+                        _r = _satir_kar(k)
+                        _ns = _r["ciro"] - _r["destek"]
+                        return (_r["net_kar"] / _ns * 100) if _ns > 0 else 0.0
+                    _df = pd.DataFrame([{
+                        "Sil": False, "Ürün": urun_ad(k["sku"], k["urun_adi"]), "SKU": k["sku"],
+                        "Depo": k.get("depo", "MERKEZ DEPO"),
+                        "Adet": int(k["adet"]), "B.Satış$": float(k["birim_satis"]),
+                        "Maliyet$": float(k["birim_maliyet"]), "Firma Destek$": float(k["birim_firma_destek"]),
+                        "Ek Destek$": float(k["birim_ek_destek"]),
+                        "Marj": (f"%{tr_sayi(_kmarj(k), 1)}" + (" düşük" if _kmarj(k) < 10 else "")
+                                 if _kar_acik else "•••"),
+                    } for k in kalemler])
+                    _ed = st.data_editor(
+                        _df, hide_index=True, use_container_width=True, num_rows="fixed",
+                        key=f"satis_cart_{len(kalemler)}",
+                        column_order=(["Ürün", "Depo", "Adet", "B.Satış$", "Maliyet$", "Firma Destek$",
+                                       "Ek Destek$", "Marj", "Sil"] if _detay else
+                                      ["Ürün", "Depo", "Adet", "B.Satış$", "Marj", "Sil"]),
+                        column_config={
+                            "Sil": st.column_config.CheckboxColumn("Sil", width="small"),
+                            "Ürün": st.column_config.TextColumn("Ürün", disabled=True, width="medium"),
+                            "SKU": st.column_config.TextColumn("SKU", disabled=True, width="small"),
+                            "Depo": st.column_config.TextColumn("Depo", disabled=True, width="small"),
+                            "Adet": st.column_config.NumberColumn("Adet", min_value=0, step=1, format="localized"),
+                            "B.Satış$": st.column_config.NumberColumn("Birim $", min_value=0.0, format="localized", step=0.0001),
+                            "Maliyet$": st.column_config.NumberColumn("Maliyet $", min_value=0.0, format="localized", step=0.0001),
+                            "Firma Destek$": st.column_config.NumberColumn("Firma destek $", min_value=0.0, format="localized", step=0.0001),
+                            "Ek Destek$": st.column_config.NumberColumn("Ek destek $", min_value=0.0, format="localized", step=0.0001),
+                            "Marj": st.column_config.TextColumn("Marj", disabled=True, width="small"),
+                        },
+                    )
+                    # Düzenlemeleri session'a yansıt + Sil işaretlileri çıkar
+                    _yeni = []
+                    for i, row in _ed.iterrows():
+                        if bool(row.get("Sil")):
+                            continue
+                        k = dict(kalemler[i])
+                        k["adet"] = int(row["Adet"] or 0)
+                        k["birim_satis"] = float(row["B.Satış$"] or 0)
+                        k["birim_maliyet"] = float(row["Maliyet$"] or 0)
+                        k["birim_firma_destek"] = float(row["Firma Destek$"] or 0)
+                        k["birim_ek_destek"] = float(row["Ek Destek$"] or 0)
+                        _yeni.append(k)
+                    if _yeni != kalemler:
+                        st.session_state.satis_kalemler = _yeni
+                        st.session_state["_ms_dialog_ac"] = True
+                        st.cache_data.clear()
+                        st.rerun()
+                    kalemler = _yeni
 
-                # ── Açılış: bugünün özeti · Excel kartları · son siparişler ──
-                _sg_acilis()
+            # ── Sağ: sipariş özeti + Kaydet (telefonda altta sabit) ──
+            with sag, st.container(key="kf_ozet_satis"):
+                top, _, _ = ozet_hesapla(kalemler)
+                _satir = [("Kalem / adet", f"{len(kalemler)} · {tr_sayi(int(top['adet']))}"),
+                          ("Ciro", _usd(top["ciro"])), ("Maliyet (paçal)", _usd(top["maliyet"])),
+                          ("Destek", _usd(top["destek"]))]
+                _vurgu, _uyari = None, []
+                if _kar_acik:
+                    _satir.append(("Net kârlılık", f"%{tr_sayi(top['marj'], 1)}"))
+                    _vurgu = ("Net kâr", _usd(top["net_kar"]),
+                              "yesil" if top["net_kar"] > 0 else ("kirmizi" if top["net_kar"] < 0 else "metin"))
+                    _dusuk = [k["sku"] for k in kalemler if _kmarj(k) < 10] if kalemler else []
+                    if _dusuk:
+                        _uyari.append(f"{len(_dusuk)} kalemde marj %10'un altında ({', '.join(_dusuk[:3])}). "
+                                      "Kaydetmeye engel değil.")
+                else:
+                    _vurgu = ("Ciro", _usd(top["ciro"]), "metin")
+                st.markdown(_F.ozet_paneli("Sipariş özeti", _satir, vurgu=_vurgu, uyarilar=_uyari),
+                            unsafe_allow_html=True)
+                _kaydet = st.button("Siparişi kaydet", type="primary", use_container_width=True, key="s_kaydet",
+                                    icon=":material/save:", disabled=not kalemler)
+                if st.container(key="kf_ikincil_s").button("Sepeti temizle", use_container_width=True, key="s_temizle",
+                             icon=":material/cleaning_services:", disabled=not kalemler):
+                    st.session_state.satis_kalemler = []
+                    st.session_state["_ms_dialog_ac"] = True
+                    st.cache_data.clear()
+                    st.rerun()
 
-                if st.session_state.pop("_ms_dialog_ac", False):
-                    _satis_manuel_dialog()
-                from .satislar_ekran import siparis_detay_kontrol as _sdk
-                _sdk()
-
-        # ───────────────────────── SATIŞLAR ─────────────────────────
-        elif _ssayfa == "📋 Satışlar":
-            # Ekim 2026: sipariş bazlı yeni ekran (satis/satislar_ekran.py).
-            # Hesap satis_hesap.py'de (testli); silme/düzeltme onaylı ve stok-senkron.
-            from .satislar_ekran import render_satislar
-            render_satislar(hizli_tarih_araligi, _kanallar)
-
-        # ───────────────────────── KÂR / P&L ─────────────────────────
-        elif _ssayfa == "📊 Kâr / P&L":
-            if not _kar_ok():
-                from shared.kar_gizle import uyari_ciz as _kar_uyari
-                _kar_uyari()
-                st.stop()
-            # Başlık önce, dönem seçici altında (eskiden seçici başlığın ÜSTÜNDEydi).
-            # Seçilen aralık seçicinin yanında zaten yazıyor; başlıkta tekrar yok.
-            from shared import bilesen as _B2
-            _ph1, _ph2 = st.columns([5.2, 1.3], vertical_alignment="center")
-            _ph1.markdown(_sb("🧾 Satış", "Kâr / P&L",
-                              ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
-                          unsafe_allow_html=True)
-            _pnl_xl_yer = _ph2.empty()          # Excel raporu düğmesi, veri hazır olunca buraya
-            _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
-
-            satislar = get_satislar_yalin(_pbas, _pbit)
-            if not satislar:
-                st.info("Bu aralıkta satış yok.")
-            else:
-                # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
-                from satis.database import get_sku_kategori as _gsk
-                _pkatmap = _gsk()
-                _pf1, _pf2, _pf3 = st.columns([1.6, 1.6, 2.6])
-                _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
-                                      if (s.get("kanal") or "").strip()})
-                from shared.utils import firma_kisa_ad as _fka
-                _p_kanal_f = _pf1.selectbox("Firma", ["Tümü"] + _p_kanallar, key="pnl_kanal",
-                                            format_func=lambda x: x if x == "Tümü" else _fka(x))
-                # Tek yazım (shared.ana_veri): 'monitör' ve 'Monitör' kartları AYRI seçenek
-                # olmasın; süzme yazıma değil kategori anahtarına göre.
-                from shared.ana_veri import kategori_ad as _p_kat_ad, kategori_anahtar as _p_kat_anh
-                from shared.utils import sku_anahtar as _skn_pk      # get_sku_kategori anahtarı (Faz 3)
-                _p_katlar = sorted({_p_kat_ad(_pkatmap.get(_skn_pk(s.get("sku")), ""))
-                                    for s in satislar} - {""}, key=lambda x: x.lower())
-                _p_kat_f = _pf2.selectbox("Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
-                _kat_destek_f = 0.0
-                _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
-                if _p_kanal_f != "Tümü":
-                    satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
-                if _p_kat_f != "Tümü":
-                    satislar = [s for s in satislar
-                                if _p_kat_anh(_pkatmap.get(_skn_pk(s.get("sku")), ""))
-                                == _p_kat_anh(_p_kat_f)]
-                if not satislar:
-                    st.info("Bu filtrede satış yok.")
-                    st.stop()
-
-                # ── Hesap: satis/pnl_hesap.satis_pnl — TEK fonksiyon (Ekim 2026) ──
-                # Önceki dönem aynı fonksiyonla; okunamayan kalem eksiklere yazılır (sessiz 0
-                # yok); Ref No'nun TL tutarları kaydın tarihindeki kurla (Yönetim ile aynı).
-                from satis.pnl_hesap import satis_pnl, onceki_donem, Kaynak as _PnlKaynak
-                _pk = _PnlKaynak(oturum_kuru=st.session_state.get("kur") or 0)
-                _P = satis_pnl(_pbas, _pbit, _p_kanal_f, _p_kat_f, _pk, satislar=satislar)
-                _ob, _obit = onceki_donem(_pbas, _pbit)
-                try:
-                    _PO = satis_pnl(_ob, _obit, _p_kanal_f, _p_kat_f, _pk)
-                except Exception:  # noqa: BLE001 — karşılaştırma yoksa rozet çıkmaz, hesap etkilenmez
-                    _PO = {"bos": True}
-                top, kanal, urun = _P["top"], _P["kanal"], _P["urun"]
-                _itop, _ikan, _sku_iade = _P["itop"], _P["ikan"], _P["sku_iade"]
-                _kat_destek_f = _P["kat_destek"]
-                _net_ciro, _net_kar, _net_satis = _P["net_ciro"], _P["net_kar"], _P["net_satis"]
-                _ref_usd, _alinan_usd = _P["ref_usd"], _P["alinan_usd"]
-                _ref_dagitilmayan, _ref_g = _P["ref_dagitilmayan"], _P["ref_g"]
-                _nihai, _nihai_marj = _P["nihai"], _P["nihai_marj"]
-                if _p_filtreli:
-                    _pf3.caption("Tüm kartlar ve merdiven bu filtreye göre. Ref No destekleri kategoriye "
-                                 "dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.")
-                if _P["eksikler"]:
-                    st.warning("Eksik veri — " + " · ".join(_P["eksikler"]), icon=":material/warning:")
-                _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
-                _nr = trenk("yesil") if _nihai > 0 else trenk("kirmizi")
-
-                # ── Üst şerit: yalnız 4 ana gösterge ──
-                _kt = "yesil" if _nihai > 0 else "kirmizi"
-                _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
-                # Ana kart: net kâr. Renk anlam taşır (artı yeşil / eksi kırmızı); rozet aynı
-                # süzgeçlerle, aynı uzunluktaki önceki dönemin net kârına göre (satis_pnl).
-                _anlam = "iyi" if _nihai > 0 else ("kotu" if _nihai < 0 else None)
-                from shared.tasarim import KART_YENI as _KART_YENI
-                st.markdown(kpi_serit([
-                    # Yeni kartta değerin önündeki ▲/▼ yok: rozetteki değişim okuyla çelişiyordu
-                    # ("▲ $5.252  ▼ %59,8"). İşareti renk ve eksi değerdeki "-" taşır.
-                    {"etiket": "NET KÂR", "deger": (sayi(_nihai, "$") if _KART_YENI else f"{_ok} " + sayi(_nihai, "$")),
-                     "vurgu": True,
-                     "renk": _kt, "anlam": _anlam, "tam": f"${tr_sayi(_nihai, 2)}",
-                     "simdi": _nihai, "onceki": (None if _PO.get("bos") else _PO["nihai"]),
-                     "alt": ("önceki dönem yok" if _PO.get("bos")
-                             else f"önceki dönem ({_ob:%d.%m}–{_obit:%d.%m.%Y}): {sayi(_PO['nihai'], '$')}")},
-                    {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
-                     "renk": "metin", "tam": f"${tr_sayi(_net_ciro, 2)}"},
-                    {"etiket": "NET ADET",
-                     "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
-                     "renk": "mavi"},
-                    {"etiket": "NET MARJ",
-                     "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt, "anlam": _anlam},
-                ]), unsafe_allow_html=True)
-
-                # ── Kâr merdiveni ──
-                def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
-                    _renkler = {"normal": (trenk("soluk"), trenk("metin")),
-                                "eksi": (trenk("soluk"), trenk("amber")),
-                                "arti": (trenk("soluk"), trenk("yesil")),
-                                "ara": (trenk("mavi"), trenk("cyan")),
-                                "son": (trenk("metin"), _nr)}
-                    el, dr = _renkler.get(ton, _renkler["normal"])
-                    _bg = ("rgba(255,255,255,0.05)" if ton in ("ara", "son")
-                           else "transparent")
-                    _bd = ("border-top:1px solid color-mix(in srgb,var(--k-soluk) 25%,transparent);"
-                           if ton in ("ara", "son") else "")
-                    _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
-                    _fw = "800" if ton in ("ara", "son") else "600"
-                    _oran = (f'<span style="color:var(--k-silik);font-size:11px;margin-left:8px">'
-                             f'%{tr_sayi(oran, 1)}</span>' if oran is not None else "")
-                    return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                            f'padding:7px 14px;background:{_bg};{_bd}">'
-                            f'<span style="color:{el};font-size:{"13px" if ton in ("ara","son") else "12.5px"};'
-                            f'font-weight:{_fw};letter-spacing:.3px">{isaret} {etiket}{_oran}</span>'
-                            f'<span style="color:{dr};font-size:{_fs};font-weight:{_fw};'
-                            f'font-variant-numeric:tabular-nums">{tutar}</span></div>')
-
-                _adim = _mrd("Brüt ciro", _usd(top["ciro"]))
-                if _itop["i_tutar"] > 0.005:
-                    _adim += _mrd("İadeler", "− " + _usd(_itop["i_tutar"]), "−", "eksi")
-                    _adim += _mrd("Net ciro", _usd(_net_ciro), "=", "ara")
-                if top["destek"] > 0.005:
-                    _adim += _mrd("Destek (satır bazlı)", "− " + _usd(top["destek"]), "−", "eksi")
-                _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
-                _adim += _mrd("Brüt kâr", _usd(_net_kar), "=", "ara", _brut_marj)
-                if _ref_g:
-                    _adim += _mrd(
-                        f"Ref No desteği — {_p_kat_f}" if _p_kat_f != "Tümü" else "Ref No desteği (dönem)",
-                        "− " + _usd(_ref_g), "−", "eksi")
-                if _alinan_usd > 0.005:
-                    _adim += _mrd("Alınan destek (gelir)", "+ " + _usd(_alinan_usd), "+", "arti")
-                if _kat_destek_f > 0.005:
-                    _adim += _mrd(f"Alınan destek — {_p_kat_f}", "+ " + _usd(_kat_destek_f), "+", "arti")
-                if _p_kat_f != "Tümü" and _ref_dagitilmayan:
-                    _dt = sum(float(x.get("usd") or 0) for x in _ref_dagitilmayan)
-                    _adim += _mrd(f"Dağıtılmamış Ref No desteği ({len(_ref_dagitilmayan)} kayıt)",
-                                  "hariç " + _usd(_dt), "•", "eksi")
-                elif _p_kanal_f != "Tümü" and _p_kat_f == "Tümü" and _ref_usd > 0.005:
-                    _adim += _mrd("Ref No desteği (firma geneli — kanala bölünemez)",
-                                  "hariç " + _usd(_ref_usd), "•", "eksi")
-                _adim += _mrd("Net kâr", _usd(_nihai), "=", "son", _nihai_marj)
-
-                # ── Maliyeti 0 satışlar: yalnız GERÇEKTEN varsa, sayısıyla ──
-                from . import satis_hesap as _SHp
-                _mlz = _SHp.maliyetsiz_say(satislar)
-                if _mlz:
-                    _mz1, _mz2 = st.columns([4, 1.4], vertical_alignment="center")
-                    _mz1.markdown(mesaj("uyari", f"Bu dönemde {tr_sayi(_mlz)} satış satırının birim maliyeti 0: "
-                                                 "o satışlar %100 marj gibi görünüyor, kâr olduğundan yüksek."),
-                                  unsafe_allow_html=True)
-                    if _mz2.button("Paçaldan düzelt", key="btn_sat_mfix", use_container_width=True,
-                                   icon=":material/build:"):
-                        st.session_state["_mlyt_ac"] = True
-
-                # ── Kâr merdiveni (sol) + aylık seyir (sağ) ──
-                _ml, _mr = st.columns([1.12, 1], gap="medium")
-                _ml.markdown(
-                    f'<div style="border:1px solid var(--k-kenar);border-radius:12px;'
-                    f'overflow:hidden;margin:0 0 10px;background:var(--k-yuzey1)">'
-                    f'<div style="padding:9px 14px;border-bottom:1px solid var(--k-kenar);'
-                    f'font-size:13px;font-weight:650;color:var(--k-metin)">Kâr merdiveni</div>{_adim}</div>',
-                    unsafe_allow_html=True)
-                with _mr:
-                    _aylar = _SHp.aylik_seyir(satislar, satir_kar)
-                    st.markdown('<div style="font-size:13px;font-weight:650;color:var(--k-metin);margin:2px 0 0">'
-                                'Aylık seyir</div><div style="font-size:12px;color:var(--k-silik)">'
-                                'ciro ve satır bazlı brüt kâr · iade ve destekler hariç</div>',
-                                unsafe_allow_html=True)
-                    if len(_aylar) >= 2:
-                        import plotly.graph_objects as _pgo
-                        _ax = [f"{_SHp.AY[int(a[5:7])][:3]} {a[2:4]}" for a, *_ in _aylar]
-                        _fg = _pgo.Figure()
-                        # Üzerine gelince çıkan kutu Türkçe biçimli (hazır metin, customdata)
-                        from shared.grafik import goster as _goster, rol as _rol, isaretli as _isaretli
-                        _fg.add_bar(x=_ax, y=[c for _, c, _k, _a in _aylar], name="Ciro",
-                                    marker_color=_rol("ana"), opacity=0.35,
-                                    customdata=[f"${tr_sayi(c)}" for _, c, _k, _a in _aylar],
-                                    hovertemplate="%{x}<br>Ciro %{customdata}<extra></extra>")
-                        _fg.add_bar(x=_ax, y=[_k for _, c, _k, _a in _aylar], name="Brüt kâr",
-                                    marker_color=_isaretli([_k for _, c, _k, _a in _aylar], "ana"),   # eksi ay kırmızı
-                                    customdata=[f"${tr_sayi(_k)}" for _, c, _k, _a in _aylar],
-                                    hovertemplate="%{x}<br>Brüt kâr %{customdata}<extra></extra>")
-                        _goster(_fg, key="pnl_aylik", yukseklik=300, barmode="overlay", bargap=0.35,
-                                yaxis=dict(tickprefix="$"))
+            if _kaydet:
+                with mesaj_yeri:
+                    gecerli = [k for k in kalemler if k.get("sku") and int(k.get("adet", 0)) > 0
+                               and float(k.get("birim_satis", 0)) > 0]
+                    if not gecerli:
+                        st.warning("Kaydedilecek geçerli kalem yok (adet ve satış > 0 olmalı).")
                     else:
-                        st.caption("Aylık seyir için dönem en az iki ay kapsamalı.")
-
-                # ── EXCEL RAPORU ──
-                # Ekrandaki rakamların AYNISI. Merdiven satırları, kırılımlar ve
-                # ham satışlar ayrı sayfalarda. Sayılar HAM (metin değil) —
-                # Excel'de toplanabilir, pivot çekilebilir.
-                # Kırılım tabloları burada da tutulur: Excel raporu YALNIZ tıklanınca,
-                # AYRI bir iş parçacığında üretilir ve orada st.session_state
-                # okunamaz. Sözlük bu çizimin kapsamında; kırılımlar hesaplandıkça dolar.
-                _xl_kirilim = {}
-
-                def _pnl_xlsx():
-                    # _fl ve _in YEREL tanımlanır. _i / _f satis.database'de,
-                    # bu dosyada DEĞİL — dışarıdan kullanmaya çalışmak
-                    # "name '_i' is not defined" ile Excel'i düşürüyordu.
-                    def _fl(x):
+                        # ── Akıllı kontroller: geçersiz SKU engeller; stok/zarar/mükerrer uyarır ──
+                        from shared.dogrula import zararina_mi, gecerli_sku
+                        _engel, _uyari, _sku_adet = [], [], {}
+                        for k in gecerli:
+                            _sku_adet[k["sku"]] = _sku_adet.get(k["sku"], 0) + int(k.get("adet", 0))
+                            if not gecerli_sku(k["sku"], tum_sku):
+                                _engel.append(f"Geçersiz SKU: {k['sku']}")
+                            if zararina_mi(k.get("birim_satis"), k.get("birim_maliyet")):
+                                _uyari.append(f"Zararına satış: {k['sku']} "
+                                              f"(satış {_usd_md(k['birim_satis'], 4)} < maliyet {_usd_md(k['birim_maliyet'], 4)})")
                         try:
-                            return round(float(x or 0), 4)
-                        except (TypeError, ValueError):
-                            return 0.0
-
-                    def _in(x):
+                            from kayranpm.database import canli_stok
+                            for _sk, _ad in _sku_adet.items():
+                                _cs = canli_stok(_sk)
+                                # canli = BİZİM depolarımızdaki satılabilir stok.
+                                # Müşterideki mal (firma_stok) buna DAHİL DEĞİL.
+                                if _cs.get("var") and _ad > _cs["canli"]:
+                                    _uyari.append(f"Stok yetersiz: {_sk} "
+                                                  f"(depomuzda {_cs['canli']:.0f}, satılacak {_ad}"
+                                                  + (f", müşteride {_cs.get('musteri', 0):.0f}"
+                                                     if _cs.get("musteri") else "") + ")")
+                        except Exception:
+                            pass
                         try:
-                            return int(round(float(x or 0)))
-                        except (TypeError, ValueError):
-                            return 0
-                    _buf = io.BytesIO()
-                    # 1) Kâr merdiveni — ekrandaki sırayla
-                    _md = [{"Adım": "Brüt Ciro", "Tutar ($)": round(float(top["ciro"]), 4)}]
-                    if _itop["i_tutar"] > 0.005:
-                        _md.append({"Adım": "İadeler (−)",
-                                    "Tutar ($)": -round(float(_itop["i_tutar"]), 4)})
-                        _md.append({"Adım": "Net Ciro (=)", "Tutar ($)": round(_net_ciro, 4)})
-                    if top["destek"] > 0.005:
-                        _md.append({"Adım": "Destek satır bazlı (−)",
-                                    "Tutar ($)": -round(float(top["destek"]), 4)})
-                    _md.append({"Adım": "Maliyet COGS (−)",
-                                "Tutar ($)": -round(float(top["maliyet"]), 4)})
-                    # İade KÂRI ayrı satır: yoksa merdiven Excel'de toplanmıyor
-                    # (_net_kar = top["net_kar"] − _itop["i_kar"]).
-                    if abs(float(_itop.get("i_kar") or 0)) > 0.005:
-                        _md.append({"Adım": "İade kârı (−)",
-                                    "Tutar ($)": -round(float(_itop["i_kar"]), 4)})
-                    _md.append({"Adım": "Brüt Kâr (=)", "Tutar ($)": round(_net_kar, 4)})
-                    if _ref_g:
-                        _md.append({"Adım": ("Ref No desteği — " + _p_kat_f + " (−)"
-                                             if _p_kat_f != "Tümü" else "Ref No desteği dönem (−)"),
-                                    "Tutar ($)": -round(float(_ref_g), 4)})
-                    if _alinan_usd > 0.005:
-                        _md.append({"Adım": "Alınan destek gelir (+)",
-                                    "Tutar ($)": round(float(_alinan_usd), 4)})
-                    if _kat_destek_f > 0.005:
-                        _md.append({"Adım": f"Alınan destek — {_p_kat_f} (+)",
-                                    "Tutar ($)": round(float(_kat_destek_f), 4)})
-                    _md.append({"Adım": "NET KÂR (=)", "Tutar ($)": round(float(_nihai), 4)})
-                    _md.append({"Adım": "Net marj (%)", "Tutar ($)": round(float(_nihai_marj or 0), 2)})
+                            from satis.database import siparis_no_var_mi
+                            if (g_sipno or "").strip() and siparis_no_var_mi(g_sipno):
+                                _uyari.append(f"Sipariş no '{(g_sipno or '').strip()}' daha önce kullanılmış.")
+                        except Exception:
+                            pass
 
-                    with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
-                        pd.DataFrame(_md).to_excel(_w, index=False, sheet_name="Kâr Merdiveni")
-                        # 2) Filtre bilgisi — rapor hangi koşullarla alındı
-                        pd.DataFrame([
-                            {"Alan": "Dönem", "Değer": f"{_pbas} → {_pbit}"},
-                            {"Alan": "Firma", "Değer": (_p_kanal_f if _p_kanal_f == "Tümü"
-                                                        else _fka(_p_kanal_f))},
-                            {"Alan": "Kategori", "Değer": _p_kat_f},
-                            {"Alan": "Satır sayısı", "Değer": len(satislar)},
-                            {"Alan": "Rapor tarihi",
-                             "Değer": datetime.now().strftime("%d.%m.%Y %H:%M")},
-                            {"Alan": "", "Değer": ""},
-                            {"Alan": "NOT — Brüt Kâr",
-                             "Değer": "Satır bazlı kâr toplamıdır; 'net ciro − COGS' "
-                                      "işlemiyle birebir tutmaz. Aradaki fark satır "
-                                      "bazlı desteklerden gelir. Ekrandaki merdivenin "
-                                      "aynısıdır."},
-                            {"Alan": "NOT — Sayılar",
-                             "Değer": "Ham sayı olarak yazıldı (metin değil), "
-                                      "Excel'de toplanabilir ve pivot çekilebilir."},
-                        ]).to_excel(_w, index=False, sheet_name="Filtre")
-                        # 3) Kırılımlar — ekrandaki tabloların aynısı
-                        for _sh in ("Marka", "Kategori"):
-                            _rows_k = _xl_kirilim.get(_sh) or []
-                            if _rows_k:
-                                pd.DataFrame(_rows_k).to_excel(
-                                    _w, index=False, sheet_name=_sh)
-                        # 4) Ham satışlar — Excel'de pivot çekilebilsin
-                        if satislar:
-                            pd.DataFrame([{
-                                "Tarih": s2.get("tarih"), "Firma": _fka(s2.get("kanal")),
-                                "Sipariş No": s2.get("siparis_no"), "SKU": s2.get("sku"),
-                                "Ürün": s2.get("urun_adi"), "Adet": _in(s2.get("adet")),
-                                "Birim Satış": _fl(s2.get("birim_satis")),
-                                "Birim Maliyet": _fl(s2.get("birim_maliyet")),
-                                "Firma Destek": _fl(s2.get("birim_firma_destek")),
-                                "Ek Destek": _fl(s2.get("birim_ek_destek")),
-                            } for s2 in satislar]).to_excel(
-                                _w, index=False, sheet_name="Ham Satışlar")
-                        # Kolon genişlikleri
-                        for _sh in _w.sheets:
-                            _ws = _w.sheets[_sh]
-                            for _c in _ws.columns:
-                                _en = max((len(str(_x.value)) for _x in _c[:200]
-                                           if _x.value is not None), default=10)
-                                _ws.column_dimensions[_c[0].column_letter].width = min(_en + 3, 46)
-                            _ws.freeze_panes = "A2"
-                    return _buf.getvalue()
-
-                # Excel raporu başlığın sağında. Dosya YALNIZ tıklanınca üretilir:
-                # eskiden her çizimde baştan üretiliyordu (yavaş) ve kırılım
-                # sayfaları bir ÖNCEKİ çizimin verisini taşıyordu (kırılımlar düğmeden
-                # sonra hesaplanıyor). Artık tıklama anında güncel veriyle üretilir.
-                _pnl_xl_yer.download_button(
-                    "Excel raporu", data=_pnl_xlsx, file_name=f"kar_pnl_{_pbas}_{_pbit}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True, key="pnl_dl_xlsx", icon=":material/download:", on_click="ignore",
-                    help="Ekrandaki rakamların aynısı: merdiven, kırılımlar ve ham satırlar ayrı sayfalarda; "
-                         "sayılar ham (Excel'de toplanabilir)")
-
-                # ── Detaylar: meraklısına, varsayılan kapalı ──
-                with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
-                    _d1, _d2, _d3 = st.columns(3)
-                    _d1.metric("İade adedi (stoğa döndü)", f"{tr_sayi(_itop.get('i_adet', 0))}")
-                    _d2.metric("İade tutarı", _usd(_itop["i_tutar"]))
-                    _d3.metric("Brüt adet", f"{tr_sayi(int(top['adet']))}")
-                    if _alinan_usd > 0.005:
-                        st.caption("**Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
-                                   "marketing, rebate gelirleri (Ref No Takip → Alınan Destekler).")
-                    if _ref_g:
-                        st.caption("**Ref No desteği** = dönem içinde firma bazlı verilen destekler.")
-
-
-                # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
-                if not _p_filtreli:
-                    # KANONİK SKU ANAHTARI: satışta 'Fazeon X24F165S', ürün kartında
-                    # 'X24F165S' yazsa bile aynı ürün olarak eşleşir (shared.utils).
-                    from shared.utils import sku_anahtar as _skn
-                    _urun_ad_map = {}
-                    try:
-                        from kayranpm.database import get_tum_sku_listesi as _gtsl
-                        _skl_p = _gtsl() or []
-                        _marka_map = {_skn(r.get("sku")):
-                                      (r.get("marka") or "").strip().upper()
-                                      for r in _skl_p}
-                        # Aynı sorgudan ürün adları — DİĞER kırılımı için (ek sorgu YOK)
-                        _urun_ad_map = {_skn(r.get("sku")):
-                                        (r.get("urun_adi") or "").strip()
-                                        for r in _skl_p}
-                    except Exception:
-                        _marka_map = {}
-                    _katmap_p = {}
-                    try:
-                        from satis.database import get_sku_kategori as _gskp
-                        from shared.utils import tr_buyuk as _trb_pl
-                        # tr_buyuk: 'MONİTÖR' ve 'Monitör' → 'MONITOR' tek biçim;
-                        # kart kategorisi ile ad-türevi kategori AYNI satırda birleşir.
-                        _katmap_p = {_skn(k): _trb_pl(v)
-                                     for k, v in (_gskp() or {}).items()}
-                    except Exception:
-                        _katmap_p = {}
-                        _trb_pl = lambda s: str(s or "").strip().upper()
-                    # ── 3 KADEMELİ EŞLEŞTİRME — ürün kartı olmasa bile çalışır ──
-                    # 1) Ürün kartı (kanonik SKU ile)  2) SKU'daki FAZEON öneki
-                    # 3) SATIŞ SATIRINDAKİ ÜRÜN ADI (ithalattan gelen adla aynı):
-                    #    marka → bilinen marka kuralları, kategori → kategori kuralları.
-                    # Böylece kart hiç açılmamış olsa da satır DİĞER'e düşmez.
-                    try:
-                        from kayranpm.database import MARKA_KURALLAR as _mkr, \
-                            kategori_oner as _kat_oner_pl
-                    except Exception:
-                        _mkr, _kat_oner_pl = [], (lambda _a: "")
-                    import re as _re_pl
-
-                    def _satis_ad(sk):
-                        """Bu SKU'nun satış satırlarında taşınan ürün adı."""
-                        return str((urun.get(sk) or {}).get("urun_adi") or "").strip()
-
-                    def _marka_bul(sk):
-                        _m = (_marka_map.get(_skn(sk)) or "").strip()
-                        if _m:
-                            return _m                                   # 1) ürün kartı
-                        if str(sk or "").strip().upper().startswith("FAZEON "):
-                            return "FAZEON"                             # 2) SKU öneki
-                        _ad = _satis_ad(sk).upper()                     # 3) ürün adı
-                        for _mm, _pat in _mkr:                          #    (yalnız BİLİNEN
-                            try:                                        #     markalar; ilk-
-                                if _ad and _re_pl.search(_pat, _ad):    #     kelime tahmini
-                                    return str(_mm).upper()             #     YAPILMAZ →
-                            except Exception:                           #     çöp marka çıkmaz)
-                                pass
-                        return ""
-
-                    def _kat_bul(sk):
-                        _k = (_katmap_p.get(_skn(sk)) or "").strip()
-                        if _k:
-                            return _k                                   # 1) ürün kartı
-                        try:
-                            return _trb_pl(_kat_oner_pl(_satis_ad(sk)))
-                        except Exception:                               # 3) ürün adından
-                            return ""
-                    _ad_marka, _ad_kat, _ad_top = {}, {}, 0.0
-                    try:
-                        from kayranpm.ref_no import alinan_destek_kirilim_usd
-                        _ad_marka, _ad_kat, _ad_top = alinan_destek_kirilim_usd(_pbas, _pbit)
-                    except Exception:
-                        pass
-                    # Alınan destek anahtarları da satış tarafıyla AYNI biçime
-                    # (tr_buyuk) çevrilir. Ref No için yapılmıştı, alınan destek için
-                    # yapılmamıştı: "MONİTÖR" (destek) ve "MONITÖR" (satış) iki ayrı
-                    # satırdı, kategori cirosu/kârı bölünüyordu.
-                    _ad_marka, _ad_kat = _tb_anahtar(_ad_marka), _tb_anahtar(_ad_kat)
-
-                    # REF NO desteği (VERİLEN — kârdan DÜŞÜLÜR). Eskiden kırılım
-                    # tablolarına hiç girmiyordu; bu yüzden marka/kategori kârı
-                    # filtreli merdivenle uyuşmuyordu.
-                    # NOT: ref kaydının FİRMASI bir CARİdir (D-MARKET, VATAN…),
-                    # MARKA DEĞİL. Bu yüzden Ref No desteği yalnız KATEGORİ
-                    # boyutuna yansıtılır; marka tablosuna karıştırılmaz.
-                    # Kategori anahtarları satış tarafıyla AYNI biçime (tr_buyuk)
-                    # çevrilir, yoksa "MONİTÖR" ve "MONITÖR" iki ayrı satır olur.
-                    _rf_kat = {}
-                    try:
-                        from kayranpm.ref_no import ref_destek_kirilim_usd as _rdk
-                        from shared.utils import tr_buyuk as _trb_rf
-                        for _rk_k, _rk_v in ((_rdk(_pbas, _pbit).get("kategori") or {})).items():
-                            _nk = _trb_rf(_rk_k)
-                            _rf_kat[_nk] = _rf_kat.get(_nk, 0.0) + float(_rk_v or 0)
-                    except Exception:
-                        _rf_kat = {}
-
-                    # İadeler SKU bazında kırılıma da yansısın (kanonik anahtarla):
-                    # KASPERSKY gibi iadeli markalarda ciro/kâr/adet NET gösterilir.
-                    _iade_sku_k = {}
-                    for _ir_k, _ir_v in (_sku_iade or {}).items():
-                        _e_ik = _iade_sku_k.setdefault(_skn(_ir_k),
-                                                       {"i_adet": 0, "i_tutar": 0.0, "i_kar": 0.0})
-                        _e_ik["i_adet"] += int(_ir_v.get("i_adet") or 0)
-                        _e_ik["i_tutar"] += float(_ir_v.get("i_tutar") or 0)
-                        _e_ik["i_kar"] += float(_ir_v.get("i_kar") or 0)
-
-                    # Satışlardan marka/kategori gruplaması — İADE DÜŞÜLMÜŞ (net)
-                    def _grupla(harita, marka_mi=False):
-                        g = {}
-                        _islenen_iade = set()
-                        for _sk, _v in urun.items():
-                            if marka_mi:
-                                _key = _marka_bul(_sk) or "DİĞER"
+                        if _engel:
+                            for _e in _engel:
+                                st.error(_e)
+                            st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
+                        else:
+                            for _u in _uyari:
+                                st.warning(_u)
+                            sipno = (g_sipno or "").strip() or f"S{datetime.now(TR_TZ).strftime('%y%m%d-%H%M%S')}"
+                            ok, msg, n = ekle_siparis(g_tarih, g_kanal, sipno, g_not, gecerli)
+                            if ok:
+                                st.success(f"{msg} · Sipariş No: {sipno}"
+                                           + (f" · Net kâr: {_usd_md(top['net_kar'])}" if _kar_acik else ""))
+                                st.session_state.satis_kalemler = []
+                                for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
+                                    st.session_state.pop(_k, None)
+                                if not _uyari:
+                                    st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın
                             else:
-                                _key = _kat_bul(_sk) or "DİĞER"
-                            _e = g.setdefault(_key, {"ciro": 0.0, "kar": 0.0, "adet": 0})
-                            _sk_k = _skn(_sk)
-                            _ii = (_iade_sku_k.get(_sk_k) or {}) \
-                                if _sk_k not in _islenen_iade else {}
-                            _islenen_iade.add(_sk_k)   # aynı iade iki satış SKU'suna düşmesin
-                            _e["ciro"] += float(_v.get("ciro") or 0) - float(_ii.get("i_tutar") or 0)
-                            _e["kar"] += float(_v.get("net_kar") or 0) - float(_ii.get("i_kar") or 0)
-                            _e["adet"] += int(_v.get("adet") or 0) - int(_ii.get("i_adet") or 0)
-                        return g
+                                st.error(msg)
 
-                    def _kirilim_df(g, destekler, ref_destek=None):
-                        """Kâr = satış kârı + ALINAN destek − REF NO desteği.
+        # ── Açılış: bugünün özeti · Excel kartları · son siparişler ──
+        _sg_acilis()
+
+        if st.session_state.pop("_ms_dialog_ac", False):
+            _satis_manuel_dialog()
+        from .satislar_ekran import siparis_detay_kontrol as _sdk
+        _sdk()
+
+
+# ───────────────────────── SATIŞLAR ─────────────────────────
+def _sayfa_satislar(*, _kanallar):
+    # Ekim 2026: sipariş bazlı yeni ekran (satis/satislar_ekran.py).
+    # Hesap satis_hesap.py'de (testli); silme/düzeltme onaylı ve stok-senkron.
+    from .satislar_ekran import render_satislar
+    render_satislar(hizli_tarih_araligi, _kanallar)
+
+
+# ───────────────────────── KÂR / P&L ─────────────────────────
+def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
+    if not _kar_ok():
+        from shared.kar_gizle import uyari_ciz as _kar_uyari
+        _kar_uyari()
+        st.stop()
+    # Başlık önce, dönem seçici altında (eskiden seçici başlığın ÜSTÜNDEydi).
+    # Seçilen aralık seçicinin yanında zaten yazıyor; başlıkta tekrar yok.
+    from shared import bilesen as _B2
+    _ph1, _ph2 = st.columns([5.2, 1.3], vertical_alignment="center")
+    _ph1.markdown(_sb("🧾 Satış", "Kâr / P&L",
+                      ipucu="Dönemsel ciro · maliyet · destek · net kâr (USD)"),
+                  unsafe_allow_html=True)
+    _pnl_xl_yer = _ph2.empty()          # Excel raporu düğmesi, veri hazır olunca buraya
+    _pbas, _pbit = hizli_tarih_araligi("p_pnl", varsayilan="Bu yıl")
+
+    satislar = get_satislar_yalin(_pbas, _pbit)
+    if not satislar:
+        st.info("Bu aralıkta satış yok.")
+    else:
+        # ── 🔎 Firma (Kanal) + Kategori filtreleri ──
+        from satis.database import get_sku_kategori as _gsk
+        _pkatmap = _gsk()
+        _pf1, _pf2, _pf3 = st.columns([1.6, 1.6, 2.6])
+        _p_kanallar = sorted({(s.get("kanal") or "").strip() for s in satislar
+                              if (s.get("kanal") or "").strip()})
+        from shared.utils import firma_kisa_ad as _fka
+        _p_kanal_f = _pf1.selectbox("Firma", ["Tümü"] + _p_kanallar, key="pnl_kanal",
+                                    format_func=lambda x: x if x == "Tümü" else _fka(x))
+        # Tek yazım (shared.ana_veri): 'monitör' ve 'Monitör' kartları AYRI seçenek
+        # olmasın; süzme yazıma değil kategori anahtarına göre.
+        from shared.ana_veri import kategori_ad as _p_kat_ad, kategori_anahtar as _p_kat_anh
+        from shared.utils import sku_anahtar as _skn_pk      # get_sku_kategori anahtarı (Faz 3)
+        _p_katlar = sorted({_p_kat_ad(_pkatmap.get(_skn_pk(s.get("sku")), ""))
+                            for s in satislar} - {""}, key=lambda x: x.lower())
+        _p_kat_f = _pf2.selectbox("Kategori", ["Tümü"] + _p_katlar, key="pnl_kategori")
+        _kat_destek_f = 0.0
+        _p_filtreli = (_p_kanal_f != "Tümü" or _p_kat_f != "Tümü")
+        if _p_kanal_f != "Tümü":
+            satislar = [s for s in satislar if (s.get("kanal") or "").strip() == _p_kanal_f]
+        if _p_kat_f != "Tümü":
+            satislar = [s for s in satislar
+                        if _p_kat_anh(_pkatmap.get(_skn_pk(s.get("sku")), ""))
+                        == _p_kat_anh(_p_kat_f)]
+        if not satislar:
+            st.info("Bu filtrede satış yok.")
+            st.stop()
+
+        # ── Hesap: satis/pnl_hesap.satis_pnl — TEK fonksiyon (Ekim 2026) ──
+        # Önceki dönem aynı fonksiyonla; okunamayan kalem eksiklere yazılır (sessiz 0
+        # yok); Ref No'nun TL tutarları kaydın tarihindeki kurla (Yönetim ile aynı).
+        from satis.pnl_hesap import satis_pnl, onceki_donem, Kaynak as _PnlKaynak
+        _pk = _PnlKaynak(oturum_kuru=st.session_state.get("kur") or 0)
+        _P = satis_pnl(_pbas, _pbit, _p_kanal_f, _p_kat_f, _pk, satislar=satislar)
+        _ob, _obit = onceki_donem(_pbas, _pbit)
+        try:
+            _PO = satis_pnl(_ob, _obit, _p_kanal_f, _p_kat_f, _pk)
+        except Exception:  # noqa: BLE001 — karşılaştırma yoksa rozet çıkmaz, hesap etkilenmez
+            _PO = {"bos": True}
+        top, kanal, urun = _P["top"], _P["kanal"], _P["urun"]
+        _itop, _ikan, _sku_iade = _P["itop"], _P["ikan"], _P["sku_iade"]
+        _kat_destek_f = _P["kat_destek"]
+        _net_ciro, _net_kar, _net_satis = _P["net_ciro"], _P["net_kar"], _P["net_satis"]
+        _ref_usd, _alinan_usd = _P["ref_usd"], _P["alinan_usd"]
+        _ref_dagitilmayan, _ref_g = _P["ref_dagitilmayan"], _P["ref_g"]
+        _nihai, _nihai_marj = _P["nihai"], _P["nihai_marj"]
+        if _p_filtreli:
+            _pf3.caption("Tüm kartlar ve merdiven bu filtreye göre. Ref No destekleri kategoriye "
+                         "dağıtıldıysa yansır; dağıtılmayanlar merdivende ayrıca gösterilir.")
+        if _P["eksikler"]:
+            st.warning("Eksik veri — " + " · ".join(_P["eksikler"]), icon=":material/warning:")
+        _brut_marj = (_net_kar / _net_satis * 100) if _net_satis > 0 else 0.0
+        _nr = trenk("yesil") if _nihai > 0 else trenk("kirmizi")
+
+        # ── Üst şerit: yalnız 4 ana gösterge ──
+        _kt = "yesil" if _nihai > 0 else "kirmizi"
+        _ok = "▲" if _nihai > 0 else "▼"   # renkten başka ikinci işaret
+        # Ana kart: net kâr. Renk anlam taşır (artı yeşil / eksi kırmızı); rozet aynı
+        # süzgeçlerle, aynı uzunluktaki önceki dönemin net kârına göre (satis_pnl).
+        _anlam = "iyi" if _nihai > 0 else ("kotu" if _nihai < 0 else None)
+        from shared.tasarim import KART_YENI as _KART_YENI
+        st.markdown(kpi_serit([
+            # Yeni kartta değerin önündeki ▲/▼ yok: rozetteki değişim okuyla çelişiyordu
+            # ("▲ $5.252  ▼ %59,8"). İşareti renk ve eksi değerdeki "-" taşır.
+            {"etiket": "NET KÂR", "deger": (sayi(_nihai, "$") if _KART_YENI else f"{_ok} " + sayi(_nihai, "$")),
+             "vurgu": True,
+             "renk": _kt, "anlam": _anlam, "tam": f"${tr_sayi(_nihai, 2)}",
+             "simdi": _nihai, "onceki": (None if _PO.get("bos") else _PO["nihai"]),
+             "alt": ("önceki dönem yok" if _PO.get("bos")
+                     else f"önceki dönem ({_ob:%d.%m}–{_obit:%d.%m.%Y}): {sayi(_PO['nihai'], '$')}")},
+            {"etiket": "NET CİRO", "deger": sayi(_net_ciro, "$"),
+             "renk": "metin", "tam": f"${tr_sayi(_net_ciro, 2)}"},
+            {"etiket": "NET ADET",
+             "deger": sayi(int(_itop.get("net_adet") or top["adet"]), kisa=False),
+             "renk": "mavi"},
+            {"etiket": "NET MARJ",
+             "deger": sayi(_nihai_marj, "%", kisa=False, basamak=1), "renk": _kt, "anlam": _anlam},
+        ]), unsafe_allow_html=True)
+
+        # ── Kâr merdiveni ──
+        def _mrd(etiket, tutar, isaret="", ton="normal", oran=None):
+            _renkler = {"normal": (trenk("soluk"), trenk("metin")),
+                        "eksi": (trenk("soluk"), trenk("amber")),
+                        "arti": (trenk("soluk"), trenk("yesil")),
+                        "ara": (trenk("mavi"), trenk("cyan")),
+                        "son": (trenk("metin"), _nr)}
+            el, dr = _renkler.get(ton, _renkler["normal"])
+            _bg = ("rgba(255,255,255,0.05)" if ton in ("ara", "son")
+                   else "transparent")
+            _bd = ("border-top:1px solid color-mix(in srgb,var(--k-soluk) 25%,transparent);"
+                   if ton in ("ara", "son") else "")
+            _fs = "17px" if ton == "son" else ("15px" if ton == "ara" else "13px")
+            _fw = "800" if ton in ("ara", "son") else "600"
+            _oran = (f'<span style="color:var(--k-silik);font-size:11px;margin-left:8px">'
+                     f'%{tr_sayi(oran, 1)}</span>' if oran is not None else "")
+            return (f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:7px 14px;background:{_bg};{_bd}">'
+                    f'<span style="color:{el};font-size:{"13px" if ton in ("ara","son") else "12.5px"};'
+                    f'font-weight:{_fw};letter-spacing:.3px">{isaret} {etiket}{_oran}</span>'
+                    f'<span style="color:{dr};font-size:{_fs};font-weight:{_fw};'
+                    f'font-variant-numeric:tabular-nums">{tutar}</span></div>')
+
+        _adim = _mrd("Brüt ciro", _usd(top["ciro"]))
+        if _itop["i_tutar"] > 0.005:
+            _adim += _mrd("İadeler", "− " + _usd(_itop["i_tutar"]), "−", "eksi")
+            _adim += _mrd("Net ciro", _usd(_net_ciro), "=", "ara")
+        if top["destek"] > 0.005:
+            _adim += _mrd("Destek (satır bazlı)", "− " + _usd(top["destek"]), "−", "eksi")
+        _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
+        _adim += _mrd("Brüt kâr", _usd(_net_kar), "=", "ara", _brut_marj)
+        if _ref_g:
+            _adim += _mrd(
+                f"Ref No desteği — {_p_kat_f}" if _p_kat_f != "Tümü" else "Ref No desteği (dönem)",
+                "− " + _usd(_ref_g), "−", "eksi")
+        if _alinan_usd > 0.005:
+            _adim += _mrd("Alınan destek (gelir)", "+ " + _usd(_alinan_usd), "+", "arti")
+        if _kat_destek_f > 0.005:
+            _adim += _mrd(f"Alınan destek — {_p_kat_f}", "+ " + _usd(_kat_destek_f), "+", "arti")
+        if _p_kat_f != "Tümü" and _ref_dagitilmayan:
+            _dt = sum(float(x.get("usd") or 0) for x in _ref_dagitilmayan)
+            _adim += _mrd(f"Dağıtılmamış Ref No desteği ({len(_ref_dagitilmayan)} kayıt)",
+                          "hariç " + _usd(_dt), "•", "eksi")
+        elif _p_kanal_f != "Tümü" and _p_kat_f == "Tümü" and _ref_usd > 0.005:
+            _adim += _mrd("Ref No desteği (firma geneli — kanala bölünemez)",
+                          "hariç " + _usd(_ref_usd), "•", "eksi")
+        _adim += _mrd("Net kâr", _usd(_nihai), "=", "son", _nihai_marj)
+
+        # ── Maliyeti 0 satışlar: yalnız GERÇEKTEN varsa, sayısıyla ──
+        from . import satis_hesap as _SHp
+        _mlz = _SHp.maliyetsiz_say(satislar)
+        if _mlz:
+            _mz1, _mz2 = st.columns([4, 1.4], vertical_alignment="center")
+            _mz1.markdown(mesaj("uyari", f"Bu dönemde {tr_sayi(_mlz)} satış satırının birim maliyeti 0: "
+                                         "o satışlar %100 marj gibi görünüyor, kâr olduğundan yüksek."),
+                          unsafe_allow_html=True)
+            if _mz2.button("Paçaldan düzelt", key="btn_sat_mfix", use_container_width=True,
+                           icon=":material/build:"):
+                st.session_state["_mlyt_ac"] = True
+
+        # ── Kâr merdiveni (sol) + aylık seyir (sağ) ──
+        _ml, _mr = st.columns([1.12, 1], gap="medium")
+        _ml.markdown(
+            f'<div style="border:1px solid var(--k-kenar);border-radius:12px;'
+            f'overflow:hidden;margin:0 0 10px;background:var(--k-yuzey1)">'
+            f'<div style="padding:9px 14px;border-bottom:1px solid var(--k-kenar);'
+            f'font-size:13px;font-weight:650;color:var(--k-metin)">Kâr merdiveni</div>{_adim}</div>',
+            unsafe_allow_html=True)
+        with _mr:
+            _aylar = _SHp.aylik_seyir(satislar, satir_kar)
+            st.markdown('<div style="font-size:13px;font-weight:650;color:var(--k-metin);margin:2px 0 0">'
+                        'Aylık seyir</div><div style="font-size:12px;color:var(--k-silik)">'
+                        'ciro ve satır bazlı brüt kâr · iade ve destekler hariç</div>',
+                        unsafe_allow_html=True)
+            if len(_aylar) >= 2:
+                import plotly.graph_objects as _pgo
+                _ax = [f"{_SHp.AY[int(a[5:7])][:3]} {a[2:4]}" for a, *_ in _aylar]
+                _fg = _pgo.Figure()
+                # Üzerine gelince çıkan kutu Türkçe biçimli (hazır metin, customdata)
+                from shared.grafik import goster as _goster, rol as _rol, isaretli as _isaretli
+                _fg.add_bar(x=_ax, y=[c for _, c, _k, _a in _aylar], name="Ciro",
+                            marker_color=_rol("ana"), opacity=0.35,
+                            customdata=[f"${tr_sayi(c)}" for _, c, _k, _a in _aylar],
+                            hovertemplate="%{x}<br>Ciro %{customdata}<extra></extra>")
+                _fg.add_bar(x=_ax, y=[_k for _, c, _k, _a in _aylar], name="Brüt kâr",
+                            marker_color=_isaretli([_k for _, c, _k, _a in _aylar], "ana"),   # eksi ay kırmızı
+                            customdata=[f"${tr_sayi(_k)}" for _, c, _k, _a in _aylar],
+                            hovertemplate="%{x}<br>Brüt kâr %{customdata}<extra></extra>")
+                _goster(_fg, key="pnl_aylik", yukseklik=300, barmode="overlay", bargap=0.35,
+                        yaxis=dict(tickprefix="$"))
+            else:
+                st.caption("Aylık seyir için dönem en az iki ay kapsamalı.")
+
+        # ── EXCEL RAPORU ──
+        # Ekrandaki rakamların AYNISI. Merdiven satırları, kırılımlar ve
+        # ham satışlar ayrı sayfalarda. Sayılar HAM (metin değil) —
+        # Excel'de toplanabilir, pivot çekilebilir.
+        # Kırılım tabloları burada da tutulur: Excel raporu YALNIZ tıklanınca,
+        # AYRI bir iş parçacığında üretilir ve orada st.session_state
+        # okunamaz. Sözlük bu çizimin kapsamında; kırılımlar hesaplandıkça dolar.
+        _xl_kirilim = {}
+
+        def _pnl_xlsx():
+            # _fl ve _in YEREL tanımlanır. _i / _f satis.database'de,
+            # bu dosyada DEĞİL — dışarıdan kullanmaya çalışmak
+            # "name '_i' is not defined" ile Excel'i düşürüyordu.
+            def _fl(x):
+                try:
+                    return round(float(x or 0), 4)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            def _in(x):
+                try:
+                    return int(round(float(x or 0)))
+                except (TypeError, ValueError):
+                    return 0
+            _buf = io.BytesIO()
+            # 1) Kâr merdiveni — ekrandaki sırayla
+            _md = [{"Adım": "Brüt Ciro", "Tutar ($)": round(float(top["ciro"]), 4)}]
+            if _itop["i_tutar"] > 0.005:
+                _md.append({"Adım": "İadeler (−)",
+                            "Tutar ($)": -round(float(_itop["i_tutar"]), 4)})
+                _md.append({"Adım": "Net Ciro (=)", "Tutar ($)": round(_net_ciro, 4)})
+            if top["destek"] > 0.005:
+                _md.append({"Adım": "Destek satır bazlı (−)",
+                            "Tutar ($)": -round(float(top["destek"]), 4)})
+            _md.append({"Adım": "Maliyet COGS (−)",
+                        "Tutar ($)": -round(float(top["maliyet"]), 4)})
+            # İade KÂRI ayrı satır: yoksa merdiven Excel'de toplanmıyor
+            # (_net_kar = top["net_kar"] − _itop["i_kar"]).
+            if abs(float(_itop.get("i_kar") or 0)) > 0.005:
+                _md.append({"Adım": "İade kârı (−)",
+                            "Tutar ($)": -round(float(_itop["i_kar"]), 4)})
+            _md.append({"Adım": "Brüt Kâr (=)", "Tutar ($)": round(_net_kar, 4)})
+            if _ref_g:
+                _md.append({"Adım": ("Ref No desteği — " + _p_kat_f + " (−)"
+                                     if _p_kat_f != "Tümü" else "Ref No desteği dönem (−)"),
+                            "Tutar ($)": -round(float(_ref_g), 4)})
+            if _alinan_usd > 0.005:
+                _md.append({"Adım": "Alınan destek gelir (+)",
+                            "Tutar ($)": round(float(_alinan_usd), 4)})
+            if _kat_destek_f > 0.005:
+                _md.append({"Adım": f"Alınan destek — {_p_kat_f} (+)",
+                            "Tutar ($)": round(float(_kat_destek_f), 4)})
+            _md.append({"Adım": "NET KÂR (=)", "Tutar ($)": round(float(_nihai), 4)})
+            _md.append({"Adım": "Net marj (%)", "Tutar ($)": round(float(_nihai_marj or 0), 2)})
+
+            with pd.ExcelWriter(_buf, engine="openpyxl") as _w:
+                pd.DataFrame(_md).to_excel(_w, index=False, sheet_name="Kâr Merdiveni")
+                # 2) Filtre bilgisi — rapor hangi koşullarla alındı
+                pd.DataFrame([
+                    {"Alan": "Dönem", "Değer": f"{_pbas} → {_pbit}"},
+                    {"Alan": "Firma", "Değer": (_p_kanal_f if _p_kanal_f == "Tümü"
+                                                else _fka(_p_kanal_f))},
+                    {"Alan": "Kategori", "Değer": _p_kat_f},
+                    {"Alan": "Satır sayısı", "Değer": len(satislar)},
+                    {"Alan": "Rapor tarihi",
+                     "Değer": datetime.now().strftime("%d.%m.%Y %H:%M")},
+                    {"Alan": "", "Değer": ""},
+                    {"Alan": "NOT — Brüt Kâr",
+                     "Değer": "Satır bazlı kâr toplamıdır; 'net ciro − COGS' "
+                              "işlemiyle birebir tutmaz. Aradaki fark satır "
+                              "bazlı desteklerden gelir. Ekrandaki merdivenin "
+                              "aynısıdır."},
+                    {"Alan": "NOT — Sayılar",
+                     "Değer": "Ham sayı olarak yazıldı (metin değil), "
+                              "Excel'de toplanabilir ve pivot çekilebilir."},
+                ]).to_excel(_w, index=False, sheet_name="Filtre")
+                # 3) Kırılımlar — ekrandaki tabloların aynısı
+                for _sh in ("Marka", "Kategori"):
+                    _rows_k = _xl_kirilim.get(_sh) or []
+                    if _rows_k:
+                        pd.DataFrame(_rows_k).to_excel(
+                            _w, index=False, sheet_name=_sh)
+                # 4) Ham satışlar — Excel'de pivot çekilebilsin
+                if satislar:
+                    pd.DataFrame([{
+                        "Tarih": s2.get("tarih"), "Firma": _fka(s2.get("kanal")),
+                        "Sipariş No": s2.get("siparis_no"), "SKU": s2.get("sku"),
+                        "Ürün": s2.get("urun_adi"), "Adet": _in(s2.get("adet")),
+                        "Birim Satış": _fl(s2.get("birim_satis")),
+                        "Birim Maliyet": _fl(s2.get("birim_maliyet")),
+                        "Firma Destek": _fl(s2.get("birim_firma_destek")),
+                        "Ek Destek": _fl(s2.get("birim_ek_destek")),
+                    } for s2 in satislar]).to_excel(
+                        _w, index=False, sheet_name="Ham Satışlar")
+                # Kolon genişlikleri
+                for _sh in _w.sheets:
+                    _ws = _w.sheets[_sh]
+                    for _c in _ws.columns:
+                        _en = max((len(str(_x.value)) for _x in _c[:200]
+                                   if _x.value is not None), default=10)
+                        _ws.column_dimensions[_c[0].column_letter].width = min(_en + 3, 46)
+                    _ws.freeze_panes = "A2"
+            return _buf.getvalue()
+
+        # Excel raporu başlığın sağında. Dosya YALNIZ tıklanınca üretilir:
+        # eskiden her çizimde baştan üretiliyordu (yavaş) ve kırılım
+        # sayfaları bir ÖNCEKİ çizimin verisini taşıyordu (kırılımlar düğmeden
+        # sonra hesaplanıyor). Artık tıklama anında güncel veriyle üretilir.
+        _pnl_xl_yer.download_button(
+            "Excel raporu", data=_pnl_xlsx, file_name=f"kar_pnl_{_pbas}_{_pbit}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True, key="pnl_dl_xlsx", icon=":material/download:", on_click="ignore",
+            help="Ekrandaki rakamların aynısı: merdiven, kırılımlar ve ham satırlar ayrı sayfalarda; "
+                 "sayılar ham (Excel'de toplanabilir)")
+
+        # ── Detaylar: meraklısına, varsayılan kapalı ──
+        with st.expander("🔍 Detaylar — iade, havuz kırılımı ve açıklamalar"):
+            _d1, _d2, _d3 = st.columns(3)
+            _d1.metric("İade adedi (stoğa döndü)", f"{tr_sayi(_itop.get('i_adet', 0))}")
+            _d2.metric("İade tutarı", _usd(_itop["i_tutar"]))
+            _d3.metric("Brüt adet", f"{tr_sayi(int(top['adet']))}")
+            if _alinan_usd > 0.005:
+                st.caption("**Alınan destek** = firmalardan/markalardan *bize gelen* sellout, "
+                           "marketing, rebate gelirleri (Ref No Takip → Alınan Destekler).")
+            if _ref_g:
+                st.caption("**Ref No desteği** = dönem içinde firma bazlı verilen destekler.")
+
+
+        # ── 🏷️ MARKA & KATEGORİ KIRILIMI (alınan destekler kâra DAHİL) ──
+        if not _p_filtreli:
+            # KANONİK SKU ANAHTARI: satışta 'Fazeon X24F165S', ürün kartında
+            # 'X24F165S' yazsa bile aynı ürün olarak eşleşir (shared.utils).
+            from shared.utils import sku_anahtar as _skn
+            _urun_ad_map = {}
+            try:
+                from kayranpm.database import get_tum_sku_listesi as _gtsl
+                _skl_p = _gtsl() or []
+                _marka_map = {_skn(r.get("sku")):
+                              (r.get("marka") or "").strip().upper()
+                              for r in _skl_p}
+                # Aynı sorgudan ürün adları — DİĞER kırılımı için (ek sorgu YOK)
+                _urun_ad_map = {_skn(r.get("sku")):
+                                (r.get("urun_adi") or "").strip()
+                                for r in _skl_p}
+            except Exception:
+                _marka_map = {}
+            _katmap_p = {}
+            try:
+                from satis.database import get_sku_kategori as _gskp
+                from shared.utils import tr_buyuk as _trb_pl
+                # tr_buyuk: 'MONİTÖR' ve 'Monitör' → 'MONITOR' tek biçim;
+                # kart kategorisi ile ad-türevi kategori AYNI satırda birleşir.
+                _katmap_p = {_skn(k): _trb_pl(v)
+                             for k, v in (_gskp() or {}).items()}
+            except Exception:
+                _katmap_p = {}
+                _trb_pl = lambda s: str(s or "").strip().upper()
+            # ── 3 KADEMELİ EŞLEŞTİRME — ürün kartı olmasa bile çalışır ──
+            # 1) Ürün kartı (kanonik SKU ile)  2) SKU'daki FAZEON öneki
+            # 3) SATIŞ SATIRINDAKİ ÜRÜN ADI (ithalattan gelen adla aynı):
+            #    marka → bilinen marka kuralları, kategori → kategori kuralları.
+            # Böylece kart hiç açılmamış olsa da satır DİĞER'e düşmez.
+            try:
+                from kayranpm.database import MARKA_KURALLAR as _mkr, \
+                    kategori_oner as _kat_oner_pl
+            except Exception:
+                _mkr, _kat_oner_pl = [], (lambda _a: "")
+            import re as _re_pl
+
+            def _satis_ad(sk):
+                """Bu SKU'nun satış satırlarında taşınan ürün adı."""
+                return str((urun.get(sk) or {}).get("urun_adi") or "").strip()
+
+            def _marka_bul(sk):
+                _m = (_marka_map.get(_skn(sk)) or "").strip()
+                if _m:
+                    return _m                                   # 1) ürün kartı
+                if str(sk or "").strip().upper().startswith("FAZEON "):
+                    return "FAZEON"                             # 2) SKU öneki
+                _ad = _satis_ad(sk).upper()                     # 3) ürün adı
+                for _mm, _pat in _mkr:                          #    (yalnız BİLİNEN
+                    try:                                        #     markalar; ilk-
+                        if _ad and _re_pl.search(_pat, _ad):    #     kelime tahmini
+                            return str(_mm).upper()             #     YAPILMAZ →
+                    except Exception:                           #     çöp marka çıkmaz)
+                        pass
+                return ""
+
+            def _kat_bul(sk):
+                _k = (_katmap_p.get(_skn(sk)) or "").strip()
+                if _k:
+                    return _k                                   # 1) ürün kartı
+                try:
+                    return _trb_pl(_kat_oner_pl(_satis_ad(sk)))
+                except Exception:                               # 3) ürün adından
+                    return ""
+            _ad_marka, _ad_kat, _ad_top = {}, {}, 0.0
+            try:
+                from kayranpm.ref_no import alinan_destek_kirilim_usd
+                _ad_marka, _ad_kat, _ad_top = alinan_destek_kirilim_usd(_pbas, _pbit)
+            except Exception:
+                pass
+            # Alınan destek anahtarları da satış tarafıyla AYNI biçime
+            # (tr_buyuk) çevrilir. Ref No için yapılmıştı, alınan destek için
+            # yapılmamıştı: "MONİTÖR" (destek) ve "MONITÖR" (satış) iki ayrı
+            # satırdı, kategori cirosu/kârı bölünüyordu.
+            _ad_marka, _ad_kat = _tb_anahtar(_ad_marka), _tb_anahtar(_ad_kat)
+
+            # REF NO desteği (VERİLEN — kârdan DÜŞÜLÜR). Eskiden kırılım
+            # tablolarına hiç girmiyordu; bu yüzden marka/kategori kârı
+            # filtreli merdivenle uyuşmuyordu.
+            # NOT: ref kaydının FİRMASI bir CARİdir (D-MARKET, VATAN…),
+            # MARKA DEĞİL. Bu yüzden Ref No desteği yalnız KATEGORİ
+            # boyutuna yansıtılır; marka tablosuna karıştırılmaz.
+            # Kategori anahtarları satış tarafıyla AYNI biçime (tr_buyuk)
+            # çevrilir, yoksa "MONİTÖR" ve "MONITÖR" iki ayrı satır olur.
+            _rf_kat = {}
+            try:
+                from kayranpm.ref_no import ref_destek_kirilim_usd as _rdk
+                from shared.utils import tr_buyuk as _trb_rf
+                for _rk_k, _rk_v in ((_rdk(_pbas, _pbit).get("kategori") or {})).items():
+                    _nk = _trb_rf(_rk_k)
+                    _rf_kat[_nk] = _rf_kat.get(_nk, 0.0) + float(_rk_v or 0)
+            except Exception:
+                _rf_kat = {}
+
+            # İadeler SKU bazında kırılıma da yansısın (kanonik anahtarla):
+            # KASPERSKY gibi iadeli markalarda ciro/kâr/adet NET gösterilir.
+            _iade_sku_k = {}
+            for _ir_k, _ir_v in (_sku_iade or {}).items():
+                _e_ik = _iade_sku_k.setdefault(_skn(_ir_k),
+                                               {"i_adet": 0, "i_tutar": 0.0, "i_kar": 0.0})
+                _e_ik["i_adet"] += int(_ir_v.get("i_adet") or 0)
+                _e_ik["i_tutar"] += float(_ir_v.get("i_tutar") or 0)
+                _e_ik["i_kar"] += float(_ir_v.get("i_kar") or 0)
+
+            # Satışlardan marka/kategori gruplaması — İADE DÜŞÜLMÜŞ (net)
+            def _grupla(harita, marka_mi=False):
+                g = {}
+                _islenen_iade = set()
+                for _sk, _v in urun.items():
+                    if marka_mi:
+                        _key = _marka_bul(_sk) or "DİĞER"
+                    else:
+                        _key = _kat_bul(_sk) or "DİĞER"
+                    _e = g.setdefault(_key, {"ciro": 0.0, "kar": 0.0, "adet": 0})
+                    _sk_k = _skn(_sk)
+                    _ii = (_iade_sku_k.get(_sk_k) or {}) \
+                        if _sk_k not in _islenen_iade else {}
+                    _islenen_iade.add(_sk_k)   # aynı iade iki satış SKU'suna düşmesin
+                    _e["ciro"] += float(_v.get("ciro") or 0) - float(_ii.get("i_tutar") or 0)
+                    _e["kar"] += float(_v.get("net_kar") or 0) - float(_ii.get("i_kar") or 0)
+                    _e["adet"] += int(_v.get("adet") or 0) - int(_ii.get("i_adet") or 0)
+                return g
+
+            def _kirilim_df(g, destekler, ref_destek=None):
+                """Kâr = satış kârı + ALINAN destek − REF NO desteği.
 
                         Merdivenle aynı işaret kuralı: alınan destek gelirdir (+),
                         Ref No desteği verilen destektir (−). Eskiden yalnız alınan
                         ekleniyordu, ref hiç görünmüyordu."""
-                        ref_destek = ref_destek or {}
-                        _rows = []
-                        _tum = (set(g) | {k for k in destekler if k != "GENEL"}
-                                | {k for k in ref_destek if k != "GENEL"})
-                        for _k in _tum:
-                            _e = g.get(_k, {"ciro": 0.0, "kar": 0.0, "adet": 0})
-                            _d = float(destekler.get(_k, 0.0))
-                            _rd = float(ref_destek.get(_k, 0.0))
-                            _rows.append({"_ad": _k, "Adet": _e["adet"],
-                                          "Ciro": _e["ciro"],
-                                          "Kâr": _e["kar"] + _d - _rd,
-                                          "_destek": _d, "_ref": _rd})
-                        _rows.sort(key=lambda r: -r["Kâr"])
-                        return _rows
+                ref_destek = ref_destek or {}
+                _rows = []
+                _tum = (set(g) | {k for k in destekler if k != "GENEL"}
+                        | {k for k in ref_destek if k != "GENEL"})
+                for _k in _tum:
+                    _e = g.get(_k, {"ciro": 0.0, "kar": 0.0, "adet": 0})
+                    _d = float(destekler.get(_k, 0.0))
+                    _rd = float(ref_destek.get(_k, 0.0))
+                    _rows.append({"_ad": _k, "Adet": _e["adet"],
+                                  "Ciro": _e["ciro"],
+                                  "Kâr": _e["kar"] + _d - _rd,
+                                  "_destek": _d, "_ref": _rd})
+                _rows.sort(key=lambda r: -r["Kâr"])
+                return _rows
 
-                    if urun and (_marka_map or _katmap_p or _ad_top):
-                        st.markdown(_B2.grup_basligi("Kategori ve marka kırılımı", "iade düşülmüş, net"),
-                                    unsafe_allow_html=True)
-                        st.caption("Rakamlar **iade düşülmüş (net)** değerlerdir. Kâr kolonu, o "
-                                   "marka/kategori için **alınan destekleri içerir** "
-                                   "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
-                                   "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
-                        # Tek tablo, tam genişlik + seçici. Eskiden iki 7 sütunlu tablo
-                        # yarım genişlikte yan yana duruyordu; Kâr/Marj sütunları ekran
-                        # dışına taşıyordu. İkisi de hesaplanır (Excel raporu ikisini
-                        # kullanır), yalnız seçilen çizilir.
-                        _kr_sec = st.segmented_control("Kırılım", ["Kategori", "Marka"], default="Kategori",
-                                                       key="pnl_kirilim_sec", label_visibility="collapsed") \
-                            or "Kategori"
-                        _gorunur = st.container()
+            if urun and (_marka_map or _katmap_p or _ad_top):
+                st.markdown(_B2.grup_basligi("Kategori ve marka kırılımı", "iade düşülmüş, net"),
+                            unsafe_allow_html=True)
+                st.caption("Rakamlar **iade düşülmüş (net)** değerlerdir. Kâr kolonu, o "
+                           "marka/kategori için **alınan destekleri içerir** "
+                           "(Ref No Takip → Alınan Destekler). GENEL kayıtlı destekler "
+                           "kırılıma dağıtılmaz, yalnız genel toplamda yer alır.")
+                # Tek tablo, tam genişlik + seçici. Eskiden iki 7 sütunlu tablo
+                # yarım genişlikte yan yana duruyordu; Kâr/Marj sütunları ekran
+                # dışına taşıyordu. İkisi de hesaplanır (Excel raporu ikisini
+                # kullanır), yalnız seçilen çizilir.
+                _kr_sec = st.segmented_control("Kırılım", ["Kategori", "Marka"], default="Kategori",
+                                               key="pnl_kirilim_sec", label_visibility="collapsed") \
+                    or "Kategori"
+                _gorunur = st.container()
 
-                        class _Sessiz:
-                            """Seçilmeyen tablonun çıktısını yutar (hesap yine yapılır)."""
-                            def __enter__(self):
-                                return self
+                class _Sessiz:
+                    """Seçilmeyen tablonun çıktısını yutar (hesap yine yapılır)."""
+                    def __enter__(self):
+                        return self
 
-                            def __exit__(self, *a):
-                                return False
+                    def __exit__(self, *a):
+                        return False
 
-                            def __getattr__(self, ad):
-                                return lambda *a, **k: None
-                        _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
-                        for _bk, _hrt, _dst, _rfd, _kol in [
-                                (_gorunur if _kr_sec == "Marka" else _Sessiz(), _marka_map, _ad_marka, {}, "Marka"),
-                                (_gorunur if _kr_sec == "Kategori" else _Sessiz(), _katmap_p, _ad_kat, _rf_kat,
-                                 "Kategori")]:
-                            with _bk:
-                                _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),
-                                                    _dst, _rfd)
-                                if _rows:
-                                    # İki AYRI destek kolonu. Tek kolonda birleştirmek
-                                    # yanıltıcı olurdu: alınan destek gelir (+),
-                                    # Ref No desteği verilen destektir (−).
-                                    # 2 haneye yuvarlanır: ham kur çevirisi "$20.982,7772" gibi
-                                    # 4 haneli tutarlar gösteriyordu.
-                                    # Görünen ad tek yazımla (shared.ana_veri); iç anahtar ('MONITÖR')
-                                    # yalnız gruplamada. DİĞER kovası olduğu gibi kalır.
-                                    from shared.ana_veri import kategori_ad as _gk_ad, marka_ad as _gm_ad
+                    def __getattr__(self, ad):
+                        return lambda *a, **k: None
+                _t_kar_ort = 0.0   # marj hesabı için (iki tablo aynı satışı özetler)
+                for _bk, _hrt, _dst, _rfd, _kol in [
+                        (_gorunur if _kr_sec == "Marka" else _Sessiz(), _marka_map, _ad_marka, {}, "Marka"),
+                        (_gorunur if _kr_sec == "Kategori" else _Sessiz(), _katmap_p, _ad_kat, _rf_kat,
+                         "Kategori")]:
+                    with _bk:
+                        _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),
+                                            _dst, _rfd)
+                        if _rows:
+                            # İki AYRI destek kolonu. Tek kolonda birleştirmek
+                            # yanıltıcı olurdu: alınan destek gelir (+),
+                            # Ref No desteği verilen destektir (−).
+                            # 2 haneye yuvarlanır: ham kur çevirisi "$20.982,7772" gibi
+                            # 4 haneli tutarlar gösteriyordu.
+                            # Görünen ad tek yazımla (shared.ana_veri); iç anahtar ('MONITÖR')
+                            # yalnız gruplamada. DİĞER kovası olduğu gibi kalır.
+                            from shared.ana_veri import kategori_ad as _gk_ad, marka_ad as _gm_ad
 
-                                    def _gorunen(k, _marka=(_kol == "Marka")):
-                                        if k in ("DİĞER", "GENEL"):
-                                            return k
-                                        return (_gm_ad(k) if _marka else _gk_ad(k)) or k
-                                    _tablo = [{
-                                        _kol: _gorunen(r["_ad"]), "Adet": r["Adet"],
-                                        "Ciro": round(r["Ciro"], 2),
-                                        "Alınan destek": round(r["_destek"], 2),
-                                        "Ref No desteği": -round(r["_ref"], 2) if r["_ref"] else 0.0,
-                                        "Kâr": round(r["Kâr"], 2),
-                                        "Marj": ((r["Kâr"] / r["Ciro"] * 100)
-                                                 if r["Ciro"] > 0 else None),
-                                    } for r in _rows]
-                                    # ── Σ ALT TOPLAM (yalnız yukarıdaki satırların toplamı;
-                                    #    GENEL destek dahil DEĞİL — o kırılıma dağıtılmıyor) ──
-                                    _t_adet = sum(int(r["Adet"] or 0) for r in _rows)
-                                    _t_ciro = sum(float(r["Ciro"] or 0) for r in _rows)
-                                    _t_kar = sum(float(r["Kâr"] or 0) for r in _rows)
-                                    _t_ad = sum(float(r["_destek"] or 0) for r in _rows)
-                                    _t_rf = sum(float(r["_ref"] or 0) for r in _rows)
-                                    _t_kar_ort = max(_t_kar_ort, _t_kar)
-                                    # Excel raporu AYNI satırları kullansın diye sakla
-                                    st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
-                                    _xl_kirilim[_kol] = list(_tablo)
-                                    _tablo.append({
-                                        _kol: "Σ Toplam", "Adet": _t_adet,
-                                        "Ciro": round(_t_ciro, 2),
-                                        "Alınan destek": round(_t_ad, 2),
-                                        "Ref No desteği": -round(_t_rf, 2) if _t_rf else 0.0,
-                                        "Kâr": round(_t_kar, 2),
-                                        "Marj": ((_t_kar / _t_ciro * 100)
-                                                 if _t_ciro > 0 else None),
-                                    })
-                                    # Ortak tablo (shared/tablo.py): Σ satırı alt bilgide
-                                    # sabit, marj rozetli, sıralama/arama/CSV ile.
-                                    from shared.tablo import tablo as _ortak_tablo
-                                    _ortak_tablo(_tablo, kap=_bk, key=f"pnl_kirilim_{_kol}",
-                                                 dosya_adi=f"kirilim_{_kol}")
-                                    _bk.caption(f"Σ Toplam = {len(_rows)} satırın toplamı · "
-                                                f"Marj: %{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0, 1)}")
-                        _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
-                                         float(_ad_marka.get("GENEL", 0) or 0))
-                        if abs(_genel_dst) > 0.005:
-                            st.caption(f"Σ Toplam satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
-                                       f"Kırılıma dağıtılmayan GENEL destek: **{_usd_md(_genel_dst)}** — "
-                                       f"bu eklenince genel toplam kâr **{_usd_md(_t_kar_ort + _genel_dst)}** olur. "
-                                       f"Bu yüzden Σ Toplam, yukarıdaki net kâr kartından düşüktür.")
-
-                        # ── 🔍 "DİĞER" içinde ne var? (markası bulunamayan SKU'lar) ──
-                        _diger_skus = []
-                        for _sk, _v in urun.items():
-                            if _marka_bul(_sk):
-                                continue          # markası bulundu → DİĞER'e düşmedi
-                            _sku_k = _skn(_sk)
-                            _diger_skus.append({
-                                "SKU": str(_sk).strip(),
-                                # Kart yoksa satış satırındaki ürün adını göster —
-                                # kalan DİĞER'in NE olduğu bir bakışta anlaşılsın
-                                "Ürün Adı": _urun_ad_map.get(_sku_k, "")
-                                            or _satis_ad(_sk)
-                                            or "— adsız —",
-                                "_adet": int(_v.get("adet") or 0),
-                                "_ciro": float(_v.get("ciro") or 0),
-                                "_kar": float(_v.get("net_kar") or 0),
+                            def _gorunen(k, _marka=(_kol == "Marka")):
+                                if k in ("DİĞER", "GENEL"):
+                                    return k
+                                return (_gm_ad(k) if _marka else _gk_ad(k)) or k
+                            _tablo = [{
+                                _kol: _gorunen(r["_ad"]), "Adet": r["Adet"],
+                                "Ciro": round(r["Ciro"], 2),
+                                "Alınan destek": round(r["_destek"], 2),
+                                "Ref No desteği": -round(r["_ref"], 2) if r["_ref"] else 0.0,
+                                "Kâr": round(r["Kâr"], 2),
+                                "Marj": ((r["Kâr"] / r["Ciro"] * 100)
+                                         if r["Ciro"] > 0 else None),
+                            } for r in _rows]
+                            # ── Σ ALT TOPLAM (yalnız yukarıdaki satırların toplamı;
+                            #    GENEL destek dahil DEĞİL — o kırılıma dağıtılmıyor) ──
+                            _t_adet = sum(int(r["Adet"] or 0) for r in _rows)
+                            _t_ciro = sum(float(r["Ciro"] or 0) for r in _rows)
+                            _t_kar = sum(float(r["Kâr"] or 0) for r in _rows)
+                            _t_ad = sum(float(r["_destek"] or 0) for r in _rows)
+                            _t_rf = sum(float(r["_ref"] or 0) for r in _rows)
+                            _t_kar_ort = max(_t_kar_ort, _t_kar)
+                            # Excel raporu AYNI satırları kullansın diye sakla
+                            st.session_state[f"_pnl_xl_{_kol}"] = list(_tablo)
+                            _xl_kirilim[_kol] = list(_tablo)
+                            _tablo.append({
+                                _kol: "Σ Toplam", "Adet": _t_adet,
+                                "Ciro": round(_t_ciro, 2),
+                                "Alınan destek": round(_t_ad, 2),
+                                "Ref No desteği": -round(_t_rf, 2) if _t_rf else 0.0,
+                                "Kâr": round(_t_kar, 2),
+                                "Marj": ((_t_kar / _t_ciro * 100)
+                                         if _t_ciro > 0 else None),
                             })
-                        if _diger_skus:
-                            _diger_skus.sort(key=lambda r: -r["_ciro"])
-                            _dg_ciro = sum(r["_ciro"] for r in _diger_skus)
-                            _dg_kartsiz = sum(1 for r in _diger_skus
-                                              if not _urun_ad_map.get(_skn(r["SKU"])))
-                            with st.expander(f"🔍 Markası boş {len(_diger_skus)} SKU — "
-                                             f"{_usd_md(_dg_ciro)} ciro DİĞER'e düşüyor"):
-                                st.caption(
-                                    "Bu SKU'ların **Ürün Yönetimi → ürünler** tablosunda `marka` alanı boş. "
-                                    "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
-                                    + (f"{_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
-                                       if _dg_kartsiz else ""))
-                                # Marka/Kategori hücreleri DÜZENLENEBİLİR — yaz, kaydet, bitti.
-                                _dg_df = pd.DataFrame([{
-                                    "SKU": r["SKU"], "Ürün Adı": r["Ürün Adı"][:60],
-                                    "Adet": r["_adet"], "Ciro": r["_ciro"],
-                                    "Kâr": r["_kar"], "Marka": "", "Kategori": "",
-                                } for r in _diger_skus])
-                                _dg_ed = st.data_editor(
-                                    _dg_df, hide_index=True, use_container_width=True,
-                                    height=min(380, 60 + 36 * len(_diger_skus)),
-                                    key="pnl_diger_editor",
-                                    column_config={
-                                        "SKU": st.column_config.TextColumn(disabled=True),
-                                        "Ürün Adı": st.column_config.TextColumn(disabled=True, width="large"),
-                                        "Adet": st.column_config.NumberColumn(disabled=True, format="localized", step=1),
-                                        # Değer sayı; TextColumn ham "12345.67" gösteriyordu
-                                        "Ciro": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
-                                        "Kâr": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
-                                        "Marka": st.column_config.TextColumn(
-                                            help="FAZEON, INNO3D, NZXT, AGI, MIO... serbest yaz"),
-                                        "Kategori": st.column_config.TextColumn(
-                                            help="kasa, monitör, ekran kartı... boş bırakılabilir"),
-                                    })
-                                if st.button("Marka/Kategori Ata", type="primary",
-                                             key="pnl_diger_kaydet", use_container_width=True, icon=":material/save:"):
-                                    from kayranpm.database import (get_client as _gc_dg,
-                                                                   upsert_urun as _up_dg)
-                                    _ok_dg, _yeni_dg = 0, 0
-                                    for _, _r in _dg_ed.iterrows():
-                                        _mv = str(_r.get("Marka") or "").strip()
-                                        _kv = str(_r.get("Kategori") or "").strip()
-                                        if not _mv and not _kv:
-                                            continue
-                                        _sk_raw = str(_r["SKU"]).strip()
-                                        _sk_kanonik = _skn(_sk_raw)
-                                        _upd = {}
-                                        if _mv:
-                                            _upd["marka"] = _mv
-                                        if _kv:
-                                            _upd["kategori"] = _kv
-                                        try:
-                                            _res_dg = (_gc_dg().table("urunler").update(_upd)
-                                                       .eq("sku", _sk_kanonik).execute())
-                                            if (getattr(_res_dg, "data", None) or []):
-                                                _ok_dg += 1     # mevcut kart güncellendi
-                                            else:
-                                                # Kart yok → satış satırındaki adla YENİ kart aç
-                                                _up_dg(_sk_kanonik, _satis_ad(_sk_raw),
-                                                       _kv, _mv)
-                                                _yeni_dg += 1
-                                        except Exception:
-                                            pass
-                                    if _ok_dg or _yeni_dg:
-                                        st.cache_data.clear()
-                                        st.toast(f"✅ {_ok_dg} kart güncellendi · "
-                                                 f"{_yeni_dg} yeni kart açıldı", icon="✅")
-                                        st.rerun()
+                            # Ortak tablo (shared/tablo.py): Σ satırı alt bilgide
+                            # sabit, marj rozetli, sıralama/arama/CSV ile.
+                            from shared.tablo import tablo as _ortak_tablo
+                            _ortak_tablo(_tablo, kap=_bk, key=f"pnl_kirilim_{_kol}",
+                                         dosya_adi=f"kirilim_{_kol}")
+                            _bk.caption(f"Σ Toplam = {len(_rows)} satırın toplamı · "
+                                        f"Marj: %{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro > 0 else 0, 1)}")
+                _genel_dst = max(float(_ad_kat.get("GENEL", 0) or 0),
+                                 float(_ad_marka.get("GENEL", 0) or 0))
+                if abs(_genel_dst) > 0.005:
+                    st.caption(f"Σ Toplam satırı **yalnız kırılıma dağıtılan** destekleri içerir. "
+                               f"Kırılıma dağıtılmayan GENEL destek: **{_usd_md(_genel_dst)}** — "
+                               f"bu eklenince genel toplam kâr **{_usd_md(_t_kar_ort + _genel_dst)}** olur. "
+                               f"Bu yüzden Σ Toplam, yukarıdaki net kâr kartından düşüktür.")
+
+                # ── 🔍 "DİĞER" içinde ne var? (markası bulunamayan SKU'lar) ──
+                _diger_skus = []
+                for _sk, _v in urun.items():
+                    if _marka_bul(_sk):
+                        continue          # markası bulundu → DİĞER'e düşmedi
+                    _sku_k = _skn(_sk)
+                    _diger_skus.append({
+                        "SKU": str(_sk).strip(),
+                        # Kart yoksa satış satırındaki ürün adını göster —
+                        # kalan DİĞER'in NE olduğu bir bakışta anlaşılsın
+                        "Ürün Adı": _urun_ad_map.get(_sku_k, "")
+                                    or _satis_ad(_sk)
+                                    or "— adsız —",
+                        "_adet": int(_v.get("adet") or 0),
+                        "_ciro": float(_v.get("ciro") or 0),
+                        "_kar": float(_v.get("net_kar") or 0),
+                    })
+                if _diger_skus:
+                    _diger_skus.sort(key=lambda r: -r["_ciro"])
+                    _dg_ciro = sum(r["_ciro"] for r in _diger_skus)
+                    _dg_kartsiz = sum(1 for r in _diger_skus
+                                      if not _urun_ad_map.get(_skn(r["SKU"])))
+                    with st.expander(f"🔍 Markası boş {len(_diger_skus)} SKU — "
+                                     f"{_usd_md(_dg_ciro)} ciro DİĞER'e düşüyor"):
+                        st.caption(
+                            "Bu SKU'ların **Ürün Yönetimi → ürünler** tablosunda `marka` alanı boş. "
+                            "Doldurduğunda bu satırlar kendi markalarına dağılır ve DİĞER küçülür. "
+                            + (f"{_dg_kartsiz} SKU'nun ürün kartı hiç yok — önce ürün kartı açılmalı."
+                               if _dg_kartsiz else ""))
+                        # Marka/Kategori hücreleri DÜZENLENEBİLİR — yaz, kaydet, bitti.
+                        _dg_df = pd.DataFrame([{
+                            "SKU": r["SKU"], "Ürün Adı": r["Ürün Adı"][:60],
+                            "Adet": r["_adet"], "Ciro": r["_ciro"],
+                            "Kâr": r["_kar"], "Marka": "", "Kategori": "",
+                        } for r in _diger_skus])
+                        _dg_ed = st.data_editor(
+                            _dg_df, hide_index=True, use_container_width=True,
+                            height=min(380, 60 + 36 * len(_diger_skus)),
+                            key="pnl_diger_editor",
+                            column_config={
+                                "SKU": st.column_config.TextColumn(disabled=True),
+                                "Ürün Adı": st.column_config.TextColumn(disabled=True, width="large"),
+                                "Adet": st.column_config.NumberColumn(disabled=True, format="localized", step=1),
+                                # Değer sayı; TextColumn ham "12345.67" gösteriyordu
+                                "Ciro": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
+                                "Kâr": st.column_config.NumberColumn(disabled=True, format="dollar", step=0.01),
+                                "Marka": st.column_config.TextColumn(
+                                    help="FAZEON, INNO3D, NZXT, AGI, MIO... serbest yaz"),
+                                "Kategori": st.column_config.TextColumn(
+                                    help="kasa, monitör, ekran kartı... boş bırakılabilir"),
+                            })
+                        if st.button("Marka/Kategori Ata", type="primary",
+                                     key="pnl_diger_kaydet", use_container_width=True, icon=":material/save:"):
+                            from kayranpm.database import (get_client as _gc_dg,
+                                                           upsert_urun as _up_dg)
+                            _ok_dg, _yeni_dg = 0, 0
+                            for _, _r in _dg_ed.iterrows():
+                                _mv = str(_r.get("Marka") or "").strip()
+                                _kv = str(_r.get("Kategori") or "").strip()
+                                if not _mv and not _kv:
+                                    continue
+                                _sk_raw = str(_r["SKU"]).strip()
+                                _sk_kanonik = _skn(_sk_raw)
+                                _upd = {}
+                                if _mv:
+                                    _upd["marka"] = _mv
+                                if _kv:
+                                    _upd["kategori"] = _kv
+                                try:
+                                    _res_dg = (_gc_dg().table("urunler").update(_upd)
+                                               .eq("sku", _sk_kanonik).execute())
+                                    if (getattr(_res_dg, "data", None) or []):
+                                        _ok_dg += 1     # mevcut kart güncellendi
                                     else:
-                                        st.info("Marka veya Kategori hücresine bir değer yaz, sonra kaydet.")
-
-                st.markdown(_B2.grup_basligi("Firma kırılımı", "satıra tıkla: firmanın sipariş geçmişi açılır"),
-                            unsafe_allow_html=True)
-                _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
-
-                def _kn_net(kn, v):
-                    _ik = _ikan.get(kn, {})
-                    _nc = v["ciro"] - _ik.get("i_tutar", 0.0)
-                    _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
-                    _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
-                    return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
-                # Ortak tablo (shared/tablo.py): satır tıklaması pencereyi açar, kutucuk
-                # sütunu yok. Uzun ünvan kısa ad + tür etiketi; tamamı ipucunda.
-                from shared.tablo import tablo as _ortak_tablo, kisa_unvan
-                _ksat, _t = [], {"adet": 0, "ciro": 0.0, "kar": 0.0, "ns": 0.0}
-                for kn, v in _kr:
-                    _nc, _nk, _nm = _kn_net(kn, v)
-                    _ad, _tur = kisa_unvan(kn)
-                    _ksat.append({"Firma": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
-                                  "Net kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
-                    _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
-                    _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
-                if len(_ksat) > 1:
-                    _ksat.append({"Firma": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
-                                  "Net kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
-                                  "_etiket": "", "_ipucu": ""})
-                _kanal_tik = _ortak_tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
-                                    pay="Ciro", dosya_adi="firma_kirilimi")
-
-                @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
-                def _dlg_firma_gecmis(_fkn):
-                    from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
-                    st.markdown(f'<div style="font-size:14px;font-weight:700;color:var(--k-metin);'
-                                f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
-                    st.caption(f"Dönem: {_pbas} → {_pbit}")
-                    _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
-                    if not _fsat:
-                        st.info("Bu dönemde kayıt yok.")
-                        return
-                    # Sipariş bazlı grupla
-                    _sipler = {}
-                    for s in _fsat:
-                        k = satir_kar(s)
-                        _sno = (s.get("siparis_no") or "").strip() or "—"
-                        g = _sipler.setdefault(_sno, {"tarih": str(s.get("tarih") or "")[:10],
-                                                      "kalem": 0, "adet": 0, "ciro": 0.0, "kar": 0.0,
-                                                      "skular": set()})
-                        g["kalem"] += 1
-                        if (s.get("sku") or "").strip():
-                            g["skular"].add((s.get("sku") or "").strip())
-                        g["adet"] += int(k["adet"] or 0)
-                        g["ciro"] += k["ciro"]
-                        g["kar"] += k["net_kar"]
-                        if str(s.get("tarih") or "")[:10] > g["tarih"]:
-                            g["tarih"] = str(s.get("tarih") or "")[:10]
-                    _t_adet = sum(g["adet"] for g in _sipler.values())
-                    _t_ciro = sum(g["ciro"] for g in _sipler.values())
-                    _t_kar = sum(g["kar"] for g in _sipler.values())
-                    st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
-                                + _kart([
-                                    ("Sipariş", f"{tr_sayi(len(_sipler))}", trenk("mavi")),
-                                    ("Adet", f"{tr_sayi(_t_adet)}", trenk("mavi")),
-                                    ("Ciro", _usd(_t_ciro), trenk("mavi")),
-                                    ("Net Kâr", _usd(_t_kar),
-                                     trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
-                                    ("Kârlılık", f"%{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro else 0, 1)}",
-                                     trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
-                                ]) + '</div>', unsafe_allow_html=True)
-                    st.markdown("**Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
-                    def _sku_ozet(g):
-                        _sk = sorted(g["skular"])
-                        if not _sk:
-                            return "—"
-                        if len(_sk) == 1:
-                            return _sk[0]
-                        return f"{_sk[0]} +{len(_sk) - 1}"
-                    from shared.masa_liste import kolon as _mk, ciz as _mliste
-                    _sip_rows = [{
-                        "Tarih": g["tarih"], "Sipariş No": sno,
-                        "SKU": _sku_ozet(g), "Kalem": g["kalem"],
-                        "Adet": g["adet"], "Ciro": g["ciro"], "Net kâr": g["kar"],
-                        "Kârlılık": (g["kar"] / g["ciro"] * 100) if g["ciro"] else 0.0,
-                    } for sno, g in sorted(_sipler.items(),
-                                           key=lambda x: x[1]["tarih"], reverse=True)]
-                    # kâr yetkisi yoksa kâr sütunları hiç gitmez (eskiden "•••" maskeliydi)
-                    _kar_k = ([_mk("Net kâr", "usd", gen="110px"), _mk("Kârlılık", "yuzde", gen="90px")]
-                              if _kar_ok() else [])
-                    _mliste(_sip_rows, [_mk("Sipariş No", ana=True, alt="SKU"), _mk("SKU", gizli=True),
-                                        _mk("Tarih", "tarih", gen="104px", dar="alt"), _mk("Kalem", "adet", gen="70px"),
-                                        _mk("Adet", "adet", gen="70px"), _mk("Ciro", "usd", gen="120px")] + _kar_k,
-                            "pnl_firma_sip_masa", baslik_ipucu="Firmanın siparişleri", ara_ipucu="Sipariş no ya da SKU")
-                    _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + [r["Sipariş No"] for r in _sip_rows],
-                                            key="pnl_firma_sip")
-                    if _sec_sip != "(seç)":
-                        _mliste([{
-                            "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
-                            "Ürün": urun_ad(s.get("sku"), s.get("urun_adi")),
-                            "Adet": int(satir_kar(s)["adet"] or 0),
-                            "B.Satış": float(s.get("birim_satis") or 0),
-                            "B.Maliyet": float(s.get("birim_maliyet") or 0),
-                            "Ciro": satir_kar(s)["ciro"],
-                            "Net kâr": satir_kar(s)["net_kar"],
-                            "Kârlılık": satir_kar(s)["marj"],
-                        } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip],
-                            [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Adet", "adet", gen="70px"),
-                             _mk("B.Satış", "usd", gen="100px"), _mk("Ciro", "usd", gen="110px")]
-                            + ([_mk("B.Maliyet", "usd", gen="100px", genis=True), _mk("Net kâr", "usd", gen="100px"),
-                                _mk("Kârlılık", "yuzde", gen="90px")] if _kar_ok() else []),
-                            f"pnl_sip_kalem_{_sec_sip}", baslik_ipucu=f"{_sec_sip} kalemleri")
-
-                if _kanal_tik is not None and 0 <= int(_kanal_tik) < len(_kr):
-                    _dlg_firma_gecmis(_kr[int(_kanal_tik)][0])     # tetik yalnız tıklandığı çalıştırmada gelir
-
-                @st.dialog("Maliyeti 0 olan satışları paçaldan düzelt", width="large")
-                def _dlg_maliyet_fix():
-                    st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
-                               "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
-                               "Mevcut DOĞRU maliyetlere dokunmaz — yalnız 0 olanları düzeltir.")
-                    if st.button("Önizle — kaç satış düzelecek", key="mlyt_onizle_btn", icon=":material/search:"):
-                        with st.spinner("Satışlar paçalla karşılaştırılıyor…"):
-                            st.session_state["_mlyt_onizle"] = satis_maliyet_tazele_onizle(sadece_sifir=True)
-                    _mz = st.session_state.get("_mlyt_onizle")
-                    if _mz is not None:
-                        if not _mz:
-                            st.info("ℹ️ **Tek tıkla onarılabilir satış yok** — maliyeti 0 olan satışların "
-                                    "paçalı sistemde bilinmiyor. Yani kalan **%100 marjlı satışların ithalatı "
-                                    "sistemde yok ya da SKU yazımı ithalattakiyle eşleşmiyor.** Çözüm: o ürünlerin "
-                                    "**İthalat dosyasını gir** (paçal oluşsun) ya da **SKU yazımını düzelt**, sonra "
-                                    "bu aracı tekrar çalıştır. (Patron Panosu'ndaki 'ithalatsız' sayısı bunlardır.)")
-                        else:
-                            from shared.masa_liste import kolon as _mk, ciz as _mliste
-                            _mliste([{
-                                "SKU": x["sku"], "Ürün": x["urun"] or "",
-                                "Satış satırı": x["satir"], "Adet": int(x["adet"]),
-                                "Yeni birim maliyet $": round(x["yeni_birim"], 2),
-                            } for x in _mz],
-                                [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
-                                 _mk("Satış satırı", "adet", gen="100px"), _mk("Adet", "adet", gen="80px"),
-                                 _mk("Yeni birim maliyet $", "usd", gen="160px")],
-                                "mlyt_onizle_masa", toplam=["Satış satırı", "Adet"],
-                                baslik_ipucu="Maliyeti düzelecek satışlar")
-                            _tsatir = sum(x["satir"] for x in _mz)
-                            st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
-                                       "(0 → paçal). Geri alınamaz.")
-                            if st.button("Onayla ve Maliyetleri Yaz", type="primary", use_container_width=True, key="mlyt_uygula_btn", icon=":material/check_circle:"):
-                                with st.spinner("Maliyetler yazılıyor…"):
-                                    _okm, _msgm = satis_maliyet_tazele_uygula(sadece_sifir=True)
+                                        # Kart yok → satış satırındaki adla YENİ kart aç
+                                        _up_dg(_sk_kanonik, _satis_ad(_sk_raw),
+                                               _kv, _mv)
+                                        _yeni_dg += 1
+                                except Exception:
+                                    pass
+                            if _ok_dg or _yeni_dg:
                                 st.cache_data.clear()
-                                st.session_state.pop("_mlyt_onizle", None)
-                                (st.success if _okm else st.error)(_msgm)
-                                st.cache_data.clear()
+                                st.toast(f"✅ {_ok_dg} kart güncellendi · "
+                                         f"{_yeni_dg} yeni kart açıldı", icon="✅")
                                 st.rerun()
-                if st.session_state.pop("_mlyt_ac", False):
-                    _dlg_maliyet_fix()
+                            else:
+                                st.info("Marka veya Kategori hücresine bir değer yaz, sonra kaydet.")
 
-        # ───────────────────────── İADE ─────────────────────────
-        elif _ssayfa == "↩️ İade":
-            from shared import bilesen as _B3
-            _iey = _B3.baslik_eylem(
-                "🧾 Satış", "İade Yönetimi",
-                aciklama="İadeler satıştan ayrı tutulur; mal stoğa döner, kâr brüt satıştan hesaplanır.",
-                eylemler=[{"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
+        st.markdown(_B2.grup_basligi("Firma kırılımı", "satıra tıkla: firmanın sipariş geçmişi açılır"),
+                    unsafe_allow_html=True)
+        _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
 
-            _IADE_DEPOLAR = IADE_DEPOLAR
+        def _kn_net(kn, v):
+            _ik = _ikan.get(kn, {})
+            _nc = v["ciro"] - _ik.get("i_tutar", 0.0)
+            _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
+            _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
+            return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
+        # Ortak tablo (shared/tablo.py): satır tıklaması pencereyi açar, kutucuk
+        # sütunu yok. Uzun ünvan kısa ad + tür etiketi; tamamı ipucunda.
+        from shared.tablo import tablo as _ortak_tablo, kisa_unvan
+        _ksat, _t = [], {"adet": 0, "ciro": 0.0, "kar": 0.0, "ns": 0.0}
+        for kn, v in _kr:
+            _nc, _nk, _nm = _kn_net(kn, v)
+            _ad, _tur = kisa_unvan(kn)
+            _ksat.append({"Firma": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
+                          "Net kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
+            _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
+            _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
+        if len(_ksat) > 1:
+            _ksat.append({"Firma": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
+                          "Net kâr": _t["kar"], "Marj": (_t["kar"] / _t["ns"] * 100) if _t["ns"] > 0 else 0.0,
+                          "_etiket": "", "_ipucu": ""})
+        _kanal_tik = _ortak_tablo(_kar_df(pd.DataFrame(_ksat)), key="pnl_kanal_df", secilebilir=True,
+                            pay="Ciro", dosya_adi="firma_kirilimi")
 
-            @st.dialog("Manuel iade girişi", width="large")
-            def _dlg_manuel_iade():
-                ig1, ig2, ig3 = st.columns(3)
-                _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
-                                          min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY")
-                _i_kanal = ig2.selectbox("Firma (cari)", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
-                _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
-                ig4, ig5, ig6, ig7 = st.columns(4)
-                _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")
-                _i_adet = ig5.number_input("İade adet", min_value=1, step=1, value=1, key="iade_adet_g")
-                _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.4f", key="iade_net_g")
-                _i_depo = ig7.selectbox("Giren depo", _IADE_DEPOLAR, key="iade_depo_g",
-                                        help="Mal fiziksel olarak hangi depoya girdiyse onu seç — "
-                                             "stok o depoya eklenir.")
-                st.caption("Bu kayıt **manuel** işaretlenir; ay sonu toplu yüklemede "
-                           "mükerrer sayılmaz, avans olarak düşülür.")
-                if st.button("İadeyi Kaydet", type="primary", key="iade_kaydet", icon=":material/save:"):
-                    if not _i_sku.strip():
-                        st.error("SKU zorunludur.")
-                    else:
-                        _k = "" if str(_i_kanal).startswith("(") else _i_kanal
-                        _ok, _msg = ekle_iade(str(_i_tarih)[:10], _k, _i_sku.strip(), _i_ad.strip(),
-                                              int(_i_adet), iade_net=float(_i_net),
-                                              depo=_i_depo, kaynak="manuel")
-                        (st.success if _ok else st.error)(_msg)
-                        if _ok:
-                            st.cache_data.clear()
-                            st.rerun()
-            if _iey.get("btn_sat_miade"):
-                _dlg_manuel_iade()
+        @st.dialog("🏢 Firma Sipariş Geçmişi", width="large")
+        def _dlg_firma_gecmis(_fkn):
+            from shared.tasarim import yan_panel; yan_panel("orta")   # sağ panel (okuma)
+            st.markdown(f'<div style="font-size:14px;font-weight:700;color:var(--k-metin);'
+                        f'margin-bottom:0px">{_fkn}</div>', unsafe_allow_html=True)
+            st.caption(f"Dönem: {_pbas} → {_pbit}")
+            _fsat = [s for s in satislar if (s.get("kanal") or "").strip() == _fkn]
+            if not _fsat:
+                st.info("Bu dönemde kayıt yok.")
+                return
+            # Sipariş bazlı grupla
+            _sipler = {}
+            for s in _fsat:
+                k = satir_kar(s)
+                _sno = (s.get("siparis_no") or "").strip() or "—"
+                g = _sipler.setdefault(_sno, {"tarih": str(s.get("tarih") or "")[:10],
+                                              "kalem": 0, "adet": 0, "ciro": 0.0, "kar": 0.0,
+                                              "skular": set()})
+                g["kalem"] += 1
+                if (s.get("sku") or "").strip():
+                    g["skular"].add((s.get("sku") or "").strip())
+                g["adet"] += int(k["adet"] or 0)
+                g["ciro"] += k["ciro"]
+                g["kar"] += k["net_kar"]
+                if str(s.get("tarih") or "")[:10] > g["tarih"]:
+                    g["tarih"] = str(s.get("tarih") or "")[:10]
+            _t_adet = sum(g["adet"] for g in _sipler.values())
+            _t_ciro = sum(g["ciro"] for g in _sipler.values())
+            _t_kar = sum(g["kar"] for g in _sipler.values())
+            st.markdown('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">'
+                        + _kart([
+                            ("Sipariş", f"{tr_sayi(len(_sipler))}", trenk("mavi")),
+                            ("Adet", f"{tr_sayi(_t_adet)}", trenk("mavi")),
+                            ("Ciro", _usd(_t_ciro), trenk("mavi")),
+                            ("Net Kâr", _usd(_t_kar),
+                             trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
+                            ("Kârlılık", f"%{tr_sayi((_t_kar / _t_ciro * 100) if _t_ciro else 0, 1)}",
+                             trenk("yesil") if _t_kar >= 0 else trenk("kirmizi")),
+                        ]) + '</div>', unsafe_allow_html=True)
+            st.markdown("**Siparişler** — kalem detayı için aşağıdaki listeden sipariş seç")
+            def _sku_ozet(g):
+                _sk = sorted(g["skular"])
+                if not _sk:
+                    return "—"
+                if len(_sk) == 1:
+                    return _sk[0]
+                return f"{_sk[0]} +{len(_sk) - 1}"
+            from shared.masa_liste import kolon as _mk, ciz as _mliste
+            _sip_rows = [{
+                "Tarih": g["tarih"], "Sipariş No": sno,
+                "SKU": _sku_ozet(g), "Kalem": g["kalem"],
+                "Adet": g["adet"], "Ciro": g["ciro"], "Net kâr": g["kar"],
+                "Kârlılık": (g["kar"] / g["ciro"] * 100) if g["ciro"] else 0.0,
+            } for sno, g in sorted(_sipler.items(),
+                                   key=lambda x: x[1]["tarih"], reverse=True)]
+            # kâr yetkisi yoksa kâr sütunları hiç gitmez (eskiden "•••" maskeliydi)
+            _kar_k = ([_mk("Net kâr", "usd", gen="110px"), _mk("Kârlılık", "yuzde", gen="90px")]
+                      if _kar_ok() else [])
+            _mliste(_sip_rows, [_mk("Sipariş No", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                                _mk("Tarih", "tarih", gen="104px", dar="alt"), _mk("Kalem", "adet", gen="70px"),
+                                _mk("Adet", "adet", gen="70px"), _mk("Ciro", "usd", gen="120px")] + _kar_k,
+                    "pnl_firma_sip_masa", baslik_ipucu="Firmanın siparişleri", ara_ipucu="Sipariş no ya da SKU")
+            _sec_sip = st.selectbox("Sipariş kalemleri", ["(seç)"] + [r["Sipariş No"] for r in _sip_rows],
+                                    key="pnl_firma_sip")
+            if _sec_sip != "(seç)":
+                _mliste([{
+                    "Tarih": str(s.get("tarih") or "")[:10], "SKU": s.get("sku", ""),
+                    "Ürün": urun_ad(s.get("sku"), s.get("urun_adi")),
+                    "Adet": int(satir_kar(s)["adet"] or 0),
+                    "B.Satış": float(s.get("birim_satis") or 0),
+                    "B.Maliyet": float(s.get("birim_maliyet") or 0),
+                    "Ciro": satir_kar(s)["ciro"],
+                    "Net kâr": satir_kar(s)["net_kar"],
+                    "Kârlılık": satir_kar(s)["marj"],
+                } for s in _fsat if ((s.get("siparis_no") or "").strip() or "—") == _sec_sip],
+                    [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Adet", "adet", gen="70px"),
+                     _mk("B.Satış", "usd", gen="100px"), _mk("Ciro", "usd", gen="110px")]
+                    + ([_mk("B.Maliyet", "usd", gen="100px", genis=True), _mk("Net kâr", "usd", gen="100px"),
+                        _mk("Kârlılık", "yuzde", gen="90px")] if _kar_ok() else []),
+                    f"pnl_sip_kalem_{_sec_sip}", baslik_ipucu=f"{_sec_sip} kalemleri")
 
-            # Aylık iade Excel'i görevi Ekim 2026'da kaldırıldı: iadeler teknik servis mal kabulünde
-            # kaydediliyor (giriş deposu + manuel iade). Excel yüklemesi Dosya kapısında isteğe bağlı.
-            _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
-            _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
-            # Excel çıktısı: ekrandaki özet + kırılımlar + ham kayıtlar, tek dosyada 4 sayfa
-            _ix1, _ix2 = st.columns([1, 3])
-            _ix_iadeler = get_iadeler(_ib, _ibit)
-            _ix1.download_button(
-                "Excel indir", data=lambda: iade_excel_bytes(_satirlar, _ix_iadeler, _ib, _ibit), on_click="ignore",
-                file_name=f"iade_{str(_ib)[:10]}_{str(_ibit)[:10]}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True, key="iade_dl_xlsx", icon=":material/download:",
-                disabled=not (_satirlar or _ix_iadeler))
-            _ix2.caption(f"{tr_sayi(len(_ix_iadeler))} iade kaydı · {len(_satirlar)} ürün · "
-                         f"4 sayfa: SKU net · Firma · SKU + firma · Kayıtlar; sayılar ham.")
-            if not _satirlar:
-                st.info("Bu dönemde satış/iade kaydı yok.")
+        if _kanal_tik is not None and 0 <= int(_kanal_tik) < len(_kr):
+            _dlg_firma_gecmis(_kr[int(_kanal_tik)][0])     # tetik yalnız tıklandığı çalıştırmada gelir
+
+        @st.dialog("Maliyeti 0 olan satışları paçaldan düzelt", width="large")
+        def _dlg_maliyet_fix():
+            st.caption("Geçmişte maliyetsiz (birim maliyet 0) kaydedilmiş satışların maliyetini ithalat paçalından "
+                       "yeniden yazar. SKU 'Fazeon …' yazılı olsa bile normalize edilip paçalla eşleştirilir. "
+                       "Mevcut DOĞRU maliyetlere dokunmaz — yalnız 0 olanları düzeltir.")
+            if st.button("Önizle — kaç satış düzelecek", key="mlyt_onizle_btn", icon=":material/search:"):
+                with st.spinner("Satışlar paçalla karşılaştırılıyor…"):
+                    st.session_state["_mlyt_onizle"] = satis_maliyet_tazele_onizle(sadece_sifir=True)
+            _mz = st.session_state.get("_mlyt_onizle")
+            if _mz is not None:
+                if not _mz:
+                    st.info("ℹ️ **Tek tıkla onarılabilir satış yok** — maliyeti 0 olan satışların "
+                            "paçalı sistemde bilinmiyor. Yani kalan **%100 marjlı satışların ithalatı "
+                            "sistemde yok ya da SKU yazımı ithalattakiyle eşleşmiyor.** Çözüm: o ürünlerin "
+                            "**İthalat dosyasını gir** (paçal oluşsun) ya da **SKU yazımını düzelt**, sonra "
+                            "bu aracı tekrar çalıştır. (Patron Panosu'ndaki 'ithalatsız' sayısı bunlardır.)")
+                else:
+                    from shared.masa_liste import kolon as _mk, ciz as _mliste
+                    _mliste([{
+                        "SKU": x["sku"], "Ürün": x["urun"] or "",
+                        "Satış satırı": x["satir"], "Adet": int(x["adet"]),
+                        "Yeni birim maliyet $": round(x["yeni_birim"], 2),
+                    } for x in _mz],
+                        [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                         _mk("Satış satırı", "adet", gen="100px"), _mk("Adet", "adet", gen="80px"),
+                         _mk("Yeni birim maliyet $", "usd", gen="160px")],
+                        "mlyt_onizle_masa", toplam=["Satış satırı", "Adet"],
+                        baslik_ipucu="Maliyeti düzelecek satışlar")
+                    _tsatir = sum(x["satir"] for x in _mz)
+                    st.warning(f"⚠️ {len(_mz)} SKU · {_tsatir} satış satırının maliyeti güncellenecek "
+                               "(0 → paçal). Geri alınamaz.")
+                    if st.button("Onayla ve Maliyetleri Yaz", type="primary", use_container_width=True, key="mlyt_uygula_btn", icon=":material/check_circle:"):
+                        with st.spinner("Maliyetler yazılıyor…"):
+                            _okm, _msgm = satis_maliyet_tazele_uygula(sadece_sifir=True)
+                        st.cache_data.clear()
+                        st.session_state.pop("_mlyt_onizle", None)
+                        (st.success if _okm else st.error)(_msgm)
+                        st.cache_data.clear()
+                        st.rerun()
+        if st.session_state.pop("_mlyt_ac", False):
+            _dlg_maliyet_fix()
+
+
+# ───────────────────────── İADE ─────────────────────────
+def _sayfa_iade(*, _kanallar, _kar_ok):
+    from shared import bilesen as _B3
+    _iey = _B3.baslik_eylem(
+        "🧾 Satış", "İade Yönetimi",
+        aciklama="İadeler satıştan ayrı tutulur; mal stoğa döner, kâr brüt satıştan hesaplanır.",
+        eylemler=[{"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
+
+    _IADE_DEPOLAR = IADE_DEPOLAR
+
+    @st.dialog("Manuel iade girişi", width="large")
+    def _dlg_manuel_iade():
+        ig1, ig2, ig3 = st.columns(3)
+        _i_tarih = ig1.date_input("İade tarihi", key="iade_tarih",
+                                  min_value=date(2024, 1, 1), max_value=date.today(), format="DD.MM.YYYY")
+        _i_kanal = ig2.selectbox("Firma (cari)", ["(Seçilmedi)"] + list(_kanallar), key="iade_kanal")
+        _i_sku = ig3.text_input("Stok Kodu (SKU)", key="iade_sku")
+        ig4, ig5, ig6, ig7 = st.columns(4)
+        _i_ad = ig4.text_input("Ürün adı (opsiyonel)", key="iade_urunad")
+        _i_adet = ig5.number_input("İade adet", min_value=1, step=1, value=1, key="iade_adet_g")
+        _i_net = ig6.number_input("İade net tutar", min_value=0.0, step=1.0, format="%.4f", key="iade_net_g")
+        _i_depo = ig7.selectbox("Giren depo", _IADE_DEPOLAR, key="iade_depo_g",
+                                help="Mal fiziksel olarak hangi depoya girdiyse onu seç — "
+                                     "stok o depoya eklenir.")
+        st.caption("Bu kayıt **manuel** işaretlenir; ay sonu toplu yüklemede "
+                   "mükerrer sayılmaz, avans olarak düşülür.")
+        if st.button("İadeyi Kaydet", type="primary", key="iade_kaydet", icon=":material/save:"):
+            if not _i_sku.strip():
+                st.error("SKU zorunludur.")
             else:
-                _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
-                _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
-                # 9 küçük kart (değerleri "…" ile kesiliyordu) yerine 4 okunur kart
-                from shared.tasarim import kpi_serit as _ks, sayi as _sy
-                _ikal = [
-                    {"etiket": "İade adedi", "deger": tr_sayi(_top["i_adet"]), "renk": "amber",
-                     "alt": f"satılan {tr_sayi(_top['s_adet'])} adedin %{tr_sayi(_ior, 1)}'i"},
-                    {"etiket": "İade tutarı", "deger": _sy(_top["i_tutar"], "$"), "renk": "amber",
-                     "alt": "mal stoğa döndü", "ipucu": _usd(_top["i_tutar"])},
-                    {"etiket": "Net ciro", "deger": _sy(_top["net_ciro"], "$"), "renk": "cyan",
-                     "alt": f"satış {_sy(_top['s_ciro'], '$')} − iade", "ipucu": _usd(_top["net_ciro"])},
-                ]
-                if _kar_ok():
-                    _ikal.append({"etiket": "Satış kârı", "deger": _sy(_top["s_kar"], "$"), "renk": "yesil",
-                                  "alt": f"marj %{tr_sayi(_mr, 1)} · iade düşülmez", "ipucu": _usd(_top["s_kar"])})
-                st.markdown(_ks(_ikal), unsafe_allow_html=True)
+                _k = "" if str(_i_kanal).startswith("(") else _i_kanal
+                _ok, _msg = ekle_iade(str(_i_tarih)[:10], _k, _i_sku.strip(), _i_ad.strip(),
+                                      int(_i_adet), iade_net=float(_i_net),
+                                      depo=_i_depo, kaynak="manuel")
+                (st.success if _ok else st.error)(_msg)
+                if _ok:
+                    st.cache_data.clear()
+                    st.rerun()
+    if _iey.get("btn_sat_miade"):
+        _dlg_manuel_iade()
 
-                st.markdown(_B3.grup_basligi("İade kırılımı", "ürün, firma ya da ikisi birden"),
-                            unsafe_allow_html=True)
-                with st.container():
-                    _kirilim = secim_serit("Kırılım",
-                                        ["SKU bazlı (net)", "Firma bazlı", "SKU + Firma"], index=2, key="iade_kirilim")
-                    if _kirilim == "SKU bazlı (net)":
-                        _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
-                        _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
-                        st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
-                        from shared.masa_liste import kolon as _mk, ciz as _mliste
-                        _mliste([{
-                            "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"]),
-                            "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
-                            # Ham sayı: ortak tablo "ciro/tutar/kâr" sütununu kendisi biçimler.
-                            # Eskiden hazır metin ("$7.29") gidiyordu, sayıya çevrilemediği
-                            # için hücreler BOŞ görünüyordu.
-                            "Satış ciro": round(float(x["s_ciro"]), 2), "İade tutar": round(float(x["i_tutar"]), 2),
-                            "Net ciro": round(float(x["net_ciro"]), 2), "Satış kârı": round(float(x["s_kar"]), 2),
-                        } for x in _gor],
-                            [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
-                             _mk("Satış adet", "adet", gen="90px", genis=True), _mk("İade adet", "adet", gen="90px"),
-                             _mk("Net adet", "adet", gen="90px", genis=True), _mk("Satış ciro", "usd", genis=True),
-                             _mk("İade tutar", "usd", dar="alt"), _mk("Net ciro", "usd", genis=True)]
-                            # kâr yetkisi yoksa sütun hiç gitmez (eskiden "•••" maskeliydi)
-                            + ([_mk("Satış kârı", "usd", genis=True)] if _kar_ok() else []),
-                            "iade_sku_masa", toplam=["İade adet", "İade tutar"], bos="Bu dönemde satış ya da iade yok.",
-                            baslik_ipucu="SKU bazlı iade", ara_ipucu="Ürün ya da SKU")
-                    else:
-                        _iadeler = get_iadeler(_ib, _ibit)
-                        if not _iadeler:
-                            st.info("Bu dönemde iade kaydı yok.")
-                        elif _kirilim == "Firma bazlı":
-                            _fb = {}
-                            for r in _iadeler:
-                                f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
-                                o = _fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
-                                o["adet"] += int(r.get("iade_adet") or 0)
-                                o["tutar"] += float(r.get("iade_net") or 0)
-                                o["sku"].add(r.get("sku"))
-                            _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
-                                             "İade tutarı": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"]),
-                                             "_t": v["tutar"]}
-                                            for f, v in _fb.items()], key=lambda x: -x["İade adet"])
-                            for _r in _rows:
-                                _r.pop("_t", None)
-                            st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
-                            from shared.masa_liste import kolon as _mk, ciz as _mliste
-                            _mliste(_rows, [_mk("Firma / Cari", ana=True), _mk("İade adet", "adet", gen="100px"),
-                                            _mk("İade tutarı", "usd", gen="130px", dar="alt"),
-                                            _mk("SKU çeşidi", "adet", gen="100px", genis=True)],
-                                    "iade_firma_masa", toplam=["İade adet", "İade tutarı"], baslik_ipucu="Firma bazlı iade")
-                        else:  # SKU + Firma
-                            _rows = sorted([{
-                                "Firma / Cari": (r.get("kanal") or "").strip(), "SKU": r.get("sku", ""),
-                                "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")), "İade adet": int(r.get("iade_adet") or 0),
-                                "İade tutarı": round(float(r.get("iade_net") or 0), 2),
-                            } for r in _iadeler], key=lambda x: -x["İade adet"])
-                            st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
-                            from shared.masa_liste import kolon as _mk, ciz as _mliste
-                            _mliste(_rows, [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
-                                            _mk("Firma / Cari", secim=True), _mk("İade adet", "adet", gen="100px"),
-                                            _mk("İade tutarı", "usd", gen="130px", dar="alt")],
-                                    "iade_sku_firma_masa", toplam=["İade adet", "İade tutarı"],
-                                    baslik_ipucu="SKU ve firma bazlı iade", ara_ipucu="Ürün, SKU ya da firma")
+    # Aylık iade Excel'i görevi Ekim 2026'da kaldırıldı: iadeler teknik servis mal kabulünde
+    # kaydediliyor (giriş deposu + manuel iade). Excel yüklemesi Dosya kapısında isteğe bağlı.
+    _ib, _ibit = hizli_tarih_araligi("iade_ozet", varsayilan="Bu yıl", etiket="Özet dönemi")
+    _satirlar, _top = iade_satis_net_ozet(_ib, _ibit)
+    # Excel çıktısı: ekrandaki özet + kırılımlar + ham kayıtlar, tek dosyada 4 sayfa
+    _ix1, _ix2 = st.columns([1, 3])
+    _ix_iadeler = get_iadeler(_ib, _ibit)
+    _ix1.download_button(
+        "Excel indir", data=lambda: iade_excel_bytes(_satirlar, _ix_iadeler, _ib, _ibit), on_click="ignore",
+        file_name=f"iade_{str(_ib)[:10]}_{str(_ibit)[:10]}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True, key="iade_dl_xlsx", icon=":material/download:",
+        disabled=not (_satirlar or _ix_iadeler))
+    _ix2.caption(f"{tr_sayi(len(_ix_iadeler))} iade kaydı · {len(_satirlar)} ürün · "
+                 f"4 sayfa: SKU net · Firma · SKU + firma · Kayıtlar; sayılar ham.")
+    if not _satirlar:
+        st.info("Bu dönemde satış/iade kaydı yok.")
+    else:
+        _mr = (_top["s_kar"] / _top["s_ciro"] * 100) if _top["s_ciro"] > 0 else 0.0
+        _ior = (_top["i_adet"] / _top["s_adet"] * 100) if _top["s_adet"] > 0 else 0.0
+        # 9 küçük kart (değerleri "…" ile kesiliyordu) yerine 4 okunur kart
+        from shared.tasarim import kpi_serit as _ks, sayi as _sy
+        _ikal = [
+            {"etiket": "İade adedi", "deger": tr_sayi(_top["i_adet"]), "renk": "amber",
+             "alt": f"satılan {tr_sayi(_top['s_adet'])} adedin %{tr_sayi(_ior, 1)}'i"},
+            {"etiket": "İade tutarı", "deger": _sy(_top["i_tutar"], "$"), "renk": "amber",
+             "alt": "mal stoğa döndü", "ipucu": _usd(_top["i_tutar"])},
+            {"etiket": "Net ciro", "deger": _sy(_top["net_ciro"], "$"), "renk": "cyan",
+             "alt": f"satış {_sy(_top['s_ciro'], '$')} − iade", "ipucu": _usd(_top["net_ciro"])},
+        ]
+        if _kar_ok():
+            _ikal.append({"etiket": "Satış kârı", "deger": _sy(_top["s_kar"], "$"), "renk": "yesil",
+                          "alt": f"marj %{tr_sayi(_mr, 1)} · iade düşülmez", "ipucu": _usd(_top["s_kar"])})
+        st.markdown(_ks(_ikal), unsafe_allow_html=True)
 
-            # İade kayıtları: tıklanır liste → detay + ONAYLI silme.
-            # Eskiden pencere "Silinecek iade ID" istiyordu ama tabloda ID sütunu
-            # yoktu: hangi numaranın yazılacağı bilinemiyor, yanlış numara başka
-            # bir iadeyi siliyordu.
-            _iade_kayit_listesi(_ib, _ibit)
+        st.markdown(_B3.grup_basligi("İade kırılımı", "ürün, firma ya da ikisi birden"),
+                    unsafe_allow_html=True)
+        with st.container():
+            _kirilim = secim_serit("Kırılım",
+                                ["SKU bazlı (net)", "Firma bazlı", "SKU + Firma"], index=2, key="iade_kirilim")
+            if _kirilim == "SKU bazlı (net)":
+                _sadece_iade = st.checkbox("Yalnızca iadesi olanlar", value=True, key="iade_ozet_filtre")
+                _gor = [x for x in _satirlar if x["i_adet"] > 0] if _sadece_iade else _satirlar
+                st.caption(f"{len(_gor)} ürün · Satış − İade = Net")
+                from shared.masa_liste import kolon as _mk, ciz as _mliste
+                _mliste([{
+                    "SKU": x["sku"], "Ürün": urun_ad(x["sku"], x["urun_adi"]),
+                    "Satış adet": x["s_adet"], "İade adet": x["i_adet"], "Net adet": x["net_adet"],
+                    # Ham sayı: ortak tablo "ciro/tutar/kâr" sütununu kendisi biçimler.
+                    # Eskiden hazır metin ("$7.29") gidiyordu, sayıya çevrilemediği
+                    # için hücreler BOŞ görünüyordu.
+                    "Satış ciro": round(float(x["s_ciro"]), 2), "İade tutar": round(float(x["i_tutar"]), 2),
+                    "Net ciro": round(float(x["net_ciro"]), 2), "Satış kârı": round(float(x["s_kar"]), 2),
+                } for x in _gor],
+                    [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                     _mk("Satış adet", "adet", gen="90px", genis=True), _mk("İade adet", "adet", gen="90px"),
+                     _mk("Net adet", "adet", gen="90px", genis=True), _mk("Satış ciro", "usd", genis=True),
+                     _mk("İade tutar", "usd", dar="alt"), _mk("Net ciro", "usd", genis=True)]
+                    # kâr yetkisi yoksa sütun hiç gitmez (eskiden "•••" maskeliydi)
+                    + ([_mk("Satış kârı", "usd", genis=True)] if _kar_ok() else []),
+                    "iade_sku_masa", toplam=["İade adet", "İade tutar"], bos="Bu dönemde satış ya da iade yok.",
+                    baslik_ipucu="SKU bazlı iade", ara_ipucu="Ürün ya da SKU")
+            else:
+                _iadeler = get_iadeler(_ib, _ibit)
+                if not _iadeler:
+                    st.info("Bu dönemde iade kaydı yok.")
+                elif _kirilim == "Firma bazlı":
+                    _fb = {}
+                    for r in _iadeler:
+                        f = ((r.get("kanal") or "").strip()) or "(cari belirsiz)"
+                        o = _fb.setdefault(f, {"adet": 0, "tutar": 0.0, "sku": set()})
+                        o["adet"] += int(r.get("iade_adet") or 0)
+                        o["tutar"] += float(r.get("iade_net") or 0)
+                        o["sku"].add(r.get("sku"))
+                    _rows = sorted([{"Firma / Cari": f, "İade adet": v["adet"],
+                                     "İade tutarı": round(v["tutar"], 2), "SKU çeşidi": len(v["sku"]),
+                                     "_t": v["tutar"]}
+                                    for f, v in _fb.items()], key=lambda x: -x["İade adet"])
+                    for _r in _rows:
+                        _r.pop("_t", None)
+                    st.caption(f"{len(_rows)} firma · (sadece iade — firma bazlı net için satış cari eşleşmesi gerekir)")
+                    from shared.masa_liste import kolon as _mk, ciz as _mliste
+                    _mliste(_rows, [_mk("Firma / Cari", ana=True), _mk("İade adet", "adet", gen="100px"),
+                                    _mk("İade tutarı", "usd", gen="130px", dar="alt"),
+                                    _mk("SKU çeşidi", "adet", gen="100px", genis=True)],
+                            "iade_firma_masa", toplam=["İade adet", "İade tutarı"], baslik_ipucu="Firma bazlı iade")
+                else:  # SKU + Firma
+                    _rows = sorted([{
+                        "Firma / Cari": (r.get("kanal") or "").strip(), "SKU": r.get("sku", ""),
+                        "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")), "İade adet": int(r.get("iade_adet") or 0),
+                        "İade tutarı": round(float(r.get("iade_net") or 0), 2),
+                    } for r in _iadeler], key=lambda x: -x["İade adet"])
+                    st.caption(f"{len(_rows)} kalem · her iade satırı (hangi firmadan hangi ürün)")
+                    from shared.masa_liste import kolon as _mk, ciz as _mliste
+                    _mliste(_rows, [_mk("Ürün", ana=True, alt="SKU"), _mk("SKU", gizli=True),
+                                    _mk("Firma / Cari", secim=True), _mk("İade adet", "adet", gen="100px"),
+                                    _mk("İade tutarı", "usd", gen="130px", dar="alt")],
+                            "iade_sku_firma_masa", toplam=["İade adet", "İade tutarı"],
+                            baslik_ipucu="SKU ve firma bazlı iade", ara_ipucu="Ürün, SKU ya da firma")
 
-    _sayfa_parcasi()
+    # İade kayıtları: tıklanır liste → detay + ONAYLI silme.
+    # Eskiden pencere "Silinecek iade ID" istiyordu ama tabloda ID sütunu
+    # yoktu: hangi numaranın yazılacağı bilinemiyor, yanlış numara başka
+    # bir iadeyi siliyordu.
+    _iade_kayit_listesi(_ib, _ibit)
