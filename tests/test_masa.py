@@ -135,7 +135,9 @@ def test_gorunum_durumu_oturumdan_geri_gelir(monkeypatch):
     assert M.onceki_durum("kayit_masasi") is None
     assert M.onceki_durum("yok_boyle") is None
     js = M._JS
-    assert 'setStateValue("durum"' in js and "D.baslangic" in js
+    # Ekim 2026 (hızlandırma): durum tarayıcının oturum belleğinde; sunucuya yazılmaz (yazım sayfayı yeniden çalıştırıyordu)
+    assert 'sessionStorage.setItem(DK' in js and 'sessionStorage.getItem(DK)' in js and "D.baslangic" in js
+    assert 'setStateValue("durum"' not in js
 
 
 def test_secim_liste_alani_ve_bos_deger_sonda():
@@ -143,3 +145,41 @@ def test_secim_liste_alani_ve_bos_deger_sonda():
     js = M._JS
     assert "Array.isArray(x[s.alan]) ? x[s.alan].map(String).includes(S.sec[s.alan])" in js
     assert "bA === bB ? 0 : bA ? 1 : -1" in js
+
+
+
+def _coz(veri):
+    """masa JS'indeki çözümün Python eşi: satirlar_k + satirlar_v → satır sözlükleri (YOK = alan yok)."""
+    k = veri["satirlar_k"]
+    return [{a: v[i] for i, a in enumerate(k) if i < len(v) and v[i] != M.YOK} for v in veri["satirlar_v"]]
+
+
+def test_satirlar_sutun_duzeninde_gider_ve_aynen_cozulur():
+    """Hızlandırma (Ekim 2026): alan adları satır başına tekrar etmez. Satırda olmayan alan ile None ayrı kalır
+    (sıralama 'x__s yoksa x' der)."""
+    satirlar = [{"id": 1, "a": "x", "b__s": None, "_detay": [["Et", "1"]]}, {"id": "SKU-2", "a": "y", "c": 3},
+                {"id": 3}]
+    v = M.sutun_duzeni({"satirlar": satirlar, "islemler": [{"k": "ac"}]})
+    assert "satirlar" not in v and v["islemler"] == [{"k": "ac"}]
+    assert v["satirlar_k"] == ["id", "a", "b__s", "_detay", "c"]
+    assert v["satirlar_v"][2] == [3]                                     # sondaki 'alan yok'lar yazılmaz
+    assert _coz(v) == satirlar
+    assert M.sutun_duzeni({"islemler": []}) == {"islemler": []}            # satırsız tanım olduğu gibi
+    import json
+    eski = len(json.dumps(satirlar * 50)); yeni = len(json.dumps(M.sutun_duzeni({"satirlar": satirlar * 50})))
+    assert yeni < eski * 0.8
+    js = M._JS
+    assert 'D.satirlar_k ? (D.satirlar_v || []).map(' in js and 'v[i] !== "\\u0001"' in js
+
+
+def test_masa_anahtari_gonderir_baslangic_sunucudan_gelmez(monkeypatch):
+    gelen = {}
+
+    class _B:
+        def __call__(self, **k):
+            gelen.update(k)
+            return {}
+    monkeypatch.setattr(M, "_bilesen", lambda: _B())
+    M.masa({"satirlar": [{"id": 1}]}, "x_masasi")
+    assert gelen["data"]["anahtar"] == "x_masasi" and "baslangic" not in gelen["data"]
+    assert "default" not in gelen and "on_durum_change" not in gelen      # durum değişimi sayfayı çalıştırmaz

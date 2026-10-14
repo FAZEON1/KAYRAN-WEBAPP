@@ -228,7 +228,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
     "kayranacc.odeme_hesap": ["hafta_secenekleri", "hafta_etiketi"],   # hafta adı (görünüm cilası)
     "kayranacc.odeme_masasi": ["masa_verisi", "istek_coz", "islem_uygula", "motor_istegi", "yurutucu"],
-    "shared.masa": ["masa", "istek_al", "kosul_uyar", "calistir", "onceki_durum"],   # ortak liste masası (Eki 2026)
+    "shared.masa": ["masa", "istek_al", "kosul_uyar", "calistir", "onceki_durum", "sutun_duzeni"],   # ortak liste masası (Eki 2026)
     "satis.satis_masasi": ["siparis_masa_verisi", "siparis_ozeti", "siparis_satirlari", "kalem_masa_verisi",
                            "iade_masa_verisi", "siparis_yurutucu", "iade_yurutucu", "siparis_anahtari",
                            "usd_tam", "usd_kisa", "usd_birim"],

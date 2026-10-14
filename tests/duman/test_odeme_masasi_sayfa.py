@@ -20,9 +20,18 @@ def _bilesen_verisi(dugum, out):
         if bc is None and p is not None and hasattr(p, "component_name") and hasattr(p, "json"):
             bc = p
         if bc is not None and str(getattr(bc, "component_name", "")).endswith("kayran_masa"):
-            out.append(json.loads(bc.json) if bc.json else None)
+            out.append(_satirlara_coz(json.loads(bc.json)) if bc.json else None)
         _bilesen_verisi(c, out)
     return out
+
+
+def _satirlara_coz(v):
+    """Masa satırları sütun düzeninde gider (shared/masa.sutun_duzeni, Ekim 2026); testler satır sözlüğü okur."""
+    if isinstance(v, dict) and "satirlar_k" in v:
+        from shared.masa import YOK
+        k = v.pop("satirlar_k")
+        v["satirlar"] = [{a: d for a, d in zip(k, s) if d != YOK} for s in v.pop("satirlar_v")]
+    return v
 
 
 def test_bu_hafta_odeme_masasi_ornek_veriyle(monkeypatch):

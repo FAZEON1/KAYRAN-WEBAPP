@@ -58,3 +58,6 @@ gatherUsageStats = false
 #    manifest.json + simgeler (shared/pwa.py sayfaya bağlar). ──
 [server]
 enableStaticServing = true
+# Hızlandırma (Ekim 2026): sunucu ↔ tarayıcı mesajları sıkıştırılır. Liste masalarının verisi (aynı alan adları,
+# tekrar eden metinler) ~10–15 kat küçülür; ilk açılış canlıda belirgin hızlanır. Davranış değişmez.
+enableWebsocketCompression = true
