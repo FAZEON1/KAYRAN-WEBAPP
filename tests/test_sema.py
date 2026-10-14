@@ -32,12 +32,7 @@ sys.modules[_spec.name] = U          # dataclass modülü sys.modules'ta arar
 _spec.loader.exec_module(U)
 
 # Kodda adı geçen ama canlıda OLMAYAN tablolar (bilinen hata; düzeltilince buradan silinmeli).
-BILINEN_EKSIK = {
-    # kayranpm/ref_no.py firma_ref_sayisi/firma_sil "ref_no" tablosunu sorgular; canlıda yok
-    # (doğrusu ref_kayitlari). Hata yutulduğu için sayı hep 0 döner ve firma silinince
-    # ref_kayitlari_firma_id_fkey ON DELETE CASCADE bağlı ref kayıtlarını uyarısız siler.
-    "ref_no",
-}
+BILINEN_EKSIK = set()   # kayranpm/ref_no.py "ref_no" → ref_kayitlari düzeltildi (Eki 2026)
 
 
 # ─── yardımcılar ─────────────────────────────────────────────────────────

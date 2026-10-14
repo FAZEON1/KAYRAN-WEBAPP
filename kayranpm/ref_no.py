@@ -518,7 +518,7 @@ def firma_guncelle(fid, adi, kodu):
 def firma_ref_sayisi(fid):
     """Firmaya bağlı ref no adedi — silmeden önce uyarmak için."""
     try:
-        return len(_rows(get_client().table("ref_no").select("id")
+        return len(_rows(get_client().table("ref_kayitlari").select("id")
                          .eq("firma_id", fid).execute()) or [])
     except Exception:
         return 0
@@ -533,7 +533,7 @@ def firma_sil(fid, refleri_de_sil=False):
             return False, (f"Bu firmaya bağlı {_adet} ref no var. Önce onları "
                            "sil ya da 'ref no'ları da sil' kutusunu işaretle.")
         if _adet and refleri_de_sil:
-            sb.table("ref_no").delete().eq("firma_id", fid).execute()
+            sb.table("ref_kayitlari").delete().eq("firma_id", fid).execute()
         sb.table("ref_firmalar").delete().eq("id", fid).execute()
         # Silme gerçekten oldu mu?
         _kalan = _rows(sb.table("ref_firmalar").select("id").eq("id", fid).execute())

@@ -32,7 +32,7 @@ YEDEK_TABLOLAR = [
     "firma_stok", "yoldaki_urunler", "stok_hareketleri",
     "depo_manuel_takip", "depo_sevk_log", "happylife_stok",
     # Kampanya / ref / destek
-    "kampanyalar", "kampanya_urunler", "ref_butce", "ref_kayitlari", "ref_no",
+    "kampanyalar", "kampanya_urunler", "ref_butce", "ref_kayitlari",
     "alinan_destekler",
     # İthalat / alım
     "ithalat_dosyalari", "ithalat_kalemleri", "satin_alma_gecmisi",
@@ -73,7 +73,7 @@ GORUNUMLER = ("v_destek_donem", "v_satis_pnl", "mv_gunluk_pnl", "mv_kanal_ay_pnl
 
 # Kodda adı geçen ama canlı veritabanında bulunmayabilecek tablolar: yoksa yedek başarısız
 # SAYILMAZ (uyarı verilir). Başka bir tablo bulunamazsa yedek BAŞARISIZ olur.
-CANLIDA_OLMAYABILIR = {"ref_no"}
+CANLIDA_OLMAYABILIR = set()   # canlıda bulunmayabilecek tablolar ("yok" → uyarı, hata değil)
 
 # Birincil anahtarı "id" olmayan bilinen tablolar (veritabani/*.sql ve on_conflict kullanımları).
 SIRA_ANAHTARI = {

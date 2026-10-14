@@ -155,7 +155,8 @@ def test_sayim_tutmazsa_basarisiz(tmp_path, monkeypatch, capsys):
     assert list(tmp_path.glob("kayran_yedek_*_json/manifest.json"))   # eldeki yine yazılır
 
 
-def test_okunamayan_tablo_basarisiz_ama_ref_no_yoksa_uyari():
+def test_okunamayan_tablo_basarisiz_ama_ref_no_yoksa_uyari(monkeypatch):
+    monkeypatch.setattr(YT, "CANLIDA_OLMAYABILIR", {"ref_no"})
     sb = SahteSB({"satislar": _satis(10)}, yok={"ref_no", "iadeler"})
     sonuc, hatali = YT.tumunu_oku(sb, ["satislar", "ref_no", "iadeler"])
     d = {s["tablo"]: s["durum"] for s in sonuc}
