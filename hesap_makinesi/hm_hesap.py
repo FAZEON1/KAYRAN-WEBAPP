@@ -64,17 +64,6 @@ def gokhan_prim(aylik_maas, baz_kat, kasa_hedef, kasa_gercek, kasa_ciro, sog_hed
             "kasa_ciro_tl": _f(kasa_ciro) * _f(kur), "sog_ciro_tl": _f(sog_ciro) * _f(kur)}
 
 
-# ── Prim: Ayhan Eroğlu ──────────────────────────────────────────────
-def ayhan_prim(mon_oran, kasa_oran, ek_usd, ssd_oran, kur, mon_ciro, kasa_ciro, ssd_ciro, ek_adet):
-    """Monitör / kasa / SSD&RAM: ciro × oran %; ekran kartı: adet × birim USD; toplam × kur."""
-    mon = _f(mon_ciro) * _f(mon_oran) / 100
-    kasa = _f(kasa_ciro) * _f(kasa_oran) / 100
-    ek = _f(ek_adet) * _f(ek_usd)
-    ssd = _f(ssd_ciro) * _f(ssd_oran) / 100
-    top = mon + kasa + ek + ssd
-    return {"mon": mon, "kasa": kasa, "ek": ek, "ssd": ssd, "toplam_usd": top, "toplam_tl": top * _f(kur)}
-
-
 # ── Ödeme geçmişi ───────────────────────────────────────────────────
 def _norm(s):
     return " ".join(str(s or "").split()).casefold()
@@ -84,3 +73,23 @@ def donem_var_mi(gecmis, donem):
     """Aynı dönem için kayıt var mı (büyük/küçük harf ve boşluk farkı yok sayılır)."""
     n = _norm(donem)
     return bool(n) and any(_norm(r.get("donem")) == n for r in gecmis or [])
+
+
+# ── Ödeme notları (Ekim 2026) ───────────────────────────────────────
+# Her prim ödemesine pencereden not eklenir; notlar kaydın "notlar" alanında satır satır,
+# tarih ve yazanla birlikte birikir (eski not silinmez). Şema değişmedi.
+def not_ekle(mevcut, yeni, kim="", tarih=None):
+    """Mevcut not metnine yeni bir satır ekler: 'gg.aa.yyyy · kim: metin'. Boş not eklenmez."""
+    from datetime import date as _date
+    metin = " ".join(str(yeni or "").split())
+    if not metin:
+        return str(mevcut or "")
+    t = tarih or _date.today()
+    satir = f"{t:%d.%m.%Y}" + (f" · {str(kim).strip()}" if str(kim or "").strip() else "") + f": {metin}"
+    eski = str(mevcut or "").strip()
+    return f"{eski}\n{satir}" if eski else satir
+
+
+def notlari_ayir(notlar):
+    """Not metni → boş olmayan satırlar listesi (eski tek satırlık notlar da bir satır)."""
+    return [x.strip() for x in str(notlar or "").splitlines() if x.strip()]

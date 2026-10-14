@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """KAYRAN — Hesap Makinesi (Ekim 2026 yenileme).
 
-Sekmeler: Ürün Kârlılık · Kırılma Noktası · Gökhan Yavuz primi · Ayhan Eroğlu primi.
+Sekmeler: Ürün Kârlılık · Kırılma Noktası · Gökhan Yavuz primi (Ayhan Eroğlu primi Ekim 2026'da kaldırıldı;
+kayıtlı ödemeleri veritabanında duruyor).
 Formüller hm_hesap.py'de (saf, testli) — mantık eski kodla birebir aynı.
 
 Düzeltilenler: prim kaydı onaysız siliniyordu · aynı dönem iki kez kaydedilebiliyordu ·
@@ -19,7 +20,7 @@ from shared.tasarim import tr_sayi, baslik as _sb
 from shared.tasarim import renk as trenk
 from shared.utils import metrik_satiri
 
-from .hm_hesap import karlilik, kirilma, gokhan_prim, ayhan_prim, donem_var_mi
+from .hm_hesap import karlilik, kirilma, gokhan_prim, donem_var_mi, not_ekle, notlari_ayir
 
 
 def _tarih_tr(v):
@@ -139,6 +140,19 @@ def prim_guncelle(row_id, donem, toplam_prim, odeme_tarihi, notlar):
         return False
 
 
+def prim_not_guncelle(row_id, notlar):
+    """Yalnız not alanı (ödeme notları penceresi)."""
+    try:
+        sb = _get_supabase()
+        if not sb:
+            return False
+        sb.table("prim_gecmis").update({"notlar": notlar}).eq("id", row_id).execute()
+        return True
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Not kaydedilemedi: {e}")
+        return False
+
+
 def prim_listele(kisi):
     try:
         sb = _get_supabase()
@@ -181,25 +195,33 @@ def _gecmis_odemeler(kisi, pfx, gecmis):
         if not gecmis:
             st.caption("Henüz kayıtlı ödeme yok.")
             return
-        bas = st.columns([1.3, 1.6, 1.3, 2.4, 0.6])
-        for c, t in zip(bas, ["Dönem", "Prim", "Ödeme tarihi", "Not", ""]):
+        bas = st.columns([1.3, 1.6, 1.3, 2.4, 0.6, 0.6])
+        for c, t in zip(bas, ["Dönem", "Prim", "Ödeme tarihi", "Not", "", ""]):
             c.markdown(f'<div style="font-size:12px;color:var(--k-silik);font-weight:600">{t}</div>',
                        unsafe_allow_html=True)
         for row in gecmis:
             rid = row.get("id")
-            c = st.columns([1.3, 1.6, 1.3, 2.4, 0.6], vertical_alignment="center")
+            c = st.columns([1.3, 1.6, 1.3, 2.4, 0.6, 0.6], vertical_alignment="center")
             c[0].markdown(f'<b>{_e(row.get("donem"))}</b>', unsafe_allow_html=True)
             c[1].markdown(f'<span style="font-family:var(--k-mono);color:var(--k-yesil);font-weight:700">'
                           f'{_tl(row.get("toplam_prim"))}</span>', unsafe_allow_html=True)
             c[2].markdown(_tarih_tr(row.get("odeme_tarihi")) or "—")
-            c[3].markdown(f'<span style="color:var(--k-soluk)">{_e(row.get("notlar")) or "—"}</span>',
-                          unsafe_allow_html=True)
-            if c[4].button("", key=f"{pfx}_ed_{rid}", help="Düzenle / sil", icon=":material/edit:"):
+            _nl = notlari_ayir(row.get("notlar"))
+            c[3].markdown(f'<span style="color:var(--k-soluk)">{_e(_nl[-1]) if _nl else "—"}</span>'
+                          + (f' <span style="font-size:11.5px;color:var(--k-silik)">(+{len(_nl) - 1} not)</span>'
+                             if len(_nl) > 1 else ""), unsafe_allow_html=True)
+            if c[4].button("", key=f"{pfx}_not_{rid}", help="Notlar · not ekle", icon=":material/sticky_note_2:"):
+                st.session_state[f"_{pfx}_not_ac"] = rid
+            if c[5].button("", key=f"{pfx}_ed_{rid}", help="Düzenle / sil", icon=":material/edit:"):
                 st.session_state[ek] = None if st.session_state.get(ek) == rid else rid
         st.markdown(f'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--k-kenar2);'
                     f'padding-top:6px;margin-top:4px;font-size:13px"><b>Σ Toplam</b>'
                     f'<b style="font-family:var(--k-mono)">{_tl(top)}</b></div>', unsafe_allow_html=True)
 
+        _nid = st.session_state.pop(f"_{pfx}_not_ac", None)
+        nrow = next((r for r in gecmis if r.get("id") == _nid), None) if _nid is not None else None
+        if nrow:
+            _not_penceresi(nrow, pfx)
         erow = next((r for r in gecmis if r.get("id") == st.session_state.get(ek)), None)
         if not erow:
             return
@@ -215,7 +237,8 @@ def _gecmis_odemeler(kisi, pfx, gecmis):
             except ValueError:
                 td = date.today()
             e_t = e3.date_input("Ödeme tarihi", value=td, key=f"{pfx}_ed_t_{rid}", format="DD.MM.YYYY")
-            e_n = e4.text_input("Not", value=erow.get("notlar", "") or "", key=f"{pfx}_ed_n_{rid}")
+            e_n = e4.text_area("Notlar", value=erow.get("notlar", "") or "", key=f"{pfx}_ed_n_{rid}", height=68,
+                               help="Her satır bir not. Yeni not eklemek için satırdaki not düğmesini kullan.")
             b1, b2, _ = st.columns([1, 1, 3])
             if b1.button("Kaydet", key=f"{pfx}_esv", type="primary", icon=":material/check_circle:"):
                 if prim_guncelle(rid, e_d, e_p, e_t, e_n):
@@ -233,6 +256,29 @@ def _gecmis_odemeler(kisi, pfx, gecmis):
                     st.session_state[ek] = None
                     st.toast("🗑️ Ödeme kaydı silindi")
                     st.rerun()
+
+
+@st.dialog("Ödeme notları", width="medium")
+def _not_penceresi(row, pfx):
+    """Bir prim ödemesinin notları: önceki notlar tarih ve yazanla, altta yeni not. Eski not silinmez."""
+    rid = row.get("id")
+    st.markdown(f'<div style="font-size:15px;font-weight:650">{_e(row.get("donem"))} · {_tl(row.get("toplam_prim"))}</div>'
+                f'<div style="font-size:12px;color:var(--k-silik);margin-bottom:8px">ödeme '
+                f'{_tarih_tr(row.get("odeme_tarihi")) or "—"}</div>', unsafe_allow_html=True)
+    notlar = notlari_ayir(row.get("notlar"))
+    if notlar:
+        for n in notlar:
+            st.markdown(f'<div style="padding:6px 0;border-bottom:1px solid var(--k-kenar);font-size:13px">{_e(n)}</div>',
+                        unsafe_allow_html=True)
+    else:
+        st.caption("Bu ödemeye henüz not eklenmedi.")
+    yeni = st.text_area("Yeni not", key=f"{pfx}_yeni_not_{rid}", placeholder="Örn: Ekim maaşıyla birlikte ödendi")
+    if st.button("Notu ekle", type="primary", icon=":material/add_comment:", key=f"{pfx}_not_kaydet_{rid}",
+                 disabled=not (yeni or "").strip()):
+        kim = st.session_state.get("aktif_kullanici", "") or ""
+        if prim_not_guncelle(rid, not_ekle(row.get("notlar"), yeni, kim)):
+            st.toast("Not eklendi")
+            st.rerun()
 
 
 # ── Prim: Gökhan Yavuz ──────────────────────────────────────────────
@@ -280,46 +326,6 @@ def _prim_gokhan():
     gecmis = prim_listele("gokhan_yavuz")
     _odeme_kaydet("gokhan_yavuz", "gy", donem, r["toplam"], gecmis)
     _gecmis_odemeler("gokhan_yavuz", "gy", gecmis)
-
-
-# ── Prim: Ayhan Eroğlu ──────────────────────────────────────────────
-def _prim_ayhan():
-    with st.container(border=True):
-        _kart_baslik("Ayhan Eroğlu · birim prim oranları ve kur",
-                     "Monitör / kasa / SSD&RAM: ciro × oran % · ekran kartı: adet × birim USD")
-        b1, b2, b3, b4, b5 = st.columns(5)
-        mon_b = b1.number_input("Monitör oranı (%)", min_value=0.0, value=0.05, step=0.01, format="%.2f", key="ay_mb")
-        kasa_b = b2.number_input("Kasa oranı (%)", min_value=0.0, value=1.0, step=0.01, format="%.2f", key="ay_kb")
-        ek_b = b3.number_input("Ekran kartı ($/adet)", min_value=0.0, value=1.0, step=0.01, format="%.2f", key="ay_ek")
-        ssd_b = b4.number_input("SSD&RAM oranı (%)", min_value=0.0, value=0.05, step=0.01, format="%.2f", key="ay_sb")
-        kur = b5.number_input("USD/TL kuru", min_value=1.0, value=_guncel_kur(), step=0.5, format="%.2f", key="ay_kur")
-    with st.container(border=True):
-        _kart_baslik("Dönem ve gerçekleşenler")
-        a1, _ = st.columns([1, 3])
-        donem = a1.text_input("Dönem", value="Q1 2026", key="ay_d")
-        c1, c2, c3, c4 = st.columns(4)
-        mon_c = c1.number_input("Monitör ciro (USD)", min_value=0.0, value=0.0, step=1000.0, format="%.0f",
-                                key="ay_mon_ciro")
-        kasa_c = c2.number_input("Kasa ciro (USD)", min_value=0.0, value=0.0, step=1000.0, format="%.0f",
-                                 key="ay_kasa_ciro")
-        ssd_c = c3.number_input("SSD&RAM ciro (USD)", min_value=0.0, value=0.0, step=1000.0, format="%.0f",
-                                key="ay_ssd_ciro")
-        ek_a = c4.number_input("Ekran kartı adedi", min_value=0, value=0, step=1, key="ay_ea")
-    r = ayhan_prim(mon_b, kasa_b, ek_b, ssd_b, kur, mon_c, kasa_c, ssd_c, ek_a)
-    with st.container(border=True):
-        _kart_baslik("Hesap sonucu", f"{_usd(r['toplam_usd'])} × {tr_sayi(kur, 2)} = {_tl(r['toplam_tl'])}")
-        metrik_satiri([
-            {"label": "Monitör", "value": _usd(r["mon"]), "renk": trenk("mavi")},
-            {"label": "Kasa", "value": _usd(r["kasa"]), "renk": trenk("mavi")},
-            {"label": "Ekran kartı", "value": _usd(r["ek"]), "renk": trenk("mavi")},
-            # "SSD&RAM" tamamen büyük harf → kart etiketinde "Ssd&ram" oluyordu (cümle düzeni)
-            {"label": "SSD ve RAM", "value": _usd(r["ssd"]), "renk": trenk("mavi")},
-            {"label": "Toplam (USD)", "value": _usd(r["toplam_usd"]), "renk": trenk("amber")},
-            {"label": "Toplam (TL)", "value": _tl(r["toplam_tl"]), "renk": trenk("yesil")},
-        ])
-    gecmis = prim_listele("ayhan_eroglu")
-    _odeme_kaydet("ayhan_eroglu", "ay", donem, r["toplam_tl"], gecmis)
-    _gecmis_odemeler("ayhan_eroglu", "ay", gecmis)
 
 
 # ── Ürün kârlılık ───────────────────────────────────────────────────
@@ -438,7 +444,7 @@ def _breakeven():
 
 # ── Çalıştır ────────────────────────────────────────────────────────
 SEKMELER = {"karlilik": "Ürün kârlılık", "breakeven": "Kırılma noktası",
-            "prim_gokhan": "Gökhan Yavuz primi", "prim_ayhan": "Ayhan Eroğlu primi"}
+            "prim_gokhan": "Gökhan Yavuz primi"}
 
 
 def run():
@@ -455,6 +461,6 @@ def run():
         sekme = st.segmented_control("Sekme", list(SEKMELER), format_func=SEKMELER.get, key="hm_sekme",
                                      label_visibility="collapsed") or "karlilik"
         {"karlilik": _urun_karlilik, "breakeven": _breakeven,
-         "prim_gokhan": _prim_gokhan, "prim_ayhan": _prim_ayhan}[sekme]()
+         "prim_gokhan": _prim_gokhan}[sekme]()
 
     _sayfa_parcasi()

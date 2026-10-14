@@ -36,14 +36,6 @@ def test_gokhan_prim_ciro_yoksa_yari_yari_ve_eksi_bonus_yok():
     assert r["kasa_pay"] == r["sog_pay"] == 0.5 and r["bonus"] == 0 and r["toplam"] == 150000
 
 
-def test_ayhan_prim():
-    from hesap_makinesi.hm_hesap import ayhan_prim
-    r = ayhan_prim(mon_oran=0.05, kasa_oran=1.0, ek_usd=1.0, ssd_oran=0.05, kur=41.5,
-                   mon_ciro=100000, kasa_ciro=20000, ssd_ciro=10000, ek_adet=30)
-    assert (r["mon"], r["kasa"], r["ek"], r["ssd"]) == (50, 200, 30, 5)
-    assert r["toplam_usd"] == 285 and round(r["toplam_tl"], 2) == 11827.5
-
-
 def test_kirilma_noktasi():
     from hesap_makinesi.hm_hesap import kirilma
     r = kirilma(gider=10000, marj=25, mevcut=30000, ort_fiyat=200, periyot="Aylık")
@@ -111,3 +103,28 @@ def test_coklu_dolar_kacisli():
     g = m[m.index('st.caption(f"Toplam ciro'):]
     g = g[:g.index(")\n") + 1]
     assert g.count("_usd_md(") == 3 and "_usd(" not in g
+
+
+# ── Ayhan Eroğlu primi kaldırıldı; Gökhan'ın ödemelerine not penceresi (Ekim 2026) ──
+def test_ayhan_sekmesi_kalkti():
+    import hesap_makinesi.hm_hesap as H
+    m = _oku(MAIN)
+    assert not hasattr(H, "ayhan_prim") and "_prim_ayhan" not in m and "prim_ayhan" not in m
+    assert '"prim_gokhan": "Gökhan Yavuz primi"' in m
+
+
+def test_not_ekle_tarih_ve_yazanla_biriktirir():
+    from datetime import date
+    from hesap_makinesi.hm_hesap import not_ekle, notlari_ayir
+    n1 = not_ekle("", "Ekim maaşıyla   ödendi", "ibrahim", date(2026, 10, 14))
+    assert n1 == "14.10.2026 · ibrahim: Ekim maaşıyla ödendi"
+    n2 = not_ekle(n1, "Banka: Örnek TL", "", date(2026, 10, 15))
+    assert notlari_ayir(n2) == ["14.10.2026 · ibrahim: Ekim maaşıyla ödendi", "15.10.2026: Banka: Örnek TL"]
+    assert not_ekle(n1, "   ") == n1                                   # boş not eklenmez
+    assert notlari_ayir("Q1 ödemesi") == ["Q1 ödemesi"] and notlari_ayir(None) == []   # eski tek satır
+
+
+def test_gecmiste_not_dugmesi_ve_pencere():
+    m = _oku(MAIN)
+    assert '@st.dialog("Ödeme notları"' in m and 'key=f"{pfx}_not_{rid}"' in m
+    assert "prim_not_guncelle(rid, not_ekle(row.get(\"notlar\"), yeni, kim))" in m
