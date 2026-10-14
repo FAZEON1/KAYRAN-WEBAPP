@@ -151,7 +151,7 @@ def test_kart_kar_gizliyken_kar_rakami_yok():
 
 def test_stok_kartina_bagli_ve_salt_okur():
     s = (KOK / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
-    t5 = s[s.index("    with t5:"):s.index("    with t6:")]
+    t5 = s[s.index("    def _govde_analiz():"):s.index("    def _govde_iade():")]   # Analiz sekmesi gövdesi
     assert t5.index("_karne_ciz(sku)") < t5.index("# Marj sağlığı")          # Analiz'in en üstünde
     kod = (KOK / "kayranpm" / "urun_karnesi.py").read_text(encoding="utf-8")
     # Veritabanına doğrudan erişim yok (yalnız mevcut okuma fonksiyonları); ayar yazımı yok
