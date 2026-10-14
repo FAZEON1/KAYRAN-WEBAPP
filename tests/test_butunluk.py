@@ -66,7 +66,7 @@ def _ust_duzey_isimler(dosya):
 #    Sessiz fonksiyon kayıplarını yakalar.
 # ═══════════════════════════════════════════════════════════════════════
 _TARANAN_MODULLER = {}
-for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared"):
+for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis", "shared", "hesap_makinesi"):
     for _d in ("database.py", "utils.py", "auth.py", "tasarim.py", "irsaliye.py",
                "stok.py", "arama.py", "audit.py", "dogrula.py", "kar_gizle.py",
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "oturum.py",
@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "hm_hesap.py",
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -227,6 +227,8 @@ KRITIK_FONKSIYONLAR = {
                           "dogrudan_giris_mi", "giris_sekli"],
     "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari"],
     "kayranacc.odeme_hesap": ["hafta_secenekleri"],
+    "hesap_makinesi.hm_hesap": ["karlilik", "kirilma", "gokhan_prim", "donem_var_mi", "not_ekle", "notlari_ayir"],
+    "hesap_makinesi.main": ["run", "prim_not_guncelle"],
     "kayranpm.canli_pacal": ["hesapla", "eldeki_stoklar", "teslim_partileri", "harita_hesapla", "harita",
                              "bul", "aciklama"],
     "teknikservis.iade_fatura": ["firma_koku", "son_fiyat_haritasi", "fiyat_onerisi", "para_cevir", "kalem_ekle",
