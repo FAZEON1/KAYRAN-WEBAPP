@@ -29,6 +29,16 @@ def test_ertelenen_odeme_tiklaninca_odeme_penceresi_acilir(monkeypatch):
     at.session_state["acc_sayfa"] = "⏳ Ertelenen Ödemeler"
     at.run()
     assert not _sorunlar(at), _sorunlar(at)
+    # Ekim 2026: liste ortak masada; ödeme işlemleri (öde / ötele / düzenle / sil) yan panelde, satır 41 masada
+    from test_odeme_masasi_sayfa import _bilesen_verisi
+    veri = _bilesen_verisi(at.main, [])
+    assert veri and [s["id"] for s in veri[0]["satirlar"]] == [41] and veri[0]["satirlar"][0]["kez"] == 2
+    assert {"ode", "otele", "duzenle", "sil"} <= {i["k"] for i in veri[0]["islemler"]}
+    # Eski ekran (bayrak False) aynen çalışır: satıra tıkla → Bu Hafta'daki ödeme penceresi
+    import kayranacc.odeme_ekran as OE
+    monkeypatch.setattr(OE, "ERTELENEN_MASASI_YENI", False)
+    at.run()
+    assert not _sorunlar(at), _sorunlar(at)
     at.button(key="tkb_satir_ert41").click().run()            # satıra tıkla → ödeme penceresi
     assert not _sorunlar(at), _sorunlar(at)
     # Bu Hafta'daki ödeme penceresi açıldı: banka seçimi ve "Ödendi" düğmesi bu ödeme için çizildi
