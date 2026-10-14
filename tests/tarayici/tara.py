@@ -32,8 +32,9 @@ BEKLEME_MS = 40000                # sayfa en çok bu kadar çalışır
 SON_BEKLEME_MS = 1500             # çalışma bitince bileşenlerin (masa, menü) çizilmesi için
 # {(sayfa adı, cihaz, sorun türü): gerekçe}
 IZINLI = {}
-# Konsolda sorun sayılmayanlar: sahte ortamda olmayan kaynaklar (favicon, ağ)
-KONSOL_GURULTU = ("favicon", "net::ERR", "Failed to load resource")
+# Konsolda sorun sayılmayanlar: sahte ortamda olmayan kaynaklar (favicon, ağ); indirme düğmesinin dosyayı
+# sayfa yeniden çalışırken önceden çekmesi (Streamlit iç uyarısı, ekranda görünmez; tıklamada yeniden çeker)
+KONSOL_GURULTU = ("favicon", "net::ERR", "Failed to load resource", "Download Button fetch error")
 
 
 def sayfa_listesi():

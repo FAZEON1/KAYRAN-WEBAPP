@@ -46,6 +46,8 @@ def test_sorunlar_gurultu_ve_izin_duser():
     assert T.sorunlari_ayikla("a/b", "pc", ham, izinli={("a/b", "pc", "kaymiyor"): "gerekçe"}) == \
         {"konsol": ["JS: TypeError: x is null"]}
     assert T.sorunlari_ayikla("a/b", "tel", {"konsol": ["net::ERR_FAILED"]}, izinli={}) == {}
+    assert T.sorunlari_ayikla("a/b", "pc", {"konsol": ["Client Error: Download Button fetch error - Failed"]},
+                              izinli={}) == {}
     assert T.IZINLI == {}, "izin listesi boş tutulur; eklenecekse gerekçesiyle ve kullanıcıya söyleyerek"
 
 
