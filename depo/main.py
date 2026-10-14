@@ -14,6 +14,9 @@ from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared import bilesen as B
 from depo.depo_hesap import sevk_sonucu, toplam_satiri, tarih_tr
 
+# Ortak liste masası (Ekim 2026; tanım depo/depo_masasi.py). False → eski tablo aynen.
+DEPO_STOK_MASASI_YENI = True
+
 
 def _baslik(t, alt):
     # Baştaki emoji'yi ayır → ikon karosunda göster (tek standart başlık tasarımı)
@@ -95,7 +98,13 @@ def _sayfa_stok():
                            use_container_width=True, on_click="ignore", key="dpo_pdf_indir")
         st.caption("A4, yazdırmaya hazır. Her sayfada başlık ve sayfa numarası; sonda toplam ve imza alanı.")
 
-    if _liste:
+    if _liste and DEPO_STOK_MASASI_YENI:
+        # Masa salt-okur: arama (barkod dahil) ve sıralama yukarıdaki kutularda; liste = kâğıttaki liste
+        from shared.masa import calistir
+        from depo.depo_masasi import stok_masa_verisi
+        calistir(stok_masa_verisi(_di_depo, _liste, len(_ham), _ara), "dpo_stok_masa",
+                 lambda temiz: {"ok": False, "mesaj": "Salt-okur liste."})
+    elif _liste:
         _df = pd.DataFrame([{"SKU": u["sku"], "Ürün": u["urun_adi"], "Adet": u["adet"]} for u in _liste])
         st.caption(f"{len(_liste)} çeşit · {tr_sayi(sum(u['adet'] for u in _liste))} adet"
                    + (f" · {len(_ham)} çeşitten aramaya uyanlar" if _ara.strip() else ""))

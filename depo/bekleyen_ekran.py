@@ -22,6 +22,8 @@ from .depo_hesap import bekleyen_ozet, fis_anahtari, toplam_satiri, tarih_tr
 
 ON_EK = "dpo_mt"
 FILTRE_KEYS = ["mt_ff", "mt_h_firma", "mt_h_bas", "mt_h_bit"]
+# Ortak liste masası (Ekim 2026; tanım depo/depo_masasi.py). False → eski liste aynen.
+BEKLEYEN_MASASI_YENI = True
 
 
 def _e(v):
@@ -38,6 +40,28 @@ def _excel_bayt(satirlar):
     buf = BytesIO()
     pd.DataFrame(satirlar).to_excel(buf, index=False, sheet_name="Sevk Hareketleri")
     return buf.getvalue()
+
+
+# ── Yazma (eski ekran ve masa aynı kodu kullanır) ───────────────────
+def sevk_dus_kaydet(r, adet, tarih, belge, fis, eirs, acik, kullanici):
+    """Takip kaydına bir sevk düşümü yazar (eski "Düşümü kaydet" düğmesinin kodu; yük birebir aynı).
+    Döner: (fiş için kaydın güncel kopyası, yeni hareket)."""
+    se = bekleyen_ozet(r)[1]
+    yeni_h = {"tarih": str(tarih), "adet": int(adet), "belge_no": belge.strip(),
+              "fis_no": fis.strip(), "e_irsaliye_no": eirs.strip(), "aciklama": acik.strip(),
+              "kullanici": kullanici}
+    hrk = list(r.get("hareketler") or []) + [yeni_h]
+    yeni_sevk = se + int(adet)
+    _client().table("depo_manuel_takip").update(
+        {"sevk_edilen": yeni_sevk, "hareketler": hrk}).eq("id", r.get("id")).execute()
+    snap = dict(r)
+    snap["sevk_edilen"] = yeni_sevk
+    return snap, yeni_h
+
+
+def takip_sil(kid):
+    """Takip kaydını sevk hareketleriyle birlikte siler (eski "Kaydı sil" düğmesinin kodu)."""
+    _client().table("depo_manuel_takip").delete().eq("id", kid).execute()
 
 
 # ── Az önce kaydedilen düşümün fişi ─────────────────────────────────
@@ -184,12 +208,12 @@ def _tum_hareketler(mt):
 
 
 # ── Detay ───────────────────────────────────────────────────────────
-def _detay(r, mt):
+def _detay(r, mt, yan=True):
     from depo.belge import fis_no_uret, sevk_fisi_pdf
     B.koru(FILTRE_KEYS)
     B.listeye_don(ON_EK)
     from shared.tasarim import YAN_YANA
-    if YAN_YANA:
+    if YAN_YANA and yan:
         B.kapat(ON_EK)
     kid = r.get("id")
     _son_fis(kid)
@@ -224,15 +248,8 @@ def _detay(r, mt):
         acik = st.text_input("Açıklama (ops.)", key="mt_d_acik", placeholder="taşıyıcı / plaka / şoför / not")
         if st.button("Düşümü kaydet", type="primary", key="mt_dus", icon=":material/local_shipping:"):
             try:
-                yeni_h = {"tarih": str(tarih), "adet": int(adet), "belge_no": belge.strip(),
-                          "fis_no": fis.strip(), "e_irsaliye_no": eirs.strip(), "aciklama": acik.strip(),
-                          "kullanici": st.session_state.get("aktif_kullanici", "")}
-                hrk = list(r.get("hareketler") or []) + [yeni_h]
-                yeni_sevk = se + int(adet)
-                _client().table("depo_manuel_takip").update(
-                    {"sevk_edilen": yeni_sevk, "hareketler": hrk}).eq("id", kid).execute()
-                snap = dict(r)
-                snap["sevk_edilen"] = yeni_sevk
+                snap, yeni_h = sevk_dus_kaydet(r, adet, tarih, belge, fis, eirs, acik,
+                                               st.session_state.get("aktif_kullanici", ""))
                 st.session_state["mt_son_fis"] = {"kayit": snap, "hareket": yeni_h}
                 st.cache_data.clear()
                 st.rerun()
@@ -268,7 +285,7 @@ def _detay(r, mt):
                     f"birlikte kalıcı olarak sil", key=f"mt_sil_{kid}", dugme="Kaydı sil",
                     aciklama="Yanlış açılmış kayıtlar için. Geri alınamaz."):
         try:
-            _client().table("depo_manuel_takip").delete().eq("id", kid).execute()
+            takip_sil(kid)
             B.birak(ON_EK)
             st.cache_data.clear()
             st.toast("🗑️ Takip kaydı silindi")
@@ -277,9 +294,39 @@ def _detay(r, mt):
             st.error(f"Silinemedi: {e}")
 
 
+def _render_masa(mt):
+    """Yeni liste: ortak masa. Sevk düş ve sil masanın yan panelinde (bugünkü yazma koduyla); kaydın
+    hareketleri ve fiş yeniden yazdırma "Hareketler ve fişler" ile sayfa içi detayda (eski _detay)."""
+    from shared.masa import calistir
+    from depo.belge import fis_no_uret
+    from .depo_masasi import bekleyen_masa_verisi, bekleyen_uygula
+    B.geri_yukle(FILTRE_KEYS)
+    _yeni_kayit(acik=not mt)
+    if not mt:
+        st.info("Henüz takip kaydı yok — yukarıdan ilk kaydı oluştur.")
+        return
+    son = st.session_state.get("mt_son_fis")
+    if son:                                   # az önce düşülen sevkin fişi (kapatılana kadar)
+        _son_fis((son.get("kayit") or {}).get("id"))
+    tum_hrk = [h for x in mt for h in (x.get("hareketler") or [])]
+
+    def yurut(temiz):
+        s = bekleyen_uygula(temiz, mt, st.session_state.get("aktif_kullanici", ""))
+        fis = s.pop("son_fis", None)
+        if fis:
+            st.session_state["mt_son_fis"] = fis
+        return s
+    calistir(bekleyen_masa_verisi(mt, fis_no_uret(tum_hrk), date.today(),
+                                  salt=bool(st.session_state.get("salt_okur"))), "dpo_mt_masa", yurut)
+    _tum_hareketler(mt)
+
+
 def render(mt):
     sec = B.secili(ON_EK)
     kayit = next((r for r in mt if r.get("id") == sec), None) if sec is not None else None
+    if kayit and BEKLEYEN_MASASI_YENI:
+        _detay(kayit, mt, yan=False)
+        return
     if kayit:
         from shared.tasarim import YAN_YANA
         if YAN_YANA:
@@ -294,6 +341,9 @@ def render(mt):
             _detay(kayit, mt)
         return
     B.birak(ON_EK)
+    if BEKLEYEN_MASASI_YENI:
+        _render_masa(mt)
+        return
     st.session_state.pop("mt_son_fis", None)
     _yeni_kayit(acik=not mt)
     if not mt:
