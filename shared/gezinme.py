@@ -388,12 +388,25 @@ def sayfa_menusu(etiket, secenekler, *, modul, key, format_func=None, **kw):
     import streamlit as st
     kap = _serit() if MENU_UST else None
     if kap is None:
-        return st.radio(etiket, secenekler, key=key, format_func=format_func or str, **kw)
-    yapi = grup_yapisi(modul, secenekler)
-    if not yapi:
-        return kap.radio(etiket, secenekler, key=key, horizontal=True, label_visibility="collapsed",
-                         format_func=lambda s: sekme_adi(modul, s))
-    return _iki_katli(kap, modul, key, secenekler, yapi)
+        secim = st.radio(etiket, secenekler, key=key, format_func=format_func or str, **kw)
+    elif not (yapi := grup_yapisi(modul, secenekler)):
+        secim = kap.radio(etiket, secenekler, key=key, horizontal=True, label_visibility="collapsed",
+                          format_func=lambda s: sekme_adi(modul, s))
+    else:
+        secim = _iki_katli(kap, modul, key, secenekler, yapi)
+    aktif_sekme_yaz(sekme_adi(modul, secim) if secim else None)
+    return secim
+
+
+def aktif_sekme_yaz(ad):
+    """Açık sayfanın sekme adı (görünüm cilası, Ekim 2026): shared.tasarim.baslik sayfanın kendi
+    başlığını bu adla yazar. Oturumda tutulur — parça (fragment) yeniden çizilince de geçerli;
+    app.py her tam çalıştırmanın başında temizler (başka modüle bayat ad kalmasın)."""
+    import streamlit as st
+    if ad:
+        st.session_state["_k_aktif_sekme"] = ad
+    else:
+        st.session_state.pop("_k_aktif_sekme", None)
 
 
 def _iki_katli(kap, modul, key, secenekler, yapi):

@@ -37,10 +37,28 @@ def _madde(oncelik, baslik, detay, sayi, hedef, anahtar):
 
 
 def _isimler(liste, alan, n=3):
-    adlar = [str(x.get(alan) or "").strip() for x in liste]
-    adlar = [a for a in adlar if a]
+    """İlk n ad, virgülle; aynı ad bir kez ve adediyle ('X (3)'), kalan '+k' (görünüm cilası, Ekim 2026:
+    aynı üründen üç cihaz 'X, X, X' diye yazılıyordu)."""
+    sayac = {}
+    for x in liste:
+        a = str(x.get(alan) or "").strip()
+        if a:
+            sayac[a] = sayac.get(a, 0) + 1
+    adlar = [f"{a} ({k})" if k > 1 else a for a, k in sayac.items()]
     ek = f" +{len(adlar) - n}" if len(adlar) > n else ""
     return ", ".join(adlar[:n]) + ek
+
+
+def _urun_adlari(kayitlar, sku_alan, ad_alan):
+    """[{'a': ekrandaki ürün adı}] — ürün kartının adı (BÜYÜK harf kararı, shared.ana_veri.urun_ad);
+    kart yoksa kaydın kendi adı BÜYÜK harfle. Harita okunamazsa yine BÜYÜK harf."""
+    from shared.utils import tr_buyuk
+    try:
+        from shared.ana_veri import urun_ad, get_urun_ad_haritasi
+        h = get_urun_ad_haritasi() or {}
+        return [{"a": urun_ad(k.get(sku_alan), k.get(ad_alan), h)} for k in kayitlar]
+    except Exception:  # noqa: BLE001
+        return [{"a": tr_buyuk(k.get(ad_alan))} for k in kayitlar]
 
 
 def _tl(v):
@@ -213,7 +231,7 @@ def maddeler_teknik_servis(kayitlar, bugun, esik=TS_ESIK_GUN):
         if uzun:
             uzun.sort(key=lambda x: -x[0])
             m.append(_madde("uyari", f"{ad} {esik} günü geçen cihaz",
-                            f"En eskisi {uzun[0][0]} gündür bekliyor · " + _isimler([k for _, k in uzun], "stok_adi"),
+                            f"En eskisi {uzun[0][0]} gündür bekliyor · " + _isimler(_urun_adlari([k for _, k in uzun], "stok_kodu", "stok_adi"), "a"),
                             len(uzun), "teknikservis/servis", f"ts_{durum.split()[0]}"))
     return m
 
@@ -335,7 +353,7 @@ def topla(yetkiler, talep_yoneticisi=False, sistem_yoneticisi=False, izin_yoneti
 
     if yetkiler.get("teknikservis"):
         try:
-            m += maddeler_teknik_servis(_oku("ts_kayitlar", "id,mevcut_durum,mal_kabul_tarihi,olusturma_tarihi,stok_adi",
+            m += maddeler_teknik_servis(_oku("ts_kayitlar", "id,mevcut_durum,mal_kabul_tarihi,olusturma_tarihi,stok_kodu,stok_adi",
                                              ("mevcut_durum", tuple(d for d, _ in TS_BEKLEYEN))), bugun)
         except Exception as e:  # noqa: BLE001
             kaydet("bugun.teknik_servis", e)

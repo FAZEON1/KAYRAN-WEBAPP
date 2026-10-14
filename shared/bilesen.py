@@ -41,13 +41,47 @@ def tiklanir(anahtar, icerik_html, on_click, args=(), tur="kart", renk=None, sec
 
 
 # ── Başlık + eylemler ───────────────────────────────────────────────
+# ── Başlık yuvası (görünüm cilası, Ekim 2026) ───────────────────────
+# Modülün araç satırı (Muhasebe: hafta + kur seçicisi) sayfa başlığından ÖNCE çizilir; başlık
+# altta ayrı satırda kalıyordu. Modül araç satırının solunda boş bir kap açar (baslik_yuvasi_kur),
+# sayfa gövdesinin başında yuvayı açar (baslik_yuvasi_ac); gövdenin İLK başlığı (baslik_yaz /
+# baslik_eylem) oraya yazılır, sonrakiler yerinde kalır. Oturumda tutulur: Muhasebe gövdesi bir
+# parçadır (fragment) ve parça tek başına yeniden çizilince başlık yine yuvaya yazılmalı (Streamlit
+# 1.65'te tarayıcıda denendi: yuva içeriği yer değiştirir, tekrar etmez). app.py her tam
+# çalıştırmanın başında yuvayı boşaltır — başka modüle bayat kap kalmaz.
+_YUVA, _YUVA_ACIK = "_k_baslik_yuvasi", "_k_baslik_yuvasi_acik"
+
+
+def baslik_yuvasi_kur(kap):
+    """kap: başlığın yazılacağı boş st.container; None → yuva yok (başlık yerinde çizilir)."""
+    st.session_state[_YUVA] = kap
+    st.session_state[_YUVA_ACIK] = False
+
+
+def baslik_yuvasi_ac():
+    """Sayfa gövdesinin başında: bu çalıştırmanın ilk başlığı yuvaya gitsin."""
+    st.session_state[_YUVA_ACIK] = st.session_state.get(_YUVA) is not None
+
+
+def _yuva_al():
+    if not st.session_state.get(_YUVA_ACIK):
+        return None
+    st.session_state[_YUVA_ACIK] = False
+    return st.session_state.get(_YUVA)
+
+
+def baslik_yaz(html):
+    """Hazır başlık HTML'ini (shared.tasarim.baslik) yuvaya, yuva yoksa yerinde yazar."""
+    (_yuva_al() or st).markdown(html, unsafe_allow_html=True)
+
+
 def baslik_eylem(modul, sayfa, aciklama="", eylemler=()):
     """eylemler: [{"etiket","key","icon"?,"birincil"?,"help"?,"disabled"?}]
-    Döner: {key: tıklandı_mı}. Düğmeler başlığın sağında, aynı satırda."""
+    Döner: {key: tıklandı_mı}. Düğmeler başlığın sağında, aynı satırda (yuva açıksa yuvada)."""
     n = len(eylemler)
     gen = 1.45 if n > 3 else 1.3          # 4 eylemde etiketler kesilmesin
     oran = [max(3.6, 5.2 - 0.4 * max(0, n - 2))] + [gen] * n
-    kol = st.columns(oran, vertical_alignment="center")
+    kol = (_yuva_al() or st).columns(oran, vertical_alignment="center")
     kol[0].markdown(_baslik(modul, sayfa, aciklama=aciklama), unsafe_allow_html=True)
     out = {}
     for c, e in zip(kol[1:], eylemler):
