@@ -147,3 +147,13 @@ def test_satisi_eski_urunde_satis_verisi_yok_yazmaz():
     k = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
     g = k[k.index("_son_satis = max("):k.index('_yeter = "satış verisi yok"')]
     assert "elif satislar:" in g and "stokta yok" in g and "son satış" in g
+
+
+def test_ayarlar_bolumu_sayfada_yok():
+    """Stok yaşı sayfasındaki 'Ayarlar · istisna kategoriler ve haftalık yaşlı stok maili' bölümü kullanıcı
+    isteğiyle kaldırıldı (Ekim 2026). Kayıtlı ayar geçerli kalır: hesap ve pazartesi maili onu okur."""
+    from pathlib import Path
+    k = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_yasi_ekran.py").read_text(encoding="utf-8")
+    assert "istisna kategoriler ve haftalık" not in k and "sy_ayar_" not in k and "data_editor" not in k
+    y = (Path(__file__).resolve().parent.parent / "kayranpm" / "stok_yasi.py").read_text(encoding="utf-8")
+    assert "def ayar_oku" in y and "AYAR_ANAHTAR" in y
