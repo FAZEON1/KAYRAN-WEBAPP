@@ -88,7 +88,7 @@ def test_pencere_yapisi_ve_geri_donus():
     s = (KOK / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
     assert "STOK_KARTI_YENI = True" in s
     # pencere dekoratörü goster'e bağlı (başka fonksiyon araya girerse pencere boş açılır)
-    assert re.search(r'@st\.dialog\("[^"]*Stok Kartı", width="large"\)\ndef goster\(sku\):', s)
+    assert re.search(r'@st\.dialog\("[^"]*Stok Kartı", width="large", on_dismiss=kapat\)\ndef goster\(sku=None\):', s)
     # yeni görünüm hesap yapmaz: goster'in değerleri ve sekme gövdeleri verilir; eski görünüm aynı gövdeleri kullanır
     assert "_yeni_ciz(sku, dict(" in s and '"analiz": _govde_analiz' in s
     assert "for _t, _g in zip((t2, t3, t4, t5, t6, t7, t8), (_govde_alimlar, _govde_satislar" in s

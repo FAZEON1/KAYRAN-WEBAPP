@@ -107,7 +107,7 @@ def test_stok_karti_aramasi_ust_cubukta():
     assert ".st-key-ustnav .st-key-ust_arac{position:absolute !important;left:0;top:4px;" in masa
     assert ".st-key-ust_arac .st-key-pm_arac{margin:0 !important;width:100% !important;overflow:visible !important;}" in c
     tel = c.split("@media (max-width:640px){", 1)[1]
-    assert ".st-key-ustnav:has(.st-key-ust_arac input){display:block !important;" in tel
+    assert ".st-key-ustnav:has(.st-key-ust_arac .st-key-stok_karti_kutu){display:block !important;" in tel
 
 
 def test_kenar_cubugu_icerigin_ustune_binmez():

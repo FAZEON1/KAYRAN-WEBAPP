@@ -322,5 +322,5 @@ def render(_sb):
 
     sku = st.session_state.pop("_gb_stok_karti", None)
     if sku:
-        from .stok_karti import goster
-        goster(sku)
+        from .stok_karti import ac_ve_ciz
+        ac_ve_ciz(sku)

@@ -8,7 +8,6 @@ Kullanım:
 """
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.tasarim import df_tablo_html
-from kayranpm.stok_ara import stok_karti_ara
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
 import streamlit as st
 import logging
@@ -24,7 +23,7 @@ from .urun_hesap import yukleme_ozeti
 from shared.utils import firma_gorunen_ad   # kanal = cari adı (Faz 4)
 
 # Modül bazlı importlar (relative)
-from .database import (initialize_db, get_tum_sku_listesi, get_client,
+from .database import (initialize_db, get_client,
                       sku_fazeon_temizle_onizle, sku_fazeon_temizle_uygula)
 from .analitik import dashboard_hesapla, tum_urunler_listesi
 from .canli_pacal import aciklama as _canli_aciklama
@@ -629,62 +628,13 @@ def run():
            format_func=_me, key="pm_sayfa")    # anahtar: Genel Bakış'tan sayfaya geçiş
 
         # ── STOK KARTI — hızlı erişim (Ürün Yön.'nin en sık kullanılan eylemi) ──
-        # Eskiden başlık ayrı bir HTML kutusuydu; arama kutusu ve sonuçlar onun
-        # DIŞINDA kalıyordu (kopuk görünüm). Şimdi hepsi tek kap (st.container).
-        #
-        # Korunan dersler (önceki iki hata — yeniden yaşanmasın):
-        # 1) Selectbox YOK: kendi anahtarına yazınca ilk karakter siliniyordu.
-        # 2) Bayrak dansı YOK: sonuca basmak kartı HER ZAMAN açar.
-        # Yeni: Enter'da tek/tam eşleşme varsa kart doğrudan açılır — ama yalnız
-        # arama METNİ DEĞİŞTİYSE (_sk_acilan): yoksa sonraki her yenilemede açılırdı.
-        _skl = get_tum_sku_listesi() or []
-        _hedef = st.session_state.pop("_stok_gec_sku", None)   # modal içi geçiş
+        # Ekim 2026 (kullanıcı seçimi "A"): kutu yalnız Ctrl+K penceresini ürün kipinde açar (shared/palet.py);
+        # sonuçlar orada, stok ve "kaç gün yeter" ile. Eski kutunun kendi kart açma yolu vardı (_stok_gec_sku
+        # bayrağı, sonuç düğmeleri): kart açıkken başka kod arayınca pencere açılıp kapanıyor, bazen hiç
+        # açılmıyordu. Kartı artık her yer kayranpm.stok_karti.ac ile açar, pencereyi app.py çizer.
         with _pm_arac, st.container(key="stok_karti_kutu"):
-            _ara = st.text_input(
-                "Stok kartı ara", key="stok_karti_ara", icon=":material/search:",
-                placeholder="Stok kartı aç · SKU, model ya da ürün adı",
-                label_visibility="collapsed")
-            with st.container(key="sk_sonuc"):        # açılır liste (CSS: odak / yazı varken)
-                _q = (_ara or "").strip()
-                if not _hedef and _q:
-                    _bul = stok_karti_ara(_skl, _q)
-                    if not _bul:
-                        st.markdown('<div class="sk-not">Eşleşen ürün yok. SKU\'nun bir kısmını '
-                                    'ya da modeli yazmayı dene.</div>', unsafe_allow_html=True)
-                    else:
-                        _tam = [r for r in _bul if str(r.get("sku") or "").strip().upper() == _q.upper()]
-                        _tek = _tam[0] if _tam else (_bul[0] if len(_bul) == 1 else None)
-                        if _tek and st.session_state.get("_sk_acilan") != _q:
-                            st.session_state["_sk_acilan"] = _q           # aynı aramada bir kez
-                            _hedef = _tek["sku"]
-                        st.markdown(f'<div class="sk-alt">{tr_sayi(len(_bul))} sonuç</div>', unsafe_allow_html=True)
-                        for _r in _bul[:6]:
-                            _ad = (_r.get("urun_adi") or "").strip()
-                            # help (ipucu) YOK: tıklanınca stok kartı penceresi açılıyor, Streamlit'in
-                            # ipucu pencerenin üstünde takılı kalıyordu (Ekim 2026). Ad zaten düğmede.
-                            if st.button(f"`{_r['sku']}` {_ad}" if _ad else f"`{_r['sku']}`",
-                                         key=f"stok_ac_{_r['sku']}", use_container_width=True):
-                                _hedef = _r["sku"]
-                        if len(_bul) > 6:
-                            st.markdown(f'<div class="sk-not">+{tr_sayi(len(_bul) - 6)} sonuç daha — '
-                                        f'aramayı daralt.</div>', unsafe_allow_html=True)
-                elif not _hedef:
-                    _son = st.session_state.get("_sk_son", [])
-                    if _son:
-                        st.markdown('<div class="sk-alt">Son açılanlar</div>', unsafe_allow_html=True)
-                        for _s in _son:
-                            if st.button(f"`{_s}`", key=f"stok_son_{_s}", use_container_width=True,
-                                         icon=":material/history:"):
-                                _hedef = _s
-                    else:
-                        st.markdown(f'<div class="sk-not">{tr_sayi(len(_skl))} ürün içinde ara. Tam SKU yazıp '
-                                    '<b>Enter</b>\'a basarsan kart doğrudan açılır.</div>', unsafe_allow_html=True)
-
-        if _hedef:
-            _son = [x for x in st.session_state.get("_sk_son", []) if x != _hedef]
-            st.session_state["_sk_son"] = ([_hedef] + _son)[:4]
-            from kayranpm.stok_karti import goster as _stok_goster
-            _stok_goster(_hedef)
+            from shared.palet import stok_karti_kutusu
+            stok_karti_kutusu()
 
 
         st.markdown(f"""
@@ -1000,7 +950,7 @@ def _sayfa_tum_urunler():
         # Ayrıntılı geçmiş (alım, satış, kampanya, iade, stok hareketleri) Stok Kartı'nda
         if st.button("Stok kartını aç · alım, satış, kampanya geçmişi", key="pm_urun_stok_karti",
                      icon=":material/inventory_2:"):
-            from kayranpm.stok_karti import goster as _sk_ac
+            from kayranpm.stok_karti import ac_ve_ciz as _sk_ac
             _sk_ac(secilen_sku)
         st.markdown("---")
 

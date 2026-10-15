@@ -397,6 +397,6 @@ def render():
         if alt_kir == "urun":
             st.caption("Ürüne tıkla: stok kartı açılır.")
             if tik is not None and 0 <= int(tik) < len(alt):
-                from .stok_karti import goster as _stok_karti
+                from .stok_karti import ac_ve_ciz as _stok_karti
                 _sk = alt[int(tik)]["anahtar"]
                 _stok_karti((meta.get(_sk) or {}).get("kart_sku") or _sk)   # rapor SKU'su ≠ kart SKU'su olabilir

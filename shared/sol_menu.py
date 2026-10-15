@@ -158,7 +158,7 @@ html body .stApp .st-key-ust_arac input[data-testid="stTextInputField"]{{font-si
   html body .stApp .st-key-ustnav .st-key-ust_arac{{position:absolute !important;left:0;top:4px;
     width:min(440px, calc(100% - 420px)) !important;z-index:30 !important;}}
   /* araç varken konum yazısı boş kalır (yer sol menüde ve sayfa başlığında zaten yazıyor) */
-  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input) [data-testid="stHorizontalBlock"]:not([class*="st-key-"])::before{{
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac .st-key-stok_karti_kutu) [data-testid="stHorizontalBlock"]:not([class*="st-key-"])::before{{
     content:"" !important;}}
 }}
 @container ustnav (max-width:760px){{
@@ -169,9 +169,9 @@ html body .stApp .st-key-ust_arac input[data-testid="stTextInputField"]{{font-si
 }}
 @media (max-width:640px){{
   /* telefonda üst çubuk gizli (alt menü var); araç varsa yalnız araç görünür, sayfanın en üstünde */
-  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input){{display:block !important;padding:0 0 8px !important;
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac .st-key-stok_karti_kutu){{display:block !important;padding:0 0 8px !important;
     margin:0 0 6px !important;}}
-  html body .stApp .st-key-ustnav:has(.st-key-ust_arac input) > [data-testid="stLayoutWrapper"]:has(> [data-testid="stHorizontalBlock"]){{
+  html body .stApp .st-key-ustnav:has(.st-key-ust_arac .st-key-stok_karti_kutu) > [data-testid="stLayoutWrapper"]:has(> [data-testid="stHorizontalBlock"]){{
     display:none !important;}}
   html body .stApp .st-key-ust_arac{{margin-top:0 !important;}}
 }}
