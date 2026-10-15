@@ -100,6 +100,62 @@ def test_ozet_satirlari_kart_kurali():
 def test_palet_urun_kipi_ve_kutu():
     p = (KOK / "shared" / "palet.py").read_text(encoding="utf-8")
     assert '"urunler": urunler, "son": son' in p                      # ürünler tarayıcıya bir kez gider
-    assert 'P.mod === "urun"' in p and "Son açılan stok kartları" in p and "Sipariş zamanı gelenler" in p
-    assert 'class="ac sk"' in p                                         # üst şeritte "Stok kartı" düğmesi
+    assert '"Son açılanlar"' in p and "Sipariş zamanı gelenler" in p and '"Ürünler · " + tr(ul.length) + " sonuç"' in p
+    assert 'class="tetik"' in p                                         # üst şeritte "Stok kartı" düğmesi
     assert "def stok_karti_kutusu(" in p
+
+
+# ── Görünüm: taslak "A"nın birebir değerleri (Ekim 2026) ──────────────
+def _css():
+    from shared import palet
+    return palet._CSS.replace("\n", ""), palet._KUTU_CSS.replace("\n", "")
+
+
+def test_pencere_taslak_degerleri():
+    """Kullanıcı: "fontlar, renkler, her şey birebir aynı olsun". Eski pencere 620px, yuzey1 zemin, Inter,
+    küçük harfli grup başlığı, düz satır vurgusuydu."""
+    c, _ = _css()
+    assert '--sk-govde:"Source Sans 3"' in c and '--sk-mono:"JetBrains Mono"' in c
+    assert ".kutu{width:min(560px,100%)" in c and "background:var(--k-yuzey3)" in c and "border-radius:14px" in c
+    assert "box-shadow:0 20px 50px -20px rgba(2,6,23,.7)" in c
+    assert ".ust{display:flex;align-items:center;gap:10px;padding:13px 14px" in c
+    assert ".grup{font-size:11px;letter-spacing:.08em;text-transform:uppercase" in c
+    assert ".og{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:7px 8px" in c
+    assert ".og.s{background:color-mix(in srgb,var(--k-mor) 14%,transparent);outline:1px solid color-mix(in srgb,var(--k-mor) 35%,transparent)}" in c
+    assert ".cip{font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px" in c
+    assert ".sku{font-family:var(--sk-mono);font-weight:500;font-size:12.5px" in c
+    assert "border-bottom-width:2px" in c                                        # tuş çipleri
+    assert ".tetik{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--k-kenar2);border-radius:999px;" in c
+    assert "padding:5px 10px 5px 8px" in c and "background:var(--k-yuzey2)" in c
+
+
+def test_kutu_taslak_degerleri():
+    _, k = _css()
+    assert "padding:12px 14px;border-radius:10px" in k and "font-size:15px" in k
+    assert "border:1px solid color-mix(in srgb,var(--k-mor) 45%,transparent)" in k
+    assert "box-shadow:0 0 0 4px color-mix(in srgb,var(--k-mor) 10%,transparent)" in k
+
+
+def test_fontlar_ve_surum_yenileme():
+    """Eski sürümün düğmesi tarayıcıda kalıyordu (yalnız ilk çizimde kuruluyordu): yeni düğme görünmedi."""
+    from shared import palet
+    for js in (palet._JS, palet._KUTU_JS):
+        assert "fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500" in js
+        assert "//FONT//" not in js and "//SVG//" not in js
+    assert 'if (P.kok && P.surum !== SURUM){ try { P.kok.remove(); } catch (e) {} P.kok = null; }' in palet._JS
+    assert 'lang="tr"' in palet._JS                                        # BÜYÜK HARF Türkçe (i → İ)
+    assert "kartı aç" in palet._JS and "yeni sekmede" in palet._JS and 'u.searchParams.set("kart", o.sku)' in palet._JS
+
+
+def test_yeni_sekme_adresi_karti_acar(monkeypatch):
+    import kayranpm.stok_karti as K
+
+    class _Q(dict):
+        def get(self, k, v=None):
+            return dict.get(self, k, v)
+    ss, q = {}, _Q(kart="X24F182S", s="satis")
+    monkeypatch.setattr(K.st, "session_state", ss, raising=False)
+    monkeypatch.setattr(K.st, "query_params", q, raising=False)
+    monkeypatch.setattr(K, "goster", lambda *a, **k: None)
+    K.acik_karti_ciz()
+    assert K.acik_sku() == "X24F182S" and "kart" not in q and q["s"] == "satis"

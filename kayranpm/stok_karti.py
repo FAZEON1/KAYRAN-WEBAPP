@@ -195,6 +195,13 @@ def ac_ve_ciz(sku):
 
 def acik_karti_ciz():
     """Açık kart varsa pencereyi çiz. app.py her tam çalıştırmada, sayfa çizildikten sonra bir kez çağırır."""
+    try:                                   # ?kart=SKU: arama penceresinde Ctrl+Enter (yeni sekmede kart)
+        k = st.query_params.get("kart")
+        if k:
+            del st.query_params["kart"]
+            ac(k)
+    except Exception as e:  # noqa: BLE001
+        sessiz("kayranpm.stok_karti.adres", e, "debug")
     if not acik_sku():
         return
     try:

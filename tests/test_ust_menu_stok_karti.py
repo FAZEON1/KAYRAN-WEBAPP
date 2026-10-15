@@ -36,7 +36,7 @@ def test_turkce_harf_ve_bos():
 
 
 def test_stok_karti_kutusu_yapisi():
-    """Ekim 2026 (kullanıcı seçimi "A"): kutu yalnız Ctrl+K penceresini ürün kipinde açar; kendi kart açma
+    """Ekim 2026 (kullanıcı seçimi "A"): kutu yalnız Ctrl+K penceresini açar; kendi kart açma
     yolu (_stok_gec_sku, sonuç düğmeleri, goster çağrısı) yok — kart açıkken başka kod arayınca pencere açılıp
     kapanıyordu."""
     kod = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
@@ -45,7 +45,7 @@ def test_stok_karti_kutusu_yapisi():
     assert 'st.container(key="stok_karti_kutu"' in blok and "stok_karti_kutusu()" in blok
     assert "goster(" not in blok and 'pop("_stok_gec_sku"' not in kod and "st.text_input" not in blok
     p = (KOK / "shared/palet.py").read_text(encoding="utf-8")
-    assert 'window.__kayranPaletAc("urun")' in p and 'ac("urun")' in p
+    assert "window.__kayranPaletAc()" in p and '.querySelector(".tetik").addEventListener("click", () => ac())' in p
     # Kenar çubuğu kalktı (Eki 2026): kutu her sayfanın sağ üstünde, sonuçlar açılır liste
     assert 'html body .st-key-stok_karti_kutu {' in kod and 'html body .st-key-sk_sonuc {' in kod
     assert '_pm_arac = (_serit_kabi() or st).container(key="pm_arac"' in kod     # sekme şeridinin sağında
