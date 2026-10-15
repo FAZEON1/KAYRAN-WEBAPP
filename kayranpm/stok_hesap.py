@@ -54,6 +54,68 @@ def kanal_stoklari(rows, son_tarih=None):
     return out
 
 
+_DURUM_SIRA = {"yeni": 0, "belirsiz": 1, "yok": 2, "bagli": 3}
+
+
+def kanal_kod_karsilastir(rows, kartlar, eslesme=None):
+    """SALT OKUNUR karşılaştırma (Ekim 2026): kanal stoğu bugün rapor SKU'sunu karta birebir
+    (sku_anahtar) bağlar; pazaryeri kodu gelen raporlar (HB 'HBCV…', AVASYA 'MON24FAZ…') hiçbir
+    ürüne düşmez. Önerilen kural Müşteri Satışları'nınki: musteri_hesap.meta_hazirla (onaylı
+    eşleme tablosu + addaki model kodu; birden çok aday varsa bağlamaz).
+
+    rows: firma_stok satırları (firma, sku, urun_adi, stok_miktari, yukleme_tarihi) — TÜM tablo;
+    her kanalın son raporu kullanılır (kanal_stoklari ile aynı kural).
+    kartlar: {kart_sku: {urun_adi, ...}}; eslesme: {dış kod: kart SKU'su}.
+    Döner: {"kodlar": [...], "musteriler": [...], "urunler": [...], "toplam": {...}} — hiçbir şey yazmaz."""
+    from shared.utils import sku_anahtar
+    from .musteri_hesap import meta_hazirla
+    son = kanal_son_tarihleri(rows)
+    son_rows = [r for r in rows or [] if _firma(r) and _tarih(r) == son.get(_firma(r))]
+    kartlar = kartlar or {}
+    norm = {}
+    for ks in kartlar:
+        norm.setdefault(sku_anahtar(ks), ks)
+    meta = meta_hazirla(son_rows, kartlar, sku_fn=sku_anahtar, eslesme=eslesme)
+
+    kod = {}
+    for r in son_rows:
+        ham = str(r.get("sku") or "").strip()
+        k = kod.setdefault((_firma(r), ham), {"firma": _firma(r), "kod": ham, "ad": str(r.get("urun_adi") or "").strip(),
+                                              "adet": 0})
+        k["adet"] += r.get("stok_miktari") or 0
+    kodlar = []
+    for (f, ham), k in kod.items():
+        m = meta.get(ham) or {}
+        eski = norm.get(sku_anahtar(ham), "")
+        yeni = eski or (m.get("kart_sku") if m.get("kart_kaynak") in ("sku", "tablo", "kural") else "") or ""
+        durum = ("bagli" if eski else "yeni" if yeni else
+                 "belirsiz" if m.get("kart_kaynak") == "belirsiz" else "yok")
+        kodlar.append(dict(k, eski_kart=eski, yeni_kart=yeni, durum=durum,
+                           kaynak="" if eski else {"tablo": "onaylı eşleme", "kural": "addaki model kodu"}.get(
+                               m.get("kart_kaynak"), ""),
+                           adaylar=list(m.get("adaylar") or [])))
+    kodlar.sort(key=lambda k: (_DURUM_SIRA[k["durum"]], k["firma"], -k["adet"], k["kod"]))
+
+    mus, urun = {}, {}
+    for k in kodlar:
+        x = mus.setdefault(k["firma"], {"firma": k["firma"], "rapor": son.get(k["firma"], ""), "toplam": 0,
+                                        "eski": 0, "yeni": 0})
+        x["toplam"] += k["adet"]
+        x["eski"] += k["adet"] if k["eski_kart"] else 0
+        x["yeni"] += k["adet"] if k["yeni_kart"] else 0
+        for alan, kart in (("eski", k["eski_kart"]), ("yeni", k["yeni_kart"])):
+            if kart:
+                u = urun.setdefault(kart, {"kart": kart, "ad": str((kartlar.get(kart) or {}).get("urun_adi") or ""),
+                                           "eski": 0, "yeni": 0})
+                u[alan] += k["adet"]
+    musteriler = sorted(mus.values(), key=lambda x: -x["toplam"])
+    for x in musteriler:
+        x["bagsiz"] = x["toplam"] - x["yeni"]
+    urunler = sorted((u for u in urun.values() if u["yeni"] != u["eski"]), key=lambda u: -(u["yeni"] - u["eski"]))
+    toplam = {a: sum(x[a] for x in musteriler) for a in ("toplam", "eski", "yeni", "bagsiz")}
+    return {"kodlar": kodlar, "musteriler": musteriler, "urunler": urunler, "toplam": toplam}
+
+
 def stok_ozeti(bizim_stok, firma_stoklari):
     """firma_stoklari: {firma: adet} → üç tanım tek yerde."""
     bizim = bizim_stok or 0
