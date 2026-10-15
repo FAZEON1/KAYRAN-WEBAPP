@@ -12,3 +12,8 @@ tarama.json
 tarama_goruntu/
 vitrin.log
 .ruff_cache/
+
+# Mikro aktarıcı (sunucuda doldurulan gizli ayarlar, günlük ve kilit dosyası)
+araclar/mikro_aktarici/ayarlar.bat
+araclar/mikro_aktarici/aktarim.log
+araclar/mikro_aktarici/aktarim.kilit
