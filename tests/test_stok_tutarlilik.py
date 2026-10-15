@@ -210,3 +210,76 @@ def test_stok_karti_firma_stok_satirlari_sku_yazimindan_bagimsiz(monkeypatch):
                         lambda: type("I", (), {"table": lambda s, ad: _S(FIRMA_STOK_MIO + diger)})())
     rows = database.firma_stok_satirlari("Mio MiVue J30")
     assert sorted(r["stok_miktari"] for r in rows) == [40, 45]
+
+
+# ── Pazaryeri kodlu müşteri raporları (Ekim 2026) ───────────────────
+# D-market (HB) ve Avasya stok raporunu kendi kodlarıyla gönderiyor ('HBCV0000GNT2JZ',
+# 'MON24FAZX24F240PZ'); model kodu üründe adda. Kanal stoğu kodu karta birebir bağladığı için bu
+# stok hiçbir ürüne düşmüyor, Ürünler'in müşteri süzgecinde bu müşteriler çıkmıyordu (canlıda HB
+# 3.546 + Avasya 508 adet). Kural Müşteri Satışları'nınki: onaylı eşleme, sonra addaki model kodu.
+URUNLER_HB = [
+    {"sku": "X27F182S", "urun_adi": "FAZEON X27F182S 27 180HZ", "bizim_stok": 100, "trendyol_stok": 0,
+     "depo_kirilim": {"MERKEZ DEPO": 100}},
+    {"sku": "F4E650BBM", "urun_adi": "FAZEON F4 650W KASA", "bizim_stok": 5, "trendyol_stok": 0, "depo_kirilim": {}},
+]
+FIRMA_STOK_HB = [
+    {"firma": "VATAN", "sku": "X27F182S", "urun_adi": "", "stok_miktari": 436, "haftalik_satis": 4,
+     "yukleme_tarihi": "2026-10-11"},
+    {"firma": "HB", "sku": "HBCV0000GNT2JZ", "urun_adi": "Fazeon X27F182S 27# 180Hz 0.5ms Fast IPS",
+     "stok_miktari": 299, "haftalik_satis": 6, "yukleme_tarihi": "2026-10-11"},
+    {"firma": "HB", "sku": "HBCV00009FUC3T", "urun_adi": "Fazeon F4 650W 80Plus Bronze Mesh",   # adda kod yok
+     "stok_miktari": 24, "haftalik_satis": 1, "yukleme_tarihi": "2026-10-11"},
+]
+
+
+@pytest.fixture
+def sahte_db_hb(monkeypatch):
+    from kayranpm import analitik, database
+    ist = _Istemci({"urunler": URUNLER_HB, "firma_stok": FIRMA_STOK_HB, "sku_eslesme": []})
+    monkeypatch.setattr(database, "get_client", lambda: ist)
+    monkeypatch.setattr(analitik, "get_all_dashboard_data", database._dashboard_ham)
+    monkeypatch.setattr(analitik, "_ithalat_maliyet_map", lambda: {})
+    monkeypatch.setattr(analitik, "_ithalat_partiler_map", lambda: {})
+    return analitik
+
+
+def test_liste_pazaryeri_kodlu_raporu_karta_baglar(sahte_db_hb):
+    r = _bul(sahte_db_hb.tum_urunler_listesi(), "X27F182S")
+    assert r["firma_stoklari"]["HB"] == 299 and r["firma_stoklari"]["VATAN"] == 436
+    assert r["kanal_stok"] == 735
+    k = _bul(sahte_db_hb.tum_urunler_listesi(), "F4E650BBM")
+    assert k["kanal_stok"] == 0                       # adda model kodu yok: tahminle bağlanmaz
+
+
+def test_pano_pazaryeri_kodlu_raporu_karta_baglar(sahte_db_hb):
+    r = _bul(sahte_db_hb.dashboard_hesapla(), "X27F182S")
+    assert r["kanal_stok"] == 735 and r["zincir_stok"] == 835
+
+
+def test_onayli_eslesme_adda_kod_olmayani_baglar(monkeypatch):
+    from kayranpm import analitik, database
+    ist = _Istemci({"urunler": URUNLER_HB, "firma_stok": FIRMA_STOK_HB,
+                    "sku_eslesme": [{"dis_kod": "HBCV00009FUC3T", "kart_sku": "F4E650BBM"}]})
+    monkeypatch.setattr(database, "get_client", lambda: ist)
+    monkeypatch.setattr(analitik, "_ithalat_maliyet_map", lambda: {})
+    monkeypatch.setattr(analitik, "_ithalat_partiler_map", lambda: {})
+    assert _bul(analitik.tum_urunler_listesi(), "F4E650BBM")["firma_stoklari"]["HB"] == 24
+
+
+def test_kanal_stoklari_harita():
+    from kayranpm.stok_hesap import kanal_stoklari, kod_haritasi
+    kartlar = {u["sku"]: {"urun_adi": u["urun_adi"]} for u in URUNLER_HB}
+    h = kod_haritasi(FIRMA_STOK_HB, kartlar)
+    assert h == {"HBCV0000GNT2JZ": "X27F182S"}        # kart kodu ve bağlanamayan haritada yok
+    k = kanal_stoklari(FIRMA_STOK_HB, harita=h)
+    assert k["HB"] == {"X27F182S": 299, "HBCV00009FUC3T": 24}
+    assert kanal_stoklari(FIRMA_STOK_HB)["HB"].get("X27F182S", 0) == 0   # haritasız: bugünkü kural
+
+
+def test_stok_karti_ayni_raporda_iki_kod_toplanir():
+    from kayranpm.stok_karti_yeni import stok_yerleri
+    satir = [{"firma": "HB", "stok_miktari": 20, "haftalik_satis": 1, "yukleme_tarihi": "2026-10-11"},
+             {"firma": "HB", "stok_miktari": 18, "haftalik_satis": 2, "yukleme_tarihi": "2026-10-11"},
+             {"firma": "HB", "stok_miktari": 99, "haftalik_satis": 9, "yukleme_tarihi": "2026-10-04"}]
+    m = stok_yerleri({}, satir, lambda f: f)["musteriler"]
+    assert m == [("HB", 38, 3, "2026-10-11")]

@@ -388,7 +388,8 @@ def tum_urunler_listesi():
     # aynı kural). Eskiden ürünün en son görüldüğü satır alınıyordu: kanalın son
     # raporundan düşen ürün eski haftanın adediyle sayılıyordu (625 / 614).
     from .stok_hesap import kanal_stoklari, stok_ozeti
-    _kanal = kanal_stoklari(tum_firma_rows)
+    from .database import kanal_kod_haritasi
+    _kanal = kanal_stoklari(tum_firma_rows, harita=kanal_kod_haritasi())   # pazaryeri kodları karta (Eki 2026)
     FIRMALAR = firma_sirala(list(FIRMA_LISTESI) + list(_kanal))   # veride görünen her firma
 
     kayit_map = {}  # satın-alma geçmişi İthalat'a taşındı

@@ -115,9 +115,10 @@ def harita():
     try:
         from ithalat.database import get_parti_satirlari
         from satis.database import get_pacal_map
-        from kayranpm.database import _hepsi
+        from kayranpm.database import _hepsi, kanal_kod_haritasi
         from kayranpm.stok_hesap import kanal_stoklari
-        kanal = kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi") or [])
+        kanal = kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi") or [],
+                               harita=kanal_kod_haritasi())
         return harita_hesapla(get_parti_satirlari() or [], _hepsi("urunler", "sku, bizim_stok") or [],
                               kanal, get_pacal_map() or {})
     except Exception:  # noqa: BLE001

@@ -12,7 +12,7 @@ from . import ariza_orani as A
 @st.cache_data(ttl=300, show_spinner=False)
 def _veri(bas, bit):
     """Dönemin bütün girdileri — servis kayıtları, satışlar, müşteri stoğu, alımlar, kartlar."""
-    from kayranpm.database import _hepsi
+    from kayranpm.database import _hepsi, kanal_kod_haritasi
     from kayranpm.stok_hesap import kanal_stoklari
     from kayranpm.stok_yasi import _bizim_partiler_oku
     from satis.database import get_satislar_yalin
@@ -27,7 +27,8 @@ def _veri(bas, bit):
     servis = A.servis_ozeti(kayitlar, sku_anahtar, bas, bit)
     # Payda bütün satış geçmişi (bitişe kadar); dönem yalnız servis kayıtlarına uygulanır.
     satis = A.satis_toplami(get_satislar_yalin(None, bit) or [], sku_anahtar, None, bit)
-    mstok = A.musteri_stogu(kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi")))
+    mstok = A.musteri_stogu(kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi"),
+                                           harita=kanal_kod_haritasi()))
     alim = A.alim_toplami(_bizim_partiler_oku())
     rows = A.satirlar(kartlar, alim, satis, mstok, servis)
     kayit_rows = []

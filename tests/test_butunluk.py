@@ -142,6 +142,7 @@ KRITIK_FONKSIYONLAR = {
         "kategori_oner", "marka_oner",            # Müşteri Satışları kategori/marka tahmini buna dayanır
         "get_sku_eslesme", "sku_eslesme_kaydet", "sku_eslesme_sil",   # onaylı SKU eşleme (Eki 2026)
         "firma_stok_satirlari",                   # stok kartı kanal stoğu, SKU yazımından bağımsız
+        "kanal_kod_haritasi", "kanal_kod_satirlari",   # kanal stoğunda pazaryeri kodları karta (Eki 2026)
         "sku_satirlari", "kart_sku_haritasi", "kart_sku_coz",   # SKU yazımı: okuma + yazma (Eki 2026)
         "urunler_ada_gore", "urunler_skuya_gore",   # tek urunler okuması (Eki 2026)
         # atomik stok (veritabani/29_atomik_stok.sql, Eki 2026): RPC önce, yoksa bugünkü yol
@@ -178,7 +179,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
                                "kategori_musteri"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranpm.stok_hesap": ["kanal_stoklari", "kanal_son_tarihleri", "stok_ozeti",
-                            "kanal_kod_karsilastir"],   # kanal stoğu kod eşleşmesi, salt okunur (Eki 2026)
+                            "kanal_kod_karsilastir", "kod_haritasi"],   # kanal stoğu kod eşleşmesi, salt okunur (Eki 2026)
     "kayranpm.musteri_ekran": ["render", "_kanal_karsilastirma"],
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu

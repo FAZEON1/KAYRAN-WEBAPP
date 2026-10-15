@@ -422,12 +422,19 @@ def _dashboard_ham():
     from shared.utils import firma_kanonik, FIRMA_KODLARI_DIGER, sku_anahtar
     from .stok_hesap import kanal_son_tarihleri
     _son = kanal_son_tarihleri(tum_firma_rows)
+    # Pazaryeri kodlu raporlar (D-market 'HBCV…', Avasya) kartın anahtarına — liste ve stok kartıyla
+    # aynı harita (stok_hesap.kanal_stoklari, Ekim 2026).
+    _har = kanal_kod_haritasi() or {}
+
+    def _anh(s):
+        k = sku_anahtar(s)
+        return sku_anahtar(_har.get(k, k))
     firma_data = {f: {} for f in FIRMA_KODLARI_DIGER}
     for r in tum_firma_rows:
         f = firma_kanonik(r.get("firma"))
         if f and str(r.get("yukleme_tarihi") or "")[:10] == _son.get(f):
             _fd = firma_data.setdefault(f, {})
-            _k = sku_anahtar(r["sku"])
+            _k = _anh(r["sku"])
             if _k in _fd:                     # aynı tarihte 'KANAL' + 'DİĞER' / iki yazım → TOPLA
                 _o = dict(_fd[_k])
                 for _a in ("stok_miktari", "haftalik_satis", "stok_magaza", "satis_magaza"):
@@ -437,7 +444,7 @@ def _dashboard_ham():
                 _fd[_k] = r
     gecmis_satislar = defaultdict(list)
     for row in tum_firma_rows:
-        gecmis_satislar[sku_anahtar(row["sku"])].append(row.get("haftalik_satis", 0) or 0)
+        gecmis_satislar[_anh(row["sku"])].append(row.get("haftalik_satis", 0) or 0)
     return urunler, firma_data, stok_yas_data, yoldaki_data, dict(gecmis_satislar)
 
 
@@ -603,6 +610,31 @@ def get_sku_eslesme():
         return _hepsi("sku_eslesme", "dis_kod, kart_sku, onaylayan, created_at", "dis_kod")
     except Exception:  # noqa: BLE001 — tablo henüz kurulmadı; eşleştirme kurallarla sürer
         return None
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def kanal_kod_haritasi():
+    """{sku_anahtar(rapor kodu): kart SKU'su} — kanal stoğunda pazaryeri kodlarını (D-market 'HBCV…',
+    Avasya 'MON24FAZ…') karta bağlar (stok_hesap.kod_haritasi; Müşteri Satışları'yla aynı kural,
+    Ekim 2026). Okunamazsa {} (kanal stoğu eski birebir kurala döner, sayfa çalışır)."""
+    try:
+        from .stok_hesap import kod_haritasi
+        es = get_sku_eslesme() or []
+        return kod_haritasi(_hepsi("firma_stok", "sku, urun_adi") or [], get_urun_marka_kategori() or {},
+                            eslesme={r.get("dis_kod"): r.get("kart_sku") for r in es})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def kanal_kod_satirlari(sku):
+    """Stok kartı: bu karta haritayla bağlanan rapor kodlarının firma_stok satırları ('HBCV…')."""
+    from shared.utils import sku_anahtar
+    k = sku_anahtar(sku)
+    out = []
+    for dis, kart in (kanal_kod_haritasi() or {}).items():
+        if sku_anahtar(kart) == k:
+            out += sku_satirlari("firma_stok", dis)
+    return out
 
 
 def sku_eslesme_kaydet(dis_kod, kart_sku, onaylayan=""):

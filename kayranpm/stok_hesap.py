@@ -33,25 +33,59 @@ def kanal_son_tarihleri(rows):
     return son
 
 
-def kanal_stoklari(rows, son_tarih=None):
+def kanal_stoklari(rows, son_tarih=None, harita=None):
     """{firma: {sku: stok}} — yalnız her kanalın son raporundaki satırlar.
 
     son_tarih verilmezse satırların kendisinden çıkarılır; bu yalnız TÜM
     firma_stok tablosu okunduğunda doğrudur. Tek ürünün satırlarıyla
     çalışırken (stok kartı) kanalların genel son tarihi verilmelidir.
     SKU anahtarı shared.utils.sku_anahtar: rapor 'MIO MIVUE J30' yazar, kart 'Mio MiVue J30';
-    arayan da sku_anahtar(kart_sku) ile bakmalı (Ekim 2026)."""
+    arayan da sku_anahtar(kart_sku) ile bakmalı (Ekim 2026).
+    harita: {sku_anahtar(rapor kodu): kart SKU'su} (kod_haritasi) — pazaryeri kodu gelen raporlar
+    (D-market 'HBCV…', Avasya 'MON24FAZ…') kartın anahtarına yazılır; haritada olmayan kod aynen kalır."""
     from shared.utils import sku_anahtar
     son = son_tarih if son_tarih is not None else kanal_son_tarihleri(rows)
+    harita = harita or {}
     out = {}
     for r in rows or []:
         f = _firma(r)
         if not f or _tarih(r) != son.get(f):
             continue
         sku = sku_anahtar(r.get("sku"))
+        sku = sku_anahtar(harita.get(sku, sku))
         out.setdefault(f, {})
         out[f][sku] = out[f].get(sku, 0) + (r.get("stok_miktari") or 0)
     return out
+
+
+def kod_haritasi(rows, kartlar, eslesme=None):
+    """{sku_anahtar(rapor kodu): kart SKU'su} — kartın kendi kodu olmayan rapor kodları için
+    (Ekim 2026). Kural Müşteri Satışları'nınki (musteri_hesap.meta_hazirla): onaylı eşleme
+    tablosu, sonra addaki model kodu; birden çok aday varsa bağlamaz. rows: firma_stok satırları
+    (sku, urun_adi); kartlar: {kart_sku: {urun_adi, ...}}; eslesme: {dış kod: kart SKU'su}."""
+    from shared.utils import sku_anahtar
+    meta = _kod_meta(rows, kartlar, eslesme)
+    return {sku_anahtar(ham): m["kart_sku"] for ham, m in meta.items()
+            if m.get("kart_sku") and m.get("kart_kaynak") in ("tablo", "kural")}
+
+
+def _kod_meta(rows, kartlar, eslesme=None):
+    """{ham rapor kodu: meta_hazirla sonucu} — kartın kendi kodu olmayan kodlar. Her kod BÜTÜN raporlardan
+    EN UZUN adıyla aranır: D-market son raporda adı kısaltıyor ('…Argb 3X120MM'), eski raporda tam yazıyor
+    ('…Fanlı Atx Beyaz Gamıng Kasa' = kart adı). Sıra rapor sırasına bağlı değil."""
+    from shared.utils import sku_anahtar
+    from .musteri_hesap import meta_hazirla
+    kartlar = kartlar or {}
+    kart_anahtar = {sku_anahtar(k) for k in kartlar}
+    tekil = {}
+    for r in rows or []:
+        ham = str(r.get("sku") or "").strip()
+        if not ham or sku_anahtar(ham) in kart_anahtar:
+            continue
+        ad = str(r.get("urun_adi") or "").strip()
+        if ham not in tekil or (len(ad), ad) > (len(tekil[ham]["urun_adi"]), tekil[ham]["urun_adi"]):
+            tekil[ham] = {"sku": ham, "urun_adi": ad}
+    return meta_hazirla(list(tekil.values()), kartlar, sku_fn=sku_anahtar, eslesme=eslesme)
 
 
 _DURUM_SIRA = {"yeni": 0, "belirsiz": 1, "yok": 2, "bagli": 3}
@@ -68,14 +102,13 @@ def kanal_kod_karsilastir(rows, kartlar, eslesme=None):
     kartlar: {kart_sku: {urun_adi, ...}}; eslesme: {dış kod: kart SKU'su}.
     Döner: {"kodlar": [...], "musteriler": [...], "urunler": [...], "toplam": {...}} — hiçbir şey yazmaz."""
     from shared.utils import sku_anahtar
-    from .musteri_hesap import meta_hazirla
     son = kanal_son_tarihleri(rows)
     son_rows = [r for r in rows or [] if _firma(r) and _tarih(r) == son.get(_firma(r))]
     kartlar = kartlar or {}
     norm = {}
     for ks in kartlar:
         norm.setdefault(sku_anahtar(ks), ks)
-    meta = meta_hazirla(son_rows, kartlar, sku_fn=sku_anahtar, eslesme=eslesme)
+    meta = _kod_meta(rows, kartlar, eslesme)       # kanal_stoklari'nın haritasıyla aynı (kod_haritasi)
 
     kod = {}
     for r in son_rows:
@@ -87,11 +120,11 @@ def kanal_kod_karsilastir(rows, kartlar, eslesme=None):
     for (f, ham), k in kod.items():
         m = meta.get(ham) or {}
         eski = norm.get(sku_anahtar(ham), "")
-        yeni = eski or (m.get("kart_sku") if m.get("kart_kaynak") in ("sku", "tablo", "kural") else "") or ""
+        yeni = eski or (m.get("kart_sku") if m.get("kart_kaynak") in ("tablo", "kural") else "") or ""
         durum = ("bagli" if eski else "yeni" if yeni else
                  "belirsiz" if m.get("kart_kaynak") == "belirsiz" else "yok")
         kodlar.append(dict(k, eski_kart=eski, yeni_kart=yeni, durum=durum,
-                           kaynak="" if eski else {"tablo": "onaylı eşleme", "kural": "addaki model kodu"}.get(
+                           kaynak="" if eski else {"tablo": "onaylı eşleme", "kural": "ürün adı / model kodu"}.get(
                                m.get("kart_kaynak"), ""),
                            adaylar=list(m.get("adaylar") or [])))
     kodlar.sort(key=lambda k: (_DURUM_SIRA[k["durum"]], k["firma"], -k["adet"], k["kod"]))

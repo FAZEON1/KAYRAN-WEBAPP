@@ -41,6 +41,7 @@ BAGIMLILAR = (
     ("kayranpm.database", "get_uretim_suresi"),
     ("kayranpm.database", "firma_son_tarihleri"),
     ("kayranpm.database", "get_firma_listesi"),
+    ("kayranpm.database", "kanal_kod_haritasi"),   # kanal stoğu kod eşlemesi (firma_stok + urunler)
     ("kayranpm.database", "canli_stok"),
     ("kayranpm.analitik", "tum_urunler_listesi"),
     ("kayranpm.analitik", "dashboard_hesapla"),

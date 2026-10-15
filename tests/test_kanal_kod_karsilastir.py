@@ -49,7 +49,7 @@ def test_kodlar_eski_ve_yeni_kart():
     assert kod[("VATAN", "X27F182S")]["durum"] == "bagli"
     assert kod[("VATAN", "X27F182S")]["adet"] == 400                    # yalnız son rapor
     hb = kod[("HB", "HBCV0000GNT2JZ")]
-    assert (hb["eski_kart"], hb["yeni_kart"], hb["durum"], hb["kaynak"]) == ("", "X27F182S", "yeni", "addaki model kodu")
+    assert (hb["eski_kart"], hb["yeni_kart"], hb["durum"], hb["kaynak"]) == ("", "X27F182S", "yeni", "ürün adı / model kodu")
     av = kod[("AVASYA", "MON24FAZX24F240PZ")]
     assert (av["yeni_kart"], av["durum"]) == ("X24F240P", "yeni")
     bel = kod[("HB", "HBCV00007TAN7S")]
