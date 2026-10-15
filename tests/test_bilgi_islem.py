@@ -195,3 +195,10 @@ def test_serkan_talimati_kendini_gelistirme_sinirlari():
     ok, sebep = H.kapi_karari([{"filename": "otonom/bt_gorevi.md", "additions": 5, "deletions": 1}],
                               "claude/x", ["bt-otomatik"], True, "Bilgi işlem: Serkan kendini geliştiriyor — x")
     assert not ok and any("otonom/" in s for s in sebep)
+
+
+def test_talimat_baska_oturuma_mesaj_yasak():
+    """Serkan bir gece send_message ile onay bekleyip takıldı, sonraki gece çalışmadı (15.10.2026)."""
+    g = (KOK / "otonom/bt_gorevi.md").read_text(encoding="utf-8")
+    asla = g[g.index("## Asla"):]
+    assert "send_message" in asla and "bt_db.py rapor" in asla
