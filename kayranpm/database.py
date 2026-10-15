@@ -372,7 +372,7 @@ def set_uretim_suresi(gun):
     except Exception:
         return False
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def firma_son_tarihleri():
     """{firma: 'YYYY-MM-DD'} — her kanalın en son rapor tarihi (tüm ürünler).
     Tek ürünün satırlarını okuyan ekranlar (stok kartı) kanal stoğunu bu
@@ -383,7 +383,7 @@ def firma_son_tarihleri():
     return kanal_son_tarihleri(_hepsi("firma_stok", "firma, yukleme_tarihi"))
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_firma_listesi():
     """Ekranlardaki firma seçenekleri: veride görünen firmalar + ana firmalar, firma_sirala
     sırasıyla (EERA, D-MARKET, VATAN, MONDAY, diğer cariler, DİĞER). Kodlar; görünen ad için

@@ -149,3 +149,13 @@ def test_agir_ekranlar_urunleri_ortak_okumadan_alir():
     db = (KOK / "kayranpm" / "database.py").read_text(encoding="utf-8")
     ham = db[db.index("def _dashboard_ham("):db.index("def get_all_dashboard_data(")]
     assert "urunler_ada_gore()" in ham and '_hepsi("urunler"' not in ham
+
+
+def test_firma_listesi_onbellegi_uzun_tutulur():
+    """firma_son_tarihleri / get_firma_listesi BAGIMLILAR'da (firma_stok değişince temizlenir) ama
+    5 dk'da kendiliğinden siliniyordu: Kampanya'nın firma süzgeci her açılışta firma_stok'u baştan
+    okuyordu (Ekim 2026). Tazelik sayaçtan gelir; süre UZUN_TTL olmalı."""
+    src = (KOK / "kayranpm" / "database.py").read_text(encoding="utf-8")
+    for ad in ("firma_son_tarihleri", "get_firma_listesi"):
+        assert ("kayranpm.database", ad) in V.BAGIMLILAR, ad
+        assert re.search(rf"ttl={V.UZUN_TTL}, show_spinner=False\)[^\n]*\ndef {ad}\(", src), ad
