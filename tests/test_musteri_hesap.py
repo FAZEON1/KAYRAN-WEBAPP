@@ -278,3 +278,21 @@ def test_urun_listesi_kartin_skusu_ile_ve_birlesik():
     assert "X27F182S" in hb and "HBCV0000GNT2JZ" not in hb       # müşteri → ürünler: bizim SKU
     mus = {x["anahtar"] for x in detay(R_KOD, "urun", "X27F182S", META_KOD)}
     assert mus == {"VATAN", "HB"}                                 # ürün → müşteriler: iki kod da
+
+
+def test_kisa_adli_kod_kanal_haritasiyla_baglanir():
+    """D-market son raporda adı kısaltır ('…Argb 3X120MM'); kanal stoğu kodu eski raporlardaki tam adla
+    karta bağlıyor (kod_haritasi) ama Müşteri Satışları yalnız aralıktaki kısa ada bakıp 'bekleyen kod'
+    sayıyordu (canlıda 8 kod, Ekim 2026). Aynı harita ile tamamlanır; harita dışındaki kod bekler."""
+    from kayranpm.musteri_hesap import meta_hazirla, harita_ile_tamamla
+    from shared.utils import sku_anahtar
+    kartlar = {"F17A750BWQ": {"urun_adi": "Fazeon f17 750w Beyaz Gamıng Kasa", "kategori": "kasa", "marka": "FAZEON"},
+               "F17A750BBQ": {"urun_adi": "Fazeon f17 750w Siyah Gamıng Kasa", "kategori": "kasa", "marka": "FAZEON"}}
+    rows = [{"firma": "HB", "sku": "HBCV0000I7TWPR", "urun_adi": "Fazeon F17 750W 80+ Bronze Argb 3X120MM"},
+            {"firma": "VATAN", "sku": "442N59800013", "urun_adi": ""}]
+    meta = meta_hazirla(rows, kartlar, sku_fn=sku_anahtar)
+    assert meta["HBCV0000I7TWPR"]["kart_kaynak"] == ""          # kısa adla bulunamıyor
+    harita_ile_tamamla(meta, {"HBCV0000I7TWPR": "F17A750BWQ"}, kartlar, sku_fn=sku_anahtar)
+    m = meta["HBCV0000I7TWPR"]
+    assert (m["kart_sku"], m["kart_kaynak"], m["kategori_kaynak"]) == ("F17A750BWQ", "kural", "kart")
+    assert meta["442N59800013"]["kart_kaynak"] == ""            # haritada yok: bekler

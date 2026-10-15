@@ -213,6 +213,28 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
     return out
 
 
+def harita_ile_tamamla(meta, harita, kartlar, sku_fn=None, kategori_liste=(), marka_liste=()):
+    """meta_hazirla'nın bağlayamadığı kodları kanal stoğunun kod haritasıyla tamamlar (Ekim 2026).
+    Rapor kısa ad gönderebilir ('…Argb 3X120MM'); harita kodu bütün raporlardaki en uzun adıyla
+    bağlar (stok_hesap.kod_haritasi). Böylece Müşteri Satışları, kanal stoğu ve bekleyen kodlar
+    listesi aynı kartı görür. harita: {sku_fn(rapor kodu): kart SKU'su}. meta'yı yerinde günceller."""
+    skn = sku_fn or _sku_varsayilan
+    kartlar = kartlar or {}
+    for ham, m in (meta or {}).items():
+        if m.get("kart_kaynak") not in ("belirsiz", ""):
+            continue
+        ks = (harita or {}).get(skn(ham))
+        if not ks or ks not in kartlar:
+            continue
+        k = kartlar[ks] or {}
+        m.update(kart_sku=ks, kart_kaynak="kural", adaylar=[])
+        if str(k.get("kategori") or "").strip():
+            m.update(kategori=kategori_etiketi(k["kategori"], kategori_liste), kategori_kaynak="kart")
+        if str(k.get("marka") or "").strip():
+            m.update(marka=marka_etiketi(k["marka"], marka_liste), marka_kaynak="kart")
+    return meta
+
+
 def eslesme_dogrula(dis_kod, kart_sku, kartlar, sku_fn=None, mevcut=None):
     """Eşleme tablosuna yazmadan önce koruma. Döner: (ok, mesaj, {dis_kod, kart_sku} | None).
     Kurallar:

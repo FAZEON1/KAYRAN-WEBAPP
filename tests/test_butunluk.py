@@ -179,7 +179,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.islem": ["kur", "bekle"],
     "shared.modul_tazele": ["tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
-                               "kategori_musteri"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
+                               "kategori_musteri", "harita_ile_tamamla"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranpm.stok_hesap": ["kanal_stoklari", "kanal_son_tarihleri", "stok_ozeti",
                             "kanal_kod_karsilastir", "kod_haritasi"],   # kanal stoğu kod eşleşmesi, salt okunur (Eki 2026)
     "kayranpm.musteri_ekran": ["render", "_kanal_karsilastirma"],
