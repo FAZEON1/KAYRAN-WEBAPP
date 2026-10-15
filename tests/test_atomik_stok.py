@@ -455,3 +455,96 @@ def test_eski_yolda_stok_adimi_patlarsa_satis_durur_mesajda_uyari(monkeypatch, t
     ok, msg, n = sdb.ekle_siparis("2026-10-14", "VATAN", "S-1", "", [{"sku": "ABC", "adet": 1}])
     assert ok and len(db.t["satislar"]) == 1 and "Stok adımı hata verdi" in msg
     assert temiz["hatalar"][0][0] == "satis.stok_yolu"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 5) Excel yüklemeleri tek işlem (Ekim 2026): toplu satış + G5F stok aktarımı
+# ═══════════════════════════════════════════════════════════════════
+def _excel_satirlar():
+    return [{"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "X24F241S", "adet": 12},
+            {"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "ABC", "adet": 2,
+             "depo": "asel"}]
+
+
+def test_excel_satis_yuklemesi_tek_cagri(monkeypatch, temiz):
+    """Üzerine yaz + satış satırları + stok düşümü TEK çağrıda; tabloya ayrıca hiçbir şey yazılmaz.
+    Eski: önce silme çağrısı, sonra 200'lük satış eklemeleri, sonra depo depo stok çağrıları."""
+    db = SahteDB(urunler=_kopya(URUNLER),
+                 satislar=[{"id": 3, "siparis_no": "E-1", "sku": "X24F241S", "adet": 2}],
+                 rpc=_basarili({"silinen": [{"id": 3}], "eklenen": [{"id": 10}, {"id": 11}],
+                                "uygulanan": 4, "atlanan": []}))
+    monkeypatch.setattr(pmdb, "get_client", lambda: db)
+    monkeypatch.setattr(sdb, "_get_client", lambda: db)
+    monkeypatch.setattr(sdb, "get_pacal_map", lambda: {})
+    r = sdb.ice_aktar_satislar(_excel_satirlar(), temizle_once=True)
+    assert db.yazimlar == [], "Excel satış yüklemesi tek işlemde değil (tabloya ayrı yazım var)"
+    assert [ad for ad, _ in db.rpc_cagrilari] == ["kayit_stok_islem"], "tek çağrı değil"
+    p = db.rpc_cagrilari[0][1]
+    assert p["p_sil"] == {"kolon": "siparis_no", "degerler": ["E-1"]} and len(p["p_satirlar"]) == 2
+    # silinen 2 adet merkeze dönecek → merkez 12 görünür: 12'nin tamamı merkezden; ABC seçilen depodan
+    assert [(k["sku"], k["depo"], k["delta"]) for k in p["p_hareketler"]] == \
+        [("ABC", "ASEL DEPO", -2.0), ("X24F241S", "MERKEZ DEPO", -12.0)]
+    assert p["p_ortam"]["kaynak"] == "satis/database.py:_stok_akilli_dus"
+    assert (r["eklendi"], r["silinen_fatura"], r["hatali"], r["hata"]) == (2, 1, 0, None)
+
+
+def test_excel_satis_reddedilirse_hicbir_sey_yazilmaz(monkeypatch, temiz):
+    db = SahteDB(urunler=_kopya(URUNLER),
+                 satislar=[{"id": 3, "siparis_no": "E-1", "sku": "X24F241S", "adet": 2}], rpc=_patla)
+    monkeypatch.setattr(pmdb, "get_client", lambda: db)
+    monkeypatch.setattr(sdb, "_get_client", lambda: db)
+    monkeypatch.setattr(sdb, "get_pacal_map", lambda: {})
+    r = sdb.ice_aktar_satislar(_excel_satirlar(), atla_mevcut=False)
+    assert db.yazimlar == [] and len(db.t["satislar"]) == 1, "reddedilen yükleme yarım yazıldı"
+    assert r["eklendi"] == 0 and "hiçbir şey değişmedi" in (r["hata"] or "")
+
+
+def test_excel_satis_fonksiyon_yoksa_bugunku_yol(monkeypatch, temiz):
+    db = SahteDB(urunler=_kopya(URUNLER), rpc=_yok)
+    monkeypatch.setattr(pmdb, "get_client", lambda: db)
+    monkeypatch.setattr(sdb, "_get_client", lambda: db)
+    monkeypatch.setattr(sdb, "get_pacal_map", lambda: {})
+    r = sdb.ice_aktar_satislar(_excel_satirlar(), atla_mevcut=False)
+    assert r["eklendi"] == 2 and len(db.t["satislar"]) == 2
+    assert db.t["urunler"][0]["depo_kirilim"] == {"MERKEZ DEPO": 0, "HAPPY LIFE": 2.0}   # 10 merkez + 2 HL
+
+
+def _g5f_excel(tmp_path):
+    import pandas as pd
+    yol = tmp_path / "g5f.xlsx"
+    pd.DataFrame({"DEPO ADI": ["MERKEZ DEPO", "HAPPY LIFE", "MERKEZ DEPO"],
+                  "STOK KODU": ["x24f241s", "x24f241s", "YENI1"], "STOK İSMİ": ["Monitör", "Monitör", "Yeni"],
+                  "MİKTAR": [7, 3, 5]}).to_excel(yol, index=False)
+    return str(yol)
+
+
+def test_g5f_aktarim_tek_cagri(monkeypatch, temiz, tmp_path):
+    """Bütün ürünler + Excel'de olmayanların sıfırlanması TEK çağrıda (g5f_stok_aktar).
+    Eski: ürün ürün güncelleme + ayrı sıfırlama yazımları."""
+    import kayranpm.excel_islemler as E
+    db = SahteDB(urunler=_kopya(URUNLER), rpc=_basarili({"guncellenen": 1, "yeni": 1, "sifirlanan": 2}))
+    monkeypatch.setattr(pmdb, "get_client", lambda: db)
+    monkeypatch.setattr(E, "get_client", lambda: db)
+    monkeypatch.setattr(E, "get_today", lambda: "2026-10-14")
+    oz = {}
+    ok, msg = E.excel_yukle_g5f_depolar(_g5f_excel(tmp_path), ozet=oz)
+    assert db.yazimlar == [], "G5F aktarımı tek işlemde değil (ürün ürün yazım var)"
+    assert [ad for ad, _ in db.rpc_cagrilari] == ["g5f_stok_aktar"]
+    p = db.rpc_cagrilari[0][1]
+    assert [(u["sku"], u["bizim_stok"], u["depo_kirilim"]) for u in p["p_urunler"]] == \
+        [("X24F241S", 10, {"MERKEZ DEPO": 7, "HAPPY LIFE": 3}), ("YENI1", 5, {"MERKEZ DEPO": 5})]
+    assert p["p_urunler"][1]["yeni_kart"]["ilk_giris_tarihi"] == "2026-10-14"
+    assert p["p_sifirla"] == ["ABC", "Mio MiVue J30"]
+    assert p["p_ortam"]["kaynak"] == "kayranpm/excel_islemler.py:excel_yukle_g5f_depolar"
+    assert ok and oz["guncellenen"] == 2 and "2 ürünün eski kırılımı sıfırlandı" in msg
+
+
+def test_g5f_aktarim_reddedilirse_hicbir_sey_yazilmaz(monkeypatch, temiz, tmp_path):
+    import kayranpm.excel_islemler as E
+    db = SahteDB(urunler=_kopya(URUNLER), rpc=_patla)
+    monkeypatch.setattr(pmdb, "get_client", lambda: db)
+    monkeypatch.setattr(E, "get_client", lambda: db)
+    ok, msg = E.excel_yukle_g5f_depolar(_g5f_excel(tmp_path), ozet={})
+    assert db.yazimlar == [], "reddedilen aktarım yarım yazıldı"
+    assert not ok and "hiçbir şey değişmedi" in msg
+    assert temiz["hatalar"] and temiz["hatalar"][-1][2] is True

@@ -668,6 +668,16 @@ def excel_yukle_g5f_depolar(dosya_yolu, onizle=False, ozet=None):
             ozet["guncellenen"] = 0
         from .database import _defter as _defter_al
         _sd = _defter_al()
+
+        # ── TEK İŞLEM (veritabani/34 kuruluysa): bütün ürünler + sıfırlama + stok defteri birlikte ──
+        _tek = _g5f_tek_islem(kirilim, adlar, mevcut_sku_map)
+        if isinstance(_tek, str):
+            return False, _tek
+        if _tek is not None:
+            basarili, toplam_adet, eslesen, yeni, sifirlanan = _tek
+            if ozet is not None:
+                ozet["guncellenen"] = basarili
+            return True, _g5f_mesaj(basarili, eslesen, yeni, depolar_set, toplam_adet, sifirlanan)
         # Yüzlerce SKU'nun defter satırı tek istekte yazılsın. 'with': güncelleme döngüsünde hata
         # çıksa da tampon kapanır (eskiden tampon elle açılıp kapatılıyordu; döngüde hata olursa
         # tampon açık kalıyor, o işlemin ve aynı iş parçacığındaki sonraki işlemlerin defteri yazılmıyordu).
@@ -722,14 +732,69 @@ def excel_yukle_g5f_depolar(dosya_yolu, onizle=False, ozet=None):
                 except Exception:
                     pass
 
-        depo_liste = ", ".join(sorted(depolar_set))
-        _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"
-                if sifirlanan else "")
-        return True, (f"✅ {basarili} ürün yüklendi · {eslesen} mevcut güncellendi, {yeni} yeni eklendi · "
-                      f"{len(depolar_set)} depo ({depo_liste}) · toplam {tr_sayi(toplam_adet)} adet{_sfr}. "
-                      f"'bizim stok' = Merkez + Happy Life.")
+        return True, _g5f_mesaj(basarili, eslesen, yeni, depolar_set, toplam_adet, sifirlanan)
     except Exception as e:
         return False, f"❌ Dosya okunamadı: {type(e).__name__}: {str(e)[:160]}"
+
+
+def _g5f_mesaj(basarili, eslesen, yeni, depolar_set, toplam_adet, sifirlanan):
+    depo_liste = ", ".join(sorted(depolar_set))
+    _sfr = (f" · 🧹 Excel'de olmayan {sifirlanan} ürünün eski kırılımı sıfırlandı (birebir senkron)"
+            if sifirlanan else "")
+    return (f"✅ {basarili} ürün yüklendi · {eslesen} mevcut güncellendi, {yeni} yeni eklendi · "
+            f"{len(depolar_set)} depo ({depo_liste}) · toplam {tr_sayi(toplam_adet)} adet{_sfr}. "
+            f"'bizim stok' = Merkez + Happy Life.")
+
+
+def _g5f_tek_islem(kirilim, adlar, mevcut_sku_map):
+    """G5F aktarımını tek veritabanı işleminde yapar (kayranpm.database.g5f_aktarim_atomik).
+    Hangi kartın güncelleneceği, satılabilir stok ve sıfırlanacak kartlar bugünkü kurallarla burada
+    hesaplanır. Döner: (basarili, toplam_adet, eslesen, yeni, sifirlanan) | None (fonksiyon kurulu değil →
+    bugünkü ürün ürün yol) | hata metni (reddedildi; hiçbir şey yazılmadı)."""
+    from .database import g5f_aktarim_atomik, g5f_yeni_kart, AtomikHata
+    bugun = get_today()
+    urunler, eslesen, yeni, toplam_adet = [], 0, 0, 0
+    for sku, dd in kirilim.items():
+        gercek_sku = mevcut_sku_map.get(sku, sku)   # mevcut varsa onun yazımıyla güncelle
+        if sku in mevcut_sku_map:
+            eslesen += 1
+        else:
+            yeni += 1
+        satilabilir = sum(m for d, m in dd.items() if _firma_normalize(d) in G5F_SATILABILIR_DEPOLAR)
+        urunler.append({"sku": gercek_sku, "urun_adi": adlar.get(sku, ""), "bizim_stok": int(satilabilir or 0),
+                        "depo_kirilim": dd or {},
+                        "yeni_kart": g5f_yeni_kart(gercek_sku, adlar.get(sku, ""), satilabilir, dd, bugun)})
+        toplam_adet += sum(dd.values())
+    # BİREBİR SENKRON: Excel'de OLMAYAN ürünlerin eski kırılımı sıfırlanır (aynı işlemde)
+    sifirla = []
+    try:
+        for _r in get_client().table("urunler").select("sku, depo_kirilim").execute().data or []:
+            _gs = str(_r.get("sku") or "").strip()
+            _dk = _r.get("depo_kirilim") or {}
+            if not _gs or not isinstance(_dk, dict) or not any(safe_int(v) for v in _dk.values()):
+                continue
+            if normalize_sku(_gs) not in kirilim:
+                sifirla.append(_gs)
+    except Exception as _e:
+        try:
+            from shared.hata_log import kaydet
+            kaydet("excel_islemler.senkron_sifirlama", _e, kritik=True)
+        except Exception:
+            pass
+    try:
+        # defterdeki 'kaynak' eski yolla aynı (stok aktarımını başlatan fonksiyon)
+        sonuc = g5f_aktarim_atomik(urunler, sifirla, kaynak="kayranpm/excel_islemler.py:excel_yukle_g5f_depolar")
+    except AtomikHata as _ae:
+        try:
+            from shared.hata_log import kaydet
+            kaydet("excel_islemler.g5f_tek_islem", _ae, "g5f_stok_aktar reddedildi — hiçbir şey yazılmadı",
+                   kritik=True)
+        except Exception:
+            pass
+        return f"Yükleme yapılmadı, hiçbir şey değişmedi (stoklar eski hâliyle duruyor): {_ae.mesaj[:160]}"
+    if sonuc is None:
+        return None
+    return len(urunler), toplam_adet, eslesen, yeni, int(sonuc.get("sifirlanan") or 0)
 
 
 # ═══════════ HAFTALIK STOK+SATIŞ — firma başına 2 sekme, PORTAL formatları ═══════════

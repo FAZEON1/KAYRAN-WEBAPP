@@ -33,10 +33,15 @@ import shared.stok_defteri as SD          # noqa: E402
 
 KOK = Path(__file__).resolve().parent.parent
 SQL = (KOK / "veritabani" / "29_atomik_stok.sql").read_text(encoding="utf-8")
+SQL_G5F = (KOK / "veritabani" / "34_g5f_aktarim_tek_islem.sql").read_text(encoding="utf-8")
 
 SEMA = """
 CREATE TABLE urunler (sku text PRIMARY KEY, urun_adi text, bizim_stok integer DEFAULT 0,
-                      depo_kirilim jsonb, guncelleme_tarihi date);
+                      depo_kirilim jsonb, guncelleme_tarihi date,
+                      kategori text DEFAULT '', marka text DEFAULT '', satis_fiyati numeric DEFAULT 0,
+                      alis_fiyati numeric DEFAULT 0, hedef_kar_marji numeric DEFAULT 0, ozellikler text DEFAULT '',
+                      trendyol_stok integer DEFAULT 0, ilk_giris_tarihi date);
+CREATE TABLE stok_yas (sku text PRIMARY KEY, ilk_gorulen_tarih date);
 CREATE TABLE stok_hareketleri (id bigserial PRIMARY KEY, zaman timestamptz NOT NULL DEFAULT now(),
     sku text NOT NULL, depo text, onceki numeric, sonraki numeric, degisim numeric, tur text,
     aciklama text, kaynak text, kullanici text, basarili boolean NOT NULL DEFAULT true, hata text,
@@ -120,6 +125,10 @@ class _Sorgu:
         self.islem, self.yuk = "update", yuk
         return self
 
+    def upsert(self, yuk, on_conflict="", **k):
+        self.islem, self.yuk, self.cakisma = "upsert", yuk, on_conflict
+        return self
+
     def delete(self, *a, **k):
         self.islem = "delete"
         return self
@@ -153,9 +162,13 @@ class _Sorgu:
         for s in satirlar:
             kolon += [k for k in s if k not in kolon]
         kl = ", ".join(kolon)
-        if self.islem == "insert":
-            q = (f"WITH r AS (INSERT INTO {t} ({kl}) SELECT {kl} FROM jsonb_populate_recordset(NULL::{t}, %s::jsonb) "
-                 "RETURNING *) SELECT coalesce(jsonb_agg(to_jsonb(r)), '[]')::text FROM r")
+        if self.islem in ("insert", "upsert"):
+            ek = ""
+            if self.islem == "upsert":
+                ek = (f" ON CONFLICT ({self.cakisma}) DO UPDATE SET "
+                      + ", ".join(f"{k} = excluded.{k}" for k in kolon))
+            q = (f"WITH r AS (INSERT INTO {t} ({kl}) SELECT {kl} FROM jsonb_populate_recordset(NULL::{t}, %s::jsonb)"
+                 f"{ek} RETURNING *) SELECT coalesce(jsonb_agg(to_jsonb(r)), '[]')::text FROM r")
             return _Yanit(self.cli.json(q, [json.dumps(satirlar)]))
         q = (f"WITH r AS (UPDATE {t} SET ({kl}) = (SELECT {kl} FROM jsonb_populate_record(NULL::{t}, %s::jsonb))"
              f"{w} RETURNING *) SELECT coalesce(jsonb_agg(to_jsonb(r)), '[]')::text FROM r")
@@ -250,6 +263,8 @@ def veritabanlari():
         c.execute(SEMA)
         c.execute(SQL)
         c.execute(SQL)                                     # tekrar çalıştırılabilir
+        c.execute(SQL_G5F)
+        c.execute(SQL_G5F)
     with psycopg.connect(_dsn_db(adlar["eski"]), autocommit=True) as c:
         c.execute(SEMA)
     yield {k: _dsn_db(v) for k, v in adlar.items()}
@@ -257,7 +272,7 @@ def veritabanlari():
 
 def _sifirla(dsn, baslangic=BASLANGIC):
     with psycopg.connect(dsn, autocommit=True) as c:
-        c.execute("TRUNCATE urunler, stok_hareketleri, satislar, iadeler, depo_sevk_log RESTART IDENTITY")
+        c.execute("TRUNCATE urunler, stok_hareketleri, satislar, iadeler, depo_sevk_log, stok_yas RESTART IDENTITY")
         for sku, ad, dk, bs in baslangic:
             c.execute("INSERT INTO urunler (sku, urun_adi, depo_kirilim, bizim_stok, guncelleme_tarihi) "
                       "VALUES (%s, %s, %s::jsonb, %s, '2026-01-01')",
@@ -562,3 +577,155 @@ def test_stok_adimi_hata_verirse_satis_da_yazilmaz(veritabanlari, monkeypatch):
         assert c.execute("SELECT count(*) FROM satislar").fetchone()[0] == 0
         assert c.execute("SELECT count(*) FROM stok_hareketleri").fetchone()[0] == 0
     assert _kirilim(dsn, "X24F241S")[0]["MERKEZ DEPO"] == 10          # ilk kalem de geri alındı
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 4) Excel satış yüklemesi tek işlem (Ekim 2026): üzerine yaz + depolu + deposuz, red
+# ═══════════════════════════════════════════════════════════════════
+def _kaynak_esitle(defter):
+    """'Üzerine yaz' silmesinin stok iadesi eski yolda ayrı adımdı (kaynak _stok_uygula); tek işlemde
+    yüklemenin kaynağıyla (_stok_akilli_dus) yazılır. Karşılaştırmada yalnız bu bilgi alanı eşitlenir."""
+    return [d[:7] + ("satis/database.py:_stok_akilli_dus",) + d[8:]
+            if d[7] == "satis/database.py:_stok_uygula" else d for d in defter]
+
+
+def test_excel_satis_uzerine_yaz_depolu_ve_deposuz_ayni_urun(ortam, monkeypatch):
+    """Aynı üründe: önce yüklenmiş fatura (üzerine yazılır → merkeze döner), çıkış deposu yazılı satır
+    (HAPPY LIFE) ve deposuz satır (akıllı dağıtım). Eski yol bunları SIRAYLA yazıp her adımda yeniden
+    okuyordu; tek işlemde plan aynı sırayı hesaba katmalı (merkez 10 + HL 2 + kalan 1 merkeze)."""
+    monkeypatch.setattr(sdb, "get_pacal_map", lambda: {"X24F241S": 60.0, "ABC": 5.0})
+
+    def senaryo():
+        ilk = sdb.ice_aktar_satislar(
+            [{"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "X24F241S", "adet": 3},
+             {"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "ABC", "adet": 1}],
+            atla_mevcut=False)
+        with SD.yukleme("YK-2"):
+            ikinci = sdb.ice_aktar_satislar(
+                [{"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "X24F241S", "adet": 13},
+                 {"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "X24F241S", "adet": 2,
+                  "depo": "happy life", "notlar": "Mağaza: B"},
+                 {"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-1", "sku": "ABC", "adet": 2,
+                  "depo": "ASEL DEPO"}],
+                temizle_once=True)
+        return ilk, ikinci
+    eski, yeni = ortam(senaryo)
+    for anahtar in ("urunler", "satislar", "iadeler", "sevk"):
+        assert eski["durum"][anahtar] == yeni["durum"][anahtar], anahtar
+    assert _kaynak_esitle(eski["durum"]["defter"]) == yeni["durum"]["defter"]
+    assert eski["donus"] == yeni["donus"]
+    assert yeni["donus"][1]["silinen_fatura"] == 1 and yeni["donus"][1]["eklendi"] == 3
+    dk = json.loads([u for u in yeni["durum"]["urunler"] if u[0] == "X24F241S"][0][3])
+    assert dk == {"MERKEZ DEPO": -1.0, "HAPPY LIFE": 0}       # 10 − 11 ; 4 − 2 − 2
+
+
+def test_excel_satis_reddedilirse_hicbir_sey_degismez(veritabanlari, monkeypatch):
+    """Excel satış yüklemesi tek işlem: stok adımı veritabanında patlarsa ne satışlar ne stok ne de
+    'üzerine yaz' silmesi yazılır. Eski yolda satış satırları yazılı, stoğun bir kısmı düşülmüş kalırdı."""
+    dsn = veritabanlari["yeni"]
+    _sifirla(dsn)
+    cli = PgIstemci(dsn)
+    monkeypatch.setattr(pmdb, "get_client", lambda: cli)
+    monkeypatch.setattr(sdb, "_get_client", lambda: cli)
+    monkeypatch.setattr(sdb, "get_pacal_map", lambda: {})
+    monkeypatch.setattr(pmdb, "get_urun_marka_kategori", lambda: {})
+    monkeypatch.setattr(pmdb, "_cache_temizle", lambda: None)
+    monkeypatch.setattr(sdb, "_temizle", lambda: None)
+    monkeypatch.setattr(sdb, "_marj_uyarisi_gonder", lambda *a, **k: (False, "test"))
+    monkeypatch.setattr(HL, "kaydet", lambda *a, **k: True)
+    monkeypatch.setattr(AU, "log_yaz", lambda *a, **k: None)
+    _atomik_sifirla()
+    sdb.ice_aktar_satislar([{"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-9", "sku": "X24F241S",
+                             "adet": 1}], atla_mevcut=False)
+    with psycopg.connect(dsn, autocommit=True) as c:      # bozuk kırılım değeri → stok adımı hata verir
+        c.execute("""UPDATE urunler SET depo_kirilim = '{"MERKEZ DEPO": "bozuk"}' WHERE sku = 'ABC'""")
+        once = (c.execute("SELECT count(*) FROM satislar").fetchone()[0],
+                c.execute("SELECT count(*) FROM stok_hareketleri").fetchone()[0])
+    r = sdb.ice_aktar_satislar(
+        [{"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-9", "sku": "X24F241S", "adet": 4},
+         {"tarih": "2026-10-01", "kanal": "VATAN", "siparis_no": "E-9", "sku": "ABC", "adet": 1,
+          "depo": "MERKEZ DEPO"}], temizle_once=True)
+    with psycopg.connect(dsn, autocommit=True) as c:
+        sonra = (c.execute("SELECT count(*) FROM satislar").fetchone()[0],
+                 c.execute("SELECT count(*) FROM stok_hareketleri").fetchone()[0])
+        adet = c.execute("SELECT adet FROM satislar").fetchall()
+    assert sonra == once and adet == [(1,)], "yükleme yarım yazıldı (satış ya da stok değişti)"
+    assert _kirilim(dsn, "X24F241S")[0]["MERKEZ DEPO"] == 9          # yalnız ilk yüklemenin düşümü
+    assert r["eklendi"] == 0 and "hiçbir şey değişmedi" in (r["hata"] or "")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 5) G5F stok aktarımı tek işlem (veritabani/34_g5f_aktarim_tek_islem.sql)
+# ═══════════════════════════════════════════════════════════════════
+def _g5f_xlsx(satirlar, yol):
+    import pandas as pd
+    pd.DataFrame(satirlar, columns=["DEPO ADI", "STOK KODU", "STOK İSMİ", "MİKTAR"]).to_excel(yol, index=False)
+    return str(yol)
+
+
+def _g5f_durum(dsn):
+    with psycopg.connect(dsn, autocommit=True) as c:
+        urun = c.execute("SELECT sku, urun_adi, bizim_stok, depo_kirilim::text, guncelleme_tarihi::text, kategori, "
+                         "marka, satis_fiyati::float8, trendyol_stok, ilk_giris_tarihi::text FROM urunler "
+                         "ORDER BY sku").fetchall()
+        yas = c.execute("SELECT sku, ilk_gorulen_tarih::text FROM stok_yas ORDER BY sku").fetchall()
+    return urun, yas
+
+
+G5F_BASLANGIC = BASLANGIC + [("BOSAD", "", {"MERKEZ DEPO": 1}, 1)]
+
+
+def test_g5f_aktarim_tek_islem_eski_yolla_ayni(ortam, monkeypatch, tmp_path):
+    """Var olan kart (yazım farkıyla), adı boş kart, yeni kart, Excel'de olmayıp sıfırlanan kartlar:
+    ürünler, stok defteri ve stok_yas eski ürün ürün yolla birebir aynı."""
+    import kayranpm.excel_islemler as E
+    monkeypatch.setattr(E, "get_client", lambda: pmdb.get_client())
+    monkeypatch.setattr(E, "get_today", lambda: "2026-10-14")
+    dosya = _g5f_xlsx([["MERKEZ DEPO", "x24f241s", "Monitör", 7], ["HAPPY LIFE", "x24f241s", "Monitör", 3],
+                       ["İADE DEPO", "x24f241s", "Monitör", 2], ["Merkez", "BOSAD", "Yeni ad", 4],
+                       ["MERKEZ DEPO", "YENI1", "Yeni ürün", 5], ["OUTLET", "YENI1", "Yeni ürün", 1],
+                       ["MERKEZ DEPO", "X24F200", "", 3]], tmp_path / "g5f.xlsx")
+
+    def senaryo():
+        with SD.yukleme("YK-G5F"):
+            oz = {}
+            ok, msg = E.excel_yukle_g5f_depolar(dosya, ozet=oz)
+        return ok, msg, oz, _g5f_durum(pmdb.get_client().dsn)
+    eski, yeni = ortam(senaryo, baslangic=G5F_BASLANGIC)
+    _ayni(eski, yeni)
+    ok, msg, oz, (urun, yas) = yeni["donus"]
+    assert ok and oz["guncellenen"] == 4 and "sıfırlandı" in msg
+    assert ("BOSAD", "Yeni ad") in [(u[0], u[1]) for u in urun]
+    assert {r[-1] for r in yeni["durum"]["defter"]} == {"YK-G5F"}
+    assert {d[5] for d in yeni["durum"]["defter"]} == {"aktarim", "sifirlama"}
+
+
+def test_g5f_aktarim_reddedilirse_hicbir_sey_degismez(veritabanlari, monkeypatch, tmp_path):
+    """Aktarım tek işlem: bir ürünün yazımı veritabanında patlarsa HİÇBİR ürün güncellenmez, sıfırlama
+    ve stok defteri de yazılmaz. Eski yolda o ürüne kadar olanlar yeni sayımla, kalanı eskiyle kalırdı."""
+    import kayranpm.excel_islemler as E
+    dsn = veritabanlari["yeni"]
+    _sifirla(dsn, G5F_BASLANGIC)
+    with psycopg.connect(dsn, autocommit=True) as c:      # ikinci ürünün yazımı reddedilir
+        c.execute("ALTER TABLE urunler ADD CONSTRAINT g5f_dene CHECK (sku <> 'X24F200' OR bizim_stok < 100)")
+    try:
+        cli = PgIstemci(dsn)
+        monkeypatch.setattr(pmdb, "get_client", lambda: cli)
+        monkeypatch.setattr(E, "get_client", lambda: cli)
+        monkeypatch.setattr(pmdb, "_cache_temizle", lambda: None)
+        monkeypatch.setattr(pmdb, "get_today", lambda: "2026-10-14")
+        monkeypatch.setattr(E, "get_today", lambda: "2026-10-14")
+        monkeypatch.setattr(HL, "kaydet", lambda *a, **k: True)
+        monkeypatch.setattr(AU, "log_yaz", lambda *a, **k: None)
+        _atomik_sifirla()
+        once = _durum(dsn)
+        dosya = _g5f_xlsx([["MERKEZ DEPO", "X24F241S", "Monitör", 7], ["MERKEZ DEPO", "X24F200", "", 500]],
+                          tmp_path / "g5f.xlsx")
+        ok, msg = E.excel_yukle_g5f_depolar(dosya, ozet={})
+        sonra = _durum(dsn)
+    finally:
+        with psycopg.connect(dsn, autocommit=True) as c:
+            c.execute("ALTER TABLE urunler DROP CONSTRAINT IF EXISTS g5f_dene")
+    assert sonra["urunler"] == once["urunler"], "aktarım yarım yazıldı (bir kısım ürün yeni sayımla kaldı)"
+    assert sonra["defter"] == once["defter"]
+    assert not ok and "hiçbir şey değişmedi" in msg

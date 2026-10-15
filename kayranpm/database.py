@@ -738,6 +738,38 @@ def ithalat_eksikleri_ekle():
 
 # ── FİRMA STOK ──────────────────────────────────────────────────────
 
+def g5f_yeni_kart(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim, bugun):
+    """G5F aktarımında kartı olmayan SKU için açılan kart satırı."""
+    return {"sku": sku, "urun_adi": urun_adi or "", "kategori": "", "marka": "",
+            "satis_fiyati": 0, "alis_fiyati": 0, "hedef_kar_marji": 0, "ozellikler": "",
+            "bizim_stok": int(bizim_stok_satilabilir or 0), "trendyol_stok": 0,
+            "depo_kirilim": depo_kirilim or {},
+            "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun}
+
+
+def g5f_aktarim_atomik(urunler, sifirla, kaynak=None):
+    """G5F aktarımının tamamı tek işlemde (veritabani/34_g5f_aktarim_tek_islem.sql): ürünler, Excel'de
+    olmayanların sıfırlanması, stok defteri, stok_yas — ya hepsi ya hiçbiri.
+    urunler: [{sku, urun_adi, bizim_stok, depo_kirilim, yeni_kart}], sifirla: [sku].
+    Döner: {guncellenen, yeni, sifirlanan} | None (fonksiyon kurulu değil → bugünkü yol).
+    Reddedilirse AtomikHata (hiçbir şey yazılmamıştır)."""
+    try:
+        sb = get_client()
+    except Exception:
+        return None
+    ok, veri = atomik_rpc(sb, "g5f_stok_aktar", {"p_urunler": list(urunler or []),
+                                                 "p_sifirla": list(sifirla or []),
+                                                 "p_ortam": atomik_ortam(kaynak)})
+    if not ok:
+        return None
+    veri = veri if isinstance(veri, dict) else {}
+    atomik_audit("güncelle", "urunler", "",
+                 f"G5F aktarım: {len(urunler or [])} ürün, {int(veri.get('sifirlanan') or 0)} sıfırlama (tek işlem)",
+                 "kayranpm")
+    _cache_temizle()
+    return veri
+
+
 def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
     """G5F (bizim depo) çok-depolu stok günceller.
     bizim_stok = satılabilir depolar toplamı (sipariş önerisi bunu kullanır).
@@ -764,11 +796,7 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
             _payload.pop("depo_kirilim", None)
             sb.table("urunler").update(_payload).eq("sku", sku).execute()
     else:
-        _payload = {"sku": sku, "urun_adi": urun_adi or "", "kategori": "", "marka": "",
-                    "satis_fiyati": 0, "alis_fiyati": 0, "hedef_kar_marji": 0, "ozellikler": "",
-                    "bizim_stok": int(bizim_stok_satilabilir or 0), "trendyol_stok": 0,
-                    "depo_kirilim": depo_kirilim or {},
-                    "ilk_giris_tarihi": bugun, "guncelleme_tarihi": bugun}
+        _payload = g5f_yeni_kart(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim, bugun)
         try:
             sb.table("urunler").insert(_payload).execute()
             _sd.yaz_fark(sku, {}, depo_kirilim or {}, "aktarim", "Excel/G5F stok aktarımı · yeni kart")
