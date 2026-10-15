@@ -246,9 +246,11 @@ def _anahtar(r, kirilim, meta):
     sku = _sku(r)
     if kirilim == "musteri":
         return _firma(r)
-    if kirilim == "urun":
-        return sku
     m = (meta or {}).get(sku) or {}
+    if kirilim == "urun":
+        # Ürün listeleri HER ZAMAN bizim SKU'muzla (Ekim 2026): pazaryeri kodu ('HBCV…') karta bağlandıysa
+        # kartın SKU'su; aynı ürünün müşterilerdeki farklı kodları tek satırda toplanır.
+        return m.get("kart_sku") or sku
     if kirilim == "marka":
         return (m.get("marka") or "").strip() or "Markasız"
     return (m.get("kategori") or "").strip() or "Kategorisiz"
@@ -332,7 +334,7 @@ def kategori_musteri(rows, meta=None, pacal=None, sku_fn=None):
         kat = (m.get("kategori") or "").strip() or "Kategorisiz"
         birim = pacal.get(sku_fn(m.get("kart_sku") or sku)) or pacal.get(sku_fn(sku)) or 0.0
         if not birim:
-            maliyetsiz.add(sku)
+            maliyetsiz.add(m.get("kart_sku") or sku)
         a, u = hucre.setdefault(kat, {}).get(_firma(r), (0, 0.0))
         hucre[kat][_firma(r)] = (a + adet, u + adet * float(birim))
     firma_top = {}
