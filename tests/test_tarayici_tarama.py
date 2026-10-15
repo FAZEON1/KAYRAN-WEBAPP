@@ -77,3 +77,16 @@ def test_is_akisinda_tarayici_isi():
     assert 'key = "sahte"' in is_ and "secrets." not in is_.replace(".streamlit/secrets.toml", "")
     b = (KOK / ".github" / "workflows" / "bt-birlestir.yml").read_text(encoding="utf-8")
     assert 'workflows: ["Testler"]' in b        # otomatik birleştirme tüm Testler işlerini (tarama dahil) bekler
+
+
+def test_arama_kutusuna_yazi_denetlenir():
+    """Liste masası gölge DOM'da çizilir: odaklı kutu document.activeElement değil, gölge kökün activeElement'i.
+    Eskiden her harften sonra odak kaybolup yalnız 1 harf yazılabiliyordu; '/' kısayolu da kutudan kaçırıyordu."""
+    T = _tara()
+    assert T.YAZI_DENEME and "/" in T.YAZI_DENEME and "await _yazi(pg)" in TARA.read_text(encoding="utf-8")
+    m = (KOK / "shared" / "masa.py").read_text(encoding="utf-8")
+    assert "a.shadowRoot.activeElement" in m and "const a = aktifOge(), odak" in m and "const a = aktifOge(), yaz" in m
+    assert "document.activeElement, odak" not in m and "document.activeElement, yaz" not in m
+    app = (KOK / "app.py").read_text(encoding="utf-8")
+    kis = app[app.index("w.__kayranKisayol = true"):][:1500]
+    assert "a.shadowRoot.activeElement" in kis

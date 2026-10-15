@@ -671,7 +671,10 @@ _sb_comp.html(
         if (n > 0) w.setTimeout(() => odakla(n - 1), 120);
       };
       doc.addEventListener("keydown", (e) => {
-        const a = doc.activeElement, t = ((a && a.tagName) || "").toUpperCase();
+        // Gölge DOM içindeki kutular (liste masası) için gerçek odaklı öğeye inilir (Ekim 2026)
+        let a = doc.activeElement;
+        while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+        const t = ((a && a.tagName) || "").toUpperCase();
         const yaziyor = t === "INPUT" || t === "TEXTAREA" || (a && a.isContentEditable);
         const ctrlK = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K");
         const egik = e.key === "/" && !yaziyor && !e.ctrlKey && !e.metaKey && !e.altKey;
@@ -3818,6 +3821,7 @@ def main():
             " var d=window.parent.document, iptal=false;"
             " function yaziyorMu(){"
             "  try{var e=d.activeElement; if(!e)return false;"
+            "   while(e.shadowRoot&&e.shadowRoot.activeElement)e=e.shadowRoot.activeElement;"
             "   var t=(e.tagName||'').toUpperCase();"
             "   return t==='INPUT'||t==='TEXTAREA'||e.isContentEditable===true;"
             "  }catch(e){return false;}}"

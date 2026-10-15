@@ -7,6 +7,8 @@ Sayfa testi (tests/duman) Python tarafını dener; bu tarama ekranda görünen h
   tasma     sayfa yatay taşıyor (telefonda sağa kayıyor)
   kaymiyor  içerik uzun ama fare tekerleği sayfayı kaydırmıyor (sayı kutusu tekerleği yutuyordu)
   konsol    tarayıcı konsolunda JavaScript hatası
+  yazi      liste masasının arama kutusuna yazılan harflerin bir kısmı kutuya girmiyor (odak kaçıyor; Ekim 2026:
+            gölge DOM'da odak geri verilmiyordu, yalnız ilk harf yazılabiliyordu)
   emoji     ekranda resimli emoji (yeni görünümde ikon kullanılır; durum noktaları 🔴🟢 ve ✓ • ▲ hariç)
   zaman     sayfa 40 sn'de bitmedi
 
@@ -135,6 +137,26 @@ async def _olc(pg, w, h):
     return ham
 
 
+YAZI_DENEME = "ab/jx1"          # kısayol harfleri (/ j x) de kutuya yazı olarak girmeli
+
+
+async def _yazi(pg):
+    """Sayfada liste masası arama kutusu varsa içine tek tek harf yazar; kutuya girmeyen harf varsa
+    kutunun son değerini döner (sorun), yoksa boş liste."""
+    kutu = pg.locator("input[data-ara]")
+    if not await kutu.count():
+        return []
+    k = kutu.first
+    if not await k.is_visible():
+        return []
+    await k.click()
+    await pg.keyboard.type(YAZI_DENEME, delay=60)
+    await pg.wait_for_timeout(300)
+    deger = await k.input_value()
+    await k.fill("")
+    return [] if deger == YAZI_DENEME else [deger]
+
+
 async def _bir_sayfa(tarayici, taban, sayfa, cihaz, goruntu_dizini):
     mod, anahtar, sec, ad = sayfa
     w, h = CIHAZLAR[cihaz]
@@ -159,6 +181,7 @@ async def _bir_sayfa(tarayici, taban, sayfa, cihaz, goruntu_dizini):
         if ham.get("kaymiyor"):          # ilk ölçümde çizim sürüyor olabilir: bir kez daha dene
             await pg.wait_for_timeout(2000)
             ham["kaymiyor"] = await _tekerlek(pg, w, h)
+        ham["yazi"] = await _yazi(pg)
     except Exception as ex:  # noqa: BLE001
         ham["hata"] = [f"tarama: {str(ex)[:120]}"]
     ham["konsol"] = konsol

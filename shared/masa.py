@@ -314,6 +314,9 @@ export default function(component){
   const secimVar = !D.salt && ISL.some(i => i.toplu);
   for (const i of [...S.secim]) if (!idler.has(i) || !secilebilir(R.find(r => r.id === i))) S.secim.delete(i);
   if (S.acik !== null && !idler.has(S.acik)) S.acik = null;
+  // Odaklı öğe: bileşen gölge DOM içinde çizilir; document.activeElement orada yalnız kabı (host) verir.
+  // İç içe gölge köklerden gerçek odaklı öğeye inilir (Ekim 2026: arama kutusuna yalnız 1 harf yazılabiliyordu).
+  const aktifOge = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
   const gonder = (islem, ids, degerler) => setTriggerValue("istek", {islem, ids, degerler: degerler || {}, n: Date.now() + Math.random()});
 
   function suzulmus(){
@@ -494,7 +497,7 @@ export default function(component){
     S.gorunen = r;
     if (S.odak >= r.length) S.odak = Math.max(0, r.length - 1);
     kok.classList.toggle("detayli", S.acik !== null && (D.tik || "panel") === "panel");
-    const a = document.activeElement, odak = a && kok.contains(a) ? (a.getAttribute("data-f") ? "f:" + a.getAttribute("data-f") : a.hasAttribute("data-ara") ? "ara" : null) : null;
+    const a = aktifOge(), odak = a && kok.contains(a) ? (a.getAttribute("data-f") ? "f:" + a.getAttribute("data-f") : a.hasAttribute("data-ara") ? "ara" : null) : null;
     kok.innerHTML = ozetHtml() + suzHtml() + `<div class="govde"><div style="min-width:0">${tabloHtml(r)}</div>${(D.tik || "panel") === "panel" ? panelHtml() : ""}</div>` + topluHtml() + bildirimHtml();
     if (odak){
       const el = odak === "ara" ? kok.querySelector("[data-ara]") : kok.querySelector(`[data-f="${odak.slice(2)}"]`);
@@ -571,11 +574,11 @@ export default function(component){
       if (!parentElement.isConnected || !s || !s.ciz) return;
       const k = parentElement.querySelector(".ms");
       if (!k || k.getBoundingClientRect().height === 0) return;          // sayfada görünmüyor
-      const a = document.activeElement, yaz = a && (["INPUT","SELECT","TEXTAREA"].includes(a.tagName) || a.isContentEditable);
+      const a = aktifOge(), yaz = a && (["INPUT","SELECT","TEXTAREA"].includes(a.tagName) || a.isContentEditable);
       if (ev.key === "Escape"){ if (yaz && k.contains(a)) { a.blur(); return; } if (s.acik !== null){ s.acik = null; s.ciz(); } else if (s.secim.size){ s.secim.clear(); s.ciz(); } return; }
       if (yaz || ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (document.querySelector('[role="dialog"]')) return;
-      if (document.querySelectorAll(".ms").length > 1 && !k.contains(document.activeElement) && document.activeElement !== document.body) return;
+      if (document.querySelectorAll(".ms").length > 1 && !k.contains(a) && a !== document.body) return;
       const r = s.gorunen || [];
       if (ev.key === "/"){ const x = k.querySelector("[data-ara]"); if (x){ ev.preventDefault(); x.focus(); } }
       else if (ev.key === "j" || ev.key === "ArrowDown"){ if (!r.length) return; ev.preventDefault(); s.odak = Math.min(r.length - 1, s.odak + 1); s.ciz(); k.querySelector(".satir.odak")?.scrollIntoView({block:"nearest"}); }
