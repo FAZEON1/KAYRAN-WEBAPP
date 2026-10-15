@@ -65,6 +65,11 @@ def _satir(r, firma_ad):
     kat, mar = str(r.get("Kategori") or "").strip(), str(r.get("Marka") or "").strip()
     alt = " · ".join(x for x in (*kanallar, kat, mar, "EOL" if r.get("_eol") else "") if x)
     g5f, zincir = int(r.get("G5F Depo") or 0), int(r.get("Kanal dahil") or 0)
+    mus_stok = {}
+    for k, a in r.get("_kanal_stok", []) or []:
+        if a and firma_ad(k):
+            mus_stok[firma_ad(k)] = mus_stok.get(firma_ad(k), 0) + int(a)
+    mus_top = sum(mus_stok.values())
     mal = r.get("Maliyet %")
     return {
         "id": sku, "sku": sku, "ad": str(r.get("Ürün Adı") or "").strip() or sku, "alt": alt,
@@ -75,6 +80,10 @@ def _satir(r, firma_ad):
         "mus": sorted({firma_ad(k) for k, a in r.get("_kanal_stok", []) if a and firma_ad(k)}),
         "stok_m": tr_sayi(g5f), "stok_m__s": g5f,
         "stok_alt": f"kanal dahil {tr_sayi(zincir)}" if zincir and zincir != g5f else "",
+        # Ana sütun: müşteri stoğu (Ekim 2026). Toplam + müşteri bazında harita (müşteri seçilince masa o
+        # müşterinin değerini gösterir ve ona göre sıralar — shared/masa "secime_gore"); G5F altta.
+        "mus_m": tr_sayi(mus_top), "mus_m__s": mus_top, "mus_stok": mus_stok,
+        "mus_alt": f"G5F {tr_sayi(g5f)}",
         "fiyat_m": _fiyat_metni(fcp, satis), "fiyat_m__s": float(satis or 0),
         "mal_m": f"%{tr_sayi(mal, 1)}" if mal is not None else "", "mal_m__s": mal,
         "kar_m": usd(nk) if nk is not None else "", "kar_m__s": nk,
@@ -103,7 +112,7 @@ def masa_verisi(urun_data, dar=False, firma_ad=None):
     if dar:
         sutunlar = [
             {"alan": "ad", "ad": "Ürün", "tip": "ana", "alt": "alt_dar"},
-            {"alan": "stok_m", "ad": "Stok", "sag": True, "gen": "72px", "dar": "sag"},
+            {"alan": "mus_m", "ad": "Müşteri", "sag": True, "gen": "72px", "dar": "sag", "secime_gore": {"secim": "mus", "harita": "mus_stok"}},
             {"alan": "marj_m", "ad": "Marj", "sag": True, "gen": "82px", "alt": "marj_alt", "alt_renk": "marj_renk",
              "dar": "alt"},
         ]
@@ -111,7 +120,8 @@ def masa_verisi(urun_data, dar=False, firma_ad=None):
         sutunlar = [
             {"alan": "sku", "ad": "SKU", "tip": "metin", "gen": "150px", "dar": "alt"},
             {"alan": "ad", "ad": "Ürün", "tip": "ana", "alt": "alt"},
-            {"alan": "stok_m", "ad": "G5F stok", "sag": True, "gen": "96px", "alt": "stok_alt", "dar": "sag"},
+            {"alan": "mus_m", "ad": "Müşteri stoğu", "sag": True, "gen": "110px", "alt": "mus_alt", "dar": "sag",
+             "secime_gore": {"secim": "mus", "harita": "mus_stok"}},
             {"alan": "fiyat_m", "ad": "Paçal → satış", "sag": True, "gen": "170px"},
             {"alan": "mal_m", "ad": "Maliyet %", "sag": True, "gen": "92px", "genis": True},
             {"alan": "kar_m", "ad": "Net kâr", "sag": True, "gen": "100px", "genis": True},

@@ -18,8 +18,10 @@ TANIM (masa(veri) — hepsi Python'da hazırlanır, metinler biçimlenmiş gelir
   secimler    [{alan, ad (hepsi metni), secenekler: [{k, ad}]}] açılır çip (kategori, firma…); satırdaki alan liste ise içeren eşleşir
   anahtarlar  [{k, ad, f}]                                      aç/kapa çip (Yalnız TL…)
   ara         {alanlar: [...], ipucu}
-  sutunlar    [{alan, ad, tip, gen, sag?, alt?, alt_renk?, sirala?, dar?}]
+  sutunlar    [{alan, ad, tip, gen, sag?, alt?, alt_renk?, sirala?, dar?, secime_gore?}]
                 tip: ana (kalın + alt satır) · metin · etiket · durum · sayi
+                secime_gore {secim, harita}: o seçim çipi doluyken hücre ve sıralama satırın harita alanındaki
+                seçili anahtarın değeri (ör. müşteri seçilince o müşterinin stoğu)
                 dar (telefon kartı): ana · sag · alt · durum · gizle
                 sıralama anahtarı: satır[alan + "__s"] varsa o, yoksa satır[alan]
   grup        {alan, toplamlar: [{alan, on}]}                  varsayılan sırada grup başlığı
@@ -319,6 +321,11 @@ export default function(component){
   const aktifOge = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
   const gonder = (islem, ids, degerler) => setTriggerValue("istek", {islem, ids, degerler: degerler || {}, n: Date.now() + Math.random()});
 
+  // Sütun değeri seçime bağlı olabilir (secime_gore: {secim, harita}): o seçim doluyken hücre ve sıralama
+  // satırın haritasındaki seçili anahtarın değeri olur (ör. Tüm ürünler: müşteri seçilince o müşterinin stoğu).
+  const secDeg = (c, x) => { const g = c && c.secime_gore; if (!g) return undefined; const s = S.sec[g.secim];
+    if (!s) return undefined; return Number((x[g.harita] || {})[s] || 0); };
+
   function suzulmus(){
     const g = GOR.find(x => x.k === S.gor), q = kucuk(S.q.trim()), ar = (D.ara || {}).alanlar || [];
     let r = R.filter(x => !g || uyar(x, g.f));
@@ -326,7 +333,9 @@ export default function(component){
     for (const a of D.anahtarlar || []) if (S.ana[a.k]) r = r.filter(x => uyar(x, a.f));
     if (q) r = r.filter(x => kucuk(ar.map(a => x[a]).join(" ")).includes(q));
     if (S.sira){
-      const [a, y] = S.sira, v = x => { const s = x[a + "__s"]; return s !== undefined ? s : (typeof x[a] === "string" ? kucuk(x[a]) : x[a]); };
+      const [a, y] = S.sira, sk = SUT.find(c => c.alan === a),
+            v = x => { const d = secDeg(sk, x); if (d !== undefined) return d;
+                       const s = x[a + "__s"]; return s !== undefined ? s : (typeof x[a] === "string" ? kucuk(x[a]) : x[a]); };
       r = r.slice().sort((p, q2) => { const A = v(p), B = v(q2), bA = A === null || A === undefined || A === "", bB = B === null || B === undefined || B === "";
         return bA || bB ? (bA === bB ? 0 : bA ? 1 : -1) : (A === B ? 0 : A > B ? 1 : -1) * y; });   // boş değer her yönde sonda
     }
@@ -362,7 +371,8 @@ export default function(component){
   }
 
   function hucre(c, r){
-    const v = r[c.alan], alt = c.alt ? r[c.alt] : null, ar = c.alt_renk ? r[c.alt_renk] : null;
+    const sd = secDeg(c, r);
+    const v = sd !== undefined ? trs(sd, 0) : r[c.alan], alt = c.alt ? r[c.alt] : null, ar = c.alt_renk ? r[c.alt_renk] : null;
     if (c.tip === "ana") return `<b title="${e(v)}">${e(v ?? "—")}</b>${alt ? `<small title="${e(alt)}">${e(alt)}</small>` : ""}`;
     if (c.tip === "etiket") return v ? `<span class="etk">${e(v)}</span>` : "";
     if (c.tip === "durum"){ const d = r._durum || {}; return d.ad ? `<span class="drm r-${e(d.renk||"soluk")}"><span class="nk"></span>${e(d.ad)}</span>` : ""; }

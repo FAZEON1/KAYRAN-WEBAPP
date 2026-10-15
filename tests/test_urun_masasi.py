@@ -87,7 +87,7 @@ def test_suzgecler_eski_filtrelerle_ayni():
 
 def test_dar_masa_az_sutun_ozet_ve_aktarma_yok():
     v = _veri(dar=True)
-    assert [c["alan"] for c in v["sutunlar"]] == ["ad", "stok_m", "marj_m"]
+    assert [c["alan"] for c in v["sutunlar"]] == ["ad", "mus_m", "marj_m"]   # Stok sütunu müşteri stoğu (Ekim 2026)
     assert v["ozet"] == [] and [i["k"] for i in v["islemler"]] == ["ac"]
     assert v["anahtarlar"][0]["ad"] == "Zararına (1)"
 
