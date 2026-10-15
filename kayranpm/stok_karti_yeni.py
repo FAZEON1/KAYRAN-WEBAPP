@@ -139,6 +139,8 @@ def stok_yerleri(depo_satir, firma_stok_son, firma_ad):
         ft = str(r.get("yukleme_tarihi") or "")[:10]
         if fa not in son or ft > son[fa][0]:
             son[fa] = (ft, _f(r.get("stok_miktari")), _f(r.get("haftalik_satis")))
+        elif ft == son[fa][0]:            # aynı raporda iki kod (D-market iki ilan) → topla
+            son[fa] = (ft, son[fa][1] + _f(r.get("stok_miktari")), son[fa][2] + _f(r.get("haftalik_satis")))
     musteriler = sorted(((fa, v[1], v[2], v[0]) for fa, v in son.items() if v[1] > 0), key=lambda x: -x[1])
     return {"depolar": depolar, "musteriler": musteriler}
 

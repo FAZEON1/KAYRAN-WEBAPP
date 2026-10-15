@@ -222,17 +222,18 @@ def _eslesme_bolumu(rows, meta, kartlar, eslesme_satir):
                 st.error(msg)
 
 
-_KARSI_DURUM = {"yeni": "Yeni bağlanır", "belirsiz": "Birden çok aday", "yok": "Kart yok", "bagli": "Zaten bağlı"}
+_KARSI_DURUM = {"yeni": "Eşlemeyle bağlı", "belirsiz": "Birden çok aday", "yok": "Kart yok", "bagli": "Zaten bağlı"}
 
 
 def _kanal_karsilastirma(kartlar, eslesme_satir):
-    """SALT OKUNUR (Ekim 2026): kanal stoğunda rapor kodu → stok kartı bağlaması, bugün ↔ önerilen
-    (stok_hesap.kanal_kod_karsilastir). Hiçbir şey yazmaz; rakamlar onaylanınca kanal stoğu bu kurala geçer."""
-    with st.expander("Kanal stoğu eşleşmesi: bugün ↔ önerilen (salt okunur)", icon=":material/compare_arrows:"):
-        st.caption("Ürünler ekranındaki müşteri stoğu, rapordaki kodu stok kartına birebir bağlıyor; pazaryeri "
-                   "koduyla gelen raporlar (D-market 'HBCV…', Avasya) hiçbir ürüne düşmüyor. Önerilen: bu "
-                   "sayfadaki kural (onaylı eşleme, sonra addaki model kodu; birden çok aday varsa bağlamaz). "
-                   "Her müşterinin son stok raporu; tarih aralığından bağımsız. Hiçbir kayıt değişmez.")
+    """SALT OKUNUR (Ekim 2026): kanal stoğunda rapor kodu → stok kartı bağlaması
+    (stok_hesap.kanal_kod_karsilastir). Kanal stoğu bu kuralı kullanır (kanal_stoklari + kod_haritasi);
+    bölüm hangi kodun neye göre bağlandığını ve bağlanamayanları gösterir. Hiçbir şey yazmaz."""
+    with st.expander("Kanal stoğu kod eşleşmesi (salt okunur)", icon=":material/compare_arrows:"):
+        st.caption("Pazaryeri koduyla gelen raporlar (D-market 'HBCV…', Avasya) stok kartına onaylı eşlemeyle, "
+                   "sonra ürün adı ya da addaki model koduyla bağlanır; birden çok aday varsa bağlanmaz. "
+                   "'Birebir kod': rapor kodu kartın kendi kodu. Her müşterinin son stok raporu; tarih "
+                   "aralığından bağımsız. Hiçbir kayıt değişmez.")
         if not st.toggle("Karşılaştırmayı hesapla", key="mhs_kanal_karsi"):
             return
         from shared.utils import firma_gorunen_ad
@@ -242,30 +243,30 @@ def _kanal_karsilastirma(kartlar, eslesme_satir):
         s = kanal_kod_karsilastir(rows, kartlar,
                                   eslesme={r.get("dis_kod"): r.get("kart_sku") for r in (eslesme_satir or [])})
         t = s["toplam"]
-        st.markdown(f"Kanal stoğu: bugün **{tr_sayi(t['eski'])}** adet ürünlere bağlı, önerilen kuralla "
-                    f"**{tr_sayi(t['yeni'])}** (+{tr_sayi(t['yeni'] - t['eski'])}). Raporlardaki toplam "
-                    f"{tr_sayi(t['toplam'])}; {tr_sayi(t['bagsiz'])} adet yine hiçbir karta bağlanmıyor.")
+        st.markdown(f"Raporlardaki toplam {tr_sayi(t['toplam'])} adet: **{tr_sayi(t['eski'])}** birebir kodla, "
+                    f"**{tr_sayi(t['yeni'] - t['eski'])}** eşlemeyle ürünlere bağlı; "
+                    f"{tr_sayi(t['bagsiz'])} adet hiçbir karta bağlanmıyor.")
 
         def _ad(f):
             return firma_gorunen_ad(f) or f
 
         st.markdown("**Müşteri bazında**")
         st.dataframe(pd.DataFrame([{"Müşteri": _ad(x["firma"]), "Son rapor": x["rapor"],
-                                    "Rapordaki stok": x["toplam"], "Bugün bağlı": x["eski"],
-                                    "Önerilen": x["yeni"], "Fark": x["yeni"] - x["eski"],
+                                    "Rapordaki stok": x["toplam"], "Birebir kod": x["eski"],
+                                    "Eşlemeyle": x["yeni"] - x["eski"], "Bağlı toplam": x["yeni"],
                                     "Bağlanamayan": x["bagsiz"]} for x in s["musteriler"]]),
                      hide_index=True, use_container_width=True)
-        st.markdown(f"**Müşteri stoğu değişecek ürünler ({len(s['urunler'])})**")
+        st.markdown(f"**Eşlemeyle müşteri stoğu artan ürünler ({len(s['urunler'])})**")
         if s["urunler"]:
-            st.dataframe(pd.DataFrame([{"SKU": u["kart"], "Ürün": u["ad"], "Bugün": u["eski"], "Önerilen": u["yeni"],
-                                        "Fark": u["yeni"] - u["eski"]} for u in s["urunler"]]),
+            st.dataframe(pd.DataFrame([{"SKU": u["kart"], "Ürün": u["ad"], "Birebir kod": u["eski"],
+                                        "Eşlemeyle": u["yeni"] - u["eski"], "Müşteri stoğu": u["yeni"]} for u in s["urunler"]]),
                          hide_index=True, use_container_width=True)
         kodlar = [k for k in s["kodlar"] if k["durum"] != "bagli"]
         st.markdown(f"**Rapor kodları ({len(kodlar)}, zaten bağlı olanlar hariç)**")
         if kodlar:
             st.dataframe(pd.DataFrame([{"Müşteri": _ad(k["firma"]), "Rapordaki kod": k["kod"], "Rapordaki ad": k["ad"],
                                         "Stok": k["adet"], "Durum": _KARSI_DURUM[k["durum"]],
-                                        "Bağlanacak kart": k["yeni_kart"] or (", ".join(k["adaylar"]) if k["adaylar"] else ""),
+                                        "Bağlandığı kart": k["yeni_kart"] or (", ".join(k["adaylar"]) if k["adaylar"] else ""),
                                         "Neye göre": k["kaynak"]} for k in kodlar]),
                          hide_index=True, use_container_width=True)
             st.caption("Birden çok adayı ya da kartı olmayanı yukarıdaki 'Kart eşleşmesi bekleyen kodlar' "

@@ -265,7 +265,13 @@ def goster(sku):
         _son_tarih = firma_son_tarihleri()
     except Exception:
         _son_tarih = None                 # okunamazsa satırların kendi son tarihi
-    _kanal_stok = kanal_stoklari(firma_stok, son_tarih=_son_tarih)
+    try:                                  # pazaryeri kodlu raporlar (D-market HBCV…) bu karta (Eki 2026)
+        from .database import kanal_kod_haritasi, kanal_kod_satirlari
+        firma_stok = list(firma_stok) + kanal_kod_satirlari(sku)
+        _harita = kanal_kod_haritasi()
+    except Exception:  # noqa: BLE001
+        _harita = None
+    _kanal_stok = kanal_stoklari(firma_stok, son_tarih=_son_tarih, harita=_harita)
     firma_stok_son = [r for r in firma_stok
                       if str(r.get("yukleme_tarihi") or "")[:10] == (_son_tarih or {}).get(firma_kanonik(r.get("firma")))] \
         if _son_tarih is not None else firma_stok
@@ -672,6 +678,9 @@ def goster(sku):
             _ft = str(r.get("yukleme_tarihi") or "")[:10]
             if (_fa not in _firma_son) or (_ft > _firma_son[_fa][0]):
                 _firma_son[_fa] = (_ft, _f(r.get("stok_miktari")), _f(r.get("haftalik_satis")))
+            elif _ft == _firma_son[_fa][0]:   # aynı raporda iki kod (D-market iki ilan) → topla
+                _o = _firma_son[_fa]
+                _firma_son[_fa] = (_ft, _o[1] + _f(r.get("stok_miktari")), _o[2] + _f(r.get("haftalik_satis")))
         _musteri_toplam = sum(sum(_f(v) for v in d.values()) for d in _kanal_stok.values())
 
         _kart1 = (_kart("Toplam Stok", f"{tr_sayi(toplam_stok)}",
