@@ -82,6 +82,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
+               "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -176,6 +177,9 @@ KRITIK_FONKSIYONLAR = {
     "shared.modul_tazele": ["tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
                                "kategori_musteri"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
+    "kayranpm.stok_hesap": ["kanal_stoklari", "kanal_son_tarihleri", "stok_ozeti",
+                            "kanal_kod_karsilastir"],   # kanal stoğu kod eşleşmesi, salt okunur (Eki 2026)
+    "kayranpm.musteri_ekran": ["render", "_kanal_karsilastirma"],
     "kayranacc.database": [
         "get_kur",                                # hiç yoktu, ref_no sessizce None alıyordu
         "_ayarlar_hepsi", "_tum_kurlar",          # tek istekte ayarlar / kurlar (hızlandırma)
