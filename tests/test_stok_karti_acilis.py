@@ -102,13 +102,12 @@ def test_palet_urun_kipi_ve_kutu():
     assert '"urunler": urunler, "son": son' in p                      # ürünler tarayıcıya bir kez gider
     assert '"Son açılanlar"' in p and "Sipariş zamanı gelenler" in p and '"Ürünler · " + tr(ul.length) + " sonuç"' in p
     assert 'class="tetik"' in p                                         # üst şeritte "Stok kartı" düğmesi
-    assert "def stok_karti_kutusu(" in p
 
 
 # ── Görünüm: taslak "A"nın birebir değerleri (Ekim 2026) ──────────────
 def _css():
     from shared import palet
-    return palet._CSS.replace("\n", ""), palet._KUTU_CSS.replace("\n", "")
+    return palet._CSS.replace("\n", ""), ""
 
 
 def test_pencere_taslak_degerleri():
@@ -129,17 +128,10 @@ def test_pencere_taslak_degerleri():
     assert "padding:5px 10px 5px 8px" in c and "background:var(--k-yuzey2)" in c
 
 
-def test_kutu_taslak_degerleri():
-    _, k = _css()
-    assert "padding:12px 14px;border-radius:10px" in k and "font-size:15px" in k
-    assert "border:1px solid color-mix(in srgb,var(--k-mor) 45%,transparent)" in k
-    assert "box-shadow:0 0 0 4px color-mix(in srgb,var(--k-mor) 10%,transparent)" in k
-
-
 def test_fontlar_ve_surum_yenileme():
     """Eski sürümün düğmesi tarayıcıda kalıyordu (yalnız ilk çizimde kuruluyordu): yeni düğme görünmedi."""
     from shared import palet
-    for js in (palet._JS, palet._KUTU_JS):
+    for js in (palet._JS,):
         assert "fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500" in js
         assert "//FONT//" not in js and "//SVG//" not in js
     assert 'if (P.kok && P.surum !== SURUM){ try { P.kok.remove(); } catch (e) {} P.kok = null; }' in palet._JS
