@@ -29,11 +29,12 @@ def test_rakam_fontu_inter_kod_fontu_degil():
 
 def test_ekranlarda_jetbrains_kalmadi():
     """Rakam gösteren yerler var(--k-mono) kullanır; font tek yerden (shared.tasarim.MONO) değişir.
-    E-posta / PDF şablonları (CSS değişkeni yok) bu taramanın dışında."""
+    E-posta / PDF şablonları (CSS değişkeni yok) bu taramanın dışında. Stok kartı arama penceresi
+    (shared/palet.py) de dışında: kullanıcı taslak "A"nın fontlarını birebir istedi (Ekim 2026)."""
     kalan = []
     for p in KOK.rglob("*.py"):
         r = p.relative_to(KOK).as_posix()
-        if r.startswith(("tests/", ".venv/")) or "/." in r:
+        if r.startswith(("tests/", ".venv/")) or "/." in r or r == "shared/palet.py":
             continue
         if re.search(r"JetBrains Mono['\"]?\s*,", p.read_text(encoding="utf-8", errors="ignore")):
             kalan.append(r)
