@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Komut paleti — Ctrl+K / ⌘K / "/" ya da üst şeritteki "Ara" (Ekim 2026).
 
-Stok kartı (Ekim 2026, kullanıcı seçimi "A"): üst şeritte "Stok kartı" düğmesi ve Ürün Yönetimi'ndeki geniş
-kutu paleti ÜRÜN kipinde açar. Ürünler tarayıcıda, yazarken anında süzülür; her satırda stok ve "kaç gün
+Stok kartı (Ekim 2026, kullanıcı seçimi "A"): üst şeritteki "Stok kartı" düğmesi ve Ctrl+K aynı pencereyi
+açar (Ürün Yönetimi'ndeki ayrı arama kutusu kalktı). Ürünler tarayıcıda, yazarken anında süzülür; her satırda stok ve "kaç gün
 yeter" (kural stok kartıyla aynı: kayranpm/stok_karti_palet.py). Boşken son açılan kartlar ve sipariş zamanı
 gelenler. Ctrl+K'daki genel aramada da ürünler en üstte, aynı satırlarla.
 
@@ -154,7 +154,7 @@ export default function(component){
     const serbest = () => { if (P.acik && (host.inert || host.hasAttribute("aria-hidden"))){ host.inert = false; host.removeAttribute("inert"); host.removeAttribute("aria-hidden"); } };
     new MutationObserver(serbest).observe(host, {attributes: true, attributeFilter: ["inert", "aria-hidden"]});
     P.serbest = serbest;
-    // Tek pencere: Ctrl+K, "/", üst şeritteki düğme ve Ürün Yönetimi'ndeki kutu aynı pencereyi açar. Önce ürünler,
+    // Tek pencere: Ctrl+K, "/" ve üst şeritteki düğme aynı pencereyi açar. Önce ürünler,
     // yazınca altında sayfalar, işlemler ve veri araması (cari, satış, ithalat, servis).
     const ac = () => { P.acik = true; if (P.serbest) P.serbest(); P.ort.classList.add("acik"); P.inp.value = P.q; P.s = 0; ciz();
                        setTimeout(() => { P.inp.focus(); P.inp.select(); }, 0); };
@@ -287,8 +287,7 @@ def _bilesen(ad="palet"):
     global _BILESEN
     if _BILESEN is None:
         import streamlit.components.v2 as _v2
-        _BILESEN = {"palet": _v2.component("kayran_palet", css=_CSS, js=_JS),
-                    "kutu": _v2.component("kayran_stok_kutusu", css=_KUTU_CSS, js=_KUTU_JS)}
+        _BILESEN = {"palet": _v2.component("kayran_palet", css=_CSS, js=_JS)}
     return _BILESEN[ad]
 
 
@@ -373,46 +372,3 @@ def palet(yetkiler, ozel, kullanici, kosul):
     if yeni_q is not None and yeni_q != q:
         st.session_state["_palet_q"] = yeni_q
         st.rerun(scope="fragment")
-
-
-# ── Ürün Yönetimi'ndeki geniş "Stok kartı aç" kutusu (Ekim 2026) ───────────────
-# Eskiden ayrı bir arama kutusu + sonuç düğmeleriydi (kendi kart açma yolu vardı; kart açıkken başka kod
-# arayınca pencere açılıp kapanıyordu). Artık yalnız Ctrl+K penceresini açar: tek arama, tek yol.
-# Görünüm taslaktaki büyük arama kutusunun birebir değerleri (mor çerçeve + 4px halka, 15px yazı).
-_KUTU_CSS = _FONT_DEGISKEN + r"""
-:host{display:block;padding:4px}
-.kutu{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:10px;cursor:text;
-  border:1px solid color-mix(in srgb,var(--k-mor) 45%,transparent);background:var(--k-yuzey1);color:var(--k-silik);
-  box-shadow:0 0 0 4px color-mix(in srgb,var(--k-mor) 10%,transparent);
-  font-family:var(--sk-govde);font-size:15px;line-height:1.5;text-align:left}
-.kutu:hover{border-color:color-mix(in srgb,var(--k-mor) 70%,transparent)}
-.kutu:focus-visible{outline:2px solid var(--k-mor);outline-offset:2px}
-.kutu svg{flex:none}
-.yazi{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-"""
-
-_KUTU_JS = r"""
-export default function(component){
-  const {parentElement, data} = component;
-//FONT//
-  const adet = Number((data || {}).adet || 0);
-  const yazi = "SKU, model ya da ürün adı yazın" + (adet ? " · " + adet.toLocaleString("tr-TR") + " ürün" : "");
-  if (parentElement.__kutu){ parentElement.__kutu.querySelector(".yazi").textContent = yazi; return; }
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "kutu"; b.setAttribute("aria-label", "Stok kartı aç");
-  b.innerHTML = '//SVG//'.replace(/%d/g, 18) + '<span class="yazi"></span>';
-  b.querySelector(".yazi").textContent = yazi;
-  b.addEventListener("click", () => { if (window.__kayranPaletAc) window.__kayranPaletAc(); });
-  parentElement.appendChild(b); parentElement.__kutu = b;
-}
-""".replace("//FONT//\n", _FONT_JS).replace("//SVG//", _ARA_SVG)
-
-
-def stok_karti_kutusu(key="stok_karti_kutusu"):
-    """Geniş "Stok kartı aç" kutusu: tıklayınca Ctrl+K penceresi açılır."""
-    try:
-        from kayranpm.stok_karti_palet import palet_urunleri
-        adet = len(palet_urunleri())
-    except Exception:  # noqa: BLE001
-        adet = 0
-    _bilesen("kutu")(key=key, data={"adet": adet}, default={}, height="content")

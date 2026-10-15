@@ -35,20 +35,17 @@ def test_turkce_harf_ve_bos():
     assert _skular("  ") == [] and _skular("yokboyle") == []
 
 
-def test_stok_karti_kutusu_yapisi():
-    """Ekim 2026 (kullanıcı seçimi "A"): kutu yalnız Ctrl+K penceresini açar; kendi kart açma
-    yolu (_stok_gec_sku, sonuç düğmeleri, goster çağrısı) yok — kart açıkken başka kod arayınca pencere açılıp
-    kapanıyordu."""
+def test_urun_yonetiminde_ayri_arama_kutusu_yok():
+    """Ekim 2026 (kullanıcı: "soldaki arama penceresini kaldırabiliriz"): stok kartı üst şeritteki düğme ve
+    Ctrl+K ile açılır; Ürün Yönetimi'ndeki ayrı kutu aynı pencereyi açıyordu, kalktı (CSS'i ve bileşeniyle)."""
     kod = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
-    i = kod.index("# ── STOK KARTI — hızlı erişim")
-    blok = kod[i:kod.index("st.markdown(", i)]
-    assert 'st.container(key="stok_karti_kutu"' in blok and "stok_karti_kutusu()" in blok
-    assert "goster(" not in blok and 'pop("_stok_gec_sku"' not in kod and "st.text_input" not in blok
+    assert "stok_karti_kutusu" not in kod and "stok_karti_kutu" not in kod and "pm_arac" not in kod
+    assert "sk_sonuc" not in kod and "goster(" not in kod and 'pop("_stok_gec_sku"' not in kod
     p = (KOK / "shared/palet.py").read_text(encoding="utf-8")
-    assert "window.__kayranPaletAc()" in p and '.querySelector(".tetik").addEventListener("click", () => ac())' in p
-    # Kenar çubuğu kalktı (Eki 2026): kutu her sayfanın sağ üstünde, sonuçlar açılır liste
-    assert 'html body .st-key-stok_karti_kutu {' in kod and 'html body .st-key-sk_sonuc {' in kod
-    assert '_pm_arac = (_serit_kabi() or st).container(key="pm_arac"' in kod     # sekme şeridinin sağında
+    assert "def stok_karti_kutusu(" not in p and "_KUTU_" not in p
+    assert "window.__kayranPaletAc = ac;" in p and '.querySelector(".tetik").addEventListener("click", () => ac())' in p
+    sm = (KOK / "shared/sol_menu.py").read_text(encoding="utf-8")
+    assert "stok_karti_kutu" not in sm and "pm_arac{{" not in sm
 
 
 def test_ust_menu_tek_serit():
@@ -59,16 +56,3 @@ def test_ust_menu_tek_serit():
     assert ":has(.st-key-top_yonetim){{margin-left:6px" in g                                    # grup ayracı
     assert ":has(.st-key-top_hesap_makinesi){{margin-left:auto" in g                            # sağa yaslı
     assert "flex:0 0 auto !important" in g and "flex:1 0 auto" not in g                          # eşit genişlik yok
-
-
-def test_stok_karti_yazilar_ust_uste_binmez():
-    """Canlıda başlık arama kutusunun altında kalıyor, 'Son açılanlar' listeye
-    yapışıyor, sonuçlar ayrı kutular gibi görünüyordu (01.10.2026)."""
-    kod = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
-    # Streamlit'in -1rem telafi boşluğu kutudaki yazı bloklarında sıfır
-    assert ('.st-key-stok_karti_kutu [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] {\n'
-            '        margin-bottom: 0 !important;') in kod
-    # İpucu kabı (tam ürün adı) zemin/çerçeve almıyor
-    assert '.st-key-stok_karti_kutu [data-testid="stTooltipIcon"],' in kod
-    i = kod.index('.st-key-stok_karti_kutu [data-testid="stTooltipIcon"],')
-    assert "background: transparent !important; border: 0 !important;" in kod[i:i + 400]

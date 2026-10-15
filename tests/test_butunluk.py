@@ -340,7 +340,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.stok_karti": ["ac", "ac_ve_ciz", "kapat", "acik_sku", "acik_karti_ciz", "goster",
                             "baska_sku_secici", "_gec_sec"],   # tek kaynaktan açılan stok kartı (Eki 2026)
     "kayranpm.stok_karti_palet": ["ozet_satirlari", "palet_urunleri"],
-    "shared.palet": ["palet", "git", "stok_karti_kutusu"],
+    "shared.palet": ["palet", "git"],
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
