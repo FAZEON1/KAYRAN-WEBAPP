@@ -1,6 +1,8 @@
 """
 KAYRAN — Veritabanı Katmanı (Supabase PostgreSQL)
 """
+import sys
+
 import streamlit as st
 from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 # Türkiye saat dilimi için ortak yardımcılar
@@ -1007,6 +1009,23 @@ def reddet_siparis(kayit_id):
 
 # ── KAMPANYALAR ─────────────────────────────────────────────────────
 
+def _kampanya_cache_temizle():
+    """Kampanya yazımından sonra YALNIZ kampanya verisine bağlı önbellekleri siler (Ekim 2026).
+    Eskiden _cache_temizle / st.cache_data.clear çağrılıyordu; app.py'deki akıllı temizlik kayranpm
+    grubunu (kayranpm + satış + depo + ithalat + shared) silip tüm ürünler listesini soğuktan hesaplatıyordu
+    (kampanya sayfası açılışı p50 ~5,2 sn). Kampanya verisini okuyan önbellekli fonksiyonların tamamı:"""
+    from kayranpm import urun_karnesi as _uk
+    from satis import database as _sdb
+    _mod = sys.modules[__name__]
+    for f in (*(getattr(_mod, ad, None) for ad in ("get_kampanyalar", "get_kampanya", "get_kampanya_urunler",
+                                                    "get_tum_kampanya_urunler", "get_kampanya_destek_ortalamalari")),
+              getattr(_sdb, "kampanya_destek_bul", None), getattr(_uk, "portfoy", None)):
+        try:
+            f.clear()
+        except Exception as _e:
+            from shared.kayit import sessiz
+            sessiz("kayranpm.database._kampanya_cache_temizle", _e, "debug")
+
 def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar="", kategori="",
                   kampanya_turu="", spiff_tl=0, spiff_kur=0, spiff_fatura=False):
     sb = get_client()
@@ -1025,7 +1044,7 @@ def ekle_kampanya(kampanya_adi, firma, baslangic, bitis, notlar="", kategori="",
         for _k in ("kampanya_turu", "spiff_tl", "spiff_kur", "spiff_fatura", "kategori"):
             payload.pop(_k, None)
         r = sb.table("kampanyalar").insert(payload).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
     return r.data[0]["id"] if r.data else None
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -1064,18 +1083,17 @@ def guncelle_kampanya(kampanya_id, kampanya_adi, firma, baslangic, bitis, notlar
         for _k in ("kategori", "kampanya_turu", "spiff_tl", "spiff_kur", "spiff_fatura"):
             payload.pop(_k, None)
         sb.table("kampanyalar").update(payload).eq("id", kampanya_id).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 def kapat_kampanya(kampanya_id):
     get_client().table("kampanyalar").update({"durum": "kapali"}).eq("id", kampanya_id).execute()
-    st.cache_data.clear()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 def sil_kampanya(kampanya_id):
     sb = get_client()
     sb.table("kampanya_urunler").delete().eq("kampanya_id", kampanya_id).execute()
     sb.table("kampanyalar").delete().eq("id", kampanya_id).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 def ekle_kampanya_urun(kampanya_id, sku, urun_adi, pacal_maliyet, satis_fiyati,
                        birim_firma_destek, birim_ek_destek, notlar=""):
@@ -1087,7 +1105,7 @@ def ekle_kampanya_urun(kampanya_id, sku, urun_adi, pacal_maliyet, satis_fiyati,
         "birim_ek_destek": float(birim_ek_destek or 0),
         "satilan_adet": 0, "notlar": notlar or "",
     }).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_kampanya_urunler(kampanya_id):
@@ -1106,12 +1124,11 @@ def guncelle_kampanya_urun(urun_id, satis_fiyati, birim_firma_destek, birim_ek_d
         "satilan_adet": int(satilan_adet or 0),
         "notlar": notlar or "",
     }).eq("id", urun_id).execute()
-    st.cache_data.clear()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 def sil_kampanya_urun(urun_id):
     get_client().table("kampanya_urunler").delete().eq("id", urun_id).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 # ── BİLDİRİM ────────────────────────────────────────────────────────
 
