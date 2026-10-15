@@ -251,3 +251,30 @@ def test_urun_gorunumu_kaldirildi_detay_duruyor():
     assert "Ürün" not in gor and "Marka" in gor and "Kategori" in gor
     from kayranpm.musteri_hesap import ALT
     assert ALT["marka"] == "urun" and ALT["kategori"] == "urun"
+
+
+# ── Ürün listeleri bizim SKU'muzla (Ekim 2026) ──────────────────────
+# D-market raporu 'HBCV0000GNT2JZ' kodunu gönderir; kart 'X27F182S'. Ürün listesi rapor kodunu
+# değil kartın SKU'sunu göstermeli ve aynı ürünün müşterilerdeki kodlarını tek satırda toplamalı.
+R_KOD = [
+    {"firma": "VATAN", "sku": "X27F182S", "urun_adi": "", "haftalik_satis": 10, "stok_miktari": 400,
+     "yukleme_tarihi": "2026-10-11"},
+    {"firma": "HB", "sku": "HBCV0000GNT2JZ", "urun_adi": "Fazeon X27F182S 27#", "haftalik_satis": 4,
+     "stok_miktari": 299, "yukleme_tarihi": "2026-10-11"},
+    {"firma": "HB", "sku": "HBCV0000ZZZZZZ", "urun_adi": "Bilinmeyen", "haftalik_satis": 1,
+     "stok_miktari": 5, "yukleme_tarihi": "2026-10-11"},
+]
+META_KOD = {"X27F182S": {"kart_sku": "X27F182S", "kategori": "Monitör"},
+            "HBCV0000GNT2JZ": {"kart_sku": "X27F182S", "kategori": "Monitör"},
+            "HBCV0000ZZZZZZ": {"kart_sku": "", "kategori": ""}}
+
+
+def test_urun_listesi_kartin_skusu_ile_ve_birlesik():
+    from kayranpm.musteri_hesap import grupla, detay
+    g = {x["anahtar"]: x for x in grupla(R_KOD, "urun", META_KOD)}
+    assert set(g) == {"X27F182S", "HBCV0000ZZZZZZ"}              # kartı olmayan kod olduğu gibi kalır
+    assert g["X27F182S"]["satis"] == 14 and g["X27F182S"]["stok"] == 699
+    hb = {x["anahtar"]: x for x in detay(R_KOD, "musteri", "HB", META_KOD)}
+    assert "X27F182S" in hb and "HBCV0000GNT2JZ" not in hb       # müşteri → ürünler: bizim SKU
+    mus = {x["anahtar"] for x in detay(R_KOD, "urun", "X27F182S", META_KOD)}
+    assert mus == {"VATAN", "HB"}                                 # ürün → müşteriler: iki kod da

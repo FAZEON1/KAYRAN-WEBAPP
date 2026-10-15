@@ -333,7 +333,10 @@ def render():
 
     # Excel: bu görünümün özeti + ham satırlar (yalnız tıklanınca üretilir)
     ham = pd.DataFrame([{"Rapor": str(r.get("yukleme_tarihi") or "")[:10], "Müşteri": _cari(r.get("firma")),
-                         "SKU": r.get("sku", ""), "Ürün": urun_ad(r.get("sku"), r.get("urun_adi")),
+                         "SKU": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_sku") or r.get("sku", ""),
+                         "Rapordaki kod": r.get("sku", ""),
+                         "Ürün": urun_ad((meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_sku")
+                                         or r.get("sku"), r.get("urun_adi")),
                          "Marka": (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka", ""),
                          "Marka kaynağı": {"kart": "Stok kartı", "tahmin": "Ürün adından tahmin"}.get(
                              (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka_kaynak"), "—"),
