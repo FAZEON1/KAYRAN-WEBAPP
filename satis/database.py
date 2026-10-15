@@ -13,6 +13,7 @@ Kâr (USD):
 """
 from datetime import datetime, timezone, timedelta
 from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
+from shared.kayit import sessiz
 
 import streamlit as st
 from supabase import create_client, Client
@@ -395,6 +396,114 @@ def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
         return False, f"❌ Hata: {type(e).__name__}: {str(e)[:160]}"
 
 
+def _akilli_depo_kurallari():
+    """Akıllı düşümün depo kuralları: (merkez deponun adı, satılabilir_mi(depo))."""
+    from kayranpm.database import depo_kanonik
+    try:
+        from kayranpm.database import _SATILABILIR_DEPOLAR as _sat_depolar
+    except Exception:
+        _sat_depolar = {"MERKEZ DEPO", "HAPPY LIFE"}
+
+    def _satilabilir_depo(d):
+        try:
+            return depo_kanonik(d) in _sat_depolar
+        except Exception:
+            return str(d or "").strip().upper() in _sat_depolar
+    try:
+        _merkez = depo_kanonik("MERKEZ DEPO")
+    except Exception:
+        _merkez = "MERKEZ DEPO"
+    return _merkez, _satilabilir_depo
+
+
+class _KirilimOkuyucu:
+    """Akıllı düşüm planı için kartın depo kırılımını okur.
+
+    bekleyen: aynı yüklemede DAHA ÖNCE planlanmış (henüz yazılmamış) hareketler. Tek işlemli Excel
+    yüklemesinde (ice_aktar_satislar, atomik yol) her şey sonda birlikte yazılır; plan, eski yolun
+    sırayla yazıp yeniden okuduğu kırılımı görsün diye bu hareketler okunan kırılımın üstüne eklenir
+    (veritabanının yazacağı gibi: kanonik depo adına önceki + değişim)."""
+
+    def __init__(self, sb):
+        self.sb = sb
+        self.bekleyen = {}              # {kart_sku: {kanonik_depo: değişim}}
+
+    def oku(self, sku):
+        """(kartın SKU yazımı ya da girilen, {depo: adet}). Okuma hatası istisna fırlatır."""
+        sb = self.sb
+        # SKU'nun depo kırılımını oku — kartın yazımıyla ('MIO MIVUE J30' → 'Mio MiVue J30').
+        # Eskiden yalnız girilen ve büyük harf yazım deneniyordu; karışık harfli kart bulunamayınca
+        # satışın tamamı merkezden düşüyordu (Ekim 2026).
+        u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku).execute())
+        kart = sku if u else None
+        if not u and sku != sku.upper():
+            u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", sku.upper()).execute())
+            kart = sku.upper() if u else None
+        if not u:
+            _ks = _kart_sku(sku)
+            if _ks and _ks != sku:
+                u = _row(sb.table("urunler").select("sku, depo_kirilim").eq("sku", _ks).execute())
+                if u:
+                    sku = kart = _ks
+        _k = (u or {}).get("depo_kirilim") or {}
+        if isinstance(_k, str):
+            import json as _json
+            _k = _json.loads(_k or "{}")
+        kirilim = {str(d): float(v or 0) for d, v in (_k or {}).items()}
+        for d, deg in (self.bekleyen.get(kart) or {}).items():
+            kirilim[d] = kirilim.get(d, 0.0) + deg
+        return sku, kirilim
+
+    def ekle(self, sku, depo, degisim):
+        """Planlanan hareketi sonraki okumalara yansıt (kartı yoksa veritabanı da uygulamaz)."""
+        from kayranpm.database import depo_kanonik, stok_adaylari
+        for a in stok_adaylari(sku):
+            if _row(self.sb.table("urunler").select("sku").eq("sku", a).execute()):
+                d = depo_kanonik((depo or "").strip() or "MERKEZ DEPO")
+                h = self.bekleyen.setdefault(a, {})
+                h[d] = h.get(d, 0.0) + float(degisim or 0)
+                return
+
+
+def _akilli_plan(hareketler, okuyucu, merkez, satilabilir_mi):
+    """Otomatik depo dağıtımı (kurallar _stok_akilli_dus'ta): {sku: adet} → {depo: {sku: adet}}."""
+    _merkez = merkez
+    depo_dus = {}                       # {depo: {sku: düşülecek adet}}
+    for sku, adet in (hareketler or {}).items():
+        sku = str(sku or "").strip()
+        try:
+            kalan = float(adet or 0)
+        except Exception:
+            kalan = 0
+        if not sku or kalan <= 0:
+            continue
+        try:
+            sku, kirilim = okuyucu.oku(sku)
+        except Exception:
+            kirilim = {}
+        # 1) merkezden mevcut kadar
+        _m = max(kirilim.get(_merkez, 0), 0)
+        if _m > 0:
+            _d = min(kalan, _m)
+            depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + _d
+            kalan -= _d
+        # 2) diğer SATILABİLİR depolar (stok çoktan aza). Hurda / iade / ikinci el / teknik depolar
+        #    satılabilir stok değil: eskiden "en çok stoğu olan" diye önce HURDA'dan düşülüyordu.
+        if kalan > 0:
+            for depo, mevcut in sorted(kirilim.items(), key=lambda kv: -kv[1]):
+                if depo == _merkez or mevcut <= 0 or kalan <= 0:
+                    continue
+                if not satilabilir_mi(depo):
+                    continue
+                _d = min(kalan, mevcut)
+                depo_dus.setdefault(depo, {})[sku] = depo_dus.get(depo, {}).get(sku, 0) + _d
+                kalan -= _d
+        # 3) kalan → merkez (eksiye düşebilir; uyarı ekranda)
+        if kalan > 0:
+            depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + kalan
+    return depo_dus
+
+
 def _stok_akilli_dus(hareketler, secili_depo=None):
     """AKILLI DEPO DÜŞÜMÜ (Excel toplu satış için): {sku: adet} çıkışını stoğu
     OLAN depolardan otomatik düşer.
@@ -411,20 +520,7 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
     Hata durumunda sessizce eski davranışa (hepsi merkezden) döner."""
     try:
         from kayranpm.database import get_client as _gc, depo_kanonik, stok_hareket_coklu
-        try:
-            from kayranpm.database import _SATILABILIR_DEPOLAR as _sat_depolar
-        except Exception:
-            _sat_depolar = {"MERKEZ DEPO", "HAPPY LIFE"}
-
-        def _satilabilir_depo(d):
-            try:
-                return depo_kanonik(d) in _sat_depolar
-            except Exception:
-                return str(d or "").strip().upper() in _sat_depolar
-        try:
-            _merkez = depo_kanonik("MERKEZ DEPO")
-        except Exception:
-            _merkez = "MERKEZ DEPO"
+        _merkez, _satilabilir_depo = _akilli_depo_kurallari()
 
         # Kullanıcı depo seçtiyse otomatik dağıtım devreye GİRMEZ.
         if secili_depo:
@@ -438,57 +534,7 @@ def _stok_akilli_dus(hareketler, secili_depo=None):
             if _h:
                 stok_hareket_coklu(_h, _sd)
             return
-        sb = _gc()
-        depo_dus = {}                       # {depo: {sku: düşülecek adet}}
-        for sku, adet in (hareketler or {}).items():
-            sku = str(sku or "").strip()
-            try:
-                kalan = float(adet or 0)
-            except Exception:
-                kalan = 0
-            if not sku or kalan <= 0:
-                continue
-            # SKU'nun depo kırılımını oku — kartın yazımıyla ('MIO MIVUE J30' → 'Mio MiVue J30').
-            # Eskiden yalnız girilen ve büyük harf yazım deneniyordu; karışık harfli kart bulunamayınca
-            # satışın tamamı merkezden düşüyordu (Ekim 2026).
-            kirilim = {}
-            try:
-                u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku).execute())
-                if not u and sku != sku.upper():
-                    u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", sku.upper()).execute())
-                if not u:
-                    _ks = _kart_sku(sku)
-                    if _ks and _ks != sku:
-                        u = _row(sb.table("urunler").select("depo_kirilim").eq("sku", _ks).execute())
-                        if u:
-                            sku = _ks
-                _k = (u or {}).get("depo_kirilim") or {}
-                if isinstance(_k, str):
-                    import json as _json
-                    _k = _json.loads(_k or "{}")
-                kirilim = {str(d): float(v or 0) for d, v in (_k or {}).items()}
-            except Exception:
-                kirilim = {}
-            # 1) merkezden mevcut kadar
-            _m = max(kirilim.get(_merkez, 0), 0)
-            if _m > 0:
-                _d = min(kalan, _m)
-                depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + _d
-                kalan -= _d
-            # 2) diğer SATILABİLİR depolar (stok çoktan aza). Hurda / iade / ikinci el / teknik depolar
-            #    satılabilir stok değil: eskiden "en çok stoğu olan" diye önce HURDA'dan düşülüyordu.
-            if kalan > 0:
-                for depo, mevcut in sorted(kirilim.items(), key=lambda kv: -kv[1]):
-                    if depo == _merkez or mevcut <= 0 or kalan <= 0:
-                        continue
-                    if not _satilabilir_depo(depo):
-                        continue
-                    _d = min(kalan, mevcut)
-                    depo_dus.setdefault(depo, {})[sku] = depo_dus.get(depo, {}).get(sku, 0) + _d
-                    kalan -= _d
-            # 3) kalan → merkez (eksiye düşebilir; uyarı ekranda)
-            if kalan > 0:
-                depo_dus.setdefault(_merkez, {})[sku] = depo_dus.get(_merkez, {}).get(sku, 0) + kalan
+        depo_dus = _akilli_plan(hareketler, _KirilimOkuyucu(_gc()), _merkez, _satilabilir_depo)
         _uygulama_basladi = True
         for depo, _h in depo_dus.items():
             _neg = {k: -v for k, v in _h.items() if v}
@@ -923,6 +969,97 @@ def ice_aktar_onizle(satirlar):
             "tarihsiz_ornek": tarihsiz_ornek, "maliyetsiz_ornek": maliyetsiz_ornek}
 
 
+def _sil_hatasi(sil_hata):
+    return {"eklendi": 0, "atlandi": 0, "maliyetsiz": 0, "silinen_fatura": 0,
+            "hatali": 0, "hata": "Silme hatası: " + sil_hata, "atlanan_detay": []}
+
+
+# Defterdeki 'kaynak': eski yolda Excel satış düşümünü _stok_akilli_dus yapıyordu; aynısı yazılır.
+_KAYNAK_AKILLI = "satis/database.py:_stok_akilli_dus"
+
+
+def _excel_stok_plani(cli, rows, satir_depo, tamamla, silinecek):
+    """Excel satış yüklemesinin stok hareketleri, eski yolun SIRASI ve KURALLARIYLA:
+    (üzerine yazılan satışlar MERKEZ'e geri) → çıkış deposu yazılı satırlar o depodan (tamamlama planı
+    uygulanmış) → deposuz satırlar akıllı dağıtımla. Döner: [(depo, {sku: −adet}), ...]."""
+    from kayranpm.database import depo_kanonik
+    _depo_gruplu, _deposuz = {}, []
+    for _r in rows:
+        _sku = str((_r or {}).get("sku") or "").strip()
+        _ad = _i((_r or {}).get("adet"))
+        if not _sku or not _ad:
+            continue
+        _d = str(satir_depo.get(id(_r), "") or "").strip()
+        if _d:
+            _g = _depo_gruplu.setdefault(_d, {})
+            _g[_sku] = _g.get(_sku, 0) + _ad
+        else:
+            _deposuz.append(_r)
+    if tamamla:
+        from .stok_tamamla import uygula as _tamamla_uygula
+        _depo_gruplu = _tamamla_uygula(_depo_gruplu, tamamla, _normalize_sku_yerel)
+    merkez, satilabilir_mi = _akilli_depo_kurallari()
+    oku = _KirilimOkuyucu(cli)
+    for _sku, _ad in _satis_agg(silinecek).items():         # silinen satış merkeze döner
+        oku.ekle(_sku, "MERKEZ DEPO", _ad)
+    gruplar = []
+    for _d, _hrk in _depo_gruplu.items():                    # seçilen depodan (stok yetmese bile)
+        _h = {str(k or "").strip(): -float(v or 0) for k, v in (_hrk or {}).items()
+              if str(k or "").strip() and float(v or 0) > 0}
+        if _h:
+            gruplar.append((depo_kanonik(_d), _h))
+            for k, v in _h.items():
+                oku.ekle(k, _d, v)
+    if _deposuz:
+        try:
+            plan = _akilli_plan(_satis_agg(_deposuz), oku, merkez, satilabilir_mi)
+        except Exception as _e:
+            sessiz("satis.excel_stok_plani", _e)   # planlanamadı → hepsi merkezden (eski yolla aynı)
+            plan = {"MERKEZ DEPO": _satis_agg(_deposuz)}
+        for _d, _h in plan.items():
+            _neg = {k: -v for k, v in _h.items() if v}
+            if _neg:
+                gruplar.append((_d, _neg))
+    return gruplar
+
+
+def _ice_aktar_atomik(cli, rows, satir_depo, tamamla, sil_nolar, yk):
+    """Excel satış yüklemesi tek işlemde (kayit_stok_islem): üzerine yazılacak faturaların silinmesi,
+    satış satırları ve stok düşümü ya hepsi yazılır ya hiçbiri. Fonksiyon kurulu değilse None (bugünkü yol).
+    Döner: {eklendi, silinen_fatura, hatali, hata}."""
+    if not _atomik_hazir(cli):
+        return None
+    nolar = sorted(sil_nolar or [])
+    silinecek = []
+    try:
+        for i in range(0, len(nolar), 100):
+            _parca = nolar[i:i + 100]
+            _eski = _rows(cli.table("satislar").select("*").in_("siparis_no", _parca).execute())
+            silinecek.extend(_eski)
+            if yk is not None:
+                yk.onceki("satislar", _eski)
+                for _sno in _parca:
+                    yk.anahtar(f"satislar:{_sno}")
+        gruplar = _excel_stok_plani(cli, rows, satir_depo, tamamla, silinecek)
+    except Exception as _e:
+        sessiz("satis.ice_aktar_atomik", _e)   # hazırlık okunamadı → bugünkü yol
+        return None
+    sil = {"kolon": "siparis_no", "degerler": nolar} if nolar else None
+    try:
+        with cop_kutusu_kapali():       # sil-yeniden-yaz çöp kutusuna düşmez (sil_siparisler ile aynı)
+            veri = _atomik_kayit(cli, "satislar", sil=sil, satirlar=rows, gruplar=gruplar,
+                                 aday_skular=list(_satis_agg(silinecek)), kaynak=_KAYNAK_AKILLI)
+            if veri is None:
+                return None
+            _atomik_iz(veri, "satislar", "satis.ice_aktar_satislar")
+    except _AtomikRed as e:
+        return {"eklendi": 0, "silinen_fatura": 0, "hatali": len(rows),
+                "hata": f"Yükleme yapılmadı, hiçbir şey değişmedi (satış da stok da): {e}"}
+    if yk is not None:
+        yk.eklenen("satislar", veri.get("eklenen"), beklenen=len(rows))
+    return {"eklendi": len(rows), "silinen_fatura": len(nolar), "hatali": 0, "hata": None}
+
+
 def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=None, tamamla=None):
     """Geçmiş satışları toplu içe aktarır (Excel/Mikro dökümünden).
 
@@ -942,12 +1079,16 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
                        for s in (satirlar or []) if str(s.get("siparis_no") or "").strip()}
 
     silinen = 0
+    # Tek işlem (veritabani/29 kuruluysa): "üzerine yaz" silmesi de eklemeyle aynı işlemde yapılır;
+    # eskiden önce silinip sonra yazılıyordu, arada kopunca eski faturalar silinmiş, yenisi yazılmamış kalıyordu.
+    _sil_birlikte = False
     if temizle_once and dosya_faturalar:
-        silinen, sil_hata = sil_siparisler(dosya_faturalar)
-        if sil_hata:
-            return {"eklendi": 0, "atlandi": 0, "maliyetsiz": 0, "silinen_fatura": 0,
-                    "hatali": 0, "hata": "Silme hatası: " + sil_hata,
-                    "atlanan_detay": []}
+        if _atomik_hazir(_get_client()):
+            _sil_birlikte = True
+        else:
+            silinen, sil_hata = sil_siparisler(dosya_faturalar)
+            if sil_hata:
+                return _sil_hatasi(sil_hata)
 
     mevcut = get_mevcut_satis_anahtarlari() if (atla_mevcut and not temizle_once) else set()
 
@@ -1004,6 +1145,10 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
             _satir_depo[id(_row)] = _d_satir
         rows.append(_row)
     if not rows:
+        if _sil_birlikte:
+            silinen, sil_hata = sil_siparisler(dosya_faturalar)
+            if sil_hata:
+                return _sil_hatasi(sil_hata)
         return {"eklendi": 0, "atlandi": atlandi, "maliyetsiz": 0,
                 "silinen_fatura": silinen, "hatali": 0, "hata": None,
                 "atlanan_detay": atlanan_detay}
@@ -1016,6 +1161,23 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
     if _yk is not None:
         for _sno in sorted({str(r.get("siparis_no") or "").strip() for r in rows} - {""}):
             _yk.anahtar(f"satislar:{_sno}")
+    # ── TEK İŞLEM: (üzerine yazılacak faturaları sil) + satışlar + stok düşümü, ya hepsi ya hiçbiri ──
+    _ozet = _ice_aktar_atomik(cli, rows, _satir_depo, tamamla,
+                              dosya_faturalar if _sil_birlikte else None, _yk)
+    if _ozet is not None:
+        if ilerleme:
+            ilerleme(len(rows), len(rows))
+        if _ozet["eklendi"]:
+            _temizle()
+            _knl = str((rows[0] or {}).get("kanal") or "")
+            _sno = str((rows[0] or {}).get("siparis_no") or "")
+            _trh = str((rows[0] or {}).get("tarih") or "")
+            _marj_uyarisi_gonder(rows, _knl, _sno, _trh, kaynak=f"Excel içe aktarım ({len(rows)} kalem)")
+        return dict(_ozet, atlandi=atlandi, maliyetsiz=maliyetsiz, atlanan_detay=atlanan_detay)
+    if _sil_birlikte:   # tek işlem fonksiyonu yok çıktı → bugünkü sıra (önce sil, sonra yaz)
+        silinen, sil_hata = sil_siparisler(dosya_faturalar)
+        if sil_hata:
+            return _sil_hatasi(sil_hata)
     for i in range(0, len(rows), B):
         chunk = rows[i:i + B]
         try:

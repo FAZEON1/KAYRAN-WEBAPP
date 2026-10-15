@@ -147,6 +147,8 @@ KRITIK_FONKSIYONLAR = {
         "atomik_rpc", "atomik_hazir", "atomik_ortam", "atomik_audit", "AtomikHata", "stok_kalemleri",
         "stok_adaylari", "stok_aday_haritasi", "stok_atomik_sonuc", "stok_hareket_gruplu",
         "_stok_atomik", "_stok_hareket_coklu_eski", "_rpc_yok_mu", "depo_sevk", "_sevk_kart_bul",
+        # G5F aktarımı tek işlem (veritabani/34_g5f_aktarim_tek_islem.sql, Eki 2026)
+        "g5f_aktarim_atomik", "g5f_yeni_kart", "upsert_g5f_stok",
     ],
     "ithalat.pacal_hesap": ["eski_tum_urunler", "eski_stok_karti", "eski_pnl", "yeni_pacal",
                             "karsilastir"],                       # Faz 2a karşılaştırma (Eki 2026)
@@ -192,6 +194,9 @@ KRITIK_FONKSIYONLAR = {
         "_atomik_kayit", "_atomik_iz", "_depo_gruplari", "_stok_sorunu_bildir", "_iadeler_atomik",
         "_iade_aktarim_satirlari", "guncelle_satis", "sil_satis", "sil_siparis", "sil_siparisler",
         "sil_iade", "ice_aktar_iadeler",
+        # Excel satış yüklemesi tek işlem (Eki 2026)
+        "_ice_aktar_atomik", "_excel_stok_plani", "_akilli_plan", "_akilli_depo_kurallari",
+        "_KirilimOkuyucu", "_stok_akilli_dus", "_sil_hatasi",
     ],
     "teknikservis.database": [
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",
@@ -323,6 +328,7 @@ KRITIK_FONKSIYONLAR = {
                             "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani"],
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],
     "kayranacc.excel_islemler": ["ayni_hafta", "cek_degisim_ozeti"],
+    "kayranpm.excel_islemler": ["excel_yukle_g5f_depolar", "_g5f_tek_islem", "_g5f_mesaj"],   # G5F tek işlem
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
