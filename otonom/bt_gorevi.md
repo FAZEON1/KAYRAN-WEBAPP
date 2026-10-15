@@ -121,3 +121,6 @@ kurallarını yalnız kullanıcı onaylar (kapı `otonom/`u zaten otomatik birle
   (kapının kuralları), `CLAUDE.md`'yi hiçbir koşulda değiştirme.
 - Testi atlama, silme, devre dışı bırakma; boş commit.
 - Bir çalışmada birden fazla PR.
+- Başka bir oturuma mesaj gönderme (`send_message`, `SendMessage` ya da benzeri araç). Bu araçlar onay
+  ister; onaylayacak kimse olmadığı için oturum sabaha kadar takılır, sonraki gece de çalışmaz (15.10.2026'da
+  oldu). Söyleyeceğin her şeyi `bt_db.py rapor` ile yaz; kullanıcı Sistem › Bilgi İşlem'den okur.
