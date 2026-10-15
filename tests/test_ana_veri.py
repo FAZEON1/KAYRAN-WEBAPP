@@ -129,6 +129,7 @@ def test_ekranlar_tek_yazim_kullaniyor():
         "satis/satislar_ekran.py": "kategori_ad",
         "satis/main.py": "kategori_anahtar",
         "kayranpm/musteri_hesap.py": "shared.ana_veri",
+        "teknikservis/database.py": "kategori_secenekleri_ek",       # ürün grubu (Ekim 2026)
     }
     eksik = [y for y, ad in zorunlu.items() if ad not in _oku(y)]
     assert not eksik, f"ana_veri bağlantısı kaybolmuş (eski sürüm mü yüklendi?): {eksik}"

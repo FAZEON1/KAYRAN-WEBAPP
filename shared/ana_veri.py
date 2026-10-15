@@ -187,6 +187,18 @@ def get_kategori_ad_haritasi():
     return kategori_ad_haritasi(*_kategori_kaynaklari())
 
 
+def kategori_ad_haritasi_ek(*ek_kaynaklar):
+    """get_kategori_ad_haritasi + bir modülün KENDİ kayıtlarında geçen yazımlar (ör. teknik servis ürün
+    grupları). Kural listesi / stok kartı / İthalat yazımı öncelikli; yalnız modülde geçenler de tek yazıma iner."""
+    return kategori_ad_haritasi(*_kategori_kaynaklari(), *ek_kaynaklar)
+
+
+def kategori_secenekleri_ek(*ek_kaynaklar):
+    """get_kategori_havuzu + modülün kendi kayıtlarındaki yazımlar; anahtara göre tekil, Türkçe sıralı.
+    kategori_ad_haritasi_ek ile aynı kaynaklar: seçenek ve görünen ad birebir aynı yazımdır."""
+    return kategori_secenekleri(*_kategori_kaynaklari(), *ek_kaynaklar)
+
+
 def get_kategori_havuzu():
     """Tüm ekranların kategori seçenekleri: kural listesi + stok kartları + İthalat'ta
     kullanılmışlar. Okunamayan kaynak atlanır (liste yine kural listesiyle dolu gelir)."""

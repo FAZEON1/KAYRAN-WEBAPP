@@ -20,7 +20,7 @@ Geri almak için: teknikservis/main.py → TS_MASASI_YENI = False / DEPO_MASASI_
 from datetime import date, timedelta
 
 from .database import ARAYUZ_ETIKET, BITMIS_DURUMLAR, DURUMLAR
-from .ts_hesap import sla_kademe, sla_gruplari, depo_gruplari, konum
+from .ts_hesap import sla_kademe, sla_gruplari, depo_gruplari, konum, satis_disi_neden
 
 AKTIF = "Aktif (bitmemiş)"
 TUMU = "Tümü"
@@ -230,8 +230,10 @@ def toplu_etiket(k):
             f'· [{konum(k)}]')
 
 
-def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False):
-    """goster: depolar_kayitlari (sayfadaki çoklu depo seçimiyle süzülmüş); tum: get_kayitlar() (özet bandı için)."""
+def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False, grup_ad=None, depo_ad=None):
+    """goster: depolar_kayitlari (sayfadaki çoklu depo seçimiyle süzülmüş); tum: get_kayitlar() (özet bandı için).
+    grup_ad: ürün grubunun tek yazımı ('kasa' → 'Kasa'; database.ts_grup_ad) — süzgeçte 'Kasa'/'kasa' tek seçenek.
+    depo_ad: depo adının Depo modülündeki karşılığı ('merkez' → 'MERKEZ DEPO'; stok.ts_depo_ad)."""
     from shared.tasarim import tr_sayi
     sirali = sorted(goster or [], key=transfer_anahtari, reverse=True)
     satirlar = []
@@ -259,12 +261,12 @@ def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False):
                 "urun_alt": " · ".join(x for x in (str(k.get("stok_kodu") or "").strip(),
                                                    f"seri {k.get('seri_no')}" if k.get("seri_no") else "",
                                                    _kisa(k.get("depo_aciklama"), 40)) if x),
-                "depo_ad": _tr_bas(depo), "konum": konum(k),
-                "grup": (k.get("urun_grubu") or "").strip(), "firma": (k.get("firma_bilgisi") or "").strip(),
+                "depo_ad": (depo_ad or _tr_bas)(depo), "konum": konum(k),
+                "grup": (grup_ad or str.strip)(str(k.get("urun_grubu") or "")).strip(), "firma": (k.get("firma_bilgisi") or "").strip(),
                 "kaynak": _kaynak(k), "fatura": "Mevcut" if fatura_var(k) else "Yok", "giris": giris_fn(k),
                 "satis_m": fiyat, "satis_m__s": str(k.get("satis_tarihi") or ""),
                 "satis_alt": _gun_metni(k.get("satis_tarihi")) if satildi and k.get("satis_tarihi") else "",
-                "durum": durum, "hazir": 1 if durum == "satışa hazır" else 0, "satilabilir": k.get("mevcut_durum") != "satıldı",
+                "durum": durum, "hazir": 1 if durum == "satışa hazır" else 0, "satilabilir": not satis_disi_neden(k),
                 "_durum": {"ad": durum or "—", "renk": DEPO_DURUM_RENK.get(durum, "silik")},
             })
             satirlar.append(r)

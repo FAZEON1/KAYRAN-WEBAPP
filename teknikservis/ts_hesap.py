@@ -74,6 +74,21 @@ def konum(k):
     return (k.get("depo") or k.get("_konum") or "").strip()
 
 
+def satis_disi_neden(k):
+    """Depolar'da 'Satışa Hazır' / 'Satıldı' / toplu satışa KAPALI kayıt ise nedeni, değilse ''.
+    Merkez deposuna aktarılan ürün ("gönderildi") artık MERKEZ DEPO stoğunda: normal satışla satılır. Burada
+    'Satıldı' denirse MERKEZ DEPO'dan bir adet daha düşüyor ve ayrıca satış kaydı açılıyordu (Ekim 2026,
+    teknik servis bildirimi)."""
+    durum = (k.get("mevcut_durum") or "").strip()
+    if durum == "satıldı":
+        return "satıldı"
+    if (k.get("depo") or "").strip().lower() == "merkez":
+        return "Merkez deposunda: normal satışla satılır"
+    if durum == "gönderildi":
+        return "Gönderildi"
+    return ""
+
+
 def depo_gruplari(kayitlar, depo_sirasi):
     """[(depo, [kayıt…])] — bilinen depolar verilen sırada, bilinmeyenler sonda."""
     gr = {}

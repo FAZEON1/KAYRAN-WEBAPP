@@ -632,14 +632,45 @@ def get_gecmis(kayit_id):
         return []
 
 
-def ts_urun_gruplari():
-    """Kayıtlarda geçen benzersiz ürün gruplarını döndürür (açılır liste için)."""
+def _ts_grup_yazimlari():
     try:
-        gruplar = {(r.get("urun_grubu") or "").strip()
-                   for r in get_kayitlar() if (r.get("urun_grubu") or "").strip()}
-        return sorted(gruplar)
-    except Exception:
+        return [(r.get("urun_grubu") or "").strip() for r in get_kayitlar()]
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database._ts_grup_yazimlari", e)
         return []
+
+
+def ts_urun_gruplari():
+    """Ürün grubu seçenekleri (Ekim 2026): kategori havuzu (kural listesi + stok kartları + İthalat) +
+    teknik servis kayıtlarında geçenler; büyük-küçük harf farkı tek seçenek ('Kasa' = 'kasa', 'Monitör' =
+    'monitör'; shared.ana_veri). Eskiden kayıtlardaki yazımlar olduğu gibi listeleniyordu, serbest 'yeni grup'
+    kutusu da her yazımı yeni grup yapıyordu. Kayıtlı değerler değişmez; okurken birleşir."""
+    try:
+        from shared.ana_veri import kategori_secenekleri_ek
+        return kategori_secenekleri_ek(_ts_grup_yazimlari())
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database.ts_urun_gruplari", e)
+        return sorted({g for g in _ts_grup_yazimlari() if g})
+
+
+def ts_grup_haritasi():
+    """{kategori_anahtar: görünen ad} — ts_urun_gruplari ile aynı kaynaklar (seçenek = görünen ad)."""
+    try:
+        from shared.ana_veri import kategori_ad_haritasi_ek
+        return kategori_ad_haritasi_ek(_ts_grup_yazimlari())
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database.ts_grup_haritasi", e)
+        return {}
+
+
+def ts_grup_ad(s, harita=None):
+    """Kayıttaki ürün grubunun ekrandaki TEK yazımı ('kasa' → 'Kasa', 'monitör' → 'Monitör')."""
+    from shared.ana_veri import kategori_anahtar
+    a = kategori_anahtar(s)
+    if not a:
+        return ""
+    h = ts_grup_haritasi() if harita is None else harita
+    return h.get(a) or " ".join(str(s).split())
 
 
 def servis_formu_pdf(kayit, gecmis=None):
