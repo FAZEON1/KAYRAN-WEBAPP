@@ -304,6 +304,12 @@ def render():
                           oner=kategori_oner, kategori_liste=KATEGORI_LISTE,
                           marka_oner=marka_oner, marka_liste=[m for m, _ in MARKA_KURALLAR],
                           eslesme={r.get("dis_kod"): r.get("kart_sku") for r in (eslesme_satir or [])})
+    try:                     # kanal stoğuyla aynı kod haritası: kısa adla gelen kodlar da karta (Eki 2026)
+        from .database import kanal_kod_haritasi
+        H.harita_ile_tamamla(meta, kanal_kod_haritasi(), kartlar, sku_fn=sku_anahtar,
+                             kategori_liste=KATEGORI_LISTE, marka_liste=[m for m, _ in MARKA_KURALLAR])
+    except Exception:  # noqa: BLE001 — harita okunamazsa kurallarla devam
+        pass
     oz = H.ozet(rows)
 
     # Önceki eşit dönem (satış karşılaştırması). Okunamazsa rozet çıkmaz, sayfa çalışır.

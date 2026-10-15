@@ -210,6 +210,12 @@ def _k_eslesme():
                           kategori_liste=KATEGORI_LISTE, marka_oner=marka_oner,
                           marka_liste=[m for m, _ in MARKA_KURALLAR],
                           eslesme={r.get("dis_kod"): r.get("kart_sku") for r in (es or [])})
+    try:                     # kanal stoğuyla aynı kod haritası (Müşteri Satışları ile aynı liste)
+        from kayranpm.database import kanal_kod_haritasi
+        H.harita_ile_tamamla(meta, kanal_kod_haritasi(), get_urun_marka_kategori() or {}, sku_fn=sku_anahtar,
+                             kategori_liste=KATEGORI_LISTE, marka_liste=[m for m, _ in MARKA_KURALLAR])
+    except Exception:  # noqa: BLE001
+        pass
     return eslesmeyen_rapor_kodlari(rows, meta)
 
 
