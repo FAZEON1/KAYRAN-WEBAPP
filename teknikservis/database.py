@@ -40,9 +40,16 @@ DURUM_RENK = {
     "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
     "iade alındı": "#F472B6", "gönderildi": "#22D3EE", "hurda": "#F87171",
     "satışa hazır": "#A3E635", "satıldı": "#10B981", "iptal": "#FB7185",
+    "merkeze aktarıldı": "#60A5FA",     # yalnız görünen durum (ts_hesap.gorunen_durum)
 }
 
-DEPOLAR = ["teknik servis", "iade", "outlet", "ikinci el", "hurda", "merkez"]
+# Ekim 2026: pazarlama (Mikro'daki Pazarlama deposu) ve yedek parça eklendi (teknik servis isteği)
+# Evraksız ürün kayıtta hedef depoya göre ilk durum (Ekim 2026, teknik servis isteği): outlet / 2.el satışa
+# hazır; teknik servis, iade ve hurdadaki ürün önce teknisyende (eskiden hurda 'hurda', diğerleri satışa hazır).
+EVRAKSIZ_DURUM = {"outlet": "satışa hazır", "ikinci el": "satışa hazır", "teknik servis": "teknisyende",
+                  "iade": "teknisyende", "hurda": "teknisyende", "merkez": "gönderildi"}
+
+DEPOLAR = ["teknik servis", "iade", "outlet", "ikinci el", "hurda", "merkez", "pazarlama", "yedek parça"]
 FIRMA_ONERILER = ["EERA", "MONDAY", "VATAN", "İTOPYA", "HB", "ServisPoint", "DİĞER"]
 
 # Teknik servis / iade mal kabulünde kullanılan TAM cari unvanlar (profesyonel gösterim).
@@ -538,8 +545,7 @@ def evraksiz_depo_kayit(data, depo, depo_aciklama="", personel=""):
         _kid = (_r.data[0]["id"] if _r.data else None)
         if not _kid:
             return False, "❌ Kayıt oluştu ama depoya aktarılamadı (kayıt bulunamadı).", form_no
-        durum_haritasi = {"outlet": "satışa hazır", "ikinci el": "satışa hazır",
-                          "hurda": "hurda", "merkez": "gönderildi"}
+        durum_haritasi = EVRAKSIZ_DURUM
         yeni_durum = durum_haritasi.get(depo, "satışa hazır")
         from datetime import date as _date
         _ok2 = durum_guncelle(
@@ -632,126 +638,187 @@ def get_gecmis(kayit_id):
         return []
 
 
-def ts_urun_gruplari():
-    """Kayıtlarda geçen benzersiz ürün gruplarını döndürür (açılır liste için)."""
+def _ts_grup_yazimlari():
     try:
-        gruplar = {(r.get("urun_grubu") or "").strip()
-                   for r in get_kayitlar() if (r.get("urun_grubu") or "").strip()}
-        return sorted(gruplar)
-    except Exception:
+        return [(r.get("urun_grubu") or "").strip() for r in get_kayitlar()]
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database._ts_grup_yazimlari", e)
         return []
 
 
+def ts_urun_gruplari():
+    """Ürün grubu seçenekleri (Ekim 2026): kategori havuzu (kural listesi + stok kartları + İthalat) +
+    teknik servis kayıtlarında geçenler; büyük-küçük harf farkı tek seçenek ('Kasa' = 'kasa', 'Monitör' =
+    'monitör'; shared.ana_veri). Eskiden kayıtlardaki yazımlar olduğu gibi listeleniyordu, serbest 'yeni grup'
+    kutusu da her yazımı yeni grup yapıyordu. Kayıtlı değerler değişmez; okurken birleşir."""
+    try:
+        from shared.ana_veri import kategori_secenekleri_ek
+        return kategori_secenekleri_ek(_ts_grup_yazimlari())
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database.ts_urun_gruplari", e)
+        return sorted({g for g in _ts_grup_yazimlari() if g})
+
+
+def ts_grup_haritasi():
+    """{kategori_anahtar: görünen ad} — ts_urun_gruplari ile aynı kaynaklar (seçenek = görünen ad)."""
+    try:
+        from shared.ana_veri import kategori_ad_haritasi_ek
+        return kategori_ad_haritasi_ek(_ts_grup_yazimlari())
+    except Exception as e:  # noqa: BLE001
+        sessiz("teknikservis.database.ts_grup_haritasi", e)
+        return {}
+
+
+def ts_grup_ad(s, harita=None):
+    """Kayıttaki ürün grubunun ekrandaki TEK yazımı ('kasa' → 'Kasa', 'monitör' → 'Monitör')."""
+    from shared.ana_veri import kategori_anahtar
+    a = kategori_anahtar(s)
+    if not a:
+        return ""
+    h = ts_grup_haritasi() if harita is None else harita
+    return h.get(a) or " ".join(str(s).split())
+
+
+def form_durumu(kayit, gecmis=None):
+    """Servis formunda görünen durum ve geçmiş (Ekim 2026, teknik servis isteği): form çoğunlukla müşteri için
+    alınır; kayıt bir kez 'iade alındı' olduysa sonradan satışa hazır / satıldı olsa da formda son durum
+    'iade alındı' görünür ve geçmiş o satırda biter. Depo transfer satırları formda yer almaz."""
+    gec = [h for h in (gecmis or []) if "deposuna transfer" not in str(h.get("aciklama", "") or "").lower()]
+    for n, h in enumerate(gec):
+        if str(h.get("durum") or "").strip().lower() == "iade alındı":
+            return "iade alındı", gec[:n + 1]
+    durum = (kayit or {}).get("mevcut_durum") or ""
+    if str((kayit or {}).get("ariza_sonucu") or "").strip().lower() == "iade alındı":
+        durum = "iade alındı"
+    return durum.strip(), gec
+
+
 def servis_formu_pdf(kayit, gecmis=None):
-    """Bir kayıt için yazdırılabilir PDF form üretir (bytes döner).
-    Başlık arayüze/duruma göre: Teknik Servis Formu / İade Formu / Ürün Değişim Formu."""
+    """Servis formu PDF'i (bytes). Tek sayfa (Ekim 2026): bilgiler iki sütunlu, boş alanlar yazılmaz, imza aynı
+    sayfada. Başlık arayüze / duruma göre: Teknik Servis Formu / İade Formu / Ürün Değişim Formu."""
     from io import BytesIO
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
-                                    TableStyle)
+                                    TableStyle, KeepTogether)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from xml.sax.saxutils import escape
 
-    durum = (kayit.get("mevcut_durum") or "").strip()
+    durum, gecmis_goster = form_durumu(kayit, gecmis)
     arayuz = kayit.get("arayuz", "")
-    if durum == "ürün değişimi":
+    if (kayit.get("mevcut_durum") or "").strip() == "ürün değişimi":
         baslik = "ÜRÜN DEĞİŞİM FORMU"
-    elif arayuz == "iade":
+    elif arayuz == "iade" or durum == "iade alındı":
         baslik = "İADE FORMU"
     else:
         baslik = "TEKNİK SERVİS FORMU"
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=16 * mm,
-                            leftMargin=16 * mm, rightMargin=16 * mm,
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=12 * mm, bottomMargin=12 * mm,
+                            leftMargin=14 * mm, rightMargin=14 * mm,
                             title=f"{kayit.get('servis_form_no','')} {baslik}")
     styles = getSampleStyleSheet()
     from shared.utils import pdf_turkce_font, pdf_stilleri_turkcele
     PDF_NORMAL, PDF_BOLD = pdf_turkce_font()
     pdf_stilleri_turkcele(styles, PDF_NORMAL, PDF_BOLD)
-    h_style = ParagraphStyle("h", parent=styles["Title"], fontName=PDF_BOLD, fontSize=16, spaceAfter=2)
-    sub = ParagraphStyle("sub", parent=styles["Normal"], fontName=PDF_NORMAL, fontSize=9, textColor=colors.HexColor("#666666"))
-    sec = ParagraphStyle("sec", parent=styles["Normal"], fontName=PDF_BOLD, fontSize=10, textColor=colors.white,
-                         backColor=colors.HexColor("#334155"), leftIndent=4, spaceBefore=8,
-                         spaceAfter=2, leading=16)
+    h_style = ParagraphStyle("h", parent=styles["Title"], fontName=PDF_BOLD, fontSize=14, spaceAfter=1, leading=17)
+    sub = ParagraphStyle("sub", parent=styles["Normal"], fontName=PDF_NORMAL, fontSize=8.5,
+                         textColor=colors.HexColor("#666666"))
+    sec = ParagraphStyle("sec", parent=styles["Normal"], fontName=PDF_BOLD, fontSize=9, textColor=colors.white,
+                         backColor=colors.HexColor("#334155"), leftIndent=4, spaceBefore=5,
+                         spaceAfter=2, leading=13)
+    hucre = ParagraphStyle("hucre", parent=styles["Normal"], fontName=PDF_NORMAL, fontSize=8.5, leading=10.5)
     el = []
 
-    def _v(k, b="—"):
+    def _v(k):
         x = kayit.get(k)
-        return str(x).strip() if x not in (None, "") else b
+        return str(x).strip() if x not in (None, "") else ""
 
-    el.append(Paragraph("KAYRAN / FAZEON", ParagraphStyle("co", parent=styles["Normal"],
-              fontSize=11, textColor=colors.HexColor("#0EA5E9"))))
+    try:
+        from shared.sirket import sirket_bilgi
+        _s = sirket_bilgi()
+        _ust = (_s.get("unvan") or "").strip() or "KAYRAN / FAZEON"
+    except Exception:  # noqa: BLE001
+        _ust = "KAYRAN / FAZEON"
+    el.append(Paragraph(escape(_ust), ParagraphStyle("co", parent=styles["Normal"], fontName=PDF_BOLD,
+                                                     fontSize=10, textColor=colors.HexColor("#0EA5E9"))))
     el.append(Paragraph(baslik, h_style))
-    el.append(Paragraph(f"Servis No: <b>{_v('servis_form_no')}</b> &nbsp;|&nbsp; "
-                        f"Mal Kabül: {(_v('mal_kabul_tarihi'))[:16].replace('T',' ')}", sub))
-    el.append(Spacer(1, 6))
+    el.append(Paragraph(f"Servis No: <b>{escape(_v('servis_form_no') or '—')}</b> &nbsp;|&nbsp; "
+                        f"Mal Kabul: {escape(_v('mal_kabul_tarihi')[:16].replace('T', ' ') or '—')}"
+                        f" &nbsp;|&nbsp; Durum: <b>{escape(durum or '—')}</b>", sub))
+    el.append(Spacer(1, 3))
 
     def _tablo(satirlar):
-        t = Table([[Paragraph(f"<b>{a}</b>", styles["Normal"]), Paragraph(b, styles["Normal"])]
-                   for a, b in satirlar], colWidths=[45 * mm, 120 * mm])
+        """İki sütunlu (etiket · değer · etiket · değer); boş değerler yazılmaz."""
+        dolu = [(a, b) for a, b in satirlar if str(b or "").strip()]
+        if not dolu:
+            return None
+        if len(dolu) % 2:
+            dolu.append(("", ""))
+        veri = []
+        for n in range(0, len(dolu), 2):
+            (a1, b1), (a2, b2) = dolu[n], dolu[n + 1]
+            veri.append([Paragraph(f"<b>{escape(a1)}</b>", hucre), Paragraph(escape(str(b1)), hucre),
+                         Paragraph(f"<b>{escape(a2)}</b>", hucre), Paragraph(escape(str(b2)), hucre)])
+        t = Table(veri, colWidths=[28 * mm, 63 * mm, 28 * mm, 63 * mm])
         t.setStyle(TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#CBD5E1")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F1F5F9")),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#F1F5F9")),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
         ]))
         return t
 
-    el.append(Paragraph("ÜRÜN BİLGİSİ", sec))
-    el.append(_tablo([
-        ("Stok Kodu", _v("stok_kodu")), ("Stok Adı", _v("stok_adi")),
-        ("Ürün Grubu", _v("urun_grubu")), ("Seri No", _v("seri_no")),
-        ("EAN", _v("ean")), ("Arıza", _v("ariza")),
-        ("İçerik Durumu", _v("icerik_durumu")), ("Fiziksel Durum", _v("fiziksel_durum")),
-        ("Detay / Not", _v("detay")), ("Test Süreci", _v("test_sureci")),
-        ("Mevcut Durum", durum or "—"),
-    ]))
-    el.append(Paragraph("MAĞAZA / MÜŞTERİ", sec))
-    el.append(_tablo([
-        ("Firma Bilgisi", _v("firma_bilgisi")), ("Mağaza / Müşteri Adı", _v("musteri_adi")),
+    def _bolum(ad, satirlar):
+        t = _tablo(satirlar)
+        if t is not None:
+            el.extend([Paragraph(ad, sec), t])
+
+    _bolum("ÜRÜN BİLGİSİ", [
+        ("Stok Kodu", _v("stok_kodu")), ("Seri No", _v("seri_no")),
+        ("Stok Adı", _v("stok_adi")), ("Ürün Grubu", _v("urun_grubu")),
+        ("Arıza / Şikâyet", _v("ariza")), ("EAN", _v("ean")),
+        ("İçerik Durumu", _v("icerik_durumu")), ("Eksik İçerik", _v("eksik_icerik")),
+        ("Fiziksel Durum", _v("fiziksel_durum")), ("Test Süreci", _v("test_sureci")),
+        ("Detay / Not", _v("detay")), ("Durum", durum),
+    ])
+    _bolum("MAĞAZA / MÜŞTERİ", [
+        ("Firma", _v("firma_bilgisi")), ("Mağaza / Müşteri", _v("musteri_adi")),
         ("Telefon", _v("musteri_tel")), ("Mail", _v("musteri_mail")),
         ("Adres", _v("musteri_adres")), ("Sevk / Teslim", _v("sevk_kargo_bilgisi")),
-    ]))
-    if any(kayit.get(a) for a in ("degisim_stok_kodu", "degisim_stok_adi", "degisim_seri_no", "degisim_depo")):
-        el.append(Paragraph("DEĞİŞİM ÜRÜNÜ (yeni verilen)", sec))
-        el.append(_tablo([
-            ("Stok Kodu", _v("degisim_stok_kodu")), ("Stok Adı", _v("degisim_stok_adi")),
-            ("Seri No", _v("degisim_seri_no")), ("Depo", _v("degisim_depo")),
-        ]))
-    el.append(Paragraph("BELGE", sec))
-    el.append(_tablo([
+    ])
+    _bolum("DEĞİŞİM ÜRÜNÜ (yeni verilen)", [
+        ("Stok Kodu", _v("degisim_stok_kodu")), ("Stok Adı", _v("degisim_stok_adi")),
+        ("Seri No", _v("degisim_seri_no")), ("Depo", _v("degisim_depo")),
+    ])
+    _bolum("BELGE", [
         ("Fatura No", _v("fatura_no")), ("İrsaliye No", _v("irsaliye_no")),
-        ("Firma Servis Form No", _v("firma_servis_form_no")),
-    ]))
+        ("Firma Servis Form No", _v("firma_servis_form_no")), ("Geliş Takip No", _v("gelis_kargo_no")),
+        ("Gidiş Takip No", _v("gidis_kargo_no")),
+    ])
 
-    _gec_goster = [h for h in (gecmis or [])
-                   if "deposuna transfer" not in str(h.get("aciklama", "") or "").lower()]
-    if _gec_goster:
+    if gecmis_goster:
         el.append(Paragraph("İŞLEM GEÇMİŞİ", sec))
-        gsat = [("Tarih", "Durum / Açıklama / Personel")]
-        for h in _gec_goster:
+        satir = [[Paragraph("<b>Tarih</b>", hucre), Paragraph("<b>Durum / Açıklama / Personel</b>", hucre)]]
+        for h in gecmis_goster[-10:]:
             t = str(h.get("tarih", "") or "")[:16].replace("T", " ")
             d = f"{h.get('durum','')} — {h.get('aciklama','') or ''} ({h.get('personel','') or '—'})"
-            gsat.append((t, d))
-        gt = Table([[Paragraph(a, styles["Normal"]), Paragraph(b, styles["Normal"])] for a, b in gsat],
-                   colWidths=[35 * mm, 130 * mm])
+            satir.append([Paragraph(escape(t), hucre), Paragraph(escape(d), hucre)])
+        gt = Table(satir, colWidths=[34 * mm, 148 * mm])
         gt.setStyle(TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#E2E8F0")),
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F1F5F9")),
-            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
         el.append(gt)
 
-    el.append(Spacer(1, 22))
     imza = Table([[Paragraph("Teslim Eden<br/><br/>_______________", styles["Normal"]),
                    Paragraph("Teslim Alan<br/><br/>_______________", styles["Normal"])]],
-                 colWidths=[82 * mm, 82 * mm])
-    imza.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 9), ("TOPPADDING", (0, 0), (-1, -1), 6)]))
-    el.append(imza)
+                 colWidths=[91 * mm, 91 * mm])
+    imza.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 9), ("TOPPADDING", (0, 0), (-1, -1), 4)]))
+    el.append(KeepTogether([Spacer(1, 12), imza]))
 
     doc.build(el)
     return buf.getvalue()

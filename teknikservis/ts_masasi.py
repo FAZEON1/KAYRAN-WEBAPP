@@ -20,14 +20,15 @@ Geri almak için: teknikservis/main.py → TS_MASASI_YENI = False / DEPO_MASASI_
 from datetime import date, timedelta
 
 from .database import ARAYUZ_ETIKET, BITMIS_DURUMLAR, DURUMLAR
-from .ts_hesap import sla_kademe, sla_gruplari, depo_gruplari, konum
+from .ts_hesap import sla_kademe, sla_gruplari, depo_gruplari, konum, satis_disi_neden, gorunen_durum
 
 AKTIF = "Aktif (bitmemiş)"
 TUMU = "Tümü"
 SONUCLAR = ["sorunsuz", "tamir edildi", "ürün değişimi", "iade alındı"]
 # ts_hesap.sla_kademe rengi → masanın renk sınıfı (masada turuncu yok: 11–15 iş günü amber)
 SLA_RENK = {"kirmizi": "kirmizi", "kirmizi2": "amber", "amber": "amber", "yesil": "yesil", "silik": "silik"}
-DEPO_DURUM_RENK = {"satışa hazır": "yesil", "satıldı": "mor", "hurda": "kirmizi", "gönderildi": "cyan"}
+DEPO_DURUM_RENK = {"satışa hazır": "yesil", "satıldı": "mor", "hurda": "kirmizi", "gönderildi": "cyan",
+                   "merkeze aktarıldı": "mavi"}
 DEPO_DURUMLARI = {"Satışa hazır": "satışa hazır", "Satıldı": "satıldı", "Hurda": "hurda"}
 EXCEL_KAYIT = "_ts_excel_ids_{}"          # seçilenlerin kimlikleri (Excel'e aktar) — sayfa indirme düğmesi çizer
 TOPLU_AC = "_ts_toplu_ac"                 # Toplu Satış penceresini aç
@@ -52,19 +53,45 @@ def durum_uyar(k, durum_f):
     return True
 
 
+def ara_kat(s):
+    """Arama için Türkçe katlama: 'İSMAİL' = 'ismail' = 'ISMAIL' ('İ'/'I'/'ı' → i)."""
+    return str(s or "").replace("İ", "i").replace("I", "i").lower().replace("ı", "i").replace("i̇", "i")
+
+
 def ara_uyar(k, metin, alanlar):
-    """Eski metin araması (küçük harfe çevirip içinde geçiyor mu) — okutulan seri no burada süzülür."""
+    """Metin araması (Türkçe katlanmış, içinde geçiyor mu) — okutulan seri no da burada süzülür."""
     metin = str(metin or "").strip()
     if not metin:
         return True
-    blob = " ".join(str(k.get(a, "") or "") for a in alanlar).lower()
-    return metin.lower() in blob
+    blob = ara_kat(" ".join(str(k.get(a, "") or "") for a in alanlar))
+    return all(p in blob for p in ara_kat(metin).split())
 
 
+# Teknik servisin en sık aradığı alanlar (Ekim 2026, teknik servis bildirimi): seri no, stok kodu, irsaliye no,
+# fatura no, geliş / gidiş takip no, müşteri şikâyeti (arıza), son kullanıcının adı soyadı. Takip no ve
+# Depolar'da müşteri adı aranmıyordu.
 TS_ARA_ALANLARI = ("servis_form_no", "stok_kodu", "stok_adi", "seri_no", "fatura_no", "irsaliye_no",
-                   "firma_servis_form_no", "firma_bilgisi", "musteri_adi")
-DEPO_ARA_ALANLARI = ("servis_form_no", "stok_kodu", "stok_adi", "seri_no", "firma_bilgisi",
-                     "fatura_no", "irsaliye_no", "firma_servis_form_no")
+                   "firma_servis_form_no", "firma_bilgisi", "musteri_adi", "gelis_kargo_no", "gidis_kargo_no",
+                   "sevk_kargo_bilgisi", "ariza", "musteri_tel", "degisim_seri_no")
+DEPO_ARA_ALANLARI = TS_ARA_ALANLARI
+
+
+def tek_arama(kayitlar, metin, depodaki_idler, sinir=30):
+    """Teknik servis + İade + Depolar'da TEK arama (Ekim 2026): bütün kayıtlarda (işlemi bitmiş, depoda olanlar
+    dahil) arar; her sonucun nerede açılacağı ('teknik' / 'iade' / 'depo'). Eskiden üç listede ayrı ayrı
+    arayıp 'depodaki kayıtları da göster' anahtarını açmak gerekiyordu."""
+    metin = str(metin or "").strip()
+    if len(metin) < 2:
+        return []
+    out = []
+    for k in kayitlar or []:
+        if not ara_uyar(k, metin, TS_ARA_ALANLARI):
+            continue
+        yer = "depo" if k.get("id") in depodaki_idler else ("iade" if k.get("arayuz") == "iade" else "teknik")
+        out.append((yer, k))
+        if len(out) >= sinir:
+            break
+    return out
 
 
 def _gun_metni(v):
@@ -146,7 +173,7 @@ def kayit_masa_verisi(kayitlar, gunler, salt=False):
                      {"alan": "firma", "ad": "Tüm firmalar", "secenekler": _secenek(satirlar, "firma", _firma_ad)},
                      {"alan": "sonuc_g", "ad": "Gönderim sonucu: tümü",
                       "secenekler": [{"k": s, "ad": s} for s in SONUCLAR if any(x["sonuc_g"] == s for x in satirlar)]}],
-        "ara": {"alanlar": list(TS_ARA_ALANLARI), "ipucu": "Servis no, stok, seri, fatura, irsaliye, firma, müşteri"},
+        "ara": {"alanlar": list(TS_ARA_ALANLARI), "ipucu": "Seri, stok, servis no, fatura, irsaliye, takip no, müşteri, arıza"},
         "sutunlar": [{"alan": "sfn", "ad": "Servis no", "gen": "116px", "dar": "alt"},
                      {"alan": "kabul_m", "ad": "Kabul", "gen": "96px", "genis": True},
                      {"alan": "urun", "ad": "Ürün", "tip": "ana", "alt": "urun_alt"},
@@ -230,14 +257,16 @@ def toplu_etiket(k):
             f'· [{konum(k)}]')
 
 
-def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False):
-    """goster: depolar_kayitlari (sayfadaki çoklu depo seçimiyle süzülmüş); tum: get_kayitlar() (özet bandı için)."""
+def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False, grup_ad=None, depo_ad=None):
+    """goster: depolar_kayitlari (sayfadaki çoklu depo seçimiyle süzülmüş); tum: get_kayitlar() (özet bandı için).
+    grup_ad: ürün grubunun tek yazımı ('kasa' → 'Kasa'; database.ts_grup_ad) — süzgeçte 'Kasa'/'kasa' tek seçenek.
+    depo_ad: depo adının Depo modülündeki karşılığı ('merkez' → 'MERKEZ DEPO'; stok.ts_depo_ad)."""
     from shared.tasarim import tr_sayi
     sirali = sorted(goster or [], key=transfer_anahtari, reverse=True)
     satirlar = []
     for depo, grup in depo_gruplari(sirali, depo_sirasi):
         for k in grup:
-            durum = (k.get("mevcut_durum") or "").strip()
+            durum = gorunen_durum(k)                  # merkezdeki ürün: 'merkeze aktarıldı'
             satildi = durum == "satıldı"
             fiyat = ""
             if satildi:
@@ -259,12 +288,12 @@ def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False):
                 "urun_alt": " · ".join(x for x in (str(k.get("stok_kodu") or "").strip(),
                                                    f"seri {k.get('seri_no')}" if k.get("seri_no") else "",
                                                    _kisa(k.get("depo_aciklama"), 40)) if x),
-                "depo_ad": _tr_bas(depo), "konum": konum(k),
-                "grup": (k.get("urun_grubu") or "").strip(), "firma": (k.get("firma_bilgisi") or "").strip(),
+                "depo_ad": (depo_ad or _tr_bas)(depo), "konum": konum(k),
+                "grup": (grup_ad or str.strip)(str(k.get("urun_grubu") or "")).strip(), "firma": (k.get("firma_bilgisi") or "").strip(),
                 "kaynak": _kaynak(k), "fatura": "Mevcut" if fatura_var(k) else "Yok", "giris": giris_fn(k),
                 "satis_m": fiyat, "satis_m__s": str(k.get("satis_tarihi") or ""),
                 "satis_alt": _gun_metni(k.get("satis_tarihi")) if satildi and k.get("satis_tarihi") else "",
-                "durum": durum, "hazir": 1 if durum == "satışa hazır" else 0, "satilabilir": k.get("mevcut_durum") != "satıldı",
+                "durum": durum, "hazir": 1 if durum == "satışa hazır" else 0, "satilabilir": not satis_disi_neden(k),
                 "_durum": {"ad": durum or "—", "renk": DEPO_DURUM_RENK.get(durum, "silik")},
             })
             satirlar.append(r)
@@ -278,7 +307,7 @@ def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False):
                      {"alan": "fatura", "ad": "Fatura: tümü", "secenekler": [{"k": "Mevcut", "ad": "Fatura mevcut"},
                                                                              {"k": "Yok", "ad": "Fatura yok"}]},
                      {"alan": "giris", "ad": "Giriş şekli: tümü", "secenekler": _secenek(satirlar, "giris")}],
-        "ara": {"alanlar": list(DEPO_ARA_ALANLARI), "ipucu": "Servis no, stok, seri, firma, fatura, irsaliye"},
+        "ara": {"alanlar": list(DEPO_ARA_ALANLARI), "ipucu": "Seri, stok, servis no, fatura, irsaliye, takip no, müşteri, arıza"},
         "sutunlar": [{"alan": "sfn", "ad": "Servis no", "gen": "116px", "dar": "alt"},
                      {"alan": "transfer_m", "ad": "Transfer", "gen": "100px", "genis": True},
                      {"alan": "urun", "ad": "Ürün", "tip": "ana", "alt": "urun_alt"},

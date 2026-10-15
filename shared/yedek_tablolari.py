@@ -43,7 +43,7 @@ YEDEK_TABLOLAR = [
     # e-Defter (fiş satırları fişten sonra)
     "edefter_fisler", "edefter_fis_satirlari",
     # Teknik servis
-    "ts_kayitlar", "ts_gecmis",
+    "ts_kayitlar", "ts_gecmis", "ts_urun_notlari",
     # Hesap Makinesi
     "prim_gecmis",
     # Ortak

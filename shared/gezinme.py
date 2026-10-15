@@ -102,9 +102,10 @@ MODULLER = [
          ("📋  Evraksız Ürün Kayıt", "evraksiz", "Evraksız ürün kayıt", None),
          ("🔧  Teknik Servis", "servis", "Teknik servis", None),
          ("↩️  İade", "iade", "İade", None),
-         ("🚚  İrsaliye", "irsaliye", "İrsaliye", None),
+         # İrsaliye sayfası kalktı (Ekim 2026, teknik servis: irsaliyeler Mikro'dan kesiliyor)
          ("📦  Depolar", "depolar", "Depolar", None),
          ("Arıza Oranı", "ariza_orani", "Arıza oranı", None),
+         ("Ürün Notları", "urun_notlari", "Ürün notları", None),   # Ekim 2026 (teknik servis isteği)
      ]},
     # Ekip (Ekim 2026): programın dijital çalışanları — yalnız yöneticiler (shared/ofis_ekran.py)
     {"kod": "ekip", "ad": "Ekip", "ikon": "groups", "ozel": "kullanici_yonetimi", "anahtar": "ekip_sayfa",

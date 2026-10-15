@@ -36,6 +36,8 @@ TS_DEPO_HARITA = {
     "ikinci el":     "İKİNCİ EL DEPO",
     "hurda":         "HURDA DEPO",
     "merkez":        "MERKEZ DEPO",
+    "pazarlama":     "PAZARLAMA",
+    "yedek parça":   "YEDEK PARÇA DEPO",
 }
 
 # Mal kabulde arayüze göre ürünün gireceği VARSAYILAN depo
@@ -320,6 +322,28 @@ def degisim_cikisi(kayit):
     if not sku:
         return False, "değişim ürününün stok kodu boş — stok işlenmedi"
     return _uygula(sku, ad, "MERKEZ DEPO", -1)
+
+
+def degisim_cari(kayit):
+    """Değişimde verilen ürünün satış carisi — teknik servisin elle yazdığı 'S.K. Değişim (G5F…)' biçimi."""
+    return f"S.K. Değişim ({str((kayit or {}).get('servis_form_no') or '').strip()})"
+
+
+def degisim_depodan_ver(kayit, bagli, personel, durum_guncelle_fn, bugun=None):
+    """Ürün değişimi, değişim ürünü Depolar'daki bir kayıttan verildi (Ekim 2026, kullanıcı kararı): o kayıt
+    bedelsiz 'satıldı' olur (cari 'S.K. Değişim (G5F…)'), KENDİ deposundan düşer ve satış kaydı açılır —
+    teknik servisin elle yaptığının aynısı. Bu yolda MERKEZ DEPO'dan ayrıca düşülmez (eskiden değişim ürünü
+    hangi depodan verilirse verilsin MERKEZ'den de düşülüyordu: iki kez çıkış).
+    Döner: [(ok, mesaj), ...]."""
+    from datetime import date as _date
+    cari = degisim_cari(kayit)
+    sfn = str((kayit or {}).get("servis_form_no") or "").strip()
+    ok = durum_guncelle_fn(bagli.get("id"), "satıldı", personel, f"Ürün değişiminde verildi: {sfn}",
+                           {"satis_firma": cari, "satis_fiyati": 0.0, "bedelsiz": True,
+                            "satis_tarihi": str(bugun or _date.today())[:10]})
+    if not ok:
+        return [(False, f"{bagli.get('servis_form_no', '')} satıldı yapılamadı — stok işlenmedi")]
+    return [satis_cikisi(bagli), satis_kaydi_yaz(bagli, 0, bedelsiz=True, cari=cari)]
 
 
 def depoya_transfer(kayit, hedef_ts_depo):
