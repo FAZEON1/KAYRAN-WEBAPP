@@ -1,5 +1,5 @@
 """Depo Yönetimi modülü — sidebar sayfaları: Depo Stok · Depolar Arası Sevk ·
-Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı)."""
+Bekleyen Sevk Takibi (bağımsız manuel) · SKU Hareketleri (adet bazlı) · Satılamayan stok."""
 from shared.tasarim import renk as trenk  # aktif temanın rengi (hex)
 from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-yaz çöp kutusuna düşmesin
 from shared.tasarim import tr_sayi  # TR sayı biçimi (1.234,56)
@@ -54,6 +54,9 @@ def run():
             _sayfa_bekleyen()
         elif _dsayfa == "🔎 SKU Hareketleri":
             _sayfa_sku()
+        elif _dsayfa == "Satılamayan stok":
+            from depo.satilamayan import render as _satilamayan
+            _satilamayan()
         else:
             _sayfa_happylife()
 

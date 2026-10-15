@@ -34,6 +34,7 @@ import shared.stok_defteri as SD          # noqa: E402
 KOK = Path(__file__).resolve().parent.parent
 SQL = (KOK / "veritabani" / "29_atomik_stok.sql").read_text(encoding="utf-8")
 SQL_G5F = (KOK / "veritabani" / "34_g5f_aktarim_tek_islem.sql").read_text(encoding="utf-8")
+SQL_YAS = (KOK / "veritabani" / "35_stok_yas_ilk_tarih.sql").read_text(encoding="utf-8")
 
 SEMA = """
 CREATE TABLE urunler (sku text PRIMARY KEY, urun_adi text, bizim_stok integer DEFAULT 0,
@@ -125,8 +126,8 @@ class _Sorgu:
         self.islem, self.yuk = "update", yuk
         return self
 
-    def upsert(self, yuk, on_conflict="", **k):
-        self.islem, self.yuk, self.cakisma = "upsert", yuk, on_conflict
+    def upsert(self, yuk, on_conflict="", ignore_duplicates=False, **k):
+        self.islem, self.yuk, self.cakisma, self.atla = "upsert", yuk, on_conflict, ignore_duplicates
         return self
 
     def delete(self, *a, **k):
@@ -164,7 +165,9 @@ class _Sorgu:
         kl = ", ".join(kolon)
         if self.islem in ("insert", "upsert"):
             ek = ""
-            if self.islem == "upsert":
+            if self.islem == "upsert" and self.atla:
+                ek = f" ON CONFLICT ({self.cakisma}) DO NOTHING"
+            elif self.islem == "upsert":
                 ek = (f" ON CONFLICT ({self.cakisma}) DO UPDATE SET "
                       + ", ".join(f"{k} = excluded.{k}" for k in kolon))
             q = (f"WITH r AS (INSERT INTO {t} ({kl}) SELECT {kl} FROM jsonb_populate_recordset(NULL::{t}, %s::jsonb)"
@@ -265,6 +268,8 @@ def veritabanlari():
         c.execute(SQL)                                     # tekrar çalıştırılabilir
         c.execute(SQL_G5F)
         c.execute(SQL_G5F)
+        c.execute(SQL_YAS)
+        c.execute(SQL_YAS)
     with psycopg.connect(_dsn_db(adlar["eski"]), autocommit=True) as c:
         c.execute(SEMA)
     yield {k: _dsn_db(v) for k, v in adlar.items()}
@@ -729,3 +734,44 @@ def test_g5f_aktarim_reddedilirse_hicbir_sey_degismez(veritabanlari, monkeypatch
     assert sonra["urunler"] == once["urunler"], "aktarım yarım yazıldı (bir kısım ürün yeni sayımla kaldı)"
     assert sonra["defter"] == once["defter"]
     assert not ok and "hiçbir şey değişmedi" in msg
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 6) Stok yaşı "ilk görülme" tarihi korunur (veritabani/35_stok_yas_ilk_tarih.sql)
+# ═══════════════════════════════════════════════════════════════════
+def test_g5f_aktarim_ilk_gorulme_tarihini_ezmez(ortam, monkeypatch, tmp_path):
+    """Ürün daha önce görülmüşse (stok_yas kaydı varsa) G5F aktarımı tarihini EZMEZ; yalnız yeni ürün
+    bugünle yazılır. Eskiden her aktarım bütün ürünlerin tarihini bugüne çekiyordu (13.10.2026: 116 ürün)."""
+    import kayranpm.excel_islemler as E
+    monkeypatch.setattr(E, "get_client", lambda: pmdb.get_client())
+    monkeypatch.setattr(E, "get_today", lambda: "2026-10-14")
+    dosya = _g5f_xlsx([["MERKEZ DEPO", "X24F241S", "Monitör", 7], ["MERKEZ DEPO", "YENI1", "Yeni", 5]],
+                      tmp_path / "g5f.xlsx")
+
+    def senaryo():
+        dsn = pmdb.get_client().dsn
+        with psycopg.connect(dsn, autocommit=True) as c:
+            c.execute("INSERT INTO stok_yas VALUES ('X24F241S', '2026-07-01')")
+        E.excel_yukle_g5f_depolar(dosya, ozet={})
+        return _g5f_durum(dsn)[1]
+    eski, yeni = ortam(senaryo, baslangic=G5F_BASLANGIC)
+    _ayni(eski, yeni)
+    assert yeni["donus"] == [("X24F241S", "2026-07-01"), ("YENI1", "2026-10-14")], \
+        "G5F aktarımı ilk görülme tarihini ezdi"
+
+
+def test_stok_yas_onarimi_kart_acilis_tarihine_ceker(veritabanlari):
+    """35'teki bir kerelik onarım: tarih, kartın açılış tarihinden yeniyse ona çekilir; daha eski tarih
+    ve kartı tarihsiz olan dokunulmaz. Tekrar çalıştırmak zararsız."""
+    dsn = veritabanlari["yeni"]
+    _sifirla(dsn, G5F_BASLANGIC)
+    with psycopg.connect(dsn, autocommit=True) as c:
+        c.execute("UPDATE urunler SET ilk_giris_tarihi = '2026-06-17' WHERE sku IN ('X24F241S', 'ABC')")
+        c.execute("UPDATE urunler SET ilk_giris_tarihi = '2026-09-01' WHERE sku = 'X24F200'")
+        c.execute("INSERT INTO stok_yas VALUES ('X24F241S', '2026-10-13'), ('ABC', '2026-05-01'), "
+                  "('X24F200', '2026-10-13'), ('KESIR', '2026-10-13')")
+        c.execute(SQL_YAS)
+        c.execute(SQL_YAS)
+        r = c.execute("SELECT sku, ilk_gorulen_tarih::text FROM stok_yas ORDER BY sku").fetchall()
+    assert r == [("ABC", "2026-05-01"), ("KESIR", "2026-10-13"), ("X24F200", "2026-09-01"),
+                 ("X24F241S", "2026-06-17")]

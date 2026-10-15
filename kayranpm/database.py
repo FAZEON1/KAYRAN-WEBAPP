@@ -8,6 +8,7 @@ from shared.cop_kutusu import cop_kutusu_kapali  # birleştirme / sil-yeniden-ya
 # Türkiye saat dilimi için ortak yardımcılar
 from shared.utils import tr_today, tr_now, tr_today_iso, tr_now_str, tr_tomorrow, tr_yesterday as _tr_today_iso_dummy
 from shared.utils import tr_kucuk
+from shared.kayit import sessiz
 from supabase import create_client, Client
 from datetime import date
 from collections import defaultdict
@@ -163,9 +164,7 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
         for _opt in ("satis_fiyat_listesi", "eol"):
             _payload.pop(_opt, None)
         sb.table("urunler").upsert(_payload, on_conflict="sku").execute()
-    sb.table("stok_yas").upsert(
-        {"sku": sku, "ilk_gorulen_tarih": bugun}, on_conflict="sku"
-    ).execute()
+    stok_yas_ilk_gorulen(sb, [sku], bugun)
     _cache_temizle()
 
 
@@ -727,16 +726,27 @@ def ithalat_eksikleri_ekle():
             })
             stok_yas_rows.append({"sku": sku, "ilk_gorulen_tarih": bugun})
         sb.table("urunler").upsert(rows, on_conflict="sku").execute()
-        try:
-            sb.table("stok_yas").upsert(stok_yas_rows, on_conflict="sku").execute()
-        except Exception:
-            pass
+        stok_yas_ilk_gorulen(sb, [r["sku"] for r in stok_yas_rows], bugun)
         _cache_temizle()
         return len(rows)
     except Exception:
         return 0
 
 # ── FİRMA STOK ──────────────────────────────────────────────────────
+
+def stok_yas_ilk_gorulen(sb, skular, bugun):
+    """stok_yas: ürünün İLK görüldüğü gün — yalnız kaydı olmayan SKU için yazılır, var olan tarih korunur.
+    Eskiden her ürün kaydında / G5F aktarımında bugünün tarihiyle EZİLİYORDU (13.10.2026 aktarımı 116
+    ürünün tarihini sıfırladı; stok kartı 'İlk görülme' ve partisiz ürünün yedek stok yaşı bunu kullanır).
+    Tablo yoksa / yazılamazsa sessiz geçer (bugünkü gibi)."""
+    satir = [{"sku": s, "ilk_gorulen_tarih": bugun} for s in dict.fromkeys(skular or []) if s]
+    if not satir:
+        return
+    try:
+        sb.table("stok_yas").upsert(satir, on_conflict="sku", ignore_duplicates=True).execute()
+    except Exception as e:
+        sessiz("kayranpm.stok_yas_ilk_gorulen", e)
+
 
 def g5f_yeni_kart(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim, bugun):
     """G5F aktarımında kartı olmayan SKU için açılan kart satırı."""
@@ -803,10 +813,7 @@ def upsert_g5f_stok(sku, urun_adi, bizim_stok_satilabilir, depo_kirilim):
         except Exception:
             _payload.pop("depo_kirilim", None)
             sb.table("urunler").insert(_payload).execute()
-    try:
-        sb.table("stok_yas").upsert({"sku": sku, "ilk_gorulen_tarih": bugun}, on_conflict="sku").execute()
-    except Exception:
-        pass
+    stok_yas_ilk_gorulen(sb, [sku], bugun)
     _cache_temizle()
 
 

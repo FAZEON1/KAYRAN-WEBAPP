@@ -53,7 +53,7 @@ def test_gruplar_basliklari_ve_sirasi():
     assert ("cari_ekstre", "Cari") in [(s["kod"], s["grup"]) for s in m["sayfalar"]]
     assert len(m["sayfalar"]) == len(G.MODULLER[2]["sayfalar"])     # hiçbir sayfa kaybolmaz
     d = _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_var), "depo")
-    assert all(s["grup"] is None for s in d["sayfalar"]) and len(d["sayfalar"]) == 5
+    assert all(s["grup"] is None for s in d["sayfalar"]) and len(d["sayfalar"]) == 6   # + Satılamayan stok
 
 
 def test_secili_sayfa_oturumdan_yoksa_ilk():
