@@ -27,7 +27,7 @@ from shared.ana_veri import kategori_ad as _kat_ad, kategori_anahtar as _kat_anh
 from shared import bilesen as B
 from . import kampanya_hesap as H
 from .analitik import tum_urunler_listesi
-from .database import (_cache_temizle, ekle_kampanya, ekle_kampanya_urun, get_client,
+from .database import (_kampanya_cache_temizle, ekle_kampanya, ekle_kampanya_urun, get_client,
                        get_kampanyalar, get_kampanya_urunler, get_tum_kampanya_urunler,
                        guncelle_kampanya, guncelle_kampanya_urun, kapat_kampanya,
                        sil_kampanya, sil_kampanya_urun)
@@ -129,7 +129,7 @@ def _veri():
 
 def _yeniden_ac(kid):
     get_client().table("kampanyalar").update({"durum": "aktif"}).eq("id", kid).execute()
-    _cache_temizle()
+    _kampanya_cache_temizle()
 
 
 def _detay_ac(kid):

@@ -133,7 +133,7 @@ def test_kirik_import_yok():
 KRITIK_FONKSIYONLAR = {
     "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
                           "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
-    "kayranpm.database": [
+    "kayranpm.database": ["_kampanya_cache_temizle",
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
