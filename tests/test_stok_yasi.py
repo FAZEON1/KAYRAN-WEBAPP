@@ -136,8 +136,8 @@ def test_kenar_arama_dugmesinde_ipucu_yok_ve_pencerede_ipucu_gizli():
     from pathlib import Path
     kok = Path(__file__).resolve().parent.parent
     m = (kok / "kayranpm" / "main.py").read_text(encoding="utf-8")
-    d = m[m.index('key=f"stok_ac_{_r[\'sku\']}"') - 200:m.index('key=f"stok_ac_{_r[\'sku\']}"') + 120]
-    assert "help=" not in d
+    # Sonuç düğmeleri kalktı (Ekim 2026): arama Ctrl+K penceresinde (shared/palet.py), ipucu yok
+    assert 'key=f"stok_ac_' not in m
     t = (kok / "shared" / "tasarim.py").read_text(encoding="utf-8")
     assert 'body:has(div[role="dialog"]) [data-baseweb="tooltip"]' in t
 

@@ -2190,11 +2190,8 @@ def _arama_parcasi(yer):
             c1.markdown(f"`{u.get('sku','')}` — {u.get('urun_adi','') or '—'}  ·  "
                         f"{u.get('marka','') or ''} · ₺{u.get('satis_fiyati') or 0}")
             if c2.button("Stok Kartı", key=f"ara_u_{yer}_{u.get('sku')}", use_container_width=True):
-                try:
-                    from kayranpm.stok_karti import goster
-                    goster(u.get("sku"))
-                except Exception:
-                    _git("kayranpm")
+                from kayranpm.stok_karti import ac_ve_ciz
+                ac_ve_ciz(u.get("sku"))
 
     # 🏢 Cariler → Muhasebe
     if sonuclar.get("cariler"):
@@ -3502,6 +3499,16 @@ def main():
     if not st.session_state.giris_yapildi:
         giris_ekrani()
         return
+
+    # Stok kartı penceresi: TEK yer (kayranpm.stok_karti). Kartı açan her yer yalnız açık ürünü oturuma yazar
+    # ve uygulamayı yeniden çizer; pencere her çalıştırmanın EN BAŞINDA buradan çizilir. Böylece hangi
+    # modülden açılırsa açılsın aynı davranır, başka ürüne geçince pencere kapanıp açılmaz, yalnız içeriği
+    # değişir (sonda çizildiğinde kabı çalıştırma boyunca boş kalıyor, pencere bir an kapanıyordu) (Ekim 2026).
+    try:
+        from kayranpm.stok_karti import acik_karti_ciz
+        acik_karti_ciz()
+    except ImportError:
+        pass
 
     # Hızlandırma (Ekim 2026): her sayfada gereken küçük okumalar AYNI ANDA (shared/paralel).
     # Program ABD'de, veritabanı Frankfurt'ta; her istek ~0,2-0,3 sn. Önbellek süresi dolduğunda

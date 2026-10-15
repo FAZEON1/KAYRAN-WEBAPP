@@ -151,8 +151,70 @@ def _satis_detay(s, satir_kar):
         st.caption(f"Not: {s.get('notlar')}")
 
 
+# ── Hangi kart açık: TEK KAYNAK (Ekim 2026) ──────────────────────────────────
+# SORUN: Kartı yedi ayrı yer kendi başına açıyordu (Ürün Yönetimi arama kutusu, Ctrl+K paleti, Genel bakış,
+#   ürün düzenleme, Müşteri satışları, eski Arama sayfası, kartın içindeki "başka ürün aç"). Pencere yalnız
+#   açıldığı çalıştırmada çiziliyordu; sonraki her yenilemede kapanıyordu. Kart içinden başka ürüne geçiş
+#   bir bayrağa (_stok_gec_sku) yazıp yalnız Ürün Yönetimi sayfasında okunuyordu: başka modülde açılan kartta
+#   geçiş pencereyi KAPATIYOR, yeni kart açılmıyordu; bayrak orada bekleyip Ürün Yönetimi'ne girince kendiliğinden
+#   kart açıyordu. Paletten açılan kart parçacık (fragment) içinde çiziliyordu, açık kartın üstüne yenisi
+#   açılınca pencere açılıp kapanıyordu. "Başka ürün aç" kutusunun seçimi eski ürünün anahtarında kalıyor, o
+#   ürün yeniden açılınca kart kendiliğinden başka ürüne atlayabiliyordu.
+# ÇÖZÜM: Açık kart oturumda tek anahtarda (ACIK_ANAHTAR). Her yer yalnız ac(sku) der; pencereyi uygulamanın her
+#   tam çalıştırmasında BİR yer çizer (app.py → acik_karti_ciz). Kapatma (X, Esc, dışarı tıklama, Kapat) anahtarı
+#   siler. Kart içinden geçiş anahtarı değiştirip uygulamayı yeniden çizer.
+ACIK_ANAHTAR = "stok_karti_acik"
+SON_ANAHTAR = "_sk_son"
+
+
+def acik_sku():
+    return st.session_state.get(ACIK_ANAHTAR) or None
+
+
+def ac(sku):
+    """Stok kartını aç (ya da açık kartı bu ürüne çevir). Çizim app.py'de, bu çalıştırmanın sonunda ya da
+    çağıran st.rerun dediğinde. Son açılanlar listesine yazar."""
+    sku = str(sku or "").strip()
+    if not sku:
+        return
+    st.session_state[ACIK_ANAHTAR] = sku
+    son = [x for x in st.session_state.get(SON_ANAHTAR, []) if x != sku]
+    st.session_state[SON_ANAHTAR] = ([sku] + son)[:6]
+
+
+def kapat():
+    st.session_state.pop(ACIK_ANAHTAR, None)
+
+
+def ac_ve_ciz(sku):
+    """Düğme / satır tıklamasından kart aç: uygulama yeniden çizilir, pencereyi app.py açar (parçacık içinden
+    çağrılsa da)."""
+    ac(sku)
+    st.rerun(scope="app")
+
+
+def acik_karti_ciz():
+    """Açık kart varsa pencereyi çiz. app.py her tam çalıştırmada, sayfa çizildikten sonra bir kez çağırır."""
+    if not acik_sku():
+        return
+    try:
+        goster()
+    except Exception as e:  # noqa: BLE001 — aynı çalıştırmada başka pencere açıldıysa kart beklemede kalır
+        if type(e).__name__ in ("RerunException", "StopException"):
+            raise
+        sessiz("kayranpm.stok_karti.acik_karti_ciz", e)
+
+
+def _gec_sec(anahtar, harita):
+    """'Başka ürün aç' seçimi: açık kartı yeni ürüne çevir. Kutu sıfırlanır (seçim eski üründe kalmasın)."""
+    secim = st.session_state.get(anahtar)
+    st.session_state[anahtar] = None
+    if secim and harita.get(secim):
+        ac(harita[secim])
+
+
 def baska_sku_secici(sku, placeholder):
-    """Kartın içinden başka bir SKU / modele geç: seçilince kart o ürünle yeniden açılır (eski ve yeni pencere)."""
+    """Kartın içinden başka bir SKU / modele geç: seçilince açık kart o ürüne döner (eski ve yeni pencere)."""
     _gec_map = {}
     try:
         from kayranpm.database import get_tum_sku_listesi
@@ -165,20 +227,19 @@ def baska_sku_secici(sku, placeholder):
     except Exception:
         _gec_map = {}
     if _gec_map:
-        _gec_sec = st.selectbox(
-            "Başka SKU aç", sorted(_gec_map),
-            index=None, key=f"stok_gec_{sku}",
-            placeholder=placeholder,
-            label_visibility="collapsed")
-        if _gec_sec:
-            st.session_state["_stok_gec_sku"] = _gec_map[_gec_sec]
-            st.rerun()
+        _k = "stok_gec_kutu"
+        st.selectbox("Başka SKU aç", sorted(_gec_map), index=None, key=_k, placeholder=placeholder,
+                     label_visibility="collapsed", on_change=_gec_sec, args=(_k, _gec_map))
 
 
-@st.dialog("📦 Stok Kartı", width="large")
-def goster(sku):
+# Kapatınca (X, Esc, dışarı tıklama) açık kart unutulur: on_dismiss (Streamlit ≥ 1.49; canlı 1.66).
+@st.dialog("📦 Stok Kartı", width="large", on_dismiss=kapat)
+def goster(sku=None):
+    # Ürün oturumdaki açık karttan okunur (argümansız çağrı): pencere hep AYNI pencere kalır, başka ürüne
+    # geçince yalnız içeriği değişir (argüman değişince Streamlit pencereyi kapatıp yeniden açıyor, göz
+    # kırpıyordu). Kart içinden geçişte pencere kendi içinde yenilenir, uygulama yeniden çizilmez.
+    sku = str(acik_sku() or sku or "").strip()
     from shared.tasarim import yan_panel; yan_panel("genis")   # sağ panel (okuma)
-    sku = str(sku or "").strip()
     if not sku:
         st.warning("SKU seçilmedi.")
         return
@@ -794,7 +855,8 @@ def goster(sku):
 
     st.divider()
     if st.button("Kapat", use_container_width=True):
-        st.rerun()
+        kapat()
+        st.rerun(scope="app")
 
 
 _TUR_ADI = {"cikis": "Çıkış", "giris": "Giriş", "sevk": "Sevk",

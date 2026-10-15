@@ -72,7 +72,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "kayit.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
-               "stok_yasi.py", "stok_yasi_ekran.py", "satilamayan.py", "ts_mutabakat.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
+               "stok_yasi.py", "stok_yasi_ekran.py", "satilamayan.py", "ts_mutabakat.py", "stok_karti_palet.py", "palet.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
@@ -289,7 +289,6 @@ KRITIK_FONKSIYONLAR = {
     "shared.sol_menu": ["menu_yapisi", "secili_sayfa", "css", "ciz", "konum_adi"],   # sol menü (Eki 2026)
     "kayranpm.stok_karti_yeni": ["ciz", "haftalik_seri", "son_hareketler", "durum_uyarilari", "stok_yerleri",
                                  "satis_masa_verisi"],                              # stok kartı yeni tasarım
-    "kayranpm.stok_karti": ["goster", "baska_sku_secici"],
     "hesap_makinesi.hm_hesap": ["karlilik", "kirilma", "gokhan_prim", "donem_var_mi", "not_ekle", "notlari_ayir"],
     "hesap_makinesi.main": ["run", "prim_not_guncelle"],
     "kayranpm.canli_pacal": ["hesapla", "eldeki_stoklar", "teslim_partileri", "harita_hesapla", "harita",
@@ -338,6 +337,10 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],
     "kayranacc.excel_islemler": ["ayni_hafta", "cek_degisim_ozeti"],
     "kayranpm.excel_islemler": ["excel_yukle_g5f_depolar", "_g5f_tek_islem", "_g5f_mesaj"],   # G5F tek işlem
+    "kayranpm.stok_karti": ["ac", "ac_ve_ciz", "kapat", "acik_sku", "acik_karti_ciz", "goster",
+                            "baska_sku_secici", "_gec_sec"],   # tek kaynaktan açılan stok kartı (Eki 2026)
+    "kayranpm.stok_karti_palet": ["ozet_satirlari", "palet_urunleri"],
+    "shared.palet": ["palet", "git", "stok_karti_kutusu"],
     "kayranpm.urun_karnesi": ["puan", "karne", "oneri", "olculer", "portfoy_hesapla", "baglam", "portfoy",
                               "kart_html", "ciz"],
     "shared.claude_talep": ["onaylayabilir_mi", "gonderilebilir_mi", "etiket", "onaya_gonder",
