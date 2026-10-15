@@ -86,6 +86,7 @@ MODULLER = [
          ("🚚 Depolar Arası Sevk", "sevk", "Depolar arası sevk", None),
          ("📦 Bekleyen Sevk Takibi", "bekleyen", "Bekleyen sevk takibi", None),
          ("🔎 SKU Hareketleri", "sku_hareket", "SKU hareketleri", None),
+         ("Satılamayan stok", "satilamayan", "Satılamayan stok", None),
          ("🏭 Happy Life Kiralık Depo", "happy_life", "Happy Life kiralık depo", None),
      ]},
     {"kod": "satis", "ad": "Satış", "ikon": "point_of_sale", "anahtar": "satis_sayfa",
