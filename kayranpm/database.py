@@ -1437,6 +1437,10 @@ _DEPO_KANONIK = {
     "IKINCI EL DEPO": "İKİNCİ EL DEPO", "IKINCI EL": "İKİNCİ EL DEPO",
     "IKINCIEL": "İKİNCİ EL DEPO", "2.EL": "İKİNCİ EL DEPO", "2 EL": "İKİNCİ EL DEPO",
     "HURDA DEPO": "HURDA DEPO", "HURDADEPO": "HURDA DEPO", "HURDA": "HURDA DEPO",
+    # Ekim 2026 (teknik servis isteği): Mikro'daki Pazarlama deposu ve yedek parça stoğu (kasa fanı, koli...)
+    "PAZARLAMA": "PAZARLAMA", "PAZARLAMA DEPO": "PAZARLAMA", "PAZARLAMA DEPOSU": "PAZARLAMA",
+    "YEDEK PARCA DEPO": "YEDEK PARÇA DEPO", "YEDEK PARCA": "YEDEK PARÇA DEPO",
+    "YEDEKPARCA": "YEDEK PARÇA DEPO", "YEDEK PARCA DEPOSU": "YEDEK PARÇA DEPO",
 }
 
 
@@ -1508,7 +1512,7 @@ def get_satis_depolari(sku=None):
     # NOT: "Servis Depo" ile "Teknik Depo" AYNI fiziksel yerdir; veritabanında
     # hangi yazımla durursa dursun ekranda tek isimle (TEKNİK DEPO) görünür.
     for _v in ("MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "İADE DEPO",
-               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "ASEL DEPO"):
+               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "ASEL DEPO", "PAZARLAMA", "YEDEK PARÇA DEPO"):
         _k = depo_kanonik(_v)
         if _k not in adlar:
             adlar.append(_k)
@@ -1629,6 +1633,8 @@ def get_depo_listesi():
                     depolar.add(depo_kanonik(_td))
     except Exception:
         pass
+    # Stoğu olmasa da seçilebilsin (Ekim 2026: yeni açılan yedek parça deposu, Mikro'daki pazarlama deposu)
+    depolar |= {"PAZARLAMA", "YEDEK PARÇA DEPO"}
     return sorted(depolar)
 
 

@@ -169,3 +169,156 @@ def test_iade_belgesi_dugmesi_iki_ayrintida():
     s = (KOK / "teknikservis" / "main.py").read_text(encoding="utf-8")
     assert '_iade_belgesi_dugmesi(kayit, get_gecmis(kid), f"ts_iade_belge_{kid}")' in s     # teknik servis
     assert '_iade_belgesi_dugmesi(k, _gec, f"depo_iade_belge_{kid}")' in s                 # depolar
+
+
+# ════ Mailin tamamı (15 madde, 15.10.2026) ════════════════════════════
+def _main():
+    return (KOK / "teknikservis" / "main.py").read_text(encoding="utf-8")
+
+
+# 1. İrsaliye sayfası kalktı (irsaliyeler Mikro'dan)
+def test_irsaliye_sayfasi_yok():
+    g = (KOK / "shared" / "gezinme.py").read_text(encoding="utf-8")
+    assert '("🚚  İrsaliye", "irsaliye"' not in g
+    assert "def _irsaliye():" not in _main() and '"🚚  İrsaliye"' not in _main()
+
+
+# 2. Tek arama + takip no / isim
+def test_tek_arama_takip_no_isim_ariza():
+    kayit = [_k(1, "teknisyende", gelis_kargo_no="KRG123456", musteri_adi="İSMAİL ŞİMŞEK"),
+             _k(2, "iade alındı", arayuz="iade", gidis_kargo_no="YK998877", ariza="ekran titriyor"),
+             _k(3, "satışa hazır", depo="outlet", musteri_adi="Zeki Öksüz", sevk_kargo_bilgisi="Takip No: 55501")]
+    ara = lambda q: [(y, k["id"]) for y, k in getattr(M, "tek_arama", lambda *a: [])(kayit, q, {3})]  # noqa: E731
+    assert ara("KRG123456") == [("teknik", 1)]                       # geliş takip no
+    assert ara("yk998877") == [("iade", 2)]                          # gidiş takip no, küçük harf
+    assert ara("ismail şimşek") == [("teknik", 1)] and ara("ISMAIL") == [("teknik", 1)]   # İ / I / i
+    assert ara("titriyor") == [("iade", 2)]                          # müşteri şikâyeti (arıza)
+    assert ara("öksüz") == [("depo", 3)] and ara("55501") == [("depo", 3)]
+    assert ara("x") == []                                             # en az 2 harf
+
+
+def test_liste_aramalarinda_takip_no_ve_musteri():
+    for alan in ("gelis_kargo_no", "gidis_kargo_no", "ariza", "musteri_adi", "seri_no", "irsaliye_no", "fatura_no"):
+        assert alan in M.TS_ARA_ALANLARI and alan in M.DEPO_ARA_ALANLARI, alan
+    assert M.ara_uyar({"musteri_adi": "İSMAİL"}, "ismail", ["musteri_adi"])
+    js = (KOK / "shared" / "masa.py").read_text(encoding="utf-8")
+    assert 'const katla = s => kucuk(s).replace(/ı/g, "i")' in js
+    assert "_tek_arama()" in _main() and _main().count("    _tek_arama()") == 2      # TS/İade + Depolar
+
+
+# 3 · 7. Pazarlama ve yedek parça depoları
+def test_pazarlama_ve_yedek_parca_depolari():
+    from teknikservis.database import DEPOLAR as D
+    assert "pazarlama" in D and "yedek parça" in D
+    assert ts_depo_ad("pazarlama") == "PAZARLAMA" and ts_depo_ad("yedek parça") == "YEDEK PARÇA DEPO"
+    from kayranpm.database import depo_kanonik
+    assert depo_kanonik("Yedek Parça") == "YEDEK PARÇA DEPO" and depo_kanonik("pazarlama deposu") == "PAZARLAMA"
+
+
+# 5b. İthalat modeli seçilince ürün grubu açılır listeye de gelir
+def test_model_secince_grup_listeye_gelir():
+    s = _main()
+    assert 'st.session_state["mk_grup_sec"] = ts_grup_ad(_grp_oto)' in s
+    assert 'st.session_state["ev_grup_sec"] = ts_grup_ad(_g_ev)' in s
+
+
+# 6. Merkezdeki ürün: 'merkeze aktarıldı', düzeltme / silme yok
+def test_merkez_gorunen_durum_ve_kilit():
+    gd = getattr(H, "gorunen_durum", lambda k: k.get("mevcut_durum"))
+    assert gd(_k(1, "satışa hazır", depo="merkez")) == "merkeze aktarıldı"    # canlıda 5 kayıt böyle
+    assert gd(_k(2, "gönderildi", depo="merkez")) == "merkeze aktarıldı"
+    assert gd(_k(3, "satışa hazır", depo="outlet")) == "satışa hazır"
+    v = _masa([_k(1, "satışa hazır", depo="merkez")])
+    assert v["satirlar"][0]["durum"] == "merkeze aktarıldı" and v["satirlar"][0]["hazir"] == 0
+    s = _main()
+    d = s[s.index("def _depo_detay(k):"):s.index("def run():")]
+    assert d.index("if merkezde_mi(k):") < d.index('popover("✏️ Kaydı Düzelt"')
+
+
+# 8. 'DİĞER' firmada mağaza / müşteri adı zorunlu değil
+def test_diger_firmada_magaza_zorunlu_degil():
+    s = _main()
+    assert 'if not m_adi.strip() and not _diger_firma(_firma_kayit):' in s
+    from shared.ana_veri import kategori_anahtar
+    assert {kategori_anahtar(x) for x in ("DİĞER", "Diğer", "DIGER")} <= {"diğer", "diger"}
+
+
+# 9. Evraksız kayıtta depoya göre ilk durum
+def test_evraksiz_ilk_durum():
+    import teknikservis.database as D
+    e = getattr(D, "EVRAKSIZ_DURUM", {"outlet": "satışa hazır", "ikinci el": "satışa hazır", "hurda": "hurda"})
+    assert e["outlet"] == e["ikinci el"] == "satışa hazır"
+    assert e.get("teknik servis") == e.get("iade") == e.get("hurda") == "teknisyende"
+
+
+# 10. Ürün notları
+def test_urun_notlari():
+    import importlib.util
+    assert importlib.util.find_spec("teknikservis.urun_notlari"), "ürün notları sayfası yoktu"
+    from teknikservis.urun_notlari import not_satiri, notlari_sirala
+    assert not_satiri("", "", "Tasarım", "logo", "berkay") == (None, "Önce ürünü (ithalat modeli) seç.")
+    assert not_satiri("F21E650BBM", "F21", "Tasarım", "  ", "berkay")[0] is None
+    s, h = not_satiri("F21E650BBM", "F21 kasa", "Tasarım", "Manyetik logo ön panelde estetiksiz", "berkay")
+    assert h == "" and s["stok_kodu"] == "F21E650BBM" and s["yazan"] == "berkay"
+    n = [{"stok_kodu": "F21E650BBM", "olusturma": "2026-10-10"}, {"stok_kodu": "X34F180QP", "olusturma": "2026-10-12"},
+         {"stok_kodu": "f21e650bbm", "olusturma": "2026-10-14"}]
+    assert [x["olusturma"] for x in notlari_sirala(n, "F21E650BBM")] == ["2026-10-14", "2026-10-10"]
+    assert (KOK / "veritabani" / "36_ts_urun_notlari.sql").exists()
+
+
+# 11 · 14. Servis formu: ad, tek sayfa, 'iade alındı', 'Arıza / Şikâyet'
+def test_servis_formu_iade_alindi_ve_ad():
+    import teknikservis.database as D
+    assert hasattr(D, "form_durumu"), "formda son durum 'iade alındı' gösterilmiyordu"
+    g = [{"durum": "mal kabül", "tarih": "2026-10-10"}, {"durum": "iade alındı", "tarih": "2026-10-12"},
+         {"durum": "satışa hazır", "tarih": "2026-10-13", "aciklama": "outlet deposuna transfer"},
+         {"durum": "satıldı", "tarih": "2026-10-14"}]
+    durum, gec = D.form_durumu({"mevcut_durum": "satıldı"}, g)
+    assert durum == "iade alındı" and [h["durum"] for h in gec] == ["mal kabül", "iade alındı"]
+    assert D.form_durumu({"mevcut_durum": "teknisyende"}, g[:1])[0] == "teknisyende"
+    assert _main().count('st.download_button("Servis Formu indir"') == 2 and "PDF Form indir" not in _main()
+    assert '("Arıza / Şikâyet", _v("ariza"))' in (KOK / "teknikservis" / "database.py").read_text(encoding="utf-8")
+
+
+def test_servis_formu_tek_sayfa():
+    pytest.importorskip("reportlab")
+    import teknikservis.database as D
+    k = _k(801, "satıldı", stok_adi="FAZEON X24F241S 24\" 240Hz 0.5ms FAST IPS FHD HDMI*1 +DP*1 RGB GAMING MONITOR",
+           ariza="panel hasarlı, sol alt köşede çizgiler ve yanık piksel", icerik_durumu="Kutu orijinal",
+           fiziksel_durum="hafif çizik", detay="3 gün kullanılmış", musteri_tel="0532", musteri_mail="a@b.c",
+           musteri_adres="Ümraniye / İstanbul", sevk_kargo_bilgisi="Kargo", fatura_no="F1", gelis_kargo_no="K1")
+    g = [{"durum": d, "tarih": f"2026-10-1{i}T10:00", "aciklama": "x" * 60, "personel": "berkay"}
+         for i, d in enumerate(["mal kabül", "teknisyende", "iade alındı", "satışa hazır", "satıldı"])]
+    import re
+    b = D.servis_formu_pdf(k, g)
+    assert len(re.findall(rb"/Type\s*/Page[^s]", b)) == 1        # imza 2. sayfaya kalıyordu
+
+
+# 12 · 13. Seri no: stok kartı değiştir ve evraksız kayıtta 'seri no yok'
+def test_seri_no_alanlari():
+    s = _main()
+    d = s[s.index("def _dlg_ts_stok_degis():"):s.index('if st.button("Stok Kartı Değiştir (ürün dönüştürüldü)"')]
+    assert 'key=f"sd_sn_{kid}"' in d and 'key=f"sd_snyok_{kid}"' in d and '_alanlar["seri_no"] = _sn' in d
+    e = s[s.index("def _evraksiz_kayit"):s.index("def _evraksiz_kayit") + 9000]
+    assert 'key="ev_seri_yok"' in e and "_seri = SERI_YOK if _ev_seri_yok else" in e
+
+
+# 15. Değişim ürünü Depolar'dan: kayıt bedelsiz satıldı + kendi deposundan düşer, MERKEZ'den değil
+def test_degisim_depolardan(monkeypatch):
+    import teknikservis.stok as S
+    assert hasattr(S, "degisim_depodan_ver"), "değişim ürünü Depolar kaydına bağlanmıyordu"
+    olay = []
+    monkeypatch.setattr(S, "satis_cikisi", lambda k: (olay.append(("cikis", S.ts_depo_ad(k["depo"]))) or (True, "ok")))
+    monkeypatch.setattr(S, "satis_kaydi_yaz", lambda k, f, **kw: (olay.append(("satis", f, kw)) or (True, "ok")))
+    monkeypatch.setattr(S, "degisim_cikisi", lambda k: (olay.append(("MERKEZ",)) or (True, "ok")))
+    dg = []
+    sonuc = S.degisim_depodan_ver(_k(756, "iade alındı"), _k(477, "satışa hazır", depo="ikinci el"), "berkay",
+                                  lambda *a: dg.append(a) or True, bugun=BUGUN)
+    assert all(ok for ok, _ in sonuc)
+    assert dg[0][0:2] == (477, "satıldı") and dg[0][4]["satis_firma"] == "S.K. Değişim (G5F00756)"
+    assert dg[0][4]["bedelsiz"] is True and dg[0][4]["satis_tarihi"] == "2026-10-15"
+    assert olay == [("cikis", "İKİNCİ EL DEPO"),
+                    ("satis", 0, {"bedelsiz": True, "cari": "S.K. Değişim (G5F00756)"})]   # MERKEZ yok
+    s = _main()
+    assert "_stok.degisim_depodan_ver(kayit, _dg_bagli" in s
+    assert 'elif yeni_durum == "ürün değişimi" and _onceki != "ürün değişimi":' in s

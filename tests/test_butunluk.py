@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
@@ -206,7 +206,7 @@ KRITIK_FONKSIYONLAR = {
     ],
     "teknikservis.database": [
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",
-        "ts_urun_gruplari", "ts_grup_haritasi", "ts_grup_ad",
+        "ts_urun_gruplari", "ts_grup_haritasi", "ts_grup_ad", "form_durumu", "servis_formu_pdf",
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret", "mail_alicilari"],
@@ -252,8 +252,10 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.stok": ["satis_kaydi_yaz", "ts_satisi_mi", "toplu_siparis_no", "mal_kabul_girisi",
                           "giris_depo_coz", "giris_deposu", "iade_kaydi_yaz", "tutar_coz",
                           "iade_usd", "kur_bul", "iade_fiyat_metni", "iade_fiyat_guncelle",
-                          "dogrudan_giris_mi", "giris_sekli"],
-    "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari", "satis_disi_neden"],
+                          "dogrudan_giris_mi", "giris_sekli", "degisim_cari", "degisim_depodan_ver"],
+    "teknikservis.ts_hesap": ["depolar_kayitlari", "konum", "depo_gruplari", "satis_disi_neden", "merkezde_mi",
+                              "gorunen_durum"],
+    "teknikservis.urun_notlari": ["not_satiri", "notlari_sirala", "notlari_oku", "not_ekle", "not_sil", "sayfa"],
     "teknikservis.iade_belge": ["iade_belgesi_uygun", "iade_onay_tarihi", "belge_metni", "iade_belgesi_pdf"],
     "kayranacc.odeme_hesap": ["hafta_secenekleri", "hafta_etiketi"],   # hafta adı (görünüm cilası)
     "kayranacc.odeme_masasi": ["masa_verisi", "istek_coz", "islem_uygula", "motor_istegi", "yurutucu"],
@@ -266,9 +268,10 @@ KRITIK_FONKSIYONLAR = {
                            "usd_tam", "usd_kisa", "usd_birim"],
     "teknikservis.ts_masasi": ["kayit_masa_verisi", "kayit_yurutucu", "depo_masa_verisi", "depo_yurutucu",
                                "depo_ozeti", "durum_uyar", "ara_uyar", "fatura_var", "toplu_etiket",
-                               "transfer_anahtari", "transfer_gunu", "donem_baslangic"],
+                               "transfer_anahtari", "transfer_gunu", "donem_baslangic", "tek_arama", "ara_kat",
+                               "ara_uyar"],
     "teknikservis.main": ["_liste_masa", "_depolar_masa", "_toplu_satis_formu", "_dlg_toplu_satis", "_ozet_kirilim",
-                          "_iade_belgesi_dugmesi"],
+                          "_iade_belgesi_dugmesi", "_tek_arama", "_tek_arama_ac", "_diger_firma", "_dp_ad"],
     "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
     "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],
     "depo.bekleyen_ekran": ["sevk_dus_kaydet", "takip_sil", "render"],

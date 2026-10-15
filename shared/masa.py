@@ -327,11 +327,13 @@ export default function(component){
     if (!s) return undefined; return Number((x[g.harita] || {})[s] || 0); };
 
   function suzulmus(){
-    const g = GOR.find(x => x.k === S.gor), q = kucuk(S.q.trim()), ar = (D.ara || {}).alanlar || [];
+    // Aramada ı/i ayrımı yok ('ISMAIL' = 'İSMAİL' = 'ismail'; Ekim 2026)
+    const katla = s => kucuk(s).replace(/ı/g, "i").replace(/i̇/g, "i");
+    const g = GOR.find(x => x.k === S.gor), q = katla(S.q.trim()), ar = (D.ara || {}).alanlar || [];
     let r = R.filter(x => !g || uyar(x, g.f));
     for (const s of D.secimler || []) if (S.sec[s.alan]) r = r.filter(x => Array.isArray(x[s.alan]) ? x[s.alan].map(String).includes(S.sec[s.alan]) : String(x[s.alan]) === S.sec[s.alan]);
     for (const a of D.anahtarlar || []) if (S.ana[a.k]) r = r.filter(x => uyar(x, a.f));
-    if (q) r = r.filter(x => kucuk(ar.map(a => x[a]).join(" ")).includes(q));
+    if (q) r = r.filter(x => katla(ar.map(a => x[a]).join(" ")).includes(q));
     if (S.sira){
       const [a, y] = S.sira, sk = SUT.find(c => c.alan === a),
             v = x => { const d = secDeg(sk, x); if (d !== undefined) return d;
