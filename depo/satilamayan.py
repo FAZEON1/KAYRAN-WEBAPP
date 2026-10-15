@@ -7,7 +7,9 @@ adedi, paçal maliyetle değerini ve malın ne kadar süredir beklediğini göst
 
 Bekleme süresi FIFO (kayranpm.stok_yasi ile aynı kural: elde kalan mal en yeni girişlerdendir):
   İADE DEPO       iade kayıtlarının tarihi (iadeler.tarih) + depoya sevk girişleri (stok defteri).
-  Diğer depolar   stok defterindeki giriş ve sevk girişleri (stok_hareketleri.zaman).
+  Diğer depolar   stok defterindeki giriş ve sevk girişleri (stok_hareketleri.zaman) + kapanmamış
+                  teknik servis kayıtları (kayıt başına 1 adet, depoya giriş tarihiyle; depo/ts_mutabakat).
+                  Teknik servisin kendi defter satırları (kaynak teknikservis/…) çift sayılmasın diye atlanır.
   Kayıt yok       stok defteri 30.09.2026'da başladı; girişi bulunamayan adet "giriş kaydı yok"
                   sayılır, yaşı tahmin edilmez. G5F sayım farkları (tür 'aktarim') giriş sayılmaz.
 Değer: paçal maliyet (satis.database.get_pacal_map, USD), kartın SKU'suyla.
@@ -27,7 +29,7 @@ def _f(v):
 
 
 # ── Saf ─────────────────────────────────────────────────────────────
-def partiler(iadeler, hareketler, depo_kanonik, anahtar):
+def partiler(iadeler, hareketler, depo_kanonik, anahtar, ts_partiler=()):
     """{(kanonik depo, anahtar(sku)): [{"tarih", "adet"}]} — depoya giriş partileri.
     İADE DEPO'ya iade girişleri iade kaydından (gerçek iade tarihi; defterdeki zaman toplu aktarım
     günüdür) alınır; o depoya defterdeki 'giris' satırları bu yüzden ayrıca sayılmaz."""
@@ -44,8 +46,13 @@ def partiler(iadeler, hareketler, depo_kanonik, anahtar):
         d = depo_kanonik(str(h.get("depo") or "").strip() or "MERKEZ DEPO")
         if d == IADE_DEPO and h.get("tur") == "giris":
             continue
+        if ts_partiler and str(h.get("kaynak") or "").startswith("teknikservis/"):
+            continue                  # servis kaydının kendisi parti olarak geliyor
         out.setdefault((d, anahtar(h.get("sku"))), []).append(
             {"tarih": str(h.get("zaman") or "")[:10], "adet": _f(h.get("degisim"))})
+    for p in ts_partiler or []:
+        out.setdefault((depo_kanonik(p["depo"]), anahtar(p["sku"])), []).append(
+            {"tarih": str(p["tarih"])[:10], "adet": _f(p["adet"])})
     return out
 
 
@@ -103,7 +110,7 @@ def depo_ozeti(rows):
 
 # ── Okuma ───────────────────────────────────────────────────────────
 def hesapla(bugun=None):
-    """Canlı veriden (satırlar, depo özeti)."""
+    """Canlı veriden (satırlar, depo özeti, teknik servis karşılaştırması {ozet, fark, bekleyen})."""
     from datetime import date
     from kayranpm.database import _hepsi, _SATILABILIR_DEPOLAR, depo_dagilimi, depo_kanonik
     from satis.database import get_iadeler, get_pacal_map, pacal_bul
@@ -112,15 +119,30 @@ def hesapla(bugun=None):
     bugun = bugun or date.today()
     urunler = _hepsi("urunler", "sku, urun_adi, depo_kirilim") or []
     try:
-        hareketler = _hepsi("stok_hareketleri", "sku, depo, degisim, tur, zaman, basarili") or []
+        hareketler = _hepsi("stok_hareketleri", "sku, depo, degisim, tur, zaman, basarili, kaynak") or []
     except Exception:                 # defter tablosu yoksa: iade tarihleri + "giriş kaydı yok"
         hareketler = []
-    pmap = partiler(get_iadeler() or [], hareketler, depo_kanonik, sku_anahtar)
+    from depo import ts_mutabakat as T
+    try:
+        acik = T.acik_oku()
+    except Exception:                 # servis kayıtları okunamazsa yaş yalnız defterden
+        acik = []
+    pmap = partiler(get_iadeler() or [], hareketler, depo_kanonik, sku_anahtar,
+                    ts_partiler=T.ts_partileri(acik, _SATILABILIR_DEPOLAR))
     pacal = get_pacal_map() or {}
     rows = satirlar(urunler, pmap, bugun, kirilim=lambda dk: depo_dagilimi(dk)[0],
                     satilabilir=_SATILABILIR_DEPOLAR, anahtar=sku_anahtar,
                     birim=lambda s: pacal_bul(pacal, s), ad=urun_ad)
-    return rows, depo_ozeti(rows)
+    stok = {}
+    for u in urunler:
+        for d, a in depo_dagilimi(u.get("depo_kirilim"))[0]:
+            k = (d, sku_anahtar(u.get("sku")))
+            stok[k] = stok.get(k, 0) + _f(a)
+    mutabakat = {"ozet": T.depo_ozeti(acik, stok, _SATILABILIR_DEPOLAR),
+                 "fark": [dict(r, ad=urun_ad(r["sku"], r["ad"]))   # kaydı olmayan üründe kartın adı
+                          for r in T.karsilastir(acik, stok, sku_anahtar, _SATILABILIR_DEPOLAR)],
+                 "bekleyen": T.uzun_bekleyenler(acik, bugun)}
+    return rows, depo_ozeti(rows), mutabakat
 
 
 # ── Ekran ───────────────────────────────────────────────────────────
@@ -132,7 +154,7 @@ def render():
                              "Satılabilir stoğa girmeyen depolardaki mal · paçal değeri · bekleme süresi"),
                 unsafe_allow_html=True)
     try:
-        rows, ozet = hesapla()
+        rows, ozet, mutabakat = hesapla()
     except Exception as e:  # noqa: BLE001
         from shared.kayit import sessiz
         sessiz("depo.satilamayan.hesapla", e)
@@ -178,5 +200,46 @@ def render():
          kolon("Kayıtsız adet", "adet", gen="100px", genis=True)],
         "dpo_satilamayan_urun", excel="satilamayan_stok")
     st.caption("Bekleme süresi FIFO: elde kalan mal depoya en son girenlerdendir. İade deposunda iade tarihi, "
-               "diğerlerinde stok defterindeki giriş esas alınır. Girişi kayıtlı olmayan adet ayrı yazılır, "
-               "yaşı tahmin edilmez. Değer paçal maliyettir (USD).")
+               "diğerlerinde teknik servis kaydının depoya giriş tarihi ve stok defterindeki giriş esas alınır. "
+               "Girişi kayıtlı olmayan adet ayrı yazılır, yaşı tahmin edilmez. Değer paçal maliyettir (USD).")
+    _mutabakat_bolumu(mutabakat)
+
+
+def _mutabakat_bolumu(m):
+    """Teknik servis kayıtları ↔ depo stoğu (depo/ts_mutabakat)."""
+    import streamlit as st
+    from shared.masa_liste import ciz, kolon
+    from depo.ts_mutabakat import BEKLEME_ESIK_GUN
+    st.markdown("**Teknik servis kayıtları ↔ depo stoğu**")
+    st.caption("Kapanmamış her servis kaydı (gönderildi, satıldı, iptal dışındaki durumlar) elimizde bir ürün "
+               "demektir. Kayıt stoktan fazlaysa kaydın durumu güncellenmemiş olabilir (ör. satıldı ama "
+               "'satışa hazır' duruyor); stok kayıttan fazlaysa kaydı olmayan mal var. Hangisinin doğru olduğunu "
+               "sayım söyler. İade deposuna Excel iadeleri de girdiği için orada stoğun fazla olması olağandır.")
+    if not m["ozet"]:
+        st.info("Kapanmamış teknik servis kaydı yok.")
+        return
+    ciz([{"Depo": o["depo"], "Açık kayıt": o["kayit"], "Depo stoğu": o["stok"], "Fark (stok − kayıt)": o["fark"]}
+         for o in m["ozet"]],
+        [kolon("Depo", ana=True), kolon("Açık kayıt", "adet", gen="110px"), kolon("Depo stoğu", "adet", gen="110px"),
+         kolon("Fark (stok − kayıt)", "sayi", gen="140px", basamak=0)],
+        "dpo_ts_mutabakat_ozet")
+    if m["fark"]:
+        st.markdown(f"Ürün bazında farklar ({len(m['fark'])})")
+        ciz([{"Ürün": r["ad"] or r["sku"], "SKU": r["sku"], "Depo": r["depo"], "Açık kayıt": r["kayit"],
+              "Depo stoğu": r["stok"], "Fark": r["fark"]} for r in m["fark"]],
+            [kolon("Ürün", ana=True, alt="SKU"), kolon("SKU", gizli=True), kolon("Depo", secim=True),
+             kolon("Açık kayıt", "adet", gen="100px"), kolon("Depo stoğu", "adet", gen="100px"),
+             kolon("Fark", "sayi", gen="90px", basamak=0)],
+            "dpo_ts_mutabakat_fark", excel="servis_kayit_stok_farki")
+    st.markdown(f"İşlemi {BEKLEME_ESIK_GUN} günden uzun süren kayıtlar ({len(m['bekleyen'])})")
+    if m["bekleyen"]:
+        ciz([{"Form no": k["form"], "Ürün": k["ad"] or k["sku"], "SKU": k["sku"], "Durum": k["durum"],
+              "Depo": k["depo"] or "—", "Mal kabul": k["kabul"] or None, "Gün": k["gun"],
+              "Personel": k["personel"] or "—"} for k in m["bekleyen"]],
+            [kolon("Ürün", ana=True, alt="SKU"), kolon("SKU", gizli=True), kolon("Form no", gen="110px"),
+             kolon("Durum", secim=True, gen="120px"), kolon("Depo", secim=True, genis=True),
+             kolon("Mal kabul", "tarih", gen="110px"), kolon("Gün", "adet", gen="70px"),
+             kolon("Personel", secim=True, genis=True)],
+            "dpo_ts_bekleyen", excel="servis_uzun_bekleyen")
+    else:
+        st.caption("Yok.")

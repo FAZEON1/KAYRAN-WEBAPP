@@ -72,7 +72,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "sirket.py", "tarih.py", "telegram_gonder.py", "marj_uyari.py", "yetki.py", "stok_defteri.py", "hata_log.py", "kayit.py", "oturum.py",
                "stok_karti.py", "ref_no.py", "bildirim.py", "belge.py", "excel_islemler.py",
                "musteri_hesap.py", "ana_veri.py", "pacal_hesap.py", "veri_surumu.py", "yukleme_gecmisi.py", "izgara.py", "duzenle.py", "veri_sagligi.py",
-               "stok_yasi.py", "stok_yasi_ekran.py", "satilamayan.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
+               "stok_yasi.py", "stok_yasi_ekran.py", "satilamayan.py", "ts_mutabakat.py", "yurtici_hesap.py", "yurtici_ekran.py", "islem.py", "modul_tazele.py",
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
@@ -269,7 +269,9 @@ KRITIK_FONKSIYONLAR = {
     "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
     "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],
     "depo.bekleyen_ekran": ["sevk_dus_kaydet", "takip_sil", "render"],
-    "depo.satilamayan": ["partiler", "satirlar", "depo_ozeti", "hesapla", "render"],   # satılamayan stok (Eki 2026)
+    "depo.satilamayan": ["partiler", "satirlar", "depo_ozeti", "hesapla", "render", "_mutabakat_bolumu"],   # satılamayan stok (Eki 2026)
+    "depo.ts_mutabakat": ["acik_kayitlar", "karsilastir", "depo_ozeti", "uzun_bekleyenler", "ts_partileri",
+                          "konum", "acik_oku"],   # servis kaydı ↔ depo stoğu (Eki 2026)
     "kayranpm.urun_masasi": ["masa_verisi", "ozet_kartlari", "sirali_satirlar", "aktarilacak", "yurutucu"],
     "kayranpm.kampanya_masasi": ["masa_verisi", "ozet_kartlari", "yurutucu"],
     "kayranpm.siparis_masasi": ["oneri_verisi", "kayit_verisi", "oneri_yurutucu", "kayit_yurutucu"],
