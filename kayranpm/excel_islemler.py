@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 from .database import upsert_urun, upsert_firma_stok, get_client, upsert_yoldaki_urun, upsert_g5f_stok, depo_kanonik, get_today
 from shared.utils import normalize_tr
+from .musteri_hesap import addan_kod
 import math
 from shared.kayit import sessiz
 
@@ -396,6 +397,15 @@ def _cari_listesi():
     try:
         from kayranacc.database import get_cari_isimler
         return list(get_cari_isimler() or [])
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _kart_skulari():
+    """Stok kartı SKU'ları (kod sütunsuz müşteri raporunda addan kod çıkarmak için). Okunamazsa []."""
+    try:
+        from .database import get_urun_marka_kategori
+        return list(get_urun_marka_kategori() or {})
     except Exception:  # noqa: BLE001
         return []
 
@@ -918,59 +928,58 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
     _SKU_ADAY = ("STOKKODU", "STOK KODU", "SKU", "MALZEME", "ÜRÜN KODU", "URUN KODU", "KOD")
     _AD_ADAY = ("STOKADI", "STOK ADI", "SKU ADI", "ÜRÜN ADI", "URUN ADI", "TANIM", "AD")
     _STOK_ADAY = ("ADET", "STOK", "DEPO MIKTAR", "MİKTAR", "MIKTAR")
-    _SATIS_ADAY = ("MIKTAR", "MİKTAR", "ADET", "SIPARIŞ MIKTARI", "SİPARİŞ MİKTARI", "SATIŞ MIKTAR", "SATIS MIKTAR")
+    # "SATIŞ" en sonda: Teknorya 'Satış', Avasya 'Haftalık Satış' başlığı (Ekim 2026; eskiden satış sekmesi
+    # okunmuyordu — Avasya'nın satışı 0 yazılıyordu)
+    _SATIS_ADAY = ("MIKTAR", "MİKTAR", "ADET", "SIPARIŞ MIKTARI", "SİPARİŞ MİKTARI", "SATIŞ MIKTAR", "SATIS MIKTAR",
+                   "SATIŞ", "SATIS")
     _KANAL_ADAY = ("MAĞAZA", "MAGAZA", "DEPO")
 
     firma_ozet, atlanan_sayfa = {}, []
     onizleme, geri_yazilan, kayip = {}, [], []
+    _kartlar = None                      # kart SKU'ları — yalnız kodsuz sekme varsa bir kez okunur
     basarili = 0
     yazma_hatasi = {"ilk": "", "sayi": 0}
     for kod, g in gruplar.items():
         agg = {}  # sku → {ad, stok, stok_magaza, satis, satis_magaza}
 
-        # ── STOK sekmesi ──
-        sdf = g.get("stok")
-        if sdf is not None and len(sdf):
-            c_sku = _hss_kolon(sdf, *_SKU_ADAY)
-            c_ad = _hss_kolon(sdf, *_AD_ADAY)
-            c_adet = _hss_kolon(sdf, *_STOK_ADAY)
-            if c_sku is None or c_adet is None:
-                atlanan_sayfa.append(f"{kod} STOK (SKU/adet kolonu yok)")
-            else:
-                for _, r in sdf.iterrows():
+        # ── STOK sekmesi, sonra SATIŞ sekmesi (SKU ile stokun yanına bağlanır) ──
+        # Mağaza/online ayrımı YAPILMAZ — tüm stok / satış tek değere toplanır
+        # (bu kırılım yalnız bazı firmalarda var; ayırmak tutarsızlık yaratıyor).
+        sdf, vdf = g.get("stok"), g.get("satis")
+        for _df, _alan, _ad_tur, _adaylar in ((sdf, "stok", "STOK", _STOK_ADAY), (vdf, "satis", "SATIŞ", _SATIS_ADAY)):
+            if _df is None or not len(_df):
+                continue
+            c_sku = _hss_kolon(_df, *_SKU_ADAY)
+            c_ad = _hss_kolon(_df, *_AD_ADAY)
+            c_adet = _hss_kolon(_df, *_adaylar)
+            # Kod sütunu yoksa (Teknorya: yalnız 'Ürün Adı' + 'Stok', Ekim 2026) kod addaki model kodundan
+            # çıkarılır (musteri_hesap.addan_kod); eskiden sekme sessizce atlanıyordu.
+            addan = c_sku is None and c_ad is not None
+            if c_adet is None or (c_sku is None and not addan):
+                atlanan_sayfa.append(f"{kod} {_ad_tur} (SKU/adet kolonu yok)")
+                continue
+            if addan and _kartlar is None:
+                _kartlar = _kart_skulari()
+            _kodsuz = 0
+            for _, r in _df.iterrows():
+                if addan:
+                    _ad = safe_str(r.get(c_ad, ""))
+                    sku = normalize_sku(addan_kod(_ad, _kartlar)) if _ad.lower() != "nan" else ""
+                    if not sku and _ad.strip() and _ad.lower() != "nan":
+                        _kodsuz += 1
+                else:
                     sku = normalize_sku(r.get(c_sku, ""))
-                    if not sku or sku.lower() == "nan":
-                        continue
-                    adet = safe_int(r.get(c_adet, 0))
-                    o = agg.setdefault(sku, {"ad": "", "stok": 0, "stok_magaza": 0,
-                                             "satis": 0, "satis_magaza": 0})
-                    if c_ad is not None and not o["ad"]:
-                        o["ad"] = safe_str(r.get(c_ad, ""))
-                    # Mağaza/online ayrımı YAPILMAZ — tüm stok tek değere toplanır
-                    # (bu kırılım yalnız bazı firmalarda var; ayırmak tutarsızlık yaratıyor).
-                    o["stok"] += adet
-
-        # ── SATIŞ sekmesi → SKU ile stokun yanına bağlanır ──
-        vdf = g.get("satis")
-        if vdf is not None and len(vdf):
-            c_sku = _hss_kolon(vdf, *_SKU_ADAY)
-            c_ad = _hss_kolon(vdf, *_AD_ADAY)
-            c_adet = _hss_kolon(vdf, *_SATIS_ADAY)
-            if c_sku is None or c_adet is None:
-                atlanan_sayfa.append(f"{kod} SATIŞ (SKU/adet kolonu yok)")
-            else:
-                for _, r in vdf.iterrows():
-                    sku = normalize_sku(r.get(c_sku, ""))
-                    if not sku or sku.lower() == "nan":
-                        continue
-                    adet = safe_int(r.get(c_adet, 0))
-                    o = agg.setdefault(sku, {"ad": "", "stok": 0, "stok_magaza": 0,
-                                             "satis": 0, "satis_magaza": 0})
-                    if c_ad is not None and not o["ad"]:
-                        o["ad"] = safe_str(r.get(c_ad, ""))
-                    # Online/mağaza ayrımı YAPILMAZ — tüm satış tek "satis" değerine
-                    # toplanır (DEPO/kanal kırılımı yalnız bazı firmalarda mevcut).
-                    o["satis"] += adet
+                if not sku or sku.lower() == "nan":
+                    continue
+                o = agg.setdefault(sku, {"ad": "", "stok": 0, "stok_magaza": 0,
+                                         "satis": 0, "satis_magaza": 0})
+                if c_ad is not None and not o["ad"]:
+                    o["ad"] = safe_str(r.get(c_ad, ""))
+                o[_alan] += safe_int(r.get(c_adet, 0))
+            if _kodsuz:
+                atlanan_sayfa.append(f"{kod} {_ad_tur}: {_kodsuz} satırın adında model kodu yok")
+        if not agg:
+            atlanan_sayfa.append(f"{kod}: hiç ürün satırı okunamadı")
 
         if onizle:
             try:

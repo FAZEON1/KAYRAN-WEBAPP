@@ -55,6 +55,7 @@ def kapi_musteri_haftalik(dosya, kapi):
     _yt_serit("musteri_haftalik")        # haftalık müşteri dosyası: geri sayım şeridi
     st.caption("Firma başına iki sekme: `ITOPYA STOK` · `ITOPYA SATIŞ` · `VATAN STOK` · `VATAN SATIŞ` … "
                "Her firmanın kendi portal başlıkları olduğu gibi kalır (STOKKODU/Kod/Sku/Malzeme/Ürün Kodu…). "
+               "Kod sütunu yoksa kod ürün adındaki model kodundan alınır. "
                "Satışlar SKU ile stokun yanına bağlanır; kategori dosyada gerekmez, ürün kartından eşlenir.")
     ok, oz = excel_yukle_haftalik_stok_satis(dosya, dosya_adi=dosya.name, onizle=True)
     if not ok:
