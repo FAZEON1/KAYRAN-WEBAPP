@@ -179,7 +179,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.yurtici_ekran": ["goster"],
     "shared.islem": ["kur", "bekle"],
     "shared.modul_tazele": ["tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
-    "kayranpm.musteri_hesap": ["meta_hazirla", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
+    "kayranpm.musteri_hesap": ["meta_hazirla", "addan_kod", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
                                "kategori_musteri", "harita_ile_tamamla"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranpm.stok_hesap": ["kanal_stoklari", "kanal_son_tarihleri", "stok_ozeti",
                             "kanal_kod_karsilastir", "kod_haritasi"],   # kanal stoğu kod eşleşmesi, salt okunur (Eki 2026)
@@ -342,7 +342,7 @@ KRITIK_FONKSIYONLAR = {
                             "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani"],
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],
     "kayranacc.excel_islemler": ["ayni_hafta", "cek_degisim_ozeti"],
-    "kayranpm.excel_islemler": ["excel_yukle_g5f_depolar", "_g5f_tek_islem", "_g5f_mesaj"],   # G5F tek işlem
+    "kayranpm.excel_islemler": ["excel_yukle_g5f_depolar", "_g5f_tek_islem", "_g5f_mesaj", "_kart_skulari"],   # G5F tek işlem
     "kayranpm.stok_karti": ["ac", "ac_ve_ciz", "kapat", "acik_sku", "acik_karti_ciz", "goster",
                             "baska_sku_secici", "_gec_sec"],   # tek kaynaktan açılan stok kartı (Eki 2026)
     "kayranpm.stok_karti_palet": ["ozet_satirlari", "palet_urunleri"],

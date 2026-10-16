@@ -133,6 +133,73 @@ def test_haftalik_onizleme_hicbir_sey_yazmaz(monkeypatch):
     assert len(db.v["firma_stok"]) == 1                          # silme yok
 
 
+TEKNORYA = "TEKNORYA BİLİŞİM HİZMETLERİ SANAYİ VE TİCARET ANONİM ŞİRKETİ"
+
+
+def _teknorya_dosyasi():
+    """12.10.2026 haftalık dosyasının biçimi: Teknorya'da kod sütunu yok (yalnız 'Ürün Adı' + 'Stok '),
+    Avasya'nın satış başlığı 'Haftalık Satış'."""
+    ad = "Fazeon X27F250S 27″ 240Hz 0.5ms Fast Va Fhd Hdmı*1 + Dp*1+Usb*1 Rgb Gamıng Monıtor"
+    return _xlsx({
+        "VATAN STOK": pd.DataFrame({"Kod": ["A1"], "Stok": [5]}),
+        "VATAN SATIŞ": pd.DataFrame({"Kod": ["A1"], "Adet": [2], "Tarih": ["2026-10-11"]}),
+        "AVASYA STOK": pd.DataFrame({"Stok Kod": ["MON24FAZX24F241SX"], "Stok": [100]}),
+        "AVASYA SATIŞ": pd.DataFrame({"Stok Kod": ["MON24FAZX24F241SX"], "Haftalık Satış": [11]}),
+        "TEKNORYA STOK": pd.DataFrame({"Ürün Adı": [ad], "Stok ": [14]}),
+        "TEKNORYA SATIŞ": pd.DataFrame({"Ürün Adı": [ad], "Satış ": [3]}),
+    })
+
+
+def _teknorya_ortam(monkeypatch, db):
+    import kayranpm.excel_islemler as E
+    monkeypatch.setattr(E, "get_client", lambda: db)
+    monkeypatch.setattr(E, "_cari_listesi", lambda: ["AVASYA TEKNOLOJİ SANAYİ VE DIŞ TİCARET LİMİTED ŞİRKETİ", TEKNORYA])
+    monkeypatch.setattr(E, "_kart_skulari", lambda: ["X27F250S", "X24F241S", "A1"], raising=False)
+    return E
+
+
+def test_kod_sutunu_olmayan_firma_addan_okunur(monkeypatch, yazilan):
+    """Teknorya müşteri süzgecinde çıkmıyordu (Ekim 2026, kullanıcı bildirdi): sekmede kod sütunu yok,
+    yükleyici sekmeyi 'SKU/adet kolonu yok' diye atlıyor, firma_stok'a hiç satır yazılmıyordu."""
+    db = _DB({"firma_stok": []})
+    E = _teknorya_ortam(monkeypatch, db)
+    ok, msg = E.excel_yukle_haftalik_stok_satis(_teknorya_dosyasi(), dosya_adi="h.xlsx")
+    assert ok, msg
+    tk = [r for r in db.v["firma_stok"] if r["firma"] == TEKNORYA]
+    assert [(r["sku"], r["stok_miktari"], r["haftalik_satis"]) for r in tk] == [("X27F250S", 14, 3)]
+    assert "Atlanan sekme" not in msg
+
+
+def test_haftalik_satis_basligi_okunur(monkeypatch, yazilan):
+    """Avasya satış sekmesinin başlığı 'Haftalık Satış': eskiden adet sütunu bulunamıyor, satış 0 yazılıyordu."""
+    db = _DB({"firma_stok": []})
+    E = _teknorya_ortam(monkeypatch, db)
+    ok, msg = E.excel_yukle_haftalik_stok_satis(_teknorya_dosyasi(), dosya_adi="h.xlsx")
+    av = [r for r in db.v["firma_stok"] if r["firma"].startswith("AVASYA")]
+    assert [(r["stok_miktari"], r["haftalik_satis"]) for r in av] == [(100, 11)]
+    assert "Atlanan sekme" not in msg
+
+
+def test_okunamayan_firma_onizlemede_uyarilir(monkeypatch):
+    db = _DB({"firma_stok": []})
+    E = _teknorya_ortam(monkeypatch, db)
+    dosya = _xlsx({"VATAN STOK": pd.DataFrame({"Kod": ["A1"], "Stok": [5]}),
+                   "TEKNORYA STOK": pd.DataFrame({"Açıklama": ["Fazeon monitör"], "Stok": [3]})})
+    ok, oz = E.excel_yukle_haftalik_stok_satis(dosya, dosya_adi="h.xlsx", onizle=True)
+    assert ok and oz["firmalar"][TEKNORYA]["sku"] == 0
+    assert any(a.startswith(TEKNORYA) and "okunamadı" in a for a in oz["atlanan"])
+
+
+def test_addan_kod():
+    from kayranpm.musteri_hesap import addan_kod
+    kart = ["X27F250S", "X27F300S", "X24F180"]
+    assert addan_kod("Fazeon X27F250S 27″ 240Hz 0.5ms", kart) == "X27F250S"
+    assert addan_kod("FAZEON x27f250s monitör", kart) == "X27F250S"           # yazım farkı kartın yazımına
+    assert addan_kod("FAZEON X27F300 27 inç", kart) == "X27F300S"            # tek kartın öneki
+    assert addan_kod("Fazeon X99Z999 yeni model 240Hz", kart) == "X99Z999"     # kart yok: addaki ilk model kodu
+    assert addan_kod("Fazeon oyuncu monitörü", kart) == ""
+
+
 # ── 2. G5F sayımı: yarıda kalırsa doğru mesaj + geri alınabilir kayıt ───
 def _g5f_dosya():
     return _xlsx({"Sayfa1": pd.DataFrame({"DEPO ADI": ["MERKEZ DEPO", "MERKEZ DEPO", "MERKEZ DEPO"],

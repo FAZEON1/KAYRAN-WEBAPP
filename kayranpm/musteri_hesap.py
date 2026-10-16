@@ -102,6 +102,27 @@ def _model_parcalari(metin):
     return out
 
 
+def addan_kod(ad, kart_skulari=()):
+    """Kod sütunu olmayan müşteri raporu (Teknorya: yalnız 'Ürün Adı' + 'Stok', Ekim 2026): addaki model
+    kodundan SKU. Sıra: addaki parça bir kart SKU'suna birebir eşitse (tek aday) o kart; değilse tek kart
+    SKU'sunun öneki (≥6 karakter, renk eki); hiçbiri yoksa addaki İLK model parçası (kod_haritasi sonra
+    karta bağlamayı yine dener). Model parçası yoksa ''.
+    'Fazeon X27F250S 27″ 240Hz …' → 'X27F250S'."""
+    from shared.utils import sku_anahtar
+    parcalar = _model_parcalari(ad)
+    if not parcalar:
+        return ""
+    kartlar = {sku_anahtar(k): str(k).strip() for k in kart_skulari or () if str(k or "").strip()}
+    birebir = {kartlar[sku_anahtar(p)] for p in parcalar if sku_anahtar(p) in kartlar}
+    if len(birebir) == 1:
+        return birebir.pop()
+    if not birebir:
+        onek = {v for p in parcalar if len(p) >= 6 for a, v in kartlar.items() if a.startswith(sku_anahtar(p))}
+        if len(onek) == 1:
+            return onek.pop()
+    return parcalar[0]
+
+
 def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka_oner=None, marka_liste=(),
                  eslesme=None):
     """{ham rapor SKU'su: {marka, kategori, marka_kaynak, kategori_kaynak, kart_sku, kart_kaynak, adaylar}}
