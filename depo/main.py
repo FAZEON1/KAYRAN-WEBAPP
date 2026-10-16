@@ -10,7 +10,6 @@ from datetime import date
 
 from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok,
                                depo_sevk, get_depo_sevk_gecmisi, get_client)
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici
 from shared import bilesen as B
 from depo.depo_hesap import sevk_sonucu, tarih_tr
 from shared.kayit import sessiz
@@ -374,8 +373,6 @@ def _sayfa_sku():
 # için stok yaşı KRİTİK. Yaş = rapor günü − giriş tarihi olarak CANLI hesaplanır
 # (Excel'deki sabit yaş sayısı yok sayılır) → her gün açıldığında güncel görünür.
 
-import io as _io
-import json as _json
 from datetime import datetime as _dt
 
 _HL_TABLO = "happylife_stok"

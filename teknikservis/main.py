@@ -7,15 +7,15 @@ from io import BytesIO
 
 import pandas as pd
 import streamlit as st
-from shared.utils import sidebar_stil, sidebar_baslik, sidebar_kullanici, secim_serit
+from shared.utils import secim_serit
 
 from .database import (
-    ARAYUZLER, ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
+    ARAYUZ_ETIKET, DURUMLAR, BITMIS_DURUMLAR, DURUM_RENK,
     ts_firmalar_tam, ekle_ts_firma, seri_kayitlari, tum_seriler,
     depo_aciklamalar, ekle_depo_aciklama,
-    DEPOLAR, FIRMA_ONERILER, TS_FIRMALAR,
+    DEPOLAR, TS_FIRMALAR,
     get_kayitlar, get_kayit, get_gecmis, ekle_kayit, durum_guncelle,
-    kayit_guncelle, kayit_guncelle_form, sil_kayit, urun_getir, is_gunu_farki, sla_renk, sla_is_gunu, sla_bitis_haritasi,
+    kayit_guncelle, kayit_guncelle_form, sil_kayit, urun_getir, sla_renk, sla_is_gunu, sla_bitis_haritasi,
     ithalat_model_listesi,
     ts_urun_gruplari, ts_grup_ad, ts_grup_haritasi, servis_formu_pdf,
     depo_etiket_pdf, evraksiz_depo_kayit,

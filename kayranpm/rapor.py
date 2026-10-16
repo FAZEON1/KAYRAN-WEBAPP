@@ -7,12 +7,11 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.units import cm
-from datetime import datetime
 from shared.ana_veri import kategori_ad as _kat_ad, marka_ad as _marka_ad   # tek kaynak (Eki 2026)
 from shared.utils import firma_gorunen_ad, firma_sirala   # firma (cari) adı; liste veriden
 from .analitik import dashboard_hesapla
 from .database import get_siparis_onerileri
-from shared.utils import tr_today, tr_now, tr_today_iso, pdf_turkce_font, pdf_stilleri_turkcele
+from shared.utils import tr_now, pdf_turkce_font, pdf_stilleri_turkcele
 
 RENKLER = {
     "kirmizi": "FFCCCC",
