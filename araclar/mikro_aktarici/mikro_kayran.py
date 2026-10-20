@@ -176,6 +176,35 @@ FROM STOK_HAREKETLERI
 WHERE sth_cins=12 AND sth_iptal=0 AND sth_lastup_date > '{SON}'
 """,
     },
+    # Satış ve satış iadesi faturalarının ürün satırları (Ekim 2026, kullanıcı: "bundan sonra tüm satışlar,
+    # iadeler API'den otomatik gelsin"). Satış satırları faturaya bağlı irsaliye satırında durur
+    # (sth_fat_uid = fatura cha_Guid); yalnız sth_evraktip'e bakınca çoğu görünmüyordu.
+    # Fatura türü: cha_evrak_tip 63 = satış faturası (iade işaretliyse alış iadesi),
+    # 0 + iade = satış iadesi faturası. Tutarlar TL, KDV hariç; $ çevirisi uygulamada (satis/mikro_esitle).
+    "satis_satir": {
+        "tablo": "mikro_satis_satir", "anahtar": "sth_guid",
+        "artimli": True,
+        "sql": """
+SELECT h.sth_Guid, h.sth_fat_uid, h.sth_tarih, h.sth_tip, h.sth_evraktip, h.sth_normal_iade,
+       h.sth_stok_kod, s.sto_isim, h.sth_cari_kodu, ca.cari_unvan1,
+       h.sth_miktar, h.sth_tutar,
+       h.sth_iskonto1 + h.sth_iskonto2 + h.sth_iskonto3 + h.sth_iskonto4 + h.sth_iskonto5 + h.sth_iskonto6
+           AS sth_iskonto,
+       h.sth_vergi, h.sth_alt_doviz_kuru, h.sth_giris_depo_no, h.sth_cikis_depo_no,
+       dg.dep_adi AS giris_depo_adi, dc.dep_adi AS cikis_depo_adi,
+       c.cha_evrak_tip, c.cha_normal_Iade AS cha_normal_iade, c.cha_evrakno_seri, c.cha_evrakno_sira,
+       c.cha_tarihi, c.cha_d_cins, c.cha_d_kur, h.sth_lastup_date, c.cha_lastup_date
+FROM STOK_HAREKETLERI h
+JOIN CARI_HESAP_HAREKETLERI c ON c.cha_Guid = h.sth_fat_uid
+LEFT JOIN STOKLAR s ON s.sto_kod = h.sth_stok_kod
+LEFT JOIN CARI_HESAPLAR ca ON ca.cari_kod = c.cha_kod
+LEFT JOIN DEPOLAR dg ON dg.dep_no = h.sth_giris_depo_no
+LEFT JOIN DEPOLAR dc ON dc.dep_no = h.sth_cikis_depo_no
+WHERE h.sth_iptal=0 AND c.cha_iptal=0 AND c.cha_tarihi >= '20260101'
+  AND (c.cha_evrak_tip=63 OR (c.cha_evrak_tip=0 AND c.cha_normal_Iade=1))
+  AND (h.sth_lastup_date > '{SON}' OR c.cha_lastup_date > '{SON}')
+""",
+    },
     "masraf": {
         "tablo": "mikro_masraf", "anahtar": "cha_guid",
         "artimli": True,
@@ -288,10 +317,12 @@ def _kayitlari_bul(veri: Any) -> list[dict[str, Any]]:
     if isinstance(veri, list):
         if veri and all(isinstance(x, dict) for x in veri):
             # Satır listesi mi, yoksa sarmalayıcı listesi mi? (ör. [{"Data":[...]}])
-            ic = [_kayitlari_bul(v) for v in veri[0].values() if isinstance(v, (list, dict, str))]
-            ic = [x for x in ic if x]
-            if ic and len(veri) == 1 and not _duz_satir_mi(veri[0]):
-                return ic[0]
+            if len(veri) == 1 and not _duz_satir_mi(veri[0]):
+                # Sarmalayıcı: [{"SQLResult1": [...]}]. Sonuç BOŞSA da sarmalayıcı döner; eskiden sarmalayıcının
+                # kendisi satır sanılıp yazılıyordu ("sqlresult1 kolonu yok", Ekim 2026 ilk otomatik tur).
+                ic = [_kayitlari_bul(v) for v in veri[0].values() if isinstance(v, (list, dict, str))]
+                ic = [x for x in ic if x]
+                return ic[0] if ic else []
             return veri
         return []
 

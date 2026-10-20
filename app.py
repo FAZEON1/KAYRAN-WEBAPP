@@ -3494,6 +3494,23 @@ def _talep_dugmesi():
               on_click=_talep_ac_isaretle)
 
 
+@st.cache_resource(show_spinner=False)
+def _mikro_esitle_saat():
+    """Sunucu genelinde son deneme zamanı (oturumlar arasında ortak)."""
+    return {"t": 0.0}
+
+
+def _mikro_esitle_dene():
+    import time as _t
+    _s = _mikro_esitle_saat()
+    if _t.time() - _s["t"] < 300:
+        return
+    _s["t"] = _t.time()
+    import threading as _th
+    from satis.mikro_esitle import otomatik
+    _th.Thread(target=otomatik, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
+
+
 def main():
     # Login yapılmamışsa giriş ekranı
     if not st.session_state.giris_yapildi:
@@ -3637,6 +3654,13 @@ def main():
         from shared.veri_surumu import tazelik_kontrol
         tazelik_kontrol()
     except Exception:
+        pass
+
+    # Mikro eşitleme (Ekim 2026, satis/mikro_esitle): açıksa ve aktarıcı yeni fatura getirdiyse satışları /
+    # iadeleri günceller. Sunucu başına en fazla 5 dakikada bir denenir; hata fırlatmaz.
+    try:
+        _mikro_esitle_dene()
+    except Exception:  # noqa: BLE001
         pass
 
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede. Sayfadan ÖNCE açılır:
