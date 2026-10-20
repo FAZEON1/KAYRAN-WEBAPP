@@ -38,6 +38,7 @@ YEDEK_TABLOLAR = [
     "ithalat_dosyalari", "ithalat_kalemleri", "satin_alma_gecmisi",
     # Satış
     "satislar", "iadeler", "hm_urun_karliligi",
+    "mikro_esitleme_durum", "mikro_esitleme_arsiv",   # Mikro eşitleme durumu + değiştirilen satırların arşivi
     # Muhasebe
     "odemeler", "cekler", "virmanlar", "tahsilatlar", "aktif_manuel_kalemler",
     # e-Defter (fiş satırları fişten sonra)
@@ -66,6 +67,10 @@ HARIC = {
     "aktif_excel_verileri":  "geçici yükleme önbelleği",
     "kullanici_durum":       "anlık oturum / çevrimiçi durumu",
     "cop_kutusu":            "silinenlerin 30 günlük kopyası; asıl tablolar zaten yedekte",
+    "mikro_cari_bakiye":     "Mikro aktarıcısının kopyası; kaynak Mikro, her gece baştan çekilir",
+    "mikro_fatura":          "Mikro aktarıcısının kopyası; kaynak Mikro, her gece baştan çekilir",
+    "mikro_satis_satir":     "Mikro aktarıcısının kopyası; kaynak Mikro, her gece baştan çekilir",
+    "mikro_senk_durum":      "Mikro aktarıcısının tur durumu (geçici)",
     "oturumlar":             "açık oturum özetleri (geçici; geri yüklenmez)",
     "sema_gecmisi":          "kurulan SQL dosyalarının kaydı (veritabani/uygula.py)",
 }

@@ -1228,6 +1228,7 @@ def run():
             "📋 Satışlar": lambda: _sayfa_satislar(_kanallar=_kanallar),
             "📊 Kâr / P&L": lambda: _sayfa_kar_pnl(_kar_ok=_kar_ok, _sb=_sb, kpi_serit=kpi_serit, sayi=sayi),
             "↩️ İade": lambda: _sayfa_iade(_kanallar=_kanallar, _kar_ok=_kar_ok),
+            "Mikro eşitleme": lambda: _sayfa_mikro_esitleme(),
         }.get(_ssayfa)
         if _sayfa_fn is not None:
             _sayfa_fn()
@@ -1569,6 +1570,12 @@ def _sayfa_satislar(*, _kanallar):
     # Hesap satis_hesap.py'de (testli); silme/düzeltme onaylı ve stok-senkron.
     from .satislar_ekran import render_satislar
     render_satislar(hizli_tarih_araligi, _kanallar)
+
+
+def _sayfa_mikro_esitleme():
+    # Ekim 2026: satışlar ve iadeler Mikro faturalarından otomatik (satis/mikro_esitle.py)
+    from .mikro_esitle_ekran import sayfa
+    sayfa()
 
 
 # ───────────────────────── KÂR / P&L ─────────────────────────
