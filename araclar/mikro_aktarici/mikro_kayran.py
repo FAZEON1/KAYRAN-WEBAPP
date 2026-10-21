@@ -154,13 +154,17 @@ FROM STOK_HAREKETLERI
 WHERE sth_evraktip IN (3,4) AND sth_iptal=0 AND sth_lastup_date > '{SON}'
 """,
     },
+    # İthalat dosyasına bağlı cari hareketleri: ithalat faturası (cinsi 29: mal bedeli, beyanname no cha_belge_no)
+    # ve masraf dağıtım fişi (evrak 95: satır başına bir masraf kalemi; ad cha_aciklama, sıra cha_satir_no:
+    # Navlun, Sigorta, Gümrük vergi ve resimler, Gümrük Müşavirlik, Ardiye, Diğer). Hesap ithalat/mikro_ithalat.py.
     "ithalat": {
         "tablo": "mikro_ithalat", "anahtar": "cha_guid",
         "artimli": True,
         "sql": """
 SELECT cha_Guid, cha_tarihi, cha_evrak_tip, cha_cinsi, cha_cari_cins,
        cha_kod AS dosya_veya_cari, cha_meblag, cha_d_cins, cha_d_kur,
-       cha_EXIMkodu, cha_lastup_date
+       cha_EXIMkodu, cha_aciklama, cha_satir_no, cha_evrakno_seri, cha_evrakno_sira, cha_belge_no,
+       cha_lastup_date
 FROM CARI_HESAP_HAREKETLERI
 WHERE cha_iptal=0 AND (cha_cari_cins=9 OR cha_cinsi IN (28,29) OR cha_evrak_tip=95)
   AND cha_lastup_date > '{SON}'
