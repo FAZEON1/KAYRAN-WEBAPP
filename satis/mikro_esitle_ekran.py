@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Satış › Mikro eşitleme ekranı (Ekim 2026). Hesap: satis/mikro_esitle.py.
+"""Mikro'dan otomatik satış — ilk onay kutusu (Ekim 2026). Hesap: satis/mikro_esitle.py.
 
-Kapalıyken: salt okunur "şimdi ↔ Mikro'dan sonra" karşılaştırması + onay düğmesi (rakam değiştiren
-değişiklik, kullanıcı onayı şart). Açıkken: son otomatik eşitlemenin özeti + "Şimdi eşitle".
+Kullanıcı: "Mikro eşitleme sidebarı olmasın, sürekli manuel işlem yapmayayım; ilk seferinde bir şey
+gerekirse yapayım, sonra her şey tam otomatik." Bu yüzden ayrı sayfa yok: eşitleme kapalıyken Satış ›
+Satışlar'ın üstünde bir kez salt okunur "şimdi ↔ Mikro" karşılaştırması ve onay düğmesi çıkar (rakam
+değiştiren değişiklik, kullanıcı onayı şart). Onaylanınca kutu bir daha çıkmaz; eşitleme otomatik sürer.
+Yalnız kârı görebilen kullanıcılar görür. Aktarıcı kendini günceller (dosya indirme yok).
 """
 import pandas as pd
 import streamlit as st
@@ -59,64 +62,54 @@ def _plan_goster(plan):
         st.caption("Alınmayan satırlar: " + " · ".join(f"{ad.get(k, k)} {tr_sayi(v)}" for k, v in at.items()))
 
 
-def _aktarici_dugmesi(guncel):
-    """Sunucudaki aktarıcı dosyası: sunucuda bu sayfayı açıp indirmek, dosyayı taşımaktan kolay (Ekim 2026)."""
+def _aktarici_dugmesi():
+    """SON KEZ elle güncelleme: bu sürümden sonra aktarıcı kendini günceller (mikro_aktarici_surum)."""
     from pathlib import Path
     yol = Path(__file__).resolve().parent.parent / "araclar" / "mikro_aktarici" / "mikro_kayran.py"
-    if not yol.exists():
+    if yol.exists():
+        st.caption("Sunucudaki aktarıcı bir kez daha elle güncellenmeli; bundan sonra kendini kendisi günceller. "
+                   "Sunucuda (10.0.1.11) bu düğmeyle indir, C:\\MikroKayran klasöründekinin üzerine kaydet.")
+        st.download_button("Aktarıcıyı indir (mikro_kayran.py)", yol.read_bytes(), file_name="mikro_kayran.py",
+                           mime="text/x-python", icon=":material/download:", key="me_aktarici")
+
+
+def ilk_onay_kutusu():
+    """Satışlar sayfasının üstü: eşitleme kapalıysa ve Mikro satırları geldiyse bir kerelik onay."""
+    from shared.kar_gizle import kar_gorunur
+    if not kar_gorunur():
         return
-    if not guncel:
-        st.warning("Sunucudaki aktarıcı eski: fatura satırlarını henüz getirmiyor. Sunucuda (10.0.1.11) bu sayfayı "
-                   "açıp aşağıdaki düğmeyle mikro_kayran.py dosyasını indir, C:\\MikroKayran klasöründeki eskisinin "
-                   "üzerine kaydet. Sonraki 15 dakikalık turda satırlar gelir.")
-    st.download_button("Aktarıcıyı indir (mikro_kayran.py)", yol.read_bytes(), file_name="mikro_kayran.py",
-                       mime="text/x-python", icon=":material/download:", key="me_aktarici")
-
-
-def sayfa():
-    st.markdown("### Mikro eşitleme")
     d = M.durum()
-    if d is None:
-        st.warning("Mikro eşitleme tabloları henüz kurulmamış (veritabani/37_mikro_satis.sql).")
+    if not d or d.get("acik"):
         return
     try:
-        guncel = bool(M._son_aktarim())
+        if not M._son_aktarim():
+            return                        # aktarıcı henüz satırları getirmedi
     except Exception:  # noqa: BLE001
-        guncel = False
-    _aktarici_dugmesi(guncel)
-    if not guncel:
         return
     bas = str(d.get("baslangic") or M.BASLANGIC)[:10]
-    st.caption(f"{bas[8:10]}.{bas[5:7]}.{bas[:4]} sonrasındaki satışlar ve iadeler Mikro faturalarından gelir: "
-               "fatura tarihi, cari, ürün, adet, $ net fiyat (KDV ve iskonto hariç). Aktarıcı 15 dakikada bir "
-               "yeni faturaları getirir.")
-    if d.get("acik"):
-        so = d.get("son_ozet") or {}
-        st.success(f"Otomatik eşitleme açık. Son çalışma: {str(d.get('son_calisma') or '—')[:16].replace('T', ' ')}"
-                   f" · eklenen satış {tr_sayi(so.get('eklenen_satis', 0))}, iade {tr_sayi(so.get('eklenen_iade', 0))}"
-                   f" · değiştirilen satış {tr_sayi(so.get('silinen_satis', 0))}, iade {tr_sayi(so.get('silinen_iade', 0))}")
-        if st.button("Şimdi eşitle", icon=":material/sync:", key="me_simdi"):
-            with st.spinner("Mikro faturaları okunuyor…"):
-                plan = M.plan_hazirla(bas)
-                ok, mesaj, _s = M.uygula(plan)
-            (st.success if ok else st.error)(mesaj)
-        return
-    with st.spinner("Mikro faturaları okunuyor…"):
-        try:
-            plan = M.plan_hazirla(bas)
-        except Exception as e:  # noqa: BLE001
-            st.error(f"Mikro verisi okunamadı: {type(e).__name__}: {str(e)[:160]}")
+    with st.expander(f"Satışlar ve iadeler Mikro'dan otomatik gelsin — {bas[8:10]}.{bas[5:7]}.{bas[:4]} sonrası "
+                     "(bir kez onay)", expanded=False, icon=":material/sync:"):
+        st.caption("Onaydan sonra satışlar ve iadeler Mikro faturalarından kendiliğinden güncellenir: fatura tarihi, "
+                   "cari, ürün, adet, $ net fiyat (KDV ve iskonto hariç). Bu kutu bir daha çıkmaz.")
+        _aktarici_dugmesi()
+        if not st.toggle("Karşılaştırmayı göster", key="me_goster"):
             return
-    st.info("Henüz açılmadı. Aşağıdaki karşılaştırma salt okunur: onaylayana kadar hiçbir şey yazılmaz.")
-    _plan_goster(plan)
-    onay = st.checkbox("Karşılaştırmayı gördüm; bu tarihten sonra satışların ve iadelerin kaynağı Mikro olsun",
-                       key="me_onay")
-    if st.button("Onayla ve otomatik eşitlemeyi aç", type="primary", disabled=not onay,
-                 icon=":material/sync:", key="me_ac"):
-        ok, mesaj, sonuc = M.uygula(plan)
-        if ok:
-            M.ac(st.session_state.get("aktif_kullanici", ""))
-            st.success(f"{mesaj} Eklenen satış {tr_sayi(sonuc.get('eklenen_satis', 0))}, "
-                       f"iade {tr_sayi(sonuc.get('eklenen_iade', 0))}. Eski satırlar arşivde.")
-        else:
-            st.error(mesaj)
+        with st.spinner("Mikro faturaları okunuyor…"):
+            try:
+                plan = M.plan_hazirla(bas)
+            except Exception as e:  # noqa: BLE001
+                st.error(f"Mikro verisi okunamadı: {type(e).__name__}: {str(e)[:160]}")
+                return
+        _plan_goster(plan)
+        onay = st.checkbox("Karşılaştırmayı gördüm; bu tarihten sonra satışların ve iadelerin kaynağı Mikro olsun",
+                           key="me_onay")
+        if st.button("Onayla ve otomatik eşitlemeyi aç", type="primary", disabled=not onay,
+                     icon=":material/sync:", key="me_ac"):
+            ok, mesaj, sonuc = M.uygula(plan)
+            if ok:
+                M.ac(st.session_state.get("aktif_kullanici", ""))
+                st.success(f"{mesaj} Eklenen satış {tr_sayi(sonuc.get('eklenen_satis', 0))}, "
+                           f"iade {tr_sayi(sonuc.get('eklenen_iade', 0))}. Eski satırlar arşivde. "
+                           "Bundan sonra otomatik.")
+            else:
+                st.error(mesaj)

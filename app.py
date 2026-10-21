@@ -3497,7 +3497,7 @@ def _talep_dugmesi():
 @st.cache_resource(show_spinner=False)
 def _mikro_esitle_saat():
     """Sunucu genelinde son deneme zamanı (oturumlar arasında ortak)."""
-    return {"t": 0.0}
+    return {"t": 0.0, "yayin": False}
 
 
 def _mikro_esitle_dene():
@@ -3507,8 +3507,14 @@ def _mikro_esitle_dene():
         return
     _s["t"] = _t.time()
     import threading as _th
-    from satis.mikro_esitle import otomatik
-    _th.Thread(target=otomatik, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
+    from satis.mikro_esitle import aktarici_yayinla, otomatik
+
+    def _is():
+        if not _s["yayin"]:          # sunucu başına bir kez: aktarıcının güncel kodu (kendini günceller)
+            _s["yayin"] = True
+            aktarici_yayinla()
+        otomatik()
+    _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 
 def main():

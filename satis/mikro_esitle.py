@@ -434,3 +434,25 @@ def otomatik():
         sessiz("satis.mikro_esitle.otomatik", e)
         return None
 
+
+
+def aktarici_yayinla():
+    """Depodaki aktarıcı kodunu Supabase'e koyar (mikro_aktarici_surum); sunucudaki aktarıcı sürüm farklıysa
+    kendini günceller (kullanıcı: "sunucuya bir daha dosya taşımayayım", Ekim 2026). Aynıysa yazmaz.
+    Döner: yayınlandı mı. Hata fırlatmaz."""
+    import hashlib
+    from pathlib import Path
+    try:
+        yol = Path(__file__).resolve().parent.parent / "araclar" / "mikro_aktarici" / "mikro_kayran.py"
+        kod = yol.read_text(encoding="utf-8")
+        sha = hashlib.sha256(kod.encode("utf-8")).hexdigest()
+        cli = _cli()
+        r = cli.table("mikro_aktarici_surum").select("sha256").eq("id", 1).execute().data or []
+        if r and r[0].get("sha256") == sha:
+            return False
+        cli.table("mikro_aktarici_surum").upsert({"id": 1, "kod": kod, "sha256": sha}).execute()
+        return True
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("satis.mikro_esitle.aktarici_yayinla", e)
+        return False

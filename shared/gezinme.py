@@ -95,7 +95,6 @@ MODULLER = [
          ("📋 Satışlar", "satislar", "Satışlar", None),
          ("📊 Kâr / P&L", "pnl", "Kâr / P&L", "kar"),
          ("↩️ İade", "iade", "İade", None),
-         ("Mikro eşitleme", "mikro", "Mikro eşitleme", "kar"),   # Ekim 2026: satış + iade Mikro'dan otomatik
      ]},
     {"kod": "teknikservis", "ad": "Teknik servis", "ikon": "construction", "anahtar": "ts_sayfa",
      "sayfalar": [

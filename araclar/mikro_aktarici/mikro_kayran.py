@@ -460,6 +460,170 @@ def senkronize_et(istemci: MikroIstemci, sb: Supabase, tam: bool = False) -> Non
         log.info("[%s] %d kayıt (%s)", tablo, len(satirlar), "artımlı" if artimli else "tam")
 
 
+# --------------------------------------------------------------------------- #
+# Kendini güncelleme (Ekim 2026, kullanıcı: "sunucuya bir daha dosya taşımayayım")
+# Uygulama, depodaki mikro_kayran.py'nin güncel hâlini Supabase'e (mikro_aktarici_surum, yalnız service_role
+# yazar) koyar. Her tur başında sürüm farklıysa yeni kod indirilir, derlenip denetlenir, dosyanın yerine
+# yazılır ve bir SONRAKİ turda çalışır. Bozuk / yarım kod yazılmaz (derlenmezse ya da Mikro'ya yazan uç
+# nokta içeriyorsa reddedilir); eski dosya .yedek olarak kalır.
+# --------------------------------------------------------------------------- #
+# Mikro'ya yazan API uçları (Kaydet / Sil / Guncelle + sürüm no): yeni kodda olursa güncelleme reddedilir
+YAZAN_UC_DESENI = r"(Kaydet|Sil|Guncelle|Duzelt)" + r"V\d"
+# sys.tables okunamazsa kolonları alınacak temel tablolar
+ONEMLI_TABLOLAR = ("STOKLAR", "STOK_HAREKETLERI", "CARI_HESAPLAR", "CARI_HESAP_HAREKETLERI", "BANKALAR",
+                   "KASALAR", "ODEME_EMIRLERI", "SIPARISLER", "DEPOLAR", "MUHASEBE_FISLERI", "BARKOD_TANIMLARI",
+                   "STOK_SATIS_FIYAT_LISTELERI", "DOVIZ_KURLARI", "MUHASEBE_HESAP_PLANI", "PERSONELLER")
+
+
+def _dosya_sha(yol: str) -> str:
+    with open(yol, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def guncelleme_uygun_mu(kod: str) -> str:
+    """Yeni kod yazılabilir mi; değilse nedeni. Boşsa uygun."""
+    if "def senkronize_et(" not in kod or "SqlVeriOkuV2" not in kod:
+        return "beklenen içerik yok"
+    import re
+    if re.search(YAZAN_UC_DESENI, kod):
+        return "Mikro'ya yazan uç nokta içeriyor"
+    try:
+        compile(kod, "mikro_kayran.py", "exec")
+    except SyntaxError as e:
+        return f"derlenmiyor: {e}"
+    return ""
+
+
+def kendini_guncelle(sb: "Supabase", yol: str | None = None) -> bool:
+    """Supabase'teki sürüm dosyadan farklıysa dosyayı günceller. Döner: güncellendi mi. Hata fırlatmaz."""
+    yol = yol or os.path.abspath(__file__)
+    try:
+        r = sb._kontrol(sb.oturum.get(f"{sb.rest}/mikro_aktarici_surum",
+                                      params={"select": "kod,sha256", "id": "eq.1"}, timeout=30)).json()
+        if not r or not r[0].get("kod"):
+            return False
+        kod, sha = r[0]["kod"], r[0].get("sha256") or ""
+        if hashlib.sha256(kod.encode("utf-8")).hexdigest() != sha:
+            log.warning("Güncelleme atlandı: sürüm özeti tutmuyor")
+            return False
+        if sha == _dosya_sha(yol):
+            return False
+        neden = guncelleme_uygun_mu(kod)
+        if neden:
+            log.warning("Güncelleme reddedildi: %s", neden)
+            return False
+        gecici = yol + ".yeni"
+        with open(gecici, "w", encoding="utf-8", newline="\n") as f:
+            f.write(kod)
+        try:
+            os.replace(yol, yol + ".yedek")
+        except OSError:
+            pass
+        os.replace(gecici, yol)
+        log.info("Aktarıcı güncellendi (%s); yeni sürüm sonraki turda çalışır.", sha[:12])
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.error("Kendini güncelleme başarısız: %s", e)
+        return False
+
+
+# --------------------------------------------------------------------------- #
+# Keşif (Ekim 2026): Mikro'da hangi veri var? Tablolar + satır sayıları, dolu tabloların kolonları,
+# depo / banka / kasa listeleri, hareket türü dağılımları. Yalnız okur; günde bir kez çalışır,
+# sonuç mikro_kesif tablosuna (anahtar → json). Her sorgu ayrı: biri başarısız olsa da diğerleri yazılır.
+# --------------------------------------------------------------------------- #
+KESIF_SORGULARI: dict[str, str] = {
+    "tablolar": """
+SELECT t.name AS tablo, SUM(p.rows) AS satir
+FROM sys.tables t JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
+GROUP BY t.name
+""",
+    "depolar": "SELECT * FROM DEPOLAR",
+    "bankalar": "SELECT * FROM BANKALAR",
+    "kasalar": "SELECT * FROM KASALAR",
+    "cha_dagilim": """
+SELECT cha_evrak_tip, cha_cinsi, cha_cari_cins, cha_tip, cha_normal_Iade AS iade, COUNT(*) AS adet,
+       MIN(cha_tarihi) AS ilk, MAX(cha_tarihi) AS son
+FROM CARI_HESAP_HAREKETLERI WHERE cha_iptal = 0 AND cha_tarihi >= '20250101'
+GROUP BY cha_evrak_tip, cha_cinsi, cha_cari_cins, cha_tip, cha_normal_Iade
+""",
+    "sth_dagilim": """
+SELECT sth_tip, sth_cins, sth_evraktip, sth_normal_iade AS iade, COUNT(*) AS adet,
+       MIN(sth_tarih) AS ilk, MAX(sth_tarih) AS son
+FROM STOK_HAREKETLERI WHERE sth_iptal = 0 AND sth_tarih >= '20250101'
+GROUP BY sth_tip, sth_cins, sth_evraktip, sth_normal_iade
+""",
+    "cek_senet": """
+SELECT sck_tip, sck_sonpoz, sck_doviz, COUNT(*) AS adet, SUM(sck_tutar) AS tutar, MIN(sck_vade) AS ilk_vade,
+       MAX(sck_vade) AS son_vade
+FROM ODEME_EMIRLERI WHERE sck_iptal = 0 GROUP BY sck_tip, sck_sonpoz, sck_doviz
+""",
+    "siparis_dagilim": """
+SELECT sip_tip, sip_cins, COUNT(*) AS adet, MIN(sip_tarih) AS ilk, MAX(sip_tarih) AS son
+FROM SIPARISLER WHERE sip_iptal = 0 GROUP BY sip_tip, sip_cins
+""",
+    "muhasebe": """
+SELECT YEAR(fis_tarih) AS yil, COUNT(*) AS satir FROM MUHASEBE_FISLERI GROUP BY YEAR(fis_tarih)
+""",
+}
+KESIF_KOLON_SAYFA = 40      # INFORMATION_SCHEMA sorgusu başına tablo sayısı
+
+
+def kesif_yap(istemci: "MikroIstemci", sb: "Supabase") -> dict[str, str]:
+    """Keşif sorgularını çalıştırıp mikro_kesif'e yazar. Döner: {anahtar: hata ya da ''}."""
+    sonuc: dict[str, str] = {}
+    simdi = datetime.now(TZ).isoformat()
+
+    def yaz(anahtar: str, veri: Any, hata: str = "") -> None:
+        try:
+            sb.upsert("mikro_kesif", [{"anahtar": anahtar, "veri": veri, "hata": hata or None, "zaman": simdi}],
+                      "anahtar")
+        except MikroHata as e:
+            log.error("Keşif yazılamadı (%s): %s", anahtar, e)
+
+    tablolar: list[dict[str, Any]] = []
+    for anahtar, sql in KESIF_SORGULARI.items():
+        try:
+            kayit = istemci.sql_oku(" ".join(sql.split()))
+            yaz(anahtar, kayit)
+            sonuc[anahtar] = ""
+            if anahtar == "tablolar":
+                tablolar = kayit
+        except MikroHata as e:
+            yaz(anahtar, None, str(e)[:500])
+            sonuc[anahtar] = str(e)[:200]
+    dolu = sorted(str(t.get("tablo") or t.get("TABLO") or "") for t in tablolar
+                  if float(t.get("satir") or t.get("SATIR") or 0) > 0) or list(ONEMLI_TABLOLAR)
+    kolonlar: list[dict[str, Any]] = []
+    hata = ""
+    for i in range(0, len(dolu), KESIF_KOLON_SAYFA):
+        adlar = ",".join("'" + a.replace("'", "''") + "'" for a in dolu[i:i + KESIF_KOLON_SAYFA] if a)
+        if not adlar:
+            continue
+        try:
+            kolonlar += istemci.sql_oku(
+                "SELECT TABLE_NAME AS tablo, COLUMN_NAME AS kolon, DATA_TYPE AS tip, ORDINAL_POSITION AS sira "
+                f"FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME IN ({adlar})")
+        except MikroHata as e:
+            hata = str(e)[:500]
+    yaz("kolonlar", kolonlar, hata)
+    sonuc["kolonlar"] = hata
+    log.info("Keşif: %d dolu tablo, %d kolon, %d hata", len(dolu), len(kolonlar), sum(1 for h in sonuc.values() if h))
+    return sonuc
+
+
+def kesif_gerekli_mi(sb: "Supabase") -> bool:
+    """Bugün keşif yapılmadıysa True."""
+    try:
+        r = sb._kontrol(sb.oturum.get(f"{sb.rest}/mikro_kesif",
+                                      params={"select": "zaman", "anahtar": "eq.tablolar"}, timeout=30)).json()
+        if not r:
+            return True
+        return str(r[0].get("zaman") or "")[:10] < datetime.now(TZ).date().isoformat()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def test_et(istemci: MikroIstemci) -> None:
     print("HealthCheck:", "OK" if istemci.saglik() else "BAŞARISIZ")
     for ad, tanim in SORGULAR.items():
@@ -504,6 +668,7 @@ def main() -> None:
     p.add_argument("--tam", action="store_true", help="son çekim tarihini yok say")
     p.add_argument("--aralik", type=int, default=ARALIK_SN, help="sürekli modda saniye aralığı")
     p.add_argument("--ham", action="store_true", help="--test ile ham yanıtı da yazdır")
+    p.add_argument("--kesif", action="store_true", help="Mikro'da hangi veri var: keşif sorgularını çalıştır")
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -522,12 +687,19 @@ def main() -> None:
 
     sb = Supabase(SUPABASE["url"], SUPABASE["key"])
 
+    if args.kesif:
+        kesif_yap(istemci, sb)
+        return
+
     if args.bir_kez:
         if not kilit_al():
             log.warning("Başka bir aktarım sürüyor (%s); bu tur atlandı.", KILIT)
             return
         try:
+            kendini_guncelle(sb)               # yeni sürüm varsa dosyaya yazılır, sonraki turda çalışır
             senkronize_et(istemci, sb, tam=args.tam)
+            if kesif_gerekli_mi(sb):
+                kesif_yap(istemci, sb)
         finally:
             kilit_birak()
         return

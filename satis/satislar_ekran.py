@@ -263,6 +263,13 @@ def render_satislar(hizli_tarih_araligi, kanallar):
                                    "help": "Tarihi boş/bozuk olduğu için listede görünmeyen kayıtları bul"}])
     if ey.get("sat_hayalet_btn"):
         _hayalet_dialog()
+    # Mikro'dan otomatik satış (Ekim 2026): ilk onay bir kez burada; onaylanınca kutu bir daha çıkmaz
+    try:
+        from .mikro_esitle_ekran import ilk_onay_kutusu
+        ilk_onay_kutusu()
+    except Exception as _e:  # noqa: BLE001
+        if type(_e).__name__ in ("RerunException", "StopException"):
+            raise
     # Tek araç çubuğu (Ekim 2026, kullanıcı seçimi A): dönem · arama · görünüm · filtre tek kutuda,
     # tek satırda. Eskiden dönem hapları ve arama/görünüm/filtre iki ayrı satırdı.
     with st.container(key="k_cubuk_sat", horizontal=True, vertical_alignment="center", gap="small"):
