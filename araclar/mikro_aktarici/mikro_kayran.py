@@ -580,6 +580,7 @@ class Supabase:
         if _bos_mu(key):
             raise MikroHata("SUPABASE_SERVICE_KEY tanımlı değil (ayarlar.bat)")
         self.rest = f"{url}/rest/v1"
+        self.fonksiyon = f"{url}/functions/v1"
         self.oturum = requests.Session()
         self.oturum.headers.update({"apikey": key, "Content-Type": "application/json"})
         # Eski tip service_role anahtarı (JWT, "eyJ..." ile başlar) Authorization'da da gönderilir.
@@ -618,6 +619,17 @@ class Supabase:
         ))
         return {d["tablo"]: d["son_cekim"] for d in r.json()}
 
+    def esitlemeyi_baslat(self, neden: str) -> None:
+        """Yeni veri geldiyse uygulamadaki eşitlemeyi hemen başlat (Supabase fonksiyonu mikro-tetik → GitHub işi).
+        GitHub'ın zamanlanmış işleri saatlerce gecikiyor; eşitleme artık aktarımın hemen ardından çalışır.
+        Yalnız tetikler, veri göndermez; hata turu bozmaz (eşitleme uygulama açılınca da yapılır)."""
+        try:
+            r = self.oturum.post(f"{self.fonksiyon}/mikro-tetik", data=json.dumps({"mod": "esitle", "neden": neden}),
+                                 timeout=30)
+            log.info("Eşitleme tetiği: %s %s", r.status_code, r.text[:120])
+        except requests.RequestException as e:
+            log.warning("Eşitleme tetiklenemedi: %s", e)
+
     def durum_yaz(self, tablo: str, **alanlar: Any) -> None:
         alanlar.update(tablo=tablo, guncelleme=datetime.now(TZ).isoformat())
         try:
@@ -651,8 +663,11 @@ def _satiri_hazirla(kayit: dict[str, Any], zaman: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Senkronizasyon
 # --------------------------------------------------------------------------- #
-def senkronize_et(istemci: MikroIstemci, sb: Supabase, tam: bool = False) -> None:
+def senkronize_et(istemci: MikroIstemci, sb: Supabase, tam: bool = False) -> dict[str, int]:
+    """Bütün sorguları çeker. Döner: {tablo: satır sayısı} — yalnız artımlı çekilen tablolar (yeni / değişen
+    kayıt göstergesi; tam çekilenler her turda bütün satırları getirir)."""
     durum = {} if tam else sb.durum_oku()
+    yeni: dict[str, int] = {}
 
     for ad, tanim in SORGULAR.items():
         tablo = tanim["tablo"]
@@ -684,6 +699,17 @@ def senkronize_et(istemci: MikroIstemci, sb: Supabase, tam: bool = False) -> Non
         sb.durum_yaz(tablo, son_cekim=baslangic.isoformat(),
                      son_kayit_sayisi=len(satirlar), son_hata=None)
         log.info("[%s] %d kayıt (%s)", tablo, len(satirlar), "artımlı" if artimli else "tam")
+        if artimli:
+            yeni[tablo] = len(satirlar)
+    return yeni
+
+
+def tetik_nedeni(yeni: dict[str, int], tam: bool) -> str:
+    """Eşitleme başlatılmalı mı: tam aktarımda ya da artımlı bir tablo yeni kayıt getirdiyse neden metni, yoksa ''."""
+    if tam:
+        return "tam_aktarim"
+    dolu = sorted(t for t, n in yeni.items() if n)
+    return ("yeni_veri:" + ",".join(dolu))[:60] if dolu else ""
 
 
 # --------------------------------------------------------------------------- #
@@ -954,7 +980,10 @@ def main() -> None:
             return
         try:
             kendini_guncelle(sb)               # yeni sürüm varsa dosyaya yazılır, sonraki turda çalışır
-            senkronize_et(istemci, sb, tam=args.tam)
+            yeni = senkronize_et(istemci, sb, tam=args.tam)
+            neden = tetik_nedeni(yeni, args.tam)
+            if neden:
+                sb.esitlemeyi_baslat(neden)    # uygulamadaki eşitleme hemen (GitHub işi), saati beklemeden
             if kesif_gerekli_mi(sb):
                 kesif_yap(istemci, sb)
         finally:
@@ -965,7 +994,9 @@ def main() -> None:
     while True:
         if kilit_al():
             try:
-                senkronize_et(istemci, sb, tam=tam)
+                neden = tetik_nedeni(senkronize_et(istemci, sb, tam=tam), tam)
+                if neden:
+                    sb.esitlemeyi_baslat(neden)
                 tam = False
             except (MikroHata, requests.RequestException) as e:
                 log.error("Tur başarısız: %s", e)

@@ -84,6 +84,7 @@ HARIC = {
     "mikro_hesap_plani":     "Mikro aktarıcısının kopyası",
     "mikro_stok_miktar":     "Mikro aktarıcısının kopyası (ürün × depo miktarı; her turda tam çekilir)",
     "mikro_siparis":         "Mikro aktarıcısının kopyası (müşteri ve tedarikçi siparişleri)",
+    "mikro_esitle_gunluk":   "Eşitleme turlarının günlüğü (14 gün; Sistem › Mikro bağlantısı)",
     "mikro_ithalat_dosya":   "Mikro aktarıcısının kopyası (ithalat dosyaları)",
     "mikro_alim_satir":      "Mikro aktarıcısının kopyası (alış satırları)",
     "mikro_depo_hareket":    "Mikro aktarıcısının kopyası (depo giriş / çıkış / sevk hareketleri)",

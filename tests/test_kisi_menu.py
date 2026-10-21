@@ -34,7 +34,7 @@ def test_gruplar():
                                                          ("cop_kutusu", "Çöp kutusu"),
                                                          ("veri_sagligi", "Veri sağlığı")])
     assert [k for k, _ in G.sayfa_grubu("yedekleme")[1]] == ["degisiklik_gunlugu", "sistem_kayitlari",
-                                                              "yedekleme", "tasarim_rehberi"]
+                                                              "yedekleme", "mikro_baglanti", "tasarim_rehberi"]
     assert G.sayfa_grubu("soru") is None and G.sayfa_grubu("kullanici_yonetimi") is None
 
 

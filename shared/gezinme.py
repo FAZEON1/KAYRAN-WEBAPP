@@ -134,13 +134,15 @@ SISTEM = [
     ("sirket_belgeleri", "Şirket belgeleri", "folder_shared", "yonetim"),
     ("degisiklik_gunlugu", "Değişiklik günlüğü", "manage_history", "kullanici_yonetimi"),
     ("yedekleme", "Yedekleme", "backup", "kullanici_yonetimi"),
+    ("mikro_baglanti", "Mikro bağlantısı", "sync", "kullanici_yonetimi"),   # Ekim 2026: aktarıcı / eşitleme sağlığı
 ]
 
 # Kişi menüsünde tek düğmede toplanan sayfalar (Ekim 2026, menü kısaldı): düğme ilk sayfayı açar,
 # sayfanın üstündeki seçici gruptaki diğerlerine geçirir. Eski adresler (sistem/cop_kutusu…) aynen çalışır.
 SAYFA_GRUPLARI = [
     ("Verilerim", "folder_managed", ["yukleme_gecmisi", "cop_kutusu", "veri_sagligi"]),
-    ("Sistem", "settings", ["degisiklik_gunlugu", "sistem_kayitlari", "yedekleme", "tasarim_rehberi"]),
+    ("Sistem", "settings", ["degisiklik_gunlugu", "sistem_kayitlari", "yedekleme", "mikro_baglanti",
+                            "tasarim_rehberi"]),
 ]
 # Eski Yönetim sayfa adresleri → yeni yerleri
 YONETIM_TASINAN = {"Şirket belgeleri": "sirket_belgeleri", "Sistem": "degisiklik_gunlugu"}

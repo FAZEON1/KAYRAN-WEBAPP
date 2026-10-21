@@ -1,11 +1,16 @@
 name: Mikro eşitleme
 
 # Uygulama kapalıyken de Mikro'dan satış, banka, çek, cari, gider ve stok eşitlemesi (otonom/mikro_esitle.py).
-# Uygulama açıkken kendi içinde 5 dakikada bir de yapar; bu iş kimse girmese bile saatte bir günceller.
-# Aktarıcı :11 :26 :41 :56'da çalışır; bu iş her saatin 14'ünde (aktarımdan hemen sonra).
+# Uygulama açıkken kendi içinde 5 dakikada bir de yapar.
+# Ne zaman çalışır (Ekim 2026): aktarıcı yeni veri getirdiği turun sonunda Supabase fonksiyonu mikro-tetik
+# üzerinden (repository_dispatch: mikro_esitle). Aktarıcı durursa Supabase zamanlayıcısı (pg_cron, 30 dk)
+# aynı yoldan tetikler; tur sonunda sağlık denetimi Telegram'a yazar. GitHub'ın kendi zamanlayıcısı bu depoda
+# saatlerce gecikiyor (02:00'lık gece yedeği 06:51–08:48'de); aşağıdaki cron yalnız 6 saatte bir yedek.
 on:
+  repository_dispatch:
+    types: [mikro_esitle]
   schedule:
-    - cron: "14 * * * *"
+    - cron: "17 */6 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -40,4 +45,8 @@ jobs:
           SECRETS
 
       - name: Eşitle
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ESITLE_KAYNAK: ${{ github.event_name == 'repository_dispatch' && format('tetik:{0}', github.event.client_payload.neden) || github.event_name }}
         run: python otonom/mikro_esitle.py
