@@ -1,0 +1,43 @@
+name: Mikro eşitleme
+
+# Uygulama kapalıyken de Mikro'dan satış, banka, çek, cari, gider ve stok eşitlemesi (otonom/mikro_esitle.py).
+# Uygulama açıkken kendi içinde 5 dakikada bir de yapar; bu iş kimse girmese bile saatte bir günceller.
+# Aktarıcı :11 :26 :41 :56'da çalışır; bu iş her saatin 14'ünde (aktarımdan hemen sonra).
+on:
+  schedule:
+    - cron: "14 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: mikro-esitle
+  cancel-in-progress: false
+
+jobs:
+  esitle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install --quiet streamlit supabase requests pandas openpyxl
+
+      - name: Supabase erişimini hazırla (uygulamanın kendi secrets dosyası)
+        run: |
+          mkdir -p .streamlit
+          cat > .streamlit/secrets.toml << SECRETS
+          [supabase]
+          url = "${{ secrets.SUPABASE_URL }}"
+          key = "${{ secrets.SUPABASE_KEY }}"
+          service_role_key = "${{ secrets.SUPABASE_KEY }}"
+          SECRETS
+
+      - name: Eşitle
+        run: python otonom/mikro_esitle.py

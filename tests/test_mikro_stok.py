@@ -53,3 +53,25 @@ def test_stok_eslesmesi_acikken_g5f_hatirlatmasi_cikmaz(monkeypatch):
     monkeypatch.setattr(Y, "_ayar", lambda anahtar, varsayilan: varsayilan)
     monkeypatch.setattr(Y, "_OKUYUCU", {})
     assert "g5f_sayim" not in {d["anahtar"] for d in Y.durumlar()}
+
+
+def test_otonom_esitleme_bir_is_cokse_digerleri_surer(monkeypatch):
+    """Saatlik GitHub işi (otonom/mikro_esitle.py): bir eşitleme hata verirse diğerleri yine çalışmalı."""
+    import importlib.util
+    from pathlib import Path
+    yol = Path(__file__).resolve().parent.parent / "otonom" / "mikro_esitle.py"
+    spec = importlib.util.spec_from_file_location("otonom_mikro_esitle", yol)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    sahte = types.ModuleType("sahte_esitle")
+    sahte.bozuk = lambda: 1 / 0
+    sahte.bos = lambda: None
+    sahte.dolu = lambda: 3
+    monkeypatch.setitem(sys.modules, "sahte_esitle", sahte)
+    out = mod.calistir((("A", "sahte_esitle", "bozuk"), ("B", "sahte_esitle", "bos"), ("C", "sahte_esitle", "dolu")))
+    assert out[0][1].startswith("HATA ZeroDivisionError")
+    assert out[1] == ("B", "yeni veri yok / kapalı")
+    assert out[2] == ("C", "tamam: 3")
+    # İş listesindeki her fonksiyon gerçekten var (adı değişirse iş sessizce boşa dönmesin)
+    for _ad, modul, fonk in mod.ISLER:
+        assert callable(getattr(importlib.import_module(modul), fonk))
