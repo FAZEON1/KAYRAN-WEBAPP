@@ -937,6 +937,9 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
     firma_ozet, atlanan_sayfa = {}, []
     onizleme, geri_yazilan, kayip = {}, [], []
     _kartlar = None                      # kart SKU'ları — yalnız kodsuz sekme varsa bir kez okunur
+    # Mikro müşteri kodları (kayranpm.mikro_multikod, Ekim 2026): yalnız bugünkü zincirin bağlayamadığı kodlar
+    # Mikro'nun gösterdiği karta çevrilir. Tablo yok / boşsa {} → eski davranış aynen.
+    _mk_harita, _mk_baglam, _mk_sayi = None, {}, {}
     basarili = 0
     yazma_hatasi = {"ilk": "", "sayi": 0}
     for kod, g in gruplar.items():
@@ -980,6 +983,19 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
                 atlanan_sayfa.append(f"{kod} {_ad_tur}: {_kodsuz} satırın adında model kodu yok")
         if not agg:
             atlanan_sayfa.append(f"{kod}: hiç ürün satırı okunamadı")
+        else:
+            if _mk_harita is None:
+                from .mikro_multikod import yukleme_haritasi as _mk_yh
+                _mk_harita = _mk_yh(get_client())
+            if _mk_harita:
+                from .mikro_multikod import firma_esle as _mk_fe
+                try:
+                    agg, _mk_oz = _mk_fe(kod, agg, _mk_harita, _mk_baglam)
+                except Exception as _me:  # noqa: BLE001 — eşleşme tutmazsa rapor kodlarıyla (eski davranış)
+                    sessiz("kayranpm.excel_islemler.mikro_multikod", _me)
+                    _mk_oz = None
+                if _mk_oz and _mk_oz["eslesen"]:
+                    _mk_sayi[kod] = len(_mk_oz["eslesen"])
 
         if onizle:
             try:
@@ -988,7 +1004,8 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
             except Exception:
                 _mev = None
             onizleme[kod] = {"sku": len(agg), "stok": sum(o["stok"] + o["stok_magaza"] for o in agg.values()),
-                             "satis": sum(o["satis"] + o["satis_magaza"] for o in agg.values()), "mevcut": _mev}
+                             "satis": sum(o["satis"] + o["satis_magaza"] for o in agg.values()), "mevcut": _mev,
+                             "mikro": _mk_sayi.get(kod, 0)}
             agg.clear()
             g.clear()
             continue
@@ -1024,6 +1041,10 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
             "satis_magaza": int(o["satis_magaza"] or 0),
             "yukleme_tarihi": _rapor_tarihi,
         } for sku, o in agg.items()]
+        if any(o.get("musteri_kodu") for o in agg.values()):
+            # Mikro eşleşmesi olan firmada her satıra aynı kolon (toplu insert'te anahtarlar eşit olmalı)
+            for _r in _satirlar:
+                _r["musteri_kodu"] = agg[_r["sku"]].get("musteri_kodu") or None
 
         _toplu_oldu = False
         if _satirlar:
@@ -1115,6 +1136,8 @@ def excel_yukle_haftalik_stok_satis(dosya_yolu, dosya_adi="", onizle=False):
     msg = f"✅ Haftalık stok+satış yüklendi (rapor haftası: {_dd}) → {ozet}."
     if atlanan_sayfa:
         msg += f" ⚠️ Atlanan sekme: {', '.join(atlanan_sayfa)}."
+    if _mk_sayi:
+        msg += " Mikro kod eşleşmesi: " + ", ".join(f"{k} {n} kod" for k, n in _mk_sayi.items()) + "."
     msg += " Kategoriler ürün kartlarından eşlenir (dosyada kategori gerekmez)." + _geri
     return True, msg
 

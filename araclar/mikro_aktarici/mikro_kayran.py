@@ -431,6 +431,17 @@ SELECT sfl_sirano, sfl_aciklama, CAST(sfl_kdvdahil AS int) AS sfl_kdvdahil, sfl_
 FROM STOK_SATIS_FIYAT_LISTE_TANIMLARI WHERE sfl_iptal=0
 """,
     },
+    # ── Müşteri ürün kodları (Ekim 2026): cari başına müşterinin kendi kodu → bizim stok kodu (D-market 'HBCV…').
+    # Haftalık müşteri raporu bu kodlarla bizim SKU'ya bağlanır (kayranpm/mikro_multikod.py). Küçük tablo
+    # (yaklaşık 2.000 satır): her turda tam çekilir. Kolon adları Mikro'daki yazımla (mcod_Guid, mcod_Iptal).
+    "multikod": {
+        "tablo": "mikro_multikod", "anahtar": "mcod_guid",
+        "artimli": False,
+        "sql": """
+SELECT mcod_Guid, mcod_carikodu, mcod_stokkod, mcod_caristok_kod, mcod_caristok_ismi, mcod_tipi, mcod_lastup_date
+FROM MULTIKOD_TANIMLARI WHERE mcod_Iptal=0
+""",
+    },
 }
 
 # --------------------------------------------------------------------------- #

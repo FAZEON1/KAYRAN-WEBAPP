@@ -141,7 +141,9 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
     Eskiden 7. adım birden çok aday aynı marka + kategorideyse alfabetik ilkini seçiyordu:
     'F11PA650B' adlı beyaz ürün F11PA650BBM (siyah) kartına bağlanıyordu (Ekim 2026).
     Belirsizde adayların hepsi aynı marka + kategorideyse o değerler kullanılır (kırılım değişmez).
-    Kart yoksa ya da alan boşsa marka/kategori addan tahmin edilir (kaynak 'tahmin')."""
+    Kart yoksa ya da alan boşsa marka/kategori addan tahmin edilir (kaynak 'tahmin').
+    Satır yüklemede Mikro müşteri koduyla karta çevrildiyse (firma_stok.musteri_kodu dolu, kayranpm.mikro_multikod)
+    ve kart birebir bulunduysa kart_kaynak 'mikro' (ekranda "Mikro kod eşleşmesi")."""
     skn = sku_fn or _sku_varsayilan
     kartlar = kartlar or {}
     norm, ad_idx = {}, {}
@@ -202,11 +204,14 @@ def meta_hazirla(rows, kartlar, sku_fn=None, oner=None, kategori_liste=(), marka
         return ""
 
     out = {}
+    mikro = {_sku(r) for r in rows or [] if str(r.get("musteri_kodu") or "").strip()}
     for r in rows or []:
         ham = _sku(r)
         if ham in out:
             continue
         ks, kk, aday = _kart_bul(ham, r.get("urun_adi"))
+        if kk == "sku" and ham in mikro:
+            kk = "mikro"
         m = kartlar.get(ks) or {}
         if not ks and aday and len({_imza(k) for k in aday}) == 1:
             m = {k: (kartlar.get(aday[0]) or {}).get(k) for k in ("marka", "kategori")}
