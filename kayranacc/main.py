@@ -86,7 +86,19 @@ _AKTIF_TURLER = {
 }
 
 
+def _mikrodan_geliyor(ne):
+    """Mikro muhasebe eşitlemesi açıksa bu dosyanın yerine Mikro geçer: yükleme yapılmaz (Ekim 2026)."""
+    from kayranacc.mikro_muhasebe import acik_mi
+    if not acik_mi():
+        return False
+    st.info(f"{ne} artık Mikro'dan otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
+            "Bu dosya kaydedilmez.")
+    return True
+
+
 def _kapi_aktif(dosya, kapi, tip):
+    if tip in ("cari", "ithalat") and _mikrodan_geliyor(_AKTIF_TURLER[tip][0]):
+        return
     from kayranacc.aktif_excel import (parse_cari, parse_ithalat, parse_stok, ExcelBicimHatasi,
                                        parse_stok_excel, aktif_kaydet)
     from shared.yukleme_takvimi import serit as _yt_serit
@@ -191,6 +203,8 @@ def kapi_odeme_listesi(dosya, kapi):
 def kapi_cek_listesi(dosya, kapi):
     """Firma çek dökümü. Dosyadaki para birimlerinin MEVCUT çekleri silinip dosyadakiler yazılır
     (döküm her seferinde tam liste; aynı dosya iki kez yüklenince çift kayıt olmasın diye)."""
+    if _mikrodan_geliyor("Firma çekleri"):
+        return
     tl_cekler, usd_cekler, hatalar = excel_yukle_cek_listesi(dosya.getvalue())
     for h in hatalar:
         st.warning(h)
@@ -1879,6 +1893,8 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
                   {"etiket": "Tahsilat", "key": "bnk_tahsilat", "icon": ":material/payments:",
                    "birincil": True, "help": "Bankaya para girişi"}])
 
+    from .mikro_muhasebe_ekran import ilk_onay_kutusu as _mikro_onay
+    _mikro_onay()                         # Mikro'dan otomatik muhasebe: bir kerelik onay / kaynak notu
     kur = get_kur()
     bankalar = get_bankalar()
     odemeler, hafta = get_aktif_odemeler()

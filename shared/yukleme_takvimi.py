@@ -319,6 +319,18 @@ def _bugun():
         return date.today()
 
 
+# Mikro'dan otomatik gelen kaynaklar: eşitleme açıkken hatırlatma ve gecikme uyarısı çıkmaz (Ekim 2026)
+MIKRO_KAYNAKLARI = ("aktif_cari", "aktif_ithalat")
+
+
+def _mikro_kapsadigi():
+    try:
+        from kayranacc.mikro_muhasebe import acik_mi
+        return set(MIKRO_KAYNAKLARI) if acik_mi() else set()
+    except Exception:  # noqa: BLE001
+        return set()
+
+
 def durumlar(bugun=None):
     """Tüm etkin kaynakların durumu (önbellek: tum_durumlar)."""
     from shared.hata_log import kaydet as _hata
@@ -330,11 +342,12 @@ def durumlar(bugun=None):
     except Exception as e:  # noqa: BLE001
         _hata("yukleme_takvimi.ayar", e)
         ayarlar, kayitlar, atla = {}, {}, {}
+    mikro = _mikro_kapsadigi()
     out = []
     for kd in KAYNAKLAR:
         a = kd["anahtar"]
         k = kaynak_ayari(a, ayarlar)
-        if not k["aktif"]:
+        if not k["aktif"] or a in mikro:
             continue
         son = None
         if a in _OKUYUCU:

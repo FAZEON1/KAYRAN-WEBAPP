@@ -3517,6 +3517,8 @@ def _mikro_esitle_dene():
         if _ozet and _s.get("yayin") != _ozet and aktarici_yayinla():
             _s["yayin"] = _ozet
         otomatik()
+        from kayranacc.mikro_muhasebe import otomatik as _muhasebe_otomatik
+        _muhasebe_otomatik()             # banka, çek, cari, ithalat ödenen (Mikro adım 1)
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 
