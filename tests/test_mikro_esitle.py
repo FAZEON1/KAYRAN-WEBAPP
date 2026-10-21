@@ -155,3 +155,15 @@ def test_veritabani_fonksiyonu_stoga_dokunmaz_ve_arsivler():
     govde = sql.split("CREATE OR REPLACE FUNCTION public.mikro_esitle_uygula", 1)[1].split("$fn$;", 1)[0]
     assert "pg_advisory_xact_lock" in govde and govde.count("INSERT INTO mikro_esitleme_arsiv") == 2
     assert "stok" not in govde.lower().replace("stoğu", "")
+
+
+def test_aktarici_kod_degisince_yeniden_yayinlanir():
+    """#228'den sonra görüldü: kod 'süreç başına bir kez' yayınlanıyordu; Streamlit Cloud birleştirmeden sonra
+    süreci yeniden başlatmadığı için yeni aktarıcı sürümü hiç gönderilmedi. Artık dosya özeti değişince yayınlanır."""
+    app = (KOK / "app.py").read_text(encoding="utf-8")
+    govde = app.split("def _mikro_esitle_dene():", 1)[1].split("\ndef ", 1)[0]
+    assert "aktarici_ozeti()" in govde and '_s.get("yayin") != _ozet' in govde
+    assert 'if not _s["yayin"]' not in govde
+    import hashlib
+    kod = (KOK / "araclar/mikro_aktarici/mikro_kayran.py").read_text(encoding="utf-8")
+    assert M.aktarici_ozeti() == hashlib.sha256(kod.encode("utf-8")).hexdigest()
