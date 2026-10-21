@@ -219,12 +219,19 @@ class Kaynak:
         from kayranpm.ref_no import get_destek_donem
         v = get_destek_donem(bas, bit)
         if v is not None:
-            return v
+            return list(v) + self._mikro_destek(bas, bit)
         # Yedek dal (görünüm kurulmamışsa): bütçe harcamaları + ref tutarları
         from kayranpm.ref_no import get_tum_butce_harcamalari, get_tum_ref_tutarlari
         rows = [dict(h, donem=h.get("fatura_tarih")) for h in (get_tum_butce_harcamalari(bas, bit) or [])]
         rows += [dict(x, tur="Ref No") for x in (get_tum_ref_tutarlari(bas, bit) or [])]
-        return rows
+        return rows + self._mikro_destek(bas, bit)
+
+    def _mikro_destek(self, bas, bit):
+        """Mikro'daki müşteri satış destekleri (760.04.011; gider tablosundan çıkarılıp buraya alındı)."""
+        from kayranacc.database import get_ayar
+        from kayranacc.mikro_gider import musteri_destek_satirlari
+        y0, y1 = int(str(bas)[:4]), int(str(bit)[:4])
+        return musteri_destek_satirlari({y: get_ayar(f"gider_tablosu_{y}") for y in range(y0, y1 + 1)}, bas, bit)
 
     def gider_kat(self, yil):
         from kayranacc.database import get_ayar

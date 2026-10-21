@@ -258,6 +258,7 @@ def test_tahsilat_kaydi_yazilamazsa_loga_duser_sonuc_ayni(log, monkeypatch):
     db = _Db(cevap)
     monkeypatch.setattr(D, "get_client", lambda: db)
     monkeypatch.setattr(D, "_cache_temizle", lambda: None)
+    monkeypatch.setattr(D, "_mikro_yonetir", lambda banka_id: False)   # Mikro eşitlemesi kapalı hesap
     ok, mesaj = D.tahsilat_ekle(7, 50, kaynak="müşteri", tarih="2026-10-14")
     assert ok is True and "tahsilat Ana hesabına eklendi" in mesaj      # eski davranış
     assert db.yazilan == [("bankalar", "update", {"bakiye": 150.0})]    # bakiye yine yazıldı

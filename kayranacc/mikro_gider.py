@@ -37,6 +37,12 @@ SAYFA = 1000            # Supabase tek sorguda en fazla 1000 satır döndürür
 KATEGORILER = ("Sabit", "Değişken", "Yarı Değişken")
 GIDER_ONEK = ("760.", "770.", "780.", "689.")
 HARIC = ("760.04.019", "760.04.020", "760.04.021", "760.04.022", "760.04.023")   # satış destek bedelleri
+# Müşteriye verilen satış destekleri (kullanıcı, 21.10.2026: "sattığımız ürünlerin satışına istinaden müşterilerimize
+# verdiğimiz desteklerdir"): gider değil, destek. Gider tablosuna girmez; tablonun "destek" satırına (12 ay, TL)
+# yazılır ve P&L'de Destekler'e eklenir (yonetim_hesap.Kaynak.destekler) — net kâr değişmez, yalnız yeri doğru olur.
+# Ref no destek kayıtlarıyla çakışmıyor (denetim 21.10: Şubat 293.268 TL ↔ ref no 14.072 TL).
+MUSTERI_DESTEK = ("760.04.011",)
+MUSTERI_DESTEK_TUR = "Satış pazarlama desteği (Mikro)"
 DIGER_KAT = "Yarı Değişken"
 KURUS = 0.005
 
@@ -78,7 +84,6 @@ KALEMLER = [
     ("Yarı Değişken", "ARAÇ KİRALAMA GİDERLERİ", ("760.03.003", "770.04.014")),
     ("Yarı Değişken", "SEYAHAT GİDERLERİ", ("760.04.005", "760.04.004", "770.04.013")),
     ("Yarı Değişken", "ARAÇ YAKIT VE DİĞER TÜM GİDERLERİ", ("760.04.007", "760.04.017", "770.03.015", "770.04.004")),
-    ("Yarı Değişken", "SATIŞ PAZ.DESTEK GİD.", ("760.04.011",)),
     ("Yarı Değişken", "PERSONEL YURTİÇİ YOL GİDERLERİ", ("760.04.026", "770.01.014")),
     ("Yarı Değişken", "ELEKTRİK VE SU VE GAZ GİDERLERİ", ("770.03.001",)),
     ("Yarı Değişken", "OFİS TAMİR-BAKIM ONARIM GİDERLERİ", ("770.03.013",)),
@@ -104,7 +109,7 @@ def _s(v):
 
 # ── Saf ────────────────────────────────────────────────────────────
 def gider_hesabi_mi(kod):
-    return kod.startswith(GIDER_ONEK) and kod not in HARIC
+    return kod.startswith(GIDER_ONEK) and kod not in HARIC and kod not in MUSTERI_DESTEK
 
 
 def kapanis_mi(r):
@@ -142,12 +147,16 @@ def gider_tablosu(satirlar, yil, ay_siniri=12, hesap_adlari=None):
     ay_siniri: bu aydan (1–12, dahil) sonrası 0 kalır."""
     ad = hesap_adlari or {}
     kalem = defaultdict(lambda: [0.0] * 12)
+    destek = [0.0] * 12
     for r in satirlar:
         if int(_f(r.get("yil"))) != int(yil):
             continue
         ay = int(_f(r.get("ay")))
         kod = _s(r.get("hesap_kod"))
         if not 1 <= ay <= ay_siniri:
+            continue
+        if kod in MUSTERI_DESTEK:
+            destek[ay - 1] += _f(r.get("borc")) - _f(r.get("alacak"))
             continue
         k = kalem_bul(kod, ad.get(kod))
         if k:
@@ -159,7 +168,23 @@ def gider_tablosu(satirlar, yil, ay_siniri=12, hesap_adlari=None):
     kat = {k: [0.0] * 12 for k in KATEGORILER}
     for kt, _kl, aylik in detay:
         kat[kt] = [round(a + b, 2) for a, b in zip(kat[kt], aylik)]
-    return {"kat": kat, "detay": detay}
+    out = {"kat": kat, "detay": detay}
+    if any(abs(v) >= KURUS for v in destek):
+        out["destek"] = [round(v, 2) for v in destek]
+    return out
+
+
+def musteri_destek_satirlari(tablolar, bas, bit):
+    """P&L destek satırları: {yil: gider tablosu kaydı} içindeki "destek" (TL, ay ay) → [{tur, tutar, doviz, donem}],
+    yalnız ayın 15'i [bas, bit] aralığındaysa."""
+    out = []
+    b0, b1 = str(bas)[:10], str(bit)[:10]
+    for yil, kayit in sorted((tablolar or {}).items()):
+        for i, v in enumerate((kayit or {}).get("destek") or []):
+            gun = f"{int(yil)}-{i + 1:02d}-15"
+            if abs(_f(v)) >= KURUS and b0 <= gun <= b1:
+                out.append({"tur": MUSTERI_DESTEK_TUR, "tutar": _f(v), "doviz": "TL", "donem": gun})
+    return out
 
 
 def ay_siniri(yil, bugun):
@@ -177,6 +202,9 @@ def esit_mi(a, b):
         return {(d[0], d[1]): [round(_f(x), 2) for x in d[2]] for d in (t or {}).get("detay") or []}
     ha, hb = _harita(a), _harita(b)
     if set(ha) != set(hb):
+        return False
+    da, db = [_f(x) for x in (a or {}).get("destek") or [0.0] * 12], [_f(x) for x in (b or {}).get("destek") or [0.0] * 12]
+    if any(abs(x - y) >= KURUS for x, y in zip(da, db)):
         return False
     return all(abs(x - y) < KURUS for k in ha for x, y in zip(ha[k], hb[k]))
 

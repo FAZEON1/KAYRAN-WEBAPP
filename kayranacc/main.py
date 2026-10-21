@@ -2803,8 +2803,13 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
     except Exception:
         usd_stok, pazaryerleri = 0.0, {}
 
-    # %20 KDV dahil stok (formül: değer × 1.20)
-    stok_marjli = usd_stok * 1.20 if usd_stok else 0
+    # Stok: eskiden KDV dahil (× 1,20). Mikro defter kalemleri açıkken bilanço mantığı (Ekim 2026, kullanıcı: "sen
+    # belirle"): stok maliyetle (× 1,00); gümrükte peşin ödenen %20 KDV Mikro'da indirilecek KDV'de (191) durur ve
+    # defterin "KDV" kaleminde hesaplanan KDV'den mahsup edilerek sayılır — × 1,20 ile birlikte KDV iki kez girerdi.
+    from .mikro_aktif import acik_mi as _ma_acik, stok_carpani as _stok_carpani
+    _ma_acik_v = _ma_acik()
+    _stok_carpan = _stok_carpani(_ma_acik_v)
+    stok_marjli = usd_stok * _stok_carpan if usd_stok else 0
 
     # İthalat
     try:
@@ -2884,9 +2889,8 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
 
     # Mikro defter kalemleri + satış maliyeti (Ekim 2026, kayranacc/mikro_aktif.py). Aynı şey elle de girildiyse
     # manuel kalem toplama girmez (iki kez sayılmasın; ekranda gösterilir).
-    from .mikro_aktif import acik_mi as _ma_acik, kayitli as _ma_kayitli, manuel_cakisan as _ma_cakisan, \
-        usd_ozeti as _ma_ozet
-    _ma_kayit = _ma_kayitli() if _ma_acik() else None
+    from .mikro_aktif import kayitli as _ma_kayitli, manuel_cakisan as _ma_cakisan, usd_ozeti as _ma_ozet
+    _ma_kayit = _ma_kayitli() if _ma_acik_v else None
     _ma = _ma_ozet(_ma_kayit, kur, stok_marjli) if _ma_kayit else {"arti": 0.0, "eksi": 0.0, "satis_maliyeti_usd": 0.0}
     _ma_cak = _ma_cakisan(manuel_kalemler, _ma_kayit) if _ma_kayit else {}
 
@@ -2928,7 +2932,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         - _ma["satis_maliyeti_usd"]
     )
     from .mikro_aktif_ekran import bolum as _ma_bolum
-    _ma_bolum(kur, stok_marjli, toplam_aktif, manuel_kalemler)
+    _ma_bolum(kur, usd_stok, toplam_aktif, manuel_kalemler)
 
     # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
     # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
@@ -2967,6 +2971,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
             "defter_arti": round(_ma["arti"], 2),
             "defter_eksi": round(_ma["eksi"], 2),
             "satis_maliyeti": round(_ma["satis_maliyeti_usd"], 2),
+            "stok_carpan": _stok_carpan,
         })
     except Exception as _e:
         _snap_ok = False
@@ -2992,7 +2997,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         ]), unsafe_allow_html=True)
         # Kısa hesap dökümü
         _dk = [
-            ("Stok (×1,20)", stok_marjli, "+"), ("İthalat (ödenen)", odenen_ithalat, "+"),
+            ("Stok (×1,20)" if _stok_carpan > 1 else "Stok (maliyet)", stok_marjli, "+"), ("İthalat (ödenen)", odenen_ithalat, "+"),
             ("Banka (USD)", banka_usd_eqv, "+"), ("Cari alacak", toplam_alacak_usd, "+"),
             ("Manuel ekleme", manuel_ekle_toplam, "+"),
             ("Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),

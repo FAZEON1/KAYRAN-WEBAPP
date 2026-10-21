@@ -219,4 +219,4 @@ def test_esitleme_isleri_stoktan_sonra_stok_degeri():
     assert moduller.index("kayranacc.mikro_stok_degeri") > moduller.index("kayranpm.mikro_stok")
     app = (KOK / "app.py").read_text(encoding="utf-8")
     govde = app.split("def _mikro_esitle_dene():", 1)[1].split("\ndef ", 1)[0]
-    assert govde.index("_stok_degeri_otomatik()") > govde.index("_stok_otomatik()")
+    assert "_mod.ISLER" in govde and "_mod.tur(" in govde     # uygulama da aynı sıralı listeyi çalıştırır

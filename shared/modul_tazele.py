@@ -103,8 +103,18 @@ def yuklenenleri_kaydet(moduller, kok, kayit):
     degisen_moduller(moduller, kok, kayit)
 
 
+def arka_is_suruyor():
+    """Mikro eşitleme iş parçacığı (app.py _mikro_esitle_dene) çalışıyor mu."""
+    import threading
+    return any(t.name == "mikro_esitle" and t.is_alive() for t in threading.enumerate())
+
+
 def bayatlari_tazele(moduller, kok, kayit):
-    """Değişen dosya varsa proje modüllerini siler ve kaydı sıfırlar; silinen adları döndürür."""
+    """Değişen dosya varsa proje modüllerini siler ve kaydı sıfırlar; silinen adları döndürür.
+    Mikro eşitleme iş parçacığı çalışırken silmez (bir sonraki çalıştırmaya kalır): o iş parçacığı modül içe
+    aktarırken silmek 'deadlock detected by _ModuleLock' / KeyError hatası veriyordu (21.10 hata kayıtları)."""
+    if arka_is_suruyor():
+        return []
     if not degisen_moduller(moduller, kok, kayit):
         return []
     kayit.clear()

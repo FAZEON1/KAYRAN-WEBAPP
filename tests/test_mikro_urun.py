@@ -362,7 +362,7 @@ def test_aktarici_urun_sorgulari_tam_ve_semayla_uyumlu(mk):
 
 def test_otomatik_calismaya_eklendi():
     app = (KOK / "app.py").read_text(encoding="utf-8")
-    assert "from kayranpm.mikro_urun import otomatik" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
+    assert "_mod.ISLER" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
     spec = importlib.util.spec_from_file_location("otonom_mikro_esitle_urun", KOK / "otonom" / "mikro_esitle.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

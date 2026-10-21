@@ -3507,7 +3507,7 @@ def _mikro_esitle_dene():
         return
     _s["t"] = _t.time()
     import threading as _th
-    from satis.mikro_esitle import aktarici_ozeti, aktarici_yayinla, otomatik
+    from satis.mikro_esitle import aktarici_ozeti, aktarici_yayinla
 
     def _is():
         # Aktarıcının güncel kodu (sunucudaki aktarıcı kendini günceller). Dosyanın özeti değişince yeniden
@@ -3516,21 +3516,15 @@ def _mikro_esitle_dene():
         _ozet = aktarici_ozeti()
         if _ozet and _s.get("yayin") != _ozet and aktarici_yayinla():
             _s["yayin"] = _ozet
-        otomatik()
-        from kayranacc.mikro_muhasebe import otomatik as _muhasebe_otomatik
-        _muhasebe_otomatik()             # banka, çek, cari, ithalat ödenen (Mikro adım 1)
-        from kayranacc.mikro_gider import otomatik as _gider_otomatik
-        _gider_otomatik()                # aylık gider tablosu (Mikro adım 1c)
-        from kayranpm.mikro_stok import otomatik as _stok_otomatik
-        _stok_otomatik()                 # depo stoğu (Mikro adım 2)
-        from kayranacc.mikro_stok_degeri import otomatik as _stok_degeri_otomatik
-        _stok_degeri_otomatik()          # Toplam Aktifler stok değeri = depo stoğu × paçal (adım 2b; stoktan sonra)
-        from kayranacc.mikro_aktif import otomatik as _aktif_otomatik
-        _aktif_otomatik()                # Toplam Aktifler: defter kalemleri (kasa, KDV, vergi, SGK…) + satış maliyeti oranı
-        from kayranpm.mikro_urun import otomatik as _urun_otomatik
-        _urun_otomatik()                 # ürün kartları, boş alanlar, barkod, müşteri fiyat listeleri
-        from ithalat.mikro_ithalat import otomatik as _ithalat_otomatik
-        _ithalat_otomatik()              # Geçmiş İthalatlar: masraf, teslim, durum, yeni dosya (Mikro adım 3)
+        # İşler GitHub turuyla AYNI listeden ve aynı kilitle (otonom/mikro_esitle.py ISLER, tur): eskiden burada
+        # ayrı bir liste vardı, kilit yoktu, sessiz kalan hata (21.10: satış eşitlemesi 16:04'ten sonra yazmadı)
+        # hiçbir yere düşmüyordu. Artık sonuç sağlık günlüğüne / Telegram'a gider (yalnız bir şey olduysa).
+        import importlib.util as _ilu
+        _yol = _os_bt.path.join(_os_bt.path.dirname(_os_bt.path.abspath(__file__)), "otonom", "mikro_esitle.py")
+        _spec = _ilu.spec_from_file_location("otonom_mikro_esitle_arka", _yol)
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _mod.tur("uygulama-arka", [i for i in _mod.ISLER if i[2] != "aktarici_yayinla"], gunluk_her_zaman=False)
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 
