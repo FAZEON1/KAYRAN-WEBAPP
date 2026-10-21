@@ -14,6 +14,8 @@ ağırlıklı ortalama yaşı, en eski kalan partisi ve yaş grupları bunlardan
   Müşteri stoğu   her kanalın SON raporundaki stok (stok_hesap.kanal_stoklari — Tüm Ürünler ile
                   aynı kural). Partiler: o müşteriye yaptığımız satışlar (fatura tarihi). Yaş,
                   malın müşteride ne kadar süredir beklediğidir.
+  Mikro kaynağı   (Ekim 2026, bir kerelik onayla) partiler Mikro depo hareketlerinden: satılabilir havuza
+                  dışarıdan giriş tarihi (ithalat, yurt içi alış, antrepodan sevk); kural kayranpm/mikro_depo.py.
   Kapsanmayan     stok, kayıtlı partilerden fazlaysa aradaki adet 'giriş kaydı yok' sayılır; yaşı
                   hesaplanmaz (uydurulmaz). Yurt içi alış sayfasından alım girilince kapanır.
 
@@ -293,7 +295,8 @@ def mail_html(satirlar, esik_gun, bugun):
 
 
 # ── Saf: liste ve Excel satırları (Stok yaşı sayfası) ───────────────
-TUR_AD = {"ithalat": "İthalat", "yurtici": "Yurt içi", "yerli": "Yerli üretim"}
+TUR_AD = {"ithalat": "İthalat", "yurtici": "Yurt içi", "yerli": "Yerli üretim",
+          "giris": "Diğer giriş", "sevk": "Depo sevki"}          # son ikisi Mikro partileri (mikro_depo)
 
 
 def _yuvarla(v):
@@ -409,10 +412,26 @@ def _bugun():
         return date.today()
 
 
-def _bizim_partiler_oku():
+def _alim_partileri_oku():
+    """Uygulamadaki alım dosyalarından partiler (Mikro kaynağı açılmadan önceki kural)."""
     from ithalat.database import get_dosyalar, get_tum_kalemler
     from shared.utils import sku_anahtar
     return bizim_partiler(get_dosyalar() or [], get_tum_kalemler() or [], sku_anahtar)
+
+
+def _bizim_partiler_oku():
+    """Mikro depo hareketleri kaynağı açıksa (kayranpm.mikro_depo, bir kerelik onay) partiler Mikro'dan: havuza
+    dışarıdan giriş tarihi. Mikro verisi okunamaz / boşsa alım dosyalarına düşer (yaşlar boş kalmasın)."""
+    try:
+        from kayranpm import mikro_depo
+        if mikro_depo.acik_mi():
+            p = mikro_depo.havuz_partileri_oku()
+            if p:
+                return p
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("kayranpm.stok_yasi._bizim_partiler_oku", e)
+    return _alim_partileri_oku()
 
 
 def _musteri_oku():
@@ -426,14 +445,11 @@ def _musteri_oku():
     return kanal, musteri_partileri(get_satislar_yalin() or [], bul, sku_anahtar)
 
 
-def hesapla():
-    """Sayfa ve stok kartı için tek hesap: {"bizim": {sku: (özet, kalanlar, urun)},
-    "musteri": {firma: {sku: (özet, kalanlar)}}, "bugun"}."""
+def bizim_stoklari(ayar=None):
+    """Satılabilir stok: ({sku anahtarı: adet}, {sku anahtarı: kart}, istisna kategorideki anahtarlar)."""
     from kayranpm.database import _hepsi
     from shared.utils import sku_anahtar
-    bugun = _bugun()
-    part = _bizim_partiler_oku()
-    ayar = ayar_oku()
+    ayar = ayar if ayar is not None else ayar_oku()
     stoklar, kartlar, haric = {}, {}, set()
     for u in _hepsi("urunler", "sku, urun_adi, kategori, marka, bizim_stok"):
         stok = _f(u.get("bizim_stok"))
@@ -445,6 +461,16 @@ def hesapla():
             continue
         stoklar[k] = stoklar.get(k, 0.0) + stok          # aynı anahtarlı iki kart: stok toplanır
         kartlar.setdefault(k, u)
+    return stoklar, kartlar, haric
+
+
+def hesapla():
+    """Sayfa ve stok kartı için tek hesap: {"bizim": {sku: (özet, kalanlar, urun)},
+    "musteri": {firma: {sku: (özet, kalanlar)}}, "bugun"}."""
+    bugun = _bugun()
+    part = _bizim_partiler_oku()
+    ayar = ayar_oku()
+    stoklar, kartlar, haric = bizim_stoklari(ayar)
     bizim = {}
     for k, stok in stoklar.items():
         oz, kal = urun_yasi(stok, part.get(k, []), bugun)

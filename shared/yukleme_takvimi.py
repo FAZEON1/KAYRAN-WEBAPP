@@ -355,6 +355,12 @@ def _mikro_kapsadigi():
             out.add("aktif_stok")         # Toplam Aktifler stok değeri: depo stoğu × paçal
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from kayranpm.mikro_depo import acik_mi as depo_acik
+        if depo_acik():
+            out.add("happylife")         # Happy Life stoğu ve giriş tarihleri Mikro'dan (palet Excel'i isteğe bağlı)
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 

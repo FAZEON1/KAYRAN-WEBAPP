@@ -109,8 +109,24 @@ def depo_ozeti(rows):
 
 
 # ── Okuma ───────────────────────────────────────────────────────────
-def hesapla(bugun=None):
-    """Canlı veriden (satırlar, depo özeti, teknik servis karşılaştırması {ozet, fark, bekleyen})."""
+def _mikro_partileri(mikro):
+    """Mikro depo hareketleri kaynağı (kayranpm.mikro_depo): açıksa ya da mikro=True ise {(depo, sku): [parti]},
+    değilse / veri yoksa None (eski kaynak: iade kayıtları + stok defteri + servis kayıtları)."""
+    try:
+        from kayranpm import mikro_depo
+        if mikro is None:
+            mikro = mikro_depo.acik_mi()
+        return mikro_depo.depo_partileri_oku() if mikro else None
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("depo.satilamayan._mikro_partileri", e)
+        return None
+
+
+def hesapla(bugun=None, mikro=None):
+    """Canlı veriden (satırlar, depo özeti, teknik servis karşılaştırması {ozet, fark, bekleyen}).
+    mikro: None → kayranpm.mikro_depo açık mı; True / False → onay ekranı karşılaştırması için zorla.
+    Mikro kaynağında bekleme süresi her depoya Mikro'daki giriş (sevk dahil) tarihinden."""
     from datetime import date
     from kayranpm.database import _hepsi, _SATILABILIR_DEPOLAR, depo_dagilimi, depo_kanonik
     from satis.database import get_iadeler, get_pacal_map, pacal_bul
@@ -127,8 +143,10 @@ def hesapla(bugun=None):
         acik = T.acik_oku()
     except Exception:                 # servis kayıtları okunamazsa yaş yalnız defterden
         acik = []
-    pmap = partiler(get_iadeler() or [], hareketler, depo_kanonik, sku_anahtar,
-                    ts_partiler=T.ts_partileri(acik, _SATILABILIR_DEPOLAR))
+    pmap = _mikro_partileri(mikro)
+    if pmap is None:
+        pmap = partiler(get_iadeler() or [], hareketler, depo_kanonik, sku_anahtar,
+                        ts_partiler=T.ts_partileri(acik, _SATILABILIR_DEPOLAR))
     pacal = get_pacal_map() or {}
     rows = satirlar(urunler, pmap, bugun, kirilim=lambda dk: depo_dagilimi(dk)[0],
                     satilabilir=_SATILABILIR_DEPOLAR, anahtar=sku_anahtar,
@@ -176,7 +194,8 @@ def render():
         {"etiket": f"{YASLI_GUN} günü geçen", "deger": _usd(y_deger), "renk": "amber",
          "alt": "girişi kayıtlı maldan"},
         {"etiket": "Giriş kaydı yok", "deger": tr_sayi(round(kayitsiz)), "renk": "soluk",
-         "alt": "stok defteri 30.09.2026'da başladı"},
+         "alt": ("Mikro hareketleri 2025'ten" if _mikro_partileri(None) is not None
+                 else "stok defteri 30.09.2026'da başladı")},
     ]), unsafe_allow_html=True)
 
     st.markdown("**Depo bazında**")
