@@ -13,7 +13,13 @@ iki şey ekler:
    (artı); net KDV, ödenecek vergi ve SGK, gider tahakkukları, personele / diğer borçlar, kredi ve kart
    borçları, yurt içi satıcılar (eksi). TL bakiye ekranda o günün kuruyla dolara çevrilir.
    İKİ KEZ SAYILMASIN: Toplam Aktifler'in kendi kalemlerinin hesapları (KAPSANAN: banka 102, çek 103,
-   cari 120 / 340, ithalat avansı 159 / 320.50, stok 153) hiçbir kaleme girmez; testte denetlenir.
+   cari 120 / 340, ithalat avansı 320.50, stok 153) hiçbir kaleme girmez; testte denetlenir. 159 (verilen sipariş
+   avansları: ithalat masrafları navlun / ardiye / gümrük ve dönem sonu 320 → 159 virmanı) da girmez: teslim
+   alınmış dosyaların masrafı paçalda, yani stok değerinde zaten var.
+   KDV (kullanıcı, 21.10: "gümrükte %20 KDV'yi peşin ödüyoruz, göstermezsek eksik olur mu — sen belirle"):
+   gümrükte ödenen KDV Mikro'da 191 indirilecek KDV'dedir; "KDV" kalemi 190 + 191 − 391 netidir, yani peşin
+   ödenen KDV satışta tahsil edilecek KDV'den mahsup edilmiş olarak sayılır. Bu yüzden açıkken stok × 1,00
+   (stok_carpani): eski × 1,20 stoğun gelecekteki satış KDV'sini de varlık sayıyordu, o KDV devlete aittir.
    Aynı şey elle de girilmişse (manuel kalem açıklaması bir defter kalemiyle eşleşiyorsa) manuel kalem
    toplama girmez, ekranda "Mikro'dan geliyor, sayılmadı" diye görünür.
 
@@ -90,6 +96,12 @@ def _buyuk(s):
     import unicodedata
     from shared.utils import tr_buyuk
     return unicodedata.normalize("NFC", tr_buyuk(unicodedata.normalize("NFC", _s(s))))
+
+
+def stok_carpani(acik):
+    """Toplam Aktifler'e giren stok çarpanı: defter kalemleri açıkken 1,00 (bilanço: stok maliyetle, KDV ayrı
+    kalemde), kapalıyken eski 1,20 (KDV dahil)."""
+    return 1.0 if acik else 1.20
 
 
 def onek_uyar(kod, onekler):

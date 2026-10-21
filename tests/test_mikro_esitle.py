@@ -169,6 +169,37 @@ def test_aktarici_kod_degisince_yeniden_yayinlanir():
     assert M.aktarici_ozeti() == hashlib.sha256(kod.encode("utf-8")).hexdigest()
 
 
+def test_aktarici_yayinla_yayin_zamanini_gunceller(monkeypatch):
+    """mikro_aktarici_surum.yayin yalnız ilk eklemede (DEFAULT now()) doluyordu; upsert'te değişmiyordu
+    (canlıda yayin ilk yayının zamanında kaldı). Artık her yayında yazılır."""
+    import types
+    from datetime import datetime
+    yazilan = []
+
+    class _T:
+        def select(self, *a):
+            return self
+
+        def eq(self, *a):
+            return self
+
+        def upsert(self, satir):
+            yazilan.append(satir)
+            return self
+
+        def execute(self):
+            return types.SimpleNamespace(data=[{"sha256": "eski"}])
+
+    class _C:
+        def table(self, ad):
+            assert ad == "mikro_aktarici_surum"
+            return _T()
+    monkeypatch.setattr(M, "_cli", lambda: _C())
+    assert M.aktarici_yayinla() is True
+    assert yazilan and yazilan[0]["sha256"] == M.aktarici_ozeti() and yazilan[0].get("yayin")
+    assert datetime.fromisoformat(yazilan[0]["yayin"]).tzinfo is not None
+
+
 # ── Satış eşitlemesi açıkken Dosya kapısındaki satış dökümü / iade Excel'i kaydedilmez (Ekim 2026) ──
 class _KayitYolu:
     """Gövde dosyayı okumaya / kaydetmeye kalkarsa test kırmızı olur (kapı kapalı olmalıydı)."""
@@ -251,3 +282,66 @@ def test_otomatik_plan_satirlarin_cogunu_silemez():
     assert not M.otomatik_guvenli_mi({"silinecek_satir": 1639, "mevcut_satir": 2818})
     assert M.otomatik_guvenli_mi({"silinecek_satir": 40, "mevcut_satir": 2818})
     assert M.otomatik_guvenli_mi({"silinecek_satir": 90, "mevcut_satir": 120})   # küçük tablo tabanı
+
+
+# ── Elle satırın faturaya bağlanması (denetim, Ekim 2026) ──
+# Eski kural elle (Mikro dışı) satırı yalnız tarihi firmanın son faturasından SONRA DEĞİLSE siliyordu.
+# Canlı örnek: ADSMOTION 03.08 elle satır (10 × X24F240P, 79 $) — Mikro faturası G5F26-2210 (29.07, 10 ×
+# X24F240P) zaten vardı; elle satır faturadan sonra tarihli olduğu için silinmedi → satış iki kez sayıldı.
+ADS = "ADSMOTION TEKNOLOJİ VE REKLAM ANONİM ŞİRKETİ"
+
+
+def _ads(no_sira, sku, adet, tutar, tarih):
+    return _s(no_sira, sku, adet, tutar, tarih=tarih, cari="120.02.050", unvan=ADS)
+
+
+def test_faturadan_sonra_tarihli_elle_satir_faturayla_eslesirse_silinir():
+    mikro = [_ads(2210, "Fazeon X24F240P", 10, 844.5, "2026-07-29")]
+    satislar = [
+        _sat(49461, "2026-08-03", ADS, "X24F240P", 10, 79, 74.3, "2026/08/03", "Depo: MERKEZ"),
+        _sat(51546, "2026-10-20", ADS, "X24F240P", 50, 80, 74.3, "2846"),     # faturası yok → kalır
+        _sat(3, "2026-08-04", ADS, "X24F240P", 9, 79, 74.3, "y"),             # adet farklı → kalır
+        _sat(4, "2026-08-04", ADS, "X27F241S", 10, 79, 74.3, "z"),            # SKU farklı → kalır
+        _sat(5, "2026-08-04", "BAŞKA FİRMA", "X24F240P", 10, 79, 74.3, "w"),   # firma farklı → kalır
+    ]
+    p = M.plan_yap(mikro, satislar, [], pacal_fn=lambda s: 0.0)
+    assert p["yuk"]["sil_satis_id"] == [49461]
+    ag = next(o for o in p["ozet"] if o["ay"] == "2026-08")
+    assert ag["ciro_once"] - ag["ciro_sonra"] == pytest.approx(790)          # çift sayılan 10 × 79 $
+    assert p["elle_eslesen"][0]["fatura_no"] == "G5F26-2210"
+
+
+def test_elle_satir_eslesme_penceresi_45_gun():
+    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
+    yakin = _sat(1, "2026-09-12", ADS, "X24F240P", 10, 79, 70, "a")          # 45 gün → silinir
+    uzak = _sat(2, "2026-09-13", ADS, "X24F240P", 10, 79, 70, "b")           # 46 gün → kalır
+    assert M.plan_yap(mikro, [yakin], [])["yuk"]["sil_satis_id"] == [1]
+    assert M.plan_yap(mikro, [uzak], [])["yuk"]["sil_satis_id"] == []
+
+
+def test_bir_fatura_satiri_yalniz_bir_elle_satiri_karsilar():
+    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
+    satislar = [_sat(1, "2026-08-03", ADS, "X24F240P", 10, 79, 70, "a"),
+                _sat(2, "2026-08-05", ADS, "X24F240P", 10, 79, 70, "b")]
+    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == [1]
+    # iki fatura satırı → iki elle satır
+    mikro2 = mikro + [_ads(2211, "X24F240P", 10, 844.5, "2026-07-30")]
+    assert sorted(M.plan_yap(mikro2, satislar, [])["yuk"]["sil_satis_id"]) == [1, 2]
+
+
+def test_tarih_kuraliyla_silinen_satir_fatura_satirini_tuketir():
+    """Faturadan önceki elle satır eskisi gibi silinir ve faturayı 'kullanır': sonraki aynı satır kalır."""
+    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
+    satislar = [_sat(1, "2026-07-20", ADS, "X24F240P", 10, 79, 70, "a"),
+                _sat(2, "2026-08-03", ADS, "X24F240P", 10, 79, 70, "b")]
+    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == [1]
+
+
+def test_faturasi_olmayan_bugunku_elle_siparis_kalir():
+    """EERA 21.10 elle siparişleri: firmanın son satış faturası önceki tarihli ve aynı SKU / adet faturası
+    yok → silinmez."""
+    eera = "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ"
+    mikro = [_s(2900, "X27F241S", 5, 500, tarih="2026-10-10", cari="120.02.005", unvan=eera)]
+    satislar = [_sat(1, "2026-10-21", eera, "X27F241S", 4, 100, 80, "2847"),
+                _sat(2, "2026-10-21", eera, "X24F200", 5, 100, 80, "S261021-134832")]
+    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == []

@@ -78,6 +78,7 @@ SUPABASE = {
     "key": os.getenv("SUPABASE_SERVICE_KEY", ""),
 }
 PARTI_BOYUTU = 500  # tek istekte gönderilecek satır sayısı
+SILME_PARTI = 100   # tek silme isteğindeki GUID sayısı (adres uzunluğu sınırı)
 ARALIK_SN = 900  # sürekli modda tur aralığı: 15 dakika (bütün hareket geçmişini tarayan sorgular var)
 KILIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aktarim.kilit")
 KILIT_ESKI_SN = 3 * 3600  # bu kadar eski kilit, çökmüş bir çalıştırmadan kalmıştır
@@ -449,6 +450,36 @@ FROM MULTIKOD_TANIMLARI WHERE mcod_Iptal=0
 }
 
 # --------------------------------------------------------------------------- #
+# İptal yansıması (Ekim 2026). Artımlı sorgular "iptal=0 AND lastup > SON" ile çeker: Mikro'da sonradan iptal
+# edilen kayıt artık sorguya gelmez ve Supabase kopyasında gece 03:00 tam aktarımına (eskileri_sil) kadar
+# kalıyordu. Her artımlı turda, son çekimden beri iptal edilen kayıtların GUID'leri Mikro'dan SELECT ile okunur
+# ve YALNIZ Supabase kopyasından silinir. Mikro tablosu başına tek sorgu; hedefler: (SORGULAR adı, kopyadaki
+# kolon). Satış satırı iki yoldan düşer: satırın kendisi (sth_iptal) ya da bağlı faturası (cha_iptal →
+# sth_fat_uid). depo_hareket ve serino iptal işaretini kopyaya taşır (WHERE'de süzmez), burada yoktur.
+# Mikro'da kalıcı olarak SİLİNEN kayıt SELECT ile görülemez (iz kalmaz): onları yine 03:00 tam aktarımı temizler.
+# --------------------------------------------------------------------------- #
+IPTAL_SORGULARI: dict[str, dict[str, Any]] = {
+    "SIPARISLER": {
+        "alan": "sip_iptal",
+        "sql": "SELECT sip_Guid FROM SIPARISLER WHERE sip_iptal=1 AND sip_lastup_date > '{SON}'",
+        "hedefler": (("siparis", "sip_guid"),),
+    },
+    "CARI_HESAP_HAREKETLERI": {
+        "alan": "cha_iptal",
+        "sql": "SELECT cha_Guid FROM CARI_HESAP_HAREKETLERI WHERE cha_iptal=1 AND cha_lastup_date > '{SON}'",
+        "hedefler": (("fatura", "cha_guid"), ("ithalat", "cha_guid"), ("cari_hareket", "cha_guid"),
+                     ("masraf", "cha_guid"), ("satis_satir", "sth_fat_uid")),
+    },
+    "STOK_HAREKETLERI": {
+        "alan": "sth_iptal",
+        "sql": "SELECT sth_Guid FROM STOK_HAREKETLERI WHERE sth_iptal=1 AND sth_lastup_date > '{SON}'",
+        "hedefler": (("fatura_satir", "sth_guid"), ("ithalat_stok", "sth_guid"), ("satis_satir", "sth_guid"),
+                     ("alim_satir", "sth_guid")),
+    },
+}
+GUID_DESENI = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+
+# --------------------------------------------------------------------------- #
 # Mikro API istemcisi
 # --------------------------------------------------------------------------- #
 class MikroHata(Exception):
@@ -607,13 +638,32 @@ class Supabase:
                 timeout=120,
             ))
 
-    def eskileri_sil(self, tablo: str, once: datetime) -> None:
-        self._kontrol(self.oturum.delete(
+    def _sil(self, tablo: str, params: dict[str, str], temsil: bool = False) -> requests.Response:
+        """Supabase kopyasından süzgeçle siler (yalnız Supabase; Mikro'ya dokunmaz). Süzgeçsiz silme yapılmaz."""
+        if not params:
+            raise MikroHata(f"{tablo}: süzgeçsiz silme reddedildi")
+        return self._kontrol(self.oturum.delete(
             f"{self.rest}/{tablo}",
-            params={"senk_zamani": f"lt.{once.isoformat()}"},
-            headers={"Prefer": "return=minimal"},
+            params=params,
+            headers={"Prefer": "return=representation" if temsil else "return=minimal"},
             timeout=120,
         ))
+
+    def eskileri_sil(self, tablo: str, once: datetime) -> None:
+        self._sil(tablo, {"senk_zamani": f"lt.{once.isoformat()}"})
+
+    def guidleri_sil(self, tablo: str, kolon: str, guidler: list[str]) -> int:
+        """kolon değeri verilen GUID'lerden biri olan kopya satırlarını siler. Döner: silinen satır sayısı.
+        GUID'ler çağıran tarafta uuid biçimine göre süzülmüş olmalı (iptalleri_yansit)."""
+        silinen = 0
+        for i in range(0, len(guidler), SILME_PARTI):
+            parca = guidler[i:i + SILME_PARTI]
+            r = self._sil(tablo, {kolon: "in.(" + ",".join(parca) + ")", "select": kolon}, temsil=True)
+            try:
+                silinen += len(r.json() or [])
+            except ValueError:
+                pass
+        return silinen
 
     def durum_oku(self) -> dict[str, str]:
         r = self._kontrol(self.oturum.get(
@@ -705,7 +755,56 @@ def senkronize_et(istemci: MikroIstemci, sb: Supabase, tam: bool = False) -> dic
         log.info("[%s] %d kayıt (%s)", tablo, len(satirlar), "artımlı" if artimli else "tam")
         if artimli:
             yeni[tablo] = len(satirlar)
+
+    if not tam and durum:
+        for tablo, n in iptalleri_yansit(istemci, sb, durum).items():
+            yeni[tablo] = yeni.get(tablo, 0) + n      # silme de "değişiklik": eşitleme başlasın
     return yeni
+
+
+def _guidler(kayitlar: list[dict[str, Any]]) -> list[str]:
+    """Tek kolonlu sonuçtan uuid biçimindeki GUID'ler (küçük harf, tekrarsız). Biçime uymayan atlanır:
+    değer silme süzgecine girdiği için yalnız GUID kabul edilir."""
+    import re
+    gorulen: dict[str, None] = {}
+    for k in kayitlar:
+        for v in k.values():
+            g = str(v or "").strip().strip("{}").lower()
+            if re.match(GUID_DESENI, g):
+                gorulen[g] = None
+    return list(gorulen)
+
+
+def iptalleri_yansit(istemci: MikroIstemci, sb: Supabase, durum: dict[str, str]) -> dict[str, int]:
+    """Son çekimden beri Mikro'da iptal edilen kayıtları Supabase kopyasından siler (Mikro'ya yalnız SELECT).
+    Yalnız artımlı turda, son çekimi olan tablolar için. Her hedef tablonun bu turda silinen satır sayısı
+    mikro_senk_durum.son_silinen'e yazılır. Döner: {tablo: silinen}. Hata turu bozmaz."""
+    silinen: dict[str, int] = {}
+    for kaynak, t in IPTAL_SORGULARI.items():
+        hedefler = [(SORGULAR[ad]["tablo"], kolon) for ad, kolon in t["hedefler"] if SORGULAR[ad]["tablo"] in durum]
+        if not hedefler:
+            continue
+        son = min(datetime.fromisoformat(durum[tb]) for tb, _ in hedefler) - GUVENLIK_PAYI
+        try:
+            guidler = _guidler(istemci.sql_oku(t["sql"].replace("{SON}", _sql_tarih(son))))
+        except MikroHata as e:
+            log.error("[iptal %s] okunamadı: %s", kaynak, e)
+            for tb in dict.fromkeys(tb for tb, _ in hedefler):
+                sb.durum_yaz(tb, son_hata=f"iptal yansıması okunamadı: {e}"[:1000])
+            continue
+        for tb, kolon in hedefler:
+            try:
+                n = sb.guidleri_sil(tb, kolon, guidler) if guidler else 0
+            except MikroHata as e:
+                log.error("[%s] iptal silinemedi: %s", tb, e)
+                sb.durum_yaz(tb, son_hata=f"iptal yansıması silinemedi: {e}"[:1000])
+                continue
+            silinen[tb] = silinen.get(tb, 0) + n
+            if n:
+                log.info("[%s] Mikro'da iptal edilen %d satır kopyadan silindi", tb, n)
+    for tb, n in silinen.items():
+        sb.durum_yaz(tb, son_silinen=n)
+    return silinen
 
 
 def tetik_nedeni(yeni: dict[str, int], tam: bool) -> str:
@@ -751,24 +850,41 @@ def guncelleme_uygun_mu(kod: str) -> str:
     return ""
 
 
-def kendini_guncelle(sb: "Supabase", yol: str | None = None) -> bool:
-    """Supabase'teki sürüm dosyadan farklıysa dosyayı günceller. Döner: güncellendi mi. Hata fırlatmaz."""
+def _calisan_sha() -> str:
+    try:
+        return _dosya_sha(os.path.abspath(__file__))
+    except OSError:
+        return ""
+
+
+# Bu süreçte çalışan kodun özeti: modül yüklenirken dosyadan okunur. Tur içinde dosya yenilense de bellekteki kod
+# değişmez (yeni kod bir sonraki turda, yeni süreçte çalışır).
+CALISAN_SHA = _calisan_sha()
+
+
+def guncelleme_turu(sb: "Supabase", yol: str | None = None) -> tuple[bool, str]:
+    """Supabase'teki sürüm dosyadan farklıysa dosyayı günceller. Döner: (güncellendi mi, durum metni).
+    Hata fırlatmaz."""
     yol = yol or os.path.abspath(__file__)
+    calisan = CALISAN_SHA[:12] or "?"
     try:
         r = sb._kontrol(sb.oturum.get(f"{sb.rest}/mikro_aktarici_surum",
                                       params={"select": "kod,sha256", "id": "eq.1"}, timeout=30)).json()
         if not r or not r[0].get("kod"):
-            return False
+            return False, f"yayında sürüm yok; çalışan kod {calisan}"
         kod, sha = r[0]["kod"], r[0].get("sha256") or ""
         if hashlib.sha256(kod.encode("utf-8")).hexdigest() != sha:
             log.warning("Güncelleme atlandı: sürüm özeti tutmuyor")
-            return False
+            return False, f"yayındaki sürümün özeti tutmuyor, güncelleme atlandı; çalışan kod {calisan}"
         if sha == _dosya_sha(yol):
-            return False
+            if sha == CALISAN_SHA:
+                return False, f"güncel: çalışan kod yayındaki sürüm ({calisan})"
+            return False, (f"dosya yayındaki sürümde ({sha[:12]}); bu tur eski kodla ({calisan}) çalışıyor, "
+                           "yeni kod bir sonraki turda devreye girer")
         neden = guncelleme_uygun_mu(kod)
         if neden:
             log.warning("Güncelleme reddedildi: %s", neden)
-            return False
+            return False, f"yeni sürüm ({sha[:12]}) reddedildi: {neden}; eski kodla ({calisan}) çalışıyor"
         gecici = yol + ".yeni"
         with open(gecici, "w", encoding="utf-8", newline="\n") as f:
             f.write(kod)
@@ -778,10 +894,43 @@ def kendini_guncelle(sb: "Supabase", yol: str | None = None) -> bool:
             pass
         os.replace(gecici, yol)
         log.info("Aktarıcı güncellendi (%s); yeni sürüm sonraki turda çalışır.", sha[:12])
-        return True
+        return True, (f"yeni kod yazıldı ({sha[:12]}); bu tur eski kodla ({calisan}) çalışıyor, "
+                      "yeni kod bir sonraki turda devreye girer")
     except Exception as e:  # noqa: BLE001
         log.error("Kendini güncelleme başarısız: %s", e)
+        return False, f"kendini güncelleme başarısız: {str(e)[:300]}; çalışan kod {calisan}"
+
+
+def kendini_guncelle(sb: "Supabase", yol: str | None = None) -> bool:
+    """Supabase'teki sürüm dosyadan farklıysa dosyayı günceller. Döner: güncellendi mi. Hata fırlatmaz."""
+    return guncelleme_turu(sb, yol)[0]
+
+
+def surum_yaz(sb: "Supabase", durum: str) -> bool:
+    """Çalışan kodun özetini ve sürüm durumunu mikro_aktarici_surum'a yazar (calisan_* kolonları, göç 51).
+    Yalnız var olan satırı günceller (kod / sha256 / yayin'a dokunmaz). Döner: yazıldı mı. Hata fırlatmaz:
+    göç uygulanmamışsa yalnız günlüğe yazar."""
+    try:
+        sb._kontrol(sb.oturum.patch(
+            f"{sb.rest}/mikro_aktarici_surum",
+            params={"id": "eq.1"},
+            data=json.dumps({"calisan_sha256": CALISAN_SHA, "calisan_zaman": datetime.now(TZ).isoformat(),
+                             "calisan_durum": durum[:1000]}),
+            headers={"Prefer": "return=minimal"},
+            timeout=30,
+        ))
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.warning("Sürüm durumu yazılamadı: %s", e)
         return False
+
+
+def surum_bildir(sb: "Supabase", yol: str | None = None) -> bool:
+    """Tur başı: gerekirse kendini günceller, çalışan kodun özetini ve durumunu yazar. Döner: güncellendi mi."""
+    guncellendi, durum = guncelleme_turu(sb, yol)
+    log.info("Sürüm: %s", durum)
+    surum_yaz(sb, durum)
+    return guncellendi
 
 
 # --------------------------------------------------------------------------- #
@@ -983,7 +1132,8 @@ def main() -> None:
             log.warning("Başka bir aktarım sürüyor (%s); bu tur atlandı.", KILIT)
             return
         try:
-            kendini_guncelle(sb)               # yeni sürüm varsa dosyaya yazılır, sonraki turda çalışır
+            surum_bildir(sb)                   # yeni sürüm varsa dosyaya yazılır, sonraki turda çalışır;
+                                               # çalışan kodun özeti mikro_aktarici_surum'a yazılır
             yeni = senkronize_et(istemci, sb, tam=args.tam)
             neden = tetik_nedeni(yeni, args.tam)
             if neden:
@@ -998,6 +1148,8 @@ def main() -> None:
     while True:
         if kilit_al():
             try:
+                surum_yaz(sb, f"sürekli mod (kendini güncelleme yalnız --bir-kez turunda); çalışan kod "
+                              f"{CALISAN_SHA[:12] or '?'}")
                 neden = tetik_nedeni(senkronize_et(istemci, sb, tam=tam), tam)
                 if neden:
                     sb.esitlemeyi_baslat(neden)

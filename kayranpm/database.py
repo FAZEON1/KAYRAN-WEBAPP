@@ -2068,11 +2068,36 @@ def _stok_atomik(gruplar, kart_ac=False, kart_adlar=None, aciklama=""):
     return uyg, atl
 
 
+def _mikro_stok_yonetir():
+    try:
+        from kayranpm.mikro_stok import acik_mi
+        return bool(acik_mi())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _mikro_kabul(hareketler):
+    """Mikro yönetirken: sıfır olmayan hareket sayısı 'uygulandı' sayılır, hiçbir şey yazılmaz."""
+    n = 0
+    for sku, delta in (hareketler or {}).items():
+        try:
+            if str(sku or "").strip() and float(delta or 0):
+                n += 1
+        except (TypeError, ValueError):
+            pass
+    return n, []
+
+
 def stok_hareket_gruplu(gruplar, aciklama=""):
     """Birden çok depoya hareket: [(depo, {sku: delta}), ...]. Atomik fonksiyon kuruluysa HEPSİ tek
     işlemde (ya hepsi ya hiçbiri); değilse her depo için sırayla bugünkü stok_hareket_coklu.
     Döner: (uygulanan, atlanan)."""
     gruplar = [(d, h) for d, h in (gruplar or []) if h]
+    if _mikro_stok_yonetir():
+        uyg = 0
+        for _d, h in gruplar:
+            uyg += _mikro_kabul(h)[0]
+        return uyg, []
     sonuc = _stok_atomik(gruplar, aciklama=aciklama)
     if sonuc is not None:
         return sonuc
@@ -2092,7 +2117,13 @@ def stok_hareket_coklu(hareketler, depo=None, kart_ac=False, kart_adlar=None, ac
     Ürün kartı yoksa ve kart_ac=False → SKU atlanır. Döner: (uygulanan, atlanan).
 
     ATOMİK: veritabani/29_atomik_stok.sql kuruluysa kartlar kilitlenip hepsi tek işlemde yazılır
-    (eşzamanlı iki yazım birbirini ezmez). Kurulu değilse aşağıdaki bugünkü yol — aynı hesap."""
+    (eşzamanlı iki yazım birbirini ezmez). Kurulu değilse aşağıdaki bugünkü yol — aynı hesap.
+
+    MİKRO: depo stoğu eşitlemesi (kayranpm.mikro_stok) açıksa miktar YAZILMAZ — stok Mikro'dan gelir; yazılsaydı
+    15 dakika sonra Mikro'nun rakamıyla ezilir, arada yanlış stok görünür (Ekim 2026 denetimi). Hareket kabul edilmiş
+    sayılır (çağıran akış — ithalat teslimi, satış, teknik servis — işini bitirir)."""
+    if _mikro_stok_yonetir():
+        return _mikro_kabul(hareketler)
     sonuc = _stok_atomik([(depo, hareketler)], kart_ac, kart_adlar, aciklama)
     if sonuc is not None:
         return sonuc

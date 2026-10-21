@@ -57,21 +57,30 @@ def kirilim_yap(satirlar, depo_adlari):
 
 
 def farklar(kirilim, urunler):
-    """[(sku, eski kırılım, yeni kırılım)] — yalnız değişenler. urunler: [{sku, depo_kirilim}]."""
+    """[(sku, eski kırılım, yeni kırılım)] — yalnız değişenler. urunler: [{sku, depo_kirilim}].
+    Aynı SKU anahtarına düşen birden çok kart varsa (yazım farkı: 'Fazeon X' / 'X') Mikro'nun stoğu tek karta
+    (anahtarla birebir aynı yazılana, yoksa ilkine) yazılır, öbürlerinin stoğu sıfırlanır — yoksa eski stoğu
+    kalıcı kalır ve stok değerinde iki kez sayılırdı (Ekim 2026 denetimi)."""
     from kayranpm.excel_islemler import normalize_sku
-    mevcut = {}
+    gruplar = defaultdict(list)
     for u in urunler:
         g = _s(u.get("sku"))
         if g:
             dk = u.get("depo_kirilim") or {}
-            mevcut[normalize_sku(g)] = (g, {d: _i(m) for d, m in dk.items() if _i(m)} if isinstance(dk, dict) else {})
+            gruplar[normalize_sku(g)].append(
+                (g, {d: _i(m) for d, m in dk.items() if _i(m)} if isinstance(dk, dict) else {}))
+    mevcut, fazla = {}, []
+    for k, kartlar in gruplar.items():
+        kartlar.sort(key=lambda x: (x[0] != k, x[0]))
+        mevcut[k] = kartlar[0]
+        fazla += [(g, dk, {}) for g, dk in kartlar[1:] if dk]
     out = []
     for k in sorted(set(kirilim) | {k for k, (_, dk) in mevcut.items() if dk}):
         g, eski = mevcut.get(k, (k, {}))
         yeni = kirilim.get(k, {})
         if eski != yeni:
             out.append((g, eski, yeni))
-    return out
+    return out + sorted(fazla)
 
 
 def depo_ozeti(kirilimlar):

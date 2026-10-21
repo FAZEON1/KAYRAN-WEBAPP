@@ -28,6 +28,47 @@ def _anahtar_kucuk(s):
     return str(s or "").replace("İ", "i").replace("I", "i").lower().replace("ı", "i")
 
 
+def mukerrer_kalemler(yeni, mevcut, gun=1):
+    """Elle sipariş girişinde mükerrer uyarısı (denetim, Ekim 2026: 21.10'da EERA'ya aynı SKU / adet / fiyatla
+    iki elle sipariş girildi). yeni: kaydedilecek kalemler [{tarih, kanal, sku, adet}]; mevcut: kayıtlı satış
+    satırları. Aynı firma (firma_kanonik) + tarih ±gun + aynı SKU (sku_anahtar) + aynı adet satır varsa kalem
+    döner: [{tarih, kanal, sku, adet, siparis_nolar}] (kayıt engellenmez; ekran onay ister)."""
+    from shared.utils import firma_kanonik, normalize_tr, sku_anahtar
+
+    def _firma(k):
+        return normalize_tr(firma_kanonik(k))
+
+    def _gun_no(t):
+        try:
+            return date.fromisoformat(str(t or "")[:10]).toordinal()
+        except ValueError:
+            return None
+
+    def _adet(v):
+        try:
+            return int(round(float(v)))
+        except (TypeError, ValueError):
+            return 0
+
+    dizin = {}
+    for s in mevcut or []:
+        g = _gun_no(s.get("tarih"))
+        if g is not None:
+            dizin.setdefault((_firma(s.get("kanal")), sku_anahtar(s.get("sku")), _adet(s.get("adet"))), []).append(
+                (g, str(s.get("siparis_no") or "").strip()))
+    out = []
+    for k in yeni or []:
+        g = _gun_no(k.get("tarih"))
+        if g is None:
+            continue
+        nolar = sorted({no for gg, no in dizin.get((_firma(k.get("kanal")), sku_anahtar(k.get("sku")),
+                                                     _adet(k.get("adet"))), []) if abs(gg - g) <= gun})
+        if nolar:
+            out.append({"tarih": str(k.get("tarih"))[:10], "kanal": k.get("kanal"), "sku": k.get("sku"),
+                        "adet": _adet(k.get("adet")), "siparis_nolar": nolar})
+    return out
+
+
 def siparis_grupla(satislar, satir_kar):
     """Kalemleri siparişlere toplar. Sipariş no'su boş kalemler tek başına bir sipariş sayılır.
     Döner: [{siparis_no, tarih, kanal, kalemler[], kalem, adet, ciro, maliyet, destek,

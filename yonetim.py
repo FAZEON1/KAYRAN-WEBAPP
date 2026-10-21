@@ -121,7 +121,8 @@ def _toplam_aktif_html(snap, RENK, buyuk=False):
     pencere AYNI fonksiyonu kullanır (eskiden iki kopya vardı)."""
     _t = float(snap.get("toplam", 0) or 0)
     _k = float(snap.get("kur", 0) or 0)
-    _kal = [("Stok değeri (×1.20)", snap.get("stok", 0), "+"),
+    _kal = [("Stok değeri (×1.20)" if float(snap.get("stok_carpan") or 1.2) > 1 else "Stok değeri (maliyet)",
+             snap.get("stok", 0), "+"),
             ("İthalat (ödenen)", snap.get("ithalat", 0), "+"),
             ("Banka (USD eşd.)", snap.get("banka", 0), "+"),
             ("Cari alacak", snap.get("alacak", 0), "+"),

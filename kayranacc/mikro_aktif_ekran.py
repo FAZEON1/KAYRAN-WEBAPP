@@ -54,16 +54,17 @@ def _dokum(kayit, ozet, kur, cakisan_adlar):
                    + ". İstersen aşağıdaki manuel listeden silebilirsin.")
 
 
-def bolum(kur, stok_aktif, toplam_once, manuel_kalemler):
+def bolum(kur, stok_ham, toplam_once, manuel_kalemler):
     """Toplam Aktifler'in toplamından önce. Açıksa döküm (kapalı bölüm), kapalıysa bir kerelik onay.
-    toplam_once: sayfanın şu anki toplamı (açıksa Mikro kalemleri dahil)."""
+    stok_ham: stok değeri (maliyet, çarpansız); toplam_once: sayfanın şu anki toplamı."""
+    stok_yeni = stok_ham * M.stok_carpani(True)
     if M.acik_mi():
         kayit = M.kayitli()
         cakisan_adlar = _cakisan_adlar(manuel_kalemler, M.manuel_cakisan(manuel_kalemler, kayit))
         if not kayit:
             st.caption("Mikro defter kalemleri ilk eşitleme turunda hesaplanacak.")
             return
-        ozet = M.usd_ozeti(kayit, kur, stok_aktif)
+        ozet = M.usd_ozeti(kayit, kur, stok_yeni)
         with st.expander(f"Mikro defter kalemleri: + {_usd(ozet['arti'])} · − {_usd(ozet['eksi'])} · satış maliyeti "
                          f"− {_usd(ozet['satis_maliyeti_usd'])}", expanded=False, icon=":material/sync:"):
             _dokum(kayit, ozet, kur, cakisan_adlar)
@@ -72,7 +73,10 @@ def bolum(kur, stok_aktif, toplam_once, manuel_kalemler):
                      expanded=False, icon=":material/sync:"):
         st.caption("Onaydan sonra Toplam Aktifler'e Mikro'nun muhasebe bakiyelerinden, bugün hesapta olmayan kalemler "
                    "eklenir ve stoktan satış maliyeti (kargo, lojistik, depolama, kredi kartı komisyonu, teknik servis; "
-                   "son 12 ayın oranı) düşülür; her aktarımda kendiliğinden güncellenir. Bu kutu bir daha çıkmaz.")
+                   "son 12 ayın oranı) düşülür; her aktarımda kendiliğinden güncellenir. Stok bilanço mantığıyla "
+                   "maliyetten (× 1,00) sayılır: gümrükte peşin ödenen KDV Mikro'da indirilecek KDV'dedir ve KDV "
+                   "kaleminde satış KDV'sinden mahsup edilerek görünür; × 1,20 ile birlikte KDV iki kez sayılırdı. "
+                   "Bu kutu bir daha çıkmaz.")
         if not st.toggle("Karşılaştırmayı göster", key="mak_goster"):
             return
         with st.spinner("Mikro muhasebe bakiyeleri okunuyor…"):
@@ -84,15 +88,18 @@ def bolum(kur, stok_aktif, toplam_once, manuel_kalemler):
         if plan["bos"]:
             st.warning("Mikro muhasebe bakiyeleri okunamadı; onay verilemez.")
             return
-        ozet = M.usd_ozeti(plan["kayit"], kur, stok_aktif)
+        ozet = M.usd_ozeti(plan["kayit"], kur, stok_yeni)
         cakisan = M.manuel_cakisan(manuel_kalemler, plan["kayit"])
         cakisan_adlar = _cakisan_adlar(manuel_kalemler, cakisan)
-        fark = ozet["arti"] - ozet["eksi"] - ozet["satis_maliyeti_usd"] - M.cakisan_etki(manuel_kalemler, cakisan, kur)
+        kdv_payi = stok_ham * (M.stok_carpani(False) - M.stok_carpani(True))
+        fark = (ozet["arti"] - ozet["eksi"] - ozet["satis_maliyeti_usd"] - kdv_payi
+                - M.cakisan_etki(manuel_kalemler, cakisan, kur))
         st.dataframe(pd.DataFrame([
             {"": "Toplam aktifler (şimdi)", "Tutar": _usd(toplam_once)},
             {"": "Mikro defter kalemleri (+)", "Tutar": "+ " + _usd(ozet["arti"])},
             {"": "Mikro defter kalemleri (−)", "Tutar": "− " + _usd(ozet["eksi"])},
             {"": "Satış maliyeti (−)", "Tutar": "− " + _usd(ozet["satis_maliyeti_usd"])},
+            {"": "Stoktaki KDV payı (× 1,20 → maliyet; KDV defterde ayrı kalem) (−)", "Tutar": "− " + _usd(kdv_payi)},
             {"": "Mikro'dan da gelen manuel kalemler (sayılmaz)",
              "Tutar": _usd(-M.cakisan_etki(manuel_kalemler, cakisan, kur))},
             {"": "Toplam aktifler (onaydan sonra)", "Tutar": _usd(toplam_once + fark)},

@@ -364,6 +364,11 @@ def uygula(plan, ilk=False):
         sonuc["cari"] = bool(db.aktif_excel_kaydet(KAYNAK_ADI, "cari", plan["cari"]))
     if plan["ithalat_degisir"]:
         sonuc["ithalat"] = bool(db.aktif_excel_kaydet(KAYNAK_ADI, "ithalat", plan["ithalat"]))
+    bagli = sorted(b["id"] for b in plan["banka"] if b.get("mikro_kod") and b.get("id") is not None)
+    d = durum()
+    if d.get("bagli_bankalar") != bagli:
+        d["bagli_bankalar"] = bagli
+        _durum_yaz(d)
     if sonuc["banka"] or sonuc["cek"]:
         db._cache_temizle()
     return sonuc
@@ -385,6 +390,12 @@ def acik_mi():
 def _durum_yaz(d):
     from kayranacc.database import set_ayar
     set_ayar(DURUM_ANAHTAR, d)
+
+
+def bagli_banka_mi(banka_id):
+    """Eşitleme açık ve bu uygulama hesabı Mikro'daki bir banka hesabına bağlı mı (bakiyeyi Mikro yazar)."""
+    d = durum()
+    return bool(d.get("acik")) and banka_id in (d.get("bagli_bankalar") or [])
 
 
 def ac(kullanici):

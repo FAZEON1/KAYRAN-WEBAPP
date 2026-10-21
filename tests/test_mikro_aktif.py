@@ -143,7 +143,7 @@ def test_otomatik_kapaliyken_yazmaz_acikken_bir_kez_yazar(monkeypatch):
 
 def test_esitleme_turlarina_eklendi():
     app = (KOK / "app.py").read_text(encoding="utf-8")
-    assert "kayranacc.mikro_aktif" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
+    assert "_mod.ISLER" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
     spec = importlib.util.spec_from_file_location("otonom_mikro_esitle_aktif", KOK / "otonom" / "mikro_esitle.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -157,3 +157,13 @@ def test_yonetim_panosu_yeni_kalemleri_gosterir():
     h = yonetim._toplam_aktif_html({"toplam": 1, "kur": 49.6, "defter_eksi": 128777.5, "satis_maliyeti": 17323.4}, renk)
     assert "Satış maliyeti" in h and "KDV, vergi, SGK" in h
     json.dumps(h)
+
+
+def test_defter_acikken_stok_maliyetle_kdv_ayri():
+    """Kullanıcı (21.10): gümrükte ödenen %20 KDV görünmeli — Mikro'da 191'de, defterin KDV kaleminde mahsuplu.
+    Açıkken stok × 1,00 (× 1,20 ile KDV iki kez girerdi); kapalıyken eski × 1,20."""
+    kaynak = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
+    govde = kaynak.split("def _sayfa_toplam_aktifler", 1)[1].split("\ndef ", 1)[0]
+    assert "stok_marjli = usd_stok * _stok_carpan" in govde and "usd_stok * 1.20" not in govde
+    if M is not None:
+        assert M.stok_carpani(True) == 1.0 and M.stok_carpani(False) == pytest.approx(1.2)

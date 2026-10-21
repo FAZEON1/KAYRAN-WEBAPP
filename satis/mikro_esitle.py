@@ -20,7 +20,9 @@ faturalarının ürün satırlarını yazar. Bu modül o satırlardan satislar /
 Değiştirilen kayıtlar (başlangıç tarihinden sonra):
   · Mikro dışı kaynaklı satış satırları (sipariş Excel'i vb.) — firması Mikro'da faturalı olan ve tarihi
     o firmanın son Mikro faturasından sonra OLMAYAN satırlar. Henüz faturası kesilmemiş sipariş kalır;
-    fatura gelince değişir. Teknik servis satırları ("TEKNİK SERVİS …" notlu) hiç değişmez.
+    fatura gelince değişir. Son faturadan SONRA tarihli satır da, aynı firma + SKU + adetli bir Mikro fatura
+    satırı ±45 gün içindeyse o faturayla karşılanmış sayılır ve değişir (elle_fatura_eslestir; bir fatura
+    satırı tek elle satırı karşılar). Teknik servis satırları ("TEKNİK SERVİS …" notlu) hiç değişmez.
   · Excel'den gelen iade satırları (kaynak 'excel') — firması Mikro'da olan.
   · Mikro'da değişen faturanın eski satırları (fatura yeniden yazılır); Mikro'da iptal edilen fatura.
 
@@ -36,6 +38,7 @@ IADE_TIP = 0            # cha_evrak_tip 0 + iade işareti: satış iadesi fatura
 TS_NOT_ONEKI = "TEKNİK SERVİS"
 NOT_ONEKI = "Mikro"
 SIPARIS_NOT_ONEKI = "Mikro sipariş"     # açık Mikro siparişinden gelen bekleyen satış (siparis_kayitlari)
+ESLESME_GUN = 45        # elle satır ↔ Mikro fatura satırı: en çok bu kadar gün önce / sonra (elle_fatura_eslestir)
 
 
 # ── küçük yardımcılar ───────────────────────────────────────────────
@@ -243,6 +246,39 @@ def _ts_satiri_mi(s):
     return str(s.get("notlar") or "").strip().upper().startswith(TS_NOT_ONEKI)
 
 
+def _gun_farki(a, b):
+    from datetime import date
+    try:
+        return abs((date.fromisoformat(_gun(a)) - date.fromisoformat(_gun(b))).days)
+    except ValueError:
+        return None
+
+
+def elle_fatura_eslestir(elle, fatura_satirlari, gun=ESLESME_GUN, kullanilan=None):
+    """Elle (Mikro dışı) satış satırlarını Mikro fatura satırlarına bağlar (denetim, Ekim 2026: faturadan
+    sonra tarihli elle satır silinmiyor, satış iki kez sayılıyordu). Eşleşme: aynı firma (firma_kanonik) +
+    aynı SKU (sku_anahtar) + aynı adet, tarih farkı en çok `gun` gün. Bir fatura satırı yalnız bir elle
+    satırı karşılar (kullanilan: tüketilen fatura satırlarının id()'leri; çağrılar arasında paylaşılır).
+    Elle satırlar tarih sırasıyla; her biri en yakın tarihli boştaki fatura satırını alır.
+    Döner: [(elle satır, fatura satırı)]."""
+    kullanilan = set() if kullanilan is None else kullanilan
+    havuz = defaultdict(list)
+    for k in fatura_satirlari or []:
+        havuz[(_kanonik(k.get("kanal")), _sku_a(k.get("sku")), _i(k.get("adet")))].append(k)
+    out = []
+    for s in sorted(elle or [], key=lambda x: (_gun(x.get("tarih")), str(x.get("id") or ""))):
+        adaylar = []
+        for k in havuz.get((_kanonik(s.get("kanal")), _sku_a(s.get("sku")), _i(s.get("adet"))), []):
+            fark = _gun_farki(s.get("tarih"), k.get("tarih"))
+            if id(k) not in kullanilan and fark is not None and fark <= gun:
+                adaylar.append((fark, _gun(k.get("tarih")), str(k.get("siparis_no") or ""), k))
+        if adaylar:
+            k = min(adaylar, key=lambda a: a[:3])[3]
+            kullanilan.add(id(k))
+            out.append((s, k))
+    return out
+
+
 # ── plan ────────────────────────────────────────────────────────────
 def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=None, basliklar=None,
              siparisler=None, unvanlar=None, ad_harita=None):
@@ -271,15 +307,23 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
         elif _mikro_satis_mi(s, mikro_nolari) or str(s.get("notlar") or "").startswith(NOT_ONEKI + " ·"):
             mevcut_fatura[str(s.get("siparis_no") or "").strip()].append(s)
 
-    # Değiştirilecek Mikro dışı satış satırları
-    sil_satis = []
+    # Değiştirilecek Mikro dışı satış satırları: (1) tarihi firmanın son faturasından sonra olmayanlar;
+    # (2) sonra olup aynı firma + SKU + adetli bir fatura satırıyla ±ESLESME_GUN gün içinde karşılananlar.
+    # (1)'dekiler de eşleşen fatura satırını önce tüketir: aynı fatura iki elle satırı silmesin.
+    tarihli, sonraki = [], []
     for s in satislar:
         no = str(s.get("siparis_no") or "").strip()
         if no in mevcut_fatura or _ts_satiri_mi(s):
             continue
         k = _kanonik(s.get("kanal"))
-        if k in mk["cariler"] and _gun(s.get("tarih")) <= mk["son_fatura"].get(k, ""):
-            sil_satis.append(s)
+        if k not in mk["cariler"]:
+            continue
+        (tarihli if _gun(s.get("tarih")) <= mk["son_fatura"].get(k, "") else sonraki).append(s)
+    fatura_satirlari = [k for _no, ks in sorted(mk["satis"].items()) for k in ks]
+    kullanilan = set()
+    elle_fatura_eslestir(tarihli, fatura_satirlari, kullanilan=kullanilan)
+    eslesen = elle_fatura_eslestir(sonraki, fatura_satirlari, kullanilan=kullanilan)
+    sil_satis = tarihli + [s for s, _k in eslesen]
 
     # Maliyet: aynı faturanın önceki kaydı → değiştirilen eski satırlar (firma + SKU) → paçal
     onceki = defaultdict(list)
@@ -359,6 +403,11 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
             "degisiklik_var": bool(yuk["sil_satis_id"] or fatura_nolar or ekle_satis
                                    or yuk["sil_iade_id"] or iade_belgeler or ekle_iade),
             "sil_satis_kanal": _kanal_sayim(sil_satis),
+            "elle_eslesen": [{"id": s.get("id"), "tarih": _gun(s.get("tarih")), "kanal": s.get("kanal"),
+                              "sku": s.get("sku"), "adet": _i(s.get("adet")),
+                              "birim_satis": _f(s.get("birim_satis")), "fatura_no": k.get("siparis_no"),
+                              "fatura_tarihi": k.get("tarih"), "fatura_birim": k.get("birim_satis")}
+                             for s, k in eslesen],
             "yeni_fatura": len({k["siparis_no"] for k in ekle_satis if not _siparis_satiri_mi(k)}),
             "acik_siparis": len(sip), "acik_siparis_adet": sum(_i(k["adet"]) for ks in sip.values() for k in ks)}
 
@@ -632,7 +681,11 @@ def aktarici_yayinla():
             return False
         if aktarici_yayinda_mi(ozet):
             return True
-        _cli().table("mikro_aktarici_surum").upsert({"id": 1, "kod": kod, "sha256": ozet}).execute()
+        # yayin: tablonun DEFAULT now()'ı yalnız ilk eklemede çalışır; upsert'te açıkça yazılmazsa ilk yayının
+        # zamanında kalıyordu (Ekim 2026).
+        from datetime import datetime, timezone
+        _cli().table("mikro_aktarici_surum").upsert(
+            {"id": 1, "kod": kod, "sha256": ozet, "yayin": datetime.now(timezone.utc).isoformat()}).execute()
         return True
     except Exception as e:  # noqa: BLE001
         from shared.kayit import sessiz

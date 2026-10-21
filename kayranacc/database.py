@@ -232,6 +232,26 @@ def _banka_tutari(pb, tutar_tl, tutar_usd, kur, yer=""):
     return d
 
 
+
+def _mikro_yonetir(banka_id):
+    """Bu hesabın bakiyesini Mikro eşitlemesi mi yazıyor (kayranacc.mikro_muhasebe açık ve hesap Mikro'daki bir
+    banka hesabına bağlı)? Öyleyse uygulama içindeki ödeme / virman / para girişi bakiyeye YAZMAZ: aynı hareket
+    Mikro'ya da girildiği için ya iki kez düşer ya da 15 dakika sonra Mikro'nun rakamıyla ezilir (Ekim 2026
+    denetimi). Kayıt (ödendi işareti, virman, tahsilat satırı) yine tutulur."""
+    try:
+        from kayranacc.mikro_muhasebe import bagli_banka_mi
+        return bagli_banka_mi(banka_id)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _bakiye_yaz(sb, banka_id, yeni_bakiye):
+    """Banka bakiyesini yazar; Mikro yönetiyorsa yazmaz. Döner: yazıldı mı."""
+    if _mikro_yonetir(banka_id):
+        return False
+    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+    return True
+
 def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
     """
     Ödeme durumunu günceller.
@@ -288,7 +308,7 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
                 _d = _banka_tutari(banka.get("para_birimi"), tutar_tl, tutar_usd, kur, "odeme_durum_guncelle")
                 if _d is not None:
                     yeni_bakiye = float(banka["bakiye"]) - _d
-                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+                    _bakiye_yaz(sb, banka_id, yeni_bakiye)
 
         # 2) Geri al (odendi → bekliyor): önceki bankaya iade — sadece banka_id kolonu varsa
         elif durum == "bekliyor" and onceki_durum == "odendi" and onceki_banka_id:
@@ -298,7 +318,7 @@ def odeme_durum_guncelle(odeme_id, durum, banka_id=None, kur=None):
                 _d = _banka_tutari(banka.get("para_birimi"), tutar_tl, tutar_usd, kur, "odeme_durum_guncelle")
                 if _d is not None:
                     yeni_bakiye = float(banka["bakiye"]) + _d
-                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", onceki_banka_id).execute()
+                    _bakiye_yaz(sb, onceki_banka_id, yeni_bakiye)
                 # banka_id'yi temizle (varsa)
                 try:
                     sb.table("odemeler").update({"banka_id": None}).eq("id", odeme_id).execute()
@@ -386,7 +406,7 @@ def odeme_kismi_ode(odeme_id, kismi_tl=0, kismi_usd=0, banka_id=None, kur=None):
                 _d = _banka_tutari(banka.get("para_birimi"), kismi_tl, kismi_usd, kur, "odeme_kismi_ode")
                 if _d is not None:
                     yeni_bakiye = float(banka["bakiye"]) - _d
-                    sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+                    _bakiye_yaz(sb, banka_id, yeni_bakiye)
         except Exception as _e:
             sessiz("kayranacc.database.odeme_kismi_ode.banka", _e)
     _cache_temizle()
@@ -769,8 +789,8 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
         yeni_kaynak_bakiye = float(kaynak["bakiye"]) - tutar
         yeni_hedef_bakiye = float(hedef["bakiye"]) + hedef_tutar
 
-        sb.table("bankalar").update({"bakiye": yeni_kaynak_bakiye}).eq("id", kaynak_banka_id).execute()
-        sb.table("bankalar").update({"bakiye": yeni_hedef_bakiye}).eq("id", hedef_banka_id).execute()
+        _bakiye_yaz(sb, kaynak_banka_id, yeni_kaynak_bakiye)
+        _bakiye_yaz(sb, hedef_banka_id, yeni_hedef_bakiye)
     except Exception as e:
         return False, f"Bakiye güncellenemedi: {e}"
 
@@ -794,7 +814,9 @@ def virman_yap(kaynak_banka_id, hedef_banka_id, tutar, aciklama="", kur_kullanil
         sessiz("kayranacc.database.virman_yap", _e)
 
     _cache_temizle()
-    return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı"
+    _not = (" Bakiye Mikro'dan gelir: virmanı Mikro'ya da gir."
+            if _mikro_yonetir(kaynak_banka_id) or _mikro_yonetir(hedef_banka_id) else "")
+    return True, f"✅ {tutar:.2f} {kaynak_pb} → {hedef_tutar:.2f} {hedef_pb} virman tamamlandı.{_not}"
 
 
 def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
@@ -822,7 +844,7 @@ def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
     # ─── Bakiyeye ekle ───
     try:
         yeni_bakiye = float(banka["bakiye"]) + tutar
-        sb.table("bankalar").update({"bakiye": yeni_bakiye}).eq("id", banka_id).execute()
+        _bakiye_yaz(sb, banka_id, yeni_bakiye)
     except Exception as e:
         return False, f"Bakiye güncellenemedi: {e}"
 
@@ -842,7 +864,8 @@ def tahsilat_ekle(banka_id, tutar, kaynak="", aciklama="", tarih=None):
         sessiz("kayranacc.database.tahsilat_ekle", _e)
 
     _cache_temizle()
-    return True, f"✅ {tr_sayi(tutar, 2)} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi"
+    _not = " Bakiye Mikro'dan gelir: tahsilatı Mikro'ya da gir." if _mikro_yonetir(banka_id) else ""
+    return True, f"✅ {tr_sayi(tutar, 2)} {pb} tahsilat {banka['hesap_adi']} hesabına eklendi.{_not}"
 
 
 def get_tahsilatlar(limit=100):
@@ -868,7 +891,7 @@ def tahsilat_geri_al(tahsilat_id):
         bres = sb.table("bankalar").select("*").eq("id", t["banka_id"]).execute()
         if bres.data:
             yeni = float(bres.data[0]["bakiye"]) - float(t["tutar"])
-            sb.table("bankalar").update({"bakiye": yeni}).eq("id", t["banka_id"]).execute()
+            _bakiye_yaz(sb, t["banka_id"], yeni)
         sb.table("tahsilatlar").delete().eq("id", tahsilat_id).execute()
         _cache_temizle()
         return True, "✅ Tahsilat geri alındı"
@@ -919,14 +942,14 @@ def tahsilat_guncelle(tahsilat_id, banka_id, tutar, kaynak="", aciklama="", tari
             br = sb.table("bankalar").select("bakiye").eq("id", bid).execute()
             if not br.data:
                 continue
-            sb.table("bankalar").update({"bakiye": float(br.data[0]["bakiye"] or 0) + fark}).eq("id", bid).execute()
+            _bakiye_yaz(sb, bid, float(br.data[0]["bakiye"] or 0) + fark)
             yapilan.append((bid, fark))
     except Exception as e:
         # Yarım kalmasın: yazılan bakiye farklarını ve kaydı geri çevir
         try:
             for bid, fark in yapilan:
                 br = sb.table("bankalar").select("bakiye").eq("id", bid).execute()
-                sb.table("bankalar").update({"bakiye": float(br.data[0]["bakiye"] or 0) - fark}).eq("id", bid).execute()
+                _bakiye_yaz(sb, bid, float(br.data[0]["bakiye"] or 0) - fark)
             sb.table("tahsilatlar").update(eski).eq("id", tahsilat_id).execute()
         except Exception as _e:
             sessiz("kayranacc.database.tahsilat_guncelle", _e)
@@ -960,14 +983,14 @@ def virman_geri_al(virman_id):
         if hedef_res.data:
             hedef = hedef_res.data[0]
             yeni_hedef = float(hedef["bakiye"]) - float(v["hedef_tutar"])
-            sb.table("bankalar").update({"bakiye": yeni_hedef}).eq("id", v["hedef_banka_id"]).execute()
+            _bakiye_yaz(sb, v["hedef_banka_id"], yeni_hedef)
 
         # Kaynak bankaya iade et
         kaynak_res = sb.table("bankalar").select("*").eq("id", v["kaynak_banka_id"]).execute()
         if kaynak_res.data:
             kaynak = kaynak_res.data[0]
             yeni_kaynak = float(kaynak["bakiye"]) + float(v["tutar"])
-            sb.table("bankalar").update({"bakiye": yeni_kaynak}).eq("id", v["kaynak_banka_id"]).execute()
+            _bakiye_yaz(sb, v["kaynak_banka_id"], yeni_kaynak)
 
         # Virman kaydını sil
         sb.table("virmanlar").delete().eq("id", virman_id).execute()

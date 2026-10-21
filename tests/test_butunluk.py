@@ -76,7 +76,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
-               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
@@ -84,6 +84,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
+               "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -179,7 +180,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.yurtici_hesap": ["maliyet_hesapla", "dogrula", "kayit_argumanlari", "formdan", "belge_no", "usd"],
     "kayranpm.yurtici_ekran": ["goster"],
     "shared.islem": ["kur", "bekle"],
-    "shared.modul_tazele": ["tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
+    "shared.modul_tazele": ["arka_is_suruyor", "tazelenmeli", "proje_modullerini_sil", "degisen_moduller", "bayatlari_tazele", "yuklenenleri_kaydet"],                                                         # işlem göstergesi (Eki 2026)                                                    # yurt içi alış (Eki 2026)
     "kayranpm.musteri_hesap": ["meta_hazirla", "addan_kod", "kategori_etiketi", "marka_etiketi", "eslesme_dogrula",
                                "kategori_musteri", "harita_ile_tamamla"],   # rapor SKU'su ↔ stok kartı (Eki 2026)
     "kayranpm.stok_hesap": ["kanal_stoklari", "kanal_son_tarihleri", "stok_ozeti",
@@ -221,7 +222,9 @@ KRITIK_FONKSIYONLAR = {
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
                            "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "acik_mi", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi", "kopyasiz", "aktarim_suruyor_mu", "aktarim_suruyor", "otomatik_guvenli_mi", "acik_mi",
-                           "siparis_kayitlari", "siparis_oku"],
+                           "siparis_kayitlari", "siparis_oku",
+                           "elle_fatura_eslestir"],   # elle satır ↔ fatura satırı (çift sayım, Eki 2026)
+    "satis.satis_hesap": ["mukerrer_kalemler", "siparis_grupla"],   # elle siparişte mükerrer uyarısı
     "satis.mikro_esitle_ekran": ["ilk_onay_kutusu"],
     "shared.mikro_saglik": ["zaman", "dakika_once", "sure_metni", "is_durumu", "sorunlar", "bildirim_karari",
                             "senk_oku", "satis_durumu", "gunluk_oku", "gunluk_yaz", "tetik_durumu",
@@ -236,14 +239,15 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_aktif": ["onek_uyar", "kalem_bul", "defter_kalemleri", "satis_maliyeti_orani", "kayit_yap",
                               "manuel_cakisan", "manuel_usd", "cakisan_etki", "usd_ozeti", "veri_oku", "plan_hazirla",
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
-                              "otomatik"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
+                              "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
     "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum"],
-    "kayranacc.mikro_muhasebe": ["hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
+    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
     "kayranacc.mikro_muhasebe_ekran": ["ilk_onay_kutusu"],
-    "kayranacc.mikro_gider": ["gider_hesabi_mi", "kalem_bul", "gider_tablosu", "ay_siniri", "esit_mi", "karsilastir",
+    "kayranacc.mikro_gider": ["musteri_destek_satirlari", "gider_hesabi_mi", "kalem_bul", "gider_tablosu", "ay_siniri", "esit_mi", "karsilastir",
                               "yillar", "plan_hazirla", "uygula", "durum", "acik_mi", "ac", "son_aktarim", "otomatik",
                               "kapanis_mi", "kapanis_kalmis_mi", "muhasebe_satirlari"],
     "kayranacc.mikro_gider_ekran": ["ilk_onay_kutusu"],
@@ -383,7 +387,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
     "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
                    # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
-                   "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade"],
+                   "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade",
+                   "_mukerrer_onay"],   # elle siparişte mükerrer onayı (Eki 2026)
     "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",
                        "_sayfa_firma_cekleri", "_sayfa_odenenler_gecmis", "_sayfa_gelenler_gecmisi",
                        "_sayfa_e_defter", "_sayfa_raporlar_bildirim", "_sayfa_ertelenen_odemeler",

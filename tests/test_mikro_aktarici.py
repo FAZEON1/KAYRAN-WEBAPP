@@ -188,3 +188,222 @@ GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod""".split())
         assert "fis_tur" in grup and "COALESCE(CAST(fis_tur AS int), -1) AS fis_tur" in sql
     sema = (KLASOR.parent.parent / "veritabani" / "42_mikro_muhasebe_tur.sql").read_text(encoding="utf-8")
     assert "PRIMARY KEY (yil, ay, hesap_kod, fis_tur)" in sema and "PRIMARY KEY (yil, ay, fis_tur)" in sema
+
+
+# ── İptal yansıması (Ekim 2026): artımlı sorgular "iptal=0 AND lastup > SON" ile çekiyor; Mikro'da sonradan
+#    iptal edilen fatura / satış satırı / sipariş / ithalat hareketi kopyada 03:00 tam aktarımına kadar kalıyordu.
+#    Artık her turda son çekimden beri iptal edilenlerin GUID'leri SELECT ile bulunup yalnız kopyadan silinir. ──
+_GUID = "0f0e0d0c-0b0a-4908-8706-050403020100"
+
+
+def _iptal_onekleri(sql):
+    return set(re.findall(r"\b(?:\w+\.)?([a-z]+)_iptal=0", " ".join(sql.split())))
+
+
+def test_iptal_sorgulari_artimli_sorgulardan_turer(mk):
+    """WHERE'de iptal=0 süzgeci olan HER artımlı sorgu iptal yansımasında var (alan adı sorgunun kendi öneki)."""
+    hedef_onek = {}
+    for kaynak, t in mk.IPTAL_SORGULARI.items():
+        s = " ".join(t["sql"].split())
+        assert s.startswith("SELECT ") and "{SON}" in s and f"{t['alan']}=1" in s, kaynak
+        assert not re.search(r"\b(UPDATE|DELETE|INSERT|MERGE|DROP|ALTER|EXEC|TRUNCATE)\b", s.upper()), kaynak
+        assert f"FROM {kaynak} " in s, kaynak
+        for ad, kolon in t["hedefler"]:
+            tanim = mk.SORGULAR[ad]
+            assert tanim["artimli"], ad
+            assert kolon in tanim["sql"].lower(), (ad, kolon)          # silme kolonu kopyada var
+            hedef_onek.setdefault(ad, set()).add(t["alan"].split("_")[0])
+    for ad, tanim in mk.SORGULAR.items():
+        if tanim["artimli"] and _iptal_onekleri(tanim["sql"]):
+            assert hedef_onek.get(ad) == _iptal_onekleri(tanim["sql"]), ad
+    # satış satırı iki yoldan düşer: satırın kendisi ya da bağlı faturası iptal
+    assert ("satis_satir", "sth_guid") in mk.IPTAL_SORGULARI["STOK_HAREKETLERI"]["hedefler"]
+    assert ("satis_satir", "sth_fat_uid") in mk.IPTAL_SORGULARI["CARI_HESAP_HAREKETLERI"]["hedefler"]
+
+
+class _SenkSb:
+    """senkronize_et için sahte Supabase: çağrıları kaydeder."""
+
+    def __init__(self, durum):
+        self._durum, self.upsertler, self.silinen, self.durumlar, self.eski = durum, [], [], [], []
+
+    def durum_oku(self):
+        return dict(self._durum)
+
+    def upsert(self, tablo, satirlar, anahtar):
+        self.upsertler.append(tablo)
+
+    def eskileri_sil(self, tablo, once):
+        self.eski.append(tablo)
+
+    def guidleri_sil(self, tablo, kolon, guidler):
+        self.silinen.append((tablo, kolon, list(guidler)))
+        return len(guidler)
+
+    def durum_yaz(self, tablo, **alanlar):
+        self.durumlar.append((tablo, alanlar))
+
+
+class _SenkIst:
+    def __init__(self, iptal):
+        self.iptal, self.sqller = iptal, []
+
+    def sql_oku(self, sql):
+        self.sqller.append(sql)
+        for kaynak, guidler in self.iptal.items():
+            if f"FROM {kaynak} WHERE" in " ".join(sql.split()) and "_iptal=1" in sql:
+                return [{k: g} for k, g in guidler]
+        return []
+
+
+def test_iptal_edilen_kopyadan_silinir_ve_bildirilir(mk):
+    son = "2026-10-21T10:00:00+03:00"
+    durum = {t["tablo"]: son for t in mk.SORGULAR.values() if t["artimli"]}
+    durum["mikro_siparis"] = "2026-10-21T09:00:00+03:00"
+    ist = _SenkIst({"SIPARISLER": [("sip_Guid", _GUID.upper())],
+                    "CARI_HESAP_HAREKETLERI": [("cha_Guid", _GUID), ("cha_Guid", "x'); bozuk")],
+                    "STOK_HAREKETLERI": []})
+    sb = _SenkSb(durum)
+    yeni = mk.senkronize_et(ist, sb, tam=False)
+    sil = {(t, k): g for t, k, g in sb.silinen}
+    assert sil[("mikro_siparis", "sip_guid")] == [_GUID]                         # küçük harfe, uuid biçimi
+    for tablo in ("mikro_fatura", "mikro_ithalat", "mikro_cari_hareket", "mikro_masraf"):
+        assert sil[(tablo, "cha_guid")] == [_GUID], tablo                         # bozuk GUID gönderilmez
+    assert sil[("mikro_satis_satir", "sth_fat_uid")] == [_GUID]                   # iptal faturanın satırları
+    assert ("mikro_fatura_satir", "sth_guid") not in sil                          # iptal satır yok: istek yok
+    assert not sb.eski                                                            # artımlı turda toplu silme yok
+    # sorgunun SON'u, kaynağa bağlı tabloların en eskisi eksi güvenlik payı (09:00 - 2 dk)
+    sip_sql = [s for s in ist.sqller if "FROM SIPARISLER WHERE sip_iptal=1" in " ".join(s.split())]
+    assert len(sip_sql) == 1 and "20261021 08:58:00" in sip_sql[0]
+    yazilan = {t: a["son_silinen"] for t, a in sb.durumlar if "son_silinen" in a}
+    assert yazilan["mikro_siparis"] == 1 and yazilan["mikro_satis_satir"] == 1 and yazilan["mikro_alim_satir"] == 0
+    assert yeni["mikro_fatura"] == 1 and mk.tetik_nedeni(yeni, False)            # silme de eşitlemeyi başlatır
+    # aynı iptal sorgusu bir turda bir kez (tablo başına değil, Mikro tablosu başına)
+    assert sum("_iptal=1" in s for s in ist.sqller) == 3
+
+
+def test_tam_aktarimda_ve_ilk_cekimde_iptal_sorgusu_yok(mk):
+    ist = _SenkIst({"SIPARISLER": [("sip_Guid", _GUID)]})
+    sb = _SenkSb({})
+    mk.senkronize_et(ist, sb, tam=True)
+    assert not sb.silinen and not any("_iptal=1" in s for s in ist.sqller)
+    mk.senkronize_et(ist, _SenkSb({}), tam=False)                                 # durum boş: ilk çekim
+    assert not any("_iptal=1" in s for s in ist.sqller)
+
+
+def test_iptal_okunamazsa_tur_bozulmaz(mk):
+    class _Hatali(_SenkIst):
+        def sql_oku(self, sql):
+            if "_iptal=1" in sql:
+                raise mk.MikroHata("zaman aşımı")
+            return []
+    durum = {t["tablo"]: "2026-10-21T10:00:00+03:00" for t in mk.SORGULAR.values() if t["artimli"]}
+    sb = _SenkSb(durum)
+    mk.senkronize_et(_Hatali({}), sb, tam=False)
+    assert not sb.silinen
+    assert any("iptal" in str(a.get("son_hata") or "") for t, a in sb.durumlar if t == "mikro_siparis")
+
+
+class _SilOturum:
+    def __init__(self):
+        self.cagrilar = []
+
+    def delete(self, url, params=None, headers=None, timeout=None):
+        self.cagrilar.append((url, dict(params or {}), dict(headers or {})))
+        kolon = [k for k in params if k != "select"][0]
+        if kolon == "senk_zamani":
+            return _Yanit(None)
+        adet = params[kolon][len("in.("):-1].count(",") + 1
+        return _Yanit([{kolon: "x"}] * adet)
+
+
+def _sahte_supabase(mk):
+    sb = object.__new__(mk.Supabase)
+    sb.rest, sb.oturum = "https://x/rest/v1", _SilOturum()
+    return sb
+
+
+def test_guidleri_sil_parcali_ve_bos_listede_istek_yok(mk):
+    sb = _sahte_supabase(mk)
+    assert sb.guidleri_sil("mikro_fatura", "cha_guid", []) == 0
+    assert not sb.oturum.cagrilar                                  # süzgeçsiz DELETE asla gönderilmez
+    guidler = [f"00000000-0000-4000-8000-{i:012d}" for i in range(250)]
+    assert sb.guidleri_sil("mikro_fatura", "cha_guid", guidler) == 250
+    assert len(sb.oturum.cagrilar) == 3
+    url, params, headers = sb.oturum.cagrilar[0]
+    assert url == "https://x/rest/v1/mikro_fatura" and params["cha_guid"].startswith("in.(00000000-")
+    assert "return=representation" in headers["Prefer"]
+    sb.eskileri_sil("mikro_fatura", mk.datetime(2026, 10, 21, tzinfo=mk.TZ))     # ortak silme yardımcısı
+    assert sb.oturum.cagrilar[-1][1] == {"senk_zamani": "lt.2026-10-21T00:00:00+03:00"}
+
+
+# ── Sürüm (Ekim 2026): aktarıcı her turda çalışan kodunun özetini mikro_aktarici_surum'a yazar; kendini
+#    güncellediği turda eski kodla çalıştığını ve yeninin bir sonraki turda devreye gireceğini bildirir. ──
+class _SurumSb(_SahteSb):
+    def __init__(self, surum=None):
+        super().__init__(surum)
+        self.yamalar = []
+        sb, eski_get = self, self.oturum.get
+
+        class _O:
+            def get(self, url, params=None, timeout=None):
+                return eski_get(url, params, timeout)
+
+            def patch(self, url, params=None, data=None, headers=None, timeout=None):
+                import json
+                sb.yamalar.append((url, dict(params or {}), json.loads(data)))
+                return _Yanit(None)
+        self.oturum = _O()
+
+
+def test_calisan_sha_bellekteki_kod(mk):
+    import hashlib
+    assert mk.CALISAN_SHA == hashlib.sha256((KLASOR / "mikro_kayran.py").read_bytes()).hexdigest()
+
+
+def test_surum_bildir_guncelledigi_turda_eski_kodla_calistigini_yazar(mk, tmp_path):
+    yol = tmp_path / "mikro_kayran.py"
+    yol.write_bytes((KLASOR / "mikro_kayran.py").read_bytes())
+    yeni = (KLASOR / "mikro_kayran.py").read_text(encoding="utf-8") + "\n# yeni\n"
+    sb = _SurumSb(_surum(yeni))
+    assert mk.surum_bildir(sb, str(yol)) is True
+    url, params, veri = sb.yamalar[-1]
+    assert url.endswith("/mikro_aktarici_surum") and params == {"id": "eq.1"}
+    assert veri["calisan_sha256"] == mk.CALISAN_SHA and veri["calisan_zaman"]
+    assert mk.CALISAN_SHA[:12] in veri["calisan_durum"] and _surum(yeni)["sha256"][:12] in veri["calisan_durum"]
+    assert "eski kod" in veri["calisan_durum"] and "bir sonraki turda" in veri["calisan_durum"]
+    # sonraki tur (yeni kod yüklendi): güncel
+    sb2 = _SurumSb(_surum((KLASOR / "mikro_kayran.py").read_text(encoding="utf-8")))
+    yol.write_bytes((KLASOR / "mikro_kayran.py").read_bytes())
+    assert mk.surum_bildir(sb2, str(yol)) is False
+    assert sb2.yamalar[-1][2]["calisan_durum"].startswith("güncel")
+    # reddedilen sürüm: neden yazılır, eski kod sürer
+    sb3 = _SurumSb(_surum(yeni + "\ndef ( :\n"))
+    assert mk.surum_bildir(sb3, str(yol)) is False
+    assert "reddedildi" in sb3.yamalar[-1][2]["calisan_durum"]
+
+
+def test_surum_yazilamazsa_tur_bozulmaz(mk, tmp_path):
+    class _Bozuk(_SurumSb):
+        def _kontrol(self, r):
+            if r._v is None:
+                raise mk.MikroHata("Supabase HTTP 400: column calisan_durum does not exist")
+            return r
+    yol = tmp_path / "mikro_kayran.py"
+    yol.write_text("eski", encoding="utf-8")
+    assert mk.surum_bildir(_Bozuk(None), str(yol)) is False       # göç uygulanmamış: yalnız günlüğe
+
+
+def test_tur_basinda_surum_bildirilir(mk):
+    govde = (KLASOR / "mikro_kayran.py").read_text(encoding="utf-8").split("def main()", 1)[1]
+    bir_kez = govde.split("if args.bir_kez:", 1)[1].split("finally:", 1)[0]
+    assert bir_kez.index("surum_bildir(sb)") < bir_kez.index("senkronize_et(")
+    assert "kendini_guncelle(sb)" not in bir_kez                  # surum_bildir içinde
+
+
+def test_surum_gocu_kolonlari(mk):
+    sema = (KLASOR.parent.parent / "veritabani" / "51_mikro_aktarici_surum.sql").read_text(encoding="utf-8")
+    for kolon in ("calisan_sha256 text", "calisan_zaman timestamptz", "calisan_durum text"):
+        assert f"ALTER TABLE public.mikro_aktarici_surum ADD COLUMN IF NOT EXISTS {kolon}" in sema
+    assert "ALTER TABLE public.mikro_senk_durum ADD COLUMN IF NOT EXISTS son_silinen integer" in sema
+    assert "GERİ ALMA" in sema and "NOTIFY pgrst" in sema

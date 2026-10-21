@@ -33,7 +33,7 @@ EXCEL_OCAK = {
     "NOTER VE TESCİL HARÇLARI": 1015.11, "BANKA MASRAF B.S.M.V.": 1068.3, "TL KREDİ FAİZLERİ": 20995.26,
     "KREDİ KARTI TAHSİLATLARI KOMİSYONLARI": 162841.01, "KKEG CEZALAR, GİDER KSISITLAMASI VB.": 139845.92,
     "HABERLEŞME GİDERLERİ": 6848.27, "ARAÇ KİRALAMA GİDERLERİ": 144666.66, "SEYAHAT GİDERLERİ": 569199.73,
-    "ARAÇ YAKIT VE DİĞER TÜM GİDERLERİ": 46333.46, "SATIŞ PAZ.DESTEK GİD.": 1000,
+    "ARAÇ YAKIT VE DİĞER TÜM GİDERLERİ": 46333.46,
     "PERSONEL YURTİÇİ YOL GİDERLERİ": 6010, "ELEKTRİK VE SU VE GAZ GİDERLERİ": 11571.51,
     "OFİS TAMİR-BAKIM ONARIM GİDERLERİ": 37640, "TEMSİL, AĞIRLAMA VE İKRAM GİDERLERİ": 95969.76,
     "KIRTASİYE GİDERLERİ": 5284.66, "ÇEŞİTLİ OFİS GİDERLERİ": 17012.15, "TİCARET ODASI AİDAT VE GİDERLERİ": 75,
@@ -53,7 +53,9 @@ def test_ocak_muhasebenin_tablosuyla_kurusu_kurusuna():
     t = G.gider_tablosu(_satirlar(OCAK), 2026)
     ocak = {d[1]: d[2][0] for d in t["detay"]}
     assert ocak == pytest.approx(EXCEL_OCAK, abs=0.005)
-    assert sum(t["kat"][k][0] for k in G.KATEGORILER) == pytest.approx(5147403.06, abs=0.01)
+    # 760.04.011 "SATIŞ PAZ.DESTEK GİD." (1.000 TL) müşteri desteği: giderden çıkıp destek satırına geçti (21.10.2026)
+    assert t["destek"][0] == pytest.approx(1000)
+    assert sum(t["kat"][k][0] for k in G.KATEGORILER) == pytest.approx(5147403.06 - 1000, abs=0.01)
     assert t["kat"]["Sabit"][0] == pytest.approx(2741615.38, abs=0.01)
 
 
@@ -74,8 +76,9 @@ def test_bitmemis_ay_alinmaz():
 
 def test_esit_mi_ve_karsilastir():
     a = G.gider_tablosu(_satirlar(OCAK), 2026)
-    b = {"kat": a["kat"], "detay": [list(d) for d in a["detay"]]}
+    b = {"kat": a["kat"], "detay": [list(d) for d in a["detay"]], "destek": list(a["destek"])}
     assert G.esit_mi(a, b)
+    assert not G.esit_mi(a, dict(b, destek=[0.0] * 12))           # destek değişince de yeniden yazılır
     b["detay"][0] = [b["detay"][0][0], b["detay"][0][1], [b["detay"][0][2][0] + 10] + b["detay"][0][2][1:]]
     assert not G.esit_mi(a, b)
     k = G.karsilastir(b, a)
@@ -199,3 +202,24 @@ def test_otomatik_onaylanmamis_yili_yazmaz(monkeypatch):
     monkeypatch.setattr(D, "set_ayar", lambda *a, **k: None)
     G.otomatik()
     assert yazilan == [2026]
+
+
+def test_musteri_destegi_pnl_desteklerine_gider_disina():
+    """Kullanıcı (21.10.2026): 760.04.011 müşterilere verilen satış desteği — giderde değil Destekler'de; net kâr
+    değişmez. P&L satırı ayın 15'i, TL."""
+    t = G.gider_tablosu(_satirlar("760.04.011:293268 770.02.001:100", ay=2), 2026)
+    assert all(d[1] != "SATIŞ PAZ.DESTEK GİD." for d in t["detay"])
+    assert t["destek"][1] == pytest.approx(293268)
+    s = G.musteri_destek_satirlari({2026: t, 2025: None}, "2026-01-01", "2026-03-31")
+    assert s == [{"tur": G.MUSTERI_DESTEK_TUR, "tutar": 293268.0, "doviz": "TL", "donem": "2026-02-15"}]
+    assert G.musteri_destek_satirlari({2026: t}, "2026-03-01", "2026-03-31") == []
+
+
+def test_pnl_kaynagi_mikro_destegini_ekler(monkeypatch):
+    import kayranacc.database as adb
+    import kayranpm.ref_no as rn
+    import yonetim_hesap as YH
+    monkeypatch.setattr(rn, "get_destek_donem", lambda b, e: [{"tur": "Ref No", "tutar": 5, "doviz": "USD"}])
+    monkeypatch.setattr(adb, "get_ayar", lambda k, v=None: {"destek": [0, 100.0] + [0] * 10} if k.endswith("2026") else v)
+    rows = YH.Kaynak().destekler("2026-01-01", "2026-12-31")
+    assert [r["tur"] for r in rows] == ["Ref No", G.MUSTERI_DESTEK_TUR]

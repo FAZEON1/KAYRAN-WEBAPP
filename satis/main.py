@@ -768,6 +768,36 @@ _ATLANAN_ACIKLAMA = ("Atlanan satırlar zaten kayıtlı olduğu için eklenmedi.
                      "No'daki TÜM kayıtları siler, dikkatli ol.")
 
 
+def _mukerrer_onay(_satirlar, _anahtar, _ayni_sipno_haric=False):
+    """Kaydedilecek satırlarda aynı firma + aynı gün (±1) + aynı SKU + aynı adetli kayıtlı satış varsa uyarı ve
+    onay kutusu (denetim, Ekim 2026: 21.10'da EERA'ya aynı sipariş iki kez elle girildi). Kayıt engellenmez:
+    onay verilince kaydedilir. Döner: kaydetmeye uygun mu (mükerrer yok ya da onaylı)."""
+    from satis.satis_hesap import mukerrer_kalemler
+    _tar = sorted(str(s.get("tarih") or "")[:10] for s in (_satirlar or []) if s.get("tarih"))
+    if not _tar:
+        return True
+    try:
+        _bas = date.fromisoformat(_tar[0]) - timedelta(days=1)
+        _bit = date.fromisoformat(_tar[-1]) + timedelta(days=1)
+        _mevcut = get_satislar_yalin(_bas.isoformat(), _bit.isoformat())
+    except Exception:  # noqa: BLE001 — okunamazsa uyarı çıkmaz, kayıt eskisi gibi
+        return True
+    _muk = []
+    for _s in _satirlar:
+        _m = _mevcut
+        if _ayni_sipno_haric:      # aynı sipariş no zaten "kayıtlı" diye atlanır / üzerine yazılır
+            _no = str(_s.get("siparis_no") or "").strip()
+            _m = [x for x in _mevcut if str(x.get("siparis_no") or "").strip() != _no]
+        _muk.extend(mukerrer_kalemler([_s], _m))
+    if not _muk:
+        return True
+    _ozet = "; ".join(f"{m['sku']} × {tr_sayi(m['adet'])} ({gun_ay_yil(m['tarih'])}, sipariş "
+                      f"{', '.join(m['siparis_nolar'][:3])})" for m in _muk[:6])
+    st.warning(f"Mükerrer olabilir: {len(_muk)} kalem aynı firmaya aynı gün (±1) aynı SKU ve adetle zaten "
+               f"kayıtlı — {_ozet}" + (" …" if len(_muk) > 6 else ""), icon=":material/content_copy:")
+    return st.checkbox("Kontrol ettim, mükerrer değil — yine de kaydet", key=_anahtar)
+
+
 def _sg_kaydet(_gecerli, _temizle, _depo, _dosya_adi, kapi, _plan=None):
     # Kalemde depo yoksa yükleme ekranındaki seçim yazılır — stok O DEPODAN düşer. Satırın KENDİ
     # deposu varsa (Excel'deki ÇIKIŞ DEPOSU kolonu) ona dokunulmaz.
@@ -863,8 +893,10 @@ def kapi_siparis_vatan(dosya, kapi):
                        key=kapi.anahtar("sg_uz_vatan"),
                        help="Aynı Sipariş No'ya sahip TÜM mevcut satış kayıtları silinip yeniden eklenir.")
     _depo_v, _plan_v = _sg_depo_sec(kapi.anahtar("sg_depo_vatan"), _gecerli)
+    _muk_v = _mukerrer_onay(_gecerli, kapi.anahtar("sg_muk_vatan"), _ayni_sipno_haric=True)
     if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
-                 key=kapi.anahtar("sg_kaydet_vatan"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
+                 key=kapi.anahtar("sg_kaydet_vatan"), disabled=not (_gecerli and _muk_v),
+                 icon=":material/move_to_inbox:"):
         _sg_kaydet(_gecerli, _uzv, _depo_v, dosya.name, kapi, _plan_v)
 
 
@@ -915,8 +947,10 @@ def kapi_siparis_itopya(dosya, kapi):
                            "Sipariş No başka bir kanalla ortaksa onları da siler — dikkatli kullan.")
     # Kalemlerin TAMAMI gönderilir — stok uyarısı her satırı kendi deposuna karşı kontrol etsin
     _depo_k, _plan_k = _sg_depo_sec(kapi.anahtar("sg_depo"), _gecerli)
+    _muk_k = _mukerrer_onay(_gecerli, kapi.anahtar("sg_muk"), _ayni_sipno_haric=True)
     if st.button("Siparişleri Kaydet", type="primary", use_container_width=True,
-                 key=kapi.anahtar("sg_kaydet"), disabled=not _gecerli, icon=":material/move_to_inbox:"):
+                 key=kapi.anahtar("sg_kaydet"), disabled=not (_gecerli and _muk_k),
+                 icon=":material/move_to_inbox:"):
         _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi, _plan_k)
 
 
@@ -1508,6 +1542,10 @@ def _sayfa_satis_girisi(*, _kanallar):
                     _vurgu = ("Ciro", _usd(top["ciro"]), "metin")
                 st.markdown(_F.ozet_paneli("Sipariş özeti", _satir, vurgu=_vurgu, uyarilar=_uyari),
                             unsafe_allow_html=True)
+                # Mükerrer uyarısı + onay kutusu Kaydet'ten ÖNCE (pencere yeniden çizildiğinde kutu kaybolmasın)
+                with mesaj_yeri:
+                    _muk_ok = _mukerrer_onay([dict(k, tarih=str(g_tarih), kanal=g_kanal) for k in kalemler],
+                                             "s_muk_onay") if kalemler else True
                 _kaydet = st.button("Siparişi kaydet", type="primary", use_container_width=True, key="s_kaydet",
                                     icon=":material/save:", disabled=not kalemler)
                 if st.container(key="kf_ikincil_s").button("Sepeti temizle", use_container_width=True, key="s_temizle",
@@ -1558,6 +1596,9 @@ def _sayfa_satis_girisi(*, _kanallar):
                             for _e in _engel:
                                 st.error(_e)
                             st.info("Geçersiz SKU düzeltilmeden sipariş kaydedilemez.")
+                        elif not _muk_ok:
+                            st.info("Mükerrer olabilecek kalem var: kontrol edip onay kutusunu işaretle, "
+                                    "sonra yeniden kaydet.")
                         else:
                             for _u in _uyari:
                                 st.warning(_u)
@@ -1567,7 +1608,7 @@ def _sayfa_satis_girisi(*, _kanallar):
                                 st.success(f"{msg} · Sipariş No: {sipno}"
                                            + (f" · Net kâr: {_usd_md(top['net_kar'])}" if _kar_acik else ""))
                                 st.session_state.satis_kalemler = []
-                                for _k in ("s_sipno", "s_not", "s_adet", "s_bsat"):
+                                for _k in ("s_sipno", "s_not", "s_adet", "s_bsat", "s_muk_onay"):
                                     st.session_state.pop(_k, None)
                                 if not _uyari:
                                     st.rerun()  # uyarı yoksa temiz yenile; varsa mesajlar ekranda kalsın

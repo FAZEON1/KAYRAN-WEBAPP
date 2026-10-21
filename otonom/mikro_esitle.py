@@ -73,14 +73,27 @@ def calistir(isler=ISLER):
     return out
 
 
-def tur(kaynak="github", isler=ISLER):
-    """Bir eşitleme turu + sağlık denetimi (günlük, Telegram). Döner: [(ad, metin)]."""
+KILITLI = [("Eşitleme", "atlandı: başka bir eşitleme turu çalışıyor (kilit)")]
+
+
+def tur(kaynak="github", isler=ISLER, gunluk_her_zaman=True):
+    """Bir eşitleme turu + sağlık denetimi (günlük, Telegram). Döner: [(ad, metin)].
+    Tur kilitlidir (shared/mikro_kilit): GitHub işi ile uygulamanın arka plan turu aynı anda çalışırsa ikincisi
+    atlanır — aynı anda iki tur çek listesini iki katına çıkarabilir, satırı iki kez ekleyebilirdi (21.10 denetimi).
+    gunluk_her_zaman=False (uygulamanın 5 dakikalık arka plan turu): günlüğe yalnız bir iş yazdıysa / uyardıysa /
+    hata verdiyse yazılır (her 5 dakikada boş satır olmasın)."""
+    from shared.mikro_kilit import tur_kilidi
     from shared.mikro_saglik import denetle_ve_bildir, is_durumu
-    sonuc = calistir(isler)
-    try:
-        denetle_ve_bildir([{"ad": ad, "durum": is_durumu(m), "metin": m} for ad, m in sonuc], kaynak=kaynak)
-    except Exception as e:  # noqa: BLE001
-        print(f"Sağlık denetimi yapılamadı: {type(e).__name__}: {e}")
+    with tur_kilidi(kaynak) as alindi:
+        if not alindi:
+            return list(KILITLI)
+        sonuc = calistir(isler)
+    durumlar = [{"ad": ad, "durum": is_durumu(m), "metin": m} for ad, m in sonuc]
+    if gunluk_her_zaman or any(d["durum"] != "yok" for d in durumlar):
+        try:
+            denetle_ve_bildir(durumlar, kaynak=kaynak)
+        except Exception as e:  # noqa: BLE001
+            print(f"Sağlık denetimi yapılamadı: {type(e).__name__}: {e}")
     return sonuc
 
 

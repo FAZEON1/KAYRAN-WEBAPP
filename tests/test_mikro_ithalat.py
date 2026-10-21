@@ -192,7 +192,7 @@ def test_esitleme_turlarina_eklendi():
     from pathlib import Path
     kok = Path(__file__).resolve().parent.parent
     app = (kok / "app.py").read_text(encoding="utf-8")
-    assert "ithalat.mikro_ithalat" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
+    assert "_mod.ISLER" in app.split("def _mikro_esitle_dene", 1)[1].split("\ndef ", 1)[0]
     spec = importlib.util.spec_from_file_location("otonom_mikro_esitle_ith", kok / "otonom" / "mikro_esitle.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
