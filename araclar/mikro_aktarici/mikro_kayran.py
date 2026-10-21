@@ -205,6 +205,73 @@ WHERE h.sth_iptal=0 AND c.cha_iptal=0 AND c.cha_tarihi >= '20260101'
   AND (h.sth_lastup_date > '{SON}' OR c.cha_lastup_date > '{SON}')
 """,
     },
+    # ── Muhasebe adımı 1 (Ekim 2026): ham veri; bakiye / eşleme hesapları uygulamada (kayranacc/mikro_muhasebe) ──
+    # Cari, banka (cari_cins 2), kasa (4) ve diğer bütün cari hareketleri — bakiye formülü uygulamada doğrulanır.
+    "cari_hareket": {
+        "tablo": "mikro_cari_hareket", "anahtar": "cha_guid",
+        "artimli": True,
+        "sql": """
+SELECT cha_Guid, cha_evrak_tip, cha_evrakno_seri, cha_evrakno_sira, cha_satir_no, cha_tarihi, cha_tip, cha_cinsi,
+       cha_normal_Iade AS cha_normal_iade, cha_cari_cins, cha_kod, cha_ciro_cari_kodu, cha_d_cins, cha_d_kur,
+       cha_altd_kur, cha_karsidcinsi, cha_karsid_kur, cha_meblag, cha_vade, cha_aciklama, cha_belge_no,
+       cha_EXIMkodu AS cha_eximkodu, cha_srmrkkodu, cha_kasa_hizmet, cha_kasa_hizkod, cha_trefno, cha_sntck_poz,
+       cha_lastup_date
+FROM CARI_HESAP_HAREKETLERI
+WHERE cha_iptal=0 AND cha_lastup_date > '{SON}'
+""",
+    },
+    "cari_kart": {
+        "tablo": "mikro_cari_kart", "anahtar": "cari_kod",
+        "artimli": False,
+        "sql": """
+SELECT cari_kod, cari_unvan1, cari_doviz_cinsi, cari_muh_kod, cari_grup_kodu, cari_sektor_kodu, cari_lastup_date
+FROM CARI_HESAPLAR WHERE cari_iptal=0
+""",
+    },
+    "banka_kart": {
+        "tablo": "mikro_banka_kart", "anahtar": "ban_kod",
+        "artimli": False,
+        "sql": "SELECT ban_kod, ban_ismi, ban_sube, ban_doviz_cinsi, ban_hesap_tip, ban_muh_kod FROM BANKALAR WHERE ban_iptal=0",
+    },
+    "kasa_kart": {
+        "tablo": "mikro_kasa_kart", "anahtar": "kas_kod",
+        "artimli": False,
+        "sql": "SELECT kas_kod, kas_isim, kas_doviz_cinsi, kas_tip FROM KASALAR WHERE kas_iptal=0",
+    },
+    "depo_kart": {
+        "tablo": "mikro_depo_kart", "anahtar": "dep_no",
+        "artimli": False,
+        "sql": "SELECT dep_no, dep_adi FROM DEPOLAR WHERE dep_iptal=0",
+    },
+    "cek_senet": {
+        "tablo": "mikro_cek", "anahtar": "sck_guid",
+        "artimli": False,
+        "sql": """
+SELECT sck_Guid, sck_tip, sck_refno, sck_no, sck_vade, sck_tutar, sck_doviz, sck_doviz_kur, sck_odenen, sck_borclu,
+       sck_sonpoz, sck_sahip_cari_cins, sck_sahip_cari_kodu, sck_nerede_cari_cins, sck_nerede_cari_kodu,
+       sck_bankano, sck_banka_adres1, sck_sube_adres2, sck_hesapno_sehir, sck_duzen_tarih, sck_son_hareket_tarihi,
+       sck_lastup_date
+FROM ODEME_EMIRLERI WHERE sck_iptal=0
+""",
+    },
+    # Muhasebe: ay × hesap toplamları (gider tablosu için; fiş ayrıntısı gerekmez)
+    "muhasebe_ay": {
+        "tablo": "mikro_muhasebe_ay", "anahtar": "yil,ay,hesap_kod",
+        "artimli": False,
+        "sql": """
+SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, fis_hesap_kod AS hesap_kod,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       COUNT(*) AS satir
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod
+""",
+    },
+    "hesap_plani": {
+        "tablo": "mikro_hesap_plani", "anahtar": "muh_hesap_kod",
+        "artimli": False,
+        "sql": "SELECT muh_hesap_kod, muh_hesap_isim1 FROM MUHASEBE_HESAP_PLANI WHERE muh_iptal=0",
+    },
     "masraf": {
         "tablo": "mikro_masraf", "anahtar": "cha_guid",
         "artimli": True,
