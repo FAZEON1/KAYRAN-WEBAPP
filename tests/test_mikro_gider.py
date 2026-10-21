@@ -91,3 +91,111 @@ def test_gider_eslesmesi_acikken_gider_hatirlatmasi_cikmaz(monkeypatch):
     monkeypatch.setattr(Y, "_ayar", lambda anahtar, varsayilan: varsayilan)
     monkeypatch.setattr(Y, "_OKUYUCU", {})
     assert "gider_tablosu" not in {d["anahtar"] for d in Y.durumlar()}
+
+
+# ── Yıl sonu kapanış fişi (Ekim 2026): Mikro Aralık'ta 6xx/7xx hesaplarını sıfırlıyor. Canlı 2025 Aralık gider
+#    hesapları: borç 21.179.807,31 · alacak 63.071.734,60 (yıl toplamı ≈ 0). Fiş türü ayrılınca kapanış alınmaz. ──
+class _Sorgu:
+    """Supabase sorgu zincirinin sahtesi: range verilmezse PostgREST gibi en fazla 1000 satır döner."""
+    def __init__(self, veri):
+        self.v, self.r = list(veri), (0, 999)
+
+    def select(self, *a, **k):
+        return self
+
+    def order(self, *a, **k):
+        return self
+
+    def gte(self, kolon, deger):
+        self.v = [x for x in self.v if x.get(kolon, 0) >= deger]
+        return self
+
+    def range(self, a, b):
+        self.r = (a, min(b, a + 999))
+        return self
+
+    def execute(self):
+        return types.SimpleNamespace(data=self.v[self.r[0]:self.r[1] + 1])
+
+
+def _sahte_vt(monkeypatch, tablolar, ayar=None):
+    import kayranacc.database as D
+
+    def _tablo(ad):
+        if ad not in tablolar:
+            raise RuntimeError(f"tablo yok: {ad}")
+        return _Sorgu(tablolar[ad])
+    monkeypatch.setattr(G, "_cli", lambda: types.SimpleNamespace(table=_tablo))
+    monkeypatch.setattr(D, "get_ayar", lambda anahtar, varsayilan=None: (ayar or {}).get(anahtar, varsayilan))
+
+
+def _r(yil, ay, kod, borc=0.0, alacak=0.0, tur=0):
+    return {"yil": yil, "ay": ay, "hesap_kod": kod, "borc": borc, "alacak": alacak, "fis_tur": tur}
+
+
+def _toplu(satirlar):
+    """mikro_muhasebe_ay: fiş türü yok, kapanış dahil toplam."""
+    t = {}
+    for x in satirlar:
+        k = (x["yil"], x["ay"], x["hesap_kod"])
+        o = t.setdefault(k, {"yil": k[0], "ay": k[1], "hesap_kod": k[2], "borc": 0.0, "alacak": 0.0})
+        o["borc"] += x["borc"]
+        o["alacak"] += x["alacak"]
+    return list(t.values())
+
+
+KIRA_2025 = ([_r(2025, ay, "770.02.001", borc=320340) for ay in range(1, 13)]
+             + [_r(2025, 12, "770.02.001", alacak=12 * 320340, tur=4)]   # yıl sonu kapanış
+             + [_r(2026, 1, "770.02.001", borc=320340)])
+
+
+def test_fis_turu_varsa_kapanis_alinmaz_2025_de_gelir(monkeypatch):
+    _sahte_vt(monkeypatch, {"mikro_muhasebe_ay_tur": KIRA_2025, "mikro_muhasebe_ay": _toplu(KIRA_2025),
+                            "mikro_hesap_plani": []})
+    plan = G.plan_hazirla(date(2026, 10, 21))
+    assert sorted(plan) == [2025, 2026]
+    kira = plan[2025]["yeni"]["detay"][0]
+    assert kira[1] == "MERKEZ OFİS KİRA GİDERLERİ" and kira[2][11] == 320340     # Aralık sıfırlanmaz
+    assert plan[2026]["yeni"]["detay"][0][2][0] == 320340
+
+
+def test_fis_turu_tablosu_yoksa_eski_davranis(monkeypatch):
+    _sahte_vt(monkeypatch, {"mikro_muhasebe_ay": _toplu(KIRA_2025), "mikro_hesap_plani": []})
+    plan = G.plan_hazirla(date(2026, 10, 21))
+    assert sorted(plan) == [2026]
+    assert plan[2026]["yeni"]["detay"][0][2][0] == 320340
+
+
+def test_kapanis_turu_yanlissa_yil_atlanir_yanlis_rakam_yazilmaz(monkeypatch):
+    """KAPANIS_TURLERI doğrulanmadı: kapanış başka türdeyse Aralık eksiye düşer → o yıl hiç yazılmaz."""
+    baska = [dict(x, fis_tur=99) if x["alacak"] else x for x in KIRA_2025]
+    _sahte_vt(monkeypatch, {"mikro_muhasebe_ay_tur": baska, "mikro_muhasebe_ay": _toplu(baska),
+                            "mikro_hesap_plani": []})
+    assert sorted(G.plan_hazirla(date(2026, 10, 21))) == [2026]
+
+
+def test_canli_2025_araligi_kapanis_kalmis():
+    s = [_r(2025, 12, "770.02.001", borc=21179807.31, alacak=63071734.60)]
+    assert G.kapanis_kalmis_mi(s, 2025)
+    assert not G.kapanis_kalmis_mi(_satirlar(OCAK, ay=12, yil=2025), 2025)
+
+
+def test_1000_satir_siniri_asilir(monkeypatch):
+    """mikro_muhasebe_ay 2025–2026'da 4.068 satır; tek sorgu 1000 satırda kesilir."""
+    s = [_r(2026, 1, f"770.09.{i:04d}", borc=1.0) for i in range(1500)]
+    _sahte_vt(monkeypatch, {"mikro_muhasebe_ay_tur": s, "mikro_muhasebe_ay": _toplu(s), "mikro_hesap_plani": []})
+    plan = G.plan_hazirla(date(2026, 10, 21))
+    assert plan[2026]["yeni"]["kat"]["Yarı Değişken"][0] == 1500
+
+
+def test_otomatik_onaylanmamis_yili_yazmaz(monkeypatch):
+    """Eşitleme 2026 için onaylandı; 2025 (muhasebenin Excel'i) kullanıcı görüp onaylamadan değişmez."""
+    import kayranacc.database as D
+    yazilan = []
+    monkeypatch.setattr(G, "durum", lambda: {"acik": True, "son_calisma": "2026-10-21T10:00"})
+    monkeypatch.setattr(G, "son_aktarim", lambda: "2026-10-21T11:00")
+    monkeypatch.setattr(G, "plan_hazirla", lambda: {2025: {"degisir": True}, 2026: {"degisir": True}})
+    monkeypatch.setattr(G, "uygula", lambda plan: yazilan.extend(plan) or list(plan))
+    monkeypatch.setattr(D, "set_ayar", lambda *a, **k: None)
+    G.otomatik()
+    assert yazilan == [2026]

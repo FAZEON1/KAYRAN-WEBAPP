@@ -415,6 +415,12 @@ def durum():
         return None
 
 
+def acik_mi():
+    """Satış eşitlemesi açık mı. Açıksa satış dökümü ve iade Excel'i Dosya kapısında kaydedilmez, takvim
+    hatırlatması çıkmaz. Durum okunamazsa kapalı sayılır (yükleme açık kalır)."""
+    return bool((durum() or {}).get("acik"))
+
+
 def veri_oku(baslangic=BASLANGIC):
     """(mikro satırları, mevcut satışlar, mevcut iadeler, Mikro satış faturası başlıkları)."""
     from datetime import date, timedelta

@@ -167,3 +167,57 @@ def test_aktarici_kod_degisince_yeniden_yayinlanir():
     import hashlib
     kod = (KOK / "araclar/mikro_aktarici/mikro_kayran.py").read_text(encoding="utf-8")
     assert M.aktarici_ozeti() == hashlib.sha256(kod.encode("utf-8")).hexdigest()
+
+
+# ── Satış eşitlemesi açıkken Dosya kapısındaki satış dökümü / iade Excel'i kaydedilmez (Ekim 2026) ──
+class _KayitYolu:
+    """Gövde dosyayı okumaya / kaydetmeye kalkarsa test kırmızı olur (kapı kapalı olmalıydı)."""
+    name = "dokum.xlsx"
+
+    def __getattr__(self, ad):
+        raise AssertionError(f"satış eşitlemesi açıkken dosya işlendi: {ad}")
+
+
+def _acik_esitleme(monkeypatch):
+    import sys
+    import types
+    sahte = types.ModuleType("satis.mikro_esitle")
+    sahte.acik_mi = lambda: True
+    monkeypatch.setitem(sys.modules, "satis.mikro_esitle", sahte)
+
+
+@pytest.mark.parametrize("govde", ["kapi_mikro_fatura", "kapi_iade"])
+def test_satis_esitlemesi_acikken_kapi_kaydetmez(monkeypatch, govde):
+    SM = pytest.importorskip("satis.main")
+    from shared import yukleme_takvimi as Y
+    _acik_esitleme(monkeypatch)
+    bilgi = []
+    monkeypatch.setattr(SM.st, "info", lambda m, *a, **k: bilgi.append(m), raising=False)
+
+    class _Yer:
+        def markdown(self, *a, **k):
+            return None
+    monkeypatch.setattr(SM.st, "empty", lambda: _Yer(), raising=False)
+    monkeypatch.setattr(Y, "serit", lambda *a, **k: None)
+    assert getattr(SM, govde)(_KayitYolu(), _KayitYolu()) is None
+    assert bilgi and "Mikro" in bilgi[0] and "kaydedilmez" in bilgi[0]
+
+
+def test_satis_esitlemesi_acikken_satis_dokumu_hatirlatmasi_cikmaz(monkeypatch):
+    from shared import yukleme_takvimi as Y
+    _acik_esitleme(monkeypatch)
+    # satis_dokumu varsayılan olarak takip dışı; ayarlardan açılmış olsa bile Mikro varken hatırlatma çıkmaz
+    monkeypatch.setattr(Y, "_ayar", lambda anahtar, varsayilan: (
+        {"satis_dokumu": {"aktif": True}} if anahtar == Y.AYAR_ANAHTAR else varsayilan))
+    monkeypatch.setattr(Y, "_OKUYUCU", {})
+    anahtarlar = {d["anahtar"] for d in Y.durumlar()}
+    assert "satis_dokumu" not in anahtarlar
+    assert "satis_dokumu" in Y._mikro_kapsadigi()
+    assert "musteri_haftalik" in anahtarlar          # Mikro'dan gelmeyen kaynak kalır
+
+
+def test_acik_mi_durumdan(monkeypatch):
+    monkeypatch.setattr(M, "durum", lambda: {"acik": True})
+    assert M.acik_mi() is True
+    monkeypatch.setattr(M, "durum", lambda: None)      # tablo yok / okunamadı → kapalı (yükleme açık kalır)
+    assert M.acik_mi() is False

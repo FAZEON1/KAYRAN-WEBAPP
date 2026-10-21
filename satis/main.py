@@ -916,8 +916,21 @@ def kapi_siparis_itopya(dosya, kapi):
         _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi, _plan_k)
 
 
+def _mikrodan_geliyor(ne):
+    """Satış eşitlemesi açıksa (satis/mikro_esitle) satışlar ve iadeler Mikro faturalarından gelir: bu dosya
+    kaydedilmez (Ekim 2026; muhasebe tarafındaki kayranacc.main._mikrodan_geliyor ile aynı)."""
+    from satis.mikro_esitle import acik_mi
+    if not acik_mi():
+        return False
+    st.info(f"{ne} artık Mikro faturalarından otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
+            "Bu dosya kaydedilmez.")
+    return True
+
+
 def kapi_mikro_fatura(dosya, kapi):
     """Mikro fatura bazlı satış dökümü. Maliyet güncel paçaldan; kayıtlı faturalar atlanır."""
+    if _mikrodan_geliyor("Satışlar"):
+        return
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("satis_dokumu")            # dönemsel yükleme: geri sayım şeridi
     _adim_yer = st.empty()
@@ -1035,6 +1048,8 @@ def kapi_mikro_fatura(dosya, kapi):
 
 def kapi_iade(dosya, kapi):
     """Mikro 'iadeli satışlar' raporu → toplu iade (yalnız iade kolonları alınır)."""
+    if _mikrodan_geliyor("İadeler"):
+        return
     # İki biçim: Mikro "iadeli satışlar" özet raporu ya da FATURA BAZLI iade dökümü (her kalem tarihli)
     _fat, _fat_hata, _fat_atla = kapi.onbellek("fatura", lambda: iade_fatura_satirlari(dosya))
     _varsayilan = (date.today(), date.today())
