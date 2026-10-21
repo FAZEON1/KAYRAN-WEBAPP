@@ -191,3 +191,26 @@ def test_mikro_esitlemesi_acikken_cari_ve_ithalat_hatirlatmasi_cikmaz(monkeypatc
     anahtarlar = {d["anahtar"] for d in Y.durumlar()}
     assert "aktif_cari" not in anahtarlar and "aktif_ithalat" not in anahtarlar
     assert "aktif_stok" in anahtarlar          # stok değeri şimdilik dosyayla
+
+
+def test_firma_ceki_bankadan_odendigi_gun_duser():
+    """Mikro çeki cariye verdiği gün (evrak 67) bankayı karşı hesap yapıyor, ödendiği gün (evrak 38) banka ↔ aynı
+    banka kaydı atıyor. Eski formül ödenmemiş çeki verildiği gün düşüyordu: YKB USD 103.788,57 yerine 84.338,57
+    (ödenmemiş iki çek 8.450 + 11.000; Toplam Aktifler çekleri ayrıca düştüğü için iki kez)."""
+    kart = [{"ban_kod": "102.05.002", "ban_doviz_cinsi": 1}]
+    acilis = _h(cha_cari_cins=2, cha_kod="102.05.002", cha_tip=0, cha_d_cins=1, cha_meblag=133788.57)
+
+    def verildi(ref, t):
+        return _h(cha_evrak_tip=67, cha_kod="320.05.003", cha_tip=0, cha_kasa_hizmet=2,
+                  cha_kasa_hizkod="102.05.002", cha_d_cins=1, cha_meblag=t, cha_trefno=ref)
+
+    def odendi(ref, t):
+        return _h(cha_evrak_tip=38, cha_cari_cins=2, cha_kod="102.05.002", cha_tip=0, cha_kasa_hizmet=2,
+                  cha_kasa_hizkod="102.05.002", cha_d_cins=1, cha_meblag=t, cha_trefno=ref)
+
+    h = [acilis, verildi("FC-19", 30000), odendi("FC-19", 30000),       # ödendi: bankadan düşer
+         verildi("FC-21", 8450), verildi("FC-22", 11000)]               # ödenmedi: bankada
+    assert M.banka_bakiyeleri(h, kart)["102.05.002"] == pytest.approx(103788.57)
+    # çekin cari tarafı değişmez: tedarikçiye borç verildiği gün kapanır
+    cb = M.cari_bakiyeleri(h, [{"cari_kod": "320.05.003", "cari_doviz_cinsi": 1}])
+    assert cb["320.05.003"] == pytest.approx(49450.0)
