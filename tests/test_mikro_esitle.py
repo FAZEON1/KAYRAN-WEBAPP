@@ -169,6 +169,37 @@ def test_aktarici_kod_degisince_yeniden_yayinlanir():
     assert M.aktarici_ozeti() == hashlib.sha256(kod.encode("utf-8")).hexdigest()
 
 
+def test_aktarici_yayinla_yayin_zamanini_gunceller(monkeypatch):
+    """mikro_aktarici_surum.yayin yalnız ilk eklemede (DEFAULT now()) doluyordu; upsert'te değişmiyordu
+    (canlıda yayin ilk yayının zamanında kaldı). Artık her yayında yazılır."""
+    import types
+    from datetime import datetime
+    yazilan = []
+
+    class _T:
+        def select(self, *a):
+            return self
+
+        def eq(self, *a):
+            return self
+
+        def upsert(self, satir):
+            yazilan.append(satir)
+            return self
+
+        def execute(self):
+            return types.SimpleNamespace(data=[{"sha256": "eski"}])
+
+    class _C:
+        def table(self, ad):
+            assert ad == "mikro_aktarici_surum"
+            return _T()
+    monkeypatch.setattr(M, "_cli", lambda: _C())
+    assert M.aktarici_yayinla() is True
+    assert yazilan and yazilan[0]["sha256"] == M.aktarici_ozeti() and yazilan[0].get("yayin")
+    assert datetime.fromisoformat(yazilan[0]["yayin"]).tzinfo is not None
+
+
 # ── Satış eşitlemesi açıkken Dosya kapısındaki satış dökümü / iade Excel'i kaydedilmez (Ekim 2026) ──
 class _KayitYolu:
     """Gövde dosyayı okumaya / kaydetmeye kalkarsa test kırmızı olur (kapı kapalı olmalıydı)."""

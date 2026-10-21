@@ -632,7 +632,11 @@ def aktarici_yayinla():
             return False
         if aktarici_yayinda_mi(ozet):
             return True
-        _cli().table("mikro_aktarici_surum").upsert({"id": 1, "kod": kod, "sha256": ozet}).execute()
+        # yayin: tablonun DEFAULT now()'ı yalnız ilk eklemede çalışır; upsert'te açıkça yazılmazsa ilk yayının
+        # zamanında kalıyordu (Ekim 2026).
+        from datetime import datetime, timezone
+        _cli().table("mikro_aktarici_surum").upsert(
+            {"id": 1, "kod": kod, "sha256": ozet, "yayin": datetime.now(timezone.utc).isoformat()}).execute()
         return True
     except Exception as e:  # noqa: BLE001
         from shared.kayit import sessiz
