@@ -13,14 +13,27 @@ ayındadır. Eşlemede olmayan yeni bir gider hesabı (760 / 770 / 780 / 689) ka
 "Yarı Değişken" altına girer. Satış destek bedelleri (760.04.019–023) gider değil, destek: alınmaz.
 
 Ay: geçmiş yıllar 12 ay; bu yıl yalnız BİTMİŞ aylar (içinde bulunulan ay muhasebe kapanmadan yarım kalır).
-Yıl: 2026'dan (2025 yıl sonu kapanış fişi gider hesaplarını sıfırlıyor; aktarıcı fiş türünü ayırana kadar
-eski yıl Excel'de kalır). İlk açılışta "Excel ↔ Mikro" karşılaştırması ve onay (Destekler ve giderler
-sayfası), sonra otomatik. Durum sistem_ayarlari'nda (DURUM_ANAHTAR).
+Yıl: Mikro'nun yıl sonu kapanış fişi Aralık'ta gider hesaplarını sıfırlıyor (canlı 2025 Aralık: borç
+21.179.807,31 · alacak 63.071.734,60). Fiş türü ayrılmış tablo (mikro_muhasebe_ay_tur, aktarıcının
+muhasebe_ay_tur sorgusu) doluysa ondan okunur ve kapanış türündeki fişler (KAPANIS_TURLERI) alınmaz; o
+zaman 2025'ten (ILK_YIL_TURLU). Tablo yoksa / boşsa eski tablo (mikro_muhasebe_ay) ve 2026'dan (ILK_YIL).
+Güvenlik: kapanış ayıklandıktan sonra bir yılın Aralık'ı hâlâ eksiyse (kapanış başka türde) o yıl hiç
+hesaplanmaz — yanlış rakam yazılmaz, kayıtlı tablo kalır.
+Otomatik tur yalnız onaylanan ilk yıldan (durum "ilk_yil", yoksa ILK_YIL) sonrasını yazar: 2025 tablosu
+(muhasebenin Excel'i) kullanıcı karşılaştırmayı görüp onaylamadan değişmez.
+İlk açılışta "Excel ↔ Mikro" karşılaştırması ve onay (Destekler ve giderler sayfası), sonra otomatik.
+Durum sistem_ayarlari'nda (DURUM_ANAHTAR).
 """
 from collections import defaultdict
 
 DURUM_ANAHTAR = "mikro_gider_durum"
-ILK_YIL = 2026
+ILK_YIL = 2026          # fiş türü olmayan tablo (mikro_muhasebe_ay): 2025 Aralık kapanışla sıfır
+ILK_YIL_TURLU = 2025    # fiş türü ayrılmış tablo (mikro_muhasebe_ay_tur) doluysa
+# Mikro MUHASEBE_FISLERI.fis_tur içinde yıl sonu kapanış fişinin türü. DOĞRULANMADI (Mikro'da genelde
+# 0 mahsup, 1 tahsil, 2 tediye, 3 açılış, 4 kapanış): veri gelince mikro_muhasebe_tur tablosunda Aralık'ta
+# gider hesaplarını (gider_alacak) sıfırlayan türe bakılıp düzeltilmeli. Yanlışsa kapanis_kalmis_mi o yılı atlar.
+KAPANIS_TURLERI = (4,)
+SAYFA = 1000            # Supabase tek sorguda en fazla 1000 satır döndürür
 KATEGORILER = ("Sabit", "Değişken", "Yarı Değişken")
 GIDER_ONEK = ("760.", "770.", "780.", "689.")
 HARIC = ("760.04.019", "760.04.020", "760.04.021", "760.04.022", "760.04.023")   # satış destek bedelleri
@@ -92,6 +105,23 @@ def _s(v):
 # ── Saf ────────────────────────────────────────────────────────────
 def gider_hesabi_mi(kod):
     return kod.startswith(GIDER_ONEK) and kod not in HARIC
+
+
+def kapanis_mi(r):
+    """Satır yıl sonu kapanış fişinden mi (fis_tur KAPANIS_TURLERI'nde). Fiş türü yoksa değil."""
+    t = r.get("fis_tur")
+    if t is None or t == "":
+        return False
+    return int(_f(t, -1)) in KAPANIS_TURLERI
+
+
+def kapanis_kalmis_mi(satirlar, yil):
+    """Yılın Aralık'ında gider hesaplarının toplamı (borç − alacak) eksi mi: yıl sonu kapanışı hâlâ içeride.
+    Normal bir Aralık'ta gider artıdır; kapanış bütün yılın giderini alacağa yazınca eksiye düşer."""
+    net = sum(_f(r.get("borc")) - _f(r.get("alacak")) for r in satirlar
+              if int(_f(r.get("yil"))) == int(yil) and int(_f(r.get("ay"))) == 12
+              and gider_hesabi_mi(_s(r.get("hesap_kod"))))
+    return net < -KURUS
 
 
 def kalem_bul(kod, hesap_adi=None):
@@ -174,22 +204,53 @@ def _bugun():
     return tr_today()
 
 
-def yillar(bugun=None):
+def yillar(bugun=None, turlu=False):
     bugun = bugun or _bugun()
-    return [y for y in range(ILK_YIL, bugun.year + 1)]
+    return [y for y in range(ILK_YIL_TURLU if turlu else ILK_YIL, bugun.year + 1)]
+
+
+def _sayfali(cli, tablo, secim, siralama, ilk_yil=None):
+    out, bas = [], 0
+    while True:
+        q = cli.table(tablo).select(secim)
+        if ilk_yil is not None:
+            q = q.gte("yil", ilk_yil)
+        for kol in siralama:
+            q = q.order(kol)
+        parca = q.range(bas, bas + SAYFA - 1).execute().data or []
+        out += parca
+        if len(parca) < SAYFA:
+            return out
+        bas += SAYFA
+
+
+def muhasebe_satirlari(cli):
+    """(gider hesabı satırları, fiş türlü mü). Fiş türlü tablo doluysa kapanış fişleri ayıklanmış olarak ondan;
+    yoksa / okunamazsa eski tablodan (kapanış dahil, yalnız ILK_YIL'dan)."""
+    try:
+        satir = _sayfali(cli, "mikro_muhasebe_ay_tur", "yil,ay,hesap_kod,fis_tur,borc,alacak",
+                         ("yil", "ay", "hesap_kod", "fis_tur"), ILK_YIL_TURLU)
+    except Exception:  # noqa: BLE001  (tablo henüz kurulmadı)
+        satir = []
+    turlu = bool(satir)
+    if turlu:
+        satir = [r for r in satir if not kapanis_mi(r)]
+    else:
+        satir = _sayfali(cli, "mikro_muhasebe_ay", "yil,ay,hesap_kod,borc,alacak", ("yil", "ay", "hesap_kod"),
+                         ILK_YIL)
+    return [r for r in satir if gider_hesabi_mi(_s(r.get("hesap_kod")))], turlu
 
 
 def plan_hazirla(bugun=None):
-    """{yil: {"eski": kayıtlı tablo, "yeni": Mikro tablosu, "degisir": bool}}."""
+    """{yil: {"eski": kayıtlı tablo, "yeni": Mikro tablosu, "degisir": bool}}. Kapanışı hâlâ içinde olan yıl
+    (kapanis_kalmis_mi) plana girmez."""
     from kayranacc.database import get_ayar
     bugun = bugun or _bugun()
     cli = _cli()
-    ys = yillar(bugun)
-    satir = (cli.table("mikro_muhasebe_ay").select("yil,ay,hesap_kod,borc,alacak").gte("yil", ys[0])
-             .execute().data or [])
-    satir = [r for r in satir if gider_hesabi_mi(_s(r.get("hesap_kod")))]
+    satir, turlu = muhasebe_satirlari(cli)
+    ys = [y for y in yillar(bugun, turlu) if not kapanis_kalmis_mi(satir, y)]
     adlar = {_s(r.get("muh_hesap_kod")): _s(r.get("muh_hesap_isim1")) for r in
-             (cli.table("mikro_hesap_plani").select("muh_hesap_kod,muh_hesap_isim1").execute().data or [])}
+             _sayfali(cli, "mikro_hesap_plani", "muh_hesap_kod,muh_hesap_isim1", ("muh_hesap_kod",))}
     plan = {}
     for y in ys:
         yeni = gider_tablosu(satir, y, ay_siniri(y, bugun), adlar)
@@ -228,11 +289,12 @@ def acik_mi():
     return bool(durum().get("acik"))
 
 
-def ac(kullanici):
+def ac(kullanici, ilk_yil=None):
+    """ilk_yil: karşılaştırmada gösterilip onaylanan ilk yıl; otomatik tur bundan öncesini yazmaz."""
     from kayranacc.database import set_ayar
     from shared.utils import tr_now
     d = durum()
-    d.update(acik=True, acan=str(kullanici or ""), acilis=str(tr_now()))
+    d.update(acik=True, acan=str(kullanici or ""), acilis=str(tr_now()), ilk_yil=int(ilk_yil or ILK_YIL))
     set_ayar(DURUM_ANAHTAR, d)
 
 
@@ -252,7 +314,8 @@ def otomatik():
         son = son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):
             return None
-        yazilan = uygula(plan_hazirla())
+        ilk = int(_f(d.get("ilk_yil"), ILK_YIL) or ILK_YIL)      # onaylanmamış yıl (ör. 2025) yazılmaz
+        yazilan = uygula({y: p for y, p in plan_hazirla().items() if y >= ilk})
         d["son_calisma"] = son
         set_ayar(DURUM_ANAHTAR, d)
         return yazilan

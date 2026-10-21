@@ -65,6 +65,6 @@ def ilk_onay_kutusu():
         if st.button("Onayla ve otomatik eşitlemeyi aç", type="primary", disabled=not onay,
                      icon=":material/sync:", key="mg_ac"):
             yazilan = G.uygula(plan)
-            G.ac(st.session_state.get("aktif_kullanici", ""))
+            G.ac(st.session_state.get("aktif_kullanici", ""), ilk_yil=min(plan) if plan else None)
             st.success("Açıldı. " + (f"{', '.join(map(str, yazilan))} gider tablosu Mikro'dan yazıldı. " if yazilan else "")
                        + "Bundan sonra otomatik.")

@@ -267,6 +267,38 @@ FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
 GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod
 """,
     },
+    # Muhasebe fiş türü dağılımı (Ekim 2026): yıl sonu kapanış fişi Aralık'ta 6xx/7xx hesaplarını sıfırlıyor.
+    # Kapanışın hangi fis_tur olduğu buradan doğrulanır (gider_* = 6xx/7xx hesaplarının toplamı). Küçük tablo.
+    "muhasebe_tur": {
+        "tablo": "mikro_muhasebe_tur", "anahtar": "yil,ay,fis_tur",
+        "artimli": False,
+        "sql": """
+SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, COALESCE(CAST(fis_tur AS int), -1) AS fis_tur,
+       COUNT(*) AS satir,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       SUM(CASE WHEN fis_meblag0 > 0 AND (fis_hesap_kod LIKE '6%' OR fis_hesap_kod LIKE '7%')
+                THEN fis_meblag0 ELSE 0 END) AS gider_borc,
+       SUM(CASE WHEN fis_meblag0 < 0 AND (fis_hesap_kod LIKE '6%' OR fis_hesap_kod LIKE '7%')
+                THEN -fis_meblag0 ELSE 0 END) AS gider_alacak
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), COALESCE(CAST(fis_tur AS int), -1)
+""",
+    },
+    # Muhasebe ay × hesap × fiş türü: gider tablosu kapanış fişini ayıklayabilsin (muhasebe_ay ile aynı toplam)
+    "muhasebe_ay_tur": {
+        "tablo": "mikro_muhasebe_ay_tur", "anahtar": "yil,ay,hesap_kod,fis_tur",
+        "artimli": False,
+        "sql": """
+SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, fis_hesap_kod AS hesap_kod,
+       COALESCE(CAST(fis_tur AS int), -1) AS fis_tur,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       COUNT(*) AS satir
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod, COALESCE(CAST(fis_tur AS int), -1)
+""",
+    },
     "hesap_plani": {
         "tablo": "mikro_hesap_plani", "anahtar": "muh_hesap_kod",
         "artimli": False,

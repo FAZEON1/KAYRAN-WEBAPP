@@ -343,6 +343,12 @@ def _mikro_kapsadigi():
             out.add("g5f_sayim")
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from satis.mikro_esitle import acik_mi as satis_acik
+        if satis_acik():
+            out.add("satis_dokumu")       # satışlar Mikro faturalarından (satis/mikro_esitle)
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
