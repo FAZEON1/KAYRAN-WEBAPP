@@ -137,6 +137,39 @@ def cari_ozeti(cari_bak, kartlar):
     return {y: {k: round(v, 2) for k, v in d.items()} for y, d in out.items()}
 
 
+VIRMAN_GERI_GUN = 10
+
+
+def _virman_159_mu(h):
+    from shared.utils import tr_buyuk
+    a = tr_buyuk(_s(h.get("cha_aciklama")))
+    return _s(h.get("cha_kod")).startswith(ITHALAT_ONEK) and "VIRMAN" in a and "159" in a
+
+
+def donem_sonu_virmansiz(hareketler, bugun=None, gun=VIRMAN_GERI_GUN):
+    """Dönem sonu 320 → 159 virmanı (canlı: 31.12 "320-159 VİRMANI", ertesi gün aynı tutarla geri alınıyor) henüz
+    geri alınmamışken avans bir günlüğüne 159'a geçiyor ve ithalat ödenen o tutar kadar düşük görünüyordu
+    (30.06'da ~140 bin $). Kullanıcı (21.10.2026): "5'te ne gerekirse yap". Kural: 320.50'deki, açıklamasında
+    VİRMAN ve 159 geçen, son `gun` gün içindeki ve aynı hesapta aynı tutarlı TERS kaydı henüz olmayan hareket yok
+    sayılır. Geri alınmış çiftler (net sıfır) ve eski kalıcı sınıflandırmalar olduğu gibi kalır."""
+    from datetime import date, timedelta
+    bugun = bugun or date.today()
+    sinir = (bugun - timedelta(days=gun)).isoformat()
+    vir = [h for h in hareketler if _virman_159_mu(h)]
+    kullanilan, at = set(), set()
+    for i, h in enumerate(vir):
+        if id(h) in kullanilan:
+            continue
+        es = next((x for x in vir[i + 1:] if id(x) not in kullanilan and _s(x.get("cha_kod")) == _s(h.get("cha_kod"))
+                   and _i(x.get("cha_tip")) != _i(h.get("cha_tip"))
+                   and abs(_f(x.get("cha_meblag")) - _f(h.get("cha_meblag"))) < KURUS), None)
+        if es is not None:
+            kullanilan.update((id(h), id(es)))
+        elif str(h.get("cha_tarihi") or "")[:10] >= sinir:
+            at.add(id(h))
+    return [h for h in hareketler if id(h) not in at] if at else hareketler
+
+
 def ithalat_odenen(cari_bak, kartlar):
     """Yurt dışı tedarikçilere verilen avans ($): 320.50 USD hesaplarının pozitif bakiyeleri."""
     dov = {_s(k.get("cari_kod")): _i(k.get("cari_doviz_cinsi")) for k in kartlar}
@@ -271,7 +304,7 @@ def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat):
     cad = {_s(k.get("cari_kod")): _s(k.get("cari_unvan1")) for k in ck}
     cek = cek_satirlari(veri["cek"], hareket, cad, bad)
     cari = cari_ozeti(cb, ck)
-    ith = ithalat_odenen(cb, ck)
+    ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck)
     return {
         "banka": banka, "banka_disarida": disarida,
         "cek": cek, "cek_degisir": cek_imzasi(cek) != cek_imzasi(mevcut_cekler),
@@ -296,22 +329,21 @@ def _cli():
 
 
 _HAREKET_ALANLARI = ("cha_tip,cha_cari_cins,cha_kod,cha_kasa_hizmet,cha_kasa_hizkod,cha_d_cins,cha_d_kur,"
-                     "cha_karsidcinsi,cha_karsid_kur,cha_meblag,cha_evrak_tip,cha_trefno,cha_tarihi")
+                     "cha_karsidcinsi,cha_karsid_kur,cha_meblag,cha_evrak_tip,cha_trefno,cha_tarihi,cha_aciklama")
 
 
 def veri_oku():
-    """Birincil anahtar sırasıyla okur; kopya kayıt gelirse (okuma sırasında tablo değişti) reddeder
-    (satis.mikro_esitle: 21.10.2026 olayı)."""
-    from satis.mikro_esitle import kopyasiz
+    """Birincil anahtar sırasıyla, sayfaları kendisi okur (satis.mikro_esitle.sayfali_oku: oto-sayfalamanın bellekte
+    eski kalan hâline güvenmez); kopya kayıt gelirse (okuma sırasında tablo değişti) reddeder (21.10.2026 olayı)."""
+    from satis.mikro_esitle import sayfali_oku
     cli = _cli()
     return {
-        "hareket": kopyasiz(cli.table("mikro_cari_hareket").select("cha_guid," + _HAREKET_ALANLARI)
-                            .order("cha_guid").execute().data or [], "cha_guid"),
-        "banka_kart": kopyasiz(cli.table("mikro_banka_kart").select("*").order("ban_kod").execute().data or [],
-                               "ban_kod"),
-        "cari_kart": kopyasiz(cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1,cari_doviz_cinsi")
-                              .order("cari_kod").execute().data or [], "cari_kod"),
-        "cek": kopyasiz(cli.table("mikro_cek").select("*").order("sck_guid").execute().data or [], "sck_guid"),
+        "hareket": sayfali_oku(lambda: cli.table("mikro_cari_hareket").select("cha_guid," + _HAREKET_ALANLARI)
+                               .order("cha_guid"), "cha_guid"),
+        "banka_kart": sayfali_oku(lambda: cli.table("mikro_banka_kart").select("*").order("ban_kod"), "ban_kod"),
+        "cari_kart": sayfali_oku(lambda: cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1,cari_doviz_cinsi")
+                                 .order("cari_kod"), "cari_kod"),
+        "cek": sayfali_oku(lambda: cli.table("mikro_cek").select("*").order("sck_guid"), "sck_guid"),
     }
 
 

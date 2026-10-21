@@ -727,11 +727,18 @@ def kapi_alinan_destek(dosya, kapi):
         return
     st.dataframe(df.head(10), use_container_width=True, hide_index=True)
     st.caption(f"{len(df)} satır bulundu; ilk 10 gösteriliyor.")
+    _mb = N._mikro_baslangic()
+    if _mb:
+        st.info(f"{_mb[:4]} ve sonrası dönemlerin alınan destekleri Mikro'dan (602 hesapları) gelir; dosyadaki o "
+                "dönemlere ait satırlar kaydedilmez (iki kez sayılmasın). Önceki dönemler kaydedilir.")
     if st.button("İçe aktar", type="primary", icon=":material/move_to_inbox:", key=kapi.anahtar("ad2_imp")):
         eklenen, atlanan, hatalar = N.alinan_destek_excel_ice_aktar(df)
         if not eklenen:
             for h in hatalar[:5]:
                 st.error(h)
+            if _mb and not hatalar:
+                kapi.bitti("Kayıt eklenmedi: dosyadaki dönemlerin alınan destekleri Mikro'dan geliyor.")
+                return
             st.warning("Hiç kayıt eklenmedi.")
             return
         from shared.yukleme_gecmisi import kaydet as _yg_kaydet

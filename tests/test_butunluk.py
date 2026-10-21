@@ -76,7 +76,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
-               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_alinan.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
@@ -241,8 +241,10 @@ KRITIK_FONKSIYONLAR = {
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
                               "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
     "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum"],
+    "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
+                               "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
@@ -258,7 +260,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.mikro_stok": ["kirilim_yap", "farklar", "depo_ozeti", "plan_hazirla", "uygula", "durum", "acik_mi",
                             "ac", "son_aktarim", "otomatik"],
     "kayranpm.mikro_stok_ekran": ["ilk_onay_kutusu"],
-    "kayranacc.mikro_stok_degeri": ["depo_degerleri", "kanal_degerleri", "kayit_yap", "esit_mi",
+    "kayranacc.mikro_stok_degeri": ["depo_turu", "oranlar", "oran_bul", "alici_satislari", "depo_degerleri", "kanal_degerleri", "kayit_yap", "esit_mi",
                                     "kanal_karsilastir", "plan_yap", "veri_oku", "plan_hazirla", "uygula",
                                     "durum", "acik_mi", "ac", "son_aktarim", "otomatik"],
     "kayranacc.mikro_stok_degeri_ekran": ["ilk_onay_kutusu"],

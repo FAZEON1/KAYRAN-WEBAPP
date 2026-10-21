@@ -281,6 +281,7 @@ def test_alinan_destek_kendi_sablonunu_okur(monkeypatch):
     programın kendi şablonu dahil her dosya "Zorunlu kolon(lar) yok" diye reddediliyordu."""
     import kayranpm.ref_no as R
     eklenen = []
+    monkeypatch.setattr(R, "_mikro_baslangic", lambda: None)   # Mikro 602 kapalı: şablon okuma denetimi
     monkeypatch.setattr(R, "alinan_destek_ekle", lambda *a: eklenen.append(a) or (True, "ok"))
     df = pd.DataFrame([{"FİRMA": "FAZEON", "TÜR": "SELLOUT", "DÖNEM": "2026-09", "TUTAR": 1500.0, "DÖVİZ": "USD",
                         "KATEGORİ": "MONİTÖR", "FATURA NO": "F-1", "AÇIKLAMA": "Eylül"}])
