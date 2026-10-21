@@ -79,6 +79,26 @@ def hafta_sil(hafta_id):
     _cache_temizle()
 
 
+def hafta_olustur(hafta_adi, odemeler):
+    """Yeni hafta + ödemeleri; hafta EN SON aktif yapılır. Ödeme listesi Excel'inin (main.kapi_odeme_listesi)
+    yaptığıyla aynı fonksiyonlar, aynı sıra; Mikro önerisi (kayranacc/mikro_odeme_ekran) bunu kullanır.
+    Yazım yarıda kalırsa yarım hafta silinir ve eski aktif hafta yerinde kalır (hata yeniden fırlatılır).
+    Döner: hafta id; hafta oluşturulamadıysa None (hiçbir şey değişmez)."""
+    hafta_id = hafta_ekle(hafta_adi)
+    if hafta_id is None:
+        return None
+    try:
+        odeme_ekle_bulk(hafta_id, odemeler)
+    except Exception:
+        try:
+            hafta_sil(hafta_id)
+        except Exception:  # noqa: BLE001
+            pass
+        raise
+    hafta_aktif_yap(hafta_id)
+    return hafta_id
+
+
 # ════════════════════════════════════════════════════════════════════
 # ODEMELER
 # ════════════════════════════════════════════════════════════════════
