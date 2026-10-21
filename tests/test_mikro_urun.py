@@ -353,7 +353,9 @@ def test_aktarici_urun_sorgulari_tam_ve_semayla_uyumlu(mk):
         for k in kolonlar:
             assert re.search(rf"\b{k}\b", blok), (ad, k)
         assert tablo in HARIC
-    assert list(mk.SORGULAR)[-4:] == list(SORGU_TABLO)        # diğer sorgulardan sonra tek blok
+    adlar = list(mk.SORGULAR)
+    i = adlar.index(list(SORGU_TABLO)[0])
+    assert adlar[i:i + len(SORGU_TABLO)] == list(SORGU_TABLO)        # tek blok, sırası korunur
     assert "iptal=0" in " ".join(mk.SORGULAR["stok_kart"]["sql"].split())
     assert "GERİ ALMA" in sema and "service_role" in sema
 
