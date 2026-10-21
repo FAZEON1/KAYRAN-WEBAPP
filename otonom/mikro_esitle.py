@@ -5,12 +5,17 @@ otonom/mikro_esitle.py — Mikro eşitlemesi, uygulama kapalıyken de (Ekim 2026
 Kullanıcı: "Her şey Mikro'dan, tam otomatik." Uygulama eşitlemeyi kendi içinde 5 dakikada bir yapıyor
 (app.py:_mikro_esitle_dene), ama yalnız biri uygulamayı açıkken: kimse girmezse banka, satış, stok güncel
 kalmıyordu (21.10: YKB USD düzeltmesi ancak biri uygulamayı açınca yazıldı). Bu betik aynı işleri GitHub
-Actions'tan saatte bir çalıştırır (.github/workflows/mikro-esitle.yml). Hesap uygulamanın kendi
-modüllerinden gelir; ekranla ayrışmaz. Her iş yalnız kullanıcı onayıyla açılmışsa çalışır (otomatik()
-kapalıyken hiçbir şey yapmaz) ve yalnız aktarıcı yeni veri getirdiyse yazar.
+Actions'tan çalıştırır (.github/workflows/mikro-esitle.yml). Hesap uygulamanın kendi modüllerinden gelir;
+ekranla ayrışmaz. Her iş yalnız kullanıcı onayıyla açılmışsa çalışır (otomatik() kapalıyken hiçbir şey
+yapmaz) ve yalnız aktarıcı yeni veri getirdiyse yazar.
+
+Ne zaman çalışır: aktarıcı yeni veri getirdiği turun sonunda Supabase fonksiyonu mikro-tetik üzerinden
+(GitHub'ın zamanlanmış işleri saatlerce gecikiyor); aktarıcı durursa Supabase zamanlayıcısı tetikler.
+Her turdan sonra sağlık denetimi (shared/mikro_saglik.py): günlüğe yazar, sorun varsa Telegram'a bildirir.
 
 Supabase erişimi: iş akışı .streamlit/secrets.toml yazar, uygulamanın get_client() fonksiyonu onu okur.
 """
+import logging
 import os
 import sys
 
@@ -27,19 +32,57 @@ ISLER = (
 )
 
 
+class _Toplayici(logging.Handler):
+    """İşlerin otomatik() içinde yuttuğu (shared.kayit.sessiz) uyarıları toplar: 21.10'da satış eşitlemesi
+    "yeni veri yok" diyerek iki saat yazmadı, sebep yalnız günlükteki bir uyarı satırındaydı."""
+
+    def __init__(self):
+        super().__init__(level=logging.WARNING)
+        self.kayitlar = []
+
+    def emit(self, record):
+        try:
+            self.kayitlar.append(record.getMessage())
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def calistir(isler=ISLER):
-    """Her işi sırayla çalıştırır; biri çökerse diğerleri sürer. Döner: [(ad, sonuç metni)]."""
+    """Her işi sırayla çalıştırır; biri çökerse diğerleri sürer. Döner: [(ad, sonuç metni)].
+    Metin: 'tamam: …' (yazdı), 'yeni veri yok / kapalı', 'UYARI …' (yazmadı, uyarı verdi), 'HATA …'."""
     import importlib
     out = []
+    kok = logging.getLogger("kayran")
     for ad, modul, fonk in isler:
+        t = _Toplayici()
+        kok.addHandler(t)
         try:
             sonuc = getattr(importlib.import_module(modul), fonk)()
-            out.append((ad, "yeni veri yok / kapalı" if sonuc is None else f"tamam: {sonuc}"))
+            if sonuc is not None:
+                out.append((ad, f"tamam: {sonuc}"))
+            elif t.kayitlar:
+                out.append((ad, "UYARI " + " | ".join(t.kayitlar)[:300]))
+            else:
+                out.append((ad, "yeni veri yok / kapalı"))
         except Exception as e:  # noqa: BLE001
             out.append((ad, f"HATA {type(e).__name__}: {str(e)[:200]}"))
+        finally:
+            kok.removeHandler(t)
     return out
 
 
+def tur(kaynak="github", isler=ISLER):
+    """Bir eşitleme turu + sağlık denetimi (günlük, Telegram). Döner: [(ad, metin)]."""
+    from shared.mikro_saglik import denetle_ve_bildir, is_durumu
+    sonuc = calistir(isler)
+    try:
+        denetle_ve_bildir([{"ad": ad, "durum": is_durumu(m), "metin": m} for ad, m in sonuc], kaynak=kaynak)
+    except Exception as e:  # noqa: BLE001
+        print(f"Sağlık denetimi yapılamadı: {type(e).__name__}: {e}")
+    return sonuc
+
+
 if __name__ == "__main__":
-    for ad, metin in calistir():
+    _kaynak = os.environ.get("ESITLE_KAYNAK") or "github"
+    for ad, metin in tur(_kaynak):
         print(f"{ad}: {metin}")

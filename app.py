@@ -3611,7 +3611,7 @@ def main():
             st.session_state.pop("yon_sayfa", None)
     if aktif == "sirket_belgeleri" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "yonetim"):
         _yetki_reddi("Şirket belgelerine erişim yetkiniz yok.")
-    if aktif in ("degisiklik_gunlugu", "yedekleme") and not ozel_yetki(
+    if aktif in ("degisiklik_gunlugu", "yedekleme", "mikro_baglanti") and not ozel_yetki(
             st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
         _yetki_reddi("Bu sayfaya erişim yetkiniz yok.")
     if aktif == "ekip" and not ozel_yetki(st.session_state.get("aktif_kullanici", ""), "kullanici_yonetimi"):
@@ -3653,7 +3653,7 @@ def main():
         "satis": "Satış", "teknikservis": "Teknik Servis",
         "hesap_makinesi": "Hesap Makinesi", "sifre_degistir": "Şifre Değiştir", "kullanici_yonetimi": "Kullanıcı Yönetimi", "sistem_kayitlari": "Sistem Kayıtları",
         "tasarim_rehberi": "Tasarım Rehberi", "cop_kutusu": "Çöp Kutusu", "yukleme_gecmisi": "Yükleme Geçmişi", "veri_sagligi": "Veri Sağlığı",
-        "sirket_belgeleri": "Şirket belgeleri", "degisiklik_gunlugu": "Değişiklik günlüğü", "yedekleme": "Yedekleme", "izin": "İzinler",
+        "sirket_belgeleri": "Şirket belgeleri", "degisiklik_gunlugu": "Değişiklik günlüğü", "yedekleme": "Yedekleme", "mikro_baglanti": "Mikro bağlantısı", "izin": "İzinler",
         "soru": "Soru sor", "ekip": "Ekip",
     }
     try:
@@ -3771,6 +3771,9 @@ def main():
             st.markdown(_bsl_yd(":material/backup: Sistem", "Yedekleme",
                                 aciklama="Tüm iş verisi tek Excel dosyasında"), unsafe_allow_html=True)
             _yedek_render()
+        elif aktif == "mikro_baglanti":
+            from shared.mikro_saglik_ekran import sayfa as _mikro_baglanti
+            _mikro_baglanti()
         elif aktif == "ekip":
             # Ekip: Serkan (bilgi işlem) + Elif, Kerem, Hakan — shared/ofis_ekran.py
             from shared.ofis_ekran import run as _ofis_run
