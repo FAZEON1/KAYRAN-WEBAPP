@@ -6,7 +6,7 @@ Müşteri siparişi (sip_tip 0): açık kalan adet, faturası kesilene kadar bek
 yaptığı gibi); fatura kesilince Mikro'da teslim miktarı artar, bekleyen satır silinir, satış faturadan gelir.
 Canlı veri (21.10.2026): VATAN siparişi G5I26-2358, F4PE650BBM 8 × 69,75 $ — aynı gün kesilen G5F26-2948
 faturasında da 69,75 $ (sipariş fiyatı $ ve faturayla birebir).
-Tedarikçi siparişi (sip_tip 1): İthalat › Tedarikçi siparişleri, salt okunur."""
+Satın alma siparişi (sip_tip 1) satışa girmez; ithalat verisi Mikro'dan ayrı işte gelir."""
 from pathlib import Path
 
 import pytest
@@ -103,24 +103,6 @@ def test_siparis_satiri_mikro_disi_satir_gibi_silinmez():
     p = M.plan_yap([_fat(2948, "X", 1, 70, tarih="2026-10-13")], mevcut, [],
                    siparisler=[_sip(2358, "F4PE650BBM", 8, 3, 69.75, tarih="2026-10-10")], unvanlar=UNVAN)
     assert p["yuk"]["sil_satis_id"] == [] and "G5I26-2358" not in p["yuk"]["fatura_nolar"]
-
-
-def test_tedarikci_siparisleri_acik_olanlar_once():
-    E = pytest.importorskip("ithalat.mikro_siparis_ekran")
-    rows = [_sip(1, "A", 100, 100, 50, tip=1, cari="320.50.101", tarih="2026-10-01"),
-            _sip(2, "B", 100, 40, 60, tip=1, cari="320.50.101", tarih="2026-09-01"),
-            _sip(3, "C", 5, 0, 70)]                       # müşteri siparişi: bu listede yok
-    liste = E.tedarikci_siparisleri(rows, UNVAN)
-    assert [(x["sku"], x["kalan"], x["acik"]) for x in liste] == [("B", 60, True), ("A", 0, False)]
-    assert liste[0]["tedarikci"] == "INNOVISION MULTIMEDIA LIMITED"
-    oz = E.ozet(liste)
-    assert oz == {"acik_siparis": 1, "acik_adet": 60, "acik_tutar": {"USD": 3600.0}, "tedarikci": 1}
-
-
-def test_sayfa_menude():
-    from shared.gezinme import secenekler
-    assert "Tedarikçi siparişleri" in secenekler("ithalat")
-    assert 'sayfa == "Tedarikçi siparişleri"' in (KOK / "ithalat" / "main.py").read_text(encoding="utf-8")
 
 
 class _Yol:

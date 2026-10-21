@@ -3,8 +3,7 @@
 --
 -- Aktarıcının ilk sürümünden beri canlıda olan tablo (Mikro SIPARISLER; sip_tip 0 müşteri siparişi,
 -- 1 tedarikçi siparişi; aktarıcı 15 dakikada bir artımlı, gece tam çeker). Uygulama artık okuyor:
--- açık müşteri siparişi bekleyen satış olur (satis/mikro_esitle.siparis_kayitlari), tedarikçi siparişleri
--- İthalat › Tedarikçi siparişleri'nde görünür. Canlıda var: bu dosya hiçbir şeyi değiştirmez (IF NOT EXISTS).
+-- açık müşteri siparişi bekleyen satış olur (satis/mikro_esitle.siparis_kayitlari). Canlıda var: bu dosya hiçbir şeyi değiştirmez (IF NOT EXISTS).
 -- GERİ ALMA: gerekmez.
 -- ════════════════════════════════════════════════════════════════════
 
