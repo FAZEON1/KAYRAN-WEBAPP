@@ -56,6 +56,7 @@ MODULLER = [
      "sayfalar": [
          ("📋  Geçmiş İthalatlar", "gecmis", "Geçmiş ithalatlar", None),
          ("➕  Yeni İthalat", "yeni", "Yeni ithalat", None),
+         ("Tedarikçi siparişleri", "tedarikci_siparis", "Tedarikçi siparişleri", None),
          ("🔍  Model Sorgu", "model_sorgu", "Model sorgu", None),
          ("💸  Masraf Detayları", "masraf", "Masraf detayları", None),
          ("Gümrük danışmanı", "gumruk", "Gümrük danışmanı", None),

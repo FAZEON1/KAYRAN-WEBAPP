@@ -2147,6 +2147,9 @@ def run():
             _yeni_ithalat()
         elif sayfa == "🔍  Model Sorgu":
             _model_sorgu()
+        elif sayfa == "Tedarikçi siparişleri":
+            from .mikro_siparis_ekran import sayfa as _tedarikci_siparis
+            _tedarikci_siparis()
         elif sayfa == "Gümrük danışmanı":
             from shared.gumruk_ekran import sayfa as _gumruk
             _gumruk()
