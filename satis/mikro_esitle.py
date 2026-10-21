@@ -525,24 +525,39 @@ def acik_mi():
     return bool((durum() or {}).get("acik"))
 
 
+SAYFA = 1000
+
+
+def sayfali_oku(sorgu, anahtar):
+    """sorgu() → süzgeçli ve SIRALI yeni sorgu. Sayfaları .range() ile kendisi okur (oto-sayfalamaya güvenmez:
+    21.10.2026'da canlı süreç shared.audit'in eski hâlini bellekte tuttuğu için 2. sayfada süzgeç düştü, aynı fatura
+    iki kez okundu ve satış eşitlemesi 16:04'ten itibaren 'kopya kayıt' korumasıyla yazmadı). Kopya varsa
+    OkumaTutarsiz (kopyasiz)."""
+    out, bas = [], 0
+    while True:
+        parca = sorgu().range(bas, bas + SAYFA - 1).execute().data or []
+        out += parca
+        if len(parca) < SAYFA:
+            return kopyasiz(out, anahtar)
+        bas += SAYFA
+
+
 def veri_oku(baslangic=BASLANGIC):
     """(mikro satırları, mevcut satışlar, mevcut iadeler, Mikro satış faturası başlıkları)."""
     from datetime import date, timedelta
     cli = _cli()
     # 15 gün önceden: başlangıcın ilk günlerindeki TL faturaları için önceki günlerin $ kuru lazım
     once = (date.fromisoformat(baslangic[:10]) - timedelta(days=15)).isoformat()
-    mikro = kopyasiz(cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once).order("sth_guid")
-                     .execute().data or [], "sth_guid")
-    satislar = kopyasiz(cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
-                                                     "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
-                        .gte("tarih", baslangic).order("id").execute().data or [], "id")
-    iadeler = kopyasiz(cli.table("iadeler").select("*").gte("tarih", baslangic).order("id").execute().data or [],
-                       "id")
-    bas = (cli.table("mikro_fatura").select("cha_guid,cha_evrakno_seri,cha_evrakno_sira,cha_tarihi,cha_kod,"
-                                            "cha_meblag,cha_d_cins")
-           .eq("cha_evrak_tip", SATIS_TIP).eq("cha_normal_iade", 0).gte("cha_tarihi", baslangic)
-           .order("cha_guid").execute().data or [])
-    kopyasiz(bas, "cha_guid")
+    mikro = sayfali_oku(lambda: cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once)
+                        .order("sth_guid"), "sth_guid")
+    satislar = sayfali_oku(lambda: cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
+                                                                "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
+                           .gte("tarih", baslangic).order("id"), "id")
+    iadeler = sayfali_oku(lambda: cli.table("iadeler").select("*").gte("tarih", baslangic).order("id"), "id")
+    bas = sayfali_oku(lambda: cli.table("mikro_fatura").select("cha_guid,cha_evrakno_seri,cha_evrakno_sira,"
+                                                               "cha_tarihi,cha_kod,cha_meblag,cha_d_cins")
+                      .eq("cha_evrak_tip", SATIS_TIP).eq("cha_normal_iade", 0).gte("cha_tarihi", baslangic)
+                      .order("cha_guid"), "cha_guid")
     unvan = {str(c.get("cari_kod") or ""): c.get("cari_unvan1") or ""
              for c in (cli.table("mikro_cari_bakiye").select("cari_kod,cari_unvan1").execute().data or [])}
     basliklar = [{"fatura_no": fatura_no(b.get("cha_evrakno_seri"), b.get("cha_evrakno_sira")),
@@ -556,8 +571,8 @@ def siparis_oku(baslangic=BASLANGIC):
     """(Mikro müşteri sipariş satırları başlangıçtan beri, {cari kodu: ünvan}). Tablo yoksa ([], {})."""
     cli = _cli()
     try:
-        sip = kopyasiz(cli.table("mikro_siparis").select("*").eq("sip_tip", 0).gte("sip_tarih", baslangic)
-                       .order("sip_guid").execute().data or [], "sip_guid")
+        sip = sayfali_oku(lambda: cli.table("mikro_siparis").select("*").eq("sip_tip", 0)
+                          .gte("sip_tarih", baslangic).order("sip_guid"), "sip_guid")
     except OkumaTutarsiz:
         raise
     except Exception:  # noqa: BLE001

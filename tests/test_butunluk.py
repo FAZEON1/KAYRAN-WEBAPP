@@ -220,7 +220,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ariza_ekran": ["goster"],
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
-    "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
+    "satis.mikro_esitle": ["sayfali_oku", "fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
                            "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "acik_mi", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi", "kopyasiz", "aktarim_suruyor_mu", "aktarim_suruyor", "otomatik_guvenli_mi", "acik_mi",
                            "siparis_kayitlari", "siparis_oku",
                            "elle_fatura_eslestir"],   # elle satır ↔ fatura satırı (çift sayım, Eki 2026)

@@ -339,3 +339,33 @@ def test_mikroda_olmayan_bugunku_elle_siparis_kalkar():
     satislar = [_sat(1, "2026-10-21", eera, "X27F241S", 4, 100, 80, "2847"),
                 _sat(2, "2026-10-21", eera, "X24F200", 5, 100, 80, "S261021-134832")]
     assert sorted(M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"]) == [1, 2]
+
+
+# ── Sayfalı okuma (21.10.2026: satış eşitlemesi 16:04'ten itibaren "kopya kayıt" ile yazmadı) ──
+class _SayfaSorgu:
+    def __init__(self, veri, cagri):
+        self.veri, self.cagri = veri, cagri
+
+    def range(self, a, b):
+        self.cagri.append((a, b))
+        self.dilim = self.veri[a:b + 1]
+        return self
+
+    def execute(self):
+        import types
+        return types.SimpleNamespace(data=self.dilim)
+
+
+def test_sayfali_oku_her_sayfayi_kendisi_ister():
+    veri = [{"g": f"{i:05d}"} for i in range(2500)]
+    cagri = []
+    out = M.sayfali_oku(lambda: _SayfaSorgu(veri, cagri), "g")
+    assert len(out) == 2500 and cagri == [(0, 999), (1000, 1999), (2000, 2999)]
+    with pytest.raises(M.OkumaTutarsiz):
+        M.sayfali_oku(lambda: _SayfaSorgu(veri[:1000] + veri[:5], []), "g")
+
+
+def test_veri_oku_oto_sayfalamaya_guvenmez():
+    kaynak = (KOK / "satis" / "mikro_esitle.py").read_text(encoding="utf-8")
+    govde = kaynak.split("def veri_oku(", 1)[1].split("\ndef ", 1)[0]
+    assert govde.count("sayfali_oku(") == 4 and ".execute()" not in govde.split("unvan =", 1)[0]
