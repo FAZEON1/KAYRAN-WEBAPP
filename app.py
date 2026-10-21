@@ -3525,6 +3525,8 @@ def _mikro_esitle_dene():
         _stok_otomatik()                 # depo stoğu (Mikro adım 2)
         from kayranacc.mikro_stok_degeri import otomatik as _stok_degeri_otomatik
         _stok_degeri_otomatik()          # Toplam Aktifler stok değeri = depo stoğu × paçal (adım 2b; stoktan sonra)
+        from kayranacc.mikro_aktif import otomatik as _aktif_otomatik
+        _aktif_otomatik()                # Toplam Aktifler: defter kalemleri (kasa, KDV, vergi, SGK…) + satış maliyeti oranı
         from kayranpm.mikro_urun import otomatik as _urun_otomatik
         _urun_otomatik()                 # ürün kartları, boş alanlar, barkod, müşteri fiyat listeleri
         from ithalat.mikro_ithalat import otomatik as _ithalat_otomatik

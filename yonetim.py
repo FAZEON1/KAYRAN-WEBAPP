@@ -128,7 +128,10 @@ def _toplam_aktif_html(snap, RENK, buyuk=False):
             ("Manuel ekleme", snap.get("manuel_ekle", 0), "+"),
             ("Cari borç", snap.get("borc", 0), "−"),
             ("Çekler", snap.get("cek", 0), "−"),
-            ("Manuel çıkarma", snap.get("manuel_cikar", 0), "−")]
+            ("Manuel çıkarma", snap.get("manuel_cikar", 0), "−"),
+            ("Mikro defter (kasa, avans…)", snap.get("defter_arti", 0), "+"),
+            ("Mikro defter (KDV, vergi, SGK…)", snap.get("defter_eksi", 0), "−"),
+            ("Satış maliyeti", snap.get("satis_maliyeti", 0), "−")]
     fs = "13px" if buyuk else "11px"
     satirlar = "".join(
         f'<div style="display:flex;justify-content:space-between;padding:{"5px" if buyuk else "4px"} 12px;margin:2px 0;'

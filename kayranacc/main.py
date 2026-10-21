@@ -2882,9 +2882,19 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
     else:
         manuel_kalemler = st.session_state.manuel_kalemler_local
 
+    # Mikro defter kalemleri + satış maliyeti (Ekim 2026, kayranacc/mikro_aktif.py). Aynı şey elle de girildiyse
+    # manuel kalem toplama girmez (iki kez sayılmasın; ekranda gösterilir).
+    from .mikro_aktif import acik_mi as _ma_acik, kayitli as _ma_kayitli, manuel_cakisan as _ma_cakisan, \
+        usd_ozeti as _ma_ozet
+    _ma_kayit = _ma_kayitli() if _ma_acik() else None
+    _ma = _ma_ozet(_ma_kayit, kur, stok_marjli) if _ma_kayit else {"arti": 0.0, "eksi": 0.0, "satis_maliyeti_usd": 0.0}
+    _ma_cak = _ma_cakisan(manuel_kalemler, _ma_kayit) if _ma_kayit else {}
+
     manuel_ekle_toplam = 0.0
     manuel_cikar_toplam = 0.0
-    for k in manuel_kalemler:
+    for _mi, k in enumerate(manuel_kalemler):
+        if k.get("id", _mi) in _ma_cak:
+            continue
         try:
             tutar = float(k.get("tutar") or 0)
             pb = (k.get("para_birimi") or "USD").upper()
@@ -2913,7 +2923,12 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         - eur_borc_usd
         - cek_toplam_usd
         - manuel_cikar_toplam
+        + _ma["arti"]
+        - _ma["eksi"]
+        - _ma["satis_maliyeti_usd"]
     )
+    from .mikro_aktif_ekran import bolum as _ma_bolum
+    _ma_bolum(kur, stok_marjli, toplam_aktif, manuel_kalemler)
 
     # ─── Sonuç kaydı (gösterim Yönetim panosunda) ───
     # NOT: Toplam aktif sonucu burada GÖSTERİLMEZ; sadece kaydedilir ve
@@ -2949,6 +2964,9 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
             "manuel_ekle": round(manuel_ekle_toplam, 2),
             "manuel_cikar": round(manuel_cikar_toplam, 2),
             "havuz": round(havuz_butce_usd, 2),
+            "defter_arti": round(_ma["arti"], 2),
+            "defter_eksi": round(_ma["eksi"], 2),
+            "satis_maliyeti": round(_ma["satis_maliyeti_usd"], 2),
         })
     except Exception as _e:
         _snap_ok = False
@@ -2979,6 +2997,8 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
             ("Manuel ekleme", manuel_ekle_toplam, "+"),
             ("Cari borç", usd_borc + tl_borc_usd + eur_borc_usd, "−"),
             ("Çekler", cek_toplam_usd, "−"), ("Manuel çıkarma", manuel_cikar_toplam, "−"),
+            ("Mikro defter (kasa, avans…)", _ma["arti"], "+"), ("Mikro defter (KDV, vergi, SGK…)", _ma["eksi"], "−"),
+            ("Satış maliyeti", _ma["satis_maliyeti_usd"], "−"),
         ]
         _chips = "".join(
             f'<span style="display:inline-flex;gap:4px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
@@ -3000,7 +3020,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
     # ─── Manuel Ekleme/Çıkarma ───
     st.markdown("---")
     st.markdown("#### Manuel ekleme / çıkarma")
-    st.caption("Excel'lerde olmayan ek kalemler için manuel giriş yap. Kayıtlar kalıcıdır.")
+    st.caption("Mikro'da olmayan ek kalemler için manuel giriş yap (Mikro'dan da gelen kalem iki kez sayılmaz). Kayıtlar kalıcıdır.")
 
     @st.dialog("➕ Yeni Kalem Ekle", width="large")
     def _dlg_yeni_kalem():
