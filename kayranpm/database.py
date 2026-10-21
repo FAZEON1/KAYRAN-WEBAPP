@@ -927,15 +927,20 @@ def sku_fazeon_temizle_uygula():
 @st.cache_data(ttl=300, show_spinner=False)
 def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
     """firma_stok'tan haftalık satış kayıtları — tarih aralığı + müşteri + SKU/ürün filtreli (sayfalı).
-    Döner: [{firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi}]."""
+    Döner: [{firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi, musteri_kodu?}]."""
     sb = get_client()
     bas_s = str(bas)[:10] if bas else None
     bit_s = str(bit)[:10] if bit else None
     out, i, adim = [], 0, 1000
+    # Kolon seçimi sırayla denenir (geriye dönük): musteri_kodu (Mikro kod eşleşmesi, 48_mikro_multikod.sql)
+    # yoksa onsuz; satis_magaza / stok_magaza da yoksa onlarsız. Tutan seçim sonraki sayfalarda da kullanılır.
+    secimler = ["firma, sku, urun_adi, haftalik_satis, satis_magaza, stok_miktari, stok_magaza, yukleme_tarihi, "
+                "musteri_kodu",
+                "firma, sku, urun_adi, haftalik_satis, satis_magaza, stok_miktari, stok_magaza, yukleme_tarihi",
+                "firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi"]
     while True:
-        try:
-            q = sb.table("firma_stok").select(
-                "firma, sku, urun_adi, haftalik_satis, satis_magaza, stok_miktari, stok_magaza, yukleme_tarihi")
+        for _j, _secim in enumerate(secimler):
+            q = sb.table("firma_stok").select(_secim)
             if bas_s:
                 q = q.gte("yukleme_tarihi", bas_s)
             if bit_s:
@@ -943,19 +948,14 @@ def get_musteri_haftalik_satis(bas=None, bit=None, firma=None, sku_ara=None):
             if firma and firma != "Tümü":
                 q = q.eq("firma", firma)
             q = q.order("yukleme_tarihi", desc=True).range(i, i + adim - 1)
-            chunk = _rows(q.execute())
-        except Exception:
-            # satis_magaza / stok_magaza kolonları yoksa onlarsız dene (geriye dönük)
-            q = sb.table("firma_stok").select(
-                "firma, sku, urun_adi, haftalik_satis, stok_miktari, yukleme_tarihi")
-            if bas_s:
-                q = q.gte("yukleme_tarihi", bas_s)
-            if bit_s:
-                q = q.lte("yukleme_tarihi", bit_s)
-            if firma and firma != "Tümü":
-                q = q.eq("firma", firma)
-            q = q.order("yukleme_tarihi", desc=True).range(i, i + adim - 1)
-            chunk = _rows(q.execute())
+            try:
+                chunk = _rows(q.execute())
+            except Exception:
+                if _j == len(secimler) - 1:
+                    raise
+                continue
+            secimler = secimler[_j:]
+            break
         out.extend(chunk)
         if len(chunk) < adim:
             break

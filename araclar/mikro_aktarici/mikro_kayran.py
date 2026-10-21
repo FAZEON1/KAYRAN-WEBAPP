@@ -360,6 +360,17 @@ WHERE cha_iptal=0 AND (cha_evrak_tip IN (37,55) OR cha_cari_cins=5)
   AND cha_lastup_date > '{SON}'
 """,
     },
+    # ── Müşteri ürün kodları (Ekim 2026): cari başına müşterinin kendi kodu → bizim stok kodu (D-market 'HBCV…').
+    # Haftalık müşteri raporu bu kodlarla bizim SKU'ya bağlanır (kayranpm/mikro_multikod.py). Küçük tablo
+    # (yaklaşık 2.000 satır): her turda tam çekilir. Kolon adları Mikro'daki yazımla (mcod_Guid, mcod_Iptal).
+    "multikod": {
+        "tablo": "mikro_multikod", "anahtar": "mcod_guid",
+        "artimli": False,
+        "sql": """
+SELECT mcod_Guid, mcod_carikodu, mcod_stokkod, mcod_caristok_kod, mcod_caristok_ismi, mcod_tipi, mcod_lastup_date
+FROM MULTIKOD_TANIMLARI WHERE mcod_Iptal=0
+""",
+    },
 }
 
 # --------------------------------------------------------------------------- #
