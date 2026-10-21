@@ -75,23 +75,27 @@ def _sat(id_, tarih, kanal, sku, adet, fiyat, maliyet, no, notlar=""):
             "birim_maliyet": maliyet, "siparis_no": no, "notlar": notlar}
 
 
-def test_siparis_excel_satirlari_fatura_tarihine_kadar_degisir():
+def test_mikro_esas_mikroda_olmayan_her_satis_satiri_kalkar():
+    """Kullanıcı (21.10.2026): "Mikro'daki datalar her zaman daha doğrudur … her zaman gerçek veri orasıdır."
+    Başlangıçtan sonra Mikro faturası / siparişi olmayan HER satır kalkar: faturadan önceki sipariş Excel'i, faturası
+    gelmemiş elle sipariş, teknik servis / 2.el satışı, Mikro'da hiç faturası olmayan firma."""
     mikro = [_s(2525, "X27F241S", 3, 375, tarih="2026-09-16")]
     satislar = [
-        _sat(1, "2026-09-10", VATAN, "X27F241S", 3, 125, 85, "151"),       # faturalı firma, faturadan önce → değişir
-        _sat(2, "2026-09-20", VATAN, "X27F241S", 2, 125, 85, "160"),       # son faturadan SONRA → kalır (faturası gelmedi)
+        _sat(1, "2026-09-10", VATAN, "X27F241S", 3, 125, 85, "151"),
+        _sat(2, "2026-09-20", VATAN, "X27F241S", 2, 125, 85, "160"),
         _sat(3, "2026-09-12", "Sk Değişim (G5F00756)", "X27F241S", 1, 0, 80, "G5F00477",
-             "TEKNİK SERVİS / 2.EL · G5F00477"),                              # teknik servis → kalır
-        _sat(4, "2026-09-11", "BAŞKA FİRMA", "Y", 1, 10, 5, "x"),          # Mikro'da faturası olmayan firma → kalır
+             "TEKNİK SERVİS / 2.EL · G5F00477"),
+        _sat(4, "2026-09-11", "BAŞKA FİRMA", "Y", 1, 10, 5, "x"),
+        _sat(5, "2026-06-30", "BAŞKA FİRMA", "Y", 1, 10, 5, "eski"),            # başlangıçtan önce → dokunulmaz
     ]
     p = M.plan_yap(mikro, satislar, [], pacal_fn=lambda s: 99.0)
-    assert p["yuk"]["sil_satis_id"] == [1]
+    assert sorted(p["yuk"]["sil_satis_id"]) == [1, 2, 3, 4]
     yeni = p["yuk"]["ekle_satis"]
     assert len(yeni) == 1 and yeni[0]["siparis_no"] == "G5F26-2525"
     assert yeni[0]["birim_maliyet"] == pytest.approx(85)        # maliyet değiştirilen eski satırdan, paçal değil
     eyl = next(o for o in p["ozet"] if o["ay"] == "2026-09")
-    assert eyl["adet_once"] == 7 and eyl["adet_sonra"] == 7
-    assert eyl["kar_once"] == pytest.approx(3 * 40 + 2 * 40 + (0 - 80) + 5) == eyl["kar_sonra"]
+    assert eyl["adet_once"] == 7 and eyl["adet_sonra"] == 3
+    assert eyl["kar_sonra"] == pytest.approx(3 * 40)
 
 
 def test_degismeyen_fatura_yeniden_yazilmaz_degisen_yazilir():
@@ -295,53 +299,73 @@ def _ads(no_sira, sku, adet, tutar, tarih):
     return _s(no_sira, sku, adet, tutar, tarih=tarih, cari="120.02.050", unvan=ADS)
 
 
-def test_faturadan_sonra_tarihli_elle_satir_faturayla_eslesirse_silinir():
+def test_faturadan_sonra_tarihli_elle_satir_kalkar_eslestigi_fatura_raporlanir():
     mikro = [_ads(2210, "Fazeon X24F240P", 10, 844.5, "2026-07-29")]
     satislar = [
         _sat(49461, "2026-08-03", ADS, "X24F240P", 10, 79, 74.3, "2026/08/03", "Depo: MERKEZ"),
-        _sat(51546, "2026-10-20", ADS, "X24F240P", 50, 80, 74.3, "2846"),     # faturası yok → kalır
-        _sat(3, "2026-08-04", ADS, "X24F240P", 9, 79, 74.3, "y"),             # adet farklı → kalır
-        _sat(4, "2026-08-04", ADS, "X27F241S", 10, 79, 74.3, "z"),            # SKU farklı → kalır
-        _sat(5, "2026-08-04", "BAŞKA FİRMA", "X24F240P", 10, 79, 74.3, "w"),   # firma farklı → kalır
+        _sat(51546, "2026-10-20", ADS, "X24F240P", 50, 80, 74.3, "2846"),
     ]
     p = M.plan_yap(mikro, satislar, [], pacal_fn=lambda s: 0.0)
-    assert p["yuk"]["sil_satis_id"] == [49461]
-    ag = next(o for o in p["ozet"] if o["ay"] == "2026-08")
-    assert ag["ciro_once"] - ag["ciro_sonra"] == pytest.approx(790)          # çift sayılan 10 × 79 $
-    assert p["elle_eslesen"][0]["fatura_no"] == "G5F26-2210"
+    assert sorted(p["yuk"]["sil_satis_id"]) == [49461, 51546]
+    assert [(e["id"], e["fatura_no"]) for e in p["elle_eslesen"]] == [(49461, "G5F26-2210")]
+
+
+def _fatura_satirlari(mikro):
+    return [k for ks in M.mikro_kayitlari(mikro)["satis"].values() for k in ks]
 
 
 def test_elle_satir_eslesme_penceresi_45_gun():
-    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
-    yakin = _sat(1, "2026-09-12", ADS, "X24F240P", 10, 79, 70, "a")          # 45 gün → silinir
-    uzak = _sat(2, "2026-09-13", ADS, "X24F240P", 10, 79, 70, "b")           # 46 gün → kalır
-    assert M.plan_yap(mikro, [yakin], [])["yuk"]["sil_satis_id"] == [1]
-    assert M.plan_yap(mikro, [uzak], [])["yuk"]["sil_satis_id"] == []
+    f = _fatura_satirlari([_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")])
+    yakin = _sat(1, "2026-09-12", ADS, "X24F240P", 10, 79, 70, "a")          # 45 gün
+    uzak = _sat(2, "2026-09-13", ADS, "X24F240P", 10, 79, 70, "b")           # 46 gün
+    assert [e["id"] for e, _k in M.elle_fatura_eslestir([yakin], f)] == [1]
+    assert M.elle_fatura_eslestir([uzak], f) == []
 
 
 def test_bir_fatura_satiri_yalniz_bir_elle_satiri_karsilar():
-    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
     satislar = [_sat(1, "2026-08-03", ADS, "X24F240P", 10, 79, 70, "a"),
                 _sat(2, "2026-08-05", ADS, "X24F240P", 10, 79, 70, "b")]
-    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == [1]
-    # iki fatura satırı → iki elle satır
-    mikro2 = mikro + [_ads(2211, "X24F240P", 10, 844.5, "2026-07-30")]
-    assert sorted(M.plan_yap(mikro2, satislar, [])["yuk"]["sil_satis_id"]) == [1, 2]
+    f = _fatura_satirlari([_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")])
+    assert [e["id"] for e, _k in M.elle_fatura_eslestir(satislar, f)] == [1]
+    f2 = _fatura_satirlari([_ads(2210, "X24F240P", 10, 844.5, "2026-07-29"),
+                            _ads(2211, "X24F240P", 10, 844.5, "2026-07-30")])
+    assert sorted(e["id"] for e, _k in M.elle_fatura_eslestir(satislar, f2)) == [1, 2]
 
 
-def test_tarih_kuraliyla_silinen_satir_fatura_satirini_tuketir():
-    """Faturadan önceki elle satır eskisi gibi silinir ve faturayı 'kullanır': sonraki aynı satır kalır."""
-    mikro = [_ads(2210, "X24F240P", 10, 844.5, "2026-07-29")]
-    satislar = [_sat(1, "2026-07-20", ADS, "X24F240P", 10, 79, 70, "a"),
-                _sat(2, "2026-08-03", ADS, "X24F240P", 10, 79, 70, "b")]
-    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == [1]
-
-
-def test_faturasi_olmayan_bugunku_elle_siparis_kalir():
-    """EERA 21.10 elle siparişleri: firmanın son satış faturası önceki tarihli ve aynı SKU / adet faturası
-    yok → silinmez."""
+def test_mikroda_olmayan_bugunku_elle_siparis_kalkar():
+    """EERA 21.10 elle siparişleri Mikro'da yok (Ekim'de EERA'nın Mikro siparişi / faturası yok) → kalkar."""
     eera = "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ"
     mikro = [_s(2900, "X27F241S", 5, 500, tarih="2026-10-10", cari="120.02.005", unvan=eera)]
     satislar = [_sat(1, "2026-10-21", eera, "X27F241S", 4, 100, 80, "2847"),
                 _sat(2, "2026-10-21", eera, "X24F200", 5, 100, 80, "S261021-134832")]
-    assert M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"] == []
+    assert sorted(M.plan_yap(mikro, satislar, [])["yuk"]["sil_satis_id"]) == [1, 2]
+
+
+# ── Sayfalı okuma (21.10.2026: satış eşitlemesi 16:04'ten itibaren "kopya kayıt" ile yazmadı) ──
+class _SayfaSorgu:
+    def __init__(self, veri, cagri):
+        self.veri, self.cagri = veri, cagri
+
+    def range(self, a, b):
+        self.cagri.append((a, b))
+        self.dilim = self.veri[a:b + 1]
+        return self
+
+    def execute(self):
+        import types
+        return types.SimpleNamespace(data=self.dilim)
+
+
+def test_sayfali_oku_her_sayfayi_kendisi_ister():
+    veri = [{"g": f"{i:05d}"} for i in range(2500)]
+    cagri = []
+    out = M.sayfali_oku(lambda: _SayfaSorgu(veri, cagri), "g")
+    assert len(out) == 2500 and cagri == [(0, 999), (1000, 1999), (2000, 2999)]
+    with pytest.raises(M.OkumaTutarsiz):
+        M.sayfali_oku(lambda: _SayfaSorgu(veri[:1000] + veri[:5], []), "g")
+
+
+def test_veri_oku_oto_sayfalamaya_guvenmez():
+    kaynak = (KOK / "satis" / "mikro_esitle.py").read_text(encoding="utf-8")
+    govde = kaynak.split("def veri_oku(", 1)[1].split("\ndef ", 1)[0]
+    assert govde.count("sayfali_oku(") == 4 and ".execute()" not in govde.split("unvan =", 1)[0]

@@ -1384,6 +1384,10 @@ def _sayfa_satis_girisi(*, _kanallar):
             from shared import form as _F
             from shared.kar_gizle import kar_gorunur as _kg
             from .database import satir_kar as _satir_kar
+            if _mikrodan_geliyor("Satışlar ve siparişler", "faturalarından ve siparişlerinden"):
+                st.caption("Siparişi Mikro'ya gir: 15 dakika içinde Satışlar'a bekleyen sipariş olarak, fatura "
+                           "kesilince satış olarak gelir. Mikro esas alınır (muhasebe ve vergi beyanları oradan).")
+                return
             _kar_acik = _kg()
             # Sepet: session'dan al (dialog içi yerel — dış scope'a bağımlı kalma, UnboundLocalError önlenir)
             kalemler = st.session_state.setdefault("satis_kalemler", [])

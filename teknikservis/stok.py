@@ -411,8 +411,11 @@ def satis_kaydi_yaz(kayit, birim_satis, tarih=None, notlar="", bedelsiz=False, c
     Bedelsiz verilen ürünün de maliyeti yazılır (zarar olarak görünür).
     Paçal bilinmiyorsa 0 yazılır ve mesajda söylenir. Döner: (ok, mesaj)."""
     try:
-        from satis.database import ekle_satis
+        from satis.database import ekle_satis, mikro_esas_mi
         from datetime import date as _date
+        if mikro_esas_mi(str(tarih or _date.today())[:10]):
+            # Mikro esas (21.10.2026): satış Mikro faturasından gelir; bedelsiz değişim Mikro'da satış değil
+            return True, "satış Mikro faturasından gelir (uygulamada satış kaydı açılmadı)"
         sku, ad = _sku_ad(kayit)
         if not sku:
             return False, "stok kodu boş — satış kaydı açılmadı"

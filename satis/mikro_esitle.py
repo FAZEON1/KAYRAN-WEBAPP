@@ -18,11 +18,9 @@ faturalarının ürün satırlarını yazar. Bu modül o satırlardan satislar /
             ortalaması; yoksa bugünkü paçal (satis.database.get_pacal_map — Excel yüklemesiyle aynı).
 
 Değiştirilen kayıtlar (başlangıç tarihinden sonra):
-  · Mikro dışı kaynaklı satış satırları (sipariş Excel'i vb.) — firması Mikro'da faturalı olan ve tarihi
-    o firmanın son Mikro faturasından sonra OLMAYAN satırlar. Henüz faturası kesilmemiş sipariş kalır;
-    fatura gelince değişir. Son faturadan SONRA tarihli satır da, aynı firma + SKU + adetli bir Mikro fatura
-    satırı ±45 gün içindeyse o faturayla karşılanmış sayılır ve değişir (elle_fatura_eslestir; bir fatura
-    satırı tek elle satırı karşılar). Teknik servis satırları ("TEKNİK SERVİS …" notlu) hiç değişmez.
+  · Mikro dışı kaynaklı BÜTÜN satış satırları (elle sipariş, sipariş Excel'i, teknik servis / 2.el satışı):
+    Mikro esas (kullanıcı, 21.10.2026). Faturası kesilmemiş sipariş Mikro'ya girilir, açık Mikro siparişi olarak
+    gelir (siparis_kayitlari). Uygulamada yeni elle satış açılmaz (satis.database.mikro_esas_mi).
   · Excel'den gelen iade satırları (kaynak 'excel') — firması Mikro'da olan.
   · Mikro'da değişen faturanın eski satırları (fatura yeniden yazılır); Mikro'da iptal edilen fatura.
 
@@ -307,23 +305,14 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
         elif _mikro_satis_mi(s, mikro_nolari) or str(s.get("notlar") or "").startswith(NOT_ONEKI + " ·"):
             mevcut_fatura[str(s.get("siparis_no") or "").strip()].append(s)
 
-    # Değiştirilecek Mikro dışı satış satırları: (1) tarihi firmanın son faturasından sonra olmayanlar;
-    # (2) sonra olup aynı firma + SKU + adetli bir fatura satırıyla ±ESLESME_GUN gün içinde karşılananlar.
-    # (1)'dekiler de eşleşen fatura satırını önce tüketir: aynı fatura iki elle satırı silmesin.
-    tarihli, sonraki = [], []
-    for s in satislar:
-        no = str(s.get("siparis_no") or "").strip()
-        if no in mevcut_fatura or _ts_satiri_mi(s):
-            continue
-        k = _kanonik(s.get("kanal"))
-        if k not in mk["cariler"]:
-            continue
-        (tarihli if _gun(s.get("tarih")) <= mk["son_fatura"].get(k, "") else sonraki).append(s)
+    # MİKRO ESAS (kullanıcı, 21.10.2026: "Mikro'daki datalar her zaman daha doğrudur … muhasebe, vergi beyanları
+    # hepsi Mikro'ya göre"): başlangıçtan sonra Mikro faturası ya da açık Mikro siparişi olmayan HER satış satırı
+    # kaldırılır (elle sipariş, teknik servis / 2.el satışı dahil; arşive yazılarak). Canlı 21.10: EERA'nın Mikro'da
+    # olmayan iki elle siparişi (304 bin $), Mikro'da faturalı teknik servis satışlarının ikinci kopyası, yanlış
+    # firmaya girilmiş TEKNORYA satırı. Rapor için elle satırın eşleştiği fatura da gösterilir (elle_fatura_eslestir).
+    sil_satis = [s for s in satislar if str(s.get("siparis_no") or "").strip() not in mevcut_fatura]
     fatura_satirlari = [k for _no, ks in sorted(mk["satis"].items()) for k in ks]
-    kullanilan = set()
-    elle_fatura_eslestir(tarihli, fatura_satirlari, kullanilan=kullanilan)
-    eslesen = elle_fatura_eslestir(sonraki, fatura_satirlari, kullanilan=kullanilan)
-    sil_satis = tarihli + [s for s, _k in eslesen]
+    eslesen = elle_fatura_eslestir(sil_satis, fatura_satirlari)
 
     # Maliyet: aynı faturanın önceki kaydı → değiştirilen eski satırlar (firma + SKU) → paçal
     onceki = defaultdict(list)
@@ -536,24 +525,39 @@ def acik_mi():
     return bool((durum() or {}).get("acik"))
 
 
+SAYFA = 1000
+
+
+def sayfali_oku(sorgu, anahtar):
+    """sorgu() → süzgeçli ve SIRALI yeni sorgu. Sayfaları .range() ile kendisi okur (oto-sayfalamaya güvenmez:
+    21.10.2026'da canlı süreç shared.audit'in eski hâlini bellekte tuttuğu için 2. sayfada süzgeç düştü, aynı fatura
+    iki kez okundu ve satış eşitlemesi 16:04'ten itibaren 'kopya kayıt' korumasıyla yazmadı). Kopya varsa
+    OkumaTutarsiz (kopyasiz)."""
+    out, bas = [], 0
+    while True:
+        parca = sorgu().range(bas, bas + SAYFA - 1).execute().data or []
+        out += parca
+        if len(parca) < SAYFA:
+            return kopyasiz(out, anahtar)
+        bas += SAYFA
+
+
 def veri_oku(baslangic=BASLANGIC):
     """(mikro satırları, mevcut satışlar, mevcut iadeler, Mikro satış faturası başlıkları)."""
     from datetime import date, timedelta
     cli = _cli()
     # 15 gün önceden: başlangıcın ilk günlerindeki TL faturaları için önceki günlerin $ kuru lazım
     once = (date.fromisoformat(baslangic[:10]) - timedelta(days=15)).isoformat()
-    mikro = kopyasiz(cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once).order("sth_guid")
-                     .execute().data or [], "sth_guid")
-    satislar = kopyasiz(cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
-                                                     "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
-                        .gte("tarih", baslangic).order("id").execute().data or [], "id")
-    iadeler = kopyasiz(cli.table("iadeler").select("*").gte("tarih", baslangic).order("id").execute().data or [],
-                       "id")
-    bas = (cli.table("mikro_fatura").select("cha_guid,cha_evrakno_seri,cha_evrakno_sira,cha_tarihi,cha_kod,"
-                                            "cha_meblag,cha_d_cins")
-           .eq("cha_evrak_tip", SATIS_TIP).eq("cha_normal_iade", 0).gte("cha_tarihi", baslangic)
-           .order("cha_guid").execute().data or [])
-    kopyasiz(bas, "cha_guid")
+    mikro = sayfali_oku(lambda: cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once)
+                        .order("sth_guid"), "sth_guid")
+    satislar = sayfali_oku(lambda: cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
+                                                                "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
+                           .gte("tarih", baslangic).order("id"), "id")
+    iadeler = sayfali_oku(lambda: cli.table("iadeler").select("*").gte("tarih", baslangic).order("id"), "id")
+    bas = sayfali_oku(lambda: cli.table("mikro_fatura").select("cha_guid,cha_evrakno_seri,cha_evrakno_sira,"
+                                                               "cha_tarihi,cha_kod,cha_meblag,cha_d_cins")
+                      .eq("cha_evrak_tip", SATIS_TIP).eq("cha_normal_iade", 0).gte("cha_tarihi", baslangic)
+                      .order("cha_guid"), "cha_guid")
     unvan = {str(c.get("cari_kod") or ""): c.get("cari_unvan1") or ""
              for c in (cli.table("mikro_cari_bakiye").select("cari_kod,cari_unvan1").execute().data or [])}
     basliklar = [{"fatura_no": fatura_no(b.get("cha_evrakno_seri"), b.get("cha_evrakno_sira")),
@@ -567,8 +571,8 @@ def siparis_oku(baslangic=BASLANGIC):
     """(Mikro müşteri sipariş satırları başlangıçtan beri, {cari kodu: ünvan}). Tablo yoksa ([], {})."""
     cli = _cli()
     try:
-        sip = kopyasiz(cli.table("mikro_siparis").select("*").eq("sip_tip", 0).gte("sip_tarih", baslangic)
-                       .order("sip_guid").execute().data or [], "sip_guid")
+        sip = sayfali_oku(lambda: cli.table("mikro_siparis").select("*").eq("sip_tip", 0)
+                          .gte("sip_tarih", baslangic).order("sip_guid"), "sip_guid")
     except OkumaTutarsiz:
         raise
     except Exception:  # noqa: BLE001
