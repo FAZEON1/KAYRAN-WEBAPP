@@ -3521,6 +3521,8 @@ def _mikro_esitle_dene():
         _muhasebe_otomatik()             # banka, çek, cari, ithalat ödenen (Mikro adım 1)
         from kayranacc.mikro_gider import otomatik as _gider_otomatik
         _gider_otomatik()                # aylık gider tablosu (Mikro adım 1c)
+        from kayranpm.mikro_stok import otomatik as _stok_otomatik
+        _stok_otomatik()                 # depo stoğu (Mikro adım 2)
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 

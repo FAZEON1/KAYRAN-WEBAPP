@@ -87,6 +87,11 @@ def kapi_musteri_haftalik(dosya, kapi):
 
 
 def kapi_g5f(dosya, kapi):
+    from .mikro_stok import acik_mi as _ms_acik
+    if _ms_acik():
+        st.info("Depo stoğu artık Mikro'dan otomatik geliyor (15 dakikada bir); G5F sayım dosyası yüklemeye gerek "
+                "yok. Bu dosya kaydedilmez.")
+        return
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("g5f_sayim")
     st.caption("Bizim depo stoğu — tek sayfa, her satır bir depo-ürün: Depo adı · Stok kodu · Stok ismi · Miktar. "
@@ -537,6 +542,8 @@ def _sayfa_dashboard():
 
 def _sayfa_tum_urunler():
     st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
+    from .mikro_stok_ekran import ilk_onay_kutusu as _mikro_stok_onay
+    _mikro_stok_onay()                    # Mikro'dan otomatik depo stoğu: bir kerelik onay / kaynak notu
 
     # Ürün verilerini yükle
     try:

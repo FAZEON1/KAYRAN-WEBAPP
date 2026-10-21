@@ -337,6 +337,12 @@ def _mikro_kapsadigi():
             out.add("gider_tablosu")
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from kayranpm.mikro_stok import acik_mi as stok_acik
+        if stok_acik():
+            out.add("g5f_sayim")
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
