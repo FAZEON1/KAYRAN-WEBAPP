@@ -52,11 +52,67 @@ def _birim(pacal, sku):
     return pacal_bul(pacal, sku)
 
 
+# ── Hurda / outlet / ikinci el değerlemesi (kullanıcı, 21.10.2026) ─────
+# "Sıddık kullanıcısına çıkan ürünlere bakıp maliyetin % ne kadar altında olduğunu hesapla; aynı korelasyonla hiç
+# satılmamış ürünleri de o şekilde maliyetlendir … hurda, outlet ve 2.el fiyatları diye fiyatlar değişir."
+# Bu depolardaki ürün paçal × oran ile sayılır. Oran = SIDDIK BAYRAKTAR'a o depo türünden yapılan satışların
+# satış / maliyet toplamı (Mikro faturaları; satıldığı depo Mikro'daki çıkış deposundan). Ürün Sıddık'a satılmışsa
+# kendi oranı, satılmamışsa deponun ortalama oranı. Oran 1'i geçmez (maliyetin üstünde değerlenmez). Canlı
+# 21.10: İkinci el %78,8 · Outlet %97,6 · Servis (hurda) %23,1. Satış yoksa o depo tam paçalla kalır.
+ALICI = "SIDDIK BAYRAKTAR"
+
+
+def depo_turu(ad):
+    """Depo adı (uygulama ya da Mikro) → 'hurda' | 'ikinci_el' | 'outlet' | None."""
+    from shared.utils import tr_buyuk
+    a = " ".join(tr_buyuk(str(ad or "")).replace(".", " ").split())
+    if "OUTLET" in a:
+        return "outlet"
+    if "IKINCI EL" in a or "2 EL" in a:
+        return "ikinci_el"
+    if "TEKNIK" in a or "SERVIS" in a or "HURDA" in a:
+        return "hurda"
+    return None
+
+
+def oranlar(satirlar):
+    """satirlar: [{depo, sku, adet, birim_satis, birim_maliyet}] (Sıddık satışları, çıkış deposu ile) →
+    {tür: {"ort": oran, "sku": {sku anahtarı: oran}, "adet": n}}. Maliyeti 0 olan satır sayılmaz."""
+    from shared.utils import sku_anahtar
+    top = defaultdict(lambda: [0.0, 0.0, 0])
+    sku = defaultdict(lambda: [0.0, 0.0])
+    for r in satirlar or []:
+        t = depo_turu(r.get("depo"))
+        a, s, m = _f(r.get("adet")), _f(r.get("birim_satis")), _f(r.get("birim_maliyet"))
+        if not t or a <= 0 or m <= 0:
+            continue
+        top[t][0] += a * s
+        top[t][1] += a * m
+        top[t][2] += int(round(a))
+        k = sku_anahtar(r.get("sku"))
+        sku[(t, k)][0] += a * s
+        sku[(t, k)][1] += a * m
+    out = {}
+    for t, (s, m, n) in top.items():
+        out[t] = {"ort": round(min(max(s / m, 0.0), 1.0), 4), "adet": n,
+                  "sku": {k: round(min(max(v[0] / v[1], 0.0), 1.0), 4) for (tt, k), v in sku.items() if tt == t}}
+    return out
+
+
+def oran_bul(orn, depo, sku):
+    """Depo türü ve ürün için oran (yoksa 1,0: tam paçal)."""
+    t = depo_turu(depo)
+    if not t or t not in (orn or {}):
+        return 1.0
+    from shared.utils import sku_anahtar
+    return orn[t]["sku"].get(sku_anahtar(sku), orn[t]["ort"])
+
+
 # ── Saf ────────────────────────────────────────────────────────────
-def depo_degerleri(urunler, pacal):
-    """urunler: [{sku, depo_kirilim}] → {"deger": {depo: $}, "adet": {depo: adet}, "pacalsiz": [(sku, depo, adet)]}.
-    Bütün depolar sayılır (Excel'deki gibi; İade / Teknik / İkinci el dahil)."""
-    deger, adet, pacalsiz = defaultdict(float), defaultdict(int), []
+def depo_degerleri(urunler, pacal, orn=None):
+    """urunler: [{sku, depo_kirilim}] → {"deger": {depo: $}, "adet": {depo: adet}, "pacalsiz": [(sku, depo, adet)],
+    "indirim": {depo: $}}. Bütün depolar sayılır; hurda / outlet / ikinci el depoları oranla (orn, oranlar())."""
+    deger, adet, pacalsiz, indirim = defaultdict(float), defaultdict(int), [], defaultdict(float)
     for u in urunler or []:
         dk = u.get("depo_kirilim") or {}
         if not isinstance(dk, dict):
@@ -66,12 +122,15 @@ def depo_degerleri(urunler, pacal):
             m = _f(m)
             if not m:
                 continue
-            deger[depo] += m * b
+            o = oran_bul(orn, depo, u.get("sku"))
+            deger[depo] += m * b * o
+            if o < 1.0:
+                indirim[depo] += m * b * (1.0 - o)
             adet[depo] += int(round(m))
             if b <= 0:
                 pacalsiz.append((str(u.get("sku") or ""), depo, int(round(m))))
     return {"deger": {d: round(v, 2) for d, v in sorted(deger.items())}, "adet": dict(sorted(adet.items())),
-            "pacalsiz": sorted(pacalsiz)}
+            "pacalsiz": sorted(pacalsiz), "indirim": {d: round(v, 2) for d, v in sorted(indirim.items())}}
 
 
 def kanal_degerleri(kanal_stok, pacal):
@@ -112,17 +171,17 @@ def kanal_karsilastir(eski, yeni):
     return [(k, round(e[k], 2) if k in e else None, (yeni or {}).get(k)) for k in anahtar]
 
 
-def plan_yap(urunler, kanal_stok, pacal, mevcut):
+def plan_yap(urunler, kanal_stok, pacal, mevcut, orn=None):
     """Karşılaştırma + yazılacak kayıt. mevcut: şimdiki kayıt ([usd, {..}] ya da None).
     bos: paçal okunamadı ya da değer sıfır — yazılmaz (sıfır stok değeri aktifleri yanlış düşürürdü)."""
-    depo = depo_degerleri(urunler, pacal)
+    depo = depo_degerleri(urunler, pacal, orn)
     kanal = kanal_degerleri(kanal_stok, pacal)
     kayit = kayit_yap(depo, kanal)
     m = mevcut if isinstance(mevcut, (list, tuple)) and len(mevcut) == 2 else None
     once = _f(m[0]) if m else None
     return {"kayit": kayit, "depo": depo, "kanal": kanal, "once": once,
             "once_kanal": (m[1] if m and isinstance(m[1], dict) else {}),
-            "bos": not pacal or kayit[0] <= 0, "degisir": not esit_mi(m, kayit)}
+            "bos": not pacal or kayit[0] <= 0, "degisir": not esit_mi(m, kayit), "oranlar": orn or {}}
 
 
 # ── Veritabanı ─────────────────────────────────────────────────────
@@ -142,10 +201,46 @@ def veri_oku():
     return urunler, kanal, get_pacal_map() or {}
 
 
+def alici_satislari():
+    """Sıddık'a yapılan satışlar, çıkış deposuyla: [{depo, sku, adet, birim_satis, birim_maliyet}].
+    Satış satırı (uygulamanın satislar tablosu; Mikro faturasından, $ ve paçal maliyetle) ↔ Mikro satır (çıkış
+    deposu) fatura no + SKU ile eşlenir."""
+    from satis.mikro_esitle import sayfali_oku
+    from shared.utils import sku_anahtar
+    cli = _cli()
+    kodlar = [str(c.get("cari_kod")) for c in (cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1")
+                                              .ilike("cari_unvan1", f"%{ALICI}%").execute().data or [])]
+    if not kodlar:
+        return []
+    mk = sayfali_oku(lambda: cli.table("mikro_satis_satir").select("sth_guid,cha_evrakno_seri,cha_evrakno_sira,"
+                                                                   "sth_stok_kod,cikis_depo_adi")
+                     .in_("sth_cari_kodu", kodlar).order("sth_guid"), "sth_guid")
+    depo = {}
+    for r in mk:
+        no = f"{r.get('cha_evrakno_seri')}-{r.get('cha_evrakno_sira')}"
+        depo.setdefault((no, sku_anahtar(r.get("sth_stok_kod"))), r.get("cikis_depo_adi"))
+        depo.setdefault((no, None), r.get("cikis_depo_adi"))
+    nolar = sorted({n for n, _s in depo})
+    out = []
+    for i in range(0, len(nolar), 100):
+        for s in (cli.table("satislar").select("siparis_no,sku,adet,birim_satis,birim_maliyet")
+                  .in_("siparis_no", nolar[i:i + 100]).execute().data or []):
+            no = str(s.get("siparis_no") or "")
+            d = depo.get((no, sku_anahtar(s.get("sku")))) or depo.get((no, None))
+            out.append(dict(s, depo=d))
+    return out
+
+
 def plan_hazirla():
     from kayranacc.mikro_muhasebe import _aktif_veri
     urunler, kanal, pacal = veri_oku()
-    return plan_yap(urunler, kanal, pacal, _aktif_veri("stok"))
+    try:
+        orn = oranlar(alici_satislari())
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("kayranacc.mikro_stok_degeri.oranlar", e)
+        orn = {}
+    return plan_yap(urunler, kanal, pacal, _aktif_veri("stok"), orn)
 
 
 def uygula(plan):

@@ -207,6 +207,10 @@ def alinan_destek_ekle(firma, tur, donem, tutar, doviz="USD",
     d = _donem_parse(donem)
     if not d:
         return False, "Dönem anlaşılamadı (örn: 2026-07)"
+    _mb = _mikro_baslangic()
+    if _mb and d >= _mb:
+        return False, ("Bu dönemin alınan destekleri Mikro'dan gelir (602 hesapları): faturayı Mikro'ya gir. "
+                       "Kayıt açılmadı (iki kez sayılmasın).")
     if not tutar or _f(tutar) <= 0:
         return False, "Tutar 0'dan büyük olmalı"
     try:
@@ -281,6 +285,24 @@ def _alinan_kur():
         return None
 
 
+def _mikro_baslangic():
+    """Alınan destekler Mikro'dan geliyorsa ilk ay ("2026-01"), değilse None (kayranacc/mikro_alinan.py)."""
+    try:
+        from kayranacc import mikro_alinan as MA
+        return MA.ILK_AY if MA.acik_mi() else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _mikro_alinan(b, e):
+    """(Mikro 602 satırları ya da None, ilk ay). [b, e] Mikro dönemine hiç girmiyorsa ([], ilk ay)."""
+    mb = _mikro_baslangic()
+    if not mb or e < mb:
+        return [], mb
+    from kayranacc.mikro_alinan import mikro_satirlari
+    return mikro_satirlari(b, e), mb
+
+
 def alinan_destek_aralik_usd(bas, bit):
     """[bas, bit] tarih aralığıyla KESİŞEN AYLARIN alınan destek toplamı (USD).
     Ay-bazlı gelir mantığı: aralık ayın herhangi bir gününü kapsıyorsa o ayın
@@ -291,10 +313,15 @@ def alinan_destek_aralik_usd(bas, bit):
         return 0.0
     kur = None
     toplam = 0.0
+    mikro, mb = _mikro_alinan(b, e)
+    if mikro is not None:
+        toplam += sum(_f(m["usd"]) for m in mikro if m.get("usd") is not None)
     for r in get_alinan_destekler():
         d = r.get("donem") or ""
         if not (b <= d <= e):
             continue
+        if mikro is not None and mb and d >= mb:
+            continue                    # bu ay Mikro'dan geliyor
         t = _f(r.get("tutar"))
         dv = (r.get("doviz") or "USD").upper()
         if dv in ("TL", "TRY", "₺"):
@@ -321,10 +348,20 @@ def alinan_destek_kirilim_usd(bas, bit):
     if not b or not e:
         return marka, kat, toplam
     kur = None
+    mikro, mb = _mikro_alinan(b, e)
+    for m in mikro or []:
+        if m.get("usd") is None:
+            continue
+        mk = f"MİKRO · {m['ad']}".upper()
+        marka[mk] = marka.get(mk, 0.0) + _f(m["usd"])
+        kat["GENEL"] = kat.get("GENEL", 0.0) + _f(m["usd"])
+        toplam += _f(m["usd"])
     for r in get_alinan_destekler():
         d = r.get("donem") or ""
         if not (b <= d <= e):
             continue
+        if mikro is not None and mb and d >= mb:
+            continue                    # bu ay Mikro'dan geliyor
         t = _f(r.get("tutar"))
         dv = (r.get("doviz") or "USD").upper()
         if dv in ("TL", "TRY", "₺"):
@@ -384,12 +421,16 @@ def alinan_destek_excel_ice_aktar(df):
     if eksik:
         return 0, 0, [f"Zorunlu kolon(lar) yok: {', '.join(eksik).upper()}"]
     eklenen, atlanan, hatalar = 0, 0, []
+    mb = _mikro_baslangic()
     for i, r in df.iterrows():
         firma = str(r.get(kolmap["firma"], "") or "").strip()
         donem = r.get(kolmap["donem"])
         tutar = _f(r.get(kolmap["tutar"]))
         if not firma or firma.lower() == "nan" or tutar <= 0 or not _donem_parse(donem):
             atlanan += 1
+            continue
+        if mb and _donem_parse(donem) >= mb:
+            atlanan += 1                # Mikro'dan geliyor (602): hata değil, kaydedilmez
             continue
         ok, msg = alinan_destek_ekle(
             firma,
