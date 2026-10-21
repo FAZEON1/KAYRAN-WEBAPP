@@ -223,6 +223,12 @@ class _LoggingTable:
 
     def eq(self, col, val):
         self._filtre[col] = val
+        # Zincire de yazılır: oto-sayfalama sonraki sayfaları bu zinciri yeniden kurarak çeker; eksik
+        # kalınca 2. sayfadan itibaren eq süzgeci düşüyordu (21.10.2026: aynı fatura iki kez okundu).
+        try:
+            self._zincir.append(("eq", (col, val), {}))
+        except Exception:
+            pass
         self._b = self._b.eq(col, val)
         return self
 
