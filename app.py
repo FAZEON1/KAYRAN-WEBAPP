@@ -3497,7 +3497,7 @@ def _talep_dugmesi():
 @st.cache_resource(show_spinner=False)
 def _mikro_esitle_saat():
     """Sunucu genelinde son deneme zamanı (oturumlar arasında ortak)."""
-    return {"t": 0.0, "yayin": False}
+    return {"t": 0.0, "yayin": ""}
 
 
 def _mikro_esitle_dene():
@@ -3507,12 +3507,15 @@ def _mikro_esitle_dene():
         return
     _s["t"] = _t.time()
     import threading as _th
-    from satis.mikro_esitle import aktarici_yayinla, otomatik
+    from satis.mikro_esitle import aktarici_ozeti, aktarici_yayinla, otomatik
 
     def _is():
-        if not _s["yayin"]:          # sunucu başına bir kez: aktarıcının güncel kodu (kendini günceller)
-            _s["yayin"] = True
-            aktarici_yayinla()
+        # Aktarıcının güncel kodu (sunucudaki aktarıcı kendini günceller). Dosyanın özeti değişince yeniden
+        # yayınlanır: Streamlit Cloud birleştirmeden sonra süreci yeniden başlatmıyor, yalnız "süreç başına
+        # bir kez" yayınlamak yeni sürümü hiç göndermiyordu (Ekim 2026, #228'den sonra görüldü).
+        _ozet = aktarici_ozeti()
+        if _ozet and _s.get("yayin") != _ozet and aktarici_yayinla():
+            _s["yayin"] = _ozet
         otomatik()
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 

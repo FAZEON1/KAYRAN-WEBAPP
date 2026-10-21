@@ -436,21 +436,41 @@ def otomatik():
 
 
 
+def _aktarici_yolu():
+    from pathlib import Path
+    return Path(__file__).resolve().parent.parent / "araclar" / "mikro_aktarici" / "mikro_kayran.py"
+
+
+def aktarici_ozeti():
+    """Depodaki aktarıcı kodunun sha256 özeti; okunamazsa ''."""
+    import hashlib
+    try:
+        return hashlib.sha256(_aktarici_yolu().read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def aktarici_yayinda_mi(ozet):
+    """Supabase'teki sürüm bu özet mi."""
+    try:
+        r = _cli().table("mikro_aktarici_surum").select("sha256").eq("id", 1).execute().data or []
+        return bool(r) and r[0].get("sha256") == ozet
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def aktarici_yayinla():
     """Depodaki aktarıcı kodunu Supabase'e koyar (mikro_aktarici_surum); sunucudaki aktarıcı sürüm farklıysa
     kendini günceller (kullanıcı: "sunucuya bir daha dosya taşımayayım", Ekim 2026). Aynıysa yazmaz.
-    Döner: yayınlandı mı. Hata fırlatmaz."""
-    import hashlib
-    from pathlib import Path
+    Döner: yayınlandı ya da zaten yayındaysa True. Hata fırlatmaz."""
     try:
-        yol = Path(__file__).resolve().parent.parent / "araclar" / "mikro_aktarici" / "mikro_kayran.py"
-        kod = yol.read_text(encoding="utf-8")
-        sha = hashlib.sha256(kod.encode("utf-8")).hexdigest()
-        cli = _cli()
-        r = cli.table("mikro_aktarici_surum").select("sha256").eq("id", 1).execute().data or []
-        if r and r[0].get("sha256") == sha:
+        kod = _aktarici_yolu().read_text(encoding="utf-8")
+        ozet = aktarici_ozeti()
+        if not ozet:
             return False
-        cli.table("mikro_aktarici_surum").upsert({"id": 1, "kod": kod, "sha256": sha}).execute()
+        if aktarici_yayinda_mi(ozet):
+            return True
+        _cli().table("mikro_aktarici_surum").upsert({"id": 1, "kod": kod, "sha256": ozet}).execute()
         return True
     except Exception as e:  # noqa: BLE001
         from shared.kayit import sessiz

@@ -218,7 +218,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
-                           "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "ac", "aktarici_yayinla"],
+                           "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi"],
     "satis.mikro_esitle_ekran": ["ilk_onay_kutusu"],
     "shared.bt_hesap": ["sure_ozeti", "karsilastir", "hata_ozeti", "kapi_karari", "gunluk_seri",
                         "iyilestirme_satiri", "karne"],
