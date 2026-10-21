@@ -17,8 +17,8 @@ Formüller (21.10.2026'da eski değerlerle doğrulandı):
     döviz hesap: hareket aynı dövizdeyse tutar; karşı döviz hesabın dövizi ise tutar × kur / karşı kur;
                  kur değerleme / kur farkı fişi (evrak 59) döviz bakiyesini değiştirmez (yalnız TL değeri).
   Banka: hareketin kendisi banka (cari_cins 2) + karşı hesabı banka olan hareketler (kasa_hizmet 2, ters yönde).
-    Uygulamadaki 11 hesabın 9'u kuruşu kuruşuna tuttu; İş TL ve YKB USD farkı Mikro'ya girilmemiş /
-    uygulamaya girilmemiş hareketlerden (karşılaştırmada görünür).
+    Firma çeki bankadan ödendiği gün düşer (verildiği gün değil; _banka_hareketleri).
+    Uygulamadaki 11 hesabın 10'u kuruşu kuruşuna tuttu; İş TL farkı uygulamaya girilmemiş bir ödemeden.
   Cari (Toplam Aktifler): 120 (alıcılar) + 340 (alınan avanslar); bakiye > 0 alacak, < 0 borç (19.10 Excel'i:
     TL ve alacak birebir, USD borç 2.093 $ fark — 120.01.001 eski EERA hesabı, Mikro raporu 0 gösteriyor).
   İthalat ödenen: 320.50 (yurt dışı tedarikçiler) USD hesaplarının pozitif bakiyeleri (verilen avans) — 19.10
@@ -36,6 +36,7 @@ DURUM_ANAHTAR = "mikro_muhasebe_durum"
 DOVIZ = {0: "TL", 1: "USD", 2: "EUR"}
 KUR_FARKI_TIP = 59      # cha_evrak_tip: kur değerleme / kur farkı fişi
 CEK_VERILDI_TIP = 67    # cha_evrak_tip: firma çeki cariye verildi
+CEK_ODENDI_TIP = 38     # cha_evrak_tip: firma çeki bankadan ödendi
 FIRMA_CEKI = 2          # sck_tip: kendi çekimiz
 BANKA_CINS = 2          # cha_cari_cins / cha_kasa_hizmet: banka
 CARI_CINS = 0
@@ -96,10 +97,25 @@ def bakiyeler(hareketler, dovizler, cins, karsi=False):
     return {k: round(v, 2) for k, v in out.items()}
 
 
+def _banka_hareketleri(hareketler):
+    """Firma çeki bankayı ÖDENDİĞİ gün etkiler (gerçek banka gibi). Mikro çeki cariye verdiği gün (evrak 67)
+    karşı hesap olarak bankadan düşüyor, ödendiği gün (evrak 38) banka ↔ aynı banka sıfır kayıt atıyor:
+    ödenmemiş çek bakiyeden erken düşüyordu (YKB USD 19.450 $; Toplam Aktifler çekleri ayrıca düştüğü için
+    iki kez). Burada: 67'nin banka etkisi yok, 38'in yalnız çıkış (karşı) tarafı sayılır."""
+    for h in hareketler:
+        tip = _i(h.get("cha_evrak_tip"), -1)
+        if tip == CEK_VERILDI_TIP:
+            continue
+        if (tip == CEK_ODENDI_TIP and _i(h.get("cha_cari_cins"), -1) == BANKA_CINS
+                and _s(h.get("cha_kod")) == _s(h.get("cha_kasa_hizkod"))):
+            h = dict(h, cha_cari_cins=-1)
+        yield h
+
+
 def banka_bakiyeleri(hareketler, kartlar):
     """{ban_kod: bakiye} (hesabın dövizinde)."""
     dov = {_s(k.get("ban_kod")): _i(k.get("ban_doviz_cinsi")) for k in kartlar if _s(k.get("ban_kod"))}
-    b = bakiyeler(hareketler, dov, BANKA_CINS, karsi=True)
+    b = bakiyeler(_banka_hareketleri(hareketler), dov, BANKA_CINS, karsi=True)
     return {k: b.get(k, 0.0) for k in dov}
 
 
