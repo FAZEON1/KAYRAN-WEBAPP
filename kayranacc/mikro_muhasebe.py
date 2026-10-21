@@ -300,12 +300,18 @@ _HAREKET_ALANLARI = ("cha_tip,cha_cari_cins,cha_kod,cha_kasa_hizmet,cha_kasa_hiz
 
 
 def veri_oku():
+    """Birincil anahtar sırasıyla okur; kopya kayıt gelirse (okuma sırasında tablo değişti) reddeder
+    (satis.mikro_esitle: 21.10.2026 olayı)."""
+    from satis.mikro_esitle import kopyasiz
     cli = _cli()
     return {
-        "hareket": cli.table("mikro_cari_hareket").select(_HAREKET_ALANLARI).execute().data or [],
-        "banka_kart": cli.table("mikro_banka_kart").select("*").execute().data or [],
-        "cari_kart": cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1,cari_doviz_cinsi").execute().data or [],
-        "cek": cli.table("mikro_cek").select("*").execute().data or [],
+        "hareket": kopyasiz(cli.table("mikro_cari_hareket").select("cha_guid," + _HAREKET_ALANLARI)
+                            .order("cha_guid").execute().data or [], "cha_guid"),
+        "banka_kart": kopyasiz(cli.table("mikro_banka_kart").select("*").order("ban_kod").execute().data or [],
+                               "ban_kod"),
+        "cari_kart": kopyasiz(cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1,cari_doviz_cinsi")
+                              .order("cari_kod").execute().data or [], "cari_kod"),
+        "cek": kopyasiz(cli.table("mikro_cek").select("*").order("sck_guid").execute().data or [], "sck_guid"),
     }
 
 
@@ -403,6 +409,9 @@ def otomatik():
         son = son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):
             return None
+        from satis.mikro_esitle import aktarim_suruyor
+        if aktarim_suruyor():
+            return None                   # aktarıcı yazıyor: sonraki turda
         sonuc = uygula(plan_hazirla())
         d["son_calisma"] = son
         _durum_yaz(d)

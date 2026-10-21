@@ -91,7 +91,9 @@ def _cli():
 
 def plan_hazirla():
     cli = _cli()
-    satir = cli.table("mikro_stok_miktar").select("sto_kod,sto_isim,depo,miktar").execute().data or []
+    from satis.mikro_esitle import kopyasiz
+    satir = kopyasiz(cli.table("mikro_stok_miktar").select("sto_kod,sto_isim,depo,miktar").order("sto_kod")
+                     .order("depo").execute().data or [], ("sto_kod", "depo"))
     depo = {_i(d.get("dep_no")): _s(d.get("dep_adi")) for d in
             (cli.table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or [])}
     urunler = cli.table("urunler").select("sku,depo_kirilim").execute().data or []
@@ -157,6 +159,9 @@ def otomatik():
         son = son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):
             return None
+        from satis.mikro_esitle import aktarim_suruyor
+        if aktarim_suruyor():
+            return None                   # aktarıcı yazıyor (stok tablosu tam çekimde silinip yazılır)
         sonuc = uygula(plan_hazirla())
         if isinstance(sonuc, str):
             from shared.kayit import sessiz
