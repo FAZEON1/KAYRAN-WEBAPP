@@ -305,7 +305,8 @@ GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod, COALESCE(CAST(fis_tur
         "sql": "SELECT muh_hesap_kod, muh_hesap_isim1 FROM MUHASEBE_HESAP_PLANI WHERE muh_iptal=0",
     },
     # ── Alımlar adımı 3 (Ekim 2026): ithalat dosyaları + bütün alış satırları (ithalat ve yurt içi) ──
-    # Ürün satırı ithalat dosyasına sth_exim_kodu ile bağlı (ith_kodu, ör. VANEX-015). Paçal / masraf dağıtımı
+    # Ürün satırı ithalat dosyasına sth_exim_kodu ile bağlı (ith_kodu, ör. VANEX-015). Cari koduyla süzülür
+    # (ilk sürümdeki sth_cari_cinsi=0 süzgeci 21.10'da hiç satır döndürmedi). Paçal / masraf dağıtımı
     # uygulamada eski değerlerle karşılaştırılarak kurulur.
     "ithalat_dosya": {
         "tablo": "mikro_ithalat_dosya", "anahtar": "ith_kodu",
@@ -328,7 +329,8 @@ SELECT sth_Guid, sth_tarih, sth_tip, sth_cins, sth_evraktip, sth_normal_iade, st
        sth_har_doviz_cinsi, sth_har_doviz_kuru, sth_alt_doviz_kuru, sth_giris_depo_no, sth_exim_kodu,
        sth_bagli_ithalat_kodu, sth_fat_uid, sth_lastup_date
 FROM STOK_HAREKETLERI
-WHERE sth_iptal=0 AND sth_tip=0 AND sth_cari_cinsi=0 AND sth_tarih >= '20250101' AND sth_lastup_date > '{SON}'
+WHERE sth_iptal=0 AND sth_tip=0 AND ISNULL(sth_cari_kodu, '') <> '' AND sth_tarih >= '20250101'
+  AND sth_lastup_date > '{SON}'
 """,
     },
     # ── Adım 4 (Ekim 2026): depo hareketleri — Happy Life raporu ve stok yaşı (depoya giriş tarihi, FIFO) ──
