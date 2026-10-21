@@ -833,6 +833,8 @@ def _sg_urun_map():
 
 def kapi_siparis_vatan(dosya, kapi):
     """VATAN sipariş Excel'i — sipariş no ve tarih dosyadan gelir."""
+    if _mikrodan_geliyor("Siparişler", "siparişlerinden"):
+        return
     urun_map = _sg_urun_map()
     if urun_map is None:
         return
@@ -868,6 +870,8 @@ def kapi_siparis_vatan(dosya, kapi):
 
 def kapi_siparis_itopya(dosya, kapi):
     """EERA (İtopya) şablonu — EERA ve diğer firmalar aynı şablonu kullanır; firma seçilir."""
+    if _mikrodan_geliyor("Siparişler", "siparişlerinden"):
+        return
     urun_map = _sg_urun_map()
     if urun_map is None:
         return
@@ -916,13 +920,14 @@ def kapi_siparis_itopya(dosya, kapi):
         _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi, _plan_k)
 
 
-def _mikrodan_geliyor(ne):
-    """Satış eşitlemesi açıksa (satis/mikro_esitle) satışlar ve iadeler Mikro faturalarından gelir: bu dosya
-    kaydedilmez (Ekim 2026; muhasebe tarafındaki kayranacc.main._mikrodan_geliyor ile aynı)."""
+def _mikrodan_geliyor(ne, kaynak="faturalarından"):
+    """Satış eşitlemesi açıksa (satis/mikro_esitle) satışlar ve iadeler Mikro faturalarından, bekleyen
+    siparişler Mikro siparişlerinden gelir: bu dosya kaydedilmez (Ekim 2026; muhasebe tarafındaki
+    kayranacc.main._mikrodan_geliyor ile aynı)."""
     from satis.mikro_esitle import acik_mi
     if not acik_mi():
         return False
-    st.info(f"{ne} artık Mikro faturalarından otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
+    st.info(f"{ne} artık Mikro {kaynak} otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
             "Bu dosya kaydedilmez.")
     return True
 

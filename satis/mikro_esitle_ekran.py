@@ -44,7 +44,9 @@ def _plan_goster(plan):
     st.caption(f"Eklenecek: {tr_sayi(len(y['ekle_satis']))} satış satırı ({tr_sayi(plan['yeni_fatura'])} fatura), "
                f"{tr_sayi(len(y['ekle_iade']))} iade satırı. Değiştirilecek: {tr_sayi(len(y['sil_satis_id']))} "
                f"Mikro dışı satış satırı, {tr_sayi(len(y['fatura_nolar']))} değişen fatura, "
-               f"{tr_sayi(len(y['sil_iade_id']))} Excel iade satırı. Stok değişmez.")
+               f"{tr_sayi(len(y['sil_iade_id']))} Excel iade satırı. Mikro'da açık "
+               f"{tr_sayi(plan.get('acik_siparis', 0))} sipariş ({tr_sayi(plan.get('acik_siparis_adet', 0))} adet) "
+               "faturası kesilene kadar bekleyen satış olarak görünür. Stok değişmez.")
     if plan["sil_satis_kanal"]:
         with st.expander("Değiştirilecek Mikro dışı satış satırları (firma)"):
             st.dataframe(pd.DataFrame(plan["sil_satis_kanal"], columns=["Firma", "Satır", "Adet"]),
@@ -58,7 +60,8 @@ def _plan_goster(plan):
                          hide_index=True, use_container_width=True)
     at = plan.get("atlanan") or {}
     if at:
-        ad = {"bedelsiz": "bedelsiz (teknik servis yazıyor)", "kursuz": "kuru bilinmeyen", "adetsiz": "adetsiz"}
+        ad = {"bedelsiz": "bedelsiz (teknik servis yazıyor)", "kursuz": "kuru bilinmeyen", "adetsiz": "adetsiz",
+              "siparis_fiyatsiz": "fiyatsız sipariş", "siparis_kursuz": "kuru bilinmeyen sipariş"}
         st.caption("Alınmayan satırlar: " + " · ".join(f"{ad.get(k, k)} {tr_sayi(v)}" for k, v in at.items()))
 
 

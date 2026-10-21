@@ -35,6 +35,7 @@ SATIS_TIP = 63          # cha_evrak_tip: satış faturası
 IADE_TIP = 0            # cha_evrak_tip 0 + iade işareti: satış iadesi faturası
 TS_NOT_ONEKI = "TEKNİK SERVİS"
 NOT_ONEKI = "Mikro"
+SIPARIS_NOT_ONEKI = "Mikro sipariş"     # açık Mikro siparişinden gelen bekleyen satış (siparis_kayitlari)
 
 
 # ── küçük yardımcılar ───────────────────────────────────────────────
@@ -177,6 +178,53 @@ def mikro_kayitlari(satirlar, baslangic=BASLANGIC, kurlar=None):
             "son_fatura": son_fatura, "cariler": cariler, "iade_cari": iade_cari}
 
 
+def siparis_kayitlari(siparisler, unvanlar=None, baslangic=BASLANGIC, kurlar=None, ad_harita=None):
+    """Mikro'da açık (henüz faturası kesilmemiş) müşteri siparişleri → bekleyen satış kaydı (Ekim 2026,
+    kullanıcı: "Mikro'ya sipariş girildiğinde programa da yansısın"). Sipariş Excel'inin yaptığını yapar:
+    sipariş satış olarak görünür, fatura kesilince Mikro sipariş satırının teslim miktarı artar, kalan düşer;
+    satış faturanın satırından gelir. Yalnız müşteri siparişi (sip_tip 0), iptal / kapalı değil, kalan > 0.
+    Fiyat siparişin dövizinde ($ ise aynen; TL ise o günün $ kuruyla). Döner: ({sipariş no: [kayıt]}, atlanan)."""
+    out, atlanan = defaultdict(list), defaultdict(int)
+    unvanlar, ad_harita = unvanlar or {}, ad_harita or {}
+    for r in siparisler or []:
+        if _i(r.get("sip_tip"), -1) != 0 or r.get("sip_kapat_fl") in (True, 1, "1", "true"):
+            continue
+        tarih = _gun(r.get("sip_tarih"))
+        kalan = _i(r.get("kalan", _f(r.get("sip_miktar")) - _f(r.get("sip_teslim_miktar"))))
+        if not tarih or tarih < baslangic or kalan <= 0:
+            continue
+        sku = _sku_a(r.get("sip_stok_kod"))
+        fiyat = _f(r.get("sip_b_fiyat"))
+        if not sku or fiyat <= 0:
+            atlanan["siparis_fiyatsiz"] += 1
+            continue
+        cins = _i(r.get("sip_doviz_cinsi"))
+        if cins == 1:
+            usd = fiyat
+        elif cins == 0:
+            kur = _onceki_kur(kurlar or {}, tarih)
+            if not kur:
+                atlanan["siparis_kursuz"] += 1
+                continue
+            usd = fiyat / kur
+        else:
+            atlanan["siparis_kursuz"] += 1      # € sipariş: siparişte kur yok
+            continue
+        kod = str(r.get("sip_musteri_kod") or "").strip()
+        no = fatura_no(r.get("sip_evrakno_seri"), r.get("sip_evrakno_sira"))
+        out[no].append({
+            "tarih": tarih, "kanal": " ".join(str(unvanlar.get(kod) or "").split()) or kod, "sku": sku,
+            "urun_adi": ad_harita.get(sku, ""), "adet": kalan, "birim_satis": round(usd, 4),
+            "birim_firma_destek": 0, "birim_ek_destek": 0,
+            "siparis_no": no, "notlar": f"{SIPARIS_NOT_ONEKI} · Cari kodu: {kod}",
+        })
+    return dict(out), dict(atlanan)
+
+
+def _siparis_satiri_mi(s):
+    return str(s.get("notlar") or "").startswith(SIPARIS_NOT_ONEKI + " ·")
+
+
 def _imza_satis(kayitlar):
     return sorted((_gun(k.get("tarih")), " ".join(str(k.get("kanal") or "").split()), _sku_a(k.get("sku")),
                    _i(k.get("adet")), round(_f(k.get("birim_satis")), 2)) for k in kayitlar)
@@ -196,21 +244,31 @@ def _ts_satiri_mi(s):
 
 
 # ── plan ────────────────────────────────────────────────────────────
-def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=None, basliklar=None):
+def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=None, basliklar=None,
+             siparisler=None, unvanlar=None, ad_harita=None):
     """Yazmadan önce ne değişecek. satislar / iadeler: başlangıçtan sonraki mevcut kayıtlar (id'li).
     basliklar: Mikro satış faturası başlıkları [{fatura_no, tarih, kanal, tutar, doviz}] — ürün satırı
     olmayan (hizmet / masraf / fark) faturaları göstermek için. pacal_fn(sku) → $ maliyet.
+    siparisler: mikro_siparis satırları (unvanlar: {cari kodu: ünvan}) — açık olanlar bekleyen satış olur,
+    kapanan / faturalanan siparişin satırı silinir (siparis_kayitlari).
     Döner: {yuk: mikro_esitle_uygula girdisi, ozet: aylık önce/sonra, ...}."""
     mk = mikro_kayitlari(mikro_satirlar, baslangic)
+    sip, sip_atlanan = siparis_kayitlari(siparisler, unvanlar, baslangic, kur_haritasi(mikro_satirlar), ad_harita)
+    for k, v in sip_atlanan.items():
+        mk["atlanan"][k] = mk["atlanan"].get(k, 0) + v
     satislar = [s for s in satislar or [] if _gun(s.get("tarih")) >= baslangic]
     iadeler = [r for r in iadeler or [] if _gun(r.get("tarih")) >= baslangic]
     mikro_nolari = set(mk["satis"]) | {str(b.get("fatura_no") or "") for b in basliklar or []}
     satirli_nolar = set(mk["satis"])
 
-    # Mevcut Mikro kaynaklı satış satırları, fatura fatura
+    # Mevcut Mikro kaynaklı satış satırları, fatura fatura (açık sipariş satırları sipariş sipariş)
     mevcut_fatura = defaultdict(list)
+    mevcut_siparis = set()
     for s in satislar:
-        if _mikro_satis_mi(s, mikro_nolari) or str(s.get("notlar") or "").startswith(NOT_ONEKI + " ·"):
+        if _siparis_satiri_mi(s):
+            mevcut_siparis.add(str(s.get("siparis_no") or "").strip())
+            mevcut_fatura[str(s.get("siparis_no") or "").strip()].append(s)
+        elif _mikro_satis_mi(s, mikro_nolari) or str(s.get("notlar") or "").startswith(NOT_ONEKI + " ·"):
             mevcut_fatura[str(s.get("siparis_no") or "").strip()].append(s)
 
     # Değiştirilecek Mikro dışı satış satırları
@@ -246,7 +304,9 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
         return _f(pacal_fn(k["sku"])) if pacal_fn else 0.0
 
     fatura_nolar, ekle_satis = [], []
-    for no, ks in sorted(mk["satis"].items()):
+    gruplar = dict(mk["satis"])
+    gruplar.update({no: ks for no, ks in sip.items() if no not in gruplar})
+    for no, ks in sorted(gruplar.items()):
         if _imza_satis(ks) == _imza_satis(mevcut_fatura.get(no, [])):
             continue                      # değişmemiş fatura: dokunulmaz (maliyet de korunur)
         if no in mevcut_fatura:
@@ -255,8 +315,12 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
             ekle_satis.append(dict(k, birim_maliyet=round(_maliyet(k), 6)))
     # Mikro'da artık olmayan (iptal) faturalar: başlıklarda da yoksa sil. Başlığı olup satırı olmayan
     # faturaya DOKUNULMAZ (satır okunamamış olabilir; gerçek satış silinmesin).
+    # Faturalanan / kapanan / iptal edilen siparişin bekleyen satırı silinir (satış faturadan gelir).
     for no in sorted(mevcut_fatura):
-        if no not in satirli_nolar and no not in mikro_nolari and no.startswith(_seri_onek(mikro_nolari)):
+        if no in mevcut_siparis:
+            if no not in sip and no not in fatura_nolar:
+                fatura_nolar.append(no)
+        elif no not in satirli_nolar and no not in mikro_nolari and no.startswith(_seri_onek(mikro_nolari)):
             fatura_nolar.append(no)
 
     # İadeler
@@ -294,7 +358,9 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
             "silinecek_satir": len(silinen_fatura_satir) + len(sil_satis), "mevcut_satir": len(satislar),
             "degisiklik_var": bool(yuk["sil_satis_id"] or fatura_nolar or ekle_satis
                                    or yuk["sil_iade_id"] or iade_belgeler or ekle_iade),
-            "sil_satis_kanal": _kanal_sayim(sil_satis), "yeni_fatura": len({k["siparis_no"] for k in ekle_satis})}
+            "sil_satis_kanal": _kanal_sayim(sil_satis),
+            "yeni_fatura": len({k["siparis_no"] for k in ekle_satis if not _siparis_satiri_mi(k)}),
+            "acik_siparis": len(sip), "acik_siparis_adet": sum(_i(k["adet"]) for ks in sip.values() for k in ks)}
 
 
 # ── Okuma güvenliği (21.10.2026 olayı) ─────────────────────────────
@@ -448,12 +514,30 @@ def veri_oku(baslangic=BASLANGIC):
     return mikro, satislar, iadeler, basliklar
 
 
+def siparis_oku(baslangic=BASLANGIC):
+    """(Mikro müşteri sipariş satırları başlangıçtan beri, {cari kodu: ünvan}). Tablo yoksa ([], {})."""
+    cli = _cli()
+    try:
+        sip = kopyasiz(cli.table("mikro_siparis").select("*").eq("sip_tip", 0).gte("sip_tarih", baslangic)
+                       .order("sip_guid").execute().data or [], "sip_guid")
+    except OkumaTutarsiz:
+        raise
+    except Exception:  # noqa: BLE001
+        return [], {}
+    unvan = {str(c.get("cari_kod") or ""): c.get("cari_unvan1") or ""
+             for c in (cli.table("mikro_cari_bakiye").select("cari_kod,cari_unvan1").execute().data or [])}
+    return sip, unvan
+
+
 def plan_hazirla(baslangic=BASLANGIC):
     from satis.database import get_pacal_map, pacal_bul
+    from shared.ana_veri import get_urun_ad_haritasi
     mikro, satislar, iadeler, basliklar = veri_oku(baslangic)
+    siparisler, unvanlar = siparis_oku(baslangic)
     pacal = get_pacal_map()
     return plan_yap(mikro, satislar, iadeler, baslangic, pacal_fn=lambda s: pacal_bul(pacal, s),
-                    basliklar=basliklar)
+                    basliklar=basliklar, siparisler=siparisler, unvanlar=unvanlar,
+                    ad_harita=get_urun_ad_haritasi())
 
 
 def uygula(plan):
@@ -477,9 +561,14 @@ def ac(kullanici):
 
 
 def _son_aktarim():
-    r = (_cli().table("mikro_senk_durum").select("son_cekim").eq("tablo", "mikro_satis_satir").execute().data
-         or [])
-    return str((r[0] if r else {}).get("son_cekim") or "")
+    """Satış satırlarının son çekimi; sipariş tablosu daha yeni çekildiyse o (sipariş girilince de çalışsın).
+    Satış satırı hiç gelmediyse boş (eşitleme çalışmaz)."""
+    r = (_cli().table("mikro_senk_durum").select("tablo,son_cekim")
+         .in_("tablo", ["mikro_satis_satir", "mikro_siparis"]).execute().data or [])
+    son = {x.get("tablo"): str(x.get("son_cekim") or "") for x in r}
+    if not son.get("mikro_satis_satir"):
+        return ""
+    return max(son.values())
 
 
 def otomatik():
