@@ -221,3 +221,33 @@ def test_acik_mi_durumdan(monkeypatch):
     assert M.acik_mi() is True
     monkeypatch.setattr(M, "durum", lambda: None)      # tablo yok / okunamadı → kapalı (yükleme açık kalır)
     assert M.acik_mi() is False
+
+
+# ── Okuma güvenliği (21.10.2026 olayı: aktarıcı yazarken sırasız okuma 1.639 satırı silip yarısı kopya
+#    1.684 satır yazdırdı; arşivden geri yüklendi) ──
+def test_kopya_kayit_okumayi_reddeder():
+    import pytest
+    from satis import mikro_esitle as M
+    assert M.kopyasiz([{"g": 1}, {"g": 2}], "g") == [{"g": 1}, {"g": 2}]
+    with pytest.raises(M.OkumaTutarsiz):
+        M.kopyasiz([{"g": 1}, {"g": 2}, {"g": 1}], "g")
+    with pytest.raises(M.OkumaTutarsiz):
+        M.kopyasiz([{"k": "A", "d": 1}, {"k": "A", "d": 1}], ("k", "d"))
+    assert M.kopyasiz([{"k": "A", "d": 1}, {"k": "A", "d": 2}], ("k", "d"))
+
+
+def test_aktarim_suruyorsa_otomatik_bekler():
+    from datetime import datetime, timezone
+    from satis import mikro_esitle as M
+    simdi = datetime(2026, 10, 21, 16, 26, 50, tzinfo=timezone.utc)
+    assert M.aktarim_suruyor_mu(["2026-10-21T16:26:04+00:00", "2026-10-21T16:11:00+00:00"], simdi)
+    assert not M.aktarim_suruyor_mu(["2026-10-21T16:12:30+00:00"], simdi)
+    assert not M.aktarim_suruyor_mu([None, "bozuk"], simdi)
+
+
+def test_otomatik_plan_satirlarin_cogunu_silemez():
+    """16:26 planı 2.818 satırın 1.639'unu silmek istedi: otomatik turda yazılmamalıydı."""
+    from satis import mikro_esitle as M
+    assert not M.otomatik_guvenli_mi({"silinecek_satir": 1639, "mevcut_satir": 2818})
+    assert M.otomatik_guvenli_mi({"silinecek_satir": 40, "mevcut_satir": 2818})
+    assert M.otomatik_guvenli_mi({"silinecek_satir": 90, "mevcut_satir": 120})   # küçük tablo tabanı

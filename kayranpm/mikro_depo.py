@@ -249,14 +249,21 @@ def _cli():
 
 def veri_oku():
     """(hareket satırları, {dep_no: dep_adi}, mikro_stok_miktar satırları). Tablo yoksa / boşsa boş liste."""
-    from kayranpm.database import _hepsi
+    # Sıralı okuma + kopya denetimi (satis.mikro_esitle, 21.10.2026 olayı): sırasız sayfalar satır kaçırıp
+    # kopyalayabiliyordu. Tutarsız okumada hareketler boş döner → sayfalar bugünkü kaynaklara düşer.
+    from satis.mikro_esitle import kopyasiz
+    cli = _cli()
     try:
-        har = _hepsi(TABLO, KOLONLAR) or []
-    except Exception:  # noqa: BLE001 — göç (43) uygulanmadıysa tablo yok
+        har = kopyasiz(cli.table(TABLO).select(KOLONLAR).order("sth_guid").execute().data or [], "sth_guid")
+    except Exception:  # noqa: BLE001 — göç (43) uygulanmadıysa tablo yok / okuma tutarsız
         har = []
     depo = {_i(d.get("dep_no")): _s(d.get("dep_adi")) for d in
-            (_cli().table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or [])}
-    stok = _hepsi("mikro_stok_miktar", "sto_kod,sto_isim,depo,miktar") or []
+            (cli.table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or [])}
+    try:
+        stok = kopyasiz(cli.table("mikro_stok_miktar").select("sto_kod,sto_isim,depo,miktar").order("sto_kod")
+                        .order("depo").execute().data or [], ("sto_kod", "depo"))
+    except Exception:  # noqa: BLE001
+        har, stok = [], []
     return har, depo, stok
 
 

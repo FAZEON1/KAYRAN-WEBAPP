@@ -314,6 +314,9 @@ def otomatik():
         son = son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):
             return None
+        from satis.mikro_esitle import aktarim_suruyor
+        if aktarim_suruyor():
+            return None                   # aktarıcı yazıyor: sonraki turda
         ilk = int(_f(d.get("ilk_yil"), ILK_YIL) or ILK_YIL)      # onaylanmamış yıl (ör. 2025) yazılmaz
         yazilan = uygula({y: p for y, p in plan_hazirla().items() if y >= ilk})
         d["son_calisma"] = son
