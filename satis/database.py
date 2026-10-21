@@ -372,8 +372,26 @@ def kampanya_destek_bul(sku, kanal, tarih):
 
 
 # ── Satış CRUD ──
+def mikro_esas_mi(tarih):
+    """Bu tarihli satış kaydı Mikro'dan mı gelir (satış eşitlemesi açık ve tarih başlangıçtan sonra)?
+    Kullanıcı (21.10.2026): "Mikro'daki datalar her zaman daha doğrudur … her zaman gerçek veri orasıdır."
+    O zaman uygulamada elle satış / sipariş satırı açılmaz; eşitleme Mikro'da olmayan satırı zaten kaldırır."""
+    try:
+        from satis.mikro_esitle import BASLANGIC, durum
+        d = durum() or {}
+        return bool(d.get("acik")) and str(tarih or "")[:10] >= str(d.get("baslangic") or BASLANGIC)[:10]
+    except Exception:  # noqa: BLE001
+        return False
+
+
+MIKRO_ESAS_MESAJ = ("Satışlar Mikro'dan gelir: siparişi / faturayı Mikro'ya gir, 15 dakika içinde burada görünür. "
+                    "Uygulamada satış kaydı açılmadı.")
+
+
 def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
                birim_firma_destek=0, birim_ek_destek=0, kampanya_id=None, notlar="", siparis_no=""):
+    if mikro_esas_mi(tarih):
+        return False, MIKRO_ESAS_MESAJ
     try:
         _get_client().table("satislar").insert({
             "tarih": str(tarih)[:10], "kanal": kanal or "",
@@ -744,6 +762,8 @@ def ekle_siparis(tarih, kanal, siparis_no, notlar, kalemler):
     kalemler: [{sku, urun_adi, adet, birim_satis, birim_maliyet,
                 birim_firma_destek, birim_ek_destek, kampanya_id}, ...]
     Döner: (ok, mesaj, kalem_sayisi)."""
+    if mikro_esas_mi(tarih):
+        return False, MIKRO_ESAS_MESAJ, 0
     rows = []
     _depo_map = []  # [(sku, adet, depo)] — depoya göre stok düşürme için
     zaman = datetime.now(TR_TZ).isoformat(timespec="seconds")

@@ -208,3 +208,38 @@ def test_arka_is_suruyorken_moduller_silinmez(tmp_path, monkeypatch):
         t.join()
     assert T.bayatlari_tazele(moduller, str(tmp_path), kayit) == ["m"] and "m" not in moduller
     sys.modules.pop("m", None)
+
+
+# ── 5) Mikro esas: uygulamada yeni satış satırı açılmaz ──────────
+@pytest.mark.parametrize("acik,tarih,beklenen", [(True, "2026-10-21", True), (True, "2026-06-30", False),
+                                                  (False, "2026-10-21", False)])
+def test_mikro_esas_mi(monkeypatch, acik, tarih, beklenen):
+    import satis.database as SD
+    import satis.mikro_esitle as ME
+    monkeypatch.setattr(ME, "durum", lambda: {"acik": acik, "baslangic": "2026-07-01"})
+    assert SD.mikro_esas_mi(tarih) is beklenen
+
+
+def test_mikro_esasken_elle_siparis_ve_satis_yazilmaz(monkeypatch):
+    import satis.database as SD
+    monkeypatch.setattr(SD, "mikro_esas_mi", lambda t: True)
+    monkeypatch.setattr(SD, "_get_client", lambda: pytest.fail("Mikro esasken satış yazıldı"))
+    ok, mesaj, n = SD.ekle_siparis("2026-10-21", "EERA", "2847", "", [{"sku": "A", "adet": 1, "birim_satis": 1}])
+    assert not ok and n == 0 and "Mikro" in mesaj
+    ok, mesaj = SD.ekle_satis("2026-10-21", "EERA", "A", "", 1, 1, 1)
+    assert not ok and "Mikro" in mesaj
+
+
+def test_teknik_servis_satisi_mikro_esasken_satisa_yazilmaz_akis_surer(monkeypatch):
+    import satis.database as SD
+    from teknikservis import stok as TS
+    monkeypatch.setattr(SD, "mikro_esas_mi", lambda t: True)
+    monkeypatch.setattr(SD, "ekle_satis", lambda *a, **k: pytest.fail("Mikro esasken TS satış satırı yazıldı"))
+    ok, mesaj = TS.satis_kaydi_yaz({"sku": "X24F165S", "servis_form_no": "G5F00399"}, 49, tarih="2026-10-12")
+    assert ok and "Mikro" in mesaj
+
+
+def test_elle_siparis_penceresi_mikro_esasken_kayit_yerine_yonlendirir():
+    kaynak = (KOK / "satis" / "main.py").read_text(encoding="utf-8")
+    govde = kaynak.split("def _satis_manuel_dialog():", 1)[1][:1500]
+    assert '_mikrodan_geliyor("Satışlar ve siparişler"' in govde and "return" in govde

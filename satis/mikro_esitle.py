@@ -18,11 +18,9 @@ faturalarının ürün satırlarını yazar. Bu modül o satırlardan satislar /
             ortalaması; yoksa bugünkü paçal (satis.database.get_pacal_map — Excel yüklemesiyle aynı).
 
 Değiştirilen kayıtlar (başlangıç tarihinden sonra):
-  · Mikro dışı kaynaklı satış satırları (sipariş Excel'i vb.) — firması Mikro'da faturalı olan ve tarihi
-    o firmanın son Mikro faturasından sonra OLMAYAN satırlar. Henüz faturası kesilmemiş sipariş kalır;
-    fatura gelince değişir. Son faturadan SONRA tarihli satır da, aynı firma + SKU + adetli bir Mikro fatura
-    satırı ±45 gün içindeyse o faturayla karşılanmış sayılır ve değişir (elle_fatura_eslestir; bir fatura
-    satırı tek elle satırı karşılar). Teknik servis satırları ("TEKNİK SERVİS …" notlu) hiç değişmez.
+  · Mikro dışı kaynaklı BÜTÜN satış satırları (elle sipariş, sipariş Excel'i, teknik servis / 2.el satışı):
+    Mikro esas (kullanıcı, 21.10.2026). Faturası kesilmemiş sipariş Mikro'ya girilir, açık Mikro siparişi olarak
+    gelir (siparis_kayitlari). Uygulamada yeni elle satış açılmaz (satis.database.mikro_esas_mi).
   · Excel'den gelen iade satırları (kaynak 'excel') — firması Mikro'da olan.
   · Mikro'da değişen faturanın eski satırları (fatura yeniden yazılır); Mikro'da iptal edilen fatura.
 
@@ -307,23 +305,14 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
         elif _mikro_satis_mi(s, mikro_nolari) or str(s.get("notlar") or "").startswith(NOT_ONEKI + " ·"):
             mevcut_fatura[str(s.get("siparis_no") or "").strip()].append(s)
 
-    # Değiştirilecek Mikro dışı satış satırları: (1) tarihi firmanın son faturasından sonra olmayanlar;
-    # (2) sonra olup aynı firma + SKU + adetli bir fatura satırıyla ±ESLESME_GUN gün içinde karşılananlar.
-    # (1)'dekiler de eşleşen fatura satırını önce tüketir: aynı fatura iki elle satırı silmesin.
-    tarihli, sonraki = [], []
-    for s in satislar:
-        no = str(s.get("siparis_no") or "").strip()
-        if no in mevcut_fatura or _ts_satiri_mi(s):
-            continue
-        k = _kanonik(s.get("kanal"))
-        if k not in mk["cariler"]:
-            continue
-        (tarihli if _gun(s.get("tarih")) <= mk["son_fatura"].get(k, "") else sonraki).append(s)
+    # MİKRO ESAS (kullanıcı, 21.10.2026: "Mikro'daki datalar her zaman daha doğrudur … muhasebe, vergi beyanları
+    # hepsi Mikro'ya göre"): başlangıçtan sonra Mikro faturası ya da açık Mikro siparişi olmayan HER satış satırı
+    # kaldırılır (elle sipariş, teknik servis / 2.el satışı dahil; arşive yazılarak). Canlı 21.10: EERA'nın Mikro'da
+    # olmayan iki elle siparişi (304 bin $), Mikro'da faturalı teknik servis satışlarının ikinci kopyası, yanlış
+    # firmaya girilmiş TEKNORYA satırı. Rapor için elle satırın eşleştiği fatura da gösterilir (elle_fatura_eslestir).
+    sil_satis = [s for s in satislar if str(s.get("siparis_no") or "").strip() not in mevcut_fatura]
     fatura_satirlari = [k for _no, ks in sorted(mk["satis"].items()) for k in ks]
-    kullanilan = set()
-    elle_fatura_eslestir(tarihli, fatura_satirlari, kullanilan=kullanilan)
-    eslesen = elle_fatura_eslestir(sonraki, fatura_satirlari, kullanilan=kullanilan)
-    sil_satis = tarihli + [s for s, _k in eslesen]
+    eslesen = elle_fatura_eslestir(sil_satis, fatura_satirlari)
 
     # Maliyet: aynı faturanın önceki kaydı → değiştirilen eski satırlar (firma + SKU) → paçal
     onceki = defaultdict(list)
