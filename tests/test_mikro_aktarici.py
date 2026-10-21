@@ -85,3 +85,82 @@ def test_gizli_ayar_depoda_yok():
         if ad in ("MIKRO_API_KEY", "MIKRO_KULLANICI", "MIKRO_SIFRE", "SUPABASE_SERVICE_KEY", "MIKRO_FIRMA_KODU"):
             assert deger.startswith("<") and deger.endswith(">"), ad
     assert not (KLASOR / "ayarlar.bat").exists()
+
+
+# ── Kendini güncelleme + keşif (Ekim 2026, kullanıcı: "sunucuya bir daha dosya taşımayayım";
+#    "olabilecek tüm veriler Mikro'dan" → adım 0: Mikro'da hangi veri var) ──
+class _Yanit:
+    def __init__(self, veri):
+        self._v = veri
+        self.ok, self.status_code, self.text = True, 200, ""
+
+    def json(self):
+        return self._v
+
+
+class _SahteSb:
+    def __init__(self, surum=None, kesif_zaman=None):
+        self.rest, self.yazilan = "x", []
+        self._surum, self._kz = surum, kesif_zaman
+        sb = self
+
+        class _O:
+            def get(self, url, params=None, timeout=None):
+                if url.endswith("mikro_aktarici_surum"):
+                    return _Yanit([sb._surum] if sb._surum else [])
+                return _Yanit([{"zaman": sb._kz}] if sb._kz else [])
+        self.oturum = _O()
+
+    def _kontrol(self, r):
+        return r
+
+    def upsert(self, tablo, satirlar, anahtar):
+        self.yazilan.append((tablo, satirlar))
+
+
+def _surum(kod):
+    import hashlib
+    return {"kod": kod, "sha256": hashlib.sha256(kod.encode("utf-8")).hexdigest()}
+
+
+def test_kendini_gunceller_ve_bozugu_reddeder(mk, tmp_path):
+    yol = tmp_path / "mikro_kayran.py"
+    yol.write_text("eski", encoding="utf-8")
+    yeni = (KLASOR / "mikro_kayran.py").read_text(encoding="utf-8") + "\n# yeni\n"
+    assert mk.kendini_guncelle(_SahteSb(_surum(yeni)), str(yol)) is True
+    assert yol.read_text(encoding="utf-8") == yeni and (tmp_path / "mikro_kayran.py.yedek").exists()
+    assert mk.kendini_guncelle(_SahteSb(_surum(yeni)), str(yol)) is False          # aynı sürüm: dokunmaz
+    bozuk = yeni + "\ndef ( :\n"
+    assert mk.kendini_guncelle(_SahteSb(_surum(bozuk)), str(yol)) is False         # derlenmiyor
+    yazan = yeni + "\nX = 'StokKaydet" + "V2'\n"
+    assert mk.kendini_guncelle(_SahteSb(_surum(yazan)), str(yol)) is False         # Mikro'ya yazan uç
+    sahte_ozet = dict(_surum(yeni + "#2"), sha256="0" * 64)
+    assert mk.kendini_guncelle(_SahteSb(sahte_ozet), str(yol)) is False            # özet tutmuyor
+    assert yol.read_text(encoding="utf-8") == yeni
+    assert mk.guncelleme_uygun_mu((KLASOR / "mikro_kayran.py").read_text(encoding="utf-8")) == ""
+
+
+def test_kesif_yalniz_okur_ve_hatayi_ayri_yazar(mk):
+    for ad, sql in mk.KESIF_SORGULARI.items():
+        s = " ".join(sql.split()).upper()
+        assert s.startswith("SELECT "), ad
+        assert not re.search(r"\b(UPDATE|DELETE|INSERT|MERGE|DROP|ALTER|EXEC|TRUNCATE)\b", s), ad
+
+    class _Ist:
+        def sql_oku(self, sql):
+            if "sys.tables" in sql:
+                return [{"tablo": "STOKLAR", "satir": 519}, {"tablo": "BOS", "satir": 0}]
+            if "KASALAR" in sql:
+                raise mk.MikroHata("Invalid object name 'KASALAR'")
+            if "INFORMATION_SCHEMA" in sql:
+                assert "'STOKLAR'" in sql and "'BOS'" not in sql          # yalnız dolu tablolar
+                return [{"tablo": "STOKLAR", "kolon": "sto_kod", "tip": "nvarchar", "sira": 1}]
+            return [{"a": 1}]
+    sb = _SahteSb()
+    sonuc = mk.kesif_yap(_Ist(), sb)
+    assert sonuc["kasalar"] and not sonuc["depolar"] and not sonuc["kolonlar"]
+    yazilan = {s[0]["anahtar"]: s[0] for t, s in sb.yazilan}
+    assert yazilan["kasalar"]["hata"] and yazilan["kasalar"]["veri"] is None
+    assert yazilan["kolonlar"]["veri"][0]["kolon"] == "sto_kod"
+    assert mk.kesif_gerekli_mi(_SahteSb(kesif_zaman="2000-01-01T00:00:00+03:00")) is True
+    assert mk.kesif_gerekli_mi(_SahteSb(kesif_zaman="2999-01-01T00:00:00+03:00")) is False

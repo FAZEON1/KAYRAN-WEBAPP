@@ -71,6 +71,8 @@ HARIC = {
     "mikro_fatura":          "Mikro aktarıcısının kopyası; kaynak Mikro, her gece baştan çekilir",
     "mikro_satis_satir":     "Mikro aktarıcısının kopyası; kaynak Mikro, her gece baştan çekilir",
     "mikro_senk_durum":      "Mikro aktarıcısının tur durumu (geçici)",
+    "mikro_kesif":           "Mikro keşif sonucu; her gün yeniden okunur",
+    "mikro_aktarici_surum":  "aktarıcının kodu; depodan yayınlanır",
     "oturumlar":             "açık oturum özetleri (geçici; geri yüklenmez)",
     "sema_gecmisi":          "kurulan SQL dosyalarının kaydı (veritabani/uygula.py)",
 }
