@@ -383,6 +383,54 @@ LEFT JOIN STOKLAR s ON s.sto_kod = z.chz_stok_kodu
 WHERE z.chz_lastup_date > '{SON}'
 """,
     },
+    # ── Ürün kartları, barkod, satış fiyat listeleri (Ekim 2026, kullanıcı: "Mikro'da yeni ürün açılınca programa
+    # da gelsin"). Küçük tablolar (197 kart, 172 barkod, 496 fiyat, 5 liste): her turda tam çekilir. Kart ↔
+    # uygulama eşleşmesi ve "yalnız boş alan dolar" kuralı uygulamada (kayranpm/mikro_urun.py). Ana / alt grup
+    # adı alt sorguyla (TOP 1): aynı kodlu iki grup kaydı kartı iki kez döndürmesin. Bit alanlar int'e çevrilir.
+    "stok_kart": {
+        "tablo": "mikro_stok_kart", "anahtar": "sto_kod",
+        "artimli": False,
+        "sql": """
+SELECT s.sto_kod, s.sto_isim, s.sto_kisa_ismi, s.sto_yabanci_isim, s.sto_marka_kodu, s.sto_kategori_kodu,
+       s.sto_anagrup_kod,
+       (SELECT TOP 1 g.san_isim FROM STOK_ANA_GRUPLARI g WHERE g.san_kod = s.sto_anagrup_kod AND g.san_iptal=0)
+           AS anagrup_isim,
+       s.sto_altgrup_kod,
+       (SELECT TOP 1 a.sta_isim FROM STOK_ALT_GRUPLARI a WHERE a.sta_kod = s.sto_altgrup_kod AND a.sta_iptal=0)
+           AS altgrup_isim,
+       s.sto_model_kodu, s.sto_uretici_kodu, s.sto_garanti_sure, s.sto_garanti_sure_tipi, s.sto_GtipNo AS sto_gtipno,
+       s.sto_mensei, s.sto_birim1_ad, s.sto_birim1_agirlik, s.sto_birim1_en, s.sto_birim1_boy, s.sto_birim1_yukseklik,
+       CAST(s.sto_pasif_fl AS int) AS sto_pasif, s.sto_satis_dursun, s.sto_create_date, s.sto_lastup_date
+FROM STOKLAR s WHERE s.sto_iptal=0
+""",
+    },
+    "stok_barkod": {
+        "tablo": "mikro_stok_barkod", "anahtar": "bar_guid",
+        "artimli": False,
+        "sql": """
+SELECT bar_Guid, bar_kodu, bar_stokkodu, bar_barkodtipi, bar_birimpntr, CAST(bar_master AS int) AS bar_master,
+       bar_lastup_date
+FROM BARKOD_TANIMLARI WHERE bar_iptal=0
+""",
+    },
+    "satis_fiyat": {
+        "tablo": "mikro_satis_fiyat", "anahtar": "sfiyat_guid",
+        "artimli": False,
+        "sql": """
+SELECT sfiyat_Guid, sfiyat_stokkod, sfiyat_listesirano, sfiyat_deposirano, sfiyat_odemeplan, sfiyat_birim_pntr,
+       sfiyat_fiyati, sfiyat_doviz, sfiyat_lastup_date
+FROM STOK_SATIS_FIYAT_LISTELERI WHERE sfiyat_iptal=0
+""",
+    },
+    "fiyat_liste": {
+        "tablo": "mikro_fiyat_liste", "anahtar": "sfl_sirano",
+        "artimli": False,
+        "sql": """
+SELECT sfl_sirano, sfl_aciklama, CAST(sfl_kdvdahil AS int) AS sfl_kdvdahil, sfl_doviz_uygulama, sfl_sabit_doviz,
+       sfl_ilktarih, sfl_sontarih, sfl_lastup_date
+FROM STOK_SATIS_FIYAT_LISTE_TANIMLARI WHERE sfl_iptal=0
+""",
+    },
 }
 
 # --------------------------------------------------------------------------- #

@@ -544,6 +544,8 @@ def _sayfa_tum_urunler():
     st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
     from .mikro_stok_ekran import ilk_onay_kutusu as _mikro_stok_onay
     _mikro_stok_onay()                    # Mikro'dan otomatik depo stoğu: bir kerelik onay / kaynak notu
+    from .mikro_urun_ekran import ilk_onay_kutusu as _mikro_urun_onay
+    _mikro_urun_onay()                    # Mikro'dan ürün kartları + fiyat listeleri: bir kerelik onay / kaynak notu
 
     # Ürün verilerini yükle
     try:
