@@ -712,6 +712,29 @@ SELECT YEAR(fis_tarih) AS yil, COUNT(*) AS satir FROM MUHASEBE_FISLERI GROUP BY 
 """,
     # Haftalık ödeme önerisi (kayranacc/mikro_odeme.py): cha_vade 1…999 ödeme planı numarası; planın ortalama
     # günü ve ödeme planlı faturaların taksit vadeleri (Ekim 2026). Küçük tablolar (13 ve ~750 satır).
+    # İthalat Mikro'dan (Ekim 2026, kullanıcı: "Geçmiş ithalatlar datalarını Mikro'dan al"): masraf satırlarının
+    # dosyaya ve masraf kalemine (navlun, gümrük, ardiye…) nasıl bağlandığını görmek için örnek dosyaların bütün
+    # kolonları. Uygulamadaki karşılıkları biliniyor (MASTER-008 = PIFAZ251125-2/-4-1/-5, ZHANYU-005 = GTS251211,
+    # VANEX-012). Küçük sorgular, salt okunur.
+    "ithalat_masraf_ornek": """
+SELECT * FROM CARI_HESAP_HAREKETLERI
+WHERE cha_iptal = 0 AND (cha_EXIMkodu IN ('MASTER-008', 'ZHANYU-005', 'VANEX-012')
+      OR (cha_cari_cins = 9 AND cha_kod IN ('MASTER-008', 'ZHANYU-005', 'VANEX-012')))
+""",
+    "ithalat_dosya_ornek": """
+SELECT * FROM ITHALAT_DOSYALARI WHERE ith_kodu IN ('MASTER-008', 'ZHANYU-005', 'VANEX-012', 'INNOVISION-017')
+""",
+    "ithalat_stok_ornek": """
+SELECT * FROM STOK_HAREKETLERI WHERE sth_iptal = 0 AND sth_exim_kodu IN ('MASTER-008', 'VANEX-012')
+""",
+    "ithalat_muhasebe_gruplari": "SELECT * FROM ITHALAT_MUHASEBE_GRUPLARI WHERE IthMuh_iptal = 0",
+    "masraf_hesaplari": "SELECT his_kod, his_isim, his_muhkod, his_dovcinsi FROM MASRAF_HESAPLARI WHERE his_iptal = 0",
+    "ithalat_masraf_dagilim": """
+SELECT cha_evrak_tip, cha_cinsi, cha_cari_cins, cha_tip, COUNT(*) AS adet, COUNT(DISTINCT cha_EXIMkodu) AS dosya,
+       MIN(cha_tarihi) AS ilk, MAX(cha_tarihi) AS son
+FROM CARI_HESAP_HAREKETLERI WHERE cha_iptal = 0 AND ISNULL(cha_EXIMkodu, '') <> ''
+GROUP BY cha_evrak_tip, cha_cinsi, cha_cari_cins, cha_tip
+""",
     "odeme_planlari": "SELECT odp_no, odp_kodu, odp_adi, odp_ortgun FROM ODEME_PLANLARI WHERE odp_iptal = 0",
     "odeme_vadeleri": """
 SELECT cop_evrak_tip, cop_evrakno_seri, cop_evrakno_sira, cop_vade, cop_tutar, cop_hangi_tutar
