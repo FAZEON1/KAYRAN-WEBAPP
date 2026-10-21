@@ -121,6 +121,13 @@ def _sayfa_stok():
 # ═════════════════════ 🚚 DEPOLAR ARASI SEVK ═════════════════════
 def _sayfa_sevk():
     _baslik("🚚 Depolar Arası Sevk", "Kaynak → hedef sevk · sevk tarihi & belge no · son sevkler")
+    # Mikro stok eşitlemesi açıkken sevk Mikro'da yapılır: burada yapılan sevk bir sonraki eşitlemede
+    # Mikro'nun rakamıyla ezilirdi. Form yok; sevk geçmişi Mikro'dan (depo/mikro_sevk.py).
+    from kayranpm.mikro_stok import acik_mi as _mikro_stok_acik
+    from depo import mikro_sevk as _ms
+    if not _ms.kayit_serbest(_mikro_stok_acik()):
+        _ms.ekran()
+        return
     # Sonuç kutusu HER ZAMAN var olan kapta (kaybolunca öğe sırası kaymasın).
     # Eskiden sonuç st.rerun()'dan önce basılıp siliniyordu: kısmi hata görünmüyordu.
     _mesaj = st.container()
