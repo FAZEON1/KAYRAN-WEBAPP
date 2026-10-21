@@ -86,9 +86,13 @@ _AKTIF_TURLER = {
 }
 
 
-def _mikrodan_geliyor(ne):
-    """Mikro muhasebe eşitlemesi açıksa bu dosyanın yerine Mikro geçer: yükleme yapılmaz (Ekim 2026)."""
-    from kayranacc.mikro_muhasebe import acik_mi
+def _mikrodan_geliyor(ne, tip="cari"):
+    """Mikro eşitlemesi açıksa bu dosyanın yerine Mikro geçer: yükleme yapılmaz (Ekim 2026).
+    cari / ithalat: kayranacc.mikro_muhasebe; stok: kayranacc.mikro_stok_degeri (depo stoğu × paçal)."""
+    if tip == "stok":
+        from kayranacc.mikro_stok_degeri import acik_mi
+    else:
+        from kayranacc.mikro_muhasebe import acik_mi
     if not acik_mi():
         return False
     st.info(f"{ne} artık Mikro'dan otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
@@ -97,7 +101,7 @@ def _mikrodan_geliyor(ne):
 
 
 def _kapi_aktif(dosya, kapi, tip):
-    if tip in ("cari", "ithalat") and _mikrodan_geliyor(_AKTIF_TURLER[tip][0]):
+    if _mikrodan_geliyor(_AKTIF_TURLER[tip][0], tip):
         return
     from kayranacc.aktif_excel import (parse_cari, parse_ithalat, parse_stok, ExcelBicimHatasi,
                                        parse_stok_excel, aktif_kaydet)
@@ -2617,6 +2621,10 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         st.error("🔒 Bu sayfaya erişim yetkiniz yok.")
         st.stop()
 
+    from .mikro_stok_degeri_ekran import ilk_onay_kutusu as _stok_degeri_onay
+    _stok_degeri_onay()                   # stok değeri uygulamadan: bir kerelik onay / kaynak notu (kayıt okunmadan önce)
+    from .mikro_stok_degeri import acik_mi as _stok_degeri_acik
+    _stok_uygulamadan = _stok_degeri_acik()
 
     kur = get_kur()
 
@@ -2704,8 +2712,10 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         return f"{kim} · {zaman}"
 
     with col1:
-        st.markdown("**1 · Stok Değeri Raporu**")
-        if not st.session_state.aktif_stok_data:
+        st.markdown("**1 · Stok Değeri**" if _stok_uygulamadan else "**1 · Stok Değeri Raporu**")
+        if not st.session_state.aktif_stok_data and _stok_uygulamadan:
+            st.caption("Henüz hesaplanmadı · depo stoğu × paçal")
+        elif not st.session_state.aktif_stok_data:
             st.caption("Yüklenmedi · üst menü › Dosya")
         if st.session_state.aktif_stok_data:
             try:
@@ -2713,7 +2723,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
                 # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
                 # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
                 _ham_v = float(usd_v or 0)
-                metrik_satiri([{"label": "Yüklendi (KDV dahil)",
+                metrik_satiri([{"label": "Depo × paçal (KDV dahil)" if _stok_uygulamadan else "Yüklendi (KDV dahil)",
                                 "value": f"${tr_sayi(_ham_v * 1.20)}",
                                 "renk": trenk("yesil"),
                                 "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
@@ -2765,8 +2775,14 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
                 st.session_state.aktif_cari_data = None
 
 
-    st.caption("Stok değeri raporu, ithalat ödeme takip ve cari alacaklar listesi üst menüdeki "
-               "**Dosya** düğmesinden yüklenir; kartlar kayıttan hemen sonra güncellenir.")
+    if not _stok_uygulamadan:
+        st.caption("Stok değeri raporu, ithalat ödeme takip ve cari alacaklar listesi üst menüdeki "
+                   "**Dosya** düğmesinden yüklenir; kartlar kayıttan hemen sonra güncellenir.")
+    else:
+        from .mikro_muhasebe import acik_mi as _muhasebe_acik
+        if not _muhasebe_acik():
+            st.caption("İthalat ödeme takip ve cari alacaklar listesi üst menüdeki **Dosya** düğmesinden "
+                       "yüklenir; kartlar kayıttan hemen sonra güncellenir.")
 
     st.markdown("---")
 
@@ -3178,11 +3194,13 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         _dlg_veri_temizle()
 
     # ─── Formül açıklaması ───
+    _stok_formul = ("Bütün depolardaki stok (Mikro'dan) × paçal maliyet (%20 KDV dahil)" if _stok_uygulamadan
+                    else "Stok Excel'inden USD STOK DEĞERİ toplamı (%20 KDV dahil)")
     with st.popover("📐 Hesaplama Formülü"):
         st.markdown(f"""
                 **Toplam Aktifler (USD) =**
-    
-                - **G5F Stok Değeri × 1.20** — Stok Excel'inden USD STOK DEĞERİ toplamı (%20 KDV dahil)
+
+                - **Stok Değeri × 1.20** — {_stok_formul}
                 - **+ İthalat Ödenmiş Tutar** — İthalat Excel "Ödenen / USD" toplamı
                 - **+ Banka Hesapları USD eşdeğeri** — Uygulamadaki TL hesapları kur ile USD'ye çevrilir
                 - **+ Cari Alacaklar** — Cari Excel'inden POZİTİF bakiyeler (size borçlular)

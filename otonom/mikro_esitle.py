@@ -22,6 +22,7 @@ ISLER = (
     ("Banka / çek / cari", "kayranacc.mikro_muhasebe", "otomatik"),
     ("Gider tablosu", "kayranacc.mikro_gider", "otomatik"),
     ("Depo stoğu", "kayranpm.mikro_stok", "otomatik"),
+    ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri", "otomatik"),   # depo stoğundan SONRA
 )
 
 
