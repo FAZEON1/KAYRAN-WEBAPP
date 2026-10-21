@@ -81,6 +81,8 @@ HARIC = {
     "mikro_muhasebe_ay":     "Mikro aktarıcısının kopyası (muhasebe ay × hesap toplamı)",
     "mikro_hesap_plani":     "Mikro aktarıcısının kopyası",
     "mikro_stok_miktar":     "Mikro aktarıcısının kopyası (ürün × depo miktarı; her turda tam çekilir)",
+    "mikro_ithalat_dosya":   "Mikro aktarıcısının kopyası (ithalat dosyaları)",
+    "mikro_alim_satir":      "Mikro aktarıcısının kopyası (alış satırları)",
     "mikro_aktarici_surum":  "aktarıcının kodu; depodan yayınlanır",
     "oturumlar":             "açık oturum özetleri (geçici; geri yüklenmez)",
     "sema_gecmisi":          "kurulan SQL dosyalarının kaydı (veritabani/uygula.py)",

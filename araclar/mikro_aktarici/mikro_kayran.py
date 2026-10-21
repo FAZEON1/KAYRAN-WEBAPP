@@ -272,6 +272,33 @@ GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod
         "artimli": False,
         "sql": "SELECT muh_hesap_kod, muh_hesap_isim1 FROM MUHASEBE_HESAP_PLANI WHERE muh_iptal=0",
     },
+    # ── Alımlar adımı 3 (Ekim 2026): ithalat dosyaları + bütün alış satırları (ithalat ve yurt içi) ──
+    # Ürün satırı ithalat dosyasına sth_exim_kodu ile bağlı (ith_kodu, ör. VANEX-015). Paçal / masraf dağıtımı
+    # uygulamada eski değerlerle karşılaştırılarak kurulur.
+    "ithalat_dosya": {
+        "tablo": "mikro_ithalat_dosya", "anahtar": "ith_kodu",
+        "artimli": False,
+        "sql": """
+SELECT ith_kodu, ith_ismi, ith_satici, ith_dovizcinsi, ith_teslimsekli, ith_odemesekli, ith_GGB_tarihi AS ith_ggb_tarihi,
+       ith_GGB_no AS ith_ggb_no, ith_serbestdolasimagiristarihi AS ith_serbest_dolasim_tarihi, ith_create_date,
+       ith_lastup_date
+FROM ITHALAT_DOSYALARI WHERE ith_iptal=0
+""",
+    },
+    "alim_satir": {
+        "tablo": "mikro_alim_satir", "anahtar": "sth_guid",
+        "artimli": True,
+        "sql": """
+SELECT sth_Guid, sth_tarih, sth_tip, sth_cins, sth_evraktip, sth_normal_iade, sth_evrakno_seri, sth_evrakno_sira,
+       sth_stok_kod, sth_cari_kodu, sth_miktar, sth_tutar,
+       sth_iskonto1 + sth_iskonto2 + sth_iskonto3 + sth_iskonto4 + sth_iskonto5 + sth_iskonto6 AS sth_iskonto,
+       sth_masraf1 + sth_masraf2 + sth_masraf3 + sth_masraf4 AS sth_masraf,
+       sth_har_doviz_cinsi, sth_har_doviz_kuru, sth_alt_doviz_kuru, sth_giris_depo_no, sth_exim_kodu,
+       sth_bagli_ithalat_kodu, sth_fat_uid, sth_lastup_date
+FROM STOK_HAREKETLERI
+WHERE sth_iptal=0 AND sth_tip=0 AND sth_cari_cinsi=0 AND sth_tarih >= '20250101' AND sth_lastup_date > '{SON}'
+""",
+    },
     "masraf": {
         "tablo": "mikro_masraf", "anahtar": "cha_guid",
         "artimli": True,
@@ -539,7 +566,8 @@ YAZAN_UC_DESENI = r"(Kaydet|Sil|Guncelle|Duzelt)" + r"V\d"
 # sys.tables okunamazsa kolonları alınacak temel tablolar
 ONEMLI_TABLOLAR = ("STOKLAR", "STOK_HAREKETLERI", "CARI_HESAPLAR", "CARI_HESAP_HAREKETLERI", "BANKALAR",
                    "KASALAR", "ODEME_EMIRLERI", "SIPARISLER", "DEPOLAR", "MUHASEBE_FISLERI", "BARKOD_TANIMLARI",
-                   "STOK_SATIS_FIYAT_LISTELERI", "DOVIZ_KURLARI", "MUHASEBE_HESAP_PLANI", "PERSONELLER")
+                   "STOK_SATIS_FIYAT_LISTELERI", "DOVIZ_KURLARI", "MUHASEBE_HESAP_PLANI", "PERSONELLER",
+                   "ITHALAT_DOSYALARI")
 
 
 def _dosya_sha(yol: str) -> str:
