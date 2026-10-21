@@ -267,13 +267,46 @@ FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
 GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod
 """,
     },
+    # Muhasebe fiş türü dağılımı (Ekim 2026): yıl sonu kapanış fişi Aralık'ta 6xx/7xx hesaplarını sıfırlıyor.
+    # Kapanışın hangi fis_tur olduğu buradan doğrulanır (gider_* = 6xx/7xx hesaplarının toplamı). Küçük tablo.
+    "muhasebe_tur": {
+        "tablo": "mikro_muhasebe_tur", "anahtar": "yil,ay,fis_tur",
+        "artimli": False,
+        "sql": """
+SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, COALESCE(CAST(fis_tur AS int), -1) AS fis_tur,
+       COUNT(*) AS satir,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       SUM(CASE WHEN fis_meblag0 > 0 AND (fis_hesap_kod LIKE '6%' OR fis_hesap_kod LIKE '7%')
+                THEN fis_meblag0 ELSE 0 END) AS gider_borc,
+       SUM(CASE WHEN fis_meblag0 < 0 AND (fis_hesap_kod LIKE '6%' OR fis_hesap_kod LIKE '7%')
+                THEN -fis_meblag0 ELSE 0 END) AS gider_alacak
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), COALESCE(CAST(fis_tur AS int), -1)
+""",
+    },
+    # Muhasebe ay × hesap × fiş türü: gider tablosu kapanış fişini ayıklayabilsin (muhasebe_ay ile aynı toplam)
+    "muhasebe_ay_tur": {
+        "tablo": "mikro_muhasebe_ay_tur", "anahtar": "yil,ay,hesap_kod,fis_tur",
+        "artimli": False,
+        "sql": """
+SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, fis_hesap_kod AS hesap_kod,
+       COALESCE(CAST(fis_tur AS int), -1) AS fis_tur,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       COUNT(*) AS satir
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod, COALESCE(CAST(fis_tur AS int), -1)
+""",
+    },
     "hesap_plani": {
         "tablo": "mikro_hesap_plani", "anahtar": "muh_hesap_kod",
         "artimli": False,
         "sql": "SELECT muh_hesap_kod, muh_hesap_isim1 FROM MUHASEBE_HESAP_PLANI WHERE muh_iptal=0",
     },
     # ── Alımlar adımı 3 (Ekim 2026): ithalat dosyaları + bütün alış satırları (ithalat ve yurt içi) ──
-    # Ürün satırı ithalat dosyasına sth_exim_kodu ile bağlı (ith_kodu, ör. VANEX-015). Paçal / masraf dağıtımı
+    # Ürün satırı ithalat dosyasına sth_exim_kodu ile bağlı (ith_kodu, ör. VANEX-015). Cari koduyla süzülür
+    # (ilk sürümdeki sth_cari_cinsi=0 süzgeci 21.10'da hiç satır döndürmedi). Paçal / masraf dağıtımı
     # uygulamada eski değerlerle karşılaştırılarak kurulur.
     "ithalat_dosya": {
         "tablo": "mikro_ithalat_dosya", "anahtar": "ith_kodu",
@@ -296,7 +329,24 @@ SELECT sth_Guid, sth_tarih, sth_tip, sth_cins, sth_evraktip, sth_normal_iade, st
        sth_har_doviz_cinsi, sth_har_doviz_kuru, sth_alt_doviz_kuru, sth_giris_depo_no, sth_exim_kodu,
        sth_bagli_ithalat_kodu, sth_fat_uid, sth_lastup_date
 FROM STOK_HAREKETLERI
-WHERE sth_iptal=0 AND sth_tip=0 AND sth_cari_cinsi=0 AND sth_tarih >= '20250101' AND sth_lastup_date > '{SON}'
+WHERE sth_iptal=0 AND sth_tip=0 AND ISNULL(sth_cari_kodu, '') <> '' AND sth_tarih >= '20250101'
+  AND sth_lastup_date > '{SON}'
+""",
+    },
+    # ── Adım 4 (Ekim 2026): depo hareketleri — Happy Life raporu ve stok yaşı (depoya giriş tarihi, FIFO) ──
+    # Bir depoya giren ya da depodan çıkan bütün hareketler: giriş (sth_tip 0), çıkış (1), depolar arası sevk (2).
+    # İptal işareti de çekilir (WHERE'de süzülmez): sonradan iptal edilen satır artımlı turda güncellenir.
+    # Hesap uygulamada (kayranpm/mikro_depo.py).
+    "depo_hareket": {
+        "tablo": "mikro_depo_hareket", "anahtar": "sth_guid",
+        "artimli": True,
+        "sql": """
+SELECT sth_Guid, sth_tarih, sth_tip, sth_cins, sth_evraktip, sth_normal_iade, sth_evrakno_seri, sth_evrakno_sira,
+       sth_stok_kod, sth_miktar, sth_giris_depo_no, sth_cikis_depo_no, sth_cari_kodu, sth_exim_kodu,
+       sth_parti_kodu, sth_iptal, sth_lastup_date
+FROM STOK_HAREKETLERI
+WHERE sth_tarih >= '20250101' AND sth_tip IN (0,1,2) AND (sth_giris_depo_no > 0 OR sth_cikis_depo_no > 0)
+  AND sth_lastup_date > '{SON}'
 """,
     },
     "masraf": {
@@ -499,7 +549,7 @@ def _sql_tarih(dt: datetime) -> str:
     return dt.astimezone(TZ).strftime("%Y%m%d %H:%M:%S")
 
 
-BOOL_KOLONLAR = {"sip_kapat_fl"}
+BOOL_KOLONLAR = {"sip_kapat_fl", "sth_iptal"}
 
 
 def _satiri_hazirla(kayit: dict[str, Any], zaman: str) -> dict[str, Any]:
@@ -659,6 +709,13 @@ FROM SIPARISLER WHERE sip_iptal = 0 GROUP BY sip_tip, sip_cins
 """,
     "muhasebe": """
 SELECT YEAR(fis_tarih) AS yil, COUNT(*) AS satir FROM MUHASEBE_FISLERI GROUP BY YEAR(fis_tarih)
+""",
+    # Haftalık ödeme önerisi (kayranacc/mikro_odeme.py): cha_vade 1…999 ödeme planı numarası; planın ortalama
+    # günü ve ödeme planlı faturaların taksit vadeleri (Ekim 2026). Küçük tablolar (13 ve ~750 satır).
+    "odeme_planlari": "SELECT odp_no, odp_kodu, odp_adi, odp_ortgun FROM ODEME_PLANLARI WHERE odp_iptal = 0",
+    "odeme_vadeleri": """
+SELECT cop_evrak_tip, cop_evrakno_seri, cop_evrakno_sira, cop_vade, cop_tutar, cop_hangi_tutar
+FROM CARI_HAREKET_ODEME_VADELERI WHERE cop_iptal = 0
 """,
 }
 KESIF_KOLON_SAYFA = 40      # INFORMATION_SCHEMA sorgusu başına tablo sayısı

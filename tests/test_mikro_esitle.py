@@ -167,3 +167,87 @@ def test_aktarici_kod_degisince_yeniden_yayinlanir():
     import hashlib
     kod = (KOK / "araclar/mikro_aktarici/mikro_kayran.py").read_text(encoding="utf-8")
     assert M.aktarici_ozeti() == hashlib.sha256(kod.encode("utf-8")).hexdigest()
+
+
+# ── Satış eşitlemesi açıkken Dosya kapısındaki satış dökümü / iade Excel'i kaydedilmez (Ekim 2026) ──
+class _KayitYolu:
+    """Gövde dosyayı okumaya / kaydetmeye kalkarsa test kırmızı olur (kapı kapalı olmalıydı)."""
+    name = "dokum.xlsx"
+
+    def __getattr__(self, ad):
+        raise AssertionError(f"satış eşitlemesi açıkken dosya işlendi: {ad}")
+
+
+def _acik_esitleme(monkeypatch):
+    import sys
+    import types
+    sahte = types.ModuleType("satis.mikro_esitle")
+    sahte.acik_mi = lambda: True
+    monkeypatch.setitem(sys.modules, "satis.mikro_esitle", sahte)
+
+
+@pytest.mark.parametrize("govde", ["kapi_mikro_fatura", "kapi_iade"])
+def test_satis_esitlemesi_acikken_kapi_kaydetmez(monkeypatch, govde):
+    SM = pytest.importorskip("satis.main")
+    from shared import yukleme_takvimi as Y
+    _acik_esitleme(monkeypatch)
+    bilgi = []
+    monkeypatch.setattr(SM.st, "info", lambda m, *a, **k: bilgi.append(m), raising=False)
+
+    class _Yer:
+        def markdown(self, *a, **k):
+            return None
+    monkeypatch.setattr(SM.st, "empty", lambda: _Yer(), raising=False)
+    monkeypatch.setattr(Y, "serit", lambda *a, **k: None)
+    assert getattr(SM, govde)(_KayitYolu(), _KayitYolu()) is None
+    assert bilgi and "Mikro" in bilgi[0] and "kaydedilmez" in bilgi[0]
+
+
+def test_satis_esitlemesi_acikken_satis_dokumu_hatirlatmasi_cikmaz(monkeypatch):
+    from shared import yukleme_takvimi as Y
+    _acik_esitleme(monkeypatch)
+    # satis_dokumu varsayılan olarak takip dışı; ayarlardan açılmış olsa bile Mikro varken hatırlatma çıkmaz
+    monkeypatch.setattr(Y, "_ayar", lambda anahtar, varsayilan: (
+        {"satis_dokumu": {"aktif": True}} if anahtar == Y.AYAR_ANAHTAR else varsayilan))
+    monkeypatch.setattr(Y, "_OKUYUCU", {})
+    anahtarlar = {d["anahtar"] for d in Y.durumlar()}
+    assert "satis_dokumu" not in anahtarlar
+    assert "satis_dokumu" in Y._mikro_kapsadigi()
+    assert "musteri_haftalik" in anahtarlar          # Mikro'dan gelmeyen kaynak kalır
+
+
+def test_acik_mi_durumdan(monkeypatch):
+    monkeypatch.setattr(M, "durum", lambda: {"acik": True})
+    assert M.acik_mi() is True
+    monkeypatch.setattr(M, "durum", lambda: None)      # tablo yok / okunamadı → kapalı (yükleme açık kalır)
+    assert M.acik_mi() is False
+
+
+# ── Okuma güvenliği (21.10.2026 olayı: aktarıcı yazarken sırasız okuma 1.639 satırı silip yarısı kopya
+#    1.684 satır yazdırdı; arşivden geri yüklendi) ──
+def test_kopya_kayit_okumayi_reddeder():
+    import pytest
+    from satis import mikro_esitle as M
+    assert M.kopyasiz([{"g": 1}, {"g": 2}], "g") == [{"g": 1}, {"g": 2}]
+    with pytest.raises(M.OkumaTutarsiz):
+        M.kopyasiz([{"g": 1}, {"g": 2}, {"g": 1}], "g")
+    with pytest.raises(M.OkumaTutarsiz):
+        M.kopyasiz([{"k": "A", "d": 1}, {"k": "A", "d": 1}], ("k", "d"))
+    assert M.kopyasiz([{"k": "A", "d": 1}, {"k": "A", "d": 2}], ("k", "d"))
+
+
+def test_aktarim_suruyorsa_otomatik_bekler():
+    from datetime import datetime, timezone
+    from satis import mikro_esitle as M
+    simdi = datetime(2026, 10, 21, 16, 26, 50, tzinfo=timezone.utc)
+    assert M.aktarim_suruyor_mu(["2026-10-21T16:26:04+00:00", "2026-10-21T16:11:00+00:00"], simdi)
+    assert not M.aktarim_suruyor_mu(["2026-10-21T16:12:30+00:00"], simdi)
+    assert not M.aktarim_suruyor_mu([None, "bozuk"], simdi)
+
+
+def test_otomatik_plan_satirlarin_cogunu_silemez():
+    """16:26 planı 2.818 satırın 1.639'unu silmek istedi: otomatik turda yazılmamalıydı."""
+    from satis import mikro_esitle as M
+    assert not M.otomatik_guvenli_mi({"silinecek_satir": 1639, "mevcut_satir": 2818})
+    assert M.otomatik_guvenli_mi({"silinecek_satir": 40, "mevcut_satir": 2818})
+    assert M.otomatik_guvenli_mi({"silinecek_satir": 90, "mevcut_satir": 120})   # küçük tablo tabanı

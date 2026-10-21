@@ -164,3 +164,27 @@ def test_kesif_yalniz_okur_ve_hatayi_ayri_yazar(mk):
     assert yazilan["kolonlar"]["veri"][0]["kolon"] == "sto_kod"
     assert mk.kesif_gerekli_mi(_SahteSb(kesif_zaman="2000-01-01T00:00:00+03:00")) is True
     assert mk.kesif_gerekli_mi(_SahteSb(kesif_zaman="2999-01-01T00:00:00+03:00")) is False
+
+
+def test_muhasebe_fis_turu_ayri_cekilir(mk):
+    """Yıl sonu kapanış fişi Aralık'ta gider hesaplarını sıfırlıyor: fiş türü ayrı çekilir (Ekim 2026).
+    Eski muhasebe_ay sorgusu (gider tablosu bugün onu okuyor) değişmez."""
+    eski = mk.SORGULAR["muhasebe_ay"]
+    assert eski["anahtar"] == "yil,ay,hesap_kod" and "fis_tur" not in eski["sql"]
+    assert " ".join(eski["sql"].split()) == " ".join("""SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, fis_hesap_kod AS hesap_kod,
+       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+       COUNT(*) AS satir
+FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod""".split())
+    ay_tur, tur = mk.SORGULAR["muhasebe_ay_tur"], mk.SORGULAR["muhasebe_tur"]
+    assert ay_tur["tablo"] == "mikro_muhasebe_ay_tur" and ay_tur["anahtar"] == "yil,ay,hesap_kod,fis_tur"
+    assert tur["tablo"] == "mikro_muhasebe_tur" and tur["anahtar"] == "yil,ay,fis_tur"
+    for t in (ay_tur, tur):
+        sql = " ".join(t["sql"].split())
+        assert "fis_iptal=0" in sql and not t["artimli"]
+        # anahtardaki her kolon SELECT'te ve GROUP BY'da (aynı anahtar iki kez upsert edilmesin)
+        grup = sql.split("GROUP BY", 1)[1]
+        assert "fis_tur" in grup and "COALESCE(CAST(fis_tur AS int), -1) AS fis_tur" in sql
+    sema = (KLASOR.parent.parent / "veritabani" / "42_mikro_muhasebe_tur.sql").read_text(encoding="utf-8")
+    assert "PRIMARY KEY (yil, ay, hesap_kod, fis_tur)" in sema and "PRIMARY KEY (yil, ay, fis_tur)" in sema

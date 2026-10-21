@@ -343,6 +343,24 @@ def _mikro_kapsadigi():
             out.add("g5f_sayim")
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from satis.mikro_esitle import acik_mi as satis_acik
+        if satis_acik():
+            out.add("satis_dokumu")       # satışlar Mikro faturalarından (satis/mikro_esitle)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from kayranacc.mikro_stok_degeri import acik_mi as stok_degeri_acik
+        if stok_degeri_acik():
+            out.add("aktif_stok")         # Toplam Aktifler stok değeri: depo stoğu × paçal
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from kayranpm.mikro_depo import acik_mi as depo_acik
+        if depo_acik():
+            out.add("happylife")         # Happy Life stoğu ve giriş tarihleri Mikro'dan (palet Excel'i isteğe bağlı)
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 

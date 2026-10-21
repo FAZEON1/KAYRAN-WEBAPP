@@ -150,6 +150,8 @@ def goster():
         if hasattr(Y.hesapla, "clear"):
             Y.hesapla.clear()
         st.rerun()
+    from .mikro_depo_ekran import ilk_onay_kutusu as _md_onay
+    _md_onay("sy")                 # Mikro depo hareketleri: bir kerelik onay / açıkken kaynak notu
     try:
         from shared.islem import bekle
         with bekle("Stok yaşı hesaplanıyor…"):

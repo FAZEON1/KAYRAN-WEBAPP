@@ -291,9 +291,66 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
            "sil_iade_id": [r["id"] for r in sil_iade if r.get("id") is not None],
            "iade_belgeler": iade_belgeler, "ekle_iade": ekle_iade}
     return {"yuk": yuk, "ozet": ozet, "hizmet_faturalari": hizmet, "atlanan": mk["atlanan"],
+            "silinecek_satir": len(silinen_fatura_satir) + len(sil_satis), "mevcut_satir": len(satislar),
             "degisiklik_var": bool(yuk["sil_satis_id"] or fatura_nolar or ekle_satis
                                    or yuk["sil_iade_id"] or iade_belgeler or ekle_iade),
             "sil_satis_kanal": _kanal_sayim(sil_satis), "yeni_fatura": len({k["siparis_no"] for k in ekle_satis})}
+
+
+# ── Okuma güvenliği (21.10.2026 olayı) ─────────────────────────────
+# Saatlik GitHub işi Mikro satırlarını, aktarıcı aynı tabloya yazarken SIRASIZ sayfalarla okudu: bazı satırlar
+# iki kez, bazıları hiç okunmadı; plan 1.639 satırı silip 1.684'ünü (yarısı kopya) yazdı (arşivden geri
+# yüklendi). Üç kural: okumalar birincil anahtar sırasıyla; kopya anahtar görülürse okuma reddedilir; aktarıcı
+# turu sürüyorsa otomatik eşitleme o turu atlar; otomatik plan mevcut satırların çoğunu silmek isterse yazmaz.
+AKTARIM_SURUYOR_SN = 150          # son durum yazımından bu kadar saniye geçmediyse tur sürüyor sayılır
+OTOMATIK_SILME_SINIRI = 0.25      # otomatik turda silinecek satır / mevcut satır üst sınırı
+OTOMATIK_SILME_TABAN = 100        # küçük tablolarda oranın yanıltmaması için alt sınır
+
+
+class OkumaTutarsiz(RuntimeError):
+    """Mikro kopyası okunurken aynı kayıt iki kez geldi (okuma sırasında tablo değişti)."""
+
+
+def kopyasiz(satirlar, anahtar):
+    """Aynı anahtar iki kez geldiyse OkumaTutarsiz; yoksa satırları aynen döndürür."""
+    gorulen = set()
+    for r in satirlar:
+        k = tuple(r.get(a) for a in anahtar) if isinstance(anahtar, (tuple, list)) else r.get(anahtar)
+        if k in gorulen:
+            raise OkumaTutarsiz(f"kopya kayıt: {k}")
+        gorulen.add(k)
+    return satirlar
+
+
+def aktarim_suruyor_mu(guncellemeler, simdi):
+    """guncellemeler: mikro_senk_durum.guncelleme değerleri (ISO). En yenisi AKTARIM_SURUYOR_SN'den yeniyse True."""
+    from datetime import datetime
+    en_yeni = None
+    for g in guncellemeler:
+        try:
+            t = datetime.fromisoformat(str(g).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            continue
+        en_yeni = t if en_yeni is None or t > en_yeni else en_yeni
+    return en_yeni is not None and (simdi - en_yeni).total_seconds() < AKTARIM_SURUYOR_SN
+
+
+def aktarim_suruyor():
+    """Aktarıcı şu an Supabase'e yazıyor olabilir mi (otomatik eşitlemeler bu turu atlar). Okunamazsa False."""
+    from datetime import datetime, timezone
+    try:
+        r = _cli().table("mikro_senk_durum").select("guncelleme").execute().data or []
+        return aktarim_suruyor_mu([x.get("guncelleme") for x in r], datetime.now(timezone.utc))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def otomatik_guvenli_mi(plan):
+    """Otomatik turda plan, mevcut satış satırlarının büyük kısmını silmek istiyorsa yazılmaz (okuma hatası
+    belirtisi). İlk onay (kullanıcı karşılaştırmayı görüyor) bu kontrolden geçmez."""
+    sil = int(plan.get("silinecek_satir") or 0)
+    mevcut = int(plan.get("mevcut_satir") or 0)
+    return sil <= max(OTOMATIK_SILME_TABAN, OTOMATIK_SILME_SINIRI * mevcut)
 
 
 def _seri_onek(nolar):
@@ -358,21 +415,30 @@ def durum():
         return None
 
 
+def acik_mi():
+    """Satış eşitlemesi açık mı. Açıksa satış dökümü ve iade Excel'i Dosya kapısında kaydedilmez, takvim
+    hatırlatması çıkmaz. Durum okunamazsa kapalı sayılır (yükleme açık kalır)."""
+    return bool((durum() or {}).get("acik"))
+
+
 def veri_oku(baslangic=BASLANGIC):
     """(mikro satırları, mevcut satışlar, mevcut iadeler, Mikro satış faturası başlıkları)."""
     from datetime import date, timedelta
     cli = _cli()
     # 15 gün önceden: başlangıcın ilk günlerindeki TL faturaları için önceki günlerin $ kuru lazım
     once = (date.fromisoformat(baslangic[:10]) - timedelta(days=15)).isoformat()
-    mikro = cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once).execute().data or []
-    satislar = (cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
-                                             "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
-                .gte("tarih", baslangic).execute().data or [])
-    iadeler = (cli.table("iadeler").select("*").gte("tarih", baslangic).execute().data or [])
-    bas = (cli.table("mikro_fatura").select("cha_evrakno_seri,cha_evrakno_sira,cha_tarihi,cha_kod,cha_meblag,"
-                                            "cha_d_cins")
+    mikro = kopyasiz(cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once).order("sth_guid")
+                     .execute().data or [], "sth_guid")
+    satislar = kopyasiz(cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
+                                                     "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
+                        .gte("tarih", baslangic).order("id").execute().data or [], "id")
+    iadeler = kopyasiz(cli.table("iadeler").select("*").gte("tarih", baslangic).order("id").execute().data or [],
+                       "id")
+    bas = (cli.table("mikro_fatura").select("cha_guid,cha_evrakno_seri,cha_evrakno_sira,cha_tarihi,cha_kod,"
+                                            "cha_meblag,cha_d_cins")
            .eq("cha_evrak_tip", SATIS_TIP).eq("cha_normal_iade", 0).gte("cha_tarihi", baslangic)
-           .execute().data or [])
+           .order("cha_guid").execute().data or [])
+    kopyasiz(bas, "cha_guid")
     unvan = {str(c.get("cari_kod") or ""): c.get("cari_unvan1") or ""
              for c in (cli.table("mikro_cari_bakiye").select("cari_kod,cari_unvan1").execute().data or [])}
     basliklar = [{"fatura_no": fatura_no(b.get("cha_evrakno_seri"), b.get("cha_evrakno_sira")),
@@ -426,7 +492,14 @@ def otomatik():
         son = _son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):
             return None
+        if aktarim_suruyor():
+            return None                   # aktarıcı yazıyor: tutarlı okunamaz, sonraki turda
         plan = plan_hazirla(str(d.get("baslangic") or BASLANGIC)[:10])
+        if not otomatik_guvenli_mi(plan):
+            from shared.kayit import sessiz
+            sessiz("satis.mikro_esitle.otomatik", RuntimeError(
+                f"plan {plan.get('silinecek_satir')} / {plan.get('mevcut_satir')} satır silmek istedi; yazılmadı"))
+            return None
         ok, _m, sonuc = uygula(plan)
         return sonuc if ok else None
     except Exception as e:  # noqa: BLE001

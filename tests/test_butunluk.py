@@ -76,7 +76,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
-               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
@@ -170,7 +170,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.izgara": ["izgara_ayar", "izgara_sonuc", "dataframe_hazirla", "kur"],   # ortak ızgara görünümü (Eki 2026)
     "shared.yukleme_gecmisi": ["Kayit", "kaydet", "aktif", "geri_alma_engeli", "kontrol_farki", "stok_net", "stok_etkisi", "geri_al", "sayfa"],   # yükleme geçmişi (Eki 2026)
     "kayranpm.stok_yasi": ["fifo_kalan", "yas_ozeti", "bizim_partiler", "musteri_partileri", "firma_cozucu",
-                           "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku",
+                           "urun_yasi", "toplam_ozet", "hesapla", "_bizim_partiler_oku", "_alim_partileri_oku", "bizim_stoklari",
                            "urun_satirlari", "parti_satirlari", "musteri_satirlari", "excel_bytes",
                            "ayar_birlestir", "ayar_oku", "haric_mi", "kategori_sorumlulari", "yasli_satirlar",
                            "kisi_listeleri", "mail_html", "musteri_kategorileri", "musteri_kategori_suz"],   # stok yaşı FIFO (Eki 2026)
@@ -190,6 +190,7 @@ KRITIK_FONKSIYONLAR = {
         "aktif_manuel_guncelle",                  # manuel kalem revizyonu
         "virman_yap",
         "tahsilat_guncelle", "tahsilat_bakiye_farki",   # para girişi düzenleme (Ekim 2026)
+        "hafta_olustur",                          # yeni hafta + ödemeler + aktif (Mikro önerisi, Ekim 2026)
     ],
     "satis.database": ["pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
@@ -218,7 +219,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
-                           "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi"],
+                           "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "acik_mi", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi", "kopyasiz", "aktarim_suruyor_mu", "aktarim_suruyor", "otomatik_guvenli_mi", "acik_mi"],
     "satis.mikro_esitle_ekran": ["ilk_onay_kutusu"],
     "kayranacc.mikro_muhasebe": ["hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
@@ -226,11 +227,25 @@ KRITIK_FONKSIYONLAR = {
                                  "son_aktarim", "otomatik"],
     "kayranacc.mikro_muhasebe_ekran": ["ilk_onay_kutusu"],
     "kayranacc.mikro_gider": ["gider_hesabi_mi", "kalem_bul", "gider_tablosu", "ay_siniri", "esit_mi", "karsilastir",
-                              "yillar", "plan_hazirla", "uygula", "durum", "acik_mi", "ac", "son_aktarim", "otomatik"],
+                              "yillar", "plan_hazirla", "uygula", "durum", "acik_mi", "ac", "son_aktarim", "otomatik",
+                              "kapanis_mi", "kapanis_kalmis_mi", "muhasebe_satirlari"],
     "kayranacc.mikro_gider_ekran": ["ilk_onay_kutusu"],
+    "kayranacc.mikro_odeme": ["vade_bul", "hafta_araligi", "hafta_adi", "kategori_bul", "plan_gunleri",
+                              "taksit_haritasi", "acik_kalemler", "oneri_satirlari", "ozet", "odemeye_cevir",
+                              "firma_kelimeleri", "ayni_firma", "karsilastir", "veri_oku", "oneri_hazirla"],
+    "kayranacc.mikro_odeme_ekran": ["oneri_penceresi"],   # Bu Hafta › Mikro'dan öneri (Eki 2026)
     "kayranpm.mikro_stok": ["kirilim_yap", "farklar", "depo_ozeti", "plan_hazirla", "uygula", "durum", "acik_mi",
                             "ac", "son_aktarim", "otomatik"],
     "kayranpm.mikro_stok_ekran": ["ilk_onay_kutusu"],
+    "kayranacc.mikro_stok_degeri": ["depo_degerleri", "kanal_degerleri", "kayit_yap", "esit_mi",
+                                    "kanal_karsilastir", "plan_yap", "veri_oku", "plan_hazirla", "uygula",
+                                    "durum", "acik_mi", "ac", "son_aktarim", "otomatik"],
+    "kayranacc.mikro_stok_degeri_ekran": ["ilk_onay_kutusu"],
+    "kayranpm.mikro_depo": ["hareket_turu", "hareketler", "depo_partileri", "havuz_partileri", "depo_yaslari",
+                            "depo_ozet_satirlari", "depo_parti_satirlari", "toplam", "excel_karsilastir",
+                            "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",
+                            "plan_hazirla", "durum", "acik_mi", "ac", "uygula", "son_aktarim"],
+    "kayranpm.mikro_depo_ekran": ["ilk_onay_kutusu", "hl_sayfasi"],
     "shared.bt_hesap": ["sure_ozeti", "karsilastir", "hata_ozeti", "kapi_karari", "gunluk_seri",
                         "iyilestirme_satiri", "karne"],
     "shared.bt_olcum": ["kaydet", "alt_sayfa", "son_olcumler", "raporlar"],
@@ -289,7 +304,7 @@ KRITIK_FONKSIYONLAR = {
     "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
     "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],
     "depo.bekleyen_ekran": ["sevk_dus_kaydet", "takip_sil", "render"],
-    "depo.satilamayan": ["partiler", "satirlar", "depo_ozeti", "hesapla", "render", "_mutabakat_bolumu"],   # satılamayan stok (Eki 2026)
+    "depo.satilamayan": ["partiler", "satirlar", "depo_ozeti", "hesapla", "render", "_mutabakat_bolumu", "_mikro_partileri"],   # satılamayan stok (Eki 2026)
     "depo.ts_mutabakat": ["acik_kayitlar", "karsilastir", "depo_ozeti", "uzun_bekleyenler", "ts_partileri",
                           "konum", "acik_oku"],   # servis kaydı ↔ depo stoğu (Eki 2026)
     "kayranpm.urun_masasi": ["masa_verisi", "ozet_kartlari", "sirali_satirlar", "aktarilacak", "yurutucu"],
