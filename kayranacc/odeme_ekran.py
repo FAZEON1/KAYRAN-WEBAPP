@@ -39,6 +39,10 @@ ODEME_MASASI_YENI = True
 # Ertelenen ödemeler de ortak liste masasında (Ekim 2026, kayranacc/muhasebe_masalari.ertelenen_verisi): aynı
 # ödeme işlemleri yan panelde. False: render_ertelenenler'deki eski liste + ödeme penceresi aynen.
 ERTELENEN_MASASI_YENI = True
+# Mikro'daki vadeli borçlardan ve firma çeklerinden haftalık liste önerisi (Ekim 2026, kayranacc/mikro_odeme_ekran)
+_MIKRO_EYLEM = {"etiket": "Mikro'dan öneri", "key": "btn_acc_mikro_oneri", "icon": ":material/auto_awesome:",
+                "help": "Mikro'daki vadeli cari borçlardan ve firma çeklerinden haftanın ödeme listesini hazırlar; "
+                        "satırları düzeltip yeni hafta olarak kaydedersin."}
 
 
 def _tl(v):
@@ -116,12 +120,16 @@ def render_bu_hafta(kategoriler, export_excel, kur):
     ey = B.baslik_eylem("💳 Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
                         eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}])
+                                   "birincil": True, "disabled": _salt()}, dict(_MIKRO_EYLEM, disabled=_salt())])
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
+    if ey.get(_MIKRO_EYLEM["key"]):
+        from .mikro_odeme_ekran import oneri_penceresi
+        oneri_penceresi(kategoriler)
     if not odemeler:
-        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle ya da "
-                              "'Manuel ödeme' ile tek tek ekle.", "payments"), unsafe_allow_html=True)
+        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
+                              "'Mikro'dan öneri' ile hazırla ya da 'Manuel ödeme' ile tek tek ekle.", "payments"),
+                    unsafe_allow_html=True)
         return
 
     oz = H.ozet(odemeler, bankalar, kur, bugun)
@@ -212,12 +220,16 @@ def _render_masa(kategoriler, export_excel, kur):
     ey = B.baslik_eylem(":material/credit_card: Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
                         eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}])
+                                   "birincil": True, "disabled": _salt()}, dict(_MIKRO_EYLEM, disabled=_salt())])
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
+    if ey.get(_MIKRO_EYLEM["key"]):
+        from .mikro_odeme_ekran import oneri_penceresi
+        oneri_penceresi(kategoriler)
     if not odemeler:
-        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle ya da "
-                              "'Manuel ödeme' ile tek tek ekle.", "payments"), unsafe_allow_html=True)
+        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
+                              "'Mikro'dan öneri' ile hazırla ya da 'Manuel ödeme' ile tek tek ekle.", "payments"),
+                    unsafe_allow_html=True)
         return
     from shared.masa import calistir
     calistir(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt()), "odeme_masasi",

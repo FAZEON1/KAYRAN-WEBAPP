@@ -708,6 +708,13 @@ FROM SIPARISLER WHERE sip_iptal = 0 GROUP BY sip_tip, sip_cins
     "muhasebe": """
 SELECT YEAR(fis_tarih) AS yil, COUNT(*) AS satir FROM MUHASEBE_FISLERI GROUP BY YEAR(fis_tarih)
 """,
+    # Haftalık ödeme önerisi (kayranacc/mikro_odeme.py): cha_vade 1…999 ödeme planı numarası; planın ortalama
+    # günü ve ödeme planlı faturaların taksit vadeleri (Ekim 2026). Küçük tablolar (13 ve ~750 satır).
+    "odeme_planlari": "SELECT odp_no, odp_kodu, odp_adi, odp_ortgun FROM ODEME_PLANLARI WHERE odp_iptal = 0",
+    "odeme_vadeleri": """
+SELECT cop_evrak_tip, cop_evrakno_seri, cop_evrakno_sira, cop_vade, cop_tutar, cop_hangi_tutar
+FROM CARI_HAREKET_ODEME_VADELERI WHERE cop_iptal = 0
+""",
 }
 KESIF_KOLON_SAYFA = 40      # INFORMATION_SCHEMA sorgusu başına tablo sayısı
 
