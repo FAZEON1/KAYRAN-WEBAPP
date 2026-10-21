@@ -555,6 +555,11 @@ def _destek_gider(r, yil, donem):
         st.caption("Bu dönemde destek / harcama kaydı yok.")
     _gider_anahtar = f"gider_tablosu_{yil}"
     try:
+        from kayranacc.mikro_gider_ekran import ilk_onay_kutusu as _mikro_gider_onay
+        _mikro_gider_onay()               # Mikro'dan otomatik gider: bir kerelik onay / kaynak notu
+    except Exception:  # noqa: BLE001
+        pass
+    try:
         from kayranacc.database import get_ayar as _ga
     except Exception:  # noqa: BLE001
         _ga = None
@@ -615,6 +620,11 @@ def _destek_gider(r, yil, donem):
 def kapi_gider(dosya, kapi):
     """Dosya kapısı (Ekim 2026): aylık gider tablosu. Eskiden Destekler ve giderler sayfasındaki
     'Gider yükle' penceresiydi; yıl o sayfanın yıl seçiminden gelirdi, artık burada seçilir."""
+    from kayranacc.mikro_gider import acik_mi as _mg_acik
+    if _mg_acik():
+        st.info("Gider tablosu artık Mikro'nun muhasebe hesaplarından otomatik geliyor; dosya yüklemeye gerek yok. "
+                "Bu dosya kaydedilmez.")
+        return
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("gider_tablosu")
     st.markdown("Muhasebenin doldurduğu tablo: **sabit / değişken / yarı değişken** kalemler, 12 ay. "

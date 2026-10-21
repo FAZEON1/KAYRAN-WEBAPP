@@ -324,11 +324,20 @@ MIKRO_KAYNAKLARI = ("aktif_cari", "aktif_ithalat")
 
 
 def _mikro_kapsadigi():
+    out = set()
     try:
         from kayranacc.mikro_muhasebe import acik_mi
-        return set(MIKRO_KAYNAKLARI) if acik_mi() else set()
+        if acik_mi():
+            out |= set(MIKRO_KAYNAKLARI)
     except Exception:  # noqa: BLE001
-        return set()
+        pass
+    try:
+        from kayranacc.mikro_gider import acik_mi as gider_acik
+        if gider_acik():
+            out.add("gider_tablosu")
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def durumlar(bugun=None):
