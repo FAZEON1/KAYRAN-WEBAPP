@@ -279,6 +279,8 @@ def _masraf_karti(d, h):
 def _gecmis_ithalatlar():
     _baslik("📋", "Geçmiş İthalatlar", "Dosya başı toplam masraf ve FOB üzerine binen % maliyet")
     dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]      # yurt içi alışlar Ürün Yönetimi'nde
+    from .mikro_ithalat_ekran import bolum as _mikro_ithalat_bolumu
+    _mikro_ithalat_bolumu()                                       # masraf / durum / teslim Mikro'dan (Eki 2026)
 
     # ── ⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları — hızlı depo atama ──
     _depo_eksik = [d for d in (dosyalar or [])
@@ -1325,6 +1327,10 @@ def _gecmis_ithalatlar():
 def _yeni_ithalat():
     _baslik("➕", "Yeni İthalat", "Manuel form ile dosya + kalem girişi · satın alım raporu Excel'i üst menüdeki "
                                  "Dosya düğmesinden yüklenir")
+    from .mikro_ithalat import acik_mi as _mikro_ithalat_acik
+    if _mikro_ithalat_acik():
+        st.caption("Yola çıkmış ama henüz Mikro'ya girmemiş sevkiyatlar için. Mal Mikro'ya girince dosya Mikro'daki "
+                   "ithalat dosyasına bağlanır; masraf, teslim tarihi ve durum oradan güncellenir.")
     katalog = get_urun_katalog()
     # Yeni düzen (Ekim 2026, formlar): solda dosya bilgileri + kalemler, sağda (telefonda altta sabit) özet,
     # fatura altı indirim ve Kaydet. Kayıt ve doğrulama aynı.
@@ -1549,6 +1555,11 @@ def sablon_ithalat():
 def kapi_ithalat_rapor(dosya, kapi):
     """Dosya kapısı (Ekim 2026): standart satın alım raporu (tek grup). Eskiden Yeni İthalat ›
     "Excel ile Toplu" sekmesiydi; okuma, eşleştirme ve kayıt kodu aynı."""
+    from .mikro_ithalat import acik_mi as _mikro_ithalat_acik
+    if _mikro_ithalat_acik():
+        st.info("İthalat dosyaları, masrafları ve teslim bilgileri artık Mikro'dan otomatik geliyor; Mikro'da açılan "
+                "dosya Geçmiş İthalatlar'a kendiliğinden eklenir. Bu dosya kaydedilmez.")
+        return
     up = dosya
     katalog = get_urun_katalog()
     st.caption("Her belge no ayrı ithalat dosyası olur ve Excel'deki İthalat Takip No'su ile etiketlenir. "

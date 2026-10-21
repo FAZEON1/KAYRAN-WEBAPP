@@ -23,6 +23,7 @@ ESITLEMELER = (
     ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri"),
     ("Happy Life / stok yaşı", "kayranpm.mikro_depo"),
     ("Ürün kartı / fiyat listesi", "kayranpm.mikro_urun"),
+    ("İthalat dosyaları / masraflar", "ithalat.mikro_ithalat"),
 )
 DURUM_AD = {"yazdi": "Yazdı", "yok": "Yeni veri yok", "uyari": "Uyarı", "hata": "Hata"}
 KAYNAK_AD = {"github": "Yedek zamanlayıcı", "schedule": "Yedek zamanlayıcı", "workflow_dispatch": "Elle (GitHub)",

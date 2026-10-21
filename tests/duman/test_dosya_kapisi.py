@@ -76,9 +76,13 @@ def _sorunlar(at):
     return s
 
 
+# İthalat Excel'i yalnız Mikro eşitlemesi kapatılınca kaydeder (varsayılan açık: dosyalar Mikro'dan gelir)
+MIKRO_KAPALI = {"ithalat_rapor": {"sistem_ayarlari": [{"anahtar": "mikro_ithalat_durum", "deger": '{"acik": false}'}]}}
+
+
 @pytest.mark.parametrize("tur", sorted(ORNEKLER))
 def test_kapida_akis_ve_kayit(tur, ad=None, veri=None):
-    at = _kapida(tur, ad=ad, veri=veri)
+    at = _kapida(tur, ad=ad, veri=veri, tablolar=MIKRO_KAPALI.get(tur))
     assert not _sorunlar(at), _sorunlar(at)
     # Zorunlu seçimler: firma (EERA şablonu, ref)
     if tur == "siparis_itopya":
@@ -99,6 +103,16 @@ def test_kapida_akis_ve_kayit(tur, ad=None, veri=None):
     assert sonuc and sonuc["mesaj"], (tur, "kayıt sonucu kapıya dönmedi")
     assert at.session_state["_kapi_acik"]                     # sonuç kapıda gösterilir
     assert not at.session_state["_kapi_dosyalar"]             # işlenen dosya listeden düştü
+
+
+def test_ithalat_exceli_mikro_acikken_kaydedilmez():
+    """Mikro eşitlemesi açıkken (varsayılan) satın alım raporu dosya açmaz; kapı nedenini söyler."""
+    import sahte_db
+    at = _kapida("ithalat_rapor")
+    assert not _sorunlar(at), _sorunlar(at)
+    assert any("Mikro'dan otomatik" in m.value for m in at.info), [m.value for m in at.info]
+    assert not [b for b in at.button if b.key == _anahtar(KAYDET["ithalat_rapor"])]
+    assert len(sahte_db.TABLOLAR.get("ithalat_dosyalari") or []) == len(VERI.get("ithalat_dosyalari") or [])
 
 
 def _uygulama(mod="anasayfa", **durum):
