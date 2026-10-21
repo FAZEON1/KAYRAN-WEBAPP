@@ -21,6 +21,7 @@ ESITLEMELER = (
     ("Gider tablosu", "kayranacc.mikro_gider"),
     ("Depo stoğu", "kayranpm.mikro_stok"),
     ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri"),
+    ("Toplam Aktifler defter kalemleri", "kayranacc.mikro_aktif"),
     ("Happy Life / stok yaşı", "kayranpm.mikro_depo"),
     ("Ürün kartı / fiyat listesi", "kayranpm.mikro_urun"),
     ("İthalat dosyaları / masraflar", "ithalat.mikro_ithalat"),
