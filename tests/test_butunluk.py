@@ -80,6 +80,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "mikro_serino.py",      # seri no → Mikro (teknik servis, Eki 2026)
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
@@ -247,6 +248,9 @@ KRITIK_FONKSIYONLAR = {
                             "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",
                             "plan_hazirla", "durum", "acik_mi", "ac", "uygula", "son_aktarim"],
     "kayranpm.mikro_depo_ekran": ["ilk_onay_kutusu", "hl_sayfasi"],
+    "teknikservis.mikro_serino": ["seri_anahtar", "tarih", "kayit_sec", "belge_no", "garanti", "bilgi", "gruplandir",
+                                  "firma_esle", "firma_uyumlu_mu", "stok_uyumlu_mu", "satir_tamamla", "bilgi_metni",
+                                  "oku", "unvanlari_oku", "bul"],
     "shared.bt_hesap": ["sure_ozeti", "karsilastir", "hata_ozeti", "kapi_karari", "gunluk_seri",
                         "iyilestirme_satiri", "karne"],
     "shared.bt_olcum": ["kaydet", "alt_sayfa", "son_olcumler", "raporlar"],
@@ -300,7 +304,8 @@ KRITIK_FONKSIYONLAR = {
                                "depo_ozeti", "durum_uyar", "ara_uyar", "fatura_var", "toplu_etiket",
                                "transfer_anahtari", "transfer_gunu", "donem_baslangic", "tek_arama", "ara_kat",
                                "ara_uyar"],
-    "teknikservis.main": ["_liste_masa", "_depolar_masa", "_toplu_satis_formu", "_dlg_toplu_satis", "_ozet_kirilim",
+    "teknikservis.main": ["_mikro_seri_bilgileri", "_mikro_urun_adi", "_mk_mikro_doldur", "_mk_mikro_paneli",
+                          "_mk_mikro_sonrasi", "_liste_masa", "_depolar_masa", "_toplu_satis_formu", "_dlg_toplu_satis", "_ozet_kirilim",
                           "_iade_belgesi_dugmesi", "_tek_arama", "_tek_arama_ac", "_diger_firma", "_dp_ad"],
     "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
     "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],

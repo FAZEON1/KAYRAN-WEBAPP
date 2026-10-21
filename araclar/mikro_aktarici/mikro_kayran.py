@@ -360,6 +360,29 @@ WHERE cha_iptal=0 AND (cha_evrak_tip IN (37,55) OR cha_cari_cins=5)
   AND cha_lastup_date > '{SON}'
 """,
     },
+    # ── Teknik servis (Ekim 2026): seri numarası tanımları (kullanıcı: seri no dosya / elle giriş yerine Mikro'dan) ──
+    # Seri no → stok kodu, alış ve satış belgesi (seri + sıra), alıcı cari, garanti tarihleri. Belge ve cari seri no
+    # satırının kendisinde olduğu için CIHAZ_HAREKETLERI (seri no → hareket) çekilmez. İptal işareti WHERE'de
+    # süzülmez (sonradan iptal edilen tanım artımlı turda güncellenir); bit alan tamsayıya çevrilir.
+    # İlk tam çekim ~22 bin satır (gece tam aktarım da her şeyi baştan çeker). Hesap uygulamada
+    # (teknikservis/mikro_serino.py).
+    "serino": {
+        "tablo": "mikro_serino", "anahtar": "chz_guid",
+        "artimli": True,
+        "sql": """
+SELECT z.chz_Guid, z.chz_serino, z.chz_stok_kodu, s.sto_isim, CAST(z.chz_iptal AS int) AS chz_iptal,
+       z.chz_lotno, z.chz_uretim_tarihi, z.chz_aciklama1,
+       z.chz_al_tarih, z.chz_al_evr_seri, z.chz_al_evr_sira, z.chz_al_cari_kodu,
+       z.chz_al_fiati_ana, z.chz_al_fiati_alt, z.chz_al_fiati_orj,
+       z.chz_st_tarih, z.chz_st_evr_seri, z.chz_st_evr_sira, z.chz_st_cari_kodu,
+       z.chz_st_fiati_ana, z.chz_st_fiati_alt, z.chz_st_fiati_orj,
+       z.chz_GrnBasTarihi AS chz_grn_bas_tarihi, z.chz_GrnBitTarihi AS chz_grn_bit_tarihi,
+       z.chz_musteri_garanti_baslangic, z.chz_musteri_garanti_bitis, z.chz_create_date, z.chz_lastup_date
+FROM STOK_SERINO_TANIMLARI z
+LEFT JOIN STOKLAR s ON s.sto_kod = z.chz_stok_kodu
+WHERE z.chz_lastup_date > '{SON}'
+""",
+    },
 }
 
 # --------------------------------------------------------------------------- #
